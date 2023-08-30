@@ -23,6 +23,8 @@ export type {
   Filter,
   VariationRange,
   UrlTarget,
+  AutoExperiment,
+  AutoExperimentVariation,
   UrlTargetType,
 } from "./types/growthbook";
 

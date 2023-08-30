@@ -81,6 +81,7 @@ const SelectField: FC<
     createable?: boolean;
     formatOptionLabel?: (value: SingleValue) => ReactNode;
     isSearchable?: boolean;
+    isClearable?: boolean;
   }
 > = ({
   value,
@@ -97,6 +98,7 @@ const SelectField: FC<
   createable = false,
   formatOptionLabel,
   isSearchable = true,
+  isClearable = false,
   ...otherProps
 }) => {
   const [map, sorted] = useSelectOptions(options, initialOption, sort);
@@ -200,6 +202,7 @@ const SelectField: FC<
                 {...ReactSelectProps}
                 id={id}
                 ref={ref}
+                isClearable={isClearable}
                 classNamePrefix="gb-select"
                 isDisabled={disabled || false}
                 options={sorted}

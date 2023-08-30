@@ -8,7 +8,7 @@ import { putBaselineVariationFirst } from "shared/util";
 import { MetricInterface } from "../../types/metric";
 import { ExperimentMetricAnalysis, StatsEngine } from "../../types/stats";
 import {
-  ExperimentMetricQueryResponse,
+  ExperimentMetricQueryResponseRows,
   ExperimentResults,
 } from "../types/Integration";
 import {
@@ -30,7 +30,7 @@ export const MAX_DIMENSIONS = 20;
 export async function analyzeExperimentMetric(
   variations: ExperimentReportVariation[],
   metric: MetricInterface,
-  rows: ExperimentMetricQueryResponse,
+  rows: ExperimentMetricQueryResponseRows,
   dimension: string | null = null,
   statsEngine: StatsEngine = DEFAULT_STATS_ENGINE,
   sequentialTestingEnabled: boolean = false,
@@ -161,7 +161,7 @@ export async function analyzeExperimentResults({
 }): Promise<ExperimentReportResults> {
   const metricRows: {
     metric: string;
-    rows: ExperimentMetricQueryResponse;
+    rows: ExperimentMetricQueryResponseRows;
   }[] = [];
 
   let unknownVariations: string[] = [];
@@ -175,7 +175,7 @@ export async function analyzeExperimentResults({
     const data = results.result as ExperimentResults;
 
     unknownVariations = data.unknownVariations;
-    const byMetric: { [key: string]: ExperimentMetricQueryResponse } = {};
+    const byMetric: { [key: string]: ExperimentMetricQueryResponseRows } = {};
     data.dimensions.forEach((row) => {
       row.variations.forEach((v) => {
         Object.keys(v.metrics).forEach((metric) => {
@@ -211,7 +211,7 @@ export async function analyzeExperimentResults({
 
       metricRows.push({
         metric: key,
-        rows: query.result as ExperimentMetricQueryResponse,
+        rows: query.result as ExperimentMetricQueryResponseRows,
       });
     });
   }

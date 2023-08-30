@@ -116,7 +116,7 @@ const VariationIdWarning: FC<{
           (<CommaList vals={returnedVariations} />
           ).{" "}
           {setVariationIds &&
-            permissions.check("runQueries", "") &&
+            permissions.check("runQueries", project || "") &&
             permissions.check("createAnalyses", project) && (
               <button
                 className="btn btn-info btn-sm ml-3"

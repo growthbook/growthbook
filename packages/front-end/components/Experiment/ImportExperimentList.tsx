@@ -30,7 +30,7 @@ const ImportExperimentList: FC<{
   showQueries?: boolean;
   changeDatasource?: (id: string) => void;
 }> = ({ onImport, importId, showQueries = true, changeDatasource }) => {
-  const { getDatasourceById, ready, datasources } = useDefinitions();
+  const { getDatasourceById, ready, datasources, project } = useDefinitions();
   const permissions = usePermissions();
   const { apiCall } = useAuth();
   const { data, error, mutate } = useApi<{
@@ -41,7 +41,7 @@ const ImportExperimentList: FC<{
     ? getDatasourceById(data?.experiments?.datasource)
     : null;
 
-  const status = getQueryStatus(
+  const { status } = getQueryStatus(
     data?.experiments?.queries || [],
     data?.experiments?.error
   );
@@ -54,7 +54,7 @@ const ImportExperimentList: FC<{
     }),
     [datasource]
   );
-  const { pastExperimentsMinLength } = useOrgSettings();
+  const { pastExperimentsMinLength, defaultDataSource } = useOrgSettings();
 
   const [minUsersFilter, setMinUsersFilter] = useState("100");
   const [minLengthFilter, setMinLengthFilter] = useState(
@@ -139,10 +139,15 @@ const ImportExperimentList: FC<{
           {changeDatasource && supportedDatasources.length > 1 ? (
             <SelectField
               value={data.experiments.datasource}
-              options={supportedDatasources.map((d) => ({
-                value: d.id,
-                label: `${d.name}${d.description ? ` — ${d.description}` : ""}`,
-              }))}
+              options={supportedDatasources.map((d) => {
+                const isDefaultDataSource = d.id === defaultDataSource;
+                return {
+                  value: d.id,
+                  label: `${d.name}${
+                    d.description ? ` — ${d.description}` : ""
+                  } ${isDefaultDataSource ? " (default)" : ""}`,
+                };
+              })}
               className="portal-overflow-ellipsis"
               onChange={changeDatasource}
             />
@@ -166,7 +171,7 @@ const ImportExperimentList: FC<{
             last updated {ago(data.experiments.runStarted ?? "")}
           </div>
         </div>
-        {permissions.check("runQueries", "") && (
+        {permissions.check("runQueries", project || "") && (
           <div className="col-auto">
             <form
               onSubmit={async (e) => {

@@ -1,6 +1,7 @@
 import { ClickHouse as ClickHouseClient } from "clickhouse";
 import { decryptDataSourceParams } from "../services/datasource";
 import { ClickHouseConnectionParams } from "../../types/integrations/clickhouse";
+import { QueryResponse } from "../types/Integration";
 import SqlIntegration from "./SqlIntegration";
 
 export default class ClickHouse extends SqlIntegration {
@@ -26,7 +27,7 @@ export default class ClickHouse extends SqlIntegration {
   getSensitiveParamKeys(): string[] {
     return ["password"];
   }
-  async runQuery(sql: string) {
+  async runQuery(sql: string): Promise<QueryResponse> {
     const client = new ClickHouseClient({
       url: this.params.url,
       port: this.params.port,
@@ -48,7 +49,7 @@ export default class ClickHouse extends SqlIntegration {
         },
       },
     });
-    return Array.from(await client.query(sql).toPromise());
+    return { rows: Array.from(await client.query(sql).toPromise()) };
   }
   toTimestamp(date: Date) {
     return `toDateTime('${date
@@ -69,9 +70,6 @@ export default class ClickHouse extends SqlIntegration {
   }
   dateDiff(startCol: string, endCol: string) {
     return `dateDiff('day', ${startCol}, ${endCol})`;
-  }
-  stddev(col: string) {
-    return `stddevSamp(${col})`;
   }
   formatDate(col: string): string {
     return `formatDateTime(${col}, '%F')`;

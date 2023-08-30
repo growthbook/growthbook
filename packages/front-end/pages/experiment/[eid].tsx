@@ -3,15 +3,18 @@ import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { VisualChangesetInterface } from "back-end/types/visual-changeset";
 import React, { ReactElement, useState } from "react";
 import { IdeaInterface } from "back-end/types/idea";
-import { getAffectedEnvsForExperiment } from "shared/util";
+import {
+  getAffectedEnvsForExperiment,
+  includeExperimentInPayload,
+} from "shared/util";
+import { BsChatSquareQuote } from "react-icons/bs";
+import { FaCheck, FaMagic, FaUndo } from "react-icons/fa";
 import useApi from "@/hooks/useApi";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import useSwitchOrg from "@/services/useSwitchOrg";
 import SinglePage from "@/components/Experiment/SinglePage";
-import SinglePage_old from "@/components/Experiment/SinglePage_old";
 import EditMetricsForm from "@/components/Experiment/EditMetricsForm";
 import StopExperimentForm from "@/components/Experiment/StopExperimentForm";
-import { useLocalStorage } from "@/hooks/useLocalStorage";
 import usePermissions from "@/hooks/usePermissions";
 import EditVariationsForm from "@/components/Experiment/EditVariationsForm";
 import NewExperimentForm from "@/components/Experiment/NewExperimentForm";
@@ -22,15 +25,14 @@ import SnapshotProvider from "@/components/Experiment/SnapshotProvider";
 import NewPhaseForm from "@/components/Experiment/NewPhaseForm";
 import EditPhasesModal from "@/components/Experiment/EditPhasesModal";
 import EditPhaseModal from "@/components/Experiment/EditPhaseModal";
+import EditTargetingModal from "@/components/Experiment/EditTargetingModal";
+import TabbedPage from "@/components/Experiment/TabbedPage";
+import { useLocalStorage } from "@/hooks/useLocalStorage";
+import { useFeaturesList } from "@/services/features";
+import FeedbackModal from "@/components/FeedbackModal";
 import track from "@/services/track";
 
 const ExperimentPage = (): ReactElement => {
-  const [newUi, setNewUi] = useLocalStorage<boolean>(
-    "single-page-new-ui-v1",
-    true
-  );
-  const SinglePageComponent = newUi ? SinglePage : SinglePage_old;
-
   const permissions = usePermissions();
   const router = useRouter();
   const { eid } = router.query;
@@ -44,6 +46,7 @@ const ExperimentPage = (): ReactElement => {
   const [phaseModalOpen, setPhaseModalOpen] = useState(false);
   const [editPhasesOpen, setEditPhasesOpen] = useState(false);
   const [editPhaseId, setEditPhaseId] = useState<number | null>(null);
+  const [targetingModalOpen, setTargetingModalOpen] = useState(false);
 
   const { data, error, mutate } = useApi<{
     experiment: ExperimentInterfaceStringDates;
@@ -52,6 +55,15 @@ const ExperimentPage = (): ReactElement => {
   }>(`/experiment/${eid}`);
 
   useSwitchOrg(data?.experiment?.organization ?? null);
+
+  const [newUi, setNewUi] = useLocalStorage<boolean>(
+    "experiment-results-new-ui-v2",
+    true
+  );
+  const [showFeedbackBanner, setShowFeedbackBanner] = useState<boolean>(true);
+  const [showFeedbackModal, setShowFeedbackModal] = useState<boolean>(false);
+
+  const { features } = useFeaturesList(false);
 
   const { apiCall } = useAuth();
 
@@ -93,29 +105,19 @@ const ExperimentPage = (): ReactElement => {
   const editPhase = canRunExperiment
     ? (i: number | null) => setEditPhaseId(i)
     : null;
+  const editTargeting = canRunExperiment
+    ? () => setTargetingModalOpen(true)
+    : null;
+
+  const safeToEdit =
+    experiment.status !== "running" ||
+    !includeExperimentInPayload(
+      experiment,
+      features.filter((f) => experiment.linkedFeatures?.includes(f.id))
+    );
 
   return (
     <div>
-      <div
-        className="alert-secondary p-2 mb-2 text-center"
-        style={{ marginTop: -5 }}
-      >
-        This is the {newUi ? "new" : "old"} experiment page.{" "}
-        <a
-          role="button"
-          className="a"
-          onClick={() => {
-            track("Switched Experiment Page UI", {
-              to: newUi ? "old" : "new",
-            });
-            setNewUi(!newUi);
-          }}
-        >
-          {newUi
-            ? "Switch back to the old page?"
-            : "Try the new experiment page?"}
-        </a>
-      </div>
       {metricsModalOpen && (
         <EditMetricsForm
           experiment={experiment}
@@ -167,6 +169,16 @@ const ExperimentPage = (): ReactElement => {
           mutate={mutate}
           current={experiment.project}
           apiEndpoint={`/experiment/${experiment.id}`}
+          additionalMessage={
+            experiment.status !== "draft" &&
+            (experiment.linkedFeatures?.length ||
+              experiment.hasVisualChangesets) ? (
+              <div className="alert alert-danger">
+                Changing the project may prevent your linked Feature Flags and
+                Visual Changes from being sent to users.
+              </div>
+            ) : null
+          }
         />
       )}
       {phaseModalOpen && (
@@ -191,24 +203,116 @@ const ExperimentPage = (): ReactElement => {
           experiment={experiment}
         />
       )}
-      <div className="container-fluid">
+      {targetingModalOpen && (
+        <EditTargetingModal
+          close={() => setTargetingModalOpen(false)}
+          mutate={mutate}
+          experiment={experiment}
+          safeToEdit={safeToEdit}
+        />
+      )}
+      <div className="container-fluid position-relative">
+        <div
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            right: 0,
+            zIndex: 840,
+            textAlign: "center",
+            pointerEvents: "none",
+          }}
+        >
+          <div className="bg-light d-inline-flex border-bottom border-left border-right rounded py-1 px-3 experiment-switch-page">
+            <div className="switch-back">
+              <a
+                className="a"
+                role="button"
+                onClick={() => {
+                  setNewUi(!newUi);
+                  track("Switched Experiment Page V2", {
+                    switchTo: newUi ? "old" : "new",
+                  });
+                }}
+              >
+                <span className="text mr-1">
+                  switch to {newUi ? "old" : "new"} design
+                </span>
+                {newUi ? <FaUndo /> : <FaMagic />}
+              </a>
+            </div>
+            {showFeedbackBanner ? (
+              <div className="border-left pl-3 ml-3 give-feedback">
+                <a
+                  className="a"
+                  role="button"
+                  onClick={() => {
+                    setShowFeedbackModal(true);
+                  }}
+                >
+                  tell us your thoughts
+                  <BsChatSquareQuote size="18" className="ml-1" />
+                </a>
+              </div>
+            ) : null}
+          </div>
+        </div>
         <SnapshotProvider experiment={experiment}>
-          <SinglePageComponent
-            experiment={experiment}
-            idea={idea}
-            visualChangesets={visualChangesets}
-            mutate={mutate}
-            editMetrics={editMetrics}
-            editResult={editResult}
-            editVariations={editVariations}
-            duplicate={duplicate}
-            editProject={editProject}
-            editTags={editTags}
-            newPhase={newPhase}
-            editPhases={editPhases}
-            editPhase={editPhase}
-          />
+          {newUi ? (
+            <TabbedPage
+              experiment={experiment}
+              mutate={mutate}
+              visualChangesets={visualChangesets}
+              editMetrics={editMetrics}
+              editResult={editResult}
+              editVariations={editVariations}
+              duplicate={duplicate}
+              editProject={editProject}
+              editTags={editTags}
+              newPhase={newPhase}
+              editPhases={editPhases}
+              editPhase={editPhase}
+              editTargeting={editTargeting}
+            />
+          ) : (
+            <SinglePage
+              experiment={experiment}
+              idea={idea}
+              visualChangesets={visualChangesets}
+              mutate={mutate}
+              editMetrics={editMetrics}
+              editResult={editResult}
+              editVariations={editVariations}
+              duplicate={duplicate}
+              editProject={editProject}
+              editTags={editTags}
+              newPhase={newPhase}
+              editPhases={editPhases}
+              editPhase={editPhase}
+              editTargeting={editTargeting}
+            />
+          )}
         </SnapshotProvider>
+
+        <FeedbackModal
+          open={showFeedbackModal}
+          close={() => setShowFeedbackModal(false)}
+          submitCallback={() => setShowFeedbackBanner(false)}
+          header={
+            <>
+              <BsChatSquareQuote size="20" className="mr-2" />
+              Tell us your thoughts about the new experiment page design
+            </>
+          }
+          prompt="What could be improved? What did you like?"
+          cta="Send feedback"
+          sentCta={
+            <>
+              <FaCheck /> Sent
+            </>
+          }
+          source="experiment-page-feedback"
+        />
       </div>
     </div>
   );

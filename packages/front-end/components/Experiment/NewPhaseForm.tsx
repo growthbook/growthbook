@@ -34,11 +34,12 @@ const NewPhaseForm: FC<{
         getEqualWeights(experiment.variations.length),
       reason: "",
       dateStarted: new Date().toISOString().substr(0, 16),
-      condition: "",
+      condition: prevPhase.condition || "",
+      seed: prevPhase.seed || "",
       namespace: {
-        enabled: false,
-        name: "",
-        range: [0, 0.5],
+        enabled: prevPhase.namespace?.enabled || false,
+        name: prevPhase.namespace?.name || "",
+        range: prevPhase.namespace?.range || [0, 0.5],
       },
     },
   });
@@ -57,20 +58,19 @@ const NewPhaseForm: FC<{
   const submit = form.handleSubmit(async (value) => {
     if (!isValid) throw new Error("Variation weights must sum to 1");
 
-    const body = {
-      ...value,
-    };
-
     await apiCall<{ status: number; message?: string }>(
       `/experiment/${experiment.id}/phase`,
       {
         method: "POST",
-        body: JSON.stringify(body),
+        body: JSON.stringify(value),
       }
     );
     mutate();
     refreshWatching();
   });
+
+  const hasLinkedChanges =
+    !!experiment.linkedFeatures?.length || experiment.hasVisualChangesets;
 
   return (
     <Modal
@@ -82,6 +82,12 @@ const NewPhaseForm: FC<{
       closeCta="Cancel"
       size="lg"
     >
+      {hasLinkedChanges && experiment.status !== "stopped" && (
+        <div className="alert alert-warning">
+          <strong>Warning:</strong> Starting a new phase will immediately affect
+          all linked Feature Flags and Visual Changes.
+        </div>
+      )}
       <div className="row">
         <Field
           label="Name"
@@ -90,28 +96,28 @@ const NewPhaseForm: FC<{
           {...form.register("name")}
         />
       </div>
-      <div className="row">
-        {!firstPhase && (
-          <Field
-            containerClassName="col-12"
-            label="Reason for Starting New Phase"
-            textarea
-            {...form.register("reason")}
-            placeholder="(optional)"
-          />
-        )}
+      {!firstPhase && (
         <Field
-          containerClassName="col-12"
+          label="Reason for Starting New Phase"
+          textarea
+          {...form.register("reason")}
+          placeholder="(optional)"
+        />
+      )}
+      {!hasLinkedChanges && (
+        <Field
           label="Start Time (UTC)"
           type="datetime-local"
           {...form.register("dateStarted")}
         />
-      </div>
+      )}
 
-      <ConditionInput
-        defaultValue={form.watch("condition")}
-        onChange={(condition) => form.setValue("condition", condition)}
-      />
+      {hasLinkedChanges && (
+        <ConditionInput
+          defaultValue={form.watch("condition")}
+          onChange={(condition) => form.setValue("condition", condition)}
+        />
+      )}
 
       <FeatureVariationsInput
         valueType={"string"}
@@ -132,13 +138,15 @@ const NewPhaseForm: FC<{
           }) || []
         }
         showPreview={false}
+        hideCoverage={!hasLinkedChanges}
       />
-
-      <NamespaceSelector
-        form={form}
-        featureId={experiment.trackingKey}
-        trackingKey={experiment.trackingKey}
-      />
+      {hasLinkedChanges && (
+        <NamespaceSelector
+          form={form}
+          featureId={experiment.trackingKey}
+          trackingKey={experiment.trackingKey}
+        />
+      )}
     </Modal>
   );
 };

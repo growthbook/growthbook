@@ -3,6 +3,7 @@ import {
   Queries,
   QueryInterface,
   QueryPointer,
+  QueryStatistics,
   QueryStatus,
 } from "../../types/query";
 import {
@@ -219,17 +220,20 @@ export abstract class QueryRunner<
     let result: Result | undefined = undefined;
 
     if (oldStatus === "running" && newStatus === "failed") {
-      error = "Failed to run one or more database queries";
+      error = "Failed to run a majority of the database queries";
       logger.debug("Query failed, transitioning to error state");
     }
-    if (oldStatus === "running" && newStatus === "succeeded") {
+    if (
+      oldStatus === "running" &&
+      (newStatus === "succeeded" || newStatus === "partially-succeeded")
+    ) {
       try {
         result = await this.runAnalysis(queryMap);
-        logger.debug("Queries succeeded, ran analysis successfully");
+        logger.debug(`Queries ${newStatus}, ran analysis successfully`);
       } catch (e) {
         error = "Error running analysis: " + e.message;
         logger.debug(
-          "Queries succeeded, failed running analysis: " + e.message
+          `Queries ${newStatus}, failed running analysis: ` + e.message
         );
       }
     }
@@ -263,11 +267,14 @@ export abstract class QueryRunner<
 
   public async startQuery<
     Rows extends Record<string, string | boolean | number>[],
-    ProcessedRows
+    // eslint-disable-next-line
+    ProcessedRows extends Record<string, any>
   >(
     name: string,
     query: string,
-    run: (query: string) => Promise<Rows>,
+    run: (
+      query: string
+    ) => Promise<{ statistics?: QueryStatistics; rows: Rows }>,
     process: (rows: Rows) => ProcessedRows
   ): Promise<QueryPointer> {
     logger.debug("Running query: " + name);
@@ -345,7 +352,7 @@ export abstract class QueryRunner<
     // Run the query in the background
     logger.debug("Start executing query in background");
     run(query)
-      .then(async (rows) => {
+      .then(async ({ statistics, rows }) => {
         clearInterval(timer);
         logger.debug("Query succeeded");
         await updateQuery(doc, {
@@ -353,6 +360,7 @@ export abstract class QueryRunner<
           status: "succeeded",
           rawResult: rows,
           result: process(rows),
+          statistics: statistics,
         });
         this.onQueryFinish();
       })
@@ -378,17 +386,22 @@ export abstract class QueryRunner<
   }
 
   private getOverallQueryStatus(): QueryStatus {
-    const hasFailedQueries = this.model.queries.some(
+    const failedQueries = this.model.queries.filter(
       (q) => q.status === "failed"
     );
-    const hasRunningQueries = this.model.queries.some(
+    const runningQueries = this.model.queries.filter(
       (q) => q.status === "running"
     );
-    return hasFailedQueries
-      ? "failed"
-      : hasRunningQueries
-      ? "running"
-      : "succeeded";
+
+    const totalQueries = this.model.queries.length;
+
+    if (failedQueries.length >= totalQueries / 2) return "failed";
+
+    if (runningQueries.length > 0) return "running";
+
+    if (failedQueries.length > 0) return "partially-succeeded";
+
+    return "succeeded";
   }
 
   private async updateQueryPointers(): Promise<{
