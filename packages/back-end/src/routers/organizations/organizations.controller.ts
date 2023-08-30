@@ -86,7 +86,11 @@ import {
   getFirstPublishableApiKey,
   getUnredactedSecretKey,
 } from "../../models/ApiKeyModel";
-import { getDefaultRole, getRoles } from "../../util/organization.util";
+import {
+  getDefaultRole,
+  getRoles,
+  getUserPermissions,
+} from "../../util/organization.util";
 import { deleteUser, findUserById, getAllUsers } from "../../models/UserModel";
 import {
   getAllExperiments,
@@ -573,7 +577,7 @@ export async function getOrganization(req: AuthRequest, res: Response) {
     });
   }
 
-  const { org } = getOrgFromReq(req);
+  const { org, userId } = getOrgFromReq(req);
   const {
     invites,
     members,
@@ -611,6 +615,8 @@ export async function getOrganization(req: AuthRequest, res: Response) {
 
   const expandedMembers = await expandOrgMembers(members);
 
+  const currentUserPermissions = getUserPermissions(userId, org);
+
   return res.status(200).json({
     status: 200,
     apiKeys,
@@ -621,6 +627,7 @@ export async function getOrganization(req: AuthRequest, res: Response) {
       : [...accountFeatures[getAccountPlan(org)]],
     roles: getRoles(org),
     members: expandedMembers,
+    currentUserPermissions,
     organization: {
       invites,
       ownerEmail,

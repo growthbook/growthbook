@@ -93,26 +93,29 @@ export default function DimensionChooser({
   }
 
   return (
-    <SelectField
-      label="Dimension"
-      labelClassName={labelClassName}
-      containerClassName={newUi ? "select-dropdown-underline" : ""}
-      options={[
-        {
-          label: "Built-in",
-          options: builtInDimensions,
-        },
-        {
-          label: "Custom",
-          options: filteredDimensions,
-        },
-      ]}
-      initialOption="None"
-      value={value}
-      onChange={setValue}
-      helpText={
-        showHelp ? "Break down results for each metric by a dimension" : ""
-      }
-    />
+    <div>
+      {newUi && <div className="uppercase-title text-muted">Dimension</div>}
+      <SelectField
+        label={newUi ? undefined : "Dimension"}
+        labelClassName={labelClassName}
+        containerClassName={newUi ? "select-dropdown-underline" : ""}
+        options={[
+          {
+            label: "Built-in",
+            options: builtInDimensions,
+          },
+          {
+            label: "Custom",
+            options: filteredDimensions,
+          },
+        ]}
+        initialOption="None"
+        value={value}
+        onChange={setValue}
+        helpText={
+          showHelp ? "Break down results for each metric by a dimension" : ""
+        }
+      />
+    </div>
   );
 }

@@ -155,9 +155,10 @@ export default function ResultsTable({
       });
   }, [variations, baselineRow]);
 
-  const compactResults =
-    orderedVariations.filter((_, i) => !variationFilter?.includes(i)).length ===
-    2;
+  const filteredVariations = orderedVariations.filter(
+    (_, i) => !variationFilter?.includes(i)
+  );
+  const compactResults = filteredVariations.length <= 2;
 
   const rowsResults: (RowResults | "query error" | null)[][] = useMemo(() => {
     const rr: (RowResults | "query error" | null)[][] = [];
@@ -482,13 +483,13 @@ export default function ResultsTable({
                         usePortal={true}
                         innerClassName={"text-left"}
                         body={
-                          variations.length > 2 ? (
+                          !compactResults ? (
                             ""
                           ) : (
                             <div style={{ lineHeight: 1.5 }}>
                               The variation being compared to the baseline.
                               <div
-                                className={`variation variation1 with-variation-label d-flex mt-1 align-items-top`}
+                                className={`variation variation${filteredVariations[1]?.index} with-variation-label d-flex mt-1 align-items-top`}
                                 style={{ marginBottom: 2 }}
                               >
                                 <span
@@ -499,30 +500,28 @@ export default function ResultsTable({
                                     marginTop: 2,
                                   }}
                                 >
-                                  1
+                                  {filteredVariations[1]?.index}
                                 </span>
                                 <span className="font-weight-bold">
-                                  {variations[1]?.name}
+                                  {filteredVariations[1]?.name}
                                 </span>
                               </div>
                             </div>
                           )
                         }
                       >
-                        Variation{" "}
-                        {variations.length > 2 ? null : <RxInfoCircled />}
+                        Variation {compactResults ? <RxInfoCircled /> : null}
                       </Tooltip>
                     </th>
                     <th
                       style={{ width: 120 * tableCellScale }}
-                      className="axis-col label text-right"
+                      className="axis-col label"
                     >
                       {statsEngine === "bayesian" ? (
                         <div
                           style={{
                             lineHeight: "15px",
                             marginBottom: 2,
-                            marginLeft: -20,
                           }}
                         >
                           <span className="nowrap">Chance</span>{" "}

@@ -2480,6 +2480,9 @@ html {
   }
 }
 .select-dropdown-underline {
+  position: relative !important;
+  top: 1px !important;
+
   .gb-select__control {
     border-radius: 0 !important;
     border: 0 transparent !important;
@@ -2488,6 +2491,8 @@ html {
     min-height: initial !important;
     cursor: pointer !important;
     .gb-select__value-container {
+      position: relative !important;
+      top: -1px !important;
       padding: 0 !important;
       .gb-select__input-container {
         margin: 0 !important;

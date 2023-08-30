@@ -303,8 +303,10 @@ const AnalysisForm: FC<{
           );
         }}
         options={datasources
-          .filter((ds) =>
-            isProjectListValidForProject(ds.projects, experiment.project)
+          .filter(
+            (ds) =>
+              ds.id === experiment.datasource ||
+              isProjectListValidForProject(ds.projects, experiment.project)
           )
           .map((d) => ({
             value: d.id,

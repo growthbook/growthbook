@@ -54,7 +54,8 @@ export default function BaselineChooser({
   );
 
   return (
-    <>
+    <div>
+      <div className="uppercase-title text-muted">Baseline</div>
       <Dropdown
         uuid={"baseline-selector"}
         right={false}
@@ -105,7 +106,7 @@ export default function BaselineChooser({
                   <span
                     className="d-inline-block"
                     style={{
-                      maxWidth: 150,
+                      width: 150,
                       lineHeight: "14px",
                     }}
                   >
@@ -117,6 +118,6 @@ export default function BaselineChooser({
           );
         })}
       </Dropdown>
-    </>
+    </div>
   );
 }
