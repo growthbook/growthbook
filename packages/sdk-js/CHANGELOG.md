@@ -1,5 +1,13 @@
 # Changelog
 
+## **0.28.0** - Aug 29, 2023
+
+- Fix bug with streaming SSE connections only working on initial page load
+- New context option `backgroundSync`. Set to false (default true) to disable opening a streaming connection to GrowthBook in the background
+- New context option `subscribeToChanges`. Set to true (default false) to update the instance in realtime as features change in GrowthBook. This replaces the old `autoRefresh` setting (the old setting continues to work for backwards compatibility)
+- Add missing types for TypeScript 5
+- Add additional type exports `AutoExperiment` and `AutoExperimentVariation`
+
 ## **0.27.0** - May 23, 2023
 
 - SemVer targeting conditions support (and other SemVer-like version strings)

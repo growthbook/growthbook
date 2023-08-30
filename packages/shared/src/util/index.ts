@@ -154,9 +154,9 @@ export function isProjectListValidForProject(
   // If project list is empty, it's always valid no matter what
   if (!projects || !projects.length) return true;
 
-  // If there is no selected project, it's invalid
-  if (!project) return false;
+  // If there is no selected project, it's always valid
+  if (!project) return true;
 
-  // It's valid only if the project list contains the selected project
+  // Otherwise, it's valid only if the project list contains the selected project
   return projects.includes(project);
 }

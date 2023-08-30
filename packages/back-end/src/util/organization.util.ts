@@ -3,7 +3,10 @@ import {
   MemberRoleInfo,
   OrganizationInterface,
   Permission,
+  PermissionsObject,
+  ProjectMemberRole,
   Role,
+  UserPermissions,
 } from "../../types/organization";
 
 export const ENV_SCOPED_PERMISSIONS = [
@@ -50,14 +53,43 @@ export const ALL_PERMISSIONS = [
   ...ENV_SCOPED_PERMISSIONS,
 ];
 
-export function getPermissionsByRole(
-  role: MemberRole,
+export function roleToPermissionMap(
+  role: MemberRole | undefined,
   org: OrganizationInterface
-): Permission[] {
+): PermissionsObject {
   const roles = getRoles(org);
   const orgRole = roles.find((r) => r.id === role);
   const permissions = new Set<Permission>(orgRole?.permissions || []);
-  return Array.from(permissions);
+
+  const permissionsObj: PermissionsObject = {};
+  ALL_PERMISSIONS.forEach((p) => {
+    permissionsObj[p] = permissions.has(p);
+  });
+  return permissionsObj;
+}
+
+export function getUserPermissions(
+  userId: string,
+  org: OrganizationInterface
+): UserPermissions {
+  const memberInfo = org.members.find((m) => m.id === userId);
+  const userPermissions: UserPermissions = {
+    global: {
+      environments: memberInfo?.environments || [],
+      limitAccessByEnvironment: memberInfo?.limitAccessByEnvironment || false,
+      permissions: roleToPermissionMap(memberInfo?.role, org),
+    },
+    projects: {},
+  };
+
+  memberInfo?.projectRoles?.forEach((projectRole: ProjectMemberRole) => {
+    userPermissions.projects[projectRole.project] = {
+      limitAccessByEnvironment: projectRole.limitAccessByEnvironment || false,
+      environments: projectRole.environments || [],
+      permissions: roleToPermissionMap(projectRole.role, org),
+    };
+  });
+  return userPermissions;
 }
 
 export function getRoles(_organization: OrganizationInterface): Role[] {

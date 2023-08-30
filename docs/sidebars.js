@@ -353,6 +353,11 @@ const sidebars = {
         },
         {
           type: "doc",
+          id: "event-trackers/GA4-google-analytics",
+          label: "Google Analytics (GA4)",
+        },
+        {
+          type: "doc",
           id: "guide/google-tag-manager-and-growthbook",
           label: "Google Tag Manager (GTM)",
         },

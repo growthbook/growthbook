@@ -72,8 +72,10 @@ export function getNewExperimentDatasourceDefaults(
   project?: string,
   initialValue?: Partial<ExperimentInterfaceStringDates>
 ): Pick<ExperimentInterfaceStringDates, "datasource" | "exposureQueryId"> {
-  const validDatasources = datasources.filter((d) =>
-    isProjectListValidForProject(d.projects, project)
+  const validDatasources = datasources.filter(
+    (d) =>
+      d.id === initialValue?.datasource ||
+      isProjectListValidForProject(d.projects, project)
   );
 
   if (!validDatasources.length) return { datasource: "", exposureQueryId: "" };
