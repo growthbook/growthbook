@@ -5,57 +5,53 @@ sidebar_label: User Permissions
 slug: user-permissions
 ---
 
-GrowthBook supports user roles and permissions at both the global and project level. This allows you to control who can access GrowthBook and what they can do.
+GrowthBook provides user roles and permissions at both the global and project level. This feature enables you to manage who can access GrowthBook and their level of access.
 
-When inviting a new user to your organization, you can give the user a global role, which defines their permissions across all projects. If you are enrolled in a `Pro` or `Enterprise` account, you
-have the added ability to give a user project-level roles.
+When inviting a new user to your organization, you can assign a global role, which defines their permissions across all projects. If you have a Pro or Enterprise account, you can also assign project-level roles to users.
 
 :::note
 
-For instance, you can set a user's global role as `Collaborator`, which allows them to view features and experiements, as well as add
-comments and contribute ideas, and then give them an `Experimenter` role for a particular project, which allows them to create and run experiments, but only for the specified project.
+For example, you can assign a user the global role of `Collaborator`, allowing them to view features and experiments, add comments, and contribute ideas. You can then assign them an `Experimenter` role for a specific project, which allows them to create and run experiments, but only for that project.
 
 :::
 
-Below are the roles currently available in GrowthBook and their associated permissions.
+The table below lists the roles available in GrowthBook and their associated permissions.
 
-|                   |     Read Only     |         Collaborator          |                   Engineer                    |                        Analyst                        |                     Experimenter                      |                         Admin                         |
-| :---------------: | :---------------: | :---------------------------: | :-------------------------------------------: | :---------------------------------------------------: | :---------------------------------------------------: | :---------------------------------------------------: |
-|   Feature Flags   |       View        |     View<br></br>Comment      | View<br></br>Comment<br></br>Add<br></br>Edit |                 View<br></br>Comment                  |     View<br></br>Comment<br></br>Add<br></br>Edit     |     View<br></br>Comment<br></br>Add<br></br>Edit     |
-|    Experiments    |       View        |     View<br></br>Comment      |       View<br></br>Comment<br></br>Edit       | View<br></br>Comment<br></br>Edit<br></br>Run Queries | View<br></br>Comment<br></br>Edit<br></br>Run Queries | View<br></br>Comment<br></br>Edit<br></br>Run Queries |
-|      Metrics      |       View        |             View              |                     View                      |             View<br></br>Add<br></br>Edit             |             View<br></br>Add<br></br>Edit             |             View<br></br>Add<br></br>Edit             |
-|    Dimensions     |       View        |             View              |                     View                      |             View<br></br>Add<br></br>Edit             |             View<br></br>Add<br></br>Edit             |             View<br></br>Add<br></br>Edit             |
-|     Segments      |       View        |             View              |                     View                      |             View<br></br>Add<br></br>Edit             |             View<br></br>Add<br></br>Edit             |             View<br></br>Add<br></br>Edit             |
-|    Datasources    |       View        |             View              |                     View                      |                         View                          |                         View                          |             View<br></br>Add<br></br>Edit             |
-|       Ideas       |       View        | View<br></br>Add<br></br>Edit |         View<br></br>Add<br></br>Edit         |             View<br></br>Add<br></br>Edit             |             View<br></br>Add<br></br>Edit             |             View<br></br>Add<br></br>Edit             |
-|  SDK Connections  | View<br></br>Edit |       View<br></br>Edit       |               View<br></br>Edit               |                   View<br></br>Edit                   |                   View<br></br>Edit                   |                   View<br></br>Edit                   |
-|    Attributes     |       View        |             View              |         View<br></br>Add<br></br>Edit         |                         View                          |                         View                          |             View<br></br>Add<br></br>Edit             |
-|    Namespaces     |       View        |             View              |         View<br></br>Add<br></br>Edit         |                         View                          |             View<br></br>Add<br></br>Edit             |             View<br></br>Add<br></br>Edit             |
-|   Environments    |       View        |             View              |         View<br></br>Add<br></br>Edit         |                         View                          |             View<br></br>Add<br></br>Edit             |             View<br></br>Add<br></br>Edit             |
-|   Saved Groups    |       View        |             View              |         View<br></br>Add<br></br>Edit         |                         View                          |             View<br></br>Add<br></br>Edit             |             View<br></br>Add<br></br>Edit             |
-|       Tags        |        No         |              No               |         View<br></br>Add<br></br>Edit         |                         View                          |             View<br></br>Add<br></br>Edit             |             View<br></br>Add<br></br>Edit             |
-| Slack Integration |        No         |              No               |         View<br></br>Add<br></br>Edit         |                         View                          |             View<br></br>Add<br></br>Edit             |             View<br></br>Add<br></br>Edit             |
-|  Manage Projects  |        No         |              No               |                      No                       |                          No                           |                          No                           |                          Yes                          |
-|    Manage Team    |        No         |              No               |                      No                       |                          No                           |                          No                           |                          Yes                          |
-|    Manage Plan    |        No         |              No               |                      No                       |                          No                           |                          No                           |                          Yes                          |
-|  Manage Billing   |        No         |              No               |                      No                       |                          No                           |                          No                           |                          Yes                          |
+|                   |           Read Only           |         Collaborator          |                   Engineer                    |                              Analyst                              |                           Experimenter                            |                               Admin                               |
+| :---------------: | :---------------------------: | :---------------------------: | :-------------------------------------------: | :---------------------------------------------------------------: | :---------------------------------------------------------------: | :---------------------------------------------------------------: |
+|   Feature Flags   |             View              |     View<br></br>Comment      | View<br></br>Comment<br></br>Add<br></br>Edit |                       View<br></br>Comment                        |           View<br></br>Comment<br></br>Add<br></br>Edit           |           View<br></br>Comment<br></br>Add<br></br>Edit           |
+|    Experiments    |             View              |     View<br></br>Comment      |       View<br></br>Comment<br></br>Edit       | View<br></br>Comment<br></br>Add<br></br>Edit<br></br>Run Queries | View<br></br>Comment<br></br>Add<br></br>Edit<br></br>Run Queries | View<br></br>Comment<br></br>Add<br></br>Edit<br></br>Run Queries |
+|      Metrics      |             View              |             View              |                     View                      |                   View<br></br>Add<br></br>Edit                   |                   View<br></br>Add<br></br>Edit                   |                   View<br></br>Add<br></br>Edit                   |
+|    Dimensions     |             View              |             View              |                     View                      |                   View<br></br>Add<br></br>Edit                   |                   View<br></br>Add<br></br>Edit                   |                   View<br></br>Add<br></br>Edit                   |
+|     Segments      |             View              |             View              |                     View                      |                   View<br></br>Add<br></br>Edit                   |                   View<br></br>Add<br></br>Edit                   |                   View<br></br>Add<br></br>Edit                   |
+|    Datasources    |             View              |             View              |                     View                      |                               View                                |                               View                                |                   View<br></br>Add<br></br>Edit                   |
+|       Ideas       |             View              | View<br></br>Add<br></br>Edit |         View<br></br>Add<br></br>Edit         |                   View<br></br>Add<br></br>Edit                   |                   View<br></br>Add<br></br>Edit                   |                   View<br></br>Add<br></br>Edit                   |
+|  SDK Connections  | View<br></br>Add<br></br>Edit | View<br></br>Add<br></br>Edit |         View<br></br>Add<br></br>Edit         |                   View<br></br>Add<br></br>Edit                   |                   View<br></br>Add<br></br>Edit                   |                   View<br></br>Add<br></br>Edit                   |
+|    Attributes     |             View              |             View              |         View<br></br>Add<br></br>Edit         |                               View                                |                   View<br></br>Add<br></br>Edit                   |                   View<br></br>Add<br></br>Edit                   |
+|    Namespaces     |             View              |             View              |         View<br></br>Add<br></br>Edit         |                               View                                |                   View<br></br>Add<br></br>Edit                   |                   View<br></br>Add<br></br>Edit                   |
+|   Environments    |             View              |             View              |         View<br></br>Add<br></br>Edit         |                               View                                |                   View<br></br>Add<br></br>Edit                   |                   View<br></br>Add<br></br>Edit                   |
+|   Saved Groups    |             View              |             View              |         View<br></br>Add<br></br>Edit         |                               View                                |                   View<br></br>Add<br></br>Edit                   |                   View<br></br>Add<br></br>Edit                   |
+|       Tags        |               -               |               -               |         View<br></br>Add<br></br>Edit         |                   View<br></br>Add<br></br>Edit                   |                   View<br></br>Add<br></br>Edit                   |                   View<br></br>Add<br></br>Edit                   |
+| Slack Integration |               -               |               -               |                       -                       |                                 -                                 |                                 -                                 |                   View<br></br>Add<br></br>Edit                   |
+|  Manage Projects  |               -               |               -               |                       -                       |                                 -                                 |                                 -                                 |                                Yes                                |
+|    Manage Team    |               -               |               -               |                       -                       |                                 -                                 |                                 -                                 |                                Yes                                |
+|    Manage Plan    |               -               |               -               |                       -                       |                                 -                                 |                                 -                                 |                                Yes                                |
+|  Manage Billing   |               -               |               -               |                       -                       |                                 -                                 |                                 -                                 |                                Yes                                |
 
 #### Environment Specific Limits
 
 ![Environment Specific Limits](/images/user-permissions-env-specific.png)
 
-And finally, there is one last level to GrowthBook's user permissions, which determines environment specific limits. This permission level only applies to `engineer` and `experimenter` roles in organizations in a `Pro` or `Enterprise` account. This
-allows you to limit the feature flags and experiments a user can manage to particular environments. For instance, you can allow and engineer to create and run experiments in a `staging` environment, but not in `production`.
+GrowthBook's user permissions also include environment specific limits. This permission level applies only to `engineer` and `experimenter` roles in Pro or Enterprise accounts. It allows you to limit the feature flags and experiments a user can manage to specific environments. For example, you can allow an `engineer` to create and run experiments in a staging environment, but not in production.
 
 #### How permissions are evaluated
 
-When evaluating whether or not a user has permissions to perform a certain action, GrowthBook will check if the action is taking place within a particular project, and if so, we'll check their project-level permissions first, before falling back to
-the user's global role. If the action is not taking place within a project, we'll just check the user's global role.
+GrowthBook evaluates user permissions based on whether an action is taking place within a specific project. If so, project-level permissions are checked first, followed by the user's global role. If the action is not within a project, only the user's global role is checked.
 
-If your organization is not enrolled in a `Pro` or `Enterprise` account, we will simply evaluate the user's permission level via their global role.
+For organizations without a Pro or Enterprise account, user permissions are evaluated solely based on their global role.
 
 :::note
 
-If your organization has enabled the setting to allow verified users to automatically join your organization, when they join, they will automatically receive the `collaborator` role.
+If your organization has enabled the setting to allow verified users to automatically join your organization, they will receive the `collaborator` role by default when they join.
 
 :::
