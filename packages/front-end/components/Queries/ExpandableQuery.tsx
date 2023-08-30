@@ -115,7 +115,7 @@ const ExpandableQuery: FC<{
               Running for{" "}
               {formatDistanceStrict(getValidDate(query.startedAt), new Date())}
             </em>
-            {query.dependencies?.length ? (
+            {query.dependencies?.length && !query.cachedQueryUsed ? (
               <div>
                 <em>
                   Was queued for{" "}

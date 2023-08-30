@@ -103,8 +103,8 @@ export abstract class QueryRunner<
         try {
           logger.debug("Getting latest model");
           this.model = await this.getLatestModel();
-          await this.refreshQueryStatuses();
-          await this.startReadyQueries();
+          const queryMap = await this.refreshQueryStatuses();
+          await this.startReadyQueries(queryMap);
         } catch (e) {
           logger.error(e);
         }
@@ -213,67 +213,67 @@ export abstract class QueryRunner<
     });
   }
 
-  public async startReadyQueries(): Promise<void> {
-    const queuedQueries = await getQueriesByIds(
-      this.model.organization,
-      this.model.queries
-        .filter((q) => q.status === "queued")
-        .map((q) => q.query)
+  public async startReadyQueries(queryMap: QueryMap): Promise<void> {
+    const queuedQueries = Array.from(queryMap.values()).filter(
+      (q) => q.status === "queued"
     );
     logger.debug(
       `Starting any queued queries that are ready: ${queuedQueries.map(
         (q) => q.id
       )}`
     );
-    queuedQueries.map(async (query) => {
-      // check if all dependencies are finished
-      // assumes all dependencies are within the model; if any are not, query will hang
-      // in queued state
+    await Promise.all(
+      queuedQueries.map(async (query) => {
+        // check if all dependencies are finished
+        // assumes all dependencies are within the model; if any are not, query will hang
+        // in queued state
 
-      const failedDependencies: QueryPointer[] = [];
-      const succeededDependencies: QueryPointer[] = [];
-      const pendingDependencies: QueryPointer[] = [];
+        const failedDependencies: QueryPointer[] = [];
+        const succeededDependencies: QueryPointer[] = [];
+        const pendingDependencies: QueryPointer[] = [];
 
-      const dependencyIds: string[] = query.dependencies ?? [];
-      dependencyIds.forEach((dependencyId) => {
-        const dependencyQuery = this.model.queries.find(
-          (q) => q.query == dependencyId
-        );
-        if (dependencyQuery === undefined) {
-          throw new Error(`Dependency ${dependencyId} not found in model`);
-        } else if (dependencyQuery.status === "succeeded") {
-          succeededDependencies.push(dependencyQuery);
-        } else if (dependencyQuery.status === "failed") {
-          failedDependencies.push(dependencyQuery);
-        } else {
-          pendingDependencies.push(dependencyQuery);
-        }
-      });
-
-      if (failedDependencies.length) {
-        logger.debug(`${query.id}: Dependency failed...`);
-        updateQuery(query, {
-          finishedAt: new Date(),
-          status: "failed",
-          error: `Dependencies failed: ${failedDependencies.map(
-            (q) => q.query
-          )}`,
+        const dependencyIds: string[] = query.dependencies ?? [];
+        dependencyIds.forEach((dependencyId) => {
+          const dependencyQuery = this.model.queries.find(
+            (q) => q.query == dependencyId
+          );
+          if (dependencyQuery === undefined) {
+            throw new Error(`Dependency ${dependencyId} not found in model`);
+          } else if (dependencyQuery.status === "succeeded") {
+            succeededDependencies.push(dependencyQuery);
+          } else if (dependencyQuery.status === "failed") {
+            failedDependencies.push(dependencyQuery);
+          } else {
+            pendingDependencies.push(dependencyQuery);
+          }
         });
-        return;
-      }
-      if (pendingDependencies.length) {
-        logger.debug(`${query.id}: Dependencies pending...`);
-        return;
-      }
-      if (succeededDependencies.length === dependencyIds.length) {
-        logger.debug(`${query.id}: Dependencies completed, running...`);
-        const { run, process } = this.runCallbacks[query.id];
-        this.executeQuery(query, run, process);
-      }
-    });
+
+        if (failedDependencies.length) {
+          logger.debug(`${query.id}: Dependency failed...`);
+          await updateQuery(query, {
+            finishedAt: new Date(),
+            status: "failed",
+            error: `Dependencies failed: ${failedDependencies.map(
+              (q) => q.query
+            )}`,
+          });
+          this.onQueryFinish();
+          return;
+        }
+        if (pendingDependencies.length) {
+          logger.debug(`${query.id}: Dependencies pending...`);
+          return;
+        }
+        if (succeededDependencies.length === dependencyIds.length) {
+          logger.debug(`${query.id}: Dependencies completed, running...`);
+          const { run, process } = this.runCallbacks[query.id];
+          await this.executeQuery(query, run, process);
+        }
+      })
+    );
   }
 
-  public async refreshQueryStatuses(): Promise<void> {
+  public async refreshQueryStatuses(): Promise<QueryMap> {
     const oldStatus = this.getOverallQueryStatus();
     logger.debug("Refreshing query statuses");
 
@@ -284,7 +284,7 @@ export abstract class QueryRunner<
       )
     ) {
       logger.debug("No running or queued queries, return");
-      return;
+      return new Map();
     }
 
     const { hasChanges, queryMap } = await this.updateQueryPointers();
@@ -293,7 +293,7 @@ export abstract class QueryRunner<
 
     logger.debug("Has changes? " + hasChanges + ", New Status: " + newStatus);
 
-    if (!hasChanges) return;
+    if (!hasChanges) return queryMap;
 
     let error: string | undefined = undefined;
     let result: Result | undefined = undefined;
@@ -328,6 +328,7 @@ export abstract class QueryRunner<
     if (error || result) {
       this.setStatus("finished", error, result);
     }
+    return queryMap;
   }
 
   public async cancelQueries(): Promise<void> {
