@@ -118,10 +118,7 @@ export default function ResultsTable({
   const pValueThreshold = usePValueThreshold();
   const displayCurrency = useCurrency();
   const orgSettings = useOrgSettings();
-  const domain = useDomain(
-    variations.filter((_, i) => !variationFilter?.includes(i)),
-    rows
-  );
+  const domain = useDomain(variations, rows);
 
   const tableContainerRef = useRef<HTMLDivElement | null>(null);
   const [graphCellWidth, setGraphCellWidth] = useState(800);
