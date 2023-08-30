@@ -66,7 +66,8 @@ export default function VariationChooser({
   }
 
   return (
-    <>
+    <div>
+      <div className="uppercase-title text-muted">Variations</div>
       <Dropdown
         uuid={"variation-filter"}
         right={false}
@@ -206,6 +207,6 @@ export default function VariationChooser({
           );
         })}
       </Dropdown>
-    </>
+    </div>
   );
 }
