@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useState } from "react";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { useRouter } from "next/router";
 import { FaArrowLeft } from "react-icons/fa";
@@ -12,7 +12,7 @@ import DocumentationLinksSidebar from "@/components/HomePage/DocumentationLinksS
 import GetStartedStep from "@/components/HomePage/GetStartedStep";
 import ImportExperimentModal from "@/components/Experiment/ImportExperimentModal";
 import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
-import AddExperimentModal from "../Experiment/AddExperimentModal";
+import NewExperimentForm from "../Experiment/NewExperimentForm";
 
 const ExperimentsGetStarted = ({
   experiments,
@@ -26,27 +26,12 @@ const ExperimentsGetStarted = ({
 
   const [dataSourceOpen, setDataSourceOpen] = useState(false);
   const [metricsOpen, setMetricsOpen] = useState(false);
-  const [experimentsOpen, setExperimentsOpen] = useState(false);
+  const [importExperimentsOpen, setImportExperimentsOpen] = useState(false);
+  const [designExperimentOpen, setDesignExperimentOpen] = useState(false);
+
   const router = useRouter();
 
   const [showAnalysisSteps, setShowAnalysisSteps] = useState(false);
-
-  // If this is coming from a feature experiment rule
-  const featureExperiment = useMemo(() => {
-    if (!router?.query?.featureExperiment) {
-      return null;
-    }
-    try {
-      const initialExperiment: Partial<ExperimentInterfaceStringDates> = JSON.parse(
-        router?.query?.featureExperiment as string
-      );
-      window.history.replaceState(null, "", window.location.pathname);
-      return initialExperiment;
-    } catch (e) {
-      console.error(e);
-      return null;
-    }
-  }, [router?.query?.featureExperiment]);
 
   const hasDataSource = datasources.length > 0;
   const hasMetrics =
@@ -95,20 +80,20 @@ const ExperimentsGetStarted = ({
             }}
           />
         )}
-        {experimentsOpen &&
-          (featureExperiment ? (
-            <ImportExperimentModal
-              onClose={() => setExperimentsOpen(false)}
-              source={featureExperiment ? "feature-rule" : "get-started"}
-              initialValue={featureExperiment}
-              fromFeature={!!featureExperiment}
-            />
-          ) : (
-            <AddExperimentModal
-              onClose={() => setExperimentsOpen(false)}
-              source="get-started"
-            />
-          ))}
+        {importExperimentsOpen && (
+          <ImportExperimentModal
+            onClose={() => setImportExperimentsOpen(false)}
+            source="get-started"
+          />
+        )}
+
+        {designExperimentOpen && (
+          <NewExperimentForm
+            onClose={() => setDesignExperimentOpen(false)}
+            source={"get-started"}
+            isNewExperiment={true}
+          />
+        )}
 
         {showAnalysisSteps ? (
           <>
@@ -130,7 +115,7 @@ const ExperimentsGetStarted = ({
             </p>
             <div className="row">
               <div className="col-12 col-lg-8">
-                {hasFileConfig() ? (
+                {hasFileConfig() && (
                   <div className="alert alert-info">
                     It looks like you have a <code>config.yml</code> file. Use
                     that to define data sources and metrics.{" "}
@@ -138,12 +123,7 @@ const ExperimentsGetStarted = ({
                       View Documentation
                     </DocLink>
                   </div>
-                ) : featureExperiment ? (
-                  <div className="alert alert-info mb-3">
-                    First connect to your data source and define a metric. Then
-                    you can view results for your experiment.
-                  </div>
-                ) : null}
+                )}
                 <div className="row mb-3">
                   <div className="col">
                     <div
@@ -251,18 +231,13 @@ const ExperimentsGetStarted = ({
                         }
                         hideCTA={false}
                         cta={"Import Experiment"}
-                        finishedCTA="View experiments"
+                        finishedCTA="Import Experiment"
                         permissionsError={
-                          !permissions.check("createAnalyses", project) &&
-                          !hasExperiments
+                          !permissions.check("createAnalyses", project)
                         }
                         imageLeft={true}
-                        onClick={(finished) => {
-                          if (finished) {
-                            router.push("/experiments");
-                          } else {
-                            setExperimentsOpen(true);
-                          }
+                        onClick={() => {
+                          setImportExperimentsOpen(true);
                         }}
                       />
                     </div>
@@ -335,7 +310,7 @@ const ExperimentsGetStarted = ({
                     }
                     imageLeft={true}
                     onClick={() => {
-                      setExperimentsOpen(true);
+                      setDesignExperimentOpen(true);
                     }}
                   />
                   <GetStartedStep
