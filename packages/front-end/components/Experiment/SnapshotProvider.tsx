@@ -60,11 +60,11 @@ export default function SnapshotProvider({
       (dimension ? "/" + dimension : "")
   );
 
-  const defaultSnapshotSettings = data?.snapshot
+  const defaultAnalysisSettings = data?.snapshot
     ? getSnapshotAnalysis(data?.snapshot)?.settings
     : null;
   const [analysisSettings, setAnalysisSettings] = useState(
-    defaultSnapshotSettings
+    defaultAnalysisSettings
   );
   return (
     <snapshotContext.Provider
