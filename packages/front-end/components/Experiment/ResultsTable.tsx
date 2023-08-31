@@ -154,7 +154,9 @@ export default function ResultsTable({
       });
   }, [variations, baselineRow]);
 
-  const filteredVariations = orderedVariations.filter(v => !variationFilter?.includes(v.index));
+  const filteredVariations = orderedVariations.filter(
+    (v) => !variationFilter?.includes(v.index)
+  );
   const compactResults = filteredVariations.length <= 2;
 
   const domain = useDomain(filteredVariations, rows);

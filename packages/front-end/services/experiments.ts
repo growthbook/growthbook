@@ -4,7 +4,7 @@ import { PValueCorrection, StatsEngine } from "back-end/types/stats";
 import { useState } from "react";
 import {
   ExperimentReportResultDimension,
-  ExperimentReportVariation, ExperimentReportVariationWithIndex,
+  ExperimentReportVariationWithIndex,
   MetricRegressionAdjustmentStatus,
 } from "back-end/types/report";
 import {

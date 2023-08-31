@@ -70,7 +70,10 @@ export default function ResultsTable_old({
 }: ResultsTableProps_old) {
   const orgSettings = useOrgSettings();
 
-  const domain = useDomain(variations.map((v, i) => ({...v, index: i})), rows);
+  const domain = useDomain(
+    variations.map((v, i) => ({ ...v, index: i })),
+    rows
+  );
 
   return (
     <table

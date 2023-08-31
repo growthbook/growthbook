@@ -1,10 +1,7 @@
 import clsx from "clsx";
 import { useState } from "react";
+import { Variation, VariationWithIndex } from "back-end/types/experiment";
 import Dropdown from "@/components/Dropdown/Dropdown";
-import {
-  Variation,
-  VariationWithIndex,
-} from "back-end/types/experiment";
 
 export interface Props {
   variations: Variation[];
@@ -20,9 +17,10 @@ export default function VariationChooser({
   baselineRow,
 }: Props) {
   const [open, setOpen] = useState(false);
-  const indexedVariations = variations.map<VariationWithIndex>(
-    (v, i) => ({ ...v, index: i })
-  );
+  const indexedVariations = variations.map<VariationWithIndex>((v, i) => ({
+    ...v,
+    index: i,
+  }));
   const validVariations = indexedVariations.filter(
     (v) => v.index !== baselineRow
   );
