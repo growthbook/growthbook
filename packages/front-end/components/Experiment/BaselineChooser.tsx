@@ -102,9 +102,7 @@ export default function BaselineChooser({
     // detect when the snapshot is manually updated, trigger a baseline update
     const analysisDate = analysis?.dateCreated;
     if (!analysisDate) return;
-    if (!(!lastAnalysisDate || analysisDate > lastAnalysisDate)) {
-      return;
-    }
+    if (lastAnalysisDate && analysisDate <= lastAnalysisDate) return;
     setLastAnalysisDate(analysisDate);
 
     if (analysis?.settings?.baselineVariationIndex !== desiredBaselineRow) {
@@ -156,6 +154,7 @@ export default function BaselineChooser({
           {baselineVariation.name}
         </span>
         {((loading &&
+          analysis?.settings?.baselineVariationIndex !== undefined &&
           baselineRow !== analysis?.settings?.baselineVariationIndex) ||
           postLoading) && <LoadingSpinner className="ml-1" />}
       </div>
