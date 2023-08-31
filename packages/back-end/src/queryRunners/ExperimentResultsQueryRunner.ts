@@ -20,7 +20,6 @@ import {
   ExperimentQueryResponses,
   ExperimentResults,
   ExperimentUnitsQueryParams,
-  QueryResponse,
   SourceIntegrationInterface,
 } from "../types/Integration";
 import { expandDenominatorMetrics } from "../util/sql";
@@ -29,6 +28,7 @@ import {
   QueryMap,
   ProcessedRowsType,
   RowsType,
+  StartQueryParams,
 } from "./QueryRunner";
 
 export type SnapshotResult = {
@@ -50,12 +50,7 @@ export const startExperimentResultQueries = async (
   integration: SourceIntegrationInterface,
   organization: string,
   startQuery: (
-    name: string,
-    query: string,
-    dependencies: string[],
-    run: (query: string) => Promise<QueryResponse<RowsType>>,
-    process: (rows: RowsType) => ProcessedRowsType,
-    useExisting?: boolean
+    params: StartQueryParams<RowsType, ProcessedRowsType>
   ) => Promise<QueryPointer>
 ): Promise<Queries> => {
   const snapshotSettings = params.snapshotSettings;
@@ -111,13 +106,13 @@ export const startExperimentResultQueries = async (
       unitsTableFullName: unitsTableFullName,
       includeIdJoins: true,
     };
-    unitQuery = await startQuery(
-      queryParentId,
-      integration.getExperimentUnitsTableQuery(unitQueryParams),
-      [],
-      (query) => integration.runExperimentUnitsQuery(query),
-      (rows) => rows
-    );
+    unitQuery = await startQuery({
+      name: queryParentId,
+      query: integration.getExperimentUnitsTableQuery(unitQueryParams),
+      dependencies: [],
+      run: (query) => integration.runExperimentUnitsQuery(query),
+      process: (rows) => rows,
+    });
     queries.push(unitQuery);
   }
 
@@ -141,13 +136,13 @@ export const startExperimentResultQueries = async (
       unitsTableFullName: unitsTableFullName,
     };
     queries.push(
-      await startQuery(
-        m.id,
-        integration.getExperimentMetricQuery(params),
-        useUnitsTable ? [unitQuery.query] : [],
-        (query) => integration.runExperimentMetricQuery(query),
-        (rows) => rows
-      )
+      await startQuery({
+        name: m.id,
+        query: integration.getExperimentMetricQuery(params),
+        dependencies: useUnitsTable ? [unitQuery.query] : [],
+        run: (query) => integration.runExperimentMetricQuery(query),
+        process: (rows) => rows,
+      })
     );
   });
   await Promise.all(promises);
@@ -299,11 +294,11 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
     );
 
     return [
-      await this.startQuery(
-        "results",
-        query,
-        [],
-        async () => {
+      await this.startQuery({
+        name: "results",
+        query: query,
+        dependencies: [],
+        run: async () => {
           const rows = (await this.integration.getExperimentResults(
             snapshotSettings,
             selectedMetrics,
@@ -313,9 +308,9 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
           )) as any[];
           return { rows: rows };
         },
-        (rows: ExperimentQueryResponses) =>
-          this.processLegacyExperimentResultsResponse(snapshotSettings, rows)
-      ),
+        process: (rows: ExperimentQueryResponses) =>
+          this.processLegacyExperimentResultsResponse(snapshotSettings, rows),
+      }),
     ];
   }
 

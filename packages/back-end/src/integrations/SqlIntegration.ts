@@ -873,7 +873,10 @@ export default abstract class SqlIntegration
     const startDate: Date = settings.startDate;
     const endDate: Date | null = this.getExperimentEndDate(settings, 0);
 
-    const timestampColumn = this.castUserDateCol("e.timestamp");
+    const timestampColumn = "e.timestamp";
+    // BQ datetime cast for SELECT statements (do not use for where)
+    const timestampDateTimeColumn = this.castUserDateCol(timestampColumn);
+
     const experimentDimension =
       dimension?.type === "experiment" ? dimension.id : null;
 
@@ -891,7 +894,7 @@ export default abstract class SqlIntegration
       SELECT
         e.${baseIdType} as ${baseIdType},
         ${this.castToString("e.variation_id")} as variation,
-        ${timestampColumn} as timestamp
+        ${timestampDateTimeColumn} as timestamp
         ${experimentDimension ? `, e.${experimentDimension} as dimension` : ""}
       FROM
           __rawExperiment e

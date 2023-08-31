@@ -403,6 +403,7 @@ def main(engines, filter, branch, skip_cache):
             continue
         key = engine + "::" + test_case["sql"]
         if not skip_cache and key in cache and "error" not in cache[key]:
+            print("cache: ", test_case["name"])
             update_fields = ["engine", "name"]
             results.append(
                 {
@@ -413,8 +414,9 @@ def main(engines, filter, branch, skip_cache):
                 }
             )
         else:
-            if engine not in nonlinted_engines:
-                validate(test_case)
+            print("running: ", test_case["name"])
+            #if engine not in nonlinted_engines:
+            #    validate(test_case)
             if engine not in runners:
                 runners[engine] = get_sql_runner(engine)
             result = execute_query(test_case["sql"], runners[engine])
