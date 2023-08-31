@@ -224,7 +224,7 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
           save={async (userEnteredQuery) => {
             form.setValue("query", userEnteredQuery);
           }}
-          validateResponse={validateResponse}
+          validateResponseOverride={validateResponse}
         />
       )}
       <Modal

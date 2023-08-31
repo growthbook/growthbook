@@ -13,7 +13,6 @@ import {
   DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
 } from "shared/constants";
 import { isDemoDatasourceProject } from "shared/demo-datasource";
-import { TestQueryRow } from "back-end/src/types/Integration";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import { getInitialMetricQuery, validateSQL } from "@/services/datasources";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -532,21 +531,6 @@ const MetricForm: FC<MetricFormProps> = ({
     return set;
   }, [value.userIdTypes, type]);
 
-  const validateResponse = (result: TestQueryRow) => {
-    if (!result) return;
-
-    const requiredColumnsArray = Array.from(requiredColumns);
-    const missingColumns = requiredColumnsArray.filter(
-      (col) => !((col as string) in result)
-    );
-
-    if (missingColumns.length > 0) {
-      throw new Error(
-        `You are missing the following columns: ${missingColumns.join(", ")}`
-      );
-    }
-  };
-
   useEffect(() => {
     if (type === "binomial") {
       form.setValue("ignoreNulls", false);
@@ -581,7 +565,6 @@ const MetricForm: FC<MetricFormProps> = ({
             "SELECT\n      user_id as user_id, timestamp as timestamp\nFROM\n      test"
           }
           requiredColumns={requiredColumns}
-          validateResponse={validateResponse}
           value={value.sql}
           save={async (sql) => form.setValue("sql", sql)}
           templateVariables={{
