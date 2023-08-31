@@ -65,13 +65,13 @@ The recommended way to run an A/B test is by using Feature Flags and our SDKs.
 
 ## What is the best way to redirect users to a URL based on their experiment variation?
 
-Experimenters often find themselves wanting to show one URL to some users and another URL to other users. This is not always trivial, because waiting to look up a user's variation, and then rendering a page for them, could cause flickering in the user experience and even bias, if you are only delaying page load for one variation.
+Experimenters often want to display different URLs to different users. Unfortunately, waiting to look up a user's experiment variation and rendering a page accordingly can lead to undesirable effects like flickering in the user interface. If only one of the variations suffers from flickering or a delay in loading, these problems can also lead to bias.
 
-In general, we recommend three approaches, listed from least to most risky with respect to user experience and bias:
+In general, we suggest three approaches, ranked from the least risky to the most risky in terms of user experience and potential bias:
 
-1. Conditionally render of page A vs. page B using the GrowthBook SDK within backend controller logic. This is fast, has no bias, and there is no flickering/jumpy redirection.
-2. Conditionally render on the front-end page A vs. page B ing the GrowthBook JS SDK. Almost as good as option 1, although there is a slight loading delay. This can also be done with no bias if both A and B incur the same page load penalty. Preferably you can implement this without any flickering for users, but there will be some slight loading delay.
-3. Frontend redirection using JS snippets in the visual editor using `window.location.href="mytarget.html"`. Problematic but likely good enough if done carefully. Incurs noticeable flickering before/after redirection. Ideally the redirection should happen from a neutral / empty-ish page for both the A and B treatments as to not introduce bias (e.g. avoiding the case where page A just loads faster due to the experiment config so people like it more).
+1. Render page A or page B conditionally using the GrowthBook SDK within the backend controller logic or middleware layer. This method is quick, unbiased, and avoids any flickering or sudden redirection.
+2. Render page A or page B conditionally using the GrowthBook JS SDK on the front-end. This option is nearly as good as the first one, and while you might be able to implement this without any flickering for users, it might have a slight loading delay. It can be unbiased if both pages A and B result in the same loading delay.
+3. Perform front-end redirection using JS code snippets in the visual editor with the command `window.location.href="mytarget.html"`. This approach is problematic but can be acceptable if executed carefully. It introduces noticeable flickering before and after redirection. For fairness, it's best to initiate the redirection from a neutral or minimally loaded page for both variations A and B. This helps avoid introducing bias—for instance, preventing a scenario where page A appears more favorable simply because it loaded faster due to the implementation of the experiment.
 
 ## How much traffic do I need to run A/B tests?
 
