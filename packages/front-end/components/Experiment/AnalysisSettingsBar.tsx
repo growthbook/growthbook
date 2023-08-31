@@ -169,7 +169,7 @@ export default function AnalysisSettingsBar({
                   snapshot={snapshot}
                   analysis={analysis}
                   setAnalysisSettings={setAnalysisSettings}
-                  loading={loading}
+                  loading={!!loading}
                   mutate={mutate}
                 />
               </div>
