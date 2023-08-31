@@ -45,9 +45,9 @@ export default function BaselineChooser({
   const [postLoading, setPostLoading] = useState(false);
   const [open, setOpen] = useState(false);
   const [desiredBaselineRow, setDesiredBaselineRow] = useState(baselineRow);
-  const [lastAnalysisDate, setLastAnalysisDate] = useState<Date | undefined>(
-    undefined
-  );
+  // const [lastAnalysisDate, setLastAnalysisDate] = useState<Date | undefined>(
+  //   undefined
+  // );
 
   const indexedVariations = variations.map<VariationWithIndex>((v, i) => ({
     ...v,
@@ -98,44 +98,45 @@ export default function BaselineChooser({
     setDesiredBaselineRow(baselineRow);
   }, [baselineRow]);
 
-  useEffect(() => {
-    // detect when the snapshot is manually updated, trigger a baseline update
-    const analysisDate = analysis?.dateCreated;
-    if (!analysisDate) return;
-    if (lastAnalysisDate && analysisDate <= lastAnalysisDate) return;
-    setLastAnalysisDate(analysisDate);
-
-    if (analysis?.settings?.baselineVariationIndex !== desiredBaselineRow) {
-      const newSettings: ExperimentSnapshotAnalysisSettings = {
-        ...analysis.settings,
-        baselineVariationIndex: desiredBaselineRow,
-      };
-      triggerAnalysisUpdate(desiredBaselineRow, newSettings).then((status) => {
-        if (status === "success") {
-          setBaselineRow(desiredBaselineRow);
-          setVariationFilter([]);
-          setAnalysisSettings(newSettings);
-          mutate();
-        } else if (status === "fail") {
-          setDesiredBaselineRow(baselineRow);
-          mutate();
-        }
-        setPostLoading(false);
-      });
-    }
-  }, [
-    analysis,
-    lastAnalysisDate,
-    setLastAnalysisDate,
-    setAnalysisSettings,
-    baselineRow,
-    setBaselineRow,
-    desiredBaselineRow,
-    setVariationFilter,
-    mutate,
-    setPostLoading,
-    triggerAnalysisUpdate,
-  ]);
+  // todo: disabled logic to preserve baseline variation across manual updates. preserved for reference. remove later?
+  // useEffect(() => {
+  //   // detect when the snapshot is manually updated, trigger a baseline update
+  //   const analysisDate = analysis?.dateCreated;
+  //   if (!analysisDate) return;
+  //   if (lastAnalysisDate && analysisDate <= lastAnalysisDate) return;
+  //   setLastAnalysisDate(analysisDate);
+  //
+  //   if (analysis?.settings?.baselineVariationIndex !== desiredBaselineRow) {
+  //     const newSettings: ExperimentSnapshotAnalysisSettings = {
+  //       ...analysis.settings,
+  //       baselineVariationIndex: desiredBaselineRow,
+  //     };
+  //     triggerAnalysisUpdate(desiredBaselineRow, newSettings).then((status) => {
+  //       if (status === "success") {
+  //         setBaselineRow(desiredBaselineRow);
+  //         setVariationFilter([]);
+  //         setAnalysisSettings(newSettings);
+  //         mutate();
+  //       } else if (status === "fail") {
+  //         setDesiredBaselineRow(baselineRow);
+  //         mutate();
+  //       }
+  //       setPostLoading(false);
+  //     });
+  //   }
+  // }, [
+  //   analysis,
+  //   lastAnalysisDate,
+  //   setLastAnalysisDate,
+  //   setAnalysisSettings,
+  //   baselineRow,
+  //   setBaselineRow,
+  //   desiredBaselineRow,
+  //   setVariationFilter,
+  //   mutate,
+  //   setPostLoading,
+  //   triggerAnalysisUpdate,
+  // ]);
 
   const title = (
     <div className="d-inline-flex align-items-center">

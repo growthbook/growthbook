@@ -354,6 +354,13 @@ export default function AnalysisSettingsBar({
                       model={latest}
                       icon="refresh"
                       color="outline-primary"
+                      onSubmit={() => {
+                        // todo: remove baseline resetter (here and below) once refactored.
+                        if (baselineRow !== 0) {
+                          setBaselineRow?.(0);
+                          setVariationFilter?.([]);
+                        }
+                      }}
                     />
                   </form>
                 ) : (
@@ -368,6 +375,12 @@ export default function AnalysisSettingsBar({
                     metricRegressionAdjustmentStatuses={
                       metricRegressionAdjustmentStatuses
                     }
+                    onSubmit={() => {
+                      if (baselineRow !== 0) {
+                        setBaselineRow?.(0);
+                        setVariationFilter?.([]);
+                      }
+                    }}
                   />
                 )}
               </div>
