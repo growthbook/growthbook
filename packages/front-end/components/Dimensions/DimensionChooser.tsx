@@ -1,4 +1,8 @@
 import { useEffect } from "react";
+import {
+  ExperimentSnapshotAnalysis,
+  ExperimentSnapshotAnalysisSettings,
+} from "back-end/types/experiment-snapshot";
 import { getExposureQuery } from "@/services/datasources";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import SelectField from "../Forms/SelectField";
@@ -15,6 +19,10 @@ export interface Props {
   newUi?: boolean;
   setVariationFilter?: (variationFilter: number[]) => void;
   setBaselineRow?: (baselineRow: number) => void;
+  analysis?: ExperimentSnapshotAnalysis;
+  setAnalysisSettings: (
+    settings: ExperimentSnapshotAnalysisSettings | null
+  ) => void;
 }
 
 export default function DimensionChooser({
@@ -29,6 +37,8 @@ export default function DimensionChooser({
   newUi = false,
   setVariationFilter,
   setBaselineRow,
+  analysis,
+  setAnalysisSettings,
 }: Props) {
   const { dimensions, getDatasourceById } = useDefinitions();
   const datasource = datasourceId ? getDatasourceById(datasourceId) : null;
@@ -117,6 +127,13 @@ export default function DimensionChooser({
         value={value}
         onChange={(v) => {
           if (v === value) return;
+          if (analysis?.settings) {
+            const newSettings: ExperimentSnapshotAnalysisSettings = {
+              ...analysis.settings,
+              baselineVariationIndex: 0,
+            };
+            setAnalysisSettings(newSettings);
+          }
           setBaselineRow?.(0);
           setVariationFilter?.([]);
           setValue(v);
