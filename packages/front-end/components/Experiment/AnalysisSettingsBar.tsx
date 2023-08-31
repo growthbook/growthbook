@@ -162,7 +162,6 @@ export default function AnalysisSettingsBar({
                 </em>
                 <BaselineChooser
                   variations={experiment.variations}
-                  variationFilter={variationFilter ?? []}
                   setVariationFilter={setVariationFilter}
                   baselineRow={baselineRow ?? 0}
                   setBaselineRow={setBaselineRow}
@@ -355,10 +354,6 @@ export default function AnalysisSettingsBar({
                       model={latest}
                       icon="refresh"
                       color="outline-primary"
-                      onSubmit={() => {
-                        setBaselineRow?.(0);
-                        setVariationFilter?.([]);
-                      }}
                     />
                   </form>
                 ) : (
@@ -373,10 +368,6 @@ export default function AnalysisSettingsBar({
                     metricRegressionAdjustmentStatuses={
                       metricRegressionAdjustmentStatuses
                     }
-                    onSubmit={() => {
-                      setBaselineRow?.(0);
-                      setVariationFilter?.([]);
-                    }}
                   />
                 )}
               </div>
