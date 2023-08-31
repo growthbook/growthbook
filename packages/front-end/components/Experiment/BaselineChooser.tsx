@@ -90,7 +90,7 @@ export default function BaselineChooser({
       <Dropdown
         uuid={"baseline-selector"}
         right={false}
-        className="mt-3"
+        className="mt-2"
         toggleClassName={clsx({
           "dropdown-underline": dropdownEnabled,
           "dropdown-underline-disabled": !dropdownEnabled,

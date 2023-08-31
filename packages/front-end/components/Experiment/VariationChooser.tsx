@@ -69,7 +69,7 @@ export default function VariationChooser({
       <Dropdown
         uuid={"variation-filter"}
         right={false}
-        className="mt-3"
+        className="mt-2"
         toggleClassName={clsx({
           "dropdown-underline": requiresDropdown,
           "dropdown-underline-disabled": !requiresDropdown,

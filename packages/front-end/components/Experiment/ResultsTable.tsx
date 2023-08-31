@@ -667,6 +667,10 @@ export default function ResultsTable({
                       e,
                       settings?: TooltipHoverSettings
                     ) => {
+                      // No hover tooltip if the screen is too narrow. Clicks still work.
+                      if (e?.type === "mousemove" && window.innerWidth < 900) {
+                        return;
+                      }
                       if (!rowResults.hasData) return;
                       hoverRow(i, j, e, settings);
                     };
