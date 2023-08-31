@@ -148,10 +148,7 @@ export default function AnalysisSettingsBar({
                 />
               </div>
             )}
-          {newUi &&
-          setVariationFilter &&
-          setBaselineRow &&
-          !snapshot?.dimension ? (
+          {newUi && setVariationFilter && setBaselineRow ? (
             <>
               <div className="col-auto form-inline pr-5">
                 <VariationChooser
@@ -159,6 +156,7 @@ export default function AnalysisSettingsBar({
                   variationFilter={variationFilter ?? []}
                   setVariationFilter={setVariationFilter}
                   baselineRow={baselineRow ?? 0}
+                  dropdownEnabled={!snapshot?.dimension}
                 />
                 <em className="text-muted mx-3" style={{ marginTop: 15 }}>
                   vs
@@ -173,6 +171,7 @@ export default function AnalysisSettingsBar({
                   setAnalysisSettings={setAnalysisSettings}
                   loading={!!loading}
                   mutate={mutate}
+                  dropdownEnabled={!snapshot?.dimension}
                 />
               </div>
             </>

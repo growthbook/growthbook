@@ -8,6 +8,7 @@ export interface Props {
   variationFilter: number[];
   setVariationFilter: (variationFilter: number[]) => void;
   baselineRow: number;
+  dropdownEnabled: boolean;
 }
 
 export default function VariationChooser({
@@ -15,6 +16,7 @@ export default function VariationChooser({
   variationFilter,
   setVariationFilter,
   baselineRow,
+  dropdownEnabled,
 }: Props) {
   const [open, setOpen] = useState(false);
   const indexedVariations = variations.map<VariationWithIndex>((v, i) => ({
@@ -27,7 +29,7 @@ export default function VariationChooser({
   const filteredVariations = validVariations.filter(
     (v) => !variationFilter.includes(v.index)
   );
-  const requiresDropdown = validVariations.length > 1;
+  const requiresDropdown = validVariations.length > 1 && dropdownEnabled;
 
   let title = (
     <div className="d-inline-block">
