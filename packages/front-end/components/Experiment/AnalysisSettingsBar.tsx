@@ -148,7 +148,10 @@ export default function AnalysisSettingsBar({
                 />
               </div>
             )}
-          {newUi && setVariationFilter && setBaselineRow ? (
+          {newUi &&
+          setVariationFilter &&
+          setBaselineRow &&
+          !snapshot?.dimension ? (
             <>
               <div className="col-auto form-inline pr-5">
                 <VariationChooser
