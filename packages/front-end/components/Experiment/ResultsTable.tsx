@@ -118,7 +118,6 @@ export default function ResultsTable({
   const pValueThreshold = usePValueThreshold();
   const displayCurrency = useCurrency();
   const orgSettings = useOrgSettings();
-  const domain = useDomain(variations, rows);
 
   const tableContainerRef = useRef<HTMLDivElement | null>(null);
   const [graphCellWidth, setGraphCellWidth] = useState(800);
@@ -155,10 +154,10 @@ export default function ResultsTable({
       });
   }, [variations, baselineRow]);
 
-  const filteredVariations = orderedVariations.filter(
-    (_, i) => !variationFilter?.includes(i)
-  );
+  const filteredVariations = orderedVariations.filter(v => !variationFilter?.includes(v.index));
   const compactResults = filteredVariations.length <= 2;
+
+  const domain = useDomain(filteredVariations, rows);
 
   const rowsResults: (RowResults | "query error" | null)[][] = useMemo(() => {
     const rr: (RowResults | "query error" | null)[][] = [];

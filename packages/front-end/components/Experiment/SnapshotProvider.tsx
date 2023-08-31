@@ -23,6 +23,7 @@ const snapshotContext = React.createContext<{
   setAnalysisSettings: (
     analysisSettings: ExperimentSnapshotAnalysisSettings | null
   ) => void;
+  loading?: boolean;
   error?: Error;
 }>({
   phase: 0,
@@ -51,7 +52,7 @@ export default function SnapshotProvider({
   const [phase, setPhase] = useState(experiment.phases?.length - 1 || 0);
   const [dimension, setDimension] = useState("");
 
-  const { data, error, mutate } = useApi<{
+  const { data, error, isValidating, mutate } = useApi<{
     snapshot: ExperimentSnapshotInterface;
     latest?: ExperimentSnapshotInterface;
   }>(
@@ -85,6 +86,7 @@ export default function SnapshotProvider({
         setDimension,
         setAnalysisSettings,
         error,
+        loading: isValidating,
       }}
     >
       {children}

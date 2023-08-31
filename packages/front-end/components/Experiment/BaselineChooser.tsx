@@ -1,37 +1,65 @@
-import {
-  ExperimentReportVariation,
-  ExperimentReportVariationWithIndex,
-} from "back-end/types/report";
+import { Variation, VariationWithIndex } from "back-end/types/experiment";
 import clsx from "clsx";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { FaCheck } from "react-icons/fa";
+import {
+  ExperimentSnapshotAnalysis,
+  ExperimentSnapshotAnalysisSettings,
+  ExperimentSnapshotInterface,
+} from "back-end/types/experiment-snapshot";
+import { getSnapshotAnalysis } from "shared/util";
 import Dropdown from "@/components/Dropdown/Dropdown";
+import { useAuth } from "@/services/auth";
+import track from "@/services/track";
+import LoadingSpinner from "@/components/LoadingSpinner";
 
 export interface Props {
-  variations: ExperimentReportVariation[];
+  variations: Variation[];
   variationFilter: number[];
   setVariationFilter: (variationFilter: number[]) => void;
   baselineRow: number;
   setBaselineRow: (baselineRow: number) => void;
+  snapshot?: ExperimentSnapshotInterface;
+  analysis?: ExperimentSnapshotAnalysis;
+  setAnalysisSettings: (
+    settings: ExperimentSnapshotAnalysisSettings | null
+  ) => void;
+  loading: boolean;
+  mutate: () => void;
 }
 
 export default function BaselineChooser({
   variations,
-  // variationFilter,
-  // setVariationFilter,
+  variationFilter,
+  setVariationFilter,
   baselineRow,
   setBaselineRow,
+  snapshot,
+  analysis,
+  setAnalysisSettings,
+  loading,
+  mutate,
 }: Props) {
+  const { apiCall } = useAuth();
+
+  const [postLoading, setPostLoading] = useState(false);
   const [open, setOpen] = useState(false);
-  const indexedVariations = variations.map<ExperimentReportVariationWithIndex>(
-    (v, i) => ({ ...v, index: i })
-  );
+  const [desiredBaselineRow, setDesiredBaselineRow] = useState(baselineRow);
+
+  useEffect(() => {
+    setDesiredBaselineRow(baselineRow);
+  }, [baselineRow]);
+
+  const indexedVariations = variations.map<VariationWithIndex>((v, i) => ({
+    ...v,
+    index: i,
+  }));
   const baselineVariation =
-    indexedVariations.find((v) => v.index === baselineRow) ??
+    indexedVariations.find((v) => v.index === desiredBaselineRow) ??
     indexedVariations[0];
 
   // baseline selection is still WIP:
-  const dropdownEnabled = false;
+  const dropdownEnabled = true;
 
   const title = (
     <div className="d-inline-flex align-items-center">
@@ -49,6 +77,9 @@ export default function BaselineChooser({
         >
           {baselineVariation.name}
         </span>
+        {((loading && baselineRow > 0) || postLoading) && (
+          <LoadingSpinner className="ml-1" />
+        )}
       </div>
     </div>
   );
@@ -72,8 +103,59 @@ export default function BaselineChooser({
         setOpen={(b: boolean) => setOpen(b)}
       >
         {indexedVariations.map((variation) => {
-          const selectVariation = () => {
-            setBaselineRow(variation.index);
+          const selectVariation = async () => {
+            if (!analysis || !snapshot) return;
+
+            setDesiredBaselineRow(variation.index);
+
+            const oldBaselineRow = baselineRow;
+            const oldVariationFilter = [...variationFilter];
+            const oldAnalysisSettings = { ...analysis.settings };
+            const newSettings: ExperimentSnapshotAnalysisSettings = {
+              ...analysis.settings,
+              baselineVariationIndex: variation.index,
+            };
+
+            if (!analysis || !snapshot) return;
+
+            const resetFilters = () => {
+              setDesiredBaselineRow(oldBaselineRow);
+              setBaselineRow(oldBaselineRow);
+              setVariationFilter(oldVariationFilter);
+              setAnalysisSettings(oldAnalysisSettings);
+              mutate();
+            };
+
+            if (!getSnapshotAnalysis(snapshot, newSettings)) {
+              setPostLoading(true);
+              await apiCall(`/snapshot/${snapshot.id}/analysis`, {
+                method: "POST",
+                body: JSON.stringify({
+                  analysisSettings: newSettings,
+                }),
+              })
+                .then((resp) => {
+                  // @ts-expect-error the resp should have a status
+                  if (resp?.status !== 200) {
+                    resetFilters();
+                    return;
+                  }
+                  setBaselineRow(variation.index);
+                  setVariationFilter([]);
+                  setAnalysisSettings(newSettings);
+                  track("Experiment Analysis: switch baseline");
+                })
+                .catch((e) => {
+                  console.error(e);
+                  resetFilters();
+                });
+              setPostLoading(false);
+            } else {
+              setBaselineRow(variation.index);
+              setAnalysisSettings(newSettings);
+              setVariationFilter([]);
+            }
+            mutate();
           };
 
           return (

@@ -1,13 +1,13 @@
-import {
-  ExperimentReportVariation,
-  ExperimentReportVariationWithIndex,
-} from "back-end/types/report";
 import clsx from "clsx";
 import { useState } from "react";
 import Dropdown from "@/components/Dropdown/Dropdown";
+import {
+  Variation,
+  VariationWithIndex,
+} from "back-end/types/experiment";
 
 export interface Props {
-  variations: ExperimentReportVariation[];
+  variations: Variation[];
   variationFilter: number[];
   setVariationFilter: (variationFilter: number[]) => void;
   baselineRow: number;
@@ -20,7 +20,7 @@ export default function VariationChooser({
   baselineRow,
 }: Props) {
   const [open, setOpen] = useState(false);
-  const indexedVariations = variations.map<ExperimentReportVariationWithIndex>(
+  const indexedVariations = variations.map<VariationWithIndex>(
     (v, i) => ({ ...v, index: i })
   );
   const validVariations = indexedVariations.filter(

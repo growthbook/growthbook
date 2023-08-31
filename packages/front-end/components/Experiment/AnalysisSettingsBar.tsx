@@ -54,7 +54,6 @@ export default function AnalysisSettingsBar({
   metricRegressionAdjustmentStatuses,
   onRegressionAdjustmentChange,
   newUi = false,
-  showCompactResults = false, // todo: remove once all results types support the new filters
   showMoreMenu = true,
   variationFilter,
   setVariationFilter,
@@ -76,7 +75,6 @@ export default function AnalysisSettingsBar({
   metricRegressionAdjustmentStatuses?: MetricRegressionAdjustmentStatus[];
   onRegressionAdjustmentChange?: (enabled: boolean) => void;
   newUi?: boolean;
-  showCompactResults?: boolean;
   showMoreMenu?: boolean;
   variationFilter?: number[];
   setVariationFilter?: (variationFilter: number[]) => void;
@@ -92,6 +90,7 @@ export default function AnalysisSettingsBar({
     mutateSnapshot: mutate,
     phase,
     setDimension,
+    loading,
   } = useSnapshot();
   const { getDatasourceById } = useDefinitions();
   const orgSettings = useOrgSettings();
@@ -149,14 +148,11 @@ export default function AnalysisSettingsBar({
                 />
               </div>
             )}
-          {newUi &&
-          showCompactResults &&
-          setVariationFilter &&
-          setBaselineRow ? (
+          {newUi && setVariationFilter && setBaselineRow ? (
             <>
               <div className="col-auto form-inline pr-5">
                 <VariationChooser
-                  variations={variations}
+                  variations={experiment.variations}
                   variationFilter={variationFilter ?? []}
                   setVariationFilter={setVariationFilter}
                   baselineRow={baselineRow ?? 0}
@@ -165,11 +161,16 @@ export default function AnalysisSettingsBar({
                   vs
                 </em>
                 <BaselineChooser
-                  variations={variations}
+                  variations={experiment.variations}
                   variationFilter={variationFilter ?? []}
                   setVariationFilter={setVariationFilter}
                   baselineRow={baselineRow ?? 0}
                   setBaselineRow={setBaselineRow}
+                  snapshot={snapshot}
+                  analysis={analysis}
+                  setAnalysisSettings={setAnalysisSettings}
+                  loading={loading}
+                  mutate={mutate}
                 />
               </div>
             </>
@@ -354,6 +355,10 @@ export default function AnalysisSettingsBar({
                       model={latest}
                       icon="refresh"
                       color="outline-primary"
+                      onSubmit={() => {
+                        setBaselineRow?.(0);
+                        setVariationFilter?.([]);
+                      }}
                     />
                   </form>
                 ) : (
@@ -368,6 +373,10 @@ export default function AnalysisSettingsBar({
                     metricRegressionAdjustmentStatuses={
                       metricRegressionAdjustmentStatuses
                     }
+                    onSubmit={() => {
+                      setBaselineRow?.(0);
+                      setVariationFilter?.([]);
+                    }}
                   />
                 )}
               </div>
