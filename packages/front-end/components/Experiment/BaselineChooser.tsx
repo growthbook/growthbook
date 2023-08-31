@@ -155,6 +155,7 @@ export default function BaselineChooser({
           {baselineVariation.name}
         </span>
         {((loading &&
+          dropdownEnabled &&
           baselineRow !== analysis?.settings?.baselineVariationIndex) ||
           postLoading) && <LoadingSpinner className="ml-1" />}
       </div>
