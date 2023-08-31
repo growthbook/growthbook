@@ -7,6 +7,7 @@ import { getValidDate } from "shared/dates";
 import { getAffectedEnvsForExperiment } from "shared/util";
 import { getScopedSettings } from "shared/settings";
 import { orgHasPremiumFeature } from "enterprise";
+import { v4 as uuidv4 } from "uuid";
 import { AuthRequest, ResponseWithStatusAndError } from "../types/AuthRequest";
 import {
   createManualSnapshot,
@@ -84,6 +85,10 @@ import { EventAuditUserForResponseLocals } from "../events/event-types";
 import { findProjectById } from "../models/ProjectModel";
 import { ExperimentResultsQueryRunner } from "../queryRunners/ExperimentResultsQueryRunner";
 import { PastExperimentsQueryRunner } from "../queryRunners/PastExperimentsQueryRunner";
+import {
+  createUserVisualEditorApiKey,
+  getVisualEditorApiKey,
+} from "../models/ApiKeyModel";
 import { getExperimentWatchers, upsertWatch } from "../models/WatchModel";
 
 export async function getExperiments(
@@ -470,7 +475,7 @@ const validateVariationIds = (variations: Variation[]) => {
  */
 export async function postExperiments(
   req: AuthRequest<
-    Partial<ExperimentInterface>,
+    Partial<ExperimentInterfaceStringDates>,
     unknown,
     { allowDuplicateTrackingKey?: boolean }
   >,
@@ -541,7 +546,15 @@ export async function postExperiments(
     exposureQueryId: data.exposureQueryId || "",
     userIdType: data.userIdType || "anonymous",
     name: data.name || "",
-    phases: data.phases || [],
+    phases: data.phases
+      ? data.phases.map(({ dateStarted, dateEnded, ...phase }) => {
+          return {
+            ...phase,
+            dateStarted: dateStarted ? getValidDate(dateStarted) : new Date(),
+            dateEnded: dateEnded ? getValidDate(dateEnded) : undefined,
+          };
+        })
+      : [],
     tags: data.tags || [],
     description: data.description || "",
     hypothesis: data.hypothesis || "",
@@ -1318,6 +1331,8 @@ export async function postExperimentTargeting(
     trackingKey,
     variationWeights,
     seed,
+    newPhase,
+    reseed,
   } = req.body;
 
   const changes: Changeset = {};
@@ -1342,8 +1357,8 @@ export async function postExperimentTargeting(
 
   const phases = [...experiment.phases];
 
-  // Already has phases
-  if (phases.length) {
+  // Already has phases and we're updating an existing phase
+  if (phases.length && !newPhase) {
     phases[phases.length - 1] = {
       ...phases[phases.length - 1],
       condition,
@@ -1353,6 +1368,11 @@ export async function postExperimentTargeting(
       seed,
     };
   } else {
+    // If we had a previous phase, mark it as ended
+    if (phases.length) {
+      phases[phases.length - 1].dateEnded = new Date();
+    }
+
     phases.push({
       condition,
       coverage,
@@ -1361,7 +1381,7 @@ export async function postExperimentTargeting(
       namespace,
       reason: "",
       variationWeights,
-      seed,
+      seed: phases.length && reseed ? uuidv4() : seed,
     });
   }
   changes.phases = phases;
@@ -2252,5 +2272,29 @@ export async function deleteVisualChangeset(
 
   res.status(200).json({
     status: 200,
+  });
+}
+
+export async function findOrCreateVisualEditorToken(
+  req: AuthRequest,
+  res: Response
+) {
+  const { org } = getOrgFromReq(req);
+
+  if (!req.userId) throw new Error("No user found");
+
+  let visualEditorKey = await getVisualEditorApiKey(org.id, req.userId);
+
+  // if not exist, create one
+  if (!visualEditorKey) {
+    visualEditorKey = await createUserVisualEditorApiKey({
+      userId: req.userId,
+      organizationId: org.id,
+      description: `Created automatically for the Visual Editor`,
+    });
+  }
+
+  res.status(200).json({
+    key: visualEditorKey.key,
   });
 }

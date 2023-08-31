@@ -1536,9 +1536,12 @@ paths:
                 type: object
                 required:
                   - nModified
+                  - visualChangeset
                 properties:
                   nModified:
                     type: number
+                  visualChangeset:
+                    $ref: '#/components/schemas/VisualChangeset'
   '/visual-changesets/{id}/visual-change':
     parameters:
       - $ref: '#/components/parameters/id'

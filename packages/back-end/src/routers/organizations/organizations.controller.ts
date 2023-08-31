@@ -16,6 +16,7 @@ import {
   acceptInvite,
   addMemberToOrg,
   addPendingMemberToOrg,
+  expandOrgMembers,
   findVerifiedOrgForNewUser,
   getInviteUrl,
   getOrgFromReq,
@@ -29,10 +30,9 @@ import {
   getNonSensitiveParams,
   getSourceIntegrationObject,
 } from "../../services/datasource";
-import { getUsersByIds, updatePassword } from "../../services/users";
+import { updatePassword } from "../../services/users";
 import { getAllTags } from "../../models/TagModel";
 import {
-  ExpandedMember,
   Invite,
   MemberRole,
   MemberRoleWithProjects,
@@ -86,7 +86,11 @@ import {
   getFirstPublishableApiKey,
   getUnredactedSecretKey,
 } from "../../models/ApiKeyModel";
-import { getDefaultRole, getRoles } from "../../util/organization.util";
+import {
+  getDefaultRole,
+  getRoles,
+  getUserPermissions,
+} from "../../util/organization.util";
 import { deleteUser, findUserById, getAllUsers } from "../../models/UserModel";
 import {
   getAllExperiments,
@@ -573,7 +577,7 @@ export async function getOrganization(req: AuthRequest, res: Response) {
     });
   }
 
-  const { org } = getOrgFromReq(req);
+  const { org, userId } = getOrgFromReq(req);
   const {
     invites,
     members,
@@ -609,20 +613,9 @@ export async function getOrganization(req: AuthRequest, res: Response) {
     ? getSSOConnectionSummary(req.loginMethod)
     : null;
 
-  // Add email/name to the organization members array
-  const userInfo = await getUsersByIds(members.map((m) => m.id));
-  const expandedMembers: ExpandedMember[] = [];
-  userInfo.forEach(({ id, email, verified, name, _id }) => {
-    const memberInfo = members.find((m) => m.id === id);
-    if (!memberInfo) return;
-    expandedMembers.push({
-      email,
-      verified,
-      name: name || "",
-      ...memberInfo,
-      dateCreated: memberInfo.dateCreated || _id.getTimestamp(),
-    });
-  });
+  const expandedMembers = await expandOrgMembers(members);
+
+  const currentUserPermissions = getUserPermissions(userId, org);
 
   return res.status(200).json({
     status: 200,
@@ -634,6 +627,7 @@ export async function getOrganization(req: AuthRequest, res: Response) {
       : [...accountFeatures[getAccountPlan(org)]],
     roles: getRoles(org),
     members: expandedMembers,
+    currentUserPermissions,
     organization: {
       invites,
       ownerEmail,
@@ -1508,7 +1502,7 @@ export async function getOrphanedUsers(req: AuthRequest, res: Response) {
   }
 
   const allUsers = await getAllUsers();
-  const allOrgs = await findAllOrganizations();
+  const { organizations: allOrgs } = await findAllOrganizations(1, "");
 
   const membersInOrgs = new Set<string>();
   allOrgs.forEach((org) => {

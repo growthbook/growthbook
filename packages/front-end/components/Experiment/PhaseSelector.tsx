@@ -7,12 +7,14 @@ export interface Props {
   mutateExperiment?: () => void;
   editPhases?: () => void;
   newUi?: boolean;
+  header?: string | JSX.Element;
 }
 
 export default function PhaseSelector({
   mutateExperiment,
   editPhases,
   newUi,
+  header,
 }: Props) {
   const { phase, setPhase, experiment } = useSnapshot();
 
@@ -54,7 +56,7 @@ export default function PhaseSelector({
         setPhase(parseInt(value) || 0);
       }}
       sort={false}
-      label={newUi ? undefined : "Phase"}
+      label={header !== undefined ? header : newUi ? undefined : "Phase"}
       labelClassName="mr-2"
       className={newUi ? "phase-selector-clean" : undefined}
       isSearchable={false}

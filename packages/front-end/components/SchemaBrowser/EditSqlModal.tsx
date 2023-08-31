@@ -28,7 +28,11 @@ export interface Props {
   close: () => void;
   requiredColumns: Set<string>;
   placeholder?: string;
-  validateResponse?: (response: TestQueryResults) => void;
+  validateResponseOverride?: (response: TestQueryRow) => void;
+  templateVariables?: {
+    eventName?: string;
+    valueColumn?: string;
+  };
 }
 
 export default function EditSqlModal({
@@ -38,7 +42,8 @@ export default function EditSqlModal({
   requiredColumns,
   placeholder = "",
   datasourceId,
-  validateResponse,
+  validateResponseOverride,
+  templateVariables,
 }: Props) {
   const [
     testQueryResults,
@@ -57,6 +62,21 @@ export default function EditSqlModal({
   const [cursorData, setCursorData] = useState<null | CursorData>(null);
   const [testingQuery, setTestingQuery] = useState(false);
 
+  const validateRequiredColumns = (result: TestQueryRow) => {
+    if (!result) return;
+
+    const requiredColumnsArray = Array.from(requiredColumns);
+    const missingColumns = requiredColumnsArray.filter(
+      (col) => !((col as string) in result)
+    );
+
+    if (missingColumns.length > 0) {
+      throw new Error(
+        `You are missing the following columns: ${missingColumns.join(", ")}`
+      );
+    }
+  };
+
   const runTestQuery = async (sql: string) => {
     validateSQL(sql, []);
     setTestQueryResults(null);
@@ -65,11 +85,16 @@ export default function EditSqlModal({
       body: JSON.stringify({
         query: sql,
         datasourceId: datasourceId,
+        templateVariables: templateVariables,
       }),
     });
 
-    if (res.results?.length && validateResponse) {
-      validateResponse(res.results[0]);
+    if (res.results?.length) {
+      if (validateResponseOverride) {
+        validateResponseOverride(res.results[0]);
+      } else {
+        validateRequiredColumns(res.results[0]);
+      }
     }
 
     return res;
@@ -86,6 +111,7 @@ export default function EditSqlModal({
     }
     setTestingQuery(false);
   };
+
   const datasource = getDatasourceById(datasourceId);
   const supportsSchemaBrowser =
     datasource?.properties?.supportsInformationSchema;

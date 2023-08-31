@@ -11,13 +11,13 @@ import { ReactElement, useState } from "react";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import Link from "next/link";
 import { FaExternalLinkAlt } from "react-icons/fa";
+import { validateFeatureValue } from "shared/util";
 import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import track from "@/services/track";
 import {
   getDefaultValue,
-  validateFeatureValue,
   useEnvironments,
   getDefaultVariationValue,
   validateFeatureRule,

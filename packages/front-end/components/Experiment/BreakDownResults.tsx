@@ -14,8 +14,8 @@ import {
   ExperimentTableRow,
   useRiskVariation,
 } from "@/services/experiments";
+import ResultsTable_old from "@/components/Experiment/ResultsTable_old";
 import Toggle from "../Forms/Toggle";
-import ResultsTable from "./ResultsTable";
 import UsersTable from "./UsersTable";
 
 const FULL_STATS_LIMIT = 5;
@@ -174,7 +174,7 @@ const BreakDownResults: FC<{
           </div>
 
           <div className="experiment-compact-holder">
-            <ResultsTable
+            <ResultsTable_old
               dateCreated={reportDate}
               isLatestPhase={isLatestPhase}
               startDate={startDate}

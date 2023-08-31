@@ -17,6 +17,7 @@ import ViewAsyncQueriesButton from "@/components/Queries/ViewAsyncQueriesButton"
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { trackReport } from "@/services/track";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import PhaseSelector from "@/components/Experiment/PhaseSelector";
 
 export default function ResultMoreMenu({
   editMetrics,
@@ -36,6 +37,8 @@ export default function ResultMoreMenu({
   trackingKey,
   dimension,
   project,
+  showPhaseSelector = false,
+  mutateExperiment,
 }: {
   editMetrics?: () => void;
   configure: () => void;
@@ -54,6 +57,8 @@ export default function ResultMoreMenu({
   trackingKey?: string;
   dimension?: string;
   project?: string;
+  showPhaseSelector?: boolean;
+  mutateExperiment?: () => void;
 }) {
   const { apiCall } = useAuth();
   const router = useRouter();
@@ -66,7 +71,7 @@ export default function ResultMoreMenu({
     hasData && supportsNotebooks && notebookUrl && notebookFilename;
 
   return (
-    <MoreMenu>
+    <MoreMenu autoCloseOnClick={false}>
       {canEdit && (
         <button
           className="btn dropdown-item py-2"
@@ -180,6 +185,20 @@ export default function ResultMoreMenu({
           trackingKey={trackingKey || ""}
           dimension={dimension || ""}
         />
+      )}
+      {showPhaseSelector && (
+        <>
+          <hr />
+          <div
+            className="d-flex align-items-center ml-3 mr-2"
+            style={{ width: 250 }}
+          >
+            <PhaseSelector
+              header="Change Phase"
+              mutateExperiment={mutateExperiment}
+            />
+          </div>
+        </>
       )}
     </MoreMenu>
   );

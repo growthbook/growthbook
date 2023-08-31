@@ -16,6 +16,19 @@ export type Permission =
   | EnvScopedPermission
   | ProjectScopedPermission;
 
+export type PermissionsObject = Partial<Record<Permission, boolean>>;
+
+export type UserPermission = {
+  environments: string[];
+  limitAccessByEnvironment: boolean;
+  permissions: PermissionsObject;
+};
+
+export type UserPermissions = {
+  global: UserPermission;
+  projects: { [key: string]: UserPermission };
+};
+
 export type MemberRole =
   | "readonly"
   | "collaborator"
@@ -36,6 +49,7 @@ export interface MemberRoleInfo {
   role: MemberRole;
   limitAccessByEnvironment: boolean;
   environments: string[];
+  teams?: string[];
 }
 
 export interface ProjectMemberRole extends MemberRoleInfo {
