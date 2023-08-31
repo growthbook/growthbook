@@ -116,6 +116,7 @@ export default function DimensionChooser({
         initialOption="None"
         value={value}
         onChange={(v) => {
+          if (v === value) return;
           setBaselineRow?.(0);
           setVariationFilter?.([]);
           setValue(v);
