@@ -182,8 +182,12 @@ export default function BaselineChooser({
       >
         {indexedVariations.map((variation) => {
           const clickVariation = () => {
-            if (!snapshot) return;
             setDesiredBaselineRow(variation.index);
+            if (!snapshot) {
+              setBaselineRow(variation.index);
+              setVariationFilter([]);
+              return;
+            }
             if (!analysis) return;
 
             const newSettings: ExperimentSnapshotAnalysisSettings = {
