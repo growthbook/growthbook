@@ -130,6 +130,7 @@ export default function DimensionChooser({
           if (analysis?.settings) {
             const newSettings: ExperimentSnapshotAnalysisSettings = {
               ...analysis.settings,
+              dimensions: v ? [v] : [],
               baselineVariationIndex: 0,
             };
             setAnalysisSettings(newSettings);
