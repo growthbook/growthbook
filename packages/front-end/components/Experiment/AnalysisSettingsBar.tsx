@@ -185,6 +185,8 @@ export default function AnalysisSettingsBar({
               exposureQueryId={experiment.exposureQueryId}
               userIdType={experiment.userIdType}
               labelClassName="mr-2"
+              setVariationFilter={setVariationFilter}
+              setBaselineRow={setBaselineRow}
               newUi={newUi}
             />
           </div>

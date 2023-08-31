@@ -13,6 +13,8 @@ export interface Props {
   labelClassName?: string;
   showHelp?: boolean;
   newUi?: boolean;
+  setVariationFilter?: (variationFilter: number[]) => void;
+  setBaselineRow?: (baselineRow: number) => void;
 }
 
 export default function DimensionChooser({
@@ -25,6 +27,8 @@ export default function DimensionChooser({
   labelClassName,
   showHelp,
   newUi = false,
+  setVariationFilter,
+  setBaselineRow,
 }: Props) {
   const { dimensions, getDatasourceById } = useDefinitions();
   const datasource = datasourceId ? getDatasourceById(datasourceId) : null;
@@ -111,7 +115,11 @@ export default function DimensionChooser({
         ]}
         initialOption="None"
         value={value}
-        onChange={setValue}
+        onChange={(v) => {
+          setBaselineRow?.(0);
+          setVariationFilter?.([]);
+          setValue(v);
+        }}
         helpText={
           showHelp ? "Break down results for each metric by a dimension" : ""
         }
