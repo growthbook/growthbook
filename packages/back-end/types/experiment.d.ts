@@ -32,6 +32,9 @@ export interface Variation {
   key: string;
   screenshots: Screenshot[];
 }
+export interface VariationWithIndex extends Variation {
+  index: number;
+}
 
 export interface LegacyExperimentPhase extends ExperimentPhase {
   /** @deprecated */

@@ -3,6 +3,7 @@ import {
   Queries,
   QueryInterface,
   QueryPointer,
+  QueryStatistics,
   QueryStatus,
 } from "../../types/query";
 import {
@@ -33,6 +34,26 @@ export type QueryStatusEndpointResponse = {
 };
 
 const FINISH_EVENT = "finish";
+
+export async function getQueryMap(
+  organization: string,
+  queries: Queries
+): Promise<QueryMap> {
+  const queryDocs = await getQueriesByIds(
+    organization,
+    queries.map((q) => q.query)
+  );
+
+  const map: QueryMap = new Map();
+  queries.forEach((q) => {
+    const query = queryDocs.find((doc) => doc.id === q.query);
+    if (query) {
+      map.set(q.name, query);
+    }
+  });
+
+  return map;
+}
 
 export abstract class QueryRunner<
   Model extends InterfaceWithQueries,
@@ -92,20 +113,7 @@ export abstract class QueryRunner<
   }
 
   private async getQueryMap(pointers: Queries): Promise<QueryMap> {
-    const queryDocs = await getQueriesByIds(
-      this.model.organization,
-      pointers.map((q) => q.query)
-    );
-
-    const map: QueryMap = new Map();
-    pointers.forEach((q) => {
-      const query = queryDocs.find((doc) => doc.id === q.query);
-      if (query) {
-        map.set(q.name, query);
-      }
-    });
-
-    return map;
+    return getQueryMap(this.model.organization, pointers);
   }
 
   public async startAnalysis(params: Params): Promise<Model> {
@@ -264,7 +272,9 @@ export abstract class QueryRunner<
   >(
     name: string,
     query: string,
-    run: (query: string) => Promise<Rows>,
+    run: (
+      query: string
+    ) => Promise<{ statistics?: QueryStatistics; rows: Rows }>,
     process: (rows: Rows) => ProcessedRows
   ): Promise<QueryPointer> {
     logger.debug("Running query: " + name);
@@ -342,7 +352,7 @@ export abstract class QueryRunner<
     // Run the query in the background
     logger.debug("Start executing query in background");
     run(query)
-      .then(async (rows) => {
+      .then(async ({ statistics, rows }) => {
         clearInterval(timer);
         logger.debug("Query succeeded");
         await updateQuery(doc, {
@@ -350,6 +360,7 @@ export abstract class QueryRunner<
           status: "succeeded",
           rawResult: rows,
           result: process(rows),
+          statistics: statistics,
         });
         this.onQueryFinish();
       })

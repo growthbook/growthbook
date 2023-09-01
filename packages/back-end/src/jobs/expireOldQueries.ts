@@ -32,7 +32,9 @@ export default async function (agenda: Agenda) {
     const queryIds = new Set(queries.map((q) => q.id));
     const orgIds = new Set(queries.map((q) => q.organization));
 
-    logger.info("Found " + queryIds.size + " stale queries");
+    if (queryIds.size > 0) {
+      logger.info("Found " + queryIds.size + " stale queries");
+    }
 
     // Look for matching snapshots and update the status
     const snapshots = await findRunningSnapshotsByQueryId([...queryIds]);

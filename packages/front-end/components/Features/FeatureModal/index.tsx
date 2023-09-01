@@ -5,20 +5,22 @@ import {
   FeatureValueType,
 } from "back-end/types/feature";
 import dJSON from "dirty-json";
-import { ReactElement, useState } from "react";
+
+import React, { ReactElement, useState } from "react";
 import { validateFeatureValue } from "shared/util";
 import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import track from "@/services/track";
 import {
+  genDuplicatedKey,
   getDefaultValue,
   useEnvironments,
-  genDuplicatedKey,
 } from "@/services/features";
 import { useWatching } from "@/services/WatchProvider";
 import usePermissions from "@/hooks/usePermissions";
 import MarkdownInput from "@/components/Markdown/MarkdownInput";
+import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
 import FeatureValueField from "../FeatureValueField";
 import FeatureKeyField from "./FeatureKeyField";
 import EnvironmentSelect from "./EnvironmentSelect";
@@ -171,6 +173,9 @@ export default function FeatureModal({
       "You don't have permission to create feature flag drafts.";
   }
 
+  // We want to show a warning when someone tries to create a feature under the demo project
+  const { currentProjectIsDemo } = useDemoDataSourceProject();
+
   return (
     <Modal
       open
@@ -226,6 +231,12 @@ export default function FeatureModal({
         await onSuccess(res.feature);
       })}
     >
+      {currentProjectIsDemo && (
+        <div className="alert alert-warning">
+          You are creating a feature under the demo datasource project.
+        </div>
+      )}
+
       <FeatureKeyField keyField={form.register("id")} />
 
       {showTags ? (
@@ -289,9 +300,9 @@ export default function FeatureModal({
         }}
       />
 
-      {/* 
-          We hide rule configuration when duplicating a feature since the 
-          decision of which rule to display (out of potentially many) in the 
+      {/*
+          We hide rule configuration when duplicating a feature since the
+          decision of which rule to display (out of potentially many) in the
           modal is not deterministic.
       */}
       {!featureToDuplicate && (

@@ -270,12 +270,13 @@ def analyze_metric_df(
 
 # Convert final experiment results to a structure that can be easily
 # serialized and used to display results in the GrowthBook front-end
-def format_results(df):
+def format_results(df, baseline_index=0):
     num_variations = df.at[0, "variations"]
     results = []
     rows = df.to_dict("records")
     for row in rows:
         dim = {"dimension": row["dimension"], "srm": row["srm_p"], "variations": []}
+        variation_data = []
         for v in range(num_variations):
             prefix = f"v{v}" if v > 0 else "baseline"
             stats = {
@@ -285,17 +286,15 @@ def format_results(df):
                 "mean": row[f"{prefix}_mean"],
             }
             if v == 0:
-                dim["variations"].append(
-                    {
-                        "cr": row[f"{prefix}_cr"],
-                        "value": row[f"{prefix}_main_sum"],
-                        "users": row[f"{prefix}_users"],
-                        "denominator": row[f"{prefix}_denominator_sum"],
-                        "stats": stats,
-                    }
-                )
+                baseline_data = {
+                    "cr": row[f"{prefix}_cr"],
+                    "value": row[f"{prefix}_main_sum"],
+                    "users": row[f"{prefix}_users"],
+                    "denominator": row[f"{prefix}_denominator_sum"],
+                    "stats": stats,
+                }
             else:
-                dim["variations"].append(
+                variation_data.append(
                     {
                         "cr": row[f"{prefix}_cr"],
                         "value": row[f"{prefix}_main_sum"],
@@ -310,6 +309,8 @@ def format_results(df):
                         "stats": stats,
                     }
                 )
+        variation_data.insert(baseline_index, baseline_data)
+        dim["variations"] = variation_data
         results.append(dim)
     return results
 

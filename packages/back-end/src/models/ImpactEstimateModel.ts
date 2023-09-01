@@ -95,7 +95,7 @@ export async function getImpactEstimate(
   });
 
   const queryResponse = await integration.runMetricValueQuery(query);
-  const value = processMetricValueQueryResponse(queryResponse);
+  const value = processMetricValueQueryResponse(queryResponse.rows);
 
   let daysWithData = numDays;
   if (value.dates && value.dates.length > 0) {

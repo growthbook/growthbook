@@ -16,7 +16,12 @@ SSO is available as part of our Enterprise plan.
 SSO is available on GrowthBook Cloud or Self-hosted via OpenID Connect. If you are using the Cloud, your account
 representative will help you get this setup, though the steps are mostly the same. To enable SSO on your self hosted GrowthBook
 instance, you will need an active license key and then you may add the SSO settings for your provider. If your provider
-is not listed below, you can use the generic Open ID Connect. The JSON object with the settings will need to be
+is not listed below, you can use the generic Open ID Connect.
+
+For GrowthBook Cloud, you will need to send your account representative the following: **CLIENT_ID**, **CLIENT_SECRET**,
+**EMAIL_DOMAIN**, what provider you're using, and for some providers, the **TENANT_ID**. You can use the instructions below to get these values.
+
+If you are self-hosting, you can use the instructions below to create a JSON object with the settings, then it should be
 JSON encoded and then set to the environment variable `SSO_CONFIG`.
 
 ## Generic Open ID Connect

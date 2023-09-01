@@ -3,6 +3,7 @@ import React, { FC, useCallback, useState } from "react";
 import { PastExperimentsInterface } from "back-end/types/past-experiments";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { getValidDate, ago, date, datetime, daysBetween } from "shared/dates";
+import { isProjectListValidForProject } from "shared/util";
 import { useAddComputedFields, useSearch } from "@/services/search";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useAuth } from "@/services/auth";
@@ -41,7 +42,7 @@ const ImportExperimentList: FC<{
     ? getDatasourceById(data?.experiments?.datasource)
     : null;
 
-  const status = getQueryStatus(
+  const { status } = getQueryStatus(
     data?.experiments?.queries || [],
     data?.experiments?.error
   );
@@ -120,9 +121,13 @@ const ImportExperimentList: FC<{
     return <LoadingOverlay />;
   }
 
-  const supportedDatasources = datasources.filter(
-    (d) => d?.properties?.pastExperiments
-  );
+  const supportedDatasources = datasources
+    .filter((d) => d?.properties?.pastExperiments)
+    .filter(
+      (d) =>
+        d.id === data?.experiments?.datasource ||
+        isProjectListValidForProject(d.projects, project)
+    );
 
   function clearFilters() {
     setAlreadyImportedFilter(false);

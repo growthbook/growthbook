@@ -2,6 +2,7 @@ import { FC, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { DimensionInterface } from "back-end/types/dimension";
 import { FaExternalLinkAlt } from "react-icons/fa";
+import { isProjectListValidForProject } from "shared/util";
 import { validateSQL } from "@/services/datasources";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -22,14 +23,22 @@ const DimensionForm: FC<{
     getDatasourceById,
     datasources,
     mutateDefinitions,
+    project,
   } = useDefinitions();
+
+  const validDatasources = datasources.filter(
+    (d) =>
+      d.id === current.datasource ||
+      isProjectListValidForProject(d.projects, project)
+  );
 
   const form = useForm({
     defaultValues: {
       name: current.name || "",
       sql: current.sql || "",
       description: current.description || "",
-      datasource: (current.id ? current.datasource : datasources[0]?.id) || "",
+      datasource:
+        (current.id ? current.datasource : validDatasources[0]?.id) || "",
       userIdType: current.userIdType || "user_id",
       owner: current.owner || "",
     },
@@ -96,7 +105,7 @@ const DimensionForm: FC<{
           value={form.watch("datasource")}
           onChange={(v) => form.setValue("datasource", v)}
           placeholder="Choose one..."
-          options={datasources.map((d) => ({
+          options={validDatasources.map((d) => ({
             value: d.id,
             label: `${d.name}${d.description ? ` — ${d.description}` : ""}`,
           }))}

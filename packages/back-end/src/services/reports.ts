@@ -130,7 +130,7 @@ export function getSnapshotSettingsFromReportArgs(
       weight: v.weight,
     })),
   };
-
+  // TODO: add baselineVariation here
   const analysisSettings: ExperimentSnapshotAnalysisSettings = {
     dimensions: args.dimension ? [args.dimension] : [],
     statsEngine: args.statsEngine || DEFAULT_STATS_ENGINE,
