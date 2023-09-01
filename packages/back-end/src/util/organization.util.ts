@@ -8,6 +8,7 @@ import {
   Role,
   UserPermissions,
 } from "../../types/organization";
+import { findTeamById } from "../models/TeamModel";
 
 export const ENV_SCOPED_PERMISSIONS = [
   "publishFeatures",
@@ -68,10 +69,10 @@ export function roleToPermissionMap(
   return permissionsObj;
 }
 
-export function getUserPermissions(
+export async function getUserPermissions(
   userId: string,
   org: OrganizationInterface
-): UserPermissions {
+): Promise<UserPermissions> {
   const memberInfo = org.members.find((m) => m.id === userId);
   const userPermissions: UserPermissions = {
     global: {
@@ -82,6 +83,7 @@ export function getUserPermissions(
     projects: {},
   };
 
+  // Build the user's user-level project permissions
   memberInfo?.projectRoles?.forEach((projectRole: ProjectMemberRole) => {
     userPermissions.projects[projectRole.project] = {
       limitAccessByEnvironment: projectRole.limitAccessByEnvironment || false,
@@ -89,6 +91,52 @@ export function getUserPermissions(
       permissions: roleToPermissionMap(projectRole.role, org),
     };
   });
+
+  console.log("memberInfo", memberInfo);
+
+  // If the user's global role is admin, we can skip the team checks as they already have full permissions
+  if (memberInfo?.role !== "admin") {
+    //TODO: Figure out how I can abstract this into a function to reuse it for the project level permission logic
+    const teamsUserIsOn = memberInfo?.teams || [];
+    for (const team of teamsUserIsOn) {
+      const teamData = await findTeamById(team, org.id);
+      console.log("teamData", teamData);
+      if (teamData) {
+        const teamGlobalPermissions = roleToPermissionMap(teamData.role, org);
+        for (const permission in teamGlobalPermissions) {
+          // If the user doesn't have permission globally, and but the role they have via a team does, override the user-level global permission
+          if (
+            !userPermissions.global.permissions[permission as Permission] &&
+            teamGlobalPermissions[permission as Permission]
+          ) {
+            userPermissions.global.permissions[permission as Permission] =
+              teamGlobalPermissions[permission as Permission];
+          }
+        }
+        // How do we handle a user where they're global role is 'collaborator' so they have no env level restrictions
+        // but they're on a team that DOES have env level restrictions? In that case, we have to set their global role limitAccessByEnv to that of the team
+        if (
+          teamData.role === "engineer" ||
+          (teamData.role === "experimenter" &&
+            teamData.limitAccessByEnvironment)
+        ) {
+          userPermissions.global.limitAccessByEnvironment = true;
+          userPermissions.global.environments = userPermissions.global.environments.concat(
+            teamData.environments
+          );
+        }
+        if (teamData.role === "admin") {
+          userPermissions.global.limitAccessByEnvironment = false;
+          userPermissions.global.environments = [];
+        }
+      }
+    }
+  }
+
+  // Build the user's project-level permissions
+
+  // Loop through each team, and then loop through each pro
+
   return userPermissions;
 }
 

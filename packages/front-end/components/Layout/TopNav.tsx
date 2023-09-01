@@ -24,6 +24,7 @@ const TopNav: FC<{
   pageTitle?: string;
   showNotices?: boolean;
 }> = ({ toggleLeftMenu, pageTitle, showNotices }) => {
+  const { project } = useDefinitions();
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
   const [orgDropdownOpen, setOrgDropdownOpen] = useState(false);
   const { watchedExperiments, watchedFeatures } = useWatching();
@@ -33,6 +34,10 @@ const TopNav: FC<{
   useGlobalMenu(".top-nav-org-menu", () => setOrgDropdownOpen(false));
 
   const { updateUser, user, name, email } = useUser();
+
+  const userRole =
+    (project && user?.projectRoles?.find((p) => p.project === project)?.role) ||
+    user?.role;
 
   const { datasources } = useDefinitions();
 
@@ -207,8 +212,9 @@ const TopNav: FC<{
               <div className={`mb-2 dropdown-item ${styles.userinfo}`}>
                 <div className="text-muted">{email}</div>
                 {name && <div style={{ fontSize: "1.3em" }}>{name}</div>}
-                {user?.role && (
-                  <span className="badge badge-secondary">{user.role}</span>
+                {userRole && (
+                  // TODO: We should take into consideration the project here
+                  <span className="badge badge-secondary">{userRole}</span>
                 )}
               </div>
               {datasources?.length > 0 && (

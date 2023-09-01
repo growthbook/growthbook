@@ -615,7 +615,7 @@ export async function getOrganization(req: AuthRequest, res: Response) {
 
   const expandedMembers = await expandOrgMembers(members);
 
-  const currentUserPermissions = getUserPermissions(userId, org);
+  const currentUserPermissions = await getUserPermissions(userId, org);
 
   return res.status(200).json({
     status: 200,

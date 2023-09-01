@@ -73,17 +73,20 @@ export async function processJWT(
   req.name = name || "";
   req.verified = verified || false;
 
-  const userHasPermission = (
+  const userHasPermission = async (
     permission: Permission,
     project?: string,
     envs?: string[]
-  ): boolean => {
+  ): Promise<boolean> => {
     if (!req.organization || !req.userId) {
       return false;
     }
 
     // Generate full list of permissions for the user
-    const userPermissions = getUserPermissions(req.userId, req.organization);
+    const userPermissions = await getUserPermissions(
+      req.userId,
+      req.organization
+    );
 
     // Check if the user has the permission
     return hasPermission(userPermissions, permission, project, envs);

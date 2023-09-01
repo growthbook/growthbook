@@ -135,13 +135,13 @@ export default function authenticateApiRequestMiddleware(
     });
 }
 
-function doesUserHavePermission(
+async function doesUserHavePermission(
   org: OrganizationInterface,
   permission: Permission,
   apiKeyPartial: Partial<ApiKeyInterface>,
   project?: string,
   envs?: string[]
-): boolean {
+): Promise<boolean> {
   try {
     const userId = apiKeyPartial.userId;
     if (!userId) {
@@ -149,7 +149,7 @@ function doesUserHavePermission(
     }
 
     // Generate full list of permissions for the user
-    const userPermissions = getUserPermissions(userId, org);
+    const userPermissions = await getUserPermissions(userId, org);
 
     // Check if the user has the permission
     return hasPermission(userPermissions, permission, project, envs);
