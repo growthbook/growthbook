@@ -225,7 +225,7 @@ const Results_old: FC<{
           project={experiment.project}
         />
       )}
-      {!hasData &&
+      {hasData &&
         snapshot?.dimension &&
         (snapshot.dimension.substring(0, 8) === "pre:date" ? (
           <DateResults
