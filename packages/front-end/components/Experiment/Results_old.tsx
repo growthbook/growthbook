@@ -73,6 +73,7 @@ const Results_old: FC<{
     latest,
     phase,
     setPhase,
+    setAnalysisSettings,
     dimension,
     mutateSnapshot: mutate,
   } = useSnapshot();
@@ -126,6 +127,7 @@ const Results_old: FC<{
       />
       <AnalysisSettingsBar
         mutateExperiment={mutateExperiment}
+        setAnalysisSettings={setAnalysisSettings}
         editMetrics={editMetrics}
         variations={variations}
         editPhases={editPhases}

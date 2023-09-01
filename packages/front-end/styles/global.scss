@@ -463,8 +463,6 @@ pre {
     margin: -4px -8px 0;
   }
   .experiment-tabs {
-    position: sticky;
-    z-index: 830;
     top: 55px;
     height: 44px;
     margin: 0 -8px -3px;
@@ -494,8 +492,10 @@ pre {
       }
     }
     &.pinned {
+      position: sticky;
+      z-index: 830;
       box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
-      .header-tabs {
+      .header-tabs .tab-wrapper {
         overflow: hidden;
       }
     }

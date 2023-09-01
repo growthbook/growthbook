@@ -1,16 +1,14 @@
-import {
-  ExperimentReportVariation,
-  ExperimentReportVariationWithIndex,
-} from "back-end/types/report";
 import clsx from "clsx";
 import { useState } from "react";
+import { Variation, VariationWithIndex } from "back-end/types/experiment";
 import Dropdown from "@/components/Dropdown/Dropdown";
 
 export interface Props {
-  variations: ExperimentReportVariation[];
+  variations: Variation[];
   variationFilter: number[];
   setVariationFilter: (variationFilter: number[]) => void;
   baselineRow: number;
+  dropdownEnabled: boolean;
 }
 
 export default function VariationChooser({
@@ -18,18 +16,20 @@ export default function VariationChooser({
   variationFilter,
   setVariationFilter,
   baselineRow,
+  dropdownEnabled,
 }: Props) {
   const [open, setOpen] = useState(false);
-  const indexedVariations = variations.map<ExperimentReportVariationWithIndex>(
-    (v, i) => ({ ...v, index: i })
-  );
+  const indexedVariations = variations.map<VariationWithIndex>((v, i) => ({
+    ...v,
+    index: i,
+  }));
   const validVariations = indexedVariations.filter(
     (v) => v.index !== baselineRow
   );
   const filteredVariations = validVariations.filter(
     (v) => !variationFilter.includes(v.index)
   );
-  const requiresDropdown = validVariations.length > 1;
+  const requiresDropdown = validVariations.length > 1 && dropdownEnabled;
 
   let title = (
     <div className="d-inline-block">
@@ -71,7 +71,7 @@ export default function VariationChooser({
       <Dropdown
         uuid={"variation-filter"}
         right={false}
-        className="mt-3"
+        className="mt-2"
         toggleClassName={clsx({
           "dropdown-underline": requiresDropdown,
           "dropdown-underline-disabled": !requiresDropdown,

@@ -22,6 +22,7 @@ const RefreshSnapshotButton: FC<{
   statsEngine?: StatsEngine;
   regressionAdjustmentEnabled?: boolean;
   metricRegressionAdjustmentStatuses?: MetricRegressionAdjustmentStatus[];
+  onSubmit?: () => void;
 }> = ({
   mutate,
   experiment,
@@ -31,6 +32,7 @@ const RefreshSnapshotButton: FC<{
   statsEngine,
   regressionAdjustmentEnabled,
   metricRegressionAdjustmentStatuses,
+  onSubmit,
 }) => {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -87,6 +89,7 @@ const RefreshSnapshotButton: FC<{
       <Button
         color="outline-primary"
         onClick={async () => {
+          onSubmit?.();
           setLoading(true);
           setLongResult(false);
 

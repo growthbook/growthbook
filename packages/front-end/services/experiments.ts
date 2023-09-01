@@ -4,7 +4,7 @@ import { PValueCorrection, StatsEngine } from "back-end/types/stats";
 import { useState } from "react";
 import {
   ExperimentReportResultDimension,
-  ExperimentReportVariation,
+  ExperimentReportVariationWithIndex,
   MetricRegressionAdjustmentStatus,
 } from "back-end/types/report";
 import {
@@ -220,7 +220,7 @@ export function useRiskVariation(
   return { hasRisk, riskVariation, setRiskVariation };
 }
 export function useDomain(
-  variations: ExperimentReportVariation[],
+  variations: ExperimentReportVariationWithIndex[], // must be ordered, baseline first
   rows: ExperimentTableRow[]
 ): [number, number] {
   const { metricDefaults } = useOrganizationMetricDefaults();
@@ -228,14 +228,14 @@ export function useDomain(
   let lowerBound = 0;
   let upperBound = 0;
   rows.forEach((row) => {
-    const baseline = row.variations[0];
+    const baseline = row.variations[variations[0].index];
     if (!baseline) return;
-    variations?.forEach((v, i) => {
+    variations?.forEach((v: ExperimentReportVariationWithIndex, i) => {
       // Skip for baseline
       if (!i) return;
 
       // Skip if missing or bad data
-      const stats = row.variations[i];
+      const stats = row.variations[v.index];
       if (!stats) return;
       if (!hasEnoughData(baseline, stats, row.metric, metricDefaults)) {
         return;

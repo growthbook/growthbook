@@ -102,7 +102,7 @@ export default function ExperimentHeader({
   const router = useRouter();
   const permissions = usePermissions();
   const { scrollY } = useScrollPosition();
-  const headerPinned = scrollY > 80;
+  const headerPinned = scrollY > 70;
 
   const { phase, setPhase } = useSnapshot();
 
@@ -379,7 +379,10 @@ export default function ExperimentHeader({
       >
         <div className="container-fluid pagecontents position-relative">
           <div className="row align-items-center header-tabs">
-            <div className="col-auto pt-2" id="experiment-page-tabs">
+            <div
+              className="col-auto pt-2 tab-wrapper"
+              id="experiment-page-tabs"
+            >
               <TabButtons className="mb-0 pb-0">
                 <TabButton
                   active={tab === "overview"}
@@ -413,6 +416,7 @@ export default function ExperimentHeader({
             {experiment.status !== "draft" && totalUsers > 0 && (
               <div className="col-auto mr-2 users">
                 <Tooltip
+                  usePortal={true}
                   body={
                     <table className="table my-0">
                       <thead>
@@ -475,6 +479,7 @@ export default function ExperimentHeader({
                 <Dropdown
                   toggle={<PhaseDateSummary phase={experiment.phases[phase]} />}
                   uuid="experiment-phase-selector"
+                  className="mt-2"
                 >
                   {experiment.phases.map((p, i) => (
                     <DropdownLink
@@ -482,6 +487,7 @@ export default function ExperimentHeader({
                         setPhase(i);
                       }}
                       key={i}
+                      className="py-3"
                     >
                       <PhaseDateSummary phase={p} />
                     </DropdownLink>

@@ -64,6 +64,7 @@ const RunQueriesButton: FC<{
   icon?: "run" | "refresh";
   color?: string;
   position?: "left" | "right";
+  onSubmit?: () => void;
 }> = ({
   cta = "Run Queries",
   loadingText = "Running",
@@ -73,6 +74,7 @@ const RunQueriesButton: FC<{
   icon = "run",
   color = "primary",
   position = "right",
+  onSubmit,
 }) => {
   const { apiCall } = useAuth();
 
@@ -143,6 +145,7 @@ const RunQueriesButton: FC<{
               className="btn btn-link text-danger"
               onClick={async (e) => {
                 e.preventDefault();
+                onSubmit?.();
                 await apiCall(cancelEndpoint, { method: "POST" });
                 await mutate();
               }}
@@ -157,6 +160,7 @@ const RunQueriesButton: FC<{
               disabled: status === "running",
             })}
             type="submit"
+            onClick={onSubmit}
           >
             <span className="h4 pr-2 m-0 d-inline-block align-top">
               {buttonIcon}

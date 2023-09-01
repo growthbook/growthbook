@@ -118,7 +118,6 @@ export default function ResultsTable({
   const pValueThreshold = usePValueThreshold();
   const displayCurrency = useCurrency();
   const orgSettings = useOrgSettings();
-  const domain = useDomain(variations, rows);
 
   const tableContainerRef = useRef<HTMLDivElement | null>(null);
   const [graphCellWidth, setGraphCellWidth] = useState(800);
@@ -156,9 +155,11 @@ export default function ResultsTable({
   }, [variations, baselineRow]);
 
   const filteredVariations = orderedVariations.filter(
-    (_, i) => !variationFilter?.includes(i)
+    (v) => !variationFilter?.includes(v.index)
   );
   const compactResults = filteredVariations.length <= 2;
+
+  const domain = useDomain(filteredVariations, rows);
 
   const rowsResults: (RowResults | "query error" | null)[][] = useMemo(() => {
     const rr: (RowResults | "query error" | null)[][] = [];
@@ -666,6 +667,10 @@ export default function ResultsTable({
                       e,
                       settings?: TooltipHoverSettings
                     ) => {
+                      // No hover tooltip if the screen is too narrow. Clicks still work.
+                      if (e?.type === "mousemove" && window.innerWidth < 900) {
+                        return;
+                      }
                       if (!rowResults.hasData) return;
                       hoverRow(i, j, e, settings);
                     };
