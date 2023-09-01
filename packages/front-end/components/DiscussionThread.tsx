@@ -22,6 +22,7 @@ const DiscussionThread: FC<{
   allowNewComments?: boolean;
   showTitle?: boolean;
   title?: string;
+  order?: "asc" | "desc";
   project?: string;
 }> = ({
   type,
@@ -30,6 +31,7 @@ const DiscussionThread: FC<{
   showTitle = false,
   title = "Add comment",
   project,
+  order = "asc",
 }) => {
   const { apiCall } = useAuth();
   const { userId, users } = useUser();
@@ -42,7 +44,7 @@ const DiscussionThread: FC<{
   }
 
   const { data, error, mutate } = useApi<{ discussion: DiscussionInterface }>(
-    `/discussion/${type}/${id}`
+    `/discussion/${type}/${id}?order=${order}`
   );
 
   if (error) {
