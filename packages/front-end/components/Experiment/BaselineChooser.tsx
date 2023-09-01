@@ -25,7 +25,8 @@ export interface Props {
   ) => void;
   loading: boolean;
   mutate: () => void;
-  dropdownEnabled?: boolean;
+  dropdownEnabled: boolean;
+  dimension: string;
 }
 
 export default function BaselineChooser({
@@ -38,7 +39,8 @@ export default function BaselineChooser({
   setAnalysisSettings,
   loading,
   mutate,
-  dropdownEnabled = true,
+  dropdownEnabled,
+  dimension,
 }: Props) {
   const { apiCall } = useAuth();
 
@@ -156,6 +158,7 @@ export default function BaselineChooser({
         </span>
         {((loading &&
           dropdownEnabled &&
+          dimension === "" && // todo: remove when dimensions are supported
           baselineRow !== analysis?.settings?.baselineVariationIndex) ||
           postLoading) && <LoadingSpinner className="ml-1" />}
       </div>

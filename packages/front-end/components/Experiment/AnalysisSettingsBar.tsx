@@ -172,6 +172,7 @@ export default function AnalysisSettingsBar({
                   loading={!!loading}
                   mutate={mutate}
                   dropdownEnabled={!snapshot?.dimension}
+                  dimension={dimension}
                 />
               </div>
             </>
