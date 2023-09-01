@@ -189,7 +189,6 @@ export default function AnalysisSettingsBar({
               setVariationFilter={setVariationFilter}
               setBaselineRow={setBaselineRow}
               newUi={newUi}
-              analysis={analysis}
               setAnalysisSettings={setAnalysisSettings}
             />
           </div>
