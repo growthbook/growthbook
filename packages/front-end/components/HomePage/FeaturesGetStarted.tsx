@@ -2,10 +2,12 @@ import { useRouter } from "next/router";
 import { useState } from "react";
 import { FeatureInterface } from "back-end/types/feature";
 import { FaChrome } from "react-icons/fa";
+import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import track from "@/services/track";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import usePermissions from "@/hooks/usePermissions";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import { useUser } from "@/services/UserContext";
 import FeatureModal from "../Features/FeatureModal";
 import { DocLink } from "../DocLink";
 import InitialSDKConnectionForm from "../Features/SDKConnections/InitialSDKConnectionForm";
@@ -21,10 +23,17 @@ export default function FeaturesGetStarted({ features }: Props) {
   const router = useRouter();
   const permissions = usePermissions();
 
+  const { organization } = useUser();
+  const demoProjectId = getDemoDatasourceProjectIdForOrganization(
+    organization?.id || ""
+  );
+
+  const hasFeatures = features.some((f) => f.project !== demoProjectId);
+
   let step = -1;
   if (!settings?.sdkInstructionsViewed) {
     step = 1;
-  } else if (!features.length) {
+  } else if (!hasFeatures) {
     step = 2;
   }
 
@@ -39,9 +48,7 @@ export default function FeaturesGetStarted({ features }: Props) {
         <FeatureModal
           close={() => setModalOpen(false)}
           onSuccess={async (feature) => {
-            const url = `/features/${feature.id}${
-              features.length > 0 ? "" : "?first"
-            }`;
+            const url = `/features/${feature.id}${hasFeatures ? "" : "?first"}`;
             await router.push(url);
           }}
         />
@@ -78,7 +85,7 @@ export default function FeaturesGetStarted({ features }: Props) {
             />
             <GetStartedStep
               current={step === 2}
-              finished={features.length > 0}
+              finished={hasFeatures}
               className="border-top"
               image="/images/feature-icon.svg"
               title="2. Add your first feature"

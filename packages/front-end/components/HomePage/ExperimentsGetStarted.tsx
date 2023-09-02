@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { useRouter } from "next/router";
 import { FaArrowLeft } from "react-icons/fa";
 import { ProjectInterface } from "back-end/types/project";
+import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { hasFileConfig } from "@/services/env";
 import usePermissions from "@/hooks/usePermissions";
@@ -13,6 +14,7 @@ import GetStartedStep from "@/components/HomePage/GetStartedStep";
 import ImportExperimentModal from "@/components/Experiment/ImportExperimentModal";
 import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
 import { useAuth } from "@/services/auth";
+import { useUser } from "@/services/UserContext";
 import NewExperimentForm from "../Experiment/NewExperimentForm";
 import Button from "../Button";
 
@@ -30,9 +32,18 @@ const ExperimentsGetStarted = (): React.ReactElement => {
 
   const [showAnalysisSteps, setShowAnalysisSteps] = useState(false);
 
-  const hasDataSource = datasources.length > 0;
-  const hasMetrics =
-    metrics.filter((m) => !m.id.match(/^met_sample/)).length > 0;
+  const { organization } = useUser();
+
+  const demoProjectId = getDemoDatasourceProjectIdForOrganization(
+    organization?.id || ""
+  );
+
+  const hasDataSource = datasources.some(
+    (d) => !d.projects?.includes(demoProjectId)
+  );
+  const hasMetrics = metrics.some(
+    (m) => !m.id.match(/^met_sample/) && !m.projects?.includes(demoProjectId)
+  );
   const currentStep = hasMetrics ? 3 : hasDataSource ? 2 : 1;
 
   const {
