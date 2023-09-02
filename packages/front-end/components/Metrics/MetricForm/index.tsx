@@ -96,11 +96,13 @@ function validateMetricSQL(
 
   validateSQL(sql, requiredCols);
 }
+
 function validateBasicInfo(value: { name: string }) {
   if (value.name.length < 1) {
     throw new Error("Metric name cannot be empty");
   }
 }
+
 function validateQuerySettings(
   datasourceSettingsSupport: boolean,
   sqlInput: boolean,

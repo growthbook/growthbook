@@ -1,5 +1,8 @@
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
+import {
+  ExperimentSnapshotAnalysisSettings,
+  ExperimentSnapshotInterface,
+} from "back-end/types/experiment-snapshot";
 import clsx from "clsx";
 import React, { useState } from "react";
 import {
@@ -26,6 +29,8 @@ import { useUser } from "@/services/UserContext";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { trackSnapshot } from "@/services/track";
+import VariationChooser from "@/components/Experiment/VariationChooser";
+import BaselineChooser from "@/components/Experiment/BaselineChooser";
 import RunQueriesButton, { getQueryStatus } from "../Queries/RunQueriesButton";
 import ViewAsyncQueriesButton from "../Queries/ViewAsyncQueriesButton";
 import DimensionChooser from "../Dimensions/DimensionChooser";
@@ -35,148 +40,9 @@ import ResultMoreMenu from "./ResultMoreMenu";
 import PhaseSelector from "./PhaseSelector";
 import { useSnapshot } from "./SnapshotProvider";
 
-function isDifferent(
-  val1?: string | boolean | null,
-  val2?: string | boolean | null
-) {
-  if (!val1 && !val2) return false;
-  return val1 !== val2;
-}
-function isDifferentStringArray(
-  val1?: string[] | null,
-  val2?: string[] | null
-) {
-  if (!val1 && !val2) return false;
-  if (!val1 || !val2) return true;
-  if (val1.length !== val2.length) return true;
-  return val1.some((v) => !val2.includes(v));
-}
-function isDifferentDate(val1: Date, val2: Date, threshold: number = 86400000) {
-  // 86400000 = 1 day
-  return Math.abs(val1.getTime() - val2.getTime()) >= threshold;
-}
-
-function isOutdated(
-  experiment: ExperimentInterfaceStringDates | undefined,
-  snapshot: ExperimentSnapshotInterface | undefined,
-  orgSettings: OrganizationSettings,
-  statsEngine: StatsEngine,
-  hasRegressionAdjustmentFeature: boolean,
-  hasSequentialFeature: boolean,
-  phase: number | undefined
-): { outdated: boolean; reasons: string[] } {
-  const snapshotSettings = snapshot?.settings;
-  const analysisSettings = snapshot
-    ? getSnapshotAnalysis(snapshot)?.settings
-    : null;
-  if (!experiment || !snapshotSettings || !analysisSettings) {
-    return { outdated: false, reasons: [] };
-  }
-
-  const reasons: string[] = [];
-
-  if (isDifferent(analysisSettings.statsEngine, statsEngine)) {
-    reasons.push("Stats engine changed");
-  }
-  if (
-    isDifferent(experiment.activationMetric, snapshotSettings.activationMetric)
-  ) {
-    reasons.push("Activation metric changed");
-  }
-  if (isDifferent(experiment.segment, snapshotSettings.segment)) {
-    reasons.push("Segment changed");
-  }
-  if (isDifferent(experiment.queryFilter, snapshotSettings.queryFilter)) {
-    reasons.push("Query filter changed");
-  }
-  if (
-    isDifferent(experiment.skipPartialData, snapshotSettings.skipPartialData)
-  ) {
-    reasons.push("In-progress conversion behavior changed");
-  }
-  if (
-    isDifferent(experiment.exposureQueryId, snapshotSettings.exposureQueryId)
-  ) {
-    reasons.push("Experiment assignment query changed");
-  }
-  if (
-    isDifferent(experiment.attributionModel, snapshotSettings.attributionModel)
-  ) {
-    reasons.push("Attribution model changed");
-  }
-  if (isDifferent(experiment.queryFilter, snapshotSettings.queryFilter)) {
-    reasons.push("Query filter changed");
-  }
-  if (
-    isDifferentStringArray(
-      [...experiment.metrics, ...(experiment?.guardrails || [])],
-      [...snapshotSettings.goalMetrics, ...snapshotSettings.guardrailMetrics]
-    )
-  ) {
-    reasons.push("Metrics changed");
-  }
-  if (
-    isDifferentStringArray(
-      experiment.variations.map((v) => v.key),
-      snapshotSettings.variations.map((v) => v.id)
-    )
-  ) {
-    reasons.push("Variations changed");
-  }
-  if (
-    isDifferentDate(
-      getValidDate(experiment.phases?.[phase ?? 0]?.dateStarted ?? ""),
-      getValidDate(snapshotSettings.startDate)
-    ) ||
-    isDifferentDate(
-      getValidDate(experiment.phases?.[phase ?? 0]?.dateEnded ?? ""),
-      getValidDate(snapshotSettings.endDate)
-    )
-  ) {
-    reasons.push("Analysis dates changed");
-  }
-
-  const experimentRegressionAdjustmentEnabled =
-    statsEngine !== "frequentist" || !hasRegressionAdjustmentFeature
-      ? false
-      : !!experiment.regressionAdjustmentEnabled;
-  if (
-    isDifferent(
-      experimentRegressionAdjustmentEnabled,
-      !!analysisSettings?.regressionAdjusted
-    ) &&
-    statsEngine === "frequentist"
-  ) {
-    reasons.push("CUPED settings changed");
-  }
-
-  const experimentSequentialEnabled =
-    statsEngine !== "frequentist" || !hasSequentialFeature
-      ? false
-      : experiment.sequentialTestingEnabled ??
-        !!orgSettings.sequentialTestingEnabled;
-  const experimentSequentialTuningParameter: number =
-    experiment.sequentialTestingTuningParameter ??
-    orgSettings.sequentialTestingTuningParameter ??
-    DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER;
-  if (
-    (isDifferent(
-      experimentSequentialEnabled,
-      !!analysisSettings?.sequentialTesting
-    ) ||
-      (experimentSequentialEnabled &&
-        experimentSequentialTuningParameter !==
-          analysisSettings?.sequentialTestingTuningParameter)) &&
-    statsEngine === "frequentist"
-  ) {
-    reasons.push("Sequential testing settings changed");
-  }
-
-  return { outdated: reasons.length > 0, reasons };
-}
-
 export default function AnalysisSettingsBar({
   mutateExperiment,
+  setAnalysisSettings,
   editMetrics,
   editPhases,
   variations,
@@ -189,8 +55,15 @@ export default function AnalysisSettingsBar({
   onRegressionAdjustmentChange,
   newUi = false,
   showMoreMenu = true,
+  variationFilter,
+  setVariationFilter,
+  baselineRow,
+  setBaselineRow,
 }: {
   mutateExperiment: () => void;
+  setAnalysisSettings: (
+    settings: ExperimentSnapshotAnalysisSettings | null
+  ) => void;
   editMetrics?: () => void;
   editPhases?: () => void;
   variations: ExperimentReportVariation[];
@@ -203,6 +76,10 @@ export default function AnalysisSettingsBar({
   onRegressionAdjustmentChange?: (enabled: boolean) => void;
   newUi?: boolean;
   showMoreMenu?: boolean;
+  variationFilter?: number[];
+  setVariationFilter?: (variationFilter: number[]) => void;
+  baselineRow?: number;
+  setBaselineRow?: (baselineRow: number) => void;
 }) {
   const {
     experiment,
@@ -213,6 +90,7 @@ export default function AnalysisSettingsBar({
     mutateSnapshot: mutate,
     phase,
     setDimension,
+    loading,
   } = useSnapshot();
   const { getDatasourceById } = useDefinitions();
   const orgSettings = useOrgSettings();
@@ -245,7 +123,6 @@ export default function AnalysisSettingsBar({
   const { status } = getQueryStatus(latest?.queries || [], latest?.error);
 
   const hasData = (analysis?.results?.[0]?.variations?.length ?? 0) > 0;
-
   const [refreshError, setRefreshError] = useState("");
 
   return (
@@ -258,6 +135,7 @@ export default function AnalysisSettingsBar({
           phase={phase}
         />
       )}
+
       {experiment && (
         <div className="row align-items-center p-3">
           {!newUi &&
@@ -270,6 +148,35 @@ export default function AnalysisSettingsBar({
                 />
               </div>
             )}
+          {newUi && setVariationFilter && setBaselineRow ? (
+            <>
+              <div className="col-auto form-inline pr-5">
+                <VariationChooser
+                  variations={experiment.variations}
+                  variationFilter={variationFilter ?? []}
+                  setVariationFilter={setVariationFilter}
+                  baselineRow={baselineRow ?? 0}
+                  dropdownEnabled={!snapshot?.dimension}
+                />
+                <em className="text-muted mx-3" style={{ marginTop: 15 }}>
+                  vs
+                </em>
+                <BaselineChooser
+                  variations={experiment.variations}
+                  setVariationFilter={setVariationFilter}
+                  baselineRow={baselineRow ?? 0}
+                  setBaselineRow={setBaselineRow}
+                  snapshot={snapshot}
+                  analysis={analysis}
+                  setAnalysisSettings={setAnalysisSettings}
+                  loading={!!loading}
+                  mutate={mutate}
+                  dropdownEnabled={!snapshot?.dimension}
+                  dimension={dimension}
+                />
+              </div>
+            </>
+          ) : null}
           <div className="col-auto form-inline">
             <DimensionChooser
               value={dimension}
@@ -279,6 +186,10 @@ export default function AnalysisSettingsBar({
               exposureQueryId={experiment.exposureQueryId}
               userIdType={experiment.userIdType}
               labelClassName="mr-2"
+              setVariationFilter={setVariationFilter}
+              setBaselineRow={setBaselineRow}
+              newUi={newUi}
+              setAnalysisSettings={setAnalysisSettings}
             />
           </div>
           <div style={{ flex: 1 }} />
@@ -432,6 +343,8 @@ export default function AnalysisSettingsBar({
                             datasource?.type || null,
                             res.snapshot
                           );
+
+                          setAnalysisSettings(null);
                           mutate();
                           setRefreshError("");
                         })
@@ -447,6 +360,13 @@ export default function AnalysisSettingsBar({
                       model={latest}
                       icon="refresh"
                       color="outline-primary"
+                      onSubmit={() => {
+                        // todo: remove baseline resetter (here and below) once refactored.
+                        if (baselineRow !== 0) {
+                          setBaselineRow?.(0);
+                          setVariationFilter?.([]);
+                        }
+                      }}
                     />
                   </form>
                 ) : (
@@ -461,6 +381,12 @@ export default function AnalysisSettingsBar({
                     metricRegressionAdjustmentStatuses={
                       metricRegressionAdjustmentStatuses
                     }
+                    onSubmit={() => {
+                      if (baselineRow !== 0) {
+                        setBaselineRow?.(0);
+                        setVariationFilter?.([]);
+                      }
+                    }}
                   />
                 )}
               </div>
@@ -562,4 +488,144 @@ export default function AnalysisSettingsBar({
         )}
     </div>
   );
+}
+
+function isDifferent(
+  val1?: string | boolean | null,
+  val2?: string | boolean | null
+) {
+  if (!val1 && !val2) return false;
+  return val1 !== val2;
+}
+function isDifferentStringArray(
+  val1?: string[] | null,
+  val2?: string[] | null
+) {
+  if (!val1 && !val2) return false;
+  if (!val1 || !val2) return true;
+  if (val1.length !== val2.length) return true;
+  return val1.some((v) => !val2.includes(v));
+}
+function isDifferentDate(val1: Date, val2: Date, threshold: number = 86400000) {
+  // 86400000 = 1 day
+  return Math.abs(val1.getTime() - val2.getTime()) >= threshold;
+}
+
+function isOutdated(
+  experiment: ExperimentInterfaceStringDates | undefined,
+  snapshot: ExperimentSnapshotInterface | undefined,
+  orgSettings: OrganizationSettings,
+  statsEngine: StatsEngine,
+  hasRegressionAdjustmentFeature: boolean,
+  hasSequentialFeature: boolean,
+  phase: number | undefined
+): { outdated: boolean; reasons: string[] } {
+  const snapshotSettings = snapshot?.settings;
+  const analysisSettings = snapshot
+    ? getSnapshotAnalysis(snapshot)?.settings
+    : null;
+  if (!experiment || !snapshotSettings || !analysisSettings) {
+    return { outdated: false, reasons: [] };
+  }
+
+  const reasons: string[] = [];
+
+  if (isDifferent(analysisSettings.statsEngine, statsEngine)) {
+    reasons.push("Stats engine changed");
+  }
+  if (
+    isDifferent(experiment.activationMetric, snapshotSettings.activationMetric)
+  ) {
+    reasons.push("Activation metric changed");
+  }
+  if (isDifferent(experiment.segment, snapshotSettings.segment)) {
+    reasons.push("Segment changed");
+  }
+  if (isDifferent(experiment.queryFilter, snapshotSettings.queryFilter)) {
+    reasons.push("Query filter changed");
+  }
+  if (
+    isDifferent(experiment.skipPartialData, snapshotSettings.skipPartialData)
+  ) {
+    reasons.push("In-progress conversion behavior changed");
+  }
+  if (
+    isDifferent(experiment.exposureQueryId, snapshotSettings.exposureQueryId)
+  ) {
+    reasons.push("Experiment assignment query changed");
+  }
+  if (
+    isDifferent(experiment.attributionModel, snapshotSettings.attributionModel)
+  ) {
+    reasons.push("Attribution model changed");
+  }
+  if (isDifferent(experiment.queryFilter, snapshotSettings.queryFilter)) {
+    reasons.push("Query filter changed");
+  }
+  if (
+    isDifferentStringArray(
+      [...experiment.metrics, ...(experiment?.guardrails || [])],
+      [...snapshotSettings.goalMetrics, ...snapshotSettings.guardrailMetrics]
+    )
+  ) {
+    reasons.push("Metrics changed");
+  }
+  if (
+    isDifferentStringArray(
+      experiment.variations.map((v) => v.key),
+      snapshotSettings.variations.map((v) => v.id)
+    )
+  ) {
+    reasons.push("Variations changed");
+  }
+  if (
+    isDifferentDate(
+      getValidDate(experiment.phases?.[phase ?? 0]?.dateStarted ?? ""),
+      getValidDate(snapshotSettings.startDate)
+    ) ||
+    isDifferentDate(
+      getValidDate(experiment.phases?.[phase ?? 0]?.dateEnded ?? ""),
+      getValidDate(snapshotSettings.endDate)
+    )
+  ) {
+    reasons.push("Analysis dates changed");
+  }
+
+  const experimentRegressionAdjustmentEnabled =
+    statsEngine !== "frequentist" || !hasRegressionAdjustmentFeature
+      ? false
+      : !!experiment.regressionAdjustmentEnabled;
+  if (
+    isDifferent(
+      experimentRegressionAdjustmentEnabled,
+      !!analysisSettings?.regressionAdjusted
+    ) &&
+    statsEngine === "frequentist"
+  ) {
+    reasons.push("CUPED settings changed");
+  }
+
+  const experimentSequentialEnabled =
+    statsEngine !== "frequentist" || !hasSequentialFeature
+      ? false
+      : experiment.sequentialTestingEnabled ??
+        !!orgSettings.sequentialTestingEnabled;
+  const experimentSequentialTuningParameter: number =
+    experiment.sequentialTestingTuningParameter ??
+    orgSettings.sequentialTestingTuningParameter ??
+    DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER;
+  if (
+    (isDifferent(
+      experimentSequentialEnabled,
+      !!analysisSettings?.sequentialTesting
+    ) ||
+      (experimentSequentialEnabled &&
+        experimentSequentialTuningParameter !==
+          analysisSettings?.sequentialTestingTuningParameter)) &&
+    statsEngine === "frequentist"
+  ) {
+    reasons.push("Sequential testing settings changed");
+  }
+
+  return { outdated: reasons.length > 0, reasons };
 }

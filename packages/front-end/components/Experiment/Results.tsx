@@ -60,6 +60,10 @@ const Results: FC<{
   onRegressionAdjustmentChange,
   isTabActive = true,
 }) => {
+  // todo: give these a proper home
+  const [baselineRow, setBaselineRow] = React.useState<number>(0);
+  const [variationFilter, setVariationFilter] = React.useState<number[]>([]);
+
   const { apiCall } = useAuth();
 
   // todo: move to snapshot property
@@ -74,7 +78,9 @@ const Results: FC<{
     phase,
     setPhase,
     dimension,
+    setAnalysisSettings,
     mutateSnapshot: mutate,
+    loading: snapshotLoading,
   } = useSnapshot();
 
   const queryStatusData = getQueryStatus(latest?.queries || [], latest?.error);
@@ -105,7 +111,6 @@ const Results: FC<{
       weight: phaseObj?.variationWeights?.[i] || 0,
     };
   });
-
   const snapshotMetricRegressionAdjustmentStatuses =
     snapshot?.settings?.metricSettings?.map((m) => ({
       metric: m.id,
@@ -133,6 +138,7 @@ const Results: FC<{
       {!draftMode ? (
         <AnalysisSettingsBar
           mutateExperiment={mutateExperiment}
+          setAnalysisSettings={setAnalysisSettings}
           editMetrics={editMetrics}
           variations={variations}
           editPhases={editPhases}
@@ -149,6 +155,10 @@ const Results: FC<{
           onRegressionAdjustmentChange={onRegressionAdjustmentChange}
           newUi={true}
           showMoreMenu={false}
+          variationFilter={variationFilter}
+          setVariationFilter={(v: number[]) => setVariationFilter(v)}
+          baselineRow={baselineRow}
+          setBaselineRow={(b: number) => setBaselineRow(b)}
         />
       ) : (
         <StatusBanner
@@ -178,7 +188,8 @@ const Results: FC<{
       {!hasData &&
         !snapshot?.unknownVariations?.length &&
         status !== "running" &&
-        experiment.metrics.length > 0 && (
+        experiment.metrics.length > 0 &&
+        !snapshotLoading && (
           <div className="alert alert-info m-3">
             No data yet.{" "}
             {snapshot &&
@@ -192,6 +203,7 @@ const Results: FC<{
             {!snapshot &&
               permissions.check("runQueries", experiment.project) &&
               `Click the "Update" button above.`}
+            {snapshotLoading && <div> Snapshot loading...</div>}
           </div>
         )}
 
@@ -294,6 +306,8 @@ const Results: FC<{
           <CompactResults
             editMetrics={editMetrics}
             variations={variations}
+            variationFilter={variationFilter}
+            baselineRow={baselineRow}
             multipleExposures={snapshot.multipleExposures || 0}
             results={analysis.results[0]}
             queryStatusData={queryStatusData}
