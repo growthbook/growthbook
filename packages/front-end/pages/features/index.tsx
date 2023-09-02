@@ -5,6 +5,7 @@ import { useFeature } from "@growthbook/growthbook-react";
 import { FaExclamationTriangle } from "react-icons/fa";
 import { FeatureInterface, FeatureRule } from "back-end/types/feature";
 import { ago, datetime } from "shared/dates";
+import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { GBAddCircle } from "@/components/Icons";
 import FeatureModal from "@/components/Features/FeatureModal";
@@ -39,6 +40,7 @@ import usePermissions from "@/hooks/usePermissions";
 import WatchButton from "@/components/WatchButton";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Field from "@/components/Forms/Field";
+import { useUser } from "@/services/UserContext";
 
 const NUM_PER_PAGE = 20;
 
@@ -55,6 +57,8 @@ export default function FeaturesPage() {
   ] = useState<FeatureInterface | null>(null);
 
   const showGraphs = useFeature("feature-list-realtime-graphs").on;
+
+  const { organization } = useUser();
 
   const permissions = usePermissions();
   const { project, getProjectById } = useDefinitions();
@@ -122,10 +126,17 @@ export default function FeaturesPage() {
   // If "All Projects" is selected is selected and some experiments are in a project, show the project column
   const showProjectColumn = !project && features.some((f) => f.project);
 
+  // Ignore the demo datasource
+  const hasFeatures = features.some(
+    (f) =>
+      f.project !==
+      getDemoDatasourceProjectIdForOrganization(organization.id || "")
+  );
+
   const toggleEnvs = environments.filter((en) => en.toggleOnList);
   const showArchivedToggle = features.some((f) => f.archived);
   const stepsRequired =
-    !settings?.sdkInstructionsViewed || (!loading && !features.length);
+    !settings?.sdkInstructionsViewed || (!loading && !hasFeatures);
 
   return (
     <div className="contents container pagecontents">
@@ -134,9 +145,7 @@ export default function FeaturesPage() {
           cta={featureToDuplicate ? "Duplicate" : "Create"}
           close={() => setModalOpen(false)}
           onSuccess={async (feature) => {
-            const url = `/features/${feature.id}${
-              features.length > 0 ? "" : "?first"
-            }`;
+            const url = `/features/${feature.id}${hasFeatures ? "" : "?first"}`;
             router.push(url);
             mutate({
               features: [...features, feature],
