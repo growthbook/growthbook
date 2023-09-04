@@ -568,12 +568,12 @@ const CustomExperimentsPage = (): React.ReactElement => {
                   <>
                     Showing experiments where{" "}
                     {filterDescriptionElements.map((v, i) => (
-                      <>
+                      <Fragment key={"desc" + i}>
                         {v}
                         {i !== filterDescriptionElements.length - 1
                           ? " AND "
                           : ""}
-                      </>
+                      </Fragment>
                     ))}
                   </>
                 ) : (
