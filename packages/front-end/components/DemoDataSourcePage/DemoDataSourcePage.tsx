@@ -99,7 +99,7 @@ export function DeleteDemoDatasourceButton({
 }) {
   const { organization } = useUser();
   const { apiCall } = useAuth();
-  const { mutateDefinitions } = useDefinitions();
+  const { mutateDefinitions, setProject, project } = useDefinitions();
 
   return (
     <DeleteButton
@@ -108,8 +108,16 @@ export function DeleteDemoDatasourceButton({
       text="Delete Sample Data"
       outline={false}
       onClick={async () => {
+        const demoProjectId = getDemoDatasourceProjectIdForOrganization(
+          organization.id
+        );
         await deleteDemoDatasource(organization.id, apiCall);
         mutateDefinitions();
+
+        if (project === demoProjectId) {
+          setProject("");
+        }
+
         onDelete();
       }}
       deleteMessage={
@@ -134,10 +142,11 @@ export const DemoDataSourcePageContainer = () => {
 
   const {
     projectId: demoDataSourceProjectId,
+    currentProjectIsDemo,
     exists,
   } = useDemoDataSourceProject();
   const { apiCall } = useAuth();
-  const { ready, mutateDefinitions } = useDefinitions();
+  const { ready, mutateDefinitions, setProject } = useDefinitions();
 
   const { organization } = useUser();
 
@@ -189,7 +198,17 @@ export const DemoDataSourcePageContainer = () => {
       }
     }
     mutateDefinitions();
-  }, [apiCall, demoDataSourceProjectId, mutateDefinitions, organization.id]);
+    if (currentProjectIsDemo) {
+      setProject("");
+    }
+  }, [
+    apiCall,
+    demoDataSourceProjectId,
+    mutateDefinitions,
+    organization.id,
+    currentProjectIsDemo,
+    setProject,
+  ]);
 
   return (
     <DemoDataSourcePage
