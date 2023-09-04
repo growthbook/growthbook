@@ -482,7 +482,8 @@ const CustomExperimentsPage = (): React.ReactElement => {
               {existingSavedSearch?.id && existingSavedSearch.owner === userId && (
                 <a
                   href="#"
-                  className="pl-2 d-inline-block"
+                  className="pl-2 d-inline-block position-relative"
+                  style={{ fontSize: "0.9rem", top: "-2px" }}
                   onClick={(e) => {
                     e.preventDefault();
                     setShowFilter(true);
