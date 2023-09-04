@@ -340,10 +340,10 @@ const ExperimentCustomSearchResults: FC<{
                     )}
                     {showForm.watch("ownerName") && <td>{e.ownerName}</td>}
                     {showForm.watch("startDate") && (
-                      <td>{datetime(e.startDate)}</td>
+                      <td style={{ minWidth: 100 }}>{datetime(e.startDate)}</td>
                     )}
                     {showForm.watch("endDate") && (
-                      <td>{datetime(e.endDate)}</td>
+                      <td style={{ minWidth: 100 }}>{datetime(e.endDate)}</td>
                     )}
                     {showForm.watch("projects") && <td>{e.projectName}</td>}
                     {showForm.watch("tags") && (

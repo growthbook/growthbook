@@ -320,6 +320,7 @@ const CustomExperimentsPage = (): React.ReactElement => {
   useEffect(() => {
     if (existingSavedSearch) {
       Object.entries(existingSavedSearch).forEach(([key, value]) => {
+        // @ts-expect-error TS(7053) Element implicitly has an 'any' type because expression of type 'string' can't be used to index type 'Record<string, { initialValue: boolean; name: string; show: boolean; sortable: boolean; }>'.
         savedSearchForm.setValue(key, value);
       });
       Object.entries(existingSavedSearch.filters).forEach(([key, value]) => {
@@ -407,7 +408,10 @@ const CustomExperimentsPage = (): React.ReactElement => {
   if (searchInputProps.value) {
     filterDescriptionElements.push(
       <>
-        <strong>search term:</strong> <i>{searchInputProps.value}</i>
+        <strong className="text-muted">search term:</strong>{" "}
+        <i className="text-purple font-weight-semibold">
+          {searchInputProps.value}
+        </i>
       </>
     );
   }
@@ -425,8 +429,8 @@ const CustomExperimentsPage = (): React.ReactElement => {
             displayValue = getMetricById(v)?.name ?? v;
           }
           return (
-            <Fragment key={v}>
-              <i>{displayValue}</i>
+            <Fragment key={key + v}>
+              <i className="text-purple font-weight-semibold">{displayValue}</i>
               {i === filterValues[key].length - 1
                 ? ""
                 : i === filterValues[key].length - 2
@@ -437,7 +441,7 @@ const CustomExperimentsPage = (): React.ReactElement => {
         });
         filterDescriptionElements.push(
           <>
-            <strong>{keyDisplayName}</strong>:{" "}
+            <strong className="text-muted">{keyDisplayName}</strong>:{" "}
             {elements.map((v, i) => (
               <Fragment key={"x" + i}>{v}</Fragment>
             ))}{" "}
@@ -448,7 +452,10 @@ const CustomExperimentsPage = (): React.ReactElement => {
       if (filterValues[key] !== "") {
         filterDescriptionElements.push(
           <>
-            <strong>{keyDisplayName}</strong>: <i>{filterValues[key]}</i>{" "}
+            <strong className="text-muted">{keyDisplayName}</strong>:{" "}
+            <i className="text-purple font-weight-semibold">
+              {filterValues[key]}
+            </i>{" "}
           </>
         );
       }
@@ -549,11 +556,8 @@ const CustomExperimentsPage = (): React.ReactElement => {
                 />
               </>
             ) : (
-              <div>
-                <div
-                  className="cursor-pointer float-right"
-                  onClick={() => setShowFilter(!showFilter)}
-                >
+              <div onClick={() => setShowFilter(!showFilter)}>
+                <div className="cursor-pointer float-right">
                   <FaChevronRight
                     style={{
                       transform: `rotate(${showFilter ? "90deg" : "0deg"})`,
