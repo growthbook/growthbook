@@ -89,7 +89,7 @@ Instead of just using features defined in the GrowthBook API, you can also just 
 ```dart
 var exp = GBExperiment()
 exp.key = "my-experiment"
-exp.variations = List.of("control", "variation")
+exp.variations = ["control", "variation"]
 
 var result = gb.run(exp)
 
