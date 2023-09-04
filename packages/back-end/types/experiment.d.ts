@@ -171,3 +171,69 @@ export type ExperimentTargetingData = Pick<
     newPhase: boolean;
     reseed: boolean;
   };
+
+export interface ExperimentSearchFilters {
+  search: string;
+  results: string[];
+  status: string[];
+  expType: string[];
+  tags: string[];
+  projects: string[];
+  dataSources: string[];
+  metrics: string[];
+  ownerName: string;
+  startDate: Date | null;
+  endDate: Date | null;
+}
+export interface ExperimentSearchColumns {
+  hypothesis: boolean;
+  description: boolean;
+  trackingKey: boolean;
+  tags: boolean;
+  projects: boolean;
+  status: boolean;
+  ownerName: boolean;
+  created: boolean;
+  startDate: boolean;
+  endDate: boolean;
+  dataSources: boolean;
+  metrics: boolean;
+  graphs: boolean;
+  results: boolean;
+  analysis: boolean;
+  variations: boolean;
+}
+export interface SavedSearchInterface {
+  id: string;
+  organization: string;
+  name: string;
+  description?: string;
+  project?: string;
+  owner: string;
+  dateCreated: Date;
+  dateUpdated: Date;
+  tags?: string[];
+  public: boolean;
+  filters: ExperimentSearchFilters;
+  show: ExperimentSearchColumns;
+  sort: {
+    field:
+      | "name"
+      | "hypothesis"
+      | "trackingKey"
+      | "startDate"
+      | "endDate"
+      | "dateCreated"
+      | "ownerName"
+      | "description"
+      | "tags"
+      | "project"
+      | "status"
+      | "datasource"
+      | "results"
+      | "analysis"
+      | "variations";
+    dir: number;
+  };
+  display: "box" | "list";
+}

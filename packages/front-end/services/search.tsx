@@ -48,6 +48,12 @@ export interface SearchReturn<T> {
     value: string;
     onChange: (e: ChangeEvent<HTMLInputElement>) => void;
   };
+  sort: {
+    field: keyof T;
+    dir: number | undefined;
+  };
+  setSort: (sort: { field: keyof T; dir: number }) => void;
+  setSearchValue: (value: string) => void;
   SortableTH: FC<{
     field: keyof T;
     className?: string;
@@ -202,6 +208,9 @@ export function useSearch<T>({
       value,
       onChange,
     },
+    setSearchValue: setValue,
+    setSort,
+    sort,
     SortableTH,
   };
 }
