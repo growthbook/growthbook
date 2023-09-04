@@ -15,6 +15,7 @@ import ImportExperimentModal from "@/components/Experiment/ImportExperimentModal
 import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
+import track from "@/services/track";
 import NewExperimentForm from "../Experiment/NewExperimentForm";
 import Button from "../Button";
 
@@ -57,6 +58,9 @@ const ExperimentsGetStarted = (): React.ReactElement => {
     if (demoDataSourceProjectId && demoExperimentId) {
       router.push(`/experiment/${demoExperimentId}`);
     } else {
+      track("Create Sample Project", {
+        source: "experiments-get-started",
+      });
       const res = await apiCall<{
         project: ProjectInterface;
         experimentId: string;
@@ -252,6 +256,9 @@ const ExperimentsGetStarted = (): React.ReactElement => {
                     imageLeft={true}
                     onClick={() => {
                       setImportExperimentsOpen(true);
+                      track("Import Experiment Form", {
+                        source: "experiment-get-started",
+                      });
                     }}
                   />
                 </div>

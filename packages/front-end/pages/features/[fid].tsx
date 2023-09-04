@@ -288,6 +288,7 @@ export default function FeaturePage() {
           <div style={{ width: 180 }} className="ml-2">
             <DeleteDemoDatasourceButton
               onDelete={() => router.push("/features")}
+              source="feature"
             />
           </div>
         </div>

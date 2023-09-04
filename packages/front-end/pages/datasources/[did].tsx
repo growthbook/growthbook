@@ -138,6 +138,7 @@ const DataSourcePage: FC = () => {
           <div style={{ width: 180 }} className="ml-2">
             <DeleteDemoDatasourceButton
               onDelete={() => router.push("/datasources")}
+              source="datasource"
             />
           </div>
         </div>

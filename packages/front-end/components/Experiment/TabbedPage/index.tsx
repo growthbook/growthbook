@@ -270,6 +270,7 @@ export default function TabbedPage({
             <div style={{ width: 180 }} className="ml-2">
               <DeleteDemoDatasourceButton
                 onDelete={() => router.push("/experiments")}
+                source="experiment"
               />
             </div>
           </div>

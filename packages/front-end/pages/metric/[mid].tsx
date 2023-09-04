@@ -407,6 +407,7 @@ const MetricPage: FC = () => {
           <div style={{ width: 180 }} className="ml-2">
             <DeleteDemoDatasourceButton
               onDelete={() => router.push("/metrics")}
+              source="metric"
             />
           </div>
         </div>

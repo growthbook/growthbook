@@ -6,6 +6,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import { AuthContextValue, useAuth } from "@/services/auth";
 import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
 import { useUser } from "@/services/UserContext";
+import track from "@/services/track";
 import Button from "../Button";
 
 type DemoDataSourcePageProps = {
@@ -94,8 +95,10 @@ export async function deleteDemoDatasource(
 
 export function DeleteDemoDatasourceButton({
   onDelete,
+  source,
 }: {
   onDelete: () => void;
+  source: string;
 }) {
   const { organization } = useUser();
   const { apiCall } = useAuth();
@@ -111,6 +114,9 @@ export function DeleteDemoDatasourceButton({
         const demoProjectId = getDemoDatasourceProjectIdForOrganization(
           organization.id
         );
+        track("Delete Sample Project", {
+          source,
+        });
         await deleteDemoDatasource(organization.id, apiCall);
         mutateDefinitions();
 
@@ -158,6 +164,9 @@ export const DemoDataSourcePageContainer = () => {
       await apiCall("/demo-datasource-project", {
         method: "POST",
       });
+      track("Create Sample Project", {
+        source: "sample-project-page",
+      });
       setSuccess("The demo data source project was created successfully.");
     } catch (e: unknown) {
       console.error(e);
@@ -182,6 +191,9 @@ export const DemoDataSourcePageContainer = () => {
     if (!demoDataSourceProjectId) return;
 
     try {
+      track("Delete Sample Project", {
+        source: "sample-project-page",
+      });
       await deleteDemoDatasource(organization.id, apiCall);
       setSuccess("Demo datasource project was successfully deleted.");
     } catch (e: unknown) {
