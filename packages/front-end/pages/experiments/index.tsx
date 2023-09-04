@@ -16,7 +16,6 @@ import Pagination from "@/components/Pagination";
 import { GBAddCircle } from "@/components/Icons";
 import { useUser } from "@/services/UserContext";
 import ExperimentsGetStarted from "@/components/HomePage/ExperimentsGetStarted";
-import NewFeatureExperiments from "@/components/Experiment/NewFeatureExperiments";
 import SortedTags from "@/components/Tags/SortedTags";
 import Field from "@/components/Forms/Field";
 import TabButtons from "@/components/Tabs/TabButtons";
@@ -133,6 +132,8 @@ const ExperimentsPage = (): React.ReactElement => {
     return items.filter((item) => item.tab === tab);
   }, [items, tab]);
 
+  const [showSetup, setShowSetup] = useState(false);
+
   // If "All Projects" is selected is selected and some experiments are in a project, show the project column
   const showProjectColumn = !project && items.some((e) => e.project);
 
@@ -140,6 +141,13 @@ const ExperimentsPage = (): React.ReactElement => {
   useEffect(() => {
     setCurrentPage(1);
   }, [items.length, tab, showMineOnly]);
+
+  // Show steps if coming from get started page
+  useEffect(() => {
+    if (router.asPath.match(/getstarted/)) {
+      setShowSetup(true);
+    }
+  }, [router]);
 
   if (error) {
     return (
@@ -159,7 +167,6 @@ const ExperimentsPage = (): React.ReactElement => {
   if (!hasExperiments) {
     return (
       <div className="contents container pagecontents getstarted">
-        <NewFeatureExperiments />
         <ExperimentsGetStarted />
       </div>
     );
@@ -175,10 +182,10 @@ const ExperimentsPage = (): React.ReactElement => {
   return (
     <>
       <div className="contents experiments container-fluid pagecontents">
-        <div className="mb-5">
+        <div className="mb-3">
           <div className="filters md-form row mb-3 align-items-center">
             <div className="col-auto">
-              <h3>All Experiments</h3>
+              <h1>Experiments</h1>
             </div>
             <div style={{ flex: 1 }} />
             {canAdd && (
@@ -197,7 +204,23 @@ const ExperimentsPage = (): React.ReactElement => {
               </div>
             )}
           </div>
-          <NewFeatureExperiments />
+          <div className="mb-3">
+            <a
+              href="#"
+              onClick={(e) => {
+                e.preventDefault();
+                setShowSetup(!showSetup);
+              }}
+            >
+              {showSetup ? "Hide" : "Show"} Setup Steps
+            </a>
+            {showSetup && (
+              <div className="appbox p-3 px-4 mb-5">
+                <ExperimentsGetStarted />
+              </div>
+            )}
+            {showSetup && <h3>All Experiments</h3>}
+          </div>
           <div className="row align-items-center mb-3">
             <div className="col-auto">
               <TabButtons newStyle={true} className="mb-0">

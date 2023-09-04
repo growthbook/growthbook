@@ -72,6 +72,13 @@ export default function FeaturesPage() {
     showGraphs
   );
 
+  // Show steps if coming from get started page
+  useEffect(() => {
+    if (router.asPath.match(/getstarted/)) {
+      setShowSteps(true);
+    }
+  }, [router]);
+
   // Searching
   const tagsFilter = useTagsFilter("features");
   const filterResults = useCallback(
@@ -204,7 +211,7 @@ export default function FeaturesPage() {
             )}
           </h4>
           <FeaturesGetStarted features={features} />
-          {!stepsRequired && <h4 className="mt-3">All Features</h4>}
+          {features.length > 0 && <h4 className="mt-3">All Features</h4>}
         </div>
       ) : (
         <div className="mb-3">

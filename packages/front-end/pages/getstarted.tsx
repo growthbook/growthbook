@@ -3,10 +3,12 @@ import ReactPlayer from "react-player";
 import clsx from "clsx";
 import Link from "next/link";
 import { BsFlag } from "react-icons/bs";
+import { FiArrowRight } from "react-icons/fi";
 import { useExperiments } from "@/hooks/useExperiments";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
 import { GBExperiment } from "@/components/Icons";
+import Tooltip from "@/components/Tooltip/Tooltip";
 import LoadingOverlay from "../components/LoadingOverlay";
 import { useFeaturesList } from "../services/features";
 import { useDefinitions } from "../services/DefinitionsContext";
@@ -91,28 +93,41 @@ const GetStartedPage = (): React.ReactElement => {
         </div>
         <hr />
         <div className="mt-4">
-          <h2 style={{ fontSize: "2em" }}>Get Started</h2>
-          <p>
-            GrowthBook is a modular feature flagging and experimentation
-            platform. Which one do you want to start with?
-          </p>
-          <div className="d-flex justify-content-center">
-            <Link href="/features">
-              <a
-                className="d-block appbox p-3 text-dark h2 mx-3"
-                style={{ width: 300 }}
-              >
-                <BsFlag className="text-purple" /> Feature Flags
-              </a>
-            </Link>
-            <Link href="/experiments">
-              <a
-                className="d-block appbox p-3 text-dark h2 mx-3"
-                style={{ width: 300 }}
-              >
-                <GBExperiment className="text-purple" /> Experimentation
-              </a>
-            </Link>
+          <h2 style={{ fontSize: "2em" }} className="mb-3">
+            What do you want to start with?
+          </h2>
+          <div className="text-center">
+            <Tooltip
+              body={
+                <>
+                  Wrap your code in <strong>Feature Flag</strong> checks to
+                  control exactly how and when it&apos;s released to your users.
+                </>
+              }
+              popperClassName="mt-3"
+            >
+              <Link href="/features?getstarted">
+                <a className="btn btn-primary btn-lg mx-3">
+                  <BsFlag /> Feature Flags <FiArrowRight />
+                </a>
+              </Link>
+            </Tooltip>
+            <Tooltip
+              body={
+                <>
+                  Run controlled <strong>Experiments</strong> to determine the
+                  impact of changes to your product. Code and No Code
+                  implementation options are available.
+                </>
+              }
+              popperClassName="mt-3"
+            >
+              <Link href="/experiments?getstarted">
+                <a className="btn btn-primary btn-lg mx-3">
+                  <GBExperiment /> Experimentation <FiArrowRight />
+                </a>
+              </Link>
+            </Tooltip>
           </div>
         </div>
       </div>

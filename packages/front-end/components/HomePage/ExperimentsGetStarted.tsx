@@ -48,7 +48,6 @@ const ExperimentsGetStarted = (): React.ReactElement => {
 
   const {
     projectId: demoDataSourceProjectId,
-    exists: demoProjectExists,
     demoExperimentId,
   } = useDemoDataSourceProject();
 
@@ -65,7 +64,11 @@ const ExperimentsGetStarted = (): React.ReactElement => {
         method: "POST",
       });
       await mutateDefinitions();
-      router.push(`/experiment/${res.experimentId}`);
+      if (res.experimentId) {
+        router.push(`/experiment/${res.experimentId}`);
+      } else {
+        throw new Error("Could not create sample experiment");
+      }
     }
   };
 
@@ -85,7 +88,7 @@ const ExperimentsGetStarted = (): React.ReactElement => {
               await mutateDefinitions();
               setDataSourceOpen(false);
             }}
-            showImportSampleData={!demoProjectExists}
+            showImportSampleData={false}
           />
         )}
 
@@ -118,7 +121,7 @@ const ExperimentsGetStarted = (): React.ReactElement => {
         )}
 
         {showAnalysisSteps ? (
-          <div style={{ maxWidth: 900 }} className="mx-auto">
+          <div style={{ maxWidth: 900 }}>
             <div className="mb-2">
               <a
                 href="#"
@@ -266,7 +269,7 @@ const ExperimentsGetStarted = (): React.ReactElement => {
           </div>
         ) : (
           <div>
-            <h1>Experiments</h1>
+            <h1>Experimentation Setup</h1>
             <p>
               There are three ways to get started with experimentation in
               GrowthBook.

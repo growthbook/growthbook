@@ -7,6 +7,7 @@ import React, { useState } from "react";
 import { FaChevronRight, FaExclamationTriangle } from "react-icons/fa";
 import { datetime } from "shared/dates";
 import { getValidation } from "shared/util";
+import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import { GBAddCircle, GBCircleArrowLeft, GBEdit } from "@/components/Icons";
 import LoadingOverlay from "@/components/LoadingOverlay";
@@ -50,6 +51,7 @@ import EditSchemaModal from "@/components/Features/EditSchemaModal";
 import Code from "@/components/SyntaxHighlighting/Code";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { useUser } from "@/services/UserContext";
+import { DeleteDemoDatasourceButton } from "@/components/DemoDataSourcePage/DemoDataSourcePage";
 
 export default function FeaturePage() {
   const router = useRouter();
@@ -81,7 +83,7 @@ export default function FeaturePage() {
   } = useDefinitions();
 
   const { apiCall } = useAuth();
-  const { hasCommercialFeature } = useUser();
+  const { hasCommercialFeature, organization } = useUser();
 
   const { data, error, mutate } = useApi<{
     feature: FeatureInterface;
@@ -272,6 +274,22 @@ export default function FeaturePage() {
           >
             Review{hasDraftPublishPermission && " and Publish"}
           </button>
+        </div>
+      )}
+
+      {projectId ===
+        getDemoDatasourceProjectIdForOrganization(organization.id) && (
+        <div className="alert alert-info mb-3 d-flex align-items-center">
+          <div className="flex-1">
+            This feature is part of our sample dataset and shows how Feature
+            Flags and Experiments can be linked together. You can delete this
+            once you are done exploring.
+          </div>
+          <div style={{ width: 180 }} className="ml-2">
+            <DeleteDemoDatasourceButton
+              onDelete={() => router.push("/features")}
+            />
+          </div>
         </div>
       )}
 

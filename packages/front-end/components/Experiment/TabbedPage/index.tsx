@@ -10,6 +10,8 @@ import {
 import { useEffect, useMemo, useState } from "react";
 import { FaChartBar } from "react-icons/fa";
 import clsx from "clsx";
+import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
+import { useRouter } from "next/router";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { useEnvironments, useFeaturesList } from "@/services/features";
 import FeatureFromExperimentModal from "@/components/Features/FeatureModal/FeatureFromExperimentModal";
@@ -21,6 +23,7 @@ import { useUser } from "@/services/UserContext";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import DiscussionThread from "@/components/DiscussionThread";
 import { useAuth } from "@/services/auth";
+import { DeleteDemoDatasourceButton } from "@/components/DemoDataSourcePage/DemoDataSourcePage";
 import EditStatusModal from "../EditStatusModal";
 import VisualChangesetModal from "../VisualChangesetModal";
 import EditExperimentNameForm from "../EditExperimentNameForm";
@@ -76,6 +79,8 @@ export default function TabbedPage({
     `tabbedPageTab__${experiment.id}`,
     "overview"
   );
+
+  const router = useRouter();
 
   const { apiCall } = useAuth();
 
@@ -160,7 +165,7 @@ export default function TabbedPage({
   const watcherIds = useApi<{
     userIds: string[];
   }>(`/experiment/${experiment.id}/watchers`);
-  const { users } = useUser();
+  const { users, organization } = useUser();
 
   // Get name or email of all active users watching this experiment
   const usersWatching = (watcherIds?.data?.userIds || [])
@@ -255,6 +260,21 @@ export default function TabbedPage({
         editPhases={editPhases}
       />
       <div className="container pagecontents pb-4">
+        {experiment.project ===
+          getDemoDatasourceProjectIdForOrganization(organization.id) && (
+          <div className="alert alert-info mb-3 d-flex align-items-center mt-3">
+            <div className="flex-1">
+              This experiment is part of our sample dataset. You can safely
+              delete this once you are done exploring.
+            </div>
+            <div style={{ width: 180 }} className="ml-2">
+              <DeleteDemoDatasourceButton
+                onDelete={() => router.push("/experiments")}
+              />
+            </div>
+          </div>
+        )}
+
         {experiment.status === "stopped" && (
           <div className="pt-3">
             <StoppedExperimentBanner

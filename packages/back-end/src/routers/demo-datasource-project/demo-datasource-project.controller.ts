@@ -179,17 +179,16 @@ export const postDemoDatasourceProject = async (
   try {
     const project = await createProject(org.id, {
       id: demoProjId,
-      name: "GrowthBook Demo Project",
-      description: "GrowthBook Demo Project",
+      name: "Sample Data",
     });
     const datasource = await createDataSource(
       org.id,
-      "GrowthBook Demo Postgres Datasource",
+      "Sample Data Source",
       DATASOURCE_TYPE,
       DEMO_DATASOURCE_PARAMS,
       DEMO_DATASOURCE_SETTINGS,
       undefined,
-      "Datasource used for demoing GrowthBook Metrics, Experiments, and Datasource Connections",
+      "",
       [project.id]
     );
 
