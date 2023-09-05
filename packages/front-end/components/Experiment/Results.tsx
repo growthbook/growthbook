@@ -274,40 +274,38 @@ const Results: FC<{
         />
       )}
       {showDateResults ? (
-          <DateResults
-            metrics={experiment.metrics}
-            guardrails={experiment.guardrails}
-            results={analysis?.results ?? []}
-            seriestype={snapshot.dimension}
-            variations={variations}
-            statsEngine={
-              analysis?.settings?.statsEngine ?? DEFAULT_STATS_ENGINE
-            }
-          />
-        ) : showBreakDownResults ? (
-          <BreakDownResults
-            key={snapshot.dimension}
-            results={analysis?.results ?? []}
-            queryStatusData={queryStatusData}
-            variations={variations}
-            metrics={experiment.metrics}
-            metricOverrides={experiment.metricOverrides ?? []}
-            guardrails={experiment.guardrails}
-            dimensionId={snapshot.dimension}
-            isLatestPhase={phase === experiment.phases.length - 1}
-            startDate={phaseObj?.dateStarted ?? ""}
-            reportDate={snapshot.dateCreated}
-            activationMetric={experiment.activationMetric}
-            status={experiment.status}
-            statsEngine={analysis.settings.statsEngine}
-            pValueCorrection={pValueCorrection}
-            regressionAdjustmentEnabled={analysis?.settings?.regressionAdjusted}
-            metricRegressionAdjustmentStatuses={
-              snapshotMetricRegressionAdjustmentStatuses
-            }
-            sequentialTestingEnabled={analysis?.settings?.sequentialTesting}
-          />
-        ) : showCompactResults ? (
+        <DateResults
+          metrics={experiment.metrics}
+          guardrails={experiment.guardrails}
+          results={analysis?.results ?? []}
+          seriestype={snapshot.dimension}
+          variations={variations}
+          statsEngine={analysis?.settings?.statsEngine ?? DEFAULT_STATS_ENGINE}
+        />
+      ) : showBreakDownResults ? (
+        <BreakDownResults
+          key={snapshot.dimension}
+          results={analysis?.results ?? []}
+          queryStatusData={queryStatusData}
+          variations={variations}
+          metrics={experiment.metrics}
+          metricOverrides={experiment.metricOverrides ?? []}
+          guardrails={experiment.guardrails}
+          dimensionId={snapshot.dimension}
+          isLatestPhase={phase === experiment.phases.length - 1}
+          startDate={phaseObj?.dateStarted ?? ""}
+          reportDate={snapshot.dateCreated}
+          activationMetric={experiment.activationMetric}
+          status={experiment.status}
+          statsEngine={analysis.settings.statsEngine}
+          pValueCorrection={pValueCorrection}
+          regressionAdjustmentEnabled={analysis?.settings?.regressionAdjusted}
+          metricRegressionAdjustmentStatuses={
+            snapshotMetricRegressionAdjustmentStatuses
+          }
+          sequentialTestingEnabled={analysis?.settings?.sequentialTesting}
+        />
+      ) : showCompactResults ? (
         <>
           {reportDetailsLink && (
             <div className="float-right pr-3">

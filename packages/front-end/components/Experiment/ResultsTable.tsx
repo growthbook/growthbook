@@ -61,6 +61,7 @@ export type ResultsTableProps = {
   isLatestPhase: boolean;
   startDate: string;
   rows: ExperimentTableRow[];
+  dimension?: string;
   metricsAsGuardrails?: boolean;
   tableRowAxis: "metric" | "dimension";
   labelHeader: string | JSX.Element;
@@ -91,6 +92,7 @@ export default function ResultsTable({
   status,
   queryStatusData,
   rows,
+  dimension,
   metricsAsGuardrails = false,
   tableRowAxis,
   labelHeader,
@@ -363,6 +365,8 @@ export default function ResultsTable({
       tooltipData: {
         metricRow,
         metric,
+        dimensionName: dimension,
+        dimensionValue: dimension ? row.label : undefined,
         variation,
         stats,
         baseline,
@@ -619,7 +623,9 @@ export default function ResultsTable({
                       className: "results-label-row bg-light",
                       label: renderLabelColumn(row.label, row.metric, row),
                       graphCellWidth,
-                      rowHeight: isBreakDown ? BREAKDOWN_LABEL_ROW_HEIGHT : METRIC_LABEL_ROW_HEIGHT,
+                      rowHeight: isBreakDown
+                        ? BREAKDOWN_LABEL_ROW_HEIGHT
+                        : METRIC_LABEL_ROW_HEIGHT,
                       id,
                       domain,
                     })}
@@ -830,7 +836,10 @@ export default function ResultsTable({
                               newUi={true}
                               // className={}
                               isHovered={isHovered}
-                              className={clsx(resultsHighlightClassname, "overflow-hidden")}
+                              className={clsx(
+                                resultsHighlightClassname,
+                                "overflow-hidden"
+                              )}
                               rowStatus={rowResults.resultsStatus}
                               onMouseMove={(e) =>
                                 onPointerMove(e, {

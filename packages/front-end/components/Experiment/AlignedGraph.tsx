@@ -202,7 +202,10 @@ const AlignedGraph: FC<Props> = ({
   return (
     <>
       <div
-        className={clsx("d-flex aligned-graph align-items-center aligned-graph-row", className)}
+        className={clsx(
+          "d-flex aligned-graph align-items-center aligned-graph-row",
+          className
+        )}
       >
         <div className={newUi ? "" : "flex-grow-1"}>
           <div style={{ position: "relative" }}>

@@ -1,4 +1,4 @@
-import { FC, useMemo, useState } from "react";
+import { FC, useMemo } from "react";
 import { MetricInterface } from "back-end/types/metric";
 import {
   ExperimentReportResultDimension,
@@ -15,12 +15,9 @@ import {
   useRiskVariation,
 } from "@/services/experiments";
 import ResultsTable from "@/components/Experiment/ResultsTable";
-import Toggle from "../Forms/Toggle";
+import { QueryStatusData } from "@/components/Queries/RunQueriesButton";
+import { getRenderLabelColumn } from "@/components/Experiment/CompactResults";
 import UsersTable from "./UsersTable";
-import {QueryStatusData} from "@/components/Queries/RunQueriesButton";
-import {getRenderLabelColumn} from "@/components/Experiment/CompactResults";
-
-const FULL_STATS_LIMIT = 5;
 
 type TableDef = {
   metric: MetricInterface;
@@ -71,11 +68,6 @@ const BreakDownResults: FC<{
     return getDimensionById(dimensionId)?.name || "Dimension";
   }, [getDimensionById, dimensionId]);
 
-  const tooManyDimensions = results.length > FULL_STATS_LIMIT;
-
-  const [fullStatsToggle, setFullStats] = useState(false);
-  const fullStats = !tooManyDimensions || fullStatsToggle;
-
   const tables = useMemo<TableDef[]>(() => {
     if (!ready) return [];
     if (pValueCorrection && statsEngine === "frequentist") {
@@ -116,8 +108,10 @@ const BreakDownResults: FC<{
     regressionAdjustmentEnabled,
     metricRegressionAdjustmentStatuses,
     pValueCorrection,
+    statsEngine,
     guardrails,
     ready,
+    getMetricById,
   ]);
 
   const risk = useRiskVariation(
@@ -143,27 +137,6 @@ const BreakDownResults: FC<{
         />
       </div>
 
-      {tooManyDimensions && (
-        <div className="row align-items-center mb-3 px-3">
-          <div className="col">
-            <div className="alert alert-warning mb-0">
-              <strong>Warning: </strong> This dimension contains many unique
-              values. We&apos;ve disabled the stats engine by default since it
-              may be misleading.
-            </div>
-          </div>
-          <div className="col-auto">
-            <Toggle
-              value={fullStats}
-              setValue={setFullStats}
-              id="full-stats"
-              label="Show Full Stats"
-            />
-            Stats Engine
-          </div>
-        </div>
-      )}
-
       {tables.map((table) => {
         return (
           <>
@@ -171,7 +144,7 @@ const BreakDownResults: FC<{
               {getRenderLabelColumn(regressionAdjustmentEnabled)(
                 table.metric.name,
                 table.metric,
-                table.rows[0],
+                table.rows[0]
               )}
             </div>
 
@@ -185,25 +158,38 @@ const BreakDownResults: FC<{
               // variationFilter={variationFilter} // todo
               // baselineRow={baselineRow} // todo
               rows={table.rows} // todo: table format needs work
+              dimension={dimension}
               id={table.metric.id}
               hasRisk={risk.hasRisk} // todo: is this right?
               tableRowAxis="dimension" // todo: dynamic grouping?
-              labelHeader={<div style={{marginBottom: 2}}>
-                {getRenderLabelColumn(regressionAdjustmentEnabled)(
-                  table.metric.name,
-                  table.metric,
-                  table.rows[0],
-                )}
-              </div>}
+              labelHeader={
+                <div style={{ marginBottom: 2 }}>
+                  {getRenderLabelColumn(regressionAdjustmentEnabled)(
+                    table.metric.name,
+                    table.metric,
+                    table.rows[0]
+                  )}
+                </div>
+              }
               // fullStats={fullStats} // todo: skip render?
               editMetrics={undefined}
               statsEngine={statsEngine}
               sequentialTestingEnabled={sequentialTestingEnabled}
               pValueCorrection={pValueCorrection}
-              renderLabelColumn={(label) => (<>
-                <div className="uppercase-title">{dimension}:</div>
-                {label ? label : (<em>unknown</em>)}
-              </>)} // todo: make better
+              renderLabelColumn={(label) => (
+                <>
+                  {/*<div className="uppercase-title">{dimension}:</div>*/}
+                  {label ? (
+                    label === "__NULL_DIMENSION" ? (
+                      <em>NULL (unset)</em>
+                    ) : (
+                      label
+                    )
+                  ) : (
+                    <em>unknown</em>
+                  )}
+                </>
+              )} // todo: make better
               isBreakDown={true}
               isTabActive={true}
             />

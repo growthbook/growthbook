@@ -112,8 +112,10 @@ const BreakDownResults_old: FC<{
     regressionAdjustmentEnabled,
     metricRegressionAdjustmentStatuses,
     pValueCorrection,
+    statsEngine,
     guardrails,
     ready,
+    getMetricById,
   ]);
 
   const risk = useRiskVariation(

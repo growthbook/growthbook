@@ -3,7 +3,11 @@ import { MetricInterface } from "back-end/types/metric";
 import { ExperimentReportVariationWithIndex } from "back-end/types/report";
 import { SnapshotMetric } from "back-end/types/experiment-snapshot";
 import { PValueCorrection, StatsEngine } from "back-end/types/stats";
-import { BsXCircle, BsHourglassSplit } from "react-icons/bs";
+import {
+  BsXCircle,
+  BsHourglassSplit,
+  BsArrowReturnRight,
+} from "react-icons/bs";
 import clsx from "clsx";
 import { FaArrowDown, FaArrowUp } from "react-icons/fa";
 import { HiOutlineExclamationCircle } from "react-icons/hi";
@@ -42,6 +46,8 @@ const percentFormatter = new Intl.NumberFormat(undefined, {
 export interface TooltipData {
   metricRow: number;
   metric: MetricInterface;
+  dimensionName?: string;
+  dimensionValue?: string;
   variation: ExperimentReportVariationWithIndex;
   stats: SnapshotMetric;
   baseline: SnapshotMetric;
@@ -224,6 +230,15 @@ export default function ResultsTableTooltip({
             {metricInverseIconDisplay}
             <span className="text-muted ml-2">({data.metric.type})</span>
           </div>
+          {data.dimensionName ? (
+            <div className="dimension-label d-flex align-items-center">
+              <BsArrowReturnRight size={12} className="mx-1" />
+              <span>{data.dimensionName}:</span>
+              <span className="ml-1 font-weight-bold">
+                {data.dimensionValue}
+              </span>
+            </div>
+          ) : null}
 
           <div
             className="variation-label mt-2 d-flex justify-content-between"
