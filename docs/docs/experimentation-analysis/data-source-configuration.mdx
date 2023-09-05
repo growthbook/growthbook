@@ -90,6 +90,16 @@ These queries are very simple and just need to return columns for each of the id
 SELECT user_id, device_id FROM logins
 ```
 
+##### Identifier Join Tables - Multiple identifiers
+
+For cases when you'd want to use multiple identifiers, it's recommended you use the `CONCAT` function to synthesize a single new identifier for joining.
+
+```
+SELECT CONCAT(company_id, user_id) as company_user
+```
+
+Then use `company_user` as an identifier throughout the app.
+
 #### SQL Templates
 
 We use {{[Handlebars](https://handlebarsjs.com/guide/#language-features)}} to compile the assignment sql, identity queries, etc. into what is actually called to your database.
