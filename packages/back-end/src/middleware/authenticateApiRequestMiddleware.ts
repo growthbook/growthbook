@@ -81,7 +81,7 @@ export default function authenticateApiRequestMiddleware(
       }
 
       // Check permissions for user API keys
-      req.checkPermissions = (
+      req.checkPermissions = async (
         permission: Permission,
         project?: string | (string | undefined)[] | undefined,
         envs?: string[] | Set<string>
@@ -94,7 +94,7 @@ export default function authenticateApiRequestMiddleware(
         }
 
         for (const p of checkProjects) {
-          verifyApiKeyPermission({
+          await verifyApiKeyPermission({
             apiKey: apiKeyPartial,
             permission,
             organization: org,
@@ -173,7 +173,7 @@ type VerifyApiKeyPermissionOptions = {
  * @param project
  * @throws an error if there are no permissions
  */
-export function verifyApiKeyPermission({
+export async function verifyApiKeyPermission({
   apiKey,
   permission,
   organization,
@@ -181,15 +181,14 @@ export function verifyApiKeyPermission({
   project,
 }: VerifyApiKeyPermissionOptions) {
   if (apiKey.userId) {
-    if (
-      !doesUserHavePermission(
-        organization,
-        permission,
-        apiKey,
-        project,
-        environments
-      )
-    ) {
+    const userHasPermission = await doesUserHavePermission(
+      organization,
+      permission,
+      apiKey,
+      project,
+      environments
+    );
+    if (!userHasPermission) {
       throw new Error("API key user does not have this level of access");
     }
 
