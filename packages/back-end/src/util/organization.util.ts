@@ -92,15 +92,12 @@ export async function getUserPermissions(
     };
   });
 
-  console.log("memberInfo", memberInfo);
-
   // If the user's global role is admin, we can skip the team checks as they already have full permissions
   if (memberInfo?.role !== "admin") {
     //TODO: Figure out how I can abstract this into a function to reuse it for the project level permission logic
     const teamsUserIsOn = memberInfo?.teams || [];
     for (const team of teamsUserIsOn) {
       const teamData = await findTeamById(team, org.id);
-      console.log("teamData", teamData);
       if (teamData) {
         const teamGlobalPermissions = roleToPermissionMap(teamData.role, org);
         for (const permission in teamGlobalPermissions) {
@@ -121,21 +118,72 @@ export async function getUserPermissions(
             teamData.limitAccessByEnvironment)
         ) {
           userPermissions.global.limitAccessByEnvironment = true;
-          userPermissions.global.environments = userPermissions.global.environments.concat(
-            teamData.environments
-          );
+          userPermissions.global.environments = [
+            ...new Set(
+              userPermissions.global.environments.concat(teamData.environments)
+            ),
+          ];
         }
         if (teamData.role === "admin") {
           userPermissions.global.limitAccessByEnvironment = false;
           userPermissions.global.environments = [];
         }
+        if (teamData?.projectRoles && teamData?.projectRoles.length > 0) {
+          for (const teamProject of teamData.projectRoles) {
+            const teamProjectPermissions = roleToPermissionMap(
+              teamProject.role,
+              org
+            );
+            // if (memberInfo.projectRoles[teamProject.project].role !== "admin") {
+            if (!userPermissions.projects[teamProject.project]) {
+              userPermissions.projects[teamProject.project] = {
+                limitAccessByEnvironment:
+                  teamProject.limitAccessByEnvironment || false,
+                environments: teamProject.environments || [],
+                permissions: teamProjectPermissions,
+              };
+            } else {
+              for (const permission in teamProjectPermissions) {
+                if (
+                  !userPermissions.projects[teamProject.project].permissions[
+                    permission as Permission
+                  ] &&
+                  teamProjectPermissions[permission as Permission]
+                ) {
+                  userPermissions.projects[teamProject.project].permissions[
+                    permission as Permission
+                  ] = teamProjectPermissions[permission as Permission];
+                }
+              }
+              if (
+                teamProject.role === "engineer" ||
+                (teamProject.role === "experimenter" &&
+                  teamProject.limitAccessByEnvironment)
+              ) {
+                userPermissions.projects[
+                  teamProject.project
+                ].limitAccessByEnvironment = true;
+                userPermissions.projects[teamProject.project].environments = [
+                  ...new Set(
+                    userPermissions.projects[
+                      teamProject.project
+                    ].environments.concat(teamProject.environments)
+                  ),
+                ];
+              }
+              if (teamProject.role === "admin") {
+                userPermissions.projects[
+                  teamProject.project
+                ].limitAccessByEnvironment = false;
+                userPermissions.projects[teamProject.project].environments = [];
+              }
+            }
+          }
+        }
+        // }
       }
     }
   }
-
-  // Build the user's project-level permissions
-
-  // Loop through each team, and then loop through each pro
 
   return userPermissions;
 }
