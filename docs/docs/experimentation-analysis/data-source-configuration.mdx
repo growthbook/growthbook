@@ -41,7 +41,7 @@ Once you have chosen your event tracker and data source type and successfully co
 
 These are all of the types of identifiers you use to split traffic in an experiment and track metric conversions. Common examples are `user_id`, `anonymous_id`, `device_id`, and `ip_address`.
 
-There are some cases where a single database column isn't enough to uniquely identify a subject. For example, you might need the combination of `company` and `user_id`. In this case, we recommend creating a synthetic identifier by concatenating all of the fields together. For example, `CONCAT(company, user_id) as company_user`
+There are some cases where a single database column isn't enough to uniquely identify a subject. For example, you might need the combination of `company` and `user_id`. In this case, we recommend creating a synthetic identifier by concatenating all of the fields together. For example, you can create a `company_user` identifier and then in your SQL, select it as follows: `CONCAT(company, user_id) as company_user`.
 
 ### Experiment Assignment Queries
 
