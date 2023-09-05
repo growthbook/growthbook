@@ -119,7 +119,8 @@ export default function FeaturesPage() {
 
   const { data } = useSDKConnections();
   const connections = data?.connections || [];
-  const hasActiveConnection = connections.some((c) => c.connected);
+  const hasActiveConnection =
+    connections.some((c) => c.connected) || !!settings?.sdkInstructionsViewed;
 
   if (error) {
     return (
@@ -147,8 +148,7 @@ export default function FeaturesPage() {
 
   const toggleEnvs = environments.filter((en) => en.toggleOnList);
   const showArchivedToggle = features.some((f) => f.archived);
-  const stepsRequired =
-    (!hasActiveConnection && !settings?.sdkInstructionsViewed) || !hasFeatures;
+  const stepsRequired = !hasActiveConnection || !hasFeatures;
 
   return (
     <div className="contents container pagecontents">

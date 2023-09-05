@@ -31,12 +31,13 @@ export default function FeaturesGetStarted({ features }: Props) {
 
   const { data } = useSDKConnections();
   const connections = data?.connections || [];
-  const hasActiveConnection = connections.some((c) => c.connected);
+  const hasActiveConnection =
+    connections.some((c) => c.connected) || !!settings?.sdkInstructionsViewed;
 
   const hasFeatures = features.some((f) => f.project !== demoProjectId);
 
   let step = -1;
-  if (!hasActiveConnection && !settings?.sdkInstructionsViewed) {
+  if (!hasActiveConnection) {
     step = 1;
   } else if (!hasFeatures) {
     step = 2;
@@ -62,6 +63,11 @@ export default function FeaturesGetStarted({ features }: Props) {
         <InitialSDKConnectionForm
           close={() => setCodeModalOpen(false)}
           feature={features[0]}
+          includeCheck={true}
+          cta="Check Connection"
+          goToNextStep={() => {
+            setCodeModalOpen(false);
+          }}
         />
       )}
       <div className="row getstarted mb-3">
@@ -69,7 +75,7 @@ export default function FeaturesGetStarted({ features }: Props) {
           <div className={`card gsbox`} style={{ overflow: "hidden" }}>
             <GetStartedStep
               current={step === 1}
-              finished={settings?.sdkInstructionsViewed || hasActiveConnection}
+              finished={hasActiveConnection}
               className="border-top"
               image="/images/coding-icon.svg"
               title="1. Install our SDK"
