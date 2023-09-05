@@ -272,7 +272,7 @@ const auth = getAuthConnection();
 app.use(auth.middleware);
 
 // Add logged in user props to the request
-app.use(processJWT);
+app.use(asyncHandler(processJWT));
 
 // Add logged in user props to the logger
 app.use(
