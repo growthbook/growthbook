@@ -72,7 +72,6 @@ export type ResultsTableProps = {
     row: ExperimentTableRow,
     maxRows?: number
   ) => string | ReactElement;
-  isBreakDown?: boolean;
   dateCreated: Date;
   hasRisk: boolean;
   statsEngine: StatsEngine;
@@ -83,7 +82,6 @@ export type ResultsTableProps = {
 
 const ROW_HEIGHT = 56;
 const METRIC_LABEL_ROW_HEIGHT = 44;
-const BREAKDOWN_LABEL_ROW_HEIGHT = 56;
 const SPACER_ROW_HEIGHT = 6;
 
 export default function ResultsTable({
@@ -102,7 +100,6 @@ export default function ResultsTable({
   baselineRow = 0,
   startDate,
   renderLabelColumn,
-  isBreakDown = false,
   dateCreated,
   hasRisk,
   statsEngine,
@@ -623,9 +620,7 @@ export default function ResultsTable({
                       className: "results-label-row bg-light",
                       label: renderLabelColumn(row.label, row.metric, row),
                       graphCellWidth,
-                      rowHeight: isBreakDown
-                        ? BREAKDOWN_LABEL_ROW_HEIGHT
-                        : METRIC_LABEL_ROW_HEIGHT,
+                      rowHeight: METRIC_LABEL_ROW_HEIGHT,
                       id,
                       domain,
                     })}

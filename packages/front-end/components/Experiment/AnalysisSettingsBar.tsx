@@ -156,7 +156,7 @@ export default function AnalysisSettingsBar({
                   variationFilter={variationFilter ?? []}
                   setVariationFilter={setVariationFilter}
                   baselineRow={baselineRow ?? 0}
-                  dropdownEnabled={!snapshot?.dimension}
+                  dropdownEnabled={snapshot?.dimension !== "pre:date"}
                 />
                 <em className="text-muted mx-3" style={{ marginTop: 15 }}>
                   vs
@@ -171,7 +171,7 @@ export default function AnalysisSettingsBar({
                   setAnalysisSettings={setAnalysisSettings}
                   loading={!!loading}
                   mutate={mutate}
-                  dropdownEnabled={!snapshot?.dimension}
+                  dropdownEnabled={snapshot?.dimension !== "pre:date"}
                   dimension={dimension}
                 />
               </div>

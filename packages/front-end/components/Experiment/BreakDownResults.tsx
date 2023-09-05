@@ -29,6 +29,8 @@ const BreakDownResults: FC<{
   results: ExperimentReportResultDimension[];
   queryStatusData?: QueryStatusData;
   variations: ExperimentReportVariation[];
+  variationFilter?: number[];
+  baselineRow?: number;
   metrics: string[];
   metricOverrides: MetricOverride[];
   guardrails?: string[];
@@ -48,6 +50,8 @@ const BreakDownResults: FC<{
   results,
   queryStatusData,
   variations,
+  variationFilter,
+  baselineRow,
   metrics,
   metricOverrides,
   guardrails,
@@ -155,12 +159,12 @@ const BreakDownResults: FC<{
               status={status}
               queryStatusData={queryStatusData}
               variations={variations}
-              // variationFilter={variationFilter} // todo
-              // baselineRow={baselineRow} // todo
-              rows={table.rows} // todo: table format needs work
+              variationFilter={variationFilter}
+              baselineRow={baselineRow}
+              rows={table.rows}
               dimension={dimension}
               id={table.metric.id}
-              hasRisk={risk.hasRisk} // todo: is this right?
+              hasRisk={risk.hasRisk}
               tableRowAxis="dimension" // todo: dynamic grouping?
               labelHeader={
                 <div style={{ marginBottom: 2 }}>
@@ -171,7 +175,6 @@ const BreakDownResults: FC<{
                   )}
                 </div>
               }
-              // fullStats={fullStats} // todo: skip render?
               editMetrics={undefined}
               statsEngine={statsEngine}
               sequentialTestingEnabled={sequentialTestingEnabled}
@@ -189,8 +192,7 @@ const BreakDownResults: FC<{
                     <em>unknown</em>
                   )}
                 </>
-              )} // todo: make better
-              isBreakDown={true}
+              )}
               isTabActive={true}
             />
           </>

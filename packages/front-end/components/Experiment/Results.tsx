@@ -278,7 +278,7 @@ const Results: FC<{
           metrics={experiment.metrics}
           guardrails={experiment.guardrails}
           results={analysis?.results ?? []}
-          seriestype={snapshot.dimension}
+          seriestype={snapshot.dimension ?? ""}
           variations={variations}
           statsEngine={analysis?.settings?.statsEngine ?? DEFAULT_STATS_ENGINE}
         />
@@ -288,10 +288,12 @@ const Results: FC<{
           results={analysis?.results ?? []}
           queryStatusData={queryStatusData}
           variations={variations}
+          variationFilter={variationFilter}
+          baselineRow={baselineRow}
           metrics={experiment.metrics}
           metricOverrides={experiment.metricOverrides ?? []}
           guardrails={experiment.guardrails}
-          dimensionId={snapshot.dimension}
+          dimensionId={snapshot.dimension ?? ""}
           isLatestPhase={phase === experiment.phases.length - 1}
           startDate={phaseObj?.dateStarted ?? ""}
           reportDate={snapshot.dateCreated}
