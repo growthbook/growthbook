@@ -31,7 +31,7 @@ export default function FeaturesGetStarted({ features }: Props) {
 
   const { data } = useSDKConnections();
   const connections = data?.connections || [];
-  const hasActiveConnection = connections.filter((c) => c.connected);
+  const hasActiveConnection = connections.some((c) => c.connected);
 
   const hasFeatures = features.some((f) => f.project !== demoProjectId);
 
@@ -69,7 +69,6 @@ export default function FeaturesGetStarted({ features }: Props) {
           <div className={`card gsbox`} style={{ overflow: "hidden" }}>
             <GetStartedStep
               current={step === 1}
-              // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'boolean | undefined' is not assignable to ty... Remove this comment to see the full error message
               finished={settings?.sdkInstructionsViewed || hasActiveConnection}
               className="border-top"
               image="/images/coding-icon.svg"

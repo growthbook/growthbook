@@ -119,7 +119,7 @@ export default function FeaturesPage() {
 
   const { data } = useSDKConnections();
   const connections = data?.connections || [];
-  const hasActiveConnection = connections.filter((c) => c.connected);
+  const hasActiveConnection = connections.some((c) => c.connected);
 
   if (error) {
     return (
