@@ -16,7 +16,7 @@ import RunQueriesButton, {
   getQueryStatus,
 } from "@/components/Queries/RunQueriesButton";
 import DateResults from "@/components/Experiment/DateResults";
-import BreakDownResults from "@/components/Experiment/BreakDownResults";
+import BreakDownResults_old from "@/components/Experiment/BreakDownResults_old";
 import CompactResults_old from "@/components/Experiment/CompactResults_old";
 import GuardrailResults from "@/components/Experiment/GuardrailResult";
 import { useAuth } from "@/services/auth";
@@ -449,7 +449,7 @@ export default function ReportPage() {
                   statsEngine={report.args.statsEngine}
                 />
               ) : (
-                <BreakDownResults
+                <BreakDownResults_old
                   isLatestPhase={true}
                   metrics={report.args.metrics}
                   // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'MetricOverride[] | undefined' is not assigna... Remove this comment to see the full error message

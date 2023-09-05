@@ -164,7 +164,7 @@ export default function ResultsTableTooltip({
       className="experiment-row-tooltip-wrapper"
       style={{
         position: "absolute",
-        width: Math.min(TOOLTIP_WIDTH, window.innerWidth),
+        width: Math.min(TOOLTIP_WIDTH, window.innerWidth - 20),
         height: TOOLTIP_HEIGHT,
         left,
         top,
@@ -177,7 +177,7 @@ export default function ResultsTableTooltip({
         })}
         style={{
           position: "absolute",
-          width: Math.min(TOOLTIP_WIDTH, window.innerWidth),
+          width: Math.min(TOOLTIP_WIDTH, window.innerWidth - 20),
           top: data.yAlign === "top" ? 0 : "auto",
           bottom: data.yAlign === "bottom" ? 0 : "auto",
           transformOrigin: `${arrowLeft} ${

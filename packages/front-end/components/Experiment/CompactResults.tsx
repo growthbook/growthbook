@@ -196,7 +196,7 @@ const CompactResults: FC<{
 };
 export default CompactResults;
 
-function getRenderLabelColumn(regressionAdjustmentEnabled) {
+export function getRenderLabelColumn(regressionAdjustmentEnabled) {
   return function renderLabelColumn(
     label: string,
     metric: MetricInterface,
@@ -215,6 +215,7 @@ function getRenderLabelColumn(regressionAdjustmentEnabled) {
         }
         tipPosition="right"
         className="d-inline-block font-weight-bold metric-label"
+        usePortal={true}
       >
         {" "}
         <span

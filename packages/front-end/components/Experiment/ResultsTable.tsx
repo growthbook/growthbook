@@ -63,7 +63,7 @@ export type ResultsTableProps = {
   rows: ExperimentTableRow[];
   metricsAsGuardrails?: boolean;
   tableRowAxis: "metric" | "dimension";
-  labelHeader: string;
+  labelHeader: string | JSX.Element;
   editMetrics?: () => void;
   renderLabelColumn: (
     label: string,
@@ -71,6 +71,7 @@ export type ResultsTableProps = {
     row: ExperimentTableRow,
     maxRows?: number
   ) => string | ReactElement;
+  isBreakDown?: boolean;
   dateCreated: Date;
   hasRisk: boolean;
   statsEngine: StatsEngine;
@@ -81,6 +82,7 @@ export type ResultsTableProps = {
 
 const ROW_HEIGHT = 56;
 const METRIC_LABEL_ROW_HEIGHT = 44;
+const BREAKDOWN_LABEL_ROW_HEIGHT = 56;
 const SPACER_ROW_HEIGHT = 6;
 
 export default function ResultsTable({
@@ -98,6 +100,7 @@ export default function ResultsTable({
   baselineRow = 0,
   startDate,
   renderLabelColumn,
+  isBreakDown = false,
   dateCreated,
   hasRisk,
   statsEngine,
@@ -323,15 +326,15 @@ export default function ResultsTable({
         : event.clientX + 10) + offsetX;
 
     // Prevent tooltip from going off the screen (x-axis)
-    if (targetLeft < 0) {
-      targetLeft = 0;
+    if (targetLeft < 10) {
+      targetLeft = 10;
     }
     if (
       targetLeft + Math.min(TOOLTIP_WIDTH, window.innerWidth) >
-      window.innerWidth
+      window.innerWidth - 10
     ) {
       targetLeft =
-        window.innerWidth - Math.min(TOOLTIP_WIDTH, window.innerWidth);
+        window.innerWidth - Math.min(TOOLTIP_WIDTH, window.innerWidth) - 10;
     }
 
     if (hoveredX === null && hoveredY === null) {
@@ -616,7 +619,7 @@ export default function ResultsTable({
                       className: "results-label-row bg-light",
                       label: renderLabelColumn(row.label, row.metric, row),
                       graphCellWidth,
-                      rowHeight: METRIC_LABEL_ROW_HEIGHT,
+                      rowHeight: isBreakDown ? BREAKDOWN_LABEL_ROW_HEIGHT : METRIC_LABEL_ROW_HEIGHT,
                       id,
                       domain,
                     })}
@@ -825,8 +828,9 @@ export default function ResultsTable({
                                 compactResults ? ROW_HEIGHT + 10 : ROW_HEIGHT
                               }
                               newUi={true}
+                              // className={}
                               isHovered={isHovered}
-                              className={resultsHighlightClassname}
+                              className={clsx(resultsHighlightClassname, "overflow-hidden")}
                               rowStatus={rowResults.resultsStatus}
                               onMouseMove={(e) =>
                                 onPointerMove(e, {

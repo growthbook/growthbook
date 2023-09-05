@@ -655,8 +655,7 @@ export function getRowResults({
   );
   const suspiciousChangeReason = suspiciousChange
     ? `A suspicious result occurs when the percent change exceeds your maximum percent change (${percentFormatter.format(
-        (metric.maxPercentChange ?? metricDefaults?.maxPercentageChange ?? 0) *
-          100
+        metric.maxPercentChange ?? metricDefaults?.maxPercentageChange ?? 0
       )}).`
     : "";
 

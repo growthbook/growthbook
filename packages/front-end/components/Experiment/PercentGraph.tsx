@@ -18,6 +18,7 @@ interface Props
   graphWidth?: number;
   height?: number;
   newUi?: boolean;
+  className?: string;
   isHovered?: boolean;
   onMouseMove?: (e: React.MouseEvent<SVGPathElement>) => void;
   onMouseLeave?: (e: React.MouseEvent<SVGPathElement>) => void;
@@ -35,6 +36,7 @@ export default function PercentGraph({
   graphWidth,
   height,
   newUi = false,
+  className,
   isHovered = false,
   onMouseMove,
   onMouseLeave,
@@ -76,6 +78,7 @@ export default function PercentGraph({
       height={height}
       inverse={!!metric?.inverse}
       newUi={newUi}
+      className={className}
       isHovered={isHovered}
       onMouseMove={onMouseMove}
       onMouseLeave={onMouseLeave}

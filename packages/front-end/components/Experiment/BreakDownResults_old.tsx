@@ -14,11 +14,9 @@ import {
   ExperimentTableRow,
   useRiskVariation,
 } from "@/services/experiments";
-import ResultsTable from "@/components/Experiment/ResultsTable";
+import ResultsTable_old from "@/components/Experiment/ResultsTable_old";
 import Toggle from "../Forms/Toggle";
 import UsersTable from "./UsersTable";
-import {QueryStatusData} from "@/components/Queries/RunQueriesButton";
-import {getRenderLabelColumn} from "@/components/Experiment/CompactResults";
 
 const FULL_STATS_LIMIT = 5;
 
@@ -28,9 +26,8 @@ type TableDef = {
   rows: ExperimentTableRow[];
 };
 
-const BreakDownResults: FC<{
+const BreakDownResults_old: FC<{
   results: ExperimentReportResultDimension[];
-  queryStatusData?: QueryStatusData;
   variations: ExperimentReportVariation[];
   metrics: string[];
   metricOverrides: MetricOverride[];
@@ -41,7 +38,7 @@ const BreakDownResults: FC<{
   reportDate: Date;
   activationMetric?: string;
   status: ExperimentStatus;
-  statsEngine: StatsEngine;
+  statsEngine?: StatsEngine;
   pValueCorrection?: PValueCorrection;
   regressionAdjustmentEnabled?: boolean;
   metricRegressionAdjustmentStatuses?: MetricRegressionAdjustmentStatus[];
@@ -49,7 +46,6 @@ const BreakDownResults: FC<{
 }> = ({
   dimensionId,
   results,
-  queryStatusData,
   variations,
   metrics,
   metricOverrides,
@@ -164,53 +160,41 @@ const BreakDownResults: FC<{
         </div>
       )}
 
-      {tables.map((table) => {
-        return (
-          <>
-            <div className="h2 dimension-header-label">
-              {getRenderLabelColumn(regressionAdjustmentEnabled)(
-                table.metric.name,
-                table.metric,
-                table.rows[0],
+      {tables.map((table) => (
+        <div className="mb-5" key={table.metric.id}>
+          <div className="px-3">
+            <h3>
+              {table.isGuardrail ? (
+                <small className="text-muted">Guardrail: </small>
+              ) : (
+                ""
               )}
-            </div>
+              {table.metric.name}
+            </h3>
+          </div>
 
-            <ResultsTable
+          <div className="experiment-compact-holder">
+            <ResultsTable_old
               dateCreated={reportDate}
               isLatestPhase={isLatestPhase}
               startDate={startDate}
               status={status}
-              queryStatusData={queryStatusData}
               variations={variations}
-              // variationFilter={variationFilter} // todo
-              // baselineRow={baselineRow} // todo
-              rows={table.rows} // todo: table format needs work
               id={table.metric.id}
-              hasRisk={risk.hasRisk} // todo: is this right?
-              tableRowAxis="dimension" // todo: dynamic grouping?
-              labelHeader={<div style={{marginBottom: 2}}>
-                {getRenderLabelColumn(regressionAdjustmentEnabled)(
-                  table.metric.name,
-                  table.metric,
-                  table.rows[0],
-                )}
-              </div>}
-              // fullStats={fullStats} // todo: skip render?
-              editMetrics={undefined}
+              tableRowAxis="dimension"
+              labelHeader={dimension}
+              renderLabelColumn={(label) => label || <em>unknown</em>}
+              rows={table.rows}
+              fullStats={fullStats}
               statsEngine={statsEngine}
               sequentialTestingEnabled={sequentialTestingEnabled}
               pValueCorrection={pValueCorrection}
-              renderLabelColumn={(label) => (<>
-                <div className="uppercase-title">{dimension}:</div>
-                {label ? label : (<em>unknown</em>)}
-              </>)} // todo: make better
-              isBreakDown={true}
-              isTabActive={true}
+              {...risk}
             />
-          </>
-        );
-      })}
+          </div>
+        </div>
+      ))}
     </div>
   );
 };
-export default BreakDownResults;
+export default BreakDownResults_old;
