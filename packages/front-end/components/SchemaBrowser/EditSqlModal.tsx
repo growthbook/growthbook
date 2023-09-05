@@ -127,11 +127,15 @@ export default function EditSqlModal({
             res = await runTestQuery(value.sql);
           } catch (e) {
             setTestQueryResults({ sql: value.sql, error: e.message });
-            return Promise.reject(e.message);
+            // Rejecting with a blank error as we handle the error in the
+            // DisplayTestQueryResults component rather than in the Modal component
+            return Promise.reject(new Error());
           }
           if (res.error) {
             setTestQueryResults(res);
-            return Promise.reject(res.error);
+            // Rejecting with a blank error as we handle the error in the
+            // DisplayTestQueryResults component rather than in the Modal component
+            return Promise.reject(new Error());
           }
         }
 
