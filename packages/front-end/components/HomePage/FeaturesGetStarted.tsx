@@ -8,6 +8,7 @@ import useOrgSettings from "@/hooks/useOrgSettings";
 import usePermissions from "@/hooks/usePermissions";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
+import useSDKConnections from "@/hooks/useSDKConnections";
 import FeatureModal from "../Features/FeatureModal";
 import { DocLink } from "../DocLink";
 import InitialSDKConnectionForm from "../Features/SDKConnections/InitialSDKConnectionForm";
@@ -28,10 +29,14 @@ export default function FeaturesGetStarted({ features }: Props) {
     organization?.id || ""
   );
 
+  const { data } = useSDKConnections();
+  const connections = data?.connections || [];
+  const hasActiveConnection = connections.filter((c) => c.connected);
+
   const hasFeatures = features.some((f) => f.project !== demoProjectId);
 
   let step = -1;
-  if (!settings?.sdkInstructionsViewed) {
+  if (!hasActiveConnection && !settings?.sdkInstructionsViewed) {
     step = 1;
   } else if (!hasFeatures) {
     step = 2;
@@ -65,7 +70,7 @@ export default function FeaturesGetStarted({ features }: Props) {
             <GetStartedStep
               current={step === 1}
               // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'boolean | undefined' is not assignable to ty... Remove this comment to see the full error message
-              finished={settings?.sdkInstructionsViewed}
+              finished={settings?.sdkInstructionsViewed || hasActiveConnection}
               className="border-top"
               image="/images/coding-icon.svg"
               title="1. Install our SDK"

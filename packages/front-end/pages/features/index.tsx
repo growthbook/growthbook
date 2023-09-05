@@ -41,6 +41,7 @@ import WatchButton from "@/components/WatchButton";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Field from "@/components/Forms/Field";
 import { useUser } from "@/services/UserContext";
+import useSDKConnections from "@/hooks/useSDKConnections";
 
 const NUM_PER_PAGE = 20;
 
@@ -116,6 +117,10 @@ export default function FeaturesPage() {
     setFeatureToDuplicate(null);
   }, [modalOpen]);
 
+  const { data } = useSDKConnections();
+  const connections = data?.connections || [];
+  const hasActiveConnection = connections.filter((c) => c.connected);
+
   if (error) {
     return (
       <div className="alert alert-danger">
@@ -143,7 +148,7 @@ export default function FeaturesPage() {
   const toggleEnvs = environments.filter((en) => en.toggleOnList);
   const showArchivedToggle = features.some((f) => f.archived);
   const stepsRequired =
-    !settings?.sdkInstructionsViewed || (!loading && !hasFeatures);
+    (!hasActiveConnection && !settings?.sdkInstructionsViewed) || !hasFeatures;
 
   return (
     <div className="contents container pagecontents">
