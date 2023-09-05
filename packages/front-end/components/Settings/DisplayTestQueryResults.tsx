@@ -2,6 +2,8 @@ import React, { useState } from "react";
 import { FaCheck, FaExclamationTriangle } from "react-icons/fa";
 import clsx from "clsx";
 import Code from "../SyntaxHighlighting/Code";
+import ControlledTabs from "../Tabs/ControlledTabs";
+import Tab from "../Tabs/Tab";
 
 export type Props = {
   results: Record<string, unknown>[];
@@ -30,75 +32,39 @@ export default function DisplayTestQueryResults({
     ? Number(errorLineMatch[1] || errorLineMatch[2])
     : undefined;
 
-  const [showSql, setShowSql] = useState(forceShowSql);
+  const [tab, setTab] = useState(forceShowSql ? "sql" : "results");
 
   return (
     <>
-      <div className="card">
-        <div className="card-header d-flex justify-content-between">
-          <ul className="nav nav-tabs card-header-tabs p-0 m-0">
-            <li className="nav-item">
-              <a
-                className={clsx("nav-link", {
-                  active: !showSql,
-                  disabled: forceShowSql,
-                })}
-                href="#"
-                onClick={(e) => {
-                  e.preventDefault();
-                  setShowSql(false);
-                }}
-              >
-                Results
-              </a>
-            </li>
-            <li className="nav-item">
-              <a
-                className={clsx("nav-link", {
-                  active: showSql || forceShowSql,
-                })}
-                href="#"
-                onClick={(e) => {
-                  e.preventDefault();
-                  setShowSql(true);
-                }}
-              >
-                Rendered SQL
-              </a>
-            </li>
-          </ul>
-          <button
-            type="button"
-            className="close"
-            onClick={(e) => {
-              e.preventDefault();
-              close();
-            }}
-            aria-label="Close"
-          >
-            <span aria-hidden="true">×</span>
-          </button>
-        </div>
-      </div>
-
-      {showSql ? (
-        <div className="card-body">
-          <div>
-            {error ? (
-              <div className="alert alert-danger mr-auto">{error}</div>
-            ) : (
-              !results.length && (
-                <div className="alert alert-warning mr-auto">
-                  <FaExclamationTriangle /> No rows returned, could not verify
-                  result
-                </div>
-              )
-            )}
-            <Code code={sql} language="sql" errorLine={errorLine} />
+      <ControlledTabs
+        className="pt-1 d-flex flex-column h-100"
+        buttonsClassName="px-3"
+        tabContentsClassName={clsx("px-3 pt-3 flex-grow-1 overflow-auto")}
+        navExtra={
+          <div className="flex-grow-1">
+            <button
+              type="button"
+              className="close"
+              style={{ padding: "0.3rem 1rem" }}
+              onClick={(e) => {
+                e.preventDefault();
+                close();
+              }}
+              aria-label="Close"
+            >
+              <span aria-hidden="true">×</span>
+            </button>
           </div>
-        </div>
-      ) : (
-        <div className="card-body">
+        }
+        active={tab}
+        setActive={(tab) => setTab(tab ?? "results")}
+      >
+        <Tab
+          id="results"
+          display="Results"
+          padding={false}
+          visible={!forceShowSql}
+        >
           <div className="border p-2 bg-light">
             <div className="row">
               <div className="col-auto">
@@ -112,10 +78,10 @@ export default function DisplayTestQueryResults({
               </div>
             </div>
           </div>
-          <div style={{ width: "100%", overflowX: "auto" }} className="mb-3">
+          <div style={{ width: "100%", overflow: "auto" }} className="mb-3">
             <table
               className="table table-bordered table-sm appbox w-100 mb-0"
-              style={{ overflowX: "auto" }}
+              style={{ overflow: "auto" }}
             >
               <thead>
                 <tr>
@@ -135,8 +101,23 @@ export default function DisplayTestQueryResults({
               </tbody>
             </table>
           </div>
-        </div>
-      )}
+        </Tab>
+        <Tab id="sql" display="Rendered SQL" padding={false}>
+          <div style={{ overflowY: "auto", height: "100%" }}>
+            {error ? (
+              <div className="alert alert-danger mr-auto">{error}</div>
+            ) : (
+              !results.length && (
+                <div className="alert alert-warning mr-auto">
+                  <FaExclamationTriangle /> No rows returned, could not verify
+                  result
+                </div>
+              )
+            )}
+            <Code code={sql} language="sql" errorLine={errorLine} />
+          </div>
+        </Tab>
+      </ControlledTabs>
     </>
   );
 }

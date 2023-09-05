@@ -139,6 +139,7 @@ export default function EditSqlModal({
       })}
       close={close}
       size="max"
+      overflowAuto={false}
       bodyClassName="p-0"
       cta="Save"
       closeCta="Back"
@@ -202,6 +203,7 @@ export default function EditSqlModal({
                 fullHeight
                 setCursorData={setCursorData}
                 onCtrlEnter={handleTestQuery}
+                resizeDependency={!!testQueryResults}
               />
             </div>
             {testQueryResults && (

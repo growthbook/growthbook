@@ -160,15 +160,21 @@ export default function Code({
           style={style}
           className={clsx("rounded-bottom", className)}
           showLineNumbers={true}
-          wrapLines={true}
-          lineProps={(lineNumber: number): React.HTMLProps<HTMLElement> => {
-            const style: React.CSSProperties = {};
-            if (errorLine && lineNumber === errorLine) {
-              style.textDecoration = "underline wavy red";
-              style.textUnderlineOffset = "0.2em";
-            }
-            return { style };
-          }}
+          {...(errorLine
+            ? {
+                wrapLines: true,
+                lineProps: (
+                  lineNumber: number
+                ): React.HTMLProps<HTMLElement> => {
+                  const style: React.CSSProperties = {};
+                  if (errorLine && lineNumber === errorLine) {
+                    style.textDecoration = "underline wavy red";
+                    style.textUnderlineOffset = "0.2em";
+                  }
+                  return { style };
+                },
+              }
+            : {})}
         >
           {code}
         </Prism>
