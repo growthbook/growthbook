@@ -12,6 +12,7 @@ import {
 } from "back-end/types/experiment-snapshot";
 import { FeatureInterface, FeatureRule } from "back-end/types/feature";
 import { ExperimentReportVariation } from "back-end/types/report";
+import { VisualChange } from "back-end/types/visual-changeset";
 
 export * from "./features";
 
@@ -132,6 +133,9 @@ export function includeExperimentInPayload(
 
   return true;
 }
+
+export const hasVisualChanges = (visualChanges: VisualChange[]) =>
+  visualChanges.some((vc) => !!vc.css || !!vc.domMutations.length || !!vc.js);
 
 export type MatchingRule = {
   environmentId: string;

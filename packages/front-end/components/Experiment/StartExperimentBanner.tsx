@@ -5,6 +5,7 @@ import Link from "next/link";
 import { MdRocketLaunch } from "react-icons/md";
 import { ReactElement } from "react";
 import { FaCheckSquare, FaExternalLinkAlt, FaTimes } from "react-icons/fa";
+import { hasVisualChanges } from "shared/util";
 import track from "@/services/track";
 import { useAuth } from "@/services/auth";
 import Button from "../Button";
@@ -97,10 +98,7 @@ export function StartExperimentBanner({
   // No empty visual changesets
   if (visualChangesets.length > 0) {
     const hasSomeVisualChanges = visualChangesets.some((vc) =>
-      vc.visualChanges.some(
-        (changes) =>
-          changes.css || changes.js || changes.domMutations?.length > 0
-      )
+      hasVisualChanges(vc.visualChanges)
     );
     checklist.push({
       display: "Add changes in the Visual Editor.",
