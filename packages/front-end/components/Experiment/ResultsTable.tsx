@@ -61,9 +61,10 @@ export type ResultsTableProps = {
   isLatestPhase: boolean;
   startDate: string;
   rows: ExperimentTableRow[];
+  dimension?: string;
   metricsAsGuardrails?: boolean;
   tableRowAxis: "metric" | "dimension";
-  labelHeader: string;
+  labelHeader: string | JSX.Element;
   editMetrics?: () => void;
   renderLabelColumn: (
     label: string,
@@ -89,6 +90,7 @@ export default function ResultsTable({
   status,
   queryStatusData,
   rows,
+  dimension,
   metricsAsGuardrails = false,
   tableRowAxis,
   labelHeader,
@@ -323,15 +325,15 @@ export default function ResultsTable({
         : event.clientX + 10) + offsetX;
 
     // Prevent tooltip from going off the screen (x-axis)
-    if (targetLeft < 0) {
-      targetLeft = 0;
+    if (targetLeft < 10) {
+      targetLeft = 10;
     }
     if (
       targetLeft + Math.min(TOOLTIP_WIDTH, window.innerWidth) >
-      window.innerWidth
+      window.innerWidth - 10
     ) {
       targetLeft =
-        window.innerWidth - Math.min(TOOLTIP_WIDTH, window.innerWidth);
+        window.innerWidth - Math.min(TOOLTIP_WIDTH, window.innerWidth) - 10;
     }
 
     if (hoveredX === null && hoveredY === null) {
@@ -360,6 +362,8 @@ export default function ResultsTable({
       tooltipData: {
         metricRow,
         metric,
+        dimensionName: dimension,
+        dimensionValue: dimension ? row.label : undefined,
         variation,
         stats,
         baseline,
@@ -815,6 +819,12 @@ export default function ResultsTable({
                                   ? "pill"
                                   : undefined
                               }
+                              barFillType={
+                                statsEngine === "frequentist"
+                                  ? "significant"
+                                  : "gradient"
+                              }
+                              significant={rowResults.significant}
                               baseline={baseline}
                               domain={domain}
                               metric={row.metric}
@@ -825,8 +835,12 @@ export default function ResultsTable({
                                 compactResults ? ROW_HEIGHT + 10 : ROW_HEIGHT
                               }
                               newUi={true}
+                              // className={}
                               isHovered={isHovered}
-                              className={resultsHighlightClassname}
+                              className={clsx(
+                                resultsHighlightClassname,
+                                "overflow-hidden"
+                              )}
                               rowStatus={rowResults.resultsStatus}
                               onMouseMove={(e) =>
                                 onPointerMove(e, {

@@ -82,14 +82,12 @@ export function shouldHighlight({
   baseline,
   stats,
   hasEnoughData,
-  suspiciousChange,
   belowMinChange,
 }: {
   metric: MetricInterface;
   baseline: SnapshotMetric;
   stats: SnapshotMetric;
   hasEnoughData: boolean;
-  suspiciousChange: boolean;
   belowMinChange: boolean;
 }): boolean {
   // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'number | boolean' is not assignable to type ... Remove this comment to see the full error message
@@ -98,7 +96,6 @@ export function shouldHighlight({
     baseline?.value &&
     stats?.value &&
     hasEnoughData &&
-    !suspiciousChange &&
     !belowMinChange
   );
 }
@@ -655,8 +652,7 @@ export function getRowResults({
   );
   const suspiciousChangeReason = suspiciousChange
     ? `A suspicious result occurs when the percent change exceeds your maximum percent change (${percentFormatter.format(
-        (metric.maxPercentChange ?? metricDefaults?.maxPercentageChange ?? 0) *
-          100
+        metric.maxPercentChange ?? metricDefaults?.maxPercentageChange ?? 0
       )}).`
     : "";
 
@@ -713,7 +709,6 @@ export function getRowResults({
     baseline,
     stats,
     hasEnoughData: enoughData,
-    suspiciousChange,
     belowMinChange,
   });
 
