@@ -16,12 +16,29 @@ export default function StopExperimentButton({
 }: Props) {
   const [open, setOpen] = useState(false);
 
+  const fullCoverage = coverage === 1;
+
   useGlobalMenu(`.stop-experiment-dropdown`, () => setOpen(false));
 
   return (
-    <div className={clsx({ "btn-group": (coverage ?? 0) === 1 })}>
+    <div className={clsx({ "btn-group": fullCoverage })}>
+      {!fullCoverage ? (
+        <button
+          className="btn btn-teal mr-2"
+          disabled={!editTargeting}
+          onClick={() => {
+            editTargeting && editTargeting();
+            setOpen(false);
+          }}
+        >
+          Ramp up ({(coverage ?? 0) * 100}%)
+        </button>
+      ) : null}
       <button
-        className="btn btn-primary"
+        className={clsx("btn", {
+          "btn-primary": fullCoverage,
+          "btn-outline-primary": !fullCoverage,
+        })}
         onClick={(e) => {
           e.preventDefault();
           if (editResult) {
@@ -32,7 +49,7 @@ export default function StopExperimentButton({
       >
         Stop Experiment
       </button>
-      {(coverage ?? 0) === 1 ? (
+      {fullCoverage ? (
         <>
           <button
             className="btn btn-primary dropdown-toggle dropdown-toggle-split stop-experiment-dropdown"
@@ -61,18 +78,7 @@ export default function StopExperimentButton({
             </div>
           </div>
         </>
-      ) : (
-        <button
-          className="btn btn-primary ml-2"
-          disabled={!editTargeting}
-          onClick={() => {
-            editTargeting && editTargeting();
-            setOpen(false);
-          }}
-        >
-          Ramp up
-        </button>
-      )}
+      ) : null}
     </div>
   );
 }
