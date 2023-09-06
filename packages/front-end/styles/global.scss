@@ -574,7 +574,12 @@ pre {
   .variation {
     font-size: 14px;
   }
-  .result-number-sub,
+  .result-number-sub {
+    font-size: 12px;
+    font-style: italic;
+    line-height: 14px;
+    margin-top: 3px;
+  }
   .plusminus {
     font-size: 12px;
     font-style: italic;

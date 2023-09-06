@@ -173,7 +173,6 @@ const DateResults: FC<{
                       baseline,
                       stats,
                       hasEnoughData: true,
-                      suspiciousChange: false,
                       belowMinChange: false,
                     });
 

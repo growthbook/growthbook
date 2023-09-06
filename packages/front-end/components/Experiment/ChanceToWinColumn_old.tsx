@@ -61,7 +61,6 @@ export default function ChanceToWinColumn_old({
     baseline,
     stats,
     hasEnoughData: enoughData,
-    suspiciousChange,
     belowMinChange,
   });
 
