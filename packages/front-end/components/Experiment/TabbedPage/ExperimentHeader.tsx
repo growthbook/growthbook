@@ -214,6 +214,7 @@ export default function ExperimentHeader({
                 <StopExperimentButton
                   editResult={editResult}
                   editTargeting={editTargeting}
+                  coverage={lastPhase?.coverage}
                 />
               ) : experiment.status === "stopped" && experiment.results ? (
                 <div className="experiment-status-widget border d-flex">

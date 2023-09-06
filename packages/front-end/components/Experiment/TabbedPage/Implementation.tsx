@@ -17,7 +17,6 @@ import Tooltip from "../../Tooltip/Tooltip";
 import { HashVersionTooltip } from "../HashVersionSelector";
 import { StartExperimentBanner } from "../StartExperimentBanner";
 import AddLinkedChangesBanner from "../AddLinkedChangesBanner";
-import { useSnapshot } from "../SnapshotProvider";
 import { ExperimentTab, LinkedFeature } from ".";
 
 export interface Props {
@@ -47,10 +46,10 @@ export default function Implementation({
   setTab,
   connections,
 }: Props) {
-  const { phase: phaseIndex } = useSnapshot();
-
   const phases = experiment.phases || [];
-  const phase = phases[phaseIndex] as undefined | ExperimentPhaseStringDates;
+  const phase = phases[phases.length - 1] as
+    | undefined
+    | ExperimentPhaseStringDates;
   const hasNamespace = phase?.namespace && phase.namespace.enabled;
   const namespaceRange = hasNamespace
     ? phase.namespace.range[1] - phase.namespace.range[0]
