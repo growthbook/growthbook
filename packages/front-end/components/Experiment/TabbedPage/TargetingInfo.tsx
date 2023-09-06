@@ -111,7 +111,9 @@ export default function TargetingInfo({
           </div>
         </div>
       ) : (
-        <em>No targeting configured yet</em>
+        <div className="mb-3">
+          <em>No targeting configured yet</em>
+        </div>
       )}
     </div>
   );
