@@ -90,16 +90,14 @@ const AlignedGraph: FC<Props> = ({
   onMouseLeave,
   onClick,
 }) => {
+  const violinOpacitySignificant = 0.8;
+  let violinOpacityNotSignificant = 0.8;
   if (newUi) {
     zeroLineWidth = 3;
     gridColor = "#0077b633";
     barColor = "#aaa";
     sigBarColorPos = "#52be5b";
     sigBarColorNeg = "#d35a5a";
-    if (barFillType === "gradient" && !significant) {
-      sigBarColorPos = "#a3bfa5";
-      sigBarColorNeg = "#d4b4b4";
-    }
     // barColorDraw = "#9C89BE";
     barColorOk = "#55ab95";
     barColorWarning = "#d99132";
@@ -108,15 +106,12 @@ const AlignedGraph: FC<Props> = ({
       barColor = "#a0a0a0";
       sigBarColorPos = "#39cb45";
       sigBarColorNeg = "#e34040";
-      if (barFillType === "gradient" && !significant) {
-        sigBarColorPos = "#a3cca3";
-        sigBarColorNeg = "#e3b6b6";
-      }
       // barColorDraw = "#957dc2";
       barColorOk = "#4ec2a5";
       barColorWarning = "#ea9526";
       barColorDanger = "#e83223";
     }
+    violinOpacityNotSignificant = 0.4;
   }
 
   if (barType == "violin" && !uplift) {
@@ -345,7 +340,11 @@ const AlignedGraph: FC<Props> = ({
                             value={(d) => d.x}
                             horizontal={true}
                             fill={barFill}
-                            fillOpacity={0.8}
+                            fillOpacity={
+                              significant
+                                ? violinOpacitySignificant
+                                : violinOpacityNotSignificant
+                            }
                           />
                         )}
                         {barType === "pill" && (
