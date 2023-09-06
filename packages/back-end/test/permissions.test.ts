@@ -117,6 +117,22 @@ describe("Build user permissions", () => {
         teams: [],
       },
       {
+        id: "slightly_advanced_readonly_user_3",
+        role: "readonly",
+        dateCreated: new Date(),
+        limitAccessByEnvironment: false,
+        environments: [],
+        projectRoles: [
+          {
+            project: "prj_exl5jr5dl4rbw856",
+            role: "engineer",
+            limitAccessByEnvironment: true,
+            environments: ["staging"],
+          },
+        ],
+        teams: ["team_engineers"],
+      },
+      {
         id: "slightly_advanced_engineer_user",
         role: "engineer",
         dateCreated: new Date(),
@@ -139,6 +155,15 @@ describe("Build user permissions", () => {
         teams: [],
       },
       {
+        id: "slightly_advanced_collaborator_user",
+        role: "collaborator",
+        dateCreated: new Date(),
+        limitAccessByEnvironment: false,
+        environments: [],
+        projectRoles: [],
+        teams: ["engineer_team"],
+      },
+      {
         id: "advanced_readonly_user",
         role: "readonly",
         dateCreated: new Date(),
@@ -159,6 +184,15 @@ describe("Build user permissions", () => {
           },
         ],
         teams: ["team_collaborators"],
+      },
+      {
+        id: "advanced_engineer_user",
+        role: "engineer",
+        dateCreated: new Date(),
+        limitAccessByEnvironment: true,
+        environments: ["production"],
+        projectRoles: [],
+        teams: ["team_engineers"],
       },
     ],
   };
@@ -795,8 +829,8 @@ describe("Build user permissions", () => {
     });
   });
   // Advanced user permissions - global role, project-level permissions, and user is on team(s)
-  it("should handle a readonly user with environment specific permissions and project-level roles that have environment specific permissions correctly", async () => {
-    (findTeamById as jest.Mock).mockResolvedValueOnce({
+  it("should handle a readonly user with no environment specific permissions and project-level roles that have environment specific permissions correctly where the user is on a team that has collaborator permissions", async () => {
+    (findTeamById as jest.Mock).mockResolvedValue({
       id: "team_collaborators",
       role: "collaborator",
       limitAccessByEnvironment: false,
@@ -917,6 +951,376 @@ describe("Build user permissions", () => {
           },
         },
       },
+    });
+  });
+
+  it("shouldn't override a user's global permissions with a team's permissions if the user has a more permissive role", async () => {
+    (findTeamById as jest.Mock).mockResolvedValue({
+      id: "team_collaborators",
+      role: "collaborator",
+      limitAccessByEnvironment: false,
+      environments: [],
+      projectRoles: [],
+    });
+
+    const userPermissions = await getUserPermissions(
+      "basic_admin_user",
+      testOrg
+    );
+
+    expect(userPermissions).toEqual({
+      global: {
+        environments: [],
+        limitAccessByEnvironment: false,
+        permissions: {
+          createPresentations: true,
+          createDimensions: true,
+          createSegments: true,
+          organizationSettings: true,
+          superDelete: true,
+          manageTeam: true,
+          manageTags: true,
+          manageApiKeys: true,
+          manageIntegrations: true,
+          manageWebhooks: true,
+          manageBilling: true,
+          manageNorthStarMetric: true,
+          manageTargetingAttributes: true,
+          manageNamespaces: true,
+          manageSavedGroups: true,
+          viewEvents: true,
+          addComments: true,
+          createFeatureDrafts: true,
+          manageFeatures: true,
+          manageProjects: true,
+          createAnalyses: true,
+          createIdeas: true,
+          createMetrics: true,
+          createDatasources: true,
+          editDatasourceSettings: true,
+          runQueries: true,
+          publishFeatures: true,
+          manageEnvironments: true,
+          runExperiments: true,
+        },
+      },
+      projects: {},
+    });
+  });
+
+  it("should handle a basic engineer user with no environment specific permissions and project-level roles that have environment specific permissions correctly where the user is on a team that has engineer permissions", async () => {
+    (findTeamById as jest.Mock).mockResolvedValue({
+      id: "team_engineers",
+      role: "engineer",
+      limitAccessByEnvironment: true,
+      environments: ["staging", "development"],
+      projectRoles: [],
+    });
+
+    const userPermissions = await getUserPermissions(
+      "advanced_engineer_user",
+      testOrg
+    );
+
+    expect(userPermissions).toEqual({
+      global: {
+        environments: ["production", "staging", "development"],
+        limitAccessByEnvironment: true,
+        permissions: {
+          createPresentations: true,
+          createDimensions: false,
+          createSegments: false,
+          organizationSettings: false,
+          superDelete: false,
+          manageTeam: false,
+          manageTags: true,
+          manageApiKeys: false,
+          manageIntegrations: false,
+          manageWebhooks: false,
+          manageBilling: false,
+          manageNorthStarMetric: false,
+          manageTargetingAttributes: true,
+          manageNamespaces: true,
+          manageSavedGroups: true,
+          viewEvents: false,
+          addComments: true,
+          createFeatureDrafts: true,
+          manageFeatures: true,
+          manageProjects: false,
+          createAnalyses: false,
+          createIdeas: true,
+          createMetrics: false,
+          createDatasources: false,
+          editDatasourceSettings: false,
+          runQueries: false,
+          publishFeatures: true,
+          manageEnvironments: true,
+          runExperiments: true,
+        },
+      },
+      projects: {},
+    });
+  });
+
+  it("should handle a readonly user that has project specific engineer permissions, with specific environment permissions,and is on a team that also has engineering permissions, but no environment limits", async () => {
+    (findTeamById as jest.Mock).mockResolvedValue({
+      id: "team_readonly_advanced",
+      role: "readonly",
+      limitAccessByEnvironment: false,
+      environments: [],
+      projectRoles: [
+        {
+          project: "prj_exl5jr5dl4rbw856",
+          role: "engineer",
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+      ],
+    });
+    const userPermissions = await getUserPermissions(
+      "slightly_advanced_readonly_user_3",
+      testOrg
+    );
+    // The user-level project role is limited by envs, but the team is not, we should then override the user-level project permissions 'limitAccessByEnv'
+
+    expect(userPermissions).toEqual({
+      global: {
+        environments: [],
+        limitAccessByEnvironment: false,
+        permissions: {
+          createPresentations: false,
+          createDimensions: false,
+          createSegments: false,
+          organizationSettings: false,
+          superDelete: false,
+          manageTeam: false,
+          manageTags: false,
+          manageApiKeys: false,
+          manageIntegrations: false,
+          manageWebhooks: false,
+          manageBilling: false,
+          manageNorthStarMetric: false,
+          manageTargetingAttributes: false,
+          manageNamespaces: false,
+          manageSavedGroups: false,
+          viewEvents: false,
+          addComments: false,
+          createFeatureDrafts: false,
+          manageFeatures: false,
+          manageProjects: false,
+          createAnalyses: false,
+          createIdeas: false,
+          createMetrics: false,
+          createDatasources: false,
+          editDatasourceSettings: false,
+          runQueries: false,
+          publishFeatures: false,
+          manageEnvironments: false,
+          runExperiments: false,
+        },
+      },
+      projects: {
+        prj_exl5jr5dl4rbw856: {
+          environments: [],
+          limitAccessByEnvironment: false,
+          permissions: {
+            createPresentations: true,
+            createDimensions: false,
+            createSegments: false,
+            organizationSettings: false,
+            superDelete: false,
+            manageTeam: false,
+            manageTags: true,
+            manageApiKeys: false,
+            manageIntegrations: false,
+            manageWebhooks: false,
+            manageBilling: false,
+            manageNorthStarMetric: false,
+            manageTargetingAttributes: true,
+            manageNamespaces: true,
+            manageSavedGroups: true,
+            viewEvents: false,
+            addComments: true,
+            createFeatureDrafts: true,
+            manageFeatures: true,
+            manageProjects: false,
+            createAnalyses: false,
+            createIdeas: true,
+            createMetrics: false,
+            createDatasources: false,
+            editDatasourceSettings: false,
+            runQueries: false,
+            publishFeatures: true,
+            manageEnvironments: true,
+            runExperiments: true,
+          },
+        },
+      },
+    });
+  });
+
+  // Build test case where base user is admin, but they're on a readonly team, ensure we don't override their admin permissions
+  it("should not override a user's global permissions with a team's permissions if the user has a more permissive role", async () => {
+    (findTeamById as jest.Mock).mockResolvedValue({
+      id: "team_readonly",
+      role: "readonly",
+      limitAccessByEnvironment: false,
+      environments: [],
+      projectRoles: [],
+    });
+
+    const userPermissions = await getUserPermissions(
+      "basic_admin_user",
+      testOrg
+    );
+
+    expect(userPermissions).toEqual({
+      global: {
+        environments: [],
+        limitAccessByEnvironment: false,
+        permissions: {
+          createPresentations: true,
+          createDimensions: true,
+          createSegments: true,
+          organizationSettings: true,
+          superDelete: true,
+          manageTeam: true,
+          manageTags: true,
+          manageApiKeys: true,
+          manageIntegrations: true,
+          manageWebhooks: true,
+          manageBilling: true,
+          manageNorthStarMetric: true,
+          manageTargetingAttributes: true,
+          manageNamespaces: true,
+          manageSavedGroups: true,
+          viewEvents: true,
+          addComments: true,
+          createFeatureDrafts: true,
+          manageFeatures: true,
+          manageProjects: true,
+          createAnalyses: true,
+          createIdeas: true,
+          createMetrics: true,
+          createDatasources: true,
+          editDatasourceSettings: true,
+          runQueries: true,
+          publishFeatures: true,
+          manageEnvironments: true,
+          runExperiments: true,
+        },
+      },
+      projects: {},
+    });
+  });
+
+  // Build the test case where the base user is a collaborator, but they're on an engineering team with env specific limits, ensure the permissions are correct as are the env specific limits
+  it("should update global permissions if team role is more permissive than user global role", async () => {
+    (findTeamById as jest.Mock).mockResolvedValue({
+      id: "team_engineer",
+      role: "engineer",
+      limitAccessByEnvironment: true,
+      environments: ["staging", "production"],
+      projectRoles: [],
+    });
+
+    const userPermissions = await getUserPermissions(
+      "slightly_advanced_collaborator_user",
+      testOrg
+    );
+
+    expect(userPermissions).toEqual({
+      global: {
+        environments: ["staging", "production"],
+        limitAccessByEnvironment: true,
+        permissions: {
+          createPresentations: true,
+          createDimensions: false,
+          createSegments: false,
+          organizationSettings: false,
+          superDelete: false,
+          manageTeam: false,
+          manageTags: true,
+          manageApiKeys: false,
+          manageIntegrations: false,
+          manageWebhooks: false,
+          manageBilling: false,
+          manageNorthStarMetric: false,
+          manageTargetingAttributes: true,
+          manageNamespaces: true,
+          manageSavedGroups: true,
+          viewEvents: false,
+          addComments: true,
+          createFeatureDrafts: true,
+          manageFeatures: true,
+          manageProjects: false,
+          createAnalyses: false,
+          createIdeas: true,
+          createMetrics: false,
+          createDatasources: false,
+          editDatasourceSettings: false,
+          runQueries: false,
+          publishFeatures: true,
+          manageEnvironments: true,
+          runExperiments: true,
+        },
+      },
+      projects: {},
+    });
+  });
+
+  // Build the test case where the base user is an admin, and they're on a team that has engineering roles with env specific limits, ensure the env specific limits don't get applied to the admin user's permission
+  it("should not override a user's global permissions env level permissions with a team's permissions if the user has a more permissive role", async () => {
+    (findTeamById as jest.Mock).mockResolvedValue({
+      id: "team_engineer",
+      role: "engineer",
+      limitAccessByEnvironment: true,
+      environments: ["staging", "production"],
+      projectRoles: [],
+    });
+
+    const userPermissions = await getUserPermissions(
+      "basic_admin_user",
+      testOrg
+    );
+
+    expect(userPermissions).toEqual({
+      global: {
+        environments: [],
+        limitAccessByEnvironment: false,
+        permissions: {
+          createPresentations: true,
+          createDimensions: true,
+          createSegments: true,
+          organizationSettings: true,
+          superDelete: true,
+          manageTeam: true,
+          manageTags: true,
+          manageApiKeys: true,
+          manageIntegrations: true,
+          manageWebhooks: true,
+          manageBilling: true,
+          manageNorthStarMetric: true,
+          manageTargetingAttributes: true,
+          manageNamespaces: true,
+          manageSavedGroups: true,
+          viewEvents: true,
+          addComments: true,
+          createFeatureDrafts: true,
+          manageFeatures: true,
+          manageProjects: true,
+          createAnalyses: true,
+          createIdeas: true,
+          createMetrics: true,
+          createDatasources: true,
+          editDatasourceSettings: true,
+          runQueries: true,
+          publishFeatures: true,
+          manageEnvironments: true,
+          runExperiments: true,
+        },
+      },
+      projects: {},
     });
   });
 });

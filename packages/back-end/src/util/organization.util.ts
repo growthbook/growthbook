@@ -113,9 +113,8 @@ export async function getUserPermissions(
         // How do we handle a user where they're global role is 'collaborator' so they have no env level restrictions
         // but they're on a team that DOES have env level restrictions? In that case, we have to set their global role limitAccessByEnv to that of the team
         if (
-          teamData.role === "engineer" ||
-          (teamData.role === "experimenter" &&
-            teamData.limitAccessByEnvironment)
+          (teamData.role === "engineer" || teamData.role === "experimenter") &&
+          teamData.limitAccessByEnvironment
         ) {
           userPermissions.global.limitAccessByEnvironment = true;
           userPermissions.global.environments = [
@@ -123,6 +122,14 @@ export async function getUserPermissions(
               userPermissions.global.environments.concat(teamData.environments)
             ),
           ];
+        }
+        if (
+          (teamData.role === "engineer" || teamData.role === "experimenter") &&
+          teamData.limitAccessByEnvironment !==
+            userPermissions.global.limitAccessByEnvironment
+        ) {
+          userPermissions.global.limitAccessByEnvironment = false;
+          userPermissions.global.environments = [];
         }
         if (teamData.role === "admin") {
           userPermissions.global.limitAccessByEnvironment = false;
@@ -156,9 +163,9 @@ export async function getUserPermissions(
                 }
               }
               if (
-                teamProject.role === "engineer" ||
-                (teamProject.role === "experimenter" &&
-                  teamProject.limitAccessByEnvironment)
+                (teamProject.role === "engineer" ||
+                  teamProject.role === "experimenter") &&
+                teamProject.limitAccessByEnvironment
               ) {
                 userPermissions.projects[
                   teamProject.project
@@ -170,6 +177,18 @@ export async function getUserPermissions(
                     ].environments.concat(teamProject.environments)
                   ),
                 ];
+              }
+              if (
+                (teamProject.role === "engineer" ||
+                  teamProject.role === "experimenter") &&
+                teamProject.limitAccessByEnvironment !==
+                  userPermissions.projects[teamProject.project]
+                    .limitAccessByEnvironment
+              ) {
+                userPermissions.projects[
+                  teamProject.project
+                ].limitAccessByEnvironment = false;
+                userPermissions.projects[teamProject.project].environments = [];
               }
               if (teamProject.role === "admin") {
                 userPermissions.projects[
