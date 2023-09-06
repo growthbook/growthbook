@@ -530,7 +530,12 @@ function isOutdated(
 
   const reasons: string[] = [];
 
-  if (isDifferent(analysisSettings.statsEngine, statsEngine)) {
+  if (
+    isDifferent(
+      analysisSettings.statsEngine || "bayesian",
+      statsEngine || "bayesian"
+    )
+  ) {
     reasons.push("Stats engine changed");
   }
   if (
@@ -555,7 +560,10 @@ function isOutdated(
     reasons.push("Experiment assignment query changed");
   }
   if (
-    isDifferent(experiment.attributionModel, snapshotSettings.attributionModel)
+    isDifferent(
+      experiment.attributionModel || "firstExposure",
+      snapshotSettings.attributionModel || "firstExposure"
+    )
   ) {
     reasons.push("Attribution model changed");
   }
