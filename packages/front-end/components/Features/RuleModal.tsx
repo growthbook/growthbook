@@ -346,16 +346,6 @@ export default function RuleModal({
               id: values.id,
               condition: "",
               enabled: values.enabled ?? true,
-              scheduleRules: [
-                {
-                  enabled: true,
-                  timestamp: null,
-                },
-                {
-                  enabled: false,
-                  timestamp: null,
-                },
-              ],
               variations: values.values.map((v, i) => ({
                 value: v.value,
                 variationId: res.experiment.variations[i]?.id || "",
