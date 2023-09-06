@@ -405,9 +405,7 @@ export default function AnalysisSettingsSummary({
         {permissions.check("runQueries", experiment?.project || "") &&
           datasource &&
           latest &&
-          (status === "running" ||
-            status === "failed" ||
-            status === "partially-succeeded") && (
+          (status === "failed" || status === "partially-succeeded") && (
             <div className="col-auto pl-1">
               <ViewAsyncQueriesButton
                 queries={latest.queries.map((q) => q.query)}
@@ -416,37 +414,16 @@ export default function AnalysisSettingsSummary({
                   {
                     "outline-danger":
                       status === "failed" || status === "partially-succeeded",
-                    "outline-info": status === "running",
                   },
                   " "
                 )}
-                display={
-                  status === "failed" || status === "partially-succeeded" ? (
-                    <div
-                      className="d-inline-block"
-                      style={{ fontSize: "12px", lineHeight: "13px" }}
-                    >
-                      Query
-                      <br />
-                      Errors
-                    </div>
-                  ) : (
-                    <div
-                      className="d-inline-block"
-                      style={{ fontSize: "12px", lineHeight: "13px" }}
-                    >
-                      Running
-                      <br />
-                      Queries
-                    </div>
-                  )
-                }
+                display={null}
                 newUi={true}
               />
             </div>
           )}
 
-        <div className="col-auto">
+        <div className="col-auto pr-0">
           <ResultMoreMenu
             id={snapshot?.id || ""}
             forceRefresh={async () => {
@@ -481,7 +458,7 @@ export default function AnalysisSettingsSummary({
             notebookUrl={`/experiments/notebook/${snapshot?.id}`}
             notebookFilename={experiment.trackingKey}
             generateReport={true}
-            queries={snapshot?.queries}
+            queries={latest?.queries ?? snapshot?.queries}
             queryError={snapshot?.error}
             supportsNotebooks={!!datasource?.settings?.notebookRunQuery}
             hasData={hasData}

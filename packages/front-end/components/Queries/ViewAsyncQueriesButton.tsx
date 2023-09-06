@@ -6,7 +6,7 @@ import AsyncQueriesModal from "./AsyncQueriesModal";
 const ViewAsyncQueriesButton: FC<{
   queries: string[];
   error?: string;
-  display?: string | JSX.Element;
+  display?: string | JSX.Element | null;
   color?: string;
   className?: string;
   inline?: boolean;
@@ -24,7 +24,8 @@ const ViewAsyncQueriesButton: FC<{
 }) => {
   const [open, setOpen] = useState(false);
 
-  if (!className) className = `btn btn-${color}`;
+  if (!className)
+    className = newUi ? `btn btn-${color} border-0` : `btn btn-${color}`;
 
   return (
     <>
@@ -48,8 +49,9 @@ const ViewAsyncQueriesButton: FC<{
           }}
         >
           <span
-            className={clsx("h4 pr-2", {
-              "d-flex m-0 d-inline-block align-top": newUi,
+            className={clsx("h4", {
+              "position-relative d-flex m-0 d-inline-block align-top pr-3": newUi,
+              "pr-2": !newUi,
             })}
           >
             <FaDatabase />
@@ -60,9 +62,25 @@ const ViewAsyncQueriesButton: FC<{
             <>
               {display}
               {queries.length > 0 ? (
-                <div className={clsx("d-inline-block", { "ml-1": newUi })}>
-                  ({queries.length})
-                </div>
+                newUi ? (
+                  <div
+                    className="d-inline-block position-absolute"
+                    style={{
+                      right: 11,
+                      top: 3,
+                      width: 17,
+                      height: 17,
+                      borderRadius: 18,
+                      border: "1px solid #dc3545",
+                      textAlign: "center",
+                      lineHeight: "15px",
+                    }}
+                  >
+                    {queries.length}
+                  </div>
+                ) : (
+                  <div className="d-inline-block ml-1">({queries.length})</div>
+                )
               ) : null}
             </>
           )}
