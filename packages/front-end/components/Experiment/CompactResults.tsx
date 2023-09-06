@@ -8,7 +8,7 @@ import {
 import { ExperimentStatus, MetricOverride } from "back-end/types/experiment";
 import { PValueCorrection, StatsEngine } from "back-end/types/stats";
 import Link from "next/link";
-import { FaTimes } from "react-icons/fa";
+import {FaAngleRight, FaTimes, FaUsers} from "react-icons/fa";
 import { MetricInterface } from "back-end/types/metric";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import {
@@ -24,6 +24,13 @@ import MetricTooltipBody from "../Metrics/MetricTooltipBody";
 import DataQualityWarning from "./DataQualityWarning";
 import ResultsTable from "./ResultsTable";
 import MultipleExposureWarning from "./MultipleExposureWarning";
+import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
+import Collapsible from "react-collapsible";
+
+const numberFormatter = Intl.NumberFormat("en-US", {
+  notation: "compact",
+  maximumFractionDigits: 2,
+});
 
 const CompactResults: FC<{
   editMetrics?: () => void;
@@ -71,6 +78,17 @@ const CompactResults: FC<{
   isTabActive,
 }) => {
   const { getMetricById, ready } = useDefinitions();
+
+  const [totalUsers, variationUsers] = useMemo(() => {
+    let totalUsers = 0;
+    const variationUsers: number[] = [];
+    results?.variations?.forEach((v, i) => {
+      totalUsers += v.users;
+      variationUsers[i] = variationUsers[i] || 0;
+      variationUsers[i] += v.users;
+    });
+    return [totalUsers, variationUsers];
+  }, [results]);
 
   const rows = useMemo<ExperimentTableRow[]>(() => {
     function getRow(metricId: string, isGuardrail: boolean) {
@@ -130,8 +148,68 @@ const CompactResults: FC<{
     return variations.map((v, i) => vars?.[i]?.users || 0);
   }, [results, variations]);
   const risk = useRiskVariation(variations.length, rows);
+
   return (
     <>
+      {status !== "draft" && totalUsers > 0 && (
+        <div className="users">
+          <Collapsible
+            trigger={
+              <div className="d-inline-flex mx-3 align-items-center">
+                <FaUsers size={16} className="mr-1" />
+                {numberFormatter.format(totalUsers)}{" "}
+                users
+                <FaAngleRight className="chevron ml-1" />
+              </div>
+            }
+            transitionTime={100}
+          >
+            <table className="table mx-2 mt-0 mb-3"
+                   style={{ width: 300 }}
+            >
+              <thead>
+              <tr>
+                <th className="border-top-0">Variation</th>
+                <th className="border-top-0">Users</th>
+              </tr>
+              </thead>
+              <tbody>
+              {variations.map((v, i) => (
+                <tr key={i}>
+                  <td
+                    className={`variation with-variation-label variation${i}`}
+                  >
+                    <div className="d-flex align-items-center">
+                                <span
+                                  className="label"
+                                  style={{
+                                    width: 20,
+                                    height: 20,
+                                  }}
+                                >
+                                  {i}
+                                </span>{" "}
+                      <OverflowText
+                        maxWidth={180}
+                        title={v.name}
+                      >
+                        {v.name}
+                      </OverflowText>
+                    </div>
+                  </td>
+                  <td>
+                    {numberFormatter.format(
+                      variationUsers[i] || 0
+                    )}
+                  </td>
+                </tr>
+              ))}
+              </tbody>
+            </table>
+          </Collapsible>
+        </div>
+      )}
+
       <div className="mx-3">
         <DataQualityWarning results={results} variations={variations} />
         <MultipleExposureWarning
