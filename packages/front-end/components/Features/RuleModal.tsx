@@ -72,9 +72,7 @@ export default function RuleModal({
 
   const { datasources } = useDefinitions();
 
-  const { experiments, experimentsMap, mutateExperiments } = useExperiments(
-    feature.project
-  );
+  const { experiments, experimentsMap, mutateExperiments } = useExperiments();
 
   const [allowDuplicateTrackingKey, setAllowDuplicateTrackingKey] = useState(
     false
@@ -159,7 +157,11 @@ export default function RuleModal({
 
   const experimentOptions = experiments
     .filter(
-      (e) => e.id === experimentId || (!e.archived && e.status !== "stopped")
+      (e) =>
+        e.id === experimentId ||
+        (!e.archived &&
+          e.status !== "stopped" &&
+          (e.project || "") === (feature.project || ""))
     )
     .sort((a, b) => b.dateCreated.localeCompare(a.dateCreated))
     .map((e) => ({
@@ -357,15 +359,17 @@ export default function RuleModal({
             const experimentId = values.experimentId;
             const exp = experimentsMap.get(experimentId);
             if (!exp) throw new Error("Must select an experiment");
-            const variationIds = new Set(exp.variations.map((v) => v.id));
 
-            if (values.variations.length !== variationIds.size)
-              throw new Error("Must specify a value for every variation");
+            const valuesByIndex = values.variations.map((v) => v.value);
+            const valuesByVariationId = new Map(
+              values.variations.map((v) => [v.variationId, v.value])
+            );
 
-            values.variations.forEach((v) => {
-              if (!variationIds.has(v.variationId)) {
-                throw new Error("Unknown variation id: " + v.variationId);
-              }
+            values.variations = exp.variations.map((v, i) => {
+              return {
+                variationId: v.id,
+                value: valuesByVariationId.get(v.id) ?? valuesByIndex[i] ?? "",
+              };
             });
 
             delete (values as FeatureRule).condition;
@@ -508,7 +512,7 @@ export default function RuleModal({
                 return label;
               }}
             />
-          ) : (
+          ) : !rules[i] ? (
             <div className="alert alert-warning">
               <div className="d-flex align-items-center">
                 {experiments.length > 0
@@ -525,6 +529,10 @@ export default function RuleModal({
                   Create New Experiment
                 </button>
               </div>
+            </div>
+          ) : (
+            <div className="alert alert-danger">
+              Could not find this experiment. Has it been deleted?
             </div>
           )}
 
