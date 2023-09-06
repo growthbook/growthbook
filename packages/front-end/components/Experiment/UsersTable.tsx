@@ -118,7 +118,6 @@ const UsersTable: FC<{
           ))}
         </tbody>
       </table>
-      <h2>Metrics</h2>
     </div>
   );
 };

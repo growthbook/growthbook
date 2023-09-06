@@ -162,6 +162,7 @@ const BreakDownResults_old: FC<{
         </div>
       )}
 
+      <h3 className="mx-2 mb-2">Goal Metrics</h3>
       {tables.map((table) => (
         <div className="mb-5" key={table.metric.id}>
           <div className="px-3">

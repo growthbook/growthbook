@@ -141,18 +141,12 @@ const BreakDownResults: FC<{
         />
       </div>
 
-      {tables.map((table) => {
+      <h3 className="mx-2 mb-0">Goal Metrics</h3>
+      {tables.map((table, i) => {
         return (
           <>
-            <div className="h2 dimension-header-label">
-              {getRenderLabelColumn(regressionAdjustmentEnabled)(
-                table.metric.name,
-                table.metric,
-                table.rows[0]
-              )}
-            </div>
-
             <ResultsTable
+              key={i}
               dateCreated={reportDate}
               isLatestPhase={isLatestPhase}
               startDate={startDate}
@@ -195,6 +189,7 @@ const BreakDownResults: FC<{
               )}
               isTabActive={true}
             />
+            <div className="mb-5" />
           </>
         );
       })}
