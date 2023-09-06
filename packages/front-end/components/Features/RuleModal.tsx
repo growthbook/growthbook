@@ -552,11 +552,6 @@ export default function RuleModal({
               )}
               <TargetingInfo
                 experiment={selectedExperiment}
-                phase={
-                  selectedExperiment.phases[
-                    selectedExperiment.phases.length - 1
-                  ]
-                }
                 editTargeting={
                   canEditTargeting
                     ? () => {

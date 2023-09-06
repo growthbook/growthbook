@@ -1,8 +1,5 @@
 import { MdInfoOutline } from "react-icons/md";
-import {
-  ExperimentInterfaceStringDates,
-  ExperimentPhaseStringDates,
-} from "back-end/types/experiment";
+import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import HeaderWithEdit from "@/components/Layout/HeaderWithEdit";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import ConditionDisplay from "@/components/Features/ConditionDisplay";
@@ -10,7 +7,7 @@ import { formatTrafficSplit } from "@/services/utils";
 import { HashVersionTooltip } from "../HashVersionSelector";
 
 export interface Props {
-  phase?: ExperimentPhaseStringDates;
+  phaseIndex?: number | null;
   experiment: ExperimentInterfaceStringDates;
   editTargeting?: (() => void) | null;
 }
@@ -21,10 +18,11 @@ const percentFormatter = new Intl.NumberFormat(undefined, {
 });
 
 export default function TargetingInfo({
-  phase,
+  phaseIndex = null,
   experiment,
   editTargeting,
 }: Props) {
+  const phase = experiment.phases[phaseIndex ?? experiment.phases.length - 1];
   const hasNamespace = phase?.namespace && phase.namespace.enabled;
   const namespaceRange = hasNamespace
     ? phase.namespace.range[1] - phase.namespace.range[0]

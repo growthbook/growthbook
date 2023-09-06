@@ -1,7 +1,4 @@
-import {
-  ExperimentInterfaceStringDates,
-  ExperimentPhaseStringDates,
-} from "back-end/types/experiment";
+import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { VisualChangesetInterface } from "back-end/types/visual-changeset";
 import { FaPlusCircle } from "react-icons/fa";
 import { SDKConnectionInterface } from "back-end/types/sdk-connection";
@@ -43,9 +40,6 @@ export default function Implementation({
   connections,
 }: Props) {
   const { phase: phaseIndex } = useSnapshot();
-
-  const phases = experiment.phases || [];
-  const phase = phases[phaseIndex] as undefined | ExperimentPhaseStringDates;
 
   const permissions = usePermissions();
 
@@ -191,7 +185,7 @@ export default function Implementation({
               <TargetingInfo
                 experiment={experiment}
                 editTargeting={editTargeting}
-                phase={phase}
+                phaseIndex={phaseIndex}
               />
             </div>
           </div>
