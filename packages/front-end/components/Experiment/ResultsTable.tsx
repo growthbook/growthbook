@@ -819,6 +819,12 @@ export default function ResultsTable({
                                   ? "pill"
                                   : undefined
                               }
+                              barFillType={
+                                statsEngine === "frequentist"
+                                  ? "significant"
+                                  : "gradient"
+                              }
+                              significant={rowResults.significant}
                               baseline={baseline}
                               domain={domain}
                               metric={row.metric}

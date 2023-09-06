@@ -15,6 +15,8 @@ interface Props
   domain: [number, number];
   id: string;
   barType?: "pill" | "violin";
+  barFillType?: "gradient" | "significant";
+  significant?: boolean;
   graphWidth?: number;
   height?: number;
   newUi?: boolean;
@@ -33,6 +35,8 @@ export default function PercentGraph({
   domain,
   id,
   barType: _barType,
+  barFillType = "gradient",
+  significant,
   graphWidth,
   height,
   newUi = false,
@@ -51,15 +55,18 @@ export default function PercentGraph({
   const barType = _barType ? _barType : stats.uplift?.dist ? "violin" : "pill";
 
   const showGraph = metric && enoughData;
-  let significant = showGraph
-    ? (stats.chanceToWin ?? 0) > ciUpper || (stats.chanceToWin ?? 0) < ciLower
-    : false;
 
-  if (newUi && barType === "pill") {
-    // frequentist
+  if (significant === undefined) {
     significant = showGraph
-      ? isStatSig(stats.pValueAdjusted ?? stats.pValue ?? 1, pValueThreshold)
+      ? (stats.chanceToWin ?? 0) > ciUpper || (stats.chanceToWin ?? 0) < ciLower
       : false;
+
+    if (newUi && barType === "pill") {
+      // frequentist
+      significant = showGraph
+        ? isStatSig(stats.pValueAdjusted ?? stats.pValue ?? 1, pValueThreshold)
+        : false;
+    }
   }
 
   return (
@@ -70,7 +77,7 @@ export default function PercentGraph({
       uplift={showGraph ? stats.uplift : undefined}
       expected={showGraph ? stats.expected : undefined}
       barType={barType}
-      barFillType={newUi ? "significant" : "gradient"}
+      barFillType={barFillType}
       axisOnly={!showGraph}
       showAxis={false}
       significant={significant}

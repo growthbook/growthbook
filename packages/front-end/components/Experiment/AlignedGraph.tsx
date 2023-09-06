@@ -96,6 +96,10 @@ const AlignedGraph: FC<Props> = ({
     barColor = "#aaa";
     sigBarColorPos = "#52be5b";
     sigBarColorNeg = "#d35a5a";
+    if (barFillType === "gradient" && !significant) {
+      sigBarColorPos = "#a3bfa5";
+      sigBarColorNeg = "#d4b4b4";
+    }
     // barColorDraw = "#9C89BE";
     barColorOk = "#55ab95";
     barColorWarning = "#d99132";
@@ -104,6 +108,10 @@ const AlignedGraph: FC<Props> = ({
       barColor = "#a0a0a0";
       sigBarColorPos = "#39cb45";
       sigBarColorNeg = "#e34040";
+      if (barFillType === "gradient" && !significant) {
+        sigBarColorPos = "#a3cca3";
+        sigBarColorNeg = "#e3b6b6";
+      }
       // barColorDraw = "#957dc2";
       barColorOk = "#4ec2a5";
       barColorWarning = "#ea9526";
@@ -184,19 +192,21 @@ const AlignedGraph: FC<Props> = ({
       : barColor;
 
   // forced color state (nothing needed for non-significant):
-  if (rowStatus === "won") {
-    barFill = sigBarColorPos;
-  } else if (rowStatus === "lost") {
-    barFill = sigBarColorNeg;
-  } else if (rowStatus === "draw") {
-    // barFill = barColorDraw;
-    barFill = barColor;
-  } else if (rowStatus === "ok") {
-    barFill = barColorOk;
-  } else if (rowStatus === "warning") {
-    barFill = barColorWarning;
-  } else if (rowStatus === "danger") {
-    barFill = barColorDanger;
+  if (barFillType === "significant") {
+    if (rowStatus === "won") {
+      barFill = sigBarColorPos;
+    } else if (rowStatus === "lost") {
+      barFill = sigBarColorNeg;
+    } else if (rowStatus === "draw") {
+      // barFill = barColorDraw;
+      barFill = barColor;
+    } else if (rowStatus === "ok") {
+      barFill = barColorOk;
+    } else if (rowStatus === "warning") {
+      barFill = barColorWarning;
+    } else if (rowStatus === "danger") {
+      barFill = barColorDanger;
+    }
   }
 
   return (
