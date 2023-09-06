@@ -56,34 +56,28 @@ const ViewAsyncQueriesButton: FC<{
           >
             <FaDatabase />
           </span>{" "}
-          {open ? (
-            "Hide Queries"
-          ) : (
-            <>
-              {display}
-              {queries.length > 0 ? (
-                newUi ? (
-                  <div
-                    className="d-inline-block position-absolute"
-                    style={{
-                      right: 11,
-                      top: 3,
-                      width: 17,
-                      height: 17,
-                      borderRadius: 18,
-                      border: "1px solid #dc3545",
-                      textAlign: "center",
-                      lineHeight: "15px",
-                    }}
-                  >
-                    {queries.length}
-                  </div>
-                ) : (
-                  <div className="d-inline-block ml-1">({queries.length})</div>
-                )
-              ) : null}
-            </>
-          )}
+          {display}
+          {queries.length > 0 ? (
+            newUi ? (
+              <div
+                className="d-inline-block position-absolute"
+                style={{
+                  right: 11,
+                  top: 3,
+                  width: 17,
+                  height: 17,
+                  borderRadius: 18,
+                  border: "1px solid #dc3545",
+                  textAlign: "center",
+                  lineHeight: "15px",
+                }}
+              >
+                {queries.length}
+              </div>
+            ) : (
+              <div className="d-inline-block ml-1">({queries.length})</div>
+            )
+          ) : null}
         </button>
       )}
       {open && queries.length > 0 && (

@@ -423,7 +423,7 @@ export default function AnalysisSettingsSummary({
             </div>
           )}
 
-        <div className="col-auto pr-0">
+        <div className="col-auto px-0">
           <ResultMoreMenu
             id={snapshot?.id || ""}
             forceRefresh={async () => {

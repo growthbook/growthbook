@@ -513,7 +513,8 @@ pre {
 }
 
 .analysis-settings-bar {
-  .col, .col-auto {
+  .col,
+  .col-auto {
     margin-bottom: 8px;
   }
 }
@@ -2447,7 +2448,7 @@ html {
   top: 1px;
   cursor: pointer;
   span.hover {
-    color: var(--text-link-color);
+    color: var(--text-dark);
   }
   &:hover {
     border-bottom: 1px solid var(--text-link-hover-color);
@@ -2497,7 +2498,7 @@ html {
       .gb-select__single-value {
         margin: 0 !important;
         padding: 0 1px !important;
-        color: var(--text-link-color) !important;
+        color: var(--text-dark) !important;
         &:after {
           display: inline-block;
           margin-left: 0.255em;
