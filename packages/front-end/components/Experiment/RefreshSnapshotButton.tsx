@@ -110,7 +110,8 @@ const RefreshSnapshotButton: FC<{
           }
         }}
       >
-        <BsArrowRepeat />{newUi ? " Update" : " Update Data"}
+        <BsArrowRepeat />
+        {newUi ? " Update" : " Update Data"}
       </Button>
     </>
   );

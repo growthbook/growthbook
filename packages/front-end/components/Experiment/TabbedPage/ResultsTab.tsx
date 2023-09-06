@@ -209,7 +209,6 @@ export default function ResultsTab({
               metricRegressionAdjustmentStatuses
             }
             editMetrics={editMetrics ?? undefined}
-            variationFilter={variationFilter}
             setVariationFilter={(v: number[]) => setVariationFilter(v)}
             baselineRow={baselineRow}
             setBaselineRow={(b: number) => setBaselineRow(b)}

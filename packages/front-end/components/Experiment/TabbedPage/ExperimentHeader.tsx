@@ -24,8 +24,6 @@ import TabButton from "@/components/Tabs/TabButton";
 import usePermissions from "@/hooks/usePermissions";
 import HeaderWithEdit from "@/components/Layout/HeaderWithEdit";
 import Modal from "@/components/Modal";
-import Dropdown from "@/components/Dropdown/Dropdown";
-import DropdownLink from "@/components/Dropdown/DropdownLink";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useScrollPosition } from "@/hooks/useScrollPosition";
 import ResultsIndicator from "../ResultsIndicator";
@@ -62,22 +60,6 @@ const shortNumberFormatter = Intl.NumberFormat("en-US", {
   maximumFractionDigits: 1,
 });
 
-function PhaseDateSummary({ phase }: { phase?: ExperimentPhaseStringDates }) {
-  const startDate = phase && phase.dateStarted ? date(phase.dateStarted) : null;
-  const endDate = phase && phase.dateEnded ? date(phase.dateEnded) : null;
-
-  if (!startDate) return null;
-
-  return (
-    <span>
-      {startDate} — {endDate || "now"}
-      <span className="ml-2">
-        ({daysBetween(startDate, endDate || new Date())} days)
-      </span>
-    </span>
-  );
-}
-
 export default function ExperimentHeader({
   tab,
   setTab,
@@ -103,8 +85,6 @@ export default function ExperimentHeader({
   const permissions = usePermissions();
   const { scrollY } = useScrollPosition();
   const headerPinned = scrollY > 70;
-
-  const { phase, setPhase } = useSnapshot();
 
   const phases = experiment.phases || [];
   const lastPhaseIndex = phases.length - 1;

@@ -41,7 +41,6 @@ export interface Props {
   regressionAdjustmentEnabled?: boolean;
   metricRegressionAdjustmentStatuses?: MetricRegressionAdjustmentStatus[];
   editMetrics?: () => void;
-  variationFilter?: number[];
   setVariationFilter?: (variationFilter: number[]) => void;
   baselineRow?: number;
   setBaselineRow?: (baselineRow: number) => void;
@@ -54,7 +53,6 @@ export default function AnalysisSettingsSummary({
   regressionAdjustmentEnabled,
   metricRegressionAdjustmentStatuses,
   editMetrics,
-  variationFilter,
   setVariationFilter,
   baselineRow,
   setBaselineRow,
@@ -366,7 +364,7 @@ export default function AnalysisSettingsSummary({
                   <RunQueriesButton
                     cta="Update"
                     cancelEndpoint={`/snapshot/${latest.id}/cancel`}
-                    mutate={mutate}
+                    mutate={mutateSnapshot}
                     model={latest}
                     icon="refresh"
                     color="outline-primary"
@@ -382,7 +380,7 @@ export default function AnalysisSettingsSummary({
                 </form>
               ) : (
                 <RefreshSnapshotButton
-                  mutate={mutate}
+                  mutate={mutateSnapshot}
                   phase={phase}
                   experiment={experiment}
                   lastAnalysis={analysis}
@@ -405,32 +403,47 @@ export default function AnalysisSettingsSummary({
           )}
 
         {permissions.check("runQueries", experiment?.project || "") &&
-          datasource && latest &&
-                (status === "running" ||
-                  status === "failed" ||
-                  status === "partially-succeeded") && (
-                    <div className="col-auto pl-1">
-                      <ViewAsyncQueriesButton
-                        queries={latest.queries.map((q) => q.query)}
-                        error={latest.error}
-                        color={clsx(
-                          {
-                            "outline-danger":
-                              status === "failed" ||
-                              status === "partially-succeeded",
-                            "outline-info": status === "running",
-                          },
-                          " "
-                        )}
-                        display={
-                          status === "failed" ||
-                          status === "partially-succeeded"
-                            ? <div className="d-inline-block" style={{ fontSize: "12px", lineHeight: "13px"}}>Query<br />Errors</div>
-                            : <div className="d-inline-block" style={{ fontSize: "12px", lineHeight: "13px"}}>Running<br />Queries</div>
-                        }
-                        newUi={true}
-                      />
+          datasource &&
+          latest &&
+          (status === "running" ||
+            status === "failed" ||
+            status === "partially-succeeded") && (
+            <div className="col-auto pl-1">
+              <ViewAsyncQueriesButton
+                queries={latest.queries.map((q) => q.query)}
+                error={latest.error}
+                color={clsx(
+                  {
+                    "outline-danger":
+                      status === "failed" || status === "partially-succeeded",
+                    "outline-info": status === "running",
+                  },
+                  " "
+                )}
+                display={
+                  status === "failed" || status === "partially-succeeded" ? (
+                    <div
+                      className="d-inline-block"
+                      style={{ fontSize: "12px", lineHeight: "13px" }}
+                    >
+                      Query
+                      <br />
+                      Errors
                     </div>
+                  ) : (
+                    <div
+                      className="d-inline-block"
+                      style={{ fontSize: "12px", lineHeight: "13px" }}
+                    >
+                      Running
+                      <br />
+                      Queries
+                    </div>
+                  )
+                }
+                newUi={true}
+              />
+            </div>
           )}
 
         <div className="col-auto">
