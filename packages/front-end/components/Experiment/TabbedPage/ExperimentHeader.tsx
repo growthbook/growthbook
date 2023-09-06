@@ -106,6 +106,21 @@ export default function ExperimentHeader({
 
   const { phase, setPhase } = useSnapshot();
 
+  const phases = experiment.phases || [];
+  const lastPhaseIndex = phases.length - 1;
+  const lastPhase = phases[lastPhaseIndex] as
+    | undefined
+    | ExperimentPhaseStringDates;
+  const startDate = phases?.[0]?.dateStarted
+    ? date(phases[0].dateStarted)
+    : null;
+  const endDate =
+    phases.length > 0
+      ? lastPhase?.dateEnded
+        ? date(lastPhase.dateEnded ?? "")
+        : "now"
+      : new Date();
+
   const [startExperiment, setStartExperiment] = useState(false);
 
   const { analysis } = useSnapshot();
@@ -471,31 +486,15 @@ export default function ExperimentHeader({
                 </Tooltip>
               </div>
             )}
-            <div
-              className="col-auto date-dropdown"
-              style={{ lineHeight: "14px" }}
-            >
-              {experiment.phases.length > 1 ? (
-                <Dropdown
-                  toggle={<PhaseDateSummary phase={experiment.phases[phase]} />}
-                  uuid="experiment-phase-selector"
-                  className="mt-2"
-                >
-                  {experiment.phases.map((p, i) => (
-                    <DropdownLink
-                      onClick={() => {
-                        setPhase(i);
-                      }}
-                      key={i}
-                      className="py-3"
-                    >
-                      <PhaseDateSummary phase={p} />
-                    </DropdownLink>
-                  ))}
-                </Dropdown>
-              ) : experiment.phases.length > 0 ? (
-                <PhaseDateSummary phase={experiment.phases[phase]} />
-              ) : null}
+            <div className="col-auto experiment-date-range">
+              {startDate && (
+                <>
+                  {startDate} — {endDate}{" "}
+                  <span className="text-muted">
+                    ({daysBetween(startDate, endDate || new Date())} days)
+                  </span>
+                </>
+              )}
             </div>
           </div>
         </div>

@@ -481,8 +481,18 @@ pre {
       }
       .users {
         text-align: right;
+        @media (max-width: 500px) {
+          margin-right: 0;
+          padding: 0 !important;
+        }
+      }
+      .experiment-date-range {
+        text-align: right;
+        font-size: 12px;
         @media (max-width: 750px) {
-          font-size: 12px;
+          max-width: 100px;
+          font-size: 11px;
+          line-height: 1.25;
           margin-right: 0 !important;
           padding: 0 !important;
         }
@@ -499,6 +509,12 @@ pre {
         overflow: hidden;
       }
     }
+  }
+}
+
+.analysis-settings-bar {
+  .col, .col-auto {
+    margin-bottom: 8px;
   }
 }
 
@@ -2374,37 +2390,6 @@ li.metrics a span img {
     }
   }
 }
-.phase-selector-clean {
-  * {
-    cursor: pointer;
-  }
-  .gb-select__control {
-    height: 32px;
-    min-height: 32px;
-    background-color: var(--surface-background-color-alt) !important;
-  }
-  .gb-select__value-container {
-    padding: 0 0 0 4px;
-    .phase-label {
-      display: none;
-    }
-  }
-  .gb-select__indicator-separator {
-    display: none;
-  }
-  .gb-select__indicator {
-    padding: 0 4px;
-  }
-  &:hover {
-    .gb-select__control {
-      border-color: rgba(154, 110, 248, 0.2) !important;
-      box-shadow: 0 0 0 1px rgba(154, 110, 248, 0.2) inset;
-    }
-    .gb-select__indicator {
-      color: rgba(154, 110, 248, 0.5) !important;
-    }
-  }
-}
 
 html {
   scroll-behavior: smooth;
@@ -2460,6 +2445,7 @@ html {
   padding: 0 1px;
   border-bottom: 1px solid var(--border-color-300);
   top: 1px;
+  cursor: pointer;
   span.hover {
     color: var(--text-link-color);
   }

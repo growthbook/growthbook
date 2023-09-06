@@ -1,6 +1,6 @@
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { getScopedSettings } from "shared/settings";
-import { useMemo, useState } from "react";
+import React, { useMemo, useState } from "react";
 import {
   MetricRegressionAdjustmentStatus,
   ReportInterface,
@@ -56,6 +56,9 @@ export default function ResultsTab({
   editTargeting,
   isTabActive,
 }: Props) {
+  const [baselineRow, setBaselineRow] = React.useState<number>(0);
+  const [variationFilter, setVariationFilter] = React.useState<number[]>([]);
+
   const {
     getDatasourceById,
     getMetricById,
@@ -206,6 +209,10 @@ export default function ResultsTab({
               metricRegressionAdjustmentStatuses
             }
             editMetrics={editMetrics ?? undefined}
+            variationFilter={variationFilter}
+            setVariationFilter={(v: number[]) => setVariationFilter(v)}
+            baselineRow={baselineRow}
+            setBaselineRow={(b: number) => setBaselineRow(b)}
           />
           {experiment.status === "draft" ? (
             <div className="mx-3">
@@ -284,7 +291,7 @@ export default function ResultsTab({
                   editMetrics={editMetrics ?? undefined}
                   editResult={editResult ?? undefined}
                   editPhases={editPhases ?? undefined}
-                  alwaysShowPhaseSelector={false}
+                  alwaysShowPhaseSelector={true}
                   reportDetailsLink={false}
                   statsEngine={statsEngine}
                   regressionAdjustmentAvailable={regressionAdjustmentAvailable}
@@ -297,6 +304,10 @@ export default function ResultsTab({
                   }
                   onRegressionAdjustmentChange={onRegressionAdjustmentChange}
                   isTabActive={isTabActive}
+                  variationFilter={variationFilter}
+                  setVariationFilter={setVariationFilter}
+                  baselineRow={baselineRow}
+                  setBaselineRow={setBaselineRow}
                 />
               )}
             </>

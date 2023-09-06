@@ -7,14 +7,12 @@ export interface Props {
   mutateExperiment?: () => void;
   editPhases?: () => void;
   newUi?: boolean;
-  header?: string | JSX.Element;
 }
 
 export default function PhaseSelector({
   mutateExperiment,
   editPhases,
   newUi,
-  header,
 }: Props) {
   const { phase, setPhase, experiment } = useSnapshot();
 
@@ -45,59 +43,64 @@ export default function PhaseSelector({
       : phaseOptions ?? [];
 
   return (
-    <SelectField
-      options={selectOptions}
-      value={phase + ""}
-      onChange={(value) => {
-        if (mutateExperiment && editPhases && value === "edit") {
-          editPhases();
-          return;
-        }
-        setPhase(parseInt(value) || 0);
-      }}
-      sort={false}
-      label={header !== undefined ? header : newUi ? undefined : "Phase"}
-      labelClassName="mr-2"
-      className={newUi ? "phase-selector-clean" : undefined}
-      isSearchable={false}
-      formatOptionLabel={({ value, label }) => {
-        if (value === "edit") {
-          return <div className="cursor-pointer">{label}</div>;
-        }
+    <div>
+      {newUi && <div className="uppercase-title text-muted">Phase</div>}
+      <SelectField
+        options={selectOptions}
+        value={phase + ""}
+        onChange={(value) => {
+          if (mutateExperiment && editPhases && value === "edit") {
+            editPhases();
+            return;
+          }
+          setPhase(parseInt(value) || 0);
+        }}
+        sort={false}
+        label={newUi ? undefined : "Phase"}
+        labelClassName="mr-2"
+        containerClassName={newUi ? "select-dropdown-underline pr-5" : ""}
+        isSearchable={false}
+        formatOptionLabel={({ value, label }) => {
+          if (value === "edit") {
+            return <div className="cursor-pointer">{label}</div>;
+          }
 
-        const phaseIndex = parseInt(value) || 0;
-        const phase = experiment?.phases?.[phaseIndex];
-        if (!phase) return value;
+          const phaseIndex = parseInt(value) || 0;
+          const phase = experiment?.phases?.[phaseIndex];
+          if (!phase) return value;
 
-        if (newUi) {
+          if (newUi) {
+            return (
+              <>
+                <span className="phase-label font-weight-bold">
+                  {phaseIndex + 1}:
+                </span>{" "}
+                <span className="date-label">
+                  {date(phase.dateStarted ?? "")} —{" "}
+                  {phase.dateEnded ? date(phase.dateEnded) : "now"}
+                </span>
+              </>
+            );
+          }
+
           return (
-            <div className="small text-gray">
-              <div className="phase-label">Phase {phaseIndex + 1}:</div>
-              <div className="date-label font-weight-bold">
-                {date(phase.dateStarted ?? "")} —{" "}
-                {phase.dateEnded ? date(phase.dateEnded) : "now"}
+            <div className="d-flex">
+              <div className="mr-2">{phaseIndex + 1}:</div>
+              <div className="small">
+                <div>
+                  {phase.name === "Main" ? phaseSummary(phase) : phase.name}
+                </div>
+                <div>
+                  <strong>{date(phase.dateStarted ?? "")}</strong> to{" "}
+                  <strong>
+                    {phase.dateEnded ? date(phase.dateEnded) : "now"}
+                  </strong>
+                </div>
               </div>
             </div>
           );
-        }
-
-        return (
-          <div className="d-flex">
-            <div className="mr-2">{phaseIndex + 1}:</div>
-            <div className="small">
-              <div>
-                {phase.name === "Main" ? phaseSummary(phase) : phase.name}
-              </div>
-              <div>
-                <strong>{date(phase.dateStarted ?? "")}</strong> to{" "}
-                <strong>
-                  {phase.dateEnded ? date(phase.dateEnded) : "now"}
-                </strong>
-              </div>
-            </div>
-          </div>
-        );
-      }}
-    />
+        }}
+      />
+    </div>
   );
 }

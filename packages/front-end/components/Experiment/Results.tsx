@@ -42,6 +42,10 @@ const Results: FC<{
   regressionAdjustmentHasValidMetrics?: boolean;
   metricRegressionAdjustmentStatuses?: MetricRegressionAdjustmentStatus[];
   onRegressionAdjustmentChange?: (enabled: boolean) => void;
+  variationFilter?: number[];
+  setVariationFilter?: (variationFilter: number[]) => void;
+  baselineRow?: number;
+  setBaselineRow?: (baselineRow: number) => void;
   isTabActive?: boolean;
 }> = ({
   experiment,
@@ -58,11 +62,15 @@ const Results: FC<{
   regressionAdjustmentHasValidMetrics = false,
   metricRegressionAdjustmentStatuses,
   onRegressionAdjustmentChange,
+  variationFilter,
+  setVariationFilter,
+  baselineRow,
+  setBaselineRow,
   isTabActive = true,
 }) => {
-  // todo: give these a proper home
-  const [baselineRow, setBaselineRow] = React.useState<number>(0);
-  const [variationFilter, setVariationFilter] = React.useState<number[]>([]);
+  // // todo: give these a proper home
+  // const [baselineRow, setBaselineRow] = React.useState<number>(0);
+  // const [variationFilter, setVariationFilter] = React.useState<number[]>([]);
 
   const { apiCall } = useAuth();
 
@@ -174,9 +182,9 @@ const Results: FC<{
           newUi={true}
           showMoreMenu={false}
           variationFilter={variationFilter}
-          setVariationFilter={(v: number[]) => setVariationFilter(v)}
+          setVariationFilter={(v: number[]) => setVariationFilter?.(v)}
           baselineRow={baselineRow}
-          setBaselineRow={(b: number) => setBaselineRow(b)}
+          setBaselineRow={(b: number) => setBaselineRow?.(b)}
         />
       ) : (
         <StatusBanner
