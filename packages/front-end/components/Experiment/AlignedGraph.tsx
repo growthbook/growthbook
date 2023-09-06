@@ -38,6 +38,7 @@ interface Props
   barColorDanger?: string;
   expectedColor?: string;
   newUi?: boolean;
+  className?: string;
   rowStatus?: string;
   isHovered?: boolean;
   onMouseMove?: (e: React.MouseEvent<SVGPathElement>) => void;
@@ -82,15 +83,19 @@ const AlignedGraph: FC<Props> = ({
   barColorWarning = "#d99132cc",
   barColorDanger = "#d94032cc",
   newUi = false,
+  className,
   rowStatus,
   isHovered = false,
   onMouseMove,
   onMouseLeave,
   onClick,
 }) => {
+  const violinOpacitySignificant = 0.8;
+  let violinOpacityNotSignificant = 0.8;
   if (newUi) {
     zeroLineWidth = 3;
     gridColor = "#0077b633";
+    barColor = "#aaa";
     sigBarColorPos = "#52be5b";
     sigBarColorNeg = "#d35a5a";
     // barColorDraw = "#9C89BE";
@@ -98,14 +103,15 @@ const AlignedGraph: FC<Props> = ({
     barColorWarning = "#d99132";
     barColorDanger = "#d94032";
     if (isHovered) {
+      barColor = "#a0a0a0";
       sigBarColorPos = "#39cb45";
       sigBarColorNeg = "#e34040";
       // barColorDraw = "#957dc2";
       barColorOk = "#4ec2a5";
       barColorWarning = "#ea9526";
       barColorDanger = "#e83223";
-      barColor = "#aaa";
     }
+    violinOpacityNotSignificant = 0.4;
   }
 
   if (barType == "violin" && !uplift) {
@@ -181,24 +187,31 @@ const AlignedGraph: FC<Props> = ({
       : barColor;
 
   // forced color state (nothing needed for non-significant):
-  if (rowStatus === "won") {
-    barFill = sigBarColorPos;
-  } else if (rowStatus === "lost") {
-    barFill = sigBarColorNeg;
-  } else if (rowStatus === "draw") {
-    // barFill = barColorDraw;
-    barFill = barColor;
-  } else if (rowStatus === "ok") {
-    barFill = barColorOk;
-  } else if (rowStatus === "warning") {
-    barFill = barColorWarning;
-  } else if (rowStatus === "danger") {
-    barFill = barColorDanger;
+  if (barFillType === "significant") {
+    if (rowStatus === "won") {
+      barFill = sigBarColorPos;
+    } else if (rowStatus === "lost") {
+      barFill = sigBarColorNeg;
+    } else if (rowStatus === "draw") {
+      // barFill = barColorDraw;
+      barFill = barColor;
+    } else if (rowStatus === "ok") {
+      barFill = barColorOk;
+    } else if (rowStatus === "warning") {
+      barFill = barColorWarning;
+    } else if (rowStatus === "danger") {
+      barFill = barColorDanger;
+    }
   }
 
   return (
     <>
-      <div className="d-flex aligned-graph align-items-center aligned-graph-row">
+      <div
+        className={clsx(
+          "d-flex aligned-graph align-items-center aligned-graph-row",
+          className
+        )}
+      >
         <div className={newUi ? "" : "flex-grow-1"}>
           <div style={{ position: "relative" }}>
             <ParentSize className="graph-container" debounceTime={1000}>
@@ -327,7 +340,11 @@ const AlignedGraph: FC<Props> = ({
                             value={(d) => d.x}
                             horizontal={true}
                             fill={barFill}
-                            fillOpacity={0.8}
+                            fillOpacity={
+                              significant
+                                ? violinOpacitySignificant
+                                : violinOpacityNotSignificant
+                            }
                           />
                         )}
                         {barType === "pill" && (
@@ -344,6 +361,7 @@ const AlignedGraph: FC<Props> = ({
                             width={xScale(ci?.[1] ?? 0) - xScale(ci?.[0] ?? 0)}
                             height={barThickness}
                             fill={barFill}
+                            fillOpacity={0.8}
                             rx={newUi ? 10 : 8}
                           />
                         )}

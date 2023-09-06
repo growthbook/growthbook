@@ -23,7 +23,7 @@ import { trackSnapshot } from "@/services/track";
 import PValueGuardrailResults from "./PValueGuardrailResults";
 
 const BreakDownResults = dynamic(
-  () => import("@/components/Experiment/BreakDownResults")
+  () => import("@/components/Experiment/BreakDownResults_old")
 );
 const CompactResults_old = dynamic(
   () => import("@/components/Experiment/CompactResults_old")

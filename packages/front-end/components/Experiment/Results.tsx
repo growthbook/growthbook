@@ -129,6 +129,24 @@ const Results: FC<{
     analysis.results?.[0] &&
     !analysis?.settings?.dimensions?.length;
 
+  const showBreakDownResults =
+    !draftMode &&
+    hasData &&
+    snapshot?.dimension &&
+    snapshot.dimension.substring(0, 8) !== "pre:date" && // todo: refactor hardcoded dimension
+    analysis &&
+    analysis.results?.[0] &&
+    analysis?.settings?.dimensions?.length; // todo: needed? separate desired vs actual
+
+  const showDateResults =
+    !draftMode &&
+    hasData &&
+    snapshot?.dimension &&
+    snapshot.dimension.substring(0, 8) === "pre:date" && // todo: refactor hardcoded dimension
+    analysis &&
+    analysis.results?.[0] &&
+    analysis?.settings?.dimensions?.length; // todo: needed? separate desired vs actual
+
   if (error) {
     return <div className="alert alert-danger m-3">{error.message}</div>;
   }
@@ -255,44 +273,41 @@ const Results: FC<{
           project={experiment.project}
         />
       )}
-      {!draftMode &&
-        hasData &&
-        snapshot?.dimension &&
-        (snapshot.dimension.substring(0, 8) === "pre:date" ? (
-          <DateResults
-            metrics={experiment.metrics}
-            guardrails={experiment.guardrails}
-            results={analysis?.results ?? []}
-            seriestype={snapshot.dimension}
-            variations={variations}
-            statsEngine={
-              analysis?.settings?.statsEngine ?? DEFAULT_STATS_ENGINE
-            }
-          />
-        ) : (
-          <BreakDownResults
-            key={snapshot.dimension}
-            results={analysis?.results ?? []}
-            variations={variations}
-            metrics={experiment.metrics}
-            metricOverrides={experiment.metricOverrides ?? []}
-            guardrails={experiment.guardrails}
-            dimensionId={snapshot.dimension}
-            isLatestPhase={phase === experiment.phases.length - 1}
-            startDate={phaseObj?.dateStarted ?? ""}
-            reportDate={snapshot.dateCreated}
-            activationMetric={experiment.activationMetric}
-            status={experiment.status}
-            statsEngine={analysis?.settings?.statsEngine}
-            pValueCorrection={pValueCorrection}
-            regressionAdjustmentEnabled={analysis?.settings?.regressionAdjusted}
-            metricRegressionAdjustmentStatuses={
-              snapshotMetricRegressionAdjustmentStatuses
-            }
-            sequentialTestingEnabled={analysis?.settings?.sequentialTesting}
-          />
-        ))}
-      {showCompactResults && (
+      {showDateResults ? (
+        <DateResults
+          metrics={experiment.metrics}
+          guardrails={experiment.guardrails}
+          results={analysis?.results ?? []}
+          seriestype={snapshot.dimension ?? ""}
+          variations={variations}
+          statsEngine={analysis?.settings?.statsEngine ?? DEFAULT_STATS_ENGINE}
+        />
+      ) : showBreakDownResults ? (
+        <BreakDownResults
+          key={snapshot.dimension}
+          results={analysis?.results ?? []}
+          queryStatusData={queryStatusData}
+          variations={variations}
+          variationFilter={variationFilter}
+          baselineRow={baselineRow}
+          metrics={experiment.metrics}
+          metricOverrides={experiment.metricOverrides ?? []}
+          guardrails={experiment.guardrails}
+          dimensionId={snapshot.dimension ?? ""}
+          isLatestPhase={phase === experiment.phases.length - 1}
+          startDate={phaseObj?.dateStarted ?? ""}
+          reportDate={snapshot.dateCreated}
+          activationMetric={experiment.activationMetric}
+          status={experiment.status}
+          statsEngine={analysis.settings.statsEngine}
+          pValueCorrection={pValueCorrection}
+          regressionAdjustmentEnabled={analysis?.settings?.regressionAdjusted}
+          metricRegressionAdjustmentStatuses={
+            snapshotMetricRegressionAdjustmentStatuses
+          }
+          sequentialTestingEnabled={analysis?.settings?.sequentialTesting}
+        />
+      ) : showCompactResults ? (
         <>
           {reportDetailsLink && (
             <div className="float-right pr-3">
@@ -329,7 +344,7 @@ const Results: FC<{
             isTabActive={isTabActive}
           />
         </>
-      )}
+      ) : null}
 
       {!draftMode && hasData ? (
         <div className="row align-items-center mx-2 my-3">

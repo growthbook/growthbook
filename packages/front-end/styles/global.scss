@@ -502,6 +502,11 @@ pre {
   }
 }
 
+.dimension-header-label {
+  margin-top: 30px;
+  padding: 0 10px;
+}
+
 .experiment-results-wrapper {
   @media (max-width: 900px) {
     overflow-x: auto;
@@ -510,7 +515,7 @@ pre {
 
 .experiment-results {
   tbody {
-    tr {
+    tr:not(.noborder) {
       box-shadow: rgba(102, 102, 102, 0.125) 0 -1px inset;
       &:not(.results-label-row) {
         td:not(.graph-cell):not(:last-child) {
@@ -569,7 +574,12 @@ pre {
   .variation {
     font-size: 14px;
   }
-  .result-number-sub,
+  .result-number-sub {
+    font-size: 12px;
+    font-style: italic;
+    line-height: 14px;
+    margin-top: 3px;
+  }
   .plusminus {
     font-size: 12px;
     font-style: italic;
