@@ -1,23 +1,15 @@
-import {
-  ExperimentInterfaceStringDates,
-  ExperimentPhaseStringDates,
-} from "back-end/types/experiment";
+import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { VisualChangesetInterface } from "back-end/types/visual-changeset";
 import { FaPlusCircle } from "react-icons/fa";
-import { MdInfoOutline } from "react-icons/md";
 import { SDKConnectionInterface } from "back-end/types/sdk-connection";
 import usePermissions from "@/hooks/usePermissions";
 import { VisualChangesetTable } from "@/components/Experiment/VisualChangesetTable";
-import ConditionDisplay from "@/components/Features/ConditionDisplay";
 import LinkedFeatureFlag from "@/components/Experiment/LinkedFeatureFlag";
 import track from "@/services/track";
-import { formatTrafficSplit } from "@/services/utils";
-import HeaderWithEdit from "../../Layout/HeaderWithEdit";
-import Tooltip from "../../Tooltip/Tooltip";
-import { HashVersionTooltip } from "../HashVersionSelector";
 import { StartExperimentBanner } from "../StartExperimentBanner";
 import AddLinkedChangesBanner from "../AddLinkedChangesBanner";
 import { useSnapshot } from "../SnapshotProvider";
+import TargetingInfo from "./TargetingInfo";
 import { ExperimentTab, LinkedFeature } from ".";
 
 export interface Props {
@@ -48,18 +40,6 @@ export default function Implementation({
   connections,
 }: Props) {
   const { phase: phaseIndex } = useSnapshot();
-
-  const phases = experiment.phases || [];
-  const phase = phases[phaseIndex] as undefined | ExperimentPhaseStringDates;
-  const hasNamespace = phase?.namespace && phase.namespace.enabled;
-  const namespaceRange = hasNamespace
-    ? phase.namespace.range[1] - phase.namespace.range[0]
-    : 1;
-
-  const percentFormatter = new Intl.NumberFormat(undefined, {
-    style: "percent",
-    maximumFractionDigits: 2,
-  });
 
   const permissions = usePermissions();
 
@@ -202,87 +182,11 @@ export default function Implementation({
         {hasLinkedChanges && (
           <div className="col-md-4 col-lg-4 col-12 mb-3">
             <div className="appbox p-3 h-100 mb-0">
-              <HeaderWithEdit
-                edit={editTargeting || undefined}
-                className="h3"
-                containerClassName="mb-3"
-              >
-                Targeting
-              </HeaderWithEdit>
-              {phase ? (
-                <div className="row">
-                  <div className="col">
-                    <div className="mb-3">
-                      <div className="mb-1">
-                        <strong>Experiment Key</strong>{" "}
-                        <Tooltip body="This is hashed together with the assignment attribute (below) to deterministically assign users to a variation." />
-                      </div>
-                      <div>{experiment.trackingKey}</div>
-                    </div>
-                    <div className="mb-3">
-                      <div className="mb-1">
-                        <strong>Assignment Attribute</strong>{" "}
-                        <Tooltip body="This user attribute will be used to assign variations. This is typically either a logged-in user id or an anonymous id stored in a long-lived cookie.">
-                          <MdInfoOutline className="text-info" />
-                        </Tooltip>
-                      </div>
-                      <div>
-                        {experiment.hashAttribute || "id"}{" "}
-                        {
-                          <HashVersionTooltip>
-                            <small className="text-muted ml-1">
-                              (V{experiment.hashVersion || 2} hashing)
-                            </small>
-                          </HashVersionTooltip>
-                        }
-                      </div>
-                    </div>
-                    <div className="mb-3">
-                      <div className="mb-1">
-                        <strong>Targeting Conditions</strong>
-                      </div>
-                      <div>
-                        {phase.condition && phase.condition !== "{}" ? (
-                          <ConditionDisplay condition={phase.condition} />
-                        ) : (
-                          <em>No conditions</em>
-                        )}
-                      </div>
-                    </div>
-                    <div className="mb-3">
-                      <div className="mb-1">
-                        <strong>Traffic</strong>
-                      </div>
-                      <div>
-                        {Math.floor(phase.coverage * 100)}% included,{" "}
-                        {formatTrafficSplit(phase.variationWeights)} split
-                      </div>
-                    </div>
-                    <div className="mb-3">
-                      <div className="mb-1">
-                        <strong>Namespace</strong>{" "}
-                        <Tooltip body="Use namespaces to run mutually exclusive experiments. Manage namespaces under SDK Configuration -> Namespaces">
-                          <MdInfoOutline className="text-info" />
-                        </Tooltip>
-                      </div>
-                      <div>
-                        {hasNamespace ? (
-                          <>
-                            {phase.namespace.name}{" "}
-                            <span className="text-muted">
-                              ({percentFormatter.format(namespaceRange)})
-                            </span>
-                          </>
-                        ) : (
-                          <em>Global (all users)</em>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                <em>No targeting configured yet</em>
-              )}
+              <TargetingInfo
+                experiment={experiment}
+                editTargeting={editTargeting}
+                phaseIndex={phaseIndex}
+              />
             </div>
           </div>
         )}
