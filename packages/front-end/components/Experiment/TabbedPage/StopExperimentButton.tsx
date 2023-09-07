@@ -24,7 +24,7 @@ export default function StopExperimentButton({
     <div className={clsx({ "btn-group": false })}>
       {showTrafficButton ? (
         <button
-          className="btn btn-info mr-2"
+          className="btn btn-primary mr-2"
           disabled={!editTargeting}
           onClick={() => {
             editTargeting && editTargeting();
