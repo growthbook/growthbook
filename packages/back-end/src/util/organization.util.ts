@@ -89,67 +89,73 @@ function mergePermissions(
     }
   }
 
-  const roles = getRoles(org);
-  const newRoleIndex = roles.findIndex((r) => r.id === teamInfo.role);
-  const existingRoleIndex = roles.findIndex((r) => r.id === existingRole);
-
-  const existingRoleIsEngineerOrExperimenter =
-    existingRole === "engineer" || existingRole === "experimenter";
-
-  const newRoleIsEngineerOrExperimenter =
-    teamInfo.role === "engineer" || teamInfo.role === "experimenter";
-
-  if (existingRoleIsEngineerOrExperimenter && newRoleIsEngineerOrExperimenter) {
-    if (newRoleIndex === existingRoleIndex) {
-      existingPermissions.environments = [
-        ...new Set(
-          existingPermissions.environments.concat(teamInfo.environments)
-        ),
-      ];
-      if (
-        existingPermissions.limitAccessByEnvironment !==
-        teamInfo.limitAccessByEnvironment
-      ) {
-        existingPermissions.limitAccessByEnvironment = false;
-        existingPermissions.environments = [];
-      }
-    }
-
-    if (newRoleIndex < existingRoleIndex) {
-      if (
-        existingPermissions.limitAccessByEnvironment ===
-        teamInfo.limitAccessByEnvironment
-      ) {
-        existingPermissions.environments = [
-          ...new Set(
-            existingPermissions.environments.concat(teamInfo.environments)
-          ),
-        ];
-      }
-    }
-
-    if (newRoleIndex > existingRoleIndex) {
-      if (
-        existingPermissions.limitAccessByEnvironment ===
-        teamInfo.limitAccessByEnvironment
-      ) {
-        existingPermissions.environments = [
-          ...new Set(
-            existingPermissions.environments.concat(teamInfo.environments)
-          ),
-        ];
-      }
-    } else {
-      existingPermissions.limitAccessByEnvironment = existingPermissions.limitAccessByEnvironment
-        ? true
-        : false;
-    }
+  if (!existingRole) {
+    existingPermissions.limitAccessByEnvironment =
+      teamInfo.limitAccessByEnvironment;
+    existingPermissions.environments = teamInfo.environments;
   } else {
-    if (newRoleIndex > existingRoleIndex) {
-      existingPermissions.limitAccessByEnvironment =
-        teamInfo.limitAccessByEnvironment;
-      existingPermissions.environments = teamInfo.environments;
+    const roles = getRoles(org);
+    const newRoleIndex = roles.findIndex((r) => r.id === teamInfo.role);
+    const existingRoleIndex = roles.findIndex((r) => r.id === existingRole);
+
+    const existingRoleIsEngineerOrExperimenter =
+      existingRole === "engineer" || existingRole === "experimenter";
+
+    const newRoleIsEngineerOrExperimenter =
+      teamInfo.role === "engineer" || teamInfo.role === "experimenter";
+
+    // If the user's existing role is engineer or experimenter, and they're new role is engineer or experimenter
+    // we have to do some special logic around environment specific permissions
+    if (
+      existingRoleIsEngineerOrExperimenter &&
+      newRoleIsEngineerOrExperimenter
+    ) {
+      if (newRoleIndex === existingRoleIndex) {
+        // If the new role and existing role's limitAccessByEnvironment values are the same, we concat the envs array
+        // If they're different, that means one role isn't limitedByEnvironment, so we set the envs to an empty array
+        existingPermissions.environments =
+          existingPermissions.limitAccessByEnvironment ===
+          teamInfo.limitAccessByEnvironment
+            ? [
+                ...new Set(
+                  existingPermissions.environments.concat(teamInfo.environments)
+                ),
+              ]
+            : [];
+
+        // if the new role and existing role's limitAccessByEnvironment values are different, we set the existingPermissions.limitAccessByEnvironment to false
+        // since one of the roles isn't limitedByEnvironment, otherwise, we keep it the same
+        existingPermissions.limitAccessByEnvironment =
+          existingPermissions.limitAccessByEnvironment !==
+          teamInfo.limitAccessByEnvironment
+            ? false
+            : existingPermissions.limitAccessByEnvironment;
+      }
+
+      // If both roles have the same value for limitAccessByEnvironment, we just concat the envs arrays
+      // No need to update the existingPermissions.limitAccessByEnvironment property since it's already set to the correct value
+      // And if limitAccessByEnvironment is false, concating two empty arrays just returns an empty array
+      if (
+        existingPermissions.limitAccessByEnvironment ===
+        teamInfo.limitAccessByEnvironment
+      ) {
+        existingPermissions.environments = [
+          ...new Set(
+            existingPermissions.environments.concat(teamInfo.environments)
+          ),
+        ];
+      }
     }
+    // Finally, we set the limitAccessByEnvironment and environments properties to the more permissive role's values.
+    existingPermissions.limitAccessByEnvironment =
+      newRoleIndex > existingRoleIndex
+        ? teamInfo.limitAccessByEnvironment
+        : existingPermissions.limitAccessByEnvironment;
+
+    existingPermissions.environments =
+      newRoleIndex > existingRoleIndex
+        ? teamInfo.environments
+        : existingPermissions.environments;
   }
 }
 
