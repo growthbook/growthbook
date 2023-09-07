@@ -226,15 +226,26 @@ export default function ResultsTableTooltip({
             </div>
           ) : null}
           <div className="metric-label d-flex align-items-end">
-            <span className="h5 mb-0 text-dark">{data.metric.name}</span>
+            <span
+              className="h5 mb-0 text-dark text-ellipsis"
+              style={{ maxWidth: 350 }}
+            >
+              {data.metric.name}
+            </span>
             {metricInverseIconDisplay}
             <span className="text-muted ml-2">({data.metric.type})</span>
           </div>
           {data.dimensionName ? (
             <div className="dimension-label d-flex align-items-center">
               <BsArrowReturnRight size={12} className="mx-1" />
-              <span>{data.dimensionName}:</span>
-              <span className="ml-1 font-weight-bold">
+              <span className="text-ellipsis" style={{ maxWidth: 150 }}>
+                {data.dimensionName}
+              </span>
+              :{" "}
+              <span
+                className="ml-1 font-weight-bold text-ellipsis"
+                style={{ maxWidth: 250 }}
+              >
                 {data.dimensionValue}
               </span>
             </div>
