@@ -217,6 +217,16 @@ export default function ExperimentHeader({
 
             <div className="ml-2">
               <MoreMenu>
+                {editTargeting && (
+                  <button
+                    className="dropdown-item"
+                    onClick={() => {
+                      editTargeting();
+                    }}
+                  >
+                    Edit targeting / rollout
+                  </button>
+                )}
                 {canRunExperiment && (
                   <button
                     className="dropdown-item"

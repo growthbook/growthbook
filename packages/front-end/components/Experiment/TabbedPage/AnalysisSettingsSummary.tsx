@@ -458,7 +458,11 @@ export default function AnalysisSettingsSummary({
             notebookUrl={`/experiments/notebook/${snapshot?.id}`}
             notebookFilename={experiment.trackingKey}
             generateReport={true}
-            queries={latest?.queries ?? snapshot?.queries}
+            queries={
+              latest && latest.status !== "error" && latest.queries
+                ? latest.queries
+                : snapshot?.queries
+            }
             queryError={snapshot?.error}
             supportsNotebooks={!!datasource?.settings?.notebookRunQuery}
             hasData={hasData}
