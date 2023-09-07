@@ -16,201 +16,19 @@ describe("Build user permissions", () => {
     invites: [],
     members: [
       {
-        id: "basic_readonly_user",
+        id: "base_user_123",
         role: "readonly",
         dateCreated: new Date(),
         limitAccessByEnvironment: false,
         environments: [],
         projectRoles: [],
         teams: [],
-      },
-      {
-        id: "basic_collaborator_user",
-        role: "collaborator",
-        dateCreated: new Date(),
-        limitAccessByEnvironment: false,
-        environments: [],
-        projectRoles: [],
-        teams: [],
-      },
-      {
-        id: "basic_engineer_user",
-        role: "engineer",
-        dateCreated: new Date(),
-        limitAccessByEnvironment: false,
-        environments: [],
-        projectRoles: [],
-        teams: [],
-      },
-      {
-        id: "basic_engineer_env_limited_user",
-        role: "engineer",
-        dateCreated: new Date(),
-        limitAccessByEnvironment: true,
-        environments: ["staging", "development"],
-        projectRoles: [],
-        teams: [],
-      },
-      {
-        id: "basic_analyst_user",
-        role: "analyst",
-        dateCreated: new Date(),
-        limitAccessByEnvironment: false,
-        environments: [],
-        projectRoles: [],
-        teams: [],
-      },
-      {
-        id: "basic_experimenter_user",
-        role: "experimenter",
-        dateCreated: new Date(),
-        limitAccessByEnvironment: false,
-        environments: [],
-        projectRoles: [],
-        teams: [],
-      },
-      {
-        id: "basic_admin_user",
-        role: "admin",
-        dateCreated: new Date(),
-        limitAccessByEnvironment: false,
-        environments: [],
-        projectRoles: [],
-        teams: [],
-      },
-      {
-        id: "slightly_advanced_readonly_user",
-        role: "readonly",
-        dateCreated: new Date(),
-        limitAccessByEnvironment: false,
-        environments: [],
-        projectRoles: [
-          {
-            project: "prj_exl5jr5dl4rbw856",
-            role: "engineer",
-            limitAccessByEnvironment: false,
-            environments: [],
-          },
-        ],
-        teams: [],
-      },
-      {
-        id: "slightly_advanced_readonly_user_2",
-        role: "readonly",
-        dateCreated: new Date(),
-        limitAccessByEnvironment: false,
-        environments: [],
-        projectRoles: [
-          {
-            project: "prj_exl5jr5dl4rbw856",
-            role: "engineer",
-            limitAccessByEnvironment: false,
-            environments: [],
-          },
-          {
-            project: "prj_exl5jr5dl4rbw123",
-            role: "analyst",
-            limitAccessByEnvironment: false,
-            environments: [],
-          },
-        ],
-        teams: [],
-      },
-      {
-        id: "slightly_advanced_readonly_user_3",
-        role: "readonly",
-        dateCreated: new Date(),
-        limitAccessByEnvironment: false,
-        environments: [],
-        projectRoles: [
-          {
-            project: "prj_exl5jr5dl4rbw856",
-            role: "engineer",
-            limitAccessByEnvironment: true,
-            environments: ["staging"],
-          },
-        ],
-        teams: ["team_engineers"],
-      },
-      {
-        id: "slightly_advanced_engineer_user",
-        role: "engineer",
-        dateCreated: new Date(),
-        limitAccessByEnvironment: true,
-        environments: ["staging", "development"],
-        projectRoles: [
-          {
-            project: "prj_exl5jr5dl4rbw856",
-            role: "engineer",
-            limitAccessByEnvironment: true,
-            environments: ["production"],
-          },
-          {
-            project: "prj_exl5jr5dl4rbw123",
-            role: "analyst",
-            limitAccessByEnvironment: false,
-            environments: [],
-          },
-        ],
-        teams: [],
-      },
-      {
-        id: "slightly_advanced_experimenter_user",
-        role: "experimenter",
-        dateCreated: new Date(),
-        limitAccessByEnvironment: false,
-        environments: [],
-        projectRoles: [],
-        teams: ["engineering_team"],
-      },
-      {
-        id: "slightly_advanced_collaborator_user",
-        role: "collaborator",
-        dateCreated: new Date(),
-        limitAccessByEnvironment: false,
-        environments: [],
-        projectRoles: [],
-        teams: ["engineer_team"],
-      },
-      {
-        id: "advanced_readonly_user",
-        role: "readonly",
-        dateCreated: new Date(),
-        limitAccessByEnvironment: false,
-        environments: [],
-        projectRoles: [
-          {
-            project: "prj_exl5jr5dl4rbw856",
-            role: "engineer",
-            limitAccessByEnvironment: true,
-            environments: ["production"],
-          },
-          {
-            project: "prj_exl5jr5dl4rbw123",
-            role: "analyst",
-            limitAccessByEnvironment: false,
-            environments: [],
-          },
-        ],
-        teams: ["team_collaborators"],
-      },
-      {
-        id: "advanced_engineer_user",
-        role: "engineer",
-        dateCreated: new Date(),
-        limitAccessByEnvironment: true,
-        environments: ["production"],
-        projectRoles: [],
-        teams: ["team_engineers"],
       },
     ],
   };
   // Basic user permissions - no project-level permissions or teams
   it("should handle a basic readonly user with no project-level permissions or teams correctly", async () => {
-    const userPermissions = await getUserPermissions(
-      "basic_readonly_user",
-      testOrg
-    );
+    const userPermissions = await getUserPermissions("base_user_123", testOrg);
     expect(userPermissions).toEqual({
       global: {
         environments: [],
@@ -252,10 +70,10 @@ describe("Build user permissions", () => {
   });
 
   it("should handle a basic collaborator user with no project-level permissions or teams correctly", async () => {
-    const userPermissions = await getUserPermissions(
-      "basic_collaborator_user",
-      testOrg
-    );
+    const userPermissions = await getUserPermissions("base_user_123", {
+      ...testOrg,
+      members: [{ ...testOrg.members[0], role: "collaborator" }],
+    });
     expect(userPermissions).toEqual({
       global: {
         environments: [],
@@ -297,10 +115,10 @@ describe("Build user permissions", () => {
   });
 
   it("should handle a basic engineer user with no project-level permissions or teams correctly", async () => {
-    const userPermissions = await getUserPermissions(
-      "basic_engineer_user",
-      testOrg
-    );
+    const userPermissions = await getUserPermissions("base_user_123", {
+      ...testOrg,
+      members: [{ ...testOrg.members[0], role: "engineer" }],
+    });
     expect(userPermissions).toEqual({
       global: {
         environments: [],
@@ -342,10 +160,10 @@ describe("Build user permissions", () => {
   });
 
   it("should handle a basic analyst user with no project-level permissions or teams correctly", async () => {
-    const userPermissions = await getUserPermissions(
-      "basic_analyst_user",
-      testOrg
-    );
+    const userPermissions = await getUserPermissions("base_user_123", {
+      ...testOrg,
+      members: [{ ...testOrg.members[0], role: "analyst" }],
+    });
     expect(userPermissions).toEqual({
       global: {
         environments: [],
@@ -387,10 +205,10 @@ describe("Build user permissions", () => {
   });
 
   it("should handle a basic experimenter user with no project-level permissions or teams correctly", async () => {
-    const userPermissions = await getUserPermissions(
-      "basic_experimenter_user",
-      testOrg
-    );
+    const userPermissions = await getUserPermissions("base_user_123", {
+      ...testOrg,
+      members: [{ ...testOrg.members[0], role: "experimenter" }],
+    });
     expect(userPermissions).toEqual({
       global: {
         environments: [],
@@ -432,10 +250,10 @@ describe("Build user permissions", () => {
   });
 
   it("should handle an admin user with no project-level permissions or teams correctly", async () => {
-    const userPermissions = await getUserPermissions(
-      "basic_admin_user",
-      testOrg
-    );
+    const userPermissions = await getUserPermissions("base_user_123", {
+      ...testOrg,
+      members: [{ ...testOrg.members[0], role: "admin" }],
+    });
     expect(userPermissions).toEqual({
       global: {
         environments: [],
@@ -477,10 +295,22 @@ describe("Build user permissions", () => {
   });
   // Slightly advanced user permissions - project-level permissions, but no teams
   it("should handle a readonly user with a single engineer project-level permission and no teams correctly", async () => {
-    const userPermissions = await getUserPermissions(
-      "slightly_advanced_readonly_user",
-      testOrg
-    );
+    const userPermissions = await getUserPermissions("base_user_123", {
+      ...testOrg,
+      members: [
+        {
+          ...testOrg.members[0],
+          projectRoles: [
+            {
+              project: "prj_exl5jr5dl4rbw856",
+              role: "engineer",
+              limitAccessByEnvironment: false,
+              environments: [],
+            },
+          ],
+        },
+      ],
+    });
 
     expect(userPermissions).toEqual({
       global: {
@@ -559,10 +389,28 @@ describe("Build user permissions", () => {
   });
 
   it("should handle a readonly user with  multiple project-level permissions and no teams correctly", async () => {
-    const userPermissions = await getUserPermissions(
-      "slightly_advanced_readonly_user_2",
-      testOrg
-    );
+    const userPermissions = await getUserPermissions("base_user_123", {
+      ...testOrg,
+      members: [
+        {
+          ...testOrg.members[0],
+          projectRoles: [
+            {
+              project: "prj_exl5jr5dl4rbw856",
+              role: "engineer",
+              limitAccessByEnvironment: false,
+              environments: [],
+            },
+            {
+              project: "prj_exl5jr5dl4rbw123",
+              role: "analyst",
+              limitAccessByEnvironment: false,
+              environments: [],
+            },
+          ],
+        },
+      ],
+    });
 
     expect(userPermissions).toEqual({
       global: {
@@ -676,10 +524,17 @@ describe("Build user permissions", () => {
   });
 
   it("should handle an engineer user with environment specific permissions correctly", async () => {
-    const userPermissions = await getUserPermissions(
-      "basic_engineer_env_limited_user",
-      testOrg
-    );
+    const userPermissions = await getUserPermissions("base_user_123", {
+      ...testOrg,
+      members: [
+        {
+          ...testOrg.members[0],
+          role: "engineer",
+          environments: ["staging", "development"],
+          limitAccessByEnvironment: true,
+        },
+      ],
+    });
 
     expect(userPermissions).toEqual({
       global: {
@@ -722,10 +577,31 @@ describe("Build user permissions", () => {
   });
 
   it("should handle an engineer user with environment specific permissions and project-level roles that have environment specific permissions correctly", async () => {
-    const userPermissions = await getUserPermissions(
-      "slightly_advanced_engineer_user",
-      testOrg
-    );
+    const userPermissions = await getUserPermissions("base_user_123", {
+      ...testOrg,
+      members: [
+        {
+          ...testOrg.members[0],
+          role: "engineer",
+          limitAccessByEnvironment: true,
+          environments: ["staging", "development"],
+          projectRoles: [
+            {
+              project: "prj_exl5jr5dl4rbw856",
+              role: "engineer",
+              limitAccessByEnvironment: true,
+              environments: ["production"],
+            },
+            {
+              project: "prj_exl5jr5dl4rbw123",
+              role: "analyst",
+              limitAccessByEnvironment: false,
+              environments: [],
+            },
+          ],
+        },
+      ],
+    });
 
     expect(userPermissions).toEqual({
       global: {
@@ -847,10 +723,29 @@ describe("Build user permissions", () => {
       projectRoles: [],
     });
 
-    const userPermissions = await getUserPermissions(
-      "advanced_readonly_user",
-      testOrg
-    );
+    const userPermissions = await getUserPermissions("base_user_123", {
+      ...testOrg,
+      members: [
+        {
+          ...testOrg.members[0],
+          projectRoles: [
+            {
+              project: "prj_exl5jr5dl4rbw856",
+              role: "engineer",
+              limitAccessByEnvironment: true,
+              environments: ["production"],
+            },
+            {
+              project: "prj_exl5jr5dl4rbw123",
+              role: "analyst",
+              limitAccessByEnvironment: false,
+              environments: [],
+            },
+          ],
+          teams: ["team_collaborators"],
+        },
+      ],
+    });
 
     expect(userPermissions).toEqual({
       global: {
@@ -972,10 +867,15 @@ describe("Build user permissions", () => {
       projectRoles: [],
     });
 
-    const userPermissions = await getUserPermissions(
-      "basic_admin_user",
-      testOrg
-    );
+    const userPermissions = await getUserPermissions("base_user_123", {
+      ...testOrg,
+      members: [
+        {
+          ...testOrg.members[0],
+          role: "admin",
+        },
+      ],
+    });
 
     expect(userPermissions).toEqual({
       global: {
@@ -1026,10 +926,19 @@ describe("Build user permissions", () => {
       projectRoles: [],
     });
 
-    const userPermissions = await getUserPermissions(
-      "advanced_engineer_user",
-      testOrg
-    );
+    const userPermissions = await getUserPermissions("base_user_123", {
+      ...testOrg,
+      members: [
+        {
+          ...testOrg.members[0],
+          role: "engineer",
+          limitAccessByEnvironment: true,
+          environments: ["production"],
+          projectRoles: [],
+          teams: ["team_engineers"],
+        },
+      ],
+    });
 
     expect(userPermissions).toEqual({
       global: {
@@ -1086,11 +995,24 @@ describe("Build user permissions", () => {
         },
       ],
     });
-    const userPermissions = await getUserPermissions(
-      "slightly_advanced_readonly_user_3",
-      testOrg
-    );
-    // The user-level project role is limited by envs, but the team is not, we should then override the user-level project permissions 'limitAccessByEnv'
+
+    const userPermissions = await getUserPermissions("base_user_123", {
+      ...testOrg,
+      members: [
+        {
+          ...testOrg.members[0],
+          projectRoles: [
+            {
+              project: "prj_exl5jr5dl4rbw856",
+              role: "engineer",
+              limitAccessByEnvironment: true,
+              environments: ["staging"],
+            },
+          ],
+          teams: ["team_engineers"],
+        },
+      ],
+    });
 
     expect(userPermissions).toEqual({
       global: {
@@ -1178,10 +1100,15 @@ describe("Build user permissions", () => {
       projectRoles: [],
     });
 
-    const userPermissions = await getUserPermissions(
-      "basic_admin_user",
-      testOrg
-    );
+    const userPermissions = await getUserPermissions("base_user_123", {
+      ...testOrg,
+      members: [
+        {
+          ...testOrg.members[0],
+          role: "admin",
+        },
+      ],
+    });
 
     expect(userPermissions).toEqual({
       global: {
@@ -1233,10 +1160,16 @@ describe("Build user permissions", () => {
       projectRoles: [],
     });
 
-    const userPermissions = await getUserPermissions(
-      "slightly_advanced_collaborator_user",
-      testOrg
-    );
+    const userPermissions = await getUserPermissions("base_user_123", {
+      ...testOrg,
+      members: [
+        {
+          ...testOrg.members[0],
+          role: "collaborator",
+          teams: ["engineer_team"],
+        },
+      ],
+    });
 
     expect(userPermissions).toEqual({
       global: {
@@ -1288,10 +1221,15 @@ describe("Build user permissions", () => {
       projectRoles: [],
     });
 
-    const userPermissions = await getUserPermissions(
-      "basic_admin_user",
-      testOrg
-    );
+    const userPermissions = await getUserPermissions("base_user_123", {
+      ...testOrg,
+      members: [
+        {
+          ...testOrg.members[0],
+          role: "admin",
+        },
+      ],
+    });
 
     expect(userPermissions).toEqual({
       global: {
@@ -1342,10 +1280,16 @@ describe("Build user permissions", () => {
       projectRoles: [],
     });
 
-    const userPermissions = await getUserPermissions(
-      "slightly_advanced_experimenter_user",
-      testOrg
-    );
+    const userPermissions = await getUserPermissions("base_user_123", {
+      ...testOrg,
+      members: [
+        {
+          ...testOrg.members[0],
+          role: "experimenter",
+          teams: ["engineering_team"],
+        },
+      ],
+    });
 
     expect(userPermissions).toEqual({
       global: {
