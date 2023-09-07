@@ -464,7 +464,7 @@ export default function ReportPage() {
                   guardrails={report.args.guardrails}
                   variations={variations}
                   key={report.args.dimension}
-                  statsEngine={report.args.statsEngine ?? DEFAULT_STATS_ENGINE}
+                  statsEngine={report.args.statsEngine || DEFAULT_STATS_ENGINE}
                   pValueCorrection={pValueCorrection}
                   regressionAdjustmentEnabled={regressionAdjustmentEnabled}
                   metricRegressionAdjustmentStatuses={
@@ -556,7 +556,7 @@ export default function ReportPage() {
                         guardrails={report.args.guardrails}
                         id={report.id}
                         statsEngine={
-                          report.args.statsEngine ?? DEFAULT_STATS_ENGINE
+                          report.args.statsEngine || DEFAULT_STATS_ENGINE
                         }
                         pValueCorrection={pValueCorrection}
                         regressionAdjustmentEnabled={

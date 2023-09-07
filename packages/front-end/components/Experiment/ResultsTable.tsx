@@ -589,7 +589,7 @@ export default function ResultsTable({
                           body={
                             <div style={{ lineHeight: 1.5 }}>
                               {getPercentChangeTooltip(
-                                statsEngine ?? DEFAULT_STATS_ENGINE,
+                                statsEngine || DEFAULT_STATS_ENGINE,
                                 hasRisk,
                                 !!sequentialTestingEnabled,
                                 pValueCorrection ?? null

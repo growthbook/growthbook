@@ -53,11 +53,17 @@ export const resolvers: Record<
     }
   ),
   defaultRole: genDefaultResolver("defaultRole"),
-  statsEngine: genDefaultResolver("statsEngine", {
-    project: "settings.statsEngine",
-    // experiment: true,
-    report: true,
-  }),
+  statsEngine: genDefaultResolver(
+    "statsEngine",
+    {
+      project: "settings.statsEngine",
+      experiment: true,
+      report: true,
+    },
+    {
+      emptyAsUndefined: true,
+    }
+  ),
   pValueThreshold: genDefaultResolver("pValueThreshold", {
     project: "settings.pValueThreshold",
     experiment: true,

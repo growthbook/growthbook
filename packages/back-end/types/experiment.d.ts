@@ -1,4 +1,5 @@
 import { NamespaceValue } from "./feature";
+import { StatsEngine } from "./stats";
 
 export type ImplementationType = "visual" | "code" | "configuration" | "custom";
 
@@ -147,6 +148,7 @@ export interface ExperimentInterface {
   linkedFeatures?: string[];
   sequentialTestingEnabled?: boolean;
   sequentialTestingTuningParameter?: number;
+  statsEngine?: StatsEngine;
 }
 
 export type ExperimentInterfaceStringDates = Omit<

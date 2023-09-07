@@ -235,7 +235,7 @@ const Results_old: FC<{
             seriestype={snapshot.dimension}
             variations={variations}
             statsEngine={
-              analysis?.settings?.statsEngine ?? DEFAULT_STATS_ENGINE
+              analysis?.settings?.statsEngine || DEFAULT_STATS_ENGINE
             }
           />
         ) : (

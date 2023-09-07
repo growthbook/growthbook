@@ -586,6 +586,7 @@ export async function postExperiments(
       data.sequentialTestingTuningParameter ??
       org?.settings?.sequentialTestingTuningParameter ??
       DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
+    statsEngine: data.statsEngine,
   };
 
   try {
@@ -765,6 +766,7 @@ export async function postExperiment(
     "hasVisualChangesets",
     "sequentialTestingEnabled",
     "sequentialTestingTuningParameter",
+    "statsEngine",
   ];
   const existing: ExperimentInterface = experiment;
   const changes: Changeset = {};

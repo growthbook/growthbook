@@ -288,7 +288,7 @@ const Results: FC<{
           results={analysis?.results ?? []}
           seriestype={snapshot.dimension ?? ""}
           variations={variations}
-          statsEngine={analysis?.settings?.statsEngine ?? DEFAULT_STATS_ENGINE}
+          statsEngine={analysis?.settings?.statsEngine || DEFAULT_STATS_ENGINE}
         />
       ) : showBreakDownResults ? (
         <BreakDownResults
