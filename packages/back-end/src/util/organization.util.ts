@@ -104,38 +104,12 @@ function mergePermissions(
     const newRoleIsEngineerOrExperimenter =
       teamInfo.role === "engineer" || teamInfo.role === "experimenter";
 
-    // If the user's existing role is engineer or experimenter, and they're new role is engineer or experimenter
-    // we have to do some special logic around environment specific permissions
     if (
       existingRoleIsEngineerOrExperimenter &&
       newRoleIsEngineerOrExperimenter
     ) {
-      if (newRoleIndex === existingRoleIndex) {
-        // If the new role and existing role's limitAccessByEnvironment values are the same, we concat the envs array
-        // If they're different, that means one role isn't limitedByEnvironment, so we set the envs to an empty array
-        existingPermissions.environments =
-          existingPermissions.limitAccessByEnvironment ===
-          teamInfo.limitAccessByEnvironment
-            ? [
-                ...new Set(
-                  existingPermissions.environments.concat(teamInfo.environments)
-                ),
-              ]
-            : [];
-
-        // if the new role and existing role's limitAccessByEnvironment values are different, we set the existingPermissions.limitAccessByEnvironment to false
-        // since one of the roles isn't limitedByEnvironment, otherwise, we keep it the same
-        existingPermissions.limitAccessByEnvironment =
-          existingPermissions.limitAccessByEnvironment !==
-          teamInfo.limitAccessByEnvironment
-            ? false
-            : existingPermissions.limitAccessByEnvironment;
-      }
-
-      // If both roles have the same value for limitAccessByEnvironment, we just concat the envs arrays
-      // No need to update the existingPermissions.limitAccessByEnvironment property since it's already set to the correct value
-      // And if limitAccessByEnvironment is false, concating two empty arrays just returns an empty array
       if (
+        // If limitAccessByEnvironment is the same for new and existing roles, we just concat the envs arrays
         existingPermissions.limitAccessByEnvironment ===
         teamInfo.limitAccessByEnvironment
       ) {
@@ -144,18 +118,23 @@ function mergePermissions(
             existingPermissions.environments.concat(teamInfo.environments)
           ),
         ];
+      } else {
+        // otherwise, 1 role doesn't have limited access by environment, so it overrides the other
+        existingPermissions.limitAccessByEnvironment = false;
+        existingPermissions.environments = [];
       }
-    }
-    // Finally, we set the limitAccessByEnvironment and environments properties to the more permissive role's values.
-    existingPermissions.limitAccessByEnvironment =
-      newRoleIndex > existingRoleIndex
-        ? teamInfo.limitAccessByEnvironment
-        : existingPermissions.limitAccessByEnvironment;
+    } else {
+      // Finally, we set the limitAccessByEnvironment and environments properties to the more permissive role's values.
+      existingPermissions.limitAccessByEnvironment =
+        newRoleIndex > existingRoleIndex
+          ? teamInfo.limitAccessByEnvironment
+          : existingPermissions.limitAccessByEnvironment;
 
-    existingPermissions.environments =
-      newRoleIndex > existingRoleIndex
-        ? teamInfo.environments
-        : existingPermissions.environments;
+      existingPermissions.environments =
+        newRoleIndex > existingRoleIndex
+          ? teamInfo.environments
+          : existingPermissions.environments;
+    }
   }
 }
 

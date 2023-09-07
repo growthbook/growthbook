@@ -1330,4 +1330,66 @@ describe("Build user permissions", () => {
       projects: {},
     });
   });
+
+  it("should correctly merge engineer and experimenters env specific limits", async () => {
+    (findTeamById as jest.Mock).mockResolvedValue({
+      id: "team_experimenter",
+      role: "experimenter",
+      limitAccessByEnvironment: true,
+      environments: ["staging", "development"],
+      projectRoles: [],
+    });
+
+    const userPermissions = await getUserPermissions("base_user_123", {
+      ...testOrg,
+      members: [
+        {
+          ...testOrg.members[0],
+          role: "engineer",
+          limitAccessByEnvironment: true,
+          environments: ["production"],
+          teams: ["team_experimenter"],
+        },
+      ],
+    });
+
+    expect(userPermissions).toEqual({
+      global: {
+        environments: ["production", "staging", "development"],
+        limitAccessByEnvironment: true,
+        permissions: {
+          createPresentations: true,
+          createDimensions: true,
+          createSegments: true,
+          organizationSettings: false,
+          superDelete: false,
+          manageTeam: false,
+          manageTags: true,
+          manageApiKeys: false,
+          manageIntegrations: false,
+          manageWebhooks: false,
+          manageBilling: false,
+          manageNorthStarMetric: false,
+          manageTargetingAttributes: true,
+          manageNamespaces: true,
+          manageSavedGroups: true,
+          viewEvents: false,
+          addComments: true,
+          createFeatureDrafts: true,
+          manageFeatures: true,
+          manageProjects: false,
+          createAnalyses: true,
+          createIdeas: true,
+          createMetrics: true,
+          createDatasources: false,
+          editDatasourceSettings: true,
+          runQueries: true,
+          publishFeatures: true,
+          manageEnvironments: true,
+          runExperiments: true,
+        },
+      },
+      projects: {},
+    });
+  });
 });
