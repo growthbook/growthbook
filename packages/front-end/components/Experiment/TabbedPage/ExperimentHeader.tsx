@@ -110,6 +110,9 @@ export default function ExperimentHeader({
   }
   const canRunExperiment = canEditExperiment && hasRunExperimentsPermission;
 
+  const hasLinkedChanges =
+    linkedFeatures.length > 0 || visualChangesets.length > 0;
+
   return (
     <>
       <div className="experiment-header bg-white px-3 pt-3">
@@ -192,6 +195,7 @@ export default function ExperimentHeader({
                   editResult={editResult}
                   editTargeting={editTargeting}
                   coverage={lastPhase?.coverage}
+                  hasLinkedChanges={hasLinkedChanges}
                 />
               ) : experiment.status === "stopped" && experiment.results ? (
                 <div className="experiment-status-widget border d-flex">

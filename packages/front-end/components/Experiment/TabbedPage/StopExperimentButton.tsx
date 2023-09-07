@@ -4,18 +4,25 @@ export interface Props {
   editResult?: () => void;
   editTargeting?: (() => void) | null;
   coverage?: number;
+  hasLinkedChanges: boolean;
 }
+
+const percentFormatter = new Intl.NumberFormat(undefined, {
+  style: "percent",
+  maximumFractionDigits: 0,
+});
 
 export default function StopExperimentButton({
   editResult,
   editTargeting,
   coverage,
+  hasLinkedChanges,
 }: Props) {
-  const fullCoverage = coverage === 1;
+  const showTrafficButton = hasLinkedChanges && (coverage ?? 1) < 1;
 
   return (
     <div className={clsx({ "btn-group": false })}>
-      {!fullCoverage ? (
+      {showTrafficButton ? (
         <button
           className="btn btn-info mr-2"
           disabled={!editTargeting}
@@ -23,13 +30,13 @@ export default function StopExperimentButton({
             editTargeting && editTargeting();
           }}
         >
-          Increase Traffic ({(coverage ?? 0) * 100}%)
+          Increase Traffic ({percentFormatter.format(coverage ?? 1)})
         </button>
       ) : null}
       <button
         className={clsx("btn", {
-          "btn-primary": fullCoverage,
-          "btn-outline-primary": !fullCoverage,
+          "btn-primary": !showTrafficButton,
+          "btn-outline-primary": showTrafficButton,
         })}
         onClick={(e) => {
           e.preventDefault();

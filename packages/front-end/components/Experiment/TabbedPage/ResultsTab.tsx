@@ -40,6 +40,7 @@ export interface Props {
   setTab: (tab: ExperimentTab) => void;
   connections: SDKConnectionInterface[];
   isTabActive: boolean;
+  safeToEdit: boolean;
 }
 
 export default function ResultsTab({
@@ -55,6 +56,7 @@ export default function ResultsTab({
   visualChangesets,
   editTargeting,
   isTabActive,
+  safeToEdit,
 }: Props) {
   const [baselineRow, setBaselineRow] = React.useState<number>(0);
   const [variationFilter, setVariationFilter] = React.useState<number[]>([]);
@@ -289,7 +291,7 @@ export default function ResultsTab({
                   mutateExperiment={mutate}
                   editMetrics={editMetrics ?? undefined}
                   editResult={editResult ?? undefined}
-                  editPhases={editPhases ?? undefined}
+                  editPhases={(safeToEdit && editPhases) || undefined}
                   alwaysShowPhaseSelector={true}
                   reportDetailsLink={false}
                   statsEngine={statsEngine}

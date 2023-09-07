@@ -302,6 +302,7 @@ export default function TabbedPage({
               </a>
             </div>
             <div className="mt-1">
+              <strong>Phase settings:</strong>{" "}
               {phaseSummary(experiment?.phases?.[phase])}
             </div>
           </div>
@@ -366,6 +367,7 @@ export default function TabbedPage({
             visualChangesets={visualChangesets}
             editTargeting={editTargeting}
             isTabActive={tab === "results"}
+            safeToEdit={safeToEdit}
           />
         </div>
       </div>
