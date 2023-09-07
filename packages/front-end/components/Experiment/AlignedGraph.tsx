@@ -160,9 +160,9 @@ const AlignedGraph: FC<Props> = ({
   const gradient: { color: string; percent: number }[] = [];
   const gradientId = "gr_" + id;
   if (ci && barFillType === "gradient") {
-    if (ci?.[0] ?? 0 < 0) {
+    if ((ci?.[0] ?? 0) < 0) {
       gradient.push({ color: sigBarColorNeg, percent: 0 });
-      if (ci?.[1] ?? 0 > 0) {
+      if ((ci?.[1] ?? 0) > 0) {
         const w = (ci?.[1] ?? 0) - (ci?.[0] ?? 0);
         const wNeg = (100 * (-1 * (ci?.[0] ?? 0))) / w;
         gradient.push({ color: sigBarColorNeg, percent: wNeg });

@@ -8,7 +8,6 @@ import LinkedFeatureFlag from "@/components/Experiment/LinkedFeatureFlag";
 import track from "@/services/track";
 import { StartExperimentBanner } from "../StartExperimentBanner";
 import AddLinkedChangesBanner from "../AddLinkedChangesBanner";
-import { useSnapshot } from "../SnapshotProvider";
 import TargetingInfo from "./TargetingInfo";
 import { ExperimentTab, LinkedFeature } from ".";
 
@@ -39,7 +38,7 @@ export default function Implementation({
   setTab,
   connections,
 }: Props) {
-  const { phase: phaseIndex } = useSnapshot();
+  const phases = experiment.phases || [];
 
   const permissions = usePermissions();
 
@@ -185,7 +184,7 @@ export default function Implementation({
               <TargetingInfo
                 experiment={experiment}
                 editTargeting={editTargeting}
-                phaseIndex={phaseIndex}
+                phaseIndex={phases.length - 1}
               />
             </div>
           </div>

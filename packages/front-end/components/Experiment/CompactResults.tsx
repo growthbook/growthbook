@@ -8,8 +8,9 @@ import {
 import { ExperimentStatus, MetricOverride } from "back-end/types/experiment";
 import { PValueCorrection, StatsEngine } from "back-end/types/stats";
 import Link from "next/link";
-import { FaTimes } from "react-icons/fa";
+import { FaAngleRight, FaTimes, FaUsers } from "react-icons/fa";
 import { MetricInterface } from "back-end/types/metric";
+import Collapsible from "react-collapsible";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import {
   applyMetricOverrides,
@@ -24,6 +25,9 @@ import MetricTooltipBody from "../Metrics/MetricTooltipBody";
 import DataQualityWarning from "./DataQualityWarning";
 import ResultsTable from "./ResultsTable";
 import MultipleExposureWarning from "./MultipleExposureWarning";
+import VariationUsersTable from "./TabbedPage/VariationUsersTable";
+
+const numberFormatter = Intl.NumberFormat();
 
 const CompactResults: FC<{
   editMetrics?: () => void;
@@ -71,6 +75,17 @@ const CompactResults: FC<{
   isTabActive,
 }) => {
   const { getMetricById, ready } = useDefinitions();
+
+  const [totalUsers, variationUsers] = useMemo(() => {
+    let totalUsers = 0;
+    const variationUsers: number[] = [];
+    results?.variations?.forEach((v, i) => {
+      totalUsers += v.users;
+      variationUsers[i] = variationUsers[i] || 0;
+      variationUsers[i] += v.users;
+    });
+    return [totalUsers, variationUsers];
+  }, [results]);
 
   const rows = useMemo<ExperimentTableRow[]>(() => {
     function getRow(metricId: string, isGuardrail: boolean) {
@@ -130,8 +145,29 @@ const CompactResults: FC<{
     return variations.map((v, i) => vars?.[i]?.users || 0);
   }, [results, variations]);
   const risk = useRiskVariation(variations.length, rows);
+
   return (
     <>
+      {status !== "draft" && totalUsers > 0 && (
+        <div className="users">
+          <Collapsible
+            trigger={
+              <div className="d-inline-flex mx-3 align-items-center">
+                <FaUsers size={16} className="mr-1" />
+                {numberFormatter.format(totalUsers)} total users
+                <FaAngleRight className="chevron ml-1" />
+              </div>
+            }
+            transitionTime={100}
+          >
+            <VariationUsersTable
+              variations={variations}
+              users={variationUsers}
+            />
+          </Collapsible>
+        </div>
+      )}
+
       <div className="mx-3">
         <DataQualityWarning results={results} variations={variations} />
         <MultipleExposureWarning
@@ -228,8 +264,14 @@ export function getRenderLabelColumn(regressionAdjustmentEnabled) {
                   textOverflow: "ellipsis",
                   overflow: "hidden",
                   lineHeight: "1.2em",
+                  wordBreak: "break-word",
+                  overflowWrap: "anywhere",
                 }
-              : {}
+              : {
+                  lineHeight: "1.2em",
+                  wordBreak: "break-word",
+                  overflowWrap: "anywhere",
+                }
           }
         >
           <Link href={`/metric/${metric.id}`}>

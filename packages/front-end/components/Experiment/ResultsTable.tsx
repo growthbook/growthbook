@@ -429,6 +429,8 @@ export default function ResultsTable({
                 <th
                   style={{
                     lineHeight: "15px",
+                    wordBreak: "break-word",
+                    overflowWrap: "anywhere",
                     width: 220 * tableCellScale,
                   }}
                   className="axis-col header-label"
@@ -829,7 +831,9 @@ export default function ResultsTable({
                               domain={domain}
                               metric={row.metric}
                               stats={stats}
-                              id={`${id}_violin_row${i}_var${j}`}
+                              id={`${id}_violin_row${i}_var${j}_${
+                                metricsAsGuardrails ? "guardrail" : "goal"
+                              }_${encodeURIComponent(dimension ?? "d-none")}`}
                               graphWidth={graphCellWidth}
                               height={
                                 compactResults ? ROW_HEIGHT + 10 : ROW_HEIGHT

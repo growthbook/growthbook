@@ -3,11 +3,11 @@ import {
   ExperimentPhaseStringDates,
 } from "back-end/types/experiment";
 import Link from "next/link";
-import { FaHome, FaUsers } from "react-icons/fa";
+import { FaHome } from "react-icons/fa";
 import { PiChartBarHorizontalFill } from "react-icons/pi";
 import { useRouter } from "next/router";
 import { getAffectedEnvsForExperiment } from "shared/util";
-import React, { useMemo, useState } from "react";
+import React, { useState } from "react";
 import { date, daysBetween } from "shared/dates";
 import { MdRocketLaunch } from "react-icons/md";
 import { SDKConnectionInterface } from "back-end/types/sdk-connection";
@@ -24,15 +24,10 @@ import TabButton from "@/components/Tabs/TabButton";
 import usePermissions from "@/hooks/usePermissions";
 import HeaderWithEdit from "@/components/Layout/HeaderWithEdit";
 import Modal from "@/components/Modal";
-import Dropdown from "@/components/Dropdown/Dropdown";
-import DropdownLink from "@/components/Dropdown/DropdownLink";
-import Tooltip from "@/components/Tooltip/Tooltip";
 import { useScrollPosition } from "@/hooks/useScrollPosition";
 import ResultsIndicator from "../ResultsIndicator";
-import { useSnapshot } from "../SnapshotProvider";
 import { StartExperimentBanner } from "../StartExperimentBanner";
 import ExperimentStatusIndicator from "./ExperimentStatusIndicator";
-import OverflowText from "./OverflowText";
 import StopExperimentButton from "./StopExperimentButton";
 import { ExperimentTab, LinkedFeature } from ".";
 
@@ -55,27 +50,6 @@ export interface Props {
   newPhase?: (() => void) | null;
   editTargeting?: (() => void) | null;
   editPhases?: (() => void) | null;
-}
-
-const shortNumberFormatter = Intl.NumberFormat("en-US", {
-  notation: "compact",
-  maximumFractionDigits: 1,
-});
-
-function PhaseDateSummary({ phase }: { phase?: ExperimentPhaseStringDates }) {
-  const startDate = phase && phase.dateStarted ? date(phase.dateStarted) : null;
-  const endDate = phase && phase.dateEnded ? date(phase.dateEnded) : null;
-
-  if (!startDate) return null;
-
-  return (
-    <span>
-      {startDate} — {endDate || "now"}
-      <span className="ml-2">
-        ({daysBetween(startDate, endDate || new Date())} days)
-      </span>
-    </span>
-  );
 }
 
 export default function ExperimentHeader({
@@ -104,11 +78,22 @@ export default function ExperimentHeader({
   const { scrollY } = useScrollPosition();
   const headerPinned = scrollY > 70;
 
-  const { phase, setPhase } = useSnapshot();
+  const phases = experiment.phases || [];
+  const lastPhaseIndex = phases.length - 1;
+  const lastPhase = phases[lastPhaseIndex] as
+    | undefined
+    | ExperimentPhaseStringDates;
+  const startDate = phases?.[0]?.dateStarted
+    ? date(phases[0].dateStarted)
+    : null;
+  const endDate =
+    phases.length > 0
+      ? lastPhase?.dateEnded
+        ? date(lastPhase.dateEnded ?? "")
+        : "now"
+      : new Date();
 
   const [startExperiment, setStartExperiment] = useState(false);
-
-  const { analysis } = useSnapshot();
 
   const canCreateAnalyses = permissions.check(
     "createAnalyses",
@@ -125,18 +110,8 @@ export default function ExperimentHeader({
   }
   const canRunExperiment = canEditExperiment && hasRunExperimentsPermission;
 
-  const [totalUsers, variationUsers] = useMemo(() => {
-    let totalUsers = 0;
-    const variationUsers: number[] = [];
-    analysis?.results?.forEach((dim) => {
-      dim?.variations?.forEach((v, i) => {
-        totalUsers += v.users;
-        variationUsers[i] = variationUsers[i] || 0;
-        variationUsers[i] += v.users;
-      });
-    });
-    return [totalUsers, variationUsers];
-  }, [analysis]);
+  const hasLinkedChanges =
+    linkedFeatures.length > 0 || visualChangesets.length > 0;
 
   return (
     <>
@@ -219,6 +194,8 @@ export default function ExperimentHeader({
                 <StopExperimentButton
                   editResult={editResult}
                   editTargeting={editTargeting}
+                  coverage={lastPhase?.coverage}
+                  hasLinkedChanges={hasLinkedChanges}
                 />
               ) : experiment.status === "stopped" && experiment.results ? (
                 <div className="experiment-status-widget border d-flex">
@@ -244,6 +221,16 @@ export default function ExperimentHeader({
 
             <div className="ml-2">
               <MoreMenu>
+                {editTargeting && (
+                  <button
+                    className="dropdown-item"
+                    onClick={() => {
+                      editTargeting();
+                    }}
+                  >
+                    Edit targeting / rollout
+                  </button>
+                )}
                 {canRunExperiment && (
                   <button
                     className="dropdown-item"
@@ -411,91 +398,17 @@ export default function ExperimentHeader({
                 />
               </TabButtons>
             </div>
-            <div className="flex-1" />
 
-            {experiment.status !== "draft" && totalUsers > 0 && (
-              <div className="col-auto mr-2 users">
-                <Tooltip
-                  usePortal={true}
-                  body={
-                    <table className="table my-0">
-                      <thead>
-                        <tr>
-                          <th className="border-top-0">Variation</th>
-                          <th className="border-top-0">Users</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {experiment.variations.map((v, i) => (
-                          <tr key={i}>
-                            <td
-                              className={`variation with-variation-label variation${i}`}
-                            >
-                              <div className="d-flex align-items-center">
-                                <span
-                                  className="label"
-                                  style={{
-                                    width: 20,
-                                    height: 20,
-                                  }}
-                                >
-                                  {i}
-                                </span>{" "}
-                                <OverflowText
-                                  className="font-weight-bold"
-                                  maxWidth={150}
-                                  title={v.name}
-                                >
-                                  {v.name}
-                                </OverflowText>
-                              </div>
-                            </td>
-                            <td>
-                              {shortNumberFormatter.format(
-                                variationUsers[i] || 0
-                              )}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  }
-                >
-                  <div className="px-2 py-1 rounded text-gray">
-                    <FaUsers />{" "}
-                    <code className="text-dark">
-                      {shortNumberFormatter.format(totalUsers)}
-                    </code>{" "}
-                    users
-                  </div>
-                </Tooltip>
-              </div>
-            )}
-            <div
-              className="col-auto date-dropdown"
-              style={{ lineHeight: "14px" }}
-            >
-              {experiment.phases.length > 1 ? (
-                <Dropdown
-                  toggle={<PhaseDateSummary phase={experiment.phases[phase]} />}
-                  uuid="experiment-phase-selector"
-                  className="mt-2"
-                >
-                  {experiment.phases.map((p, i) => (
-                    <DropdownLink
-                      onClick={() => {
-                        setPhase(i);
-                      }}
-                      key={i}
-                      className="py-3"
-                    >
-                      <PhaseDateSummary phase={p} />
-                    </DropdownLink>
-                  ))}
-                </Dropdown>
-              ) : experiment.phases.length > 0 ? (
-                <PhaseDateSummary phase={experiment.phases[phase]} />
-              ) : null}
+            <div className="flex-1" />
+            <div className="col-auto experiment-date-range">
+              {startDate && (
+                <>
+                  {startDate} — {endDate}{" "}
+                  <span className="text-muted">
+                    ({daysBetween(startDate, endDate || new Date())} days)
+                  </span>
+                </>
+              )}
             </div>
           </div>
         </div>
