@@ -831,7 +831,7 @@ export default function ResultsTable({
                               stats={stats}
                               id={`${id}_violin_row${i}_var${j}_${
                                 metricsAsGuardrails ? "guardrail" : "goal"
-                              }_${dimension ?? "d-none"}`}
+                              }_${encodeURIComponent(dimension ?? "d-none")}`}
                               graphWidth={graphCellWidth}
                               height={
                                 compactResults ? ROW_HEIGHT + 10 : ROW_HEIGHT

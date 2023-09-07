@@ -290,7 +290,7 @@ export default function AnalysisSettingsSummary({
               </Tooltip>
             ) : (
               <div
-                className="text-muted"
+                className="text-muted text-right"
                 style={{ maxWidth: 130, fontSize: "0.8em" }}
               >
                 <div className="font-weight-bold" style={{ lineHeight: 1.2 }}>

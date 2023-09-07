@@ -152,19 +152,6 @@ pre {
   font-weight: bold;
 }
 
-.btn-teal {
-  @include button-variant(
-    colors.$teal,
-    darken(colors.$teal, 7.5%),
-    darken(colors.$teal, 10%),
-    lighten(colors.$teal, 5%),
-    lighten(colors.$teal, 10%),
-    darken(colors.$teal, 30%)
-  );
-  white-space: nowrap;
-  font-weight: 600;
-}
-
 .btn-outline-primary {
   @include button-outline-variant(
     colors.$highlight-purple,
@@ -177,29 +164,48 @@ pre {
   background-color: rgba(124, 69, 234, 0.1);
   border: 2px solid #7c45ea;
 }
+.btn-teal {
+  @include button-variant(
+    colors.$teal,
+    darken(colors.$teal, 7.5%),
+    darken(colors.$teal, 10%),
+    lighten(colors.$teal, 5%),
+    lighten(colors.$teal, 10%),
+    darken(colors.$teal, 30%)
+  );
+  white-space: nowrap;
+  font-weight: 600;
+}
 .btn-outline-teal {
   @include button-outline-variant(
     transparent,
-    #fff,
-    lighten(colors.$teal, 20%),
-    lighten(colors.$teal, 20%)
+    colors.$teal,
+    transparent,
+    transparentize(colors.$teal, 0.5)
   );
   color: colors.$teal;
+  &:active {
+    color: darken(colors.$teal, 30%);
+  }
 }
 .btn-outline-teal-off {
   @include button-outline-variant(
+    transparent,
     #8fb3a8,
-    #fff,
-    lighten(colors.$teal, 20%),
-    lighten(colors.$teal, 20%)
+    transparent,
+    transparentize(colors.$teal, 0.5)
   );
+  color: #8fb3a8;
+  &:active {
+    color: darken(colors.$teal, 30%);
+  }
 }
 .btn-outline-teal-disabled {
   @include button-outline-variant(
     transparent,
-    #fff,
-    lighten(#8fb3a8, 15%),
-    lighten(#8fb3a8, 15%)
+    #8fb3a8,
+    #8080801a,
+    transparentize(#8fb3a8, 0.75)
   );
   color: #8fb3a8;
   margin-left: 8px;
