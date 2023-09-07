@@ -24,6 +24,7 @@ import useSDKConnections from "@/hooks/useSDKConnections";
 import DiscussionThread from "@/components/DiscussionThread";
 import { useAuth } from "@/services/auth";
 import { DeleteDemoDatasourceButton } from "@/components/DemoDataSourcePage/DemoDataSourcePage";
+import { phaseSummary } from "@/services/utils";
 import EditStatusModal from "../EditStatusModal";
 import VisualChangesetModal from "../VisualChangesetModal";
 import EditExperimentNameForm from "../EditExperimentNameForm";
@@ -286,19 +287,23 @@ export default function TabbedPage({
             />
           </div>
         )}
-        {viewingOldPhase && (
+        {viewingOldPhase && tab === "results" && (
           <div className="alert alert-warning mt-3">
-            You are viewing the {tab} of a previous experiment phase.{" "}
-            {tab === "overview" ? "Editing has been disabled. " : ""}
-            <a
-              href="#"
-              onClick={(e) => {
-                e.preventDefault();
-                setPhase(experiment.phases.length - 1);
-              }}
-            >
-              Switch to the latest phase
-            </a>
+            <div>
+              You are viewing the results of a previous experiment phase.{" "}
+              <a
+                href="#"
+                onClick={(e) => {
+                  e.preventDefault();
+                  setPhase(experiment.phases.length - 1);
+                }}
+              >
+                Switch to the latest phase
+              </a>
+            </div>
+            <div className="mt-1">
+              {phaseSummary(experiment?.phases?.[phase])}
+            </div>
           </div>
         )}
         <div
