@@ -155,6 +155,15 @@ describe("Build user permissions", () => {
         teams: [],
       },
       {
+        id: "slightly_advanced_experimenter_user",
+        role: "experimenter",
+        dateCreated: new Date(),
+        limitAccessByEnvironment: false,
+        environments: [],
+        projectRoles: [],
+        teams: ["engineering_team"],
+      },
+      {
         id: "slightly_advanced_collaborator_user",
         role: "collaborator",
         dateCreated: new Date(),
@@ -1313,6 +1322,60 @@ describe("Build user permissions", () => {
           createIdeas: true,
           createMetrics: true,
           createDatasources: true,
+          editDatasourceSettings: true,
+          runQueries: true,
+          publishFeatures: true,
+          manageEnvironments: true,
+          runExperiments: true,
+        },
+      },
+      projects: {},
+    });
+  });
+
+  it("should not overwrite experimenter permissions with engineer permissions", async () => {
+    (findTeamById as jest.Mock).mockResolvedValue({
+      id: "team_engineer",
+      role: "engineer",
+      limitAccessByEnvironment: true,
+      environments: ["staging", "production"],
+      projectRoles: [],
+    });
+
+    const userPermissions = await getUserPermissions(
+      "slightly_advanced_experimenter_user",
+      testOrg
+    );
+
+    expect(userPermissions).toEqual({
+      global: {
+        environments: [],
+        limitAccessByEnvironment: false,
+        permissions: {
+          createPresentations: true,
+          createDimensions: true,
+          createSegments: true,
+          organizationSettings: false,
+          superDelete: false,
+          manageTeam: false,
+          manageTags: true,
+          manageApiKeys: false,
+          manageIntegrations: false,
+          manageWebhooks: false,
+          manageBilling: false,
+          manageNorthStarMetric: false,
+          manageTargetingAttributes: true,
+          manageNamespaces: true,
+          manageSavedGroups: true,
+          viewEvents: false,
+          addComments: true,
+          createFeatureDrafts: true,
+          manageFeatures: true,
+          manageProjects: false,
+          createAnalyses: true,
+          createIdeas: true,
+          createMetrics: true,
+          createDatasources: false,
           editDatasourceSettings: true,
           runQueries: true,
           publishFeatures: true,

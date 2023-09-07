@@ -6,8 +6,10 @@ import {
   PermissionsObject,
   ProjectMemberRole,
   Role,
+  UserPermission,
   UserPermissions,
 } from "../../types/organization";
+import { TeamInterface } from "../../types/team";
 import { findTeamById } from "../models/TeamModel";
 
 export const ENV_SCOPED_PERMISSIONS = [
@@ -69,6 +71,88 @@ export function roleToPermissionMap(
   return permissionsObj;
 }
 
+function mergePermissions(
+  existingPermissions: UserPermission,
+  existingRole: MemberRole | undefined,
+  teamInfo: TeamInterface | ProjectMemberRole,
+  org: OrganizationInterface
+) {
+  const newPermissions = roleToPermissionMap(teamInfo.role, org);
+  for (const newPermission in newPermissions) {
+    // If the user doesn't have permission, but the team role does, add it
+    if (
+      !existingPermissions.permissions[newPermission as Permission] &&
+      newPermissions[newPermission as Permission]
+    ) {
+      existingPermissions.permissions[newPermission as Permission] =
+        newPermissions[newPermission as Permission];
+    }
+  }
+
+  const roles = getRoles(org);
+  const newRoleIndex = roles.findIndex((r) => r.id === teamInfo.role);
+  const existingRoleIndex = roles.findIndex((r) => r.id === existingRole);
+
+  const existingRoleIsEngineerOrExperimenter =
+    existingRole === "engineer" || existingRole === "experimenter";
+
+  const newRoleIsEngineerOrExperimenter =
+    teamInfo.role === "engineer" || teamInfo.role === "experimenter";
+
+  if (existingRoleIsEngineerOrExperimenter && newRoleIsEngineerOrExperimenter) {
+    if (newRoleIndex === existingRoleIndex) {
+      existingPermissions.environments = [
+        ...new Set(
+          existingPermissions.environments.concat(teamInfo.environments)
+        ),
+      ];
+      if (
+        existingPermissions.limitAccessByEnvironment !==
+        teamInfo.limitAccessByEnvironment
+      ) {
+        existingPermissions.limitAccessByEnvironment = false;
+        existingPermissions.environments = [];
+      }
+    }
+
+    if (newRoleIndex < existingRoleIndex) {
+      if (
+        existingPermissions.limitAccessByEnvironment ===
+        teamInfo.limitAccessByEnvironment
+      ) {
+        existingPermissions.environments = [
+          ...new Set(
+            existingPermissions.environments.concat(teamInfo.environments)
+          ),
+        ];
+      }
+    }
+
+    if (newRoleIndex > existingRoleIndex) {
+      if (
+        existingPermissions.limitAccessByEnvironment ===
+        teamInfo.limitAccessByEnvironment
+      ) {
+        existingPermissions.environments = [
+          ...new Set(
+            existingPermissions.environments.concat(teamInfo.environments)
+          ),
+        ];
+      }
+    } else {
+      existingPermissions.limitAccessByEnvironment = existingPermissions.limitAccessByEnvironment
+        ? true
+        : false;
+    }
+  } else {
+    if (newRoleIndex > existingRoleIndex) {
+      existingPermissions.limitAccessByEnvironment =
+        teamInfo.limitAccessByEnvironment;
+      existingPermissions.environments = teamInfo.environments;
+    }
+  }
+}
+
 export async function getUserPermissions(
   userId: string,
   org: OrganizationInterface
@@ -92,114 +176,32 @@ export async function getUserPermissions(
     };
   });
 
-  // If the user's global role is admin, we can skip the team checks as they already have full permissions
-  if (memberInfo?.role !== "admin") {
-    //TODO: Figure out how I can abstract this into a function to reuse it for the project level permission logic
+  // If the member's global role is admin, they already have all permissions
+  if (memberInfo?.role !== "admin" && memberInfo?.role) {
     const teamsUserIsOn = memberInfo?.teams || [];
     for (const team of teamsUserIsOn) {
       const teamData = await findTeamById(team, org.id);
       if (teamData) {
-        const teamGlobalPermissions = roleToPermissionMap(teamData.role, org);
-        for (const permission in teamGlobalPermissions) {
-          // If the user doesn't have permission globally, and but the role they have via a team does, override the user-level global permission
-          if (
-            !userPermissions.global.permissions[permission as Permission] &&
-            teamGlobalPermissions[permission as Permission]
-          ) {
-            userPermissions.global.permissions[permission as Permission] =
-              teamGlobalPermissions[permission as Permission];
-          }
-        }
-        // How do we handle a user where they're global role is 'collaborator' so they have no env level restrictions
-        // but they're on a team that DOES have env level restrictions? In that case, we have to set their global role limitAccessByEnv to that of the team
-        if (
-          (teamData.role === "engineer" || teamData.role === "experimenter") &&
-          teamData.limitAccessByEnvironment
-        ) {
-          userPermissions.global.limitAccessByEnvironment = true;
-          userPermissions.global.environments = [
-            ...new Set(
-              userPermissions.global.environments.concat(teamData.environments)
-            ),
-          ];
-        }
-        if (
-          (teamData.role === "engineer" || teamData.role === "experimenter") &&
-          teamData.limitAccessByEnvironment !==
-            userPermissions.global.limitAccessByEnvironment
-        ) {
-          userPermissions.global.limitAccessByEnvironment = false;
-          userPermissions.global.environments = [];
-        }
-        if (teamData.role === "admin") {
-          userPermissions.global.limitAccessByEnvironment = false;
-          userPermissions.global.environments = [];
-        }
+        mergePermissions(
+          userPermissions.global,
+          memberInfo.role,
+          teamData,
+          org
+        );
         if (teamData?.projectRoles && teamData?.projectRoles.length > 0) {
           for (const teamProject of teamData.projectRoles) {
-            const teamProjectPermissions = roleToPermissionMap(
-              teamProject.role,
+            const existingProjectData = memberInfo.projectRoles?.find(
+              (project) => project.project === teamProject.project
+            );
+
+            mergePermissions(
+              userPermissions.projects[teamProject.project],
+              existingProjectData?.role,
+              teamProject,
               org
             );
-            // if (memberInfo.projectRoles[teamProject.project].role !== "admin") {
-            if (!userPermissions.projects[teamProject.project]) {
-              userPermissions.projects[teamProject.project] = {
-                limitAccessByEnvironment:
-                  teamProject.limitAccessByEnvironment || false,
-                environments: teamProject.environments || [],
-                permissions: teamProjectPermissions,
-              };
-            } else {
-              for (const permission in teamProjectPermissions) {
-                if (
-                  !userPermissions.projects[teamProject.project].permissions[
-                    permission as Permission
-                  ] &&
-                  teamProjectPermissions[permission as Permission]
-                ) {
-                  userPermissions.projects[teamProject.project].permissions[
-                    permission as Permission
-                  ] = teamProjectPermissions[permission as Permission];
-                }
-              }
-              if (
-                (teamProject.role === "engineer" ||
-                  teamProject.role === "experimenter") &&
-                teamProject.limitAccessByEnvironment
-              ) {
-                userPermissions.projects[
-                  teamProject.project
-                ].limitAccessByEnvironment = true;
-                userPermissions.projects[teamProject.project].environments = [
-                  ...new Set(
-                    userPermissions.projects[
-                      teamProject.project
-                    ].environments.concat(teamProject.environments)
-                  ),
-                ];
-              }
-              if (
-                (teamProject.role === "engineer" ||
-                  teamProject.role === "experimenter") &&
-                teamProject.limitAccessByEnvironment !==
-                  userPermissions.projects[teamProject.project]
-                    .limitAccessByEnvironment
-              ) {
-                userPermissions.projects[
-                  teamProject.project
-                ].limitAccessByEnvironment = false;
-                userPermissions.projects[teamProject.project].environments = [];
-              }
-              if (teamProject.role === "admin") {
-                userPermissions.projects[
-                  teamProject.project
-                ].limitAccessByEnvironment = false;
-                userPermissions.projects[teamProject.project].environments = [];
-              }
-            }
           }
         }
-        // }
       }
     }
   }
