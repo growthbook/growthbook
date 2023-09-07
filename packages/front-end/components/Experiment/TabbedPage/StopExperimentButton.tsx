@@ -17,13 +17,13 @@ export default function StopExperimentButton({
     <div className={clsx({ "btn-group": false })}>
       {!fullCoverage ? (
         <button
-          className="btn btn-teal mr-2"
+          className="btn btn-info mr-2"
           disabled={!editTargeting}
           onClick={() => {
             editTargeting && editTargeting();
           }}
         >
-          Ramp Up ({(coverage ?? 0) * 100}%)
+          Increase Traffic ({(coverage ?? 0) * 100}%)
         </button>
       ) : null}
       <button

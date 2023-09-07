@@ -8,8 +8,9 @@ import {
 import { ExperimentStatus, MetricOverride } from "back-end/types/experiment";
 import { PValueCorrection, StatsEngine } from "back-end/types/stats";
 import Link from "next/link";
-import {FaAngleRight, FaTimes, FaUsers} from "react-icons/fa";
+import { FaAngleRight, FaTimes, FaUsers } from "react-icons/fa";
 import { MetricInterface } from "back-end/types/metric";
+import Collapsible from "react-collapsible";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import {
   applyMetricOverrides,
@@ -19,13 +20,12 @@ import {
 } from "@/services/experiments";
 import { GBCuped } from "@/components/Icons";
 import { QueryStatusData } from "@/components/Queries/RunQueriesButton";
+import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
 import Tooltip from "../Tooltip/Tooltip";
 import MetricTooltipBody from "../Metrics/MetricTooltipBody";
 import DataQualityWarning from "./DataQualityWarning";
 import ResultsTable from "./ResultsTable";
 import MultipleExposureWarning from "./MultipleExposureWarning";
-import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
-import Collapsible from "react-collapsible";
 
 const numberFormatter = Intl.NumberFormat("en-US", {
   notation: "compact",
@@ -157,53 +157,43 @@ const CompactResults: FC<{
             trigger={
               <div className="d-inline-flex mx-3 align-items-center">
                 <FaUsers size={16} className="mr-1" />
-                {numberFormatter.format(totalUsers)}{" "}
-                users
+                {numberFormatter.format(totalUsers)} users
                 <FaAngleRight className="chevron ml-1" />
               </div>
             }
             transitionTime={100}
           >
-            <table className="table mx-2 mt-0 mb-3"
-                   style={{ width: 300 }}
-            >
+            <table className="table mx-2 mt-0 mb-3" style={{ width: 300 }}>
               <thead>
-              <tr>
-                <th className="border-top-0">Variation</th>
-                <th className="border-top-0">Users</th>
-              </tr>
+                <tr>
+                  <th className="border-top-0">Variation</th>
+                  <th className="border-top-0">Users</th>
+                </tr>
               </thead>
               <tbody>
-              {variations.map((v, i) => (
-                <tr key={i}>
-                  <td
-                    className={`variation with-variation-label variation${i}`}
-                  >
-                    <div className="d-flex align-items-center">
-                                <span
-                                  className="label"
-                                  style={{
-                                    width: 20,
-                                    height: 20,
-                                  }}
-                                >
-                                  {i}
-                                </span>{" "}
-                      <OverflowText
-                        maxWidth={180}
-                        title={v.name}
-                      >
-                        {v.name}
-                      </OverflowText>
-                    </div>
-                  </td>
-                  <td>
-                    {numberFormatter.format(
-                      variationUsers[i] || 0
-                    )}
-                  </td>
-                </tr>
-              ))}
+                {variations.map((v, i) => (
+                  <tr key={i}>
+                    <td
+                      className={`variation with-variation-label variation${i}`}
+                    >
+                      <div className="d-flex align-items-center">
+                        <span
+                          className="label"
+                          style={{
+                            width: 20,
+                            height: 20,
+                          }}
+                        >
+                          {i}
+                        </span>{" "}
+                        <OverflowText maxWidth={180} title={v.name}>
+                          {v.name}
+                        </OverflowText>
+                      </div>
+                    </td>
+                    <td>{numberFormatter.format(variationUsers[i] || 0)}</td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </Collapsible>
