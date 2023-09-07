@@ -180,7 +180,15 @@ const BreakDownResults: FC<{
                     label === "__NULL_DIMENSION" ? (
                       <em>NULL (unset)</em>
                     ) : (
-                      label
+                      <span
+                        style={{
+                          lineHeight: "1.2em",
+                          wordBreak: "break-word",
+                          overflowWrap: "anywhere",
+                        }}
+                      >
+                        {label}
+                      </span>
                     )
                   ) : (
                     <em>unknown</em>

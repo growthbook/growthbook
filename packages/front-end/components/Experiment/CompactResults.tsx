@@ -264,8 +264,14 @@ export function getRenderLabelColumn(regressionAdjustmentEnabled) {
                   textOverflow: "ellipsis",
                   overflow: "hidden",
                   lineHeight: "1.2em",
+                  wordBreak: "break-word",
+                  overflowWrap: "anywhere",
                 }
-              : {}
+              : {
+                  lineHeight: "1.2em",
+                  wordBreak: "break-word",
+                  overflowWrap: "anywhere",
+                }
           }
         >
           <Link href={`/metric/${metric.id}`}>

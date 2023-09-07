@@ -2497,25 +2497,29 @@ html {
       position: relative !important;
       top: -1px !important;
       padding: 0 !important;
+      &:after {
+        position: absolute;
+        right: 1px;
+        top: 8px;
+        display: inline-block;
+        margin-left: 0.255em;
+        vertical-align: 0.255em;
+        content: "";
+        border-top: 0.3em solid;
+        border-right: 0.3em solid transparent;
+        border-bottom: 0;
+        border-left: 0.3em solid transparent;
+        color: var(--text-color-main) !important;
+      }
       .gb-select__input-container {
         margin: 0 !important;
         padding: 0 !important;
       }
       .gb-select__single-value {
-        margin: 0 !important;
+        margin: 0 10px 0 0 !important;
         padding: 0 1px !important;
         color: var(--text-dark) !important;
-        &:after {
-          display: inline-block;
-          margin-left: 0.255em;
-          vertical-align: 0.255em;
-          content: "";
-          border-top: 0.3em solid;
-          border-right: 0.3em solid transparent;
-          border-bottom: 0;
-          border-left: 0.3em solid transparent;
-          color: var(--text-color-main) !important;
-        }
+        max-width: 200px !important;
       }
     }
     .gb-select__indicators {

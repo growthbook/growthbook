@@ -429,6 +429,8 @@ export default function ResultsTable({
                 <th
                   style={{
                     lineHeight: "15px",
+                    wordBreak: "break-word",
+                    overflowWrap: "anywhere",
                     width: 220 * tableCellScale,
                   }}
                   className="axis-col header-label"
