@@ -184,6 +184,7 @@ const RunQueriesButton: FC<{
             className={clsx("btn font-weight-bold my-0", `btn-${color}`, {
               disabled: status === "running",
             })}
+            disabled={status === "running"}
             type="submit"
             onClick={onSubmit}
           >
