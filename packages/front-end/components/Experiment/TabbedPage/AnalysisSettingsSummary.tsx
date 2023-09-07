@@ -419,6 +419,21 @@ export default function AnalysisSettingsSummary({
                 )}
                 display={null}
                 newUi={true}
+                status={status}
+                icon={
+                  <span className="position-relative pr-2">
+                    <span className="text-main">
+                      <FaDatabase />
+                    </span>
+                    <FaExclamationTriangle
+                      className="position-absolute"
+                      style={{
+                        top: -6,
+                        right: -4,
+                      }}
+                    />
+                  </span>
+                }
               />
             </div>
           )}

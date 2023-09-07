@@ -1,6 +1,8 @@
 import { FC, ReactNode, useState } from "react";
 import clsx from "clsx";
 import { FaDatabase } from "react-icons/fa";
+import { QueryStatus } from "back-end/types/query";
+import Tooltip from "@/components/Tooltip/Tooltip";
 import AsyncQueriesModal from "./AsyncQueriesModal";
 
 const ViewAsyncQueriesButton: FC<{
@@ -12,6 +14,8 @@ const ViewAsyncQueriesButton: FC<{
   inline?: boolean;
   ctaCommponent?: (onClick: () => void) => ReactNode;
   newUi?: boolean;
+  icon?: JSX.Element | string | null;
+  status?: QueryStatus;
 }> = ({
   queries,
   display = "View Queries",
@@ -21,6 +25,8 @@ const ViewAsyncQueriesButton: FC<{
   inline = false,
   ctaCommponent,
   newUi = false,
+  icon,
+  status,
 }) => {
   const [open, setOpen] = useState(false);
 
@@ -35,50 +41,61 @@ const ViewAsyncQueriesButton: FC<{
           setOpen(!open);
         })
       ) : (
-        <button
-          className={clsx(className, {
-            disabled: queries.length === 0,
-            "pl-2 pr-1 py-0 d-flex align-items-center": newUi,
-          })}
-          style={newUi ? { height: 35 } : {}}
-          type="button"
-          onClick={(e) => {
-            e.preventDefault();
-            if (!queries.length) return;
-            setOpen(!open);
-          }}
+        <Tooltip
+          body={
+            status
+              ? status === "running"
+                ? "View running queries"
+                : status === "failed"
+                ? "View failed queries"
+                : status === "partially-succeeded"
+                ? "View failed queries"
+                : ""
+              : ""
+          }
+          shouldDisplay={["running", "failed", "partially-succeeded"].includes(
+            status ?? ""
+          )}
         >
-          <span
-            className={clsx("h4", {
-              "position-relative d-flex m-0 d-inline-block align-top pr-3": newUi,
-              "pr-2": !newUi,
+          <button
+            className={clsx(className, {
+              disabled: queries.length === 0,
+              "pl-2 pr-1 py-0 d-flex align-items-center": newUi,
             })}
+            style={newUi ? { height: 35 } : {}}
+            type="button"
+            onClick={(e) => {
+              e.preventDefault();
+              if (!queries.length) return;
+              setOpen(!open);
+            }}
           >
-            <FaDatabase />
-          </span>{" "}
-          {display}
-          {queries.length > 0 ? (
-            newUi ? (
-              <div
-                className="d-inline-block position-absolute"
-                style={{
-                  right: 11,
-                  top: 3,
-                  width: 17,
-                  height: 17,
-                  borderRadius: 18,
-                  border: "1px solid #dc3545",
-                  textAlign: "center",
-                  lineHeight: "15px",
-                }}
-              >
-                {queries.length}
-              </div>
-            ) : (
-              <div className="d-inline-block ml-1">({queries.length})</div>
-            )
-          ) : null}
-        </button>
+            <span
+              className={clsx("h4", {
+                "position-relative d-flex m-0 d-inline-block align-top pr-3": newUi,
+                "pr-2": !newUi,
+              })}
+            >
+              {icon !== undefined ? icon : <FaDatabase />}
+            </span>{" "}
+            {display}
+            {queries.length > 0 ? (
+              newUi ? (
+                <div
+                  className="d-inline-block position-absolute"
+                  style={{
+                    right: 12,
+                    top: -1,
+                  }}
+                >
+                  {queries.length}
+                </div>
+              ) : (
+                <div className="d-inline-block ml-1">({queries.length})</div>
+              )
+            ) : null}
+          </button>
+        </Tooltip>
       )}
       {open && queries.length > 0 && (
         <AsyncQueriesModal
