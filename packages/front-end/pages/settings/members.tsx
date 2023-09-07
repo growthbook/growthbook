@@ -13,7 +13,7 @@ import PendingMemberList from "@/components/Settings/Team/PendingMemberList";
 import { isCloud } from "@/services/env";
 import AutoApproveMembersToggle from "@/components/Settings/Team/AutoApproveMembersToggle";
 
-const TeamPage: FC = () => {
+const MembersPage: FC = () => {
   const { refreshOrganization, enterpriseSSO, organization } = useUser();
 
   const { project, projects } = useDefinitions();
@@ -49,7 +49,7 @@ const TeamPage: FC = () => {
       .catch((e) => {
         console.error(e);
       });
-  }, [checkoutSessionId]);
+  }, [apiCall, checkoutSessionId, refreshOrganization, router]);
 
   const ssoConnection = enterpriseSSO;
 
@@ -123,4 +123,4 @@ const TeamPage: FC = () => {
     </div>
   );
 };
-export default TeamPage;
+export default MembersPage;

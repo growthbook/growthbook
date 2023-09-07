@@ -1,5 +1,6 @@
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import { ApiKeyInterface } from "back-end/types/apikey";
+import { TeamInterface } from "back-end/types/team";
 import {
   EnvScopedPermission,
   GlobalPermission,
@@ -44,6 +45,10 @@ type OrgSettingsResponse = {
   commercialFeatures: CommercialFeature[];
   licenseKey?: string;
   currentUserPermissions: UserPermissions;
+};
+
+type TeamsResponse = {
+  teams: TeamInterface[];
 };
 
 export interface PermissionFunctions {
@@ -97,6 +102,7 @@ export interface UserContextValue {
   apiKeys: ApiKeyInterface[];
   organization: Partial<OrganizationInterface>;
   roles: Role[];
+  teams: TeamInterface[];
   error?: string;
   hasCommercialFeature: (feature: CommercialFeature) => boolean;
 }
@@ -128,6 +134,7 @@ export const UserContext = createContext<UserContextValue>({
   },
   apiKeys: [],
   organization: {},
+  teams: [],
   hasCommercialFeature: () => false,
 });
 
@@ -155,6 +162,10 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
     data: currentOrg,
     mutate: refreshOrganization,
   } = useApi<OrgSettingsResponse>(isAuthenticated ? `/organization` : null);
+
+  const { data: teamsData, mutate: refreshTeams } = useApi<TeamsResponse>(
+    isAuthenticated ? `/teams` : null
+  );
 
   const [hashedOrganizationId, setHashedOrganizationId] = useState<string>("");
   useEffect(() => {
@@ -243,7 +254,8 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
       return;
     }
     void updateUser();
-  }, [isAuthenticated, updateUser]);
+    void refreshTeams();
+  }, [isAuthenticated, refreshTeams, updateUser]);
 
   // Refresh user and org after loading license
   useEffect(() => {
@@ -349,15 +361,15 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
         },
         settings: currentOrg?.organization?.settings || {},
         license: data?.license,
-        // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'SSOConnectionInterface | null | undefined' i... Remove this comment to see the full error message
-        enterpriseSSO: currentOrg?.enterpriseSSO,
+        enterpriseSSO: currentOrg?.enterpriseSSO || undefined,
         accountPlan: currentOrg?.accountPlan,
         commercialFeatures: currentOrg?.commercialFeatures || [],
         apiKeys: currentOrg?.apiKeys || [],
-        // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'OrganizationInterface | undefined' is not as... Remove this comment to see the full error message
-        organization: currentOrg?.organization,
+        organization: currentOrg?.organization || {},
+        teams: teamsData?.teams || [],
         error,
         hasCommercialFeature: (feature) => commercialFeatures.has(feature),
+        // hasCommercialFeature: (feature) => true,
       }}
     >
       {children}
