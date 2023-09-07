@@ -162,7 +162,7 @@ export async function getUserPermissions(
   });
 
   // If the member's global role is admin, they already have all permissions
-  if (memberInfo?.role !== "admin" && memberInfo?.role) {
+  if (memberInfo?.role) {
     const teamsUserIsOn = memberInfo?.teams || [];
     for (const team of teamsUserIsOn) {
       const teamData = await findTeamById(team, org.id);

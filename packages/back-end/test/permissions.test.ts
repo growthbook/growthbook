@@ -1392,4 +1392,226 @@ describe("Build user permissions", () => {
       projects: {},
     });
   });
+
+  it("should correctly override a project-specific role if the team's project specific role is higher", async () => {
+    (findTeamById as jest.Mock).mockResolvedValue({
+      id: "team_experimenter",
+      role: "experimenter",
+      limitAccessByEnvironment: true,
+      environments: ["staging", "development"],
+      projectRoles: [
+        {
+          project: "prj_exl5jr5dl4rbw856",
+          role: "engineer",
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+      ],
+    });
+
+    const userPermissions = await getUserPermissions("base_user_123", {
+      ...testOrg,
+      members: [
+        {
+          ...testOrg.members[0],
+          projectRoles: [
+            {
+              project: "prj_exl5jr5dl4rbw856",
+              role: "collaborator",
+              limitAccessByEnvironment: false,
+              environments: [],
+            },
+          ],
+          teams: ["team_experimenter"],
+        },
+      ],
+    });
+
+    expect(userPermissions).toEqual({
+      global: {
+        environments: ["staging", "development"],
+        limitAccessByEnvironment: true,
+        permissions: {
+          createPresentations: true,
+          createDimensions: true,
+          createSegments: true,
+          organizationSettings: false,
+          superDelete: false,
+          manageTeam: false,
+          manageTags: true,
+          manageApiKeys: false,
+          manageIntegrations: false,
+          manageWebhooks: false,
+          manageBilling: false,
+          manageNorthStarMetric: false,
+          manageTargetingAttributes: true,
+          manageNamespaces: true,
+          manageSavedGroups: true,
+          viewEvents: false,
+          addComments: true,
+          createFeatureDrafts: true,
+          manageFeatures: true,
+          manageProjects: false,
+          createAnalyses: true,
+          createIdeas: true,
+          createMetrics: true,
+          createDatasources: false,
+          editDatasourceSettings: true,
+          runQueries: true,
+          publishFeatures: true,
+          manageEnvironments: true,
+          runExperiments: true,
+        },
+      },
+      projects: {
+        prj_exl5jr5dl4rbw856: {
+          environments: [],
+          limitAccessByEnvironment: false,
+          permissions: {
+            createPresentations: true,
+            createDimensions: false,
+            createSegments: false,
+            organizationSettings: false,
+            superDelete: false,
+            manageTeam: false,
+            manageTags: true,
+            manageApiKeys: false,
+            manageIntegrations: false,
+            manageWebhooks: false,
+            manageBilling: false,
+            manageNorthStarMetric: false,
+            manageTargetingAttributes: true,
+            manageNamespaces: true,
+            manageSavedGroups: true,
+            viewEvents: false,
+            addComments: true,
+            createFeatureDrafts: true,
+            manageFeatures: true,
+            manageProjects: false,
+            createAnalyses: false,
+            createIdeas: true,
+            createMetrics: false,
+            createDatasources: false,
+            editDatasourceSettings: false,
+            runQueries: false,
+            publishFeatures: true,
+            manageEnvironments: true,
+            runExperiments: true,
+          },
+        },
+      },
+    });
+  });
+
+  it("should correctly merge environment limits for a user's project-level role and a team's project-level role", async () => {
+    (findTeamById as jest.Mock).mockResolvedValue({
+      id: "team_experimenter",
+      role: "experimenter",
+      limitAccessByEnvironment: true,
+      environments: ["staging", "development"],
+      projectRoles: [
+        {
+          project: "prj_exl5jr5dl4rbw856",
+          role: "engineer",
+          limitAccessByEnvironment: true,
+          environments: ["production", "staging"],
+        },
+      ],
+    });
+
+    const userPermissions = await getUserPermissions("base_user_123", {
+      ...testOrg,
+      members: [
+        {
+          ...testOrg.members[0],
+          projectRoles: [
+            {
+              project: "prj_exl5jr5dl4rbw856",
+              role: "engineer",
+              limitAccessByEnvironment: true,
+              environments: ["dev"],
+            },
+          ],
+          teams: ["team_experimenter"],
+        },
+      ],
+    });
+
+    console.log("userPermissions", userPermissions);
+
+    expect(userPermissions).toEqual({
+      global: {
+        environments: ["staging", "development"],
+        limitAccessByEnvironment: true,
+        permissions: {
+          createPresentations: true,
+          createDimensions: true,
+          createSegments: true,
+          organizationSettings: false,
+          superDelete: false,
+          manageTeam: false,
+          manageTags: true,
+          manageApiKeys: false,
+          manageIntegrations: false,
+          manageWebhooks: false,
+          manageBilling: false,
+          manageNorthStarMetric: false,
+          manageTargetingAttributes: true,
+          manageNamespaces: true,
+          manageSavedGroups: true,
+          viewEvents: false,
+          addComments: true,
+          createFeatureDrafts: true,
+          manageFeatures: true,
+          manageProjects: false,
+          createAnalyses: true,
+          createIdeas: true,
+          createMetrics: true,
+          createDatasources: false,
+          editDatasourceSettings: true,
+          runQueries: true,
+          publishFeatures: true,
+          manageEnvironments: true,
+          runExperiments: true,
+        },
+      },
+      projects: {
+        prj_exl5jr5dl4rbw856: {
+          environments: ["dev", "production", "staging"],
+          limitAccessByEnvironment: true,
+          permissions: {
+            createPresentations: true,
+            createDimensions: false,
+            createSegments: false,
+            organizationSettings: false,
+            superDelete: false,
+            manageTeam: false,
+            manageTags: true,
+            manageApiKeys: false,
+            manageIntegrations: false,
+            manageWebhooks: false,
+            manageBilling: false,
+            manageNorthStarMetric: false,
+            manageTargetingAttributes: true,
+            manageNamespaces: true,
+            manageSavedGroups: true,
+            viewEvents: false,
+            addComments: true,
+            createFeatureDrafts: true,
+            manageFeatures: true,
+            manageProjects: false,
+            createAnalyses: false,
+            createIdeas: true,
+            createMetrics: false,
+            createDatasources: false,
+            editDatasourceSettings: false,
+            runQueries: false,
+            publishFeatures: true,
+            manageEnvironments: true,
+            runExperiments: true,
+          },
+        },
+      },
+    });
+  });
 });
