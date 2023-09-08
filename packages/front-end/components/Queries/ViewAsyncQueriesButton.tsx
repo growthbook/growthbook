@@ -43,15 +43,17 @@ const ViewAsyncQueriesButton: FC<{
       ) : (
         <Tooltip
           body={
-            status
-              ? status === "running"
-                ? "View running queries"
-                : status === "failed"
-                ? "View failed queries"
-                : status === "partially-succeeded"
-                ? "View failed queries"
+            queries.length > 0
+              ? status
+                ? status === "running"
+                  ? "View running queries"
+                  : status === "failed"
+                  ? "View failed queries"
+                  : status === "partially-succeeded"
+                  ? "View failed queries"
+                  : ""
                 : ""
-              : ""
+              : "No queries were run"
           }
           shouldDisplay={["running", "failed", "partially-succeeded"].includes(
             status ?? ""
@@ -62,7 +64,10 @@ const ViewAsyncQueriesButton: FC<{
               disabled: queries.length === 0,
               "pl-2 pr-1 py-0 d-flex align-items-center": newUi,
             })}
-            style={newUi ? { height: 35 } : {}}
+            style={{
+              ...(queries.length === 0 ? { cursor: "not-allowed" } : {}),
+              ...(newUi ? { height: 35 } : {}),
+            }}
             type="button"
             onClick={(e) => {
               e.preventDefault();
