@@ -442,8 +442,8 @@ export default function AnalysisSettingsSummary({
           <ResultMoreMenu
             id={snapshot?.id || ""}
             forceRefresh={
-              experiment.metrics.length > 0 ||
-              (experiment.guardrails?.length ?? 0) > 0
+              (experiment.metrics.length > 0 ||
+                (experiment.guardrails?.length ?? 0)) > 0
                 ? async () => {
                     await apiCall<{ snapshot: ExperimentSnapshotInterface }>(
                       `/experiment/${experiment.id}/snapshot?force=true`,
