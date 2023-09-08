@@ -89,7 +89,11 @@ export interface SchemaFormatConfig {
   trackedEventTableName: string;
   eventColumn: string;
   timestampColumn: string;
-  getAdditionalEvents: () => { eventName: string; displayName: string }[];
+  getAdditionalEvents: () => {
+    eventName: string;
+    displayName: string;
+    groupBy: string;
+  }[];
   getMetricTableName: (metricName: string) => string;
   getMetricWhereClause: (metricName?: string) => string;
   getDateLimitClause: (start: Date, end: Date) => string;

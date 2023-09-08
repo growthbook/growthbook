@@ -1528,8 +1528,16 @@ export default abstract class SqlIntegration
               "yyyy-MM-dd"
             )}' AND'${formatDate(end, "yyyy-MM-dd")}'`,
           getAdditionalEvents: () => [
-            { eventName: "pages", displayName: "Page Viewed" },
-            { eventName: "screens", displayName: "Screen Viewed" },
+            {
+              eventName: "pages",
+              displayName: "Page Viewed",
+              groupBy: "event",
+            },
+            {
+              eventName: "screens",
+              displayName: "Screen Viewed",
+              groupBy: "event",
+            },
           ],
           getMetricWhereClause: () => "",
         };
@@ -1629,24 +1637,25 @@ export default abstract class SqlIntegration
     userIdColumn: string,
     timestampColumn: string,
     trackedEventTableName: string,
-    getDateLimitClause: (start: Date, end: Date) => string
+    getDateLimitClause: (start: Date, end: Date) => string,
+    groupByColumn?: string
   ) {
     const end = new Date();
-    const start = subDays(new Date(), 7);
+    const start = subDays(new Date(), 70);
 
     return `
-    SELECT
-      ${eventColumn} as event,
-      MAX(${displayNameColumn}) as displayName,
-      (CASE WHEN COUNT(${userIdColumn}) > 0 THEN 1 ELSE 0 END) as hasUserId,
-      COUNT (*) as count,
-      MAX(${timestampColumn}) as lastTrackedAt
-    FROM
-      ${this.generateTablePath(trackedEventTableName)}
-    WHERE ${getDateLimitClause(start, end)}
-    AND ${eventColumn} NOT IN ('experiment_viewed', 'experiment_started')
-    GROUP BY ${eventColumn}
-`;
+      SELECT
+        ${eventColumn} as event,
+        MAX(${displayNameColumn}) as displayName,
+        (CASE WHEN COUNT(${userIdColumn}) > 0 THEN 1 ELSE 0 END) as hasUserId,
+        COUNT (*) as count,
+        MAX(${timestampColumn}) as lastTrackedAt
+      FROM
+        ${this.generateTablePath(trackedEventTableName)}
+      WHERE ${getDateLimitClause(start, end)}
+      AND ${eventColumn} NOT IN ('experiment_viewed', 'experiment_started')
+      GROUP BY ${groupByColumn || eventColumn}
+    `;
   }
   async getEventsTrackedByDatasource(
     schemaFormat: AutoMetricSchemas,
@@ -1679,12 +1688,13 @@ export default abstract class SqlIntegration
 
     for (const additionalEvent of additionalEvents) {
       const sql = this.getTrackedEventSql(
-        additionalEvent.eventName,
-        additionalEvent.displayName,
+        `'${additionalEvent.eventName}'`,
+        `'${additionalEvent.displayName}'`,
         userIdColumn,
         timestampColumn,
-        trackedEventTableName,
-        getDateLimitClause
+        additionalEvent.eventName,
+        getDateLimitClause,
+        additionalEvent.groupBy
       );
 
       try {
