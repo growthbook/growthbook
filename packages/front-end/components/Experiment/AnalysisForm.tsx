@@ -484,7 +484,8 @@ const AnalysisForm: FC<{
         parentSettings={scopedSettings}
         allowUndefined={true}
       />
-      {form.watch("statsEngine") === "frequentist" && (
+      {(form.watch("statsEngine") || scopedSettings.statsEngine.value) ===
+        "frequentist" && (
         <div className="d-flex flex-row no-gutters align-items-top">
           <div className="col-5">
             <SelectField

@@ -441,33 +441,38 @@ export default function AnalysisSettingsSummary({
         <div className="col-auto px-0">
           <ResultMoreMenu
             id={snapshot?.id || ""}
-            forceRefresh={async () => {
-              await apiCall<{ snapshot: ExperimentSnapshotInterface }>(
-                `/experiment/${experiment.id}/snapshot?force=true`,
-                {
-                  method: "POST",
-                  body: JSON.stringify({
-                    phase,
-                    dimension,
-                    statsEngine,
-                    regressionAdjustmentEnabled,
-                    metricRegressionAdjustmentStatuses,
-                  }),
-                }
-              )
-                .then((res) => {
-                  trackSnapshot(
-                    "create",
-                    "ForceRerunQueriesButton",
-                    datasource?.type || null,
-                    res.snapshot
-                  );
-                  mutateSnapshot();
-                })
-                .catch((e) => {
-                  console.error(e);
-                });
-            }}
+            forceRefresh={
+              experiment.metrics.length > 0 ||
+              (experiment.guardrails?.length ?? 0) > 0
+                ? async () => {
+                    await apiCall<{ snapshot: ExperimentSnapshotInterface }>(
+                      `/experiment/${experiment.id}/snapshot?force=true`,
+                      {
+                        method: "POST",
+                        body: JSON.stringify({
+                          phase,
+                          dimension,
+                          statsEngine,
+                          regressionAdjustmentEnabled,
+                          metricRegressionAdjustmentStatuses,
+                        }),
+                      }
+                    )
+                      .then((res) => {
+                        trackSnapshot(
+                          "create",
+                          "ForceRerunQueriesButton",
+                          datasource?.type || null,
+                          res.snapshot
+                        );
+                        mutateSnapshot();
+                      })
+                      .catch((e) => {
+                        console.error(e);
+                      });
+                  }
+                : undefined
+            }
             configure={() => setAnalysisModal(true)}
             editMetrics={editMetrics}
             notebookUrl={`/experiments/notebook/${snapshot?.id}`}
