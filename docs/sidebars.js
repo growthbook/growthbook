@@ -353,6 +353,11 @@ const sidebars = {
         },
         {
           type: "doc",
+          id: "event-trackers/GA4-google-analytics",
+          label: "Google Analytics (GA4)",
+        },
+        {
+          type: "doc",
           id: "guide/google-tag-manager-and-growthbook",
           label: "Google Tag Manager (GTM)",
         },
@@ -408,9 +413,27 @@ const sidebars = {
           className: "pill-new",
         },
         { type: "doc", id: "sso", label: "SSO" },
+        {
+          type: "doc",
+          id: "integrations/datadog",
+          label: "DataDog",
+          className: "pill-new",
+        },
       ],
     },
     { type: "doc", id: "faq", label: "FAQ" },
+    {
+      type: "category",
+      label: "Account",
+      collapsed: true,
+      items: [
+        {
+          type: "doc",
+          id: "account/user-permissions",
+          label: "Roles & Permissions",
+        },
+      ],
+    },
   ],
 };
 

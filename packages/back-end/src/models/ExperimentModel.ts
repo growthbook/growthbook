@@ -2,7 +2,7 @@ import { each, isEqual, omit, pick, uniqBy, uniqWith } from "lodash";
 import mongoose, { FilterQuery } from "mongoose";
 import uniqid from "uniqid";
 import cloneDeep from "lodash/cloneDeep";
-import { includeExperimentInPayload } from "shared/util";
+import { includeExperimentInPayload, hasVisualChanges } from "shared/util";
 import {
   Changeset,
   ExperimentInterface,
@@ -1068,15 +1068,15 @@ export const getAllVisualExperiments = async (
     return acc;
   }, {});
 
-  const hasVisualChanges = (
+  const hasVisualChangesForVariation = (
     experimentId: string,
     variationId: string
   ): boolean => {
     const changes = visualChangesByExperimentId[experimentId];
     if (!changes) return false;
-    return changes
-      .filter((vc) => vc.variation === variationId)
-      .some((vc) => !!vc.css || vc.domMutations.length > 0);
+    return hasVisualChanges(
+      changes.filter((vc) => vc.variation === variationId)
+    );
   };
 
   return visualChangesets
@@ -1092,7 +1092,10 @@ export const getAllVisualExperiments = async (
       // Exclude experiments that are stopped and the released variation doesn’t have any visual changes
       if (
         e.experiment.status === "stopped" &&
-        !hasVisualChanges(e.experiment.id, e.experiment.releasedVariationId)
+        !hasVisualChangesForVariation(
+          e.experiment.id,
+          e.experiment.releasedVariationId
+        )
       ) {
         return false;
       }

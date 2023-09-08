@@ -5,6 +5,7 @@ import { useGrowthBook } from "@growthbook/growthbook-react";
 import { datetime, ago } from "shared/dates";
 import Link from "next/link";
 import { BsFlag } from "react-icons/bs";
+import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { phaseSummary } from "@/services/utils";
 import ResultsIndicator from "@/components/Experiment/ResultsIndicator";
@@ -15,7 +16,6 @@ import Pagination from "@/components/Pagination";
 import { GBAddCircle } from "@/components/Icons";
 import { useUser } from "@/services/UserContext";
 import ExperimentsGetStarted from "@/components/HomePage/ExperimentsGetStarted";
-import NewFeatureExperiments from "@/components/Experiment/NewFeatureExperiments";
 import SortedTags from "@/components/Tags/SortedTags";
 import Field from "@/components/Forms/Field";
 import TabButtons from "@/components/Tabs/TabButtons";
@@ -27,6 +27,7 @@ import ImportExperimentModal from "@/components/Experiment/ImportExperimentModal
 import { AppFeatures } from "@/types/app-features";
 import { useExperiments } from "@/hooks/useExperiments";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import { useAuth } from "@/services/auth";
 
 const NUM_PER_PAGE = 20;
 
@@ -35,12 +36,11 @@ const ExperimentsPage = (): React.ReactElement => {
 
   const { ready, project, getMetricById, getProjectById } = useDefinitions();
 
-  const {
-    experiments: allExperiments,
-    error,
-    mutateExperiments,
-    loading,
-  } = useExperiments(project);
+  const { orgId } = useAuth();
+
+  const { experiments: allExperiments, error, loading } = useExperiments(
+    project
+  );
 
   const [tab, setTab] = useAnchor(["running", "drafts", "stopped", "archived"]);
 
@@ -82,6 +82,11 @@ const ExperimentsPage = (): React.ReactElement => {
     },
     [getMetricById, getProjectById]
   );
+
+  const demoExperimentId = useMemo(() => {
+    const projectId = getDemoDatasourceProjectIdForOrganization(orgId || "");
+    return experiments.find((e) => e.project === projectId)?.id || "";
+  }, [orgId, experiments]);
 
   const filterResults = useCallback(
     (items: typeof experiments) => {
@@ -127,6 +132,8 @@ const ExperimentsPage = (): React.ReactElement => {
     return items.filter((item) => item.tab === tab);
   }, [items, tab]);
 
+  const [showSetup, setShowSetup] = useState(false);
+
   // If "All Projects" is selected is selected and some experiments are in a project, show the project column
   const showProjectColumn = !project && items.some((e) => e.project);
 
@@ -134,6 +141,13 @@ const ExperimentsPage = (): React.ReactElement => {
   useEffect(() => {
     setCurrentPage(1);
   }, [items.length, tab, showMineOnly]);
+
+  // Show steps if coming from get started page
+  useEffect(() => {
+    if (router.asPath.match(/getstarted/)) {
+      setShowSetup(true);
+    }
+  }, [router]);
 
   if (error) {
     return (
@@ -146,23 +160,14 @@ const ExperimentsPage = (): React.ReactElement => {
     return <LoadingOverlay />;
   }
 
-  const hasExperiments =
-    experiments.filter((m) => !m.id.match(/^exp_sample/)).length > 0;
+  const hasExperiments = experiments.some(
+    (e) => !e.id.match(/^exp_sample/) && e.id !== demoExperimentId
+  );
 
   if (!hasExperiments) {
     return (
       <div className="contents container pagecontents getstarted">
-        <h1>Experiment Analysis</h1>
-        <p>
-          GrowthBook can pull experiment results directly from your data source
-          and analyze it with our statistics engine. Start by connecting to your
-          data source and defining metrics.
-        </p>
-        <NewFeatureExperiments />
-        <ExperimentsGetStarted
-          experiments={experiments}
-          mutate={mutateExperiments}
-        />
+        <ExperimentsGetStarted />
       </div>
     );
   }
@@ -177,10 +182,10 @@ const ExperimentsPage = (): React.ReactElement => {
   return (
     <>
       <div className="contents experiments container-fluid pagecontents">
-        <div className="mb-5">
+        <div className="mb-3">
           <div className="filters md-form row mb-3 align-items-center">
             <div className="col-auto">
-              <h3>All Experiments</h3>
+              <h1>Experiments</h1>
             </div>
             <div style={{ flex: 1 }} />
             {canAdd && (
@@ -199,7 +204,23 @@ const ExperimentsPage = (): React.ReactElement => {
               </div>
             )}
           </div>
-          <NewFeatureExperiments />
+          <div className="mb-3">
+            <a
+              href="#"
+              onClick={(e) => {
+                e.preventDefault();
+                setShowSetup(!showSetup);
+              }}
+            >
+              {showSetup ? "Hide" : "Show"} Setup Steps
+            </a>
+            {showSetup && (
+              <div className="appbox p-3 px-4 mb-5">
+                <ExperimentsGetStarted />
+              </div>
+            )}
+            {showSetup && <h3>All Experiments</h3>}
+          </div>
           <div className="row align-items-center mb-3">
             <div className="col-auto">
               <TabButtons newStyle={true} className="mb-0">

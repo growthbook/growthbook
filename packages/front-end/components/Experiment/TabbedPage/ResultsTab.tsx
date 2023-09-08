@@ -1,6 +1,6 @@
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { getScopedSettings } from "shared/settings";
-import { useMemo, useState } from "react";
+import React, { useMemo, useState } from "react";
 import {
   MetricRegressionAdjustmentStatus,
   ReportInterface,
@@ -40,6 +40,7 @@ export interface Props {
   setTab: (tab: ExperimentTab) => void;
   connections: SDKConnectionInterface[];
   isTabActive: boolean;
+  safeToEdit: boolean;
 }
 
 export default function ResultsTab({
@@ -55,7 +56,11 @@ export default function ResultsTab({
   visualChangesets,
   editTargeting,
   isTabActive,
+  safeToEdit,
 }: Props) {
+  const [baselineRow, setBaselineRow] = React.useState<number>(0);
+  const [variationFilter, setVariationFilter] = React.useState<number[]>([]);
+
   const {
     getDatasourceById,
     getMetricById,
@@ -206,6 +211,9 @@ export default function ResultsTab({
               metricRegressionAdjustmentStatuses
             }
             editMetrics={editMetrics ?? undefined}
+            setVariationFilter={(v: number[]) => setVariationFilter(v)}
+            baselineRow={baselineRow}
+            setBaselineRow={(b: number) => setBaselineRow(b)}
           />
           {experiment.status === "draft" ? (
             <div className="mx-3">
@@ -283,8 +291,8 @@ export default function ResultsTab({
                   mutateExperiment={mutate}
                   editMetrics={editMetrics ?? undefined}
                   editResult={editResult ?? undefined}
-                  editPhases={editPhases ?? undefined}
-                  alwaysShowPhaseSelector={false}
+                  editPhases={(safeToEdit && editPhases) || undefined}
+                  alwaysShowPhaseSelector={true}
                   reportDetailsLink={false}
                   statsEngine={statsEngine}
                   regressionAdjustmentAvailable={regressionAdjustmentAvailable}
@@ -297,6 +305,10 @@ export default function ResultsTab({
                   }
                   onRegressionAdjustmentChange={onRegressionAdjustmentChange}
                   isTabActive={isTabActive}
+                  variationFilter={variationFilter}
+                  setVariationFilter={setVariationFilter}
+                  baselineRow={baselineRow}
+                  setBaselineRow={setBaselineRow}
                 />
               )}
             </>

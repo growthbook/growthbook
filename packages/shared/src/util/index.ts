@@ -1,13 +1,18 @@
 import uniqid from "uniqid";
+import isEqual from "lodash/isEqual";
 import {
   ExperimentInterface,
   ExperimentInterfaceStringDates,
 } from "back-end/types/experiment";
 import {
   ExperimentSnapshotAnalysis,
+  ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotInterface,
+  ExperimentSnapshotSettings,
 } from "back-end/types/experiment-snapshot";
 import { FeatureInterface, FeatureRule } from "back-end/types/feature";
+import { ExperimentReportVariation } from "back-end/types/report";
+import { VisualChange } from "back-end/types/visual-changeset";
 
 export * from "./features";
 
@@ -28,11 +33,48 @@ export function getAffectedEnvsForExperiment({
 }
 
 export function getSnapshotAnalysis(
-  snapshot: ExperimentSnapshotInterface
+  snapshot: ExperimentSnapshotInterface,
+  analysisSettings?: ExperimentSnapshotAnalysisSettings | null
 ): ExperimentSnapshotAnalysis | null {
-  // TODO: add a "settings" argument to this function and use it to pick the right snapshot
-  // For example, if `sequential: true` is passed in, look for an analysis with sequential enabled
-  return snapshot.analyses?.[0] || null;
+  // TODO make it so order doesn't matter
+  return (
+    (analysisSettings
+      ? snapshot.analyses.find((a) => isEqual(a.settings, analysisSettings))
+      : snapshot.analyses[0]) || null
+  );
+}
+
+export function putBaselineVariationFirst(
+  variations: ExperimentReportVariation[],
+  baselineVariationIndex: number | null
+): ExperimentReportVariation[] {
+  if (baselineVariationIndex === null) return variations;
+
+  return [
+    variations[baselineVariationIndex],
+    ...variations.filter((v, i) => i !== baselineVariationIndex),
+  ];
+}
+
+export function isAnalysisAllowed(
+  snapshotSettings: ExperimentSnapshotSettings,
+  analysisSettings: ExperimentSnapshotAnalysisSettings
+): boolean {
+  // Analysis dimensions must be subset of snapshot dimensions
+  const snapshotDimIds = snapshotSettings.dimensions.map((d) => d.id);
+  if (!analysisSettings.dimensions.every((d) => snapshotDimIds.includes(d))) {
+    return false;
+  }
+
+  // CUPED only available if available in snapshot
+  if (
+    !snapshotSettings.regressionAdjustmentEnabled &&
+    analysisSettings.regressionAdjusted
+  ) {
+    return false;
+  }
+
+  return true;
 }
 
 export function generateVariationId() {
@@ -91,6 +133,9 @@ export function includeExperimentInPayload(
 
   return true;
 }
+
+export const hasVisualChanges = (visualChanges: VisualChange[]) =>
+  visualChanges.some((vc) => !!vc.css || !!vc.domMutations.length || !!vc.js);
 
 export type MatchingRule = {
   environmentId: string;
@@ -154,9 +199,9 @@ export function isProjectListValidForProject(
   // If project list is empty, it's always valid no matter what
   if (!projects || !projects.length) return true;
 
-  // If there is no selected project, it's invalid
-  if (!project) return false;
+  // If there is no selected project, it's always valid
+  if (!project) return true;
 
-  // It's valid only if the project list contains the selected project
+  // Otherwise, it's valid only if the project list contains the selected project
   return projects.includes(project);
 }

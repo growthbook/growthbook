@@ -272,7 +272,7 @@ const auth = getAuthConnection();
 app.use(auth.middleware);
 
 // Add logged in user props to the request
-app.use(processJWT);
+app.use(asyncHandler(processJWT));
 
 // Add logged in user props to the logger
 app.use(
@@ -368,6 +368,7 @@ app.get(
 app.get("/experiment/:id", experimentsController.getExperiment);
 app.get("/experiment/:id/reports", reportsController.getReportsOnExperiment);
 app.post("/snapshot/:id/cancel", experimentsController.cancelSnapshot);
+app.post("/snapshot/:id/analysis", experimentsController.postSnapshotAnalysis);
 app.get("/experiment/:id/snapshot/:phase", experimentsController.getSnapshot);
 app.get(
   "/experiment/:id/snapshot/:phase/:dimension",
