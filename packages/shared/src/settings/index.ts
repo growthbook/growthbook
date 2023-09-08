@@ -61,7 +61,7 @@ export const resolvers: Record<
       report: true,
     },
     {
-      emptyAsUndefined: true,
+      bypassEmpty: true,
     }
   ),
   pValueThreshold: genDefaultResolver("pValueThreshold", {
