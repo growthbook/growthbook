@@ -2,67 +2,95 @@ import { Response } from "express";
 import uniqid from "uniqid";
 import format from "date-fns/format";
 import cloneDeep from "lodash/cloneDeep";
+import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
+import { getValidDate } from "shared/dates";
+import { getAffectedEnvsForExperiment } from "shared/util";
+import { getScopedSettings } from "shared/settings";
+import { orgHasPremiumFeature } from "enterprise";
+import { v4 as uuidv4 } from "uuid";
 import { AuthRequest, ResponseWithStatusAndError } from "../types/AuthRequest";
 import {
-  getLatestSnapshot,
-  createSnapshot,
   createManualSnapshot,
+  createSnapshot,
+  createSnapshotAnalysis,
   getManualSnapshotData,
-  ensureWatching,
-  processPastExperiments,
-  experimentUpdated,
-  getExperimentWatchers,
 } from "../services/experiments";
 import { MetricStats } from "../../types/metric";
 import {
   createExperiment,
+  deleteExperimentByIdForOrganization,
+  getAllExperiments,
   getExperimentById,
   getExperimentByTrackingKey,
-  getAllExperiments,
-  updateExperimentById,
   getPastExperimentsByDatasource,
-  deleteExperimentByIdForOrganization,
+  updateExperiment,
 } from "../models/ExperimentModel";
 import {
-  ExperimentSnapshotDocument,
-  ExperimentSnapshotModel,
+  createVisualChangeset,
+  deleteVisualChangesetById,
+  findVisualChangesetById,
+  findVisualChangesetsByExperiment,
+  syncVisualChangesWithVariations,
+  updateVisualChangeset,
+} from "../models/VisualChangesetModel";
+import {
+  deleteSnapshotById,
+  findSnapshotById,
+  getLatestSnapshot,
+  updateSnapshotsOnPhaseDelete,
 } from "../models/ExperimentSnapshotModel";
-import { getSourceIntegrationObject } from "../services/datasource";
+import {
+  getIntegrationFromDatasourceId,
+  getSourceIntegrationObject,
+} from "../services/datasource";
 import { addTagsDiff } from "../models/TagModel";
 import { getOrgFromReq, userHasAccess } from "../services/organizations";
 import { removeExperimentFromPresentations } from "../services/presentations";
 import {
-  getStatusEndpoint,
-  startRun,
-  cancelRun,
-  getPastExperiments,
-} from "../services/queries";
-import { PastExperimentsModel } from "../models/PastExperimentsModel";
+  createPastExperiments,
+  getPastExperimentsById,
+  getPastExperimentsModelByDatasource,
+  updatePastExperiments,
+} from "../models/PastExperimentsModel";
 import {
   Changeset,
   ExperimentInterface,
   ExperimentInterfaceStringDates,
   ExperimentPhase,
   ExperimentStatus,
+  ExperimentTargetingData,
   Variation,
 } from "../../types/experiment";
-import { getMetricById } from "../models/MetricModel";
-import { addGroupsDiff } from "../services/group";
+import { getMetricById, getMetricMap } from "../models/MetricModel";
 import { IdeaModel } from "../models/IdeasModel";
 import { IdeaInterface } from "../../types/idea";
 import { getDataSourceById } from "../models/DataSourceModel";
 import { generateExperimentNotebook } from "../services/notebook";
-import { analyzeExperimentResults } from "../services/stats";
-import { getValidDate } from "../util/dates";
-import { getReportVariations } from "../services/reports";
 import { IMPORT_LIMIT_DAYS } from "../util/secrets";
 import { getAllFeatures } from "../models/FeatureModel";
 import { ExperimentRule, FeatureInterface } from "../../types/feature";
 import {
   auditDetailsCreate,
-  auditDetailsUpdate,
   auditDetailsDelete,
+  auditDetailsUpdate,
 } from "../services/audit";
+import {
+  ExperimentSnapshotAnalysisSettings,
+  ExperimentSnapshotInterface,
+} from "../../types/experiment-snapshot";
+import { StatsEngine } from "../../types/stats";
+import { MetricRegressionAdjustmentStatus } from "../../types/report";
+import { VisualChangesetInterface } from "../../types/visual-changeset";
+import { PrivateApiErrorResponse } from "../../types/api";
+import { EventAuditUserForResponseLocals } from "../events/event-types";
+import { findProjectById } from "../models/ProjectModel";
+import { ExperimentResultsQueryRunner } from "../queryRunners/ExperimentResultsQueryRunner";
+import { PastExperimentsQueryRunner } from "../queryRunners/PastExperimentsQueryRunner";
+import {
+  createUserVisualEditorApiKey,
+  getVisualEditorApiKey,
+} from "../models/ApiKeyModel";
+import { getExperimentWatchers, upsertWatch } from "../models/WatchModel";
 
 export async function getExperiments(
   req: AuthRequest<
@@ -129,11 +157,8 @@ export async function getExperimentsFrequencyMonth(
       dateStarted = e.dateCreated;
     } else {
       e.phases.forEach((p) => {
-        // get the earliest time it was main or ramp:
-        if (p.phase === "main" || p.phase === "ramp") {
-          if (p.dateStarted && (!dateStarted || p.dateStarted < dateStarted))
-            dateStarted = p.dateStarted;
-        }
+        if (p.dateStarted && (!dateStarted || p.dateStarted < dateStarted))
+          dateStarted = p.dateStarted;
       });
     }
     const monthYear = format(getValidDate(dateStarted), "MMM yyy");
@@ -210,9 +235,15 @@ export async function getExperiment(
       })) || undefined;
   }
 
+  const visualChangesets = await findVisualChangesetsByExperiment(
+    experiment.id,
+    org.id
+  );
+
   res.status(200).json({
     status: 200,
     experiment,
+    visualChangesets,
     idea,
   });
 }
@@ -311,7 +342,7 @@ export async function getSnapshots(
 
   const ids = idsString.split(",");
 
-  let snapshotsPromises: Promise<ExperimentSnapshotDocument>[] = [];
+  let snapshotsPromises: Promise<ExperimentSnapshotInterface | null>[] = [];
   snapshotsPromises = ids.map(async (i) => {
     return await _getSnapshot(org.id, i);
   });
@@ -319,7 +350,7 @@ export async function getSnapshots(
 
   res.status(200).json({
     status: 200,
-    snapshots,
+    snapshots: snapshots.filter((s) => !!s),
   });
   return;
 }
@@ -385,6 +416,8 @@ const getExperimentDefinitionFromFeatureAndRule = (
     trackingKey: expRule.trackingKey || feature.id,
     name: (expRule.trackingKey || feature.id) + " experiment",
     hypothesis: expRule.description || "",
+    hashAttribute: expRule.hashAttribute,
+    hashVersion: 1,
     description: `Experiment analysis for the feature [**${feature.id}**](/features/${feature.id})`,
     variations: expRule.values.map((v, i) => {
       let name = i ? `Variation ${i}` : "Control";
@@ -392,6 +425,8 @@ const getExperimentDefinitionFromFeatureAndRule = (
         name = v.value === "true" ? "On" : "Off";
       }
       return {
+        id: uniqid("var_"),
+        key: i + "",
         name,
         screenshots: [],
         description: v.value,
@@ -399,13 +434,20 @@ const getExperimentDefinitionFromFeatureAndRule = (
     }),
     phases: [
       {
+        name: "Main",
+        seed: expRule.trackingKey || feature.id,
         coverage: totalPercent,
         variationWeights: expRule.values.map((v) =>
           totalPercent > 0 ? v.weight / totalPercent : 1 / expRule.values.length
         ),
-        phase: "main",
         reason: "",
         dateStarted: new Date().toISOString(),
+        condition: expRule.condition || "",
+        namespace: expRule.namespace || {
+          enabled: false,
+          name: "",
+          range: [0, 1],
+        },
       },
     ],
   };
@@ -413,10 +455,17 @@ const getExperimentDefinitionFromFeatureAndRule = (
 };
 
 const validateVariationIds = (variations: Variation[]) => {
-  const ids = variations.map((v, i) => v.key || i + "");
-
-  if (ids.length !== new Set(ids).size) {
-    throw new Error("Variation ids must be unique");
+  variations.forEach((variation, i) => {
+    if (!variation.id) {
+      variation.id = uniqid("var_");
+    }
+    if (!variation.key) {
+      variation.key = i + "";
+    }
+  });
+  const keys = variations.map((v) => v.key);
+  if (keys.length !== new Set(keys).size) {
+    throw new Error("Variation keys must be unique");
   }
 };
 
@@ -427,11 +476,16 @@ const validateVariationIds = (variations: Variation[]) => {
  */
 export async function postExperiments(
   req: AuthRequest<
-    Partial<ExperimentInterface>,
+    Partial<ExperimentInterfaceStringDates>,
     unknown,
     { allowDuplicateTrackingKey?: boolean }
   >,
-  res: Response
+  res: Response<
+    | { status: 200; experiment: ExperimentInterface }
+    | { status: 200; duplicateTrackingKey: boolean; existingId: string }
+    | PrivateApiErrorResponse,
+    EventAuditUserForResponseLocals
+  >
 ) {
   const { org, userId } = getOrgFromReq(req);
 
@@ -478,16 +532,30 @@ export async function postExperiments(
     }
   }
 
-  const obj: Partial<ExperimentInterface> = {
+  const obj: Omit<ExperimentInterface, "id"> = {
     organization: data.organization,
+    archived: false,
+    hashAttribute: data.hashAttribute || "",
+    hashVersion: data.hashVersion || 2,
+    autoSnapshots: true,
+    dateCreated: new Date(),
+    dateUpdated: new Date(),
     project: data.project,
     owner: data.owner || userId,
-    trackingKey: data.trackingKey || undefined,
+    trackingKey: data.trackingKey || "",
     datasource: data.datasource || "",
     exposureQueryId: data.exposureQueryId || "",
     userIdType: data.userIdType || "anonymous",
     name: data.name || "",
-    phases: data.phases || [],
+    phases: data.phases
+      ? data.phases.map(({ dateStarted, dateEnded, ...phase }) => {
+          return {
+            ...phase,
+            dateStarted: dateStarted ? getValidDate(dateStarted) : new Date(),
+            dateEnded: dateEnded ? getValidDate(dateEnded) : undefined,
+          };
+        })
+      : [],
     tags: data.tags || [],
     description: data.description || "",
     hypothesis: data.hypothesis || "",
@@ -498,23 +566,32 @@ export async function postExperiments(
     segment: data.segment || "",
     queryFilter: data.queryFilter || "",
     skipPartialData: !!data.skipPartialData,
-    removeMultipleExposures: !!data.removeMultipleExposures,
     attributionModel: data.attributionModel || "firstExposure",
     variations: data.variations || [],
     implementation: data.implementation || "code",
     status: data.status || "draft",
     results: data.results || undefined,
     analysis: data.analysis || "",
+    releasedVariationId: "",
+    excludeFromPayload: true,
     autoAssign: data.autoAssign || false,
     previewURL: data.previewURL || "",
     targetURLRegex: data.targetURLRegex || "",
-    data: data.data || "",
     ideaSource: data.ideaSource || "",
+    // todo: revisit this logic for project level settings, as well as "override stats settings" toggle:
+    sequentialTestingEnabled:
+      data.sequentialTestingEnabled ??
+      !!org?.settings?.sequentialTestingEnabled,
+    sequentialTestingTuningParameter:
+      data.sequentialTestingTuningParameter ??
+      org?.settings?.sequentialTestingTuningParameter ??
+      DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
+    statsEngine: data.statsEngine,
     customFields: data.customFields || undefined,
   };
 
   try {
-    validateVariationIds(obj.variations || []);
+    validateVariationIds(obj.variations);
 
     // Make sure id is unique
     if (obj.trackingKey && !req.query.allowDuplicateTrackingKey) {
@@ -531,7 +608,11 @@ export async function postExperiments(
       }
     }
 
-    const experiment = await createExperiment(obj, org);
+    const experiment = await createExperiment({
+      data: obj,
+      organization: org,
+      user: res.locals.eventAudit,
+    });
 
     await req.audit({
       event: "experiment.create",
@@ -542,9 +623,12 @@ export async function postExperiments(
       details: auditDetailsCreate(experiment),
     });
 
-    await ensureWatching(userId, org.id, experiment.id, "experiments");
-
-    await experimentUpdated(experiment);
+    await upsertWatch({
+      userId,
+      organization: org.id,
+      item: experiment.id,
+      type: "experiments",
+    });
 
     res.status(200).json({
       status: 200,
@@ -572,7 +656,11 @@ export async function postExperiment(
     },
     { id: string }
   >,
-  res: Response
+  res: Response<
+    | { status: number; experiment?: ExperimentInterface | null }
+    | PrivateApiErrorResponse,
+    EventAuditUserForResponseLocals
+  >
 ) {
   const { org, userId } = getOrgFromReq(req);
   const { id } = req.params;
@@ -648,6 +736,8 @@ export async function postExperiment(
     "datasource",
     "exposureQueryId",
     "userIdType",
+    "hashAttribute",
+    "hashVersion",
     "name",
     "tags",
     "description",
@@ -656,7 +746,6 @@ export async function postExperiment(
     "segment",
     "queryFilter",
     "skipPartialData",
-    "removeMultipleExposures",
     "attributionModel",
     "metrics",
     "metricOverrides",
@@ -670,13 +759,20 @@ export async function postExperiment(
     "autoAssign",
     "previewURL",
     "targetURLRegex",
-    "data",
+    "releasedVariationId",
+    "excludeFromPayload",
     "autoSnapshots",
     "project",
+    "regressionAdjustmentEnabled",
+    "hasVisualChangesets",
+    "sequentialTestingEnabled",
+    "sequentialTestingTuningParameter",
+    "statsEngine",
     "customFields",
   ];
   const existing: ExperimentInterface = experiment;
   const changes: Changeset = {};
+
   keys.forEach((key) => {
     if (!(key in data)) {
       return;
@@ -719,7 +815,58 @@ export async function postExperiment(
     changes.phases = phases;
   }
 
-  const updated = await updateExperimentById(org.id, experiment, changes);
+  // Only some fields affect production SDK payloads
+  const needsRunExperimentsPermission = ([
+    "phases",
+    "variations",
+    "project",
+    "name",
+    "trackingKey",
+    "archived",
+    "status",
+    "releasedVariationId",
+    "excludeFromPayload",
+  ] as (keyof ExperimentInterfaceStringDates)[]).some((key) => key in changes);
+  if (needsRunExperimentsPermission) {
+    const envs = getAffectedEnvsForExperiment({
+      experiment,
+    });
+    if (envs.length > 0) {
+      const projects = [experiment.project || undefined];
+      if ("project" in changes) {
+        projects.push(changes.project || undefined);
+      }
+      req.checkPermissions("runExperiments", projects, envs);
+    }
+  }
+
+  const updated = await updateExperiment({
+    organization: org,
+    experiment,
+    user: res.locals.eventAudit,
+    changes,
+  });
+
+  // if variations have changed, update the experiment's visualchangesets if they exist
+  if (changes.variations && updated) {
+    const visualChangesets = await findVisualChangesetsByExperiment(
+      experiment.id,
+      org.id
+    );
+
+    if (visualChangesets.length) {
+      await Promise.all(
+        visualChangesets.map((vc) =>
+          syncVisualChangesWithVariations({
+            visualChangeset: vc,
+            experiment: updated,
+            organization: org,
+            user: res.locals.eventAudit,
+          })
+        )
+      );
+    }
+  }
 
   await req.audit({
     event: "experiment.update",
@@ -733,7 +880,12 @@ export async function postExperiment(
   // If there are new tags to add
   await addTagsDiff(org.id, experiment.tags || [], data.tags || []);
 
-  await ensureWatching(userId, org.id, experiment.id, "experiments");
+  await upsertWatch({
+    userId,
+    organization: org.id,
+    item: experiment.id,
+    type: "experiments",
+  });
 
   res.status(200).json({
     status: 200,
@@ -770,10 +922,21 @@ export async function postExperimentArchive(
 
   req.checkPermissions("createAnalyses", experiment.project);
 
+  const envs = getAffectedEnvsForExperiment({
+    experiment,
+  });
+  envs.length > 0 &&
+    req.checkPermissions("runExperiments", experiment.project, envs);
+
   changes.archived = true;
 
   try {
-    await updateExperimentById(org.id, experiment, changes);
+    await updateExperiment({
+      organization: org,
+      experiment,
+      user: res.locals.eventAudit,
+      changes,
+    });
 
     // TODO: audit
     res.status(200).json({
@@ -826,7 +989,12 @@ export async function postExperimentUnarchive(
   changes.archived = false;
 
   try {
-    await updateExperimentById(org.id, experiment, changes);
+    await updateExperiment({
+      organization: org,
+      experiment,
+      user: res.locals.eventAudit,
+      changes,
+    });
 
     // TODO: audit
     res.status(200).json({
@@ -862,6 +1030,7 @@ export async function postExperimentStatus(
   const { org } = getOrgFromReq(req);
   const { id } = req.params;
   const { status, reason, dateEnded } = req.body;
+
   const changes: Changeset = {};
 
   const experiment = await getExperimentById(org.id, id);
@@ -872,6 +1041,12 @@ export async function postExperimentStatus(
     throw new Error("You do not have access to this experiment");
   }
   req.checkPermissions("createAnalyses", experiment.project);
+
+  const envs = getAffectedEnvsForExperiment({
+    experiment,
+  });
+  envs.length > 0 &&
+    req.checkPermissions("runExperiments", experiment.project, envs);
 
   // If status changed from running to stopped, update the latest phase
   const phases = [...experiment.phases];
@@ -891,7 +1066,12 @@ export async function postExperimentStatus(
 
   changes.status = status;
 
-  const updated = await updateExperimentById(org.id, experiment, changes);
+  const updated = await updateExperiment({
+    organization: org,
+    experiment,
+    user: res.locals.eventAudit,
+    changes,
+  });
 
   await req.audit({
     event: "experiment.status",
@@ -916,7 +1096,15 @@ export async function postExperimentStop(
 ) {
   const { org } = getOrgFromReq(req);
   const { id } = req.params;
-  const { reason, results, analysis, winner, dateEnded } = req.body;
+  const {
+    reason,
+    results,
+    analysis,
+    winner,
+    dateEnded,
+    releasedVariationId,
+    excludeFromPayload,
+  } = req.body;
 
   const experiment = await getExperimentById(org.id, id);
   const changes: Changeset = {};
@@ -937,6 +1125,12 @@ export async function postExperimentStop(
     return;
   }
   req.checkPermissions("createAnalyses", experiment.project);
+
+  const envs = getAffectedEnvsForExperiment({
+    experiment,
+  });
+  envs.length > 0 &&
+    req.checkPermissions("runExperiments", experiment.project, envs);
 
   const phases = [...experiment.phases];
   // Already has phases
@@ -960,9 +1154,16 @@ export async function postExperimentStop(
   changes.winner = winner;
   changes.results = results;
   changes.analysis = analysis;
+  changes.releasedVariationId = releasedVariationId;
+  changes.excludeFromPayload = !!excludeFromPayload;
 
   try {
-    const updated = await updateExperimentById(org.id, experiment, changes);
+    const updated = await updateExperiment({
+      organization: org,
+      experiment,
+      user: res.locals.eventAudit,
+      changes,
+    });
 
     await req.audit({
       event: isEnding ? "experiment.stop" : "experiment.results",
@@ -1013,6 +1214,12 @@ export async function deleteExperimentPhase(
 
   req.checkPermissions("createAnalyses", experiment.project);
 
+  const envs = getAffectedEnvsForExperiment({
+    experiment,
+  });
+  envs.length > 0 &&
+    req.checkPermissions("runExperiments", experiment.project, envs);
+
   if (phaseIndex < 0 || phaseIndex >= experiment.phases?.length) {
     throw new Error("Invalid phase id");
   }
@@ -1023,30 +1230,14 @@ export async function deleteExperimentPhase(
   if (!changes.phases.length) {
     changes.status = "draft";
   }
-  const updated = await updateExperimentById(org.id, experiment, changes);
-
-  // Delete all snapshots for the phase
-  await ExperimentSnapshotModel.deleteMany({
-    organization: org.id,
-    experiment: id,
-    phase: phaseIndex,
+  const updated = await updateExperiment({
+    organization: org,
+    experiment,
+    user: res.locals.eventAudit,
+    changes,
   });
 
-  // Decrement the phase index for all later phases
-  await ExperimentSnapshotModel.updateMany(
-    {
-      organization: org.id,
-      experiment: id,
-      phase: {
-        $gt: phaseIndex,
-      },
-    },
-    {
-      $inc: {
-        phase: -1,
-      },
-    }
-  );
+  await updateSnapshotsOnPhaseDelete(org.id, id, phaseIndex);
 
   // Add audit entry
   await req.audit({
@@ -1071,6 +1262,7 @@ export async function putExperimentPhase(
   const { id } = req.params;
   const i = parseInt(req.params.phase);
   const phase = req.body;
+
   const changes: Changeset = {};
 
   const experiment = await getExperimentById(org.id, id);
@@ -1083,11 +1275,17 @@ export async function putExperimentPhase(
     throw new Error("You do not have access to this experiment");
   }
 
-  req.checkPermissions("createAnalyses", experiment.project);
-
   if (!experiment.phases?.[i]) {
     throw new Error("Invalid phase");
   }
+
+  req.checkPermissions("createAnalyses", experiment.project);
+
+  const envs = getAffectedEnvsForExperiment({
+    experiment,
+  });
+  envs.length > 0 &&
+    req.checkPermissions("runExperiments", experiment.project, envs);
 
   phase.dateStarted = phase.dateStarted
     ? getValidDate(phase.dateStarted + ":00Z")
@@ -1102,7 +1300,12 @@ export async function putExperimentPhase(
     ...phase,
   };
   changes.phases = phases;
-  const updated = await updateExperimentById(org.id, experiment, changes);
+  const updated = await updateExperiment({
+    organization: org,
+    experiment,
+    user: res.locals.eventAudit,
+    changes,
+  });
 
   await req.audit({
     event: "experiment.phase",
@@ -1118,6 +1321,117 @@ export async function putExperimentPhase(
   });
 }
 
+export async function postExperimentTargeting(
+  req: AuthRequest<ExperimentTargetingData, { id: string }>,
+  res: Response
+) {
+  const { org, userId } = getOrgFromReq(req);
+  const { id } = req.params;
+
+  const {
+    condition,
+    coverage,
+    hashAttribute,
+    hashVersion,
+    namespace,
+    trackingKey,
+    variationWeights,
+    seed,
+    newPhase,
+    reseed,
+  } = req.body;
+
+  const changes: Changeset = {};
+
+  const experiment = await getExperimentById(org.id, id);
+
+  if (!experiment) {
+    res.status(404).json({
+      status: 404,
+      message: "Experiment not found",
+    });
+    return;
+  }
+
+  req.checkPermissions("createAnalyses", experiment.project);
+
+  const envs = getAffectedEnvsForExperiment({
+    experiment,
+  });
+  envs.length > 0 &&
+    req.checkPermissions("runExperiments", experiment.project, envs);
+
+  const phases = [...experiment.phases];
+
+  // Already has phases and we're updating an existing phase
+  if (phases.length && !newPhase) {
+    phases[phases.length - 1] = {
+      ...phases[phases.length - 1],
+      condition,
+      coverage,
+      namespace,
+      variationWeights,
+      seed,
+    };
+  } else {
+    // If we had a previous phase, mark it as ended
+    if (phases.length) {
+      phases[phases.length - 1].dateEnded = new Date();
+    }
+
+    phases.push({
+      condition,
+      coverage,
+      dateStarted: new Date(),
+      name: "Main",
+      namespace,
+      reason: "",
+      variationWeights,
+      seed: phases.length && reseed ? uuidv4() : seed,
+    });
+  }
+  changes.phases = phases;
+
+  changes.hashAttribute = hashAttribute;
+  changes.hashVersion = hashVersion;
+  if (trackingKey) changes.trackingKey = trackingKey;
+
+  // TODO: validation
+  try {
+    const updated = await updateExperiment({
+      organization: org,
+      experiment,
+      user: res.locals.eventAudit,
+      changes,
+    });
+
+    await req.audit({
+      event: "experiment.update",
+      entity: {
+        object: "experiment",
+        id: experiment.id,
+      },
+      details: auditDetailsUpdate(experiment, updated),
+    });
+
+    await upsertWatch({
+      userId,
+      organization: org.id,
+      item: experiment.id,
+      type: "experiments",
+    });
+
+    res.status(200).json({
+      status: 200,
+    });
+  } catch (e) {
+    res.status(400).json({
+      status: 400,
+      message: e.message || "Failed to edit experiment targeting",
+    });
+  }
+}
+
 export async function postExperimentPhase(
   req: AuthRequest<ExperimentPhase, { id: string }>,
   res: Response
@@ -1125,6 +1439,7 @@ export async function postExperimentPhase(
   const { org, userId } = getOrgFromReq(req);
   const { id } = req.params;
   const { reason, dateStarted, ...data } = req.body;
+
   const changes: Changeset = {};
 
   const experiment = await getExperimentById(org.id, id);
@@ -1145,6 +1460,12 @@ export async function postExperimentPhase(
     return;
   }
   req.checkPermissions("createAnalyses", experiment.project);
+
+  const envs = getAffectedEnvsForExperiment({
+    experiment,
+  });
+  envs.length > 0 &&
+    req.checkPermissions("runExperiments", experiment.project, envs);
 
   const date = dateStarted ? getValidDate(dateStarted + ":00Z") : new Date();
 
@@ -1175,9 +1496,12 @@ export async function postExperimentPhase(
   // TODO: validation
   try {
     changes.phases = phases;
-    const updated = await updateExperimentById(org.id, experiment, changes);
-
-    await addGroupsDiff(org.id, [], data.groups || []);
+    const updated = await updateExperiment({
+      organization: org,
+      experiment,
+      user: res.locals.eventAudit,
+      changes,
+    });
 
     await req.audit({
       event: isStarting ? "experiment.start" : "experiment.phase",
@@ -1188,7 +1512,12 @@ export async function postExperimentPhase(
       details: auditDetailsUpdate(experiment, updated),
     });
 
-    await ensureWatching(userId, org.id, experiment.id, "experiments");
+    await upsertWatch({
+      userId,
+      organization: org.id,
+      item: experiment.id,
+      type: "experiments",
+    });
 
     res.status(200).json({
       status: 200,
@@ -1217,7 +1546,10 @@ export async function getWatchingUsers(
 
 export async function deleteExperiment(
   req: AuthRequest<ExperimentInterface, { id: string }>,
-  res: Response
+  res: Response<
+    { status: 200 } | PrivateApiErrorResponse,
+    EventAuditUserForResponseLocals
+  >
 ) {
   const { org } = getOrgFromReq(req);
   const { id } = req.params;
@@ -1239,12 +1571,19 @@ export async function deleteExperiment(
     });
     return;
   }
+
   req.checkPermissions("createAnalyses", experiment.project);
+
+  const envs = getAffectedEnvsForExperiment({
+    experiment,
+  });
+  envs.length > 0 &&
+    req.checkPermissions("runExperiments", experiment.project, envs);
 
   await Promise.all([
     // note: we might want to change this to change the status to
     // 'deleted' instead of actually deleting the document.
-    deleteExperimentByIdForOrganization(experiment, org),
+    deleteExperimentByIdForOrganization(experiment, org, res.locals.eventAudit),
     removeExperimentFromPresentations(experiment.id),
   ]);
 
@@ -1256,8 +1595,6 @@ export async function deleteExperiment(
     },
     details: auditDetailsDelete(experiment),
   });
-
-  await experimentUpdated(experiment);
 
   res.status(200).json({
     status: 200,
@@ -1297,11 +1634,14 @@ export async function previewManualSnapshot(
   }
 
   try {
+    const metricMap = await getMetricMap(org.id);
+
     const data = await getManualSnapshotData(
       experiment,
       phaseIndex,
       req.body.users,
-      req.body.metrics
+      req.body.metrics,
+      metricMap
     );
     res.status(200).json({
       status: 200,
@@ -1315,88 +1655,40 @@ export async function previewManualSnapshot(
   }
 }
 
-export async function getSnapshotStatus(
-  req: AuthRequest<null, { id: string }>,
-  res: Response
-) {
-  const { org } = getOrgFromReq(req);
-  const { id } = req.params;
-  const snapshot = await ExperimentSnapshotModel.findOne({ id });
-  if (!snapshot) {
-    return res.status(400).json({
-      status: 400,
-      message: "Unknown snapshot id",
-    });
-  }
-
-  if (snapshot.organization !== org?.id)
-    throw new Error("You don't have access to that snapshot");
-
-  const experiment = await getExperimentById(org.id, snapshot.experiment);
-
-  if (!experiment) throw new Error("Invalid experiment id");
-
-  const phase = experiment.phases[snapshot.phase];
-
-  const result = await getStatusEndpoint(
-    snapshot,
-    org.id,
-    (queryData) =>
-      analyzeExperimentResults(
-        org.id,
-        getReportVariations(experiment, phase),
-        snapshot.dimension || undefined,
-        queryData,
-        org.settings?.statsEngine
-      ),
-    async (updates, results, error) => {
-      await ExperimentSnapshotModel.updateOne(
-        {
-          id,
-        },
-        {
-          $set: {
-            ...updates,
-            hasCorrectedStats: true,
-            unknownVariations:
-              results?.unknownVariations || snapshot.unknownVariations || [],
-            multipleExposures:
-              results?.multipleExposures ?? snapshot.multipleExposures ?? 0,
-            results: results?.dimensions || snapshot.results,
-            error,
-          },
-        }
-      );
-    },
-    snapshot.error
-  );
-  return res.status(200).json(result);
-}
 export async function cancelSnapshot(
   req: AuthRequest<null, { id: string }>,
   res: Response
 ) {
-  req.checkPermissions("runQueries", "");
-
   const { org } = getOrgFromReq(req);
   const { id } = req.params;
-  const snapshot = await ExperimentSnapshotModel.findOne({
-    id,
-    organization: org.id,
-  });
+  const snapshot = await findSnapshotById(org.id, id);
   if (!snapshot) {
     return res.status(400).json({
       status: 400,
       message: "No snapshot found with that id",
     });
   }
-  res.status(200).json(
-    await cancelRun(snapshot, org.id, async () => {
-      await ExperimentSnapshotModel.deleteOne({
-        id,
-      });
-    })
+
+  const experiment = await getExperimentById(org.id, snapshot.experiment);
+
+  if (!experiment) {
+    return res.status(404).json({
+      status: 404,
+      message: "Experiment not found",
+    });
+  }
+
+  req.checkPermissions("runQueries", experiment.project || "");
+
+  const integration = await getIntegrationFromDatasourceId(
+    snapshot.organization,
+    snapshot.settings.datasourceId
   );
+  const queryRunner = new ExperimentResultsQueryRunner(snapshot, integration);
+  await queryRunner.cancelQueries();
+  await deleteSnapshotById(org.id, snapshot.id);
+
+  res.status(200).json({ status: 200 });
 }
 export async function postSnapshot(
   req: AuthRequest<
@@ -1405,25 +1697,17 @@ export async function postSnapshot(
       dimension?: string;
       users?: number[];
       metrics?: { [key: string]: MetricStats[] };
+      statsEngine?: StatsEngine;
+      regressionAdjustmentEnabled?: boolean;
+      metricRegressionAdjustmentStatuses?: MetricRegressionAdjustmentStatus[];
     },
     { id: string },
     { force?: string }
   >,
   res: Response
 ) {
-  req.checkPermissions("runQueries", "");
-
   const { org } = getOrgFromReq(req);
-  const statsEngine = org.settings?.statsEngine;
-
-  const useCache = !req.query["force"];
-
-  // This is doing an expensive analytics SQL query, so may take a long time
-  // Set timeout to 30 minutes
-  req.setTimeout(30 * 60 * 1000);
-
   const { id } = req.params;
-  const { phase, dimension } = req.body;
   const experiment = await getExperimentById(org.id, id);
 
   if (!experiment) {
@@ -1434,6 +1718,14 @@ export async function postSnapshot(
     return;
   }
 
+  req.checkPermissions("runQueries", experiment.project || "");
+
+  const orgSettings = org.settings || {};
+
+  let { statsEngine, regressionAdjustmentEnabled } = req.body;
+  const { metricRegressionAdjustmentStatuses } = req.body;
+  const { phase, dimension } = req.body;
+
   if (!experiment.phases[phase]) {
     res.status(404).json({
       status: 404,
@@ -1441,6 +1733,60 @@ export async function postSnapshot(
     });
     return;
   }
+
+  let project = null;
+  if (experiment.project) {
+    project = await findProjectById(experiment.project, org.id);
+  }
+  const { settings: scopedSettings } = getScopedSettings({
+    organization: org,
+    project: project ?? undefined,
+  });
+
+  statsEngine = ["bayesian", "frequentist"].includes(statsEngine + "")
+    ? statsEngine
+    : scopedSettings.statsEngine.value;
+
+  const hasRegressionAdjustmentFeature = org
+    ? orgHasPremiumFeature(org, "regression-adjustment")
+    : false;
+  const hasSequentialTestingFeature = org
+    ? orgHasPremiumFeature(org, "sequential-testing")
+    : false;
+
+  regressionAdjustmentEnabled =
+    hasRegressionAdjustmentFeature &&
+    statsEngine === "frequentist" &&
+    (regressionAdjustmentEnabled !== undefined
+      ? regressionAdjustmentEnabled
+      : orgSettings?.regressionAdjustmentEnabled ?? false);
+
+  const sequentialTestingEnabled =
+    hasSequentialTestingFeature &&
+    statsEngine === "frequentist" &&
+    (experiment?.sequentialTestingEnabled ??
+      !!orgSettings?.sequentialTestingEnabled);
+  const sequentialTestingTuningParameter =
+    experiment?.sequentialTestingTuningParameter ??
+    orgSettings?.sequentialTestingTuningParameter ??
+    DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER;
+
+  const useCache = !req.query["force"];
+
+  // This is doing an expensive analytics SQL query, so may take a long time
+  // Set timeout to 30 minutes
+  req.setTimeout(30 * 60 * 1000);
+
+  const analysisSettings: ExperimentSnapshotAnalysisSettings = {
+    statsEngine: statsEngine as StatsEngine,
+    regressionAdjusted: !!regressionAdjustmentEnabled,
+    dimensions: dimension ? [dimension] : [],
+    sequentialTesting: !!sequentialTestingEnabled,
+    sequentialTestingTuningParameter: sequentialTestingTuningParameter,
+    baselineVariationIndex: 0,
+  };
+
+  const metricMap = await getMetricMap(org.id);
 
   // Manual snapshot
   if (!experiment.datasource) {
@@ -1455,7 +1801,8 @@ export async function postSnapshot(
         phase,
         users,
         metrics,
-        statsEngine
+        analysisSettings,
+        metricMap
       );
       res.status(200).json({
         status: 200,
@@ -1495,14 +1842,19 @@ export async function postSnapshot(
   }
 
   try {
-    const snapshot = await createSnapshot(
+    const queryRunner = await createSnapshot({
       experiment,
-      phase,
-      org,
-      dimension || null,
+      organization: org,
+      user: res.locals.eventAudit,
+      phaseIndex: phase,
       useCache,
-      org.settings?.statsEngine
-    );
+      analysisSettings,
+      metricRegressionAdjustmentStatuses:
+        metricRegressionAdjustmentStatuses || [],
+      metricMap,
+    });
+    const snapshot = queryRunner.model;
+
     await req.audit({
       event: "experiment.refresh",
       entity: {
@@ -1522,6 +1874,59 @@ export async function postSnapshot(
     });
   } catch (e) {
     req.log.error(e, "Failed to create experiment snapshot");
+    res.status(400).json({
+      status: 400,
+      message: e.message,
+    });
+  }
+}
+export async function postSnapshotAnalysis(
+  req: AuthRequest<
+    {
+      analysisSettings: ExperimentSnapshotAnalysisSettings;
+    },
+    { id: string }
+  >,
+  res: Response
+) {
+  const { org } = getOrgFromReq(req);
+
+  const { id } = req.params;
+  const snapshot = await findSnapshotById(org.id, id);
+  if (!snapshot) {
+    res.status(404).json({
+      status: 404,
+      message: "Snapshot not found",
+    });
+    return;
+  }
+
+  const { analysisSettings } = req.body;
+
+  const experiment = await getExperimentById(org.id, snapshot.experiment);
+  if (!experiment) {
+    res.status(404).json({
+      status: 404,
+      message: "Experiment not found",
+    });
+    return;
+  }
+
+  const metricMap = await getMetricMap(org.id);
+
+  try {
+    await createSnapshotAnalysis({
+      experiment: experiment,
+      organization: org,
+      analysisSettings: analysisSettings,
+      metricMap: metricMap,
+      snapshot: snapshot,
+    });
+    res.status(200).json({
+      status: 200,
+    });
+  } catch (e) {
+    req.log.error(e, "Failed to create experiment snapshot analysis");
     res.status(400).json({
       status: 400,
       message: e.message,
@@ -1572,7 +1977,12 @@ export async function deleteScreenshot(
   changes.variations[variation].screenshots = changes.variations[
     variation
   ].screenshots.filter((s) => s.path !== url);
-  const updated = await updateExperimentById(org.id, experiment, changes);
+  const updated = await updateExperiment({
+    organization: org,
+    experiment,
+    user: res.locals.eventAudit,
+    changes,
+  });
 
   await req.audit({
     event: "experiment.screenshot.delete",
@@ -1642,7 +2052,12 @@ export async function addScreenshot(
     description: description,
   });
 
-  await updateExperimentById(org.id, experiment, changes);
+  await updateExperiment({
+    organization: org,
+    experiment,
+    user: res.locals.eventAudit,
+    changes,
+  });
 
   await req.audit({
     event: "experiment.screenshot.create",
@@ -1657,7 +2072,12 @@ export async function addScreenshot(
     }),
   });
 
-  await ensureWatching(userId, org.id, experiment.id, "experiments");
+  await upsertWatch({
+    userId,
+    organization: org.id,
+    item: experiment.id,
+    type: "experiments",
+  });
 
   res.status(200).json({
     status: 200,
@@ -1668,58 +2088,31 @@ export async function addScreenshot(
   });
 }
 
-export async function getPastExperimentStatus(
-  req: AuthRequest<null, { id: string }>,
-  res: Response
-) {
-  const { org } = getOrgFromReq(req);
-  const { id } = req.params;
-  const model = await PastExperimentsModel.findOne({ id });
-  if (!model) {
-    throw new Error("Could not get query status");
-  }
-  const result = await getStatusEndpoint(
-    model,
-    org.id,
-    processPastExperiments,
-    async (updates, experiments, error) => {
-      await PastExperimentsModel.updateOne(
-        { id },
-        {
-          $set: {
-            ...updates,
-            experiments: experiments || model.experiments,
-            error,
-          },
-        }
-      );
-    },
-    model.error
-  );
-  return res.status(200).json(result);
-}
 export async function cancelPastExperiments(
   req: AuthRequest<null, { id: string }>,
   res: Response
 ) {
+  // Passing in an empty string for "project" since pastExperiments don't have projects
   req.checkPermissions("runQueries", "");
 
   const { org } = getOrgFromReq(req);
   const { id } = req.params;
-  const model = await PastExperimentsModel.findOne({
-    id,
-    organization: org.id,
-  });
-  if (!model) {
+  const pastExperiments = await getPastExperimentsById(org.id, id);
+  if (!pastExperiments) {
     throw new Error("Could not cancel query");
   }
-  res.status(200).json(
-    await cancelRun(model, org.id, async () => {
-      model.set("queries", []);
-      model.set("runStarted", null);
-      await model.save();
-    })
+
+  const integration = await getIntegrationFromDatasourceId(
+    pastExperiments.organization,
+    pastExperiments.datasource
   );
+  const queryRunner = new PastExperimentsQueryRunner(
+    pastExperiments,
+    integration
+  );
+  await queryRunner.cancelQueries();
+
+  res.status(200).json({ status: 200 });
 }
 
 export async function getPastExperimentsList(
@@ -1728,18 +2121,15 @@ export async function getPastExperimentsList(
 ) {
   const { org } = getOrgFromReq(req);
   const { id } = req.params;
-  const model = await PastExperimentsModel.findOne({
-    id,
-    organization: org.id,
-  });
+  const pastExperiments = await getPastExperimentsById(org.id, id);
 
-  if (!model) {
+  if (!pastExperiments) {
     throw new Error("Invalid import id");
   }
 
   const experiments = await getPastExperimentsByDatasource(
     org.id,
-    model.datasource
+    pastExperiments.datasource
   );
 
   const experimentMap = new Map<string, string>();
@@ -1748,7 +2138,7 @@ export async function getPastExperimentsList(
   });
 
   const trackingKeyMap: Record<string, string> = {};
-  (model.experiments || []).forEach((e) => {
+  (pastExperiments.experiments || []).forEach((e) => {
     const id = experimentMap.get(e.trackingKey);
     if (id) {
       trackingKeyMap[e.trackingKey] = id;
@@ -1757,7 +2147,7 @@ export async function getPastExperimentsList(
 
   res.status(200).json({
     status: 200,
-    experiments: model,
+    experiments: pastExperiments,
     existing: trackingKeyMap,
   });
 }
@@ -1779,71 +2169,54 @@ export async function postPastExperiments(
     datasourceObj?.projects?.length ? datasourceObj.projects : ""
   );
 
-  const integration = getSourceIntegrationObject(datasourceObj);
-  if (integration.decryptionError) {
-    throw new Error(
-      "Could not decrypt data source credentials. View the data source settings for more info."
-    );
-  }
+  const integration = getSourceIntegrationObject(datasourceObj, true);
+
+  let pastExperiments = await getPastExperimentsModelByDatasource(
+    org.id,
+    datasource
+  );
+
   const start = new Date();
   start.setDate(start.getDate() - IMPORT_LIMIT_DAYS);
-  const now = new Date();
 
-  let model = await PastExperimentsModel.findOne({
-    datasource,
-    organization: org.id,
-  });
-  let runStarted = false;
-  if (!model) {
-    const { queries, result } = await startRun(
-      {
-        experiments: getPastExperiments(integration, start),
-      },
-      processPastExperiments
-    );
-    model = await PastExperimentsModel.create({
-      id: uniqid("imp_"),
+  let needsRun = false;
+  if (!pastExperiments) {
+    pastExperiments = await createPastExperiments({
       organization: org.id,
-      datasource: datasource,
-      experiments: result || [],
-      runStarted: now,
+      datasource,
+      experiments: [],
+      start,
+      queries: [],
+    });
+    needsRun = true;
+  }
+
+  if (force) {
+    needsRun = true;
+    pastExperiments = await updatePastExperiments(pastExperiments, {
       config: {
         start,
-        end: now,
+        end: new Date(),
       },
-      error: "",
-      queries,
-      dateCreated: new Date(),
-      dateUpdated: new Date(),
     });
-    runStarted = true;
-  } else if (force) {
-    const { queries, result } = await startRun(
-      {
-        experiments: getPastExperiments(integration, start),
-      },
-      processPastExperiments
+  }
+
+  if (needsRun) {
+    const queryRunner = new PastExperimentsQueryRunner(
+      pastExperiments,
+      integration
     );
-    model.set("runStarted", now);
-    model.set("error", "");
-    model.set("queries", queries);
-    model.set("config", {
-      start: start,
-      end: new Date(),
+    pastExperiments = await queryRunner.startAnalysis({
+      from: start,
     });
-    if (result) {
-      model.set("experiments", result);
-    }
-    await model.save();
-    runStarted = true;
   }
 
   res.status(200).json({
     status: 200,
-    id: model.id,
+    id: pastExperiments.id,
   });
 
-  if (runStarted) {
+  if (needsRun) {
     await req.audit({
       event: "datasource.import",
       entity: {
@@ -1852,4 +2225,136 @@ export async function postPastExperiments(
       },
     });
   }
+}
+
+export async function postVisualChangeset(
+  req: AuthRequest<Partial<VisualChangesetInterface>, { id: string }>,
+  res: Response
+) {
+  const { org } = getOrgFromReq(req);
+
+  if (!req.body.urlPatterns) {
+    throw new Error("urlPatterns needs to be defined");
+  }
+
+  if (!req.body.editorUrl) {
+    throw new Error("editorUrl needs to be defined");
+  }
+
+  const experiment = await getExperimentById(org.id, req.params.id);
+
+  if (!experiment) {
+    throw new Error("Could not find experiment");
+  }
+
+  const envs = getAffectedEnvsForExperiment({
+    experiment,
+  });
+  envs.length > 0 &&
+    req.checkPermissions("runExperiments", experiment.project, envs);
+
+  const visualChangeset = await createVisualChangeset({
+    experiment,
+    urlPatterns: req.body.urlPatterns,
+    editorUrl: req.body.editorUrl,
+    organization: org,
+    user: res.locals.eventAudit,
+  });
+
+  res.status(200).json({
+    status: 200,
+    visualChangeset,
+  });
+}
+
+export async function putVisualChangeset(
+  req: AuthRequest<Partial<VisualChangesetInterface>, { id: string }>,
+  res: Response
+) {
+  const { org } = getOrgFromReq(req);
+
+  const visualChangeset = await findVisualChangesetById(req.params.id, org.id);
+  if (!visualChangeset) {
+    throw new Error("Visual Changeset not found");
+  }
+
+  const experiment = await getExperimentById(
+    org.id,
+    visualChangeset.experiment
+  );
+
+  const envs = experiment ? getAffectedEnvsForExperiment({ experiment }) : [];
+  req.checkPermissions("runExperiments", experiment?.project || "", envs);
+
+  const ret = await updateVisualChangeset({
+    visualChangeset,
+    experiment,
+    organization: org,
+    updates: req.body,
+    user: res.locals.eventAudit,
+  });
+
+  res.status(200).json({
+    status: 200,
+    data: {
+      nModified: ret.nModified,
+      changesetId: ret.nModified > 0 ? req.params.id : undefined,
+      updates: ret.nModified > 0 ? req.body : undefined,
+    },
+  });
+}
+
+export async function deleteVisualChangeset(
+  req: AuthRequest<null, { id: string }>,
+  res: Response
+) {
+  const { org } = getOrgFromReq(req);
+
+  const visualChangeset = await findVisualChangesetById(req.params.id, org.id);
+  if (!visualChangeset) {
+    throw new Error("Visual Changeset not found");
+  }
+
+  const experiment = await getExperimentById(
+    org.id,
+    visualChangeset.experiment
+  );
+
+  const envs = experiment ? getAffectedEnvsForExperiment({ experiment }) : [];
+  req.checkPermissions("runExperiments", experiment?.project || "", envs);
+
+  await deleteVisualChangesetById({
+    visualChangeset,
+    experiment,
+    organization: org,
+    user: res.locals.eventAudit,
+  });
+
+  res.status(200).json({
+    status: 200,
+  });
+}
+
+export async function findOrCreateVisualEditorToken(
+  req: AuthRequest,
+  res: Response
+) {
+  const { org } = getOrgFromReq(req);
+
+  if (!req.userId) throw new Error("No user found");
+
+  let visualEditorKey = await getVisualEditorApiKey(org.id, req.userId);
+
+  // if not exist, create one
+  if (!visualEditorKey) {
+    visualEditorKey = await createUserVisualEditorApiKey({
+      userId: req.userId,
+      organizationId: org.id,
+      description: `Created automatically for the Visual Editor`,
+    });
+  }
+
+  res.status(200).json({
+    key: visualEditorKey.key,
+  });
 }

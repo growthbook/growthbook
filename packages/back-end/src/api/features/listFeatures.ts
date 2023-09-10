@@ -1,22 +1,21 @@
-import { z } from "zod";
-import { ApiFeatureInterface, ApiPaginationFields } from "../../../types/api";
+import { ListFeaturesResponse } from "../../../types/openapi";
+import { getAllPayloadExperiments } from "../../models/ExperimentModel";
 import { getAllFeatures } from "../../models/FeatureModel";
 import { getApiFeatureObj, getSavedGroupMap } from "../../services/features";
 import { applyPagination, createApiRequestHandler } from "../../util/handler";
+import { listFeaturesValidator } from "../../validators/openapi";
 
-export const listFeatures = createApiRequestHandler({
-  querySchema: z
-    .object({
-      limit: z.string().optional(),
-      offset: z.string().optional(),
-    })
-    .strict(),
-})(
-  async (
-    req
-  ): Promise<ApiPaginationFields & { features: ApiFeatureInterface[] }> => {
-    const features = await getAllFeatures(req.organization.id);
+export const listFeatures = createApiRequestHandler(listFeaturesValidator)(
+  async (req): Promise<ListFeaturesResponse> => {
+    const features = await getAllFeatures(
+      req.organization.id,
+      req.query.projectId
+    );
     const groupMap = await getSavedGroupMap(req.organization);
+    const experimentMap = await getAllPayloadExperiments(
+      req.organization.id,
+      req.query.projectId
+    );
 
     // TODO: Move sorting/limiting to the database query for better performance
     const { filtered, returnFields } = applyPagination(
@@ -28,7 +27,12 @@ export const listFeatures = createApiRequestHandler({
 
     return {
       features: filtered.map((feature) =>
-        getApiFeatureObj(feature, req.organization, groupMap)
+        getApiFeatureObj({
+          feature,
+          organization: req.organization,
+          groupMap,
+          experimentMap,
+        })
       ),
       ...returnFields,
     };

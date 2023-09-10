@@ -10,8 +10,12 @@ import {
 } from "../src/util/features";
 import { getCurrentEnabledState } from "../src/util/scheduleRules";
 import { FeatureInterface, ScheduleRule } from "../types/feature";
+import { hashStrings } from "../src/services/features";
+import { SDKAttributeSchema } from "../types/organization";
+import { ExperimentInterface } from "../types/experiment";
 
 const groupMap = new Map();
+const experimentMap = new Map();
 
 const baseFeature: FeatureInterface = {
   id: "feature",
@@ -189,6 +193,158 @@ describe("replaceSavedGroupsInCondition", () => {
     expect(replaceSavedGroupsInCondition(rawCondition, groupMap)).toEqual(
       '{"number":{"$inGroup":false}}'
     );
+  });
+});
+
+describe("Hashing secureString types", () => {
+  const attributes: SDKAttributeSchema = [
+    { property: "id", datatype: "secureString" },
+    { property: "company", datatype: "string" },
+    { property: "ids", datatype: "secureString[]" },
+    { property: "email", datatype: "string" },
+    { property: "whatever", datatype: "number" },
+  ];
+
+  const secureAttributeSalt = "fa37ffz";
+
+  it("should selectively hash secureString types for simple conditions", () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let condition: any = {
+      ids: {
+        $elemMatch: {
+          $eq: "5",
+        },
+      },
+      id: {
+        $in: ["3", "5", "10"],
+        $ne: "5",
+      },
+      company: "AcmeCo",
+    };
+
+    condition = hashStrings({
+      obj: condition,
+      salt: secureAttributeSalt,
+      attributes,
+    });
+
+    expect(condition).toEqual({
+      ids: {
+        $elemMatch: {
+          $eq:
+            "855279ed7f7f86a26b1c9f6a5c827b35728638219b0dae61db6b0578d8e21360",
+        },
+      },
+      id: {
+        $in: [
+          "5ec1a7686c15f1fef131baea7d59acf29f2623d50dbad079a2685e19158ad494",
+          "855279ed7f7f86a26b1c9f6a5c827b35728638219b0dae61db6b0578d8e21360",
+          "cfec6b2485875c0172509320a1076d9d91cc9fd7fb70ed4d2d4c62d29b1a9ce3",
+        ],
+        $ne: "855279ed7f7f86a26b1c9f6a5c827b35728638219b0dae61db6b0578d8e21360",
+      },
+      company: "AcmeCo",
+    });
+  });
+
+  it("should selectively match secureString types for advanced nested conditions", () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let condition: any = {
+      $or: [
+        {
+          $and: [
+            {
+              $not: {
+                email: "test@example.com",
+              },
+            },
+            {
+              $not: {
+                id: "4",
+              },
+            },
+          ],
+        },
+        {
+          id: {
+            $in: ["3"],
+          },
+        },
+        {
+          company: "AcmeCo",
+        },
+        {
+          whatever: "1",
+        },
+        {
+          id: ["3", "5", "10"],
+        },
+      ],
+      id: {
+        $not: {
+          $elemMatch: {
+            $in: ["b", "c", "d"],
+          },
+        },
+      },
+    };
+
+    condition = hashStrings({
+      obj: condition,
+      salt: secureAttributeSalt,
+      attributes,
+    });
+
+    expect(condition).toEqual({
+      $or: [
+        {
+          $and: [
+            {
+              $not: {
+                email: "test@example.com",
+              },
+            },
+            {
+              $not: {
+                id:
+                  "29532748527922fa2c4b8b02388d1fe3dedc42c86ba021265cfc693c622c0ad3",
+              },
+            },
+          ],
+        },
+        {
+          id: {
+            $in: [
+              "5ec1a7686c15f1fef131baea7d59acf29f2623d50dbad079a2685e19158ad494",
+            ],
+          },
+        },
+        {
+          company: "AcmeCo",
+        },
+        {
+          whatever: "1",
+        },
+        {
+          id: [
+            "5ec1a7686c15f1fef131baea7d59acf29f2623d50dbad079a2685e19158ad494",
+            "855279ed7f7f86a26b1c9f6a5c827b35728638219b0dae61db6b0578d8e21360",
+            "cfec6b2485875c0172509320a1076d9d91cc9fd7fb70ed4d2d4c62d29b1a9ce3",
+          ],
+        },
+      ],
+      id: {
+        $not: {
+          $elemMatch: {
+            $in: [
+              "4d07b4e570f0e719baa23054c01a49eabfe55952c2161c28b73d1f98cfdc4991",
+              "b1f66640509e58acb4b99afd32ecf51d1b8e61d577b909d2e7a3d2a48a53ed51",
+              "374877627d479396ae4c4bae9bf06fe1f0db9d6571ddb23479a2ff76ff925c0f",
+            ],
+          },
+        },
+      },
+    });
   });
 });
 
@@ -604,6 +760,196 @@ describe("SDK Payloads", () => {
     expect(getJSONValue("json", '{"foo": 1}')).toEqual({ foo: 1 });
   });
 
+  it("Uses linked experiments to build feature definitions", () => {
+    const feature = cloneDeep(baseFeature);
+    feature.environmentSettings["production"].rules = [
+      {
+        type: "experiment-ref",
+        experimentId: "exp_123",
+        description: "",
+        id: "abc",
+        enabled: true,
+        variations: [
+          {
+            variationId: "v0",
+            value: "false",
+          },
+          {
+            variationId: "v1",
+            value: "true",
+          },
+        ],
+      },
+    ];
+
+    const exp: ExperimentInterface = {
+      archived: false,
+      autoAssign: false,
+      implementation: "code",
+      autoSnapshots: false,
+      datasource: "",
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
+      exposureQueryId: "",
+      hashAttribute: "user_id",
+      hashVersion: 2,
+      id: "exp_123",
+      metrics: [],
+      name: "My Experiment",
+      organization: "",
+      owner: "",
+      phases: [
+        {
+          condition: `{"country":"us"}`,
+          coverage: 0.8,
+          dateStarted: new Date(),
+          name: "My Phase",
+          namespace: {
+            enabled: true,
+            name: "namespace",
+            range: [0, 0.6],
+          },
+          reason: "",
+          variationWeights: [0.4, 0.6],
+          seed: "testing",
+        },
+      ],
+      previewURL: "",
+      releasedVariationId: "",
+      status: "running",
+      tags: [],
+      targetURLRegex: "",
+      trackingKey: "exp-key",
+      variations: [
+        {
+          id: "v0",
+          key: "k0",
+          name: "Control",
+          screenshots: [],
+        },
+        {
+          id: "v1",
+          key: "k1",
+          name: "Variation 1",
+          screenshots: [],
+        },
+      ],
+      linkedFeatures: ["feature"],
+      excludeFromPayload: false,
+    };
+    const experimentMap = new Map([["exp_123", exp]]);
+
+    // Includes the experiment
+    expect(
+      getFeatureDefinition({
+        feature,
+        environment: "production",
+        groupMap: groupMap,
+        experimentMap: experimentMap,
+        useDraft: false,
+      })
+    ).toEqual({
+      defaultValue: true,
+      rules: [
+        {
+          key: "exp-key",
+          coverage: 0.8,
+          hashAttribute: "user_id",
+          hashVersion: 2,
+          condition: {
+            country: "us",
+          },
+          meta: [
+            {
+              key: "k0",
+              name: "Control",
+            },
+            {
+              key: "k1",
+              name: "Variation 1",
+            },
+          ],
+          name: "My Experiment",
+          namespace: ["namespace", 0, 0.6],
+          phase: "0",
+          seed: "testing",
+          variations: [false, true],
+          weights: [0.4, 0.6],
+        },
+      ],
+    });
+
+    // Excludes because it's archived
+    exp.archived = true;
+    expect(
+      getFeatureDefinition({
+        feature,
+        environment: "production",
+        groupMap: groupMap,
+        experimentMap: experimentMap,
+        useDraft: false,
+      })
+    ).toEqual({
+      defaultValue: true,
+    });
+
+    // Excludes because it's stopped without a released variation
+    exp.archived = false;
+    exp.status = "stopped";
+    expect(
+      getFeatureDefinition({
+        feature,
+        environment: "production",
+        groupMap: groupMap,
+        experimentMap: experimentMap,
+        useDraft: false,
+      })
+    ).toEqual({
+      defaultValue: true,
+    });
+
+    // Included with released variation id
+    exp.releasedVariationId = "v1";
+    expect(
+      getFeatureDefinition({
+        feature,
+        environment: "production",
+        groupMap: groupMap,
+        experimentMap: experimentMap,
+        useDraft: false,
+      })
+    ).toEqual({
+      defaultValue: true,
+      rules: [
+        {
+          coverage: 0.8,
+          hashAttribute: "user_id",
+          hashVersion: 2,
+          condition: {
+            country: "us",
+          },
+          namespace: ["namespace", 0, 0.6],
+          seed: "testing",
+          force: true,
+        },
+      ],
+    });
+
+    // Excluded because the experiment doesn't exist
+    experimentMap.clear();
+    expect(
+      getFeatureDefinition({
+        feature,
+        environment: "production",
+        groupMap: groupMap,
+        experimentMap: experimentMap,
+        useDraft: false,
+      })
+    ).toEqual({
+      defaultValue: true,
+    });
+  });
+
   it("Gets Feature Definitions", () => {
     const feature = cloneDeep(baseFeature);
 
@@ -612,6 +958,7 @@ describe("SDK Payloads", () => {
         feature,
         environment: "production",
         groupMap: groupMap,
+        experimentMap: experimentMap,
         useDraft: false,
       })
     ).toEqual({
@@ -625,6 +972,7 @@ describe("SDK Payloads", () => {
         feature,
         environment: "production",
         groupMap: groupMap,
+        experimentMap: experimentMap,
         useDraft: false,
       })
     ).toEqual(null);
@@ -634,6 +982,7 @@ describe("SDK Payloads", () => {
         feature,
         environment: "unknown",
         groupMap: groupMap,
+        experimentMap: experimentMap,
         useDraft: false,
       })
     ).toEqual(null);
@@ -708,6 +1057,7 @@ describe("SDK Payloads", () => {
         feature,
         environment: "dev",
         groupMap: groupMap,
+        experimentMap: experimentMap,
         useDraft: false,
       })
     ).toEqual({
@@ -728,6 +1078,7 @@ describe("SDK Payloads", () => {
           coverage: 1,
           hashAttribute: "anonymous_id",
           variations: [true, false],
+          meta: [{ key: "0" }, { key: "1" }],
           weights: [0.7, 0.3],
           key: "testing",
         },

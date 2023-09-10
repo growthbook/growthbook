@@ -1,10 +1,9 @@
 from abc import ABC, abstractmethod
 from warnings import warn
 import numpy as np
-from scipy.stats import beta, norm, rv_continuous
-from scipy.special import digamma, polygamma, roots_hermitenorm
+from scipy.stats import beta, norm, rv_continuous  # type: ignore
+from scipy.special import digamma, polygamma, roots_hermitenorm  # type: ignore
 from .orthogonal import roots_sh_jacobi
-from gbstats.bayesian.constants import EPSILON
 
 
 class BayesABDist(ABC):
@@ -22,11 +21,12 @@ class BayesABDist(ABC):
 
     @staticmethod
     @abstractmethod
-    def moments(par1, par2, log=False):
+    def moments(par1, par2, log=False, epsilon=1e-4):
         """
         :type par1: float or ndarray
         :type par2: float or ndarray
         :type log: bool
+        :type epsilon: float
         :rtype: Tuple[float or ndarray, float or ndarray]
         """
         raise NotImplementedError
@@ -106,7 +106,7 @@ class Norm(BayesABDist):
         return loc, scale
 
     @staticmethod
-    def moments(par1, par2, log=False):
+    def moments(par1, par2, log=False, epsilon=1e-4):
         if np.sum(par2 < 0):
             raise RuntimeError("got negative standard deviation.")
 
@@ -115,9 +115,9 @@ class Norm(BayesABDist):
                 raise RuntimeError("got mu <= 0. cannot use log approximation.")
 
             max_prob = np.max(norm.cdf(0, par1, par2))
-            if max_prob > EPSILON:
+            if max_prob > epsilon:
                 warn(
-                    f"probability of being negative is higher than {EPSILON} (={max_prob}). "
+                    f"probability of being negative is higher than {epsilon} (={max_prob}). "
                     f"log approximation is in-exact",
                     RuntimeWarning,
                 )

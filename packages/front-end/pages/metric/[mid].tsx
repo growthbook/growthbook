@@ -2,12 +2,19 @@ import { useRouter } from "next/router";
 import React, { FC, useState, useEffect, Fragment } from "react";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import Link from "next/link";
-import { FaAngleLeft, FaChevronRight } from "react-icons/fa";
+import {
+  FaAngleLeft,
+  FaArchive,
+  FaChevronRight,
+  FaQuestionCircle,
+  FaTimes,
+} from "react-icons/fa";
 import { MetricInterface } from "back-end/types/metric";
 import { useForm } from "react-hook-form";
 import { BsGear } from "react-icons/bs";
-import clsx from "clsx";
 import { IdeaInterface } from "back-end/types/idea";
+import { date } from "shared/dates";
+import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import useApi from "@/hooks/useApi";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import DiscussionThread from "@/components/DiscussionThread";
@@ -28,7 +35,6 @@ import Tab from "@/components/Tabs/Tab";
 import StatusIndicator from "@/components/Experiment/StatusIndicator";
 import HistoryTable from "@/components/HistoryTable";
 import DateGraph from "@/components/Metrics/DateGraph";
-import { date } from "@/services/dates";
 import RunQueriesButton, {
   getQueryStatus,
 } from "@/components/Queries/RunQueriesButton";
@@ -50,18 +56,25 @@ import MarkdownInlineEdit from "@/components/Markdown/MarkdownInlineEdit";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import ProjectBadges from "@/components/ProjectBadges";
 import EditProjectsForm from "@/components/Projects/EditProjectsForm";
-import { GBEdit } from "@/components/Icons";
+import { GBCuped, GBEdit } from "@/components/Icons";
+import Toggle from "@/components/Forms/Toggle";
+import Tooltip from "@/components/Tooltip/Tooltip";
+import { useCurrency } from "@/hooks/useCurrency";
+import { DeleteDemoDatasourceButton } from "@/components/DemoDataSourcePage/DemoDataSourcePage";
+import { useUser } from "@/services/UserContext";
 
 const MetricPage: FC = () => {
   const router = useRouter();
   const { mid } = router.query;
   const permissions = usePermissions();
+  const displayCurrency = useCurrency();
   const { apiCall } = useAuth();
   const {
     mutateDefinitions,
     getDatasourceById,
     getSegmentById,
     getMetricById,
+    metrics,
     segments,
   } = useDefinitions();
   const settings = useOrgSettings();
@@ -71,17 +84,30 @@ const MetricPage: FC = () => {
   const [editProjects, setEditProjects] = useState(false);
   const [editOwnerModal, setEditOwnerModal] = useState(false);
   const [segmentOpen, setSegmentOpen] = useState(false);
-  const storageKey = `metric_groupby`; // to make metric-specific, include `${mid}`
-  const [groupby, setGroupby] = useLocalStorage<"day" | "week">(
-    storageKey,
+  const storageKeyAvg = `metric_smoothBy_avg`; // to make metric-specific, include `${mid}`
+  const storageKeySum = `metric_smoothBy_sum`;
+  const [smoothByAvg, setSmoothByAvg] = useLocalStorage<"day" | "week">(
+    storageKeyAvg,
     "day"
   );
+  const [smoothBySum, setSmoothBySum] = useLocalStorage<"day" | "week">(
+    storageKeySum,
+    "day"
+  );
+
+  const [hoverDate, setHoverDate] = useState<number | null>(null);
+  const onHoverCallback = (ret: { d: number | null }) => {
+    setHoverDate(ret.d);
+  };
+
+  const { organization } = useUser();
 
   const { data, error, mutate } = useApi<{
     metric: MetricInterface;
     experiments: Partial<ExperimentInterfaceStringDates>[];
   }>(`/metric/${mid}`);
 
+  // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'string | undefined' is not assig... Remove this comment to see the full error message
   useSwitchOrg(data?.metric?.organization);
 
   const {
@@ -118,17 +144,39 @@ const MetricPage: FC = () => {
 
   let analysis = data.metric.analysis;
   if (!analysis || !("average" in analysis)) {
+    // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'null' is not assignable to type 'MetricAnaly... Remove this comment to see the full error message
     analysis = null;
   }
 
+  // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'string | undefined' is not assig... Remove this comment to see the full error message
   const segment = getSegmentById(metric.segment);
 
   const supportsSQL = datasource?.properties?.queryLanguage === "sql";
   const customzeTimestamp = supportsSQL;
   const customizeUserIds = supportsSQL;
 
-  const status = getQueryStatus(metric.queries || [], metric.analysisError);
+  const { status } = getQueryStatus(metric.queries || [], metric.analysisError);
   const hasQueries = metric.queries?.length > 0;
+
+  let regressionAdjustmentAvailableForMetric = true;
+  let regressionAdjustmentAvailableForMetricReason = <></>;
+  const denominator = metric.denominator
+    ? metrics.find((m) => m.id === metric.denominator)
+    : undefined;
+  if (denominator && denominator.type === "count") {
+    regressionAdjustmentAvailableForMetric = false;
+    regressionAdjustmentAvailableForMetricReason = (
+      <>
+        Not available for ratio metrics with <em>count</em> denominators.
+      </>
+    );
+  }
+  if (metric.aggregation) {
+    regressionAdjustmentAvailableForMetric = false;
+    regressionAdjustmentAvailableForMetricReason = (
+      <>Not available for metrics with custom aggregations.</>
+    );
+  }
 
   const getMetricUsage = (metric: MetricInterface) => {
     return async () => {
@@ -144,29 +192,39 @@ const MetricPage: FC = () => {
         const experimentLinks = [];
         const ideaLinks = [];
         let subtitleText = "This metric is not referenced anywhere else.";
+        // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
         if (res.ideas?.length > 0 || res.experiments?.length > 0) {
           subtitleText = "This metric is referenced in ";
           const refs = [];
+          // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
           if (res.experiments.length) {
             refs.push(
+              // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
               res.experiments.length === 1
                 ? "1 experiment"
-                : res.experiments.length + " experiments"
+                : // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
+                  res.experiments.length + " experiments"
             );
+            // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
             res.experiments.forEach((e) => {
               experimentLinks.push(
+                // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'Element' is not assignable to pa... Remove this comment to see the full error message
                 <Link href={`/experiment/${e.id}`}>
-                  <a className="">{e.name}</a>
+                  <a>{e.name}</a>
                 </Link>
               );
             });
           }
+          // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
           if (res.ideas.length) {
             refs.push(
+              // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
               res.ideas.length === 1 ? "1 idea" : res.ideas.length + " ideas"
             );
+            // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
             res.ideas.forEach((i) => {
               ideaLinks.push(
+                // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'Element' is not assignable to pa... Remove this comment to see the full error message
                 <Link href={`/idea/${i.id}`}>
                   <a>{i.text}</a>
                 </Link>
@@ -191,7 +249,7 @@ const MetricPage: FC = () => {
                           {experimentLinks.map((l, i) => {
                             return (
                               <Fragment key={i}>
-                                <li className="">{l}</li>
+                                <li>{l}</li>
                               </Fragment>
                             );
                           })}
@@ -205,7 +263,7 @@ const MetricPage: FC = () => {
                           {ideaLinks.map((l, i) => {
                             return (
                               <Fragment key={i}>
-                                <li className="">{l}</li>
+                                <li>{l}</li>
                               </Fragment>
                             );
                           })}
@@ -259,6 +317,7 @@ const MetricPage: FC = () => {
         <EditTagsForm
           cancel={() => setEditTags(false)}
           mutate={mutate}
+          // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'string[] | undefined' is not assignable to t... Remove this comment to see the full error message
           tags={metric.tags}
           save={async (tags) => {
             await apiCall(`/metric/${metric.id}`, {
@@ -274,6 +333,7 @@ const MetricPage: FC = () => {
         <EditProjectsForm
           cancel={() => setEditProjects(false)}
           mutate={mutate}
+          // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'string[] | undefined' is not assignable to t... Remove this comment to see the full error message
           projects={metric.projects}
           save={async (projects) => {
             await apiCall(`/metric/${metric.id}`, {
@@ -336,6 +396,23 @@ const MetricPage: FC = () => {
         </div>
       )}
 
+      {metric.projects?.includes(
+        getDemoDatasourceProjectIdForOrganization(organization.id)
+      ) && (
+        <div className="alert alert-info mb-3 d-flex align-items-center mt-3">
+          <div className="flex-1">
+            This metric is part of our sample dataset. You can safely delete
+            this once you are done exploring.
+          </div>
+          <div style={{ width: 180 }} className="ml-2">
+            <DeleteDemoDatasourceButton
+              onDelete={() => router.push("/metrics")}
+              source="metric"
+            />
+          </div>
+        </div>
+      )}
+
       <div className="row align-items-center mb-2">
         <h1 className="col-auto">{metric.name}</h1>
         <div style={{ flex: 1 }} />
@@ -343,9 +420,10 @@ const MetricPage: FC = () => {
           <div className="col-auto">
             <MoreMenu>
               <DeleteButton
-                className="dropdown-item"
+                className="btn dropdown-item py-2"
                 text="Delete"
                 title="Delete this metric"
+                // @ts-expect-error TS(2322) If you come across this, please fix it!: Type '() => Promise<JSX.Element | undefined>' is n... Remove this comment to see the full error message
                 getConfirmationContent={getMetricUsage(metric)}
                 onClick={async () => {
                   await apiCall(`/metric/${metric.id}`, {
@@ -354,11 +432,11 @@ const MetricPage: FC = () => {
                   mutateDefinitions({});
                   router.push("/metrics");
                 }}
-                useIcon={false}
+                useIcon={true}
                 displayName={"Metric '" + metric.name + "'"}
               />
               <Button
-                className="dropdown-item"
+                className="btn dropdown-item py-2"
                 color=""
                 onClick={async () => {
                   const newStatus =
@@ -373,6 +451,7 @@ const MetricPage: FC = () => {
                   mutate();
                 }}
               >
+                <FaArchive />{" "}
                 {metric.status === "archived" ? "Unarchive" : "Archive"}
               </Button>
             </MoreMenu>
@@ -382,6 +461,7 @@ const MetricPage: FC = () => {
       <div className="row mb-3 align-items-center">
         <div className="col">
           Projects:{" "}
+          {/* @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'. */}
           {metric?.projects?.length > 0 ? (
             <ProjectBadges
               projectIds={metric.projects}
@@ -393,6 +473,7 @@ const MetricPage: FC = () => {
           {canEditProjects && (
             <a
               href="#"
+              className="ml-2"
               onClick={(e) => {
                 e.preventDefault();
                 setEditProjects(true);
@@ -482,9 +563,43 @@ const MetricPage: FC = () => {
                         <div className="col-auto">
                           <h3 className="d-inline-block mb-0">Data Preview</h3>
                         </div>
+                        <div className="small col-auto">
+                          {segments.length > 0 && (
+                            <>
+                              {segment?.name ? (
+                                <>
+                                  Segment applied:{" "}
+                                  <span className="badge badge-primary mr-1">
+                                    {segment?.name || "Everyone"}
+                                  </span>
+                                </>
+                              ) : (
+                                <span className="mr-1">Apply a segment</span>
+                              )}
+                              {canEditMetric &&
+                                permissions.check(
+                                  "runQueries",
+                                  metric.projects || ""
+                                ) && (
+                                  <a
+                                    onClick={(e) => {
+                                      e.preventDefault();
+                                      setSegmentOpen(true);
+                                    }}
+                                    href="#"
+                                  >
+                                    <BsGear />
+                                  </a>
+                                )}
+                            </>
+                          )}
+                        </div>
                         <div style={{ flex: 1 }} />
                         <div className="col-auto">
-                          {permissions.check("runQueries", "") && (
+                          {permissions.check(
+                            "runQueries",
+                            metric.projects || ""
+                          ) && (
                             <form
                               onSubmit={async (e) => {
                                 e.preventDefault();
@@ -504,55 +619,28 @@ const MetricPage: FC = () => {
                               <RunQueriesButton
                                 icon="refresh"
                                 cta={analysis ? "Refresh Data" : "Run Analysis"}
-                                initialStatus={getQueryStatus(
-                                  metric.queries || [],
-                                  metric.analysisError
-                                )}
-                                statusEndpoint={`/metric/${metric.id}/analysis/status`}
+                                mutate={mutate}
+                                model={metric}
                                 cancelEndpoint={`/metric/${metric.id}/analysis/cancel`}
                                 color="outline-primary"
-                                onReady={() => {
-                                  mutate();
-                                }}
                               />
                             </form>
                           )}
                         </div>
                       </div>
-                      <div className="row justify-content-between">
-                        <div className="col-auto">
-                          {segments.length > 0 && (
+                      <div className="row flex justify-content-between">
+                        <div className="small text-muted col">
+                          {denominator && (
                             <>
-                              {segment?.name ? (
-                                <>
-                                  Segment applied:{" "}
-                                  <span className="badge badge-primary mr-1">
-                                    {segment?.name || "Everyone"}
-                                  </span>
-                                </>
-                              ) : (
-                                <span className="mr-1">No segment applied</span>
-                              )}
-                              {canEditMetric &&
-                                permissions.check("runQueries", "") && (
-                                  <a
-                                    onClick={(e) => {
-                                      e.preventDefault();
-                                      setSegmentOpen(true);
-                                    }}
-                                    href="#"
-                                  >
-                                    <BsGear />
-                                  </a>
-                                )}
+                              The data below only aggregates the numerator. The
+                              denominator ({denominator.name}) is only used in
+                              experiment analyses.
                             </>
                           )}
                         </div>
                         {analysis && (
-                          <div className="col-auto text-muted">
-                            <small>
-                              Last updated on {date(analysis?.createdAt)}
-                            </small>
+                          <div className="small text-muted col-auto">
+                            Last updated on {date(analysis?.createdAt)}
                           </div>
                         )}
                       </div>
@@ -598,7 +686,8 @@ const MetricPage: FC = () => {
                               <div style={{ fontSize: "2.5em" }}>
                                 {formatConversionRate(
                                   metric.type,
-                                  analysis.average
+                                  analysis.average,
+                                  displayCurrency
                                 )}
                               </div>
                               <div className="pb-2 ml-1">average</div>
@@ -608,7 +697,7 @@ const MetricPage: FC = () => {
                       )}
                       {analysis?.dates && analysis.dates.length > 0 && (
                         <div className="mb-4">
-                          <div className="row mb-3">
+                          <div className="row mt-3">
                             <div className="col-auto">
                               <h5 className="mb-1 mt-1">
                                 {metric.type === "binomial"
@@ -617,40 +706,148 @@ const MetricPage: FC = () => {
                                 Over Time
                               </h5>
                             </div>
-                            <div className="col-auto">
-                              <a
-                                className={clsx("badge badge-pill mr-2", {
-                                  "badge-light": groupby === "week",
-                                  "badge-primary": groupby === "day",
-                                })}
-                                href="#"
-                                onClick={(e) => {
-                                  e.preventDefault();
-                                  setGroupby("day");
-                                }}
-                              >
-                                day
-                              </a>
-                              <a
-                                className={clsx("badge badge-pill", {
-                                  "badge-light": groupby === "day",
-                                  "badge-primary": groupby === "week",
-                                })}
-                                href="#"
-                                onClick={(e) => {
-                                  e.preventDefault();
-                                  setGroupby("week");
-                                }}
-                              >
-                                week
-                              </a>
-                            </div>
                           </div>
 
+                          {metric.type !== "binomial" && (
+                            <>
+                              <div className="row mt-4 mb-1">
+                                <div className="col">
+                                  <Tooltip
+                                    body={
+                                      <>
+                                        <p>
+                                          This figure shows the average metric
+                                          value on a day divided by number of
+                                          unique units (e.g. users) in the
+                                          metric source on that day.
+                                        </p>
+                                        <p>
+                                          The standard deviation shows the
+                                          spread of the daily user metric
+                                          values.
+                                        </p>
+                                        <p>
+                                          When smoothing is turned on, we simply
+                                          average values and standard deviations
+                                          over the 7 trailing days (including
+                                          the selected day).
+                                        </p>
+                                      </>
+                                    }
+                                  >
+                                    <strong className="ml-4 align-bottom">
+                                      Daily Average <FaQuestionCircle />
+                                    </strong>
+                                  </Tooltip>
+                                </div>
+                                <div className="col">
+                                  <div className="float-right mr-2">
+                                    <label
+                                      className="small my-0 mr-2 text-right align-middle"
+                                      htmlFor="toggle-group-by-avg"
+                                    >
+                                      Smoothing
+                                      <br />
+                                      (7 day trailing)
+                                    </label>
+                                    <Toggle
+                                      value={smoothByAvg === "week"}
+                                      setValue={() =>
+                                        setSmoothByAvg(
+                                          smoothByAvg === "week"
+                                            ? "day"
+                                            : "week"
+                                        )
+                                      }
+                                      id="toggle-group-by-avg"
+                                      className="align-middle"
+                                    />
+                                  </div>
+                                </div>
+                              </div>
+                              <DateGraph
+                                type={metric.type}
+                                method="avg"
+                                dates={analysis.dates}
+                                smoothBy={smoothByAvg}
+                                onHover={onHoverCallback}
+                                hoverDate={hoverDate}
+                              />
+                            </>
+                          )}
+
+                          <div className="row mt-4 mb-1">
+                            <div className="col">
+                              <Tooltip
+                                body={
+                                  <>
+                                    {metric.type !== "binomial" ? (
+                                      <>
+                                        <p>
+                                          This figure shows the daily sum of
+                                          values in the metric source on that
+                                          day.
+                                        </p>
+                                        <p>
+                                          When smoothing is turned on, we simply
+                                          average values over the 7 trailing
+                                          days (including the selected day).
+                                        </p>
+                                      </>
+                                    ) : (
+                                      <>
+                                        <p>
+                                          This figure shows the total count of
+                                          units (e.g. users) in the metric
+                                          source on that day.
+                                        </p>
+                                        <p>
+                                          When smoothing is turned on, we simply
+                                          average counts over the 7 trailing
+                                          days (including the selected day).
+                                        </p>
+                                      </>
+                                    )}
+                                  </>
+                                }
+                              >
+                                <strong className="ml-4 align-bottom">
+                                  Daily{" "}
+                                  {metric.type !== "binomial" ? "Sum" : "Count"}{" "}
+                                  <FaQuestionCircle />
+                                </strong>
+                              </Tooltip>
+                            </div>
+                            <div className="col">
+                              <div className="float-right mr-2">
+                                <label
+                                  className="small my-0 mr-2 text-right align-middle"
+                                  htmlFor="toggle-group-by-sum"
+                                >
+                                  Smoothing
+                                  <br />
+                                  (7 day trailing)
+                                </label>
+                                <Toggle
+                                  value={smoothBySum === "week"}
+                                  setValue={() =>
+                                    setSmoothBySum(
+                                      smoothBySum === "week" ? "day" : "week"
+                                    )
+                                  }
+                                  id="toggle-group-by-sum"
+                                  className="align-middle"
+                                />
+                              </div>
+                            </div>
+                          </div>
                           <DateGraph
                             type={metric.type}
+                            method="sum"
                             dates={analysis.dates}
-                            groupby={groupby}
+                            smoothBy={smoothBySum}
+                            onHover={onHoverCallback}
+                            hoverDate={hoverDate}
                           />
                         </div>
                       )}
@@ -690,6 +887,7 @@ const MetricPage: FC = () => {
                       <div className="d-flex">
                         <strong className="mr-3">{e.name}</strong>
                         <div style={{ flex: 1 }} />
+                        {/* @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'ExperimentStatus | undefined' is not assigna... Remove this comment to see the full error message */}
                         <StatusIndicator archived={false} status={e.status} />
                         <FaChevronRight
                           className="ml-3"
@@ -774,6 +972,7 @@ const MetricPage: FC = () => {
               canOpen={canEditProjects}
             >
               <RightRailSectionGroup>
+                {/* @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'. */}
                 {metric?.projects?.length > 0 ? (
                   <ProjectBadges
                     projectIds={metric.projects}
@@ -805,6 +1004,24 @@ const MetricPage: FC = () => {
                           {metric.userIdTypes}
                         </RightRailSectionGroup>
                       )}
+                      {metric.templateVariables?.eventName && (
+                        <RightRailSectionGroup title="Event Name" type="custom">
+                          <span className="font-weight-bold">
+                            {metric.templateVariables.eventName}
+                          </span>
+                        </RightRailSectionGroup>
+                      )}
+                      {metric.type != "binomial" &&
+                        metric.templateVariables?.valueColumn && (
+                          <RightRailSectionGroup
+                            title="Value Column"
+                            type="custom"
+                          >
+                            <span className="font-weight-bold">
+                              {metric.templateVariables.valueColumn}
+                            </span>
+                          </RightRailSectionGroup>
+                        )}
                       <RightRailSectionGroup title="Metric SQL" type="custom">
                         <Code language="sql" code={metric.sql} />
                       </RightRailSectionGroup>
@@ -837,8 +1054,10 @@ const MetricPage: FC = () => {
                       >
                         {metric.table}
                       </RightRailSectionGroup>
+                      {/* @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'. */}
                       {metric.conditions?.length > 0 && (
                         <RightRailSectionGroup title="Conditions" type="list">
+                          {/* @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'. */}
                           {metric.conditions.map(
                             (c) => `${c.column} ${c.operator} "${c.value}"`
                           )}
@@ -909,58 +1128,64 @@ const MetricPage: FC = () => {
               open={() => setEditModalOpen(2)}
               canOpen={canEditMetric}
             >
-              <RightRailSectionGroup type="commaList" empty="">
-                {[
-                  metric.inverse ? "inverse" : null,
-                  metric.cap > 0 ? `cap: ${metric.cap}` : null,
-                  metric.ignoreNulls ? "converted users only" : null,
-                ]}
+              <RightRailSectionGroup type="custom" empty="" className="mt-3">
+                <ul className="right-rail-subsection list-unstyled mb-4">
+                  {metric.inverse && (
+                    <li className="mb-2">
+                      <span className="text-gray">Goal:</span>{" "}
+                      <span className="font-weight-bold">Inverse</span>
+                    </li>
+                  )}
+                  {metric.capping && metric.capValue && (
+                    <li className="mb-2">
+                      <span className="text-gray">
+                        Cap value ({metric.capping}):{" "}
+                      </span>
+                      <span className="font-weight-bold">
+                        {metric.capValue}{" "}
+                        {metric.capping === "percentile"
+                          ? `(${100 * metric.capValue} pctile)`
+                          : ""}{" "}
+                      </span>
+                    </li>
+                  )}
+                  {metric.ignoreNulls && (
+                    <li className="mb-2">
+                      <span className="text-gray">Converted users only:</span>{" "}
+                      <span className="font-weight-bold">Yes</span>
+                    </li>
+                  )}
+                </ul>
               </RightRailSectionGroup>
 
               {datasource?.properties?.metricCaps && (
-                <RightRailSectionGroup
-                  type="commaList"
-                  title="Conversion Window"
-                >
-                  <span>
-                    {metric.conversionDelayHours
-                      ? metric.conversionDelayHours + " to "
-                      : ""}
-                    {(metric.conversionDelayHours || 0) +
-                      (metric.conversionWindowHours ||
-                        getDefaultConversionWindowHours())}{" "}
-                    hours
-                  </span>
+                <RightRailSectionGroup type="custom" empty="">
+                  <ul className="right-rail-subsection list-unstyled mb-4">
+                    <li className="mt-3 mb-1">
+                      <span className="uppercase-title lg">
+                        Conversion Window
+                      </span>
+                    </li>
+                    <li>
+                      <span className="font-weight-bold">
+                        {metric.conversionDelayHours
+                          ? metric.conversionDelayHours + " to "
+                          : ""}
+                        {(metric.conversionDelayHours || 0) +
+                          (metric.conversionWindowHours ||
+                            getDefaultConversionWindowHours())}{" "}
+                        hours
+                      </span>
+                    </li>
+                  </ul>
                 </RightRailSectionGroup>
               )}
 
               <RightRailSectionGroup type="custom" empty="">
-                <ul className="right-rail-subsection list-unstyled">
-                  {settings.statsEngine !== "frequentist" && (
-                    <>
-                      <li className="mb-2">
-                        <span className="uppercase-title">Thresholds</span>
-                      </li>
-                      <li className="mb-2">
-                        <span className="text-gray">Acceptable risk &lt;</span>{" "}
-                        <span className="font-weight-bold">
-                          {metric?.winRisk * 100 ||
-                            defaultWinRiskThreshold * 100}
-                          %
-                        </span>
-                      </li>
-                      <li className="mb-2">
-                        <span className="text-gray">
-                          Unacceptable risk &gt;
-                        </span>{" "}
-                        <span className="font-weight-bold">
-                          {metric?.loseRisk * 100 ||
-                            defaultLoseRiskThreshold * 100}
-                          %
-                        </span>
-                      </li>
-                    </>
-                  )}
+                <ul className="right-rail-subsection list-unstyled mb-4">
+                  <li className="mt-3 mb-1">
+                    <span className="uppercase-title lg">Thresholds</span>
+                  </li>
                   <li className="mb-2">
                     <span className="text-gray">Minimum sample size:</span>{" "}
                     <span className="font-weight-bold">
@@ -979,6 +1204,108 @@ const MetricPage: FC = () => {
                       {getMinPercentageChangeForMetric(metric) * 100}%
                     </span>
                   </li>
+                </ul>
+              </RightRailSectionGroup>
+
+              <RightRailSectionGroup type="custom" empty="">
+                <ul className="right-rail-subsection list-unstyled mb-4">
+                  <li className="mt-3 mb-2">
+                    <span className="uppercase-title lg">Risk Thresholds</span>
+                    <small className="d-block mb-1 text-muted">
+                      Only applicable to Bayesian analyses
+                    </small>
+                  </li>
+                  <li className="mb-2">
+                    <span className="text-gray">Acceptable risk &lt;</span>{" "}
+                    <span className="font-weight-bold">
+                      {/* @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'. */}
+                      {metric?.winRisk * 100 || defaultWinRiskThreshold * 100}%
+                    </span>
+                  </li>
+                  <li className="mb-2">
+                    <span className="text-gray">Unacceptable risk &gt;</span>{" "}
+                    <span className="font-weight-bold">
+                      {/* @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'. */}
+                      {metric?.loseRisk * 100 || defaultLoseRiskThreshold * 100}
+                      %
+                    </span>
+                  </li>
+                </ul>
+              </RightRailSectionGroup>
+
+              <RightRailSectionGroup type="custom" empty="">
+                <ul className="right-rail-subsection list-unstyled mb-2">
+                  <li className="mt-3 mb-2">
+                    <span className="uppercase-title lg">
+                      <GBCuped size={14} /> Regression Adjustment (CUPED)
+                    </span>
+                    <small className="d-block mb-1 text-muted">
+                      Only applicable to frequentist analyses
+                    </small>
+                  </li>
+                  {!regressionAdjustmentAvailableForMetric ? (
+                    <li className="mb-2">
+                      <div className="text-muted small">
+                        <FaTimes className="text-danger" />{" "}
+                        {regressionAdjustmentAvailableForMetricReason}
+                      </div>
+                    </li>
+                  ) : metric?.regressionAdjustmentOverride ? (
+                    <>
+                      <li className="mb-2">
+                        <span className="text-gray">
+                          Apply regression adjustment:
+                        </span>{" "}
+                        <span className="font-weight-bold">
+                          {metric?.regressionAdjustmentEnabled ? "On" : "Off"}
+                        </span>
+                      </li>
+                      <li className="mb-2">
+                        <span className="text-gray">
+                          Lookback period (days):
+                        </span>{" "}
+                        <span className="font-weight-bold">
+                          {metric?.regressionAdjustmentDays}
+                        </span>
+                      </li>
+                    </>
+                  ) : settings.regressionAdjustmentEnabled ? (
+                    <>
+                      <li className="mb-1">
+                        <div className="mb-1">
+                          <em className="text-gray">
+                            Using organization defaults
+                          </em>
+                        </div>
+                        <div className="ml-2 px-2 border-left">
+                          <div className="mb-1 small">
+                            <span className="text-gray">
+                              Apply regression adjustment:
+                            </span>{" "}
+                            <span className="font-weight-bold">
+                              {settings?.regressionAdjustmentEnabled
+                                ? "On"
+                                : "Off"}
+                            </span>
+                          </div>
+                          <div className="mb-1 small">
+                            <span className="text-gray">
+                              Lookback period (days):
+                            </span>{" "}
+                            <span className="font-weight-bold">
+                              {settings?.regressionAdjustmentDays}
+                            </span>
+                          </div>
+                        </div>
+                      </li>
+                    </>
+                  ) : (
+                    <li className="mb-2">
+                      <div className="mb-1">
+                        <em className="text-gray">Disabled</em>
+                      </div>
+                    </li>
+                  )}
                 </ul>
               </RightRailSectionGroup>
             </RightRailSection>

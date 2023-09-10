@@ -9,16 +9,6 @@ const percentFormatter = new Intl.NumberFormat(undefined, {
   style: "percent",
   maximumFractionDigits: 2,
 });
-const currencyFormatter = new Intl.NumberFormat(undefined, {
-  style: "currency",
-  currency: "USD",
-});
-const bigCurrencyFormatter = new Intl.NumberFormat(undefined, {
-  style: "currency",
-  currency: "USD",
-  minimumFractionDigits: 0,
-  maximumFractionDigits: 0,
-});
 
 export const defaultWinRiskThreshold = 0.0025;
 export const defaultLoseRiskThreshold = 0.0125;
@@ -36,7 +26,11 @@ export function getMetricConversionTitle(type: MetricType): string {
   }
   return "Conversion Rate";
 }
-export function formatConversionRate(type: MetricType, value: number): string {
+export function formatConversionRate(
+  type: MetricType,
+  value: number,
+  currency?: string
+): string {
   value = value || 0;
   if (type === "count") {
     const digits = value > 1000 ? 0 : value > 100 ? 1 : value > 10 ? 2 : 3;
@@ -67,7 +61,7 @@ export function formatConversionRate(type: MetricType, value: number): string {
       return formatter.format(d) + " days";
     }
 
-    // overwise, format as time string (00:00:00.0)
+    // otherwise, format as time string (00:00:00.0)
     const trimmed = Math.round(value * 10) / 10;
     const dec = (Math.round((trimmed % 1) * 10) + "").replace(/0$/, "");
     const s = "" + (Math.floor(trimmed) % 60);
@@ -94,8 +88,18 @@ export function formatConversionRate(type: MetricType, value: number): string {
   if (type === "revenue") {
     // Don't show fractional currency if the value is large
     if (value > 1000) {
+      const bigCurrencyFormatter = new Intl.NumberFormat(undefined, {
+        style: "currency",
+        currency: currency || "USD",
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0,
+      });
       return bigCurrencyFormatter.format(value);
     }
+    const currencyFormatter = new Intl.NumberFormat(undefined, {
+      style: "currency",
+      currency: currency || "USD",
+    });
     return currencyFormatter.format(value);
   }
 

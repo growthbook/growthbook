@@ -1,11 +1,12 @@
 import clsx from "clsx";
-import { ExperimentTableRow, getRisk } from "@/services/experiments";
+import { ExperimentTableRow, getRiskByVariation } from "@/services/experiments";
 import {
   defaultLoseRiskThreshold,
   defaultWinRiskThreshold,
   formatConversionRate,
 } from "@/services/metrics";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
+import { useCurrency } from "@/hooks/useCurrency";
 
 const percentFormatter = new Intl.NumberFormat(undefined, {
   style: "percent",
@@ -20,11 +21,12 @@ export default function RiskColumn({
   riskVariation: number;
 }) {
   const { metricDefaults } = useOrganizationMetricDefaults();
-  const { relativeRisk, risk, showRisk } = getRisk(
+  const { relativeRisk, risk, showRisk } = getRiskByVariation(
     riskVariation,
     row,
     metricDefaults
   );
+  const displayCurrency = useCurrency();
 
   const winRiskThreshold = row.metric.winRisk ?? defaultWinRiskThreshold;
   const loseRiskThreshold = row.metric.loseRisk ?? defaultLoseRiskThreshold;
@@ -51,7 +53,7 @@ export default function RiskColumn({
         <div>
           <small className="text-muted">
             <em>
-              {formatConversionRate(row.metric.type, risk)}
+              {formatConversionRate(row.metric.type, risk, displayCurrency)}
               &nbsp;/&nbsp;user
             </em>
           </small>

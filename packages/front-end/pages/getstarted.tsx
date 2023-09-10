@@ -1,29 +1,38 @@
-import React from "react";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import { useFeature } from "@growthbook/growthbook-react";
+import React, { useState } from "react";
+import ReactPlayer from "react-player";
+import clsx from "clsx";
+import Link from "next/link";
+import { BsFlag } from "react-icons/bs";
+import { FiArrowRight } from "react-icons/fi";
+import { useExperiments } from "@/hooks/useExperiments";
+import { useAuth } from "@/services/auth";
+import { useUser } from "@/services/UserContext";
+import { GBExperiment } from "@/components/Icons";
+import Tooltip from "@/components/Tooltip/Tooltip";
 import LoadingOverlay from "../components/LoadingOverlay";
-import useApi from "../hooks/useApi";
 import { useFeaturesList } from "../services/features";
-import GetStarted from "../components/HomePage/GetStarted";
 import { useDefinitions } from "../services/DefinitionsContext";
-import usePermissions from "../hooks/usePermissions";
 import GuidedGetStarted from "../components/GuidedGetStarted/GuidedGetStarted";
+import styles from "../components/GuidedGetStarted/GuidedGetStarted.module.scss";
 
 const GetStartedPage = (): React.ReactElement => {
-  const permissions = usePermissions();
-  const guidedOnboarding = useFeature("guided-onboarding-test-august-2022").on;
-
   const { ready, error: definitionsError } = useDefinitions();
 
+  const [newUi] = useState(true);
+
   const {
-    data: experiments,
+    experiments,
     error: experimentsError,
-    mutate: mutateExperiments,
-  } = useApi<{
-    experiments: ExperimentInterfaceStringDates[];
-  }>(`/experiments`);
+    mutateExperiments,
+    loading: experimentsLoading,
+  } = useExperiments();
 
   const { features, error: featuresError } = useFeaturesList();
+
+  const { apiCall } = useAuth();
+
+  const [showVideo, setShowVideo] = useState(false);
+  const { refreshOrganization } = useUser();
 
   if (featuresError || experimentsError || definitionsError) {
     return (
@@ -36,36 +45,104 @@ const GetStartedPage = (): React.ReactElement => {
     );
   }
 
-  if (!experiments || !features || !ready) {
+  if (experimentsLoading || !features || !ready) {
     return <LoadingOverlay />;
   }
 
-  if (permissions.organizationSettings && guidedOnboarding) {
+  if (newUi) {
     return (
-      <>
-        <div className="container pagecontents position-relative">
-          <GuidedGetStarted
-            experiments={experiments?.experiments || []}
-            features={features}
-            mutate={mutateExperiments}
-          />
+      <div className="container pagecontents text-center py-5">
+        <h1
+          style={{ fontSize: "3.5em", fontWeight: "normal" }}
+          className="mb-3"
+        >
+          Welcome to{" "}
+          <span className="text-purple font-weight-bold">GrowthBook</span>!
+        </h1>
+        <div className="row justify-content-center mb-4">
+          <div className={clsx(styles.playerWrapper, "col-lg-6", "col-md-8")}>
+            {showVideo ? (
+              <ReactPlayer
+                className={clsx("mb-4")}
+                url="https://www.youtube.com/watch?v=1ASe3K46BEw"
+                playing={true}
+                controls={true}
+                width="100%"
+              />
+            ) : (
+              <img
+                role="button"
+                className={styles.videoPreview}
+                src="/images/intro-video-cover.png"
+                width={"100%"}
+                onClick={async () => {
+                  setShowVideo(true);
+                  await apiCall(`/organization`, {
+                    method: "PUT",
+                    body: JSON.stringify({
+                      settings: {
+                        videoInstructionsViewed: true,
+                      },
+                    }),
+                  });
+                  await refreshOrganization();
+                }}
+              />
+            )}
+          </div>
         </div>
-      </>
-    );
-  } else {
-    return (
-      <>
-        <div className="container pagecontents position-relative">
-          <GetStarted
-            experiments={experiments?.experiments || []}
-            features={features}
-            mutateExperiments={mutateExperiments}
-            onboardingType={null}
-          />
+        <hr />
+        <div className="mt-4">
+          <h2 style={{ fontSize: "2em" }} className="mb-3">
+            What do you want to start with?
+          </h2>
+          <div className="text-center">
+            <Tooltip
+              body={
+                <>
+                  Wrap your code in <strong>Feature Flag</strong> checks to
+                  control exactly how and when it&apos;s released to your users.
+                </>
+              }
+              popperClassName="mt-3"
+            >
+              <Link href="/features?getstarted">
+                <a className="btn btn-primary btn-lg mx-3">
+                  <BsFlag /> Feature Flags <FiArrowRight />
+                </a>
+              </Link>
+            </Tooltip>
+            <Tooltip
+              body={
+                <>
+                  Run controlled <strong>Experiments</strong> to determine the
+                  impact of changes to your product. Code and No Code
+                  implementation options are available.
+                </>
+              }
+              popperClassName="mt-3"
+            >
+              <Link href="/experiments?getstarted">
+                <a className="btn btn-primary btn-lg mx-3">
+                  <GBExperiment /> Experimentation <FiArrowRight />
+                </a>
+              </Link>
+            </Tooltip>
+          </div>
         </div>
-      </>
+      </div>
     );
   }
+
+  return (
+    <div className="container pagecontents position-relative">
+      <GuidedGetStarted
+        experiments={experiments}
+        features={features}
+        mutate={mutateExperiments}
+      />
+    </div>
+  );
 };
 
 export default GetStartedPage;

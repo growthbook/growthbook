@@ -3,6 +3,8 @@ import "../styles/global.scss";
 import Head from "next/head";
 import { useEffect, useState } from "react";
 import { GrowthBook, GrowthBookProvider } from "@growthbook/growthbook-react";
+import { OrganizationMessagesContainer } from "@/components/OrganizationMessages/OrganizationMessages";
+import { DemoDataSourceGlobalBannerContainer } from "@/components/DemoDataSourceGlobalBanner/DemoDataSourceGlobalBanner";
 import { AuthProvider } from "../services/auth";
 import ProtectedPage from "../components/ProtectedPage";
 import { DefinitionsProvider } from "../services/DefinitionsContext";
@@ -13,6 +15,7 @@ import "diff2html/bundles/css/diff2html.min.css";
 import Layout from "../components/Layout/Layout";
 import { AppearanceUIThemeProvider } from "../services/AppearanceUIThemeProvider";
 import TopNavLite from "../components/Layout/TopNavLite";
+import { AppFeatures } from "../types/app-features";
 
 type ModAppProps = AppProps & {
   Component: {
@@ -22,8 +25,14 @@ type ModAppProps = AppProps & {
   };
 };
 
-const growthbook = new GrowthBook({
+const growthbook = new GrowthBook<AppFeatures>({
+  apiHost: "https://cdn.growthbook.io",
+  clientKey:
+    process.env.NODE_ENV === "production"
+      ? "sdk-ueFMOgZ2daLa0M"
+      : "sdk-UmQ03OkUDAu7Aox",
   enableDevMode: true,
+  subscribeToChanges: true,
   realtimeKey: "key_prod_cb40dfcb0eb98e44",
   trackingCallback: (experiment, result) => {
     track("Experiment Viewed", {
@@ -66,16 +75,9 @@ function App({
 
   useEffect(() => {
     // Load feature definitions JSON from GrowthBook API
-    fetch(
-      process.env.NODE_ENV === "production"
-        ? "https://cdn.growthbook.io/api/features/key_prod_cb40dfcb0eb98e44"
-        : "https://cdn.growthbook.io/api/features/key_dev_676ef35b3e2f8f3f"
-    )
-      .then((res) => res.json())
-      .then((json) => growthbook.setFeatures(json.features))
-      .catch(() => {
-        console.log("Failed to fetch GrowthBook feature definitions");
-      });
+    growthbook.loadFeatures().catch(() => {
+      console.log("Failed to fetch GrowthBook feature definitions");
+    });
   }, [router.pathname]);
 
   return (
@@ -96,6 +98,8 @@ function App({
                     <DefinitionsProvider>
                       {!liteLayout && <Layout />}
                       <main className={`main ${parts[0]}`}>
+                        <OrganizationMessagesContainer />
+                        <DemoDataSourceGlobalBannerContainer />
                         <Component {...pageProps} />
                       </main>
                     </DefinitionsProvider>

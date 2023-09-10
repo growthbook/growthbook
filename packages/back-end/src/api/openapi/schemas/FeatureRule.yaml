@@ -1,0 +1,5 @@
+anyOf:
+  - $ref: "./FeatureForceRule.yaml"
+  - $ref: "./FeatureRolloutRule.yaml"
+  - $ref: "./FeatureExperimentRule.yaml"
+  - $ref: "./FeatureExperimentRefRule.yaml"

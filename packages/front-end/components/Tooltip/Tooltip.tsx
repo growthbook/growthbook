@@ -2,6 +2,7 @@ import { ReactNode, FC, HTMLAttributes, useState } from "react";
 import { MdInfoOutline } from "react-icons/md";
 import { usePopper } from "react-popper";
 import clsx from "clsx";
+import Portal from "@/components/Modal/Portal";
 
 interface Props extends HTMLAttributes<HTMLDivElement> {
   body: string | JSX.Element;
@@ -11,6 +12,7 @@ interface Props extends HTMLAttributes<HTMLDivElement> {
   innerClassName?: string;
   children?: ReactNode;
   shouldDisplay?: boolean;
+  usePortal?: boolean;
 }
 const Tooltip: FC<Props> = ({
   body,
@@ -21,6 +23,7 @@ const Tooltip: FC<Props> = ({
   tipPosition = "bottom",
   innerClassName = "",
   shouldDisplay = true,
+  usePortal = false,
   ...otherProps
 }) => {
   const [trigger, setTrigger] = useState(null);
@@ -43,20 +46,24 @@ const Tooltip: FC<Props> = ({
   });
 
   if (!children) children = <MdInfoOutline style={{ color: "#029dd1" }} />;
-  return (
+  const el = (
+    <span
+      // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'Dispatch<SetStateAction<null>>' is not assig... Remove this comment to see the full error message
+      ref={setTrigger}
+      onMouseEnter={() => setOpen(true)}
+      onMouseLeave={() => setOpen(false)}
+      onPointerLeave={() => setOpen(false)}
+      className={`${className}`}
+      {...otherProps}
+    >
+      {children}
+    </span>
+  );
+  const popper = (
     <>
-      <span
-        ref={setTrigger}
-        onMouseEnter={() => setOpen(true)}
-        onMouseLeave={() => setOpen(false)}
-        onPointerLeave={() => setOpen(false)}
-        className={`${className}`}
-        {...otherProps}
-      >
-        {children}
-      </span>
       {open && body && shouldDisplay && (
         <div
+          // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'Dispatch<SetStateAction<null>>' is not assig... Remove this comment to see the full error message
           ref={setTooltip}
           style={{
             ...styles.popper,
@@ -69,10 +76,27 @@ const Tooltip: FC<Props> = ({
           role="tooltip"
         >
           <div className={`body ${innerClassName}`}>{body}</div>
+          {/* @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'Dispatch<SetStateAction<null>>' is not assig... Remove this comment to see the full error message */}
           <div ref={setArrow} style={styles.arrow} className="arrow" />
         </div>
       )}
     </>
   );
+
+  if (!usePortal) {
+    return (
+      <>
+        {el}
+        {popper}
+      </>
+    );
+  } else {
+    return (
+      <>
+        {el}
+        <Portal>{popper}</Portal>
+      </>
+    );
+  }
 };
 export default Tooltip;

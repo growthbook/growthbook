@@ -44,7 +44,7 @@ const GuardrailResults: FC<{
         return -1;
       }
 
-      return 1 - v.metrics[metric.id]?.chanceToWin;
+      return 1 - (v.metrics[metric.id]?.chanceToWin ?? 0);
     })
   );
   if (maxChance < 0) {
@@ -61,7 +61,7 @@ const GuardrailResults: FC<{
     <div className="d-flex flex-column" key={metric.id}>
       <div
         className={clsx(
-          "d-flex align-items-center guardrail alert m-0",
+          "d-flex align-items-center guardrail m-0 p-2",
           `alert-${status}`
         )}
       >
@@ -74,14 +74,12 @@ const GuardrailResults: FC<{
           tipPosition="right"
         >
           <Link href={`/metric/${metric.id}`}>
-            <a className="text-dark font-weight-bold">{metric.name}</a>
+            <a className="text-black-50 font-weight-bold">{metric.name}</a>
           </Link>
         </Tooltip>
       </div>
       <div>
-        <table
-          className={clsx("rounded table table-bordered experiment-compact")}
-        >
+        <table className={clsx("table experiment-compact small-padding mb-1")}>
           <thead>
             <tr>
               <th>Variation</th>
@@ -106,7 +104,11 @@ const GuardrailResults: FC<{
               const chance = 1 - (stats.chanceToWin ?? 1);
               return (
                 <tr key={i}>
-                  <td>{v.name}</td>
+                  <th
+                    className={`variation with-variation-right-shadow variation${i} font-weight-normal`}
+                  >
+                    <span className="name">{v.name}</span>
+                  </th>
                   <MetricValueColumn
                     metric={metric}
                     stats={stats}
@@ -131,8 +133,8 @@ const GuardrailResults: FC<{
                       {percentFormatter.format(chance)}
                     </td>
                   ) : (
-                    <td>
-                      <em>not enough data</em>
+                    <td className="text-center">
+                      <em className="text-muted">not enough data</em>
                     </td>
                   )}
                 </tr>

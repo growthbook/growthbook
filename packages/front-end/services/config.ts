@@ -3,12 +3,14 @@ import { useMemo } from "react";
 import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
 import { DimensionInterface } from "back-end/types/dimension";
 import { OrganizationSettings } from "back-end/types/organization";
+import { SegmentInterface } from "back-end/types/segment";
 
 type Props = {
   metrics: MetricInterface[];
   dimensions: DimensionInterface[];
   datasources: DataSourceInterfaceWithParams[];
   settings: OrganizationSettings;
+  segments: SegmentInterface[];
 };
 
 export function useConfigJson({
@@ -16,6 +18,7 @@ export function useConfigJson({
   dimensions,
   datasources,
   settings,
+  segments,
 }: Props) {
   return useMemo(() => {
     const config: {
@@ -25,6 +28,7 @@ export function useConfigJson({
       datasources?: Record<string, Partial<DataSourceInterfaceWithParams>>;
       metrics?: Record<string, Partial<MetricInterface>>;
       dimensions?: Record<string, Partial<DimensionInterface>>;
+      segments?: Record<string, Partial<SegmentInterface>>;
     } = {};
 
     config.organization = {
@@ -36,12 +40,25 @@ export function useConfigJson({
 
     datasources.forEach((d) => {
       datasourceIds.push(d.id);
+      // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
       config.datasources[d.id] = {
         type: d.type,
         name: d.name,
         params: d.params,
         settings: d.settings,
       } as Partial<DataSourceInterfaceWithParams>;
+    });
+
+    if (segments?.length) config.segments = {};
+    segments?.forEach((s) => {
+      // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
+      config.segments[s.id] = {
+        name: s.name,
+        datasource: s.datasource,
+        owner: s.owner,
+        sql: s.sql,
+        userIdType: s.userIdType,
+      } as Partial<SegmentInterface>;
     });
 
     if (metrics.length) config.metrics = {};
@@ -57,7 +74,8 @@ export function useConfigJson({
         "description",
         "ignoreNulls",
         "inverse",
-        "cap",
+        "capping",
+        "capValue",
         "conversionWindowHours",
         "conversionDelayHours",
         "loseRisk",
@@ -65,16 +83,13 @@ export function useConfigJson({
         "maxPercentChange",
         "minPercentChange",
         "minSampleSize",
-        "userIdType",
         "userIdTypes",
         "tags",
         "denominator",
         "conditions",
         "sql",
         "queryFormat",
-        "anonymousIdColumn",
         "timestampColumn",
-        "userIdColumn",
         "userIdColumns",
         "table",
         "column",
@@ -88,12 +103,14 @@ export function useConfigJson({
         (met[f] as any) = v;
       });
 
+      // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
       config.metrics[m.id] = met;
     });
 
     if (dimensions.length) config.dimensions = {};
     dimensions.forEach((d) => {
       if (d.datasource && !datasourceIds.includes(d.datasource)) return;
+      // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
       config.dimensions[d.id] = {
         name: d.name,
         datasource: d.datasource,
@@ -103,5 +120,5 @@ export function useConfigJson({
     });
 
     return config;
-  }, [metrics, dimensions, datasources, settings]);
+  }, [metrics, dimensions, datasources, settings, segments]);
 }

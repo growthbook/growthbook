@@ -1,12 +1,15 @@
 import { ClickHouse as ClickHouseClient } from "clickhouse";
 import { decryptDataSourceParams } from "../services/datasource";
 import { ClickHouseConnectionParams } from "../../types/integrations/clickhouse";
+import { QueryResponse } from "../types/Integration";
 import SqlIntegration from "./SqlIntegration";
 
 export default class ClickHouse extends SqlIntegration {
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-  // @ts-ignore
+  // @ts-expect-error
   params: ClickHouseConnectionParams;
+  requiresDatabase = false;
+  requiresSchema = false;
   setParams(encryptedParams: string) {
     this.params = decryptDataSourceParams<ClickHouseConnectionParams>(
       encryptedParams
@@ -24,7 +27,7 @@ export default class ClickHouse extends SqlIntegration {
   getSensitiveParamKeys(): string[] {
     return ["password"];
   }
-  async runQuery(sql: string) {
+  async runQuery(sql: string): Promise<QueryResponse> {
     const client = new ClickHouseClient({
       url: this.params.url,
       port: this.params.port,
@@ -46,7 +49,7 @@ export default class ClickHouse extends SqlIntegration {
         },
       },
     });
-    return Array.from(await client.query(sql).toPromise());
+    return { rows: Array.from(await client.query(sql).toPromise()) };
   }
   toTimestamp(date: Date) {
     return `toDateTime('${date
@@ -68,16 +71,37 @@ export default class ClickHouse extends SqlIntegration {
   dateDiff(startCol: string, endCol: string) {
     return `dateDiff('day', ${startCol}, ${endCol})`;
   }
-  stddev(col: string) {
-    return `stddevSamp(${col})`;
-  }
   formatDate(col: string): string {
     return `formatDateTime(${col}, '%F')`;
+  }
+  formatDateTimeString(col: string): string {
+    return `formatDateTime(${col}, '%Y-%m-%d %H:%i:%S.%f')`;
   }
   ifElse(condition: string, ifTrue: string, ifFalse: string) {
     return `if(${condition}, ${ifTrue}, ${ifFalse})`;
   }
   castToString(col: string): string {
     return `toString(${col})`;
+  }
+  ensureFloat(col: string): string {
+    return `toFloat64(${col})`;
+  }
+  percentileCapSelectClause(
+    capPercentile: number,
+    metricTable: string
+  ): string {
+    const seed = 1234;
+    return `
+      SELECT quantileDeterministic(${capPercentile})(value, ${seed}) AS cap_value
+      FROM ${metricTable}
+      WHERE value IS NOT NULL
+    `;
+  }
+  getInformationSchemaWhereClause(): string {
+    if (!this.params.database)
+      throw new Error(
+        "No database name provided in ClickHouse connection. Please add a database by editing the connection settings."
+      );
+    return `table_schema IN ('${this.params.database}')`;
   }
 }

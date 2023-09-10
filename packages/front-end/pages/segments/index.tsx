@@ -4,8 +4,9 @@ import { SegmentInterface } from "back-end/types/segment";
 import { IdeaInterface } from "back-end/types/idea";
 import { MetricInterface } from "back-end/types/metric";
 import Link from "next/link";
+import clsx from "clsx";
+import { ago } from "shared/dates";
 import LoadingOverlay from "@/components/LoadingOverlay";
-import { ago } from "@/services/dates";
 import Button from "@/components/Button";
 import SegmentForm from "@/components/Segments/SegmentForm";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -14,6 +15,9 @@ import { useAuth } from "@/services/auth";
 import { GBAddCircle } from "@/components/Icons";
 import usePermissions from "@/hooks/usePermissions";
 import Code, { Language } from "@/components/SyntaxHighlighting/Code";
+import { hasFileConfig, storeSegmentsInMongo } from "@/services/env";
+import { DocLink } from "@/components/DocLink";
+import Tooltip from "@/components/Tooltip/Tooltip";
 
 const SegmentPage: FC = () => {
   const {
@@ -26,6 +30,17 @@ const SegmentPage: FC = () => {
   } = useDefinitions();
 
   const permissions = usePermissions();
+
+  function canAddEditRemoveSegments(): boolean {
+    if (!permissions.createSegments) {
+      return false;
+    }
+
+    if (hasFileConfig() && !storeSegmentsInMongo()) {
+      return false;
+    }
+    return true;
+  }
 
   const [
     segmentForm,
@@ -58,40 +73,54 @@ const SegmentPage: FC = () => {
         if (res.total) {
           subtitleText = "This segment is referenced in ";
           const refs = [];
+          // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
           if (res.metrics.length) {
             refs.push(
+              // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
               res.metrics.length === 1
                 ? "1 metric"
-                : res.metrics.length + " metrics"
+                : // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
+                  res.metrics.length + " metrics"
             );
+            // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
             res.metrics.forEach((m) => {
               metricLinks.push(
+                // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'Element' is not assignable to pa... Remove this comment to see the full error message
                 <Link href={`/metric/${m.id}`}>
                   <a className="">{m.name}</a>
                 </Link>
               );
             });
           }
+          // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
           if (res.ideas.length) {
             refs.push(
+              // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
               res.ideas.length === 1 ? "1 idea" : res.ideas.length + " ideas"
             );
+            // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
             res.ideas.forEach((i) => {
               ideaLinks.push(
+                // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'Element' is not assignable to pa... Remove this comment to see the full error message
                 <Link href={`/idea/${i.id}`}>
                   <a>{i.text}</a>
                 </Link>
               );
             });
           }
+          // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
           if (res.experiments.length) {
             refs.push(
+              // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
               res.experiments.length === 1
                 ? "1 experiment"
-                : res.experiments.length + " Experiments"
+                : // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
+                  res.experiments.length + " Experiments"
             );
+            // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
             res.experiments.forEach((e) => {
               expLinks.push(
+                // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'Element' is not assignable to pa... Remove this comment to see the full error message
                 <Link href={`/experiment/${e.id}`}>
                   <a>{e.name}</a>
                 </Link>
@@ -204,7 +233,7 @@ const SegmentPage: FC = () => {
           <h1>Segments</h1>
         </div>
         <div style={{ flex: 1 }}></div>
-        {permissions.createSegments && (
+        {canAddEditRemoveSegments() && (
           <div className="col-auto">
             <Button
               color="primary"
@@ -233,7 +262,11 @@ const SegmentPage: FC = () => {
               &quot;annual subscribers&quot; or &quot;left-handed people from
               France.&quot;
             </p>
-            <table className="table appbox gbtable table-hover">
+            <table
+              className={clsx("table appbox gbtable", {
+                "table-hover": !hasFileConfig(),
+              })}
+            >
               <thead>
                 <tr>
                   <th>Name</th>
@@ -241,8 +274,8 @@ const SegmentPage: FC = () => {
                   <th className="d-none d-sm-table-cell">Data Source</th>
                   <th className="d-none d-md-table-cell">Identifier Type</th>
                   <th className="d-none d-lg-table-cell">Definition</th>
-                  <th>Date Updated</th>
-                  {permissions.createSegments && <th></th>}
+                  {canAddEditRemoveSegments() && <th>Date Updated</th>}
+                  {canAddEditRemoveSegments() && <th></th>}
                 </tr>
               </thead>
               <tbody>
@@ -252,22 +285,24 @@ const SegmentPage: FC = () => {
                     datasource?.properties?.queryLanguage || "sql";
                   return (
                     <tr key={s.id}>
-                      <td>{s.name}</td>
+                      <td>
+                        <>
+                          {s.name}{" "}
+                          {s.description ? (
+                            <Tooltip body={s.description} />
+                          ) : null}
+                        </>
+                      </td>
                       <td>{s.owner}</td>
                       <td className="d-none d-sm-table-cell">
                         {datasource && (
                           <>
-                            <div>
-                              <Link href={`/datasources/${datasource?.id}`}>
-                                {datasource?.name}
-                              </Link>
-                            </div>
-                            <div
-                              className="text-gray font-weight-normal small text-ellipsis"
-                              style={{ maxWidth: 350 }}
-                            >
-                              {datasource?.description}
-                            </div>
+                            <Link href={`/datasources/${datasource.id}`}>
+                              {datasource.name}
+                            </Link>{" "}
+                            {datasource.description ? (
+                              <Tooltip body={datasource.description} />
+                            ) : null}
                           </>
                         )}
                       </td>
@@ -286,8 +321,11 @@ const SegmentPage: FC = () => {
                           expandable={true}
                         />
                       </td>
-                      <td>{ago(s.dateUpdated)}</td>
-                      {permissions.createSegments && (
+                      {canAddEditRemoveSegments() && (
+                        // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'Date | null' is not assignable t... Remove this comment to see the full error message
+                        <td>{ago(s.dateUpdated)}</td>
+                      )}
+                      {canAddEditRemoveSegments() && (
                         <td>
                           <a
                             href="#"
@@ -305,6 +343,7 @@ const SegmentPage: FC = () => {
                             className={"tr-hover text-primary"}
                             displayName={s.name}
                             title="Delete this segment"
+                            // @ts-expect-error TS(2322) If you come across this, please fix it!: Type '() => Promise<JSX.Element | undefined>' is n... Remove this comment to see the full error message
                             getConfirmationContent={getSegmentUsage(s)}
                             onClick={async () => {
                               await apiCall<{
@@ -327,11 +366,30 @@ const SegmentPage: FC = () => {
           </div>
         </div>
       )}
-      {segments.length === 0 && (
+      {segments.length === 0 && !hasFileConfig() && (
         <div className="alert alert-info">
           You don&apos;t have any segments defined yet.{" "}
           {permissions.createSegments &&
             "Click the button above to create your first one."}
+        </div>
+      )}
+      {segments.length === 0 && hasFileConfig() && storeSegmentsInMongo() && (
+        <div className="alert alert-info">
+          You don&apos;t have any segments defined yet. You can add them to your{" "}
+          <code>config.yml</code> file and remove the{" "}
+          <code>STORE_SEGMENTS_IN_MONGO</code> environment variable
+          {permissions.createSegments &&
+            " or click the button above to create your first one"}
+          . <DocLink docSection="config_yml">View Documentation</DocLink>
+        </div>
+      )}
+      {segments.length === 0 && hasFileConfig() && !storeSegmentsInMongo() && (
+        <div className="alert alert-info">
+          It looks like you have a <code>config.yml</code> file. Segments
+          defined there will show up on this page. If you would like to store
+          and access segments in MongoDB instead, please add the{" "}
+          <code>STORE_SEGMENTS_IN_MONGO</code> environment variable.{" "}
+          <DocLink docSection="config_yml">View Documentation</DocLink>
         </div>
       )}
     </div>

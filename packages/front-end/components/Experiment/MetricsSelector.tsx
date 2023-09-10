@@ -1,5 +1,6 @@
 import { FC } from "react";
 import { FaQuestionCircle } from "react-icons/fa";
+import { isProjectListValidForProject } from "shared/util";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import SelectField from "@/components/Forms/SelectField";
@@ -15,11 +16,7 @@ const MetricsSelector: FC<{
   const { metrics } = useDefinitions();
   const filteredMetrics = metrics
     .filter((m) => (datasource ? m.datasource === datasource : true))
-    .filter((m) => {
-      if (!project) return true;
-      if (!m?.projects?.length) return true;
-      return m.projects.includes(project);
-    });
+    .filter((m) => isProjectListValidForProject(m.projects, project));
 
   const tagCounts: Record<string, number> = {};
   filteredMetrics.forEach((m) => {
@@ -49,7 +46,7 @@ const MetricsSelector: FC<{
         <div className="metric-from-tag text-muted form-inline mt-2">
           <span style={{ fontSize: "0.82rem" }}>
             Select metric by tag:{" "}
-            <Tooltip body="Metrics can be tagged for grouping. Select any tag to add those metrics">
+            <Tooltip body="Metrics can be tagged for grouping. Select any tag to add all metrics associated with that tag.">
               <FaQuestionCircle />
             </Tooltip>
           </span>

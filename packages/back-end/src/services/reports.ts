@@ -1,24 +1,25 @@
+import {
+  DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
+  DEFAULT_STATS_ENGINE,
+} from "shared/constants";
 import { MetricInterface } from "../../types/metric";
 import {
   ExperimentReportArgs,
   ExperimentReportVariation,
-  ReportInterface,
+  MetricRegressionAdjustmentStatus,
 } from "../../types/report";
-import { getMetricsByOrganization } from "../models/MetricModel";
-import { QueryDocument } from "../models/QueryModel";
-import { SegmentModel } from "../models/SegmentModel";
-import { SegmentInterface } from "../../types/segment";
-import { getDataSourceById } from "../models/DataSourceModel";
-import { ExperimentInterface, ExperimentPhase } from "../../types/experiment";
-import { StatsEngine } from "../../types/stats";
-import { OrganizationInterface } from "../../types/organization";
-import { updateReport } from "../models/ReportModel";
-import { ExperimentSnapshotInterface } from "../../types/experiment-snapshot";
-import { expandDenominatorMetrics } from "../util/sql";
-import { analyzeExperimentResults } from "./stats";
-import { parseDimensionId } from "./experiments";
-import { getExperimentMetric, getExperimentResults, startRun } from "./queries";
-import { getSourceIntegrationObject } from "./datasource";
+import {
+  ExperimentInterface,
+  ExperimentPhase,
+  MetricOverride,
+} from "../../types/experiment";
+import {
+  ExperimentSnapshotAnalysisSettings,
+  ExperimentSnapshotInterface,
+  ExperimentSnapshotSettings,
+  MetricForSnapshot,
+} from "../../types/experiment-snapshot";
+import { DEFAULT_CONVERSION_WINDOW_HOURS } from "../util/secrets";
 
 export function getReportVariations(
   experiment: ExperimentInterface,
@@ -33,216 +34,153 @@ export function getReportVariations(
   });
 }
 
+function getMetricRegressionAdjustmentStatusesFromSnapshot(
+  snapshotSettings: ExperimentSnapshotSettings,
+  analysisSettings: ExperimentSnapshotAnalysisSettings
+): MetricRegressionAdjustmentStatus[] {
+  return snapshotSettings.metricSettings.map((m) => {
+    return {
+      metric: m.id,
+      reason: m.computedSettings?.regressionAdjustmentReason || "",
+      regressionAdjustmentDays:
+        m.computedSettings?.regressionAdjustmentDays ||
+        DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
+      regressionAdjustmentEnabled:
+        (analysisSettings.regressionAdjusted &&
+          m.computedSettings?.regressionAdjustmentEnabled) ||
+        false,
+    };
+  });
+}
+
 export function reportArgsFromSnapshot(
   experiment: ExperimentInterface,
-  snapshot: ExperimentSnapshotInterface
+  snapshot: ExperimentSnapshotInterface,
+  analysisSettings: ExperimentSnapshotAnalysisSettings
 ): ExperimentReportArgs {
   const phase = experiment.phases[snapshot.phase];
   if (!phase) {
     throw new Error("Unknown experiment phase");
   }
   return {
-    trackingKey: experiment.trackingKey,
-    datasource: experiment.datasource,
+    trackingKey: snapshot.settings.experimentId || experiment.trackingKey,
+    datasource: snapshot.settings.datasourceId || experiment.datasource,
     exposureQueryId: experiment.exposureQueryId,
-    userIdType: experiment.userIdType,
-    startDate: phase.dateStarted,
-    endDate: phase.dateEnded || undefined,
+    startDate: snapshot.settings.startDate,
+    endDate: snapshot.settings.endDate,
     dimension: snapshot.dimension || undefined,
     variations: getReportVariations(experiment, phase),
-    segment: snapshot.segment,
+    segment: snapshot.settings.segment,
     metrics: experiment.metrics,
     metricOverrides: experiment.metricOverrides,
     guardrails: experiment.guardrails,
-    activationMetric: snapshot.activationMetric,
-    queryFilter: snapshot.queryFilter,
-    skipPartialData: snapshot.skipPartialData,
-    removeMultipleExposures: !!experiment.removeMultipleExposures,
-    attributionModel: experiment.attributionModel || "firstExposure",
+    activationMetric: snapshot.settings.activationMetric || undefined,
+    queryFilter: snapshot.settings.queryFilter,
+    skipPartialData: snapshot.settings.skipPartialData,
+    attributionModel: snapshot.settings.attributionModel,
+    statsEngine: analysisSettings.statsEngine,
+    regressionAdjustmentEnabled: analysisSettings.regressionAdjusted,
+    metricRegressionAdjustmentStatuses: getMetricRegressionAdjustmentStatusesFromSnapshot(
+      snapshot.settings,
+      analysisSettings
+    ),
+    sequentialTestingEnabled: analysisSettings.sequentialTesting,
+    sequentialTestingTuningParameter:
+      analysisSettings.sequentialTestingTuningParameter,
   };
 }
 
-export async function startExperimentAnalysis(
-  organization: string,
+export function getSnapshotSettingsFromReportArgs(
   args: ExperimentReportArgs,
-  useCache: boolean,
-  statsEngine: StatsEngine | undefined
-) {
-  const metricObjs = await getMetricsByOrganization(organization);
-  const metricMap = new Map<string, MetricInterface>();
-  metricObjs.forEach((m) => {
-    metricMap.set(m.id, m);
-  });
-
-  const datasourceObj = await getDataSourceById(args.datasource, organization);
-  if (!datasourceObj) {
-    throw new Error("Missing datasource for report");
-  }
-
-  const activationMetrics: MetricInterface[] = [];
-  if (args.activationMetric) {
-    activationMetrics.push(
-      ...expandDenominatorMetrics(args.activationMetric, metricMap)
-        .map((m) => metricMap.get(m) as MetricInterface)
-        .filter(Boolean)
-    );
-  }
-
-  // Only include metrics tied to this experiment (both goal and guardrail metrics)
-  const selectedMetrics = Array.from(
-    new Set(args.metrics.concat(args.guardrails || []))
-  )
-    .map((m) => metricMap.get(m))
-    .filter((m) => m) as MetricInterface[];
-  if (!selectedMetrics.length) {
-    throw new Error("Experiment must have at least 1 metric selected.");
-  }
-
-  let segmentObj: SegmentInterface | null = null;
-  if (args.segment) {
-    segmentObj =
-      (await SegmentModel.findOne({
-        id: args.segment,
-        organization,
-      })) || null;
-  }
-
-  const integration = getSourceIntegrationObject(datasourceObj);
-  if (integration.decryptionError) {
-    throw new Error(
-      "Could not decrypt data source credentials. View the data source settings for more info."
-    );
-  }
-
-  const queryDocs: { [key: string]: Promise<QueryDocument> } = {};
-
-  const experimentPhaseObj: ExperimentPhase = {
-    dateStarted: args.startDate,
-    dateEnded: args.endDate,
-    phase: "main",
-    coverage: 1,
-    reason: "",
-    variationWeights: args.variations.map((v) => v.weight),
-  };
-  const experimentObj: ExperimentInterface = {
-    exposureQueryId: args.exposureQueryId,
-    userIdType: args.userIdType,
-    organization,
-    skipPartialData: args.skipPartialData,
-    trackingKey: args.trackingKey,
-    datasource: args.datasource,
-    segment: args.segment,
-    queryFilter: args.queryFilter,
-    activationMetric: args.activationMetric,
-    metrics: args.metrics,
-    metricOverrides: args.metricOverrides,
-    guardrails: args.guardrails,
-    removeMultipleExposures: !!args.removeMultipleExposures,
-    attributionModel: args.attributionModel || "firstExposure",
-    id: "",
-    name: "",
-    dateCreated: new Date(),
-    dateUpdated: new Date(),
-    tags: [],
-    autoAssign: false,
-    owner: "",
-    implementation: "code",
-    previewURL: "",
-    status: "stopped",
-    phases: [experimentPhaseObj],
-    autoSnapshots: false,
-    targetURLRegex: "",
-    archived: false,
-    variations: args.variations.map((v) => {
-      return {
-        name: v.name,
-        key: v.id,
-        screenshots: [],
-      };
-    }),
-  };
-  const dimensionObj = await parseDimensionId(args.dimension, organization);
-
-  // Run it as a single synchronous task (non-sql datasources and legacy code)
-  if (!integration.getSourceProperties().separateExperimentResultQueries) {
-    queryDocs["results"] = getExperimentResults(
-      integration,
-      experimentObj,
-      experimentPhaseObj,
-      selectedMetrics,
-      activationMetrics[0],
-      dimensionObj?.type === "user" ? dimensionObj.dimension : null
-    );
-  }
-  // Run as multiple async queries (new way for sql datasources)
-  else {
-    selectedMetrics.forEach((m) => {
-      const denominatorMetrics: MetricInterface[] = [];
-      if (m.denominator) {
-        denominatorMetrics.push(
-          ...expandDenominatorMetrics(m.denominator, metricMap)
-            .map((m) => metricMap.get(m) as MetricInterface)
-            .filter(Boolean)
-        );
-      }
-      queryDocs[m.id] = getExperimentMetric(
-        integration,
-        {
-          metric: m,
-          experiment: experimentObj,
-          dimension: dimensionObj,
-          activationMetrics,
-          denominatorMetrics,
-          phase: experimentPhaseObj,
-          segment: segmentObj,
-        },
-        useCache
-      );
-    });
-  }
-
-  const { queries, result: results } = await startRun(
-    queryDocs,
-    async (queryData) =>
-      analyzeExperimentResults(
-        organization,
-        args.variations,
-        args.dimension,
-        queryData,
-        statsEngine
+  metricMap: Map<string, MetricInterface>
+): {
+  snapshotSettings: ExperimentSnapshotSettings;
+  analysisSettings: ExperimentSnapshotAnalysisSettings;
+} {
+  const snapshotSettings: ExperimentSnapshotSettings = {
+    metricSettings: args.metrics
+      .concat(args.guardrails || [])
+      .concat(args.activationMetric ? [args.activationMetric] : [])
+      .map((m) =>
+        getMetricForSnapshot(
+          m,
+          metricMap,
+          args.metricRegressionAdjustmentStatuses,
+          args.metricOverrides
+        )
       )
-  );
-  return { queries, results };
+      .filter(Boolean) as MetricForSnapshot[],
+    activationMetric: args.activationMetric || null,
+    attributionModel: args.attributionModel || "firstExposure",
+    datasourceId: args.datasource,
+    startDate: args.startDate,
+    endDate: args.endDate || new Date(),
+    experimentId: args.trackingKey,
+    exposureQueryId: args.exposureQueryId,
+    manual: false,
+    segment: args.segment || "",
+    queryFilter: args.queryFilter || "",
+    skipPartialData: !!args.skipPartialData,
+    regressionAdjustmentEnabled: !!args.regressionAdjustmentEnabled,
+    goalMetrics: args.metrics,
+    guardrailMetrics: args.guardrails || [],
+    dimensions: args.dimension ? [{ id: args.dimension }] : [],
+    variations: args.variations.map((v) => ({
+      id: v.id,
+      weight: v.weight,
+    })),
+  };
+  // TODO: add baselineVariation here
+  const analysisSettings: ExperimentSnapshotAnalysisSettings = {
+    dimensions: args.dimension ? [args.dimension] : [],
+    statsEngine: args.statsEngine || DEFAULT_STATS_ENGINE,
+    regressionAdjusted: args.regressionAdjustmentEnabled,
+    pValueCorrection: null,
+    sequentialTesting: args.sequentialTestingEnabled,
+    sequentialTestingTuningParameter: args.sequentialTestingTuningParameter,
+  };
+
+  return { snapshotSettings, analysisSettings };
 }
 
-export async function runReport(
-  report: ReportInterface,
-  useCache: boolean = true,
-  organization: OrganizationInterface
-) {
-  const updates: Partial<ReportInterface> = {};
-  const statsEngine =
-    report.args.statsEngine || organization.settings?.statsEngine;
-
-  if (report.type === "experiment") {
-    const { queries, results } = await startExperimentAnalysis(
-      report.organization,
-      report.args,
-      useCache,
-      statsEngine
-    );
-
-    if (results) {
-      results.hasCorrectedStats = true;
-    }
-
-    updates.queries = queries;
-    updates.results = results || report.results;
-    updates.runStarted = new Date();
-    updates.error = "";
-  } else {
-    throw new Error("Unsupported report type");
-  }
-
-  await updateReport(report.organization, report.id, updates);
+export function getMetricForSnapshot(
+  id: string | null | undefined,
+  metricMap: Map<string, MetricInterface>,
+  metricRegressionAdjustmentStatuses?: MetricRegressionAdjustmentStatus[],
+  metricOverrides?: MetricOverride[]
+): MetricForSnapshot | null {
+  if (!id) return null;
+  const metric = metricMap.get(id);
+  if (!metric) return null;
+  const overrides = metricOverrides?.find((o) => o.id === id);
+  const regressionAdjustmentStatus = metricRegressionAdjustmentStatuses?.find(
+    (s) => s.metric === id
+  );
+  return {
+    id,
+    settings: {
+      datasource: metric.datasource,
+      type: metric.type,
+      aggregation: metric.aggregation || undefined,
+      capping: metric.capping || null,
+      capValue: metric.capValue || undefined,
+      denominator: metric.denominator || undefined,
+      sql: metric.sql || undefined,
+      userIdTypes: metric.userIdTypes || undefined,
+    },
+    computedSettings: {
+      conversionDelayHours:
+        overrides?.conversionDelayHours ?? metric.conversionDelayHours ?? 0,
+      conversionWindowHours:
+        overrides?.conversionWindowHours ??
+        metric.conversionWindowHours ??
+        DEFAULT_CONVERSION_WINDOW_HOURS,
+      regressionAdjustmentDays:
+        regressionAdjustmentStatus?.regressionAdjustmentDays ??
+        DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
+      regressionAdjustmentEnabled:
+        regressionAdjustmentStatus?.regressionAdjustmentEnabled ?? false,
+      regressionAdjustmentReason: regressionAdjustmentStatus?.reason ?? "",
+    },
+  };
 }

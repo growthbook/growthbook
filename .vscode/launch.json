@@ -1,0 +1,52 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Debug Back-end",
+      "type": "node-terminal",
+      "request": "launch",
+      "command": ". $(cd ../../packages/stats && poetry env info --path)/bin/activate && yarn nodemon -e ts --exec node -r ts-node/register src/server.ts",
+      "cwd": "${workspaceFolder}/packages/back-end",
+      "internalConsoleOptions": "neverOpen",
+      "skipFiles": ["<node_internals>/**"],
+      "sourceMaps": true,
+      "presentation": {
+        "hidden": true
+      }
+    },
+    {
+      "name": "Debug Next.js: server-side",
+      "type": "node-terminal",
+      "request": "launch",
+      "cwd": "${workspaceFolder}/packages/front-end",
+      "command": "yarn dev",
+      "presentation": {
+        "hidden": true
+      }
+    },
+    {
+      "name": "Debug Next.js: client-side",
+      "type": "chrome",
+      "request": "launch",
+      "url": "http://localhost:3000",
+      "runtimeArgs": ["--inspect-brk"],
+      "webRoot": "${workspaceFolder}/packages/front-end/",
+      "sourceMapPathOverrides": {
+        "webpack://_N_E/*": "${webRoot}/*"
+      },
+      "presentation": {
+        "hidden": true
+      }
+    }
+  ],
+  "compounds": [
+    {
+      "name": "Debug Fullstack",
+      "configurations": [
+        "Debug Back-end",
+        "Debug Next.js: client-side",
+        "Debug Next.js: server-side"
+      ]
+    }
+  ]
+}

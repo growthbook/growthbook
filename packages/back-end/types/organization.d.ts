@@ -4,8 +4,8 @@ import {
   GLOBAL_PERMISSIONS,
   PROJECT_SCOPED_PERMISSIONS,
 } from "../src/util/organization.util";
-import { ImplementationType } from "./experiment";
-import type { StatsEngine } from "./stats";
+import { AttributionModel, ImplementationType } from "./experiment";
+import type { PValueCorrection, StatsEngine } from "./stats";
 
 export type EnvScopedPermission = typeof ENV_SCOPED_PERMISSIONS[number];
 export type ProjectScopedPermission = typeof PROJECT_SCOPED_PERMISSIONS[number];
@@ -15,6 +15,19 @@ export type Permission =
   | GlobalPermission
   | EnvScopedPermission
   | ProjectScopedPermission;
+
+export type PermissionsObject = Partial<Record<Permission, boolean>>;
+
+export type UserPermission = {
+  environments: string[];
+  limitAccessByEnvironment: boolean;
+  permissions: PermissionsObject;
+};
+
+export type UserPermissions = {
+  global: UserPermission;
+  projects: { [key: string]: UserPermission };
+};
 
 export type MemberRole =
   | "readonly"
@@ -32,20 +45,11 @@ export type Role = {
   permissions: Permission[];
 };
 
-export type AccountPlan = "oss" | "starter" | "pro" | "pro_sso" | "enterprise";
-export type CommercialFeature =
-  | "sso"
-  | "custom-exp-metadata"
-  | "advanced-permissions"
-  | "encrypt-features-endpoint"
-  | "override-metrics"
-  | "schedule-feature-flag";
-export type CommercialFeaturesMap = Record<AccountPlan, Set<CommercialFeature>>;
-
 export interface MemberRoleInfo {
   role: MemberRole;
   limitAccessByEnvironment: boolean;
   environments: string[];
+  teams?: string[];
 }
 
 export interface ProjectMemberRole extends MemberRoleInfo {
@@ -102,13 +106,17 @@ export interface Namespaces {
   status: "active" | "inactive";
 }
 
+export type SDKAttributeFormat = "" | "version";
+
 export type SDKAttributeType =
   | "string"
   | "number"
   | "boolean"
   | "string[]"
   | "number[]"
-  | "enum";
+  | "enum"
+  | "secureString"
+  | "secureString[]";
 
 export type SDKAttribute = {
   property: string;
@@ -116,7 +124,9 @@ export type SDKAttribute = {
   hashAttribute?: boolean;
   enum?: string;
   archived?: boolean;
+  format?: SDKAttributeFormat;
 };
+
 export type SDKAttributeSchema = SDKAttribute[];
 
 export type ExperimentUpdateSchedule = {
@@ -183,8 +193,18 @@ export interface OrganizationSettings {
   defaultRole?: MemberRoleInfo;
   statsEngine?: StatsEngine;
   pValueThreshold?: number;
+  pValueCorrection?: PValueCorrection;
+  regressionAdjustmentEnabled?: boolean;
+  regressionAdjustmentDays?: number;
   /** @deprecated */
   implementationTypes?: ImplementationType[];
+  attributionModel?: AttributionModel;
+  sequentialTestingEnabled?: boolean;
+  sequentialTestingTuningParameter?: number;
+  displayCurrency?: string;
+  secureAttributeSalt?: string;
+  killswitchConfirmation?: boolean;
+  defaultDataSource?: string;
 }
 
 export interface SubscriptionQuote {
@@ -214,6 +234,14 @@ export interface VercelConnection {
   teamId: string | null;
 }
 
+/**
+ * The type for the global organization message component
+ */
+export type OrganizationMessage = {
+  message: string;
+  level: "info" | "danger" | "warning";
+};
+
 export interface OrganizationInterface {
   id: string;
   url: string;
@@ -228,6 +256,7 @@ export interface OrganizationInterface {
   discountCode?: string;
   priceId?: string;
   disableSelfServeBilling?: boolean;
+  freeTrialDate?: Date;
   enterprise?: boolean;
   subscription?: {
     id: string;
@@ -240,6 +269,7 @@ export interface OrganizationInterface {
     cancel_at_period_end: boolean;
     planNickname: string | null;
     priceId?: string;
+    hasPaymentMethod?: boolean;
   };
   licenseKey?: string;
   autoApproveMembers?: boolean;
@@ -248,39 +278,18 @@ export interface OrganizationInterface {
   pendingMembers?: PendingMember[];
   connections?: OrganizationConnections;
   settings?: OrganizationSettings;
+  messages?: OrganizationMessage[];
 }
 
 export type NamespaceUsage = Record<
   string,
   {
-    featureId: string;
+    link: string;
+    name: string;
+    id: string;
     trackingKey: string;
     environment: string;
     start: number;
     end: number;
   }[]
 >;
-
-export type LicenseData = {
-  // Unique id for the license key
-  ref: string;
-  // Name of organization on the license
-  sub: string;
-  // Organization ID (keys prior to 12/2022 do not contain this field)
-  org?: string;
-  // Max number of seats
-  qty: number;
-  // Date issued
-  iat: string;
-  // Expiration date
-  exp: string;
-  // If it's a trial or not
-  trial: boolean;
-  // The plan (pro, enterprise, etc.)
-  plan: AccountPlan;
-  /**
-   * Expiration date (old style)
-   * @deprecated
-   */
-  eat?: string;
-};

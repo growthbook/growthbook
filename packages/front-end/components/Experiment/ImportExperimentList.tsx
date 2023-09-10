@@ -2,14 +2,9 @@ import Link from "next/link";
 import React, { FC, useCallback, useState } from "react";
 import { PastExperimentsInterface } from "back-end/types/past-experiments";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { getValidDate, ago, date, datetime, daysBetween } from "shared/dates";
+import { isProjectListValidForProject } from "shared/util";
 import { useAddComputedFields, useSearch } from "@/services/search";
-import {
-  ago,
-  date,
-  datetime,
-  daysBetween,
-  getValidDate,
-} from "@/services/dates";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useAuth } from "@/services/auth";
 import useApi from "@/hooks/useApi";
@@ -26,6 +21,7 @@ import Toggle from "@/components/Forms/Toggle";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import ViewAsyncQueriesButton from "@/components/Queries/ViewAsyncQueriesButton";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import { generateVariationId } from "@/services/features";
 
 const numberFormatter = new Intl.NumberFormat();
 
@@ -35,16 +31,18 @@ const ImportExperimentList: FC<{
   showQueries?: boolean;
   changeDatasource?: (id: string) => void;
 }> = ({ onImport, importId, showQueries = true, changeDatasource }) => {
-  const { getDatasourceById, ready, datasources } = useDefinitions();
+  const { getDatasourceById, ready, datasources, project } = useDefinitions();
   const permissions = usePermissions();
   const { apiCall } = useAuth();
   const { data, error, mutate } = useApi<{
     experiments: PastExperimentsInterface;
     existing: Record<string, string>;
   }>(`/experiments/import/${importId}`);
-  const datasource = getDatasourceById(data?.experiments?.datasource);
+  const datasource = data?.experiments?.datasource
+    ? getDatasourceById(data?.experiments?.datasource)
+    : null;
 
-  const status = getQueryStatus(
+  const { status } = getQueryStatus(
     data?.experiments?.queries || [],
     data?.experiments?.error
   );
@@ -57,7 +55,7 @@ const ImportExperimentList: FC<{
     }),
     [datasource]
   );
-  const { pastExperimentsMinLength } = useOrgSettings();
+  const { pastExperimentsMinLength, defaultDataSource } = useOrgSettings();
 
   const [minUsersFilter, setMinUsersFilter] = useState("100");
   const [minLengthFilter, setMinLengthFilter] = useState(
@@ -123,9 +121,13 @@ const ImportExperimentList: FC<{
     return <LoadingOverlay />;
   }
 
-  const supportedDatasources = datasources.filter(
-    (d) => d.properties.pastExperiments
-  );
+  const supportedDatasources = datasources
+    .filter((d) => d?.properties?.pastExperiments)
+    .filter(
+      (d) =>
+        d.id === data?.experiments?.datasource ||
+        isProjectListValidForProject(d.projects, project)
+    );
 
   function clearFilters() {
     setAlreadyImportedFilter(false);
@@ -142,10 +144,15 @@ const ImportExperimentList: FC<{
           {changeDatasource && supportedDatasources.length > 1 ? (
             <SelectField
               value={data.experiments.datasource}
-              options={supportedDatasources.map((d) => ({
-                value: d.id,
-                label: `${d.name}${d.description ? ` — ${d.description}` : ""}`,
-              }))}
+              options={supportedDatasources.map((d) => {
+                const isDefaultDataSource = d.id === defaultDataSource;
+                return {
+                  value: d.id,
+                  label: `${d.name}${
+                    d.description ? ` — ${d.description}` : ""
+                  } ${isDefaultDataSource ? " (default)" : ""}`,
+                };
+              })}
               className="portal-overflow-ellipsis"
               onChange={changeDatasource}
             />
@@ -164,12 +171,12 @@ const ImportExperimentList: FC<{
           <div
             className="text-muted"
             style={{ fontSize: "0.8em" }}
-            title={datetime(data.experiments.runStarted)}
+            title={datetime(data.experiments.runStarted ?? "")}
           >
-            last updated {ago(data.experiments.runStarted)}
+            last updated {ago(data.experiments.runStarted ?? "")}
           </div>
         </div>
-        {permissions.check("runQueries", "") && (
+        {permissions.check("runQueries", project || "") && (
           <div className="col-auto">
             <form
               onSubmit={async (e) => {
@@ -186,15 +193,9 @@ const ImportExperimentList: FC<{
             >
               <RunQueriesButton
                 cta="Refresh List"
-                initialStatus={getQueryStatus(
-                  data.experiments.queries || [],
-                  data.experiments.error
-                )}
-                statusEndpoint={`/experiments/import/${data.experiments.id}/status`}
                 cancelEndpoint={`/experiments/import/${data.experiments.id}/cancel`}
-                onReady={async () => {
-                  await mutate();
-                }}
+                mutate={mutate}
+                model={data.experiments}
               />
             </form>
           </div>
@@ -204,7 +205,7 @@ const ImportExperimentList: FC<{
         <>
           <div className="alert alert-danger my-3">
             <p>Error importing experiments.</p>
-            {datasource.id && (
+            {datasource?.id && (
               <p>
                 Your datasource&apos;s <em>Experiment Assignment Queries</em>{" "}
                 may be misconfigured.{" "}
@@ -407,7 +408,7 @@ const ImportExperimentList: FC<{
                               datasource: data?.experiments?.datasource,
                               exposureQueryId: e.exposureQueryId || "",
                               variations: e.variationKeys.map((vKey, i) => {
-                                let vName = e.variationNames[i] || vKey;
+                                let vName = e.variationNames?.[i] || vKey;
                                 // If the name is an integer, rename 0 to "Control" and anything else to "Variation {name}"
                                 if (vName.match(/^[0-9]{1,2}$/)) {
                                   vName =
@@ -420,12 +421,13 @@ const ImportExperimentList: FC<{
                                   screenshots: [],
                                   description: "",
                                   key: vKey,
+                                  id: generateVariationId(),
                                 };
                               }),
                               phases: [
                                 {
                                   coverage: 1,
-                                  phase: "main",
+                                  name: "Main",
                                   reason: "",
                                   variationWeights: e.weights,
                                   dateStarted:
@@ -436,6 +438,12 @@ const ImportExperimentList: FC<{
                                     getValidDate(e.endDate)
                                       .toISOString()
                                       .substr(0, 10) + "T23:59:59Z",
+                                  condition: "",
+                                  namespace: {
+                                    enabled: false,
+                                    name: "",
+                                    range: [0, 1],
+                                  },
                                 },
                               ],
                               // Default to stopped if the last data was more than 3 days ago

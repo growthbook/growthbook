@@ -1,0 +1,105 @@
+type: object
+required:
+  - id
+  - dateCreated
+  - dateUpdated
+  - type
+  - name
+  - description
+  - projectIds
+  - eventTracker
+  - identifierTypes
+  - assignmentQueries
+  - identifierJoinQueries
+properties:
+  id:
+    type: string
+  dateCreated:
+    type: string
+    format: date-time
+  dateUpdated:
+    type: string
+    format: date-time
+  type:
+    type: string
+  name:
+    type: string
+  description:
+    type: string
+  projectIds:
+    type: array
+    items:
+      type: string
+  eventTracker:
+    type: string
+  identifierTypes:
+    type: array
+    items:
+      type: object
+      required:
+        - id
+        - description
+      properties:
+        id:
+          type: string
+        description:
+          type: string
+  assignmentQueries:
+    type: array
+    items:
+      type: object
+      required:
+        - id
+        - name
+        - description
+        - identifierType
+        - sql
+        - includesNameColumns
+        - dimensionColumns
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        identifierType:
+          type: string
+        sql:
+          type: string
+        includesNameColumns:
+          type: boolean
+        dimensionColumns:
+          type: array
+          items:
+            type: string
+  identifierJoinQueries:
+    type: array
+    items:
+      type: object
+      required:
+        - identifierTypes
+        - sql
+      properties:
+        identifierTypes:
+          type: array
+          items:
+            type: string
+        sql:
+          type: string
+  mixpanelSettings:
+    type: object
+    required:
+      - viewedExperimentEventName
+      - experimentIdProperty
+      - variationIdProperty
+      - extraUserIdProperty
+    properties:
+      viewedExperimentEventName:
+        type: string
+      experimentIdProperty:
+        type: string
+      variationIdProperty:
+        type: string
+      extraUserIdProperty:
+        type: string

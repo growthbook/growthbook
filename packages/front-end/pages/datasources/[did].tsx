@@ -1,8 +1,14 @@
 import Link from "next/link";
 import { useRouter } from "next/router";
 import React, { FC, useCallback, useState } from "react";
-import { FaAngleLeft, FaExternalLinkAlt, FaKey } from "react-icons/fa";
+import {
+  FaDatabase,
+  FaExclamationTriangle,
+  FaExternalLinkAlt,
+  FaKey,
+} from "react-icons/fa";
 import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
+import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { hasFileConfig } from "@/services/env";
@@ -19,6 +25,12 @@ import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import DataSourceForm from "@/components/Settings/DataSourceForm";
 import Code from "@/components/SyntaxHighlighting/Code";
 import LoadingOverlay from "@/components/LoadingOverlay";
+import Modal from "@/components/Modal";
+import SchemaBrowser from "@/components/SchemaBrowser/SchemaBrowser";
+import { GBCircleArrowLeft } from "@/components/Icons";
+import DataSourceMetrics from "@/components/Settings/EditDataSource/DataSourceMetrics";
+import { DeleteDemoDatasourceButton } from "@/components/DemoDataSourcePage/DemoDataSourcePage";
+import { useUser } from "@/services/UserContext";
 
 function quotePropertyName(name: string) {
   if (name.match(/^[a-zA-Z_][a-zA-Z0-9_]*$/)) {
@@ -30,6 +42,7 @@ function quotePropertyName(name: string) {
 const DataSourcePage: FC = () => {
   const permissions = usePermissions();
   const [editConn, setEditConn] = useState(false);
+  const [viewSchema, setViewSchema] = useState(false);
   const router = useRouter();
 
   const {
@@ -40,12 +53,15 @@ const DataSourcePage: FC = () => {
   } = useDefinitions();
   const { did } = router.query as { did: string };
   const d = getDatasourceById(did);
-
   const { apiCall } = useAuth();
 
+  const { organization } = useUser();
+
   const canEdit =
-    checkDatasourceProjectPermissions(d, permissions, "createDatasources") &&
-    !hasFileConfig();
+    (d &&
+      checkDatasourceProjectPermissions(d, permissions, "createDatasources") &&
+      !hasFileConfig()) ||
+    false;
 
   /**
    * Update the data source provided.
@@ -61,8 +77,9 @@ const DataSourcePage: FC = () => {
         body: JSON.stringify(updates),
       });
       const queriesUpdated =
+        d &&
         JSON.stringify(d.settings?.queries) !==
-        JSON.stringify(dataSource.settings?.queries);
+          JSON.stringify(dataSource.settings?.queries);
       if (queriesUpdated) {
         apiCall<{ id: string }>("/experiments/import", {
           method: "POST",
@@ -78,15 +95,21 @@ const DataSourcePage: FC = () => {
   );
 
   if (error) {
-    return <div className="alert alert-danger">{error}</div>;
+    return (
+      <div className="container pagecontents">
+        <div className="alert alert-danger">{error}</div>
+      </div>
+    );
   }
   if (!ready) {
     return <LoadingOverlay />;
   }
   if (!d) {
     return (
-      <div className="alert alert-danger">
-        Datasource <code>{did}</code> does not exist.
+      <div className="container pagecontents">
+        <div className="alert alert-danger">
+          Datasource <code>{did}</code> does not exist.
+        </div>
       </div>
     );
   }
@@ -95,14 +118,32 @@ const DataSourcePage: FC = () => {
   const supportsEvents = d.properties?.events || false;
 
   return (
-    <div className="container mt-3 pagecontents">
+    <div className="container pagecontents">
       <div className="mb-2">
         <Link href="/datasources">
           <a>
-            <FaAngleLeft /> All Data Sources
+            <GBCircleArrowLeft /> Back to all data sources
           </a>
         </Link>
       </div>
+
+      {d.projects?.includes(
+        getDemoDatasourceProjectIdForOrganization(organization.id)
+      ) && (
+        <div className="alert alert-info mb-3 d-flex align-items-center mt-3">
+          <div className="flex-1">
+            This is part of our sample dataset. You can safely delete this once
+            you are done exploring.
+          </div>
+          <div style={{ width: 180 }} className="ml-2">
+            <DeleteDemoDatasourceButton
+              onDelete={() => router.push("/datasources")}
+              source="datasource"
+            />
+          </div>
+        </div>
+      )}
+
       {d.decryptionError && (
         <div className="alert alert-danger mb-2 d-flex justify-content-between align-items-center">
           <strong>Error Decrypting Data Source Credentials.</strong>{" "}
@@ -128,7 +169,7 @@ const DataSourcePage: FC = () => {
       <div className="row mb-3 align-items-center">
         <div className="col">
           Projects:{" "}
-          {d?.projects?.length > 0 ? (
+          {d?.projects?.length || 0 > 0 ? (
             <ProjectBadges
               projectIds={d.projects}
               className="badge-ellipsis align-middle"
@@ -146,7 +187,7 @@ const DataSourcePage: FC = () => {
               <div className="d-md-flex w-100 justify-content-between">
                 <div>
                   <button
-                    className="btn btn-outline-primary mb-2 mb-md-0 mr-md-2 font-weight-bold"
+                    className="btn btn-outline-primary mr-2 mt-1 font-weight-bold"
                     onClick={(e) => {
                       e.preventDefault();
                       setEditConn(true);
@@ -156,19 +197,30 @@ const DataSourcePage: FC = () => {
                   </button>
 
                   <DocLink
-                    className="btn btn-outline-secondary font-weight-bold mb-2 mb-md-0"
+                    className="btn btn-outline-secondary mr-2 mt-1 font-weight-bold"
                     docSection={d.type as DocSection}
                     fallBackSection="datasources"
                   >
-                    <FaExternalLinkAlt /> View documentation
+                    <FaExternalLinkAlt /> View Documentation
                   </DocLink>
+                  {d?.properties?.supportsInformationSchema && (
+                    <button
+                      className="btn btn-outline-info mr-2 mt-1 font-weight-bold"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        setViewSchema(true);
+                      }}
+                    >
+                      <FaDatabase /> View Schema Browser
+                    </button>
+                  )}
                 </div>
 
                 <div>
                   {canEdit && (
                     <DeleteButton
                       displayName={d.name}
-                      className="font-weight-bold"
+                      className="font-weight-bold mt-1"
                       text={`Delete "${d.name}" Datasource`}
                       onClick={async () => {
                         await apiCall(`/datasource/${d.id}`, {
@@ -244,20 +296,26 @@ mixpanel.init('YOUR PROJECT TOKEN', {
           )}
           {supportsSQL && (
             <>
-              <h2 className="mt-4">Identifiers</h2>
-              <p>
-                The different units you use to split traffic in an experiment.
-              </p>
-
-              <div className="card py-3 px-3 mb-4">
+              {d.dateUpdated === d.dateCreated &&
+                d?.settings?.schemaFormat !== "custom" && (
+                  <div className="alert alert-info">
+                    <FaExclamationTriangle style={{ marginTop: "-2px" }} /> We
+                    have prefilled the identifiers and assignment queries below.
+                    These queries may require editing to fit your data
+                    structure.
+                  </div>
+                )}
+              <div className="my-3 p-3 rounded border bg-white">
                 <DataSourceInlineEditIdentifierTypes
                   onSave={updateDataSourceSettings}
                   onCancel={() => undefined}
                   dataSource={d}
                   canEdit={canEdit}
                 />
+              </div>
 
-                <div className="mt-4">
+              {d.settings?.userIdTypes && d.settings.userIdTypes.length > 1 ? (
+                <div className="my-3 p-3 rounded border bg-white">
                   <DataSourceInlineEditIdentityJoins
                     dataSource={d}
                     onSave={updateDataSourceSettings}
@@ -265,9 +323,9 @@ mixpanel.init('YOUR PROJECT TOKEN', {
                     canEdit={canEdit}
                   />
                 </div>
-              </div>
+              ) : null}
 
-              <div className="my-5">
+              <div className="my-3 p-3 rounded border bg-white">
                 <ExperimentAssignmentQueries
                   dataSource={d}
                   onSave={updateDataSourceSettings}
@@ -275,8 +333,11 @@ mixpanel.init('YOUR PROJECT TOKEN', {
                   canEdit={canEdit}
                 />
               </div>
+              <div className="my-3 p-3 rounded border bg-white">
+                <DataSourceMetrics dataSource={d} canEdit={canEdit} />
+              </div>
 
-              <div className="my-5">
+              <div className="my-3 p-3 rounded border bg-white">
                 <DataSourceJupyterNotebookQuery
                   dataSource={d}
                   onSave={updateDataSourceSettings}
@@ -301,6 +362,24 @@ mixpanel.init('YOUR PROJECT TOKEN', {
             setEditConn(false);
           }}
         />
+      )}
+      {viewSchema && (
+        <Modal
+          open={true}
+          close={() => setViewSchema(false)}
+          closeCta="Close"
+          header="Schema Browser"
+        >
+          <>
+            <p>
+              Explore the schemas, tables, and table metadata of your connected
+              datasource.
+            </p>
+            <div className="border rounded">
+              <SchemaBrowser datasource={d} />
+            </div>
+          </>
+        </Modal>
       )}
     </div>
   );

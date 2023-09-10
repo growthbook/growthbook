@@ -1,13 +1,13 @@
 import Agenda, { Job } from "agenda";
 import { getOrganizationsWithNorthStars } from "../models/OrganizationModel";
 import {
-  refreshMetric,
   DEFAULT_METRIC_ANALYSIS_DAYS,
+  refreshMetric,
 } from "../services/experiments";
 import { getMetricById } from "../models/MetricModel";
 import { METRIC_REFRESH_FREQUENCY } from "../util/secrets";
-import { OrganizationSettings } from "../../types/organization";
 import { logger } from "../util/logger";
+import { promiseAllChunks } from "../util/promise";
 
 const QUEUE_METRIC_UPDATES = "queueMetricUpdates";
 
@@ -16,26 +16,53 @@ const UPDATE_SINGLE_METRIC = "updateSingleMetric";
 type UpdateSingleMetricJob = Job<{
   metricId: string;
   orgId: string;
-  orgSettings: OrganizationSettings;
+  daysToInclude: number;
 }>;
 
 // currently only updating northstar metrics
 export default async function (agenda: Agenda) {
   agenda.define(QUEUE_METRIC_UPDATES, async () => {
     const orgsWithNorthStars = await getOrganizationsWithNorthStars();
-    for (let i = 0; i < orgsWithNorthStars.length; i++) {
-      if (orgsWithNorthStars[i]?.settings?.northStar?.metricIds) {
-        const thisOrgsNorthStarMetricIds =
-          orgsWithNorthStars[i]?.settings?.northStar?.metricIds || [];
-        for (let j = 0; j < thisOrgsNorthStarMetricIds.length; j++) {
-          await queueMetricUpdate(
-            thisOrgsNorthStarMetricIds[j],
-            orgsWithNorthStars[i].id,
-            orgsWithNorthStars[i]?.settings || {}
-          );
+
+    const metrics: {
+      organization: string;
+      id: string;
+      daysToInclude: number;
+    }[] = [];
+    orgsWithNorthStars.forEach((org) => {
+      org?.settings?.northStar?.metricIds?.forEach((metricId) =>
+        metrics.push({
+          organization: org.id,
+          id: metricId,
+          daysToInclude:
+            org?.settings?.metricAnalysisDays || DEFAULT_METRIC_ANALYSIS_DAYS,
+        })
+      );
+    });
+
+    const lastRefreshDate = new Date();
+    lastRefreshDate.setHours(
+      lastRefreshDate.getHours() - METRIC_REFRESH_FREQUENCY
+    );
+
+    const promiseCallbacks: (() => Promise<unknown>)[] = [];
+    metrics.forEach(({ organization, id, daysToInclude }) => {
+      promiseCallbacks.push(async () => {
+        const metric = await getMetricById(id, organization, true);
+        if (!metric) return;
+        // Skip if metric was already refreshed recently
+        if (
+          metric.runStarted &&
+          metric.runStarted.getTime() > lastRefreshDate.getTime()
+        ) {
+          return;
         }
-      }
-    }
+
+        await queueMetricUpdate(id, organization, daysToInclude);
+      });
+    });
+
+    await promiseAllChunks(promiseCallbacks, 5);
   });
 
   agenda.define(
@@ -58,18 +85,17 @@ export default async function (agenda: Agenda) {
   async function queueMetricUpdate(
     metricId: string,
     orgId: string,
-    orgSettings: OrganizationSettings
+    daysToInclude: number
   ) {
     const job = agenda.create(UPDATE_SINGLE_METRIC, {
       metricId,
       orgId,
-      orgSettings,
+      daysToInclude,
     }) as UpdateSingleMetricJob;
 
     job.unique({
       metricId,
       orgId,
-      orgSettings,
     });
     job.schedule(new Date());
     await job.save();
@@ -79,33 +105,24 @@ export default async function (agenda: Agenda) {
 async function updateSingleMetric(job: UpdateSingleMetricJob) {
   const metricId = job.attrs.data?.metricId;
   const orgId = job.attrs.data?.orgId;
-  const orgSettings = job.attrs.data?.orgSettings;
-
-  const log = logger.child({
-    cron: "updateSingleMetric",
-    metricId,
-    orgId,
-  });
-
-  if (!metricId || !orgId) {
-    log.error("Error getting metricId from job");
-    return false;
-  }
-  const metric = await getMetricById(metricId, orgId, true);
-
-  if (!metric) {
-    log.error("Error getting metric to refresh: " + metricId);
-    return false;
-  }
+  const daysToInclude =
+    job.attrs.data?.daysToInclude || DEFAULT_METRIC_ANALYSIS_DAYS;
 
   try {
-    log.info("Start Refreshing Metric: " + metricId);
-    const days =
-      orgSettings?.metricAnalysisDays || DEFAULT_METRIC_ANALYSIS_DAYS;
-    await refreshMetric(metric, orgId, days);
-  } catch (e) {
-    log.error("Error refreshing metric: " + e.message);
-  }
+    if (!metricId || !orgId) {
+      throw new Error("Error getting metricId or orgId from job");
+    }
+    const metric = await getMetricById(metricId, orgId, true);
 
-  log.info("Success");
+    if (!metric) {
+      throw new Error("Error getting metric to refresh: " + metricId);
+    }
+
+    logger.info("Start Refreshing Metric: " + metricId);
+    await refreshMetric(metric, orgId, daysToInclude);
+    logger.info("Successfully Refreshed Metric: " + metricId);
+  } catch (e) {
+    logger.error(e, "Error refreshing metric: " + metricId);
+    return false;
+  }
 }

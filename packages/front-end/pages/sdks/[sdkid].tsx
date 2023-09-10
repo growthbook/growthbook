@@ -5,12 +5,13 @@ import { ReactElement, ReactNode, useState } from "react";
 import {
   FaCheckCircle,
   FaExclamationTriangle,
+  FaInfoCircle,
   FaLock,
   FaQuestionCircle,
 } from "react-icons/fa";
 import { BsArrowRepeat, BsLightningFill } from "react-icons/bs";
 import LoadingOverlay from "@/components/LoadingOverlay";
-import { GBCircleArrowLeft, GBEdit } from "@/components/Icons";
+import { GBCircleArrowLeft, GBEdit, GBHashLock } from "@/components/Icons";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import { useAuth } from "@/services/auth";
@@ -24,6 +25,8 @@ import SDKLanguageLogo from "@/components/Features/SDKConnections/SDKLanguageLog
 import ProxyTestButton from "@/components/Features/SDKConnections/ProxyTestButton";
 import Button from "@/components/Button";
 import useSDKConnections from "@/hooks/useSDKConnections";
+import { isCloud } from "@/services/env";
+import Tooltip from "@/components/Tooltip/Tooltip";
 
 function ConnectionDot({ left }: { left: boolean }) {
   return (
@@ -79,7 +82,7 @@ function ConnectionStatus({
 }: {
   connected: boolean;
   error?: boolean;
-  refresh: ReactElement;
+  refresh?: ReactElement;
   canRefresh: boolean;
 }) {
   return (
@@ -107,7 +110,7 @@ function ConnectionStatus({
         </>
       )}
       <div style={{ marginTop: 10, textAlign: "center" }}>
-        {canRefresh ? refresh : <>&nbsp;</>}
+        {canRefresh && refresh ? refresh : <>&nbsp;</>}
       </div>
     </div>
   );
@@ -141,7 +144,7 @@ export default function SDKConnectionPage() {
   );
 
   if (!connection) {
-    return <div className="alert alert-danger">Invalid SDK Connection id.</div>;
+    return <div className="alert alert-danger">Invalid SDK Connection id</div>;
   }
 
   const hasPermission = permissions.check(
@@ -150,7 +153,11 @@ export default function SDKConnectionPage() {
     [connection.environment]
   );
 
-  const hasProxy = connection.proxy.enabled && connection.proxy.host;
+  const hasProxy = connection.proxy.enabled && !!connection.proxy.host;
+
+  const projectId = connection.project;
+  const projectName = getProjectById(projectId)?.name || null;
+  const projectIsDeReferenced = projectId && !projectName;
 
   return (
     <div className="contents container pagecontents">
@@ -224,33 +231,59 @@ export default function SDKConnectionPage() {
         )}
       </div>
 
-      <div className="mb-4 row" style={{ fontSize: "0.8em" }}>
+      <div className="mb-4 row">
         <div className="col-auto">
           Environment: <strong>{connection.environment}</strong>
         </div>
 
-        {projects.length > 0 && (
+        {(projects.length > 0 || projectIsDeReferenced) && (
           <div className="col-auto">
             Project:{" "}
-            {connection.project ? (
-              <strong>
-                {getProjectById(connection.project)?.name || "unknown"}
-              </strong>
+            {projectIsDeReferenced ? (
+              <Tooltip
+                body={
+                  <>
+                    Project <code>{projectId}</code> not found
+                  </>
+                }
+              >
+                <span className="text-danger">
+                  <FaExclamationTriangle /> Invalid project
+                </span>
+              </Tooltip>
+            ) : projectId ? (
+              <strong>{projectName}</strong>
             ) : (
               <em className="text-muted">All Projects</em>
             )}
           </div>
         )}
 
+        {connection.hashSecureAttributes && (
+          <div className="col-auto">
+            Secure Attribute Hashing:{" "}
+            <strong>
+              <GBHashLock className="text-blue" /> yes
+            </strong>
+          </div>
+        )}
         {connection.encryptPayload && (
           <div className="col-auto">
             Encrypted:{" "}
             <strong>
-              <FaLock /> yes
+              <FaLock className="text-purple" /> yes
             </strong>
           </div>
         )}
       </div>
+
+      {projectIsDeReferenced && (
+        <div className="alert alert-danger">
+          This SDK connection is scoped to a project that no longer exists. This
+          connection will no longer work until either a valid project or
+          &quot;All Projects&quot; is selected.
+        </div>
+      )}
 
       <div className="row mb-2 align-items-center">
         <div className="col-auto">
@@ -258,7 +291,7 @@ export default function SDKConnectionPage() {
         </div>
       </div>
       <div
-        className="d-flex align-items-center mb-4 position-relative"
+        className="d-flex align-items-center position-relative"
         style={{
           justifyContent: "space-between",
         }}
@@ -275,7 +308,10 @@ export default function SDKConnectionPage() {
           }}
         />
         <ConnectionNode first title="Your App">
-          <div className="d-flex flex-wrap justify-content-center">
+          <div
+            className="d-flex flex-wrap justify-content-center"
+            style={{ maxWidth: 325 }}
+          >
             {connection.languages.map((language) => (
               <div className="mx-1" key={language}>
                 <SDKLanguageLogo showLabel={true} language={language} />
@@ -309,7 +345,7 @@ export default function SDKConnectionPage() {
               }
             >
               <code className="text-muted">
-                {connection.proxy.hostExternal || connection.proxy.host}
+                {connection.proxy.host || connection.proxy.hostExternal}
               </code>
             </ConnectionNode>
 
@@ -345,12 +381,43 @@ export default function SDKConnectionPage() {
         </ConnectionNode>
       </div>
 
-      <CodeSnippetModal
-        connections={data.connections}
-        mutateConnections={mutate}
-        sdkConnection={connection}
-        inline={true}
-      />
+      <div className="row mb-5 align-items-center">
+        <div className="flex-1"></div>
+        <div className="col-auto">
+          <Tooltip
+            body={
+              <div style={{ lineHeight: 1.5 }}>
+                <p className="mb-0">
+                  <BsLightningFill className="text-warning" />
+                  <strong>Streaming Updates</strong> allow you to instantly
+                  update any subscribed SDKs when you make any feature changes
+                  in GrowthBook. For front-end SDKs, active users will see the
+                  changes immediately without having to refresh the page.
+                </p>
+              </div>
+            }
+          >
+            <BsLightningFill className="text-warning" />
+            Streaming Updates:{" "}
+            <strong>{isCloud() || hasProxy ? "Enabled" : "Disabled"}</strong>
+            <div
+              className="text-right text-muted"
+              style={{ fontSize: "0.75rem" }}
+            >
+              What is this? <FaInfoCircle />
+            </div>
+          </Tooltip>
+        </div>
+      </div>
+
+      <div className="mt-4">
+        <CodeSnippetModal
+          connections={data.connections}
+          mutateConnections={mutate}
+          sdkConnection={connection}
+          inline={true}
+        />
+      </div>
     </div>
   );
 }

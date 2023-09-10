@@ -1,11 +1,24 @@
 import { Request, Response, NextFunction } from "express";
+import { hasPermission } from "shared/permissions";
 import { ApiRequestLocals } from "../../types/api";
 import { lookupOrganizationByApiKey } from "../models/ApiKeyModel";
-import { insertAudit } from "../services/audit";
 import { getOrganizationById } from "../services/organizations";
 import { getCustomLogProps } from "../util/logger";
+import { EventAuditUserApiKey } from "../events/event-types";
+import { isApiKeyForUserInOrganization } from "../util/api-key.util";
+import {
+  MemberRole,
+  OrganizationInterface,
+  Permission,
+} from "../../types/organization";
+import {
+  getUserPermissions,
+  roleToPermissionMap,
+} from "../util/organization.util";
+import { ApiKeyInterface } from "../../types/apikey";
+import { insertAudit } from "../models/AuditModel";
 
-export default function authencateApiRequestMiddleware(
+export default function authenticateApiRequestMiddleware(
   req: Request & ApiRequestLocals,
   res: Response & { log: Request["log"] },
   next: NextFunction
@@ -39,7 +52,8 @@ export default function authencateApiRequestMiddleware(
 
   // Lookup organization by secret key and store in req
   lookupOrganizationByApiKey(secretKey)
-    .then(async ({ organization, secret, id }) => {
+    .then(async (apiKeyPartial) => {
+      const { organization, secret, id } = apiKeyPartial;
       if (!organization) {
         throw new Error("Invalid API key");
       }
@@ -49,14 +63,55 @@ export default function authencateApiRequestMiddleware(
         );
       }
       req.apiKey = id || "";
+
+      // Organization for key
       const org = await getOrganizationById(organization);
       if (!org) {
         throw new Error("Could not find organization attached to this API key");
       }
       req.organization = org;
 
+      // If it's a user API key, verify that the user is part of the organization
+      // This is important to check in the event that a user leaves an organization, the member list is updated, and the user's API keys are orphaned
+      if (
+        apiKeyPartial.userId &&
+        !isApiKeyForUserInOrganization(apiKeyPartial, org)
+      ) {
+        throw new Error("Could not find user attached to this API key");
+      }
+
+      // Check permissions for user API keys
+      req.checkPermissions = (
+        permission: Permission,
+        project?: string | (string | undefined)[] | undefined,
+        envs?: string[] | Set<string>
+      ) => {
+        let checkProjects: (string | undefined)[];
+        if (Array.isArray(project)) {
+          checkProjects = project.length > 0 ? project : [undefined];
+        } else {
+          checkProjects = [project];
+        }
+
+        for (const p of checkProjects) {
+          verifyApiKeyPermission({
+            apiKey: apiKeyPartial,
+            permission,
+            organization: org,
+            project: p,
+            environments: envs ? [...envs] : undefined,
+          });
+        }
+      };
+
       // Add user info to logger
       res.log = req.log = req.log.child(getCustomLogProps(req as Request));
+
+      const eventAudit: EventAuditUserApiKey = {
+        type: "api_key",
+        apiKey: id || "unknown",
+      };
+      req.eventAudit = eventAudit;
 
       // Add audit method to req
       req.audit = async (data) => {
@@ -78,4 +133,83 @@ export default function authencateApiRequestMiddleware(
         message: e.message,
       });
     });
+}
+
+function doesUserHavePermission(
+  org: OrganizationInterface,
+  permission: Permission,
+  apiKeyPartial: Partial<ApiKeyInterface>,
+  project?: string,
+  envs?: string[]
+): boolean {
+  try {
+    const userId = apiKeyPartial.userId;
+    if (!userId) {
+      return false;
+    }
+
+    // Generate full list of permissions for the user
+    const userPermissions = getUserPermissions(userId, org);
+
+    // Check if the user has the permission
+    return hasPermission(userPermissions, permission, project, envs);
+  } catch (e) {
+    return false;
+  }
+}
+
+type VerifyApiKeyPermissionOptions = {
+  apiKey: Partial<ApiKeyInterface>;
+  permission: Permission;
+  organization: OrganizationInterface;
+  project?: string;
+  environments?: string[];
+};
+
+/**
+ * @param apiKey
+ * @param permission
+ * @param envs
+ * @param project
+ * @throws an error if there are no permissions
+ */
+export function verifyApiKeyPermission({
+  apiKey,
+  permission,
+  organization,
+  environments,
+  project,
+}: VerifyApiKeyPermissionOptions) {
+  if (apiKey.userId) {
+    if (
+      !doesUserHavePermission(
+        organization,
+        permission,
+        apiKey,
+        project,
+        environments
+      )
+    ) {
+      throw new Error("API key user does not have this level of access");
+    }
+
+    if (apiKey.secret !== true) {
+      throw new Error("API key does not have this level of access");
+    }
+  } else if (apiKey.secret && apiKey.role) {
+    // Because of the JIT migration, `role` will always be set here, even for old secret keys
+    // This will check a valid role is provided.
+    const rolePermissions = roleToPermissionMap(
+      apiKey.role as MemberRole,
+      organization
+    );
+
+    // No need to treat "readonly" differently, it will return an empty array permissions array and fail this check
+    if (!rolePermissions[permission]) {
+      throw new Error("API key user does not have this level of access");
+    }
+  } else {
+    // This shouldn't happen (old SDK key with secret === false being used)
+    throw new Error("API key does not have this level of access");
+  }
 }

@@ -1,0 +1,24 @@
+type: object
+required:
+  - id
+  - name
+  - dateCreated
+  - dateUpdated
+properties:
+  id:
+    type: string
+  name:
+    type: string
+  dateCreated:
+    type: string
+    format: date-time
+  dateUpdated:
+    type: string
+    format: date-time
+  description:
+    type: string
+  settings:
+    type: object
+    properties:
+      statsEngine:
+        type: string

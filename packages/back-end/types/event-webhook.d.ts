@@ -11,7 +11,7 @@ export interface EventWebHookInterface {
   url: string;
   signingKey: string;
   // Last state
-  lastRunAt: Date;
+  lastRunAt: Date | null;
   lastState: "none" | "success" | "error";
   lastResponseBody: string | null;
 }

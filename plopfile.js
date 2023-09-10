@@ -60,6 +60,129 @@ module.exports = function (plop) {
     ],
   });
 
+  plop.setGenerator("api-object", {
+    description: "[back-end] Generate REST API list and get endpoints",
+    prompts: [
+      {
+        type: "input",
+        name: "object",
+        message:
+          "The singular name of the API object (e.g. 'metric' or 'data source')",
+      },
+    ],
+    actions: [
+      {
+        type: "add",
+        skipIfExists: true,
+        path:
+          "./packages/back-end/src/api/{{kebabCase object}}s/{{kebabCase object}}s.router.ts",
+        templateFile: "./plop-templates/back-end/api/router.hbs",
+      },
+      {
+        type: "add",
+        skipIfExists: true,
+        path:
+          "./packages/back-end/src/api/{{kebabCase object}}s/list{{pascalCase object}}s.ts",
+        templateFile: "./plop-templates/back-end/api/list.hbs",
+      },
+      {
+        type: "add",
+        skipIfExists: true,
+        path:
+          "./packages/back-end/src/api/{{kebabCase object}}s/get{{pascalCase object}}.ts",
+        templateFile: "./plop-templates/back-end/api/get.hbs",
+      },
+      {
+        type: "add",
+        skipIfExists: true,
+        path:
+          "./packages/back-end/src/api/{{kebabCase object}}s/post{{pascalCase object}}.ts",
+        templateFile: "./plop-templates/back-end/api/post.hbs",
+      },
+      {
+        type: "add",
+        skipIfExists: true,
+        path:
+          "./packages/back-end/src/api/{{kebabCase object}}s/update{{pascalCase object}}.ts",
+        templateFile: "./plop-templates/back-end/api/update.hbs",
+      },
+      {
+        type: "add",
+        skipIfExists: true,
+        path:
+          "./packages/back-end/src/api/{{kebabCase object}}s/delete{{pascalCase object}}.ts",
+        templateFile: "./plop-templates/back-end/api/delete.hbs",
+      },
+      {
+        type: "add",
+        skipIfExists: true,
+        path:
+          "./packages/back-end/src/api/openapi/schemas/{{pascalCase object}}.yaml",
+        templateFile: "./plop-templates/back-end/api/openapi_model.hbs",
+      },
+      {
+        type: "add",
+        skipIfExists: true,
+        path:
+          "./packages/back-end/src/api/openapi/paths/list{{pascalCase object}}s.yaml",
+        templateFile: "./plop-templates/back-end/api/openapi_list.hbs",
+      },
+      {
+        type: "add",
+        skipIfExists: true,
+        path:
+          "./packages/back-end/src/api/openapi/paths/post{{pascalCase object}}.yaml",
+        templateFile: "./plop-templates/back-end/api/openapi_post.hbs",
+      },
+      {
+        type: "add",
+        skipIfExists: true,
+        path:
+          "./packages/back-end/src/api/openapi/paths/update{{pascalCase object}}.yaml",
+        templateFile: "./plop-templates/back-end/api/openapi_update.hbs",
+      },
+      {
+        type: "add",
+        skipIfExists: true,
+        path:
+          "./packages/back-end/src/api/openapi/paths/get{{pascalCase object}}.yaml",
+        templateFile: "./plop-templates/back-end/api/openapi_get.hbs",
+      },
+      {
+        type: "add",
+        skipIfExists: true,
+        path:
+          "./packages/back-end/src/api/openapi/paths/delete{{pascalCase object}}.yaml",
+        templateFile: "./plop-templates/back-end/api/openapi_delete.hbs",
+      },
+      {
+        type: "append",
+        path: "./packages/back-end/src/api/openapi/schemas/_index.yaml",
+        template: `
+{{pascalCase object}}:
+  $ref: './{{pascalCase object}}.yaml'
+`.trim(),
+      },
+      {
+        type: "append",
+        path: "./packages/back-end/src/api/openapi/openapi.yaml",
+        pattern: /PLOP_INSERT_PATHS_HERE/,
+        template: `  /{{kebabCase object}}s:
+    get:
+      $ref: "./paths/list{{pascalCase object}}s.yaml"
+    post:
+      $ref: "./paths/post{{pascalCase object}}.yaml"
+  /{{kebabCase object}}s/{id}:
+    get:
+      $ref: "./paths/get{{pascalCase object}}.yaml"
+    post:
+      $ref: "./paths/update{{pascalCase object}}.yaml"
+    delete:
+      $ref: "./paths/delete{{pascalCase object}}.yaml"`,
+      },
+    ],
+  });
+
   plop.setGenerator("next-page", {
     description: "[front-end] Generates a Next.js page",
     prompts: [
@@ -87,4 +210,63 @@ module.exports = function (plop) {
   });
 
   // endregion Front-end
+
+  // region Shared
+
+  plop.setGenerator("shared-entrypoint", {
+    description: "[shared] Generates a new entry point for the shared package",
+    prompts: [
+      {
+        type: "input",
+        name: "entrypoint",
+        message:
+          "A new entry point for the shared package, e.g. 'todos' to make import { createTodo } from 'shared/todos'",
+      },
+      {
+        type: "input",
+        name: "function",
+        message:
+          "Name of the first function to add to this file, e.g. 'createTodo' to make import { createTodo } from 'shared/todos'",
+      },
+    ],
+    actions: [
+      // definition file
+      {
+        type: "add",
+        skipIfExists: true,
+        path: "./packages/shared/{{kebabCase entrypoint}}.d.ts",
+        template: `export * from "./src/{{kebabCase entrypoint}}";`.trim(),
+      },
+      // utils
+      {
+        type: "add",
+        skipIfExists: true,
+        path:
+          "./packages/shared/src/{{kebabCase entrypoint}}/{{kebabCase entrypoint}}.ts",
+        template: `export function {{function}}(): void {
+  // todo
+}`.trim(),
+      },
+      // exports & barrel files
+      {
+        type: "add",
+        skipIfExists: true,
+        path: "./packages/shared/{{kebabCase entrypoint}}.js",
+        template: `module.exports = require("./dist/{{kebabCase entrypoint}}");`.trim(),
+      },
+      {
+        type: "add",
+        skipIfExists: true,
+        path: "./packages/shared/src/{{kebabCase entrypoint}}/index.ts",
+        template: `export * from "./{{kebabCase entrypoint}}";`.trim(),
+      },
+      {
+        type: "append",
+        path: "./packages/shared/src/index.ts",
+        template: `export * as {{camelCase entrypoint}} from "./{{kebabCase entrypoint}}";`.trim(),
+      },
+    ],
+  });
+
+  // endregion Shared
 };

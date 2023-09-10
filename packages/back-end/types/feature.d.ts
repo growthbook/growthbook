@@ -46,6 +46,12 @@ export interface FeatureInterface {
     date: Date;
     publishedBy: UserRef;
   };
+  linkedExperiments?: string[];
+  jsonSchema?: {
+    schema: string;
+    date: Date;
+    enabled: boolean;
+  };
 }
 type ScheduleRule = {
   timestamp: string | null;
@@ -77,12 +83,15 @@ type ExperimentValue = {
   name?: string;
 };
 
-type NamespaceValue = {
+export type NamespaceValue = {
   enabled: boolean;
   name: string;
   range: [number, number];
 };
 
+/**
+ * @deprecated
+ */
 export interface ExperimentRule extends BaseRule {
   type: "experiment";
   trackingKey: string;
@@ -92,4 +101,19 @@ export interface ExperimentRule extends BaseRule {
   values: ExperimentValue[];
 }
 
-export type FeatureRule = ForceRule | RolloutRule | ExperimentRule;
+export interface ExperimentRefVariation {
+  variationId: string;
+  value: string;
+}
+
+export interface ExperimentRefRule extends BaseRule {
+  type: "experiment-ref";
+  experimentId: string;
+  variations: ExperimentRefVariation[];
+}
+
+export type FeatureRule =
+  | ForceRule
+  | RolloutRule
+  | ExperimentRule
+  | ExperimentRefRule;

@@ -2,9 +2,11 @@ import React, { useState } from "react";
 import { FaAngleRight, FaExclamationTriangle, FaLock } from "react-icons/fa";
 import Link from "next/link";
 import { useRouter } from "next/router";
+import { BsLightningFill } from "react-icons/bs";
+import { RxDesktop } from "react-icons/rx";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import LoadingOverlay from "@/components/LoadingOverlay";
-import { GBAddCircle } from "@/components/Icons";
+import { GBAddCircle, GBHashLock } from "@/components/Icons";
 import usePermissions from "@/hooks/usePermissions";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import StatusCircle from "@/components/Helpers/StatusCircle";
@@ -40,7 +42,26 @@ export default function SDKConnectionsList() {
           edit={false}
         />
       )}
-      <h1>SDK Connections</h1>
+
+      <div className="row align-items-center mb-4">
+        <div className="col-auto">
+          <h1 className="mb-0">SDK Connections</h1>
+        </div>
+        {connections.length > 0 ? (
+          <div className="col-auto ml-auto">
+            <button
+              className="btn btn-primary"
+              onClick={(e) => {
+                e.preventDefault();
+                setModalOpen(true);
+              }}
+            >
+              <GBAddCircle /> Add SDK Connection
+            </button>
+          </div>
+        ) : null}
+      </div>
+
       {connections.length > 0 && (
         <table className="table mb-3 appbox gbtable table-hover">
           <thead>
@@ -49,6 +70,7 @@ export default function SDKConnectionsList() {
               <th>Name</th>
               {projects.length > 0 && <th>Project</th>}
               <th>Environment</th>
+              <th className="text-center">Features</th>
               <th>Languages</th>
               <th style={{ width: 25 }}></th>
             </tr>
@@ -56,10 +78,14 @@ export default function SDKConnectionsList() {
           <tbody>
             {connections.map((connection) => {
               const hasProxy =
-                connection.proxy.enabled && connection.proxy.host;
+                connection.proxy.enabled && !!connection.proxy.host;
               const connected =
                 connection.connected &&
                 (!hasProxy || connection.proxy.connected);
+
+              const projectId = connection.project;
+              const projectName = getProjectById(projectId)?.name || null;
+              const projectIsDeReferenced = projectId && !projectName;
 
               return (
                 <tr
@@ -71,19 +97,25 @@ export default function SDKConnectionsList() {
                   }}
                 >
                   <td style={{ verticalAlign: "middle", width: 20 }}>
-                    <Tooltip
-                      body={
-                        connected
-                          ? "Connected successfully"
-                          : "Could not verify the connection"
-                      }
-                    >
-                      {connected ? (
-                        <StatusCircle className="bg-success" />
-                      ) : (
-                        <FaExclamationTriangle className="text-warning" />
-                      )}
-                    </Tooltip>
+                    {projectIsDeReferenced ? (
+                      <Tooltip body='This SDK connection is scoped to a project that no longer exists. This connection will no longer work until either a valid project or "All Projects" is selected.'>
+                        <FaExclamationTriangle className="text-danger" />
+                      </Tooltip>
+                    ) : (
+                      <Tooltip
+                        body={
+                          connected
+                            ? "Connected successfully"
+                            : "Could not verify the connection"
+                        }
+                      >
+                        {connected ? (
+                          <StatusCircle className="bg-success" />
+                        ) : (
+                          <FaExclamationTriangle className="text-warning" />
+                        )}
+                      </Tooltip>
+                    )}
                   </td>
                   <td className="text-break">
                     <Link href={`/sdks/${connection.id}`}>
@@ -92,24 +124,74 @@ export default function SDKConnectionsList() {
                   </td>
                   {projects.length > 0 && (
                     <td>
-                      {connection.project ? (
-                        getProjectById(connection.project)?.name ||
-                        connection.project
+                      {projectIsDeReferenced ? (
+                        <Tooltip
+                          body={
+                            <>
+                              Project <code>{connection.project}</code> not
+                              found
+                            </>
+                          }
+                        >
+                          <span className="text-danger">Invalid project</span>
+                        </Tooltip>
                       ) : (
-                        <em>All Projects</em>
-                      )}{" "}
+                        projectName ?? <em>All Projects</em>
+                      )}
                     </td>
                   )}
-                  <td>
-                    {connection.environment}{" "}
+                  <td>{connection.environment}</td>
+                  <td className="text-center">
+                    {connection.hashSecureAttributes && (
+                      <Tooltip
+                        body={
+                          <>
+                            <strong>Secure Attribute Hashing</strong> is enabled
+                            for this connection&apos;s SDK payload
+                          </>
+                        }
+                      >
+                        <GBHashLock className="mx-1 text-blue" />
+                      </Tooltip>
+                    )}
                     {connection.encryptPayload && (
-                      <Tooltip body="This feature payload is encrypted">
-                        <FaLock className="text-purple" />
+                      <Tooltip
+                        body={
+                          <>
+                            <strong>Encryption</strong> is enabled for this
+                            connection&apos;s SDK payload
+                          </>
+                        }
+                      >
+                        <FaLock className="mx-1 text-purple" />
+                      </Tooltip>
+                    )}
+                    {hasProxy && (
+                      <Tooltip
+                        body={
+                          <>
+                            <BsLightningFill className="text-warning" />
+                            <strong>GB Proxy</strong> is enabled
+                          </>
+                        }
+                      >
+                        <BsLightningFill className="mx-1 text-warning" />
+                      </Tooltip>
+                    )}
+                    {connection.includeVisualExperiments && (
+                      <Tooltip
+                        body={
+                          <>
+                            <strong>Visual Experiments</strong> are supported
+                          </>
+                        }
+                      >
+                        <RxDesktop className="mx-1 text-blue" />
                       </Tooltip>
                     )}
                   </td>
-                  <td>
-                    <div className="d-flex">
+                  <td style={{ maxWidth: 200 }}>
+                    <div className="d-flex flex-wrap">
                       {connection.languages.map((language) => (
                         <span className="mx-1" key={language}>
                           <SDKLanguageLogo language={language} />
@@ -145,17 +227,7 @@ export default function SDKConnectionsList() {
                 <GBAddCircle /> Create New SDK Connection
               </button>
             </div>
-          ) : (
-            <button
-              className="btn btn-primary"
-              onClick={(e) => {
-                e.preventDefault();
-                setModalOpen(true);
-              }}
-            >
-              <GBAddCircle /> Create New SDK Connection
-            </button>
-          )}
+          ) : null}
         </>
       )}
     </div>

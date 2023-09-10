@@ -5,7 +5,7 @@ import {
 } from "back-end/types/experiment";
 import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
 import { FaQuestionCircle } from "react-icons/fa";
-import { datetime } from "@/services/dates";
+import { datetime } from "shared/dates";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { getExposureQuery } from "@/services/datasources";
 import Modal from "../Modal";
@@ -19,7 +19,9 @@ const FilterSummary: FC<{
 }> = ({ experiment, phase, snapshot }) => {
   const [showExpandedFilter, setShowExpandedFilter] = useState(false);
   const hasFilter =
-    snapshot.segment || snapshot.queryFilter || snapshot.activationMetric;
+    snapshot.settings.segment ||
+    snapshot.settings.queryFilter ||
+    snapshot.settings.activationMetric;
   const { getSegmentById, getMetricById, getDatasourceById } = useDefinitions();
   const datasource = getDatasourceById(experiment.datasource);
 
@@ -77,7 +79,7 @@ const FilterSummary: FC<{
                 <strong className="text-gray">Date range:</strong>
               </div>
               <div className="col">
-                <strong>{datetime(phase.dateStarted)}</strong> to
+                <strong>{datetime(phase.dateStarted ?? "")}</strong> to
                 <br />
                 <strong>
                   {datetime(phase.dateEnded || snapshot.dateCreated)}
@@ -95,8 +97,8 @@ const FilterSummary: FC<{
                 </small>
               </div>
               <div className="col">
-                {snapshot.segment ? (
-                  getSegmentById(snapshot.segment)?.name ?? "(unknown)"
+                {snapshot.settings.segment ? (
+                  getSegmentById(snapshot.settings.segment)?.name ?? "(unknown)"
                 ) : (
                   <>
                     <em>none</em> (all users included)
@@ -113,8 +115,9 @@ const FilterSummary: FC<{
               </small>
             </div>
             <div className="col">
-              {snapshot.activationMetric ? (
-                getMetricById(snapshot.activationMetric)?.name ?? "(unknown)"
+              {snapshot.settings.activationMetric ? (
+                getMetricById(snapshot.settings.activationMetric)?.name ??
+                "(unknown)"
               ) : (
                 <em>none</em>
               )}
@@ -125,21 +128,9 @@ const FilterSummary: FC<{
               <strong className="text-gray">Metric Conversions:</strong>
             </div>
             <div className="col">
-              {snapshot.skipPartialData
+              {snapshot.settings.skipPartialData
                 ? "Excluding In-Progress Conversions"
                 : "Including In-Progress Conversions"}
-            </div>
-          </div>
-          <div className="row mb-3">
-            <div className="col-5">
-              <strong className="text-gray">
-                Users in Multiple Variations:
-              </strong>
-            </div>
-            <div className="col">
-              {experiment.removeMultipleExposures
-                ? "Removed from analysis"
-                : "Included in analysis"}
             </div>
           </div>
           <div className="row mb-3">
@@ -151,8 +142,8 @@ const FilterSummary: FC<{
               </strong>
             </div>
             <div className="col">
-              {experiment.attributionModel === "allExposures"
-                ? "All Exposures"
+              {experiment.attributionModel === "experimentDuration"
+                ? "Experiment Duration"
                 : "First Exposure"}
             </div>
           </div>
@@ -162,10 +153,10 @@ const FilterSummary: FC<{
                 <strong className="text-gray">Custom SQL Filter:</strong>
               </div>
               <div className="col">
-                {snapshot.queryFilter ? (
+                {snapshot.settings.queryFilter ? (
                   <Code
                     language="sql"
-                    code={snapshot.queryFilter}
+                    code={snapshot.settings.queryFilter}
                     expandable={true}
                   />
                 ) : (

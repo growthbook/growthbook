@@ -7,6 +7,7 @@ import React, {
 import { useDropzone } from "react-dropzone";
 import { Screenshot } from "back-end/types/experiment";
 import clsx from "clsx";
+import { BiImageAdd } from "react-icons/bi";
 import { useAuth } from "@/services/auth";
 import { uploadFile } from "@/services/files";
 import LoadingOverlay from "../LoadingOverlay";
@@ -26,10 +27,10 @@ const ScreenshotUpload = ({
   const { apiCall } = useAuth();
   const [loading, setLoading] = useState(0);
 
-  const onDrop = (files: File[]) => {
+  const onDrop = async (files: File[]) => {
     setLoading(loading + files.length);
 
-    files.forEach(async (file) => {
+    for (const file of files) {
       try {
         const { fileURL } = await uploadFile(apiCall, file);
 
@@ -55,7 +56,7 @@ const ScreenshotUpload = ({
         alert(e.message);
         setLoading(loading - 1);
       }
-    });
+    }
   };
   const { getRootProps, getInputProps, isDragActive } = useDropzone({ onDrop });
 
@@ -70,14 +71,17 @@ const ScreenshotUpload = ({
     <>
       <div
         {...typedRootProps}
-        className={clsx(styles.droparea, { [styles.dragging]: isDragActive })}
+        className={clsx(styles.droparea, styles.dropareaNewUi, "my-1", {
+          [styles.dragging]: isDragActive,
+        })}
       >
         {loading > 0 ? <LoadingOverlay /> : ""}
         <input {...getInputProps()} />
         <div className={styles.message}>Drop Image Here...</div>
-        <button className="btn btn-outline-primary btn-sm">
-          Upload Screenshot
-        </button>
+        <span className={styles.textlink}>
+          <BiImageAdd className="mr-1" style={{ fontSize: 20 }} />
+          Add Screenshot
+        </span>
       </div>
     </>
   );

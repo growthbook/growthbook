@@ -4,7 +4,7 @@
 
 This is the React client library that lets you evaluate feature flags and run experiments (A/B tests) within a React application. It is a thin wrapper around the [Javascript SDK](https://docs.growthbook.io/lib/js), so you might want to view those docs first to familiarize yourself with the basic classes and methods.
 
-![Build Status](https://github.com/growthbook/growthbook/workflows/CI/badge.svg) ![GZIP Size](https://img.shields.io/badge/gzip%20size-5.4KB-informational) ![NPM Version](https://img.shields.io/npm/v/@growthbook/growthbook-react)
+![Build Status](https://github.com/growthbook/growthbook/workflows/CI/badge.svg) ![GZIP Size](https://img.shields.io/badge/gzip%20size-7.84KB-informational) ![NPM Version](https://img.shields.io/npm/v/@growthbook/growthbook-react)
 
 - **No external dependencies**
 - **Lightweight and fast**
@@ -15,6 +15,7 @@ This is the React client library that lets you evaluate feature flags and run ex
 - **Use your existing event tracking** (GA, Segment, Mixpanel, custom)
 - Run mutually exclusive experiments with **namespaces**
 - **Remote configuration** to change feature values without deploying new code
+- Run **Visual Experiments** without writing code by using the GrowthBook Visual Editor
 
 ## Community
 
@@ -44,8 +45,18 @@ import { GrowthBook, GrowthBookProvider } from "@growthbook/growthbook-react";
 const gb = new GrowthBook({
   apiHost: "https://cdn.growthbook.io",
   clientKey: "sdk-abc123",
-  // Enable easier debugging of feature flags during development
+  // Enable easier debugging during development
   enableDevMode: true,
+  // Update the instance in realtime as features change in GrowthBook
+  subscribeToChanges: true,
+  // Only required for A/B testing
+  // Called every time a user is put into an experiment
+  trackingCallback: (experiment, result) => {
+    console.log("Experiment Viewed", {
+      experimentId: experiment.key,
+      variationId: result.key,
+    });
+  },
 });
 
 export default function App() {
@@ -152,14 +163,14 @@ If you pass an `apiHost` and `clientKey` into the GrowthBook constructor, it wil
 const gb = new GrowthBook({
   apiHost: "https://cdn.growthbook.io",
   clientKey: "sdk-abc123",
-  decryptionKey: "key_abc123", // Only if you have feature encryption turned on
+  // Only required if you have feature encryption enabled in GrowthBook
+  decryptionKey: "key_abc123",
+  // Update the instance in realtime as features change in GrowthBook (default: false)
+  subscribeToChanges: true,
 });
 
 // Wait for features to be downloaded
 await gb.loadFeatures({
-  // When features change, update the GrowthBook instance automatically
-  // Default: `false`
-  autoRefresh: true,
   // If the network request takes longer than this (in milliseconds), continue
   // Default: `0` (no timeout)
   timeout: 2000,
@@ -169,6 +180,22 @@ await gb.loadFeatures({
 Until features are loaded, all features will evaluate to `null`. If you're ok with a potential flicker in your application (features going from `null` to their real value), you can call `loadFeatures` without awaiting the result.
 
 If you want to refresh the features at any time (e.g. when a navigation event occurs), you can call `gb.refreshFeatures()`.
+
+#### Streaming Updates
+
+By default, the SDK will open a streaming connection using Server-Sent Events (SSE) to receive feature updates in realtime as they are changed in GrowthBook. This is only supported on GrowthBook Cloud or if running a GrowthBook Proxy Server.
+
+If you want to disable streaming updates (to limit API usage on GrowthBook Cloud for example), you can set `backgroundSync` to `false`.
+
+```ts
+const gb = new GrowthBook({
+  apiHost: "https://cdn.growthbook.io",
+  clientKey: "sdk-abc123",
+
+  // Disable background streaming connection
+  backgroundSync: false,
+});
+```
 
 ### Custom Integration
 
@@ -184,7 +211,7 @@ const gb = new GrowthBook({
 })
 ```
 
-Note that you don't have to call `gb.loadFeatures()`. There's nothing to load - everything required is already passed in.
+Note that you don't have to call `gb.loadFeatures()`. There's nothing to load - everything required is already passed in. No network requests are made to GrowthBook at all.
 
 You can update features at any time by calling `gb.setFeatures()` with a new JSON object.
 
@@ -213,7 +240,7 @@ if (gb.ready) {
 
 ## Experimentation (A/B Testing)
 
-In order to run A/B tests on your feature flags, you need to set up a tracking callback function. This is called every time a user is put into an experiment and can be used to track the exposure event in your analytics system (Segment, Mixpanel, GA, etc.).
+In order to run A/B tests, you need to set up a tracking callback function. This is called every time a user is put into an experiment and can be used to track the exposure event in your analytics system (Segment, Mixpanel, GA, etc.).
 
 ```js
 const gb = new GrowthBook({
@@ -223,17 +250,51 @@ const gb = new GrowthBook({
     // Example using Segment
     analytics.track("Experiment Viewed", {
       experimentId: experiment.key,
-      variationId: result.variationId,
+      variationId: result.key,
     });
   },
 });
 ```
 
-Once you set that up, just use feature flags like normal in your code. If an experiment is used to determine the feature flag value, it will automatically call your tracking callback.
+This same tracking callback is used for both feature flag experiments and Visual Editor experiments.
+
+### Feature Flag Experiments
+
+There is nothing special you have to do for feature flag experiments. Just evaluate the feature flag like you would normally do. If the user is put into an experiment as part of the feature flag, it will call the `trackingCallback` automatically in the background.
 
 ```js
-// If this has an active experiment, it will call trackingCallback automatically
-const newLogin = useFeatureIsOn("new-signup-form");
+// If this has an active experiment and the user is included,
+// it will call trackingCallback automatically
+useFeatureIsOn("new-signup-form");
+```
+
+If the experiment came from a feature rule, `result.featureId` in the trackingCallback will contain the feature id, which may be useful for tracking/logging purposes.
+
+### Visual Editor Experiments
+
+Experiments created through the GrowthBook Visual Editor will run automatically as soon as their targeting conditions are met.
+
+**Note**: Visual Editor experiments are only supported in a web browser environment. They will not run in React Native or during Server Side Rendering (SSR).
+
+If you are using this SDK in a Single Page App (SPA), you will need to let the GrowthBook instance know when the URL changes so the active experiments can update accordingly.
+
+For example, in Next.js, you could do this:
+
+```js
+function updateGrowthBookURL() {
+  gb.setURL(window.location.href);
+}
+
+export default function MyApp() {
+  // Subscribe to route change events and update GrowthBook
+  const router = useRouter();
+  useEffect(() => {
+    router.events.on("routeChangeComplete", updateGrowthBookURL);
+    return () => router.events.off("routeChangeComplete", updateGrowthBookURL);
+  }, []);
+
+  // ...
+}
 ```
 
 ## Server Side Rendering (SSR)
@@ -314,12 +375,14 @@ const gb = new GrowthBook({
   clientKey: "sdk-abc123",
   // Enable easier debugging of feature flags during development
   enableDevMode: true,
+  // Update the instance in realtime as features change in GrowthBook
+  subscribeToChanges: true,
 });
 
 export default function App() {
   useEffect(() => {
-    // Load features from the GrowthBook API and keep them up-to-date
-    gb.loadFeatures({ autoRefresh: true });
+    // Load features from GrowthBook and initialize the SDK
+    gb.loadFeatures();
   }, []);
 
   useEffect(() => {
@@ -457,6 +520,8 @@ To avoid exposing all of your internal feature flags and experiments to users, w
 Depending on how you configure feature flags, they may run A/B tests behind the scenes to determine which value gets assigned to the user.
 
 Sometimes though, you want to run an inline experiment without going through a feature flag first. For this, you can use either the `useExperiment` hook or the Higher Order Component `withRunExperiment`:
+
+View the [Javascript SDK Docs](https://docs.growthbook.io/lib/js) for all of the options available for inline experiments
 
 #### useExperiment hook
 

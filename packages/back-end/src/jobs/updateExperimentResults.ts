@@ -1,30 +1,33 @@
 import Agenda, { Job } from "agenda";
+import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
+import { getScopedSettings } from "shared/settings";
+import { getSnapshotAnalysis } from "shared/util";
+import { orgHasPremiumFeature } from "enterprise";
 import {
   getExperimentById,
   getExperimentsToUpdate,
   getExperimentsToUpdateLegacy,
-  updateExperimentById,
+  updateExperiment,
 } from "../models/ExperimentModel";
 import { getDataSourceById } from "../models/DataSourceModel";
 import { isEmailEnabled, sendExperimentChangesEmail } from "../services/email";
 import {
   createSnapshot,
-  getExperimentWatchers,
-  getLatestSnapshot,
+  getRegressionAdjustmentInfo,
 } from "../services/experiments";
 import { getConfidenceLevelsForOrg } from "../services/organizations";
-import {
-  ExperimentSnapshotDocument,
-  ExperimentSnapshotModel,
-} from "../models/ExperimentSnapshotModel";
+import { getLatestSnapshot } from "../models/ExperimentSnapshotModel";
 import { ExperimentInterface } from "../../types/experiment";
-import { getStatusEndpoint } from "../services/queries";
-import { getMetricById } from "../models/MetricModel";
+import { getMetricById, getMetricMap } from "../models/MetricModel";
 import { EXPERIMENT_REFRESH_FREQUENCY } from "../util/secrets";
-import { analyzeExperimentResults } from "../services/stats";
-import { getReportVariations } from "../services/reports";
 import { findOrganizationById } from "../models/OrganizationModel";
 import { logger } from "../util/logger";
+import {
+  ExperimentSnapshotAnalysisSettings,
+  ExperimentSnapshotInterface,
+} from "../../types/experiment-snapshot";
+import { findProjectById } from "../models/ProjectModel";
+import { getExperimentWatchers } from "../models/WatchModel";
 
 // Time between experiment result updates (default 6 hours)
 const UPDATE_EVERY = EXPERIMENT_REFRESH_FREQUENCY * 60 * 60 * 1000;
@@ -39,7 +42,7 @@ type UpdateSingleExpJob = Job<{
 
 export default async function (agenda: Agenda) {
   agenda.define(QUEUE_EXPERIMENT_UPDATES, async () => {
-    // Old way of queing experiments based on a fixed schedule
+    // Old way of queuing experiments based on a fixed schedule
     // Will remove in the future when it's no longer needed
     const ids = await legacyQueueExperimentUpdates();
 
@@ -47,7 +50,7 @@ export default async function (agenda: Agenda) {
     const experiments = await getExperimentsToUpdate(ids);
 
     for (let i = 0; i < experiments.length; i++) {
-      await queueExerimentUpdate(
+      await queueExperimentUpdate(
         experiments[i].organization,
         experiments[i].id
       );
@@ -68,10 +71,10 @@ export default async function (agenda: Agenda) {
     // All experiments that haven't been updated in at least UPDATE_EVERY ms
     const latestDate = new Date(Date.now() - UPDATE_EVERY);
 
-    const experiments = await await getExperimentsToUpdateLegacy(latestDate);
+    const experiments = await getExperimentsToUpdateLegacy(latestDate);
 
     for (let i = 0; i < experiments.length; i++) {
-      await queueExerimentUpdate(
+      await queueExperimentUpdate(
         experiments[i].organization,
         experiments[i].id
       );
@@ -87,7 +90,7 @@ export default async function (agenda: Agenda) {
     await updateResultsJob.save();
   }
 
-  async function queueExerimentUpdate(
+  async function queueExperimentUpdate(
     organization: string,
     experimentId: string
   ) {
@@ -107,128 +110,130 @@ export default async function (agenda: Agenda) {
 
 async function updateSingleExperiment(job: UpdateSingleExpJob) {
   const experimentId = job.attrs.data?.experimentId;
-  const organization = job.attrs.data?.organization;
-  if (!experimentId || !organization) return;
+  const orgId = job.attrs.data?.organization;
+  if (!experimentId || !orgId) return;
 
-  const log = logger.child({
-    cron: "updateSingleExperiment",
-    experimentId,
-  });
-
-  const experiment = await getExperimentById(organization, experimentId);
+  const experiment = await getExperimentById(orgId, experimentId);
   if (!experiment) return;
 
-  let lastSnapshot: ExperimentSnapshotDocument;
-  let currentSnapshot: ExperimentSnapshotDocument;
+  const organization = await findOrganizationById(experiment.organization);
+  if (!organization) return;
+
+  let project = null;
+  if (experiment.project) {
+    project = await findProjectById(experiment.project, organization.id);
+  }
+  const { settings: scopedSettings } = getScopedSettings({
+    organization,
+    project: project ?? undefined,
+  });
+
+  if (organization?.settings?.updateSchedule?.type === "never") return;
+
+  const hasRegressionAdjustmentFeature = organization
+    ? orgHasPremiumFeature(organization, "regression-adjustment")
+    : false;
+  const hasSequentialTestingFeature = organization
+    ? orgHasPremiumFeature(organization, "sequential-testing")
+    : false;
 
   try {
-    log.info("Start Refreshing Results");
+    logger.info("Start Refreshing Results for experiment " + experimentId);
     const datasource = await getDataSourceById(
       experiment.datasource || "",
       experiment.organization
     );
-    if (!datasource) return;
-    lastSnapshot = await getLatestSnapshot(
+    if (!datasource) {
+      throw new Error("Error refreshing experiment, could not find datasource");
+    }
+    const lastSnapshot = await getLatestSnapshot(
       experiment.id,
       experiment.phases.length - 1
     );
 
-    const organization = await findOrganizationById(experiment.organization);
-    if (!organization) return;
-    if (organization?.settings?.updateSchedule?.type === "never") return;
+    const {
+      regressionAdjustmentEnabled,
+      metricRegressionAdjustmentStatuses,
+    } = await getRegressionAdjustmentInfo(experiment, organization);
 
-    currentSnapshot = await createSnapshot(
+    const statsEngine = scopedSettings.statsEngine.value;
+
+    const analysisSettings: ExperimentSnapshotAnalysisSettings = {
+      statsEngine,
+      dimensions: [],
+      regressionAdjusted:
+        hasRegressionAdjustmentFeature &&
+        statsEngine === "frequentist" &&
+        regressionAdjustmentEnabled,
+      sequentialTesting:
+        hasSequentialTestingFeature &&
+        statsEngine === "frequentist" &&
+        (experiment?.sequentialTestingEnabled ??
+          !!organization.settings?.sequentialTestingEnabled),
+      sequentialTestingTuningParameter:
+        experiment?.sequentialTestingTuningParameter ??
+        organization.settings?.sequentialTestingTuningParameter ??
+        DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
+      baselineVariationIndex: 0,
+    };
+
+    const metricMap = await getMetricMap(organization.id);
+
+    const queryRunner = await createSnapshot({
       experiment,
-      experiment.phases.length - 1,
       organization,
-      null,
-      false,
-      organization.settings?.statsEngine
+      phaseIndex: experiment.phases.length - 1,
+      analysisSettings,
+      metricRegressionAdjustmentStatuses:
+        metricRegressionAdjustmentStatuses || [],
+      metricMap,
+      useCache: true,
+    });
+    await queryRunner.waitForResults();
+    const currentSnapshot = queryRunner.model;
+
+    logger.info(
+      "Successfully Refreshed Results for experiment " + experimentId
     );
 
-    await new Promise<void>((resolve, reject) => {
-      const check = async () => {
-        const phase = experiment.phases[experiment.phases.length - 1];
-        if (!phase) {
-          reject("Invalid phase");
-          return;
-        }
-        const res = await getStatusEndpoint(
-          currentSnapshot,
-          currentSnapshot.organization,
-          (queryData) => {
-            return analyzeExperimentResults(
-              experiment.organization,
-              getReportVariations(experiment, phase),
-              undefined,
-              queryData,
-              organization.settings?.statsEngine
-            );
-          },
-          async (updates, results, error) => {
-            await ExperimentSnapshotModel.updateOne(
-              { id: currentSnapshot.id },
-              {
-                $set: {
-                  ...updates,
-                  unknownVariations: results?.unknownVariations || [],
-                  multipleExposures: results?.multipleExposures || 0,
-                  results: results?.dimensions || currentSnapshot.results,
-                  error,
-                },
-              }
-            );
-          },
-          currentSnapshot.error
-        );
-        if (res.queryStatus === "succeeded") {
-          resolve();
-          return;
-        }
-        if (res.queryStatus === "failed") {
-          reject("Queries failed to run");
-          return;
-        }
-        // Check every 10 seconds
-        setTimeout(check, 10000);
-      };
-      // Do the first check after a 2 second delay to quickly handle fast queries
-      setTimeout(check, 2000);
-    });
-
-    log.info("Success");
-
-    await sendSignificanceEmail(experiment, lastSnapshot, currentSnapshot);
+    if (lastSnapshot) {
+      await sendSignificanceEmail(experiment, lastSnapshot, currentSnapshot);
+    }
   } catch (e) {
-    log.error("Failure - " + e.message);
+    logger.error(e, "Failed to update experiment: " + experimentId);
     // If we failed to update the experiment, turn off auto-updating for the future
     try {
-      await updateExperimentById(organization, experiment, {
-        autoSnapshots: false,
+      await updateExperiment({
+        organization,
+        experiment,
+        user: null,
+        changes: {
+          autoSnapshots: false,
+        },
       });
       // TODO: email user and let them know it failed
     } catch (e) {
-      log.error("Failed to turn off autoSnapshots - " + e.message);
+      logger.error(e, "Failed to turn off autoSnapshots: " + experimentId);
     }
   }
 }
 
 async function sendSignificanceEmail(
   experiment: ExperimentInterface,
-  lastSnapshot: ExperimentSnapshotDocument,
-  currentSnapshot: ExperimentSnapshotDocument
+  lastSnapshot: ExperimentSnapshotInterface,
+  currentSnapshot: ExperimentSnapshotInterface
 ) {
-  const log = logger.child({
-    cron: "sendSignificanceEmail",
-    experimentId: experiment.id,
-  });
-
   // If email is not configured, there's nothing else to do
   if (!isEmailEnabled()) {
     return;
   }
 
-  if (!currentSnapshot?.results?.[0]?.variations) {
+  const currentVariations = getSnapshotAnalysis(currentSnapshot)?.results?.[0]
+    ?.variations;
+  const lastVariations = getSnapshotAnalysis(lastSnapshot)?.results?.[0]
+    ?.variations;
+
+  if (!currentVariations || !lastVariations) {
     return;
   }
 
@@ -240,9 +245,9 @@ async function sendSignificanceEmail(
 
     // check this and the previous snapshot to see if anything changed:
     const experimentChanges: string[] = [];
-    for (let i = 1; i < currentSnapshot.results[0].variations.length; i++) {
-      const curVar = currentSnapshot.results?.[0]?.variations?.[i];
-      const lastVar = lastSnapshot.results?.[0]?.variations?.[i];
+    for (let i = 1; i < currentVariations.length; i++) {
+      const curVar = currentVariations[i];
+      const lastVar = lastVariations[i];
 
       for (const m in curVar.metrics) {
         const curMetric = curVar?.metrics?.[m];
@@ -262,7 +267,7 @@ async function sendSignificanceEmail(
             // this test variation has gone significant, and won
             experimentChanges.push(
               "The metric " +
-                getMetricById(m, experiment.organization) +
+                (await getMetricById(m, experiment.organization))?.name +
                 " for variation " +
                 experiment.variations[i].name +
                 " has reached a " +
@@ -276,7 +281,7 @@ async function sendSignificanceEmail(
             // this test variation has gone significant, and lost
             experimentChanges.push(
               "The metric " +
-                getMetricById(m, experiment.organization) +
+                (await getMetricById(m, experiment.organization))?.name +
                 " for variation " +
                 experiment.variations[i].name +
                 " has dropped to a " +
@@ -290,11 +295,6 @@ async function sendSignificanceEmail(
 
     if (experimentChanges.length) {
       // send an email to any subscribers on this test:
-      log.info(
-        "Significant change - detected " +
-          experimentChanges.length +
-          " significant changes"
-      );
       const watchers = await getExperimentWatchers(
         experiment.id,
         experiment.organization
@@ -309,6 +309,6 @@ async function sendSignificanceEmail(
       );
     }
   } catch (e) {
-    log.error(e.message);
+    logger.error(e, "Failed to send significance email");
   }
 }

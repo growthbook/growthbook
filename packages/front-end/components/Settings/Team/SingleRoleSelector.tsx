@@ -1,5 +1,6 @@
-import { ReactNode } from "react";
+import { ReactNode, useMemo } from "react";
 import { MemberRole, MemberRoleInfo } from "back-end/types/organization";
+import uniqid from "uniqid";
 import { useUser } from "../../../services/UserContext";
 import { useEnvironments } from "../../../services/features";
 import MultiSelectField from "../../Forms/MultiSelectField";
@@ -26,6 +27,8 @@ export default function SingleRoleSelector({
 
   const availableEnvs = useEnvironments();
 
+  const id = useMemo(() => uniqid(), []);
+
   return (
     <div>
       <SelectField
@@ -48,8 +51,10 @@ export default function SingleRoleSelector({
           const r = roles.find((r) => r.id === value.label);
           return (
             <div className="d-flex align-items-center">
+              {/* @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'. */}
               <strong style={{ width: 110 }}>{r.id}</strong>
               <small className="ml-2">
+                {/* @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'. */}
                 <em>{r.description}</em>
               </small>
             </div>
@@ -61,7 +66,7 @@ export default function SingleRoleSelector({
       {roleSupportsEnvLimit(value.role) && availableEnvs.length > 1 && (
         <div>
           <div className="form-group">
-            <label htmlFor="role-modal">
+            <label htmlFor={`role-modal--${id}`}>
               <PremiumTooltip commercialFeature="advanced-permissions">
                 Restrict Access to Specific Environments
               </PremiumTooltip>
@@ -69,7 +74,7 @@ export default function SingleRoleSelector({
             <div>
               <Toggle
                 disabled={!hasFeature}
-                id={"role-modal"}
+                id={`role-modal--${id}`}
                 value={value.limitAccessByEnvironment}
                 setValue={(limitAccessByEnvironment) => {
                   setValue({

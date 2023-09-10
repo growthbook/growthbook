@@ -1,135 +1,106 @@
 import clsx from "clsx";
-import { FC } from "react";
 import { SnapshotMetric } from "back-end/types/experiment-snapshot";
-import { MetricInterface } from "back-end/types/metric";
-import { ExperimentStatus } from "back-end/types/experiment";
-import {
-  hasEnoughData,
-  isBelowMinChange,
-  isSuspiciousUplift,
-  shouldHighlight as _shouldHighlight,
-  pValueFormatter,
-} from "@/services/experiments";
-import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
-import usePValueThreshold from "@/hooks/usePValueThreshold";
-import Tooltip from "../Tooltip/Tooltip";
-import NotEnoughData from "./NotEnoughData";
+import { HiOutlineExclamationCircle } from "react-icons/hi";
+import { DetailedHTMLProps, TdHTMLAttributes } from "react";
+import { PValueCorrection } from "back-end/types/stats";
+import { pValueFormatter, RowResults } from "@/services/experiments";
+import NotEnoughData from "@/components/Experiment/NotEnoughData";
+import { GBSuspicious } from "@/components/Icons";
 
-const PValueColumn: FC<{
-  metric: MetricInterface;
-  status: ExperimentStatus;
-  isLatestPhase: boolean;
-  startDate: string;
-  snapshotDate: Date;
-  baseline: SnapshotMetric;
+interface Props
+  extends DetailedHTMLProps<
+    TdHTMLAttributes<HTMLTableCellElement>,
+    HTMLTableCellElement
+  > {
   stats: SnapshotMetric;
-}> = ({
-  metric,
-  status,
-  isLatestPhase,
-  startDate,
-  snapshotDate,
-  baseline,
+  baseline: SnapshotMetric;
+  rowResults: RowResults;
+  pValueCorrection?: PValueCorrection;
+  showRisk?: boolean;
+  showSuspicious?: boolean;
+  showPercentComplete?: boolean;
+  showTimeRemaining?: boolean;
+  showUnadjustedPValue?: boolean;
+  showGuardrailWarning?: boolean;
+  className?: string;
+}
+
+export default function PValueColumn({
   stats,
-}) => {
-  const {
-    getMinSampleSizeForMetric,
-    metricDefaults,
-  } = useOrganizationMetricDefaults();
-  const pValueThreshold = usePValueThreshold();
-  const minSampleSize = getMinSampleSizeForMetric(metric);
-  const suspiciousChange = isSuspiciousUplift(
-    baseline,
-    stats,
-    metric,
-    metricDefaults
+  baseline,
+  rowResults,
+  pValueCorrection,
+  showRisk = true,
+  showSuspicious = true,
+  showPercentComplete = false,
+  showTimeRemaining = true,
+  showUnadjustedPValue = false,
+  showGuardrailWarning = false,
+  className,
+  ...otherProps
+}: Props) {
+  let pValText = (
+    <>{stats?.pValue !== undefined ? pValueFormatter(stats.pValue) : ""}</>
   );
-  const belowMinChange = isBelowMinChange(
-    baseline,
-    stats,
-    metric,
-    metricDefaults
-  );
-  const enoughData = hasEnoughData(baseline, stats, metric, metricDefaults);
-  const shouldHighlight = _shouldHighlight({
-    metric,
-    baseline,
-    stats,
-    hasEnoughData: enoughData,
-    suspiciousChange,
-    belowMinChange,
-  });
-  const expectedDirection = metric.inverse
-    ? stats.expected < 0
-    : stats.expected > 0;
-  const statSig = stats.pValue < pValueThreshold;
-
-  let sigText: string | JSX.Element = "";
-  let className = "";
-
-  if (shouldHighlight && statSig && expectedDirection) {
-    sigText = `Significant win as the p-value is below ${pValueThreshold} and the change is in the desired direction.`;
-    className = "won";
-  } else if (shouldHighlight && statSig && !expectedDirection) {
-    sigText = (
+  if (stats?.pValueAdjusted !== undefined && pValueCorrection) {
+    pValText = showUnadjustedPValue ? (
       <>
-        Significant loss as the p-value is below {pValueThreshold} and the
-        change is <em>not</em> in the desired direction.
+        <div>
+          {stats?.pValueAdjusted ? pValueFormatter(stats.pValueAdjusted) : ""}
+        </div>
+        <div className="text-muted">(unadj.:&nbsp;{pValText})</div>
       </>
+    ) : (
+      <>{stats?.pValueAdjusted ? pValueFormatter(stats.pValueAdjusted) : ""}</>
     );
-    className = "lost";
-  } else if (belowMinChange && statSig) {
-    sigText =
-      "The change is significant, but too small to matter (below the min detectable change threshold). Consider this a draw.";
-    className += " draw";
   }
+
+  const shouldRenderRisk =
+    showRisk &&
+    rowResults.riskMeta.showRisk &&
+    ["warning", "danger"].includes(rowResults.riskMeta.riskStatus) &&
+    rowResults.resultsStatus !== "lost";
 
   return (
     <td
-      className={clsx(
-        "variation chance result-number align-middle d-table-cell",
-        className
-      )}
+      className={clsx("variation chance align-middle", className)}
+      {...otherProps}
     >
-      {enoughData && suspiciousChange && (
-        <div>
-          <div className="mb-1 d-flex flex-row">
-            <Tooltip
-              body={`A suspicious result occurs when the percent change is equal to or greater than your maximum percent change (${
-                metric.maxPercentChange * 100
-              }%).`}
-            >
-              <span className="badge badge-pill badge-warning">
-                Suspicious Result
-              </span>
-            </Tooltip>
+      {!baseline?.value || !stats?.value ? (
+        <em className="text-gray font-weight-normal">no data</em>
+      ) : !rowResults.enoughData ? (
+        <NotEnoughData
+          rowResults={rowResults}
+          showTimeRemaining={showTimeRemaining}
+          showPercentComplete={showPercentComplete}
+        />
+      ) : (
+        <div className="d-flex align-items-center justify-content-end">
+          <div className="result-number d-inline-block">
+            {pValText || "P-value missing"}
           </div>
+          {shouldRenderRisk ? (
+            <span
+              className={rowResults.riskMeta.riskStatus}
+              style={{ marginLeft: 1 }}
+            >
+              <HiOutlineExclamationCircle />
+            </span>
+          ) : null}
+          {showGuardrailWarning &&
+          rowResults.guardrailWarning &&
+          !shouldRenderRisk ? (
+            <span className="warning" style={{ marginLeft: 1 }}>
+              <HiOutlineExclamationCircle />
+            </span>
+          ) : null}
+          {showSuspicious && rowResults.suspiciousChange ? (
+            <span className="suspicious" style={{ marginLeft: 1 }}>
+              <GBSuspicious />
+            </span>
+          ) : null}
         </div>
       )}
-      <Tooltip
-        body={sigText}
-        className="d-block"
-        tipPosition={"top"}
-        shouldDisplay={sigText !== ""}
-      >
-        {!baseline?.value || !stats?.value ? (
-          <em>no data</em>
-        ) : !enoughData ? (
-          <NotEnoughData
-            experimentStatus={status}
-            isLatestPhase={isLatestPhase}
-            baselineValue={baseline?.value}
-            variationValue={stats?.value}
-            minSampleSize={minSampleSize}
-            snapshotCreated={snapshotDate}
-            phaseStart={startDate}
-          />
-        ) : (
-          <>{pValueFormatter(stats.pValue)}</>
-        )}
-      </Tooltip>
     </td>
   );
-};
-
-export default PValueColumn;
+}

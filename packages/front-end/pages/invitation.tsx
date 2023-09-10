@@ -10,7 +10,7 @@ const InvitationPage = (): React.ReactElement => {
 
   // Extract the invitation key from the querystring
   const key = useMemo(
-    () => window?.location.search.match(/(^|&|\?)key=([a-zA-Z0-9]+)/)[2],
+    () => (window.location.search.match(/(^|&|\?)key=([a-zA-Z0-9]+)/) || [])[2],
     []
   );
 

@@ -1,0 +1,35 @@
+type: object
+required:
+  - enabled
+  - defaultValue
+  - rules
+properties:
+  enabled:
+    type: boolean
+  defaultValue:
+    type: string
+  rules:
+    type: array
+    items:
+      $ref: "./FeatureRule.yaml"
+  definition:
+    type: string
+    description: "A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model)"
+  draft:
+    type: object
+    required:
+      - enabled
+      - defaultValue
+      - rules
+    properties:
+      enabled:
+        type: boolean
+      defaultValue:
+        type: string
+      rules:
+        type: array
+        items:
+          $ref: "./FeatureRule.yaml"
+      definition:
+        type: string
+        description: "A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model)"

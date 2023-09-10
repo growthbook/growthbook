@@ -7,6 +7,7 @@ import {
   getExperimentDefinitionFromFeature,
   getVariationColor,
 } from "@/services/features";
+import ValidateValue from "@/components/Features/ValidateValue";
 import NewExperimentForm from "../Experiment/NewExperimentForm";
 import Modal from "../Modal";
 import ValueDisplay from "./ValueDisplay";
@@ -39,7 +40,7 @@ export default function ExperimentSummary({
   const namespaceRange = hasNamespace
     ? namespace.range[1] - namespace.range[0]
     : 1;
-  const effectiveCoverage = namespaceRange * coverage;
+  const effectiveCoverage = namespaceRange * (coverage ?? 1);
 
   return (
     <div>
@@ -50,7 +51,7 @@ export default function ExperimentSummary({
           isImport={true}
           fromFeature={true}
           msg="We couldn't find an analysis yet for that feature. Create a new one now."
-          initialValue={expDefinition}
+          initialValue={expDefinition || undefined}
         />
       )}
       {experimentInstructions && (
@@ -126,7 +127,7 @@ export default function ExperimentSummary({
               </span>{" "}
               of the namespace and{" "}
               <span className="border px-2 py-1 bg-light rounded">
-                {percentFormatter.format(coverage)}
+                {percentFormatter.format(coverage ?? 1)}
               </span>
               <span> exposure)</span>
             </>
@@ -157,6 +158,7 @@ export default function ExperimentSummary({
               </td>
               <td>
                 <ValueDisplay value={r.value} type={type} />
+                <ValidateValue value={r.value} feature={feature} />
               </td>
               <td>{r?.name}</td>
               <td>

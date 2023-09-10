@@ -11,7 +11,6 @@ import usePermissions from "@/hooks/usePermissions";
 import { EditIdentifierType } from "@/components/Settings/EditDataSource/DataSourceInlineEditIdentifierTypes/EditIdentifierType";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
-import Tooltip from "@/components/Tooltip/Tooltip";
 
 type DataSourceInlineEditIdentifierTypesProps = DataSourceQueryEditingModalBaseProps;
 
@@ -58,6 +57,7 @@ export const DataSourceInlineEditIdentifierTypes: FC<DataSourceInlineEditIdentif
   const handleActionDeleteClicked = useCallback(
     (idx: number) => async () => {
       const copy = cloneDeep<DataSourceInterfaceWithParams>(dataSource);
+      // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
       copy.settings.userIdTypes.splice(idx, 1);
 
       await onSave(copy);
@@ -68,6 +68,7 @@ export const DataSourceInlineEditIdentifierTypes: FC<DataSourceInlineEditIdentif
   const handleSave = useCallback(
     (idx: number) => async (userIdType: string, description: string) => {
       const copy = cloneDeep<DataSourceInterfaceWithParams>(dataSource);
+      // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
       copy.settings.userIdTypes[idx] = {
         userIdType,
         description,
@@ -91,12 +92,9 @@ export const DataSourceInlineEditIdentifierTypes: FC<DataSourceInlineEditIdentif
   return (
     <div className="">
       <div className="d-flex justify-content-between align-items-center mb-3">
-        <div className="d-flex align-items-center">
-          <h3 className="mb-0">Identifier Types</h3>
-          <Tooltip
-            className="ml-2"
-            body="The different units you use to split traffic in an experiment."
-          />
+        <div>
+          <h3>Identifier Types</h3>
+          <p>The different units you use to split traffic in an experiment.</p>
         </div>
 
         {canEdit && (
@@ -114,7 +112,7 @@ export const DataSourceInlineEditIdentifierTypes: FC<DataSourceInlineEditIdentif
       {userIdTypes.map(({ userIdType, description }, idx) => (
         <div
           style={{ marginBottom: -1 }}
-          className="d-flex justify-content-between align-items-center bg-white border p-2"
+          className="d-flex justify-content-between align-items-center bg-light border p-2 mb-3 rounded"
           key={userIdType}
         >
           {/* region Identity Type text */}
@@ -168,7 +166,9 @@ export const DataSourceInlineEditIdentifierTypes: FC<DataSourceInlineEditIdentif
         <EditIdentifierType
           mode={uiMode}
           onCancel={handleCancel}
+          // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'string | undefined' is not assignable to typ... Remove this comment to see the full error message
           userIdType={recordEditing?.userIdType}
+          // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'string | undefined' is not assignable to typ... Remove this comment to see the full error message
           description={recordEditing?.description}
           onSave={handleSave(editingIndex)}
           dataSource={dataSource}

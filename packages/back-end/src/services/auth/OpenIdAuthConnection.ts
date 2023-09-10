@@ -8,6 +8,7 @@ import {
 } from "openid-client";
 import jwtExpress from "express-jwt";
 import jwks from "jwks-rsa";
+import { SSO_CONFIG } from "enterprise";
 import { AuthRequest } from "../../types/AuthRequest";
 import { MemoryCache } from "../cache";
 import {
@@ -15,8 +16,12 @@ import {
   UnauthenticatedResponse,
 } from "../../../types/sso-connection";
 import { AuthChecksCookie, SSOConnectionIdCookie } from "../../util/cookie";
-import { APP_ORIGIN, IS_CLOUD, SSO_CONFIG } from "../../util/secrets";
+import { APP_ORIGIN, IS_CLOUD } from "../../util/secrets";
 import { getSSOConnectionById } from "../../models/SSOConnectionModel";
+import {
+  getAuditableUserPropertiesFromRequest,
+  trackLoginForUser,
+} from "../users";
 import { AuthConnection, TokensResponse } from "./AuthConnection";
 
 type AuthChecks = {
@@ -92,6 +97,15 @@ export class OpenIdAuthConnection implements AuthConnection {
         state: checks.state,
       }
     );
+
+    const email = tokenSet.claims().email;
+    if (email) {
+      const trackingProperties = getAuditableUserPropertiesFromRequest(req);
+      trackLoginForUser({
+        ...trackingProperties,
+        email,
+      });
+    }
 
     return {
       idToken: tokenSet?.id_token || "",

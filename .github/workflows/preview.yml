@@ -1,8 +1,15 @@
-# file: .github/workflows/preview.yaml
+name: PR Preview Environment
+
 on:
   pull_request:
     branches:
       - main
+    paths:
+      - "packages/**"
+      - "!**.md"
+      - "yarn.lock"
+      - "Dockerfile"
+      - ".dockerignore"
 
 jobs:
   preview:
@@ -21,4 +28,4 @@ jobs:
        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         name: pr-${{ github.event.number }}-bttf
-        timeout: 15m
+        timeout: 30m

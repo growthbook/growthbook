@@ -3,6 +3,7 @@ export interface DimensionInterface {
   organization: string;
   owner: string;
   datasource: string;
+  description?: string;
   userIdType: string;
   name: string;
   sql: string;

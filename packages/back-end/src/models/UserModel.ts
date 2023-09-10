@@ -14,11 +14,12 @@ const userSchema = new mongoose.Schema({
   passwordHash: String,
   admin: Boolean,
   verified: Boolean,
+  minTokenDate: Date,
 });
 
 export type UserDocument = mongoose.Document & UserInterface;
 
-export const UserModel = mongoose.model<UserDocument>("User", userSchema);
+export const UserModel = mongoose.model<UserInterface>("User", userSchema);
 
 export async function markUserAsVerified(id: string) {
   await UserModel.updateOne(
@@ -32,13 +33,13 @@ export async function markUserAsVerified(id: string) {
 }
 
 export async function getAllUsers(): Promise<UserInterface[]> {
-  const users = await UserModel.find();
-  return users.map((u) => u.toJSON());
+  const users: UserDocument[] = await UserModel.find();
+  return users.map((u) => u.toJSON<UserDocument>());
 }
 
 export async function findUserById(id: string): Promise<UserInterface | null> {
   const user = await UserModel.findOne({ id });
-  return user ? user.toJSON() : null;
+  return user ? user.toJSON<UserDocument>() : null;
 }
 
 export async function deleteUser(id: string): Promise<void> {
@@ -48,7 +49,7 @@ export async function deleteUser(id: string): Promise<void> {
 export async function findVerifiedEmails(
   emails: string[] | undefined
 ): Promise<string[]> {
-  let users;
+  let users: UserDocument[] = [];
   if (emails) {
     users = await UserModel.find({
       email: { $in: emails },
@@ -60,4 +61,17 @@ export async function findVerifiedEmails(
     });
   }
   return users.map((u) => u.email);
+}
+
+export async function resetMinTokenDate(userId: string) {
+  await UserModel.updateOne(
+    {
+      id: userId,
+    },
+    {
+      $set: {
+        minTokenDate: new Date(),
+      },
+    }
+  );
 }

@@ -3,9 +3,10 @@ import React, { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/router";
 import { useFeature } from "@growthbook/growthbook-react";
 import { FaExclamationTriangle } from "react-icons/fa";
-import { FeatureInterface } from "back-end/types/feature";
+import { FeatureInterface, FeatureRule } from "back-end/types/feature";
+import { ago, datetime } from "shared/dates";
+import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import LoadingOverlay from "@/components/LoadingOverlay";
-import { ago, datetime } from "@/services/dates";
 import { GBAddCircle } from "@/components/Icons";
 import FeatureModal from "@/components/Features/FeatureModal";
 import ValueDisplay from "@/components/Features/ValueDisplay";
@@ -39,6 +40,8 @@ import usePermissions from "@/hooks/usePermissions";
 import WatchButton from "@/components/WatchButton";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Field from "@/components/Forms/Field";
+import { useUser } from "@/services/UserContext";
+import useSDKConnections from "@/hooks/useSDKConnections";
 
 const NUM_PER_PAGE = 20;
 
@@ -56,6 +59,8 @@ export default function FeaturesPage() {
 
   const showGraphs = useFeature("feature-list-realtime-graphs").on;
 
+  const { organization } = useUser();
+
   const permissions = usePermissions();
   const { project, getProjectById } = useDefinitions();
   const settings = useOrgSettings();
@@ -67,6 +72,13 @@ export default function FeaturesPage() {
     !!router?.query?.mockdata,
     showGraphs
   );
+
+  // Show steps if coming from get started page
+  useEffect(() => {
+    if (router.asPath.match(/getstarted/)) {
+      setShowSteps(true);
+    }
+  }, [router]);
 
   // Searching
   const tagsFilter = useTagsFilter("features");
@@ -105,6 +117,11 @@ export default function FeaturesPage() {
     setFeatureToDuplicate(null);
   }, [modalOpen]);
 
+  const { data } = useSDKConnections();
+  const connections = data?.connections || [];
+  const hasActiveConnection =
+    connections.some((c) => c.connected) || !!settings?.sdkInstructionsViewed;
+
   if (error) {
     return (
       <div className="alert alert-danger">
@@ -122,10 +139,16 @@ export default function FeaturesPage() {
   // If "All Projects" is selected is selected and some experiments are in a project, show the project column
   const showProjectColumn = !project && features.some((f) => f.project);
 
+  // Ignore the demo datasource
+  const hasFeatures = features.some(
+    (f) =>
+      f.project !==
+      getDemoDatasourceProjectIdForOrganization(organization.id || "")
+  );
+
   const toggleEnvs = environments.filter((en) => en.toggleOnList);
   const showArchivedToggle = features.some((f) => f.archived);
-  const stepsRequired =
-    !settings?.sdkInstructionsViewed || (!loading && !features.length);
+  const stepsRequired = !hasActiveConnection || !hasFeatures;
 
   return (
     <div className="contents container pagecontents">
@@ -134,15 +157,13 @@ export default function FeaturesPage() {
           cta={featureToDuplicate ? "Duplicate" : "Create"}
           close={() => setModalOpen(false)}
           onSuccess={async (feature) => {
-            const url = `/features/${feature.id}${
-              features.length > 0 ? "" : "?first"
-            }`;
+            const url = `/features/${feature.id}${hasFeatures ? "" : "?first"}`;
             router.push(url);
             mutate({
               features: [...features, feature],
             });
           }}
-          featureToDuplicate={featureToDuplicate}
+          featureToDuplicate={featureToDuplicate || undefined}
         />
       )}
       <div className="row mb-3">
@@ -195,7 +216,7 @@ export default function FeaturesPage() {
             )}
           </h4>
           <FeaturesGetStarted features={features} />
-          {!stepsRequired && <h4 className="mt-3">All Features</h4>}
+          {features.length > 0 && <h4 className="mt-3">All Features</h4>}
         </div>
       ) : (
         <div className="mb-3">
@@ -237,7 +258,10 @@ export default function FeaturesPage() {
           </div>
 
           <table className="table gbtable table-hover appbox">
-            <thead>
+            <thead
+              className="sticky-top bg-white shadow-sm"
+              style={{ top: "56px", zIndex: 900 }}
+            >
               <tr>
                 <th></th>
                 <SortableTH field="id">Feature Key</SortableTH>
@@ -261,7 +285,7 @@ export default function FeaturesPage() {
             </thead>
             <tbody>
               {items.slice(start, end).map((feature) => {
-                let rules = [];
+                let rules: FeatureRule[] = [];
                 environments.forEach(
                   (e) => (rules = rules.concat(getRules(feature, e.id)))
                 );
@@ -280,6 +304,12 @@ export default function FeaturesPage() {
                 let version = feature.revision?.version || 1;
                 if (isDraft) version++;
 
+                const projectId = feature.project;
+                const projectName = projectId
+                  ? getProjectById(projectId)?.name || null
+                  : null;
+                const projectIsDeReferenced = projectId && !projectName;
+
                 return (
                   <tr
                     key={feature.id}
@@ -294,13 +324,27 @@ export default function FeaturesPage() {
                     </td>
                     <td>
                       <Link href={`/features/${feature.id}`}>
-                        <a className={feature.archived ? "text-muted" : null}>
+                        <a className={feature.archived ? "text-muted" : ""}>
                           {feature.id}
                         </a>
                       </Link>
                     </td>
                     {showProjectColumn && (
-                      <td>{getProjectById(feature.project)?.name || ""}</td>
+                      <td>
+                        {projectIsDeReferenced ? (
+                          <Tooltip
+                            body={
+                              <>
+                                Project <code>{feature.project}</code> not found
+                              </>
+                            }
+                          >
+                            <span className="text-danger">Invalid project</span>
+                          </Tooltip>
+                        ) : (
+                          projectName ?? <em>All Projects</em>
+                        )}
+                      </td>
                     )}
                     <td>
                       <SortedTags tags={feature?.tags || []} />
@@ -316,7 +360,7 @@ export default function FeaturesPage() {
                     ))}
                     <td>
                       <ValueDisplay
-                        value={getFeatureDefaultValue(feature)}
+                        value={getFeatureDefaultValue(feature) || ""}
                         type={feature.valueType}
                         full={false}
                       />
@@ -385,6 +429,12 @@ export default function FeaturesPage() {
           )}
         </div>
       )}
+
+      <div className="alert alert-info mt-5">
+        Looking for <strong>Attributes</strong>, <strong>Namespaces</strong>,{" "}
+        <strong>Environments</strong>, or <strong>Saved Groups</strong>? They
+        have moved to the <Link href="/sdks">SDK Configuration</Link> tab.
+      </div>
     </div>
   );
 }

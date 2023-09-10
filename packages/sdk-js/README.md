@@ -4,7 +4,7 @@
 
 This is the Javascript client library that lets you evaluate feature flags and run experiments (A/B tests) within a Javascript application.
 
-![Build Status](https://github.com/growthbook/growthbook/workflows/CI/badge.svg) ![GZIP Size](https://img.shields.io/badge/gzip%20size-4.5KB-informational) ![NPM Version](https://img.shields.io/npm/v/@growthbook/growthbook)
+![Build Status](https://github.com/growthbook/growthbook/workflows/CI/badge.svg) ![GZIP Size](https://img.shields.io/badge/gzip%20size-6.9KB-informational) ![NPM Version](https://img.shields.io/npm/v/@growthbook/growthbook)
 
 - **No external dependencies**
 - **Lightweight and fast**
@@ -15,6 +15,7 @@ This is the Javascript client library that lets you evaluate feature flags and r
 - **Use your existing event tracking** (GA, Segment, Mixpanel, custom)
 - Run mutually exclusive experiments with **namespaces**
 - **Remote configuration** to change feature values without deploying new code
+- Run **Visual Experiments** without writing code by using the GrowthBook Visual Editor
 
 ## Installation
 
@@ -31,10 +32,8 @@ npm i --save @growthbook/growthbook
 or use directly in your HTML without installing first:
 
 ```html
-<script type="module">
-  import { GrowthBook } from "https://unpkg.com/@growthbook/growthbook/dist/bundles/esm.min.js";
-  //...
-</script>
+<!-- Creates `window.growthbook` with all of the exported classes -->
+<script src="https://cdn.jsdelivr.net/npm/@growthbook/growthbook/dist/bundles/index.js"></script>
 ```
 
 ## Quick Usage
@@ -48,15 +47,44 @@ import { GrowthBook } from "@growthbook/growthbook";
 const gb = new GrowthBook({
   apiHost: "https://cdn.growthbook.io",
   clientKey: "sdk-abc123",
-  // Enable easier debugging of feature flags during development
+  // Enable easier debugging during development
   enableDevMode: true,
+  // Update the instance in realtime as features change in GrowthBook
+  subscribeToChanges: true,
+  // Targeting attributes
+  attributes: {
+    id: "123",
+    country: "US",
+  },
+  // Only required for A/B testing
+  // Called every time a user is put into an experiment
+  trackingCallback: (experiment, result) => {
+    console.log("Experiment Viewed", {
+      experimentId: experiment.key,
+      variationId: result.key,
+    });
+  },
 });
 
 // Wait for features to be available
 await gb.loadFeatures();
 ```
 
-#### Node.js Configuration
+### Step 2: Start Feature Flagging!
+
+There are 2 main methods for evaluating features: `isOn` and `getFeatureValue`:
+
+```js
+// Simple boolean (on/off) feature flag
+if (gb.isOn("my-feature")) {
+  console.log("Feature enabled!");
+}
+
+// Get the value of a string/JSON/number feature with a fallback
+const color = gb.getFeatureValue("button-color", "blue");
+```
+
+## Node.js
 
 If using this SDK in a server-side environment, you may need to configure some polyfills for missing browser APIs.
 
@@ -79,18 +107,42 @@ setPolyfills({
 });
 ```
 
-### Step 2: Start Feature Flagging!
-
-There are 2 main methods for evaluating features: `isOn` and `getFeatureValue`:
+Create a separate GrowthBook instance for every incoming request. This is easiest if you use a middleware:
 
 ```js
-// Simple boolean (on/off) feature flag
-if (gb.isOn("my-feature")) {
-  console.log("Feature enabled!");
-}
+// Example using Express
+app.use(function (req, res, next) {
+  // Create a GrowthBook instance and store in the request
+  req.growthbook = new GrowthBook({
+    apiHost: "https://cdn.growthbook.io",
+    clientKey: "sdk-abc123",
+    // Set this to `false` to improve performance in server-side environments
+    enableDevMode: false,
+    // Important: make sure this is set to `false`, otherwise features may change in the middle of a request
+    subscribeToChanges: false,
+  });
 
-// Get the value of a string/JSON/number feature with a fallback
-const color = gb.getFeatureValue("button-color", "blue");
+  // Clean up at the end of the request
+  res.on("close", () => req.growthbook.destroy());
+
+  // Wait for features to load (will be cached in-memory for future requests)
+  req.growthbook
+    .loadFeatures()
+    .then(() => next())
+    .catch((e) => {
+      console.error("Failed to load features from GrowthBook", e);
+      next();
+    });
+});
+```
+
+Then, you can access the GrowthBook instance from any route:
+
+```js
+app.get("/", (req, res) => {
+  const gb = req.growthbook;
+  // ...
+});
 ```
 
 ## Loading Features
@@ -105,14 +157,14 @@ If you pass an `apiHost` and `clientKey` into the GrowthBook constructor, it wil
 const gb = new GrowthBook({
   apiHost: "https://cdn.growthbook.io",
   clientKey: "sdk-abc123",
-  decryptionKey: "key_abc123", // Only if you have feature encryption turned on
+  // Only required if you have feature encryption enabled in GrowthBook
+  decryptionKey: "key_abc123",
+  // Update the instance in realtime as features change in GrowthBook (default: false)
+  subscribeToChanges: true,
 });
 
 // Wait for features to be downloaded
 await gb.loadFeatures({
-  // When features change, update the GrowthBook instance automatically
-  // Default: `false`
-  autoRefresh: true,
   // If the network request takes longer than this (in milliseconds), continue
   // Default: `0` (no timeout)
   timeout: 2000,
@@ -122,6 +174,22 @@ await gb.loadFeatures({
 Until features are loaded, all features will evaluate to `null`. If you're ok with a potential flicker in your application (features going from `null` to their real value), you can call `loadFeatures` without awaiting the result.
 
 If you want to refresh the features at any time (e.g. when a navigation event occurs), you can call `gb.refreshFeatures()`.
+
+#### Streaming Updates
+
+By default, the SDK will open a streaming connection using Server-Sent Events (SSE) to receive feature updates in realtime as they are changed in GrowthBook. This is only supported on GrowthBook Cloud or if running a GrowthBook Proxy Server.
+
+If you want to disable streaming updates (to limit API usage on GrowthBook Cloud for example), you can set `backgroundSync` to `false`.
+
+```ts
+const gb = new GrowthBook({
+  apiHost: "https://cdn.growthbook.io",
+  clientKey: "sdk-abc123",
+
+  // Disable background streaming connection
+  backgroundSync: false,
+});
+```
 
 ### Custom Integration
 
@@ -137,7 +205,7 @@ const gb = new GrowthBook({
 })
 ```
 
-Note that you don't have to call `gb.loadFeatures()`. There's nothing to load - everything required is already passed in.
+Note that you don't have to call `gb.loadFeatures()`. There's nothing to load - everything required is already passed in. No network requests are made to GrowthBook at all.
 
 You can update features at any time by calling `gb.setFeatures()` with a new JSON object.
 
@@ -154,7 +222,7 @@ gb.setRenderer(() => {
 
 ## Experimentation (A/B Testing)
 
-In order to run A/B tests on your feature flags, you need to set up a tracking callback function. This is called every time a user is put into an experiment and can be used to track the exposure event in your analytics system (Segment, Mixpanel, GA, etc.).
+In order to run A/B tests, you need to set up a tracking callback function. This is called every time a user is put into an experiment and can be used to track the exposure event in your analytics system (Segment, Mixpanel, GA, etc.).
 
 ```js
 const gb = new GrowthBook({
@@ -164,40 +232,55 @@ const gb = new GrowthBook({
     // Example using Segment
     analytics.track("Experiment Viewed", {
       experimentId: experiment.key,
-      variationId: result.variationId,
+      variationId: result.key,
     });
   },
 });
 ```
 
-If the experiment came from a feature rule, `result.featureId` will contain the feature id, which may be useful for tracking/logging purposes.
+This same tracking callback is used for both feature flag experiments and Visual Editor experiments.
 
-Once you define the callback, just use feature flags like normal in your code. If an experiment is used to determine the feature flag value, it will automatically call your tracking callback.
+### Feature Flag Experiments
+
+There is nothing special you have to do for feature flag experiments. Just evaluate the feature flag like you would normally do. If the user is put into an experiment as part of the feature flag, it will call the `trackingCallback` automatically in the background.
 
 ```js
-// If this has an active experiment, it will call trackingCallback automatically
+// If this has an active experiment and the user is included,
+// it will call trackingCallback automatically
 const newLogin = gb.isOn("new-signup-form");
 ```
 
-## Typescript
+If the experiment came from a feature rule, `result.featureId` in the trackingCallback will contain the feature id, which may be useful for tracking/logging purposes.
 
-When using `getFeatureValue`, the type of the feature is inferred from the fallback value you provide.
+### Visual Editor Experiments
+
+Experiments created through the GrowthBook Visual Editor will run automatically as soon as their targeting conditions are met.
+
+**Note**: Visual Editor experiments are only supported in a web browser environment. They will not run in Node.js, Mobile apps, or Desktop apps.
+
+If you are using this SDK in a Single Page App (SPA), you will need to let the GrowthBook instance know when the URL changes so the active experiments can update accordingly.
+
+```js
+// Call this every time a navigation event happens in your SPA
+function onRouteChange() {
+  gb.setURL(window.location.href);
+}
+```
+
+## TypeScript
+
+When used in a TypeScript project, GrowthBook includes basic type inference out of the box:
 
 ```ts
-// color will be type "string"
+// Type will be `string` based on the fallback provided ("blue")
 const color = gb.getFeatureValue("button-color", "blue");
-```
 
-When using `evalFeature`, the value has type `any` by default, but you can specify a more restrictive type using generics. Note that whatever type you specify will be unioned with `null` in the return value.
+// You can manually specify types as well
+// feature.value will be type `number`
+const feature = gb.evalFeature<number>("font-size");
+console.log(feature.value);
 
-```ts
-// result.value will be type "number | null" now
-const result = gb.evalFeature<number>("button-size");
-```
-
-When using inline experiments, the returned value is inferred from the variations you pass in:
-
-```ts
+// Experiments will use the variations to infer the return value
 // result.value will be type "string"
 const result = gb.run({
   key: "my-test",
@@ -205,31 +288,36 @@ const result = gb.run({
 });
 ```
 
-There are a number of types you can import as well if needed:
+### Strict Typing
+
+If you want to enforce stricter types in your application, you can do that when creating the GrowthBook instance:
 
 ```ts
-import type {
-  Context,
-  Attributes,
-  Polyfills,
-  CacheSettings,
-  FeatureApiResponse,
-  LoadFeaturesOptions,
-  RefreshFeaturesOptions,
-  FeatureDefinitions,
-  FeatureDefinition,
-  FeatureRule,
-  FeatureResult,
-  FeatureResultSource,
-  Experiment,
-  Result,
-  ExperimentOverride,
-  ExperimentStatus,
-  JSONValue,
-  SubscriptionFunction,
-  LocalStorageCompat,
-} from "@growthbook/growthbook";
+// Define all your feature flags and types here
+interface AppFeatures {
+  "button-color": string;
+  "font-size": number;
+  "newForm": boolean;
+}
+
+// Pass into the GrowthBook instance
+const gb = new GrowthBook<AppFeatures>({
+  ...
+});
 ```
+
+Now, all feature flag methods will be strictly typed.
+
+```ts
+// feature.value will by type `number`
+const feature = gb.evalFeature("font-size");
+console.log(feature.value);
+
+// Typos will cause compile-time errors
+gb.isOn("buton-color"); // "buton" instead of "button"
+```
+
+Instead of defining the `AppFeatures` interface manually like above, you can auto-generate it from your GrowthBook account using the [GrowthBook CLI](https://docs.growthbook.io/tools/cli).
 
 ## GrowthBook Instance (reference)
 
@@ -320,18 +408,183 @@ console.log(result.experimentResult);
 Instead of declaring all features up-front in the context and referencing them by ids in your code, you can also just run an experiment directly. This is done with the `gb.run` method:
 
 ```js
+// These are the only required options
 const { value } = gb.run({
   key: "my-experiment",
   variations: ["red", "blue", "green"],
 });
 ```
 
-All of the other settings (`weights`, `hashAttribute`, `coverage`, `namespace`, `condition`) are supported when using inline experiments.
+#### Customizing the Traffic Split
 
-In addition, there are a few other settings that only really make sense for inline experiments:
+By default, this will include all traffic and do an even split between all variations. There are 2 ways to customize this behavior:
 
-- `force` can be set to one of the variation array indexes. Everyone will be immediately assigned the specified value.
-- `active` can be set to false to disable the experiment and return the control for everyone
+```js
+// Option 1: Using weights and coverage
+gb.run({
+  key: "my-experiment",
+  variations: ["red", "blue", "green"],
+  // Only include 10% of traffic
+  coverage: 0.1,
+  // Split the included traffic 50/25/25 instead of the default 33/33/33
+  weights: [0.5, 0.25, 0.25],
+});
+
+// Option 2: Specifying ranges
+gb.run({
+  key: "my-experiment",
+  variations: ["red", "blue", "green"],
+  // Identical to the above
+  // 5% of traffic in A, 2.5% each in B and C
+  ranges: [
+    [0, 0.05],
+    [0.5, 0.525],
+    [0.75, 0.775],
+  ],
+});
+```
+
+#### Hashing
+
+We use deterministic hashing to assign a variation to a user. We hash together the user's id and experiment key, which produces a number between `0` and `1`. Each variation is assigned a range of numbers, and whichever one the user's hash value falls into will be assigned.
+
+You can customize this hashing behavior:
+
+```js
+gb.run({
+  key: "my-experiment",
+  variations: ["A", "B"],
+
+  // Which hashing algorithm to use
+  // Version 2 is the latest and the one we recommend
+  hashVersion: 2,
+
+  // Use a different seed instead of the experiment key
+  seed: "abcdef123456",
+
+  // Use a different user attribute (default is `id`)
+  hashAttribute: "device_id",
+});
+```
+
+**Note**: For backwards compatibility, if no `hashVersion` is specified, it will fall back to using version `1`, which is deprecated. In the future, version `2` will become the default. We recommend specifying version `2` now for all new experiments to avoid migration issues down the line.
+
+#### Meta Info
+
+You can also define meta info for the experiment and/or variations. These do not affect the behavior, but they are passed through to the `trackingCallback`, so they can be used to annotate events.
+
+```js
+gb.run({
+  key: "results-per-page",
+  variations: [10, 20],
+
+  // Experiment meta info
+  name: "Results per Page",
+  phase: "full-traffic"
+
+  // Variation meta info
+  meta: [
+    {
+      key: "control",
+      name: "10 Results per Page",
+    },
+    {
+      key: "variation",
+      name: "20 Results per Page",
+    },
+  ]
+})
+```
+
+#### Mutual Exclusion
+
+Sometimes you want to run multiple conflicting experiments at the same time. You can use the `filters` setting to run mutually exclusive experiments.
+
+We do this using deterministic hashing to assign users a value between 0 and 1 for each filter.
+
+```js
+// Will include 60% of users - ones with a hash between 0 and 0.6
+gb.run({
+  key: "experiment-1",
+  variation: [0, 1],
+  filters: [
+    {
+      seed: "pricing",
+      attribute: "id",
+      ranges: [[0, 0.6]],
+    },
+  ],
+});
+
+// Will include the other 40% of users - ones with a hash between 0.6 and 1
+gb.run({
+  key: "experiment-2",
+  variation: [0, 1],
+  filters: [
+    {
+      seed: "pricing",
+      attribute: "id",
+      ranges: [[0.6, 1.0]],
+    },
+  ],
+});
+```
+
+**Note** - If a user is excluded from an experiment due to a filter, the rule will be skipped and the next matching rule will be used instead.
+
+#### Holdout Groups
+
+To use global holdout groups, use a nested experiment design:
+
+```js
+// The value will be `true` if in the holdout group, otherwise `false`
+const holdout = gb.run({
+  key: "holdout",
+  variations: [true, false],
+  // 10% of users in the holdout group
+  weights: [0.1, 0.9],
+});
+
+// Only run your main experiment if the user is NOT in the holdout
+if (!holdout.value) {
+  const res = gb.run({
+    key: "my-experiment",
+    variations: ["A", "B"],
+  });
+}
+```
+
+#### Targeting Conditions
+
+You can also define targeting conditions that limit which users are included in the experiment. These conditions are evaluated against the `attributes` passed into the GrowthBook context. The syntax for conditions is based on the MongoDB query syntax and is straightforward to read and write.
+
+For example, if the attributes are:
+
+```json
+{
+  "id": "123",
+  "browser": {
+    "vendor": "firefox",
+    "version": 94
+  },
+  "country": "CA"
+}
+```
+
+The following condition would evaluate to `true` and the user would be included in the experiment:
+
+```js
+gb.run({
+  key: "my-experiment",
+  variation: [0, 1],
+  condition: {
+    "browser.vendor": "firefox",
+    country: {
+      $in: ["US", "CA", "IN"],
+    },
+  },
+});
+```
 
 #### Inline Experiment Return Value
 
@@ -339,10 +592,12 @@ A call to `gb.run(experiment)` returns an object with a few useful properties:
 
 ```ts
 const {
+  value,
+  key,
+  name,
+  variationId,
   inExperiment,
   hashUsed,
-  variationId,
-  value,
   hashAttribute,
   hashValue,
 } = gb.run({
@@ -358,6 +613,10 @@ console.log(variationId); // 0 or 1
 
 // The value of the assigned variation
 console.log(value); // "A" or "B"
+
+// The key and name of the assigned variation (if specified in `meta`)
+console.log(key); // "0" or "1"
+console.log(name); // ""
 
 // If the variation was randomly assigned by hashing
 console.log(hashUsed);
@@ -477,38 +736,25 @@ Force rules do what you'd expect - force a specific value for the feature
 
 ##### Gradual Rollouts
 
-You can specify a `coverage` value for your rule, which is a number between 0 and 1 and represents what percent of users will get the rule applied to them. Users who do not get the rule applied will fall through to the next matching rule (or default value).
-
-This is useful for gradually rolling out features to users (start coverage at 0 and slowly increase towards 1 as you watch metrics).
-
-```js
-// 20% of users will get the new feature
-{
-  "new-feature": {
-    defaultValue: false,
-    rules: [
-      {
-        force: true,
-        coverage: 0.2
-      }
-    ]
-  }
-}
-```
+You can specify a `range` for your rule, which determines what percent of users will get the rule applied to them. Users who do not get the rule applied will fall through to the next matching rule (or default value). You can also specify a `seed` that will be used for hashing.
 
 In order to figure out if a user is included or not, we use deterministic hashing. By default, we use the user attribute `id` for this, but you can override this by specifying `hashAttribute` for the rule:
 
+This is useful for gradually rolling out features to users (start with a small range and slowly increase).
+
 ```js
-// 20% of companies will get the new feature
-// Users in the same company will always get the same value (either true or false)
 {
   "new-feature": {
     defaultValue: false,
     rules: [
       {
         force: true,
-        coverage: 0.2,
-        hashAttribute: "company"
+        hashAttribute: "device-id",
+        seed: 'new-feature-rollout-abcdef123',
+        // 20% of users
+        range: [0, 0.2]
+        // Increase to 40%:
+        // range: [0, 0.4]
       }
     ]
   }
@@ -532,29 +778,73 @@ Experiment rules let you adjust the percent of users who get randomly assigned t
 }
 ```
 
-##### Weights
+##### Customizing the Traffic Split
 
-You can use the `weights` setting to control what percent of users get assigned to each variation. Weights determine the traffic split between variations and must add to 1.
+By default, an experiment rule will include all traffic and do an even split between all variations. There are 2 ways to customize this behavior:
+
+```js
+// Option 1: Using weights and coverage
+{
+  variations: ["red", "blue", "green"],
+  // Only include 10% of traffic
+  coverage: 0.1,
+  // Split the included traffic 50/25/25 instead of the default 33/33/33
+  weights: [0.5, 0.25, 0.25]
+}
+
+// Option 2: Specifying ranges
+{
+  variations: ["red", "blue", "green"],
+  // Identical to the above
+  // 5% of traffic in A, 2.5% each in B and C
+  ranges: [
+    [0, 0.05],
+    [0.5, 0.525],
+    [0.75, 0.775]
+  ]
+}
+```
+
+A user is assigned a number from 0 to 1 and whichever variation's range includes their number will be assigned to them.
+
+##### Variation Meta Info
+
+You can use the `meta` setting to provide additional info about the variations such as name.
 
 ```js
 {
-  "results-per-page": {
+  "image-size": {
     rules: [
       {
-        variations: ["small", "medium", "large"],
-        // 50% of users will get "small" (index 0)
-        // 30% will get "medium" (index 1)
-        // 20% will get "large" (index 2)
-        weights: [0.5, 0.3, 0.2]
+        variations: ["sm", "md", "lg"],
+        ranges: [
+          [0, 0.5],
+          [0.5, 0.75],
+          [0.75, 1.0]
+        ],
+        meta: [
+          {
+            key: "control",
+            name: "Small",
+          },
+          {
+            key: "v1",
+            name: "Medium",
+          },
+          {
+            key: "v2",
+            name: "Large",
+          }
+        ]
       }
     ]
   }
 }
 ```
 
-##### Tracking Key
+##### Tracking Key and Name
 
-When a user is assigned a variation, we call the `trackingCallback` function so you can record the exposure with your analytics event tracking system. By default, we use the feature id to identify the experiment, but this can be overridden if needed with the `key` setting:
+When a user is assigned a variation, we call the `trackingCallback` function so you can record the exposure with your analytics event tracking system. By default, we use the feature id to identify the experiment, but this can be overridden if needed with the `key` setting. You can also optionally provide a human-readable name.
 
 ```js
 {
@@ -563,6 +853,7 @@ When a user is assigned a variation, we call the `trackingCallback` function so 
       {
         // Use "my-experiment" as the key instead of "feature-1"
         key: "my-experiment",
+        name: "My Experiment",
         variations: ["A", "B"]
       }
     ]
@@ -600,33 +891,11 @@ const gb = new GrowthBook({
 });
 ```
 
-##### Coverage
+##### Filters
 
-You can use the `coverage` setting to introduce sampling and reduce the percent of users who are included in your experiment. Coverage must be between 0 and 1 and defaults to 1 (everyone included). This feature uses deterministic hashing to ensure consistent sampling.
+Sometimes you want to run multiple conflicting experiments at the same time. You can use the `filters` setting to run mutually exclusive experiments.
 
-```js
-{
-  "my-feature": {
-    rules: [
-      // 80% of users will be included in the experiment
-      {
-        variations: [false, true],
-        coverage: 0.8
-      },
-      // The remaining 20% will fall through to this next matching rule
-      {
-        force: false
-      }
-    ]
-  }
-}
-```
-
-##### Namespaces
-
-Sometimes you want to run multiple conflicting experiments at the same time. You can use the `namespace` setting to run mutually exclusive experiments.
-
-We do this using deterministic hashing to assign users a value between 0 and 1 for each namespace. Experiments can specify which namespace it is in and what part of the range [0,1] it should include. If the ranges for two experiments in a namespace don't overlap, they will be mutually exclusive.
+We do this using deterministic hashing to assign users a value between 0 and 1 for each filter.
 
 ```js
 {
@@ -635,7 +904,13 @@ We do this using deterministic hashing to assign users a value between 0 and 1 f
       // Will include 60% of users - ones with a hash between 0 and 0.6
       {
         variations: [false, true],
-        namespace: ["pricing", 0, 0.6]
+        filters: [
+          {
+            seed: "pricing",
+            attribute: "id",
+            ranges: [[0, 0.6]]
+          }
+        ]
       }
     ]
   },
@@ -644,11 +919,21 @@ We do this using deterministic hashing to assign users a value between 0 and 1 f
       // Will include the other 40% of users - ones with a hash between 0.6 and 1
       {
         variations: [false, true],
-        namespace: ["pricing", 0.6, 1]
+        filters: [
+          {
+            seed: "pricing",
+            attribute: "id",
+            ranges: [[0.6, 1.0]]
+          }
+        ]
       },
     ]
   }
 }
 ```
 
-**Note** - If a user is excluded from an experiment due to the namespace range, the rule will be skipped and the next matching rule will be used instead.
+**Note** - If a user is excluded from an experiment due to a filter, the rule will be skipped and the next matching rule will be used instead.
+
+## Examples
+
+- [Typescript example app with strict typing <ExternalLink />](https://github.com/growthbook/examples/tree/main/vanilla-typescript).

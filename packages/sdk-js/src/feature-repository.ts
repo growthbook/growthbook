@@ -10,11 +10,12 @@ import type { GrowthBook } from ".";
 
 type CacheEntry = {
   data: FeatureApiResponse;
+  sse?: boolean;
   version: string;
   staleAt: Date;
 };
 type ScopedChannel = {
-  src: EventSource;
+  src: EventSource | null;
   cb: (event: MessageEvent<string>) => void;
   errors: number;
 };
@@ -74,15 +75,20 @@ export async function refreshFeatures(
   timeout?: number,
   skipCache?: boolean,
   allowStale?: boolean,
-  updateInstance?: boolean
+  updateInstance?: boolean,
+  backgroundSync?: boolean
 ): Promise<void> {
+  if (!backgroundSync) {
+    cacheSettings.backgroundSync = false;
+  }
+
   const data = await fetchFeaturesWithCache(
     instance,
     allowStale,
     timeout,
     skipCache
   );
-  updateInstance && data && (await setFeaturesOnInstance(instance, data));
+  updateInstance && data && (await refreshInstance(instance, data));
 }
 
 // Subscribe a GrowthBook instance to feature changes
@@ -120,6 +126,9 @@ async function fetchFeaturesWithCache(
   await initializeCache();
   const existing = cache.get(key);
   if (existing && !skipCache && (allowStale || existing.staleAt > now)) {
+    // Restore from cache whether or not SSE is supported
+    if (existing.sse) supportsSSE.add(key);
+
     // Reload features in the backgroud if stale
     if (existing.staleAt < now) {
       fetchFeatures(instance);
@@ -199,6 +208,7 @@ function onNewFeatureData(key: RepositoryKey, data: FeatureApiResponse): void {
   const existing = cache.get(key);
   if (existing && version && existing.version === version) {
     existing.staleAt = staleAt;
+    updatePersistentCache();
     return;
   }
 
@@ -207,20 +217,28 @@ function onNewFeatureData(key: RepositoryKey, data: FeatureApiResponse): void {
     data,
     version,
     staleAt,
+    sse: supportsSSE.has(key),
   });
   // Update local storage (don't await this, just update asynchronously)
   updatePersistentCache();
 
   // Update features for all subscribed GrowthBook instances
   const instances = subscribedInstances.get(key);
-  instances &&
-    instances.forEach((instance) => setFeaturesOnInstance(instance, data));
+  instances && instances.forEach((instance) => refreshInstance(instance, data));
 }
 
-async function setFeaturesOnInstance(
+async function refreshInstance(
   instance: GrowthBook,
   data: FeatureApiResponse
 ): Promise<void> {
+  await (data.encryptedExperiments
+    ? instance.setEncryptedExperiments(
+        data.encryptedExperiments,
+        undefined,
+        polyfills.SubtleCrypto
+      )
+    : instance.setExperiments(data.experiments || instance.getExperiments()));
+
   await (data.encryptedFeatures
     ? instance.setEncryptedFeatures(
         data.encryptedFeatures,
@@ -269,7 +287,7 @@ async function fetchFeatures(
 
 // Watch a feature endpoint for changes
 // Will prefer SSE if enabled, otherwise fall back to cron
-function startAutoRefresh(instance: GrowthBook) {
+function startAutoRefresh(instance: GrowthBook): void {
   const [key, apiHost, clientKey] = getKey(instance);
   if (
     cacheSettings.backgroundSync &&
@@ -278,7 +296,7 @@ function startAutoRefresh(instance: GrowthBook) {
   ) {
     if (streams.has(key)) return;
     const channel: ScopedChannel = {
-      src: new polyfills.EventSource(`${apiHost}/sub/${clientKey}`),
+      src: null,
       cb: (event: MessageEvent<string>) => {
         try {
           const json: FeatureApiResponse = JSON.parse(event.data);
@@ -292,30 +310,60 @@ function startAutoRefresh(instance: GrowthBook) {
               clientKey,
               error: e ? (e as Error).message : null,
             });
-          onSSEError(channel, key);
+          onSSEError(channel, apiHost, clientKey);
         }
       },
       errors: 0,
     };
     streams.set(key, channel);
-    channel.src.addEventListener("features", channel.cb);
-
-    channel.src.onerror = () => {
-      onSSEError(channel, key);
-    };
+    enableChannel(channel, apiHost, clientKey);
   }
 }
 
-function onSSEError(channel: ScopedChannel, key: RepositoryKey) {
+function onSSEError(
+  channel: ScopedChannel,
+  apiHost: string,
+  clientKey: string
+) {
   channel.errors++;
-  if (channel.errors > 3 || channel.src.readyState === 2) {
-    destroyChannel(channel, key);
+  if (channel.errors > 3 || (channel.src && channel.src.readyState === 2)) {
+    // exponential backoff after 4 errors, with jitter
+    const delay =
+      Math.pow(3, channel.errors - 3) * (1000 + Math.random() * 1000);
+    disableChannel(channel);
+    setTimeout(() => {
+      enableChannel(channel, apiHost, clientKey);
+    }, Math.min(delay, 300000)); // 5 minutes max
   }
+}
+
+function disableChannel(channel: ScopedChannel) {
+  if (!channel.src) return;
+  channel.src.onopen = null;
+  channel.src.onerror = null;
+  channel.src.close();
+  channel.src = null;
+}
+
+function enableChannel(
+  channel: ScopedChannel,
+  apiHost: string,
+  clientKey: string
+) {
+  channel.src = new polyfills.EventSource(
+    `${apiHost}/sub/${clientKey}`
+  ) as EventSource;
+  channel.src.addEventListener("features", channel.cb);
+  channel.src.onerror = () => {
+    onSSEError(channel, apiHost, clientKey);
+  };
+  channel.src.onopen = () => {
+    channel.errors = 0;
+  };
 }
 
 function destroyChannel(channel: ScopedChannel, key: RepositoryKey) {
-  channel.src.onerror = null;
-  channel.src.close();
+  disableChannel(channel);
   streams.delete(key);
 }
 

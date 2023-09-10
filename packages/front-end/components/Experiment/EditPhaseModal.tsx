@@ -2,13 +2,13 @@ import { useForm } from "react-hook-form";
 import {
   ExperimentInterfaceStringDates,
   ExperimentPhaseStringDates,
-  ExperimentPhaseType,
 } from "back-end/types/experiment";
 import { useAuth } from "@/services/auth";
-import SelectField from "@/components/Forms/SelectField";
 import Field from "../Forms/Field";
 import Modal from "../Modal";
-import VariationsInput from "../Features/VariationsInput";
+import FeatureVariationsInput from "../Features/FeatureVariationsInput";
+import ConditionInput from "../Features/ConditionInput";
+import NamespaceSelector from "../Features/NamespaceSelector";
 
 export interface Props {
   close: () => void;
@@ -26,13 +26,19 @@ export default function EditPhaseModal({
   const form = useForm<ExperimentPhaseStringDates>({
     defaultValues: {
       ...experiment.phases[i],
-      dateStarted: experiment.phases[i].dateStarted.substr(0, 16),
+      dateStarted: (experiment.phases[i].dateStarted ?? "").substr(0, 16),
       dateEnded: experiment.phases[i].dateEnded
-        ? experiment.phases[i].dateEnded.substr(0, 16)
+        ? (experiment.phases[i].dateEnded ?? "").substr(0, 16)
         : "",
     },
   });
   const { apiCall } = useAuth();
+
+  const isDraft = experiment.status === "draft";
+  const isMultiPhase = experiment.phases.length > 1;
+
+  const hasLinkedChanges =
+    !!experiment.linkedFeatures?.length || experiment.hasVisualChangesets;
 
   return (
     <Modal
@@ -48,53 +54,56 @@ export default function EditPhaseModal({
       })}
       size="lg"
     >
-      <SelectField
-        label="Type of Phase"
-        value={form.watch("phase")}
-        onChange={(v) => {
-          const phaseType = v as ExperimentPhaseType;
-          form.setValue("phase", phaseType);
-        }}
-        options={[
-          { label: "ramp", value: "ramp" },
-          { value: "main", label: "main (default)" },
-          { label: "holdout", value: "holdout" },
-        ]}
-      />
+      {!isDraft && hasLinkedChanges && (
+        <div className="alert alert-danger">
+          <strong>Warning:</strong> Changes you make to phases will immediately
+          affect all linked Feature Flags and Visual Changes.
+        </div>
+      )}
+      <Field label="Phase Name" {...form.register("name")} required />
       <Field
         label="Start Time (UTC)"
         type="datetime-local"
         {...form.register("dateStarted")}
       />
-      <Field
-        label="End Time (UTC)"
-        type="datetime-local"
-        {...form.register("dateEnded")}
-        helpText={
-          <>
-            Leave blank if still running.{" "}
-            <a
-              href="#"
-              onClick={(e) => {
-                e.preventDefault();
-                form.setValue("dateEnded", "");
-              }}
-            >
-              Clear Input
-            </a>
-          </>
-        }
-      />
-      {form.watch("dateEnded") && (
-        <Field
-          label="Reason for Stopping"
-          textarea
-          {...form.register("reason")}
-          placeholder="(optional)"
-        />
-      )}
+      {!(isDraft && !isMultiPhase) ? (
+        <>
+          <Field
+            label="End Time (UTC)"
+            type="datetime-local"
+            {...form.register("dateEnded")}
+            helpText={
+              <>
+                Leave blank if still running.{" "}
+                <a
+                  href="#"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    form.setValue("dateEnded", "");
+                  }}
+                >
+                  Clear Input
+                </a>
+              </>
+            }
+          />
+          {form.watch("dateEnded") && (
+            <Field
+              label="Reason for Stopping"
+              textarea
+              {...form.register("reason")}
+              placeholder="(optional)"
+            />
+          )}
+        </>
+      ) : null}
 
-      <VariationsInput
+      <ConditionInput
+        defaultValue={form.watch("condition")}
+        onChange={(condition) => form.setValue("condition", condition)}
+      />
+
+      <FeatureVariationsInput
         valueType={"string"}
         coverage={form.watch("coverage")}
         setCoverage={(coverage) => form.setValue("coverage", coverage)}
@@ -108,11 +117,24 @@ export default function EditPhaseModal({
               value: v.key || i + "",
               name: v.name,
               weight: form.watch(`variationWeights.${i}`),
+              id: v.id,
             };
           }) || []
         }
-        coverageTooltip="This is just for documentation purposes and has no effect on the analysis."
         showPreview={false}
+      />
+
+      <Field
+        {...form.register("seed")}
+        label="Hash Seed"
+        placeholder={experiment.trackingKey}
+        helpText="Used to determine which variation is assigned to users"
+      />
+
+      <NamespaceSelector
+        form={form}
+        featureId={experiment.trackingKey}
+        trackingKey={experiment.trackingKey}
       />
     </Modal>
   );

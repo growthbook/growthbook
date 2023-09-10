@@ -1,6 +1,19 @@
 import { QueryLanguage } from "./datasource";
 
-export type QueryStatus = "running" | "failed" | "succeeded";
+export type QueryStatus =
+  | "running"
+  | "failed"
+  | "partially-succeeded"
+  | "succeeded";
+
+export type QueryStatistics = {
+  executionDurationMs?: number;
+  totalSlotMs?: number;
+  bytesProcessed?: number;
+  bytesBilled?: number;
+  warehouseCachedResult?: boolean;
+  partitionsUsed?: boolean;
+};
 
 export type QueryPointer = {
   query: string;
@@ -24,4 +37,5 @@ export interface QueryInterface {
   result?: Record<string, any>;
   rawResult?: Record<string, number | string | boolean>[];
   error?: string;
+  statistics?: QueryStatistics;
 }

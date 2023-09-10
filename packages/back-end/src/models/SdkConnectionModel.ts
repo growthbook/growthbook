@@ -1,7 +1,8 @@
 import mongoose from "mongoose";
 import uniqid from "uniqid";
 import { z } from "zod";
-import { ApiSDKConnectionInterface } from "../../types/api";
+import { omit } from "lodash";
+import { ApiSdkConnection } from "../../types/openapi";
 import {
   CreateSDKConnectionParams,
   EditSDKConnectionParams,
@@ -19,6 +20,7 @@ import {
   PROXY_HOST_PUBLIC,
 } from "../util/secrets";
 import { errorStringFromZodResult } from "../util/validation";
+import { purgeCDNCache } from "../util/cdn.util";
 import { generateEncryptionKey, generateSigningKey } from "./ApiKeyModel";
 
 const sdkConnectionSchema = new mongoose.Schema({
@@ -38,8 +40,11 @@ const sdkConnectionSchema = new mongoose.Schema({
   project: String,
   encryptPayload: Boolean,
   encryptionKey: String,
+  hashSecureAttributes: Boolean,
+  includeVisualExperiments: Boolean,
+  includeDraftExperiments: Boolean,
+  includeExperimentNames: Boolean,
   connected: Boolean,
-  sseEnabled: Boolean,
   key: {
     type: String,
     unique: true,
@@ -58,7 +63,7 @@ const sdkConnectionSchema = new mongoose.Schema({
 
 type SDKConnectionDocument = mongoose.Document & SDKConnectionInterface;
 
-const SDKConnectionModel = mongoose.model<SDKConnectionDocument>(
+const SDKConnectionModel = mongoose.model<SDKConnectionInterface>(
   "SdkConnection",
   sdkConnectionSchema
 );
@@ -75,9 +80,9 @@ function addEnvProxySettings(proxy: ProxyConnection): ProxyConnection {
 }
 
 function toInterface(doc: SDKConnectionDocument): SDKConnectionInterface {
-  const conn = doc.toJSON();
+  const conn = doc.toJSON<SDKConnectionDocument>();
   conn.proxy = addEnvProxySettings(conn.proxy);
-  return conn;
+  return omit(conn, ["__v", "_id"]);
 }
 
 export async function findSDKConnectionById(id: string) {
@@ -107,6 +112,10 @@ export const createSDKConnectionValidator = z
     environment: z.string(),
     project: z.string(),
     encryptPayload: z.boolean(),
+    hashSecureAttributes: z.boolean().optional(),
+    includeVisualExperiments: z.boolean().optional(),
+    includeDraftExperiments: z.boolean().optional(),
+    includeExperimentNames: z.boolean().optional(),
     proxyEnabled: z.boolean().optional(),
     proxyHost: z.string().optional(),
   })
@@ -169,6 +178,10 @@ export const editSDKConnectionValidator = z
     environment: z.string().optional(),
     project: z.string().optional(),
     encryptPayload: z.boolean(),
+    hashSecureAttributes: z.boolean().optional(),
+    includeVisualExperiments: z.boolean().optional(),
+    includeDraftExperiments: z.boolean().optional(),
+    includeExperimentNames: z.boolean().optional(),
   })
   .strict();
 
@@ -206,18 +219,17 @@ export async function editSDKConnection(
   // If we're changing the filter for which features are included, we should ping any
   // connected proxies to update their cache immediately instead of waiting for the TTL
   let needsProxyUpdate = false;
-  if (newProxy.enabled && newProxy.host) {
-    const keysRequiringProxyUpdate = [
-      "project",
-      "environment",
-      "encryptPayload",
-    ] as const;
-    keysRequiringProxyUpdate.forEach((key) => {
-      if (key in otherChanges && otherChanges[key] !== connection[key]) {
-        needsProxyUpdate = true;
-      }
-    });
-  }
+  const keysRequiringProxyUpdate = [
+    "project",
+    "environment",
+    "encryptPayload",
+    "hashSecureAttributes",
+  ] as const;
+  keysRequiringProxyUpdate.forEach((key) => {
+    if (key in otherChanges && otherChanges[key] !== connection[key]) {
+      needsProxyUpdate = true;
+    }
+  });
 
   await SDKConnectionModel.updateOne(
     {
@@ -234,11 +246,22 @@ export async function editSDKConnection(
   );
 
   if (needsProxyUpdate) {
-    await queueSingleProxyUpdate({
+    // Purge CDN if used
+    await purgeCDNCache(connection.organization, [connection.key]);
+
+    const newConnection = {
       ...connection,
       ...otherChanges,
       proxy: newProxy,
-    } as SDKConnectionInterface);
+    } as SDKConnectionInterface;
+
+    if (IS_CLOUD) {
+      await queueSingleProxyUpdate(newConnection, true);
+    }
+
+    if (newProxy.enabled && newProxy.host) {
+      await queueSingleProxyUpdate(newConnection, false);
+    }
   }
 }
 
@@ -369,7 +392,7 @@ export async function testProxyConnection(
 
 export function toApiSDKConnectionInterface(
   connection: SDKConnectionInterface
-): ApiSDKConnectionInterface {
+): ApiSdkConnection {
   return {
     id: connection.id,
     name: connection.name,
@@ -380,6 +403,10 @@ export function toApiSDKConnectionInterface(
     project: connection.project,
     encryptPayload: connection.encryptPayload,
     encryptionKey: connection.encryptionKey,
+    hashSecureAttributes: connection.hashSecureAttributes,
+    includeVisualExperiments: connection.includeVisualExperiments,
+    includeDraftExperiments: connection.includeDraftExperiments,
+    includeExperimentNames: connection.includeExperimentNames,
     key: connection.key,
     proxyEnabled: connection.proxy.enabled,
     proxyHost: connection.proxy.host,

@@ -1,0 +1,42 @@
+id:
+  name: id
+  in: path
+  required: true
+  description: The id of the requested resource
+  schema:
+    type: string
+limit:
+  name: limit
+  in: query
+  description: The number of items to return
+  schema:
+    type: integer
+    min: 1
+    max: 100
+    default: 10
+offset:
+  name: offset
+  in: query
+  description: How many items to skip (use in conjunction with limit for pagination)
+  schema:
+    type: integer
+    min: 0
+projectId:
+  name: projectId
+  in: query
+  description: Filter by project id
+  schema:
+    type: string
+datasourceId:
+  name: datasourceId
+  in: query
+  description: Filter by Data Source
+  schema:
+    type: string
+visualChangeId:
+  name: visualChangeId
+  in: path
+  required: true
+  description: Specify a specific visual change
+  schema:
+    type: string

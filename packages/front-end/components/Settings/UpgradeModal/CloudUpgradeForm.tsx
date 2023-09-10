@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { AccountPlan } from "back-end/types/organization";
+import { AccountPlan } from "enterprise";
+import { useUser } from "@/services/UserContext";
 import useStripeSubscription from "../../../hooks/useStripeSubscription";
 import { redirectWithTimeout, useAuth } from "../../../services/auth";
 import track from "../../../services/track";
@@ -15,17 +16,18 @@ const currencyFormatter = new Intl.NumberFormat(undefined, {
 export default function CloudUpgradeForm({
   accountPlan,
   source,
-  reason,
 }: {
   accountPlan: AccountPlan;
   source: string;
-  reason: string;
   setCloseCta: (string) => void;
   close: () => void;
 }) {
   const { quote, loading } = useStripeSubscription();
   const { apiCall } = useAuth();
+  const { organization } = useUser();
   const [error, setError] = useState(null);
+
+  const freeTrialAvailable = !organization.freeTrialDate;
 
   useEffect(() => {
     track("View Upgrade Modal", {
@@ -65,9 +67,11 @@ export default function CloudUpgradeForm({
           discountMessage: quote?.discountMessage || "",
           subtotal: quote?.subtotal,
           total: quote?.total,
+          isFreeTrial: freeTrialAvailable,
         });
         await redirectWithTimeout(resp.session.url);
       } else {
+        // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type '"Failed to start checkout"' is n... Remove this comment to see the full error message
         setError("Failed to start checkout");
       }
     } catch (e) {
@@ -78,16 +82,27 @@ export default function CloudUpgradeForm({
   return (
     <>
       {loading && <LoadingOverlay />}
-      <p className="text-center mb-4" style={{ fontSize: "1.5em" }}>
-        {reason} Upgrade to a <strong>Pro Plan</strong>
-      </p>
-      <p className="text-center mb-4">
-        After upgrading, you will be able to add additional users for{" "}
-        <strong>
-          {currencyFormatter.format(quote?.additionalSeatPrice || 0)}
-        </strong>
-        /month.
-      </p>
+      {freeTrialAvailable ? (
+        <>
+          <p className="text-center mb-4" style={{ fontSize: "1.5em" }}>
+            Try <strong>GrowthBook Pro</strong> free for 14 days
+          </p>
+          <p className="text-center mb-4">No credit card required</p>
+        </>
+      ) : (
+        <>
+          <p className="text-center mb-4" style={{ fontSize: "1.5em" }}>
+            Upgrade to a <strong>Pro Plan</strong>
+          </p>
+          <p className="text-center mb-4">
+            After upgrading, you will be able to add additional users for{" "}
+            <strong>
+              {currencyFormatter.format(quote?.additionalSeatPrice || 0)}
+            </strong>
+            /month.
+          </p>
+        </>
+      )}
       <div className="row align-items-center justify-content-center">
         <div className="col-auto mb-4 mr-lg-5 pr-lg-5">
           <h3>Pro Plan includes:</h3>
@@ -103,6 +118,14 @@ export default function CloudUpgradeForm({
                     Or make them read-only in Project A and an admin for Project
                     B.
                   </>
+                }
+              />
+            </li>
+            <li>
+              Visual A/B test editor{" "}
+              <Tooltip
+                body={
+                  "A/B test UI changes using our Visual Editor browser plugin without writing code."
                 }
               />
             </li>
@@ -130,10 +153,15 @@ export default function CloudUpgradeForm({
                 }
               />
             </li>
+            <li>
+              Advanced experimentation features
+              <br />
+              (CUPED, Sequential Testing, etc)
+            </li>
             <li>Early access to new features</li>
           </ul>
         </div>
-        <div className="col-auto mb-4">
+        <div className="col-lg-5 mb-4">
           <div className="bg-light border rounded p-3 p-lg-4">
             <div className="d-flex">
               <div>Current team size</div>
@@ -141,15 +169,35 @@ export default function CloudUpgradeForm({
                 <strong>{quote?.activeAndInvitedUsers || 0}</strong> users
               </div>
             </div>
-            <div className="d-flex border-bottom py-2 mb-2">
-              <div>Price per user</div>
-              <div className="ml-auto">
-                <strong>
-                  {currencyFormatter.format(quote?.unitPrice || 0)}
-                </strong>
-                <small className="text-muted"> / month</small>
+            {freeTrialAvailable ? (
+              <div className="d-flex border-bottom py-2 mb-2">
+                <div>Price per user</div>
+                <div className="ml-auto text-right">
+                  <div>
+                    <strong
+                      className="text-warning-orange"
+                      style={{ textDecoration: "line-through" }}
+                    >
+                      {currencyFormatter.format(quote?.unitPrice || 0)}
+                    </strong>
+                    <small className="text-muted"> / month</small>
+                  </div>
+                  <strong>{currencyFormatter.format(0)}</strong>
+                  <small className="text-muted"> / month</small>
+                </div>
               </div>
-            </div>
+            ) : (
+              <div className="d-flex border-bottom py-2 mb-2">
+                <div>Price per user</div>
+                <div className="ml-auto">
+                  <strong>
+                    {currencyFormatter.format(quote?.unitPrice || 0)}
+                  </strong>
+                  <small className="text-muted"> / month</small>
+                </div>
+              </div>
+            )}
+            {/* @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'. */}
             {quote?.discountAmount < 0 && quote?.discountMessage && (
               <div className="d-flex border-bottom py-2 mb-2">
                 <div>{quote.discountMessage}</div>
@@ -161,28 +209,56 @@ export default function CloudUpgradeForm({
                 </div>
               </div>
             )}
-            <div className="d-flex py-2 mb-3" style={{ fontSize: "1.3em" }}>
-              <div>Total</div>
-              <div className="ml-auto">
-                <strong>{currencyFormatter.format(quote?.total || 0)}</strong>
-                <small className="text-muted"> / month</small>
+            {freeTrialAvailable ? (
+              <>
+                <div className="d-flex pt-2 mb-2" style={{ fontSize: "1.3em" }}>
+                  <div>Total</div>
+                  <div className="ml-auto">
+                    <strong>{currencyFormatter.format(0)}</strong>
+                  </div>
+                </div>
+                <div className="pb-2 mt-2 mb-3 small">
+                  You will <strong>not be charged</strong> after your trial ends
+                  unless you opt in <sup>&#10019;</sup>
+                </div>
+              </>
+            ) : (
+              <div className="d-flex py-2 mb-3" style={{ fontSize: "1.3em" }}>
+                <div>Total</div>
+                <div className="ml-auto">
+                  <strong>{currencyFormatter.format(quote?.total || 0)}</strong>
+                  <small className="text-muted"> / month</small>
+                </div>
               </div>
-            </div>
+            )}
             <div className="text-center px-4 mb-2">
               <Button
                 color="primary"
                 className="btn-block btn-lg"
                 onClick={startStripeSubscription}
               >
-                Upgrade to Pro
+                {freeTrialAvailable ? "Start Free Trial" : "Upgrade to Pro"}
               </Button>
             </div>
             <div
               className="text-center text-muted"
-              style={{ fontSize: "0.8em" }}
+              style={{ fontSize: "0.7em" }}
             >
-              Cancel or modify your subscription anytime.
+              Cancel or modify your subscription at any time.
             </div>
+            {freeTrialAvailable && (
+              <div
+                className="mt-2 text-center text-muted"
+                style={{ fontSize: "0.7em", lineHeight: 1.2 }}
+              >
+                &#10019; You may opt to continue your subscription at the rate
+                of{" "}
+                <strong>
+                  {currencyFormatter.format(quote?.total || 0)} / month
+                </strong>{" "}
+                by adding a credit card to your account.
+              </div>
+            )}
           </div>
         </div>
       </div>

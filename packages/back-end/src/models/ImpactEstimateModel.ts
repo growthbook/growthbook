@@ -4,9 +4,9 @@ import { ImpactEstimateInterface } from "../../types/impact-estimate";
 import { getMetricById } from "../models/MetricModel";
 import { getSourceIntegrationObject } from "../services/datasource";
 import { SegmentInterface } from "../../types/segment";
-import { processMetricValueQueryResponse } from "../services/queries";
 import { DEFAULT_CONVERSION_WINDOW_HOURS } from "../util/secrets";
-import { SegmentModel } from "./SegmentModel";
+import { processMetricValueQueryResponse } from "../queryRunners/MetricAnalysisQueryRunner";
+import { findSegmentById } from "./SegmentModel";
 import { getDataSourceById } from "./DataSourceModel";
 
 const impactEstimateSchema = new mongoose.Schema({
@@ -22,7 +22,7 @@ const impactEstimateSchema = new mongoose.Schema({
 export type ImpactEstimateDocument = mongoose.Document &
   ImpactEstimateInterface;
 
-export const ImpactEstimateModel = mongoose.model<ImpactEstimateDocument>(
+export const ImpactEstimateModel = mongoose.model<ImpactEstimateInterface>(
   "ImpactEstimate",
   impactEstimateSchema
 );
@@ -66,19 +66,14 @@ export async function getImpactEstimate(
 
   let segmentObj: SegmentInterface | null = null;
   if (segment) {
-    segmentObj = await SegmentModel.findOne({
-      id: segment,
-      organization,
-      datasource: datasource.id,
-    });
+    segmentObj = await findSegmentById(segment, organization);
   }
 
-  const integration = getSourceIntegrationObject(datasource);
-  if (integration.decryptionError) {
-    throw new Error(
-      "Could not decrypt data source credentials. View the data source settings for more info."
-    );
+  if (segmentObj?.datasource !== metricObj.datasource) {
+    segmentObj = null;
   }
+
+  const integration = getSourceIntegrationObject(datasource, true);
 
   const conversionWindowHours =
     metricObj.conversionWindowHours || DEFAULT_CONVERSION_WINDOW_HOURS;
@@ -100,7 +95,7 @@ export async function getImpactEstimate(
   });
 
   const queryResponse = await integration.runMetricValueQuery(query);
-  const value = processMetricValueQueryResponse(queryResponse);
+  const value = processMetricValueQueryResponse(queryResponse.rows);
 
   let daysWithData = numDays;
   if (value.dates && value.dates.length > 0) {

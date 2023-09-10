@@ -5,6 +5,7 @@ import {
   Invite,
   Member,
   OrganizationInterface,
+  OrganizationMessage,
 } from "../../types/organization";
 import { upgradeOrganizationDoc } from "../util/migrations";
 
@@ -23,6 +24,7 @@ const baseMemberFields = {
       environments: [String],
     },
   ],
+  teams: [String],
 };
 
 const organizationSchema = new mongoose.Schema({
@@ -59,11 +61,29 @@ const organizationSchema = new mongoose.Schema({
       email: String,
     },
   ],
+  messages: {
+    required: false,
+    type: [
+      {
+        _id: false,
+        message: {
+          required: true,
+          type: String,
+        },
+        level: {
+          required: true,
+          type: String,
+          enum: ["info", "warning", "danger"],
+        },
+      },
+    ],
+  },
   stripeCustomerId: String,
   discountCode: String,
   priceId: String,
   freeSeats: Number,
   disableSelfServeBilling: Boolean,
+  freeTrialDate: Date,
   enterprise: Boolean,
   subscription: {
     id: String,
@@ -76,6 +96,7 @@ const organizationSchema = new mongoose.Schema({
     cancel_at_period_end: Boolean,
     planNickname: String,
     priceId: String,
+    hasPaymentMethod: Boolean,
   },
   licenseKey: String,
   connections: {
@@ -96,7 +117,7 @@ organizationSchema.index({ "members.id": 1 });
 
 type OrganizationDocument = mongoose.Document & OrganizationInterface;
 
-const OrganizationModel = mongoose.model<OrganizationDocument>(
+const OrganizationModel = mongoose.model<OrganizationInterface>(
   "Organization",
   organizationSchema
 );
@@ -149,9 +170,21 @@ export async function createOrganization({
   });
   return toInterface(doc);
 }
-export async function findAllOrganizations() {
-  const docs = await OrganizationModel.find();
-  return docs.map(toInterface);
+export async function findAllOrganizations(page: number, search: string) {
+  const regex = new RegExp(search, "i");
+
+  const query = search ? { $or: [{ name: regex }, { ownerEmail: regex }] } : {};
+
+  const docs = await OrganizationModel.find(query)
+    .sort({ _id: -1 })
+    .skip((page - 1) * 50)
+    .limit(50);
+
+  const total = await (search
+    ? OrganizationModel.find(query).countDocuments()
+    : OrganizationModel.find().estimatedDocumentCount());
+
+  return { organizations: docs.map(toInterface), total };
 }
 export async function findOrganizationById(id: string) {
   const doc = await OrganizationModel.findOne({ id });
@@ -274,4 +307,19 @@ export async function removeProjectFromProjectRoles(
 export async function findOrganizationsByDomain(domain: string) {
   const docs = await OrganizationModel.find({ verifiedDomain: domain });
   return docs.map(toInterface);
+}
+
+export async function setOrganizationMessages(
+  orgId: string,
+  messages: OrganizationMessage[]
+): Promise<void> {
+  await OrganizationModel.updateOne(
+    {
+      id: orgId,
+    },
+    { messages },
+    {
+      runValidators: true,
+    }
+  );
 }

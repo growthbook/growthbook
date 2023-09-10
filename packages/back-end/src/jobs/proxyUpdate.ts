@@ -1,7 +1,7 @@
 import { createHmac } from "crypto";
 import Agenda, { Job } from "agenda";
 import { getFeatureDefinitions } from "../services/features";
-import { CRON_ENABLED } from "../util/secrets";
+import { CRON_ENABLED, IS_CLOUD } from "../util/secrets";
 import { SDKPayloadKey } from "../../types/sdk-payload";
 import {
   findSDKConnectionById,
@@ -10,10 +10,12 @@ import {
 } from "../models/SdkConnectionModel";
 import { SDKConnectionInterface } from "../../types/sdk-connection";
 import { cancellableFetch } from "../util/http.util";
+import { logger } from "../util/logger";
 
 const PROXY_UPDATE_JOB_NAME = "proxyUpdate";
 type ProxyUpdateJob = Job<{
   connectionId: string;
+  useCloudProxy: boolean;
   retryCount: number;
 }>;
 
@@ -24,42 +26,56 @@ export default function addProxyUpdateJob(ag: Agenda) {
   // Fire webhooks
   agenda.define(PROXY_UPDATE_JOB_NAME, async (job: ProxyUpdateJob) => {
     const connectionId = job.attrs.data?.connectionId;
-    if (!connectionId) return;
+    const useCloudProxy = job.attrs.data?.useCloudProxy;
+    if (!connectionId) {
+      logger.error(
+        "proxyUpdate: No connectionId provided for proxy update job",
+        { connectionId, useCloudProxy }
+      );
+      return;
+    }
 
     const connection = await findSDKConnectionById(connectionId);
-    if (!connection) return;
-    if (!connection.proxy.enabled) return;
-    if (!connection.proxy.host) return;
+    if (!connection) {
+      logger.error("proxyUpdate: Could not find sdk connection", {
+        connectionId,
+        useCloudProxy,
+      });
+      return;
+    }
 
-    const defs = await getFeatureDefinitions(
-      connection.organization,
-      connection.environment,
-      connection.project,
-      connection.encryptPayload ? connection.encryptionKey : undefined
-    );
+    // TODO This probably needs to renamed
+    const defs = await getFeatureDefinitions({
+      organization: connection.organization,
+      environment: connection.environment,
+      project: connection.project,
+      encryptionKey: connection.encryptPayload
+        ? connection.encryptionKey
+        : undefined,
+
+      includeVisualExperiments: connection.includeVisualExperiments,
+      includeDraftExperiments: connection.includeDraftExperiments,
+      includeExperimentNames: connection.includeExperimentNames,
+      hashSecureAttributes: connection.hashSecureAttributes,
+    });
 
     const payload = JSON.stringify(defs);
 
+    // note: Cloud users will typically have proxy.enabled === false (unless using a local proxy), but will still have a valid proxy.signingKey
     const signature = createHmac("sha256", connection.proxy.signingKey)
       .update(payload)
       .digest("hex");
 
-    const { responseWithoutBody: res } = await cancellableFetch(
-      `${connection.proxy.host}/proxy/features`,
-      {
-        headers: {
-          "Content-Type": "application/json",
-          "X-GrowthBook-Signature": signature,
-          "X-GrowthBook-Api-Key": connection.key,
-        },
-        method: "POST",
-        body: payload,
-      },
-      {
-        maxContentSize: 500,
-        maxTimeMs: 5000,
-      }
-    );
+    const url = useCloudProxy
+      ? `https://proxy.growthbook.io/proxy/features`
+      : `${connection.proxy.host}/proxy/features`;
+
+    const res = await fireProxyWebhook({
+      url,
+      signature,
+      key: connection.key,
+      payload,
+    });
 
     if (!res.ok) {
       const e = "POST returned an invalid status code: " + res.status;
@@ -94,15 +110,19 @@ export default function addProxyUpdateJob(ag: Agenda) {
 }
 
 export async function queueSingleProxyUpdate(
-  connection: SDKConnectionInterface
+  connection: SDKConnectionInterface,
+  useCloudProxy: boolean = false
 ) {
-  if (!connection.proxy.enabled || !connection.proxy.host) return;
+  if (!connectionSupportsProxyUpdate(connection, useCloudProxy)) return;
+
   const job = agenda.create(PROXY_UPDATE_JOB_NAME, {
     connectionId: connection.id,
     retryCount: 0,
+    useCloudProxy,
   }) as ProxyUpdateJob;
   job.unique({
     "data.connectionId": connection.id,
+    "data.useCloudProxy": useCloudProxy,
   });
   job.schedule(new Date());
   await job.save();
@@ -133,6 +153,52 @@ export async function queueProxyUpdate(
       continue;
     }
 
-    await queueSingleProxyUpdate(connection);
+    if (IS_CLOUD) {
+      // Always fire webhook to GB Cloud Proxy for cloud users
+      await queueSingleProxyUpdate(connection, true);
+    }
+    // If connection (cloud or self-hosted) specifies an (additional) proxy host, fire webhook
+    await queueSingleProxyUpdate(connection, false);
   }
+}
+
+function connectionSupportsProxyUpdate(
+  connection: SDKConnectionInterface,
+  useCloudProxy: boolean
+) {
+  if (useCloudProxy) {
+    return IS_CLOUD;
+  }
+  return !!(connection.proxy.enabled && connection.proxy.host);
+}
+
+async function fireProxyWebhook({
+  url,
+  signature,
+  key,
+  payload,
+}: {
+  url: string;
+  signature: string;
+  key: string;
+  payload: string;
+}) {
+  const { responseWithoutBody: res } = await cancellableFetch(
+    url,
+    {
+      headers: {
+        "Content-Type": "application/json",
+        "X-GrowthBook-Signature": signature,
+        "X-GrowthBook-Api-Key": key,
+      },
+      method: "POST",
+      body: payload,
+    },
+    {
+      maxContentSize: 500,
+      maxTimeMs: 5000,
+    }
+  );
+
+  return res;
 }

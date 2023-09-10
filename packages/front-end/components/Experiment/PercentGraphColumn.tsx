@@ -32,15 +32,16 @@ export default function PercentGraphColumn({
         ci={showGraph ? stats.ci || [] : [0, 0]}
         id={id}
         domain={domain}
-        uplift={showGraph ? stats.uplift : null}
-        expected={showGraph ? stats.expected : null}
+        uplift={showGraph ? stats.uplift : undefined}
+        expected={showGraph ? stats.expected : undefined}
         barType={barType}
         barFillType="gradient"
-        axisOnly={showGraph ? false : true}
+        axisOnly={!showGraph}
         showAxis={false}
         significant={
           showGraph
-            ? stats.chanceToWin > ciUpper || stats.chanceToWin < ciLower
+            ? (stats.chanceToWin ?? 0) > ciUpper ||
+              (stats.chanceToWin ?? 0) < ciLower
             : false
         }
         height={75}

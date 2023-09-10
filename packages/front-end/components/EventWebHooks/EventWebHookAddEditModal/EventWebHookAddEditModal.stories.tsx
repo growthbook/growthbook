@@ -31,6 +31,7 @@ export const EditMode = () => {
           events: ["feature.updated", "feature.deleted"],
           url: "http://192.168.0.15:1115/events/webhooks?v=1",
           name: "Main REST API",
+          enabled: true,
         },
       }}
     />

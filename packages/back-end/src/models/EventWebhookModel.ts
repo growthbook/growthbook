@@ -48,7 +48,13 @@ const eventWebHookSchema = new mongoose.Schema({
 
         if (!result.success) {
           const errorString = errorStringFromZodResult(result);
-          logger.error(errorString, "Invalid Event name");
+          logger.error(
+            {
+              error: JSON.stringify(errorString, null, 2),
+              result: JSON.stringify(result, null, 2),
+            },
+            "Invalid Event name"
+          );
         }
 
         return result.success;
@@ -88,9 +94,9 @@ type EventWebHookDocument = mongoose.Document & EventWebHookInterface;
  * @returns
  */
 const toInterface = (doc: EventWebHookDocument): EventWebHookInterface =>
-  omit(doc.toJSON(), ["__v", "_id"]) as EventWebHookInterface;
+  omit(doc.toJSON<EventWebHookDocument>(), ["__v", "_id"]);
 
-const EventWebHookModel = mongoose.model<EventWebHookDocument>(
+const EventWebHookModel = mongoose.model<EventWebHookInterface>(
   "EventWebHook",
   eventWebHookSchema
 );
@@ -206,7 +212,7 @@ export const updateEventWebHook = async (
     }
   );
 
-  return result.nModified === 1;
+  return result.modifiedCount === 1;
 };
 
 type EventWebHookStatusUpdate =

@@ -3,7 +3,10 @@ title: Go SDK
 description: GrowthBook SDK for Golang
 sidebar_label: Go
 slug: go
+toc_max_heading_level: 5
 ---
+
+import ExternalLink from '@site/src/components/ExternalLink'
 
 # GrowthBook Go SDK
 
@@ -22,28 +25,69 @@ provides a `Feature` method for accessing feature values, and a `Run`
 method for running inline experiments.
 
 ```go
-// Parse feature map from JSON data.
-features := growthbook.ParseFeatureMap(jsonBody)
-
-// Create context and main GrowthBook object.
-context := growthbook.NewContext().WithFeatures(features)
-gb := growthbook.New(context)
-
-// Perform feature test.
-if gb.Feature("my-feature").On {
-  // ...
+// GBFeaturesResponse
+// GrowthBook features response
+type GBFeaturesResponse struct {
+	Status            int             `json:"status"`
+	Features          json.RawMessage `json:"features"`
+	EncryptedFeatures string          `json:"encryptedFeatures,omitempty"` // Not yet supported in the Go SDK
+	DateUpdated       time.Time       `json:"dateUpdated"`
 }
 
-color := gb.Feature("signup-button-color").GetValueWithDefault("blue")
-fmt.Println(color)
+// Get JSON from GrowthBook and deserialize it into GBFeaturesResponse struct
+res, err := http.Get("https://cdn.growthbook.io/api/features/<environment_key>")
+if err != nil {
+	fmt.Printf("Error fetching features from GrowthBook: %s \n", err)
+	os.Exit(1)
+}
 
-experiment :=
-  growthbook.NewExperiment("my-experiment").
-    WithVariations("A", "B")
+var featuresResponse GBFeaturesResponse
+err = json.NewDecoder(res.Body).Decode(&featuresResponse)
+if err != nil {
+	fmt.Printf("Error decoding JSON: %s \n", err)
+	os.Exit(1)
+}
 
+features := growthbook.ParseFeatureMap(featuresResponse.Features)
+
+// Optional tracking callback
+// This will get called when the font_colour experiment below is evaluated
+// See "Tracking and subscriptions" section below
+trackingCallback := func(experiment *growthbook.Experiment, result *growthbook.ExperimentResult) {
+	fmt.Printf("Experiment Viewed: %s - Variation index: %d - Value: %s \n", experiment.Key, result.VariationID, result.Value)
+}
+
+// Set up user attributes - See Attributes below for more info
+userAttributes := growthbook.Attributes{
+	"id": "user-abc123",
+	"country": "canada",
+}
+
+// Create a growthbook.Context instance with the features and attributes
+context := growthbook.NewContext().
+	WithFeatures(features).
+	WithAttributes(userAttributes).
+	WithTrackingCallback(trackingCallback)
+
+// Create a growthbook.GrowthBook instance
+gb := growthbook.New(context)
+
+// Get a string value
+bannerText := gb.Feature("banner_text").GetValueWithDefault("(unknown banner text)")
+
+// Perform feature test.
+if gb.Feature("dark_mode").On {
+	// ...
+}
+
+// Evaluate an inline experiment and cast the result to a string (or the known type)
+experiment := growthbook.
+	NewExperiment("font_colour").
+	WithVariations("red", "orange", "yellow", "green", "blue", "purple")
 result := gb.Run(experiment)
+var fontColour = result.Value.(string)
 
-fmt.Println(result.Value)
+fmt.Println(fontColour)
 
 experiment2 :=
   growthbook.NewExperiment("complex-experiment").
@@ -371,40 +415,48 @@ forced into a specific variation, this flag will be false.
 For interoperability of the GrowthBook Go SDK with versions of the SDK
 in other languages, the core "input" values of the SDK (in particular,
 `Context` and `Experiment` values and maps of feature definitions) can
-be created by parsing JSON data. A common use case is to download
-feature definitions from a central location as JSON, to parse them
-into a feature map that can be applied to a GrowthBook `Context`, then
-using this context to create a `GrowthBook` value that can be used for
-feature tests.
+be created by parsing JSON data.
 
-A contrived example of how this might work is:
+A common use case is to download the feature definition from the GrowthBook SDK endpoints, and parse them into a feature map that can be passed into the GrowthBook `Context`.
+
+The shape of the GrowthBook response can use the following struct:
 
 ```go
-// Download JSON feature file and read file body.
-resp, err := http.Get("https://s3.amazonaws.com/myBucket/features.json")
-if err != nil {
-	log.Fatal(err)
+// GBFeaturesResponse
+// GrowthBook features response
+type GBFeaturesResponse struct {
+	Status            int             `json:"status"`
+	Features          json.RawMessage `json:"features"`
+	EncryptedFeatures string          `json:"encryptedFeatures,omitempty"` // Not yet supported in the Go SDK
+	DateUpdated       time.Time       `json:"dateUpdated"`
 }
-defer resp.Body.Close()
-body, err := ioutil.ReadAll(resp.Body)
+```
+
+Next, get JSON from GrowthBook and deserialize it into GBFeaturesResponse struct.
+
+```go
+res, err := http.Get("https://cdn.growthbook.io/api/features/<environment_key>")
 if err != nil {
-	log.Fatal(err)
+	fmt.Printf("Error fetching features from GrowthBook: %s \n", err)
+	os.Exit(1)
 }
 
-// Parse feature map from JSON.
-features, err := ParseFeatureMap(body)
+var featuresResponse GBFeaturesResponse
+err = json.NewDecoder(res.Body).Decode(&featuresResponse)
 if err != nil {
-	log.Fatal(err)
+	fmt.Printf("Error decoding JSON: %s \n", err)
+	os.Exit(1)
 }
 
-// Create context and main GrowthBook object.
-context := NewContext().WithFeatures(features)
-growthbook := New(context)
+features := growthbook.ParseFeatureMap(featuresResponse.Features)
 
-// Perform feature test.
-if growthbook.Feature("my-feature").On {
-	// ...
-}
+// Create a growthbook.Context instance with the features and attributes
+context := growthbook.NewContext().
+	WithFeatures(features).
+	WithAttributes(userAttributes)
+
+// Create a growthbook.GrowthBook instance
+gb := growthbook.New(context)
 ```
 
 The functions that implement this JSON processing functionality have
@@ -427,3 +479,12 @@ that are called any time `Run` is called, irrespective of whether or
 not a user is included in an experiment. The subscription system
 ensures that subscription callbacks are only called when the result of
 an experiment changes, or a new experiment is run.
+
+## Code Examples
+
+- [Go server example that fetches from the GrowthBook API <ExternalLink/>](https://github.com/growthbook/examples/tree/main/go-example)
+- [Go CLI app that ingests features from file <ExternalLink/>](https://github.com/ian-ross/growthbook-golang-example)
+
+## Further Reading
+
+- [godoc <ExternalLink/>](https://growthbook.github.io/growthbook-golang)

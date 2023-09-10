@@ -23,6 +23,16 @@ export interface ExperimentReportVariation {
   name: string;
   weight: number;
 }
+export interface ExperimentReportVariationWithIndex
+  extends ExperimentReportVariation {
+  index: number;
+}
+export interface MetricRegressionAdjustmentStatus {
+  metric: string;
+  regressionAdjustmentEnabled: boolean;
+  regressionAdjustmentDays: number;
+  reason: string;
+}
 export interface ExperimentReportArgs {
   trackingKey: string;
   datasource: string;
@@ -33,7 +43,7 @@ export interface ExperimentReportArgs {
   exposureQueryId: string;
   startDate: Date;
   endDate?: Date;
-  dimension?: string;
+  dimension?: string | null;
   variations: ExperimentReportVariation[];
   segment?: string;
   metrics: string[];
@@ -42,9 +52,12 @@ export interface ExperimentReportArgs {
   activationMetric?: string;
   queryFilter?: string;
   skipPartialData?: boolean;
-  removeMultipleExposures?: boolean;
   attributionModel?: AttributionModel;
   statsEngine?: StatsEngine;
+  regressionAdjustmentEnabled?: boolean;
+  metricRegressionAdjustmentStatuses?: MetricRegressionAdjustmentStatus[];
+  sequentialTestingEnabled?: boolean;
+  sequentialTestingTuningParameter?: number;
 }
 export interface ExperimentReportResultDimension {
   name: string;
@@ -54,7 +67,6 @@ export interface ExperimentReportResultDimension {
 export interface ExperimentReportResults {
   unknownVariations: string[];
   multipleExposures: number;
-  hasCorrectedStats?: boolean;
   dimensions: ExperimentReportResultDimension[];
 }
 export interface ExperimentReportInterface extends ReportInterfaceBase {

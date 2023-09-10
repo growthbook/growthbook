@@ -1,7 +1,15 @@
 import React, { FC, useState } from "react";
 import { useForm } from "react-hook-form";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import {
+  ExperimentInterfaceStringDates,
+  MetricOverride,
+} from "back-end/types/experiment";
 import cloneDeep from "lodash/cloneDeep";
+import { DEFAULT_REGRESSION_ADJUSTMENT_DAYS } from "shared/constants";
+import { MetricInterface } from "back-end/types/metric";
+import { OrganizationSettings } from "back-end/types/organization";
+import { isProjectListValidForProject } from "shared/util";
+import useOrgSettings from "@/hooks/useOrgSettings";
 import { useAuth } from "../../services/auth";
 import Modal from "../Modal";
 import SelectField from "../Forms/SelectField";
@@ -23,32 +31,18 @@ export interface EditMetricsFormInterface {
     conversionDelayHours?: number;
     winRisk?: number;
     loseRisk?: number;
+    regressionAdjustmentOverride?: boolean;
+    regressionAdjustmentEnabled?: boolean;
+    regressionAdjustmentDays?: number;
   }[];
 }
 
-const EditMetricsForm: FC<{
-  experiment: ExperimentInterfaceStringDates;
-  cancel: () => void;
-  mutate: () => void;
-}> = ({ experiment, cancel, mutate }) => {
-  const [upgradeModal, setUpgradeModal] = useState(false);
-  const [hasMetricOverrideRiskError, setHasMetricOverrideRiskError] = useState(
-    false
-  );
-  const { hasCommercialFeature } = useUser();
-  const hasOverrideMetricsFeature = hasCommercialFeature("override-metrics");
-
-  const { metrics, getDatasourceById } = useDefinitions();
-  const datasource = getDatasourceById(experiment.datasource);
-  const filteredMetrics = metrics
-    .filter((m) => m.datasource === datasource?.id)
-    .filter((m) => {
-      if (!experiment.project) return true;
-      if (!m?.projects?.length) return true;
-      return m.projects.includes(experiment.project);
-    });
-
-  const defaultMetricOverrides = cloneDeep(experiment.metricOverrides || []);
+export function getDefaultMetricOverridesFormValue(
+  overrides: MetricOverride[],
+  getMetricById: (id: string) => MetricInterface | null,
+  settings: OrganizationSettings
+) {
+  const defaultMetricOverrides = cloneDeep(overrides);
   for (let i = 0; i < defaultMetricOverrides.length; i++) {
     for (const key in defaultMetricOverrides[i]) {
       // fix fields with percentage values
@@ -63,7 +57,72 @@ const EditMetricsForm: FC<{
         defaultMetricOverrides[i][key] *= 100;
       }
     }
+    if (defaultMetricOverrides[i].regressionAdjustmentDays === undefined) {
+      const metricDefinition = getMetricById(defaultMetricOverrides[i].id);
+      if (metricDefinition?.regressionAdjustmentOverride) {
+        defaultMetricOverrides[i].regressionAdjustmentDays =
+          metricDefinition.regressionAdjustmentDays;
+      } else {
+        defaultMetricOverrides[i].regressionAdjustmentDays =
+          settings.regressionAdjustmentDays ??
+          DEFAULT_REGRESSION_ADJUSTMENT_DAYS;
+      }
+    }
   }
+  return defaultMetricOverrides;
+}
+
+export function fixMetricOverridesBeforeSaving(overrides: MetricOverride[]) {
+  for (let i = 0; i < overrides.length; i++) {
+    for (const key in overrides[i]) {
+      if (key === "id") continue;
+      const v = overrides[i][key];
+      if (v === undefined || v === null || isNaN(v)) {
+        delete overrides[i][key];
+        continue;
+      }
+      // fix fields with percentage values
+      if (
+        [
+          "winRisk",
+          "loseRisk",
+          "maxPercentChange",
+          "minPercentChange",
+        ].includes(key)
+      ) {
+        overrides[i][key] = v / 100;
+      }
+    }
+  }
+}
+
+const EditMetricsForm: FC<{
+  experiment: ExperimentInterfaceStringDates;
+  cancel: () => void;
+  mutate: () => void;
+}> = ({ experiment, cancel, mutate }) => {
+  const [upgradeModal, setUpgradeModal] = useState(false);
+  const [hasMetricOverrideRiskError, setHasMetricOverrideRiskError] = useState(
+    false
+  );
+  const settings = useOrgSettings();
+  const { hasCommercialFeature } = useUser();
+  const hasOverrideMetricsFeature = hasCommercialFeature("override-metrics");
+
+  const { metrics, getDatasourceById, getMetricById } = useDefinitions();
+  const datasource = getDatasourceById(experiment.datasource);
+  const filteredMetrics = metrics
+    .filter((m) => m.datasource === datasource?.id)
+    .filter((m) =>
+      isProjectListValidForProject(m.projects, experiment.project)
+    );
+
+  const defaultMetricOverrides = getDefaultMetricOverridesFormValue(
+    experiment.metricOverrides || [],
+    getMetricById,
+    settings
+  );
+
   const form = useForm<EditMetricsFormInterface>({
     defaultValues: {
       metrics: experiment.metrics || [],
@@ -94,27 +153,7 @@ const EditMetricsForm: FC<{
       ctaEnabled={!hasMetricOverrideRiskError}
       submit={form.handleSubmit(async (value) => {
         const payload = cloneDeep<EditMetricsFormInterface>(value);
-        for (let i = 0; i < payload.metricOverrides.length; i++) {
-          for (const key in payload.metricOverrides[i]) {
-            if (key === "id") continue;
-            const v = payload.metricOverrides[i][key];
-            if (v === undefined || v === null || isNaN(v)) {
-              delete payload.metricOverrides[i][key];
-              continue;
-            }
-            // fix fields with percentage values
-            if (
-              [
-                "winRisk",
-                "loseRisk",
-                "maxPercentChange",
-                "minPercentChange",
-              ].includes(key)
-            ) {
-              payload.metricOverrides[i][key] = v / 100;
-            }
-          }
-        }
+        fixMetricOverridesBeforeSaving(payload.metricOverrides);
         await apiCall(`/experiment/${experiment.id}`, {
           method: "POST",
           body: JSON.stringify(payload),

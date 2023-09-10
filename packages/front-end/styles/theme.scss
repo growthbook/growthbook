@@ -5,7 +5,7 @@
 
   --background-color: #{colors.$main-background};
   --surface-background-color: #{colors.$white};
-  --surface-background-color-alt: #{colors.$gray-100};
+  --surface-background-color-alt: #{darken(colors.$white, 3%)};
   --background-primary-light: #f3eff7;
   --table-row-hover-background-color: rgba(0, 0, 0, 0.075); // default Bootstrap
   --table-row-highlight-background-color: #{rgba(124, 69, 234, 0.06)};
@@ -41,7 +41,7 @@
   --alert-warn-border-color: #ffeeba;
   --alert-warn-color: #856404;
 
-  --alert-danger-background: #f8d7da;
+  --alert-danger-background: rgba(248, 215, 218, 0.68);
   --alert-danger-border-color: #f5c6cb;
   --alert-danger-color: #721c24;
 
@@ -64,6 +64,8 @@
   --select-hover-background: #f2f7ff;
 
   --disabled-background: #eaeaea;
+
+  --bg-muted-yellow: #f5f2dc;
 }
 
 @mixin dark-theme {
@@ -133,6 +135,8 @@
   --select-hover-background: #{colors.$gray-800};
 
   --disabled-background: #3f3f3f;
+
+  --bg-muted-yellow: #4c4a44;
 }
 
 .theme--light {

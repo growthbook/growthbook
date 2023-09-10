@@ -1,18 +1,40 @@
-import { FC } from "react";
-import { useFieldArray, useForm } from "react-hook-form";
+import React, { FC, useCallback, useState } from "react";
+import { UseFormReturn, useFieldArray, useForm } from "react-hook-form";
 import {
   AttributionModel,
   ExperimentInterfaceStringDates,
 } from "back-end/types/experiment";
 import { FaQuestionCircle } from "react-icons/fa";
+import { getValidDate } from "shared/dates";
+import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
+import {
+  getAffectedEnvsForExperiment,
+  isProjectListValidForProject,
+} from "shared/util";
+import { getScopedSettings } from "shared/settings";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import { getValidDate } from "@/services/dates";
 import { getExposureQuery } from "@/services/datasources";
+import useOrgSettings from "@/hooks/useOrgSettings";
+import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
+import { useUser } from "@/services/UserContext";
+import { hasFileConfig } from "@/services/env";
+import usePermissions from "@/hooks/usePermissions";
+import { GBSequential } from "@/components/Icons";
+import StatsEngineSelect from "@/components/Settings/forms/StatsEngineSelect";
 import Modal from "../Modal";
 import Field from "../Forms/Field";
 import SelectField from "../Forms/SelectField";
+import UpgradeMessage from "../Marketing/UpgradeMessage";
+import UpgradeModal from "../Settings/UpgradeModal";
 import { AttributionModelTooltip } from "./AttributionModelTooltip";
+import MetricsOverridesSelector from "./MetricsOverridesSelector";
+import MetricsSelector from "./MetricsSelector";
+import {
+  EditMetricsFormInterface,
+  fixMetricOverridesBeforeSaving,
+  getDefaultMetricOverridesFormValue,
+} from "./EditMetricsForm";
 
 const AnalysisForm: FC<{
   experiment: ExperimentInterfaceStringDates;
@@ -21,6 +43,7 @@ const AnalysisForm: FC<{
   mutate: () => void;
   editVariationIds?: boolean;
   editDates?: boolean;
+  editMetrics?: boolean;
 }> = ({
   experiment,
   cancel,
@@ -28,13 +51,49 @@ const AnalysisForm: FC<{
   phase,
   editVariationIds = true,
   editDates = true,
+  editMetrics = false,
 }) => {
   const {
     metrics,
     segments,
+    getProjectById,
     getDatasourceById,
+    getMetricById,
+    getSegmentById,
     datasources,
   } = useDefinitions();
+
+  const { organization, hasCommercialFeature } = useUser();
+
+  const permissions = usePermissions();
+
+  const orgSettings = useOrgSettings();
+
+  const hasOverrideMetricsFeature = hasCommercialFeature("override-metrics");
+  const [hasMetricOverrideRiskError, setHasMetricOverrideRiskError] = useState(
+    false
+  );
+  const [upgradeModal, setUpgradeModal] = useState(false);
+
+  const pid = experiment?.project;
+  const project = pid ? getProjectById(pid) : null;
+
+  const { settings: scopedSettings } = getScopedSettings({
+    organization,
+    project: project ?? undefined,
+  });
+
+  const hasSequentialTestingFeature = hasCommercialFeature(
+    "sequential-testing"
+  );
+
+  let canRunExperiment = !experiment.archived;
+  const envs = getAffectedEnvsForExperiment({ experiment });
+  if (envs.length > 0) {
+    if (!permissions.check("runExperiments", experiment.project, envs)) {
+      canRunExperiment = false;
+    }
+  }
 
   const phaseObj = experiment.phases[phase];
 
@@ -52,17 +111,65 @@ const AnalysisForm: FC<{
       segment: experiment.segment || "",
       queryFilter: experiment.queryFilter || "",
       skipPartialData: experiment.skipPartialData ? "strict" : "loose",
-      removeMultipleExposures: experiment.removeMultipleExposures
-        ? "remove"
-        : "keep",
-      attributionModel: experiment.attributionModel || "firstExposure",
-      dateStarted: getValidDate(phaseObj?.dateStarted)
+      attributionModel:
+        experiment.attributionModel ||
+        orgSettings.attributionModel ||
+        "firstExposure",
+      dateStarted: getValidDate(phaseObj?.dateStarted ?? "")
         .toISOString()
         .substr(0, 16),
-      dateEnded: getValidDate(phaseObj?.dateEnded).toISOString().substr(0, 16),
+      dateEnded: getValidDate(phaseObj?.dateEnded ?? "")
+        .toISOString()
+        .substr(0, 16),
       variations: experiment.variations || [],
+      sequentialTestingEnabled:
+        hasSequentialTestingFeature &&
+        experiment.sequentialTestingEnabled !== undefined
+          ? experiment.sequentialTestingEnabled
+          : !!orgSettings.sequentialTestingEnabled,
+      sequentialTestingTuningParameter:
+        experiment.sequentialTestingEnabled !== undefined
+          ? experiment.sequentialTestingTuningParameter
+          : orgSettings.sequentialTestingTuningParameter ??
+            DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
+      metrics: experiment.metrics,
+      guardrails: experiment.guardrails || [],
+      metricOverrides: getDefaultMetricOverridesFormValue(
+        experiment.metricOverrides || [],
+        getMetricById,
+        orgSettings
+      ),
+      statsEngine: experiment.statsEngine,
     },
   });
+
+  const [
+    usingSequentialTestingDefault,
+    setUsingSequentialTestingDefault,
+  ] = useState(experiment.sequentialTestingEnabled === undefined);
+  const setSequentialTestingToDefault = useCallback(
+    (enable: boolean) => {
+      if (enable) {
+        form.setValue(
+          "sequentialTestingEnabled",
+          !!orgSettings.sequentialTestingEnabled
+        );
+        form.setValue(
+          "sequentialTestingTuningParameter",
+          orgSettings.sequentialTestingTuningParameter ??
+            DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER
+        );
+      }
+      setUsingSequentialTestingDefault(enable);
+    },
+    [
+      form,
+      setUsingSequentialTestingDefault,
+      orgSettings.sequentialTestingEnabled,
+      orgSettings.sequentialTestingTuningParameter,
+    ]
+  );
+
   const { apiCall } = useAuth();
 
   const datasource = getDatasourceById(form.watch("datasource"));
@@ -87,20 +194,25 @@ const AnalysisForm: FC<{
   const exposureQueryId = form.watch("exposureQueryId");
   const exposureQuery = exposureQueries.find((e) => e.id === exposureQueryId);
 
+  if (upgradeModal) {
+    return (
+      <UpgradeModal
+        close={() => setUpgradeModal(false)}
+        reason="To override metric conversion windows,"
+        source="override-metrics"
+      />
+    );
+  }
+
   return (
     <Modal
-      header={"Configure Experiment Analysis"}
+      header={"Experiment Settings"}
       open={true}
       close={cancel}
       size="lg"
+      ctaEnabled={!editMetrics || !hasMetricOverrideRiskError}
       submit={form.handleSubmit(async (value) => {
-        const {
-          dateStarted,
-          dateEnded,
-          skipPartialData,
-          removeMultipleExposures,
-          ...values
-        } = value;
+        const { dateStarted, dateEnded, skipPartialData, ...values } = value;
 
         const body: Partial<ExperimentInterfaceStringDates> & {
           phaseStartDate: string;
@@ -111,17 +223,19 @@ const AnalysisForm: FC<{
           currentPhase: phase,
           phaseStartDate: dateStarted,
           skipPartialData: skipPartialData === "strict",
-          removeMultipleExposures: removeMultipleExposures === "remove",
         };
 
-        // Metrics/guardrails are tied to a data source, so if we change it, they need to be removed.
-        if (body.datasource !== experiment.datasource) {
-          body.metrics = [];
-          body.guardrails = [];
-        }
+        fixMetricOverridesBeforeSaving(body.metricOverrides || []);
 
         if (experiment.status === "stopped") {
           body.phaseEndDate = dateEnded;
+        }
+        if (usingSequentialTestingDefault) {
+          // User checked the org default checkbox; ignore form values
+          body.sequentialTestingEnabled = !!orgSettings.sequentialTestingEnabled;
+          body.sequentialTestingTuningParameter =
+            orgSettings.sequentialTestingTuningParameter ??
+            DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER;
         }
 
         await apiCall(`/experiment/${experiment.id}`, {
@@ -137,17 +251,66 @@ const AnalysisForm: FC<{
         labelClassName="font-weight-bold"
         value={datasource?.id || ""}
         onChange={(newDatasource) => {
-          if (datasource && newDatasource !== datasource?.id) {
-            form.setValue("segment", "");
-            form.setValue("activationMetric", "");
+          form.setValue("datasource", newDatasource);
+
+          // If unsetting the datasource, leave all the other settings alone
+          // That way, it will be restored if the user switches back to the previous value
+          if (!newDatasource) {
+            return;
+          }
+
+          // If the exposure query is now invalid
+          const ds = getDatasourceById(newDatasource);
+          if (!getExposureQuery(ds?.settings, form.watch("exposureQueryId"))) {
             form.setValue("exposureQueryId", "");
           }
-          form.setValue("datasource", newDatasource);
+
+          // If the segment is now invalid
+          const segment = form.watch("segment");
+          if (
+            segment &&
+            getSegmentById(segment)?.datasource !== newDatasource
+          ) {
+            form.setValue("segment", "");
+          }
+
+          // If the activationMetric is now invalid
+          const activationMetric = form.watch("activationMetric");
+          if (
+            activationMetric &&
+            getMetricById(activationMetric)?.datasource !== newDatasource
+          ) {
+            form.setValue("activationMetric", "");
+          }
+
+          // Filter the selected metrics to only valid ones
+          const metrics = form.watch("metrics");
+          form.setValue(
+            "metrics",
+            metrics.filter(
+              (m) => getMetricById(m)?.datasource === newDatasource
+            )
+          );
+
+          // Filter the selected guardrails to only valid ones
+          const guardrails = form.watch("guardrails");
+          form.setValue(
+            "guardrails",
+            guardrails.filter(
+              (m) => getMetricById(m)?.datasource === newDatasource
+            )
+          );
         }}
-        options={datasources.map((d) => ({
-          value: d.id,
-          label: `${d.name}${d.description ? ` — ${d.description}` : ""}`,
-        }))}
+        options={datasources
+          .filter(
+            (ds) =>
+              ds.id === experiment.datasource ||
+              isProjectListValidForProject(ds.projects, experiment.project)
+          )
+          .map((d) => ({
+            value: d.id,
+            label: `${d.name}${d.description ? ` — ${d.description}` : ""}`,
+          }))}
         className="portal-overflow-ellipsis"
         initialOption="Manual"
         helpText={
@@ -173,12 +336,20 @@ const AnalysisForm: FC<{
           })}
         />
       )}
-      <Field
-        label="Experiment Id"
-        labelClassName="font-weight-bold"
-        {...form.register("trackingKey")}
-        helpText="Will match against the experiment_id column in your data source"
-      />
+      {datasource && (
+        <Field
+          label="Experiment Key"
+          labelClassName="font-weight-bold"
+          {...form.register("trackingKey")}
+          helpText={
+            <>
+              Will match against the <code>experiment_id</code> column in your
+              data source
+            </>
+          }
+          disabled={!canRunExperiment}
+        />
+      )}
       {editVariationIds && (
         <div className="form-group">
           <label className="font-weight-bold">Variation Ids</label>
@@ -230,20 +401,22 @@ const AnalysisForm: FC<{
           )}
         </div>
       )}
-      <SelectField
-        label="Activation Metric"
-        labelClassName="font-weight-bold"
-        options={filteredMetrics.map((m) => {
-          return {
-            label: m.name,
-            value: m.id,
-          };
-        })}
-        initialOption="None"
-        value={form.watch("activationMetric")}
-        onChange={(value) => form.setValue("activationMetric", value || "")}
-        helpText="Users must convert on this metric before being included"
-      />
+      {datasource && (
+        <SelectField
+          label="Activation Metric"
+          labelClassName="font-weight-bold"
+          options={filteredMetrics.map((m) => {
+            return {
+              label: m.name,
+              value: m.id,
+            };
+          })}
+          initialOption="None"
+          value={form.watch("activationMetric")}
+          onChange={(value) => form.setValue("activationMetric", value || "")}
+          helpText="Users must convert on this metric before being included"
+        />
+      )}
       {datasourceProperties?.experimentSegments && (
         <SelectField
           label="Segment"
@@ -281,25 +454,6 @@ const AnalysisForm: FC<{
       )}
       {datasourceProperties?.separateExperimentResultQueries && (
         <SelectField
-          label="Users in Multiple Variations"
-          labelClassName="font-weight-bold"
-          value={form.watch("removeMultipleExposures")}
-          onChange={(value) => form.setValue("removeMultipleExposures", value)}
-          options={[
-            {
-              label: "Include in both variations",
-              value: "keep",
-            },
-            {
-              label: "Remove from analysis",
-              value: "remove",
-            },
-          ]}
-          helpText="How to treat users who were exposed to more than 1 variation"
-        />
-      )}
-      {datasourceProperties?.separateExperimentResultQueries && (
-        <SelectField
           label={
             <AttributionModelTooltip>
               <strong>Attribution Model</strong> <FaQuestionCircle />
@@ -316,11 +470,100 @@ const AnalysisForm: FC<{
               value: "firstExposure",
             },
             {
-              label: "All Exposures",
-              value: "allExposures",
+              label: "Experiment Duration",
+              value: "experimentDuration",
             },
           ]}
         />
+      )}
+      <StatsEngineSelect
+        value={form.watch("statsEngine")}
+        onChange={(v) => {
+          form.setValue("statsEngine", v);
+        }}
+        parentSettings={scopedSettings}
+        allowUndefined={true}
+      />
+      {(form.watch("statsEngine") || scopedSettings.statsEngine.value) ===
+        "frequentist" && (
+        <div className="d-flex flex-row no-gutters align-items-top">
+          <div className="col-5">
+            <SelectField
+              label={
+                <PremiumTooltip commercialFeature="sequential-testing">
+                  <GBSequential /> Use Sequential Testing
+                </PremiumTooltip>
+              }
+              labelClassName="font-weight-bold"
+              value={form.watch("sequentialTestingEnabled") ? "on" : "off"}
+              onChange={(v) => {
+                form.setValue("sequentialTestingEnabled", v === "on");
+              }}
+              options={[
+                {
+                  label: "On",
+                  value: "on",
+                },
+                {
+                  label: "Off",
+                  value: "off",
+                },
+              ]}
+              helpText="Only applicable to frequentist analyses"
+              disabled={
+                !hasSequentialTestingFeature || usingSequentialTestingDefault
+              }
+            />
+          </div>
+          <div
+            className="col-3 pl-4"
+            style={{
+              opacity: form.watch("sequentialTestingEnabled") ? "1" : "0.5",
+            }}
+          >
+            <Field
+              label="Tuning parameter"
+              type="number"
+              containerClassName="mb-0"
+              min="0"
+              disabled={
+                usingSequentialTestingDefault ||
+                !hasSequentialTestingFeature ||
+                hasFileConfig()
+              }
+              helpText={
+                <>
+                  <span className="ml-2">
+                    (
+                    {orgSettings.sequentialTestingTuningParameter ??
+                      DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER}{" "}
+                    is default)
+                  </span>
+                </>
+              }
+              {...form.register("sequentialTestingTuningParameter", {
+                valueAsNumber: true,
+                validate: (v) => {
+                  return !((v ?? 0) <= 0);
+                },
+              })}
+            />
+          </div>
+          <div className="col align-self-center">
+            <label className="ml-5">
+              <input
+                type="checkbox"
+                className="form-check-input"
+                checked={usingSequentialTestingDefault}
+                disabled={!hasSequentialTestingFeature}
+                onChange={(e) =>
+                  setSequentialTestingToDefault(e.target.checked)
+                }
+              />
+              Reset to Organization Default
+            </label>
+          </div>
+        </div>
       )}
       {datasourceProperties?.queryLanguage === "sql" && (
         <div className="row">
@@ -354,6 +597,71 @@ const AnalysisForm: FC<{
             </div>
           </div>
         </div>
+      )}
+      {editMetrics && (
+        <>
+          <div className="form-group mt-3">
+            <label className="font-weight-bold mb-1">Goal Metrics</label>
+            <div className="mb-1 font-italic">
+              Metrics you are trying to improve with this experiment.
+            </div>
+            <MetricsSelector
+              selected={form.watch("metrics")}
+              onChange={(metrics) => form.setValue("metrics", metrics)}
+              datasource={form.watch("datasource")}
+              project={experiment.project}
+              autoFocus={true}
+            />
+          </div>
+
+          <div className="form-group">
+            <label className="font-weight-bold mb-1">Guardrail Metrics</label>
+            <div className="mb-1 font-italic">
+              Metrics you want to monitor, but are NOT specifically trying to
+              improve.
+            </div>
+            <MetricsSelector
+              selected={form.watch("guardrails")}
+              onChange={(metrics) => form.setValue("guardrails", metrics)}
+              datasource={form.watch("datasource")}
+              project={experiment.project}
+            />
+          </div>
+
+          {(form.watch("metrics").length > 0 ||
+            form.watch("guardrails").length > 0) && (
+            <div className="form-group mb-2">
+              <PremiumTooltip commercialFeature="override-metrics">
+                Metric Overrides (optional)
+              </PremiumTooltip>
+              <div className="mb-2 font-italic" style={{ fontSize: 12 }}>
+                <p className="mb-0">
+                  Override metric behaviors within this experiment.
+                </p>
+                <p className="mb-0">
+                  Leave any fields empty that you do not want to override.
+                </p>
+              </div>
+              <MetricsOverridesSelector
+                experiment={experiment}
+                form={
+                  (form as unknown) as UseFormReturn<EditMetricsFormInterface>
+                }
+                disabled={!hasOverrideMetricsFeature}
+                setHasMetricOverrideRiskError={(v: boolean) =>
+                  setHasMetricOverrideRiskError(v)
+                }
+              />
+              {!hasOverrideMetricsFeature && (
+                <UpgradeMessage
+                  showUpgradeModal={() => setUpgradeModal(true)}
+                  commercialFeature="override-metrics"
+                  upgradeMessage="override metrics"
+                />
+              )}
+            </div>
+          )}
+        </>
       )}
     </Modal>
   );

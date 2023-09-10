@@ -11,6 +11,7 @@ import { useAuth } from "@/services/auth";
 import Field from "@/components/Forms/Field";
 import { useEnvironments } from "@/services/features";
 import useSDKConnections from "@/hooks/useSDKConnections";
+import track from "@/services/track";
 import CodeSnippetModal from "../CodeSnippetModal";
 import SDKLanguageSelector from "./SDKLanguageSelector";
 
@@ -38,6 +39,7 @@ export default function InitialSDKConnectionForm({
   const [currentConnection, setCurrentConnection] = useState(null);
 
   useEffect(() => {
+    // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type '() => SDKConnectionInterface | n... Remove this comment to see the full error message
     setCurrentConnection(() => {
       if (connections && connections[0]) {
         return connections[0];
@@ -99,6 +101,10 @@ export default function InitialSDKConnectionForm({
           name: value.name,
           languages: value.languages,
           encryptPayload: false,
+          hashSecureAttributes: false,
+          includeVisualExperiments: false,
+          includeDraftExperiments: false,
+          includeExperimentNames: false,
           environment: environments[0]?.id || "production",
           project: "",
           proxyEnabled: false,
@@ -107,6 +113,13 @@ export default function InitialSDKConnectionForm({
         await apiCall(`/sdk-connections`, {
           method: "POST",
           body: JSON.stringify(body),
+        });
+        track("Create SDK Connection", {
+          source: "initialSDKConnectionForm",
+          languages: body.languages,
+          encryptPayload: body.encryptPayload,
+          hashSecureAttributes: body.hashSecureAttributes,
+          proxyEnabled: body.proxyEnabled,
         });
         await mutate();
       })}

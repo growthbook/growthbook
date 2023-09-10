@@ -13,7 +13,11 @@ import {
 } from "back-end/types/experiment-snapshot";
 import { MetricInterface } from "back-end/types/metric";
 import { ExperimentReportVariation } from "back-end/types/report";
-import { pValueFormatter } from "@/services/experiments";
+import {
+  isExpectedDirection,
+  isStatSig,
+  pValueFormatter,
+} from "@/services/experiments";
 import usePValueThreshold from "@/hooks/usePValueThreshold";
 import Tooltip from "../Tooltip/Tooltip";
 import MetricTooltipBody from "../Metrics/MetricTooltipBody";
@@ -34,13 +38,13 @@ const HeaderResult: FC<{
   results: PValueGuardrailResult[];
 }> = ({ metric, results }) => {
   // remove control for determining header
-  results.shift();
-  const anyInsufficientData = results.some((r) => !r.hasEnoughData);
-  const significantNegativeDirection = results.some(
+  const newResults = results.slice(1);
+  const anyInsufficientData = newResults.some((r) => !r.hasEnoughData);
+  const significantNegativeDirection = newResults.some(
     (r) => !r.expectedDirection && r.statSig
   );
-  const anyNegativeDirection = results.some((r) => !r.expectedDirection);
-  const allSignificantPositiveDirection = results.every(
+  const anyNegativeDirection = newResults.some((r) => !r.expectedDirection);
+  const allSignificantPositiveDirection = newResults.every(
     (r) => r.expectedDirection && r.statSig
   );
 
@@ -59,7 +63,7 @@ const HeaderResult: FC<{
   return (
     <div
       className={clsx(
-        "d-flex align-items-center guardrail alert m-0",
+        "d-flex align-items-center guardrail m-0 p-2",
         `alert-${status}`
       )}
     >
@@ -69,7 +73,7 @@ const HeaderResult: FC<{
       {status === "secondary" && <FaQuestionCircle className="mr-1" />}
       <Tooltip body={<MetricTooltipBody metric={metric} />} tipPosition="right">
         <Link href={`/metric/${metric.id}`}>
-          <a className="text-dark font-weight-bold">{metric.name}</a>
+          <a className="text-black-50 font-weight-bold">{metric.name}</a>
         </Link>
       </Tooltip>
     </div>
@@ -86,10 +90,8 @@ const PValueGuardrailResults: FC<{
   const results: PValueGuardrailResult[] = useMemo(() => {
     return variations.map((v, i) => {
       const stats = data[i]?.metrics?.[metric.id];
-      const expectedDirection = metric.inverse
-        ? stats.expected < 0
-        : stats.expected > 0;
-      const statSig = stats.pValue < pValueThreshold;
+      const expectedDirection = isExpectedDirection(stats, metric);
+      const statSig = isStatSig(stats?.pValue ?? 1, pValueThreshold);
       const users = data[i].users;
       const name = v.name;
       return {
@@ -99,7 +101,7 @@ const PValueGuardrailResults: FC<{
         users,
         name,
         hasEnoughData: hasEnoughData(
-          stats.value,
+          stats?.value ?? 0,
           data[0].metrics[metric.id]?.value
         ),
       };
@@ -112,9 +114,7 @@ const PValueGuardrailResults: FC<{
       <HeaderResult metric={metric} results={results} />
 
       <div>
-        <table
-          className={clsx("rounded table table-bordered experiment-compact")}
-        >
+        <table className={clsx("table experiment-compact small-padding mb-1")}>
           <thead>
             <tr>
               <th>Variation</th>
@@ -137,7 +137,11 @@ const PValueGuardrailResults: FC<{
 
               return (
                 <tr key={i}>
-                  <td>{r.name}</td>
+                  <th
+                    className={`variation with-variation-right-shadow variation${i} font-weight-normal`}
+                  >
+                    <span className="name">{r.name}</span>
+                  </th>
 
                   <MetricValueColumn
                     metric={metric}
@@ -156,11 +160,15 @@ const PValueGuardrailResults: FC<{
                       })}
                     >
                       {r.expectedDirection ? "Better" : "Worse"}{" "}
-                      {`(${pValueFormatter(r.stats.pValue)})`}
+                      {`(${
+                        r.stats?.pValue !== undefined
+                          ? pValueFormatter(r.stats?.pValue)
+                          : "P-value missing"
+                      })`}
                     </td>
                   ) : (
-                    <td>
-                      <em>not enough data</em>
+                    <td className="text-center">
+                      <em className="text-muted">not enough data</em>
                     </td>
                   )}
                 </tr>

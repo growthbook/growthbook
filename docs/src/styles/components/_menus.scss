@@ -61,18 +61,6 @@ html[data-theme="dark"] {
       padding-block-end: 0.5rem;
     }
 
-    .menu__list {
-      .menu__link--sublist {
-        margin-inline-start: calc(
-          -1 * (var(--dropdown-icon-width) + var(--dropdown-icon-gap))
-        );
-
-        &::after {
-          opacity: 0.6;
-        }
-      }
-    }
-
     &-item {
       &:not(:first-child) {
         margin-block-start: 0;

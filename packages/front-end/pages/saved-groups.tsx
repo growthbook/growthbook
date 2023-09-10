@@ -1,18 +1,17 @@
 import { SavedGroupInterface } from "back-end/types/saved-group";
 import React, { useMemo, useState } from "react";
 import Link from "next/link";
+import { ago } from "shared/dates";
 import Button from "../components/Button";
 import SavedGroupForm from "../components/SavedGroupForm";
 import { GBAddCircle } from "../components/Icons";
 import LoadingOverlay from "../components/LoadingOverlay";
-import { ago } from "../services/dates";
 import { useDefinitions } from "../services/DefinitionsContext";
 import usePermissions from "../hooks/usePermissions";
 import Modal from "../components/Modal";
 import HistoryTable from "../components/HistoryTable";
 import { useSearch } from "../services/search";
 import Field from "../components/Forms/Field";
-import Tooltip from "../components/Tooltip/Tooltip";
 import MoreMenu from "../components/Dropdown/MoreMenu";
 import DeleteButton from "../components/DeleteButton/DeleteButton";
 import { useFeaturesList } from "../services/features";
@@ -22,12 +21,14 @@ const getSavedGroupMessage = (
   featuresUsingSavedGroups: Set<string> | undefined
 ) => {
   return async () => {
+    // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
     if (featuresUsingSavedGroups?.size > 0) {
       return (
         <div>
           <p className="alert alert-danger">
             <strong>Whoops!</strong> Before you can delete this saved group, you
             will need to update the feature
+            {/* @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'. */}
             {featuresUsingSavedGroups.size > 1 && "s"} listed below by removing
             any targeting conditions that rely on this saved group.
           </p>
@@ -35,6 +36,7 @@ const getSavedGroupMessage = (
             className="border rounded bg-light pt-3 pb-3 overflow-auto"
             style={{ maxHeight: "200px" }}
           >
+            {/* @ts-expect-error TS(2488) If you come across this, please fix it!: Type 'Set<string> | undefined' must have a '[Symbo... Remove this comment to see the full error message */}
             {[...featuresUsingSavedGroups].map((feature) => {
               return (
                 <li key={feature}>
@@ -103,19 +105,11 @@ export default function SavedGroupsPage() {
           current={savedGroupForm}
         />
       )}
-      <div className="row mb-3">
-        <div className="col-auto d-flex">
-          <h1>Saved Groups</h1>
-          {savedGroups.length > 0 && (
-            <Tooltip
-              className="pt-1 ml-2"
-              body="Saved Groups are defined sets of attribute values which can be
-            used with feature rules for targeting features at particular
-            users."
-            />
-          )}
+      <div className="row align-items-center mb-1">
+        <div className="col-auto">
+          <h1 className="mb-0">Saved Groups</h1>
         </div>
-        <div style={{ flex: 1 }}></div>
+        <div className="flex-1"></div>
         {savedGroups.length > 0 && (
           <div
             className="col-auto ml-2"
@@ -140,14 +134,16 @@ export default function SavedGroupsPage() {
                 setSavedGroupForm({});
               }}
             >
-              <span className="h4 pr-2 m-0 d-inline-block align-top">
-                <GBAddCircle />
-              </span>{" "}
-              New Saved Group
+              <GBAddCircle /> Add Saved Group
             </Button>
           </div>
         )}
       </div>
+      <p className="text-gray mb-3">
+        Saved Groups are predefined sets of attribute values which can be
+        referenced within feature targeting rules.
+      </p>
+
       {error && (
         <div className="alert alert-danger">
           There was an error loading the list of groups.
@@ -194,7 +190,7 @@ export default function SavedGroupsPage() {
                         </td>
                         <td>{ago(s.dateUpdated)}</td>
                         {permissions.manageSavedGroups && (
-                          <td>
+                          <td style={{ width: 30 }}>
                             <MoreMenu>
                               <a
                                 href="#"
@@ -218,9 +214,11 @@ export default function SavedGroupsPage() {
                                   });
                                   mutateDefinitions({});
                                 }}
+                                // @ts-expect-error TS(2322) If you come across this, please fix it!: Type '() => Promise<JSX.Element | undefined>' is n... Remove this comment to see the full error message
                                 getConfirmationContent={getSavedGroupMessage(
                                   savedGroupFeatureIds[s.id]
                                 )}
+                                // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'boolean | 0' is not assignable to type 'bool... Remove this comment to see the full error message
                                 canDelete={
                                   savedGroupFeatureIds[s.id]?.size &&
                                   savedGroupFeatureIds[s.id]?.size === 0

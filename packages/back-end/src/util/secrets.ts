@@ -1,7 +1,6 @@
 import fs from "fs";
 import dotenv from "dotenv";
-import { IssuerMetadata } from "openid-client";
-import { SSOConnectionInterface } from "../../types/sso-connection";
+import trimEnd from "lodash/trimEnd";
 
 export const ENVIRONMENT = process.env.NODE_ENV;
 const prod = ENVIRONMENT === "production";
@@ -23,11 +22,17 @@ export const UPLOAD_METHOD = (() => {
   return "local";
 })();
 
-export const MONGODB_URI =
+export let MONGODB_URI =
   process.env.MONGODB_URI ??
-  (prod ? "" : "mongodb://root:password@localhost:27017/");
+  (prod ? "" : "mongodb://root:password@localhost:27017/test?authSource=admin");
 if (!MONGODB_URI) {
   throw new Error("Missing MONGODB_URI environment variable");
+}
+
+// For backwards compatibility, if no dbname is explicitly set, use "test" and add the authSource db.
+// This matches the default behavior of the MongoDB driver 3.X, which changed when we updated to 4.X
+if (MONGODB_URI.match(/:27017(\/)?$/)) {
+  MONGODB_URI = trimEnd(MONGODB_URI, "/") + "/test?authSource=admin";
 }
 
 export const APP_ORIGIN = process.env.APP_ORIGIN || "http://localhost:3000";
@@ -82,8 +87,8 @@ export const SLACK_SIGNING_SECRET = process.env.SLACK_SIGNING_SECRET || "";
 const testConn = process.env.POSTGRES_TEST_CONN;
 export const POSTGRES_TEST_CONN = testConn ? JSON.parse(testConn) : {};
 
-export const AWS_CLOUDFRONT_DISTRIBUTION_ID =
-  process.env.AWS_CLOUDFRONT_DISTRIBUTION_ID || "";
+export const FASTLY_API_TOKEN = process.env.FASTLY_API_TOKEN || "";
+export const FASTLY_SERVICE_ID = process.env.FASTLY_SERVICE_ID || "";
 
 // Update results every X hours
 export const EXPERIMENT_REFRESH_FREQUENCY =
@@ -105,59 +110,12 @@ export const IMPORT_LIMIT_DAYS =
 
 export const CRON_ENABLED = !process.env.CRON_DISABLED;
 
-// Self-hosted commercial license key
-export const LICENSE_KEY = process.env.LICENSE_KEY || "";
-
-// Self-hosted SSO
-function getSSOConfig() {
-  if (!process.env.SSO_CONFIG) return null;
-
-  if (!IS_CLOUD && !LICENSE_KEY) {
-    throw new Error(
-      "Must have a commercial License Key to use self-hosted SSO"
-    );
-  }
-
-  const config: SSOConnectionInterface = JSON.parse(process.env.SSO_CONFIG);
-  // Must include clientId and specific metadata
-  const requiredMetadataKeys: (keyof IssuerMetadata)[] = [
-    "authorization_endpoint",
-    "issuer",
-    "jwks_uri",
-    "id_token_signing_alg_values_supported",
-    "token_endpoint",
-  ];
-  if (!config?.clientId || !config?.metadata) {
-    throw new Error("SSO_CONFIG must contain 'clientId' and 'metadata'");
-  }
-
-  const missingMetadata = requiredMetadataKeys.filter(
-    (k) => !(k in config.metadata)
-  );
-  if (missingMetadata.length > 0) {
-    throw new Error(
-      "SSO_CONFIG missing required metadata fields: " +
-        missingMetadata.join(", ")
-    );
-  }
-
-  // Sanity check for GrowthBook Cloud (to avoid misconfigurations)
-  if (
-    IS_CLOUD &&
-    config?.metadata?.issuer !== "https://growthbook.auth0.com/"
-  ) {
-    throw new Error("Invalid SSO configuration for GrowthBook Cloud");
-  }
-
-  config.id = "";
-  return config;
-}
-export const SSO_CONFIG = getSSOConfig();
 export const VERCEL_CLIENT_ID = process.env.VERCEL_CLIENT_ID || "";
 export const VERCEL_CLIENT_SECRET = process.env.VERCEL_CLIENT_SECRET || "";
 
 export const SENTRY_DSN = process.env.SENTRY_DSN || "";
 
+export const STORE_SEGMENTS_IN_MONGO = !!process.env.STORE_SEGMENTS_IN_MONGO;
 // Add a default secret access key via an environment variable
 // Only allowed while self-hosting, don't allow using "dev" (default value) in prod
 let secretAPIKey = IS_CLOUD ? "" : process.env.SECRET_API_KEY || "";
@@ -169,6 +127,42 @@ if ((prod || !isLocalhost) && secretAPIKey === "dev") {
   );
 }
 export const SECRET_API_KEY = secretAPIKey;
+// This is typically used for the Proxy Server, which only requires readonly access
+export const SECRET_API_KEY_ROLE =
+  process.env.SECRET_API_KEY_ROLE || "readonly";
 export const PROXY_ENABLED = !!process.env.PROXY_ENABLED;
 export const PROXY_HOST_INTERNAL = process.env.PROXY_HOST_INTERNAL || "";
 export const PROXY_HOST_PUBLIC = process.env.PROXY_HOST_PUBLIC || "";
+
+/**
+ * Allows custom configuration of the trust proxy settings as
+ * described in the docs: https://expressjs.com/en/5x/api.html#trust.proxy.options.table
+ *
+ * Supports true/false for boolean values.
+ * Supports integer values to trust the nth hop from the front-facing proxy server as the client.
+ * All other truthy values will be used verbatim.
+ */
+const getTrustProxyConfig = (): boolean | string | number => {
+  const value = process.env.EXPRESS_TRUST_PROXY_OPTS;
+
+  // If no value set, return false
+  if (!value) {
+    return false;
+  }
+
+  // Lower-cased value to enable easier boolean config
+  const lowerCasedValue = value.toLowerCase();
+  if (lowerCasedValue === "true") return true;
+  if (lowerCasedValue === "false") return false;
+
+  // Check for nth hop config
+  //    Trust the nth hop from the front-facing proxy server as the client.
+  if (value.match(/^[0-9]+$/)) {
+    return parseInt(value);
+  }
+
+  // If not a recognized boolean format or a valid integer, return value verbatim
+  return value;
+};
+
+export const EXPRESS_TRUST_PROXY_OPTS = getTrustProxyConfig();

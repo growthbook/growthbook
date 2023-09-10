@@ -1,0 +1,3101 @@
+openapi: 3.1.0
+info:
+  version: 1.0.0
+  title: GrowthBook REST API
+  description: |
+    GrowthBook offers a full REST API for interacting with the GrowthBook application. This is currently in **beta** as we add more authenticated API routes and features.
+
+    Request data can use either JSON or Form data encoding (with proper `Content-Type` headers). All response bodies are JSON-encoded.
+
+    The API base URL for GrowthBook Cloud is `https://api.growthbook.io`. For self-hosted deployments, it is the same as your API_HOST environment variable (defaults to `http://localhost:3100`). The rest of these docs will assume you are using GrowthBook Cloud.
+
+    ## Authentication
+
+    We support both the HTTP Basic and Bearer authentication schemes for convenience.
+
+    You first need to generate a new API Key in GrowthBook. Different keys have different permissions:
+
+    - **Personal Access Tokens**: These are sensitive and provide the same level of access as the user has to an organization. These can be created by going to `Personal Access Tokens` under the your user menu.
+    - **Secret Keys**: These are sensitive and provide the level of access for the role, which currently is either `admin` or `readonly`. Only Admins with the `manageApiKeys` permission can manage Secret Keys on behalf of an organization. These can be created by going to `Settings -> API Keys`
+
+    If using HTTP Basic auth, pass the Secret Key as the username and leave the password blank:
+
+    ```bash
+    curl https://api.growthbook.io/api/v1 \
+      -u secret_abc123DEF456:
+    # The ":" at the end stops curl from asking for a password
+    ```
+
+    If using Bearer auth, pass the Secret Key as the token:
+
+    ```bash
+    curl https://api.growthbook.io/api/v1 \
+    -H "Authorization: Bearer secret_abc123DEF456"
+    ```
+
+    ## Errors
+
+    The API may return the following error status codes:
+
+    - **400** - Bad Request - Often due to a missing required parameter
+    - **401** - Unauthorized - No valid API key provided
+    - **402** - Request Failed - The parameters are valid, but the request failed
+    - **403** - Forbidden - Provided API key does not have the required access
+    - **404** - Not Found - Unknown API route or requested resource
+    - **429** - Too Many Requests - You exceeded the rate limit of 60 requests per minute. Try again later.
+    - **5XX** - Server Error - Something went wrong on GrowthBook's end (these are rare)
+
+    The response body will be a JSON object with the following properties:
+
+    - **message** - Information about the error
+servers:
+  - url: 'https://api.growthbook.io/api/v1'
+    description: GrowthBook Cloud
+  - url: '{domain}/api/v1'
+    description: Self-hosted GrowthBook
+    variables:
+      domain:
+        default: 'http://localhost:3100'
+tags:
+  - name: projects
+    x-displayName: Projects
+    description: Projects are used to organize your feature flags and experiments
+  - name: features
+    x-displayName: Feature Flags
+    description: Control your feature flags programatically
+  - name: data-sources
+    x-displayName: Data Sources
+    description: How GrowthBook connects and queries your data
+  - name: metrics
+    x-displayName: Metrics
+    description: Metrics used as goals and guardrails for experiments
+  - name: experiments
+    x-displayName: Experiments
+    description: Experiments (A/B Tests)
+  - name: dimensions
+    x-displayName: Dimensions
+    description: Dimensions used during experiment analysis
+  - name: segments
+    x-displayName: Segments
+    description: Segments used during experiment analysis
+  - name: sdk-connections
+    x-displayName: SDK Connections
+    description: Client keys and settings for connecting SDKs to a GrowthBook instance
+  - name: visual-changesets
+    x-displayName: Visual Changesets
+    description: Groups of visual changes made by the visual editor to a single page
+  - name: saved-groups
+    x-displayName: Saved Groups
+    description: Defined sets of attribute values which can be used with feature rules for targeting features at particular users.
+  - name: DataSource_model
+    x-displayName: DataSource
+    description: <SchemaDefinition schemaRef="#/components/schemas/DataSource" />
+  - name: Dimension_model
+    x-displayName: Dimension
+    description: <SchemaDefinition schemaRef="#/components/schemas/Dimension" />
+  - name: Experiment_model
+    x-displayName: Experiment
+    description: <SchemaDefinition schemaRef="#/components/schemas/Experiment" />
+  - name: ExperimentAnalysisSettings_model
+    x-displayName: ExperimentAnalysisSettings
+    description: <SchemaDefinition schemaRef="#/components/schemas/ExperimentAnalysisSettings" />
+  - name: ExperimentMetric_model
+    x-displayName: ExperimentMetric
+    description: <SchemaDefinition schemaRef="#/components/schemas/ExperimentMetric" />
+  - name: ExperimentResults_model
+    x-displayName: ExperimentResults
+    description: <SchemaDefinition schemaRef="#/components/schemas/ExperimentResults" />
+  - name: Feature_model
+    x-displayName: Feature
+    description: <SchemaDefinition schemaRef="#/components/schemas/Feature" />
+  - name: FeatureDefinition_model
+    x-displayName: FeatureDefinition
+    description: <SchemaDefinition schemaRef="#/components/schemas/FeatureDefinition" />
+  - name: FeatureEnvironment_model
+    x-displayName: FeatureEnvironment
+    description: <SchemaDefinition schemaRef="#/components/schemas/FeatureEnvironment" />
+  - name: FeatureExperimentRefRule_model
+    x-displayName: FeatureExperimentRefRule
+    description: <SchemaDefinition schemaRef="#/components/schemas/FeatureExperimentRefRule" />
+  - name: FeatureExperimentRule_model
+    x-displayName: FeatureExperimentRule
+    description: <SchemaDefinition schemaRef="#/components/schemas/FeatureExperimentRule" />
+  - name: FeatureForceRule_model
+    x-displayName: FeatureForceRule
+    description: <SchemaDefinition schemaRef="#/components/schemas/FeatureForceRule" />
+  - name: FeatureRolloutRule_model
+    x-displayName: FeatureRolloutRule
+    description: <SchemaDefinition schemaRef="#/components/schemas/FeatureRolloutRule" />
+  - name: FeatureRule_model
+    x-displayName: FeatureRule
+    description: <SchemaDefinition schemaRef="#/components/schemas/FeatureRule" />
+  - name: Metric_model
+    x-displayName: Metric
+    description: <SchemaDefinition schemaRef="#/components/schemas/Metric" />
+  - name: PaginationFields_model
+    x-displayName: PaginationFields
+    description: <SchemaDefinition schemaRef="#/components/schemas/PaginationFields" />
+  - name: Project_model
+    x-displayName: Project
+    description: <SchemaDefinition schemaRef="#/components/schemas/Project" />
+  - name: SavedGroup_model
+    x-displayName: SavedGroup
+    description: <SchemaDefinition schemaRef="#/components/schemas/SavedGroup" />
+  - name: SdkConnection_model
+    x-displayName: SdkConnection
+    description: <SchemaDefinition schemaRef="#/components/schemas/SdkConnection" />
+  - name: Segment_model
+    x-displayName: Segment
+    description: <SchemaDefinition schemaRef="#/components/schemas/Segment" />
+  - name: VisualChange_model
+    x-displayName: VisualChange
+    description: <SchemaDefinition schemaRef="#/components/schemas/VisualChange" />
+  - name: VisualChangeset_model
+    x-displayName: VisualChangeset
+    description: <SchemaDefinition schemaRef="#/components/schemas/VisualChangeset" />
+paths:
+  /features:
+    get:
+      summary: Get all features
+      tags:
+        - features
+      parameters:
+        - $ref: '#/components/parameters/limit'
+        - $ref: '#/components/parameters/offset'
+        - $ref: '#/components/parameters/projectId'
+      operationId: listFeatures
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl https://api.growthbook.io/api/v1/features \
+              -u secret_abc123DEF456:
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - type: object
+                    required:
+                      - features
+                    properties:
+                      features:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Feature'
+                  - $ref: '#/components/schemas/PaginationFields'
+  '/features/{id}':
+    parameters:
+      - $ref: '#/components/parameters/id'
+    get:
+      summary: Get a single feature
+      tags:
+        - features
+      operationId: getFeature
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl https://api.growthbook.io/api/v1/features/my_feature \
+              -u secret_abc123DEF456:
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - feature
+                properties:
+                  feature:
+                    $ref: '#/components/schemas/Feature'
+  '/features/{id}/toggle':
+    parameters:
+      - $ref: '#/components/parameters/id'
+    post:
+      summary: Toggle a feature in one or more environments
+      tags:
+        - features
+      operationId: toggleFeature
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -X POST https://api.growthbook.io/api/v1/features/my-feature/toggle \
+              -u secret_abc123DEF456: \
+              -d "environments[production]"=false \
+              -d reason="Kill switch activated"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - environments
+              properties:
+                reason:
+                  type: string
+                environments:
+                  type: object
+                  additionalProperties:
+                    enum:
+                      - true
+                      - false
+                      - 'true'
+                      - 'false'
+                      - '1'
+                      - '0'
+                      - 1
+                      - 0
+                      - ''
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - feature
+                properties:
+                  feature:
+                    $ref: '#/components/schemas/Feature'
+  /projects:
+    get:
+      summary: Get all projects
+      tags:
+        - projects
+      parameters:
+        - $ref: '#/components/parameters/limit'
+        - $ref: '#/components/parameters/offset'
+      operationId: listProjects
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl https://api.growthbook.io/api/v1/projects \
+              -u secret_abc123DEF456:
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - type: object
+                    required:
+                      - projects
+                    properties:
+                      projects:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Project'
+                  - $ref: '#/components/schemas/PaginationFields'
+  '/projects/{id}':
+    parameters:
+      - $ref: '#/components/parameters/id'
+    get:
+      summary: Get a single project
+      tags:
+        - projects
+      operationId: getProject
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl https://api.growthbook.io/api/v1/projects/prj_123abc \
+              -u secret_abc123DEF456:
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - project
+                properties:
+                  project:
+                    $ref: '#/components/schemas/Project'
+  /dimensions:
+    get:
+      summary: Get all dimensions
+      tags:
+        - dimensions
+      parameters:
+        - $ref: '#/components/parameters/limit'
+        - $ref: '#/components/parameters/offset'
+        - $ref: '#/components/parameters/datasourceId'
+      operationId: listDimensions
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl https://api.growthbook.io/api/v1/dimensions \
+              -u secret_abc123DEF456:
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - type: object
+                    required:
+                      - dimensions
+                    properties:
+                      dimensions:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Dimension'
+                  - $ref: '#/components/schemas/PaginationFields'
+  '/dimensions/{id}':
+    parameters:
+      - $ref: '#/components/parameters/id'
+    get:
+      summary: Get a single dimension
+      tags:
+        - dimensions
+      operationId: getDimension
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl https://api.growthbook.io/api/v1/dimensions/dim_123abc \
+              -u secret_abc123DEF456:
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - dimension
+                properties:
+                  dimension:
+                    $ref: '#/components/schemas/Dimension'
+  /segments:
+    get:
+      summary: Get all segments
+      tags:
+        - segments
+      parameters:
+        - $ref: '#/components/parameters/limit'
+        - $ref: '#/components/parameters/offset'
+        - $ref: '#/components/parameters/datasourceId'
+      operationId: listSegments
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl https://api.growthbook.io/api/v1/segments \
+              -u secret_abc123DEF456:
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - type: object
+                    required:
+                      - segments
+                    properties:
+                      segments:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Segment'
+                  - $ref: '#/components/schemas/PaginationFields'
+  '/segments/{id}':
+    parameters:
+      - $ref: '#/components/parameters/id'
+    get:
+      summary: Get a single segment
+      tags:
+        - segments
+      operationId: getSegment
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl https://api.growthbook.io/api/v1/segments/seg_123abc \
+              -u secret_abc123DEF456:
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - segment
+                properties:
+                  segment:
+                    $ref: '#/components/schemas/Segment'
+  /sdk-connections:
+    get:
+      summary: Get all sdk connections
+      tags:
+        - sdk-connections
+      parameters:
+        - $ref: '#/components/parameters/limit'
+        - $ref: '#/components/parameters/offset'
+        - $ref: '#/components/parameters/projectId'
+        - name: withProxy
+          in: query
+          schema:
+            type: string
+      operationId: listSdkConnections
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl https://api.growthbook.io/api/v1/sdk-connections \
+              -u secret_abc123DEF456:
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - type: object
+                    required:
+                      - sdkConnections
+                    properties:
+                      connections:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/SdkConnection'
+                  - $ref: '#/components/schemas/PaginationFields'
+  '/sdk-connections/{id}':
+    parameters:
+      - $ref: '#/components/parameters/id'
+    get:
+      summary: Get a single sdk connection
+      tags:
+        - sdk-connections
+      operationId: getSdkConnection
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl https://api.growthbook.io/api/v1/sdk-connections/sdk_123abc \
+              -u secret_abc123DEF456:
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - sdkConnection
+                properties:
+                  sdkConnection:
+                    $ref: '#/components/schemas/SdkConnection'
+  /data-sources:
+    get:
+      summary: Get all data sources
+      tags:
+        - data-sources
+      parameters:
+        - $ref: '#/components/parameters/limit'
+        - $ref: '#/components/parameters/offset'
+        - $ref: '#/components/parameters/projectId'
+      operationId: listDataSources
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl https://api.growthbook.io/api/v1/data-sources \
+              -u secret_abc123DEF456:
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - type: object
+                    required:
+                      - dataSources
+                    properties:
+                      dataSources:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/DataSource'
+                  - $ref: '#/components/schemas/PaginationFields'
+  '/data-sources/{id}':
+    parameters:
+      - $ref: '#/components/parameters/id'
+    get:
+      tags:
+        - data-sources
+      summary: Get a single data source
+      operationId: getDataSource
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl https://api.growthbook.io/api/v1/data-sources/ds_123abc \
+              -u secret_abc123DEF456:
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - dataSource
+                properties:
+                  dataSource:
+                    $ref: '#/components/schemas/DataSource'
+  /experiments:
+    get:
+      summary: Get all experiments
+      tags:
+        - experiments
+      parameters:
+        - $ref: '#/components/parameters/limit'
+        - $ref: '#/components/parameters/offset'
+        - $ref: '#/components/parameters/projectId'
+        - $ref: '#/components/parameters/datasourceId'
+        - name: experimentId
+          in: query
+          description: Filter the returned list by the experiment tracking key (id)
+          schema:
+            type: string
+      operationId: listExperiments
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl https://api.growthbook.io/api/v1/experiments \
+              -u secret_abc123DEF456:
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - type: object
+                    required:
+                      - experiments
+                    properties:
+                      experiments:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Experiment'
+                  - $ref: '#/components/schemas/PaginationFields'
+    post:
+      parameters: []
+      tags:
+        - experiments
+      summary: Create a single experiment
+      operationId: postExperiment
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -X POST https://api.growthbook.io/api/v1/experiments \
+              -d '{ name: "test_experiment", "owner": "weijie.ou@example.com" ... }'
+              -u secret_abc123DEF456:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+                - variations
+                - owner
+                - datasourceId
+                - trackingKey
+                - assignmentQueryId
+              properties:
+                datasourceId:
+                  type: string
+                  description: 'ID for the [DataSource](#tag/DataSource_model)'
+                assignmentQueryId:
+                  type: string
+                  description: The ID property of one of the assignment query objects associated with the datasource
+                trackingKey:
+                  type: string
+                name:
+                  type: string
+                  description: Name of the experiment
+                project:
+                  type: string
+                  description: Project ID which the experiment belongs to
+                hypothesis:
+                  type: string
+                  description: Hypothesis of the experiment
+                description:
+                  type: string
+                  description: Description of the experiment
+                tags:
+                  type: array
+                  items:
+                    type: string
+                metrics:
+                  type: array
+                  items:
+                    type: string
+                guardrailMetrics:
+                  type: array
+                  items:
+                    type: string
+                owner:
+                  type: string
+                  description: Email of the person who owns this experiment
+                archived:
+                  type: boolean
+                status:
+                  type: string
+                  enum:
+                    - draft
+                    - running
+                    - stopped
+                autoRefresh:
+                  type: boolean
+                hashAttribute:
+                  type: string
+                hashVersion:
+                  type: number
+                  enum:
+                    - 1
+                    - 2
+                releasedVariationId:
+                  type: string
+                excludeFromPayload:
+                  type: boolean
+                variations:
+                  type: array
+                  minItems: 2
+                  items:
+                    type: object
+                    required:
+                      - key
+                      - name
+                    properties:
+                      id:
+                        type: string
+                      key:
+                        type: string
+                      name:
+                        type: string
+                      description:
+                        type: string
+                      screenshots:
+                        type: array
+                        items:
+                          type: object
+                          required:
+                            - path
+                          properties:
+                            path:
+                              type: string
+                            width:
+                              type: number
+                            height:
+                              type: number
+                            description:
+                              type: string
+                phases:
+                  type: array
+                  items:
+                    type: object
+                    required:
+                      - name
+                      - dateStarted
+                    properties:
+                      name:
+                        type: string
+                      dateStarted:
+                        type: string
+                        format: date
+                      dateEnded:
+                        type: string
+                        format: date
+                      reasonForStopping:
+                        type: string
+                      seed:
+                        type: string
+                      coverage:
+                        type: number
+                      trafficSplit:
+                        type: array
+                        items:
+                          type: object
+                          required:
+                            - variationId
+                            - weight
+                          properties:
+                            variationId:
+                              type: string
+                            weight:
+                              type: number
+                      namespace:
+                        type: object
+                        required:
+                          - namespaceId
+                          - range
+                        properties:
+                          namespaceId:
+                            type: string
+                          range:
+                            type: array
+                            items:
+                              type: number
+                            minItems: 2
+                            maxItems: 2
+                          enabled:
+                            type: boolean
+                      targetingCondition:
+                        type: string
+                      reason:
+                        type: string
+                      condition:
+                        type: string
+                      variationWeights:
+                        type: array
+                        items:
+                          type: number
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - experiment
+                properties:
+                  experiment:
+                    $ref: '#/components/schemas/Experiment'
+  '/experiments/{id}':
+    get:
+      parameters:
+        - $ref: '#/components/parameters/id'
+      summary: Get a single experiment
+      tags:
+        - experiments
+      operationId: getExperiment
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl https://api.growthbook.io/api/v1/experiments/exp_123abc \
+              -u secret_abc123DEF456:
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - experiment
+                properties:
+                  experiment:
+                    $ref: '#/components/schemas/Experiment'
+    post:
+      parameters:
+        - $ref: '#/components/parameters/id'
+      tags:
+        - experiments
+      summary: Update a single experiment
+      operationId: updateExperiment
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -X POST https://api.growthbook.io/api/v1/experiments/exp_1234 \
+              -d '{ name: "test_experiment", "owner": "weijie.ou@example.com" ... }'
+              -u secret_abc123DEF456:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                assignmentQueryId:
+                  type: string
+                trackingKey:
+                  type: string
+                name:
+                  type: string
+                  description: Name of the experiment
+                project:
+                  type: string
+                  description: Project ID which the experiment belongs to
+                hypothesis:
+                  type: string
+                  description: Hypothesis of the experiment
+                description:
+                  type: string
+                  description: Description of the experiment
+                tags:
+                  type: array
+                  items:
+                    type: string
+                metrics:
+                  type: array
+                  items:
+                    type: string
+                guardrailMetrics:
+                  type: array
+                  items:
+                    type: string
+                owner:
+                  type: string
+                  description: Email of the person who owns this experiment
+                archived:
+                  type: boolean
+                status:
+                  type: string
+                  enum:
+                    - draft
+                    - running
+                    - stopped
+                autoRefresh:
+                  type: boolean
+                hashAttribute:
+                  type: string
+                hashVersion:
+                  type: number
+                  enum:
+                    - 1
+                    - 2
+                releasedVariationId:
+                  type: string
+                excludeFromPayload:
+                  type: boolean
+                variations:
+                  type: array
+                  minItems: 2
+                  items:
+                    type: object
+                    required:
+                      - key
+                      - name
+                    properties:
+                      id:
+                        type: string
+                      key:
+                        type: string
+                      name:
+                        type: string
+                      description:
+                        type: string
+                      screenshots:
+                        type: array
+                        items:
+                          type: object
+                          required:
+                            - path
+                          properties:
+                            path:
+                              type: string
+                            width:
+                              type: number
+                            height:
+                              type: number
+                            description:
+                              type: string
+                phases:
+                  type: array
+                  items:
+                    type: object
+                    required:
+                      - name
+                      - dateStarted
+                    properties:
+                      name:
+                        type: string
+                      dateStarted:
+                        type: string
+                        format: date
+                      dateEnded:
+                        type: string
+                        format: date
+                      reasonForStopping:
+                        type: string
+                      seed:
+                        type: string
+                      coverage:
+                        type: number
+                      trafficSplit:
+                        type: array
+                        items:
+                          type: object
+                          required:
+                            - variationId
+                            - weight
+                          properties:
+                            variationId:
+                              type: string
+                            weight:
+                              type: number
+                      namespace:
+                        type: object
+                        required:
+                          - namespaceId
+                          - range
+                        properties:
+                          namespaceId:
+                            type: string
+                          range:
+                            type: array
+                            items:
+                              type: number
+                            minItems: 2
+                            maxItems: 2
+                          enabled:
+                            type: boolean
+                      targetingCondition:
+                        type: string
+                      reason:
+                        type: string
+                      condition:
+                        type: string
+                      variationWeights:
+                        type: array
+                        items:
+                          type: number
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - experiment
+                properties:
+                  experiment:
+                    $ref: '#/components/schemas/Experiment'
+  '/experiments/{id}/results':
+    parameters:
+      - $ref: '#/components/parameters/id'
+    get:
+      summary: Get results for an experiment
+      tags:
+        - experiments
+      operationId: getExperimentResults
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl https://api.growthbook.io/api/v1/experiments/exp_123abc/results \
+              -u secret_abc123DEF456:
+      parameters:
+        - name: phase
+          in: query
+          schema:
+            type: string
+        - name: dimension
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - experiment
+                properties:
+                  result:
+                    $ref: '#/components/schemas/ExperimentResults'
+  /metrics:
+    get:
+      summary: Get all metrics
+      tags:
+        - metrics
+      parameters:
+        - $ref: '#/components/parameters/limit'
+        - $ref: '#/components/parameters/offset'
+        - $ref: '#/components/parameters/projectId'
+        - $ref: '#/components/parameters/datasourceId'
+      operationId: listMetrics
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl https://api.growthbook.io/api/v1/metrics \
+              -u secret_abc123DEF456:
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - type: object
+                    required:
+                      - metrics
+                    properties:
+                      metrics:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Metric'
+                  - $ref: '#/components/schemas/PaginationFields'
+    post:
+      parameters: []
+      tags:
+        - metrics
+      summary: Create a single metric
+      operationId: postMetric
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -X POST https://api.growthbook.io/api/v1/metrics \
+              -d '{ datasourceId: "ds_abc123", ... }'
+              -u secret_abc123DEF456:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - datasourceId
+                - name
+                - type
+              properties:
+                datasourceId:
+                  type: string
+                  description: 'ID for the [DataSource](#tag/DataSource_model)'
+                owner:
+                  type: string
+                  description: Name of the person who owns this metric
+                name:
+                  type: string
+                  description: Name of the metric
+                description:
+                  type: string
+                  description: Description of the metric
+                type:
+                  type: string
+                  description: 'Type of metric. See [Metrics documentation](/app/metrics)'
+                  enum:
+                    - binomial
+                    - count
+                    - duration
+                    - revenue
+                tags:
+                  type: array
+                  description: List of tags
+                  items:
+                    type: string
+                projects:
+                  type: array
+                  description: List of project IDs for projects that can access this metric
+                  items:
+                    type: string
+                archived:
+                  type: boolean
+                behavior:
+                  type: object
+                  required: []
+                  properties:
+                    goal:
+                      type: string
+                      enum:
+                        - increase
+                        - decrease
+                    cap:
+                      type: number
+                      deprecated: true
+                      description: '(deprecated, use capping and capValue fields instead) This should be non-negative'
+                      minimum: 0
+                    capping:
+                      type: string
+                      nullable: true
+                      description: 'Used in conjunction with `capValue` to set the capping (winsorization). Do not specify or set to null for no capping. "absolute" will cap user values at the `capValue` if it is greater than 0. "percentile" will cap user values at the percentile of user values in an experiment using the `capValue` for the percentile, if greater than 0. <br/>  If `behavior.capping` is non-null, you must specify `behavior.capValue`.'
+                      enum:
+                        - absolute
+                        - percentile
+                    capValue:
+                      type: number
+                      description: This should be non-negative. <br/> Must specify `behavior.capping` when setting `behavior.capValue`.
+                      minimum: 0
+                    conversionWindowStart:
+                      type: number
+                      description: 'The start of a Conversion Window relative to the exposure date, in hours. This is equivalent to the [Conversion Delay](/app/metrics#conversion-delay). <br/> Must specify both `behavior.conversionWindowStart` and `behavior.conversionWindowEnd` or neither.'
+                    conversionWindowEnd:
+                      type: number
+                      description: 'The end of a [Conversion Window](/app/metrics#conversion-window) relative to the exposure date, in hours. This is equivalent to the [Conversion Delay](/app/metrics#conversion-delay) + Conversion Window Hours settings in the UI. In other words, if you want a 48 hour window starting after 24 hours, you would set conversionWindowStart to 24 and conversionWindowEnd to 72 (24+48). <br/> Must specify both `behavior.conversionWindowStart` and `behavior.conversionWindowEnd` or neither.'
+                    riskThresholdSuccess:
+                      type: number
+                      description: 'Threshold for Risk to be considered low enough, as a proportion (e.g. put 0.0025 for 0.25%). <br/> Must be a non-negative number and must not be higher than `riskThresholdDanger`.'
+                      minimum: 0
+                    riskThresholdDanger:
+                      type: number
+                      description: 'Threshold for Risk to be considered too high, as a proportion (e.g. put 0.0125 for 1.25%). <br/> Must be a non-negative number.'
+                      minimum: 0
+                    minPercentChange:
+                      type: number
+                      description: 'Minimum percent change to consider uplift significant, as a proportion (e.g. put 0.005 for 0.5%)'
+                      minimum: 0
+                    maxPercentChange:
+                      type: number
+                      description: 'Maximum percent change to consider uplift significant, as a proportion (e.g. put 0.5 for 50%)'
+                      minimum: 0
+                    minSampleSize:
+                      type: number
+                      minimum: 0
+                sql:
+                  type: object
+                  description: 'Preferred way to define SQL. Only one of `sql`, `sqlBuilder` or `mixpanel` allowed, and at least one must be specified.'
+                  required:
+                    - identifierTypes
+                    - conversionSQL
+                  properties:
+                    identifierTypes:
+                      type: array
+                      items:
+                        type: string
+                    conversionSQL:
+                      type: string
+                    userAggregationSQL:
+                      type: string
+                      description: 'Custom user level aggregation for your metric (default: `SUM(value)`)'
+                    denominatorMetricId:
+                      type: string
+                      description: 'The metric ID for a [denominator metric for funnel and ratio metrics](/app/metrics#denominator-ratio--funnel-metrics)'
+                sqlBuilder:
+                  type: object
+                  description: 'An alternative way to specify a SQL metric, rather than a full query. Using `sql` is preferred to `sqlBuilder`. Only one of `sql`, `sqlBuilder` or `mixpanel` allowed, and at least one must be specified.'
+                  required:
+                    - identifierTypeColumns
+                    - tableName
+                    - timestampColumnName
+                  properties:
+                    identifierTypeColumns:
+                      type: array
+                      items:
+                        type: object
+                        required:
+                          - identifierType
+                          - columnName
+                        properties:
+                          identifierType:
+                            type: string
+                          columnName:
+                            type: string
+                    tableName:
+                      type: string
+                    valueColumnName:
+                      type: string
+                    timestampColumnName:
+                      type: string
+                    conditions:
+                      type: array
+                      items:
+                        type: object
+                        required:
+                          - column
+                          - operator
+                          - value
+                        properties:
+                          column:
+                            type: string
+                          operator:
+                            type: string
+                          value:
+                            type: string
+                mixpanel:
+                  type: object
+                  description: 'Only use for MixPanel (non-SQL) Data Sources. Only one of `sql`, `sqlBuilder` or `mixpanel` allowed, and at least one must be specified.'
+                  required:
+                    - eventName
+                    - userAggregation
+                  properties:
+                    eventName:
+                      type: string
+                    eventValue:
+                      type: string
+                    userAggregation:
+                      type: string
+                    conditions:
+                      type: array
+                      items:
+                        type: object
+                        required:
+                          - property
+                          - operator
+                          - value
+                        properties:
+                          property:
+                            type: string
+                          operator:
+                            type: string
+                          value:
+                            type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - metric
+                properties:
+                  metric:
+                    $ref: '#/components/schemas/Metric'
+  '/metrics/{id}':
+    get:
+      parameters:
+        - $ref: '#/components/parameters/id'
+      summary: Get a single metric
+      tags:
+        - metrics
+      operationId: getMetric
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl https://api.growthbook.io/api/v1/metrics/met_123abc \
+              -u secret_abc123DEF456:
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - metric
+                properties:
+                  metric:
+                    $ref: '#/components/schemas/Metric'
+    put:
+      parameters:
+        - $ref: '#/components/parameters/id'
+      tags:
+        - metrics
+      summary: Update a metric
+      operationId: putMetric
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -XPUT https://api.growthbook.io/api/v1/metrics/met_123abc \
+              -u secret_abc123DEF456 \
+              -H "Content-Type: application/json" \
+              -d '{"name": "net revenue", "description":"revenue minus lacroix spend"}'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                owner:
+                  type: string
+                  description: Name of the person who owns this metric
+                name:
+                  type: string
+                  description: Name of the metric
+                description:
+                  type: string
+                  description: Description of the metric
+                type:
+                  type: string
+                  description: 'Type of metric. See [Metrics documentation](/app/metrics)'
+                  enum:
+                    - binomial
+                    - count
+                    - duration
+                    - revenue
+                tags:
+                  type: array
+                  description: List of tags
+                  items:
+                    type: string
+                projects:
+                  type: array
+                  description: List of project IDs for projects that can access this metric
+                  items:
+                    type: string
+                archived:
+                  type: boolean
+                behavior:
+                  type: object
+                  required: []
+                  properties:
+                    goal:
+                      type: string
+                      enum:
+                        - increase
+                        - decrease
+                    capping:
+                      type: string
+                      nullable: true
+                      description: 'Used in conjunction with `capValue` to set the capping (winsorization). Set to null to turn capping off. "absolute" will cap user values at the `capValue` if it is greater than 0. "percentile" will cap user values at the percentile of user values in an experiment using the `capValue` for the percentile, if greater than 0. <br/> If `behavior.capping` is non-null, you must specify `behavior.capValue`.'
+                      enum:
+                        - absolute
+                        - percentile
+                    capValue:
+                      type: number
+                      description: This should be non-negative. <br/> Must specify `behavior.capping` when setting `behavior.capValue`.
+                      minimum: 0
+                    conversionWindowStart:
+                      type: number
+                      description: 'The start of a Conversion Window relative to the exposure date, in hours. This is equivalent to the [Conversion Delay](/app/metrics#conversion-delay). <br/> Must specify both `behavior.conversionWindowStart` and `behavior.conversionWindowEnd` or neither.'
+                    conversionWindowEnd:
+                      type: number
+                      description: 'The end of a [Conversion Window](/app/metrics#conversion-window) relative to the exposure date, in hours. This is equivalent to the [Conversion Delay](/app/metrics#conversion-delay) + Conversion Window Hours settings in the UI. In other words, if you want a 48 hour window starting after 24 hours, you would set conversionWindowStart to 24 and conversionWindowEnd to 72 (24+48). <br/> Must specify both `behavior.conversionWindowStart` and `behavior.conversionWindowEnd` or neither.'
+                    riskThresholdSuccess:
+                      type: number
+                      description: 'Threshold for Risk to be considered low enough, as a proportion (e.g. put 0.0025 for 0.25%). <br/> Must be a non-negative number and must not be higher than `riskThresholdDanger`.'
+                      minimum: 0
+                    riskThresholdDanger:
+                      type: number
+                      description: 'Threshold for Risk to be considered too high, as a proportion (e.g. put 0.0125 for 1.25%). <br/> Must be a non-negative number.'
+                      minimum: 0
+                    minPercentChange:
+                      type: number
+                      description: 'Minimum percent change to consider uplift significant, as a proportion (e.g. put 0.005 for 0.5%)'
+                      minimum: 0
+                    maxPercentChange:
+                      type: number
+                      description: 'Maximum percent change to consider uplift significant, as a proportion (e.g. put 0.5 for 50%)'
+                      minimum: 0
+                    minSampleSize:
+                      type: number
+                      minimum: 0
+                sql:
+                  type: object
+                  description: 'Preferred way to define SQL. Only one of `sql`, `sqlBuilder` or `mixpanel` allowed.'
+                  properties:
+                    identifierTypes:
+                      type: array
+                      items:
+                        type: string
+                    conversionSQL:
+                      type: string
+                    userAggregationSQL:
+                      type: string
+                      description: 'Custom user level aggregation for your metric (default: `SUM(value)`)'
+                    denominatorMetricId:
+                      type: string
+                      description: 'The metric ID for a [denominator metric for funnel and ratio metrics](/app/metrics#denominator-ratio--funnel-metrics)'
+                sqlBuilder:
+                  type: object
+                  description: 'An alternative way to specify a SQL metric, rather than a full query. Using `sql` is preferred to `sqlBuilder`. Only one of `sql`, `sqlBuilder` or `mixpanel` allowed'
+                  properties:
+                    identifierTypeColumns:
+                      type: array
+                      items:
+                        type: object
+                        required:
+                          - identifierType
+                          - columnName
+                        properties:
+                          identifierType:
+                            type: string
+                          columnName:
+                            type: string
+                    tableName:
+                      type: string
+                    valueColumnName:
+                      type: string
+                    timestampColumnName:
+                      type: string
+                    conditions:
+                      type: array
+                      items:
+                        type: object
+                        required:
+                          - column
+                          - operator
+                          - value
+                        properties:
+                          column:
+                            type: string
+                          operator:
+                            type: string
+                          value:
+                            type: string
+                mixpanel:
+                  type: object
+                  description: 'Only use for MixPanel (non-SQL) Data Sources. Only one of `sql`, `sqlBuilder` or `mixpanel` allowed.'
+                  properties:
+                    eventName:
+                      type: string
+                    eventValue:
+                      type: string
+                    userAggregation:
+                      type: string
+                    conditions:
+                      type: array
+                      items:
+                        type: object
+                        required:
+                          - property
+                          - operator
+                          - value
+                        properties:
+                          property:
+                            type: string
+                          operator:
+                            type: string
+                          value:
+                            type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - updatedId
+                properties:
+                  updatedId:
+                    type: string
+    delete:
+      summary: Deletes a metric
+      parameters:
+        - $ref: '#/components/parameters/id'
+      tags:
+        - metrics
+      operationId: deleteMetric
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -X DELETE https://api.growthbook.io/api/v1/metrics/met_123abc \
+              -u secret_abc123DEF456:
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - deletedId
+                properties:
+                  deletedId:
+                    type: string
+  '/experiments/{id}/visual-changesets':
+    get:
+      summary: Get all visual changesets
+      tags:
+        - visual-changesets
+      parameters:
+        - id: null
+          name: id
+          in: path
+          required: true
+          description: The experiment id the visual changesets belong to
+          schema:
+            type: string
+      operationId: listVisualChangesets
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl https://api.growthbook.io/api/v1/experiments/exp_123abc/visual-changesets \
+              -u secret_abc123DEF456:
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - type: object
+                    required:
+                      - visualChangesets
+                    properties:
+                      visualChangesets:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/VisualChangeset'
+  '/visual-changesets/{id}':
+    get:
+      parameters:
+        - $ref: '#/components/parameters/id'
+        - in: query
+          name: includeExperiment
+          schema:
+            type: integer
+          description: Include the associated experiment in payload
+      tags:
+        - visual-changesets
+      summary: Get a single visual changeset
+      operationId: getVisualChangeset
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl https://api.growthbook.io/api/v1/visual-changesets/ds_123abc \
+              -u secret_abc123DEF456:
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - visualChangeset
+                properties:
+                  visualChangeset:
+                    $ref: '#/components/schemas/VisualChangeset'
+                  experiment:
+                    $ref: '#/components/schemas/Experiment'
+    put:
+      parameters:
+        - $ref: '#/components/parameters/id'
+      tags:
+        - visual-changesets
+      summary: Update a visual changeset
+      operationId: putVisualChangeset
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -XPUT https://api.growthbook.io/api/v1/visual-changesets/vc_123abc
+              -u secret_abc123DEF456 \
+              -H "Content-Type: application/json" \
+                                                 -d '{"editorUrl": "https://docs.growthbook.io", "urlPatterns":"[{ ... }]"}'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - nModified
+                  - visualChangeset
+                properties:
+                  nModified:
+                    type: number
+                  visualChangeset:
+                    $ref: '#/components/schemas/VisualChangeset'
+  '/visual-changesets/{id}/visual-change':
+    parameters:
+      - $ref: '#/components/parameters/id'
+    post:
+      tags:
+        - visual-changesets
+      summary: Create a visual change for a visual changeset
+      operationId: postVisualChange
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -XPOST https://api.growthbook.io/api/v1/visual-changesets/vc_123abc/visual-change \
+              -u secret_abc123DEF456 \
+              -H "Content-Type: application/json" \
+              -d '{"variation": "v_123abc", "domMutations":"[]"}'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - nModified
+                properties:
+                  nModified:
+                    type: number
+  '/visual-changesets/{id}/visual-change/{visualChangeId}':
+    parameters:
+      - $ref: '#/components/parameters/id'
+      - $ref: '#/components/parameters/visualChangeId'
+    put:
+      tags:
+        - visual-changesets
+      summary: Update a visual change for a visual changeset
+      operationId: putVisualChange
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -XPUT https://api.growthbook.io/api/v1/visual-changesets/vc_123abc/visual-change/vch_abc123 \
+              -u secret_abc123DEF456 \
+              -H "Content-Type: application/json" \
+              -d '{"variation": "v_123abc", "domMutations":"[]"}'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - nModified
+                properties:
+                  nModified:
+                    type: number
+  /saved-groups:
+    get:
+      summary: Get all saved group
+      tags:
+        - saved-groups
+      parameters:
+        - $ref: '#/components/parameters/limit'
+        - $ref: '#/components/parameters/offset'
+      operationId: listSavedGroups
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl https://api.growthbook.io/api/v1/saved-groups \
+              -u secret_abc123DEF456:
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - type: object
+                    required:
+                      - savedGroups
+                    properties:
+                      savedGroups:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/SavedGroup'
+                  - $ref: '#/components/schemas/PaginationFields'
+    post:
+      parameters: []
+      tags:
+        - saved-groups
+      summary: Create a single saved group
+      operationId: postSavedGroup
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -X POST https://api.growthbook.io/api/v1/saved-groups/grp_123abc \
+              -H "Content-Type: application/json" \
+              -u secret_abc123DEF456: \
+              -d '{"name": "interal-users", "values": ["userId-123", "userId-345", "userId-678"], "attributeKey": "userId", "owner": ""}'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+                - values
+                - attributeKey
+              properties:
+                name:
+                  type: string
+                  description: The display name of the Saved Group
+                values:
+                  type: array
+                  items:
+                    type: string
+                  description: 'An array of values to target (Ex: a list of userIds).'
+                attributeKey:
+                  type: string
+                  description: 'The parameter you want to target users with. Ex: userId, orgId, ...'
+                owner:
+                  type: string
+                  description: 'The person or team that owns this Saved Group. If no owner, you can pass an empty string.'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - savedGroup
+                properties:
+                  savedGroup:
+                    $ref: '#/components/schemas/SavedGroup'
+  '/saved-groups/{id}':
+    get:
+      parameters:
+        - $ref: '#/components/parameters/id'
+      tags:
+        - saved-groups
+      summary: Get a single saved group
+      operationId: getSavedGroup
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl https://api.growthbook.io/api/v1/saved-groups/ds_123abc \
+              -u secret_abc123DEF456:
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - savedGroup
+                properties:
+                  savedGroup:
+                    $ref: '#/components/schemas/SavedGroup'
+    post:
+      summary: Partially update a single saved group
+      parameters:
+        - $ref: '#/components/parameters/id'
+      tags:
+        - saved-groups
+      operationId: updateSavedGroup
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -X POST https://api.growthbook.io/api/v1/saved-groups/grp_123abc \
+              -H "Content-Type: application/json" \
+              -u secret_abc123DEF456: \
+              -d '{"values": [ "userId-123", "userId-345" ]}'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: []
+              properties:
+                name:
+                  type: string
+                  description: The display name of the Saved Group
+                values:
+                  type: array
+                  items:
+                    type: string
+                  description: 'An array of values to target (Ex: a list of userIds).'
+                owner:
+                  type: string
+                  description: 'The person or team that owns this Saved Group. If no owner, you can pass an empty string.'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - savedGroup
+                properties:
+                  savedGroup:
+                    $ref: '#/components/schemas/SavedGroup'
+    delete:
+      summary: Deletes a single saved group
+      parameters:
+        - $ref: '#/components/parameters/id'
+      tags:
+        - saved-groups
+      operationId: deleteSavedGroup
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -X DELETE https://api.growthbook.io/api/v1/saved-groups/grp_123abc \
+              -u secret_abc123DEF456:
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - deletedId
+                properties:
+                  deletedId:
+                    type: string
+components:
+  parameters:
+    id:
+      name: id
+      in: path
+      required: true
+      description: The id of the requested resource
+      schema:
+        type: string
+    limit:
+      name: limit
+      in: query
+      description: The number of items to return
+      schema:
+        type: integer
+        min: 1
+        max: 100
+        default: 10
+    offset:
+      name: offset
+      in: query
+      description: How many items to skip (use in conjunction with limit for pagination)
+      schema:
+        type: integer
+        min: 0
+    projectId:
+      name: projectId
+      in: query
+      description: Filter by project id
+      schema:
+        type: string
+    datasourceId:
+      name: datasourceId
+      in: query
+      description: Filter by Data Source
+      schema:
+        type: string
+    visualChangeId:
+      name: visualChangeId
+      in: path
+      required: true
+      description: Specify a specific visual change
+      schema:
+        type: string
+  schemas:
+    PaginationFields:
+      type: object
+      required:
+        - limit
+        - offset
+        - count
+        - total
+        - hasMore
+        - nextOffset
+      properties:
+        limit:
+          type: integer
+        offset:
+          type: integer
+        count:
+          type: integer
+        total:
+          type: integer
+        hasMore:
+          type: boolean
+        nextOffset:
+          type:
+            - integer
+            - 'null'
+    Dimension:
+      type: object
+      required:
+        - id
+        - dateCreated
+        - dateUpdated
+        - owner
+        - datasourceId
+        - identifierType
+        - name
+        - query
+      properties:
+        id:
+          type: string
+        dateCreated:
+          type: string
+        dateUpdated:
+          type: string
+        owner:
+          type: string
+        datasourceId:
+          type: string
+        identifierType:
+          type: string
+        name:
+          type: string
+        query:
+          type: string
+    Metric:
+      type: object
+      required:
+        - id
+        - dateCreated
+        - dateUpdated
+        - owner
+        - datasourceId
+        - name
+        - description
+        - type
+        - tags
+        - projects
+        - archived
+        - behavior
+      properties:
+        id:
+          type: string
+        dateCreated:
+          type: string
+        dateUpdated:
+          type: string
+        owner:
+          type: string
+        datasourceId:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        type:
+          type: string
+          enum:
+            - binomial
+            - count
+            - duration
+            - revenue
+        tags:
+          type: array
+          items:
+            type: string
+        projects:
+          type: array
+          items:
+            type: string
+        archived:
+          type: boolean
+        behavior:
+          type: object
+          required:
+            - goal
+            - conversionWindowStart
+            - conversionWindowEnd
+            - riskThresholdSuccess
+            - riskThresholdDanger
+            - minPercentChange
+            - maxPercentChange
+            - minSampleSize
+          properties:
+            goal:
+              type: string
+              enum:
+                - increase
+                - decrease
+            cap:
+              type: number
+            capping:
+              type: string
+              nullable: true
+              enum:
+                - absolute
+                - percentile
+            capValue:
+              type: number
+            conversionWindowStart:
+              type: number
+            conversionWindowEnd:
+              type: number
+            riskThresholdSuccess:
+              type: number
+            riskThresholdDanger:
+              type: number
+            minPercentChange:
+              type: number
+            maxPercentChange:
+              type: number
+            minSampleSize:
+              type: number
+        sql:
+          type: object
+          required:
+            - identifierTypes
+            - conversionSQL
+            - userAggregationSQL
+            - denominatorMetricId
+          properties:
+            identifierTypes:
+              type: array
+              items:
+                type: string
+            conversionSQL:
+              type: string
+            userAggregationSQL:
+              type: string
+            denominatorMetricId:
+              type: string
+        sqlBuilder:
+          type: object
+          required:
+            - identifierTypeColumns
+            - tableName
+            - valueColumnName
+            - timestampColumnName
+            - conditions
+          properties:
+            identifierTypeColumns:
+              type: array
+              items:
+                type: object
+                required:
+                  - identifierType
+                  - columnName
+                properties:
+                  identifierType:
+                    type: string
+                  columnName:
+                    type: string
+            tableName:
+              type: string
+            valueColumnName:
+              type: string
+            timestampColumnName:
+              type: string
+            conditions:
+              type: array
+              items:
+                type: object
+                required:
+                  - column
+                  - operator
+                  - value
+                properties:
+                  column:
+                    type: string
+                  operator:
+                    type: string
+                  value:
+                    type: string
+        mixpanel:
+          type: object
+          required:
+            - eventName
+            - eventValue
+            - userAggregation
+            - conditions
+          properties:
+            eventName:
+              type: string
+            eventValue:
+              type: string
+            userAggregation:
+              type: string
+            conditions:
+              type: array
+              items:
+                type: object
+                required:
+                  - property
+                  - operator
+                  - value
+                properties:
+                  property:
+                    type: string
+                  operator:
+                    type: string
+                  value:
+                    type: string
+    Project:
+      type: object
+      required:
+        - id
+        - name
+        - dateCreated
+        - dateUpdated
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        dateCreated:
+          type: string
+          format: date-time
+        dateUpdated:
+          type: string
+          format: date-time
+        description:
+          type: string
+        settings:
+          type: object
+          properties:
+            statsEngine:
+              type: string
+    Segment:
+      type: object
+      required:
+        - id
+        - owner
+        - datasourceId
+        - identifierType
+        - name
+        - query
+        - dateCreated
+        - dateUpdated
+      properties:
+        id:
+          type: string
+        owner:
+          type: string
+        datasourceId:
+          type: string
+        identifierType:
+          type: string
+        name:
+          type: string
+        query:
+          type: string
+        dateCreated:
+          type: string
+        dateUpdated:
+          type: string
+    Feature:
+      type: object
+      required:
+        - id
+        - dateCreated
+        - dateUpdated
+        - archived
+        - description
+        - owner
+        - project
+        - valueType
+        - defaultValue
+        - tags
+        - environments
+        - revision
+      properties:
+        id:
+          type: string
+        dateCreated:
+          type: string
+          format: date-time
+        dateUpdated:
+          type: string
+          format: date-time
+        archived:
+          type: boolean
+        description:
+          type: string
+        owner:
+          type: string
+        project:
+          type: string
+        valueType:
+          type: string
+          enum:
+            - boolean
+            - string
+            - number
+            - json
+        defaultValue:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        environments:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/FeatureEnvironment'
+        revision:
+          type: object
+          required:
+            - version
+            - comment
+            - date
+            - publishedBy
+          properties:
+            version:
+              type: integer
+            comment:
+              type: string
+            date:
+              type: string
+              format: date-time
+            publishedBy:
+              type: string
+    FeatureEnvironment:
+      type: object
+      required:
+        - enabled
+        - defaultValue
+        - rules
+      properties:
+        enabled:
+          type: boolean
+        defaultValue:
+          type: string
+        rules:
+          type: array
+          items:
+            $ref: '#/components/schemas/FeatureRule'
+        definition:
+          type: string
+          description: 'A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model)'
+        draft:
+          type: object
+          required:
+            - enabled
+            - defaultValue
+            - rules
+          properties:
+            enabled:
+              type: boolean
+            defaultValue:
+              type: string
+            rules:
+              type: array
+              items:
+                $ref: '#/components/schemas/FeatureRule'
+            definition:
+              type: string
+              description: 'A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model)'
+    FeatureRule:
+      anyOf:
+        - $ref: '#/components/schemas/FeatureForceRule'
+        - $ref: '#/components/schemas/FeatureRolloutRule'
+        - $ref: '#/components/schemas/FeatureExperimentRule'
+        - $ref: '#/components/schemas/FeatureExperimentRefRule'
+    FeatureDefinition:
+      type: object
+      required:
+        - defaultValue
+      properties:
+        defaultValue:
+          type:
+            - string
+            - number
+            - array
+            - object
+            - 'null'
+        rules:
+          type: array
+          items:
+            type: object
+            properties:
+              force:
+                type:
+                  - string
+                  - number
+                  - array
+                  - object
+                  - 'null'
+              weights:
+                type: array
+                items: number
+              variations:
+                type: array
+                items:
+                  type:
+                    - string
+                    - number
+                    - array
+                    - object
+                    - 'null'
+              hashAttribute:
+                type: string
+              namespace:
+                type: array
+                items:
+                  type:
+                    - number
+                    - string
+                minItems: 3
+                maxItems: 3
+              key:
+                type: string
+              coverage:
+                type: number
+              condition:
+                type: object
+                additionalProperties: true
+    FeatureForceRule:
+      type: object
+      required:
+        - description
+        - condition
+        - id
+        - enabled
+        - type
+        - value
+      properties:
+        description:
+          type: string
+        condition:
+          type: string
+        id:
+          type: string
+        enabled:
+          type: boolean
+        type:
+          type: string
+        value:
+          type: string
+    FeatureRolloutRule:
+      type: object
+      required:
+        - description
+        - condition
+        - id
+        - enabled
+        - type
+        - value
+        - coverage
+        - hashAttribute
+      properties:
+        description:
+          type: string
+        condition:
+          type: string
+        id:
+          type: string
+        enabled:
+          type: boolean
+        type:
+          type: string
+        value:
+          type: string
+        coverage:
+          type: number
+        hashAttribute:
+          type: string
+    FeatureExperimentRule:
+      type: object
+      required:
+        - description
+        - condition
+        - id
+        - enabled
+        - type
+      properties:
+        description:
+          type: string
+        condition:
+          type: string
+        id:
+          type: string
+        enabled:
+          type: boolean
+        type:
+          type: string
+        trackingKey:
+          type: string
+        hashAttribute:
+          type: string
+        namespace:
+          type: obect
+          required:
+            - enabled
+            - name
+            - range
+          properties:
+            enabled:
+              type: boolean
+            name:
+              type: string
+            range:
+              type: array
+              items:
+                type: number
+              minItems: 2
+              maxItems: 2
+        coverage:
+          type: number
+        value:
+          type: array
+          items:
+            type: object
+            required:
+              - value
+              - weight
+            properties:
+              value:
+                type: string
+              weight:
+                type: number
+              name:
+                type: string
+    FeatureExperimentRefRule:
+      type: object
+      required:
+        - description
+        - id
+        - enabled
+        - type
+        - variations
+        - experimentId
+      properties:
+        description:
+          type: string
+        id:
+          type: string
+        enabled:
+          type: boolean
+        type:
+          type: string
+        condition:
+          type: string
+        variations:
+          type: array
+          items:
+            type: object
+            required:
+              - value
+              - variationId
+            properties:
+              value:
+                type: string
+              variationId:
+                type: string
+        experimentId:
+          type: string
+    SdkConnection:
+      type: object
+      required:
+        - id
+        - dateCreated
+        - dateUpdated
+        - name
+        - languages
+        - environment
+        - project
+        - encryptPayload
+        - encryptionKey
+        - key
+        - proxyEnabled
+        - proxyHost
+        - proxySigningKey
+      properties:
+        id:
+          type: string
+        dateCreated:
+          type: string
+          format: date-time
+        dateUpdated:
+          type: string
+          format: date-time
+        name:
+          type: string
+        languages:
+          type: array
+          items:
+            type: string
+        environment:
+          type: string
+        project:
+          type: string
+        encryptPayload:
+          type: boolean
+        encryptionKey:
+          type: string
+        includeVisualExperiments:
+          type: boolean
+        includeDraftExperiments:
+          type: boolean
+        includeExperimentNames:
+          type: boolean
+        key:
+          type: string
+        proxyEnabled:
+          type: boolean
+        proxyHost:
+          type: string
+        proxySigningKey:
+          type: string
+        sseEnabled:
+          type: boolean
+        hashSecureAttributes:
+          type: boolean
+    Experiment:
+      type: object
+      required:
+        - id
+        - dateCreated
+        - dateUpdated
+        - name
+        - project
+        - hypothesis
+        - description
+        - hashAttribute
+        - hashVersion
+        - tags
+        - owner
+        - archived
+        - status
+        - autoRefresh
+        - variations
+        - phases
+        - settings
+      properties:
+        id:
+          type: string
+        dateCreated:
+          type: string
+          format: date-time
+        dateUpdated:
+          type: string
+          format: date-time
+        name:
+          type: string
+        project:
+          type: string
+        hypothesis:
+          type: string
+        description:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        owner:
+          type: string
+        archived:
+          type: boolean
+        status:
+          type: string
+        autoRefresh:
+          type: boolean
+        hashAttribute:
+          type: string
+        hashVersion:
+          type: number
+          enum:
+            - 1
+            - 2
+        variations:
+          type: array
+          items:
+            type: object
+            required:
+              - variationId
+              - key
+              - name
+              - description
+              - screenshots
+            properties:
+              variationId:
+                type: string
+              key:
+                type: string
+              name:
+                type: string
+              description:
+                type: string
+              screenshots:
+                type: array
+                items:
+                  type: string
+        phases:
+          type: array
+          items:
+            type: object
+            required:
+              - name
+              - dateStarted
+              - dateEnded
+              - reasonForStopping
+              - seed
+              - coverage
+              - trafficSplit
+              - targetingCondition
+            properties:
+              name:
+                type: string
+              dateStarted:
+                type: string
+              dateEnded:
+                type: string
+              reasonForStopping:
+                type: string
+              seed:
+                type: string
+              coverage:
+                type: number
+              trafficSplit:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - variationId
+                    - weight
+                  properties:
+                    variationId:
+                      type: string
+                    weight:
+                      type: number
+              namespace:
+                type: object
+                required:
+                  - namespaceId
+                  - range
+                properties:
+                  namespaceId:
+                    type: string
+                  range:
+                    type: array
+                    rangeStart: number
+                    rangeEnd: number
+              targetingCondition:
+                type: string
+        settings:
+          $ref: '#/components/schemas/ExperimentAnalysisSettings'
+        resultSummary:
+          type: object
+          required:
+            - status
+            - winner
+            - releasedVariationId
+            - excludeFromPayload
+            - conclusions
+          properties:
+            status:
+              type: string
+            winner:
+              type: string
+            conclusions:
+              type: string
+            releasedVariationId:
+              type: string
+            excludeFromPayload:
+              type: boolean
+    ExperimentMetric:
+      type: object
+      required:
+        - metricId
+        - overrides
+      properties:
+        metricId:
+          type: string
+        overrides:
+          type: object
+          properties:
+            conversionWindowStart:
+              type: number
+            conversionWindowEnd:
+              type: number
+            winRiskThreshold:
+              type: number
+            loseRiskThreshold:
+              type: number
+    ExperimentAnalysisSettings:
+      type: object
+      required:
+        - datasourceId
+        - assignmentQueryId
+        - experimentId
+        - segmentId
+        - queryFilter
+        - inProgressConversions
+        - attributionModel
+        - statsEngine
+        - goals
+        - guardrails
+      properties:
+        datasourceId:
+          type: string
+        assignmentQueryId:
+          type: string
+        experimentId:
+          type: string
+        segmentId:
+          type: string
+        queryFilter:
+          type: string
+        inProgressConversions:
+          enum:
+            - include
+            - exclude
+        attributionModel:
+          enum:
+            - firstExposure
+            - experimentDuration
+        statsEngine:
+          enum:
+            - bayesian
+            - frequentist
+        goals:
+          type: array
+          items:
+            $ref: '#/components/schemas/ExperimentMetric'
+        guardrails:
+          type: array
+          items:
+            $ref: '#/components/schemas/ExperimentMetric'
+        activationMetric:
+          $ref: '#/components/schemas/ExperimentMetric'
+    ExperimentResults:
+      type: object
+      required:
+        - id
+        - dateUpdated
+        - experimentId
+        - phase
+        - dimension
+        - dateStart
+        - dateEnd
+        - settings
+        - queryIds
+        - results
+      properties:
+        id:
+          type: string
+        dateUpdated:
+          type: string
+        experimentId:
+          type: string
+        phase:
+          type: string
+        dateStart:
+          type: string
+        dateEnd:
+          type: string
+        dimension:
+          type: object
+          required:
+            - type
+          properties:
+            type:
+              type: string
+            id:
+              type: string
+        settings:
+          $ref: '#/components/schemas/ExperimentAnalysisSettings'
+        queryIds:
+          type: array
+          items:
+            type: string
+        results:
+          type: array
+          items:
+            type: object
+            required:
+              - dimension
+              - totalUsers
+              - checks
+              - metrics
+            properties:
+              dimension:
+                type: string
+              totalUsers:
+                type: number
+              checks:
+                type: object
+                required:
+                  - srm
+                properties:
+                  srm:
+                    type: number
+              metrics:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - metricId
+                    - variations
+                  properties:
+                    metricId:
+                      type: string
+                    variations:
+                      type: array
+                      items:
+                        type: object
+                        required:
+                          - variationId
+                          - analyses
+                        properties:
+                          variationId:
+                            type: string
+                          analyses:
+                            type: array
+                            items:
+                              type: object
+                              required:
+                                - engine
+                                - numerator
+                                - denominator
+                                - mean
+                                - stddev
+                                - percentChange
+                                - ciLow
+                                - ciHigh
+                              properties:
+                                engine:
+                                  enum:
+                                    - bayesian
+                                    - frequentist
+                                numerator:
+                                  type: number
+                                denominator:
+                                  type: number
+                                mean:
+                                  type: number
+                                stddev:
+                                  type: number
+                                percentChange:
+                                  type: number
+                                ciLow:
+                                  type: number
+                                ciHigh:
+                                  type: number
+                                pValue:
+                                  type: number
+                                risk:
+                                  type: number
+                                chanceToBeatControl:
+                                  type: number
+    DataSource:
+      type: object
+      required:
+        - id
+        - dateCreated
+        - dateUpdated
+        - type
+        - name
+        - description
+        - projectIds
+        - eventTracker
+        - identifierTypes
+        - assignmentQueries
+        - identifierJoinQueries
+      properties:
+        id:
+          type: string
+        dateCreated:
+          type: string
+          format: date-time
+        dateUpdated:
+          type: string
+          format: date-time
+        type:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        projectIds:
+          type: array
+          items:
+            type: string
+        eventTracker:
+          type: string
+        identifierTypes:
+          type: array
+          items:
+            type: object
+            required:
+              - id
+              - description
+            properties:
+              id:
+                type: string
+              description:
+                type: string
+        assignmentQueries:
+          type: array
+          items:
+            type: object
+            required:
+              - id
+              - name
+              - description
+              - identifierType
+              - sql
+              - includesNameColumns
+              - dimensionColumns
+            properties:
+              id:
+                type: string
+              name:
+                type: string
+              description:
+                type: string
+              identifierType:
+                type: string
+              sql:
+                type: string
+              includesNameColumns:
+                type: boolean
+              dimensionColumns:
+                type: array
+                items:
+                  type: string
+        identifierJoinQueries:
+          type: array
+          items:
+            type: object
+            required:
+              - identifierTypes
+              - sql
+            properties:
+              identifierTypes:
+                type: array
+                items:
+                  type: string
+              sql:
+                type: string
+        mixpanelSettings:
+          type: object
+          required:
+            - viewedExperimentEventName
+            - experimentIdProperty
+            - variationIdProperty
+            - extraUserIdProperty
+          properties:
+            viewedExperimentEventName:
+              type: string
+            experimentIdProperty:
+              type: string
+            variationIdProperty:
+              type: string
+            extraUserIdProperty:
+              type: string
+    VisualChangeset:
+      type: object
+      required:
+        - urlPatterns
+        - editorUrl
+        - experiment
+        - visualChanges
+      properties:
+        id:
+          type: string
+        urlPatterns:
+          type: array
+          items:
+            type: object
+            required:
+              - type
+              - pattern
+            properties:
+              include:
+                type: boolean
+              type:
+                type: string
+                enum:
+                  - simple
+                  - regex
+              pattern: string
+        editorUrl:
+          type: string
+        experiment:
+          type: string
+        visualChanges:
+          type: array
+          items:
+            type: object
+            required:
+              - variation
+              - domMutations
+            properties:
+              description:
+                type: string
+              css:
+                type: string
+              js:
+                type: string
+              variation:
+                type: string
+              domMutations:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - selector
+                    - action
+                    - attribute
+                  properties:
+                    selector:
+                      type: string
+                    action:
+                      type: string
+                      enum:
+                        - append
+                        - set
+                        - remove
+                    attribute:
+                      type: string
+                    value:
+                      type: string
+                    parentSelector:
+                      type: string
+                    insertBeforeSelector:
+                      type: string
+    VisualChange:
+      type: object
+      required:
+        - variation
+      properties:
+        description:
+          type: string
+        css:
+          type: string
+        js:
+          type: string
+        variation:
+          type: string
+        domMutations:
+          type: array
+          items:
+            type: object
+            required:
+              - selector
+              - action
+              - attribute
+            properties:
+              selector:
+                type: string
+              action:
+                type: string
+                enum:
+                  - append
+                  - set
+                  - remove
+              attribute:
+                type: string
+              value:
+                type: string
+              parentSelector:
+                type: string
+              insertBeforeSelector:
+                type: string
+    SavedGroup:
+      type: object
+      required:
+        - id
+        - dateCreated
+        - dateUpdated
+        - name
+        - attributeKey
+        - values
+      properties:
+        id:
+          type: string
+        dateCreated:
+          type: string
+          format: date-time
+        dateUpdated:
+          type: string
+          format: date-time
+        name:
+          type: string
+        owner:
+          type: string
+        attributeKey:
+          type: string
+        values:
+          type: array
+          items:
+            type: string
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      description: |
+        If using Bearer auth, pass the Secret Key as the token:
+
+        ```bash
+        curl https://api.growthbook.io/api/v1 \
+          -H "Authorization: Bearer secret_abc123DEF456"
+        ```
+    basicAuth:
+      type: http
+      scheme: basic
+      description: |
+        If using HTTP Basic auth, pass the Secret Key as the username and leave the password blank:
+
+        ```bash
+        curl https://api.growthbook.io/api/v1 \
+          -u secret_abc123DEF456:
+        # The ":" at the end stops curl from asking for a password
+        ```
+  responses:
+    Error:
+      type: object
+      required:
+        - message
+      properties:
+        message:
+          type: string
+security:
+  - bearerAuth: []
+  - basicAuth: []
+x-tagGroups:
+  - name: Endpoints
+    tags:
+      - projects
+      - features
+      - data-sources
+      - metrics
+      - experiments
+      - dimensions
+      - segments
+      - sdk-connections
+      - visual-changesets
+      - saved-groups
+  - name: Models
+    tags:
+      - DataSource_model
+      - Dimension_model
+      - Experiment_model
+      - ExperimentAnalysisSettings_model
+      - ExperimentMetric_model
+      - ExperimentResults_model
+      - Feature_model
+      - FeatureDefinition_model
+      - FeatureEnvironment_model
+      - FeatureExperimentRefRule_model
+      - FeatureExperimentRule_model
+      - FeatureForceRule_model
+      - FeatureRolloutRule_model
+      - FeatureRule_model
+      - Metric_model
+      - PaginationFields_model
+      - Project_model
+      - SavedGroup_model
+      - SdkConnection_model
+      - Segment_model
+      - VisualChange_model
+      - VisualChangeset_model

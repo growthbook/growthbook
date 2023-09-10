@@ -1,9 +1,14 @@
 import { promisify } from "util";
 import { PythonShell } from "python-shell";
+import {
+  DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
+  DEFAULT_STATS_ENGINE,
+} from "shared/constants";
+import { putBaselineVariationFirst } from "shared/util";
 import { MetricInterface } from "../../types/metric";
 import { ExperimentMetricAnalysis, StatsEngine } from "../../types/stats";
 import {
-  ExperimentMetricQueryResponse,
+  ExperimentMetricQueryResponseRows,
   ExperimentResults,
 } from "../types/Integration";
 import {
@@ -11,20 +16,26 @@ import {
   ExperimentReportResults,
   ExperimentReportVariation,
 } from "../../types/report";
-import { getMetricsByOrganization } from "../models/MetricModel";
 import { promiseAllChunks } from "../util/promise";
 import { checkSrm } from "../util/stats";
 import { logger } from "../util/logger";
-import { QueryMap } from "./queries";
+import {
+  ExperimentSnapshotAnalysisSettings,
+  ExperimentSnapshotSettings,
+} from "../../types/experiment-snapshot";
+import { QueryMap } from "../queryRunners/QueryRunner";
 
 export const MAX_DIMENSIONS = 20;
 
 export async function analyzeExperimentMetric(
   variations: ExperimentReportVariation[],
   metric: MetricInterface,
-  rows: ExperimentMetricQueryResponse,
-  maxDimensions: number,
-  statsEngine: StatsEngine = "bayesian"
+  rows: ExperimentMetricQueryResponseRows,
+  dimension: string | null = null,
+  statsEngine: StatsEngine = DEFAULT_STATS_ENGINE,
+  sequentialTestingEnabled: boolean = false,
+  sequentialTestingTuningParameter: number = DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
+  baselineVariationIndex: number | null = null
 ): Promise<ExperimentMetricAnalysis> {
   if (!rows || !rows.length) {
     return {
@@ -33,15 +44,18 @@ export async function analyzeExperimentMetric(
       dimensions: [],
     };
   }
-
+  const sortedVariations = putBaselineVariationFirst(
+    variations,
+    baselineVariationIndex
+  );
   const variationIdMap: { [key: string]: number } = {};
-  variations.map((v, i) => {
+  sortedVariations.map((v, i) => {
     variationIdMap[v.id] = i;
   });
-
   const result = await promisify(PythonShell.runString)(
     `
 from gbstats.gbstats import (
+  diff_for_daily_time_series,
   detect_unknown_variations,
   analyze_metric_df,
   get_metric_df,
@@ -54,11 +68,13 @@ import json
 
 data = json.loads("""${JSON.stringify({
       var_id_map: variationIdMap,
-      var_names: variations.map((v) => v.name),
-      weights: variations.map((v) => v.weight),
+      var_names: sortedVariations.map((v) => v.name),
+      weights: sortedVariations.map((v) => v.weight),
+      baseline_index: baselineVariationIndex ?? 0,
       ignore_nulls: !!metric.ignoreNulls,
       inverse: !!metric.inverse,
-      max_dimensions: maxDimensions,
+      max_dimensions:
+        dimension?.substring(0, 8) === "pre:date" ? 9999 : MAX_DIMENSIONS,
       rows,
     }).replace(/\\/g, "\\\\")}""", strict=False)
 
@@ -68,6 +84,7 @@ ignore_nulls = data['ignore_nulls']
 inverse = data['inverse']
 weights = data['weights']
 max_dimensions = data['max_dimensions']
+baseline_index = data['baseline_index']
 
 rows = pd.DataFrame(data['rows'])
 
@@ -75,6 +92,10 @@ unknown_var_ids = detect_unknown_variations(
   rows=rows,
   var_id_map=var_id_map
 )
+
+${
+  dimension === "pre:datedaily" ? `rows = diff_for_daily_time_series(rows)` : ``
+}
 
 df = get_metric_df(
   rows=rows,
@@ -95,12 +116,17 @@ result = analyze_metric_df(
     statsEngine === "frequentist"
       ? "StatsEngine.FREQUENTIST"
       : "StatsEngine.BAYESIAN"
+  },
+  engine_config=${
+    statsEngine === "frequentist" && sequentialTestingEnabled
+      ? `{'sequential': True, 'sequential_tuning_parameter': ${sequentialTestingTuningParameter}}`
+      : "{}"
   }
 )
 
 print(json.dumps({
   'unknownVariations': list(unknown_var_ids),
-  'dimensions': format_results(result)
+  'dimensions': format_results(result, baseline_index)
 }, allow_nan=False))`,
     {}
   );
@@ -120,22 +146,22 @@ print(json.dumps({
   return parsed;
 }
 
-export async function analyzeExperimentResults(
-  organization: string,
-  variations: ExperimentReportVariation[],
-  dimension: string | undefined,
-  queryData: QueryMap,
-  statsEngine: StatsEngine = "bayesian"
-): Promise<ExperimentReportResults> {
-  const metrics = await getMetricsByOrganization(organization);
-  const metricMap = new Map<string, MetricInterface>();
-  metrics.forEach((m) => {
-    metricMap.set(m.id, m);
-  });
-
+export async function analyzeExperimentResults({
+  queryData,
+  analysisSettings,
+  snapshotSettings,
+  variationNames,
+  metricMap,
+}: {
+  queryData: QueryMap;
+  analysisSettings: ExperimentSnapshotAnalysisSettings;
+  snapshotSettings: ExperimentSnapshotSettings;
+  variationNames: string[];
+  metricMap: Map<string, MetricInterface>;
+}): Promise<ExperimentReportResults> {
   const metricRows: {
     metric: string;
-    rows: ExperimentMetricQueryResponse;
+    rows: ExperimentMetricQueryResponseRows;
   }[] = [];
 
   let unknownVariations: string[] = [];
@@ -149,7 +175,7 @@ export async function analyzeExperimentResults(
     const data = results.result as ExperimentResults;
 
     unknownVariations = data.unknownVariations;
-    const byMetric: { [key: string]: ExperimentMetricQueryResponse } = {};
+    const byMetric: { [key: string]: ExperimentMetricQueryResponseRows } = {};
     data.dimensions.forEach((row) => {
       row.variations.forEach((v) => {
         Object.keys(v.metrics).forEach((metric) => {
@@ -157,7 +183,8 @@ export async function analyzeExperimentResults(
           byMetric[metric] = byMetric[metric] || [];
           byMetric[metric].push({
             dimension: row.dimension,
-            variation: variations[v.variation].id,
+            variation:
+              snapshotSettings.variations[v.variation]?.id || v.variation + "",
             users: stats.count,
             count: stats.count,
             statistic_type: "mean", // no ratio in mixpanel or GA
@@ -184,7 +211,7 @@ export async function analyzeExperimentResults(
 
       metricRows.push({
         metric: key,
-        rows: query.result as ExperimentMetricQueryResponse,
+        rows: query.result as ExperimentMetricQueryResponseRows,
       });
     });
   }
@@ -196,11 +223,17 @@ export async function analyzeExperimentResults(
       return async () => {
         if (!metric) return;
         const result = await analyzeExperimentMetric(
-          variations,
+          snapshotSettings.variations.map((v, i) => ({
+            ...v,
+            name: variationNames[i] || v.id,
+          })),
           metric,
           data.rows,
-          dimension === "pre:date" ? 100 : MAX_DIMENSIONS,
-          statsEngine
+          analysisSettings.dimensions[0],
+          analysisSettings.statsEngine,
+          analysisSettings.sequentialTesting,
+          analysisSettings.sequentialTestingTuningParameter,
+          analysisSettings.baselineVariationIndex
         );
         unknownVariations = unknownVariations.concat(result.unknownVariations);
         multipleExposures = Math.max(
@@ -247,7 +280,7 @@ export async function analyzeExperimentResults(
       // Calculate SRM
       dimension.srm = checkSrm(
         dimension.variations.map((v) => v.users),
-        variations.map((v) => v.weight)
+        snapshotSettings.variations.map((v) => v.weight)
       );
     });
   }

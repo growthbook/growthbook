@@ -166,7 +166,16 @@ const TopNav: FC<{
                     href="#"
                     onClick={(e) => {
                       e.preventDefault();
-                      setOrgId(o.id);
+                      if (setOrgId) {
+                        setOrgId(o.id);
+                      }
+
+                      try {
+                        localStorage.setItem("gb-last-picked-org", `"${o.id}"`);
+                      } catch (e) {
+                        console.warn("Cannot set gb-last-picked-org");
+                      }
+
                       setOrgDropdownOpen(false);
                     }}
                   >
@@ -187,7 +196,7 @@ const TopNav: FC<{
               }}
               style={{ cursor: "pointer" }}
             >
-              <Avatar email={email} size={26} />{" "}
+              <Avatar email={email || ""} size={26} />{" "}
               <span className="d-none d-lg-inline">{email}</span>
             </div>
             <div
@@ -217,6 +226,17 @@ const TopNav: FC<{
                   </Link>
                 </>
               )}
+              <div className="dropdown-divider"></div>
+              <Link href={"/account/personal-access-tokens"}>
+                <a
+                  className="dropdown-item"
+                  onClick={() => {
+                    setUserDropdownOpen(false);
+                  }}
+                >
+                  My Personal Access Tokens
+                </a>
+              </Link>
               <div className="dropdown-divider"></div>
               <button
                 className="dropdown-item"

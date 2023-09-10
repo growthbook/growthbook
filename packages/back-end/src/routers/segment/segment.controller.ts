@@ -1,11 +1,16 @@
 import type { Response } from "express";
 import uniqid from "uniqid";
-import cloneDeep from "lodash/cloneDeep";
 import { FilterQuery } from "mongoose";
 import { AuthRequest } from "../../types/AuthRequest";
 import { ApiErrorResponse } from "../../../types/api";
 import { getOrgFromReq } from "../../services/organizations";
-import { SegmentDocument, SegmentModel } from "../../models/SegmentModel";
+import {
+  createSegment,
+  deleteSegmentById,
+  findSegmentById,
+  findSegmentsByOrganization,
+  updateSegment,
+} from "../../models/SegmentModel";
 import { getDataSourceById } from "../../models/DataSourceModel";
 import { getIdeasByQuery } from "../../services/ideas";
 import { IdeaDocument, IdeaModel } from "../../models/IdeasModel";
@@ -16,10 +21,11 @@ import {
 import {
   deleteExperimentSegment,
   getExperimentsUsingSegment,
-  logExperimentUpdated,
 } from "../../models/ExperimentModel";
 import { MetricInterface } from "../../../types/metric";
+import { SegmentInterface } from "../../../types/segment";
 import { ExperimentInterface } from "../../../types/experiment";
+import { EventAuditUserForResponseLocals } from "../../events/event-types";
 
 // region GET /segments
 
@@ -27,7 +33,7 @@ type GetSegmentsRequest = AuthRequest;
 
 type GetSegmentsResponse = {
   status: 200;
-  segments: SegmentDocument[];
+  segments: SegmentInterface[];
 };
 
 /**
@@ -38,12 +44,10 @@ type GetSegmentsResponse = {
  */
 export const getSegments = async (
   req: GetSegmentsRequest,
-  res: Response<GetSegmentsResponse>
+  res: Response<GetSegmentsResponse, EventAuditUserForResponseLocals>
 ) => {
   const { org } = getOrgFromReq(req);
-  const segments = await SegmentModel.find({
-    organization: org.id,
-  });
+  const segments = await findSegmentsByOrganization(org.id);
   res.status(200).json({
     status: 200,
     segments,
@@ -76,15 +80,12 @@ type GetSegmentUsageResponse = {
  */
 export const getSegmentUsage = async (
   req: GetSegmentUsageRequest,
-  res: Response<GetSegmentUsageResponse>
+  res: Response<GetSegmentUsageResponse, EventAuditUserForResponseLocals>
 ) => {
   const { id } = req.params;
   const { org } = getOrgFromReq(req);
 
-  const segment = await SegmentModel.findOne({
-    id,
-    organization: org.id,
-  });
+  const segment = await findSegmentById(id, org.id);
 
   if (!segment) {
     throw new Error("Could not find segment");
@@ -122,11 +123,12 @@ type CreateSegmentRequest = AuthRequest<{
   userIdType: string;
   name: string;
   sql: string;
+  description: string;
 }>;
 
 type CreateSegmentResponse = {
   status: 200;
-  segment: SegmentDocument;
+  segment: SegmentInterface;
 };
 
 /**
@@ -137,11 +139,14 @@ type CreateSegmentResponse = {
  */
 export const postSegment = async (
   req: CreateSegmentRequest,
-  res: Response<CreateSegmentResponse | ApiErrorResponse>
+  res: Response<
+    CreateSegmentResponse | ApiErrorResponse,
+    EventAuditUserForResponseLocals
+  >
 ) => {
   req.checkPermissions("createSegments");
 
-  const { datasource, name, sql, userIdType } = req.body;
+  const { datasource, name, sql, userIdType, description } = req.body;
 
   const { org, userName } = getOrgFromReq(req);
 
@@ -150,7 +155,7 @@ export const postSegment = async (
     throw new Error("Invalid data source");
   }
 
-  const doc = await SegmentModel.create({
+  const doc = await createSegment({
     owner: userName,
     datasource,
     userIdType,
@@ -160,6 +165,7 @@ export const postSegment = async (
     dateCreated: new Date(),
     dateUpdated: new Date(),
     organization: org.id,
+    description,
   });
 
   res.status(200).json({
@@ -179,13 +185,13 @@ type PutSegmentRequest = AuthRequest<
     name: string;
     sql: string;
     owner: string;
+    description: string;
   },
   { id: string }
 >;
 
 type PutSegmentResponse = {
   status: 200;
-  segment: SegmentDocument;
 };
 
 /**
@@ -196,16 +202,17 @@ type PutSegmentResponse = {
  */
 export const putSegment = async (
   req: PutSegmentRequest,
-  res: Response<PutSegmentResponse | ApiErrorResponse>
+  res: Response<
+    PutSegmentResponse | ApiErrorResponse,
+    EventAuditUserForResponseLocals
+  >
 ) => {
   req.checkPermissions("createSegments");
 
   const { id } = req.params;
-  const segment = await SegmentModel.findOne({
-    id,
-  });
-
   const { org } = getOrgFromReq(req);
+
+  const segment = await findSegmentById(id, org.id);
 
   if (!segment) {
     throw new Error("Could not find segment");
@@ -214,25 +221,25 @@ export const putSegment = async (
     throw new Error("You don't have access to that segment");
   }
 
-  const { datasource, name, sql, userIdType, owner } = req.body;
+  const { datasource, name, sql, userIdType, owner, description } = req.body;
 
   const datasourceDoc = await getDataSourceById(datasource, org.id);
   if (!datasourceDoc) {
     throw new Error("Invalid data source");
   }
 
-  segment.set("datasource", datasource);
-  segment.set("userIdType", userIdType);
-  segment.set("name", name);
-  segment.set("owner", owner);
-  segment.set("sql", sql);
-  segment.set("dateUpdated", new Date());
-
-  await segment.save();
+  await updateSegment(id, org.id, {
+    datasource,
+    userIdType,
+    name,
+    owner,
+    sql,
+    dateUpdated: new Date(),
+    description,
+  });
 
   res.status(200).json({
     status: 200,
-    segment,
   });
 };
 
@@ -254,25 +261,19 @@ type DeleteSegmentResponse = {
  */
 export const deleteSegment = async (
   req: DeleteSegmentRequest,
-  res: Response<DeleteSegmentResponse>
+  res: Response<DeleteSegmentResponse, EventAuditUserForResponseLocals>
 ) => {
   req.checkPermissions("createSegments");
 
   const { id } = req.params;
   const { org } = getOrgFromReq(req);
-  const segment = await SegmentModel.findOne({
-    id,
-    organization: org.id,
-  });
+  const segment = await findSegmentById(id, org.id);
 
   if (!segment) {
     throw new Error("Could not find segment");
   }
 
-  await SegmentModel.deleteOne({
-    id,
-    organization: org.id,
-  });
+  await deleteSegmentById(id, org.id);
 
   // delete references:
   // ideas:
@@ -300,21 +301,7 @@ export const deleteSegment = async (
     );
   }
 
-  const exps = await getExperimentsUsingSegment(id, org.id);
-  if (exps.length > 0) {
-    await deleteExperimentSegment(org.id, id);
-
-    exps.forEach((previous) => {
-      const current = cloneDeep(previous);
-      current.segment = "";
-
-      logExperimentUpdated({
-        organization: org,
-        previous,
-        current,
-      });
-    });
-  }
+  await deleteExperimentSegment(org, res.locals.eventAudit, id);
 
   res.status(200).json({
     status: 200,

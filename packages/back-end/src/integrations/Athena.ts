@@ -1,13 +1,15 @@
 import { decryptDataSourceParams } from "../services/datasource";
 import { runAthenaQuery } from "../services/athena";
+import { QueryResponse } from "../types/Integration";
 import { AthenaConnectionParams } from "../../types/integrations/athena";
 import { FormatDialect } from "../util/sql";
 import SqlIntegration from "./SqlIntegration";
 
 export default class Athena extends SqlIntegration {
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-  // @ts-ignore
+  // @ts-expect-error
   params: AthenaConnectionParams;
+  requiresSchema = false;
   setParams(encryptedParams: string) {
     this.params = decryptDataSourceParams<AthenaConnectionParams>(
       encryptedParams
@@ -22,7 +24,7 @@ export default class Athena extends SqlIntegration {
   toTimestamp(date: Date) {
     return `from_iso8601_timestamp('${date.toISOString()}')`;
   }
-  runQuery(sql: string) {
+  runQuery(sql: string): Promise<QueryResponse> {
     return runAthenaQuery(this.params, sql);
   }
   addTime(
@@ -36,13 +38,26 @@ export default class Athena extends SqlIntegration {
   formatDate(col: string): string {
     return `substr(to_iso8601(${col}),1,10)`;
   }
+  formatDateTimeString(col: string): string {
+    return `to_iso8601(${col})`;
+  }
   dateDiff(startCol: string, endCol: string) {
     return `date_diff('day', ${startCol}, ${endCol})`;
   }
-  useAliasInGroupBy(): boolean {
-    return false;
-  }
   ensureFloat(col: string): string {
-    return `1.0*${col}`;
+    return `CAST(${col} as double)`;
+  }
+  percentileCapSelectClause(
+    capPercentile: number,
+    metricTable: string
+  ): string {
+    return `
+      SELECT APPROX_PERCENTILE(value, ${capPercentile}) AS cap_value
+      FROM ${metricTable}
+      WHERE value IS NOT NULL
+    `;
+  }
+  getDefaultDatabase() {
+    return this.params.catalog || "";
   }
 }

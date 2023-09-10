@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { ApiDimension } from "../../types/openapi";
 import { DimensionInterface } from "../../types/dimension";
 import { getConfigDimensions, usingFileConfig } from "../init/config";
 
@@ -11,6 +12,7 @@ const dimensionSchema = new mongoose.Schema({
   owner: String,
   datasource: String,
   userIdType: String,
+  description: String,
   name: String,
   sql: String,
   dateCreated: Date,
@@ -18,7 +20,7 @@ const dimensionSchema = new mongoose.Schema({
 });
 dimensionSchema.index({ id: 1, organization: 1 }, { unique: true });
 type DimensionDocument = mongoose.Document & DimensionInterface;
-const DimensionModel = mongoose.model<DimensionDocument>(
+const DimensionModel = mongoose.model<DimensionInterface>(
   "Dimension",
   dimensionSchema
 );
@@ -94,4 +96,19 @@ export async function deleteDimensionById(id: string, organization: string) {
     id,
     organization,
   });
+}
+
+export function toDimensionApiInterface(
+  dimension: DimensionInterface
+): ApiDimension {
+  return {
+    id: dimension.id,
+    name: dimension.name,
+    owner: dimension.owner || "",
+    identifierType: dimension.userIdType || "user_id",
+    query: dimension.sql,
+    datasourceId: dimension.datasource || "",
+    dateCreated: dimension.dateCreated?.toISOString() || "",
+    dateUpdated: dimension.dateUpdated?.toISOString() || "",
+  };
 }

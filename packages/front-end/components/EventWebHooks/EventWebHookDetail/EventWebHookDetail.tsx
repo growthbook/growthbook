@@ -7,10 +7,11 @@ import classNames from "classnames";
 import { useRouter } from "next/router";
 import Link from "next/link";
 import { HiOutlineClipboard, HiOutlineClipboardCheck } from "react-icons/hi";
+import { datetime } from "shared/dates";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import { useAuth } from "@/services/auth";
+import Badge from "@/components/Badge";
 import { EventWebHookEditParams, useIconForState } from "../utils";
-import { datetime } from "../../../services/dates";
 import { useCopyToClipboard } from "../../../hooks/useCopyToClipboard";
 import { SimpleTooltip } from "../../SimpleTooltip/SimpleTooltip";
 import useApi from "../../../hooks/useApi";
@@ -135,17 +136,34 @@ export const EventWebHookDetail: FC<EventWebHookDetailProps> = ({
           </div>
         </div>
 
-        <div className="d-flex align-items-center mt-2">
-          <span className="text-muted ml-1 mr-2" style={{ fontSize: "1rem" }}>
-            <TbWebhook className="d-block" />
-          </span>
-          <span className="font-weight-bold">&nbsp;Events</span>
-          <div className="flex-grow-1 d-flex flex-wrap ml-3">
-            {events.map((eventName) => (
-              <span key={eventName} className="mr-2 badge badge-purple">
-                {eventName}
+        <div className="row">
+          <div className="col-xs-12 col-md-6">
+            <div className="d-flex align-items-center mt-2">
+              <span
+                className="text-muted ml-1 mr-2"
+                style={{ fontSize: "1rem" }}
+              >
+                <TbWebhook className="d-block" />
               </span>
-            ))}
+              <span className="font-weight-bold">&nbsp;Events</span>
+              <div className="flex-grow-1 d-flex flex-wrap ml-3">
+                {events.map((eventName) => (
+                  <span key={eventName} className="mr-2 badge badge-purple">
+                    {eventName}
+                  </span>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div className="col-xs-12 col-md-6">
+            <div className="mt-2">
+              {eventWebHook.enabled ? (
+                <Badge className="badge-green" content="Webhook enabled" />
+              ) : (
+                <Badge className="badge-red" content="Webhook disabled" />
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -191,7 +209,9 @@ export const EventWebHookDetailContainer = () => {
           `/event-webhooks/${eventWebHookId}`,
           {
             method: "PUT",
-            body: JSON.stringify(pick(data, ["events", "name", "url"])),
+            body: JSON.stringify(
+              pick(data, ["events", "name", "url", "enabled"])
+            ),
           }
         );
 

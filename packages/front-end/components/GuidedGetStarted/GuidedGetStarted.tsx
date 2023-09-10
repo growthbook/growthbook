@@ -10,9 +10,9 @@ import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import useOrgSettings from "@/hooks/useOrgSettings";
-import { hasFileConfig } from "@/services/env";
-import track from "@/services/track";
 import useSDKConnections from "@/hooks/useSDKConnections";
+import usePermissions from "@/hooks/usePermissions";
+import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
 import FeatureModal from "../Features/FeatureModal";
 import NewDataSourceForm from "../Settings/NewDataSourceForm";
 import { DocLink, DocSection } from "../DocLink";
@@ -38,7 +38,6 @@ export type Task = {
 export default function GuidedGetStarted({
   features,
   experiments,
-  mutate,
 }: {
   features: FeatureInterface[];
   experiments: ExperimentInterfaceStringDates[];
@@ -48,38 +47,17 @@ export default function GuidedGetStarted({
     [key: string]: boolean;
   }>("onboarding-steps-skipped", {});
   const [showVideo, setShowVideo] = useState(false);
+  const permissions = usePermissions();
 
   const { data: SDKData } = useSDKConnections();
 
   const { metrics } = useDefinitions();
   const settings = useOrgSettings();
-  const { datasources, mutateDefinitions } = useDefinitions();
+  const { datasources } = useDefinitions();
   const { apiCall } = useAuth();
   const { refreshOrganization } = useUser();
-  const hasDataSource = datasources.length > 0;
-  const hasMetrics =
-    metrics.filter((m) => !m.id.match(/^met_sample/)).length > 0;
-  const hasExperiments =
-    experiments.filter((m) => !m.id.match(/^exp_sample/)).length > 0;
-  const allowImport = !(hasMetrics || hasExperiments) && !hasFileConfig();
 
-  const hasSampleExperiment = experiments.filter((m) =>
-    m.id.match(/^exp_sample/)
-  )[0];
-
-  const importSampleData = (source: string) => async () => {
-    const res = await apiCall<{
-      experiment: string;
-    }>(`/organization/sample-data`, {
-      method: "POST",
-    });
-    await mutateDefinitions();
-    await mutate();
-    track("Add Sample Data", {
-      source,
-    });
-    await router.push("/experiment/" + res.experiment);
-  };
+  const { exists: demoProjectExists } = useDemoDataSourceProject();
 
   const steps: Task[] = [
     {
@@ -93,11 +71,15 @@ export default function GuidedGetStarted({
         datasources.length > 0 ||
         features.length > 0,
       additionalCta: (
-        <Link href="/settings/team">
-          <a className="font-weight-bold">
-            Not an engineer? Invite a developer to get started.
-          </a>
-        </Link>
+        <>
+          {permissions.manageTeam && (
+            <Link href="/settings/team">
+              <a className="font-weight-bold">
+                Not an engineer? Invite a developer to get started.
+              </a>
+            </Link>
+          )}
+        </>
       ),
       render: (
         <>
@@ -173,7 +155,6 @@ export default function GuidedGetStarted({
               onSuccess={async () => {
                 setCurrentStep(currentStep + 1);
               }}
-              initialRule={false}
               secondaryCTA={
                 <button
                   onClick={() => {
@@ -199,6 +180,7 @@ export default function GuidedGetStarted({
       learnMoreLink: "Learn more about our SDKs.",
       docSection: "sdks",
       completed:
+        // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
         SDKData?.connections.length > 0 || skippedSteps["install-sdk"] || false,
       render: (
         <InitialSDKConnectionForm
@@ -261,12 +243,7 @@ export default function GuidedGetStarted({
                   Skip Step
                 </button>
               }
-              importSampleData={
-                !hasDataSource &&
-                allowImport &&
-                !hasSampleExperiment &&
-                importSampleData("datasource-form")
-              }
+              showImportSampleData={!demoProjectExists}
             />
           )}
         </>
@@ -327,14 +304,25 @@ export default function GuidedGetStarted({
         "Here are a few more things you can do to get the most out of your GrowthBook account.",
       render: (
         <div className="col-12 col-sm-8 col-lg-6">
-          <Link href="/settings/team" className={styles.nextStepWrapper}>
-            <h2
-              role="button"
-              className={clsx("text-center p-4 m-1", styles.nextStepLink)}
-            >
-              Invite Your Teammates
-            </h2>
-          </Link>
+          {permissions.check("manageTeam") ? (
+            <Link href="/settings/team" className={styles.nextStepWrapper}>
+              <h2
+                role="button"
+                className={clsx("text-center p-4 m-1", styles.nextStepLink)}
+              >
+                Invite Your Teammates
+              </h2>
+            </Link>
+          ) : (
+            <Link href="/features" className={styles.nextStepWrapper}>
+              <h2
+                role="button"
+                className={clsx("text-center p-4 m-1", styles.nextStepLink)}
+              >
+                View Features
+              </h2>
+            </Link>
+          )}
           <Link href="/experiments" className={styles.nextStepWrapper}>
             <h2
               role="button"
@@ -393,6 +381,7 @@ export default function GuidedGetStarted({
               {steps[currentStep].learnMoreLink &&
                 steps[currentStep].docSection && (
                   <span>
+                    {/* @ts-expect-error TS(2322) If you come across this, please fix it!: Type '"ruby" | "home" | "features" | "experiments"... Remove this comment to see the full error message */}
                     <DocLink docSection={steps[currentStep].docSection}>
                       {steps[currentStep].learnMoreLink}
                     </DocLink>

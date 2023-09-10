@@ -5,7 +5,7 @@ import {
   Comment,
 } from "back-end/types/discussion";
 import { FaPencilAlt } from "react-icons/fa";
-import { date } from "../services/dates";
+import { date } from "shared/dates";
 import { useAuth } from "../services/auth";
 import useApi from "../hooks/useApi";
 import { useUser } from "../services/UserContext";
@@ -33,7 +33,7 @@ const DiscussionThread: FC<{
 }) => {
   const { apiCall } = useAuth();
   const { userId, users } = useUser();
-  const [edit, setEdit] = useState(null);
+  const [edit, setEdit] = useState<number | null>(null);
 
   const permissions = usePermissions();
 
@@ -139,7 +139,7 @@ const DiscussionThread: FC<{
         </p>
       )}
       {allowNewComments && (
-        <>
+        <div className="d-print-none">
           {!showTitle && <hr />}
           {showTitle && <h4 className="add-comment-title">{title}</h4>}
           <CommentForm
@@ -149,7 +149,7 @@ const DiscussionThread: FC<{
             id={id}
             type={type}
           />
-        </>
+        </div>
       )}
     </div>
   );

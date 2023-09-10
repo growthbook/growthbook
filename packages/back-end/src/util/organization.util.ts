@@ -1,80 +1,25 @@
-import type Stripe from "stripe";
 import {
-  AccountPlan,
-  CommercialFeature,
-  CommercialFeaturesMap,
   MemberRole,
   MemberRoleInfo,
   OrganizationInterface,
   Permission,
+  PermissionsObject,
+  ProjectMemberRole,
   Role,
+  UserPermissions,
 } from "../../types/organization";
-import { getLicense } from "../init/license";
-import { IS_CLOUD } from "./secrets";
-
-export function isActiveSubscriptionStatus(
-  status?: Stripe.Subscription.Status
-) {
-  return ["active", "trialing", "past_due"].includes(status || "");
-}
-export const accountFeatures: CommercialFeaturesMap = {
-  oss: new Set<CommercialFeature>([]),
-  starter: new Set<CommercialFeature>([]),
-  pro: new Set<CommercialFeature>([
-    "advanced-permissions",
-    "encrypt-features-endpoint",
-    "schedule-feature-flag",
-    "override-metrics",
-  ]),
-  pro_sso: new Set<CommercialFeature>([
-    "sso",
-    "advanced-permissions",
-    "encrypt-features-endpoint",
-    "schedule-feature-flag",
-    "override-metrics",
-  ]),
-  enterprise: new Set<CommercialFeature>([
-    "sso",
-    "custom-exp-metadata",
-    "advanced-permissions",
-    "encrypt-features-endpoint",
-    "schedule-feature-flag",
-    "override-metrics",
-  ]),
-};
-export function getAccountPlan(org: OrganizationInterface): AccountPlan {
-  if (IS_CLOUD) {
-    if (org.enterprise) return "enterprise";
-    if (org.restrictAuthSubPrefix || org.restrictLoginMethod) return "pro_sso";
-    if (isActiveSubscriptionStatus(org.subscription?.status)) return "pro";
-    return "starter";
-  }
-
-  // For self-hosted deployments
-  return getLicense()?.plan || "oss";
-}
-export function planHasPremiumFeature(
-  plan: AccountPlan,
-  feature: CommercialFeature
-): boolean {
-  return accountFeatures[plan].has(feature);
-}
-export function orgHasPremiumFeature(
-  org: OrganizationInterface,
-  feature: CommercialFeature
-): boolean {
-  return planHasPremiumFeature(getAccountPlan(org), feature);
-}
 
 export const ENV_SCOPED_PERMISSIONS = [
   "publishFeatures",
   "manageEnvironments",
+  "runExperiments",
 ] as const;
 
 export const PROJECT_SCOPED_PERMISSIONS = [
   "addComments",
   "createFeatureDrafts",
   "manageFeatures",
+  "manageProjects",
   "createAnalyses",
   "createIdeas",
   "createMetrics",
@@ -91,7 +36,6 @@ export const GLOBAL_PERMISSIONS = [
   "superDelete",
   "manageTeam",
   "manageTags",
-  "manageProjects",
   "manageApiKeys",
   "manageIntegrations",
   "manageWebhooks",
@@ -110,14 +54,43 @@ export const ALL_PERMISSIONS = [
   ...ENV_SCOPED_PERMISSIONS,
 ];
 
-export function getPermissionsByRole(
-  role: MemberRole,
+export function roleToPermissionMap(
+  role: MemberRole | undefined,
   org: OrganizationInterface
-): Permission[] {
+): PermissionsObject {
   const roles = getRoles(org);
   const orgRole = roles.find((r) => r.id === role);
   const permissions = new Set<Permission>(orgRole?.permissions || []);
-  return Array.from(permissions);
+
+  const permissionsObj: PermissionsObject = {};
+  ALL_PERMISSIONS.forEach((p) => {
+    permissionsObj[p] = permissions.has(p);
+  });
+  return permissionsObj;
+}
+
+export function getUserPermissions(
+  userId: string,
+  org: OrganizationInterface
+): UserPermissions {
+  const memberInfo = org.members.find((m) => m.id === userId);
+  const userPermissions: UserPermissions = {
+    global: {
+      environments: memberInfo?.environments || [],
+      limitAccessByEnvironment: memberInfo?.limitAccessByEnvironment || false,
+      permissions: roleToPermissionMap(memberInfo?.role, org),
+    },
+    projects: {},
+  };
+
+  memberInfo?.projectRoles?.forEach((projectRole: ProjectMemberRole) => {
+    userPermissions.projects[projectRole.project] = {
+      limitAccessByEnvironment: projectRole.limitAccessByEnvironment || false,
+      environments: projectRole.environments || [],
+      permissions: roleToPermissionMap(projectRole.role, org),
+    };
+  });
+  return userPermissions;
 }
 
 export function getRoles(_organization: OrganizationInterface): Role[] {
@@ -142,11 +115,13 @@ export function getRoles(_organization: OrganizationInterface): Role[] {
         "createPresentations",
         "publishFeatures",
         "manageFeatures",
+        "manageTags",
         "createFeatureDrafts",
         "manageTargetingAttributes",
         "manageEnvironments",
         "manageNamespaces",
         "manageSavedGroups",
+        "runExperiments",
       ],
     },
     {
@@ -159,6 +134,7 @@ export function getRoles(_organization: OrganizationInterface): Role[] {
         "createAnalyses",
         "createDimensions",
         "createMetrics",
+        "manageTags",
         "runQueries",
         "editDatasourceSettings",
       ],
@@ -178,6 +154,8 @@ export function getRoles(_organization: OrganizationInterface): Role[] {
         "manageNamespaces",
         "manageSavedGroups",
         "manageCustomFields",
+        "manageTags",
+        "runExperiments",
         "createAnalyses",
         "createDimensions",
         "createSegments",

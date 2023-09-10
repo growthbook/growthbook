@@ -1,0 +1,44 @@
+PaginationFields:
+  $ref: './PaginationFields.yaml'
+Dimension:
+  $ref: './Dimension.yaml'
+Metric:
+  $ref: './Metric.yaml'
+Project:
+  $ref: './Project.yaml'
+Segment:
+  $ref: './Segment.yaml'
+Feature:
+  $ref: './Feature.yaml'
+FeatureEnvironment:
+  $ref: './FeatureEnvironment.yaml'
+FeatureRule:
+  $ref: './FeatureRule.yaml'
+FeatureDefinition:
+  $ref: './FeatureDefinition.yaml'
+FeatureForceRule:
+  $ref: './FeatureForceRule.yaml'
+FeatureRolloutRule:
+  $ref: './FeatureRolloutRule.yaml'
+FeatureExperimentRule:
+  $ref: './FeatureExperimentRule.yaml'
+FeatureExperimentRefRule:
+  $ref: './FeatureExperimentRefRule.yaml'
+SdkConnection:
+  $ref: './SdkConnection.yaml'
+Experiment:
+  $ref: './Experiment.yaml'
+ExperimentMetric:
+  $ref: './ExperimentMetric.yaml'
+ExperimentAnalysisSettings:
+  $ref: './ExperimentAnalysisSettings.yaml'
+ExperimentResults:
+  $ref: './ExperimentResults.yaml'
+DataSource:
+  $ref: './DataSource.yaml'
+VisualChangeset:
+  $ref: './VisualChangeset.yaml'
+VisualChange:
+  $ref: './VisualChange.yaml'
+SavedGroup:
+  $ref: './SavedGroup.yaml'

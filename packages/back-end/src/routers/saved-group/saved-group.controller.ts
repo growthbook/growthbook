@@ -1,4 +1,5 @@
 import type { Response } from "express";
+import { isEqual } from "lodash";
 import { AuthRequest } from "../../types/AuthRequest";
 import { ApiErrorResponse } from "../../../types/api";
 import { getOrgFromReq } from "../../services/organizations";
@@ -7,8 +8,7 @@ import {
   createSavedGroup,
   deleteSavedGroupById,
   getSavedGroupById,
-  parseSavedGroupString,
-  updateSavedGroup,
+  updateSavedGroupById,
 } from "../../models/SavedGroupModel";
 import {
   auditDetailsCreate,
@@ -23,7 +23,7 @@ type CreateSavedGroupRequest = AuthRequest<{
   groupName: string;
   owner: string;
   attributeKey: string;
-  groupList: string;
+  groupList: string[];
 }>;
 
 type CreateSavedGroupResponse = {
@@ -46,10 +46,8 @@ export const postSavedGroup = async (
 
   req.checkPermissions("manageSavedGroups");
 
-  const values = parseSavedGroupString(groupList);
-
   const savedGroup = await createSavedGroup({
-    values,
+    values: groupList,
     groupName,
     owner,
     attributeKey,
@@ -81,7 +79,7 @@ type PutSavedGroupRequest = AuthRequest<
     groupName: string;
     owner: string;
     attributeKey: string;
-    groupList: string;
+    groupList: string[];
   },
   { id: string }
 >;
@@ -116,10 +114,8 @@ export const putSavedGroup = async (
     throw new Error("Could not find saved group");
   }
 
-  const values = parseSavedGroupString(groupList);
-
-  const changes = await updateSavedGroup(id, org.id, {
-    values,
+  const changes = await updateSavedGroupById(id, org.id, {
+    values: groupList,
     groupName,
     owner,
   });
@@ -137,7 +133,7 @@ export const putSavedGroup = async (
   });
 
   // If the values change, we need to invalidate cached feature rules
-  if (savedGroup.values !== values) {
+  if (!isEqual(savedGroup.values, groupList)) {
     savedGroupUpdated(org, savedGroup.id);
   }
 

@@ -30,9 +30,12 @@ const config = {
       /** @type {import('@docusaurus/preset-classic').Options} */
       ({
         docs: {
+          breadcrumbs: true,
           remarkPlugins: [
             [require("@docusaurus/remark-plugin-npm2yarn"), { sync: true }],
+            require("remark-math"),
           ],
+          rehypePlugins: [require("rehype-katex")],
           sidebarPath: require.resolve("./sidebars.js"),
           routeBasePath: "/", // Serve the docs at the site's root
           // Please change this to your repo.
@@ -48,6 +51,18 @@ const config = {
         },
       }),
     ],
+    [
+      "redocusaurus",
+      {
+        // Plugin Options for loading OpenAPI files
+        specs: [
+          {
+            spec: "../packages/back-end/generated/spec.yaml",
+            route: "/api/",
+          },
+        ],
+      },
+    ],
   ],
 
   themeConfig:
@@ -62,6 +77,17 @@ const config = {
           srcDark: "img/growthbook-docslogo-dark.png",
         },
         items: [
+          {
+            to: "/",
+            label: "Docs",
+            activeBaseRegex: "/(?!api)",
+            position: "left",
+          },
+          {
+            to: "/api",
+            label: "API",
+            position: "left",
+          },
           {
             href: "https://growthbook.io",
             label: "Home",
@@ -145,6 +171,7 @@ const config = {
           "swift",
           "dart",
           "groovy",
+          "scala",
         ],
       },
       colorMode: {
@@ -177,6 +204,16 @@ const config = {
       },
     },
   plugins: ["docusaurus-plugin-sass"],
+
+  stylesheets: [
+    {
+      href: "https://cdn.jsdelivr.net/npm/katex@0.13.24/dist/katex.min.css",
+      type: "text/css",
+      integrity:
+        "sha384-odtC+0UGzzFL/6PNoE8rX/SPcQDXBJ+uRepguP4QkPCm2LBxH3FA3y+fKSiJ+AmM",
+      crossorigin: "anonymous",
+    },
+  ],
 };
 
 module.exports = config;

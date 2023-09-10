@@ -9,7 +9,7 @@ import {
 import { EventInterface } from "../../types/event";
 import { errorStringFromZodResult } from "../util/validation";
 import { logger } from "../util/logger";
-import { NotificationEvent } from "../events/base-events";
+import { NotificationEvent } from "../events/notification-events";
 
 const eventSchema = new mongoose.Schema({
   id: {
@@ -43,6 +43,23 @@ const eventSchema = new mongoose.Schema({
             event: z.enum(notificationEventNames),
             object: z.enum(notificationEventResources),
             data: z.any(),
+            user: z.union([
+              z
+                .object({
+                  type: z.literal("dashboard"),
+                  id: z.string(),
+                  email: z.string(),
+                  name: z.string(),
+                })
+                .strict(),
+              z
+                .object({
+                  type: z.literal("api_key"),
+                  apiKey: z.string(),
+                })
+                .strict(),
+              z.null(),
+            ]),
           })
           .strict();
 
@@ -50,7 +67,13 @@ const eventSchema = new mongoose.Schema({
 
         if (!result.success) {
           const errorString = errorStringFromZodResult(result);
-          logger.error(errorString, "Invalid Event data");
+          logger.error(
+            {
+              error: JSON.stringify(errorString, null, 2),
+              result: JSON.stringify(result, null, 2),
+            },
+            "Invalid Event data"
+          );
         }
 
         return result.success;
@@ -71,33 +94,43 @@ type EventDocument<T> = mongoose.Document & EventInterface<T>;
  * @returns
  */
 const toInterface = <T>(doc: EventDocument<T>): EventInterface<T> =>
-  omit(doc.toJSON(), ["__v", "_id"]) as EventInterface<T>;
+  omit(
+    doc.toJSON<EventInterface<T>>({ flattenMaps: true }),
+    ["__v", "_id"]
+  ) as EventInterface<T>;
 
-const EventModel = mongoose.model<EventDocument<unknown>>("Event", eventSchema);
+const EventModel = mongoose.model<EventInterface<unknown>>(
+  "Event",
+  eventSchema
+);
 
 /**
  * Create an event under an organization.
  *
  * @param organizationId
  * @param data
- * @throws Error when validation fails
  * @returns
  */
 export const createEvent = async (
   organizationId: string,
   data: NotificationEvent
-): Promise<EventInterface<NotificationEvent>> => {
-  const eventId = `event-${randomUUID()}`;
-  const doc = await EventModel.create({
-    id: eventId,
-    event: data.event,
-    object: data.object,
-    dateCreated: new Date(),
-    organizationId,
-    data: data,
-  });
+): Promise<EventInterface<NotificationEvent> | null> => {
+  try {
+    const eventId = `event-${randomUUID()}`;
+    const doc = await EventModel.create({
+      id: eventId,
+      event: data.event,
+      object: data.object,
+      dateCreated: new Date(),
+      organizationId,
+      data: data,
+    });
 
-  return toInterface(doc) as EventInterface<NotificationEvent>;
+    return toInterface(doc) as EventInterface<NotificationEvent>;
+  } catch (e) {
+    logger.error(e);
+    return null;
+  }
 };
 
 /**
@@ -127,7 +160,7 @@ export const getEventForOrganization = async (
 /**
  * Get all events for an organization
  * @param organizationId
- * @param limit
+ * @param limit  Providing 0 as a limit will return all events
  * @returns
  */
 export const getLatestEventsForOrganization = async (

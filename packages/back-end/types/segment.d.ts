@@ -6,6 +6,7 @@ export interface SegmentInterface {
   userIdType: string;
   name: string;
   sql: string;
-  dateCreated: Date;
-  dateUpdated: Date;
+  dateCreated: Date | null;
+  dateUpdated: Date | null;
+  description?: string;
 }

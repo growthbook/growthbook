@@ -15,11 +15,15 @@ const NorthStarMetricDisplay = ({
   metricId,
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   window,
-  resolution,
+  smoothBy,
+  hoverDate,
+  onHoverCallback,
 }: {
   metricId: string;
   window?: number | string;
-  resolution?: string;
+  smoothBy?: string;
+  hoverDate?: number | null;
+  onHoverCallback?: (ret: { d: number | null }) => void;
 }): React.ReactElement => {
   const { project } = useDefinitions();
   const permissions = usePermissions();
@@ -47,30 +51,37 @@ const NorthStarMetricDisplay = ({
     : data.experiments;
   let analysis = data.metric.analysis;
   if (!analysis || !("average" in analysis)) {
+    // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'null' is not assignable to type 'MetricAnaly... Remove this comment to see the full error message
     analysis = null;
   }
-  const status = getQueryStatus(metric.queries || [], metric.analysisError);
+  const { status } = getQueryStatus(metric.queries || [], metric.analysisError);
   const hasQueries = metric.queries?.length > 0;
 
   return (
     <>
-      <div>
+      <div className="mt-2">
         {analysis && analysis?.dates && analysis.dates.length > 0 ? (
           <div className="mb-4">
-            <h5 className="mb-3">{metric.name}</h5>
+            <h4 className="mb-3">{metric.name}</h4>
+            <strong className="ml-4 align-bottom">
+              Daily {metric.type !== "binomial" ? "Average" : "Count"}
+            </strong>
             <DateGraph
               type={metric.type}
               dates={analysis.dates}
               experiments={experiments}
               showStdDev={false}
-              groupby={resolution === "week" ? "week" : "day"}
+              smoothBy={smoothBy === "week" ? "week" : "day"}
               height={300}
+              method={metric.type !== "binomial" ? "avg" : "sum"}
+              onHover={onHoverCallback}
+              hoverDate={hoverDate}
             />
           </div>
         ) : (
           <div className="mb-4">
-            <h5 className="my-3">{metric.name}</h5>
-            {permissions.check("runQueries", "") && (
+            <h4 className="my-3">{metric.name}</h4>
+            {permissions.check("runQueries", metric.projects || "") && (
               <form
                 onSubmit={async (e) => {
                   e.preventDefault();
@@ -87,17 +98,11 @@ const NorthStarMetricDisplay = ({
                 <RunQueriesButton
                   icon="refresh"
                   cta={analysis ? "Refresh Data" : "Run Analysis"}
-                  initialStatus={getQueryStatus(
-                    metric.queries || [],
-                    metric.analysisError
-                  )}
-                  statusEndpoint={`/metric/${metric.id}/analysis/status`}
+                  model={metric}
                   cancelEndpoint={`/metric/${metric.id}/analysis/cancel`}
                   color="outline-primary"
                   position="left"
-                  onReady={() => {
-                    mutate();
-                  }}
+                  mutate={mutate}
                 />
               </form>
             )}

@@ -21,3 +21,19 @@ export const Default = () => {
     </div>
   );
 };
+
+export const EmptyString = () => {
+  const rangeOptions = {
+    range: true,
+    min: 20,
+    max: 400,
+  };
+  return (
+    <div>
+      <Avatar
+        email={text("email", "")}
+        size={number("Size", 100, rangeOptions)}
+      />
+    </div>
+  );
+};

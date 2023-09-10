@@ -1,5 +1,6 @@
 import { FC, ChangeEventHandler } from "react";
 import { DatabricksConnectionParams } from "back-end/types/integrations/databricks";
+import Field from "../Forms/Field";
 import HostWarning from "./HostWarning";
 
 const DatabricksForm: FC<{
@@ -12,6 +13,7 @@ const DatabricksForm: FC<{
     <div className="row">
       <div className="col-md-12">
         <HostWarning
+          // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'string | undefined' is not assignable to typ... Remove this comment to see the full error message
           host={params.host}
           setHost={(host) => {
             setParams({
@@ -62,6 +64,15 @@ const DatabricksForm: FC<{
           value={params.token || ""}
           onChange={onParamChange}
           placeholder={existing ? "(Keep existing)" : ""}
+        />
+      </div>
+      <div className="form-group col-md-12">
+        <Field
+          label="Default Catalog (Recommended)"
+          helpText="This will help GrowthBook generate the initial SQL queries used to define things like Metrics and Experiment Assignments."
+          value={params.catalog || ""}
+          onChange={onParamChange}
+          name="catalog"
         />
       </div>
     </div>

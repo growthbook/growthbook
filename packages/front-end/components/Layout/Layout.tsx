@@ -2,14 +2,19 @@ import Link from "next/link";
 import { useState } from "react";
 import clsx from "clsx";
 import { useRouter } from "next/router";
-import { BsFlag, BsClipboardCheck, BsLightbulb } from "react-icons/bs";
+import {
+  BsFlag,
+  BsClipboardCheck,
+  BsLightbulb,
+  BsCodeSlash,
+} from "react-icons/bs";
 import { FaArrowRight } from "react-icons/fa";
-import { getGrowthBookBuild } from "../../services/env";
+import { getGrowthBookBuild } from "@/services/env";
+import { useUser } from "@/services/UserContext";
 import useOrgSettings from "../../hooks/useOrgSettings";
-import { GBExperiment, GBPremiumBadge, GBSettings } from "../Icons";
+import { GBDatabase, GBExperiment, GBPremiumBadge, GBSettings } from "../Icons";
 import { inferDocUrl } from "../DocLink";
 import UpgradeModal from "../Settings/UpgradeModal";
-import { useUser } from "../../services/UserContext";
 import ProjectSelector from "./ProjectSelector";
 import SidebarLink, { SidebarLinkProps } from "./SidebarLink";
 import TopNav from "./TopNav";
@@ -23,59 +28,26 @@ const navlinks: SidebarLinkProps[] = [
     Icon: BsLightbulb,
     path: /^getstarted/,
     className: styles.first,
-    feature: "guided-onboarding-test-august-2022",
   },
   {
     name: "Features",
     href: "/features",
     Icon: BsFlag,
-    path: /^(features|attributes|namespaces|environments|saved-groups|sdks)/,
-    autoClose: true,
-    subLinks: [
-      {
-        name: "All Features",
-        href: "/features",
-        path: /^features/,
-      },
-      {
-        name: "SDKs",
-        href: "/sdks",
-        path: /^sdks/,
-      },
-      {
-        name: "Attributes",
-        href: "/attributes",
-        path: /^attributes/,
-      },
-      {
-        name: "Namespaces",
-        href: "/namespaces",
-        path: /^namespaces/,
-      },
-      {
-        name: "Environments",
-        href: "/environments",
-        path: /^environments/,
-      },
-      {
-        name: "Saved Groups",
-        href: "/saved-groups",
-        path: /^saved-groups/,
-      },
-    ],
+    path: /^features/,
   },
   {
-    name: "Analysis",
+    name: "Experiments",
     href: "/experiments",
+    path: /^experiment/,
     Icon: GBExperiment,
-    path: /^(experiment|metric|segment|dimension|datasources)/,
+  },
+  {
+    name: "Metrics and Data",
+    href: "/metrics",
+    path: /^(metric|segment|dimension|datasources)/,
     autoClose: true,
+    Icon: GBDatabase,
     subLinks: [
-      {
-        name: "Experiments",
-        href: "/experiments",
-        path: /^experiment/,
-      },
       {
         name: "Metrics",
         href: "/metrics",
@@ -123,16 +95,49 @@ const navlinks: SidebarLinkProps[] = [
     ],
   },
   {
+    name: "SDK Configuration",
+    href: "/sdks",
+    path: /^(attributes|namespaces|environments|saved-groups|sdks)/,
+    autoClose: true,
+    Icon: BsCodeSlash,
+    subLinks: [
+      {
+        name: "SDK Connections",
+        href: "/sdks",
+        path: /^sdks/,
+      },
+      {
+        name: "Attributes",
+        href: "/attributes",
+        path: /^attributes/,
+      },
+      {
+        name: "Namespaces",
+        href: "/namespaces",
+        path: /^namespaces/,
+      },
+      {
+        name: "Environments",
+        href: "/environments",
+        path: /^environments/,
+      },
+      {
+        name: "Saved Groups",
+        href: "/saved-groups",
+        path: /^saved-groups/,
+      },
+    ],
+  },
+  {
     name: "Settings",
     href: "/settings",
     Icon: GBSettings,
-    path: /^(settings|admin|projects)/,
+    path: /^(settings|admin|projects|integrations)/,
     autoClose: true,
     permissions: [
       "organizationSettings",
       "manageTeam",
       "manageTags",
-      "manageProjects",
       "manageApiKeys",
       "manageBilling",
       "manageWebhooks",
@@ -159,7 +164,7 @@ const navlinks: SidebarLinkProps[] = [
       {
         name: "Projects",
         href: "/projects",
-        path: /^projects/,
+        path: /^project/,
         permissions: ["manageProjects"],
       },
       {
@@ -178,6 +183,26 @@ const navlinks: SidebarLinkProps[] = [
         href: "/settings/webhooks",
         path: /^settings\/webhooks/,
         permissions: ["manageWebhooks"],
+      },
+      {
+        name: "Logs",
+        href: "/events",
+        path: /^events/,
+        permissions: ["viewEvents"],
+      },
+      {
+        name: "Slack",
+        href: "/integrations/slack",
+        path: /^integrations\/slack/,
+        feature: "slack-integration",
+        permissions: ["manageIntegrations"],
+      },
+      {
+        name: "Import your data",
+        href: "/importing",
+        path: /^importing/,
+        feature: "import-from-x",
+        permissions: ["manageFeatures", "manageEnvironments", "manageProjects"],
       },
       {
         name: "Billing",
@@ -231,6 +256,7 @@ const otherPageTitles = [
 
 const backgroundShade = (color: string) => {
   // convert to RGB
+  // @ts-expect-error TS(2769) If you come across this, please fix it!: No overload matches this call.
   const c = +("0x" + color.slice(1).replace(color.length < 5 && /./g, "$&$&"));
   const r = c >> 16;
   const g = (c >> 8) & 255;
@@ -250,6 +276,7 @@ const Layout = (): React.ReactElement => {
   const { accountPlan } = useUser();
 
   const [upgradeModal, setUpgradeModal] = useState(false);
+  // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'string | undefined' is not assig... Remove this comment to see the full error message
   const showUpgradeButton = ["oss", "starter"].includes(accountPlan);
 
   // hacky:
@@ -257,6 +284,7 @@ const Layout = (): React.ReactElement => {
   const path = router.route.substr(1);
   // don't show the nav for presentations
   if (path.match(/^present\//)) {
+    // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'null' is not assignable to type 'ReactElemen... Remove this comment to see the full error message
     return null;
   }
 
@@ -282,6 +310,7 @@ const Layout = (): React.ReactElement => {
   let customStyles = ``;
   if (settings?.customized) {
     const textColor =
+      // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'string | undefined' is not assig... Remove this comment to see the full error message
       backgroundShade(settings?.primaryColor) === "dark" ? "#fff" : "#444";
 
     // we could support saving this CSS in the settings so it can be customized
@@ -409,7 +438,7 @@ const Layout = (): React.ReactElement => {
                 </>
               ) : (
                 <>
-                  Upgrade to Pro <GBPremiumBadge />
+                  Try Pro <GBPremiumBadge />
                 </>
               )}
             </button>
@@ -444,6 +473,7 @@ const Layout = (): React.ReactElement => {
       </div>
 
       <TopNav
+        // @ts-expect-error TS(2454) If you come across this, please fix it!: Variable 'pageTitle' is used before being assigned... Remove this comment to see the full error message
         pageTitle={pageTitle}
         showNotices={true}
         toggleLeftMenu={() => setOpen(!open)}

@@ -32,10 +32,13 @@ export default function ProjectBadges({
   );
   if (!filteredProjects.length) return null;
   if (sort) {
-    filteredProjects = filteredProjects.sort(
-      (a, b) =>
+    filteredProjects = filteredProjects.sort((a, b) => {
+      if (!a) return -1;
+      if (!b) return 1;
+      return (
         new Date(a.dateCreated).getTime() - new Date(b.dateCreated).getTime()
-    );
+      );
+    });
   }
 
   return (

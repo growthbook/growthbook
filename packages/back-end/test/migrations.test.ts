@@ -1,10 +1,19 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
 import cloneDeep from "lodash/cloneDeep";
-import { MetricInterface } from "../types/metric";
 import {
+  DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
+  DEFAULT_STATS_ENGINE,
+} from "shared/constants";
+import { LegacyMetricInterface, MetricInterface } from "../types/metric";
+import {
+  migrateSnapshot,
   upgradeDatasourceObject,
+  upgradeExperimentDoc,
   upgradeFeatureInterface,
   upgradeFeatureRule,
   upgradeMetricDoc,
+  upgradeOrganizationDoc,
 } from "../src/util/migrations";
 import { DataSourceInterface, DataSourceSettings } from "../types/datasource";
 import { encryptParams } from "../src/services/datasource";
@@ -16,8 +25,15 @@ import {
   FeatureRule,
   LegacyFeatureInterface,
 } from "../types/feature";
+import { OrganizationInterface } from "../types/organization";
+import {
+  ExperimentSnapshotInterface,
+  LegacyExperimentSnapshotInterface,
+} from "../types/experiment-snapshot";
+import { ExperimentReportResultDimension } from "../types/report";
+import { Queries } from "../types/query";
 
-describe("backend", () => {
+describe("Metric Migration", () => {
   it("updates old metric objects - earlyStart", () => {
     const baseMetric: MetricInterface = {
       datasource: "",
@@ -72,8 +88,51 @@ describe("backend", () => {
     });
   });
 
+  it("updates old metric objects - cap", () => {
+    const baseMetric: LegacyMetricInterface = {
+      datasource: "",
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
+      description: "",
+      id: "",
+      ignoreNulls: false,
+      inverse: false,
+      name: "",
+      organization: "",
+      owner: "",
+      queries: [],
+      runStarted: null,
+      type: "binomial",
+      userIdColumns: {
+        user_id: "user_id",
+        anonymous_id: "anonymous_id",
+      },
+      userIdTypes: ["anonymous_id", "user_id"],
+    };
+
+    const capMetric: LegacyMetricInterface = {
+      ...baseMetric,
+      cap: 35,
+    };
+
+    expect(upgradeMetricDoc(capMetric)).toEqual({
+      ...baseMetric,
+      capping: "absolute",
+      capValue: 35,
+    });
+
+    const capZeroMetric: LegacyMetricInterface = {
+      ...baseMetric,
+      cap: 0,
+    };
+
+    expect(upgradeMetricDoc(capZeroMetric)).toEqual({
+      ...baseMetric,
+    });
+  });
+
   it("updates old metric objects - userIdType", () => {
-    const baseMetric: MetricInterface = {
+    const baseMetric: LegacyMetricInterface = {
       datasource: "",
       dateCreated: new Date(),
       dateUpdated: new Date(),
@@ -89,7 +148,7 @@ describe("backend", () => {
       type: "binomial",
     };
 
-    const userId: MetricInterface = {
+    const userId: LegacyMetricInterface = {
       ...baseMetric,
       userIdType: "user",
     };
@@ -101,7 +160,7 @@ describe("backend", () => {
       },
     });
 
-    const anonymousId: MetricInterface = {
+    const anonymousId: LegacyMetricInterface = {
       ...baseMetric,
       userIdType: "anonymous",
     };
@@ -113,7 +172,7 @@ describe("backend", () => {
       },
     });
 
-    const either: MetricInterface = {
+    const either: LegacyMetricInterface = {
       ...baseMetric,
       userIdType: "either",
     };
@@ -126,7 +185,7 @@ describe("backend", () => {
       },
     });
 
-    const userIdTypesAlreadyDefined: MetricInterface = {
+    const userIdTypesAlreadyDefined: LegacyMetricInterface = {
       ...baseMetric,
       userIdType: "either",
       userIdTypes: ["blah"],
@@ -140,7 +199,7 @@ describe("backend", () => {
   });
 
   it("updates old metric objects - userIdColumns", () => {
-    const baseMetric: MetricInterface = {
+    const baseMetric: LegacyMetricInterface = {
       datasource: "",
       dateCreated: new Date(),
       dateUpdated: new Date(),
@@ -157,7 +216,7 @@ describe("backend", () => {
       userIdTypes: ["anonymous_id", "user_id"],
     };
 
-    const userIdCol: MetricInterface = {
+    const userIdCol: LegacyMetricInterface = {
       ...baseMetric,
       userIdColumn: "foo",
     };
@@ -169,7 +228,7 @@ describe("backend", () => {
       },
     });
 
-    const anonymousIdCol: MetricInterface = {
+    const anonymousIdCol: LegacyMetricInterface = {
       ...baseMetric,
       anonymousIdColumn: "foo",
     };
@@ -181,7 +240,7 @@ describe("backend", () => {
       },
     });
 
-    const userIdColumnsAlreadyDefined: MetricInterface = {
+    const userIdColumnsAlreadyDefined: LegacyMetricInterface = {
       ...baseMetric,
       userIdColumn: "foo",
       anonymousIdColumn: "bar",
@@ -194,12 +253,15 @@ describe("backend", () => {
       ...userIdColumnsAlreadyDefined,
     });
   });
+});
 
+describe("Datasource Migration", () => {
   it("updates old datasource objects - userIdTypes", () => {
     const baseDatasource: DataSourceInterface = {
       dateCreated: new Date(),
       dateUpdated: new Date(),
       id: "",
+      description: "",
       name: "",
       organization: "",
       params: encryptParams({
@@ -252,6 +314,7 @@ describe("backend", () => {
     const ds: DataSourceInterface = {
       dateCreated: new Date(),
       dateUpdated: new Date(),
+      description: "",
       id: "",
       name: "",
       organization: "",
@@ -315,6 +378,7 @@ describe("backend", () => {
       dateUpdated: new Date(),
       id: "",
       name: "",
+      description: "",
       organization: "",
       params: encryptParams({
         database: "",
@@ -366,7 +430,9 @@ describe("backend", () => {
       },
     });
   });
+});
 
+describe("Feature Migration", () => {
   it("updates old feature objects", () => {
     const rule: FeatureRule = {
       id: "fr_123",
@@ -383,7 +449,7 @@ describe("backend", () => {
       defaultValue: "true",
       valueType: "boolean",
       id: "",
-    };
+    } as any;
 
     expect(
       upgradeFeatureInterface({
@@ -763,5 +829,529 @@ describe("backend", () => {
     expect(newFeature.environmentSettings["prod"].rules[0]).toEqual(newRule);
     expect(newFeature.environmentSettings["test"].rules[0]).toEqual(newRule);
     expect(newFeature.draft.rules["dev"][0]).toEqual(newRule);
+  });
+});
+
+describe("Experiment Migration", () => {
+  it("upgrades experiment objects", () => {
+    const exp: any = {
+      trackingKey: "test",
+      attributionModel: "allExposures",
+      variations: [
+        {
+          screenshots: [],
+          name: "",
+        },
+        {
+          screenshots: [],
+        },
+        {
+          id: "foo",
+          key: "bar",
+          name: "Baz",
+          screenshots: [],
+        },
+      ],
+      phases: [
+        {
+          phase: "main",
+        },
+        {
+          phase: "main",
+          name: "New Name",
+        },
+      ],
+    };
+
+    const upgraded = {
+      trackingKey: "test",
+      hashAttribute: "",
+      hashVersion: 2,
+      releasedVariationId: "",
+      attributionModel: "experimentDuration",
+      variations: [
+        {
+          id: "0",
+          key: "0",
+          name: "Control",
+          screenshots: [],
+        },
+        {
+          id: "1",
+          key: "1",
+          name: "Variation 1",
+          screenshots: [],
+        },
+        {
+          id: "foo",
+          key: "bar",
+          name: "Baz",
+          screenshots: [],
+        },
+      ],
+      phases: [
+        {
+          phase: "main",
+          name: "Main",
+          condition: "",
+          coverage: 1,
+          seed: "test",
+          namespace: {
+            enabled: false,
+            name: "",
+            range: [0, 1],
+          },
+        },
+        {
+          phase: "main",
+          name: "New Name",
+          condition: "",
+          coverage: 1,
+          seed: "test",
+          namespace: {
+            enabled: false,
+            name: "",
+            range: [0, 1],
+          },
+        },
+      ],
+      sequentialTestingEnabled: false,
+      sequentialTestingTuningParameter: DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
+    };
+
+    expect(upgradeExperimentDoc(exp)).toEqual(upgraded);
+
+    expect(
+      upgradeExperimentDoc({
+        ...exp,
+        status: "stopped",
+        results: "dnf",
+      })
+    ).toEqual({
+      ...upgraded,
+      status: "stopped",
+      results: "dnf",
+    });
+
+    expect(
+      upgradeExperimentDoc({
+        ...exp,
+        status: "stopped",
+        results: "lost",
+      })
+    ).toEqual({
+      ...upgraded,
+      status: "stopped",
+      results: "lost",
+      releasedVariationId: "0",
+    });
+
+    expect(
+      upgradeExperimentDoc({
+        ...exp,
+        status: "stopped",
+        results: "won",
+      })
+    ).toEqual({
+      ...upgraded,
+      status: "stopped",
+      results: "won",
+      releasedVariationId: "1",
+    });
+
+    expect(
+      upgradeExperimentDoc({
+        ...exp,
+        status: "stopped",
+        results: "won",
+        winner: 2,
+      })
+    ).toEqual({
+      ...upgraded,
+      status: "stopped",
+      results: "won",
+      winner: 2,
+      releasedVariationId: "foo",
+    });
+
+    // Doesn't overwrite other attribution models
+    expect(
+      upgradeExperimentDoc({
+        ...exp,
+        attributionModel: "firstExposure",
+      })
+    ).toEqual({
+      ...upgraded,
+      attributionModel: "firstExposure",
+    });
+  });
+});
+
+describe("Organization Migration", () => {
+  it("Upgrades old Organization objects", () => {
+    const org: OrganizationInterface = {
+      dateCreated: new Date(),
+      id: "",
+      invites: [],
+      members: [],
+      name: "",
+      ownerEmail: "",
+      url: "",
+    };
+
+    expect(
+      upgradeOrganizationDoc({
+        ...org,
+      })
+    ).toEqual({
+      ...org,
+      settings: {
+        attributeSchema: [
+          { property: "id", datatype: "string", hashAttribute: true },
+          { property: "deviceId", datatype: "string", hashAttribute: true },
+          { property: "company", datatype: "string", hashAttribute: true },
+          { property: "loggedIn", datatype: "boolean" },
+          { property: "employee", datatype: "boolean" },
+          { property: "country", datatype: "string" },
+          { property: "browser", datatype: "string" },
+          { property: "url", datatype: "string" },
+        ],
+        defaultRole: {
+          role: "collaborator",
+          environments: [],
+          limitAccessByEnvironment: false,
+        },
+        statsEngine: DEFAULT_STATS_ENGINE,
+        environments: [
+          {
+            id: "dev",
+            description: "",
+            toggleOnList: true,
+          },
+          {
+            id: "production",
+            description: "",
+            toggleOnList: true,
+          },
+        ],
+      },
+    });
+  });
+});
+
+describe("Snapshot Migration", () => {
+  it("upgrades legacy snapshot instances", () => {
+    const results: ExperimentReportResultDimension[] = [
+      {
+        name: "foo",
+        srm: 0.5,
+        variations: [
+          {
+            users: 100,
+            metrics: {
+              met_abc: {
+                cr: 0.5,
+                users: 100,
+                value: 50,
+              },
+            },
+          },
+          {
+            users: 100,
+            metrics: {
+              met_abc: {
+                cr: 0.6,
+                users: 100,
+                value: 60,
+              },
+            },
+          },
+        ],
+      },
+    ];
+
+    const queries: Queries = [
+      {
+        name: "foo",
+        query: "select foo",
+        status: "succeeded",
+      },
+    ];
+
+    const now = new Date();
+
+    const initial: Partial<LegacyExperimentSnapshotInterface> = {
+      id: "snp_abc123",
+      organization: "org_123",
+      experiment: "exp_123",
+      phase: 1,
+      dateCreated: now,
+      runStarted: now,
+      manual: false,
+      queries: queries,
+      dimension: "pre:date",
+      unknownVariations: ["3"],
+      multipleExposures: 5,
+      hasCorrectedStats: true,
+      results: results,
+      hasRawQueries: true,
+      queryFilter: "foo = 1",
+      segment: "seg_123",
+      activationMetric: "met_123",
+      skipPartialData: false,
+      statsEngine: "bayesian",
+    };
+
+    const result: ExperimentSnapshotInterface = {
+      id: "snp_abc123",
+      organization: "org_123",
+      experiment: "exp_123",
+      phase: 1,
+      dateCreated: now,
+      runStarted: now,
+      queries: queries,
+      dimension: "pre:date",
+      unknownVariations: ["3"],
+      multipleExposures: 5,
+      analyses: [
+        {
+          dateCreated: now,
+          results: results,
+          status: "success",
+          settings: {
+            dimensions: ["pre:date"],
+            statsEngine: "bayesian",
+            pValueCorrection: null,
+            regressionAdjusted: false,
+            sequentialTesting: false,
+            sequentialTestingTuningParameter: 5000,
+          },
+        },
+      ],
+      settings: {
+        queryFilter: "foo = 1",
+        activationMetric: "met_123",
+        attributionModel: "firstExposure",
+        datasourceId: "",
+        dimensions: [
+          {
+            id: "pre:date",
+          },
+        ],
+        endDate: now,
+        experimentId: "",
+        exposureQueryId: "",
+        goalMetrics: ["met_abc"],
+        guardrailMetrics: [],
+        manual: false,
+        metricSettings: [
+          {
+            id: "met_abc",
+            computedSettings: {
+              conversionDelayHours: 0,
+              conversionWindowHours: 72,
+              regressionAdjustmentDays: 0,
+              regressionAdjustmentEnabled: false,
+              regressionAdjustmentReason: "",
+            },
+          },
+          {
+            id: "met_123",
+            computedSettings: {
+              conversionDelayHours: 0,
+              conversionWindowHours: 72,
+              regressionAdjustmentDays: 0,
+              regressionAdjustmentEnabled: false,
+              regressionAdjustmentReason: "",
+            },
+          },
+        ],
+        regressionAdjustmentEnabled: false,
+        segment: "seg_123",
+        skipPartialData: false,
+        startDate: now,
+        variations: [
+          { id: "0", weight: 0 },
+          { id: "1", weight: 0 },
+        ],
+      },
+      status: "success",
+    };
+
+    expect(
+      migrateSnapshot(initial as LegacyExperimentSnapshotInterface)
+    ).toEqual(result);
+  });
+
+  it("migrates mixpanel snapshots", () => {
+    const now = new Date();
+
+    const initial: Partial<LegacyExperimentSnapshotInterface> = {
+      id: "snp_abc123",
+      organization: "org_123",
+      experiment: "exp_123",
+      phase: 1,
+      dateCreated: now,
+      runStarted: now,
+      manual: false,
+      query: "foo",
+      queryLanguage: "javascript",
+      dimension: "",
+      hasRawQueries: true,
+    };
+
+    const result: ExperimentSnapshotInterface = {
+      id: "snp_abc123",
+      organization: "org_123",
+      experiment: "exp_123",
+      phase: 1,
+      dateCreated: now,
+      runStarted: now,
+      queries: [],
+      dimension: "",
+      unknownVariations: [],
+      multipleExposures: 0,
+      analyses: [],
+      settings: {
+        queryFilter: "",
+        activationMetric: null,
+        attributionModel: "firstExposure",
+        datasourceId: "",
+        dimensions: [],
+        endDate: now,
+        experimentId: "",
+        exposureQueryId: "",
+        goalMetrics: [],
+        guardrailMetrics: [],
+        manual: false,
+        metricSettings: [],
+        regressionAdjustmentEnabled: false,
+        segment: "",
+        skipPartialData: false,
+        startDate: now,
+        variations: [],
+      },
+      status: "running",
+    };
+
+    expect(
+      migrateSnapshot(initial as LegacyExperimentSnapshotInterface)
+    ).toEqual(result);
+
+    initial.error = "foo";
+    result.error = "foo";
+    result.status = "error";
+    expect(
+      migrateSnapshot(initial as LegacyExperimentSnapshotInterface)
+    ).toEqual(result);
+  });
+
+  it("migrates manual snapshots", () => {
+    const now = new Date();
+
+    const results: ExperimentReportResultDimension[] = [
+      {
+        name: "foo",
+        srm: 0.5,
+        variations: [
+          {
+            users: 100,
+            metrics: {
+              met_abc: {
+                cr: 0.5,
+                users: 100,
+                value: 50,
+              },
+            },
+          },
+          {
+            users: 100,
+            metrics: {
+              met_abc: {
+                cr: 0.6,
+                users: 100,
+                value: 60,
+              },
+            },
+          },
+        ],
+      },
+    ];
+
+    const initial: Partial<LegacyExperimentSnapshotInterface> = {
+      id: "snp_abc123",
+      organization: "org_123",
+      experiment: "exp_123",
+      phase: 1,
+      dateCreated: now,
+      manual: true,
+      results,
+    };
+
+    const result: ExperimentSnapshotInterface = {
+      id: "snp_abc123",
+      organization: "org_123",
+      experiment: "exp_123",
+      phase: 1,
+      dateCreated: now,
+      runStarted: null,
+      queries: [],
+      dimension: "",
+      unknownVariations: [],
+      multipleExposures: 0,
+      analyses: [
+        {
+          dateCreated: now,
+          results,
+          settings: {
+            dimensions: [],
+            statsEngine: "bayesian",
+            pValueCorrection: null,
+            regressionAdjusted: false,
+            sequentialTesting: false,
+            sequentialTestingTuningParameter: 5000,
+          },
+          status: "success",
+        },
+      ],
+      settings: {
+        queryFilter: "",
+        activationMetric: null,
+        attributionModel: "firstExposure",
+        datasourceId: "",
+        dimensions: [],
+        endDate: now,
+        experimentId: "",
+        exposureQueryId: "",
+        goalMetrics: ["met_abc"],
+        guardrailMetrics: [],
+        manual: true,
+        metricSettings: [
+          {
+            id: "met_abc",
+            computedSettings: {
+              conversionDelayHours: 0,
+              conversionWindowHours: 72,
+              regressionAdjustmentDays: 0,
+              regressionAdjustmentEnabled: false,
+              regressionAdjustmentReason: "",
+            },
+          },
+        ],
+        regressionAdjustmentEnabled: false,
+        segment: "",
+        skipPartialData: false,
+        startDate: now,
+        variations: [
+          { id: "0", weight: 0 },
+          { id: "1", weight: 0 },
+        ],
+      },
+      status: "success",
+    };
+
+    expect(
+      migrateSnapshot(initial as LegacyExperimentSnapshotInterface)
+    ).toEqual(result);
   });
 });

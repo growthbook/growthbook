@@ -12,6 +12,10 @@ class BaseABTest(ABC):
         self.stat_a = stat_a
         self.stat_b = stat_b
 
+    def _has_zero_variance(self) -> bool:
+        """Check if any variance is 0 or negative"""
+        return self.stat_a.variance <= 0 or self.stat_b.variance <= 0
+
     @abstractmethod
     def compute_result(self) -> TestResult:
         pass

@@ -17,7 +17,8 @@ import {
 } from "back-end/types/experiment";
 import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
 import clsx from "clsx";
-import CompactResults from "../Experiment/CompactResults";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import CompactResults_old from "../Experiment/CompactResults_old";
 import Markdown from "../Markdown/Markdown";
 import { presentationThemes, defaultTheme } from "./ShareModal";
 
@@ -48,8 +49,7 @@ const Presentation = ({
   customTheme,
   preview = false,
 }: Props): ReactElement => {
-  // make sure experiments are in the right order - we know the order is
-  // right in the presentation object. This could be done in the API
+  const { getMetricById } = useDefinitions();
   const em = new Map<
     string,
     {
@@ -57,11 +57,12 @@ const Presentation = ({
       snapshot?: ExperimentSnapshotInterface;
     }
   >();
+
   experiments.forEach((e) => {
-    em.set(e.experiment.id, e);
+    em.set(e?.experiment?.id ?? "", e);
   });
 
-  const expSlides = [];
+  const expSlides: JSX.Element[] = [];
   // use the list of experiments from the presentation or, if missing the
   // presentation (in the case of preview), from the list of experiments
   // passed in.
@@ -73,28 +74,30 @@ const Presentation = ({
   ).forEach((eid) => {
     // get the results in the right shape:
     const e = em.get(eid);
-
     // get the info on which variation to mark as winner/loser
-    const variationExtra = [];
+    const variationExtra: JSX.Element[] = [];
     let sideExtra = <></>;
     const variationsPlural =
-      e.experiment.variations.length > 2 ? "variations" : "variation";
+      (e?.experiment?.variations?.length || 0) !== 1
+        ? "variations"
+        : "variation";
 
-    e.experiment.variations.forEach((v, i) => {
+    e?.experiment?.variations?.forEach((v, i) => {
       variationExtra[i] = <Fragment key={`f-${i}`}></Fragment>;
     });
     let resultsText = "";
     if (
-      e.experiment?.status === "running" ||
-      e.experiment?.status === "draft"
+      e?.experiment?.status === "running" ||
+      e?.experiment?.status === "draft"
     ) {
       resultsText = "This experiment is still in progress";
     } else {
       // stopped:
-      if (e.experiment?.results) {
+      if (e?.experiment?.results) {
+        const winningVar = e?.experiment?.winner || 0;
         if (e.experiment.results === "won") {
           // if this is a two sided test, mark the winner:
-          variationExtra[e.experiment.winner] = (
+          variationExtra[winningVar] = (
             <Appear>
               <Text className="result variation-result result-winner text-center p-2 m-0">
                 Winner!
@@ -102,7 +105,7 @@ const Presentation = ({
             </Appear>
           );
           resultsText =
-            e.experiment.variations[e.experiment.winner]?.name +
+            (e?.experiment?.variations[winningVar]?.name ?? "") +
             " beat the control and won";
         } else if (e.experiment.results === "lost") {
           resultsText = `The ${variationsPlural} did not improve over the control`;
@@ -145,14 +148,30 @@ const Presentation = ({
     }
 
     expSlides.push(
-      <Slide key={expSlides.length}>
+      <Slide key={expSlides?.length ?? 0}>
         <div className="container-fluid">
-          <Heading className="m-0 pb-0">{e.experiment.name}</Heading>
-          <Text className="text-center m-0 mb-4 p-2" fontSize={21}>
-            {e.experiment.hypothesis}
+          <Heading className="m-0 pb-0">
+            {e?.experiment?.name ?? "Experiment"}
+          </Heading>
+          <Text className="text-center m-0 mb-4 p-2 px-5" fontSize={21}>
+            {e?.experiment?.hypothesis
+              ? "Hypothesis: " + e.experiment.hypothesis
+              : ""}
+            {e?.experiment?.metrics && (
+              <>
+                <br />
+                <span style={{ fontSize: "1rem" }}>
+                  Primary metrics:{" "}
+                  {e?.experiment?.metrics
+                    .map((m) => getMetricById(m)?.name ?? m)
+                    .join(", ")}
+                </span>
+              </>
+            )}
           </Text>
+
           <div className="row variations">
-            {e.experiment.variations.map((v: Variation, j: number) => (
+            {e?.experiment?.variations.map((v: Variation, j: number) => (
               <Text
                 fontSize={20}
                 className={`col m-0 p-0 col-${
@@ -161,10 +180,21 @@ const Presentation = ({
                 key={`v-${j}`}
               >
                 <h4>{v.name}</h4>
-                <img
-                  className="expimage border"
-                  src={v.screenshots[0] && v.screenshots[0].path}
-                />
+                {v?.screenshots[0]?.path && (
+                  <img
+                    className="expimage border"
+                    src={v.screenshots[0].path}
+                    alt={v.name}
+                  />
+                )}
+                {v.description && (
+                  <div
+                    className="text-center"
+                    style={{ fontSize: "16px", opacity: 0.8 }}
+                  >
+                    {v.description}
+                  </div>
+                )}
                 {variationExtra[j]}
               </Text>
             ))}
@@ -173,7 +203,7 @@ const Presentation = ({
         </div>
       </Slide>
     );
-    if (e.snapshot) {
+    if (e?.snapshot) {
       // const variationNames = e.experiment.variations.map((v) => v.name);
       // const numMetrics = e.experiment.metrics.length;
       const result = e.experiment.results;
@@ -181,7 +211,6 @@ const Presentation = ({
       const experiment = e.experiment;
       const snapshot = e.snapshot;
       const phase = experiment.phases[snapshot.phase];
-
       expSlides.push(
         <Slide key={`s-${expSlides.length}`}>
           <Heading className="m-0 p-0">Results</Heading>
@@ -212,20 +241,20 @@ const Presentation = ({
               overflowY: "auto",
               background: "#fff",
               maxHeight: "100%",
-              padding: "0 0",
+              padding: "10px 0 0",
               color: "#444",
               fontSize: "95%",
             }}
           >
-            <CompactResults
+            <CompactResults_old
               id={experiment.id}
               isLatestPhase={snapshot.phase === experiment.phases.length - 1}
               metrics={experiment.metrics}
-              metricOverrides={experiment.metricOverrides}
+              metricOverrides={experiment?.metricOverrides ?? []}
               reportDate={snapshot.dateCreated}
-              results={snapshot.results?.[0]}
+              results={snapshot?.analyses[0]?.results?.[0]}
               status={experiment.status}
-              startDate={phase?.dateStarted}
+              startDate={phase?.dateStarted ?? ""}
               multipleExposures={snapshot.multipleExposures || 0}
               variations={experiment.variations.map((v, i) => {
                 return {
@@ -235,6 +264,15 @@ const Presentation = ({
                 };
               })}
             />
+          </div>
+        </Slide>
+      );
+    } else {
+      expSlides.push(
+        <Slide key={`s-${expSlides.length}`}>
+          <Heading className="m-0 p-0">Results</Heading>
+          <div className={clsx("alert", "alert-warning", "mt-3")}>
+            <strong>No data for this experiment</strong>
           </div>
         </Slide>
       );

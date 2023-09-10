@@ -7,17 +7,27 @@ import { useSnapshot } from "./SnapshotProvider";
 
 export interface Props {
   mutateExperiment: () => void;
-  editResult: () => void;
+  editResult?: () => void;
 }
 
 export default function StatusBanner({ mutateExperiment, editResult }: Props) {
   const { experiment } = useSnapshot();
   const { apiCall } = useAuth();
 
-  if (experiment.status === "stopped") {
+  if (experiment?.status === "stopped") {
     const result = experiment.results;
-    const variationsPlural =
-      experiment.variations.length > 2 ? "variations" : "variation";
+
+    const winningVariation =
+      (result === "lost"
+        ? experiment.variations[0]?.name
+        : result === "won"
+        ? experiment.variations[experiment.winner || 1]?.name
+        : "") || "";
+
+    const releasedVariation =
+      experiment.variations.find((v) => v.id === experiment.releasedVariationId)
+        ?.name || "";
+
     return (
       <div
         className={clsx("alert mb-0", {
@@ -27,34 +37,55 @@ export default function StatusBanner({ mutateExperiment, editResult }: Props) {
           "alert-warning": result === "dnf",
         })}
       >
-        {editResult && (
-          <a
-            href="#"
-            className="alert-link float-right ml-2"
-            onClick={(e) => {
-              e.preventDefault();
-              editResult();
-            }}
-          >
-            <FaPencilAlt />
-          </a>
-        )}
-        <strong>
-          {result === "won" &&
-            `${
-              experiment.winner > 0
-                ? experiment.variations[experiment.winner]?.name
-                : "A variation"
-            } beat the control and won!`}
-          {result === "lost" &&
-            `The ${variationsPlural} did not beat the control.`}
-          {result === "dnf" &&
-            `The experiment was stopped early and did not finish.`}
-          {result === "inconclusive" && `The results were inconclusive.`}
-          {!result &&
-            `The experiment was stopped, but a winner has not been selected yet.`}
-        </strong>
-        {experiment.analysis && (
+        <div className="d-flex">
+          <div className="mr-auto">
+            <strong>
+              {result === "won" && `The experiment won!`}
+              {result === "lost" && `The experiment lost!`}
+              {result === "dnf" &&
+                `The experiment was stopped early and did not finish.`}
+              {result === "inconclusive" && `The results were inconclusive.`}
+              {!result &&
+                `The experiment was stopped, but a final decision has not been made yet.`}
+            </strong>
+          </div>
+          {releasedVariation && (
+            <div className="px-3">
+              {(result === "won" || result === "lost") &&
+              winningVariation !== releasedVariation ? (
+                <>
+                  <strong>
+                    &quot;
+                    {winningVariation}
+                    &quot;
+                  </strong>{" "}
+                  won, but{" "}
+                </>
+              ) : null}
+              <strong>
+                &quot;
+                {releasedVariation}
+                &quot;
+              </strong>{" "}
+              was rolled out to 100%
+            </div>
+          )}
+          {editResult && (
+            <div>
+              <a
+                href="#"
+                className="alert-link float-right ml-2"
+                onClick={(e) => {
+                  e.preventDefault();
+                  editResult();
+                }}
+              >
+                <FaPencilAlt />
+              </a>
+            </div>
+          )}
+        </div>
+        {experiment?.analysis && (
           <div className="card text-dark mt-2">
             <div className="card-body">
               <Markdown className="card-text">{experiment.analysis}</Markdown>
@@ -65,7 +96,7 @@ export default function StatusBanner({ mutateExperiment, editResult }: Props) {
     );
   }
 
-  if (experiment.status === "running") {
+  if (experiment?.status === "running") {
     return (
       <div className={clsx("alert mb-0 alert-info")}>
         {editResult && (
@@ -77,7 +108,7 @@ export default function StatusBanner({ mutateExperiment, editResult }: Props) {
               editResult();
             }}
           >
-            Mark as Finished
+            Stop Experiment
           </a>
         )}
         <strong>This experiment is currently running.</strong>
@@ -85,7 +116,7 @@ export default function StatusBanner({ mutateExperiment, editResult }: Props) {
     );
   }
 
-  if (experiment.status === "draft") {
+  if (experiment?.status === "draft") {
     return (
       <div className={clsx("alert mb-0 alert-warning")}>
         {editResult && (
@@ -94,7 +125,7 @@ export default function StatusBanner({ mutateExperiment, editResult }: Props) {
             className="alert-link float-right ml-2 p-0"
             onClick={async () => {
               // Already has a phase, just update the status
-              await apiCall(`/experiment/${experiment.id}/status`, {
+              await apiCall(`/experiment/${experiment?.id}/status`, {
                 method: "POST",
                 body: JSON.stringify({
                   status: "running",
@@ -103,11 +134,13 @@ export default function StatusBanner({ mutateExperiment, editResult }: Props) {
               mutateExperiment();
             }}
           >
-            Mark as Running
+            Start Experiment
           </Button>
         )}
         <strong>This is a draft experiment.</strong>
       </div>
     );
   }
+
+  return null;
 }

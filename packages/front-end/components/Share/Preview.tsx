@@ -43,7 +43,7 @@ const Preview: FC<{
     }[];
   }>(`/presentation/preview/?expIds=${expIds}`);
 
-  useSwitchOrg(pdata?.presentation?.organization);
+  useSwitchOrg(pdata?.presentation?.organization || null);
 
   if (error) {
     return (

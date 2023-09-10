@@ -1,12 +1,14 @@
 import { FC, useState } from "react";
 import { useForm } from "react-hook-form";
 import { MemberRoleWithProjects } from "back-end/types/organization";
+import Link from "next/link";
 import track from "@/services/track";
-import Field from "@/components/Forms/Field";
 import Modal from "@/components/Modal";
 import { useAuth } from "@/services/auth";
 import useStripeSubscription from "@/hooks/useStripeSubscription";
 import useOrgSettings from "@/hooks/useOrgSettings";
+import { useUser } from "@/services/UserContext";
+import StringArrayField from "@/components/Forms/StringArrayField";
 import UpgradeModal from "../UpgradeModal";
 import RoleSelector from "./RoleSelector";
 import InviteModalSubscriptionInfo from "./InviteModalSubscriptionInfo";
@@ -21,13 +23,14 @@ const InviteModal: FC<{ mutate: () => void; close: () => void }> = ({
   close,
 }) => {
   const { defaultRole } = useOrgSettings();
+  const { accountPlan } = useUser();
 
   const form = useForm<{
-    email: string;
+    email: string[];
     roleInfo: MemberRoleWithProjects;
   }>({
     defaultValues: {
-      email: "",
+      email: [],
       roleInfo: {
         role: "admin",
         limitAccessByEnvironment: false,
@@ -55,6 +58,20 @@ const InviteModal: FC<{ mutate: () => void; close: () => void }> = ({
 
   // Hit their free limit and needs to upgrade to invite more team members
   if (showUpgradeModal) {
+    // The <UpgradeModal> won't actually render for these plans, so show a generic modal instead
+    if (["pro", "pro_sso", "enterprise"].includes(accountPlan ?? "")) {
+      return (
+        <Modal open={true} close={close} size="md">
+          <div className="text-center my-3">
+            <div className="strong">{showUpgradeModal}</div>
+            <div className="mt-3">
+              To upgrade, please visit the{" "}
+              <Link href="/settings/billing">billing</Link> page.
+            </div>
+          </div>
+        </Modal>
+      );
+    }
     return (
       <UpgradeModal
         close={close}
@@ -65,9 +82,12 @@ const InviteModal: FC<{ mutate: () => void; close: () => void }> = ({
   }
 
   const onSubmit = form.handleSubmit(async (value) => {
-    const inviteArr = value.email.split(",");
+    const { email: emails } = value;
 
-    if (canSubscribe && activeAndInvitedUsers + inviteArr.length > freeSeats) {
+    if (
+      canSubscribe &&
+      activeAndInvitedUsers + value.email.length > freeSeats
+    ) {
       setShowUpgradeModal("Whoops! You reached your free seat limit.");
       return;
     }
@@ -75,7 +95,7 @@ const InviteModal: FC<{ mutate: () => void; close: () => void }> = ({
     const failed: InviteResult[] = [];
     const succeeded: InviteResult[] = [];
 
-    for (const email of inviteArr) {
+    for (const email of emails) {
       const resp = await apiCall<{
         emailSent: boolean;
         inviteUrl: string;
@@ -84,7 +104,7 @@ const InviteModal: FC<{ mutate: () => void; close: () => void }> = ({
       }>(`/invite`, {
         method: "POST",
         body: JSON.stringify({
-          email: email,
+          email,
           ...value.roleInfo,
         }),
       });
@@ -117,18 +137,14 @@ const InviteModal: FC<{ mutate: () => void; close: () => void }> = ({
       open={true}
       cta="Invite"
       closeCta={
-        successfulInvites.length > 0 || failedInvites.length > 0
-          ? "Close"
-          : "Cancel"
+        successfulInvites.length || failedInvites.length ? "Close" : "Cancel"
       }
       autoCloseOnSubmit={false}
       submit={
-        successfulInvites.length > 0 || failedInvites.length > 0
-          ? null
-          : onSubmit
+        successfulInvites.length || failedInvites.length ? undefined : onSubmit
       }
     >
-      {successfulInvites.length > 0 || failedInvites.length > 0 ? (
+      {successfulInvites.length || failedInvites.length ? (
         <>
           {successfulInvites.length === 1 && (
             <div className="alert alert-success" role="alert">
@@ -192,13 +208,15 @@ const InviteModal: FC<{ mutate: () => void; close: () => void }> = ({
         </>
       ) : (
         <>
-          <Field
-            label="Email Address"
+          <StringArrayField
             required
+            label="Email Address"
+            value={form.watch("email")}
+            onChange={(emails) => {
+              form.setValue("email", emails);
+            }}
+            helpText="Enter a list of emails to invite multiple members at once."
             type="email"
-            multiple={true}
-            helpText="Enter a comma separated list of emails to invite multiple members at once."
-            {...form.register("email")}
           />
           <RoleSelector
             value={form.watch("roleInfo")}

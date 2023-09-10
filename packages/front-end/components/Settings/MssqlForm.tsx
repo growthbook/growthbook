@@ -15,6 +15,7 @@ const MssqlForm: FC<{
   return (
     <>
       <HostWarning
+        // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'string | undefined' is not assignable to typ... Remove this comment to see the full error message
         host={params.server}
         setHost={(host) => {
           setParams({
@@ -79,6 +80,17 @@ const MssqlForm: FC<{
             placeholder={existing ? "(Keep existing)" : ""}
           />
         </div>
+        <div className="form-group col-md-12">
+          <label>Default Schema</label>
+          <input
+            type="text"
+            className="form-control"
+            name="defaultSchema"
+            value={params.defaultSchema || ""}
+            onChange={onParamChange}
+            placeholder="(optional)"
+          />
+        </div>
       </div>
       <div className="row mt-2">
         <div className="col-md-12">
@@ -90,6 +102,7 @@ const MssqlForm: FC<{
             <Toggle
               id="trust-server-cert"
               label="Trust server certificate"
+              // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
               value={params.options.trustServerCertificate === true}
               setValue={(value) => {
                 const opt = {
@@ -109,6 +122,7 @@ const MssqlForm: FC<{
             <Toggle
               id="encryption"
               label="Enable encryption"
+              // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
               value={params.options.encrypt === true}
               setValue={(value) => {
                 const opt = { ...params.options, encrypt: value };

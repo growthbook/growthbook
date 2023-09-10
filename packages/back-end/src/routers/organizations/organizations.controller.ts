@@ -2,6 +2,13 @@ import { Response } from "express";
 import { cloneDeep } from "lodash";
 import { freeEmailDomains } from "free-email-domains-typescript";
 import {
+  licenseInit,
+  accountFeatures,
+  getAccountPlan,
+  getLicense,
+  setLicense,
+} from "enterprise";
+import {
   AuthRequest,
   ResponseWithStatusAndError,
 } from "../../types/AuthRequest";
@@ -9,6 +16,7 @@ import {
   acceptInvite,
   addMemberToOrg,
   addPendingMemberToOrg,
+  expandOrgMembers,
   findVerifiedOrgForNewUser,
   getInviteUrl,
   getOrgFromReq,
@@ -22,10 +30,9 @@ import {
   getNonSensitiveParams,
   getSourceIntegrationObject,
 } from "../../services/datasource";
-import { getUsersByIds, updatePassword } from "../../services/users";
+import { updatePassword } from "../../services/users";
 import { getAllTags } from "../../models/TagModel";
 import {
-  ExpandedMember,
   Invite,
   MemberRole,
   MemberRoleWithProjects,
@@ -35,15 +42,12 @@ import {
 } from "../../../types/organization";
 import {
   auditDetailsUpdate,
-  findAllByEntityType,
-  findAllByEntityTypeParent,
-  findByEntity,
-  findByEntityParent,
-  getWatchedAudits,
+  getRecentWatchedAudits,
+  isValidAuditEntityType,
 } from "../../services/audit";
 import { getAllFeatures } from "../../models/FeatureModel";
-import { SegmentModel } from "../../models/SegmentModel";
 import { findDimensionsByOrganization } from "../../models/DimensionModel";
+import { findSegmentsByOrganization } from "../../models/SegmentModel";
 import { APP_ORIGIN, IS_CLOUD } from "../../util/secrets";
 import {
   sendInviteEmail,
@@ -53,7 +57,6 @@ import {
   sendPendingMemberApprovalEmail,
 } from "../../services/email";
 import { getDataSourcesByOrganization } from "../../models/DataSourceModel";
-import { getAllGroups } from "../../services/group";
 import { getAllSavedGroups } from "../../models/SavedGroupModel";
 import { getMetricsByOrganization } from "../../models/MetricModel";
 import { WebhookModel } from "../../models/WebhookModel";
@@ -73,7 +76,9 @@ import { ExperimentRule, NamespaceValue } from "../../../types/feature";
 import { usingOpenId } from "../../services/auth";
 import { getSSOConnectionSummary } from "../../models/SSOConnectionModel";
 import {
-  createApiKey,
+  createLegacySdkKey,
+  createOrganizationApiKey,
+  createUserPersonalAccessApiKey,
   deleteApiKeyById,
   deleteApiKeyByKey,
   getAllApiKeysByOrganization,
@@ -82,15 +87,23 @@ import {
   getUnredactedSecretKey,
 } from "../../models/ApiKeyModel";
 import {
-  accountFeatures,
-  getAccountPlan,
   getDefaultRole,
   getRoles,
+  getUserPermissions,
 } from "../../util/organization.util";
 import { deleteUser, findUserById, getAllUsers } from "../../models/UserModel";
-import licenseInit, { getLicense, setLicense } from "../../init/license";
-import { getExperimentsForActivityFeed } from "../../models/ExperimentModel";
+import {
+  getAllExperiments,
+  getExperimentsForActivityFeed,
+} from "../../models/ExperimentModel";
 import { removeEnvironmentFromSlackIntegration } from "../../models/SlackIntegrationModel";
+import {
+  findAllAuditsByEntityType,
+  findAllAuditsByEntityTypeParent,
+  findAuditByEntity,
+  findAuditByEntityParent,
+} from "../../models/AuditModel";
+import { EntityType } from "../../types/Audit";
 
 export async function getDefinitions(req: AuthRequest, res: Response) {
   const { org } = getOrgFromReq(req);
@@ -105,18 +118,14 @@ export async function getDefinitions(req: AuthRequest, res: Response) {
     dimensions,
     segments,
     tags,
-    groups,
     savedGroups,
     projects,
   ] = await Promise.all([
     getMetricsByOrganization(orgId),
     getDataSourcesByOrganization(orgId),
     findDimensionsByOrganization(orgId),
-    SegmentModel.find({
-      organization: orgId,
-    }),
+    findSegmentsByOrganization(orgId),
     getAllTags(orgId),
-    getAllGroups(orgId),
     getAllSavedGroups(orgId),
     findAllProjectsByOrganization(orgId),
   ]);
@@ -143,7 +152,6 @@ export async function getDefinitions(req: AuthRequest, res: Response) {
     dimensions,
     segments,
     tags,
-    groups,
     savedGroups,
     projects,
   });
@@ -152,7 +160,7 @@ export async function getDefinitions(req: AuthRequest, res: Response) {
 export async function getActivityFeed(req: AuthRequest, res: Response) {
   const { org, userId } = getOrgFromReq(req);
   try {
-    const docs = await getWatchedAudits(userId, org.id);
+    const docs = await getRecentWatchedAudits(userId, org.id);
 
     if (!docs.length) {
       return res.status(200).json({
@@ -189,9 +197,16 @@ export async function getAllHistory(
   const { org } = getOrgFromReq(req);
   const { type } = req.params;
 
+  if (!isValidAuditEntityType(type)) {
+    return res.status(400).json({
+      status: 400,
+      message: `${type} is not a valid entity type. Possible entity types are: ${EntityType}`,
+    });
+  }
+
   const events = await Promise.all([
-    findAllByEntityType(org.id, type),
-    findAllByEntityTypeParent(org.id, type),
+    findAllAuditsByEntityType(org.id, type),
+    findAllAuditsByEntityTypeParent(org.id, type),
   ]);
 
   const merged = [...events[0], ...events[1]];
@@ -222,9 +237,16 @@ export async function getHistory(
   const { org } = getOrgFromReq(req);
   const { type, id } = req.params;
 
+  if (!isValidAuditEntityType(type)) {
+    return res.status(400).json({
+      status: 400,
+      message: `${type} is not a valid entity type. Possible entity types are: ${EntityType}`,
+    });
+  }
+
   const events = await Promise.all([
-    findByEntity(org.id, type, id),
-    findByEntityParent(org.id, type, id),
+    findAuditByEntity(org.id, type, id),
+    findAuditByEntityParent(org.id, type, id),
   ]);
 
   const merged = [...events[0], ...events[1]];
@@ -555,7 +577,7 @@ export async function getOrganization(req: AuthRequest, res: Response) {
     });
   }
 
-  const { org } = getOrgFromReq(req);
+  const { org, userId } = getOrgFromReq(req);
   const {
     invites,
     members,
@@ -569,6 +591,7 @@ export async function getOrganization(req: AuthRequest, res: Response) {
     settings,
     disableSelfServeBilling,
     licenseKey,
+    messages,
   } = org;
 
   if (!IS_CLOUD && licenseKey) {
@@ -590,20 +613,9 @@ export async function getOrganization(req: AuthRequest, res: Response) {
     ? getSSOConnectionSummary(req.loginMethod)
     : null;
 
-  // Add email/name to the organization members array
-  const userInfo = await getUsersByIds(members.map((m) => m.id));
-  const expandedMembers: ExpandedMember[] = [];
-  userInfo.forEach(({ id, email, verified, name, _id }) => {
-    const memberInfo = members.find((m) => m.id === id);
-    if (!memberInfo) return;
-    expandedMembers.push({
-      email,
-      verified,
-      name,
-      ...memberInfo,
-      dateCreated: memberInfo.dateCreated || _id.getTimestamp(),
-    });
-  });
+  const expandedMembers = await expandOrgMembers(members);
+
+  const currentUserPermissions = getUserPermissions(userId, org);
 
   return res.status(200).json({
     status: 200,
@@ -615,6 +627,7 @@ export async function getOrganization(req: AuthRequest, res: Response) {
       : [...accountFeatures[getAccountPlan(org)]],
     roles: getRoles(org),
     members: expandedMembers,
+    currentUserPermissions,
     organization: {
       invites,
       ownerEmail,
@@ -625,11 +638,13 @@ export async function getOrganization(req: AuthRequest, res: Response) {
       licenseKey,
       freeSeats,
       disableSelfServeBilling,
+      freeTrialDate: org.freeTrialDate,
       discountCode: org.discountCode || "",
       slackTeam: connections?.slack?.team,
       settings,
       autoApproveMembers: org.autoApproveMembers,
       members: org.members,
+      messages: messages || [],
       pendingMembers: org.pendingMembers,
     },
   });
@@ -664,13 +679,35 @@ export async function getNamespaces(req: AuthRequest, res: Response) {
           const { name, range } = r.namespace as NamespaceValue;
           namespaces[name] = namespaces[name] || [];
           namespaces[name].push({
-            featureId: f.id,
+            link: `/features/${f.id}`,
+            name: f.id,
+            id: f.id,
             trackingKey: r.trackingKey || f.id,
             start: range[0],
             end: range[1],
             environment: env,
           });
         });
+    });
+  });
+
+  const allExperiments = await getAllExperiments(org.id);
+  allExperiments.forEach((e) => {
+    if (!e.phases) return;
+    const phase = e.phases[e.phases.length - 1];
+    if (!phase) return;
+    if (!phase.namespace || !phase.namespace.enabled) return;
+
+    const { name, range } = phase.namespace;
+    namespaces[name] = namespaces[name] || [];
+    namespaces[name].push({
+      link: `/experiment/${e.id}`,
+      name: e.name,
+      id: e.trackingKey,
+      trackingKey: e.trackingKey,
+      start: range[0],
+      end: range[1],
+      environment: "",
     });
   });
 
@@ -1161,9 +1198,11 @@ export async function putOrganization(
 export async function getApiKeys(req: AuthRequest, res: Response) {
   const { org } = getOrgFromReq(req);
   const keys = await getAllApiKeysByOrganization(org.id);
+  const filteredKeys = keys.filter((k) => !k.userId || k.userId === req.userId);
+
   res.status(200).json({
     status: 200,
-    keys,
+    keys: filteredKeys,
   });
 }
 
@@ -1172,13 +1211,21 @@ export async function postApiKey(
     description?: string;
     environment: string;
     project: string;
+    type: string;
     secret: boolean;
     encryptSDK: boolean;
   }>,
   res: Response
 ) {
-  const { org } = getOrgFromReq(req);
-  const { description, environment, project, secret, encryptSDK } = req.body;
+  const { org, userId } = getOrgFromReq(req);
+  const {
+    description = "",
+    environment = "",
+    project = "",
+    secret = false,
+    encryptSDK,
+    type,
+  } = req.body;
 
   const { preferExisting } = req.query as { preferExisting?: string };
   if (preferExisting) {
@@ -1196,17 +1243,58 @@ export async function postApiKey(
 
   // Only require permissions if we are creating a new API key
   if (secret) {
-    req.checkPermissions("manageApiKeys");
+    if (type !== "user") {
+      // All access token types except `user` require the permission
+      req.checkPermissions("manageApiKeys");
+    }
   } else {
     req.checkPermissions("manageEnvironments", "", [environment]);
   }
 
-  const key = await createApiKey({
-    organization: org.id,
-    description: description || "",
-    environment: environment || "",
-    project: project || "",
-    secret: !!secret,
+  // Handle user personal access tokens
+  if (type === "user") {
+    if (!userId) {
+      throw new Error(
+        "Cannot create user personal access token without a user ID"
+      );
+    }
+
+    const key = await createUserPersonalAccessApiKey({
+      description,
+      userId: userId,
+      organizationId: org.id,
+    });
+
+    return res.status(200).json({
+      status: 200,
+      key,
+    });
+  }
+
+  // Handle organization secret tokens
+  if (secret) {
+    if (type && !["readonly", "admin"].includes(type)) {
+      throw new Error("can only assign readonly or admin roles");
+    }
+
+    const key = await createOrganizationApiKey({
+      organizationId: org.id,
+      description,
+      role: type as "readonly" | "admin",
+    });
+
+    return res.status(200).json({
+      status: 200,
+      key,
+    });
+  }
+
+  // Handle legacy SDK connection
+  const key = await createLegacySdkKey({
+    description,
+    environment,
+    project,
+    organizationId: org.id,
     encryptSDK,
   });
 
@@ -1257,12 +1345,29 @@ export async function postApiKeyReveal(
   req: AuthRequest<{ id: string }>,
   res: Response
 ) {
-  req.checkPermissions("manageApiKeys");
-
   const { org } = getOrgFromReq(req);
   const { id } = req.body;
 
   const key = await getUnredactedSecretKey(org.id, id);
+  if (!key) {
+    return res.status(403).json({
+      status: 403,
+    });
+  }
+
+  if (!key.userId) {
+    // Only admins can reveal non-user keys
+    req.checkPermissions("manageApiKeys");
+  } else {
+    // This is a user key
+    // The key must be owned by the user requesting to reveal it
+    const isMatchingUserKey = req.userId === key.userId;
+    if (!isMatchingUserKey) {
+      return res.status(403).json({
+        status: 403,
+      });
+    }
+  }
 
   res.status(200).json({
     status: 200,
@@ -1397,7 +1502,7 @@ export async function getOrphanedUsers(req: AuthRequest, res: Response) {
   }
 
   const allUsers = await getAllUsers();
-  const allOrgs = await findAllOrganizations();
+  const { organizations: allOrgs } = await findAllOrganizations(1, "");
 
   const membersInOrgs = new Set<string>();
   allOrgs.forEach((org) => {

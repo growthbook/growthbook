@@ -1,11 +1,14 @@
 import { webcrypto as crypto } from "node:crypto";
+import { createHash } from "crypto";
 import uniqid from "uniqid";
 import isEqual from "lodash/isEqual";
+import omit from "lodash/omit";
+import { orgHasPremiumFeature } from "enterprise";
 import {
-  ApiFeatureEnvironmentInterface,
-  ApiFeatureInterface,
-  FeatureDefinition,
-} from "../../types/api";
+  FeatureRule as FeatureDefinitionRule,
+  AutoExperiment,
+} from "@growthbook/growthbook";
+import { FeatureDefinition } from "../../types/api";
 import {
   FeatureDraftChanges,
   FeatureEnvironment,
@@ -13,9 +16,20 @@ import {
   FeatureRule,
 } from "../../types/feature";
 import { getAllFeatures } from "../models/FeatureModel";
-import { getFeatureDefinition } from "../util/features";
+import {
+  getAllPayloadExperiments,
+  getAllVisualExperiments,
+} from "../models/ExperimentModel";
+import {
+  getFeatureDefinition,
+  replaceSavedGroupsInCondition,
+} from "../util/features";
 import { getAllSavedGroups } from "../models/SavedGroupModel";
-import { OrganizationInterface } from "../../types/organization";
+import {
+  OrganizationInterface,
+  SDKAttribute,
+  SDKAttributeSchema,
+} from "../../types/organization";
 import { getSDKPayload, updateSDKPayload } from "../models/SdkPayloadModel";
 import { logger } from "../util/logger";
 import { promiseAllChunks } from "../util/promise";
@@ -23,21 +37,35 @@ import { queueWebhook } from "../jobs/webhooks";
 import { GroupMap } from "../../types/saved-group";
 import { SDKPayloadKey } from "../../types/sdk-payload";
 import { queueProxyUpdate } from "../jobs/proxyUpdate";
+import { ApiFeature, ApiFeatureEnvironment } from "../../types/openapi";
+import { ExperimentInterface, ExperimentPhase } from "../../types/experiment";
+import { VisualChangesetInterface } from "../../types/visual-changeset";
+import {
+  getSurrogateKeysFromSDKPayloadKeys,
+  purgeCDNCache,
+} from "../util/cdn.util";
 import { getEnvironments, getOrganizationById } from "./organizations";
 
 export type AttributeMap = Map<string, string>;
 
-function generatePayload(
-  features: FeatureInterface[],
-  environment: string,
-  groupMap: GroupMap
-): Record<string, FeatureDefinition> {
+function generatePayload({
+  features,
+  experimentMap,
+  environment,
+  groupMap,
+}: {
+  features: FeatureInterface[];
+  experimentMap: Map<string, ExperimentInterface>;
+  environment: string;
+  groupMap: GroupMap;
+}): Record<string, FeatureDefinition> {
   const defs: Record<string, FeatureDefinition> = {};
   features.forEach((feature) => {
     const def = getFeatureDefinition({
       feature,
       environment,
       groupMap,
+      experimentMap,
     });
     if (def) {
       defs[feature.id] = def;
@@ -45,6 +73,85 @@ function generatePayload(
   });
 
   return defs;
+}
+
+export type VisualExperiment = {
+  experiment: ExperimentInterface;
+  visualChangeset: VisualChangesetInterface;
+};
+
+function generateVisualExperimentsPayload({
+  visualExperiments,
+  // environment,
+  groupMap,
+}: {
+  visualExperiments: Array<VisualExperiment>;
+  // environment: string,
+  groupMap: GroupMap;
+}): AutoExperiment[] {
+  const isValidSDKExperiment = (
+    e: AutoExperiment | null
+  ): e is AutoExperiment => !!e;
+  const sdkExperiments: Array<AutoExperiment | null> = visualExperiments.map(
+    ({ experiment: e, visualChangeset: v }) => {
+      if (e.status === "stopped" && e.excludeFromPayload) return null;
+
+      const phase: ExperimentPhase | null = e.phases.slice(-1)?.[0] ?? null;
+      const forcedVariation =
+        e.status === "stopped" && e.releasedVariationId
+          ? e.variations.find((v) => v.id === e.releasedVariationId)
+          : null;
+
+      let condition;
+      if (phase?.condition && phase.condition !== "{}") {
+        try {
+          condition = JSON.parse(
+            replaceSavedGroupsInCondition(phase.condition, groupMap)
+          );
+        } catch (e) {
+          // ignore condition parse errors here
+        }
+      }
+
+      if (!phase) return null;
+
+      const exp: AutoExperiment = {
+        key: e.trackingKey,
+        status: e.status,
+        variations: v.visualChanges.map((vc) => ({
+          css: vc.css,
+          js: vc.js || "",
+          domMutations: vc.domMutations,
+        })) as AutoExperiment["variations"],
+        hashVersion: e.hashVersion,
+        hashAttribute: e.hashAttribute,
+        urlPatterns: v.urlPatterns,
+        weights: phase.variationWeights,
+        meta: e.variations.map((v) => ({ key: v.key, name: v.name })),
+        filters: phase.namespace.enabled
+          ? [
+              {
+                attribute: e.hashAttribute,
+                seed: phase.namespace.name,
+                hashVersion: 2,
+                ranges: [phase.namespace.range],
+              },
+            ]
+          : [],
+        seed: phase.seed,
+        name: e.name,
+        phase: `${e.phases.length - 1}`,
+        force: forcedVariation
+          ? e.variations.indexOf(forcedVariation)
+          : undefined,
+        condition,
+        coverage: phase.coverage,
+      };
+
+      return exp;
+    }
+  );
+  return sdkExperiments.filter(isValidSDKExperiment);
 }
 
 export async function getSavedGroupMap(
@@ -84,7 +191,8 @@ export async function getSavedGroupMap(
 export async function refreshSDKPayloadCache(
   organization: OrganizationInterface,
   payloadKeys: SDKPayloadKey[],
-  allFeatures: FeatureInterface[] | null = null
+  allFeatures: FeatureInterface[] | null = null,
+  skipRefreshForProject?: string
 ) {
   // Ignore any old environments which don't exist anymore
   const allowedEnvs = new Set(
@@ -92,11 +200,23 @@ export async function refreshSDKPayloadCache(
   );
   payloadKeys = payloadKeys.filter((k) => allowedEnvs.has(k.environment));
 
+  // Remove any projects to skip
+  if (skipRefreshForProject) {
+    payloadKeys = payloadKeys.filter(
+      (k) => k.project !== skipRefreshForProject
+    );
+  }
+
   // If no environments are affected, we don't need to update anything
   if (!payloadKeys.length) return;
 
+  const experimentMap = await getAllPayloadExperiments(organization.id);
   const groupMap = await getSavedGroupMap(organization);
   allFeatures = allFeatures || (await getAllFeatures(organization.id));
+  const allVisualExperiments = await getAllVisualExperiments(
+    organization.id,
+    experimentMap
+  );
 
   // For each affected project/environment pair, generate a new SDK payload and update the cache
   const promises: (() => Promise<void>)[] = [];
@@ -104,14 +224,24 @@ export async function refreshSDKPayloadCache(
     const projectFeatures = key.project
       ? allFeatures.filter((f) => f.project === key.project)
       : allFeatures;
+    const projectExperiments = key.project
+      ? allVisualExperiments.filter((e) => e.experiment.project === key.project)
+      : allVisualExperiments;
 
-    if (!projectFeatures.length) continue;
+    if (!projectFeatures.length && !projectExperiments.length) continue;
 
-    const featureDefinitions = generatePayload(
-      projectFeatures,
-      key.environment,
-      groupMap
-    );
+    const featureDefinitions = generatePayload({
+      features: projectFeatures,
+      environment: key.environment,
+      groupMap,
+      experimentMap,
+    });
+
+    const experimentsDefinitions = generateVisualExperimentsPayload({
+      visualExperiments: projectExperiments,
+      // environment: key.environment,
+      groupMap,
+    });
 
     promises.push(async () => {
       await updateSDKPayload({
@@ -119,6 +249,7 @@ export async function refreshSDKPayloadCache(
         project: key.project,
         environment: key.environment,
         featureDefinitions,
+        experimentsDefinitions,
       });
     });
   }
@@ -131,6 +262,16 @@ export async function refreshSDKPayloadCache(
   // Batch the promises in chunks of 4 at a time to avoid overloading Mongo
   await promiseAllChunks(promises, 4);
 
+  // Purge CDN if used
+  // Do this before firing webhooks in case a webhook tries fetching the latest payload from the CDN
+  // Only purge the specific payloads that are affected
+  const surrogateKeys = getSurrogateKeysFromSDKPayloadKeys(
+    organization.id,
+    payloadKeys
+  );
+
+  await purgeCDNCache(organization.id, surrogateKeys);
+
   // After the SDK payloads are updated, fire any webhooks on the organization
   await queueWebhook(organization.id, payloadKeys, true);
 
@@ -138,14 +279,76 @@ export async function refreshSDKPayloadCache(
   await queueProxyUpdate(organization.id, payloadKeys);
 }
 
-async function getFeatureDefinitionsResponse(
-  features: Record<string, FeatureDefinition>,
-  dateUpdated: Date | null,
-  encryptionKey?: string
-) {
+export type FeatureDefinitionsResponseArgs = {
+  features: Record<string, FeatureDefinition>;
+  experiments: AutoExperiment[];
+  dateUpdated: Date | null;
+  encryptionKey?: string;
+  includeVisualExperiments?: boolean;
+  includeDraftExperiments?: boolean;
+  includeExperimentNames?: boolean;
+  attributes?: SDKAttributeSchema;
+  secureAttributeSalt?: string;
+};
+async function getFeatureDefinitionsResponse({
+  features,
+  experiments,
+  dateUpdated,
+  encryptionKey,
+  includeVisualExperiments,
+  includeDraftExperiments,
+  includeExperimentNames,
+  attributes,
+  secureAttributeSalt,
+}: FeatureDefinitionsResponseArgs) {
+  if (!includeDraftExperiments) {
+    experiments = experiments?.filter((e) => e.status !== "draft") || [];
+  }
+
+  // If experiment/variation names should be removed from the payload
+  if (!includeExperimentNames) {
+    // Remove names from visual editor experiments
+    experiments = experiments?.map((exp) => {
+      return {
+        ...omit(exp, ["name", "meta"]),
+        meta: exp.meta ? exp.meta.map((m) => omit(m, ["name"])) : undefined,
+      };
+    });
+
+    // Remove names from every feature rule
+    for (const k in features) {
+      if (features[k]?.rules) {
+        features[k]?.rules?.forEach((rule) => {
+          if (rule.meta) {
+            rule.meta = rule.meta.map((m) => omit(m, ["name"]));
+          }
+          if (rule.name) {
+            delete rule.name;
+          }
+        });
+      }
+    }
+  }
+
+  const hasSecureAttributes = attributes?.some((a) =>
+    ["secureString", "secureString[]"].includes(a.datatype)
+  );
+  if (attributes && hasSecureAttributes && secureAttributeSalt !== undefined) {
+    features = applyFeatureHashing(features, attributes, secureAttributeSalt);
+
+    if (experiments) {
+      experiments = applyExperimentHashing(
+        experiments,
+        attributes,
+        secureAttributeSalt
+      );
+    }
+  }
+
   if (!encryptionKey) {
     return {
       features,
+      ...(includeVisualExperiments && { experiments }),
       dateUpdated,
     };
   }
@@ -154,24 +357,47 @@ async function getFeatureDefinitionsResponse(
     JSON.stringify(features),
     encryptionKey
   );
+  const encryptedExperiments = includeVisualExperiments
+    ? await encrypt(JSON.stringify(experiments || []), encryptionKey)
+    : undefined;
 
   return {
     features: {},
+    ...(includeVisualExperiments && { experiments: [] }),
     dateUpdated,
     encryptedFeatures,
+    ...(includeVisualExperiments && { encryptedExperiments }),
   };
 }
 
-export async function getFeatureDefinitions(
-  organization: string,
-  environment: string = "production",
-  project?: string,
-  encryptionKey?: string
-): Promise<{
+export type FeatureDefinitionArgs = {
+  organization: string;
+  environment?: string;
+  project?: string;
+  encryptionKey?: string;
+  includeVisualExperiments?: boolean;
+  includeDraftExperiments?: boolean;
+  includeExperimentNames?: boolean;
+  hashSecureAttributes?: boolean;
+};
+export type FeatureDefinitionSDKPayload = {
   features: Record<string, FeatureDefinition>;
+  experiments?: AutoExperiment[];
   dateUpdated: Date | null;
   encryptedFeatures?: string;
-}> {
+  encryptedExperiments?: string;
+};
+
+export async function getFeatureDefinitions({
+  organization,
+  environment = "production",
+  project,
+  encryptionKey,
+  includeVisualExperiments,
+  includeDraftExperiments,
+  includeExperimentNames,
+  hashSecureAttributes,
+}: FeatureDefinitionArgs): Promise<FeatureDefinitionSDKPayload> {
   // Return cached payload from Mongo if exists
   try {
     const cached = await getSDKPayload({
@@ -180,26 +406,78 @@ export async function getFeatureDefinitions(
       project: project || "",
     });
     if (cached) {
-      const { features } = cached.contents;
-      return await getFeatureDefinitionsResponse(
+      let attributes: SDKAttributeSchema | undefined = undefined;
+      let secureAttributeSalt: string | undefined = undefined;
+      if (hashSecureAttributes) {
+        const org = await getOrganizationById(organization);
+        if (org && orgHasPremiumFeature(org, "hash-secure-attributes")) {
+          secureAttributeSalt = org.settings?.secureAttributeSalt;
+          attributes = org.settings?.attributeSchema;
+        }
+      }
+      const { features, experiments } = cached.contents;
+      return await getFeatureDefinitionsResponse({
         features,
-        cached.dateUpdated,
-        encryptionKey
-      );
+        experiments: experiments || [],
+        dateUpdated: cached.dateUpdated,
+        encryptionKey,
+        includeVisualExperiments,
+        includeDraftExperiments,
+        includeExperimentNames,
+        attributes,
+        secureAttributeSalt,
+      });
     }
   } catch (e) {
     logger.error(e, "Failed to fetch SDK payload from cache");
   }
 
   const org = await getOrganizationById(organization);
+  let attributes: SDKAttributeSchema | undefined = undefined;
+  let secureAttributeSalt: string | undefined = undefined;
+  if (hashSecureAttributes) {
+    if (org && orgHasPremiumFeature(org, "hash-secure-attributes")) {
+      secureAttributeSalt = org?.settings?.secureAttributeSalt;
+      attributes = org.settings?.attributeSchema;
+    }
+  }
   if (!org) {
-    return await getFeatureDefinitionsResponse({}, null, encryptionKey);
+    return await getFeatureDefinitionsResponse({
+      features: {},
+      experiments: [],
+      dateUpdated: null,
+      encryptionKey,
+      includeVisualExperiments,
+      includeDraftExperiments,
+      includeExperimentNames,
+      attributes,
+      secureAttributeSalt,
+    });
   }
 
   // Generate the feature definitions
   const features = await getAllFeatures(organization, project);
   const groupMap = await getSavedGroupMap(org);
-  const featureDefinitions = generatePayload(features, environment, groupMap);
+  const experimentMap = await getAllPayloadExperiments(organization, project);
+
+  const featureDefinitions = generatePayload({
+    features,
+    environment,
+    groupMap,
+    experimentMap,
+  });
+
+  const allVisualExperiments = await getAllVisualExperiments(
+    organization,
+    experimentMap
+  );
+
+  // Generate visual experiments
+  const experimentsDefinitions = generateVisualExperimentsPayload({
+    visualExperiments: allVisualExperiments,
+    // environment: key.environment,
+    groupMap,
+  });
 
   // Cache in Mongo
   await updateSDKPayload({
@@ -207,13 +485,20 @@ export async function getFeatureDefinitions(
     project: project || "",
     environment,
     featureDefinitions,
+    experimentsDefinitions,
   });
 
-  return await getFeatureDefinitionsResponse(
-    featureDefinitions,
-    new Date(),
-    encryptionKey
-  );
+  return await getFeatureDefinitionsResponse({
+    features: featureDefinitions,
+    experiments: experimentsDefinitions,
+    dateUpdated: new Date(),
+    encryptionKey,
+    includeVisualExperiments,
+    includeDraftExperiments,
+    includeExperimentNames,
+    attributes,
+    secureAttributeSalt,
+  });
 }
 
 export function generateRuleId() {
@@ -304,51 +589,73 @@ export async function encrypt(
   return bufToBase64(iv) + "." + bufToBase64(encryptedBuffer);
 }
 
-export function getApiFeatureObj(
-  feature: FeatureInterface,
-  organization: OrganizationInterface,
-  groupMap: GroupMap
-): ApiFeatureInterface {
-  const featureEnvironments: Record<
-    string,
-    ApiFeatureEnvironmentInterface
-  > = {};
+export function getApiFeatureObj({
+  feature,
+  organization,
+  groupMap,
+  experimentMap,
+}: {
+  feature: FeatureInterface;
+  organization: OrganizationInterface;
+  groupMap: GroupMap;
+  experimentMap: Map<string, ExperimentInterface>;
+}): ApiFeature {
+  const featureEnvironments: Record<string, ApiFeatureEnvironment> = {};
   const environments = getEnvironments(organization);
   environments.forEach((env) => {
     const defaultValue = feature.defaultValue;
     const envSettings = feature.environmentSettings?.[env.id];
     const enabled = !!envSettings?.enabled;
-    const rules = envSettings?.rules || [];
+    const rules = (envSettings?.rules || []).map((rule) => ({
+      ...rule,
+      condition: rule.condition || "",
+      enabled: !!rule.enabled,
+    }));
     const definition = getFeatureDefinition({
       feature,
       groupMap,
+      experimentMap,
       environment: env.id,
     });
 
-    const draft = feature.draft?.active
+    const draft: null | ApiFeatureEnvironment["draft"] = feature.draft?.active
       ? {
           enabled,
           defaultValue: feature.draft?.defaultValue ?? defaultValue,
-          rules: feature.draft?.rules?.[env.id] ?? rules,
-          definition: getFeatureDefinition({
-            feature,
-            groupMap,
-            environment: env.id,
-            useDraft: true,
-          }),
+          rules: (feature.draft?.rules?.[env.id] ?? rules).map((rule) => ({
+            ...rule,
+            condition: rule.condition || "",
+            enabled: !!rule.enabled,
+          })),
         }
       : null;
+    if (draft) {
+      const draftDefinition = getFeatureDefinition({
+        feature,
+        groupMap,
+        experimentMap,
+        environment: env.id,
+        useDraft: true,
+      });
+      if (draftDefinition) {
+        draft.definition = JSON.stringify(draftDefinition);
+      }
+    }
 
     featureEnvironments[env.id] = {
       defaultValue,
       enabled,
       rules,
-      draft,
-      definition,
     };
+    if (draft) {
+      featureEnvironments[env.id].draft = draft;
+    }
+    if (definition) {
+      featureEnvironments[env.id].definition = JSON.stringify(definition);
+    }
   });
 
-  const featureRecord: ApiFeatureInterface = {
+  const featureRecord: ApiFeature = {
     id: feature.id,
     description: feature.description || "",
     archived: !!feature.archived,
@@ -405,4 +712,140 @@ export function getNextScheduledUpdate(
   }
 
   return new Date(sortedFutureDates[0]);
+}
+
+// Specific hashing entrypoint for Feature rules
+export function applyFeatureHashing(
+  features: Record<string, FeatureDefinition>,
+  attributes: SDKAttributeSchema,
+  salt: string
+): Record<string, FeatureDefinition> {
+  return Object.keys(features).reduce<Record<string, FeatureDefinition>>(
+    (acc, key) => {
+      const feature = features[key];
+      if (feature?.rules) {
+        feature.rules = feature.rules.map<FeatureDefinitionRule>((rule) => {
+          if (rule?.condition) {
+            rule.condition = hashStrings({
+              obj: rule.condition,
+              salt,
+              attributes,
+            });
+          }
+          return rule;
+        });
+      }
+      acc[key] = feature;
+      return acc;
+    },
+    {}
+  );
+}
+
+// Specific hashing entrypoint for Experiment conditions
+export function applyExperimentHashing(
+  experiments: AutoExperiment[],
+  attributes: SDKAttributeSchema,
+  salt: string
+): AutoExperiment[] {
+  return experiments.map((experiment) => {
+    if (experiment?.condition) {
+      experiment.condition = hashStrings({
+        obj: experiment.condition,
+        salt,
+        attributes,
+      });
+    }
+    return experiment;
+  });
+}
+
+interface hashStringsArgs {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  obj: any;
+  salt: string;
+  attributes: SDKAttributeSchema;
+  attribute?: SDKAttribute;
+  doHash?: boolean;
+}
+// General recursive entrypoint for hashing secure attributes within a set of targeting conditions:
+export function hashStrings({
+  obj,
+  salt,
+  attributes,
+  attribute,
+  doHash = false,
+}: hashStringsArgs): // eslint-disable-next-line @typescript-eslint/no-explicit-any
+any {
+  // Given an object of unknown type, determine whether to recurse into it or return it
+  if (Array.isArray(obj)) {
+    // loop over array elements, process them
+    const newObj = [];
+    for (let i = 0; i < obj.length; i++) {
+      newObj[i] = processVal({
+        obj: obj[i],
+        attribute,
+        doHash,
+      });
+    }
+    return newObj;
+  } else if (typeof obj === "object" && obj !== null) {
+    // loop over object entries, process them
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const newObj: any = {};
+    for (const key in obj) {
+      // check if a new attribute is referenced, and whether we need to hash it
+      // otherwise, inherit the previous attribute and hashing status
+      attribute = attributes.find((a) => a.property === key) ?? attribute;
+      doHash = attribute
+        ? !!(
+            attribute?.datatype &&
+            ["secureString", "secureString[]"].includes(
+              attribute?.datatype ?? ""
+            )
+          )
+        : doHash;
+
+      newObj[key] = processVal({
+        obj: obj[key],
+        attribute,
+        doHash,
+      });
+    }
+    return newObj;
+  } else {
+    return obj;
+  }
+
+  // Helper function for processing a value. Will either hash it, recurse into it, or skip (return) it.
+  function processVal({
+    obj,
+    attribute,
+    doHash = false,
+  }: {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    obj: any;
+    attribute?: SDKAttribute;
+    doHash?: boolean;
+  }): // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  any {
+    if (Array.isArray(obj)) {
+      // recurse array
+      return hashStrings({ obj, salt, attributes, attribute, doHash });
+    } else if (typeof obj === "object" && obj !== null) {
+      // recurse object
+      return hashStrings({ obj, salt, attributes, attribute, doHash });
+    } else if (typeof obj === "string") {
+      // hash string value
+      return doHash ? sha256(obj, salt) : obj;
+    } else {
+      return obj;
+    }
+  }
+}
+
+export function sha256(str: string, salt: string): string {
+  return createHash("sha256")
+    .update(salt + str)
+    .digest("hex");
 }

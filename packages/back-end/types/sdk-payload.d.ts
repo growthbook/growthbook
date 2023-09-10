@@ -1,9 +1,35 @@
+import type { AutoExperiment } from "@growthbook/growthbook";
 import { FeatureDefinition } from "./api";
 
 // If this changes, also increment the LATEST_SDK_PAYLOAD_SCHEMA_VERSION constant
 export type SDKPayloadContents = {
   features: Record<string, FeatureDefinition>;
+  experiments: AutoExperiment[];
 };
+
+interface DOMMutation {
+  selector: string;
+  action: "append" | "set" | "remove";
+  attribute: string;
+  value?: string;
+  parentSelector?: string;
+  insertBeforeSelector?: string;
+}
+
+// Used for namespaces
+// Include when phase.namespace.enabled is true
+interface Filter {
+  // experiment.hashAttribute
+  attribute?: string;
+  // phase.namespace.name
+  seed: string;
+  // Hard-code this to `2`
+  hashVersion: number;
+  // An array with a single element: phase.namespace.range
+  ranges: VariationRange[];
+}
+
+type VariationRange = [number, number];
 
 export interface SDKPayloadInterface {
   organization: string;

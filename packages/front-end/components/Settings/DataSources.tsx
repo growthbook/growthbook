@@ -2,16 +2,18 @@ import React, { FC, useState } from "react";
 import { useRouter } from "next/router";
 import Link from "next/link";
 import { FaExclamationTriangle } from "react-icons/fa";
+import { ago } from "shared/dates";
+import { isProjectListValidForProject } from "shared/util";
 import ProjectBadges from "@/components/ProjectBadges";
 import { GBAddCircle } from "@/components/Icons";
 import usePermissions from "@/hooks/usePermissions";
-import NewDataSourceForm from "@/components/Settings/NewDataSourceForm";
-import { ago } from "@/services/dates";
 import { DocLink } from "@/components/DocLink";
 import { hasFileConfig } from "@/services/env";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
+import NewDataSourceForm from "./NewDataSourceForm";
 
 const DataSources: FC = () => {
   const [newModalOpen, setNewModalOpen] = useState(false);
@@ -25,13 +27,21 @@ const DataSources: FC = () => {
     mutateDefinitions,
     ready,
   } = useDefinitions();
-  const filteredDatasources = datasources.filter((ds) => {
-    if (!project) return true;
-    if (!ds?.projects?.length) return true;
-    return ds?.projects?.includes(project);
-  });
+  const filteredDatasources = project
+    ? datasources.filter((ds) =>
+        isProjectListValidForProject(ds.projects, project)
+      )
+    : datasources;
 
   const permissions = usePermissions();
+
+  const {
+    exists: demoDataSourceExists,
+    currentProjectIsDemo,
+  } = useDemoDataSourceProject();
+  const buttonTitle = currentProjectIsDemo
+    ? "You cannot create a datasource under the demo project"
+    : "";
 
   if (error) {
     return <div className="alert alert-danger">{error}</div>;
@@ -84,6 +94,7 @@ const DataSources: FC = () => {
                 </td>
                 <td>{d.type}</td>
                 <td>
+                  {/* @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'. */}
                   {d?.projects?.length > 0 ? (
                     <ProjectBadges
                       projectIds={d.projects}
@@ -93,6 +104,7 @@ const DataSources: FC = () => {
                     <ProjectBadges className="badge-ellipsis short align-middle" />
                   )}
                 </td>
+                {/* @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'Date | null' is not assignable t... Remove this comment to see the full error message */}
                 {!hasFileConfig() && <td>{ago(d.dateUpdated)}</td>}
               </tr>
             ))}
@@ -118,6 +130,17 @@ const DataSources: FC = () => {
             require minimal read-only permissions, so you can be sure your
             source data remains secure.
           </p>
+          {!demoDataSourceExists && !currentProjectIsDemo && (
+            <>
+              <p>
+                You can also create a{" "}
+                <Link href="/demo-datasource-project">
+                  <a className="info">demo datasource project</a>
+                </Link>
+                .
+              </p>
+            </>
+          )}
           {hasFileConfig() && (
             <div className="alert alert-info">
               It looks like you have a <code>config.yml</code> file. Data
@@ -131,6 +154,8 @@ const DataSources: FC = () => {
       {!hasFileConfig() && permissions.check("createDatasources", project) && (
         <button
           className="btn btn-primary"
+          disabled={currentProjectIsDemo}
+          title={buttonTitle}
           onClick={(e) => {
             e.preventDefault();
             setNewModalOpen(true);
@@ -160,6 +185,7 @@ const DataSources: FC = () => {
           onCancel={() => {
             setNewModalOpen(false);
           }}
+          showImportSampleData={!demoDataSourceExists}
         />
       )}
     </div>

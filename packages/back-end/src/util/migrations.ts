@@ -1,6 +1,10 @@
 import isEqual from "lodash/isEqual";
 import cloneDeep from "lodash/cloneDeep";
-import { MetricInterface } from "../../types/metric";
+import {
+  DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
+  DEFAULT_STATS_ENGINE,
+} from "shared/constants";
+import { LegacyMetricInterface, MetricInterface } from "../../types/metric";
 import {
   DataSourceInterface,
   DataSourceSettings,
@@ -15,6 +19,15 @@ import {
 } from "../../types/feature";
 import { MemberRole, OrganizationInterface } from "../../types/organization";
 import { getConfigOrganizationSettings } from "../init/config";
+import {
+  ExperimentInterface,
+  LegacyExperimentInterface,
+} from "../../types/experiment";
+import {
+  LegacyExperimentSnapshotInterface,
+  ExperimentSnapshotInterface,
+  MetricForSnapshot,
+} from "../../types/experiment-snapshot";
 import { DEFAULT_CONVERSION_WINDOW_HOURS } from "./secrets";
 
 function roundVariationWeight(num: number): number {
@@ -37,7 +50,7 @@ function adjustWeights(weights: number[]): number[] {
   });
 }
 
-export function upgradeMetricDoc(doc: MetricInterface): MetricInterface {
+export function upgradeMetricDoc(doc: LegacyMetricInterface): MetricInterface {
   const newDoc = { ...doc };
 
   if (doc.conversionDelayHours == null && doc.earlyStart) {
@@ -68,6 +81,12 @@ export function upgradeMetricDoc(doc: MetricInterface): MetricInterface {
       newDoc.userIdColumns[type] = val;
     });
   }
+
+  if (doc.cap) {
+    newDoc.capValue = doc.cap;
+    newDoc.capping = "absolute";
+  }
+  if (newDoc.cap !== undefined) delete newDoc.cap;
 
   return newDoc;
 }
@@ -281,8 +300,11 @@ export function upgradeOrganizationDoc(
 ): OrganizationInterface {
   const org = cloneDeep(doc);
 
+  // Add settings from config.json
+  const configSettings = getConfigOrganizationSettings();
+  org.settings = Object.assign({}, org.settings || {}, configSettings);
+
   // Add dev/prod environments if there are none yet
-  org.settings = org.settings || {};
   if (!org.settings?.environments?.length) {
     org.settings.environments = [
       {
@@ -317,10 +339,6 @@ export function upgradeOrganizationDoc(
     };
   }
 
-  // Add settings from config.json
-  const configSettings = getConfigOrganizationSettings();
-  org.settings = Object.assign({}, org.settings || {}, configSettings);
-
   // Default attribute schema
   if (!org.settings.attributeSchema) {
     org.settings.attributeSchema = [
@@ -335,6 +353,11 @@ export function upgradeOrganizationDoc(
     ];
   }
 
+  // Add statsEngine setting if not defined
+  if (!org.settings.statsEngine) {
+    org.settings.statsEngine = DEFAULT_STATS_ENGINE;
+  }
+
   // Rename legacy roles
   const legacyRoleMap: Record<string, MemberRole> = {
     designer: "collaborator",
@@ -347,4 +370,238 @@ export function upgradeOrganizationDoc(
   });
 
   return org;
+}
+
+export function upgradeExperimentDoc(
+  orig: LegacyExperimentInterface
+): ExperimentInterface {
+  const experiment = cloneDeep(orig);
+
+  // Add missing variation keys and ids
+  experiment.variations.forEach((v, i) => {
+    if (v.key === "" || v.key === undefined || v.key === null) {
+      v.key = i + "";
+    }
+    if (!v.id) {
+      v.id = i + "";
+    }
+    if (!v.name) {
+      v.name = i ? `Variation ${i}` : `Control`;
+    }
+  });
+
+  // Populate phase names and targeting properties
+  if (experiment.phases) {
+    experiment.phases.forEach((phase) => {
+      if (!phase.name) {
+        const p = phase.phase || "main";
+        phase.name = p.substring(0, 1).toUpperCase() + p.substring(1);
+      }
+
+      phase.coverage = phase.coverage ?? 1;
+      phase.condition = phase.condition || "";
+      phase.seed = phase.seed || experiment.trackingKey;
+      phase.namespace = phase.namespace || {
+        enabled: false,
+        name: "",
+        range: [0, 1],
+      };
+    });
+  }
+
+  // Upgrade the attribution model
+  if (experiment.attributionModel === "allExposures") {
+    experiment.attributionModel = "experimentDuration";
+  }
+
+  // Add hashAttribute field
+  experiment.hashAttribute = experiment.hashAttribute || "";
+
+  // Add hashVersion field
+  experiment.hashVersion = experiment.hashVersion || 2;
+
+  // Old `observations` field
+  if (!experiment.description && experiment.observations) {
+    experiment.description = experiment.observations;
+  }
+
+  // releasedVariationId
+  if (!("releasedVariationId" in experiment)) {
+    if (experiment.status === "stopped") {
+      if (experiment.results === "lost") {
+        experiment.releasedVariationId = experiment.variations[0]?.id || "";
+      } else if (experiment.results === "won") {
+        experiment.releasedVariationId =
+          experiment.variations[experiment.winner || 1]?.id || "";
+      } else {
+        experiment.releasedVariationId = "";
+      }
+    } else {
+      experiment.releasedVariationId = "";
+    }
+  }
+
+  if (!("sequentialTestingEnabled" in experiment)) {
+    experiment.sequentialTestingEnabled = false;
+  }
+  if (!("sequentialTestingTuningParameter" in experiment)) {
+    experiment.sequentialTestingTuningParameter = DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER;
+  }
+
+  return experiment as ExperimentInterface;
+}
+
+export function migrateSnapshot(
+  orig: LegacyExperimentSnapshotInterface
+): ExperimentSnapshotInterface {
+  const {
+    activationMetric,
+    statsEngine,
+    // eslint-disable-next-line
+    hasRawQueries,
+    // eslint-disable-next-line
+    hasCorrectedStats,
+    // eslint-disable-next-line
+    query,
+    // eslint-disable-next-line
+    queryLanguage,
+    results,
+    regressionAdjustmentEnabled,
+    metricRegressionAdjustmentStatuses,
+    sequentialTestingEnabled,
+    sequentialTestingTuningParameter,
+    queryFilter,
+    segment,
+    skipPartialData,
+    manual,
+    ...snapshot
+  } = orig;
+
+  // Convert old results to new array of analyses
+  if (!snapshot.analyses) {
+    if (results) {
+      const regressionAdjusted =
+        regressionAdjustmentEnabled &&
+        metricRegressionAdjustmentStatuses?.some(
+          (s) => s.regressionAdjustmentEnabled
+        )
+          ? true
+          : false;
+
+      snapshot.analyses = [
+        {
+          dateCreated: snapshot.dateCreated,
+          status: snapshot.error ? "error" : "success",
+          settings: {
+            statsEngine: statsEngine || DEFAULT_STATS_ENGINE,
+            dimensions: snapshot.dimension ? [snapshot.dimension] : [],
+            pValueCorrection: null,
+            regressionAdjusted,
+            sequentialTesting: !!sequentialTestingEnabled,
+            sequentialTestingTuningParameter:
+              sequentialTestingTuningParameter ||
+              DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
+          },
+          results,
+        },
+      ];
+      if (snapshot.error) {
+        snapshot.analyses[0].error = snapshot.error;
+      }
+    } else {
+      snapshot.analyses = [];
+    }
+  }
+
+  // Figure out status from old fields
+  if (!snapshot.status) {
+    snapshot.status = snapshot.error
+      ? "error"
+      : snapshot.analyses.length > 0
+      ? "success"
+      : "running";
+  }
+
+  // Migrate settings
+  // We weren't tracking all of these before, so just pick good defaults
+  if (!snapshot.settings) {
+    // Try to figure out metric ids from results
+    const metricIds = Object.keys(results?.[0]?.variations?.[0]?.metrics || {});
+    if (activationMetric && !metricIds.includes(activationMetric)) {
+      metricIds.push(activationMetric);
+    }
+
+    const variations = (results?.[0]?.variations || []).map((v, i) => ({
+      id: i + "",
+      weight: 0,
+    }));
+
+    const metricSettings: MetricForSnapshot[] = metricIds.map((id) => {
+      const regressionSettings = metricRegressionAdjustmentStatuses?.find(
+        (s) => s.metric === id
+      );
+
+      return {
+        id,
+        computedSettings: {
+          conversionDelayHours: 0,
+          conversionWindowHours: DEFAULT_CONVERSION_WINDOW_HOURS,
+          regressionAdjustmentDays:
+            regressionSettings?.regressionAdjustmentDays || 0,
+          regressionAdjustmentEnabled: !!(
+            regressionAdjustmentEnabled &&
+            regressionSettings?.regressionAdjustmentEnabled
+          ),
+          regressionAdjustmentReason: regressionSettings?.reason || "",
+        },
+      };
+    });
+
+    snapshot.settings = {
+      manual: !!manual,
+      dimensions: snapshot.dimension
+        ? [
+            {
+              id: snapshot.dimension,
+            },
+          ]
+        : [],
+      metricSettings,
+      // We know the metric ids included, but don't know if they were goals or guardrails
+      // Just add them all as goals (doesn't really change much)
+      goalMetrics: metricIds.filter((m) => m !== activationMetric),
+      guardrailMetrics: [],
+      activationMetric: activationMetric || null,
+      regressionAdjustmentEnabled: !!regressionAdjustmentEnabled,
+      startDate: snapshot.dateCreated,
+      endDate: snapshot.dateCreated,
+      experimentId: "",
+      datasourceId: "",
+      exposureQueryId: "",
+      queryFilter: queryFilter || "",
+      segment: segment || "",
+      skipPartialData: !!skipPartialData,
+      attributionModel: "firstExposure",
+      variations,
+    };
+  }
+
+  // Some fields used to be optional, but are now required
+  if (!snapshot.queries) {
+    snapshot.queries = [];
+  }
+  if (!snapshot.multipleExposures) {
+    snapshot.multipleExposures = 0;
+  }
+  if (!snapshot.unknownVariations) {
+    snapshot.unknownVariations = [];
+  }
+  if (!snapshot.dimension) {
+    snapshot.dimension = "";
+  }
+  if (!snapshot.runStarted) {
+    snapshot.runStarted = null;
+  }
+
+  return snapshot;
 }

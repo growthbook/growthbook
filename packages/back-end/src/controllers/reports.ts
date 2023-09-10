@@ -1,25 +1,29 @@
 import { Response } from "express";
+import { DEFAULT_STATS_ENGINE } from "shared/constants";
+import { getValidDate } from "shared/dates";
+import { getSnapshotAnalysis } from "shared/util";
 import { ReportInterface } from "../../types/report";
 import {
   getExperimentById,
   getExperimentsByIds,
 } from "../models/ExperimentModel";
-import { ExperimentSnapshotModel } from "../models/ExperimentSnapshotModel";
+import { findSnapshotById } from "../models/ExperimentSnapshotModel";
+import { getMetricMap } from "../models/MetricModel";
 import {
   createReport,
-  getReportById,
-  updateReport,
-  getReportsByOrg,
-  getReportsByExperimentId,
   deleteReportById,
+  getReportById,
+  getReportsByExperimentId,
+  getReportsByOrg,
+  updateReport,
 } from "../models/ReportModel";
+import { ReportQueryRunner } from "../queryRunners/ReportQueryRunner";
+import { getIntegrationFromDatasourceId } from "../services/datasource";
 import { generateReportNotebook } from "../services/notebook";
 import { getOrgFromReq } from "../services/organizations";
-import { cancelRun, getStatusEndpoint } from "../services/queries";
-import { runReport, reportArgsFromSnapshot } from "../services/reports";
-import { analyzeExperimentResults } from "../services/stats";
+import { reportArgsFromSnapshot } from "../services/reports";
 import { AuthRequest } from "../types/AuthRequest";
-import { getValidDate } from "../util/dates";
+import { ExperimentInterface } from "../../types/experiment";
 
 export async function postReportFromSnapshot(
   req: AuthRequest<null, { snapshot: string }>,
@@ -27,10 +31,7 @@ export async function postReportFromSnapshot(
 ) {
   const { org } = getOrgFromReq(req);
 
-  const snapshot = await ExperimentSnapshotModel.findOne({
-    id: req.params.snapshot,
-    organization: org.id,
-  });
+  const snapshot = await findSnapshotById(org.id, req.params.snapshot);
 
   if (!snapshot) {
     throw new Error("Invalid snapshot id");
@@ -49,16 +50,21 @@ export async function postReportFromSnapshot(
     throw new Error("Unknown experiment phase");
   }
 
+  const analysis = getSnapshotAnalysis(snapshot);
+  if (!analysis) {
+    throw new Error("Missing analysis settings");
+  }
+
   const doc = await createReport(org.id, {
     experimentId: experiment.id,
     userId: req.userId,
     title: `New Report - ${experiment.name}`,
     description: ``,
     type: "experiment",
-    args: reportArgsFromSnapshot(experiment, snapshot),
-    results: snapshot.results
+    args: reportArgsFromSnapshot(experiment, snapshot, analysis.settings),
+    results: analysis.results
       ? {
-          dimensions: snapshot.results,
+          dimensions: analysis.results,
           unknownVariations: snapshot.unknownVariations || [],
           multipleExposures: snapshot.multipleExposures || 0,
         }
@@ -184,22 +190,47 @@ export async function refreshReport(
   req: AuthRequest<null, { id: string }, { force?: string }>,
   res: Response
 ) {
-  req.checkPermissions("runQueries", "");
-
   const { org } = getOrgFromReq(req);
-
   const report = await getReportById(org.id, req.params.id);
 
   if (!report) {
     throw new Error("Unknown report id");
   }
 
+  let experiment: ExperimentInterface | null = null;
+
+  if (report.experimentId) {
+    experiment = await getExperimentById(org.id, report.experimentId || "");
+  }
+
+  req.checkPermissions("runQueries", experiment?.project || "");
+
   const useCache = !req.query["force"];
 
-  await runReport(report, useCache, org);
+  const statsEngine = report.args?.statsEngine || DEFAULT_STATS_ENGINE;
+
+  report.args.statsEngine = statsEngine;
+  report.args.regressionAdjustmentEnabled =
+    statsEngine === "frequentist"
+      ? !!report.args?.regressionAdjustmentEnabled
+      : false;
+
+  const metricMap = await getMetricMap(org.id);
+
+  const integration = await getIntegrationFromDatasourceId(
+    org.id,
+    report.args.datasource,
+    true
+  );
+  const queryRunner = new ReportQueryRunner(report, integration, useCache);
+
+  const updatedReport = await queryRunner.startAnalysis({
+    metricMap,
+  });
 
   return res.status(200).json({
     status: 200,
+    updatedReport,
   });
 }
 
@@ -208,7 +239,6 @@ export async function putReport(
   res: Response
 ) {
   req.checkPermissions("createAnalyses", "");
-  req.checkPermissions("runQueries", "");
 
   const { org } = getOrgFromReq(req);
 
@@ -217,6 +247,10 @@ export async function putReport(
   if (!report) {
     throw new Error("Unknown report id");
   }
+
+  const experiment = await getExperimentById(org.id, report.experimentId || "");
+
+  req.checkPermissions("runQueries", experiment?.project || "");
 
   const updates: Partial<ReportInterface> = {};
   let needsRun = false;
@@ -226,8 +260,22 @@ export async function putReport(
       ...req.body.args,
     };
 
+    const statsEngine = updates.args?.statsEngine || DEFAULT_STATS_ENGINE;
+
     updates.args.startDate = getValidDate(updates.args.startDate);
-    updates.args.endDate = getValidDate(updates.args.endDate || new Date());
+    if (!updates.args.endDate) {
+      delete updates.args.endDate;
+    } else {
+      updates.args.endDate = getValidDate(updates.args.endDate || new Date());
+    }
+    updates.args.statsEngine = statsEngine;
+    updates.args.regressionAdjustmentEnabled =
+      statsEngine === "frequentist"
+        ? !!updates.args?.regressionAdjustmentEnabled
+        : false;
+    updates.args.metricRegressionAdjustmentStatuses =
+      updates.args?.metricRegressionAdjustmentStatuses || [];
+
     needsRun = true;
   }
   if ("title" in req.body) updates.title = req.body.title;
@@ -236,80 +284,54 @@ export async function putReport(
 
   await updateReport(org.id, req.params.id, updates);
 
+  const updatedReport: ReportInterface = {
+    ...report,
+    ...updates,
+  };
   if (needsRun) {
-    await runReport(
-      {
-        ...report,
-        ...updates,
-      },
-      true,
-      org
+    const metricMap = await getMetricMap(org.id);
+
+    const integration = await getIntegrationFromDatasourceId(
+      org.id,
+      updatedReport.args.datasource,
+      true
     );
+    const queryRunner = new ReportQueryRunner(updatedReport, integration);
+
+    await queryRunner.startAnalysis({
+      metricMap,
+    });
   }
 
   return res.status(200).json({
     status: 200,
+    updatedReport,
   });
-}
-
-export async function getReportStatus(
-  req: AuthRequest<null, { id: string }>,
-  res: Response
-) {
-  const { org } = getOrgFromReq(req);
-  const { id } = req.params;
-  const report = await getReportById(org.id, id);
-  if (!report) {
-    throw new Error("Could not get query status");
-  }
-  const statsEngine = report.args.statsEngine || org.settings?.statsEngine;
-  const result = await getStatusEndpoint(
-    report,
-    org.id,
-    (queryData) => {
-      if (report.type === "experiment") {
-        return analyzeExperimentResults(
-          org.id,
-          report.args.variations,
-          report.args.dimension || "",
-          queryData,
-          statsEngine
-        );
-      }
-      throw new Error("Unsupported report type");
-    },
-    async (updates, results, error) => {
-      await updateReport(org.id, id, {
-        ...updates,
-        results: results || report.results,
-        error,
-      });
-    },
-    report.error
-  );
-  return res.status(200).json(result);
 }
 
 export async function cancelReport(
   req: AuthRequest<null, { id: string }>,
   res: Response
 ) {
-  req.checkPermissions("runQueries", "");
-
   const { org } = getOrgFromReq(req);
   const { id } = req.params;
   const report = await getReportById(org.id, id);
   if (!report) {
     throw new Error("Could not cancel query");
   }
-  res.status(200).json(
-    await cancelRun(report, org.id, async () => {
-      await updateReport(org.id, id, {
-        queries: [],
-        runStarted: null,
-      });
-    })
+
+  const experiment = await getExperimentById(org.id, report.experimentId || "");
+
+  req.checkPermissions("runQueries", experiment?.project || "");
+
+  const integration = await getIntegrationFromDatasourceId(
+    org.id,
+    report.args.datasource
   );
+  const queryRunner = new ReportQueryRunner(report, integration);
+  await queryRunner.cancelQueries();
+
+  res.status(200).json({ status: 200 });
 }
 
 export async function postNotebook(

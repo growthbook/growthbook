@@ -1,35 +1,46 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { RxDesktop } from "react-icons/rx";
 import { useRouter } from "next/router";
-import useApi from "@/hooks/useApi";
+import { useGrowthBook } from "@growthbook/growthbook-react";
+import { datetime, ago } from "shared/dates";
+import Link from "next/link";
+import { BsFlag } from "react-icons/bs";
+import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { phaseSummary } from "@/services/utils";
-import { datetime, ago } from "@/services/dates";
 import ResultsIndicator from "@/components/Experiment/ResultsIndicator";
 import { useAddComputedFields, useSearch } from "@/services/search";
 import WatchButton from "@/components/WatchButton";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Pagination from "@/components/Pagination";
 import { GBAddCircle } from "@/components/Icons";
-import ImportExperimentModal from "@/components/Experiment/ImportExperimentModal";
 import { useUser } from "@/services/UserContext";
 import ExperimentsGetStarted from "@/components/HomePage/ExperimentsGetStarted";
-import NewFeatureExperiments from "@/components/Experiment/NewFeatureExperiments";
 import SortedTags from "@/components/Tags/SortedTags";
 import Field from "@/components/Forms/Field";
 import TabButtons from "@/components/Tabs/TabButtons";
 import TabButton from "@/components/Tabs/TabButton";
 import { useAnchor } from "@/components/Tabs/ControlledTabs";
 import Toggle from "@/components/Forms/Toggle";
+import AddExperimentModal from "@/components/Experiment/AddExperimentModal";
+import ImportExperimentModal from "@/components/Experiment/ImportExperimentModal";
+import { AppFeatures } from "@/types/app-features";
+import { useExperiments } from "@/hooks/useExperiments";
+import Tooltip from "@/components/Tooltip/Tooltip";
+import { useAuth } from "@/services/auth";
 
 const NUM_PER_PAGE = 20;
 
 const ExperimentsPage = (): React.ReactElement => {
+  const growthbook = useGrowthBook<AppFeatures>();
+
   const { ready, project, getMetricById, getProjectById } = useDefinitions();
 
-  const { data, error, mutate } = useApi<{
-    experiments: ExperimentInterfaceStringDates[];
-  }>(`/experiments?project=${project || ""}`);
+  const { orgId } = useAuth();
+
+  const { experiments: allExperiments, error, loading } = useExperiments(
+    project
+  );
 
   const [tab, setTab] = useAnchor(["running", "drafts", "stopped", "archived"]);
 
@@ -42,27 +53,40 @@ const ExperimentsPage = (): React.ReactElement => {
   const [currentPage, setCurrentPage] = useState(1);
 
   const experiments = useAddComputedFields(
-    data?.experiments,
-    (exp) => ({
-      ownerName: getUserDisplay(exp.owner, false) || "",
-      metricNames: exp.metrics
-        .map((m) => getMetricById(m)?.name)
-        .filter(Boolean),
-      projectName: getProjectById(exp.project)?.name || "",
-      tab: exp.archived
-        ? "archived"
-        : exp.status === "draft"
-        ? "drafts"
-        : exp.status,
-      date:
-        (exp.status === "running"
-          ? exp.phases?.[exp.phases?.length - 1]?.dateStarted
-          : exp.status === "stopped"
-          ? exp.phases?.[exp.phases?.length - 1]?.dateEnded
-          : exp.dateCreated) ?? "",
-    }),
+    allExperiments,
+    (exp) => {
+      const projectId = exp.project;
+      const projectName = projectId ? getProjectById(projectId)?.name : "";
+      const projectIsDeReferenced = projectId && !projectName;
+
+      return {
+        ownerName: getUserDisplay(exp.owner, false) || "",
+        metricNames: exp.metrics
+          .map((m) => getMetricById(m)?.name)
+          .filter(Boolean),
+        projectId,
+        projectName,
+        projectIsDeReferenced,
+        tab: exp.archived
+          ? "archived"
+          : exp.status === "draft"
+          ? "drafts"
+          : exp.status,
+        date:
+          (exp.status === "running"
+            ? exp.phases?.[exp.phases?.length - 1]?.dateStarted
+            : exp.status === "stopped"
+            ? exp.phases?.[exp.phases?.length - 1]?.dateEnded
+            : exp.dateCreated) ?? "",
+      };
+    },
     [getMetricById, getProjectById]
   );
+
+  const demoExperimentId = useMemo(() => {
+    const projectId = getDemoDatasourceProjectIdForOrganization(orgId || "");
+    return experiments.find((e) => e.project === projectId)?.id || "";
+  }, [orgId, experiments]);
 
   const filterResults = useCallback(
     (items: typeof experiments) => {
@@ -108,6 +132,8 @@ const ExperimentsPage = (): React.ReactElement => {
     return items.filter((item) => item.tab === tab);
   }, [items, tab]);
 
+  const [showSetup, setShowSetup] = useState(false);
+
   // If "All Projects" is selected is selected and some experiments are in a project, show the project column
   const showProjectColumn = !project && items.some((e) => e.project);
 
@@ -116,6 +142,13 @@ const ExperimentsPage = (): React.ReactElement => {
     setCurrentPage(1);
   }, [items.length, tab, showMineOnly]);
 
+  // Show steps if coming from get started page
+  useEffect(() => {
+    if (router.asPath.match(/getstarted/)) {
+      setShowSetup(true);
+    }
+  }, [router]);
+
   if (error) {
     return (
       <div className="alert alert-danger">
@@ -123,24 +156,18 @@ const ExperimentsPage = (): React.ReactElement => {
       </div>
     );
   }
-  if (!data || !ready) {
+  if (loading || !ready) {
     return <LoadingOverlay />;
   }
 
-  const hasExperiments =
-    experiments.filter((m) => !m.id.match(/^exp_sample/)).length > 0;
+  const hasExperiments = experiments.some(
+    (e) => !e.id.match(/^exp_sample/) && e.id !== demoExperimentId
+  );
 
   if (!hasExperiments) {
     return (
       <div className="contents container pagecontents getstarted">
-        <h1>Experiment Analysis</h1>
-        <p>
-          GrowthBook can pull experiment results directly from your data source
-          and analyze it with our statistics engine. Start by connecting to your
-          data source and defining metrics.
-        </p>
-        <NewFeatureExperiments />
-        <ExperimentsGetStarted experiments={experiments} mutate={mutate} />
+        <ExperimentsGetStarted />
       </div>
     );
   }
@@ -155,10 +182,10 @@ const ExperimentsPage = (): React.ReactElement => {
   return (
     <>
       <div className="contents experiments container-fluid pagecontents">
-        <div className="mb-5">
+        <div className="mb-3">
           <div className="filters md-form row mb-3 align-items-center">
             <div className="col-auto">
-              <h3>All Experiments</h3>
+              <h1>Experiments</h1>
             </div>
             <div style={{ flex: 1 }} />
             {canAdd && (
@@ -177,7 +204,23 @@ const ExperimentsPage = (): React.ReactElement => {
               </div>
             )}
           </div>
-          <NewFeatureExperiments />
+          <div className="mb-3">
+            <a
+              href="#"
+              onClick={(e) => {
+                e.preventDefault();
+                setShowSetup(!showSetup);
+              }}
+            >
+              {showSetup ? "Hide" : "Show"} Setup Steps
+            </a>
+            {showSetup && (
+              <div className="appbox p-3 px-4 mb-5">
+                <ExperimentsGetStarted />
+              </div>
+            )}
+            {showSetup && <h3>All Experiments</h3>}
+          </div>
           <div className="row align-items-center mb-3">
             <div className="col-auto">
               <TabButtons newStyle={true} className="mb-0">
@@ -287,11 +330,26 @@ const ExperimentsPage = (): React.ReactElement => {
                       data-title="Experiment name:"
                     >
                       <div className="d-flex flex-column">
-                        <div>
-                          <span className="testname">{e.name}</span>
-                          {e.implementation === "visual" && (
-                            <small className="text-muted ml-2">(visual)</small>
-                          )}
+                        <div className="d-flex">
+                          <Link href={`/experiment/${e.id}`}>
+                            <a className="testname">{e.name}</a>
+                          </Link>
+                          {e.hasVisualChangesets ? (
+                            <Tooltip
+                              className="d-flex align-items-center ml-2"
+                              body="Visual experiment"
+                            >
+                              <RxDesktop className="text-blue" />
+                            </Tooltip>
+                          ) : null}
+                          {(e.linkedFeatures || []).length > 0 ? (
+                            <Tooltip
+                              className="d-flex align-items-center ml-2"
+                              body="Linked Feature Flag"
+                            >
+                              <BsFlag className="text-blue" />
+                            </Tooltip>
+                          ) : null}
                         </div>
                         {isFiltered && e.trackingKey && (
                           <span
@@ -305,7 +363,19 @@ const ExperimentsPage = (): React.ReactElement => {
                     </td>
                     {showProjectColumn && (
                       <td className="nowrap" data-title="Project:">
-                        {e.projectName}
+                        {e.projectIsDeReferenced ? (
+                          <Tooltip
+                            body={
+                              <>
+                                Project <code>{e.project}</code> not found
+                              </>
+                            }
+                          >
+                            <span className="text-danger">Invalid project</span>
+                          </Tooltip>
+                        ) : (
+                          e.projectName ?? <em>All Projects</em>
+                        )}
                       </td>
                     )}
                     <td className="nowrap" data-title="Tags:">
@@ -326,7 +396,7 @@ const ExperimentsPage = (): React.ReactElement => {
                     </td>
                     {tab === "stopped" && (
                       <td className="nowrap" data-title="Results:">
-                        <ResultsIndicator results={e.results} />
+                        {e.results && <ResultsIndicator results={e.results} />}
                       </td>
                     )}
                     {tab === "archived" && (
@@ -347,12 +417,18 @@ const ExperimentsPage = (): React.ReactElement => {
           )}
         </div>
       </div>
-      {openNewExperimentModal && (
-        <ImportExperimentModal
-          onClose={() => setOpenNewExperimentModal(false)}
-          source="experiment-list"
-        />
-      )}
+      {openNewExperimentModal &&
+        (growthbook?.isOn("new-experiment-modal") ? (
+          <AddExperimentModal
+            onClose={() => setOpenNewExperimentModal(false)}
+            source="experiment-list"
+          />
+        ) : (
+          <ImportExperimentModal
+            onClose={() => setOpenNewExperimentModal(false)}
+            source="experiment-list"
+          />
+        ))}
     </>
   );
 };

@@ -81,7 +81,7 @@ export default function NamespaceTableRow({
                   onEdit();
                 }}
               >
-                edit
+                Edit
               </a>
               <a
                 href="#"
@@ -91,14 +91,14 @@ export default function NamespaceTableRow({
                   await onArchive();
                 }}
               >
-                {namespace?.status === "inactive" ? "enable" : "disable"}
+                {namespace?.status === "inactive" ? "Enable" : "Disable"}
               </a>
               {experiments.length === 0 && (
                 <DeleteButton
                   displayName="Namespace"
                   className="dropdown-item text-danger"
                   useIcon={false}
-                  text="delete"
+                  text="Delete"
                   title="Delete Namespace"
                   onClick={onDelete}
                 />
@@ -124,6 +124,7 @@ export default function NamespaceTableRow({
             namespace={namespace.name}
             usage={usage}
             title={"Namespace Usage"}
+            // @ts-expect-error TS(2322) If you come across this, please fix it!: Type '[number, number] | null' is not assignable t... Remove this comment to see the full error message
             range={range}
           />
           {experiments.length > 0 ? (
@@ -136,7 +137,7 @@ export default function NamespaceTableRow({
               >
                 <thead>
                   <tr>
-                    <th>Feature</th>
+                    <th>Feature / Experiment</th>
                     <th>Environment</th>
                     <th>Experiment Key</th>
                     <th>Range</th>
@@ -152,12 +153,12 @@ export default function NamespaceTableRow({
                         }}
                       >
                         <td>
-                          <Link href={`/features/${e.featureId}`}>
-                            <a>{e.featureId}</a>
+                          <Link href={e.link}>
+                            <a>{e.name}</a>
                           </Link>
                         </td>
                         <td>{e.environment}</td>
-                        <td>{e.trackingKey || e.featureId}</td>
+                        <td>{e.trackingKey || e.id}</td>
                         <td>
                           {e.start} to {e.end}
                         </td>

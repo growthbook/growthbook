@@ -1,15 +1,21 @@
-import { useState, useEffect, ReactElement } from "react";
+import React, { useState, useEffect, ReactElement } from "react";
 import {
   SDKConnectionInterface,
   SDKLanguage,
 } from "back-end/types/sdk-connection";
-import { FaAngleDown, FaAngleRight } from "react-icons/fa";
+import {
+  FaAngleDown,
+  FaAngleRight,
+  FaExclamationCircle,
+  FaExclamationTriangle,
+} from "react-icons/fa";
 import { FeatureInterface } from "back-end/types/feature";
+import Link from "next/link";
 import useOrgSettings from "@/hooks/useOrgSettings";
-import usePermissions from "@/hooks/usePermissions";
-import { useAuth } from "@/services/auth";
-import { useUser } from "@/services/UserContext";
-import { getApiHost, isCloud } from "@/services/env";
+import { getApiHost, getCdnHost, isCloud } from "@/services/env";
+import Code from "@/components/SyntaxHighlighting/Code";
+import { useAttributeSchema } from "@/services/features";
+import { GBHashLock } from "@/components/Icons";
 import Modal from "../Modal";
 import { DocLink } from "../DocLink";
 import InstallationCodeSnippet from "../SyntaxHighlighting/Snippets/InstallationCodeSnippet";
@@ -23,7 +29,7 @@ import MultivariateFeatureCodeSnippet from "../SyntaxHighlighting/Snippets/Multi
 import SDKLanguageSelector from "./SDKConnections/SDKLanguageSelector";
 import { languageMapping } from "./SDKConnections/SDKLanguageLogo";
 
-function trimTrailingSlash(str) {
+function trimTrailingSlash(str: string): string {
   return str.replace(/\/*$/, "");
 }
 
@@ -34,11 +40,12 @@ export function getApiBaseUrl(connection?: SDKConnectionInterface): string {
     );
   }
 
+  //TODO: We should be able to remove this if we add an env variable to our cloud instance
   if (isCloud()) {
     return `https://cdn.growthbook.io`;
   }
 
-  return trimTrailingSlash(getApiHost());
+  return trimTrailingSlash(getCdnHost() || getApiHost());
 }
 
 export default function CodeSnippetModal({
@@ -81,7 +88,6 @@ export default function CodeSnippetModal({
   const [showTestModal, setShowTestModal] = useState(false);
 
   const [language, setLanguage] = useState<SDKLanguage>("javascript");
-  const permissions = usePermissions();
 
   const [configOpen, setConfigOpen] = useState(true);
   const [installationOpen, setInstallationOpen] = useState(true);
@@ -89,29 +95,8 @@ export default function CodeSnippetModal({
   const [usageOpen, setUsageOpen] = useState(true);
   const [attributesOpen, setAttributesOpen] = useState(true);
 
-  const { apiCall } = useAuth();
-
-  const { refreshOrganization } = useUser();
   const settings = useOrgSettings();
-
-  // Record the fact that the SDK instructions have been seen
-  useEffect(() => {
-    if (!settings) return;
-    if (settings.sdkInstructionsViewed) return;
-    if (!connections.length) return;
-    if (!permissions.check("manageEnvironments", "", [])) return;
-    (async () => {
-      await apiCall(`/organization`, {
-        method: "PUT",
-        body: JSON.stringify({
-          settings: {
-            sdkInstructionsViewed: true,
-          },
-        }),
-      });
-      await refreshOrganization();
-    })();
-  }, [settings, connections.length]);
+  const attributeSchema = useAttributeSchema();
 
   useEffect(() => {
     if (!currentConnection) return;
@@ -126,7 +111,9 @@ export default function CodeSnippetModal({
     return null;
   }
 
-  const { docs, label, usesEntireEndpoint } = languageMapping[language];
+  const { docs, label } = languageMapping[language];
+  const hasProxy =
+    currentConnection.proxy.enabled && !!currentConnection.proxy.host;
   const apiHost = getApiBaseUrl(currentConnection);
   const clientKey = currentConnection.key;
   const featuresEndpoint = apiHost + "/api/features/" + clientKey;
@@ -134,6 +121,28 @@ export default function CodeSnippetModal({
     currentConnection &&
     currentConnection.encryptPayload &&
     currentConnection.encryptionKey;
+  const hashSecureAttributes = !!currentConnection.hashSecureAttributes;
+  const secureAttributes =
+    attributeSchema?.filter((a) =>
+      ["secureString", "secureString[]"].includes(a.datatype)
+    ) || [];
+  const secureAttributeSalt = settings.secureAttributeSalt ?? "";
+
+  if (showTestModal && includeCheck && !inline) {
+    return (
+      <CheckSDKConnectionModal
+        close={() => {
+          mutateConnections();
+          setShowTestModal(false);
+        }}
+        connection={currentConnection}
+        mutate={mutateConnections}
+        goToNextStep={submit}
+        cta={"Finish"}
+        showModalClose={false}
+      />
+    );
+  }
 
   return (
     <>
@@ -146,11 +155,13 @@ export default function CodeSnippetModal({
           connection={currentConnection}
           mutate={mutateConnections}
           goToNextStep={submit}
+          showModalClose={true}
         />
       )}
       <Modal
         close={close}
         secondaryCTA={secondaryCTA}
+        className="mb-4"
         bodyClassName="p-0"
         open={true}
         inline={inline}
@@ -167,7 +178,7 @@ export default function CodeSnippetModal({
                 submit();
                 close && close();
               }
-            : null
+            : undefined
         }
         cta={cta}
       >
@@ -185,7 +196,7 @@ export default function CodeSnippetModal({
                     value: connection.id,
                     label: connection.name,
                   }))}
-                  value={currentConnection?.id}
+                  value={currentConnection?.id ?? ""}
                   onChange={(id) => {
                     setCurrentConnectionId(id);
                   }}
@@ -242,51 +253,49 @@ export default function CodeSnippetModal({
               <div className="appbox bg-light p-3">
                 <table className="gbtable table table-bordered table-sm">
                   <tbody>
-                    {usesEntireEndpoint ? (
-                      <tr>
-                        <th
-                          className="pl-3"
-                          style={{ verticalAlign: "middle" }}
-                        >
-                          Features Endpoint
-                        </th>
-                        <td>
-                          <ClickToCopy>{featuresEndpoint}</ClickToCopy>
-                        </td>
-                      </tr>
-                    ) : (
-                      <>
-                        <tr>
-                          <th
-                            className="pl-3"
-                            style={{ verticalAlign: "middle" }}
-                          >
-                            API Host
-                          </th>
-                          <td>
-                            <ClickToCopy>{apiHost}</ClickToCopy>
-                          </td>
-                        </tr>
-                        <tr>
-                          <th
-                            className="pl-3"
-                            style={{ verticalAlign: "middle" }}
-                          >
-                            Client Key
-                          </th>
-                          <td>
-                            <ClickToCopy>{clientKey}</ClickToCopy>
-                          </td>
-                        </tr>
-                      </>
-                    )}
+                    <tr>
+                      <th className="pl-3" style={{ verticalAlign: "middle" }}>
+                        Full API Endpoint
+                        {hasProxy ? (
+                          <>
+                            {" "}
+                            <small>(proxied)</small>
+                          </>
+                        ) : null}
+                      </th>
+                      <td>
+                        <ClickToCopy>{featuresEndpoint}</ClickToCopy>
+                      </td>
+                    </tr>
+                    <tr>
+                      <th className="pl-3" style={{ verticalAlign: "middle" }}>
+                        API Host
+                        {hasProxy ? (
+                          <>
+                            {" "}
+                            <small>(proxied)</small>
+                          </>
+                        ) : null}
+                      </th>
+                      <td>
+                        <ClickToCopy>{apiHost}</ClickToCopy>
+                      </td>
+                    </tr>
+                    <tr>
+                      <th className="pl-3" style={{ verticalAlign: "middle" }}>
+                        Client Key
+                      </th>
+                      <td>
+                        <ClickToCopy>{clientKey}</ClickToCopy>
+                      </td>
+                    </tr>
                     {encryptionKey && (
                       <tr>
                         <th
                           className="pl-3"
                           style={{ verticalAlign: "middle" }}
                         >
-                          Encryption Key
+                          Decryption Key
                         </th>
                         <td>
                           <ClickToCopy>{encryptionKey}</ClickToCopy>
@@ -334,7 +343,7 @@ export default function CodeSnippetModal({
                     language={language}
                     apiHost={apiHost}
                     apiKey={clientKey}
-                    encryptionKey={encryptionKey}
+                    encryptionKey={encryptionKey ? encryptionKey : undefined}
                   />
                 </div>
               )}
@@ -355,10 +364,101 @@ export default function CodeSnippetModal({
               </h4>
               {attributesOpen && (
                 <div className="appbox bg-light p-3">
-                  Replace the placeholders with your real targeting attribute
-                  values. This enables you to target feature flags based on user
-                  attributes.
-                  <TargetingAttributeCodeSnippet language={language} />
+                  <span>
+                    Replace the placeholders with your real targeting attribute
+                    values. This enables you to target feature flags based on
+                    user attributes.
+                  </span>
+                  <TargetingAttributeCodeSnippet
+                    language={language}
+                    hashSecureAttributes={hashSecureAttributes}
+                    secureAttributeSalt={secureAttributeSalt}
+                  />
+
+                  {hashSecureAttributes && secureAttributes.length > 0 && (
+                    <div
+                      className="appbox mt-4"
+                      style={{ background: "rgb(209 236 241 / 25%)" }}
+                    >
+                      <div className="alert alert-info mb-0">
+                        <GBHashLock className="text-blue" /> This connection has{" "}
+                        <strong>secure attribute hashing</strong> enabled. You
+                        must manually hash all attributes with datatype{" "}
+                        <code>secureString</code> or <code>secureString[]</code>{" "}
+                        in your SDK implementation code.
+                      </div>
+                      <div className="px-3 pb-3">
+                        <div className="mt-3">
+                          Your organization currently has{" "}
+                          {secureAttributes.length} secure attribute
+                          {secureAttributes.length === 1 ? "" : "s"}
+                          {secureAttributes.length > 0 && (
+                            <>
+                              {" "}
+                              which need to be hashed before using them in the
+                              SDK:
+                              <table className="table table-borderless w-auto mt-1 ml-2">
+                                {secureAttributes.map((a, i) => (
+                                  <tr key={i}>
+                                    <td className="pt-1 pb-0">
+                                      <code className="font-weight-bold">
+                                        {a.property}
+                                      </code>
+                                    </td>
+                                    <td className="pt-1 pb-0">
+                                      <span className="text-gray">
+                                        {a.datatype}
+                                      </span>
+                                    </td>
+                                  </tr>
+                                ))}
+                              </table>
+                            </>
+                          )}
+                        </div>
+                        <div className="mt-3">
+                          To hash an attribute, use a cryptographic library with{" "}
+                          <strong>SHA-256</strong> support, and compute the
+                          SHA-256 hashed value of your attribute <em>plus</em>{" "}
+                          your organization&apos;s secure attribute salt.
+                        </div>
+                        <div className="mt-2">
+                          Example, using your organization&apos;s secure
+                          attribute salt:
+                          {secureAttributeSalt === "" && (
+                            <div className="alert alert-warning mt-2 px-2 py-1">
+                              <FaExclamationTriangle /> Your organization has an
+                              empty salt string. Add a salt string in your{" "}
+                              <Link href="/settings">
+                                organization settings
+                              </Link>{" "}
+                              to improve the security of hashed targeting
+                              conditions.
+                            </div>
+                          )}
+                          <Code
+                            filename="pseudocode"
+                            language="javascript"
+                            code={`const salt = "${secureAttributeSalt}";
+
+// hashing a secureString attribute
+myAttribute = sha256(salt + myAttribute);
+
+// hashing an secureString[] attribute
+myAttributes = myAttributes.map(attribute => sha256(salt + attribute));`}
+                          />
+                        </div>
+                        <div className="alert text-warning-orange mt-3 mb-0 px-2 py-1">
+                          <FaExclamationCircle /> When using an insecure
+                          environment (such as a browser), do not rely
+                          exclusively on hashing as a means of securing highly
+                          sensitive data. Hashing is an obfuscation technique
+                          that makes it very difficult, but not impossible, to
+                          extract sensitive data.
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>

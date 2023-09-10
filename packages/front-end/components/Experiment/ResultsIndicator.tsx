@@ -26,9 +26,10 @@ const ResultsIndicator: FC<{
   results: Results;
 }> = ({ results }) => {
   const color = getColorClass(results);
+  const className = `results-indicator ${color} px-3 font-weight-bold text-uppercase`;
 
   return (
-    <div className={`badge badge-pill ${color} mr-2`}>
+    <div className={className} style={{ fontSize: "85%" }}>
       {displayName[results]}
     </div>
   );

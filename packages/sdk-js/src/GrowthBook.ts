@@ -1,3 +1,4 @@
+import mutate, { DeclarativeMutation } from "dom-mutator";
 import type {
   Context,
   Experiment,
@@ -7,13 +8,17 @@ import type {
   FeatureDefinition,
   FeatureResultSource,
   Attributes,
-  JSONValue,
   WidenPrimitives,
   RealtimeUsageData,
   LoadFeaturesOptions,
   RefreshFeaturesOptions,
   ApiHost,
   ClientKey,
+  VariationMeta,
+  Filter,
+  VariationRange,
+  AutoExperimentVariation,
+  AutoExperiment,
 } from "./types/growthbook";
 import type { ConditionInterface } from "./types/mongrule";
 import {
@@ -24,6 +29,9 @@ import {
   chooseVariation,
   getQueryStringOverride,
   inNamespace,
+  inRange,
+  isURLTargeted,
+  decrypt,
 } from "./util";
 import { evalCondition } from "./mongrule";
 import { refreshFeatures, subscribe, unsubscribe } from "./feature-repository";
@@ -31,10 +39,10 @@ import { refreshFeatures, subscribe, unsubscribe } from "./feature-repository";
 const isBrowser =
   typeof window !== "undefined" && typeof document !== "undefined";
 
-const base64ToBuf = (b: string) =>
-  Uint8Array.from(atob(b), (c) => c.charCodeAt(0));
-
-export class GrowthBook {
+export class GrowthBook<
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  AppFeatures extends Record<string, any> = Record<string, any>
+> {
   // context is technically private, but some tools depend on it so we can't mangle the name
   // _ctx below is a clone of this property that we use internally
   private context: Context;
@@ -61,6 +69,10 @@ export class GrowthBook {
   // eslint-disable-next-line
   private _forcedFeatureValues: Map<string, any>;
   private _attributeOverrides: Attributes;
+  private _activeAutoExperiments: Map<
+    string,
+    { valueHash: string; undo: () => void }
+  >;
 
   constructor(context?: Context) {
     context = context || {};
@@ -78,6 +90,7 @@ export class GrowthBook {
     this._assigned = new Map();
     this._forcedFeatureValues = new Map();
     this._attributeOverrides = {};
+    this._activeAutoExperiments = new Map();
 
     if (context.features) {
       this.ready = true;
@@ -88,6 +101,11 @@ export class GrowthBook {
       document.dispatchEvent(new Event("gbloaded"));
     }
 
+    if (context.experiments) {
+      this.ready = true;
+      this._updateAllAutoExperiments();
+    }
+
     if (context.clientKey) {
       this._refresh({}, true, false);
     }
@@ -95,7 +113,11 @@ export class GrowthBook {
 
   public async loadFeatures(options?: LoadFeaturesOptions): Promise<void> {
     await this._refresh(options, true, true);
-    if (options && options.autoRefresh) {
+
+    if (
+      this._ctx.backgroundSync !== false &&
+      (this._ctx.subscribeToChanges || (options && options.autoRefresh))
+    ) {
       subscribe(this);
     }
   }
@@ -127,7 +149,8 @@ export class GrowthBook {
       options.timeout,
       options.skipCache || this._ctx.enableDevMode,
       allowStale,
-      updateInstance
+      updateInstance,
+      this._ctx.backgroundSync !== false
     );
   }
 
@@ -148,49 +171,60 @@ export class GrowthBook {
     decryptionKey?: string,
     subtle?: SubtleCrypto
   ): Promise<void> {
-    decryptionKey = decryptionKey || this._ctx.decryptionKey || "";
-    subtle = subtle || (globalThis.crypto && globalThis.crypto.subtle);
-    if (!subtle) {
-      throw new Error("No SubtleCrypto implementation found");
-    }
-    try {
-      const key = await subtle.importKey(
-        "raw",
-        base64ToBuf(decryptionKey),
-        { name: "AES-CBC", length: 128 },
-        true,
-        ["encrypt", "decrypt"]
-      );
-      const [iv, cipherText] = encryptedString.split(".");
-      const plainTextBuffer = await subtle.decrypt(
-        { name: "AES-CBC", iv: base64ToBuf(iv) },
-        key,
-        base64ToBuf(cipherText)
-      );
+    const featuresJSON = await decrypt(
+      encryptedString,
+      decryptionKey || this._ctx.decryptionKey,
+      subtle
+    );
+    this.setFeatures(
+      JSON.parse(featuresJSON) as Record<string, FeatureDefinition>
+    );
+  }
 
-      this.setFeatures(JSON.parse(new TextDecoder().decode(plainTextBuffer)));
-    } catch (e) {
-      throw new Error("Failed to decrypt features");
-    }
+  public setExperiments(experiments: AutoExperiment[]): void {
+    this._ctx.experiments = experiments;
+    this.ready = true;
+    this._updateAllAutoExperiments();
+  }
+
+  public async setEncryptedExperiments(
+    encryptedString: string,
+    decryptionKey?: string,
+    subtle?: SubtleCrypto
+  ): Promise<void> {
+    const experimentsJSON = await decrypt(
+      encryptedString,
+      decryptionKey || this._ctx.decryptionKey,
+      subtle
+    );
+    this.setExperiments(JSON.parse(experimentsJSON) as AutoExperiment[]);
   }
 
   public setAttributes(attributes: Attributes) {
     this._ctx.attributes = attributes;
     this._render();
+    this._updateAllAutoExperiments();
   }
 
   public setAttributeOverrides(overrides: Attributes) {
     this._attributeOverrides = overrides;
     this._render();
+    this._updateAllAutoExperiments();
   }
   public setForcedVariations(vars: Record<string, number>) {
     this._ctx.forcedVariations = vars || {};
     this._render();
+    this._updateAllAutoExperiments();
   }
   // eslint-disable-next-line
   public setForcedFeatures(map: Map<string, any>) {
     this._forcedFeatureValues = map;
     this._render();
+  }
+
+  public setURL(url: string) {
+    this._ctx.url = url;
+    this._updateAllAutoExperiments(true);
   }
 
   public getAttributes() {
@@ -199,6 +233,10 @@ export class GrowthBook {
 
   public getFeatures() {
     return this._ctx.features || {};
+  }
+
+  public getExperiments() {
+    return this._ctx.experiments || [];
   }
 
   public subscribe(cb: SubscriptionFunction): () => void {
@@ -228,6 +266,12 @@ export class GrowthBook {
     if (isBrowser && window._growthbook === this) {
       delete window._growthbook;
     }
+
+    // Undo any active auto experiments
+    this._activeAutoExperiments.forEach((exp) => {
+      exp.undo();
+    });
+    this._activeAutoExperiments.clear();
   }
 
   public setRenderer(renderer: () => void) {
@@ -244,6 +288,83 @@ export class GrowthBook {
     const result = this._run(experiment, null);
     this._fireSubscriptions(experiment, result);
     return result;
+  }
+
+  public triggerExperiment(key: string) {
+    if (!this._ctx.experiments) return null;
+    const exp = this._ctx.experiments.find((exp) => exp.key === key);
+    if (!exp || !exp.manual) return null;
+    return this._runAutoExperiment(exp, true);
+  }
+
+  private _runAutoExperiment(
+    experiment: AutoExperiment,
+    forceManual?: boolean,
+    forceRerun?: boolean
+  ) {
+    const key = experiment.key;
+    const existing = this._activeAutoExperiments.get(key);
+
+    // If this is a manual experiment and it's not already running, skip
+    if (experiment.manual && !forceManual && !existing) return null;
+
+    // Run the experiment
+    const result = this.run(experiment);
+
+    // A hash to quickly tell if the assigned value changed
+    const valueHash = JSON.stringify(result.value);
+
+    // If the changes are already active, no need to re-apply them
+    if (
+      !forceRerun &&
+      result.inExperiment &&
+      existing &&
+      existing.valueHash === valueHash
+    ) {
+      return result;
+    }
+
+    // Undo any existing changes
+    if (existing) this._undoActiveAutoExperiment(key);
+
+    // Apply new changes
+    if (result.inExperiment) {
+      const undo = this._applyDOMChanges(result.value);
+      if (undo) {
+        this._activeAutoExperiments.set(experiment.key, {
+          undo,
+          valueHash,
+        });
+      }
+    }
+
+    return result;
+  }
+
+  private _undoActiveAutoExperiment(key: string) {
+    const exp = this._activeAutoExperiments.get(key);
+    if (exp) {
+      exp.undo();
+      this._activeAutoExperiments.delete(key);
+    }
+  }
+
+  private _updateAllAutoExperiments(forceRerun?: boolean) {
+    const experiments = this._ctx.experiments || [];
+
+    // Stop any experiments that are no longer defined
+    const keys = new Set(experiments.map((e) => e.key));
+    this._activeAutoExperiments.forEach((v, k) => {
+      if (!keys.has(k)) {
+        v.undo();
+        this._activeAutoExperiments.delete(k);
+      }
+    });
+
+    // Re-run all new/updated experiments
+    experiments.forEach((exp) => {
+      this._runAutoExperiment(exp, false, forceRerun);
+    });
   }
 
   private _fireSubscriptions<T>(experiment: Experiment<T>, result: Result<T>) {
@@ -344,33 +465,38 @@ export class GrowthBook {
     return ret;
   }
 
-  public isOn(key: string): boolean {
+  public isOn<K extends string & keyof AppFeatures = string>(key: K): boolean {
     return this.evalFeature(key).on;
   }
-  public isOff(key: string): boolean {
+
+  public isOff<K extends string & keyof AppFeatures = string>(key: K): boolean {
     return this.evalFeature(key).off;
   }
-  public getFeatureValue<T extends JSONValue>(
-    key: string,
-    defaultValue: T
-  ): WidenPrimitives<T> {
-    return (
-      this.evalFeature<WidenPrimitives<T>>(key).value ??
-      (defaultValue as WidenPrimitives<T>)
-    );
+
+  public getFeatureValue<
+    V extends AppFeatures[K],
+    K extends string & keyof AppFeatures = string
+  >(key: K, defaultValue: V): WidenPrimitives<V> {
+    const value = this.evalFeature<WidenPrimitives<V>, K>(key).value;
+    return value === null ? (defaultValue as WidenPrimitives<V>) : value;
   }
 
+  /**
+   * @deprecated Use {@link evalFeature}
+   * @param id
+   */
   // eslint-disable-next-line
-  public feature<T extends JSONValue = any>(
-    id: string
-  ): FeatureResult<T | null> {
+  public feature<
+    V extends AppFeatures[K],
+    K extends string & keyof AppFeatures = string
+  >(id: K): FeatureResult<V | null> {
     return this.evalFeature(id);
   }
 
-  // eslint-disable-next-line
-  public evalFeature<T extends JSONValue = any>(
-    id: string
-  ): FeatureResult<T | null> {
+  public evalFeature<
+    V extends AppFeatures[K],
+    K extends string & keyof AppFeatures = string
+  >(id: K): FeatureResult<V | null> {
     // Global override
     if (this._forcedFeatureValues.has(id)) {
       process.env.NODE_ENV !== "production" &&
@@ -393,7 +519,7 @@ export class GrowthBook {
     }
 
     // Get the feature
-    const feature: FeatureDefinition<T> = this._ctx.features[id];
+    const feature: FeatureDefinition<V> = this._ctx.features[id];
 
     // Loop through the rules
     if (feature.rules) {
@@ -407,28 +533,34 @@ export class GrowthBook {
             });
           continue;
         }
+        // If there are filters for who is included (e.g. namespaces)
+        if (rule.filters && this._isFilteredOut(rule.filters)) {
+          process.env.NODE_ENV !== "production" &&
+            this.log("Skip rule because of filters", {
+              id,
+              rule,
+            });
+          continue;
+        }
+
         // Feature value is being forced
         if ("force" in rule) {
-          // Skip if coverage is reduced and user not included
-          if ("coverage" in rule) {
-            const { hashValue } = this._getHashAttribute(rule.hashAttribute);
-            if (!hashValue) {
-              process.env.NODE_ENV !== "production" &&
-                this.log("Skip rule because of missing hashAttribute", {
-                  id,
-                  rule,
-                });
-              continue;
-            }
-            const n = hash(hashValue + id);
-            if (n > (rule.coverage as number)) {
-              process.env.NODE_ENV !== "production" &&
-                this.log("Skip rule because of coverage", {
-                  id,
-                  rule,
-                });
-              continue;
-            }
+          // If this is a percentage rollout, skip if not included
+          if (
+            !this._isIncludedInRollout(
+              rule.seed || id,
+              rule.hashAttribute,
+              rule.range,
+              rule.coverage,
+              rule.hashVersion
+            )
+          ) {
+            process.env.NODE_ENV !== "production" &&
+              this.log("Skip rule because user not included in rollout", {
+                id,
+                rule,
+              });
+            continue;
           }
 
           process.env.NODE_ENV !== "production" &&
@@ -437,7 +569,14 @@ export class GrowthBook {
               rule,
             });
 
-          return this._getFeatureResult(id, rule.force as T, "force", rule.id);
+          // If this was a remotely evaluated experiment, fire the tracking callbacks
+          if (rule.tracks) {
+            rule.tracks.forEach((t) => {
+              this._track(t.experiment, t.result);
+            });
+          }
+
+          return this._getFeatureResult(id, rule.force as V, "force", rule.id);
         }
         if (!rule.variations) {
           process.env.NODE_ENV !== "production" &&
@@ -449,19 +588,26 @@ export class GrowthBook {
           continue;
         }
         // For experiment rules, run an experiment
-        const exp: Experiment<T> = {
-          variations: rule.variations as [T, T, ...T[]],
+        const exp: Experiment<V> = {
+          variations: rule.variations as [V, V, ...V[]],
           key: rule.key || id,
         };
         if ("coverage" in rule) exp.coverage = rule.coverage;
         if (rule.weights) exp.weights = rule.weights;
         if (rule.hashAttribute) exp.hashAttribute = rule.hashAttribute;
         if (rule.namespace) exp.namespace = rule.namespace;
+        if (rule.meta) exp.meta = rule.meta;
+        if (rule.ranges) exp.ranges = rule.ranges;
+        if (rule.name) exp.name = rule.name;
+        if (rule.phase) exp.phase = rule.phase;
+        if (rule.seed) exp.seed = rule.seed;
+        if (rule.hashVersion) exp.hashVersion = rule.hashVersion;
+        if (rule.filters) exp.filters = rule.filters;
 
         // Only return a value if the user is part of the experiment
         const res = this._run(exp, id);
         this._fireSubscriptions(exp, res);
-        if (res.inExperiment) {
+        if (res.inExperiment && !res.passthrough) {
           return this._getFeatureResult(
             id,
             res.value,
@@ -477,19 +623,53 @@ export class GrowthBook {
     process.env.NODE_ENV !== "production" &&
       this.log("Use default value", {
         id,
-        value: feature.defaultValue ?? null,
+        value: feature.defaultValue,
       });
 
     // Fall back to using the default value
     return this._getFeatureResult(
       id,
-      feature.defaultValue ?? null,
+      feature.defaultValue === undefined ? null : feature.defaultValue,
       "defaultValue"
     );
   }
 
+  private _isIncludedInRollout(
+    seed: string,
+    hashAttribute: string | undefined,
+    range: VariationRange | undefined,
+    coverage: number | undefined,
+    hashVersion: number | undefined
+  ): boolean {
+    if (!range && coverage === undefined) return true;
+
+    const { hashValue } = this._getHashAttribute(hashAttribute);
+    if (!hashValue) {
+      return false;
+    }
+
+    const n = hash(seed, hashValue, hashVersion || 1);
+    if (n === null) return false;
+
+    return range
+      ? inRange(n, range)
+      : coverage !== undefined
+      ? n <= coverage
+      : true;
+  }
+
   private _conditionPasses(condition: ConditionInterface): boolean {
     return evalCondition(this.getAttributes(), condition);
+  }
+
+  private _isFilteredOut(filters: Filter[]): boolean {
+    return filters.some((filter) => {
+      const { hashValue } = this._getHashAttribute(filter.attribute);
+      if (!hashValue) return true;
+      const n = hash(filter.seed, hashValue, filter.hashVersion || 2);
+      if (n === null) return true;
+      return !filter.ranges.some((r) => inRange(n, r));
+    });
   }
 
   private _run<T>(
@@ -561,8 +741,19 @@ export class GrowthBook {
       return this._getResult(experiment, -1, false, featureId);
     }
 
-    // 7. Exclude if user not in experiment.namespace
-    if (experiment.namespace && !inNamespace(hashValue, experiment.namespace)) {
+    // 7. Exclude if user is filtered out (used to be called "namespace")
+    if (experiment.filters) {
+      if (this._isFilteredOut(experiment.filters)) {
+        process.env.NODE_ENV !== "production" &&
+          this.log("Skip because of filters", {
+            id: key,
+          });
+        return this._getResult(experiment, -1, false, featureId);
+      }
+    } else if (
+      experiment.namespace &&
+      !inNamespace(hashValue, experiment.namespace)
+    ) {
       process.env.NODE_ENV !== "production" &&
         this.log("Skip because of namespace", {
           id: key,
@@ -600,7 +791,7 @@ export class GrowthBook {
       return this._getResult(experiment, -1, false, featureId);
     }
 
-    // 8.2. Exclude if not on a targeted url
+    // 8.2. Old style URL targeting
     if (experiment.url && !this._urlIsValid(experiment.url as RegExp)) {
       process.env.NODE_ENV !== "production" &&
         this.log("Skip because of url", {
@@ -609,13 +800,40 @@ export class GrowthBook {
       return this._getResult(experiment, -1, false, featureId);
     }
 
+    // 8.3. New, more powerful URL targeting
+    if (
+      experiment.urlPatterns &&
+      !isURLTargeted(this._getContextUrl(), experiment.urlPatterns)
+    ) {
+      process.env.NODE_ENV !== "production" &&
+        this.log("Skip because of url targeting", {
+          id: key,
+        });
+      return this._getResult(experiment, -1, false, featureId);
+    }
+
     // 9. Get bucket ranges and choose variation
-    const ranges = getBucketRanges(
-      numVariations,
-      experiment.coverage ?? 1,
-      experiment.weights
+    const n = hash(
+      experiment.seed || key,
+      hashValue,
+      experiment.hashVersion || 1
     );
-    const n = hash(hashValue + key);
+    if (n === null) {
+      process.env.NODE_ENV !== "production" &&
+        this.log("Skip because of invalid hash version", {
+          id: key,
+        });
+      return this._getResult(experiment, -1, false, featureId);
+    }
+
+    const ranges =
+      experiment.ranges ||
+      getBucketRanges(
+        numVariations,
+        experiment.coverage === undefined ? 1 : experiment.coverage,
+        experiment.weights
+      );
+
     const assigned = chooseVariation(n, ranges);
 
     // 10. Return if not in experiment
@@ -636,7 +854,7 @@ export class GrowthBook {
         });
       return this._getResult(
         experiment,
-        experiment.force ?? -1,
+        experiment.force === undefined ? -1 : experiment.force,
         false,
         featureId
       );
@@ -661,7 +879,7 @@ export class GrowthBook {
     }
 
     // 13. Build the result object
-    const result = this._getResult(experiment, assigned, true, featureId);
+    const result = this._getResult(experiment, assigned, true, featureId, n);
 
     // 14. Fire the tracking callback
     this._track(experiment, result);
@@ -734,7 +952,8 @@ export class GrowthBook {
     experiment: Experiment<T>,
     variationIndex: number,
     hashUsed: boolean,
-    featureId: string | null
+    featureId: string | null,
+    bucket?: number
   ): Result<T> {
     let inExperiment = true;
     // If assigned variation is not valid, use the baseline and mark the user as not in the experiment
@@ -747,7 +966,12 @@ export class GrowthBook {
       experiment.hashAttribute
     );
 
-    return {
+    const meta: Partial<VariationMeta> = experiment.meta
+      ? experiment.meta[variationIndex]
+      : {};
+
+    const res: Result<T> = {
+      key: meta.key || "" + variationIndex,
       featureId,
       inExperiment,
       hashUsed,
@@ -756,6 +980,12 @@ export class GrowthBook {
       hashAttribute,
       hashValue,
     };
+
+    if (meta.name) res.name = meta.name;
+    if (bucket !== undefined) res.bucket = bucket;
+    if (meta.passthrough) res.passthrough = meta.passthrough;
+
+    return res;
   }
 
   private _getContextUrl() {
@@ -779,5 +1009,30 @@ export class GrowthBook {
       if (groups[expGroups[i]]) return true;
     }
     return false;
+  }
+
+  private _applyDOMChanges(changes: AutoExperimentVariation) {
+    if (!isBrowser) return;
+    const undo: (() => void)[] = [];
+    if (changes.css) {
+      const s = document.createElement("style");
+      s.innerHTML = changes.css;
+      document.head.appendChild(s);
+      undo.push(() => s.remove());
+    }
+    if (changes.js) {
+      const script = document.createElement("script");
+      script.innerHTML = changes.js;
+      document.body.appendChild(script);
+      undo.push(() => script.remove());
+    }
+    if (changes.domMutations) {
+      changes.domMutations.forEach((mutation) => {
+        undo.push(mutate.declarative(mutation as DeclarativeMutation).revert);
+      });
+    }
+    return () => {
+      undo.forEach((fn) => fn());
+    };
   }
 }

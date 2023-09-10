@@ -5,7 +5,7 @@ export default function useMembers() {
   const { users } = useUser();
 
   const memberUsernameOptions = useMemo(() => {
-    const memberUsernameOptions = [];
+    const memberUsernameOptions: { display: string; value: string }[] = [];
     users.forEach((user) => {
       memberUsernameOptions.push({
         display: user.name ? user.name : user.email,

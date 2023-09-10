@@ -1,28 +1,38 @@
 import { ExperimentPhaseStringDates } from "back-end/types/experiment";
-import React from "react";
+import React, { ReactNode } from "react";
+import qs from "query-string";
+
+export function trafficSplitPercentages(weights: number[]): number[] {
+  const sum = weights.reduce((sum, n) => sum + n, 0);
+  return weights.map((w) => +((w / sum) * 100));
+}
 
 export function formatTrafficSplit(weights: number[], decimals = 0): string {
-  const sum = weights.reduce((sum, n) => sum + n, 0);
-  return weights.map((w) => +((w / sum) * 100).toFixed(decimals)).join("/");
+  return trafficSplitPercentages(weights)
+    .map((w) => w.toFixed(decimals))
+    .join("/");
 }
 
-export function phaseSummaryText(phase: ExperimentPhaseStringDates): string {
-  return `${phase.phase === "main" ? "" : phase.phase + ", "}${Math.floor(
-    phase.coverage * 100
-  )}% traffic, ${formatTrafficSplit(phase.variationWeights)} split`;
+// Get the number of decimals +1 needed to differentiate between
+// observed and expected weights
+export function getSRMNeededPrecisionP1(
+  observed: number[],
+  expected: number[]
+): number {
+  const observedpct = trafficSplitPercentages(observed);
+  const expectedpct = trafficSplitPercentages(expected);
+  const maxDiff = Math.max(
+    ...observedpct.map((o, i) => Math.abs(o - expectedpct[i] || 0))
+  );
+  return (maxDiff ? -1 * Math.floor(Math.log10(maxDiff)) : 0) + 1;
 }
 
-export function phaseSummary(
-  phase: ExperimentPhaseStringDates
-): React.ReactElement {
-  if (!phase?.phase) {
+export function phaseSummary(phase: ExperimentPhaseStringDates): ReactNode {
+  if (!phase) {
     return null;
   }
   return (
     <>
-      <span className="phase">
-        {phase.phase === "main" ? "" : phase.phase + ", "}
-      </span>
       <span className="percent-traffic">
         {Math.floor(phase.coverage * 100)}%
       </span>{" "}
@@ -145,10 +155,45 @@ export function rebalance(
   return weights;
 }
 
-export function isNullUndefinedOrEmpty(x) {
+export function isNullUndefinedOrEmpty(x): boolean {
   if (x === null) return true;
   if (x === undefined) return true;
   if (x === "") return true;
   if (typeof x === "object" && !Object.keys(x).length) return true;
   return false;
+}
+
+export function appendQueryParamsToURL(
+  url: string,
+  params: Record<string, string | number | undefined>
+): string {
+  const [root, query] = url.split("?");
+  const parsed = qs.parse(query ?? "");
+  const queryParams = qs.stringify({ ...parsed, ...params });
+  return `${root}?${queryParams}`;
+}
+
+export function capitalizeFirstLetter(string): string {
+  return string.charAt(0).toUpperCase() + string.slice(1);
+}
+
+export function capitalizeWords(string): string {
+  return string
+    .split(" ")
+    .map((word) => capitalizeFirstLetter(word))
+    .join(" ");
+}
+
+export async function sha256(str): Promise<string> {
+  try {
+    const buffer = await crypto.subtle.digest(
+      "SHA-256",
+      new TextEncoder().encode(str)
+    );
+    const hashArray = Array.from(new Uint8Array(buffer));
+    return hashArray.map((byte) => byte.toString(16).padStart(2, "0")).join("");
+  } catch (e) {
+    console.error(e);
+  }
+  return "";
 }

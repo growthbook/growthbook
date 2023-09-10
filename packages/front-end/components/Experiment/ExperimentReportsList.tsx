@@ -3,26 +3,27 @@ import Link from "next/link";
 import React from "react";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { useRouter } from "next/router";
-import { ago, datetime } from "@/services/dates";
+import { ago, datetime } from "shared/dates";
+import { FaExclamationTriangle } from "react-icons/fa";
 import useApi from "@/hooks/useApi";
 import { useAuth } from "@/services/auth";
 import usePermissions from "@/hooks/usePermissions";
 import { useUser } from "@/services/UserContext";
+import { trackReport } from "@/services/track";
+import { useDefinitions } from "@/services/DefinitionsContext";
 import DeleteButton from "../DeleteButton/DeleteButton";
-import Button from "../Button";
-import { GBAddCircle } from "../Icons";
-import { useSnapshot } from "./SnapshotProvider";
+import Tooltip from "../Tooltip/Tooltip";
 
 export default function ExperimentReportsList({
   experiment,
 }: {
   experiment: ExperimentInterfaceStringDates;
-}): React.ReactElement {
+}) {
   const router = useRouter();
   const { apiCall } = useAuth();
   const permissions = usePermissions();
   const { userId, users } = useUser();
-  const { snapshot } = useSnapshot();
+  const { getDatasourceById } = useDefinitions();
 
   const { data, error, mutate } = useApi<{
     reports: ReportInterface[];
@@ -43,48 +44,8 @@ export default function ExperimentReportsList({
     return null;
   }
 
-  const hasData = snapshot?.results?.[0]?.variations?.length > 0;
-  const hasUserQuery = snapshot && !("skipPartialData" in snapshot);
-  const canCreateReports =
-    hasData &&
-    snapshot?.queries &&
-    !hasUserQuery &&
-    permissions.check("createAnalyses", "");
-
   return (
-    <div>
-      <div className="row align-items-center mb-2">
-        <div className="col">
-          <h3 className="mb-0">Custom Reports</h3>
-        </div>
-        {canCreateReports && (
-          <div className="col-auto">
-            <Button
-              className="btn btn-primary float-right"
-              color="outline-info"
-              onClick={async () => {
-                const res = await apiCall<{ report: ReportInterface }>(
-                  `/experiments/report/${snapshot.id}`,
-                  {
-                    method: "POST",
-                  }
-                );
-
-                if (!res.report) {
-                  throw new Error("Failed to create report");
-                }
-
-                await router.push(`/report/${res.report.id}`);
-              }}
-            >
-              <span className="h4 pr-2 m-0 d-inline-block align-top">
-                <GBAddCircle />
-              </span>
-              New Custom Report
-            </Button>
-          </div>
-        )}
-      </div>
+    <div className="px-4 mb-4">
       <table className="table appbox gbtable table-hover mb-0">
         <thead>
           <tr>
@@ -97,7 +58,7 @@ export default function ExperimentReportsList({
         </thead>
         <tbody>
           {reports.map((report) => {
-            const user = users.get(report.userId);
+            const user = report.userId ? users.get(report.userId) : null;
             const name = user ? user.name : "";
             return (
               <tr key={report.id} className="">
@@ -108,11 +69,22 @@ export default function ExperimentReportsList({
                     router.push(`/report/${report.id}`);
                   }}
                 >
-                  <Link href={`/report/${report.id}`}>
-                    <a className={`text-dark font-weight-bold`}>
-                      {report.title}
-                    </a>
-                  </Link>
+                  <div className="d-flex align-items-center">
+                    {report.error ? (
+                      <Tooltip
+                        body={report.error}
+                        className="d-flex align-items-center"
+                      >
+                        <FaExclamationTriangle color="red" className="mr-2" />
+                      </Tooltip>
+                    ) : null}
+
+                    <Link href={`/report/${report.id}`}>
+                      <a className={`text-dark font-weight-bold`}>
+                        {report.title}
+                      </a>
+                    </Link>
+                  </div>
                 </td>
                 <td
                   className="cursor-pointer"
@@ -148,6 +120,13 @@ export default function ExperimentReportsList({
                               method: "DELETE",
                               //body: JSON.stringify({ id: report.id }),
                             }
+                          );
+                          trackReport(
+                            "delete",
+                            "ExperimentReportsList",
+                            getDatasourceById(report.args.datasource)?.type ||
+                              null,
+                            report
                           );
                           mutate();
                         }}

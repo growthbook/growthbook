@@ -5,13 +5,11 @@ import {
   getPresentationsByOrganization,
   createPresentation,
   deletePresentationById,
+  getPresentationSnapshots,
 } from "../services/presentations";
-import { getLatestSnapshot } from "../services/experiments";
 import { getOrgFromReq, userHasAccess } from "../services/organizations";
 import { ExperimentInterface } from "../../types/experiment";
-import { ExperimentSnapshotInterface } from "../../types/experiment-snapshot";
 import { PresentationInterface } from "../../types/presentation";
-import { getExperimentsByIds } from "../models/ExperimentModel";
 
 export async function getPresentations(req: AuthRequest, res: Response) {
   const { org } = getOrgFromReq(req);
@@ -56,28 +54,7 @@ export async function getPresentation(
       .map((o) => o.id);
   }
 
-  const experiments = await getExperimentsByIds(org.id, expIds);
-
-  const withSnapshots: {
-    experiment: ExperimentInterface;
-    snapshot: ExperimentSnapshotInterface;
-  }[] = [];
-  const promises = experiments.map(async (experiment, i) => {
-    // get best phase to show:
-    let phase = experiment.phases.length - 1;
-    experiment.phases.forEach((p, j) => {
-      if (p.phase === "main") phase = j;
-    });
-
-    const snapshot = await getLatestSnapshot(experiment.id, phase);
-    withSnapshots[i] = {
-      experiment,
-      snapshot,
-    };
-  });
-  await Promise.all(promises);
-
-  // get the learnigns associated with these experiments:
+  const withSnapshots = await getPresentationSnapshots(org.id, expIds, req);
 
   res.status(200).json({
     status: 200,
@@ -99,32 +76,7 @@ export async function getPresentationPreview(req: AuthRequest, res: Response) {
   }
   const expIdsArr = expIds.split(",");
 
-  const experiments = await getExperimentsByIds(org.id, expIdsArr);
-  // getExperimentsByIds returns experiments in any order, we want to put it
-  // back into the order that was requested in the API call.
-  const sortedExps = expIdsArr.map((id) => {
-    return experiments.filter((o) => o.id === id)[0];
-  });
-  const withSnapshots: {
-    experiment: ExperimentInterface;
-    snapshot: ExperimentSnapshotInterface;
-  }[] = [];
-  const promises = sortedExps.map(async (experiment, i) => {
-    // only show experiments that you have permission to view
-    if (await userHasAccess(req, experiment.organization)) {
-      // get best phase to show:
-      let phase = experiment.phases.length - 1;
-      experiment.phases.forEach((p, j) => {
-        if (p.phase === "main") phase = j;
-      });
-      const snapshot = await getLatestSnapshot(experiment.id, phase);
-      withSnapshots[i] = {
-        experiment,
-        snapshot,
-      };
-    }
-  });
-  await Promise.all(promises);
+  const withSnapshots = await getPresentationSnapshots(org.id, expIdsArr, req);
 
   res.status(200).json({
     status: 200,

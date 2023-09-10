@@ -1,0 +1,30 @@
+parameters:
+  - $ref: "../parameters.yaml#/id"
+tags:
+  - metrics
+summary: Update a metric
+operationId: putMetric
+x-codeSamples:
+  - lang: "cURL"
+    source: |
+      curl -XPUT https://api.growthbook.io/api/v1/metrics/met_123abc \
+        -u secret_abc123DEF456 \
+        -H "Content-Type: application/json" \
+        -d '{"name": "net revenue", "description":"revenue minus lacroix spend"}'
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "../payload-schemas/PutMetricRequestPayload.yaml"
+responses:
+  "200":
+    content:
+      application/json:
+        schema:
+          type: object
+          required:
+            - updatedId
+          properties:
+            updatedId:
+              type: string

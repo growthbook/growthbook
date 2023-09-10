@@ -1,7 +1,7 @@
 import type { Response } from "express";
 import uniqid from "uniqid";
 import { AuthRequest } from "../../types/AuthRequest";
-import { ApiErrorResponse } from "../../../types/api";
+import { PrivateApiErrorResponse } from "../../../types/api";
 import { getOrgFromReq } from "../../services/organizations";
 import { DimensionInterface } from "../../../types/dimension";
 import {
@@ -30,7 +30,7 @@ type GetDimensionsResponse = {
  */
 export const getDimensions = async (
   req: GetDimensionsRequest,
-  res: Response<GetDimensionsResponse | ApiErrorResponse>
+  res: Response<GetDimensionsResponse | PrivateApiErrorResponse>
 ) => {
   const { org } = getOrgFromReq(req);
   const dimensions = await findDimensionsByOrganization(org.id);
@@ -49,6 +49,7 @@ type CreateDimensionRequest = AuthRequest<{
   userIdType: string;
   name: string;
   sql: string;
+  description: string;
 }>;
 
 type CreateDimensionResponse = {
@@ -64,12 +65,12 @@ type CreateDimensionResponse = {
  */
 export const postDimension = async (
   req: CreateDimensionRequest,
-  res: Response<CreateDimensionResponse | ApiErrorResponse>
+  res: Response<CreateDimensionResponse | PrivateApiErrorResponse>
 ) => {
   req.checkPermissions("createDimensions");
 
   const { org, userName } = getOrgFromReq(req);
-  const { datasource, name, sql, userIdType } = req.body;
+  const { datasource, name, sql, userIdType, description } = req.body;
 
   const datasourceDoc = await getDataSourceById(datasource, org.id);
   if (!datasourceDoc) {
@@ -86,6 +87,7 @@ export const postDimension = async (
     dateCreated: new Date(),
     dateUpdated: new Date(),
     organization: org.id,
+    description,
   });
 
   res.status(200).json({
@@ -105,6 +107,7 @@ type PutDimensionRequest = AuthRequest<
     name: string;
     sql: string;
     owner: string;
+    description: string;
   },
   { id: string },
   Record<string, never>
@@ -134,7 +137,7 @@ export const putDimension = async (
     throw new Error("Could not find dimension");
   }
 
-  const { datasource, name, sql, userIdType, owner } = req.body;
+  const { datasource, name, sql, userIdType, owner, description } = req.body;
 
   const datasourceDoc = await getDataSourceById(datasource, org.id);
   if (!datasourceDoc) {
@@ -147,6 +150,7 @@ export const putDimension = async (
     name,
     sql,
     owner,
+    description,
     dateUpdated: new Date(),
   });
 
@@ -173,7 +177,7 @@ type DeleteDimensionResponse = {
  */
 export const deleteDimension = async (
   req: DeleteDimensionRequest,
-  res: Response<DeleteDimensionResponse | ApiErrorResponse>
+  res: Response<DeleteDimensionResponse | PrivateApiErrorResponse>
 ) => {
   req.checkPermissions("createDimensions");
 

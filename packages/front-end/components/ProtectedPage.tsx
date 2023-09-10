@@ -63,7 +63,7 @@ const LoggedInPageGuard = ({
   }
 
   // Still waiting to fetch current user/org details
-  if (organizations?.length > 0 && !organization) {
+  if ((organizations || []).length > 0 && !organization) {
     return <LoadingOverlay />;
   }
 

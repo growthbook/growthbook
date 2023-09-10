@@ -15,6 +15,8 @@ import Button from "@/components/Button";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import ViewAsyncQueriesButton from "@/components/Queries/ViewAsyncQueriesButton";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import { trackReport } from "@/services/track";
+import { useDefinitions } from "@/services/DefinitionsContext";
 
 export default function ResultMoreMenu({
   editMetrics,
@@ -27,7 +29,6 @@ export default function ResultMoreMenu({
   generateReport,
   notebookUrl,
   notebookFilename,
-  hasUserQuery,
   forceRefresh,
   results,
   metrics,
@@ -35,6 +36,7 @@ export default function ResultMoreMenu({
   trackingKey,
   dimension,
   project,
+  newUi = false,
 }: {
   editMetrics?: () => void;
   configure: () => void;
@@ -44,9 +46,8 @@ export default function ResultMoreMenu({
   supportsNotebooks?: boolean;
   id: string;
   generateReport?: boolean;
-  notebookUrl?: string;
-  notebookFilename?: string;
-  hasUserQuery?: boolean;
+  notebookUrl: string;
+  notebookFilename: string;
   forceRefresh?: () => Promise<void>;
   results?: ExperimentReportResultDimension[];
   metrics?: string[];
@@ -54,23 +55,21 @@ export default function ResultMoreMenu({
   trackingKey?: string;
   dimension?: string;
   project?: string;
+  newUi?: boolean;
 }) {
   const { apiCall } = useAuth();
   const router = useRouter();
   const permissions = usePermissions();
+  const { getDatasourceById } = useDefinitions();
 
   const canEdit = permissions.check("createAnalyses", project);
 
   const canDownloadJupyterNotebook =
-    hasData &&
-    !hasUserQuery &&
-    supportsNotebooks &&
-    notebookUrl &&
-    notebookFilename;
+    hasData && supportsNotebooks && notebookUrl && notebookFilename;
 
   return (
-    <MoreMenu>
-      {canEdit && (
+    <MoreMenu autoCloseOnClick={false}>
+      {!newUi && canEdit && (
         <button
           className="btn dropdown-item py-2"
           onClick={(e) => {
@@ -81,14 +80,14 @@ export default function ResultMoreMenu({
           <FaCog className="mr-2" /> Configure Analysis
         </button>
       )}
-      {queries?.length > 0 && (
+      {(queries?.length ?? 0) > 0 && (
         <ViewAsyncQueriesButton
-          queries={queries.map((q) => q.query)}
+          queries={queries?.map((q) => q.query) ?? []}
           error={queryError}
           className="dropdown-item py-2"
         />
       )}
-      {forceRefresh && permissions.check("runQueries", "") && (
+      {forceRefresh && permissions.check("runQueries", project || "") && (
         <button
           className="btn dropdown-item py-2"
           onClick={(e) => {
@@ -99,7 +98,7 @@ export default function ResultMoreMenu({
           <BsArrowRepeat className="mr-2" /> Re-run All Queries
         </button>
       )}
-      {hasData && queries && !hasUserQuery && generateReport && canEdit && (
+      {hasData && queries && generateReport && canEdit && (
         <Button
           className="dropdown-item py-2"
           color="outline-info"
@@ -114,6 +113,12 @@ export default function ResultMoreMenu({
             if (!res.report) {
               throw new Error("Failed to create report");
             }
+            trackReport(
+              "create",
+              "AdhocReportButton",
+              getDatasourceById(res.report.args.datasource)?.type || null,
+              res.report
+            );
 
             await router.push(`/report/${res.report.id}`);
           }}
@@ -174,8 +179,8 @@ export default function ResultMoreMenu({
           results={results}
           metrics={metrics}
           variations={variations}
-          trackingKey={trackingKey}
-          dimension={dimension}
+          trackingKey={trackingKey || ""}
+          dimension={dimension || ""}
         />
       )}
     </MoreMenu>

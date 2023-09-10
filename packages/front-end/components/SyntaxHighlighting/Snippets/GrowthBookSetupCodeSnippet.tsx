@@ -33,17 +33,18 @@ const growthbook = new GrowthBook({
               : ""
           }
   enableDevMode: true,
+  subscribeToChanges: true,
   trackingCallback: (experiment, result) => {
     // ${trackingComment}
     console.log("Viewed Experiment", {
       experimentId: experiment.key,
-      variationId: result.variationId
+      variationId: result.key
     });
   }
 });
 
 // Wait for features to be available
-await growthbook.loadFeatures({ autoRefresh: true });
+await growthbook.loadFeatures();
 `.trim()}
         />
       </>
@@ -66,11 +67,12 @@ const growthbook = new GrowthBook({
               : ""
           }
   enableDevMode: true,
+  subscribeToChanges: true,
   trackingCallback: (experiment, result) => {
     // ${trackingComment}
     console.log("Viewed Experiment", {
       experimentId: experiment.key,
-      variationId: result.variationId
+      variationId: result.key
     });
   }
 });
@@ -152,7 +154,7 @@ app.use(function(req, res, next) {
       // ${trackingComment}
       console.log("Viewed Experiment", {
         experimentId: experiment.key,
-        variationId: result.variationId
+        variationId: result.key
       });
     }
   });
@@ -161,7 +163,7 @@ app.use(function(req, res, next) {
   res.on('close', () => req.growthbook.destroy());
 
   // Wait for features to load (will be cached in-memory for future requests)
-  req.growthbook.loadFeatures()
+  req.growthbook.loadFeatures({ timeout: 1000 })
     .then(() => next())
     .catch((e) => {
       console.error("Failed to load features from GrowthBook", e);
@@ -293,13 +295,19 @@ func main() {
         <Code
           language="ruby"
           code={`
-require 'uri'
-require 'net/http'
-require 'json'
+require 'growthbook'
 
-uri = URI('${featuresEndpoint}')
-res = Net::HTTP.get_response(uri)
-features = res.is_a?(Net::HTTPSuccess) ? JSON.parse(res.body)['features'] : nil
+# Fetch features from a GrowthBook instance
+# You should cache this in Redis or similar in production
+features_repository = Growthbook::FeatureRepository.new(
+  endpoint: '${featuresEndpoint}'${
+            encryptionKey
+              ? `,
+  decryption_key: '${encryptionKey}'`
+              : ""
+          }
+)
+features = features_repository.fetch
             `.trim()}
         />
         Tracking callback when users are put into an experiment
@@ -320,8 +328,6 @@ end
         <Code
           language="ruby"
           code={`
-require 'growthbook'
-
 # Create a context for the current user/request
 gb = Growthbook::Context.new(
   features: features,
@@ -335,15 +341,6 @@ gb = Growthbook::Context.new(
   if (language === "php") {
     return (
       <>
-        Get features from the GrowthBook API
-        <Code
-          language="php"
-          code={`
-const FEATURES_ENDPOINT = '${featuresEndpoint}';
-$apiResponse = json_decode(file_get_contents(FEATURES_ENDPOINT), true);
-$features = $apiResponse["features"];
-            `.trim()}
-        />
         Create a GrowthBook instance
         <Code
           language="php"
@@ -351,7 +348,6 @@ $features = $apiResponse["features"];
 use Growthbook\\Growthbook;
 
 $growthbook = Growthbook::create()
-  ->withFeatures($features)
   ->withTrackingCallback(function ($experiment, $result) {
     // ${trackingComment}
     print_r([
@@ -364,23 +360,32 @@ $growthbook = Growthbook::create()
   });
             `.trim()}
         />
+        Load features from the GrowthBook API
+        <Code
+          language="php"
+          code={`
+// Cache features across requests (any psr-16 library will work)
+$cache = new \\Cache\\Adapter\\Apcu\\ApcuCachePool();
+$growthbook->withCache($cache);
+
+$growthbook->loadFeatures(
+  "${apiKey || "MY_SDK_KEY"}", // Client Key
+  "${apiHost}"${
+            encryptionKey
+              ? `, // API Host
+  "${encryptionKey}" // Decryption Key`
+              : " // API Host"
+          }
+);
+            `.trim()}
+        />
       </>
     );
   }
   if (language === "python") {
     return (
       <>
-        Get features from the GrowthBook API
-        <Code
-          language="python"
-          code={`
-import requests
-
-apiResp = requests.get("${featuresEndpoint}")
-features = apiResp.json()["features"]
-            `.trim()}
-        />
-        Callback when a user is put into an experiment
+        Callback function when a user is put into an experiment
         <Code
           language="python"
           code={`
@@ -388,19 +393,27 @@ def on_experiment_viewed(experiment, result):
   # ${trackingComment}
   print("Viewed Experiment")
   print("Experiment Id: " + experiment.key)
-  print("Variation Id: " + result.variationId)
+  print("Variation Id: " + result.key)
             `.trim()}
         />
-        Create a GrowthBook instance
+        Create a GrowthBook instance and load features
         <Code
           language="python"
           code={`
 from growthbook import GrowthBook
 
 gb = GrowthBook(
-  features = features,
-  trackingCallback = on_experiment_viewed
+  api_host = "${apiHost}",
+  client_key = "${apiKey || "MY_SDK_KEY"}",${
+            encryptionKey
+              ? `
+  decryption_key = "${encryptionKey}",`
+              : ""
+          }
+  on_experiment_viewed = on_experiment_viewed
 )
+
+gb.load_features()
             `.trim()}
         />
       </>

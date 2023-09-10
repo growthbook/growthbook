@@ -98,6 +98,28 @@ export function GBExperiment({ className = "" }): React.ReactElement {
   );
 }
 
+export function GBDatabase({ className = "" }): React.ReactElement {
+  return (
+    <svg
+      width="18"
+      height="18"
+      viewBox="0 0 12 14"
+      fill="currentColor"
+      xmlns="http://www.w3.org/2000/svg"
+      className={className}
+    >
+      <path
+        d="M2.3,1.7C3.2,1.3,4.5,1,6,1s2.8,0.3,3.7,0.7C10.6,2.1,11,2.6,11,3c0,0.4-0.4,0.9-1.3,1.3C8.8,4.7,7.5,5,6,5S3.2,4.7,2.3,4.3
+	C1.4,3.9,1,3.4,1,3C1,2.6,1.4,2.1,2.3,1.7z M11,4.7V7c0,0.4-0.4,0.9-1.3,1.3C8.8,8.7,7.5,9,6,9S3.2,8.7,2.3,8.3C1.4,7.9,1,7.4,1,7
+	V4.7c0.3,0.2,0.6,0.4,0.9,0.5C3,5.7,4.4,6,6,6s3-0.3,4.1-0.8C10.4,5.1,10.7,4.9,11,4.7z M12,3c0-1-0.9-1.8-1.9-2.2C9,0.3,7.6,0,6,0
+	S3,0.3,1.9,0.8C0.9,1.2,0,2,0,3v8c0,1,0.9,1.8,1.9,2.2C3,13.7,4.4,14,6,14s3-0.3,4.1-0.8c1-0.5,1.9-1.2,1.9-2.2V3z M11,8.7V11
+	c0,0.4-0.4,0.9-1.3,1.3C8.8,12.7,7.5,13,6,13s-2.8-0.3-3.7-0.7C1.4,11.9,1,11.4,1,11V8.7c0.3,0.2,0.6,0.4,0.9,0.5C3,9.7,4.4,10,6,10
+	s3-0.3,4.1-0.8C10.4,9.1,10.7,8.9,11,8.7z"
+      />
+    </svg>
+  );
+}
+
 export function GBPresentations({ className = "" }): React.ReactElement {
   return (
     <svg
@@ -434,7 +456,7 @@ export function GBPremiumBadge({
   shouldDisplay = true,
   prependsText = false,
   size = "large",
-}): GBPremiumBadge {
+}) {
   if (!shouldDisplay) return null;
   return (
     <svg
@@ -476,6 +498,161 @@ export function GBPremiumBadge({
 				c6.531-0.949,14.265-6.568,17.186-12.486l9.43-19.107c2.921-5.918,7.701-5.918,10.621,0l9.431,19.107
 				c2.921,5.918,10.654,11.537,17.186,12.486l21.086,3.064C245.067,128.192,246.544,132.738,241.818,137.344z"
         fill="currentColor"
+      />
+    </svg>
+  );
+}
+
+export function GBCuped({
+  className = "",
+  size = 20,
+  ...otherProps
+}): React.ReactElement {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 16 16"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      className={className}
+      {...otherProps}
+    >
+      <defs>
+        <linearGradient
+          gradientUnits="userSpaceOnUse"
+          x1="0"
+          y1="0"
+          x2="0"
+          y2="14"
+          id="gradient"
+          spreadMethod="pad"
+        >
+          <stop
+            offset="0"
+            style={{ stopColor: "rgb(56, 226, 175)", stopOpacity: 0.75 }}
+          ></stop>
+          <stop
+            offset="1"
+            style={{ stopColor: "rgb(56, 226, 175)", stopOpacity: 0 }}
+          ></stop>
+        </linearGradient>
+      </defs>
+      <path
+        style={{
+          strokeLinecap: "round",
+          stroke: "rgb(22,217,161)",
+          strokeWidth: 1.2,
+          fill: "url(#gradient)",
+        }}
+        d="M 2.873 14.6 C 3.873 14.161 6.15 14.476 6.857 6.341 C 7.234 1.992 7.877 0.66 8.811 0.636 C 9.987 0.605 10.274 2.469 10.907 6.371 C 12.289 14.877 15.309 14.534 15.309 14.534"
+      ></path>
+      <path
+        style={{
+          strokeLinecap: "round",
+          stroke: "rgb(204,153,0)",
+          // mixBlendMode: "multiply",
+        }}
+        d="M 0.75 12.056 C 0.75 12.056 2.916 12.09 4.132 9.615 C 5.197 7.448 6.534 6.703 8.244 6.644 C 9.807 6.59 11.373 8.126 12.276 9.782 C 13.489 12.007 15.614 11.977 15.614 11.977"
+      ></path>
+    </svg>
+  );
+}
+
+export function GBSequential({
+  className = "",
+  size = 20,
+  ...otherProps
+}): React.ReactElement {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 16 13"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      className={className}
+      {...otherProps}
+    >
+      <path
+        style={{
+          strokeWidth: 0.8,
+          stroke: "rgb(61,106,153)",
+        }}
+        d="m.4,10.1s.72-.15,2.36-4.77c.89-2.51,2.38-2.58,3.2.08,1.42,4.57,2.78,4.74,2.78,4.74"
+      />
+      <path
+        style={{
+          strokeWidth: 1,
+          stroke: "rgb(61,130,204)",
+        }}
+        d="m2.66,9.52s.88-.17,2.72-5.37c1-2.83,2.67-2.91,3.6.09,1.6,5.14,3.12,5.33,3.12,5.33"
+      />
+      <path
+        style={{
+          strokeWidth: 1.2,
+          stroke: "rgb(51,150,255)",
+        }}
+        d="m4.88,8.94s1.03-.19,3.08-5.96c1.11-3.14,2.97-3.23,4.01.1,1.78,5.71,3.47,5.92,3.47,5.92"
+      />
+    </svg>
+  );
+}
+
+export function GBHashLock({
+  className = "",
+  size = 15,
+  ...otherProps
+}): React.ReactElement {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 448 512"
+      fill="currentColor"
+      xmlns="http://www.w3.org/2000/svg"
+      className={className}
+      {...otherProps}
+    >
+      <polygon points="173.9,391.6 244.3,389.2 263.5,313.1 192.9,316.6" />
+      <path
+        d="M400,194h-24v-42C376,68.2,307.8,0,224,0S72,68.2,72,152v42H48c-26.5,0-48,21.5-48,48v222
+		c0,26.5,21.5,48,48,48h352c26.5,0,48-21.5,48-48V242C448,215.5,426.5,194,400,194z M152,152c0-39.7,32.3-72,72-72s72,32.3,72,72v42
+		H152V152z M344.1,309.1l-35.4,1.8l-19.4,76.8l37-1.3l-11.3,38l-35.4,1.8l-9.7,38.4l-44.9,0.9l9.3-37l-70.6,3.5l-8.8,34.9l-44.9,0.9
+		l8.5-33.5l-37.1,1.8l11.3-41.5l36.1-1.3l18.8-74.3l-37.1,1.8l11.3-40.6l36-1.4l9.1-36.1l44.9-0.9l-8.9,35.3l70.4-2.7l8.6-34
+		l44.9-0.9l-8.4,33.1l37-1.4L344.1,309.1z"
+      />
+    </svg>
+  );
+}
+
+export function GBSuspicious({
+  className = "",
+  size = 16,
+  ...otherProps
+}): React.ReactElement {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      className={className}
+      {...otherProps}
+    >
+      <path
+        fillRule="evenodd"
+        clipRule="evenodd"
+        fill="currentColor"
+        d="M10.5 3.75a6.75 6.75 0 100 13.5 6.75 6.75 0 000-13.5zM2.25 10.5a8.25 8.25 0 1114.59 5.28l4.69 4.69a.75.75 0 11-1.06 1.06l-4.69-4.69A8.25 8.25 0 012.25 10.5z"
+      />
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        stroke="currentColor"
+        d="M 10.5 7.5 v 3.75 Z m 0 6.75 h 0.008 v 0.008 H 10.5 v -0.008 z"
       />
     </svg>
   );

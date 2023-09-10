@@ -1,22 +1,23 @@
-import { FC, useMemo, useState } from "react";
+import { FC, useMemo } from "react";
 import { MetricInterface } from "back-end/types/metric";
 import {
   ExperimentReportResultDimension,
   ExperimentReportVariation,
+  MetricRegressionAdjustmentStatus,
 } from "back-end/types/report";
 import { ExperimentStatus, MetricOverride } from "back-end/types/experiment";
-import { StatsEngine } from "back-end/types/stats";
+import { PValueCorrection, StatsEngine } from "back-end/types/stats";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import {
   applyMetricOverrides,
+  setAdjustedPValuesOnResults,
   ExperimentTableRow,
   useRiskVariation,
 } from "@/services/experiments";
-import Toggle from "../Forms/Toggle";
-import ResultsTable from "./ResultsTable";
+import ResultsTable from "@/components/Experiment/ResultsTable";
+import { QueryStatusData } from "@/components/Queries/RunQueriesButton";
+import { getRenderLabelColumn } from "@/components/Experiment/CompactResults";
 import UsersTable from "./UsersTable";
-
-const FULL_STATS_LIMIT = 5;
 
 type TableDef = {
   metric: MetricInterface;
@@ -26,7 +27,10 @@ type TableDef = {
 
 const BreakDownResults: FC<{
   results: ExperimentReportResultDimension[];
+  queryStatusData?: QueryStatusData;
   variations: ExperimentReportVariation[];
+  variationFilter?: number[];
+  baselineRow?: number;
   metrics: string[];
   metricOverrides: MetricOverride[];
   guardrails?: string[];
@@ -36,11 +40,18 @@ const BreakDownResults: FC<{
   reportDate: Date;
   activationMetric?: string;
   status: ExperimentStatus;
-  statsEngine?: StatsEngine;
+  statsEngine: StatsEngine;
+  pValueCorrection?: PValueCorrection;
+  regressionAdjustmentEnabled?: boolean;
+  metricRegressionAdjustmentStatuses?: MetricRegressionAdjustmentStatus[];
+  sequentialTestingEnabled?: boolean;
 }> = ({
   dimensionId,
   results,
+  queryStatusData,
   variations,
+  variationFilter,
+  baselineRow,
   metrics,
   metricOverrides,
   guardrails,
@@ -50,6 +61,10 @@ const BreakDownResults: FC<{
   status,
   reportDate,
   statsEngine,
+  pValueCorrection,
+  regressionAdjustmentEnabled,
+  metricRegressionAdjustmentStatuses,
+  sequentialTestingEnabled,
 }) => {
   const { getDimensionById, getMetricById, ready } = useDefinitions();
 
@@ -57,37 +72,55 @@ const BreakDownResults: FC<{
     return getDimensionById(dimensionId)?.name || "Dimension";
   }, [getDimensionById, dimensionId]);
 
-  const tooManyDimensions = results.length > FULL_STATS_LIMIT;
-
-  const [fullStatsToggle, setFullStats] = useState(false);
-  const fullStats = !tooManyDimensions || fullStatsToggle;
-
   const tables = useMemo<TableDef[]>(() => {
     if (!ready) return [];
+    if (pValueCorrection && statsEngine === "frequentist") {
+      setAdjustedPValuesOnResults(results, metrics, pValueCorrection);
+    }
     return Array.from(new Set(metrics.concat(guardrails || [])))
       .map((metricId) => {
         const metric = getMetricById(metricId);
+        if (!metric) return;
         const { newMetric } = applyMetricOverrides(metric, metricOverrides);
+        let regressionAdjustmentStatus:
+          | MetricRegressionAdjustmentStatus
+          | undefined;
+        if (regressionAdjustmentEnabled && metricRegressionAdjustmentStatuses) {
+          regressionAdjustmentStatus = metricRegressionAdjustmentStatuses.find(
+            (s) => s.metric === metricId
+          );
+        }
+
         return {
           metric: newMetric,
           isGuardrail: !metrics.includes(metricId),
-          rows: results.map((d) => {
-            return {
-              label: d.name,
-              metric: newMetric,
-              variations: d.variations.map((variation) => {
-                return variation.metrics[metricId];
-              }),
-            };
-          }),
+          rows: results.map((d) => ({
+            label: d.name,
+            metric: newMetric,
+            variations: d.variations.map((variation) => {
+              return variation.metrics[metricId];
+            }),
+            regressionAdjustmentStatus,
+          })) as ExperimentTableRow[],
         };
       })
-      .filter((table) => table.metric);
-  }, [results, metrics, metricOverrides, guardrails, ready]);
+      .filter((table) => table?.metric) as TableDef[];
+  }, [
+    results,
+    metrics,
+    metricOverrides,
+    regressionAdjustmentEnabled,
+    metricRegressionAdjustmentStatuses,
+    pValueCorrection,
+    statsEngine,
+    guardrails,
+    ready,
+    getMetricById,
+  ]);
 
   const risk = useRiskVariation(
     variations.length,
-    [].concat(...tables.map((t) => t.rows))
+    ([] as ExperimentTableRow[]).concat(...tables.map((t) => t.rows))
   );
 
   return (
@@ -108,58 +141,66 @@ const BreakDownResults: FC<{
         />
       </div>
 
-      {tooManyDimensions && (
-        <div className="row align-items-center mb-3 px-3">
-          <div className="col">
-            <div className="alert alert-warning mb-0">
-              <strong>Warning: </strong> This dimension contains many unique
-              values. We&apos;ve disabled the stats engine by default since it
-              may be misleading.
-            </div>
-          </div>
-          <div className="col-auto">
-            <Toggle
-              value={fullStats}
-              setValue={setFullStats}
-              id="full-stats"
-              label="Show Full Stats"
-            />
-            Stats Engine
-          </div>
-        </div>
-      )}
-
-      {tables.map((table) => (
-        <div className="mb-5" key={table.metric.id}>
-          <div className="px-3">
-            <h3>
-              {table.isGuardrail ? (
-                <small className="text-muted">Guardrail: </small>
-              ) : (
-                ""
-              )}
-              {table.metric.name}
-            </h3>
-          </div>
-
-          <div className="experiment-compact-holder">
+      <h3 className="mx-2 mb-0">Goal Metrics</h3>
+      {tables.map((table, i) => {
+        return (
+          <>
             <ResultsTable
+              key={i}
               dateCreated={reportDate}
               isLatestPhase={isLatestPhase}
               startDate={startDate}
               status={status}
+              queryStatusData={queryStatusData}
               variations={variations}
-              id={table.metric.id}
-              labelHeader={dimension}
-              renderLabelColumn={(label) => label || <em>unknown</em>}
+              variationFilter={variationFilter}
+              baselineRow={baselineRow}
               rows={table.rows}
-              fullStats={fullStats}
+              dimension={dimension}
+              id={table.metric.id}
+              hasRisk={risk.hasRisk}
+              tableRowAxis="dimension" // todo: dynamic grouping?
+              labelHeader={
+                <div style={{ marginBottom: 2 }}>
+                  {getRenderLabelColumn(regressionAdjustmentEnabled)(
+                    table.metric.name,
+                    table.metric,
+                    table.rows[0]
+                  )}
+                </div>
+              }
+              editMetrics={undefined}
               statsEngine={statsEngine}
-              {...risk}
+              sequentialTestingEnabled={sequentialTestingEnabled}
+              pValueCorrection={pValueCorrection}
+              renderLabelColumn={(label) => (
+                <>
+                  {/*<div className="uppercase-title">{dimension}:</div>*/}
+                  {label ? (
+                    label === "__NULL_DIMENSION" ? (
+                      <em>NULL (unset)</em>
+                    ) : (
+                      <span
+                        style={{
+                          lineHeight: "1.2em",
+                          wordBreak: "break-word",
+                          overflowWrap: "anywhere",
+                        }}
+                      >
+                        {label}
+                      </span>
+                    )
+                  ) : (
+                    <em>unknown</em>
+                  )}
+                </>
+              )}
+              isTabActive={true}
             />
-          </div>
-        </div>
-      ))}
+            <div className="mb-5" />
+          </>
+        );
+      })}
     </div>
   );
 };

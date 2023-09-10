@@ -25,14 +25,13 @@ export const slackEventHandler: NotificationEventHandler = async ({
   }
 
   const { filterData, slackMessage } = result;
-  const { environments, tags, projects } = filterData;
+  const { tags, projects } = filterData;
 
   const slackIntegrations = (
     (await getSlackIntegrationsForFilters({
       organizationId,
       eventName: event,
       tags,
-      environments,
       projects,
     })) || []
   ).filter((slackIntegration) =>

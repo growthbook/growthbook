@@ -1,0 +1,151 @@
+type: object
+required:
+  - id
+  - dateCreated
+  - dateUpdated
+  - name
+  - project
+  - hypothesis
+  - description
+  - hashAttribute
+  - hashVersion
+  - tags
+  - owner
+  - archived
+  - status
+  - autoRefresh
+  - variations
+  - phases
+  - settings
+properties:
+  id:
+    type: string
+  dateCreated:
+    type: string
+    format: date-time
+  dateUpdated:
+    type: string
+    format: date-time
+  name:
+    type: string
+  project:
+    type: string
+  hypothesis:
+    type: string
+  description:
+    type: string
+  tags:
+    type: array
+    items:
+      type: string
+  owner:
+    type: string
+  archived:
+    type: boolean
+  status:
+    type: string
+  autoRefresh:
+    type: boolean
+  hashAttribute:
+    type: string
+  hashVersion:
+    type: number
+    enum: [1, 2]
+  variations:
+    type: array
+    items:
+      type: object
+      required:
+        - variationId
+        - key
+        - name
+        - description
+        - screenshots
+      properties:
+        variationId:
+          type: string
+        key:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        screenshots:
+          type: array
+          items:
+            type: string
+  phases:
+    type: array
+    items:
+      type: object
+      required:
+        - name
+        - dateStarted
+        - dateEnded
+        - reasonForStopping
+        - seed
+        - coverage
+        - trafficSplit
+        - targetingCondition
+      properties:
+        name:
+          type: string
+        dateStarted:
+          type: string
+        dateEnded:
+          type: string
+        reasonForStopping:
+          type: string
+        seed:
+          type: string
+        coverage:
+          type: number
+        trafficSplit:
+          type: array
+          items:
+            type: object
+            required:
+              - variationId
+              - weight
+            properties:
+              variationId:
+                type: string
+              weight:
+                type: number
+        namespace:
+          type: object
+          required:
+            - namespaceId
+            - range
+          properties:
+            namespaceId:
+              type: string
+            range:
+              type: array
+              rangeStart: number
+              rangeEnd: number
+        targetingCondition:
+          type: string
+
+  settings:
+    $ref: "./ExperimentAnalysisSettings.yaml"
+  
+  resultSummary:
+    type: object
+    required:
+      - status
+      - winner
+      - releasedVariationId
+      - excludeFromPayload
+      - conclusions
+    properties:
+      status:
+        type: string
+      winner:
+        type: string
+      conclusions:
+        type: string
+      releasedVariationId:
+        type: string
+      excludeFromPayload:
+        type: boolean

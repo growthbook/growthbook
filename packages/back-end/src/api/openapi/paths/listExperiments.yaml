@@ -1,0 +1,34 @@
+summary: Get all experiments
+tags:
+  - experiments
+parameters:
+- $ref: "../parameters.yaml#/limit"
+- $ref: "../parameters.yaml#/offset"
+- $ref: "../parameters.yaml#/projectId"
+- $ref: "../parameters.yaml#/datasourceId"
+- name: experimentId
+  in: query
+  description: Filter the returned list by the experiment tracking key (id)
+  schema:
+    type: string
+operationId: listExperiments
+x-codeSamples:
+  - lang: 'cURL'
+    source: |
+      curl https://api.growthbook.io/api/v1/experiments \
+        -u secret_abc123DEF456:
+responses:
+  "200":
+    content:
+      application/json:
+        schema:
+          allOf:
+            - type: object
+              required:
+                - experiments
+              properties:
+                experiments:
+                  type: array
+                  items:
+                    $ref: "../schemas/Experiment.yaml"
+            - $ref: "../schemas/PaginationFields.yaml"
