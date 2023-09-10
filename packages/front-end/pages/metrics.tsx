@@ -81,7 +81,7 @@ const MetricsPage = (): React.ReactElement => {
             const metricExperimentMap = new Map();
 
             data?.experiments?.forEach((experiment) => {
-              let mostRecentDate = datetime(new Date(experiment.dateCreated));
+              let mostRecentDate = datetime(experiment.dateCreated);
               if (experiment.status === "running") {
                 mostRecentDate = datetime(new Date());
               } else {
@@ -105,6 +105,9 @@ const MetricsPage = (): React.ReactElement => {
               experiment?.metrics?.forEach((metric) => {
                 if (metricExperimentMap.has(metric)) {
                   const existing = metricExperimentMap.get(metric);
+                  if (!existing || !existing?.[experiment.status]) {
+                    existing[experiment.status] = [];
+                  }
                   existing[experiment.status].push(experiment);
                   existing.total++;
                   if (
