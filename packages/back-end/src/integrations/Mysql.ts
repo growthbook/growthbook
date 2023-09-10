@@ -3,6 +3,7 @@ import { ConnectionOptions } from "mysql2";
 import { MysqlConnectionParams } from "../../types/integrations/mysql";
 import { decryptDataSourceParams } from "../services/datasource";
 import { FormatDialect } from "../util/sql";
+import { QueryResponse } from "../types/Integration";
 import SqlIntegration from "./SqlIntegration";
 
 export default class Mysql extends SqlIntegration {
@@ -22,7 +23,7 @@ export default class Mysql extends SqlIntegration {
   getSensitiveParamKeys(): string[] {
     return ["password"];
   }
-  async runQuery(sql: string) {
+  async runQuery(sql: string): Promise<QueryResponse> {
     const config: ConnectionOptions = {
       host: this.params.host,
       port: this.params.port,
@@ -40,7 +41,7 @@ export default class Mysql extends SqlIntegration {
     const conn = await mysql.createConnection(config);
 
     const [rows] = await conn.query(sql);
-    return rows as RowDataPacket[];
+    return { rows: rows as RowDataPacket[] };
   }
   dateDiff(startCol: string, endCol: string) {
     return `DATEDIFF(${endCol}, ${startCol})`;

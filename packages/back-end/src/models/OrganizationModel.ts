@@ -24,6 +24,7 @@ const baseMemberFields = {
       environments: [String],
     },
   ],
+  teams: [String],
 };
 
 const organizationSchema = new mongoose.Schema({
@@ -169,9 +170,21 @@ export async function createOrganization({
   });
   return toInterface(doc);
 }
-export async function findAllOrganizations() {
-  const docs = await OrganizationModel.find();
-  return docs.map(toInterface);
+export async function findAllOrganizations(page: number, search: string) {
+  const regex = new RegExp(search, "i");
+
+  const query = search ? { $or: [{ name: regex }, { ownerEmail: regex }] } : {};
+
+  const docs = await OrganizationModel.find(query)
+    .sort({ _id: -1 })
+    .skip((page - 1) * 50)
+    .limit(50);
+
+  const total = await (search
+    ? OrganizationModel.find(query).countDocuments()
+    : OrganizationModel.find().estimatedDocumentCount());
+
+  return { organizations: docs.map(toInterface), total };
 }
 export async function findOrganizationById(id: string) {
   const doc = await OrganizationModel.findOne({ id });
