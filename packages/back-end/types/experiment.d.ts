@@ -1,4 +1,5 @@
 import { NamespaceValue } from "./feature";
+import { StatsEngine } from "./stats";
 
 export type ImplementationType = "visual" | "code" | "configuration" | "custom";
 
@@ -31,6 +32,9 @@ export interface Variation {
   description?: string;
   key: string;
   screenshots: Screenshot[];
+}
+export interface VariationWithIndex extends Variation {
+  index: number;
 }
 
 export interface LegacyExperimentPhase extends ExperimentPhase {
@@ -144,6 +148,7 @@ export interface ExperimentInterface {
   linkedFeatures?: string[];
   sequentialTestingEnabled?: boolean;
   sequentialTestingTuningParameter?: number;
+  statsEngine?: StatsEngine;
 }
 
 export type ExperimentInterfaceStringDates = Omit<

@@ -42,6 +42,10 @@ const Results: FC<{
   regressionAdjustmentHasValidMetrics?: boolean;
   metricRegressionAdjustmentStatuses?: MetricRegressionAdjustmentStatus[];
   onRegressionAdjustmentChange?: (enabled: boolean) => void;
+  variationFilter?: number[];
+  setVariationFilter?: (variationFilter: number[]) => void;
+  baselineRow?: number;
+  setBaselineRow?: (baselineRow: number) => void;
   isTabActive?: boolean;
 }> = ({
   experiment,
@@ -58,11 +62,15 @@ const Results: FC<{
   regressionAdjustmentHasValidMetrics = false,
   metricRegressionAdjustmentStatuses,
   onRegressionAdjustmentChange,
+  variationFilter,
+  setVariationFilter,
+  baselineRow,
+  setBaselineRow,
   isTabActive = true,
 }) => {
-  // todo: give these a proper home
-  const [baselineRow, setBaselineRow] = React.useState<number>(0);
-  const [variationFilter, setVariationFilter] = React.useState<number[]>([]);
+  // // todo: give these a proper home
+  // const [baselineRow, setBaselineRow] = React.useState<number>(0);
+  // const [variationFilter, setVariationFilter] = React.useState<number[]>([]);
 
   const { apiCall } = useAuth();
 
@@ -78,7 +86,9 @@ const Results: FC<{
     phase,
     setPhase,
     dimension,
+    setAnalysisSettings,
     mutateSnapshot: mutate,
+    loading: snapshotLoading,
   } = useSnapshot();
 
   const queryStatusData = getQueryStatus(latest?.queries || [], latest?.error);
@@ -109,7 +119,6 @@ const Results: FC<{
       weight: phaseObj?.variationWeights?.[i] || 0,
     };
   });
-
   const snapshotMetricRegressionAdjustmentStatuses =
     snapshot?.settings?.metricSettings?.map((m) => ({
       metric: m.id,
@@ -128,6 +137,24 @@ const Results: FC<{
     analysis.results?.[0] &&
     !analysis?.settings?.dimensions?.length;
 
+  const showBreakDownResults =
+    !draftMode &&
+    hasData &&
+    snapshot?.dimension &&
+    snapshot.dimension.substring(0, 8) !== "pre:date" && // todo: refactor hardcoded dimension
+    analysis &&
+    analysis.results?.[0] &&
+    analysis?.settings?.dimensions?.length; // todo: needed? separate desired vs actual
+
+  const showDateResults =
+    !draftMode &&
+    hasData &&
+    snapshot?.dimension &&
+    snapshot.dimension.substring(0, 8) === "pre:date" && // todo: refactor hardcoded dimension
+    analysis &&
+    analysis.results?.[0] &&
+    analysis?.settings?.dimensions?.length; // todo: needed? separate desired vs actual
+
   if (error) {
     return <div className="alert alert-danger m-3">{error.message}</div>;
   }
@@ -137,6 +164,7 @@ const Results: FC<{
       {!draftMode ? (
         <AnalysisSettingsBar
           mutateExperiment={mutateExperiment}
+          setAnalysisSettings={setAnalysisSettings}
           editMetrics={editMetrics}
           variations={variations}
           editPhases={editPhases}
@@ -153,11 +181,10 @@ const Results: FC<{
           onRegressionAdjustmentChange={onRegressionAdjustmentChange}
           newUi={true}
           showMoreMenu={false}
-          showCompactResults={showCompactResults}
           variationFilter={variationFilter}
-          setVariationFilter={(v: number[]) => setVariationFilter(v)}
+          setVariationFilter={(v: number[]) => setVariationFilter?.(v)}
           baselineRow={baselineRow}
-          setBaselineRow={(b: number) => setBaselineRow(b)}
+          setBaselineRow={(b: number) => setBaselineRow?.(b)}
         />
       ) : (
         <StatusBanner
@@ -187,7 +214,8 @@ const Results: FC<{
       {!hasData &&
         !snapshot?.unknownVariations?.length &&
         status !== "running" &&
-        experiment.metrics.length > 0 && (
+        experiment.metrics.length > 0 &&
+        !snapshotLoading && (
           <div className="alert alert-info m-3">
             No data yet.{" "}
             {snapshot &&
@@ -201,6 +229,7 @@ const Results: FC<{
             {!snapshot &&
               permissions.check("runQueries", experiment.project) &&
               `Click the "Update" button above.`}
+            {snapshotLoading && <div> Snapshot loading...</div>}
           </div>
         )}
 
@@ -252,44 +281,41 @@ const Results: FC<{
           project={experiment.project}
         />
       )}
-      {!draftMode &&
-        hasData &&
-        snapshot?.dimension &&
-        (snapshot.dimension.substring(0, 8) === "pre:date" ? (
-          <DateResults
-            metrics={experiment.metrics}
-            guardrails={experiment.guardrails}
-            results={analysis?.results ?? []}
-            seriestype={snapshot.dimension}
-            variations={variations}
-            statsEngine={
-              analysis?.settings?.statsEngine ?? DEFAULT_STATS_ENGINE
-            }
-          />
-        ) : (
-          <BreakDownResults
-            key={snapshot.dimension}
-            results={analysis?.results ?? []}
-            variations={variations}
-            metrics={experiment.metrics}
-            metricOverrides={experiment.metricOverrides ?? []}
-            guardrails={experiment.guardrails}
-            dimensionId={snapshot.dimension}
-            isLatestPhase={phase === experiment.phases.length - 1}
-            startDate={phaseObj?.dateStarted ?? ""}
-            reportDate={snapshot.dateCreated}
-            activationMetric={experiment.activationMetric}
-            status={experiment.status}
-            statsEngine={analysis?.settings?.statsEngine}
-            pValueCorrection={pValueCorrection}
-            regressionAdjustmentEnabled={analysis?.settings?.regressionAdjusted}
-            metricRegressionAdjustmentStatuses={
-              snapshotMetricRegressionAdjustmentStatuses
-            }
-            sequentialTestingEnabled={analysis?.settings?.sequentialTesting}
-          />
-        ))}
-      {showCompactResults && (
+      {showDateResults ? (
+        <DateResults
+          metrics={experiment.metrics}
+          guardrails={experiment.guardrails}
+          results={analysis?.results ?? []}
+          seriestype={snapshot.dimension ?? ""}
+          variations={variations}
+          statsEngine={analysis?.settings?.statsEngine || DEFAULT_STATS_ENGINE}
+        />
+      ) : showBreakDownResults ? (
+        <BreakDownResults
+          key={snapshot.dimension}
+          results={analysis?.results ?? []}
+          queryStatusData={queryStatusData}
+          variations={variations}
+          variationFilter={variationFilter}
+          baselineRow={baselineRow}
+          metrics={experiment.metrics}
+          metricOverrides={experiment.metricOverrides ?? []}
+          guardrails={experiment.guardrails}
+          dimensionId={snapshot.dimension ?? ""}
+          isLatestPhase={phase === experiment.phases.length - 1}
+          startDate={phaseObj?.dateStarted ?? ""}
+          reportDate={snapshot.dateCreated}
+          activationMetric={experiment.activationMetric}
+          status={experiment.status}
+          statsEngine={analysis.settings.statsEngine}
+          pValueCorrection={pValueCorrection}
+          regressionAdjustmentEnabled={analysis?.settings?.regressionAdjusted}
+          metricRegressionAdjustmentStatuses={
+            snapshotMetricRegressionAdjustmentStatuses
+          }
+          sequentialTestingEnabled={analysis?.settings?.sequentialTesting}
+        />
+      ) : showCompactResults ? (
         <>
           {reportDetailsLink && (
             <div className="float-right pr-3">
@@ -326,7 +352,7 @@ const Results: FC<{
             isTabActive={isTabActive}
           />
         </>
-      )}
+      ) : null}
 
       {!draftMode && hasData ? (
         <div className="row align-items-center mx-2 my-3">

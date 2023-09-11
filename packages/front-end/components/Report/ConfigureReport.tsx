@@ -68,6 +68,7 @@ export default function ConfigureReport({
   const { settings: parentSettings } = getScopedSettings({
     organization,
     project: project ?? undefined,
+    experiment: experiment ?? undefined,
   });
 
   const hasRegressionAdjustmentFeature = hasCommercialFeature(

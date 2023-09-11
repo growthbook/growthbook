@@ -5,6 +5,7 @@ export interface UserInterface {
   verified: boolean;
   passwordHash?: string;
   admin: boolean;
+  minTokenDate?: Date;
 }
 
 export interface UserRef {

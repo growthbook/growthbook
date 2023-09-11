@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { ExperimentSnapshotAnalysisSettings } from "back-end/types/experiment-snapshot";
 import { getExposureQuery } from "@/services/datasources";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import SelectField from "../Forms/SelectField";
@@ -13,6 +14,11 @@ export interface Props {
   labelClassName?: string;
   showHelp?: boolean;
   newUi?: boolean;
+  setVariationFilter?: (variationFilter: number[]) => void;
+  setBaselineRow?: (baselineRow: number) => void;
+  setAnalysisSettings: (
+    settings: ExperimentSnapshotAnalysisSettings | null
+  ) => void;
 }
 
 export default function DimensionChooser({
@@ -25,6 +31,9 @@ export default function DimensionChooser({
   labelClassName,
   showHelp,
   newUi = false,
+  setVariationFilter,
+  setBaselineRow,
+  setAnalysisSettings,
 }: Props) {
   const { dimensions, getDatasourceById } = useDefinitions();
   const datasource = datasourceId ? getDatasourceById(datasourceId) : null;
@@ -111,7 +120,13 @@ export default function DimensionChooser({
         ]}
         initialOption="None"
         value={value}
-        onChange={setValue}
+        onChange={(v) => {
+          if (v === value) return;
+          setAnalysisSettings(null);
+          setBaselineRow?.(0);
+          setVariationFilter?.([]);
+          setValue(v);
+        }}
         helpText={
           showHelp ? "Break down results for each metric by a dimension" : ""
         }

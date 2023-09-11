@@ -4,7 +4,7 @@ import { PValueCorrection, StatsEngine } from "back-end/types/stats";
 import { useState } from "react";
 import {
   ExperimentReportResultDimension,
-  ExperimentReportVariation,
+  ExperimentReportVariationWithIndex,
   MetricRegressionAdjustmentStatus,
 } from "back-end/types/report";
 import {
@@ -82,14 +82,12 @@ export function shouldHighlight({
   baseline,
   stats,
   hasEnoughData,
-  suspiciousChange,
   belowMinChange,
 }: {
   metric: MetricInterface;
   baseline: SnapshotMetric;
   stats: SnapshotMetric;
   hasEnoughData: boolean;
-  suspiciousChange: boolean;
   belowMinChange: boolean;
 }): boolean {
   // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'number | boolean' is not assignable to type ... Remove this comment to see the full error message
@@ -98,7 +96,6 @@ export function shouldHighlight({
     baseline?.value &&
     stats?.value &&
     hasEnoughData &&
-    !suspiciousChange &&
     !belowMinChange
   );
 }
@@ -220,7 +217,7 @@ export function useRiskVariation(
   return { hasRisk, riskVariation, setRiskVariation };
 }
 export function useDomain(
-  variations: ExperimentReportVariation[],
+  variations: ExperimentReportVariationWithIndex[], // must be ordered, baseline first
   rows: ExperimentTableRow[]
 ): [number, number] {
   const { metricDefaults } = useOrganizationMetricDefaults();
@@ -228,14 +225,14 @@ export function useDomain(
   let lowerBound = 0;
   let upperBound = 0;
   rows.forEach((row) => {
-    const baseline = row.variations[0];
+    const baseline = row.variations[variations[0].index];
     if (!baseline) return;
-    variations?.forEach((v, i) => {
+    variations?.forEach((v: ExperimentReportVariationWithIndex, i) => {
       // Skip for baseline
       if (!i) return;
 
       // Skip if missing or bad data
-      const stats = row.variations[i];
+      const stats = row.variations[v.index];
       if (!stats) return;
       if (!hasEnoughData(baseline, stats, row.metric, metricDefaults)) {
         return;
@@ -655,8 +652,7 @@ export function getRowResults({
   );
   const suspiciousChangeReason = suspiciousChange
     ? `A suspicious result occurs when the percent change exceeds your maximum percent change (${percentFormatter.format(
-        (metric.maxPercentChange ?? metricDefaults?.maxPercentageChange ?? 0) *
-          100
+        metric.maxPercentChange ?? metricDefaults?.maxPercentageChange ?? 0
       )}).`
     : "";
 
@@ -713,7 +709,6 @@ export function getRowResults({
     baseline,
     stats,
     hasEnoughData: enoughData,
-    suspiciousChange,
     belowMinChange,
   });
 

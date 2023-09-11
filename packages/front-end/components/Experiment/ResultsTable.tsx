@@ -61,9 +61,10 @@ export type ResultsTableProps = {
   isLatestPhase: boolean;
   startDate: string;
   rows: ExperimentTableRow[];
+  dimension?: string;
   metricsAsGuardrails?: boolean;
   tableRowAxis: "metric" | "dimension";
-  labelHeader: string;
+  labelHeader: string | JSX.Element;
   editMetrics?: () => void;
   renderLabelColumn: (
     label: string,
@@ -89,6 +90,7 @@ export default function ResultsTable({
   status,
   queryStatusData,
   rows,
+  dimension,
   metricsAsGuardrails = false,
   tableRowAxis,
   labelHeader,
@@ -118,7 +120,6 @@ export default function ResultsTable({
   const pValueThreshold = usePValueThreshold();
   const displayCurrency = useCurrency();
   const orgSettings = useOrgSettings();
-  const domain = useDomain(variations, rows);
 
   const tableContainerRef = useRef<HTMLDivElement | null>(null);
   const [graphCellWidth, setGraphCellWidth] = useState(800);
@@ -156,9 +157,11 @@ export default function ResultsTable({
   }, [variations, baselineRow]);
 
   const filteredVariations = orderedVariations.filter(
-    (_, i) => !variationFilter?.includes(i)
+    (v) => !variationFilter?.includes(v.index)
   );
   const compactResults = filteredVariations.length <= 2;
+
+  const domain = useDomain(filteredVariations, rows);
 
   const rowsResults: (RowResults | "query error" | null)[][] = useMemo(() => {
     const rr: (RowResults | "query error" | null)[][] = [];
@@ -322,15 +325,15 @@ export default function ResultsTable({
         : event.clientX + 10) + offsetX;
 
     // Prevent tooltip from going off the screen (x-axis)
-    if (targetLeft < 0) {
-      targetLeft = 0;
+    if (targetLeft < 10) {
+      targetLeft = 10;
     }
     if (
       targetLeft + Math.min(TOOLTIP_WIDTH, window.innerWidth) >
-      window.innerWidth
+      window.innerWidth - 10
     ) {
       targetLeft =
-        window.innerWidth - Math.min(TOOLTIP_WIDTH, window.innerWidth);
+        window.innerWidth - Math.min(TOOLTIP_WIDTH, window.innerWidth) - 10;
     }
 
     if (hoveredX === null && hoveredY === null) {
@@ -359,6 +362,8 @@ export default function ResultsTable({
       tooltipData: {
         metricRow,
         metric,
+        dimensionName: dimension,
+        dimensionValue: dimension ? row.label : undefined,
         variation,
         stats,
         baseline,
@@ -424,6 +429,8 @@ export default function ResultsTable({
                 <th
                   style={{
                     lineHeight: "15px",
+                    wordBreak: "break-word",
+                    overflowWrap: "anywhere",
                     width: 220 * tableCellScale,
                   }}
                   className="axis-col header-label"
@@ -582,7 +589,7 @@ export default function ResultsTable({
                           body={
                             <div style={{ lineHeight: 1.5 }}>
                               {getPercentChangeTooltip(
-                                statsEngine ?? DEFAULT_STATS_ENGINE,
+                                statsEngine || DEFAULT_STATS_ENGINE,
                                 hasRisk,
                                 !!sequentialTestingEnabled,
                                 pValueCorrection ?? null
@@ -666,6 +673,10 @@ export default function ResultsTable({
                       e,
                       settings?: TooltipHoverSettings
                     ) => {
+                      // No hover tooltip if the screen is too narrow. Clicks still work.
+                      if (e?.type === "mousemove" && window.innerWidth < 900) {
+                        return;
+                      }
                       if (!rowResults.hasData) return;
                       hoverRow(i, j, e, settings);
                     };
@@ -810,18 +821,30 @@ export default function ResultsTable({
                                   ? "pill"
                                   : undefined
                               }
+                              barFillType={
+                                statsEngine === "frequentist"
+                                  ? "significant"
+                                  : "gradient"
+                              }
+                              significant={rowResults.significant}
                               baseline={baseline}
                               domain={domain}
                               metric={row.metric}
                               stats={stats}
-                              id={`${id}_violin_row${i}_var${j}`}
+                              id={`${id}_violin_row${i}_var${j}_${
+                                metricsAsGuardrails ? "guardrail" : "goal"
+                              }_${encodeURIComponent(dimension ?? "d-none")}`}
                               graphWidth={graphCellWidth}
                               height={
                                 compactResults ? ROW_HEIGHT + 10 : ROW_HEIGHT
                               }
                               newUi={true}
+                              // className={}
                               isHovered={isHovered}
-                              className={resultsHighlightClassname}
+                              className={clsx(
+                                resultsHighlightClassname,
+                                "overflow-hidden"
+                              )}
                               rowStatus={rowResults.resultsStatus}
                               onMouseMove={(e) =>
                                 onPointerMove(e, {
