@@ -270,9 +270,13 @@ export default function RuleModal({
               );
             }
 
+            // If we're scheduling this rule, always auto start the experiment so it's not stuck in a 'draft' state
             if (!values.autoStart && values.scheduleRules?.length) {
               values.autoStart = true;
-            } else if (values.autoStart && values.scheduleRules?.length) {
+            }
+            // If we're starting the experiment immediately, remove any scheduling rules
+            // When we hide the schedule UI the form values don't update, so this resets it if you get into a weird state
+            else if (values.autoStart && values.scheduleRules?.length) {
               values.scheduleRules = [];
             }
 
