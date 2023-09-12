@@ -47,7 +47,8 @@ export function getQueryStatus(
       failedNames.push(queries[i].name);
       numFailed++;
     }
-    if (queries[i].status === "running") running = true;
+    if (queries[i].status === "running" || queries[i].status === "queued")
+      running = true;
   }
 
   if (numFailed > 0) status = "partially-succeeded";
@@ -96,7 +97,6 @@ const RunQueriesButton: FC<{
 
   const { status } = getQueryStatus(model.queries || []);
   const timeoutLength = getTimeoutLength(elapsed);
-
   // Mutate periodically to check for updates
   useEffect(() => {
     if (status !== "running") return;
