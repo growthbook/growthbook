@@ -270,6 +270,12 @@ export default function RuleModal({
               );
             }
 
+            if (!values.autoStart && values.scheduleRules?.length) {
+              values.autoStart = true;
+            } else if (values.autoStart && values.scheduleRules?.length) {
+              values.scheduleRules = [];
+            }
+
             // All looks good, create experiment
             const exp: Partial<ExperimentInterfaceStringDates> = {
               archived: false,
@@ -352,6 +358,7 @@ export default function RuleModal({
                 value: v.value,
                 variationId: res.experiment.variations[i]?.id || "",
               })),
+              scheduleRules: values.scheduleRules || [],
             };
             mutateExperiments();
           } else if (values.type === "experiment-ref") {
@@ -689,16 +696,8 @@ export default function RuleModal({
           )}
         </div>
       )}
-      {type !== "experiment-ref-new" && type !== "experiment-ref" ? (
-        <ScheduleInputs
-          defaultValue={defaultValues.scheduleRules || []}
-          onChange={(value) => form.setValue("scheduleRules", value)}
-          scheduleToggleEnabled={scheduleToggleEnabled}
-          setScheduleToggleEnabled={setScheduleToggleEnabled}
-          setShowUpgradeModal={setShowUpgradeModal}
-        />
-      ) : type === "experiment-ref-new" ? (
-        <div className="mt-3">
+      {type === "experiment-ref-new" ? (
+        <div className="mb-3">
           <Toggle
             value={form.watch("autoStart")}
             setValue={(v) => form.setValue("autoStart", v)}
@@ -714,7 +713,27 @@ export default function RuleModal({
               changes before starting.
             </small>
           </div>
+          {!form.watch("autoStart") && (
+            <div>
+              <hr />
+              <ScheduleInputs
+                defaultValue={defaultValues.scheduleRules || []}
+                onChange={(value) => form.setValue("scheduleRules", value)}
+                scheduleToggleEnabled={scheduleToggleEnabled}
+                setScheduleToggleEnabled={setScheduleToggleEnabled}
+                setShowUpgradeModal={setShowUpgradeModal}
+              />
+            </div>
+          )}
         </div>
+      ) : type !== "experiment-ref" || rule?.scheduleRules?.length ? (
+        <ScheduleInputs
+          defaultValue={defaultValues.scheduleRules || []}
+          onChange={(value) => form.setValue("scheduleRules", value)}
+          scheduleToggleEnabled={scheduleToggleEnabled}
+          setScheduleToggleEnabled={setScheduleToggleEnabled}
+          setShowUpgradeModal={setShowUpgradeModal}
+        />
       ) : null}
     </Modal>
   );
