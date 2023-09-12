@@ -82,6 +82,7 @@ const SelectField: FC<
     formatOptionLabel?: (value: SingleValue) => ReactNode;
     isSearchable?: boolean;
     isClearable?: boolean;
+    closeMenuOnSelect?: boolean;
   }
 > = ({
   value,
@@ -99,6 +100,7 @@ const SelectField: FC<
   formatOptionLabel,
   isSearchable = true,
   isClearable = false,
+  closeMenuOnSelect,
   ...otherProps
 }) => {
   const [map, sorted] = useSelectOptions(options, initialOption, sort);
@@ -160,6 +162,7 @@ const SelectField: FC<
                 inputValue={inputValue}
                 options={sorted}
                 autoFocus={autoFocus}
+                closeMenuOnSelect={closeMenuOnSelect}
                 onChange={(selected) => {
                   onChange(selected?.value || "");
                   setInputValue("");
@@ -206,6 +209,7 @@ const SelectField: FC<
                 classNamePrefix="gb-select"
                 isDisabled={disabled || false}
                 options={sorted}
+                closeMenuOnSelect={closeMenuOnSelect}
                 onChange={(selected) => {
                   onChange(selected?.value || "");
                 }}

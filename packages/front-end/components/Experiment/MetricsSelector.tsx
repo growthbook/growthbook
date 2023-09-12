@@ -245,6 +245,7 @@ const MetricsSelector: FC<{
                   }
                 }}
                 autoFocus={autoFocus}
+                closeMenuOnSelect={false}
                 options={[
                   ...(filter
                     ? [
