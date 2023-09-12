@@ -17,11 +17,14 @@ import {
   useSensors,
 } from "@dnd-kit/core";
 import { arrayMove } from "react-sortable-hoc";
+import { FaTimes } from "react-icons/fa";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import SelectField from "@/components/Forms/SelectField";
+import Tooltip from "../Tooltip/Tooltip";
+import MetricTooltipBody from "../Metrics/MetricTooltipBody";
 import OverflowText from "./TabbedPage/OverflowText";
 
-const METRIC_WIDTH = 200;
+const METRIC_WIDTH = 195;
 
 const SelectedMetric = forwardRef<
   HTMLDivElement,
@@ -44,24 +47,29 @@ const SelectedMetric = forwardRef<
         >
           <MdOutlineDragIndicator />
         </div>
-        <OverflowText
-          maxWidth={METRIC_WIDTH}
-          style={{ width: METRIC_WIDTH }}
-          title={metric?.name || id}
-        >
-          <span className="text-purple">{metric?.name || id}</span>
-        </OverflowText>
+        <div style={{ width: METRIC_WIDTH }}>
+          <Tooltip
+            body={
+              metric ? <MetricTooltipBody metric={metric} newUi={true} /> : ""
+            }
+          >
+            <OverflowText maxWidth={METRIC_WIDTH}>
+              <span className="text-purple">{metric?.name || id}</span>
+            </OverflowText>
+          </Tooltip>
+        </div>
         <div>
           <a
             href="#"
             className="text-danger"
+            style={{ fontSize: "1em" }}
             title="Remove metric"
             onClick={(e) => {
               e.preventDefault();
               removeMetric(id);
             }}
           >
-            &times;
+            <FaTimes />
           </a>
         </div>
       </div>
@@ -170,7 +178,7 @@ const MetricsSelector: FC<{
 }> = ({ datasource, project, selected, onChange, autoFocus }) => {
   const [filter, setFilter] = useState("");
 
-  const { metrics } = useDefinitions();
+  const { metrics, getMetricById } = useDefinitions();
   const projectMetrics = metrics
     .filter((m) => (datasource ? m.datasource === datasource : true))
     .filter((m) => isProjectListValidForProject(m.projects, project));
@@ -180,7 +188,7 @@ const MetricsSelector: FC<{
     .filter((m) => !selected.includes(m.id));
 
   const tagCounts: Record<string, number> = {};
-  projectMetrics.forEach((m) => {
+  filteredMetrics.forEach((m) => {
     if (m.tags) {
       m.tags.forEach((t) => {
         tagCounts[t] = tagCounts[t] || 0;
@@ -216,7 +224,7 @@ const MetricsSelector: FC<{
                 onChange={(f) => {
                   setFilter(f);
                 }}
-                initialOption="All Tags"
+                initialOption="Filter by Tag..."
               />
             </div>
           ) : null}
@@ -233,6 +241,7 @@ const MetricsSelector: FC<{
                     setFilter("");
                   } else if (m) {
                     onChange([...selected, m]);
+                    if (filteredMetrics.length === 1) setFilter("");
                   }
                 }}
                 autoFocus={autoFocus}
@@ -241,7 +250,7 @@ const MetricsSelector: FC<{
                     ? [
                         {
                           value: "$all",
-                          label: `All Metrics (${filteredMetrics.length})`,
+                          label: `Add All Metrics (${filteredMetrics.length})`,
                         },
                       ]
                     : []),
@@ -250,6 +259,48 @@ const MetricsSelector: FC<{
                     label: m.name,
                   })),
                 ]}
+                formatOptionLabel={({ value, label }) => {
+                  if (value === "$all") {
+                    return <strong>{label}</strong>;
+                  }
+                  if (!value) {
+                    return label;
+                  }
+
+                  const metric = getMetricById(value);
+                  if (!metric) return label;
+
+                  return (
+                    <div>
+                      <strong>{metric.name}</strong>
+                      {metric.description && (
+                        <div className="small">
+                          <OverflowText
+                            maxWidth={400}
+                            title={metric.description}
+                          >
+                            {metric.description}
+                          </OverflowText>
+                        </div>
+                      )}
+                      <div className="d-flex">
+                        <div className="mr-2">
+                          <em>{metric.type}</em>
+                        </div>
+                        {metric.denominator && (
+                          <div className="mr-2">
+                            <em>ratio</em>
+                          </div>
+                        )}
+                        {metric.inverse && (
+                          <div className="mr-2">
+                            <em>inverse</em>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                }}
                 initialOption="Select Metrics..."
               />
             ) : (
