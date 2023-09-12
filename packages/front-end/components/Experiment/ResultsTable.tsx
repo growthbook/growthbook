@@ -11,7 +11,10 @@ import {
 import { CSSTransition } from "react-transition-group";
 import { RxInfoCircled } from "react-icons/rx";
 import { MetricInterface } from "back-end/types/metric";
-import { ExperimentReportVariation } from "back-end/types/report";
+import {
+  ExperimentReportVariation,
+  ExperimentReportVariationWithIndex,
+} from "back-end/types/report";
 import { ExperimentStatus } from "back-end/types/experiment";
 import { PValueCorrection, StatsEngine } from "back-end/types/stats";
 import { DEFAULT_STATS_ENGINE } from "shared/constants";
@@ -51,19 +54,23 @@ import PercentGraph from "./PercentGraph";
 export type ResultsTableProps = {
   id: string;
   variations: ExperimentReportVariation[];
+  variationFilter?: number[];
+  baselineRow?: number;
   status: ExperimentStatus;
   queryStatusData?: QueryStatusData;
   isLatestPhase: boolean;
   startDate: string;
   rows: ExperimentTableRow[];
+  dimension?: string;
   metricsAsGuardrails?: boolean;
   tableRowAxis: "metric" | "dimension";
-  labelHeader: string;
+  labelHeader: string | JSX.Element;
   editMetrics?: () => void;
   renderLabelColumn: (
     label: string,
     metric: MetricInterface,
-    row: ExperimentTableRow
+    row: ExperimentTableRow,
+    maxRows?: number
   ) => string | ReactElement;
   dateCreated: Date;
   hasRisk: boolean;
@@ -73,8 +80,8 @@ export type ResultsTableProps = {
   isTabActive: boolean;
 };
 
-const ROW_HEIGHT = 42;
-const METRIC_LABEL_ROW_HEIGHT = 34;
+const ROW_HEIGHT = 56;
+const METRIC_LABEL_ROW_HEIGHT = 44;
 const SPACER_ROW_HEIGHT = 6;
 
 export default function ResultsTable({
@@ -83,11 +90,14 @@ export default function ResultsTable({
   status,
   queryStatusData,
   rows,
+  dimension,
   metricsAsGuardrails = false,
   tableRowAxis,
   labelHeader,
   editMetrics,
   variations,
+  variationFilter,
+  baselineRow = 0,
   startDate,
   renderLabelColumn,
   dateCreated,
@@ -97,6 +107,11 @@ export default function ResultsTable({
   sequentialTestingEnabled = false,
   isTabActive,
 }: ResultsTableProps) {
+  // fix any potential filter conflicts
+  if (variationFilter?.includes(baselineRow)) {
+    variationFilter = variationFilter.filter((v) => v !== baselineRow);
+  }
+
   const {
     metricDefaults,
     getMinSampleSizeForMetric,
@@ -105,7 +120,6 @@ export default function ResultsTable({
   const pValueThreshold = usePValueThreshold();
   const displayCurrency = useCurrency();
   const orgSettings = useOrgSettings();
-  const domain = useDomain(variations, rows);
 
   const tableContainerRef = useRef<HTMLDivElement | null>(null);
   const [graphCellWidth, setGraphCellWidth] = useState(800);
@@ -133,7 +147,21 @@ export default function ResultsTable({
   useLayoutEffect(onResize, []);
   useEffect(onResize, [isTabActive]);
 
-  const baselineRow = 0;
+  const orderedVariations: ExperimentReportVariationWithIndex[] = useMemo(() => {
+    return variations
+      .map<ExperimentReportVariationWithIndex>((v, i) => ({ ...v, index: i }))
+      .sort((a, b) => {
+        if (a.index === baselineRow) return -1;
+        return a.index - b.index;
+      });
+  }, [variations, baselineRow]);
+
+  const filteredVariations = orderedVariations.filter(
+    (v) => !variationFilter?.includes(v.index)
+  );
+  const compactResults = filteredVariations.length <= 2;
+
+  const domain = useDomain(filteredVariations, rows);
 
   const rowsResults: (RowResults | "query error" | null)[][] = useMemo(() => {
     const rr: (RowResults | "query error" | null)[][] = [];
@@ -144,9 +172,12 @@ export default function ResultsTable({
         cr: 0,
         users: 0,
       };
-      variations.map((v, j) => {
-        let skipVariation = false; // todo: use filter
-        if (j === baselineRow) {
+      orderedVariations.map((v) => {
+        let skipVariation = false;
+        if (variationFilter?.length && variationFilter?.includes(v.index)) {
+          skipVariation = true;
+        }
+        if (v.index === baselineRow) {
           skipVariation = true;
         }
         if (skipVariation) {
@@ -160,7 +191,7 @@ export default function ResultsTable({
           rr[i].push("query error");
           return;
         }
-        const stats = row.variations[j] || {
+        const stats = row.variations[v.index] || {
           value: 0,
           cr: 0,
           users: 0,
@@ -189,7 +220,9 @@ export default function ResultsTable({
     return rr;
   }, [
     rows,
-    variations,
+    orderedVariations,
+    baselineRow,
+    variationFilter,
     metricDefaults,
     metricsAsGuardrails,
     getMinSampleSizeForMetric,
@@ -279,7 +312,7 @@ export default function ResultsTable({
       yAlign = "bottom";
     }
 
-    const targetLeft: number =
+    let targetLeft: number =
       (layoutX === "element-left"
         ? (target.getBoundingClientRect()?.left ?? 0) - TOOLTIP_WIDTH + 25
         : layoutX === "element-right"
@@ -291,38 +324,50 @@ export default function ResultsTable({
           TOOLTIP_WIDTH / 2
         : event.clientX + 10) + offsetX;
 
+    // Prevent tooltip from going off the screen (x-axis)
+    if (targetLeft < 10) {
+      targetLeft = 10;
+    }
+    if (
+      targetLeft + Math.min(TOOLTIP_WIDTH, window.innerWidth) >
+      window.innerWidth - 10
+    ) {
+      targetLeft =
+        window.innerWidth - Math.min(TOOLTIP_WIDTH, window.innerWidth) - 10;
+    }
+
     if (hoveredX === null && hoveredY === null) {
       setHoveredX(targetLeft - containerBounds.left);
       setHoveredY(targetTop - containerBounds.top);
     }
 
     const row = rows[metricRow];
-    const baseline = row.variations[baselineRow] || {
+    const baseline = row.variations[orderedVariations[0].index] || {
       value: 0,
       cr: 0,
       users: 0,
     };
-    const stats = row.variations[variationRow] || {
+    const stats = row.variations[orderedVariations[variationRow].index] || {
       value: 0,
       cr: 0,
       users: 0,
     };
     const metric = row.metric;
-    const variation = variations[variationRow];
-    const baselineVariation = variations[baselineRow];
+    const variation = orderedVariations[variationRow];
+    const baselineVariation = orderedVariations[0];
     const rowResults = rowsResults[metricRow][variationRow];
     if (!rowResults) return;
     if (rowResults === "query error") return;
     showTooltip({
       tooltipData: {
         metricRow,
-        variationRow,
         metric,
+        dimensionName: dimension,
+        dimensionValue: dimension ? row.label : undefined,
         variation,
         stats,
         baseline,
         baselineVariation,
-        baselineRow,
         rowResults,
         statsEngine,
         pValueCorrection,
@@ -368,6 +413,7 @@ export default function ResultsTable({
           left={hoveredX ?? 0}
           top={hoveredY ?? 0}
           data={tooltipData}
+          tooltipOpen={tooltipOpen}
           close={closeTooltip}
           onPointerMove={resetTimeout}
           onClick={resetTimeout}
@@ -377,15 +423,14 @@ export default function ResultsTable({
 
       <div ref={tableContainerRef} className="experiment-results-wrapper">
         <div className="w-100" style={{ minWidth: 700 }}>
-          <table
-            id="main-results"
-            className="experiment-results table-borderless table-sm"
-          >
+          <table id="main-results" className="experiment-results table-sm">
             <thead>
               <tr className="results-top-row">
                 <th
                   style={{
-                    lineHeight: "16px",
+                    lineHeight: "15px",
+                    wordBreak: "break-word",
+                    overflowWrap: "anywhere",
                     width: 220 * tableCellScale,
                   }}
                   className="axis-col header-label"
@@ -407,50 +452,83 @@ export default function ResultsTable({
                 {!noMetrics ? (
                   <>
                     <th
-                      style={{
-                        width: 120 * tableCellScale,
-                        lineHeight: "16px",
-                      }}
+                      style={{ width: 120 * tableCellScale }}
                       className="axis-col label"
                     >
-                      Baseline
-                      <div
-                        className={`variation variation${baselineRow} with-variation-label d-inline-flex align-items-center`}
-                        style={{ marginBottom: 2 }}
+                      <Tooltip
+                        usePortal={true}
+                        innerClassName={"text-left"}
+                        body={
+                          <div style={{ lineHeight: 1.5 }}>
+                            The baseline that all variations are compared
+                            against.
+                            <div
+                              className={`variation variation${baselineRow} with-variation-label d-flex mt-1 align-items-top`}
+                              style={{ marginBottom: 2 }}
+                            >
+                              <span
+                                className="label mr-1"
+                                style={{ width: 16, height: 16, marginTop: 2 }}
+                              >
+                                {baselineRow}
+                              </span>
+                              <span className="font-weight-bold">
+                                {variations[baselineRow].name}
+                              </span>
+                            </div>
+                          </div>
+                        }
                       >
-                        <span
-                          className="label"
-                          style={{ width: 16, height: 16 }}
-                        >
-                          {baselineRow}
-                        </span>
-                        <span
-                          className="d-inline-block text-ellipsis font-weight-bold"
-                          style={{
-                            width: 80 * tableCellScale,
-                            marginRight: -20,
-                          }}
-                        >
-                          {variations[baselineRow].name}
-                        </span>
-                      </div>
+                        Baseline <RxInfoCircled />
+                      </Tooltip>
                     </th>
                     <th
                       style={{ width: 120 * tableCellScale }}
                       className="axis-col label"
                     >
-                      Value
+                      <Tooltip
+                        usePortal={true}
+                        innerClassName={"text-left"}
+                        body={
+                          !compactResults ? (
+                            ""
+                          ) : (
+                            <div style={{ lineHeight: 1.5 }}>
+                              The variation being compared to the baseline.
+                              <div
+                                className={`variation variation${filteredVariations[1]?.index} with-variation-label d-flex mt-1 align-items-top`}
+                                style={{ marginBottom: 2 }}
+                              >
+                                <span
+                                  className="label mr-1"
+                                  style={{
+                                    width: 16,
+                                    height: 16,
+                                    marginTop: 2,
+                                  }}
+                                >
+                                  {filteredVariations[1]?.index}
+                                </span>
+                                <span className="font-weight-bold">
+                                  {filteredVariations[1]?.name}
+                                </span>
+                              </div>
+                            </div>
+                          )
+                        }
+                      >
+                        Variation {compactResults ? <RxInfoCircled /> : null}
+                      </Tooltip>
                     </th>
                     <th
-                      style={{ width: 100 * tableCellScale }}
-                      className="axis-col label text-right"
+                      style={{ width: 120 * tableCellScale }}
+                      className="axis-col label"
                     >
                       {statsEngine === "bayesian" ? (
                         <div
                           style={{
-                            lineHeight: "16px",
+                            lineHeight: "15px",
                             marginBottom: 2,
-                            marginLeft: -20,
                           }}
                         >
                           <span className="nowrap">Chance</span>{" "}
@@ -504,14 +582,14 @@ export default function ResultsTable({
                       style={{ width: 140 * tableCellScale }}
                       className="axis-col label text-right"
                     >
-                      <div style={{ lineHeight: "16px", marginBottom: 2 }}>
+                      <div style={{ lineHeight: "15px", marginBottom: 2 }}>
                         <Tooltip
                           usePortal={true}
                           innerClassName={"text-left"}
                           body={
                             <div style={{ lineHeight: 1.5 }}>
                               {getPercentChangeTooltip(
-                                statsEngine ?? DEFAULT_STATS_ENGINE,
+                                statsEngine || DEFAULT_STATS_ENGINE,
                                 hasRisk,
                                 !!sequentialTestingEnabled,
                                 pValueCorrection ?? null
@@ -538,22 +616,19 @@ export default function ResultsTable({
               };
 
               return (
-                <tbody
-                  className="results-group-row"
-                  key={i}
-                  style={{ boxShadow: "0 1px #66666620" }}
-                >
-                  {drawEmptyRow({
-                    className: "results-label-row",
-                    label: renderLabelColumn(row.label, row.metric, row),
-                    graphCellWidth,
-                    rowHeight: METRIC_LABEL_ROW_HEIGHT,
-                    id,
-                    domain,
-                  })}
+                <tbody className={clsx("results-group-row")} key={i}>
+                  {!compactResults &&
+                    drawEmptyRow({
+                      className: "results-label-row bg-light",
+                      label: renderLabelColumn(row.label, row.metric, row),
+                      graphCellWidth,
+                      rowHeight: METRIC_LABEL_ROW_HEIGHT,
+                      id,
+                      domain,
+                    })}
 
-                  {variations.map((v, j) => {
-                    const stats = row.variations[j] || {
+                  {orderedVariations.map((v, j) => {
+                    const stats = row.variations[v.index] || {
                       value: 0,
                       cr: 0,
                       users: 0,
@@ -598,6 +673,10 @@ export default function ResultsTable({
                       e,
                       settings?: TooltipHoverSettings
                     ) => {
+                      // No hover tooltip if the screen is too narrow. Clicks still work.
+                      if (e?.type === "mousemove" && window.innerWidth < 900) {
+                        return;
+                      }
                       if (!rowResults.hasData) return;
                       hoverRow(i, j, e, settings);
                     };
@@ -612,72 +691,68 @@ export default function ResultsTable({
                         key={j}
                       >
                         <td
-                          className={`variation with-variation-label variation${j}`}
+                          className={`variation with-variation-label variation${v.index}`}
                           style={{
                             width: 220 * tableCellScale,
                           }}
                         >
-                          <div className="d-flex align-items-center">
-                            <span
-                              className="label ml-1"
-                              style={{ width: 20, height: 20 }}
-                            >
-                              {j}
-                            </span>
-                            <span
-                              className="d-inline-block text-ellipsis"
-                              style={{
-                                width: 165 * tableCellScale,
-                              }}
-                            >
-                              {v.name}
-                            </span>
-                          </div>
+                          {!compactResults ? (
+                            <div className="d-flex align-items-center">
+                              <span
+                                className="label ml-1"
+                                style={{ width: 20, height: 20 }}
+                              >
+                                {v.index}
+                              </span>
+                              <span
+                                className="d-inline-block text-ellipsis"
+                                title={v.name}
+                                style={{
+                                  width: 165 * tableCellScale,
+                                }}
+                              >
+                                {v.name}
+                              </span>
+                            </div>
+                          ) : (
+                            renderLabelColumn(row.label, row.metric, row, 3)
+                          )}
                         </td>
-                        {j === 1 ? (
-                          // draw baseline value once, merge rows
+                        {j > 0 ? (
                           <MetricValueColumn
                             metric={row.metric}
                             stats={baseline}
                             users={baseline?.users || 0}
-                            className="value baseline"
+                            className={clsx("value baseline", {
+                              hover: isHovered,
+                            })}
                             newUi={true}
+                            onMouseMove={(e) =>
+                              onPointerMove(e, {
+                                x: "element-right",
+                                offsetX: -45,
+                              })
+                            }
+                            onPointerLeave={onPointerLeave}
+                            onClick={(e) =>
+                              onPointerMove(e, {
+                                x: "element-right",
+                                offsetX: -45,
+                              })
+                            }
                           />
                         ) : (
-                          <td className="align-top">
-                            <div
-                              className="border-left"
-                              style={{
-                                marginLeft: "20px",
-                                width: 1,
-                                height:
-                                  ROW_HEIGHT -
-                                  (j < variations.length - 1 ? 0 : 18) -
-                                  (j == 2 ? 5 : 0),
-                                marginTop: j == 2 ? 5 : 0,
-                              }}
-                            />
-                            {j === variations.length - 1 ? (
-                              <div
-                                className="border-top"
-                                style={{
-                                  marginLeft: "16px",
-                                  width: 9,
-                                  height: 1,
-                                }}
-                              />
-                            ) : null}
-                          </td>
+                          <td />
                         )}
                         <MetricValueColumn
                           metric={row.metric}
                           stats={stats}
                           users={stats?.users || 0}
-                          className={clsx("value", resultsHighlightClassname, {
+                          className={clsx("value", {
                             hover: isHovered,
                           })}
                           newUi={true}
-                          onPointerMove={(e) =>
+                          onMouseMove={(e) =>
                             onPointerMove(e, {
                               x: "element-right",
                               offsetX: -45,
@@ -703,11 +778,11 @@ export default function ResultsTable({
                               showTimeRemaining={true}
                               showGuardrailWarning={metricsAsGuardrails}
                               className={clsx(
-                                "text-right results-ctw",
+                                "results-ctw",
                                 resultsHighlightClassname
                               )}
-                              onPointerMove={onPointerMove}
-                              onPointerLeave={onPointerLeave}
+                              onMouseMove={onPointerMove}
+                              onMouseLeave={onPointerLeave}
                               onClick={onPointerMove}
                             />
                           ) : (
@@ -727,11 +802,11 @@ export default function ResultsTable({
                               showUnadjustedPValue={false}
                               showGuardrailWarning={metricsAsGuardrails}
                               className={clsx(
-                                "text-right results-pval",
+                                "results-pval",
                                 resultsHighlightClassname
                               )}
-                              onPointerMove={onPointerMove}
-                              onPointerLeave={onPointerLeave}
+                              onMouseMove={onPointerMove}
+                              onMouseLeave={onPointerLeave}
                               onClick={onPointerMove}
                             />
                           )
@@ -746,31 +821,45 @@ export default function ResultsTable({
                                   ? "pill"
                                   : undefined
                               }
+                              barFillType={
+                                statsEngine === "frequentist"
+                                  ? "significant"
+                                  : "gradient"
+                              }
+                              significant={rowResults.significant}
                               baseline={baseline}
                               domain={domain}
                               metric={row.metric}
                               stats={stats}
-                              id={`${id}_violin_row${i}_var${j}`}
+                              id={`${id}_violin_row${i}_var${j}_${
+                                metricsAsGuardrails ? "guardrail" : "goal"
+                              }_${encodeURIComponent(dimension ?? "d-none")}`}
                               graphWidth={graphCellWidth}
-                              height={ROW_HEIGHT}
+                              height={
+                                compactResults ? ROW_HEIGHT + 10 : ROW_HEIGHT
+                              }
                               newUi={true}
+                              // className={}
                               isHovered={isHovered}
-                              onPointerMove={(e) =>
+                              className={clsx(
+                                resultsHighlightClassname,
+                                "overflow-hidden"
+                              )}
+                              rowStatus={rowResults.resultsStatus}
+                              onMouseMove={(e) =>
                                 onPointerMove(e, {
                                   x: "element-center",
                                   targetClassName: "hover-target",
                                   offsetY: -8,
                                 })
                               }
-                              onPointerLeave={onPointerLeave}
+                              onMouseLeave={onPointerLeave}
                               onClick={(e) =>
                                 onPointerMove(e, {
                                   x: "element-center",
                                   offsetY: -8,
                                 })
                               }
-                              className={resultsHighlightClassname}
-                              rowStatus={rowResults.resultsStatus}
                             />
                           ) : (
                             <AlignedGraph
@@ -792,13 +881,13 @@ export default function ResultsTable({
                             rowResults={rowResults}
                             statsEngine={statsEngine}
                             className={resultsHighlightClassname}
-                            onPointerMove={(e) =>
+                            onMouseMove={(e) =>
                               onPointerMove(e, {
                                 x: "element-left",
                                 offsetX: 50,
                               })
                             }
-                            onPointerLeave={onPointerLeave}
+                            onMouseLeave={onPointerLeave}
                             onClick={(e) =>
                               onPointerMove(e, {
                                 x: "element-left",

@@ -154,7 +154,7 @@ export async function generateNotebook(
     run_query: datasource.settings.notebookRunQuery,
   }).replace(/\\/g, "\\\\");
 
-  const statsEngine = args.statsEngine ?? DEFAULT_STATS_ENGINE;
+  const statsEngine = args.statsEngine || DEFAULT_STATS_ENGINE;
   const configString =
     statsEngine === "frequentist" && (args.sequentialTestingEnabled ?? false)
       ? `{'sequential': True, 'sequential_tuning_parameter': ${

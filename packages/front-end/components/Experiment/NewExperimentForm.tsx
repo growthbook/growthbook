@@ -7,6 +7,9 @@ import {
 } from "back-end/types/experiment";
 import { useRouter } from "next/router";
 import { getValidDate } from "shared/dates";
+import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
+import { OrganizationSettings } from "back-end/types/organization";
+import { isProjectListValidForProject } from "shared/util";
 import { useWatching } from "@/services/WatchProvider";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
@@ -63,6 +66,37 @@ function getDefaultVariations(num: number) {
   return variations;
 }
 
+export function getNewExperimentDatasourceDefaults(
+  datasources: DataSourceInterfaceWithParams[],
+  settings: OrganizationSettings,
+  project?: string,
+  initialValue?: Partial<ExperimentInterfaceStringDates>
+): Pick<ExperimentInterfaceStringDates, "datasource" | "exposureQueryId"> {
+  const validDatasources = datasources.filter(
+    (d) =>
+      d.id === initialValue?.datasource ||
+      isProjectListValidForProject(d.projects, project)
+  );
+
+  if (!validDatasources.length) return { datasource: "", exposureQueryId: "" };
+
+  const initialId = initialValue?.datasource || settings.defaultDataSource;
+
+  const initialDatasource =
+    (initialId && validDatasources.find((d) => d.id === initialId)) ||
+    validDatasources[0];
+
+  return {
+    datasource: initialDatasource.id,
+    exposureQueryId:
+      getExposureQuery(
+        initialDatasource.settings,
+        initialValue?.exposureQueryId,
+        initialValue?.userIdType
+      )?.id || "",
+  };
+}
+
 const NewExperimentForm: FC<NewExperimentFormProps> = ({
   initialStep = 0,
   initialValue,
@@ -105,26 +139,16 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
   const hasHashAttributes =
     attributeSchema.filter((x) => x.hashAttribute).length > 0;
 
-  const initialDatasource =
-    initialValue?.datasource ||
-    (settings.defaultDataSource
-      ? settings.defaultDataSource
-      : datasources?.[0]?.id) ||
-    "";
-
   const form = useForm<Partial<ExperimentInterfaceStringDates>>({
     defaultValues: {
       project: initialValue?.project || project || "",
       trackingKey: initialValue?.trackingKey || "",
-      datasource: initialDatasource,
-      exposureQueryId:
-        getExposureQuery(
-          initialDatasource
-            ? getDatasourceById(initialDatasource)?.settings
-            : undefined,
-          initialValue?.exposureQueryId,
-          initialValue?.userIdType
-        )?.id || "",
+      ...getNewExperimentDatasourceDefaults(
+        datasources,
+        settings,
+        initialValue?.project || project || "",
+        initialValue
+      ),
       name: initialValue?.name || "",
       hypothesis: initialValue?.hypothesis || "",
       activationMetric: initialValue?.activationMetric || "",

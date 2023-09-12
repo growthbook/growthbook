@@ -4,6 +4,7 @@ import clsx from "clsx";
 import { FaPlay } from "react-icons/fa";
 import { BsArrowRepeat } from "react-icons/bs";
 import { getValidDate } from "shared/dates";
+import { FaCircleXmark } from "react-icons/fa6";
 import { useAuth } from "@/services/auth";
 import LoadingSpinner from "../LoadingSpinner";
 
@@ -65,6 +66,8 @@ const RunQueriesButton: FC<{
   icon?: "run" | "refresh";
   color?: string;
   position?: "left" | "right";
+  onSubmit?: () => void;
+  newUi?: boolean;
 }> = ({
   cta = "Run Queries",
   loadingText = "Running",
@@ -74,6 +77,8 @@ const RunQueriesButton: FC<{
   icon = "run",
   color = "primary",
   position = "right",
+  onSubmit,
+  newUi = false,
 }) => {
   const { apiCall } = useAuth();
 
@@ -137,26 +142,51 @@ const RunQueriesButton: FC<{
           position === "right" ? "justify-content-end" : "justify-content-start"
         }`}
       >
-        {status === "running" && (
-          <div>
-            <button
-              className="btn btn-link text-danger"
+        {status === "running" &&
+          (newUi ? (
+            <div
+              className="text-danger position-absolute text-center cursor-pointer"
+              style={{
+                zIndex: 1,
+                width: 22,
+                height: 22,
+                right: 0,
+                top: -10,
+                borderRadius: 50,
+                backgroundColor: "#e0e0e0",
+              }}
               onClick={async (e) => {
                 e.preventDefault();
+                onSubmit?.();
                 await apiCall(cancelEndpoint, { method: "POST" });
                 await mutate();
               }}
             >
-              cancel
-            </button>
-          </div>
-        )}
-        <div>
+              <FaCircleXmark size={20} style={{ marginTop: -2 }} />
+            </div>
+          ) : (
+            <div>
+              <button
+                className="btn btn-link text-danger"
+                onClick={async (e) => {
+                  e.preventDefault();
+                  onSubmit?.();
+                  await apiCall(cancelEndpoint, { method: "POST" });
+                  await mutate();
+                }}
+              >
+                cancel
+              </button>
+            </div>
+          ))}
+        <div className="position-relative">
           <button
-            className={clsx("btn font-weight-bold", `btn-${color}`, {
+            className={clsx("btn font-weight-bold my-0", `btn-${color}`, {
               disabled: status === "running",
             })}
+            disabled={status === "running"}
             type="submit"
+            onClick={onSubmit}
           >
             <span className="h4 pr-2 m-0 d-inline-block align-top">
               {buttonIcon}
@@ -167,11 +197,11 @@ const RunQueriesButton: FC<{
           </button>
           {status === "running" && numQueries > 0 && (
             <div
+              className="position-absolute bg-info"
               style={{
                 width: Math.floor((100 * numFinished) / numQueries) + "%",
-                height: 5,
+                height: 4,
               }}
-              className="bg-info"
             />
           )}
         </div>

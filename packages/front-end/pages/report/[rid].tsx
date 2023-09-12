@@ -16,7 +16,7 @@ import RunQueriesButton, {
   getQueryStatus,
 } from "@/components/Queries/RunQueriesButton";
 import DateResults from "@/components/Experiment/DateResults";
-import BreakDownResults from "@/components/Experiment/BreakDownResults";
+import BreakDownResults_old from "@/components/Experiment/BreakDownResults_old";
 import CompactResults_old from "@/components/Experiment/CompactResults_old";
 import GuardrailResults from "@/components/Experiment/GuardrailResult";
 import { useAuth } from "@/services/auth";
@@ -43,6 +43,7 @@ import useOrgSettings from "@/hooks/useOrgSettings";
 import track, { trackReport } from "@/services/track";
 import CompactResults from "@/components/Experiment/CompactResults";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
+import BreakDownResults from "@/components/Experiment/BreakDownResults";
 
 export default function ReportPage() {
   const [newUi, setNewUi] = useLocalStorage<boolean>(
@@ -448,8 +449,31 @@ export default function ReportPage() {
                   variations={variations}
                   statsEngine={report.args.statsEngine}
                 />
-              ) : (
+              ) : newUi ? (
                 <BreakDownResults
+                  isLatestPhase={true}
+                  metrics={report.args.metrics}
+                  // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'MetricOverride[] | undefined' is not assigna... Remove this comment to see the full error message
+                  metricOverrides={report.args.metricOverrides}
+                  reportDate={report.dateCreated}
+                  results={report.results?.dimensions || []}
+                  status={"stopped"}
+                  startDate={getValidDate(report.args.startDate).toISOString()}
+                  dimensionId={report.args.dimension}
+                  activationMetric={report.args.activationMetric}
+                  guardrails={report.args.guardrails}
+                  variations={variations}
+                  key={report.args.dimension}
+                  statsEngine={report.args.statsEngine || DEFAULT_STATS_ENGINE}
+                  pValueCorrection={pValueCorrection}
+                  regressionAdjustmentEnabled={regressionAdjustmentEnabled}
+                  metricRegressionAdjustmentStatuses={
+                    report.args.metricRegressionAdjustmentStatuses
+                  }
+                  sequentialTestingEnabled={sequentialTestingEnabled}
+                />
+              ) : (
+                <BreakDownResults_old
                   isLatestPhase={true}
                   metrics={report.args.metrics}
                   // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'MetricOverride[] | undefined' is not assigna... Remove this comment to see the full error message
@@ -532,7 +556,7 @@ export default function ReportPage() {
                         guardrails={report.args.guardrails}
                         id={report.id}
                         statsEngine={
-                          report.args.statsEngine ?? DEFAULT_STATS_ENGINE
+                          report.args.statsEngine || DEFAULT_STATS_ENGINE
                         }
                         pValueCorrection={pValueCorrection}
                         regressionAdjustmentEnabled={

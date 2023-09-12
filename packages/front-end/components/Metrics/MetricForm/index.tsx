@@ -13,6 +13,7 @@ import {
   DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
 } from "shared/constants";
 import { isDemoDatasourceProject } from "shared/demo-datasource";
+import { isProjectListValidForProject } from "shared/util";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import { getInitialMetricQuery, validateSQL } from "@/services/datasources";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -44,6 +45,7 @@ import useSchemaFormOptions from "@/hooks/useSchemaFormOptions";
 import { GBCuped } from "@/components/Icons";
 import usePermissions from "@/hooks/usePermissions";
 import { useCurrency } from "@/hooks/useCurrency";
+import ConfirmModal from "@/components/ConfirmModal";
 import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
 
 const weekAgo = new Date();
@@ -94,11 +96,13 @@ function validateMetricSQL(
 
   validateSQL(sql, requiredCols);
 }
+
 function validateBasicInfo(value: { name: string }) {
   if (value.name.length < 1) {
     throw new Error("Metric name cannot be empty");
   }
 }
+
 function validateQuerySettings(
   datasourceSettingsSupport: boolean,
   sqlInput: boolean,
@@ -219,6 +223,32 @@ const MetricForm: FC<MetricFormProps> = ({
   const [hideTags, setHideTags] = useState(!current?.tags?.length);
   const [sqlOpen, setSqlOpen] = useState(false);
 
+  const currentDatasource = current?.datasource
+    ? getDatasourceById(current?.datasource)
+    : null;
+
+  const currentDefaultSql =
+    currentDatasource && current.type && current.name
+      ? getInitialMetricQuery(currentDatasource, current.type)[1]
+      : null;
+
+  // Only set the default to true for new metrics with no sql or an edited or
+  // duplicated one where the sql matches the default.
+  const [allowAutomaticSqlReset, setAllowAutomaticSqlReset] = useState(
+    !current || !current?.sql || current?.sql === currentDefaultSql
+  );
+
+  // Keeps track if the queryFormat is "builder" because it is the default, or
+  // if it is "builder" because the user manually changed it to that.
+  const [usingDefaultQueryFormat, setUsingDefaultQueryFormat] = useState(
+    !current?.queryFormat && !current?.sql
+  );
+
+  const [
+    showSqlResetConfirmationModal,
+    setShowSqlResetConfirmationModal,
+  ] = useState(false);
+
   const displayCurrency = useCurrency();
 
   const {
@@ -227,6 +257,12 @@ const MetricForm: FC<MetricFormProps> = ({
     getMaxPercentageChangeForMetric,
     metricDefaults,
   } = useOrganizationMetricDefaults();
+
+  const validDatasources = datasources.filter(
+    (d) =>
+      d.id === current.datasource ||
+      isProjectListValidForProject(d.projects, project)
+  );
 
   useEffect(() => {
     track("View Metric Form", {
@@ -261,14 +297,15 @@ const MetricForm: FC<MetricFormProps> = ({
     },
   ];
 
+  const initialDatasourceId =
+    current?.datasource || settings?.defaultDataSource;
+  const initialDatasource =
+    validDatasources.find((d) => d.id === initialDatasourceId) ||
+    validDatasources[0];
+
   const form = useForm({
     defaultValues: {
-      datasource:
-        ("datasource" in current
-          ? current.datasource
-          : settings.defaultDataSource
-          ? settings.defaultDataSource
-          : datasources[0]?.id) || "",
+      datasource: initialDatasource?.id || "",
       name: current.name || "",
       description: current.description || "",
       type: current.type || "binomial",
@@ -453,6 +490,29 @@ const MetricForm: FC<MetricFormProps> = ({
     name: "conditions",
   });
 
+  const defaultSqlTemplate = selectedDataSource
+    ? getInitialMetricQuery(selectedDataSource, value.type)[1]
+    : "";
+
+  const resetSqlToDefault = (datasource, type) => {
+    if (datasource && datasource.properties?.queryLanguage === "sql") {
+      const [userTypes, sql] = getInitialMetricQuery(datasource, type);
+      if (usingDefaultQueryFormat) {
+        // The default queryFormat for new sql queries should be "sql", but we
+        // won't change it later if they manually change it to "builder".
+        form.setValue("queryFormat", "sql");
+        setUsingDefaultQueryFormat(false);
+      }
+      form.setValue("sql", sql);
+      form.setValue("userIdTypes", userTypes);
+
+      // Now that sql is updated again to the default, we'll allow it to be
+      // automatically reset again upon datasource/type/name change until
+      // they make a new manual edit.
+      setAllowAutomaticSqlReset(true);
+    }
+  };
+
   const onSubmit = form.handleSubmit(async (value) => {
     const {
       winRisk,
@@ -564,7 +624,14 @@ const MetricForm: FC<MetricFormProps> = ({
           }
           requiredColumns={requiredColumns}
           value={value.sql}
-          save={async (sql) => form.setValue("sql", sql)}
+          save={async (sql) => {
+            form.setValue("sql", sql);
+            // If they manually edit the sql back to the default, we'll allow it to be
+            // automatically updated again upon datasource/type/name change.  If they
+            // have editted it to something else, we'll make sure not to overwrite any
+            // of their changes automatically.
+            setAllowAutomaticSqlReset(sql == defaultSqlTemplate);
+          }}
           templateVariables={{
             eventName: form.watch("eventName"),
             valueColumn: form.watch("valueColumn"),
@@ -592,17 +659,8 @@ const MetricForm: FC<MetricFormProps> = ({
           display="Basic Info"
           validate={async () => {
             validateBasicInfo(form.getValues());
-
-            // Initial metric SQL based on the data source
-            if (supportsSQL && selectedDataSource && !value.sql) {
-              const [userTypes, sql] = getInitialMetricQuery(
-                selectedDataSource,
-                value.type
-              );
-
-              form.setValue("sql", sql);
-              form.setValue("userIdTypes", userTypes);
-              form.setValue("queryFormat", "sql");
+            if (allowAutomaticSqlReset) {
+              resetSqlToDefault(selectedDataSource, value.type);
             }
           }}
         >
@@ -663,8 +721,13 @@ const MetricForm: FC<MetricFormProps> = ({
                 ? demoDataSourceId
                 : value.datasource || ""
             }
-            onChange={(v) => form.setValue("datasource", v)}
-            options={(datasources || []).map((d) => {
+            onChange={(v) => {
+              form.setValue("datasource", v);
+              if (allowAutomaticSqlReset) {
+                resetSqlToDefault(getDatasourceById(v), value.type);
+              }
+            }}
+            options={validDatasources.map((d) => {
               const defaultDatasource = d.id === settings.defaultDataSource;
               return {
                 value: d.id,
@@ -688,13 +751,18 @@ const MetricForm: FC<MetricFormProps> = ({
               name="type"
               value={value.type}
               setValue={(val: MetricType) => {
+                form.setValue("type", val);
+
+                if (allowAutomaticSqlReset) {
+                  resetSqlToDefault(selectedDataSource, val);
+                }
+
                 if (val === "count") {
                   form.setValue("valueColumn", "1");
                 } else if (value.templateVariables?.valueColumn === "1") {
                   // 1 only makes sense for count type, but keep it if it's already set to something else
                   form.setValue("valueColumn", "");
                 }
-                form.setValue("type", val);
               }}
               options={metricTypeOptions}
             />
@@ -813,6 +881,34 @@ const MetricForm: FC<MetricFormProps> = ({
                       >
                         {value.sql ? "Edit" : "Add"} SQL <FaExternalLinkAlt />
                       </button>
+                      {value.sql != defaultSqlTemplate && (
+                        <button
+                          className="btn btn-outline-primary ml-2"
+                          type="button"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            setShowSqlResetConfirmationModal(true);
+                          }}
+                        >
+                          Reset to default SQL
+                        </button>
+                      )}
+                      {showSqlResetConfirmationModal && (
+                        <ConfirmModal
+                          title={"Reset to default SQL"}
+                          subtitle="This will reset both your SQL and identifier types to the default template for your datasource and type."
+                          yesText="Reset"
+                          noText="Cancel"
+                          modalState={showSqlResetConfirmationModal}
+                          setModalState={(state) =>
+                            setShowSqlResetConfirmationModal(state)
+                          }
+                          onConfirm={async () => {
+                            resetSqlToDefault(selectedDataSource, value.type);
+                            setShowSqlResetConfirmationModal(false);
+                          }}
+                        />
+                      )}
                     </div>
                   </div>
                   {value.type !== "binomial" && (

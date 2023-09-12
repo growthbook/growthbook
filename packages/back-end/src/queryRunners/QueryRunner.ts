@@ -50,6 +50,26 @@ export type StartQueryParams<Rows, ProcessedRows> = {
 
 const FINISH_EVENT = "finish";
 
+export async function getQueryMap(
+  organization: string,
+  queries: Queries
+): Promise<QueryMap> {
+  const queryDocs = await getQueriesByIds(
+    organization,
+    queries.map((q) => q.query)
+  );
+
+  const map: QueryMap = new Map();
+  queries.forEach((q) => {
+    const query = queryDocs.find((doc) => doc.id === q.query);
+    if (query) {
+      map.set(q.name, query);
+    }
+  });
+
+  return map;
+}
+
 export abstract class QueryRunner<
   Model extends InterfaceWithQueries,
   Params,
@@ -115,20 +135,7 @@ export abstract class QueryRunner<
   }
 
   private async getQueryMap(pointers: Queries): Promise<QueryMap> {
-    const queryDocs = await getQueriesByIds(
-      this.model.organization,
-      pointers.map((q) => q.query)
-    );
-
-    const map: QueryMap = new Map();
-    pointers.forEach((q) => {
-      const query = queryDocs.find((doc) => doc.id === q.query);
-      if (query) {
-        map.set(q.name, query);
-      }
-    });
-
-    return map;
+    return getQueryMap(this.model.organization, pointers);
   }
 
   public async startAnalysis(params: Params): Promise<Model> {

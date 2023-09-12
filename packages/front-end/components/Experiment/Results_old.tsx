@@ -23,7 +23,7 @@ import { trackSnapshot } from "@/services/track";
 import PValueGuardrailResults from "./PValueGuardrailResults";
 
 const BreakDownResults = dynamic(
-  () => import("@/components/Experiment/BreakDownResults")
+  () => import("@/components/Experiment/BreakDownResults_old")
 );
 const CompactResults_old = dynamic(
   () => import("@/components/Experiment/CompactResults_old")
@@ -73,6 +73,7 @@ const Results_old: FC<{
     latest,
     phase,
     setPhase,
+    setAnalysisSettings,
     dimension,
     mutateSnapshot: mutate,
   } = useSnapshot();
@@ -126,6 +127,7 @@ const Results_old: FC<{
       />
       <AnalysisSettingsBar
         mutateExperiment={mutateExperiment}
+        setAnalysisSettings={setAnalysisSettings}
         editMetrics={editMetrics}
         variations={variations}
         editPhases={editPhases}
@@ -223,7 +225,7 @@ const Results_old: FC<{
           project={experiment.project}
         />
       )}
-      {!hasData &&
+      {hasData &&
         snapshot?.dimension &&
         (snapshot.dimension.substring(0, 8) === "pre:date" ? (
           <DateResults
@@ -233,7 +235,7 @@ const Results_old: FC<{
             seriestype={snapshot.dimension}
             variations={variations}
             statsEngine={
-              analysis?.settings?.statsEngine ?? DEFAULT_STATS_ENGINE
+              analysis?.settings?.statsEngine || DEFAULT_STATS_ENGINE
             }
           />
         ) : (

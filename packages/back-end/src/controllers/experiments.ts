@@ -12,6 +12,7 @@ import { AuthRequest, ResponseWithStatusAndError } from "../types/AuthRequest";
 import {
   createManualSnapshot,
   createSnapshot,
+  createSnapshotAnalysis,
   getManualSnapshotData,
 } from "../services/experiments";
 import { MetricStats } from "../../types/metric";
@@ -585,6 +586,7 @@ export async function postExperiments(
       data.sequentialTestingTuningParameter ??
       org?.settings?.sequentialTestingTuningParameter ??
       DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
+    statsEngine: data.statsEngine,
   };
 
   try {
@@ -764,6 +766,7 @@ export async function postExperiment(
     "hasVisualChangesets",
     "sequentialTestingEnabled",
     "sequentialTestingTuningParameter",
+    "statsEngine",
   ];
   const existing: ExperimentInterface = experiment;
   const changes: Changeset = {};
@@ -1776,7 +1779,8 @@ export async function postSnapshot(
     regressionAdjusted: !!regressionAdjustmentEnabled,
     dimensions: dimension ? [dimension] : [],
     sequentialTesting: !!sequentialTestingEnabled,
-    sequentialTestingTuningParameter,
+    sequentialTestingTuningParameter: sequentialTestingTuningParameter,
+    baselineVariationIndex: 0,
   };
 
   const metricMap = await getMetricMap(org.id);
@@ -1867,6 +1871,59 @@ export async function postSnapshot(
     });
   } catch (e) {
     req.log.error(e, "Failed to create experiment snapshot");
+    res.status(400).json({
+      status: 400,
+      message: e.message,
+    });
+  }
+}
+export async function postSnapshotAnalysis(
+  req: AuthRequest<
+    {
+      analysisSettings: ExperimentSnapshotAnalysisSettings;
+    },
+    { id: string }
+  >,
+  res: Response
+) {
+  const { org } = getOrgFromReq(req);
+
+  const { id } = req.params;
+  const snapshot = await findSnapshotById(org.id, id);
+  if (!snapshot) {
+    res.status(404).json({
+      status: 404,
+      message: "Snapshot not found",
+    });
+    return;
+  }
+
+  const { analysisSettings } = req.body;
+
+  const experiment = await getExperimentById(org.id, snapshot.experiment);
+  if (!experiment) {
+    res.status(404).json({
+      status: 404,
+      message: "Experiment not found",
+    });
+    return;
+  }
+
+  const metricMap = await getMetricMap(org.id);
+
+  try {
+    await createSnapshotAnalysis({
+      experiment: experiment,
+      organization: org,
+      analysisSettings: analysisSettings,
+      metricMap: metricMap,
+      snapshot: snapshot,
+    });
+    res.status(200).json({
+      status: 200,
+    });
+  } catch (e) {
+    req.log.error(e, "Failed to create experiment snapshot analysis");
     res.status(400).json({
       status: 400,
       message: e.message,

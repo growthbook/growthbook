@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { ExperimentSnapshotAnalysisSettings } from "back-end/types/experiment-snapshot";
 import { getExposureQuery } from "@/services/datasources";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import SelectField from "../Forms/SelectField";
@@ -12,6 +13,12 @@ export interface Props {
   userIdType?: "user" | "anonymous";
   labelClassName?: string;
   showHelp?: boolean;
+  newUi?: boolean;
+  setVariationFilter?: (variationFilter: number[]) => void;
+  setBaselineRow?: (baselineRow: number) => void;
+  setAnalysisSettings: (
+    settings: ExperimentSnapshotAnalysisSettings | null
+  ) => void;
 }
 
 export default function DimensionChooser({
@@ -23,6 +30,10 @@ export default function DimensionChooser({
   userIdType,
   labelClassName,
   showHelp,
+  newUi = false,
+  setVariationFilter,
+  setBaselineRow,
+  setAnalysisSettings,
 }: Props) {
   const { dimensions, getDatasourceById } = useDefinitions();
   const datasource = datasourceId ? getDatasourceById(datasourceId) : null;
@@ -91,25 +102,35 @@ export default function DimensionChooser({
   }
 
   return (
-    <SelectField
-      label="Dimension"
-      labelClassName={labelClassName}
-      options={[
-        {
-          label: "Built-in",
-          options: builtInDimensions,
-        },
-        {
-          label: "Custom",
-          options: filteredDimensions,
-        },
-      ]}
-      initialOption="None"
-      value={value}
-      onChange={setValue}
-      helpText={
-        showHelp ? "Break down results for each metric by a dimension" : ""
-      }
-    />
+    <div>
+      {newUi && <div className="uppercase-title text-muted">Dimension</div>}
+      <SelectField
+        label={newUi ? undefined : "Dimension"}
+        labelClassName={labelClassName}
+        containerClassName={newUi ? "select-dropdown-underline" : ""}
+        options={[
+          {
+            label: "Built-in",
+            options: builtInDimensions,
+          },
+          {
+            label: "Custom",
+            options: filteredDimensions,
+          },
+        ]}
+        initialOption="None"
+        value={value}
+        onChange={(v) => {
+          if (v === value) return;
+          setAnalysisSettings(null);
+          setBaselineRow?.(0);
+          setVariationFilter?.([]);
+          setValue(v);
+        }}
+        helpText={
+          showHelp ? "Break down results for each metric by a dimension" : ""
+        }
+      />
+    </div>
   );
 }
