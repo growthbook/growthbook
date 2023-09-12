@@ -22,6 +22,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import SelectField from "@/components/Forms/SelectField";
 import Tooltip from "../Tooltip/Tooltip";
 import MetricTooltipBody from "../Metrics/MetricTooltipBody";
+import Tag from "../Tags/Tag";
 import OverflowText from "./TabbedPage/OverflowText";
 
 const METRIC_WIDTH = 195;
@@ -235,6 +236,10 @@ const MetricsSelector: FC<{
                 }}
                 initialOption="Filter by Tag..."
                 disabled={!filterOptions.length}
+                formatOptionLabel={({ value, label }) => {
+                  if (!value) return label;
+                  return <Tag tag={value} skipMargin={true} />;
+                }}
               />
             </div>
           ) : null}
