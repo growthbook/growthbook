@@ -83,6 +83,7 @@ const SelectField: FC<
     isSearchable?: boolean;
     isClearable?: boolean;
     closeMenuOnSelect?: boolean;
+    hideSelectedOption?: boolean;
   }
 > = ({
   value,
@@ -101,6 +102,7 @@ const SelectField: FC<
   isSearchable = true,
   isClearable = false,
   closeMenuOnSelect,
+  hideSelectedOption,
   ...otherProps
 }) => {
   const [map, sorted] = useSelectOptions(options, initialOption, sort);
@@ -199,6 +201,7 @@ const SelectField: FC<
                 value={selected}
                 formatOptionLabel={formatOptionLabel}
                 isSearchable={!!isSearchable}
+                hideSelectedOptions={hideSelectedOption}
               />
             ) : (
               <ReactSelect
@@ -218,6 +221,7 @@ const SelectField: FC<
                 placeholder={initialOption ?? placeholder}
                 formatOptionLabel={formatOptionLabel}
                 isSearchable={!!isSearchable}
+                hideSelectedOptions={hideSelectedOption}
               />
             )}
             {required && (

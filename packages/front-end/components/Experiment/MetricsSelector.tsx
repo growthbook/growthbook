@@ -54,7 +54,7 @@ const SelectedMetric = forwardRef<
             }
           >
             <OverflowText maxWidth={METRIC_WIDTH}>
-              <span className="text-purple">{metric?.name || id}</span>
+              <span>{metric?.name || id}</span>
             </OverflowText>
           </Tooltip>
         </div>
@@ -197,6 +197,8 @@ const MetricsSelector: FC<{
     }
   });
 
+  const hasTags = projectMetrics.some((m) => m.tags?.length);
+
   const filterOptions = Object.entries(tagCounts)
     .sort((a, b) => b[1] - a[1])
     .map(([tag, count]) => ({
@@ -216,8 +218,15 @@ const MetricsSelector: FC<{
       )}
       <div className="p-2">
         <div className="row align-items-center">
-          {filterOptions.length > 0 ? (
-            <div className="col-auto">
+          {filteredMetrics.length > 0 && hasTags ? (
+            <div
+              className="col-auto"
+              title={
+                !filterOptions.length
+                  ? "All metrics with tags have already been added"
+                  : ""
+              }
+            >
               <SelectField
                 options={filterOptions}
                 value={filter}
@@ -225,6 +234,7 @@ const MetricsSelector: FC<{
                   setFilter(f);
                 }}
                 initialOption="Filter by Tag..."
+                disabled={!filterOptions.length}
               />
             </div>
           ) : null}
@@ -302,7 +312,8 @@ const MetricsSelector: FC<{
                     </div>
                   );
                 }}
-                initialOption="Select Metrics..."
+                initialOption="Add Metrics..."
+                hideSelectedOption={true}
               />
             ) : (
               <em>All metrics selected</em>
