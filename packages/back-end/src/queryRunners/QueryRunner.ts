@@ -266,8 +266,22 @@ export abstract class QueryRunner<
         }
         if (succeededDependencies.length === dependencyIds.length) {
           logger.debug(`${query.id}: Dependencies completed, running...`);
-          const { run, process } = this.runCallbacks[query.id];
-          await this.executeQuery(query, run, process);
+          const runCallbacks = this.runCallbacks[query.id];
+          if (runCallbacks === undefined) {
+            logger.debug(`${query.id}: Run callbacks not found..`);
+            await updateQuery(query, {
+              finishedAt: new Date(),
+              status: "failed",
+              error: `Run callbacks not found`,
+            });
+            this.onQueryFinish();
+          } else {
+            await this.executeQuery(
+              query,
+              runCallbacks.run,
+              runCallbacks.process
+            );
+          }
         }
       })
     );
