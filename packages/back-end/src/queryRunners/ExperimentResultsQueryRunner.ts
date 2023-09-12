@@ -57,14 +57,9 @@ export const startExperimentResultQueries = async (
   const queryParentId = params.queryParentId;
   const metricMap = params.metricMap;
 
-  const activationMetrics: MetricInterface[] = [];
-  if (snapshotSettings.activationMetric) {
-    activationMetrics.push(
-      ...expandDenominatorMetrics(snapshotSettings.activationMetric, metricMap)
-        .map((m) => metricMap.get(m) as MetricInterface)
-        .filter(Boolean)
-    );
-  }
+  const activationMetric = snapshotSettings.activationMetric
+    ? metricMap.get(snapshotSettings.activationMetric) ?? null
+    : null;
 
   // Only include metrics tied to this experiment (both goal and guardrail metrics)
   const selectedMetrics = Array.from(
@@ -100,6 +95,7 @@ export const startExperimentResultQueries = async (
 
   if (useUnitsTable) {
     const unitQueryParams: ExperimentUnitsQueryParams = {
+      activationMetric: activationMetric,
       dimension: dimensionObj,
       segment: segmentObj,
       settings: snapshotSettings,
@@ -126,7 +122,7 @@ export const startExperimentResultQueries = async (
       );
     }
     const params: ExperimentMetricQueryParams = {
-      activationMetrics,
+      activationMetric,
       denominatorMetrics,
       dimension: dimensionObj,
       metric: m,
@@ -255,17 +251,9 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
     const snapshotSettings = params.snapshotSettings;
     const metricMap = params.metricMap;
 
-    const activationMetrics: MetricInterface[] = [];
-    if (snapshotSettings.activationMetric) {
-      activationMetrics.push(
-        ...expandDenominatorMetrics(
-          snapshotSettings.activationMetric,
-          metricMap
-        )
-          .map((m) => metricMap.get(m) as MetricInterface)
-          .filter(Boolean)
-      );
-    }
+    const activationMetric = snapshotSettings.activationMetric
+      ? metricMap.get(snapshotSettings.activationMetric) ?? null
+      : null;
 
     // Only include metrics tied to this experiment (both goal and guardrail metrics)
     const selectedMetrics = Array.from(
@@ -289,7 +277,7 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
     const query = this.integration.getExperimentResultsQuery(
       snapshotSettings,
       selectedMetrics,
-      activationMetrics[0],
+      activationMetric,
       dimension
     );
 
@@ -302,7 +290,7 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
           const rows = (await this.integration.getExperimentResults(
             snapshotSettings,
             selectedMetrics,
-            activationMetrics[0],
+            activationMetric,
             dimension
             // eslint-disable-next-line
           )) as any[];

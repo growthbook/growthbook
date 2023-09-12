@@ -636,12 +636,12 @@ export default abstract class SqlIntegration
     };
   }
 
-  private getActivatedUsersCTE(
+  private getFunnelUsersCTE(
     baseIdType: string,
     metrics: MetricInterface[],
     isRegressionAdjusted: boolean = false,
     ignoreConversionEnd: boolean = false,
-    tablePrefix: string = "__activationMetric",
+    tablePrefix: string = "__denominator",
     initialTable: string = "__experiment"
   ) {
     // Note: the aliases below are needed for clickhouse
@@ -649,19 +649,17 @@ export default abstract class SqlIntegration
       -- one row per user
       SELECT
         initial.${baseIdType} AS ${baseIdType},
+        MIN(initial.dimension) AS dimension,
+        MIN(initial.variation) AS variation,
+        MIN(initial.first_exposure_date) AS first_exposure_date,
         ${
           isRegressionAdjusted
             ? `
-          MIN(initial.preexposure_start) AS preexposure_start,
-          MIN(initial.preexposure_end) AS preexposure_end,`
+            MIN(initial.preexposure_start) AS preexposure_start,
+            MIN(initial.preexposure_end) AS preexposure_end,`
             : ""
         }
-        MIN(t${metrics.length - 1}.conversion_start) AS conversion_start
-        ${
-          ignoreConversionEnd
-            ? ""
-            : `, MIN(t${metrics.length - 1}.conversion_end) AS conversion_end`
-        }
+        MIN(t${metrics.length - 1}.timestamp) AS timestamp
       FROM
         ${initialTable} initial
         ${metrics
@@ -678,13 +676,12 @@ export default abstract class SqlIntegration
           .map((m, i) => {
             const prevAlias = i ? `t${i - 1}` : "initial";
             const alias = `t${i}`;
-            return `
-              ${alias}.timestamp >= ${prevAlias}.conversion_start
-              ${
-                ignoreConversionEnd
-                  ? ""
-                  : `AND ${alias}.timestamp <= ${prevAlias}.conversion_end`
-              }`;
+            return this.getConversionWindowClause(
+              `${prevAlias}.timestamp`,
+              `${alias}.timestamp`,
+              m,
+              ignoreConversionEnd
+            );
           })
           .join("\n AND ")}
       GROUP BY
@@ -728,18 +725,25 @@ export default abstract class SqlIntegration
     throw new Error("Unknown dimension type: " + (dimension as Dimension).type);
   }
 
-  private getMetricConversionBase(
-    col: string,
-    denominatorMetrics: boolean,
-    activationMetrics: boolean
+  private getConversionWindowClause(
+    baseCol: string,
+    metricCol: string,
+    metric: MetricInterface,
+    ignoreConversionEnd: boolean
   ): string {
-    if (denominatorMetrics) {
-      return `du.${col}`;
-    }
-    if (activationMetrics) {
-      return `a.${col}`;
-    }
-    return `e.${col}`;
+    const conversionDelayHours = metric.conversionDelayHours ?? 0;
+    const conversionWindowHours =
+      metric.conversionWindowHours ?? DEFAULT_CONVERSION_WINDOW_HOURS;
+    return `
+      ${metricCol} >= ${this.addHours(baseCol, conversionDelayHours)}
+      ${
+        ignoreConversionEnd
+          ? ""
+          : `AND ${metricCol} <= ${this.addHours(
+              baseCol,
+              conversionDelayHours + conversionWindowHours
+            )}`
+      }`;
   }
 
   private getMetricMinDelay(metrics: MetricInterface[]) {
@@ -830,7 +834,13 @@ export default abstract class SqlIntegration
   }
 
   getExperimentUnitsQuery(params: ExperimentUnitsQueryParams): string {
-    const { settings, segment } = params;
+    const { settings, segment, activationMetric: activationMetricDoc } = params;
+
+    let activationMetric = null;
+    if (activationMetricDoc) {
+      activationMetric = cloneDeep<MetricInterface>(activationMetricDoc);
+      this.applyMetricOverrides(activationMetric, settings);
+    }
 
     const dimension = params.dimension;
     // Replace any placeholders in the user defined dimension SQL
@@ -856,6 +866,7 @@ export default abstract class SqlIntegration
     const { baseIdType, idJoinMap, idJoinSQL } = this.getIdentitiesCTE(
       [
         [exposureQuery.userIdType],
+        activationMetric?.userIdTypes ?? [],
         dimension?.type === "user"
           ? [dimension.dimension.userIdType || "user_id"]
           : [],
@@ -879,6 +890,9 @@ export default abstract class SqlIntegration
 
     const experimentDimension =
       dimension?.type === "experiment" ? dimension.id : null;
+
+    const ignoreConversionEnd =
+      settings.attributionModel === "experimentDuration";
 
     return `
     ${params.includeIdJoins ? idJoinSQL : ""}
@@ -909,6 +923,23 @@ export default abstract class SqlIntegration
           ${settings.queryFilter ? `AND (\n${settings.queryFilter}\n)` : ""}
     )
     ${
+      activationMetric
+        ? `, __activationMetric as (${this.getMetricCTE({
+            metric: activationMetric,
+            baseIdType,
+            idJoinMap,
+            startDate: this.getMetricStart(
+              settings.startDate,
+              activationMetric.conversionDelayHours || 0,
+              0
+            ),
+            endDate: this.getMetricEnd([activationMetric], settings.endDate),
+            experimentId: settings.experimentId,
+          })})
+        `
+        : ""
+    }
+    ${
       segment
         ? `, __segment as (${this.getSegmentCTE(
             segment,
@@ -932,6 +963,21 @@ export default abstract class SqlIntegration
         e.${baseIdType} AS ${baseIdType},
         ${dimensionCol} AS dimension,
         MIN(${timestampColumn}) AS first_exposure_timestamp,
+        ${
+          activationMetric
+            ? `MIN(${this.ifElse(
+                this.getConversionWindowClause(
+                  "e.timestamp",
+                  "a.timestamp",
+                  activationMetric,
+                  ignoreConversionEnd
+                ),
+                "a.timestamp",
+                "NULL"
+              )}) AS first_activation_timestamp,
+            `
+            : ""
+        }
         ${this.ifElse(
           "count(distinct e.variation) > 1",
           "'__multiple__'",
@@ -949,6 +995,11 @@ export default abstract class SqlIntegration
             ? `LEFT JOIN __dimension d ON (d.${baseIdType} = e.${baseIdType})`
             : ""
         }
+        ${
+          activationMetric
+            ? `LEFT JOIN __activationMetric a ON (a.${baseIdType} = e.${baseIdType})`
+            : ""
+        }
       ${segment ? `WHERE s.date <= e.timestamp` : ""}
       GROUP BY
         e.${baseIdType}
@@ -958,29 +1009,22 @@ export default abstract class SqlIntegration
   getExperimentMetricQuery(params: ExperimentMetricQueryParams): string {
     const {
       metric: metricDoc,
-      activationMetrics: activationMetricsDocs,
       denominatorMetrics: denominatorMetricsDocs,
+      activationMetric,
       settings,
       segment,
     } = params;
 
     // clone the metrics before we mutate them
     const metric = cloneDeep<MetricInterface>(metricDoc);
-    const activationMetrics = cloneDeep<MetricInterface[]>(
-      activationMetricsDocs
-    );
     const denominatorMetrics = cloneDeep<MetricInterface[]>(
       denominatorMetricsDocs
     );
 
     this.applyMetricOverrides(metric, settings);
-    activationMetrics.forEach((m) => this.applyMetricOverrides(m, settings));
     denominatorMetrics.forEach((m) => this.applyMetricOverrides(m, settings));
 
-    let dimension = params.dimension;
-    if (dimension?.type === "activation" && !activationMetrics.length) {
-      dimension = null;
-    }
+    const dimension = params.dimension;
     // Replace any placeholders in the user defined dimension SQL
     if (dimension?.type === "user") {
       dimension.dimension.sql = compileSqlTemplate(dimension.dimension.sql, {
@@ -1007,13 +1051,9 @@ export default abstract class SqlIntegration
     // e.g. "Purchase/Signup" is filtering to users who signed up and then counting purchases
     // When the denominator is a count, it's a real ratio, dividing two quantities
     // e.g. "Pages/Session" is dividing number of page views by number of sessions
-    const isRatio = denominator?.type === "count";
-    // However, even if we use a count as denominator, GB 1.9 and earlier would
-    // filter out users who had 0 values for the denominator. However, we may want
-    // to enable more generic ratio metrics where we just sum numerator and denominator
-    // across all users. The following flag determines whether to filter out users
-    // that have no denominator values
-    const ratioIsFunnel = true; // @todo: allow this to be configured
+    const ratioMetric = denominator?.type === "count";
+    const funnelMetric = denominator?.type === "binomial";
+
     const cumulativeDate =
       dimension?.type === "datecumulative" || dimension?.type === "datedaily";
 
@@ -1023,7 +1063,7 @@ export default abstract class SqlIntegration
       settings.regressionAdjustmentEnabled &&
       (metric.regressionAdjustmentDays ?? 0) > 0 &&
       !!metric.regressionAdjustmentEnabled &&
-      !isRatio;
+      !ratioMetric;
 
     const regressionAdjustmentHours = isRegressionAdjusted
       ? (metric.regressionAdjustmentDays ?? 0) * 24
@@ -1053,9 +1093,7 @@ export default abstract class SqlIntegration
     );
 
     // Get rough date filter for metrics to improve performance
-    const orderedMetrics = activationMetrics
-      .concat(denominatorMetrics)
-      .concat([metric]);
+    const orderedMetrics = denominatorMetrics.concat([metric]);
     const minMetricDelay = this.getMetricMinDelay(orderedMetrics);
     const metricStart = this.getMetricStart(
       settings.startDate,
@@ -1073,7 +1111,6 @@ export default abstract class SqlIntegration
       [
         [exposureQuery.userIdType],
         metric.userIdTypes || [],
-        ...activationMetrics.map((m) => m.userIdTypes || []),
         ...denominatorMetrics.map((m) => m.userIdTypes || []),
         dimension?.type === "user" && !params.useUnitsTable
           ? [dimension.dimension.userIdType || "user_id"]
@@ -1089,11 +1126,7 @@ export default abstract class SqlIntegration
     );
 
     const intialMetric =
-      activationMetrics.length > 0
-        ? activationMetrics[0]
-        : denominatorMetrics.length > 0
-        ? denominatorMetrics[0]
-        : metric;
+      denominatorMetrics.length > 0 ? denominatorMetrics[0] : metric;
 
     // Get date range for experiment and analysis
     const initialConversionWindowHours =
@@ -1118,12 +1151,17 @@ export default abstract class SqlIntegration
             })},`
           : ""
       }
-      __experiment AS (
+      __distinctUsers AS (
         SELECT
           ${baseIdType},
           dimension,
           variation,
-          first_exposure_timestamp,
+          ${
+            activationMetric && dimension?.type !== "activation"
+              ? "first_activation_timestamp"
+              : "first_exposure_timestamp"
+          } AS timestamp,
+          ${this.dateTrunc("first_exposure_timestamp")} AS first_exposure_date,
           ${
             isRegressionAdjusted
               ? `${this.addHours(
@@ -1136,72 +1174,29 @@ export default abstract class SqlIntegration
                 )} AS preexposure_start,`
               : ""
           }
-          ${this.addHours(
-            "first_exposure_timestamp",
-            initialConversionDelayHours
-          )} as conversion_start
-          ${
-            ignoreConversionEnd
-              ? ""
-              : `, ${this.addHours(
-                  "first_exposure_timestamp",
-                  initialConversionDelayHours + initialConversionWindowHours
-                )} as conversion_end`
-          }    
         FROM ${
           params.useUnitsTable
             ? `${params.unitsTableFullName}`
             : "__experimentUnits"
+        }
+        ${
+          activationMetric && dimension?.type !== "activation"
+            ? "WHERE first_activation_timestamp IS NOT NULL"
+            : ""
         }
       )
       , __metric as (${this.getMetricCTE({
         metric,
         baseIdType,
         idJoinMap,
-        ignoreConversionEnd: ignoreConversionEnd,
         startDate: metricStart,
         endDate: metricEnd,
         experimentId: settings.experimentId,
       })})
-      ${activationMetrics
-        .map((m, i) => {
-          const nextMetric =
-            activationMetrics[i + 1] || denominatorMetrics[0] || metric;
-          return `, __activationMetric${i} as (${this.getMetricCTE({
-            metric: m,
-            conversionWindowHours:
-              nextMetric.conversionWindowHours ||
-              DEFAULT_CONVERSION_WINDOW_HOURS,
-            conversionDelayHours: nextMetric.conversionDelayHours,
-            ignoreConversionEnd: ignoreConversionEnd,
-            baseIdType,
-            idJoinMap,
-            startDate: metricStart,
-            endDate: metricEnd,
-            experimentId: settings.experimentId,
-          })})`;
-        })
-        .join("\n")}
-      ${
-        activationMetrics.length > 0
-          ? `, __activatedUsers as (${this.getActivatedUsersCTE(
-              baseIdType,
-              activationMetrics,
-              isRegressionAdjusted,
-              ignoreConversionEnd
-            )})`
-          : ""
-      }
       ${denominatorMetrics
         .map((m, i) => {
-          const nextMetric = denominatorMetrics[i + 1] || metric;
           return `, __denominator${i} as (${this.getMetricCTE({
             metric: m,
-            conversionWindowHours:
-              nextMetric.conversionWindowHours ||
-              DEFAULT_CONVERSION_WINDOW_HOURS,
-            conversionDelayHours: nextMetric.conversionDelayHours,
-            ignoreConversionEnd: ignoreConversionEnd,
             baseIdType,
             idJoinMap,
             startDate: metricStart,
@@ -1211,67 +1206,17 @@ export default abstract class SqlIntegration
         })
         .join("\n")}
       ${
-        denominatorMetrics.length > 0 && ratioIsFunnel
-          ? `, __denominatorUsers as (${this.getActivatedUsersCTE(
+        funnelMetric
+          ? `, __denominatorUsers as (${this.getFunnelUsersCTE(
               baseIdType,
               denominatorMetrics,
-              false, // no regression adjustment for denominators
+              isRegressionAdjusted,
               ignoreConversionEnd,
               "__denominator",
-              dimension?.type !== "activation" && activationMetrics.length > 0
-                ? "__activatedUsers"
-                : "__experiment"
+              "__distinctUsers"
             )})`
           : ""
       }
-      , __distinctUsers as (
-        -- One row per user
-        SELECT
-          e.${baseIdType} AS ${baseIdType},
-          e.dimension AS dimension,
-          e.variation AS variation,
-          ${this.dateTrunc(
-            "e.first_exposure_timestamp"
-          )} AS first_exposure_date,
-          ${
-            isRegressionAdjusted
-              ? `e.preexposure_start AS preexposure_start,
-                 e.preexposure_end AS preexposure_end,`
-              : ""
-          }
-          ${this.getMetricConversionBase(
-            "conversion_start",
-            denominatorMetrics.length > 0,
-            activationMetrics.length > 0 && dimension?.type !== "activation"
-          )} as conversion_start
-          ${
-            ignoreConversionEnd
-              ? ""
-              : `, ${this.getMetricConversionBase(
-                  "conversion_end",
-                  denominatorMetrics.length > 0,
-                  activationMetrics.length > 0 &&
-                    dimension?.type !== "activation"
-                )} as conversion_end`
-          }
-        FROM
-          __experiment e
-          ${
-            activationMetrics.length > 0
-              ? `
-          ${
-            dimension?.type === "activation" ? "LEFT " : ""
-          }JOIN __activatedUsers a ON (
-            a.${baseIdType} = e.${baseIdType}
-          )`
-              : ""
-          }
-          ${
-            denominatorMetrics.length > 0 && ratioIsFunnel
-              ? `JOIN __denominatorUsers du ON (du.${baseIdType} = e.${baseIdType})`
-              : ""
-          }
-      )
       ${
         cumulativeDate
           ? `, __dateRange AS (
@@ -1289,11 +1234,12 @@ export default abstract class SqlIntegration
           d.${baseIdType} AS ${baseIdType},
           ${this.addCaseWhenTimeFilter(
             "m.value",
+            metric,
             ignoreConversionEnd,
             cumulativeDate
           )} as value
         FROM
-          __distinctUsers d
+          ${funnelMetric ? "__denominatorUsers" : "__distinctUsers"} d
         LEFT JOIN __metric m ON (
           m.${baseIdType} = d.${baseIdType}
         )
@@ -1335,7 +1281,7 @@ export default abstract class SqlIntegration
           : ""
       }
       ${
-        isRatio
+        ratioMetric
           ? `, __userDenominatorAgg AS (
               SELECT
                 d.variation AS variation,
@@ -1350,12 +1296,12 @@ export default abstract class SqlIntegration
                 )
                 ${cumulativeDate ? "CROSS JOIN __dateRange dr" : ""}
               WHERE
-                m.timestamp >= d.conversion_start
-                ${
+                ${this.getConversionWindowClause(
+                  "d.timestamp",
+                  "m.timestamp",
+                  denominator,
                   ignoreConversionEnd
-                    ? ""
-                    : "AND m.timestamp <= d.conversion_end"
-                }
+                )}
                 ${
                   cumulativeDate
                     ? `AND ${this.castToDate(
@@ -1416,7 +1362,7 @@ export default abstract class SqlIntegration
         } AS dimension,
         COUNT(*) AS users,
         '${this.getStatisticType(
-          isRatio,
+          ratioMetric,
           isRegressionAdjusted
         )}' as statistic_type,
         '${metric.type}' as main_metric_type,
@@ -1428,7 +1374,7 @@ export default abstract class SqlIntegration
         SUM(${capCoalesceMetric}) AS main_sum,
         SUM(POWER(${capCoalesceMetric}, 2)) AS main_sum_squares
         ${
-          isRatio
+          ratioMetric
             ? `,
           '${denominator?.type}' as denominator_metric_type,
           ${
@@ -1455,10 +1401,9 @@ export default abstract class SqlIntegration
       FROM
         __userMetricAgg m
       ${
-        isRatio
+        ratioMetric
           ? `LEFT JOIN __userDenominatorAgg d ON (
               d.${baseIdType} = m.${baseIdType}
-              ${ratioIsFunnel ? "AND d.value != 0" : ""}
               ${cumulativeDate ? "AND d.day = m.day" : ""}
             )
             ${
@@ -1873,9 +1818,6 @@ export default abstract class SqlIntegration
 
   private getMetricCTE({
     metric,
-    conversionWindowHours = 0,
-    conversionDelayHours = 0,
-    ignoreConversionEnd = false,
     baseIdType,
     idJoinMap,
     startDate,
@@ -1883,9 +1825,6 @@ export default abstract class SqlIntegration
     experimentId,
   }: {
     metric: MetricInterface;
-    conversionWindowHours?: number;
-    conversionDelayHours?: number;
-    ignoreConversionEnd?: boolean;
     baseIdType: string;
     idJoinMap: Record<string, string>;
     startDate: Date;
@@ -1946,19 +1885,7 @@ export default abstract class SqlIntegration
       SELECT
         ${userIdCol} as ${baseIdType},
         ${cols.value} as value,
-        ${timestampDateTimeColumn} as timestamp,
-        ${this.addHours(
-          timestampDateTimeColumn,
-          conversionDelayHours
-        )} as conversion_start
-        ${
-          ignoreConversionEnd
-            ? ""
-            : `, ${this.addHours(
-                timestampDateTimeColumn,
-                conversionDelayHours + conversionWindowHours
-              )} as conversion_end`
-        }
+        ${timestampDateTimeColumn} as timestamp
       FROM
         ${
           queryFormat === "sql"
@@ -2068,13 +1995,18 @@ export default abstract class SqlIntegration
 
   private addCaseWhenTimeFilter(
     col: string,
+    metric: MetricInterface,
     ignoreConversionEnd: boolean,
     cumulativeDate: boolean
   ): string {
     return `${this.ifElse(
       `
-        m.timestamp >= d.conversion_start
-        ${ignoreConversionEnd ? "" : `AND m.timestamp <= d.conversion_end`}
+        ${this.getConversionWindowClause(
+          "d.timestamp",
+          "m.timestamp",
+          metric,
+          ignoreConversionEnd
+        )}
         ${
           cumulativeDate ? `AND ${this.dateTrunc("m.timestamp")} <= dr.day` : ""
         }

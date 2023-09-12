@@ -93,7 +93,7 @@ export type Dimension =
 export type ExperimentMetricQueryParams = {
   settings: ExperimentSnapshotSettings;
   metric: MetricInterface;
-  activationMetrics: MetricInterface[];
+  activationMetric: MetricInterface | null;
   denominatorMetrics: MetricInterface[];
   dimension: Dimension | null;
   segment: SegmentInterface | null;
@@ -103,6 +103,7 @@ export type ExperimentMetricQueryParams = {
 
 export type ExperimentUnitsQueryParams = {
   settings: ExperimentSnapshotSettings;
+  activationMetric: MetricInterface | null;
   dimension: Dimension | null;
   segment: SegmentInterface | null;
   unitsTableFullName?: string;
