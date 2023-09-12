@@ -427,13 +427,16 @@ export function useCustomFields() {
 }
 
 export function filterCustomFieldsForProject(
-  customFields: CustomField[],
-  project: string
+  customFields: CustomField[] | undefined,
+  project: string | undefined
 ) {
   // for the moment, is an experiment is in none/all projects, project scoped custom fields will not be available to it.
   // if (!project) {
   //   return customFields;
   // }
+  if (!customFields || customFields.length === 0 || !project) {
+    return customFields;
+  }
   return customFields.filter((v) => {
     if (v.projects && v.projects.length && v.projects[0] !== "") {
       let matched = false;

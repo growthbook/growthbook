@@ -24,6 +24,7 @@ import { generateVariationId, useAttributeSchema } from "@/services/features";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import usePermissions from "@/hooks/usePermissions";
 import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
+import { useUser } from "@/services/UserContext";
 import MarkdownInput from "../Markdown/MarkdownInput";
 import TagsInput from "../Tags/TagsInput";
 import Page from "../Modal/Page";
@@ -351,7 +352,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
           <div className="form-group">
             <label>Project</label>
             <SelectField
-              value={form.watch("project")}
+              value={form.watch("project") ?? ""}
               onChange={(p) => {
                 form.setValue("project", p);
                 setSelectedProject(p);

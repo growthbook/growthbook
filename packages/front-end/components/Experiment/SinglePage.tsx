@@ -952,7 +952,7 @@ export default function SinglePage({
               />
               <CustomFieldDisplay
                 experiment={experiment}
-                canEdit={canEdit}
+                canEdit={canEditExperiment}
                 mutate={mutate}
               />
             </div>
