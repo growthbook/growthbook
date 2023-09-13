@@ -27,6 +27,12 @@ describe("Build user permissions", () => {
     ],
   };
   // Basic user permissions - no project-level permissions or teams
+  it("should throw error if user isn't in the org", async () => {
+    expect(
+      async () => await getUserPermissions("base_user_not_in_org", testOrg)
+    ).rejects.toThrow("User is not a member of this organization");
+  });
+
   it("should handle a basic readonly user with no project-level permissions or teams correctly", async () => {
     const userPermissions = await getUserPermissions("base_user_123", testOrg);
     expect(userPermissions).toEqual({
@@ -1536,8 +1542,6 @@ describe("Build user permissions", () => {
         },
       ],
     });
-
-    console.log("userPermissions", userPermissions);
 
     expect(userPermissions).toEqual({
       global: {

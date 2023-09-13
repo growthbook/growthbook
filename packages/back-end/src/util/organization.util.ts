@@ -1,3 +1,4 @@
+import { roleSupportsEnvLimit } from "shared/permissions";
 import {
   MemberRole,
   MemberRoleInfo,
@@ -98,18 +99,13 @@ function mergePermissions(
     const newRoleIndex = roles.findIndex((r) => r.id === teamInfo.role);
     const existingRoleIndex = roles.findIndex((r) => r.id === existingRole);
 
-    const existingRoleIsEngineerOrExperimenter =
-      existingRole === "engineer" || existingRole === "experimenter";
-
-    const newRoleIsEngineerOrExperimenter =
-      teamInfo.role === "engineer" || teamInfo.role === "experimenter";
-
     if (
-      existingRoleIsEngineerOrExperimenter &&
-      newRoleIsEngineerOrExperimenter
+      // Ifthe existingRole & newRole can be limited by environment
+      roleSupportsEnvLimit(existingRole) &&
+      roleSupportsEnvLimit(teamInfo.role)
     ) {
       if (
-        // If limitAccessByEnvironment is the same for new and existing roles, we just concat the envs arrays
+        // and if limitAccessByEnvironment is the same for new and existing roles, we just concat the envs arrays
         existingPermissions.limitAccessByEnvironment ===
         teamInfo.limitAccessByEnvironment
       ) {
@@ -143,49 +139,45 @@ export async function getUserPermissions(
   org: OrganizationInterface
 ): Promise<UserPermissions> {
   const memberInfo = org.members.find((m) => m.id === userId);
+
+  if (!memberInfo) {
+    throw new Error("User is not a member of this organization");
+  }
   const userPermissions: UserPermissions = {
     global: {
-      environments: memberInfo?.environments || [],
-      limitAccessByEnvironment: memberInfo?.limitAccessByEnvironment || false,
-      permissions: roleToPermissionMap(memberInfo?.role, org),
+      environments: memberInfo.environments,
+      limitAccessByEnvironment: memberInfo.limitAccessByEnvironment,
+      permissions: roleToPermissionMap(memberInfo.role, org),
     },
     projects: {},
   };
 
-  // Build the user's user-level project permissions
-  memberInfo?.projectRoles?.forEach((projectRole: ProjectMemberRole) => {
+  // Build the user-level project permissions
+  memberInfo.projectRoles?.forEach((projectRole: ProjectMemberRole) => {
     userPermissions.projects[projectRole.project] = {
-      limitAccessByEnvironment: projectRole.limitAccessByEnvironment || false,
-      environments: projectRole.environments || [],
+      limitAccessByEnvironment: projectRole.limitAccessByEnvironment,
+      environments: projectRole.environments,
       permissions: roleToPermissionMap(projectRole.role, org),
     };
   });
 
-  // If the member's global role is admin, they already have all permissions
-  if (memberInfo?.role) {
-    const teamsUserIsOn = memberInfo?.teams || [];
-    for (const team of teamsUserIsOn) {
-      const teamData = await findTeamById(team, org.id);
-      if (teamData) {
-        mergePermissions(
-          userPermissions.global,
-          memberInfo.role,
-          teamData,
-          org
-        );
-        if (teamData?.projectRoles && teamData?.projectRoles.length > 0) {
-          for (const teamProject of teamData.projectRoles) {
-            const existingProjectData = memberInfo.projectRoles?.find(
-              (project) => project.project === teamProject.project
-            );
+  const teamsUserIsOn = memberInfo?.teams || [];
+  for (const team of teamsUserIsOn) {
+    const teamData = await findTeamById(team, org.id);
+    if (teamData) {
+      mergePermissions(userPermissions.global, memberInfo.role, teamData, org);
+      if (teamData?.projectRoles) {
+        for (const teamProject of teamData.projectRoles) {
+          const existingProjectData = memberInfo.projectRoles?.find(
+            (project) => project.project === teamProject.project
+          );
 
-            mergePermissions(
-              userPermissions.projects[teamProject.project],
-              existingProjectData?.role,
-              teamProject,
-              org
-            );
-          }
+          mergePermissions(
+            userPermissions.projects[teamProject.project],
+            existingProjectData?.role,
+            teamProject,
+            org
+          );
         }
       }
     }
