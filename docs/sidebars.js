@@ -413,9 +413,27 @@ const sidebars = {
           className: "pill-new",
         },
         { type: "doc", id: "sso", label: "SSO" },
+        {
+          type: "doc",
+          id: "integrations/datadog",
+          label: "DataDog",
+          className: "pill-new",
+        },
       ],
     },
     { type: "doc", id: "faq", label: "FAQ" },
+    {
+      type: "category",
+      label: "Account",
+      collapsed: true,
+      items: [
+        {
+          type: "doc",
+          id: "account/user-permissions",
+          label: "Roles & Permissions",
+        },
+      ],
+    },
   ],
 };
 

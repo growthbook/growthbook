@@ -1,9 +1,13 @@
 import React, { DetailedHTMLProps, HTMLAttributes, useEffect } from "react";
 import { MetricInterface } from "back-end/types/metric";
-import { ExperimentReportVariation } from "back-end/types/report";
+import { ExperimentReportVariationWithIndex } from "back-end/types/report";
 import { SnapshotMetric } from "back-end/types/experiment-snapshot";
 import { PValueCorrection, StatsEngine } from "back-end/types/stats";
-import { BsXCircle, BsHourglassSplit } from "react-icons/bs";
+import {
+  BsXCircle,
+  BsHourglassSplit,
+  BsArrowReturnRight,
+} from "react-icons/bs";
 import clsx from "clsx";
 import { FaArrowDown, FaArrowUp } from "react-icons/fa";
 import { HiOutlineExclamationCircle } from "react-icons/hi";
@@ -41,13 +45,13 @@ const percentFormatter = new Intl.NumberFormat(undefined, {
 
 export interface TooltipData {
   metricRow: number;
-  variationRow: number;
   metric: MetricInterface;
-  variation: ExperimentReportVariation;
+  dimensionName?: string;
+  dimensionValue?: string;
+  variation: ExperimentReportVariationWithIndex;
   stats: SnapshotMetric;
   baseline: SnapshotMetric;
-  baselineVariation: ExperimentReportVariation;
-  baselineRow: number;
+  baselineVariation: ExperimentReportVariationWithIndex;
   rowResults: RowResults;
   statsEngine: StatsEngine;
   pValueCorrection?: PValueCorrection;
@@ -166,7 +170,7 @@ export default function ResultsTableTooltip({
       className="experiment-row-tooltip-wrapper"
       style={{
         position: "absolute",
-        width: Math.min(TOOLTIP_WIDTH, window.innerWidth),
+        width: Math.min(TOOLTIP_WIDTH, window.innerWidth - 20),
         height: TOOLTIP_HEIGHT,
         left,
         top,
@@ -179,7 +183,7 @@ export default function ResultsTableTooltip({
         })}
         style={{
           position: "absolute",
-          width: Math.min(TOOLTIP_WIDTH, window.innerWidth),
+          width: Math.min(TOOLTIP_WIDTH, window.innerWidth - 20),
           top: data.yAlign === "top" ? 0 : "auto",
           bottom: data.yAlign === "bottom" ? 0 : "auto",
           transformOrigin: `${arrowLeft} ${
@@ -222,21 +226,41 @@ export default function ResultsTableTooltip({
             </div>
           ) : null}
           <div className="metric-label d-flex align-items-end">
-            <span className="h5 mb-0 text-dark">{data.metric.name}</span>
+            <span
+              className="h5 mb-0 text-dark text-ellipsis"
+              style={{ maxWidth: 350 }}
+            >
+              {data.metric.name}
+            </span>
             {metricInverseIconDisplay}
             <span className="text-muted ml-2">({data.metric.type})</span>
           </div>
+          {data.dimensionName ? (
+            <div className="dimension-label d-flex align-items-center">
+              <BsArrowReturnRight size={12} className="mx-1" />
+              <span className="text-ellipsis" style={{ maxWidth: 150 }}>
+                {data.dimensionName}
+              </span>
+              :{" "}
+              <span
+                className="ml-1 font-weight-bold text-ellipsis"
+                style={{ maxWidth: 250 }}
+              >
+                {data.dimensionValue}
+              </span>
+            </div>
+          ) : null}
 
           <div
             className="variation-label mt-2 d-flex justify-content-between"
             style={{ gap: 8 }}
           >
             <div
-              className={`variation variation${data.variationRow} with-variation-label d-inline-flex align-items-center`}
+              className={`variation variation${data.variation.index} with-variation-label d-inline-flex align-items-center`}
               style={{ maxWidth: 300 }}
             >
               <span className="label" style={{ width: 16, height: 16 }}>
-                {data.variationRow}
+                {data.variation.index}
               </span>
               <span className="d-inline-block text-ellipsis font-weight-bold">
                 {data.variation.name}
@@ -503,12 +527,14 @@ export default function ResultsTableTooltip({
               <tbody>
                 {rows.map((row, i) => {
                   const rowNumber =
-                    i === 0 ? data.baselineRow : data.variationRow;
+                    i === 0
+                      ? data?.baselineVariation.index
+                      : data.variation.index;
                   const rowName =
                     i === 0 ? data.baselineVariation.name : data.variation.name;
                   return (
                     <tr key={i}>
-                      <td style={{ width: 130 }}>
+                      <td style={{ width: 130, height: 40 }}>
                         <div
                           className={`variation variation${rowNumber} with-variation-label d-inline-flex align-items-center`}
                         >
@@ -525,6 +551,18 @@ export default function ResultsTableTooltip({
                             {rowName}
                           </span>
                         </div>
+                        {i === 0 ? (
+                          <div
+                            className="text-muted text-uppercase"
+                            style={{
+                              fontSize: "10px",
+                              marginTop: -4,
+                              marginLeft: 20,
+                            }}
+                          >
+                            baseline
+                          </div>
+                        ) : null}
                       </td>
                       <td>{numberFormatter.format(row.users)}</td>
                       <MetricValueColumn

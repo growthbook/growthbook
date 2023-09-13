@@ -493,7 +493,7 @@ export function migrateSnapshot(
           dateCreated: snapshot.dateCreated,
           status: snapshot.error ? "error" : "success",
           settings: {
-            statsEngine: statsEngine || "bayesian",
+            statsEngine: statsEngine || DEFAULT_STATS_ENGINE,
             dimensions: snapshot.dimension ? [snapshot.dimension] : [],
             pValueCorrection: null,
             regressionAdjusted,

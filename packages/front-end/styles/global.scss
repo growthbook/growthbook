@@ -152,19 +152,6 @@ pre {
   font-weight: bold;
 }
 
-.btn-teal {
-  @include button-variant(
-    colors.$teal,
-    darken(colors.$teal, 7.5%),
-    darken(colors.$teal, 10%),
-    lighten(colors.$teal, 5%),
-    lighten(colors.$teal, 10%),
-    darken(colors.$teal, 30%)
-  );
-  white-space: nowrap;
-  font-weight: 600;
-}
-
 .btn-outline-primary {
   @include button-outline-variant(
     colors.$highlight-purple,
@@ -177,29 +164,48 @@ pre {
   background-color: rgba(124, 69, 234, 0.1);
   border: 2px solid #7c45ea;
 }
+.btn-teal {
+  @include button-variant(
+    colors.$teal,
+    darken(colors.$teal, 7.5%),
+    darken(colors.$teal, 10%),
+    lighten(colors.$teal, 5%),
+    lighten(colors.$teal, 10%),
+    darken(colors.$teal, 30%)
+  );
+  white-space: nowrap;
+  font-weight: 600;
+}
 .btn-outline-teal {
   @include button-outline-variant(
     transparent,
-    #fff,
-    lighten(colors.$teal, 20%),
-    lighten(colors.$teal, 20%)
+    colors.$teal,
+    transparent,
+    transparentize(colors.$teal, 0.5)
   );
   color: colors.$teal;
+  &:active {
+    color: darken(colors.$teal, 30%);
+  }
 }
 .btn-outline-teal-off {
   @include button-outline-variant(
+    transparent,
     #8fb3a8,
-    #fff,
-    lighten(colors.$teal, 20%),
-    lighten(colors.$teal, 20%)
+    transparent,
+    transparentize(colors.$teal, 0.5)
   );
+  color: #8fb3a8;
+  &:active {
+    color: darken(colors.$teal, 30%);
+  }
 }
 .btn-outline-teal-disabled {
   @include button-outline-variant(
     transparent,
-    #fff,
-    lighten(#8fb3a8, 15%),
-    lighten(#8fb3a8, 15%)
+    #8fb3a8,
+    #8080801a,
+    transparentize(#8fb3a8, 0.75)
   );
   color: #8fb3a8;
   margin-left: 8px;
@@ -463,8 +469,6 @@ pre {
     margin: -4px -8px 0;
   }
   .experiment-tabs {
-    position: sticky;
-    z-index: 830;
     top: 55px;
     height: 44px;
     margin: 0 -8px -3px;
@@ -483,8 +487,18 @@ pre {
       }
       .users {
         text-align: right;
+        @media (max-width: 500px) {
+          margin-right: 0;
+          padding: 0 !important;
+        }
+      }
+      .experiment-date-range {
+        text-align: right;
+        font-size: 12px;
         @media (max-width: 750px) {
-          font-size: 12px;
+          max-width: 100px;
+          font-size: 11px;
+          line-height: 1.25;
           margin-right: 0 !important;
           padding: 0 !important;
         }
@@ -494,12 +508,26 @@ pre {
       }
     }
     &.pinned {
+      position: sticky;
+      z-index: 830;
       box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
-      .header-tabs {
+      .header-tabs .tab-wrapper {
         overflow: hidden;
       }
     }
   }
+}
+
+.analysis-settings-bar {
+  .col,
+  .col-auto {
+    margin-bottom: 8px;
+  }
+}
+
+.dimension-header-label {
+  margin-top: 30px;
+  padding: 0 10px;
 }
 
 .experiment-results-wrapper {
@@ -510,7 +538,7 @@ pre {
 
 .experiment-results {
   tbody {
-    tr {
+    tr:not(.noborder) {
       box-shadow: rgba(102, 102, 102, 0.125) 0 -1px inset;
       &:not(.results-label-row) {
         td:not(.graph-cell):not(:last-child) {
@@ -569,7 +597,12 @@ pre {
   .variation {
     font-size: 14px;
   }
-  .result-number-sub,
+  .result-number-sub {
+    font-size: 12px;
+    font-style: italic;
+    line-height: 14px;
+    margin-top: 3px;
+  }
   .plusminus {
     font-size: 12px;
     font-style: italic;
@@ -2364,37 +2397,6 @@ li.metrics a span img {
     }
   }
 }
-.phase-selector-clean {
-  * {
-    cursor: pointer;
-  }
-  .gb-select__control {
-    height: 32px;
-    min-height: 32px;
-    background-color: var(--surface-background-color-alt) !important;
-  }
-  .gb-select__value-container {
-    padding: 0 0 0 4px;
-    .phase-label {
-      display: none;
-    }
-  }
-  .gb-select__indicator-separator {
-    display: none;
-  }
-  .gb-select__indicator {
-    padding: 0 4px;
-  }
-  &:hover {
-    .gb-select__control {
-      border-color: rgba(154, 110, 248, 0.2) !important;
-      box-shadow: 0 0 0 1px rgba(154, 110, 248, 0.2) inset;
-    }
-    .gb-select__indicator {
-      color: rgba(154, 110, 248, 0.5) !important;
-    }
-  }
-}
 
 html {
   scroll-behavior: smooth;
@@ -2443,27 +2445,102 @@ html {
 .bg-impact {
   background-color: colors.$bg-impact;
 }
-.dropdownmenu {
-  position: absolute;
-  background-color: var(--surface-background-color);
-  z-index: 1200;
-  right: 10px;
-  top: 2rem;
-  width: 160px;
-  border: var(--border-color-300);
-  box-shadow: 1px 1px 4px var(--border-color-100);
+.dropdown-underline {
+  position: relative;
+  border-radius: 0 !important;
+  height: 24px;
+  padding: 0 1px;
+  border-bottom: 1px solid var(--border-color-300);
+  top: 1px;
+  cursor: pointer;
+  span.hover {
+    color: var(--text-dark);
+  }
+  &:hover {
+    border-bottom: 1px solid var(--text-link-hover-color);
+    span.hover {
+      color: var(--text-link-hover-color);
+    }
+  }
+  .sub {
+    position: absolute;
+    right: 1px;
+    bottom: -13px;
+    font-size: 10px;
+  }
+}
+.dropdown-underline-disabled {
+  position: relative;
+  border-radius: 0 !important;
+  height: 24px;
+  border-bottom: 1px transparent;
+  top: 1px;
+  .sub {
+    position: absolute;
+    right: 0;
+    bottom: -7px;
+    font-size: 10px;
+  }
+}
+.select-dropdown-underline {
+  position: relative !important;
+  top: 1px !important;
 
-  a {
-    padding: 4px 10px;
-    display: block;
-    cursor: pointer;
-  }
-  a:hover {
-    background-color: colors.$blue;
-    color: #fff;
-  }
-  &.closed {
-    display: none;
+  .gb-select__control {
+    border-radius: 0 !important;
+    border: 0 transparent !important;
+    border-bottom: 1px solid var(--border-color-300) !important;
+    height: 24px !important;
+    min-height: initial !important;
+    cursor: pointer !important;
+    .gb-select__value-container {
+      position: relative !important;
+      top: -1px !important;
+      padding: 0 !important;
+      &:after {
+        position: absolute;
+        right: 1px;
+        top: 8px;
+        display: inline-block;
+        margin-left: 0.255em;
+        vertical-align: 0.255em;
+        content: "";
+        border-top: 0.3em solid;
+        border-right: 0.3em solid transparent;
+        border-bottom: 0;
+        border-left: 0.3em solid transparent;
+        color: var(--text-color-main) !important;
+      }
+      .gb-select__input-container {
+        margin: 0 !important;
+        padding: 0 !important;
+        max-width: 200px !important;
+        .gb-select__input {
+          max-width: 200px !important;
+        }
+      }
+      .gb-select__single-value {
+        margin: 0 10px 0 0 !important;
+        padding: 0 1px !important;
+        color: var(--text-dark) !important;
+        max-width: 200px !important;
+      }
+    }
+    .gb-select__indicators {
+      display: none;
+    }
+    &:hover {
+      border-bottom: 1px solid var(--text-link-hover-color) !important;
+      .gb-select__value-container .gb-select__single-value {
+        color: var(--text-link-hover-color) !important;
+        &:after {
+          color: var(--text-color-main) !important;
+        }
+      }
+    }
+    &.gb-select__control--is-focused {
+      box-shadow: none !important;
+    }
   }
 }
 

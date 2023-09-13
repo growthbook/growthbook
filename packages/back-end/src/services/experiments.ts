@@ -11,9 +11,14 @@ import {
   DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
 } from "shared/constants";
 import { getScopedSettings } from "shared/settings";
-import { getSnapshotAnalysis, generateVariationId } from "shared/util";
+import {
+  getSnapshotAnalysis,
+  generateVariationId,
+  isAnalysisAllowed,
+} from "shared/util";
 import { updateExperiment } from "../models/ExperimentModel";
 import {
+  ExperimentSnapshotAnalysis,
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotInterface,
   ExperimentSnapshotSettings,
@@ -24,10 +29,14 @@ import { getMetricsByIds, insertMetric } from "../models/MetricModel";
 import { checkSrm, sumSquaresFromStats } from "../util/stats";
 import { addTags } from "../models/TagModel";
 import {
+  addOrUpdateSnapshotAnalysis,
+  createExperimentSnapshotModel,
+  updateSnapshotAnalysis,
+} from "../models/ExperimentSnapshotModel";
+import {
   Dimension,
   ExperimentMetricQueryResponseRows,
 } from "../types/Integration";
-import { createExperimentSnapshotModel } from "../models/ExperimentSnapshotModel";
 import {
   Condition,
   MetricInterface,
@@ -68,9 +77,10 @@ import { VisualChangesetInterface } from "../../types/visual-changeset";
 import { findProjectById } from "../models/ProjectModel";
 import { MetricAnalysisQueryRunner } from "../queryRunners/MetricAnalysisQueryRunner";
 import { ExperimentResultsQueryRunner } from "../queryRunners/ExperimentResultsQueryRunner";
+import { QueryMap, getQueryMap } from "../queryRunners/QueryRunner";
 import { getReportVariations, getMetricForSnapshot } from "./reports";
 import { getIntegrationFromDatasourceId } from "./datasource";
-import { analyzeExperimentMetric } from "./stats";
+import { analyzeExperimentMetric, analyzeExperimentResults } from "./stats";
 
 export const DEFAULT_METRIC_ANALYSIS_DAYS = 90;
 
@@ -483,6 +493,61 @@ export async function createSnapshot({
   });
 
   return queryRunner;
+}
+
+export async function createSnapshotAnalysis({
+  experiment,
+  organization,
+  analysisSettings,
+  metricMap,
+  snapshot,
+}: {
+  experiment: ExperimentInterface;
+  organization: OrganizationInterface;
+  analysisSettings: ExperimentSnapshotAnalysisSettings;
+  metricMap: Map<string, MetricInterface>;
+  snapshot: ExperimentSnapshotInterface;
+}): Promise<void> {
+  // check if analysis is possible
+  if (!isAnalysisAllowed(snapshot.settings, analysisSettings)) {
+    throw new Error("Analysis not allowed with this snapshot");
+  }
+
+  if (
+    snapshot.queries.some(
+      (q) => q.status === "failed" || q.status === "running"
+    )
+  ) {
+    throw new Error("Snapshot queries not available for analysis");
+  }
+  const analysis: ExperimentSnapshotAnalysis = {
+    results: [],
+    status: "running",
+    settings: analysisSettings,
+    dateCreated: new Date(),
+  };
+  // and analysis to mongo record if it does not exist, overwrite if it does
+  addOrUpdateSnapshotAnalysis(organization.id, snapshot.id, analysis);
+
+  // Format data correctly
+  const queryMap: QueryMap = await getQueryMap(
+    organization.id,
+    snapshot.queries
+  );
+
+  // Run the analysis
+  const results = await analyzeExperimentResults({
+    queryData: queryMap,
+    snapshotSettings: snapshot.settings,
+    analysisSettings: analysisSettings,
+    variationNames: experiment.variations.map((v) => v.name),
+    metricMap: metricMap,
+  });
+  analysis.results = results.dimensions || [];
+  analysis.status = "success";
+  analysis.error = undefined;
+
+  updateSnapshotAnalysis(organization.id, snapshot.id, analysis);
 }
 
 function getExperimentMetric(
