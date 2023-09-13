@@ -845,7 +845,11 @@ export default function ResultsTable({
                                 resultsHighlightClassname,
                                 "overflow-hidden"
                               )}
-                              rowStatus={rowResults.resultsStatus}
+                              rowStatus={
+                                statsEngine === "frequentist"
+                                  ? rowResults.resultsStatus
+                                  : undefined
+                              }
                               onMouseMove={(e) =>
                                 onPointerMove(e, {
                                   x: "element-center",
