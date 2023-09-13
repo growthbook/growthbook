@@ -1641,7 +1641,7 @@ export default abstract class SqlIntegration
     groupByColumn?: string
   ) {
     const end = new Date();
-    const start = subDays(new Date(), 70);
+    const start = subDays(new Date(), 7);
 
     return `
       SELECT
