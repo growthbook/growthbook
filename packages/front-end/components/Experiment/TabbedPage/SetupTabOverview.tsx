@@ -77,6 +77,7 @@ export default function SetupTabOverview({
             experiment={experiment}
             canEdit={canEditExperiment}
             mutate={mutate}
+            section="experiment"
           />
 
           <HeaderWithEdit

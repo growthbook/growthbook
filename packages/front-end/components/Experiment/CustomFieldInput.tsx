@@ -1,8 +1,8 @@
 import { FC } from "react";
-import { CustomField } from "back-end/types/organization";
+import { CustomField, CustomFieldSection } from "back-end/types/organization";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { UseFormReturn } from "react-hook-form";
-import { filterCustomFieldsForProject } from "@/services/experiments";
+import { filterCustomFieldsForSectionAndProject } from "@/services/experiments";
 import Field from "../Forms/Field";
 import SelectField from "../Forms/SelectField";
 import MultiSelectField from "../Forms/MultiSelectField";
@@ -11,14 +11,19 @@ import Toggle from "../Forms/Toggle";
 const CustomFieldInput: FC<{
   customFields: CustomField[];
   form: UseFormReturn<Partial<ExperimentInterfaceStringDates>>;
+  section: CustomFieldSection;
   project?: string;
   className?: string;
-}> = ({ customFields, project, className, form }) => {
-  const availableFields = filterCustomFieldsForProject(customFields, project);
+}> = ({ customFields, project, className, form, section }) => {
+  const availableFields = filterCustomFieldsForSectionAndProject(
+    customFields,
+    section,
+    project
+  );
   return (
     <>
       <div className={className}>
-        {!availableFields.length ? (
+        {!availableFields?.length ? (
           <div className="p-3 text-center">
             No fields available for this experiment or project
           </div>

@@ -4,10 +4,10 @@ import {
   ExperimentInterfaceStringDates,
 } from "back-end/types/experiment";
 import { useForm } from "react-hook-form";
-import { CustomField } from "back-end/types/organization";
+import { CustomField, CustomFieldSection } from "back-end/types/organization";
 import { useUser } from "@/services/UserContext";
 import {
-  filterCustomFieldsForProject,
+  filterCustomFieldsForSectionAndProject,
   useCustomFields,
 } from "@/services/experiments";
 import { useAuth } from "@/services/auth";
@@ -20,11 +20,19 @@ const CustomFieldDisplay: FC<{
   label?: string;
   canEdit?: boolean;
   mutate?: () => void;
+  section: CustomFieldSection;
   experiment: ExperimentInterfaceStringDates;
-}> = ({ label = "Additional Fields", experiment, canEdit = true, mutate }) => {
+}> = ({
+  label = "Additional Fields",
+  canEdit = true,
+  mutate,
+  section,
+  experiment,
+}) => {
   const [editModal, setEditModal] = useState(false);
-  const customFields = filterCustomFieldsForProject(
+  const customFields = filterCustomFieldsForSectionAndProject(
     useCustomFields(),
+    section,
     experiment.project
   );
   const customFieldsMap = new Map();
@@ -74,6 +82,7 @@ const CustomFieldDisplay: FC<{
               <CustomFieldInput
                 customFields={customFields}
                 form={form}
+                section={section}
                 project={experiment.project}
               />
             ) : (
@@ -103,31 +112,33 @@ const CustomFieldDisplay: FC<{
           <div className="">
             {Array.from(customFieldsMap.values()).map((v: CustomField) => {
               // these two loops are used to make sure the order is correct with the stored order of custom fields.
-              return Object.keys(experiment.customFields).map((fid, i) => {
-                if (v.id === fid) {
-                  const f = experiment.customFields[fid];
-                  const displayValue =
-                    v.type === "multiselect" ? JSON.parse(f).join(", ") : f;
-                  if (displayValue) {
-                    if (v.type === "textarea" || v.type === "markdown") {
-                      return (
-                        <div className="mb-1 row" key={i}>
-                          <div className="text-muted col-auto">{v.name}</div>
-                          <div className="col">{displayValue}</div>
-                        </div>
-                      );
-                    } else {
-                      return (
-                        <div className="mb-1" key={i}>
-                          <span className="text-muted">{v.name}</span>
-                          {": "}
-                          {displayValue}
-                        </div>
-                      );
+              return Object.keys(experiment?.customFields ?? {}).map(
+                (fid, i) => {
+                  if (v.id === fid) {
+                    const f = experiment?.customFields?.[fid] ?? "";
+                    const displayValue =
+                      v.type === "multiselect" ? JSON.parse(f).join(", ") : f;
+                    if (displayValue) {
+                      if (v.type === "textarea" || v.type === "markdown") {
+                        return (
+                          <div className="mb-1 row" key={i}>
+                            <div className="text-muted col-auto">{v.name}</div>
+                            <div className="col">{displayValue}</div>
+                          </div>
+                        );
+                      } else {
+                        return (
+                          <div className="mb-1" key={i}>
+                            <span className="text-muted">{v.name}</span>
+                            {": "}
+                            {displayValue}
+                          </div>
+                        );
+                      }
                     }
                   }
                 }
-              });
+              );
             })}
           </div>
         )}

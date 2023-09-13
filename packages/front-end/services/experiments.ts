@@ -9,6 +9,7 @@ import {
 } from "back-end/types/report";
 import {
   CustomField,
+  CustomFieldSection,
   MetricDefaults,
   OrganizationSettings,
 } from "back-end/types/organization";
@@ -426,18 +427,22 @@ export function useCustomFields() {
   return customFields;
 }
 
-export function filterCustomFieldsForProject(
+export function filterCustomFieldsForSectionAndProject(
   customFields: CustomField[] | undefined,
+  section: CustomFieldSection,
   project: string | undefined
 ) {
-  // for the moment, is an experiment is in none/all projects, project scoped custom fields will not be available to it.
+  // for the moment, an experiment is in none/all projects, project scoped custom fields will not be available to it.
   // if (!project) {
   //   return customFields;
   // }
-  if (!customFields || customFields.length === 0 || !project) {
-    return customFields;
+  const filteredCustomFields = customFields?.filter(
+    (v) => v.section === section
+  );
+  if (!filteredCustomFields || filteredCustomFields.length === 0 || !project) {
+    return filteredCustomFields;
   }
-  return customFields.filter((v) => {
+  return filteredCustomFields.filter((v) => {
     if (v.projects && v.projects.length && v.projects[0] !== "") {
       let matched = false;
       v.projects.forEach((p) => {

@@ -1,5 +1,9 @@
 import { useForm } from "react-hook-form";
-import { CustomField, CustomFieldTypes } from "back-end/types/organization";
+import {
+  CustomField,
+  CustomFieldSection,
+  CustomFieldTypes,
+} from "back-end/types/organization";
 import uniqid from "uniqid";
 import React from "react";
 import { useAuth } from "@/services/auth";
@@ -15,10 +19,12 @@ import SelectField, { GroupedValue, SingleValue } from "../Forms/SelectField";
 
 export default function CustomFieldModal({
   existing,
+  section,
   close,
   onSuccess,
 }: {
   existing: Partial<CustomField>;
+  section: CustomFieldSection;
   close: () => void;
   onSuccess?: () => void;
 }) {
@@ -33,7 +39,7 @@ export default function CustomFieldModal({
       type: existing.type || "text",
       defaultValue:
         existing.defaultValue || existing.type === "boolean" ? false : "",
-      section: "experiment", // not supporting features yet
+      section: existing.section || section,
       projects: existing.projects || [project] || [],
       required: existing.required ?? false,
       dateCreated:
@@ -69,31 +75,33 @@ export default function CustomFieldModal({
           // make sure the default value is a boolean
           value.defaultValue = !!value.defaultValue;
         }
-        const newCustomFields = [...customFields];
+        const newCustomFields = customFields ? [...customFields] : [];
         if (existing.id) {
           const edit = newCustomFields.filter((e) => e.id === existing.id)[0];
           if (!edit) throw new Error("Could not edit custom field");
-          edit.name = value.name;
-          edit.type = value.type;
-          edit.required = value.required;
+          edit.name = value?.name ?? "";
+          edit.type = value?.type ?? "text";
+          edit.required = value?.required ?? false;
           edit.values = value.values;
           edit.defaultValue = value.defaultValue;
-          edit.description = value.description;
+          edit.description = value?.description ?? "";
           edit.projects = value.projects;
+          edit.section = section;
         } else {
           newCustomFields.push({
-            id: value.id.toLowerCase(),
-            name: value.name,
+            id: value?.id?.toLowerCase() ?? "",
+            name: value.name ?? "",
             values: value.values,
-            description: value.description,
-            placeholder: value.placeholder,
+            description: value.description ?? "",
+            placeholder: value.placeholder ?? "",
             defaultValue: value.defaultValue,
             projects: value.projects,
-            type: value.type,
-            required: value.required,
+            type: value.type ?? "text",
+            required: value.required ?? false,
             creator: userId,
-            dateCreated: value.dateCreated,
-            active: value.active,
+            dateCreated: value.dateCreated ?? new Date().toISOString(),
+            active: value.active ?? true,
+            section: section,
           });
         }
         // Add/edit environment
@@ -124,7 +132,7 @@ export default function CustomFieldModal({
       <div className="mb-3">
         <SelectField
           label="Type"
-          value={form.watch("type")}
+          value={form.watch("type") ?? "text"}
           options={fieldOptions.map((o) => ({ label: o, value: o }))}
           onChange={(v: CustomFieldTypes) => {
             form.setValue("type", v);
@@ -170,7 +178,7 @@ export default function CustomFieldModal({
           <div className="form-group">
             <label>Projects (optional)</label>
             <MultiSelectField
-              value={form.watch("projects")}
+              value={form.watch("projects") ?? []}
               name="projects"
               options={availableProjects}
               onChange={(v) => {

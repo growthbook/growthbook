@@ -954,6 +954,7 @@ export default function SinglePage({
                 experiment={experiment}
                 canEdit={canEditExperiment}
                 mutate={mutate}
+                section={"experiment"}
               />
             </div>
 

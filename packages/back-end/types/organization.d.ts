@@ -152,6 +152,8 @@ export type CustomFieldTypes =
   | "number"
   | "boolean";
 
+export type CustomFieldSection = "experiment" | "feature";
+
 export type CustomField = {
   id: string;
   name: string;
@@ -164,7 +166,7 @@ export type CustomField = {
   index?: boolean;
   creator?: string;
   projects?: string[];
-  section?: "experiment" | "feature";
+  section?: CustomFieldSection;
   dateCreated: string | Date;
   active: boolean;
 };

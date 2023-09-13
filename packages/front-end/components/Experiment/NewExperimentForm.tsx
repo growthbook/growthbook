@@ -17,7 +17,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import { getExposureQuery } from "@/services/datasources";
 import { getEqualWeights } from "@/services/utils";
 import {
-  filterCustomFieldsForProject,
+  filterCustomFieldsForSectionAndProject,
   useCustomFields,
 } from "@/services/experiments";
 import { generateVariationId, useAttributeSchema } from "@/services/features";
@@ -208,8 +208,9 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
     },
   });
   const [selectedProject, setSelectedProject] = useState(form.watch("project"));
-  const customFields = filterCustomFieldsForProject(
+  const customFields = filterCustomFieldsForSectionAndProject(
     useCustomFields(),
+    "experiment",
     selectedProject
   );
 
@@ -415,6 +416,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
           <CustomFieldInput
             customFields={customFields}
             form={form}
+            section={"experiment"}
             project={selectedProject}
           />
         </Page>
