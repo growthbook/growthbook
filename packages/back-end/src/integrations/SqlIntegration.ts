@@ -1475,7 +1475,7 @@ export default abstract class SqlIntegration
           timestampColumn: "event_time",
           userIdColumn: "user_id",
           anonymousIdColumn: "amplitude_id",
-          getMetricTableName: (schema: string) =>
+          getMetricTableName: (schema?: string) =>
             this.generateTablePath(
               `EVENTS_${this.settings.schemaOptions?.projectId || `*`}`,
               schema
@@ -1497,7 +1497,7 @@ export default abstract class SqlIntegration
           timestampColumn: "TIMESTAMP_MICROS(event_timestamp)",
           userIdColumn: "user_id",
           anonymousIdColumn: "user_pseudo_id",
-          getMetricTableName: (schema: string) =>
+          getMetricTableName: (schema?: string) =>
             this.generateTablePath("events_*", schema),
           getDateLimitClause: (start: Date, end: Date) =>
             `_TABLE_SUFFIX BETWEEN '${formatDate(
@@ -1518,7 +1518,7 @@ export default abstract class SqlIntegration
           userIdColumn: "user_id",
           anonymousIdColumn: "anonymous_id",
           displayNameColumn: "event_text",
-          getMetricTableName: (eventName: string, schema: string) =>
+          getMetricTableName: (eventName: string, schema?: string) =>
             this.generateTablePath(eventName, schema),
           getDateLimitClause: (start: Date, end: Date) =>
             `received_at BETWEEN '${formatDate(
