@@ -118,6 +118,7 @@ export class GrowthBook<
       this._ctx.backgroundSync !== false &&
       (this._ctx.subscribeToChanges || (options && options.autoRefresh))
     ) {
+      console.log("subscribing to 'this':", this);
       subscribe(this);
     }
   }

@@ -10,6 +10,7 @@ if (fs.existsSync(".env.local")) {
 }
 
 export const IS_CLOUD = !!process.env.IS_CLOUD;
+console.log("process.env.IS_CLOUD", process.env.IS_CLOUD);
 
 export const UPLOAD_METHOD = (() => {
   if (IS_CLOUD) return "s3";

@@ -8,6 +8,7 @@ import { FaChevronRight, FaExclamationTriangle } from "react-icons/fa";
 import { datetime } from "shared/dates";
 import { getValidation } from "shared/util";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
+import { useFeatureIsOn } from "@growthbook/growthbook-react";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import { GBAddCircle, GBCircleArrowLeft, GBEdit } from "@/components/Icons";
 import LoadingOverlay from "@/components/LoadingOverlay";
@@ -52,6 +53,7 @@ import Code from "@/components/SyntaxHighlighting/Code";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { useUser } from "@/services/UserContext";
 import { DeleteDemoDatasourceButton } from "@/components/DemoDataSourcePage/DemoDataSourcePage";
+import { AppFeatures } from "@/types/app-features";
 
 export default function FeaturePage() {
   const router = useRouter();
@@ -81,6 +83,10 @@ export default function FeaturePage() {
     project: currentProject,
     projects,
   } = useDefinitions();
+
+  const isEnabled = useFeatureIsOn("bug-test");
+
+  console.log("isEnabled", isEnabled);
 
   const { apiCall } = useAuth();
   const { hasCommercialFeature, organization } = useUser();
@@ -405,7 +411,8 @@ export default function FeaturePage() {
       </div>
 
       <div className="row align-items-center mb-2">
-        <h1 className="col-auto mb-0">{fid}</h1>
+        {/* <h1 className="col-auto mb-0">{fid}</h1> */}
+        <h1>{isEnabled ? "ON!" : "OFF!"}</h1>
       </div>
 
       <div className="mb-2 row">

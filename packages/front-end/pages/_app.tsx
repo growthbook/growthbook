@@ -26,14 +26,15 @@ type ModAppProps = AppProps & {
 };
 
 const growthbook = new GrowthBook<AppFeatures>({
-  apiHost: "https://cdn.growthbook.io",
-  clientKey:
-    process.env.NODE_ENV === "production"
-      ? "sdk-ueFMOgZ2daLa0M"
-      : "sdk-UmQ03OkUDAu7Aox",
+  // apiHost: "https://cdn.growthbook.io",
+  apiHost: "http://localhost:3300",
+  clientKey: "sdk-69M0SZBv1l26cft",
+  // process.env.NODE_ENV === "production"
+  //   ? "sdk-ueFMOgZ2daLa0M"
+  //   : "sdk-UmQ03OkUDAu7Aox",
   enableDevMode: true,
   subscribeToChanges: true,
-  realtimeKey: "key_prod_cb40dfcb0eb98e44",
+  // realtimeKey: "key_prod_cb40dfcb0eb98e44",
   trackingCallback: (experiment, result) => {
     track("Experiment Viewed", {
       experimentId: experiment.key,
@@ -74,11 +75,17 @@ function App({
   }, [ready]);
 
   useEffect(() => {
-    // Load feature definitions JSON from GrowthBook API
-    growthbook.loadFeatures().catch(() => {
-      console.log("Failed to fetch GrowthBook feature definitions");
-    });
-  }, [router.pathname]);
+    // Load features from the GrowthBook API and initialize the SDK
+    growthbook.loadFeatures();
+    console.log("growthbook", growthbook);
+  }, []);
+
+  // useEffect(() => {
+  //   // Load feature definitions JSON from GrowthBook API
+  //   growthbook.loadFeatures().catch(() => {
+  //     console.log("Failed to fetch GrowthBook feature definitions");
+  //   });
+  // }, [router.pathname]);
 
   return (
     <>
