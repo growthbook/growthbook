@@ -1,9 +1,15 @@
-import { FC } from "react";
+import { FC, useState } from "react";
+import { FaUsers } from "react-icons/fa";
+import { TeamInterface } from "back-end/types/team";
 import usePermissions from "@/hooks/usePermissions";
 import TeamsList from "@/components/Settings/Teams/TeamsList";
+import TeamModal from "@/components/Teams/TeamModal";
 
 const TeamPage: FC = () => {
   const permissions = usePermissions();
+  const [modalOpen, setModalOpen] = useState<Partial<TeamInterface> | null>(
+    null
+  );
 
   if (!permissions.manageTeam) {
     return (
@@ -16,10 +22,35 @@ const TeamPage: FC = () => {
   }
 
   return (
-    <div className="container-fluid pagecontents">
-      <h1>Teams</h1>
-      <TeamsList />
-    </div>
+    <>
+      {modalOpen && (
+        <TeamModal
+          existing={modalOpen}
+          close={() => setModalOpen(null)}
+          onSuccess={() => new Promise(() => undefined)}
+        />
+      )}
+      <div className="container-fluid pagecontents">
+        <div className="filters md-form row mb-3 align-items-center">
+          <div className="col-auto d-flex">
+            <h1>Teams</h1>
+          </div>
+          <div style={{ flex: 1 }} />
+          <div className="col-auto">
+            <button
+              className="btn btn-primary"
+              onClick={(e) => {
+                e.preventDefault();
+                setModalOpen({});
+              }}
+            >
+              <FaUsers /> Create Team
+            </button>
+          </div>
+        </div>
+        <TeamsList />
+      </div>
+    </>
   );
 };
 export default TeamPage;

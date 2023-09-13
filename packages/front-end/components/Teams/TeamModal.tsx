@@ -1,0 +1,68 @@
+import { useForm } from "react-hook-form";
+import { TeamInterface } from "back-end/types/team";
+import { MemberRoleWithProjects } from "back-end/types/organization";
+import { useAuth } from "@/services/auth";
+import Modal from "@/components/Modal";
+import Field from "@/components/Forms/Field";
+import RoleSelector from "../Settings/Team/RoleSelector";
+
+export default function TeamModal({
+  existing,
+  close,
+  onSuccess,
+}: {
+  existing: Partial<TeamInterface>;
+  close: () => void;
+  onSuccess: () => Promise<void>;
+}) {
+  const form = useForm<{
+    name: string;
+    description: string;
+    roleInfo: MemberRoleWithProjects;
+  }>({
+    defaultValues: {
+      name: existing.name || "",
+      description: existing.description || "",
+      roleInfo: {
+        role: existing.role || "collaborator",
+        limitAccessByEnvironment: existing.limitAccessByEnvironment || false,
+        environments: existing.environments || [],
+        projectRoles: existing.projectRoles || [],
+      },
+    },
+  });
+  const { apiCall } = useAuth();
+
+  return (
+    <Modal
+      open={true}
+      close={close}
+      header={existing.id ? "Edit Team" : "Create Team"}
+      submit={form.handleSubmit(async (value) => {
+        await apiCall(existing.id ? `/teams/${existing.id}` : `/teams`, {
+          method: existing.id ? "PUT" : "POST",
+          body: JSON.stringify({
+            name: value.name,
+            description: value.description,
+            ...value.roleInfo,
+          }),
+        });
+        await onSuccess();
+      })}
+    >
+      <Field label="Name" maxLength={30} required {...form.register("name")} />
+      <Field
+        label="Description"
+        maxLength={100}
+        minRows={3}
+        maxRows={8}
+        textarea={true}
+        {...form.register("description")}
+      />
+      <RoleSelector
+        value={form.watch("roleInfo")}
+        setValue={(value) => form.setValue("roleInfo", value)}
+      />
+    </Modal>
+  );
+}

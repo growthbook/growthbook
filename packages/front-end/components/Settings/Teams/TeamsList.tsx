@@ -83,7 +83,7 @@ const TeamsList: FC = () => {
             </tbody>
           </table>
         ) : (
-          <p>Click the button in the top right to create your first project!</p>
+          <p>Click the button in the top right to create your first team!</p>
         )}
       </div>
     </div>

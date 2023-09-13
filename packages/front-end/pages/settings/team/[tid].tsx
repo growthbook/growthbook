@@ -10,6 +10,7 @@ import usePermissions from "@/hooks/usePermissions";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import { GBCircleArrowLeft, GBEdit } from "@/components/Icons";
 import RoleSelector from "@/components/Settings/Team/RoleSelector";
+import TeamModal from "@/components/Teams/TeamModal";
 
 type TeamResponse = {
   team: TeamInterface;
@@ -21,6 +22,7 @@ const TeamPage: FC = () => {
   const [team, setTeam] = useState<TeamInterface | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
   const [newTeam, setNewTeam] = useState<Partial<TeamInterface> | null>(null);
+  const [modalOpen, setModalOpen] = useState<boolean>(false);
 
   const permissions = usePermissions();
   const canManageTeam = permissions.check("manageTeam");
@@ -56,107 +58,118 @@ const TeamPage: FC = () => {
   }
 
   return (
-    <div className="container pagecontents">
-      <div className="mb-2">
-        <Link href="/settings/teams">
-          <a>
-            <GBCircleArrowLeft /> Back to all teams
-          </a>
-        </Link>
-      </div>
-      <div className="d-flex align-items-center mb-2">
-        <h1 className="mb-0">{team.name}</h1>
-        <div className="ml-1">
-          <a
-            href="#"
-            onClick={(e) => {
-              e.preventDefault();
-              // setModalOpen(p);
-            }}
-          >
-            <GBEdit />
-          </a>
+    <>
+      {modalOpen && (
+        <TeamModal
+          existing={team}
+          close={() => setModalOpen(false)}
+          onSuccess={() => new Promise(() => undefined)}
+        />
+      )}
+      <div className="container pagecontents">
+        <div className="mb-2">
+          <Link href="/settings/teams">
+            <a>
+              <GBCircleArrowLeft /> Back to all teams
+            </a>
+          </Link>
         </div>
-      </div>
-      <div className="d-flex align-items-center mb-2">
-        <div className="text-gray">
-          {team.description || <em>add description</em>}
-        </div>
-        <div className="ml-1">
-          <a
-            href="#"
-            onClick={(e) => {
-              e.preventDefault();
-              // setModalOpen(p);
-            }}
-          >
-            <GBEdit />
-          </a>
-        </div>
-      </div>
-
-      <h2 className="mt-4 mb-4">Team Members</h2>
-
-      <div className="mb-4">
-        <h5>Active Members{` (${team.members ? team.members.length : 0})`}</h5>
-        <table className="table appbox gbtable">
-          <thead>
-            <tr>
-              <th>Name</th>
-              <th>Email</th>
-              <th>Date Joined</th>
-              <th style={{ width: 50 }} />
-            </tr>
-          </thead>
-          <tbody>
-            {team.members?.map((member) => {
-              return (
-                <tr key={member.id}>
-                  <td>{member.name}</td>
-                  <td>{member.email}</td>
-                  <td>{member.dateCreated && datetime(member.dateCreated)}</td>
-                  <td>
-                    {canManageTeam && (
-                      <>
-                        <DeleteButton
-                          link={true}
-                          useIcon={true}
-                          // className="dropdown-item"
-                          displayName={member.email}
-                          onClick={async () => {
-                            await apiCall(`/member/${member.id}`, {
-                              method: "DELETE",
-                            });
-                            // mutate();
-                          }}
-                        />
-                      </>
-                    )}
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
-      <h2 className="mt-4 mb-4">Team Settings</h2>
-      <div className="row">
-        <div className="col-sm-6">
-          <div className="bg-white p-3 border">
-            <RoleSelector
-              value={{
-                environments: team.environments || [],
-                limitAccessByEnvironment: !!team.limitAccessByEnvironment,
-                role: team.role as MemberRole,
-                projectRoles: team.projectRoles,
+        <div className="d-flex align-items-center mb-2">
+          <h1 className="mb-0">{team.name}</h1>
+          <div className="ml-1">
+            <a
+              href="#"
+              onClick={(e) => {
+                e.preventDefault();
+                setModalOpen(true);
               }}
-              setValue={setNewTeam}
-              showUpgradeModal={() => false}
-            />
+            >
+              <GBEdit />
+            </a>
+          </div>
+        </div>
+        <div className="d-flex align-items-center mb-2">
+          <div className="text-gray">
+            {team.description || <em>add description</em>}
+          </div>
+          <div className="ml-1">
+            <a
+              href="#"
+              onClick={(e) => {
+                e.preventDefault();
+                setModalOpen(true);
+              }}
+            >
+              <GBEdit />
+            </a>
+          </div>
+        </div>
+
+        <h2 className="mt-4 mb-4">Team Members</h2>
+
+        <div className="mb-4">
+          <h5>
+            Active Members{` (${team.members ? team.members.length : 0})`}
+          </h5>
+          <table className="table appbox gbtable">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Email</th>
+                <th>Date Joined</th>
+                <th style={{ width: 50 }} />
+              </tr>
+            </thead>
+            <tbody>
+              {team.members?.map((member) => {
+                return (
+                  <tr key={member.id}>
+                    <td>{member.name}</td>
+                    <td>{member.email}</td>
+                    <td>
+                      {member.dateCreated && datetime(member.dateCreated)}
+                    </td>
+                    <td>
+                      {canManageTeam && (
+                        <>
+                          <DeleteButton
+                            link={true}
+                            useIcon={true}
+                            displayName={member.email}
+                            onClick={async () => {
+                              await apiCall(`/member/${member.id}`, {
+                                method: "DELETE",
+                              });
+                              // mutate();
+                            }}
+                          />
+                        </>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+        <h2 className="mt-4 mb-4">Team Settings</h2>
+        <div className="row">
+          <div className="col-sm-6">
+            <div className="bg-white p-3 border">
+              <RoleSelector
+                value={{
+                  environments: team.environments || [],
+                  limitAccessByEnvironment: !!team.limitAccessByEnvironment,
+                  role: team.role as MemberRole,
+                  projectRoles: team.projectRoles,
+                }}
+                setValue={setNewTeam}
+              />
+            </div>
           </div>
         </div>
       </div>
-    </div>
+    </>
   );
 };
 
