@@ -120,6 +120,16 @@ export default function AutoGenerateMetricsModal({
       ) {
         return;
       }
+
+      if (
+        datasourceObj.settings.schemaFormat === "amplitude" &&
+        !datasourceObj.settings?.schemaOptions?.projectId
+      ) {
+        setAutoMetricError(
+          "Missing Amplitude Project Id - Click the 'Edit Connection Info' button at the top of this page to add your project id."
+        );
+        return;
+      }
       try {
         setLoading(true);
         track("Generate Auto Metrics CTA Clicked", {

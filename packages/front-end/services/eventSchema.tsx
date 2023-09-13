@@ -165,6 +165,12 @@ export const eventSchemas: eventSchema[] = [
         defaultValue: "Experiment Viewed",
         type: "text",
       },
+      {
+        name: "projectId",
+        label: "Project ID",
+        defaultValue: "",
+        type: "text",
+      },
     ],
   },
   {

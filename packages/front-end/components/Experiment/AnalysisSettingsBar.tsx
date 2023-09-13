@@ -17,7 +17,10 @@ import {
 } from "react-icons/fa";
 import { OrganizationSettings } from "back-end/types/organization";
 import { ago, datetime, getValidDate } from "shared/dates";
-import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
+import {
+  DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
+  DEFAULT_STATS_ENGINE,
+} from "shared/constants";
 import { getSnapshotAnalysis } from "shared/util";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -545,8 +548,8 @@ export function isOutdated(
 
   if (
     isDifferent(
-      analysisSettings.statsEngine || "bayesian",
-      statsEngine || "bayesian"
+      analysisSettings.statsEngine || DEFAULT_STATS_ENGINE,
+      statsEngine || DEFAULT_STATS_ENGINE
     )
   ) {
     reasons.push("Stats engine changed");

@@ -48,7 +48,7 @@ export function dateStringArrayBetweenDates(
 }
 
 export function getValidDate(
-  dateStr: string | Date | null | number,
+  dateStr: string | Date | null | number | undefined,
   fallback?: Date
 ): Date {
   fallback = fallback || new Date();

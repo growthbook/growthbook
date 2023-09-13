@@ -21,6 +21,7 @@ import { useUser } from "@/services/UserContext";
 import { hasFileConfig } from "@/services/env";
 import usePermissions from "@/hooks/usePermissions";
 import { GBSequential } from "@/components/Icons";
+import StatsEngineSelect from "@/components/Settings/forms/StatsEngineSelect";
 import Modal from "../Modal";
 import Field from "../Forms/Field";
 import SelectField from "../Forms/SelectField";
@@ -80,10 +81,7 @@ const AnalysisForm: FC<{
   const { settings: scopedSettings } = getScopedSettings({
     organization,
     project: project ?? undefined,
-    experiment: experiment,
   });
-
-  const statsEngine = scopedSettings.statsEngine.value;
 
   const hasSequentialTestingFeature = hasCommercialFeature(
     "sequential-testing"
@@ -141,6 +139,7 @@ const AnalysisForm: FC<{
         getMetricById,
         orgSettings
       ),
+      statsEngine: experiment.statsEngine,
     },
   });
 
@@ -477,7 +476,16 @@ const AnalysisForm: FC<{
           ]}
         />
       )}
-      {statsEngine === "frequentist" && (
+      <StatsEngineSelect
+        value={form.watch("statsEngine")}
+        onChange={(v) => {
+          form.setValue("statsEngine", v);
+        }}
+        parentSettings={scopedSettings}
+        allowUndefined={true}
+      />
+      {(form.watch("statsEngine") || scopedSettings.statsEngine.value) ===
+        "frequentist" && (
         <div className="d-flex flex-row no-gutters align-items-top">
           <div className="col-5">
             <SelectField

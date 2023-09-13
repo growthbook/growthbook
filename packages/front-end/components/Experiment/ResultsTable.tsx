@@ -589,7 +589,7 @@ export default function ResultsTable({
                           body={
                             <div style={{ lineHeight: 1.5 }}>
                               {getPercentChangeTooltip(
-                                statsEngine ?? DEFAULT_STATS_ENGINE,
+                                statsEngine || DEFAULT_STATS_ENGINE,
                                 hasRisk,
                                 !!sequentialTestingEnabled,
                                 pValueCorrection ?? null
@@ -845,7 +845,11 @@ export default function ResultsTable({
                                 resultsHighlightClassname,
                                 "overflow-hidden"
                               )}
-                              rowStatus={rowResults.resultsStatus}
+                              rowStatus={
+                                statsEngine === "frequentist"
+                                  ? rowResults.resultsStatus
+                                  : undefined
+                              }
                               onMouseMove={(e) =>
                                 onPointerMove(e, {
                                   x: "element-center",
