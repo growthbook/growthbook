@@ -15,7 +15,6 @@ export default function RetryInformationSchemaCard({
         {error || informationSchema?.error?.message ? (
           <span>{error || informationSchema?.error?.message}</span>
         ) : null}
-        <div></div>
         <button
           className="btn btn-link"
           onClick={async (e) => {
