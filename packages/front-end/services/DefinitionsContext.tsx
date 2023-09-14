@@ -6,6 +6,7 @@ import { ProjectInterface } from "back-end/types/project";
 import { useContext, useMemo, createContext, FC, ReactNode } from "react";
 import { TagInterface } from "back-end/types/tag";
 import { SavedGroupInterface } from "back-end/types/saved-group";
+import { FactTableInterface } from "back-end/types/fact-table";
 import useApi from "@/hooks/useApi";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 
@@ -17,6 +18,7 @@ type Definitions = {
   projects: ProjectInterface[];
   savedGroups: SavedGroupInterface[];
   tags: TagInterface[];
+  factTables: FactTableInterface[];
 };
 
 type DefinitionContextValue = Definitions & {
@@ -33,6 +35,7 @@ type DefinitionContextValue = Definitions & {
   getProjectById: (id: string) => null | ProjectInterface;
   getSavedGroupById: (id: string) => null | SavedGroupInterface;
   getTagById: (id: string) => null | TagInterface;
+  getFactTableById: (id: string) => null | FactTableInterface;
 };
 
 const defaultValue: DefinitionContextValue = {
@@ -54,6 +57,7 @@ const defaultValue: DefinitionContextValue = {
   tags: [],
   savedGroups: [],
   projects: [],
+  factTables: [],
   getMetricById: () => null,
   getDatasourceById: () => null,
   getDimensionById: () => null,
@@ -61,6 +65,7 @@ const defaultValue: DefinitionContextValue = {
   getProjectById: () => null,
   getSavedGroupById: () => null,
   getTagById: () => null,
+  getFactTableById: () => null,
 };
 
 export const DefinitionsContext = createContext<DefinitionContextValue>(
@@ -116,6 +121,7 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
   const getProjectById = useGetById(data?.projects);
   const getSavedGroupById = useGetById(data?.savedGroups);
   const getTagById = useGetById(data?.tags);
+  const getFactTableById = useGetById(data?.factTables);
 
   let value: DefinitionContextValue;
   if (error) {
@@ -137,6 +143,7 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
       savedGroups: data.savedGroups,
       projects: data.projects,
       project: filteredProject,
+      factTables: data.factTables,
       setProject,
       getMetricById,
       getDatasourceById,
@@ -145,6 +152,7 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
       getProjectById,
       getSavedGroupById,
       getTagById,
+      getFactTableById,
       refreshTags: async (tags) => {
         const existingTags = data.tags.map((t) => t.id);
         const newTags = tags.filter((t) => !existingTags.includes(t));
