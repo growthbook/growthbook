@@ -13,6 +13,11 @@
     "attributionModel": "firstExposure"
   },
   {
+    "id": "activation_anonymous",
+    "activationMetric": "cart_loaded_anonymous",
+    "attributionModel": "firstExposure"
+  },
+  {
     "id": "activation_allExposures",
     "activationMetric": "cart_loaded",
     "attributionModel": "experimentDuration"

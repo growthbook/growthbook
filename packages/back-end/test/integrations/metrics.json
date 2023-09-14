@@ -6,6 +6,13 @@
     "sql": "SELECT\nuserId as user_id,\ntimestamp as timestamp,\nqty as value\nFROM orders"
   },
   {
+    "id": "nonbinom__purchased_items_anonymous",
+    "userIdTypes": ["anonymous_id"],
+    "type": "count",
+    "ignoreNulls": false,
+    "sql": "SELECT\nanonymousId as anonymous_id,\ntimestamp as timestamp,\nqty as value\nFROM orders"
+  },
+  {
     "id": "nonbinomcustom__purchased_items",
     "type": "count",
     "ignoreNulls": false,

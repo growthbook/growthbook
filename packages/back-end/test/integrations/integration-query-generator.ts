@@ -158,6 +158,15 @@ const allActivationMetrics: MetricInterface[] = [
     sql:
       "SELECT\nuserId as user_id,\ntimestamp as timestamp\nFROM events\nWHERE event = 'Cart Loaded'",
   },
+  {
+    ...baseMetric,
+    id: "cart_loaded_anonymous",
+    userIdTypes: ["anonymous_id"],
+    type: "binomial",
+    ignoreNulls: false,
+    sql:
+      "SELECT\nanonymousId as anonymous_id,\ntimestamp as timestamp\nFROM events\nWHERE event = 'Cart Loaded'",
+  },
 ];
 
 // Build full metric objects
@@ -187,6 +196,14 @@ function buildInterface(engine: string): DataSourceInterface {
               engine === "bigquery" ? "sample." : ""
             }experiment_viewed`,
             dimensions: ["browser"],
+          },
+        ],
+        identityJoins: [
+          {
+            ids: ["user_id", "anonymous_id"],
+            query: `SELECT DISTINCT\nuserId as user_id,anonymousId as anonymous_id\nFROM ${
+              engine === "bigquery" ? "sample." : ""
+            }orders`,
           },
         ],
       },

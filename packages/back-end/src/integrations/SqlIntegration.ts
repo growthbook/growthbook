@@ -1116,13 +1116,13 @@ export default abstract class SqlIntegration
     // add idTypes usually handled in units query here in the case where
     // we don't have a separate table for the units query
     if (!params.useUnitsTable) {
-      idTypeObjects.concat([
+      idTypeObjects.push(
         dimension?.type === "user"
           ? [dimension.dimension.userIdType || "user_id"]
           : [],
         segment ? [segment.userIdType || "user_id"] : [],
-        activationMetric?.userIdTypes || [],
-      ]);
+        activationMetric?.userIdTypes || []
+      );
     }
     const { baseIdType, idJoinMap, idJoinSQL } = this.getIdentitiesCTE(
       idTypeObjects,
@@ -1168,17 +1168,17 @@ export default abstract class SqlIntegration
               ? "first_activation_timestamp"
               : "first_exposure_timestamp"
           } AS timestamp,
-          ${this.dateTrunc("first_exposure_timestamp")} AS first_exposure_date,
+          ${this.dateTrunc("first_exposure_timestamp")} AS first_exposure_date
           ${
             isRegressionAdjusted
-              ? `${this.addHours(
+              ? `, ${this.addHours(
                   "first_exposure_timestamp",
                   minMetricDelay
-                )} AS preexposure_end,
-                ${this.addHours(
+                )} AS preexposure_end
+                , ${this.addHours(
                   "first_exposure_timestamp",
                   minMetricDelay - regressionAdjustmentHours
-                )} AS preexposure_start,`
+                )} AS preexposure_start`
               : ""
           }
         FROM ${
