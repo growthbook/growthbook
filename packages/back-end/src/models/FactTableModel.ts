@@ -1,7 +1,14 @@
 import mongoose from "mongoose";
 import uniqid from "uniqid";
 import { omit } from "lodash";
-import { FactInterface, FactTableInterface } from "../../types/fact-table";
+import {
+  CreateFactProps,
+  CreateFactTableProps,
+  FactInterface,
+  FactTableInterface,
+  UpdateFactProps,
+  UpdateFactTableProps,
+} from "../../types/fact-table";
 
 const factTableSchema = new mongoose.Schema({
   id: String,
@@ -49,20 +56,10 @@ export async function getAllFactTablesForOrganization(organization: string) {
   return docs.map((doc) => toInterface(doc));
 }
 
-export type CreateFactTableProps = Partial<
-  Pick<
-    FactTableInterface,
-    | "name"
-    | "description"
-    | "id"
-    | "owner"
-    | "tags"
-    | "projects"
-    | "datasource"
-    | "userIdTypes"
-    | "sql"
-  >
->;
+export async function getFactTable(organization: string, id: string) {
+  const doc = await FactTableModel.findOne({ organization, id });
+  return doc ? toInterface(doc) : null;
+}
 
 export async function createFactTable(
   organization: string,
@@ -72,33 +69,21 @@ export async function createFactTable(
   const doc = await FactTableModel.create({
     organization: organization,
     id: data.id || uniqid("ftb_"),
-    name: data.name || "",
-    description: data.description || "",
+    name: data.name,
+    description: data.description,
     dateCreated: new Date(),
     dateUpdated: new Date(),
-    datasource: data.datasource || "",
+    datasource: data.datasource,
     facts: [],
-    owner: data.owner || "",
-    projects: data.projects || [],
-    sql: data.sql || "",
-    tags: data.tags || [],
-    userIdTypes: data.userIdTypes || [],
+    owner: data.owner,
+    projects: data.projects,
+    sql: data.sql,
+    tags: data.tags,
+    userIdTypes: data.userIdTypes,
   });
   return toInterface(doc);
 }
 
-export type UpdateFactTableProps = Partial<
-  Pick<
-    FactTableInterface,
-    | "name"
-    | "description"
-    | "owner"
-    | "tags"
-    | "projects"
-    | "userIdTypes"
-    | "sql"
-  >
->;
 export async function updateFactTable(
   factTable: FactTableInterface,
   changes: UpdateFactTableProps
@@ -117,23 +102,20 @@ export async function updateFactTable(
   );
 }
 
-export type CreateFactProps = Partial<
-  Omit<FactInterface, "dateUpdated" | "dateCreated">
->;
 export async function createFact(
   factTable: FactTableInterface,
   data: CreateFactProps
 ) {
   const fact: FactInterface = {
     id: data.id || uniqid("fct_"),
-    name: data.name || "",
+    name: data.name,
     dateCreated: new Date(),
     dateUpdated: new Date(),
-    column: data.column || "",
-    type: data.type || "row",
-    numberFormat: data.numberFormat || null,
-    description: data.description || "",
-    where: data.where || "",
+    column: data.column,
+    type: data.type,
+    numberFormat: data.numberFormat,
+    description: data.description,
+    where: data.where,
   };
 
   if (factTable.facts.some((f) => f.id === fact.id)) {
@@ -154,14 +136,10 @@ export async function createFact(
       },
     }
   );
+
+  return fact;
 }
 
-export type UpdateFactProps = Partial<
-  Pick<
-    FactInterface,
-    "column" | "description" | "name" | "numberFormat" | "where"
-  >
->;
 export async function updateFact(
   factTable: FactTableInterface,
   factId: string,

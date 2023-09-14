@@ -1,6 +1,16 @@
-export type FactType = "number" | "row";
+import { z } from "zod";
+import {
+  createFactPropsValidator,
+  createFactTablePropsValidator,
+  factTypeValidator,
+  numberFormatValidator,
+  updateFactPropsValidator,
+  updateFactTablePropsValidator,
+} from "../src/routers/fact-table/fact-table.validators";
 
-export type FactNumberFormat = "number" | "currency" | "time:seconds" | null;
+export type FactType = z.infer<typeof factTypeValidator>;
+
+export type FactNumberFormat = z.infer<typeof numberFormatValidator>;
 
 export interface FactInterface {
   id: string;
@@ -29,3 +39,12 @@ export interface FactTableInterface {
   sql: string;
   facts: FactInterface[];
 }
+
+export type CreateFactTableProps = z.infer<
+  typeof createFactTablePropsValidator
+>;
+export type UpdateFactTableProps = z.infer<
+  typeof updateFactTablePropsValidator
+>;
+export type UpdateFactProps = z.infer<typeof updateFactPropsValidator>;
+export type CreateFactProps = z.infer<typeof createFactPropsValidator>;

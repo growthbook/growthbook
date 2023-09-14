@@ -91,6 +91,7 @@ import { segmentRouter } from "./routers/segment/segment.router";
 import { dimensionRouter } from "./routers/dimension/dimension.router";
 import { sdkConnectionRouter } from "./routers/sdk-connection/sdk-connection.router";
 import { projectRouter } from "./routers/project/project.router";
+import { factTableRouter } from "./routers/fact-table/fact-table.router";
 import verifyLicenseMiddleware from "./services/auth/verifyLicenseMiddleware";
 import { slackIntegrationRouter } from "./routers/slack-integration/slack-integration.router";
 import { dataExportRouter } from "./routers/data-export/data-export.router";
@@ -464,6 +465,8 @@ app.use("/dimensions", dimensionRouter);
 app.use("/sdk-connections", sdkConnectionRouter);
 
 app.use("/projects", projectRouter);
+
+app.use("/fact-tables", factTableRouter);
 
 app.use("/demo-datasource-project", demoDatasourceProjectRouter);
 
