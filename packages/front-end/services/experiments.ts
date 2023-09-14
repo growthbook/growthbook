@@ -580,6 +580,10 @@ export function getRowResults({
   experimentStatus: ExperimentStatus;
   displayCurrency: string;
 }): RowResults {
+  const compactNumberFormatter = Intl.NumberFormat("en-US", {
+    notation: "compact",
+    maximumFractionDigits: 2,
+  });
   const percentFormatter = new Intl.NumberFormat(undefined, {
     style: "percent",
     maximumFractionDigits: 2,
@@ -621,7 +625,13 @@ export function getRowResults({
 
   const hasData = !!stats?.value && !!baseline?.value;
   const enoughData = hasEnoughData(baseline, stats, metric, metricDefaults);
-  const enoughDataReason = `This metric has a minimum total of ${minSampleSize}; this value must be reached in one variation before results are displayed. The total metric value of the variation is ${stats.value} and the baseline total is ${baseline.value}.`;
+  const enoughDataReason =
+    `This metric has a minimum total of ${minSampleSize}; this value must be reached in one variation before results are displayed. ` +
+    `The total metric value of the variation is ${compactNumberFormatter.format(
+      stats.value
+    )} and the baseline total is ${compactNumberFormatter.format(
+      baseline.value
+    )}.`;
   const percentComplete =
     minSampleSize > 0
       ? Math.max(stats.value, baseline.value) / minSampleSize
