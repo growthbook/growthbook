@@ -9,6 +9,7 @@ import {
 } from "react-icons/fa";
 import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
+import { useFeatureIsOn } from "@growthbook/growthbook-react";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { hasFileConfig } from "@/services/env";
@@ -63,6 +64,8 @@ const DataSourcePage: FC = () => {
       checkDatasourceProjectPermissions(d, permissions, "createDatasources") &&
       !hasFileConfig()) ||
     false;
+
+  const pipelineEnabled = useFeatureIsOn("datasource-pipeline-mode");
 
   /**
    * Update the data source provided.
@@ -347,14 +350,16 @@ mixpanel.init('YOUR PROJECT TOKEN', {
                 />
               </div>
 
-              <div className="my-3 p-3 rounded border bg-white">
-                <DataSourcePipeline
-                  dataSource={d}
-                  onSave={updateDataSourceSettings}
-                  onCancel={() => undefined}
-                  canEdit={canEdit}
-                />
-              </div>
+              {d.type === "bigquery" && pipelineEnabled ? (
+                <div className="my-3 p-3 rounded border bg-white">
+                  <DataSourcePipeline
+                    dataSource={d}
+                    onSave={updateDataSourceSettings}
+                    onCancel={() => undefined}
+                    canEdit={canEdit}
+                  />
+                </div>
+              ) : null}
             </>
           )}
         </div>

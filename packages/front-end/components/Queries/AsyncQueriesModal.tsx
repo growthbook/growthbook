@@ -16,7 +16,6 @@ const AsyncQueriesModal: FC<{
     `/queries/${queries.join(",")}`
   );
 
-  console.log(data);
   const contents = (
     <>
       {error && (
