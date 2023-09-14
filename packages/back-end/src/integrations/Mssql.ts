@@ -2,6 +2,7 @@ import { MssqlConnectionParams } from "../../types/integrations/mssql";
 import { decryptDataSourceParams } from "../services/datasource";
 import { FormatDialect } from "../util/sql";
 import { findOrCreateConnection } from "../util/mssqlPoolManager";
+import { QueryResponse } from "../types/Integration";
 import SqlIntegration from "./SqlIntegration";
 
 export default class Mssql extends SqlIntegration {
@@ -20,7 +21,7 @@ export default class Mssql extends SqlIntegration {
   getSensitiveParamKeys(): string[] {
     return ["password"];
   }
-  async runQuery(sqlStr: string) {
+  async runQuery(sqlStr: string): Promise<QueryResponse> {
     const conn = await findOrCreateConnection(this.datasource, {
       server: this.params.server,
       port: parseInt(this.params.port + "", 10),
@@ -31,7 +32,7 @@ export default class Mssql extends SqlIntegration {
     });
 
     const results = await conn.request().query(sqlStr);
-    return results.recordset;
+    return { rows: results.recordset };
   }
 
   // MS SQL Server doesn't support the LIMIT keyword, so we have to use the TOP or OFFSET and FETCH keywords instead.
@@ -52,9 +53,6 @@ export default class Mssql extends SqlIntegration {
     //return `DATETRUNC(day, ${col})`; <- this is only supported in SQL Server 2022 preview.
     return `cast(${col} as DATE)`;
   }
-  stddev(col: string) {
-    return `STDEV(${col})`;
-  }
   ensureFloat(col: string): string {
     return `CAST(${col} as FLOAT)`;
   }
@@ -66,6 +64,17 @@ export default class Mssql extends SqlIntegration {
   }
   formatDateTimeString(col: string): string {
     return `CONVERT(VARCHAR(25), ${col}, 121)`;
+  }
+  percentileCapSelectClause(
+    capPercentile: number,
+    metricTable: string
+  ): string {
+    return `
+      SELECT 
+        APPROX_PERCENTILE_CONT(${capPercentile}) WITHIN GROUP (ORDER BY value) AS cap_value
+      FROM ${metricTable}
+      WHERE value IS NOT NULL
+    `;
   }
   getDefaultDatabase() {
     return this.params.database;

@@ -8,47 +8,45 @@ import {
   DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
   DEFAULT_STATS_ENGINE,
   DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
+  DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
 } from "shared/constants";
-import { getValidDate } from "shared/dates";
 import { getScopedSettings } from "shared/settings";
-import { getSnapshotAnalysis } from "shared/util";
+import {
+  getSnapshotAnalysis,
+  generateVariationId,
+  isAnalysisAllowed,
+} from "shared/util";
 import { updateExperiment } from "../models/ExperimentModel";
 import {
+  ExperimentSnapshotAnalysis,
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotInterface,
   ExperimentSnapshotSettings,
   MetricForSnapshot,
   SnapshotVariation,
 } from "../../types/experiment-snapshot";
-import {
-  getMetricsByIds,
-  insertMetric,
-  updateMetric,
-} from "../models/MetricModel";
+import { getMetricsByIds, insertMetric } from "../models/MetricModel";
 import { checkSrm, sumSquaresFromStats } from "../util/stats";
 import { addTags } from "../models/TagModel";
-import { WatchModel } from "../models/WatchModel";
+import {
+  addOrUpdateSnapshotAnalysis,
+  createExperimentSnapshotModel,
+  updateSnapshotAnalysis,
+} from "../models/ExperimentSnapshotModel";
 import {
   Dimension,
-  ExperimentMetricQueryResponse,
-  MetricValueParams,
-  MetricValueResult,
-  PastExperimentResult,
+  ExperimentMetricQueryResponseRows,
 } from "../types/Integration";
-import { createExperimentSnapshotModel } from "../models/ExperimentSnapshotModel";
 import {
   Condition,
-  MetricAnalysis,
   MetricInterface,
   MetricStats,
   Operator,
 } from "../../types/metric";
 import { SegmentInterface } from "../../types/segment";
 import { ExperimentInterface, MetricOverride } from "../../types/experiment";
-import { PastExperiment } from "../../types/past-experiments";
 import { promiseAllChunks } from "../util/promise";
 import { findDimensionById } from "../models/DimensionModel";
-import { getDataSourceById } from "../models/DataSourceModel";
 import { findSegmentById } from "../models/SegmentModel";
 import {
   DEFAULT_CONVERSION_WINDOW_HOURS,
@@ -68,18 +66,21 @@ import {
   ApiMetric,
 } from "../../types/openapi";
 import { MetricRegressionAdjustmentStatus } from "../../types/report";
-import { postMetricValidator } from "../validators/openapi";
+import {
+  postExperimentValidator,
+  postMetricValidator,
+  putMetricValidator,
+  updateExperimentValidator,
+} from "../validators/openapi";
 import { EventAuditUser } from "../events/event-types";
 import { VisualChangesetInterface } from "../../types/visual-changeset";
 import { findProjectById } from "../models/ProjectModel";
-import {
-  getMetricForSnapsot,
-  getReportVariations,
-  startExperimentAnalysis,
-} from "./reports";
-import { getMetricValue, QueryMap, startRun } from "./queries";
-import { getSourceIntegrationObject } from "./datasource";
-import { analyzeExperimentMetric } from "./stats";
+import { MetricAnalysisQueryRunner } from "../queryRunners/MetricAnalysisQueryRunner";
+import { ExperimentResultsQueryRunner } from "../queryRunners/ExperimentResultsQueryRunner";
+import { QueryMap, getQueryMap } from "../queryRunners/QueryRunner";
+import { getReportVariations, getMetricForSnapshot } from "./reports";
+import { getIntegrationFromDatasourceId } from "./datasource";
+import { analyzeExperimentMetric, analyzeExperimentResults } from "./stats";
 
 export const DEFAULT_METRIC_ANALYSIS_DAYS = 90;
 
@@ -98,72 +99,17 @@ export async function createMetric(data: Partial<MetricInterface>) {
   return metric;
 }
 
-export async function getMetricAnalysis(
-  metric: MetricInterface,
-  queryData: QueryMap
-): Promise<MetricAnalysis> {
-  const metricData = (queryData.get("metric")?.result as MetricValueResult) || {
-    users: 0,
-    count: 0,
-    mean: 0,
-    stddev: 0,
-  };
-
-  let total = (metricData.count || 0) * (metricData.mean || 0);
-  let count = metricData.count || 0;
-  const dates: { d: Date; v: number; s: number; c: number }[] = [];
-
-  // Calculate total from dates
-  if (metricData.dates) {
-    total = 0;
-    count = 0;
-
-    metricData.dates.forEach((d) => {
-      const mean = d.mean;
-      const stddev = d.stddev;
-
-      const dateTotal = (d.count || 0) * (d.mean || 0);
-      total += dateTotal;
-      count += d.count || 0;
-      dates.push({
-        d: getValidDate(d.date),
-        v: mean,
-        c: d.count || 0,
-        s: stddev,
-      });
-    });
-  }
-
-  const averageBase = count;
-  const average = averageBase > 0 ? total / averageBase : 0;
-
-  return {
-    createdAt: new Date(),
-    average,
-    dates,
-    segment: metric.segment || "",
-  };
-}
-
 export async function refreshMetric(
   metric: MetricInterface,
   orgId: string,
   metricAnalysisDays: number = DEFAULT_METRIC_ANALYSIS_DAYS
 ) {
   if (metric.datasource) {
-    const datasource = await getDataSourceById(
+    const integration = await getIntegrationFromDatasourceId(
+      metric.organization,
       metric.datasource,
-      metric.organization
+      true
     );
-    if (!datasource) {
-      throw new Error("Could not load metric datasource");
-    }
-    const integration = getSourceIntegrationObject(datasource);
-    if (integration.decryptionError) {
-      throw new Error(
-        "Could not decrypt data source credentials. View the data source settings for more info."
-      );
-    }
 
     let segment: SegmentInterface | undefined = undefined;
     if (metric.segment) {
@@ -183,35 +129,15 @@ export async function refreshMetric(
     const to = new Date();
     to.setDate(to.getDate() + 1);
 
-    const baseParams: Omit<MetricValueParams, "metric"> = {
+    const queryRunner = new MetricAnalysisQueryRunner(metric, integration);
+    await queryRunner.startAnalysis({
       from,
       to,
       name: `Last ${days} days`,
       includeByDate: true,
       segment,
-    };
-
-    const updates: Partial<MetricInterface> = {};
-
-    updates.runStarted = new Date();
-    updates.analysisError = "";
-
-    const { queries, result } = await startRun(
-      {
-        metric: getMetricValue(integration, {
-          ...baseParams,
-          metric,
-        }),
-      },
-      (queryData) => getMetricAnalysis(metric, queryData)
-    );
-
-    updates.queries = queries;
-    if (result) {
-      updates.analysis = result;
-    }
-
-    await updateMetric(metric.id, updates, orgId);
+      metric,
+    });
   } else {
     throw new Error("Cannot analyze manual metrics");
   }
@@ -265,7 +191,7 @@ export async function getManualSnapshotData(
       const metric = metricMap.get(m);
       return async () => {
         if (!metric) return;
-        const rows: ExperimentMetricQueryResponse = stats.map((s, i) => {
+        const rows: ExperimentMetricQueryResponseRows = stats.map((s, i) => {
           return {
             dimension: "All",
             variation: experiment.variations[i].key || i + "",
@@ -285,8 +211,7 @@ export async function getManualSnapshotData(
         const res = await analyzeExperimentMetric(
           getReportVariations(experiment, phase),
           metric,
-          rows,
-          20
+          rows
         );
         const data = res.dimensions[0];
         if (!data) return;
@@ -333,7 +258,7 @@ export function getSnapshotSettings({
     ]),
   ]
     .map((m) =>
-      getMetricForSnapsot(
+      getMetricForSnapshot(
         m,
         metricMap,
         metricRegressionAdjustmentStatuses,
@@ -499,7 +424,7 @@ export async function createSnapshot({
   analysisSettings: ExperimentSnapshotAnalysisSettings;
   metricRegressionAdjustmentStatuses: MetricRegressionAdjustmentStatus[];
   metricMap: Map<string, MetricInterface>;
-}) {
+}): Promise<ExperimentResultsQueryRunner> {
   const dimension = analysisSettings.dimensions[0] || null;
 
   const data: ExperimentSnapshotInterface = {
@@ -521,7 +446,14 @@ export async function createSnapshot({
     }),
     unknownVariations: [],
     multipleExposures: 0,
-    analyses: [],
+    analyses: [
+      {
+        dateCreated: new Date(),
+        results: [],
+        settings: analysisSettings,
+        status: "running",
+      },
+    ],
     status: "running",
   };
 
@@ -540,174 +472,82 @@ export async function createSnapshot({
     },
   });
 
-  const { queries, results } = await startExperimentAnalysis({
-    organization,
-    useCache,
+  const snapshot = await createExperimentSnapshotModel(data);
+
+  const integration = await getIntegrationFromDatasourceId(
+    experiment.organization,
+    experiment.datasource,
+    true
+  );
+
+  const queryRunner = new ExperimentResultsQueryRunner(
+    snapshot,
+    integration,
+    useCache
+  );
+  await queryRunner.startAnalysis({
     analysisSettings,
     snapshotSettings: data.settings,
     variationNames: experiment.variations.map((v) => v.name),
     metricMap,
   });
 
-  data.queries = queries;
+  return queryRunner;
+}
 
-  // Already finished (cached)
-  if (results?.dimensions) {
-    data.analyses.push({
-      dateCreated: new Date(),
-      results: results.dimensions,
-      settings: analysisSettings,
-      status: "success",
-    });
-    data.unknownVariations = results.unknownVariations;
-    data.multipleExposures = results.multipleExposures;
-    data.status = "success";
-  }
-  // Still running
-  else {
-    data.analyses.push({
-      dateCreated: new Date(),
-      results: [],
-      settings: analysisSettings,
-      status: "running",
-    });
-    data.status = "running";
+export async function createSnapshotAnalysis({
+  experiment,
+  organization,
+  analysisSettings,
+  metricMap,
+  snapshot,
+}: {
+  experiment: ExperimentInterface;
+  organization: OrganizationInterface;
+  analysisSettings: ExperimentSnapshotAnalysisSettings;
+  metricMap: Map<string, MetricInterface>;
+  snapshot: ExperimentSnapshotInterface;
+}): Promise<void> {
+  // check if analysis is possible
+  if (!isAnalysisAllowed(snapshot.settings, analysisSettings)) {
+    throw new Error("Analysis not allowed with this snapshot");
   }
 
-  const snapshot = await createExperimentSnapshotModel(data);
+  if (
+    snapshot.queries.some(
+      (q) => q.status === "failed" || q.status === "running"
+    )
+  ) {
+    throw new Error("Snapshot queries not available for analysis");
+  }
+  const analysis: ExperimentSnapshotAnalysis = {
+    results: [],
+    status: "running",
+    settings: analysisSettings,
+    dateCreated: new Date(),
+  };
+  // and analysis to mongo record if it does not exist, overwrite if it does
+  addOrUpdateSnapshotAnalysis(organization.id, snapshot.id, analysis);
 
-  // TODO: https://linear.app/growthbook/issue/GB-20/[be]-create-events-for-experiment-snapshots-experiment-results
-
-  return snapshot;
-}
-
-export async function ensureWatching(
-  userId: string,
-  orgId: string,
-  item: string,
-  type: "experiments" | "features"
-) {
-  await WatchModel.updateOne(
-    {
-      userId,
-      organization: orgId,
-    },
-    {
-      $addToSet: {
-        [type]: item,
-      },
-    },
-    {
-      upsert: true,
-    }
+  // Format data correctly
+  const queryMap: QueryMap = await getQueryMap(
+    organization.id,
+    snapshot.queries
   );
-}
 
-export async function getExperimentWatchers(
-  experimentId: string,
-  orgId: string
-) {
-  const watchers = await WatchModel.find({
-    experiments: experimentId,
-    organization: orgId,
+  // Run the analysis
+  const results = await analyzeExperimentResults({
+    queryData: queryMap,
+    snapshotSettings: snapshot.settings,
+    analysisSettings: analysisSettings,
+    variationNames: experiment.variations.map((v) => v.name),
+    metricMap: metricMap,
   });
-  return watchers;
-}
+  analysis.results = results.dimensions || [];
+  analysis.status = "success";
+  analysis.error = undefined;
 
-export async function processPastExperiments(
-  data: QueryMap
-): Promise<PastExperiment[]> {
-  const experiments =
-    (data.get("experiments")?.result as PastExperimentResult)?.experiments ||
-    [];
-
-  // Group by experiment and exposureQuery
-  const experimentExposureMap = new Map<string, PastExperiment>();
-  experiments.forEach((e) => {
-    const key = e.experiment_id + "::" + e.exposureQueryId;
-    let el = experimentExposureMap.get(key);
-    if (!el) {
-      el = {
-        endDate: e.end_date,
-        startDate: e.start_date,
-        numVariations: 1,
-        variationKeys: [e.variation_id],
-        variationNames: [e.variation_name || ""],
-        exposureQueryId: e.exposureQueryId || "",
-        trackingKey: e.experiment_id,
-        experimentName: e.experiment_name,
-        users: e.users,
-        weights: [e.users],
-      };
-      experimentExposureMap.set(key, el);
-    } else {
-      if (e.start_date < el.startDate) {
-        el.startDate = e.start_date;
-      }
-      if (e.end_date > el.endDate) {
-        el.endDate = e.end_date;
-      }
-      if (!el.variationKeys.includes(e.variation_id)) {
-        el.variationKeys.push(e.variation_id);
-        el.weights.push(e.users);
-        el.users += e.users;
-        el.numVariations++;
-        el.variationNames?.push(e.variation_name || "");
-      }
-    }
-  });
-
-  // Group by experiment, choosing the exposure query with the most users
-  const experimentMap = new Map<string, PastExperiment>();
-  experimentExposureMap.forEach((exp) => {
-    const key = exp.trackingKey;
-    const el = experimentMap.get(key);
-    if (!el || el.users < exp.users) {
-      experimentMap.set(key, exp);
-    }
-  });
-
-  // Round the weights
-  const possibleWeights = [
-    5,
-    10,
-    16,
-    20,
-    25,
-    30,
-    33,
-    40,
-    50,
-    60,
-    67,
-    70,
-    75,
-    80,
-    90,
-    95,
-  ];
-  experimentMap.forEach((exp) => {
-    const totalWeight = exp.weights.reduce((sum, weight) => sum + weight, 0);
-    exp.weights = exp.weights.map((w) => {
-      // Map the observed percentage traffic to the closest reasonable number
-      const p = Math.round((w / totalWeight) * 100);
-      return possibleWeights
-        .map((x) => [x, Math.abs(x - p)])
-        .sort((a, b) => a[1] - b[1])[0][0];
-    });
-
-    // Make sure total weight adds to 1 (if not, increase the control until it does)
-    const newTotalWeight = exp.weights.reduce((sum, weight) => sum + weight, 0);
-    if (newTotalWeight < 100) {
-      exp.weights[0] += 100 - newTotalWeight;
-    }
-    exp.weights = exp.weights.map((w) => w / 100);
-  });
-
-  // Filter out experiments with too few or too many variations
-  return Array.from(experimentMap.values()).filter(
-    (e) => e.numVariations > 1 && e.numVariations < 10
-  );
+  updateSnapshotAnalysis(organization.id, snapshot.id, analysis);
 }
 
 function getExperimentMetric(
@@ -766,6 +606,7 @@ export async function toExperimentApiInterface(
     status: experiment.status,
     autoRefresh: !!experiment.autoSnapshots,
     hashAttribute: experiment.hashAttribute || "id",
+    hashVersion: experiment.hashVersion || 2,
     variations: experiment.variations.map((v) => ({
       variationId: v.id,
       key: v.key,
@@ -818,6 +659,7 @@ export async function toExperimentApiInterface(
             winner: experiment.variations[experiment.winner ?? 0]?.id || "",
             conclusions: experiment.analysis || "",
             releasedVariationId: experiment.releasedVariationId || "",
+            excludeFromPayload: !!experiment.excludeFromPayload,
           },
         }
       : null),
@@ -1032,6 +874,26 @@ export function postMetricApiPayloadIsValid(
             "`behavior.maxPercentChange` must be greater than `behavior.minPercentChange`",
         };
     }
+
+    // Check capping args + capping values
+    const { capping, capValue } = behavior;
+
+    const cappingExists = typeof capping !== "undefined" && capping !== null;
+    const capValueExists = typeof capValue !== "undefined";
+    if (cappingExists !== capValueExists) {
+      return {
+        valid: false,
+        error:
+          "Must specify both `behavior.capping` (as non-null) and `behavior.capValue` or neither.",
+      };
+    }
+    if (capping === "percentile" && (capValue || 0) > 1) {
+      return {
+        valid: false,
+        error:
+          "When using percentile capping, `behavior.capValue` must be between 0 and 1.",
+      };
+    }
   }
 
   // Validate for payload.sql
@@ -1057,6 +919,158 @@ export function postMetricApiPayloadIsValid(
       return {
         valid: false,
         error: "Mixpanel datasources must provide `mixpanel`",
+      };
+  }
+
+  // Validate payload.sqlBuilder
+  if (sqlBuilder) {
+    // Validate binomial metrics
+    if (
+      type === "binomial" &&
+      typeof sqlBuilder.valueColumnName !== "undefined"
+    )
+      return {
+        valid: false,
+        error: "Binomial metrics cannot have a valueColumnName",
+      };
+  }
+
+  return {
+    valid: true,
+  };
+}
+
+export function putMetricApiPayloadIsValid(
+  payload: z.infer<typeof putMetricValidator.bodySchema>
+): { valid: true } | { valid: false; error: string } {
+  const { type, sql, sqlBuilder, mixpanel, behavior } = payload;
+
+  // Validate query format: sql, sqlBuilder, mixpanel
+  let queryFormatCount = 0;
+  if (sqlBuilder) {
+    queryFormatCount++;
+  }
+  if (sql) {
+    queryFormatCount++;
+  }
+  if (mixpanel) {
+    queryFormatCount++;
+  }
+  if (queryFormatCount > 1) {
+    return {
+      valid: false,
+      error: "Can only specify one of: sql, sqlBuilder, mixpanel",
+    };
+  }
+
+  // Validate behavior
+  if (behavior) {
+    const { riskThresholdDanger, riskThresholdSuccess } = behavior;
+
+    // Enforce that both and riskThresholdSuccess exist, or neither
+    const riskDangerExists = typeof riskThresholdDanger !== "undefined";
+    const riskSuccessExists = typeof riskThresholdSuccess !== "undefined";
+    if (riskDangerExists !== riskSuccessExists)
+      return {
+        valid: false,
+        error:
+          "Must provide both riskThresholdDanger and riskThresholdSuccess or neither.",
+      };
+
+    // We have both. Make sure they're valid
+    if (riskDangerExists && riskSuccessExists) {
+      // Enforce riskThresholdDanger must be higher than riskThresholdSuccess
+      if (riskThresholdDanger < riskThresholdSuccess)
+        return {
+          valid: false,
+          error: "riskThresholdDanger must be higher than riskThresholdSuccess",
+        };
+    }
+
+    // Validate conversion window
+    const { conversionWindowEnd, conversionWindowStart } = behavior;
+    const conversionWindowEndExists =
+      typeof conversionWindowEnd !== "undefined";
+    const conversionWindowStartExists =
+      typeof conversionWindowStart !== "undefined";
+    if (conversionWindowEndExists !== conversionWindowStartExists) {
+      return {
+        valid: false,
+        error:
+          "Must specify both `behavior.conversionWindowStart` and `behavior.conversionWindowEnd` or neither",
+      };
+    }
+
+    if (conversionWindowEndExists && conversionWindowStartExists) {
+      // Enforce conversion window end is greater than start
+      if (conversionWindowEnd <= conversionWindowStart)
+        return {
+          valid: false,
+          error:
+            "`behavior.conversionWindowEnd` must be greater than `behavior.conversionWindowStart`",
+        };
+    }
+
+    // Min/max percentage change
+    const { maxPercentChange, minPercentChange } = behavior;
+    const maxPercentExists = typeof maxPercentChange !== "undefined";
+    const minPercentExists = typeof minPercentChange !== "undefined";
+    // Enforce both max/min percent or neither
+    if (maxPercentExists !== minPercentExists)
+      return {
+        valid: false,
+        error:
+          "Must specify both `behavior.maxPercentChange` and `behavior.minPercentChange` or neither",
+      };
+
+    if (maxPercentExists && minPercentExists) {
+      // Enforce max is greater than min
+      if (maxPercentChange <= minPercentChange)
+        return {
+          valid: false,
+          error:
+            "`behavior.maxPercentChange` must be greater than `behavior.minPercentChange`",
+        };
+    }
+
+    // Check capping args + capping values
+    const { capping, capValue } = behavior;
+
+    const cappingExists = typeof capping !== "undefined" && capping !== null;
+    const capValueExists = typeof capValue !== "undefined";
+    if (cappingExists !== capValueExists) {
+      return {
+        valid: false,
+        error:
+          "Must specify `behavior.capping` (as non-null) and `behavior.capValue` or neither.",
+      };
+    }
+    if (capping === "percentile" && (capValue || 0) > 1) {
+      return {
+        valid: false,
+        error:
+          "When using percentile capping, `behavior.capValue` must be between 0 and 1.",
+      };
+    }
+  }
+
+  // Validate for payload.sql
+  if (sql) {
+    // Validate binomial metrics
+    if (type === "binomial" && typeof sql.userAggregationSQL !== "undefined")
+      return {
+        valid: false,
+        error: "Binomial metrics cannot have userAggregationSQL",
+      };
+  }
+
+  // Validate payload.mixpanel
+  if (mixpanel) {
+    // Validate binomial metrics
+    if (type === "binomial" && typeof mixpanel.eventValue !== "undefined")
+      return {
+        valid: false,
+        error: "Binomial metrics cannot have an eventValue",
       };
   }
 
@@ -1126,8 +1140,14 @@ export function postMetricApiPayloadToMetricInterface(
 
   // Assign all undefined behavior fields to the metric
   if (behavior) {
-    if (typeof behavior.cap !== "undefined") {
-      metric.cap = behavior.cap;
+    if (typeof behavior.capping !== "undefined") {
+      metric.capping = behavior.capping;
+      metric.capValue = behavior.capValue;
+    }
+    // handle old post requests
+    else if (typeof behavior.cap !== "undefined" && behavior.cap) {
+      metric.capping = "absolute";
+      metric.capValue = behavior.cap;
     }
 
     if (typeof behavior.conversionWindowStart !== "undefined") {
@@ -1209,6 +1229,157 @@ export function postMetricApiPayloadToMetricInterface(
   return metric;
 }
 
+/**
+ * Converts the OpenAPI PUT /metric payload to a {@link MetricInterface}
+ * @param payload
+ * @param organization
+ * @param datasource
+ */
+export function putMetricApiPayloadToMetricInterface(
+  payload: z.infer<typeof putMetricValidator.bodySchema>
+): Partial<MetricInterface> {
+  const {
+    behavior,
+    sql,
+    sqlBuilder,
+    mixpanel,
+    description,
+    name,
+    owner,
+    tags,
+    projects,
+    type,
+  } = payload;
+
+  const metric: Partial<MetricInterface> = {
+    ...(typeof description !== "undefined" ? { description } : {}),
+    ...(typeof name !== "undefined" ? { name } : {}),
+    ...(typeof owner !== "undefined" ? { owner } : {}),
+    ...(typeof tags !== "undefined" ? { tags } : {}),
+    ...(typeof projects !== "undefined" ? { projects } : {}),
+    ...(typeof type !== "undefined" ? { type } : {}),
+  };
+
+  // Assign all undefined behavior fields to the metric
+  if (behavior) {
+    if (typeof behavior.goal !== "undefined") {
+      metric.inverse = behavior.goal === "decrease";
+    }
+
+    if (typeof behavior.capping !== "undefined") {
+      metric.capping = behavior.capping;
+      if (behavior.capping !== null) {
+        metric.capValue = behavior.capValue;
+      }
+    }
+
+    if (typeof behavior.conversionWindowStart !== "undefined") {
+      // The start of a Conversion Window relative to the exposure date, in hours. This is equivalent to the Conversion Delay
+      metric.conversionDelayHours = behavior.conversionWindowStart;
+    }
+
+    if (
+      typeof behavior.conversionWindowEnd !== "undefined" &&
+      typeof behavior.conversionWindowStart !== "undefined"
+    ) {
+      // The end of a Conversion Window relative to the exposure date, in hours.
+      // This is equivalent to the Conversion Delay + Conversion Window Hours settings in the UI. In other words,
+      // if you want a 48 hour window starting after 24 hours, you would set conversionWindowStart to 24 and
+      // conversionWindowEnd to 72 (24+48).
+      metric.conversionWindowHours =
+        behavior.conversionWindowEnd - behavior.conversionWindowStart;
+    }
+
+    if (typeof behavior.maxPercentChange !== "undefined") {
+      metric.maxPercentChange = behavior.maxPercentChange;
+    }
+
+    if (typeof behavior.minPercentChange !== "undefined") {
+      metric.minPercentChange = behavior.minPercentChange;
+    }
+
+    if (typeof behavior.minSampleSize !== "undefined") {
+      metric.minSampleSize = behavior.minSampleSize;
+    }
+
+    if (typeof behavior.riskThresholdDanger !== "undefined") {
+      metric.loseRisk = behavior.riskThresholdDanger;
+    }
+
+    if (typeof behavior.riskThresholdSuccess !== "undefined") {
+      metric.winRisk = behavior.riskThresholdSuccess;
+    }
+  }
+
+  if (sqlBuilder) {
+    metric.queryFormat = "builder";
+  } else if (sql) {
+    metric.queryFormat = "sql";
+  }
+
+  // Conditions
+  if (mixpanel?.conditions) {
+    metric.conditions = mixpanel.conditions.map(
+      ({ operator, property, value }) => ({
+        column: property,
+        operator: operator as Operator,
+        value: value,
+      })
+    );
+  } else if (sqlBuilder?.conditions) {
+    metric.conditions = sqlBuilder.conditions as Condition[];
+  }
+
+  if (sqlBuilder) {
+    if (typeof sqlBuilder.tableName !== "undefined") {
+      metric.table = sqlBuilder.tableName;
+    }
+    if (typeof sqlBuilder.timestampColumnName !== "undefined") {
+      metric.timestampColumn = sqlBuilder.timestampColumnName;
+    }
+    if (typeof sqlBuilder.valueColumnName !== "undefined") {
+      metric.column = sqlBuilder.valueColumnName;
+    }
+    if (typeof sqlBuilder.identifierTypeColumns !== "undefined") {
+      metric.userIdColumns = (sqlBuilder?.identifierTypeColumns || []).reduce<
+        Record<string, string>
+      >((acc, { columnName, identifierType }) => {
+        acc[columnName] = identifierType;
+        return acc;
+      }, {});
+    }
+  }
+
+  if (sql) {
+    if (typeof sql.userAggregationSQL !== "undefined") {
+      metric.aggregation = sql.userAggregationSQL;
+    }
+    if (typeof sql.denominatorMetricId !== "undefined") {
+      metric.denominator = sql.denominatorMetricId;
+    }
+    if (typeof sql.identifierTypes !== "undefined") {
+      metric.userIdTypes = sql.identifierTypes;
+    }
+    if (typeof sql.conversionSQL !== "undefined") {
+      metric.sql = sql.conversionSQL;
+    }
+  }
+
+  if (mixpanel) {
+    if (typeof mixpanel.userAggregation !== "undefined") {
+      metric.aggregation = mixpanel.userAggregation;
+    }
+    if (typeof mixpanel.eventName !== "undefined") {
+      metric.table = mixpanel.eventName;
+    }
+    if (typeof mixpanel.eventValue !== "undefined") {
+      metric.column = mixpanel.eventValue;
+    }
+  }
+
+  return metric;
+}
+
 export function toMetricApiInterface(
   organization: OrganizationInterface,
   metric: MetricInterface,
@@ -1238,7 +1409,8 @@ export function toMetricApiInterface(
     type: metric.type,
     behavior: {
       goal: metric.inverse ? "decrease" : "increase",
-      cap: metric.cap || 0,
+      capping: metric.capping,
+      capValue: metric.capValue || 0,
       minPercentChange:
         metric.minPercentChange ?? metricDefaults?.minPercentageChange ?? 0.005,
       maxPercentChange:
@@ -1265,9 +1437,7 @@ export function toMetricApiInterface(
         })),
       };
     } else if (datasource.type !== "google_analytics") {
-      const identifierTypes = metric.userIdTypes ?? [
-        metric.userIdType ?? "user_id",
-      ];
+      const identifierTypes = metric.userIdTypes ?? ["user_id"];
       obj.sql = {
         identifierTypes,
         // TODO: if builder mode is selected, use that to generate the SQL here
@@ -1280,14 +1450,7 @@ export function toMetricApiInterface(
         obj.sqlBuilder = {
           identifierTypeColumns: identifierTypes.map((t) => ({
             identifierType: t,
-            columnName:
-              metric.userIdColumns?.[t] ||
-              (t === "user_id"
-                ? metric.userIdColumn
-                : t === "anonymous_id"
-                ? metric.anonymousIdColumn
-                : t) ||
-              t,
+            columnName: metric.userIdColumns?.[t] || t,
           })),
           tableName: metric.table || "",
           valueColumnName: metric.column || "",
@@ -1299,6 +1462,187 @@ export function toMetricApiInterface(
   }
 
   return obj;
+}
+
+export const toNamespaceRange = (
+  raw: number[] | undefined
+): [number, number] => [raw?.[0] ?? 0, raw?.[1] ?? 1];
+/**
+ * Converts the OpenAPI POST /experiment payload to a {@link ExperimentInterface}
+ * @param payload
+ * @param organization
+ * @param datasource
+ * @param userId
+ */
+export function postExperimentApiPayloadToInterface(
+  payload: z.infer<typeof postExperimentValidator.bodySchema>,
+  organization: OrganizationInterface,
+  datasource: DataSourceInterface
+): Omit<ExperimentInterface, "dateCreated" | "dateUpdated" | "id"> {
+  const phases = payload.phases?.map((p) => ({
+    ...p,
+    dateStarted: new Date(p.dateStarted),
+    dateEnded: p.dateEnded ? new Date(p.dateEnded) : undefined,
+    reason: p.reason || "",
+    coverage: p.coverage != null ? p.coverage : 1,
+    condition: p.condition || "{}",
+    namespace: {
+      name: p.namespace?.namespaceId || "",
+      range: toNamespaceRange(p.namespace?.range),
+      enabled: p.namespace?.enabled != null ? p.namespace.enabled : false,
+    },
+    variationWeights:
+      p.variationWeights ||
+      payload.variations.map(() => 1 / payload.variations.length),
+  })) || [
+    {
+      coverage: 1,
+      dateStarted: new Date(),
+      name: "Main",
+      reason: "",
+      variationWeights: payload.variations.map(
+        () => 1 / payload.variations.length
+      ),
+      condition: "",
+      namespace: {
+        enabled: false,
+        name: "",
+        range: [0, 1],
+      },
+    },
+  ];
+
+  return {
+    organization: organization.id,
+    datasource: datasource.id,
+    archived: payload.archived ?? false,
+    hashAttribute: payload.hashAttribute ?? "",
+    hashVersion: payload.hashVersion ?? 2,
+    autoSnapshots: true,
+    project: payload.project,
+    owner: payload.owner || "",
+    trackingKey: payload.trackingKey || "",
+    exposureQueryId:
+      payload.assignmentQueryId ||
+      datasource.settings.queries?.exposure?.[0]?.id ||
+      "",
+    name: payload.name || "",
+    phases,
+    tags: payload.tags || [],
+    description: payload.description || "",
+    hypothesis: payload.hypothesis || "",
+    metrics: payload.metrics || [],
+    metricOverrides: [],
+    guardrails: payload.guardrailMetrics || [],
+    activationMetric: "",
+    segment: "",
+    queryFilter: "",
+    skipPartialData: false,
+    attributionModel: "firstExposure",
+    variations:
+      payload.variations.map((v) => ({
+        ...v,
+        id: generateVariationId(),
+        screenshots: v.screenshots || [],
+      })) || [],
+    // Legacy field, no longer used when creating experiments
+    implementation: "code",
+    status: payload.status || "draft",
+    analysis: "",
+    releasedVariationId: payload.releasedVariationId || "",
+    excludeFromPayload: !!payload.excludeFromPayload,
+    autoAssign: false,
+    previewURL: "",
+    targetURLRegex: "",
+    ideaSource: "",
+    sequentialTestingEnabled: !!organization?.settings
+      ?.sequentialTestingEnabled,
+    sequentialTestingTuningParameter: DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
+  };
+}
+
+/**
+ * Converts the OpenAPI POST /experiment/:id payload to a {@link ExperimentInterface}
+ * @param payload
+ * @param organization
+ * @param datasource
+ * @param userId
+ */
+export function updateExperimentApiPayloadToInterface(
+  payload: z.infer<typeof updateExperimentValidator.bodySchema>,
+  experiment: ExperimentInterface
+): Partial<ExperimentInterface> {
+  const {
+    trackingKey,
+    project,
+    owner,
+    assignmentQueryId,
+    hashAttribute,
+    hashVersion,
+    name,
+    tags,
+    description,
+    hypothesis,
+    metrics,
+    guardrailMetrics,
+    archived,
+    status,
+    phases,
+    variations,
+    releasedVariationId,
+    excludeFromPayload,
+  } = payload;
+  return {
+    ...(trackingKey ? { trackingKey } : {}),
+    ...(project !== undefined ? { project } : {}),
+    ...(owner !== undefined ? { owner } : {}),
+    ...(assignmentQueryId ? { assignmentQueryId } : {}),
+    ...(hashAttribute ? { hashAttribute } : {}),
+    ...(hashVersion ? { hashVersion } : {}),
+    ...(name ? { name } : {}),
+    ...(tags ? { tags } : {}),
+    ...(description !== undefined ? { description } : {}),
+    ...(hypothesis !== undefined ? { hypothesis } : {}),
+    ...(metrics ? { metrics } : {}),
+    ...(guardrailMetrics ? { guardrails: guardrailMetrics } : {}),
+    ...(archived !== undefined ? { archived } : {}),
+    ...(status ? { status } : {}),
+    ...(releasedVariationId !== undefined ? { releasedVariationId } : {}),
+    ...(excludeFromPayload !== undefined ? { excludeFromPayload } : {}),
+    ...(variations
+      ? {
+          variations: variations?.map((v) => ({
+            id: generateVariationId(),
+            screenshots: [],
+            ...v,
+          })),
+        }
+      : {}),
+    ...(phases
+      ? {
+          phases: phases.map((p) => ({
+            ...p,
+            dateStarted: new Date(p.dateStarted),
+            dateEnded: p.dateEnded ? new Date(p.dateEnded) : undefined,
+            reason: p.reason || "",
+            coverage: p.coverage != null ? p.coverage : 1,
+            condition: p.condition || "{}",
+            namespace: {
+              name: p.namespace?.namespaceId || "",
+              range: toNamespaceRange(p.namespace?.range),
+              enabled:
+                p.namespace?.enabled != null ? p.namespace.enabled : false,
+            },
+            variationWeights:
+              p.variationWeights ||
+              (payload.variations || experiment.variations)?.map(
+                (_v, _i, arr) => 1 / arr.length
+              ),
+          })),
+        }
+      : {}),
+    dateUpdated: new Date(),
+  };
 }
 
 export async function getRegressionAdjustmentInfo(

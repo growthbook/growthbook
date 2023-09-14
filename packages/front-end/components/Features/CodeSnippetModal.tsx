@@ -12,9 +12,6 @@ import {
 import { FeatureInterface } from "back-end/types/feature";
 import Link from "next/link";
 import useOrgSettings from "@/hooks/useOrgSettings";
-import usePermissions from "@/hooks/usePermissions";
-import { useAuth } from "@/services/auth";
-import { useUser } from "@/services/UserContext";
 import { getApiHost, getCdnHost, isCloud } from "@/services/env";
 import Code from "@/components/SyntaxHighlighting/Code";
 import { useAttributeSchema } from "@/services/features";
@@ -56,7 +53,7 @@ export default function CodeSnippetModal({
   feature,
   inline,
   cta = "Finish",
-  submit = () => undefined,
+  submit,
   secondaryCTA,
   sdkConnection,
   connections,
@@ -91,7 +88,6 @@ export default function CodeSnippetModal({
   const [showTestModal, setShowTestModal] = useState(false);
 
   const [language, setLanguage] = useState<SDKLanguage>("javascript");
-  const permissions = usePermissions();
 
   const [configOpen, setConfigOpen] = useState(true);
   const [installationOpen, setInstallationOpen] = useState(true);
@@ -99,30 +95,8 @@ export default function CodeSnippetModal({
   const [usageOpen, setUsageOpen] = useState(true);
   const [attributesOpen, setAttributesOpen] = useState(true);
 
-  const { apiCall } = useAuth();
-
-  const { refreshOrganization } = useUser();
   const settings = useOrgSettings();
   const attributeSchema = useAttributeSchema();
-
-  // Record the fact that the SDK instructions have been seen
-  useEffect(() => {
-    if (!settings) return;
-    if (settings.sdkInstructionsViewed) return;
-    if (!connections.length) return;
-    if (!permissions.check("manageEnvironments", "", [])) return;
-    (async () => {
-      await apiCall(`/organization`, {
-        method: "PUT",
-        body: JSON.stringify({
-          settings: {
-            sdkInstructionsViewed: true,
-          },
-        }),
-      });
-      await refreshOrganization();
-    })();
-  }, [settings, connections.length]);
 
   useEffect(() => {
     if (!currentConnection) return;
@@ -138,6 +112,8 @@ export default function CodeSnippetModal({
   }
 
   const { docs, label } = languageMapping[language];
+  const hasProxy =
+    currentConnection.proxy.enabled && !!currentConnection.proxy.host;
   const apiHost = getApiBaseUrl(currentConnection);
   const clientKey = currentConnection.key;
   const featuresEndpoint = apiHost + "/api/features/" + clientKey;
@@ -152,6 +128,22 @@ export default function CodeSnippetModal({
   const secureAttributeSalt = settings.secureAttributeSalt ?? "";
   const remoteEvalEnabled = !!currentConnection.remoteEvalEnabled;
 
+  if (showTestModal && includeCheck && !inline) {
+    return (
+      <CheckSDKConnectionModal
+        close={() => {
+          mutateConnections();
+          setShowTestModal(false);
+        }}
+        connection={currentConnection}
+        mutate={mutateConnections}
+        goToNextStep={submit}
+        cta={"Finish"}
+        showModalClose={false}
+      />
+    );
+  }
+
   return (
     <>
       {showTestModal && setShowTestModal && (
@@ -163,11 +155,13 @@ export default function CodeSnippetModal({
           connection={currentConnection}
           mutate={mutateConnections}
           goToNextStep={submit}
+          showModalClose={true}
         />
       )}
       <Modal
         close={close}
         secondaryCTA={secondaryCTA}
+        className="mb-4"
         bodyClassName="p-0"
         open={true}
         inline={inline}
@@ -202,7 +196,7 @@ export default function CodeSnippetModal({
                     value: connection.id,
                     label: connection.name,
                   }))}
-                  value={currentConnection?.id}
+                  value={currentConnection?.id ?? ""}
                   onChange={(id) => {
                     setCurrentConnectionId(id);
                   }}
@@ -262,6 +256,12 @@ export default function CodeSnippetModal({
                     <tr>
                       <th className="pl-3" style={{ verticalAlign: "middle" }}>
                         Full API Endpoint
+                        {hasProxy ? (
+                          <>
+                            {" "}
+                            <small>(proxied)</small>
+                          </>
+                        ) : null}
                       </th>
                       <td>
                         <ClickToCopy>{featuresEndpoint}</ClickToCopy>
@@ -270,6 +270,12 @@ export default function CodeSnippetModal({
                     <tr>
                       <th className="pl-3" style={{ verticalAlign: "middle" }}>
                         API Host
+                        {hasProxy ? (
+                          <>
+                            {" "}
+                            <small>(proxied)</small>
+                          </>
+                        ) : null}
                       </th>
                       <td>
                         <ClickToCopy>{apiHost}</ClickToCopy>
@@ -370,7 +376,7 @@ export default function CodeSnippetModal({
                     secureAttributeSalt={secureAttributeSalt}
                   />
 
-                  {hashSecureAttributes && (
+                  {hashSecureAttributes && secureAttributes.length > 0 && (
                     <div
                       className="appbox mt-4"
                       style={{ background: "rgb(209 236 241 / 25%)" }}
@@ -393,25 +399,22 @@ export default function CodeSnippetModal({
                               which need to be hashed before using them in the
                               SDK:
                               <table className="table table-borderless w-auto mt-1 ml-2">
-                                {secureAttributes.map((a, i) => (
-                                  <tr key={i}>
-                                    <td className="pt-1 pb-0">
-                                      <code className="font-weight-bold">
-                                        {a.property}
-                                      </code>
-                                    </td>
-                                    <td className="pt-1 pb-0">
-                                      <span className="text-gray">
-                                        {a.datatype}
-                                      </span>
-                                    </td>
-                                    {i < secureAttributes.length - 1 ? (
-                                      <br />
-                                    ) : (
-                                      ""
-                                    )}
-                                  </tr>
-                                ))}
+                                <tbody>
+                                  {secureAttributes.map((a, i) => (
+                                    <tr key={i}>
+                                      <td className="pt-1 pb-0">
+                                        <code className="font-weight-bold">
+                                          {a.property}
+                                        </code>
+                                      </td>
+                                      <td className="pt-1 pb-0">
+                                        <span className="text-gray">
+                                          {a.datatype}
+                                        </span>
+                                      </td>
+                                    </tr>
+                                  ))}
+                                </tbody>
                               </table>
                             </>
                           )}
@@ -437,15 +440,15 @@ export default function CodeSnippetModal({
                             </div>
                           )}
                           <Code
-                            filename="psuedocode"
+                            filename="pseudocode"
                             language="javascript"
                             code={`const salt = "${secureAttributeSalt}";
 
 // hashing a secureString attribute
-myAttribute = sha256(myAttribute + salt);
+myAttribute = sha256(salt + myAttribute);
 
 // hashing an secureString[] attribute
-myAttributes = myAttributes.map(attribute => sha256(attribute + salt));`}
+myAttributes = myAttributes.map(attribute => sha256(salt + attribute));`}
                           />
                         </div>
                         <div className="alert text-warning-orange mt-3 mb-0 px-2 py-1">

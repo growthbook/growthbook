@@ -1,7 +1,8 @@
-import React, { FC, ReactElement, useState, useEffect, useMemo } from "react";
+import React, { FC, ReactElement, useEffect, useMemo, useState } from "react";
 import {
-  MetricInterface,
   Condition,
+  MetricCappingType,
+  MetricInterface,
   MetricType,
   Operator,
 } from "back-end/types/metric";
@@ -11,6 +12,8 @@ import {
   DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
   DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
 } from "shared/constants";
+import { isDemoDatasourceProject } from "shared/demo-datasource";
+import { isProjectListValidForProject } from "shared/util";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import { getInitialMetricQuery, validateSQL } from "@/services/datasources";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -42,6 +45,8 @@ import useSchemaFormOptions from "@/hooks/useSchemaFormOptions";
 import { GBCuped } from "@/components/Icons";
 import usePermissions from "@/hooks/usePermissions";
 import { useCurrency } from "@/hooks/useCurrency";
+import ConfirmModal from "@/components/ConfirmModal";
+import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
 
 const weekAgo = new Date();
 weekAgo.setDate(weekAgo.getDate() - 7);
@@ -60,23 +65,44 @@ export type MetricFormProps = {
   secondaryCTA?: ReactElement;
 };
 
+function usesValueColumn(sql: string) {
+  return sql.match(/\{\{[^}]*valueColumn/g);
+}
+
+function usesEventName(sql: string) {
+  return sql.match(/\{\{[^}]*eventName/g);
+}
+
 function validateMetricSQL(
   sql: string,
   type: MetricType,
-  userIdTypes: string[]
+  userIdTypes: string[],
+  templateVariables?: {
+    valueColumn?: string;
+    eventName?: string;
+  }
 ) {
   // Require specific columns to be selected
   const requiredCols = ["timestamp", ...userIdTypes];
   if (type !== "binomial") {
     requiredCols.push("value");
+    if (usesValueColumn(sql) && !templateVariables?.valueColumn) {
+      throw new Error("Value column is required");
+    }
   }
+  if (usesEventName(sql) && !templateVariables?.eventName) {
+    throw new Error("Event name is required");
+  }
+
   validateSQL(sql, requiredCols);
 }
+
 function validateBasicInfo(value: { name: string }) {
   if (value.name.length < 1) {
     throw new Error("Metric name cannot be empty");
   }
 }
+
 function validateQuerySettings(
   datasourceSettingsSupport: boolean,
   sqlInput: boolean,
@@ -85,13 +111,22 @@ function validateQuerySettings(
     type: MetricType;
     userIdTypes: string[];
     table: string;
+    templateVariables?: {
+      valueColumn?: string;
+      eventName?: string;
+    };
   }
 ) {
   if (!datasourceSettingsSupport) {
     return;
   }
   if (sqlInput) {
-    validateMetricSQL(value.sql, value.type, value.userIdTypes);
+    validateMetricSQL(
+      value.sql,
+      value.type,
+      value.userIdTypes,
+      value.templateVariables
+    );
   } else {
     if (value.table.length < 1) {
       throw new Error("Table name cannot be empty");
@@ -153,6 +188,12 @@ function getAggregateSQLPreview({ type, column }: Partial<MetricInterface>) {
   return `MAX(value)`;
 }
 
+const toMetricCappingType = (cappingType: string | null): MetricCappingType => {
+  if (cappingType === "percentile") return "percentile";
+  if (cappingType === "absolute") return "absolute";
+  return null;
+};
+
 const MetricForm: FC<MetricFormProps> = ({
   current,
   edit,
@@ -182,6 +223,32 @@ const MetricForm: FC<MetricFormProps> = ({
   const [hideTags, setHideTags] = useState(!current?.tags?.length);
   const [sqlOpen, setSqlOpen] = useState(false);
 
+  const currentDatasource = current?.datasource
+    ? getDatasourceById(current?.datasource)
+    : null;
+
+  const currentDefaultSql =
+    currentDatasource && current.type && current.name
+      ? getInitialMetricQuery(currentDatasource, current.type)[1]
+      : null;
+
+  // Only set the default to true for new metrics with no sql or an edited or
+  // duplicated one where the sql matches the default.
+  const [allowAutomaticSqlReset, setAllowAutomaticSqlReset] = useState(
+    !current || !current?.sql || current?.sql === currentDefaultSql
+  );
+
+  // Keeps track if the queryFormat is "builder" because it is the default, or
+  // if it is "builder" because the user manually changed it to that.
+  const [usingDefaultQueryFormat, setUsingDefaultQueryFormat] = useState(
+    !current?.queryFormat && !current?.sql
+  );
+
+  const [
+    showSqlResetConfirmationModal,
+    setShowSqlResetConfirmationModal,
+  ] = useState(false);
+
   const displayCurrency = useCurrency();
 
   const {
@@ -190,6 +257,12 @@ const MetricForm: FC<MetricFormProps> = ({
     getMaxPercentageChangeForMetric,
     metricDefaults,
   } = useOrganizationMetricDefaults();
+
+  const validDatasources = datasources.filter(
+    (d) =>
+      d.id === current.datasource ||
+      isProjectListValidForProject(d.projects, project)
+  );
 
   useEffect(() => {
     track("View Metric Form", {
@@ -224,11 +297,15 @@ const MetricForm: FC<MetricFormProps> = ({
     },
   ];
 
+  const initialDatasourceId =
+    current?.datasource || settings?.defaultDataSource;
+  const initialDatasource =
+    validDatasources.find((d) => d.id === initialDatasourceId) ||
+    validDatasources[0];
+
   const form = useForm({
     defaultValues: {
-      datasource:
-        ("datasource" in current ? current.datasource : datasources[0]?.id) ||
-        "",
+      datasource: initialDatasource?.id || "",
       name: current.name || "",
       description: current.description || "",
       type: current.type || "binomial",
@@ -238,22 +315,26 @@ const MetricForm: FC<MetricFormProps> = ({
       inverse: !!current.inverse,
       ignoreNulls: !!current.ignoreNulls,
       queryFormat: current.queryFormat || (current.sql ? "sql" : "builder"),
-      cap: current.cap || 0,
+      capping: current.capping || "",
+      capValue: current.capValue || 0,
       conversionWindowHours:
         current.conversionWindowHours || getDefaultConversionWindowHours(),
       conversionDelayHours: current.conversionDelayHours || 0,
       sql: current.sql || "",
+      eventName: current.templateVariables?.eventName || "",
+      valueColumn: current.templateVariables?.valueColumn || "",
       aggregation: current.aggregation || "",
       conditions: current.conditions || [],
       userIdTypes: current.userIdTypes || [],
-      userIdColumns: current.userIdColumns || {
-        user_id: current.userIdColumn || "user_id",
-        anonymous_id: current.anonymousIdColumn || "anonymous_id",
-      },
+      userIdColumns: current.userIdColumns || {},
       timestampColumn: current.timestampColumn || "",
       tags: current.tags || [],
       projects:
-        edit || duplicate ? current.projects || [] : project ? [project] : [],
+        source === "datasource-detail" || edit || duplicate
+          ? current.projects || []
+          : project
+          ? [project]
+          : [],
       winRisk: (current.winRisk || defaultWinRiskThreshold) * 100,
       loseRisk: (current.loseRisk || defaultLoseRiskThreshold) * 100,
       maxPercentChange: getMaxPercentageChangeForMetric(current) * 100,
@@ -271,7 +352,7 @@ const MetricForm: FC<MetricFormProps> = ({
     },
   });
 
-  const { apiCall } = useAuth();
+  const { apiCall, orgId } = useAuth();
 
   const type = form.watch("type");
 
@@ -283,6 +364,7 @@ const MetricForm: FC<MetricFormProps> = ({
     userIdColumns: form.watch("userIdColumns"),
     userIdTypes: form.watch("userIdTypes"),
     denominator: form.watch("denominator"),
+    aggregation: form.watch("aggregation"),
     column: form.watch("column"),
     table: form.watch("table"),
     type,
@@ -291,11 +373,29 @@ const MetricForm: FC<MetricFormProps> = ({
     tags: form.watch("tags"),
     projects: form.watch("projects"),
     sql: form.watch("sql"),
+    templateVariables: {
+      eventName: form.watch("eventName"),
+      valueColumn: form.watch("valueColumn"),
+    },
     conditions: form.watch("conditions"),
     regressionAdjustmentOverride: form.watch("regressionAdjustmentOverride"),
     regressionAdjustmentEnabled: form.watch("regressionAdjustmentEnabled"),
     regressionAdjustmentDays: form.watch("regressionAdjustmentDays"),
   };
+
+  // We want to show a warning when someone tries to create a metric for just the demo project
+  const isExclusivelyForDemoDatasourceProject = useMemo(() => {
+    const projects = value.projects || [];
+
+    if (projects.length !== 1) return false;
+
+    return isDemoDatasourceProject({
+      projectId: projects[0],
+      organizationId: orgId || "",
+    });
+  }, [orgId, value.projects]);
+
+  const { demoDataSourceId } = useDemoDataSourceProject();
 
   const denominatorOptions = useMemo(() => {
     return metrics
@@ -329,6 +429,25 @@ const MetricForm: FC<MetricFormProps> = ({
     selectedDataSource?.properties?.hasSettings || false;
 
   const capSupported = selectedDataSource?.properties?.metricCaps || false;
+  const cappingOptions = [
+    {
+      value: "",
+      label: "No",
+    },
+    {
+      value: "absolute",
+      label: "Absolute capping",
+    },
+    ...(datasourceType !== "mixpanel"
+      ? [
+          {
+            value: "percentile",
+            label: "Percentile capping",
+          },
+        ]
+      : []),
+  ];
+
   // TODO: eventually make each of these their own independent properties
   const conditionsSupported = capSupported;
   const ignoreNullsSupported = capSupported;
@@ -358,12 +477,6 @@ const MetricForm: FC<MetricFormProps> = ({
       );
     }
   }
-  if (form.watch("aggregation")) {
-    regressionAdjustmentAvailableForMetric = false;
-    regressionAdjustmentAvailableForMetricReason = (
-      <>Not available for metrics with custom aggregations.</>
-    );
-  }
 
   let table = "Table";
   let column = "Column";
@@ -377,21 +490,49 @@ const MetricForm: FC<MetricFormProps> = ({
     name: "conditions",
   });
 
+  const defaultSqlTemplate = selectedDataSource
+    ? getInitialMetricQuery(selectedDataSource, value.type)[1]
+    : "";
+
+  const resetSqlToDefault = (datasource, type) => {
+    if (datasource && datasource.properties?.queryLanguage === "sql") {
+      const [userTypes, sql] = getInitialMetricQuery(datasource, type);
+      if (usingDefaultQueryFormat) {
+        // The default queryFormat for new sql queries should be "sql", but we
+        // won't change it later if they manually change it to "builder".
+        form.setValue("queryFormat", "sql");
+        setUsingDefaultQueryFormat(false);
+      }
+      form.setValue("sql", sql);
+      form.setValue("userIdTypes", userTypes);
+
+      // Now that sql is updated again to the default, we'll allow it to be
+      // automatically reset again upon datasource/type/name change until
+      // they make a new manual edit.
+      setAllowAutomaticSqlReset(true);
+    }
+  };
+
   const onSubmit = form.handleSubmit(async (value) => {
     const {
       winRisk,
       loseRisk,
       maxPercentChange,
       minPercentChange,
+      capping,
+      eventName,
+      valueColumn,
       ...otherValues
     } = value;
 
     const sendValue: Partial<MetricInterface> = {
       ...otherValues,
+      templateVariables: { eventName, valueColumn },
       winRisk: winRisk / 100,
       loseRisk: loseRisk / 100,
       maxPercentChange: maxPercentChange / 100,
       minPercentChange: minPercentChange / 100,
+      capping: toMetricCappingType(capping),
     };
 
     if (value.loseRisk < value.winRisk) return;
@@ -436,6 +577,10 @@ const MetricForm: FC<MetricFormProps> = ({
       ? "Lookback periods under 7 days tend not to capture enough metric data to reduce variance and may be subject to weekly seasonality"
       : "";
 
+  const customAggregationWarningMsg = value.aggregation
+    ? "When using a custom aggregation, it is safest to COALESCE values in your SQL so that the `value` column has no NULL values."
+    : "";
+
   const requiredColumns = useMemo(() => {
     const set = new Set(["timestamp", ...value.userIdTypes]);
     if (type !== "binomial") {
@@ -477,9 +622,20 @@ const MetricForm: FC<MetricFormProps> = ({
           placeholder={
             "SELECT\n      user_id as user_id, timestamp as timestamp\nFROM\n      test"
           }
-          requiredColumns={Array.from(requiredColumns)}
+          requiredColumns={requiredColumns}
           value={value.sql}
-          save={async (sql) => form.setValue("sql", sql)}
+          save={async (sql) => {
+            form.setValue("sql", sql);
+            // If they manually edit the sql back to the default, we'll allow it to be
+            // automatically updated again upon datasource/type/name change.  If they
+            // have editted it to something else, we'll make sure not to overwrite any
+            // of their changes automatically.
+            setAllowAutomaticSqlReset(sql == defaultSqlTemplate);
+          }}
+          templateVariables={{
+            eventName: form.watch("eventName"),
+            valueColumn: form.watch("valueColumn"),
+          }}
         />
       )}
       <PagedModal
@@ -503,21 +659,16 @@ const MetricForm: FC<MetricFormProps> = ({
           display="Basic Info"
           validate={async () => {
             validateBasicInfo(form.getValues());
-
-            // Initial metric SQL based on the data source
-            if (supportsSQL && selectedDataSource && !value.sql) {
-              const [userTypes, sql] = getInitialMetricQuery(
-                selectedDataSource,
-                value.type,
-                value.name
-              );
-
-              form.setValue("sql", sql);
-              form.setValue("userIdTypes", userTypes);
-              form.setValue("queryFormat", "sql");
+            if (allowAutomaticSqlReset) {
+              resetSqlToDefault(selectedDataSource, value.type);
             }
           }}
         >
+          {isExclusivelyForDemoDatasourceProject && (
+            <div className="alert alert-warning">
+              You are creating a metric under the demo datasource project.
+            </div>
+          )}
           <div className="form-group">
             <label>Metric Name</label>
             <input
@@ -559,28 +710,60 @@ const MetricForm: FC<MetricFormProps> = ({
                 onChange={(v) => form.setValue("projects", v)}
                 customClassName="label-overflow-ellipsis"
                 helpText="Assign this metric to specific projects"
+                disabled={isExclusivelyForDemoDatasourceProject}
               />
             </div>
           )}
           <SelectField
             label="Data Source"
-            value={value.datasource || ""}
-            onChange={(v) => form.setValue("datasource", v)}
-            options={(datasources || []).map((d) => ({
-              value: d.id,
-              label: `${d.name}${d.description ? ` — ${d.description}` : ""}`,
-            }))}
+            value={
+              isExclusivelyForDemoDatasourceProject && demoDataSourceId
+                ? demoDataSourceId
+                : value.datasource || ""
+            }
+            onChange={(v) => {
+              form.setValue("datasource", v);
+              if (allowAutomaticSqlReset) {
+                resetSqlToDefault(getDatasourceById(v), value.type);
+              }
+            }}
+            options={validDatasources.map((d) => {
+              const defaultDatasource = d.id === settings.defaultDataSource;
+              return {
+                value: d.id,
+                label: `${d.name}${
+                  d.description ? ` — ${d.description}` : ""
+                } ${defaultDatasource ? " (default)" : ""}`,
+              };
+            })}
             className="portal-overflow-ellipsis"
             name="datasource"
             initialOption="Manual"
-            disabled={edit}
+            disabled={
+              isExclusivelyForDemoDatasourceProject ||
+              edit ||
+              source === "datasource-detail"
+            }
           />
           <div className="form-group">
             <label>Metric Type</label>
             <RadioSelector
               name="type"
               value={value.type}
-              setValue={(val: MetricType) => form.setValue("type", val)}
+              setValue={(val: MetricType) => {
+                form.setValue("type", val);
+
+                if (allowAutomaticSqlReset) {
+                  resetSqlToDefault(selectedDataSource, val);
+                }
+
+                if (val === "count") {
+                  form.setValue("valueColumn", "1");
+                } else if (value.templateVariables?.valueColumn === "1") {
+                  // 1 only makes sense for count type, but keep it if it's already set to something else
+                  form.setValue("valueColumn", "");
+                }
+              }}
               options={metricTypeOptions}
             />
           </div>
@@ -657,6 +840,31 @@ const MetricForm: FC<MetricFormProps> = ({
                     }))}
                     label="Identifier Types Supported"
                   />
+                  {value.sql && usesEventName(value.sql) && (
+                    <div className="form-group">
+                      <Field
+                        label="Event Name"
+                        placeholder={value.name}
+                        helpText="The event name associated with this metric.  This can then be referenced in your sql template as {{eventName}}."
+                        {...form.register("eventName")}
+                      />
+                    </div>
+                  )}
+                  {value.sql &&
+                    usesValueColumn(value.sql) &&
+                    value.type != "binomial" && (
+                      <div className="form-group">
+                        <Field
+                          label="Value Column"
+                          helpText={
+                            value.type === "count"
+                              ? "Use 1 to count the number of rows (most common). This can then be referenced in your sql template as {{valueColumn}}."
+                              : "The column in your datawarehouse table with the metric data.  This can then be referenced in your sql template as {{valueColumn}}."
+                          }
+                          {...form.register("valueColumn")}
+                        ></Field>
+                      </div>
+                    )}
                   <div className="form-group">
                     <label>Query</label>
                     {value.sql && (
@@ -673,17 +881,51 @@ const MetricForm: FC<MetricFormProps> = ({
                       >
                         {value.sql ? "Edit" : "Add"} SQL <FaExternalLinkAlt />
                       </button>
+                      {value.sql != defaultSqlTemplate && (
+                        <button
+                          className="btn btn-outline-primary ml-2"
+                          type="button"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            setShowSqlResetConfirmationModal(true);
+                          }}
+                        >
+                          Reset to default SQL
+                        </button>
+                      )}
+                      {showSqlResetConfirmationModal && (
+                        <ConfirmModal
+                          title={"Reset to default SQL"}
+                          subtitle="This will reset both your SQL and identifier types to the default template for your datasource and type."
+                          yesText="Reset"
+                          noText="Cancel"
+                          modalState={showSqlResetConfirmationModal}
+                          setModalState={(state) =>
+                            setShowSqlResetConfirmationModal(state)
+                          }
+                          onConfirm={async () => {
+                            resetSqlToDefault(selectedDataSource, value.type);
+                            setShowSqlResetConfirmationModal(false);
+                          }}
+                        />
+                      )}
                     </div>
                   </div>
                   {value.type !== "binomial" && (
-                    <Field
-                      label="User Value Aggregation"
-                      placeholder="SUM(value)"
-                      textarea
-                      minRows={1}
-                      {...form.register("aggregation")}
-                      helpText="When there are multiple metric rows for a user"
-                    />
+                    <div className="mb-2">
+                      <Field
+                        label="User Value Aggregation"
+                        placeholder="SUM(value)"
+                        textarea
+                        minRows={1}
+                        containerClassName="mb-0"
+                        {...form.register("aggregation")}
+                        helpText="When there are multiple metric rows for a user"
+                      />
+                      {customAggregationWarningMsg && (
+                        <small>{customAggregationWarningMsg}</small>
+                      )}
+                    </div>
                   )}
                   <SelectField
                     label="Denominator"
@@ -943,16 +1185,41 @@ const MetricForm: FC<MetricFormProps> = ({
           {capSupported &&
             ["count", "duration", "revenue"].includes(value.type) && (
               <div className="form-group">
-                <label>Capped Value</label>
-                <input
-                  type="number"
-                  className="form-control"
-                  {...form.register("cap", { valueAsNumber: true })}
+                <SelectField
+                  label="Cap User Values?"
+                  value={form.watch("capping")}
+                  onChange={(v: string) => {
+                    form.setValue("capping", v);
+                  }}
+                  sort={false}
+                  options={cappingOptions}
                 />
                 <small className="text-muted">
-                  If greater than zero, any user who has more than this count
-                  will be capped at this value.
+                  Capping (winsorization) can reduce variance by capping
+                  aggregated user values.
                 </small>
+                <div
+                  style={{
+                    display: form.watch("capping") ? "block" : "none",
+                  }}
+                  className="px-3 py-2 pb-0 mb-4 border rounded"
+                >
+                  <label>Capped Value</label>
+                  <input
+                    type="number"
+                    step="any"
+                    min="0"
+                    max={form.watch("capping") === "percentile" ? "1" : ""}
+                    className="form-control"
+                    {...form.register("capValue", { valueAsNumber: true })}
+                  />
+                  <small className="text-muted">
+                    {form.watch("capping") === "absolute"
+                      ? `
+                Absolute capping: if greater than zero, aggregated user values will be capped at this value.`
+                      : `Percentile capping: if greater than zero, we use all metric data in the experiment to compute the percentiles of the user aggregated values. Then, we get the value at the percentile provided and cap all users at this value. Enter a number between 0 and 0.99999`}
+                  </small>
+                </div>
               </div>
             )}
 
@@ -981,7 +1248,7 @@ const MetricForm: FC<MetricFormProps> = ({
                   <input
                     type="number"
                     step="any"
-                    min="1"
+                    min={0.125}
                     className="form-control"
                     placeholder={getDefaultConversionWindowHours() + ""}
                     {...form.register("conversionWindowHours", {

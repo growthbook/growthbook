@@ -25,7 +25,12 @@ const OUTPUT_DIR = "/tmp/json";
 
 // import experimentConfigs
 import experimentConfigData from "./experiments.json";
-type DimensionType = "user" | "experiment" | "date" | "activation";
+type DimensionType =
+  | "user"
+  | "experiment"
+  | "date"
+  | "datecumulative"
+  | "activation";
 type TestExperimentConfig = {
   id: string;
   dimensionType?: DimensionType;
@@ -117,7 +122,10 @@ const baseExperiment: ExperimentInterface = {
 };
 
 // Pseudo-MetricInterface, missing the fields in TestMetricConfig
-const baseMetric = {
+const baseMetric: Omit<
+  MetricInterface,
+  "id" | "type" | "ignoreNulls" | "sql"
+> = {
   organization: "",
   owner: "",
   datasource: "",
@@ -218,6 +226,8 @@ function buildDimension(
     return { type: "activation" };
   } else if (exp.dimensionType == "date") {
     return { type: "date" };
+  } else if (exp.dimensionType == "datecumulative") {
+    return { type: "datecumulative" };
   } else {
     throw "invalid dimensionType and or dimensionMetric specified";
   }
@@ -235,8 +245,7 @@ function buildSegment(
       datasource: "",
       userIdType: USER_ID_TYPE,
       name: exp.segment,
-      // TODO: fake date trunc just to avoid exporting dateTrunc from SqlIntegration
-      sql: `SELECT DISTINCT\nuserId as user_id,DATE('2022-01-01') as date\nFROM ${
+      sql: `SELECT DISTINCT\nuserId as user_id,CAST('2022-01-01' AS DATE) as date\nFROM ${
         engine === "bigquery" ? "sample." : ""
       }experiment_viewed\nWHERE browser = 'Chrome'`,
       dateCreated: currentDate,
@@ -308,6 +317,10 @@ engines.forEach((engine) => {
           dimensionId = "pre:activation";
         } else if (dimension.type === "date") {
           dimensionId = "pre:date";
+        } else if (dimension.type === "datecumulative") {
+          dimensionId = "pre:datecumulative";
+        } else if (dimension.type === "datedaily") {
+          dimensionId = "pre:datedaily";
         } else {
           dimensionId = dimension.dimension.id;
         }

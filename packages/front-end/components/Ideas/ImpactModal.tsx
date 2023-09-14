@@ -61,6 +61,7 @@ const ImpactModal: FC<{
               body: JSON.stringify({
                 metric: value.metric,
                 segment: value.segment || null,
+                idea: idea?.id || null,
               }),
             }
           );

@@ -98,6 +98,28 @@ export function GBExperiment({ className = "" }): React.ReactElement {
   );
 }
 
+export function GBDatabase({ className = "" }): React.ReactElement {
+  return (
+    <svg
+      width="18"
+      height="18"
+      viewBox="0 0 12 14"
+      fill="currentColor"
+      xmlns="http://www.w3.org/2000/svg"
+      className={className}
+    >
+      <path
+        d="M2.3,1.7C3.2,1.3,4.5,1,6,1s2.8,0.3,3.7,0.7C10.6,2.1,11,2.6,11,3c0,0.4-0.4,0.9-1.3,1.3C8.8,4.7,7.5,5,6,5S3.2,4.7,2.3,4.3
+	C1.4,3.9,1,3.4,1,3C1,2.6,1.4,2.1,2.3,1.7z M11,4.7V7c0,0.4-0.4,0.9-1.3,1.3C8.8,8.7,7.5,9,6,9S3.2,8.7,2.3,8.3C1.4,7.9,1,7.4,1,7
+	V4.7c0.3,0.2,0.6,0.4,0.9,0.5C3,5.7,4.4,6,6,6s3-0.3,4.1-0.8C10.4,5.1,10.7,4.9,11,4.7z M12,3c0-1-0.9-1.8-1.9-2.2C9,0.3,7.6,0,6,0
+	S3,0.3,1.9,0.8C0.9,1.2,0,2,0,3v8c0,1,0.9,1.8,1.9,2.2C3,13.7,4.4,14,6,14s3-0.3,4.1-0.8c1-0.5,1.9-1.2,1.9-2.2V3z M11,8.7V11
+	c0,0.4-0.4,0.9-1.3,1.3C8.8,12.7,7.5,13,6,13s-2.8-0.3-3.7-0.7C1.4,11.9,1,11.4,1,11V8.7c0.3,0.2,0.6,0.4,0.9,0.5C3,9.7,4.4,10,6,10
+	s3-0.3,4.1-0.8C10.4,9.1,10.7,8.9,11,8.7z"
+      />
+    </svg>
+  );
+}
+
 export function GBPresentations({ className = "" }): React.ReactElement {
   return (
     <svg
@@ -636,6 +658,38 @@ export function GBRemoteEvalIcon({
 	c-25.7-25.1-41.6-51-48.3-79.4c-3-12.5-4.5-24.8-4.6-36.4c-0.4-38.7-0.3-78-0.3-116.2c0-13.6,0-27,0-40.6
 	c61.7-4,120.5-25.8,184.9-68.5c0.5-0.4,1.2-0.8,2-1.3c0.6,0.4,1.3,0.9,2,1.3c47.6,32,93,52.2,138.6,61.9c12.3,2.6,24.8,4,36.8,5.3
 	c3.2,0.4,6.3,0.7,9.4,1.1c0,20,0,40.1,0,60.1L402.1,181.4z"
+      />
+    </svg>
+  );
+}
+
+export function GBSuspicious({
+  className = "",
+  size = 16,
+  ...otherProps
+}): React.ReactElement {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      className={className}
+      {...otherProps}
+    >
+      <path
+        fillRule="evenodd"
+        clipRule="evenodd"
+        fill="currentColor"
+        d="M10.5 3.75a6.75 6.75 0 100 13.5 6.75 6.75 0 000-13.5zM2.25 10.5a8.25 8.25 0 1114.59 5.28l4.69 4.69a.75.75 0 11-1.06 1.06l-4.69-4.69A8.25 8.25 0 012.25 10.5z"
+      />
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        stroke="currentColor"
+        d="M 10.5 7.5 v 3.75 Z m 0 6.75 h 0.008 v 0.008 H 10.5 v -0.008 z"
       />
     </svg>
   );

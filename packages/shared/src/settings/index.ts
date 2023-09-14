@@ -53,11 +53,17 @@ export const resolvers: Record<
     }
   ),
   defaultRole: genDefaultResolver("defaultRole"),
-  statsEngine: genDefaultResolver("statsEngine", {
-    project: "settings.statsEngine",
-    // experiment: true,
-    report: true,
-  }),
+  statsEngine: genDefaultResolver(
+    "statsEngine",
+    {
+      project: "settings.statsEngine",
+      experiment: true,
+      report: true,
+    },
+    {
+      bypassEmpty: true,
+    }
+  ),
   pValueThreshold: genDefaultResolver("pValueThreshold", {
     project: "settings.pValueThreshold",
     experiment: true,
@@ -76,6 +82,7 @@ export const resolvers: Record<
   winRisk: genMetricOverrideResolver("winRisk"),
   loseRisk: genMetricOverrideResolver("loseRisk"),
   secureAttributeSalt: genDefaultResolver("secureAttributeSalt"),
+  killswitchConfirmation: genDefaultResolver("killswitchConfirmation"),
 };
 
 const scopeSettings = (

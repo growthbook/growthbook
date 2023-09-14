@@ -1,6 +1,6 @@
 {
   "name": "@growthbook/growthbook-react",
-  "version": "0.17.0",
+  "version": "0.18.0",
   "license": "MIT",
   "main": "dist/cjs/index.js",
   "module": "dist/esm/index.js",
@@ -29,6 +29,7 @@
     "build:types": "tsc --emitDeclarationOnly",
     "build": "yarn build:clean && npm-run-all --parallel build:types build:bundles",
     "test": "jest",
+    "clean": "rimraf node_modules",
     "type-check": "tsc --pretty --noEmit",
     "size": "cat ./dist/esm/index.js ../sdk-js/dist/bundles/index.min.js | terser | gzip-size --include-original"
   },
@@ -37,7 +38,7 @@
     "react": "^16.8.0-0 || ^17.0.0-0 || ^18.0.0-0"
   },
   "dependencies": {
-    "@growthbook/growthbook": "^0.27.0"
+    "@growthbook/growthbook": "^0.28.0"
   },
   "devDependencies": {
     "@babel/cli": "^7.19.3",

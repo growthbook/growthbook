@@ -4,7 +4,7 @@ import {
   DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
   DEFAULT_STATS_ENGINE,
 } from "shared/constants";
-import { MetricInterface } from "../../types/metric";
+import { LegacyMetricInterface, MetricInterface } from "../../types/metric";
 import {
   DataSourceInterface,
   DataSourceSettings,
@@ -50,7 +50,7 @@ function adjustWeights(weights: number[]): number[] {
   });
 }
 
-export function upgradeMetricDoc(doc: MetricInterface): MetricInterface {
+export function upgradeMetricDoc(doc: LegacyMetricInterface): MetricInterface {
   const newDoc = { ...doc };
 
   if (doc.conversionDelayHours == null && doc.earlyStart) {
@@ -81,6 +81,12 @@ export function upgradeMetricDoc(doc: MetricInterface): MetricInterface {
       newDoc.userIdColumns[type] = val;
     });
   }
+
+  if (doc.cap) {
+    newDoc.capValue = doc.cap;
+    newDoc.capping = "absolute";
+  }
+  if (newDoc.cap !== undefined) delete newDoc.cap;
 
   return newDoc;
 }
@@ -411,6 +417,9 @@ export function upgradeExperimentDoc(
   // Add hashAttribute field
   experiment.hashAttribute = experiment.hashAttribute || "";
 
+  // Add hashVersion field
+  experiment.hashVersion = experiment.hashVersion || 2;
+
   // Old `observations` field
   if (!experiment.description && experiment.observations) {
     experiment.description = experiment.observations;
@@ -484,7 +493,7 @@ export function migrateSnapshot(
           dateCreated: snapshot.dateCreated,
           status: snapshot.error ? "error" : "success",
           settings: {
-            statsEngine: statsEngine || "bayesian",
+            statsEngine: statsEngine || DEFAULT_STATS_ENGINE,
             dimensions: snapshot.dimension ? [snapshot.dimension] : [],
             pValueCorrection: null,
             regressionAdjusted,

@@ -19,6 +19,7 @@ COPY packages/back-end/package.json ./packages/back-end/package.json
 COPY packages/sdk-js/package.json ./packages/sdk-js/package.json
 COPY packages/sdk-react/package.json ./packages/sdk-react/package.json
 COPY packages/shared/package.json ./packages/shared/package.json
+COPY packages/enterprise/package.json ./packages/enterprise/package.json
 # Yarn install with dev dependencies (will be cached as long as dependencies don't change)
 RUN yarn install --frozen-lockfile --ignore-optional
 # Build the app and do a clean install with only production dependencies
@@ -30,6 +31,7 @@ RUN \
   && rm -rf packages/front-end/node_modules \
   && rm -rf packages/front-end/.next/cache \
   && rm -rf packages/shared/node_modules \
+  && rm -rf packages/enterprise/node_modules \
   && rm -rf packages/sdk-js/node_modules \
   && rm -rf packages/sdk-react/node_modules \
   && yarn install --frozen-lockfile --production=true --ignore-optional

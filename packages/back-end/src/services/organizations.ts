@@ -12,6 +12,7 @@ import { APP_ORIGIN, IS_CLOUD } from "../util/secrets";
 import { AuthRequest } from "../types/AuthRequest";
 import { UserModel } from "../models/UserModel";
 import {
+  ExpandedMember,
   Invite,
   Member,
   MemberRole,
@@ -52,6 +53,7 @@ import {
 } from "../models/SegmentModel";
 import { getAllExperiments } from "../models/ExperimentModel";
 import { LegacyExperimentPhase } from "../../types/experiment";
+import { addTags } from "../models/TagModel";
 import { markInstalled } from "./auth";
 import {
   encryptParams,
@@ -60,6 +62,7 @@ import {
 } from "./datasource";
 import { createMetric } from "./experiments";
 import { isEmailEnabled, sendInviteEmail, sendNewMemberEmail } from "./email";
+import { getUsersByIds } from "./users";
 
 export async function getOrganizationById(id: string) {
   return findOrganizationById(id);
@@ -270,6 +273,59 @@ export async function addMemberToOrg({
     members,
     pendingMembers,
   });
+}
+
+export async function addMemberToTeam({
+  organization,
+  userId,
+  teamId,
+}: {
+  organization: OrganizationInterface;
+  userId: string;
+  teamId: string;
+}): Promise<void> {
+  // If member is a pending member, skip
+  if (organization?.pendingMembers?.find((m) => m.id === userId)) {
+    return;
+  }
+
+  const member = organization.members.find((m) => m.id === userId);
+
+  // If member doesn't exist in the org or is already in the team, skip
+  if (!member || member.teams?.includes(teamId)) {
+    return;
+  }
+
+  // Create teams array for member if it does not exist
+  if (!member.teams) {
+    member.teams = [];
+  }
+  member.teams.push(teamId);
+
+  await updateOrganization(organization.id, { members: organization.members });
+}
+
+export async function removeMemberFromTeam({
+  organization,
+  userId,
+  teamId,
+}: {
+  organization: OrganizationInterface;
+  userId: string;
+  teamId: string;
+}): Promise<void> {
+  const member = organization.members.find((m) => m.id === userId);
+
+  // If member doesn't exist in the org or isn't in the team, skip
+  if (!member || !member.teams?.includes(teamId)) {
+    return;
+  }
+
+  const indexToDelete = member.teams.indexOf(teamId);
+
+  member.teams.splice(indexToDelete, 1);
+
+  await updateOrganization(organization.id, { members: organization.members });
 }
 
 export async function addPendingMemberToOrg({
@@ -572,7 +628,7 @@ export async function importConfig(
               },
             };
 
-            await updateDataSource(k, organization.id, updates);
+            await updateDataSource(existing, organization.id, updates);
           } else {
             await createDataSource(
               organization.id,
@@ -617,6 +673,9 @@ export async function importConfig(
               id: k,
               organization: organization.id,
             });
+          }
+          if (m.tags && organization.id) {
+            await addTags(organization.id, m.tags);
           }
         } catch (e) {
           throw new Error(`Metric ${k}: ${e.message}`);
@@ -796,7 +855,7 @@ export async function addMemberFromSSOConnection(
   }
   // When self-hosting, there should be only one organization in Mongo
   else {
-    const orgs = await findAllOrganizations();
+    const { organizations: orgs } = await findAllOrganizations(1, "");
     // Sanity check in case there are multiple orgs for whatever reason
     if (orgs.length > 1) {
       req.log.error(
@@ -854,4 +913,24 @@ export async function findVerifiedOrgForNewUser(email: string) {
   return organizations.reduce((prev, current) => {
     return prev.members.length > current.members.length ? prev : current;
   });
+}
+
+export async function expandOrgMembers(
+  members: Member[]
+): Promise<ExpandedMember[]> {
+  // Add email/name to the organization members array
+  const userInfo = await getUsersByIds(members.map((m) => m.id));
+  const expandedMembers: ExpandedMember[] = [];
+  userInfo.forEach(({ id, email, verified, name, _id }) => {
+    const memberInfo = members.find((m) => m.id === id);
+    if (!memberInfo) return;
+    expandedMembers.push({
+      email,
+      verified,
+      name: name || "",
+      ...memberInfo,
+      dateCreated: memberInfo.dateCreated || _id.getTimestamp(),
+    });
+  });
+  return expandedMembers;
 }

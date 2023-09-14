@@ -58,7 +58,7 @@ Read more about [features here](/app/features).
 
 ## Experiment Analysis
 
-GrowthBook needs to connect to your [Data Source](/app/datasources) in order to query experiment results. We support all of the popular SQL data warehouses in addition to Mixpanel and Google Analytics. GrowthBook is extremely flexible and can support almost any schema structure with a little bit of configuration.
+GrowthBook needs to connect to your [Data Source](/warehouses) in order to query experiment results. We support all of the popular SQL data warehouses in addition to Mixpanel and Google Analytics. GrowthBook is extremely flexible and can support almost any schema structure with a little bit of configuration.
 
 ![Data warehouses supported by GrowthBook](/images/GrowthBook-supported-DB-766.png)
 
@@ -75,7 +75,7 @@ Once these are metrics are set up, you can import experiments and start analyzin
 
 Your data team can drill down into results by custom [dimensions](/app/dimensions), view the raw SQL that GrowthBook is running on your data warehouse, and export results to a Jupyter notebook for even deeper analysis.
 
-Read more about [experiments here](/app/experiments).
+Read more about [experiments here](/experiments).
 
 ## Use Cases
 
@@ -103,6 +103,15 @@ This is best for companies that already have a robust process for running experi
 
 <div className="row is-multiline">
     <div className="col col--4">
+      <ButtonCard
+        to={'/quick-start'}
+        title="Quick Start Guide"
+        description="Learn how to get started with GrowthBook"
+        style={{ height: '100%' }}
+        color="default"
+      ></ButtonCard>
+    </div>
+    <div className="col col--4">
         <ButtonCard
             to={'/self-host'}
             title="Self-Host"
@@ -119,13 +128,5 @@ This is best for companies that already have a robust process for running experi
             color="default"
         ></ButtonCard>
     </div>
-    <div className="col col--4">
-        <ButtonCard
-            to={'/faq'}
-            title="FAQ"
-            description="Frequently asked questions"
-            style={{ height: '100%' }}
-            color="default"
-        ></ButtonCard>
-    </div>
+
 </div>

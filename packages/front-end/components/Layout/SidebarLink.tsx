@@ -3,8 +3,9 @@ import Link from "next/link";
 import { IconType } from "react-icons/lib";
 import { useRouter } from "next/router";
 import clsx from "clsx";
+import { AccountPlan } from "enterprise";
 import { FiChevronRight } from "react-icons/fi";
-import { AccountPlan, Permission } from "back-end/types/organization";
+import { GlobalPermission, Permission } from "back-end/types/organization";
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import { AppFeatures } from "@/types/app-features";
 import { isCloud } from "../../services/env";
@@ -59,7 +60,7 @@ const SidebarLink: FC<SidebarLinkProps> = (props) => {
   if (props.permissions) {
     let allowed = false;
     for (let i = 0; i < props.permissions.length; i++) {
-      if (permissions[props.permissions[i]]) {
+      if (permissions.check(props.permissions[i] as GlobalPermission)) {
         allowed = true;
       }
     }
@@ -139,7 +140,9 @@ const SidebarLink: FC<SidebarLinkProps> = (props) => {
 
               if (l.permissions) {
                 for (let i = 0; i < l.permissions.length; i++) {
-                  if (!permissions[l.permissions[i]]) {
+                  if (
+                    !permissions.check(l.permissions[i] as GlobalPermission)
+                  ) {
                     return null;
                   }
                 }

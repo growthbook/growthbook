@@ -12,8 +12,10 @@ import { getCurrentEnabledState } from "../src/util/scheduleRules";
 import { FeatureInterface, ScheduleRule } from "../types/feature";
 import { hashStrings } from "../src/services/features";
 import { SDKAttributeSchema } from "../types/organization";
+import { ExperimentInterface } from "../types/experiment";
 
 const groupMap = new Map();
+const experimentMap = new Map();
 
 const baseFeature: FeatureInterface = {
   id: "feature",
@@ -758,6 +760,196 @@ describe("SDK Payloads", () => {
     expect(getJSONValue("json", '{"foo": 1}')).toEqual({ foo: 1 });
   });
 
+  it("Uses linked experiments to build feature definitions", () => {
+    const feature = cloneDeep(baseFeature);
+    feature.environmentSettings["production"].rules = [
+      {
+        type: "experiment-ref",
+        experimentId: "exp_123",
+        description: "",
+        id: "abc",
+        enabled: true,
+        variations: [
+          {
+            variationId: "v0",
+            value: "false",
+          },
+          {
+            variationId: "v1",
+            value: "true",
+          },
+        ],
+      },
+    ];
+
+    const exp: ExperimentInterface = {
+      archived: false,
+      autoAssign: false,
+      implementation: "code",
+      autoSnapshots: false,
+      datasource: "",
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
+      exposureQueryId: "",
+      hashAttribute: "user_id",
+      hashVersion: 2,
+      id: "exp_123",
+      metrics: [],
+      name: "My Experiment",
+      organization: "",
+      owner: "",
+      phases: [
+        {
+          condition: `{"country":"us"}`,
+          coverage: 0.8,
+          dateStarted: new Date(),
+          name: "My Phase",
+          namespace: {
+            enabled: true,
+            name: "namespace",
+            range: [0, 0.6],
+          },
+          reason: "",
+          variationWeights: [0.4, 0.6],
+          seed: "testing",
+        },
+      ],
+      previewURL: "",
+      releasedVariationId: "",
+      status: "running",
+      tags: [],
+      targetURLRegex: "",
+      trackingKey: "exp-key",
+      variations: [
+        {
+          id: "v0",
+          key: "k0",
+          name: "Control",
+          screenshots: [],
+        },
+        {
+          id: "v1",
+          key: "k1",
+          name: "Variation 1",
+          screenshots: [],
+        },
+      ],
+      linkedFeatures: ["feature"],
+      excludeFromPayload: false,
+    };
+    const experimentMap = new Map([["exp_123", exp]]);
+
+    // Includes the experiment
+    expect(
+      getFeatureDefinition({
+        feature,
+        environment: "production",
+        groupMap: groupMap,
+        experimentMap: experimentMap,
+        useDraft: false,
+      })
+    ).toEqual({
+      defaultValue: true,
+      rules: [
+        {
+          key: "exp-key",
+          coverage: 0.8,
+          hashAttribute: "user_id",
+          hashVersion: 2,
+          condition: {
+            country: "us",
+          },
+          meta: [
+            {
+              key: "k0",
+              name: "Control",
+            },
+            {
+              key: "k1",
+              name: "Variation 1",
+            },
+          ],
+          name: "My Experiment",
+          namespace: ["namespace", 0, 0.6],
+          phase: "0",
+          seed: "testing",
+          variations: [false, true],
+          weights: [0.4, 0.6],
+        },
+      ],
+    });
+
+    // Excludes because it's archived
+    exp.archived = true;
+    expect(
+      getFeatureDefinition({
+        feature,
+        environment: "production",
+        groupMap: groupMap,
+        experimentMap: experimentMap,
+        useDraft: false,
+      })
+    ).toEqual({
+      defaultValue: true,
+    });
+
+    // Excludes because it's stopped without a released variation
+    exp.archived = false;
+    exp.status = "stopped";
+    expect(
+      getFeatureDefinition({
+        feature,
+        environment: "production",
+        groupMap: groupMap,
+        experimentMap: experimentMap,
+        useDraft: false,
+      })
+    ).toEqual({
+      defaultValue: true,
+    });
+
+    // Included with released variation id
+    exp.releasedVariationId = "v1";
+    expect(
+      getFeatureDefinition({
+        feature,
+        environment: "production",
+        groupMap: groupMap,
+        experimentMap: experimentMap,
+        useDraft: false,
+      })
+    ).toEqual({
+      defaultValue: true,
+      rules: [
+        {
+          coverage: 0.8,
+          hashAttribute: "user_id",
+          hashVersion: 2,
+          condition: {
+            country: "us",
+          },
+          namespace: ["namespace", 0, 0.6],
+          seed: "testing",
+          force: true,
+        },
+      ],
+    });
+
+    // Excluded because the experiment doesn't exist
+    experimentMap.clear();
+    expect(
+      getFeatureDefinition({
+        feature,
+        environment: "production",
+        groupMap: groupMap,
+        experimentMap: experimentMap,
+        useDraft: false,
+      })
+    ).toEqual({
+      defaultValue: true,
+    });
+  });
+
   it("Gets Feature Definitions", () => {
     const feature = cloneDeep(baseFeature);
 
@@ -766,6 +958,7 @@ describe("SDK Payloads", () => {
         feature,
         environment: "production",
         groupMap: groupMap,
+        experimentMap: experimentMap,
         useDraft: false,
       })
     ).toEqual({
@@ -779,6 +972,7 @@ describe("SDK Payloads", () => {
         feature,
         environment: "production",
         groupMap: groupMap,
+        experimentMap: experimentMap,
         useDraft: false,
       })
     ).toEqual(null);
@@ -788,6 +982,7 @@ describe("SDK Payloads", () => {
         feature,
         environment: "unknown",
         groupMap: groupMap,
+        experimentMap: experimentMap,
         useDraft: false,
       })
     ).toEqual(null);
@@ -862,6 +1057,7 @@ describe("SDK Payloads", () => {
         feature,
         environment: "dev",
         groupMap: groupMap,
+        experimentMap: experimentMap,
         useDraft: false,
       })
     ).toEqual({
@@ -882,6 +1078,7 @@ describe("SDK Payloads", () => {
           coverage: 1,
           hashAttribute: "anonymous_id",
           variations: [true, false],
+          meta: [{ key: "0" }, { key: "1" }],
           weights: [0.7, 0.3],
           key: "testing",
         },

@@ -1,10 +1,10 @@
 import type { Response } from "express";
+import { orgHasPremiumFeature } from "enterprise";
 import { AuthRequest } from "../../types/AuthRequest";
 import { getOrgFromReq } from "../../services/organizations";
 import { EventAuditUserForResponseLocals } from "../../events/event-types";
 import { getLatestEventsForOrganization } from "../../models/EventModel";
 import { DataExportFileResponse } from "../../../types/data-exports";
-import { orgHasPremiumFeature } from "../../util/organization.util";
 import { PrivateApiErrorResponse } from "../../../types/api";
 
 /**

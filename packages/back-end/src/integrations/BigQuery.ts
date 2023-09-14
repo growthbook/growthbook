@@ -4,6 +4,7 @@ import { decryptDataSourceParams } from "../services/datasource";
 import { BigQueryConnectionParams } from "../../types/integrations/bigquery";
 import { IS_CLOUD } from "../util/secrets";
 import { FormatDialect } from "../util/sql";
+import { QueryResponse } from "../types/Integration";
 import SqlIntegration from "./SqlIntegration";
 
 export default class BigQuery extends SqlIntegration {
@@ -38,18 +39,30 @@ export default class BigQuery extends SqlIntegration {
     });
   }
 
-  async runQuery(sql: string) {
+  async runQuery(sql: string): Promise<QueryResponse> {
     const client = this.getClient();
 
     const [job] = await client.createQueryJob({
+      labels: { integration: "growthbook" },
       query: sql,
       useLegacySql: false,
     });
     const [rows] = await job.getQueryResults();
-    return rows;
-  }
-  toTimestamp(date: Date) {
-    return `DATETIME("${date.toISOString().substr(0, 19).replace("T", " ")}")`;
+    const [metadata] = await job.getMetadata();
+    const statistics = {
+      executionDurationMs: Number(
+        metadata?.statistics?.finalExecutionDurationMs
+      ),
+      totalSlotMs: Number(metadata?.statistics?.totalSlotMs),
+      bytesProcessed: Number(metadata?.statistics?.totalBytesProcessed),
+      bytesBilled: Number(metadata?.statistics?.query?.totalBytesBilled),
+      warehouseCachedResult: metadata?.statistics?.query?.cacheHit,
+      partitionsUsed:
+        metadata?.statistics?.query?.totalPartitionsProcessed !== undefined
+          ? metadata.statistics.query.totalPartitionsProcessed > 0
+          : undefined,
+    };
+    return { rows, statistics };
   }
   addTime(
     col: string,
@@ -81,6 +94,19 @@ export default class BigQuery extends SqlIntegration {
   }
   castUserDateCol(column: string): string {
     return `CAST(${column} as DATETIME)`;
+  }
+  percentileCapSelectClause(
+    capPercentile: number,
+    metricTable: string
+  ): string {
+    return `
+    SELECT 
+      APPROX_QUANTILES(value, 100000)[OFFSET(${Math.trunc(
+        100000 * capPercentile
+      )})] AS cap_value
+    FROM ${metricTable}
+    WHERE value IS NOT NULL
+  `;
   }
   getDefaultDatabase() {
     return this.params.projectId || "";

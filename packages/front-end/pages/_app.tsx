@@ -4,6 +4,7 @@ import Head from "next/head";
 import { useEffect, useState } from "react";
 import { GrowthBook, GrowthBookProvider } from "@growthbook/growthbook-react";
 import { OrganizationMessagesContainer } from "@/components/OrganizationMessages/OrganizationMessages";
+import { DemoDataSourceGlobalBannerContainer } from "@/components/DemoDataSourceGlobalBanner/DemoDataSourceGlobalBanner";
 import { AuthProvider } from "../services/auth";
 import ProtectedPage from "../components/ProtectedPage";
 import { DefinitionsProvider } from "../services/DefinitionsContext";
@@ -31,6 +32,7 @@ const growthbook = new GrowthBook<AppFeatures>({
       ? "sdk-ueFMOgZ2daLa0M"
       : "sdk-UmQ03OkUDAu7Aox",
   enableDevMode: true,
+  subscribeToChanges: true,
   realtimeKey: "key_prod_cb40dfcb0eb98e44",
   trackingCallback: (experiment, result) => {
     track("Experiment Viewed", {
@@ -73,7 +75,7 @@ function App({
 
   useEffect(() => {
     // Load feature definitions JSON from GrowthBook API
-    growthbook.loadFeatures({ autoRefresh: true }).catch(() => {
+    growthbook.loadFeatures().catch(() => {
       console.log("Failed to fetch GrowthBook feature definitions");
     });
   }, [router.pathname]);
@@ -97,6 +99,7 @@ function App({
                       {!liteLayout && <Layout />}
                       <main className={`main ${parts[0]}`}>
                         <OrganizationMessagesContainer />
+                        <DemoDataSourceGlobalBannerContainer />
                         <Component {...pageProps} />
                       </main>
                     </DefinitionsProvider>

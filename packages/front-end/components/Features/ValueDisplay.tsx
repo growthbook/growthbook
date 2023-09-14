@@ -14,7 +14,7 @@ export default function ValueDisplay({
 }) {
   const formatted = useMemo(() => {
     if (type === "boolean") return value;
-    if (type === "number") return value;
+    if (type === "number") return value || "null";
     if (type === "string") return '"' + value + '"';
     try {
       return stringify(JSON.parse(value));
@@ -24,6 +24,7 @@ export default function ValueDisplay({
   }, [value, type]);
 
   if (type === "boolean") {
+    const on = !(value === "false" || !value);
     return (
       <span>
         <div
@@ -33,10 +34,10 @@ export default function ValueDisplay({
             width: 10,
             borderRadius: 10,
             marginRight: 5,
-            backgroundColor: value === "false" ? "#cccccc" : "#3aa8e8",
+            backgroundColor: on ? "#3aa8e8" : "#cccccc",
           }}
         ></div>
-        {value === "false" ? "OFF" : "ON"}
+        {on ? "ON" : "OFF"}
       </span>
     );
   }

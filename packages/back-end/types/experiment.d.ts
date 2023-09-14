@@ -1,4 +1,5 @@
 import { NamespaceValue } from "./feature";
+import { StatsEngine } from "./stats";
 
 export type ImplementationType = "visual" | "code" | "configuration" | "custom";
 
@@ -31,6 +32,9 @@ export interface Variation {
   description?: string;
   key: string;
   screenshots: Screenshot[];
+}
+export interface VariationWithIndex extends Variation {
+  index: number;
 }
 
 export interface LegacyExperimentPhase extends ExperimentPhase {
@@ -99,12 +103,16 @@ export interface ExperimentInterface {
   owner: string;
   datasource: string;
   exposureQueryId: string;
+  /**
+   * @deprecated Always set to 'code'
+   */
   implementation: ImplementationType;
   /**
    * @deprecated
    */
   userIdType?: "anonymous" | "user";
   hashAttribute: string;
+  hashVersion: 1 | 2;
   name: string;
   dateCreated: Date;
   dateUpdated: Date;
@@ -130,14 +138,17 @@ export interface ExperimentInterface {
   winner?: number;
   analysis?: string;
   releasedVariationId: string;
+  excludeFromPayload?: boolean;
   lastSnapshotAttempt?: Date;
   nextSnapshotAttempt?: Date;
   autoSnapshots: boolean;
   ideaSource?: string;
   regressionAdjustmentEnabled?: boolean;
   hasVisualChangesets?: boolean;
+  linkedFeatures?: string[];
   sequentialTestingEnabled?: boolean;
   sequentialTestingTuningParameter?: number;
+  statsEngine?: StatsEngine;
 }
 
 export type ExperimentInterfaceStringDates = Omit<
@@ -150,3 +161,15 @@ export type ExperimentInterfaceStringDates = Omit<
 };
 
 export type Changeset = Partial<ExperimentInterface>;
+
+export type ExperimentTargetingData = Pick<
+  ExperimentPhaseStringDates,
+  "condition" | "coverage" | "namespace" | "seed" | "variationWeights"
+> &
+  Pick<
+    ExperimentInterfaceStringDates,
+    "hashAttribute" | "hashVersion" | "trackingKey"
+  > & {
+    newPhase: boolean;
+    reseed: boolean;
+  };

@@ -14,8 +14,29 @@ import { MetricInterface } from "../../types/metric";
 import { ExperimentReportArgs } from "../../types/report";
 import { getReportById } from "../models/ReportModel";
 import { Queries } from "../../types/query";
+import { QueryMap } from "../queryRunners/QueryRunner";
+import { getQueriesByIds } from "../models/QueryModel";
 import { reportArgsFromSnapshot } from "./reports";
-import { getQueryData } from "./queries";
+
+async function getQueryData(
+  queries: Queries,
+  organization: string,
+  map?: QueryMap
+): Promise<QueryMap> {
+  const docs = await getQueriesByIds(
+    organization,
+    queries.map((q) => q.query)
+  );
+
+  const res: QueryMap = map || new Map();
+  docs.forEach((doc) => {
+    const match = queries.filter((q) => q.query === doc.id)[0];
+    if (!match) return;
+    res.set(match.name, doc);
+  });
+
+  return res;
+}
 
 export async function generateReportNotebook(
   reportId: string,
@@ -125,6 +146,7 @@ export async function generateNotebook(
       .filter(Boolean),
     url: `${APP_ORIGIN}${url}`,
     hypothesis: description,
+    dimension: args.dimension ?? "",
     name,
     var_id_map,
     var_names: args.variations.map((v) => v.name),
@@ -132,7 +154,7 @@ export async function generateNotebook(
     run_query: datasource.settings.notebookRunQuery,
   }).replace(/\\/g, "\\\\");
 
-  const statsEngine = args.statsEngine ?? DEFAULT_STATS_ENGINE;
+  const statsEngine = args.statsEngine || DEFAULT_STATS_ENGINE;
   const configString =
     statsEngine === "frequentist" && (args.sequentialTestingEnabled ?? false)
       ? `{'sequential': True, 'sequential_tuning_parameter': ${
@@ -164,6 +186,7 @@ print(create_notebook(
     metrics=metrics,
     url=data['url'],
     hypothesis=data['hypothesis'],
+    dimension=data['dimension'],
     name=data['name'],
     var_id_map=data['var_id_map'],
     var_names=data['var_names'],

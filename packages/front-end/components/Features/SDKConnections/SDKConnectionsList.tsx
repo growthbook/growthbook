@@ -10,7 +10,6 @@ import { GBAddCircle, GBHashLock, GBRemoteEvalIcon } from "@/components/Icons";
 import usePermissions from "@/hooks/usePermissions";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import StatusCircle from "@/components/Helpers/StatusCircle";
-import { isCloud } from "@/services/env";
 import Tooltip from "../../Tooltip/Tooltip";
 import SDKLanguageLogo from "./SDKLanguageLogo";
 import SDKConnectionForm from "./SDKConnectionForm";
@@ -43,7 +42,26 @@ export default function SDKConnectionsList() {
           edit={false}
         />
       )}
-      <h1>SDK Connections</h1>
+
+      <div className="row align-items-center mb-4">
+        <div className="col-auto">
+          <h1 className="mb-0">SDK Connections</h1>
+        </div>
+        {connections.length > 0 ? (
+          <div className="col-auto ml-auto">
+            <button
+              className="btn btn-primary"
+              onClick={(e) => {
+                e.preventDefault();
+                setModalOpen(true);
+              }}
+            >
+              <GBAddCircle /> Add SDK Connection
+            </button>
+          </div>
+        ) : null}
+      </div>
+
       {connections.length > 0 && (
         <table className="table mb-3 appbox gbtable table-hover">
           <thead>
@@ -60,8 +78,7 @@ export default function SDKConnectionsList() {
           <tbody>
             {connections.map((connection) => {
               const hasProxy =
-                !isCloud() && connection.proxy.enabled && connection.proxy.host;
-              const hasCloudProxyForSSE = isCloud() && connection.sseEnabled;
+                connection.proxy.enabled && !!connection.proxy.host;
               const connected =
                 connection.connected &&
                 (!hasProxy || connection.proxy.connected);
@@ -172,18 +189,6 @@ export default function SDKConnectionsList() {
                         <BsLightningFill className="mx-1 text-warning" />
                       </Tooltip>
                     )}
-                    {hasCloudProxyForSSE && (
-                      <Tooltip
-                        body={
-                          <>
-                            <BsLightningFill className="text-warning" />
-                            <strong>Streaming Updates</strong> are enabled
-                          </>
-                        }
-                      >
-                        <BsLightningFill className="mx-1 text-warning" />
-                      </Tooltip>
-                    )}
                     {connection.includeVisualExperiments && (
                       <Tooltip
                         body={
@@ -233,17 +238,7 @@ export default function SDKConnectionsList() {
                 <GBAddCircle /> Create New SDK Connection
               </button>
             </div>
-          ) : (
-            <button
-              className="btn btn-primary"
-              onClick={(e) => {
-                e.preventDefault();
-                setModalOpen(true);
-              }}
-            >
-              <GBAddCircle /> Create New SDK Connection
-            </button>
-          )}
+          ) : null}
         </>
       )}
     </div>
