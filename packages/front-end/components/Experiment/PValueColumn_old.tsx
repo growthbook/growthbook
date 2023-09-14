@@ -61,7 +61,6 @@ const PValueColumn_old: FC<{
     baseline,
     stats,
     hasEnoughData: enoughData,
-    suspiciousChange,
     belowMinChange,
   });
 

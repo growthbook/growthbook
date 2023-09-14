@@ -52,7 +52,6 @@ export default function ChanceToWinColumn({
           rowResults={rowResults}
           showTimeRemaining={showTimeRemaining}
           showPercentComplete={showPercentComplete}
-          style={{ marginLeft: -20 }}
         />
       ) : (
         <>

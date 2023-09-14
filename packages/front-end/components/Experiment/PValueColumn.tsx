@@ -73,7 +73,6 @@ export default function PValueColumn({
           rowResults={rowResults}
           showTimeRemaining={showTimeRemaining}
           showPercentComplete={showPercentComplete}
-          style={{ marginLeft: -20 }}
         />
       ) : (
         <div className="d-flex align-items-center justify-content-end">

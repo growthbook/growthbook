@@ -4,6 +4,7 @@ import {
   ExperimentReportResultDimension,
   ExperimentReportVariation,
 } from "back-end/types/report";
+import { ImTable2 } from "react-icons/im";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { formatTrafficSplit } from "@/services/utils";
 import Tooltip from "../Tooltip/Tooltip";
@@ -28,22 +29,24 @@ const UsersTable: FC<{
 
   if (!hasSrm && !expand) {
     return (
-      <div>
+      <div className="mt-3">
         <a
-          href="#"
+          role="button"
+          className="btn-link"
           onClick={(e) => {
             e.preventDefault();
             setExpand(true);
           }}
         >
           Show traffic allocation
+          <ImTable2 className="ml-1" />
         </a>
       </div>
     );
   }
 
   return (
-    <div>
+    <div className="mt-3">
       <h2>
         Users{" "}
         {!hasSrm && (
@@ -115,7 +118,6 @@ const UsersTable: FC<{
           ))}
         </tbody>
       </table>
-      <h2>Metrics</h2>
     </div>
   );
 };

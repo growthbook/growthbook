@@ -9,7 +9,10 @@ import { getOrgFromReq } from "../../services/organizations";
 import { EventAuditUserForResponseLocals } from "../../events/event-types";
 import { PostgresConnectionParams } from "../../../types/integrations/postgres";
 import { createDataSource } from "../../models/DataSourceModel";
-import { createExperiment } from "../../models/ExperimentModel";
+import {
+  createExperiment,
+  getAllExperiments,
+} from "../../models/ExperimentModel";
 import { createProject, findProjectById } from "../../models/ProjectModel";
 import { createMetric, createSnapshot } from "../../services/experiments";
 import { PrivateApiErrorResponse } from "../../../types/api";
@@ -130,6 +133,7 @@ type CreateDemoDatasourceProjectRequest = AuthRequest;
 type CreateDemoDatasourceProjectResponse = {
   status: 200;
   project: ProjectInterface;
+  experimentId: string;
 };
 
 /**
@@ -159,9 +163,15 @@ export const postDemoDatasourceProject = async (
   );
 
   if (existingDemoProject) {
+    const existingExperiments = await getAllExperiments(
+      org.id,
+      existingDemoProject.id
+    );
+
     res.status(200).json({
       status: 200,
       project: existingDemoProject,
+      experimentId: existingExperiments[0]?.id || "",
     });
     return;
   }
@@ -169,17 +179,16 @@ export const postDemoDatasourceProject = async (
   try {
     const project = await createProject(org.id, {
       id: demoProjId,
-      name: "GrowthBook Demo Project",
-      description: "GrowthBook Demo Project",
+      name: "Sample Data",
     });
     const datasource = await createDataSource(
       org.id,
-      "GrowthBook Demo Postgres Datasource",
+      "Sample Data Source",
       DATASOURCE_TYPE,
       DEMO_DATASOURCE_PARAMS,
       DEMO_DATASOURCE_SETTINGS,
       undefined,
-      "Datasource used for demoing GrowthBook Metrics, Experiments, and Datasource Connections",
+      "",
       [project.id]
     );
 
@@ -385,6 +394,7 @@ spacing and headings.`,
     res.status(200).json({
       status: 200,
       project: project,
+      experimentId: createdExperiment.id,
     });
   } catch (e) {
     res.status(500).json({

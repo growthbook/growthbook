@@ -50,6 +50,26 @@ export type StartQueryParams<Rows, ProcessedRows> = {
 
 const FINISH_EVENT = "finish";
 
+export async function getQueryMap(
+  organization: string,
+  queries: Queries
+): Promise<QueryMap> {
+  const queryDocs = await getQueriesByIds(
+    organization,
+    queries.map((q) => q.query)
+  );
+
+  const map: QueryMap = new Map();
+  queries.forEach((q) => {
+    const query = queryDocs.find((doc) => doc.id === q.query);
+    if (query) {
+      map.set(q.name, query);
+    }
+  });
+
+  return map;
+}
+
 export abstract class QueryRunner<
   Model extends InterfaceWithQueries,
   Params,
@@ -115,20 +135,7 @@ export abstract class QueryRunner<
   }
 
   private async getQueryMap(pointers: Queries): Promise<QueryMap> {
-    const queryDocs = await getQueriesByIds(
-      this.model.organization,
-      pointers.map((q) => q.query)
-    );
-
-    const map: QueryMap = new Map();
-    pointers.forEach((q) => {
-      const query = queryDocs.find((doc) => doc.id === q.query);
-      if (query) {
-        map.set(q.name, query);
-      }
-    });
-
-    return map;
+    return getQueryMap(this.model.organization, pointers);
   }
 
   public async startAnalysis(params: Params): Promise<Model> {
@@ -266,8 +273,22 @@ export abstract class QueryRunner<
         }
         if (succeededDependencies.length === dependencyIds.length) {
           logger.debug(`${query.id}: Dependencies completed, running...`);
-          const { run, process } = this.runCallbacks[query.id];
-          await this.executeQuery(query, run, process);
+          const runCallbacks = this.runCallbacks[query.id];
+          if (runCallbacks === undefined) {
+            logger.debug(`${query.id}: Run callbacks not found..`);
+            await updateQuery(query, {
+              finishedAt: new Date(),
+              status: "failed",
+              error: `Run callbacks not found`,
+            });
+            this.onQueryFinish();
+          } else {
+            await this.executeQuery(
+              query,
+              runCallbacks.run,
+              runCallbacks.process
+            );
+          }
         }
       })
     );

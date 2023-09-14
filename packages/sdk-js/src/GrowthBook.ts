@@ -113,7 +113,11 @@ export class GrowthBook<
 
   public async loadFeatures(options?: LoadFeaturesOptions): Promise<void> {
     await this._refresh(options, true, true);
-    if (options && options.autoRefresh) {
+
+    if (
+      this._ctx.backgroundSync !== false &&
+      (this._ctx.subscribeToChanges || (options && options.autoRefresh))
+    ) {
       subscribe(this);
     }
   }
@@ -145,7 +149,8 @@ export class GrowthBook<
       options.timeout,
       options.skipCache || this._ctx.enableDevMode,
       allowStale,
-      updateInstance
+      updateInstance,
+      this._ctx.backgroundSync !== false
     );
   }
 

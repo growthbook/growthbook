@@ -12,9 +12,6 @@ import {
 import { FeatureInterface } from "back-end/types/feature";
 import Link from "next/link";
 import useOrgSettings from "@/hooks/useOrgSettings";
-import usePermissions from "@/hooks/usePermissions";
-import { useAuth } from "@/services/auth";
-import { useUser } from "@/services/UserContext";
 import { getApiHost, getCdnHost, isCloud } from "@/services/env";
 import Code from "@/components/SyntaxHighlighting/Code";
 import { useAttributeSchema } from "@/services/features";
@@ -91,7 +88,6 @@ export default function CodeSnippetModal({
   const [showTestModal, setShowTestModal] = useState(false);
 
   const [language, setLanguage] = useState<SDKLanguage>("javascript");
-  const permissions = usePermissions();
 
   const [configOpen, setConfigOpen] = useState(true);
   const [installationOpen, setInstallationOpen] = useState(true);
@@ -99,30 +95,8 @@ export default function CodeSnippetModal({
   const [usageOpen, setUsageOpen] = useState(true);
   const [attributesOpen, setAttributesOpen] = useState(true);
 
-  const { apiCall } = useAuth();
-
-  const { refreshOrganization } = useUser();
   const settings = useOrgSettings();
   const attributeSchema = useAttributeSchema();
-
-  // Record the fact that the SDK instructions have been seen
-  useEffect(() => {
-    if (!settings) return;
-    if (settings.sdkInstructionsViewed) return;
-    if (!connections.length) return;
-    if (!permissions.check("manageEnvironments", "", [])) return;
-    (async () => {
-      await apiCall(`/organization`, {
-        method: "PUT",
-        body: JSON.stringify({
-          settings: {
-            sdkInstructionsViewed: true,
-          },
-        }),
-      });
-      await refreshOrganization();
-    })();
-  }, [settings, connections.length]);
 
   useEffect(() => {
     if (!currentConnection) return;
@@ -154,6 +128,22 @@ export default function CodeSnippetModal({
     ) || [];
   const secureAttributeSalt = settings.secureAttributeSalt ?? "";
 
+  if (showTestModal && includeCheck && !inline) {
+    return (
+      <CheckSDKConnectionModal
+        close={() => {
+          mutateConnections();
+          setShowTestModal(false);
+        }}
+        connection={currentConnection}
+        mutate={mutateConnections}
+        goToNextStep={submit}
+        cta={"Finish"}
+        showModalClose={false}
+      />
+    );
+  }
+
   return (
     <>
       {showTestModal && setShowTestModal && (
@@ -165,6 +155,7 @@ export default function CodeSnippetModal({
           connection={currentConnection}
           mutate={mutateConnections}
           goToNextStep={submit}
+          showModalClose={true}
         />
       )}
       <Modal
