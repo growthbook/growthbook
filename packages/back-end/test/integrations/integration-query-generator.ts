@@ -12,6 +12,7 @@ import { Dimension } from "../../src/types/Integration";
 import { MetricInterface, MetricType } from "../../types/metric";
 import { getSourceIntegrationObject } from "../../src/services/datasource";
 import { getSnapshotSettings } from "../../src/services/experiments";
+import { expandDenominatorMetrics } from "../../src/util/sql";
 import metricConfigData from "./metrics.json";
 
 const currentDate = new Date();
@@ -283,21 +284,25 @@ engines.forEach((engine) => {
         experiment.metricOverrides[0].id = metric.id;
       }
 
-      let activationMetrics: MetricInterface[] = [];
+      let activationMetric: MetricInterface | null = null;
       if (experiment.activationMetric) {
-        activationMetrics = allActivationMetrics.filter(
+        activationMetric = allActivationMetrics.filter(
           (m) => m.id === experiment.activationMetric
-        );
+        )[0];
       }
       let denominatorMetrics: MetricInterface[] = [];
       if (metric.denominator) {
-        denominatorMetrics = analysisMetrics.filter(
-          (m) => m.id === metric.denominator
+        denominatorMetrics.push(
+          ...expandDenominatorMetrics(metric.denominator, metricMap)
+            .map((m) => metricMap.get(m) as MetricInterface)
+            .filter(Boolean)
         );
       }
 
       if (engine === "bigquery") {
-        activationMetrics = activationMetrics.map(addDatabaseToMetric);
+        if (activationMetric) {
+          activationMetric = addDatabaseToMetric(activationMetric);
+        }
         denominatorMetrics = denominatorMetrics.map(addDatabaseToMetric);
         metric = addDatabaseToMetric(metric);
       }
@@ -354,7 +359,7 @@ engines.forEach((engine) => {
       const sql = integration.getExperimentMetricQuery({
         settings: snapshotSettings,
         metric: metric,
-        activationMetrics: activationMetrics,
+        activationMetric: activationMetric,
         denominatorMetrics: denominatorMetrics,
         dimension: dimension,
         segment: segment,
@@ -375,6 +380,7 @@ engines.forEach((engine) => {
         }growthbook_tmp_units_${experiment.id}_${metric.id}`;
         const unitsSql = integration.getExperimentUnitsTableQuery({
           settings: snapshotSettings,
+          activationMetric: activationMetric,
           dimension: dimension,
           segment: segment,
           unitsTableFullName: unitsTableFullName,
@@ -383,7 +389,7 @@ engines.forEach((engine) => {
         const metricSql = integration.getExperimentMetricQuery({
           settings: snapshotSettings,
           metric: metric,
-          activationMetrics: activationMetrics,
+          activationMetric: activationMetric,
           denominatorMetrics: denominatorMetrics,
           dimension: dimension,
           segment: segment,

@@ -132,6 +132,12 @@
     "attributionModel": "firstExposure"
   },
   {
+    "id": "dimension_activation",
+    "activationMetric": "cart_loaded",
+    "attributionModel": "firstExposure",
+    "dimensionType": "activation"
+  },
+  {
     "id": "filter_sql",
     "attributionModel": "firstExposure",
     "queryFilter": "browser = 'Chrome'"

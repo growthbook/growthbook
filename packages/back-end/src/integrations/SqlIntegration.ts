@@ -1107,18 +1107,24 @@ export default abstract class SqlIntegration
     );
 
     // Get any required identity join queries
-    const { baseIdType, idJoinMap, idJoinSQL } = this.getIdentitiesCTE(
-      [
-        [exposureQuery.userIdType],
-        metric.userIdTypes || [],
-        ...denominatorMetrics.map((m) => m.userIdTypes || []),
-        dimension?.type === "user" && !params.useUnitsTable
+    const idTypeObjects = [
+      [exposureQuery.userIdType],
+      metric.userIdTypes || [],
+      ...denominatorMetrics.map((m) => m.userIdTypes || []),
+    ];
+    // add idTypes usually handled in units query here in the case where
+    // we don't have a separate table for the units query
+    if (!params.useUnitsTable) {
+      idTypeObjects.concat([
+        dimension?.type === "user"
           ? [dimension.dimension.userIdType || "user_id"]
           : [],
-        segment && !params.useUnitsTable
-          ? [segment.userIdType || "user_id"]
-          : [],
-      ],
+        segment ? [segment.userIdType || "user_id"] : [],
+        activationMetric?.userIdTypes || [],
+      ]);
+    }
+    const { baseIdType, idJoinMap, idJoinSQL } = this.getIdentitiesCTE(
+      idTypeObjects,
       settings.startDate,
       settings.endDate,
       exposureQuery.userIdType,
