@@ -223,6 +223,7 @@ app.use(
   // TODO add authentication
   cors({
     origin: "*",
+    methods: ["GET", "HEAD", "OPTIONS", "POST", "PUT", "DELETE"],
   }),
   apiRouter
 );
@@ -236,6 +237,7 @@ app.use(
   cors({
     credentials: true,
     origin: origins,
+    methods: ["GET", "HEAD", "OPTIONS", "POST", "PUT", "DELETE"],
   })
 );
 
