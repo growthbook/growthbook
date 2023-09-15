@@ -214,10 +214,10 @@ class BayesianTestResult(TestResult):
     chance_to_win: float
     risk: List[float]
     relative_risk: List[float]
-    message: Optional[str] = None
+    error_message: Optional[str] = None
 
 
 @dataclass
 class FrequentistTestResult(TestResult):
     p_value: float
-    message: Optional[str] = None
+    error_message: Optional[str] = None

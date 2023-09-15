@@ -86,7 +86,9 @@ class TTest(BaseABTest):
     def confidence_interval(self) -> List[float]:
         pass
 
-    def _default_output(self, message: Optional[str] = None) -> FrequentistTestResult:
+    def _default_output(
+        self, error_message: Optional[str] = None
+    ) -> FrequentistTestResult:
         """Return uninformative output when AB test analysis can't be performed
         adequately
         """
@@ -99,7 +101,7 @@ class TTest(BaseABTest):
                 mean=0,
                 stddev=0,
             ),
-            message=message,
+            error_message=error_message,
         )
 
     def compute_result(self) -> FrequentistTestResult:

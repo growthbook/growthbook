@@ -81,7 +81,9 @@ class BayesianABTest(BaseABTest):
     def compute_result(self) -> BayesianTestResult:
         pass
 
-    def _default_output(self, message: Optional[str] = None) -> BayesianTestResult:
+    def _default_output(
+        self, error_message: Optional[str] = None
+    ) -> BayesianTestResult:
         """Return uninformative output when AB test analysis can't be performed
         adequately
         """
@@ -92,7 +94,7 @@ class BayesianABTest(BaseABTest):
             uplift=Uplift(dist="lognormal", mean=0, stddev=0),
             risk=[0, 0],
             relative_risk=[0, 0],
-            message=message,
+            error_message=error_message,
         )
 
     def has_empty_input(self):
