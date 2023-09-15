@@ -256,7 +256,7 @@ async function fetchFeatures(
   const remoteEval = instance.getRemoteEval();
 
   const endpoint = remoteEval
-    ? `${remoteEvalHost}/eval/features/${clientKey}`
+    ? `${remoteEvalHost}/eval/${clientKey}`
     : `${apiHost}/api/features/${clientKey}`;
   const options: RequestInit = remoteEval
     ? {
