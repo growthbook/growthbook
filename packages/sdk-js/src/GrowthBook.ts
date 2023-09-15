@@ -302,7 +302,7 @@ export class GrowthBook<
     experiments = true,
     attributes = true,
     forcedVariations = true,
-    apiHost = false,
+    apiHosts = false,
     clientKey = false,
     decryptionKey = false,
   }: {
@@ -310,7 +310,7 @@ export class GrowthBook<
     experiments?: boolean;
     attributes?: boolean;
     forcedVariations?: boolean;
-    apiHost?: boolean;
+    apiHosts?: boolean;
     clientKey?: boolean;
     decryptionKey?: boolean;
   }): Partial<Context> {
@@ -319,7 +319,11 @@ export class GrowthBook<
       ...(experiments && { experiments: this._ctx.experiments }),
       ...(attributes && { attributes: this._ctx.attributes }),
       ...(forcedVariations && { forcedVariations: this._ctx.forcedVariations }),
-      ...(apiHost && { apiHost: this._ctx.apiHost }),
+      ...(apiHosts && {
+        apiHost: this._ctx.apiHost,
+        streamingHost: this._ctx.streamingHost,
+        remoteEvalHost: this._ctx.remoteEvalHost,
+      }),
       ...(clientKey && { clientKey: this._ctx.clientKey }),
       ...(decryptionKey && { decryptionKey: this._ctx.decryptionKey }),
     };
