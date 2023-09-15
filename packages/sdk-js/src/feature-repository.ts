@@ -1,7 +1,5 @@
 import {
-  ApiHost,
   CacheSettings,
-  ClientKey,
   FeatureApiResponse,
   Polyfills,
   RepositoryKey,
@@ -93,7 +91,7 @@ export async function refreshFeatures(
 
 // Subscribe a GrowthBook instance to feature changes
 export function subscribe(instance: GrowthBook): void {
-  const [key] = getKey(instance);
+  const key = getKey(instance);
   const subs = subscribedInstances.get(key) || new Set();
   subs.add(instance);
   subscribedInstances.set(key, subs);
@@ -121,7 +119,7 @@ async function fetchFeaturesWithCache(
   timeout?: number,
   skipCache?: boolean
 ): Promise<FeatureApiResponse | null> {
-  const [key] = getKey(instance);
+  const key = getKey(instance);
   const now = new Date();
   await initializeCache();
   const existing = cache.get(key);
@@ -139,18 +137,15 @@ async function fetchFeaturesWithCache(
     }
     return existing.data;
   } else {
-    const data = await promiseTimeout(fetchFeatures(instance), timeout);
-    return data;
+    return await promiseTimeout(fetchFeatures(instance), timeout);
   }
 }
 
-function getKey(instance: GrowthBook): [RepositoryKey, ApiHost, ClientKey] {
+function getKey(instance: GrowthBook): RepositoryKey {
   const [apiHost, clientKey] = instance.getApiInfo();
-  let repositoryKey = `${apiHost}||${clientKey}`;
-  if (instance.getRemoteEval()) {
-    repositoryKey = instance.getUserId();
-  }
-  return [repositoryKey, apiHost, clientKey];
+  return instance.getRemoteEval()
+    ? `${apiHost}||${clientKey}||${instance.getUserId()}`
+    : `${apiHost}||${clientKey}`;
 }
 
 // Guarantee the promise always resolves within {timeout} ms
@@ -255,23 +250,23 @@ async function refreshInstance(
 async function fetchFeatures(
   instance: GrowthBook
 ): Promise<FeatureApiResponse> {
-  const [key, apiHost, clientKey] = getKey(instance);
+  const key = getKey(instance);
+  const { apiHost, remoteEvalHost } = instance.getApiHosts();
+  const clientKey = instance.getClientKey();
   const remoteEval = instance.getRemoteEval();
 
-  // todo: custom host by endpoint functionality
-  const endpoint = `${apiHost}/${
-    remoteEval ? "eval" : "api"
-  }/features/${clientKey}`;
-  let options: RequestInit = {};
-  if (remoteEval) {
-    options = {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        attributes: instance.getAttributes(),
-      }),
-    };
-  }
+  const endpoint = remoteEval
+    ? `${remoteEvalHost}/eval/features/${clientKey}`
+    : `${apiHost}/api/features/${clientKey}`;
+  const options: RequestInit = remoteEval
+    ? {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          attributes: instance.getAttributes(),
+        }),
+      }
+    : {};
 
   let promise = activeFetches.get(key);
   if (!promise) {
@@ -307,7 +302,9 @@ async function fetchFeatures(
 // Watch a feature endpoint for changes
 // Will prefer SSE if enabled, otherwise fall back to cron
 function startAutoRefresh(instance: GrowthBook): void {
-  const [key, apiHost, clientKey] = getKey(instance);
+  const key = getKey(instance);
+  const { streamingHost } = instance.getApiHosts();
+  const clientKey = instance.getClientKey();
   if (
     cacheSettings.backgroundSync &&
     supportsSSE.has(key) &&
@@ -329,25 +326,21 @@ function startAutoRefresh(instance: GrowthBook): void {
         } catch (e) {
           process.env.NODE_ENV !== "production" &&
             instance.log("SSE Error", {
-              apiHost,
+              streamingHost,
               clientKey,
               error: e ? (e as Error).message : null,
             });
-          onSSEError(channel, apiHost, clientKey);
+          onSSEError(channel, streamingHost, clientKey);
         }
       },
       errors: 0,
     };
     streams.set(key, channel);
-    enableChannel(channel, apiHost, clientKey);
+    enableChannel(channel, streamingHost, clientKey);
   }
 }
 
-function onSSEError(
-  channel: ScopedChannel,
-  apiHost: string,
-  clientKey: string
-) {
+function onSSEError(channel: ScopedChannel, host: string, clientKey: string) {
   channel.errors++;
   if (channel.errors > 3 || (channel.src && channel.src.readyState === 2)) {
     // exponential backoff after 4 errors, with jitter
@@ -355,7 +348,7 @@ function onSSEError(
       Math.pow(3, channel.errors - 3) * (1000 + Math.random() * 1000);
     disableChannel(channel);
     setTimeout(() => {
-      enableChannel(channel, apiHost, clientKey);
+      enableChannel(channel, host, clientKey);
     }, Math.min(delay, 300000)); // 5 minutes max
   }
 }
@@ -370,16 +363,16 @@ function disableChannel(channel: ScopedChannel) {
 
 function enableChannel(
   channel: ScopedChannel,
-  apiHost: string,
+  host: string,
   clientKey: string
 ) {
   channel.src = new polyfills.EventSource(
-    `${apiHost}/sub/${clientKey}`
+    `${host}/sub/${clientKey}`
   ) as EventSource;
   channel.src.addEventListener("features", channel.cb);
   channel.src.addEventListener("features-updated", channel.cb);
   channel.src.onerror = () => {
-    onSSEError(channel, apiHost, clientKey);
+    onSSEError(channel, host, clientKey);
   };
   channel.src.onopen = () => {
     channel.errors = 0;

@@ -170,6 +170,8 @@ export interface Context {
   /* @deprecated */
   groups?: Record<string, boolean>;
   apiHost?: string;
+  streamingHost?: string;
+  remoteEvalHost?: string;
   clientKey?: string;
   decryptionKey?: string;
   remoteEval?: boolean;
@@ -256,8 +258,10 @@ export type CacheSettings = {
 
 export type ApiHost = string;
 export type ClientKey = string;
-// Local eval: `${apiHost}||${clientKey}`. Remote eval: context.userId
-export type RepositoryKey = `${ApiHost}||${ClientKey}` | string;
+export type UserKey = string;
+export type RepositoryKey =
+  | `${ApiHost}||${ClientKey}` // local eval
+  | `${ApiHost}||${ClientKey}||${UserKey}`; // remote eval
 
 export type LoadFeaturesOptions = {
   /**

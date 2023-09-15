@@ -135,10 +135,32 @@ export class GrowthBook<
   }
 
   public getApiInfo(): [ApiHost, ClientKey] {
-    return [
-      (this._ctx.apiHost || "https://cdn.growthbook.io").replace(/\/*$/, ""),
-      this._ctx.clientKey || "",
-    ];
+    return [this.getApiHosts().apiHost, this.getClientKey()];
+  }
+  public getApiHosts(): {
+    apiHost: string;
+    streamingHost: string;
+    remoteEvalHost: string;
+  } {
+    return {
+      apiHost: (this._ctx.apiHost || "https://cdn.growthbook.io").replace(
+        /\/*$/,
+        ""
+      ),
+      streamingHost: (
+        this._ctx.streamingHost ||
+        this._ctx.apiHost ||
+        "https://cdn.growthbook.io"
+      ).replace(/\/*$/, ""),
+      remoteEvalHost: (
+        this._ctx.remoteEvalHost ||
+        this._ctx.apiHost ||
+        "https://cdnx.growthbook.io"
+      ).replace(/\/*$/, ""),
+    };
+  }
+  public getClientKey(): string {
+    return this._ctx.clientKey || "";
   }
 
   public getRemoteEval(): boolean {
