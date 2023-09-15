@@ -21,7 +21,7 @@ export const EditDataSourcePipeline: FC<EditDataSourcePipelineProps> = ({
   const form = useForm({
     defaultValues: {
       allowWriting: dataSource.settings.pipelineSettings?.allowWriting ?? false,
-      writeDataset: dataSource.settings.pipelineSettings?.writeDataset,
+      writeDataset: dataSource.settings.pipelineSettings?.writeDataset ?? "",
       unitsTableRetentionHours:
         dataSource.settings.pipelineSettings?.unitsTableRetentionHours ?? 24,
     },
@@ -38,7 +38,6 @@ export const EditDataSourcePipeline: FC<EditDataSourcePipelineProps> = ({
       open={true}
       submit={handleSubmit}
       close={onCancel}
-      size="max"
       header="Edit Data Source Pipeline Settings"
       cta="Save"
     >

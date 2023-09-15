@@ -56,7 +56,6 @@ const DataSourcePage: FC = () => {
   const { did } = router.query as { did: string };
   const d = getDatasourceById(did);
   const { apiCall } = useAuth();
-
   const { organization } = useUser();
 
   const canEdit =
@@ -350,7 +349,7 @@ mixpanel.init('YOUR PROJECT TOKEN', {
                 />
               </div>
 
-              {d.type === "bigquery" && pipelineEnabled ? (
+              {d.properties?.supportsWritingTables && pipelineEnabled ? (
                 <div className="my-3 p-3 rounded border bg-white">
                   <DataSourcePipeline
                     dataSource={d}

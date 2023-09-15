@@ -90,7 +90,7 @@ export const startExperimentResultQueries = async (
       integration.settings.pipelineSettings?.allowWriting &&
       !!integration.settings.pipelineSettings?.writeDataset) ??
     false;
-  let unitQuery: QueryPointer;
+  let unitQuery: QueryPointer | null = null;
   const unitsTableFullName = `${integration.settings.pipelineSettings?.writeDataset}.growthbook_tmp_units_${queryParentId}`;
 
   if (useUnitsTable) {
@@ -135,7 +135,7 @@ export const startExperimentResultQueries = async (
       await startQuery({
         name: m.id,
         query: integration.getExperimentMetricQuery(params),
-        dependencies: useUnitsTable ? [unitQuery.query] : [],
+        dependencies: unitQuery ? [unitQuery.query] : [],
         run: (query) => integration.runExperimentMetricQuery(query),
         process: (rows) => rows,
       })

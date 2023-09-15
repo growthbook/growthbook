@@ -303,9 +303,9 @@ engines.forEach((engine) => {
 
       let activationMetric: MetricInterface | null = null;
       if (experiment.activationMetric) {
-        activationMetric = allActivationMetrics.filter(
+        activationMetric = allActivationMetrics.find(
           (m) => m.id === experiment.activationMetric
-        )[0];
+        );
       }
       let denominatorMetrics: MetricInterface[] = [];
       if (metric.denominator) {

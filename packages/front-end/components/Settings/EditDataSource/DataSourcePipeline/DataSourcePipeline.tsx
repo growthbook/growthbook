@@ -1,4 +1,4 @@
-import { CSSProperties, FC, ReactNode, useCallback, useState } from "react";
+import { useCallback, useState } from "react";
 import { FaPencilAlt } from "react-icons/fa";
 import usePermissions from "@/hooks/usePermissions";
 import { checkDatasourceProjectPermissions } from "@/services/datasources";
@@ -7,26 +7,14 @@ import { EditDataSourcePipeline } from "./EditDataSourcePipeline";
 
 type DataSourcePipelineProps = DataSourceQueryEditingModalBaseProps;
 
-const DataSourcePipelineField: FC<{
-  title?: string;
-  style?: CSSProperties;
-  children?: ReactNode;
-  titleClassName?: string;
-}> = ({ children, title = "", titleClassName = "", style }) => {
-  return (
-    <div className={`mb-2 ma-5 ${titleClassName}`} style={style}>
-      {title}
-      {children}
-    </div>
-  );
-};
-
 export default function DataSourcePipeline({
   dataSource,
   onSave,
   canEdit,
 }: DataSourcePipelineProps) {
   const [uiMode, setUiMode] = useState<"view" | "edit">("view");
+
+  const pipelineSettings = dataSource.settings.pipelineSettings;
 
   const handleCancel = useCallback(() => {
     setUiMode("view");
@@ -66,26 +54,24 @@ export default function DataSourcePipeline({
         queries.
       </div>
       <div>
-        <DataSourcePipelineField
-          title="Pipeline Mode: "
-          titleClassName="font-weight-bold"
-        >
-          {dataSource.settings.pipelineSettings?.allowWriting
-            ? "Enabled"
-            : "Disabled"}
-        </DataSourcePipelineField>
-        {dataSource.settings.pipelineSettings?.allowWriting && (
+        <div className={`mb-2 ma-5 font-weight-bold`}>
+          {"Pipeline Mode: "}
+          {pipelineSettings?.allowWriting ? "Enabled" : "Disabled"}
+        </div>
+        {pipelineSettings?.allowWriting && (
           <>
-            <DataSourcePipelineField title="Destination dataset: ">
-              {dataSource.settings.pipelineSettings?.writeDataset ? (
-                <code>{dataSource.settings.pipelineSettings.writeDataset}</code>
+            <div className={`mb-2 ma-5`}>
+              {"Destination dataset: "}
+              {pipelineSettings?.writeDataset ? (
+                <code>{pipelineSettings.writeDataset}</code>
               ) : (
                 <em className="text-muted">not specified</em>
               )}
-            </DataSourcePipelineField>
-            <DataSourcePipelineField title="Retention of temporary units table (hours): ">
-              {dataSource.settings.pipelineSettings?.unitsTableRetentionHours}
-            </DataSourcePipelineField>
+            </div>
+            <div className={`mb-2 ma-5`}>
+              {"Retention of temporary units table (hours): "}
+              {pipelineSettings?.unitsTableRetentionHours ?? 24}
+            </div>
           </>
         )}
       </div>
