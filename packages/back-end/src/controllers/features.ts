@@ -171,7 +171,9 @@ export async function getFeaturesPublic(req: Request, res: Response) {
     } = await getPayloadParamsFromApiKey(key, req);
 
     if (remoteEvalEnabled) {
-      throw new Error("Remote evaluation is required for this SDK Connection");
+      // todo: remote eval proxy/edge needs to fetch raw features, but users should not...
+      // todo: use secret api token to allow services through but not users
+      // throw new Error("Remote evaluation is required for this SDK Connection");
     }
 
     const defs = await getFeatureDefinitions({
