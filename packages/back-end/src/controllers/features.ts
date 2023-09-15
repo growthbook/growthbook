@@ -59,6 +59,8 @@ import { EventAuditUserForResponseLocals } from "../events/event-types";
 import { upsertWatch } from "../models/WatchModel";
 import { getSurrogateKeysFromSDKPayloadKeys } from "../util/cdn.util";
 import { SDKPayloadKey } from "../../types/sdk-payload";
+import authenticateApiRequestMiddleware from "../middleware/authenticateApiRequestMiddleware";
+import { ApiRequestLocals } from "../../types/api";
 
 class UnrecoverableApiError extends Error {
   constructor(message: string) {
@@ -171,9 +173,14 @@ export async function getFeaturesPublic(req: Request, res: Response) {
     } = await getPayloadParamsFromApiKey(key, req);
 
     if (remoteEvalEnabled) {
-      // todo: remote eval proxy/edge needs to fetch raw features, but users should not...
-      // todo: use secret api token to allow services through but not users
-      // throw new Error("Remote evaluation is required for this SDK Connection");
+      // only return features if the request is authenticated by API key (proxy or remote service)
+      await new Promise((resolve) => {
+        authenticateApiRequestMiddleware(
+          req as Request & ApiRequestLocals,
+          res as Response & { log: Request["log"] },
+          resolve
+        );
+      });
     }
 
     const defs = await getFeatureDefinitions({
