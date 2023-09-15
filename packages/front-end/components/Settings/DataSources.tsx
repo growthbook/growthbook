@@ -13,6 +13,7 @@ import LoadingOverlay from "@/components/LoadingOverlay";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
+import { dataSourceConnections, eventSchemas } from "@/services/eventSchema";
 import NewDataSourceForm from "./NewDataSourceForm";
 
 const DataSources: FC = () => {
@@ -58,6 +59,7 @@ const DataSources: FC = () => {
             <tr>
               <th className="col-2">Display Name</th>
               <th className="col-auto">Description</th>
+              <th className="col-2">Format</th>
               <th className="col-2">Type</th>
               <td className="col-2">Projects</td>
               {!hasFileConfig() && <th className="col-2">Last Updated</th>}
@@ -92,7 +94,18 @@ const DataSources: FC = () => {
                 <td className="pr-5 text-gray" style={{ fontSize: 12 }}>
                   {d.description}
                 </td>
-                <td>{d.type}</td>
+                <td>
+                  {eventSchemas.find((s) => {
+                    return s.value === d.settings.schemaFormat;
+                  })?.label || "Custom"}
+                </td>
+                <td>
+                  {
+                    dataSourceConnections.find((w) => {
+                      return w.type === d.type;
+                    })?.display
+                  }
+                </td>
                 <td>
                   {/* @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'. */}
                   {d?.projects?.length > 0 ? (
