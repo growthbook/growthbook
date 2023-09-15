@@ -31,6 +31,7 @@ import { GBCircleArrowLeft } from "@/components/Icons";
 import DataSourceMetrics from "@/components/Settings/EditDataSource/DataSourceMetrics";
 import { DeleteDemoDatasourceButton } from "@/components/DemoDataSourcePage/DemoDataSourcePage";
 import { useUser } from "@/services/UserContext";
+import { eventSchemas } from "@/services/eventSchema";
 
 function quotePropertyName(name: string) {
   if (name.match(/^[a-zA-Z_][a-zA-Z0-9_]*$/)) {
@@ -300,8 +301,14 @@ mixpanel.init('YOUR PROJECT TOKEN', {
                 d?.settings?.schemaFormat !== "custom" && (
                   <div className="alert alert-info">
                     <FaExclamationTriangle style={{ marginTop: "-2px" }} /> We
-                    have prefilled the identifiers and assignment queries below.
-                    These queries may require editing to fit your data
+                    have prefilled the identifiers and assignment queries below
+                    to fit the{" "}
+                    {
+                      eventSchemas.find((s) => {
+                        return s.value === d.settings.schemaFormat;
+                      })?.label
+                    }{" "}
+                    schema. These queries may require editing to fit your data
                     structure.
                   </div>
                 )}
