@@ -1,10 +1,17 @@
 from abc import abstractmethod
 from dataclasses import dataclass, field
-from typing import List, Tuple, Union
+from typing import List, Optional, Tuple, Union
 
 import numpy as np
 from scipy.stats import norm  # type: ignore
 
+
+from gbstats.messages import (
+    BASELINE_VARIATION_ZERO_MESSAGE,
+    LOG_APPROXIMATION_INEXACT_MESSAGE,
+    ZERO_NEGATIVE_VARIANCE_MESSAGE,
+    NO_UNITS_IN_VARIATION_MESSAGE,
+)
 from gbstats.bayesian.dists import Beta, Norm
 from gbstats.shared.models import (
     BayesianTestResult,
@@ -74,7 +81,7 @@ class BayesianABTest(BaseABTest):
     def compute_result(self) -> BayesianTestResult:
         pass
 
-    def _default_output(self) -> BayesianTestResult:
+    def _default_output(self, message: Optional[str] = None) -> BayesianTestResult:
         """Return uninformative output when AB test analysis can't be performed
         adequately
         """
@@ -85,6 +92,7 @@ class BayesianABTest(BaseABTest):
             uplift=Uplift(dist="lognormal", mean=0, stddev=0),
             risk=[0, 0],
             relative_risk=[0, 0],
+            message=message,
         )
 
     def has_empty_input(self):
@@ -127,9 +135,10 @@ class BinomialBayesianABTest(BayesianABTest):
         self.prior_b = config.prior_b
 
     def compute_result(self) -> BayesianTestResult:
-        # TODO refactor validation to base test
+        if self.stat_a.mean == 0:
+            return self._default_output(BASELINE_VARIATION_ZERO_MESSAGE)
         if self.has_empty_input():
-            return self._default_output()
+            return self._default_output(NO_UNITS_IN_VARIATION_MESSAGE)
 
         alpha_a, beta_a = Beta.posterior(
             [self.prior_a.alpha, self.prior_a.beta], [self.stat_a.sum, self.stat_a.n]  # type: ignore
@@ -191,11 +200,12 @@ class GaussianBayesianABTest(BayesianABTest):
         )
 
     def compute_result(self) -> BayesianTestResult:
+        if self.stat_a.mean == 0:
+            return self._default_output(BASELINE_VARIATION_ZERO_MESSAGE)
         if self.has_empty_input():
-            return self._default_output()
-
+            return self._default_output(NO_UNITS_IN_VARIATION_MESSAGE)
         if self._has_zero_variance():
-            return self._default_output()
+            return self._default_output(ZERO_NEGATIVE_VARIANCE_MESSAGE)
 
         mu_a, sd_a = Norm.posterior(
             [
@@ -223,7 +233,7 @@ class GaussianBayesianABTest(BayesianABTest):
         )
 
         if self._is_log_approximation_inexact(((mu_a, sd_a), (mu_b, sd_b))):
-            return self._default_output()
+            return self._default_output(LOG_APPROXIMATION_INEXACT_MESSAGE)
 
         mean_a, var_a = Norm.moments(mu_a, sd_a, log=True, epsilon=self.epsilon)
         mean_b, var_b = Norm.moments(mu_b, sd_b, log=True, epsilon=self.epsilon)

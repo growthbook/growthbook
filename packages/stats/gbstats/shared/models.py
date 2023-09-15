@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import List, Union
+from typing import List, Optional, Union
 
 import numpy as np
 
@@ -214,8 +214,10 @@ class BayesianTestResult(TestResult):
     chance_to_win: float
     risk: List[float]
     relative_risk: List[float]
+    message: Optional[str] = None
 
 
 @dataclass
 class FrequentistTestResult(TestResult):
     p_value: float
+    message: Optional[str] = None
