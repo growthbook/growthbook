@@ -34,6 +34,12 @@ export default function EditPhaseModal({
   });
   const { apiCall } = useAuth();
 
+  const isDraft = experiment.status === "draft";
+  const isMultiPhase = experiment.phases.length > 1;
+
+  const hasLinkedChanges =
+    !!experiment.linkedFeatures?.length || experiment.hasVisualChangesets;
+
   return (
     <Modal
       open={true}
@@ -48,39 +54,49 @@ export default function EditPhaseModal({
       })}
       size="lg"
     >
+      {!isDraft && hasLinkedChanges && (
+        <div className="alert alert-danger">
+          <strong>Warning:</strong> Changes you make to phases will immediately
+          affect all linked Feature Flags and Visual Changes.
+        </div>
+      )}
       <Field label="Phase Name" {...form.register("name")} required />
       <Field
         label="Start Time (UTC)"
         type="datetime-local"
         {...form.register("dateStarted")}
       />
-      <Field
-        label="End Time (UTC)"
-        type="datetime-local"
-        {...form.register("dateEnded")}
-        helpText={
-          <>
-            Leave blank if still running.{" "}
-            <a
-              href="#"
-              onClick={(e) => {
-                e.preventDefault();
-                form.setValue("dateEnded", "");
-              }}
-            >
-              Clear Input
-            </a>
-          </>
-        }
-      />
-      {form.watch("dateEnded") && (
-        <Field
-          label="Reason for Stopping"
-          textarea
-          {...form.register("reason")}
-          placeholder="(optional)"
-        />
-      )}
+      {!(isDraft && !isMultiPhase) ? (
+        <>
+          <Field
+            label="End Time (UTC)"
+            type="datetime-local"
+            {...form.register("dateEnded")}
+            helpText={
+              <>
+                Leave blank if still running.{" "}
+                <a
+                  href="#"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    form.setValue("dateEnded", "");
+                  }}
+                >
+                  Clear Input
+                </a>
+              </>
+            }
+          />
+          {form.watch("dateEnded") && (
+            <Field
+              label="Reason for Stopping"
+              textarea
+              {...form.register("reason")}
+              placeholder="(optional)"
+            />
+          )}
+        </>
+      ) : null}
 
       <ConditionInput
         defaultValue={form.watch("condition")}
@@ -106,6 +122,13 @@ export default function EditPhaseModal({
           }) || []
         }
         showPreview={false}
+      />
+
+      <Field
+        {...form.register("seed")}
+        label="Hash Seed"
+        placeholder={experiment.trackingKey}
+        helpText="Used to determine which variation is assigned to users"
       />
 
       <NamespaceSelector

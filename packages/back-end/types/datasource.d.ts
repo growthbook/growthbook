@@ -58,6 +58,8 @@ export type SchemaFormat =
   | "clevertap"
   | "custom";
 
+export type AutoMetricSchemas = "segment" | "rudderstack" | "amplitude" | "ga4";
+
 export type SchemaOption = {
   name: string;
   type: string;
@@ -78,7 +80,7 @@ export interface SchemaInterface {
   ): IdentityJoinQuery[];
   experimentDimensions: string[];
   userIdTypes: string[];
-  getMetricSQL(name: string, type: MetricType, tablePrefix: string): string;
+  getMetricSQL(type: MetricType, tablePrefix: string): string;
 }
 
 export interface SchemaFormatConfig {
@@ -87,11 +89,15 @@ export interface SchemaFormatConfig {
   trackedEventTableName: string;
   eventColumn: string;
   timestampColumn: string;
+  getAdditionalEvents: () => {
+    eventName: string;
+    displayName: string;
+    groupBy: string;
+  }[];
+  getMetricTableName: (metricName: string) => string;
+  getMetricWhereClause: (metricName?: string) => string;
+  getDateLimitClause: (start: Date, end: Date) => string;
   displayNameColumn?: string;
-  //TODO: The includesPagesTable & includesScreensTable are only used for Segment & Rudderstack. Other event trackers might have their own unique properties,
-  // so we'll probably want to build a method that maps unique properties to event tracker type in the future.
-  includesPagesTable: boolean;
-  includesScreensTable: boolean;
 }
 
 export interface DataSourceProperties {
@@ -130,6 +136,7 @@ export interface ExposureQuery {
   query: string;
   hasNameCol?: boolean;
   dimensions: string[];
+  error?: string;
 }
 
 export interface UserIdType {

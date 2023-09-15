@@ -7,10 +7,10 @@ import React, {
 import { useDropzone } from "react-dropzone";
 import { Screenshot } from "back-end/types/experiment";
 import clsx from "clsx";
+import { BiImageAdd } from "react-icons/bi";
 import { useAuth } from "@/services/auth";
 import { uploadFile } from "@/services/files";
 import LoadingOverlay from "../LoadingOverlay";
-import { GBAddCircle } from "../Icons";
 import styles from "./ScreenshotUpload.module.scss";
 
 type props = {
@@ -71,17 +71,17 @@ const ScreenshotUpload = ({
     <>
       <div
         {...typedRootProps}
-        className={clsx(styles.droparea, { [styles.dragging]: isDragActive })}
+        className={clsx(styles.droparea, styles.dropareaNewUi, "my-1", {
+          [styles.dragging]: isDragActive,
+        })}
       >
         {loading > 0 ? <LoadingOverlay /> : ""}
         <input {...getInputProps()} />
         <div className={styles.message}>Drop Image Here...</div>
-        <button className="btn btn-link btn-sm">
-          <GBAddCircle /> Add Screenshot
-          <div className="small text-muted mt-1">
-            Drag and drop or browse to upload.
-          </div>
-        </button>
+        <span className={styles.textlink}>
+          <BiImageAdd className="mr-1" style={{ fontSize: 20 }} />
+          Add Screenshot
+        </span>
       </div>
     </>
   );

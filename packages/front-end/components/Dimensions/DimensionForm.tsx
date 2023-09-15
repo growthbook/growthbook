@@ -2,6 +2,7 @@ import { FC, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { DimensionInterface } from "back-end/types/dimension";
 import { FaExternalLinkAlt } from "react-icons/fa";
+import { isProjectListValidForProject } from "shared/util";
 import { validateSQL } from "@/services/datasources";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -22,13 +23,22 @@ const DimensionForm: FC<{
     getDatasourceById,
     datasources,
     mutateDefinitions,
+    project,
   } = useDefinitions();
+
+  const validDatasources = datasources.filter(
+    (d) =>
+      d.id === current.datasource ||
+      isProjectListValidForProject(d.projects, project)
+  );
 
   const form = useForm({
     defaultValues: {
       name: current.name || "",
       sql: current.sql || "",
-      datasource: (current.id ? current.datasource : datasources[0]?.id) || "",
+      description: current.description || "",
+      datasource:
+        (current.id ? current.datasource : validDatasources[0]?.id) || "",
       userIdType: current.userIdType || "user_id",
       owner: current.owner || "",
     },
@@ -56,7 +66,7 @@ const DimensionForm: FC<{
           close={() => setSqlOpen(false)}
           datasourceId={dsObj.id || ""}
           placeholder={`SELECT\n      ${userIdType}, date\nFROM\n      mytable`}
-          requiredColumns={Array.from(requiredColumns)}
+          requiredColumns={requiredColumns}
           value={sql}
           save={async (sql) => form.setValue("sql", sql)}
         />
@@ -88,13 +98,14 @@ const DimensionForm: FC<{
           comboBox
           {...form.register("owner")}
         />
+        <Field label="Description" textarea {...form.register("description")} />
         <SelectField
           label="Data Source"
           required
           value={form.watch("datasource")}
           onChange={(v) => form.setValue("datasource", v)}
           placeholder="Choose one..."
-          options={datasources.map((d) => ({
+          options={validDatasources.map((d) => ({
             value: d.id,
             label: `${d.name}${d.description ? ` — ${d.description}` : ""}`,
           }))}

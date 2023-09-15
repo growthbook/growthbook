@@ -1,7 +1,9 @@
 import { FC, useEffect, useState } from "react";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { isProjectListValidForProject } from "shared/util";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useAuth } from "@/services/auth";
+import useOrgSettings from "@/hooks/useOrgSettings";
 import Modal from "../Modal";
 import ImportExperimentList from "./ImportExperimentList";
 import NewExperimentForm from "./NewExperimentForm";
@@ -19,7 +21,8 @@ const ImportExperimentModal: FC<{
   source,
   fromFeature = false,
 }) => {
-  const { datasources } = useDefinitions();
+  const settings = useOrgSettings();
+  const { datasources, project } = useDefinitions();
   const [
     selected,
     setSelected,
@@ -28,10 +31,22 @@ const ImportExperimentModal: FC<{
   );
   const [importModal, setImportModal] = useState<boolean>(importMode);
   const [datasourceId, setDatasourceId] = useState(() => {
-    if (!datasources) return null;
-    return (
-      datasources.filter((d) => d?.properties?.pastExperiments)?.[0]?.id ?? null
-    );
+    const validDatasources = datasources
+      .filter((d) => d.properties?.pastExperiments)
+      .filter((d) => isProjectListValidForProject(d.projects, project));
+
+    if (!validDatasources?.length) return null;
+
+    if (settings?.defaultDataSource) {
+      const ds = validDatasources.find(
+        (d) => d.id === settings.defaultDataSource
+      );
+      if (ds) {
+        return ds.id;
+      }
+    }
+
+    return validDatasources[0].id;
   });
   const [importId, setImportId] = useState<string | null>(null);
 

@@ -6,6 +6,7 @@ import {
   SDKAttributeType,
 } from "back-end/types/organization";
 import {
+  ExperimentRefRule,
   ExperimentRule,
   ExperimentValue,
   FeatureInterface,
@@ -17,15 +18,15 @@ import {
 import stringify from "json-stringify-pretty-compact";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { FeatureUsageRecords } from "back-end/types/realtime";
-import dJSON from "dirty-json";
 import cloneDeep from "lodash/cloneDeep";
-import uniqid from "uniqid";
-import Ajv from "ajv";
+import { generateVariationId, validateFeatureValue } from "shared/util";
 import { getUpcomingScheduleRule } from "@/services/scheduleRules";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import useOrgSettings from "../hooks/useOrgSettings";
 import useApi from "../hooks/useApi";
 import { useDefinitions } from "./DefinitionsContext";
+
+export { generateVariationId } from "shared/util";
 
 export interface Condition {
   field: string;
@@ -43,43 +44,11 @@ export interface AttributeData {
   format?: SDKAttributeFormat;
 }
 
-export function validateFeatureValue(
-  feature: FeatureInterface,
-  value: string,
-  label: string
-): string {
-  const type = feature.valueType;
-  const prefix = label ? label + ": " : "";
-  if (type === "boolean") {
-    if (!["true", "false"].includes(value)) {
-      return value ? "true" : "false";
-    }
-  } else if (type === "number") {
-    if (!value.match(/^-?[0-9]+(\.[0-9]+)?$/)) {
-      throw new Error(prefix + "Must be a valid number");
-    }
-  } else if (type === "json") {
-    let parsedValue;
-    try {
-      parsedValue = JSON.parse(value);
-    } catch (e) {
-      // If the JSON is invalid, try to parse it with 'dirty-json' instead
-      try {
-        parsedValue = dJSON.parse(value);
-      } catch (e) {
-        throw new Error(prefix + e.message);
-      }
-    }
-    // validate with JSON schema if set and enabled
-    const { valid, errors } = validateJSONFeatureValue(parsedValue, feature);
-    if (!valid) {
-      throw new Error(prefix + errors.join(", "));
-    }
-    return stringify(parsedValue);
-  }
-
-  return value;
-}
+export type NewExperimentRefRule = {
+  type: "experiment-ref-new";
+  name: string;
+  autoStart: boolean;
+} & Omit<ExperimentRule, "type">;
 
 export function useEnvironmentState() {
   const [state, setState] = useLocalStorage("currentEnvironment", "dev");
@@ -124,78 +93,6 @@ export function getFeatureDefaultValue(feature: FeatureInterface) {
     return feature.draft.defaultValue ?? "";
   }
   return feature.defaultValue ?? "";
-}
-
-export function getValidation(feature: FeatureInterface) {
-  try {
-    const jsonSchema = feature?.jsonSchema?.schema
-      ? JSON.parse(feature?.jsonSchema?.schema)
-      : null;
-    const validationEnabled = jsonSchema ? feature?.jsonSchema?.enabled : false;
-    const schemaDateUpdated = feature?.jsonSchema?.date;
-    return { jsonSchema, validationEnabled, schemaDateUpdated };
-  } catch (e) {
-    // log an error?
-    return {
-      jsonSchema: null,
-      validationEnabled: false,
-      schemaDateUpdated: null,
-    };
-  }
-}
-
-export function validateJSONFeatureValue(value, feature) {
-  const { jsonSchema, validationEnabled } = getValidation(feature);
-  if (!validationEnabled) {
-    return { valid: true, enabled: validationEnabled, errors: [] };
-  }
-  try {
-    const ajv = new Ajv();
-    const validate = ajv.compile(jsonSchema);
-    let parsedValue;
-    if (typeof value === "string") {
-      try {
-        parsedValue = JSON.parse(value);
-      } catch (e) {
-        // If the JSON is invalid, try to parse it with 'dirty-json' instead
-        try {
-          parsedValue = dJSON.parse(value);
-        } catch (e) {
-          return {
-            valid: false,
-            enabled: validationEnabled,
-            errors: [e.message],
-          };
-        }
-      }
-    } else {
-      parsedValue = value;
-    }
-
-    return {
-      valid: validate(parsedValue),
-      enabled: validationEnabled,
-      errors:
-        validate?.errors?.map((v) => {
-          let prefix = "";
-          if (v.schemaPath) {
-            console.log(v.schemaPath);
-            const matched = v.schemaPath.match(/^#\/([^/]*)\/?(.*)/);
-            console.log(matched);
-            if (matched && matched.length > 2) {
-              if (matched[1] === "required") {
-                prefix = "Missing required field: ";
-              } else if (matched[1] === "properties" && matched[2]) {
-                prefix = "Invalid value for field: " + matched[2] + " ";
-              }
-            }
-          }
-          return prefix + v.message;
-        }) ?? [],
-    };
-  } catch (e) {
-    return { valid: false, enabled: validationEnabled, errors: [e.message] };
-  }
 }
 
 export function roundVariationWeight(num: number): number {
@@ -291,10 +188,6 @@ export function getVariationColor(i: number) {
   return colors[i % colors.length];
 }
 
-export function generateVariationId() {
-  return uniqid("var_");
-}
-
 export function useAttributeSchema(showArchived = false) {
   const attributeSchema = useOrgSettings().attributeSchema || [];
   return useMemo(() => {
@@ -359,6 +252,18 @@ export function validateFeatureRule(
         `Sum of weights cannot be greater than 1 (currently equals ${totalWeight})`
       );
     }
+  } else if (rule.type === "experiment-ref") {
+    rule.variations.forEach((v, i) => {
+      const newValue = validateFeatureValue(
+        feature,
+        v.value,
+        "Variation #" + i
+      );
+      if (newValue !== v.value) {
+        hasChanges = true;
+        (ruleCopy as ExperimentRefRule).variations[i].value = newValue;
+      }
+    });
   } else {
     const newValue = validateFeatureValue(
       feature,
@@ -429,11 +334,10 @@ export function getDefaultRuleValue({
   defaultValue: string;
   attributeSchema?: SDKAttributeSchema;
   ruleType: string;
-}): FeatureRule {
-  // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-  const hashAttributes = attributeSchema
-    .filter((a) => a.hashAttribute)
-    .map((a) => a.property);
+}): FeatureRule | NewExperimentRefRule {
+  const hashAttributes =
+    attributeSchema?.filter((a) => a.hashAttribute)?.map((a) => a.property) ||
+    [];
   const hashAttribute = hashAttributes.includes("id")
     ? "id"
     : hashAttributes[0] || "id";
@@ -501,32 +405,96 @@ export function getDefaultRuleValue({
       ],
     };
   }
-
-  const firstAttr = attributeSchema?.[0];
-  const condition = firstAttr
-    ? JSON.stringify({
-        [firstAttr.property]: firstAttr.datatype === "boolean" ? "true" : "",
-      })
-    : "";
-
-  return {
-    type: "force",
-    description: "",
-    id: "",
-    value,
-    enabled: true,
-    condition,
-    scheduleRules: [
-      {
-        enabled: true,
-        timestamp: null,
-      },
-      {
+  if (ruleType === "experiment-ref") {
+    return {
+      type: "experiment-ref",
+      description: "",
+      experimentId: "",
+      id: "",
+      variations: [],
+      condition: "",
+      enabled: true,
+      scheduleRules: [
+        {
+          enabled: true,
+          timestamp: null,
+        },
+        {
+          enabled: false,
+          timestamp: null,
+        },
+      ],
+    };
+  }
+  if (ruleType === "experiment-ref-new") {
+    return {
+      type: "experiment-ref-new",
+      description: "",
+      name: "",
+      autoStart: true,
+      id: "",
+      condition: "",
+      enabled: true,
+      hashAttribute,
+      trackingKey: "",
+      values: [
+        {
+          value: defaultValue,
+          weight: 0.5,
+          name: "",
+        },
+        {
+          value: value,
+          weight: 0.5,
+          name: "",
+        },
+      ],
+      coverage: 1,
+      namespace: {
         enabled: false,
-        timestamp: null,
+        name: "",
+        range: [0, 0.5],
       },
-    ],
-  };
+      scheduleRules: [
+        {
+          enabled: true,
+          timestamp: null,
+        },
+        {
+          enabled: false,
+          timestamp: null,
+        },
+      ],
+    };
+  }
+  if (ruleType === "force" || !ruleType) {
+    const firstAttr = attributeSchema?.[0];
+    const condition = firstAttr
+      ? JSON.stringify({
+          [firstAttr.property]: firstAttr.datatype === "boolean" ? "true" : "",
+        })
+      : "";
+
+    return {
+      type: "force",
+      description: "",
+      id: "",
+      value,
+      enabled: true,
+      condition,
+      scheduleRules: [
+        {
+          enabled: true,
+          timestamp: null,
+        },
+        {
+          enabled: false,
+          timestamp: null,
+        },
+      ],
+    };
+  }
+  throw new Error("Unknown Rule Type: " + ruleType);
 }
 
 export function isRuleFullyCovered(rule: FeatureRule): boolean {

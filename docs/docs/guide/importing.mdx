@@ -1,0 +1,37 @@
+---
+title: Importing data into GrowthBook
+description: Import data into GrowthBook from another platform
+toc_max_heading_level: 5
+---
+
+import ExternalLink from '@site/src/components/ExternalLink'
+
+Import data into GrowthBook from another platform.
+
+You can see all of the supported platforms [in the GrowthBook dashboard <ExternalLink />](https://app.growthbook.io/importing).
+
+## Import from LaunchDarkly
+
+You can import your LaunchDarkly projects, environments and features into GrowthBook.
+
+GrowthBook uses the REST API to access the relevant resources and import them.
+
+At the time of writing, REST API access is a Pro and Enterprise feature only.
+
+### Create an access token
+
+Create an access token in your [account authorization settings <ExternalLink />](https://app.launchdarkly.com/settings/authorization).
+
+### Add the token to GrowthBook
+
+Go to the [GrowthBook dashboard's Importing section <ExternalLink />](https://app.growthbook.io/importing) and choose LaunchDarkly.
+
+Then, add your LaunchDarkly access token to the form and click the submit button to begin the import process.
+
+### Update your data
+
+Data from LaunchDarkly does not map one-to-one with GrowthBook data. It's recommended you review imported resources and make any necessary updates:
+
+- [Features <ExternalLink />](https://app.growthbook.io/features)
+- [Projects <ExternalLink />](https://app.growthbook.io/projects)
+- [Environments <ExternalLink />](https://app.growthbook.io/environments)

@@ -1,7 +1,7 @@
+import { AutoExperiment } from "@growthbook/growthbook";
 import mongoose from "mongoose";
 import { FeatureDefinition } from "../../types/api";
 import {
-  SDKExperiment,
   SDKPayloadContents,
   SDKPayloadInterface,
   SDKStringifiedPayloadInterface,
@@ -76,7 +76,7 @@ export async function updateSDKPayload({
   project: string;
   environment: string;
   featureDefinitions: Record<string, FeatureDefinition>;
-  experimentsDefinitions: SDKExperiment[];
+  experimentsDefinitions: AutoExperiment[];
 }) {
   const contents: SDKPayloadContents = {
     features: featureDefinitions,

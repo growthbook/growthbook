@@ -149,6 +149,8 @@ export interface Context {
   forcedVariations?: Record<string, number>;
   log?: (msg: string, ctx: any) => void;
   qaMode?: boolean;
+  backgroundSync?: boolean;
+  subscribeToChanges?: boolean;
   enableDevMode?: boolean;
   /* @deprecated */
   disableDevTools?: boolean;
@@ -258,6 +260,9 @@ export type ClientKey = string;
 export type RepositoryKey = `${ApiHost}||${ClientKey}` | string;
 
 export type LoadFeaturesOptions = {
+  /**
+   * @deprecated
+   */
   autoRefresh?: boolean;
   timeout?: number;
   skipCache?: boolean;

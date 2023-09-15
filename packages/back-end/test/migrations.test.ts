@@ -5,7 +5,7 @@ import {
   DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
   DEFAULT_STATS_ENGINE,
 } from "shared/constants";
-import { MetricInterface } from "../types/metric";
+import { LegacyMetricInterface, MetricInterface } from "../types/metric";
 import {
   migrateSnapshot,
   upgradeDatasourceObject,
@@ -88,8 +88,51 @@ describe("Metric Migration", () => {
     });
   });
 
+  it("updates old metric objects - cap", () => {
+    const baseMetric: LegacyMetricInterface = {
+      datasource: "",
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
+      description: "",
+      id: "",
+      ignoreNulls: false,
+      inverse: false,
+      name: "",
+      organization: "",
+      owner: "",
+      queries: [],
+      runStarted: null,
+      type: "binomial",
+      userIdColumns: {
+        user_id: "user_id",
+        anonymous_id: "anonymous_id",
+      },
+      userIdTypes: ["anonymous_id", "user_id"],
+    };
+
+    const capMetric: LegacyMetricInterface = {
+      ...baseMetric,
+      cap: 35,
+    };
+
+    expect(upgradeMetricDoc(capMetric)).toEqual({
+      ...baseMetric,
+      capping: "absolute",
+      capValue: 35,
+    });
+
+    const capZeroMetric: LegacyMetricInterface = {
+      ...baseMetric,
+      cap: 0,
+    };
+
+    expect(upgradeMetricDoc(capZeroMetric)).toEqual({
+      ...baseMetric,
+    });
+  });
+
   it("updates old metric objects - userIdType", () => {
-    const baseMetric: MetricInterface = {
+    const baseMetric: LegacyMetricInterface = {
       datasource: "",
       dateCreated: new Date(),
       dateUpdated: new Date(),
@@ -105,7 +148,7 @@ describe("Metric Migration", () => {
       type: "binomial",
     };
 
-    const userId: MetricInterface = {
+    const userId: LegacyMetricInterface = {
       ...baseMetric,
       userIdType: "user",
     };
@@ -117,7 +160,7 @@ describe("Metric Migration", () => {
       },
     });
 
-    const anonymousId: MetricInterface = {
+    const anonymousId: LegacyMetricInterface = {
       ...baseMetric,
       userIdType: "anonymous",
     };
@@ -129,7 +172,7 @@ describe("Metric Migration", () => {
       },
     });
 
-    const either: MetricInterface = {
+    const either: LegacyMetricInterface = {
       ...baseMetric,
       userIdType: "either",
     };
@@ -142,7 +185,7 @@ describe("Metric Migration", () => {
       },
     });
 
-    const userIdTypesAlreadyDefined: MetricInterface = {
+    const userIdTypesAlreadyDefined: LegacyMetricInterface = {
       ...baseMetric,
       userIdType: "either",
       userIdTypes: ["blah"],
@@ -156,7 +199,7 @@ describe("Metric Migration", () => {
   });
 
   it("updates old metric objects - userIdColumns", () => {
-    const baseMetric: MetricInterface = {
+    const baseMetric: LegacyMetricInterface = {
       datasource: "",
       dateCreated: new Date(),
       dateUpdated: new Date(),
@@ -173,7 +216,7 @@ describe("Metric Migration", () => {
       userIdTypes: ["anonymous_id", "user_id"],
     };
 
-    const userIdCol: MetricInterface = {
+    const userIdCol: LegacyMetricInterface = {
       ...baseMetric,
       userIdColumn: "foo",
     };
@@ -185,7 +228,7 @@ describe("Metric Migration", () => {
       },
     });
 
-    const anonymousIdCol: MetricInterface = {
+    const anonymousIdCol: LegacyMetricInterface = {
       ...baseMetric,
       anonymousIdColumn: "foo",
     };
@@ -197,7 +240,7 @@ describe("Metric Migration", () => {
       },
     });
 
-    const userIdColumnsAlreadyDefined: MetricInterface = {
+    const userIdColumnsAlreadyDefined: LegacyMetricInterface = {
       ...baseMetric,
       userIdColumn: "foo",
       anonymousIdColumn: "bar",
@@ -823,6 +866,7 @@ describe("Experiment Migration", () => {
     const upgraded = {
       trackingKey: "test",
       hashAttribute: "",
+      hashVersion: 2,
       releasedVariationId: "",
       attributionModel: "experimentDuration",
       variations: [

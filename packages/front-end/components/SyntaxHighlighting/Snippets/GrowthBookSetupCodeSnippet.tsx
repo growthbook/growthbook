@@ -35,6 +35,7 @@ const growthbook = new GrowthBook({
               : ""
           }${remoteEvalEnabled ? `\n  remoteEval: true,` : ""}
   enableDevMode: true,
+  subscribeToChanges: true,
   trackingCallback: (experiment, result) => {
     // ${trackingComment}
     console.log("Viewed Experiment", {
@@ -45,7 +46,7 @@ const growthbook = new GrowthBook({
 });
 
 // Wait for features to be available
-await growthbook.loadFeatures({ autoRefresh: true });
+await growthbook.loadFeatures();
 `.trim()}
         />
       </>
@@ -68,6 +69,7 @@ const growthbook = new GrowthBook({
               : ""
           }${remoteEvalEnabled ? `\n  remoteEval: true,` : ""}
   enableDevMode: true,
+  subscribeToChanges: true,
   trackingCallback: (experiment, result) => {
     // ${trackingComment}
     console.log("Viewed Experiment", {
@@ -162,7 +164,7 @@ app.use(function(req, res, next) {
   res.on('close', () => req.growthbook.destroy());
 
   // Wait for features to load (will be cached in-memory for future requests)
-  req.growthbook.loadFeatures()
+  req.growthbook.loadFeatures({ timeout: 1000 })
     .then(() => next())
     .catch((e) => {
       console.error("Failed to load features from GrowthBook", e);

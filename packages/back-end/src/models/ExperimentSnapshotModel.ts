@@ -1,6 +1,7 @@
 import mongoose, { FilterQuery } from "mongoose";
 import omit from "lodash/omit";
 import {
+  ExperimentSnapshotAnalysis,
   ExperimentSnapshotInterface,
   LegacyExperimentSnapshotInterface,
 } from "../../types/experiment-snapshot";
@@ -160,6 +161,46 @@ export async function updateSnapshot(
   );
 }
 
+export async function addOrUpdateSnapshotAnalysis(
+  organization: string,
+  id: string,
+  analysis: ExperimentSnapshotAnalysis
+) {
+  // looks for snapshots with this ID but WITHOUT these analysis settings
+  const experimentSnapshotModel = await ExperimentSnapshotModel.updateOne(
+    {
+      organization,
+      id,
+      "analyses.settings": { $ne: analysis.settings },
+    },
+    {
+      $push: { analyses: analysis },
+    }
+  );
+  // if analysis already exist, no documents will be returned by above query
+  // so instead find and update existing analysis in DB
+  if (experimentSnapshotModel.matchedCount === 0) {
+    await updateSnapshotAnalysis(organization, id, analysis);
+  }
+}
+
+export async function updateSnapshotAnalysis(
+  organization: string,
+  id: string,
+  analysis: ExperimentSnapshotAnalysis
+) {
+  await ExperimentSnapshotModel.updateOne(
+    {
+      organization,
+      id,
+      "analyses.settings": analysis.settings,
+    },
+    {
+      $set: { "analyses.$": analysis },
+    }
+  );
+}
+
 export async function deleteSnapshotById(organization: string, id: string) {
   await ExperimentSnapshotModel.deleteOne({ organization, id });
 }
@@ -170,6 +211,21 @@ export async function findSnapshotById(
 ): Promise<ExperimentSnapshotInterface | null> {
   const doc = await ExperimentSnapshotModel.findOne({ organization, id });
   return doc ? toInterface(doc) : null;
+}
+
+export async function findRunningSnapshotsByQueryId(ids: string[]) {
+  // Only look for matches in the past 24 hours to make the query more efficient
+  // Older snapshots should not still be running anyway
+  const earliestDate = new Date();
+  earliestDate.setDate(earliestDate.getDate() - 1);
+
+  const docs = await ExperimentSnapshotModel.find({
+    status: "running",
+    dateCreated: { $gt: earliestDate },
+    queries: { $elemMatch: { query: { $in: ids }, status: "running" } },
+  });
+
+  return docs.map((doc) => toInterface(doc));
 }
 
 export async function getLatestSnapshot(

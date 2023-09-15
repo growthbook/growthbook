@@ -2,7 +2,7 @@ import { each, isEqual, omit, pick, uniqBy, uniqWith } from "lodash";
 import mongoose, { FilterQuery } from "mongoose";
 import uniqid from "uniqid";
 import cloneDeep from "lodash/cloneDeep";
-import uniq from "lodash/uniq";
+import { includeExperimentInPayload, hasVisualChanges } from "shared/util";
 import {
   Changeset,
   ExperimentInterface,
@@ -27,6 +27,8 @@ import { upgradeExperimentDoc } from "../util/migrations";
 import { refreshSDKPayloadCache, VisualExperiment } from "../services/features";
 import { SDKPayloadKey } from "../../types/sdk-payload";
 import { EventAuditUser } from "../events/event-types";
+import { FeatureInterface } from "../../types/feature";
+import { getAffectedSDKPayloadKeys } from "../util/features";
 import { IdeaDocument } from "./IdeasModel";
 import { addTags } from "./TagModel";
 import { createEvent } from "./EventModel";
@@ -34,6 +36,7 @@ import {
   findVisualChangesets,
   VisualChangesetModel,
 } from "./VisualChangesetModel";
+import { getFeaturesByIds } from "./FeatureModel";
 
 type FindOrganizationOptions = {
   experimentId: string;
@@ -59,6 +62,7 @@ const experimentSchema = new mongoose.Schema({
   userIdType: String,
   exposureQueryId: String,
   hashAttribute: String,
+  hashVersion: Number,
   name: String,
   dateCreated: Date,
   dateUpdated: Date,
@@ -93,8 +97,10 @@ const experimentSchema = new mongoose.Schema({
   analysis: String,
   winner: Number,
   releasedVariationId: String,
+  excludeFromPayload: Boolean,
   currentPhase: Number,
   autoAssign: Boolean,
+  // Legacy field, no longer used when creating experiments
   implementation: String,
   previewURL: String,
   targetURLRegex: String,
@@ -150,8 +156,10 @@ const experimentSchema = new mongoose.Schema({
   ideaSource: String,
   regressionAdjustmentEnabled: Boolean,
   hasVisualChangesets: Boolean,
+  linkedFeatures: [String],
   sequentialTestingEnabled: Boolean,
   sequentialTestingTuningParameter: Number,
+  statsEngine: String,
 });
 
 type ExperimentDocument = mongoose.Document & ExperimentInterface;
@@ -712,6 +720,33 @@ export async function deleteExperimentByIdForOrganization(
 }
 
 /**
+ * Delete experiments belonging to a project
+ * @param projectId
+ * @param organization
+ * @param user
+ */
+export async function deleteAllExperimentsForAProject({
+  projectId,
+  organization,
+  user,
+}: {
+  projectId: string;
+  organization: OrganizationInterface;
+  user: EventAuditUser;
+}) {
+  const experimentsToDelete = await ExperimentModel.find({
+    organization: organization.id,
+    project: projectId,
+  });
+
+  for (const experiment of experimentsToDelete) {
+    await experiment.delete();
+    VisualChangesetModel.deleteMany({ experiment: experiment.id });
+    await onExperimentDelete(organization, user, experiment);
+  }
+}
+
+/**
  * Removes the tag from any experiments that have it
  * and logs the experiment.updated event
  * @param organization
@@ -734,18 +769,10 @@ export const removeTagFromExperiments = async ({
     $pull: { tags: tag },
   });
 
-  previousExperiments.forEach((previous) => {
-    const current = cloneDeep(previous);
-    current.tags = current.tags.filter((t) => t != tag);
-
-    onExperimentUpdate({
-      organization,
-      oldExperiment: previous,
-      newExperiment: current,
-      bypassWebhooks: true,
-      user,
-    });
-  });
+  logAllChanges(organization, user, previousExperiments, (exp) => ({
+    ...exp,
+    tags: exp.tags.filter((t) => t !== tag),
+  }));
 };
 
 export async function removeMetricFromExperiments(
@@ -839,10 +866,99 @@ export async function removeProjectFromExperiments(
 
   await ExperimentModel.updateMany(query, { $set: { project: "" } });
 
-  previousExperiments.forEach((previous) => {
-    const current = cloneDeep(previous);
-    current.project = "";
+  logAllChanges(organization, user, previousExperiments, (exp) => ({
+    ...exp,
+    project: "",
+  }));
+}
 
+export async function addLinkedFeatureToExperiment(
+  organization: OrganizationInterface,
+  user: EventAuditUser,
+  experimentId: string,
+  featureId: string
+) {
+  const experiment = await findExperiment({
+    experimentId,
+    organizationId: organization.id,
+  });
+
+  if (!experiment) return;
+
+  if (experiment.linkedFeatures?.includes(featureId)) return;
+
+  await ExperimentModel.updateOne(
+    {
+      id: experimentId,
+      organization: organization.id,
+    },
+    {
+      $addToSet: {
+        linkedFeatures: featureId,
+      },
+    }
+  );
+
+  onExperimentUpdate({
+    organization,
+    oldExperiment: experiment,
+    newExperiment: {
+      ...experiment,
+      linkedFeatures: [...(experiment.linkedFeatures || []), featureId],
+    },
+    user,
+  });
+}
+
+export async function removeLinkedFeatureFromExperiment(
+  organization: OrganizationInterface,
+  user: EventAuditUser,
+  experimentId: string,
+  featureId: string
+) {
+  const experiment = await findExperiment({
+    experimentId,
+    organizationId: organization.id,
+  });
+
+  if (!experiment) return;
+
+  if (!experiment.linkedFeatures?.includes(featureId)) return;
+
+  await ExperimentModel.updateOne(
+    {
+      id: experimentId,
+      organization: organization.id,
+    },
+    {
+      $pull: {
+        linkedFeatures: featureId,
+      },
+    }
+  );
+
+  onExperimentUpdate({
+    organization,
+    oldExperiment: experiment,
+    newExperiment: {
+      ...experiment,
+      linkedFeatures: (experiment.linkedFeatures || []).filter(
+        (f) => f !== featureId
+      ),
+    },
+    user,
+  });
+}
+
+function logAllChanges(
+  organization: OrganizationInterface,
+  user: EventAuditUser,
+  previousExperiments: ExperimentInterface[],
+  applyChanges: (exp: ExperimentInterface) => ExperimentInterface | null
+) {
+  previousExperiments.forEach((previous) => {
+    const current = applyChanges(cloneDeep(previous));
+    if (!current) return;
     onExperimentUpdate({
       organization,
       oldExperiment: previous,
@@ -895,9 +1011,51 @@ const _isValidVisualExperiment = (
   e: Partial<VisualExperiment>
 ): e is VisualExperiment => !!e.experiment && !!e.visualChangeset;
 
-export const getAllVisualExperiments = async (
+export async function getExperimentMapForFeature(
+  organization: string,
+  featureId: string
+): Promise<Map<string, ExperimentInterface>> {
+  const experiments = await findExperiments({
+    organization,
+    archived: { $ne: true },
+    linkedFeatures: featureId,
+  });
+
+  return new Map(
+    experiments
+      .filter((e) => includeExperimentInPayload(e))
+      .map((e) => [e.id, e])
+  );
+}
+
+export async function getAllPayloadExperiments(
   organization: string,
   project?: string
+): Promise<Map<string, ExperimentInterface>> {
+  const experiments = await findExperiments({
+    organization,
+    ...(project ? { project } : {}),
+    archived: { $ne: true },
+    $or: [
+      {
+        linkedFeatures: { $exists: true, $ne: [] },
+      },
+      {
+        hasVisualChangesets: true,
+      },
+    ],
+  });
+
+  return new Map(
+    experiments
+      .filter((e) => includeExperimentInPayload(e))
+      .map((e) => [e.id, e])
+  );
+}
+
+export const getAllVisualExperiments = async (
+  organization: string,
+  experimentMap: Map<string, ExperimentInterface>
 ): Promise<Array<VisualExperiment>> => {
   const visualChangesets = await findVisualChangesets(organization);
 
@@ -911,49 +1069,76 @@ export const getAllVisualExperiments = async (
     return acc;
   }, {});
 
-  const experiments = (
-    await findExperiments({
-      id: {
-        $in: uniq(visualChangesets.map((changeset) => changeset.experiment)),
-      },
-      ...(project ? { project } : {}),
-      organization,
-      archived: false,
-    })
-  )
-    // exclude experiments that are stopped and don't have a released variation
-    // exclude experiments that are stopped and the released variation doesn’t have any visual changes
-    .filter((e) => {
-      if (e.status !== "stopped") return true;
-      if (!e.releasedVariationId) return false;
-      return visualChangesByExperimentId[e.id].some(
-        (vc) =>
-          vc.variation === e.releasedVariationId &&
-          (!!vc.css || !!vc.domMutations.length)
-      );
-    });
+  const hasVisualChangesForVariation = (
+    experimentId: string,
+    variationId: string
+  ): boolean => {
+    const changes = visualChangesByExperimentId[experimentId];
+    if (!changes) return false;
+    return hasVisualChanges(
+      changes.filter((vc) => vc.variation === variationId)
+    );
+  };
 
-  const visualExperiments: Array<VisualExperiment> = visualChangesets
+  return visualChangesets
     .map((c) => ({
-      experiment: experiments.find((e) => e.id === c.experiment),
+      experiment: experimentMap.get(c.experiment),
       visualChangeset: c,
     }))
-    .filter(_isValidVisualExperiment);
+    .filter(_isValidVisualExperiment)
+    .filter((e) => {
+      // Exclude experiments from SDK payload
+      if (!includeExperimentInPayload(e.experiment)) return false;
 
-  return visualExperiments;
+      // Exclude experiments that are stopped and the released variation doesn’t have any visual changes
+      if (
+        e.experiment.status === "stopped" &&
+        !hasVisualChangesForVariation(
+          e.experiment.id,
+          e.experiment.releasedVariationId
+        )
+      ) {
+        return false;
+      }
+      return true;
+    });
 };
 
 export const getPayloadKeys = (
   organization: OrganizationInterface,
-  experiment: ExperimentInterface
+  experiment: ExperimentInterface,
+  linkedFeatures?: FeatureInterface[]
 ): SDKPayloadKey[] => {
-  const environments =
+  // If experiment is not included in the SDK payload
+  if (!includeExperimentInPayload(experiment, linkedFeatures)) {
+    return [];
+  }
+
+  const environments: string[] =
     organization.settings?.environments?.map((e) => e.id) ?? [];
   const project = experiment.project ?? "";
-  return environments.map((e) => ({
-    environment: e,
-    project,
-  }));
+
+  // Visual editor experiments always affect all environments
+  if (experiment.hasVisualChangesets) {
+    return environments.map((e) => ({
+      environment: e,
+      project,
+    }));
+  }
+
+  // Feature flag experiments only affect the environments where the experiment rule is active
+  if (linkedFeatures && linkedFeatures.length > 0) {
+    return getAffectedSDKPayloadKeys(
+      linkedFeatures,
+      (rule) =>
+        rule.type === "experiment-ref" &&
+        rule.experimentId === experiment.id &&
+        rule.enabled !== false
+    );
+  }
+
+  // Otherwise, if no linked visual editor or feature flag changes, there are no affected payload keys
+  return [];
 };
 
 const getExperimentChanges = (
@@ -965,10 +1150,12 @@ const getExperimentChanges = (
     "trackingKey",
     "project",
     "hashAttribute",
+    "hashVersion",
     "name",
     "archived",
     "status",
     "releasedVariationId",
+    "excludeFromPayload",
     "autoAssign",
     "variations",
     "phases",
@@ -986,8 +1173,13 @@ const hasChangesForSDKPayloadRefresh = (
   oldExperiment: ExperimentInterface,
   newExperiment: ExperimentInterface
 ): boolean => {
-  // We don't need to refresh the payload for experiments without visual changesets
-  if (!newExperiment.hasVisualChangesets) return false;
+  // Skip experiments that don't have linked features or visual changesets
+  if (
+    !includeExperimentInPayload(oldExperiment) &&
+    !includeExperimentInPayload(newExperiment)
+  ) {
+    return false;
+  }
 
   const oldChanges = getExperimentChanges(oldExperiment);
   const newChanges = getExperimentChanges(newExperiment);
@@ -1031,10 +1223,24 @@ const onExperimentUpdate = async ({
     !bypassWebhooks &&
     hasChangesForSDKPayloadRefresh(oldExperiment, newExperiment)
   ) {
+    // Get linked features
+    const featureIds = [
+      ...(oldExperiment.linkedFeatures || []),
+      ...(newExperiment.linkedFeatures || []),
+    ];
+    let linkedFeatures: FeatureInterface[] = [];
+    if (featureIds.length > 0) {
+      linkedFeatures = await getFeaturesByIds(organization.id, featureIds);
+    }
+
     const oldPayloadKeys = oldExperiment
-      ? getPayloadKeys(organization, oldExperiment)
+      ? getPayloadKeys(organization, oldExperiment, linkedFeatures)
       : [];
-    const newPayloadKeys = getPayloadKeys(organization, newExperiment);
+    const newPayloadKeys = getPayloadKeys(
+      organization,
+      newExperiment,
+      linkedFeatures
+    );
     const payloadKeys = uniqWith(
       [...oldPayloadKeys, ...newPayloadKeys],
       isEqual
@@ -1051,8 +1257,12 @@ const onExperimentDelete = async (
 ) => {
   await logExperimentDeleted(organization, user, experiment);
 
-  if (experiment.hasVisualChangesets) {
-    const payloadKeys = getPayloadKeys(organization, experiment);
-    refreshSDKPayloadCache(organization, payloadKeys);
+  const featureIds = [...(experiment.linkedFeatures || [])];
+  let linkedFeatures: FeatureInterface[] = [];
+  if (featureIds.length > 0) {
+    linkedFeatures = await getFeaturesByIds(organization.id, featureIds);
   }
+
+  const payloadKeys = getPayloadKeys(organization, experiment, linkedFeatures);
+  refreshSDKPayloadCache(organization, payloadKeys);
 };

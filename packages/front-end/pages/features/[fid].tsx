@@ -4,13 +4,10 @@ import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { FeatureInterface } from "back-end/types/feature";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import React, { useState } from "react";
-import {
-  FaCheckCircle,
-  FaChevronRight,
-  FaExclamationTriangle,
-} from "react-icons/fa";
-import { BsLightningFill } from "react-icons/bs";
+import { FaChevronRight, FaExclamationTriangle } from "react-icons/fa";
 import { datetime } from "shared/dates";
+import { getValidation } from "shared/util";
+import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import { GBAddCircle, GBCircleArrowLeft, GBEdit } from "@/components/Icons";
 import LoadingOverlay from "@/components/LoadingOverlay";
@@ -36,7 +33,6 @@ import {
   useEnvironments,
   getEnabledEnvironments,
   getAffectedEnvs,
-  getValidation,
 } from "@/services/features";
 import Tab from "@/components/Tabs/Tab";
 import FeatureImplementationModal from "@/components/Features/FeatureImplementationModal";
@@ -50,14 +46,12 @@ import usePermissions from "@/hooks/usePermissions";
 import DiscussionThread from "@/components/DiscussionThread";
 import EditOwnerModal from "@/components/Owner/EditOwnerModal";
 import FeatureModal from "@/components/Features/FeatureModal";
-import { isCloud } from "@/services/env";
-import TempMessage from "@/components/TempMessage";
-import useSDKConnections from "@/hooks/useSDKConnections";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import EditSchemaModal from "@/components/Features/EditSchemaModal";
 import Code from "@/components/SyntaxHighlighting/Code";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { useUser } from "@/services/UserContext";
+import { DeleteDemoDatasourceButton } from "@/components/DemoDataSourcePage/DemoDataSourcePage";
 
 export default function FeaturePage() {
   const router = useRouter();
@@ -81,22 +75,15 @@ export default function FeaturePage() {
   const [editProjectModal, setEditProjectModal] = useState(false);
   const [editTagsModal, setEditTagsModal] = useState(false);
   const [editOwnerModal, setEditOwnerModal] = useState(false);
-  const [publishedMessage, setPublishedMessage] = useState(false);
-  const onPublish = () => {
-    if (!publishedMessage) {
-      setPublishedMessage(true);
-    } else {
-      setPublishedMessage(false);
-      setTimeout(() => {
-        setPublishedMessage(true);
-      }, 150);
-    }
-  };
 
-  const { getProjectById, projects } = useDefinitions();
+  const {
+    getProjectById,
+    project: currentProject,
+    projects,
+  } = useDefinitions();
 
   const { apiCall } = useAuth();
-  const { hasCommercialFeature } = useUser();
+  const { hasCommercialFeature, organization } = useUser();
 
   const { data, error, mutate } = useApi<{
     feature: FeatureInterface;
@@ -106,8 +93,6 @@ export default function FeaturePage() {
   const firstFeature = router?.query && "first" in router.query;
   const [showImplementation, setShowImplementation] = useState(firstFeature);
   const environments = useEnvironments();
-
-  const { data: sdkConnectionsData } = useSDKConnections();
 
   if (error) {
     return (
@@ -164,71 +149,6 @@ export default function FeaturePage() {
             Object.keys(data.feature.draft?.rules || {})
           )
     );
-
-  const sdkConnections = sdkConnectionsData?.connections;
-  const hasProxiedConnections = sdkConnections?.some((c) => {
-    return !isCloud() ? c.proxy.enabled && c.proxy.host : c.sseEnabled;
-  });
-  const hasUnproxiedConnections =
-    sdkConnections?.some((c) => {
-      return !(!isCloud() ? c.proxy.enabled && c.proxy.host : c.sseEnabled);
-    }) || sdkConnections?.length === 0;
-
-  const rolloutDelayNotice = (
-    <div className="text-left">
-      <p className="font-weight-bolder mb-2">
-        <FaCheckCircle /> Changes published
-      </p>
-      <div className="mb-2">
-        {hasProxiedConnections ? (
-          <>
-            <p className="mb-1">
-              You currently have{" "}
-              {isCloud() ? "Streaming Updates" : "GrowthBook Proxy"} enabled on{" "}
-              {hasUnproxiedConnections ? "some" : "all"} of your SDK
-              Connections. For these connections, feature updates will be
-              deployed instantly to subscribed SDKs.
-            </p>
-            {hasUnproxiedConnections ? (
-              <p className="mb-1">
-                For your other connections, feature updates may take up to 60
-                seconds to deploy, and additional delays may occur for cached
-                SDK instances.
-              </p>
-            ) : null}
-          </>
-        ) : (
-          <p className="mb-1">
-            Feature updates may take up to 60 seconds to deploy. Additional
-            delays may occur for cached SDK instances.
-          </p>
-        )}
-      </div>
-      {isCloud() ? (
-        <div className="mt-0">
-          To use instant feature deployments, enable{" "}
-          <strong>
-            <BsLightningFill className="text-warning-orange" />
-            Streaming Updates
-          </strong>{" "}
-          in your <Link href="/sdks">SDK Connections</Link>.
-        </div>
-      ) : (
-        <div className="mt-0">
-          To use instant feature deployments, you may configure{" "}
-          <strong>
-            <BsLightningFill className="text-warning-orange" />
-            GrowthBook Proxy
-          </strong>{" "}
-          for self-hosted users. See the{" "}
-          <Link href="https://docs.growthbook.io/self-host/proxy">
-            GrowthBook Proxy documentation
-          </Link>
-          .
-        </div>
-      )}
-    </div>
-  );
 
   return (
     <div className="contents container-fluid pagecontents">
@@ -287,6 +207,14 @@ export default function FeaturePage() {
           mutate={mutate}
           method="PUT"
           current={data.feature.project}
+          additionalMessage={
+            data.feature.linkedExperiments?.length ? (
+              <div className="alert alert-danger">
+                Changing the project may prevent your linked Experiments from
+                being sent to users.
+              </div>
+            ) : null
+          }
         />
       )}
       {editTagsModal && (
@@ -316,7 +244,6 @@ export default function FeaturePage() {
           feature={data.feature}
           close={() => setDraftModal(false)}
           mutate={mutate}
-          onPublish={onPublish}
         />
       )}
       {duplicateModal && (
@@ -350,15 +277,21 @@ export default function FeaturePage() {
         </div>
       )}
 
-      {publishedMessage && (
-        <TempMessage
-          close={() => setPublishedMessage(false)}
-          delay={null}
-          top={65}
-          showClose={true}
-        >
-          {rolloutDelayNotice}
-        </TempMessage>
+      {projectId ===
+        getDemoDatasourceProjectIdForOrganization(organization.id) && (
+        <div className="alert alert-info mb-3 d-flex align-items-center">
+          <div className="flex-1">
+            This feature is part of our sample dataset and shows how Feature
+            Flags and Experiments can be linked together. You can delete this
+            once you are done exploring.
+          </div>
+          <div style={{ width: 180 }} className="ml-2">
+            <DeleteDemoDatasourceButton
+              onDelete={() => router.push("/features")}
+              source="feature"
+            />
+          </div>
+        </div>
       )}
 
       <div className="row align-items-center mb-2">
@@ -491,6 +424,15 @@ export default function FeaturePage() {
                   <FaExclamationTriangle /> Invalid project
                 </span>
               </Tooltip>
+            ) : currentProject && currentProject !== data.feature.project ? (
+              <Tooltip body={<>This feature is not in your current project.</>}>
+                {projectId ? (
+                  <strong>{projectName}</strong>
+                ) : (
+                  <em className="text-muted">None</em>
+                )}{" "}
+                <FaExclamationTriangle className="text-warning" />
+              </Tooltip>
             ) : projectId ? (
               <strong>{projectName}</strong>
             ) : (
@@ -588,7 +530,6 @@ export default function FeaturePage() {
                 environment={en.id}
                 mutate={() => {
                   mutate();
-                  onPublish();
                 }}
                 id={`${en.id}_toggle`}
               />
@@ -853,7 +794,7 @@ export default function FeaturePage() {
                     setRuleModal({
                       environment: env,
                       i: getRules(data.feature, env).length,
-                      defaultType: "experiment",
+                      defaultType: "experiment-ref-new",
                     });
                     track("Viewed Rule Modal", {
                       source: "add-rule",

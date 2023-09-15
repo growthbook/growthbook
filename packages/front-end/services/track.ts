@@ -10,6 +10,13 @@ Track anonymous usage statistics
 
 import { jitsuClient, JitsuClient } from "@jitsu/sdk-js";
 import md5 from "md5";
+import { StatsEngine } from "@/../back-end/types/stats";
+import {
+  ExperimentSnapshotAnalysis,
+  ExperimentSnapshotInterface,
+} from "@/../back-end/types/experiment-snapshot";
+import { ExperimentReportInterface } from "@/../back-end/types/report";
+import { DEFAULT_STATS_ENGINE } from "shared/constants";
 import { getCurrentUser } from "./UserContext";
 import {
   getGrowthBookBuild,
@@ -19,10 +26,30 @@ import {
   isTelemetryEnabled,
 } from "./env";
 
+type TrackEventProps = Record<string, unknown>;
+
+export interface TrackSnapshotProps {
+  id: string;
+  source: string;
+  experiment: string;
+  engine: StatsEngine;
+  datasource_type: string | null;
+  regression_adjustment_enabled: boolean;
+  sequential_testing_enabled: boolean;
+  sequential_testing_tuning_parameter?: number;
+  skip_partial_data: boolean;
+  activation_metric_selected: boolean;
+  query_filter_selected: boolean;
+  segment_selected: boolean;
+  dimension_type: string;
+  dimension_id: string;
+  error?: string;
+}
+
 let jitsu: JitsuClient;
 export default function track(
   event: string,
-  props: Record<string, unknown> = {}
+  props: TrackEventProps = {}
 ): void {
   // Only run client-side, not during SSR
   if (typeof window === "undefined") return;
@@ -76,4 +103,105 @@ export default function track(
   }
 
   jitsu.track(event, trackProps);
+}
+
+export function trackSnapshot(
+  event: "create" | "update" | "delete",
+  source: string,
+  datasourceType: string | null,
+  snapshot: ExperimentSnapshotInterface
+): void {
+  const trackingProps = snapshot
+    ? getTrackingPropsFromSnapshot(snapshot, source, datasourceType)
+    : { error: "no snapshot object returned by API" };
+
+  track("Experiment Snapshot: " + event, {
+    ...trackingProps,
+  });
+}
+
+export function trackReport(
+  event: "create" | "update" | "delete",
+  source: string,
+  datasourceType: string | null,
+  report: ExperimentReportInterface
+): void {
+  const trackingProps = report
+    ? getTrackingPropsFromReport(report, source, datasourceType)
+    : { error: "no report object returned by API" };
+
+  track("Experiment Report: " + event, {
+    ...trackingProps,
+  });
+}
+
+function getTrackingPropsFromSnapshot(
+  snapshot: ExperimentSnapshotInterface,
+  source: string,
+  datasourceType: string | null
+): TrackSnapshotProps {
+  const parsedDim = parseSnapshotDimension(
+    snapshot.settings.dimensions.map((d) => d.id).join(", ") || ""
+  );
+  const analysis = snapshot.analyses?.[0] as
+    | ExperimentSnapshotAnalysis
+    | undefined;
+  return {
+    id: snapshot.id ? md5(snapshot.id) : "",
+    source: source,
+    experiment: snapshot.experiment ? md5(snapshot.experiment) : "",
+    engine: analysis?.settings?.statsEngine || DEFAULT_STATS_ENGINE,
+    datasource_type: datasourceType,
+    regression_adjustment_enabled: !!snapshot.settings
+      .regressionAdjustmentEnabled,
+    sequential_testing_enabled: !!analysis?.settings?.sequentialTesting,
+    sequential_testing_tuning_parameter:
+      analysis?.settings?.sequentialTestingTuningParameter ?? -99,
+    skip_partial_data: !!snapshot.settings.skipPartialData,
+    activation_metric_selected: !!snapshot.settings.activationMetric,
+    query_filter_selected: !!snapshot.settings.queryFilter,
+    segment_selected: !!snapshot.settings.segment,
+    dimension_type: parsedDim.type,
+    dimension_id: parsedDim.id,
+  };
+}
+
+function getTrackingPropsFromReport(
+  report: ExperimentReportInterface,
+  source: string,
+  datasourceType: string | null
+): TrackSnapshotProps {
+  const parsedDim = parseSnapshotDimension(report.args.dimension ?? "");
+  return {
+    id: report.id ? md5(report.id) : "",
+    source: source,
+    experiment: report.experimentId ? md5(report.experimentId) : "",
+    engine: report.args.statsEngine || DEFAULT_STATS_ENGINE,
+    datasource_type: datasourceType,
+    regression_adjustment_enabled: !!report.args.regressionAdjustmentEnabled,
+    sequential_testing_enabled: !!report.args.sequentialTestingEnabled,
+    sequential_testing_tuning_parameter:
+      report.args.sequentialTestingTuningParameter,
+    skip_partial_data: !!report.args.skipPartialData,
+    activation_metric_selected: !!report.args.activationMetric,
+    query_filter_selected: !!report.args.queryFilter,
+    segment_selected: !!report.args.segment,
+    dimension_type: parsedDim.type,
+    dimension_id: parsedDim.id,
+  };
+}
+
+export function parseSnapshotDimension(
+  dimension: string
+): { type: string; id: string } {
+  if (!dimension) {
+    return { type: "none", id: "" };
+  }
+  if (dimension.substring(0, 4) === "pre:") {
+    return { type: "predefined", id: dimension.substring(4) };
+  }
+  if (dimension.substring(0, 4) === "exp:") {
+    return { type: "experiment", id: md5(dimension.substring(4)) };
+  }
+  return { type: "user", id: md5(dimension) };
 }

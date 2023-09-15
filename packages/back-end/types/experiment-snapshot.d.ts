@@ -65,7 +65,8 @@ export interface MetricForSnapshot {
     | "datasource"
     | "aggregation"
     | "sql"
-    | "cap"
+    | "capping"
+    | "capValue"
     | "denominator"
     | "userIdTypes"
     | "type"
@@ -96,6 +97,7 @@ export interface ExperimentSnapshotAnalysisSettings {
   sequentialTesting?: boolean;
   sequentialTestingTuningParameter?: number;
   pValueCorrection?: null | "holm-bonferroni" | "benjamini-hochberg";
+  baselineVariationIndex?: number;
 }
 
 export interface ExperimentSnapshotAnalysis {

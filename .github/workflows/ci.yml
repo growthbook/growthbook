@@ -1,6 +1,14 @@
 name: CI
 on:
   push:
+    branches: main
+    paths:
+      - "packages/**"
+      - "yarn.lock"
+      - ".eslintrc"
+      - ".eslintignore"
+      - ".prettierignore"
+  pull_request:
     paths:
       - "packages/**"
       - "yarn.lock"
@@ -58,7 +66,7 @@ jobs:
       - name: Lint
         run: |
           yarn lint:ci
-          yarn workspace stats lint
+          yarn workspace stats lint:ci
         env:
           CI: true
 

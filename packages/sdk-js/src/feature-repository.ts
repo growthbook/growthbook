@@ -10,6 +10,7 @@ import type { GrowthBook } from ".";
 
 type CacheEntry = {
   data: FeatureApiResponse;
+  sse?: boolean;
   version: string;
   staleAt: Date;
 };
@@ -74,8 +75,13 @@ export async function refreshFeatures(
   timeout?: number,
   skipCache?: boolean,
   allowStale?: boolean,
-  updateInstance?: boolean
+  updateInstance?: boolean,
+  backgroundSync?: boolean
 ): Promise<void> {
+  if (!backgroundSync) {
+    cacheSettings.backgroundSync = false;
+  }
+
   const data = await fetchFeaturesWithCache(
     instance,
     allowStale,
@@ -120,6 +126,9 @@ async function fetchFeaturesWithCache(
   await initializeCache();
   const existing = cache.get(key);
   if (existing && !skipCache && (allowStale || existing.staleAt > now)) {
+    // Restore from cache whether or not SSE is supported
+    if (existing.sse) supportsSSE.add(key);
+
     // Reload features in the background if stale
     if (existing.staleAt < now) {
       fetchFeatures(instance);
@@ -212,6 +221,7 @@ function onNewFeatureData(key: RepositoryKey, data: FeatureApiResponse): void {
     data,
     version,
     staleAt,
+    sse: supportsSSE.has(key),
   });
   // Update local storage (don't await this, just update asynchronously)
   updatePersistentCache();
@@ -248,6 +258,7 @@ async function fetchFeatures(
   const [key, apiHost, clientKey] = getKey(instance);
   const remoteEval = instance.getRemoteEval();
 
+  // todo: custom host by endpoint functionality
   const endpoint = `${apiHost}/${
     remoteEval ? "eval" : "api"
   }/features/${clientKey}`;
@@ -297,7 +308,6 @@ async function fetchFeatures(
 // Will prefer SSE if enabled, otherwise fall back to cron
 function startAutoRefresh(instance: GrowthBook): void {
   const [key, apiHost, clientKey] = getKey(instance);
-
   if (
     cacheSettings.backgroundSync &&
     supportsSSE.has(key) &&

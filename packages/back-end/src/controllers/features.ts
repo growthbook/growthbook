@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import {
+  ExperimentRefRule,
   FeatureDraftChanges,
   FeatureInterface,
   FeatureRule,
@@ -23,6 +24,8 @@ import {
   discardDraft,
   updateDraft,
   setJsonSchema,
+  addExperimentRefRule,
+  deleteExperimentRefRule,
 } from "../models/FeatureModel";
 import { getRealtimeUsageByHour } from "../models/RealtimeModel";
 import { lookupOrganizationByApiKey } from "../models/ApiKeyModel";
@@ -32,8 +35,10 @@ import {
   getFeatureDefinitions,
   verifyDraftsAreEqual,
 } from "../services/features";
-import { ensureWatching } from "../services/experiments";
-import { getExperimentByTrackingKey } from "../models/ExperimentModel";
+import {
+  getExperimentByTrackingKey,
+  getExperimentsByIds,
+} from "../models/ExperimentModel";
 import { FeatureUsageRecords } from "../../types/realtime";
 import {
   auditDetailsCreate,
@@ -49,13 +54,16 @@ import {
 } from "../models/SdkConnectionModel";
 import { logger } from "../util/logger";
 import { addTagsDiff } from "../models/TagModel";
-import { IS_CLOUD } from "../util/secrets";
+import { FASTLY_SERVICE_ID } from "../util/secrets";
 import { EventAuditUserForResponseLocals } from "../events/event-types";
+import { upsertWatch } from "../models/WatchModel";
+import { getSurrogateKeysFromSDKPayloadKeys } from "../util/cdn.util";
+import { SDKPayloadKey } from "../../types/sdk-payload";
 
-class ApiKeyError extends Error {
+class UnrecoverableApiError extends Error {
   constructor(message: string) {
     super(message);
-    this.name = "ApiKeyError";
+    this.name = "UnrecoverableApiError";
   }
 }
 
@@ -68,18 +76,17 @@ async function getPayloadParamsFromApiKey(
   environment: string;
   encrypted: boolean;
   encryptionKey?: string;
-  sseEnabled?: boolean;
-  remoteEvalEnabled?: boolean;
   includeVisualExperiments?: boolean;
   includeDraftExperiments?: boolean;
   includeExperimentNames?: boolean;
   hashSecureAttributes?: boolean;
+  remoteEvalEnabled?: boolean;
 }> {
   // SDK Connection key
   if (key.match(/^sdk-/)) {
     const connection = await findSDKConnectionByKey(key);
     if (!connection) {
-      throw new ApiKeyError("Invalid API Key");
+      throw new UnrecoverableApiError("Invalid API Key");
     }
 
     // If this is the first time the SDK Connection is being used, mark it as successfully connected
@@ -97,12 +104,11 @@ async function getPayloadParamsFromApiKey(
       project: connection.project,
       encrypted: connection.encryptPayload,
       encryptionKey: connection.encryptionKey,
-      sseEnabled: connection.sseEnabled,
-      remoteEvalEnabled: connection.remoteEvalEnabled,
       includeVisualExperiments: connection.includeVisualExperiments,
       includeDraftExperiments: connection.includeDraftExperiments,
       includeExperimentNames: connection.includeExperimentNames,
       hashSecureAttributes: connection.hashSecureAttributes,
+      remoteEvalEnabled: connection.remoteEvalEnabled,
     };
   }
   // Old, legacy API Key
@@ -121,10 +127,10 @@ async function getPayloadParamsFromApiKey(
       encryptionKey,
     } = await lookupOrganizationByApiKey(key);
     if (!organization) {
-      throw new ApiKeyError("Invalid API Key");
+      throw new UnrecoverableApiError("Invalid API Key");
     }
     if (secret) {
-      throw new ApiKeyError(
+      throw new UnrecoverableApiError(
         "Must use a Publishable API key to get feature definitions"
       );
     }
@@ -143,16 +149,12 @@ async function getPayloadParamsFromApiKey(
   }
 }
 
-async function getFeaturesPayload(
-  req: Request,
-  res: Response,
-  mode: "remoteEval" | "public"
-) {
+export async function getFeaturesPublic(req: Request, res: Response) {
   try {
     const { key } = req.params;
 
     if (!key) {
-      throw new ApiKeyError("Missing API key in request");
+      throw new UnrecoverableApiError("Missing API key in request");
     }
 
     const {
@@ -161,21 +163,15 @@ async function getFeaturesPayload(
       encrypted,
       project,
       encryptionKey,
-      sseEnabled,
-      remoteEvalEnabled,
       includeVisualExperiments,
       includeDraftExperiments,
       includeExperimentNames,
       hashSecureAttributes,
+      remoteEvalEnabled,
     } = await getPayloadParamsFromApiKey(key, req);
 
-    if (mode === "remoteEval" && !remoteEvalEnabled) {
-      throw new Error(
-        "Remote evaluation is not enabled for this SDK Connection"
-      );
-    }
-    if (mode === "public" && remoteEvalEnabled) {
-      throw new Error("Remote evaluation is enabled for this SDK Connection");
+    if (remoteEvalEnabled) {
+      throw new Error("Remote evaluation is required for this SDK Connection");
     }
 
     const defs = await getFeatureDefinitions({
@@ -195,10 +191,16 @@ async function getFeaturesPayload(
       "public, max-age=30, stale-while-revalidate=3600, stale-if-error=36000"
     );
 
-    const setSseHeaders = IS_CLOUD ? sseEnabled ?? false : false;
-    if (setSseHeaders) {
-      res.set("x-sse-support", "enabled");
-      res.set("Access-Control-Expose-Headers", "x-sse-support");
+    // If using Fastly, add surrogate key header for cache purging
+    if (FASTLY_SERVICE_ID) {
+      // Purge by org, API Key, or payload contents
+      const payloadKey: SDKPayloadKey = { environment, project };
+      const surrogateKeys = [
+        organization,
+        key,
+        ...getSurrogateKeysFromSDKPayloadKeys(organization, [payloadKey]),
+      ];
+      res.set("Surrogate-Key", surrogateKeys.join(" "));
     }
 
     res.status(200).json({
@@ -209,8 +211,11 @@ async function getFeaturesPayload(
     // We don't want to expose internal errors like Mongo Connections to users, so default to a generic message
     let error = "Failed to get features";
 
-    // Some specific error messages we whitelist to provide more detailed feedback to users
-    if (e instanceof ApiKeyError) {
+    // These errors are unrecoverable and can thus be cached by a CDN despite a 400 response code
+    // Set this header, which our CDN can pick up and apply caching rules for
+    // Also, use the more detailed error message since these are explicitly set by us
+    if (e instanceof UnrecoverableApiError) {
+      res.set("x-unrecoverable", "1");
       error = e.message;
     }
 
@@ -219,14 +224,6 @@ async function getFeaturesPayload(
       error,
     });
   }
-}
-
-export function getFeaturesPublic(req: Request, res: Response) {
-  return getFeaturesPayload(req, res, "public");
-}
-
-export function getFeaturesForEval(req: Request, res: Response) {
-  return getFeaturesPayload(req, res, "remoteEval");
 }
 
 export async function postFeatures(
@@ -302,7 +299,12 @@ export async function postFeatures(
   addIdsToRules(feature.environmentSettings, feature.id);
 
   await createFeature(org, res.locals.eventAudit, feature);
-  await ensureWatching(userId, org.id, feature.id, "features");
+  await upsertWatch({
+    userId,
+    organization: org.id,
+    item: feature.id,
+    type: "features",
+  });
 
   await req.audit({
     event: "feature.create",
@@ -469,6 +471,65 @@ export async function postFeatureRule(
   req.checkPermissions("createFeatureDrafts", feature.project);
 
   await addFeatureRule(org, res.locals.eventAudit, feature, environment, rule);
+
+  res.status(200).json({
+    status: 200,
+  });
+}
+
+export async function postFeatureExperimentRefRule(
+  req: AuthRequest<{ rule: ExperimentRefRule }, { id: string }>,
+  res: Response<{ status: 200 }, EventAuditUserForResponseLocals>
+) {
+  const { org } = getOrgFromReq(req);
+  const { id } = req.params;
+  const { rule } = req.body;
+  const feature = await getFeature(org.id, id);
+
+  if (!feature) {
+    throw new Error("Could not find feature");
+  }
+  if (
+    rule.type !== "experiment-ref" ||
+    !rule.experimentId ||
+    !rule.variations ||
+    !rule.variations.length
+  ) {
+    throw new Error("Invalid experiment rule");
+  }
+
+  req.checkPermissions("manageFeatures", feature.project);
+  req.checkPermissions("createFeatureDrafts", feature.project);
+
+  await addExperimentRefRule(org, res.locals.eventAudit, feature, rule);
+
+  res.status(200).json({
+    status: 200,
+  });
+}
+
+export async function deleteFeatureExperimentRefRule(
+  req: AuthRequest<{ experimentId: string }, { id: string }>,
+  res: Response<{ status: 200 }, EventAuditUserForResponseLocals>
+) {
+  const { org } = getOrgFromReq(req);
+  const { id } = req.params;
+  const { experimentId } = req.body;
+  const feature = await getFeature(org.id, id);
+
+  if (!feature) {
+    throw new Error("Could not find feature");
+  }
+
+  req.checkPermissions("manageFeatures", feature.project);
+  req.checkPermissions("createFeatureDrafts", feature.project);
+
+  await deleteExperimentRefRule(
+    org,
+    res.locals.eventAudit,
+    feature,
+    experimentId
+  );
 
   res.status(200).json({
     status: 200,
@@ -867,27 +928,48 @@ export async function getFeatureById(
     throw new Error("Could not find feature");
   }
 
-  const expIds: Set<string> = new Set();
+  // Get linked experiments from rule and draft rules
+  const experimentIds: Set<string> = new Set();
+  const trackingKeys: Set<string> = new Set();
   if (feature.environmentSettings) {
     Object.values(feature.environmentSettings).forEach((env) => {
       env.rules?.forEach((r) => {
         if (r.type === "experiment") {
-          expIds.add(r.trackingKey || feature.id);
+          trackingKeys.add(r.trackingKey || feature.id);
+        } else if (r.type === "experiment-ref") {
+          experimentIds.add(r.experimentId);
+        }
+      });
+    });
+  }
+  if (feature.draft && feature.draft.active && feature.draft.rules) {
+    Object.values(feature.draft.rules).forEach((rules) => {
+      rules.forEach((r) => {
+        if (r.type === "experiment") {
+          trackingKeys.add(r.trackingKey || feature.id);
+        } else if (r.type === "experiment-ref") {
+          experimentIds.add(r.experimentId);
         }
       });
     });
   }
 
   const experiments: { [key: string]: ExperimentInterface } = {};
-  if (expIds.size > 0) {
+  if (trackingKeys.size > 0) {
     await Promise.all(
-      Array.from(expIds).map(async (id) => {
-        const exp = await getExperimentByTrackingKey(org.id, id);
+      Array.from(trackingKeys).map(async (key) => {
+        const exp = await getExperimentByTrackingKey(org.id, key);
         if (exp) {
-          experiments[id] = exp;
+          experiments[exp.id] = exp;
         }
       })
     );
+  }
+  if (experimentIds.size > 0) {
+    const docs = await getExperimentsByIds(org.id, Array.from(experimentIds));
+    docs.forEach((doc) => {
+      experiments[doc.id] = doc;
+    });
   }
 
   const revisions = await getRevisions(org.id, id);

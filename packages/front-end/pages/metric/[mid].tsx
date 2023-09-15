@@ -14,6 +14,7 @@ import { useForm } from "react-hook-form";
 import { BsGear } from "react-icons/bs";
 import { IdeaInterface } from "back-end/types/idea";
 import { date } from "shared/dates";
+import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import useApi from "@/hooks/useApi";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import DiscussionThread from "@/components/DiscussionThread";
@@ -59,6 +60,8 @@ import { GBCuped, GBEdit } from "@/components/Icons";
 import Toggle from "@/components/Forms/Toggle";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useCurrency } from "@/hooks/useCurrency";
+import { DeleteDemoDatasourceButton } from "@/components/DemoDataSourcePage/DemoDataSourcePage";
+import { useUser } from "@/services/UserContext";
 
 const MetricPage: FC = () => {
   const router = useRouter();
@@ -96,6 +99,8 @@ const MetricPage: FC = () => {
   const onHoverCallback = (ret: { d: number | null }) => {
     setHoverDate(ret.d);
   };
+
+  const { organization } = useUser();
 
   const { data, error, mutate } = useApi<{
     metric: MetricInterface;
@@ -150,21 +155,21 @@ const MetricPage: FC = () => {
   const customzeTimestamp = supportsSQL;
   const customizeUserIds = supportsSQL;
 
-  const status = getQueryStatus(metric.queries || [], metric.analysisError);
+  const { status } = getQueryStatus(metric.queries || [], metric.analysisError);
   const hasQueries = metric.queries?.length > 0;
 
   let regressionAdjustmentAvailableForMetric = true;
   let regressionAdjustmentAvailableForMetricReason = <></>;
-  if (metric.denominator) {
-    const denominator = metrics.find((m) => m.id === metric.denominator);
-    if (denominator?.type === "count") {
-      regressionAdjustmentAvailableForMetric = false;
-      regressionAdjustmentAvailableForMetricReason = (
-        <>
-          Not available for ratio metrics with <em>count</em> denominators.
-        </>
-      );
-    }
+  const denominator = metric.denominator
+    ? metrics.find((m) => m.id === metric.denominator)
+    : undefined;
+  if (denominator && denominator.type === "count") {
+    regressionAdjustmentAvailableForMetric = false;
+    regressionAdjustmentAvailableForMetricReason = (
+      <>
+        Not available for ratio metrics with <em>count</em> denominators.
+      </>
+    );
   }
   if (metric.aggregation) {
     regressionAdjustmentAvailableForMetric = false;
@@ -391,6 +396,23 @@ const MetricPage: FC = () => {
         </div>
       )}
 
+      {metric.projects?.includes(
+        getDemoDatasourceProjectIdForOrganization(organization.id)
+      ) && (
+        <div className="alert alert-info mb-3 d-flex align-items-center mt-3">
+          <div className="flex-1">
+            This metric is part of our sample dataset. You can safely delete
+            this once you are done exploring.
+          </div>
+          <div style={{ width: 180 }} className="ml-2">
+            <DeleteDemoDatasourceButton
+              onDelete={() => router.push("/metrics")}
+              source="metric"
+            />
+          </div>
+        </div>
+      )}
+
       <div className="row align-items-center mb-2">
         <h1 className="col-auto">{metric.name}</h1>
         <div style={{ flex: 1 }} />
@@ -451,6 +473,7 @@ const MetricPage: FC = () => {
           {canEditProjects && (
             <a
               href="#"
+              className="ml-2"
               onClick={(e) => {
                 e.preventDefault();
                 setEditProjects(true);
@@ -540,9 +563,43 @@ const MetricPage: FC = () => {
                         <div className="col-auto">
                           <h3 className="d-inline-block mb-0">Data Preview</h3>
                         </div>
+                        <div className="small col-auto">
+                          {segments.length > 0 && (
+                            <>
+                              {segment?.name ? (
+                                <>
+                                  Segment applied:{" "}
+                                  <span className="badge badge-primary mr-1">
+                                    {segment?.name || "Everyone"}
+                                  </span>
+                                </>
+                              ) : (
+                                <span className="mr-1">Apply a segment</span>
+                              )}
+                              {canEditMetric &&
+                                permissions.check(
+                                  "runQueries",
+                                  metric.projects || ""
+                                ) && (
+                                  <a
+                                    onClick={(e) => {
+                                      e.preventDefault();
+                                      setSegmentOpen(true);
+                                    }}
+                                    href="#"
+                                  >
+                                    <BsGear />
+                                  </a>
+                                )}
+                            </>
+                          )}
+                        </div>
                         <div style={{ flex: 1 }} />
                         <div className="col-auto">
-                          {permissions.check("runQueries", "") && (
+                          {permissions.check(
+                            "runQueries",
+                            metric.projects || ""
+                          ) && (
                             <form
                               onSubmit={async (e) => {
                                 e.preventDefault();
@@ -562,55 +619,28 @@ const MetricPage: FC = () => {
                               <RunQueriesButton
                                 icon="refresh"
                                 cta={analysis ? "Refresh Data" : "Run Analysis"}
-                                initialStatus={getQueryStatus(
-                                  metric.queries || [],
-                                  metric.analysisError
-                                )}
-                                statusEndpoint={`/metric/${metric.id}/analysis/status`}
+                                mutate={mutate}
+                                model={metric}
                                 cancelEndpoint={`/metric/${metric.id}/analysis/cancel`}
                                 color="outline-primary"
-                                onReady={() => {
-                                  mutate();
-                                }}
                               />
                             </form>
                           )}
                         </div>
                       </div>
-                      <div className="row justify-content-between">
-                        <div className="col-auto">
-                          {segments.length > 0 && (
+                      <div className="row flex justify-content-between">
+                        <div className="small text-muted col">
+                          {denominator && (
                             <>
-                              {segment?.name ? (
-                                <>
-                                  Segment applied:{" "}
-                                  <span className="badge badge-primary mr-1">
-                                    {segment?.name || "Everyone"}
-                                  </span>
-                                </>
-                              ) : (
-                                <span className="mr-1">No segment applied</span>
-                              )}
-                              {canEditMetric &&
-                                permissions.check("runQueries", "") && (
-                                  <a
-                                    onClick={(e) => {
-                                      e.preventDefault();
-                                      setSegmentOpen(true);
-                                    }}
-                                    href="#"
-                                  >
-                                    <BsGear />
-                                  </a>
-                                )}
+                              The data below only aggregates the numerator. The
+                              denominator ({denominator.name}) is only used in
+                              experiment analyses.
                             </>
                           )}
                         </div>
                         {analysis && (
-                          <div className="col-auto text-muted">
-                            <small>
-                              Last updated on {date(analysis?.createdAt)}
-                            </small>
+                          <div className="small text-muted col-auto">
+                            Last updated on {date(analysis?.createdAt)}
                           </div>
                         )}
                       </div>
@@ -974,6 +1004,24 @@ const MetricPage: FC = () => {
                           {metric.userIdTypes}
                         </RightRailSectionGroup>
                       )}
+                      {metric.templateVariables?.eventName && (
+                        <RightRailSectionGroup title="Event Name" type="custom">
+                          <span className="font-weight-bold">
+                            {metric.templateVariables.eventName}
+                          </span>
+                        </RightRailSectionGroup>
+                      )}
+                      {metric.type != "binomial" &&
+                        metric.templateVariables?.valueColumn && (
+                          <RightRailSectionGroup
+                            title="Value Column"
+                            type="custom"
+                          >
+                            <span className="font-weight-bold">
+                              {metric.templateVariables.valueColumn}
+                            </span>
+                          </RightRailSectionGroup>
+                        )}
                       <RightRailSectionGroup title="Metric SQL" type="custom">
                         <Code language="sql" code={metric.sql} />
                       </RightRailSectionGroup>
@@ -1088,11 +1136,17 @@ const MetricPage: FC = () => {
                       <span className="font-weight-bold">Inverse</span>
                     </li>
                   )}
-                  {/* @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'. */}
-                  {metric.cap > 0 && (
+                  {metric.capping && metric.capValue && (
                     <li className="mb-2">
-                      <span className="text-gray">Capped value:</span>{" "}
-                      <span className="font-weight-bold">{metric.cap}</span>
+                      <span className="text-gray">
+                        Cap value ({metric.capping}):{" "}
+                      </span>
+                      <span className="font-weight-bold">
+                        {metric.capValue}{" "}
+                        {metric.capping === "percentile"
+                          ? `(${100 * metric.capValue} pctile)`
+                          : ""}{" "}
+                      </span>
                     </li>
                   )}
                   {metric.ignoreNulls && (

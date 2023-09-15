@@ -1,4 +1,5 @@
 import type { Response } from "express";
+import { orgHasPremiumFeature } from "enterprise";
 import { AuthRequest } from "../../types/AuthRequest";
 import { getOrgFromReq } from "../../services/organizations";
 import {
@@ -15,7 +16,6 @@ import {
   findSDKConnectionsByOrganization,
   testProxyConnection,
 } from "../../models/SdkConnectionModel";
-import { orgHasPremiumFeature } from "../../util/organization.util";
 
 export const getSDKConnections = async (
   req: AuthRequest,
@@ -56,11 +56,6 @@ export const postSDKConnection = async (
     hashSecureAttributes = params.hashSecureAttributes;
   }
 
-  let sseEnabled = false;
-  if (orgHasPremiumFeature(org, "cloud-proxy")) {
-    sseEnabled = params.sseEnabled || false;
-  }
-
   let remoteEvalEnabled = false;
   if (orgHasPremiumFeature(org, "remote-evaluation")) {
     remoteEvalEnabled = params.remoteEvalEnabled || false;
@@ -75,7 +70,6 @@ export const postSDKConnection = async (
     ...params,
     encryptPayload,
     hashSecureAttributes,
-    sseEnabled,
     remoteEvalEnabled,
     organization: org.id,
   });
@@ -120,11 +114,6 @@ export const putSDKConnection = async (
     hashSecureAttributes = req.body.hashSecureAttributes || false;
   }
 
-  let sseEnabled = false;
-  if (orgHasPremiumFeature(org, "cloud-proxy")) {
-    sseEnabled = req.body.sseEnabled || false;
-  }
-
   let remoteEvalEnabled = false;
   if (orgHasPremiumFeature(org, "remote-evaluation")) {
     remoteEvalEnabled = req.body.remoteEvalEnabled || false;
@@ -139,7 +128,6 @@ export const putSDKConnection = async (
     ...req.body,
     encryptPayload,
     hashSecureAttributes,
-    sseEnabled,
     remoteEvalEnabled,
   });
 

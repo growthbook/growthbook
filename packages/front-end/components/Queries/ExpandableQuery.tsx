@@ -1,7 +1,12 @@
 import { FC } from "react";
 import { QueryInterface } from "back-end/types/query";
 import { formatDistanceStrict } from "date-fns";
-import { FaCircle, FaExclamationTriangle, FaCheck } from "react-icons/fa";
+import {
+  FaCircle,
+  FaExclamationTriangle,
+  FaCheck,
+  FaSquare,
+} from "react-icons/fa";
 import clsx from "clsx";
 import { getValidDate } from "shared/dates";
 import Code from "../SyntaxHighlighting/Code";
@@ -22,12 +27,17 @@ const ExpandableQuery: FC<{
   return (
     <div className="mb-4">
       <h4>
-        {query.status === "running" && <FaCircle className="text-info mr-2" />}
+        {query.status === "running" && (
+          <FaCircle className="text-info mr-2" title="Running" />
+        )}
+        {query.status === "queued" && (
+          <FaSquare className="text-secondary mr-2" title="Queued" />
+        )}
         {query.status === "failed" && (
-          <FaExclamationTriangle className="text-danger mr-2" />
+          <FaExclamationTriangle className="text-danger mr-2" title="Failed" />
         )}
         {query.status === "succeeded" && (
-          <FaCheck className="text-success mr-2" />
+          <FaCheck className="text-success mr-2" title="Succeeded" />
         )}
         {title}
         <span style={{ fontWeight: "normal" }}>
@@ -93,17 +103,37 @@ const ExpandableQuery: FC<{
             Took{" "}
             {formatDistanceStrict(
               getValidDate(query.startedAt),
-              // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'Date | undefined' is not assigna... Remove this comment to see the full error message
               getValidDate(query.finishedAt)
             )}
           </em>
         </small>
       )}
       {query.status === "running" && (
-        <div className="alert alert-info">
+        <>
+          <div className="alert alert-info">
+            <em>
+              Running for{" "}
+              {formatDistanceStrict(getValidDate(query.startedAt), new Date())}
+            </em>
+            {query.dependencies?.length && !query.cachedQueryUsed ? (
+              <div>
+                <em>
+                  Was queued for{" "}
+                  {formatDistanceStrict(
+                    getValidDate(query.createdAt),
+                    getValidDate(query.startedAt)
+                  )}
+                </em>
+              </div>
+            ) : null}
+          </div>
+        </>
+      )}
+      {query.status === "queued" && (
+        <div className="alert alert-secondary">
           <em>
-            Running for{" "}
-            {formatDistanceStrict(getValidDate(query.startedAt), new Date())}
+            Queued for{" "}
+            {formatDistanceStrict(getValidDate(query.createdAt), new Date())}
           </em>
         </div>
       )}

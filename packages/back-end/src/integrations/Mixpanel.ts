@@ -14,7 +14,8 @@ import {
   MetricValueParams,
   MetricValueQueryResponse,
   MetricValueQueryResponseRow,
-  PastExperimentResponse,
+  MetricValueQueryResponseRows,
+  PastExperimentQueryResponse,
   SourceIntegrationInterface,
 } from "../types/Integration";
 import { DEFAULT_CONVERSION_WINDOW_HOURS } from "../util/secrets";
@@ -23,7 +24,7 @@ import {
   getAggregateFunctions,
   getMixpanelPropertyColumn,
 } from "../util/mixpanel";
-import { replaceSQLVars } from "../util/sql";
+import { compileSqlTemplate } from "../util/sql";
 import { ExperimentSnapshotSettings } from "../../types/experiment-snapshot";
 
 export default class Mixpanel implements SourceIntegrationInterface {
@@ -77,8 +78,8 @@ export default class Mixpanel implements SourceIntegrationInterface {
     ${destVar} = !${destVar}.length ? 0 : (
       (values => ${this.getMetricAggregationExpression(metric)})(${destVar})
     );${
-      metric.cap && metric.cap > 0
-        ? `\n${destVar} = ${destVar} && Math.min(${destVar}, ${metric.cap});`
+      metric.capping === "absolute" && metric.capValue
+        ? `\n${destVar} = ${destVar} && Math.min(${destVar}, ${metric.capValue});`
         : ""
     }
     `;
@@ -501,7 +502,7 @@ export default class Mixpanel implements SourceIntegrationInterface {
       ]
     >(this.params, query);
 
-    const result: MetricValueQueryResponse = [];
+    const result: MetricValueQueryResponseRows = [];
     const overall: MetricValueQueryResponseRow = {
       date: "",
       count: 0,
@@ -529,12 +530,12 @@ export default class Mixpanel implements SourceIntegrationInterface {
         }
       });
 
-    return [overall, ...result];
+    return { rows: [overall, ...result] };
   }
   getPastExperimentQuery(): string {
     throw new Error("Method not implemented.");
   }
-  async runPastExperimentQuery(): Promise<PastExperimentResponse> {
+  async runPastExperimentQuery(): Promise<PastExperimentQueryResponse> {
     throw new Error("Method not implemented.");
   }
   getSensitiveParamKeys(): string[] {
@@ -605,7 +606,7 @@ function is${name}(event) {
     endDate?: Date,
     experimentId?: string
   ) {
-    return replaceSQLVars(getMixpanelPropertyColumn(col), {
+    return compileSqlTemplate(getMixpanelPropertyColumn(col), {
       startDate,
       endDate,
       experimentId,

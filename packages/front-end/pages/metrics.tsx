@@ -4,6 +4,7 @@ import { MetricInterface } from "back-end/types/metric";
 import { useRouter } from "next/router";
 import Link from "next/link";
 import { ago, datetime } from "shared/dates";
+import { isProjectListValidForProject } from "shared/util";
 import SortedTags from "@/components/Tags/SortedTags";
 import { GBAddCircle } from "@/components/Icons";
 import ProjectBadges from "@/components/ProjectBadges";
@@ -26,6 +27,8 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import { checkMetricProjectPermissions } from "@/services/metrics";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import { useAuth } from "@/services/auth";
+import AutoGenerateMetricsModal from "@/components/AutoGenerateMetricsModal";
+import AutoGenerateMetricsButton from "@/components/AutoGenerateMetricsButton";
 
 const MetricsPage = (): React.ReactElement => {
   const [modalData, setModalData] = useState<{
@@ -33,6 +36,10 @@ const MetricsPage = (): React.ReactElement => {
     edit: boolean;
     duplicate: boolean;
   } | null>(null);
+  const [
+    showAutoGenerateMetricsModal,
+    setShowAutoGenerateMetricsModal,
+  ] = useState(false);
 
   const { getDatasourceById, mutateDefinitions, project } = useDefinitions();
   const router = useRouter();
@@ -66,11 +73,9 @@ const MetricsPage = (): React.ReactElement => {
     }),
     [getDatasourceById]
   );
-  const filteredMetrics = metrics.filter((m) => {
-    if (!project) return true;
-    if (!m?.projects?.length) return true;
-    return m?.projects?.includes(project);
-  });
+  const filteredMetrics = project
+    ? metrics.filter((m) => isProjectListValidForProject(m.projects, project))
+    : metrics;
 
   // Searching
   const filterResults = useCallback(
@@ -130,6 +135,13 @@ const MetricsPage = (): React.ReactElement => {
             source="blank-state"
           />
         )}
+        {showAutoGenerateMetricsModal && (
+          <AutoGenerateMetricsModal
+            source="metrics-index-page"
+            setShowAutoGenerateMetricsModal={setShowAutoGenerateMetricsModal}
+            mutate={mutate}
+          />
+        )}
         <div className="d-flex">
           <h1>Metrics</h1>
           <DocLink docSection="metrics" className="align-self-center ml-2 pb-1">
@@ -166,19 +178,25 @@ const MetricsPage = (): React.ReactElement => {
           </div>
         )}
         {permissions.check("createMetrics", project) && !hasFileConfig() && (
-          <button
-            className="btn btn-lg btn-success"
-            onClick={(e) => {
-              e.preventDefault();
-              setModalData({
-                current: {},
-                edit: false,
-                duplicate: false,
-              });
-            }}
-          >
-            <FaPlus /> Add your first Metric
-          </button>
+          <>
+            <AutoGenerateMetricsButton
+              setShowAutoGenerateMetricsModal={setShowAutoGenerateMetricsModal}
+              size="lg"
+            />
+            <button
+              className="btn btn-lg btn-success"
+              onClick={(e) => {
+                e.preventDefault();
+                setModalData({
+                  current: {},
+                  edit: false,
+                  duplicate: false,
+                });
+              }}
+            >
+              <FaPlus /> Add your first Metric
+            </button>
+          </>
         )}
       </div>
     );
@@ -198,7 +216,13 @@ const MetricsPage = (): React.ReactElement => {
           source="metrics-list"
         />
       )}
-
+      {showAutoGenerateMetricsModal && (
+        <AutoGenerateMetricsModal
+          source="metric-index-page"
+          setShowAutoGenerateMetricsModal={setShowAutoGenerateMetricsModal}
+          mutate={mutate}
+        />
+      )}
       <div className="filters md-form row mb-3 align-items-center">
         <div className="col-auto d-flex">
           <h1>
@@ -216,6 +240,9 @@ const MetricsPage = (): React.ReactElement => {
         <div style={{ flex: 1 }} />
         {permissions.check("createMetrics", project) && !hasFileConfig() && (
           <div className="col-auto">
+            <AutoGenerateMetricsButton
+              setShowAutoGenerateMetricsModal={setShowAutoGenerateMetricsModal}
+            />
             <button
               className="btn btn-primary float-right"
               onClick={() =>

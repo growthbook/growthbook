@@ -19,6 +19,7 @@ interface Props
   description?: string;
   children: ReactNode;
   loading?: boolean;
+  stopPropagation?: boolean;
 }
 
 const Button: FC<Props> = ({
@@ -29,6 +30,7 @@ const Button: FC<Props> = ({
   className,
   disabled,
   loading: _externalLoading,
+  stopPropagation,
   ...otherProps
 }) => {
   const [_internalLoading, setLoading] = useState(false);
@@ -46,6 +48,7 @@ const Button: FC<Props> = ({
         disabled={disabled || loading}
         onClick={async (e) => {
           e.preventDefault();
+          if (stopPropagation) e.stopPropagation();
           if (loading) return;
           setLoading(true);
           setError(null);

@@ -17,6 +17,7 @@ import track from "@/services/track";
 import Modal from "@/components/Modal";
 import ConnectionSettings from "@/components/Settings/ConnectionSettings";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import EditSchemaOptions from "./EditSchemaOptions";
 
 const typeOptions = dataSourceConnections;
 
@@ -254,6 +255,11 @@ const DataSourceForm: FC<{
         datasource={datasource}
         existing={existing}
         hasError={hasError}
+        setDatasource={setDatasource}
+        setDirty={setDirty}
+      />
+      <EditSchemaOptions
+        datasource={datasource}
         setDatasource={setDatasource}
         setDirty={setDirty}
       />

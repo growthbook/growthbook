@@ -2,6 +2,7 @@ import { FC, useMemo, useState } from "react";
 import { SegmentInterface } from "back-end/types/segment";
 import { useForm } from "react-hook-form";
 import { FaExternalLinkAlt } from "react-icons/fa";
+import { isProjectListValidForProject } from "shared/util";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
 import { validateSQL } from "@/services/datasources";
@@ -28,8 +29,15 @@ const SegmentForm: FC<{
     datasources,
     getDatasourceById,
     mutateDefinitions,
+    project,
   } = useDefinitions();
-  const filteredDatasources = datasources.filter((d) => d.properties?.segments);
+  const filteredDatasources = datasources
+    .filter((d) => d.properties?.segments)
+    .filter(
+      (d) =>
+        d.id === current.datasource ||
+        isProjectListValidForProject(d.projects, project)
+    );
   const form = useForm({
     defaultValues: {
       name: current.name || "",
@@ -38,6 +46,7 @@ const SegmentForm: FC<{
         (current.id ? current.datasource : filteredDatasources[0]?.id) || "",
       userIdType: current.userIdType || "user_id",
       owner: current.owner || "",
+      description: current.description || "",
     },
   });
   const [sqlOpen, setSqlOpen] = useState(false);
@@ -62,7 +71,7 @@ const SegmentForm: FC<{
           close={() => setSqlOpen(false)}
           datasourceId={datasource.id || ""}
           placeholder={`SELECT\n      ${userIdType}, date\nFROM\n      mytable`}
-          requiredColumns={Array.from(requiredColumns)}
+          requiredColumns={requiredColumns}
           value={sql}
           save={async (sql) => form.setValue("sql", sql)}
         />
@@ -91,6 +100,7 @@ const SegmentForm: FC<{
           comboBox
           {...form.register("owner")}
         />
+        <Field label="Description" {...form.register("description")} textarea />
         <SelectField
           label="Data Source"
           required

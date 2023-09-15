@@ -8,6 +8,7 @@ required:
   - hypothesis
   - description
   - hashAttribute
+  - hashVersion
   - tags
   - owner
   - archived
@@ -47,6 +48,9 @@ properties:
     type: boolean
   hashAttribute:
     type: string
+  hashVersion:
+    type: number
+    enum: [1, 2]
   variations:
     type: array
     items:
@@ -132,6 +136,7 @@ properties:
       - status
       - winner
       - releasedVariationId
+      - excludeFromPayload
       - conclusions
     properties:
       status:
@@ -142,3 +147,5 @@ properties:
         type: string
       releasedVariationId:
         type: string
+      excludeFromPayload:
+        type: boolean

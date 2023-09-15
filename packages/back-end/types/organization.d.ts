@@ -16,6 +16,19 @@ export type Permission =
   | EnvScopedPermission
   | ProjectScopedPermission;
 
+export type PermissionsObject = Partial<Record<Permission, boolean>>;
+
+export type UserPermission = {
+  environments: string[];
+  limitAccessByEnvironment: boolean;
+  permissions: PermissionsObject;
+};
+
+export type UserPermissions = {
+  global: UserPermission;
+  projects: { [key: string]: UserPermission };
+};
+
 export type MemberRole =
   | "readonly"
   | "collaborator"
@@ -32,27 +45,11 @@ export type Role = {
   permissions: Permission[];
 };
 
-export type AccountPlan = "oss" | "starter" | "pro" | "pro_sso" | "enterprise";
-export type CommercialFeature =
-  | "sso"
-  | "advanced-permissions"
-  | "encrypt-features-endpoint"
-  | "schedule-feature-flag"
-  | "override-metrics"
-  | "regression-adjustment"
-  | "sequential-testing"
-  | "audit-logging"
-  | "visual-editor"
-  | "cloud-proxy"
-  | "hash-secure-attributes"
-  | "json-validation"
-  | "remote-evaluation";
-export type CommercialFeaturesMap = Record<AccountPlan, Set<CommercialFeature>>;
-
 export interface MemberRoleInfo {
   role: MemberRole;
   limitAccessByEnvironment: boolean;
   environments: string[];
+  teams?: string[];
 }
 
 export interface ProjectMemberRole extends MemberRoleInfo {
@@ -178,6 +175,8 @@ export interface OrganizationSettings {
   sequentialTestingTuningParameter?: number;
   displayCurrency?: string;
   secureAttributeSalt?: string;
+  killswitchConfirmation?: boolean;
+  defaultDataSource?: string;
 }
 
 export interface SubscriptionQuote {
@@ -266,27 +265,3 @@ export type NamespaceUsage = Record<
     end: number;
   }[]
 >;
-
-export type LicenseData = {
-  // Unique id for the license key
-  ref: string;
-  // Name of organization on the license
-  sub: string;
-  // Organization ID (keys prior to 12/2022 do not contain this field)
-  org?: string;
-  // Max number of seats
-  qty: number;
-  // Date issued
-  iat: string;
-  // Expiration date
-  exp: string;
-  // If it's a trial or not
-  trial: boolean;
-  // The plan (pro, enterprise, etc.)
-  plan: AccountPlan;
-  /**
-   * Expiration date (old style)
-   * @deprecated
-   */
-  eat?: string;
-};

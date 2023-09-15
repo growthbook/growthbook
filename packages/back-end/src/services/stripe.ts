@@ -1,4 +1,5 @@
 import { Stripe } from "stripe";
+import { isActiveSubscriptionStatus } from "enterprise";
 import { STRIPE_SECRET } from "../util/secrets";
 import {
   findOrganizationByStripeCustomerId,
@@ -7,7 +8,6 @@ import {
 } from "../models/OrganizationModel";
 import { OrganizationInterface } from "../../types/organization";
 import { logger } from "../util/logger";
-import { isActiveSubscriptionStatus } from "../util/organization.util";
 
 export const stripe = new Stripe(STRIPE_SECRET || "", {
   apiVersion: "2022-11-15",

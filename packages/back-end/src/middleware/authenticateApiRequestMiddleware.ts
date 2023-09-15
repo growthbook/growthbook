@@ -1,8 +1,8 @@
 import { Request, Response, NextFunction } from "express";
+import { hasPermission } from "shared/permissions";
 import { ApiRequestLocals } from "../../types/api";
 import { lookupOrganizationByApiKey } from "../models/ApiKeyModel";
-import { insertAudit } from "../services/audit";
-import { getOrganizationById, getRole } from "../services/organizations";
+import { getOrganizationById } from "../services/organizations";
 import { getCustomLogProps } from "../util/logger";
 import { EventAuditUserApiKey } from "../events/event-types";
 import { isApiKeyForUserInOrganization } from "../util/api-key.util";
@@ -11,8 +11,12 @@ import {
   OrganizationInterface,
   Permission,
 } from "../../types/organization";
-import { getPermissionsByRole } from "../util/organization.util";
+import {
+  getUserPermissions,
+  roleToPermissionMap,
+} from "../util/organization.util";
 import { ApiKeyInterface } from "../../types/apikey";
+import { insertAudit } from "../models/AuditModel";
 
 export default function authenticateApiRequestMiddleware(
   req: Request & ApiRequestLocals,
@@ -131,9 +135,6 @@ export default function authenticateApiRequestMiddleware(
     });
 }
 
-/**
- * this is a duplication of the logic in processJwt() -> hasPermission()
- */
 function doesUserHavePermission(
   org: OrganizationInterface,
   permission: Permission,
@@ -147,23 +148,11 @@ function doesUserHavePermission(
       return false;
     }
 
-    const memberRoleInfo = getRole(org, userId, project);
-    const userPermissions = getPermissionsByRole(memberRoleInfo.role, org);
-    if (!userPermissions.includes(permission)) {
-      return false;
-    }
+    // Generate full list of permissions for the user
+    const userPermissions = getUserPermissions(userId, org);
 
-    // If it's an environment-scoped permission and the user's role has limited access
-    if (envs && memberRoleInfo.limitAccessByEnvironment) {
-      for (let i = 0; i < envs.length; i++) {
-        if (!memberRoleInfo.environments.includes(envs[i])) {
-          return false;
-        }
-      }
-    }
-
-    // If it got through all the above checks, the user has permission
-    return true;
+    // Check if the user has the permission
+    return hasPermission(userPermissions, permission, project, envs);
   } catch (e) {
     return false;
   }
@@ -210,13 +199,13 @@ export function verifyApiKeyPermission({
   } else if (apiKey.secret && apiKey.role) {
     // Because of the JIT migration, `role` will always be set here, even for old secret keys
     // This will check a valid role is provided.
-    const rolePermissions = getPermissionsByRole(
+    const rolePermissions = roleToPermissionMap(
       apiKey.role as MemberRole,
       organization
     );
 
     // No need to treat "readonly" differently, it will return an empty array permissions array and fail this check
-    if (!rolePermissions.includes(permission)) {
+    if (!rolePermissions[permission]) {
       throw new Error("API key user does not have this level of access");
     }
   } else {

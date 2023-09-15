@@ -28,6 +28,7 @@ import { hasFileConfig } from "@/services/env";
 import { GBCuped, GBSequential } from "@/components/Icons";
 import useApi from "@/hooks/useApi";
 import StatsEngineSelect from "@/components/Settings/forms/StatsEngineSelect";
+import { trackReport } from "@/services/track";
 import MetricsSelector from "../Experiment/MetricsSelector";
 import Field from "../Forms/Field";
 import Modal from "../Modal";
@@ -67,6 +68,7 @@ export default function ConfigureReport({
   const { settings: parentSettings } = getScopedSettings({
     organization,
     project: project ?? undefined,
+    experiment: experiment ?? undefined,
   });
 
   const hasRegressionAdjustmentFeature = hasCommercialFeature(
@@ -196,12 +198,21 @@ export default function ConfigureReport({
           args.metricRegressionAdjustmentStatuses = metricRegressionAdjustmentStatuses;
         }
 
-        await apiCall(`/report/${report.id}`, {
-          method: "PUT",
-          body: JSON.stringify({
-            args,
-          }),
-        });
+        const res = await apiCall<{ updatedReport: ReportInterface }>(
+          `/report/${report.id}`,
+          {
+            method: "PUT",
+            body: JSON.stringify({
+              args,
+            }),
+          }
+        );
+        trackReport(
+          "update",
+          "SaveAndRunButton",
+          datasource?.type || null,
+          res.updatedReport
+        );
         mutate();
         viewResults();
       })}
@@ -310,6 +321,7 @@ export default function ConfigureReport({
           selected={form.watch("metrics")}
           onChange={(metrics) => form.setValue("metrics", metrics)}
           datasource={report.args.datasource}
+          project={project?.id}
         />
       </div>
       <div className="form-group">
@@ -323,6 +335,7 @@ export default function ConfigureReport({
           selected={form.watch("guardrails")}
           onChange={(metrics) => form.setValue("guardrails", metrics)}
           datasource={report.args.datasource}
+          project={project?.id}
         />
       </div>
       <DimensionChooser
