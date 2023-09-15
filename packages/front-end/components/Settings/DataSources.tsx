@@ -59,8 +59,8 @@ const DataSources: FC = () => {
             <tr>
               <th className="col-2">Display Name</th>
               <th className="col-auto">Description</th>
-              <th className="col-2">Format</th>
-              <th className="col-2">Type</th>
+              <th className="col-2">Event Tracker</th>
+              <th className="col-2">Datasource Type</th>
               <td className="col-2">Projects</td>
               {!hasFileConfig() && <th className="col-2">Last Updated</th>}
             </tr>
