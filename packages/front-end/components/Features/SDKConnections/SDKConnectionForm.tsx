@@ -286,344 +286,352 @@ export default function SDKConnectionForm({
         </div>
 
         <label>SDK Payload Security</label>
-        <ControlledTabs
-          newStyle={true}
-          className="mb-3"
-          buttonsWrapperClassName="sdk-security-button-wrapper mb-3"
-          buttonsClassName={(tab) =>
-            clsx("sdk-security-button text-center border rounded", {
-              selected: tab === getSecurityTabState(form.getValues()),
-            })
-          }
-          tabContentsClassName={(tab) => (tab === "none" ? "d-none" : "border")}
-          setActive={setSelectedSecurityTab}
-          active={selectedSecurityTab}
-        >
-          <Tab
-            id="none"
-            padding={false}
-            className="px-2 pt-2 pb-3"
-            display={
-              <>
-                {getSecurityTabState(form.getValues()) === "none" && (
-                  <>
-                    <FaCheck className="check text-success" />{" "}
-                  </>
-                )}
-                Plain Text
-                <Tooltip
-                  popperClassName="text-left"
-                  body={
-                    <p className="mb-0">
-                      Full feature definitions, including targeting conditions
-                      and experiment variations, are viewable by anyone with the
-                      Client Key. Best for server-side SDKs.
-                    </p>
-                  }
-                >
-                  <div className="subtitle">
-                    Extremely fast and cacheable&nbsp;
-                    <FaInfoCircle />
-                  </div>
-                </Tooltip>
-              </>
+        <div className="border rounded pt-3 px-3 mb-4 bg-light">
+          <ControlledTabs
+            newStyle={true}
+            className="mb-3"
+            buttonsWrapperClassName="sdk-security-button-wrapper mb-3"
+            buttonsClassName={(tab) =>
+              clsx("sdk-security-button text-center border rounded", {
+                selected: tab === getSecurityTabState(form.getValues()),
+              })
             }
-          >
-            <></>
-          </Tab>
-
-          <Tab
-            id="client"
-            padding={false}
-            className="px-2 pt-2 pb-3"
-            display={
-              <>
-                {getSecurityTabState(form.getValues()) === "client" && (
-                  <>
-                    <FaCheck className="check text-success" />{" "}
-                  </>
-                )}
-                Ciphered
-                <Tooltip
-                  popperClassName="text-left"
-                  body={
-                    <p className="mb-0">
-                      Full feature definitions are encrypted and sensitive
-                      targeting conditions are hashed to help avoid leaking
-                      business logic to client-side apps. Not 100% safe, but
-                      will stop most prying eyes.
-                    </p>
-                  }
-                >
-                  <div className="subtitle">
-                    Good mix of performance and security&nbsp;
-                    <FaInfoCircle />
-                  </div>
-                </Tooltip>
-              </>
+            tabContentsClassName={(tab) =>
+              tab === "none" ? "d-none" : "noborder"
             }
+            setActive={setSelectedSecurityTab}
+            active={selectedSecurityTab}
           >
-            <div className="d-flex">
-              <div className="col-4">
-                <label htmlFor="encryptSDK">
-                  <PremiumTooltip
-                    commercialFeature="encrypt-features-endpoint"
-                    body={
-                      <>
-                        <p>
-                          SDK payloads will be encrypted via the AES encryption
-                          algorithm. When evaluating feature flags in a public
-                          or insecure environment (such as a browser),
-                          encryption provides an additional layer of security
-                          through obfuscation. This allows you to target users
-                          based on sensitive attributes.
-                        </p>
-                        <p className="mb-0 text-warning-orange small">
-                          <FaExclamationCircle /> When using an insecure
-                          environment, do not rely exclusively on payload
-                          encryption as a means of securing highly sensitive
-                          data. Because the client performs the decryption, the
-                          unencrypted payload may be extracted with sufficient
-                          effort.
-                        </p>
-                      </>
-                    }
-                  >
-                    Encrypt SDK payload <FaInfoCircle />
-                  </PremiumTooltip>
-                </label>
-                <div>
-                  <Toggle
-                    id="encryptSDK"
-                    value={form.watch("encryptPayload")}
-                    setValue={(val) => form.setValue("encryptPayload", val)}
-                    disabled={!hasEncryptionFeature}
-                  />
-                </div>
-              </div>
-
-              <div className="col-4">
-                <label htmlFor="hash-secure-attributes">
-                  <PremiumTooltip
-                    commercialFeature="hash-secure-attributes"
-                    body={
-                      <>
-                        <p>
-                          Feature targeting conditions referencing{" "}
-                          <code>secureString</code> attributes will be
-                          anonymized via SHA-256 hashing. When evaluating
-                          feature flags in a public or insecure environment
-                          (such as a browser), hashing provides an additional
-                          layer of security through obfuscation. This allows you
-                          to target users based on sensitive attributes.
-                        </p>
-                        <p className="mb-0 text-warning-orange small">
-                          <FaExclamationCircle /> When using an insecure
-                          environment, do not rely exclusively on hashing as a
-                          means of securing highly sensitive data. Hashing is an
-                          obfuscation technique that makes it very difficult,
-                          but not impossible, to extract sensitive data.
-                        </p>
-                      </>
-                    }
-                  >
-                    Hash secure attributes <FaInfoCircle />
-                  </PremiumTooltip>
-                </label>
-                <div>
-                  <Toggle
-                    id="hash-secure-attributes"
-                    value={form.watch("hashSecureAttributes")}
-                    setValue={(val) =>
-                      form.setValue("hashSecureAttributes", val)
-                    }
-                    disabled={!hasSecureAttributesFeature}
-                  />
-                </div>
-              </div>
-            </div>
-
-            {form.watch("encryptPayload") &&
-              selectedLanguagesWithoutEncryptionSupport.length > 0 && (
-                <div
-                  className="ml-2 mt-3 text-warning-orange small"
-                  style={{ marginBottom: -5 }}
-                >
-                  <FaExclamationCircle /> Payload decryption is not natively
-                  supported in the selected SDK
-                  {selectedLanguagesWithoutEncryptionSupport.length === 1
-                    ? ""
-                    : "s"}
-                  :
-                  <div className="ml-2 mt-1">
-                    {selectedLanguagesWithoutEncryptionSupport.map((id, i) => (
-                      <span className="nowrap" key={id}>
-                        <SDKLanguageLogo language={id} size={14} />
-                        <span
-                          className="text-muted font-weight-bold"
-                          style={{ marginLeft: 2, verticalAlign: 3 }}
-                        >
-                          {languageMapping[id].label}
-                        </span>
-                        {i <
-                          selectedLanguagesWithoutEncryptionSupport.length -
-                            1 && ", "}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
-          </Tab>
-
-          <Tab
-            id="server"
-            padding={false}
-            className="px-2 pt-2 pb-3"
-            display={
-              <>
-                {getSecurityTabState(form.getValues()) === "server" && (
-                  <>
-                    <FaCheck className="check text-success" />{" "}
-                  </>
-                )}
-                Remote Evaluated
-                <div
-                  className="position-absolute badge badge-purple text-uppercase"
-                  style={{ right: 5, top: 5 }}
-                >
-                  Beta
-                </div>
-                <Tooltip
-                  popperClassName="text-left"
-                  body={
+            <Tab
+              id="none"
+              padding={false}
+              className="pt-1 pb-2"
+              display={
+                <>
+                  {getSecurityTabState(form.getValues()) === "none" && (
                     <>
-                      <p className="mb-0">
-                        Features and experiments are evaluated on{" "}
-                        {isCloud()
-                          ? "our Cloud CDN"
-                          : "your GrowthBook Proxy server"}{" "}
-                        and only the final assigned values are exposed to users.
-                      </p>
-                      {!isCloud() && (
-                        <div className="mt-2 text-warning-orange">
-                          <FaExclamationCircle /> Requires a GrowthBook Proxy
-                          server to be configured for self-hosted users
-                        </div>
-                      )}
+                      <FaCheck className="check text-success" />{" "}
                     </>
-                  }
-                >
-                  <div className="subtitle">
-                    Completely hides business logic from users&nbsp;
-                    <FaInfoCircle />
+                  )}
+                  Plain Text
+                  <Tooltip
+                    popperClassName="text-left"
+                    body={
+                      <p className="mb-0">
+                        Full feature definitions, including targeting conditions
+                        and experiment variations, are viewable by anyone with
+                        the Client Key. Best for server-side SDKs.
+                      </p>
+                    }
+                  >
+                    <div className="subtitle">
+                      Extremely fast and cacheable&nbsp;
+                      <FaInfoCircle />
+                    </div>
+                  </Tooltip>
+                </>
+              }
+            >
+              <></>
+            </Tab>
+
+            <Tab
+              id="client"
+              padding={false}
+              className="pt-1 pb-2"
+              display={
+                <>
+                  {getSecurityTabState(form.getValues()) === "client" && (
+                    <>
+                      <FaCheck className="check text-success" />{" "}
+                    </>
+                  )}
+                  Ciphered
+                  <Tooltip
+                    popperClassName="text-left"
+                    body={
+                      <p className="mb-0">
+                        Full feature definitions are encrypted and sensitive
+                        targeting conditions are hashed to help avoid leaking
+                        business logic to client-side apps. Not 100% safe, but
+                        will stop most prying eyes.
+                      </p>
+                    }
+                  >
+                    <div className="subtitle">
+                      Good mix of performance and security&nbsp;
+                      <FaInfoCircle />
+                    </div>
+                  </Tooltip>
+                </>
+              }
+            >
+              <div className="d-flex">
+                <div className="col-4">
+                  <label htmlFor="encryptSDK">
+                    <PremiumTooltip
+                      commercialFeature="encrypt-features-endpoint"
+                      body={
+                        <>
+                          <p>
+                            SDK payloads will be encrypted via the AES
+                            encryption algorithm. When evaluating feature flags
+                            in a public or insecure environment (such as a
+                            browser), encryption provides an additional layer of
+                            security through obfuscation. This allows you to
+                            target users based on sensitive attributes.
+                          </p>
+                          <p className="mb-0 text-warning-orange small">
+                            <FaExclamationCircle /> When using an insecure
+                            environment, do not rely exclusively on payload
+                            encryption as a means of securing highly sensitive
+                            data. Because the client performs the decryption,
+                            the unencrypted payload may be extracted with
+                            sufficient effort.
+                          </p>
+                        </>
+                      }
+                    >
+                      Encrypt SDK payload <FaInfoCircle />
+                    </PremiumTooltip>
+                  </label>
+                  <div>
+                    <Toggle
+                      id="encryptSDK"
+                      value={form.watch("encryptPayload")}
+                      setValue={(val) => form.setValue("encryptPayload", val)}
+                      disabled={!hasEncryptionFeature}
+                    />
                   </div>
-                </Tooltip>
-              </>
-            }
-          >
-            <div className="d-flex">
-              <div className="col">
-                <label htmlFor="remote-evaluation">
-                  <PremiumTooltip
-                    commercialFeature="remote-evaluation"
-                    tipMinWidth="600px"
+                </div>
+
+                <div className="col-4">
+                  <label htmlFor="hash-secure-attributes">
+                    <PremiumTooltip
+                      commercialFeature="hash-secure-attributes"
+                      body={
+                        <>
+                          <p>
+                            Feature targeting conditions referencing{" "}
+                            <code>secureString</code> attributes will be
+                            anonymized via SHA-256 hashing. When evaluating
+                            feature flags in a public or insecure environment
+                            (such as a browser), hashing provides an additional
+                            layer of security through obfuscation. This allows
+                            you to target users based on sensitive attributes.
+                          </p>
+                          <p className="mb-0 text-warning-orange small">
+                            <FaExclamationCircle /> When using an insecure
+                            environment, do not rely exclusively on hashing as a
+                            means of securing highly sensitive data. Hashing is
+                            an obfuscation technique that makes it very
+                            difficult, but not impossible, to extract sensitive
+                            data.
+                          </p>
+                        </>
+                      }
+                    >
+                      Hash secure attributes <FaInfoCircle />
+                    </PremiumTooltip>
+                  </label>
+                  <div>
+                    <Toggle
+                      id="hash-secure-attributes"
+                      value={form.watch("hashSecureAttributes")}
+                      setValue={(val) =>
+                        form.setValue("hashSecureAttributes", val)
+                      }
+                      disabled={!hasSecureAttributesFeature}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {form.watch("encryptPayload") &&
+                selectedLanguagesWithoutEncryptionSupport.length > 0 && (
+                  <div
+                    className="ml-2 mt-3 text-warning-orange small"
+                    style={{ marginBottom: -5 }}
+                  >
+                    <FaExclamationCircle /> Payload decryption is not natively
+                    supported in the selected SDK
+                    {selectedLanguagesWithoutEncryptionSupport.length === 1
+                      ? ""
+                      : "s"}
+                    :
+                    <div className="ml-2 mt-1">
+                      {selectedLanguagesWithoutEncryptionSupport.map(
+                        (id, i) => (
+                          <span className="nowrap" key={id}>
+                            <SDKLanguageLogo language={id} size={14} />
+                            <span
+                              className="text-muted font-weight-bold"
+                              style={{ marginLeft: 2, verticalAlign: 3 }}
+                            >
+                              {languageMapping[id].label}
+                            </span>
+                            {i <
+                              selectedLanguagesWithoutEncryptionSupport.length -
+                                1 && ", "}
+                          </span>
+                        )
+                      )}
+                    </div>
+                  </div>
+                )}
+            </Tab>
+
+            <Tab
+              id="server"
+              padding={false}
+              className="pt-1 pb-2"
+              display={
+                <>
+                  {getSecurityTabState(form.getValues()) === "server" && (
+                    <>
+                      <FaCheck className="check text-success" />{" "}
+                    </>
+                  )}
+                  Remote Evaluated
+                  <div
+                    className="position-absolute badge badge-purple text-uppercase"
+                    style={{ right: 5, top: 5 }}
+                  >
+                    Beta
+                  </div>
+                  <Tooltip
+                    popperClassName="text-left"
                     body={
                       <>
-                        <p>
-                          <strong>Remote Evaluation</strong> fully secures your
-                          SDK by evaluating feature flags exclusively on a
-                          private server instead of within a front-end
-                          environment. This ensures that any sensitive
-                          information within targeting rules or unused feature
-                          variations are never seen by the client. When used in
-                          a front-end context, server side evaluation provides
-                          the same benefits as a backend SDK. However, this
-                          feature is not needed nor recommended for backend
-                          contexts.
+                        <p className="mb-0">
+                          Features and experiments are evaluated on{" "}
+                          {isCloud()
+                            ? "our Cloud CDN"
+                            : "your GrowthBook Proxy server"}{" "}
+                          and only the final assigned values are exposed to
+                          users.
                         </p>
-                        <p>
-                          Remote evaluation does come with a few cost
-                          considerations:
-                          <ol className="pl-3 mt-2">
-                            <li className="mb-2">
-                              It will increase network traffic. Evaluated
-                              payloads cannot be shared across different users;
-                              therefore CDN cache misses will increase.
-                            </li>
-                            <li>
-                              Connections using instant feature deployments
-                              through{" "}
-                              <strong>
-                                {isCloud()
-                                  ? "Streaming Updates"
-                                  : "GrowthBook Proxy"}
-                              </strong>{" "}
-                              will incur a slight delay. An additional network
-                              hop is required to retrieve the evaluated payload
-                              from the server.
-                            </li>
-                          </ol>
-                        </p>
-                        <div className="mt-4" style={{ lineHeight: 1.2 }}>
-                          <p className="mb-0">
-                            <span className="badge badge-purple text-uppercase mr-2">
-                              Beta
-                            </span>
-                            <span className="text-purple">
-                              This is an opt-in beta feature.
-                            </span>
-                          </p>
-                        </div>
+                        {!isCloud() && (
+                          <div className="mt-2 text-warning-orange">
+                            <FaExclamationCircle /> Requires a GrowthBook Proxy
+                            server to be configured for self-hosted users
+                          </div>
+                        )}
                       </>
                     }
                   >
-                    Use remote evaluation <FaInfoCircle />{" "}
-                    <span className="badge badge-purple text-uppercase mr-2">
-                      Beta
-                    </span>
-                  </PremiumTooltip>
-                </label>
-                <div className="row">
-                  <div className="col">
-                    {/*todo: enable remote eval for cloud once CDN is ready*/}
-                    {gb?.isOn("remote-evaluation") && !isCloud() ? (
-                      <Toggle
-                        id="remote-evaluation"
-                        value={form.watch("remoteEvalEnabled")}
-                        setValue={(val) =>
-                          form.setValue("remoteEvalEnabled", val)
-                        }
-                        disabled={
-                          !hasRemoteEvaluationFeature
-                          // || (!isCloud() && !hasProxy)
-                        }
-                      />
-                    ) : (
-                      <>
+                    <div className="subtitle">
+                      Completely hides business logic from users&nbsp;
+                      <FaInfoCircle />
+                    </div>
+                  </Tooltip>
+                </>
+              }
+            >
+              <div className="d-flex">
+                <div className="col">
+                  <label htmlFor="remote-evaluation">
+                    <PremiumTooltip
+                      commercialFeature="remote-evaluation"
+                      tipMinWidth="600px"
+                      body={
+                        <>
+                          <p>
+                            <strong>Remote Evaluation</strong> fully secures
+                            your SDK by evaluating feature flags exclusively on
+                            a private server instead of within a front-end
+                            environment. This ensures that any sensitive
+                            information within targeting rules or unused feature
+                            variations are never seen by the client. When used
+                            in a front-end context, server side evaluation
+                            provides the same benefits as a backend SDK.
+                            However, this feature is not needed nor recommended
+                            for backend contexts.
+                          </p>
+                          <p>
+                            Remote evaluation does come with a few cost
+                            considerations:
+                            <ol className="pl-3 mt-2">
+                              <li className="mb-2">
+                                It will increase network traffic. Evaluated
+                                payloads cannot be shared across different
+                                users; therefore CDN cache misses will increase.
+                              </li>
+                              <li>
+                                Connections using instant feature deployments
+                                through{" "}
+                                <strong>
+                                  {isCloud()
+                                    ? "Streaming Updates"
+                                    : "GrowthBook Proxy"}
+                                </strong>{" "}
+                                will incur a slight delay. An additional network
+                                hop is required to retrieve the evaluated
+                                payload from the server.
+                              </li>
+                            </ol>
+                          </p>
+                          <div className="mt-4" style={{ lineHeight: 1.2 }}>
+                            <p className="mb-0">
+                              <span className="badge badge-purple text-uppercase mr-2">
+                                Beta
+                              </span>
+                              <span className="text-purple">
+                                This is an opt-in beta feature.
+                              </span>
+                            </p>
+                          </div>
+                        </>
+                      }
+                    >
+                      Use remote evaluation <FaInfoCircle />{" "}
+                      <span className="badge badge-purple text-uppercase mr-2">
+                        Beta
+                      </span>
+                    </PremiumTooltip>
+                  </label>
+                  <div className="row">
+                    <div className="col">
+                      {/*todo: enable remote eval for cloud once CDN is ready*/}
+                      {gb?.isOn("remote-evaluation") && !isCloud() ? (
                         <Toggle
                           id="remote-evaluation"
-                          value={false}
-                          disabled={true}
-                          setValue={() => {
-                            return;
-                          }}
+                          value={form.watch("remoteEvalEnabled")}
+                          setValue={(val) =>
+                            form.setValue("remoteEvalEnabled", val)
+                          }
+                          disabled={
+                            !hasRemoteEvaluationFeature
+                            // || (!isCloud() && !hasProxy)
+                          }
                         />
-                        <span className="text-muted ml-2">
-                          Coming soon for Cloud customers
-                        </span>
-                      </>
-                    )}
+                      ) : (
+                        <>
+                          <Toggle
+                            id="remote-evaluation"
+                            value={false}
+                            disabled={true}
+                            setValue={() => {
+                              return;
+                            }}
+                          />
+                          <span className="text-muted ml-2">
+                            Coming soon for Cloud customers
+                          </span>
+                        </>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
-          </Tab>
-        </ControlledTabs>
+            </Tab>
+          </ControlledTabs>
+        </div>
 
         {showVisualEditorSettings && (
           <>
             <label>Visual experiments</label>
-            <div className="border rounded pt-2 pb-3 px-3">
+            <div className="border rounded pt-2 pb-3 px-3 bg-light">
               <div>
                 <label htmlFor="sdk-connection-visual-experiments-toggle">
                   Include visual experiments in endpoint&apos;s response?
