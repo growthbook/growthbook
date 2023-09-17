@@ -5,12 +5,7 @@ import {
   ExperimentSnapshotSettings,
 } from "../../types/experiment-snapshot";
 import { MetricInterface } from "../../types/metric";
-import {
-  Queries,
-  QueryPointer,
-  QueryStatistics,
-  QueryStatus,
-} from "../../types/query";
+import { Queries, QueryPointer, QueryStatus } from "../../types/query";
 import { SegmentInterface } from "../../types/segment";
 import {
   findSnapshotById,
@@ -27,7 +22,13 @@ import {
   SourceIntegrationInterface,
 } from "../types/Integration";
 import { expandDenominatorMetrics } from "../util/sql";
-import { QueryRunner, QueryMap } from "./QueryRunner";
+import {
+  QueryRunner,
+  QueryMap,
+  ProcessedRowsType,
+  RowsType,
+  StartQueryParams,
+} from "./QueryRunner";
 
 export type SnapshotResult = {
   unknownVariations: string[];
@@ -47,13 +48,7 @@ export const startExperimentResultQueries = async (
   integration: SourceIntegrationInterface,
   organization: string,
   startQuery: (
-    name: string,
-    query: string,
-    // eslint-disable-next-line
-    run: (query: string) => Promise<{ statistics?: QueryStatistics; rows: any[] }>,
-    // eslint-disable-next-line
-    process: (rows: any[]) => any,
-    useExisting?: boolean
+    params: StartQueryParams<RowsType, ProcessedRowsType>
   ) => Promise<QueryPointer>
 ): Promise<Queries> => {
   const snapshotSettings = params.snapshotSettings;
@@ -110,12 +105,13 @@ export const startExperimentResultQueries = async (
       settings: snapshotSettings,
     };
     queries.push(
-      await startQuery(
-        m.id,
-        integration.getExperimentMetricQuery(params),
-        (query) => integration.runExperimentMetricQuery(query),
-        (rows) => rows
-      )
+      await startQuery({
+        name: m.id,
+        query: integration.getExperimentMetricQuery(params),
+        dependencies: [],
+        run: (query) => integration.runExperimentMetricQuery(query),
+        process: (rows) => rows,
+      })
     );
   });
   await Promise.all(promises);
@@ -268,10 +264,11 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
     );
 
     return [
-      await this.startQuery(
-        "results",
-        query,
-        async () => {
+      await this.startQuery({
+        name: "results",
+        query: query,
+        dependencies: [],
+        run: async () => {
           const rows = (await this.integration.getExperimentResults(
             snapshotSettings,
             selectedMetrics,
@@ -281,9 +278,9 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
           )) as any[];
           return { rows: rows };
         },
-        (rows: ExperimentQueryResponses) =>
-          this.processLegacyExperimentResultsResponse(snapshotSettings, rows)
-      ),
+        process: (rows: ExperimentQueryResponses) =>
+          this.processLegacyExperimentResultsResponse(snapshotSettings, rows),
+      }),
     ];
   }
 

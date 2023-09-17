@@ -268,7 +268,10 @@ const NewDataSourceForm: FC<{
 
     const newVal = {
       ...datasource,
-      settings,
+      settings: {
+        ...settings,
+        schemaOptions: form.watch("settings.schemaOptions"),
+      },
       metricsToCreate: form.watch("metricsToCreate"),
     };
     setDatasource(newVal as Partial<DataSourceInterfaceWithParams>);

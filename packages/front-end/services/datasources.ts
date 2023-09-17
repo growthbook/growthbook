@@ -183,9 +183,10 @@ FROM
 const AmplitudeSchema: SchemaInterface = {
   experimentDimensions: ["country", "device", "os", "paying"],
   getExperimentSQL: (tablePrefix, userId, options) => {
-    const userCol = userId === "user_id" ? "user_id" : "$amplitude_id";
+    const userCol = userId === "user_id" ? "user_id" : "amplitude_id";
     // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
     const eventType = options.eventType || "Experiment Viewed";
+    const projectId = options?.projectId || "AMPLITUDE_PROJECT_ID";
 
     return `SELECT
   ${userCol} as ${userId},
@@ -197,7 +198,7 @@ const AmplitudeSchema: SchemaInterface = {
   country,
   paying
 FROM
-  ${tablePrefix}$events
+  ${tablePrefix}EVENTS_${projectId}
 WHERE
   event_type = '${eventType}'
   AND ${userCol} is not null
@@ -210,7 +211,7 @@ WHERE
   getMetricSQL: (type, tablePrefix) => {
     return `SELECT
   user_id,
-  $amplitude_id as anonymous_id,
+  amplitude_id as anonymous_id,
   event_time as timestamp${
     type === "revenue"
       ? ",\n  event_properties:revenue as value"
@@ -221,7 +222,7 @@ WHERE
       : `,\n  event_properties:value as value`
   }
 FROM
-  ${tablePrefix}$events
+  ${tablePrefix}EVENTS_AMPLITUDE_PROJECT_ID
 WHERE
   event_type = '{{eventName}}'
     `;
