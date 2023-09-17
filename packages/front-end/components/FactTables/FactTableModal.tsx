@@ -73,6 +73,10 @@ export default function FactTableModal({ existing, close }: Props) {
           throw new Error("Must select at least one identifier type");
         }
 
+        if (!value.sql) {
+          throw new Error("Must add a SQL query");
+        }
+
         if (existing) {
           const data: UpdateFactTableProps = {
             description: value.description,
@@ -91,12 +95,18 @@ export default function FactTableModal({ existing, close }: Props) {
 
           value.projects = ds.projects || [];
 
-          const { factTable } = await apiCall<{
+          const { factTable, error } = await apiCall<{
             factTable: FactTableInterface;
+            error?: string;
           }>(`/fact-tables`, {
             method: "POST",
             body: JSON.stringify(value),
           });
+
+          if (error) {
+            throw new Error(error);
+          }
+
           await mutateDefinitions();
           router.push(`/fact-tables/${factTable.id}`);
         }

@@ -5,7 +5,7 @@ export const createFactTablePropsValidator = z
     name: z.string(),
     description: z.string(),
     id: z.string().optional(),
-    owner: z.string(),
+    owner: z.string().optional(),
     projects: z.array(z.string()),
     datasource: z.string(),
     userIdTypes: z.array(z.string()),

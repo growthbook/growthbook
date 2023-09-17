@@ -123,33 +123,35 @@ export default function FactModal({ existing, factTable, close }: Props) {
             }
           />
         </label>
-        <div className="btn-group">
-          <button
-            type="button"
-            className={clsx(
-              "btn",
-              type === "row" ? "active btn-primary" : "btn-outline-primary"
-            )}
-            onClick={(e) => {
-              e.preventDefault();
-              form.setValue("type", "row");
-            }}
-          >
-            Row Count
-          </button>
-          <button
-            type="button"
-            className={clsx(
-              "btn",
-              type === "number" ? "active btn-primary" : "btn-outline-primary"
-            )}
-            onClick={(e) => {
-              e.preventDefault();
-              form.setValue("type", "number");
-            }}
-          >
-            Numeric Column
-          </button>
+        <div>
+          <div className="btn-group">
+            <button
+              type="button"
+              className={clsx(
+                "btn",
+                type === "row" ? "active btn-primary" : "btn-outline-primary"
+              )}
+              onClick={(e) => {
+                e.preventDefault();
+                form.setValue("type", "row");
+              }}
+            >
+              Row Count
+            </button>
+            <button
+              type="button"
+              className={clsx(
+                "btn",
+                type === "number" ? "active btn-primary" : "btn-outline-primary"
+              )}
+              onClick={(e) => {
+                e.preventDefault();
+                form.setValue("type", "number");
+              }}
+            >
+              Numeric Column
+            </button>
+          </div>
         </div>
       </div>
 

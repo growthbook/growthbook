@@ -40,7 +40,7 @@ export const postFactTable = async (
   const data = req.body;
   const { org } = getOrgFromReq(req);
 
-  req.checkPermissions("createMetrics", data.projects || "");
+  req.checkPermissions("manageFactTables", data.projects || "");
 
   const factTable = await createFactTable(org.id, data);
 
@@ -62,9 +62,9 @@ export const putFactTable = async (
     throw new Error("Could not find fact table with that id");
   }
 
-  req.checkPermissions("createMetrics", factTable.projects);
+  req.checkPermissions("manageFactTables", factTable.projects);
   if (data.projects) {
-    req.checkPermissions("createMetrics", data.projects || "");
+    req.checkPermissions("manageFactTables", data.projects || "");
   }
 
   await updateFactTable(factTable, data);
@@ -84,7 +84,7 @@ export const deleteFactTable = async (
   if (!factTable) {
     throw new Error("Could not find fact table with that id");
   }
-  req.checkPermissions("createMetrics", factTable.projects);
+  req.checkPermissions("manageFactTables", factTable.projects);
 
   await deleteFactTableInDb(factTable);
 
@@ -105,7 +105,7 @@ export const postFact = async (
     throw new Error("Could not find fact table with that id");
   }
 
-  req.checkPermissions("createMetrics", factTable.projects);
+  req.checkPermissions("manageFactTables", factTable.projects);
 
   const fact = await createFact(factTable, data);
 
@@ -127,7 +127,7 @@ export const putFact = async (
     throw new Error("Could not find fact table with that id");
   }
 
-  req.checkPermissions("createMetrics", factTable.projects);
+  req.checkPermissions("manageFactTables", factTable.projects);
 
   await updateFact(factTable, req.params.factId, data);
 
@@ -146,7 +146,7 @@ export const deleteFact = async (
   if (!factTable) {
     throw new Error("Could not find fact table with that id");
   }
-  req.checkPermissions("createMetrics", factTable.projects);
+  req.checkPermissions("manageFactTables", factTable.projects);
 
   await deleteFactInDb(factTable, req.params.factId);
 
