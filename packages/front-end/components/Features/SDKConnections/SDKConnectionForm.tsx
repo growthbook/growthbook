@@ -136,9 +136,7 @@ export default function SDKConnectionForm({
       form.setValue("hashSecureAttributes", enableSecureAttributes);
     } else if (selectedSecurityTab === "server") {
       const enableRemoteEval =
-        !isCloud() &&
-        hasRemoteEvaluationFeature &&
-        !!gb?.isOn("remote-evaluation");
+        hasRemoteEvaluationFeature && !!gb?.isOn("remote-evaluation");
       if (!enableRemoteEval) return;
       form.setValue("remoteEvalEnabled", true);
       form.setValue("encryptPayload", false);
@@ -325,8 +323,8 @@ export default function SDKConnectionForm({
                     }
                   >
                     <div className="subtitle">
-                      Extremely fast and cacheable&nbsp;
-                      <FaInfoCircle />
+                      Extremely fast and cacheable
+                      <FaInfoCircle className="ml-1" />
                     </div>
                   </Tooltip>
                 </>
@@ -359,8 +357,8 @@ export default function SDKConnectionForm({
                     }
                   >
                     <div className="subtitle">
-                      Good mix of performance and security&nbsp;
-                      <FaInfoCircle />
+                      Good mix of performance and security
+                      <FaInfoCircle className="ml-1" />
                     </div>
                   </Tooltip>
                 </>
@@ -521,8 +519,8 @@ export default function SDKConnectionForm({
                     }
                   >
                     <div className="subtitle">
-                      Completely hides business logic from users&nbsp;
-                      <FaInfoCircle />
+                      Completely hides business logic from users
+                      <FaInfoCircle className="ml-1" />
                     </div>
                   </Tooltip>
                 </>
@@ -591,20 +589,26 @@ export default function SDKConnectionForm({
                     </PremiumTooltip>
                   </label>
                   <div className="row">
-                    <div className="col">
-                      {/*todo: enable remote eval for cloud once CDN is ready*/}
-                      {gb?.isOn("remote-evaluation") && !isCloud() ? (
-                        <Toggle
-                          id="remote-evaluation"
-                          value={form.watch("remoteEvalEnabled")}
-                          setValue={(val) =>
-                            form.setValue("remoteEvalEnabled", val)
-                          }
-                          disabled={
-                            !hasRemoteEvaluationFeature
-                            // || (!isCloud() && !hasProxy)
-                          }
-                        />
+                    <div className="col d-flex align-items-center">
+                      {gb?.isOn("remote-evaluation") ? (
+                        <>
+                          <Toggle
+                            id="remote-evaluation"
+                            value={form.watch("remoteEvalEnabled")}
+                            setValue={(val) =>
+                              form.setValue("remoteEvalEnabled", val)
+                            }
+                            disabled={!hasRemoteEvaluationFeature}
+                          />
+                          {isCloud() ? (
+                            <div className="alert alert-info mb-0 ml-2 py-1 px-2">
+                              <FaExclamationCircle className="mr-1" />
+                              Cloud customers must self-host a remote evaluation
+                              service such as GrowthBook Proxy or a CDN edge
+                              worker.
+                            </div>
+                          ) : null}
+                        </>
                       ) : (
                         <>
                           <Toggle
@@ -615,9 +619,7 @@ export default function SDKConnectionForm({
                               return;
                             }}
                           />
-                          <span className="text-muted ml-2">
-                            Coming soon for Cloud customers
-                          </span>
+                          <span className="text-muted ml-2">Coming soon</span>
                         </>
                       )}
                     </div>
