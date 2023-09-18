@@ -214,9 +214,7 @@ app.options(
     credentials: false,
     origin: "*",
   }),
-  function (req, res) {
-    res.send(200);
-  }
+  (req, res) => res.send(200)
 );
 
 // Secret API routes (no JWT or CORS)

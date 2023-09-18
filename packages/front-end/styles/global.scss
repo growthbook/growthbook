@@ -3023,15 +3023,16 @@ input:disabled {
     padding: 22px 20px 14px;
 
     &.selected {
+      background: transparent;
       box-shadow: 0 0 0 3px var(--text-color-primary);
     }
 
     .subtitle {
       font-size: 12px;
       line-height: 1rem;
-      color: var(--text-color-muted);
+      color: var(--text-dark);
       font-weight: normal;
-      margin: 12px 15px 0;
+      margin: 12px 10px 0;
     }
   }
 }

@@ -59,8 +59,6 @@ import { EventAuditUserForResponseLocals } from "../events/event-types";
 import { upsertWatch } from "../models/WatchModel";
 import { getSurrogateKeysFromSDKPayloadKeys } from "../util/cdn.util";
 import { SDKPayloadKey } from "../../types/sdk-payload";
-import authenticateApiRequestMiddleware from "../middleware/authenticateApiRequestMiddleware";
-import { ApiRequestLocals } from "../../types/api";
 
 class UnrecoverableApiError extends Error {
   constructor(message: string) {
@@ -69,7 +67,7 @@ class UnrecoverableApiError extends Error {
   }
 }
 
-async function getPayloadParamsFromApiKey(
+export async function getPayloadParamsFromApiKey(
   key: string,
   req: Request
 ): Promise<{
@@ -173,14 +171,9 @@ export async function getFeaturesPublic(req: Request, res: Response) {
     } = await getPayloadParamsFromApiKey(key, req);
 
     if (remoteEvalEnabled) {
-      // only return features if the request is authenticated by API key (proxy or remote service)
-      await new Promise((resolve) => {
-        authenticateApiRequestMiddleware(
-          req as Request & ApiRequestLocals,
-          res as Response & { log: Request["log"] },
-          resolve
-        );
-      });
+      throw new UnrecoverableApiError(
+        "Remote evaluation required for this connection"
+      );
     }
 
     const defs = await getFeatureDefinitions({
