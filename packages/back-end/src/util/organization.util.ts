@@ -1,5 +1,6 @@
 import { roleSupportsEnvLimit } from "shared/permissions";
 import {
+  Member,
   MemberRole,
   MemberRoleInfo,
   OrganizationInterface,
@@ -134,6 +135,36 @@ function mergePermissions(
   }
 }
 
+async function mergeUserAndTeamPermissions(
+  memberInfo: Member,
+  userPermissions: UserPermissions,
+  org: OrganizationInterface
+) {
+  if (!memberInfo.teams) {
+    return;
+  }
+
+  for (const team of memberInfo.teams) {
+    const teamData = await findTeamById(team, org.id);
+    if (teamData) {
+      mergePermissions(userPermissions.global, memberInfo.role, teamData, org);
+      if (teamData?.projectRoles) {
+        for (const teamProject of teamData.projectRoles) {
+          const existingProjectData = memberInfo.projectRoles?.find(
+            (project) => project.project === teamProject.project
+          );
+          mergePermissions(
+            userPermissions.projects[teamProject.project],
+            existingProjectData?.role,
+            teamProject,
+            org
+          );
+        }
+      }
+    }
+  }
+}
+
 export async function getUserPermissions(
   userId: string,
   org: OrganizationInterface
@@ -161,27 +192,7 @@ export async function getUserPermissions(
     };
   });
 
-  const teamsUserIsOn = memberInfo?.teams || [];
-  for (const team of teamsUserIsOn) {
-    const teamData = await findTeamById(team, org.id);
-    if (teamData) {
-      mergePermissions(userPermissions.global, memberInfo.role, teamData, org);
-      if (teamData?.projectRoles) {
-        for (const teamProject of teamData.projectRoles) {
-          const existingProjectData = memberInfo.projectRoles?.find(
-            (project) => project.project === teamProject.project
-          );
-
-          mergePermissions(
-            userPermissions.projects[teamProject.project],
-            existingProjectData?.role,
-            teamProject,
-            org
-          );
-        }
-      }
-    }
-  }
+  await mergeUserAndTeamPermissions(memberInfo, userPermissions, org);
 
   return userPermissions;
 }
