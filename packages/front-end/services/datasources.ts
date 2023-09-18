@@ -50,11 +50,12 @@ FROM
   UNNEST(event_params) AS experiment_id_param,
   UNNEST(event_params) AS variation_id_param
 WHERE
-  _TABLE_SUFFIX BETWEEN '{{date startDateISO "yyyyMMdd"}}' AND '{{date endDateISO "yyyyMMdd"}}'
+  REGEXP_EXTRACT(_TABLE_SUFFIX, r'[0-9]+') BETWEEN '{{date startDateISO "yyyyMMdd"}}' AND '{{date endDateISO "yyyyMMdd"}}'
   AND event_name = 'experiment_viewed'  
   AND experiment_id_param.key = 'experiment_id'
   AND variation_id_param.key = 'variation_id'
   AND ${userCol} is not null
+GROUP BY ${userId}, event_timestamp, experiment_id, variation_id, country, source, medium, device, browser, os
   `;
   },
   getIdentitySQL: () => {
