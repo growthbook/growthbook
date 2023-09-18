@@ -97,11 +97,14 @@ function mergePermissions(
     existingPermissions.environments = teamInfo.environments;
   } else {
     const roles = getRoles(org);
-    const newRoleIndex = roles.findIndex((r) => r.id === teamInfo.role);
-    const existingRoleIndex = roles.findIndex((r) => r.id === existingRole);
+
+    const newRoleAccessLevel =
+      roles.find((role) => role.id === teamInfo.role)?.accessLevel || 0;
+    const existingRoleAccessLevel =
+      roles.find((role) => role.id === existingRole)?.accessLevel || 0;
 
     if (
-      // Ifthe existingRole & newRole can be limited by environment
+      // If the existingRole & newRole can be limited by environment
       roleSupportsEnvLimit(existingRole) &&
       roleSupportsEnvLimit(teamInfo.role)
     ) {
@@ -123,12 +126,12 @@ function mergePermissions(
     } else {
       // Finally, we set the limitAccessByEnvironment and environments properties to the more permissive role's values.
       existingPermissions.limitAccessByEnvironment =
-        newRoleIndex > existingRoleIndex
+        newRoleAccessLevel > existingRoleAccessLevel
           ? teamInfo.limitAccessByEnvironment
           : existingPermissions.limitAccessByEnvironment;
 
       existingPermissions.environments =
-        newRoleIndex > existingRoleIndex
+        newRoleAccessLevel > existingRoleAccessLevel
           ? teamInfo.environments
           : existingPermissions.environments;
     }
@@ -204,11 +207,13 @@ export function getRoles(_organization: OrganizationInterface): Role[] {
       id: "readonly",
       description: "View all features and experiment results",
       permissions: [],
+      accessLevel: 0,
     },
     {
       id: "collaborator",
       description: "Add comments and contribute ideas",
       permissions: ["addComments", "createIdeas", "createPresentations"],
+      accessLevel: 1,
     },
     {
       id: "engineer",
@@ -227,6 +232,7 @@ export function getRoles(_organization: OrganizationInterface): Role[] {
         "manageSavedGroups",
         "runExperiments",
       ],
+      accessLevel: 2,
     },
     {
       id: "analyst",
@@ -242,6 +248,7 @@ export function getRoles(_organization: OrganizationInterface): Role[] {
         "runQueries",
         "editDatasourceSettings",
       ],
+      accessLevel: 3,
     },
     {
       id: "experimenter",
@@ -266,12 +273,14 @@ export function getRoles(_organization: OrganizationInterface): Role[] {
         "runQueries",
         "editDatasourceSettings",
       ],
+      accessLevel: 4,
     },
     {
       id: "admin",
       description:
         "All access + invite teammates and configure organization settings",
       permissions: [...ALL_PERMISSIONS],
+      accessLevel: 5,
     },
   ];
 }

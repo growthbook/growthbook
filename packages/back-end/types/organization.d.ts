@@ -43,6 +43,7 @@ export type Role = {
   id: MemberRole;
   description: string;
   permissions: Permission[];
+  accessLevel: number;
 };
 
 export interface MemberRoleInfo {
