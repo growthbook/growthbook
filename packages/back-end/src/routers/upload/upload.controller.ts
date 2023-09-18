@@ -1,8 +1,8 @@
 import { Response } from "express";
+import uniqid from "uniqid";
 import { uploadFile } from "../../services/files";
 import { AuthRequest } from "../../types/AuthRequest";
 import { getOrgFromReq } from "../../services/organizations";
-import uniqid from "uniqid";
 
 export async function putUpload(req: AuthRequest<Buffer>, res: Response) {
   const contentType = req.headers["content-type"] as string;
