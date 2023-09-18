@@ -141,6 +141,9 @@ export class GrowthBook<
     apiHost: string;
     streamingHost: string;
     remoteEvalHost: string;
+    featuresPath: string;
+    streamingPath: string;
+    remoteEvalPath: string;
   } {
     return {
       apiHost: (this._ctx.apiHost || "https://cdn.growthbook.io").replace(
@@ -157,6 +160,9 @@ export class GrowthBook<
         this._ctx.apiHost ||
         "https://cdnx.growthbook.io"
       ).replace(/\/*$/, ""),
+      featuresPath: this._ctx.featuresPath || "/api/features",
+      streamingPath: this._ctx.streamingPath || "/sub",
+      remoteEvalPath: this._ctx.remoteEvalPath || "/eval",
     };
   }
   public getClientKey(): string {
@@ -323,6 +329,9 @@ export class GrowthBook<
         apiHost: this._ctx.apiHost,
         streamingHost: this._ctx.streamingHost,
         remoteEvalHost: this._ctx.remoteEvalHost,
+        featuresPath: this._ctx.featuresPath,
+        streamingPath: this._ctx.streamingPath,
+        remoteEvalPath: this._ctx.remoteEvalPath,
       }),
       ...(clientKey && { clientKey: this._ctx.clientKey }),
       ...(decryptionKey && { decryptionKey: this._ctx.decryptionKey }),

@@ -172,6 +172,9 @@ export interface Context {
   apiHost?: string;
   streamingHost?: string;
   remoteEvalHost?: string;
+  featuresPath?: string;
+  streamingPath?: string;
+  remoteEvalPath?: string;
   clientKey?: string;
   decryptionKey?: string;
   remoteEval?: boolean;

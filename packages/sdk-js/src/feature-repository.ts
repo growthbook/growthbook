@@ -251,13 +251,18 @@ async function fetchFeatures(
   instance: GrowthBook
 ): Promise<FeatureApiResponse> {
   const key = getKey(instance);
-  const { apiHost, remoteEvalHost } = instance.getApiHosts();
+  const {
+    apiHost,
+    featuresPath,
+    remoteEvalHost,
+    remoteEvalPath,
+  } = instance.getApiHosts();
   const clientKey = instance.getClientKey();
   const remoteEval = instance.getRemoteEval();
 
   const endpoint = remoteEval
-    ? `${remoteEvalHost}/eval/${clientKey}`
-    : `${apiHost}/api/features/${clientKey}`;
+    ? `${remoteEvalHost}${remoteEvalPath}/${clientKey}`
+    : `${apiHost}${featuresPath}/${clientKey}`;
   const options: RequestInit = remoteEval
     ? {
         method: "POST",
@@ -303,7 +308,7 @@ async function fetchFeatures(
 // Will prefer SSE if enabled, otherwise fall back to cron
 function startAutoRefresh(instance: GrowthBook): void {
   const key = getKey(instance);
-  const { streamingHost } = instance.getApiHosts();
+  const { streamingHost, streamingPath } = instance.getApiHosts();
   const clientKey = instance.getClientKey();
   if (
     cacheSettings.backgroundSync &&
@@ -330,17 +335,22 @@ function startAutoRefresh(instance: GrowthBook): void {
               clientKey,
               error: e ? (e as Error).message : null,
             });
-          onSSEError(channel, streamingHost, clientKey);
+          onSSEError(channel, streamingHost, streamingPath, clientKey);
         }
       },
       errors: 0,
     };
     streams.set(key, channel);
-    enableChannel(channel, streamingHost, clientKey);
+    enableChannel(channel, streamingHost, streamingPath, clientKey);
   }
 }
 
-function onSSEError(channel: ScopedChannel, host: string, clientKey: string) {
+function onSSEError(
+  channel: ScopedChannel,
+  host: string,
+  path: string,
+  clientKey: string
+) {
   channel.errors++;
   if (channel.errors > 3 || (channel.src && channel.src.readyState === 2)) {
     // exponential backoff after 4 errors, with jitter
@@ -348,7 +358,7 @@ function onSSEError(channel: ScopedChannel, host: string, clientKey: string) {
       Math.pow(3, channel.errors - 3) * (1000 + Math.random() * 1000);
     disableChannel(channel);
     setTimeout(() => {
-      enableChannel(channel, host, clientKey);
+      enableChannel(channel, host, path, clientKey);
     }, Math.min(delay, 300000)); // 5 minutes max
   }
 }
@@ -364,15 +374,16 @@ function disableChannel(channel: ScopedChannel) {
 function enableChannel(
   channel: ScopedChannel,
   host: string,
+  path: string,
   clientKey: string
 ) {
   channel.src = new polyfills.EventSource(
-    `${host}/sub/${clientKey}`
+    `${host}${path}/${clientKey}`
   ) as EventSource;
   channel.src.addEventListener("features", channel.cb);
   channel.src.addEventListener("features-updated", channel.cb);
   channel.src.onerror = () => {
-    onSSEError(channel, host, clientKey);
+    onSSEError(channel, host, path, clientKey);
   };
   channel.src.onopen = () => {
     channel.errors = 0;
