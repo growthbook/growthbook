@@ -17,7 +17,7 @@ interface BaseVariationResponse {
     stddev?: number;
   };
   ci?: [number, number];
-  message?: string;
+  errorMessage?: string;
 }
 
 interface BayesianVariationResponse extends BaseVariationResponse {

@@ -30,7 +30,7 @@ export interface SnapshotMetric {
     y: number;
   }[];
   chanceToWin?: number;
-  message?: string;
+  errorMessage?: string;
 }
 
 export interface SnapshotVariation {
