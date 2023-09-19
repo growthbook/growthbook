@@ -22,7 +22,7 @@ import {
   archiveFeature,
   getDraftRules,
   discardDraft,
-  updateDraft,
+  updateLegacyDraft,
   setJsonSchema,
   addExperimentRefRule,
   deleteExperimentRefRule,
@@ -439,7 +439,8 @@ export async function postFeatureDraft(
   req.checkPermissions("manageFeatures", feature.project);
   req.checkPermissions("createFeatureDrafts", feature.project);
 
-  await updateDraft(org, res.locals.eventAudit, feature, {
+  // todo: replace with new draft editing functionality
+  await updateLegacyDraft(org, res.locals.eventAudit, feature, {
     active: true,
     comment,
     dateCreated: new Date(),

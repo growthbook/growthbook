@@ -580,7 +580,7 @@ export async function deleteExperimentRefRule(
   });
 
   if (hasChanges) {
-    await updateDraft(org, user, feature, draft);
+    await updateLegacyDraft(org, user, feature, draft);
   }
 }
 
@@ -610,7 +610,7 @@ export async function addExperimentRefRule(
     draft.rules[env] = [...getDraftRules(feature, env), rule];
   });
 
-  await updateDraft(org, user, feature, draft);
+  await updateLegacyDraft(org, user, feature, draft);
 }
 
 export async function editFeatureRule(
@@ -645,7 +645,7 @@ export async function setFeatureDraftRules(
   draft.rules = draft.rules || {};
   draft.rules[environment] = rules;
 
-  await updateDraft(org, user, feature, draft);
+  await updateLegacyDraft(org, user, feature, draft);
 }
 
 export async function removeTagInFeature(
@@ -703,7 +703,7 @@ export async function setDefaultValue(
   const draft = getDraft(feature);
   draft.defaultValue = defaultValue;
 
-  return updateDraft(org, user, feature, draft);
+  return updateLegacyDraft(org, user, feature, draft);
 }
 
 export async function setJsonSchema(
@@ -718,7 +718,10 @@ export async function setJsonSchema(
   });
 }
 
-export async function updateDraft(
+/**
+ * @deprecated
+ */
+export async function updateLegacyDraft(
   org: OrganizationInterface,
   user: EventAuditUser,
   feature: FeatureInterface,
