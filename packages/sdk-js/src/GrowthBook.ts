@@ -158,7 +158,7 @@ export class GrowthBook<
       remoteEvalHost: (
         this._ctx.remoteEvalHost ||
         this._ctx.apiHost ||
-        "https://cdnx.growthbook.io"
+        "https://cdn.growthbook.io"
       ).replace(/\/*$/, ""),
       featuresPath: this._ctx.featuresPath || "/api/features",
       streamingPath: this._ctx.streamingPath || "/sub",
