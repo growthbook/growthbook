@@ -2543,6 +2543,18 @@ html {
     }
   }
 }
+.phase-selector {
+  .gb-select__single-value {
+    .phase-selector-select-option {
+      display: none;
+    }
+  }
+  .gb-select__menu-portal {
+    .phase-selector-with-tooltip {
+      display: none;
+    }
+  }
+}
 
 #modal {
   position: relative;
