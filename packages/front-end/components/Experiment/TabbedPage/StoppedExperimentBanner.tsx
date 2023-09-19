@@ -66,8 +66,8 @@ export default function StoppedExperimentBanner({
         <div className="flex-1"></div>
         {releasedVariation &&
           experimentHasLinkedChanges(experiment) &&
-          !hasLiveLinkedChanges && (
-            <div className="px-3">
+          hasLiveLinkedChanges && (
+            <div className="ml-3">
               {(result === "won" || result === "lost") &&
               winningVariation !== releasedVariation ? (
                 <>
