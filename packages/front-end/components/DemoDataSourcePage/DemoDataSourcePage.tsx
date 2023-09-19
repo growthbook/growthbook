@@ -1,21 +1,21 @@
 import React, { FC, useCallback, useState } from "react";
-import Link from "next/link";
+import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import { useAuth } from "@/services/auth";
+import { AuthContextValue, useAuth } from "@/services/auth";
 import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
+import { useUser } from "@/services/UserContext";
+import track from "@/services/track";
+import Button from "../Button";
 
 type DemoDataSourcePageProps = {
   error: string | null;
   success: string | null;
   ready: boolean;
   exists: boolean;
-  onCreate: () => void;
-  onDelete: () => void;
-  demoFeatureId: string | null;
-  demoExperimentId: string | null;
-  demoDataSourceId: string | null;
+  onCreate: () => Promise<void>;
+  onDelete: () => void | Promise<void>;
 };
 
 export const DemoDataSourcePage: FC<DemoDataSourcePageProps> = ({
@@ -25,58 +25,17 @@ export const DemoDataSourcePage: FC<DemoDataSourcePageProps> = ({
   error,
   ready,
   exists,
-  demoFeatureId,
-  demoDataSourceId,
-  demoExperimentId,
 }) => {
   return (
     <div className="container-fluid pagecontents">
-      <h1>Demo Datasource</h1>
+      <h1>Sample Data</h1>
 
       <div className="card p-4">
-        {/* Intro section */}
-        <p>Create a demo datasource project or delete the existing one.</p>
         <p>
-          There are some restrictions when creating resources in this project.
+          If you are done with this sample data, you can delete it here and all
+          of the associated features, metrics, data sources, and experiments
+          will be deleted as well.
         </p>
-        <p>
-          All created resources will be deleted when the project is deleted.
-        </p>
-        <p>
-          If you accidentally delete one of our sample metrics, experiments or
-          features in the demo project and would like to restore it, you can
-          delete the whole project and recreate it.
-        </p>
-        {exists ? (
-          <>
-            <div className="d-flex mb-2">
-              {demoFeatureId && (
-                <Link href={`/features/${demoFeatureId}`}>
-                  <a className="btn btn-outline-primary mr-2">
-                    See demo feature
-                  </a>
-                </Link>
-              )}
-              {demoDataSourceId && (
-                <Link href={`/datasources/${demoDataSourceId}`}>
-                  <a className="btn btn-outline-primary mr-2">
-                    See demo datasource
-                  </a>
-                </Link>
-              )}
-              {demoExperimentId && (
-                <Link href={`/experiment/${demoExperimentId}`}>
-                  <a className="btn btn-outline-primary mr-2">
-                    See demo experiment
-                  </a>
-                </Link>
-              )}
-              <Link href="/metrics">
-                <a className="btn btn-outline-primary mr-2">See metrics</a>
-              </Link>
-            </div>
-          </>
-        ) : null}
 
         {/* Loading */}
         {!ready && (
@@ -89,47 +48,27 @@ export const DemoDataSourcePage: FC<DemoDataSourcePageProps> = ({
         {ready && (
           <div className="mt-3">
             {/* Success state when it has been created or deleted */}
-            {success && (
-              <>
-                <div className="alert alert-success">{success}</div>
-              </>
-            )}
+            {success && <div className="alert alert-success">{success}</div>}
 
             {/* Error state */}
-            {error && (
-              <>
-                <div className="alert alert-danger">{error}</div>
-              </>
-            )}
+            {error && <div className="alert alert-danger">{error}</div>}
 
             {/* Create button */}
             {!exists && (
-              <>
-                <button onClick={onCreate} className="btn btn-primary">
-                  Create Demo Datasource Project
-                </button>
-              </>
+              <Button color="primary" onClick={onCreate}>
+                Create Demo Project
+              </Button>
             )}
 
             {/* Delete button */}
             {exists && (
-              <>
-                {/* Only show already-exists messaging when not just created */}
-                {!success && (
-                  <div className="alert alert-info">
-                    You already have a demo datasource project set up. You can
-                    delete it here.
-                  </div>
-                )}
-
-                <DeleteButton
-                  displayName="Demo Datasource Project"
-                  title="Demo Datasource Project"
-                  text="Delete Demo Datasource Project"
-                  outline={false}
-                  onClick={onDelete}
-                />
-              </>
+              <DeleteButton
+                displayName="Sample Data"
+                title="Sample Data"
+                text="Delete Sample Data"
+                outline={false}
+                onClick={onDelete}
+              />
             )}
           </div>
         )}
@@ -138,19 +77,84 @@ export const DemoDataSourcePage: FC<DemoDataSourcePageProps> = ({
   );
 };
 
+export async function deleteDemoDatasource(
+  orgId: string | undefined,
+  apiCall: AuthContextValue["apiCall"]
+) {
+  if (!orgId) throw new Error("Missing organization id");
+  const demoDataSourceProjectId = getDemoDatasourceProjectIdForOrganization(
+    orgId
+  );
+  await apiCall(
+    `/projects/${demoDataSourceProjectId}?deleteExperiments=1&deleteFeatures=1&deleteMetrics=1&deleteSlackIntegrations=1&deleteDataSources=1`,
+    {
+      method: "DELETE",
+    }
+  );
+}
+
+export function DeleteDemoDatasourceButton({
+  onDelete,
+  source,
+}: {
+  onDelete: () => void;
+  source: string;
+}) {
+  const { organization } = useUser();
+  const { apiCall } = useAuth();
+  const { mutateDefinitions, setProject, project } = useDefinitions();
+
+  return (
+    <DeleteButton
+      displayName="Sample Data"
+      title="Sample Data"
+      text="Delete Sample Data"
+      outline={false}
+      onClick={async () => {
+        const demoProjectId = getDemoDatasourceProjectIdForOrganization(
+          organization.id
+        );
+        track("Delete Sample Project", {
+          source,
+        });
+        await deleteDemoDatasource(organization.id, apiCall);
+        mutateDefinitions();
+
+        if (project === demoProjectId) {
+          setProject("");
+        }
+
+        onDelete();
+      }}
+      deleteMessage={
+        <>
+          <p>
+            This will delete all sample data sources, metrics, experiments, and
+            features.
+          </p>
+          <p>
+            You can re-create this sample data at any time, but any changes you
+            have made will be reverted back to the defaults.
+          </p>
+        </>
+      }
+    />
+  );
+}
+
 export const DemoDataSourcePageContainer = () => {
   const [success, setSuccess] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const {
     projectId: demoDataSourceProjectId,
+    currentProjectIsDemo,
     exists,
-    demoFeatureId,
-    demoDataSourceId,
-    demoExperimentId,
   } = useDemoDataSourceProject();
   const { apiCall } = useAuth();
-  const { ready, mutateDefinitions } = useDefinitions();
+  const { ready, mutateDefinitions, setProject } = useDefinitions();
+
+  const { organization } = useUser();
 
   const onCreate = useCallback(async () => {
     setError(null);
@@ -159,6 +163,9 @@ export const DemoDataSourcePageContainer = () => {
     try {
       await apiCall("/demo-datasource-project", {
         method: "POST",
+      });
+      track("Create Sample Project", {
+        source: "sample-project-page",
       });
       setSuccess("The demo data source project was created successfully.");
     } catch (e: unknown) {
@@ -184,12 +191,10 @@ export const DemoDataSourcePageContainer = () => {
     if (!demoDataSourceProjectId) return;
 
     try {
-      await apiCall(
-        `/projects/${demoDataSourceProjectId}?deleteExperiments=1&deleteFeatures=1&deleteMetrics=1&deleteSlackIntegrations=1&deleteDataSources=1`,
-        {
-          method: "DELETE",
-        }
-      );
+      track("Delete Sample Project", {
+        source: "sample-project-page",
+      });
+      await deleteDemoDatasource(organization.id, apiCall);
       setSuccess("Demo datasource project was successfully deleted.");
     } catch (e: unknown) {
       console.error(e);
@@ -205,7 +210,17 @@ export const DemoDataSourcePageContainer = () => {
       }
     }
     mutateDefinitions();
-  }, [apiCall, demoDataSourceProjectId, mutateDefinitions]);
+    if (currentProjectIsDemo) {
+      setProject("");
+    }
+  }, [
+    apiCall,
+    demoDataSourceProjectId,
+    mutateDefinitions,
+    organization.id,
+    currentProjectIsDemo,
+    setProject,
+  ]);
 
   return (
     <DemoDataSourcePage
@@ -215,9 +230,6 @@ export const DemoDataSourcePageContainer = () => {
       exists={exists}
       onDelete={onDelete}
       onCreate={onCreate}
-      demoFeatureId={demoFeatureId}
-      demoDataSourceId={demoDataSourceId}
-      demoExperimentId={demoExperimentId}
     />
   );
 };

@@ -10,6 +10,7 @@ import {
   Permission,
   Role,
   ProjectScopedPermission,
+  UserPermissions,
 } from "back-end/types/organization";
 import type { AccountPlan, CommercialFeature, LicenseData } from "enterprise";
 import { SSOConnectionInterface } from "back-end/types/sso-connection";
@@ -25,6 +26,7 @@ import {
 } from "react";
 import * as Sentry from "@sentry/react";
 import { GROWTHBOOK_SECURE_ATTRIBUTE_SALT } from "shared/constants";
+import { hasPermission } from "shared/permissions";
 import { isCloud, isSentryEnabled } from "@/services/env";
 import useApi from "@/hooks/useApi";
 import { useAuth, UserOrganizations } from "@/services/auth";
@@ -41,6 +43,7 @@ type OrgSettingsResponse = {
   accountPlan: AccountPlan;
   commercialFeatures: CommercialFeature[];
   licenseKey?: string;
+  currentUserPermissions: UserPermissions;
 };
 
 export interface PermissionFunctions {
@@ -107,6 +110,7 @@ interface UserResponse {
   admin: boolean;
   organizations?: UserOrganizations;
   license?: LicenseData;
+  currentUserPermissions: UserPermissions;
 }
 
 export const UserContext = createContext<UserContextValue>({
@@ -138,15 +142,6 @@ let currentUser: null | {
 } = null;
 export function getCurrentUser() {
   return currentUser;
-}
-
-export function getPermissionsByRole(
-  role: MemberRole,
-  roles: Role[]
-): Set<Permission> {
-  return new Set<Permission>(
-    roles.find((r) => r.id === role)?.permissions || []
-  );
 }
 
 export function UserContextProvider({ children }: { children: ReactNode }) {
@@ -208,6 +203,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
       projectRoles: [],
     };
   }
+
   const role =
     (data?.admin && "admin") ||
     (user?.role ?? currentOrg?.organization?.settings?.defaultRole?.role);
@@ -216,10 +212,12 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
   const permissionsObj: Record<GlobalPermission, boolean> = {
     ...DEFAULT_PERMISSIONS,
   };
-  // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'MemberRole | undefined' is not a... Remove this comment to see the full error message
-  getPermissionsByRole(role, currentOrg?.roles || []).forEach((p) => {
-    permissionsObj[p] = true;
-  });
+
+  for (const permission in permissionsObj) {
+    permissionsObj[permission] =
+      currentOrg?.currentUserPermissions?.global.permissions[permission] ||
+      false;
+  }
 
   // Update current user data for telemetry data
   useEffect(() => {
@@ -296,70 +294,33 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
     return new Set(currentOrg?.commercialFeatures || []);
   }, [currentOrg?.commercialFeatures]);
 
-  const hasPermission = useCallback(
-    (
-      permission: Permission,
-      project: string | undefined,
-      envs?: string[]
-    ): boolean => {
-      const projectRole =
-        (project && user?.projectRoles?.find((r) => r.project === project)) ||
-        user;
-
-      // Missing role entirely, deny access
-      if (!projectRole) {
-        return false;
-      }
-
-      // Admin role always has permission
-      if (projectRole.role === "admin") return true;
-
-      const permissions = getPermissionsByRole(
-        projectRole.role,
-        currentOrg?.roles || []
-      );
-
-      // Missing permission
-      if (!permissions.has(permission)) {
-        return false;
-      }
-
-      // If it's an environment-scoped permission and the user's role has limited access
-      if (envs && projectRole.limitAccessByEnvironment) {
-        for (let i = 0; i < envs.length; i++) {
-          if (!projectRole.environments.includes(envs[i])) {
-            return false;
-          }
-        }
-      }
-
-      // If it got through all the above checks, the user has permission
-      return true;
-    },
-    [currentOrg?.roles, user]
-  );
-
   const permissionsCheck = useCallback(
     (
       permission: Permission,
-      project?: string[] | string | undefined, // This should also take in an array of strings like the backend.
+      projects?: string[] | string,
       envs?: string[]
     ): boolean => {
       let checkProjects: (string | undefined)[];
-      if (Array.isArray(project)) {
-        checkProjects = project.length > 0 ? project : [undefined];
+      if (Array.isArray(projects)) {
+        checkProjects = projects.length > 0 ? projects : [undefined];
       } else {
-        checkProjects = [project];
+        checkProjects = [projects];
       }
       for (const p of checkProjects) {
-        if (!hasPermission(permission, p, envs ? [...envs] : undefined)) {
+        if (
+          !hasPermission(
+            currentOrg?.currentUserPermissions,
+            permission,
+            p,
+            envs
+          )
+        ) {
           return false;
         }
       }
-
       return true;
     },
-    [hasPermission]
+    [currentOrg?.currentUserPermissions]
   );
 
   return (

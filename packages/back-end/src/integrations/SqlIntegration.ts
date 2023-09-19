@@ -7,15 +7,15 @@ import {
   DataSourceProperties,
   ExposureQuery,
   DataSourceType,
-  SchemaFormat,
   SchemaFormatConfig,
+  AutoMetricSchemas,
 } from "../../types/datasource";
 import {
   MetricValueParams,
   SourceIntegrationInterface,
   ExperimentMetricQueryParams,
   PastExperimentParams,
-  PastExperimentResponse,
+  PastExperimentQueryResponse,
   ExperimentMetricQueryResponse,
   MetricValueQueryResponse,
   MetricValueQueryResponseRow,
@@ -25,6 +25,9 @@ import {
   InformationSchema,
   RawInformationSchema,
   MissingDatasourceParamsError,
+  QueryResponse,
+  TrackedEventData,
+  TrackedEventResponseRow,
 } from "../types/Integration";
 import { DimensionInterface } from "../../types/dimension";
 import {
@@ -54,7 +57,7 @@ export default abstract class SqlIntegration
   type!: DataSourceType;
   abstract setParams(encryptedParams: string): void;
   // eslint-disable-next-line
-  abstract runQuery(sql: string): Promise<any[]>;
+  abstract runQuery(sql: string): Promise<QueryResponse>;
   abstract getSensitiveParamKeys(): string[];
 
   constructor(encryptedParams: string, settings: DataSourceSettings) {
@@ -92,15 +95,16 @@ export default abstract class SqlIntegration
   }
 
   isAutoGeneratingMetricsSupported(): boolean {
-    const supportedEventTrackers: SchemaFormat[] = [
-      "segment",
-      "rudderstack",
-      "ga4",
-    ];
+    const supportedEventTrackers: Record<AutoMetricSchemas, true> = {
+      segment: true,
+      rudderstack: true,
+      ga4: true,
+      amplitude: true,
+    };
 
     if (
       this.settings.schemaFormat &&
-      supportedEventTrackers.includes(this.settings.schemaFormat)
+      supportedEventTrackers[this.settings.schemaFormat as AutoMetricSchemas]
     ) {
       return true;
     }
@@ -331,21 +335,26 @@ export default abstract class SqlIntegration
       this.getFormatDialect()
     );
   }
-  async runPastExperimentQuery(query: string): Promise<PastExperimentResponse> {
-    const rows = await this.runQuery(query);
+  async runPastExperimentQuery(
+    query: string
+  ): Promise<PastExperimentQueryResponse> {
+    const { rows, statistics } = await this.runQuery(query);
 
-    return rows.map((row) => {
-      return {
-        exposure_query: row.exposure_query,
-        experiment_id: row.experiment_id,
-        experiment_name: row.experiment_name,
-        variation_id: row.variation_id ?? "",
-        variation_name: row.variation_name,
-        users: parseInt(row.users) || 0,
-        end_date: this.convertDate(row.end_date).toISOString(),
-        start_date: this.convertDate(row.start_date).toISOString(),
-      };
-    });
+    return {
+      rows: rows.map((row) => {
+        return {
+          exposure_query: row.exposure_query,
+          experiment_id: row.experiment_id,
+          experiment_name: row.experiment_name,
+          variation_id: row.variation_id ?? "",
+          variation_name: row.variation_name,
+          users: parseInt(row.users) || 0,
+          end_date: this.convertDate(row.end_date).toISOString(),
+          start_date: this.convertDate(row.start_date).toISOString(),
+        };
+      }),
+      statistics: statistics,
+    };
   }
 
   getMetricValueQuery(params: MetricValueParams): string {
@@ -480,54 +489,61 @@ export default abstract class SqlIntegration
   async runExperimentMetricQuery(
     query: string
   ): Promise<ExperimentMetricQueryResponse> {
-    const rows = await this.runQuery(query);
-    return rows.map((row) => {
-      return {
-        variation: row.variation ?? "",
-        dimension: row.dimension || "",
-        users: parseInt(row.users) || 0,
-        count: parseInt(row.users) || 0,
-        statistic_type: row.statistic_type ?? "",
-        main_metric_type: row.main_metric_type ?? "",
-        main_sum: parseFloat(row.main_sum) || 0,
-        main_sum_squares: parseFloat(row.main_sum_squares) || 0,
-        ...(row.denominator_metric_type && {
-          denominator_metric_type: row.denominator_metric_type ?? "",
-          denominator_sum: parseFloat(row.denominator_sum) || 0,
-          denominator_sum_squares: parseFloat(row.denominator_sum_squares) || 0,
-          main_denominator_sum_product:
-            parseFloat(row.main_denominator_sum_product) || 0,
-        }),
-        ...(row.covariate_metric_type && {
-          covariate_metric_type: row.covariate_metric_type ?? "",
-          covariate_sum: parseFloat(row.covariate_sum) || 0,
-          covariate_sum_squares: parseFloat(row.covariate_sum_squares) || 0,
-          main_covariate_sum_product:
-            parseFloat(row.main_covariate_sum_product) || 0,
-        }),
-        ...(row.main_cap_value && { main_cap_value: row.main_cap_value }),
-        ...(row.denominator_cap_value && {
-          denominator_cap_value: row.denominator_cap_value,
-        }),
-      };
-    });
+    const { rows, statistics } = await this.runQuery(query);
+    return {
+      rows: rows.map((row) => {
+        return {
+          variation: row.variation ?? "",
+          dimension: row.dimension || "",
+          users: parseInt(row.users) || 0,
+          count: parseInt(row.users) || 0,
+          statistic_type: row.statistic_type ?? "",
+          main_metric_type: row.main_metric_type ?? "",
+          main_sum: parseFloat(row.main_sum) || 0,
+          main_sum_squares: parseFloat(row.main_sum_squares) || 0,
+          ...(row.denominator_metric_type && {
+            denominator_metric_type: row.denominator_metric_type ?? "",
+            denominator_sum: parseFloat(row.denominator_sum) || 0,
+            denominator_sum_squares:
+              parseFloat(row.denominator_sum_squares) || 0,
+            main_denominator_sum_product:
+              parseFloat(row.main_denominator_sum_product) || 0,
+          }),
+          ...(row.covariate_metric_type && {
+            covariate_metric_type: row.covariate_metric_type ?? "",
+            covariate_sum: parseFloat(row.covariate_sum) || 0,
+            covariate_sum_squares: parseFloat(row.covariate_sum_squares) || 0,
+            main_covariate_sum_product:
+              parseFloat(row.main_covariate_sum_product) || 0,
+          }),
+          ...(row.main_cap_value && { main_cap_value: row.main_cap_value }),
+          ...(row.denominator_cap_value && {
+            denominator_cap_value: row.denominator_cap_value,
+          }),
+        };
+      }),
+      statistics: statistics,
+    };
   }
 
   async runMetricValueQuery(query: string): Promise<MetricValueQueryResponse> {
-    const rows = await this.runQuery(query);
+    const { rows, statistics } = await this.runQuery(query);
 
-    return rows.map((row) => {
-      const { date, count, main_sum, main_sum_squares } = row;
+    return {
+      rows: rows.map((row) => {
+        const { date, count, main_sum, main_sum_squares } = row;
 
-      const ret: MetricValueQueryResponseRow = {
-        date: date ? this.convertDate(date).toISOString() : "",
-        count: parseFloat(count) || 0,
-        main_sum: parseFloat(main_sum) || 0,
-        main_sum_squares: parseFloat(main_sum_squares) || 0,
-      };
+        const ret: MetricValueQueryResponseRow = {
+          date: date ? this.convertDate(date).toISOString() : "",
+          count: parseFloat(count) || 0,
+          main_sum: parseFloat(main_sum) || 0,
+          main_sum_squares: parseFloat(main_sum_squares) || 0,
+        };
 
-      return ret;
-    });
+        return ret;
+      }),
+      statistics: statistics,
+    };
   }
 
   //Test the validity of a query as cheaply as possible
@@ -564,7 +580,7 @@ export default abstract class SqlIntegration
     const results = await this.runQuery(sql);
     const queryEndTime = Date.now();
     const duration = queryEndTime - queryStartTime;
-    return { results, duration };
+    return { results: results.rows, duration };
   }
 
   private getIdentifiesCTE(
@@ -1423,12 +1439,12 @@ export default abstract class SqlIntegration
 
     const results = await this.runQuery(format(sql, this.getFormatDialect()));
 
-    if (!results.length) {
+    if (!results.rows.length) {
       throw new Error(`No tables found.`);
     }
 
     return formatInformationSchema(
-      results as RawInformationSchema[],
+      results.rows as RawInformationSchema[],
       this.type
     );
   }
@@ -1448,12 +1464,35 @@ export default abstract class SqlIntegration
     AND table_schema = '${tableSchema}'
     AND table_catalog = '${databaseName}'`;
 
-    const tableData = await this.runQuery(format(sql, this.getFormatDialect()));
+    const results = await this.runQuery(format(sql, this.getFormatDialect()));
 
-    return { tableData };
+    return { tableData: results.rows };
   }
-  getSchemaFormatConfig(schemaFormat: SchemaFormat): SchemaFormatConfig {
+  getSchemaFormatConfig(schemaFormat: AutoMetricSchemas): SchemaFormatConfig {
     switch (schemaFormat) {
+      case "amplitude": {
+        return {
+          trackedEventTableName: `EVENTS_${
+            this.settings.schemaOptions?.projectId || `*`
+          }`,
+          eventColumn: "event_type",
+          timestampColumn: "event_time",
+          userIdColumn: "user_id",
+          anonymousIdColumn: "amplitude_id",
+          getMetricTableName: () =>
+            this.generateTablePath(
+              `EVENTS_${this.settings.schemaOptions?.projectId || `*`}`
+            ),
+          getDateLimitClause: (start: Date, end: Date) =>
+            `event_time BETWEEN '${formatDate(
+              start,
+              "yyyy-MM-dd"
+            )}' AND'${formatDate(end, "yyyy-MM-dd")}'`,
+          getAdditionalEvents: () => [],
+          getMetricWhereClause: (eventName: string) =>
+            `WHERE event_name = '${eventName}'`,
+        };
+      }
       case "ga4": {
         return {
           trackedEventTableName: "events_*",
@@ -1461,15 +1500,19 @@ export default abstract class SqlIntegration
           timestampColumn: "TIMESTAMP_MICROS(event_timestamp)",
           userIdColumn: "user_id",
           anonymousIdColumn: "user_pseudo_id",
-          includesPagesTable: false,
-          includesScreensTable: false,
-          groupByColumns: ["event"],
-          eventHasUniqueTable: false,
-          dateFormat: "yyyyMMdd",
+          getMetricTableName: () => this.generateTablePath("events_*"),
+          getDateLimitClause: (start: Date, end: Date) =>
+            `_TABLE_SUFFIX BETWEEN '${formatDate(
+              start,
+              "yyyyMMdd"
+            )}' AND'${formatDate(end, "yyyyMMdd")}'`,
+          getAdditionalEvents: () => [],
+          getMetricWhereClause: (eventName: string) =>
+            `WHERE event_name = '${eventName}'`,
         };
       }
-      // Segment & Rudderstack
-      default: {
+      case "rudderstack":
+      case "segment":
         return {
           trackedEventTableName: "tracks",
           eventColumn: "event",
@@ -1477,27 +1520,42 @@ export default abstract class SqlIntegration
           userIdColumn: "user_id",
           anonymousIdColumn: "anonymous_id",
           displayNameColumn: "event_text",
-          includesPagesTable: true,
-          includesScreensTable: true,
-          groupByColumns: ["event", "received_at", "displayName"],
-          eventHasUniqueTable: true,
-          dateFormat: "yyyy-MM-dd",
+          getMetricTableName: (eventName: string) =>
+            this.generateTablePath(eventName),
+          getDateLimitClause: (start: Date, end: Date) =>
+            `received_at BETWEEN '${formatDate(
+              start,
+              "yyyy-MM-dd"
+            )}' AND'${formatDate(end, "yyyy-MM-dd")}'`,
+          getAdditionalEvents: () => [
+            {
+              eventName: "pages",
+              displayName: "Page Viewed",
+              groupBy: "event",
+            },
+            {
+              eventName: "screens",
+              displayName: "Screen Viewed",
+              groupBy: "event",
+            },
+          ],
+          getMetricWhereClause: () => "",
         };
-      }
     }
   }
+
   getAutoGeneratedMetricSqlQuery(
     event: string,
     hasUserId: boolean,
-    schemaFormat: SchemaFormat,
+    schemaFormat: AutoMetricSchemas,
     type: MetricType
   ): string {
     const {
       timestampColumn,
       userIdColumn,
       anonymousIdColumn,
-      eventHasUniqueTable,
-      trackedEventTableName,
+      getMetricTableName,
+      getMetricWhereClause,
     } = this.getSchemaFormatConfig(schemaFormat);
 
     const sqlQuery = `
@@ -1506,12 +1564,9 @@ export default abstract class SqlIntegration
         ${anonymousIdColumn} as anonymous_id,
         ${timestampColumn} as timestamp
         ${type === "count" ? `, 1 as value` : ""}
-      FROM ${this.generateTablePath(
-        eventHasUniqueTable ? event : trackedEventTableName
-      )}
-      ${eventHasUniqueTable ? "" : `WHERE event_name = '${event}'`}
+        FROM ${getMetricTableName(event)}
+      ${getMetricWhereClause(event)}
 `;
-
     return format(sqlQuery, this.getFormatDialect());
   }
 
@@ -1525,14 +1580,8 @@ export default abstract class SqlIntegration
     );
   }
   getMetricsToCreate(
-    result: {
-      event: string;
-      displayName: string;
-      hasUserId: boolean;
-      count: number;
-      lastTrackedAt: Date;
-    },
-    schemaFormat: SchemaFormat,
+    result: TrackedEventResponseRow,
+    schemaFormat: AutoMetricSchemas,
     existingMetrics: MetricInterface[]
   ): {
     name: string;
@@ -1581,75 +1630,81 @@ export default abstract class SqlIntegration
 
     return metricsToCreate;
   }
+
+  private getTrackedEventSql(
+    eventColumn: string,
+    displayNameColumn: string,
+    userIdColumn: string,
+    timestampColumn: string,
+    trackedEventTableName: string,
+    getDateLimitClause: (start: Date, end: Date) => string,
+    groupByColumn?: string
+  ) {
+    const end = new Date();
+    const start = subDays(new Date(), 7);
+
+    return `
+      SELECT
+        ${eventColumn} as event,
+        MAX(${displayNameColumn}) as displayName,
+        (CASE WHEN COUNT(${userIdColumn}) > 0 THEN 1 ELSE 0 END) as hasUserId,
+        COUNT (*) as count,
+        MAX(${timestampColumn}) as lastTrackedAt
+      FROM
+        ${this.generateTablePath(trackedEventTableName)}
+      WHERE ${getDateLimitClause(start, end)}
+      AND ${eventColumn} NOT IN ('experiment_viewed', 'experiment_started')
+      GROUP BY ${groupByColumn || eventColumn}
+    `;
+  }
   async getEventsTrackedByDatasource(
-    schemaFormat: SchemaFormat,
+    schemaFormat: AutoMetricSchemas,
     existingMetrics: MetricInterface[]
-  ): Promise<
-    {
-      event: string;
-      displayName: string;
-      count: number;
-      hasUserId: boolean;
-      lastTrackedAt: Date;
-      metricsToCreate: { name: string; sql: string; type: MetricType }[];
-    }[]
-  > {
+  ): Promise<TrackedEventData[]> {
     const {
       trackedEventTableName,
+      userIdColumn,
       eventColumn,
       timestampColumn,
       displayNameColumn,
-      includesPagesTable,
-      includesScreensTable,
-      groupByColumns,
-      eventHasUniqueTable,
-      dateFormat,
+      getAdditionalEvents,
+      getDateLimitClause,
     } = this.getSchemaFormatConfig(schemaFormat);
 
-    const today = formatDate(new Date(), dateFormat);
-    const sevenDaysAgo = formatDate(subDays(new Date(), 7), dateFormat);
+    const sql = this.getTrackedEventSql(
+      eventColumn,
+      displayNameColumn || eventColumn,
+      userIdColumn,
+      timestampColumn,
+      trackedEventTableName,
+      getDateLimitClause
+    );
 
-    const sql = `
-        SELECT
-          ${eventColumn} as event,
-          ${displayNameColumn ? displayNameColumn : eventColumn} as displayName,
-          (CASE WHEN COUNT(user_id) > 0 THEN 1 ELSE 0 END) as hasUserId,
-          COUNT (*) as count,
-          MAX(${timestampColumn}) as lastTrackedAt
-        FROM
-          ${this.generateTablePath(trackedEventTableName)}
-        WHERE
-          ${
-            eventHasUniqueTable
-              ? `received_at < '${today}' AND received_at > '${sevenDaysAgo}'`
-              : `_TABLE_SUFFIX BETWEEN '${sevenDaysAgo}' AND'${today}'`
-          } 
-        AND ${eventColumn} NOT IN ('experiment_viewed', 'experiment_started')
-        GROUP BY ${groupByColumns.join(", ")}
-    `;
+    const { rows: resultRows } = await this.runQuery(
+      format(sql, this.getFormatDialect())
+    );
 
-    const results = await this.runQuery(format(sql, this.getFormatDialect()));
+    const additionalEvents = getAdditionalEvents();
 
-    if (includesPagesTable) {
-      const pageViewedSql = `
-        SELECT
-           'pages' as event,
-           "Page Viewed" as displayName,
-           (CASE WHEN COUNT(user_id) > 0 THEN 1 ELSE 0 END) as hasUserId,
-           COUNT (*) as count,
-           MAX(${timestampColumn}) as lastTrackedAt
-        FROM
-           ${this.generateTablePath("pages")}
-        WHERE received_at < '${today}' AND received_at > '${sevenDaysAgo}'`;
+    for (const additionalEvent of additionalEvents) {
+      const sql = this.getTrackedEventSql(
+        `'${additionalEvent.eventName}'`,
+        `'${additionalEvent.displayName}'`,
+        userIdColumn,
+        timestampColumn,
+        additionalEvent.eventName,
+        getDateLimitClause,
+        additionalEvent.groupBy
+      );
 
       try {
-        const pageViewedResults = await this.runQuery(
-          format(pageViewedSql, this.getFormatDialect())
+        const { rows: additionalEventResults } = await this.runQuery(
+          format(sql, this.getFormatDialect())
         );
 
-        pageViewedResults.forEach((result) => {
+        additionalEventResults.forEach((result) => {
           if (result.count > 0) {
-            results.push(result);
+            resultRows.push(result);
           }
         });
       } catch (e) {
@@ -1657,48 +1712,24 @@ export default abstract class SqlIntegration
       }
     }
 
-    if (includesScreensTable) {
-      const screenViewedSql = `
-        SELECT
-           'screens' as event,
-           "Screen Viewed" as displayName,
-           (CASE WHEN COUNT(user_id) > 0 THEN 1 ELSE 0 END) as hasUserId,
-           COUNT (*) as count,
-           MAX(${timestampColumn}) as lastTrackedAt
-        FROM
-           ${this.generateTablePath("screens")}
-        WHERE received_at < '${today}' AND received_at > '${sevenDaysAgo}'`;
-
-      try {
-        const screenViewedResults = await this.runQuery(
-          format(screenViewedSql, this.getFormatDialect())
-        );
-
-        screenViewedResults.forEach((result) => {
-          if (result.count > 0) {
-            results.push(result);
-          }
-        });
-      } catch (e) {
-        // This happens when the table doesn't exists - this is optional, so just ignoring
-      }
-    }
-
-    if (!results) {
+    if (!resultRows) {
       throw new Error(`No events found.`);
     }
 
-    return results.map((result) => {
-      // Normalize the lastTrackedAt field - BigQuery stores it as an object
-      result.lastTrackedAt = result.lastTrackedAt.value
-        ? new Date(result.lastTrackedAt.value)
-        : new Date(result.lastTrackedAt);
-      result.metricsToCreate = this.getMetricsToCreate(
-        result,
-        schemaFormat,
-        existingMetrics
-      );
-      return result;
+    return resultRows.map((result) => {
+      const row = result as TrackedEventResponseRow;
+      const processedEventData: TrackedEventData = {
+        ...row,
+        lastTrackedAt: result.lastTrackedAt.value
+          ? new Date(result.lastTrackedAt.value)
+          : new Date(result.lastTrackedAt),
+        metricsToCreate: this.getMetricsToCreate(
+          row,
+          schemaFormat,
+          existingMetrics
+        ),
+      };
+      return processedEventData;
     });
   }
 

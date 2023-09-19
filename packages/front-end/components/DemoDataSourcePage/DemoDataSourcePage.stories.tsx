@@ -8,7 +8,7 @@ export default {
 
 export const DoesNotExist = () => {
   const onDelete = action("onDelete");
-  const onCreate = action("onCreate");
+  const onCreate = async () => action("onCreate")();
 
   return (
     <>
@@ -19,9 +19,6 @@ export const DoesNotExist = () => {
         exists={false}
         success={null}
         error={null}
-        demoDataSourceId={null}
-        demoExperimentId={null}
-        demoFeatureId={null}
       />
     </>
   );
@@ -29,7 +26,7 @@ export const DoesNotExist = () => {
 
 export const WasCreatedSuccessfully = () => {
   const onDelete = action("onDelete");
-  const onCreate = action("onCreate");
+  const onCreate = async () => action("onCreate")();
 
   return (
     <>
@@ -40,9 +37,6 @@ export const WasCreatedSuccessfully = () => {
         exists={true}
         success="Success!"
         error={null}
-        demoDataSourceId={null}
-        demoExperimentId={null}
-        demoFeatureId={null}
       />
     </>
   );
@@ -50,7 +44,7 @@ export const WasCreatedSuccessfully = () => {
 
 export const AlreadyExists = () => {
   const onDelete = action("onDelete");
-  const onCreate = action("onCreate");
+  const onCreate = async () => action("onCreate")();
 
   return (
     <>
@@ -61,9 +55,6 @@ export const AlreadyExists = () => {
         exists={true}
         success={null}
         error={null}
-        demoDataSourceId={null}
-        demoExperimentId={null}
-        demoFeatureId={null}
       />
     </>
   );
@@ -71,7 +62,7 @@ export const AlreadyExists = () => {
 
 export const Loading = () => {
   const onDelete = action("onDelete");
-  const onCreate = action("onCreate");
+  const onCreate = async () => action("onCreate")();
 
   return (
     <>
@@ -82,9 +73,6 @@ export const Loading = () => {
         exists={false}
         success={null}
         error={null}
-        demoDataSourceId={null}
-        demoExperimentId={null}
-        demoFeatureId={null}
       />
     </>
   );
@@ -92,7 +80,7 @@ export const Loading = () => {
 
 export const WithError = () => {
   const onDelete = action("onDelete");
-  const onCreate = action("onCreate");
+  const onCreate = async () => action("onCreate")();
 
   return (
     <>
@@ -103,9 +91,6 @@ export const WithError = () => {
         exists={false}
         success={null}
         error="Some kind of error occurred!"
-        demoDataSourceId={null}
-        demoExperimentId={null}
-        demoFeatureId={null}
       />
     </>
   );

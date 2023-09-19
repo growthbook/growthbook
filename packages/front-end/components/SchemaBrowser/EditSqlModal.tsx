@@ -28,7 +28,7 @@ export interface Props {
   close: () => void;
   requiredColumns: Set<string>;
   placeholder?: string;
-  validateResponse?: (response: TestQueryResults) => void;
+  validateResponseOverride?: (response: TestQueryRow) => void;
   templateVariables?: {
     eventName?: string;
     valueColumn?: string;
@@ -42,7 +42,7 @@ export default function EditSqlModal({
   requiredColumns,
   placeholder = "",
   datasourceId,
-  validateResponse,
+  validateResponseOverride,
   templateVariables,
 }: Props) {
   const [
@@ -62,6 +62,21 @@ export default function EditSqlModal({
   const [cursorData, setCursorData] = useState<null | CursorData>(null);
   const [testingQuery, setTestingQuery] = useState(false);
 
+  const validateRequiredColumns = (result: TestQueryRow) => {
+    if (!result) return;
+
+    const requiredColumnsArray = Array.from(requiredColumns);
+    const missingColumns = requiredColumnsArray.filter(
+      (col) => !((col as string) in result)
+    );
+
+    if (missingColumns.length > 0) {
+      throw new Error(
+        `You are missing the following columns: ${missingColumns.join(", ")}`
+      );
+    }
+  };
+
   const runTestQuery = async (sql: string) => {
     validateSQL(sql, []);
     setTestQueryResults(null);
@@ -74,8 +89,12 @@ export default function EditSqlModal({
       }),
     });
 
-    if (res.results?.length && validateResponse) {
-      validateResponse(res.results[0]);
+    if (res.results?.length) {
+      if (validateResponseOverride) {
+        validateResponseOverride(res.results[0]);
+      } else {
+        validateRequiredColumns(res.results[0]);
+      }
     }
 
     return res;
@@ -83,15 +102,16 @@ export default function EditSqlModal({
 
   const handleTestQuery = async () => {
     setTestingQuery(true);
+    const sql = form.getValues("sql");
     try {
-      const sql = form.getValues("sql");
       const res = await runTestQuery(sql);
       setTestQueryResults({ ...res, error: res.error ? res.error : "" });
     } catch (e) {
-      setTestQueryResults({ error: e.message });
+      setTestQueryResults({ sql: sql, error: e.message });
     }
     setTestingQuery(false);
   };
+
   const datasource = getDatasourceById(datasourceId);
   const supportsSchemaBrowser =
     datasource?.properties?.supportsInformationSchema;
@@ -102,17 +122,28 @@ export default function EditSqlModal({
       header="Edit SQL"
       submit={form.handleSubmit(async (value) => {
         if (testQueryBeforeSaving) {
-          const res = await runTestQuery(value.sql);
+          let res: TestQueryResults;
+          try {
+            res = await runTestQuery(value.sql);
+          } catch (e) {
+            setTestQueryResults({ sql: value.sql, error: e.message });
+            // Rejecting with a blank error as we handle the error in the
+            // DisplayTestQueryResults component rather than in the Modal component
+            return Promise.reject(new Error());
+          }
           if (res.error) {
-            throw new Error(res.error);
+            setTestQueryResults(res);
+            // Rejecting with a blank error as we handle the error in the
+            // DisplayTestQueryResults component rather than in the Modal component
+            return Promise.reject(new Error());
           }
         }
 
         await save(value.sql);
       })}
       close={close}
-      error={testQueryResults?.error}
       size="max"
+      overflowAuto={false}
       bodyClassName="p-0"
       cta="Save"
       closeCta="Back"
@@ -176,14 +207,17 @@ export default function EditSqlModal({
                 fullHeight
                 setCursorData={setCursorData}
                 onCtrlEnter={handleTestQuery}
+                resizeDependency={!!testQueryResults}
               />
             </div>
-            {testQueryResults && !testQueryResults?.error && (
-              <div className="" style={{ flex: 1 }}>
+            {testQueryResults && (
+              <div className="" style={{ flex: 1, maxHeight: "45%" }}>
                 <DisplayTestQueryResults
                   duration={parseInt(testQueryResults.duration || "0")}
                   results={testQueryResults.results || []}
                   sql={testQueryResults.sql || ""}
+                  error={testQueryResults.error || ""}
+                  close={() => setTestQueryResults(null)}
                 />
               </div>
             )}

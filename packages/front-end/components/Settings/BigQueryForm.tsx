@@ -95,7 +95,7 @@ const BigQueryForm: FC<{
             {params && params.projectId ? (
               <ul>
                 <li>
-                  <strong>Project Id:</strong> {params.projectId}
+                  <strong>BigQuery Project Id:</strong> {params.projectId}
                 </li>
                 <li>
                   <strong>Client Email:</strong> {params.clientEmail}
@@ -115,7 +115,7 @@ const BigQueryForm: FC<{
       )}
       <div className="form-group col-md-12">
         <label>
-          Project ID{" "}
+          BigQuery Project ID{" "}
           <Tooltip body="The default project ID GrowthBook will use when creating queries and discovering metrics. You can find this value from your BigQuery project info card on your BigQuery Dashboard, or the name of the top level SQL item in the BigQuery console SQL workspace. This value can be edited later if needed." />
         </label>
         <Field
@@ -130,7 +130,7 @@ const BigQueryForm: FC<{
       </div>
       <div className="form-group col-md-12">
         <label>
-          Dataset{" "}
+          Dataset (Recommended){" "}
           <Tooltip body="Specifying a dataset here allows GrowthBook to create working assignment and metric queries, and enables the automatic discovery metrics. You can find this from your BigQuery console SQL workspace. This value can be edited later if needed." />
         </label>
         <Field
@@ -140,7 +140,7 @@ const BigQueryForm: FC<{
           value={params.defaultDataset || ""}
           onChange={onParamChange}
           placeholder=""
-          helpText="The default dataset GrowthBook will use when building queries and discovering metrics for this data source."
+          helpText="This will be help GrowthBook generate the initial SQL queries used to define things like Metrics and Experiment Assignments."
         />
       </div>
     </div>

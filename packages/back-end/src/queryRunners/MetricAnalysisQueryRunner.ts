@@ -4,7 +4,7 @@ import { Queries, QueryStatus } from "../../types/query";
 import { getMetricById, updateMetric } from "../models/MetricModel";
 import {
   MetricValueParams,
-  MetricValueQueryResponse,
+  MetricValueQueryResponseRows,
   MetricValueResult,
 } from "../types/Integration";
 import { meanVarianceFromSums } from "../util/stats";
@@ -17,12 +17,13 @@ export class MetricAnalysisQueryRunner extends QueryRunner<
 > {
   async startQueries(params: MetricValueParams): Promise<Queries> {
     return [
-      await this.startQuery(
-        "metric",
-        this.integration.getMetricValueQuery(params),
-        (query) => this.integration.runMetricValueQuery(query),
-        (rows) => processMetricValueQueryResponse(rows)
-      ),
+      await this.startQuery({
+        name: "metric",
+        query: this.integration.getMetricValueQuery(params),
+        dependencies: [],
+        run: (query) => this.integration.runMetricValueQuery(query),
+        process: (rows) => processMetricValueQueryResponse(rows),
+      }),
     ];
   }
   async runAnalysis(queryMap: QueryMap): Promise<MetricAnalysis> {
@@ -107,7 +108,7 @@ export class MetricAnalysisQueryRunner extends QueryRunner<
 }
 
 export function processMetricValueQueryResponse(
-  rows: MetricValueQueryResponse
+  rows: MetricValueQueryResponseRows
 ): MetricValueResult {
   const ret: MetricValueResult = { count: 0, mean: 0, stddev: 0 };
 

@@ -14,7 +14,7 @@ export default function ValueDisplay({
 }) {
   const formatted = useMemo(() => {
     if (type === "boolean") return value;
-    if (type === "number") return value;
+    if (type === "number") return value || "null";
     if (type === "string") return '"' + value + '"';
     try {
       return stringify(JSON.parse(value));

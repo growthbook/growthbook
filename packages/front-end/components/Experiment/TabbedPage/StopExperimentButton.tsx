@@ -1,25 +1,43 @@
-import { useState } from "react";
 import clsx from "clsx";
-import DropdownLink from "@/components/Dropdown/DropdownLink";
-import useGlobalMenu from "@/services/useGlobalMenu";
 
 export interface Props {
   editResult?: () => void;
   editTargeting?: (() => void) | null;
+  coverage?: number;
+  hasLinkedChanges: boolean;
 }
+
+const percentFormatter = new Intl.NumberFormat(undefined, {
+  style: "percent",
+  maximumFractionDigits: 0,
+});
 
 export default function StopExperimentButton({
   editResult,
   editTargeting,
+  coverage,
+  hasLinkedChanges,
 }: Props) {
-  const [open, setOpen] = useState(false);
-
-  useGlobalMenu(`.stop-experiment-dropdown`, () => setOpen(false));
+  const showTrafficButton = hasLinkedChanges && (coverage ?? 1) < 1;
 
   return (
-    <div className="btn-group">
+    <div className={clsx({ "btn-group": false })}>
+      {showTrafficButton ? (
+        <button
+          className="btn btn-primary mr-2"
+          disabled={!editTargeting}
+          onClick={() => {
+            editTargeting && editTargeting();
+          }}
+        >
+          Increase Traffic ({percentFormatter.format(coverage ?? 1)})
+        </button>
+      ) : null}
       <button
-        className="btn btn-primary"
+        className={clsx("btn", {
+          "btn-primary": !showTrafficButton,
+          "btn-outline-primary": showTrafficButton,
+        })}
         onClick={(e) => {
           e.preventDefault();
           if (editResult) {
@@ -30,30 +48,6 @@ export default function StopExperimentButton({
       >
         Stop Experiment
       </button>
-      <button
-        className="btn btn-primary dropdown-toggle dropdown-toggle-split stop-experiment-dropdown"
-        onClick={(e) => {
-          e.preventDefault();
-          setOpen(!open);
-        }}
-      >
-        <span className="sr-only">More Options</span>
-      </button>
-      <div className={clsx("dropdown stop-experiment-dropdown")}>
-        <div
-          className={clsx("dropdown-menu dropdown-menu-right", { show: open })}
-        >
-          <DropdownLink
-            disabled={!editTargeting}
-            onClick={() => {
-              editTargeting && editTargeting();
-              setOpen(false);
-            }}
-          >
-            Adjust Targeting and Rollout
-          </DropdownLink>
-        </div>
-      </div>
     </div>
   );
 }
