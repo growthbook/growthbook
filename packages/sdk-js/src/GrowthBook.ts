@@ -35,6 +35,7 @@ import {
 } from "./util";
 import { evalCondition } from "./mongrule";
 import { refreshFeatures, subscribe, unsubscribe } from "./feature-repository";
+import { TrackExperimentData } from "./types/growthbook";
 
 const isBrowser =
   typeof window !== "undefined" && typeof document !== "undefined";
@@ -73,6 +74,7 @@ export class GrowthBook<
     string,
     { valueHash: string; undo: () => void }
   >;
+  private _trackingCallsQueue: TrackExperimentData[] = [];
 
   constructor(context?: Context) {
     context = context || {};
@@ -106,8 +108,12 @@ export class GrowthBook<
       this._updateAllAutoExperiments();
     }
 
-    if (context.clientKey) {
+    if (context.clientKey && !context.remoteEval) {
       this._refresh({}, true, false);
+    }
+
+    if (context.remoteEval && !context.userId) {
+      throw new Error("Remote eval: missing userId");
     }
   }
 
@@ -129,10 +135,48 @@ export class GrowthBook<
   }
 
   public getApiInfo(): [ApiHost, ClientKey] {
-    return [
-      (this._ctx.apiHost || "https://cdn.growthbook.io").replace(/\/*$/, ""),
-      this._ctx.clientKey || "",
-    ];
+    return [this.getApiHosts().apiHost, this.getClientKey()];
+  }
+  public getApiHosts(): {
+    apiHost: string;
+    streamingHost: string;
+    remoteEvalHost: string;
+    featuresPath: string;
+    streamingPath: string;
+    remoteEvalPath: string;
+    apiRequestHeaders: Record<string, string>;
+  } {
+    const defaultHost = this._ctx.apiHost || "https://cdn.growthbook.io";
+    return {
+      apiHost: defaultHost.replace(/\/*$/, ""),
+      streamingHost: (this._ctx.streamingHost || defaultHost).replace(
+        /\/*$/,
+        ""
+      ),
+      remoteEvalHost: (this._ctx.remoteEvalHost || defaultHost).replace(
+        /\/*$/,
+        ""
+      ),
+      featuresPath: this._ctx.featuresPath || "/api/features",
+      streamingPath: this._ctx.streamingPath || "/sub",
+      remoteEvalPath: this._ctx.remoteEvalPath || "/eval",
+      apiRequestHeaders: this._ctx.apiRequestHeaders || {},
+    };
+  }
+  public getClientKey(): string {
+    return this._ctx.clientKey || "";
+  }
+
+  public getRemoteEval(): boolean {
+    return this._ctx.remoteEval || false;
+  }
+
+  public getUserId(): string {
+    return this._ctx.userId || "";
+  }
+
+  public setUserId(userId: string): void {
+    this._ctx.userId = userId;
   }
 
   private async _refresh(
@@ -147,7 +191,7 @@ export class GrowthBook<
     await refreshFeatures(
       this,
       options.timeout,
-      options.skipCache || this._ctx.enableDevMode,
+      options.skipCache || this._ctx.enableDevMode || this._ctx.remoteEval,
       allowStale,
       updateInstance,
       this._ctx.backgroundSync !== false
@@ -204,12 +248,18 @@ export class GrowthBook<
     this._ctx.attributes = attributes;
     this._render();
     this._updateAllAutoExperiments();
+    if (this._ctx.remoteEval) {
+      this._refresh({}, false, true);
+    }
   }
 
   public setAttributeOverrides(overrides: Attributes) {
     this._attributeOverrides = overrides;
     this._render();
     this._updateAllAutoExperiments();
+    if (this._ctx.remoteEval) {
+      this._refresh({}, false, true);
+    }
   }
   public setForcedVariations(vars: Record<string, number>) {
     this._ctx.forcedVariations = vars || {};
@@ -249,6 +299,51 @@ export class GrowthBook<
 
   public getAllResults() {
     return new Map(this._assigned);
+  }
+
+  public exportState({
+    features = true,
+    experiments = true,
+    attributes = true,
+    forcedVariations = true,
+    apiHosts = false,
+    clientKey = false,
+    decryptionKey = false,
+  }: {
+    features?: boolean;
+    experiments?: boolean;
+    attributes?: boolean;
+    forcedVariations?: boolean;
+    apiHosts?: boolean;
+    clientKey?: boolean;
+    decryptionKey?: boolean;
+  }): Partial<Context> {
+    return {
+      ...(features && { features: this._ctx.features }),
+      ...(experiments && { experiments: this._ctx.experiments }),
+      ...(attributes && { attributes: this._ctx.attributes }),
+      ...(forcedVariations && { forcedVariations: this._ctx.forcedVariations }),
+      ...(apiHosts && {
+        apiHost: this._ctx.apiHost,
+        streamingHost: this._ctx.streamingHost,
+        remoteEvalHost: this._ctx.remoteEvalHost,
+        featuresPath: this._ctx.featuresPath,
+        streamingPath: this._ctx.streamingPath,
+        remoteEvalPath: this._ctx.remoteEvalPath,
+        apiRequestHeaders: this._ctx.apiRequestHeaders,
+      }),
+      ...(clientKey && { clientKey: this._ctx.clientKey }),
+      ...(decryptionKey && { decryptionKey: this._ctx.decryptionKey }),
+    };
+  }
+
+  public importState(state: Partial<Context>) {
+    this._ctx = {
+      ...this._ctx,
+      ...state,
+    };
+    this._render();
+    this._updateAllAutoExperiments();
   }
 
   public destroy() {
@@ -899,7 +994,29 @@ export class GrowthBook<
     else console.log(msg, ctx);
   }
 
+  public enqueueTrackingCalls(
+    data: TrackExperimentData | TrackExperimentData[]
+  ) {
+    data = Array.isArray(data) ? data : [data];
+    this._trackingCallsQueue.push(...data);
+  }
+
+  public fireTrackingCalls(data: TrackExperimentData | TrackExperimentData[]) {
+    data = Array.isArray(data) ? data : [data];
+    data.forEach(({ experiment, result }) => {
+      this._track(experiment, result);
+    });
+  }
+
+  public getTrackingCallsQueue(): TrackExperimentData[] {
+    return this._trackingCallsQueue;
+  }
+
   private _track<T>(experiment: Experiment<T>, result: Result<T>) {
+    if (this._ctx.deferTracking) {
+      this.enqueueTrackingCalls({ experiment, result });
+      return;
+    }
     if (!this._ctx.trackingCallback) return;
 
     const key = experiment.key;

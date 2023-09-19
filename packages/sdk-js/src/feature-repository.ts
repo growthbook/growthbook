@@ -1,7 +1,5 @@
 import {
-  ApiHost,
   CacheSettings,
-  ClientKey,
   FeatureApiResponse,
   Polyfills,
   RepositoryKey,
@@ -93,7 +91,7 @@ export async function refreshFeatures(
 
 // Subscribe a GrowthBook instance to feature changes
 export function subscribe(instance: GrowthBook): void {
-  const [key] = getKey(instance);
+  const key = getKey(instance);
   const subs = subscribedInstances.get(key) || new Set();
   subs.add(instance);
   subscribedInstances.set(key, subs);
@@ -121,7 +119,7 @@ async function fetchFeaturesWithCache(
   timeout?: number,
   skipCache?: boolean
 ): Promise<FeatureApiResponse | null> {
-  const [key] = getKey(instance);
+  const key = getKey(instance);
   const now = new Date();
   await initializeCache();
   const existing = cache.get(key);
@@ -129,7 +127,7 @@ async function fetchFeaturesWithCache(
     // Restore from cache whether or not SSE is supported
     if (existing.sse) supportsSSE.add(key);
 
-    // Reload features in the backgroud if stale
+    // Reload features in the background if stale
     if (existing.staleAt < now) {
       fetchFeatures(instance);
     }
@@ -139,14 +137,15 @@ async function fetchFeaturesWithCache(
     }
     return existing.data;
   } else {
-    const data = await promiseTimeout(fetchFeatures(instance), timeout);
-    return data;
+    return await promiseTimeout(fetchFeatures(instance), timeout);
   }
 }
 
-function getKey(instance: GrowthBook): [RepositoryKey, ApiHost, ClientKey] {
+function getKey(instance: GrowthBook): RepositoryKey {
   const [apiHost, clientKey] = instance.getApiInfo();
-  return [`${apiHost}||${clientKey}`, apiHost, clientKey];
+  return instance.getRemoteEval()
+    ? `${apiHost}||${clientKey}||${instance.getUserId()}`
+    : `${apiHost}||${clientKey}`;
 }
 
 // Guarantee the promise always resolves within {timeout} ms
@@ -251,12 +250,35 @@ async function refreshInstance(
 async function fetchFeatures(
   instance: GrowthBook
 ): Promise<FeatureApiResponse> {
-  const [key, apiHost, clientKey] = getKey(instance);
-  const endpoint = apiHost + "/api/features/" + clientKey;
+  const key = getKey(instance);
+  const {
+    apiHost,
+    featuresPath,
+    remoteEvalHost,
+    remoteEvalPath,
+    apiRequestHeaders,
+  } = instance.getApiHosts();
+  const clientKey = instance.getClientKey();
+  const remoteEval = instance.getRemoteEval();
+
+  const endpoint = remoteEval
+    ? `${remoteEvalHost}${remoteEvalPath}/${clientKey}`
+    : `${apiHost}${featuresPath}/${clientKey}`;
+  const options: RequestInit = remoteEval
+    ? {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...apiRequestHeaders },
+        body: JSON.stringify({
+          attributes: instance.getAttributes(),
+        }),
+      }
+    : {
+        headers: apiRequestHeaders,
+      };
 
   let promise = activeFetches.get(key);
   if (!promise) {
-    promise = (polyfills.fetch as typeof globalThis.fetch)(endpoint)
+    promise = (polyfills.fetch as typeof globalThis.fetch)(endpoint, options)
       // TODO: auto-retry if status code indicates a temporary error
       .then((res) => {
         if (res.headers.get("x-sse-support") === "enabled") {
@@ -288,7 +310,13 @@ async function fetchFeatures(
 // Watch a feature endpoint for changes
 // Will prefer SSE if enabled, otherwise fall back to cron
 function startAutoRefresh(instance: GrowthBook): void {
-  const [key, apiHost, clientKey] = getKey(instance);
+  const key = getKey(instance);
+  const {
+    streamingHost,
+    streamingPath,
+    apiRequestHeaders,
+  } = instance.getApiHosts();
+  const clientKey = instance.getClientKey();
   if (
     cacheSettings.backgroundSync &&
     supportsSSE.has(key) &&
@@ -299,30 +327,48 @@ function startAutoRefresh(instance: GrowthBook): void {
       src: null,
       cb: (event: MessageEvent<string>) => {
         try {
-          const json: FeatureApiResponse = JSON.parse(event.data);
-          onNewFeatureData(key, json);
+          if (event.type === "features-updated") {
+            fetchFeatures(instance);
+          } else if (event.type === "features") {
+            const json: FeatureApiResponse = JSON.parse(event.data);
+            onNewFeatureData(key, json);
+          }
           // Reset error count on success
           channel.errors = 0;
         } catch (e) {
           process.env.NODE_ENV !== "production" &&
             instance.log("SSE Error", {
-              apiHost,
+              streamingHost,
               clientKey,
               error: e ? (e as Error).message : null,
             });
-          onSSEError(channel, apiHost, clientKey);
+          onSSEError(
+            channel,
+            streamingHost,
+            streamingPath,
+            apiRequestHeaders,
+            clientKey
+          );
         }
       },
       errors: 0,
     };
     streams.set(key, channel);
-    enableChannel(channel, apiHost, clientKey);
+    enableChannel(
+      channel,
+      streamingHost,
+      streamingPath,
+      apiRequestHeaders,
+      clientKey
+    );
   }
 }
 
 function onSSEError(
   channel: ScopedChannel,
-  apiHost: string,
+  host: string,
+  path: string,
+  headers: Record<string, string>,
   clientKey: string
 ) {
   channel.errors++;
@@ -332,7 +378,7 @@ function onSSEError(
       Math.pow(3, channel.errors - 3) * (1000 + Math.random() * 1000);
     disableChannel(channel);
     setTimeout(() => {
-      enableChannel(channel, apiHost, clientKey);
+      enableChannel(channel, host, path, headers, clientKey);
     }, Math.min(delay, 300000)); // 5 minutes max
   }
 }
@@ -347,15 +393,24 @@ function disableChannel(channel: ScopedChannel) {
 
 function enableChannel(
   channel: ScopedChannel,
-  apiHost: string,
+  host: string,
+  path: string,
+  headers: Record<string, string>,
   clientKey: string
 ) {
-  channel.src = new polyfills.EventSource(
-    `${apiHost}/sub/${clientKey}`
-  ) as EventSource;
+  try {
+    channel.src = new polyfills.EventSource(`${host}${path}/${clientKey}`, {
+      headers,
+    }) as EventSource;
+  } catch (e) {
+    channel.src = new polyfills.EventSource(
+      `${host}${path}/${clientKey}`
+    ) as EventSource;
+  }
   channel.src.addEventListener("features", channel.cb);
+  channel.src.addEventListener("features-updated", channel.cb);
   channel.src.onerror = () => {
-    onSSEError(channel, apiHost, clientKey);
+    onSSEError(channel, host, path, headers, clientKey);
   };
   channel.src.onopen = () => {
     channel.errors = 0;

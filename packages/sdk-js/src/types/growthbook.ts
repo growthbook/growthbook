@@ -158,6 +158,7 @@ export interface Context {
   onFeatureUsage?: (key: string, result: FeatureResult<any>) => void;
   realtimeKey?: string;
   realtimeInterval?: number;
+  userId?: string;
   /* @deprecated */
   user?: {
     id?: string;
@@ -169,8 +170,16 @@ export interface Context {
   /* @deprecated */
   groups?: Record<string, boolean>;
   apiHost?: string;
+  streamingHost?: string;
+  remoteEvalHost?: string;
+  featuresPath?: string;
+  streamingPath?: string;
+  remoteEvalPath?: string;
   clientKey?: string;
   decryptionKey?: string;
+  remoteEval?: boolean;
+  deferTracking?: boolean;
+  apiRequestHeaders?: Record<string, string>;
 }
 
 export type SubscriptionFunction = (
@@ -213,6 +222,13 @@ export type AutoExperimentVariation = {
 
 export type FeatureDefinitions = Record<string, FeatureDefinition>;
 
+export type TrackExperimentData = {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  experiment: Experiment<any>;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  result: Result<any>;
+};
+
 export type FeatureApiResponse = {
   features?: FeatureDefinitions;
   dateUpdated?: string;
@@ -246,7 +262,9 @@ export type CacheSettings = {
 
 export type ApiHost = string;
 export type ClientKey = string;
-export type RepositoryKey = `${ApiHost}||${ClientKey}`;
+export type RepositoryKey = string;
+// `${ApiHost}||${ClientKey}` for local eval
+// `${ApiHost}||${ClientKey}||${userId}` for remote eval
 
 export type LoadFeaturesOptions = {
   /**
