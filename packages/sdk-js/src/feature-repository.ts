@@ -256,6 +256,7 @@ async function fetchFeatures(
     featuresPath,
     remoteEvalHost,
     remoteEvalPath,
+    apiRequestHeaders,
   } = instance.getApiHosts();
   const clientKey = instance.getClientKey();
   const remoteEval = instance.getRemoteEval();
@@ -266,12 +267,14 @@ async function fetchFeatures(
   const options: RequestInit = remoteEval
     ? {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...apiRequestHeaders },
         body: JSON.stringify({
           attributes: instance.getAttributes(),
         }),
       }
-    : {};
+    : {
+        headers: apiRequestHeaders,
+      };
 
   let promise = activeFetches.get(key);
   if (!promise) {
@@ -308,7 +311,11 @@ async function fetchFeatures(
 // Will prefer SSE if enabled, otherwise fall back to cron
 function startAutoRefresh(instance: GrowthBook): void {
   const key = getKey(instance);
-  const { streamingHost, streamingPath } = instance.getApiHosts();
+  const {
+    streamingHost,
+    streamingPath,
+    apiRequestHeaders,
+  } = instance.getApiHosts();
   const clientKey = instance.getClientKey();
   if (
     cacheSettings.backgroundSync &&
@@ -335,13 +342,25 @@ function startAutoRefresh(instance: GrowthBook): void {
               clientKey,
               error: e ? (e as Error).message : null,
             });
-          onSSEError(channel, streamingHost, streamingPath, clientKey);
+          onSSEError(
+            channel,
+            streamingHost,
+            streamingPath,
+            apiRequestHeaders,
+            clientKey
+          );
         }
       },
       errors: 0,
     };
     streams.set(key, channel);
-    enableChannel(channel, streamingHost, streamingPath, clientKey);
+    enableChannel(
+      channel,
+      streamingHost,
+      streamingPath,
+      apiRequestHeaders,
+      clientKey
+    );
   }
 }
 
@@ -349,6 +368,7 @@ function onSSEError(
   channel: ScopedChannel,
   host: string,
   path: string,
+  headers: Record<string, string>,
   clientKey: string
 ) {
   channel.errors++;
@@ -358,7 +378,7 @@ function onSSEError(
       Math.pow(3, channel.errors - 3) * (1000 + Math.random() * 1000);
     disableChannel(channel);
     setTimeout(() => {
-      enableChannel(channel, host, path, clientKey);
+      enableChannel(channel, host, path, headers, clientKey);
     }, Math.min(delay, 300000)); // 5 minutes max
   }
 }
@@ -375,6 +395,7 @@ function enableChannel(
   channel: ScopedChannel,
   host: string,
   path: string,
+  headers: Record<string, string>,
   clientKey: string
 ) {
   channel.src = new polyfills.EventSource(
@@ -383,7 +404,7 @@ function enableChannel(
   channel.src.addEventListener("features", channel.cb);
   channel.src.addEventListener("features-updated", channel.cb);
   channel.src.onerror = () => {
-    onSSEError(channel, host, path, clientKey);
+    onSSEError(channel, host, path, headers, clientKey);
   };
   channel.src.onopen = () => {
     channel.errors = 0;

@@ -179,6 +179,7 @@ export interface Context {
   decryptionKey?: string;
   remoteEval?: boolean;
   deferTracking?: boolean;
+  apiRequestHeaders?: Record<string, string>;
 }
 
 export type SubscriptionFunction = (
