@@ -73,15 +73,25 @@ export function roleToPermissionMap(
   return permissionsObj;
 }
 
-function mergePermissions(
+function getMergedPermissions(
   existingPermissions: UserPermission,
   existingRole: MemberRole | undefined,
   teamInfo: TeamInterface | ProjectMemberRole,
   org: OrganizationInterface
-) {
+): UserPermission {
   const newPermissions = roleToPermissionMap(teamInfo.role, org);
+
+  if (!existingPermissions) {
+    // If there are no existingPermissions just return the permissions associated with the teamInfo
+    return {
+      environments: teamInfo.environments,
+      limitAccessByEnvironment: teamInfo.limitAccessByEnvironment,
+      permissions: roleToPermissionMap(teamInfo.role, org),
+    };
+  }
+
+  // Otherwise, we need to merge the existingPermissions with the newPermissions
   for (const newPermission in newPermissions) {
-    // If the user doesn't have permission, but the team role does, add it
     if (
       !existingPermissions.permissions[newPermission as Permission] &&
       newPermissions[newPermission as Permission]
@@ -136,6 +146,7 @@ function mergePermissions(
           : existingPermissions.environments;
     }
   }
+  return existingPermissions;
 }
 
 async function mergeUserAndTeamPermissions(
@@ -150,13 +161,18 @@ async function mergeUserAndTeamPermissions(
   for (const team of memberInfo.teams) {
     const teamData = await findTeamById(team, org.id);
     if (teamData) {
-      mergePermissions(userPermissions.global, memberInfo.role, teamData, org);
+      userPermissions.global = getMergedPermissions(
+        userPermissions.global,
+        memberInfo.role,
+        teamData,
+        org
+      );
       if (teamData?.projectRoles) {
         for (const teamProject of teamData.projectRoles) {
           const existingProjectData = memberInfo.projectRoles?.find(
             (project) => project.project === teamProject.project
           );
-          mergePermissions(
+          userPermissions.projects[teamProject.project] = getMergedPermissions(
             userPermissions.projects[teamProject.project],
             existingProjectData?.role,
             teamProject,

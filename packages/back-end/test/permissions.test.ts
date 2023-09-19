@@ -1509,6 +1509,109 @@ describe("Build user permissions", () => {
     });
   });
 
+  it("should add project level permissions if the user's global role doesn't give any access, but the user is on a team that inherits project-level permissions", async () => {
+    (findTeamById as jest.Mock).mockResolvedValue({
+      id: "team_readonly_with_analyst_project_permissions",
+      role: "readonly",
+      limitAccessByEnvironment: false,
+      environments: [],
+      projectRoles: [
+        {
+          project: "prj_exl5jr5dl4rbw856",
+          role: "analyst",
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+      ],
+    });
+
+    const userPermissions = await getUserPermissions("base_user_123", {
+      ...testOrg,
+      members: [
+        {
+          ...testOrg.members[0],
+          projectRoles: [],
+          teams: ["team_readonly_with_analyst_project_permissions"],
+        },
+      ],
+    });
+
+    expect(userPermissions).toEqual({
+      global: {
+        environments: [],
+        limitAccessByEnvironment: false,
+        permissions: {
+          createPresentations: false,
+          createDimensions: false,
+          createSegments: false,
+          organizationSettings: false,
+          superDelete: false,
+          manageTeam: false,
+          manageTags: false,
+          manageApiKeys: false,
+          manageIntegrations: false,
+          manageWebhooks: false,
+          manageBilling: false,
+          manageNorthStarMetric: false,
+          manageTargetingAttributes: false,
+          manageNamespaces: false,
+          manageSavedGroups: false,
+          viewEvents: false,
+          addComments: false,
+          createFeatureDrafts: false,
+          manageFeatures: false,
+          manageProjects: false,
+          createAnalyses: false,
+          createIdeas: false,
+          createMetrics: false,
+          createDatasources: false,
+          editDatasourceSettings: false,
+          runQueries: false,
+          publishFeatures: false,
+          manageEnvironments: false,
+          runExperiments: false,
+        },
+      },
+      projects: {
+        prj_exl5jr5dl4rbw856: {
+          environments: [],
+          limitAccessByEnvironment: false,
+          permissions: {
+            createPresentations: true,
+            createDimensions: true,
+            createSegments: false,
+            organizationSettings: false,
+            superDelete: false,
+            manageTeam: false,
+            manageTags: true,
+            manageApiKeys: false,
+            manageIntegrations: false,
+            manageWebhooks: false,
+            manageBilling: false,
+            manageNorthStarMetric: false,
+            manageTargetingAttributes: false,
+            manageNamespaces: false,
+            manageSavedGroups: false,
+            viewEvents: false,
+            addComments: true,
+            createFeatureDrafts: false,
+            manageFeatures: false,
+            manageProjects: false,
+            createAnalyses: true,
+            createIdeas: true,
+            createMetrics: true,
+            createDatasources: false,
+            editDatasourceSettings: true,
+            runQueries: true,
+            publishFeatures: false,
+            manageEnvironments: false,
+            runExperiments: false,
+          },
+        },
+      },
+    });
+  });
+
   it("should correctly override a project-specific role if the team's project specific role is higher", async () => {
     (findTeamById as jest.Mock).mockResolvedValue({
       id: "team_experimenter",
