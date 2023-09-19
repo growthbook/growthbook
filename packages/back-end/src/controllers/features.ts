@@ -45,7 +45,7 @@ import {
   auditDetailsUpdate,
   auditDetailsDelete,
 } from "../services/audit";
-import { getRevisions } from "../models/FeatureRevisionModel";
+import { getPublishedFeatureRevisions } from "../models/FeatureRevisionModel";
 import { getEnabledEnvironments } from "../util/features";
 import { ExperimentInterface } from "../../types/experiment";
 import {
@@ -972,7 +972,7 @@ export async function getFeatureById(
     });
   }
 
-  const revisions = await getRevisions(org.id, id);
+  const revisions = await getPublishedFeatureRevisions(org.id, id);
 
   res.status(200).json({
     status: 200,

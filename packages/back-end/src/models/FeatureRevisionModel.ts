@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import omit from "lodash/omit";
 import { FeatureInterface, FeatureRule } from "../../types/feature";
 import { FeatureRevisionInterface } from "../../types/feature-revision";
 import { logger } from "../util/logger";
@@ -44,15 +45,32 @@ const FeatureRevisionModel = mongoose.model<FeatureRevisionInterface>(
   featureRevisionSchema
 );
 
-export async function getRevisions(
+const toInterface = (
+  doc: FeatureRevisionDocument
+): FeatureRevisionInterface => {
+  const json = omit(doc.toJSON<FeatureRevisionDocument>(), ["__v", "_id"]);
+
+  const withDefaults = {
+    ...json,
+    // `status` is a new fields. previously, all feature revisions were published
+    status: json.status || "published",
+  };
+
+  return withDefaults;
+};
+
+export async function getPublishedFeatureRevisions(
   organization: string,
   featureId: string
 ): Promise<FeatureRevisionInterface[]> {
   const docs: FeatureRevisionDocument[] = await FeatureRevisionModel.find({
     organization,
     featureId,
+    status: {
+      $in: [null, "published"],
+    },
   });
-  return docs.map((d) => d.toJSON<FeatureRevisionDocument>());
+  return docs.map(toInterface);
 }
 
 type SaveRevisionParams = {
@@ -61,7 +79,10 @@ type SaveRevisionParams = {
 };
 
 // todo: support creating draft revisions
-export async function saveRevision({ feature, state }: SaveRevisionParams) {
+export async function saveRevision({
+  feature,
+  state,
+}: SaveRevisionParams): Promise<void> {
   const rules: Record<string, FeatureRule[]> = {};
   Object.keys(feature.environmentSettings || {}).forEach((env) => {
     rules[env] = feature.environmentSettings?.[env]?.rules || [];
