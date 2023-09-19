@@ -232,7 +232,7 @@ export function getRoles(_organization: OrganizationInterface): Role[] {
         "manageSavedGroups",
         "runExperiments",
       ],
-      accessLevel: 2,
+      accessLevel: 2, // Analysts & Engineers have the same access level
     },
     {
       id: "analyst",
@@ -248,7 +248,7 @@ export function getRoles(_organization: OrganizationInterface): Role[] {
         "runQueries",
         "editDatasourceSettings",
       ],
-      accessLevel: 3,
+      accessLevel: 2, // Analysts & Engineers have the same access level
     },
     {
       id: "experimenter",
@@ -273,14 +273,14 @@ export function getRoles(_organization: OrganizationInterface): Role[] {
         "runQueries",
         "editDatasourceSettings",
       ],
-      accessLevel: 4,
+      accessLevel: 3,
     },
     {
       id: "admin",
       description:
         "All access + invite teammates and configure organization settings",
       permissions: [...ALL_PERMISSIONS],
-      accessLevel: 5,
+      accessLevel: 4,
     },
   ];
 }
