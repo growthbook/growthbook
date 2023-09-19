@@ -35,7 +35,6 @@ import {
 } from "./util";
 import { evalCondition } from "./mongrule";
 import { refreshFeatures, subscribe, unsubscribe } from "./feature-repository";
-import { TrackExperimentData } from "./types/growthbook";
 
 const isBrowser =
   typeof window !== "undefined" && typeof document !== "undefined";
@@ -74,7 +73,6 @@ export class GrowthBook<
     string,
     { valueHash: string; undo: () => void }
   >;
-  private _trackingCallsQueue: TrackExperimentData[] = [];
 
   constructor(context?: Context) {
     context = context || {};
@@ -299,51 +297,6 @@ export class GrowthBook<
 
   public getAllResults() {
     return new Map(this._assigned);
-  }
-
-  public exportState({
-    features = true,
-    experiments = true,
-    attributes = true,
-    forcedVariations = true,
-    apiHosts = false,
-    clientKey = false,
-    decryptionKey = false,
-  }: {
-    features?: boolean;
-    experiments?: boolean;
-    attributes?: boolean;
-    forcedVariations?: boolean;
-    apiHosts?: boolean;
-    clientKey?: boolean;
-    decryptionKey?: boolean;
-  }): Partial<Context> {
-    return {
-      ...(features && { features: this._ctx.features }),
-      ...(experiments && { experiments: this._ctx.experiments }),
-      ...(attributes && { attributes: this._ctx.attributes }),
-      ...(forcedVariations && { forcedVariations: this._ctx.forcedVariations }),
-      ...(apiHosts && {
-        apiHost: this._ctx.apiHost,
-        streamingHost: this._ctx.streamingHost,
-        remoteEvalHost: this._ctx.remoteEvalHost,
-        featuresPath: this._ctx.featuresPath,
-        streamingPath: this._ctx.streamingPath,
-        remoteEvalPath: this._ctx.remoteEvalPath,
-        apiRequestHeaders: this._ctx.apiRequestHeaders,
-      }),
-      ...(clientKey && { clientKey: this._ctx.clientKey }),
-      ...(decryptionKey && { decryptionKey: this._ctx.decryptionKey }),
-    };
-  }
-
-  public importState(state: Partial<Context>) {
-    this._ctx = {
-      ...this._ctx,
-      ...state,
-    };
-    this._render();
-    this._updateAllAutoExperiments();
   }
 
   public destroy() {
@@ -994,29 +947,7 @@ export class GrowthBook<
     else console.log(msg, ctx);
   }
 
-  public enqueueTrackingCalls(
-    data: TrackExperimentData | TrackExperimentData[]
-  ) {
-    data = Array.isArray(data) ? data : [data];
-    this._trackingCallsQueue.push(...data);
-  }
-
-  public fireTrackingCalls(data: TrackExperimentData | TrackExperimentData[]) {
-    data = Array.isArray(data) ? data : [data];
-    data.forEach(({ experiment, result }) => {
-      this._track(experiment, result);
-    });
-  }
-
-  public getTrackingCallsQueue(): TrackExperimentData[] {
-    return this._trackingCallsQueue;
-  }
-
   private _track<T>(experiment: Experiment<T>, result: Result<T>) {
-    if (this._ctx.deferTracking) {
-      this.enqueueTrackingCalls({ experiment, result });
-      return;
-    }
     if (!this._ctx.trackingCallback) return;
 
     const key = experiment.key;
