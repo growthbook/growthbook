@@ -398,9 +398,15 @@ function enableChannel(
   headers: Record<string, string>,
   clientKey: string
 ) {
-  channel.src = new polyfills.EventSource(
-    `${host}${path}/${clientKey}`
-  ) as EventSource;
+  try {
+    channel.src = new polyfills.EventSource(`${host}${path}/${clientKey}`, {
+      headers,
+    }) as EventSource;
+  } catch (e) {
+    channel.src = new polyfills.EventSource(
+      `${host}${path}/${clientKey}`
+    ) as EventSource;
+  }
   channel.src.addEventListener("features", channel.cb);
   channel.src.addEventListener("features-updated", channel.cb);
   channel.src.onerror = () => {

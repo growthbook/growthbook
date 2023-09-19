@@ -108,7 +108,7 @@ export class GrowthBook<
       this._updateAllAutoExperiments();
     }
 
-    if (context.clientKey) {
+    if (context.clientKey && !context.remoteEval) {
       this._refresh({}, true, false);
     }
 
@@ -146,21 +146,17 @@ export class GrowthBook<
     remoteEvalPath: string;
     apiRequestHeaders: Record<string, string>;
   } {
+    const defaultHost = this._ctx.apiHost || "https://cdn.growthbook.io";
     return {
-      apiHost: (this._ctx.apiHost || "https://cdn.growthbook.io").replace(
+      apiHost: defaultHost.replace(/\/*$/, ""),
+      streamingHost: (this._ctx.streamingHost || defaultHost).replace(
         /\/*$/,
         ""
       ),
-      streamingHost: (
-        this._ctx.streamingHost ||
-        this._ctx.apiHost ||
-        "https://cdn.growthbook.io"
-      ).replace(/\/*$/, ""),
-      remoteEvalHost: (
-        this._ctx.remoteEvalHost ||
-        this._ctx.apiHost ||
-        "https://cdn.growthbook.io"
-      ).replace(/\/*$/, ""),
+      remoteEvalHost: (this._ctx.remoteEvalHost || defaultHost).replace(
+        /\/*$/,
+        ""
+      ),
       featuresPath: this._ctx.featuresPath || "/api/features",
       streamingPath: this._ctx.streamingPath || "/sub",
       remoteEvalPath: this._ctx.remoteEvalPath || "/eval",
@@ -195,7 +191,7 @@ export class GrowthBook<
     await refreshFeatures(
       this,
       options.timeout,
-      options.skipCache || this._ctx.enableDevMode,
+      options.skipCache || this._ctx.enableDevMode || this._ctx.remoteEval,
       allowStale,
       updateInstance,
       this._ctx.backgroundSync !== false

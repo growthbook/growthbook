@@ -262,10 +262,9 @@ export type CacheSettings = {
 
 export type ApiHost = string;
 export type ClientKey = string;
-export type UserKey = string;
-export type RepositoryKey =
-  | `${ApiHost}||${ClientKey}` // local eval
-  | `${ApiHost}||${ClientKey}||${UserKey}`; // remote eval
+export type RepositoryKey = string;
+// `${ApiHost}||${ClientKey}` for local eval
+// `${ApiHost}||${ClientKey}||${userId}` for remote eval
 
 export type LoadFeaturesOptions = {
   /**
