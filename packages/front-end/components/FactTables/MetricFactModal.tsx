@@ -257,14 +257,18 @@ export default function MetricFactModal({
             body={
               <div>
                 <div className="mb-2">
-                  <strong>Simple</strong> metrics are the most common. They let
-                  you report on how a single event or value changes between
-                  variations in an experiment.
+                  <strong>Proportion</strong> metrics calculate a simple
+                  conversion rate - the proportion of users in your experiment
+                  who are present in a fact table.
+                </div>
+                <div className="mb-2">
+                  <strong>Average</strong> metrics calculate the average value
+                  of a numeric column in a fact table.
                 </div>
                 <div>
-                  <strong>Ratio</strong> metrics allow you to calculate a ratio,
-                  or propotion, of two different values. These allow more
-                  advanced experimentation metrics.
+                  <strong>Ratio</strong> metrics allow you to calculate a
+                  complex value by dividing two different numeric columns in
+                  your fact tables.
                 </div>
               </div>
             }
