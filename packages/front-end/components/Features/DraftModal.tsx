@@ -123,7 +123,6 @@ export default function DraftModal({
     <Modal
       open={true}
       header={"Review Draft Changes"}
-      // @ts-expect-error TS(2322) If you come across this, please fix it!: Type '(() => Promise<void>) | null' is not assigna... Remove this comment to see the full error message
       submit={
         hasPermission
           ? async () => {
@@ -142,13 +141,12 @@ export default function DraftModal({
               await mutate();
               onPublish && onPublish();
             }
-          : null
+          : undefined
       }
       cta="Publish"
       close={close}
       closeCta="close"
       size="max"
-      // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'Element | null' is not assignable to type 'R... Remove this comment to see the full error message
       secondaryCTA={
         permissions.check("createFeatureDrafts", feature.project) ? (
           <Button
@@ -172,7 +170,7 @@ export default function DraftModal({
           >
             Discard
           </Button>
-        ) : null
+        ) : undefined
       }
     >
       <h3>Review Changes</h3>
