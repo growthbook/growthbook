@@ -1,11 +1,10 @@
 import { useRouter } from "next/router";
 import Link from "next/link";
 import { useState } from "react";
-import { date } from "shared/dates";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import Markdown from "@/components/Markdown/Markdown";
-import { GBAddCircle, GBCircleArrowLeft } from "@/components/Icons";
+import { GBCircleArrowLeft, GBEdit } from "@/components/Icons";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import { useAuth } from "@/services/auth";
@@ -13,10 +12,10 @@ import FactTableModal from "@/components/FactTables/FactTableModal";
 import Code from "@/components/SyntaxHighlighting/Code";
 import FactModal from "@/components/FactTables/FactModal";
 import usePermissions from "@/hooks/usePermissions";
-import { useSearch } from "@/services/search";
-import Tooltip from "@/components/Tooltip/Tooltip";
-import Field from "@/components/Forms/Field";
-import InlineCode from "@/components/SyntaxHighlighting/InlineCode";
+import FactList from "@/components/FactTables/FactList";
+import FactFilterList from "@/components/FactTables/FactFilterList";
+import EditProjectsForm from "@/components/Projects/EditProjectsForm";
+import MetricFactModal from "@/components/FactTables/MetricFactModal";
 
 export default function FactTablePage() {
   const router = useRouter();
@@ -26,6 +25,9 @@ export default function FactTablePage() {
 
   const [editFactOpen, setEditFactOpen] = useState("");
   const [newFactOpen, setNewFactOpen] = useState(false);
+  const [editProjectsOpen, setEditProjectsOpen] = useState(false);
+
+  const [metricOpen, setMetricOpen] = useState(false);
 
   const { apiCall } = useAuth();
 
@@ -40,13 +42,6 @@ export default function FactTablePage() {
     getDatasourceById,
   } = useDefinitions();
   const factTable = factTables.find((f) => f.id === ftid);
-
-  const { items, searchInputProps, isFiltered, SortableTH, clear } = useSearch({
-    items: factTable?.facts || [],
-    defaultSortField: "name",
-    localStorageKey: "facts",
-    searchFields: ["name^3", "description", "column^2", "where"],
-  });
 
   if (!ready) return <LoadingOverlay />;
 
@@ -77,6 +72,31 @@ export default function FactTablePage() {
           close={() => setEditFactOpen("")}
           factTable={factTable}
           existing={factTable.facts.find((f) => f.id === editFactOpen)}
+        />
+      )}
+      {editProjectsOpen && (
+        <EditProjectsForm
+          projects={factTable.projects}
+          cancel={() => setEditProjectsOpen(false)}
+          save={async (projects) => {
+            await apiCall(`/fact-tables/${factTable.id}`, {
+              method: "PUT",
+              body: JSON.stringify({
+                projects,
+              }),
+            });
+          }}
+          mutate={mutateDefinitions}
+          entityName="Fact Table"
+        />
+      )}
+      {metricOpen && (
+        <MetricFactModal
+          close={() => setMetricOpen(false)}
+          onSave={() => {
+            mutateDefinitions();
+          }}
+          initialFactTable={factTable.id}
         />
       )}
       <div className="row mb-3">
@@ -123,12 +143,23 @@ export default function FactTablePage() {
             Projects:{" "}
             {factTable.projects.length > 0 ? (
               factTable.projects.map((p) => (
-                <span className="badge badge-secondary" key={p}>
+                <span className="badge badge-secondary mr-1" key={p}>
                   {getProjectById(p)?.name || p}
                 </span>
               ))
             ) : (
-              <em>None</em>
+              <em className="mr-1">All Projects</em>
+            )}
+            {canEdit && (
+              <a
+                href="#"
+                onClick={(e) => {
+                  e.preventDefault();
+                  setEditProjectsOpen(true);
+                }}
+              >
+                <GBEdit />
+              </a>
             )}
           </div>
         ) : null}
@@ -139,6 +170,18 @@ export default function FactTablePage() {
               {getDatasourceById(factTable.datasource)?.name || "Unknown"}
             </a>
           </Link>
+        </div>
+        <div className="col-auto">
+          Identifier Types:{" "}
+          {factTable.userIdTypes.length > 0 ? (
+            factTable.userIdTypes.map((t) => (
+              <span className="badge badge-secondary mr-1" key={t}>
+                {t}
+              </span>
+            ))
+          ) : (
+            <em>None</em>
+          )}
         </div>
       </div>
 
@@ -152,125 +195,42 @@ export default function FactTablePage() {
       )}
 
       <div className="mb-4">
-        <h3>SQL Definition</h3>
+        <h3>Fact Table SQL Definition</h3>
         <Code code={factTable.sql} language="sql" expandable={true} />
       </div>
 
-      <div className="row mb-2 align-items-center">
-        <div className="col-auto">
-          <h3 className="mb-0">Facts</h3>
+      <div className="mb-4">
+        <h3>Filters</h3>
+        <div className="mb-1">
+          Filters are re-usable SQL snippets that can be applied to Facts and
+          Metrics to limit the rows that are included in an analysis.
+        </div>
+        <div className="appbox px-3 pt-3">
+          <FactFilterList factTable={factTable} />
         </div>
       </div>
-      <div className="row mb-2 align-items-center">
-        {factTable.facts.length > 0 && (
-          <div className="col-lg-3 col-md-4 col-6 mr-auto">
-            <Field
-              placeholder="Search..."
-              type="search"
-              {...searchInputProps}
-            />
-          </div>
-        )}
-        <div className="col-auto">
-          <Tooltip
-            body={
-              canEdit ? "" : `You don't have permission to edit this fact table`
-            }
-          >
-            <button
-              className="btn btn-primary"
-              onClick={(e) => {
-                e.preventDefault();
-                if (!canEdit) return;
-                setNewFactOpen(true);
-              }}
-              disabled={!canEdit}
-            >
-              <GBAddCircle /> Add Fact
-            </button>
-          </Tooltip>
+
+      <div className="mb-4">
+        <h3>Facts</h3>
+        <div className="mb-1">
+          Facts are numeric columns or SQL expressions that can be used as a
+          Metric value. These values will be summed and averaged to determine
+          uplift within an experiment.
+        </div>
+        <div className="appbox px-3 pt-3">
+          <FactList factTable={factTable} />
         </div>
       </div>
-      {factTable.facts.length > 0 && (
-        <>
-          <table className="table appbox gbtable">
-            <thead>
-              <tr>
-                <SortableTH field="name">Name</SortableTH>
-                <th>Description</th>
-                <SortableTH field="type">Type</SortableTH>
-                <SortableTH field="column">Column</SortableTH>
-                <th>Number Format</th>
-                <th>WHERE filter</th>
-                <SortableTH field="dateUpdated">Last Updated</SortableTH>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {items.map((fact) => (
-                <tr key={fact.id}>
-                  <td>{fact.name}</td>
-                  <td>
-                    <Markdown>{fact.description}</Markdown>
-                  </td>
-                  <td>{fact.type}</td>
-                  <td>{fact.type === "number" ? fact.column : ""}</td>
-                  <td>{fact.type === "number" ? fact.numberFormat : ""}</td>
-                  <td>
-                    <InlineCode language="sql" code={fact.where} />
-                  </td>
-                  <td>{date(fact.dateUpdated)}</td>
-                  <td>
-                    {canEdit && (
-                      <MoreMenu>
-                        <button
-                          className="dropdown-item"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            setEditFactOpen(fact.id);
-                          }}
-                        >
-                          Edit
-                        </button>
-                        <DeleteButton
-                          displayName="Fact"
-                          className="dropdown-item"
-                          useIcon={false}
-                          text="Delete"
-                          onClick={async () => {
-                            await apiCall(
-                              `/fact-tables/${factTable.id}/${fact.id}`,
-                              {
-                                method: "DELETE",
-                              }
-                            );
-                          }}
-                        />
-                      </MoreMenu>
-                    )}
-                  </td>
-                </tr>
-              ))}
-              {!items.length && isFiltered && (
-                <tr>
-                  <td colSpan={8} align={"center"}>
-                    No matching facts.{" "}
-                    <a
-                      href="#"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        clear();
-                      }}
-                    >
-                      Clear search field
-                    </a>
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </>
-      )}
+
+      <button
+        className="btn btn-primary"
+        onClick={(e) => {
+          e.preventDefault();
+          setMetricOpen(true);
+        }}
+      >
+        Create Metric
+      </button>
     </div>
   );
 }

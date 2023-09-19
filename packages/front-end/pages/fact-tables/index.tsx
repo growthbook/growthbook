@@ -3,7 +3,6 @@ import Link from "next/link";
 import { useState } from "react";
 import { date } from "shared/dates";
 import { FaAngleDown, FaAngleRight } from "react-icons/fa";
-import Markdown from "@/components/Markdown/Markdown";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import FactTableModal from "@/components/FactTables/FactTableModal";
 import { GBAddCircle } from "@/components/Icons";
@@ -36,6 +35,8 @@ export default function FactTablesPage() {
       return {
         ...table,
         datasourceName: getDatasourceById(table.datasource)?.name || "Unknown",
+        numFacts: table.facts.length,
+        numFilters: table.filters.length,
       };
     },
     [getDatasourceById]
@@ -171,10 +172,10 @@ export default function FactTablesPage() {
             <thead>
               <tr>
                 <SortableTH field="name">Name</SortableTH>
-                <th>Description</th>
                 <SortableTH field="datasourceName">Data Source</SortableTH>
                 <th>User Id Types</th>
-                <th>Facts</th>
+                <SortableTH field="numFacts">Facts</SortableTH>
+                <SortableTH field="numFilters">Filters</SortableTH>
                 <SortableTH field="dateUpdated">Last Updated</SortableTH>
               </tr>
             </thead>
@@ -184,14 +185,10 @@ export default function FactTablesPage() {
                   <td>
                     <Link href={`/fact-tables/${f.id}`}>{f.name}</Link>
                   </td>
-                  <td>
-                    <div style={{ maxHeight: 80, overflow: "hidden" }}>
-                      <Markdown>{f.description}</Markdown>
-                    </div>
-                  </td>
                   <td>{f.datasourceName}</td>
                   <td>{f.userIdTypes.join(", ")}</td>
-                  <td>{f.facts.length}</td>
+                  <td>{f.numFacts}</td>
+                  <td>{f.numFilters}</td>
                   <td>{date(f.dateUpdated)}</td>
                 </tr>
               ))}

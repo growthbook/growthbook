@@ -63,116 +63,7 @@ export default function FactTableModal({ existing, close }: Props) {
   const selectedDataSource = getDatasourceById(form.watch("datasource"));
 
   return (
-    <Modal
-      open={true}
-      close={close}
-      cta={"Save"}
-      header={existing ? "Edit Fact Table" : "Create Fact Table"}
-      submit={form.handleSubmit(async (value) => {
-        if (!value.userIdTypes.length) {
-          throw new Error("Must select at least one identifier type");
-        }
-
-        if (!value.sql) {
-          throw new Error("Must add a SQL query");
-        }
-
-        if (existing) {
-          const data: UpdateFactTableProps = {
-            description: value.description,
-            name: value.name,
-            sql: value.sql,
-            userIdTypes: value.userIdTypes,
-          };
-          await apiCall(`/fact-tables/${existing.id}`, {
-            method: "PUT",
-            body: JSON.stringify(data),
-          });
-          await mutateDefinitions();
-        } else {
-          const ds = getDatasourceById(value.datasource);
-          if (!ds) throw new Error("Must select a valid data source");
-
-          value.projects = ds.projects || [];
-
-          const { factTable, error } = await apiCall<{
-            factTable: FactTableInterface;
-            error?: string;
-          }>(`/fact-tables`, {
-            method: "POST",
-            body: JSON.stringify(value),
-          });
-
-          if (error) {
-            throw new Error(error);
-          }
-
-          await mutateDefinitions();
-          router.push(`/fact-tables/${factTable.id}`);
-        }
-      })}
-    >
-      <Field label="Name" {...form.register("name")} required />
-
-      {showDescription ? (
-        <div className="form-group">
-          <label>Description</label>
-          <MarkdownInput
-            value={form.watch("description")}
-            setValue={(value) => form.setValue("description", value)}
-            autofocus={!existing?.description?.length}
-          />
-        </div>
-      ) : (
-        <a
-          href="#"
-          className="badge badge-light badge-pill mb-3"
-          onClick={(e) => {
-            e.preventDefault();
-            setShowDescription(true);
-          }}
-        >
-          + description
-        </a>
-      )}
-      {!existing && (
-        <SelectField
-          label="Data Source"
-          value={form.watch("datasource")}
-          onChange={(v) => {
-            form.setValue("datasource", v);
-          }}
-          options={validDatasources.map((d) => {
-            const defaultDatasource = d.id === settings.defaultDataSource;
-            return {
-              value: d.id,
-              label: `${d.name}${d.description ? ` — ${d.description}` : ""} ${
-                defaultDatasource ? " (default)" : ""
-              }`,
-            };
-          })}
-          className="portal-overflow-ellipsis"
-          name="datasource"
-          placeholder="Select..."
-        />
-      )}
-
-      {selectedDataSource && (
-        <MultiSelectField
-          value={form.watch("userIdTypes")}
-          onChange={(types) => {
-            form.setValue("userIdTypes", types);
-          }}
-          options={(selectedDataSource.settings.userIdTypes || []).map(
-            ({ userIdType }) => ({
-              value: userIdType,
-              label: userIdType,
-            })
-          )}
-          label="Identifier Types Supported"
-        />
-      )}
-
+    <>
       {sqlOpen && (
         <EditSqlModal
           close={() => setSqlOpen(false)}
@@ -187,27 +78,137 @@ export default function FactTableModal({ existing, close }: Props) {
           }}
         />
       )}
+      <Modal
+        open={true}
+        close={close}
+        cta={"Save"}
+        header={existing ? "Edit Fact Table" : "Create Fact Table"}
+        submit={form.handleSubmit(async (value) => {
+          if (!value.userIdTypes.length) {
+            throw new Error("Must select at least one identifier type");
+          }
 
-      {selectedDataSource && (
-        <div className="form-group">
-          <label>Query</label>
-          {form.watch("sql") && (
-            <Code language="sql" code={form.watch("sql")} expandable={true} />
-          )}
-          <div>
-            <button
-              className="btn btn-outline-primary"
-              type="button"
-              onClick={(e) => {
-                e.preventDefault();
-                setSqlOpen(true);
-              }}
-            >
-              {form.watch("sql") ? "Edit" : "Add"} SQL <FaExternalLinkAlt />
-            </button>
+          if (!value.sql) {
+            throw new Error("Must add a SQL query");
+          }
+
+          if (existing) {
+            const data: UpdateFactTableProps = {
+              description: value.description,
+              name: value.name,
+              sql: value.sql,
+              userIdTypes: value.userIdTypes,
+            };
+            await apiCall(`/fact-tables/${existing.id}`, {
+              method: "PUT",
+              body: JSON.stringify(data),
+            });
+            await mutateDefinitions();
+          } else {
+            const ds = getDatasourceById(value.datasource);
+            if (!ds) throw new Error("Must select a valid data source");
+
+            value.projects = ds.projects || [];
+
+            const { factTable, error } = await apiCall<{
+              factTable: FactTableInterface;
+              error?: string;
+            }>(`/fact-tables`, {
+              method: "POST",
+              body: JSON.stringify(value),
+            });
+
+            if (error) {
+              throw new Error(error);
+            }
+
+            await mutateDefinitions();
+            router.push(`/fact-tables/${factTable.id}`);
+          }
+        })}
+      >
+        <Field label="Name" {...form.register("name")} required />
+
+        {showDescription ? (
+          <div className="form-group">
+            <label>Description</label>
+            <MarkdownInput
+              value={form.watch("description")}
+              setValue={(value) => form.setValue("description", value)}
+              autofocus={!existing?.description?.length}
+            />
           </div>
-        </div>
-      )}
-    </Modal>
+        ) : (
+          <a
+            href="#"
+            className="badge badge-light badge-pill mb-3"
+            onClick={(e) => {
+              e.preventDefault();
+              setShowDescription(true);
+            }}
+          >
+            + description
+          </a>
+        )}
+        {!existing && (
+          <SelectField
+            label="Data Source"
+            value={form.watch("datasource")}
+            onChange={(v) => {
+              form.setValue("datasource", v);
+            }}
+            options={validDatasources.map((d) => {
+              const defaultDatasource = d.id === settings.defaultDataSource;
+              return {
+                value: d.id,
+                label: `${d.name}${
+                  d.description ? ` — ${d.description}` : ""
+                } ${defaultDatasource ? " (default)" : ""}`,
+              };
+            })}
+            className="portal-overflow-ellipsis"
+            name="datasource"
+            placeholder="Select..."
+          />
+        )}
+
+        {selectedDataSource && (
+          <MultiSelectField
+            value={form.watch("userIdTypes")}
+            onChange={(types) => {
+              form.setValue("userIdTypes", types);
+            }}
+            options={(selectedDataSource.settings.userIdTypes || []).map(
+              ({ userIdType }) => ({
+                value: userIdType,
+                label: userIdType,
+              })
+            )}
+            label="Identifier Types Supported"
+          />
+        )}
+
+        {selectedDataSource && (
+          <div className="form-group">
+            <label>Query</label>
+            {form.watch("sql") && (
+              <Code language="sql" code={form.watch("sql")} expandable={true} />
+            )}
+            <div>
+              <button
+                className="btn btn-outline-primary"
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  setSqlOpen(true);
+                }}
+              >
+                {form.watch("sql") ? "Edit" : "Add"} SQL <FaExternalLinkAlt />
+              </button>
+            </div>
+          </div>
+        )}
+      </Modal>
+    </>
   );
 }

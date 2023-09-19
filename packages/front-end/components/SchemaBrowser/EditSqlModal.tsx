@@ -166,6 +166,7 @@ export default function EditSqlModal({
                     className="btn-sm"
                     onClick={handleTestQuery}
                     loading={testingQuery}
+                    type="button"
                   >
                     <span className="pr-2">
                       <FaPlay />

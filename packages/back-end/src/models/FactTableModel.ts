@@ -2,10 +2,13 @@ import mongoose from "mongoose";
 import uniqid from "uniqid";
 import { omit } from "lodash";
 import {
+  CreateFactFilterProps,
   CreateFactProps,
   CreateFactTableProps,
+  FactFilterInterface,
   FactInterface,
   FactTableInterface,
+  UpdateFactFilterProps,
   UpdateFactProps,
   UpdateFactTableProps,
 } from "../../types/fact-table";
@@ -30,10 +33,20 @@ const factTableSchema = new mongoose.Schema({
       dateCreated: Date,
       dateUpdated: Date,
       description: String,
-      type: { type: String },
       column: String,
       numberFormat: String,
-      where: String,
+      filters: [String],
+    },
+  ],
+  filters: [
+    {
+      _id: false,
+      id: String,
+      name: String,
+      dateCreated: Date,
+      dateUpdated: Date,
+      description: String,
+      value: String,
     },
   ],
 });
@@ -76,6 +89,7 @@ export async function createFactTable(
     dateUpdated: new Date(),
     datasource: data.datasource,
     facts: [],
+    filters: [],
     owner: data.owner,
     projects: data.projects,
     sql: data.sql,
@@ -112,10 +126,9 @@ export async function createFact(
     dateCreated: new Date(),
     dateUpdated: new Date(),
     column: data.column,
-    type: data.type,
     numberFormat: data.numberFormat,
     description: data.description,
-    where: data.where,
+    filters: data.filters,
   };
 
   if (factTable.facts.some((f) => f.id === fact.id)) {
@@ -168,6 +181,71 @@ export async function updateFact(
   );
 }
 
+export async function createFactFilter(
+  factTable: FactTableInterface,
+  data: CreateFactFilterProps
+) {
+  const filter: FactFilterInterface = {
+    id: data.id || uniqid("flt_"),
+    name: data.name,
+    dateCreated: new Date(),
+    dateUpdated: new Date(),
+    value: data.value,
+    description: data.description,
+  };
+
+  if (factTable.filters.some((f) => f.id === filter.id)) {
+    throw new Error("Filter id already exists in this fact table");
+  }
+
+  await FactTableModel.updateOne(
+    {
+      id: factTable.id,
+      organization: factTable.organization,
+    },
+    {
+      $set: {
+        dateUpdated: new Date(),
+      },
+      $push: {
+        filters: filter,
+      },
+    }
+  );
+
+  return filter;
+}
+
+export async function updateFactFilter(
+  factTable: FactTableInterface,
+  filterId: string,
+  changes: UpdateFactFilterProps
+) {
+  const filters = [...factTable.filters];
+
+  const filterIndex = filters.findIndex((f) => f.id === filterId);
+  if (filterIndex < 0) throw new Error("Could not find filter with that id");
+
+  filters[filterIndex] = {
+    ...filters[filterIndex],
+    ...changes,
+    dateUpdated: new Date(),
+  };
+
+  await FactTableModel.updateOne(
+    {
+      id: factTable.id,
+      organization: factTable.organization,
+    },
+    {
+      $set: {
+        dateUpdated: new Date(),
+        filters: filters,
+      },
+    }
+  );
+}
+
 export async function deleteFactTable(factTable: FactTableInterface) {
   await FactTableModel.deleteOne({
     id: factTable.id,
@@ -194,6 +272,30 @@ export async function deleteFact(
       $set: {
         dateUpdated: new Date(),
         facts: newFacts,
+      },
+    }
+  );
+}
+
+export async function deleteFactFilter(
+  factTable: FactTableInterface,
+  filterId: string
+) {
+  const newFilters = factTable.filters.filter((f) => f.id !== filterId);
+
+  if (newFilters.length === factTable.filters.length) {
+    throw new Error("Could not find filter with that id");
+  }
+
+  await FactTableModel.updateOne(
+    {
+      id: factTable.id,
+      organization: factTable.organization,
+    },
+    {
+      $set: {
+        dateUpdated: new Date(),
+        filters: newFilters,
       },
     }
   );

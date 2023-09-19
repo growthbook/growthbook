@@ -23,7 +23,7 @@ export const updateFactTablePropsValidator = z
     sql: z.string().optional(),
   })
   .strict();
-export const factTypeValidator = z.enum(["number", "row"]);
+
 export const numberFormatValidator = z.enum([
   "number",
   "currency",
@@ -35,10 +35,9 @@ export const createFactPropsValidator = z
     id: z.string().optional(),
     name: z.string(),
     description: z.string(),
-    type: factTypeValidator,
     column: z.string(),
     numberFormat: numberFormatValidator,
-    where: z.string(),
+    filters: z.array(z.string()),
   })
   .strict();
 
@@ -48,6 +47,23 @@ export const updateFactPropsValidator = z
     description: z.string(),
     column: z.string(),
     numberFormat: numberFormatValidator,
-    where: z.string(),
+    filters: z.array(z.string()),
+  })
+  .strict();
+
+export const createFactFilterPropsValidator = z
+  .object({
+    id: z.string().optional(),
+    name: z.string(),
+    description: z.string(),
+    value: z.string(),
+  })
+  .strict();
+
+export const updateFactFilterPropsValidator = z
+  .object({
+    name: z.string(),
+    description: z.string(),
+    value: z.string(),
   })
   .strict();

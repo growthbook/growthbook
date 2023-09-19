@@ -1,9 +1,8 @@
 import {
-  CreateFactProps,
-  FactInterface,
-  FactNumberFormat,
+  CreateFactFilterProps,
+  FactFilterInterface,
   FactTableInterface,
-  UpdateFactProps,
+  UpdateFactFilterProps,
 } from "back-end/types/fact-table";
 import { useForm } from "react-hook-form";
 import { useState } from "react";
@@ -11,17 +10,16 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import { useAuth } from "@/services/auth";
 import Modal from "../Modal";
 import Field from "../Forms/Field";
-import SelectField from "../Forms/SelectField";
 import MarkdownInput from "../Markdown/MarkdownInput";
-import MultiSelectField from "../Forms/MultiSelectField";
+import InlineCode from "../SyntaxHighlighting/InlineCode";
 
 export interface Props {
   factTable: FactTableInterface;
-  existing?: FactInterface;
+  existing?: FactFilterInterface;
   close: () => void;
 }
 
-export default function FactModal({ existing, factTable, close }: Props) {
+export default function FactFilterModal({ existing, factTable, close }: Props) {
   const { apiCall } = useAuth();
 
   const [showDescription, setShowDescription] = useState(
@@ -30,13 +28,11 @@ export default function FactModal({ existing, factTable, close }: Props) {
 
   const { mutateDefinitions } = useDefinitions();
 
-  const form = useForm<CreateFactProps>({
+  const form = useForm<CreateFactFilterProps>({
     defaultValues: {
-      column: existing?.column || "",
       description: existing?.description || "",
       name: existing?.name || "",
-      numberFormat: existing?.numberFormat || "number",
-      filters: existing?.filters || [],
+      value: existing?.value || "",
     },
   });
 
@@ -45,24 +41,29 @@ export default function FactModal({ existing, factTable, close }: Props) {
       open={true}
       close={close}
       cta={"Save"}
-      header={existing ? "Edit Fact" : "Add Fact"}
+      header={existing ? "Edit Filter" : "Add Filter"}
       submit={form.handleSubmit(async (value) => {
+        // If they added their own "WHERE" to the start, remove it
+        value.value = value.value.replace(/^\s*where\s*/i, "").trim();
+
+        if (!value.value) {
+          throw new Error("Cannot leave Filter SQL blank");
+        }
+
         if (existing) {
-          const data: UpdateFactProps = {
+          const data: UpdateFactFilterProps = {
             description: value.description,
-            column: value.column,
             name: value.name,
-            numberFormat: value.numberFormat,
-            filters: value.filters,
+            value: value.value,
           };
-          await apiCall(`/fact-tables/${factTable.id}/fact/${existing.id}`, {
+          await apiCall(`/fact-tables/${factTable.id}/filter/${existing.id}`, {
             method: "PUT",
             body: JSON.stringify(data),
           });
         } else {
           await apiCall<{
             factId: string;
-          }>(`/fact-tables/${factTable.id}/fact`, {
+          }>(`/fact-tables/${factTable.id}/filter`, {
             method: "POST",
             body: JSON.stringify(value),
           });
@@ -94,42 +95,42 @@ export default function FactModal({ existing, factTable, close }: Props) {
         </a>
       )}
 
-      <Field label="Column" {...form.register("column")} required />
-
-      <SelectField
-        label="Number Format"
-        value={form.watch("numberFormat")}
-        helpText="Used to properly format numbers in the UI"
-        onChange={(f) => form.setValue("numberFormat", f as FactNumberFormat)}
-        options={[
-          {
-            label: "Plain Number",
-            value: "number",
-          },
-          {
-            label: "Currency",
-            value: "currency",
-          },
-          {
-            label: "Time (seconds)",
-            value: "time:seconds",
-          },
-        ]}
+      <Field
+        label="Filter SQL"
         required
+        textarea
+        helpText={
+          <>
+            Will be inserted into a WHERE clause to limit rows included in a
+            fact or metric
+          </>
+        }
+        {...form.register("value")}
       />
 
-      {factTable.filters.length > 0 && (
-        <MultiSelectField
-          label="Filters (optional)"
-          value={form.watch("filters")}
-          onChange={(filters) => form.setValue("filters", filters)}
-          options={factTable.filters.map((f) => ({
-            label: f.name,
-            value: f.id,
-          }))}
-          helpText={<>Limit which rows are included</>}
-        />
-      )}
+      <div className="mt-4 alert alert-info">
+        <div className="mb-2">Here are some examples of Filter SQL:</div>
+        <table className="table gbtable">
+          <tr>
+            <td>
+              <InlineCode code={`status = 'active'`} language="sql" />
+            </td>
+          </tr>
+          <tr>
+            <td>
+              <InlineCode
+                code={`discount > 0 AND coupon IS NOT NULL`}
+                language="sql"
+              />
+            </td>
+          </tr>
+          <tr>
+            <td>
+              <InlineCode code={`country IN ('US','CA','UK')`} language="sql" />
+            </td>
+          </tr>
+        </table>
+      </div>
     </Modal>
   );
 }

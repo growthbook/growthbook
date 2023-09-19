@@ -1,14 +1,13 @@
 import { z } from "zod";
 import {
+  createFactFilterPropsValidator,
   createFactPropsValidator,
   createFactTablePropsValidator,
-  factTypeValidator,
   numberFormatValidator,
+  updateFactFilterPropsValidator,
   updateFactPropsValidator,
   updateFactTablePropsValidator,
 } from "../src/routers/fact-table/fact-table.validators";
-
-export type FactType = z.infer<typeof factTypeValidator>;
 
 export type FactNumberFormat = z.infer<typeof numberFormatValidator>;
 
@@ -18,10 +17,18 @@ export interface FactInterface {
   dateUpdated: Date;
   name: string;
   description: string;
-  type: FactType;
   column: string;
   numberFormat: FactNumberFormat;
-  where: string;
+  filters: string[];
+}
+
+export interface FactFilterInterface {
+  id: string;
+  dateCreated: Date;
+  dateUpdated: Date;
+  name: string;
+  description: string;
+  value: string;
 }
 
 export interface FactTableInterface {
@@ -37,6 +44,7 @@ export interface FactTableInterface {
   userIdTypes: string[];
   sql: string;
   facts: FactInterface[];
+  filters: FactFilterInterface[];
 }
 
 export type CreateFactTableProps = z.infer<
@@ -44,6 +52,12 @@ export type CreateFactTableProps = z.infer<
 >;
 export type UpdateFactTableProps = z.infer<
   typeof updateFactTablePropsValidator
+>;
+export type CreateFactFilterProps = z.infer<
+  typeof createFactFilterPropsValidator
+>;
+export type UpdateFactFilterProps = z.infer<
+  typeof updateFactFilterPropsValidator
 >;
 export type UpdateFactProps = z.infer<typeof updateFactPropsValidator>;
 export type CreateFactProps = z.infer<typeof createFactPropsValidator>;

@@ -3,8 +3,10 @@ import z from "zod";
 import { wrapController } from "../wrapController";
 import { validateRequestMiddleware } from "../utils/validateRequestMiddleware";
 import {
+  createFactFilterPropsValidator,
   createFactPropsValidator,
   createFactTablePropsValidator,
+  updateFactFilterPropsValidator,
   updateFactPropsValidator,
   updateFactTablePropsValidator,
 } from "./fact-table.validators";
@@ -16,6 +18,9 @@ const factTableController = wrapController(rawFactTableController);
 
 const factTableParams = z.object({ id: z.string() }).strict();
 const factParams = z.object({ id: z.string(), factId: z.string() }).strict();
+const filterParams = z
+  .object({ id: z.string(), filterId: z.string() })
+  .strict();
 
 router.post(
   "/",
@@ -66,6 +71,32 @@ router.delete(
     params: factParams,
   }),
   factTableController.deleteFact
+);
+
+router.post(
+  "/:id/filter",
+  validateRequestMiddleware({
+    params: factTableParams,
+    body: createFactFilterPropsValidator,
+  }),
+  factTableController.postFactFilter
+);
+
+router.put(
+  "/:id/filter/:filterId",
+  validateRequestMiddleware({
+    params: filterParams,
+    body: updateFactFilterPropsValidator,
+  }),
+  factTableController.putFactFilter
+);
+
+router.delete(
+  "/:id/filter/:filterId",
+  validateRequestMiddleware({
+    params: filterParams,
+  }),
+  factTableController.deleteFactFilter
 );
 
 export { router as factTableRouter };

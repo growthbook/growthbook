@@ -2,9 +2,11 @@ import type { Response } from "express";
 import { AuthRequest } from "../../types/AuthRequest";
 import { getOrgFromReq } from "../../services/organizations";
 import {
+  CreateFactFilterProps,
   CreateFactProps,
   CreateFactTableProps,
   FactTableInterface,
+  UpdateFactFilterProps,
   UpdateFactProps,
   UpdateFactTableProps,
 } from "../../../types/fact-table";
@@ -17,6 +19,9 @@ import {
   updateFactTable,
   deleteFactTable as deleteFactTableInDb,
   deleteFact as deleteFactInDb,
+  deleteFactFilter as deleteFactFilterInDb,
+  createFactFilter,
+  updateFactFilter,
 } from "../../models/FactTableModel";
 
 export const getFactTables = async (
@@ -149,6 +154,68 @@ export const deleteFact = async (
   req.checkPermissions("manageFactTables", factTable.projects);
 
   await deleteFactInDb(factTable, req.params.factId);
+
+  res.status(200).json({
+    status: 200,
+  });
+};
+
+export const postFactFilter = async (
+  req: AuthRequest<CreateFactFilterProps, { id: string }>,
+  res: Response<{ status: 200; filterId: string }>
+) => {
+  const data = req.body;
+  const { org } = getOrgFromReq(req);
+
+  const factTable = await getFactTable(org.id, req.params.id);
+  if (!factTable) {
+    throw new Error("Could not find fact table with that id");
+  }
+
+  req.checkPermissions("manageFactTables", factTable.projects);
+
+  const filter = await createFactFilter(factTable, data);
+
+  res.status(200).json({
+    status: 200,
+    filterId: filter.id,
+  });
+};
+
+export const putFactFilter = async (
+  req: AuthRequest<UpdateFactFilterProps, { id: string; filterId: string }>,
+  res: Response<{ status: 200 }>
+) => {
+  const data = req.body;
+  const { org } = getOrgFromReq(req);
+
+  const factTable = await getFactTable(org.id, req.params.id);
+  if (!factTable) {
+    throw new Error("Could not find fact table with that id");
+  }
+
+  req.checkPermissions("manageFactTables", factTable.projects);
+
+  await updateFactFilter(factTable, req.params.filterId, data);
+
+  res.status(200).json({
+    status: 200,
+  });
+};
+
+export const deleteFactFilter = async (
+  req: AuthRequest<null, { id: string; filterId: string }>,
+  res: Response<{ status: 200 }>
+) => {
+  const { org } = getOrgFromReq(req);
+
+  const factTable = await getFactTable(org.id, req.params.id);
+  if (!factTable) {
+    throw new Error("Could not find filter table with that id");
+  }
+  req.checkPermissions("manageFactTables", factTable.projects);
+
+  await deleteFactFilterInDb(factTable, req.params.filterId);
 
   res.status(200).json({
     status: 200,
