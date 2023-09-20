@@ -34,6 +34,7 @@ import {
   getEnabledEnvironments,
   getAffectedEnvs,
 } from "@/services/features";
+import AssignmentTester from "@/components/Features/AssignmentTester";
 import Tab from "@/components/Tabs/Tab";
 import FeatureImplementationModal from "@/components/Features/FeatureImplementationModal";
 import SortedTags from "@/components/Tags/SortedTags";
@@ -812,6 +813,11 @@ export default function FeaturePage() {
           </div>
         </div>
       )}
+
+      <div className="mb-4">
+        <h3>Test Rules</h3>
+        <AssignmentTester feature={data.feature} />
+      </div>
 
       <div className="mb-4">
         <h3>Comments</h3>

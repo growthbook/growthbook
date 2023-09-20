@@ -1,12 +1,14 @@
 import { Request, Response } from "express";
+import { GrowthBook } from "@growthbook/growthbook";
 import {
   ExperimentRefRule,
   FeatureDraftChanges,
   FeatureInterface,
   FeatureRule,
+  FeatureTestResult,
 } from "../../types/feature";
 import { AuthRequest } from "../types/AuthRequest";
-import { getOrgFromReq } from "../services/organizations";
+import { getEnvironments, getOrgFromReq } from "../services/organizations";
 import {
   addFeatureRule,
   createFeature,
@@ -33,9 +35,11 @@ import {
   addIdsToRules,
   arrayMove,
   getFeatureDefinitions,
+  getSavedGroupMap,
   verifyDraftsAreEqual,
 } from "../services/features";
 import {
+  getAllPayloadExperiments,
   getExperimentByTrackingKey,
   getExperimentsByIds,
 } from "../models/ExperimentModel";
@@ -46,7 +50,7 @@ import {
   auditDetailsDelete,
 } from "../services/audit";
 import { getRevisions } from "../models/FeatureRevisionModel";
-import { getEnabledEnvironments } from "../util/features";
+import { getEnabledEnvironments, getFeatureDefinition } from "../util/features";
 import { ExperimentInterface } from "../../types/experiment";
 import {
   findSDKConnectionByKey,
@@ -846,6 +850,71 @@ export async function deleteFeatureById(
 
   res.status(200).json({
     status: 200,
+  });
+}
+
+export async function postFeatureEvaluate(
+  req: AuthRequest<
+    { attributes: Record<string, boolean | string | number | object> },
+    { id: string }
+  >,
+  res: Response<
+    { status: 200; results: FeatureTestResult[] },
+    EventAuditUserForResponseLocals
+  >
+) {
+  const { id } = req.params;
+  const { org } = getOrgFromReq(req);
+  const feature = await getFeature(org.id, id);
+  const { attributes } = req.body;
+
+  if (!feature) {
+    throw new Error("Could not find feature");
+  }
+  const groupMap = await getSavedGroupMap(org);
+  const experimentMap = await getAllPayloadExperiments(org.id);
+  const environments = getEnvironments(org);
+
+  const results: FeatureTestResult[] = [];
+
+  // I could loop through the feature's defined environments, but if environments change in the org,
+  // the values in the feature will be wrong.
+  environments.forEach((env) => {
+    const thisEnvResult: FeatureTestResult = {
+      env: env.id,
+      result: null,
+      enabled: false,
+      defaultValue: feature.defaultValue,
+    };
+    const settings = feature.environmentSettings[env.id] ?? null;
+    if (settings) {
+      thisEnvResult.enabled = settings.enabled;
+      const definition = getFeatureDefinition({
+        feature,
+        groupMap,
+        experimentMap,
+        environment: env.id,
+        useDraft: true,
+        returnRuleId: true,
+      });
+      if (definition) {
+        thisEnvResult.featureDefinition = definition;
+        const gb = new GrowthBook({
+          features: {
+            [feature.id]: definition,
+          },
+          attributes: attributes,
+        });
+
+        thisEnvResult.result = gb.evalFeature(feature.id);
+      }
+    }
+    results.push(thisEnvResult);
+  });
+
+  res.status(200).json({
+    status: 200,
+    results: results,
   });
 }
 

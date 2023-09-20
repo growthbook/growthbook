@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
+import { FeatureDefinition, FeatureResult } from "@growthbook/growthbook";
 import { UserRef } from "./user";
 
 export type FeatureValueType = "boolean" | "string" | "number" | "json";
@@ -117,3 +118,11 @@ export type FeatureRule =
   | RolloutRule
   | ExperimentRule
   | ExperimentRefRule;
+
+export interface FeatureTestResult {
+  env: string;
+  enabled: boolean;
+  result: null | FeatureResult;
+  defaultValue: boolean | string | object;
+  featureDefinition?: FeatureDefinition;
+}
