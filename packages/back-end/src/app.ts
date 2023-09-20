@@ -24,6 +24,7 @@ import { verifySlackRequestSignature } from "./services/slack";
 import { getAuthConnection, processJWT, usingOpenId } from "./services/auth";
 import { wrapController } from "./routers/wrapController";
 import apiRouter from "./api/api.router";
+import scimRouter from "./scim/scim.router";
 
 if (SENTRY_DSN) {
   Sentry.init({ dsn: SENTRY_DSN });
@@ -225,6 +226,18 @@ app.use(
     origin: "*",
   }),
   apiRouter
+);
+
+// SCIM API routes (no JWT or CORS)
+app.use(
+  "/scim/v2",
+  bodyParser.raw({
+    type: "application/scim+json",
+  }),
+  cors({
+    origin: "*",
+  }),
+  scimRouter
 );
 
 // Accept cross-origin requests from the frontend app
