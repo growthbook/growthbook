@@ -252,20 +252,26 @@ export class GrowthBook<
 
   public setAttributes(attributes: Attributes) {
     this._ctx.attributes = attributes;
+    if (this._ctx.remoteEval) {
+      if (this._ctx.loadFeaturesCalled) {
+        this._refresh({ skipCache: true }, false, true);
+      }
+      return;
+    }
     this._render();
     this._updateAllAutoExperiments();
-    if (this._ctx.remoteEval && this._ctx.loadFeaturesCalled) {
-      this._refresh({ skipCache: true }, false, true);
-    }
   }
 
   public setAttributeOverrides(overrides: Attributes) {
     this._attributeOverrides = overrides;
+    if (this._ctx.remoteEval) {
+      if (this._ctx.loadFeaturesCalled) {
+        this._refresh({ skipCache: true }, false, true);
+      }
+      return;
+    }
     this._render();
     this._updateAllAutoExperiments();
-    if (this._ctx.remoteEval && this._ctx.loadFeaturesCalled) {
-      this._refresh({ skipCache: true }, false, true);
-    }
   }
   public setForcedVariations(vars: Record<string, number>) {
     this._ctx.forcedVariations = vars || {};
