@@ -114,6 +114,9 @@ export class GrowthBook<
   }
 
   public async loadFeatures(options?: LoadFeaturesOptions): Promise<void> {
+    if (options && options.autoRefresh) {
+      this._ctx.subscribeToChanges = true;
+    }
     this._loadFeaturesCalled = true;
 
     await this._refresh(options, true, true);
@@ -121,10 +124,7 @@ export class GrowthBook<
     // remote eval: don't subscribe if there is no uid
     if (this._ctx.remoteEval && !this._ctx.userId) return;
 
-    if (
-      this._ctx.backgroundSync !== false &&
-      (this._ctx.subscribeToChanges || (options && options.autoRefresh))
-    ) {
+    if (this.canSubscribe()) {
       subscribe(this);
     }
   }
@@ -142,10 +142,9 @@ export class GrowthBook<
     apiHost: string;
     streamingHost: string;
     remoteEvalHost: string;
-    featuresPath: string;
-    streamingPath: string;
-    remoteEvalPath: string;
-    apiRequestHeaders: Record<string, string>;
+    apiRequestHeaders?: Record<string, string>;
+    streamingRequestHeaders?: Record<string, string>;
+    remoteEvalRequestHeaders?: Record<string, string>;
   } {
     const defaultHost = this._ctx.apiHost || "https://cdn.growthbook.io";
     return {
@@ -154,14 +153,11 @@ export class GrowthBook<
         /\/*$/,
         ""
       ),
-      remoteEvalHost: (this._ctx.remoteEvalHost || defaultHost).replace(
+      remoteEvalHost: (this._ctx.remoteEvalHost || this._ctx.apiHost || "").replace(
         /\/*$/,
         ""
       ),
-      featuresPath: this._ctx.featuresPath || "/api/features",
-      streamingPath: this._ctx.streamingPath || "/sub",
-      remoteEvalPath: this._ctx.remoteEvalPath || "/eval",
-      apiRequestHeaders: this._ctx.apiRequestHeaders || {},
+      apiRequestHeaders: this._ctx.apiRequestHeaders,
     };
   }
   public getClientKey(): string {
@@ -184,7 +180,7 @@ export class GrowthBook<
     if (!this._loadFeaturesCalled) return;
 
     this._refresh({ skipCache: this.isRemoteEval() }, false, false);
-    if (this._ctx.remoteEval && userId) {
+    if (this._ctx.remoteEval && userId && this.canSubscribe()) {
       subscribe(this);
     }
   }
@@ -320,10 +316,13 @@ export class GrowthBook<
 
   public subscribe(cb: SubscriptionFunction): () => void {
     this._subscriptions.add(cb);
-
     return () => {
       this._subscriptions.delete(cb);
     };
+  }
+
+  private canSubscribe() {
+    return this._ctx.backgroundSync !== false && this._ctx.subscribeToChanges;
   }
 
   public getAllResults() {

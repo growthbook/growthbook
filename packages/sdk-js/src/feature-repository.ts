@@ -30,6 +30,41 @@ const polyfills: Polyfills = {
   SubtleCrypto: globalThis.crypto ? globalThis.crypto.subtle : undefined,
   EventSource: globalThis.EventSource,
 };
+// tslint:disable-next-line
+const callMethods: any = {
+  fetchFeaturesCall: ({
+    host, clientKey, headers
+  }: {
+    host: string, clientKey: string, headers?: Record<string, string>
+  }) => {
+    return (polyfills.fetch as typeof globalThis.fetch)(`${host}/api/features/${clientKey}`, { ...headers }) as Promise<Response>;
+  },
+  fetchRemoteEvalCall: ({
+    host, clientKey, payload, headers
+  }: {
+    host: string, clientKey: string, payload: any, headers?: Record<string, string>
+  }) => {
+    const options = {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...headers },
+      body: JSON.stringify(payload),
+    }
+    return (polyfills.fetch as typeof globalThis.fetch)(`${host}/api/eval/${clientKey}`, options) as Promise<Response>;
+  },
+  eventSourceCall: ({
+    host, clientKey, headers
+  }: {
+    host: string, clientKey: string, headers?: Record<string, string>
+  }) => {
+    if (headers) {
+      return new polyfills.EventSource(`${host}/sub/${clientKey}`, {
+        headers,
+      }) as EventSource;
+    }
+    return new polyfills.EventSource(`${host}/sub/${clientKey}`) as EventSource;
+  }
+}
+
 try {
   if (globalThis.localStorage) {
     polyfills.localStorage = globalThis.localStorage;
@@ -37,6 +72,40 @@ try {
 } catch (e) {
   // Ignore localStorage errors
 }
+
+// let fetchFeaturesCall = ({
+//   host, clientKey, headers
+// }: {
+//   host: string, clientKey: string, headers?: Record<string, string>
+// }) => {
+//   return (polyfills.fetch as typeof globalThis.fetch)(`${host}/api/features/${clientKey}`, { ...headers }) as Promise<Response>;
+// };
+//
+// let fetchRemoteEvalCall = ({
+//   host, clientKey, payload, headers
+// }: {
+//   host: string, clientKey: string, payload: any, headers?: Record<string, string>
+// }) => {
+//   const options = {
+//     method: "POST",
+//     headers: { "Content-Type": "application/json", ...headers },
+//     body: JSON.stringify(payload),
+//   }
+//   return (polyfills.fetch as typeof globalThis.fetch)(`${host}/api/eval/${clientKey}`, options) as Promise<Response>;
+// };
+//
+// let eventSourceCall = ({
+//   host, clientKey, headers
+// }: {
+//   host: string, clientKey: string, headers?: Record<string, string>
+// }) => {
+//   if (headers) {
+//     return new polyfills.EventSource(`${host}/sub/${clientKey}`, {
+//       headers,
+//     }) as EventSource;
+//   }
+//   return new polyfills.EventSource(`${host}/sub/${clientKey}`) as EventSource;
+// }
 
 // Global state
 const subscribedInstances: Map<RepositoryKey, Set<GrowthBook>> = new Map();
@@ -58,6 +127,23 @@ export function configureCache(overrides: Partial<CacheSettings>): void {
   if (!cacheSettings.backgroundSync) {
     clearAutoRefresh();
   }
+}
+export function setFetchFeaturesCall(
+  fn: typeof callMethods.fetchFeaturesCall
+): void {
+  callMethods.fetchFeaturesCall = fn;
+}
+
+export function setFetchRemoteEvalCall(
+  fn: typeof callMethods.fetchRemoteEvalCall
+): void {
+  callMethods.fetchRemoteEvalCall = fn;
+}
+
+export function setEventSourceCall(
+  fn: typeof callMethods.eventSourceCall
+): void {
+  callMethods.eventSourceCall = fn;
 }
 
 export async function clearCache(): Promise<void> {
@@ -253,36 +339,30 @@ async function fetchFeatures(
   const key = getKey(instance);
   const {
     apiHost,
-    featuresPath,
     remoteEvalHost,
-    remoteEvalPath,
     apiRequestHeaders,
   } = instance.getApiHosts();
   const clientKey = instance.getClientKey();
   const remoteEval = instance.isRemoteEval();
 
-  const endpoint = remoteEval
-    ? `${remoteEvalHost}${remoteEvalPath}/${clientKey}`
-    : `${apiHost}${featuresPath}/${clientKey}`;
-  const options: RequestInit = remoteEval
-    ? {
-        method: "POST",
-        headers: { "Content-Type": "application/json", ...apiRequestHeaders },
-        body: JSON.stringify({
+  if (remoteEval && !remoteEvalHost) {
+    throw new Error("remoteEvalHost is required");
+  }
+
+  let promise = activeFetches.get(key);
+  console.log(callMethods.fetchFeaturesCall)
+  if (!promise) {
+    const fetcher: Promise<Response> = remoteEval
+      ? callMethods.fetchRemoteEvalCall({ host: remoteEvalHost, clientKey, payload: {
           attributes: instance.getAttributes(),
           forcedVariations: instance.getForcedVariations(),
           forcedFeatures: Array.from(instance.getForcedFeatures().entries()),
           url: instance.getUrl(),
-        }),
-      }
-    : {
-        headers: apiRequestHeaders,
-      };
+        }, headers: apiRequestHeaders})
+      : callMethods.fetchFeaturesCall({ host: apiHost, clientKey, headers: apiRequestHeaders });
 
-  let promise = activeFetches.get(key);
-  if (!promise) {
-    promise = (polyfills.fetch as typeof globalThis.fetch)(endpoint, options)
-      // TODO: auto-retry if status code indicates a temporary error
+    // TODO: auto-retry if status code indicates a temporary error
+    promise = fetcher
       .then((res) => {
         if (res.headers.get("x-sse-support") === "enabled") {
           supportsSSE.add(key);
@@ -316,7 +396,6 @@ function startAutoRefresh(instance: GrowthBook): void {
   const key = getKey(instance);
   const {
     streamingHost,
-    streamingPath,
     apiRequestHeaders,
   } = instance.getApiHosts();
   const clientKey = instance.getClientKey();
@@ -348,9 +427,8 @@ function startAutoRefresh(instance: GrowthBook): void {
           onSSEError(
             channel,
             streamingHost,
-            streamingPath,
-            apiRequestHeaders,
-            clientKey
+            clientKey,
+            apiRequestHeaders
           );
         }
       },
@@ -360,9 +438,8 @@ function startAutoRefresh(instance: GrowthBook): void {
     enableChannel(
       channel,
       streamingHost,
-      streamingPath,
-      apiRequestHeaders,
-      clientKey
+      clientKey,
+      apiRequestHeaders
     );
   }
 }
@@ -370,9 +447,8 @@ function startAutoRefresh(instance: GrowthBook): void {
 function onSSEError(
   channel: ScopedChannel,
   host: string,
-  path: string,
-  headers: Record<string, string>,
-  clientKey: string
+  clientKey: string,
+  headers?: Record<string, string>
 ) {
   channel.errors++;
   if (channel.errors > 3 || (channel.src && channel.src.readyState === 2)) {
@@ -381,7 +457,7 @@ function onSSEError(
       Math.pow(3, channel.errors - 3) * (1000 + Math.random() * 1000);
     disableChannel(channel);
     setTimeout(() => {
-      enableChannel(channel, host, path, headers, clientKey);
+      enableChannel(channel, host, clientKey, headers);
     }, Math.min(delay, 300000)); // 5 minutes max
   }
 }
@@ -397,23 +473,14 @@ function disableChannel(channel: ScopedChannel) {
 function enableChannel(
   channel: ScopedChannel,
   host: string,
-  path: string,
-  headers: Record<string, string>,
-  clientKey: string
+  clientKey: string,
+  headers?: Record<string, string>,
 ) {
-  try {
-    channel.src = new polyfills.EventSource(`${host}${path}/${clientKey}`, {
-      headers,
-    }) as EventSource;
-  } catch (e) {
-    channel.src = new polyfills.EventSource(
-      `${host}${path}/${clientKey}`
-    ) as EventSource;
-  }
+  channel.src = callMethods.eventSourceCall({ host, clientKey, headers }) as EventSource;
   channel.src.addEventListener("features", channel.cb);
   channel.src.addEventListener("features-updated", channel.cb);
   channel.src.onerror = () => {
-    onSSEError(channel, host, path, headers, clientKey);
+    onSSEError(channel, host, clientKey, headers);
   };
   channel.src.onopen = () => {
     channel.errors = 0;

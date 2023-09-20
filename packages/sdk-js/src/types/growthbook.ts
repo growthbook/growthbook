@@ -172,13 +172,10 @@ export interface Context {
   apiHost?: string;
   streamingHost?: string;
   remoteEvalHost?: string;
-  featuresPath?: string;
-  streamingPath?: string;
-  remoteEvalPath?: string;
+  apiRequestHeaders?: Record<string, string>;
   clientKey?: string;
   decryptionKey?: string;
   remoteEval?: boolean;
-  apiRequestHeaders?: Record<string, string>;
 }
 
 export type SubscriptionFunction = (
