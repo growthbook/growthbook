@@ -1,15 +1,15 @@
 import { createApiRequestHandler } from "../../util/handler";
-import { createUser as createNewUser } from "../../services/users";
-import { addMemberToOrg, getOrgFromReq } from "../../services/organizations";
-import { MemberRole } from "../../../types/organization";
+import {
+  createUser as createNewUser,
+  getUserByEmail,
+} from "../../services/users";
+import { addMemberToOrg } from "../../services/organizations";
 
 export const createUser = createApiRequestHandler()(
-  async (req): Promise<any> => {
-    console.log("createUser endpoint was hit");
+  async (req: any): Promise<any> => {
     const requestBody = req.body.toString("utf-8");
 
     const requestBodyObject = JSON.parse(requestBody);
-    console.log("requestBodyObject", requestBodyObject);
 
     const org = req.organization;
 
@@ -18,14 +18,17 @@ export const createUser = createApiRequestHandler()(
     }
 
     try {
-      // Create the user in Mongo
-      const user = await createNewUser(
-        requestBodyObject.displayName,
-        requestBodyObject.userName,
-        requestBodyObject.password
-      );
+      // Look up the user in Mongo
+      let user = await getUserByEmail(requestBodyObject.userName);
 
-      console.log("user created in Mongo", user);
+      if (!user) {
+        // If the user doesn't exist create the user in Mongo
+        user = await createNewUser(
+          requestBodyObject.displayName,
+          requestBodyObject.userName,
+          requestBodyObject.password
+        );
+      }
 
       const role = org.settings?.defaultRole?.role || "readonly";
 

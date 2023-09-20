@@ -2,6 +2,7 @@ import { Router } from "express";
 import { getUser } from "./getUser";
 import { createUser } from "./createUser";
 import { listUsers } from "./listUsers";
+import { updateUser } from "./updateUser";
 
 const router = Router();
 
@@ -10,5 +11,6 @@ const router = Router();
 router.get("/", listUsers);
 router.get("/:id", getUser);
 router.post("/", createUser);
+router.patch("/:id", updateUser);
 
 export default router;
