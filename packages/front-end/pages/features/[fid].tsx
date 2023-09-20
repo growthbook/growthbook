@@ -109,6 +109,7 @@ export default function FeaturePage() {
     data.feature
   );
 
+  // todo: update these draft references based on the new drafts
   const isDraft = !!data.feature.draft?.active;
   const isArchived = data.feature.archived;
 
@@ -142,6 +143,7 @@ export default function FeaturePage() {
     permissions.check(
       "publishFeatures",
       projectId,
+      // todo: update these draft references based on the new drafts
       "defaultValue" in (data?.feature?.draft || {})
         ? getEnabledEnvironments(data.feature)
         : getAffectedEnvs(

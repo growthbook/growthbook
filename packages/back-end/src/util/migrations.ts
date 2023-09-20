@@ -207,22 +207,22 @@ function updateEnvironmentSettings(
 }
 
 function draftHasChanges(feature: FeatureInterface) {
-  if (!feature.draft?.active) return false;
+  // todo: update these draft references based on the new drafts
+  const draft = feature.draft;
 
-  if (
-    "defaultValue" in feature.draft &&
-    feature.draft.defaultValue !== feature.defaultValue
-  ) {
+  if (!draft?.active) return false;
+
+  if ("defaultValue" in draft && draft.defaultValue !== feature.defaultValue) {
     return true;
   }
 
-  if (feature.draft.rules) {
+  if (draft.rules) {
     const comp: Record<string, FeatureRule[]> = {};
-    Object.keys(feature.draft.rules).forEach((key) => {
+    Object.keys(draft.rules).forEach((key) => {
       comp[key] = feature.environmentSettings?.[key]?.rules || [];
     });
 
-    if (!isEqual(comp, feature.draft.rules)) {
+    if (!isEqual(comp, draft.rules)) {
       return true;
     }
   }
@@ -279,16 +279,21 @@ export function upgradeFeatureInterface(
       settings.rules = settings.rules.map((r) => upgradeFeatureRule(r));
     }
   }
+
+  // todo: update these draft references based on the new drafts
   // Upgrade all draft rules
-  if (newFeature.draft?.rules) {
-    for (const env in newFeature.draft.rules) {
-      const rules = newFeature.draft.rules;
+  const newFeatureDraft = newFeature.draft;
+
+  if (newFeatureDraft?.rules) {
+    for (const env in newFeatureDraft.rules) {
+      const rules = newFeatureDraft.rules;
       rules[env] = rules[env].map((r) => upgradeFeatureRule(r));
     }
   }
 
   // Ignore drafts if nothing has changed
-  if (newFeature.draft?.active && !draftHasChanges(newFeature)) {
+  if (newFeatureDraft?.active && !draftHasChanges(newFeature)) {
+    // todo: update these draft references based on the new drafts
     newFeature.draft = { active: false };
   }
 

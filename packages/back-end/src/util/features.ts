@@ -200,6 +200,7 @@ export function getFeatureDefinition({
     return null;
   }
 
+  // todo: update this stuff based on the new drafts
   const draft = feature.draft;
   if (!draft?.active) {
     useDraft = false;

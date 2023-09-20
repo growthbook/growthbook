@@ -300,6 +300,7 @@ export default function FeaturesPage() {
                 const firstRule = orderedRules[0];
                 const totalRules = rules.length || 0;
 
+                // todo: update these draft references based on the new drafts
                 const isDraft = !!feature.draft?.active;
                 let version = feature.revision?.version || 1;
                 if (isDraft) version++;

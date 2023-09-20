@@ -26,6 +26,8 @@ export default function RevisionDropdown({
   mutate,
 }: Props) {
   const liveVersion = feature.revision?.version || 1;
+
+  // todo: update these draft references based on the new drafts
   const isDraft = !!feature.draft?.active;
   const permissions = usePermissions();
 
@@ -61,6 +63,7 @@ export default function RevisionDropdown({
       });
     }
 
+    // todo: update these draft references based on the new drafts
     // In-progress drafts are not stored with the rest of the revisions
     // Need to add them to the list separately
     if (isDraft) {
@@ -89,6 +92,7 @@ export default function RevisionDropdown({
   const start = (page - 1) * NUM_PER_PAGE;
   const end = start + NUM_PER_PAGE;
 
+  // note: this is where we create features
   async function createDraft(revision: FeatureRevisionInterface) {
     await apiCall(`/feature/${feature.id}/draft`, {
       method: "POST",

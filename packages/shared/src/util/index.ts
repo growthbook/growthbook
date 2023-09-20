@@ -172,8 +172,11 @@ export function getMatchingRules(
     );
   }
 
-  if (feature.draft && feature.draft.active && feature.draft.rules) {
-    Object.entries(feature.draft.rules).forEach(([environmentId, rules]) => {
+  // todo: update these draft references based on the new drafts
+  const draft = feature.draft;
+
+  if (draft && draft.active && draft.rules) {
+    Object.entries(draft.rules).forEach(([environmentId, rules]) => {
       rules.forEach((rule, i) => {
         if (filter(rule)) {
           matches.push({

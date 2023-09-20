@@ -525,6 +525,7 @@ export async function toggleFeatureEnvironment(
 }
 
 export function getDraftRules(feature: FeatureInterface, environment: string) {
+  // todo: update these draft references based on the new drafts
   return (
     feature?.draft?.rules?.[environment] ??
     feature?.environmentSettings?.[environment]?.rules ??
@@ -564,7 +565,7 @@ export async function deleteExperimentRefRule(
     );
   }
 
-  const draft = getDraft(feature);
+  const draft = getLegacyDraft(feature);
 
   let hasChanges = false;
   environmentIds.forEach((env) => {
@@ -603,7 +604,7 @@ export async function addExperimentRefRule(
     );
   }
 
-  const draft = getDraft(feature);
+  const draft = getLegacyDraft(feature);
 
   environmentIds.forEach((env) => {
     draft.rules = draft.rules || {};
@@ -641,7 +642,7 @@ export async function setFeatureDraftRules(
   environment: string,
   rules: FeatureRule[]
 ) {
-  const draft = getDraft(feature);
+  const draft = getLegacyDraft(feature);
   draft.rules = draft.rules || {};
   draft.rules[environment] = rules;
 
@@ -700,7 +701,7 @@ export async function setDefaultValue(
   feature: FeatureInterface,
   defaultValue: string
 ) {
-  const draft = getDraft(feature);
+  const draft = getLegacyDraft(feature);
   draft.defaultValue = defaultValue;
 
   return updateLegacyDraft(org, user, feature, draft);
@@ -730,7 +731,7 @@ export async function updateLegacyDraft(
   return await updateFeature(org, user, feature, { draft });
 }
 
-function getDraft(feature: FeatureInterface) {
+function getLegacyDraft(feature: FeatureInterface) {
   const draft: FeatureDraftChanges = cloneDeep(
     feature.draft || { active: false }
   );
@@ -744,7 +745,10 @@ function getDraft(feature: FeatureInterface) {
   return draft;
 }
 
-export async function discardDraft(
+/**
+ * @deprecated
+ */
+export async function discardLegacyDraft(
   org: OrganizationInterface,
   user: EventAuditUser,
   feature: FeatureInterface
@@ -837,9 +841,12 @@ function getLinkedExperiments(feature: FeatureInterface) {
       });
     });
   }
+
   // Draft rules
-  if (feature.draft && feature.draft.active && feature.draft.rules) {
-    Object.values(feature.draft.rules).forEach((rules) => {
+  // todo: update these draft references based on the new drafts
+  const draft = feature.draft;
+  if (draft && draft.active && draft.rules) {
+    Object.values(draft.rules).forEach((rules) => {
       rules.forEach((rule) => {
         if (rule.type === "experiment-ref") {
           expIds.add(rule.experimentId);

@@ -83,12 +83,14 @@ export function useEnvironments() {
   return environments;
 }
 export function getRules(feature: FeatureInterface, environment: string) {
+  // todo: update these draft references based on the new drafts
   if (feature.draft?.active && feature.draft.rules?.[environment]) {
     return feature.draft.rules[environment];
   }
   return feature?.environmentSettings?.[environment]?.rules ?? [];
 }
 export function getFeatureDefaultValue(feature: FeatureInterface) {
+  // todo: update these draft references based on the new drafts
   if (feature.draft?.active && "defaultValue" in feature.draft) {
     return feature.draft.defaultValue ?? "";
   }

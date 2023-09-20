@@ -74,10 +74,13 @@ export default function DraftModal({
 
   const { apiCall } = useAuth();
 
+  // todo: update these draft references based on the new drafts
   const [comment, setComment] = useState(feature.draft?.comment || "");
 
   const diffs = useMemo(() => {
     const diffs: { a: string; b: string; title: string }[] = [];
+
+    // todo: update these draft references based on the new drafts
 
     // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
     if ("defaultValue" in feature.draft) {
@@ -91,6 +94,7 @@ export default function DraftModal({
     // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
     if ("rules" in feature.draft) {
       environments.forEach((env) => {
+        // todo: update these draft references based on the new drafts
         // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
         if (env.id in feature.draft.rules) {
           diffs.push({
@@ -110,6 +114,7 @@ export default function DraftModal({
     return diffs;
   }, [feature]);
 
+  // todo: update these draft references based on the new drafts
   const hasPermission = permissions.check(
     "publishFeatures",
     feature.project,
@@ -126,6 +131,7 @@ export default function DraftModal({
       submit={
         hasPermission
           ? async () => {
+              // todo: update these draft references based on the new drafts
               try {
                 await apiCall(`/feature/${feature.id}/publish`, {
                   method: "POST",
@@ -153,6 +159,8 @@ export default function DraftModal({
             color="outline-danger"
             onClick={async () => {
               try {
+                // todo: update these draft references based on the new drafts
+                // todo: copy this somewhere
                 await apiCall(`/feature/${feature.id}/discard`, {
                   method: "POST",
                   body: JSON.stringify({

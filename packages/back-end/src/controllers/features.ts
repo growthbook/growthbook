@@ -21,7 +21,7 @@ import {
   updateFeature,
   archiveFeature,
   getDraftRules,
-  discardDraft,
+  discardLegacyDraft,
   updateLegacyDraft,
   setJsonSchema,
   addExperimentRefRule,
@@ -332,6 +332,7 @@ export async function postFeaturePublish(
     throw new Error("Could not find feature");
   }
 
+  // todo: update these draft references based on the new drafts
   // todo: check revisions
   if (!feature.draft?.active) {
     throw new Error("There are no changes to publish.");
@@ -357,6 +358,7 @@ export async function postFeaturePublish(
     );
   }
 
+  // todo: update these draft references based on the new drafts
   verifyDraftsAreEqual(feature.draft, draft);
 
   // todo: save draft FeatureRevision
@@ -406,9 +408,10 @@ export async function postFeatureDiscard(
   req.checkPermissions("manageFeatures", feature.project);
   req.checkPermissions("createFeatureDrafts", feature.project);
 
+  // todo: update these draft references based on the new drafts
   verifyDraftsAreEqual(feature.draft, draft);
 
-  await discardDraft(org, res.locals.eventAudit, feature);
+  await discardLegacyDraft(org, res.locals.eventAudit, feature);
 
   res.status(200).json({
     status: 200,
@@ -501,6 +504,7 @@ export async function postFeatureExperimentRefRule(
   req.checkPermissions("manageFeatures", feature.project);
   req.checkPermissions("createFeatureDrafts", feature.project);
 
+  // todo: this creates a legacy draft
   await addExperimentRefRule(org, res.locals.eventAudit, feature, rule);
 
   res.status(200).json({
@@ -524,6 +528,7 @@ export async function deleteFeatureExperimentRefRule(
   req.checkPermissions("manageFeatures", feature.project);
   req.checkPermissions("createFeatureDrafts", feature.project);
 
+  // todo: this calls update draft
   await deleteExperimentRefRule(
     org,
     res.locals.eventAudit,
@@ -552,6 +557,7 @@ export async function postFeatureDefaultValue(
   req.checkPermissions("manageFeatures", feature.project);
   req.checkPermissions("createFeatureDrafts", feature.project);
 
+  // todo: this calls update legacy draft
   await setDefaultValue(org, res.locals.eventAudit, feature, defaultValue);
 
   res.status(200).json({
@@ -942,8 +948,12 @@ export async function getFeatureById(
       });
     });
   }
-  if (feature.draft && feature.draft.active && feature.draft.rules) {
-    Object.values(feature.draft.rules).forEach((rules) => {
+
+  // todo: update these draft references based on the new drafts
+  const legacyDraft = feature.draft;
+
+  if (legacyDraft && legacyDraft.active && legacyDraft.rules) {
+    Object.values(legacyDraft.rules).forEach((rules) => {
       rules.forEach((r) => {
         if (r.type === "experiment") {
           trackingKeys.add(r.trackingKey || feature.id);
