@@ -1123,7 +1123,14 @@ export default abstract class SqlIntegration
               ? `JOIN __denominatorUsers du ON (du.${baseIdType} = e.${baseIdType})`
               : ""
           }
-        ${segment ? `WHERE s.date <= e.timestamp` : ""}
+        ${segment ? `WHERE s.date <= e.timestamp 
+          AND s.date >= ${this.toTimestamp(startDate)}
+          ${
+            endDate // This will provide a hint to the Query Planner for a speed improvement.
+              ? `AND s.date <= ${this.toTimestamp(endDate)}`
+              : ""
+          }` 
+          : ""}
         GROUP BY
           e.${baseIdType}
       )
