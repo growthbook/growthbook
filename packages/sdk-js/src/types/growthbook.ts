@@ -151,6 +151,7 @@ export interface Context {
   qaMode?: boolean;
   backgroundSync?: boolean;
   subscribeToChanges?: boolean;
+  loadFeaturesCalled?: boolean;
   enableDevMode?: boolean;
   /* @deprecated */
   disableDevTools?: boolean;

@@ -143,7 +143,7 @@ async function fetchFeaturesWithCache(
 
 function getKey(instance: GrowthBook): RepositoryKey {
   const [apiHost, clientKey] = instance.getApiInfo();
-  return instance.getRemoteEval()
+  return instance.isRemoteEval()
     ? `${apiHost}||${clientKey}||${instance.getUserId()}`
     : `${apiHost}||${clientKey}`;
 }
@@ -259,7 +259,7 @@ async function fetchFeatures(
     apiRequestHeaders,
   } = instance.getApiHosts();
   const clientKey = instance.getClientKey();
-  const remoteEval = instance.getRemoteEval();
+  const remoteEval = instance.isRemoteEval();
 
   const endpoint = remoteEval
     ? `${remoteEvalHost}${remoteEvalPath}/${clientKey}`

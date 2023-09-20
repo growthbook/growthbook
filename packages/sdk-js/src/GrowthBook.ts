@@ -109,14 +109,16 @@ export class GrowthBook<
     if (context.clientKey && !context.remoteEval) {
       this._refresh({}, true, false);
     }
-
-    if (context.remoteEval && !context.userId) {
-      throw new Error("Remote eval: missing userId");
-    }
   }
 
   public async loadFeatures(options?: LoadFeaturesOptions): Promise<void> {
     await this._refresh(options, true, true);
+
+    // flag that we've called loadFeatures
+    this._ctx.loadFeaturesCalled = true;
+
+    // remote eval: don't subscribe if there is no uid
+    if (this._ctx.remoteEval && !this._ctx.userId) return;
 
     if (
       this._ctx.backgroundSync !== false &&
@@ -165,7 +167,7 @@ export class GrowthBook<
     return this._ctx.clientKey || "";
   }
 
-  public getRemoteEval(): boolean {
+  public isRemoteEval(): boolean {
     return this._ctx.remoteEval || false;
   }
 
@@ -174,7 +176,14 @@ export class GrowthBook<
   }
 
   public setUserId(userId: string): void {
+    if (this._ctx.remoteEval) {
+      unsubscribe(this);
+    }
     this._ctx.userId = userId;
+    this._refresh({ skipCache: this.isRemoteEval() }, false, false);
+    if (this._ctx.remoteEval && userId) {
+      subscribe(this);
+    }
   }
 
   private async _refresh(
@@ -189,7 +198,7 @@ export class GrowthBook<
     await refreshFeatures(
       this,
       options.timeout,
-      options.skipCache || this._ctx.enableDevMode || this._ctx.remoteEval,
+      options.skipCache || this._ctx.enableDevMode,
       allowStale,
       updateInstance,
       this._ctx.backgroundSync !== false
@@ -246,8 +255,8 @@ export class GrowthBook<
     this._ctx.attributes = attributes;
     this._render();
     this._updateAllAutoExperiments();
-    if (this._ctx.remoteEval) {
-      this._refresh({}, false, true);
+    if (this._ctx.remoteEval && this._ctx.loadFeaturesCalled) {
+      this._refresh({ skipCache: true }, false, true);
     }
   }
 
@@ -255,8 +264,8 @@ export class GrowthBook<
     this._attributeOverrides = overrides;
     this._render();
     this._updateAllAutoExperiments();
-    if (this._ctx.remoteEval) {
-      this._refresh({}, false, true);
+    if (this._ctx.remoteEval && this._ctx.loadFeaturesCalled) {
+      this._refresh({ skipCache: true }, false, true);
     }
   }
   public setForcedVariations(vars: Record<string, number>) {
