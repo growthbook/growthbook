@@ -31,7 +31,7 @@ import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { useFeaturesList } from "@/services/features";
 import FeedbackModal from "@/components/FeedbackModal";
 import track from "@/services/track";
-import PageTitle from "@/components/Layout/PageHead";
+import PageHead from "@/components/Layout/PageHead";
 
 const ExperimentPage = (): ReactElement => {
   const permissions = usePermissions();
@@ -212,7 +212,14 @@ const ExperimentPage = (): ReactElement => {
           safeToEdit={safeToEdit}
         />
       )}
-      <PageTitle>Experiment: {experiment.name}</PageTitle>
+
+      <PageHead
+        breadcrumb={[
+          { display: "Experiments", href: "/experiments" },
+          { display: experiment.name },
+        ]}
+      />
+
       <div className="container-fluid position-relative">
         <div
           style={{

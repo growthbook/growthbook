@@ -271,7 +271,7 @@ const Layout = (): React.ReactElement => {
   const settings = useOrgSettings();
   const { accountPlan } = useUser();
 
-  const { pageTitle: defaultPageTitle } = usePageHead();
+  const { breadcrumb } = usePageHead();
 
   const [upgradeModal, setUpgradeModal] = useState(false);
   // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'string | undefined' is not assig... Remove this comment to see the full error message
@@ -286,9 +286,9 @@ const Layout = (): React.ReactElement => {
     return null;
   }
 
-  let pageTitle: string = defaultPageTitle;
+  let pageTitle = breadcrumb.map((b) => b.display).join(" > ");
 
-  // If no page title is explicitly set, try to figure it out from the path
+  // If no breadcrumb provided, try to figure out a page name based on the path
   otherPageTitles.forEach((o) => {
     if (!pageTitle && o.path.test(path)) {
       pageTitle = o.title;

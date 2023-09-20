@@ -6,59 +6,52 @@ import {
   useState,
 } from "react";
 
+interface BreadCrumbItem {
+  display: string;
+  href?: string;
+}
+
 interface PageHeadContextInterface {
-  pageTitle: string;
-  setPageTitle: (title: string) => void;
+  breadcrumb: BreadCrumbItem[];
+  setBreadcrumb: (breadcrumb: BreadCrumbItem[]) => void;
 }
 
 export const PageHeadContext = createContext<PageHeadContextInterface>({
-  pageTitle: "",
-  setPageTitle: () => undefined,
+  breadcrumb: [],
+  setBreadcrumb: () => undefined,
 });
 
 export function usePageHead() {
   return useContext(PageHeadContext);
 }
 
-export function PageHeadProvider({
-  children,
-  pageComponent,
-}: {
-  children: ReactNode;
-  // eslint-disable-next-line
-  pageComponent: any;
-}) {
-  const [pageTitle, setPageTitle] = useState("");
-
-  // Reset page title when the page component changes
-  useEffect(() => {
-    setPageTitle("");
-  }, [pageComponent]);
+export function PageHeadProvider({ children }: { children: ReactNode }) {
+  const [breadcrumb, setBreadcrumb] = useState<BreadCrumbItem[]>([]);
 
   return (
-    <PageHeadContext.Provider value={{ pageTitle, setPageTitle }}>
+    <PageHeadContext.Provider value={{ breadcrumb, setBreadcrumb }}>
       {children}
     </PageHeadContext.Provider>
   );
 }
 
-export default function PageTitle({
-  children,
+export default function PageHead({
+  breadcrumb,
 }: {
-  children: string | string[];
+  breadcrumb: BreadCrumbItem[];
 }) {
-  const { setPageTitle, pageTitle } = useContext(PageHeadContext);
+  const { setBreadcrumb } = useContext(PageHeadContext);
 
-  // Passing in a compound string with interpolation comes in as an array of string
-  const desiredPageTitle = Array.isArray(children)
-    ? children.join("")
-    : children;
+  const newVal = JSON.stringify(breadcrumb);
 
   useEffect(() => {
-    if (pageTitle !== desiredPageTitle) {
-      setPageTitle(desiredPageTitle);
-    }
-  }, [desiredPageTitle, pageTitle, setPageTitle]);
+    setBreadcrumb(breadcrumb);
+    // Unset when the page unmounts
+    return () => {
+      setBreadcrumb([]);
+    };
+    // eslint-disable-next-line
+  }, [newVal, setBreadcrumb]);
 
   return null;
 }

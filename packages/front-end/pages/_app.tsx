@@ -91,7 +91,7 @@ function App({
         preAuth ? (
           <Component {...pageProps} />
         ) : (
-          <PageHeadProvider pageComponent={Component}>
+          <PageHeadProvider>
             <AuthProvider>
               <AppearanceUIThemeProvider>
                 <GrowthBookProvider growthbook={growthbook}>
