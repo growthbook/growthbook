@@ -76,11 +76,13 @@ export async function getPublishedFeatureRevisions(
 type SaveRevisionParams = {
   state: "published" | "draft";
   feature: FeatureInterface;
+  creatorUserId: string | null;
 };
 
 // todo: support creating draft revisions
-export async function saveRevision({
+export async function createFeatureRevision({
   feature,
+  creatorUserId,
   state,
 }: SaveRevisionParams): Promise<void> {
   const rules: Record<string, FeatureRule[]> = {};
@@ -92,6 +94,7 @@ export async function saveRevision({
     await FeatureRevisionModel.create({
       organization: feature.organization,
       featureId: feature.id,
+      creatorUserId,
       version: feature.revision?.version || 1,
       dateCreated: new Date(),
       revisionDate: feature.revision?.date || feature.dateCreated,

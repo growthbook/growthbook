@@ -30,7 +30,7 @@ import {
   getSDKPayloadKeysByDiff,
 } from "../util/features";
 import { EventAuditUser } from "../events/event-types";
-import { saveRevision } from "./FeatureRevisionModel";
+import { createFeatureRevision } from "./FeatureRevisionModel";
 import { createEvent } from "./EventModel";
 import {
   addLinkedFeatureToExperiment,
@@ -159,7 +159,11 @@ export async function createFeature(
     ...data,
     linkedExperiments,
   });
-  await saveRevision({ feature: toInterface(feature), state: "published" });
+  await createFeatureRevision({
+    feature: toInterface(feature),
+    state: "published",
+    creatorUserId: user && user.type === "dashboard" ? user.id : null,
+  });
 
   if (linkedExperiments.length > 0) {
     await Promise.all(
@@ -789,7 +793,11 @@ export async function publishLegacyDraft(
   // Features created before revisions were introduced are missing their initial revision
   // Create it now before publishing the draft and making a 2nd revision
   if (!feature.revision) {
-    await saveRevision({ feature, state: "published" });
+    await createFeatureRevision({
+      feature,
+      state: "published",
+      creatorUserId: user.id,
+    });
   }
 
   const changes: Partial<FeatureInterface> = {};
@@ -825,7 +833,11 @@ export async function publishLegacyDraft(
     changes
   );
 
-  await saveRevision({ feature: updatedFeature, state: "published" });
+  await createFeatureRevision({
+    feature: updatedFeature,
+    state: "published",
+    creatorUserId: user.id,
+  });
   return updatedFeature;
 }
 
