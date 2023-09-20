@@ -181,6 +181,8 @@ export class GrowthBook<
       unsubscribe(this);
     }
     this._ctx.userId = userId;
+    if (!this._loadFeaturesCalled) return;
+
     this._refresh({ skipCache: this.isRemoteEval() }, false, false);
     if (this._ctx.remoteEval && userId) {
       subscribe(this);
