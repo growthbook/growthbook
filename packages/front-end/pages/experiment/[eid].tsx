@@ -31,6 +31,7 @@ import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { useFeaturesList } from "@/services/features";
 import FeedbackModal from "@/components/FeedbackModal";
 import track from "@/services/track";
+import PageTitle from "@/components/Layout/PageHead";
 
 const ExperimentPage = (): ReactElement => {
   const permissions = usePermissions();
@@ -211,6 +212,7 @@ const ExperimentPage = (): ReactElement => {
           safeToEdit={safeToEdit}
         />
       )}
+      <PageTitle>Experiment: {experiment.name}</PageTitle>
       <div className="container-fluid position-relative">
         <div
           style={{
