@@ -52,7 +52,7 @@ export default function FactList({ factTable }: Props) {
         />
       )}
 
-      <div className="row mb-2 align-items-center">
+      <div className="row align-items-center">
         {factTable.facts.length > 0 && (
           <div className="col-lg-3 col-md-4 col-6 mr-auto">
             <Field
@@ -84,7 +84,7 @@ export default function FactList({ factTable }: Props) {
       </div>
       {factTable.facts.length > 0 && (
         <>
-          <table className="table appbox gbtable">
+          <table className="table appbox gbtable mt-2 mb-0">
             <thead>
               <tr>
                 <SortableTH field="name">Name</SortableTH>

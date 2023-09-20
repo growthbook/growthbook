@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import Markdown from "@/components/Markdown/Markdown";
-import { GBCircleArrowLeft, GBEdit } from "@/components/Icons";
+import { GBAddCircle, GBCircleArrowLeft, GBEdit } from "@/components/Icons";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import { useAuth } from "@/services/auth";
@@ -205,7 +205,7 @@ export default function FactTablePage() {
           Filters are re-usable SQL snippets that can be applied to Facts and
           Metrics to limit the rows that are included in an analysis.
         </div>
-        <div className="appbox px-3 pt-3">
+        <div className="appbox p-3">
           <FactFilterList factTable={factTable} />
         </div>
       </div>
@@ -213,24 +213,33 @@ export default function FactTablePage() {
       <div className="mb-4">
         <h3>Facts</h3>
         <div className="mb-1">
-          Facts are numeric columns or SQL expressions that can be used as a
-          Metric value. These values will be summed and averaged to determine
-          uplift within an experiment.
+          Facts are numeric columns or SQL expressions that represent a specific
+          value you care about. For example, &quot;Page Load Time&quot;,
+          &quot;Revenue&quot;, or &quot;API Requests&quot;.
         </div>
-        <div className="appbox px-3 pt-3">
+        <div className="appbox p-3">
           <FactList factTable={factTable} />
         </div>
       </div>
 
-      <button
-        className="btn btn-primary"
-        onClick={(e) => {
-          e.preventDefault();
-          setMetricOpen(true);
-        }}
-      >
-        Create Metric
-      </button>
+      <div className="mb-4">
+        <h3>Metrics</h3>
+        <div className="mb-1">
+          Metrics are built on top of Facts and Filters. These are what you use
+          as Goals and Guardrails in experiments.
+        </div>
+        <div className="appbox p-3">
+          <button
+            className="btn btn-primary"
+            onClick={(e) => {
+              e.preventDefault();
+              setMetricOpen(true);
+            }}
+          >
+            <GBAddCircle /> Add Metric
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

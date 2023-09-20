@@ -1,6 +1,6 @@
 import { useForm } from "react-hook-form";
 import clsx from "clsx";
-import { FaAngleDown, FaAngleRight, FaTimes } from "react-icons/fa";
+import { FaTimes } from "react-icons/fa";
 import { useState } from "react";
 import { MetricInterface } from "back-end/types/metric";
 import {
@@ -93,7 +93,7 @@ function FactSelector({
             onChange={(factTableId) =>
               setValue({
                 factTableId,
-                factId: value.factId.match(/^\$\$/) ? value.factId : "",
+                factId: value.factId.match(/^\$\$/) ? value.factId : "$$count",
                 filters: [],
               })
             }
@@ -102,6 +102,7 @@ function FactSelector({
               value: t.id,
             }))}
             placeholder="Select..."
+            required
           />
         </div>
         {factTable && (
@@ -148,6 +149,7 @@ function FactSelector({
               formatOptionLabel={({ label }) => {
                 return <InlineCode language="sql" code={label} />;
               }}
+              required
             />
           </div>
         )}
@@ -176,7 +178,7 @@ export default function MetricFactModal({
         metricType: "proportion",
         numerator: {
           factTableId: initialFactTable || "",
-          factId: "",
+          factId: "$$count",
           filters: [],
         },
         denominator: null,
@@ -188,10 +190,10 @@ export default function MetricFactModal({
       conversionWindowValue: 3,
       conversionWindowUnit: "days",
       conversionDelayHours: 0,
-      winRisk: defaultWinRiskThreshold,
-      loseRisk: defaultLoseRiskThreshold,
-      minPercentChange: metricDefaults.minPercentageChange,
-      maxPercentChange: metricDefaults.maxPercentageChange,
+      winRisk: defaultWinRiskThreshold * 100,
+      loseRisk: defaultLoseRiskThreshold * 100,
+      minPercentChange: metricDefaults.minPercentageChange * 100,
+      maxPercentChange: metricDefaults.maxPercentageChange * 100,
       minSampleSize: metricDefaults.minimumSampleSize,
       regressionAdjustmentOverride: false,
       regressionAdjustmentEnabled: DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
@@ -249,7 +251,12 @@ export default function MetricFactModal({
       })}
       size="lg"
     >
-      <Field label="Metric Name" {...form.register("name")} autoFocus />
+      <Field
+        label="Metric Name"
+        {...form.register("name")}
+        autoFocus
+        required
+      />
       <div className="mb-3">
         <label>
           Type of Metric{" "}
@@ -259,7 +266,7 @@ export default function MetricFactModal({
                 <div className="mb-2">
                   <strong>Proportion</strong> metrics calculate a simple
                   conversion rate - the proportion of users in your experiment
-                  who are present in a fact table.
+                  who are in a specific fact table.
                 </div>
                 <div className="mb-2">
                   <strong>Average</strong> metrics calculate the average value
@@ -325,8 +332,8 @@ export default function MetricFactModal({
       {type === "proportion" ? (
         <div>
           <p>
-            <strong>Metric Value</strong> = Percent of Experiment Users present
-            in the selected Fact Table
+            <strong>Metric Value</strong> = Percent of Experiment Users who
+            exist in the selected Fact Table
           </p>
           <FactSelector
             value={form.watch("factSettings.numerator")}
@@ -371,8 +378,8 @@ export default function MetricFactModal({
             <FactSelector
               value={
                 form.watch("factSettings.denominator") || {
-                  factId: "",
-                  factTableId: "",
+                  factId: "$$count",
+                  factTableId: initialFactTable || "",
                   filters: [],
                 }
               }
@@ -452,20 +459,35 @@ export default function MetricFactModal({
         )}
       </div>
 
-      <div className="mb-2">
+      {!advancedOpen && (
         <a
           href="#"
           onClick={(e) => {
             e.preventDefault();
-            setAdvancedOpen(!advancedOpen);
+            setAdvancedOpen(true);
           }}
         >
-          Advanced metric settings{" "}
-          {advancedOpen ? <FaAngleDown /> : <FaAngleRight />}
+          Show Advanced Settings
         </a>
-      </div>
+      )}
       {advancedOpen && (
-        <Tabs>
+        <Tabs
+          navExtra={
+            <div className="ml-auto">
+              <a
+                href="#"
+                onClick={(e) => {
+                  e.preventDefault();
+                  setAdvancedOpen(false);
+                }}
+                style={{ verticalAlign: "middle" }}
+                title="Hide advanced settings"
+              >
+                <FaTimes /> Hide
+              </a>
+            </div>
+          }
+        >
           <Tab id="query" display="Query Settings">
             <SelectField
               label="Cap User Values?"
@@ -492,20 +514,22 @@ export default function MetricFactModal({
               user values."
             />
             {form.watch("capping") ? (
-              <Field
-                label="Capped Value"
-                type="number"
-                step="any"
-                min="0"
-                max={form.watch("capping") === "percentile" ? "1" : ""}
-                {...form.register("capValue", { valueAsNumber: true })}
-                helpText={
-                  form.watch("capping") === "absolute"
-                    ? `
+              <div className="appbox bg-light px-3 pt-3">
+                <Field
+                  label="Capped Value"
+                  type="number"
+                  step="any"
+                  min="0"
+                  max={form.watch("capping") === "percentile" ? "1" : ""}
+                  {...form.register("capValue", { valueAsNumber: true })}
+                  helpText={
+                    form.watch("capping") === "absolute"
+                      ? `
               Absolute capping: if greater than zero, aggregated user values will be capped at this value.`
-                    : `Percentile capping: if greater than zero, we use all metric data in the experiment to compute the percentiles of the user aggregated values. Then, we get the value at the percentile provided and cap all users at this value. Enter a number between 0 and 0.99999`
-                }
-              />
+                      : `Percentile capping: if greater than zero, we use all metric data in the experiment to compute the percentiles of the user aggregated values. Then, we get the value at the percentile provided and cap all users at this value. Enter a number between 0 and 0.99999`
+                  }
+                />
+              </div>
             ) : null}
             <div className="form-group">
               <label>Conversion Delay (hours)</label>

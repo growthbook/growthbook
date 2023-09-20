@@ -43,6 +43,10 @@ export default function FactTableModal({ existing, close }: Props) {
 
   const { apiCall } = useAuth();
 
+  const validDatasources = datasources
+    .filter((d) => isProjectListValidForProject(d.projects, project))
+    .filter((d) => d.properties?.queryLanguage === "sql");
+
   const form = useForm<CreateFactTableProps>({
     defaultValues: {
       datasource:
@@ -55,10 +59,6 @@ export default function FactTableModal({ existing, close }: Props) {
       userIdTypes: existing?.userIdTypes || [],
     },
   });
-
-  const validDatasources = datasources.filter((d) =>
-    isProjectListValidForProject(d.projects, project)
-  );
 
   const selectedDataSource = getDatasourceById(form.watch("datasource"));
 
