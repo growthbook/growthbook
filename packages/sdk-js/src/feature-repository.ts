@@ -270,6 +270,9 @@ async function fetchFeatures(
         headers: { "Content-Type": "application/json", ...apiRequestHeaders },
         body: JSON.stringify({
           attributes: instance.getAttributes(),
+          forcedVariations: instance.getForcedVariations(),
+          forcedFeatures: Array.from(instance.getForcedFeatures().entries()),
+          url: instance.getUrl(),
         }),
       }
     : {

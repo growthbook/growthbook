@@ -73,6 +73,7 @@ export class GrowthBook<
     string,
     { valueHash: string; undo: () => void }
   >;
+  private _loadFeaturesCalled: boolean;
 
   constructor(context?: Context) {
     context = context || {};
@@ -91,6 +92,7 @@ export class GrowthBook<
     this._forcedFeatureValues = new Map();
     this._attributeOverrides = {};
     this._activeAutoExperiments = new Map();
+    this._loadFeaturesCalled = false;
 
     if (context.features) {
       this.ready = true;
@@ -112,7 +114,7 @@ export class GrowthBook<
   }
 
   public async loadFeatures(options?: LoadFeaturesOptions): Promise<void> {
-    this._ctx.loadFeaturesCalled = true;
+    this._loadFeaturesCalled = true;
 
     await this._refresh(options, true, true);
 
@@ -253,7 +255,7 @@ export class GrowthBook<
   public setAttributes(attributes: Attributes) {
     this._ctx.attributes = attributes;
     if (this._ctx.remoteEval) {
-      if (this._ctx.loadFeaturesCalled) {
+      if (this._loadFeaturesCalled) {
         this._refresh({ skipCache: true }, false, true);
       }
       return;
@@ -265,7 +267,7 @@ export class GrowthBook<
   public setAttributeOverrides(overrides: Attributes) {
     this._attributeOverrides = overrides;
     if (this._ctx.remoteEval) {
-      if (this._ctx.loadFeaturesCalled) {
+      if (this._loadFeaturesCalled) {
         this._refresh({ skipCache: true }, false, true);
       }
       return;
@@ -291,6 +293,19 @@ export class GrowthBook<
 
   public getAttributes() {
     return { ...this._ctx.attributes, ...this._attributeOverrides };
+  }
+
+  public getForcedVariations() {
+    return this._ctx.forcedVariations || {};
+  }
+
+  public getForcedFeatures() {
+    // eslint-disable-next-line
+    return this._forcedFeatureValues || new Map<string, any>();
+  }
+
+  public getUrl() {
+    return this._ctx.url || "";
   }
 
   public getFeatures() {
