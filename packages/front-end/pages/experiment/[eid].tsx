@@ -215,7 +215,16 @@ const ExperimentPage = (): ReactElement => {
 
       <PageHead
         breadcrumb={[
-          { display: "Experiments", href: "/experiments" },
+          {
+            display: "Experiments",
+            href: `/experiments${
+              experiment.status === "draft"
+                ? "#drafts"
+                : experiment.status === "stopped"
+                ? "#stopped"
+                : ""
+            }`,
+          },
           { display: experiment.name },
         ]}
       />
