@@ -200,7 +200,7 @@ export default function ExperimentHeader({
               ) : experiment.status === "stopped" && experiment.results ? (
                 <div className="experiment-status-widget border d-flex">
                   <div
-                    className="d-flex border-left"
+                    className="d-flex"
                     style={{ height: 30, lineHeight: "30px" }}
                   >
                     <ResultsIndicator results={experiment.results} />
