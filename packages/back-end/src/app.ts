@@ -365,6 +365,12 @@ app.get(
   "/experiments/tracking-key",
   experimentsController.lookupExperimentByTrackingKey
 );
+app.get("/experiments/saved-searches/", experimentsController.getSavedSearches);
+app.post("/experiments/saved-search/", experimentsController.postSavedSearch);
+app.get("/experiments/saved-search/:id", experimentsController.getSavedSearch);
+app.put("/experiments/saved-search/:id", experimentsController.putSavedSearch);
+app.delete("/experiments/saved-search/:id", experimentsController.deleteSavedSearch);
+// Experiment
 app.get("/experiment/:id", experimentsController.getExperiment);
 app.get("/experiment/:id/reports", reportsController.getReportsOnExperiment);
 app.post("/snapshot/:id/cancel", experimentsController.cancelSnapshot);

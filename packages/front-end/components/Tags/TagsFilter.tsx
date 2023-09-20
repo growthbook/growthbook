@@ -15,6 +15,7 @@ interface TagsFilter {
 export interface Props {
   filter: TagsFilter;
   items: ItemWithTags[];
+  initialOpen?: boolean;
 }
 
 export function filterByTags<T extends ItemWithTags>(
@@ -43,8 +44,9 @@ export function useTagsFilter(page: string): TagsFilter {
 export default function TagsFilter({
   filter: { tags, setTags },
   items,
+  initialOpen = false,
 }: Props) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(initialOpen);
   const [autofocus, setAutofocus] = useState(false);
   const counts: Record<string, number> = {};
   const availableTags: string[] = [];

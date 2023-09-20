@@ -38,7 +38,7 @@ const navlinks: SidebarLinkProps[] = [
   {
     name: "Experiments",
     href: "/experiments",
-    path: /^experiment/,
+    path: /^(experiment\/|experiments$)/,
     Icon: GBExperiment,
   },
   {
@@ -74,7 +74,7 @@ const navlinks: SidebarLinkProps[] = [
     name: "Management",
     href: "/dashboard",
     Icon: BsClipboardCheck,
-    path: /^(dashboard|idea|presentation)/,
+    path: /^(dashboard|idea|presentation|experiments\/custom)/,
     autoClose: true,
     subLinks: [
       {
@@ -92,6 +92,11 @@ const navlinks: SidebarLinkProps[] = [
         href: "/presentations",
         path: /^presentation/,
       },
+      {
+        name: "Custom Search",
+        href: "/experiments/custom",
+        path: /^experiments\/custom/,
+      }
     ],
   },
   {

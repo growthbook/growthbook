@@ -265,6 +265,11 @@ const ExperimentsPage = (): React.ReactElement => {
                 {...searchInputProps}
               />
             </div>
+            <div className="col-auto">
+              <Link className="" href={"/experiments/custom/new"}>
+                Advanced search
+              </Link>
+            </div>
             <div className="col-auto ml-auto">
               <Toggle
                 id="my-experiments-toggle"

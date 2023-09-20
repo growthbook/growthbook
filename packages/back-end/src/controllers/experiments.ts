@@ -59,6 +59,7 @@ import {
   ExperimentPhase,
   ExperimentStatus,
   ExperimentTargetingData,
+  SavedSearchInterface,
   Variation,
 } from "../../types/experiment";
 import { getMetricById, getMetricMap } from "../models/MetricModel";
@@ -91,6 +92,13 @@ import {
   getVisualEditorApiKey,
 } from "../models/ApiKeyModel";
 import { getExperimentWatchers, upsertWatch } from "../models/WatchModel";
+import {
+  createSavedSearch,
+  deleteSavedSearchById,
+  getAllSavedSearches,
+  getSavedSearchById,
+  updateSavedSearchById,
+} from "../models/SavedSearchModel";
 
 export async function getExperiments(
   req: AuthRequest<
@@ -2376,5 +2384,223 @@ export async function findOrCreateVisualEditorToken(
 
   res.status(200).json({
     key: visualEditorKey.key,
+  });
+}
+
+export async function postSavedSearch(
+  req: AuthRequest<Partial<SavedSearchInterface>>,
+  res: Response<
+    { status: 200; search: SavedSearchInterface } | PrivateApiErrorResponse,
+    EventAuditUserForResponseLocals
+  >
+) {
+  const { org, userId } = getOrgFromReq(req);
+
+  const data = req.body;
+  const savedSearch: SavedSearchInterface = {
+    name: "",
+    public: true,
+    filters: {
+      search: "",
+      results: [],
+      status: [],
+      expType: [],
+      tags: [],
+      projects: [],
+      dataSources: [],
+      metrics: [],
+      ownerName: "",
+      startDate: null,
+      endDate: null,
+    },
+    show: {
+      hypothesis: true,
+      description: true,
+      trackingKey: true,
+      tags: true,
+      projects: true,
+      status: true,
+      ownerName: true,
+      created: true,
+      startDate: true,
+      endDate: true,
+      dataSources: true,
+      metrics: true,
+      graphs: true,
+      results: true,
+      analysis: true,
+      variations: true,
+    },
+    sort: {
+      field: "startDate",
+      dir: -1,
+    },
+    display: "list",
+    ...data,
+    id: uniqid("ser_"),
+    dateCreated: new Date(),
+    dateUpdated: new Date(),
+    organization: org.id,
+    owner: userId,
+  };
+
+  const saved = await createSavedSearch(savedSearch);
+
+  await req.audit({
+    event: "savedSearch.created",
+    entity: {
+      object: "savedSearch",
+      id: saved.id,
+    },
+    details: auditDetailsCreate(savedSearch),
+  });
+
+  res.status(200).json({
+    status: 200,
+    search: saved,
+  });
+}
+
+export async function getSavedSearch(
+  req: AuthRequest<null, { id: string }>,
+  res: Response
+) {
+  const { org } = getOrgFromReq(req);
+  const { id } = req.params;
+
+  if (id === "new") {
+    res.status(200).json({
+      status: 200,
+      search: {
+        show: {},
+        filters: {},
+        sort: {},
+      },
+    });
+  }
+  const savedSearch = await getSavedSearchById(id, org.id);
+
+  if (!savedSearch) {
+    res.status(403).json({
+      status: 404,
+      message: "Saved search not found",
+    });
+    return;
+  }
+
+  res.status(200).json({
+    status: 200,
+    search: savedSearch,
+  });
+}
+
+export async function getSavedSearches(
+  req: AuthRequest,
+  res: Response<
+    { status: 200; searches: SavedSearchInterface[] } | PrivateApiErrorResponse,
+    EventAuditUserForResponseLocals
+  >
+) {
+  const { org } = getOrgFromReq(req);
+
+  const savedSearches = await getAllSavedSearches(org.id);
+
+  if (!savedSearches) {
+    res.status(403).json({
+      status: 404,
+      message: "No saved searches not found",
+    });
+    return;
+  }
+
+  res.status(200).json({
+    status: 200,
+    searches: savedSearches,
+  });
+}
+
+export async function putSavedSearch(
+  req: AuthRequest<Partial<SavedSearchInterface>, { id: string }>,
+  res: Response<
+    { status: 200; search: SavedSearchInterface } | PrivateApiErrorResponse,
+    EventAuditUserForResponseLocals
+  >
+) {
+  const { org, userId } = getOrgFromReq(req);
+  const { id } = req.params;
+  const savedSearch = await getSavedSearchById(id, org.id);
+
+  if (!savedSearch) {
+    res.status(403).json({
+      status: 404,
+      message: "Saved search not found",
+    });
+    return;
+  }
+  if (savedSearch.owner !== userId) {
+    res.status(403).json({
+      status: 404,
+      message: "Saved searches are only updatable by the owner",
+    });
+    return;
+  }
+  const data = req.body;
+  const updatedSavedSearch = { ...savedSearch, ...data, id: savedSearch.id };
+
+  await updateSavedSearchById(id, org.id, updatedSavedSearch);
+
+  await req.audit({
+    event: "savedSearch.updated",
+    entity: {
+      object: "savedSearch",
+      id: id,
+    },
+    details: auditDetailsCreate(updatedSavedSearch),
+  });
+
+  res.status(200).json({
+    status: 200,
+    search: updatedSavedSearch,
+  });
+}
+
+export async function deleteSavedSearch(
+  req: AuthRequest<null, { id: string }>,
+  res: Response<
+    { status: 200 } | PrivateApiErrorResponse,
+    EventAuditUserForResponseLocals
+  >
+) {
+  const { org, userId } = getOrgFromReq(req);
+  const { id } = req.params;
+  const savedSearch = await getSavedSearchById(id, org.id);
+
+  if (!savedSearch) {
+    res.status(403).json({
+      status: 404,
+      message: "Saved search not found",
+    });
+    return;
+  }
+  if (savedSearch.owner !== userId) {
+    res.status(403).json({
+      status: 404,
+      message: "Saved searches are only deletable by the owner",
+    });
+    return;
+  }
+
+  await deleteSavedSearchById(id, org.id);
+
+  await req.audit({
+    event: "savedSearch.deleted",
+    entity: {
+      object: "savedSearch",
+      id: id,
+    },
+  });
+
+  res.status(200).json({
+    status: 200,
   });
 }
