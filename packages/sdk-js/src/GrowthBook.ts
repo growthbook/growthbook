@@ -112,10 +112,9 @@ export class GrowthBook<
   }
 
   public async loadFeatures(options?: LoadFeaturesOptions): Promise<void> {
-    await this._refresh(options, true, true);
-
-    // flag that we've called loadFeatures
     this._ctx.loadFeaturesCalled = true;
+
+    await this._refresh(options, true, true);
 
     // remote eval: don't subscribe if there is no uid
     if (this._ctx.remoteEval && !this._ctx.userId) return;
