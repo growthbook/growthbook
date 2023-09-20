@@ -1502,7 +1502,7 @@ export default abstract class SqlIntegration
           anonymousIdColumn: "user_pseudo_id",
           getMetricTableName: () => this.generateTablePath("events_*"),
           getDateLimitClause: (start: Date, end: Date) =>
-            `_TABLE_SUFFIX BETWEEN '${formatDate(
+            `REGEXP_EXTRACT(_TABLE_SUFFIX, r'[0-9]+') BETWEEN '${formatDate(
               start,
               "yyyyMMdd"
             )}' AND'${formatDate(end, "yyyyMMdd")}'`,
