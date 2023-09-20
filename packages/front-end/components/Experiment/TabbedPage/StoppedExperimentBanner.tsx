@@ -58,7 +58,7 @@ export default function StoppedExperimentBanner({
         {experiment.results && (
           <div
             style={{ height: 25, lineHeight: "25px" }}
-            className="ml-3 experiment-status-widget "
+            className="ml-3 experiment-status-widget"
           >
             <ResultsIndicator results={experiment.results} />
           </div>

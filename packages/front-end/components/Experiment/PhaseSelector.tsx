@@ -139,11 +139,21 @@ export default function PhaseSelector({
           formatOptionLabel={formatPhase}
         />
       ) : (
-        <div className="dropdown-underline-disabled text-dark">
-          {selectOptions.length === 1 ? (
-            formatPhase(selectOptions[0])
+        <div className="phase-selector text-dark">
+          {selectOptions.length >= 1 ? (
+            <div
+              className="gb-select__single-value"
+              style={newUi ? { height: 24 } : {}}
+            >
+              {formatPhase(selectOptions[0])}
+            </div>
           ) : (
-            <em>No phases</em>
+            <div
+              className="gb-select__single-value"
+              style={newUi ? { height: 24 } : {}}
+            >
+              <em>No phases</em>
+            </div>
           )}
         </div>
       )}
