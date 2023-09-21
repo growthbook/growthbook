@@ -9,7 +9,7 @@ export interface FeatureRevisionInterface {
   revisionDate: Date;
   publishedBy: UserRef;
   comment: string;
-  status?: "draft" | "published";
+  status?: "draft" | "published" | "discarded";
   defaultValue: string;
   rules: Record<string, FeatureRule[]>;
 }

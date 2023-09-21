@@ -31,7 +31,7 @@ const featureRevisionSchema = new mongoose.Schema({
   status: {
     type: String,
     required: false,
-    enum: ["published", "draft"], // todo: everything with these
+    enum: ["published", "draft", "discarded"],
   },
   baseVersion: {
     type: String,
@@ -191,6 +191,12 @@ export async function publishFeatureRevision({
   );
 }
 
+/**
+ * finds the draft revision for the provided search criteria and marks it as discarded
+ * @param organizationId
+ * @param featureId
+ * @param revisionId
+ */
 export async function discardDraftFeatureRevision({
   organizationId,
   featureId,
@@ -211,6 +217,7 @@ export async function discardDraftFeatureRevision({
     {
       $set: {
         dateDiscarded: new Date(),
+        status: "discarded",
       },
     }
   );
