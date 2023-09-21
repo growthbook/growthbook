@@ -1,6 +1,7 @@
 import {
   CacheSettings,
   FeatureApiResponse,
+  Helpers,
   Polyfills,
   RepositoryKey,
 } from "./types/growthbook";
@@ -30,40 +31,33 @@ const polyfills: Polyfills = {
   SubtleCrypto: globalThis.crypto ? globalThis.crypto.subtle : undefined,
   EventSource: globalThis.EventSource,
 };
-// tslint:disable-next-line
-const callMethods: any = {
-  fetchFeaturesCall: ({
-    host, clientKey, headers
-  }: {
-    host: string, clientKey: string, headers?: Record<string, string>
-  }) => {
-    return (polyfills.fetch as typeof globalThis.fetch)(`${host}/api/features/${clientKey}`, { ...headers }) as Promise<Response>;
+export const helpers: Helpers = {
+  fetchFeaturesCall: ({ host, clientKey, headers }) => {
+    return (polyfills.fetch as typeof globalThis.fetch)(
+      `${host}/api/features/${clientKey}`,
+      { ...headers }
+    );
   },
-  fetchRemoteEvalCall: ({
-    host, clientKey, payload, headers
-  }: {
-    host: string, clientKey: string, payload: any, headers?: Record<string, string>
-  }) => {
+  fetchRemoteEvalCall: ({ host, clientKey, payload, headers }) => {
     const options = {
       method: "POST",
       headers: { "Content-Type": "application/json", ...headers },
       body: JSON.stringify(payload),
-    }
-    return (polyfills.fetch as typeof globalThis.fetch)(`${host}/api/eval/${clientKey}`, options) as Promise<Response>;
+    };
+    return (polyfills.fetch as typeof globalThis.fetch)(
+      `${host}/api/eval/${clientKey}`,
+      options
+    );
   },
-  eventSourceCall: ({
-    host, clientKey, headers
-  }: {
-    host: string, clientKey: string, headers?: Record<string, string>
-  }) => {
+  eventSourceCall: ({ host, clientKey, headers }) => {
     if (headers) {
       return new polyfills.EventSource(`${host}/sub/${clientKey}`, {
         headers,
-      }) as EventSource;
+      });
     }
-    return new polyfills.EventSource(`${host}/sub/${clientKey}`) as EventSource;
-  }
-}
+    return new polyfills.EventSource(`${host}/sub/${clientKey}`);
+  },
+};
 
 try {
   if (globalThis.localStorage) {
@@ -72,40 +66,6 @@ try {
 } catch (e) {
   // Ignore localStorage errors
 }
-
-// let fetchFeaturesCall = ({
-//   host, clientKey, headers
-// }: {
-//   host: string, clientKey: string, headers?: Record<string, string>
-// }) => {
-//   return (polyfills.fetch as typeof globalThis.fetch)(`${host}/api/features/${clientKey}`, { ...headers }) as Promise<Response>;
-// };
-//
-// let fetchRemoteEvalCall = ({
-//   host, clientKey, payload, headers
-// }: {
-//   host: string, clientKey: string, payload: any, headers?: Record<string, string>
-// }) => {
-//   const options = {
-//     method: "POST",
-//     headers: { "Content-Type": "application/json", ...headers },
-//     body: JSON.stringify(payload),
-//   }
-//   return (polyfills.fetch as typeof globalThis.fetch)(`${host}/api/eval/${clientKey}`, options) as Promise<Response>;
-// };
-//
-// let eventSourceCall = ({
-//   host, clientKey, headers
-// }: {
-//   host: string, clientKey: string, headers?: Record<string, string>
-// }) => {
-//   if (headers) {
-//     return new polyfills.EventSource(`${host}/sub/${clientKey}`, {
-//       headers,
-//     }) as EventSource;
-//   }
-//   return new polyfills.EventSource(`${host}/sub/${clientKey}`) as EventSource;
-// }
 
 // Global state
 const subscribedInstances: Map<RepositoryKey, Set<GrowthBook>> = new Map();
@@ -127,23 +87,6 @@ export function configureCache(overrides: Partial<CacheSettings>): void {
   if (!cacheSettings.backgroundSync) {
     clearAutoRefresh();
   }
-}
-export function setFetchFeaturesCall(
-  fn: typeof callMethods.fetchFeaturesCall
-): void {
-  callMethods.fetchFeaturesCall = fn;
-}
-
-export function setFetchRemoteEvalCall(
-  fn: typeof callMethods.fetchRemoteEvalCall
-): void {
-  callMethods.fetchRemoteEvalCall = fn;
-}
-
-export function setEventSourceCall(
-  fn: typeof callMethods.eventSourceCall
-): void {
-  callMethods.eventSourceCall = fn;
 }
 
 export async function clearCache(): Promise<void> {
@@ -337,11 +280,7 @@ async function fetchFeatures(
   instance: GrowthBook
 ): Promise<FeatureApiResponse> {
   const key = getKey(instance);
-  const {
-    apiHost,
-    remoteEvalHost,
-    apiRequestHeaders,
-  } = instance.getApiHosts();
+  const { apiHost, remoteEvalHost, apiRequestHeaders } = instance.getApiHosts();
   const clientKey = instance.getClientKey();
   const remoteEval = instance.isRemoteEval();
 
@@ -350,16 +289,24 @@ async function fetchFeatures(
   }
 
   let promise = activeFetches.get(key);
-  console.log(callMethods.fetchFeaturesCall)
   if (!promise) {
     const fetcher: Promise<Response> = remoteEval
-      ? callMethods.fetchRemoteEvalCall({ host: remoteEvalHost, clientKey, payload: {
-          attributes: instance.getAttributes(),
-          forcedVariations: instance.getForcedVariations(),
-          forcedFeatures: Array.from(instance.getForcedFeatures().entries()),
-          url: instance.getUrl(),
-        }, headers: apiRequestHeaders})
-      : callMethods.fetchFeaturesCall({ host: apiHost, clientKey, headers: apiRequestHeaders });
+      ? helpers.fetchRemoteEvalCall({
+          host: remoteEvalHost,
+          clientKey,
+          payload: {
+            attributes: instance.getAttributes(),
+            forcedVariations: instance.getForcedVariations(),
+            forcedFeatures: Array.from(instance.getForcedFeatures().entries()),
+            url: instance.getUrl(),
+          },
+          headers: apiRequestHeaders,
+        })
+      : helpers.fetchFeaturesCall({
+          host: apiHost,
+          clientKey,
+          headers: apiRequestHeaders,
+        });
 
     // TODO: auto-retry if status code indicates a temporary error
     promise = fetcher
@@ -394,10 +341,7 @@ async function fetchFeatures(
 // Will prefer SSE if enabled, otherwise fall back to cron
 function startAutoRefresh(instance: GrowthBook): void {
   const key = getKey(instance);
-  const {
-    streamingHost,
-    apiRequestHeaders,
-  } = instance.getApiHosts();
+  const { streamingHost, apiRequestHeaders } = instance.getApiHosts();
   const clientKey = instance.getClientKey();
   if (
     cacheSettings.backgroundSync &&
@@ -424,23 +368,13 @@ function startAutoRefresh(instance: GrowthBook): void {
               clientKey,
               error: e ? (e as Error).message : null,
             });
-          onSSEError(
-            channel,
-            streamingHost,
-            clientKey,
-            apiRequestHeaders
-          );
+          onSSEError(channel, streamingHost, clientKey, apiRequestHeaders);
         }
       },
       errors: 0,
     };
     streams.set(key, channel);
-    enableChannel(
-      channel,
-      streamingHost,
-      clientKey,
-      apiRequestHeaders
-    );
+    enableChannel(channel, streamingHost, clientKey, apiRequestHeaders);
   }
 }
 
@@ -474,9 +408,13 @@ function enableChannel(
   channel: ScopedChannel,
   host: string,
   clientKey: string,
-  headers?: Record<string, string>,
+  headers?: Record<string, string>
 ) {
-  channel.src = callMethods.eventSourceCall({ host, clientKey, headers }) as EventSource;
+  channel.src = helpers.eventSourceCall({
+    host,
+    clientKey,
+    headers,
+  }) as EventSource;
   channel.src.addEventListener("features", channel.cb);
   channel.src.addEventListener("features-updated", channel.cb);
   channel.src.onerror = () => {

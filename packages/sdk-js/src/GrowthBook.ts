@@ -153,10 +153,11 @@ export class GrowthBook<
         /\/*$/,
         ""
       ),
-      remoteEvalHost: (this._ctx.remoteEvalHost || this._ctx.apiHost || "").replace(
-        /\/*$/,
+      remoteEvalHost: (
+        this._ctx.remoteEvalHost ||
+        this._ctx.apiHost ||
         ""
-      ),
+      ).replace(/\/*$/, ""),
       apiRequestHeaders: this._ctx.apiRequestHeaders,
     };
   }

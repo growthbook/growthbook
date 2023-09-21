@@ -34,12 +34,7 @@ export {
   setPolyfills,
   clearCache,
   configureCache,
-  setFetchFeaturesCall,
-  setFetchRemoteEvalCall,
-  setEventSourceCall,
-  // fetchFeaturesCall,
-  // fetchRemoteEvalCall,
-  // eventSourceCall,
+  helpers,
 } from "./feature-repository";
 
 export { GrowthBook } from "./GrowthBook";

@@ -238,6 +238,39 @@ export type Polyfills = {
   localStorage?: LocalStorageCompat;
 };
 
+export type Helpers = {
+  fetchFeaturesCall: ({
+    host,
+    clientKey,
+    headers,
+  }: {
+    host: string;
+    clientKey: string;
+    headers?: Record<string, string>;
+  }) => Promise<Response>;
+  fetchRemoteEvalCall: ({
+    host,
+    clientKey,
+    payload,
+    headers,
+  }: {
+    host: string;
+    clientKey: string;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    payload: any;
+    headers?: Record<string, string>;
+  }) => Promise<Response>;
+  eventSourceCall: ({
+    host,
+    clientKey,
+    headers,
+  }: {
+    host: string;
+    clientKey: string;
+    headers?: Record<string, string>;
+  }) => EventSource;
+};
+
 export interface LocalStorageCompat {
   getItem(key: string): string | null | Promise<string | null>;
   setItem(key: string, value: string): void | Promise<void>;
