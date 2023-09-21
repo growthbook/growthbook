@@ -256,7 +256,7 @@ export type Helpers = {
   }: {
     host: string;
     clientKey: string;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    // eslint-disable-next-line
     payload: any;
     headers?: Record<string, string>;
   }) => Promise<Response>;

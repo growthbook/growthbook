@@ -274,11 +274,19 @@ export class GrowthBook<
     this._render();
     this._updateAllAutoExperiments();
   }
+
   public setForcedVariations(vars: Record<string, number>) {
     this._ctx.forcedVariations = vars || {};
+    if (this._ctx.remoteEval) {
+      if (this._loadFeaturesCalled) {
+        this._refresh({ skipCache: true }, false, true);
+      }
+      return;
+    }
     this._render();
     this._updateAllAutoExperiments();
   }
+
   // eslint-disable-next-line
   public setForcedFeatures(map: Map<string, any>) {
     this._forcedFeatureValues = map;
@@ -360,7 +368,17 @@ export class GrowthBook<
   public forceVariation(key: string, variation: number) {
     this._ctx.forcedVariations = this._ctx.forcedVariations || {};
     this._ctx.forcedVariations[key] = variation;
+    if (this._ctx.remoteEval) {
+      if (this._loadFeaturesCalled) {
+        this._refresh({ skipCache: true }, false, true);
+      }
+      return;
+    }
     this._render();
+    const exp = this._ctx.experiments?.find((e) => e.key === key);
+    if (exp) {
+      this._runAutoExperiment(exp, false, false);
+    }
   }
 
   public run<T>(experiment: Experiment<T>): Result<T> {

@@ -6,6 +6,7 @@ import {
   setPolyfills,
   FeatureApiResponse,
 } from "../src";
+import { evaluateFeatures } from "./helpers/evaluateFeatures";
 
 /* eslint-disable */
 const { webcrypto } = require("node:crypto");
@@ -49,6 +50,58 @@ function mockApi(
             data
               ? Promise.resolve(cloneDeep(data))
               : Promise.reject("Fetch error"),
+        });
+      }, delay);
+    });
+  });
+
+  setPolyfills({
+    fetch: f,
+  });
+
+  return [
+    f,
+    () => {
+      setPolyfills({ fetch: undefined });
+    },
+  ] as const;
+}
+
+function mockRemoteEvalApi(
+  data: FeatureApiResponse | null,
+  supportSSE: boolean = false,
+  delay: number = 50
+) {
+  // eslint-disable-next-line
+  const f = jest.fn((url: string, resp: any) => {
+    return new Promise((resolve) => {
+      setTimeout(() => {
+        resolve({
+          headers: {
+            get: (header: string) =>
+              header === "x-sse-support" && supportSSE ? "enabled" : undefined,
+          },
+          url,
+          json: () => {
+            const body = JSON.parse(resp.body);
+            const {
+              attributes,
+              forcedVariations,
+              forcedFeatures: forcedFeaturesArray,
+              url: evalUrl,
+            } = body;
+            return data
+              ? Promise.resolve(
+                  evaluateFeatures({
+                    payload: cloneDeep(data),
+                    attributes,
+                    forcedVariations,
+                    forcedFeatures: new Map(forcedFeaturesArray),
+                    url: evalUrl,
+                  })
+                )
+              : Promise.reject("Fetch error");
+          },
         });
       }, delay);
     });
@@ -908,6 +961,90 @@ describe("feature-repo", () => {
       },
     });
     growthbook.destroy();
+    cleanup();
+    await clearCache();
+  });
+
+  it("updates features when using remoteEval", async () => {
+    await clearCache();
+
+    const sdkPayload = {
+      features: {
+        foo: {
+          defaultValue: "initial",
+          rules: [
+            {
+              condition: {
+                uid: {
+                  $in: ["3", "5", "10"],
+                },
+              },
+              force: "ruleEvaluated",
+            },
+          ],
+        },
+        bar: {
+          defaultValue: "initial",
+        },
+        exp1: {
+          defaultValue: {},
+          rules: [
+            {
+              coverage: 1,
+              seed: "exp1",
+              hashAttribute: "uid",
+              hashVersion: 2,
+              variations: [
+                {
+                  v: "controlValue",
+                },
+                {
+                  v: "variationValue",
+                },
+              ],
+              weights: [0.5, 0.5],
+              key: "exp1",
+              phase: "0",
+            },
+          ],
+        },
+      },
+    };
+
+    const [f, cleanup] = mockRemoteEvalApi(sdkPayload);
+
+    const growthbook1 = new GrowthBook({
+      apiHost: "https://fakeapi.sample.io",
+      clientKey: "qwerty1234",
+      remoteEval: true,
+      userId: "17tfs168gd",
+    });
+
+    await growthbook1.loadFeatures();
+
+    expect(f.mock.calls.length).toEqual(1);
+
+    expect(growthbook1.evalFeature("foo").value).toEqual("initial");
+    expect(growthbook1.evalFeature("bar").value).toEqual("initial");
+
+    growthbook1.setAttributes({ uid: "5" });
+    await sleep(100);
+    expect(growthbook1.evalFeature("foo").value).toEqual("ruleEvaluated");
+    expect(growthbook1.evalFeature("bar").value).toEqual("initial");
+
+    growthbook1.setForcedFeatures(new Map([["bar", "something else"]]));
+    await sleep(100);
+    expect(growthbook1.evalFeature("bar").value).toEqual("something else");
+
+    expect(growthbook1.evalFeature("exp1").value.v).toEqual("variationValue");
+    growthbook1.setForcedVariations({ exp1: 0 });
+    await sleep(100);
+    expect(growthbook1.evalFeature("exp1").value.v).toEqual("controlValue");
+    growthbook1.forceVariation("exp1", 1);
+    await sleep(100);
+    expect(growthbook1.evalFeature("exp1").value.v).toEqual("variationValue");
+
+    growthbook1.destroy();
     cleanup();
     await clearCache();
   });
