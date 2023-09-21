@@ -308,9 +308,7 @@ const ExperimentsPage = (): React.ReactElement => {
                   <SortableTH field="projectName">Project</SortableTH>
                 )}
                 <SortableTH field="tags">Tags</SortableTH>
-                {!showMineOnly && (
-                  <SortableTH field="ownerName">Owner</SortableTH>
-                )}
+                <SortableTH field="ownerName">Owner</SortableTH>
                 {tab === "running" && <th>Phase</th>}
                 <SortableTH field="date">
                   {tab === "running"
@@ -400,11 +398,9 @@ const ExperimentsPage = (): React.ReactElement => {
                     <td className="nowrap" data-title="Tags:">
                       <SortedTags tags={Object.values(e.tags)} />
                     </td>
-                    {!showMineOnly && (
-                      <td className="nowrap" data-title="Owner:">
-                        {e.ownerName}
-                      </td>
-                    )}
+                    <td className="nowrap" data-title="Owner:">
+                      {e.ownerName}
+                    </td>
                     {tab === "running" && (
                       <td className="nowrap" data-title="Phase:">
                         {phase && phaseSummary(phase)}
