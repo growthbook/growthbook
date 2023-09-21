@@ -28,6 +28,7 @@ import { AppFeatures } from "@/types/app-features";
 import { useExperiments } from "@/hooks/useExperiments";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useAuth } from "@/services/auth";
+import { useWatching } from "@/services/WatchProvider";
 
 const NUM_PER_PAGE = 20;
 
@@ -45,6 +46,10 @@ const ExperimentsPage = (): React.ReactElement => {
   const [tab, setTab] = useAnchor(["running", "drafts", "stopped", "archived"]);
 
   const [showMineOnly, setShowMineOnly] = useState(false);
+  const [showWatchedOnly, setShowWatchedOnly] = useState(false);
+
+  const { watchedExperiments } = useWatching();
+  console.log(watchedExperiments);
   const router = useRouter();
   const [openNewExperimentModal, setOpenNewExperimentModal] = useState(false);
 
@@ -93,9 +98,12 @@ const ExperimentsPage = (): React.ReactElement => {
       if (showMineOnly) {
         items = items.filter((item) => item.owner === userId);
       }
+      if (showWatchedOnly) {
+        items = items.filter((item) => watchedExperiments.includes(item.id));
+      }
       return items;
     },
-    [showMineOnly, userId]
+    [showMineOnly, showWatchedOnly, userId]
   );
 
   const { items, searchInputProps, isFiltered, SortableTH } = useSearch({
@@ -264,6 +272,17 @@ const ExperimentsPage = (): React.ReactElement => {
                 type="search"
                 {...searchInputProps}
               />
+            </div>
+            <div className="col-auto ml-auto">
+              <Toggle
+                id="watched-experiments-toggle"
+                type="toggle"
+                value={showWatchedOnly}
+                setValue={(value) => {
+                  setShowWatchedOnly(value);
+                }}
+              />{" "}
+              Watched Experiments Only
             </div>
             <div className="col-auto ml-auto">
               <Toggle
