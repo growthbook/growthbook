@@ -4,6 +4,7 @@ import {
   getUserByEmail,
 } from "../../services/users";
 import { addMemberToOrg } from "../../services/organizations";
+import { createUserValidator } from "../../validators/scimapi";
 
 export const createUser = createApiRequestHandler()(
   async (req: any): Promise<any> => {
