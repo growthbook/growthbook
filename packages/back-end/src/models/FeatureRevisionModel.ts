@@ -15,6 +15,10 @@ const featureRevisionSchema = new mongoose.Schema({
     type: Date,
     required: false,
   },
+  dateDiscarded: {
+    type: Date,
+    required: false,
+  },
   revisionDate: Date,
   publishedBy: {},
   comment: String,
@@ -71,6 +75,7 @@ export async function getPublishedFeatureRevisions(
     status: {
       $in: [null, "published"],
     },
+    dateDiscarded: null,
   });
   return docs.map(toInterface);
 }
@@ -135,6 +140,7 @@ export async function getFeatureRevision({
     id,
     organization: organizationId,
     featureId,
+    dateDiscarded: null,
   });
 
   if (!doc) {
@@ -170,6 +176,7 @@ export async function publishFeatureRevision({
       id: revisionId,
       organization: organizationId,
       featureId,
+      dateDiscarded: null,
     },
     {
       $set: {
@@ -179,6 +186,31 @@ export async function publishFeatureRevision({
           name,
         },
         status: "published",
+      },
+    }
+  );
+}
+
+export async function discardFeatureRevision({
+  organizationId,
+  featureId,
+  revisionId,
+}: {
+  organizationId: string;
+  featureId: string;
+  revisionId: string;
+}): Promise<void> {
+  await FeatureRevisionModel.updateOne(
+    {
+      id: revisionId,
+      organization: organizationId,
+      featureId,
+      dateDiscarded: null,
+      status: "draft",
+    },
+    {
+      $set: {
+        dateDiscarded: new Date(),
       },
     }
   );

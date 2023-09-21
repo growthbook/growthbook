@@ -46,7 +46,10 @@ import {
   auditDetailsDelete,
   auditDetailsUpdate,
 } from "../services/audit";
-import { getPublishedFeatureRevisions } from "../models/FeatureRevisionModel";
+import {
+  discardFeatureRevision,
+  getPublishedFeatureRevisions,
+} from "../models/FeatureRevisionModel";
 import { getEnabledEnvironments } from "../util/features";
 import { ExperimentInterface } from "../../types/experiment";
 import {
@@ -315,7 +318,7 @@ export async function postFeatures(
   });
 }
 
-// todo: deprecate this maybe?
+// todo: test
 export async function postFeaturePublish(
   req: AuthRequest<
     { draftId?: string; draft?: FeatureDraftChanges; comment?: string },
@@ -399,10 +402,8 @@ export async function postFeaturePublish(
     );
   }
 
-  // todo: update these draft references based on the new drafts
   verifyDraftsAreEqual(feature.draft, draft);
 
-  // todo: save draft FeatureRevision
   const updatedFeature = await publishLegacyDraft(
     org,
     feature,
@@ -431,14 +432,20 @@ export async function postFeaturePublish(
   });
 }
 
-// todo: use this
 export async function postFeatureDiscard(
-  req: AuthRequest<{ draft: FeatureDraftChanges }, { id: string }>,
+  req: AuthRequest<
+    { draft?: FeatureDraftChanges; draftId?: string },
+    { id: string }
+  >,
   res: Response<{ status: 200 }, EventAuditUserForResponseLocals>
 ) {
   const { org } = getOrgFromReq(req);
   const { id } = req.params;
-  const { draft } = req.body;
+  const { draft, draftId } = req.body;
+
+  if (!draft && !draftId) {
+    throw new Error("Must provide `draft` or `draftId`");
+  }
 
   const feature = await getFeature(org.id, id);
 
@@ -449,10 +456,19 @@ export async function postFeatureDiscard(
   req.checkPermissions("manageFeatures", feature.project);
   req.checkPermissions("createFeatureDrafts", feature.project);
 
-  // todo: update these draft references based on the new drafts
-  verifyDraftsAreEqual(feature.draft, draft);
+  if (draft) {
+    verifyDraftsAreEqual(feature.draft, draft);
 
-  await discardLegacyDraft(org, res.locals.eventAudit, feature);
+    await discardLegacyDraft(org, res.locals.eventAudit, feature);
+  } else if (draftId) {
+    await discardFeatureRevision({
+      organizationId: org.id,
+      featureId: id,
+      revisionId: draftId,
+    });
+  } else {
+    // We'd never get here as we are validating that either draft or draftId is present
+  }
 
   res.status(200).json({
     status: 200,
