@@ -1508,7 +1508,7 @@ export default abstract class SqlIntegration
             )}' AND'${formatDate(end, "yyyyMMdd")}'`,
           getAdditionalEvents: () => [],
           getMetricWhereClause: (eventName: string) =>
-            `WHERE event_name = '${eventName}'`,
+            `WHERE _TABLE_SUFFIX BETWEEN '{{date startDateISO "yyyyMMdd"}}' AND '{{date endDateISO "yyyyMMdd"}}' AND event_name = '${eventName}'`,
         };
       }
       case "rudderstack":
