@@ -10,7 +10,6 @@ import { MetricType } from "@/../back-end/types/metric";
 import track from "@/services/track";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import { useUser } from "@/services/UserContext";
 import Button from "./Button";
 import { DocLink } from "./DocLink";
 import Modal from "./Modal";
@@ -36,7 +35,6 @@ export default function AutoGenerateMetricsModal({
   const [trackedEvents, setTrackedEvents] = useState<TrackedEventData[]>([]);
   const { datasources } = useDefinitions();
   const { apiCall } = useAuth();
-  const { user } = useUser();
   const [loading, setLoading] = useState(false);
   const { getDatasourceById } = useDefinitions();
 
@@ -78,7 +76,6 @@ export default function AutoGenerateMetricsModal({
       datasourceId: selectedDatasource?.id,
       projects: selectedDatasource?.projects,
       metricsToCreate: data.metricsToCreate,
-      user,
     };
 
     await apiCall(`/metrics/auto-metrics`, {
