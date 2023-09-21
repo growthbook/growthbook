@@ -48,6 +48,7 @@ import {
 } from "../services/audit";
 import {
   discardDraftFeatureRevision,
+  getDraftFeatureRevisions,
   getPublishedFeatureRevisions,
 } from "../models/FeatureRevisionModel";
 import { getEnabledEnvironments } from "../util/features";
@@ -1040,12 +1041,14 @@ export async function getFeatureById(
   }
 
   const revisions = await getPublishedFeatureRevisions(org.id, id);
+  const drafts = await getDraftFeatureRevisions(org.id, id);
 
   res.status(200).json({
     status: 200,
     feature,
     experiments,
     revisions,
+    drafts,
   });
 }
 

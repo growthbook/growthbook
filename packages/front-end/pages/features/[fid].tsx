@@ -52,6 +52,7 @@ import Code from "@/components/SyntaxHighlighting/Code";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { useUser } from "@/services/UserContext";
 import { DeleteDemoDatasourceButton } from "@/components/DemoDataSourcePage/DemoDataSourcePage";
+import { FeatureRevisionDropDownV2Container } from "@/components/FeatureRevisionDropDownV2/FeatureRevisionDropDownV2";
 
 export default function FeaturePage() {
   const router = useRouter();
@@ -89,6 +90,7 @@ export default function FeaturePage() {
     feature: FeatureInterface;
     experiments: { [key: string]: ExperimentInterfaceStringDates };
     revisions: FeatureRevisionInterface[];
+    drafts: FeatureRevisionInterface[];
   }>(`/feature/${fid}`);
   const firstFeature = router?.query && "first" in router.query;
   const [showImplementation, setShowImplementation] = useState(firstFeature);
@@ -278,6 +280,9 @@ export default function FeaturePage() {
           </button>
         </div>
       )}
+
+      {/* TODO: Remove this */}
+      <FeatureRevisionDropDownV2Container />
 
       {projectId ===
         getDemoDatasourceProjectIdForOrganization(organization.id) && (

@@ -80,6 +80,20 @@ export async function getPublishedFeatureRevisions(
   return docs.map(toInterface);
 }
 
+export async function getDraftFeatureRevisions(
+  organization: string,
+  featureId: string
+): Promise<FeatureRevisionInterface[]> {
+  const docs: FeatureRevisionDocument[] = await FeatureRevisionModel.find({
+    organization,
+    featureId,
+    status: {
+      $in: ["draft", "discarded"],
+    },
+  });
+  return docs.map(toInterface);
+}
+
 type SaveRevisionParams = {
   state: "published" | "draft";
   feature: FeatureInterface;
