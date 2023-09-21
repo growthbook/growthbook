@@ -273,6 +273,7 @@ const ExperimentsPage = (): React.ReactElement => {
                 {...searchInputProps}
               />
             </div>
+            <div className="flex-1" />
             <div className="col-auto ml-auto">
               <Toggle
                 id="watched-experiments-toggle"
