@@ -7,6 +7,7 @@ import {
 import { MetricInterface } from "../../types/metric";
 import { Queries, QueryPointer, QueryStatus } from "../../types/query";
 import { SegmentInterface } from "../../types/segment";
+import { findDimensionById } from "../models/DimensionModel";
 import {
   findSnapshotById,
   updateSnapshot,
@@ -15,12 +16,15 @@ import { findSegmentById } from "../models/SegmentModel";
 import { parseDimensionId } from "../services/experiments";
 import { analyzeExperimentResults } from "../services/stats";
 import {
+  Dimension,
+  ExperimentAggregateUnitsQueryResponseRows,
   ExperimentMetricQueryParams,
   ExperimentMetricStats,
   ExperimentQueryResponses,
   ExperimentResults,
   ExperimentUnitsQueryParams,
   SourceIntegrationInterface,
+  UserDimension,
 } from "../types/Integration";
 import { expandDenominatorMetrics } from "../util/sql";
 import {
@@ -78,6 +82,24 @@ export const startExperimentResultQueries = async (
     segmentObj = await findSegmentById(snapshotSettings.segment, organization);
   }
 
+  const exposureQuery = (integration.settings?.queries?.exposure || []).find((q) => q.id === snapshotSettings.exposureQueryId);
+  let availableUnitDimensions: Dimension[] = [];
+  // Add experiment dimensions based on the selected exposure query
+  if (exposureQuery) {
+    if (exposureQuery.dimensions.length > 0) {
+      exposureQuery.dimensions.map(async (d) => {
+        const dim = await findDimensionById(d, organization);
+        if (dim) {
+          availableUnitDimensions.push({
+            type: "user",
+            dimension: dim,
+          });
+
+        }
+      });
+    }
+  }
+  console.log(exposureQuery?.dimensions);
   const dimensionObj = await parseDimensionId(
     snapshotSettings.dimensions[0]?.id,
     organization
@@ -96,7 +118,7 @@ export const startExperimentResultQueries = async (
   if (useUnitsTable) {
     const unitQueryParams: ExperimentUnitsQueryParams = {
       activationMetric: activationMetric,
-      dimension: dimensionObj,
+      dimensions: dimensionObj ? [dimensionObj] : availableUnitDimensions,
       segment: segmentObj,
       settings: snapshotSettings,
       unitsTableFullName: unitsTableFullName,
@@ -142,6 +164,25 @@ export const startExperimentResultQueries = async (
     );
   });
   await Promise.all(promises);
+
+  if (!dimensionObj) {
+    const unitQueryParams: ExperimentUnitsQueryParams = {
+      activationMetric: activationMetric,
+      dimensions: dimensionObj ? [dimensionObj] : availableUnitDimensions,
+      segment: segmentObj,
+      settings: snapshotSettings,
+      unitsTableFullName: unitsTableFullName,
+      includeIdJoins: true,
+    };
+    const healthQuery = await startQuery({
+      name: queryParentId.concat("_health"),
+      query: integration.getExperimentAggregateUnitsQuery(unitQueryParams, !!unitQuery),
+      dependencies: unitQuery ? [unitQuery.query] : [],
+      run: (query) => integration.runExperimentAggregateUnitsQuery(query),
+      process: (rows: ExperimentAggregateUnitsQueryResponseRows) => integration.processExperimentAggregateUnitsQueryResponseRows(rows),
+    })
+    queries.push(healthQuery);
+  }
 
   return queries;
 };
