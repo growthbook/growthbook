@@ -148,7 +148,7 @@ const ExperimentsPage = (): React.ReactElement => {
   // Reset to page 1 when a filter is applied or tabs change
   useEffect(() => {
     setCurrentPage(1);
-  }, [items.length, tab, showMineOnly]);
+  }, [items.length, tab, showMineOnly, showWatchedOnly]);
 
   // Show steps if coming from get started page
   useEffect(() => {
