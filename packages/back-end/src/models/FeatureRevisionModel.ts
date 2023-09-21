@@ -105,7 +105,7 @@ export async function createFeatureRevision({
       version: feature.revision?.version || 1,
       dateCreated: new Date(),
       revisionDate: feature.revision?.date || feature.dateCreated,
-      state,
+      status: state,
       publishedBy:
         state === "draft"
           ? null
