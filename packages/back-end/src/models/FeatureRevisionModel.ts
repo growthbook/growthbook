@@ -1,3 +1,4 @@
+import { randomUUID } from "crypto";
 import mongoose from "mongoose";
 import omit from "lodash/omit";
 import { FeatureInterface, FeatureRule } from "../../types/feature";
@@ -5,6 +6,7 @@ import { FeatureRevisionInterface } from "../../types/feature-revision";
 import { logger } from "../util/logger";
 
 const featureRevisionSchema = new mongoose.Schema({
+  id: String,
   organization: String,
   featureId: String,
   version: Number,
@@ -79,7 +81,6 @@ type SaveRevisionParams = {
   creatorUserId: string | null;
 };
 
-// todo: support creating draft revisions
 export async function createFeatureRevision({
   feature,
   creatorUserId,
@@ -92,6 +93,7 @@ export async function createFeatureRevision({
 
   try {
     await FeatureRevisionModel.create({
+      id: `feat-rev_${randomUUID()}`,
       organization: feature.organization,
       featureId: feature.id,
       creatorUserId,
@@ -118,4 +120,66 @@ export async function createFeatureRevision({
 
     // TODO: handle duplicate key errors more elegantly
   }
+}
+
+export async function getFeatureRevision({
+  organizationId,
+  featureId,
+  id,
+}: {
+  organizationId: string;
+  featureId: string;
+  id: string;
+}): Promise<FeatureRevisionInterface> {
+  const doc = await FeatureRevisionModel.findOne({
+    id,
+    organization: organizationId,
+    featureId,
+  });
+
+  if (!doc) {
+    throw new Error(
+      `FeatureRevision not found: ${JSON.stringify({
+        organizationId,
+        featureId,
+        id,
+      })}`
+    );
+  }
+
+  return toInterface(doc);
+}
+
+export async function publishFeatureRevision({
+  organizationId,
+  featureId,
+  revisionId,
+  user: { id, email, name },
+}: {
+  organizationId: string;
+  featureId: string;
+  revisionId: string;
+  user: {
+    id: string;
+    email: string;
+    name: string;
+  };
+}): Promise<void> {
+  await FeatureRevisionModel.updateOne(
+    {
+      id: revisionId,
+      organization: organizationId,
+      featureId,
+    },
+    {
+      $set: {
+        publishedBy: {
+          id,
+          email,
+          name,
+        },
+        status: "published",
+      },
+    }
+  );
 }

@@ -8,24 +8,25 @@ import {
 import { AuthRequest } from "../types/AuthRequest";
 import { getOrgFromReq } from "../services/organizations";
 import {
+  addExperimentRefRule,
   addFeatureRule,
+  archiveFeature,
   createFeature,
+  deleteExperimentRefRule,
   deleteFeature,
-  setFeatureDraftRules,
+  discardLegacyDraft,
   editFeatureRule,
   getAllFeatures,
   getFeature,
+  getLegacyDraftRules,
+  publishDraft,
   publishLegacyDraft,
   setDefaultValue,
+  setJsonSchema,
+  setLegacyFeatureDraftRules,
   toggleFeatureEnvironment,
   updateFeature,
-  archiveFeature,
-  getDraftRules,
-  discardLegacyDraft,
   updateLegacyDraft,
-  setJsonSchema,
-  addExperimentRefRule,
-  deleteExperimentRefRule,
 } from "../models/FeatureModel";
 import { getRealtimeUsageByHour } from "../models/RealtimeModel";
 import { lookupOrganizationByApiKey } from "../models/ApiKeyModel";
@@ -42,8 +43,8 @@ import {
 import { FeatureUsageRecords } from "../../types/realtime";
 import {
   auditDetailsCreate,
-  auditDetailsUpdate,
   auditDetailsDelete,
+  auditDetailsUpdate,
 } from "../services/audit";
 import { getPublishedFeatureRevisions } from "../models/FeatureRevisionModel";
 import { getEnabledEnvironments } from "../util/features";
@@ -317,14 +318,14 @@ export async function postFeatures(
 // todo: deprecate this maybe?
 export async function postFeaturePublish(
   req: AuthRequest<
-    { draft: FeatureDraftChanges; comment?: string },
+    { draftId?: string; draft?: FeatureDraftChanges; comment?: string },
     { id: string }
   >,
   res: Response
 ) {
   const { org, email, userId, userName } = getOrgFromReq(req);
   const { id } = req.params;
-  const { draft, comment } = req.body;
+  const { draft, draftId, comment } = req.body;
 
   const feature = await getFeature(org.id, id);
 
@@ -332,13 +333,53 @@ export async function postFeaturePublish(
     throw new Error("Could not find feature");
   }
 
-  // todo: update these draft references based on the new drafts
-  // todo: check revisions
+  req.checkPermissions("manageFeatures", feature.project);
+
+  if (draftId) {
+    req.checkPermissions(
+      "publishFeatures",
+      feature.project,
+      (org.settings?.environments || []).map((e) => e.id)
+    );
+
+    const updatedFeature = await publishDraft({
+      featureId: feature.id,
+      organization: org,
+      draft: { type: "v2", id: draftId },
+      user: {
+        id: userId,
+        email,
+        name: userName,
+      },
+    });
+
+    await req.audit({
+      event: "feature.publish",
+      entity: {
+        object: "feature",
+        id: feature.id,
+      },
+      details: auditDetailsUpdate(feature, updatedFeature, {
+        revision: updatedFeature.revision?.version || 1,
+        comment,
+      }),
+    });
+
+    res.status(200).json({
+      status: 200,
+    });
+
+    return;
+  }
+
+  // Legacy flow
+  if (!draft) {
+    throw new Error("`draft` or `draftId` required");
+  }
+
   if (!feature.draft?.active) {
     throw new Error("There are no changes to publish.");
   }
-
-  req.checkPermissions("manageFeatures", feature.project);
 
   // If changing the default value, it affects all enabled environments
   if ("defaultValue" in draft) {
@@ -700,14 +741,14 @@ export async function postFeatureMoveRule(
   req.checkPermissions("manageFeatures", feature.project);
   req.checkPermissions("createFeatureDrafts", feature.project);
 
-  const rules = getDraftRules(feature, environment);
+  const rules = getLegacyDraftRules(feature, environment);
   if (!rules[from] || !rules[to]) {
     throw new Error("Invalid rule index");
   }
 
   const newRules = arrayMove(rules, from, to);
 
-  await setFeatureDraftRules(
+  await setLegacyFeatureDraftRules(
     org,
     res.locals.eventAudit,
     feature,
@@ -736,12 +777,12 @@ export async function deleteFeatureRule(
   req.checkPermissions("manageFeatures", feature.project);
   req.checkPermissions("createFeatureDrafts", feature.project);
 
-  const rules = getDraftRules(feature, environment);
+  const rules = getLegacyDraftRules(feature, environment);
 
   const newRules = rules.slice();
   newRules.splice(i, 1);
 
-  await setFeatureDraftRules(
+  await setLegacyFeatureDraftRules(
     org,
     res.locals.eventAudit,
     feature,
