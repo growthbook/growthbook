@@ -98,11 +98,7 @@ export default function (ag: Agenda) {
             organization,
             dateCreated: metric.dateCreated ? metric.dateCreated : undefined,
             details: auditDetailsCreate(metric),
-            user: {
-              id: user.id,
-              email: user.email,
-              name: user.name,
-            },
+            user,
           });
         }
       } catch (e) {
