@@ -47,7 +47,7 @@ import {
   auditDetailsUpdate,
 } from "../services/audit";
 import {
-  discardFeatureRevision,
+  discardDraftFeatureRevision,
   getPublishedFeatureRevisions,
 } from "../models/FeatureRevisionModel";
 import { getEnabledEnvironments } from "../util/features";
@@ -318,7 +318,6 @@ export async function postFeatures(
   });
 }
 
-// todo: test
 export async function postFeaturePublish(
   req: AuthRequest<
     { draftId?: string; draft?: FeatureDraftChanges; comment?: string },
@@ -457,11 +456,13 @@ export async function postFeatureDiscard(
   req.checkPermissions("createFeatureDrafts", feature.project);
 
   if (draft) {
+    // Discard legacy draft
     verifyDraftsAreEqual(feature.draft, draft);
 
     await discardLegacyDraft(org, res.locals.eventAudit, feature);
   } else if (draftId) {
-    await discardFeatureRevision({
+    // Discard new draft by ID
+    await discardDraftFeatureRevision({
       organizationId: org.id,
       featureId: id,
       revisionId: draftId,
@@ -475,7 +476,6 @@ export async function postFeatureDiscard(
   });
 }
 
-// todo: edit this
 export async function postFeatureDraft(
   req: AuthRequest<
     {

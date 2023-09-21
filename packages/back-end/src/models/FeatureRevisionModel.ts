@@ -191,7 +191,7 @@ export async function publishFeatureRevision({
   );
 }
 
-export async function discardFeatureRevision({
+export async function discardDraftFeatureRevision({
   organizationId,
   featureId,
   revisionId,
