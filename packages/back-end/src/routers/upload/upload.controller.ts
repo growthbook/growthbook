@@ -23,7 +23,7 @@ export async function putUpload(req: AuthRequest<Buffer>, res: Response) {
     );
   }
 
-  const ext = contentType.split("/")[1];
+  const ext = mimetypes[contentType];
   const { org } = getOrgFromReq(req);
 
   const now = new Date();
