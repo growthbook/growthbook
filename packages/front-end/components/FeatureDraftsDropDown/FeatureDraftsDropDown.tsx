@@ -127,19 +127,20 @@ export const FeatureDraftsDropDown: FC<FeatureDraftsDropDownProps> = ({
             <h3>Drafts</h3>
             <p>Drafts are unpublished versions of a feature.</p>
 
-            <h4>Ready for review</h4>
-            <div className="mt-3">
-              <ul>
-                {reviewRequests.map((rr) => (
-                  <li key={rr.id}>
-                    from user {rr.userId} :{rr.description} -{" "}
-                    {Object.keys(rr.reviews).length} review(s)
-                  </li>
-                ))}
-              </ul>
-            </div>
+            {/* TODO: uncomment when we have support for approval flows */}
+            {/*<h4>Ready for review</h4>*/}
+            {/*<div className="mt-3">*/}
+            {/*  <ul>*/}
+            {/*    {reviewRequests.map((rr) => (*/}
+            {/*      <li key={rr.id}>*/}
+            {/*        from user {rr.userId} :{rr.description} -{" "}*/}
+            {/*        {Object.keys(rr.reviews).length} review(s)*/}
+            {/*      </li>*/}
+            {/*    ))}*/}
+            {/*  </ul>*/}
+            {/*</div>*/}
 
-            <h4>Other drafts</h4>
+            {/*<h4>Other drafts</h4>*/}
             <div className="mt-3">
               <FeatureDraftsList drafts={drafts} onDraftClick={onDraftClick} />
             </div>
