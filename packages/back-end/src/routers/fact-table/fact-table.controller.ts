@@ -23,6 +23,7 @@ import {
   createFactFilter,
   updateFactFilter,
 } from "../../models/FactTableModel";
+import { addTags, addTagsDiff } from "../../models/TagModel";
 
 export const getFactTables = async (
   req: AuthRequest,
@@ -49,6 +50,10 @@ export const postFactTable = async (
 
   const factTable = await createFactTable(org.id, data);
 
+  if (data.tags.length > 0) {
+    await addTags(org.id, data.tags);
+  }
+
   res.status(200).json({
     status: 200,
     factTable,
@@ -74,6 +79,8 @@ export const putFactTable = async (
   }
 
   await updateFactTable(factTable, data);
+
+  await addTagsDiff(org.id, factTable.tags, data.tags || []);
 
   res.status(200).json({
     status: 200,

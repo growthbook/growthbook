@@ -89,7 +89,7 @@ export default function FactList({ factTable }: Props) {
               <tr>
                 <SortableTH field="name">Name</SortableTH>
                 <SortableTH field="column">Column</SortableTH>
-                <th>Number Format</th>
+                <th>Format</th>
                 <th>Filters</th>
                 <SortableTH field="dateUpdated">Last Updated</SortableTH>
                 <th></th>

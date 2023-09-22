@@ -7,6 +7,7 @@ export const createFactTablePropsValidator = z
     id: z.string().optional(),
     owner: z.string().optional(),
     projects: z.array(z.string()),
+    tags: z.array(z.string()),
     datasource: z.string(),
     userIdTypes: z.array(z.string()),
     sql: z.string(),
@@ -19,6 +20,7 @@ export const updateFactTablePropsValidator = z
     description: z.string().optional(),
     owner: z.string().optional(),
     projects: z.array(z.string()).optional(),
+    tags: z.array(z.string()).optional(),
     userIdTypes: z.array(z.string()).optional(),
     sql: z.string().optional(),
   })

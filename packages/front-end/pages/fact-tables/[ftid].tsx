@@ -17,6 +17,8 @@ import FactFilterList from "@/components/FactTables/FactFilterList";
 import EditProjectsForm from "@/components/Projects/EditProjectsForm";
 import MetricFactModal from "@/components/FactTables/MetricFactModal";
 import PageHead from "@/components/Layout/PageHead";
+import EditTagsForm from "@/components/Tags/EditTagsForm";
+import SortedTags from "@/components/Tags/SortedTags";
 
 export default function FactTablePage() {
   const router = useRouter();
@@ -27,6 +29,7 @@ export default function FactTablePage() {
   const [editFactOpen, setEditFactOpen] = useState("");
   const [newFactOpen, setNewFactOpen] = useState(false);
   const [editProjectsOpen, setEditProjectsOpen] = useState(false);
+  const [editTagsModal, setEditTagsModal] = useState(false);
 
   const [metricOpen, setMetricOpen] = useState(false);
 
@@ -89,6 +92,19 @@ export default function FactTablePage() {
           }}
           mutate={mutateDefinitions}
           entityName="Fact Table"
+        />
+      )}
+      {editTagsModal && (
+        <EditTagsForm
+          tags={factTable.tags}
+          save={async (tags) => {
+            await apiCall(`/fact-tables/${factTable.id}`, {
+              method: "PUT",
+              body: JSON.stringify({ tags }),
+            });
+          }}
+          cancel={() => setEditTagsModal(false)}
+          mutate={mutateDefinitions}
         />
       )}
       {metricOpen && (
@@ -165,6 +181,17 @@ export default function FactTablePage() {
             )}
           </div>
         ) : null}
+        <div className="col-auto">
+          Tags: <SortedTags tags={factTable.tags} />
+          {canEdit && (
+            <a
+              className="ml-1 cursor-pointer"
+              onClick={() => setEditTagsModal(true)}
+            >
+              <GBEdit />
+            </a>
+          )}
+        </div>
         <div className="col-auto">
           Data source:{" "}
           <Link href={`/datasources/${factTable.datasource}`}>

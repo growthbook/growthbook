@@ -19,6 +19,7 @@ import MarkdownInput from "../Markdown/MarkdownInput";
 import MultiSelectField from "../Forms/MultiSelectField";
 import EditSqlModal from "../SchemaBrowser/EditSqlModal";
 import Code from "../SyntaxHighlighting/Code";
+import TagsField from "../Features/FeatureModal/TagsField";
 
 export interface Props {
   existing?: FactTableInterface;
@@ -38,6 +39,7 @@ export default function FactTableModal({ existing, close }: Props) {
   const [showDescription, setShowDescription] = useState(
     !!existing?.description?.length
   );
+  const [showTags, setShowTags] = useState(!!existing?.tags?.length);
 
   const [sqlOpen, setSqlOpen] = useState(false);
 
@@ -57,6 +59,7 @@ export default function FactTableModal({ existing, close }: Props) {
       name: existing?.name || "",
       sql: existing?.sql || "",
       userIdTypes: existing?.userIdTypes || [],
+      tags: existing?.tags || [],
     },
   });
 
@@ -129,6 +132,24 @@ export default function FactTableModal({ existing, close }: Props) {
       >
         <Field label="Name" {...form.register("name")} required />
 
+        {showTags ? (
+          <TagsField
+            value={form.watch("tags")}
+            onChange={(tags) => form.setValue("tags", tags)}
+          />
+        ) : (
+          <a
+            href="#"
+            className="badge badge-light badge-pill mr-3 mb-3"
+            onClick={(e) => {
+              e.preventDefault();
+              setShowTags(true);
+            }}
+          >
+            + tags
+          </a>
+        )}
+
         {showDescription ? (
           <div className="form-group">
             <label>Description</label>
@@ -150,6 +171,7 @@ export default function FactTableModal({ existing, close }: Props) {
             + description
           </a>
         )}
+
         {!existing && (
           <SelectField
             label="Data Source"

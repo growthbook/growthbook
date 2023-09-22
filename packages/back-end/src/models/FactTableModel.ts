@@ -22,6 +22,7 @@ const factTableSchema = new mongoose.Schema({
   description: String,
   owner: String,
   projects: [String],
+  tags: [String],
   datasource: String,
   userIdTypes: [String],
   sql: String,
@@ -92,6 +93,7 @@ export async function createFactTable(
     filters: [],
     owner: data.owner,
     projects: data.projects,
+    tags: data.tags,
     sql: data.sql,
     userIdTypes: data.userIdTypes,
   });

@@ -40,6 +40,7 @@ export interface FactTableInterface {
   description: string;
   owner: string;
   projects: string[];
+  tags: string[];
   datasource: string;
   userIdTypes: string[];
   sql: string;

@@ -1,8 +1,9 @@
 import { isProjectListValidForProject } from "shared/util";
 import Link from "next/link";
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { date } from "shared/dates";
 import { FaAngleDown, FaAngleRight } from "react-icons/fa";
+import { useRouter } from "next/router";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import FactTableModal from "@/components/FactTables/FactTableModal";
 import { GBAddCircle } from "@/components/Icons";
@@ -12,9 +13,17 @@ import { useAddComputedFields, useSearch } from "@/services/search";
 import Field from "@/components/Forms/Field";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import PageHead from "@/components/Layout/PageHead";
+import TagsFilter, {
+  filterByTags,
+  useTagsFilter,
+} from "@/components/Tags/TagsFilter";
+import SortedTags from "@/components/Tags/SortedTags";
+import ProjectBadges from "@/components/ProjectBadges";
 
 export default function FactTablesPage() {
   const { factTables, getDatasourceById, project } = useDefinitions();
+
+  const router = useRouter();
 
   const permissions = usePermissions();
 
@@ -33,21 +42,40 @@ export default function FactTablesPage() {
   const factTablesWithLabels = useAddComputedFields(
     filteredFactTables,
     (table) => {
+      const sortedUserIdTypes = [...table.userIdTypes];
+      sortedUserIdTypes.sort();
       return {
         ...table,
         datasourceName: getDatasourceById(table.datasource)?.name || "Unknown",
         numFacts: table.facts.length,
         numFilters: table.filters.length,
+        userIdTypes: sortedUserIdTypes,
       };
     },
     [getDatasourceById]
+  );
+
+  const tagsFilter = useTagsFilter("facttables");
+  const filterResults = useCallback(
+    (items: typeof factTablesWithLabels) => {
+      items = filterByTags(items, tagsFilter.tags);
+      return items;
+    },
+    [tagsFilter.tags]
   );
 
   const { items, searchInputProps, isFiltered, SortableTH, clear } = useSearch({
     items: factTablesWithLabels,
     defaultSortField: "name",
     localStorageKey: "factTables",
-    searchFields: ["name^3", "description"],
+    searchFields: [
+      "name^3",
+      "tags",
+      "datasourceName",
+      "userIdTypes",
+      "description",
+    ],
+    filterResults,
   });
 
   return (
@@ -133,15 +161,21 @@ export default function FactTablesPage() {
         )}
       </div>
 
-      <div className="row mb-2">
+      <div className="row mb-2 align-items-center">
         {filteredFactTables.length > 0 && (
-          <div className="col-lg-3 col-md-4 col-6 mr-auto">
-            <Field
-              placeholder="Search..."
-              type="search"
-              {...searchInputProps}
-            />
-          </div>
+          <>
+            <div className="col-lg-3 col-md-4 col-6">
+              <Field
+                placeholder="Search..."
+                type="search"
+                {...searchInputProps}
+              />
+            </div>
+            <div className="col-auto">
+              <TagsFilter filter={tagsFilter} items={items} />
+            </div>
+            <div className="ml-auto"></div>
+          </>
         )}
         <div className="col-auto">
           <Tooltip
@@ -170,12 +204,14 @@ export default function FactTablesPage() {
 
       {filteredFactTables.length > 0 && (
         <>
-          <table className="table appbox gbtable">
+          <table className="table appbox gbtable table-hover">
             <thead>
               <tr>
                 <SortableTH field="name">Name</SortableTH>
                 <SortableTH field="datasourceName">Data Source</SortableTH>
-                <th>User Id Types</th>
+                <SortableTH field="tags">Tags</SortableTH>
+                <th>Projects</th>
+                <SortableTH field="userIdTypes">Identifier Types</SortableTH>
                 <SortableTH field="numFacts">Facts</SortableTH>
                 <SortableTH field="numFilters">Filters</SortableTH>
                 <SortableTH field="dateUpdated">Last Updated</SortableTH>
@@ -183,12 +219,38 @@ export default function FactTablesPage() {
             </thead>
             <tbody>
               {items.map((f) => (
-                <tr key={f.id}>
+                <tr
+                  key={f.id}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    router.push(`/fact-tables/${f.id}`);
+                  }}
+                  className="cursor-pointer"
+                >
                   <td>
                     <Link href={`/fact-tables/${f.id}`}>{f.name}</Link>
                   </td>
                   <td>{f.datasourceName}</td>
-                  <td>{f.userIdTypes.join(", ")}</td>
+                  <td>
+                    <SortedTags tags={f.tags} />
+                  </td>
+                  <td className="col-2">
+                    {f.projects.length > 0 ? (
+                      <ProjectBadges
+                        projectIds={f.projects}
+                        className="badge-ellipsis short align-middle"
+                      />
+                    ) : (
+                      <ProjectBadges className="badge-ellipsis short align-middle" />
+                    )}
+                  </td>
+                  <td>
+                    {f.userIdTypes.map((t) => (
+                      <span className="badge badge-secondary mr-1" key={t}>
+                        {t}
+                      </span>
+                    ))}
+                  </td>
                   <td>{f.numFacts}</td>
                   <td>{f.numFilters}</td>
                   <td>{date(f.dateUpdated)}</td>
