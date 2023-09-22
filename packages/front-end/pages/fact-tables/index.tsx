@@ -11,6 +11,7 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import { useAddComputedFields, useSearch } from "@/services/search";
 import Field from "@/components/Forms/Field";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
+import PageHead from "@/components/Layout/PageHead";
 
 export default function FactTablesPage() {
   const { factTables, getDatasourceById, project } = useDefinitions();
@@ -54,6 +55,7 @@ export default function FactTablesPage() {
       {createFactOpen && (
         <FactTableModal close={() => setCreateFactOpen(false)} />
       )}
+      <PageHead breadcrumb={[{ display: "Fact Tables" }]} />
       <h1>
         Fact Tables
         <span className="badge badge-purple border text-uppercase ml-2">

@@ -67,6 +67,7 @@ export const putFactTable = async (
     throw new Error("Could not find fact table with that id");
   }
 
+  // Check permissions for both the existing projects and new ones (if they are being changed)
   req.checkPermissions("manageFactTables", factTable.projects);
   if (data.projects) {
     req.checkPermissions("manageFactTables", data.projects || "");

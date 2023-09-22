@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import Markdown from "@/components/Markdown/Markdown";
-import { GBAddCircle, GBCircleArrowLeft, GBEdit } from "@/components/Icons";
+import { GBAddCircle, GBEdit } from "@/components/Icons";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import { useAuth } from "@/services/auth";
@@ -16,6 +16,7 @@ import FactList from "@/components/FactTables/FactList";
 import FactFilterList from "@/components/FactTables/FactFilterList";
 import EditProjectsForm from "@/components/Projects/EditProjectsForm";
 import MetricFactModal from "@/components/FactTables/MetricFactModal";
+import PageHead from "@/components/Layout/PageHead";
 
 export default function FactTablePage() {
   const router = useRouter();
@@ -99,13 +100,14 @@ export default function FactTablePage() {
           initialFactTable={factTable.id}
         />
       )}
+      <PageHead
+        breadcrumb={[
+          { display: "Fact Tables", href: "/fact-tables" },
+          { display: factTable.name },
+        ]}
+      />
       <div className="row mb-3">
         <div className="col-auto">
-          <Link href="/fact-tables">
-            <a>
-              <GBCircleArrowLeft /> Back to all fact tables
-            </a>
-          </Link>
           <h1 className="mb-0">{factTable.name}</h1>
         </div>
         {canEdit && (
