@@ -2514,16 +2514,16 @@ html {
       .gb-select__input-container {
         margin: 0 !important;
         padding: 0 !important;
-        max-width: 200px !important;
+        max-width: 220px !important;
         .gb-select__input {
-          max-width: 200px !important;
+          max-width: 220px !important;
         }
       }
       .gb-select__single-value {
         margin: 0 10px 0 0 !important;
         padding: 0 1px !important;
         color: var(--text-dark) !important;
-        max-width: 200px !important;
+        max-width: 220px !important;
       }
     }
     .gb-select__indicators {
@@ -2540,6 +2540,18 @@ html {
     }
     &.gb-select__control--is-focused {
       box-shadow: none !important;
+    }
+  }
+}
+.phase-selector {
+  .gb-select__single-value {
+    .phase-selector-select-option {
+      display: none;
+    }
+  }
+  .gb-select__menu-portal {
+    .phase-selector-with-tooltip {
+      display: none;
     }
   }
 }

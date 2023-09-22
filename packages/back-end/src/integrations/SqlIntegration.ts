@@ -1514,7 +1514,7 @@ export default abstract class SqlIntegration
             )}' AND 'intraday_${formatDate(end, "yyyyMMdd")}'))`,
           getAdditionalEvents: () => [],
           getMetricWhereClause: (eventName: string) =>
-            `((_TABLE_SUFFIX BETWEEN '{{date startDateISO "yyyyMMdd"}}' AND '{{date endDateISO "yyyyMMdd"}}') OR
+            `WHERE ((_TABLE_SUFFIX BETWEEN '{{date startDateISO "yyyyMMdd"}}' AND '{{date endDateISO "yyyyMMdd"}}') OR
  (_TABLE_SUFFIX BETWEEN 'intraday_{{date startDateISO "yyyyMMdd"}}' AND 'intraday_{{date endDateISO "yyyyMMdd"}}')) 
 AND event_name = '${eventName}'`,
         };
