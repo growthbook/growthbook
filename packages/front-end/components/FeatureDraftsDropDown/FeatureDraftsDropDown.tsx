@@ -1,18 +1,16 @@
-import React, { FC, useCallback, useMemo, useState } from "react";
+import React, { FC, useCallback, useMemo } from "react";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import { FeatureInterface } from "back-end/types/feature";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { useRouter } from "next/router";
 import { ago, datetime } from "@/../shared/dates";
 import { FeatureReviewRequest } from "back-end/types/feature-review";
-import { FaCaretDown } from "react-icons/fa";
 import useApi from "@/hooks/useApi";
 import {
   FeatureDraftUiItem,
   transformDraftForView,
 } from "@/components/FeatureDraftsDropDown/FeatureDraftsDropdown.utils";
 import Avatar from "@/components/Avatar/Avatar";
-import { gravatarForEmail } from "@/components/Avatar/Avatar.utils";
 import useMembers, { MemberData } from "@/hooks/useMembers";
 import Dropdown from "@/components/Dropdown/Dropdown";
 
@@ -186,6 +184,7 @@ export const FeatureDraftsDropDownContainer = () => {
 
   const drafts = revisions;
 
+  // todo: fetch review requests
   const reviewRequests: FeatureReviewRequest[] = [];
 
   if (error) {

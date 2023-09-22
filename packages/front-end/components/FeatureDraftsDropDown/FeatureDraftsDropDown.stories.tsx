@@ -1,7 +1,6 @@
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import { action } from "@storybook/addon-actions";
 import { FeatureReviewRequest } from "back-end/types/feature-review";
-import { useState } from "react";
 import { MemberData } from "@/hooks/useMembers";
 import { transformDraftForView } from "@/components/FeatureDraftsDropDown/FeatureDraftsDropdown.utils";
 import {

@@ -366,8 +366,8 @@ type OnReviewRequestedParams = {
 };
 
 const onReviewRequested = async ({
-  userId,
-  featureReviewRequestId,
+  userId: _userId,
+  featureReviewRequestId: _featureReviewRequestId,
 }: OnReviewRequestedParams): Promise<void> => {
   // todo: email notification
 };
