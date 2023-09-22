@@ -12,7 +12,6 @@ export async function putUpload(req: AuthRequest<Buffer>, res: Response) {
     "image/png": "png",
     "image/jpeg": "jpeg",
     "image/gif": "gif",
-    "image/svg+xml": "svg",
   };
 
   if (!(contentType in mimetypes)) {

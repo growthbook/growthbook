@@ -81,7 +81,7 @@ import { getBuild } from "./util/handler";
 import { getCustomLogProps, httpLogger } from "./util/logger";
 import { usersRouter } from "./routers/users/users.router";
 import { organizationsRouter } from "./routers/organizations/organizations.router";
-import { uploadsRouter } from "./routers/upload/upload.router";
+import { putUploadRouter } from "./routers/upload/put-upload.router";
 import { eventsRouter } from "./routers/events/events.router";
 import { eventWebHooksRouter } from "./routers/event-webhooks/event-webhooks.router";
 import { tagRouter } from "./routers/tag/tag.router";
@@ -559,7 +559,7 @@ app.delete(
   discussionsController.deleteComment
 );
 app.get("/discussions/recent/:num", discussionsController.getRecentDiscussions);
-app.use("/upload", uploadsRouter);
+app.use("/putupload", putUploadRouter);
 
 // Teams
 app.use("/teams", teamRouter);

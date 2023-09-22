@@ -16,4 +16,4 @@ router.put(
   uploadController.putUpload
 );
 
-export { router as uploadsRouter };
+export { router as putUploadRouter };
