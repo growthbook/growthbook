@@ -24,10 +24,7 @@ export const FeatureDraftsDropDown: FC<FeatureDraftsDropDownProps> = ({
 }) => {
   return (
     <div className="">
-      {/* <h1>FeatureRevisionDropDownV2</h1>
-      <pre>{JSON.stringify(revisions, null, 2)}</pre> */}
-
-      <table className="appbox table table-hover">
+      <table className="table table-hover">
         <thead>
           <tr>
             <th>Version</th>
@@ -54,9 +51,11 @@ export const FeatureDraftsDropDown: FC<FeatureDraftsDropDownProps> = ({
                     <Avatar email={creator?.email || ""} size={30} />
                   </span>
                   {creator ? (
-                    <span className="font-weight-bold">{creator.name}</span>
+                    <span className="font-weight-bold nowrap">
+                      {creator.name}
+                    </span>
                   ) : creatorUserId ? (
-                    <span className="font-italic">
+                    <span className="font-italic nowrap">
                       (unknown user - <small>{creatorUserId}</small>)
                     </span>
                   ) : (
@@ -87,7 +86,7 @@ export const FeatureDraftsDropDownContainer = () => {
   const router = useRouter();
   const { fid } = router.query;
 
-  const { data, error, mutate } = useApi<{
+  const { data, error } = useApi<{
     feature: FeatureInterface;
     experiments: { [key: string]: ExperimentInterfaceStringDates };
     revisions: FeatureRevisionInterface[];
@@ -115,7 +114,13 @@ export const FeatureDraftsDropDownContainer = () => {
     return data.drafts.map(transformDraftForView(memberLookup));
   }, [data, memberLookup]);
 
+  const drafts = revisions;
+
+  if (error) {
+    return <div className="alert alert-danger">Could not load drafts</div>;
+  }
+
   return (
-    <FeatureDraftsDropDown drafts={revisions} onDraftClick={onDraftClicked} />
+    <FeatureDraftsDropDown drafts={drafts} onDraftClick={onDraftClicked} />
   );
 };
