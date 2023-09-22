@@ -7,6 +7,7 @@ import { useAuth } from "@/services/auth";
 import { trafficSplitPercentages } from "@/services/utils";
 import Carousel from "../Carousel";
 import ScreenshotUpload from "../EditExperiment/ScreenshotUpload";
+import AuthorizedImage from "../AuthorizedImage";
 
 const ScreenshotCarousel: FC<{
   index: number;
@@ -53,10 +54,10 @@ const ScreenshotCarousel: FC<{
       maxChildHeight={maxChildHeight}
     >
       {variation.screenshots.map((s) => (
-        <img
+        <AuthorizedImage
           className="experiment-image"
+          imagePath={s.path}
           key={s.path}
-          src={s.path}
           style={{
             width: "100%",
             height: "100%",
