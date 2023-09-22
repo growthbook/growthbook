@@ -121,7 +121,7 @@ export class GrowthBook<
 
     await this._refresh(options, true, true);
 
-    // remote eval: don't subscribe if there is no uid
+    // remote eval: don't subscribe if there is no userId
     if (this._ctx.remoteEval && !this._ctx.userId) return;
 
     if (this.canSubscribe()) {
@@ -295,6 +295,12 @@ export class GrowthBook<
 
   public setURL(url: string) {
     this._ctx.url = url;
+    if (this._ctx.remoteEval) {
+      if (this._loadFeaturesCalled) {
+        this._refresh({ skipCache: true }, false, true);
+      }
+      return;
+    }
     this._updateAllAutoExperiments(true);
   }
 
