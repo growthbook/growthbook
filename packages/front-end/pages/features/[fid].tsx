@@ -52,7 +52,7 @@ import Code from "@/components/SyntaxHighlighting/Code";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { useUser } from "@/services/UserContext";
 import { DeleteDemoDatasourceButton } from "@/components/DemoDataSourcePage/DemoDataSourcePage";
-import { FeatureRevisionDropDownV2Container } from "@/components/FeatureRevisionDropDownV2/FeatureRevisionDropDownV2";
+import { FeatureDraftsDropDownContainer } from "@/components/FeatureDraftsDropDown/FeatureDraftsDropDown";
 
 export default function FeaturePage() {
   const router = useRouter();
@@ -281,9 +281,6 @@ export default function FeaturePage() {
         </div>
       )}
 
-      {/* TODO: Remove this */}
-      <FeatureRevisionDropDownV2Container />
-
       {projectId ===
         getDemoDatasourceProjectIdForOrganization(organization.id) && (
         <div className="alert alert-info mb-3 d-flex align-items-center">
@@ -400,6 +397,12 @@ export default function FeaturePage() {
               )}
           </MoreMenu>
         </div>
+      </div>
+
+      {/* TODO: Replace this with the presentational component */}
+      <div className="my-5">
+        <h2>Drafts</h2>
+        <FeatureDraftsDropDownContainer />
       </div>
 
       <div>
