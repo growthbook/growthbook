@@ -29,12 +29,12 @@ export type FeatureReviewPending = {
 
 export type FeatureReviewRequest = {
   id: string;
+  description: string;
   dateCreated: Date | string;
   organizationId: string;
   userId: string;
   state: "active" | "stale";
-  version: string;
-  featureKey: string;
+  featureId: string;
   featureRevisionId: string;
   reviews: Record<string, FeatureReview>;
 };

@@ -4,6 +4,8 @@ import { FeatureInterface } from "back-end/types/feature";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { useRouter } from "next/router";
 import { ago, datetime } from "@/../shared/dates";
+import { FeatureReviewRequest } from "back-end/types/feature-review";
+import { FaCaretDown } from "react-icons/fa";
 import useApi from "@/hooks/useApi";
 import {
   FeatureDraftUiItem,
@@ -12,13 +14,14 @@ import {
 import Avatar from "@/components/Avatar/Avatar";
 import { gravatarForEmail } from "@/components/Avatar/Avatar.utils";
 import useMembers, { MemberData } from "@/hooks/useMembers";
+import Dropdown from "@/components/Dropdown/Dropdown";
 
-type FeatureDraftsDropDownProps = {
+type FeatureDraftsListProps = {
   drafts: FeatureDraftUiItem[];
   onDraftClick: (draft: FeatureDraftUiItem) => void;
 };
 
-export const FeatureDraftsDropDown: FC<FeatureDraftsDropDownProps> = ({
+export const FeatureDraftsList: FC<FeatureDraftsListProps> = ({
   drafts,
   onDraftClick,
 }) => {
@@ -82,6 +85,73 @@ export const FeatureDraftsDropDown: FC<FeatureDraftsDropDownProps> = ({
   );
 };
 
+type FeatureDraftsDropDownProps = {
+  reviewRequests: FeatureReviewRequest[];
+  drafts: FeatureDraftUiItem[];
+  onDraftClick: (draft: FeatureDraftUiItem) => void;
+};
+
+export const FeatureDraftsDropDown: FC<FeatureDraftsDropDownProps> = ({
+  reviewRequests,
+  drafts,
+  onDraftClick,
+}) => {
+  return (
+    <div>
+      <div className="d-flex justify-content-end">
+        <Dropdown
+          uuid="FeatureDraftsDropDown"
+          caret
+          width={600}
+          toggle={
+            <span
+              title={`${reviewRequests.length} pending ${
+                reviewRequests.length === 1 ? "review" : "reviews"
+              }. ${drafts.length} ${
+                drafts.length === 1 ? "draft" : "drafts"
+              } in total.`}
+            >
+              <span className="font-weight-bold">Drafts</span>
+              <span className="ml-3">
+                {reviewRequests.length ? (
+                  <span className="badge badge-danger">
+                    {reviewRequests.length}
+                  </span>
+                ) : null}{" "}
+                {drafts.length ? (
+                  <span className="badge badge-gray">{drafts.length}</span>
+                ) : null}
+              </span>
+            </span>
+          }
+        >
+          <div className="p-4">
+            <h3>Drafts</h3>
+            <p>Drafts are unpublished versions of a feature.</p>
+
+            <h4>Ready for review</h4>
+            <div className="mt-3">
+              <ul>
+                {reviewRequests.map((rr) => (
+                  <li key={rr.id}>
+                    from user {rr.userId} :{rr.description} -{" "}
+                    {Object.keys(rr.reviews).length} review(s)
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            <h4>Other drafts</h4>
+            <div className="mt-3">
+              <FeatureDraftsList drafts={drafts} onDraftClick={onDraftClick} />
+            </div>
+          </div>
+        </Dropdown>
+      </div>
+    </div>
+  );
+};
+
 export const FeatureDraftsDropDownContainer = () => {
   const router = useRouter();
   const { fid } = router.query;
@@ -116,11 +186,17 @@ export const FeatureDraftsDropDownContainer = () => {
 
   const drafts = revisions;
 
+  const reviewRequests: FeatureReviewRequest[] = [];
+
   if (error) {
     return <div className="alert alert-danger">Could not load drafts</div>;
   }
 
   return (
-    <FeatureDraftsDropDown drafts={drafts} onDraftClick={onDraftClicked} />
+    <FeatureDraftsDropDown
+      drafts={drafts}
+      onDraftClick={onDraftClicked}
+      reviewRequests={reviewRequests}
+    />
   );
 };
