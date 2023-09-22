@@ -31,12 +31,14 @@ export default function AssignmentTester({ feature }: Props) {
     setOpenSampleUserModal,
   ] = useState<null | Partial<SampleUsersInterface>>(null);
 
-  const { data, mutate } = useApi<{
+  const { apiCall } = useAuth();
+
+  const { data, error, mutate } = useApi<{
     status: number;
     sampleUsers: SampleUsersInterface[];
-  }>(`/sample-users/`);
+    featureResults: Record<string, FeatureTestResult[]>;
+  }>(`/sample-users/eval/${feature.id}`);
 
-  const { apiCall } = useAuth();
   //const permissions = usePermissions();
 
   const attributeSchema = useAttributeSchema(true);
@@ -227,6 +229,13 @@ export default function AssignmentTester({ feature }: Props) {
     );
   };
 
+  if (!data) {
+    return <div>Loading...</div>;
+  }
+  if (error) {
+    console.error(error);
+    return null;
+  }
   return (
     <>
       <div className="appbox mb-4 p-3">
@@ -255,7 +264,14 @@ export default function AssignmentTester({ feature }: Props) {
         {open ? (
           <>
             <div>
-              <SampleUsersResults feature={feature} />
+              <SampleUsersResults
+                feature={feature}
+                sampleUsers={data.sampleUsers}
+                featureResults={data.featureResults}
+                onChange={async () => {
+                  await mutate();
+                }}
+              />
             </div>
 
             <div className="row mt-4">

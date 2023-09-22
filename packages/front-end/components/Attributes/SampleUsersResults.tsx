@@ -9,12 +9,14 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import SampleUserAttributesModal from "@/components/Attributes/SampleUserAttributesModal";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
-import useApi from "@/hooks/useApi";
 import { useEnvironments } from "@/services/features";
 
 const SampleUsersResults: FC<{
   feature: FeatureInterface;
-}> = ({ feature }) => {
+  sampleUsers: SampleUsersInterface[];
+  featureResults: Record<string, FeatureTestResult[]>;
+  onChange: () => void;
+}> = ({ feature, sampleUsers, featureResults, onChange }) => {
   const { apiCall } = useAuth();
   //const [state, setState] = useState<"compact" | "expanded">(initialState);
   const [showExpandedResults, setShowExpandedResults] = useState<boolean>(
@@ -33,30 +35,13 @@ const SampleUsersResults: FC<{
 
   const environments = useEnvironments();
 
-  const { data, error, mutate } = useApi<{
-    status: number;
-    sampleUsers: SampleUsersInterface[];
-    featureResults: FeatureTestResult[];
-  }>(`/sample-users/eval/${feature.id}`);
-
-  if (!data) {
-    return <div>Loading...</div>;
-  }
-  if (error) {
-    console.error(error);
-    return null;
-  }
-  if (data.status && !data.sampleUsers) {
-    return null;
-  }
-
-  if (data.sampleUsers.length === 0) {
+  if (sampleUsers.length === 0) {
     return null;
   }
 
   const detailsMap = new Map();
-  Object.keys(data.featureResults).map((id) => {
-    const res = data.featureResults[id];
+  Object.keys(featureResults).map((id) => {
+    const res = featureResults[id];
     res.map((tr: FeatureTestResult) => {
       let matchedRule;
       if (tr?.result?.ruleId && tr?.featureDefinition?.rules) {
@@ -90,7 +75,7 @@ const SampleUsersResults: FC<{
         brief,
         results: tr,
         log: tr.log,
-        user: data.sampleUsers.find((u) => u.id === id),
+        user: sampleUsers.find((u) => u.id === id),
       });
     });
   });
@@ -219,7 +204,7 @@ const SampleUsersResults: FC<{
           </tr>
         </thead>
         <tbody>
-          {data.sampleUsers.map((user: SampleUsersInterface) => (
+          {sampleUsers.map((user: SampleUsersInterface) => (
             <Fragment key={user.id}>
               <tr
                 key={user.id}
@@ -249,52 +234,50 @@ const SampleUsersResults: FC<{
                     )}
                   </Tooltip>
                 </td>
-                {data.featureResults[user.id].map(
-                  (result: FeatureTestResult) => (
-                    <td
-                      key={result.env}
-                      className={`${styles.valueCell} cursor-pointer ${
+                {featureResults[user.id].map((result: FeatureTestResult) => (
+                  <td
+                    key={result.env}
+                    className={`${styles.valueCell} cursor-pointer ${
+                      showExpandedResultsId === user.id &&
+                      showExpandedResultsEnv === result.env
+                        ? styles.cellExpanded
+                        : ""
+                    }`}
+                    onClick={() => {
+                      if (
+                        showExpandedResults &&
                         showExpandedResultsId === user.id &&
                         showExpandedResultsEnv === result.env
-                          ? styles.cellExpanded
-                          : ""
-                      }`}
-                      onClick={() => {
-                        if (
-                          showExpandedResults &&
-                          showExpandedResultsId === user.id &&
-                          showExpandedResultsEnv === result.env
-                        ) {
-                          // the current details are already open, so close them:
-                          setShowExpandedResults(false);
-                          setShowExpandedResultsId(null);
-                          setShowExpandedResultsEnv(null);
-                        } else {
-                          setShowExpandedResults(true);
-                          setShowExpandedResultsId(user.id);
-                          setShowExpandedResultsEnv(result.env);
-                        }
-                      }}
-                    >
-                      {result.enabled ? (
-                        <>
-                          <div>
-                            <ValueDisplay
-                              value={result.result?.value ?? null}
-                              type={feature.valueType}
-                              full={true}
-                            />
-                          </div>
-                          <span className="text-muted small">
-                            {detailsMap.get(user.id + result.env)?.brief}
-                          </span>
-                        </>
-                      ) : (
-                        <span className="text-muted">disabled</span>
-                      )}
-                    </td>
-                  )
-                )}
+                      ) {
+                        // the current details are already open, so close them:
+                        setShowExpandedResults(false);
+                        setShowExpandedResultsId(null);
+                        setShowExpandedResultsEnv(null);
+                      } else {
+                        setShowExpandedResults(true);
+                        setShowExpandedResultsId(user.id);
+                        setShowExpandedResultsEnv(result.env);
+                      }
+                    }}
+                  >
+                    {result.enabled ? (
+                      <>
+                        <div>
+                          <ValueDisplay
+                            value={result.result?.value ?? null}
+                            type={feature.valueType}
+                            full={true}
+                          />
+                        </div>
+                        <span className="text-muted small">
+                          {detailsMap.get(user.id + result.env)?.brief}
+                        </span>
+                      </>
+                    ) : (
+                      <span className="text-muted">disabled</span>
+                    )}
+                  </td>
+                ))}
                 <td className={styles.showOnHover}>
                   <MoreMenu>
                     <button
@@ -314,7 +297,7 @@ const SampleUsersResults: FC<{
                         await apiCall(`/sample-users/${user.id}`, {
                           method: "DELETE",
                         });
-                        mutate();
+                        onChange();
                       }}
                     />
                   </MoreMenu>
@@ -337,7 +320,7 @@ const SampleUsersResults: FC<{
         <SampleUserAttributesModal
           close={() => {
             setEditSavedUser(null);
-            mutate();
+            onChange();
           }}
           initialValues={editSavedUser}
           header="Edit Sample User"
