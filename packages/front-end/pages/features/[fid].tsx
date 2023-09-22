@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { useRouter } from "next/router";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { FeatureInterface } from "back-end/types/feature";
@@ -9,7 +8,7 @@ import { datetime } from "shared/dates";
 import { getValidation } from "shared/util";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
-import { GBAddCircle, GBCircleArrowLeft, GBEdit } from "@/components/Icons";
+import { GBAddCircle, GBEdit } from "@/components/Icons";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import useApi from "@/hooks/useApi";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
@@ -52,6 +51,7 @@ import Code from "@/components/SyntaxHighlighting/Code";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { useUser } from "@/services/UserContext";
 import { DeleteDemoDatasourceButton } from "@/components/DemoDataSourcePage/DemoDataSourcePage";
+import PageHead from "@/components/Layout/PageHead";
 import { FeatureDraftsDropDownContainer } from "@/components/FeatureDraftsDropDown/FeatureDraftsDropDown";
 
 export default function FeaturePage() {
@@ -90,7 +90,6 @@ export default function FeaturePage() {
     feature: FeatureInterface;
     experiments: { [key: string]: ExperimentInterfaceStringDates };
     revisions: FeatureRevisionInterface[];
-    drafts: FeatureRevisionInterface[];
   }>(`/feature/${fid}`);
   const firstFeature = router?.query && "first" in router.query;
   const [showImplementation, setShowImplementation] = useState(firstFeature);
@@ -111,7 +110,6 @@ export default function FeaturePage() {
     data.feature
   );
 
-  // todo: update these draft references based on the new drafts
   const isDraft = !!data.feature.draft?.active;
   const isArchived = data.feature.archived;
 
@@ -145,7 +143,6 @@ export default function FeaturePage() {
     permissions.check(
       "publishFeatures",
       projectId,
-      // todo: update these draft references based on the new drafts
       "defaultValue" in (data?.feature?.draft || {})
         ? getEnabledEnvironments(data.feature)
         : getAffectedEnvs(
@@ -262,6 +259,13 @@ export default function FeaturePage() {
         />
       )}
 
+      <PageHead
+        breadcrumb={[
+          { display: "Features", href: "/features" },
+          { display: data.feature.id },
+        ]}
+      />
+
       {isDraft && (
         <div
           className="alert alert-warning mb-3 text-center shadow-sm"
@@ -300,11 +304,7 @@ export default function FeaturePage() {
 
       <div className="row align-items-center mb-2">
         <div className="col-auto">
-          <Link href="/features">
-            <a>
-              <GBCircleArrowLeft /> Back to all features
-            </a>
-          </Link>
+          <h1 className="mb-0">{fid}</h1>
         </div>
         <div style={{ flex: 1 }} />
         <div className="col-auto">
@@ -412,10 +412,6 @@ export default function FeaturePage() {
             in SDK Endpoints or Webhook payloads.
           </div>
         )}
-      </div>
-
-      <div className="row align-items-center mb-2">
-        <h1 className="col-auto mb-0">{fid}</h1>
       </div>
 
       <div className="mb-2 row">

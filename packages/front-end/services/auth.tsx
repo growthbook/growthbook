@@ -244,7 +244,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
       init.headers["Authorization"] = `Bearer ${token}`;
       init.credentials = "include";
 
-      if (init.body) {
+      if (init.body && !init.headers["Content-Type"]) {
         init.headers["Content-Type"] = "application/json";
       }
 

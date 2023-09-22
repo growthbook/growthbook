@@ -31,6 +31,7 @@ import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { useFeaturesList } from "@/services/features";
 import FeedbackModal from "@/components/FeedbackModal";
 import track from "@/services/track";
+import PageHead from "@/components/Layout/PageHead";
 
 const ExperimentPage = (): ReactElement => {
   const permissions = usePermissions();
@@ -211,6 +212,23 @@ const ExperimentPage = (): ReactElement => {
           safeToEdit={safeToEdit}
         />
       )}
+
+      <PageHead
+        breadcrumb={[
+          {
+            display: "Experiments",
+            href: `/experiments${
+              experiment.status === "draft"
+                ? "#drafts"
+                : experiment.status === "stopped"
+                ? "#stopped"
+                : ""
+            }`,
+          },
+          { display: experiment.name },
+        ]}
+      />
+
       <div className="container-fluid position-relative">
         <div
           style={{
