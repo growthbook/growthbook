@@ -23,6 +23,14 @@ $sidebarwidth: 240px;
   line-height: 1.1;
   color: var(--text-color-main);
   font-weight: 600;
+  flex: 1;
+  min-width: 0;
+
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: inline-block;
+  white-space: nowrap;
+  vertical-align: middle;
 }
 .mobilemenu {
   display: none;
@@ -34,17 +42,14 @@ $sidebarwidth: 240px;
     background: inherit;
   }
 }
-.leftSection {
+
+.navbar {
   display: flex;
   justify-content: flex-start;
   align-items: center;
-  max-width: 30%;
+  width: 100%;
 }
-.rightSection {
-  display: flex;
-  justify-content: flex-end;
-  align-items: center;
-}
+
 @media (max-width: 1180px) {
   .pagetitle {
     padding-left: 10px;

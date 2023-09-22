@@ -53,6 +53,7 @@ export default function Code({
   expandable = false,
   containerClassName,
   filename,
+  errorLine,
 }: {
   code: string;
   language: Language;
@@ -60,6 +61,7 @@ export default function Code({
   expandable?: boolean;
   containerClassName?: string;
   filename?: string;
+  errorLine?: number;
 }) {
   language = language || "none";
   if (language === "sh") language = "bash";
@@ -158,6 +160,21 @@ export default function Code({
           style={style}
           className={clsx("rounded-bottom", className)}
           showLineNumbers={true}
+          {...(errorLine
+            ? {
+                wrapLines: true,
+                lineProps: (
+                  lineNumber: number
+                ): React.HTMLProps<HTMLElement> => {
+                  const style: React.CSSProperties = {};
+                  if (errorLine && lineNumber === errorLine) {
+                    style.textDecoration = "underline wavy red";
+                    style.textUnderlineOffset = "0.2em";
+                  }
+                  return { style };
+                },
+              }
+            : {})}
         >
           {code}
         </Prism>

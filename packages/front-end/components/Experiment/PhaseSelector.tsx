@@ -1,5 +1,7 @@
 import { date } from "shared/dates";
+import clsx from "clsx";
 import { phaseSummary } from "@/services/utils";
+import Tooltip from "@/components/Tooltip/Tooltip";
 import SelectField from "../Forms/SelectField";
 import { useSnapshot } from "./SnapshotProvider";
 
@@ -24,7 +26,15 @@ export default function PhaseSelector({
 
   function formatPhase({ value, label }: { value: string; label: string }) {
     if (value === "edit") {
-      return <div className="cursor-pointer">{label}</div>;
+      return (
+        <div
+          className={clsx("cursor-pointer", {
+            "btn btn-outline-primary": newUi,
+          })}
+        >
+          {label}
+        </div>
+      );
     }
 
     const phaseIndex = parseInt(value) || 0;
@@ -34,15 +44,38 @@ export default function PhaseSelector({
     if (newUi) {
       return (
         <>
-          {phaseOptions.length > 1 && (
-            <span className="phase-label font-weight-bold">
-              {phaseIndex + 1}:
+          <Tooltip
+            body={
+              <>
+                <div className="tooltip-phase-label font-weight-bold">
+                  {phaseIndex + 1}: {phase.name}
+                </div>
+                <div className="mt-1">{phaseSummary(phase)}</div>
+              </>
+            }
+            tipPosition="right"
+            className="phase-selector-with-tooltip"
+          >
+            <>
+              <span className="font-weight-bold">{phaseIndex + 1}: </span>
+              <span className="date-label">
+                {date(phase.dateStarted ?? "")} —{" "}
+                {phase.dateEnded ? date(phase.dateEnded) : "now"}
+              </span>
+            </>
+          </Tooltip>
+          <div className="phase-selector-select-option cursor-pointer">
+            <span className="font-weight-bold">{phaseIndex + 1}: </span>
+            <span className="phase-label font-weight-bold">{phase.name}</span>
+            <div className="break mt-1" />
+            <span className="date-label mt-1">
+              {date(phase.dateStarted ?? "")} —{" "}
+              {phase.dateEnded ? date(phase.dateEnded) : "now"}
             </span>
-          )}{" "}
-          <span className="date-label">
-            {date(phase.dateStarted ?? "")} —{" "}
-            {phase.dateEnded ? date(phase.dateEnded) : "now"}
-          </span>
+            <div className="phase-summary text-muted small">
+              {phaseSummary(phase)}
+            </div>
+          </div>
         </>
       );
     }
@@ -70,11 +103,11 @@ export default function PhaseSelector({
             options: phaseOptions,
           },
           {
-            label: "____",
+            label: "",
             value: "",
             options: [
               {
-                label: "Edit Phases...",
+                label: "Edit Phases",
                 value: "edit",
               },
             ],
@@ -99,16 +132,28 @@ export default function PhaseSelector({
           sort={false}
           label={newUi ? undefined : "Phase"}
           labelClassName="mr-2"
-          containerClassName={newUi ? "select-dropdown-underline pr-5" : ""}
+          containerClassName={
+            newUi ? "phase-selector select-dropdown-underline pr-5" : ""
+          }
           isSearchable={false}
           formatOptionLabel={formatPhase}
         />
       ) : (
-        <div className="dropdown-underline-disabled text-dark">
-          {selectOptions.length === 1 ? (
-            formatPhase(selectOptions[0])
+        <div className="phase-selector text-dark">
+          {selectOptions.length >= 1 ? (
+            <div
+              className="gb-select__single-value"
+              style={newUi ? { height: 24 } : {}}
+            >
+              {formatPhase(selectOptions[0])}
+            </div>
           ) : (
-            <em>No phases</em>
+            <div
+              className="gb-select__single-value"
+              style={newUi ? { height: 24 } : {}}
+            >
+              <em>No phases</em>
+            </div>
           )}
         </div>
       )}
