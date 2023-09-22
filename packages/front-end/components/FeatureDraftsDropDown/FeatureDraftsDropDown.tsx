@@ -112,7 +112,7 @@ export const FeatureDraftsDropDown: FC<FeatureDraftsDropDownProps> = ({
               } in total.`}
             >
               <span className="font-weight-bold">Drafts</span>
-              <span className="ml-3">
+              <span className="ml-1">
                 {reviewRequests.length ? (
                   <span className="badge badge-danger">
                     {reviewRequests.length}

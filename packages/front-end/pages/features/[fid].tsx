@@ -308,14 +308,20 @@ export default function FeaturePage() {
         </div>
         <div style={{ flex: 1 }} />
         <div className="col-auto">
-          <RevisionDropdown
-            feature={data.feature}
-            revisions={data.revisions || []}
-            publish={() => {
-              setDraftModal(true);
-            }}
-            mutate={mutate}
-          />
+          <div className="d-flex justify-content-end">
+            <div className="mr-4">
+              <FeatureDraftsDropDownContainer />
+            </div>
+
+            <RevisionDropdown
+              feature={data.feature}
+              revisions={data.revisions || []}
+              publish={() => {
+                setDraftModal(true);
+              }}
+              mutate={mutate}
+            />
+          </div>
         </div>
         <div className="col-auto">
           <MoreMenu>
@@ -397,12 +403,6 @@ export default function FeaturePage() {
               )}
           </MoreMenu>
         </div>
-      </div>
-
-      {/* TODO: Replace this with the presentational component */}
-      <div className="my-5">
-        <h2>Drafts</h2>
-        <FeatureDraftsDropDownContainer />
       </div>
 
       <div>
