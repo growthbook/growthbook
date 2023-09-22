@@ -1,5 +1,4 @@
 import { Request, Response } from "express";
-import { GrowthBook } from "@growthbook/growthbook";
 import {
   ExperimentRefRule,
   FeatureDraftChanges,
@@ -8,7 +7,7 @@ import {
   FeatureTestResult,
 } from "../../types/feature";
 import { AuthRequest } from "../types/AuthRequest";
-import { getEnvironments, getOrgFromReq } from "../services/organizations";
+import { getOrgFromReq } from "../services/organizations";
 import {
   addFeatureRule,
   createFeature,
@@ -34,12 +33,11 @@ import { lookupOrganizationByApiKey } from "../models/ApiKeyModel";
 import {
   addIdsToRules,
   arrayMove,
+  evaluateFeature,
   getFeatureDefinitions,
-  getSavedGroupMap,
   verifyDraftsAreEqual,
 } from "../services/features";
 import {
-  getAllPayloadExperiments,
   getExperimentByTrackingKey,
   getExperimentsByIds,
 } from "../models/ExperimentModel";
@@ -50,7 +48,7 @@ import {
   auditDetailsDelete,
 } from "../services/audit";
 import { getRevisions } from "../models/FeatureRevisionModel";
-import { getEnabledEnvironments, getFeatureDefinition } from "../util/features";
+import { getEnabledEnvironments } from "../util/features";
 import { ExperimentInterface } from "../../types/experiment";
 import {
   findSDKConnectionByKey,
@@ -871,46 +869,8 @@ export async function postFeatureEvaluate(
   if (!feature) {
     throw new Error("Could not find feature");
   }
-  const groupMap = await getSavedGroupMap(org);
-  const experimentMap = await getAllPayloadExperiments(org.id);
-  const environments = getEnvironments(org);
 
-  const results: FeatureTestResult[] = [];
-
-  // I could loop through the feature's defined environments, but if environments change in the org,
-  // the values in the feature will be wrong.
-  environments.forEach((env) => {
-    const thisEnvResult: FeatureTestResult = {
-      env: env.id,
-      result: null,
-      enabled: false,
-      defaultValue: feature.defaultValue,
-    };
-    const settings = feature.environmentSettings[env.id] ?? null;
-    if (settings) {
-      thisEnvResult.enabled = settings.enabled;
-      const definition = getFeatureDefinition({
-        feature,
-        groupMap,
-        experimentMap,
-        environment: env.id,
-        useDraft: true,
-        returnRuleId: true,
-      });
-      if (definition) {
-        thisEnvResult.featureDefinition = definition;
-        const gb = new GrowthBook({
-          features: {
-            [feature.id]: definition,
-          },
-          attributes: attributes,
-        });
-
-        thisEnvResult.result = gb.evalFeature(feature.id);
-      }
-    }
-    results.push(thisEnvResult);
-  });
+  const results = await evaluateFeature(feature, attributes, org);
 
   res.status(200).json({
     status: 200,

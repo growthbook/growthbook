@@ -6,14 +6,14 @@ import omit from "lodash/omit";
 import { orgHasPremiumFeature } from "enterprise";
 import {
   FeatureRule as FeatureDefinitionRule,
-  AutoExperiment,
+  AutoExperiment, GrowthBook
 } from "@growthbook/growthbook";
 import { FeatureDefinition } from "../../types/api";
 import {
   FeatureDraftChanges,
   FeatureEnvironment,
   FeatureInterface,
-  FeatureRule,
+  FeatureRule, FeatureTestResult
 } from "../../types/feature";
 import { getAllFeatures } from "../models/FeatureModel";
 import {
@@ -45,6 +45,7 @@ import {
   purgeCDNCache,
 } from "../util/cdn.util";
 import { getEnvironments, getOrganizationById } from "./organizations";
+import { SampleUserAttributeValues } from "../../types/sample-users";
 
 export type AttributeMap = Map<string, string>;
 
@@ -499,6 +500,60 @@ export async function getFeatureDefinitions({
     attributes,
     secureAttributeSalt,
   });
+}
+
+export async function evaluateFeature(
+  feature: FeatureInterface,
+  attributes: SampleUserAttributeValues,
+  org: OrganizationInterface
+) {
+  const groupMap = await getSavedGroupMap(org);
+  const experimentMap = await getAllPayloadExperiments(org.id);
+  const environments = getEnvironments(org);
+
+  const results: FeatureTestResult[] = [];
+
+  // I could loop through the feature's defined environments, but if environments change in the org,
+  // the values in the feature will be wrong.
+  environments.forEach((env) => {
+    const thisEnvResult: FeatureTestResult = {
+      env: env.id,
+      result: null,
+      enabled: false,
+      defaultValue: feature.defaultValue,
+    };
+    const settings = feature.environmentSettings[env.id] ?? null;
+    if (settings) {
+      thisEnvResult.enabled = settings.enabled;
+      const definition = getFeatureDefinition({
+        feature,
+        groupMap,
+        experimentMap,
+        environment: env.id,
+        useDraft: true,
+        returnRuleId: true,
+      });
+      if (definition) {
+        thisEnvResult.featureDefinition = definition;
+        const log: [string, never][] = [];
+        const gb = new GrowthBook({
+          features: {
+            [feature.id]: definition,
+          },
+          disableDevTools: true,
+          attributes: attributes,
+          log: (msg: string, ctx: never) => {
+            log.push([msg, ctx]);
+          },
+        });
+        gb.debug = true;
+        thisEnvResult.result = gb.evalFeature(feature.id);
+        thisEnvResult.log = log;
+      }
+    }
+    results.push(thisEnvResult);
+  });
+  return results;
 }
 
 export function generateRuleId() {

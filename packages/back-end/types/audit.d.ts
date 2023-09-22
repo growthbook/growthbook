@@ -43,6 +43,9 @@ export type EventType =
   | "savedGroup.created"
   | "savedGroup.deleted"
   | "savedGroup.updated"
+  | "sampleUsers.created"
+  | "sampleUsers.deleted"
+  | "sampleUsers.updated"
   | "team.create"
   | "team.delete"
   | "team.update";

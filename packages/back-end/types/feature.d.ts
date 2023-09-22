@@ -124,5 +124,6 @@ export interface FeatureTestResult {
   enabled: boolean;
   result: null | FeatureResult;
   defaultValue: boolean | string | object;
+  log?: [string, any][];
   featureDefinition?: FeatureDefinition;
 }
