@@ -819,7 +819,7 @@ export default function FeaturePage() {
       </div>
 
       <div className="mb-4">
-        <h3>Simulate Feature</h3>
+        <h3>Simulate Values</h3>
         <AssignmentTester feature={data.feature} />
       </div>
 

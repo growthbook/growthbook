@@ -1,6 +1,7 @@
 import type { Response } from "express";
+import { orgHasPremiumFeature } from "enterprise";
 import { AuthRequest } from "../../types/AuthRequest";
-import { ApiErrorResponse } from "../../../types/api";
+import { ApiErrorResponse, PrivateApiErrorResponse } from "../../../types/api";
 import { getOrgFromReq } from "../../services/organizations";
 import {
   SampleUserAttributeValues,
@@ -72,7 +73,7 @@ type GetSampleUsersAndEvalResponse = {
  */
 export const getSampleUsersAndEval = async (
   req: AuthRequest<null, { id: string }>,
-  res: Response<GetSampleUsersAndEvalResponse>
+  res: Response<GetSampleUsersAndEvalResponse | PrivateApiErrorResponse>
 ) => {
   const { org, userId } = getOrgFromReq(req);
   const { id } = req.params;
@@ -80,6 +81,13 @@ export const getSampleUsersAndEval = async (
 
   if (!feature) {
     throw new Error("Feature not found");
+  }
+
+  if (!orgHasPremiumFeature(org, "sample-users")) {
+    return res.status(403).json({
+      status: 403,
+      message: "Organization does not have premium feature: sample users",
+    });
   }
 
   req.checkPermissions("manageSampleUsers");
@@ -134,10 +142,17 @@ type CreateSampleUsersResponse = {
  */
 export const postSampleUsers = async (
   req: CreateSampleUsersRequest,
-  res: Response<CreateSampleUsersResponse>
+  res: Response<CreateSampleUsersResponse | PrivateApiErrorResponse>
 ) => {
   const { org, userId } = getOrgFromReq(req);
   const { name, attributes, description, isPublic } = req.body;
+
+  if (!orgHasPremiumFeature(org, "sample-users")) {
+    return res.status(403).json({
+      status: 403,
+      message: "Organization does not have premium feature: sample users",
+    });
+  }
 
   req.checkPermissions("manageSampleUsers");
 
@@ -193,7 +208,9 @@ type PutSampleUsersResponse = {
  */
 export const putSampleUser = async (
   req: PutSampleUsersRequest,
-  res: Response<PutSampleUsersResponse | ApiErrorResponse>
+  res: Response<
+    PutSampleUsersResponse | ApiErrorResponse | PrivateApiErrorResponse
+  >
 ) => {
   const { org } = getOrgFromReq(req);
   const { name, description, isPublic, owner, attributes } = req.body;
@@ -201,6 +218,13 @@ export const putSampleUser = async (
 
   if (!id) {
     throw new Error("Must specify sample user id");
+  }
+
+  if (!orgHasPremiumFeature(org, "sample-users")) {
+    return res.status(403).json({
+      status: 403,
+      message: "Organization does not have premium feature: sample users",
+    });
   }
 
   req.checkPermissions("manageSampleUsers");

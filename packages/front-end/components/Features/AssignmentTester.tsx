@@ -1,4 +1,4 @@
-import React, { Fragment, useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { FeatureInterface, FeatureTestResult } from "back-end/types/feature";
 import { FaChevronRight } from "react-icons/fa";
 import { useForm } from "react-hook-form";
@@ -12,6 +12,9 @@ import SampleUserAttributesModal from "@/components/Attributes/SampleUserAttribu
 import useApi from "@/hooks/useApi";
 import SampleUsersResults from "@/components/Attributes/SampleUsersResults";
 import AttributeForm from "@/components/Attributes/AttributeForm";
+import Modal from "@/components/Modal";
+import { useUser } from "@/services/UserContext";
+import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import styles from "./AssignmentTester.module.scss";
 
 export interface Props {
@@ -39,6 +42,8 @@ export default function AssignmentTester({ feature }: Props) {
     featureResults: Record<string, FeatureTestResult[]>;
   }>(`/sample-users/eval/${feature.id}`);
 
+  const { hasCommercialFeature } = useUser();
+  const hasSampleUserAccess = hasCommercialFeature("sample-users");
   //const permissions = usePermissions();
 
   const attributeSchema = useAttributeSchema(true);
@@ -318,18 +323,20 @@ export default function AssignmentTester({ feature }: Props) {
                             }}
                           />
                           <div className="mt-2">
-                            <a
-                              onClick={(e) => {
-                                e.preventDefault();
-                                setOpenSampleUserModal({
-                                  attributes: formValues,
-                                });
-                              }}
-                              href="#"
-                              className="btn btn-outline-primary"
-                            >
-                              Save as Sample User
-                            </a>
+                            <PremiumTooltip commercialFeature="sample-users">
+                              <a
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  setOpenSampleUserModal({
+                                    attributes: formValues,
+                                  });
+                                }}
+                                href="#"
+                                className="btn btn-outline-primary"
+                              >
+                                Save as Sample User
+                              </a>
+                            </PremiumTooltip>
                           </div>
                         </div>
                         <div
@@ -351,14 +358,26 @@ export default function AssignmentTester({ feature }: Props) {
         )}
       </div>
       {openSampleUserModal && (
-        <SampleUserAttributesModal
-          close={async () => {
-            await mutate();
-            setOpenSampleUserModal(null);
-          }}
-          initialValues={openSampleUserModal}
-          header="Save Sample User"
-        />
+        <>
+          {hasSampleUserAccess ? (
+            <SampleUserAttributesModal
+              close={async () => {
+                await mutate();
+                setOpenSampleUserModal(null);
+              }}
+              initialValues={openSampleUserModal}
+              header="Save Sample User"
+            />
+          ) : (
+            <Modal open={true} close={() => setOpenSampleUserModal(null)}>
+              <div className="p-3">
+                Saved sample users allows you set up user attribute traits to
+                test how feature will be applied to your real users. This
+                feature is part of our Pro or Enterprise plans.
+              </div>
+            </Modal>
+          )}
+        </>
       )}
     </>
   );
