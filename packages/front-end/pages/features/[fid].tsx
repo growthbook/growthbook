@@ -38,7 +38,7 @@ import FeatureImplementationModal from "@/components/Features/FeatureImplementat
 import SortedTags from "@/components/Tags/SortedTags";
 import Modal from "@/components/Modal";
 import HistoryTable from "@/components/HistoryTable";
-import DraftModal from "@/components/Features/DraftModal";
+import LegacyDraftModal from "@/components/Features/LegacyDraftModal";
 import ConfirmButton from "@/components/Modal/ConfirmButton";
 import RevisionDropdown from "@/components/Features/RevisionDropdown";
 import usePermissions from "@/hooks/usePermissions";
@@ -62,7 +62,7 @@ export default function FeaturePage() {
   const [editValidator, setEditValidator] = useState(false);
   const [showSchema, setShowSchema] = useState(false);
   const [auditModal, setAuditModal] = useState(false);
-  const [draftModal, setDraftModal] = useState(false);
+  const [isLegacyDraftModal, setIsLegacyDraftModal] = useState(false);
   const [duplicateModal, setDuplicateModal] = useState(false);
   const permissions = usePermissions();
 
@@ -110,7 +110,7 @@ export default function FeaturePage() {
     data.feature
   );
 
-  const isDraft = !!data.feature.draft?.active;
+  const hasLegacyDraft = !!data.feature.draft?.active;
   const isArchived = data.feature.archived;
 
   const enabledEnvs = getEnabledEnvironments(data.feature);
@@ -139,7 +139,7 @@ export default function FeaturePage() {
   const schemaDescriptionItems = [...schemaDescription.keys()];
 
   const hasDraftPublishPermission =
-    isDraft &&
+    hasLegacyDraft &&
     permissions.check(
       "publishFeatures",
       projectId,
@@ -240,10 +240,10 @@ export default function FeaturePage() {
           }}
         />
       )}
-      {draftModal && (
-        <DraftModal
+      {isLegacyDraftModal && (
+        <LegacyDraftModal
           feature={data.feature}
-          close={() => setDraftModal(false)}
+          close={() => setIsLegacyDraftModal(false)}
           mutate={mutate}
         />
       )}
@@ -266,7 +266,7 @@ export default function FeaturePage() {
         ]}
       />
 
-      {isDraft && (
+      {hasLegacyDraft && (
         <div
           className="alert alert-warning mb-3 text-center shadow-sm"
           style={{ top: 65, position: "sticky", zIndex: 900 }}
@@ -277,7 +277,7 @@ export default function FeaturePage() {
             className="btn btn-primary ml-3 btn-sm"
             onClick={(e) => {
               e.preventDefault();
-              setDraftModal(true);
+              setIsLegacyDraftModal(true);
             }}
           >
             Review{hasDraftPublishPermission && " and Publish"}
@@ -317,7 +317,7 @@ export default function FeaturePage() {
               feature={data.feature}
               revisions={data.revisions || []}
               publish={() => {
-                setDraftModal(true);
+                setIsLegacyDraftModal(true);
               }}
               mutate={mutate}
             />
