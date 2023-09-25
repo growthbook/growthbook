@@ -56,7 +56,7 @@ const DataSourcePage: FC = () => {
   const { did } = router.query as { did: string };
   const d = getDatasourceById(did);
   const { apiCall } = useAuth();
-  const { organization } = useUser();
+  const { organization, hasCommercialFeature } = useUser();
 
   const canEdit =
     (d &&
@@ -64,7 +64,9 @@ const DataSourcePage: FC = () => {
       !hasFileConfig()) ||
     false;
 
-  const pipelineEnabled = useFeatureIsOn("datasource-pipeline-mode");
+  const pipelineEnabled =
+    useFeatureIsOn("datasource-pipeline-mode") &&
+    hasCommercialFeature("pipeline-mode");
 
   /**
    * Update the data source provided.
