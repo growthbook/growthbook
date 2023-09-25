@@ -284,6 +284,27 @@ export default function FeaturePage() {
           >
             Review{hasDraftPublishPermission && " and Publish"}
           </button>
+          <button
+            className="btn btn-outline-primary ml-3 btn-sm"
+            onClick={async (evt) => {
+              evt.preventDefault();
+
+              try {
+                await apiCall(`/feature/${data.feature.id}/discard`, {
+                  method: "POST",
+                  body: JSON.stringify({
+                    draft: data.feature.draft,
+                  }),
+                });
+              } catch (err) {
+                await mutate();
+                throw err;
+              }
+              await mutate();
+            }}
+          >
+            Discard
+          </button>
         </div>
       )}
 
