@@ -19,7 +19,10 @@ export interface Props {
   mutate: () => Promise<any>;
 }
 
-export default function RevisionDropdown({
+/**
+ * @deprecated
+ */
+export default function LegacyRevisionDropdown({
   feature,
   revisions,
   publish,
@@ -27,7 +30,6 @@ export default function RevisionDropdown({
 }: Props) {
   const liveVersion = feature.revision?.version || 1;
 
-  // todo: update these draft references based on the new drafts
   const isDraft = !!feature.draft?.active;
   const permissions = usePermissions();
 
@@ -63,7 +65,6 @@ export default function RevisionDropdown({
       });
     }
 
-    // todo: update these draft references based on the new drafts
     // In-progress drafts are not stored with the rest of the revisions
     // Need to add them to the list separately
     if (isDraft) {

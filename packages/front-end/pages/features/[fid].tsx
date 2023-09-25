@@ -40,7 +40,7 @@ import Modal from "@/components/Modal";
 import HistoryTable from "@/components/HistoryTable";
 import LegacyDraftModal from "@/components/Features/LegacyDraftModal";
 import ConfirmButton from "@/components/Modal/ConfirmButton";
-import RevisionDropdown from "@/components/Features/RevisionDropdown";
+import LegacyRevisionDropdown from "@/components/Features/LegacyRevisionDropdown";
 import usePermissions from "@/hooks/usePermissions";
 import DiscussionThread from "@/components/DiscussionThread";
 import EditOwnerModal from "@/components/Owner/EditOwnerModal";
@@ -94,6 +94,8 @@ export default function FeaturePage() {
   const firstFeature = router?.query && "first" in router.query;
   const [showImplementation, setShowImplementation] = useState(firstFeature);
   const environments = useEnvironments();
+
+  const shouldShowLegacyRevisionDropdown = !!data?.feature?.draft?.active;
 
   if (error) {
     return (
@@ -313,14 +315,16 @@ export default function FeaturePage() {
               <FeatureDraftsDropDownContainer />
             </div>
 
-            <RevisionDropdown
-              feature={data.feature}
-              revisions={data.revisions || []}
-              publish={() => {
-                setIsLegacyDraftModal(true);
-              }}
-              mutate={mutate}
-            />
+            {shouldShowLegacyRevisionDropdown && (
+              <LegacyRevisionDropdown
+                feature={data.feature}
+                revisions={data.revisions || []}
+                publish={() => {
+                  setIsLegacyDraftModal(true);
+                }}
+                mutate={mutate}
+              />
+            )}
           </div>
         </div>
         <div className="col-auto">
