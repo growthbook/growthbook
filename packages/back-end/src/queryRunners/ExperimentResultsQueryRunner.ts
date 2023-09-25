@@ -1,3 +1,4 @@
+import { orgHasPremiumFeature } from "enterprise";
 import {
   ExperimentSnapshotAnalysis,
   ExperimentSnapshotAnalysisSettings,
@@ -23,6 +24,7 @@ import {
   SourceIntegrationInterface,
 } from "../types/Integration";
 import { expandDenominatorMetrics } from "../util/sql";
+import { getOrganizationById } from "../services/organizations";
 import {
   QueryRunner,
   QueryMap,
@@ -57,6 +59,11 @@ export const startExperimentResultQueries = async (
   const queryParentId = params.queryParentId;
   const metricMap = params.metricMap;
 
+  const org = await getOrganizationById(organization);
+  const hasPipelineModeFeature = org
+    ? orgHasPremiumFeature(org, "pipeline-mode")
+    : false;
+
   const activationMetric = snapshotSettings.activationMetric
     ? metricMap.get(snapshotSettings.activationMetric) ?? null
     : null;
@@ -88,7 +95,8 @@ export const startExperimentResultQueries = async (
   const useUnitsTable =
     (integration.getSourceProperties().supportsWritingTables &&
       integration.settings.pipelineSettings?.allowWriting &&
-      !!integration.settings.pipelineSettings?.writeDataset) ??
+      !!integration.settings.pipelineSettings?.writeDataset &&
+      hasPipelineModeFeature) ??
     false;
   let unitQuery: QueryPointer | null = null;
   const unitsTableFullName = `${integration.settings.pipelineSettings?.writeDataset}.growthbook_tmp_units_${queryParentId}`;
