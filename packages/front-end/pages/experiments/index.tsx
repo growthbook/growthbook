@@ -50,7 +50,10 @@ const ExperimentsPage = (): React.ReactElement => {
 
   const [tabs, setTabs] = useLocalStorage<string[]>("experiment_tabs", []);
   const tagsFilter = useTagsFilter("experiments");
-  const [showMineOnly, setShowMineOnly] = useState(false);
+  const [showMineOnly, setShowMineOnly] = useLocalStorage(
+    "showMyExperimentsOnly",
+    false
+  );
   const router = useRouter();
   const [openNewExperimentModal, setOpenNewExperimentModal] = useState(false);
 
@@ -249,7 +252,7 @@ const ExperimentsPage = (): React.ReactElement => {
           </div>
           <div className="row align-items-center mb-3">
             <div className="col-auto d-flex">
-              {["running", "drafts", "stopped", "archived"].map((tab) => {
+              {["running", "drafts", "stopped", "archived"].map((tab, i) => {
                 const active = tabs.includes(tab);
 
                 if (tab === "archived" && !hasArchivedExperiments) return null;
@@ -257,11 +260,19 @@ const ExperimentsPage = (): React.ReactElement => {
                 return (
                   <button
                     key={tab}
-                    className={clsx("badge border mb-0 p-2 mr-1", {
-                      "badge-purple": active,
-                      "bg-light text-secondary": !active,
+                    className={clsx("border mb-0", {
+                      "badge-purple font-weight-bold": active,
+                      "bg-white text-secondary": !active,
+                      "rounded-left": i === 0,
+                      "rounded-right":
+                        tab === "archived" ||
+                        (tab === "stopped" && !hasArchivedExperiments),
                     })}
-                    style={{ fontSize: "1.1em", opacity: active ? 1 : 0.8 }}
+                    style={{
+                      fontSize: "1em",
+                      opacity: active ? 1 : 0.8,
+                      padding: "6px 12px",
+                    }}
                     onClick={(e) => {
                       e.preventDefault();
                       onToggleTab(tab)();
@@ -284,6 +295,7 @@ const ExperimentsPage = (): React.ReactElement => {
                       {tabCounts[tab] || 0}
                     </span>
                     <span
+                      className="d-none"
                       style={{ fontSize: "0.8em", verticalAlign: "middle" }}
                     >
                       {active ? <FaTimes /> : <FaPlus />}
