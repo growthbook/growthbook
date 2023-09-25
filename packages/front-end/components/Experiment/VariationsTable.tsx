@@ -5,6 +5,7 @@ import {
 import { FC } from "react";
 import { useAuth } from "@/services/auth";
 import { trafficSplitPercentages } from "@/services/utils";
+import { getApiHost } from "@/services/env";
 import Carousel from "../Carousel";
 import ScreenshotUpload from "../EditExperiment/ScreenshotUpload";
 import AuthorizedImage from "../AuthorizedImage";
@@ -53,18 +54,31 @@ const ScreenshotCarousel: FC<{
       }
       maxChildHeight={maxChildHeight}
     >
-      {variation.screenshots.map((s) => (
-        <AuthorizedImage
-          className="experiment-image"
-          imagePath={s.path}
-          key={s.path}
-          style={{
-            width: "100%",
-            height: "100%",
-            objectFit: "contain",
-          }}
-        />
-      ))}
+      {variation.screenshots.map((s) =>
+        s.path.startsWith(getApiHost()) ? (
+          <AuthorizedImage
+            className="experiment-image"
+            imagePath={s.path}
+            key={s.path}
+            style={{
+              width: "100%",
+              height: "100%",
+              objectFit: "contain",
+            }}
+          />
+        ) : (
+          <img
+            className="experiment-image"
+            src={s.path}
+            key={s.path}
+            style={{
+              width: "100%",
+              height: "100%",
+              objectFit: "contain",
+            }}
+          />
+        )
+      )}
     </Carousel>
   );
 };
