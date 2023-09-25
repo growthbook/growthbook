@@ -28,7 +28,7 @@ const ScreenshotUpload = ({
   const [loading, setLoading] = useState(0);
 
   const onDrop = async (files: File[]) => {
-    setLoading(loading + files.length);
+    setLoading((previous) => previous + files.length);
 
     for (const file of files) {
       try {
@@ -46,7 +46,7 @@ const ScreenshotUpload = ({
           }
         );
 
-        setLoading(loading - 1);
+        setLoading((previous) => previous - 1);
 
         onSuccess(variation, {
           path: fileURL,
@@ -54,7 +54,7 @@ const ScreenshotUpload = ({
         });
       } catch (e) {
         alert(e.message);
-        setLoading(loading - 1);
+        setLoading((previous) => previous - 1);
       }
     }
   };
