@@ -7,7 +7,6 @@ import Link from "next/link";
 import { BsFlag } from "react-icons/bs";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import clsx from "clsx";
-import { FaPlus, FaTimes } from "react-icons/fa";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { phaseSummary } from "@/services/utils";
 import ResultsIndicator from "@/components/Experiment/ResultsIndicator";
@@ -293,12 +292,6 @@ const ExperimentsPage = (): React.ReactElement => {
                     </span>
                     <span className="badge bg-white border text-dark mr-2">
                       {tabCounts[tab] || 0}
-                    </span>
-                    <span
-                      className="d-none"
-                      style={{ fontSize: "0.8em", verticalAlign: "middle" }}
-                    >
-                      {active ? <FaTimes /> : <FaPlus />}
                     </span>
                   </button>
                 );
