@@ -5,6 +5,7 @@ import {
   clearCache,
   setPolyfills,
   FeatureApiResponse,
+  helpers,
 } from "../src";
 import { evaluateFeatures } from "./helpers/evaluateFeatures";
 
@@ -501,6 +502,75 @@ describe("remote-eval", () => {
 
     await clearCache();
     growthbook.destroy();
+    cleanup();
+  });
+
+  it("passes custom headers if supplied", async () => {
+    await clearCache();
+
+    const [f, cleanup] = mockApi(sdkPayload);
+
+    const growthbook1 = new GrowthBook({
+      apiHost: "https://fakeapi1.sample.io",
+      clientKey: "qwerty1234",
+      apiRequestHeaders: { "x-custom-header": "foo" },
+    });
+
+    const growthbook2 = new GrowthBook({
+      apiHost: "https://fakeapi2.sample.io",
+      clientKey: "qwerty1234",
+      remoteEval: true,
+      criticalAttributes: ["uid"],
+      apiRequestHeaders: { "x-custom-header": "bar" },
+    });
+
+    await Promise.all([growthbook1.loadFeatures(), growthbook2.loadFeatures()]);
+
+    const call1 = f.mock.calls.find((c) =>
+      c[0].match(/^https:\/\/fakeapi1\.sample\.io\.*/)
+    );
+    const call2 = f.mock.calls.find((c) =>
+      c[0].match(/^https:\/\/fakeapi2\.sample\.io\.*/)
+    );
+    const headers1 = call1?.[1]?.headers || {};
+    const headers2 = call2?.[1]?.headers || {};
+    expect(headers1["x-custom-header"]).toEqual("foo");
+    expect(headers2["x-custom-header"]).toEqual("bar");
+
+    await clearCache();
+    growthbook1.destroy();
+    growthbook2.destroy();
+
+    // Overwrite the fetchFeatures function. headers will not be sent if (accidentally?) excluded from helper method:
+
+    const growthbook3 = new GrowthBook({
+      apiHost: "https://fakeapi3.sample.io",
+      clientKey: "qwerty1234",
+      apiRequestHeaders: { "x-custom-header": "foo" },
+    });
+    helpers.fetchFeaturesCall =
+      // eslint-disable-next-line
+      ({ host, clientKey, headers }) => {
+        return (f as typeof globalThis.fetch)(
+          `${host}/api/features/${clientKey}`,
+          {
+            headers: { "x-other-property": "bar" },
+          }
+        );
+      };
+
+    await growthbook3.loadFeatures();
+
+    const call3 = f.mock.calls.find((c) =>
+      c[0].match(/^https:\/\/fakeapi3\.sample\.io\.*/)
+    );
+    const headers3 = call3?.[1]?.headers || {};
+    expect(headers3["x-custom-header"]).toEqual(undefined);
+    expect(headers3["x-other-property"]).toEqual("bar");
+
+    await clearCache();
+    growthbook3.destroy();
+
     cleanup();
   });
 });

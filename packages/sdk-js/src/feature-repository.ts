@@ -37,7 +37,7 @@ export const helpers: Helpers = {
   fetchFeaturesCall: ({ host, clientKey, headers }) => {
     return (polyfills.fetch as typeof globalThis.fetch)(
       `${host}/api/features/${clientKey}`,
-      { ...headers }
+      { headers }
     );
   },
   fetchRemoteEvalCall: ({ host, clientKey, payload, headers }) => {
@@ -322,8 +322,12 @@ async function fetchFeatures(
     ? `${key}||${getCritialAttributesKey(instance)}`
     : key;
 
-  if (remoteEval && !remoteEvalHost) {
-    throw new Error("remoteEvalHost is required");
+  if (remoteEval) {
+    if (!remoteEvalHost) {
+      throw new Error("remoteEvalHost is required");
+    } else if (remoteEvalHost.match(/^https?:\/\/[^.]*\.growthbook\.io.*/)) {
+      throw new Error("cannot use remoteEval on GrowthBook servers");
+    }
   }
 
   let promise = activeFetches.get(cacheKey);
