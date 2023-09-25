@@ -98,9 +98,22 @@ export const getTeams = async (
 
   const teams = await getTeamsForOrganization(org.id);
 
+  const teamsWithMembersP = teams.map(async (team) => {
+    const members = org.members.filter((member) =>
+      member.teams?.includes(team.id)
+    );
+    const expandedMembers = await expandOrgMembers(members);
+    return {
+      ...team,
+      members: expandedMembers,
+    };
+  });
+
+  const teamsWithMembers = await Promise.all(teamsWithMembersP);
+
   return res.status(200).json({
     status: 200,
-    teams,
+    teams: teamsWithMembers,
   });
 };
 

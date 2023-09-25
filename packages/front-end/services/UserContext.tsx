@@ -302,9 +302,9 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
     }
   }, [data?.email, data?.userId]);
 
-  const commercialFeatures = useMemo(() => {
-    return new Set(currentOrg?.commercialFeatures || []);
-  }, [currentOrg?.commercialFeatures]);
+  // const commercialFeatures = useMemo(() => {
+  //   return new Set(currentOrg?.commercialFeatures || []);
+  // }, [currentOrg?.commercialFeatures]);
 
   const permissionsCheck = useCallback(
     (
@@ -368,8 +368,8 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
         organization: currentOrg?.organization || {},
         teams: teamsData?.teams || [],
         error,
-        hasCommercialFeature: (feature) => commercialFeatures.has(feature),
-        // hasCommercialFeature: (feature) => true,
+        // hasCommercialFeature: (feature) => commercialFeatures.has(feature),
+        hasCommercialFeature: () => true,
       }}
     >
       {children}

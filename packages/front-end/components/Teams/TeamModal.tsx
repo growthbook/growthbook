@@ -13,7 +13,7 @@ export default function TeamModal({
 }: {
   existing: Partial<TeamInterface>;
   close: () => void;
-  onSuccess: () => Promise<void>;
+  onSuccess?: () => Promise<void>;
 }) {
   const form = useForm<{
     name: string;
@@ -37,17 +37,17 @@ export default function TeamModal({
     <Modal
       open={true}
       close={close}
-      header={existing.id ? "Edit Team" : "Create Team"}
+      header={existing.id ? "Edit Team Metadata" : "Create Team"}
       submit={form.handleSubmit(async (value) => {
         await apiCall(existing.id ? `/teams/${existing.id}` : `/teams`, {
           method: existing.id ? "PUT" : "POST",
           body: JSON.stringify({
             name: value.name,
             description: value.description,
-            ...value.roleInfo,
+            permissions: { ...value.roleInfo },
           }),
         });
-        await onSuccess();
+        onSuccess ? await onSuccess() : null;
       })}
     >
       <Field label="Name" maxLength={30} required {...form.register("name")} />

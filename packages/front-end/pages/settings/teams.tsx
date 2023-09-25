@@ -4,8 +4,10 @@ import { TeamInterface } from "back-end/types/team";
 import usePermissions from "@/hooks/usePermissions";
 import TeamsList from "@/components/Settings/Teams/TeamsList";
 import TeamModal from "@/components/Teams/TeamModal";
+import { useUser } from "@/services/UserContext";
 
 const TeamPage: FC = () => {
+  const { refreshOrganization } = useUser();
   const permissions = usePermissions();
   const [modalOpen, setModalOpen] = useState<Partial<TeamInterface> | null>(
     null
@@ -27,7 +29,7 @@ const TeamPage: FC = () => {
         <TeamModal
           existing={modalOpen}
           close={() => setModalOpen(null)}
-          onSuccess={() => new Promise(() => undefined)}
+          onSuccess={() => refreshOrganization()}
         />
       )}
       <div className="container-fluid pagecontents">
@@ -44,7 +46,7 @@ const TeamPage: FC = () => {
                 setModalOpen({});
               }}
             >
-              <FaUsers /> Create Team
+              <FaUsers /> <span> </span>Create Team
             </button>
           </div>
         </div>

@@ -1,26 +1,22 @@
 import router from "next/router";
-import { FC, useEffect, useState } from "react";
+import { FC, useState } from "react";
 import { TeamInterface } from "back-end/types/team";
 import { datetime } from "shared/dates";
 import Link from "next/link";
 import { MemberRole } from "back-end/types/organization";
-import { useAuth } from "@/services/auth";
+// import { useAuth } from "@/services/auth";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import usePermissions from "@/hooks/usePermissions";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
-import { GBCircleArrowLeft, GBEdit } from "@/components/Icons";
+import { GBAddCircle, GBCircleArrowLeft, GBEdit } from "@/components/Icons";
 import RoleSelector from "@/components/Settings/Team/RoleSelector";
 import TeamModal from "@/components/Teams/TeamModal";
-
-type TeamResponse = {
-  team: TeamInterface;
-};
+import useApi from "@/hooks/useApi";
 
 const TeamPage: FC = () => {
-  const { apiCall } = useAuth();
+  //const { apiCall } = useAuth();
   const { tid } = router.query as { tid: string };
-  const [team, setTeam] = useState<TeamInterface | null>(null);
-  const [loading, setLoading] = useState<boolean>(false);
+  // const [loading, setLoading] = useState<boolean>(false);
   const [newTeam, setNewTeam] = useState<Partial<TeamInterface> | null>(null);
   const [modalOpen, setModalOpen] = useState<boolean>(false);
 
@@ -29,33 +25,27 @@ const TeamPage: FC = () => {
 
   console.log({ newTeam });
 
-  useEffect(() => {
-    setLoading(true);
-    async function getTeamById() {
-      const response: TeamResponse = await apiCall(`/teams/${tid}`, {
-        method: "GET",
-      });
-      setTeam(response.team);
-    }
-    getTeamById();
-    setLoading(false);
-  }, [apiCall, tid, setTeam]);
+  const { data } = useApi<{
+    team: TeamInterface;
+  }>(`/teams/${tid}`);
 
-  console.log({ team });
+  console.log({ data });
 
-  if (loading) {
+  if (!data) {
     return <LoadingOverlay />;
   }
 
-  if (!team) {
-    return (
-      <div className="container pagecontents">
-        <div className="alert alert-danger">
-          Team <code>{tid}</code> does not exist.
-        </div>
-      </div>
-    );
-  }
+  //   if (!data) {
+  //     return (
+  //       <div className="container pagecontents">
+  //         <div className="alert alert-danger">
+  //           Team <code>{tid}</code> does not exist.
+  //         </div>
+  //       </div>
+  //     );
+  //   }
+
+  const { team } = data;
 
   return (
     <>
@@ -105,11 +95,21 @@ const TeamPage: FC = () => {
           </div>
         </div>
 
-        <h2 className="mt-4 mb-4">Team Members</h2>
+        <div className="d-flex align-center">
+          <h2 className="mt-4 mb-4 mr-2">Team Members</h2>
+          <span
+            className="h4 pr-2 align-self-center"
+            role="button"
+            onClick={() => undefined}
+          >
+            <GBAddCircle />
+          </span>
+        </div>
 
         <div className="mb-4">
           <h5>
-            Active Members{` (${team.members ? team.members.length : 0})`}
+            Active Members
+            {` (${team.members ? team.members.length : 0})`}
           </h5>
           <table className="table appbox gbtable">
             <thead>
@@ -136,10 +136,10 @@ const TeamPage: FC = () => {
                             link={true}
                             useIcon={true}
                             displayName={member.email}
-                            onClick={async () => {
-                              await apiCall(`/member/${member.id}`, {
-                                method: "DELETE",
-                              });
+                            onClick={() => {
+                              //   await apiCall(`/member/${member.id}`, {
+                              //     method: "DELETE",
+                              //   });
                               // mutate();
                             }}
                           />
