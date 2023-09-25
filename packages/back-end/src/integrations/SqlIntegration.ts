@@ -1052,7 +1052,9 @@ export default abstract class SqlIntegration
     // e.g. "Purchase/Signup" is filtering to users who signed up and then counting purchases
     // When the denominator is a count, it's a real ratio, dividing two quantities
     // e.g. "Pages/Session" is dividing number of page views by number of sessions
-    const ratioMetric = denominator?.type === "count";
+    const ratioMetric = ["count", "duration", "revenue"].includes(
+      denominator?.type
+    );
     const funnelMetric = denominator?.type === "binomial";
 
     const cumulativeDate =
