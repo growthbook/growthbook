@@ -1,5 +1,6 @@
 import React, { useEffect, useState, FC, CSSProperties } from "react";
 import { useAuth } from "@/services/auth";
+import LoadingSpinner from "./LoadingSpinner";
 
 interface AuthorizedImageProps {
   imagePath: string;
@@ -35,7 +36,7 @@ const AuthorizedImage: FC<AuthorizedImageProps> = ({
   }
 
   if (!imageSrc) {
-    return <div>Loading...</div>;
+    return <LoadingSpinner />;
   }
 
   return <img src={imageSrc} className={className} style={style} />;

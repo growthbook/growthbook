@@ -167,7 +167,7 @@ const VariationsTable: FC<Props> = ({
                     borderBottom: canEditExperiment ? 0 : undefined,
                   }}
                 >
-                  <div className="d-flex flex-column h-100">
+                  <div className="d-flex justify-content-center align-items-center flex-column h-100">
                     {v.screenshots.length > 0 ? (
                       <ScreenshotCarousel
                         key={i}
