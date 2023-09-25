@@ -1,4 +1,5 @@
 import {
+  Attributes,
   CacheSettings,
   FeatureApiResponse,
   Helpers,
@@ -25,6 +26,7 @@ const cacheSettings: CacheSettings = {
   staleTTL: 1000 * 60,
   cacheKey: "gbFeaturesCache",
   backgroundSync: true,
+  maxEntries: 5,
 };
 const polyfills: Polyfills = {
   fetch: globalThis.fetch ? globalThis.fetch.bind(globalThis) : undefined,
@@ -148,12 +150,14 @@ async function fetchFeaturesWithCache(
   timeout?: number,
   skipCache?: boolean
 ): Promise<FeatureApiResponse | null> {
+  const remoteEval = instance.isRemoteEval();
   const key = getKey(instance);
+  const cacheKey = remoteEval ? `${key}||${getCritialAttributesKey(instance)}` : key;
   const now = new Date();
   await initializeCache();
-  const existing = cache.get(key);
+  const existing = cache.get(cacheKey);
   if (existing && !skipCache && (allowStale || existing.staleAt > now)) {
-    // Restore from cache whether or not SSE is supported
+    // Restore from cache whether SSE is supported
     if (existing.sse) supportsSSE.add(key);
 
     // Reload features in the background if stale
@@ -172,9 +176,16 @@ async function fetchFeaturesWithCache(
 
 function getKey(instance: GrowthBook): RepositoryKey {
   const [apiHost, clientKey] = instance.getApiInfo();
-  return instance.isRemoteEval()
-    ? `${apiHost}||${clientKey}||${instance.getUserId()}`
-    : `${apiHost}||${clientKey}`;
+  return `${apiHost}||${clientKey}`;
+}
+
+function getCritialAttributesKey(instance: GrowthBook): string {
+  const attributes = instance.getAttributes();
+  let criticalAttributes: Attributes = {};
+  instance.getCriticalAttributes().sort().forEach((key) => {
+    criticalAttributes[key] = attributes[key];
+  });
+  return JSON.stringify(criticalAttributes);
 }
 
 // Guarantee the promise always resolves within {timeout} ms
@@ -221,6 +232,7 @@ async function initializeCache(): Promise<void> {
             });
           });
         }
+        cleanupCache();
       }
     }
   } catch (e) {
@@ -228,8 +240,21 @@ async function initializeCache(): Promise<void> {
   }
 }
 
+// Enforce the maxEntries limit
+function cleanupCache() {
+  // pop the oldest entries until we're under the limit
+  while (cache.size > cacheSettings.maxEntries) {
+    const oldest = Array.from(cache.entries()).sort(
+      ([, a], [, b]) => a.staleAt.getTime() - b.staleAt.getTime()
+    )[0];
+    if (oldest) {
+      cache.delete(oldest[0]);
+    }
+  }
+}
+
 // Called whenever new features are fetched from the API
-function onNewFeatureData(key: RepositoryKey, data: FeatureApiResponse): void {
+function onNewFeatureData(key: RepositoryKey, cacheKey: RepositoryKey, data: FeatureApiResponse): void {
   // If contents haven't changed, ignore the update, extend the stale TTL
   const version = data.dateUpdated || "";
   const staleAt = new Date(Date.now() + cacheSettings.staleTTL);
@@ -241,12 +266,13 @@ function onNewFeatureData(key: RepositoryKey, data: FeatureApiResponse): void {
   }
 
   // Update in-memory cache
-  cache.set(key, {
+  cache.set(cacheKey, {
     data,
     version,
     staleAt,
     sse: supportsSSE.has(key),
   });
+  cleanupCache();
   // Update local storage (don't await this, just update asynchronously)
   updatePersistentCache();
 
@@ -279,16 +305,17 @@ async function refreshInstance(
 async function fetchFeatures(
   instance: GrowthBook
 ): Promise<FeatureApiResponse> {
-  const key = getKey(instance);
   const { apiHost, remoteEvalHost, apiRequestHeaders } = instance.getApiHosts();
   const clientKey = instance.getClientKey();
   const remoteEval = instance.isRemoteEval();
+  const key = getKey(instance);
+  const cacheKey = remoteEval ? `${key}||${getCritialAttributesKey(instance)}` : key;
 
   if (remoteEval && !remoteEvalHost) {
     throw new Error("remoteEvalHost is required");
   }
 
-  let promise = activeFetches.get(key);
+  let promise = activeFetches.get(cacheKey);
   if (!promise) {
     const fetcher: Promise<Response> = remoteEval
       ? helpers.fetchRemoteEvalCall({
@@ -317,9 +344,9 @@ async function fetchFeatures(
         return res.json();
       })
       .then((data: FeatureApiResponse) => {
-        onNewFeatureData(key, data);
+        onNewFeatureData(key, cacheKey, data);
         startAutoRefresh(instance);
-        activeFetches.delete(key);
+        activeFetches.delete(cacheKey);
         return data;
       })
       .catch((e) => {
@@ -329,10 +356,10 @@ async function fetchFeatures(
             clientKey,
             error: e ? e.message : null,
           });
-        activeFetches.delete(key);
+        activeFetches.delete(cacheKey);
         return Promise.resolve({});
       });
-    activeFetches.set(key, promise);
+    activeFetches.set(cacheKey, promise);
   }
   return await promise;
 }
@@ -340,7 +367,9 @@ async function fetchFeatures(
 // Watch a feature endpoint for changes
 // Will prefer SSE if enabled, otherwise fall back to cron
 function startAutoRefresh(instance: GrowthBook): void {
+  const remoteEval = instance.isRemoteEval();
   const key = getKey(instance);
+  const cacheKey = remoteEval ? `${key}||${getCritialAttributesKey(instance)}` : key;
   const { streamingHost, apiRequestHeaders } = instance.getApiHosts();
   const clientKey = instance.getClientKey();
   if (
@@ -357,7 +386,7 @@ function startAutoRefresh(instance: GrowthBook): void {
             fetchFeatures(instance);
           } else if (event.type === "features") {
             const json: FeatureApiResponse = JSON.parse(event.data);
-            onNewFeatureData(key, json);
+            onNewFeatureData(key, cacheKey, json);
           }
           // Reset error count on success
           channel.errors = 0;

@@ -115,14 +115,12 @@ export class GrowthBook<
 
   public async loadFeatures(options?: LoadFeaturesOptions): Promise<void> {
     if (options && options.autoRefresh) {
+      // interpret deprecated autoRefresh option as subscribeToChanges
       this._ctx.subscribeToChanges = true;
     }
     this._loadFeaturesCalled = true;
 
     await this._refresh(options, true, true);
-
-    // remote eval: don't subscribe if there is no userId
-    if (this._ctx.remoteEval && !this._ctx.userId) return;
 
     if (this.canSubscribe()) {
       subscribe(this);
@@ -169,21 +167,8 @@ export class GrowthBook<
     return this._ctx.remoteEval || false;
   }
 
-  public getUserId(): string {
-    return this._ctx.userId || "";
-  }
-
-  public setUserId(userId: string): void {
-    if (this._ctx.remoteEval) {
-      unsubscribe(this);
-    }
-    this._ctx.userId = userId;
-    if (!this._loadFeaturesCalled) return;
-
-    this._refresh({ skipCache: this.isRemoteEval() }, false, false);
-    if (this._ctx.remoteEval && userId && this.canSubscribe()) {
-      subscribe(this);
-    }
+  public getCriticalAttributes(): (keyof Attributes)[] {
+    return this._ctx.criticalAttributes || [];
   }
 
   private async _refresh(
@@ -253,10 +238,9 @@ export class GrowthBook<
 
   public setAttributes(attributes: Attributes) {
     this._ctx.attributes = attributes;
-    if (this._ctx.remoteEval) {
-      if (this._loadFeaturesCalled) {
-        this._refresh({ skipCache: true }, false, true);
-      }
+    if (this._ctx.remoteEval && this._loadFeaturesCalled) {
+      this._refresh({}, false, true)
+        .then(() => this._updateAllAutoExperiments());
       return;
     }
     this._render();
@@ -265,10 +249,9 @@ export class GrowthBook<
 
   public setAttributeOverrides(overrides: Attributes) {
     this._attributeOverrides = overrides;
-    if (this._ctx.remoteEval) {
-      if (this._loadFeaturesCalled) {
-        this._refresh({ skipCache: true }, false, true);
-      }
+    if (this._ctx.remoteEval && this._loadFeaturesCalled) {
+      this._refresh({}, false, true)
+        .then(() => this._updateAllAutoExperiments());
       return;
     }
     this._render();
@@ -277,10 +260,9 @@ export class GrowthBook<
 
   public setForcedVariations(vars: Record<string, number>) {
     this._ctx.forcedVariations = vars || {};
-    if (this._ctx.remoteEval) {
-      if (this._loadFeaturesCalled) {
-        this._refresh({ skipCache: true }, false, true);
-      }
+    if (this._ctx.remoteEval && this._loadFeaturesCalled) {
+      this._refresh({ skipCache: true }, true, true)
+        .then(() => this._updateAllAutoExperiments());
       return;
     }
     this._render();
@@ -295,10 +277,9 @@ export class GrowthBook<
 
   public setURL(url: string) {
     this._ctx.url = url;
-    if (this._ctx.remoteEval) {
-      if (this._loadFeaturesCalled) {
-        this._refresh({ skipCache: true }, false, true);
-      }
+    if (this._ctx.remoteEval && this._loadFeaturesCalled) {
+      this._refresh({ skipCache: true }, true, true)
+        .then(() => this._updateAllAutoExperiments());
       return;
     }
     this._updateAllAutoExperiments(true);
@@ -374,17 +355,21 @@ export class GrowthBook<
   public forceVariation(key: string, variation: number) {
     this._ctx.forcedVariations = this._ctx.forcedVariations || {};
     this._ctx.forcedVariations[key] = variation;
-    if (this._ctx.remoteEval) {
-      if (this._loadFeaturesCalled) {
-        this._refresh({ skipCache: true }, false, true);
-      }
+    const exp = (this._ctx.experiments || []).find((e) => e.key === key);
+    if (this._ctx.remoteEval && this._loadFeaturesCalled) {
+      this._refresh({ skipCache: true }, true, true)
+        .then(() => {
+          if (exp) {
+            this._runAutoExperiment(exp, false, false);
+          }
+        }
+      );
       return;
     }
-    this._render();
-    const exp = this._ctx.experiments?.find((e) => e.key === key);
     if (exp) {
       this._runAutoExperiment(exp, false, false);
     }
+    this._render();
   }
 
   public run<T>(experiment: Experiment<T>): Result<T> {
