@@ -15,10 +15,10 @@ import usePermissions from "@/hooks/usePermissions";
 import FactList from "@/components/FactTables/FactList";
 import FactFilterList from "@/components/FactTables/FactFilterList";
 import EditProjectsForm from "@/components/Projects/EditProjectsForm";
-import MetricFactModal from "@/components/FactTables/MetricFactModal";
 import PageHead from "@/components/Layout/PageHead";
 import EditTagsForm from "@/components/Tags/EditTagsForm";
 import SortedTags from "@/components/Tags/SortedTags";
+import FactMetricModal from "@/components/FactTables/FactMetricModal";
 
 export default function FactTablePage() {
   const router = useRouter();
@@ -108,11 +108,8 @@ export default function FactTablePage() {
         />
       )}
       {metricOpen && (
-        <MetricFactModal
+        <FactMetricModal
           close={() => setMetricOpen(false)}
-          onSave={() => {
-            mutateDefinitions();
-          }}
           initialFactTable={factTable.id}
         />
       )}

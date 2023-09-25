@@ -3,10 +3,13 @@ import {
   createFactFilterPropsValidator,
   createFactPropsValidator,
   createFactTablePropsValidator,
+  createFactMetricPropsValidator,
   numberFormatValidator,
   updateFactFilterPropsValidator,
   updateFactPropsValidator,
   updateFactTablePropsValidator,
+  updateFactMetricPropsValidator,
+  factRefValidator,
 } from "../src/routers/fact-table/fact-table.validators";
 
 export type FactNumberFormat = z.infer<typeof numberFormatValidator>;
@@ -48,6 +51,44 @@ export interface FactTableInterface {
   filters: FactFilterInterface[];
 }
 
+export type FactRef = z.infer<typeof factRefValidator>;
+
+export interface FactMetricInterface {
+  id: string;
+  organization: string;
+  owner: string;
+  datasource: string;
+  dateCreated: Date;
+  dateUpdated: Date;
+  name: string;
+  description: string;
+  tags: string[];
+  projects: string[];
+  inverse: boolean;
+
+  metricType: "ratio" | "mean" | "proportion";
+  numerator: FactRef;
+  denominator: FactRef | null;
+
+  capping: "absolute" | "percentile" | "";
+  capValue: number;
+
+  maxPercentChange: number;
+  minPercentChange: number;
+  minSampleSize: number;
+  winRisk: number;
+  loseRisk: number;
+
+  regressionAdjustmentOverride: boolean;
+  regressionAdjustmentEnabled: boolean;
+  regressionAdjustmentDays: number;
+
+  conversionDelayHours: number;
+  hasConversionWindow: boolean;
+  conversionWindowValue: number;
+  conversionWindowUnit: "weeks" | "days" | "hours";
+}
+
 export type CreateFactTableProps = z.infer<
   typeof createFactTablePropsValidator
 >;
@@ -62,3 +103,10 @@ export type UpdateFactFilterProps = z.infer<
 >;
 export type UpdateFactProps = z.infer<typeof updateFactPropsValidator>;
 export type CreateFactProps = z.infer<typeof createFactPropsValidator>;
+
+export type CreateFactMetricProps = z.infer<
+  typeof createFactMetricPropsValidator
+>;
+export type UpdateFactMetricProps = z.infer<
+  typeof updateFactMetricPropsValidator
+>;

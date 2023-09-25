@@ -80,7 +80,6 @@ export async function createFactTable(
   organization: string,
   data: CreateFactTableProps
 ) {
-  // TODO: validation
   const doc = await FactTableModel.create({
     organization: organization,
     id: data.id || uniqid("ftb_"),

@@ -3,10 +3,13 @@ import { AuthRequest } from "../../types/AuthRequest";
 import { getOrgFromReq } from "../../services/organizations";
 import {
   CreateFactFilterProps,
+  CreateFactMetricProps,
   CreateFactProps,
   CreateFactTableProps,
+  FactMetricInterface,
   FactTableInterface,
   UpdateFactFilterProps,
+  UpdateFactMetricProps,
   UpdateFactProps,
   UpdateFactTableProps,
 } from "../../../types/fact-table";
@@ -24,6 +27,13 @@ import {
   updateFactFilter,
 } from "../../models/FactTableModel";
 import { addTags, addTagsDiff } from "../../models/TagModel";
+import {
+  createFactMetric,
+  getAllFactMetricsForOrganization,
+  getFactMetric,
+  updateFactMetric,
+  deleteFactMetric as deleteFactMetricInDb,
+} from "../../models/FactMetricModel";
 
 export const getFactTables = async (
   req: AuthRequest,
@@ -224,6 +234,87 @@ export const deleteFactFilter = async (
   req.checkPermissions("manageFactTables", factTable.projects);
 
   await deleteFactFilterInDb(factTable, req.params.filterId);
+
+  res.status(200).json({
+    status: 200,
+  });
+};
+
+export const getFactMetrics = async (
+  req: AuthRequest,
+  res: Response<{ status: 200; factMetrics: FactMetricInterface[] }>
+) => {
+  const { org } = getOrgFromReq(req);
+
+  const factMetrics = await getAllFactMetricsForOrganization(org.id);
+
+  res.status(200).json({
+    status: 200,
+    factMetrics,
+  });
+};
+
+export const postFactMetric = async (
+  req: AuthRequest<CreateFactMetricProps>,
+  res: Response<{ status: 200; factMetric: FactMetricInterface }>
+) => {
+  const data = req.body;
+  const { org } = getOrgFromReq(req);
+
+  req.checkPermissions("createMetrics", data.projects || "");
+
+  const factMetric = await createFactMetric(org.id, data);
+
+  if (data.tags.length > 0) {
+    await addTags(org.id, data.tags);
+  }
+
+  res.status(200).json({
+    status: 200,
+    factMetric,
+  });
+};
+
+export const putFactMetric = async (
+  req: AuthRequest<UpdateFactMetricProps, { id: string }>,
+  res: Response<{ status: 200 }>
+) => {
+  const data = req.body;
+  const { org } = getOrgFromReq(req);
+
+  const factMetric = await getFactMetric(org.id, req.params.id);
+  if (!factMetric) {
+    throw new Error("Could not find fact metric with that id");
+  }
+
+  // Check permissions for both the existing projects and new ones (if they are being changed)
+  req.checkPermissions("createMetrics", factMetric.projects);
+  if (data.projects) {
+    req.checkPermissions("createMetrics", data.projects || "");
+  }
+
+  await updateFactMetric(factMetric, data);
+
+  await addTagsDiff(org.id, factMetric.tags, data.tags || []);
+
+  res.status(200).json({
+    status: 200,
+  });
+};
+
+export const deleteFactMetric = async (
+  req: AuthRequest<null, { id: string }>,
+  res: Response<{ status: 200 }>
+) => {
+  const { org } = getOrgFromReq(req);
+
+  const factMetric = await getFactMetric(org.id, req.params.id);
+  if (!factMetric) {
+    throw new Error("Could not find fact metric with that id");
+  }
+  req.checkPermissions("createMetrics", factMetric.projects);
+
+  await deleteFactMetricInDb(factMetric);
 
   res.status(200).json({
     status: 200,

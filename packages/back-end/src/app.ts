@@ -466,7 +466,7 @@ app.use("/sdk-connections", sdkConnectionRouter);
 
 app.use("/projects", projectRouter);
 
-app.use("/fact-tables", factTableRouter);
+app.use(factTableRouter);
 
 app.use("/demo-datasource-project", demoDatasourceProjectRouter);
 

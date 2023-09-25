@@ -26,6 +26,77 @@ export const updateFactTablePropsValidator = z
   })
   .strict();
 
+export const factRefValidator = z
+  .object({
+    factTableId: z.string(),
+    factId: z.string(),
+    filters: z.array(z.string()),
+  })
+  .strict();
+
+export const createFactMetricPropsValidator = z.object({
+  owner: z.string().optional(),
+  datasource: z.string(),
+  name: z.string(),
+  description: z.string(),
+  tags: z.array(z.string()),
+  projects: z.array(z.string()),
+
+  metricType: z.enum(["ratio", "mean", "proportion"]),
+  numerator: factRefValidator,
+  denominator: factRefValidator.nullable(),
+
+  capping: z.enum(["absolute", "percentile", ""]),
+  capValue: z.number(),
+  inverse: z.boolean(),
+
+  maxPercentChange: z.number(),
+  minPercentChange: z.number(),
+  minSampleSize: z.number(),
+  winRisk: z.number(),
+  loseRisk: z.number(),
+
+  regressionAdjustmentOverride: z.boolean(),
+  regressionAdjustmentEnabled: z.boolean(),
+  regressionAdjustmentDays: z.number(),
+
+  conversionDelayHours: z.number(),
+  hasConversionWindow: z.boolean(),
+  conversionWindowValue: z.number(),
+  conversionWindowUnit: z.enum(["weeks", "days", "hours"]),
+});
+
+export const updateFactMetricPropsValidator = z.object({
+  owner: z.string().optional(),
+  name: z.string().optional(),
+  description: z.string().optional(),
+  tags: z.array(z.string()).optional(),
+  projects: z.array(z.string()).optional(),
+
+  metricType: z.enum(["ratio", "mean", "proportion"]).optional(),
+  numerator: factRefValidator.optional(),
+  denominator: factRefValidator.nullable().optional(),
+
+  capping: z.enum(["absolute", "percentile", ""]).optional(),
+  capValue: z.number().optional(),
+  inverse: z.boolean().optional(),
+
+  maxPercentChange: z.number().optional(),
+  minPercentChange: z.number().optional(),
+  minSampleSize: z.number().optional(),
+  winRisk: z.number().optional(),
+  loseRisk: z.number().optional(),
+
+  regressionAdjustmentOverride: z.boolean().optional(),
+  regressionAdjustmentEnabled: z.boolean().optional(),
+  regressionAdjustmentDays: z.number().optional(),
+
+  conversionDelayHours: z.number().optional(),
+  hasConversionWindow: z.boolean().optional(),
+  conversionWindowValue: z.number().optional(),
+  conversionWindowUnit: z.enum(["weeks", "days", "hours"]).optional(),
+});
+
 export const numberFormatValidator = z.enum([
   "number",
   "currency",

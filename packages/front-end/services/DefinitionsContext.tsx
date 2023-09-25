@@ -6,7 +6,10 @@ import { ProjectInterface } from "back-end/types/project";
 import { useContext, useMemo, createContext, FC, ReactNode } from "react";
 import { TagInterface } from "back-end/types/tag";
 import { SavedGroupInterface } from "back-end/types/saved-group";
-import { FactTableInterface } from "back-end/types/fact-table";
+import {
+  FactMetricInterface,
+  FactTableInterface,
+} from "back-end/types/fact-table";
 import useApi from "@/hooks/useApi";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 
@@ -19,6 +22,7 @@ type Definitions = {
   savedGroups: SavedGroupInterface[];
   tags: TagInterface[];
   factTables: FactTableInterface[];
+  factMetrics: FactMetricInterface[];
 };
 
 type DefinitionContextValue = Definitions & {
@@ -36,6 +40,7 @@ type DefinitionContextValue = Definitions & {
   getSavedGroupById: (id: string) => null | SavedGroupInterface;
   getTagById: (id: string) => null | TagInterface;
   getFactTableById: (id: string) => null | FactTableInterface;
+  getFactMetricById: (id: string) => null | FactMetricInterface;
 };
 
 const defaultValue: DefinitionContextValue = {
@@ -58,6 +63,7 @@ const defaultValue: DefinitionContextValue = {
   savedGroups: [],
   projects: [],
   factTables: [],
+  factMetrics: [],
   getMetricById: () => null,
   getDatasourceById: () => null,
   getDimensionById: () => null,
@@ -66,6 +72,7 @@ const defaultValue: DefinitionContextValue = {
   getSavedGroupById: () => null,
   getTagById: () => null,
   getFactTableById: () => null,
+  getFactMetricById: () => null,
 };
 
 export const DefinitionsContext = createContext<DefinitionContextValue>(
@@ -122,6 +129,7 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
   const getSavedGroupById = useGetById(data?.savedGroups);
   const getTagById = useGetById(data?.tags);
   const getFactTableById = useGetById(data?.factTables);
+  const getFactMetricById = useGetById(data?.factMetrics);
 
   let value: DefinitionContextValue;
   if (error) {
@@ -144,6 +152,7 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
       projects: data.projects,
       project: filteredProject,
       factTables: data.factTables,
+      factMetrics: data.factMetrics,
       setProject,
       getMetricById,
       getDatasourceById,
@@ -153,6 +162,7 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
       getSavedGroupById,
       getTagById,
       getFactTableById,
+      getFactMetricById,
       refreshTags: async (tags) => {
         const existingTags = data.tags.map((t) => t.id);
         const newTags = tags.filter((t) => !existingTags.includes(t));
@@ -174,8 +184,7 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
         }
       },
       mutateDefinitions: async (changes) => {
-        // @ts-expect-error TS(2783) If you come across this, please fix it!: 'status' is specified more than once, so this usag... Remove this comment to see the full error message
-        await mutate(Object.assign({ status: 200, ...data }, changes), true);
+        await mutate(Object.assign({ ...data }, changes), true);
       },
     };
   }
