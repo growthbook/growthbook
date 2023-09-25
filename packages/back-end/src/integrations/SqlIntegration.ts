@@ -1011,7 +1011,7 @@ export default abstract class SqlIntegration
     const {
       metric: metricDoc,
       denominatorMetrics: denominatorMetricsDocs,
-      activationMetric,
+      activationMetric: activationMetricDoc,
       settings,
       segment,
     } = params;
@@ -1021,6 +1021,11 @@ export default abstract class SqlIntegration
     const denominatorMetrics = cloneDeep<MetricInterface[]>(
       denominatorMetricsDocs
     );
+    let activationMetric = null;
+    if (activationMetricDoc) {
+      activationMetric = cloneDeep<MetricInterface>(activationMetricDoc);
+      this.applyMetricOverrides(activationMetric, settings);
+    }
 
     this.applyMetricOverrides(metric, settings);
     denominatorMetrics.forEach((m) => this.applyMetricOverrides(m, settings));
@@ -1096,7 +1101,9 @@ export default abstract class SqlIntegration
     );
 
     // Get rough date filter for metrics to improve performance
-    const orderedMetrics = denominatorMetrics.concat([metric]);
+    const orderedMetrics = (activationMetric ? [activationMetric] : [])
+      .concat(denominatorMetrics)
+      .concat([metric]);
     const minMetricDelay = this.getMetricMinDelay(orderedMetrics);
     const metricStart = this.getMetricStart(
       settings.startDate,
