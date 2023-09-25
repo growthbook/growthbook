@@ -1502,13 +1502,21 @@ export default abstract class SqlIntegration
           anonymousIdColumn: "user_pseudo_id",
           getMetricTableName: () => this.generateTablePath("events_*"),
           getDateLimitClause: (start: Date, end: Date) =>
-            `_TABLE_SUFFIX BETWEEN '${formatDate(
+            `((_TABLE_SUFFIX BETWEEN '${formatDate(
               start,
               "yyyyMMdd"
-            )}' AND'${formatDate(end, "yyyyMMdd")}'`,
+            )}' AND '${formatDate(
+              end,
+              "yyyyMMdd"
+            )}') OR (_TABLE_SUFFIX BETWEEN 'intraday_${formatDate(
+              start,
+              "yyyyMMdd"
+            )}' AND 'intraday_${formatDate(end, "yyyyMMdd")}'))`,
           getAdditionalEvents: () => [],
           getMetricWhereClause: (eventName: string) =>
-            `WHERE event_name = '${eventName}'`,
+            `WHERE ((_TABLE_SUFFIX BETWEEN '{{date startDateISO "yyyyMMdd"}}' AND '{{date endDateISO "yyyyMMdd"}}') OR
+ (_TABLE_SUFFIX BETWEEN 'intraday_{{date startDateISO "yyyyMMdd"}}' AND 'intraday_{{date endDateISO "yyyyMMdd"}}')) 
+AND event_name = '${eventName}'`,
         };
       }
       case "rudderstack":
