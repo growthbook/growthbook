@@ -67,6 +67,7 @@ const ScreenshotCarousel: FC<{
             }}
           />
         ) : (
+          // Legacy images that directly link to s3 or google-cloud
           <img
             className="experiment-image"
             src={s.path}
