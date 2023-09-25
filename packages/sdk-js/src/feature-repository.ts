@@ -152,7 +152,9 @@ async function fetchFeaturesWithCache(
 ): Promise<FeatureApiResponse | null> {
   const remoteEval = instance.isRemoteEval();
   const key = getKey(instance);
-  const cacheKey = remoteEval ? `${key}||${getCritialAttributesKey(instance)}` : key;
+  const cacheKey = remoteEval
+    ? `${key}||${getCritialAttributesKey(instance)}`
+    : key;
   const now = new Date();
   await initializeCache();
   const existing = cache.get(cacheKey);
@@ -181,10 +183,13 @@ function getKey(instance: GrowthBook): RepositoryKey {
 
 function getCritialAttributesKey(instance: GrowthBook): string {
   const attributes = instance.getAttributes();
-  let criticalAttributes: Attributes = {};
-  instance.getCriticalAttributes().sort().forEach((key) => {
-    criticalAttributes[key] = attributes[key];
-  });
+  const criticalAttributes: Attributes = {};
+  instance
+    .getCriticalAttributes()
+    .sort()
+    .forEach((key) => {
+      criticalAttributes[key] = attributes[key];
+    });
   return JSON.stringify(criticalAttributes);
 }
 
@@ -254,7 +259,11 @@ function cleanupCache() {
 }
 
 // Called whenever new features are fetched from the API
-function onNewFeatureData(key: RepositoryKey, cacheKey: RepositoryKey, data: FeatureApiResponse): void {
+function onNewFeatureData(
+  key: RepositoryKey,
+  cacheKey: RepositoryKey,
+  data: FeatureApiResponse
+): void {
   // If contents haven't changed, ignore the update, extend the stale TTL
   const version = data.dateUpdated || "";
   const staleAt = new Date(Date.now() + cacheSettings.staleTTL);
@@ -309,7 +318,9 @@ async function fetchFeatures(
   const clientKey = instance.getClientKey();
   const remoteEval = instance.isRemoteEval();
   const key = getKey(instance);
-  const cacheKey = remoteEval ? `${key}||${getCritialAttributesKey(instance)}` : key;
+  const cacheKey = remoteEval
+    ? `${key}||${getCritialAttributesKey(instance)}`
+    : key;
 
   if (remoteEval && !remoteEvalHost) {
     throw new Error("remoteEvalHost is required");
@@ -369,7 +380,9 @@ async function fetchFeatures(
 function startAutoRefresh(instance: GrowthBook): void {
   const remoteEval = instance.isRemoteEval();
   const key = getKey(instance);
-  const cacheKey = remoteEval ? `${key}||${getCritialAttributesKey(instance)}` : key;
+  const cacheKey = remoteEval
+    ? `${key}||${getCritialAttributesKey(instance)}`
+    : key;
   const { streamingHost, apiRequestHeaders } = instance.getApiHosts();
   const clientKey = instance.getClientKey();
   if (

@@ -239,8 +239,9 @@ export class GrowthBook<
   public setAttributes(attributes: Attributes) {
     this._ctx.attributes = attributes;
     if (this._ctx.remoteEval && this._loadFeaturesCalled) {
-      this._refresh({}, false, true)
-        .then(() => this._updateAllAutoExperiments());
+      this._refresh({}, false, true).then(() =>
+        this._updateAllAutoExperiments()
+      );
       return;
     }
     this._render();
@@ -250,8 +251,9 @@ export class GrowthBook<
   public setAttributeOverrides(overrides: Attributes) {
     this._attributeOverrides = overrides;
     if (this._ctx.remoteEval && this._loadFeaturesCalled) {
-      this._refresh({}, false, true)
-        .then(() => this._updateAllAutoExperiments());
+      this._refresh({}, false, true).then(() =>
+        this._updateAllAutoExperiments()
+      );
       return;
     }
     this._render();
@@ -261,8 +263,9 @@ export class GrowthBook<
   public setForcedVariations(vars: Record<string, number>) {
     this._ctx.forcedVariations = vars || {};
     if (this._ctx.remoteEval && this._loadFeaturesCalled) {
-      this._refresh({ skipCache: true }, true, true)
-        .then(() => this._updateAllAutoExperiments());
+      this._refresh({ skipCache: true }, true, true).then(() =>
+        this._updateAllAutoExperiments()
+      );
       return;
     }
     this._render();
@@ -278,8 +281,9 @@ export class GrowthBook<
   public setURL(url: string) {
     this._ctx.url = url;
     if (this._ctx.remoteEval && this._loadFeaturesCalled) {
-      this._refresh({ skipCache: true }, true, true)
-        .then(() => this._updateAllAutoExperiments());
+      this._refresh({ skipCache: true }, true, true).then(() =>
+        this._updateAllAutoExperiments()
+      );
       return;
     }
     this._updateAllAutoExperiments(true);
@@ -357,13 +361,11 @@ export class GrowthBook<
     this._ctx.forcedVariations[key] = variation;
     const exp = (this._ctx.experiments || []).find((e) => e.key === key);
     if (this._ctx.remoteEval && this._loadFeaturesCalled) {
-      this._refresh({ skipCache: true }, true, true)
-        .then(() => {
-          if (exp) {
-            this._runAutoExperiment(exp, false, false);
-          }
+      this._refresh({ skipCache: true }, true, true).then(() => {
+        if (exp) {
+          this._runAutoExperiment(exp, false, false);
         }
-      );
+      });
       return;
     }
     if (exp) {
