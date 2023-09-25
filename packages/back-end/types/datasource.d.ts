@@ -197,7 +197,7 @@ export type DataSourceSettings = {
     anonymousIdColumn?: string;
     userIdColumn?: string;
   };
-  pipelineSettings: DataSourcePipelineSettings;
+  pipelineSettings?: DataSourcePipelineSettings;
 };
 
 interface DataSourceBase {
