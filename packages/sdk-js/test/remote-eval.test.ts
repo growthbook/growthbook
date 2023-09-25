@@ -90,7 +90,7 @@ async function seedLocalStorage(
   sse: boolean = false,
   apiHost: ApiHost = "https://fakeapi.sample.io",
   clientKey: ClientKey = "qwerty1234",
-  attributeBlob = `{"uid":"5"}`,
+  attributeBlob = `{"ca":{"uid":"5"},"fv":{},"url":""}`,
   feature: string = "foo",
   value: string = "localstorage",
   staleAt: number = 50
@@ -166,6 +166,7 @@ describe("remote-eval", () => {
     await clearCache();
     const [f, cleanup] = mockApi(sdkPayload);
 
+    // a.1
     const growthbook1 = new GrowthBook({
       apiHost: "https://fakeapi.sample.io",
       clientKey: "qwerty1234",
@@ -174,6 +175,7 @@ describe("remote-eval", () => {
       attributes: { uid: "5" },
     });
 
+    // a.2
     const growthbook2 = new GrowthBook({
       apiHost: "https://fakeapi.sample.io",
       clientKey: "qwerty1234",
@@ -182,6 +184,7 @@ describe("remote-eval", () => {
       attributes: { uid: "5" },
     });
 
+    // b
     const growthbook3 = new GrowthBook({
       apiHost: "https://fakeapi.sample.io",
       clientKey: "qwerty1234",
@@ -190,6 +193,7 @@ describe("remote-eval", () => {
       attributes: { uid: "1" },
     });
 
+    // c
     const growthbook4 = new GrowthBook({
       apiHost: "https://fakeapi.sample.io",
       clientKey: "asdfjkl",
@@ -198,6 +202,7 @@ describe("remote-eval", () => {
       attributes: { uid: "5" },
     });
 
+    // d
     const growthbook5 = new GrowthBook({
       apiHost: "https://fakeapi.sample.io",
       clientKey: "qwerty1234",
@@ -406,7 +411,7 @@ describe("remote-eval", () => {
     );
     expect(lsValue.length).toEqual(1);
     expect(lsValue[0][0]).toEqual(
-      `https://fakeapi.sample.io||qwerty1234||{"uid":"5"}`
+      `https://fakeapi.sample.io||qwerty1234||{"ca":{"uid":"5"},"fv":{},"url":""}`
     );
     expect(lsValue[0][1].sse).toEqual(true);
 
@@ -491,7 +496,7 @@ describe("remote-eval", () => {
     );
     expect(lsValue.length).toEqual(1);
     expect(lsValue[0][0]).toEqual(
-      `https://fakeapi.sample.io||qwerty1234||{"uid":"5"}`
+      `https://fakeapi.sample.io||qwerty1234||{"ca":{"uid":"5"},"fv":{},"url":""}`
     );
     expect(lsValue[0][1].version).toEqual(data.dateUpdated);
     expect(lsValue[0][1].data.features).toEqual({

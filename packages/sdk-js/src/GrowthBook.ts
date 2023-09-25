@@ -263,7 +263,7 @@ export class GrowthBook<
   public setForcedVariations(vars: Record<string, number>) {
     this._ctx.forcedVariations = vars || {};
     if (this._ctx.remoteEval && this._loadFeaturesCalled) {
-      this._refresh({ skipCache: true }, true, true).then(() =>
+      this._refresh({}, false, true).then(() =>
         this._updateAllAutoExperiments()
       );
       return;
@@ -281,7 +281,7 @@ export class GrowthBook<
   public setURL(url: string) {
     this._ctx.url = url;
     if (this._ctx.remoteEval && this._loadFeaturesCalled) {
-      this._refresh({ skipCache: true }, true, true).then(() =>
+      this._refresh({}, false, true).then(() =>
         this._updateAllAutoExperiments()
       );
       return;
@@ -361,7 +361,7 @@ export class GrowthBook<
     this._ctx.forcedVariations[key] = variation;
     const exp = (this._ctx.experiments || []).find((e) => e.key === key);
     if (this._ctx.remoteEval && this._loadFeaturesCalled) {
-      this._refresh({ skipCache: true }, true, true).then(() => {
+      this._refresh({}, false, true).then(() => {
         if (exp) {
           this._runAutoExperiment(exp, false, false);
         }
