@@ -1,4 +1,5 @@
 import * as bq from "@google-cloud/bigquery";
+import { bigQueryCreateTableOptions } from "enterprise";
 import { getValidDate } from "shared/dates";
 import { decryptDataSourceParams } from "../services/datasource";
 import { BigQueryConnectionParams } from "../../types/integrations/bigquery";
@@ -69,14 +70,7 @@ export default class BigQuery extends SqlIntegration {
   }
 
   createUnitsTableOptions() {
-    return `OPTIONS(
-      expiration_timestamp=TIMESTAMP_ADD(
-        CURRENT_TIMESTAMP(), 
-        INTERVAL ${
-          this.settings.pipelineSettings?.unitsTableRetentionHours ?? 24
-        } HOUR
-      )
-    )`;
+    return bigQueryCreateTableOptions(this.settings.pipelineSettings ?? {});
   }
 
   addTime(
