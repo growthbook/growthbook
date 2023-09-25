@@ -22,8 +22,7 @@ const ChangePasswordModal: FC<{
       autoCloseOnSubmit={false}
       close={close}
       cta="Change Password"
-      successMessage="Password successfully changed. It will take effect the next time you
-      login."
+      successMessage="Password successfully changed"
       submit={form.handleSubmit(async (data) => {
         await apiCall("/auth/change-password", {
           method: "POST",

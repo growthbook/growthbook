@@ -120,13 +120,13 @@ users from the analysis.
 
 ### Avoiding Flickering
 
-Flickering with front end / client side A/B test is an artifact from all client side A/B testing tools. This is caused
-by a delay in loading the specific variation to a user, which may cause a flash or flickering as the experiment loads. This
-can be reduced by using inline-experiments, or by moving the GrowthBook SDK code higher in the code, or using server
+Flickering with front end or client-side A/B tests is an artifact from all client-side A/B testing tools. This is caused
+by a delay in loading the specific variation for a user, which may cause a flash or flickering as the experiment loads. This
+can be reduced by using inline-experiments, or by moving the GrowthBook SDK code higher in the code file, or using server
 side A/B tests.
 
-There are a few other ways to reduce flicking that some platforms me utilize. One common "flicker free" technique is to
-load a white overlay, or just hide parts of the page, as the page loads, so that users cannot see any flicking that may
+There are a few other ways to reduce flickering that some platforms utilize. One common "flicker free" technique is to
+load a white overlay, or just hide parts of the page, as the page loads. The result is that users cannot see any flickering that may
 be happening beneath the overlay as the variations are loaded.
 
 ### Sample Size

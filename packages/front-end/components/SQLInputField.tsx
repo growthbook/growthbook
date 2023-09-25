@@ -137,11 +137,13 @@ export default function SQLInputField({
               setCursorData={setCursorData}
             />
           )}
-          {testQueryResults && !testQueryResults.error && (
+          {testQueryResults && (
             <DisplayTestQueryResults
               duration={parseInt(testQueryResults.duration || "0")}
               results={testQueryResults.results || []}
               sql={testQueryResults.sql || ""}
+              error={testQueryResults.error || ""}
+              close={() => setTestQueryResults(null)}
             />
           )}
         </div>

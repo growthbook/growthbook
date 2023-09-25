@@ -16,7 +16,7 @@ export interface Props {
   newUi?: boolean;
   setVariationFilter?: (variationFilter: number[]) => void;
   setBaselineRow?: (baselineRow: number) => void;
-  setAnalysisSettings: (
+  setAnalysisSettings?: (
     settings: ExperimentSnapshotAnalysisSettings | null
   ) => void;
 }
@@ -122,7 +122,7 @@ export default function DimensionChooser({
         value={value}
         onChange={(v) => {
           if (v === value) return;
-          setAnalysisSettings(null);
+          setAnalysisSettings?.(null);
           setBaselineRow?.(0);
           setVariationFilter?.([]);
           setValue(v);
