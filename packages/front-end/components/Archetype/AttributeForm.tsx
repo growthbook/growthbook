@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from "react";
 import { SDKAttribute } from "back-end/types/organization";
 import { useForm } from "react-hook-form";
-import { SampleUserAttributeValues } from "back-end/types/sample-users";
+import { ArchetypeAttributeValues } from "back-end/types/archetype";
 import { useAttributeSchema } from "@/services/features";
 import Field from "@/components/Forms/Field";
 import TabButton from "@/components/Tabs/TabButton";
@@ -11,8 +11,8 @@ import Toggle from "../Forms/Toggle";
 import styles from "./AttributeForm.module.scss";
 
 export interface Props {
-  onChange: (attributes: SampleUserAttributeValues) => void;
-  initialValues?: SampleUserAttributeValues;
+  onChange: (attributes: ArchetypeAttributeValues) => void;
+  initialValues?: ArchetypeAttributeValues;
   jsonCTA?: string;
   useJSONButton?: boolean;
 }
@@ -83,7 +83,7 @@ export default function AttributeForm({
   const attributeInput = (attribute: SDKAttribute, i: number) => {
     if (attribute.archived) return null;
     return (
-      <div className="" key={i}>
+      <div className="" key={"formInput" + i}>
         <div
           className={`d-flex flex-row align-items-center justify-content-between p-1`}
         >
@@ -91,9 +91,10 @@ export default function AttributeForm({
           <div className="col-6">
             {attribute.datatype === "boolean" ? (
               <Toggle
-                id={"form" + attribute.property}
+                id={"form-toggle" + attribute.property}
                 value={!!attributeForm.watch(attribute.property)}
                 setValue={(value) => {
+                  console.log("setting ", attribute.property, "to", value);
                   attributeForm.setValue(attribute.property, value);
                   updateFormValues();
                 }}

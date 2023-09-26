@@ -1,25 +1,25 @@
 import { FC } from "react";
 import { useForm } from "react-hook-form";
 import {
-  SampleUserAttributeValues,
-  SampleUsersInterface,
-} from "back-end/types/sample-users";
+  ArchetypeAttributeValues,
+  ArchetypeInterface,
+} from "back-end/types/archetype";
 import Field from "@/components/Forms/Field";
-import AttributeForm from "@/components/Attributes/AttributeForm";
+import AttributeForm from "@/components/Archetype/AttributeForm";
 import Toggle from "@/components/Forms/Toggle";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useAuth } from "@/services/auth";
 import Modal from "../Modal";
 
-const SampleUserAttributesModal: FC<{
+const ArchetypeAttributesModal: FC<{
   close: () => void;
   header: string;
-  initialValues?: Partial<SampleUsersInterface>;
+  initialValues?: Partial<ArchetypeInterface>;
 }> = ({ close, header, initialValues }) => {
   const form = useForm<{
     name: string;
     description: string;
-    attributes: SampleUserAttributeValues;
+    attributes: ArchetypeAttributeValues;
     isPublic: boolean;
   }>({
     defaultValues: {
@@ -36,16 +36,16 @@ const SampleUserAttributesModal: FC<{
       open={true}
       autoCloseOnSubmit={false}
       close={close}
-      cta="Save Sample User"
-      successMessage="Sample user saved successfully"
+      cta="Save Archetype"
+      successMessage="Archetype saved successfully"
       submit={form.handleSubmit(async (data) => {
         if (initialValues?.id) {
-          await apiCall(`/sample-users/${initialValues.id}`, {
+          await apiCall(`/archetype/${initialValues.id}`, {
             method: "PUT",
             body: JSON.stringify({ ...data }),
           });
         } else {
-          await apiCall("/sample-users/", {
+          await apiCall("/archetype/", {
             method: "POST",
             body: JSON.stringify({ ...data }),
           });
@@ -65,10 +65,10 @@ const SampleUserAttributesModal: FC<{
       </div>
       <div className="mb-3">
         <label className="mr-3">
-          Make sample user public?{" "}
+          Make archetype public?{" "}
           <Tooltip
             body={
-              "Allow other team members to see this sample user for testing"
+              "Allow other team members to see this archetypal user for testing"
             }
           />
         </label>
@@ -92,4 +92,4 @@ const SampleUserAttributesModal: FC<{
   );
 };
 
-export default SampleUserAttributesModal;
+export default ArchetypeAttributesModal;

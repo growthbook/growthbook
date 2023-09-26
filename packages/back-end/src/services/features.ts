@@ -44,8 +44,8 @@ import {
   getSurrogateKeysFromSDKPayloadKeys,
   purgeCDNCache,
 } from "../util/cdn.util";
+import { ArchetypeAttributeValues } from "../../types/archetype";
 import { getEnvironments, getOrganizationById } from "./organizations";
-import { SampleUserAttributeValues } from "../../types/sample-users";
 
 export type AttributeMap = Map<string, string>;
 
@@ -504,7 +504,7 @@ export async function getFeatureDefinitions({
 
 export async function evaluateFeature(
   feature: FeatureInterface,
-  attributes: SampleUserAttributeValues,
+  attributes: ArchetypeAttributeValues,
   org: OrganizationInterface
 ) {
   const groupMap = await getSavedGroupMap(org);

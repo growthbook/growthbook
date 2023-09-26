@@ -2,16 +2,16 @@ import React, { useEffect, useMemo, useState } from "react";
 import { FeatureInterface, FeatureTestResult } from "back-end/types/feature";
 import { FaChevronRight } from "react-icons/fa";
 import { useForm } from "react-hook-form";
-import { SampleUsersInterface } from "back-end/types/sample-users";
+import { ArchetypeInterface } from "back-end/types/archetype";
 import { useAuth } from "@/services/auth";
 import { useAttributeSchema } from "@/services/features";
 import ValueDisplay from "@/components/Features/ValueDisplay";
 import Code from "@/components/SyntaxHighlighting/Code";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import SampleUserAttributesModal from "@/components/Attributes/SampleUserAttributesModal";
+import ArchetypeAttributesModal from "@/components/Archetype/ArchetypeAttributesModal";
 import useApi from "@/hooks/useApi";
-import SampleUsersResults from "@/components/Attributes/SampleUsersResults";
-import AttributeForm from "@/components/Attributes/AttributeForm";
+import ArchetypeResults from "@/components/Archetype/ArchetypeResults";
+import AttributeForm from "@/components/Archetype/AttributeForm";
 import Modal from "@/components/Modal";
 import { useUser } from "@/services/UserContext";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
@@ -30,20 +30,20 @@ export default function AssignmentTester({ feature }: Props) {
     null
   );
   const [
-    openSampleUserModal,
-    setOpenSampleUserModal,
-  ] = useState<null | Partial<SampleUsersInterface>>(null);
+    openArchetypeModal,
+    setOpenArchetypeModal,
+  ] = useState<null | Partial<ArchetypeInterface>>(null);
 
   const { apiCall } = useAuth();
 
   const { data, error, mutate } = useApi<{
     status: number;
-    sampleUsers: SampleUsersInterface[];
+    Archetype: ArchetypeInterface[];
     featureResults: Record<string, FeatureTestResult[]>;
-  }>(`/sample-users/eval/${feature.id}`);
+  }>(`/archetype/eval/${feature.id}`);
 
   const { hasCommercialFeature } = useUser();
-  const hasSampleUserAccess = hasCommercialFeature("sample-users");
+  const hasArchetypeAccess = hasCommercialFeature("archetypes");
   //const permissions = usePermissions();
 
   const attributeSchema = useAttributeSchema(true);
@@ -83,7 +83,7 @@ export default function AssignmentTester({ feature }: Props) {
       .catch((e) => console.error(e));
   }, [formValues, apiCall, feature.id]);
 
-  if (!data?.sampleUsers) return null;
+  if (!data?.Archetype) return null;
 
   const showResults = () => {
     if (!results) {
@@ -94,6 +94,7 @@ export default function AssignmentTester({ feature }: Props) {
       <div className="row">
         {results.map((tr, i) => {
           let matchedRule;
+          const debugLog: string[] = [];
           if (tr?.result?.ruleId && tr?.featureDefinition?.rules) {
             matchedRule = tr.featureDefinition.rules.find(
               (r) => r.id === tr?.result?.ruleId
@@ -115,6 +116,20 @@ export default function AssignmentTester({ feature }: Props) {
             }
           } else if (tr?.result?.source === "defaultValue") {
             matchedRuleName = "None - Returned Default Value";
+          }
+          if (tr?.log) {
+            tr.log.forEach((log) => {
+              const reason = log[0];
+              if (reason === "Skip rule because of condition") {
+                debugLog.push(
+                  `Skipped because user did not match the rule conditions`
+                );
+              } else if (reason === "In experiment") {
+                debugLog.push(`Included user in experiment rule`);
+              } else {
+                debugLog.push(`${log[0]}`);
+              }
+            });
           }
 
           return (
@@ -185,7 +200,7 @@ export default function AssignmentTester({ feature }: Props) {
                             <h5>Log</h5>
                             <Code
                               language="json"
-                              code={JSON.stringify(tr.log, null, 2)}
+                              code={JSON.stringify(debugLog, null, 2)}
                             />
                           </div>
                         )}
@@ -269,9 +284,9 @@ export default function AssignmentTester({ feature }: Props) {
         {open ? (
           <>
             <div>
-              <SampleUsersResults
+              <ArchetypeResults
                 feature={feature}
-                sampleUsers={data.sampleUsers}
+                Archetype={data.Archetype}
                 featureResults={data.featureResults}
                 onChange={async () => {
                   await mutate();
@@ -285,7 +300,7 @@ export default function AssignmentTester({ feature }: Props) {
                   <div
                     className="d-flex flex-row align-items-center justify-content-between cursor-pointer"
                     onClick={() => {
-                      if (data?.sampleUsers.length > 0) {
+                      if (data?.Archetype.length > 0) {
                         setShowSimulateForm(!showSimulateForm);
                       }
                     }}
@@ -294,13 +309,13 @@ export default function AssignmentTester({ feature }: Props) {
                       Simulate how your rules will apply to users.{" "}
                       <Tooltip body="Enter attributes, like are set by your app via the SDK, and see how Growthbook would evaluate this feature for the different environments. Will use draft rules."></Tooltip>
                     </div>
-                    {data?.sampleUsers.length > 0 && (
+                    {data?.Archetype.length > 0 && (
                       <div className="cursor-pointer">
                         <FaChevronRight
                           style={{
                             transform: `rotate(${
                               (showSimulateForm === null &&
-                                !data?.sampleUsers.length) ||
+                                !data?.Archetype.length) ||
                               showSimulateForm === true
                                 ? "90deg"
                                 : "0deg"
@@ -310,7 +325,7 @@ export default function AssignmentTester({ feature }: Props) {
                       </div>
                     )}
                   </div>
-                  {((showSimulateForm === null && !data?.sampleUsers.length) ||
+                  {((showSimulateForm === null && !data?.Archetype.length) ||
                     showSimulateForm === true) && (
                     <div>
                       {" "}
@@ -323,18 +338,18 @@ export default function AssignmentTester({ feature }: Props) {
                             }}
                           />
                           <div className="mt-2">
-                            <PremiumTooltip commercialFeature="sample-users">
+                            <PremiumTooltip commercialFeature="archetypes">
                               <a
                                 onClick={(e) => {
                                   e.preventDefault();
-                                  setOpenSampleUserModal({
+                                  setOpenArchetypeModal({
                                     attributes: formValues,
                                   });
                                 }}
                                 href="#"
                                 className="btn btn-outline-primary"
                               >
-                                Save as Sample User
+                                Save Archetype
                               </a>
                             </PremiumTooltip>
                           </div>
@@ -357,19 +372,19 @@ export default function AssignmentTester({ feature }: Props) {
           <></>
         )}
       </div>
-      {openSampleUserModal && (
+      {openArchetypeModal && (
         <>
-          {hasSampleUserAccess ? (
-            <SampleUserAttributesModal
+          {hasArchetypeAccess ? (
+            <ArchetypeAttributesModal
               close={async () => {
                 await mutate();
-                setOpenSampleUserModal(null);
+                setOpenArchetypeModal(null);
               }}
-              initialValues={openSampleUserModal}
+              initialValues={openArchetypeModal}
               header="Save Sample User"
             />
           ) : (
-            <Modal open={true} close={() => setOpenSampleUserModal(null)}>
+            <Modal open={true} close={() => setOpenArchetypeModal(null)}>
               <div className="p-3">
                 Saved sample users allows you set up user attribute traits to
                 test how feature will be applied to your real users. This

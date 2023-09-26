@@ -15,7 +15,7 @@ export type CommercialFeature =
   | "sequential-testing"
   | "audit-logging"
   | "visual-editor"
-  | "sample-users"
+  | "archetypes"
   | "cloud-proxy"
   | "hash-secure-attributes"
   | "livechat"
@@ -60,7 +60,7 @@ export const accountFeatures: CommercialFeaturesMap = {
     "regression-adjustment",
     "sequential-testing",
     "visual-editor",
-    "sample-users",
+    "archetypes",
     "cloud-proxy",
     "hash-secure-attributes",
     "livechat",
@@ -74,7 +74,7 @@ export const accountFeatures: CommercialFeaturesMap = {
     "regression-adjustment",
     "sequential-testing",
     "visual-editor",
-    "sample-users",
+    "archetypes",
     "cloud-proxy",
     "hash-secure-attributes",
     "livechat",
@@ -89,7 +89,7 @@ export const accountFeatures: CommercialFeaturesMap = {
     "regression-adjustment",
     "sequential-testing",
     "visual-editor",
-    "sample-users",
+    "archetypes",
     "cloud-proxy",
     "hash-secure-attributes",
     "json-validation",

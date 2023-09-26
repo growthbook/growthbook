@@ -4,16 +4,16 @@ import { AuthRequest } from "../../types/AuthRequest";
 import { ApiErrorResponse, PrivateApiErrorResponse } from "../../../types/api";
 import { getOrgFromReq } from "../../services/organizations";
 import {
-  SampleUserAttributeValues,
-  SampleUsersInterface,
-} from "../../../types/sample-users";
+  ArchetypeAttributeValues,
+  ArchetypeInterface,
+} from "../../../types/archetype";
 import {
-  createSampleUser,
-  deleteSampleUserById,
-  getAllSampleUsers,
-  getSampleUserById,
-  updateSampleUserById,
-} from "../../models/SampleUsersModel";
+  createArchetype,
+  deleteArchetypeById,
+  getAllArchetype,
+  getArchetypeById,
+  updateArchetypeById,
+} from "../../models/ArchetypeModel";
 import {
   auditDetailsCreate,
   auditDetailsDelete,
@@ -26,9 +26,9 @@ import { promiseAllChunks } from "../../util/promise";
 
 // region GET /sample-users
 
-type GetSampleUsersResponse = {
+type GetArchetypeResponse = {
   status: 200;
-  sampleUsers: SampleUsersInterface[];
+  Archetype: ArchetypeInterface[];
 };
 
 /**
@@ -37,19 +37,19 @@ type GetSampleUsersResponse = {
  * @param req
  * @param res
  */
-export const getSampleUsers = async (
+export const getArchetype = async (
   req: AuthRequest,
-  res: Response<GetSampleUsersResponse>
+  res: Response<GetArchetypeResponse>
 ) => {
   const { org, userId } = getOrgFromReq(req);
 
-  req.checkPermissions("manageSampleUsers");
+  req.checkPermissions("manageArchetype");
 
-  const sampleUsers = await getAllSampleUsers(org.id, userId);
+  const Archetype = await getAllArchetype(org.id, userId);
 
   return res.status(200).json({
     status: 200,
-    sampleUsers,
+    Archetype,
   });
 };
 
@@ -57,9 +57,9 @@ export const getSampleUsers = async (
 
 // region GET /sample-users/eval/:id
 
-type GetSampleUsersAndEvalResponse = {
+type GetArchetypeAndEvalResponse = {
   status: 200;
-  sampleUsers: SampleUsersInterface[];
+  Archetype: ArchetypeInterface[];
   featureResults:
     | { [key: string]: FeatureTestResult[] }
     | Record<string, never>;
@@ -71,9 +71,9 @@ type GetSampleUsersAndEvalResponse = {
  * @param req
  * @param res
  */
-export const getSampleUsersAndEval = async (
+export const getArchetypeAndEval = async (
   req: AuthRequest<null, { id: string }>,
-  res: Response<GetSampleUsersAndEvalResponse | PrivateApiErrorResponse>
+  res: Response<GetArchetypeAndEvalResponse | PrivateApiErrorResponse>
 ) => {
   const { org, userId } = getOrgFromReq(req);
   const { id } = req.params;
@@ -83,21 +83,21 @@ export const getSampleUsersAndEval = async (
     throw new Error("Feature not found");
   }
 
-  if (!orgHasPremiumFeature(org, "sample-users")) {
+  if (!orgHasPremiumFeature(org, "archetypes")) {
     return res.status(403).json({
       status: 403,
       message: "Organization does not have premium feature: sample users",
     });
   }
 
-  req.checkPermissions("manageSampleUsers");
+  req.checkPermissions("manageArchetype");
 
-  const sampleUsers = await getAllSampleUsers(org.id, userId);
+  const Archetype = await getAllArchetype(org.id, userId);
   const featureResults: { [key: string]: FeatureTestResult[] } = {};
 
-  if (sampleUsers.length) {
+  if (Archetype.length) {
     const promiseCallbacks: (() => Promise<unknown>)[] = [];
-    sampleUsers.forEach((user) => {
+    Archetype.forEach((user) => {
       promiseCallbacks.push(async () => {
         const result = await evaluateFeature(feature, user.attributes, org);
         if (!result) return;
@@ -113,7 +113,7 @@ export const getSampleUsersAndEval = async (
 
   return res.status(200).json({
     status: 200,
-    sampleUsers,
+    Archetype,
     featureResults,
   });
 };
@@ -121,17 +121,17 @@ export const getSampleUsersAndEval = async (
 
 // region POST /sample-users
 
-type CreateSampleUsersRequest = AuthRequest<{
+type CreateArchetypeRequest = AuthRequest<{
   name: string;
   description: string;
   owner: string;
   isPublic: boolean;
-  attributes: SampleUserAttributeValues;
+  attributes: ArchetypeAttributeValues;
 }>;
 
-type CreateSampleUsersResponse = {
+type CreateArchetypeResponse = {
   status: 200;
-  sampleUser: SampleUsersInterface;
+  Archetype: ArchetypeInterface;
 };
 
 /**
@@ -140,23 +140,23 @@ type CreateSampleUsersResponse = {
  * @param req
  * @param res
  */
-export const postSampleUsers = async (
-  req: CreateSampleUsersRequest,
-  res: Response<CreateSampleUsersResponse | PrivateApiErrorResponse>
+export const postArchetype = async (
+  req: CreateArchetypeRequest,
+  res: Response<CreateArchetypeResponse | PrivateApiErrorResponse>
 ) => {
   const { org, userId } = getOrgFromReq(req);
   const { name, attributes, description, isPublic } = req.body;
 
-  if (!orgHasPremiumFeature(org, "sample-users")) {
+  if (!orgHasPremiumFeature(org, "archetypes")) {
     return res.status(403).json({
       status: 403,
       message: "Organization does not have premium feature: sample users",
     });
   }
 
-  req.checkPermissions("manageSampleUsers");
+  req.checkPermissions("manageArchetype");
 
-  const sampleUser = await createSampleUser({
+  const Archetype = await createArchetype({
     attributes,
     name,
     description,
@@ -166,18 +166,18 @@ export const postSampleUsers = async (
   });
 
   await req.audit({
-    event: "sampleUsers.created",
+    event: "Archetype.created",
     entity: {
-      object: "sampleUser",
-      id: sampleUser.id,
+      object: "Archetype",
+      id: Archetype.id,
       name,
     },
-    details: auditDetailsCreate(sampleUser),
+    details: auditDetailsCreate(Archetype),
   });
 
   return res.status(200).json({
     status: 200,
-    sampleUser,
+    Archetype,
   });
 };
 
@@ -185,7 +185,7 @@ export const postSampleUsers = async (
 
 // region PUT /sample-users/:id
 
-type PutSampleUsersRequest = AuthRequest<
+type PutArchetypeRequest = AuthRequest<
   {
     name: string;
     description: string;
@@ -196,7 +196,7 @@ type PutSampleUsersRequest = AuthRequest<
   { id: string }
 >;
 
-type PutSampleUsersResponse = {
+type PutArchetypeResponse = {
   status: 200;
 };
 
@@ -206,10 +206,10 @@ type PutSampleUsersResponse = {
  * @param req
  * @param res
  */
-export const putSampleUser = async (
-  req: PutSampleUsersRequest,
+export const putArchetype = async (
+  req: PutArchetypeRequest,
   res: Response<
-    PutSampleUsersResponse | ApiErrorResponse | PrivateApiErrorResponse
+    PutArchetypeResponse | ApiErrorResponse | PrivateApiErrorResponse
   >
 ) => {
   const { org } = getOrgFromReq(req);
@@ -220,22 +220,22 @@ export const putSampleUser = async (
     throw new Error("Must specify sample user id");
   }
 
-  if (!orgHasPremiumFeature(org, "sample-users")) {
+  if (!orgHasPremiumFeature(org, "archetypes")) {
     return res.status(403).json({
       status: 403,
       message: "Organization does not have premium feature: sample users",
     });
   }
 
-  req.checkPermissions("manageSampleUsers");
+  req.checkPermissions("manageArchetype");
 
-  const sampleUser = await getSampleUserById(id, org.id);
+  const Archetype = await getArchetypeById(id, org.id);
 
-  if (!sampleUser) {
+  if (!Archetype) {
     throw new Error("Could not find sample user");
   }
 
-  const changes = await updateSampleUserById(id, org.id, {
+  const changes = await updateArchetypeById(id, org.id, {
     attributes,
     name,
     description,
@@ -243,16 +243,16 @@ export const putSampleUser = async (
     owner,
   });
 
-  const updatedSampleUser = { ...sampleUser, ...changes };
+  const updatedArchetype = { ...Archetype, ...changes };
 
   await req.audit({
-    event: "sampleUsers.updated",
+    event: "Archetype.updated",
     entity: {
-      object: "sampleUser",
-      id: updatedSampleUser.id,
+      object: "Archetype",
+      id: updatedArchetype.id,
       name: name,
     },
-    details: auditDetailsUpdate(sampleUser, updatedSampleUser),
+    details: auditDetailsUpdate(Archetype, updatedArchetype),
   });
 
   return res.status(200).json({
@@ -264,13 +264,13 @@ export const putSampleUser = async (
 
 // region DELETE /sample-users/:id
 
-type DeleteSampleUsersRequest = AuthRequest<
+type DeleteArchetypeRequest = AuthRequest<
   Record<string, never>,
   { id: string },
   Record<string, never>
 >;
 
-type DeleteSampleUsersResponse =
+type DeleteArchetypeResponse =
   | {
       status: 200;
     }
@@ -285,18 +285,18 @@ type DeleteSampleUsersResponse =
  * @param req
  * @param res
  */
-export const deleteSampleUsers = async (
-  req: DeleteSampleUsersRequest,
-  res: Response<DeleteSampleUsersResponse>
+export const deleteArchetype = async (
+  req: DeleteArchetypeRequest,
+  res: Response<DeleteArchetypeResponse>
 ) => {
-  req.checkPermissions("manageSampleUsers");
+  req.checkPermissions("manageArchetype");
 
   const { id } = req.params;
   const { org } = getOrgFromReq(req);
 
-  const sampleUser = await getSampleUserById(id, org.id);
+  const Archetype = await getArchetypeById(id, org.id);
 
-  if (!sampleUser) {
+  if (!Archetype) {
     res.status(403).json({
       status: 404,
       message: "Sample user not found",
@@ -304,7 +304,7 @@ export const deleteSampleUsers = async (
     return;
   }
 
-  if (sampleUser.organization !== org.id) {
+  if (Archetype.organization !== org.id) {
     res.status(403).json({
       status: 403,
       message: "You do not have access to this sample user",
@@ -312,16 +312,16 @@ export const deleteSampleUsers = async (
     return;
   }
 
-  await deleteSampleUserById(id, org.id);
+  await deleteArchetypeById(id, org.id);
 
   await req.audit({
-    event: "sampleUsers.deleted",
+    event: "Archetype.deleted",
     entity: {
-      object: "sampleUser",
+      object: "Archetype",
       id: id,
-      name: sampleUser.name,
+      name: Archetype.name,
     },
-    details: auditDetailsDelete(sampleUser),
+    details: auditDetailsDelete(Archetype),
   });
 
   res.status(200).json({

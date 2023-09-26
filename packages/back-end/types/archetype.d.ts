@@ -1,17 +1,17 @@
-export interface SampleUsersInterface {
+export interface ArchetypeInterface {
   id: string;
   organization: string;
   name: string;
   description: string;
   owner: string;
   isPublic: boolean;
-  attributes: SampleUserAttributeValues;
+  attributes: ArchetypeAttributeValues;
   dateUpdated: Date;
   dateCreated: Date;
 }
 
-export interface SampleUserAttributeValues {
+export interface ArchetypeAttributeValues {
   [key: string]: string | number | object | boolean;
 }
 
-export type SampleUsersMap = Map<string, string[] | number[]>;
+export type ArchetypeMap = Map<string, string[] | number[]>;

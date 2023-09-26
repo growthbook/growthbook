@@ -2,22 +2,22 @@ import express from "express";
 import z from "zod";
 import { wrapController } from "../wrapController";
 import { validateRequestMiddleware } from "../utils/validateRequestMiddleware";
-import * as rawSampleUsersController from "./sample-users.controller";
+import * as rawArchetypeController from "./archetype.controller";
 
 const router = express.Router();
 
-const sampleUsersController = wrapController(rawSampleUsersController);
+const ArchetypeController = wrapController(rawArchetypeController);
 
 router.get(
   "/",
   validateRequestMiddleware({}),
-  sampleUsersController.getSampleUsers
+  ArchetypeController.getArchetype
 );
 
 router.get(
   "/eval/:id",
   validateRequestMiddleware({}),
-  sampleUsersController.getSampleUsersAndEval
+  ArchetypeController.getArchetypeAndEval
 );
 
 router.post(
@@ -30,7 +30,7 @@ router.post(
       attributes: z.object({}),
     }),
   }),
-  sampleUsersController.postSampleUsers
+  ArchetypeController.postArchetype
 );
 
 router.put(
@@ -48,7 +48,7 @@ router.put(
       attributes: z.object({}),
     }),
   }),
-  sampleUsersController.putSampleUser
+  ArchetypeController.putArchetype
 );
 
 router.delete(
@@ -60,7 +60,7 @@ router.delete(
       })
       .strict(),
   }),
-  sampleUsersController.deleteSampleUsers
+  ArchetypeController.deleteArchetype
 );
 
-export { router as sampleUsersRouter };
+export { router as ArchetypeRouter };

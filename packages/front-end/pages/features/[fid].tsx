@@ -34,7 +34,7 @@ import {
   getEnabledEnvironments,
   getAffectedEnvs,
 } from "@/services/features";
-import AssignmentTester from "@/components/Features/AssignmentTester";
+import AssignmentTester from "@/components/Archetype/AssignmentTester";
 import Tab from "@/components/Tabs/Tab";
 import FeatureImplementationModal from "@/components/Features/FeatureImplementationModal";
 import SortedTags from "@/components/Tags/SortedTags";
