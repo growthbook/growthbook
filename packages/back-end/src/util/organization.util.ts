@@ -57,12 +57,12 @@ export const ALL_PERMISSIONS = [
 ];
 
 function hasEnvScopedPermissions(userPermission: PermissionsObject): boolean {
-  const envLimitedPermissions: string[] = ENV_SCOPED_PERMISSIONS.map(
+  const envLimitedPermissions: Permission[] = ENV_SCOPED_PERMISSIONS.map(
     (permission) => permission
   );
 
   for (const permission of envLimitedPermissions) {
-    if (userPermission[permission as Permission]) {
+    if (userPermission[permission]) {
       return true;
     }
   }
@@ -84,23 +84,23 @@ export function roleToPermissionMap(
   return permissionsObj;
 }
 
+function isPermission(permission: string): permission is Permission {
+  return ALL_PERMISSIONS.includes(permission as Permission);
+}
+
 function mergePermissions(
   existingPermissions: PermissionsObject,
   newPermissions: PermissionsObject
 ): PermissionsObject {
-  const newPermissionsObj = cloneDeep(existingPermissions);
+  const mergedPermissions: PermissionsObject = { ...existingPermissions };
 
   for (const permission in newPermissions) {
-    if (
-      !newPermissionsObj[permission as Permission] &&
-      newPermissions[permission as Permission]
-    ) {
-      newPermissionsObj[permission as Permission] =
-        newPermissions[permission as Permission];
+    if (isPermission(permission) && newPermissions[permission] === true) {
+      mergedPermissions[permission] = true;
     }
   }
 
-  return newPermissionsObj;
+  return mergedPermissions;
 }
 
 function mergeEnvAccess(
