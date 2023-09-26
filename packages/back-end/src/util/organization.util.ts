@@ -1,6 +1,5 @@
 import { cloneDeep } from "lodash";
 import {
-  Member,
   MemberRole,
   MemberRoleInfo,
   OrganizationInterface,
@@ -11,7 +10,6 @@ import {
   UserPermission,
   UserPermissions,
 } from "../../types/organization";
-import { TeamInterface } from "../../types/team";
 import { findTeamById } from "../models/TeamModel";
 
 export const ENV_SCOPED_PERMISSIONS = [
@@ -86,38 +84,42 @@ export function roleToPermissionMap(
   return permissionsObj;
 }
 
-function combineRoles(
-  existingPermissions: UserPermission,
-  teamInfo: TeamInterface | ProjectMemberRole,
-  org: OrganizationInterface
-): UserPermission {
-  const newPermissions = roleToPermissionMap(teamInfo.role, org);
+function mergePermissions(
+  existingPermissions: PermissionsObject,
+  newPermissions: PermissionsObject
+): PermissionsObject {
+  const newPermissionsObj = cloneDeep(existingPermissions);
 
-  if (!existingPermissions) {
-    return {
-      environments: teamInfo.environments,
-      limitAccessByEnvironment: teamInfo.limitAccessByEnvironment,
-      permissions: newPermissions,
-    };
-  }
-
-  const existingPermissionsCopy = cloneDeep(existingPermissions);
-
-  for (const newPermission in newPermissions) {
+  for (const permission in newPermissions) {
     if (
-      !existingPermissionsCopy.permissions[newPermission as Permission] &&
-      newPermissions[newPermission as Permission]
+      !newPermissionsObj[permission as Permission] &&
+      newPermissions[permission as Permission]
     ) {
-      existingPermissionsCopy.permissions[newPermission as Permission] =
-        newPermissions[newPermission as Permission];
+      newPermissionsObj[permission as Permission] =
+        newPermissions[permission as Permission];
     }
   }
+
+  return newPermissionsObj;
+}
+
+function mergeEnvAccess(
+  existingPermissions: UserPermission,
+  newPermissions: UserPermission
+): UserPermission {
+  const permissionsObj = cloneDeep(existingPermissions);
 
   const existingRoleSupportsEnvLimits = roleSupportsEnvLimit(
     existingPermissions.permissions
   );
+  const newRoleSupportsEnvLimits = roleSupportsEnvLimit(
+    newPermissions.permissions
+  );
 
-  const newRoleSupportsEnvLimits = roleSupportsEnvLimit(newPermissions);
+  if (!existingRoleSupportsEnvLimits && !newRoleSupportsEnvLimits) {
+    // Neither role supports env limits, so we can skip logic below
+    return permissionsObj;
+  }
 
   if (
     // If the existingRole & newRole can be limited by environment
@@ -126,63 +128,65 @@ function combineRoles(
   ) {
     if (
       // and if limitAccessByEnvironment is the same for new and existing roles, we just concat the envs arrays
-      existingPermissionsCopy.limitAccessByEnvironment ===
-      teamInfo.limitAccessByEnvironment
+      permissionsObj.limitAccessByEnvironment ===
+      newPermissions.limitAccessByEnvironment
     ) {
-      existingPermissionsCopy.environments = [
+      permissionsObj.environments = [
         ...new Set(
-          existingPermissionsCopy.environments.concat(teamInfo.environments)
+          permissionsObj.environments.concat(newPermissions.environments)
         ),
       ];
     } else {
       // otherwise, 1 role doesn't have limited access by environment, so it overrides the other
-      existingPermissionsCopy.limitAccessByEnvironment = false;
-      existingPermissionsCopy.environments = [];
+      permissionsObj.limitAccessByEnvironment = false;
+      permissionsObj.environments = [];
     }
   } else {
-    // Otherwise, 1 role can be limitedByEnvironment, and the other cant - e.g. engineer vs analyst
-    if (existingRoleSupportsEnvLimits && !newRoleSupportsEnvLimits) {
-      existingPermissionsCopy.limitAccessByEnvironment =
-        existingPermissions.limitAccessByEnvironment;
-      existingPermissionsCopy.environments = existingPermissions.environments;
-    }
-    // If the old role can't be limited by environment, and the new role can, set the old role's permissions to the new role's permissions
+    // Only override existing role's env limits if the existing role doesn't support env limits, and the newRole does
     if (!existingRoleSupportsEnvLimits && newRoleSupportsEnvLimits) {
-      existingPermissionsCopy.limitAccessByEnvironment =
-        teamInfo.limitAccessByEnvironment;
+      permissionsObj.limitAccessByEnvironment =
+        newPermissions.limitAccessByEnvironment;
 
-      existingPermissionsCopy.environments = teamInfo.environments;
+      permissionsObj.environments = newPermissions.environments;
     }
   }
-  return existingPermissionsCopy;
+  return permissionsObj;
 }
 
-async function mergeUserPermissions(
-  memberInfo: Member,
-  userPermissions: UserPermissions,
-  org: OrganizationInterface
-) {
-  if (!memberInfo.teams) {
-    return;
+function combineRoles(items: UserPermission[]): UserPermission {
+  let permissionsObj = items[0];
+
+  permissionsObj = mergeEnvAccess(items[0], items[1]);
+
+  for (let i = 1; i < items.length; i++) {
+    permissionsObj.permissions = mergePermissions(
+      permissionsObj.permissions,
+      items[i].permissions
+    );
   }
 
-  for (const team of memberInfo.teams) {
-    const teamData = await findTeamById(team, org.id);
-    if (teamData) {
-      userPermissions.global = combineRoles(
-        userPermissions.global,
-        teamData,
-        org
-      );
-      if (teamData?.projectRoles) {
-        for (const teamProject of teamData.projectRoles) {
-          userPermissions.projects[teamProject.project] = combineRoles(
-            userPermissions.projects[teamProject.project],
-            teamProject,
-            org
-          );
-        }
-      }
+  return permissionsObj;
+}
+
+function mergeUserPermissions(
+  userPermissions: UserPermissions,
+  teamPermissions: UserPermissions
+) {
+  userPermissions.global = combineRoles([
+    userPermissions.global,
+    teamPermissions.global,
+  ]);
+
+  for (const project in teamPermissions.projects) {
+    // If the userPermissions.projects doesn't have this project, just add it
+    if (!userPermissions.projects[project]) {
+      userPermissions.projects[project] = teamPermissions.projects[project];
+    } else {
+      // Otherwise, merge the permissions
+      userPermissions.projects[project] = combineRoles([
+        userPermissions.projects[project],
+        teamPermissions.projects[project],
+      ]);
     }
   }
 }
@@ -214,7 +218,33 @@ export async function getUserPermissions(
     };
   });
 
-  await mergeUserPermissions(memberInfo, userPermissions, org);
+  // If the user is on a team, merge the team permissions into the user permissions
+  if (memberInfo.teams) {
+    for (const team of memberInfo.teams) {
+      const teamData = await findTeamById(team, org.id);
+      if (teamData) {
+        const teamPermissions: UserPermissions = {
+          global: {
+            environments: teamData.environments,
+            limitAccessByEnvironment: teamData.limitAccessByEnvironment,
+            permissions: roleToPermissionMap(teamData.role, org),
+          },
+          projects: {},
+        };
+        if (teamData.projectRoles) {
+          for (const teamProject of teamData.projectRoles) {
+            teamPermissions.projects[teamProject.project] = {
+              limitAccessByEnvironment: teamProject.limitAccessByEnvironment,
+              environments: teamProject.environments,
+              permissions: roleToPermissionMap(teamProject.role, org),
+            };
+          }
+        }
+        // now that I have the team's UserPermissions object, combine it with the user's UserPermissions object
+        mergeUserPermissions(userPermissions, teamPermissions);
+      }
+    }
+  }
 
   return userPermissions;
 }
