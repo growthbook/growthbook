@@ -3,7 +3,6 @@ import Link from "next/link";
 import { useState } from "react";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import LoadingOverlay from "@/components/LoadingOverlay";
-import Markdown from "@/components/Markdown/Markdown";
 import { GBEdit } from "@/components/Icons";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
@@ -19,7 +18,12 @@ import PageHead from "@/components/Layout/PageHead";
 import EditTagsForm from "@/components/Tags/EditTagsForm";
 import SortedTags from "@/components/Tags/SortedTags";
 import FactMetricModal from "@/components/FactTables/FactMetricModal";
-import FactMetricList from "@/components/FactTables/FactMetricList";
+import FactMetricList, {
+  getMetricsForFactTable,
+} from "@/components/FactTables/FactMetricList";
+import MarkdownInlineEdit from "@/components/Markdown/MarkdownInlineEdit";
+import Tabs from "@/components/Tabs/Tabs";
+import Tab from "@/components/Tabs/Tab";
 
 export default function FactTablePage() {
   const router = useRouter();
@@ -45,6 +49,7 @@ export default function FactTablePage() {
     getProjectById,
     projects,
     getDatasourceById,
+    factMetrics,
   } = useDefinitions();
   const factTable = factTables.find((f) => f.id === ftid);
 
@@ -63,6 +68,8 @@ export default function FactTablePage() {
     "manageFactTables",
     factTable.projects || ""
   );
+
+  const numMetrics = getMetricsForFactTable(factMetrics, factTable.id).length;
 
   return (
     <div className="pagecontents container-fluid">
@@ -212,54 +219,68 @@ export default function FactTablePage() {
         </div>
       </div>
 
-      {factTable.description && (
-        <>
-          <h3>Description</h3>
-          <div className="appbox p-3 bg-light mb-3">
-            <Markdown>{factTable.description}</Markdown>
-          </div>
-        </>
-      )}
+      <h3>Description</h3>
+      <div className="appbox p-3 bg-white mb-3">
+        <MarkdownInlineEdit
+          canEdit={canEdit}
+          canCreate={canEdit}
+          value={factTable.description}
+          save={async (description) => {
+            await apiCall(`/fact-tables/${factTable.id}`, {
+              method: "PUT",
+              body: JSON.stringify({
+                description,
+              }),
+            });
+            mutateDefinitions();
+          }}
+        />
+      </div>
 
       <div className="mb-4">
         <h3>Fact Table SQL Definition</h3>
         <Code code={factTable.sql} language="sql" expandable={true} />
       </div>
 
-      <div className="mb-4">
-        <h3>Filters</h3>
-        <div className="mb-1">
-          Filters are re-usable SQL snippets that can be applied to Facts and
-          Metrics to limit the rows that are included in an analysis.
-        </div>
-        <div className="appbox p-3">
-          <FactFilterList factTable={factTable} />
-        </div>
-      </div>
-
-      <div className="mb-4">
-        <h3>Facts</h3>
-        <div className="mb-1">
-          Facts are numeric columns or SQL expressions that represent a specific
-          value you care about. For example, &quot;Page Load Time&quot;,
-          &quot;Revenue&quot;, or &quot;API Requests&quot;.
-        </div>
-        <div className="appbox p-3">
-          <FactList factTable={factTable} />
-        </div>
-      </div>
-
-      <div className="mb-4">
-        <h3>Metrics</h3>
-        <div className="mb-1">
-          Metrics are built on top of Facts and Filters. These are what you use
-          as Goals and Guardrails in experiments. This only lists metrics tied
-          to this Fact Table. <Link href="/metrics">View all Metrics</Link>
-        </div>
-        <div className="appbox p-3">
-          <FactMetricList factTable={factTable} />
-        </div>
-      </div>
+      <h3>Facts, Filters, and Metrics</h3>
+      <Tabs newStyle={true} showActiveCount={true}>
+        <Tab display="Facts" padding={false} count={factTable.facts.length}>
+          <div className="mb-4">
+            <div className="mb-1">
+              Facts are numeric columns or SQL expressions that represent a
+              specific value you care about. For example, &quot;Page Load
+              Time&quot;, &quot;Revenue&quot;, or &quot;API Requests&quot;.
+            </div>
+            <div className="appbox p-3">
+              <FactList factTable={factTable} />
+            </div>
+          </div>
+        </Tab>
+        <Tab display="Filters" padding={false} count={factTable.filters.length}>
+          <div className="mb-4">
+            <div className="mb-1">
+              Filters are re-usable SQL snippets that can be applied to Facts
+              and Metrics to limit the rows that are included in an analysis.
+            </div>
+            <div className="appbox p-3">
+              <FactFilterList factTable={factTable} />
+            </div>
+          </div>
+        </Tab>
+        <Tab display="Metrics" padding={false} count={numMetrics}>
+          <div className="mb-4">
+            <div className="mb-1">
+              Metrics are built on top of Facts and Filters. These are what you
+              use as Goals and Guardrails in experiments. This only lists
+              metrics tied to this Fact Table.{" "}
+              <Link href="/metrics">View all Metrics</Link>
+            </div>
+            <div className="appbox p-3">
+              <FactMetricList factTable={factTable} />
+            </div>
+          </div>
+        </Tab>
+      </Tabs>
     </div>
   );
 }

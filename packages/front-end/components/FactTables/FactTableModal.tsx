@@ -15,11 +15,9 @@ import Modal from "../Modal";
 import Field from "../Forms/Field";
 import SelectField from "../Forms/SelectField";
 import { getNewExperimentDatasourceDefaults } from "../Experiment/NewExperimentForm";
-import MarkdownInput from "../Markdown/MarkdownInput";
 import MultiSelectField from "../Forms/MultiSelectField";
 import EditSqlModal from "../SchemaBrowser/EditSqlModal";
 import Code from "../SyntaxHighlighting/Code";
-import TagsField from "../Features/FeatureModal/TagsField";
 
 export interface Props {
   existing?: FactTableInterface;
@@ -35,11 +33,6 @@ export default function FactTableModal({ existing, close }: Props) {
   } = useDefinitions();
   const settings = useOrgSettings();
   const router = useRouter();
-
-  const [showDescription, setShowDescription] = useState(
-    !!existing?.description?.length
-  );
-  const [showTags, setShowTags] = useState(!!existing?.tags?.length);
 
   const [sqlOpen, setSqlOpen] = useState(false);
 
@@ -131,46 +124,6 @@ export default function FactTableModal({ existing, close }: Props) {
         })}
       >
         <Field label="Name" {...form.register("name")} required />
-
-        {showTags ? (
-          <TagsField
-            value={form.watch("tags")}
-            onChange={(tags) => form.setValue("tags", tags)}
-          />
-        ) : (
-          <a
-            href="#"
-            className="badge badge-light badge-pill mr-3 mb-3"
-            onClick={(e) => {
-              e.preventDefault();
-              setShowTags(true);
-            }}
-          >
-            + tags
-          </a>
-        )}
-
-        {showDescription ? (
-          <div className="form-group">
-            <label>Description</label>
-            <MarkdownInput
-              value={form.watch("description")}
-              setValue={(value) => form.setValue("description", value)}
-              autofocus={!existing?.description?.length}
-            />
-          </div>
-        ) : (
-          <a
-            href="#"
-            className="badge badge-light badge-pill mb-3"
-            onClick={(e) => {
-              e.preventDefault();
-              setShowDescription(true);
-            }}
-          >
-            + description
-          </a>
-        )}
 
         {!existing && (
           <SelectField

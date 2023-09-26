@@ -10,6 +10,7 @@ const Tabs: FC<{
   newStyle?: boolean;
   navExtra?: ReactElement;
   children?: ReactNode;
+  showActiveCount?: boolean;
 }> = ({ children, defaultTab, ...props }) => {
   const [active, setActive] = useState<string | null>(defaultTab || null);
 

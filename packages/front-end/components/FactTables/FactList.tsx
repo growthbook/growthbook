@@ -89,8 +89,8 @@ export default function FactList({ factTable }: Props) {
               <tr>
                 <SortableTH field="name">Name</SortableTH>
                 <SortableTH field="column">Column</SortableTH>
-                <th>Format</th>
                 <th>Filters</th>
+                <th>Format</th>
                 <SortableTH field="dateUpdated">Last Updated</SortableTH>
                 <th></th>
               </tr>
@@ -102,7 +102,6 @@ export default function FactList({ factTable }: Props) {
                   <td>
                     <InlineCode language="sql" code={fact.column} />
                   </td>
-                  <td>{fact.numberFormat}</td>
                   <td>
                     {fact.filters.map((filterId) => (
                       <span
@@ -114,6 +113,7 @@ export default function FactList({ factTable }: Props) {
                       </span>
                     ))}
                   </td>
+                  <td>{fact.numberFormat}</td>
                   <td>{date(fact.dateUpdated)}</td>
                   <td>
                     {canEdit && (

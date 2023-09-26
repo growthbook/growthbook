@@ -1,4 +1,7 @@
-import { FactTableInterface } from "back-end/types/fact-table";
+import {
+  FactMetricInterface,
+  FactTableInterface,
+} from "back-end/types/fact-table";
 import { useState } from "react";
 import { date } from "shared/dates";
 import Link from "next/link";
@@ -19,6 +22,17 @@ export interface Props {
   factTable: FactTableInterface;
 }
 
+export function getMetricsForFactTable(
+  factMetrics: FactMetricInterface[],
+  factTable: string
+) {
+  return factMetrics.filter(
+    (m) =>
+      m.numerator.factTableId === factTable ||
+      (m.denominator && m.denominator.factTableId === factTable)
+  );
+}
+
 export default function FactMetricList({ factTable }: Props) {
   const [editOpen, setEditOpen] = useState("");
   const [newOpen, setNewOpen] = useState(false);
@@ -29,9 +43,7 @@ export default function FactMetricList({ factTable }: Props) {
 
   const permissions = usePermissions();
 
-  const metrics = factMetrics.filter(
-    (m) => m.numerator.factTableId === factTable.id
-  );
+  const metrics = getMetricsForFactTable(factMetrics, factTable.id);
 
   const { items, searchInputProps, isFiltered, SortableTH, clear } = useSearch({
     items: metrics || [],
@@ -119,11 +131,17 @@ export default function FactMetricList({ factTable }: Props) {
                     <FactSQL
                       fact={metric.numerator}
                       isProportion={metric.metricType === "proportion"}
+                      showFrom={metric.numerator.factTableId !== factTable.id}
                     />
                   </td>
                   <td>
                     {metric.metricType === "ratio" && metric.denominator ? (
-                      <FactSQL fact={metric.denominator} />
+                      <FactSQL
+                        fact={metric.denominator}
+                        showFrom={
+                          metric.denominator.factTableId !== factTable.id
+                        }
+                      />
                     ) : (
                       <em>All Experiment Users</em>
                     )}

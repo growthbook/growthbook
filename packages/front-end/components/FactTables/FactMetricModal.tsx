@@ -36,10 +36,8 @@ import RiskThresholds from "../Metrics/MetricForm/RiskThresholds";
 import Tabs from "../Tabs/Tabs";
 import Tab from "../Tabs/Tab";
 import PremiumTooltip from "../Marketing/PremiumTooltip";
-import { GBCuped } from "../Icons";
+import { GBAddCircle, GBCuped } from "../Icons";
 import { getNewExperimentDatasourceDefaults } from "../Experiment/NewExperimentForm";
-import TagsField from "../Features/FeatureModal/TagsField";
-import MarkdownInput from "../Markdown/MarkdownInput";
 
 export interface Props {
   close: () => void;
@@ -67,12 +65,47 @@ function FactSelector({
   let factTable = getFactTableById(value.factTableId);
   if (factTable?.datasource !== datasource) factTable = null;
 
+  const [showFilters, setShowFilters] = useState(value.filters.length > 0);
+
   return (
     <div className="appbox px-3 pt-3 bg-light">
-      <div className="row">
+      <div className="row align-items-center">
+        {includeFact && (
+          <div className="col-auto">
+            <SelectField
+              label="SELECT"
+              value={value.factId}
+              onChange={(factId) => setValue({ ...value, factId })}
+              sort={false}
+              options={[
+                ...(includeCountDistinctFact
+                  ? [
+                      {
+                        label: `COUNT( DISTINCT \`Experiment Users\` )`,
+                        value: "$$distinctUsers",
+                      },
+                    ]
+                  : []),
+                {
+                  label: "COUNT(*)",
+                  value: "$$count",
+                },
+                ...(factTable?.facts || []).map((f) => ({
+                  label: `SUM(\`${f.name}\`)`,
+                  value: f.id,
+                })),
+              ]}
+              placeholder="Column..."
+              formatOptionLabel={({ label }) => {
+                return <InlineCode language="sql" code={label} />;
+              }}
+              required
+            />
+          </div>
+        )}
         <div className="col-auto">
           <SelectField
-            label="Fact Table"
+            label={includeFact ? "FROM" : "SELECT FROM"}
             value={value.factTableId}
             onChange={(factTableId) =>
               setValue({
@@ -91,52 +124,32 @@ function FactSelector({
             required
           />
         </div>
-        {factTable && (
+        {factTable && factTable.filters.length > 0 && (
           <div className="col-auto">
-            <MultiSelectField
-              label="Filter"
-              value={value.filters}
-              onChange={(filters) => setValue({ ...value, filters })}
-              options={factTable.filters.map((f) => ({
-                label: f.name,
-                value: f.id,
-              }))}
-              placeholder="All Rows"
-              closeMenuOnSelect={true}
-            />
-          </div>
-        )}
-        {factTable && includeFact && (
-          <div className="col-auto">
-            <SelectField
-              label="Value"
-              value={value.factId}
-              onChange={(factId) => setValue({ ...value, factId })}
-              sort={false}
-              options={[
-                ...(includeCountDistinctFact
-                  ? [
-                      {
-                        label: `COUNT( DISTINCT \`Experiment Users\` )`,
-                        value: "$$distinctUsers",
-                      },
-                    ]
-                  : []),
-                {
-                  label: "COUNT(*)",
-                  value: "$$count",
-                },
-                ...factTable.facts.map((f) => ({
-                  label: `SUM(\`${f.name}\`)`,
+            {value.filters.length > 0 || showFilters ? (
+              <MultiSelectField
+                label="WHERE"
+                value={value.filters}
+                onChange={(filters) => setValue({ ...value, filters })}
+                options={factTable.filters.map((f) => ({
+                  label: f.name,
                   value: f.id,
-                })),
-              ]}
-              placeholder="Select..."
-              formatOptionLabel={({ label }) => {
-                return <InlineCode language="sql" code={label} />;
-              }}
-              required
-            />
+                }))}
+                placeholder="Add Filter..."
+                closeMenuOnSelect={true}
+              />
+            ) : (
+              <button
+                className="btn btn-link"
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  setShowFilters(true);
+                }}
+              >
+                <GBAddCircle /> Add WHERE Clause
+              </button>
+            )}
           </div>
         )}
       </div>
@@ -156,11 +169,6 @@ export default function FactMetricModal({
   const settings = useOrgSettings();
 
   const { hasCommercialFeature } = useUser();
-
-  const [showDescription, setShowDescription] = useState(
-    !!existing?.description?.length
-  );
-  const [showTags, setShowTags] = useState(!!existing?.tags?.length);
 
   const router = useRouter();
 
@@ -324,45 +332,6 @@ export default function FactMetricModal({
         autoFocus
         required
       />
-      {showTags ? (
-        <TagsField
-          value={form.watch("tags")}
-          onChange={(tags) => form.setValue("tags", tags)}
-        />
-      ) : (
-        <a
-          href="#"
-          className="badge badge-light badge-pill mr-3 mb-3"
-          onClick={(e) => {
-            e.preventDefault();
-            setShowTags(true);
-          }}
-        >
-          + tags
-        </a>
-      )}
-
-      {showDescription ? (
-        <div className="form-group">
-          <label>Description</label>
-          <MarkdownInput
-            value={form.watch("description")}
-            setValue={(value) => form.setValue("description", value)}
-            autofocus={!existing?.description?.length}
-          />
-        </div>
-      ) : (
-        <a
-          href="#"
-          className="badge badge-light badge-pill mb-3"
-          onClick={(e) => {
-            e.preventDefault();
-            setShowDescription(true);
-          }}
-        >
-          + description
-        </a>
-      )}
       {!existing && (
         <SelectField
           label="Data Source"
@@ -484,7 +453,7 @@ export default function FactMetricModal({
             <div>
               <p>
                 <strong>Metric Value</strong> = Percent of Experiment Users who
-                exist in the selected Fact Table
+                exist in a Fact Table
               </p>
               <FactSelector
                 value={form.watch("numerator")}
@@ -495,8 +464,8 @@ export default function FactMetricModal({
           ) : type === "mean" ? (
             <div>
               <p>
-                <strong>Metric Value</strong> = Average Value of all Experiment
-                Users
+                <strong>Metric Value</strong> = Average of a numeric value among
+                all Experiment Users
               </p>
               <FactSelector
                 value={form.watch("numerator")}
@@ -508,8 +477,7 @@ export default function FactMetricModal({
           ) : type === "ratio" ? (
             <>
               <p>
-                <strong>Metric Value</strong> = (Numerator Value) / (Denominator
-                Value)
+                <strong>Metric Value</strong> = Numerator / Denominator
               </p>
               <div className="form-group">
                 <label>Numerator</label>

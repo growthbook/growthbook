@@ -5,7 +5,6 @@ import { FaExternalLinkAlt, FaTimes } from "react-icons/fa";
 import { FactRef, FactTableInterface } from "back-end/types/fact-table";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import LoadingOverlay from "@/components/LoadingOverlay";
-import Markdown from "@/components/Markdown/Markdown";
 import { GBCuped, GBEdit } from "@/components/Icons";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
@@ -25,6 +24,7 @@ import {
   defaultLoseRiskThreshold,
   defaultWinRiskThreshold,
 } from "@/services/metrics";
+import MarkdownInlineEdit from "@/components/Markdown/MarkdownInlineEdit";
 
 function FactTableLink({ id }: { id?: string }) {
   const { getFactTableById } = useDefinitions();
@@ -316,14 +316,23 @@ export default function FactMetricPage() {
 
       <div className="row">
         <div className="col-12 col-md-8">
-          {factMetric.description && (
-            <>
-              <h3>Description</h3>
-              <div className="appbox p-3 mb-3">
-                <Markdown>{factMetric.description}</Markdown>
-              </div>
-            </>
-          )}
+          <h3>Description</h3>
+          <div className="appbox p-3 mb-3">
+            <MarkdownInlineEdit
+              canCreate={canEdit}
+              canEdit={canEdit}
+              value={factMetric.description}
+              save={async (description) => {
+                await apiCall(`/fact-metrics/${factMetric.id}`, {
+                  method: "PUT",
+                  body: JSON.stringify({
+                    description,
+                  }),
+                });
+                mutateDefinitions();
+              }}
+            />
+          </div>
 
           <div className="mb-4">
             <h3>Metric Definition</h3>
