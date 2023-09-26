@@ -14,6 +14,7 @@ import {
   EXPRESS_TRUST_PROXY_OPTS,
   IS_CLOUD,
   SENTRY_DSN,
+  UPLOAD_METHOD,
 } from "./util/secrets";
 import {
   getExperimentConfig,
@@ -261,7 +262,9 @@ app.post("/auth/refresh", authController.postRefresh);
 app.post("/auth/logout", authController.postLogout);
 app.get("/auth/hasorgs", authController.getHasOrganizations);
 
-app.use("/upload", staticFilesRouter);
+if (UPLOAD_METHOD === "local") {
+  app.use("/upload", staticFilesRouter);
+}
 
 // All other routes require a valid JWT
 const auth = getAuthConnection();
@@ -560,6 +563,10 @@ app.delete(
 );
 app.get("/discussions/recent/:num", discussionsController.getRecentDiscussions);
 app.use("/putupload", putUploadRouter);
+
+if (UPLOAD_METHOD !== "local") {
+  app.use("/upload", staticFilesRouter);
+}
 
 // Teams
 app.use("/teams", teamRouter);

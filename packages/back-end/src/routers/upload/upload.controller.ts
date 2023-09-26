@@ -48,7 +48,15 @@ export async function getImage(
   req: AuthRequest<{ path: string }>,
   res: Response
 ) {
+  const { org } = getOrgFromReq(req);
+
   const path = req.path[0] === "/" ? req.path.substr(1) : req.path;
+
+  const orgFromPath = path.split("/")[0];
+  if (orgFromPath !== org.id) {
+    throw new Error("Invalid organization");
+  }
+
   const data = await getImageData(path);
   const ext = path.split(".").pop() || "";
   const contentType = extensionsToMimetype[ext];

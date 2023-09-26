@@ -23,4 +23,5 @@ if (UPLOAD_METHOD === "local") {
 } else {
   router.get("/:path*", uploadController.getImage);
 }
+
 export { router as staticFilesRouter };
