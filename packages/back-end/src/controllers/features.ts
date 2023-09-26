@@ -515,13 +515,17 @@ export async function postFeatureDraft(
   });
 }
 
+// todo: send the draftId
 export async function postFeatureRule(
-  req: AuthRequest<{ rule: FeatureRule; environment: string }, { id: string }>,
+  req: AuthRequest<
+    { rule: FeatureRule; environment: string; draftId?: string },
+    { id: string }
+  >,
   res: Response<{ status: 200 }, EventAuditUserForResponseLocals>
 ) {
   const { org } = getOrgFromReq(req);
   const { id } = req.params;
-  const { environment, rule } = req.body;
+  const { environment, rule, draftId = null } = req.body;
   const feature = await getFeature(org.id, id);
 
   if (!feature) {
@@ -531,20 +535,31 @@ export async function postFeatureRule(
   req.checkPermissions("manageFeatures", feature.project);
   req.checkPermissions("createFeatureDrafts", feature.project);
 
-  await addFeatureRule(org, res.locals.eventAudit, feature, environment, rule);
+  await addFeatureRule({
+    org,
+    user: res.locals.eventAudit,
+    feature,
+    environment,
+    rule,
+    draftId,
+  });
 
   res.status(200).json({
     status: 200,
   });
 }
 
+// todo: send the draftId
 export async function postFeatureExperimentRefRule(
-  req: AuthRequest<{ rule: ExperimentRefRule }, { id: string }>,
+  req: AuthRequest<
+    { rule: ExperimentRefRule; draftId?: string },
+    { id: string }
+  >,
   res: Response<{ status: 200 }, EventAuditUserForResponseLocals>
 ) {
   const { org } = getOrgFromReq(req);
   const { id } = req.params;
-  const { rule } = req.body;
+  const { rule, draftId = null } = req.body;
   const feature = await getFeature(org.id, id);
 
   if (!feature) {
@@ -562,21 +577,27 @@ export async function postFeatureExperimentRefRule(
   req.checkPermissions("manageFeatures", feature.project);
   req.checkPermissions("createFeatureDrafts", feature.project);
 
-  // todo: this creates a legacy draft
-  await addExperimentRefRule(org, res.locals.eventAudit, feature, rule);
+  await addExperimentRefRule({
+    org,
+    user: res.locals.eventAudit,
+    feature,
+    rule,
+    draftId,
+  });
 
   res.status(200).json({
     status: 200,
   });
 }
 
+// todo: send draftId
 export async function deleteFeatureExperimentRefRule(
-  req: AuthRequest<{ experimentId: string }, { id: string }>,
+  req: AuthRequest<{ experimentId: string; draftId?: string }, { id: string }>,
   res: Response<{ status: 200 }, EventAuditUserForResponseLocals>
 ) {
   const { org } = getOrgFromReq(req);
   const { id } = req.params;
-  const { experimentId } = req.body;
+  const { experimentId, draftId = null } = req.body;
   const feature = await getFeature(org.id, id);
 
   if (!feature) {
@@ -586,13 +607,13 @@ export async function deleteFeatureExperimentRefRule(
   req.checkPermissions("manageFeatures", feature.project);
   req.checkPermissions("createFeatureDrafts", feature.project);
 
-  // todo: this calls update draft
-  await deleteExperimentRefRule(
+  await deleteExperimentRefRule({
     org,
-    res.locals.eventAudit,
+    user: res.locals.eventAudit,
     feature,
-    experimentId
-  );
+    experimentId,
+    draftId,
+  });
 
   res.status(200).json({
     status: 200,
@@ -661,16 +682,22 @@ export async function postFeatureSchema(
   });
 }
 
+// todo: send the draftId
 export async function putFeatureRule(
   req: AuthRequest<
-    { rule: Partial<FeatureRule>; environment: string; i: number },
+    {
+      rule: Partial<FeatureRule>;
+      environment: string;
+      i: number;
+      draftId?: string;
+    },
     { id: string }
   >,
   res: Response<{ status: 200 }, EventAuditUserForResponseLocals>
 ) {
   const { org } = getOrgFromReq(req);
   const { id } = req.params;
-  const { environment, rule, i } = req.body;
+  const { environment, rule, i, draftId = null } = req.body;
   const feature = await getFeature(org.id, id);
 
   if (!feature) {
@@ -680,14 +707,15 @@ export async function putFeatureRule(
   req.checkPermissions("manageFeatures", feature.project);
   req.checkPermissions("createFeatureDrafts", feature.project);
 
-  await editFeatureRule(
+  await editFeatureRule({
     org,
-    res.locals.eventAudit,
+    user: res.locals.eventAudit,
     feature,
     environment,
     i,
-    rule
-  );
+    updates: rule,
+    draftId,
+  });
 
   res.status(200).json({
     status: 200,
@@ -739,16 +767,17 @@ export async function postFeatureToggle(
   });
 }
 
+// todo: send draftId
 export async function postFeatureMoveRule(
   req: AuthRequest<
-    { environment: string; from: number; to: number },
+    { environment: string; from: number; to: number; draftId?: string },
     { id: string }
   >,
   res: Response<{ status: 200 }, EventAuditUserForResponseLocals>
 ) {
   const { org } = getOrgFromReq(req);
   const { id } = req.params;
-  const { environment, from, to } = req.body;
+  const { environment, from, to, draftId = null } = req.body;
   const feature = await getFeature(org.id, id);
 
   if (!feature) {
@@ -757,6 +786,9 @@ export async function postFeatureMoveRule(
 
   req.checkPermissions("manageFeatures", feature.project);
   req.checkPermissions("createFeatureDrafts", feature.project);
+
+  // todo: use draftId
+  console.log("todo: use draftId", draftId);
 
   const rules = getLegacyDraftRules(feature, environment);
   if (!rules[from] || !rules[to]) {
@@ -778,13 +810,17 @@ export async function postFeatureMoveRule(
   });
 }
 
+// todo: send draftId
 export async function deleteFeatureRule(
-  req: AuthRequest<{ environment: string; i: number }, { id: string }>,
+  req: AuthRequest<
+    { environment: string; i: number; draftId?: string },
+    { id: string }
+  >,
   res: Response<{ status: 200 }, EventAuditUserForResponseLocals>
 ) {
   const { org } = getOrgFromReq(req);
   const { id } = req.params;
-  const { environment, i } = req.body;
+  const { environment, i, draftId = null } = req.body;
   const feature = await getFeature(org.id, id);
 
   if (!feature) {
@@ -793,6 +829,9 @@ export async function deleteFeatureRule(
 
   req.checkPermissions("manageFeatures", feature.project);
   req.checkPermissions("createFeatureDrafts", feature.project);
+
+  // todo: use draftId
+  console.log("todo: use draftId", draftId);
 
   const rules = getLegacyDraftRules(feature, environment);
 

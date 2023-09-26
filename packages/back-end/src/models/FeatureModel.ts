@@ -547,13 +547,23 @@ export function getLegacyDraftRules(
   );
 }
 
-export async function addFeatureRule(
-  org: OrganizationInterface,
-  user: EventAuditUser,
-  feature: FeatureInterface,
-  environment: string,
-  rule: FeatureRule
-) {
+type AddFeatureRuleOptions = {
+  org: OrganizationInterface;
+  user: EventAuditUser;
+  feature: FeatureInterface;
+  environment: string;
+  rule: FeatureRule;
+  draftId: string | null;
+};
+
+export async function addFeatureRule({
+  org,
+  user,
+  feature,
+  environment,
+  rule,
+  draftId: _draftId, // todo: use this
+}: AddFeatureRuleOptions) {
   if (!rule.id) {
     rule.id = generateRuleId();
   }
@@ -564,12 +574,21 @@ export async function addFeatureRule(
   ]);
 }
 
-export async function deleteExperimentRefRule(
-  org: OrganizationInterface,
-  user: EventAuditUser,
-  feature: FeatureInterface,
-  experimentId: string
-) {
+type DeleteExperimentRefRuleOptions = {
+  org: OrganizationInterface;
+  user: EventAuditUser;
+  feature: FeatureInterface;
+  experimentId: string;
+  draftId: string | null;
+};
+
+export async function deleteExperimentRefRule({
+  org,
+  user,
+  feature,
+  experimentId,
+  draftId: _draftId, // todo: use this
+}: DeleteExperimentRefRuleOptions) {
   const environments = org.settings?.environments || [];
   const environmentIds = environments.map((e) => e.id);
 
@@ -599,12 +618,21 @@ export async function deleteExperimentRefRule(
   }
 }
 
-export async function addExperimentRefRule(
-  org: OrganizationInterface,
-  user: EventAuditUser,
-  feature: FeatureInterface,
-  rule: ExperimentRefRule
-) {
+type AddExperimentRefRuleOptions = {
+  org: OrganizationInterface;
+  user: EventAuditUser;
+  feature: FeatureInterface;
+  rule: ExperimentRefRule;
+  draftId: string | null;
+};
+
+export async function addExperimentRefRule({
+  org,
+  user,
+  feature,
+  rule,
+  draftId: _draftId, // todo: use this
+}: AddExperimentRefRuleOptions) {
   if (!rule.id) {
     rule.id = generateRuleId();
   }
@@ -628,14 +656,25 @@ export async function addExperimentRefRule(
   await updateLegacyDraft(org, user, feature, draft);
 }
 
-export async function editFeatureRule(
-  org: OrganizationInterface,
-  user: EventAuditUser,
-  feature: FeatureInterface,
-  environment: string,
-  i: number,
-  updates: Partial<FeatureRule>
-) {
+type EditFeatureRuleOptions = {
+  org: OrganizationInterface;
+  user: EventAuditUser;
+  feature: FeatureInterface;
+  environment: string;
+  i: number;
+  updates: Partial<FeatureRule>;
+  draftId: string | null;
+};
+
+export async function editFeatureRule({
+  org,
+  user,
+  feature,
+  environment,
+  i,
+  updates,
+  draftId: _draftId, // todo: use this
+}: EditFeatureRuleOptions) {
   const rules = getLegacyDraftRules(feature, environment);
   if (!rules[i]) {
     throw new Error("Unknown rule");
