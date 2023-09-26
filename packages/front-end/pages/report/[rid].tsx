@@ -44,6 +44,8 @@ import track, { trackReport } from "@/services/track";
 import CompactResults from "@/components/Experiment/CompactResults";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import BreakDownResults from "@/components/Experiment/BreakDownResults";
+import DimensionChooser from "@/components/Dimensions/DimensionChooser";
+import LoadingSpinner from "@/components/LoadingSpinner";
 
 export default function ReportPage() {
   const [newUi, setNewUi] = useLocalStorage<boolean>(
@@ -92,6 +94,17 @@ export default function ReportPage() {
     "sequential-testing"
   );
 
+  const report = data?.report;
+
+  const [dimension, setDimension] = useState<string>(
+    report?.args?.dimension ?? ""
+  );
+  useEffect(() => {
+    if (report?.args) {
+      setDimension(report?.args?.dimension ?? "");
+    }
+  }, [report?.args]);
+
   const form = useForm({
     defaultValues: {
       title: data?.report.title || "",
@@ -100,17 +113,21 @@ export default function ReportPage() {
     },
   });
 
-  useEffect(() => {
-    if (data?.report) {
-      const newVal = {
-        ...form.getValues(),
-        title: data?.report.title,
-        description: data?.report.description,
-        status: data?.report?.status ? data.report.status : "private",
+  const changeDimension = (newDimension: string) => {
+    setDimension(newDimension);
+    if (report && report?.args?.dimension !== newDimension) {
+      const args = {
+        ...report.args,
+        dimension: newDimension,
       };
-      form.reset(newVal);
+      apiCall<{ updatedReport: ReportInterface }>(`/report/${report.id}`, {
+        method: "PUT",
+        body: JSON.stringify({
+          args,
+        }),
+      }).then(() => mutate());
     }
-  }, [data?.report]);
+  };
 
   if (error) {
     return <div className="alert alert-danger">{error.message}</div>;
@@ -119,7 +136,6 @@ export default function ReportPage() {
     return <LoadingOverlay />;
   }
 
-  const report = data.report;
   if (!report) {
     return null;
   }
@@ -288,6 +304,23 @@ export default function ReportPage() {
                   <h2>Results</h2>
                 </div>
                 <div className="flex-1"></div>
+                <div className="col-auto d-flex align-items-end mr-3">
+                  <DimensionChooser
+                    value={dimension}
+                    setValue={changeDimension}
+                    activationMetric={!!report.args.activationMetric}
+                    datasourceId={report.args.datasource}
+                    exposureQueryId={report.args.exposureQueryId}
+                    userIdType={report.args.userIdType}
+                    labelClassName="mr-2"
+                    newUi={newUi}
+                  />
+                  {report && dimension !== report?.args?.dimension ? (
+                    <div className="ml-2 mb-1">
+                      <LoadingSpinner />
+                    </div>
+                  ) : null}
+                </div>
                 <div className="col-auto">
                   {hasData &&
                   report.runStarted &&

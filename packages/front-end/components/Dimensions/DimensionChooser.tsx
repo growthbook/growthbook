@@ -6,7 +6,7 @@ import SelectField from "../Forms/SelectField";
 
 export interface Props {
   value: string;
-  setValue: (value: string) => void;
+  setValue?: (value: string) => void;
   datasourceId?: string;
   exposureQueryId?: string;
   activationMetric?: boolean;
@@ -41,7 +41,7 @@ export default function DimensionChooser({
   // If activation metric is not selected, don't allow using that dimension
   useEffect(() => {
     if (value === "pre:activation" && !activationMetric) {
-      setValue("");
+      setValue?.("");
     }
   }, [value, activationMetric]);
 
@@ -125,11 +125,12 @@ export default function DimensionChooser({
           setAnalysisSettings?.(null);
           setBaselineRow?.(0);
           setVariationFilter?.([]);
-          setValue(v);
+          setValue?.(v);
         }}
         helpText={
           showHelp ? "Break down results for each metric by a dimension" : ""
         }
+        // disabled={!setValue}
       />
     </div>
   );
