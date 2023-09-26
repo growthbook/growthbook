@@ -381,14 +381,14 @@ export default function AssignmentTester({ feature }: Props) {
                 setOpenArchetypeModal(null);
               }}
               initialValues={openArchetypeModal}
-              header="Save Sample User"
+              header="Save Archetype"
             />
           ) : (
             <Modal open={true} close={() => setOpenArchetypeModal(null)}>
               <div className="p-3">
-                Saved sample users allows you set up user attribute traits to
-                test how feature will be applied to your real users. This
-                feature is part of our Pro or Enterprise plans.
+                Archetypes allow you set up user attribute traits to test how
+                feature will be applied to your real users. This feature is part
+                of our Pro or Enterprise plans.
               </div>
             </Modal>
           )}

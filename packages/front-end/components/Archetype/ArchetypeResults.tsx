@@ -28,7 +28,7 @@ const ArchetypeResults: FC<{
   const [showExpandedResultsEnv, setShowExpandedResultsEnv] = useState<
     string | null
   >(null);
-  const [editSavedUser, setEditSavedUser] = useState<ArchetypeInterface | null>(
+  const [editArchetype, setEditArchetype] = useState<ArchetypeInterface | null>(
     null
   );
 
@@ -236,7 +236,7 @@ const ArchetypeResults: FC<{
       <table className="table gbtable appbox ">
         <thead>
           <tr>
-            <th>Saved sample user</th>
+            <th>Archetypes</th>
             {environments.map((env) => (
               <th key={env.id} title={env.description}>
                 {env.id}
@@ -390,14 +390,14 @@ const ArchetypeResults: FC<{
                     <button
                       className="dropdown-item"
                       onClick={() => {
-                        setEditSavedUser(user);
+                        setEditArchetype(user);
                       }}
                     >
                       Edit
                     </button>
                     <DeleteButton
                       className="dropdown-item"
-                      displayName="Saved User"
+                      displayName="Archetype"
                       text="Delete"
                       useIcon={false}
                       onClick={async () => {
@@ -423,14 +423,14 @@ const ArchetypeResults: FC<{
           ))}
         </tbody>
       </table>
-      {editSavedUser && (
+      {editArchetype && (
         <ArchetypeAttributesModal
           close={() => {
-            setEditSavedUser(null);
+            setEditArchetype(null);
             onChange();
           }}
-          initialValues={editSavedUser}
-          header="Edit Sample User"
+          initialValues={editArchetype}
+          header="Edit Archetype"
         />
       )}
     </div>
