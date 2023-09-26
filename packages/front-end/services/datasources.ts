@@ -50,7 +50,8 @@ FROM
   UNNEST(event_params) AS experiment_id_param,
   UNNEST(event_params) AS variation_id_param
 WHERE
-  _TABLE_SUFFIX BETWEEN '{{date startDateISO "yyyyMMdd"}}' AND '{{date endDateISO "yyyyMMdd"}}'
+  ((_TABLE_SUFFIX BETWEEN '{{date startDateISO "yyyyMMdd"}}' AND '{{date endDateISO "yyyyMMdd"}}') OR
+   (_TABLE_SUFFIX BETWEEN 'intraday_{{date startDateISO "yyyyMMdd"}}' AND 'intraday_{{date endDateISO "yyyyMMdd"}}'))
   AND event_name = 'experiment_viewed'  
   AND experiment_id_param.key = 'experiment_id'
   AND variation_id_param.key = 'variation_id'
@@ -84,7 +85,8 @@ FROM
 WHERE
   event_name = '{{eventName}}'  
   AND value_param.key = 'value'
-  AND _TABLE_SUFFIX BETWEEN '{{date startDateISO "yyyyMMdd"}}' AND '{{date endDateISO "yyyyMMdd"}}'
+  AND ((_TABLE_SUFFIX BETWEEN '{{date startDateISO "yyyyMMdd"}}' AND '{{date endDateISO "yyyyMMdd"}}') OR
+       (_TABLE_SUFFIX BETWEEN 'intraday_{{date startDateISO "yyyyMMdd"}}' AND 'intraday_{{date endDateISO "yyyyMMdd"}}'))
     `;
   },
 };

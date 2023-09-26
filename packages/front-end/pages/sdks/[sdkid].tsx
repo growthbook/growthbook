@@ -1,6 +1,5 @@
 import { SDKConnectionInterface } from "back-end/types/sdk-connection";
 import { useRouter } from "next/router";
-import Link from "next/link";
 import { ReactElement, ReactNode, useState } from "react";
 import {
   FaCheckCircle,
@@ -11,7 +10,7 @@ import {
 } from "react-icons/fa";
 import { BsArrowRepeat, BsLightningFill } from "react-icons/bs";
 import LoadingOverlay from "@/components/LoadingOverlay";
-import { GBCircleArrowLeft, GBEdit, GBHashLock } from "@/components/Icons";
+import { GBEdit, GBHashLock } from "@/components/Icons";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import { useAuth } from "@/services/auth";
@@ -27,6 +26,7 @@ import Button from "@/components/Button";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import { isCloud } from "@/services/env";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import PageHead from "@/components/Layout/PageHead";
 
 function ConnectionDot({ left }: { left: boolean }) {
   return (
@@ -169,15 +169,13 @@ export default function SDKConnectionPage() {
           edit={modalState.mode === "edit"}
         />
       )}
-      <div className="row align-items-center mb-2">
-        <div className="col-auto">
-          <Link href="/sdks">
-            <a>
-              <GBCircleArrowLeft /> Back to all SDK connections
-            </a>
-          </Link>
-        </div>
-      </div>
+
+      <PageHead
+        breadcrumb={[
+          { display: "SDK Connections", href: "/sdks" },
+          { display: connection.name },
+        ]}
+      />
 
       <div className="row align-items-center mb-2">
         <h1 className="col-auto mb-0">{connection.name}</h1>
