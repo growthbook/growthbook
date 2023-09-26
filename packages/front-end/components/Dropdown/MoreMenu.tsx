@@ -6,9 +6,7 @@ import {
   autoUpdate,
   flip,
   offset,
-  useClick,
   useFloating,
-  useInteractions,
 } from "@floating-ui/react";
 import useGlobalMenu from "@/services/useGlobalMenu";
 
@@ -21,7 +19,7 @@ const MoreMenu: FC<{
   const [id] = useState(() => uniqId("more_menu_"));
   useGlobalMenu(`#${id}`, () => setOpen(false));
 
-  const { refs, context, floatingStyles } = useFloating({
+  const { refs, floatingStyles } = useFloating({
     open: open,
     onOpenChange: setOpen,
     middleware: [
@@ -32,8 +30,6 @@ const MoreMenu: FC<{
     ],
     whileElementsMounted: autoUpdate,
   });
-  const onClick = useClick(context);
-  const { getReferenceProps, getFloatingProps } = useInteractions([onClick]);
 
   return (
     <div className={`dropdown position-relative ${className}`} id={id}>
@@ -44,7 +40,10 @@ const MoreMenu: FC<{
           fontSize: "1.5em",
         }}
         ref={refs.setReference}
-        {...getReferenceProps()}
+        onClick={(e) => {
+          e.preventDefault();
+          setOpen(!open);
+        }}
       >
         <BsThreeDotsVertical />
       </a>
@@ -58,7 +57,6 @@ const MoreMenu: FC<{
           }}
           ref={refs.setFloating}
           style={{ ...floatingStyles, zIndex: 980, width: "max-content" }}
-          {...getFloatingProps()}
         >
           {children}
         </div>
