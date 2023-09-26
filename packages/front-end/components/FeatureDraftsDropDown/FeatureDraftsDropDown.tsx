@@ -142,7 +142,14 @@ export const FeatureDraftsDropDown: FC<FeatureDraftsDropDownProps> = ({
 
             {/*<h4>Other drafts</h4>*/}
             <div className="mt-3">
-              <FeatureDraftsList drafts={drafts} onDraftClick={onDraftClick} />
+              {drafts.length ? (
+                <FeatureDraftsList
+                  drafts={drafts}
+                  onDraftClick={onDraftClick}
+                />
+              ) : (
+                <p className="text-center">There are currently no drafts.</p>
+              )}
             </div>
           </div>
         </Dropdown>
