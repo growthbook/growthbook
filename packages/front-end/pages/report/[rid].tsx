@@ -52,7 +52,6 @@ export default function ReportPage() {
     "experiment-results-new-ui-v2",
     true
   );
-
   const router = useRouter();
   const { rid } = router.query;
 
@@ -99,11 +98,20 @@ export default function ReportPage() {
   const [dimension, setDimension] = useState<string>(
     report?.args?.dimension ?? ""
   );
+  const [blockDimensionDropdown, setBlockDimensionDropdown] = useState(
+    status === "running"
+  );
   useEffect(() => {
     if (report?.args) {
       setDimension(report?.args?.dimension ?? "");
     }
   }, [report?.args]);
+  useEffect(() => {
+    const { status } = getQueryStatus(report?.queries || []);
+    if (report?.queries && status !== "running") {
+      setBlockDimensionDropdown(false);
+    }
+  }, [report, setBlockDimensionDropdown]);
 
   const form = useForm({
     defaultValues: {
@@ -116,6 +124,7 @@ export default function ReportPage() {
   const changeDimension = (newDimension: string) => {
     setDimension(newDimension);
     if (report && report?.args?.dimension !== newDimension) {
+      setBlockDimensionDropdown(true);
       const args = {
         ...report.args,
         dimension: newDimension,
@@ -314,6 +323,10 @@ export default function ReportPage() {
                     userIdType={report.args.userIdType}
                     labelClassName="mr-2"
                     newUi={newUi}
+                    disabled={
+                      blockDimensionDropdown ||
+                      !permissions.check("createAnalyses", "")
+                    }
                   />
                   {report && dimension !== report?.args?.dimension ? (
                     <div className="ml-2 mb-1">

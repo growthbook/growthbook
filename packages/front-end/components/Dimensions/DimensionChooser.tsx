@@ -19,6 +19,7 @@ export interface Props {
   setAnalysisSettings?: (
     settings: ExperimentSnapshotAnalysisSettings | null
   ) => void;
+  disabled?: boolean;
 }
 
 export default function DimensionChooser({
@@ -34,6 +35,7 @@ export default function DimensionChooser({
   setVariationFilter,
   setBaselineRow,
   setAnalysisSettings,
+  disabled = false,
 }: Props) {
   const { dimensions, getDatasourceById } = useDefinitions();
   const datasource = datasourceId ? getDatasourceById(datasourceId) : null;
@@ -130,7 +132,7 @@ export default function DimensionChooser({
         helpText={
           showHelp ? "Break down results for each metric by a dimension" : ""
         }
-        // disabled={!setValue}
+        disabled={!setValue || disabled}
       />
     </div>
   );
