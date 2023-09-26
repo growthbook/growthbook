@@ -1,4 +1,5 @@
 import React, { useEffect, useState, FC, CSSProperties } from "react";
+import { FaExclamationTriangle } from "react-icons/fa";
 import { useAuth } from "@/services/auth";
 import LoadingSpinner from "./LoadingSpinner";
 
@@ -32,7 +33,16 @@ const AuthorizedImage: FC<AuthorizedImageProps> = ({
   }, [imagePath, apiCall]);
 
   if (error) {
-    return <div>Error: {error}</div>;
+    return (
+      <div>
+        <FaExclamationTriangle
+          size={14}
+          className="text-danger ml-1"
+          style={{ marginTop: -4 }}
+        />
+        <span> Error: {error} </span>{" "}
+      </div>
+    );
   }
 
   if (!imageSrc) {
