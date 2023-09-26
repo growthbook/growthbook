@@ -2,7 +2,7 @@ import { useRouter } from "next/router";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { FeatureInterface } from "back-end/types/feature";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import { FaChevronRight, FaExclamationTriangle } from "react-icons/fa";
 import { datetime } from "shared/dates";
 import { getValidation } from "shared/util";
@@ -97,6 +97,26 @@ export default function FeaturePage() {
 
   const shouldShowLegacyRevisionDropdown = !!data?.feature?.draft?.active;
 
+  const activeFeature = useMemo((): FeatureInterface | null => {
+    if (!data) return null;
+
+    return data.feature;
+  }, [data]);
+
+  const featureExperiments = useMemo((): {
+    [key: string]: ExperimentInterfaceStringDates;
+  } => {
+    if (!data) return {};
+
+    return data.experiments;
+  }, [data]);
+
+  const revisions = useMemo((): FeatureRevisionInterface[] => {
+    if (!data) return [];
+
+    return data.revisions;
+  }, [data]);
+
   if (error) {
     return (
       <div className="alert alert-danger">
@@ -104,21 +124,21 @@ export default function FeaturePage() {
       </div>
     );
   }
-  if (!data) {
+  if (!activeFeature) {
     return <LoadingOverlay />;
   }
 
   const { jsonSchema, validationEnabled, schemaDateUpdated } = getValidation(
-    data.feature
+    activeFeature
   );
 
-  const hasLegacyDraft = !!data.feature.draft?.active;
-  const isArchived = data.feature.archived;
+  const hasLegacyDraft = !!activeFeature.draft?.active;
+  const isArchived = activeFeature.archived;
 
-  const enabledEnvs = getEnabledEnvironments(data.feature);
+  const enabledEnvs = getEnabledEnvironments(activeFeature);
   const hasJsonValidator = hasCommercialFeature("json-validation");
 
-  const projectId = data.feature.project;
+  const projectId = activeFeature.project;
   const project = getProjectById(projectId || "");
   const projectName = project?.name || null;
   const projectIsDeReferenced = projectId && !projectName;
@@ -146,10 +166,10 @@ export default function FeaturePage() {
       "publishFeatures",
       projectId,
       "defaultValue" in (data?.feature?.draft || {})
-        ? getEnabledEnvironments(data.feature)
+        ? getEnabledEnvironments(activeFeature)
         : getAffectedEnvs(
-            data.feature,
-            Object.keys(data.feature.draft?.rules || {})
+            activeFeature,
+            Object.keys(activeFeature.draft?.rules || {})
           )
     );
 
@@ -158,16 +178,16 @@ export default function FeaturePage() {
       {edit && (
         <EditDefaultValueModal
           close={() => setEdit(false)}
-          feature={data.feature}
+          feature={activeFeature}
           mutate={mutate}
         />
       )}
       {editOwnerModal && (
         <EditOwnerModal
           cancel={() => setEditOwnerModal(false)}
-          owner={data.feature.owner}
+          owner={activeFeature.owner}
           save={async (owner) => {
-            await apiCall(`/feature/${data.feature.id}`, {
+            await apiCall(`/feature/${activeFeature.id}`, {
               method: "PUT",
               body: JSON.stringify({ owner }),
             });
@@ -178,13 +198,13 @@ export default function FeaturePage() {
       {editValidator && (
         <EditSchemaModal
           close={() => setEditValidator(false)}
-          feature={data.feature}
+          feature={activeFeature}
           mutate={mutate}
         />
       )}
       {ruleModal !== null && (
         <RuleModal
-          feature={data.feature}
+          feature={activeFeature}
           close={() => setRuleModal(null)}
           i={ruleModal.i}
           environment={ruleModal.environment}
@@ -200,18 +220,18 @@ export default function FeaturePage() {
           size="max"
           closeCta="Close"
         >
-          <HistoryTable type="feature" id={data.feature.id} />
+          <HistoryTable type="feature" id={activeFeature.id} />
         </Modal>
       )}
       {editProjectModal && (
         <EditProjectForm
-          apiEndpoint={`/feature/${data.feature.id}`}
+          apiEndpoint={`/feature/${activeFeature.id}`}
           cancel={() => setEditProjectModal(false)}
           mutate={mutate}
           method="PUT"
-          current={data.feature.project}
+          current={activeFeature.project}
           additionalMessage={
-            data.feature.linkedExperiments?.length ? (
+            activeFeature.linkedExperiments?.length ? (
               <div className="alert alert-danger">
                 Changing the project may prevent your linked Experiments from
                 being sent to users.
@@ -222,9 +242,9 @@ export default function FeaturePage() {
       )}
       {editTagsModal && (
         <EditTagsForm
-          tags={data.feature?.tags || []}
+          tags={activeFeature?.tags || []}
           save={async (tags) => {
-            await apiCall(`/feature/${data.feature.id}`, {
+            await apiCall(`/feature/${activeFeature.id}`, {
               method: "PUT",
               body: JSON.stringify({ tags }),
             });
@@ -235,7 +255,7 @@ export default function FeaturePage() {
       )}
       {showImplementation && (
         <FeatureImplementationModal
-          feature={data.feature}
+          feature={activeFeature}
           first={firstFeature}
           close={() => {
             setShowImplementation(false);
@@ -244,7 +264,7 @@ export default function FeaturePage() {
       )}
       {isLegacyDraftModal && (
         <LegacyDraftModal
-          feature={data.feature}
+          feature={activeFeature}
           close={() => setIsLegacyDraftModal(false)}
           mutate={mutate}
         />
@@ -257,14 +277,14 @@ export default function FeaturePage() {
             const url = `/features/${feature.id}`;
             router.push(url);
           }}
-          featureToDuplicate={data.feature}
+          featureToDuplicate={activeFeature}
         />
       )}
 
       <PageHead
         breadcrumb={[
           { display: "Features", href: "/features" },
-          { display: data.feature.id },
+          { display: activeFeature.id },
         ]}
       />
 
@@ -290,10 +310,10 @@ export default function FeaturePage() {
               evt.preventDefault();
 
               try {
-                await apiCall(`/feature/${data.feature.id}/discard`, {
+                await apiCall(`/feature/${activeFeature.id}/discard`, {
                   method: "POST",
                   body: JSON.stringify({
-                    draft: data.feature.draft,
+                    draft: activeFeature.draft,
                   }),
                 });
               } catch (err) {
@@ -338,8 +358,8 @@ export default function FeaturePage() {
 
             {shouldShowLegacyRevisionDropdown && (
               <LegacyRevisionDropdown
-                feature={data.feature}
-                revisions={data.revisions || []}
+                feature={activeFeature}
+                revisions={revisions}
                 publish={() => {
                   setIsLegacyDraftModal(true);
                 }}
@@ -379,7 +399,7 @@ export default function FeaturePage() {
                   useIcon={false}
                   displayName="Feature"
                   onClick={async () => {
-                    await apiCall(`/feature/${data.feature.id}`, {
+                    await apiCall(`/feature/${activeFeature.id}`, {
                       method: "DELETE",
                     });
                     router.push("/features");
@@ -392,7 +412,7 @@ export default function FeaturePage() {
               permissions.check("publishFeatures", projectId, enabledEnvs) && (
                 <ConfirmButton
                   onClick={async () => {
-                    await apiCall(`/feature/${data.feature.id}/archive`, {
+                    await apiCall(`/feature/${activeFeature.id}/archive`, {
                       method: "POST",
                     });
                     mutate();
@@ -455,7 +475,7 @@ export default function FeaturePage() {
                   <FaExclamationTriangle /> Invalid project
                 </span>
               </Tooltip>
-            ) : currentProject && currentProject !== data.feature.project ? (
+            ) : currentProject && currentProject !== activeFeature.project ? (
               <Tooltip body={<>This feature is not in your current project.</>}>
                 {projectId ? (
                   <strong>{projectName}</strong>
@@ -482,7 +502,7 @@ export default function FeaturePage() {
         )}
 
         <div className="col-auto">
-          Tags: <SortedTags tags={data.feature?.tags || []} />
+          Tags: <SortedTags tags={activeFeature?.tags || []} />
           {permissions.check("manageFeatures", projectId) && (
             <a
               className="ml-1 cursor-pointer"
@@ -494,11 +514,11 @@ export default function FeaturePage() {
         </div>
 
         <div className="col-auto">
-          Type: {data.feature.valueType || "unknown"}
+          Type: {activeFeature.valueType || "unknown"}
         </div>
 
         <div className="col-auto">
-          Owner: {data.feature.owner ? data.feature.owner : "None"}
+          Owner: {activeFeature.owner ? activeFeature.owner : "None"}
           {permissions.check("manageFeatures", projectId) && (
             <a
               className="ml-1 cursor-pointer"
@@ -521,18 +541,18 @@ export default function FeaturePage() {
           </a>
         </div>
         <div className="col-auto">
-          <WatchButton item={data.feature.id} itemType="feature" type="link" />
+          <WatchButton item={activeFeature.id} itemType="feature" type="link" />
         </div>
       </div>
 
       <div className="mb-3">
-        <div className={data.feature.description ? "appbox mb-4 p-3" : ""}>
+        <div className={activeFeature.description ? "appbox mb-4 p-3" : ""}>
           <MarkdownInlineEdit
-            value={data.feature.description || ""}
+            value={activeFeature.description || ""}
             canEdit={permissions.check("manageFeatures", projectId)}
             canCreate={permissions.check("manageFeatures", projectId)}
             save={async (description) => {
-              await apiCall(`/feature/${data.feature.id}`, {
+              await apiCall(`/feature/${activeFeature.id}`, {
                 method: "PUT",
                 body: JSON.stringify({
                   description,
@@ -557,7 +577,7 @@ export default function FeaturePage() {
                 {en.id}:{" "}
               </label>
               <EnvironmentToggle
-                feature={data.feature}
+                feature={activeFeature}
                 environment={en.id}
                 mutate={() => {
                   mutate();
@@ -574,7 +594,7 @@ export default function FeaturePage() {
         </div>
       </div>
 
-      {data.feature.valueType === "json" && (
+      {activeFeature.valueType === "json" && (
         <div>
           <h3 className={hasJsonValidator ? "" : "mb-4"}>
             <PremiumTooltip commercialFeature="json-validation">
@@ -672,7 +692,7 @@ export default function FeaturePage() {
                     <>
                       <Code
                         language="json"
-                        code={data.feature?.jsonSchema?.schema || "{}"}
+                        code={activeFeature?.jsonSchema?.schema || "{}"}
                         className="disabled"
                       />
                     </>
@@ -696,8 +716,8 @@ export default function FeaturePage() {
       </h3>
       <div className="appbox mb-4 p-3">
         <ForceSummary
-          value={getFeatureDefaultValue(data.feature)}
-          feature={data.feature}
+          value={getFeatureDefaultValue(activeFeature)}
+          feature={activeFeature}
         />
       </div>
 
@@ -717,7 +737,7 @@ export default function FeaturePage() {
         buttonsClassName="px-3 py-2 h4"
       >
         {environments.map((e) => {
-          const rules = getRules(data.feature, e.id);
+          const rules = getRules(activeFeature, e.id);
           return (
             <Tab
               key={e.id}
@@ -730,8 +750,8 @@ export default function FeaturePage() {
                 {rules.length > 0 ? (
                   <RuleList
                     environment={e.id}
-                    feature={data.feature}
-                    experiments={data.experiments || {}}
+                    feature={activeFeature}
+                    experiments={featureExperiments}
                     mutate={mutate}
                     setRuleModal={setRuleModal}
                   />
@@ -762,7 +782,7 @@ export default function FeaturePage() {
                   onClick={() => {
                     setRuleModal({
                       environment: env,
-                      i: getRules(data.feature, env).length,
+                      i: getRules(activeFeature, env).length,
                       defaultType: "force",
                     });
                     track("Viewed Rule Modal", {
@@ -793,7 +813,7 @@ export default function FeaturePage() {
                   onClick={() => {
                     setRuleModal({
                       environment: env,
-                      i: getRules(data.feature, env).length,
+                      i: getRules(activeFeature, env).length,
                       defaultType: "rollout",
                     });
                     track("Viewed Rule Modal", {
@@ -824,7 +844,7 @@ export default function FeaturePage() {
                   onClick={() => {
                     setRuleModal({
                       environment: env,
-                      i: getRules(data.feature, env).length,
+                      i: getRules(activeFeature, env).length,
                       defaultType: "experiment-ref-new",
                     });
                     track("Viewed Rule Modal", {
@@ -848,8 +868,8 @@ export default function FeaturePage() {
         <h3>Comments</h3>
         <DiscussionThread
           type="feature"
-          id={data.feature.id}
-          project={data.feature.project}
+          id={activeFeature.id}
+          project={activeFeature.project}
         />
       </div>
     </div>
