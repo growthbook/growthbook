@@ -1,4 +1,5 @@
 import * as bq from "@google-cloud/bigquery";
+import { bigQueryCreateTableOptions } from "enterprise";
 import { getValidDate } from "shared/dates";
 import { decryptDataSourceParams } from "../services/datasource";
 import { BigQueryConnectionParams } from "../../types/integrations/bigquery";
@@ -16,6 +17,9 @@ export default class BigQuery extends SqlIntegration {
     this.params = decryptDataSourceParams<BigQueryConnectionParams>(
       encryptedParams
     );
+  }
+  isWritingTablesSupported(): boolean {
+    return true;
   }
   getFormatDialect(): FormatDialect {
     return "bigquery";
@@ -64,6 +68,11 @@ export default class BigQuery extends SqlIntegration {
     };
     return { rows, statistics };
   }
+
+  createUnitsTableOptions() {
+    return bigQueryCreateTableOptions(this.settings.pipelineSettings ?? {});
+  }
+
   addTime(
     col: string,
     unit: "hour" | "minute",

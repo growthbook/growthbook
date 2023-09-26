@@ -8,6 +8,7 @@ import {
 } from "react-icons/fa";
 import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
+import { useFeatureIsOn } from "@growthbook/growthbook-react";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { hasFileConfig } from "@/services/env";
@@ -27,6 +28,7 @@ import LoadingOverlay from "@/components/LoadingOverlay";
 import Modal from "@/components/Modal";
 import SchemaBrowser from "@/components/SchemaBrowser/SchemaBrowser";
 import DataSourceMetrics from "@/components/Settings/EditDataSource/DataSourceMetrics";
+import DataSourcePipeline from "@/components/Settings/EditDataSource/DataSourcePipeline/DataSourcePipeline";
 import { DeleteDemoDatasourceButton } from "@/components/DemoDataSourcePage/DemoDataSourcePage";
 import { useUser } from "@/services/UserContext";
 import PageHead from "@/components/Layout/PageHead";
@@ -53,14 +55,17 @@ const DataSourcePage: FC = () => {
   const { did } = router.query as { did: string };
   const d = getDatasourceById(did);
   const { apiCall } = useAuth();
-
-  const { organization } = useUser();
+  const { organization, hasCommercialFeature } = useUser();
 
   const canEdit =
     (d &&
       checkDatasourceProjectPermissions(d, permissions, "createDatasources") &&
       !hasFileConfig()) ||
     false;
+
+  const pipelineEnabled =
+    useFeatureIsOn("datasource-pipeline-mode") &&
+    hasCommercialFeature("pipeline-mode");
 
   /**
    * Update the data source provided.
@@ -343,6 +348,17 @@ mixpanel.init('YOUR PROJECT TOKEN', {
                   canEdit={canEdit}
                 />
               </div>
+
+              {d.properties?.supportsWritingTables && pipelineEnabled ? (
+                <div className="my-3 p-3 rounded border bg-white">
+                  <DataSourcePipeline
+                    dataSource={d}
+                    onSave={updateDataSourceSettings}
+                    onCancel={() => undefined}
+                    canEdit={canEdit}
+                  />
+                </div>
+              ) : null}
             </>
           )}
         </div>
