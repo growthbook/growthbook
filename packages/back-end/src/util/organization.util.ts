@@ -56,7 +56,7 @@ export const ALL_PERMISSIONS = [
   ...ENV_SCOPED_PERMISSIONS,
 ];
 
-function roleSupportsEnvLimit(userPermission: PermissionsObject): boolean {
+function hasEnvScopedPermissions(userPermission: PermissionsObject): boolean {
   const envLimitedPermissions: string[] = ENV_SCOPED_PERMISSIONS.map(
     (permission) => permission
   );
@@ -109,10 +109,10 @@ function mergeEnvAccess(
 ): UserPermission {
   const permissionsObj = cloneDeep(existingPermissions);
 
-  const existingRoleSupportsEnvLimits = roleSupportsEnvLimit(
+  const existingRoleSupportsEnvLimits = hasEnvScopedPermissions(
     existingPermissions.permissions
   );
-  const newRoleSupportsEnvLimits = roleSupportsEnvLimit(
+  const newRoleSupportsEnvLimits = hasEnvScopedPermissions(
     newPermissions.permissions
   );
 
