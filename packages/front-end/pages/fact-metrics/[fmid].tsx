@@ -1,6 +1,8 @@
 import { useRouter } from "next/router";
 import Link from "next/link";
 import { useState } from "react";
+import { FaExternalLinkAlt } from "react-icons/fa";
+import { FactRef, FactTableInterface } from "back-end/types/fact-table";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import Markdown from "@/components/Markdown/Markdown";
@@ -15,6 +17,70 @@ import EditTagsForm from "@/components/Tags/EditTagsForm";
 import SortedTags from "@/components/Tags/SortedTags";
 import FactMetricModal from "@/components/FactTables/FactMetricModal";
 import InlineCode from "@/components/SyntaxHighlighting/InlineCode";
+
+function FactTableLink({ id }: { id?: string }) {
+  const { getFactTableById } = useDefinitions();
+  const factTable = getFactTableById(id || "");
+
+  if (!factTable) return <em className="text-muted">Unknown Fact Table</em>;
+
+  return (
+    <Link href={`/fact-tables/${factTable.id}`}>
+      <a className="font-weight-bold">
+        {factTable.name} <FaExternalLinkAlt />
+      </a>
+    </Link>
+  );
+}
+
+function FilterBadges({
+  ids,
+  factTable,
+}: {
+  ids: string[] | null | undefined;
+  factTable?: FactTableInterface | null;
+}) {
+  if (!factTable || !ids) return null;
+
+  return (
+    <>
+      {ids.map((id) => {
+        const filter = factTable.filters.find((f) => f.id === id);
+        if (!filter) return null;
+        return (
+          <span className="badge badge-secondary mr-2" key={filter.id}>
+            {filter.name}
+          </span>
+        );
+      })}
+    </>
+  );
+}
+
+function FactSQL({ fact }: { fact: FactRef | null }) {
+  const { getFactTableById } = useDefinitions();
+  if (!fact) return null;
+  const factTable = getFactTableById(fact.factTableId);
+  if (!factTable) return null;
+
+  const data = factTable.facts.find((f) => f.id === id);
+  if (!data) return null;
+
+  const { name, id } = data;
+
+  return (
+    <InlineCode
+      language="sql"
+      code={
+        id === "$$count"
+          ? "COUNT(*)"
+          : id === "$$distinctUsers"
+          ? `COUNT(DISTINCT \`Experiment User Id\`)`
+          : `SUM(\`${name}\`)`
+      }
+    />
+  );
+}
 
 export default function FactMetricPage() {
   const router = useRouter();
@@ -108,7 +174,10 @@ export default function FactMetricPage() {
       />
       <div className="row mb-3">
         <div className="col-auto">
-          <h1 className="mb-0">{factMetric.name}</h1>
+          <h1 className="mb-0">
+            {factMetric.name}{" "}
+            <span className="badge badge-purple ml-2">FACT</span>
+          </h1>
         </div>
         {canEdit && (
           <div className="ml-auto">
@@ -211,23 +280,14 @@ export default function FactMetricPage() {
               </strong>
               <span>
                 Percent of experiment users that exist in the Fact Table{" "}
-                <span className="badge badge-secondary">
-                  {numeratorFactTable?.name}
-                </span>{" "}
+                <FactTableLink id={numeratorFactTable?.id} />{" "}
                 {factMetric.numerator.filters.length > 0 && (
                   <>
                     matching the filters:{" "}
-                    {factMetric.numerator.filters.map((f) => {
-                      const filter = numeratorFactTable?.filters?.find(
-                        (filter) => filter.id === f
-                      );
-                      if (!filter) return null;
-                      return (
-                        <span className="badge badge-secondary mr-2" key={f}>
-                          {filter.name}
-                        </span>
-                      );
-                    })}
+                    <FilterBadges
+                      ids={factMetric.numerator.filters}
+                      factTable={numeratorFactTable}
+                    />
                   </>
                 )}
               </span>
@@ -239,6 +299,7 @@ export default function FactMetricPage() {
                   Numerator
                 </strong>
                 <span>
+                  <FactSQL fact={factMetric.numerator} />
                   <InlineCode
                     language="sql"
                     code={
@@ -250,23 +311,14 @@ export default function FactMetricPage() {
                     }
                   />{" "}
                   in the Fact Table{" "}
-                  <span className="badge badge-secondary">
-                    {numeratorFactTable?.name}
-                  </span>{" "}
+                  <FactTableLink id={numeratorFactTable?.id} />{" "}
                   {factMetric.numerator.filters.length > 0 && (
                     <>
                       matching the filters:{" "}
-                      {factMetric.numerator.filters.map((f) => {
-                        const filter = numeratorFactTable?.filters?.find(
-                          (filter) => filter.id === f
-                        );
-                        if (!filter) return null;
-                        return (
-                          <span className="badge badge-secondary mr-2" key={f}>
-                            {filter.name}
-                          </span>
-                        );
-                      })}
+                      <FilterBadges
+                        ids={factMetric.numerator?.filters}
+                        factTable={numeratorFactTable}
+                      />
                     </>
                   )}
                 </span>
@@ -283,42 +335,15 @@ export default function FactMetricPage() {
                     />
                   ) : (
                     <>
-                      <InlineCode
-                        language="sql"
-                        code={
-                          factMetric.denominator?.factId === "$$count"
-                            ? "COUNT(*)"
-                            : factMetric.denominator?.factId ===
-                              "$$distinctUsers"
-                            ? `COUNT(DISTINCT \`Experiment User Id\`)`
-                            : `SUM(\`${
-                                denominatorFactTable?.facts?.find(
-                                  (f) => f.id === factMetric.denominator?.factId
-                                )?.name
-                              }\`)`
-                        }
-                      />{" "}
-                      in the Fact Table{" "}
-                      <span className="badge badge-secondary">
-                        {denominatorFactTable?.name}
-                      </span>{" "}
+                      <FactSQL fact={factMetric.denominator} /> in the Fact
+                      Table <FactTableLink id={numeratorFactTable?.id} />{" "}
                       {!!factMetric.denominator?.filters?.length && (
                         <>
                           matching the filters:{" "}
-                          {factMetric.denominator.filters.map((f) => {
-                            const filter = denominatorFactTable?.filters?.find(
-                              (filter) => filter.id === f
-                            );
-                            if (!filter) return null;
-                            return (
-                              <span
-                                className="badge badge-secondary mr-2"
-                                key={f}
-                              >
-                                {filter.name}
-                              </span>
-                            );
-                          })}
+                          <FilterBadges
+                            ids={factMetric.denominator?.filters}
+                            factTable={denominatorFactTable}
+                          />
                         </>
                       )}
                     </>

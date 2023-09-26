@@ -1,4 +1,4 @@
-import { MetricInterface, MetricType } from "back-end/types/metric";
+import { MetricType } from "back-end/types/metric";
 import {
   GlobalPermission,
   ProjectScopedPermission,
@@ -146,7 +146,7 @@ export function formatConversionRate(
 }
 
 export function checkMetricProjectPermissions(
-  metric: MetricInterface,
+  metric: { projects?: string[] },
   permissions: Record<GlobalPermission, boolean> & PermissionFunctions,
   permission: ProjectScopedPermission = "createMetrics"
 ): boolean {
