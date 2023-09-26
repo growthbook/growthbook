@@ -2,8 +2,8 @@ import fs from "fs";
 import express from "express";
 import { getUploadsDir } from "../../services/files";
 import { UPLOAD_METHOD } from "../../util/secrets";
-import * as uploadControllerRaw from "./upload.controller";
 import { wrapController } from "../wrapController";
+import * as uploadControllerRaw from "./upload.controller";
 
 const router = express.Router();
 
