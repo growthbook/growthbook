@@ -1,4 +1,4 @@
-import { roleSupportsEnvLimit } from "shared/permissions";
+import { cloneDeep } from "lodash";
 import {
   Member,
   MemberRole,
@@ -58,6 +58,19 @@ export const ALL_PERMISSIONS = [
   ...ENV_SCOPED_PERMISSIONS,
 ];
 
+function roleSupportsEnvLimit(userPermission: PermissionsObject): boolean {
+  const envLimitedPermissions: string[] = ENV_SCOPED_PERMISSIONS.map(
+    (permission) => permission
+  );
+
+  for (const permission of envLimitedPermissions) {
+    if (userPermission[permission as Permission]) {
+      return true;
+    }
+  }
+  return false;
+}
+
 export function roleToPermissionMap(
   role: MemberRole | undefined,
   org: OrganizationInterface
@@ -73,83 +86,78 @@ export function roleToPermissionMap(
   return permissionsObj;
 }
 
-function getMergedPermissions(
+function combineRoles(
   existingPermissions: UserPermission,
-  existingRole: MemberRole | undefined,
   teamInfo: TeamInterface | ProjectMemberRole,
   org: OrganizationInterface
 ): UserPermission {
   const newPermissions = roleToPermissionMap(teamInfo.role, org);
 
   if (!existingPermissions) {
-    // If there are no existingPermissions just return the permissions associated with the teamInfo
     return {
       environments: teamInfo.environments,
       limitAccessByEnvironment: teamInfo.limitAccessByEnvironment,
-      permissions: roleToPermissionMap(teamInfo.role, org),
+      permissions: newPermissions,
     };
   }
 
-  // Otherwise, we need to merge the existingPermissions with the newPermissions
+  const existingPermissionsCopy = cloneDeep(existingPermissions);
+
   for (const newPermission in newPermissions) {
     if (
-      !existingPermissions.permissions[newPermission as Permission] &&
+      !existingPermissionsCopy.permissions[newPermission as Permission] &&
       newPermissions[newPermission as Permission]
     ) {
-      existingPermissions.permissions[newPermission as Permission] =
+      existingPermissionsCopy.permissions[newPermission as Permission] =
         newPermissions[newPermission as Permission];
     }
   }
 
-  if (!existingRole) {
-    existingPermissions.limitAccessByEnvironment =
-      teamInfo.limitAccessByEnvironment;
-    existingPermissions.environments = teamInfo.environments;
-  } else {
-    const roles = getRoles(org);
+  const existingRoleSupportsEnvLimits = roleSupportsEnvLimit(
+    existingPermissions.permissions
+  );
 
-    const newRoleAccessLevel =
-      roles.find((role) => role.id === teamInfo.role)?.accessLevel || 0;
-    const existingRoleAccessLevel =
-      roles.find((role) => role.id === existingRole)?.accessLevel || 0;
+  const newRoleSupportsEnvLimits = roleSupportsEnvLimit(newPermissions);
 
+  if (
+    // If the existingRole & newRole can be limited by environment
+    existingRoleSupportsEnvLimits &&
+    newRoleSupportsEnvLimits
+  ) {
     if (
-      // If the existingRole & newRole can be limited by environment
-      roleSupportsEnvLimit(existingRole) &&
-      roleSupportsEnvLimit(teamInfo.role)
+      // and if limitAccessByEnvironment is the same for new and existing roles, we just concat the envs arrays
+      existingPermissionsCopy.limitAccessByEnvironment ===
+      teamInfo.limitAccessByEnvironment
     ) {
-      if (
-        // and if limitAccessByEnvironment is the same for new and existing roles, we just concat the envs arrays
-        existingPermissions.limitAccessByEnvironment ===
-        teamInfo.limitAccessByEnvironment
-      ) {
-        existingPermissions.environments = [
-          ...new Set(
-            existingPermissions.environments.concat(teamInfo.environments)
-          ),
-        ];
-      } else {
-        // otherwise, 1 role doesn't have limited access by environment, so it overrides the other
-        existingPermissions.limitAccessByEnvironment = false;
-        existingPermissions.environments = [];
-      }
+      existingPermissionsCopy.environments = [
+        ...new Set(
+          existingPermissionsCopy.environments.concat(teamInfo.environments)
+        ),
+      ];
     } else {
-      // Finally, we set the limitAccessByEnvironment and environments properties to the more permissive role's values.
-      existingPermissions.limitAccessByEnvironment =
-        newRoleAccessLevel > existingRoleAccessLevel
-          ? teamInfo.limitAccessByEnvironment
-          : existingPermissions.limitAccessByEnvironment;
+      // otherwise, 1 role doesn't have limited access by environment, so it overrides the other
+      existingPermissionsCopy.limitAccessByEnvironment = false;
+      existingPermissionsCopy.environments = [];
+    }
+  } else {
+    // Otherwise, 1 role can be limitedByEnvironment, and the other cant - e.g. engineer vs analyst
+    if (existingRoleSupportsEnvLimits && !newRoleSupportsEnvLimits) {
+      existingPermissionsCopy.limitAccessByEnvironment =
+        existingPermissions.limitAccessByEnvironment;
+      existingPermissionsCopy.environments = existingPermissions.environments;
+    }
+    // If the old role can't be limited by environment, and the new role can, set the old role's permissions to the new role's permissions
+    if (!existingRoleSupportsEnvLimits && newRoleSupportsEnvLimits) {
+      existingPermissionsCopy.limitAccessByEnvironment =
+        teamInfo.limitAccessByEnvironment;
 
-      existingPermissions.environments =
-        newRoleAccessLevel > existingRoleAccessLevel
-          ? teamInfo.environments
-          : existingPermissions.environments;
+      existingPermissionsCopy.environments = teamInfo.environments;
     }
   }
-  return existingPermissions;
+  return existingPermissionsCopy;
 }
 
-async function mergeUserAndTeamPermissions(
+async function mergeUserPermissions(
   memberInfo: Member,
   userPermissions: UserPermissions,
   org: OrganizationInterface
@@ -161,20 +169,15 @@ async function mergeUserAndTeamPermissions(
   for (const team of memberInfo.teams) {
     const teamData = await findTeamById(team, org.id);
     if (teamData) {
-      userPermissions.global = getMergedPermissions(
+      userPermissions.global = combineRoles(
         userPermissions.global,
-        memberInfo.role,
         teamData,
         org
       );
       if (teamData?.projectRoles) {
         for (const teamProject of teamData.projectRoles) {
-          const existingProjectData = memberInfo.projectRoles?.find(
-            (project) => project.project === teamProject.project
-          );
-          userPermissions.projects[teamProject.project] = getMergedPermissions(
+          userPermissions.projects[teamProject.project] = combineRoles(
             userPermissions.projects[teamProject.project],
-            existingProjectData?.role,
             teamProject,
             org
           );
@@ -211,7 +214,7 @@ export async function getUserPermissions(
     };
   });
 
-  await mergeUserAndTeamPermissions(memberInfo, userPermissions, org);
+  await mergeUserPermissions(memberInfo, userPermissions, org);
 
   return userPermissions;
 }
@@ -223,13 +226,11 @@ export function getRoles(_organization: OrganizationInterface): Role[] {
       id: "readonly",
       description: "View all features and experiment results",
       permissions: [],
-      accessLevel: 0,
     },
     {
       id: "collaborator",
       description: "Add comments and contribute ideas",
       permissions: ["addComments", "createIdeas", "createPresentations"],
-      accessLevel: 1,
     },
     {
       id: "engineer",
@@ -248,7 +249,6 @@ export function getRoles(_organization: OrganizationInterface): Role[] {
         "manageSavedGroups",
         "runExperiments",
       ],
-      accessLevel: 2, // Analysts & Engineers have the same access level
     },
     {
       id: "analyst",
@@ -264,7 +264,6 @@ export function getRoles(_organization: OrganizationInterface): Role[] {
         "runQueries",
         "editDatasourceSettings",
       ],
-      accessLevel: 2, // Analysts & Engineers have the same access level
     },
     {
       id: "experimenter",
@@ -289,14 +288,12 @@ export function getRoles(_organization: OrganizationInterface): Role[] {
         "runQueries",
         "editDatasourceSettings",
       ],
-      accessLevel: 3,
     },
     {
       id: "admin",
       description:
         "All access + invite teammates and configure organization settings",
       permissions: [...ALL_PERMISSIONS],
-      accessLevel: 4,
     },
   ];
 }
