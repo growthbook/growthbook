@@ -181,6 +181,25 @@ def runQuery(sql):
 
 **Note:** This python source is stored as plain text in the database. Do not hard-code passwords or sensitive info. Use environment variables (shown above) or another credential store instead.
 
+### Data Pipeline Settings
+
+:::note
+
+Pipeline mode is only available for Enterprise customers, is currently in beta, only works with for BigQuery datasources.
+
+:::
+
+For experimenters who have multiple metrics per experiment and have large experiment assignment sources, GrowthBook can greatly improve the performance of your queries if you enable **Pipeline Mode**.
+
+With **Pipeline Mode** enabled, whenever an experiment analysis is run, GrowthBook dedupes your experiment assignment source, joins any relevant activation or dimension data, and then stores that deduped experiment assignment table for a default 24 hours to be re-used by the individual metric analyses.
+
+To enable Pipeline Mode, follow these steps:
+
+1. (strongly recommended, but optional) Create a dedicated dataset or schema to which GrowthBook will write temporary tables. This will keep your data warehouse clean and ensure that we are only writing to a dedicated space.
+2. Grant write permissions on that dedicated dataset to your GrowthBook service account in BigQuery
+3. Navigate to your Data Source in GrowthBook and scroll down to "Data Pipeline Settings"
+4. Click "Edit" and enable pipeline mode, set the destination dataset to your new dedicated GrowthBook dataset from step 1, and set the number of hours you will retain our temporary tables. We recommend at least 6 hours and the default is 24.
+
 ## Schema Browser
 
 When you connect a supported data source to GrowthBook, we automatically generate metadata that is used by our Schema Browser. The Schema Browser is a user-friendly interface that makes writing queries easier as you can easily explore information about the datasource such as databases, schemas, tables, columns, and data types.
