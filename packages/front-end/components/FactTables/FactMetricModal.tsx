@@ -38,12 +38,15 @@ import Tab from "../Tabs/Tab";
 import PremiumTooltip from "../Marketing/PremiumTooltip";
 import { GBCuped } from "../Icons";
 import { getNewExperimentDatasourceDefaults } from "../Experiment/NewExperimentForm";
+import TagsField from "../Features/FeatureModal/TagsField";
+import MarkdownInput from "../Markdown/MarkdownInput";
 
 export interface Props {
   close: () => void;
   initialFactTable?: string;
   existing?: FactMetricInterface;
   showAdvancedSettings?: boolean;
+  navigateOnCreate?: boolean;
 }
 
 function FactSelector({
@@ -146,12 +149,18 @@ export default function FactMetricModal({
   initialFactTable,
   existing,
   showAdvancedSettings,
+  navigateOnCreate = true,
 }: Props) {
   const { metricDefaults } = useOrganizationMetricDefaults();
 
   const settings = useOrgSettings();
 
   const { hasCommercialFeature } = useUser();
+
+  const [showDescription, setShowDescription] = useState(
+    !!existing?.description?.length
+  );
+  const [showTags, setShowTags] = useState(!!existing?.tags?.length);
 
   const router = useRouter();
 
@@ -194,7 +203,7 @@ export default function FactMetricModal({
       capping: existing?.capping || "",
       capValue: existing?.capValue || 0,
       inverse: existing?.inverse || false,
-      hasConversionWindow: existing?.inverse || false,
+      hasConversionWindow: existing?.hasConversionWindow || false,
       conversionWindowValue: existing?.conversionWindowValue || 3,
       conversionWindowUnit: existing?.conversionWindowUnit || "days",
       conversionDelayHours: existing?.conversionDelayHours || 0,
@@ -267,6 +276,10 @@ export default function FactMetricModal({
       header={existing ? "Edit Metric" : "Create Metric"}
       close={close}
       submit={form.handleSubmit(async (values) => {
+        if (values.denominator && !values.denominator.factTableId) {
+          values.denominator = null;
+        }
+
         if (values.metricType === "ratio" && !values.denominator)
           throw new Error("Must select a denominator for ratio metrics");
 
@@ -300,7 +313,7 @@ export default function FactMetricModal({
             body: JSON.stringify(createPayload),
           });
           await mutateDefinitions();
-          router.push(`/fact-metrics/${factMetric.id}`);
+          navigateOnCreate && router.push(`/fact-metrics/${factMetric.id}`);
         }
       })}
       size="lg"
@@ -311,6 +324,45 @@ export default function FactMetricModal({
         autoFocus
         required
       />
+      {showTags ? (
+        <TagsField
+          value={form.watch("tags")}
+          onChange={(tags) => form.setValue("tags", tags)}
+        />
+      ) : (
+        <a
+          href="#"
+          className="badge badge-light badge-pill mr-3 mb-3"
+          onClick={(e) => {
+            e.preventDefault();
+            setShowTags(true);
+          }}
+        >
+          + tags
+        </a>
+      )}
+
+      {showDescription ? (
+        <div className="form-group">
+          <label>Description</label>
+          <MarkdownInput
+            value={form.watch("description")}
+            setValue={(value) => form.setValue("description", value)}
+            autofocus={!existing?.description?.length}
+          />
+        </div>
+      ) : (
+        <a
+          href="#"
+          className="badge badge-light badge-pill mb-3"
+          onClick={(e) => {
+            e.preventDefault();
+            setShowDescription(true);
+          }}
+        >
+          + description
+        </a>
+      )}
       {!existing && (
         <SelectField
           label="Data Source"
@@ -356,8 +408,8 @@ export default function FactMetricModal({
                       experiment who are in a specific fact table.
                     </div>
                     <div className="mb-2">
-                      <strong>Average</strong> metrics calculate the average
-                      value of a numeric column in a fact table.
+                      <strong>Mean</strong> metrics calculate the average value
+                      of a numeric column in a fact table.
                     </div>
                     <div>
                       <strong>Ratio</strong> metrics allow you to calculate a
@@ -398,7 +450,7 @@ export default function FactMetricModal({
                     form.setValue("metricType", "mean");
                   }}
                 >
-                  Average
+                  Mean
                 </button>
                 <button
                   type="button"

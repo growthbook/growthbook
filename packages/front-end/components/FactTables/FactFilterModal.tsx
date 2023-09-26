@@ -111,24 +111,29 @@ export default function FactFilterModal({ existing, factTable, close }: Props) {
       <div className="mt-4 alert alert-info">
         <div className="mb-2">Here are some examples of Filter SQL:</div>
         <table className="table gbtable">
-          <tr>
-            <td>
-              <InlineCode code={`status = 'active'`} language="sql" />
-            </td>
-          </tr>
-          <tr>
-            <td>
-              <InlineCode
-                code={`discount > 0 AND coupon IS NOT NULL`}
-                language="sql"
-              />
-            </td>
-          </tr>
-          <tr>
-            <td>
-              <InlineCode code={`country IN ('US','CA','UK')`} language="sql" />
-            </td>
-          </tr>
+          <tbody>
+            <tr>
+              <td>
+                <InlineCode code={`status = 'active'`} language="sql" />
+              </td>
+            </tr>
+            <tr>
+              <td>
+                <InlineCode
+                  code={`discount > 0 AND coupon IS NOT NULL`}
+                  language="sql"
+                />
+              </td>
+            </tr>
+            <tr>
+              <td>
+                <InlineCode
+                  code={`country IN ('US','CA','UK')`}
+                  language="sql"
+                />
+              </td>
+            </tr>
+          </tbody>
         </table>
       </div>
     </Modal>

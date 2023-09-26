@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import Markdown from "@/components/Markdown/Markdown";
-import { GBAddCircle, GBEdit } from "@/components/Icons";
+import { GBEdit } from "@/components/Icons";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import { useAuth } from "@/services/auth";
@@ -19,6 +19,7 @@ import PageHead from "@/components/Layout/PageHead";
 import EditTagsForm from "@/components/Tags/EditTagsForm";
 import SortedTags from "@/components/Tags/SortedTags";
 import FactMetricModal from "@/components/FactTables/FactMetricModal";
+import FactMetricList from "@/components/FactTables/FactMetricList";
 
 export default function FactTablePage() {
   const router = useRouter();
@@ -252,18 +253,11 @@ export default function FactTablePage() {
         <h3>Metrics</h3>
         <div className="mb-1">
           Metrics are built on top of Facts and Filters. These are what you use
-          as Goals and Guardrails in experiments.
+          as Goals and Guardrails in experiments. This only lists metrics tied
+          to this Fact Table. <Link href="/metrics">View all Metrics</Link>
         </div>
         <div className="appbox p-3">
-          <button
-            className="btn btn-primary"
-            onClick={(e) => {
-              e.preventDefault();
-              setMetricOpen(true);
-            }}
-          >
-            <GBAddCircle /> Add Metric
-          </button>
+          <FactMetricList factTable={factTable} />
         </div>
       </div>
     </div>

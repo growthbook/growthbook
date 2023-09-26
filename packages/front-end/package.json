@@ -18,6 +18,7 @@
   "dependencies": {
     "@dnd-kit/core": "^4.0.3",
     "@dnd-kit/sortable": "^5.1.0",
+    "@floating-ui/react": "^0.25.4",
     "@growthbook/growthbook-react": "^0.18.0",
     "@jitsu/sdk-js": "^2.2.0",
     "@jukben/emoji-search": "^2.0.1",
