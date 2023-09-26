@@ -10,6 +10,8 @@ import Carousel from "../Carousel";
 import ScreenshotUpload from "../EditExperiment/ScreenshotUpload";
 import AuthorizedImage from "../AuthorizedImage";
 
+const imageCache = {};
+
 const ScreenshotCarousel: FC<{
   index: number;
   variation: Variation;
@@ -57,6 +59,7 @@ const ScreenshotCarousel: FC<{
       {variation.screenshots.map((s) =>
         s.path.startsWith(getApiHost()) ? (
           <AuthorizedImage
+            imageCache={imageCache}
             className="experiment-image"
             imagePath={s.path}
             key={s.path}

@@ -4,12 +4,14 @@ import { useAuth } from "@/services/auth";
 import LoadingSpinner from "./LoadingSpinner";
 
 interface AuthorizedImageProps {
+  imageCache: Record<string, string>;
   imagePath: string;
   className?: string;
   style?: CSSProperties;
 }
 
 const AuthorizedImage: FC<AuthorizedImageProps> = ({
+  imageCache,
   imagePath,
   className,
   style,
@@ -24,13 +26,18 @@ const AuthorizedImage: FC<AuthorizedImageProps> = ({
       try {
         const imageData: Blob = await apiCall(new URL(imagePath).pathname);
         const imageUrl = URL.createObjectURL(imageData);
+        imageCache[imagePath] = imageUrl;
         setImageSrc(imageUrl);
       } catch (error) {
         setError(error.message);
       }
     };
-    fetchData();
-  }, [imagePath, apiCall]);
+    if (imageCache[imagePath]) {
+      setImageSrc(imageCache[imagePath]);
+    } else {
+      fetchData();
+    }
+  }, [imagePath, imageCache, apiCall]);
 
   if (error) {
     return (
