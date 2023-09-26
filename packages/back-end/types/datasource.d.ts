@@ -152,6 +152,12 @@ export type DataSourceEvents = {
   extraUserIdProperty?: string;
 };
 
+export type DataSourcePipelineSettings = {
+  allowWriting?: boolean;
+  writeDataset?: string;
+  unitsTableRetentionHours?: number;
+};
+
 export type DataSourceSettings = {
   // @deprecated
   experimentDimensions?: string[];
@@ -191,11 +197,7 @@ export type DataSourceSettings = {
     anonymousIdColumn?: string;
     userIdColumn?: string;
   };
-  pipelineSettings?: {
-    allowWriting?: boolean;
-    writeDataset?: string;
-    unitsTableRetentionHours?: number;
-  };
+  pipelineSettings?: DataSourcePipelineSettings;
 };
 
 interface DataSourceBase {

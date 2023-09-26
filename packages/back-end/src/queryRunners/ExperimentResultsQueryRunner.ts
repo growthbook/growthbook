@@ -1,3 +1,4 @@
+import { orgHasPremiumFeature } from "enterprise";
 import {
   ExperimentSnapshotAnalysis,
   ExperimentSnapshotAnalysisSettings,
@@ -18,6 +19,7 @@ import { analyzeExperimentResults } from "../services/stats";
 import {
   Dimension,
   ExperimentAggregateUnitsQueryResponseRows,
+  ExperimentDimension,
   ExperimentMetricQueryParams,
   ExperimentMetricStats,
   ExperimentQueryResponses,
@@ -27,6 +29,7 @@ import {
   UserDimension,
 } from "../types/Integration";
 import { expandDenominatorMetrics } from "../util/sql";
+import { getOrganizationById } from "../services/organizations";
 import {
   QueryRunner,
   QueryMap,
@@ -61,6 +64,11 @@ export const startExperimentResultQueries = async (
   const queryParentId = params.queryParentId;
   const metricMap = params.metricMap;
 
+  const org = await getOrganizationById(organization);
+  const hasPipelineModeFeature = org
+    ? orgHasPremiumFeature(org, "pipeline-mode")
+    : false;
+
   const activationMetric = snapshotSettings.activationMetric
     ? metricMap.get(snapshotSettings.activationMetric) ?? null
     : null;
@@ -83,19 +91,15 @@ export const startExperimentResultQueries = async (
   }
 
   const exposureQuery = (integration.settings?.queries?.exposure || []).find((q) => q.id === snapshotSettings.exposureQueryId);
-  let availableUnitDimensions: Dimension[] = [];
+  let availableExperimentDimensions: ExperimentDimension[] = [];
   // Add experiment dimensions based on the selected exposure query
   if (exposureQuery) {
     if (exposureQuery.dimensions.length > 0) {
       exposureQuery.dimensions.map(async (d) => {
-        const dim = await findDimensionById(d, organization);
-        if (dim) {
-          availableUnitDimensions.push({
-            type: "user",
-            dimension: dim,
-          });
-
-        }
+        availableExperimentDimensions.push({
+          type: "experiment",
+          id: d,
+        });
       });
     }
   }
@@ -110,7 +114,8 @@ export const startExperimentResultQueries = async (
   const useUnitsTable =
     (integration.getSourceProperties().supportsWritingTables &&
       integration.settings.pipelineSettings?.allowWriting &&
-      !!integration.settings.pipelineSettings?.writeDataset) ??
+      !!integration.settings.pipelineSettings?.writeDataset &&
+      hasPipelineModeFeature) ??
     false;
   let unitQuery: QueryPointer | null = null;
   const unitsTableFullName = `${integration.settings.pipelineSettings?.writeDataset}.growthbook_tmp_units_${queryParentId}`;
@@ -118,7 +123,7 @@ export const startExperimentResultQueries = async (
   if (useUnitsTable) {
     const unitQueryParams: ExperimentUnitsQueryParams = {
       activationMetric: activationMetric,
-      dimensions: dimensionObj ? [dimensionObj] : availableUnitDimensions,
+      dimensions: dimensionObj ? [dimensionObj] : availableExperimentDimensions,
       segment: segmentObj,
       settings: snapshotSettings,
       unitsTableFullName: unitsTableFullName,
@@ -168,7 +173,7 @@ export const startExperimentResultQueries = async (
   if (!dimensionObj) {
     const unitQueryParams: ExperimentUnitsQueryParams = {
       activationMetric: activationMetric,
-      dimensions: dimensionObj ? [dimensionObj] : availableUnitDimensions,
+      dimensions: dimensionObj ? [dimensionObj] : availableExperimentDimensions,
       segment: segmentObj,
       settings: snapshotSettings,
       unitsTableFullName: unitsTableFullName,

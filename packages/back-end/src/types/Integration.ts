@@ -221,9 +221,10 @@ export type ExperimentMetricQueryResponseRows = {
 
 export type ExperimentAggregateUnitsQueryResponseProcessedRow = {
   variation: string;
-  units: number;
   exposureDate: string;
-  dimensions: Record<string, string>;
+  activated: string | null;
+  dimensions: { [key: string]: string };
+  units: number;
 };
 
 export type ExperimentAggregateUnitsQueryResponseProcessedRows = ExperimentAggregateUnitsQueryResponseProcessedRow[];
