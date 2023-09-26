@@ -118,16 +118,22 @@ export default function AssignmentTester({ feature }: Props) {
             matchedRuleName = "None - Returned Default Value";
           }
           if (tr?.log) {
-            tr.log.forEach((log) => {
+            tr.log.forEach((log, n) => {
               const reason = log[0];
               if (reason === "Skip rule because of condition") {
                 debugLog.push(
-                  `Skipped because user did not match the rule conditions`
+                  `Rule ${
+                    n + 1
+                  }: Skipped because user did not match the rule conditions`
                 );
               } else if (reason === "In experiment") {
-                debugLog.push(`Included user in experiment rule`);
+                debugLog.push(
+                  `Rule ${n + 1}: Included user in experiment rule`
+                );
+              } else if (reason === "Use default value") {
+                debugLog.push(`No rules matched, using default value`);
               } else {
-                debugLog.push(`${log[0]}`);
+                debugLog.push(`Rule ${n + 1}: ${log[0]}`);
               }
             });
           }
@@ -195,13 +201,16 @@ export default function AssignmentTester({ feature }: Props) {
                     </div>
                     {expandResults.includes(i) && (
                       <div className="p-3">
-                        {tr?.log && (
-                          <div className="">
+                        {debugLog && (
+                          <div className="mb-3">
                             <h5>Log</h5>
-                            <Code
-                              language="json"
-                              code={JSON.stringify(debugLog, null, 2)}
-                            />
+                            <div className="bg-white border border-light rounded p-3">
+                              {debugLog.map((log, i) => (
+                                <div className="row my-2" key={i}>
+                                  <div className="col">{log}</div>
+                                </div>
+                              ))}
+                            </div>
                           </div>
                         )}
                         {tr?.result?.experimentResult && (
