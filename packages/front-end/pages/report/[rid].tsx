@@ -121,6 +121,18 @@ export default function ReportPage() {
     },
   });
 
+  useEffect(() => {
+    if (data?.report) {
+      const newVal = {
+        ...form.getValues(),
+        title: data?.report.title,
+        description: data?.report.description,
+        status: data?.report?.status ? data.report.status : "private",
+      };
+      form.reset(newVal);
+    }
+  }, [data?.report]);
+
   const changeDimension = (newDimension: string) => {
     setDimension(newDimension);
     if (report && report?.args?.dimension !== newDimension) {
