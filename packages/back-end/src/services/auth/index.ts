@@ -22,6 +22,7 @@ import {
   EventAuditUserLoggedIn,
 } from "../../events/event-types";
 import { insertAudit } from "../../models/AuditModel";
+import { getTeamsForOrganization } from "../../models/TeamModel";
 import { AuthConnection } from "./AuthConnection";
 import { OpenIdAuthConnection } from "./OpenIdAuthConnection";
 import { LocalAuthConnection } from "./LocalAuthConnection";
@@ -92,10 +93,13 @@ export async function processJWT(
       return false;
     }
 
+    const teams = await getTeamsForOrganization(req.organization.id);
+
     // Generate full list of permissions for the user
-    const userPermissions = await getUserPermissions(
+    const userPermissions = getUserPermissions(
       req.userId,
-      req.organization
+      req.organization,
+      teams
     );
 
     // Check if the user has the permission
