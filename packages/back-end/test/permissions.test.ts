@@ -1,6 +1,5 @@
 import { getUserPermissions } from "../src/util/organization.util";
 import { OrganizationInterface } from "../types/organization";
-import { findTeamById } from "../src/models/TeamModel";
 import { TeamInterface } from "../types/team";
 
 describe("Build base user permissions", () => {
