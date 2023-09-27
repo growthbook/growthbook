@@ -267,7 +267,7 @@ export default function FactMetricPage() {
           </div>
         )}
       </div>
-      <div className="row mb-3">
+      <div className="row mb-4">
         {projects.length > 0 ? (
           <div className="col-auto">
             Projects:{" "}
@@ -316,8 +316,7 @@ export default function FactMetricPage() {
 
       <div className="row">
         <div className="col-12 col-md-8">
-          <h3>Description</h3>
-          <div className="appbox p-3 mb-3">
+          <div className="appbox p-3 mb-5">
             <MarkdownInlineEdit
               canCreate={canEdit}
               canEdit={canEdit}
@@ -334,7 +333,7 @@ export default function FactMetricPage() {
             />
           </div>
 
-          <div className="mb-4">
+          <div className="mb-5">
             <h3>Metric Definition</h3>
             <div className="mb-2">
               <MetricType type={factMetric.metricType} />

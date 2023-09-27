@@ -3,19 +3,17 @@ import {
   FactTableInterface,
 } from "back-end/types/fact-table";
 import { useState } from "react";
-import { date } from "shared/dates";
 import Link from "next/link";
-import { FaExternalLinkAlt } from "react-icons/fa";
-import { useAuth } from "@/services/auth";
+import { FaAngleRight, FaExternalLinkAlt } from "react-icons/fa";
+import { date } from "shared/dates";
+import { useRouter } from "next/router";
 import { useSearch } from "@/services/search";
 import usePermissions from "@/hooks/usePermissions";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import { FactSQL } from "@/pages/fact-metrics/[fmid]";
 import Field from "../Forms/Field";
 import Tooltip from "../Tooltip/Tooltip";
 import { GBAddCircle } from "../Icons";
-import MoreMenu from "../Dropdown/MoreMenu";
-import DeleteButton from "../DeleteButton/DeleteButton";
+import SortedTags from "../Tags/SortedTags";
 import FactMetricModal from "./FactMetricModal";
 
 export interface Props {
@@ -37,9 +35,9 @@ export default function FactMetricList({ factTable }: Props) {
   const [editOpen, setEditOpen] = useState("");
   const [newOpen, setNewOpen] = useState(false);
 
-  const { mutateDefinitions, factMetrics } = useDefinitions();
+  const router = useRouter();
 
-  const { apiCall } = useAuth();
+  const { factMetrics } = useDefinitions();
 
   const permissions = usePermissions();
 
@@ -73,7 +71,7 @@ export default function FactMetricList({ factTable }: Props) {
 
       <div className="row align-items-center">
         {metrics.length > 0 && (
-          <div className="col-lg-3 col-md-4 col-6 mr-auto">
+          <div className="col-auto mr-auto">
             <Field
               placeholder="Search..."
               type="search"
@@ -105,20 +103,25 @@ export default function FactMetricList({ factTable }: Props) {
       </div>
       {metrics.length > 0 && (
         <>
-          <table className="table appbox gbtable mt-2 mb-0">
+          <table className="table appbox gbtable mt-2 mb-0 table-hover">
             <thead>
-              <tr>
+              <tr className="cursor-pointer">
                 <SortableTH field="name">Name</SortableTH>
                 <SortableTH field="metricType">Type</SortableTH>
-                <th>Value</th>
-                <th>Denominator</th>
+                <SortableTH field="tags">Tags</SortableTH>
                 <SortableTH field="dateUpdated">Last Updated</SortableTH>
-                <th></th>
+                <th style={{ width: 30 }} />
               </tr>
             </thead>
             <tbody>
               {items.map((metric) => (
-                <tr key={metric.id}>
+                <tr
+                  key={metric.id}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    router.push(`/fact-metrics/${metric.id}`);
+                  }}
+                >
                   <td>
                     <Link href={`/fact-metrics/${metric.id}`}>
                       <a className="font-weight-bold" title="View Metric">
@@ -128,57 +131,17 @@ export default function FactMetricList({ factTable }: Props) {
                   </td>
                   <td>{metric.metricType}</td>
                   <td>
-                    <FactSQL
-                      fact={metric.numerator}
-                      isProportion={metric.metricType === "proportion"}
-                      showFrom={metric.numerator.factTableId !== factTable.id}
-                    />
-                  </td>
-                  <td>
-                    {metric.metricType === "ratio" && metric.denominator ? (
-                      <FactSQL
-                        fact={metric.denominator}
-                        showFrom={
-                          metric.denominator.factTableId !== factTable.id
-                        }
-                      />
-                    ) : (
-                      <em>All Experiment Users</em>
-                    )}
+                    <SortedTags tags={metric.tags} />
                   </td>
                   <td>{date(metric.dateUpdated)}</td>
                   <td>
-                    {canEdit && (
-                      <MoreMenu>
-                        <button
-                          className="dropdown-item"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            setEditOpen(metric.id);
-                          }}
-                        >
-                          Edit
-                        </button>
-                        <DeleteButton
-                          displayName="Fact"
-                          className="dropdown-item"
-                          useIcon={false}
-                          text="Delete"
-                          onClick={async () => {
-                            await apiCall(`/fact-metrics/${metric.id}`, {
-                              method: "DELETE",
-                            });
-                            mutateDefinitions();
-                          }}
-                        />
-                      </MoreMenu>
-                    )}
+                    <FaAngleRight />
                   </td>
                 </tr>
               ))}
               {!items.length && isFiltered && (
                 <tr>
-                  <td colSpan={8} align={"center"}>
+                  <td colSpan={5} align={"center"}>
                     No matching metrics.{" "}
                     <a
                       href="#"

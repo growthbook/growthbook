@@ -1,6 +1,5 @@
 import { FactTableInterface } from "back-end/types/fact-table";
 import { useState } from "react";
-import { date } from "shared/dates";
 import { useAuth } from "@/services/auth";
 import { useSearch } from "@/services/search";
 import usePermissions from "@/hooks/usePermissions";
@@ -57,7 +56,7 @@ export default function FactFilterList({ factTable }: Props) {
 
       <div className="row align-items-center">
         {factTable.filters.length > 0 && (
-          <div className="col-lg-3 col-md-4 col-6 mr-auto">
+          <div className="col-auto mr-auto">
             <Field
               placeholder="Search..."
               type="search"
@@ -92,7 +91,6 @@ export default function FactFilterList({ factTable }: Props) {
               <tr>
                 <SortableTH field="name">Name</SortableTH>
                 <SortableTH field="value">Filter SQL</SortableTH>
-                <SortableTH field="dateUpdated">Last Updated</SortableTH>
                 <th></th>
               </tr>
             </thead>
@@ -103,7 +101,6 @@ export default function FactFilterList({ factTable }: Props) {
                   <td>
                     <InlineCode language="sql" code={filter.value} />
                   </td>
-                  <td>{date(filter.dateUpdated)}</td>
                   <td>
                     {canEdit && (
                       <MoreMenu>
@@ -138,7 +135,7 @@ export default function FactFilterList({ factTable }: Props) {
               ))}
               {!items.length && isFiltered && (
                 <tr>
-                  <td colSpan={8} align={"center"}>
+                  <td colSpan={3} align={"center"}>
                     No matching filters.{" "}
                     <a
                       href="#"
