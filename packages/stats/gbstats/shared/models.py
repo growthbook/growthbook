@@ -16,7 +16,7 @@ class Statistic(ABC):
 
     @property
     def stddev(self):
-        return 0 if self.variance == 0 else np.sqrt(self.variance)
+        return 0 if self.variance <= 0 else np.sqrt(self.variance)
 
     @property
     @abstractmethod

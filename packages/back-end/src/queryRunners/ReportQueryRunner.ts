@@ -41,6 +41,7 @@ export class ReportQueryRunner extends QueryRunner<
       analysisSettings,
       snapshotSettings,
       variationNames: this.model.args.variations.map((v) => v.name),
+      queryParentId: this.model.id,
     };
 
     return startExperimentResultQueries(

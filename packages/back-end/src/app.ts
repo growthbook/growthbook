@@ -14,7 +14,6 @@ import {
   EXPRESS_TRUST_PROXY_OPTS,
   IS_CLOUD,
   SENTRY_DSN,
-  UPLOAD_METHOD,
 } from "./util/secrets";
 import {
   getExperimentConfig,
@@ -82,7 +81,7 @@ import { getBuild } from "./util/handler";
 import { getCustomLogProps, httpLogger } from "./util/logger";
 import { usersRouter } from "./routers/users/users.router";
 import { organizationsRouter } from "./routers/organizations/organizations.router";
-import { uploadsRouter } from "./routers/upload/upload.router";
+import { putUploadRouter } from "./routers/upload/put-upload.router";
 import { eventsRouter } from "./routers/events/events.router";
 import { eventWebHooksRouter } from "./routers/event-webhooks/event-webhooks.router";
 import { tagRouter } from "./routers/tag/tag.router";
@@ -98,6 +97,7 @@ import { dataExportRouter } from "./routers/data-export/data-export.router";
 import { demoDatasourceProjectRouter } from "./routers/demo-datasource-project/demo-datasource-project.router";
 import { environmentRouter } from "./routers/environment/environment.router";
 import { teamRouter } from "./routers/teams/teams.router";
+import { staticFilesRouter } from "./routers/upload/static-files.router";
 
 const app = express();
 
@@ -262,11 +262,7 @@ app.post("/auth/refresh", authController.postRefresh);
 app.post("/auth/logout", authController.postLogout);
 app.get("/auth/hasorgs", authController.getHasOrganizations);
 
-// File uploads don't require auth tokens.
-// Upload urls are signed and image access is public.
-if (UPLOAD_METHOD === "local") {
-  app.use("/upload", uploadsRouter);
-}
+app.use("/upload", staticFilesRouter);
 
 // All other routes require a valid JWT
 const auth = getAuthConnection();
@@ -566,7 +562,7 @@ app.delete(
   discussionsController.deleteComment
 );
 app.get("/discussions/recent/:num", discussionsController.getRecentDiscussions);
-app.post("/file/upload/:filetype", discussionsController.postImageUploadUrl);
+app.use("/putupload", putUploadRouter);
 
 // Teams
 app.use("/teams", teamRouter);
