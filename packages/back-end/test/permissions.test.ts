@@ -1900,21 +1900,6 @@ describe("Build base user permissions", () => {
   });
 
   it("should correctly merge environment limits for a user's project-level role and a team's project-level role", async () => {
-    (findTeamById as jest.Mock).mockResolvedValue({
-      id: "team_experimenter",
-      role: "experimenter",
-      limitAccessByEnvironment: true,
-      environments: ["staging", "development"],
-      projectRoles: [
-        {
-          project: "prj_exl5jr5dl4rbw856",
-          role: "engineer",
-          limitAccessByEnvironment: true,
-          environments: ["production", "staging"],
-        },
-      ],
-    });
-
     const teams: TeamInterface[] = [
       {
         id: "team_123",

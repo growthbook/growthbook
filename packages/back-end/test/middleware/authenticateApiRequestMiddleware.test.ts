@@ -80,17 +80,18 @@ describe("REST API auth middleware", () => {
       description: "My user key created in the REPL",
     };
 
-    it("should allow anything for the full-access API keys", async () => {
+    it("should allow anything for the full-access API keys", () => {
       const permission: Permission = "createMetrics";
       const project = "prj_abc123";
       const environments = ["production"];
 
-      await verifyApiKeyPermission({
+      verifyApiKeyPermission({
         apiKey: secretFullAccessKey,
         permission,
         organization,
         environments,
         project,
+        teams: [],
       });
     });
 
@@ -99,15 +100,16 @@ describe("REST API auth middleware", () => {
       const project = undefined;
       const environments = undefined;
 
-      expect(async () => {
-        await verifyApiKeyPermission({
+      expect(() => {
+        verifyApiKeyPermission({
           apiKey: readOnlyKey,
           permission,
           organization,
           environments,
           project,
+          teams: [],
         });
-      }).rejects.toThrowError();
+      }).toThrowError();
     });
 
     it("should throw an error for user API keys where the user does not have access to the environment", () => {
@@ -115,8 +117,8 @@ describe("REST API auth middleware", () => {
       const project = undefined;
       const environments = ["production"];
 
-      expect(async () => {
-        await verifyApiKeyPermission({
+      expect(() => {
+        verifyApiKeyPermission({
           apiKey: {
             ...userKey,
             userId: "u_anotheruser456",
@@ -125,35 +127,38 @@ describe("REST API auth middleware", () => {
           organization,
           environments,
           project,
+          teams: [],
         });
-      }).rejects.toThrowError();
+      }).toThrowError();
     });
 
-    it("should allow keys with the right level of environment access", async () => {
+    it("should allow keys with the right level of environment access", () => {
       const permission: Permission = "createMetrics";
       const project = undefined;
       const environments = ["production"];
 
-      await verifyApiKeyPermission({
+      verifyApiKeyPermission({
         apiKey: userKey,
         permission,
         organization,
         environments,
         project,
+        teams: [],
       });
     });
 
-    it("should allow keys with the right level of environment access when multiple envs are passed in", async () => {
+    it("should allow keys with the right level of environment access when multiple envs are passed in", () => {
       const permission: Permission = "createMetrics";
       const project = undefined;
       const environments = ["production", "staging"];
 
-      await verifyApiKeyPermission({
+      verifyApiKeyPermission({
         apiKey: userKey,
         permission,
         organization,
         environments,
         project,
+        teams: [],
       });
     });
 
@@ -162,8 +167,8 @@ describe("REST API auth middleware", () => {
       const project = "prj_xyz987";
       const environments = ["production"];
 
-      expect(async () => {
-        await verifyApiKeyPermission({
+      expect(() => {
+        verifyApiKeyPermission({
           apiKey: {
             ...userKey,
             userId: "u_anotheruser456",
@@ -172,8 +177,9 @@ describe("REST API auth middleware", () => {
           organization,
           environments,
           project,
+          teams: [],
         });
-      }).rejects.toThrowError();
+      }).toThrowError();
     });
 
     it("should throw an error for user API keys when the user doesn't access to all environments passed in", () => {
@@ -181,8 +187,8 @@ describe("REST API auth middleware", () => {
       const project = undefined;
       const environments = ["production", "staging"];
 
-      expect(async () => {
-        await verifyApiKeyPermission({
+      expect(() => {
+        verifyApiKeyPermission({
           apiKey: {
             ...userKey,
             userId: "u_anotheruser456",
@@ -191,8 +197,9 @@ describe("REST API auth middleware", () => {
           organization,
           environments,
           project,
+          teams: [],
         });
-      }).rejects.toThrowError();
+      }).toThrowError();
     });
   });
 });

@@ -18,6 +18,7 @@ import {
 import { ApiKeyInterface } from "../../types/apikey";
 import { insertAudit } from "../models/AuditModel";
 import { getTeamsForOrganization } from "../models/TeamModel";
+import { TeamInterface } from "../../types/team";
 
 export default function authenticateApiRequestMiddleware(
   req: Request & ApiRequestLocals,
@@ -81,6 +82,8 @@ export default function authenticateApiRequestMiddleware(
         throw new Error("Could not find user attached to this API key");
       }
 
+      const teams = await getTeamsForOrganization(org.id);
+
       // Check permissions for user API keys
       req.checkPermissions = (
         permission: Permission,
@@ -101,6 +104,7 @@ export default function authenticateApiRequestMiddleware(
             organization: org,
             project: p,
             environments: envs ? [...envs] : undefined,
+            teams,
           });
         }
       };
@@ -136,20 +140,19 @@ export default function authenticateApiRequestMiddleware(
     });
 }
 
-async function doesUserHavePermission(
+function doesUserHavePermission(
   org: OrganizationInterface,
   permission: Permission,
   apiKeyPartial: Partial<ApiKeyInterface>,
+  teams: TeamInterface[],
   project?: string,
   envs?: string[]
-): Promise<boolean> {
+): boolean {
   try {
     const userId = apiKeyPartial.userId;
     if (!userId) {
       return false;
     }
-
-    const teams = await getTeamsForOrganization(org.id);
 
     // Generate full list of permissions for the user
     const userPermissions = getUserPermissions(userId, org, teams);
@@ -167,6 +170,7 @@ type VerifyApiKeyPermissionOptions = {
   organization: OrganizationInterface;
   project?: string;
   environments?: string[];
+  teams: TeamInterface[];
 };
 
 /**
@@ -176,18 +180,20 @@ type VerifyApiKeyPermissionOptions = {
  * @param project
  * @throws an error if there are no permissions
  */
-export async function verifyApiKeyPermission({
+export function verifyApiKeyPermission({
   apiKey,
   permission,
   organization,
   environments,
   project,
+  teams,
 }: VerifyApiKeyPermissionOptions) {
   if (apiKey.userId) {
-    const userHasPermission = await doesUserHavePermission(
+    const userHasPermission = doesUserHavePermission(
       organization,
       permission,
       apiKey,
+      teams,
       project,
       environments
     );
