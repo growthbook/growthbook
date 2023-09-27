@@ -94,6 +94,19 @@ export class GrowthBook<
     this._activeAutoExperiments = new Map();
     this._loadFeaturesCalled = false;
 
+    if (context.remoteEval) {
+      if (!context.cacheKeyAttributes) {
+        throw new Error("Missing cacheKeyAttributes");
+      }
+      if (context.decryptionKey) {
+        throw new Error("Encryption is not available for remoteEval");
+      }
+    } else {
+      if (context.cacheKeyAttributes) {
+        throw new Error("cacheKeyAttributes are only used for remoteEval");
+      }
+    }
+
     if (context.features) {
       this.ready = true;
     }
@@ -139,7 +152,6 @@ export class GrowthBook<
   public getApiHosts(): {
     apiHost: string;
     streamingHost: string;
-    remoteEvalHost: string;
     apiRequestHeaders?: Record<string, string>;
     streamingRequestHeaders?: Record<string, string>;
     remoteEvalRequestHeaders?: Record<string, string>;
@@ -151,11 +163,6 @@ export class GrowthBook<
         /\/*$/,
         ""
       ),
-      remoteEvalHost: (
-        this._ctx.remoteEvalHost ||
-        this._ctx.apiHost ||
-        ""
-      ).replace(/\/*$/, ""),
       apiRequestHeaders: this._ctx.apiRequestHeaders,
     };
   }
@@ -167,8 +174,8 @@ export class GrowthBook<
     return this._ctx.remoteEval || false;
   }
 
-  public getCriticalAttributes(): (keyof Attributes)[] {
-    return this._ctx.criticalAttributes || [];
+  public getCacheKeyAttributes(): (keyof Attributes)[] {
+    return this._ctx.cacheKeyAttributes || [];
   }
 
   private async _refresh(

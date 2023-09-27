@@ -162,7 +162,7 @@ const sdkPayloadUpdated = {
 };
 
 describe("remote-eval", () => {
-  it("debounces network requests for same clientKey and criticalAttributes", async () => {
+  it("debounces network requests for same clientKey and cacheKeyAttributes", async () => {
     await clearCache();
     const [f, cleanup] = mockApi(sdkPayload);
 
@@ -171,7 +171,7 @@ describe("remote-eval", () => {
       apiHost: "https://fakeapi.sample.io",
       clientKey: "qwerty1234",
       remoteEval: true,
-      criticalAttributes: ["uid"],
+      cacheKeyAttributes: ["uid"],
       attributes: { uid: "5" },
     });
 
@@ -180,7 +180,7 @@ describe("remote-eval", () => {
       apiHost: "https://fakeapi.sample.io",
       clientKey: "qwerty1234",
       remoteEval: true,
-      criticalAttributes: ["uid"],
+      cacheKeyAttributes: ["uid"],
       attributes: { uid: "5" },
     });
 
@@ -189,7 +189,7 @@ describe("remote-eval", () => {
       apiHost: "https://fakeapi.sample.io",
       clientKey: "qwerty1234",
       remoteEval: true,
-      criticalAttributes: ["uid"],
+      cacheKeyAttributes: ["uid"],
       attributes: { uid: "1" },
     });
 
@@ -198,7 +198,7 @@ describe("remote-eval", () => {
       apiHost: "https://fakeapi.sample.io",
       clientKey: "asdfjkl",
       remoteEval: true,
-      criticalAttributes: ["uid"],
+      cacheKeyAttributes: ["uid"],
       attributes: { uid: "5" },
     });
 
@@ -207,7 +207,7 @@ describe("remote-eval", () => {
       apiHost: "https://fakeapi.sample.io",
       clientKey: "qwerty1234",
       remoteEval: true,
-      criticalAttributes: [],
+      cacheKeyAttributes: [],
       attributes: { uid: "5" },
     });
 
@@ -237,7 +237,7 @@ describe("remote-eval", () => {
       apiHost: "https://fakeapi.sample.io",
       clientKey: "qwerty1234",
       remoteEval: true,
-      criticalAttributes: ["uid"],
+      cacheKeyAttributes: ["uid"],
     });
 
     expect(f.mock.calls.length).toEqual(0);
@@ -273,7 +273,7 @@ describe("remote-eval", () => {
       apiHost: "https://fakeapi.sample.io",
       clientKey: "qwerty1234",
       remoteEval: true,
-      criticalAttributes: ["uid"],
+      cacheKeyAttributes: ["uid"],
     });
 
     // 1
@@ -312,7 +312,7 @@ describe("remote-eval", () => {
       apiHost: "https://fakeapi.sample.io",
       clientKey: "qwerty1234",
       remoteEval: true,
-      criticalAttributes: ["uid"],
+      cacheKeyAttributes: ["uid"],
     });
 
     await growthbook.loadFeatures();
@@ -373,14 +373,14 @@ describe("remote-eval", () => {
       apiHost: "https://fakeapi.sample.io",
       clientKey: "qwerty1234",
       remoteEval: true,
-      criticalAttributes: ["uid"],
+      cacheKeyAttributes: ["uid"],
       subscribeToChanges: true,
       attributes: { uid: "5" },
     });
     const growthbook2 = new GrowthBook({
       apiHost: "https://fakeapi.sample.io",
       clientKey: "qwerty1234",
-      criticalAttributes: ["uid"],
+      cacheKeyAttributes: ["uid"],
       remoteEval: true,
       attributes: { uid: "5" },
     });
@@ -442,7 +442,7 @@ describe("remote-eval", () => {
       clientKey: "qwerty1234",
       remoteEval: true,
       subscribeToChanges: true,
-      criticalAttributes: ["uid"],
+      cacheKeyAttributes: ["uid"],
       attributes: { uid: "5" },
     });
     // Initial value of feature should be null
@@ -525,7 +525,7 @@ describe("remote-eval", () => {
       apiHost: "https://fakeapi2.sample.io",
       clientKey: "qwerty1234",
       remoteEval: true,
-      criticalAttributes: ["uid"],
+      cacheKeyAttributes: ["uid"],
       apiRequestHeaders: { "x-custom-header": "bar" },
     });
 

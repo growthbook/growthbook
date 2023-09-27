@@ -183,9 +183,9 @@ function getCacheKey(instance: GrowthBook): string {
   if (!instance.isRemoteEval()) return baseKey;
 
   const attributes = instance.getAttributes();
-  const criticalAttributes = instance.getCriticalAttributes();
+  const cacheKeyAttributes = instance.getCacheKeyAttributes();
   const ca: Attributes = {};
-  criticalAttributes.sort().forEach((key) => {
+  cacheKeyAttributes.sort().forEach((key) => {
     ca[key] = attributes[key];
   });
 
@@ -273,7 +273,7 @@ function onNewFeatureData(
   // If contents haven't changed, ignore the update, extend the stale TTL
   const version = data.dateUpdated || "";
   const staleAt = new Date(Date.now() + cacheSettings.staleTTL);
-  const existing = cache.get(key);
+  const existing = cache.get(cacheKey);
   if (existing && version && existing.version === version) {
     existing.staleAt = staleAt;
     updatePersistentCache();
@@ -320,25 +320,21 @@ async function refreshInstance(
 async function fetchFeatures(
   instance: GrowthBook
 ): Promise<FeatureApiResponse> {
-  const { apiHost, remoteEvalHost, apiRequestHeaders } = instance.getApiHosts();
+  const { apiHost, apiRequestHeaders } = instance.getApiHosts();
   const clientKey = instance.getClientKey();
   const remoteEval = instance.isRemoteEval();
   const key = getKey(instance);
   const cacheKey = getCacheKey(instance);
 
-  if (remoteEval) {
-    if (!remoteEvalHost) {
-      throw new Error("remoteEvalHost is required");
-    } else if (remoteEvalHost.match(/^https?:\/\/[^.]*\.growthbook\.io.*/)) {
-      throw new Error("cannot use remoteEval on GrowthBook servers");
-    }
+  if (remoteEval && apiHost.match(/^https?:\/\/[^.]*\.growthbook\.io.*/)) {
+    throw new Error("Cannot use remoteEval on GrowthBook servers");
   }
 
   let promise = activeFetches.get(cacheKey);
   if (!promise) {
     const fetcher: Promise<Response> = remoteEval
       ? helpers.fetchRemoteEvalCall({
-          host: remoteEvalHost,
+          host: apiHost,
           clientKey,
           payload: {
             attributes: instance.getAttributes(),

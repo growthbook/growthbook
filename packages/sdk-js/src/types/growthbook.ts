@@ -158,7 +158,7 @@ export interface Context {
   onFeatureUsage?: (key: string, result: FeatureResult<any>) => void;
   realtimeKey?: string;
   realtimeInterval?: number;
-  criticalAttributes?: (keyof Attributes)[];
+  cacheKeyAttributes?: (keyof Attributes)[];
   /* @deprecated */
   user?: {
     id?: string;
@@ -171,7 +171,6 @@ export interface Context {
   groups?: Record<string, boolean>;
   apiHost?: string;
   streamingHost?: string;
-  remoteEvalHost?: string;
   apiRequestHeaders?: Record<string, string>;
   clientKey?: string;
   decryptionKey?: string;
@@ -287,7 +286,7 @@ export type ApiHost = string;
 export type ClientKey = string;
 export type RepositoryKey = string;
 // `${ApiHost}||${ClientKey}` for local eval
-// `${ApiHost}||${ClientKey}||${JSON.stringify(sorted_criticalAttributes)}` for remote eval
+// `${ApiHost}||${ClientKey}||${JSON.stringify(sorted_cacheKeyAttributes)}` for remote eval
 
 export type LoadFeaturesOptions = {
   /**
