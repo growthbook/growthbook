@@ -38,18 +38,16 @@ const AuthorizedImage: FC<AuthorizedImageProps> = ({
     const s3pattern = /^https:\/\/([a-z0-9-]+)\.s3\.amazonaws\.com\/(.*)$/;
 
     if (src.startsWith("https://storage.googleapis.com/")) {
-      // Old images saved in GCS, we saved the GCS URL in the database.
-      // We convert it here to the GB url that acts as a proxy using the correct credentials
-      // So that they can lock their bucket down to only allow access from the proxy.
+      // We convert GCS images to the GB url that acts as a proxy using the correct credentials
+      // This way they can lock their bucket down to only allow access from the proxy.
       const withoutDomain = src.replace("https://storage.googleapis.com/", "");
       const parts = withoutDomain.split("/");
       parts.shift(); // remove bucket name
       const url = getApiHost() + "/upload/" + parts.join("/");
       fetchData(url);
     } else if (s3pattern.test(src)) {
-      // Old images saved in S3, we saved the S3 URL in the database.
-      // We convert it here to the GB url that acts as a proxy using the correct credentials
-      // So that they can lock their bucket down to only allow access from the proxy.
+      // We convert s3 images to the GB url that acts as a proxy using the correct credentials
+      // This way they can lock their bucket down to only allow access from the proxy.
       const match = s3pattern.exec(src);
       if (match) {
         const url = getApiHost() + "/upload/" + match[2];
