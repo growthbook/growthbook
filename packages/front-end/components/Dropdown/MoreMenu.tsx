@@ -39,6 +39,7 @@ const MoreMenu: FC<{
         className="text-dark"
         style={{
           fontSize: "1.5em",
+          lineHeight: "1em",
         }}
         ref={refs.setReference}
         onClick={(e) => {

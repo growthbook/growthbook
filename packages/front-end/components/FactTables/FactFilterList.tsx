@@ -91,17 +91,19 @@ export default function FactFilterList({ factTable }: Props) {
               <tr>
                 <SortableTH field="name">Name</SortableTH>
                 <SortableTH field="value">Filter SQL</SortableTH>
-                <th></th>
+                <th style={{ width: 30 }}></th>
               </tr>
             </thead>
             <tbody>
               {items.map((filter) => (
                 <tr key={filter.id}>
-                  <td>{filter.name}</td>
-                  <td>
-                    <InlineCode language="sql" code={filter.value} />
+                  <td style={{ verticalAlign: "top" }}>{filter.name}</td>
+                  <td style={{ verticalAlign: "top" }}>
+                    <div style={{ marginTop: 2 }}>
+                      <InlineCode language="sql" code={filter.value} />
+                    </div>
                   </td>
-                  <td>
+                  <td style={{ verticalAlign: "top" }}>
                     {canEdit && (
                       <MoreMenu>
                         <button
