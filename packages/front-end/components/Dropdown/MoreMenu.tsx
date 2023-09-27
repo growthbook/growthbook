@@ -22,6 +22,7 @@ const MoreMenu: FC<{
   const { refs, floatingStyles } = useFloating({
     open: open,
     onOpenChange: setOpen,
+    placement: "bottom-end",
     middleware: [
       flip({
         fallbackAxisSideDirection: "start",
