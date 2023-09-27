@@ -189,15 +189,16 @@ export function verifyApiKeyPermission({
   teams,
 }: VerifyApiKeyPermissionOptions) {
   if (apiKey.userId) {
-    const userHasPermission = doesUserHavePermission(
-      organization,
-      permission,
-      apiKey,
-      teams,
-      project,
-      environments
-    );
-    if (!userHasPermission) {
+    if (
+      !doesUserHavePermission(
+        organization,
+        permission,
+        apiKey,
+        teams,
+        project,
+        environments
+      )
+    ) {
       throw new Error("API key user does not have this level of access");
     }
 

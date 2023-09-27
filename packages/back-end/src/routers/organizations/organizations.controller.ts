@@ -618,7 +618,7 @@ export async function getOrganization(req: AuthRequest, res: Response) {
 
   const teams = await getTeamsForOrganization(org.id);
 
-  const currentUserPermissions = getUserPermissions(userId, org, teams);
+  const currentUserPermissions = getUserPermissions(userId, org, teams || []);
 
   return res.status(200).json({
     status: 200,

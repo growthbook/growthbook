@@ -22,6 +22,7 @@ import {
   EventAuditUserLoggedIn,
 } from "../../events/event-types";
 import { insertAudit } from "../../models/AuditModel";
+import { TeamInterface } from "../../../types/team";
 import { getTeamsForOrganization } from "../../models/TeamModel";
 import { AuthConnection } from "./AuthConnection";
 import { OpenIdAuthConnection } from "./OpenIdAuthConnection";
@@ -84,16 +85,17 @@ export async function processJWT(
   req.name = name || "";
   req.verified = verified || false;
 
-  const userHasPermission = async (
+  let teams: TeamInterface[] = [];
+
+  const userHasPermission = (
     permission: Permission,
+    teams: TeamInterface[],
     project?: string,
     envs?: string[]
-  ): Promise<boolean> => {
+  ): boolean => {
     if (!req.organization || !req.userId) {
       return false;
     }
-
-    const teams = await getTeamsForOrganization(req.organization.id);
 
     // Generate full list of permissions for the user
     const userPermissions = getUserPermissions(
@@ -119,7 +121,9 @@ export async function processJWT(
       checkProjects = [project];
     }
     for (const p of checkProjects) {
-      if (!userHasPermission(permission, p, envs ? [...envs] : undefined)) {
+      if (
+        !userHasPermission(permission, teams, p, envs ? [...envs] : undefined)
+      ) {
         throw new Error("You do not have permission to complete that action.");
       }
     }
@@ -155,7 +159,6 @@ export async function processJWT(
         undefined;
 
       if (req.organization) {
-        // Make sure member is part of the organization
         if (
           !req.admin &&
           !req.organization.members.filter((m) => m.id === req.userId).length
@@ -166,6 +169,8 @@ export async function processJWT(
           });
           return;
         }
+
+        teams = await getTeamsForOrganization(req.organization.id);
 
         // Make sure this is a valid login method for the organization
         try {
