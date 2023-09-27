@@ -326,7 +326,10 @@ async function fetchFeatures(
   const key = getKey(instance);
   const cacheKey = getCacheKey(instance);
 
-  if (remoteEval && apiHost.match(/^https?:\/\/[^.]*\.growthbook\.io.*/)) {
+  if (
+    remoteEval &&
+    apiHost.match(/^https?:\/\/(?:[^/.]*\.)*growthbook\.io.*/i)
+  ) {
     throw new Error("Cannot use remoteEval on GrowthBook servers");
   }
 
