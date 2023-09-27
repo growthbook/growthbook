@@ -10,7 +10,7 @@ import {
   UserPermission,
   UserPermissions,
 } from "../../types/organization";
-import { findTeamById } from "../models/TeamModel";
+import { TeamInterface } from "../../types/team";
 
 export const ENV_SCOPED_PERMISSIONS = [
   "publishFeatures",
@@ -190,10 +190,11 @@ function mergeUserAndTeamPermissions(
   }
 }
 
-export async function getUserPermissions(
+export function getUserPermissions(
   userId: string,
-  org: OrganizationInterface
-): Promise<UserPermissions> {
+  org: OrganizationInterface,
+  teams: TeamInterface[]
+): UserPermissions {
   const memberInfo = org.members.find((m) => m.id === userId);
 
   if (!memberInfo) {
@@ -220,7 +221,7 @@ export async function getUserPermissions(
   // If the user is on a team, merge the team permissions into the user permissions
   if (memberInfo.teams) {
     for (const team of memberInfo.teams) {
-      const teamData = await findTeamById(team, org.id);
+      const teamData = teams.find((t) => t.id === team);
       if (teamData) {
         const teamPermissions: UserPermissions = {
           global: {

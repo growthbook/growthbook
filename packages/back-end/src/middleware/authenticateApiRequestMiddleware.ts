@@ -17,6 +17,7 @@ import {
 } from "../util/organization.util";
 import { ApiKeyInterface } from "../../types/apikey";
 import { insertAudit } from "../models/AuditModel";
+import { getTeamsForOrganization } from "../models/TeamModel";
 
 export default function authenticateApiRequestMiddleware(
   req: Request & ApiRequestLocals,
@@ -81,7 +82,7 @@ export default function authenticateApiRequestMiddleware(
       }
 
       // Check permissions for user API keys
-      req.checkPermissions = async (
+      req.checkPermissions = (
         permission: Permission,
         project?: string | (string | undefined)[] | undefined,
         envs?: string[] | Set<string>
@@ -94,7 +95,7 @@ export default function authenticateApiRequestMiddleware(
         }
 
         for (const p of checkProjects) {
-          await verifyApiKeyPermission({
+          verifyApiKeyPermission({
             apiKey: apiKeyPartial,
             permission,
             organization: org,
@@ -148,8 +149,10 @@ async function doesUserHavePermission(
       return false;
     }
 
+    const teams = await getTeamsForOrganization(org.id);
+
     // Generate full list of permissions for the user
-    const userPermissions = await getUserPermissions(userId, org);
+    const userPermissions = getUserPermissions(userId, org, teams);
 
     // Check if the user has the permission
     return hasPermission(userPermissions, permission, project, envs);

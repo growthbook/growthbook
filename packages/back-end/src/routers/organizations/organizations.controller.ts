@@ -104,6 +104,7 @@ import {
   findAuditByEntityParent,
 } from "../../models/AuditModel";
 import { EntityType } from "../../types/Audit";
+import { getTeamsForOrganization } from "../../models/TeamModel";
 
 export async function getDefinitions(req: AuthRequest, res: Response) {
   const { org } = getOrgFromReq(req);
@@ -615,7 +616,9 @@ export async function getOrganization(req: AuthRequest, res: Response) {
 
   const expandedMembers = await expandOrgMembers(members);
 
-  const currentUserPermissions = await getUserPermissions(userId, org);
+  const teams = await getTeamsForOrganization(org.id);
+
+  const currentUserPermissions = getUserPermissions(userId, org, teams);
 
   return res.status(200).json({
     status: 200,

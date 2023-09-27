@@ -1,10 +1,7 @@
 import { getUserPermissions } from "../src/util/organization.util";
 import { OrganizationInterface } from "../types/organization";
 import { findTeamById } from "../src/models/TeamModel";
-
-jest.mock("../src/models/TeamModel", () => ({
-  findTeamById: jest.fn(),
-}));
+import { TeamInterface } from "../types/team";
 
 describe("Build base user permissions", () => {
   const testOrg: OrganizationInterface = {
@@ -28,13 +25,13 @@ describe("Build base user permissions", () => {
   };
   // Basic user permissions - no project-level permissions or teams
   it("should throw error if user isn't in the org", async () => {
-    expect(
-      async () => await getUserPermissions("base_user_not_in_org", testOrg)
+    expect(async () =>
+      getUserPermissions("base_user_not_in_org", testOrg, [])
     ).rejects.toThrow("User is not a member of this organization");
   });
 
   it("should build permissions for a basic readonly user with no project-level permissions or teams correctly", async () => {
-    const userPermissions = await getUserPermissions("base_user_123", testOrg);
+    const userPermissions = getUserPermissions("base_user_123", testOrg, []);
     expect(userPermissions).toEqual({
       global: {
         environments: [],
@@ -76,10 +73,14 @@ describe("Build base user permissions", () => {
   });
 
   it("should build permissions for a basic collaborator user with no project-level permissions or teams correctly", async () => {
-    const userPermissions = await getUserPermissions("base_user_123", {
-      ...testOrg,
-      members: [{ ...testOrg.members[0], role: "collaborator" }],
-    });
+    const userPermissions = getUserPermissions(
+      "base_user_123",
+      {
+        ...testOrg,
+        members: [{ ...testOrg.members[0], role: "collaborator" }],
+      },
+      []
+    );
     expect(userPermissions).toEqual({
       global: {
         environments: [],
@@ -121,10 +122,14 @@ describe("Build base user permissions", () => {
   });
 
   it("shouldbuild permissions for a basic engineer user with no project-level permissions or teams correctly", async () => {
-    const userPermissions = await getUserPermissions("base_user_123", {
-      ...testOrg,
-      members: [{ ...testOrg.members[0], role: "engineer" }],
-    });
+    const userPermissions = getUserPermissions(
+      "base_user_123",
+      {
+        ...testOrg,
+        members: [{ ...testOrg.members[0], role: "engineer" }],
+      },
+      []
+    );
     expect(userPermissions).toEqual({
       global: {
         environments: [],
@@ -166,10 +171,14 @@ describe("Build base user permissions", () => {
   });
 
   it("should build permissions for a basic analyst user with no project-level permissions or teams correctly", async () => {
-    const userPermissions = await getUserPermissions("base_user_123", {
-      ...testOrg,
-      members: [{ ...testOrg.members[0], role: "analyst" }],
-    });
+    const userPermissions = getUserPermissions(
+      "base_user_123",
+      {
+        ...testOrg,
+        members: [{ ...testOrg.members[0], role: "analyst" }],
+      },
+      []
+    );
     expect(userPermissions).toEqual({
       global: {
         environments: [],
@@ -211,10 +220,14 @@ describe("Build base user permissions", () => {
   });
 
   it("should build permissions for a basic experimenter user with no project-level permissions or teams correctly", async () => {
-    const userPermissions = await getUserPermissions("base_user_123", {
-      ...testOrg,
-      members: [{ ...testOrg.members[0], role: "experimenter" }],
-    });
+    const userPermissions = getUserPermissions(
+      "base_user_123",
+      {
+        ...testOrg,
+        members: [{ ...testOrg.members[0], role: "experimenter" }],
+      },
+      []
+    );
     expect(userPermissions).toEqual({
       global: {
         environments: [],
@@ -256,10 +269,14 @@ describe("Build base user permissions", () => {
   });
 
   it("should build permissions for an admin user with no project-level permissions or teams correctly", async () => {
-    const userPermissions = await getUserPermissions("base_user_123", {
-      ...testOrg,
-      members: [{ ...testOrg.members[0], role: "admin" }],
-    });
+    const userPermissions = getUserPermissions(
+      "base_user_123",
+      {
+        ...testOrg,
+        members: [{ ...testOrg.members[0], role: "admin" }],
+      },
+      []
+    );
     expect(userPermissions).toEqual({
       global: {
         environments: [],
@@ -301,22 +318,26 @@ describe("Build base user permissions", () => {
   });
   // Slightly advanced user permissions - project-level permissions, but no teams
   it("should build permissions for a readonly user with a single engineer project-level permission and no teams correctly", async () => {
-    const userPermissions = await getUserPermissions("base_user_123", {
-      ...testOrg,
-      members: [
-        {
-          ...testOrg.members[0],
-          projectRoles: [
-            {
-              project: "prj_exl5jr5dl4rbw856",
-              role: "engineer",
-              limitAccessByEnvironment: false,
-              environments: [],
-            },
-          ],
-        },
-      ],
-    });
+    const userPermissions = getUserPermissions(
+      "base_user_123",
+      {
+        ...testOrg,
+        members: [
+          {
+            ...testOrg.members[0],
+            projectRoles: [
+              {
+                project: "prj_exl5jr5dl4rbw856",
+                role: "engineer",
+                limitAccessByEnvironment: false,
+                environments: [],
+              },
+            ],
+          },
+        ],
+      },
+      []
+    );
 
     expect(userPermissions).toEqual({
       global: {
@@ -395,28 +416,32 @@ describe("Build base user permissions", () => {
   });
 
   it("should build permissions for a readonly user with  multiple project-level permissions and no teams correctly", async () => {
-    const userPermissions = await getUserPermissions("base_user_123", {
-      ...testOrg,
-      members: [
-        {
-          ...testOrg.members[0],
-          projectRoles: [
-            {
-              project: "prj_exl5jr5dl4rbw856",
-              role: "engineer",
-              limitAccessByEnvironment: false,
-              environments: [],
-            },
-            {
-              project: "prj_exl5jr5dl4rbw123",
-              role: "analyst",
-              limitAccessByEnvironment: false,
-              environments: [],
-            },
-          ],
-        },
-      ],
-    });
+    const userPermissions = getUserPermissions(
+      "base_user_123",
+      {
+        ...testOrg,
+        members: [
+          {
+            ...testOrg.members[0],
+            projectRoles: [
+              {
+                project: "prj_exl5jr5dl4rbw856",
+                role: "engineer",
+                limitAccessByEnvironment: false,
+                environments: [],
+              },
+              {
+                project: "prj_exl5jr5dl4rbw123",
+                role: "analyst",
+                limitAccessByEnvironment: false,
+                environments: [],
+              },
+            ],
+          },
+        ],
+      },
+      []
+    );
 
     expect(userPermissions).toEqual({
       global: {
@@ -530,17 +555,21 @@ describe("Build base user permissions", () => {
   });
 
   it("should build permissions for an engineer user with environment specific permissions correctly", async () => {
-    const userPermissions = await getUserPermissions("base_user_123", {
-      ...testOrg,
-      members: [
-        {
-          ...testOrg.members[0],
-          role: "engineer",
-          environments: ["staging", "development"],
-          limitAccessByEnvironment: true,
-        },
-      ],
-    });
+    const userPermissions = getUserPermissions(
+      "base_user_123",
+      {
+        ...testOrg,
+        members: [
+          {
+            ...testOrg.members[0],
+            role: "engineer",
+            environments: ["staging", "development"],
+            limitAccessByEnvironment: true,
+          },
+        ],
+      },
+      []
+    );
 
     expect(userPermissions).toEqual({
       global: {
@@ -583,31 +612,35 @@ describe("Build base user permissions", () => {
   });
 
   it("should build permissions for an engineer user with environment specific permissions and project-level roles that have environment specific permissions correctly", async () => {
-    const userPermissions = await getUserPermissions("base_user_123", {
-      ...testOrg,
-      members: [
-        {
-          ...testOrg.members[0],
-          role: "engineer",
-          limitAccessByEnvironment: true,
-          environments: ["staging", "development"],
-          projectRoles: [
-            {
-              project: "prj_exl5jr5dl4rbw856",
-              role: "engineer",
-              limitAccessByEnvironment: true,
-              environments: ["production"],
-            },
-            {
-              project: "prj_exl5jr5dl4rbw123",
-              role: "analyst",
-              limitAccessByEnvironment: false,
-              environments: [],
-            },
-          ],
-        },
-      ],
-    });
+    const userPermissions = getUserPermissions(
+      "base_user_123",
+      {
+        ...testOrg,
+        members: [
+          {
+            ...testOrg.members[0],
+            role: "engineer",
+            limitAccessByEnvironment: true,
+            environments: ["staging", "development"],
+            projectRoles: [
+              {
+                project: "prj_exl5jr5dl4rbw856",
+                role: "engineer",
+                limitAccessByEnvironment: true,
+                environments: ["production"],
+              },
+              {
+                project: "prj_exl5jr5dl4rbw123",
+                role: "analyst",
+                limitAccessByEnvironment: false,
+                environments: [],
+              },
+            ],
+          },
+        ],
+      },
+      []
+    );
 
     expect(userPermissions).toEqual({
       global: {
@@ -721,37 +754,49 @@ describe("Build base user permissions", () => {
   });
   // Advanced user permissions - global role, project-level permissions, and user is on team(s)
   it("should build permissions for a readonly user with no environment specific permissions and project-level roles that have environment specific permissions correctly where the user is on a team that has collaborator permissions", async () => {
-    (findTeamById as jest.Mock).mockResolvedValue({
-      id: "team_collaborators",
-      role: "collaborator",
-      limitAccessByEnvironment: false,
-      environments: [],
-      projectRoles: [],
-    });
+    const teams: TeamInterface[] = [
+      {
+        id: "team_123",
+        name: "Team Collaborators",
+        organization: "org_id_1234",
+        description: "",
+        dateCreated: new Date(),
+        dateUpdated: new Date(),
+        createdBy: "Demo User",
+        role: "collaborator",
+        limitAccessByEnvironment: false,
+        environments: [],
+        projectRoles: [],
+      },
+    ];
 
-    const userPermissions = await getUserPermissions("base_user_123", {
-      ...testOrg,
-      members: [
-        {
-          ...testOrg.members[0],
-          projectRoles: [
-            {
-              project: "prj_exl5jr5dl4rbw856",
-              role: "engineer",
-              limitAccessByEnvironment: true,
-              environments: ["production"],
-            },
-            {
-              project: "prj_exl5jr5dl4rbw123",
-              role: "analyst",
-              limitAccessByEnvironment: false,
-              environments: [],
-            },
-          ],
-          teams: ["team_collaborators"],
-        },
-      ],
-    });
+    const userPermissions = getUserPermissions(
+      "base_user_123",
+      {
+        ...testOrg,
+        members: [
+          {
+            ...testOrg.members[0],
+            projectRoles: [
+              {
+                project: "prj_exl5jr5dl4rbw856",
+                role: "engineer",
+                limitAccessByEnvironment: true,
+                environments: ["production"],
+              },
+              {
+                project: "prj_exl5jr5dl4rbw123",
+                role: "analyst",
+                limitAccessByEnvironment: false,
+                environments: [],
+              },
+            ],
+            teams: ["team_123"],
+          },
+        ],
+      },
+      teams
+    );
 
     expect(userPermissions).toEqual({
       global: {
@@ -865,23 +910,36 @@ describe("Build base user permissions", () => {
   });
 
   it("should not override a user's global permissions with a team's permissions if the user has a more permissive role (e.g. don't override admin permissions with collaborator permissions", async () => {
-    (findTeamById as jest.Mock).mockResolvedValue({
-      id: "team_collaborators",
-      role: "collaborator",
-      limitAccessByEnvironment: false,
-      environments: [],
-      projectRoles: [],
-    });
+    const teams: TeamInterface[] = [
+      {
+        id: "team_123",
+        name: "Team Collaborators",
+        organization: "org_id_1234",
+        description: "",
+        dateCreated: new Date(),
+        dateUpdated: new Date(),
+        createdBy: "Demo User",
+        role: "collaborator",
+        limitAccessByEnvironment: false,
+        environments: [],
+        projectRoles: [],
+      },
+    ];
 
-    const userPermissions = await getUserPermissions("base_user_123", {
-      ...testOrg,
-      members: [
-        {
-          ...testOrg.members[0],
-          role: "admin",
-        },
-      ],
-    });
+    const userPermissions = getUserPermissions(
+      "base_user_123",
+      {
+        ...testOrg,
+        members: [
+          {
+            ...testOrg.members[0],
+            teams: ["team_123"],
+            role: "admin",
+          },
+        ],
+      },
+      teams
+    );
 
     expect(userPermissions).toEqual({
       global: {
@@ -924,27 +982,39 @@ describe("Build base user permissions", () => {
   });
 
   it("should build permissions for a basic engineer user with no environment specific permissions and project-level roles that have environment specific permissions correctly where the user is on a team that has engineer permissions", async () => {
-    (findTeamById as jest.Mock).mockResolvedValue({
-      id: "team_engineers",
-      role: "engineer",
-      limitAccessByEnvironment: true,
-      environments: ["staging", "development"],
-      projectRoles: [],
-    });
+    const teams: TeamInterface[] = [
+      {
+        id: "team_123",
+        name: "Team Engineers",
+        organization: "org_id_1234",
+        description: "",
+        dateCreated: new Date(),
+        dateUpdated: new Date(),
+        createdBy: "Demo User",
+        role: "engineer",
+        limitAccessByEnvironment: true,
+        environments: ["staging", "development"],
+        projectRoles: [],
+      },
+    ];
 
-    const userPermissions = await getUserPermissions("base_user_123", {
-      ...testOrg,
-      members: [
-        {
-          ...testOrg.members[0],
-          role: "engineer",
-          limitAccessByEnvironment: true,
-          environments: ["production"],
-          projectRoles: [],
-          teams: ["team_engineers"],
-        },
-      ],
-    });
+    const userPermissions = getUserPermissions(
+      "base_user_123",
+      {
+        ...testOrg,
+        members: [
+          {
+            ...testOrg.members[0],
+            role: "engineer",
+            limitAccessByEnvironment: true,
+            environments: ["production"],
+            projectRoles: [],
+            teams: ["team_123"],
+          },
+        ],
+      },
+      teams
+    );
 
     expect(userPermissions).toEqual({
       global: {
@@ -987,38 +1057,50 @@ describe("Build base user permissions", () => {
   });
 
   it("should build permissions for a readonly user that has project specific engineer permissions, with specific environment permissions,and is on a team that also has engineering permissions, but no environment limits", async () => {
-    (findTeamById as jest.Mock).mockResolvedValue({
-      id: "team_readonly_advanced",
-      role: "readonly",
-      limitAccessByEnvironment: false,
-      environments: [],
-      projectRoles: [
-        {
-          project: "prj_exl5jr5dl4rbw856",
-          role: "engineer",
-          limitAccessByEnvironment: false,
-          environments: [],
-        },
-      ],
-    });
+    const teams: TeamInterface[] = [
+      {
+        id: "team_123",
+        name: "Test Team",
+        organization: "org_id_1234",
+        description: "",
+        dateCreated: new Date(),
+        dateUpdated: new Date(),
+        createdBy: "Demo User",
+        role: "readonly",
+        limitAccessByEnvironment: false,
+        environments: [],
+        projectRoles: [
+          {
+            project: "prj_exl5jr5dl4rbw856",
+            role: "engineer",
+            limitAccessByEnvironment: false,
+            environments: [],
+          },
+        ],
+      },
+    ];
 
-    const userPermissions = await getUserPermissions("base_user_123", {
-      ...testOrg,
-      members: [
-        {
-          ...testOrg.members[0],
-          projectRoles: [
-            {
-              project: "prj_exl5jr5dl4rbw856",
-              role: "engineer",
-              limitAccessByEnvironment: true,
-              environments: ["staging"],
-            },
-          ],
-          teams: ["team_engineers"],
-        },
-      ],
-    });
+    const userPermissions = getUserPermissions(
+      "base_user_123",
+      {
+        ...testOrg,
+        members: [
+          {
+            ...testOrg.members[0],
+            projectRoles: [
+              {
+                project: "prj_exl5jr5dl4rbw856",
+                role: "engineer",
+                limitAccessByEnvironment: true,
+                environments: ["staging"],
+              },
+            ],
+            teams: ["team_123"],
+          },
+        ],
+      },
+      teams
+    );
 
     expect(userPermissions).toEqual({
       global: {
@@ -1097,23 +1179,36 @@ describe("Build base user permissions", () => {
   });
 
   it("should not override a user's global permissions with a team's permissions if the user has a more permissive role", async () => {
-    (findTeamById as jest.Mock).mockResolvedValue({
-      id: "team_readonly",
-      role: "readonly",
-      limitAccessByEnvironment: false,
-      environments: [],
-      projectRoles: [],
-    });
+    const teams: TeamInterface[] = [
+      {
+        id: "team_123",
+        name: "Test Team",
+        organization: "org_id_1234",
+        description: "",
+        dateCreated: new Date(),
+        dateUpdated: new Date(),
+        createdBy: "Demo User",
+        role: "readonly",
+        limitAccessByEnvironment: false,
+        environments: [],
+        projectRoles: [],
+      },
+    ];
 
-    const userPermissions = await getUserPermissions("base_user_123", {
-      ...testOrg,
-      members: [
-        {
-          ...testOrg.members[0],
-          role: "admin",
-        },
-      ],
-    });
+    const userPermissions = getUserPermissions(
+      "base_user_123",
+      {
+        ...testOrg,
+        members: [
+          {
+            ...testOrg.members[0],
+            teams: ["team_123"],
+            role: "admin",
+          },
+        ],
+      },
+      teams
+    );
 
     expect(userPermissions).toEqual({
       global: {
@@ -1156,24 +1251,36 @@ describe("Build base user permissions", () => {
   });
 
   it("should update global permissions if team role is more permissive than user global role", async () => {
-    (findTeamById as jest.Mock).mockResolvedValue({
-      id: "team_engineer",
-      role: "engineer",
-      limitAccessByEnvironment: true,
-      environments: ["staging", "production"],
-      projectRoles: [],
-    });
+    const teams: TeamInterface[] = [
+      {
+        id: "team_123",
+        name: "Test Team",
+        organization: "org_id_1234",
+        description: "",
+        dateCreated: new Date(),
+        dateUpdated: new Date(),
+        createdBy: "Demo User",
+        role: "engineer",
+        limitAccessByEnvironment: true,
+        environments: ["staging", "production"],
+        projectRoles: [],
+      },
+    ];
 
-    const userPermissions = await getUserPermissions("base_user_123", {
-      ...testOrg,
-      members: [
-        {
-          ...testOrg.members[0],
-          role: "collaborator",
-          teams: ["engineer_team"],
-        },
-      ],
-    });
+    const userPermissions = getUserPermissions(
+      "base_user_123",
+      {
+        ...testOrg,
+        members: [
+          {
+            ...testOrg.members[0],
+            role: "collaborator",
+            teams: ["team_123"],
+          },
+        ],
+      },
+      teams
+    );
 
     expect(userPermissions).toEqual({
       global: {
@@ -1216,23 +1323,36 @@ describe("Build base user permissions", () => {
   });
 
   it("should not override a user's global permissions env level permissions with a team's permissions if the user has a more permissive role", async () => {
-    (findTeamById as jest.Mock).mockResolvedValue({
-      id: "team_engineer",
-      role: "engineer",
-      limitAccessByEnvironment: true,
-      environments: ["staging", "production"],
-      projectRoles: [],
-    });
+    const teams: TeamInterface[] = [
+      {
+        id: "team_123",
+        name: "Test Team",
+        organization: "org_id_1234",
+        description: "",
+        dateCreated: new Date(),
+        dateUpdated: new Date(),
+        createdBy: "Demo User",
+        role: "engineer",
+        limitAccessByEnvironment: true,
+        environments: ["staging", "production"],
+        projectRoles: [],
+      },
+    ];
 
-    const userPermissions = await getUserPermissions("base_user_123", {
-      ...testOrg,
-      members: [
-        {
-          ...testOrg.members[0],
-          role: "admin",
-        },
-      ],
-    });
+    const userPermissions = getUserPermissions(
+      "base_user_123",
+      {
+        ...testOrg,
+        members: [
+          {
+            ...testOrg.members[0],
+            teams: ["team_123"],
+            role: "admin",
+          },
+        ],
+      },
+      teams
+    );
 
     expect(userPermissions).toEqual({
       global: {
@@ -1275,24 +1395,36 @@ describe("Build base user permissions", () => {
   });
 
   it("should not overwrite experimenter permissions with engineer permissions", async () => {
-    (findTeamById as jest.Mock).mockResolvedValue({
-      id: "team_engineer",
-      role: "engineer",
-      limitAccessByEnvironment: true,
-      environments: ["staging", "production"],
-      projectRoles: [],
-    });
+    const teams: TeamInterface[] = [
+      {
+        id: "team_123",
+        name: "Test Team",
+        organization: "org_id_1234",
+        description: "",
+        dateCreated: new Date(),
+        dateUpdated: new Date(),
+        createdBy: "Demo User",
+        role: "engineer",
+        limitAccessByEnvironment: true,
+        environments: ["staging", "production"],
+        projectRoles: [],
+      },
+    ];
 
-    const userPermissions = await getUserPermissions("base_user_123", {
-      ...testOrg,
-      members: [
-        {
-          ...testOrg.members[0],
-          role: "experimenter",
-          teams: ["engineering_team"],
-        },
-      ],
-    });
+    const userPermissions = getUserPermissions(
+      "base_user_123",
+      {
+        ...testOrg,
+        members: [
+          {
+            ...testOrg.members[0],
+            role: "experimenter",
+            teams: ["team_123"],
+          },
+        ],
+      },
+      teams
+    );
 
     expect(userPermissions).toEqual({
       global: {
@@ -1335,26 +1467,38 @@ describe("Build base user permissions", () => {
   });
 
   it("should correctly merge engineer and experimenters env specific limits", async () => {
-    (findTeamById as jest.Mock).mockResolvedValue({
-      id: "team_experimenter",
-      role: "experimenter",
-      limitAccessByEnvironment: true,
-      environments: ["staging", "development"],
-      projectRoles: [],
-    });
+    const teams: TeamInterface[] = [
+      {
+        id: "team_123",
+        name: "Test Team",
+        organization: "org_id_1234",
+        description: "",
+        dateCreated: new Date(),
+        dateUpdated: new Date(),
+        createdBy: "Demo User",
+        role: "experimenter",
+        limitAccessByEnvironment: true,
+        environments: ["staging", "development"],
+        projectRoles: [],
+      },
+    ];
 
-    const userPermissions = await getUserPermissions("base_user_123", {
-      ...testOrg,
-      members: [
-        {
-          ...testOrg.members[0],
-          role: "engineer",
-          limitAccessByEnvironment: true,
-          environments: ["production"],
-          teams: ["team_experimenter"],
-        },
-      ],
-    });
+    const userPermissions = getUserPermissions(
+      "base_user_123",
+      {
+        ...testOrg,
+        members: [
+          {
+            ...testOrg.members[0],
+            role: "engineer",
+            limitAccessByEnvironment: true,
+            environments: ["production"],
+            teams: ["team_123"],
+          },
+        ],
+      },
+      teams
+    );
 
     expect(userPermissions).toEqual({
       global: {
@@ -1397,38 +1541,50 @@ describe("Build base user permissions", () => {
   });
 
   it("shouldn't override a global engineer's env specific limits if they're on a team that gives them analyst permissions", async () => {
-    (findTeamById as jest.Mock).mockResolvedValue({
-      id: "team_readonly_with_project_analyst",
-      role: "readonly",
-      limitAccessByEnvironment: false,
-      environments: [],
-      projectRoles: [
-        {
-          project: "prj_exl5jr5dl4rbw856",
-          role: "analyst",
-          limitAccessByEnvironment: false,
-          environments: [],
-        },
-      ],
-    });
+    const teams: TeamInterface[] = [
+      {
+        id: "team_123",
+        name: "Test Team",
+        organization: "org_id_1234",
+        description: "",
+        dateCreated: new Date(),
+        dateUpdated: new Date(),
+        createdBy: "Demo User",
+        role: "readonly",
+        limitAccessByEnvironment: false,
+        environments: [],
+        projectRoles: [
+          {
+            project: "prj_exl5jr5dl4rbw856",
+            role: "analyst",
+            limitAccessByEnvironment: false,
+            environments: [],
+          },
+        ],
+      },
+    ];
 
-    const userPermissions = await getUserPermissions("base_user_123", {
-      ...testOrg,
-      members: [
-        {
-          ...testOrg.members[0],
-          projectRoles: [
-            {
-              project: "prj_exl5jr5dl4rbw856",
-              role: "engineer",
-              limitAccessByEnvironment: true,
-              environments: ["development"],
-            },
-          ],
-          teams: ["team_readonly_with_project_analyst"],
-        },
-      ],
-    });
+    const userPermissions = getUserPermissions(
+      "base_user_123",
+      {
+        ...testOrg,
+        members: [
+          {
+            ...testOrg.members[0],
+            projectRoles: [
+              {
+                project: "prj_exl5jr5dl4rbw856",
+                role: "engineer",
+                limitAccessByEnvironment: true,
+                environments: ["development"],
+              },
+            ],
+            teams: ["team_123"],
+          },
+        ],
+      },
+      teams
+    );
 
     expect(userPermissions).toEqual({
       global: {
@@ -1507,31 +1663,43 @@ describe("Build base user permissions", () => {
   });
 
   it("should add project level permissions if the user's global role doesn't give any access, but the user is on a team that inherits project-level permissions", async () => {
-    (findTeamById as jest.Mock).mockResolvedValue({
-      id: "team_readonly_with_analyst_project_permissions",
-      role: "readonly",
-      limitAccessByEnvironment: false,
-      environments: [],
-      projectRoles: [
-        {
-          project: "prj_exl5jr5dl4rbw856",
-          role: "analyst",
-          limitAccessByEnvironment: false,
-          environments: [],
-        },
-      ],
-    });
+    const teams: TeamInterface[] = [
+      {
+        id: "team_123",
+        name: "Test Team",
+        organization: "org_id_1234",
+        description: "",
+        dateCreated: new Date(),
+        dateUpdated: new Date(),
+        createdBy: "Demo User",
+        role: "readonly",
+        limitAccessByEnvironment: false,
+        environments: [],
+        projectRoles: [
+          {
+            project: "prj_exl5jr5dl4rbw856",
+            role: "analyst",
+            limitAccessByEnvironment: false,
+            environments: [],
+          },
+        ],
+      },
+    ];
 
-    const userPermissions = await getUserPermissions("base_user_123", {
-      ...testOrg,
-      members: [
-        {
-          ...testOrg.members[0],
-          projectRoles: [],
-          teams: ["team_readonly_with_analyst_project_permissions"],
-        },
-      ],
-    });
+    const userPermissions = getUserPermissions(
+      "base_user_123",
+      {
+        ...testOrg,
+        members: [
+          {
+            ...testOrg.members[0],
+            projectRoles: [],
+            teams: ["team_123"],
+          },
+        ],
+      },
+      teams
+    );
 
     expect(userPermissions).toEqual({
       global: {
@@ -1610,38 +1778,50 @@ describe("Build base user permissions", () => {
   });
 
   it("should correctly override a project-specific role if the team's project specific role is higher", async () => {
-    (findTeamById as jest.Mock).mockResolvedValue({
-      id: "team_experimenter",
-      role: "experimenter",
-      limitAccessByEnvironment: true,
-      environments: ["staging", "development"],
-      projectRoles: [
-        {
-          project: "prj_exl5jr5dl4rbw856",
-          role: "engineer",
-          limitAccessByEnvironment: false,
-          environments: [],
-        },
-      ],
-    });
+    const teams: TeamInterface[] = [
+      {
+        id: "team_123",
+        name: "Test Team",
+        organization: "org_id_1234",
+        description: "",
+        dateCreated: new Date(),
+        dateUpdated: new Date(),
+        createdBy: "Demo User",
+        role: "experimenter",
+        limitAccessByEnvironment: true,
+        environments: ["staging", "development"],
+        projectRoles: [
+          {
+            project: "prj_exl5jr5dl4rbw856",
+            role: "engineer",
+            limitAccessByEnvironment: false,
+            environments: [],
+          },
+        ],
+      },
+    ];
 
-    const userPermissions = await getUserPermissions("base_user_123", {
-      ...testOrg,
-      members: [
-        {
-          ...testOrg.members[0],
-          projectRoles: [
-            {
-              project: "prj_exl5jr5dl4rbw856",
-              role: "collaborator",
-              limitAccessByEnvironment: false,
-              environments: [],
-            },
-          ],
-          teams: ["team_experimenter"],
-        },
-      ],
-    });
+    const userPermissions = getUserPermissions(
+      "base_user_123",
+      {
+        ...testOrg,
+        members: [
+          {
+            ...testOrg.members[0],
+            projectRoles: [
+              {
+                project: "prj_exl5jr5dl4rbw856",
+                role: "collaborator",
+                limitAccessByEnvironment: false,
+                environments: [],
+              },
+            ],
+            teams: ["team_123"],
+          },
+        ],
+      },
+      teams
+    );
 
     expect(userPermissions).toEqual({
       global: {
@@ -1735,23 +1915,50 @@ describe("Build base user permissions", () => {
       ],
     });
 
-    const userPermissions = await getUserPermissions("base_user_123", {
-      ...testOrg,
-      members: [
-        {
-          ...testOrg.members[0],
-          projectRoles: [
-            {
-              project: "prj_exl5jr5dl4rbw856",
-              role: "engineer",
-              limitAccessByEnvironment: true,
-              environments: ["dev"],
-            },
-          ],
-          teams: ["team_experimenter"],
-        },
-      ],
-    });
+    const teams: TeamInterface[] = [
+      {
+        id: "team_123",
+        name: "Test Team",
+        organization: "org_id_1234",
+        description: "",
+        dateCreated: new Date(),
+        dateUpdated: new Date(),
+        createdBy: "Demo User",
+        role: "experimenter",
+        limitAccessByEnvironment: true,
+        environments: ["staging", "development"],
+        projectRoles: [
+          {
+            project: "prj_exl5jr5dl4rbw856",
+            role: "engineer",
+            limitAccessByEnvironment: true,
+            environments: ["production", "staging"],
+          },
+        ],
+      },
+    ];
+
+    const userPermissions = getUserPermissions(
+      "base_user_123",
+      {
+        ...testOrg,
+        members: [
+          {
+            ...testOrg.members[0],
+            projectRoles: [
+              {
+                project: "prj_exl5jr5dl4rbw856",
+                role: "engineer",
+                limitAccessByEnvironment: true,
+                environments: ["dev"],
+              },
+            ],
+            teams: ["team_123"],
+          },
+        ],
+      },
+      teams
+    );
 
     expect(userPermissions).toEqual({
       global: {
