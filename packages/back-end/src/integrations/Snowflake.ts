@@ -1,3 +1,4 @@
+import { snowflakeCreateTableOptions } from "enterprise";
 import { SnowflakeConnectionParams } from "../../types/integrations/snowflake";
 import { decryptDataSourceParams } from "../services/datasource";
 import { runSnowflakeQuery } from "../services/snowflake";
@@ -10,10 +11,17 @@ export default class Snowflake extends SqlIntegration {
   // @ts-expect-error
   params: SnowflakeConnectionParams;
   requiresSchema = false;
+  tablePathEnclosure = `"`;
   setParams(encryptedParams: string) {
     this.params = decryptDataSourceParams<SnowflakeConnectionParams>(
       encryptedParams
     );
+  }
+  isWritingTablesSupported(): boolean {
+    return true;
+  }
+  createUnitsTableOptions() {
+    return snowflakeCreateTableOptions(this.settings.pipelineSettings ?? {});
   }
   getFormatDialect(): FormatDialect {
     return "snowflake";

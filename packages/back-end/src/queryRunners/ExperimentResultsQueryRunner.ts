@@ -99,7 +99,18 @@ export const startExperimentResultQueries = async (
       hasPipelineModeFeature) ??
     false;
   let unitQuery: QueryPointer | null = null;
-  const unitsTableFullName = `${integration.settings.pipelineSettings?.writeDataset}.growthbook_tmp_units_${queryParentId}`;
+  // The Mixpanel integration does not support writing tables
+  if (!integration.generateTablePath) {
+    throw new Error(
+      "Unable to generate table; table path generator not specified."
+    );
+  }
+  const unitsTableFullName = integration.generateTablePath(
+    `growthbook_tmp_units_${queryParentId}`,
+    integration.settings.pipelineSettings?.writeDataset,
+    "",
+    true
+  );
 
   if (useUnitsTable) {
     const unitQueryParams: ExperimentUnitsQueryParams = {
