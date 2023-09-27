@@ -1,8 +1,8 @@
 import { DetailedHTMLProps, FC, HTMLAttributes } from "react";
 import clsx from "clsx";
-import styles from "./Markdown.module.scss";
-import AuthorizedImage from "../AuthorizedImage";
 import ReactMarkdown from "react-markdown";
+import AuthorizedImage from "../AuthorizedImage";
+import styles from "./Markdown.module.scss";
 
 const imageCache = {};
 
