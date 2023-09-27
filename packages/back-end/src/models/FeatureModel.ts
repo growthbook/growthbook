@@ -2,6 +2,7 @@ import mongoose, { FilterQuery } from "mongoose";
 import cloneDeep from "lodash/cloneDeep";
 import omit from "lodash/omit";
 import { isEqual } from "lodash";
+import { getValidDate } from "shared/dates";
 import {
   ExperimentRefRule,
   FeatureDraftChanges,
@@ -562,16 +563,22 @@ export async function addFeatureRule({
   feature,
   environment,
   rule,
-  draftId: _draftId, // todo: use this
+  draftId,
 }: AddFeatureRuleOptions) {
   if (!rule.id) {
     rule.id = generateRuleId();
   }
 
-  await setLegacyFeatureDraftRules(org, user, feature, environment, [
-    ...getLegacyDraftRules(feature, environment),
-    rule,
-  ]);
+  if (draftId) {
+    // New draft flow
+    // todo:
+  } else {
+    // Legacy draft flow
+    await setLegacyFeatureDraftRules(org, user, feature, environment, [
+      ...getLegacyDraftRules(feature, environment),
+      rule,
+    ]);
+  }
 }
 
 type DeleteExperimentRefRuleOptions = {
@@ -587,7 +594,7 @@ export async function deleteExperimentRefRule({
   user,
   feature,
   experimentId,
-  draftId: _draftId, // todo: use this
+  draftId,
 }: DeleteExperimentRefRuleOptions) {
   const environments = org.settings?.environments || [];
   const environmentIds = environments.map((e) => e.id);
@@ -598,7 +605,13 @@ export async function deleteExperimentRefRule({
     );
   }
 
-  const draft = getLegacyDraft(feature);
+  const draft = draftId
+    ? await getDraftChanges({
+        draftId,
+        organizationId: org.id,
+        featureId: feature.id,
+      })
+    : getLegacyDraftChanges(feature);
 
   let hasChanges = false;
   environmentIds.forEach((env) => {
@@ -613,7 +626,15 @@ export async function deleteExperimentRefRule({
     if (draft.rules[env].length < numRules) hasChanges = true;
   });
 
-  if (hasChanges) {
+  if (!hasChanges) {
+    return;
+  }
+
+  if (draftId) {
+    // Make changes to new draft
+    // todo: make changes to new draft
+  } else {
+    // Make changes to legacy draft
     await updateLegacyDraft(org, user, feature, draft);
   }
 }
@@ -631,7 +652,7 @@ export async function addExperimentRefRule({
   user,
   feature,
   rule,
-  draftId: _draftId, // todo: use this
+  draftId,
 }: AddExperimentRefRuleOptions) {
   if (!rule.id) {
     rule.id = generateRuleId();
@@ -646,14 +667,25 @@ export async function addExperimentRefRule({
     );
   }
 
-  const draft = getLegacyDraft(feature);
+  const draft = draftId
+    ? await getDraftChanges({
+        draftId,
+        organizationId: org.id,
+        featureId: feature.id,
+      })
+    : getLegacyDraftChanges(feature);
 
   environmentIds.forEach((env) => {
     draft.rules = draft.rules || {};
     draft.rules[env] = [...getLegacyDraftRules(feature, env), rule];
   });
 
-  await updateLegacyDraft(org, user, feature, draft);
+  if (draftId) {
+    // New draft flow
+    // todo: update new draft
+  } else {
+    await updateLegacyDraft(org, user, feature, draft);
+  }
 }
 
 type EditFeatureRuleOptions = {
@@ -673,7 +705,7 @@ export async function editFeatureRule({
   environment,
   i,
   updates,
-  draftId: _draftId, // todo: use this
+  draftId,
 }: EditFeatureRuleOptions) {
   const rules = getLegacyDraftRules(feature, environment);
   if (!rules[i]) {
@@ -685,7 +717,13 @@ export async function editFeatureRule({
     ...updates,
   } as FeatureRule;
 
-  await setLegacyFeatureDraftRules(org, user, feature, environment, rules);
+  if (draftId) {
+    // New draft flow
+    // todo: new draft flow
+  } else {
+    // Legacy draft flow
+    await setLegacyFeatureDraftRules(org, user, feature, environment, rules);
+  }
 }
 
 /**
@@ -698,7 +736,7 @@ export async function setLegacyFeatureDraftRules(
   environment: string,
   rules: FeatureRule[]
 ) {
-  const draft = getLegacyDraft(feature);
+  const draft = getLegacyDraftChanges(feature);
   draft.rules = draft.rules || {};
   draft.rules[environment] = rules;
 
@@ -755,12 +793,25 @@ export async function setDefaultValue(
   org: OrganizationInterface,
   user: EventAuditUser,
   feature: FeatureInterface,
-  defaultValue: string
-) {
-  const draft = getLegacyDraft(feature);
+  defaultValue: string,
+  draftId: string | null
+): Promise<FeatureInterface> {
+  const draft = draftId
+    ? await getDraftChanges({
+        draftId,
+        organizationId: org.id,
+        featureId: feature.id,
+      })
+    : getLegacyDraftChanges(feature);
+
   draft.defaultValue = defaultValue;
 
-  return updateLegacyDraft(org, user, feature, draft);
+  if (draftId) {
+    // TODO: Replace this with the new flow
+    return updateLegacyDraft(org, user, feature, draft);
+  } else {
+    return updateLegacyDraft(org, user, feature, draft);
+  }
 }
 
 export async function setJsonSchema(
@@ -787,7 +838,7 @@ export async function updateLegacyDraft(
   return await updateFeature(org, user, feature, { draft });
 }
 
-function getLegacyDraft(feature: FeatureInterface) {
+function getLegacyDraftChanges(feature: FeatureInterface): FeatureDraftChanges {
   const draft: FeatureDraftChanges = cloneDeep(
     feature.draft || { active: false }
   );
@@ -799,6 +850,32 @@ function getLegacyDraft(feature: FeatureInterface) {
   draft.dateUpdated = new Date();
 
   return draft;
+}
+
+async function getDraftChanges({
+  draftId,
+  featureId,
+  organizationId,
+}: {
+  featureId: string;
+  draftId: string;
+  organizationId: string;
+}): Promise<FeatureDraftChanges> {
+  const revision = await getFeatureRevision({
+    id: draftId,
+    organizationId,
+    featureId,
+    status: "draft",
+  });
+
+  return {
+    comment: revision.comment,
+    dateCreated: getValidDate(revision.dateCreated),
+    dateUpdated: getValidDate(revision.revisionDate),
+    active: true,
+    defaultValue: revision.defaultValue,
+    rules: revision.rules,
+  };
 }
 
 /**

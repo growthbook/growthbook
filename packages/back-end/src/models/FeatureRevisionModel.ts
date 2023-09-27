@@ -145,15 +145,18 @@ export async function getFeatureRevision({
   organizationId,
   featureId,
   id,
+  status,
 }: {
   organizationId: string;
   featureId: string;
   id: string;
+  status?: "draft" | "published" | "discarded";
 }): Promise<FeatureRevisionInterface> {
   const doc = await FeatureRevisionModel.findOne({
     id,
     organization: organizationId,
     featureId,
+    status,
     dateDiscarded: null,
   });
 
@@ -162,6 +165,7 @@ export async function getFeatureRevision({
       `FeatureRevision not found: ${JSON.stringify({
         organizationId,
         featureId,
+        status,
         id,
       })}`
     );
