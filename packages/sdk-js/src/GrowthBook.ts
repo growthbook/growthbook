@@ -279,7 +279,9 @@ export class GrowthBook<
   public setURL(url: string) {
     this._ctx.url = url;
     if (this._ctx.remoteEval) {
-      return this._refreshForRemoteEval();
+      return this._refreshForRemoteEval().then(() =>
+        this._updateAllAutoExperiments(true)
+      );
     }
     this._updateAllAutoExperiments(true);
   }
@@ -320,13 +322,10 @@ export class GrowthBook<
     return this._ctx.backgroundSync !== false && this._ctx.subscribeToChanges;
   }
 
-  private async _refreshForRemoteEval(
-    cb: () => void = this._updateAllAutoExperiments.bind(this)
-  ) {
+  private async _refreshForRemoteEval() {
     if (!this._ctx.remoteEval) return;
     if (!this._loadFeaturesCalled) return;
     await this._refresh({}, false, true);
-    cb();
   }
 
   public getAllResults() {
@@ -363,15 +362,10 @@ export class GrowthBook<
   public forceVariation(key: string, variation: number) {
     this._ctx.forcedVariations = this._ctx.forcedVariations || {};
     this._ctx.forcedVariations[key] = variation;
-    const cb = () => {
-      const exp = (this._ctx.experiments || []).find((e) => e.key === key);
-      if (!exp) return;
-      this._runAutoExperiment(exp, false, false);
-    };
     if (this._ctx.remoteEval) {
-      return this._refreshForRemoteEval(cb.bind(this));
+      return this._refreshForRemoteEval();
     }
-    cb();
+    this._updateAllAutoExperiments();
     this._render();
   }
 
