@@ -13,45 +13,6 @@ const percentFormatter = new Intl.NumberFormat(undefined, {
 export const defaultWinRiskThreshold = 0.0025;
 export const defaultLoseRiskThreshold = 0.0125;
 
-export type ConversionWindowWithUnit = {
-  value: number;
-  unit: "hour" | "day" | "week";
-};
-
-export function toConversionWindowWithUnit(
-  conversionWindowHours: number
-): ConversionWindowWithUnit {
-  if (conversionWindowHours % 168 === 0) {
-    return {
-      value: Math.floor(conversionWindowHours / 168),
-      unit: "week",
-    };
-  }
-  if (conversionWindowHours % 24 === 0) {
-    return {
-      value: Math.floor(conversionWindowHours / 24),
-      unit: "day",
-    };
-  }
-  return {
-    value: conversionWindowHours,
-    unit: "hour",
-  };
-}
-
-export function fromConversionWindowWithUnit(
-  conversionWindow: ConversionWindowWithUnit
-): number {
-  switch (conversionWindow.unit) {
-    case "hour":
-      return conversionWindow.value;
-    case "day":
-      return conversionWindow.value * 24;
-    case "week":
-      return conversionWindow.value * 168;
-  }
-}
-
 export function getMetricConversionTitle(type: MetricType): string {
   // TODO: support more metric types
   if (type === "count") {

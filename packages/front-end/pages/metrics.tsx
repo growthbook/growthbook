@@ -138,7 +138,6 @@ const MetricsPage = (): React.ReactElement => {
       return item;
     }),
   ];
-  console.log(combinedMetrics);
 
   const metrics = useAddComputedFields(
     combinedMetrics,
