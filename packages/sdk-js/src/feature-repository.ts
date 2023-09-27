@@ -328,7 +328,7 @@ async function fetchFeatures(
 
   if (
     remoteEval &&
-    apiHost.match(/^https?:\/\/(?:[^/.]*\.)*growthbook\.io.*/i)
+    apiHost.match(/^https?:\/\/(?:[^/.]*\.)*growthbook\.io\/*$/i)
   ) {
     throw new Error("Cannot use remoteEval on GrowthBook servers");
   }
