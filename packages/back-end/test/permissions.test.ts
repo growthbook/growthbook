@@ -6,7 +6,7 @@ jest.mock("../src/models/TeamModel", () => ({
   findTeamById: jest.fn(),
 }));
 
-describe("Build user permissions", () => {
+describe("Build base user permissions", () => {
   const testOrg: OrganizationInterface = {
     id: "org_sktwi1id9l7z9xkjb",
     name: "Test Org",
@@ -33,7 +33,7 @@ describe("Build user permissions", () => {
     ).rejects.toThrow("User is not a member of this organization");
   });
 
-  it("should handle a basic readonly user with no project-level permissions or teams correctly", async () => {
+  it("should build permissions for a basic readonly user with no project-level permissions or teams correctly", async () => {
     const userPermissions = await getUserPermissions("base_user_123", testOrg);
     expect(userPermissions).toEqual({
       global: {
@@ -75,7 +75,7 @@ describe("Build user permissions", () => {
     });
   });
 
-  it("should handle a basic collaborator user with no project-level permissions or teams correctly", async () => {
+  it("should build permissions for a basic collaborator user with no project-level permissions or teams correctly", async () => {
     const userPermissions = await getUserPermissions("base_user_123", {
       ...testOrg,
       members: [{ ...testOrg.members[0], role: "collaborator" }],
@@ -120,7 +120,7 @@ describe("Build user permissions", () => {
     });
   });
 
-  it("should handle a basic engineer user with no project-level permissions or teams correctly", async () => {
+  it("shouldbuild permissions for a basic engineer user with no project-level permissions or teams correctly", async () => {
     const userPermissions = await getUserPermissions("base_user_123", {
       ...testOrg,
       members: [{ ...testOrg.members[0], role: "engineer" }],
@@ -165,7 +165,7 @@ describe("Build user permissions", () => {
     });
   });
 
-  it("should handle a basic analyst user with no project-level permissions or teams correctly", async () => {
+  it("should build permissions for a basic analyst user with no project-level permissions or teams correctly", async () => {
     const userPermissions = await getUserPermissions("base_user_123", {
       ...testOrg,
       members: [{ ...testOrg.members[0], role: "analyst" }],
@@ -210,7 +210,7 @@ describe("Build user permissions", () => {
     });
   });
 
-  it("should handle a basic experimenter user with no project-level permissions or teams correctly", async () => {
+  it("should build permissions for a basic experimenter user with no project-level permissions or teams correctly", async () => {
     const userPermissions = await getUserPermissions("base_user_123", {
       ...testOrg,
       members: [{ ...testOrg.members[0], role: "experimenter" }],
@@ -255,7 +255,7 @@ describe("Build user permissions", () => {
     });
   });
 
-  it("should handle an admin user with no project-level permissions or teams correctly", async () => {
+  it("should build permissions for an admin user with no project-level permissions or teams correctly", async () => {
     const userPermissions = await getUserPermissions("base_user_123", {
       ...testOrg,
       members: [{ ...testOrg.members[0], role: "admin" }],
@@ -300,7 +300,7 @@ describe("Build user permissions", () => {
     });
   });
   // Slightly advanced user permissions - project-level permissions, but no teams
-  it("should handle a readonly user with a single engineer project-level permission and no teams correctly", async () => {
+  it("should build permissions for a readonly user with a single engineer project-level permission and no teams correctly", async () => {
     const userPermissions = await getUserPermissions("base_user_123", {
       ...testOrg,
       members: [
@@ -394,7 +394,7 @@ describe("Build user permissions", () => {
     });
   });
 
-  it("should handle a readonly user with  multiple project-level permissions and no teams correctly", async () => {
+  it("should build permissions for a readonly user with  multiple project-level permissions and no teams correctly", async () => {
     const userPermissions = await getUserPermissions("base_user_123", {
       ...testOrg,
       members: [
@@ -529,7 +529,7 @@ describe("Build user permissions", () => {
     });
   });
 
-  it("should handle an engineer user with environment specific permissions correctly", async () => {
+  it("should build permissions for an engineer user with environment specific permissions correctly", async () => {
     const userPermissions = await getUserPermissions("base_user_123", {
       ...testOrg,
       members: [
@@ -582,7 +582,7 @@ describe("Build user permissions", () => {
     });
   });
 
-  it("should handle an engineer user with environment specific permissions and project-level roles that have environment specific permissions correctly", async () => {
+  it("should build permissions for an engineer user with environment specific permissions and project-level roles that have environment specific permissions correctly", async () => {
     const userPermissions = await getUserPermissions("base_user_123", {
       ...testOrg,
       members: [
@@ -720,7 +720,7 @@ describe("Build user permissions", () => {
     });
   });
   // Advanced user permissions - global role, project-level permissions, and user is on team(s)
-  it("should handle a readonly user with no environment specific permissions and project-level roles that have environment specific permissions correctly where the user is on a team that has collaborator permissions", async () => {
+  it("should build permissions for a readonly user with no environment specific permissions and project-level roles that have environment specific permissions correctly where the user is on a team that has collaborator permissions", async () => {
     (findTeamById as jest.Mock).mockResolvedValue({
       id: "team_collaborators",
       role: "collaborator",
@@ -864,7 +864,7 @@ describe("Build user permissions", () => {
     });
   });
 
-  it("shouldn't override a user's global permissions with a team's permissions if the user has a more permissive role", async () => {
+  it("should not override a user's global permissions with a team's permissions if the user has a more permissive role (e.g. don't override admin permissions with collaborator permissions", async () => {
     (findTeamById as jest.Mock).mockResolvedValue({
       id: "team_collaborators",
       role: "collaborator",
@@ -923,7 +923,7 @@ describe("Build user permissions", () => {
     });
   });
 
-  it("should handle a basic engineer user with no environment specific permissions and project-level roles that have environment specific permissions correctly where the user is on a team that has engineer permissions", async () => {
+  it("should build permissions for a basic engineer user with no environment specific permissions and project-level roles that have environment specific permissions correctly where the user is on a team that has engineer permissions", async () => {
     (findTeamById as jest.Mock).mockResolvedValue({
       id: "team_engineers",
       role: "engineer",
@@ -986,7 +986,7 @@ describe("Build user permissions", () => {
     });
   });
 
-  it("should handle a readonly user that has project specific engineer permissions, with specific environment permissions,and is on a team that also has engineering permissions, but no environment limits", async () => {
+  it("should build permissions for a readonly user that has project specific engineer permissions, with specific environment permissions,and is on a team that also has engineering permissions, but no environment limits", async () => {
     (findTeamById as jest.Mock).mockResolvedValue({
       id: "team_readonly_advanced",
       role: "readonly",
@@ -1096,7 +1096,6 @@ describe("Build user permissions", () => {
     });
   });
 
-  // Build test case where base user is admin, but they're on a readonly team, ensure we don't override their admin permissions
   it("should not override a user's global permissions with a team's permissions if the user has a more permissive role", async () => {
     (findTeamById as jest.Mock).mockResolvedValue({
       id: "team_readonly",
@@ -1156,7 +1155,6 @@ describe("Build user permissions", () => {
     });
   });
 
-  // Build the test case where the base user is a collaborator, but they're on an engineering team with env specific limits, ensure the permissions are correct as are the env specific limits
   it("should update global permissions if team role is more permissive than user global role", async () => {
     (findTeamById as jest.Mock).mockResolvedValue({
       id: "team_engineer",
@@ -1217,7 +1215,6 @@ describe("Build user permissions", () => {
     });
   });
 
-  // Build the test case where the base user is an admin, and they're on a team that has engineering roles with env specific limits, ensure the env specific limits don't get applied to the admin user's permission
   it("should not override a user's global permissions env level permissions with a team's permissions if the user has a more permissive role", async () => {
     (findTeamById as jest.Mock).mockResolvedValue({
       id: "team_engineer",

@@ -156,9 +156,8 @@ function mergeEnvironmentLimits(
 function mergeUserPermissionObj(items: UserPermission[]): UserPermission {
   let updatedUserPermissionObj = items[0];
 
-  updatedUserPermissionObj = mergeEnvironmentLimits(items[0], items[1]);
-
   for (let i = 1; i < items.length; i++) {
+    updatedUserPermissionObj = mergeEnvironmentLimits(items[0], items[i]);
     updatedUserPermissionObj.permissions = mergePermissions(
       updatedUserPermissionObj.permissions,
       items[i].permissions
