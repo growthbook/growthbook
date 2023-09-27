@@ -53,12 +53,14 @@ function FactSelector({
   includeCountDistinctFact,
   includeFact,
   datasource,
+  disableFactTableSelector,
 }: {
   setValue: (ref: FactRef) => void;
   value: FactRef;
   includeCountDistinctFact?: boolean;
   includeFact?: boolean;
   datasource: string;
+  disableFactTableSelector?: boolean;
 }) {
   const { getFactTableById, factTables } = useDefinitions();
 
@@ -106,6 +108,7 @@ function FactSelector({
         <div className="col-auto">
           <SelectField
             label={includeFact ? "FROM" : "SELECT FROM"}
+            disabled={disableFactTableSelector}
             value={value.factTableId}
             onChange={(factTableId) =>
               setValue({
@@ -459,6 +462,7 @@ export default function FactMetricModal({
                 value={form.watch("numerator")}
                 setValue={(numerator) => form.setValue("numerator", numerator)}
                 datasource={selectedDataSource.id}
+                disableFactTableSelector={!!initialFactTable}
               />
             </div>
           ) : type === "mean" ? (
@@ -472,6 +476,7 @@ export default function FactMetricModal({
                 setValue={(numerator) => form.setValue("numerator", numerator)}
                 includeFact={true}
                 datasource={selectedDataSource.id}
+                disableFactTableSelector={!!initialFactTable}
               />
             </div>
           ) : type === "ratio" ? (
@@ -489,6 +494,7 @@ export default function FactMetricModal({
                   includeFact={true}
                   includeCountDistinctFact={true}
                   datasource={selectedDataSource.id}
+                  disableFactTableSelector={!!initialFactTable}
                 />
               </div>
               <div className="form-group">
