@@ -534,16 +534,19 @@ export async function toggleFeatureEnvironment(
 }
 
 /**
- * @deprecated
+ * @param draft
+ * @param environment
+ * @param environmentSettings
+ * @return FeatureRule[]
  */
-export function getLegacyDraftRules(
-  feature: FeatureInterface,
-  environment: string
-) {
-  // todo: update these draft references based on the new drafts
+export function getDraftRules(
+  draft: FeatureDraftChanges | null | undefined,
+  environment: string,
+  environmentSettings: Record<string, FeatureEnvironment>
+): FeatureRule[] {
   return (
-    feature?.draft?.rules?.[environment] ??
-    feature?.environmentSettings?.[environment]?.rules ??
+    draft?.rules?.[environment] ??
+    environmentSettings?.[environment]?.rules ??
     []
   );
 }
@@ -575,7 +578,7 @@ export async function addFeatureRule({
   } else {
     // Legacy draft flow
     await setLegacyFeatureDraftRules(org, user, feature, environment, [
-      ...getLegacyDraftRules(feature, environment),
+      ...getDraftRules(feature.draft, environment, feature.environmentSettings),
       rule,
     ]);
   }
@@ -615,7 +618,7 @@ export async function deleteExperimentRefRule({
 
   let hasChanges = false;
   environmentIds.forEach((env) => {
-    const rules = getLegacyDraftRules(feature, env);
+    const rules = getDraftRules(draft, env, feature.environmentSettings);
 
     draft.rules = draft.rules || {};
 
@@ -677,12 +680,21 @@ export async function addExperimentRefRule({
 
   environmentIds.forEach((env) => {
     draft.rules = draft.rules || {};
-    draft.rules[env] = [...getLegacyDraftRules(feature, env), rule];
+    draft.rules[env] = [
+      ...getDraftRules(draft, env, feature.environmentSettings),
+      rule,
+    ];
   });
 
   if (draftId) {
     // New draft flow
-    // todo: update new draft
+    await updateDraft({
+      organization: org,
+      user,
+      draft,
+      feature,
+      draftId,
+    });
   } else {
     await updateLegacyDraft(org, user, feature, draft);
   }
@@ -707,7 +719,15 @@ export async function editFeatureRule({
   updates,
   draftId,
 }: EditFeatureRuleOptions) {
-  const rules = getLegacyDraftRules(feature, environment);
+  const draft = draftId
+    ? await getDraftChanges({
+        draftId,
+        featureId: feature.id,
+        organizationId: org.id,
+      })
+    : feature.draft;
+
+  const rules = getDraftRules(draft, environment, feature.environmentSettings);
   if (!rules[i]) {
     throw new Error("Unknown rule");
   }
@@ -834,8 +854,28 @@ export async function updateLegacyDraft(
   user: EventAuditUser,
   feature: FeatureInterface,
   draft: FeatureDraftChanges
-) {
+): Promise<FeatureInterface> {
   return await updateFeature(org, user, feature, { draft });
+}
+
+export async function updateDraft({
+  organization,
+  user,
+  feature,
+  draftId, // todo: use this
+  draft, // todo: use this
+}: {
+  organization: OrganizationInterface;
+  user: EventAuditUser;
+  draftId: string;
+  feature: FeatureInterface;
+  draft: FeatureDraftChanges;
+}): Promise<FeatureInterface> {
+  // todo: update the feature revision
+
+  return await updateFeature(organization, user, feature, {
+    draft: { active: false },
+  });
 }
 
 function getLegacyDraftChanges(feature: FeatureInterface): FeatureDraftChanges {

@@ -18,7 +18,7 @@ import {
   editFeatureRule,
   getAllFeatures,
   getFeature,
-  getLegacyDraftRules,
+  getDraftRules,
   publishDraft,
   publishLegacyDraft,
   setDefaultValue,
@@ -512,6 +512,7 @@ export async function postFeatureDraft(
 
   res.status(200).json({
     status: 200,
+    // todo: return draftId
   });
 }
 
@@ -620,13 +621,14 @@ export async function deleteFeatureExperimentRefRule(
   });
 }
 
+// todo: send draftId
 export async function postFeatureDefaultValue(
-  req: AuthRequest<{ defaultValue: string }, { id: string }>,
+  req: AuthRequest<{ defaultValue: string; draftId?: string }, { id: string }>,
   res: Response<{ status: 200 }, EventAuditUserForResponseLocals>
 ) {
   const { org } = getOrgFromReq(req);
   const { id } = req.params;
-  const { defaultValue } = req.body;
+  const { defaultValue, draftId = null } = req.body;
   const feature = await getFeature(org.id, id);
 
   if (!feature) {
@@ -636,8 +638,13 @@ export async function postFeatureDefaultValue(
   req.checkPermissions("manageFeatures", feature.project);
   req.checkPermissions("createFeatureDrafts", feature.project);
 
-  // todo: this calls update legacy draft
-  await setDefaultValue(org, res.locals.eventAudit, feature, defaultValue);
+  await setDefaultValue(
+    org,
+    res.locals.eventAudit,
+    feature,
+    defaultValue,
+    draftId
+  );
 
   res.status(200).json({
     status: 200,
@@ -789,8 +796,9 @@ export async function postFeatureMoveRule(
 
   // todo: use draftId
   console.log("todo: use draftId", draftId);
+  const draft = feature.draft;
 
-  const rules = getLegacyDraftRules(feature, environment);
+  const rules = getDraftRules(draft, environment, feature.environmentSettings);
   if (!rules[from] || !rules[to]) {
     throw new Error("Invalid rule index");
   }
@@ -832,8 +840,9 @@ export async function deleteFeatureRule(
 
   // todo: use draftId
   console.log("todo: use draftId", draftId);
+  const draft = feature.draft;
 
-  const rules = getLegacyDraftRules(feature, environment);
+  const rules = getDraftRules(draft, environment, feature.environmentSettings);
 
   const newRules = rules.slice();
   newRules.splice(i, 1);
