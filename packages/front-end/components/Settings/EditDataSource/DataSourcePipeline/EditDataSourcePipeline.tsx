@@ -64,6 +64,11 @@ export const EditDataSourcePipeline: FC<EditDataSourcePipelineProps> = ({
           />
           <Field
             label="Retention of temporary units table (hours)"
+            helpText={
+              dataSource.type === "snowflake"
+                ? "Rounded up to nearest day for Snowflake"
+                : ""
+            }
             className="ml-2"
             containerClassName="mb-2"
             type="number"
