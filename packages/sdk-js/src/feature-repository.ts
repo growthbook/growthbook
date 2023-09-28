@@ -326,11 +326,16 @@ async function fetchFeatures(
   const key = getKey(instance);
   const cacheKey = getCacheKey(instance);
 
-  if (
-    remoteEval &&
-    apiHost.match(/^https?:\/\/(?:[^/.]*\.)*growthbook\.io\/?$/i)
-  ) {
-    throw new Error("Cannot use remoteEval on GrowthBook servers");
+  if (remoteEval) {
+    let isGbHost = false;
+    try {
+      isGbHost = !!new URL(apiHost).hostname.match(/growthbook\.io$/i);
+    } catch (e) {
+      // ignore invalid URLs
+    }
+    if (isGbHost) {
+      throw new Error("Cannot use remoteEval on GrowthBook servers");
+    }
   }
 
   let promise = activeFetches.get(cacheKey);
