@@ -1603,7 +1603,7 @@ export default abstract class SqlIntegration
           timestampColumn: "TIMESTAMP_MICROS(event_timestamp)",
           userIdColumn: "user_id",
           anonymousIdColumn: "user_pseudo_id",
-          getMetricTableName: (schema?: string) =>
+          getMetricTableName: (event_name, schema?: string) =>
             this.generateTablePath("events_*", schema),
           getDateLimitClause: (start: Date, end: Date) =>
             `((_TABLE_SUFFIX BETWEEN '${formatDate(
