@@ -58,7 +58,7 @@ export default function StoppedExperimentBanner({
         {experiment.results && (
           <div
             style={{ height: 25, lineHeight: "25px" }}
-            className="ml-3 experiment-status-widget "
+            className="ml-3 experiment-status-widget"
           >
             <ResultsIndicator results={experiment.results} />
           </div>
@@ -66,8 +66,8 @@ export default function StoppedExperimentBanner({
         <div className="flex-1"></div>
         {releasedVariation &&
           experimentHasLinkedChanges(experiment) &&
-          !hasLiveLinkedChanges && (
-            <div className="px-3">
+          hasLiveLinkedChanges && (
+            <div className="ml-3">
               {(result === "won" || result === "lost") &&
               winningVariation !== releasedVariation ? (
                 <>
