@@ -94,7 +94,10 @@ export interface SchemaFormatConfig {
     displayName: string;
     groupBy: string;
   }[];
-  getMetricTableName: (metricName: string, schema?: string) => string;
+  getMetricTableName: (options: {
+    eventName: string;
+    schema?: string;
+  }) => string;
   getMetricWhereClause: (metricName?: string) => string;
   getDateLimitClause: (start: Date, end: Date) => string;
   displayNameColumn?: string;
