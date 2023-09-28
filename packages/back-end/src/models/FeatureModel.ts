@@ -892,7 +892,7 @@ function getLegacyDraftChanges(feature: FeatureInterface): FeatureDraftChanges {
   return draft;
 }
 
-async function getDraftChanges({
+export async function getDraftChanges({
   draftId,
   featureId,
   organizationId,

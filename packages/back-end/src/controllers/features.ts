@@ -17,8 +17,9 @@ import {
   discardLegacyDraft,
   editFeatureRule,
   getAllFeatures,
-  getFeature,
+  getDraftChanges,
   getDraftRules,
+  getFeature,
   publishDraft,
   publishLegacyDraft,
   setDefaultValue,
@@ -794,9 +795,16 @@ export async function postFeatureMoveRule(
   req.checkPermissions("manageFeatures", feature.project);
   req.checkPermissions("createFeatureDrafts", feature.project);
 
-  // todo: use draftId
-  console.log("todo: use draftId", draftId);
-  const draft = feature.draft;
+  let draft: FeatureDraftChanges | undefined;
+  if (draftId) {
+    draft = await getDraftChanges({
+      draftId,
+      organizationId: org.id,
+      featureId: id,
+    });
+  } else {
+    draft = feature.draft;
+  }
 
   const rules = getDraftRules(draft, environment, feature.environmentSettings);
   if (!rules[from] || !rules[to]) {
@@ -805,13 +813,17 @@ export async function postFeatureMoveRule(
 
   const newRules = arrayMove(rules, from, to);
 
-  await setLegacyFeatureDraftRules(
-    org,
-    res.locals.eventAudit,
-    feature,
-    environment,
-    newRules
-  );
+  if (draftId) {
+    // todo: update draft with new rules
+  } else {
+    await setLegacyFeatureDraftRules(
+      org,
+      res.locals.eventAudit,
+      feature,
+      environment,
+      newRules
+    );
+  }
 
   res.status(200).json({
     status: 200,
@@ -838,22 +850,33 @@ export async function deleteFeatureRule(
   req.checkPermissions("manageFeatures", feature.project);
   req.checkPermissions("createFeatureDrafts", feature.project);
 
-  // todo: use draftId
-  console.log("todo: use draftId", draftId);
-  const draft = feature.draft;
+  let draft: FeatureDraftChanges | undefined;
+  if (draftId) {
+    draft = await getDraftChanges({
+      draftId,
+      organizationId: org.id,
+      featureId: id,
+    });
+  } else {
+    draft = feature.draft;
+  }
 
   const rules = getDraftRules(draft, environment, feature.environmentSettings);
 
   const newRules = rules.slice();
   newRules.splice(i, 1);
 
-  await setLegacyFeatureDraftRules(
-    org,
-    res.locals.eventAudit,
-    feature,
-    environment,
-    newRules
-  );
+  if (draftId) {
+    // todo: update the draft
+  } else {
+    await setLegacyFeatureDraftRules(
+      org,
+      res.locals.eventAudit,
+      feature,
+      environment,
+      newRules
+    );
+  }
 
   res.status(200).json({
     status: 200,
@@ -1055,7 +1078,7 @@ export async function getFeatureById(
     });
   }
 
-  // todo: update these draft references based on the new drafts
+  // todo: return only the real values, not the draft values
   const legacyDraft = feature.draft;
 
   if (legacyDraft && legacyDraft.active && legacyDraft.rules) {
