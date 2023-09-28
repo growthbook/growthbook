@@ -63,7 +63,7 @@ export const EditDataSourcePipeline: FC<EditDataSourcePipelineProps> = ({
             {...form.register("writeDataset")}
           />
           <Field
-            label="Retention of temporary units table (hours)"
+            label="Retention of units table (hours)"
             helpText={
               dataSource.type === "snowflake"
                 ? "Rounded up to nearest day for Snowflake"
