@@ -57,7 +57,6 @@ export default abstract class SqlIntegration
   // eslint-disable-next-line
   params: any;
   type!: DataSourceType;
-  tablePathEnclosure = "";
   abstract setParams(encryptedParams: string): void;
   abstract runQuery(sql: string): Promise<QueryResponse>;
   abstract getSensitiveParamKeys(): string[];
@@ -1488,6 +1487,9 @@ export default abstract class SqlIntegration
   getDefaultDatabase() {
     return "";
   }
+  getDefaultSchema() {
+    return "";
+  }
 
   generateTablePath(
     tableName: string,
@@ -1504,19 +1506,17 @@ export default abstract class SqlIntegration
           "No database provided. Please edit the connection settings and try again."
         );
       }
-      path +=
-        this.tablePathEnclosure + database + this.tablePathEnclosure + ".";
+      path += database + ".";
     }
 
     // Add schema if required
     if (this.requiresSchema || queryRequiresSchema) {
-      schema = schema || this.getDefaultSchema();
       if (!schema) {
         throw new MissingDatasourceParamsError(
           "No schema provided. Please edit the connection settings and try again."
         );
       }
-      path += this.tablePathEnclosure + schema + this.tablePathEnclosure + ".";
+      path += schema + ".";
     }
 
     // Add table name
