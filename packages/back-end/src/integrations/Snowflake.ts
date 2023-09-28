@@ -11,7 +11,6 @@ export default class Snowflake extends SqlIntegration {
   // @ts-expect-error
   params: SnowflakeConnectionParams;
   requiresSchema = false;
-  tablePathEnclosure = `"`;
   setParams(encryptedParams: string) {
     this.params = decryptDataSourceParams<SnowflakeConnectionParams>(
       encryptedParams

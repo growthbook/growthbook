@@ -1487,9 +1487,6 @@ export default abstract class SqlIntegration
   getDefaultDatabase() {
     return "";
   }
-  getDefaultSchema() {
-    return "";
-  }
 
   generateTablePath(
     tableName: string,
