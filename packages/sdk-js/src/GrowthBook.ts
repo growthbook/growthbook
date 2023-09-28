@@ -153,8 +153,6 @@ export class GrowthBook<
     apiHost: string;
     streamingHost: string;
     apiRequestHeaders?: Record<string, string>;
-    streamingRequestHeaders?: Record<string, string>;
-    remoteEvalRequestHeaders?: Record<string, string>;
   } {
     const defaultHost = this._ctx.apiHost || "https://cdn.growthbook.io";
     return {

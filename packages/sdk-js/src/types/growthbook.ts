@@ -284,9 +284,6 @@ export type CacheSettings = {
 
 export type ApiHost = string;
 export type ClientKey = string;
-export type RepositoryKey = string;
-// `${ApiHost}||${ClientKey}` for local eval
-// `${ApiHost}||${ClientKey}||${JSON.stringify(sorted_cacheKeyAttributes)}` for remote eval
 
 export type LoadFeaturesOptions = {
   /**

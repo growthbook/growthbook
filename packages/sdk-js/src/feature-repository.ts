@@ -4,7 +4,6 @@ import {
   FeatureApiResponse,
   Helpers,
   Polyfills,
-  RepositoryKey,
 } from "./types/growthbook";
 import type { GrowthBook } from ".";
 
@@ -70,15 +69,12 @@ try {
 }
 
 // Global state
-const subscribedInstances: Map<RepositoryKey, Set<GrowthBook>> = new Map();
+const subscribedInstances: Map<string, Set<GrowthBook>> = new Map();
 let cacheInitialized = false;
-const cache: Map<RepositoryKey, CacheEntry> = new Map();
-const activeFetches: Map<
-  RepositoryKey,
-  Promise<FeatureApiResponse>
-> = new Map();
-const streams: Map<RepositoryKey, ScopedChannel> = new Map();
-const supportsSSE: Set<RepositoryKey> = new Set();
+const cache: Map<string, CacheEntry> = new Map();
+const activeFetches: Map<string, Promise<FeatureApiResponse>> = new Map();
+const streams: Map<string, ScopedChannel> = new Map();
+const supportsSSE: Set<string> = new Set();
 
 // Public functions
 export function setPolyfills(overrides: Partial<Polyfills>): void {
@@ -173,7 +169,7 @@ async function fetchFeaturesWithCache(
   }
 }
 
-function getKey(instance: GrowthBook): RepositoryKey {
+function getKey(instance: GrowthBook): string {
   const [apiHost, clientKey] = instance.getApiInfo();
   return `${apiHost}||${clientKey}`;
 }
@@ -185,7 +181,7 @@ function getCacheKey(instance: GrowthBook): string {
   const attributes = instance.getAttributes();
   const cacheKeyAttributes = instance.getCacheKeyAttributes();
   const ca: Attributes = {};
-  cacheKeyAttributes.sort().forEach((key) => {
+  cacheKeyAttributes.forEach((key) => {
     ca[key] = attributes[key];
   });
 
@@ -234,7 +230,7 @@ async function initializeCache(): Promise<void> {
         cacheSettings.cacheKey
       );
       if (value) {
-        const parsed: [RepositoryKey, CacheEntry][] = JSON.parse(value);
+        const parsed: [string, CacheEntry][] = JSON.parse(value);
         if (parsed && Array.isArray(parsed)) {
           parsed.forEach(([key, data]) => {
             cache.set(key, {
@@ -253,21 +249,27 @@ async function initializeCache(): Promise<void> {
 
 // Enforce the maxEntries limit
 function cleanupCache() {
-  // pop the oldest entries until we're under the limit
-  while (cache.size > cacheSettings.maxEntries) {
-    const oldest = Array.from(cache.entries()).sort(
-      ([, a], [, b]) => a.staleAt.getTime() - b.staleAt.getTime()
-    )[0];
-    if (oldest) {
-      cache.delete(oldest[0]);
-    }
+  const entriesWithTimestamps = Array.from(cache.entries())
+    .map(([key, value]) => ({
+      key,
+      staleAt: value.staleAt.getTime(),
+    }))
+    .sort((a, b) => a.staleAt - b.staleAt);
+
+  const entriesToRemoveCount = Math.min(
+    Math.max(0, cache.size - cacheSettings.maxEntries),
+    cache.size
+  );
+
+  for (let i = 0; i < entriesToRemoveCount; i++) {
+    cache.delete(entriesWithTimestamps[i].key);
   }
 }
 
 // Called whenever new features are fetched from the API
 function onNewFeatureData(
-  key: RepositoryKey,
-  cacheKey: RepositoryKey,
+  key: string,
+  cacheKey: string,
   data: FeatureApiResponse
 ): void {
   // If contents haven't changed, ignore the update, extend the stale TTL
@@ -334,7 +336,7 @@ async function fetchFeatures(
       // ignore invalid URLs
     }
     if (isGbHost) {
-      throw new Error("Cannot use remoteEval on GrowthBook servers");
+      throw new Error("Cannot use remoteEval on GrowthBook Cloud");
     }
   }
 
@@ -476,7 +478,7 @@ function enableChannel(
   };
 }
 
-function destroyChannel(channel: ScopedChannel, key: RepositoryKey) {
+function destroyChannel(channel: ScopedChannel, key: string) {
   disableChannel(channel);
   streams.delete(key);
 }
