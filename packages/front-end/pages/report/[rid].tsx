@@ -148,6 +148,13 @@ export default function ReportPage() {
   const sequentialTestingEnabled =
     hasSequentialTestingFeature && !!report.args.sequentialTestingEnabled;
 
+  let dimensionText = "None";
+  if (report.args.dimension === "pre:date") {
+    dimensionText = "Date Cohorts (First Exposure)";
+  } else if (report.args.dimension === "pre:activation") {
+    dimensionText = "Activation status";
+  }
+
   return (
     <>
       <div
@@ -292,9 +299,7 @@ export default function ReportPage() {
                 <div className="col-auto form-inline pr-3">
                   <div>
                     <div className="uppercase-title text-muted">Dimension</div>
-                    <OverflowText maxWidth={220}>
-                      {report.args.dimension || "None"}
-                    </OverflowText>
+                    <OverflowText maxWidth={220}>{dimensionText}</OverflowText>
                   </div>
                 </div>
                 <div className="col-auto">
