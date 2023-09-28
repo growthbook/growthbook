@@ -44,6 +44,7 @@ import track, { trackReport } from "@/services/track";
 import CompactResults from "@/components/Experiment/CompactResults";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import BreakDownResults from "@/components/Experiment/BreakDownResults";
+import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
 
 export default function ReportPage() {
   const [newUi, setNewUi] = useLocalStorage<boolean>(
@@ -288,6 +289,14 @@ export default function ReportPage() {
                   <h2>Results</h2>
                 </div>
                 <div className="flex-1"></div>
+                <div className="col-auto form-inline pr-3">
+                  <div>
+                    <div className="uppercase-title text-muted">Dimension</div>
+                    <OverflowText maxWidth={220}>
+                      {report.args.dimension || "None"}
+                    </OverflowText>
+                  </div>
+                </div>
                 <div className="col-auto">
                   {hasData &&
                   report.runStarted &&
