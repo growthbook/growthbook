@@ -101,6 +101,20 @@ export class GrowthBook<
       if (context.decryptionKey) {
         throw new Error("Encryption is not available for remoteEval");
       }
+      if (!context.clientKey) {
+        throw new Error("Missing clientKey");
+      }
+      let isGbHost = false;
+      try {
+        isGbHost = !!new URL(context.apiHost || "").hostname.match(
+          /growthbook\.io$/i
+        );
+      } catch (e) {
+        // ignore invalid URLs
+      }
+      if (isGbHost) {
+        throw new Error("Cannot use remoteEval on GrowthBook Cloud");
+      }
     } else {
       if (context.cacheKeyAttributes) {
         throw new Error("cacheKeyAttributes are only used for remoteEval");
@@ -323,7 +337,9 @@ export class GrowthBook<
   private async _refreshForRemoteEval() {
     if (!this._ctx.remoteEval) return;
     if (!this._loadFeaturesCalled) return;
-    await this._refresh({}, false, true);
+    await this._refresh({}, false, true).catch(() => {
+      // Ignore errors
+    });
   }
 
   public getAllResults() {
