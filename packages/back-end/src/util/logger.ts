@@ -50,8 +50,8 @@ export function getCustomLogProps(req: Request) {
   if (typedReq.userId) {
     data.userId = typedReq.userId;
   }
-  if (typedReq.admin) {
-    data.admin = true;
+  if (typedReq.superAdmin) {
+    data.superAdmin = true;
   }
   return data;
 }

@@ -75,7 +75,7 @@ export async function getUser(req: AuthRequest, res: Response) {
     userId: userId,
     userName: req.name,
     email: req.email,
-    admin: !!req.admin,
+    admin: !!req.superAdmin,
     license: !IS_CLOUD && getLicense(),
     organizations: validOrgs.map((org) => {
       return {
