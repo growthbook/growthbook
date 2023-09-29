@@ -12,6 +12,7 @@ import { SegmentInterface } from "../../types/segment";
 import { FormatDialect } from "../util/sql";
 import { TemplateVariables } from "../../types/sql";
 import { FactMetricInterface } from "../../types/fact-table";
+import { FactTableMap } from "../models/FactTableModel";
 
 export class MissingDatasourceParamsError extends Error {
   constructor(message: string) {
@@ -96,6 +97,7 @@ export type ExperimentMetricQueryParams = {
   metric: MetricInterface | FactMetricInterface;
   activationMetric: MetricInterface | FactMetricInterface | null;
   denominatorMetrics: (MetricInterface | FactMetricInterface)[];
+  factTableMap: FactTableMap;
   dimension: Dimension | null;
   segment: SegmentInterface | null;
   useUnitsTable: boolean;
@@ -105,6 +107,7 @@ export type ExperimentMetricQueryParams = {
 export type ExperimentUnitsQueryParams = {
   settings: ExperimentSnapshotSettings;
   activationMetric: MetricInterface | FactMetricInterface | null;
+  factTableMap: FactTableMap;
   dimension: Dimension | null;
   segment: SegmentInterface | null;
   unitsTableFullName?: string;

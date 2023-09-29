@@ -71,6 +71,16 @@ export async function getAllFactTablesForOrganization(organization: string) {
   return docs.map((doc) => toInterface(doc));
 }
 
+export type FactTableMap = Map<string, FactTableInterface>;
+
+export async function getFactTableMap(
+  organization: string
+): Promise<FactTableMap> {
+  const factTables = await getAllFactTablesForOrganization(organization);
+
+  return new Map(factTables.map((f) => [f.id, f]));
+}
+
 export async function getFactTable(organization: string, id: string) {
   const doc = await FactTableModel.findOne({ organization, id });
   return doc ? toInterface(doc) : null;

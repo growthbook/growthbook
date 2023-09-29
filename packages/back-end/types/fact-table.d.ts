@@ -10,6 +10,9 @@ import {
   updateFactTablePropsValidator,
   updateFactMetricPropsValidator,
   factRefValidator,
+  metricTypeValidator,
+  cappingValidator,
+  conversionWindowUnitValidator,
 } from "../src/routers/fact-table/fact-table.validators";
 
 export type FactNumberFormat = z.infer<typeof numberFormatValidator>;
@@ -53,7 +56,13 @@ export interface FactTableInterface {
 
 export type FactRef = z.infer<typeof factRefValidator>;
 
-export type FactMetricType = "ratio" | "mean" | "proportion";
+export type FactMetricType = z.infer<typeof metricTypeValidator>;
+
+export type CappingType = z.infer<typeof cappingValidator>;
+
+export type ConversionWindowUnit = z.infer<
+  typeof conversionWindowUnitValidator
+>;
 
 export interface FactMetricInterface {
   id: string;
@@ -72,7 +81,7 @@ export interface FactMetricInterface {
   numerator: FactRef;
   denominator: FactRef | null;
 
-  capping: "absolute" | "percentile" | "";
+  capping: CappingType;
   capValue: number;
 
   maxPercentChange: number;
@@ -88,7 +97,7 @@ export interface FactMetricInterface {
   conversionDelayHours: number;
   hasConversionWindow: boolean;
   conversionWindowValue: number;
-  conversionWindowUnit: "weeks" | "days" | "hours";
+  conversionWindowUnit: ConversionWindowUnit;
 }
 
 export type CreateFactTableProps = z.infer<

@@ -26,6 +26,7 @@ import {
 import { expandDenominatorMetrics } from "../util/sql";
 import { getOrganizationById } from "../services/organizations";
 import { FactMetricInterface } from "../../types/fact-table";
+import { FactTableMap } from "../models/FactTableModel";
 import {
   QueryRunner,
   QueryMap,
@@ -45,6 +46,7 @@ export type ExperimentResultsQueryParams = {
   analysisSettings: ExperimentSnapshotAnalysisSettings;
   variationNames: string[];
   metricMap: Map<string, MetricInterface | FactMetricInterface>;
+  factTableMap: FactTableMap;
   queryParentId: string;
 };
 
@@ -110,6 +112,7 @@ export const startExperimentResultQueries = async (
       settings: snapshotSettings,
       unitsTableFullName: unitsTableFullName,
       includeIdJoins: true,
+      factTableMap: params.factTableMap,
     };
     unitQuery = await startQuery({
       name: queryParentId,
@@ -133,7 +136,7 @@ export const startExperimentResultQueries = async (
           .filter(Boolean)
       );
     }
-    const params: ExperimentMetricQueryParams = {
+    const queryParams: ExperimentMetricQueryParams = {
       activationMetric,
       denominatorMetrics,
       dimension: dimensionObj,
@@ -142,11 +145,12 @@ export const startExperimentResultQueries = async (
       settings: snapshotSettings,
       useUnitsTable: useUnitsTable,
       unitsTableFullName: unitsTableFullName,
+      factTableMap: params.factTableMap,
     };
     queries.push(
       await startQuery({
         name: m.id,
-        query: integration.getExperimentMetricQuery(params),
+        query: integration.getExperimentMetricQuery(queryParams),
         dependencies: unitQuery ? [unitQuery.query] : [],
         run: (query) => integration.runExperimentMetricQuery(query),
         process: (rows) => rows,

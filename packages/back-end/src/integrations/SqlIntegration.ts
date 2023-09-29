@@ -48,7 +48,14 @@ import { formatInformationSchema } from "../util/informationSchemas";
 import { ExperimentSnapshotSettings } from "../../types/experiment-snapshot";
 import { TemplateVariables } from "../../types/sql";
 import { FactMetricInterface } from "../../types/fact-table";
-import { isFactMetric } from "../services/experiments";
+import {
+  getConversionWindowHours,
+  getUserIdTypes,
+  isFactMetric,
+  isFunnelMetric,
+  isRatioMetric,
+} from "../services/experiments";
+import { FactTableMap } from "../models/FactTableModel";
 
 export default abstract class SqlIntegration
   implements SourceIntegrationInterface {
@@ -648,7 +655,7 @@ export default abstract class SqlIntegration
 
   private getFunnelUsersCTE(
     baseIdType: string,
-    metrics: MetricInterface[],
+    metrics: (MetricInterface | FactMetricInterface)[],
     isRegressionAdjusted: boolean = false,
     ignoreConversionEnd: boolean = false,
     tablePrefix: string = "__denominator",
@@ -738,12 +745,11 @@ export default abstract class SqlIntegration
   private getConversionWindowClause(
     baseCol: string,
     metricCol: string,
-    metric: MetricInterface,
+    metric: MetricInterface | FactMetricInterface,
     ignoreConversionEnd: boolean
   ): string {
     const conversionDelayHours = metric.conversionDelayHours ?? 0;
-    const conversionWindowHours =
-      metric.conversionWindowHours ?? DEFAULT_CONVERSION_WINDOW_HOURS;
+    const conversionWindowHours = getConversionWindowHours(metric);
     return `
       ${metricCol} >= ${this.addHours(baseCol, conversionDelayHours)}
       ${
@@ -756,7 +762,9 @@ export default abstract class SqlIntegration
       }`;
   }
 
-  private getMetricMinDelay(metrics: MetricInterface[]) {
+  private getMetricMinDelay(
+    metrics: (MetricInterface | FactMetricInterface)[]
+  ) {
     let runningDelay = 0;
     let minDelay = 0;
     metrics.forEach((m) => {
@@ -785,7 +793,7 @@ export default abstract class SqlIntegration
   }
 
   private getMetricEnd(
-    metrics: MetricInterface[],
+    metrics: (MetricInterface | FactMetricInterface)[],
     initial?: Date,
     ignoreConversionEnd?: boolean
   ): Date | null {
@@ -798,7 +806,7 @@ export default abstract class SqlIntegration
     metrics.forEach((m) => {
       const hours =
         runningHours +
-        (m.conversionWindowHours || DEFAULT_CONVERSION_WINDOW_HOURS) +
+        getConversionWindowHours(m) +
         (m.conversionDelayHours || 0);
       if (hours > maxHours) maxHours = hours;
       runningHours = hours;
@@ -844,7 +852,12 @@ export default abstract class SqlIntegration
   }
 
   getExperimentUnitsQuery(params: ExperimentUnitsQueryParams): string {
-    const { settings, segment, activationMetric: activationMetricDoc } = params;
+    const {
+      settings,
+      segment,
+      activationMetric: activationMetricDoc,
+      factTableMap,
+    } = params;
 
     let activationMetric = null;
     if (activationMetricDoc) {
@@ -878,7 +891,7 @@ export default abstract class SqlIntegration
     const { baseIdType, idJoinMap, idJoinSQL } = this.getIdentitiesCTE(
       [
         [exposureQuery.userIdType],
-        activationMetric?.userIdTypes ?? [],
+        activationMetric ? getUserIdTypes(activationMetric, factTableMap) : [],
         dimension?.type === "user"
           ? [dimension.dimension.userIdType || "user_id"]
           : [],
@@ -1050,7 +1063,7 @@ export default abstract class SqlIntegration
         startDate: settings.startDate,
         endDate: settings.endDate,
         experimentId: settings.experimentId,
-        templateVariables: metric.templateVariables,
+        templateVariables: isFactMetric(metric) ? {} : metric.templateVariables,
       });
     }
     // Replace any placeholders in the segment SQL
@@ -1059,7 +1072,7 @@ export default abstract class SqlIntegration
         startDate: settings.startDate,
         endDate: settings.endDate,
         experimentId: settings.experimentId,
-        templateVariables: metric.templateVariables,
+        templateVariables: isFactMetric(metric) ? {} : metric.templateVariables,
       });
     }
 
@@ -1070,10 +1083,8 @@ export default abstract class SqlIntegration
     // e.g. "Purchase/Signup" is filtering to users who signed up and then counting purchases
     // When the denominator is a count, it's a real ratio, dividing two quantities
     // e.g. "Pages/Session" is dividing number of page views by number of sessions
-    const ratioMetric = ["count", "duration", "revenue"].includes(
-      denominator?.type
-    );
-    const funnelMetric = denominator?.type === "binomial";
+    const ratioMetric = isRatioMetric(metric, denominator);
+    const funnelMetric = isFunnelMetric(metric, denominator);
 
     const cumulativeDate =
       dimension?.type === "datecumulative" || dimension?.type === "datedaily";
@@ -1469,7 +1480,7 @@ export default abstract class SqlIntegration
   }
   private capCoalesceValue(
     valueCol: string,
-    metric: MetricInterface,
+    metric: MetricInterface | FactMetricInterface,
     capTablePrefix: string = "c"
   ): string {
     if (metric?.capping === "absolute" && metric.capValue) {
@@ -1885,16 +1896,21 @@ AND event_name = '${eventName}'`,
     endDate,
     experimentId,
   }: {
-    metric: MetricInterface;
+    metric: MetricInterface | FactMetricInterface;
     baseIdType: string;
     idJoinMap: Record<string, string>;
     startDate: Date;
     endDate: Date | null;
     experimentId?: string;
   }) {
+    if (isFactMetric(metric)) {
+      // TODO: new metric CTE
+      return ``;
+    }
+
     const queryFormat = this.getMetricQueryFormat(metric);
 
-    const cols = this.getMetricColumns(metric, "m");
+    const cols = this.getMetricColumns(metric, new Map(), "m");
 
     // Determine the identifier column to select from
     let userIdCol = cols.userIds[baseIdType] || "user_id";
@@ -2056,7 +2072,7 @@ AND event_name = '${eventName}'`,
 
   private addCaseWhenTimeFilter(
     col: string,
-    metric: MetricInterface,
+    metric: MetricInterface | FactMetricInterface,
     ignoreConversionEnd: boolean,
     cumulativeDate: boolean
   ): string {
@@ -2077,7 +2093,25 @@ AND event_name = '${eventName}'`,
     )}`;
   }
 
-  private getAggregateMetricColumn(metric: MetricInterface) {
+  private getAggregateMetricColumn(
+    metric: MetricInterface | FactMetricInterface
+  ) {
+    // Fact Metrics
+    if (isFactMetric(metric)) {
+      if (
+        metric.metricType === "proportion" ||
+        metric.numerator.factId === "$$distinctUsers"
+      ) {
+        return `MAX(COALESCE(value, 0))`;
+      } else if (metric.numerator.factId === "$$count") {
+        return `COUNT(value)`;
+      } else {
+        return `SUM(COALESCE(value, 0))`;
+      }
+    }
+
+    // Non-fact Metrics
+
     // Binomial metrics don't have a value, so use hard-coded "1" as the value
     if (metric.type === "binomial") {
       return `MAX(COALESCE(value, 0))`;
@@ -2117,7 +2151,35 @@ AND event_name = '${eventName}'`,
     }
   }
 
-  private getMetricColumns(metric: MetricInterface, alias = "m") {
+  private getMetricColumns(
+    metric: MetricInterface | FactMetricInterface,
+    factTableMap: FactTableMap,
+    alias = "m"
+  ) {
+    if (isFactMetric(metric)) {
+      const userIds: Record<string, string> = {};
+      getUserIdTypes(metric, factTableMap).forEach((userIdType) => {
+        userIds[userIdType] = `${alias}.${userIdType}`;
+      });
+
+      const numeratorFactTable = factTableMap.get(metric.numerator.factTableId);
+      const numeratorFact = numeratorFactTable?.facts.find(
+        (f) => f.id === metric.numerator.factId
+      );
+
+      const value =
+        metric.metricType === "proportion" ||
+        metric.numerator.factId === "$$distinctId"
+          ? "1"
+          : `${numeratorFact ? `${alias}.${numeratorFact.column}` : `1`}`;
+
+      return {
+        userIds,
+        timestamp: `${alias}.timestamp`,
+        value,
+      };
+    }
+
     const queryFormat = this.getMetricQueryFormat(metric);
 
     // Directly inputting SQL (preferred)

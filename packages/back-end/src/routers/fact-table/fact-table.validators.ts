@@ -34,6 +34,10 @@ export const factRefValidator = z
   })
   .strict();
 
+export const metricTypeValidator = z.enum(["ratio", "mean", "proportion"]);
+export const cappingValidator = z.enum(["absolute", "percentile", ""]);
+export const conversionWindowUnitValidator = z.enum(["weeks", "days", "hours"]);
+
 export const createFactMetricPropsValidator = z.object({
   owner: z.string().optional(),
   datasource: z.string(),
@@ -42,11 +46,11 @@ export const createFactMetricPropsValidator = z.object({
   tags: z.array(z.string()),
   projects: z.array(z.string()),
 
-  metricType: z.enum(["ratio", "mean", "proportion"]),
+  metricType: metricTypeValidator,
   numerator: factRefValidator,
   denominator: factRefValidator.nullable(),
 
-  capping: z.enum(["absolute", "percentile", ""]),
+  capping: cappingValidator,
   capValue: z.number(),
   inverse: z.boolean(),
 
@@ -63,7 +67,7 @@ export const createFactMetricPropsValidator = z.object({
   conversionDelayHours: z.number(),
   hasConversionWindow: z.boolean(),
   conversionWindowValue: z.number(),
-  conversionWindowUnit: z.enum(["weeks", "days", "hours"]),
+  conversionWindowUnit: conversionWindowUnitValidator,
 });
 
 export const updateFactMetricPropsValidator = z.object({
@@ -73,11 +77,11 @@ export const updateFactMetricPropsValidator = z.object({
   tags: z.array(z.string()).optional(),
   projects: z.array(z.string()).optional(),
 
-  metricType: z.enum(["ratio", "mean", "proportion"]).optional(),
+  metricType: metricTypeValidator.optional(),
   numerator: factRefValidator.optional(),
   denominator: factRefValidator.nullable().optional(),
 
-  capping: z.enum(["absolute", "percentile", ""]).optional(),
+  capping: cappingValidator.optional(),
   capValue: z.number().optional(),
   inverse: z.boolean().optional(),
 
@@ -94,7 +98,7 @@ export const updateFactMetricPropsValidator = z.object({
   conversionDelayHours: z.number().optional(),
   hasConversionWindow: z.boolean().optional(),
   conversionWindowValue: z.number().optional(),
-  conversionWindowUnit: z.enum(["weeks", "days", "hours"]).optional(),
+  conversionWindowUnit: conversionWindowUnitValidator.optional(),
 });
 
 export const numberFormatValidator = z.enum([

@@ -3,6 +3,7 @@ import { FactMetricInterface } from "../../types/fact-table";
 import { MetricInterface } from "../../types/metric";
 import { Queries, QueryStatus } from "../../types/query";
 import { ExperimentReportResults, ReportInterface } from "../../types/report";
+import { FactTableMap } from "../models/FactTableModel";
 import { getReportById, updateReport } from "../models/ReportModel";
 import { getSnapshotSettingsFromReportArgs } from "../services/reports";
 import { analyzeExperimentResults } from "../services/stats";
@@ -20,6 +21,7 @@ export type SnapshotResult = {
 
 export type ReportQueryParams = {
   metricMap: Map<string, MetricInterface | FactMetricInterface>;
+  factTableMap: FactTableMap;
 };
 
 export class ReportQueryRunner extends QueryRunner<
@@ -46,6 +48,7 @@ export class ReportQueryRunner extends QueryRunner<
       snapshotSettings,
       variationNames: this.model.args.variations.map((v) => v.name),
       queryParentId: this.model.id,
+      factTableMap: params.factTableMap,
     };
 
     return startExperimentResultQueries(

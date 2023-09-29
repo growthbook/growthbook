@@ -84,6 +84,7 @@ import { ExperimentResultsQueryRunner } from "../queryRunners/ExperimentResultsQ
 import { QueryMap, getQueryMap } from "../queryRunners/QueryRunner";
 import { FactMetricInterface } from "../../types/fact-table";
 import { getFactMetric } from "../models/FactMetricModel";
+import { FactTableMap } from "../models/FactTableModel";
 import { getReportVariations, getMetricForSnapshot } from "./reports";
 import { getIntegrationFromDatasourceId } from "./datasource";
 import { analyzeExperimentMetric, analyzeExperimentResults } from "./stats";
@@ -116,6 +117,22 @@ export function isMetricBinomial(m: MetricInterface | FactMetricInterface) {
   return m.type === "binomial";
 }
 
+export function isRatioMetric(
+  m: MetricInterface | FactMetricInterface,
+  denominatorMetric?: MetricInterface | FactMetricInterface
+): boolean {
+  if (isFactMetric(m)) return m.metricType === "ratio";
+  return !!denominatorMetric && !isMetricBinomial(denominatorMetric);
+}
+
+export function isFunnelMetric(
+  m: MetricInterface | FactMetricInterface,
+  denominatorMetric?: MetricInterface | FactMetricInterface
+): boolean {
+  if (isFactMetric(m)) return false;
+  return !!denominatorMetric && isMetricBinomial(denominatorMetric);
+}
+
 export async function getExperimentMetricById(
   metricId: string,
   orgId: string
@@ -141,6 +158,18 @@ export function getConversionWindowHours(
   }
 
   return DEFAULT_CONVERSION_WINDOW_HOURS;
+}
+
+export function getUserIdTypes(
+  metric: MetricInterface | FactMetricInterface,
+  factTableMap: FactTableMap
+): string[] {
+  if (isFactMetric(metric)) {
+    const factTable = factTableMap.get(metric.numerator.factTableId);
+    return factTable?.userIdTypes || [];
+  }
+
+  return metric.userIdTypes || [];
 }
 
 export async function refreshMetric(
@@ -459,6 +488,7 @@ export async function createSnapshot({
   analysisSettings,
   metricRegressionAdjustmentStatuses,
   metricMap,
+  factTableMap,
 }: {
   experiment: ExperimentInterface;
   organization: OrganizationInterface;
@@ -468,6 +498,7 @@ export async function createSnapshot({
   analysisSettings: ExperimentSnapshotAnalysisSettings;
   metricRegressionAdjustmentStatuses: MetricRegressionAdjustmentStatus[];
   metricMap: Map<string, MetricInterface | FactMetricInterface>;
+  factTableMap: FactTableMap;
 }): Promise<ExperimentResultsQueryRunner> {
   const dimension = analysisSettings.dimensions[0] || null;
 
@@ -535,6 +566,7 @@ export async function createSnapshot({
     variationNames: experiment.variations.map((v) => v.name),
     metricMap,
     queryParentId: snapshot.id,
+    factTableMap,
   });
 
   return queryRunner;
