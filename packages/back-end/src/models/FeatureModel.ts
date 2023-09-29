@@ -589,13 +589,14 @@ export async function addFeatureRule({
 
   if (draftId) {
     // New draft flow
-    await updateDraftFeatureRevision({
-      id: draftId,
-      creatorUserId: user?.type === "dashboard" ? user.id : undefined,
-      featureId: feature.id,
-      organizationId: org.id,
+    await updateDraft({
+      user,
+      draftId,
+      feature,
+      organization: org,
       draft: {
-        ...draft,
+        comment: draft?.comment,
+        defaultValue: draft?.defaultValue,
         rules: {
           ...(draft || {}).rules,
           [environment]: newRules,
@@ -659,7 +660,17 @@ export async function deleteExperimentRefRule({
 
   if (draftId) {
     // Make changes to new draft
-    // todo: make changes to new draft
+    await updateDraft({
+      user,
+      draftId,
+      feature,
+      organization: org,
+      draft: {
+        comment: draft.comment,
+        defaultValue: draft.defaultValue,
+        rules: draft.rules,
+      },
+    });
   } else {
     // Make changes to legacy draft
     await updateLegacyDraft(org, user, feature, draft);
@@ -763,7 +774,18 @@ export async function editFeatureRule({
 
   if (draftId) {
     // New draft flow
-    // todo: new draft flow
+    await updateDraft({
+      user,
+      draftId,
+      feature,
+      organization: org,
+      draft: {
+        rules: {
+          ...(draft?.rules || {}),
+          [environment]: rules,
+        },
+      },
+    });
   } else {
     // Legacy draft flow
     await setLegacyFeatureDraftRules(org, user, feature, environment, rules);
@@ -851,8 +873,15 @@ export async function setDefaultValue(
   draft.defaultValue = defaultValue;
 
   if (draftId) {
-    // TODO: Replace this with the new flow
-    return updateLegacyDraft(org, user, feature, draft);
+    return updateDraft({
+      user,
+      draftId,
+      feature,
+      organization: org,
+      draft: {
+        defaultValue,
+      },
+    });
   } else {
     return updateLegacyDraft(org, user, feature, draft);
   }
@@ -886,16 +915,24 @@ export async function updateDraft({
   organization,
   user,
   feature,
-  draftId, // todo: use this
-  draft, // todo: use this
+  draftId,
+  draft,
 }: {
   organization: OrganizationInterface;
   user: EventAuditUser;
   draftId: string;
   feature: FeatureInterface;
-  draft: FeatureDraftChanges;
+  draft: Partial<
+    Pick<FeatureDraftChanges, "comment" | "rules" | "defaultValue">
+  >;
 }): Promise<FeatureInterface> {
-  // todo: update the feature revision
+  await updateDraftFeatureRevision({
+    creatorUserId: user?.type === "dashboard" ? user.id : undefined,
+    organizationId: organization.id,
+    featureId: feature.id,
+    id: draftId,
+    draft,
+  });
 
   return await updateFeature(organization, user, feature, {
     draft: { active: false },
