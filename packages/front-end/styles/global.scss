@@ -2542,6 +2542,16 @@ html {
       box-shadow: none !important;
     }
   }
+  .gb-select-wrapper.disabled {
+    cursor: text !important;
+    .gb-select__control {
+      border-bottom: 1px solid transparent !important;
+      background-color: transparent !important;
+      .gb-select__value-container:after {
+        display: none !important;
+      }
+    }
+  }
 }
 .phase-selector {
   .gb-select__single-value {
