@@ -35,6 +35,7 @@ import {
   createFeatureRevision,
   getFeatureRevision,
   publishFeatureRevision,
+  updateDraftFeatureRevision,
 } from "./FeatureRevisionModel";
 import { createEvent } from "./EventModel";
 import {
@@ -558,6 +559,7 @@ type AddFeatureRuleOptions = {
   environment: string;
   rule: FeatureRule;
   draftId: string | null;
+  // creatorUserId?: string;
 };
 
 export async function addFeatureRule({
@@ -572,15 +574,37 @@ export async function addFeatureRule({
     rule.id = generateRuleId();
   }
 
+  const draft = draftId
+    ? await getDraftChanges({
+        draftId,
+        organizationId: org.id,
+        featureId: feature.id,
+      })
+    : feature.draft;
+
+  const newRules = [
+    ...getDraftRules(draft, environment, feature.environmentSettings),
+    rule,
+  ];
+
   if (draftId) {
     // New draft flow
-    // todo:
+    await updateDraftFeatureRevision({
+      id: draftId,
+      creatorUserId: user?.type === "dashboard" ? user.id : undefined,
+      featureId: feature.id,
+      organizationId: org.id,
+      draft: {
+        ...draft,
+        rules: {
+          ...(draft || {}).rules,
+          [environment]: newRules,
+        },
+      },
+    });
   } else {
     // Legacy draft flow
-    await setLegacyFeatureDraftRules(org, user, feature, environment, [
-      ...getDraftRules(feature.draft, environment, feature.environmentSettings),
-      rule,
-    ]);
+    await setLegacyFeatureDraftRules(org, user, feature, environment, newRules);
   }
 }
 
