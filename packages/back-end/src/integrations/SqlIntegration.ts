@@ -32,10 +32,7 @@ import {
   ExperimentUnitsQueryResponse,
 } from "../types/Integration";
 import { DimensionInterface } from "../../types/dimension";
-import {
-  DEFAULT_CONVERSION_WINDOW_HOURS,
-  IMPORT_LIMIT_DAYS,
-} from "../util/secrets";
+import { IMPORT_LIMIT_DAYS } from "../util/secrets";
 import { SegmentInterface } from "../../types/segment";
 import {
   getBaseIdTypeAndJoins,
@@ -53,6 +50,7 @@ import {
   getUserIdTypes,
   isFactMetric,
   isFunnelMetric,
+  isMetricBinomial,
   isRatioMetric,
 } from "../services/experiments";
 import { FactTableMap } from "../models/FactTableModel";
@@ -419,6 +417,7 @@ export default abstract class SqlIntegration
           idJoinMap,
           startDate: metricStart,
           endDate: metricEnd,
+          factTableMap: new Map(),
         })})
         , __userMetric as (
           -- Add in the aggregate metric value for each user
@@ -960,6 +959,7 @@ export default abstract class SqlIntegration
             ),
             endDate: this.getMetricEnd([activationMetric], settings.endDate),
             experimentId: settings.experimentId,
+            factTableMap,
           })})
         `
         : ""
@@ -1039,6 +1039,8 @@ export default abstract class SqlIntegration
       settings,
       segment,
     } = params;
+
+    const factTableMap = params.factTableMap;
 
     // clone the metrics before we mutate them
     const metric = cloneDeep<MetricInterface | FactMetricInterface>(metricDoc);
@@ -1143,8 +1145,8 @@ export default abstract class SqlIntegration
     // Get any required identity join queries
     const idTypeObjects = [
       [exposureQuery.userIdType],
-      metric.userIdTypes || [],
-      ...denominatorMetrics.map((m) => m.userIdTypes || []),
+      getUserIdTypes(metric, factTableMap),
+      ...denominatorMetrics.map((m) => getUserIdTypes(m, factTableMap)),
     ];
     // add idTypes usually handled in units query here in the case where
     // we don't have a separate table for the units query
@@ -1154,7 +1156,7 @@ export default abstract class SqlIntegration
           ? [dimension.dimension.userIdType || "user_id"]
           : [],
         segment ? [segment.userIdType || "user_id"] : [],
-        activationMetric?.userIdTypes || []
+        activationMetric ? getUserIdTypes(activationMetric, factTableMap) : []
       );
     }
     const { baseIdType, idJoinMap, idJoinSQL } = this.getIdentitiesCTE(
@@ -1165,13 +1167,14 @@ export default abstract class SqlIntegration
       settings.experimentId
     );
 
-    const intialMetric =
+    const initialMetric =
       denominatorMetrics.length > 0 ? denominatorMetrics[0] : metric;
 
     // Get date range for experiment and analysis
-    const initialConversionWindowHours =
-      intialMetric.conversionWindowHours || DEFAULT_CONVERSION_WINDOW_HOURS;
-    const initialConversionDelayHours = intialMetric.conversionDelayHours || 0;
+    const initialConversionWindowHours = getConversionWindowHours(
+      initialMetric
+    );
+    const initialConversionDelayHours = initialMetric.conversionDelayHours || 0;
 
     const startDate: Date = settings.startDate;
     const endDate: Date | null = this.getExperimentEndDate(
@@ -1180,7 +1183,9 @@ export default abstract class SqlIntegration
     );
 
     return format(
-      `-- ${metric.name} (${metric.type})
+      `-- ${metric.name} (${
+        isFactMetric(metric) ? metric.metricType : metric.type
+      })
     WITH
       ${idJoinSQL}
       ${
@@ -1232,6 +1237,7 @@ export default abstract class SqlIntegration
         startDate: metricStart,
         endDate: metricEnd,
         experimentId: settings.experimentId,
+        factTableMap,
       })})
       ${denominatorMetrics
         .map((m, i) => {
@@ -1242,6 +1248,7 @@ export default abstract class SqlIntegration
             startDate: metricStart,
             endDate: metricEnd,
             experimentId: settings.experimentId,
+            factTableMap,
           })})`;
         })
         .join("\n")}
@@ -1405,7 +1412,9 @@ export default abstract class SqlIntegration
           ratioMetric,
           isRegressionAdjusted
         )}' as statistic_type,
-        '${metric.type}' as main_metric_type,
+        '${
+          isMetricBinomial(metric) ? "binomial" : "count"
+        }' as main_metric_type,
         ${
           isPercentileCapped
             ? "MAX(COALESCE(cap.cap_value, 0)) as main_cap_value,"
@@ -1416,7 +1425,9 @@ export default abstract class SqlIntegration
         ${
           ratioMetric
             ? `,
-          '${denominator?.type}' as denominator_metric_type,
+          '${
+            isMetricBinomial(denominator) ? "binomial" : "count"
+          }' as denominator_metric_type,
           ${
             denominatorIsPercentileCapped
               ? "MAX(COALESCE(capd.cap_value, 0)) as denominator_cap_value,"
@@ -1431,7 +1442,9 @@ export default abstract class SqlIntegration
         ${
           isRegressionAdjusted
             ? `,
-          '${metric.type}' as covariate_metric_type,
+          '${
+            isMetricBinomial(metric) ? "binomial" : "count"
+          }' as covariate_metric_type,
           SUM(${capCoalesceCovariate}) AS covariate_sum,
           SUM(POWER(${capCoalesceCovariate}, 2)) AS covariate_sum_squares,
           SUM(${capCoalesceMetric} * ${capCoalesceCovariate}) AS main_covariate_sum_product
@@ -1462,7 +1475,11 @@ export default abstract class SqlIntegration
           : ""
       }
       ${isPercentileCapped ? `CROSS JOIN __capValue cap` : ""}
-      ${metric.ignoreNulls ? `WHERE m.value != 0` : ""}
+      ${
+        "ignoreNulls" in metric && metric.ignoreNulls
+          ? `WHERE m.value != 0`
+          : ""
+      }
       GROUP BY
         m.variation,
         ${cumulativeDate ? `${this.formatDate("m.day")}` : "m.dimension"}
@@ -1895,6 +1912,7 @@ AND event_name = '${eventName}'`,
     startDate,
     endDate,
     experimentId,
+    factTableMap,
   }: {
     metric: MetricInterface | FactMetricInterface;
     baseIdType: string;
@@ -1902,28 +1920,31 @@ AND event_name = '${eventName}'`,
     startDate: Date;
     endDate: Date | null;
     experimentId?: string;
+    factTableMap: FactTableMap;
   }) {
-    if (isFactMetric(metric)) {
-      // TODO: new metric CTE
-      return ``;
-    }
-
-    const queryFormat = this.getMetricQueryFormat(metric);
-
-    const cols = this.getMetricColumns(metric, new Map(), "m");
+    const cols = this.getMetricColumns(metric, factTableMap, "m");
 
     // Determine the identifier column to select from
     let userIdCol = cols.userIds[baseIdType] || "user_id";
     let join = "";
 
+    const userIdTypes = getUserIdTypes(metric, factTableMap);
+
+    const isFact = isFactMetric(metric);
+    const queryFormat = isFact ? "fact" : this.getMetricQueryFormat(metric);
+    // For fact metrics with a WHERE clause
+    const factTable = isFact
+      ? factTableMap.get(metric.numerator.factTableId)
+      : undefined;
+
     // query builder does not use a sub-query to get a the userId column to
     // equal the userIdType, so when using the query builder, continue to
     // use the actual input column name rather than the id type
-    if (metric.userIdTypes?.includes(baseIdType)) {
+    if (userIdTypes.includes(baseIdType)) {
       userIdCol = queryFormat === "builder" ? userIdCol : baseIdType;
-    } else if (metric.userIdTypes) {
-      for (let i = 0; i < metric.userIdTypes.length; i++) {
-        const userIdType: string = metric.userIdTypes[i];
+    } else if (userIdTypes.length > 0) {
+      for (let i = 0; i < userIdTypes.length; i++) {
+        const userIdType: string = userIdTypes[i];
         if (userIdType in idJoinMap) {
           const metricUserIdCol =
             queryFormat === "builder"
@@ -1942,13 +1963,41 @@ AND event_name = '${eventName}'`,
     const schema = this.getSchema();
 
     const where: string[] = [];
+    let sql = "";
 
     // From old, deprecated query builder UI
-    if (queryFormat === "builder" && metric.conditions?.length) {
+    if (queryFormat === "builder" && !isFact && metric.conditions?.length) {
       metric.conditions.forEach((c) => {
         where.push(`m.${c.column} ${c.operator} '${c.value}'`);
       });
     }
+
+    // Add filters from the Fact and Metric
+    if (isFact && factTable) {
+      const fact = factTable.facts.find(
+        (f) => f.id === metric.numerator.factId
+      );
+      const filterIds: Set<string> = new Set();
+      if (fact?.filters) {
+        fact.filters.forEach((f) => filterIds.add(f));
+      }
+      if (metric.numerator.filters) {
+        metric.numerator.filters.forEach((f) => filterIds.add(f));
+      }
+      filterIds.forEach((filterId) => {
+        const filter = factTable.filters.find((f) => f.id === filterId);
+        if (filter) {
+          where.push(filter.value);
+        }
+      });
+
+      sql = factTable.sql;
+    }
+
+    if (!isFact && queryFormat === "sql") {
+      sql = metric.sql || "";
+    }
+
     // Add a rough date filter to improve query performance
     if (startDate) {
       where.push(`${cols.timestamp} >= ${this.toTimestamp(startDate)}`);
@@ -1965,17 +2014,20 @@ AND event_name = '${eventName}'`,
         ${timestampDateTimeColumn} as timestamp
       FROM
         ${
-          queryFormat === "sql"
+          queryFormat === "sql" || queryFormat === "fact"
             ? `(
-              ${compileSqlTemplate(metric.sql || "", {
+              ${compileSqlTemplate(sql, {
                 startDate,
                 endDate: endDate || undefined,
                 experimentId,
-                templateVariables: metric.templateVariables,
+                templateVariables:
+                  "templateVariables" in metric ? metric.templateVariables : {},
               })}
               )`
-            : (schema && !metric.table?.match(/\./) ? schema + "." : "") +
+            : !isFact
+            ? (schema && !metric.table?.match(/\./) ? schema + "." : "") +
               (metric.table || "")
+            : ""
         } m
         ${join}
         ${where.length ? `WHERE ${where.join(" AND ")}` : ""}

@@ -29,6 +29,7 @@ import {
 } from "../../types/experiment-snapshot";
 import { findProjectById } from "../models/ProjectModel";
 import { getExperimentWatchers } from "../models/WatchModel";
+import { getFactTableMap } from "../models/FactTableModel";
 
 // Time between experiment result updates (default 6 hours)
 const UPDATE_EVERY = EXPERIMENT_REFRESH_FREQUENCY * 60 * 60 * 1000;
@@ -179,6 +180,7 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
     };
 
     const metricMap = await getMetricMap(organization.id);
+    const factTableMap = await getFactTableMap(organization.id);
 
     const queryRunner = await createSnapshot({
       experiment,
@@ -188,6 +190,7 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
       metricRegressionAdjustmentStatuses:
         metricRegressionAdjustmentStatuses || [],
       metricMap,
+      factTableMap,
       useCache: true,
     });
     await queryRunner.waitForResults();

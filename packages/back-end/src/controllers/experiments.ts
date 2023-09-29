@@ -92,6 +92,7 @@ import {
   getVisualEditorApiKey,
 } from "../models/ApiKeyModel";
 import { getExperimentWatchers, upsertWatch } from "../models/WatchModel";
+import { getFactTableMap } from "../models/FactTableModel";
 
 export async function getExperiments(
   req: AuthRequest<
@@ -1811,6 +1812,7 @@ export async function postSnapshot(
   };
 
   const metricMap = await getMetricMap(org.id);
+  const factTableMap = await getFactTableMap(org.id);
 
   // Manual snapshot
   if (!experiment.datasource) {
@@ -1876,6 +1878,7 @@ export async function postSnapshot(
       metricRegressionAdjustmentStatuses:
         metricRegressionAdjustmentStatuses || [],
       metricMap,
+      factTableMap,
     });
     const snapshot = queryRunner.model;
 
