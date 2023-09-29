@@ -366,4 +366,10 @@ export interface SourceIntegrationInterface {
     schemaFormat: SchemaFormat,
     type: MetricType
   ): string;
+  generateTablePath?(
+    tableName: string,
+    schema?: string,
+    database?: string,
+    requireSchema?: boolean
+  ): string;
 }

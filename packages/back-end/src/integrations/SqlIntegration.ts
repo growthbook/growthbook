@@ -1488,7 +1488,12 @@ export default abstract class SqlIntegration
     return "";
   }
 
-  generateTablePath(tableName: string, schema?: string, database?: string) {
+  generateTablePath(
+    tableName: string,
+    schema?: string,
+    database?: string,
+    queryRequiresSchema?: boolean
+  ) {
     let path = "";
     // Add database if required
     if (this.requiresDatabase) {
@@ -1502,7 +1507,7 @@ export default abstract class SqlIntegration
     }
 
     // Add schema if required
-    if (this.requiresSchema) {
+    if (this.requiresSchema || queryRequiresSchema) {
       if (!schema) {
         throw new MissingDatasourceParamsError(
           "No schema provided. Please edit the connection settings and try again."
