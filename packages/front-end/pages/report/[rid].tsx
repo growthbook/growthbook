@@ -44,7 +44,7 @@ import track, { trackReport } from "@/services/track";
 import CompactResults from "@/components/Experiment/CompactResults";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import BreakDownResults from "@/components/Experiment/BreakDownResults";
-import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
+import DimensionChooser from "@/components/Dimensions/DimensionChooser";
 
 export default function ReportPage() {
   const [newUi, setNewUi] = useLocalStorage<boolean>(
@@ -147,13 +147,6 @@ export default function ReportPage() {
 
   const sequentialTestingEnabled =
     hasSequentialTestingFeature && !!report.args.sequentialTestingEnabled;
-
-  let dimensionText = "None";
-  if (report.args.dimension === "pre:date") {
-    dimensionText = "Date Cohorts (First Exposure)";
-  } else if (report.args.dimension === "pre:activation") {
-    dimensionText = "Activation status";
-  }
 
   return (
     <>
@@ -296,11 +289,17 @@ export default function ReportPage() {
                   <h2>Results</h2>
                 </div>
                 <div className="flex-1"></div>
-                <div className="col-auto form-inline pr-3">
-                  <div>
-                    <div className="uppercase-title text-muted">Dimension</div>
-                    <OverflowText maxWidth={220}>{dimensionText}</OverflowText>
-                  </div>
+                <div className="col-auto d-flex align-items-end mr-3">
+                  <DimensionChooser
+                    value={report.args.dimension ?? ""}
+                    activationMetric={!!report.args.activationMetric}
+                    datasourceId={report.args.datasource}
+                    exposureQueryId={report.args.exposureQueryId}
+                    userIdType={report.args.userIdType}
+                    labelClassName="mr-2"
+                    newUi={true}
+                    disabled={true}
+                  />
                 </div>
                 <div className="col-auto">
                   {hasData &&
