@@ -880,7 +880,19 @@ export async function deleteFeatureRule(
   newRules.splice(i, 1);
 
   if (draftId) {
-    // todo: update the draft
+    await updateDraftFeatureRevision({
+      id: draftId,
+      organizationId: org.id,
+      creatorUserId: req.userId,
+      featureId: id,
+      draft: {
+        ...draft,
+        rules: {
+          ...(draft || {}).rules,
+          [environment]: newRules,
+        },
+      },
+    });
   } else {
     await setLegacyFeatureDraftRules(
       org,
