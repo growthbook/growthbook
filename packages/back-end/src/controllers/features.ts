@@ -51,6 +51,7 @@ import {
   discardDraftFeatureRevision,
   getDraftFeatureRevisions,
   getPublishedFeatureRevisions,
+  updateDraftFeatureRevision,
 } from "../models/FeatureRevisionModel";
 import { getEnabledEnvironments } from "../util/features";
 import { ExperimentInterface } from "../../types/experiment";
@@ -814,7 +815,19 @@ export async function postFeatureMoveRule(
   const newRules = arrayMove(rules, from, to);
 
   if (draftId) {
-    // todo: update draft with new rules
+    await updateDraftFeatureRevision({
+      id: draftId,
+      organizationId: org.id,
+      creatorUserId: req.userId,
+      featureId: id,
+      draft: {
+        ...draft,
+        rules: {
+          ...(draft || {}).rules,
+          [environment]: newRules,
+        },
+      },
+    });
   } else {
     await setLegacyFeatureDraftRules(
       org,

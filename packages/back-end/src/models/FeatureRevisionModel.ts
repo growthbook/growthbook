@@ -1,7 +1,11 @@
 import { randomUUID } from "crypto";
 import mongoose from "mongoose";
 import omit from "lodash/omit";
-import { FeatureInterface, FeatureRule } from "../../types/feature";
+import {
+  FeatureDraftChanges,
+  FeatureInterface,
+  FeatureRule,
+} from "../../types/feature";
 import { FeatureRevisionInterface } from "../../types/feature-revision";
 import { logger } from "../util/logger";
 
@@ -139,6 +143,42 @@ export async function createFeatureRevision({
 
     // TODO: handle duplicate key errors more elegantly
   }
+}
+
+export async function updateDraftFeatureRevision({
+  creatorUserId,
+  organizationId,
+  featureId,
+  id,
+  draft,
+}: {
+  organizationId: string;
+  featureId: string;
+  creatorUserId?: string;
+  id: string;
+  draft: Partial<
+    Pick<FeatureDraftChanges, "comment" | "rules" | "defaultValue">
+  >;
+}): Promise<void> {
+  const { rules, comment, defaultValue } = draft;
+
+  await FeatureRevisionModel.updateOne(
+    {
+      id,
+      organization: organizationId,
+      creatorUserId,
+      featureId,
+      dateDiscarded: null,
+      status: "draft",
+    },
+    {
+      $set: {
+        rules,
+        comment,
+        defaultValue,
+      },
+    }
+  );
 }
 
 export async function getFeatureRevision({
