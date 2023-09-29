@@ -211,7 +211,7 @@ const navlinks: SidebarLinkProps[] = [
         name: "Admin",
         href: "/admin",
         path: /^admin/,
-        cloudOnly: true,
+        cloudOnly: false,
         divider: true,
         superAdmin: true,
       },
