@@ -54,6 +54,7 @@ export default function ConfigureReport({
     getProjectById,
     getDatasourceById,
     getMetricById,
+    getExperimentMetricById,
   } = useDefinitions();
   const datasource = getDatasourceById(report.args.datasource);
 
@@ -83,10 +84,12 @@ export default function ConfigureReport({
     ...(report.args.guardrails ?? []),
   ]);
   const allExperimentMetrics = allExperimentMetricIds.map((m) =>
-    getMetricById(m)
+    getExperimentMetricById(m)
   );
   const denominatorMetricIds = uniq(
-    allExperimentMetrics.map((m) => m?.denominator).filter((m) => m)
+    allExperimentMetrics
+      .map((m) => m?.denominator)
+      .filter((m) => m && typeof m === "string") as string[]
   );
   const denominatorMetrics: MetricInterface[] = useMemo(() => {
     const metrics: MetricInterface[] = [];
@@ -322,6 +325,7 @@ export default function ConfigureReport({
           onChange={(metrics) => form.setValue("metrics", metrics)}
           datasource={report.args.datasource}
           project={project?.id}
+          includeFacts={true}
         />
       </div>
       <div className="form-group">
@@ -336,6 +340,7 @@ export default function ConfigureReport({
           onChange={(metrics) => form.setValue("guardrails", metrics)}
           datasource={report.args.datasource}
           project={project?.id}
+          includeFacts={true}
         />
       </div>
       <DimensionChooser

@@ -21,6 +21,7 @@ import { DEFAULT_STATS_ENGINE } from "shared/constants";
 import { getValidDate } from "shared/dates";
 import { useTooltip, useTooltipInPortal } from "@visx/tooltip";
 import { FaExclamationTriangle } from "react-icons/fa";
+import { FactMetricInterface } from "back-end/types/fact-table";
 import {
   ExperimentTableRow,
   getRowResults,
@@ -45,6 +46,7 @@ import ResultsTableTooltip, {
   YAlign,
 } from "@/components/Experiment/ResultsTableTooltip";
 import { QueryStatusData } from "@/components/Queries/RunQueriesButton";
+import { useDefinitions } from "@/services/DefinitionsContext";
 import Tooltip from "../Tooltip/Tooltip";
 import AlignedGraph from "./AlignedGraph";
 import ChanceToWinColumn from "./ChanceToWinColumn";
@@ -68,7 +70,7 @@ export type ResultsTableProps = {
   editMetrics?: () => void;
   renderLabelColumn: (
     label: string,
-    metric: MetricInterface,
+    metric: MetricInterface | FactMetricInterface,
     row: ExperimentTableRow,
     maxRows?: number
   ) => string | ReactElement;
@@ -111,6 +113,8 @@ export default function ResultsTable({
   if (variationFilter?.includes(baselineRow)) {
     variationFilter = variationFilter.filter((v) => v !== baselineRow);
   }
+
+  const { getFactTableById } = useDefinitions();
 
   const {
     metricDefaults,
@@ -213,6 +217,7 @@ export default function ResultsTable({
           isLatestPhase,
           experimentStatus: status,
           displayCurrency,
+          getFactTableById,
         });
         rr[i].push(rowResults);
       });
@@ -236,6 +241,7 @@ export default function ResultsTable({
     status,
     displayCurrency,
     queryStatusData,
+    getFactTableById,
   ]);
 
   const noMetrics = rows.length === 0;

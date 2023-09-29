@@ -4,6 +4,7 @@ import { MetricInterface } from "back-end/types/metric";
 import { FaArrowDown, FaArrowUp } from "react-icons/fa";
 import React, { DetailedHTMLProps, TdHTMLAttributes } from "react";
 import { StatsEngine } from "back-end/types/stats";
+import { FactMetricInterface } from "back-end/types/fact-table";
 import { RowResults } from "@/services/experiments";
 
 const percentFormatter = new Intl.NumberFormat(undefined, {
@@ -16,7 +17,7 @@ interface Props
     TdHTMLAttributes<HTMLTableCellElement>,
     HTMLTableCellElement
   > {
-  metric: MetricInterface;
+  metric: MetricInterface | FactMetricInterface;
   stats: SnapshotMetric;
   rowResults: RowResults;
   statsEngine: StatsEngine;

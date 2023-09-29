@@ -1,13 +1,15 @@
 import { MetricInterface } from "back-end/types/metric";
 import clsx from "clsx";
+import { FactMetricInterface } from "back-end/types/fact-table";
 import { isNullUndefinedOrEmpty } from "@/services/utils";
 import { ExperimentTableRow } from "@/services/experiments";
+import { getConversionWindowHours } from "@/services/metrics";
 import Markdown from "../Markdown/Markdown";
 import SortedTags from "../Tags/SortedTags";
 import styles from "./MetricToolTipBody.module.scss";
 
 interface MetricToolTipCompProps {
-  metric: MetricInterface;
+  metric: MetricInterface | FactMetricInterface;
   row?: ExperimentTableRow;
   reportRegressionAdjustmentEnabled?: boolean;
   newUi?: boolean;
@@ -33,11 +35,13 @@ const MetricTooltipBody = ({
   }
   const metricOverrideFields = row?.metricOverrideFields ?? [];
 
+  const conversionWindowHours = getConversionWindowHours(metric);
+
   const metricInfo: MetricInfo[] = [
     {
       show: true,
       label: "Type",
-      body: metric.type,
+      body: "type" in metric ? metric.type : metric.metricType,
     },
     {
       show: (metric.tags?.length ?? 0) > 0,
@@ -65,11 +69,11 @@ const MetricTooltipBody = ({
       ),
     },
     {
-      show: !isNullUndefinedOrEmpty(metric.conversionWindowHours),
+      show: !isNullUndefinedOrEmpty(conversionWindowHours),
       label: "Conversion Window Hours",
       body: (
         <>
-          {metric.conversionWindowHours}
+          {conversionWindowHours}
           {metricOverrideFields.includes("conversionWindowHours") ? (
             <small className="text-purple ml-1">(override)</small>
           ) : null}

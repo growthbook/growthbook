@@ -66,7 +66,7 @@ const BreakDownResults: FC<{
   metricRegressionAdjustmentStatuses,
   sequentialTestingEnabled,
 }) => {
-  const { getDimensionById, getMetricById, ready } = useDefinitions();
+  const { getDimensionById, getExperimentMetricById, ready } = useDefinitions();
 
   const dimension = useMemo(() => {
     return getDimensionById(dimensionId)?.name || "Dimension";
@@ -79,7 +79,7 @@ const BreakDownResults: FC<{
     }
     return Array.from(new Set(metrics.concat(guardrails || [])))
       .map((metricId) => {
-        const metric = getMetricById(metricId);
+        const metric = getExperimentMetricById(metricId);
         if (!metric) return;
         const { newMetric } = applyMetricOverrides(metric, metricOverrides);
         let regressionAdjustmentStatus:
@@ -115,7 +115,7 @@ const BreakDownResults: FC<{
     statsEngine,
     guardrails,
     ready,
-    getMetricById,
+    getExperimentMetricById,
   ]);
 
   const risk = useRiskVariation(
@@ -129,7 +129,7 @@ const BreakDownResults: FC<{
         {dimensionId === "pre:activation" && activationMetric && (
           <div className="alert alert-info mt-1">
             Your experiment has an Activation Metric (
-            <strong>{getMetricById(activationMetric)?.name}</strong>
+            <strong>{getExperimentMetricById(activationMetric)?.name}</strong>
             ). This report lets you compare activated users with those who
             entered into the experiment, but were not activated.
           </div>

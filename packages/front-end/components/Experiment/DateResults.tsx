@@ -6,8 +6,9 @@ import {
 } from "back-end/types/report";
 import { getValidDate } from "shared/dates";
 import { StatsEngine } from "back-end/types/stats";
+import { FactMetricInterface } from "back-end/types/fact-table";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import { formatConversionRate } from "@/services/metrics";
+import { formatMetricValue } from "@/services/metrics";
 import {
   isExpectedDirection,
   isStatSig,
@@ -29,7 +30,7 @@ const numberFormatter = new Intl.NumberFormat();
 
 // Represents data for one metric graph
 type Metric = {
-  metric: MetricInterface;
+  metric: MetricInterface | FactMetricInterface;
   isGuardrail: boolean;
   datapoints: ExperimentDateGraphDataPoint[];
 };
@@ -49,7 +50,7 @@ const DateResults: FC<{
   guardrails,
   statsEngine,
 }) => {
-  const { getMetricById, ready } = useDefinitions();
+  const { getExperimentMetricById, getFactTableById, ready } = useDefinitions();
 
   const pValueThreshold = usePValueThreshold();
   const { ciUpper, ciLower } = useConfidenceLevels();
@@ -102,7 +103,7 @@ const DateResults: FC<{
     return (
       Array.from(new Set(metrics.concat(guardrails || [])))
         .map((metricId) => {
-          const metric = getMetricById(metricId);
+          const metric = getExperimentMetricById(metricId);
           if (!metric) return;
           // Keep track of cumulative users and value for each variation
           const totalUsers: number[] = [];
@@ -151,13 +152,14 @@ const DateResults: FC<{
                     up = crA ? (crB - crA) / crA : 0;
                   }
 
-                  const v_formatted = formatConversionRate(
-                    metric?.type,
+                  const v_formatted = formatMetricValue(
+                    metric,
                     cumulative
                       ? totalUsers[i]
                         ? totalValue[i] / totalUsers[i]
                         : 0
                       : stats?.cr || 0,
+                    getFactTableById,
                     displayCurrency
                   );
 
@@ -230,7 +232,8 @@ const DateResults: FC<{
     ciLower,
     ciUpper,
     displayCurrency,
-    getMetricById,
+    getExperimentMetricById,
+    getFactTableById,
     guardrails,
     metrics,
     pValueThreshold,

@@ -53,6 +53,8 @@ export interface FactTableInterface {
 
 export type FactRef = z.infer<typeof factRefValidator>;
 
+export type FactMetricType = "ratio" | "mean" | "proportion";
+
 export interface FactMetricInterface {
   id: string;
   organization: string;
@@ -66,7 +68,7 @@ export interface FactMetricInterface {
   projects: string[];
   inverse: boolean;
 
-  metricType: "ratio" | "mean" | "proportion";
+  metricType: FactMetricType;
   numerator: FactRef;
   denominator: FactRef | null;
 

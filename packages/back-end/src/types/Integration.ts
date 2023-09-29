@@ -11,6 +11,7 @@ import { QueryStatistics } from "../../types/query";
 import { SegmentInterface } from "../../types/segment";
 import { FormatDialect } from "../util/sql";
 import { TemplateVariables } from "../../types/sql";
+import { FactMetricInterface } from "../../types/fact-table";
 
 export class MissingDatasourceParamsError extends Error {
   constructor(message: string) {
@@ -92,9 +93,9 @@ export type Dimension =
 
 export type ExperimentMetricQueryParams = {
   settings: ExperimentSnapshotSettings;
-  metric: MetricInterface;
-  activationMetric: MetricInterface | null;
-  denominatorMetrics: MetricInterface[];
+  metric: MetricInterface | FactMetricInterface;
+  activationMetric: MetricInterface | FactMetricInterface | null;
+  denominatorMetrics: (MetricInterface | FactMetricInterface)[];
   dimension: Dimension | null;
   segment: SegmentInterface | null;
   useUnitsTable: boolean;
@@ -103,7 +104,7 @@ export type ExperimentMetricQueryParams = {
 
 export type ExperimentUnitsQueryParams = {
   settings: ExperimentSnapshotSettings;
-  activationMetric: MetricInterface | null;
+  activationMetric: MetricInterface | FactMetricInterface | null;
   dimension: Dimension | null;
   segment: SegmentInterface | null;
   unitsTableFullName?: string;
@@ -320,15 +321,15 @@ export interface SourceIntegrationInterface {
   getSensitiveParamKeys(): string[];
   getExperimentResultsQuery(
     snapshotSettings: ExperimentSnapshotSettings,
-    metrics: MetricInterface[],
-    activationMetric: MetricInterface | null,
+    metrics: (MetricInterface | FactMetricInterface)[],
+    activationMetric: MetricInterface | FactMetricInterface | null,
     dimension: DimensionInterface | null
   ): string;
   getFormatDialect?(): FormatDialect;
   getExperimentResults(
     snapshotSettings: ExperimentSnapshotSettings,
-    metrics: MetricInterface[],
-    activationMetric: MetricInterface | null,
+    metrics: (MetricInterface | FactMetricInterface)[],
+    activationMetric: MetricInterface | FactMetricInterface | null,
     dimension: DimensionInterface | null
   ): Promise<ExperimentQueryResponses>;
   getSourceProperties(): DataSourceProperties;

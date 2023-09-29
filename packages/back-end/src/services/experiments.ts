@@ -25,7 +25,11 @@ import {
   MetricForSnapshot,
   SnapshotVariation,
 } from "../../types/experiment-snapshot";
-import { getMetricsByIds, insertMetric } from "../models/MetricModel";
+import {
+  getMetricById,
+  getMetricsByIds,
+  insertMetric,
+} from "../models/MetricModel";
 import { checkSrm, sumSquaresFromStats } from "../util/stats";
 import { addTags } from "../models/TagModel";
 import {
@@ -78,6 +82,8 @@ import { findProjectById } from "../models/ProjectModel";
 import { MetricAnalysisQueryRunner } from "../queryRunners/MetricAnalysisQueryRunner";
 import { ExperimentResultsQueryRunner } from "../queryRunners/ExperimentResultsQueryRunner";
 import { QueryMap, getQueryMap } from "../queryRunners/QueryRunner";
+import { FactMetricInterface } from "../../types/fact-table";
+import { getFactMetric } from "../models/FactMetricModel";
 import { getReportVariations, getMetricForSnapshot } from "./reports";
 import { getIntegrationFromDatasourceId } from "./datasource";
 import { analyzeExperimentMetric, analyzeExperimentResults } from "./stats";
@@ -97,6 +103,44 @@ export async function createMetric(data: Partial<MetricInterface>) {
   }
 
   return metric;
+}
+
+export function isFactMetric(
+  m: MetricInterface | FactMetricInterface
+): m is FactMetricInterface {
+  return "metricType" in m;
+}
+
+export function isMetricBinomial(m: MetricInterface | FactMetricInterface) {
+  if (isFactMetric(m)) return m.metricType === "proportion";
+  return m.type === "binomial";
+}
+
+export async function getExperimentMetricById(
+  metricId: string,
+  orgId: string
+): Promise<MetricInterface | FactMetricInterface | null> {
+  if (metricId.match(/^fact::/)) {
+    return getFactMetric(orgId, metricId.slice(6));
+  }
+  return getMetricById(metricId, orgId);
+}
+
+export function getConversionWindowHours(
+  metric: MetricInterface | FactMetricInterface
+): number {
+  if ("conversionWindowHours" in metric && metric.conversionWindowHours) {
+    return metric.conversionWindowHours;
+  }
+
+  if ("conversionWindowValue" in metric) {
+    const value = metric.conversionWindowValue;
+    if (metric.conversionWindowUnit === "hours") return value;
+    if (metric.conversionWindowUnit === "days") return value * 24;
+    if (metric.conversionWindowUnit === "weeks") return value * 24 * 7;
+  }
+
+  return DEFAULT_CONVERSION_WINDOW_HOURS;
 }
 
 export async function refreshMetric(
@@ -175,7 +219,7 @@ export async function getManualSnapshotData(
   metrics: {
     [key: string]: MetricStats[];
   },
-  metricMap: Map<string, MetricInterface>
+  metricMap: Map<string, MetricInterface | FactMetricInterface>
 ) {
   const phase = experiment.phases[phaseIndex];
 
@@ -198,7 +242,7 @@ export async function getManualSnapshotData(
             users: s.count,
             count: s.count,
             statistic_type: "mean", // ratio not supported for now
-            main_metric_type: metric.type,
+            main_metric_type: isMetricBinomial(metric) ? "binomial" : "count",
             main_sum: s.mean * s.count,
             main_sum_squares: sumSquaresFromStats(
               s.mean * s.count,
@@ -242,7 +286,7 @@ export function getSnapshotSettings({
   phaseIndex: number;
   settings: ExperimentSnapshotAnalysisSettings;
   metricRegressionAdjustmentStatuses: MetricRegressionAdjustmentStatus[];
-  metricMap: Map<string, MetricInterface>;
+  metricMap: Map<string, MetricInterface | FactMetricInterface>;
 }): ExperimentSnapshotSettings {
   const phase = experiment.phases[phaseIndex];
   if (!phase) {
@@ -300,7 +344,7 @@ export async function createManualSnapshot(
     [key: string]: MetricStats[];
   },
   settings: ExperimentSnapshotAnalysisSettings,
-  metricMap: Map<string, MetricInterface>
+  metricMap: Map<string, MetricInterface | FactMetricInterface>
 ) {
   const { srm, variations } = await getManualSnapshotData(
     experiment,
@@ -423,7 +467,7 @@ export async function createSnapshot({
   useCache?: boolean;
   analysisSettings: ExperimentSnapshotAnalysisSettings;
   metricRegressionAdjustmentStatuses: MetricRegressionAdjustmentStatus[];
-  metricMap: Map<string, MetricInterface>;
+  metricMap: Map<string, MetricInterface | FactMetricInterface>;
 }): Promise<ExperimentResultsQueryRunner> {
   const dimension = analysisSettings.dimensions[0] || null;
 
@@ -506,7 +550,7 @@ export async function createSnapshotAnalysis({
   experiment: ExperimentInterface;
   organization: OrganizationInterface;
   analysisSettings: ExperimentSnapshotAnalysisSettings;
-  metricMap: Map<string, MetricInterface>;
+  metricMap: Map<string, MetricInterface | FactMetricInterface>;
   snapshot: ExperimentSnapshotInterface;
 }): Promise<void> {
   // check if analysis is possible

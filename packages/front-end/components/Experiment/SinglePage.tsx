@@ -36,12 +36,12 @@ import { BsFlag } from "react-icons/bs";
 import clsx from "clsx";
 import { FeatureInterface } from "back-end/types/feature";
 import { MdInfoOutline } from "react-icons/md";
+import { FactMetricInterface } from "back-end/types/fact-table";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import usePermissions from "@/hooks/usePermissions";
 import { useAuth } from "@/services/auth";
 import useApi from "@/hooks/useApi";
 import { useUser } from "@/services/UserContext";
-import { getDefaultConversionWindowHours } from "@/services/env";
 import {
   applyMetricOverrides,
   getRegressionAdjustmentsForMetric,
@@ -59,6 +59,7 @@ import { useEnvironments, useFeaturesList } from "@/services/features";
 import track from "@/services/track";
 import { formatTrafficSplit } from "@/services/utils";
 import Results_old from "@/components/Experiment/Results_old";
+import { getConversionWindowHours } from "@/services/metrics";
 import MoreMenu from "../Dropdown/MoreMenu";
 import WatchButton from "../WatchButton";
 import SortedTags from "../Tags/SortedTags";
@@ -101,7 +102,7 @@ import { HashVersionTooltip } from "./HashVersionSelector";
 
 function drawMetricRow(
   m: string,
-  metric: MetricInterface | null,
+  metric: MetricInterface | FactMetricInterface | null,
   experiment: ExperimentInterfaceStringDates,
   ignoreConversionEnd: boolean
 ) {
@@ -114,14 +115,16 @@ function drawMetricRow(
 
   const conversionStart = newMetric.conversionDelayHours || 0;
   const conversionEnd =
-    (newMetric.conversionDelayHours || 0) +
-    (newMetric.conversionWindowHours || getDefaultConversionWindowHours());
+    (newMetric.conversionDelayHours || 0) + getConversionWindowHours(newMetric);
 
   const hasOverrides =
     overrideFields.includes("conversionDelayHours") ||
     (!ignoreConversionEnd && overrideFields.includes("conversionWindowHours"));
 
-  const isArchived = metric.status === "archived";
+  const isArchived =
+    "archived" in metric
+      ? metric.archived
+      : "status" in metric && metric.status === "archived";
 
   return (
     <div className="row align-items-top" key={m}>
@@ -227,7 +230,7 @@ export default function SinglePage({
     getProjectById,
     getDatasourceById,
     getSegmentById,
-    getMetricById,
+    getExperimentMetricById,
     projects,
     datasources,
     metrics,
@@ -315,7 +318,9 @@ export default function SinglePage({
 
   const datasource = getDatasourceById(experiment.datasource);
   const segment = getSegmentById(experiment.segment || "");
-  const activationMetric = getMetricById(experiment.activationMetric || "");
+  const activationMetric = getExperimentMetricById(
+    experiment.activationMetric || ""
+  );
 
   const exposureQueries = datasource?.settings?.queries?.exposure || [];
   const exposureQuery = exposureQueries.find(
@@ -333,13 +338,13 @@ export default function SinglePage({
     ...(experiment.guardrails ?? []),
   ]);
   const allExperimentMetrics = allExperimentMetricIds.map((m) =>
-    getMetricById(m)
+    getExperimentMetricById(m)
   );
   const denominatorMetricIds = uniq<string>(
     allExperimentMetrics.map((m) => m?.denominator).filter(Boolean) as string[]
   );
   const denominatorMetrics = denominatorMetricIds
-    .map((m) => getMetricById(m as string))
+    .map((m) => getExperimentMetricById(m as string))
     .filter(Boolean) as MetricInterface[];
 
   const [
@@ -1401,7 +1406,7 @@ export default function SinglePage({
                       <div className="col-sm-2">Behavior</div>
                     </div>
                     {experiment.metrics.map((m) => {
-                      const metric = getMetricById(m);
+                      const metric = getExperimentMetricById(m);
                       return drawMetricRow(
                         m,
                         metric,
@@ -1446,7 +1451,7 @@ export default function SinglePage({
                         <div className="col-sm-2">Behavior</div>
                       </div>
                       {experiment.guardrails?.map((m) => {
-                        const metric = getMetricById(m);
+                        const metric = getExperimentMetricById(m);
                         return drawMetricRow(
                           m,
                           metric,
@@ -1467,7 +1472,7 @@ export default function SinglePage({
                       </div>
                       {drawMetricRow(
                         experiment.activationMetric,
-                        getMetricById(experiment.activationMetric),
+                        getExperimentMetricById(experiment.activationMetric),
                         experiment,
                         ignoreConversionEnd
                       )}

@@ -1,8 +1,14 @@
 import { SnapshotMetric } from "back-end/types/experiment-snapshot";
 import { MetricInterface } from "back-end/types/metric";
 import { CSSProperties, DetailedHTMLProps, TdHTMLAttributes } from "react";
-import { formatConversionRate } from "@/services/metrics";
+import { FactMetricInterface } from "back-end/types/fact-table";
+import {
+  formatConversionRate,
+  formatMetricValue,
+  formatFactRefValue,
+} from "@/services/metrics";
 import { useCurrency } from "@/hooks/useCurrency";
+import { useDefinitions } from "@/services/DefinitionsContext";
 
 const numberFormatter = Intl.NumberFormat("en-US", {
   notation: "compact",
@@ -14,7 +20,7 @@ interface Props
     TdHTMLAttributes<HTMLTableCellElement>,
     HTMLTableCellElement
   > {
-  metric: MetricInterface;
+  metric: MetricInterface | FactMetricInterface;
   stats: SnapshotMetric;
   users: number;
   className?: string;
@@ -36,13 +42,52 @@ export default function MetricValueColumn({
   ...otherProps
 }: Props) {
   const displayCurrency = useCurrency();
+  const { getFactTableById } = useDefinitions();
+
+  const overall = formatMetricValue(
+    metric,
+    stats.cr,
+    getFactTableById,
+    displayCurrency
+  );
+
+  let numerator: string;
+  let denominator: string;
+  if ("metricType" in metric) {
+    numerator = formatFactRefValue(
+      metric.numerator,
+      getFactTableById,
+      stats.value,
+      displayCurrency
+    );
+    if (metric.metricType === "ratio" && metric.denominator) {
+      denominator = formatFactRefValue(
+        metric.denominator,
+        getFactTableById,
+        stats.value,
+        displayCurrency
+      );
+    } else {
+      denominator = numberFormatter.format(
+        stats.denominator || stats.users || users
+      );
+    }
+  } else {
+    numerator = formatConversionRate(
+      metric.type === "binomial" ? "count" : metric.type,
+      stats.value,
+      displayCurrency
+    );
+    denominator = numberFormatter.format(
+      stats.denominator || stats.users || users
+    );
+  }
+
   return (
     <td className={className} style={style} rowSpan={rowSpan} {...otherProps}>
       {metric && stats.users ? (
         <>
-          <div className="result-number">
-            {formatConversionRate(metric?.type, stats.cr, displayCurrency)}
-          </div>
+          <div className="result-number">{overall}</div>
           {showRatio ? (
             <div className="result-number-sub text-muted">
               <em
@@ -61,16 +106,10 @@ export default function MetricValueColumn({
                     whiteSpace: "nowrap",
                   }}
                 >
-                  {formatConversionRate(
-                    metric.type === "binomial" ? "count" : metric.type,
-                    stats.value,
-                    displayCurrency
-                  )}
+                  {numerator}
                 </span>{" "}
                 /&nbsp;
-                {numberFormatter.format(
-                  stats.denominator || stats.users || users
-                )}
+                {denominator}
               </em>
             </div>
           ) : null}

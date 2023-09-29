@@ -4,10 +4,12 @@ import { getConfigMetrics, usingFileConfig } from "../init/config";
 import { upgradeMetricDoc } from "../util/migrations";
 import { OrganizationInterface } from "../../types/organization";
 import { EventAuditUser } from "../events/event-types";
+import { FactMetricInterface } from "../../types/fact-table";
 import { queriesSchema } from "./QueryModel";
 import { ImpactEstimateModel } from "./ImpactEstimateModel";
 import { removeMetricFromExperiments } from "./ExperimentModel";
 import { addTagsDiff } from "./TagModel";
+import { getAllFactMetricsForOrganization } from "./FactMetricModel";
 
 export const ALLOWED_METRIC_TYPES = [
   "binomial",
@@ -191,10 +193,15 @@ export async function deleteAllMetricsForAProject({
 }
 
 export async function getMetricMap(organization: string) {
-  const metricMap = new Map<string, MetricInterface>();
+  const metricMap = new Map<string, MetricInterface | FactMetricInterface>();
   const allMetrics = await getMetricsByOrganization(organization);
   allMetrics.forEach((m) => {
     metricMap.set(m.id, m);
+  });
+
+  const allFactMetrics = await getAllFactMetricsForOrganization(organization);
+  allFactMetrics.forEach((m) => {
+    metricMap.set(`fact::${m.id}`, m);
   });
 
   return metricMap;

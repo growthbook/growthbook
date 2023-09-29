@@ -19,7 +19,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import {
   defaultLoseRiskThreshold,
   defaultWinRiskThreshold,
-  formatConversionRate,
+  formatNumber,
 } from "@/services/metrics";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import useOrgSettings from "@/hooks/useOrgSettings";
@@ -833,10 +833,7 @@ export default function FactMetricModal({
                     (default{" "}
                     {type === "proportion"
                       ? metricDefaults.minimumSampleSize
-                      : formatConversionRate(
-                          "count",
-                          metricDefaults.minimumSampleSize
-                        )}
+                      : formatNumber(metricDefaults.minimumSampleSize)}
                     )
                   </small>
                 </div>

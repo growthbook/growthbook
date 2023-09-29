@@ -13,7 +13,7 @@ import {
   updateSnapshot,
 } from "../models/ExperimentSnapshotModel";
 import { findSegmentById } from "../models/SegmentModel";
-import { parseDimensionId } from "../services/experiments";
+import { isFactMetric, parseDimensionId } from "../services/experiments";
 import { analyzeExperimentResults } from "../services/stats";
 import {
   ExperimentMetricQueryParams,
@@ -25,6 +25,7 @@ import {
 } from "../types/Integration";
 import { expandDenominatorMetrics } from "../util/sql";
 import { getOrganizationById } from "../services/organizations";
+import { FactMetricInterface } from "../../types/fact-table";
 import {
   QueryRunner,
   QueryMap,
@@ -43,7 +44,7 @@ export type ExperimentResultsQueryParams = {
   snapshotSettings: ExperimentSnapshotSettings;
   analysisSettings: ExperimentSnapshotAnalysisSettings;
   variationNames: string[];
-  metricMap: Map<string, MetricInterface>;
+  metricMap: Map<string, MetricInterface | FactMetricInterface>;
   queryParentId: string;
 };
 
@@ -122,9 +123,12 @@ export const startExperimentResultQueries = async (
 
   const promises = selectedMetrics.map(async (m) => {
     const denominatorMetrics: MetricInterface[] = [];
-    if (m.denominator) {
+    if (!isFactMetric(m) && m.denominator) {
       denominatorMetrics.push(
-        ...expandDenominatorMetrics(m.denominator, metricMap)
+        ...expandDenominatorMetrics(
+          m.denominator,
+          metricMap as Map<string, MetricInterface>
+        )
           .map((m) => metricMap.get(m) as MetricInterface)
           .filter(Boolean)
       );
@@ -160,7 +164,10 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
   SnapshotResult
 > {
   private variationNames: string[] = [];
-  private metricMap: Map<string, MetricInterface> = new Map();
+  private metricMap: Map<
+    string,
+    MetricInterface | FactMetricInterface
+  > = new Map();
 
   async startQueries(params: ExperimentResultsQueryParams): Promise<Queries> {
     this.metricMap = params.metricMap;

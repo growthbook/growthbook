@@ -74,7 +74,7 @@ const CompactResults: FC<{
   sequentialTestingEnabled,
   isTabActive,
 }) => {
-  const { getMetricById, ready } = useDefinitions();
+  const { getExperimentMetricById, ready } = useDefinitions();
 
   const [totalUsers, variationUsers] = useMemo(() => {
     let totalUsers = 0;
@@ -89,7 +89,8 @@ const CompactResults: FC<{
 
   const rows = useMemo<ExperimentTableRow[]>(() => {
     function getRow(metricId: string, isGuardrail: boolean) {
-      const metric = getMetricById(metricId);
+      const metric = getExperimentMetricById(metricId);
+
       if (!metric) return null;
       const { newMetric, overrideFields } = applyMetricOverrides(
         metric,
@@ -136,7 +137,7 @@ const CompactResults: FC<{
     metricRegressionAdjustmentStatuses,
     pValueCorrection,
     ready,
-    getMetricById,
+    getExperimentMetricById,
     statsEngine,
   ]);
 

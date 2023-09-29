@@ -13,6 +13,7 @@ import {
   createManualSnapshot,
   createSnapshot,
   createSnapshotAnalysis,
+  getExperimentMetricById,
   getManualSnapshotData,
 } from "../services/experiments";
 import { MetricStats } from "../../types/metric";
@@ -61,7 +62,7 @@ import {
   ExperimentTargetingData,
   Variation,
 } from "../../types/experiment";
-import { getMetricById, getMetricMap } from "../models/MetricModel";
+import { getMetricMap } from "../models/MetricModel";
 import { IdeaModel } from "../models/IdeasModel";
 import { IdeaInterface } from "../../types/idea";
 import { getDataSourceById } from "../models/DataSourceModel";
@@ -508,7 +509,10 @@ export async function postExperiments(
   // Validate that specified metrics exist and belong to the organization
   if (data.metrics && data.metrics.length) {
     for (let i = 0; i < data.metrics.length; i++) {
-      const metric = await getMetricById(data.metrics[i], data.organization);
+      const metric = await getExperimentMetricById(
+        data.metrics[i],
+        data.organization
+      );
 
       if (metric) {
         // Make sure it is tied to the same datasource as the experiment
@@ -698,7 +702,7 @@ export async function postExperiment(
 
   if (data.metrics && data.metrics.length) {
     for (let i = 0; i < data.metrics.length; i++) {
-      const metric = await getMetricById(data.metrics[i], org.id);
+      const metric = await getExperimentMetricById(data.metrics[i], org.id);
 
       if (metric) {
         // Make sure it is tied to the same datasource as the experiment

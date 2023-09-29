@@ -13,12 +13,13 @@ import { getDataSourceById } from "../models/DataSourceModel";
 import { isEmailEnabled, sendExperimentChangesEmail } from "../services/email";
 import {
   createSnapshot,
+  getExperimentMetricById,
   getRegressionAdjustmentInfo,
 } from "../services/experiments";
 import { getConfidenceLevelsForOrg } from "../services/organizations";
 import { getLatestSnapshot } from "../models/ExperimentSnapshotModel";
 import { ExperimentInterface } from "../../types/experiment";
-import { getMetricById, getMetricMap } from "../models/MetricModel";
+import { getMetricMap } from "../models/MetricModel";
 import { EXPERIMENT_REFRESH_FREQUENCY } from "../util/secrets";
 import { findOrganizationById } from "../models/OrganizationModel";
 import { logger } from "../util/logger";
@@ -267,7 +268,8 @@ async function sendSignificanceEmail(
             // this test variation has gone significant, and won
             experimentChanges.push(
               "The metric " +
-                (await getMetricById(m, experiment.organization))?.name +
+                (await getExperimentMetricById(m, experiment.organization))
+                  ?.name +
                 " for variation " +
                 experiment.variations[i].name +
                 " has reached a " +
@@ -281,7 +283,8 @@ async function sendSignificanceEmail(
             // this test variation has gone significant, and lost
             experimentChanges.push(
               "The metric " +
-                (await getMetricById(m, experiment.organization))?.name +
+                (await getExperimentMetricById(m, experiment.organization))
+                  ?.name +
                 " for variation " +
                 experiment.variations[i].name +
                 " has dropped to a " +

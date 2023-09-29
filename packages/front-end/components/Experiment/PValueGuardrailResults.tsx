@@ -13,6 +13,7 @@ import {
 } from "back-end/types/experiment-snapshot";
 import { MetricInterface } from "back-end/types/metric";
 import { ExperimentReportVariation } from "back-end/types/report";
+import { FactMetricInterface } from "back-end/types/fact-table";
 import {
   isExpectedDirection,
   isStatSig,
@@ -34,7 +35,7 @@ type PValueGuardrailResult = {
 };
 
 const HeaderResult: FC<{
-  metric: MetricInterface;
+  metric: MetricInterface | FactMetricInterface;
   results: PValueGuardrailResult[];
 }> = ({ metric, results }) => {
   // remove control for determining header
@@ -83,7 +84,7 @@ const HeaderResult: FC<{
 const PValueGuardrailResults: FC<{
   data: SnapshotVariation[];
   variations: ExperimentReportVariation[];
-  metric: MetricInterface;
+  metric: MetricInterface | FactMetricInterface;
 }> = ({ data, variations, metric }) => {
   const pValueThreshold = usePValueThreshold();
 

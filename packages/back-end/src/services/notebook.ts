@@ -16,7 +16,9 @@ import { getReportById } from "../models/ReportModel";
 import { Queries } from "../../types/query";
 import { QueryMap } from "../queryRunners/QueryRunner";
 import { getQueriesByIds } from "../models/QueryModel";
+import { FactMetricInterface } from "../../types/fact-table";
 import { reportArgsFromSnapshot } from "./reports";
+import { isMetricBinomial } from "./experiments";
 
 async function getQueryData(
   queries: Queries,
@@ -115,7 +117,10 @@ export async function generateNotebook(
 
   // Get metrics
   const metrics = await getMetricsByDatasource(datasource.id, organization);
-  const metricMap: Map<string, MetricInterface> = new Map();
+  const metricMap: Map<
+    string,
+    MetricInterface | FactMetricInterface
+  > = new Map();
   metrics.forEach((m: MetricInterface) => {
     metricMap.set(m.id, m);
   });
@@ -139,8 +144,8 @@ export async function generateNotebook(
           name: metric.name,
           sql: q.query,
           inverse: !!metric.inverse,
-          ignore_nulls: !!metric.ignoreNulls,
-          type: metric.type,
+          ignore_nulls: "ignoreNulls" in metric && !!metric.ignoreNulls,
+          type: isMetricBinomial(metric) ? "binomial" : "count",
         };
       })
       .filter(Boolean),

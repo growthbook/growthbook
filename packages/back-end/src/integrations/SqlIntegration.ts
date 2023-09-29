@@ -47,6 +47,8 @@ import {
 import { formatInformationSchema } from "../util/informationSchemas";
 import { ExperimentSnapshotSettings } from "../../types/experiment-snapshot";
 import { TemplateVariables } from "../../types/sql";
+import { FactMetricInterface } from "../../types/fact-table";
+import { isFactMetric } from "../services/experiments";
 
 export default abstract class SqlIntegration
   implements SourceIntegrationInterface {
@@ -197,7 +199,7 @@ export default abstract class SqlIntegration
   }
 
   applyMetricOverrides(
-    metric: MetricInterface,
+    metric: MetricInterface | FactMetricInterface,
     settings: ExperimentSnapshotSettings
   ) {
     if (!metric) return;
@@ -207,7 +209,14 @@ export default abstract class SqlIntegration
     if (!computed) return;
 
     metric.conversionDelayHours = computed.conversionDelayHours;
-    metric.conversionWindowHours = computed.conversionWindowHours;
+
+    if (isFactMetric(metric)) {
+      metric.conversionWindowUnit = "hours";
+      metric.conversionWindowValue = computed.conversionWindowHours;
+    } else {
+      metric.conversionWindowHours = computed.conversionWindowHours;
+    }
+
     metric.regressionAdjustmentEnabled = computed.regressionAdjustmentEnabled;
     metric.regressionAdjustmentDays = computed.regressionAdjustmentDays;
 
@@ -839,7 +848,9 @@ export default abstract class SqlIntegration
 
     let activationMetric = null;
     if (activationMetricDoc) {
-      activationMetric = cloneDeep<MetricInterface>(activationMetricDoc);
+      activationMetric = cloneDeep<MetricInterface | FactMetricInterface>(
+        activationMetricDoc
+      );
       this.applyMetricOverrides(activationMetric, settings);
     }
 
@@ -1017,13 +1028,15 @@ export default abstract class SqlIntegration
     } = params;
 
     // clone the metrics before we mutate them
-    const metric = cloneDeep<MetricInterface>(metricDoc);
-    const denominatorMetrics = cloneDeep<MetricInterface[]>(
-      denominatorMetricsDocs
-    );
+    const metric = cloneDeep<MetricInterface | FactMetricInterface>(metricDoc);
+    const denominatorMetrics = cloneDeep<
+      (MetricInterface | FactMetricInterface)[]
+    >(denominatorMetricsDocs);
     let activationMetric = null;
     if (activationMetricDoc) {
-      activationMetric = cloneDeep<MetricInterface>(activationMetricDoc);
+      activationMetric = cloneDeep<MetricInterface | FactMetricInterface>(
+        activationMetricDoc
+      );
       this.applyMetricOverrides(activationMetric, settings);
     }
 

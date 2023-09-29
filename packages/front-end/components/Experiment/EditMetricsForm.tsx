@@ -9,6 +9,7 @@ import { DEFAULT_REGRESSION_ADJUSTMENT_DAYS } from "shared/constants";
 import { MetricInterface } from "back-end/types/metric";
 import { OrganizationSettings } from "back-end/types/organization";
 import { isProjectListValidForProject } from "shared/util";
+import { FactMetricInterface } from "back-end/types/fact-table";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useAuth } from "../../services/auth";
 import Modal from "../Modal";
@@ -39,7 +40,9 @@ export interface EditMetricsFormInterface {
 
 export function getDefaultMetricOverridesFormValue(
   overrides: MetricOverride[],
-  getMetricById: (id: string) => MetricInterface | null,
+  getExperimentMetricById: (
+    id: string
+  ) => MetricInterface | FactMetricInterface | null,
   settings: OrganizationSettings
 ) {
   const defaultMetricOverrides = cloneDeep(overrides);
@@ -58,7 +61,9 @@ export function getDefaultMetricOverridesFormValue(
       }
     }
     if (defaultMetricOverrides[i].regressionAdjustmentDays === undefined) {
-      const metricDefinition = getMetricById(defaultMetricOverrides[i].id);
+      const metricDefinition = getExperimentMetricById(
+        defaultMetricOverrides[i].id
+      );
       if (metricDefinition?.regressionAdjustmentOverride) {
         defaultMetricOverrides[i].regressionAdjustmentDays =
           metricDefinition.regressionAdjustmentDays;
@@ -109,7 +114,11 @@ const EditMetricsForm: FC<{
   const { hasCommercialFeature } = useUser();
   const hasOverrideMetricsFeature = hasCommercialFeature("override-metrics");
 
-  const { metrics, getDatasourceById, getMetricById } = useDefinitions();
+  const {
+    metrics,
+    getDatasourceById,
+    getExperimentMetricById,
+  } = useDefinitions();
   const datasource = getDatasourceById(experiment.datasource);
   const filteredMetrics = metrics
     .filter((m) => m.datasource === datasource?.id)
@@ -119,7 +128,7 @@ const EditMetricsForm: FC<{
 
   const defaultMetricOverrides = getDefaultMetricOverridesFormValue(
     experiment.metricOverrides || [],
-    getMetricById,
+    getExperimentMetricById,
     settings
   );
 
@@ -173,6 +182,7 @@ const EditMetricsForm: FC<{
           datasource={experiment.datasource}
           project={experiment.project}
           autoFocus={true}
+          includeFacts={true}
         />
       </div>
 
@@ -187,6 +197,7 @@ const EditMetricsForm: FC<{
           onChange={(metrics) => form.setValue("guardrails", metrics)}
           datasource={experiment.datasource}
           project={experiment.project}
+          includeFacts={true}
         />
       </div>
 
