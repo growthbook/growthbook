@@ -1,6 +1,6 @@
 import { createApiRequestHandler } from "../../util/handler";
 import { getUserByEmail } from "../../services/users";
-import { listUsersValidator } from "../../validators/scimapi";
+// import { listUsersValidator } from "../../validators/scimapi";
 
 // type listUsersResponse = {
 //   schemas: ["urn:ietf:params:scim:schemas:core:2.0:User"];
@@ -55,6 +55,7 @@ function parseQueryFilter(queryFilter?: string) {
 }
 //TODO: There is something wrong with the listUsersValidator - it returns an error "message": "Unexpected token o in JSON at position 1"
 export const listUsers = createApiRequestHandler()(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   async (req): Promise<any> => {
     //TODO: Without the validator, the line below isn't happy because filter is possibly undefined
     const queryInfo = parseQueryFilter(req.query.filter);

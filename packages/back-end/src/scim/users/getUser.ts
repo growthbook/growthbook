@@ -1,9 +1,10 @@
 import { createApiRequestHandler } from "../../util/handler";
 
 export const getUser = createApiRequestHandler()(
-  async (req): Promise<any> => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  async (): Promise<any> => {
     // console.log("req", req);
-    console.log("looking up user by id");
+    //console.log("looking up user by id");
     // const dataSource = await getDataSourceById(
     //   req.params.id,
     //   req.organization.id
@@ -11,7 +12,6 @@ export const getUser = createApiRequestHandler()(
     // if (!dataSource) {
     //   throw new Error("Could not find dataSource with that id");
     // }
-
     // return {
     //   dataSource: toDataSourceApiInterface(dataSource),
     // };

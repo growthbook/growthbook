@@ -6,7 +6,7 @@ import { updateUser } from "./updateUser";
 
 const router = Router();
 
-// DataSource Endpoints
+// User Endpoints
 // Mounted at /scim/v2/users
 router.get("/", listUsers);
 router.get("/:id", getUser);

@@ -4,9 +4,9 @@ import {
   getUserByEmail,
 } from "../../services/users";
 import { addMemberToOrg } from "../../services/organizations";
-import { createUserValidator } from "../../validators/scimapi";
 
 export const createUser = createApiRequestHandler()(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   async (req: any): Promise<any> => {
     const requestBody = req.body.toString("utf-8");
 
@@ -66,7 +66,7 @@ export const createUser = createApiRequestHandler()(
         },
       };
     } catch (e) {
-      console.log("error creating user", e);
+      // console.log("error creating user", e);
       return e;
     }
   }

@@ -2,8 +2,10 @@ import { updateOrganization } from "../../models/OrganizationModel";
 import { createApiRequestHandler } from "../../util/handler";
 
 export const updateUser = createApiRequestHandler()(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   async (req: any): Promise<any> => {
-    console.log("updateUser was called");
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    // console.log("updateUser was called");
 
     const requestBody = req.body.toString("utf-8");
 
@@ -25,6 +27,7 @@ export const updateUser = createApiRequestHandler()(
 
     // Look up the user in the org's member list
     const userIndex = org.members.findIndex(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (member: any) => member.id === req.params.id
     );
 
