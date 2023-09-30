@@ -18,7 +18,7 @@ const ArchetypeSchema = new mongoose.Schema({
   isPublic: Boolean,
   dateCreated: Date,
   dateUpdated: Date,
-  attributes: {},
+  attributes: String,
 });
 
 type ArchetypeDocument = mongoose.Document & ArchetypeInterface;

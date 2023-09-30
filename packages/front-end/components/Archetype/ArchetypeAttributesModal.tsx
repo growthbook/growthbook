@@ -1,9 +1,6 @@
 import { FC } from "react";
 import { useForm } from "react-hook-form";
-import {
-  ArchetypeAttributeValues,
-  ArchetypeInterface,
-} from "back-end/types/archetype";
+import { ArchetypeInterface } from "back-end/types/archetype";
 import Field from "@/components/Forms/Field";
 import AttributeForm from "@/components/Archetype/AttributeForm";
 import Toggle from "@/components/Forms/Toggle";
@@ -19,13 +16,13 @@ const ArchetypeAttributesModal: FC<{
   const form = useForm<{
     name: string;
     description: string;
-    attributes: ArchetypeAttributeValues;
+    attributes: string;
     isPublic: boolean;
   }>({
     defaultValues: {
       name: initialValues?.name || "",
       description: initialValues?.description || "",
-      attributes: initialValues?.attributes || {},
+      attributes: initialValues?.attributes || "",
       isPublic: initialValues?.isPublic || true,
     },
   });
@@ -81,10 +78,12 @@ const ArchetypeAttributesModal: FC<{
       </div>
       <div>
         <AttributeForm
-          initialValues={form.watch("attributes")}
+          initialValues={
+            form.watch("attributes") ? JSON.parse(form.watch("attributes")) : {}
+          }
           useJSONButton={false}
           onChange={(v) => {
-            form.setValue("attributes", v);
+            form.setValue("attributes", JSON.stringify(v));
           }}
         />
       </div>

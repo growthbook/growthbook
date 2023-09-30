@@ -94,7 +94,6 @@ export default function AttributeForm({
                 id={"form-toggle" + attribute.property}
                 value={!!attributeForm.watch(attribute.property)}
                 setValue={(value) => {
-                  console.log("setting ", attribute.property, "to", value);
                   attributeForm.setValue(attribute.property, value);
                   updateFormValues();
                 }}
@@ -157,6 +156,7 @@ export default function AttributeForm({
               try {
                 const parsed = JSON.parse(jsonAttributes);
                 setFormValues(parsed);
+                onChange(parsed);
               } catch (e) {
                 setJsonErrors(e.message);
               }
@@ -168,7 +168,7 @@ export default function AttributeForm({
         </TabButtons>
 
         <div
-          className={`border border-secondary rounded ${styles.attributeBox} pb-2`}
+          className={`border border-secondary rounded ${styles.attributeBox} pb-2 bg-light`}
         >
           {tab === "simple" ? (
             <div className=" form-group rounded">
@@ -204,6 +204,7 @@ export default function AttributeForm({
                     try {
                       const parsed = JSON.parse(e.target.value);
                       setFormValues(parsed);
+                      onChange(parsed);
                     } catch (e) {
                       setJsonErrors(e.message);
                     }
@@ -228,6 +229,7 @@ export default function AttributeForm({
                         try {
                           const parsed = JSON.parse(jsonAttributes);
                           setFormValues(parsed);
+                          onChange(parsed);
                         } catch (e) {
                           setJsonErrors(e.message);
                         }

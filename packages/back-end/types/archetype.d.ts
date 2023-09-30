@@ -5,7 +5,7 @@ export interface ArchetypeInterface {
   description: string;
   owner: string;
   isPublic: boolean;
-  attributes: ArchetypeAttributeValues;
+  attributes: string;
   dateUpdated: Date;
   dateCreated: Date;
 }

@@ -27,7 +27,7 @@ router.post(
       name: z.string(),
       description: z.string(),
       isPublic: z.boolean(),
-      attributes: z.object({}),
+      attributes: z.string(),
     }),
   }),
   ArchetypeController.postArchetype
@@ -45,7 +45,7 @@ router.put(
       name: z.string(),
       description: z.string(),
       isPublic: z.boolean(),
-      attributes: z.object({}),
+      attributes: z.string(),
     }),
   }),
   ArchetypeController.putArchetype

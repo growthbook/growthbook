@@ -81,7 +81,7 @@ export default function AssignmentTester({ feature }: Props) {
         setResults(data.results);
       })
       .catch((e) => console.error(e));
-  }, [formValues, apiCall, feature.id]);
+  }, [formValues, apiCall, feature]);
 
   if (!data?.Archetype) return null;
 
@@ -141,7 +141,7 @@ export default function AssignmentTester({ feature }: Props) {
           return (
             <div className={`col-12`} key={i}>
               <div
-                className={`appbox ${styles.resultsBox} ${
+                className={`appbox bg-light ${styles.resultsBox} ${
                   tr?.enabled ? "" : styles.disabledResult
                 }`}
               >
@@ -235,17 +235,6 @@ export default function AssignmentTester({ feature }: Props) {
                             />
                           </div>
                         )}
-                        <div>
-                          <h5>Feature value</h5>
-                          <Code
-                            language="json"
-                            code={JSON.stringify(
-                              tr?.featureDefinition,
-                              null,
-                              2
-                            )}
-                          />
-                        </div>
                       </div>
                     )}
                   </>
@@ -267,120 +256,119 @@ export default function AssignmentTester({ feature }: Props) {
   }
   return (
     <>
-      <div className="appbox mb-4 p-3">
-        <div
-          className="d-flex flex-row align-items-center justify-content-between cursor-pointer"
-          onClick={() => setOpen(!open)}
-        >
-          <div>
-            {open ? (
-              <></>
-            ) : (
-              <>
-                Simulate how your rules will apply to users.{" "}
-                <Tooltip body="Enter attributes, like are set by your app via the SDK, and see how Growthbook would evaluate this feature for the different environments. Will use draft rules."></Tooltip>
-              </>
-            )}
-          </div>
-          <div className="cursor-pointer" onClick={() => setOpen(!open)}>
-            <FaChevronRight
-              style={{
-                transform: `rotate(${open ? "90deg" : "0deg"})`,
-              }}
-            />
-          </div>
-        </div>
-        {open ? (
-          <>
+      {!open ? (
+        <div className="appbox mb-4 p-3">
+          <div
+            className="d-flex flex-row align-items-center justify-content-between cursor-pointer"
+            onClick={() => setOpen(!open)}
+          >
             <div>
-              <ArchetypeResults
-                feature={feature}
-                Archetype={data.Archetype}
-                featureResults={data.featureResults}
-                onChange={async () => {
-                  await mutate();
+              Simulate how your rules will apply to users.{" "}
+              <Tooltip body="Enter attributes, like are set by your app via the SDK, and see how Growthbook would evaluate this feature for the different environments. Will use draft rules."></Tooltip>
+            </div>
+            <div className="cursor-pointer" onClick={() => setOpen(!open)}>
+              <FaChevronRight
+                style={{
+                  transform: `rotate(${open ? "90deg" : "0deg"})`,
                 }}
               />
             </div>
+          </div>
+        </div>
+      ) : (
+        <>
+          <div style={{ position: "relative" }}>
+            <div
+              className="cursor-pointer"
+              onClick={() => setOpen(!open)}
+              style={{ position: "absolute", top: "-26px", right: "10px" }}
+            >
+              <FaChevronRight
+                style={{
+                  transform: `rotate(${open ? "90deg" : "0deg"})`,
+                }}
+              />
+            </div>
+          </div>
+          <div>
+            <ArchetypeResults
+              feature={feature}
+              Archetype={data.Archetype}
+              featureResults={data.featureResults}
+              onChange={async () => {
+                await mutate();
+              }}
+            />
+          </div>
 
-            <div className="row mt-4">
-              <div className="col-12">
-                <div className="appbox bg-light p-3">
-                  <div
-                    className="d-flex flex-row align-items-center justify-content-between cursor-pointer"
-                    onClick={() => {
-                      if (data?.Archetype.length > 0) {
-                        setShowSimulateForm(!showSimulateForm);
-                      }
+          <div className="appbox p-3">
+            <div
+              className="d-flex flex-row align-items-center justify-content-between cursor-pointer"
+              onClick={() => {
+                if (data?.Archetype.length > 0) {
+                  setShowSimulateForm(!showSimulateForm);
+                }
+              }}
+            >
+              <div>
+                Simulate how your rules will apply to users.{" "}
+                <Tooltip body="Enter attributes, like are set by your app via the SDK, and see how Growthbook would evaluate this feature for the different environments. Will use draft rules."></Tooltip>
+              </div>
+              {data?.Archetype.length > 0 && (
+                <div className="cursor-pointer">
+                  <FaChevronRight
+                    style={{
+                      transform: `rotate(${
+                        (showSimulateForm === null &&
+                          !data?.Archetype.length) ||
+                        showSimulateForm === true
+                          ? "90deg"
+                          : "0deg"
+                      })`,
                     }}
-                  >
-                    <div>
-                      Simulate how your rules will apply to users.{" "}
-                      <Tooltip body="Enter attributes, like are set by your app via the SDK, and see how Growthbook would evaluate this feature for the different environments. Will use draft rules."></Tooltip>
-                    </div>
-                    {data?.Archetype.length > 0 && (
-                      <div className="cursor-pointer">
-                        <FaChevronRight
-                          style={{
-                            transform: `rotate(${
-                              (showSimulateForm === null &&
-                                !data?.Archetype.length) ||
-                              showSimulateForm === true
-                                ? "90deg"
-                                : "0deg"
-                            })`,
+                  />
+                </div>
+              )}
+            </div>
+            {((showSimulateForm === null && !data?.Archetype.length) ||
+              showSimulateForm === true) && (
+              <div>
+                {" "}
+                <hr />
+                <div className="row">
+                  <div className="col-6">
+                    <AttributeForm
+                      onChange={(attrs) => {
+                        setFormValues(attrs);
+                      }}
+                    />
+                    <div className="mt-2">
+                      <PremiumTooltip commercialFeature="archetypes">
+                        <a
+                          onClick={(e) => {
+                            e.preventDefault();
+                            setOpenArchetypeModal({
+                              attributes: JSON.stringify(formValues),
+                            });
                           }}
-                        />
-                      </div>
-                    )}
-                  </div>
-                  {((showSimulateForm === null && !data?.Archetype.length) ||
-                    showSimulateForm === true) && (
-                    <div>
-                      {" "}
-                      <hr />
-                      <div className="row">
-                        <div className="col-6">
-                          <AttributeForm
-                            onChange={(attrs) => {
-                              setFormValues(attrs);
-                            }}
-                          />
-                          <div className="mt-2">
-                            <PremiumTooltip commercialFeature="archetypes">
-                              <a
-                                onClick={(e) => {
-                                  e.preventDefault();
-                                  setOpenArchetypeModal({
-                                    attributes: formValues,
-                                  });
-                                }}
-                                href="#"
-                                className="btn btn-outline-primary"
-                              >
-                                Save Archetype
-                              </a>
-                            </PremiumTooltip>
-                          </div>
-                        </div>
-                        <div
-                          className="mb-2 col-6"
-                          style={{ paddingTop: "32px" }}
+                          href="#"
+                          className="btn btn-outline-primary"
                         >
-                          <h4>Results</h4>
-                          {showResults()}
-                        </div>
-                      </div>
+                          Save Archetype
+                        </a>
+                      </PremiumTooltip>
                     </div>
-                  )}
+                  </div>
+                  <div className="mb-2 col-6" style={{ paddingTop: "32px" }}>
+                    <h4>Results</h4>
+                    {showResults()}
+                  </div>
                 </div>
               </div>
-            </div>
-          </>
-        ) : (
-          <></>
-        )}
-      </div>
+            )}
+          </div>
+        </>
+      )}
       {openArchetypeModal && (
         <>
           {hasArchetypeAccess ? (

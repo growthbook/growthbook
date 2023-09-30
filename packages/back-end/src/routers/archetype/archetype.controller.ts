@@ -97,16 +97,17 @@ export const getArchetypeAndEval = async (
 
   if (Archetype.length) {
     const promiseCallbacks: (() => Promise<unknown>)[] = [];
-    Archetype.forEach((user) => {
-      promiseCallbacks.push(async () => {
-        const result = await evaluateFeature(feature, user.attributes, org);
-        if (!result) return;
-        featureResults[user.id] = await evaluateFeature(
-          feature,
-          user.attributes,
-          org
-        );
-      });
+    Archetype.forEach((arch) => {
+      try {
+        const attrs = JSON.parse(arch.attributes) as ArchetypeAttributeValues;
+        promiseCallbacks.push(async () => {
+          const result = await evaluateFeature(feature, attrs, org);
+          if (!result) return;
+          featureResults[arch.id] = result;
+        });
+      } catch (e) {
+        // not sure what we should do with a json error - should be impossible to get here.
+      }
     });
     await promiseAllChunks(promiseCallbacks, 5);
   }
@@ -126,7 +127,7 @@ type CreateArchetypeRequest = AuthRequest<{
   description: string;
   owner: string;
   isPublic: boolean;
-  attributes: ArchetypeAttributeValues;
+  attributes: string;
 }>;
 
 type CreateArchetypeResponse = {
@@ -190,7 +191,7 @@ type PutArchetypeRequest = AuthRequest<
     name: string;
     description: string;
     owner: string;
-    attributes: Record<string, string | boolean | number | object>;
+    attributes: string;
     isPublic: boolean;
   },
   { id: string }
