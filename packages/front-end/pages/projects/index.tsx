@@ -80,7 +80,7 @@ const ProjectsPage: FC = () => {
               })}
               onClick={(e) => {
                 e.preventDefault();
-                if (!atProjectLimit) return;
+                if (atProjectLimit) return;
                 setModalOpen({});
               }}
               disabled={atProjectLimit}
