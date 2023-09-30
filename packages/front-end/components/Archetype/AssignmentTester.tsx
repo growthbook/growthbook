@@ -38,7 +38,7 @@ export default function AssignmentTester({ feature }: Props) {
 
   const { data, error, mutate } = useApi<{
     status: number;
-    Archetype: ArchetypeInterface[];
+    archetype: ArchetypeInterface[];
     featureResults: Record<string, FeatureTestResult[]>;
   }>(`/archetype/eval/${feature.id}`);
 
@@ -88,7 +88,7 @@ export default function AssignmentTester({ feature }: Props) {
       .catch((e) => console.error(e));
   }, [formValues, apiCall, feature]);
 
-  if (!data?.Archetype) return null;
+  if (!data?.archetype) return null;
 
   const showResults = () => {
     if (!results) {
@@ -298,7 +298,7 @@ export default function AssignmentTester({ feature }: Props) {
           <div>
             <ArchetypeResults
               feature={feature}
-              Archetype={data.Archetype}
+              archetype={data.archetype}
               featureResults={data.featureResults}
               onChange={async () => {
                 await mutate();
@@ -310,7 +310,7 @@ export default function AssignmentTester({ feature }: Props) {
             <div
               className="d-flex flex-row align-items-center justify-content-between cursor-pointer"
               onClick={() => {
-                if (data?.Archetype.length > 0) {
+                if (data?.archetype.length > 0) {
                   setShowSimulateForm(!showSimulateForm);
                 }
               }}
@@ -319,13 +319,13 @@ export default function AssignmentTester({ feature }: Props) {
                 Simulate how your rules will apply to users.{" "}
                 <Tooltip body="Enter attributes, like are set by your app via the SDK, and see how Growthbook would evaluate this feature for the different environments. Will use draft rules."></Tooltip>
               </div>
-              {data?.Archetype.length > 0 && (
+              {data?.archetype.length > 0 && (
                 <div className="cursor-pointer">
                   <FaChevronRight
                     style={{
                       transform: `rotate(${
                         (showSimulateForm === null &&
-                          !data?.Archetype.length) ||
+                          !data?.archetype.length) ||
                         showSimulateForm === true
                           ? "90deg"
                           : "0deg"
@@ -335,7 +335,7 @@ export default function AssignmentTester({ feature }: Props) {
                 </div>
               )}
             </div>
-            {((showSimulateForm === null && !data?.Archetype.length) ||
+            {((showSimulateForm === null && !data?.archetype.length) ||
               showSimulateForm === true) && (
               <div>
                 {" "}

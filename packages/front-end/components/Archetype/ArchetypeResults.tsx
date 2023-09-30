@@ -14,10 +14,10 @@ import { useEnvironments } from "@/services/features";
 
 const ArchetypeResults: FC<{
   feature: FeatureInterface;
-  Archetype: ArchetypeInterface[];
+  archetype: ArchetypeInterface[];
   featureResults: Record<string, FeatureTestResult[]>;
   onChange: () => void;
-}> = ({ feature, Archetype, featureResults, onChange }) => {
+}> = ({ feature, archetype, featureResults, onChange }) => {
   const { apiCall } = useAuth();
   const enableAdvDebug = false;
   const [showExpandedResults, setShowExpandedResults] = useState<boolean>(
@@ -36,7 +36,7 @@ const ArchetypeResults: FC<{
 
   const environments = useEnvironments();
 
-  if (Archetype.length === 0) {
+  if (archetype.length === 0) {
     return null;
   }
 
@@ -100,7 +100,7 @@ const ArchetypeResults: FC<{
         debugLog,
         results: tr,
         log: tr.log,
-        archetype: Archetype.find((u) => u.id === id),
+        archetype: archetype.find((u) => u.id === id),
       });
     });
   });
@@ -260,7 +260,7 @@ const ArchetypeResults: FC<{
           </tr>
         </thead>
         <tbody>
-          {Archetype.map((archetype: ArchetypeInterface) => (
+          {archetype.map((archetype: ArchetypeInterface) => (
             <Fragment key={archetype.id}>
               <tr
                 key={archetype.id}
