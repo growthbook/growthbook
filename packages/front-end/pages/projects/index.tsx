@@ -8,6 +8,7 @@ import { ProjectInterface } from "back-end/types/project";
 import { useRouter } from "next/router";
 import Link from "next/link";
 import { date } from "shared/dates";
+import clsx from "clsx";
 import usePermissions from "@/hooks/usePermissions";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import ProjectModal from "@/components/Projects/ProjectModal";
@@ -15,6 +16,9 @@ import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import useSDKConnections from "@/hooks/useSDKConnections";
+import { useUser } from "@/services/UserContext";
+import { GBPremiumBadge } from "@/components/Icons";
+import Tooltip from "@/components/Tooltip/Tooltip";
 
 const ProjectsPage: FC = () => {
   const { projects, mutateDefinitions } = useDefinitions();
@@ -38,8 +42,15 @@ const ProjectsPage: FC = () => {
       ))
   );
 
+  const { hasCommercialFeature } = useUser();
+  const hasCreateMultipleProjectsFeature = hasCommercialFeature(
+    "create-multiple-projects"
+  );
+  const atProjectLimit =
+    !hasCreateMultipleProjectsFeature && projects.length >= 1;
+
   return (
-    <div className="container-fluid  pagecontents">
+    <div className="container-fluid pagecontents">
       {modalOpen && (
         <ProjectModal
           existing={modalOpen}
@@ -54,15 +65,30 @@ const ProjectsPage: FC = () => {
         </div>
         <div style={{ flex: 1 }} />
         <div className="col-auto">
-          <button
-            className="btn btn-primary"
-            onClick={(e) => {
-              e.preventDefault();
-              setModalOpen({});
-            }}
+          <Tooltip
+            body={
+              <span className="premium">
+                <GBPremiumBadge /> Starter plans are limited to 1 project
+              </span>
+            }
+            shouldDisplay={atProjectLimit}
           >
-            <FaFolderPlus /> Create Project
-          </button>
+            <button
+              className={clsx("btn", {
+                "btn-premium": !hasCreateMultipleProjectsFeature,
+                "btn-primary": hasCreateMultipleProjectsFeature,
+              })}
+              onClick={(e) => {
+                e.preventDefault();
+                if (!atProjectLimit) return;
+                setModalOpen({});
+              }}
+              disabled={atProjectLimit}
+            >
+              {atProjectLimit ? <GBPremiumBadge /> : <FaFolderPlus />} Create
+              Project
+            </button>
+          </Tooltip>
         </div>
       </div>
 
