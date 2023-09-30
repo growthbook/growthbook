@@ -70,6 +70,12 @@ export default function AssignmentTester({ feature }: Props) {
   });
 
   useEffect(() => {
+    mutate().then(() => {
+      //this mutate is needed to update the Archetype results when the feature rules change
+    });
+  }, [mutate, feature]);
+
+  useEffect(() => {
     apiCall<{
       results: FeatureTestResult[];
     }>(`/feature/${feature.id}/eval`, {
