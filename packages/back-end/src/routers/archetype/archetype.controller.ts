@@ -28,7 +28,7 @@ import { promiseAllChunks } from "../../util/promise";
 
 type GetArchetypeResponse = {
   status: 200;
-  Archetype: ArchetypeInterface[];
+  archetype: ArchetypeInterface[];
 };
 
 /**
@@ -45,11 +45,11 @@ export const getArchetype = async (
 
   req.checkPermissions("manageArchetype");
 
-  const Archetype = await getAllArchetype(org.id, userId);
+  const archetype = await getAllArchetype(org.id, userId);
 
   return res.status(200).json({
     status: 200,
-    Archetype,
+    archetype,
   });
 };
 
@@ -59,7 +59,7 @@ export const getArchetype = async (
 
 type GetArchetypeAndEvalResponse = {
   status: 200;
-  Archetype: ArchetypeInterface[];
+  archetype: ArchetypeInterface[];
   featureResults:
     | { [key: string]: FeatureTestResult[] }
     | Record<string, never>;
@@ -92,12 +92,12 @@ export const getArchetypeAndEval = async (
 
   req.checkPermissions("manageArchetype");
 
-  const Archetype = await getAllArchetype(org.id, userId);
+  const archetype = await getAllArchetype(org.id, userId);
   const featureResults: { [key: string]: FeatureTestResult[] } = {};
 
-  if (Archetype.length) {
+  if (archetype.length) {
     const promiseCallbacks: (() => Promise<unknown>)[] = [];
-    Archetype.forEach((arch) => {
+    archetype.forEach((arch) => {
       try {
         const attrs = JSON.parse(arch.attributes) as ArchetypeAttributeValues;
         promiseCallbacks.push(async () => {
@@ -114,7 +114,7 @@ export const getArchetypeAndEval = async (
 
   return res.status(200).json({
     status: 200,
-    Archetype,
+    archetype,
     featureResults,
   });
 };
@@ -132,7 +132,7 @@ type CreateArchetypeRequest = AuthRequest<{
 
 type CreateArchetypeResponse = {
   status: 200;
-  Archetype: ArchetypeInterface;
+  archetype: ArchetypeInterface;
 };
 
 /**
@@ -157,7 +157,7 @@ export const postArchetype = async (
 
   req.checkPermissions("manageArchetype");
 
-  const Archetype = await createArchetype({
+  const archetype = await createArchetype({
     attributes,
     name,
     description,
@@ -170,15 +170,15 @@ export const postArchetype = async (
     event: "Archetype.created",
     entity: {
       object: "Archetype",
-      id: Archetype.id,
+      id: archetype.id,
       name,
     },
-    details: auditDetailsCreate(Archetype),
+    details: auditDetailsCreate(archetype),
   });
 
   return res.status(200).json({
     status: 200,
-    Archetype,
+    archetype,
   });
 };
 
@@ -230,9 +230,9 @@ export const putArchetype = async (
 
   req.checkPermissions("manageArchetype");
 
-  const Archetype = await getArchetypeById(id, org.id);
+  const archetype = await getArchetypeById(id, org.id);
 
-  if (!Archetype) {
+  if (!archetype) {
     throw new Error("Could not find sample user");
   }
 
@@ -244,7 +244,7 @@ export const putArchetype = async (
     owner,
   });
 
-  const updatedArchetype = { ...Archetype, ...changes };
+  const updatedArchetype = { ...archetype, ...changes };
 
   await req.audit({
     event: "Archetype.updated",
@@ -253,7 +253,7 @@ export const putArchetype = async (
       id: updatedArchetype.id,
       name: name,
     },
-    details: auditDetailsUpdate(Archetype, updatedArchetype),
+    details: auditDetailsUpdate(archetype, updatedArchetype),
   });
 
   return res.status(200).json({
@@ -295,9 +295,9 @@ export const deleteArchetype = async (
   const { id } = req.params;
   const { org } = getOrgFromReq(req);
 
-  const Archetype = await getArchetypeById(id, org.id);
+  const archetype = await getArchetypeById(id, org.id);
 
-  if (!Archetype) {
+  if (!archetype) {
     res.status(403).json({
       status: 404,
       message: "Sample user not found",
@@ -305,7 +305,7 @@ export const deleteArchetype = async (
     return;
   }
 
-  if (Archetype.organization !== org.id) {
+  if (archetype.organization !== org.id) {
     res.status(403).json({
       status: 403,
       message: "You do not have access to this sample user",
@@ -320,9 +320,9 @@ export const deleteArchetype = async (
     entity: {
       object: "Archetype",
       id: id,
-      name: Archetype.name,
+      name: archetype.name,
     },
-    details: auditDetailsDelete(Archetype),
+    details: auditDetailsDelete(archetype),
   });
 
   res.status(200).json({
