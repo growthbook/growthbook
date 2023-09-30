@@ -44,7 +44,6 @@ export default function AssignmentTester({ feature }: Props) {
 
   const { hasCommercialFeature } = useUser();
   const hasArchetypeAccess = hasCommercialFeature("archetypes");
-  //const permissions = usePermissions();
 
   const attributeSchema = useAttributeSchema(true);
 

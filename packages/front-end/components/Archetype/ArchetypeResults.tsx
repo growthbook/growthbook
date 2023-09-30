@@ -459,7 +459,11 @@ const ArchetypeResults: FC<{
             onChange();
           }}
           initialValues={editArchetype}
-          header="Edit Archetype"
+          header={
+            Object.keys(editArchetype).length === 0
+              ? "Create Archetype"
+              : "Edit Archetype"
+          }
         />
       )}
     </div>
