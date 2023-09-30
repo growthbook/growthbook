@@ -350,12 +350,17 @@ const ArchetypeResults: FC<{
                                     </strong>
                                   </div>
                                 )}
-                                <h5 className="mt-3">Log</h5>
-                                <div className="bg-white border border-light rounded p-3">
+                                <h5 className="mt-3">Debug Log</h5>
+                                <div
+                                  className={`border bg-light border-light rounded px-3 py-1 ${styles.tooltiplog}`}
+                                >
                                   {detailsMap
                                     .get(archetype.id + result.env)
-                                    .debugLog.map((log, i) => (
-                                      <div className="row my-2" key={i}>
+                                    .debugLog.map((log: string, i) => (
+                                      <div
+                                        className="row align-items-center my-3"
+                                        key={i}
+                                      >
                                         <div className="col-2">
                                           {detailsMap.get(
                                             archetype.id + result.env
@@ -370,7 +375,7 @@ const ArchetypeResults: FC<{
                                           ) : (
                                             <div
                                               key={i}
-                                              className={`text-light border rounded-circle ${"bg-purple"}`}
+                                              className={`text-light border rounded-circle bg-purple ${styles.ruleCircle}`}
                                               style={{
                                                 width: 28,
                                                 height: 28,
