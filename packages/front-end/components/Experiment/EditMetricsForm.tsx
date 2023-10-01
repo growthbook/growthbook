@@ -7,12 +7,10 @@ import {
 import cloneDeep from "lodash/cloneDeep";
 import { DEFAULT_REGRESSION_ADJUSTMENT_DAYS } from "shared/constants";
 import { OrganizationSettings } from "back-end/types/organization";
-import { isProjectListValidForProject } from "shared/util";
 import { ExperimentMetricInterface } from "shared/experiments";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useAuth } from "../../services/auth";
 import Modal from "../Modal";
-import SelectField from "../Forms/SelectField";
 import { useDefinitions } from "../../services/DefinitionsContext";
 import { useUser } from "../../services/UserContext";
 import PremiumTooltip from "../Marketing/PremiumTooltip";
@@ -20,6 +18,7 @@ import UpgradeMessage from "../Marketing/UpgradeMessage";
 import UpgradeModal from "../Settings/UpgradeModal";
 import MetricsOverridesSelector from "./MetricsOverridesSelector";
 import MetricsSelector from "./MetricsSelector";
+import MetricSelector from "./MetricSelector";
 
 export interface EditMetricsFormInterface {
   metrics: string[];
@@ -111,17 +110,7 @@ const EditMetricsForm: FC<{
   const { hasCommercialFeature } = useUser();
   const hasOverrideMetricsFeature = hasCommercialFeature("override-metrics");
 
-  const {
-    metrics,
-    getDatasourceById,
-    getExperimentMetricById,
-  } = useDefinitions();
-  const datasource = getDatasourceById(experiment.datasource);
-  const filteredMetrics = metrics
-    .filter((m) => m.datasource === datasource?.id)
-    .filter((m) =>
-      isProjectListValidForProject(m.projects, experiment.project)
-    );
+  const { getExperimentMetricById } = useDefinitions();
 
   const defaultMetricOverrides = getDefaultMetricOverridesFormValue(
     experiment.metricOverrides || [],
@@ -203,16 +192,14 @@ const EditMetricsForm: FC<{
         <div className="mb-1 font-italic">
           Users must convert on this metric before being included.
         </div>
-        <SelectField
-          options={filteredMetrics.map((m) => {
-            return {
-              label: m.name,
-              value: m.id,
-            };
-          })}
+
+        <MetricSelector
           initialOption="None"
           value={form.watch("activationMetric")}
           onChange={(metric) => form.setValue("activationMetric", metric)}
+          datasource={experiment.datasource}
+          project={experiment.project}
+          includeFacts={true}
         />
       </div>
 

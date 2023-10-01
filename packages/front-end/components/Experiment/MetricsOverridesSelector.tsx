@@ -10,9 +10,9 @@ import Toggle from "@/components/Forms/Toggle";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { GBCuped } from "@/components/Icons";
-import SelectField from "../Forms/SelectField";
 import Field from "../Forms/Field";
 import { EditMetricsFormInterface } from "./EditMetricsForm";
+import MetricSelector from "./MetricSelector";
 
 export default function MetricsOverridesSelector({
   experiment,
@@ -446,20 +446,17 @@ export default function MetricsOverridesSelector({
       {unusedMetrics.length > 0 && (
         <div className="row">
           <div className="col">
-            <SelectField
+            <MetricSelector
+              datasource={experiment.datasource}
+              excludeIds={usedMetrics}
+              project={experiment.project}
+              includeFacts={true}
               value={
                 metricDefinitions.find((md) => md.id === selectedMetricId)
                   ?.name || ""
               }
               onChange={(m) => setSelectedMetricId(m)}
               initialOption="Choose Metric..."
-              options={unusedMetrics.map((m) => {
-                const metric = metricDefinitions.find((md) => md.id === m);
-                return {
-                  label: metric?.name || `Unknown metric (${m})`,
-                  value: m,
-                };
-              })}
               disabled={disabled}
             />
           </div>

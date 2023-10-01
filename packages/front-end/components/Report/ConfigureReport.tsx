@@ -35,6 +35,7 @@ import Modal from "../Modal";
 import SelectField from "../Forms/SelectField";
 import DimensionChooser from "../Dimensions/DimensionChooser";
 import { AttributionModelTooltip } from "../Experiment/AttributionModelTooltip";
+import MetricSelector from "../Experiment/MetricSelector";
 
 export default function ConfigureReport({
   report,
@@ -49,7 +50,6 @@ export default function ConfigureReport({
   const { apiCall } = useAuth();
   const { organization, hasCommercialFeature } = useUser();
   const {
-    metrics,
     segments,
     getProjectById,
     getDatasourceById,
@@ -167,9 +167,6 @@ export default function ConfigureReport({
     report.args.metricOverrides,
   ]);
 
-  const filteredMetrics = metrics.filter(
-    (m) => m.datasource === report.args.datasource
-  );
   const filteredSegments = segments.filter(
     (s) => s.datasource === report.args.datasource
   );
@@ -354,18 +351,13 @@ export default function ConfigureReport({
         labelClassName="font-weight-bold"
         showHelp={true}
       />
-      <SelectField
+      <MetricSelector
+        datasource={form.watch("datasource")}
+        includeFacts={true}
         label="Activation Metric"
         labelClassName="font-weight-bold"
-        options={filteredMetrics.map((m) => {
-          return {
-            label: m.name,
-            value: m.id,
-          };
-        })}
         initialOption="None"
-        // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'string | undefined' is not assignable to typ... Remove this comment to see the full error message
-        value={form.watch("activationMetric")}
+        value={form.watch("activationMetric") || ""}
         onChange={(value) => form.setValue("activationMetric", value || "")}
         helpText="Users must convert on this metric before being included"
       />

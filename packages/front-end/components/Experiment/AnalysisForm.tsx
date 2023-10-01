@@ -35,6 +35,7 @@ import {
   fixMetricOverridesBeforeSaving,
   getDefaultMetricOverridesFormValue,
 } from "./EditMetricsForm";
+import MetricSelector from "./MetricSelector";
 
 const AnalysisForm: FC<{
   experiment: ExperimentInterfaceStringDates;
@@ -54,7 +55,6 @@ const AnalysisForm: FC<{
   editMetrics = false,
 }) => {
   const {
-    metrics,
     segments,
     getProjectById,
     getDatasourceById,
@@ -175,9 +175,6 @@ const AnalysisForm: FC<{
   const datasource = getDatasourceById(form.watch("datasource"));
   const datasourceProperties = datasource?.properties;
 
-  const filteredMetrics = metrics.filter(
-    (m) => m.datasource === datasource?.id
-  );
   const filteredSegments = segments.filter(
     (s) => s.datasource === datasource?.id
   );
@@ -392,15 +389,12 @@ const AnalysisForm: FC<{
         </div>
       )}
       {datasource && (
-        <SelectField
-          label="Activation Metric"
+        <MetricSelector
+          datasource={form.watch("datasource")}
+          project={experiment.project}
+          includeFacts={true}
           labelClassName="font-weight-bold"
-          options={filteredMetrics.map((m) => {
-            return {
-              label: m.name,
-              value: m.id,
-            };
-          })}
+          label="Activation Metric"
           initialOption="None"
           value={form.watch("activationMetric")}
           onChange={(value) => form.setValue("activationMetric", value || "")}
