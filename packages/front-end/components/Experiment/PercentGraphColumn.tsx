@@ -1,5 +1,5 @@
 import { SnapshotMetric } from "back-end/types/experiment-snapshot";
-import { MetricInterface } from "back-end/types/metric";
+import { ExperimentMetricInterface } from "shared/experiments";
 import useConfidenceLevels from "@/hooks/useConfidenceLevels";
 import { hasEnoughData } from "@/services/experiments";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
@@ -13,7 +13,7 @@ export default function PercentGraphColumn({
   id,
   barType: _barType,
 }: {
-  metric: MetricInterface;
+  metric: ExperimentMetricInterface;
   baseline: SnapshotMetric;
   stats: SnapshotMetric;
   domain: [number, number];

@@ -9,8 +9,8 @@ import { ExperimentStatus, MetricOverride } from "back-end/types/experiment";
 import { PValueCorrection, StatsEngine } from "back-end/types/stats";
 import Link from "next/link";
 import { FaAngleRight, FaTimes, FaUsers } from "react-icons/fa";
-import { MetricInterface } from "back-end/types/metric";
 import Collapsible from "react-collapsible";
+import { ExperimentMetricInterface, isFactMetric } from "shared/experiments";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import {
   applyMetricOverrides,
@@ -236,7 +236,7 @@ export default CompactResults;
 export function getRenderLabelColumn(regressionAdjustmentEnabled) {
   return function renderLabelColumn(
     label: string,
-    metric: MetricInterface,
+    metric: ExperimentMetricInterface,
     row: ExperimentTableRow,
     maxRows?: number
   ) {
@@ -275,7 +275,13 @@ export function getRenderLabelColumn(regressionAdjustmentEnabled) {
                 }
           }
         >
-          <Link href={`/metric/${metric.id}`}>
+          <Link
+            href={
+              isFactMetric(metric)
+                ? `/fact-metrics/${metric.id}`
+                : `/metric/${metric.id}`
+            }
+          >
             <a className="metriclabel text-dark">{label}</a>
           </Link>
         </span>

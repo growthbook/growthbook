@@ -19,7 +19,9 @@ import {
 import {
   ExperimentMetricInterface,
   isBinomialMetric,
+  isFactMetric,
   isFactMetricId,
+  isRatioMetric,
 } from "shared/src/experiments";
 import { updateExperiment } from "../models/ExperimentModel";
 import {
@@ -32,7 +34,7 @@ import {
 } from "../../types/experiment-snapshot";
 import {
   getMetricById,
-  getMetricsByIds,
+  getMetricMap,
   insertMetric,
 } from "../models/MetricModel";
 import { checkSrm, sumSquaresFromStats } from "../util/stats";
@@ -1684,29 +1686,30 @@ export async function getRegressionAdjustmentInfo(
     return { regressionAdjustmentEnabled, metricRegressionAdjustmentStatuses };
   }
 
+  const metricMap = await getMetricMap(organization.id);
+
   const allExperimentMetricIds = uniq([
     ...experiment.metrics,
     ...(experiment.guardrails ?? []),
   ]);
-  const allExperimentMetrics = await getMetricsByIds(
-    allExperimentMetricIds,
-    organization.id
-  );
-  const denominatorMetricIds = uniq(
-    allExperimentMetrics.map((m) => m.denominator).filter((m) => m)
-  ) as string[];
-  const denominatorMetrics = await getMetricsByIds(
-    denominatorMetricIds,
-    organization.id
-  );
+  const allExperimentMetrics = allExperimentMetricIds
+    .map((id) => metricMap.get(id))
+    .filter(Boolean);
+
+  const denominatorMetrics = allExperimentMetrics
+    .filter((m) => m && !isFactMetric(m) && m.denominator)
+    .map((m: ExperimentMetricInterface) =>
+      metricMap.get(m.denominator as string)
+    )
+    .filter(Boolean) as ExperimentMetricInterface[];
 
   for (const metric of allExperimentMetrics) {
     if (!metric) continue;
     const {
       metricRegressionAdjustmentStatus,
     } = getRegressionAdjustmentsForMetric({
-      metric: metric as MetricInterface,
-      denominatorMetrics: denominatorMetrics as MetricInterface[],
+      metric: metric,
+      denominatorMetrics: denominatorMetrics,
       experimentRegressionAdjustmentEnabled:
         experiment.regressionAdjustmentEnabled ??
         DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
@@ -1731,16 +1734,16 @@ export function getRegressionAdjustmentsForMetric({
   organizationSettings,
   metricOverrides,
 }: {
-  metric: MetricInterface;
-  denominatorMetrics: MetricInterface[];
+  metric: ExperimentMetricInterface;
+  denominatorMetrics: ExperimentMetricInterface[];
   experimentRegressionAdjustmentEnabled: boolean;
   organizationSettings?: Partial<OrganizationSettings>; // can be RA fields from a snapshot of org settings
   metricOverrides?: MetricOverride[];
 }): {
-  newMetric: MetricInterface;
+  newMetric: ExperimentMetricInterface;
   metricRegressionAdjustmentStatus: MetricRegressionAdjustmentStatus;
 } {
-  const newMetric = cloneDeep<MetricInterface>(metric);
+  const newMetric = cloneDeep<ExperimentMetricInterface>(metric);
 
   // start with default RA settings
   let regressionAdjustmentEnabled = true;
@@ -1759,7 +1762,7 @@ export function getRegressionAdjustmentsForMetric({
   }
 
   // get RA settings from metric
-  if (metric?.regressionAdjustmentOverride) {
+  if (metric && !isFactMetric(metric) && metric?.regressionAdjustmentOverride) {
     regressionAdjustmentEnabled = !!metric?.regressionAdjustmentEnabled;
     regressionAdjustmentDays =
       metric?.regressionAdjustmentDays ?? DEFAULT_REGRESSION_ADJUSTMENT_DAYS;
@@ -1785,17 +1788,26 @@ export function getRegressionAdjustmentsForMetric({
 
   // final gatekeeping
   if (regressionAdjustmentEnabled) {
-    if (metric?.denominator) {
+    if (metric && !isFactMetric(metric) && metric?.denominator) {
       const denominator = denominatorMetrics.find(
         (m) => m.id === metric?.denominator
       );
-      if (denominator?.type === "count") {
+      if (denominator && !isBinomialMetric(denominator)) {
         regressionAdjustmentEnabled = false;
         reason = "denominator is count";
       }
     }
+  } else if (metric && isFactMetric(metric) && isRatioMetric(metric)) {
+    regressionAdjustmentEnabled = false;
+    reason = "ratio metrics not supported";
   }
-  if (metric?.type === "binomial" && metric?.aggregation) {
+
+  if (
+    metric &&
+    !isFactMetric(metric) &&
+    metric?.type === "binomial" &&
+    metric?.aggregation
+  ) {
     regressionAdjustmentEnabled = false;
     reason = "custom aggregation";
   }

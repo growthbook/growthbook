@@ -1,9 +1,9 @@
 import clsx from "clsx";
 import { FC } from "react";
 import { SnapshotMetric } from "back-end/types/experiment-snapshot";
-import { MetricInterface } from "back-end/types/metric";
 import { ExperimentStatus } from "back-end/types/experiment";
 import { PValueCorrection } from "back-end/types/stats";
+import { ExperimentMetricInterface } from "shared/experiments";
 import {
   hasEnoughData,
   isBelowMinChange,
@@ -19,7 +19,7 @@ import Tooltip from "../Tooltip/Tooltip";
 import NotEnoughData_old from "./NotEnoughData_old";
 
 const PValueColumn_old: FC<{
-  metric: MetricInterface;
+  metric: ExperimentMetricInterface;
   status: ExperimentStatus;
   isLatestPhase: boolean;
   startDate: string;

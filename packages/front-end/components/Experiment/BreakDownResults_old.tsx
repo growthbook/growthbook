@@ -1,5 +1,4 @@
 import { FC, useMemo, useState } from "react";
-import { MetricInterface } from "back-end/types/metric";
 import {
   ExperimentReportResultDimension,
   ExperimentReportVariation,
@@ -7,6 +6,7 @@ import {
 } from "back-end/types/report";
 import { ExperimentStatus, MetricOverride } from "back-end/types/experiment";
 import { PValueCorrection, StatsEngine } from "back-end/types/stats";
+import { ExperimentMetricInterface } from "shared/experiments";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import {
   applyMetricOverrides,
@@ -21,7 +21,7 @@ import UsersTable from "./UsersTable";
 const FULL_STATS_LIMIT = 5;
 
 type TableDef = {
-  metric: MetricInterface;
+  metric: ExperimentMetricInterface;
   isGuardrail: boolean;
   rows: ExperimentTableRow[];
 };
