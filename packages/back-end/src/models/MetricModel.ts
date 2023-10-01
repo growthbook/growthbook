@@ -1,10 +1,10 @@
 import mongoose, { FilterQuery } from "mongoose";
+import { ExperimentMetricInterface } from "shared/experiments";
 import { LegacyMetricInterface, MetricInterface } from "../../types/metric";
 import { getConfigMetrics, usingFileConfig } from "../init/config";
 import { upgradeMetricDoc } from "../util/migrations";
 import { OrganizationInterface } from "../../types/organization";
 import { EventAuditUser } from "../events/event-types";
-import { FactMetricInterface } from "../../types/fact-table";
 import { queriesSchema } from "./QueryModel";
 import { ImpactEstimateModel } from "./ImpactEstimateModel";
 import { removeMetricFromExperiments } from "./ExperimentModel";
@@ -193,7 +193,7 @@ export async function deleteAllMetricsForAProject({
 }
 
 export async function getMetricMap(organization: string) {
-  const metricMap = new Map<string, MetricInterface | FactMetricInterface>();
+  const metricMap = new Map<string, ExperimentMetricInterface>();
   const allMetrics = await getMetricsByOrganization(organization);
   allMetrics.forEach((m) => {
     metricMap.set(m.id, m);

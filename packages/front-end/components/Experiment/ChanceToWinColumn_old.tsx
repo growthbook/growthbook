@@ -1,8 +1,7 @@
 import clsx from "clsx";
 import { SnapshotMetric } from "back-end/types/experiment-snapshot";
-import { MetricInterface } from "back-end/types/metric";
 import { ExperimentStatus } from "back-end/types/experiment";
-import { FactMetricInterface } from "back-end/types/fact-table";
+import { ExperimentMetricInterface } from "shared/experiments";
 import useConfidenceLevels from "@/hooks/useConfidenceLevels";
 import {
   hasEnoughData,
@@ -28,7 +27,7 @@ export default function ChanceToWinColumn_old({
   baseline,
   stats,
 }: {
-  metric: MetricInterface | FactMetricInterface;
+  metric: ExperimentMetricInterface;
   status: ExperimentStatus;
   isLatestPhase: boolean;
   startDate: string;

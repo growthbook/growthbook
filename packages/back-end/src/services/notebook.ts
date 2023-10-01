@@ -5,20 +5,18 @@ import {
   DEFAULT_STATS_ENGINE,
 } from "shared/constants";
 import { getSnapshotAnalysis } from "shared/util";
+import { isBinomialMetric } from "shared/experiments";
 import { APP_ORIGIN } from "../util/secrets";
 import { findSnapshotById } from "../models/ExperimentSnapshotModel";
 import { getExperimentById } from "../models/ExperimentModel";
-import { getMetricsByDatasource } from "../models/MetricModel";
+import { getMetricMap } from "../models/MetricModel";
 import { getDataSourceById } from "../models/DataSourceModel";
-import { MetricInterface } from "../../types/metric";
 import { ExperimentReportArgs } from "../../types/report";
 import { getReportById } from "../models/ReportModel";
 import { Queries } from "../../types/query";
 import { QueryMap } from "../queryRunners/QueryRunner";
 import { getQueriesByIds } from "../models/QueryModel";
-import { FactMetricInterface } from "../../types/fact-table";
 import { reportArgsFromSnapshot } from "./reports";
-import { isMetricBinomial } from "./experiments";
 
 async function getQueryData(
   queries: Queries,
@@ -116,14 +114,7 @@ export async function generateNotebook(
   }
 
   // Get metrics
-  const metrics = await getMetricsByDatasource(datasource.id, organization);
-  const metricMap: Map<
-    string,
-    MetricInterface | FactMetricInterface
-  > = new Map();
-  metrics.forEach((m: MetricInterface) => {
-    metricMap.set(m.id, m);
-  });
+  const metricMap = await getMetricMap(organization);
 
   // Get queries
   const queries = await getQueryData(queryPointers, organization);
@@ -145,7 +136,7 @@ export async function generateNotebook(
           sql: q.query,
           inverse: !!metric.inverse,
           ignore_nulls: "ignoreNulls" in metric && !!metric.ignoreNulls,
-          type: isMetricBinomial(metric) ? "binomial" : "count",
+          type: isBinomialMetric(metric) ? "binomial" : "count",
         };
       })
       .filter(Boolean),

@@ -17,6 +17,7 @@ import {
   FactMetricInterface,
   FactTableInterface,
 } from "back-end/types/fact-table";
+import { ExperimentMetricInterface, isFactMetricId } from "shared/experiments";
 import useApi from "@/hooks/useApi";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 
@@ -48,9 +49,7 @@ type DefinitionContextValue = Definitions & {
   getTagById: (id: string) => null | TagInterface;
   getFactTableById: (id: string) => null | FactTableInterface;
   getFactMetricById: (id: string) => null | FactMetricInterface;
-  getExperimentMetricById: (
-    id: string
-  ) => null | MetricInterface | FactMetricInterface;
+  getExperimentMetricById: (id: string) => null | ExperimentMetricInterface;
 };
 
 const defaultValue: DefinitionContextValue = {
@@ -144,7 +143,7 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
 
   const getExperimentMetricById = useCallback(
     (id: string) => {
-      if (id.match(/^fact__/)) {
+      if (isFactMetricId(id)) {
         return getFactMetricById(id);
       }
       return getMetricById(id);

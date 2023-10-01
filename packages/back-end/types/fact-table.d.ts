@@ -121,3 +121,5 @@ export type CreateFactMetricProps = z.infer<
 export type UpdateFactMetricProps = z.infer<
   typeof updateFactMetricPropsValidator
 >;
+
+export type FactTableMap = Map<string, FactTableInterface>;

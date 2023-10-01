@@ -1,16 +1,15 @@
-import { MetricInterface, MetricType } from "back-end/types/metric";
+import { MetricType } from "back-end/types/metric";
 import {
   GlobalPermission,
   ProjectScopedPermission,
 } from "back-end/types/organization";
 import {
   FactInterface,
-  FactMetricInterface,
   FactRef,
   FactTableInterface,
 } from "back-end/types/fact-table";
+import { ExperimentMetricInterface } from "shared/experiments";
 import { PermissionFunctions } from "@/services/UserContext";
-import { getDefaultConversionWindowHours } from "./env";
 
 const percentFormatter = new Intl.NumberFormat(undefined, {
   style: "percent",
@@ -32,23 +31,6 @@ export function getMetricConversionTitle(type: MetricType): string {
     return "Revenue";
   }
   return "Conversion Rate";
-}
-
-export function getConversionWindowHours(
-  metric: MetricInterface | FactMetricInterface
-): number {
-  if ("conversionWindowHours" in metric && metric.conversionWindowHours) {
-    return metric.conversionWindowHours;
-  }
-
-  if ("conversionWindowValue" in metric) {
-    const value = metric.conversionWindowValue;
-    if (metric.conversionWindowUnit === "hours") return value;
-    if (metric.conversionWindowUnit === "days") return value * 24;
-    if (metric.conversionWindowUnit === "weeks") return value * 24 * 7;
-  }
-
-  return getDefaultConversionWindowHours();
 }
 
 export function formatCurrency(value: number, currency?: string) {
@@ -162,7 +144,7 @@ export function formatFactRefValue(
 }
 
 export function formatMetricValue(
-  metric: FactMetricInterface | MetricInterface,
+  metric: ExperimentMetricInterface,
   value: number,
   getFactTableById: (id: string) => FactTableInterface | null,
   currency?: string

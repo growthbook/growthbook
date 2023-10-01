@@ -1,6 +1,15 @@
 import cloneDeep from "lodash/cloneDeep";
 import { dateStringArrayBetweenDates, getValidDate } from "shared/dates";
 import { format as formatDate, subDays } from "date-fns";
+import {
+  getConversionWindowHours,
+  getUserIdTypes,
+  isFactMetric,
+  isFunnelMetric,
+  isBinomialMetric,
+  isRatioMetric,
+  ExperimentMetricInterface,
+} from "shared/experiments";
 import { MetricInterface, MetricType } from "../../types/metric";
 import {
   DataSourceSettings,
@@ -44,15 +53,6 @@ import {
 import { formatInformationSchema } from "../util/informationSchemas";
 import { ExperimentSnapshotSettings } from "../../types/experiment-snapshot";
 import { TemplateVariables } from "../../types/sql";
-import { FactMetricInterface } from "../../types/fact-table";
-import {
-  getConversionWindowHours,
-  getUserIdTypes,
-  isFactMetric,
-  isFunnelMetric,
-  isMetricBinomial,
-  isRatioMetric,
-} from "../services/experiments";
 import { FactTableMap } from "../models/FactTableModel";
 
 export default abstract class SqlIntegration
@@ -204,7 +204,7 @@ export default abstract class SqlIntegration
   }
 
   applyMetricOverrides(
-    metric: MetricInterface | FactMetricInterface,
+    metric: ExperimentMetricInterface,
     settings: ExperimentSnapshotSettings
   ) {
     if (!metric) return;
@@ -654,7 +654,7 @@ export default abstract class SqlIntegration
 
   private getFunnelUsersCTE(
     baseIdType: string,
-    metrics: (MetricInterface | FactMetricInterface)[],
+    metrics: ExperimentMetricInterface[],
     isRegressionAdjusted: boolean = false,
     ignoreConversionEnd: boolean = false,
     tablePrefix: string = "__denominator",
@@ -744,7 +744,7 @@ export default abstract class SqlIntegration
   private getConversionWindowClause(
     baseCol: string,
     metricCol: string,
-    metric: MetricInterface | FactMetricInterface,
+    metric: ExperimentMetricInterface,
     ignoreConversionEnd: boolean
   ): string {
     const conversionDelayHours = metric.conversionDelayHours ?? 0;
@@ -761,9 +761,7 @@ export default abstract class SqlIntegration
       }`;
   }
 
-  private getMetricMinDelay(
-    metrics: (MetricInterface | FactMetricInterface)[]
-  ) {
+  private getMetricMinDelay(metrics: ExperimentMetricInterface[]) {
     let runningDelay = 0;
     let minDelay = 0;
     metrics.forEach((m) => {
@@ -792,7 +790,7 @@ export default abstract class SqlIntegration
   }
 
   private getMetricEnd(
-    metrics: (MetricInterface | FactMetricInterface)[],
+    metrics: ExperimentMetricInterface[],
     initial?: Date,
     ignoreConversionEnd?: boolean
   ): Date | null {
@@ -860,7 +858,7 @@ export default abstract class SqlIntegration
 
     let activationMetric = null;
     if (activationMetricDoc) {
-      activationMetric = cloneDeep<MetricInterface | FactMetricInterface>(
+      activationMetric = cloneDeep<ExperimentMetricInterface>(
         activationMetricDoc
       );
       this.applyMetricOverrides(activationMetric, settings);
@@ -1043,13 +1041,13 @@ export default abstract class SqlIntegration
     const factTableMap = params.factTableMap;
 
     // clone the metrics before we mutate them
-    const metric = cloneDeep<MetricInterface | FactMetricInterface>(metricDoc);
-    const denominatorMetrics = cloneDeep<
-      (MetricInterface | FactMetricInterface)[]
-    >(denominatorMetricsDocs);
+    const metric = cloneDeep<ExperimentMetricInterface>(metricDoc);
+    const denominatorMetrics = cloneDeep<ExperimentMetricInterface[]>(
+      denominatorMetricsDocs
+    );
     let activationMetric = null;
     if (activationMetricDoc) {
-      activationMetric = cloneDeep<MetricInterface | FactMetricInterface>(
+      activationMetric = cloneDeep<ExperimentMetricInterface>(
         activationMetricDoc
       );
       this.applyMetricOverrides(activationMetric, settings);
@@ -1413,7 +1411,7 @@ export default abstract class SqlIntegration
           isRegressionAdjusted
         )}' as statistic_type,
         '${
-          isMetricBinomial(metric) ? "binomial" : "count"
+          isBinomialMetric(metric) ? "binomial" : "count"
         }' as main_metric_type,
         ${
           isPercentileCapped
@@ -1426,7 +1424,7 @@ export default abstract class SqlIntegration
           ratioMetric
             ? `,
           '${
-            isMetricBinomial(denominator) ? "binomial" : "count"
+            isBinomialMetric(denominator) ? "binomial" : "count"
           }' as denominator_metric_type,
           ${
             denominatorIsPercentileCapped
@@ -1443,7 +1441,7 @@ export default abstract class SqlIntegration
           isRegressionAdjusted
             ? `,
           '${
-            isMetricBinomial(metric) ? "binomial" : "count"
+            isBinomialMetric(metric) ? "binomial" : "count"
           }' as covariate_metric_type,
           SUM(${capCoalesceCovariate}) AS covariate_sum,
           SUM(POWER(${capCoalesceCovariate}, 2)) AS covariate_sum_squares,
@@ -1497,7 +1495,7 @@ export default abstract class SqlIntegration
   }
   private capCoalesceValue(
     valueCol: string,
-    metric: MetricInterface | FactMetricInterface,
+    metric: ExperimentMetricInterface,
     capTablePrefix: string = "c"
   ): string {
     if (metric?.capping === "absolute" && metric.capValue) {
@@ -1914,7 +1912,7 @@ AND event_name = '${eventName}'`,
     experimentId,
     factTableMap,
   }: {
-    metric: MetricInterface | FactMetricInterface;
+    metric: ExperimentMetricInterface;
     baseIdType: string;
     idJoinMap: Record<string, string>;
     startDate: Date;
@@ -2124,7 +2122,7 @@ AND event_name = '${eventName}'`,
 
   private addCaseWhenTimeFilter(
     col: string,
-    metric: MetricInterface | FactMetricInterface,
+    metric: ExperimentMetricInterface,
     ignoreConversionEnd: boolean,
     cumulativeDate: boolean
   ): string {
@@ -2145,9 +2143,7 @@ AND event_name = '${eventName}'`,
     )}`;
   }
 
-  private getAggregateMetricColumn(
-    metric: MetricInterface | FactMetricInterface
-  ) {
+  private getAggregateMetricColumn(metric: ExperimentMetricInterface) {
     // Fact Metrics
     if (isFactMetric(metric)) {
       if (
@@ -2204,7 +2200,7 @@ AND event_name = '${eventName}'`,
   }
 
   private getMetricColumns(
-    metric: MetricInterface | FactMetricInterface,
+    metric: ExperimentMetricInterface,
     factTableMap: FactTableMap,
     alias = "m"
   ) {

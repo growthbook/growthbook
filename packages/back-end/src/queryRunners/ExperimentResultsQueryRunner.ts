@@ -1,4 +1,5 @@
 import { orgHasPremiumFeature } from "enterprise";
+import { ExperimentMetricInterface, isFactMetric } from "shared/experiments";
 import {
   ExperimentSnapshotAnalysis,
   ExperimentSnapshotAnalysisSettings,
@@ -13,7 +14,7 @@ import {
   updateSnapshot,
 } from "../models/ExperimentSnapshotModel";
 import { findSegmentById } from "../models/SegmentModel";
-import { isFactMetric, parseDimensionId } from "../services/experiments";
+import { parseDimensionId } from "../services/experiments";
 import { analyzeExperimentResults } from "../services/stats";
 import {
   ExperimentMetricQueryParams,
@@ -25,7 +26,6 @@ import {
 } from "../types/Integration";
 import { expandDenominatorMetrics } from "../util/sql";
 import { getOrganizationById } from "../services/organizations";
-import { FactMetricInterface } from "../../types/fact-table";
 import { FactTableMap } from "../models/FactTableModel";
 import {
   QueryRunner,
@@ -45,7 +45,7 @@ export type ExperimentResultsQueryParams = {
   snapshotSettings: ExperimentSnapshotSettings;
   analysisSettings: ExperimentSnapshotAnalysisSettings;
   variationNames: string[];
-  metricMap: Map<string, MetricInterface | FactMetricInterface>;
+  metricMap: Map<string, ExperimentMetricInterface>;
   factTableMap: FactTableMap;
   queryParentId: string;
 };
@@ -78,7 +78,7 @@ export const startExperimentResultQueries = async (
     )
   )
     .map((m) => metricMap.get(m))
-    .filter((m) => m) as MetricInterface[];
+    .filter((m) => m) as ExperimentMetricInterface[];
   if (!selectedMetrics.length) {
     throw new Error("Experiment must have at least 1 metric selected.");
   }
@@ -168,10 +168,7 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
   SnapshotResult
 > {
   private variationNames: string[] = [];
-  private metricMap: Map<
-    string,
-    MetricInterface | FactMetricInterface
-  > = new Map();
+  private metricMap: Map<string, ExperimentMetricInterface> = new Map();
 
   async startQueries(params: ExperimentResultsQueryParams): Promise<Queries> {
     this.metricMap = params.metricMap;
@@ -281,7 +278,7 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
       )
     )
       .map((m) => metricMap.get(m))
-      .filter((m) => m) as MetricInterface[];
+      .filter((m) => m) as ExperimentMetricInterface[];
     if (!selectedMetrics.length) {
       throw new Error("Experiment must have at least 1 metric selected.");
     }

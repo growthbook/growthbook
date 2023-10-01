@@ -1,12 +1,11 @@
 import { FC, useMemo, useState } from "react";
-import { MetricInterface } from "back-end/types/metric";
 import {
   ExperimentReportResultDimension,
   ExperimentReportVariation,
 } from "back-end/types/report";
 import { getValidDate } from "shared/dates";
 import { StatsEngine } from "back-end/types/stats";
-import { FactMetricInterface } from "back-end/types/fact-table";
+import { ExperimentMetricInterface } from "shared/experiments";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { formatMetricValue } from "@/services/metrics";
 import {
@@ -30,7 +29,7 @@ const numberFormatter = new Intl.NumberFormat();
 
 // Represents data for one metric graph
 type Metric = {
-  metric: MetricInterface | FactMetricInterface;
+  metric: ExperimentMetricInterface;
   isGuardrail: boolean;
   datapoints: ExperimentDateGraphDataPoint[];
 };

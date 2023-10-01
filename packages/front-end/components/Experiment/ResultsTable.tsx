@@ -10,7 +10,6 @@ import {
 } from "react";
 import { CSSTransition } from "react-transition-group";
 import { RxInfoCircled } from "react-icons/rx";
-import { MetricInterface } from "back-end/types/metric";
 import {
   ExperimentReportVariation,
   ExperimentReportVariationWithIndex,
@@ -21,7 +20,7 @@ import { DEFAULT_STATS_ENGINE } from "shared/constants";
 import { getValidDate } from "shared/dates";
 import { useTooltip, useTooltipInPortal } from "@visx/tooltip";
 import { FaExclamationTriangle } from "react-icons/fa";
-import { FactMetricInterface } from "back-end/types/fact-table";
+import { ExperimentMetricInterface } from "shared/experiments";
 import {
   ExperimentTableRow,
   getRowResults,
@@ -70,7 +69,7 @@ export type ResultsTableProps = {
   editMetrics?: () => void;
   renderLabelColumn: (
     label: string,
-    metric: MetricInterface | FactMetricInterface,
+    metric: ExperimentMetricInterface,
     row: ExperimentTableRow,
     maxRows?: number
   ) => string | ReactElement;

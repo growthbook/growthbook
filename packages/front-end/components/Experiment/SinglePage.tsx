@@ -36,7 +36,10 @@ import { BsFlag } from "react-icons/bs";
 import clsx from "clsx";
 import { FeatureInterface } from "back-end/types/feature";
 import { MdInfoOutline } from "react-icons/md";
-import { FactMetricInterface } from "back-end/types/fact-table";
+import {
+  ExperimentMetricInterface,
+  getConversionWindowHours,
+} from "shared/experiments";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import usePermissions from "@/hooks/usePermissions";
 import { useAuth } from "@/services/auth";
@@ -59,7 +62,6 @@ import { useEnvironments, useFeaturesList } from "@/services/features";
 import track from "@/services/track";
 import { formatTrafficSplit } from "@/services/utils";
 import Results_old from "@/components/Experiment/Results_old";
-import { getConversionWindowHours } from "@/services/metrics";
 import MoreMenu from "../Dropdown/MoreMenu";
 import WatchButton from "../WatchButton";
 import SortedTags from "../Tags/SortedTags";
@@ -102,7 +104,7 @@ import { HashVersionTooltip } from "./HashVersionSelector";
 
 function drawMetricRow(
   m: string,
-  metric: MetricInterface | FactMetricInterface | null,
+  metric: ExperimentMetricInterface | null,
   experiment: ExperimentInterfaceStringDates,
   ignoreConversionEnd: boolean
 ) {

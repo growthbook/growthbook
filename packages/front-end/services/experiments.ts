@@ -16,10 +16,12 @@ import cloneDeep from "lodash/cloneDeep";
 import { DEFAULT_REGRESSION_ADJUSTMENT_DAYS } from "shared/constants";
 import { getValidDate } from "shared/dates";
 import { isNil } from "lodash";
+import { FactTableInterface } from "back-end/types/fact-table";
 import {
-  FactMetricInterface,
-  FactTableInterface,
-} from "back-end/types/fact-table";
+  ExperimentMetricInterface,
+  isBinomialMetric,
+  isFactMetric,
+} from "shared/experiments";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import {
   defaultLoseRiskThreshold,
@@ -29,7 +31,7 @@ import {
 
 export type ExperimentTableRow = {
   label: string;
-  metric: MetricInterface | FactMetricInterface;
+  metric: ExperimentMetricInterface;
   metricOverrideFields: string[];
   variations: SnapshotMetric[];
   rowClass?: string;
@@ -258,9 +260,7 @@ export function useDomain(
   return [lowerBound, upperBound];
 }
 
-export function applyMetricOverrides<
-  T extends MetricInterface | FactMetricInterface
->(
+export function applyMetricOverrides<T extends ExperimentMetricInterface>(
   metric: T,
   metricOverrides?: MetricOverride[]
 ): {
@@ -321,7 +321,7 @@ export function applyMetricOverrides<
 }
 
 export function getRegressionAdjustmentsForMetric<
-  T extends MetricInterface | FactMetricInterface
+  T extends ExperimentMetricInterface
 >({
   metric,
   denominatorMetrics,
@@ -383,7 +383,7 @@ export function getRegressionAdjustmentsForMetric<
 
   // final gatekeeping
   if (regressionAdjustmentEnabled) {
-    if ("metricType" in metric) {
+    if (isFactMetric(metric)) {
       if (metric.metricType === "ratio") {
         regressionAdjustmentEnabled = false;
         reason = "ratio metrics not supported";
@@ -592,7 +592,7 @@ export function getRowResults({
   stats: SnapshotMetric;
   baseline: SnapshotMetric;
   statsEngine: StatsEngine;
-  metric: MetricInterface | FactMetricInterface;
+  metric: ExperimentMetricInterface;
   metricDefaults: MetricDefaults;
   isGuardrail: boolean;
   minSampleSize: number;
@@ -726,9 +726,7 @@ export function getRowResults({
   }
   let riskFormatted = "";
 
-  const isBinomial =
-    ("metricType" in metric && metric.metricType === "proportion") ||
-    ("type" in metric && metric.type === "binomial");
+  const isBinomial = isBinomialMetric(metric);
 
   // TODO: support formatted risk for fact metrics
   if (!isBinomial) {

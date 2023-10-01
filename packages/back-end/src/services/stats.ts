@@ -5,7 +5,7 @@ import {
   DEFAULT_STATS_ENGINE,
 } from "shared/constants";
 import { putBaselineVariationFirst } from "shared/util";
-import { MetricInterface } from "../../types/metric";
+import { ExperimentMetricInterface } from "shared/experiments";
 import { ExperimentMetricAnalysis, StatsEngine } from "../../types/stats";
 import {
   ExperimentMetricQueryResponseRows,
@@ -24,13 +24,12 @@ import {
   ExperimentSnapshotSettings,
 } from "../../types/experiment-snapshot";
 import { QueryMap } from "../queryRunners/QueryRunner";
-import { FactMetricInterface } from "../../types/fact-table";
 
 export const MAX_DIMENSIONS = 20;
 
 export async function analyzeExperimentMetric(
   variations: ExperimentReportVariation[],
-  metric: MetricInterface | FactMetricInterface,
+  metric: ExperimentMetricInterface,
   rows: ExperimentMetricQueryResponseRows,
   dimension: string | null = null,
   statsEngine: StatsEngine = DEFAULT_STATS_ENGINE,
@@ -158,7 +157,7 @@ export async function analyzeExperimentResults({
   analysisSettings: ExperimentSnapshotAnalysisSettings;
   snapshotSettings: ExperimentSnapshotSettings;
   variationNames: string[];
-  metricMap: Map<string, MetricInterface | FactMetricInterface>;
+  metricMap: Map<string, ExperimentMetricInterface>;
 }): Promise<ExperimentReportResults> {
   const metricRows: {
     metric: string;

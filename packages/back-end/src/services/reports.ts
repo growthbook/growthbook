@@ -2,7 +2,12 @@ import {
   DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
   DEFAULT_STATS_ENGINE,
 } from "shared/constants";
-import { MetricInterface } from "../../types/metric";
+import {
+  getConversionWindowHours,
+  isFactMetric,
+  isBinomialMetric,
+  ExperimentMetricInterface,
+} from "shared/experiments";
 import {
   ExperimentReportArgs,
   ExperimentReportVariation,
@@ -19,12 +24,6 @@ import {
   ExperimentSnapshotSettings,
   MetricForSnapshot,
 } from "../../types/experiment-snapshot";
-import { FactMetricInterface } from "../../types/fact-table";
-import {
-  getConversionWindowHours,
-  isFactMetric,
-  isMetricBinomial,
-} from "./experiments";
 
 export function getReportVariations(
   experiment: ExperimentInterface,
@@ -97,7 +96,7 @@ export function reportArgsFromSnapshot(
 
 export function getSnapshotSettingsFromReportArgs(
   args: ExperimentReportArgs,
-  metricMap: Map<string, MetricInterface | FactMetricInterface>
+  metricMap: Map<string, ExperimentMetricInterface>
 ): {
   snapshotSettings: ExperimentSnapshotSettings;
   analysisSettings: ExperimentSnapshotAnalysisSettings;
@@ -150,7 +149,7 @@ export function getSnapshotSettingsFromReportArgs(
 
 export function getMetricForSnapshot(
   id: string | null | undefined,
-  metricMap: Map<string, MetricInterface | FactMetricInterface>,
+  metricMap: Map<string, ExperimentMetricInterface>,
   metricRegressionAdjustmentStatuses?: MetricRegressionAdjustmentStatus[],
   metricOverrides?: MetricOverride[]
 ): MetricForSnapshot | null {
@@ -165,7 +164,7 @@ export function getMetricForSnapshot(
     id,
     settings: {
       datasource: metric.datasource,
-      type: isMetricBinomial(metric) ? "binomial" : "count",
+      type: isBinomialMetric(metric) ? "binomial" : "count",
       aggregation: ("aggregation" in metric && metric.aggregation) || undefined,
       capping: metric.capping || null,
       capValue: metric.capValue || undefined,

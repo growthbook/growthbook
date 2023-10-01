@@ -6,10 +6,9 @@ import {
 } from "back-end/types/experiment";
 import cloneDeep from "lodash/cloneDeep";
 import { DEFAULT_REGRESSION_ADJUSTMENT_DAYS } from "shared/constants";
-import { MetricInterface } from "back-end/types/metric";
 import { OrganizationSettings } from "back-end/types/organization";
 import { isProjectListValidForProject } from "shared/util";
-import { FactMetricInterface } from "back-end/types/fact-table";
+import { ExperimentMetricInterface } from "shared/experiments";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useAuth } from "../../services/auth";
 import Modal from "../Modal";
@@ -40,9 +39,7 @@ export interface EditMetricsFormInterface {
 
 export function getDefaultMetricOverridesFormValue(
   overrides: MetricOverride[],
-  getExperimentMetricById: (
-    id: string
-  ) => MetricInterface | FactMetricInterface | null,
+  getExperimentMetricById: (id: string) => ExperimentMetricInterface | null,
   settings: OrganizationSettings
 ) {
   const defaultMetricOverrides = cloneDeep(overrides);

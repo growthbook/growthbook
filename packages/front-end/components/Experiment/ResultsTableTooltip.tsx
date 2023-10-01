@@ -1,5 +1,4 @@
 import React, { DetailedHTMLProps, HTMLAttributes, useEffect } from "react";
-import { MetricInterface } from "back-end/types/metric";
 import { ExperimentReportVariationWithIndex } from "back-end/types/report";
 import { SnapshotMetric } from "back-end/types/experiment-snapshot";
 import { PValueCorrection, StatsEngine } from "back-end/types/stats";
@@ -13,7 +12,7 @@ import { FaArrowDown, FaArrowUp } from "react-icons/fa";
 import { HiOutlineExclamationCircle } from "react-icons/hi";
 import { RxInfoCircled } from "react-icons/rx";
 import { MdSwapCalls } from "react-icons/md";
-import { FactMetricInterface } from "back-end/types/fact-table";
+import { ExperimentMetricInterface, isFactMetric } from "shared/experiments";
 import NotEnoughData from "@/components/Experiment/NotEnoughData";
 import { pValueFormatter, RowResults } from "@/services/experiments";
 import { GBSuspicious } from "@/components/Icons";
@@ -47,7 +46,7 @@ const percentFormatter = new Intl.NumberFormat(undefined, {
 
 export interface TooltipData {
   metricRow: number;
-  metric: MetricInterface | FactMetricInterface;
+  metric: ExperimentMetricInterface;
   dimensionName?: string;
   dimensionValue?: string;
   variation: ExperimentReportVariationWithIndex;
@@ -235,9 +234,9 @@ export default function ResultsTableTooltip({
             {metricInverseIconDisplay}
             <span className="text-muted ml-2">
               (
-              {"type" in data.metric
-                ? data.metric.type
-                : data.metric.metricType}
+              {isFactMetric(data.metric)
+                ? data.metric.metricType
+                : data.metric.type}
               )
             </span>
           </div>

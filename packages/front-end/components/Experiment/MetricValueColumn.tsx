@@ -1,7 +1,6 @@
 import { SnapshotMetric } from "back-end/types/experiment-snapshot";
-import { MetricInterface } from "back-end/types/metric";
 import { CSSProperties, DetailedHTMLProps, TdHTMLAttributes } from "react";
-import { FactMetricInterface } from "back-end/types/fact-table";
+import { ExperimentMetricInterface, isFactMetric } from "shared/experiments";
 import {
   formatConversionRate,
   formatMetricValue,
@@ -20,7 +19,7 @@ interface Props
     TdHTMLAttributes<HTMLTableCellElement>,
     HTMLTableCellElement
   > {
-  metric: MetricInterface | FactMetricInterface;
+  metric: ExperimentMetricInterface;
   stats: SnapshotMetric;
   users: number;
   className?: string;
@@ -53,7 +52,7 @@ export default function MetricValueColumn({
 
   let numerator: string;
   let denominator: string;
-  if ("metricType" in metric) {
+  if (isFactMetric(metric)) {
     numerator = formatFactRefValue(
       metric.numerator,
       getFactTableById,

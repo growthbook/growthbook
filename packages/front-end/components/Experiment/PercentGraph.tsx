@@ -1,7 +1,6 @@
 import { SnapshotMetric } from "back-end/types/experiment-snapshot";
-import { MetricInterface } from "back-end/types/metric";
 import React, { DetailedHTMLProps, HTMLAttributes } from "react";
-import { FactMetricInterface } from "back-end/types/fact-table";
+import { ExperimentMetricInterface } from "shared/experiments";
 import useConfidenceLevels from "@/hooks/useConfidenceLevels";
 import { hasEnoughData, isStatSig } from "@/services/experiments";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
@@ -10,7 +9,7 @@ import AlignedGraph from "./AlignedGraph";
 
 interface Props
   extends DetailedHTMLProps<HTMLAttributes<SVGPathElement>, SVGPathElement> {
-  metric: MetricInterface | FactMetricInterface;
+  metric: ExperimentMetricInterface;
   baseline: SnapshotMetric;
   stats: SnapshotMetric;
   domain: [number, number];

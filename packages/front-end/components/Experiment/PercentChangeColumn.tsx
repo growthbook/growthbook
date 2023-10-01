@@ -1,10 +1,9 @@
 import clsx from "clsx";
 import { SnapshotMetric } from "back-end/types/experiment-snapshot";
-import { MetricInterface } from "back-end/types/metric";
 import { FaArrowDown, FaArrowUp } from "react-icons/fa";
 import React, { DetailedHTMLProps, TdHTMLAttributes } from "react";
 import { StatsEngine } from "back-end/types/stats";
-import { FactMetricInterface } from "back-end/types/fact-table";
+import { ExperimentMetricInterface } from "shared/experiments";
 import { RowResults } from "@/services/experiments";
 
 const percentFormatter = new Intl.NumberFormat(undefined, {
@@ -17,7 +16,7 @@ interface Props
     TdHTMLAttributes<HTMLTableCellElement>,
     HTMLTableCellElement
   > {
-  metric: MetricInterface | FactMetricInterface;
+  metric: ExperimentMetricInterface;
   stats: SnapshotMetric;
   rowResults: RowResults;
   statsEngine: StatsEngine;

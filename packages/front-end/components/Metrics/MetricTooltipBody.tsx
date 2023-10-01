@@ -1,15 +1,17 @@
-import { MetricInterface } from "back-end/types/metric";
 import clsx from "clsx";
-import { FactMetricInterface } from "back-end/types/fact-table";
+import {
+  ExperimentMetricInterface,
+  isFactMetric,
+  getConversionWindowHours,
+} from "shared/experiments";
 import { isNullUndefinedOrEmpty } from "@/services/utils";
 import { ExperimentTableRow } from "@/services/experiments";
-import { getConversionWindowHours } from "@/services/metrics";
 import Markdown from "../Markdown/Markdown";
 import SortedTags from "../Tags/SortedTags";
 import styles from "./MetricToolTipBody.module.scss";
 
 interface MetricToolTipCompProps {
-  metric: MetricInterface | FactMetricInterface;
+  metric: ExperimentMetricInterface;
   row?: ExperimentTableRow;
   reportRegressionAdjustmentEnabled?: boolean;
   newUi?: boolean;
@@ -41,7 +43,7 @@ const MetricTooltipBody = ({
     {
       show: true,
       label: "Type",
-      body: "type" in metric ? metric.type : metric.metricType,
+      body: isFactMetric(metric) ? metric.metricType : metric.type,
     },
     {
       show: (metric.tags?.length ?? 0) > 0,

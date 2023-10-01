@@ -1,6 +1,5 @@
+import { ExperimentMetricInterface } from "shared/experiments";
 import { ExperimentSnapshotAnalysis } from "../../types/experiment-snapshot";
-import { FactMetricInterface } from "../../types/fact-table";
-import { MetricInterface } from "../../types/metric";
 import { Queries, QueryStatus } from "../../types/query";
 import { ExperimentReportResults, ReportInterface } from "../../types/report";
 import { FactTableMap } from "../models/FactTableModel";
@@ -20,7 +19,7 @@ export type SnapshotResult = {
 };
 
 export type ReportQueryParams = {
-  metricMap: Map<string, MetricInterface | FactMetricInterface>;
+  metricMap: Map<string, ExperimentMetricInterface>;
   factTableMap: FactTableMap;
 };
 
@@ -29,10 +28,7 @@ export class ReportQueryRunner extends QueryRunner<
   ReportQueryParams,
   ExperimentReportResults
 > {
-  private metricMap: Map<
-    string,
-    MetricInterface | FactMetricInterface
-  > = new Map();
+  private metricMap: Map<string, ExperimentMetricInterface> = new Map();
 
   async startQueries(params: ReportQueryParams): Promise<Queries> {
     this.metricMap = params.metricMap;

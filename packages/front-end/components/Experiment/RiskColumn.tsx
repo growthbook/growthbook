@@ -1,4 +1,5 @@
 import clsx from "clsx";
+import { isBinomialMetric } from "shared/experiments";
 import { ExperimentTableRow, getRiskByVariation } from "@/services/experiments";
 import {
   defaultLoseRiskThreshold,
@@ -37,9 +38,7 @@ export default function RiskColumn({
     return <td className="empty-td"></td>;
   }
 
-  const showRatio =
-    ("type" in row.metric && row.metric.type !== "binomial") ||
-    ("metricType" in row.metric && row.metric.metricType !== "proportion");
+  const showRatio = !isBinomialMetric(row.metric);
 
   return (
     <td
