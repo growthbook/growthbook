@@ -144,8 +144,8 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
 
   const getExperimentMetricById = useCallback(
     (id: string) => {
-      if (id.match(/^fact::/)) {
-        return getFactMetricById(id.slice(6));
+      if (id.match(/^fact__/)) {
+        return getFactMetricById(id);
       }
       return getMetricById(id);
     },

@@ -107,9 +107,9 @@ export async function createMetric(data: Partial<MetricInterface>) {
 }
 
 export function isFactMetric(
-  m: MetricInterface | FactMetricInterface
+  m: MetricInterface | FactMetricInterface | null
 ): m is FactMetricInterface {
-  return "metricType" in m;
+  return !!m && "metricType" in m;
 }
 
 export function isMetricBinomial(m: MetricInterface | FactMetricInterface) {
@@ -137,8 +137,8 @@ export async function getExperimentMetricById(
   metricId: string,
   orgId: string
 ): Promise<MetricInterface | FactMetricInterface | null> {
-  if (metricId.match(/^fact::/)) {
-    return getFactMetric(orgId, metricId.slice(6));
+  if (metricId.match(/^fact__/)) {
+    return getFactMetric(orgId, metricId);
   }
   return getMetricById(metricId, orgId);
 }

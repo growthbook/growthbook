@@ -36,8 +36,8 @@ const MetricsSelector: FC<{
     })),
     ...(includeFacts
       ? factMetrics.map((m) => ({
-          id: "fact::" + m.id,
-          name: "[FACT]" + m.name,
+          id: m.id,
+          name: "[FACT] " + m.name,
           datasource: m.datasource,
           tags: m.tags || [],
           projects: m.projects || [],

@@ -78,7 +78,7 @@ export async function createFactMetric(
 ) {
   const doc = await FactMetricModel.create({
     organization: organization,
-    id: uniqid("fmet_"),
+    id: uniqid("fact__"),
     dateCreated: new Date(),
     dateUpdated: new Date(),
     ...data,

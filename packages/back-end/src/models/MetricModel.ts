@@ -201,7 +201,7 @@ export async function getMetricMap(organization: string) {
 
   const allFactMetrics = await getAllFactMetricsForOrganization(organization);
   allFactMetrics.forEach((m) => {
-    metricMap.set(`fact::${m.id}`, m);
+    metricMap.set(m.id, m);
   });
 
   return metricMap;
