@@ -50,35 +50,31 @@ export default function MetricValueColumn({
     displayCurrency
   );
 
+  const numeratorValue = stats.value;
+  const denominatorValue = stats.denominator || stats.users || users;
+
   let numerator: string;
-  let denominator: string;
+  let denominator = numberFormatter.format(denominatorValue);
   if (isFactMetric(metric)) {
     numerator = formatFactRefValue(
       metric.numerator,
       getFactTableById,
-      stats.value,
+      numeratorValue,
       displayCurrency
     );
     if (metric.metricType === "ratio" && metric.denominator) {
       denominator = formatFactRefValue(
         metric.denominator,
         getFactTableById,
-        stats.value,
+        denominatorValue,
         displayCurrency
-      );
-    } else {
-      denominator = numberFormatter.format(
-        stats.denominator || stats.users || users
       );
     }
   } else {
     numerator = formatConversionRate(
       metric.type === "binomial" ? "count" : metric.type,
-      stats.value,
+      numeratorValue,
       displayCurrency
-    );
-    denominator = numberFormatter.format(
-      stats.denominator || stats.users || users
     );
   }
 

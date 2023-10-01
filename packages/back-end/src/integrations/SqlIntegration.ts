@@ -1042,7 +1042,7 @@ export default abstract class SqlIntegration
 
     // clone the metrics before we mutate them
     const metric = cloneDeep<ExperimentMetricInterface>(metricDoc);
-    const denominatorMetrics = cloneDeep<ExperimentMetricInterface[]>(
+    let denominatorMetrics = cloneDeep<ExperimentMetricInterface[]>(
       denominatorMetricsDocs
     );
     let activationMetric = null;
@@ -1051,6 +1051,14 @@ export default abstract class SqlIntegration
         activationMetricDoc
       );
       this.applyMetricOverrides(activationMetric, settings);
+    }
+
+    // Fact metrics are self-contained, so they don't need to reference other metrics for the denominator
+    if (isFactMetric(metric)) {
+      denominatorMetrics = [];
+      if (isRatioMetric(metric)) {
+        denominatorMetrics.push(metric);
+      }
     }
 
     this.applyMetricOverrides(metric, settings);
@@ -1144,7 +1152,7 @@ export default abstract class SqlIntegration
     const idTypeObjects = [
       [exposureQuery.userIdType],
       getUserIdTypes(metric, factTableMap),
-      ...denominatorMetrics.map((m) => getUserIdTypes(m, factTableMap)),
+      ...denominatorMetrics.map((m) => getUserIdTypes(m, factTableMap, true)),
     ];
     // add idTypes usually handled in units query here in the case where
     // we don't have a separate table for the units query
@@ -1247,6 +1255,7 @@ export default abstract class SqlIntegration
             endDate: metricEnd,
             experimentId: settings.experimentId,
             factTableMap,
+            useDenominator: true,
           })})`;
         })
         .join("\n")}
@@ -1333,7 +1342,7 @@ export default abstract class SqlIntegration
                 d.dimension AS dimension,
                 ${cumulativeDate ? `dr.day AS day,` : ""}
                 d.${baseIdType} AS ${baseIdType},
-                ${this.getAggregateMetricColumn(denominator)} as value
+                ${this.getAggregateMetricColumn(denominator, true)} as value
               FROM
                 __distinctUsers d
                 JOIN __denominator${denominatorMetrics.length - 1} m ON (
@@ -1911,6 +1920,7 @@ AND event_name = '${eventName}'`,
     endDate,
     experimentId,
     factTableMap,
+    useDenominator,
   }: {
     metric: ExperimentMetricInterface;
     baseIdType: string;
@@ -1919,21 +1929,37 @@ AND event_name = '${eventName}'`,
     endDate: Date | null;
     experimentId?: string;
     factTableMap: FactTableMap;
+    useDenominator?: boolean;
   }) {
-    const cols = this.getMetricColumns(metric, factTableMap, "m");
+    const cols = this.getMetricColumns(
+      metric,
+      factTableMap,
+      "m",
+      useDenominator
+    );
 
     // Determine the identifier column to select from
     let userIdCol = cols.userIds[baseIdType] || "user_id";
     let join = "";
 
-    const userIdTypes = getUserIdTypes(metric, factTableMap);
+    const userIdTypes = getUserIdTypes(metric, factTableMap, useDenominator);
 
     const isFact = isFactMetric(metric);
     const queryFormat = isFact ? "fact" : this.getMetricQueryFormat(metric);
+    const factRef = isFact
+      ? useDenominator
+        ? metric.denominator
+        : metric.numerator
+      : null;
+
     // For fact metrics with a WHERE clause
     const factTable = isFact
-      ? factTableMap.get(metric.numerator.factTableId)
+      ? factTableMap.get(factRef?.factTableId || "")
       : undefined;
+
+    if (isFact && !factTable) {
+      throw new Error("Could not find fact table");
+    }
 
     // query builder does not use a sub-query to get a the userId column to
     // equal the userIdType, so when using the query builder, continue to
@@ -1971,16 +1997,14 @@ AND event_name = '${eventName}'`,
     }
 
     // Add filters from the Fact and Metric
-    if (isFact && factTable) {
-      const fact = factTable.facts.find(
-        (f) => f.id === metric.numerator.factId
-      );
+    if (isFact && factTable && factRef) {
+      const fact = factTable.facts.find((f) => f.id === factRef.factId);
       const filterIds: Set<string> = new Set();
       if (fact?.filters) {
         fact.filters.forEach((f) => filterIds.add(f));
       }
-      if (metric.numerator.filters) {
-        metric.numerator.filters.forEach((f) => filterIds.add(f));
+      if (factRef.filters) {
+        factRef.filters.forEach((f) => filterIds.add(f));
       }
       filterIds.forEach((filterId) => {
         const filter = factTable.filters.find((f) => f.id === filterId);
@@ -2143,15 +2167,19 @@ AND event_name = '${eventName}'`,
     )}`;
   }
 
-  private getAggregateMetricColumn(metric: ExperimentMetricInterface) {
+  private getAggregateMetricColumn(
+    metric: ExperimentMetricInterface,
+    useDenominator?: boolean
+  ) {
     // Fact Metrics
     if (isFactMetric(metric)) {
+      const factRef = useDenominator ? metric.denominator : metric.numerator;
       if (
         metric.metricType === "proportion" ||
-        metric.numerator.factId === "$$distinctUsers"
+        factRef?.factId === "$$distinctUsers"
       ) {
         return `MAX(COALESCE(value, 0))`;
-      } else if (metric.numerator.factId === "$$count") {
+      } else if (factRef?.factId === "$$count") {
         return `COUNT(value)`;
       } else {
         return `SUM(COALESCE(value, 0))`;
@@ -2202,24 +2230,26 @@ AND event_name = '${eventName}'`,
   private getMetricColumns(
     metric: ExperimentMetricInterface,
     factTableMap: FactTableMap,
-    alias = "m"
+    alias = "m",
+    useDenominator?: boolean
   ) {
     if (isFactMetric(metric)) {
       const userIds: Record<string, string> = {};
-      getUserIdTypes(metric, factTableMap).forEach((userIdType) => {
-        userIds[userIdType] = `${alias}.${userIdType}`;
-      });
-
-      const numeratorFactTable = factTableMap.get(metric.numerator.factTableId);
-      const numeratorFact = numeratorFactTable?.facts.find(
-        (f) => f.id === metric.numerator.factId
+      getUserIdTypes(metric, factTableMap, useDenominator).forEach(
+        (userIdType) => {
+          userIds[userIdType] = `${alias}.${userIdType}`;
+        }
       );
 
+      const factRef = useDenominator ? metric.denominator : metric.numerator;
+
+      const factTable = factTableMap.get(factRef?.factTableId || "");
+      const fact = factTable?.facts.find((f) => f.id === factRef?.factId);
+
       const value =
-        metric.metricType === "proportion" ||
-        metric.numerator.factId === "$$distinctId"
+        metric.metricType === "proportion" || factRef?.factId === "$$distinctId"
           ? "1"
-          : `${numeratorFact ? `${alias}.${numeratorFact.column}` : `1`}`;
+          : `${fact ? `${alias}.${fact.column}` : `1`}`;
 
       return {
         userIds,

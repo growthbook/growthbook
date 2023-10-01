@@ -54,10 +54,15 @@ export function getConversionWindowHours(
 
 export function getUserIdTypes(
   metric: ExperimentMetricInterface,
-  factTableMap: FactTableMap
+  factTableMap: FactTableMap,
+  useDenominator?: boolean
 ): string[] {
   if (isFactMetric(metric)) {
-    const factTable = factTableMap.get(metric.numerator.factTableId);
+    const factTable = factTableMap.get(
+      useDenominator
+        ? metric.denominator?.factTableId || ""
+        : metric.numerator.factTableId
+    );
     return factTable?.userIdTypes || [];
   }
 
