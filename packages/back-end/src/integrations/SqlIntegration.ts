@@ -856,7 +856,7 @@ export default abstract class SqlIntegration
       factTableMap,
     } = params;
 
-    let activationMetric = null;
+    let activationMetric: null | ExperimentMetricInterface = null;
     if (activationMetricDoc) {
       activationMetric = cloneDeep<ExperimentMetricInterface>(
         activationMetricDoc
@@ -913,8 +913,17 @@ export default abstract class SqlIntegration
     const experimentDimension =
       dimension?.type === "experiment" ? dimension.id : null;
 
-    const ignoreConversionEnd =
+    let ignoreConversionEnd =
       settings.attributionModel === "experimentDuration";
+
+    // If the fact metric doesn't have a conversion window, always treat like Experiment Duration
+    if (
+      activationMetric &&
+      isFactMetric(activationMetric) &&
+      !activationMetric.hasConversionWindow
+    ) {
+      ignoreConversionEnd = true;
+    }
 
     return `
     ${params.includeIdJoins ? idJoinSQL : ""}
@@ -1109,8 +1118,13 @@ export default abstract class SqlIntegration
       ? (metric.regressionAdjustmentDays ?? 0) * 24
       : 0;
 
-    const ignoreConversionEnd =
+    let ignoreConversionEnd =
       settings.attributionModel === "experimentDuration";
+
+    // If a fact metric has disabled conversion windows, always use "Experiment Duration"
+    if (isFactMetric(metric) && !metric.hasConversionWindow) {
+      ignoreConversionEnd = true;
+    }
 
     // Get capping settings and final coalesce statement
     const isPercentileCapped =
