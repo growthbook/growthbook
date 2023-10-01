@@ -39,6 +39,7 @@ import { MdInfoOutline } from "react-icons/md";
 import {
   ExperimentMetricInterface,
   getConversionWindowHours,
+  isFactMetric,
 } from "shared/experiments";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import usePermissions from "@/hooks/usePermissions";
@@ -123,10 +124,9 @@ function drawMetricRow(
     overrideFields.includes("conversionDelayHours") ||
     (!ignoreConversionEnd && overrideFields.includes("conversionWindowHours"));
 
-  const isArchived =
-    "archived" in metric
-      ? metric.archived
-      : "status" in metric && metric.status === "archived";
+  const isArchived = isFactMetric(metric)
+    ? false
+    : metric.status === "archived";
 
   return (
     <div className="row align-items-top" key={m}>
