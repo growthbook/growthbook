@@ -9,6 +9,7 @@ import { ExperimentStatus, MetricOverride } from "back-end/types/experiment";
 import { PValueCorrection, StatsEngine } from "back-end/types/stats";
 import Link from "next/link";
 import { FaTimes } from "react-icons/fa";
+import { getMetricLink } from "shared/experiments";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import {
   applyMetricOverrides,
@@ -165,7 +166,7 @@ const CompactResults_old: FC<{
                 }
                 tipPosition="right"
               >
-                <Link href={`/metric/${metric.id}`}>
+                <Link href={getMetricLink(metric.id)}>
                   <a className="metriclabel text-dark">{label}</a>
                 </Link>
               </Tooltip>

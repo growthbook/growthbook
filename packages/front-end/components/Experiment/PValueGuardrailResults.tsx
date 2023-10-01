@@ -12,7 +12,7 @@ import {
   SnapshotVariation,
 } from "back-end/types/experiment-snapshot";
 import { ExperimentReportVariation } from "back-end/types/report";
-import { ExperimentMetricInterface } from "shared/experiments";
+import { ExperimentMetricInterface, getMetricLink } from "shared/experiments";
 import {
   isExpectedDirection,
   isStatSig,
@@ -72,7 +72,7 @@ const HeaderResult: FC<{
       {status === "danger" && <FaExclamation className="mr-1" />}
       {status === "secondary" && <FaQuestionCircle className="mr-1" />}
       <Tooltip body={<MetricTooltipBody metric={metric} />} tipPosition="right">
-        <Link href={`/metric/${metric.id}`}>
+        <Link href={getMetricLink(metric.id)}>
           <a className="text-black-50 font-weight-bold">{metric.name}</a>
         </Link>
       </Tooltip>

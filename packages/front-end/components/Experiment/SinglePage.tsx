@@ -39,6 +39,7 @@ import { MdInfoOutline } from "react-icons/md";
 import {
   ExperimentMetricInterface,
   getConversionWindowHours,
+  getMetricLink,
   isFactMetric,
 } from "shared/experiments";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -134,7 +135,7 @@ function drawMetricRow(
         <div className="row">
           <div className="col-auto pr-0">-</div>
           <div className="col">
-            <Link href={`/metric/${m}`}>
+            <Link href={getMetricLink(m)}>
               <a className="font-weight-bold">
                 {newMetric?.name}
                 {isArchived ? (

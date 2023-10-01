@@ -10,7 +10,11 @@ import { PValueCorrection, StatsEngine } from "back-end/types/stats";
 import Link from "next/link";
 import { FaAngleRight, FaTimes, FaUsers } from "react-icons/fa";
 import Collapsible from "react-collapsible";
-import { ExperimentMetricInterface, isFactMetric } from "shared/experiments";
+import {
+  ExperimentMetricInterface,
+  getMetricLink,
+  isFactMetric,
+} from "shared/experiments";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import {
   applyMetricOverrides,
@@ -275,14 +279,13 @@ export function getRenderLabelColumn(regressionAdjustmentEnabled) {
                 }
           }
         >
-          <Link
-            href={
-              isFactMetric(metric)
-                ? `/fact-metrics/${metric.id}`
-                : `/metric/${metric.id}`
-            }
-          >
-            <a className="metriclabel text-dark">{label}</a>
+          <Link href={getMetricLink(metric.id)}>
+            <a className="metriclabel text-dark">
+              {label}{" "}
+              {isFactMetric(metric) && (
+                <span className="badge badge-purple">FACT</span>
+              )}
+            </a>
           </Link>
         </span>
       </Tooltip>

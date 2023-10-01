@@ -9,7 +9,7 @@ import {
 } from "react-icons/fa";
 import { ExperimentReportVariation } from "back-end/types/report";
 import Link from "next/link";
-import { ExperimentMetricInterface } from "shared/experiments";
+import { ExperimentMetricInterface, getMetricLink } from "shared/experiments";
 import Tooltip from "../Tooltip/Tooltip";
 import MetricTooltipBody from "../Metrics/MetricTooltipBody";
 import MetricValueColumn from "./MetricValueColumn";
@@ -73,7 +73,7 @@ const GuardrailResults: FC<{
           body={<MetricTooltipBody metric={metric} />}
           tipPosition="right"
         >
-          <Link href={`/metric/${metric.id}`}>
+          <Link href={getMetricLink(metric.id)}>
             <a className="text-black-50 font-weight-bold">{metric.name}</a>
           </Link>
         </Tooltip>

@@ -22,7 +22,7 @@ import {
   isFactMetric,
   isFactMetricId,
   isRatioMetric,
-} from "shared/src/experiments";
+} from "shared/experiments";
 import { updateExperiment } from "../models/ExperimentModel";
 import {
   ExperimentSnapshotAnalysis,

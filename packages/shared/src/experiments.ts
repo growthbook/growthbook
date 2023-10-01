@@ -63,3 +63,8 @@ export function getUserIdTypes(
 
   return metric.userIdTypes || [];
 }
+
+export function getMetricLink(id: string): string {
+  if (isFactMetricId(id)) return `/fact-metrics/${id}`;
+  return `/metric/${id}`;
+}

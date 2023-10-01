@@ -5,6 +5,7 @@ import { useRouter } from "next/router";
 import Link from "next/link";
 import { ago, datetime } from "shared/dates";
 import { isProjectListValidForProject } from "shared/util";
+import { getMetricLink } from "shared/experiments";
 import SortedTags from "@/components/Tags/SortedTags";
 import { GBAddCircle } from "@/components/Icons";
 import ProjectBadges from "@/components/ProjectBadges";
@@ -31,7 +32,6 @@ import AutoGenerateMetricsButton from "@/components/AutoGenerateMetricsButton";
 
 interface MetricTableItem {
   id: string;
-  href: string;
   name: string;
   type: string;
   tags: string[];
@@ -85,7 +85,6 @@ const MetricsPage = (): React.ReactElement => {
         archived: m.status === "archived",
         datasource: m.datasource || "",
         dateUpdated: m.dateUpdated,
-        href: `/metric/${m.id}`,
         name: m.name,
         owner: m.owner || "",
         projects: m.projects || [],
@@ -127,7 +126,6 @@ const MetricsPage = (): React.ReactElement => {
         archived: false,
         datasource: m.datasource,
         dateUpdated: m.dateUpdated,
-        href: `/fact-metrics/${m.id}`,
         name: m.name,
         owner: m.owner,
         isFact: true,
@@ -385,13 +383,13 @@ const MetricsPage = (): React.ReactElement => {
               key={metric.id}
               onClick={(e) => {
                 e.preventDefault();
-                router.push(metric.href);
+                router.push(getMetricLink(metric.id));
               }}
               style={{ cursor: "pointer" }}
               className={metric.archived ? "text-muted" : ""}
             >
               <td>
-                <Link href={metric.href}>
+                <Link href={getMetricLink(metric.id)}>
                   <a
                     className={`${
                       metric.archived ? "text-muted" : "text-dark"
