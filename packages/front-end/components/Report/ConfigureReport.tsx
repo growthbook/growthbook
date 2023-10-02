@@ -68,6 +68,7 @@ export default function ConfigureReport({
   const { settings: parentSettings } = getScopedSettings({
     organization,
     project: project ?? undefined,
+    experiment: experiment ?? undefined,
   });
 
   const hasRegressionAdjustmentFeature = hasCommercialFeature(
@@ -320,6 +321,7 @@ export default function ConfigureReport({
           selected={form.watch("metrics")}
           onChange={(metrics) => form.setValue("metrics", metrics)}
           datasource={report.args.datasource}
+          project={project?.id}
         />
       </div>
       <div className="form-group">
@@ -333,6 +335,7 @@ export default function ConfigureReport({
           selected={form.watch("guardrails")}
           onChange={(metrics) => form.setValue("guardrails", metrics)}
           datasource={report.args.datasource}
+          project={project?.id}
         />
       </div>
       <DimensionChooser

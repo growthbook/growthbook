@@ -36,6 +36,7 @@ export default function ResultMoreMenu({
   trackingKey,
   dimension,
   project,
+  newUi = false,
 }: {
   editMetrics?: () => void;
   configure: () => void;
@@ -54,6 +55,7 @@ export default function ResultMoreMenu({
   trackingKey?: string;
   dimension?: string;
   project?: string;
+  newUi?: boolean;
 }) {
   const { apiCall } = useAuth();
   const router = useRouter();
@@ -66,8 +68,8 @@ export default function ResultMoreMenu({
     hasData && supportsNotebooks && notebookUrl && notebookFilename;
 
   return (
-    <MoreMenu>
-      {canEdit && (
+    <MoreMenu autoCloseOnClick={false}>
+      {!newUi && canEdit && (
         <button
           className="btn dropdown-item py-2"
           onClick={(e) => {
@@ -85,7 +87,7 @@ export default function ResultMoreMenu({
           className="dropdown-item py-2"
         />
       )}
-      {forceRefresh && permissions.check("runQueries", "") && (
+      {forceRefresh && permissions.check("runQueries", project || "") && (
         <button
           className="btn dropdown-item py-2"
           onClick={(e) => {

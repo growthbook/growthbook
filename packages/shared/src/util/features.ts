@@ -80,7 +80,7 @@ export function validateJSONFeatureValue(
 export function validateFeatureValue(
   feature: FeatureInterface,
   value: string,
-  label?: string
+  label: string
 ): string {
   const type = feature.valueType;
   const prefix = label ? label + ": " : "";

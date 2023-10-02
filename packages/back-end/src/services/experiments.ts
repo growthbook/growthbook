@@ -11,9 +11,14 @@ import {
   DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
 } from "shared/constants";
 import { getScopedSettings } from "shared/settings";
-import { getSnapshotAnalysis, generateVariationId } from "shared/util";
+import {
+  getSnapshotAnalysis,
+  generateVariationId,
+  isAnalysisAllowed,
+} from "shared/util";
 import { updateExperiment } from "../models/ExperimentModel";
 import {
+  ExperimentSnapshotAnalysis,
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotInterface,
   ExperimentSnapshotSettings,
@@ -23,9 +28,15 @@ import {
 import { getMetricsByIds, insertMetric } from "../models/MetricModel";
 import { checkSrm, sumSquaresFromStats } from "../util/stats";
 import { addTags } from "../models/TagModel";
-import { WatchModel } from "../models/WatchModel";
-import { Dimension, ExperimentMetricQueryResponse } from "../types/Integration";
-import { createExperimentSnapshotModel } from "../models/ExperimentSnapshotModel";
+import {
+  addOrUpdateSnapshotAnalysis,
+  createExperimentSnapshotModel,
+  updateSnapshotAnalysis,
+} from "../models/ExperimentSnapshotModel";
+import {
+  Dimension,
+  ExperimentMetricQueryResponseRows,
+} from "../types/Integration";
 import {
   Condition,
   MetricInterface,
@@ -66,9 +77,10 @@ import { VisualChangesetInterface } from "../../types/visual-changeset";
 import { findProjectById } from "../models/ProjectModel";
 import { MetricAnalysisQueryRunner } from "../queryRunners/MetricAnalysisQueryRunner";
 import { ExperimentResultsQueryRunner } from "../queryRunners/ExperimentResultsQueryRunner";
+import { QueryMap, getQueryMap } from "../queryRunners/QueryRunner";
 import { getReportVariations, getMetricForSnapshot } from "./reports";
 import { getIntegrationFromDatasourceId } from "./datasource";
-import { analyzeExperimentMetric } from "./stats";
+import { analyzeExperimentMetric, analyzeExperimentResults } from "./stats";
 
 export const DEFAULT_METRIC_ANALYSIS_DAYS = 90;
 
@@ -179,7 +191,7 @@ export async function getManualSnapshotData(
       const metric = metricMap.get(m);
       return async () => {
         if (!metric) return;
-        const rows: ExperimentMetricQueryResponse = stats.map((s, i) => {
+        const rows: ExperimentMetricQueryResponseRows = stats.map((s, i) => {
           return {
             dimension: "All",
             variation: experiment.variations[i].key || i + "",
@@ -478,42 +490,65 @@ export async function createSnapshot({
     snapshotSettings: data.settings,
     variationNames: experiment.variations.map((v) => v.name),
     metricMap,
+    queryParentId: snapshot.id,
   });
 
   return queryRunner;
 }
 
-export async function ensureWatching(
-  userId: string,
-  orgId: string,
-  item: string,
-  type: "experiments" | "features"
-) {
-  await WatchModel.updateOne(
-    {
-      userId,
-      organization: orgId,
-    },
-    {
-      $addToSet: {
-        [type]: item,
-      },
-    },
-    {
-      upsert: true,
-    }
-  );
-}
+export async function createSnapshotAnalysis({
+  experiment,
+  organization,
+  analysisSettings,
+  metricMap,
+  snapshot,
+}: {
+  experiment: ExperimentInterface;
+  organization: OrganizationInterface;
+  analysisSettings: ExperimentSnapshotAnalysisSettings;
+  metricMap: Map<string, MetricInterface>;
+  snapshot: ExperimentSnapshotInterface;
+}): Promise<void> {
+  // check if analysis is possible
+  if (!isAnalysisAllowed(snapshot.settings, analysisSettings)) {
+    throw new Error("Analysis not allowed with this snapshot");
+  }
 
-export async function getExperimentWatchers(
-  experimentId: string,
-  orgId: string
-) {
-  const watchers = await WatchModel.find({
-    experiments: experimentId,
-    organization: orgId,
+  if (
+    snapshot.queries.some(
+      (q) => q.status === "failed" || q.status === "running"
+    )
+  ) {
+    throw new Error("Snapshot queries not available for analysis");
+  }
+  const analysis: ExperimentSnapshotAnalysis = {
+    results: [],
+    status: "running",
+    settings: analysisSettings,
+    dateCreated: new Date(),
+  };
+  // and analysis to mongo record if it does not exist, overwrite if it does
+  addOrUpdateSnapshotAnalysis(organization.id, snapshot.id, analysis);
+
+  // Format data correctly
+  const queryMap: QueryMap = await getQueryMap(
+    organization.id,
+    snapshot.queries
+  );
+
+  // Run the analysis
+  const results = await analyzeExperimentResults({
+    queryData: queryMap,
+    snapshotSettings: snapshot.settings,
+    analysisSettings: analysisSettings,
+    variationNames: experiment.variations.map((v) => v.name),
+    metricMap: metricMap,
   });
-  return watchers;
+  analysis.results = results.dimensions || [];
+  analysis.status = "success";
+  analysis.error = undefined;
+
+  updateSnapshotAnalysis(organization.id, snapshot.id, analysis);
 }
 
 function getExperimentMetric(
@@ -572,6 +607,7 @@ export async function toExperimentApiInterface(
     status: experiment.status,
     autoRefresh: !!experiment.autoSnapshots,
     hashAttribute: experiment.hashAttribute || "id",
+    hashVersion: experiment.hashVersion || 2,
     variations: experiment.variations.map((v) => ({
       variationId: v.id,
       key: v.key,
@@ -1482,6 +1518,7 @@ export function postExperimentApiPayloadToInterface(
     datasource: datasource.id,
     archived: payload.archived ?? false,
     hashAttribute: payload.hashAttribute ?? "",
+    hashVersion: payload.hashVersion ?? 2,
     autoSnapshots: true,
     project: payload.project,
     owner: payload.owner || "",
@@ -1497,7 +1534,7 @@ export function postExperimentApiPayloadToInterface(
     hypothesis: payload.hypothesis || "",
     metrics: payload.metrics || [],
     metricOverrides: [],
-    guardrails: [],
+    guardrails: payload.guardrailMetrics || [],
     activationMetric: "",
     segment: "",
     queryFilter: "",
@@ -1542,11 +1579,13 @@ export function updateExperimentApiPayloadToInterface(
     owner,
     assignmentQueryId,
     hashAttribute,
+    hashVersion,
     name,
     tags,
     description,
     hypothesis,
     metrics,
+    guardrailMetrics,
     archived,
     status,
     phases,
@@ -1560,11 +1599,13 @@ export function updateExperimentApiPayloadToInterface(
     ...(owner !== undefined ? { owner } : {}),
     ...(assignmentQueryId ? { assignmentQueryId } : {}),
     ...(hashAttribute ? { hashAttribute } : {}),
+    ...(hashVersion ? { hashVersion } : {}),
     ...(name ? { name } : {}),
     ...(tags ? { tags } : {}),
     ...(description !== undefined ? { description } : {}),
     ...(hypothesis !== undefined ? { hypothesis } : {}),
     ...(metrics ? { metrics } : {}),
+    ...(guardrailMetrics ? { guardrails: guardrailMetrics } : {}),
     ...(archived !== undefined ? { archived } : {}),
     ...(status ? { status } : {}),
     ...(releasedVariationId !== undefined ? { releasedVariationId } : {}),

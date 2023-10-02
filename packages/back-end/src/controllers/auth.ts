@@ -32,6 +32,8 @@ import {
 import { AuthRequest } from "../types/AuthRequest";
 import { getSSOConnectionByEmailDomain } from "../models/SSOConnectionModel";
 import { UserInterface } from "../../types/user";
+import { resetMinTokenDate } from "../models/UserModel";
+import { AuthRefreshModel } from "../models/AuthRefreshModel";
 
 export async function getHasOrganizations(req: Request, res: Response) {
   const hasOrg = IS_CLOUD ? true : await hasOrganization();
@@ -342,6 +344,13 @@ export async function postResetPassword(
   await updatePassword(userId, password);
   await deleteForgotPasswordToken(token);
 
+  // Revoke all refresh tokens for the user
+  // Revoke all active JWT sessions for the user
+  await resetMinTokenDate(userId);
+  await AuthRefreshModel.deleteMany({
+    userId: userId,
+  });
+
   res.status(200).json({
     status: 200,
     email,
@@ -370,7 +379,13 @@ export async function postChangePassword(
 
   await updatePassword(user.id, newPassword);
 
-  res.status(200).json({
-    status: 200,
+  // Revoke all refresh tokens for the user
+  // Revoke all active JWT sessions for the user
+  await resetMinTokenDate(userId);
+  await AuthRefreshModel.deleteMany({
+    userId: userId,
   });
+
+  // Send back an updated token for the current user so they are not logged out
+  sendLocalSuccessResponse(req as Request, res, user);
 }

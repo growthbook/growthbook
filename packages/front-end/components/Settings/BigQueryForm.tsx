@@ -1,13 +1,15 @@
-import { FC, ChangeEventHandler } from "react";
+import { ChangeEventHandler, FC } from "react";
 import { BigQueryConnectionParams } from "back-end/types/integrations/bigquery";
 import { isCloud } from "@/services/env";
 import Field from "../Forms/Field";
+import Tooltip from "../Tooltip/Tooltip";
 
 const BigQueryForm: FC<{
   params: Partial<BigQueryConnectionParams>;
+  existing: boolean;
   setParams: (params: { [key: string]: string }) => void;
   onParamChange: ChangeEventHandler<HTMLInputElement | HTMLSelectElement>;
-}> = ({ params, setParams, onParamChange }) => {
+}> = ({ params, setParams, existing, onParamChange }) => {
   return (
     <div className="row">
       {!isCloud() && (
@@ -40,7 +42,7 @@ const BigQueryForm: FC<{
             <div className="custom-file">
               <input
                 type="file"
-                required
+                required={!existing}
                 className="custom-file-input"
                 id="bigQueryFileInput"
                 accept="application/json"
@@ -74,6 +76,7 @@ const BigQueryForm: FC<{
                           privateKey: json.private_key,
                           projectId: json.project_id,
                           clientEmail: json.client_email,
+                          defaultProject: json.project_id,
                         });
                       }
                     } catch (e) {
@@ -93,7 +96,7 @@ const BigQueryForm: FC<{
             {params && params.projectId ? (
               <ul>
                 <li>
-                  <strong>Project Id:</strong> {params.projectId}
+                  <strong>BigQuery Project Id:</strong> {params.projectId}
                 </li>
                 <li>
                   <strong>Client Email:</strong> {params.clientEmail}
@@ -112,25 +115,28 @@ const BigQueryForm: FC<{
         </>
       )}
       <div className="form-group col-md-12">
-        <label>Default Project Name</label>
-        <input
+        <label>BigQuery Project ID </label>
+        <Field
           type="text"
           className="form-control"
           name="defaultProject"
           value={params.defaultProject || ""}
           onChange={onParamChange}
-          placeholder="(optional)"
+          placeholder=""
         />
       </div>
       <div className="form-group col-md-12">
-        <label>Default Dataset</label>
-        <input
+        <label>
+          Default Dataset (Optional){" "}
+          <Tooltip body="Specifying a dataset here allows GrowthBook to create better default queries to define working assignments and metrics. This value can be edited later if needed." />
+        </label>
+        <Field
           type="text"
           className="form-control"
           name="defaultDataset"
           value={params.defaultDataset || ""}
           onChange={onParamChange}
-          placeholder="(optional)"
+          placeholder=""
         />
       </div>
     </div>

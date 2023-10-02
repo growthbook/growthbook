@@ -32,7 +32,7 @@ describe("getValidation", () => {
       date: new Date("2020-04-20"),
       enabled: true,
     };
-    expect(getValidation(feature)).toMatchSnapshot();
+    expect(getValidation(feature).validationEnabled).toEqual(true);
   });
   it("returns validationEnabled as false if jsonSchema enabled value is false", () => {
     feature.jsonSchema = {
@@ -40,7 +40,7 @@ describe("getValidation", () => {
       date: new Date("2020-04-20"),
       enabled: false,
     };
-    expect(getValidation(feature)).toMatchSnapshot();
+    expect(getValidation(feature).validationEnabled).toEqual(false);
   });
   it("returns validationEnabled as false if jsonSchema is invalid", () => {
     feature.jsonSchema = {
@@ -48,11 +48,11 @@ describe("getValidation", () => {
       date: new Date("2020-04-20"),
       enabled: false,
     };
-    expect(getValidation(feature)).toMatchSnapshot();
+    expect(getValidation(feature).validationEnabled).toEqual(false);
   });
   it("returns validationEnabled as false if jsonSchema is undefined", () => {
     feature.jsonSchema = undefined;
-    expect(getValidation(feature)).toMatchSnapshot();
+    expect(getValidation(feature).validationEnabled).toEqual(false);
   });
 });
 
@@ -64,7 +64,7 @@ describe("validateJSONFeatureValue", () => {
       date: new Date("2020-04-20"),
       enabled: true,
     };
-    expect(validateJSONFeatureValue(value, feature)).toMatchSnapshot();
+    expect(validateJSONFeatureValue(value, feature).valid).toEqual(true);
   });
   it("returns valid as false if all values are valid but json schema test fails", () => {
     const value = { test: 999 };
@@ -73,16 +73,16 @@ describe("validateJSONFeatureValue", () => {
       date: new Date("2020-04-20"),
       enabled: true,
     };
-    expect(validateJSONFeatureValue(value, feature)).toMatchSnapshot();
+    expect(validateJSONFeatureValue(value, feature).valid).toEqual(false);
   });
   it("returns valid as false if json schema is invalid", () => {
     const value = { test: 999 };
     feature.jsonSchema = {
-      schema: '{ "test": 123 }',
+      schema: '{ "type": 123 }',
       date: new Date("2020-04-20"),
       enabled: true,
     };
-    expect(validateJSONFeatureValue(value, feature)).toMatchSnapshot();
+    expect(validateJSONFeatureValue(value, feature).valid).toEqual(false);
   });
   it("returns valid as false if unparseable json value is supplied", () => {
     const value = "{ not json }";
@@ -91,7 +91,7 @@ describe("validateJSONFeatureValue", () => {
       date: new Date("2020-04-20"),
       enabled: true,
     };
-    expect(validateJSONFeatureValue(value, feature)).toMatchSnapshot();
+    expect(validateJSONFeatureValue(value, feature).valid).toEqual(false);
   });
   it("returns valid as true if validation is not enabled", () => {
     const value = { test: "123" };
@@ -100,7 +100,7 @@ describe("validateJSONFeatureValue", () => {
       date: new Date("2020-04-20"),
       enabled: false,
     };
-    expect(validateJSONFeatureValue(value, feature)).toMatchSnapshot();
+    expect(validateJSONFeatureValue(value, feature).valid).toEqual(true);
   });
 });
 
@@ -112,10 +112,6 @@ describe("validateFeatureValue", () => {
     it('returns "true" if value is truthy', () => {
       expect(validateFeatureValue(feature, "true", "testVal")).toEqual("true");
       expect(validateFeatureValue(feature, "0", "testVal")).toEqual("true");
-    });
-    it('returns "true" if value is truthy and label is omitted', () => {
-      expect(validateFeatureValue(feature, "true")).toEqual("true");
-      expect(validateFeatureValue(feature, "0")).toEqual("true");
     });
     it('returns "false" if value is "false"', () => {
       expect(validateFeatureValue(feature, "false", "testVal")).toEqual(
@@ -149,7 +145,9 @@ describe("validateFeatureValue", () => {
 
     it("parses json and returns in string format", () => {
       const value = '{ "test": 123 }';
-      expect(validateFeatureValue(feature, value)).toEqual('{"test": 123}');
+      expect(validateFeatureValue(feature, value, "testVal")).toEqual(
+        '{"test": 123}'
+      );
     });
 
     it('parses json that is "slightly" invalid', () => {

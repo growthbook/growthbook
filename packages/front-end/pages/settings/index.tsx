@@ -48,6 +48,7 @@ import ControlledTabs from "@/components/Tabs/ControlledTabs";
 import StatsEngineSelect from "@/components/Settings/forms/StatsEngineSelect";
 import { useCurrency } from "@/hooks/useCurrency";
 import { AppFeatures } from "@/types/app-features";
+import { useDefinitions } from "@/services/DefinitionsContext";
 
 export const supportedCurrencies = {
   AED: "UAE Dirham (AED)",
@@ -248,6 +249,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
   );
   const displayCurrency = useCurrency();
   const growthbook = useGrowthBook<AppFeatures>();
+  const { datasources } = useDefinitions();
 
   const currencyOptions = Object.entries(
     supportedCurrencies
@@ -319,6 +321,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
       displayCurrency,
       secureAttributeSalt: "",
       killswitchConfirmation: false,
+      defaultDataSource: settings.defaultDataSource || "",
     },
   });
   const { apiCall } = useAuth();
@@ -354,6 +357,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
     displayCurrency: form.watch("displayCurrency"),
     secureAttributeSalt: form.watch("secureAttributeSalt"),
     killswitchConfirmation: form.watch("killswitchConfirmation"),
+    defaultDataSource: form.watch("defaultDataSource"),
   };
 
   const [cronString, setCronString] = useState("");
@@ -773,6 +777,8 @@ const GeneralSettingsPage = (): React.ReactElement => {
                     disabled={hasFileConfig()}
                     {...form.register("pastExperimentsMinLength", {
                       valueAsNumber: true,
+                      min: 0,
+                      max: 31,
                     })}
                   />
 
@@ -792,6 +798,8 @@ const GeneralSettingsPage = (): React.ReactElement => {
                     helpText={<span className="ml-2">from 0 to 1</span>}
                     {...form.register("multipleExposureMinPercent", {
                       valueAsNumber: true,
+                      min: 0,
+                      max: 1,
                     })}
                   />
 
@@ -859,6 +867,8 @@ const GeneralSettingsPage = (): React.ReactElement => {
                           disabled={hasFileConfig()}
                           {...form.register("updateSchedule.hours", {
                             valueAsNumber: true,
+                            min: 1,
+                            max: 168,
                           })}
                         />
                       </div>
@@ -941,6 +951,8 @@ const GeneralSettingsPage = (): React.ReactElement => {
                         }
                         {...form.register("confidenceLevel", {
                           valueAsNumber: true,
+                          min: 50,
+                          max: 100,
                         })}
                       />
                     </div>
@@ -982,6 +994,8 @@ const GeneralSettingsPage = (): React.ReactElement => {
                         }
                         {...form.register("pValueThreshold", {
                           valueAsNumber: true,
+                          min: 0,
+                          max: 1,
                         })}
                       />
                     </div>
@@ -1229,11 +1243,13 @@ const GeneralSettingsPage = (): React.ReactElement => {
                       <Field
                         label="Minimum Sample Size"
                         type="number"
+                        min={0}
                         className="ml-2"
                         containerClassName="mt-2"
                         disabled={hasFileConfig()}
                         {...form.register("metricDefaults.minimumSampleSize", {
                           valueAsNumber: true,
+                          min: 0,
                         })}
                       />
                     </div>
@@ -1252,6 +1268,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
                       <Field
                         label="Maximum Percentage Change"
                         type="number"
+                        min={0}
                         append="%"
                         className="ml-2"
                         containerClassName="mt-2"
@@ -1260,6 +1277,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
                           "metricDefaults.maxPercentageChange",
                           {
                             valueAsNumber: true,
+                            min: 0,
                           }
                         )}
                       />
@@ -1279,6 +1297,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
                       <Field
                         label="Minimum Percentage Change"
                         type="number"
+                        min={0}
                         append="%"
                         className="ml-2"
                         containerClassName="mt-2"
@@ -1287,6 +1306,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
                           "metricDefaults.minPercentageChange",
                           {
                             valueAsNumber: true,
+                            min: 0,
                           }
                         )}
                       />
@@ -1391,6 +1411,30 @@ const GeneralSettingsPage = (): React.ReactElement => {
                     }}
                   />
                 </div>
+              </div>
+            </div>
+            <div className="divider border-bottom mb-3 mt-3" />
+            <div className="row">
+              <div className="col-sm-3">
+                <h4>Data Source Settings</h4>
+              </div>
+              <div className="col-sm-9">
+                <>
+                  <SelectField
+                    label="Default Data Source (Optional)"
+                    value={form.watch("defaultDataSource") || ""}
+                    options={datasources.map((d) => ({
+                      label: d.name,
+                      value: d.id,
+                    }))}
+                    onChange={(v: string) =>
+                      form.setValue("defaultDataSource", v)
+                    }
+                    isClearable={true}
+                    placeholder="Select a data source..."
+                    helpText="The default data source is the default data source selected when creating metrics and experiments."
+                  />
+                </>
               </div>
             </div>
           </div>

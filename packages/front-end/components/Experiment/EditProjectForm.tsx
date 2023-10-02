@@ -1,4 +1,4 @@
-import { FC } from "react";
+import { FC, ReactElement } from "react";
 import { useForm } from "react-hook-form";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -8,10 +8,18 @@ import SelectField from "../Forms/SelectField";
 const EditProjectForm: FC<{
   apiEndpoint: string;
   current?: string;
+  additionalMessage?: string | ReactElement | null;
   cancel: () => void;
   mutate: () => void;
   method?: string;
-}> = ({ current, apiEndpoint, cancel, mutate, method = "POST" }) => {
+}> = ({
+  current,
+  apiEndpoint,
+  cancel,
+  mutate,
+  method = "POST",
+  additionalMessage,
+}) => {
   const { apiCall } = useAuth();
   const { projects } = useDefinitions();
 
@@ -35,6 +43,7 @@ const EditProjectForm: FC<{
       })}
       cta="Save"
     >
+      {additionalMessage}
       <SelectField
         label="Project"
         value={form.watch("project")}

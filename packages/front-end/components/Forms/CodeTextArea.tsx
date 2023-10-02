@@ -1,4 +1,3 @@
-import React from "react";
 import dynamic from "next/dynamic";
 import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
 import { CursorData } from "../Segments/SegmentForm";
@@ -37,6 +36,7 @@ export type Props = Omit<
   maxLines?: number;
   fullHeight?: boolean;
   onCtrlEnter?: () => void;
+  resizeDependency?: boolean;
 };
 
 const LIGHT_THEME = "textmate";
@@ -52,6 +52,7 @@ export default function CodeTextArea({
   setCursorData,
   fullHeight,
   onCtrlEnter,
+  resizeDependency,
   ...otherProps
 }: Props) {
   // eslint-disable-next-line
@@ -59,7 +60,16 @@ export default function CodeTextArea({
 
   const { theme } = useAppearanceUITheme();
 
-  const heightProps = fullHeight ? { height: "100%" } : { minLines, maxLines };
+  // HACK: AceEditor doesn't automatically resize when the parent div resizes
+  // Also because we dynamically load the AceEditor component, we can't use
+  // useRef to get a reference to the editor object, which would allow us to
+  // call the resize() method on the editor object. So instead we change the
+  // height ever so slightly whenever the resizeDependency variable changes.
+  const heightProps = fullHeight
+    ? resizeDependency
+      ? { height: "99.999%" }
+      : { height: "100%" }
+    : { minLines, maxLines };
 
   return (
     <Field

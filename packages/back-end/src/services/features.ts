@@ -4,7 +4,11 @@ import uniqid from "uniqid";
 import isEqual from "lodash/isEqual";
 import omit from "lodash/omit";
 import { orgHasPremiumFeature } from "enterprise";
-import { FeatureDefinition, FeatureDefinitionRule } from "../../types/api";
+import {
+  FeatureRule as FeatureDefinitionRule,
+  AutoExperiment,
+} from "@growthbook/growthbook";
+import { FeatureDefinition } from "../../types/api";
 import {
   ExperimentRule,
   FeatureDraftChanges,
@@ -15,7 +19,10 @@ import {
   RolloutRule,
 } from "../../types/feature";
 import { getAllFeatures } from "../models/FeatureModel";
-import { getAllVisualExperiments } from "../models/ExperimentModel";
+import {
+  getAllPayloadExperiments,
+  getAllVisualExperiments,
+} from "../models/ExperimentModel";
 import {
   getFeatureDefinition,
   replaceSavedGroupsInCondition,
@@ -32,7 +39,7 @@ import { logger } from "../util/logger";
 import { promiseAllChunks } from "../util/promise";
 import { queueWebhook } from "../jobs/webhooks";
 import { GroupMap } from "../../types/saved-group";
-import { SDKExperiment, SDKPayloadKey } from "../../types/sdk-payload";
+import { SDKPayloadKey } from "../../types/sdk-payload";
 import { queueProxyUpdate } from "../jobs/proxyUpdate";
 import { ApiFeature, ApiFeatureEnvironment } from "../../types/openapi";
 import { ExperimentInterface, ExperimentPhase } from "../../types/experiment";
@@ -51,10 +58,12 @@ export type AttributeMap = Map<string, string>;
 
 function generatePayload({
   features,
+  experimentMap,
   environment,
   groupMap,
 }: {
   features: FeatureInterface[];
+  experimentMap: Map<string, ExperimentInterface>;
   environment: string;
   groupMap: GroupMap;
 }): Record<string, FeatureDefinition> {
@@ -64,6 +73,7 @@ function generatePayload({
       feature,
       environment,
       groupMap,
+      experimentMap,
     });
     if (def) {
       defs[feature.id] = def;
@@ -86,10 +96,11 @@ function generateVisualExperimentsPayload({
   visualExperiments: Array<VisualExperiment>;
   // environment: string,
   groupMap: GroupMap;
-}): SDKExperiment[] {
-  const isValidSDKExperiment = (e: SDKExperiment | null): e is SDKExperiment =>
-    !!e;
-  const sdkExperiments: Array<SDKExperiment | null> = visualExperiments.map(
+}): AutoExperiment[] {
+  const isValidSDKExperiment = (
+    e: AutoExperiment | null
+  ): e is AutoExperiment => !!e;
+  const sdkExperiments: Array<AutoExperiment | null> = visualExperiments.map(
     ({ experiment: e, visualChangeset: v }) => {
       if (e.status === "stopped" && e.excludeFromPayload) return null;
 
@@ -112,15 +123,15 @@ function generateVisualExperimentsPayload({
 
       if (!phase) return null;
 
-      return {
+      const exp: AutoExperiment = {
         key: e.trackingKey,
         status: e.status,
         variations: v.visualChanges.map((vc) => ({
           css: vc.css,
           js: vc.js || "",
           domMutations: vc.domMutations,
-        })),
-        hashVersion: 2,
+        })) as AutoExperiment["variations"],
+        hashVersion: e.hashVersion,
         hashAttribute: e.hashAttribute,
         urlPatterns: v.urlPatterns,
         weights: phase.variationWeights,
@@ -144,6 +155,8 @@ function generateVisualExperimentsPayload({
         condition,
         coverage: phase.coverage,
       };
+
+      return exp;
     }
   );
   return sdkExperiments.filter(isValidSDKExperiment);
@@ -205,9 +218,13 @@ export async function refreshSDKPayloadCache(
   // If no environments are affected, we don't need to update anything
   if (!payloadKeys.length) return;
 
+  const experimentMap = await getAllPayloadExperiments(organization.id);
   const groupMap = await getSavedGroupMap(organization);
   allFeatures = allFeatures || (await getAllFeatures(organization.id));
-  const allVisualExperiments = await getAllVisualExperiments(organization.id);
+  const allVisualExperiments = await getAllVisualExperiments(
+    organization.id,
+    experimentMap
+  );
 
   // For each affected project/environment pair, generate a new SDK payload and update the cache
   const promises: (() => Promise<void>)[] = [];
@@ -225,6 +242,7 @@ export async function refreshSDKPayloadCache(
       features: projectFeatures,
       environment: key.environment,
       groupMap,
+      experimentMap,
     });
 
     const experimentsDefinitions = generateVisualExperimentsPayload({
@@ -271,7 +289,7 @@ export async function refreshSDKPayloadCache(
 
 export type FeatureDefinitionsResponseArgs = {
   features: Record<string, FeatureDefinition>;
-  experiments: SDKExperiment[];
+  experiments: AutoExperiment[];
   dateUpdated: Date | null;
   encryptionKey?: string;
   includeVisualExperiments?: boolean;
@@ -295,14 +313,29 @@ async function getFeatureDefinitionsResponse({
     experiments = experiments?.filter((e) => e.status !== "draft") || [];
   }
 
+  // If experiment/variation names should be removed from the payload
   if (!includeExperimentNames) {
-    // Remove experiment/variation name from every visual experiment
+    // Remove names from visual editor experiments
     experiments = experiments?.map((exp) => {
       return {
         ...omit(exp, ["name", "meta"]),
         meta: exp.meta ? exp.meta.map((m) => omit(m, ["name"])) : undefined,
       };
     });
+
+    // Remove names from every feature rule
+    for (const k in features) {
+      if (features[k]?.rules) {
+        features[k]?.rules?.forEach((rule) => {
+          if (rule.meta) {
+            rule.meta = rule.meta.map((m) => omit(m, ["name"]));
+          }
+          if (rule.name) {
+            delete rule.name;
+          }
+        });
+      }
+    }
   }
 
   const hasSecureAttributes = attributes?.some((a) =>
@@ -357,7 +390,7 @@ export type FeatureDefinitionArgs = {
 };
 export type FeatureDefinitionSDKPayload = {
   features: Record<string, FeatureDefinition>;
-  experiments?: SDKExperiment[];
+  experiments?: AutoExperiment[];
   dateUpdated: Date | null;
   encryptedFeatures?: string;
   encryptedExperiments?: string;
@@ -433,16 +466,18 @@ export async function getFeatureDefinitions({
   // Generate the feature definitions
   const features = await getAllFeatures(organization, project);
   const groupMap = await getSavedGroupMap(org);
+  const experimentMap = await getAllPayloadExperiments(organization, project);
 
   const featureDefinitions = generatePayload({
     features,
     environment,
     groupMap,
+    experimentMap,
   });
 
   const allVisualExperiments = await getAllVisualExperiments(
     organization,
-    project
+    experimentMap
   );
 
   // Generate visual experiments
@@ -562,11 +597,17 @@ export async function encrypt(
   return bufToBase64(iv) + "." + bufToBase64(encryptedBuffer);
 }
 
-export function getApiFeatureObj(
-  feature: FeatureInterface,
-  organization: OrganizationInterface,
-  groupMap: GroupMap
-): ApiFeature {
+export function getApiFeatureObj({
+  feature,
+  organization,
+  groupMap,
+  experimentMap,
+}: {
+  feature: FeatureInterface;
+  organization: OrganizationInterface;
+  groupMap: GroupMap;
+  experimentMap: Map<string, ExperimentInterface>;
+}): ApiFeature {
   const defaultValue = feature.defaultValue;
   const featureEnvironments: Record<string, ApiFeatureEnvironment> = {};
   const environments = getEnvironments(organization);
@@ -585,6 +626,7 @@ export function getApiFeatureObj(
     const definition = getFeatureDefinition({
       feature,
       groupMap,
+      experimentMap,
       environment: env.id,
     });
 
@@ -607,6 +649,7 @@ export function getApiFeatureObj(
       const draftDefinition = getFeatureDefinition({
         feature,
         groupMap,
+        experimentMap,
         environment: env.id,
         useDraft: true,
       });
@@ -717,10 +760,10 @@ export function applyFeatureHashing(
 
 // Specific hashing entrypoint for Experiment conditions
 export function applyExperimentHashing(
-  experiments: SDKExperiment[],
+  experiments: AutoExperiment[],
   attributes: SDKAttributeSchema,
   salt: string
-): SDKExperiment[] {
+): AutoExperiment[] {
   return experiments.map((experiment) => {
     if (experiment?.condition) {
       experiment.condition = hashStrings({

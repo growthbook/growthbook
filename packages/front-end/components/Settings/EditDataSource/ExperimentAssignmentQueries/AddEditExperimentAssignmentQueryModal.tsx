@@ -7,15 +7,14 @@ import { useForm } from "react-hook-form";
 import cloneDeep from "lodash/cloneDeep";
 import uniqId from "uniqid";
 import { FaExclamationTriangle, FaExternalLinkAlt } from "react-icons/fa";
+import { TestQueryRow } from "back-end/src/types/Integration";
 import Code from "@/components/SyntaxHighlighting/Code";
 import StringArrayField from "@/components/Forms/StringArrayField";
 import Toggle from "@/components/Forms/Toggle";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Modal from "../../../Modal";
 import Field from "../../../Forms/Field";
-import EditSqlModal, {
-  TestQueryResults,
-} from "../../../SchemaBrowser/EditSqlModal";
+import EditSqlModal from "../../../SchemaBrowser/EditSqlModal";
 
 type EditExperimentAssignmentQueryProps = {
   exposureQuery?: ExposureQuery;
@@ -111,7 +110,7 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
     return null;
   }
 
-  const validateResponse = (result: TestQueryResults) => {
+  const validateResponse = (result: TestQueryRow) => {
     if (!result) return;
 
     const namedCols = ["experiment_name", "variation_name"];
@@ -225,7 +224,7 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
           save={async (userEnteredQuery) => {
             form.setValue("query", userEnteredQuery);
           }}
-          validateResponse={validateResponse}
+          validateResponseOverride={validateResponse}
         />
       )}
       <Modal

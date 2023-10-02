@@ -1,17 +1,13 @@
 import { NextFunction, Request, Response } from "express";
 import { SSO_CONFIG } from "enterprise";
+import { hasPermission } from "shared/permissions";
 import { IS_CLOUD } from "../../util/secrets";
 import { AuthRequest } from "../../types/AuthRequest";
 import { markUserAsVerified, UserModel } from "../../models/UserModel";
-import {
-  getOrganizationById,
-  getRole,
-  validateLoginMethod,
-} from "../organizations";
+import { getOrganizationById, validateLoginMethod } from "../organizations";
 import { Permission } from "../../../types/organization";
 import { UserInterface } from "../../../types/user";
 import { AuditInterface } from "../../../types/audit";
-import { insertAudit } from "../audit";
 import { getUserByEmail } from "../users";
 import { hasOrganization } from "../../models/OrganizationModel";
 import {
@@ -20,11 +16,12 @@ import {
   RefreshTokenCookie,
   SSOConnectionIdCookie,
 } from "../../util/cookie";
-import { getPermissionsByRole } from "../../util/organization.util";
+import { getUserPermissions } from "../../util/organization.util";
 import {
   EventAuditUserForResponseLocals,
   EventAuditUserLoggedIn,
 } from "../../events/event-types";
+import { insertAudit } from "../../models/AuditModel";
 import { AuthConnection } from "./AuthConnection";
 import { OpenIdAuthConnection } from "./OpenIdAuthConnection";
 import { LocalAuthConnection } from "./LocalAuthConnection";
@@ -41,6 +38,7 @@ type IdToken = {
   given_name?: string;
   name?: string;
   sub?: string;
+  iat?: number;
 };
 
 export function getAuthConnection(): AuthConnection {
@@ -53,6 +51,15 @@ async function getUserFromJWT(token: IdToken): Promise<null | UserInterface> {
   }
   const user = await getUserByEmail(String(token.email));
   if (!user) return null;
+
+  if (!usingOpenId() && user.minTokenDate && token.iat) {
+    if (token.iat < Math.floor(user.minTokenDate.getTime() / 1000)) {
+      throw new Error(
+        "Your session has been revoked. Please refresh the page and login."
+      );
+    }
+  }
+
   return user.toJSON<UserInterface>();
 }
 function getInitialDataFromJWT(user: IdToken): JWTInfo {
@@ -68,7 +75,7 @@ export async function processJWT(
   req: AuthRequest & { user: IdToken },
   res: Response<unknown, EventAuditUserForResponseLocals>,
   next: NextFunction
-) {
+): Promise<void> {
   const { email, name, verified } = getInitialDataFromJWT(req.user);
 
   req.authSubject = req.user.sub || "";
@@ -76,7 +83,7 @@ export async function processJWT(
   req.name = name || "";
   req.verified = verified || false;
 
-  const hasPermission = (
+  const userHasPermission = (
     permission: Permission,
     project?: string,
     envs?: string[]
@@ -85,33 +92,11 @@ export async function processJWT(
       return false;
     }
 
-    // Get the role based on the project (if specified)
-    const projectRole = getRole(req.organization, req.userId, project);
+    // Generate full list of permissions for the user
+    const userPermissions = getUserPermissions(req.userId, req.organization);
 
-    // Admin role always has permission
-    if (req.admin || projectRole.role === "admin") return true;
-
-    const permissions = getPermissionsByRole(
-      projectRole.role,
-      req.organization
-    );
-
-    // Missing permission
-    if (!permissions.includes(permission)) {
-      return false;
-    }
-
-    // If it's an environment-scoped permission and the user's role has limited access
-    if (envs && projectRole.limitAccessByEnvironment) {
-      for (let i = 0; i < envs.length; i++) {
-        if (!projectRole.environments.includes(envs[i])) {
-          return false;
-        }
-      }
-    }
-
-    // If it got through all the above checks, the user has permission
-    return true;
+    // Check if the user has the permission
+    return hasPermission(userPermissions, permission, project, envs);
   };
 
   // Throw error if permissions don't pass
@@ -127,7 +112,7 @@ export async function processJWT(
       checkProjects = [project];
     }
     for (const p of checkProjects) {
-      if (!hasPermission(permission, p, envs ? [...envs] : undefined)) {
+      if (!userHasPermission(permission, p, envs ? [...envs] : undefined)) {
         throw new Error("You do not have permission to complete that action.");
       }
     }
@@ -139,17 +124,18 @@ export async function processJWT(
     req.email = user.email;
     req.userId = user.id;
     req.name = user.name;
-    req.admin = !!user.admin;
+    req.superAdmin = !!user.superAdmin;
 
     // If using default Cloud SSO (Auth0), once a user logs in with a verified email address,
     // require all future logins to be verified too.
     // This stops someone from creating an unverified email/password account and gaining access to
     // an account using "Login with Google"
     if (IS_CLOUD && !req.loginMethod?.id && user.verified && !req.verified) {
-      return res.status(406).json({
+      res.status(406).json({
         status: 406,
         message: "You must verify your email address before using GrowthBook",
       });
+      return;
     }
 
     if (!user.verified && req.verified) {
@@ -164,29 +150,32 @@ export async function processJWT(
       if (req.organization) {
         // Make sure member is part of the organization
         if (
-          !req.admin &&
+          !req.superAdmin &&
           !req.organization.members.filter((m) => m.id === req.userId).length
         ) {
-          return res.status(403).json({
+          res.status(403).json({
             status: 403,
             message: "You do not have access to that organization",
           });
+          return;
         }
 
         // Make sure this is a valid login method for the organization
         try {
           validateLoginMethod(req.organization, req);
         } catch (e) {
-          return res.status(403).json({
+          res.status(403).json({
             status: 403,
             message: e.message,
           });
+          return;
         }
       } else {
-        return res.status(404).json({
+        res.status(404).json({
           status: 404,
           message: "Organization not found",
         });
+        return;
       }
     }
 

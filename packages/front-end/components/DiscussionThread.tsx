@@ -139,7 +139,7 @@ const DiscussionThread: FC<{
         </p>
       )}
       {allowNewComments && (
-        <>
+        <div className="d-print-none">
           {!showTitle && <hr />}
           {showTitle && <h4 className="add-comment-title">{title}</h4>}
           <CommentForm
@@ -149,7 +149,7 @@ const DiscussionThread: FC<{
             id={id}
             type={type}
           />
-        </>
+        </div>
       )}
     </div>
   );

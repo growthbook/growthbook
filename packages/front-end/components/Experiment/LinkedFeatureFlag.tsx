@@ -1,62 +1,83 @@
-import { ExperimentRule, FeatureInterface } from "back-end/types/feature";
+import { FeatureInterface, FeatureRule } from "back-end/types/feature";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { FaCheck, FaExclamationTriangle } from "react-icons/fa";
+import { MatchingRule } from "shared/util";
 import LinkedChange from "@/components/Experiment/LinkedChange";
 import { useEnvironments } from "@/services/features";
-import ClickToCopy from "@/components/Settings/ClickToCopy";
 import ForceSummary from "@/components/Features/ForceSummary";
+import { useAuth } from "@/services/auth";
 import Tooltip from "../Tooltip/Tooltip";
+import DeleteButton from "../DeleteButton/DeleteButton";
 
 type Props = {
   feature: FeatureInterface;
+  rules: MatchingRule[];
   experiment: ExperimentInterfaceStringDates;
+  mutateFeatures: () => void;
+  open?: boolean;
 };
 
-export default function LinkedFeatureFlag({ feature, experiment }: Props) {
+function getValues(
+  rule: FeatureRule,
+  experiment: ExperimentInterfaceStringDates
+): string[] {
+  let values: string[] = [];
+
+  if (rule.type === "experiment") {
+    values = rule.values.map((v) => v.value);
+  } else if (rule.type === "experiment-ref") {
+    values = experiment.variations.map((v) => {
+      const value = rule.variations.find(
+        (variation) => variation.variationId === v.id
+      );
+      return value?.value ?? "";
+    });
+  }
+
+  return values;
+}
+
+export default function LinkedFeatureFlag({
+  feature,
+  rules,
+  experiment,
+  mutateFeatures,
+  open,
+}: Props) {
   const environments = useEnvironments();
 
-  // Get all rules in all environments for this experiment
-  const rules: {
-    environmentId: string;
-    i: number;
-    enabled: boolean;
-    rule: ExperimentRule;
-  }[] = [];
-  Object.entries(feature.environmentSettings).forEach(([env, settings]) => {
-    settings?.rules?.forEach((rule, i) => {
-      if (
-        rule.type === "experiment" &&
-        experiment.trackingKey === (rule.trackingKey || feature.id)
-      ) {
-        rules.push({
-          environmentId: env,
-          enabled: settings?.enabled && rule.enabled !== false,
-          i,
-          rule,
-        });
-      }
-    });
-  });
+  const { apiCall } = useAuth();
 
-  const activeRules = rules.filter(({ enabled }) => enabled);
+  const activeRules = rules.filter(({ rule }) => rule.enabled);
+  const liveRules = activeRules.filter(({ draft }) => !draft);
+
+  // If all matching rules are drafts, it is unpublished
+  const unpublished = !rules.some((r) => !r.draft);
+
   const uniqueValueMappings = new Set(
-    rules.map(({ rule }) => JSON.stringify(rule.values))
+    rules.map(({ rule }) => JSON.stringify(getValues(rule, experiment)))
   );
   const rulesAbove = activeRules.some(({ i }) => i > 0);
 
+  const isLegacy = rules.some((r) => r.rule.type === "experiment");
+
   const environmentInfo = environments.map((env) => {
+    // First, prefer showing a live rule, then draft, then disabled
     const firstMatch =
+      liveRules.find(({ environmentId }) => environmentId === env.id) ||
       activeRules.find(({ environmentId }) => environmentId === env.id) ||
       rules.find(({ environmentId }) => environmentId === env.id);
 
     // Differentiate between enabled, different ways it can be disabled, and missing
-    const state = firstMatch?.enabled
-      ? "active"
-      : firstMatch?.rule?.enabled === false
-      ? "disabledRule"
-      : firstMatch
+    const state = !firstMatch
+      ? "missing"
+      : !firstMatch.environmentEnabled
       ? "disabledEnvironment"
-      : "missing";
+      : !firstMatch.rule.enabled
+      ? "disabledRule"
+      : firstMatch.draft
+      ? "draft"
+      : "active";
 
     return {
       id: env.id,
@@ -74,21 +95,61 @@ export default function LinkedFeatureFlag({ feature, experiment }: Props) {
           ? "The environment is disabled for this feature, so the experiment is not active"
           : state === "disabledRule"
           ? "The experiment is disabled in this environment and is not active"
+          : state === "draft"
+          ? "The experiment rule is still a draft and has not been published yet"
           : "The experiment does not exist in this environment",
     };
   });
 
   const firstRule = activeRules[0] || rules[0];
 
+  const orderedValues: string[] = [];
+  if (firstRule) {
+    experiment.variations.forEach((v, i) => {
+      if (firstRule.rule.type === "experiment") {
+        orderedValues.push(firstRule.rule.values[i]?.value || "");
+      } else if (firstRule.rule.type === "experiment-ref") {
+        orderedValues.push(
+          firstRule.rule.variations.find((v2) => v2.variationId === v.id)
+            ?.value || ""
+        );
+      }
+    });
+  }
+
   return (
     <LinkedChange
       changeType={"flag"}
       feature={feature}
-      open={experiment.status === "draft"}
+      open={open ?? experiment.status === "draft"}
     >
       <div className="mt-2 pb-1 px-3">
-        <div className="font-weight-bold">Feature key</div>
-        <ClickToCopy className="mb-3">{feature.id}</ClickToCopy>
+        <div className="d-flex">
+          {isLegacy && (
+            <div className="alert alert-warning">
+              <FaExclamationTriangle /> This feature contains a legacy
+              experiment rule. Changes to this experiment (targeting conditions,
+              variations, etc.) will not by synced to the feature flag
+              automatically.
+            </div>
+          )}
+          {experiment.status === "draft" && unpublished && (
+            <div className="ml-auto">
+              <DeleteButton
+                displayName="Feature Rule"
+                onClick={async () => {
+                  await apiCall(`/feature/${feature.id}/experiment`, {
+                    method: "DELETE",
+                    body: JSON.stringify({
+                      experimentId: experiment.id,
+                    }),
+                  });
+                  mutateFeatures();
+                }}
+              />
+            </div>
+          )}
+        </div>
 
         <div className="font-weight-bold">Environments</div>
         <div className="mb-3">
@@ -105,7 +166,7 @@ export default function LinkedFeatureFlag({ feature, experiment }: Props) {
         {firstRule && (
           <table className="table table-sm table-bordered w-auto">
             <tbody>
-              {firstRule.rule.values.map((v, j) => (
+              {orderedValues.map((v, j) => (
                 <tr key={j}>
                   <td
                     className={`px-3 variation with-variation-label with-variation-right-shadow border-right-0 variation${j}`}
@@ -115,7 +176,7 @@ export default function LinkedFeatureFlag({ feature, experiment }: Props) {
                     </span>
                   </td>
                   <td className="px-3 border-left-0">
-                    <ForceSummary value={v.value} feature={feature} />
+                    <ForceSummary value={v} feature={feature} />
                   </td>
                 </tr>
               ))}

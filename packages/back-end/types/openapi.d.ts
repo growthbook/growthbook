@@ -343,6 +343,17 @@ export interface components {
                   weight: number;
                   name?: string;
                 })[];
+            } | {
+              description: string;
+              id: string;
+              enabled: boolean;
+              type: string;
+              condition?: string;
+              variations: ({
+                  value: string;
+                  variationId: string;
+                })[];
+              experimentId: string;
             })[];
           /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
           definition?: string;
@@ -384,6 +395,17 @@ export interface components {
                     weight: number;
                     name?: string;
                   })[];
+              } | {
+                description: string;
+                id: string;
+                enabled: boolean;
+                type: string;
+                condition?: string;
+                variations: ({
+                    value: string;
+                    variationId: string;
+                  })[];
+                experimentId: string;
               })[];
             /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
             definition?: string;
@@ -436,6 +458,17 @@ export interface components {
               weight: number;
               name?: string;
             })[];
+        } | {
+          description: string;
+          id: string;
+          enabled: boolean;
+          type: string;
+          condition?: string;
+          variations: ({
+              value: string;
+              variationId: string;
+            })[];
+          experimentId: string;
         })[];
       /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
       definition?: string;
@@ -477,6 +510,17 @@ export interface components {
                 weight: number;
                 name?: string;
               })[];
+          } | {
+            description: string;
+            id: string;
+            enabled: boolean;
+            type: string;
+            condition?: string;
+            variations: ({
+                value: string;
+                variationId: string;
+              })[];
+            experimentId: string;
           })[];
         /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
         definition?: string;
@@ -517,6 +561,17 @@ export interface components {
           weight: number;
           name?: string;
         })[];
+    } | {
+      description: string;
+      id: string;
+      enabled: boolean;
+      type: string;
+      condition?: string;
+      variations: ({
+          value: string;
+          variationId: string;
+        })[];
+      experimentId: string;
     };
     FeatureDefinition: {
       defaultValue: OneOf<[string, number, (unknown)[], any, null]>;
@@ -571,6 +626,18 @@ export interface components {
           name?: string;
         })[];
     };
+    FeatureExperimentRefRule: {
+      description: string;
+      id: string;
+      enabled: boolean;
+      type: string;
+      condition?: string;
+      variations: ({
+          value: string;
+          variationId: string;
+        })[];
+      experimentId: string;
+    };
     SdkConnection: {
       id: string;
       /** Format: date-time */
@@ -609,6 +676,8 @@ export interface components {
       status: string;
       autoRefresh: boolean;
       hashAttribute: string;
+      /** @enum {number} */
+      hashVersion: 1 | 2;
       variations: ({
           variationId: string;
           key: string;
@@ -993,6 +1062,17 @@ export interface operations {
                             weight: number;
                             name?: string;
                           })[];
+                      } | {
+                        description: string;
+                        id: string;
+                        enabled: boolean;
+                        type: string;
+                        condition?: string;
+                        variations: ({
+                            value: string;
+                            variationId: string;
+                          })[];
+                        experimentId: string;
                       })[];
                     /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
                     definition?: string;
@@ -1034,6 +1114,17 @@ export interface operations {
                               weight: number;
                               name?: string;
                             })[];
+                        } | {
+                          description: string;
+                          id: string;
+                          enabled: boolean;
+                          type: string;
+                          condition?: string;
+                          variations: ({
+                              value: string;
+                              variationId: string;
+                            })[];
+                          experimentId: string;
                         })[];
                       /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
                       definition?: string;
@@ -1259,6 +1350,17 @@ export interface operations {
                           weight: number;
                           name?: string;
                         })[];
+                    } | {
+                      description: string;
+                      id: string;
+                      enabled: boolean;
+                      type: string;
+                      condition?: string;
+                      variations: ({
+                          value: string;
+                          variationId: string;
+                        })[];
+                      experimentId: string;
                     })[];
                   /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
                   definition?: string;
@@ -1300,6 +1402,17 @@ export interface operations {
                             weight: number;
                             name?: string;
                           })[];
+                      } | {
+                        description: string;
+                        id: string;
+                        enabled: boolean;
+                        type: string;
+                        condition?: string;
+                        variations: ({
+                            value: string;
+                            variationId: string;
+                          })[];
+                        experimentId: string;
                       })[];
                     /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
                     definition?: string;
@@ -1384,6 +1497,17 @@ export interface operations {
                           weight: number;
                           name?: string;
                         })[];
+                    } | {
+                      description: string;
+                      id: string;
+                      enabled: boolean;
+                      type: string;
+                      condition?: string;
+                      variations: ({
+                          value: string;
+                          variationId: string;
+                        })[];
+                      experimentId: string;
                     })[];
                   /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
                   definition?: string;
@@ -1425,6 +1549,17 @@ export interface operations {
                             weight: number;
                             name?: string;
                           })[];
+                      } | {
+                        description: string;
+                        id: string;
+                        enabled: boolean;
+                        type: string;
+                        condition?: string;
+                        variations: ({
+                            value: string;
+                            variationId: string;
+                          })[];
+                        experimentId: string;
                       })[];
                     /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
                     definition?: string;
@@ -1639,6 +1774,17 @@ export interface operations {
                           weight: number;
                           name?: string;
                         })[];
+                    } | {
+                      description: string;
+                      id: string;
+                      enabled: boolean;
+                      type: string;
+                      condition?: string;
+                      variations: ({
+                          value: string;
+                          variationId: string;
+                        })[];
+                      experimentId: string;
                     })[];
                   /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
                   definition?: string;
@@ -1680,6 +1826,17 @@ export interface operations {
                             weight: number;
                             name?: string;
                           })[];
+                      } | {
+                        description: string;
+                        id: string;
+                        enabled: boolean;
+                        type: string;
+                        condition?: string;
+                        variations: ({
+                            value: string;
+                            variationId: string;
+                          })[];
+                        experimentId: string;
                       })[];
                     /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
                     definition?: string;
@@ -1768,6 +1925,17 @@ export interface operations {
                           weight: number;
                           name?: string;
                         })[];
+                    } | {
+                      description: string;
+                      id: string;
+                      enabled: boolean;
+                      type: string;
+                      condition?: string;
+                      variations: ({
+                          value: string;
+                          variationId: string;
+                        })[];
+                      experimentId: string;
                     })[];
                   /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
                   definition?: string;
@@ -1809,6 +1977,17 @@ export interface operations {
                             weight: number;
                             name?: string;
                           })[];
+                      } | {
+                        description: string;
+                        id: string;
+                        enabled: boolean;
+                        type: string;
+                        condition?: string;
+                        variations: ({
+                            value: string;
+                            variationId: string;
+                          })[];
+                        experimentId: string;
                       })[];
                     /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
                     definition?: string;
@@ -2236,6 +2415,8 @@ export interface operations {
                 status: string;
                 autoRefresh: boolean;
                 hashAttribute: string;
+                /** @enum {number} */
+                hashVersion: 1 | 2;
                 variations: ({
                     variationId: string;
                     key: string;
@@ -2340,6 +2521,7 @@ export interface operations {
           description?: string;
           tags?: (string)[];
           metrics?: (string)[];
+          guardrailMetrics?: (string)[];
           /** @description Email of the person who owns this experiment */
           owner: string;
           archived?: boolean;
@@ -2347,6 +2529,8 @@ export interface operations {
           status?: "draft" | "running" | "stopped";
           autoRefresh?: boolean;
           hashAttribute?: string;
+          /** @enum {number} */
+          hashVersion?: 1 | 2;
           releasedVariationId?: string;
           excludeFromPayload?: boolean;
           variations: ({
@@ -2407,6 +2591,8 @@ export interface operations {
               status: string;
               autoRefresh: boolean;
               hashAttribute: string;
+              /** @enum {number} */
+              hashVersion: 1 | 2;
               variations: ({
                   variationId: string;
                   key: string;
@@ -2512,6 +2698,8 @@ export interface operations {
               status: string;
               autoRefresh: boolean;
               hashAttribute: string;
+              /** @enum {number} */
+              hashVersion: 1 | 2;
               variations: ({
                   variationId: string;
                   key: string;
@@ -2612,6 +2800,7 @@ export interface operations {
           description?: string;
           tags?: (string)[];
           metrics?: (string)[];
+          guardrailMetrics?: (string)[];
           /** @description Email of the person who owns this experiment */
           owner?: string;
           archived?: boolean;
@@ -2619,6 +2808,8 @@ export interface operations {
           status?: "draft" | "running" | "stopped";
           autoRefresh?: boolean;
           hashAttribute?: string;
+          /** @enum {number} */
+          hashVersion?: 1 | 2;
           releasedVariationId?: string;
           excludeFromPayload?: boolean;
           variations?: ({
@@ -2679,6 +2870,8 @@ export interface operations {
               status: string;
               autoRefresh: boolean;
               hashAttribute: string;
+              /** @enum {number} */
+              hashVersion: 1 | 2;
               variations: ({
                   variationId: string;
                   key: string;
@@ -3394,6 +3587,8 @@ export interface operations {
               status: string;
               autoRefresh: boolean;
               hashAttribute: string;
+              /** @enum {number} */
+              hashVersion: 1 | 2;
               variations: ({
                   variationId: string;
                   key: string;
@@ -3484,6 +3679,32 @@ export interface operations {
         content: {
           "application/json": {
             nModified: number;
+            visualChangeset: {
+              id?: string;
+              urlPatterns: ({
+                  include?: boolean;
+                  /** @enum {string} */
+                  type: "simple" | "regex";
+                  pattern: string;
+                })[];
+              editorUrl: string;
+              experiment: string;
+              visualChanges: ({
+                  description?: string;
+                  css?: string;
+                  js?: string;
+                  variation: string;
+                  domMutations: ({
+                      selector: string;
+                      /** @enum {string} */
+                      action: "append" | "set" | "remove";
+                      attribute: string;
+                      value?: string;
+                      parentSelector?: string;
+                      insertBeforeSelector?: string;
+                    })[];
+                })[];
+            };
           };
         };
       };
@@ -3687,6 +3908,7 @@ export type ApiFeatureDefinition = components["schemas"]["FeatureDefinition"];
 export type ApiFeatureForceRule = components["schemas"]["FeatureForceRule"];
 export type ApiFeatureRolloutRule = components["schemas"]["FeatureRolloutRule"];
 export type ApiFeatureExperimentRule = components["schemas"]["FeatureExperimentRule"];
+export type ApiFeatureExperimentRefRule = components["schemas"]["FeatureExperimentRefRule"];
 export type ApiSdkConnection = components["schemas"]["SdkConnection"];
 export type ApiExperiment = components["schemas"]["Experiment"];
 export type ApiExperimentMetric = components["schemas"]["ExperimentMetric"];

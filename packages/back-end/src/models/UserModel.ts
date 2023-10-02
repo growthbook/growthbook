@@ -12,8 +12,9 @@ const userSchema = new mongoose.Schema({
     unique: true,
   },
   passwordHash: String,
-  admin: Boolean,
+  superAdmin: Boolean,
   verified: Boolean,
+  minTokenDate: Date,
 });
 
 export type UserDocument = mongoose.Document & UserInterface;
@@ -60,4 +61,17 @@ export async function findVerifiedEmails(
     });
   }
   return users.map((u) => u.email);
+}
+
+export async function resetMinTokenDate(userId: string) {
+  await UserModel.updateOne(
+    {
+      id: userId,
+    },
+    {
+      $set: {
+        minTokenDate: new Date(),
+      },
+    }
+  );
 }

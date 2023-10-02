@@ -10,6 +10,7 @@ import {
   Permission,
   Role,
   ProjectScopedPermission,
+  UserPermissions,
 } from "back-end/types/organization";
 import type { AccountPlan, CommercialFeature, LicenseData } from "enterprise";
 import { SSOConnectionInterface } from "back-end/types/sso-connection";
@@ -25,6 +26,7 @@ import {
 } from "react";
 import * as Sentry from "@sentry/react";
 import { GROWTHBOOK_SECURE_ATTRIBUTE_SALT } from "shared/constants";
+import { hasPermission } from "shared/permissions";
 import { isCloud, isSentryEnabled } from "@/services/env";
 import useApi from "@/hooks/useApi";
 import { useAuth, UserOrganizations } from "@/services/auth";
@@ -41,18 +43,19 @@ type OrgSettingsResponse = {
   accountPlan: AccountPlan;
   commercialFeatures: CommercialFeature[];
   licenseKey?: string;
+  currentUserPermissions: UserPermissions;
 };
 
 export interface PermissionFunctions {
   check(permission: GlobalPermission): boolean;
   check(
     permission: EnvScopedPermission,
-    project: string | undefined,
+    project: string[] | string | undefined,
     envs: string[]
   ): boolean;
   check(
     permission: ProjectScopedPermission,
-    project: string | undefined
+    project: string[] | string | undefined
   ): boolean;
 }
 
@@ -79,7 +82,7 @@ export interface UserContextValue {
   userId?: string;
   name?: string;
   email?: string;
-  admin?: boolean;
+  superAdmin?: boolean;
   license?: LicenseData;
   user?: ExpandedMember;
   users: Map<string, ExpandedMember>;
@@ -104,9 +107,10 @@ interface UserResponse {
   userName: string;
   email: string;
   verified: boolean;
-  admin: boolean;
+  superAdmin: boolean;
   organizations?: UserOrganizations;
   license?: LicenseData;
+  currentUserPermissions: UserPermissions;
 }
 
 export const UserContext = createContext<UserContextValue>({
@@ -138,15 +142,6 @@ let currentUser: null | {
 } = null;
 export function getCurrentUser() {
   return currentUser;
-}
-
-export function getPermissionsByRole(
-  role: MemberRole,
-  roles: Role[]
-): Set<Permission> {
-  return new Set<Permission>(
-    roles.find((r) => r.id === role)?.permissions || []
-  );
 }
 
 export function UserContextProvider({ children }: { children: ReactNode }) {
@@ -204,22 +199,25 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
       environments: [],
       limitAccessByEnvironment: false,
       name: data.userName,
-      role: data.admin ? "admin" : "readonly",
+      role: data.superAdmin ? "admin" : "readonly",
       projectRoles: [],
     };
   }
+
   const role =
-    (data?.admin && "admin") ||
+    (data?.superAdmin && "admin") ||
     (user?.role ?? currentOrg?.organization?.settings?.defaultRole?.role);
 
   // Build out permissions object for backwards-compatible `permissions.manageTeams` style usage
   const permissionsObj: Record<GlobalPermission, boolean> = {
     ...DEFAULT_PERMISSIONS,
   };
-  // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'MemberRole | undefined' is not a... Remove this comment to see the full error message
-  getPermissionsByRole(role, currentOrg?.roles || []).forEach((p) => {
-    permissionsObj[p] = true;
-  });
+
+  for (const permission in permissionsObj) {
+    permissionsObj[permission] =
+      currentOrg?.currentUserPermissions?.global.permissions[permission] ||
+      false;
+  }
 
   // Update current user data for telemetry data
   useEffect(() => {
@@ -270,7 +268,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
     growthbook.setAttributes({
       id: data?.userId || "",
       name: data?.userName || "",
-      admin: data?.admin || false,
+      superAdmin: data?.superAdmin || false,
       company: currentOrg?.organization?.name || "",
       organizationId: hashedOrganizationId,
       userAgent: window.navigator.userAgent,
@@ -299,46 +297,30 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
   const permissionsCheck = useCallback(
     (
       permission: Permission,
-      project?: string | undefined,
+      projects?: string[] | string,
       envs?: string[]
     ): boolean => {
-      // Get the role based on the project (if specified)
-      // Fall back to the user's global role
-      const projectRole =
-        (project && user?.projectRoles?.find((r) => r.project === project)) ||
-        user;
-
-      // Missing role entirely, deny access
-      if (!projectRole) {
-        return false;
+      let checkProjects: (string | undefined)[];
+      if (Array.isArray(projects)) {
+        checkProjects = projects.length > 0 ? projects : [undefined];
+      } else {
+        checkProjects = [projects];
       }
-
-      // Admin role always has permission
-      if (projectRole.role === "admin") return true;
-
-      const permissions = getPermissionsByRole(
-        projectRole.role,
-        currentOrg?.roles || []
-      );
-
-      // Missing permission
-      if (!permissions.has(permission)) {
-        return false;
-      }
-
-      // If it's an environment-scoped permission and the user's role has limited access
-      if (envs && projectRole.limitAccessByEnvironment) {
-        for (let i = 0; i < envs.length; i++) {
-          if (!projectRole.environments.includes(envs[i])) {
-            return false;
-          }
+      for (const p of checkProjects) {
+        if (
+          !hasPermission(
+            currentOrg?.currentUserPermissions,
+            permission,
+            p,
+            envs
+          )
+        ) {
+          return false;
         }
       }
-
-      // If it got through all the above checks, the user has permission
       return true;
     },
-    [currentOrg?.roles, user]
+    [currentOrg?.currentUserPermissions]
   );
 
   return (
@@ -347,7 +329,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
         userId: data?.userId,
         name: data?.userName,
         email: data?.email,
-        admin: data?.admin,
+        superAdmin: data?.superAdmin,
         updateUser,
         user,
         users,

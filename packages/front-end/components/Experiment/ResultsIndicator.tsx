@@ -24,16 +24,12 @@ const displayName = {
 
 const ResultsIndicator: FC<{
   results: Results;
-  newUi?: boolean;
-}> = ({ results, newUi }) => {
+}> = ({ results }) => {
   const color = getColorClass(results);
-  const className = newUi
-    ? `results-indicator ${color} px-3 font-weight-bold text-uppercase`
-    : `badge badge-pill ${color} mr-2`;
-  const style = newUi ? { fontSize: "85%" } : {};
+  const className = `results-indicator ${color} px-3 font-weight-bold text-uppercase`;
 
   return (
-    <div className={className} style={style}>
+    <div className={className} style={{ fontSize: "85%" }}>
       {displayName[results]}
     </div>
   );

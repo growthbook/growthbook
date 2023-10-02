@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { useRouter } from "next/router";
 import React, { FC, useCallback, useState } from "react";
 import {
@@ -8,6 +7,8 @@ import {
   FaKey,
 } from "react-icons/fa";
 import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
+import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
+import { useFeatureIsOn } from "@growthbook/growthbook-react";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { hasFileConfig } from "@/services/env";
@@ -26,8 +27,11 @@ import Code from "@/components/SyntaxHighlighting/Code";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import Modal from "@/components/Modal";
 import SchemaBrowser from "@/components/SchemaBrowser/SchemaBrowser";
-import { GBCircleArrowLeft } from "@/components/Icons";
 import DataSourceMetrics from "@/components/Settings/EditDataSource/DataSourceMetrics";
+import DataSourcePipeline from "@/components/Settings/EditDataSource/DataSourcePipeline/DataSourcePipeline";
+import { DeleteDemoDatasourceButton } from "@/components/DemoDataSourcePage/DemoDataSourcePage";
+import { useUser } from "@/services/UserContext";
+import PageHead from "@/components/Layout/PageHead";
 
 function quotePropertyName(name: string) {
   if (name.match(/^[a-zA-Z_][a-zA-Z0-9_]*$/)) {
@@ -51,12 +55,17 @@ const DataSourcePage: FC = () => {
   const { did } = router.query as { did: string };
   const d = getDatasourceById(did);
   const { apiCall } = useAuth();
+  const { organization, hasCommercialFeature } = useUser();
 
   const canEdit =
     (d &&
       checkDatasourceProjectPermissions(d, permissions, "createDatasources") &&
       !hasFileConfig()) ||
     false;
+
+  const pipelineEnabled =
+    useFeatureIsOn("datasource-pipeline-mode") &&
+    hasCommercialFeature("pipeline-mode");
 
   /**
    * Update the data source provided.
@@ -114,13 +123,30 @@ const DataSourcePage: FC = () => {
 
   return (
     <div className="container pagecontents">
-      <div className="mb-2">
-        <Link href="/datasources">
-          <a>
-            <GBCircleArrowLeft /> Back to all data sources
-          </a>
-        </Link>
-      </div>
+      <PageHead
+        breadcrumb={[
+          { display: "Data Sources", href: "/datasources" },
+          { display: d.name },
+        ]}
+      />
+
+      {d.projects?.includes(
+        getDemoDatasourceProjectIdForOrganization(organization.id)
+      ) && (
+        <div className="alert alert-info mb-3 d-flex align-items-center mt-3">
+          <div className="flex-1">
+            This is part of our sample dataset. You can safely delete this once
+            you are done exploring.
+          </div>
+          <div style={{ width: 180 }} className="ml-2">
+            <DeleteDemoDatasourceButton
+              onDelete={() => router.push("/datasources")}
+              source="datasource"
+            />
+          </div>
+        </div>
+      )}
+
       {d.decryptionError && (
         <div className="alert alert-danger mb-2 d-flex justify-content-between align-items-center">
           <strong>Error Decrypting Data Source Credentials.</strong>{" "}
@@ -322,6 +348,17 @@ mixpanel.init('YOUR PROJECT TOKEN', {
                   canEdit={canEdit}
                 />
               </div>
+
+              {d.properties?.supportsWritingTables && pipelineEnabled ? (
+                <div className="my-3 p-3 rounded border bg-white">
+                  <DataSourcePipeline
+                    dataSource={d}
+                    onSave={updateDataSourceSettings}
+                    onCancel={() => undefined}
+                    canEdit={canEdit}
+                  />
+                </div>
+              ) : null}
             </>
           )}
         </div>
