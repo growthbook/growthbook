@@ -2,6 +2,7 @@ import { createApiRequestHandler } from "../../util/handler";
 import { getUserByEmail, getUserByExternalId } from "../../services/users";
 import { listUsersValidator } from "../../validators/scimapi";
 import { UserInterface } from "../../../types/user";
+import { ApiRequestLocals } from "../../../types/api";
 
 // type listUsersResponse = {
 //   schemas: ["urn:ietf:params:scim:schemas:core:2.0:User"];
