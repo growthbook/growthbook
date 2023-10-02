@@ -1,11 +1,14 @@
 import type { Response } from "express";
+import { orgHasPremiumFeature } from "enterprise";
+import { isDemoDatasourceProject } from "shared/demo-datasource";
 import { AuthRequest } from "../../types/AuthRequest";
-import { ApiErrorResponse } from "../../../types/api";
+import { ApiErrorResponse, PrivateApiErrorResponse } from "../../../types/api";
 import { getOrgFromReq } from "../../services/organizations";
 import { ProjectInterface, ProjectSettings } from "../../../types/project";
 import {
   createProject,
   deleteProjectById,
+  findAllProjectsByOrganization,
   findProjectById,
   updateProject,
   updateProjectSettings,
@@ -51,7 +54,7 @@ type CreateProjectResponse = {
 export const postProject = async (
   req: CreateProjectRequest,
   res: Response<
-    CreateProjectResponse | ApiErrorResponse,
+    CreateProjectResponse | PrivateApiErrorResponse,
     EventAuditUserForResponseLocals
   >
 ) => {
@@ -59,6 +62,21 @@ export const postProject = async (
 
   const { name, description } = req.body;
   const { org } = getOrgFromReq(req);
+
+  if (!orgHasPremiumFeature(org, "create-multiple-projects")) {
+    const projects = await findAllProjectsByOrganization(org.id);
+    const filteredProjects = projects.filter(
+      (p) =>
+        !isDemoDatasourceProject({ projectId: p.id, organizationId: org.id })
+    );
+    if (filteredProjects.length >= 1) {
+      return res.status(403).json({
+        status: 403,
+        message:
+          "Organization does not have premium feature: create-multiple-projects",
+      });
+    }
+  }
 
   const doc = await createProject(org.id, {
     name,
