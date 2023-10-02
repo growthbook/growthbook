@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-import { FeatureDefinition, FeatureResult } from "@growthbook/growthbook";
+import type { FeatureDefinition, FeatureResult } from "@growthbook/growthbook";
 import { UserRef } from "./user";
 
 export type FeatureValueType = "boolean" | "string" | "number" | "json";
