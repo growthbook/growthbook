@@ -24,47 +24,70 @@ const sidebars = {
       label: "What is GrowthBook?",
     },
     {
+      type: "doc",
+      id: "quick-start",
+      label: "Quick Start Guide",
+    },
+    {
       type: "category",
-      label: "Self-Hosting Guide",
       collapsed: true,
+      label: "Feature Flags",
       link: {
         type: "doc",
-        id: "self-host/index",
+        id: "features/index",
       },
       items: [
-        "self-host/environment-variables",
-        "self-host/config-yml",
-        "self-host/proxy",
+        {
+          type: "doc",
+          id: "features/basics",
+          label: "Basics",
+        },
+        {
+          type: "doc",
+          id: "features/environments",
+          label: "Environments",
+        },
+        {
+          type: "doc",
+          id: "features/targeting",
+          label: "Targeting",
+        },
+        {
+          type: "doc",
+          id: "features/rules",
+          label: "Rules",
+        },
+        {
+          type: "doc",
+          id: "features/scheduling",
+          label: "Scheduling",
+        },
       ],
     },
     {
       type: "category",
-      label: "SDKs",
+      label: "Running Experiments",
       collapsed: true,
       link: {
         type: "doc",
-        id: "lib/index",
+        id: "experiments",
       },
       items: [
-        { type: "doc", id: "lib/js", label: "Javascript" },
-        { type: "doc", id: "lib/react", label: "React" },
-        { type: "doc", id: "lib/vue", label: "Vue.js" },
-        { type: "doc", id: "lib/php", label: "PHP)" },
-        { type: "doc", id: "lib/ruby", label: "Ruby" },
-        { type: "doc", id: "lib/python", label: "Python" },
-        { type: "doc", id: "lib/java", label: "Java", className: "pill-new" },
-        { type: "doc", id: "lib/csharp", label: "C#", className: "pill-new" },
-        { type: "doc", id: "lib/go", label: "Go" },
-        { type: "doc", id: "lib/kotlin", label: "Kotlin (Android)" },
-        { type: "doc", id: "lib/flutter", label: "Flutter" },
-        { type: "doc", id: "lib/swift", label: "Swift (iOS)" },
-        { type: "doc", id: "lib/build-your-own", label: "Build Your Own" },
+        {
+          type: "doc",
+          id: "feature-flag-experiments",
+          label: "Feature Flags",
+        },
+        {
+          type: "doc",
+          id: "visual-editor",
+          label: "Visual Editor",
+        },
       ],
     },
-    { type: "doc", id: "features", label: "Feature Flags" },
     {
       type: "category",
-      label: "Experimentation Analysis",
+      label: "Experiment Analysis",
       collapsed: true,
       items: [
         {
@@ -277,10 +300,40 @@ const sidebars = {
       ],
     },
     {
-      type: "doc",
-      id: "visual-editor",
-      label: "Visual Editor",
+      type: "category",
+      label: "SDKs",
+      collapsed: true,
+      link: {
+        type: "doc",
+        id: "lib/index",
+      },
+      items: [
+        { type: "doc", id: "lib/js", label: "Javascript" },
+        { type: "doc", id: "lib/react", label: "React" },
+        { type: "doc", id: "lib/vue", label: "Vue.js" },
+        { type: "doc", id: "lib/php", label: "PHP)" },
+        { type: "doc", id: "lib/ruby", label: "Ruby" },
+        { type: "doc", id: "lib/python", label: "Python" },
+        { type: "doc", id: "lib/java", label: "Java", className: "pill-new" },
+        { type: "doc", id: "lib/csharp", label: "C#", className: "pill-new" },
+        { type: "doc", id: "lib/go", label: "Go" },
+        { type: "doc", id: "lib/kotlin", label: "Kotlin (Android)" },
+        { type: "doc", id: "lib/flutter", label: "Flutter" },
+        { type: "doc", id: "lib/swift", label: "Swift (iOS)" },
+        { type: "doc", id: "lib/build-your-own", label: "Build Your Own" },
+      ],
     },
+    {
+      type: "category",
+      label: "Self-Hosting",
+      collapsed: true,
+      link: {
+        type: "doc",
+        id: "self-host/index",
+      },
+      items: ["self-host/environment-variables", "self-host/config-yml"],
+    },
+    { type: "doc", id: "self-host/proxy", label: "Proxy" },
     { type: "doc", id: "api-overview", label: "API" },
     { type: "doc", id: "webhooks", label: "Webhooks" },
     {
@@ -297,6 +350,11 @@ const sidebars = {
           type: "doc",
           id: "guide/create-react-app-and-growthbook",
           label: "Create React App",
+        },
+        {
+          type: "doc",
+          id: "event-trackers/GA4-google-analytics",
+          label: "Google Analytics (GA4)",
         },
         {
           type: "doc",
@@ -354,9 +412,28 @@ const sidebars = {
           label: "Slack alerts",
           className: "pill-new",
         },
+        { type: "doc", id: "sso", label: "SSO" },
+        {
+          type: "doc",
+          id: "integrations/datadog",
+          label: "DataDog",
+          className: "pill-new",
+        },
       ],
     },
     { type: "doc", id: "faq", label: "FAQ" },
+    {
+      type: "category",
+      label: "Account",
+      collapsed: true,
+      items: [
+        {
+          type: "doc",
+          id: "account/user-permissions",
+          label: "Roles & Permissions",
+        },
+      ],
+    },
   ],
 };
 

@@ -13,13 +13,6 @@ import {
 } from "back-end/types/organization";
 import { PermissionFunctions } from "@/services/UserContext";
 
-function safeTableName(name: string) {
-  return name
-    .toLowerCase()
-    .replace(/\s+/g, "_")
-    .replace(/[^-a-zA-Z0-9_]+/g, "");
-}
-
 function camelToUnderscore(orig) {
   return orig
     .replace(/\s+/g, "_")
@@ -57,7 +50,8 @@ FROM
   UNNEST(event_params) AS experiment_id_param,
   UNNEST(event_params) AS variation_id_param
 WHERE
-  _TABLE_SUFFIX BETWEEN '{{startYear}}{{startMonth}}{{startDay}}' AND '{{endYear}}{{endMonth}}{{endDay}}'
+  ((_TABLE_SUFFIX BETWEEN '{{date startDateISO "yyyyMMdd"}}' AND '{{date endDateISO "yyyyMMdd"}}') OR
+   (_TABLE_SUFFIX BETWEEN 'intraday_{{date startDateISO "yyyyMMdd"}}' AND 'intraday_{{date endDateISO "yyyyMMdd"}}'))
   AND event_name = 'experiment_viewed'  
   AND experiment_id_param.key = 'experiment_id'
   AND variation_id_param.key = 'variation_id'
@@ -68,7 +62,7 @@ WHERE
     return [];
   },
   userIdTypes: ["anonymous_id", "user_id"],
-  getMetricSQL: (name, type, tablePrefix) => {
+  getMetricSQL: (type, tablePrefix) => {
     return `SELECT
   user_id,
   user_pseudo_id as anonymous_id,
@@ -89,9 +83,10 @@ FROM
         : ""
     }
 WHERE
-  event_name = '${name}'  
+  event_name = '{{eventName}}'  
   AND value_param.key = 'value'
-  AND _TABLE_SUFFIX BETWEEN '{{startYear}}{{startMonth}}{{startDay}}' AND '{{endYear}}{{endMonth}}{{endDay}}'
+  AND ((_TABLE_SUFFIX BETWEEN '{{date startDateISO "yyyyMMdd"}}' AND '{{date endDateISO "yyyyMMdd"}}') OR
+       (_TABLE_SUFFIX BETWEEN 'intraday_{{date startDateISO "yyyyMMdd"}}' AND 'intraday_{{date endDateISO "yyyyMMdd"}}'))
     `;
   },
 };
@@ -132,7 +127,7 @@ WHERE
     return [];
   },
   userIdTypes: ["anonymous_id", "user_id"],
-  getMetricSQL: (name, type, tablePrefix) => {
+  getMetricSQL: (type, tablePrefix) => {
     return `SELECT
   user_id,
   domain_userid as anonymous_id,
@@ -141,12 +136,18 @@ WHERE
       ? ",\n  tr_total as value"
       : type === "binomial"
       ? ""
+      : type === "count"
+      ? ",\n  1 as value"
       : `,\n  se_value as value`
   }
 FROM
   ${tablePrefix}events
 WHERE
-  ${type === "revenue" ? "event_name = 'transaction'" : `se_action = '${name}'`}
+  ${
+    type === "revenue"
+      ? "event_name = 'transaction'"
+      : `se_action = '{{eventName}}'`
+  }
     `;
   },
 };
@@ -166,7 +167,7 @@ FROM
     return [];
   },
   userIdTypes: ["user_id"],
-  getMetricSQL: (name, type, tablePrefix) => {
+  getMetricSQL: (type, tablePrefix) => {
     return `SELECT
   user_id as user_id,
   timestamp as timestamp${
@@ -174,19 +175,20 @@ FROM
       ? ",\n  revenue as value"
       : type === "binomial"
       ? ""
-      : `,\n  value as value`
+      : `,\n  {{valueColumn}} as value`
   }
 FROM
-  ${tablePrefix}${safeTableName(name)}`;
+  ${tablePrefix}{{snakecase eventName}}`;
   },
 };
 
 const AmplitudeSchema: SchemaInterface = {
   experimentDimensions: ["country", "device", "os", "paying"],
   getExperimentSQL: (tablePrefix, userId, options) => {
-    const userCol = userId === "user_id" ? "user_id" : "$amplitude_id";
+    const userCol = userId === "user_id" ? "user_id" : "amplitude_id";
     // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
     const eventType = options.eventType || "Experiment Viewed";
+    const projectId = options?.projectId || "AMPLITUDE_PROJECT_ID";
 
     return `SELECT
   ${userCol} as ${userId},
@@ -198,7 +200,7 @@ const AmplitudeSchema: SchemaInterface = {
   country,
   paying
 FROM
-  ${tablePrefix}$events
+  ${tablePrefix}EVENTS_${projectId}
 WHERE
   event_type = '${eventType}'
   AND ${userCol} is not null
@@ -208,21 +210,23 @@ WHERE
     return [];
   },
   userIdTypes: ["anonymous_id", "user_id"],
-  getMetricSQL: (name, type, tablePrefix) => {
+  getMetricSQL: (type, tablePrefix) => {
     return `SELECT
   user_id,
-  $amplitude_id as anonymous_id,
+  amplitude_id as anonymous_id,
   event_time as timestamp${
     type === "revenue"
       ? ",\n  event_properties:revenue as value"
       : type === "binomial"
       ? ""
+      : type === "count"
+      ? ",\n  1 as value"
       : `,\n  event_properties:value as value`
   }
 FROM
-  ${tablePrefix}$events
+  ${tablePrefix}EVENTS_AMPLITUDE_PROJECT_ID
 WHERE
-  event_type = '${name}'
+  event_type = '{{eventName}}'
     `;
   },
 };
@@ -269,13 +273,15 @@ FROM
     ];
   },
   userIdTypes: ["anonymous_id", "user_id"],
-  getMetricSQL: (name, type, tablePrefix) => {
+  getMetricSQL: (type, tablePrefix) => {
     return `SELECT
   user_id,
   anonymous_id,
-  received_at as timestamp${type === "binomial" ? "" : ",\n  value as value"}
+  received_at as timestamp${
+    type === "binomial" ? "" : ",\n  {{valueColumn}} as value"
+  }
 FROM
-  ${tablePrefix}${safeTableName(name)}`;
+  ${tablePrefix}{{snakecase eventName}}`;
   },
 };
 
@@ -310,12 +316,14 @@ WHERE
     return [];
   },
   userIdTypes: ["anonymous_id"],
-  getMetricSQL: (name, type, tablePrefix) => {
+  getMetricSQL: (type, tablePrefix) => {
     return `SELECT
   anonymous_id,
-  received_at as timestamp${type === "binomial" ? "" : ",\n  value as value"}
+  received_at as timestamp${
+    type === "binomial" ? "" : ",\n  {{valueColumn}} as value"
+  }
 FROM
-  ${tablePrefix}${safeTableName(name)}`;
+  ${tablePrefix}{{snakecase eventName}}`;
   },
 };
 
@@ -365,10 +373,12 @@ FROM
     ];
   },
   userIdTypes: ["anonymous_id", "user_id"],
-  getMetricSQL: (name, type, tablePrefix) => {
+  getMetricSQL: (type, tablePrefix) => {
     return `SELECT
   conv(hex(events.idvisitor), 16, 16) as anonymous_id,
-  server_time as timestamp${type === "binomial" ? "" : ",\n  value as value"}
+  server_time as timestamp${
+    type === "binomial" ? "" : ",\n  {{valueColumn}} as value"
+  }
 FROM
   ${tablePrefix}_log_link_visit_action`;
   },
@@ -407,13 +417,15 @@ FROM
     ];
   },
   userIdTypes: ["device_id", "user_id"],
-  getMetricSQL: (name, type, tablePrefix) => {
+  getMetricSQL: (type, tablePrefix) => {
     return `SELECT
   user_id,
   device_id,
-  sent_at as timestamp${type === "binomial" ? "" : ",\n  value as value"}
+  sent_at as timestamp${
+    type === "binomial" ? "" : ",\n  {{valueColumn}} as value"
+  }
 FROM
-  ${tablePrefix}${safeTableName(name)}`;
+  ${tablePrefix}{{snakecase eventName}}`;
   },
 };
 
@@ -451,12 +463,14 @@ WHERE
     return [];
   },
   userIdTypes: ["user_id"],
-  getMetricSQL: (name, type, tablePrefix) => {
+  getMetricSQL: (type, tablePrefix) => {
     return `SELECT
   user_id,
-  sent_at as timestamp${type === "binomial" ? "" : ",\n  value as value"}
+  sent_at as timestamp${
+    type === "binomial" ? "" : ",\n  {{valueColumn}} as value"
+  }
 FROM
-  ${tablePrefix}${safeTableName(name)}`;
+  ${tablePrefix}{{snakecase eventName}}`;
   },
 };
 
@@ -479,7 +493,7 @@ FROM
   UNNEST(exp_event_properties.event_properties) AS experiment_id_param
   UNNEST(exp_event_properties.event_properties) AS variation_id_param
 WHERE
-  _TABLE_SUFFIX BETWEEN '{{startYear}}{{startMonth}}{{startDay}}' AND '{{endYear}}{{endMonth}}{{endDay}}'
+  _TABLE_SUFFIX BETWEEN '{{date startDateISO "yyyyMMdd"}}' AND '{{date endDateISO "yyyyMMdd"}}'
   AND event_type = 'custom'
   AND exp_event_properties.event_name = 'experiment_viewed'  
   AND experiment_id_param.key = 'experiment_id'
@@ -491,14 +505,14 @@ WHERE
     return [];
   },
   userIdTypes: ["device_id"],
-  getMetricSQL: (name, type, tablePrefix) => {
+  getMetricSQL: (type, tablePrefix) => {
     return `SELECT
   device_id,
   TIMESTAMP_MICROS(event_time) as timestamp${
-    type === "binomial" ? "" : ",\n  value as value"
+    type === "binomial" ? "" : ",\n  {{valueColumn}} as value"
   }
   FROM
-    ${tablePrefix}${safeTableName(name)}`;
+    ${tablePrefix}{{snakecase eventName}}`;
   },
 };
 
@@ -561,6 +575,10 @@ function getTablePrefix(params: DataSourceParams) {
       params.schema || "public"
     }.`;
   }
+  // Athena
+  else if ("catalog" in params && "database" in params) {
+    return `${params.catalog}.${params.database}.`;
+  }
 
   return "";
 }
@@ -619,14 +637,13 @@ export function getExposureQuery(
 
 export function getInitialMetricQuery(
   datasource: DataSourceInterfaceWithParams,
-  type: MetricType,
-  name: string
+  type: MetricType
 ): [string[], string] {
   const schema = getSchemaObject(datasource.settings?.schemaFormat);
 
   return [
     schema.userIdTypes,
-    schema.getMetricSQL(name, type, getTablePrefix(datasource.params)),
+    schema.getMetricSQL(type, getTablePrefix(datasource.params)),
   ];
 }
 

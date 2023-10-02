@@ -1,6 +1,8 @@
+import { snowflakeCreateTableOptions } from "enterprise";
 import { SnowflakeConnectionParams } from "../../types/integrations/snowflake";
 import { decryptDataSourceParams } from "../services/datasource";
 import { runSnowflakeQuery } from "../services/snowflake";
+import { QueryResponse } from "../types/Integration";
 import { FormatDialect } from "../util/sql";
 import SqlIntegration from "./SqlIntegration";
 
@@ -14,13 +16,19 @@ export default class Snowflake extends SqlIntegration {
       encryptedParams
     );
   }
+  isWritingTablesSupported(): boolean {
+    return true;
+  }
+  createUnitsTableOptions() {
+    return snowflakeCreateTableOptions(this.settings.pipelineSettings ?? {});
+  }
   getFormatDialect(): FormatDialect {
     return "snowflake";
   }
   getSensitiveParamKeys(): string[] {
     return ["password"];
   }
-  runQuery(sql: string) {
+  runQuery(sql: string): Promise<QueryResponse> {
     return runSnowflakeQuery(this.params, sql);
   }
   formatDate(col: string): string {

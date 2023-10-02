@@ -5,7 +5,7 @@ import { useRouter } from "next/router";
 import clsx from "clsx";
 import { AccountPlan } from "enterprise";
 import { FiChevronRight } from "react-icons/fi";
-import { Permission } from "back-end/types/organization";
+import { GlobalPermission, Permission } from "back-end/types/organization";
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import { AppFeatures } from "@/types/app-features";
 import { isCloud } from "../../services/env";
@@ -33,7 +33,7 @@ export type SidebarLinkProps = {
 };
 
 const SidebarLink: FC<SidebarLinkProps> = (props) => {
-  const { permissions, admin, accountPlan } = useUser();
+  const { permissions, superAdmin, accountPlan } = useUser();
   const router = useRouter();
 
   const path = router.route.substr(1);
@@ -56,11 +56,11 @@ const SidebarLink: FC<SidebarLinkProps> = (props) => {
     return null;
   }
 
-  if (props.superAdmin && !admin) return null;
+  if (props.superAdmin && !superAdmin) return null;
   if (props.permissions) {
     let allowed = false;
     for (let i = 0; i < props.permissions.length; i++) {
-      if (permissions[props.permissions[i]]) {
+      if (permissions.check(props.permissions[i] as GlobalPermission)) {
         allowed = true;
       }
     }
@@ -136,11 +136,13 @@ const SidebarLink: FC<SidebarLinkProps> = (props) => {
               (subLink) => !subLink.feature || growthbook.isOn(subLink.feature)
             )
             .map((l) => {
-              if (l.superAdmin && !admin) return null;
+              if (l.superAdmin && !superAdmin) return null;
 
               if (l.permissions) {
                 for (let i = 0; i < l.permissions.length; i++) {
-                  if (!permissions[l.permissions[i]]) {
+                  if (
+                    !permissions.check(l.permissions[i] as GlobalPermission)
+                  ) {
                     return null;
                   }
                 }

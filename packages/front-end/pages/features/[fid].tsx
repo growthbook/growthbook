@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { useRouter } from "next/router";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { FeatureInterface } from "back-end/types/feature";
@@ -6,8 +5,10 @@ import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import React, { useState } from "react";
 import { FaChevronRight, FaExclamationTriangle } from "react-icons/fa";
 import { datetime } from "shared/dates";
+import { getValidation } from "shared/util";
+import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
-import { GBAddCircle, GBCircleArrowLeft, GBEdit } from "@/components/Icons";
+import { GBAddCircle, GBEdit } from "@/components/Icons";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import useApi from "@/hooks/useApi";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
@@ -31,7 +32,6 @@ import {
   useEnvironments,
   getEnabledEnvironments,
   getAffectedEnvs,
-  getValidation,
 } from "@/services/features";
 import Tab from "@/components/Tabs/Tab";
 import FeatureImplementationModal from "@/components/Features/FeatureImplementationModal";
@@ -50,6 +50,8 @@ import EditSchemaModal from "@/components/Features/EditSchemaModal";
 import Code from "@/components/SyntaxHighlighting/Code";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { useUser } from "@/services/UserContext";
+import { DeleteDemoDatasourceButton } from "@/components/DemoDataSourcePage/DemoDataSourcePage";
+import PageHead from "@/components/Layout/PageHead";
 
 export default function FeaturePage() {
   const router = useRouter();
@@ -74,10 +76,14 @@ export default function FeaturePage() {
   const [editTagsModal, setEditTagsModal] = useState(false);
   const [editOwnerModal, setEditOwnerModal] = useState(false);
 
-  const { getProjectById, projects } = useDefinitions();
+  const {
+    getProjectById,
+    project: currentProject,
+    projects,
+  } = useDefinitions();
 
   const { apiCall } = useAuth();
-  const { hasCommercialFeature } = useUser();
+  const { hasCommercialFeature, organization } = useUser();
 
   const { data, error, mutate } = useApi<{
     feature: FeatureInterface;
@@ -201,6 +207,14 @@ export default function FeaturePage() {
           mutate={mutate}
           method="PUT"
           current={data.feature.project}
+          additionalMessage={
+            data.feature.linkedExperiments?.length ? (
+              <div className="alert alert-danger">
+                Changing the project may prevent your linked Experiments from
+                being sent to users.
+              </div>
+            ) : null
+          }
         />
       )}
       {editTagsModal && (
@@ -244,6 +258,13 @@ export default function FeaturePage() {
         />
       )}
 
+      <PageHead
+        breadcrumb={[
+          { display: "Features", href: "/features" },
+          { display: data.feature.id },
+        ]}
+      />
+
       {isDraft && (
         <div
           className="alert alert-warning mb-3 text-center shadow-sm"
@@ -263,13 +284,26 @@ export default function FeaturePage() {
         </div>
       )}
 
+      {projectId ===
+        getDemoDatasourceProjectIdForOrganization(organization.id) && (
+        <div className="alert alert-info mb-3 d-flex align-items-center">
+          <div className="flex-1">
+            This feature is part of our sample dataset and shows how Feature
+            Flags and Experiments can be linked together. You can delete this
+            once you are done exploring.
+          </div>
+          <div style={{ width: 180 }} className="ml-2">
+            <DeleteDemoDatasourceButton
+              onDelete={() => router.push("/features")}
+              source="feature"
+            />
+          </div>
+        </div>
+      )}
+
       <div className="row align-items-center mb-2">
         <div className="col-auto">
-          <Link href="/features">
-            <a>
-              <GBCircleArrowLeft /> Back to all features
-            </a>
-          </Link>
+          <h1 className="mb-0">{fid}</h1>
         </div>
         <div style={{ flex: 1 }} />
         <div className="col-auto">
@@ -373,10 +407,6 @@ export default function FeaturePage() {
         )}
       </div>
 
-      <div className="row align-items-center mb-2">
-        <h1 className="col-auto mb-0">{fid}</h1>
-      </div>
-
       <div className="mb-2 row">
         {(projects.length > 0 || projectIsDeReferenced) && (
           <div className="col-auto">
@@ -392,6 +422,15 @@ export default function FeaturePage() {
                 <span className="text-danger">
                   <FaExclamationTriangle /> Invalid project
                 </span>
+              </Tooltip>
+            ) : currentProject && currentProject !== data.feature.project ? (
+              <Tooltip body={<>This feature is not in your current project.</>}>
+                {projectId ? (
+                  <strong>{projectName}</strong>
+                ) : (
+                  <em className="text-muted">None</em>
+                )}{" "}
+                <FaExclamationTriangle className="text-warning" />
               </Tooltip>
             ) : projectId ? (
               <strong>{projectName}</strong>
@@ -754,7 +793,7 @@ export default function FeaturePage() {
                     setRuleModal({
                       environment: env,
                       i: getRules(data.feature, env).length,
-                      defaultType: "experiment",
+                      defaultType: "experiment-ref-new",
                     });
                     track("Viewed Rule Modal", {
                       source: "add-rule",

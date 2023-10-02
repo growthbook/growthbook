@@ -11,7 +11,7 @@ The Experiments section in GrowthBook is all about analyzing raw experiment resu
 
 Before analyzing results, you need to actually run the experiment. This can be done in several ways:
 
-- [Feature Flags](/app/features) (most common)
+- [Feature Flags](/feature-flag-experiments) (most common)
 - Running an inline experiment directly with our [SDKs](/lib)
 - Our [Visual Editor](/app/visual) (beta)
 - Your own custom variation assignment / bucketing system
@@ -25,7 +25,7 @@ You can add an experiment analysis to GrowthBook in a few ways.
 **Starting an Experiment Analysis from a Feature**
 
 This is the easiest way to start a new analysis if you have a Feature set up.
-Navigate to the Feature of interest and click "View results" in the Experiment Rule of the Feature.
+Navigate to the Feature of interest and click "View results" in the Experiment Rule of the Feature. Read more about running feature experiments [here](/feature-flag-experiments).
 
 **Importing an Experiment Analysis from your Data Source**
 
@@ -84,6 +84,40 @@ You can add metrics as goal metrics, guardrail metrics, or both. You also can ad
 ### Experiment Phases
 
 Experiment Phases can help you filter the dates used in the experiment analysis. Be very careful using phases. If you move the start date of the phase to past the start date of the experiment (and users were not re-randomized across phases), then your analysis could suffer from carryover bias. It is best to always look at the full history of an experiment if possible.
+
+### Making Changes While Running
+
+We allow you make changes to an experiment's targeting while it is running. This is especially useful if you want to start running on a small percent of traffic and then gradually ramp up exposure.
+
+Based on what you are changing, there are two recommended ways to release these changes. The UI should guide you to make the correct recommended choice in most cases, but you are able to change this if desired.
+
+#### Update the existing phase
+
+This modifies the experiment in-place without resetting results or re-randomizing users. This provides the best user experience for your users and you can re-use data that was already collected, which can reduce the time the experiment needs to run.
+
+However, if you're not careful, this can introduce significant bias and data quality issues into your results. A few categories of changes are broadly considered "safe" and if you are only making these changes, this is the approach we recommend going with. The "safe" changes are:
+
+- Increasing the percent of people included in the experiment
+- Removing a condition from an experiment (e.g. going from "US visitors only" to "All visitors")
+- Removing an experiment from a namespace
+
+All of these changes have something in common - they are simply increasing the number of users exposed to the experiment. There is no affect on existing users in the experiment.
+
+#### Start a new phase
+
+This creates a brand new phase of the experiment. All data collected until this point is excluded from the analysis and you start fresh (nothing is deleted from your data warehouse, we just hide old data from the results).
+
+In addition, there is a recommended toggle to re-randomize traffic. This will cause everyone - including existing experiment users - to get assigned a new random variation. This can be a disruptive user experience since many people will switch from Control to Treatment (or vice versa).
+
+Why would you ever want to do this? Some changes you make completely invalidate past results so this lets you cleanly separate the data analysis from before and after you make the change. Re-randomizing traffic can also eliminate carryover bias and make your results more reliable and accurate.
+
+We recommend this approach for any change that is not considered "safe" (listed above). This can include (but not limited to):
+
+- Changing the traffic split between variations
+- Adding a new targeting condition
+- Decreasing the percent of people included
+
+Because of how disruptive this can be, it's best to plan ahead before starting an experiment. It's better to start with more conservative targeting and scale up than the reverse (starting big and scaling back).
 
 ## Experiment Results Table (Bayesian Engine)
 

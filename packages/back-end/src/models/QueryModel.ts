@@ -37,6 +37,9 @@ const querySchema = new mongoose.Schema({
   result: {},
   rawResult: [],
   error: String,
+  statistics: {},
+  dependencies: [String],
+  cachedQueryUsed: String,
 });
 
 type QueryDocument = mongoose.Document & QueryInterface;
@@ -136,29 +139,56 @@ export async function createNewQuery({
   datasource,
   language,
   query,
-  result = null,
-  error = null,
+  dependencies = [],
+  running = false,
 }: {
   organization: string;
   datasource: string;
   language: QueryLanguage;
   query: string;
-  result?: null | Record<string, unknown>;
-  error?: null | string;
+  dependencies: string[];
+  running: boolean;
 }): Promise<QueryInterface> {
   const data: QueryInterface = {
     createdAt: new Date(),
     datasource,
-    finishedAt: result || error ? new Date() : undefined,
     heartbeat: new Date(),
     id: uniqid("qry_"),
     language,
     organization,
     query,
-    startedAt: new Date(),
-    status: result ? "succeeded" : error ? "failed" : "running",
-    result: result || undefined,
-    error: error || undefined,
+    startedAt: running ? new Date() : undefined,
+    status: running ? "running" : "queued",
+    dependencies: dependencies,
+  };
+  const doc = await QueryModel.create(data);
+  return toInterface(doc);
+}
+
+export async function createNewQueryFromCached({
+  existing,
+  dependencies,
+}: {
+  existing: QueryInterface;
+  dependencies: string[];
+}): Promise<QueryInterface> {
+  const data: QueryInterface = {
+    createdAt: new Date(),
+    datasource: existing.datasource,
+    heartbeat: new Date(),
+    id: uniqid("qry_"),
+    language: existing.language,
+    organization: existing.organization,
+    query: existing.query,
+    startedAt: existing.startedAt,
+    finishedAt: existing.finishedAt,
+    status: existing.status,
+    result: existing.result,
+    rawResult: existing.rawResult,
+    error: existing.error,
+    statistics: existing.statistics,
+    dependencies: dependencies,
+    cachedQueryUsed: existing.id,
   };
   const doc = await QueryModel.create(data);
   return toInterface(doc);

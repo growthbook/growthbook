@@ -11,10 +11,12 @@ import { formatQuery, runQuery } from "../services/mixpanel";
 import {
   ExperimentMetricQueryResponse,
   ExperimentQueryResponses,
+  ExperimentUnitsQueryResponse,
   MetricValueParams,
   MetricValueQueryResponse,
   MetricValueQueryResponseRow,
-  PastExperimentResponse,
+  MetricValueQueryResponseRows,
+  PastExperimentQueryResponse,
   SourceIntegrationInterface,
 } from "../types/Integration";
 import { DEFAULT_CONVERSION_WINDOW_HOURS } from "../util/secrets";
@@ -23,7 +25,7 @@ import {
   getAggregateFunctions,
   getMixpanelPropertyColumn,
 } from "../util/mixpanel";
-import { replaceSQLVars } from "../util/sql";
+import { compileSqlTemplate } from "../util/sql";
 import { ExperimentSnapshotSettings } from "../../types/experiment-snapshot";
 
 export default class Mixpanel implements SourceIntegrationInterface {
@@ -57,7 +59,12 @@ export default class Mixpanel implements SourceIntegrationInterface {
   runExperimentMetricQuery(): Promise<ExperimentMetricQueryResponse> {
     throw new Error("Method not implemented.");
   }
-
+  getExperimentUnitsTableQuery(): string {
+    throw new Error("Method not implemented.");
+  }
+  runExperimentUnitsQuery(): Promise<ExperimentUnitsQueryResponse> {
+    throw new Error("Method not implemented.");
+  }
   private getMetricAggregationExpression(metric: MetricInterface) {
     if (metric.aggregation) {
       return `${metric.aggregation}`;
@@ -501,7 +508,7 @@ export default class Mixpanel implements SourceIntegrationInterface {
       ]
     >(this.params, query);
 
-    const result: MetricValueQueryResponse = [];
+    const result: MetricValueQueryResponseRows = [];
     const overall: MetricValueQueryResponseRow = {
       date: "",
       count: 0,
@@ -529,12 +536,12 @@ export default class Mixpanel implements SourceIntegrationInterface {
         }
       });
 
-    return [overall, ...result];
+    return { rows: [overall, ...result] };
   }
   getPastExperimentQuery(): string {
     throw new Error("Method not implemented.");
   }
-  async runPastExperimentQuery(): Promise<PastExperimentResponse> {
+  async runPastExperimentQuery(): Promise<PastExperimentQueryResponse> {
     throw new Error("Method not implemented.");
   }
   getSensitiveParamKeys(): string[] {
@@ -605,7 +612,7 @@ function is${name}(event) {
     endDate?: Date,
     experimentId?: string
   ) {
-    return replaceSQLVars(getMixpanelPropertyColumn(col), {
+    return compileSqlTemplate(getMixpanelPropertyColumn(col), {
       startDate,
       endDate,
       experimentId,

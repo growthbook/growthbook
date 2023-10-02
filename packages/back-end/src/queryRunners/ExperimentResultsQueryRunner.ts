@@ -1,3 +1,4 @@
+import { orgHasPremiumFeature } from "enterprise";
 import {
   ExperimentSnapshotAnalysis,
   ExperimentSnapshotAnalysisSettings,
@@ -19,10 +20,18 @@ import {
   ExperimentMetricStats,
   ExperimentQueryResponses,
   ExperimentResults,
+  ExperimentUnitsQueryParams,
   SourceIntegrationInterface,
 } from "../types/Integration";
 import { expandDenominatorMetrics } from "../util/sql";
-import { QueryRunner, QueryMap } from "./QueryRunner";
+import { getOrganizationById } from "../services/organizations";
+import {
+  QueryRunner,
+  QueryMap,
+  ProcessedRowsType,
+  RowsType,
+  StartQueryParams,
+} from "./QueryRunner";
 
 export type SnapshotResult = {
   unknownVariations: string[];
@@ -35,6 +44,7 @@ export type ExperimentResultsQueryParams = {
   analysisSettings: ExperimentSnapshotAnalysisSettings;
   variationNames: string[];
   metricMap: Map<string, MetricInterface>;
+  queryParentId: string;
 };
 
 export const startExperimentResultQueries = async (
@@ -42,26 +52,21 @@ export const startExperimentResultQueries = async (
   integration: SourceIntegrationInterface,
   organization: string,
   startQuery: (
-    name: string,
-    query: string,
-    // eslint-disable-next-line
-    run: (query: string) => Promise<any[]>,
-    // eslint-disable-next-line
-    process: (rows: any[]) => any,
-    useExisting?: boolean
+    params: StartQueryParams<RowsType, ProcessedRowsType>
   ) => Promise<QueryPointer>
 ): Promise<Queries> => {
   const snapshotSettings = params.snapshotSettings;
+  const queryParentId = params.queryParentId;
   const metricMap = params.metricMap;
 
-  const activationMetrics: MetricInterface[] = [];
-  if (snapshotSettings.activationMetric) {
-    activationMetrics.push(
-      ...expandDenominatorMetrics(snapshotSettings.activationMetric, metricMap)
-        .map((m) => metricMap.get(m) as MetricInterface)
-        .filter(Boolean)
-    );
-  }
+  const org = await getOrganizationById(organization);
+  const hasPipelineModeFeature = org
+    ? orgHasPremiumFeature(org, "pipeline-mode")
+    : false;
+
+  const activationMetric = snapshotSettings.activationMetric
+    ? metricMap.get(snapshotSettings.activationMetric) ?? null
+    : null;
 
   // Only include metrics tied to this experiment (both goal and guardrail metrics)
   const selectedMetrics = Array.from(
@@ -87,6 +92,46 @@ export const startExperimentResultQueries = async (
 
   const queries: Queries = [];
 
+  const useUnitsTable =
+    (integration.getSourceProperties().supportsWritingTables &&
+      integration.settings.pipelineSettings?.allowWriting &&
+      !!integration.settings.pipelineSettings?.writeDataset &&
+      hasPipelineModeFeature) ??
+    false;
+  let unitQuery: QueryPointer | null = null;
+  let unitsTableFullName = "";
+
+  if (useUnitsTable) {
+    // The Mixpanel integration does not support writing tables
+    if (!integration.generateTablePath) {
+      throw new Error(
+        "Unable to generate table; table path generator not specified."
+      );
+    }
+    unitsTableFullName = integration.generateTablePath(
+      `growthbook_tmp_units_${queryParentId}`,
+      integration.settings.pipelineSettings?.writeDataset,
+      "",
+      true
+    );
+    const unitQueryParams: ExperimentUnitsQueryParams = {
+      activationMetric: activationMetric,
+      dimension: dimensionObj,
+      segment: segmentObj,
+      settings: snapshotSettings,
+      unitsTableFullName: unitsTableFullName,
+      includeIdJoins: true,
+    };
+    unitQuery = await startQuery({
+      name: queryParentId,
+      query: integration.getExperimentUnitsTableQuery(unitQueryParams),
+      dependencies: [],
+      run: (query) => integration.runExperimentUnitsQuery(query),
+      process: (rows) => rows,
+    });
+    queries.push(unitQuery);
+  }
+
   const promises = selectedMetrics.map(async (m) => {
     const denominatorMetrics: MetricInterface[] = [];
     if (m.denominator) {
@@ -97,20 +142,23 @@ export const startExperimentResultQueries = async (
       );
     }
     const params: ExperimentMetricQueryParams = {
-      activationMetrics,
+      activationMetric,
       denominatorMetrics,
       dimension: dimensionObj,
       metric: m,
       segment: segmentObj,
       settings: snapshotSettings,
+      useUnitsTable: useUnitsTable,
+      unitsTableFullName: unitsTableFullName,
     };
     queries.push(
-      await startQuery(
-        m.id,
-        integration.getExperimentMetricQuery(params),
-        (query) => integration.runExperimentMetricQuery(query),
-        (rows) => rows
-      )
+      await startQuery({
+        name: m.id,
+        query: integration.getExperimentMetricQuery(params),
+        dependencies: unitQuery ? [unitQuery.query] : [],
+        run: (query) => integration.runExperimentMetricQuery(query),
+        process: (rows) => rows,
+      })
     );
   });
   await Promise.all(promises);
@@ -129,7 +177,6 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
   async startQueries(params: ExperimentResultsQueryParams): Promise<Queries> {
     this.metricMap = params.metricMap;
     this.variationNames = params.variationNames;
-
     if (
       this.integration.getSourceProperties().separateExperimentResultQueries
     ) {
@@ -224,17 +271,9 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
     const snapshotSettings = params.snapshotSettings;
     const metricMap = params.metricMap;
 
-    const activationMetrics: MetricInterface[] = [];
-    if (snapshotSettings.activationMetric) {
-      activationMetrics.push(
-        ...expandDenominatorMetrics(
-          snapshotSettings.activationMetric,
-          metricMap
-        )
-          .map((m) => metricMap.get(m) as MetricInterface)
-          .filter(Boolean)
-      );
-    }
+    const activationMetric = snapshotSettings.activationMetric
+      ? metricMap.get(snapshotSettings.activationMetric) ?? null
+      : null;
 
     // Only include metrics tied to this experiment (both goal and guardrail metrics)
     const selectedMetrics = Array.from(
@@ -258,25 +297,28 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
     const query = this.integration.getExperimentResultsQuery(
       snapshotSettings,
       selectedMetrics,
-      activationMetrics[0],
+      activationMetric,
       dimension
     );
 
     return [
-      await this.startQuery(
-        "results",
-        query,
-        () =>
-          this.integration.getExperimentResults(
+      await this.startQuery({
+        name: "results",
+        query: query,
+        dependencies: [],
+        run: async () => {
+          const rows = (await this.integration.getExperimentResults(
             snapshotSettings,
             selectedMetrics,
-            activationMetrics[0],
+            activationMetric,
             dimension
             // eslint-disable-next-line
-            ) as Promise<any[]>,
-        (rows: ExperimentQueryResponses) =>
-          this.processLegacyExperimentResultsResponse(snapshotSettings, rows)
-      ),
+          )) as any[];
+          return { rows: rows };
+        },
+        process: (rows: ExperimentQueryResponses) =>
+          this.processLegacyExperimentResultsResponse(snapshotSettings, rows),
+      }),
     ];
   }
 

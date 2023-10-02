@@ -6,7 +6,6 @@ import {
   getDiscussionByParent,
   getLastNDiscussions,
 } from "../services/discussions";
-import { getFileUploadURL } from "../services/files";
 import { getOrgFromReq } from "../services/organizations";
 
 export async function postDiscussions(
@@ -221,26 +220,4 @@ export async function getRecentDiscussions(
       message: e.message,
     });
   }
-}
-
-export async function postImageUploadUrl(
-  req: AuthRequest<null, { filetype: string }>,
-  res: Response
-) {
-  req.checkPermissions("addComments", "");
-
-  const { org } = getOrgFromReq(req);
-  const { filetype } = req.params;
-
-  const now = new Date();
-  const { uploadURL, fileURL } = await getFileUploadURL(
-    filetype,
-    `${org.id}/${now.toISOString().substr(0, 7)}/`
-  );
-
-  res.status(200).json({
-    status: 200,
-    uploadURL,
-    fileURL,
-  });
 }

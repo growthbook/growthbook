@@ -10,7 +10,7 @@ slug: google-tag-manager-and-growthbook
 Now customers who are familiar with feature management using Google Tag Manager (GTM), yet may lack the engineering resources or capability to implement changes in their codebase, may easily use GrowthBook with GTM to power their AB tests. This setup is commonly used by marketing teams and CRO agencies.
 
 :::note
-GrowthBook also offers a [visual editor](https://docs.growthbook.io/app/visual) for lightweight, no-code UI changes.
+GrowthBook also offers a [visual editor](https://docs.growthbook.io/app/visual) for lightweight, no-code UI changes. This approach is compatible with GTM and the examples provided on this page as long you enable the "Include Visual Experiments" toggle within your SDK Connection.
 :::
 
 In this guide, we will assume familiarity with the GTM platform. We also assume the ability to apply a unique user ID via Google Analytics (`client_id`), cookies, etc; as well as the ability to track events (GA or otherwise).
@@ -74,6 +74,9 @@ In the subsequent sections, we will learn how to fill in the SDK parameters such
       });
 
       // TODO: Instrument DOM with AB test logic
+      gb.loadFeatures().then(function() {
+        // NOTE: We may wish to remove `gb.loadFeatures()` and instead manually implement experiment logic
+      });
     }
   })();
 </script>
@@ -257,7 +260,7 @@ Recall that in this strategy, we define our experiments and their rulesets inlin
 
 Let's get started with our test instrumentation. We'll consider a hypothetical landing page where there are 2 features that need to be changed on the DOM based on feature flag settings: a large button (#button1) which we can optionally turn green, and a sticky banner (#banner1) which we can alter with custom text.
 
-Find the section of our snippet above beginning with `// TODO: Instrument DOM with AB test logic`. We will replace this comment with a snippet that will fetch the feature flag definitions and then apply test-specific DOM changes. Our earlier code snippet now becomes:
+Find the section of our snippet above beginning with `// TODO: Instrument DOM with AB test logic`. We will replace this section, including the loadFeatures() call, with a snippet that will run an inline experiment and apply test-specific DOM changes. Our earlier code snippet now becomes:
 
 ```html
 <script>

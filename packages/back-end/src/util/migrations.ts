@@ -417,6 +417,9 @@ export function upgradeExperimentDoc(
   // Add hashAttribute field
   experiment.hashAttribute = experiment.hashAttribute || "";
 
+  // Add hashVersion field
+  experiment.hashVersion = experiment.hashVersion || 2;
+
   // Old `observations` field
   if (!experiment.description && experiment.observations) {
     experiment.description = experiment.observations;
@@ -490,7 +493,7 @@ export function migrateSnapshot(
           dateCreated: snapshot.dateCreated,
           status: snapshot.error ? "error" : "success",
           settings: {
-            statsEngine: statsEngine || "bayesian",
+            statsEngine: statsEngine || DEFAULT_STATS_ENGINE,
             dimensions: snapshot.dimension ? [snapshot.dimension] : [],
             pValueCorrection: null,
             regressionAdjusted,

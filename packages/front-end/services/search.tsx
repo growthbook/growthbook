@@ -86,6 +86,7 @@ export function useSearch<T>({
       includeScore: true,
       useExtendedSearch: true,
       findAllMatches: true,
+      ignoreLocation: true,
       keys,
     });
   }, [items, JSON.stringify(searchFields)]);

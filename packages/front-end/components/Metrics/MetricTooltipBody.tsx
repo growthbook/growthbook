@@ -10,6 +10,7 @@ interface MetricToolTipCompProps {
   metric: MetricInterface;
   row?: ExperimentTableRow;
   reportRegressionAdjustmentEnabled?: boolean;
+  newUi?: boolean;
 }
 
 interface MetricInfo {
@@ -23,12 +24,14 @@ const MetricTooltipBody = ({
   metric,
   row,
   reportRegressionAdjustmentEnabled,
+  newUi = false,
 }: MetricToolTipCompProps): React.ReactElement => {
   function validMetricDescription(description: string): boolean {
     if (!description) return false;
     const regExp = new RegExp(/[A-Za-z0-9]/);
     return regExp.test(description);
   }
+  const metricOverrideFields = row?.metricOverrideFields ?? [];
 
   const metricInfo: MetricInfo[] = [
     {
@@ -37,10 +40,9 @@ const MetricTooltipBody = ({
       body: metric.type,
     },
     {
-      // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-      show: metric.tags?.length > 0,
+      show: (metric.tags?.length ?? 0) > 0,
       label: "Tags",
-      body: <SortedTags tags={metric.tags} />,
+      body: <SortedTags tags={metric.tags} skipFirstMargin={true} />,
     },
     {
       show:
@@ -53,14 +55,26 @@ const MetricTooltipBody = ({
         !isNullUndefinedOrEmpty(metric.conversionDelayHours) &&
         metric.conversionDelayHours !== 0,
       label: "Conversion Delay Hours",
-      // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'number | undefined' is not assignable to typ... Remove this comment to see the full error message
-      body: metric.conversionDelayHours,
+      body: (
+        <>
+          {metric.conversionDelayHours}
+          {metricOverrideFields.includes("conversionDelayHours") ? (
+            <small className="text-purple ml-1">(override)</small>
+          ) : null}
+        </>
+      ),
     },
     {
       show: !isNullUndefinedOrEmpty(metric.conversionWindowHours),
       label: "Conversion Window Hours",
-      // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'number | undefined' is not assignable to typ... Remove this comment to see the full error message
-      body: metric.conversionWindowHours,
+      body: (
+        <>
+          {metric.conversionWindowHours}
+          {metricOverrideFields.includes("conversionWindowHours") ? (
+            <small className="text-purple ml-1">(override)</small>
+          ) : null}
+        </>
+      ),
     },
   ];
 
@@ -68,15 +82,29 @@ const MetricTooltipBody = ({
     metricInfo.push({
       show: true,
       label: "CUPED",
-      body: row?.regressionAdjustmentStatus?.regressionAdjustmentEnabled
-        ? "Enabled"
-        : "Disabled",
+      body: (
+        <>
+          {row?.regressionAdjustmentStatus?.regressionAdjustmentEnabled
+            ? "Enabled"
+            : "Disabled"}
+          {metricOverrideFields.includes("regressionAdjustmentEnabled") ? (
+            <small className="text-purple ml-1">(override)</small>
+          ) : null}
+        </>
+      ),
     });
     if (row?.regressionAdjustmentStatus?.regressionAdjustmentEnabled) {
       metricInfo.push({
         show: true,
         label: "CUPED Lookback (days)",
-        body: row?.regressionAdjustmentStatus?.regressionAdjustmentDays,
+        body: (
+          <>
+            {row?.regressionAdjustmentStatus?.regressionAdjustmentDays}
+            {metricOverrideFields.includes("regressionAdjustmentDays") ? (
+              <small className="text-purple ml-1">(override)</small>
+            ) : null}
+          </>
+        ),
       });
     }
   }
@@ -87,6 +115,52 @@ const MetricTooltipBody = ({
     body: metric.description,
     markdown: true,
   });
+
+  if (newUi) {
+    return (
+      <div>
+        <h3>{metric.name}</h3>
+        <table className="table table-sm table-bordered text-left mb-0">
+          <tbody>
+            {metricInfo
+              .filter((i) => i.show)
+              .map(({ label, body, markdown }, index) => (
+                <tr key={`metricInfo${index}`}>
+                  <td
+                    className="text-right font-weight-bold py-1 align-middle"
+                    style={{
+                      width: 120,
+                      border: "1px solid var(--border-color-100)",
+                      fontSize: "12px",
+                      lineHeight: "14px",
+                    }}
+                  >{`${label}`}</td>
+                  <td
+                    className="py-1 align-middle"
+                    style={{
+                      minWidth: 180,
+                      border: "1px solid var(--border-color-100)",
+                      fontSize: "12px",
+                      lineHeight: "14px",
+                    }}
+                  >
+                    {markdown ? (
+                      <div
+                        className={clsx("border rounded p-1", styles.markdown)}
+                      >
+                        <Markdown>{body}</Markdown>
+                      </div>
+                    ) : (
+                      <span className="font-weight-normal">{body}</span>
+                    )}
+                  </td>
+                </tr>
+              ))}
+          </tbody>
+        </table>
+      </div>
+    );
+  }
 
   return (
     <div className="text-left">

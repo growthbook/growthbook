@@ -54,7 +54,7 @@ const NorthStarMetricDisplay = ({
     // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'null' is not assignable to type 'MetricAnaly... Remove this comment to see the full error message
     analysis = null;
   }
-  const status = getQueryStatus(metric.queries || [], metric.analysisError);
+  const { status } = getQueryStatus(metric.queries || [], metric.analysisError);
   const hasQueries = metric.queries?.length > 0;
 
   return (
@@ -81,7 +81,7 @@ const NorthStarMetricDisplay = ({
         ) : (
           <div className="mb-4">
             <h4 className="my-3">{metric.name}</h4>
-            {permissions.check("runQueries", "") && (
+            {permissions.check("runQueries", metric.projects || "") && (
               <form
                 onSubmit={async (e) => {
                   e.preventDefault();

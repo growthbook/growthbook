@@ -7,7 +7,7 @@ const DEMO_PROJECT_ID_SUFFIX = "demo-datasource-project";
  * @param organizationId
  */
 export function getDemoDatasourceProjectIdForOrganization(
-  organizationId: string
+  organizationId?: string
 ): string {
   return (
     "prj" +
@@ -28,9 +28,15 @@ export function isDemoDatasourceProject({
   organizationId,
 }: {
   projectId: string;
-  organizationId: string;
+  organizationId?: string;
 }): boolean {
   const demoId = getDemoDatasourceProjectIdForOrganization(organizationId);
 
   return projectId === demoId;
 }
+
+/**
+ * Feature ID for the demo project
+ */
+export const getDemoDataSourceFeatureId = (): string =>
+  "gbdemo-checkout-layout";

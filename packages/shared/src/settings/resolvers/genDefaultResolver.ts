@@ -13,7 +13,10 @@ export default function genDefaultResolver(
   baseFieldName: keyof Settings,
   scopesToApply:
     | Partial<Record<keyof ScopeDefinition, boolean | string>>
-    | undefined = {}
+    | undefined = {},
+  options?: {
+    bypassEmpty?: boolean;
+  }
 ): SettingsResolver<Settings[keyof Settings]> {
   const filteredScopes = scopeOrder
     .filter((s) => scopesToApply?.[s])
@@ -28,7 +31,10 @@ export default function genDefaultResolver(
     const baseSetting = ctx.baseSettings[baseFieldName]?.value;
     return filteredScopes.reduce(
       (acc, { scope, fieldName }) => {
-        const scopedValue = get(ctx.scopes, `${scope}.${fieldName}`);
+        let scopedValue = get(ctx.scopes, `${scope}.${fieldName}`);
+        if (options?.bypassEmpty && scopedValue === "") {
+          scopedValue = undefined;
+        }
         if (typeof scopedValue === "undefined") return acc;
         return {
           value: scopedValue,

@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import {
+  ExperimentRefRule,
   FeatureDraftChanges,
   FeatureInterface,
   FeatureRule,
@@ -23,6 +24,8 @@ import {
   discardDraft,
   updateDraft,
   setJsonSchema,
+  addExperimentRefRule,
+  deleteExperimentRefRule,
 } from "../models/FeatureModel";
 import { getRealtimeUsageByHour } from "../models/RealtimeModel";
 import { lookupOrganizationByApiKey } from "../models/ApiKeyModel";
@@ -32,8 +35,10 @@ import {
   getFeatureDefinitions,
   verifyDraftsAreEqual,
 } from "../services/features";
-import { ensureWatching } from "../services/experiments";
-import { getExperimentByTrackingKey } from "../models/ExperimentModel";
+import {
+  getExperimentByTrackingKey,
+  getExperimentsByIds,
+} from "../models/ExperimentModel";
 import { FeatureUsageRecords } from "../../types/realtime";
 import {
   auditDetailsCreate,
@@ -51,6 +56,7 @@ import { logger } from "../util/logger";
 import { addTagsDiff } from "../models/TagModel";
 import { FASTLY_SERVICE_ID } from "../util/secrets";
 import { EventAuditUserForResponseLocals } from "../events/event-types";
+import { upsertWatch } from "../models/WatchModel";
 import { getSurrogateKeysFromSDKPayloadKeys } from "../util/cdn.util";
 import { SDKPayloadKey } from "../../types/sdk-payload";
 
@@ -286,7 +292,12 @@ export async function postFeatures(
   addIdsToRules(feature.environmentSettings, feature.id);
 
   await createFeature(org, res.locals.eventAudit, feature);
-  await ensureWatching(userId, org.id, feature.id, "features");
+  await upsertWatch({
+    userId,
+    organization: org.id,
+    item: feature.id,
+    type: "features",
+  });
 
   await req.audit({
     event: "feature.create",
@@ -453,6 +464,65 @@ export async function postFeatureRule(
   req.checkPermissions("createFeatureDrafts", feature.project);
 
   await addFeatureRule(org, res.locals.eventAudit, feature, environment, rule);
+
+  res.status(200).json({
+    status: 200,
+  });
+}
+
+export async function postFeatureExperimentRefRule(
+  req: AuthRequest<{ rule: ExperimentRefRule }, { id: string }>,
+  res: Response<{ status: 200 }, EventAuditUserForResponseLocals>
+) {
+  const { org } = getOrgFromReq(req);
+  const { id } = req.params;
+  const { rule } = req.body;
+  const feature = await getFeature(org.id, id);
+
+  if (!feature) {
+    throw new Error("Could not find feature");
+  }
+  if (
+    rule.type !== "experiment-ref" ||
+    !rule.experimentId ||
+    !rule.variations ||
+    !rule.variations.length
+  ) {
+    throw new Error("Invalid experiment rule");
+  }
+
+  req.checkPermissions("manageFeatures", feature.project);
+  req.checkPermissions("createFeatureDrafts", feature.project);
+
+  await addExperimentRefRule(org, res.locals.eventAudit, feature, rule);
+
+  res.status(200).json({
+    status: 200,
+  });
+}
+
+export async function deleteFeatureExperimentRefRule(
+  req: AuthRequest<{ experimentId: string }, { id: string }>,
+  res: Response<{ status: 200 }, EventAuditUserForResponseLocals>
+) {
+  const { org } = getOrgFromReq(req);
+  const { id } = req.params;
+  const { experimentId } = req.body;
+  const feature = await getFeature(org.id, id);
+
+  if (!feature) {
+    throw new Error("Could not find feature");
+  }
+
+  req.checkPermissions("manageFeatures", feature.project);
+  req.checkPermissions("createFeatureDrafts", feature.project);
+
+  await deleteExperimentRefRule(
+    org,
+    res.locals.eventAudit,
+    feature,
+    experimentId
+  );
 
   res.status(200).json({
     status: 200,
@@ -851,27 +921,48 @@ export async function getFeatureById(
     throw new Error("Could not find feature");
   }
 
-  const expIds: Set<string> = new Set();
+  // Get linked experiments from rule and draft rules
+  const experimentIds: Set<string> = new Set();
+  const trackingKeys: Set<string> = new Set();
   if (feature.environmentSettings) {
     Object.values(feature.environmentSettings).forEach((env) => {
       env.rules?.forEach((r) => {
         if (r.type === "experiment") {
-          expIds.add(r.trackingKey || feature.id);
+          trackingKeys.add(r.trackingKey || feature.id);
+        } else if (r.type === "experiment-ref") {
+          experimentIds.add(r.experimentId);
+        }
+      });
+    });
+  }
+  if (feature.draft && feature.draft.active && feature.draft.rules) {
+    Object.values(feature.draft.rules).forEach((rules) => {
+      rules.forEach((r) => {
+        if (r.type === "experiment") {
+          trackingKeys.add(r.trackingKey || feature.id);
+        } else if (r.type === "experiment-ref") {
+          experimentIds.add(r.experimentId);
         }
       });
     });
   }
 
   const experiments: { [key: string]: ExperimentInterface } = {};
-  if (expIds.size > 0) {
+  if (trackingKeys.size > 0) {
     await Promise.all(
-      Array.from(expIds).map(async (id) => {
-        const exp = await getExperimentByTrackingKey(org.id, id);
+      Array.from(trackingKeys).map(async (key) => {
+        const exp = await getExperimentByTrackingKey(org.id, key);
         if (exp) {
-          experiments[id] = exp;
+          experiments[exp.id] = exp;
         }
       })
     );
+  }
+  if (experimentIds.size > 0) {
+    const docs = await getExperimentsByIds(org.id, Array.from(experimentIds));
+    docs.forEach((doc) => {
+      experiments[doc.id] = doc;
+    });
   }
 
   const revisions = await getRevisions(org.id, id);

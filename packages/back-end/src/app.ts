@@ -14,7 +14,6 @@ import {
   EXPRESS_TRUST_PROXY_OPTS,
   IS_CLOUD,
   SENTRY_DSN,
-  UPLOAD_METHOD,
 } from "./util/secrets";
 import {
   getExperimentConfig,
@@ -82,7 +81,7 @@ import { getBuild } from "./util/handler";
 import { getCustomLogProps, httpLogger } from "./util/logger";
 import { usersRouter } from "./routers/users/users.router";
 import { organizationsRouter } from "./routers/organizations/organizations.router";
-import { uploadsRouter } from "./routers/upload/upload.router";
+import { putUploadRouter } from "./routers/upload/put-upload.router";
 import { eventsRouter } from "./routers/events/events.router";
 import { eventWebHooksRouter } from "./routers/event-webhooks/event-webhooks.router";
 import { tagRouter } from "./routers/tag/tag.router";
@@ -94,7 +93,10 @@ import { projectRouter } from "./routers/project/project.router";
 import verifyLicenseMiddleware from "./services/auth/verifyLicenseMiddleware";
 import { slackIntegrationRouter } from "./routers/slack-integration/slack-integration.router";
 import { dataExportRouter } from "./routers/data-export/data-export.router";
+import { demoDatasourceProjectRouter } from "./routers/demo-datasource-project/demo-datasource-project.router";
 import { environmentRouter } from "./routers/environment/environment.router";
+import { teamRouter } from "./routers/teams/teams.router";
+import { staticFilesRouter } from "./routers/upload/static-files.router";
 
 const app = express();
 
@@ -259,18 +261,14 @@ app.post("/auth/refresh", authController.postRefresh);
 app.post("/auth/logout", authController.postLogout);
 app.get("/auth/hasorgs", authController.getHasOrganizations);
 
-// File uploads don't require auth tokens.
-// Upload urls are signed and image access is public.
-if (UPLOAD_METHOD === "local") {
-  app.use("/upload", uploadsRouter);
-}
+app.use("/upload", staticFilesRouter);
 
 // All other routes require a valid JWT
 const auth = getAuthConnection();
 app.use(auth.middleware);
 
 // Add logged in user props to the request
-app.use(processJWT);
+app.use(asyncHandler(processJWT));
 
 // Add logged in user props to the logger
 app.use(
@@ -333,13 +331,12 @@ app.post("/idea/:id", ideasController.postIdea);
 app.delete("/idea/:id", ideasController.deleteIdea);
 app.post("/idea/:id/vote", ideasController.postVote);
 app.post("/ideas/impact", ideasController.getEstimatedImpact);
-app.post("/ideas/estimate/manual", ideasController.postEstimatedImpactManual);
 app.get("/ideas/recent/:num", ideasController.getRecentIdeas);
 
 // Metrics
 app.get("/metrics", metricsController.getMetrics);
 app.post("/metrics", metricsController.postMetrics);
-app.get(
+app.post(
   "/metrics/tracked-events/:datasourceId",
   metricsController.getMetricsFromTrackedEvents
 );
@@ -367,6 +364,7 @@ app.get(
 app.get("/experiment/:id", experimentsController.getExperiment);
 app.get("/experiment/:id/reports", reportsController.getReportsOnExperiment);
 app.post("/snapshot/:id/cancel", experimentsController.cancelSnapshot);
+app.post("/snapshot/:id/analysis", experimentsController.postSnapshotAnalysis);
 app.get("/experiment/:id/snapshot/:phase", experimentsController.getSnapshot);
 app.get(
   "/experiment/:id/snapshot/:phase/:dimension",
@@ -381,6 +379,10 @@ app.post("/experiment/:id", experimentsController.postExperiment);
 app.delete("/experiment/:id", experimentsController.deleteExperiment);
 app.get("/experiment/:id/watchers", experimentsController.getWatchingUsers);
 app.post("/experiment/:id/phase", experimentsController.postExperimentPhase);
+app.post(
+  "/experiment/:id/targeting",
+  experimentsController.postExperimentTargeting
+);
 app.post("/experiment/:id/status", experimentsController.postExperimentStatus);
 app.put(
   "/experiment/:id/phase/:phase",
@@ -436,6 +438,12 @@ app.delete(
   experimentsController.deleteVisualChangeset
 );
 
+// Visual editor auth
+app.get(
+  "/visual-editor/key",
+  experimentsController.findOrCreateVisualEditorToken
+);
+
 // Reports
 app.get("/report/:id", reportsController.getReport);
 app.put("/report/:id", reportsController.putReport);
@@ -452,6 +460,8 @@ app.use("/dimensions", dimensionRouter);
 app.use("/sdk-connections", sdkConnectionRouter);
 
 app.use("/projects", projectRouter);
+
+app.use("/demo-datasource-project", demoDatasourceProjectRouter);
 
 // Features
 app.get("/feature", featuresController.getFeatures);
@@ -470,6 +480,14 @@ app.post("/feature/:id/archive", featuresController.postFeatureArchive);
 app.post("/feature/:id/toggle", featuresController.postFeatureToggle);
 app.post("/feature/:id/draft", featuresController.postFeatureDraft);
 app.post("/feature/:id/rule", featuresController.postFeatureRule);
+app.post(
+  "/feature/:id/experiment",
+  featuresController.postFeatureExperimentRefRule
+);
+app.delete(
+  "/feature/:id/experiment",
+  featuresController.deleteFeatureExperimentRefRule
+);
 app.put("/feature/:id/rule", featuresController.putFeatureRule);
 app.delete("/feature/:id/rule", featuresController.deleteFeatureRule);
 app.post("/feature/:id/reorder", featuresController.postFeatureMoveRule);
@@ -541,11 +559,13 @@ app.delete(
   discussionsController.deleteComment
 );
 app.get("/discussions/recent/:num", discussionsController.getRecentDiscussions);
-app.post("/file/upload/:filetype", discussionsController.postImageUploadUrl);
+app.use("/putupload", putUploadRouter);
+
+// Teams
+app.use("/teams", teamRouter);
 
 // Admin
 app.get("/admin/organizations", adminController.getOrganizations);
-app.post("/admin/organization/:id/populate", adminController.addSampleData);
 
 // Meta info
 app.get("/meta/ai", (req, res) => {
