@@ -1,88 +1,78 @@
+import { Response } from "express";
 import { updateOrganization } from "../../models/OrganizationModel";
 import { getUserByExternalId } from "../../services/users";
-import { createApiRequestHandler } from "../../util/handler";
+import { ScimUpdateRequest } from "../../../types/scim";
 
-export const updateUser = createApiRequestHandler()(
-  async (req: any): Promise<any> => {
-    console.log("patchUser was called");
+export async function updateUser(req: ScimUpdateRequest, res: Response) {
+  console.log("patchUser was called");
 
-    const requestBody = req.body.toString("utf-8");
+  const requestBody = req.body.toString("utf-8");
 
-    const requestBodyObject = JSON.parse(requestBody);
-    console.log("requestBodyObject", requestBodyObject);
+  const requestBodyObject = JSON.parse(requestBody);
+  console.log("requestBodyObject", requestBodyObject);
 
-    const org = req.organization;
+  const org = req.organization;
 
-    console.log("req.organization", req.organization.id);
+  console.log("req.organization", req.organization.id);
 
-    console.log("req.params.id", req.params.id);
+  console.log("req.params.id", req.params.id);
 
-    if (!org) {
-      // Return an error in the shape SCIM is expecting
-    }
+  if (!org) {
+    // Return an error in the shape SCIM is expecting
+  }
 
-    const requestToRemoveUser =
-      requestBodyObject.Operations[0].value.active === false;
+  const requestToRemoveUser =
+    requestBodyObject.Operations[0].value.active === false;
 
-    if (!requestToRemoveUser) {
-      // throw error that this isn't supported or return something
-    }
+  if (!requestToRemoveUser) {
+    // throw error that this isn't supported or return something
+  }
 
-    // Look up the user in the org's member list
-    const userIndex = org.members.findIndex(
-      (member: any) => member.id === req.params.id
-    );
+  // Look up the user in the org's member list
+  const userIndex = org.members.findIndex(
+    (member) => member.id === req.params.id
+  );
 
-    const updatedOrg = org;
+  const role = org.members[userIndex].role;
 
-    updatedOrg.members.splice(userIndex, 1);
+  const updatedOrg = org;
 
-    await updateOrganization(org.id, updatedOrg);
+  updatedOrg.members.splice(userIndex, 1);
 
-    const user = await getUserByExternalId(req.params.id);
+  await updateOrganization(org.id, updatedOrg);
 
-    if (!user) {
-      return {
-        schemas: ["urn:ietf:params:scim:api:messages:2.0:ListResponse"],
-        totalResults: 0,
-        Resources: [],
-        startIndex: 1,
-        itemsPerPage: 20,
-      };
-    }
+  const user = await getUserByExternalId(req.params.id);
 
-    const resourcesToReturn = [
-      {
-        schemas: ["urn:ietf:params:scim:schemas:core:2.0:User"],
-        id: user.externalId,
-        userName: user.externalId,
-        name: {
-          displayName: user.name,
-        },
-        active: true,
-        emails: [
-          {
-            primary: true,
-            value: user.email,
-            type: "work",
-            display: user.email,
-          },
-        ],
-        role: updatedOrg[userIndex].role,
-        groups: [],
-        meta: {
-          resourceType: "User",
-        },
-      },
-    ];
-
-    //TODO: Update the totalResults so it's not hardcoded to 1
-    return {
+  if (!user) {
+    return res.status(200).json({
       schemas: ["urn:ietf:params:scim:api:messages:2.0:ListResponse"],
-      totalResults: resourcesToReturn.length,
-      Resources: resourcesToReturn,
+      totalResults: 0,
+      Resources: [],
       startIndex: 1,
       itemsPerPage: 20,
-    };
+    });
   }
-);
+
+  return res.status(200).json({
+    schemas: ["urn:ietf:params:scim:schemas:core:2.0:User"],
+    id: requestBodyObject.externalId,
+    userName: user.email,
+    name: {
+      displayName: user.name,
+    },
+    active: true,
+    emails: [
+      {
+        primary: true,
+        value: user.email,
+        type: "work",
+        display: user.email,
+      },
+    ],
+    role, //TODO: I'm not sure this is needed
+    groups: [],
+    meta: {
+      resourceType: "User",
+    },
+  });
+}
