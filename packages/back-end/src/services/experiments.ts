@@ -16,7 +16,11 @@ import {
   generateVariationId,
   isAnalysisAllowed,
 } from "shared/util";
-import { updateExperiment } from "../models/ExperimentModel";
+import {
+  getExperimentByTrackingKey,
+  getExperimentsByIds,
+  updateExperiment,
+} from "../models/ExperimentModel";
 import {
   ExperimentSnapshotAnalysis,
   ExperimentSnapshotAnalysisSettings,
@@ -78,6 +82,7 @@ import { findProjectById } from "../models/ProjectModel";
 import { MetricAnalysisQueryRunner } from "../queryRunners/MetricAnalysisQueryRunner";
 import { ExperimentResultsQueryRunner } from "../queryRunners/ExperimentResultsQueryRunner";
 import { QueryMap, getQueryMap } from "../queryRunners/QueryRunner";
+import { FeatureInterface } from "../../types/feature";
 import { getReportVariations, getMetricForSnapshot } from "./reports";
 import { getIntegrationFromDatasourceId } from "./datasource";
 import { analyzeExperimentMetric, analyzeExperimentResults } from "./stats";
@@ -1820,4 +1825,73 @@ export function visualChangesetsHaveChanges({
 
   // Otherwise, there are no meaningful changes
   return false;
+}
+
+export type LinkedExperimentsForFeature = {
+  experiments: Record<string, ExperimentInterface>;
+};
+
+/**
+ * Get linked experiments from rules
+ */
+export async function getLinkedExperimentsForFeature({
+  feature,
+  organization,
+}: {
+  feature: FeatureInterface;
+  organization: OrganizationInterface;
+}): Promise<LinkedExperimentsForFeature> {
+  const experimentIds: Set<string> = new Set();
+  const trackingKeys: Set<string> = new Set();
+  if (feature.environmentSettings) {
+    Object.values(feature.environmentSettings).forEach((env) => {
+      env.rules?.forEach((r) => {
+        if (r.type === "experiment") {
+          trackingKeys.add(r.trackingKey || feature.id);
+        } else if (r.type === "experiment-ref") {
+          experimentIds.add(r.experimentId);
+        }
+      });
+    });
+  }
+
+  // todo: return only the real values, not the draft values
+  // const legacyDraft = feature.draft;
+  //
+  // if (legacyDraft && legacyDraft.active && legacyDraft.rules) {
+  //   Object.values(legacyDraft.rules).forEach((rules) => {
+  //     rules.forEach((r) => {
+  //       if (r.type === "experiment") {
+  //         trackingKeys.add(r.trackingKey || feature.id);
+  //       } else if (r.type === "experiment-ref") {
+  //         experimentIds.add(r.experimentId);
+  //       }
+  //     });
+  //   });
+  // }
+
+  const experiments: { [key: string]: ExperimentInterface } = {};
+  if (trackingKeys.size > 0) {
+    await Promise.all(
+      Array.from(trackingKeys).map(async (key) => {
+        const exp = await getExperimentByTrackingKey(organization.id, key);
+        if (exp) {
+          experiments[exp.id] = exp;
+        }
+      })
+    );
+  }
+  if (experimentIds.size > 0) {
+    const docs = await getExperimentsByIds(
+      organization.id,
+      Array.from(experimentIds)
+    );
+    docs.forEach((doc) => {
+      experiments[doc.id] = doc;
+    });
+  }
+
+  return {
+    experiments,
+  };
 }

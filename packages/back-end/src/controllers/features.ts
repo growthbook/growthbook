@@ -66,6 +66,7 @@ import { EventAuditUserForResponseLocals } from "../events/event-types";
 import { upsertWatch } from "../models/WatchModel";
 import { getSurrogateKeysFromSDKPayloadKeys } from "../util/cdn.util";
 import { SDKPayloadKey } from "../../types/sdk-payload";
+import { getLinkedExperimentsForFeature } from "../services/experiments";
 
 class UnrecoverableApiError extends Error {
   constructor(message: string) {
@@ -1088,54 +1089,10 @@ export async function getFeatureById(
     throw new Error("Could not find feature");
   }
 
-  // Get linked experiments from rule and draft rules
-  const experimentIds: Set<string> = new Set();
-  const trackingKeys: Set<string> = new Set();
-  if (feature.environmentSettings) {
-    Object.values(feature.environmentSettings).forEach((env) => {
-      env.rules?.forEach((r) => {
-        if (r.type === "experiment") {
-          trackingKeys.add(r.trackingKey || feature.id);
-        } else if (r.type === "experiment-ref") {
-          experimentIds.add(r.experimentId);
-        }
-      });
-    });
-  }
-
-  // todo: return only the real values, not the draft values
-  const legacyDraft = feature.draft;
-
-  if (legacyDraft && legacyDraft.active && legacyDraft.rules) {
-    Object.values(legacyDraft.rules).forEach((rules) => {
-      rules.forEach((r) => {
-        if (r.type === "experiment") {
-          trackingKeys.add(r.trackingKey || feature.id);
-        } else if (r.type === "experiment-ref") {
-          experimentIds.add(r.experimentId);
-        }
-      });
-    });
-  }
-
-  const experiments: { [key: string]: ExperimentInterface } = {};
-  if (trackingKeys.size > 0) {
-    await Promise.all(
-      Array.from(trackingKeys).map(async (key) => {
-        const exp = await getExperimentByTrackingKey(org.id, key);
-        if (exp) {
-          experiments[exp.id] = exp;
-        }
-      })
-    );
-  }
-  if (experimentIds.size > 0) {
-    const docs = await getExperimentsByIds(org.id, Array.from(experimentIds));
-    docs.forEach((doc) => {
-      experiments[doc.id] = doc;
-    });
-  }
-
+  const experiments = await getLinkedExperimentsForFeature({
+    feature,
+    organization: org,
+  });
   const revisions = await getPublishedFeatureRevisions(org.id, id);
   const drafts = await getDraftFeatureRevisions(org.id, id);
 
