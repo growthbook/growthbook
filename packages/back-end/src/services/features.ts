@@ -6,14 +6,16 @@ import omit from "lodash/omit";
 import { orgHasPremiumFeature } from "enterprise";
 import {
   FeatureRule as FeatureDefinitionRule,
-  AutoExperiment, GrowthBook
+  AutoExperiment,
+  GrowthBook,
 } from "@growthbook/growthbook";
 import { FeatureDefinition } from "../../types/api";
 import {
   FeatureDraftChanges,
   FeatureEnvironment,
   FeatureInterface,
-  FeatureRule, FeatureTestResult
+  FeatureRule,
+  FeatureTestResult,
 } from "../../types/feature";
 import { getAllFeatures } from "../models/FeatureModel";
 import {
