@@ -80,7 +80,7 @@ const ProjectsPage: FC = () => {
             body={
               <div className="premium text-center" style={{ width: 250 }}>
                 <GBPremiumBadge /> Creating multiple projects requires a paid
-                subscription.
+                subscription
               </div>
             }
             shouldDisplay={atProjectLimit}
