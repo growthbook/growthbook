@@ -84,6 +84,7 @@ export async function createUser(
   name: string,
   email: string,
   password?: string,
+  externalId?: string,
   verified: boolean = false
 ) {
   let passwordHash = "";
@@ -98,6 +99,7 @@ export async function createUser(
     email,
     passwordHash,
     id: uniqid("u_"),
+    externalId,
     verified,
   });
 }
