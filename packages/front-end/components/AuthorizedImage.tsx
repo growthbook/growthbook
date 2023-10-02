@@ -24,11 +24,11 @@ const AuthorizedImage: FC<AuthorizedImageProps> = ({
   const { apiCall } = useAuth();
 
   useEffect(() => {
-    const fetchData = async (url) => {
+    const fetchData = async (src, apiUrl) => {
       try {
-        const imageData: Blob = await apiCall(new URL(url).pathname);
+        const imageData: Blob = await apiCall(new URL(apiUrl).pathname);
         const imageUrl = URL.createObjectURL(imageData);
-        imageCache[url] = imageUrl;
+        imageCache[src] = imageUrl;
         setImageSrc(imageUrl);
       } catch (error) {
         setError(error.message);
@@ -37,31 +37,32 @@ const AuthorizedImage: FC<AuthorizedImageProps> = ({
 
     const s3pattern = /^https:\/\/([a-z0-9-]+)\.s3\.amazonaws\.com\/(.*)$/;
 
-    if (src.startsWith("https://storage.googleapis.com/")) {
+    if (imageCache[src]) {
+      // Images in the cache do not need to be fetched again
+      setImageSrc(imageCache[src]);
+    } else if (src.startsWith("https://storage.googleapis.com/")) {
       // We convert GCS images to the GB url that acts as a proxy using the correct credentials
       // This way they can lock their bucket down to only allow access from the proxy.
       const withoutDomain = src.replace("https://storage.googleapis.com/", "");
       const parts = withoutDomain.split("/");
       parts.shift(); // remove bucket name
-      const url = getApiHost() + "/upload/" + parts.join("/");
-      fetchData(url);
+      const apiUrl = getApiHost() + "/upload/" + parts.join("/");
+      fetchData(src, apiUrl);
     } else if (s3pattern.test(src)) {
       // We convert s3 images to the GB url that acts as a proxy using the correct credentials
       // This way they can lock their bucket down to only allow access from the proxy.
       const match = s3pattern.exec(src);
       if (match) {
-        const url = getApiHost() + "/upload/" + match[2];
-        fetchData(url);
+        const apiUrl = getApiHost() + "/upload/" + match[2];
+        fetchData(src, apiUrl);
       }
     } else if (!src.startsWith(getApiHost())) {
       // Images in markdown that are not from our host we will treat as a normal image
       setImageSrc(src);
-    } else if (imageCache[src]) {
-      // Images in the cache do not need to be fetched again
-      setImageSrc(imageCache[src]);
     } else {
       // Images to the proxy we will fetch from the backend
-      fetchData(src);
+      const apiUrl = src;
+      fetchData(src, apiUrl);
     }
   }, [src, imageCache, apiCall]);
 
