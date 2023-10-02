@@ -9,6 +9,7 @@ import { useRouter } from "next/router";
 import Link from "next/link";
 import { date } from "shared/dates";
 import clsx from "clsx";
+import { isDemoDatasourceProject } from "shared/demo-datasource";
 import usePermissions from "@/hooks/usePermissions";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import ProjectModal from "@/components/Projects/ProjectModal";
@@ -24,7 +25,7 @@ const ProjectsPage: FC = () => {
   const { projects, mutateDefinitions } = useDefinitions();
   const router = useRouter();
 
-  const { apiCall } = useAuth();
+  const { apiCall, orgId } = useAuth();
 
   const [modalOpen, setModalOpen] = useState<Partial<ProjectInterface> | null>(
     null
@@ -41,13 +42,23 @@ const ProjectsPage: FC = () => {
         p.id
       ))
   );
+  const sortedProjects = projects.sort((a) => {
+    if (isDemoDatasourceProject({ projectId: a.id, organizationId: orgId })) {
+      return -1;
+    } else {
+      return 1;
+    }
+  });
+  const filteredProjects = sortedProjects.filter(
+    (p) => !isDemoDatasourceProject({ projectId: p.id, organizationId: orgId })
+  );
 
   const { hasCommercialFeature } = useUser();
   const hasCreateMultipleProjectsFeature = hasCommercialFeature(
     "create-multiple-projects"
   );
   const atProjectLimit =
-    !hasCreateMultipleProjectsFeature && projects.length >= 1;
+    !hasCreateMultipleProjectsFeature && filteredProjects.length >= 1;
 
   return (
     <div className="container-fluid pagecontents">
@@ -67,10 +78,10 @@ const ProjectsPage: FC = () => {
         <div className="col-auto">
           <Tooltip
             body={
-              <span className="premium">
+              <div className="premium text-center" style={{ width: 250 }}>
                 <GBPremiumBadge /> Creating multiple projects requires a paid
                 subscription.
-              </span>
+              </div>
             }
             shouldDisplay={atProjectLimit}
           >
@@ -97,7 +108,7 @@ const ProjectsPage: FC = () => {
         Group your ideas and experiments into <strong>Projects</strong> to keep
         things organized and easy to manage.
       </p>
-      {projects.length > 0 ? (
+      {sortedProjects.length > 0 ? (
         <table className="table appbox gbtable table-hover">
           <thead>
             <tr>
@@ -110,7 +121,11 @@ const ProjectsPage: FC = () => {
             </tr>
           </thead>
           <tbody>
-            {projects.map((p) => {
+            {sortedProjects.map((p) => {
+              const isDemoProject = isDemoDatasourceProject({
+                projectId: p.id,
+                organizationId: orgId,
+              });
               const canManage = manageProjectsPermissions[p.id];
               return (
                 <tr
@@ -131,6 +146,18 @@ const ProjectsPage: FC = () => {
                       </Link>
                     ) : (
                       <span className="font-weight-bold">{p.name}</span>
+                    )}
+                    {isDemoProject && (
+                      <span
+                        className="badge badge-pill text-white ml-1"
+                        title="This is a demo project with sample data"
+                        style={{
+                          backgroundColor: "rgb(235, 128, 69)",
+                          fontSize: "0.7em",
+                        }}
+                      >
+                        Demo
+                      </span>
                     )}
                   </td>
                   <td className="pr-5 text-gray" style={{ fontSize: 12 }}>

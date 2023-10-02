@@ -5,6 +5,7 @@ import { useForm } from "react-hook-form";
 import isEqual from "lodash/isEqual";
 import { ProjectInterface, ProjectSettings } from "back-end/types/project";
 import { getScopedSettings } from "shared/settings";
+import { isDemoDatasourceProject } from "shared/dist/demo-datasource";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import usePermissions from "@/hooks/usePermissions";
 import LoadingOverlay from "@/components/LoadingOverlay";
@@ -35,7 +36,7 @@ const ProjectPage: FC = () => {
     organization,
   });
 
-  const { apiCall } = useAuth();
+  const { apiCall, orgId } = useAuth();
 
   const [modalOpen, setModalOpen] = useState<Partial<ProjectInterface> | null>(
     null
@@ -74,6 +75,11 @@ const ProjectPage: FC = () => {
     // show the user that the settings have saved:
     setSaveMsg(true);
     mutateDefinitions();
+  });
+
+  const isDemoProject = isDemoDatasourceProject({
+    projectId: pid,
+    organizationId: orgId,
   });
 
   if (!canEditSettings) {
@@ -125,6 +131,19 @@ const ProjectPage: FC = () => {
         </div>
         <div className="d-flex align-items-center mb-2">
           <h1 className="mb-0">{p.name}</h1>
+          {isDemoProject && (
+            <span
+              className="badge badge-pill text-white mx-1"
+              title="This is a demo project with sample data"
+              style={{
+                backgroundColor: "rgb(235, 128, 69)",
+                fontSize: "0.7em",
+                marginBottom: -5,
+              }}
+            >
+              Demo
+            </span>
+          )}
           <div className="ml-1">
             <a
               href="#"
