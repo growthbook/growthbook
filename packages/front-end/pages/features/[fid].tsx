@@ -2,7 +2,7 @@ import { useRouter } from "next/router";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { FeatureInterface } from "back-end/types/feature";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
-import React, { useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { FaChevronRight, FaExclamationTriangle } from "react-icons/fa";
 import { datetime } from "shared/dates";
 import { getValidation } from "shared/util";
@@ -65,6 +65,9 @@ export default function FeaturePage() {
   const [isLegacyDraftModal, setIsLegacyDraftModal] = useState(false);
   const [duplicateModal, setDuplicateModal] = useState(false);
   const permissions = usePermissions();
+  const [activeFeature, setActiveFeature] = useState<FeatureInterface | null>(
+    null
+  );
 
   const [env, setEnv] = useEnvironmentState();
 
@@ -97,10 +100,10 @@ export default function FeaturePage() {
 
   const shouldShowLegacyRevisionDropdown = !!data?.feature?.draft?.active;
 
-  const activeFeature = useMemo((): FeatureInterface | null => {
-    if (!data) return null;
+  useEffect(() => {
+    if (!data) return;
 
-    return data.feature;
+    setActiveFeature(data.feature);
   }, [data]);
 
   const featureExperiments = useMemo((): {
@@ -116,6 +119,28 @@ export default function FeaturePage() {
 
     return data.revisions;
   }, [data]);
+
+  const onDiscardLegacyDraftClicked = useCallback(
+    async (evt: React.MouseEvent<HTMLButtonElement>) => {
+      evt.preventDefault();
+
+      if (!activeFeature) return;
+
+      try {
+        await apiCall(`/feature/${activeFeature.id}/discard`, {
+          method: "POST",
+          body: JSON.stringify({
+            draft: activeFeature.draft,
+          }),
+        });
+      } catch (err) {
+        await mutate();
+        throw err;
+      }
+      await mutate();
+    },
+    [apiCall, mutate, activeFeature]
+  );
 
   if (error) {
     return (
@@ -306,22 +331,7 @@ export default function FeaturePage() {
           </button>
           <button
             className="btn btn-outline-primary ml-3 btn-sm"
-            onClick={async (evt) => {
-              evt.preventDefault();
-
-              try {
-                await apiCall(`/feature/${activeFeature.id}/discard`, {
-                  method: "POST",
-                  body: JSON.stringify({
-                    draft: activeFeature.draft,
-                  }),
-                });
-              } catch (err) {
-                await mutate();
-                throw err;
-              }
-              await mutate();
-            }}
+            onClick={onDiscardLegacyDraftClicked}
           >
             Discard
           </button>
