@@ -95,9 +95,6 @@ export class GrowthBook<
     this._loadFeaturesCalled = false;
 
     if (context.remoteEval) {
-      if (!context.cacheKeyAttributes) {
-        throw new Error("Missing cacheKeyAttributes");
-      }
       if (context.decryptionKey) {
         throw new Error("Encryption is not available for remoteEval");
       }
@@ -167,6 +164,7 @@ export class GrowthBook<
     apiHost: string;
     streamingHost: string;
     apiRequestHeaders?: Record<string, string>;
+    streamingHostRequestHeaders?: Record<string, string>;
   } {
     const defaultHost = this._ctx.apiHost || "https://cdn.growthbook.io";
     return {
@@ -175,7 +173,8 @@ export class GrowthBook<
         /\/*$/,
         ""
       ),
-      apiRequestHeaders: this._ctx.apiRequestHeaders,
+      apiRequestHeaders: this._ctx.apiHostRequestHeaders,
+      streamingHostRequestHeaders: this._ctx.streamingHostRequestHeaders,
     };
   }
   public getClientKey(): string {
@@ -186,8 +185,8 @@ export class GrowthBook<
     return this._ctx.remoteEval || false;
   }
 
-  public getCacheKeyAttributes(): (keyof Attributes)[] {
-    return this._ctx.cacheKeyAttributes || [];
+  public getCacheKeyAttributes(): (keyof Attributes)[] | undefined {
+    return this._ctx.cacheKeyAttributes;
   }
 
   private async _refresh(

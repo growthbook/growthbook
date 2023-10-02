@@ -171,7 +171,8 @@ export interface Context {
   groups?: Record<string, boolean>;
   apiHost?: string;
   streamingHost?: string;
-  apiRequestHeaders?: Record<string, string>;
+  apiHostRequestHeaders?: Record<string, string>;
+  streamingHostRequestHeaders?: Record<string, string>;
   clientKey?: string;
   decryptionKey?: string;
   remoteEval?: boolean;

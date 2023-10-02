@@ -179,7 +179,8 @@ function getCacheKey(instance: GrowthBook): string {
   if (!instance.isRemoteEval()) return baseKey;
 
   const attributes = instance.getAttributes();
-  const cacheKeyAttributes = instance.getCacheKeyAttributes();
+  const cacheKeyAttributes =
+    instance.getCacheKeyAttributes() || Object.keys(instance.getAttributes());
   const ca: Attributes = {};
   cacheKeyAttributes.forEach((key) => {
     ca[key] = attributes[key];
@@ -382,7 +383,7 @@ async function fetchFeatures(
 function startAutoRefresh(instance: GrowthBook): void {
   const key = getKey(instance);
   const cacheKey = getCacheKey(instance);
-  const { streamingHost, apiRequestHeaders } = instance.getApiHosts();
+  const { streamingHost, streamingHostRequestHeaders } = instance.getApiHosts();
   const clientKey = instance.getClientKey();
   if (
     cacheSettings.backgroundSync &&
@@ -395,7 +396,11 @@ function startAutoRefresh(instance: GrowthBook): void {
       cb: (event: MessageEvent<string>) => {
         try {
           if (event.type === "features-updated") {
-            fetchFeatures(instance);
+            const instances = subscribedInstances.get(key);
+            instances &&
+              instances.forEach((instance) => {
+                fetchFeatures(instance);
+              });
           } else if (event.type === "features") {
             const json: FeatureApiResponse = JSON.parse(event.data);
             onNewFeatureData(key, cacheKey, json);
@@ -409,13 +414,23 @@ function startAutoRefresh(instance: GrowthBook): void {
               clientKey,
               error: e ? (e as Error).message : null,
             });
-          onSSEError(channel, streamingHost, clientKey, apiRequestHeaders);
+          onSSEError(
+            channel,
+            streamingHost,
+            clientKey,
+            streamingHostRequestHeaders
+          );
         }
       },
       errors: 0,
     };
     streams.set(key, channel);
-    enableChannel(channel, streamingHost, clientKey, apiRequestHeaders);
+    enableChannel(
+      channel,
+      streamingHost,
+      clientKey,
+      streamingHostRequestHeaders
+    );
   }
 }
 

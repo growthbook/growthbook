@@ -518,7 +518,7 @@ describe("remote-eval", () => {
     const growthbook1 = new GrowthBook({
       apiHost: "https://fakeapi1.sample.io",
       clientKey: "qwerty1234",
-      apiRequestHeaders: { "x-custom-header": "foo" },
+      apiHostRequestHeaders: { "x-custom-header": "foo" },
     });
 
     const growthbook2 = new GrowthBook({
@@ -526,7 +526,7 @@ describe("remote-eval", () => {
       clientKey: "qwerty1234",
       remoteEval: true,
       cacheKeyAttributes: ["uid"],
-      apiRequestHeaders: { "x-custom-header": "bar" },
+      apiHostRequestHeaders: { "x-custom-header": "bar" },
     });
 
     await Promise.all([growthbook1.loadFeatures(), growthbook2.loadFeatures()]);
@@ -551,7 +551,7 @@ describe("remote-eval", () => {
     const growthbook3 = new GrowthBook({
       apiHost: "https://fakeapi3.sample.io",
       clientKey: "qwerty1234",
-      apiRequestHeaders: { "x-custom-header": "foo" },
+      apiHostRequestHeaders: { "x-custom-header": "foo" },
     });
     helpers.fetchFeaturesCall =
       // eslint-disable-next-line
