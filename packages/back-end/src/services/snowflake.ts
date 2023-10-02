@@ -40,6 +40,10 @@ export async function runSnowflakeQuery<T>(
   });
 
   await snowflake.connect();
+  // currently the NodeJS driver does not support adding session parameters in the connection string.
+  // see https://github.com/snowflakedb/snowflake-connector-nodejs/issues/61 in case they fix it one day.
+  // Tagging this session query with the GB tag. This is used to identify queries that are run by GrowthBook
+  await snowflake.execute("ALTER SESSION SET QUERY_TAG = 'growthbook'");
   const res = await snowflake.execute(sql, values);
 
   // Annoyingly, Snowflake turns all column names into all caps
