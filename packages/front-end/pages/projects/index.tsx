@@ -68,7 +68,8 @@ const ProjectsPage: FC = () => {
           <Tooltip
             body={
               <span className="premium">
-                <GBPremiumBadge /> Starter plans are limited to 1 project
+                <GBPremiumBadge /> Creating multiple projects requires a paid
+                subscription.
               </span>
             }
             shouldDisplay={atProjectLimit}
