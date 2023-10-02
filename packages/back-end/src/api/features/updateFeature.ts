@@ -6,6 +6,7 @@ import {
   getFeature,
   updateFeature as updateFeatureToDb,
 } from "../../models/FeatureModel";
+import { getExperimentMapForFeature } from "../../models/ExperimentModel";
 import {
   addIdsToRules,
   getApiFeatureObj,
@@ -116,8 +117,18 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
 
     const groupMap = await getSavedGroupMap(req.organization);
 
+    const experimentMap = await getExperimentMapForFeature(
+      req.organization.id,
+      feature.id
+    );
+
     return {
-      feature: getApiFeatureObj(updatedFeature, req.organization, groupMap),
+      feature: getApiFeatureObj({
+        feature: updatedFeature,
+        organization: req.organization,
+        groupMap,
+        experimentMap,
+      }),
     };
   }
 );
