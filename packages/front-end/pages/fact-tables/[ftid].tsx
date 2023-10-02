@@ -238,12 +238,28 @@ export default function FactTablePage() {
             e.preventDefault();
             setShowSQL(!showSQL);
           }}
+          className="text-dark"
         >
           {showSQL ? "Hide" : "Show"} Fact Table SQL{" "}
           {showSQL ? <FaAngleDown /> : <FaAngleRight />}
         </a>
         {showSQL && (
-          <Code code={factTable.sql} language="sql" className="mb-4" />
+          <Code
+            code={factTable.sql}
+            language="sql"
+            className="mb-4"
+            filename={
+              <a
+                href="#"
+                onClick={(e) => {
+                  e.preventDefault();
+                  setEditOpen(true);
+                }}
+              >
+                Edit SQL <GBEdit />
+              </a>
+            }
+          />
         )}
       </div>
 

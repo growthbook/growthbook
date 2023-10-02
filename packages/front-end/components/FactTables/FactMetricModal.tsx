@@ -1,5 +1,4 @@
 import { useForm } from "react-hook-form";
-import clsx from "clsx";
 import { FaTimes } from "react-icons/fa";
 import { useState } from "react";
 import {
@@ -38,6 +37,7 @@ import Tab from "../Tabs/Tab";
 import PremiumTooltip from "../Marketing/PremiumTooltip";
 import { GBAddCircle, GBCuped } from "../Icons";
 import { getNewExperimentDatasourceDefaults } from "../Experiment/NewExperimentForm";
+import ButtonSelectField from "../Forms/ButtonSelectField";
 
 export interface Props {
   close: () => void;
@@ -368,90 +368,63 @@ export default function FactMetricModal({
       )}
       {selectedDataSource && (
         <>
-          <div className="mb-3">
-            <label>
-              Type of Metric{" "}
-              <Tooltip
-                body={
-                  <div>
-                    <div className="mb-2">
-                      <strong>Proportion</strong> metrics calculate a simple
-                      conversion rate - the proportion of users in your
-                      experiment who are in a specific fact table.
-                    </div>
-                    <div className="mb-2">
-                      <strong>Mean</strong> metrics calculate the average value
-                      of a numeric column in a fact table.
-                    </div>
+          <ButtonSelectField
+            label={
+              <>
+                Type of Metric{" "}
+                <Tooltip
+                  body={
                     <div>
-                      <strong>Ratio</strong> metrics allow you to calculate a
-                      complex value by dividing two different numeric columns in
-                      your fact tables.
+                      <div className="mb-2">
+                        <strong>Proportion</strong> metrics calculate a simple
+                        conversion rate - the proportion of users in your
+                        experiment who are in a specific fact table.
+                      </div>
+                      <div className="mb-2">
+                        <strong>Mean</strong> metrics calculate the average
+                        value of a numeric column in a fact table.
+                      </div>
+                      <div>
+                        <strong>Ratio</strong> metrics allow you to calculate a
+                        complex value by dividing two different numeric columns
+                        in your fact tables.
+                      </div>
                     </div>
-                  </div>
-                }
-              />
-            </label>
-            <div>
-              <div className="btn-group">
-                <button
-                  type="button"
-                  className={clsx(
-                    "btn",
-                    type === "proportion"
-                      ? "active btn-primary"
-                      : "btn-outline-primary"
-                  )}
-                  onClick={(e) => {
-                    e.preventDefault();
-                    form.setValue("metricType", "proportion");
-                  }}
-                >
-                  Proportion
-                </button>
-                <button
-                  type="button"
-                  className={clsx(
-                    "btn",
-                    type === "mean"
-                      ? "active btn-primary"
-                      : "btn-outline-primary"
-                  )}
-                  onClick={(e) => {
-                    e.preventDefault();
-                    form.setValue("metricType", "mean");
-                  }}
-                >
-                  Mean
-                </button>
-                <button
-                  type="button"
-                  className={clsx(
-                    "btn",
-                    type === "ratio"
-                      ? "active btn-primary"
-                      : "btn-outline-primary"
-                  )}
-                  onClick={(e) => {
-                    e.preventDefault();
-                    form.setValue("metricType", "ratio");
-                    if (!form.watch("denominator")) {
-                      form.setValue("denominator", {
-                        factTableId:
-                          form.watch("numerator").factTableId ||
-                          initialFactTable ||
-                          "",
-                        factId: "$$count",
-                        filters: [],
-                      });
-                    }
-                  }}
-                >
-                  Ratio
-                </button>
-              </div>
-            </div>
-          </div>
+                  }
+                />
+              </>
+            }
+            value={type}
+            setValue={(type) => {
+              form.setValue("metricType", type);
+
+              // When switching to ratio, reset the denominator value
+              if (type === "ratio" && !form.watch("denominator")) {
+                form.setValue("denominator", {
+                  factTableId:
+                    form.watch("numerator").factTableId ||
+                    initialFactTable ||
+                    "",
+                  factId: "$$count",
+                  filters: [],
+                });
+              }
+            }}
+            options={[
+              {
+                value: "proportion",
+                label: "Proportion",
+              },
+              {
+                value: "mean",
+                label: "Mean",
+              },
+              {
+                value: "ratio",
+                label: "Ratio",
+              },
+            ]}
+          />
           {type === "proportion" ? (
             <div>
               <p>
@@ -482,7 +455,8 @@ export default function FactMetricModal({
           ) : type === "ratio" ? (
             <>
               <p>
-                <strong>Metric Value</strong> = Numerator / Denominator
+                <strong>Metric Value</strong> = Numerator / Denominator{" "}
+                <Tooltip body="Ratio metrics use the Delta Method to provide an accurate estimation of variance" />
               </p>
               <div className="form-group">
                 <label>Numerator</label>
