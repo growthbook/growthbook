@@ -1,7 +1,7 @@
 import React, { useEffect, useState, FC } from "react";
 import { FaExclamationTriangle } from "react-icons/fa";
 import { useAuth } from "@/services/auth";
-import { getApiHost } from "@/services/env";
+import { getApiHost, getS3Domain } from "@/services/env";
 import LoadingSpinner from "./LoadingSpinner";
 
 interface AuthorizedImageProps extends React.HTMLProps<HTMLImageElement> {
@@ -35,8 +35,6 @@ const AuthorizedImage: FC<AuthorizedImageProps> = ({
       }
     };
 
-    const s3pattern = /^https:\/\/([a-z0-9-]+)\.s3\.amazonaws\.com\/(.*)$/;
-
     if (imageCache[src]) {
       // Images in the cache do not need to be fetched again
       setImageSrc(imageCache[src]);
@@ -48,14 +46,12 @@ const AuthorizedImage: FC<AuthorizedImageProps> = ({
       parts.shift(); // remove bucket name
       const apiUrl = getApiHost() + "/upload/" + parts.join("/");
       fetchData(src, apiUrl);
-    } else if (s3pattern.test(src)) {
+    } else if (getS3Domain() && src.startsWith(getS3Domain())) {
       // We convert s3 images to the GB url that acts as a proxy using the correct credentials
       // This way they can lock their bucket down to only allow access from the proxy.
-      const match = s3pattern.exec(src);
-      if (match) {
-        const apiUrl = getApiHost() + "/upload/" + match[2];
-        fetchData(src, apiUrl);
-      }
+      const apiUrl =
+        getApiHost() + "/upload/" + src.substring(getS3Domain().length);
+      fetchData(src, apiUrl);
     } else if (!src.startsWith(getApiHost())) {
       // Images in markdown that are not from our host we will treat as a normal image
       setImageSrc(src);

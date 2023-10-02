@@ -6,6 +6,7 @@ const env: EnvironmentInitValue = {
   cloud: false,
   appOrigin: "",
   apiHost: "",
+  s3domain: "",
   cdnHost: "",
   config: "db",
   defaultConversionWindowHours: 72,
@@ -33,7 +34,9 @@ export function getAppOrigin(): string {
 export function getCdnHost(): string {
   return env.cdnHost;
 }
-
+export function getS3Domain(): string {
+  return env.s3domain;
+}
 export function getApiHost(): string {
   return env.apiHost;
 }
