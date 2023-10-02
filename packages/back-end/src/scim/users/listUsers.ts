@@ -55,7 +55,7 @@ export async function listUsers(
       id: user.id,
       userName: user.email,
       name: {
-        displayName: user.name,
+        formatted: user.name,
         givenName: user.name.split(" ")[0],
         familyName: user.name.split(" ")[1],
       },
@@ -69,7 +69,7 @@ export async function listUsers(
         },
       ],
       role: user.role,
-      groups: [],
+      groups: [], // TODO: figure out groups object shape and include groups
       meta: {
         resourceType: "User",
       },
@@ -83,15 +83,17 @@ export async function listUsers(
   console.log({ filteredUsers });
   console.log({ filterQuery });
 
+  // change startIndex to be 1-based. if less than 1, make it 1
   const resources = filteredUsers.slice(
     parseInt(startIndex as string),
     parseInt(startIndex as string) + parseInt(count as string)
   );
 
+  // TODO: figure out a max for itemsPerPage. if count > max we will return max # of resources
   return res.status(200).json({
     schemas: ["urn:ietf:params:scim:api:messages:2.0:ListResponse"],
     totalResults: filteredUsers.length,
-    Resources: filteredUsers,
+    Resources: resources,
     startIndex: parseInt(startIndex as string),
     itemsPerPage: parseInt(count as string),
   });

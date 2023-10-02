@@ -1,4 +1,4 @@
-import { Response } from "express";
+import { Request, Response } from "express";
 import {
   createUser as createNewUser,
   getUserByEmail,
@@ -6,14 +6,16 @@ import {
 import { addMemberToOrg } from "../../services/organizations";
 import { OrganizationInterface } from "../../../types/organization";
 import { ScimPostRequest } from "../../../types/scim";
+import { ApiRequestLocals } from "../../../types/api";
 
-export async function createUser(req: ScimPostRequest, res: Response) {
+export async function createUser(
+  req: Request & ApiRequestLocals,
+  res: Response
+) {
   console.log("createUser endpoint was called");
-  const requestBody = req.body.toString("utf-8");
+  const requestBody = req.body;
 
-  const requestBodyObject = JSON.parse(requestBody);
-
-  console.log("requestBodyObject", requestBodyObject);
+  console.log("requestBodyObject", requestBody);
 
   const org: OrganizationInterface = req.organization;
 
@@ -21,13 +23,13 @@ export async function createUser(req: ScimPostRequest, res: Response) {
 
   try {
     // Look up the user in Mongo
-    let user = await getUserByEmail(requestBodyObject.userName);
+    let user = await getUserByEmail(requestBody.userName);
 
     console.log("user?.id", user?.id);
 
     if (user) {
       const userAlreadyExistsInOrg = org.members.find(
-        (member) => member.id === user.id
+        (member) => member.id === user?.id
       );
 
       if (userAlreadyExistsInOrg) {
@@ -40,10 +42,10 @@ export async function createUser(req: ScimPostRequest, res: Response) {
       }
     } else {
       user = await createNewUser(
-        requestBodyObject.displayName,
-        requestBodyObject.userName,
-        requestBodyObject.password || "",
-        requestBodyObject.externalId
+        requestBody.displayName,
+        requestBody.userName,
+        "12345678", // TODO: SSO shouldn't need a password. figure out how to test this
+        requestBody.externalId
       );
       console.log("user created:", user);
     }
@@ -62,10 +64,12 @@ export async function createUser(req: ScimPostRequest, res: Response) {
     // Add them to the org's members array
     return res.status(201).json({
       schemas: ["urn:ietf:params:scim:schemas:core:2.0:User"],
-      id: requestBodyObject.externalId,
+      id: user.id,
       userName: user.email,
       name: {
         displayName: user.name,
+        givenName: user.name?.split(" ")[0],
+        familyName: user.name?.split(" ")[1],
       },
       active: true,
       emails: [

@@ -14,11 +14,6 @@ export const listGroups = createApiRequestHandler()(
 
     const org = req.organization;
 
-    if (!org) {
-      // Return an error in the shape SCIM is expecting
-      return;
-    }
-
     const groups = await getTeamsForOrganization(org.id);
 
     const groupsWithMembersP = groups.map(async (group) => {
@@ -48,12 +43,20 @@ export const listGroups = createApiRequestHandler()(
       };
     });
 
-    const f = filter(parse(filterQuery as string));
+    const filteredGroups = filterQuery
+      ? SCIMGroups.filter(filter(parse(filterQuery as string)))
+      : SCIMGroups;
+
+    // change startIndex to be 1-based. if less than 1, make it 1
+    const resources = filteredGroups.slice(
+      parseInt(startIndex as string),
+      parseInt(startIndex as string) + parseInt(count as string)
+    );
 
     return {
       schemas: ["urn:ietf:params:scim:api:messages:2.0:ListResponse"],
-      totalResults: SCIMGroups.length,
-      Resources: SCIMGroups.filter(f),
+      totalResults: filteredGroups.length,
+      Resources: resources,
       startIndex: parseInt(startIndex as string),
       itemsPerPage: parseInt(count as string),
     };
