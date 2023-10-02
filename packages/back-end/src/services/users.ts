@@ -21,6 +21,12 @@ export async function getUserByEmail(email: string) {
   });
 }
 
+export async function getUserByExternalId(externalId: string) {
+  return UserModel.findOne({
+    externalId,
+  });
+}
+
 export async function getUserById(id: string) {
   return UserModel.findOne({
     id,

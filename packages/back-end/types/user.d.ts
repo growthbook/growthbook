@@ -6,6 +6,7 @@ export interface UserInterface {
   passwordHash?: string;
   admin: boolean;
   minTokenDate?: Date;
+  externalId?: string;
 }
 
 export interface UserRef {

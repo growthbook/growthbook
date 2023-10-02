@@ -4,30 +4,56 @@ import {
   getUserByEmail,
 } from "../../services/users";
 import { addMemberToOrg } from "../../services/organizations";
+import { OrganizationInterface } from "../../../types/organization";
 
 export const createUser = createApiRequestHandler()(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   async (req: any): Promise<any> => {
+    console.log("createUser endpoint was called");
     const requestBody = req.body.toString("utf-8");
 
     const requestBodyObject = JSON.parse(requestBody);
 
-    const org = req.organization;
+    console.log("requestBodyObject", requestBodyObject);
+
+    const org: OrganizationInterface = req.organization;
+
+    console.log("org,id", org.id);
 
     if (!org) {
-      // Return an error in the shape SCIM is expecting
+      return {
+        schemas: ["urn:ietf:params:scim:api:messages:2.0:ListResponse"],
+        totalResults: 0,
+        Resources: [],
+        startIndex: 1,
+        itemsPerPage: 20,
+      };
     }
 
     try {
       // Look up the user in Mongo
       let user = await getUserByEmail(requestBodyObject.userName);
 
-      if (!user) {
-        // If the user doesn't exist create the user in Mongo
+      console.log("user?.id", user?.id);
+
+      if (user) {
+        const userAlreadyExistsInOrg = org.members.find(
+          (member) => member.id === user.id
+        );
+
+        if (userAlreadyExistsInOrg) {
+          return {
+            schemas: ["urn:ietf:params:scim:api:messages:2.0:Error"],
+            scimType: "uniqueness",
+            detail: "User already exists in this organization",
+            status: 409,
+          };
+        }
+      } else {
         user = await createNewUser(
           requestBodyObject.displayName,
           requestBodyObject.userName,
-          requestBodyObject.password
+          requestBodyObject.password || "testing123",
+          requestBodyObject.externalId
         );
       }
 
@@ -45,7 +71,7 @@ export const createUser = createApiRequestHandler()(
       // Add them to the org's members array
       return {
         schemas: ["urn:ietf:params:scim:schemas:core:2.0:User"],
-        id: user.id,
+        id: requestBodyObject.externalId,
         userName: user.email,
         name: {
           displayName: user.name,
@@ -66,8 +92,11 @@ export const createUser = createApiRequestHandler()(
         },
       };
     } catch (e) {
-      // console.log("error creating user", e);
-      return e;
+      return {
+        schemas: ["urn:ietf:params:scim:api:messages:2.0:Error"],
+        detail: `Unable to create the new user in GrowthBook: ${e.message}`,
+        status: 500,
+      };
     }
   }
 );

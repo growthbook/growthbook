@@ -2,8 +2,8 @@ import { Router } from "express";
 import bodyParser from "body-parser";
 import authenticateApiRequestMiddleware from "../middleware/authenticateApiRequestMiddleware";
 import usersRouter from "./users/users.router";
-import groupsRouter from "./groups/groups.router";
 import scimMiddleware from "./middleware/scimMiddleware";
+import groupsRouter from "./groups/groups.router";
 
 const router = Router();
 
@@ -19,6 +19,7 @@ router.use("/groups", groupsRouter);
 
 // 404 route
 router.use(function (req, res) {
+  console.log("endpoint hit: ", req.url);
   res.status(404).json({
     message: "Unknown API endpoint",
   });
