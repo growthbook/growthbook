@@ -13,7 +13,6 @@ import Modal from "../Modal";
 import Field from "../Forms/Field";
 import SelectField from "../Forms/SelectField";
 import MarkdownInput from "../Markdown/MarkdownInput";
-import MultiSelectField from "../Forms/MultiSelectField";
 
 export interface Props {
   factTable: FactTableInterface;
@@ -36,7 +35,6 @@ export default function FactModal({ existing, factTable, close }: Props) {
       description: existing?.description || "",
       name: existing?.name || "",
       numberFormat: existing?.numberFormat || "number",
-      filters: existing?.filters || [],
     },
   });
 
@@ -53,7 +51,6 @@ export default function FactModal({ existing, factTable, close }: Props) {
             column: value.column,
             name: value.name,
             numberFormat: value.numberFormat,
-            filters: value.filters,
           };
           await apiCall(`/fact-tables/${factTable.id}/fact/${existing.id}`, {
             method: "PUT",
@@ -70,6 +67,12 @@ export default function FactModal({ existing, factTable, close }: Props) {
         mutateDefinitions();
       })}
     >
+      <div className="alert alert-info">
+        <strong>Note:</strong> If you just want to count rows/users in the Fact
+        Table, you don&apos;t need to create a Fact for that. You can just
+        create a Metric directly.
+      </div>
+
       <Field label="Name" {...form.register("name")} required />
 
       {showDescription ? (
@@ -117,19 +120,6 @@ export default function FactModal({ existing, factTable, close }: Props) {
         ]}
         required
       />
-
-      {factTable.filters.length > 0 && (
-        <MultiSelectField
-          label="Filters (optional)"
-          value={form.watch("filters")}
-          onChange={(filters) => form.setValue("filters", filters)}
-          options={factTable.filters.map((f) => ({
-            label: f.name,
-            value: f.id,
-          }))}
-          helpText={<>Limit which rows are included</>}
-        />
-      )}
     </Modal>
   );
 }

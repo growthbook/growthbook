@@ -88,7 +88,6 @@ export default function FactList({ factTable }: Props) {
               <tr>
                 <SortableTH field="name">Name</SortableTH>
                 <SortableTH field="column">Column</SortableTH>
-                <th>Filters</th>
                 <th style={{ width: 30 }}></th>
               </tr>
             </thead>
@@ -98,17 +97,6 @@ export default function FactList({ factTable }: Props) {
                   <td>{fact.name}</td>
                   <td>
                     <InlineCode language="sql" code={fact.column} />
-                  </td>
-                  <td>
-                    {fact.filters.map((filterId) => (
-                      <span
-                        key={filterId}
-                        className="badge badge-secondary mr-1"
-                      >
-                        {factTable.filters.find((f) => f.id === filterId)
-                          ?.name || filterId}
-                      </span>
-                    ))}
                   </td>
                   <td>
                     {canEdit && (

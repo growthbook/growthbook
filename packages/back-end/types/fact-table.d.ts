@@ -25,7 +25,6 @@ export interface FactInterface {
   description: string;
   column: string;
   numberFormat: FactNumberFormat;
-  filters: string[];
 }
 
 export interface FactFilterInterface {
@@ -50,6 +49,7 @@ export interface FactTableInterface {
   datasource: string;
   userIdTypes: string[];
   sql: string;
+  eventName: string;
   facts: FactInterface[];
   filters: FactFilterInterface[];
 }

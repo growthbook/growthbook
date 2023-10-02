@@ -335,7 +335,7 @@ export default function FactMetricModal({
         autoFocus
         required
       />
-      {!existing && (
+      {!existing && !initialFactTable && (
         <SelectField
           label="Data Source"
           value={form.watch("datasource")}
@@ -427,9 +427,9 @@ export default function FactMetricModal({
           />
           {type === "proportion" ? (
             <div>
-              <p>
-                <strong>Metric Value</strong> = Percent of Experiment Users who
-                exist in a Fact Table
+              <p className="text-muted">
+                (<strong>Metric Value</strong> = Percent of Experiment Users who
+                exist in a Fact Table)
               </p>
               <FactSelector
                 value={form.watch("numerator")}
@@ -440,9 +440,9 @@ export default function FactMetricModal({
             </div>
           ) : type === "mean" ? (
             <div>
-              <p>
-                <strong>Metric Value</strong> = Average of a numeric value among
-                all Experiment Users
+              <p className="text-muted">
+                (<strong>Metric Value</strong> = Average of a numeric value
+                among all Experiment Users)
               </p>
               <FactSelector
                 value={form.watch("numerator")}
@@ -454,8 +454,8 @@ export default function FactMetricModal({
             </div>
           ) : type === "ratio" ? (
             <>
-              <p>
-                <strong>Metric Value</strong> = Numerator / Denominator{" "}
+              <p className="text-muted">
+                (<strong>Metric Value</strong> = Numerator / Denominator){" "}
                 <Tooltip body="Ratio metrics use the Delta Method to provide an accurate estimation of variance" />
               </p>
               <div className="form-group">
@@ -554,7 +554,7 @@ export default function FactMetricModal({
                       ]}
                     />
                   </div>
-                  <div className="col-auto">of viewing experiment</div>
+                  <div className="col-auto">of first experiment exposure</div>
                 </div>
               </div>
             )}

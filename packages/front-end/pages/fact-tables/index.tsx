@@ -19,6 +19,7 @@ import TagsFilter, {
 } from "@/components/Tags/TagsFilter";
 import SortedTags from "@/components/Tags/SortedTags";
 import ProjectBadges from "@/components/ProjectBadges";
+import Badge from "@/components/Badge";
 
 export default function FactTablesPage() {
   const { factTables, getDatasourceById, project } = useDefinitions();
@@ -103,12 +104,6 @@ export default function FactTablesPage() {
         </a>
         {aboutOpen && (
           <div className="alert alert-info">
-            <div className="mb-2">
-              A <strong>Fact Table</strong> contains a base SQL definition, plus
-              one or more <strong>Facts</strong> built on top of this base
-              query. You can use these Facts to quickly build a library of{" "}
-              <strong>Metrics</strong>.
-            </div>
             <div className="mb-3">
               With Fact Tables, you can better organize your metrics, cut down
               on repetitive copy/pasting, and unlock massive SQL cost savings{" "}
@@ -128,32 +123,75 @@ export default function FactTablesPage() {
                   </>
                 }
               />
-              .
             </div>
-
-            <h4>Example</h4>
-            <table className="table w-auto mb-0">
+            <table className="table w-auto gbtable appbox">
               <tbody>
                 <tr>
                   <th>Fact Table</th>
-                  <td>Orders</td>
-                  <td></td>
-                  <td></td>
-                  <td></td>
+                  <td>A base SQL definition for an event</td>
+                  <td>
+                    Examples:{" "}
+                    <Badge
+                      content="Sign Up"
+                      className="badge-light mr-1 border"
+                    />
+                    <Badge
+                      content="Order"
+                      className="badge-light mr-1 border"
+                    />
+                    <Badge
+                      content="Form Submit"
+                      className="badge-light mr-1 border"
+                    />
+                  </td>
                 </tr>
                 <tr>
-                  <th>Facts</th>
-                  <td>Revenue</td>
-                  <td>Number of Items</td>
-                  <td></td>
-                  <td></td>
+                  <th>Fact</th>
+                  <td>A numeric column in the Fact Table</td>
+                  <td>
+                    Examples:
+                    <Badge
+                      content="Order Amount"
+                      className="badge-light mr-1 border"
+                    />
+                    <Badge
+                      content="Session Duration"
+                      className="badge-light mr-1 border"
+                    />
+                  </td>
                 </tr>
                 <tr>
-                  <th>Metrics</th>
-                  <td>Purchasers</td>
-                  <td>Revenue per User</td>
-                  <td>Average Order Value</td>
-                  <td>Items per Order</td>
+                  <th>Filter</th>
+                  <td>A WHERE clause to filter rows in the Fact Table</td>
+                  <td>
+                    Examples:
+                    <Badge
+                      content="With Promo Code"
+                      className="badge-light mr-1 border"
+                    />
+                    <Badge
+                      content="High Value Order"
+                      className="badge-light mr-1 border"
+                    />
+                  </td>
+                </tr>
+                <tr>
+                  <th>Metric</th>
+                  <td>
+                    Built with Facts and Filters and used as a goal in an
+                    experiment
+                  </td>
+                  <td>
+                    Examples:
+                    <Badge
+                      content="Purchase Rate"
+                      className="badge-light mr-1 border"
+                    />
+                    <Badge
+                      content="Average Order Value"
+                      className="badge-light mr-1 border"
+                    />
+                  </td>
                 </tr>
               </tbody>
             </table>

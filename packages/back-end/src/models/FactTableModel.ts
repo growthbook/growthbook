@@ -36,7 +36,6 @@ const factTableSchema = new mongoose.Schema({
       description: String,
       column: String,
       numberFormat: String,
-      filters: [String],
     },
   ],
   filters: [
@@ -139,7 +138,6 @@ export async function createFact(
     column: data.column,
     numberFormat: data.numberFormat,
     description: data.description,
-    filters: data.filters,
   };
 
   if (factTable.facts.some((f) => f.id === fact.id)) {

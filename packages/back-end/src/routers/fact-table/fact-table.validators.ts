@@ -11,6 +11,7 @@ export const createFactTablePropsValidator = z
     datasource: z.string(),
     userIdTypes: z.array(z.string()),
     sql: z.string(),
+    eventName: z.string(),
   })
   .strict();
 
@@ -23,6 +24,7 @@ export const updateFactTablePropsValidator = z
     tags: z.array(z.string()).optional(),
     userIdTypes: z.array(z.string()).optional(),
     sql: z.string().optional(),
+    eventName: z.string(),
   })
   .strict();
 
@@ -114,7 +116,6 @@ export const createFactPropsValidator = z
     description: z.string(),
     column: z.string(),
     numberFormat: numberFormatValidator,
-    filters: z.array(z.string()),
   })
   .strict();
 
@@ -124,7 +125,6 @@ export const updateFactPropsValidator = z
     description: z.string(),
     column: z.string(),
     numberFormat: numberFormatValidator,
-    filters: z.array(z.string()),
   })
   .strict();
 
