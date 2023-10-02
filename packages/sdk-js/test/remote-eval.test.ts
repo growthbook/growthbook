@@ -269,7 +269,7 @@ describe("remote-eval", () => {
     await clearCache();
     const [f, cleanup] = mockApi(sdkPayload);
 
-    const growthbook = new GrowthBook({
+    const growthbook1 = new GrowthBook({
       apiHost: "https://fakeapi.sample.io",
       clientKey: "qwerty1234",
       remoteEval: true,
@@ -277,29 +277,54 @@ describe("remote-eval", () => {
     });
 
     // 1
-    await growthbook.loadFeatures();
+    await growthbook1.loadFeatures();
     await sleep(200);
 
     // 2
-    growthbook.setAttributes({ uid: "5" });
+    growthbook1.setAttributes({ uid: "5" });
+    await sleep(10);
+
+    // non-dependency change should NOT trigger a network request
+    growthbook1.setAttributes({ uid: "5", something: "foo" });
     await sleep(200);
 
     // setForcedFeatures should NOT trigger an API call
-    growthbook.setForcedFeatures(new Map([["bar", "something else"]]));
+    growthbook1.setForcedFeatures(new Map([["bar", "something else"]]));
     await sleep(200);
 
     // 3
-    growthbook.setForcedVariations({ exp1: 0 });
+    growthbook1.setForcedVariations({ exp1: 0 });
     await sleep(200);
 
     // 4
-    growthbook.setURL("https://www.page.io/page2");
+    growthbook1.setURL("https://www.page.io/page2");
     await sleep(200);
 
     expect(f.mock.calls.length).toEqual(4);
 
-    growthbook.destroy();
     cleanup();
+    growthbook1.destroy();
+    await clearCache();
+
+    // Test that all attributes are dependencies when no cacheKeyAttributes are set
+    const growthbook2 = new GrowthBook({
+      apiHost: "https://fakeapi.sample.io",
+      clientKey: "blahblah",
+      remoteEval: true,
+    });
+
+    // 1
+    await growthbook2.loadFeatures();
+    await sleep(200);
+
+    // 2
+    growthbook2.setAttributes({ uid: "5" });
+    await sleep(200);
+
+    expect(f.mock.calls.length).toEqual(4);
+
+    cleanup();
+    growthbook2.destroy();
     await clearCache();
   });
 
@@ -369,39 +394,53 @@ describe("remote-eval", () => {
       ],
     });
 
-    const growthbook = new GrowthBook({
+    const growthbook1 = new GrowthBook({
       apiHost: "https://fakeapi.sample.io",
       clientKey: "qwerty1234",
       remoteEval: true,
-      cacheKeyAttributes: ["uid"],
       subscribeToChanges: true,
       attributes: { uid: "5" },
     });
+    // identical; should also receive SSE updates
     const growthbook2 = new GrowthBook({
       apiHost: "https://fakeapi.sample.io",
       clientKey: "qwerty1234",
-      cacheKeyAttributes: ["uid"],
+      remoteEval: true,
+      subscribeToChanges: true,
+      attributes: { uid: "5" },
+    });
+    // should not receive SSE updates (subscribeToChanges: false)
+    const growthbook3 = new GrowthBook({
+      apiHost: "https://fakeapi.sample.io",
+      clientKey: "qwerty1234",
       remoteEval: true,
       attributes: { uid: "5" },
     });
 
-    expect(growthbook.evalFeature("bar").value).toEqual(null);
+    expect(growthbook1.evalFeature("bar").value).toEqual(null);
     expect(growthbook2.evalFeature("bar").value).toEqual(null);
+    expect(growthbook3.evalFeature("bar").value).toEqual(null);
 
-    await Promise.all([growthbook.loadFeatures(), growthbook2.loadFeatures()]);
+    await Promise.all([
+      growthbook1.loadFeatures(),
+      growthbook2.loadFeatures(),
+      growthbook3.loadFeatures(),
+    ]);
     expect(f.mock.calls.length).toEqual(1);
 
     // Initial value from API
-    expect(growthbook.evalFeature("bar").value).toEqual("initial");
+    expect(growthbook1.evalFeature("bar").value).toEqual("initial");
     expect(growthbook2.evalFeature("bar").value).toEqual("initial");
+    expect(growthbook3.evalFeature("bar").value).toEqual("initial");
 
     // update the API server with new payload
     const [f2, cleanup2] = mockApi(sdkPayloadUpdated, true);
 
     // After SSE update received, instance with subscribeToChanges should have new value
     await sleep(150);
-    expect(growthbook.evalFeature("bar").value).toEqual("changedForSSE");
-    expect(growthbook2.evalFeature("bar").value).toEqual("initial");
+    expect(growthbook1.evalFeature("bar").value).toEqual("changedForSSE");
+    expect(growthbook2.evalFeature("bar").value).toEqual("changedForSSE");
+    expect(growthbook3.evalFeature("bar").value).toEqual("initial");
 
     expect(f2.mock.calls.length).toEqual(1);
 
@@ -416,8 +455,9 @@ describe("remote-eval", () => {
     expect(lsValue[0][1].sse).toEqual(true);
 
     await clearCache();
-    growthbook.destroy();
+    growthbook1.destroy();
     growthbook2.destroy();
+    growthbook3.destroy();
     cleanup();
     cleanup2();
     event.clear();
