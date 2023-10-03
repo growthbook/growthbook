@@ -405,7 +405,7 @@ export default function ResultsTable({
           hoveredMetricRow !== null &&
           hoveredVariationRow !== null
         }
-        timeout={0}
+        timeout={200}
         classNames="tooltip-animate"
         appear={true}
       >
@@ -614,6 +614,7 @@ export default function ResultsTable({
                 cr: 0,
                 users: 0,
               };
+              let alreadyShownQueryError = false;
 
               return (
                 <tbody className={clsx("results-group-row")} key={i}>
@@ -638,24 +639,38 @@ export default function ResultsTable({
                       return null;
                     }
                     if (rowResults === "query error") {
-                      if (j > 1) {
-                        return null;
-                      } else {
+                      if (!alreadyShownQueryError) {
+                        alreadyShownQueryError = true;
                         return drawEmptyRow({
                           key: j,
                           className:
                             "results-variation-row align-items-center error-row",
                           label: (
-                            <div className="alert alert-danger px-2 py-1 mb-1 ml-1">
-                              <FaExclamationTriangle className="mr-1" />
-                              Query error
-                            </div>
+                            <>
+                              {compactResults ? (
+                                <div className="mb-1">
+                                  {renderLabelColumn(
+                                    row.label,
+                                    row.metric,
+                                    row
+                                  )}
+                                </div>
+                              ) : null}
+                              <div className="alert alert-danger px-2 py-1 mb-1 ml-1">
+                                <FaExclamationTriangle className="mr-1" />
+                                Query error
+                              </div>
+                            </>
                           ),
                           graphCellWidth,
-                          rowHeight: ROW_HEIGHT,
+                          rowHeight: compactResults
+                            ? ROW_HEIGHT + 20
+                            : ROW_HEIGHT,
                           id,
                           domain,
                         });
+                      } else {
+                        return null;
                       }
                     }
                     const isHovered =
@@ -727,19 +742,6 @@ export default function ResultsTable({
                               hover: isHovered,
                             })}
                             newUi={true}
-                            onMouseMove={(e) =>
-                              onPointerMove(e, {
-                                x: "element-right",
-                                offsetX: -45,
-                              })
-                            }
-                            onPointerLeave={onPointerLeave}
-                            onClick={(e) =>
-                              onPointerMove(e, {
-                                x: "element-right",
-                                offsetX: -45,
-                              })
-                            }
                           />
                         ) : (
                           <td />
@@ -752,19 +754,6 @@ export default function ResultsTable({
                             hover: isHovered,
                           })}
                           newUi={true}
-                          onMouseMove={(e) =>
-                            onPointerMove(e, {
-                              x: "element-right",
-                              offsetX: -45,
-                            })
-                          }
-                          onPointerLeave={onPointerLeave}
-                          onClick={(e) =>
-                            onPointerMove(e, {
-                              x: "element-right",
-                              offsetX: -45,
-                            })
-                          }
                         />
                         {j > 0 ? (
                           statsEngine === "bayesian" ? (
@@ -845,7 +834,11 @@ export default function ResultsTable({
                                 resultsHighlightClassname,
                                 "overflow-hidden"
                               )}
-                              rowStatus={rowResults.resultsStatus}
+                              rowStatus={
+                                statsEngine === "frequentist"
+                                  ? rowResults.resultsStatus
+                                  : undefined
+                              }
                               onMouseMove={(e) =>
                                 onPointerMove(e, {
                                   x: "element-center",
@@ -881,19 +874,6 @@ export default function ResultsTable({
                             rowResults={rowResults}
                             statsEngine={statsEngine}
                             className={resultsHighlightClassname}
-                            onMouseMove={(e) =>
-                              onPointerMove(e, {
-                                x: "element-left",
-                                offsetX: 50,
-                              })
-                            }
-                            onMouseLeave={onPointerLeave}
-                            onClick={(e) =>
-                              onPointerMove(e, {
-                                x: "element-left",
-                                offsetX: 50,
-                              })
-                            }
                           />
                         ) : (
                           <td></td>

@@ -22,12 +22,13 @@ export class PastExperimentsQueryRunner extends QueryRunner<
 > {
   async startQueries(params: PastExperimentParams): Promise<Queries> {
     return [
-      await this.startQuery(
-        "experiments",
-        this.integration.getPastExperimentQuery(params),
-        (query) => this.integration.runPastExperimentQuery(query),
-        (rows) => this.processPastExperimentQueryResponse(rows)
-      ),
+      await this.startQuery({
+        name: "experiments",
+        query: this.integration.getPastExperimentQuery(params),
+        dependencies: [],
+        run: (query) => this.integration.runPastExperimentQuery(query),
+        process: (rows) => this.processPastExperimentQueryResponse(rows),
+      }),
     ];
   }
   async runAnalysis(queryMap: QueryMap): Promise<PastExperiment[]> {

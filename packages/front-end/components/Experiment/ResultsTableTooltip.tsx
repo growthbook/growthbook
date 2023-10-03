@@ -144,11 +144,7 @@ export default function ResultsTableTooltip({
   ) {
     pValText = (
       <>
-        <div>
-          {data.stats?.pValueAdjusted
-            ? pValueFormatter(data.stats.pValueAdjusted)
-            : ""}
-        </div>
+        <div>{pValueFormatter(data.stats.pValueAdjusted)}</div>
         <div className="text-muted font-weight-normal">
           (unadj.:&nbsp;{pValText})
         </div>

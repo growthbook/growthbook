@@ -13,6 +13,11 @@
     "attributionModel": "firstExposure"
   },
   {
+    "id": "activation_anonymous",
+    "activationMetric": "cart_loaded_anonymous",
+    "attributionModel": "firstExposure"
+  },
+  {
     "id": "activation_allExposures",
     "activationMetric": "cart_loaded",
     "attributionModel": "experimentDuration"
@@ -130,6 +135,12 @@
     "dimensionType": "user",
     "dimensionMetric": "country",
     "attributionModel": "firstExposure"
+  },
+  {
+    "id": "dimension_activation",
+    "activationMetric": "cart_loaded",
+    "attributionModel": "firstExposure",
+    "dimensionType": "activation"
   },
   {
     "id": "filter_sql",
