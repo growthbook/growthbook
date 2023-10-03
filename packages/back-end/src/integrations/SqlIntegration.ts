@@ -1952,8 +1952,6 @@ AND event_name = '${eventName}'`,
       useDenominator
     );
 
-    let templateVariables: TemplateVariables | undefined = undefined;
-
     // Determine the identifier column to select from
     let userIdCol = cols.userIds[baseIdType] || "user_id";
     let join = "";
@@ -1975,12 +1973,6 @@ AND event_name = '${eventName}'`,
 
     if (isFact && !factTable) {
       throw new Error("Could not find fact table");
-    }
-
-    if (isFact) {
-      templateVariables = { eventName: factTable?.eventName };
-    } else {
-      templateVariables = metric.templateVariables;
     }
 
     // query builder does not use a sub-query to get a the userId column to
@@ -2060,7 +2052,9 @@ AND event_name = '${eventName}'`,
                 startDate,
                 endDate: endDate || undefined,
                 experimentId,
-                templateVariables,
+                templateVariables: isFact
+                  ? { eventName: factTable?.eventName }
+                  : metric.templateVariables,
               })}
               )`
             : !isFact
