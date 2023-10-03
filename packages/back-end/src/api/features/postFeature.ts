@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { validateFeatureValue } from "shared/util";
+import { accountFeatures, getAccountPlan } from "enterprise";
 import { PostFeatureResponse } from "../../../types/openapi";
 import { createApiRequestHandler } from "../../util/handler";
 import { postFeatureValidator } from "../../validators/openapi";
@@ -14,6 +15,7 @@ import {
   getSavedGroupMap,
 } from "../../services/features";
 import { auditDetailsCreate } from "../../services/audit";
+import { OrganizationInterface } from "../../../types/organization";
 
 export type ApiFeatureEnvSettings = NonNullable<
   z.infer<typeof postFeatureValidator.bodySchema>["environments"]
@@ -33,6 +35,26 @@ export const validateEnvKeys = (
         "', '"
       )}' not recognized. Please create the environment or remove it from your environment settings and try again.`
     );
+  }
+};
+
+export const parseJsonSchemaForEnterprise = (
+  org: OrganizationInterface,
+  jsonSchema: string | undefined
+) => {
+  const defaultJsonSchema = {
+    schema: "",
+    date: new Date(),
+    enabled: false,
+  };
+  const commercialFeatures = [...accountFeatures[getAccountPlan(org)]];
+  if (!commercialFeatures.includes("json-validation")) return defaultJsonSchema;
+  try {
+    return jsonSchema ? JSON.parse(jsonSchema) : defaultJsonSchema;
+  } catch (e) {
+    // eslint-disable-next-line no-console
+    console.error("failed to parse json schema", e);
+    return defaultJsonSchema;
   }
 };
 
@@ -58,6 +80,11 @@ export const postFeature = createApiRequestHandler(postFeatureValidator)(
       req.body.environments ?? {}
     );
 
+    const jsonSchema = parseJsonSchemaForEnterprise(
+      req.organization,
+      req.body.jsonSchema
+    );
+
     const feature: FeatureInterface = {
       defaultValue: req.body.defaultValue ?? "",
       valueType: req.body.valueType,
@@ -79,11 +106,7 @@ export const postFeature = createApiRequestHandler(postFeatureValidator)(
           name: req.body.owner,
         },
       },
-      jsonSchema: {
-        schema: "",
-        date: new Date(),
-        enabled: false,
-      },
+      jsonSchema,
       environmentSettings,
     };
 

@@ -21,3 +21,6 @@ properties:
     type: object
     additionalProperties:
       $ref: "./postFeature/FeatureEnvironment.yaml"
+  jsonSchema:
+    type: string
+    description: Use JSON schema to validate the payload of a JSON-type feature value (enterprise only).

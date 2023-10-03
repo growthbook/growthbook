@@ -1290,6 +1290,8 @@ export interface operations {
               };
             }) | undefined;
           };
+          /** @description Use JSON schema to validate the payload of a JSON-type feature value (enterprise only). */
+          jsonSchema?: string;
         };
       };
     };
@@ -1714,6 +1716,8 @@ export interface operations {
               };
             }) | undefined;
           };
+          /** @description Use JSON schema to validate the payload of a JSON-type feature value (enterprise only). */
+          jsonSchema?: string;
         };
       };
     };

@@ -384,6 +384,9 @@ paths:
                           definition:
                             type: string
                             description: 'A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model)'
+                jsonSchema:
+                  type: string
+                  description: Use JSON schema to validate the payload of a JSON-type feature value (enterprise only).
       responses:
         '200':
           content:
@@ -460,6 +463,9 @@ paths:
                   type: object
                   additionalProperties:
                     $ref: '#/paths/~1features/post/requestBody/content/application~1json/schema/properties/environments/additionalProperties'
+                jsonSchema:
+                  type: string
+                  description: Use JSON schema to validate the payload of a JSON-type feature value (enterprise only).
       responses:
         '200':
           content:

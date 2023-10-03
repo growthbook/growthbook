@@ -17,7 +17,7 @@ import { FeatureInterface } from "../../../types/feature";
 import { getEnabledEnvironments } from "../../util/features";
 import { addTagsDiff } from "../../models/TagModel";
 import { auditDetailsUpdate } from "../../services/audit";
-import { validateEnvKeys } from "./postFeature";
+import { parseJsonSchemaForEnterprise, validateEnvKeys } from "./postFeature";
 
 export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
   async (req): Promise<UpdateFeatureResponse> => {
@@ -71,6 +71,11 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
           )
         : null;
 
+    const jsonSchema =
+      feature.valueType === "json" && req.body.jsonSchema != null
+        ? parseJsonSchemaForEnterprise(req.organization, req.body.jsonSchema)
+        : null;
+
     const updates: Partial<FeatureInterface> = {
       ...(owner != null ? { owner } : {}),
       ...(archived != null ? { archived } : {}),
@@ -79,6 +84,7 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
       ...(tags != null ? { tags } : {}),
       ...(defaultValue != null ? { defaultValue } : {}),
       ...(environmentSettings != null ? { environmentSettings } : {}),
+      ...(jsonSchema != null ? { jsonSchema } : {}),
     };
 
     if (updates.environmentSettings) {
