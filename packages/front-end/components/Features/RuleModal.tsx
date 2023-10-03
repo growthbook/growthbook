@@ -13,12 +13,12 @@ import { getMatchingRules, includeExperimentInPayload } from "shared/util";
 import { FaBell, FaExternalLinkAlt } from "react-icons/fa";
 import Link from "next/link";
 import {
-  NewExperimentRefRule,
   generateVariationId,
   getDefaultRuleValue,
   getDefaultVariationValue,
   getFeatureDefaultValue,
   getRules,
+  NewExperimentRefRule,
   useAttributeSchema,
   useEnvironments,
   useFeaturesList,
@@ -48,6 +48,7 @@ import FeatureVariationsInput from "./FeatureVariationsInput";
 export interface Props {
   close: () => void;
   feature: FeatureInterface;
+  revision: FeatureRevisionInterface | null;
   mutate: () => void;
   i: number;
   environment: string;
@@ -57,6 +58,7 @@ export interface Props {
 export default function RuleModal({
   close,
   feature,
+  revision,
   i,
   mutate,
   environment,
@@ -67,7 +69,7 @@ export default function RuleModal({
 
   const { namespaces } = useOrgSettings();
 
-  const rules = getRules(feature, environment);
+  const rules = getRules(feature, environment, revision);
   const rule = rules[i];
 
   const { datasources } = useDefinitions();

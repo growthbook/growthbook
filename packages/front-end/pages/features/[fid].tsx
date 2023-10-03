@@ -889,7 +889,7 @@ export default function FeaturePage() {
                   onClick={() => {
                     setRuleModal({
                       environment: env,
-                      i: getRules(displayFeature, env).length,
+                      i: getRules(displayFeature, env, activeRevision).length,
                       defaultType: "force",
                     });
                     track("Viewed Rule Modal", {
@@ -920,7 +920,7 @@ export default function FeaturePage() {
                   onClick={() => {
                     setRuleModal({
                       environment: env,
-                      i: getRules(displayFeature, env).length,
+                      i: getRules(displayFeature, env, activeRevision).length,
                       defaultType: "rollout",
                     });
                     track("Viewed Rule Modal", {
@@ -951,7 +951,7 @@ export default function FeaturePage() {
                   onClick={() => {
                     setRuleModal({
                       environment: env,
-                      i: getRules(displayFeature, env).length,
+                      i: getRules(displayFeature, env, activeRevision).length,
                       defaultType: "experiment-ref-new",
                     });
                     track("Viewed Rule Modal", {

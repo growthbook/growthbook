@@ -6,6 +6,7 @@ import { FaExclamationTriangle } from "react-icons/fa";
 import { FeatureInterface, FeatureRule } from "back-end/types/feature";
 import { ago, datetime } from "shared/dates";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
+import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { GBAddCircle } from "@/components/Icons";
 import FeatureModal from "@/components/Features/FeatureModal";
@@ -285,9 +286,15 @@ export default function FeaturesPage() {
             </thead>
             <tbody>
               {items.slice(start, end).map((feature) => {
+                // todo: get active revision for feature
+                const featureRevision: FeatureRevisionInterface | null = null;
+
                 let rules: FeatureRule[] = [];
                 environments.forEach(
-                  (e) => (rules = rules.concat(getRules(feature, e.id)))
+                  (e) =>
+                    (rules = rules.concat(
+                      getRules(feature, e.id, featureRevision)
+                    ))
                 );
 
                 // When showing a summary of rules, prefer experiments to rollouts to force rules
