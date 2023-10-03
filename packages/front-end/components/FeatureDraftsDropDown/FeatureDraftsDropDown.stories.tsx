@@ -2,7 +2,7 @@ import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import { action } from "@storybook/addon-actions";
 import { FeatureReviewRequest } from "back-end/types/feature-review";
 import { MemberData } from "@/hooks/useMembers";
-import { transformDraftForView } from "@/components/FeatureDraftsDropDown/FeatureDraftsDropdown.utils";
+import { transformDraftsForView } from "@/components/FeatureDraftsDropDown/FeatureDraftsDropdown.utils";
 import {
   FeatureDraftsDropDown,
   FeatureDraftsList,
@@ -15,32 +15,34 @@ export default {
 
 // region mock data
 
-const memberLookup: Record<string, MemberData> = {
-  "user-1": {
+const members: MemberData[] = [
+  {
     id: "user-1",
     display: "Tina 1",
     email: "tina@growthbook.io",
     value: "Tina 1",
   },
-  "user-2": {
+
+  {
     id: "user-2",
     display: "Tina 2",
     email: "info@tinaciousdesign.com",
     value: "Tina 2",
   },
-  "user-3": {
+  {
     id: "user-3",
     display: "Graham",
     email: "graham@growthbook.io",
     value: "Graham",
   },
-  "user-4": {
+  {
     id: "user-4",
     display: "Jeremy",
     email: "jeremy@growthbook.io",
     value: "Jeremy",
   },
-};
+];
+
 const revisions: FeatureRevisionInterface[] = [
   {
     id: "feat-rev_aaf83876-cf2e-4d98-b5d4-d4b1780ecf9b",
@@ -295,7 +297,8 @@ const revisions: FeatureRevisionInterface[] = [
     status: "draft",
   },
 ];
-const drafts = revisions.map(transformDraftForView(memberLookup));
+
+const drafts = transformDraftsForView(members, revisions);
 
 const reviewRequests: FeatureReviewRequest[] = [
   {
