@@ -12,6 +12,7 @@ import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { getMatchingRules, includeExperimentInPayload } from "shared/util";
 import { FaBell, FaExternalLinkAlt } from "react-icons/fa";
 import Link from "next/link";
+import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import {
   generateVariationId,
   getDefaultRuleValue,
