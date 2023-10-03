@@ -873,8 +873,6 @@ export default function FeaturePage() {
         })}
       </ControlledTabs>
 
-      <pre>{JSON.stringify(displayFeature, null, 2)}</pre>
-
       {permissions.check("createFeatureDrafts", projectId) && (
         <div className="row">
           <div className="col mb-3">
