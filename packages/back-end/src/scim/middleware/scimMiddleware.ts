@@ -9,6 +9,14 @@ export default function scimMiddleware(
 ) {
   const acceptHeader = req.get("Accept");
 
+  //TODO: Update how we determine this
+  if (!process.env.SSO_CONFIG) {
+    return res.status(500).json({
+      schemas: ["urn:ietf:params:scim:api:messages:2.0:Error"],
+      status: "500",
+      detail: "SCIM is not available for this GrowthBook organization.",
+    });
+  }
   if (!req.organization) {
     return res.status(400).json({
       schemas: ["urn:ietf:params:scim:api:messages:2.0:Error"],
