@@ -5,6 +5,7 @@ import { NextApiRequest, NextApiResponse } from "next";
 export interface EnvironmentInitValue {
   telemetry: "debug" | "enable" | "disable";
   cloud: boolean;
+  isMultiOrg?: boolean;
   appOrigin: string;
   apiHost: string;
   cdnHost: string;
@@ -26,6 +27,7 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
     API_HOST,
     CDN_HOST,
     IS_CLOUD,
+    IS_MULTI_ORG,
     DISABLE_TELEMETRY,
     DEFAULT_CONVERSION_WINDOW_HOURS,
     NEXT_PUBLIC_SENTRY_DSN,
@@ -59,6 +61,7 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
     apiHost: API_HOST || "http://localhost:3100",
     cdnHost: CDN_HOST || "",
     cloud: !!IS_CLOUD,
+    isMultiOrg: !!IS_MULTI_ORG,
     config: hasConfigFile ? "file" : "db",
     build,
     defaultConversionWindowHours: DEFAULT_CONVERSION_WINDOW_HOURS

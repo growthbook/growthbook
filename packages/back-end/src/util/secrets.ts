@@ -10,6 +10,7 @@ if (fs.existsSync(".env.local")) {
 }
 
 export const IS_CLOUD = !!process.env.IS_CLOUD;
+export const IS_MULTI_ORG = !!process.env.IS_MULTI_ORG;
 
 export const UPLOAD_METHOD = (() => {
   if (IS_CLOUD) return "s3";
@@ -117,8 +118,9 @@ export const SENTRY_DSN = process.env.SENTRY_DSN || "";
 
 export const STORE_SEGMENTS_IN_MONGO = !!process.env.STORE_SEGMENTS_IN_MONGO;
 // Add a default secret access key via an environment variable
-// Only allowed while self-hosting, don't allow using "dev" (default value) in prod
-let secretAPIKey = IS_CLOUD ? "" : process.env.SECRET_API_KEY || "";
+// Only allowed while self-hosting and not multi org
+let secretAPIKey = IS_MULTI_ORG ? "" : process.env.SECRET_API_KEY || "";
+// Don't allow using "dev" (default value) in prod
 if ((prod || !isLocalhost) && secretAPIKey === "dev") {
   secretAPIKey = "";
   // eslint-disable-next-line

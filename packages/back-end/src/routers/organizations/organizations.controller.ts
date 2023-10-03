@@ -48,7 +48,7 @@ import {
 import { getAllFeatures } from "../../models/FeatureModel";
 import { findDimensionsByOrganization } from "../../models/DimensionModel";
 import { findSegmentsByOrganization } from "../../models/SegmentModel";
-import { APP_ORIGIN, IS_CLOUD } from "../../util/secrets";
+import { APP_ORIGIN, IS_CLOUD, IS_MULTI_ORG } from "../../util/secrets";
 import {
   sendInviteEmail,
   sendNewMemberEmail,
@@ -1028,7 +1028,7 @@ export async function deleteInvite(
 export async function signup(req: AuthRequest<SignupBody>, res: Response) {
   const { company } = req.body;
 
-  if (!IS_CLOUD) {
+  if (!IS_MULTI_ORG) {
     const orgs = await hasOrganization();
     // there are odd edge cases where a user can exist, but not an org,
     // so we want to allow org creation this way if there are no other orgs
@@ -1039,7 +1039,7 @@ export async function signup(req: AuthRequest<SignupBody>, res: Response) {
   }
 
   let verifiedDomain = "";
-  if (IS_CLOUD) {
+  if (IS_MULTI_ORG) {
     // if the owner is verified, try to infer a verified domain
     if (req.email && req.verified) {
       const domain = req.email.toLowerCase().split("@")[1] || "";
@@ -1501,6 +1501,12 @@ export async function getOrphanedUsers(req: AuthRequest, res: Response) {
     throw new Error("Unable to get orphaned users on GrowthBook Cloud");
   }
 
+  if (IS_MULTI_ORG && !req.superAdmin) {
+    throw new Error(
+      "Only super admins get orphaned users on multi-org deployments"
+    );
+  }
+
   const allUsers = await getAllUsers();
   const { organizations: allOrgs } = await findAllOrganizations(1, "");
 
@@ -1533,6 +1539,12 @@ export async function addOrphanedUser(
 
   if (IS_CLOUD) {
     throw new Error("This action is not permitted on GrowthBook Cloud");
+  }
+
+  if (IS_MULTI_ORG && !req.superAdmin) {
+    throw new Error(
+      "Only super admins can add orphaned users on multi-org deployments"
+    );
   }
 
   const { org } = getOrgFromReq(req);
@@ -1585,6 +1597,12 @@ export async function deleteOrphanedUser(
 
   if (IS_CLOUD) {
     throw new Error("Unable to delete orphaned users on GrowthBook Cloud");
+  }
+
+  if (IS_MULTI_ORG && !req.superAdmin) {
+    throw new Error(
+      "Only super admins delete orphaned users on multi-org deployments"
+    );
   }
 
   const { id } = req.params;

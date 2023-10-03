@@ -8,7 +8,11 @@ import {
   PublishableApiKey,
   SecretApiKey,
 } from "../../types/apikey";
-import { IS_CLOUD, SECRET_API_KEY, SECRET_API_KEY_ROLE } from "../util/secrets";
+import {
+  IS_MULTI_ORG,
+  SECRET_API_KEY,
+  SECRET_API_KEY_ROLE,
+} from "../util/secrets";
 import { roleForApiKey } from "../util/api-key.util";
 import { findAllOrganizations } from "./OrganizationModel";
 
@@ -299,7 +303,7 @@ export async function lookupOrganizationByApiKey(
   key: string
 ): Promise<Partial<ApiKeyInterface>> {
   // If self-hosting and using a hardcoded secret key
-  if (!IS_CLOUD && SECRET_API_KEY && key === SECRET_API_KEY) {
+  if (!IS_MULTI_ORG && SECRET_API_KEY && key === SECRET_API_KEY) {
     const { organizations: orgs } = await findAllOrganizations(1, "");
     if (orgs.length === 1) {
       return {

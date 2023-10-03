@@ -8,7 +8,7 @@ import {
   createOrganization,
   hasOrganization,
 } from "../models/OrganizationModel";
-import { IS_CLOUD } from "../util/secrets";
+import { IS_MULTI_ORG } from "../util/secrets";
 import {
   deleteAuthCookies,
   getAuthConnection,
@@ -36,7 +36,7 @@ import { resetMinTokenDate } from "../models/UserModel";
 import { AuthRefreshModel } from "../models/AuthRefreshModel";
 
 export async function getHasOrganizations(req: Request, res: Response) {
-  const hasOrg = IS_CLOUD ? true : await hasOrganization();
+  const hasOrg = IS_MULTI_ORG ? true : await hasOrganization();
   return res.json({
     status: 200,
     hasOrganizations: hasOrg,
