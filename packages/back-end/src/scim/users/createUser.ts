@@ -62,7 +62,7 @@ export async function createUser(
     // Add them to the org's members array
     return res.status(201).json({
       schemas: ["urn:ietf:params:scim:schemas:core:2.0:User"],
-      id: user.id,
+      id: user.externalId,
       userName: user.email,
       name: {
         displayName: user.name,
