@@ -8,7 +8,9 @@ import { FeatureReviewRequest } from "back-end/types/feature-review";
 import useApi from "@/hooks/useApi";
 import {
   FeatureDraftUiItem,
+  memberLookupForMemberData,
   transformDraftForView,
+  transformDraftsForView,
 } from "@/components/FeatureDraftsDropDown/FeatureDraftsDropdown.utils";
 import Avatar from "@/components/Avatar/Avatar";
 import useMembers, { MemberData } from "@/hooks/useMembers";
@@ -171,24 +173,14 @@ export const FeatureDraftsDropDownContainer = () => {
 
   const { memberUsernameOptions } = useMembers();
 
-  const memberLookup = useMemo(
-    (): Record<string, MemberData> =>
-      memberUsernameOptions.reduce<Record<string, MemberData>>((acc, curr) => {
-        acc[curr.id] = curr;
-        return acc;
-      }, {}),
-    [memberUsernameOptions]
-  );
-
   const onDraftClicked = useCallback((draft: FeatureDraftUiItem) => {
     console.log("draft clicked", draft);
   }, []);
 
-  const revisions = useMemo(() => {
-    if (!data) return [];
-
-    return data.drafts.map(transformDraftForView(memberLookup));
-  }, [data, memberLookup]);
+  const revisions = useMemo(
+    () => transformDraftsForView(memberUsernameOptions, data?.drafts || []),
+    [data, memberUsernameOptions]
+  );
 
   const drafts = revisions;
 

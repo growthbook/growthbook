@@ -13,7 +13,7 @@ export type FeatureDraftUiItem = {
   } | null;
 };
 
-export const transformDraftForView = (members: Record<string, MemberData>) => (
+const transformDraftForView = (members: Record<string, MemberData>) => (
   revision: FeatureRevisionInterface
 ): FeatureDraftUiItem => ({
   revisionId: revision.id || null,
@@ -28,3 +28,23 @@ export const transformDraftForView = (members: Record<string, MemberData>) => (
         }
       : null,
 });
+
+export const transformDraftsForView = (
+  members: MemberData[],
+  revisions: FeatureRevisionInterface[]
+): FeatureDraftUiItem[] => {
+  const memberLookup = memberLookupForMemberData(members);
+  return revisions.map(transformDraftForView(memberLookup));
+};
+
+/**
+ * ID to MemberData lookup from MemberData[]
+ */
+export const memberLookupForMemberData = (
+  memberData: MemberData[]
+): Record<string, MemberData> => {
+  return memberData.reduce<Record<string, MemberData>>((acc, curr) => {
+    acc[curr.id] = curr;
+    return acc;
+  }, {});
+};
