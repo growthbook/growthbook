@@ -88,7 +88,7 @@ export default function CreateOrganization(): ReactElement {
         >
           <FiLogOut /> log out
         </a>
-        {isCloud() || !data.hasOrganizations ? (
+        {isMultiOrg() || !data.hasOrganizations ? (
           <>
             {mode === "join" && org ? (
               <>
