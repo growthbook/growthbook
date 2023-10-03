@@ -26,6 +26,7 @@ import {
   setJsonSchema,
   setLegacyFeatureDraftRules,
   toggleFeatureEnvironment,
+  updateDraft,
   updateFeature,
   updateLegacyDraft,
 } from "../models/FeatureModel";
@@ -37,10 +38,6 @@ import {
   getFeatureDefinitions,
   verifyDraftsAreEqual,
 } from "../services/features";
-import {
-  getExperimentByTrackingKey,
-  getExperimentsByIds,
-} from "../models/ExperimentModel";
 import { FeatureUsageRecords } from "../../types/realtime";
 import {
   auditDetailsCreate,
@@ -54,7 +51,6 @@ import {
   updateDraftFeatureRevision,
 } from "../models/FeatureRevisionModel";
 import { getEnabledEnvironments } from "../util/features";
-import { ExperimentInterface } from "../../types/experiment";
 import {
   findSDKConnectionByKey,
   markSDKConnectionUsed,
@@ -486,14 +482,19 @@ export async function postFeatureDraft(
       defaultValue: string;
       rules: Record<string, FeatureRule[]>;
       comment: string;
+      draftId?: string;
     },
     { id: string }
   >,
-  res: Response<{ status: 200 }, EventAuditUserForResponseLocals>
+  res: Response<
+    { status: 200; draftId?: string },
+    EventAuditUserForResponseLocals
+  >
 ) {
   const { org } = getOrgFromReq(req);
   const { id } = req.params;
-  const { defaultValue, rules, comment } = req.body;
+  const { eventAudit } = res.locals;
+  const { defaultValue, rules, comment, draftId } = req.body;
   const feature = await getFeature(org.id, id);
 
   if (!feature) {
@@ -503,19 +504,33 @@ export async function postFeatureDraft(
   req.checkPermissions("manageFeatures", feature.project);
   req.checkPermissions("createFeatureDrafts", feature.project);
 
-  // todo: replace with new draft editing functionality
-  await updateLegacyDraft(org, res.locals.eventAudit, feature, {
-    active: true,
-    comment,
-    dateCreated: new Date(),
-    dateUpdated: new Date(),
-    defaultValue,
-    rules,
-  });
+  if (draftId) {
+    await updateDraft({
+      organization: org,
+      user: eventAudit?.type === "dashboard" ? eventAudit : null,
+      draftId,
+      feature,
+      draft: {
+        rules,
+        comment,
+        defaultValue,
+      },
+    });
+  } else {
+    // todo: create a new draft instead of updating the legacy one
+    await updateLegacyDraft(org, res.locals.eventAudit, feature, {
+      active: true,
+      comment,
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
+      defaultValue,
+      rules,
+    });
+  }
 
   res.status(200).json({
     status: 200,
-    // todo: return draftId
+    draftId,
   });
 }
 

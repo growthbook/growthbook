@@ -559,7 +559,6 @@ type AddFeatureRuleOptions = {
   environment: string;
   rule: FeatureRule;
   draftId: string | null;
-  // creatorUserId?: string;
 };
 
 export async function addFeatureRule({
@@ -911,6 +910,9 @@ export async function updateLegacyDraft(
   return await updateFeature(org, user, feature, { draft });
 }
 
+/**
+ * Validates that the user is the creator of the draft
+ */
 export async function updateDraft({
   organization,
   user,
