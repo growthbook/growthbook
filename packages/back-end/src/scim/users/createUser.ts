@@ -1,6 +1,8 @@
 import { Request, Response } from "express";
 import {
+  addExternalIdToExistingUser,
   createUser as createNewUser,
+  getUserByEmail,
   getUserByExternalId,
 } from "../../services/users";
 import { addMemberToOrg } from "../../services/organizations";
@@ -20,12 +22,25 @@ export async function createUser(
 
   const org: OrganizationInterface = req.organization;
 
-  console.log("org,id", org.id);
+  const role = org.settings?.defaultRole?.role || "readonly";
 
   try {
     // Look up the user in Mongo
     let user = await getUserByExternalId(requestBodyObject.externalId);
-    const role = org.settings?.defaultRole?.role || "readonly";
+
+    if (!user) {
+      // try to see if the user already exists in GB via email
+      user = await getUserByEmail(requestBodyObject.userName);
+
+      if (user && !user.externalId) {
+        // the user already exists, we just need to update it with the externalId
+        await addExternalIdToExistingUser(
+          user.id,
+          requestBodyObject.externalId
+        );
+        user.externalId = requestBodyObject.externalId;
+      }
+    }
 
     if (!user) {
       user = await createNewUser(
@@ -34,28 +49,26 @@ export async function createUser(
         requestBodyObject.password, // TODO: SSO shouldn't need a password. figure out how to test this
         requestBodyObject.externalId
       );
-      console.log("user created:", user);
     }
 
     // check if the user already exists within the org - only really relevant when the user already exists in GB
     const orgMember = org.members.find((member) => member.id === user?.id);
 
-    if (orgMember) {
-      return res.status(409).json({
-        schemas: ["urn:ietf:params:scim:api:messages:2.0:Error"],
-        scimType: "uniqueness",
-        detail: "User already exists in this organization",
-        status: 409,
-      });
-    } else {
-      // Adding the user to the org
+    if (!orgMember) {
       await addMemberToOrg({
         organization: org,
         userId: user.id,
         role,
         limitAccessByEnvironment: false,
         environments: [],
-        projectRoles: undefined,
+        projectRoles: [],
+      });
+    } else {
+      return res.status(409).json({
+        schemas: ["urn:ietf:params:scim:api:messages:2.0:Error"],
+        scimType: "uniqueness",
+        detail: "User already exists in this organization",
+        status: 409,
       });
     }
 
@@ -66,8 +79,8 @@ export async function createUser(
       userName: user.email,
       name: {
         displayName: user.name,
-        givenName: user.name?.split(" ")[0],
-        familyName: user.name?.split(" ")[1],
+        givenName: requestBodyObject.name.givenName,
+        familyName: requestBodyObject.name.familyName,
       },
       active: true,
       emails: [
@@ -78,13 +91,14 @@ export async function createUser(
           display: user.email,
         },
       ],
-      role: role,
+      // role: role,
       groups: [],
       meta: {
         resourceType: "User",
       },
     });
   } catch (e) {
+    console.log("catching an error", e);
     return res.status(500).json({
       schemas: ["urn:ietf:params:scim:api:messages:2.0:Error"],
       detail: `Unable to create the new user in GrowthBook: ${e.message}`,

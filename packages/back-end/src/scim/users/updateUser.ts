@@ -1,9 +1,10 @@
 import { Response } from "express";
 import { cloneDeep } from "lodash";
 import { updateOrganization } from "../../models/OrganizationModel";
-import { getUserByExternalId } from "../../services/users";
+import { getUserByExternalId, removeExternalId } from "../../services/users";
 import { ScimUpdateRequest } from "../../../types/scim";
 import { OrganizationInterface } from "../../../types/organization";
+import { UserInterface } from "../../../types/user";
 
 type Operation = {
   op: "add" | "remove" | "replace";
@@ -38,6 +39,7 @@ type ScimUserObject = {
 async function removeUserFromOrg(
   org: OrganizationInterface,
   userIndex: number,
+  user: UserInterface,
   updatedScimUser: ScimUserObject
 ) {
   const updatedOrg = cloneDeep(org);
@@ -45,6 +47,7 @@ async function removeUserFromOrg(
   updatedOrg.members.splice(userIndex, 1);
 
   await updateOrganization(org.id, updatedOrg);
+  await removeExternalId(user.id);
 
   updatedScimUser.active = false;
 }
@@ -91,7 +94,7 @@ export async function updateUser(req: ScimUpdateRequest, res: Response) {
 
   const updatedScimUser = {
     schemas: ["urn:ietf:params:scim:schemas:core:2.0:User"],
-    id: requestBodyObject.externalId,
+    id: req.params.id,
     userName: user.email,
     name: {
       displayName: user.name || "",
@@ -120,10 +123,12 @@ export async function updateUser(req: ScimUpdateRequest, res: Response) {
       // SCIM determines whether a user is active or not based on this property. If set to false, that means they want us to remove the user
       // this means they want us to remove the user
       console.log("remove user");
-      await removeUserFromOrg(org, userIndex, updatedScimUser);
+      await removeUserFromOrg(org, userIndex, user, updatedScimUser);
     }
     // otherwise, silently ignore the operation
   }
+
+  console.log("about to return updatedScimUser", updatedScimUser);
 
   return res.status(200).json(updatedScimUser);
 }
