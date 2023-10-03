@@ -8,12 +8,10 @@ import { FeatureReviewRequest } from "back-end/types/feature-review";
 import useApi from "@/hooks/useApi";
 import {
   FeatureDraftUiItem,
-  memberLookupForMemberData,
-  transformDraftForView,
   transformDraftsForView,
 } from "@/components/FeatureDraftsDropDown/FeatureDraftsDropdown.utils";
 import Avatar from "@/components/Avatar/Avatar";
-import useMembers, { MemberData } from "@/hooks/useMembers";
+import useMembers from "@/hooks/useMembers";
 import Dropdown from "@/components/Dropdown/Dropdown";
 
 type FeatureDraftsListProps = {
