@@ -19,6 +19,7 @@ import { getNewExperimentDatasourceDefaults } from "../Experiment/NewExperimentF
 import MultiSelectField from "../Forms/MultiSelectField";
 import EditSqlModal from "../SchemaBrowser/EditSqlModal";
 import Code from "../SyntaxHighlighting/Code";
+import { usesEventName } from "../Metrics/MetricForm";
 
 export interface Props {
   existing?: FactTableInterface;
@@ -92,6 +93,12 @@ export default function FactTableModal({ existing, close }: Props) {
           save={async (sql) => {
             form.setValue("sql", sql);
           }}
+          templateVariables={{
+            eventName: form.watch("eventName") || "",
+          }}
+          setTemplateVariables={({ eventName }) => {
+            form.setValue("eventName", eventName || "");
+          }}
         />
       )}
       <Modal
@@ -131,6 +138,7 @@ export default function FactTableModal({ existing, close }: Props) {
             if (!ds) throw new Error("Must select a valid data source");
 
             value.projects = ds.projects || [];
+            value.columns = [];
 
             const { factTable, error } = await apiCall<{
               factTable: FactTableInterface;
@@ -189,10 +197,10 @@ export default function FactTableModal({ existing, close }: Props) {
           />
         )}
 
-        {selectedDataSource && (
+        {selectedDataSource && usesEventName(form.watch("sql")) && (
           <Field
             label="Event Name in Database"
-            helpText="(Optional) Available as a template variable in your SQL"
+            helpText="Available as a template variable in your SQL"
             placeholder={form.watch("name")}
             {...form.register("eventName")}
           />
@@ -216,6 +224,9 @@ export default function FactTableModal({ existing, close }: Props) {
                 type="button"
                 onClick={(e) => {
                   e.preventDefault();
+                  if (!form.watch("eventName")) {
+                    form.setValue("eventName", form.watch("name"));
+                  }
                   setSqlOpen(true);
                 }}
               >

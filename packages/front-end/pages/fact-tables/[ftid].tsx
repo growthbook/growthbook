@@ -22,6 +22,7 @@ import FactMetricModal from "@/components/FactTables/FactMetricModal";
 import FactMetricList from "@/components/FactTables/FactMetricList";
 import MarkdownInlineEdit from "@/components/Markdown/MarkdownInlineEdit";
 import ColumnTable from "@/components/FactTables/ColumnTable";
+import { usesEventName } from "@/components/Metrics/MetricForm";
 
 export default function FactTablePage() {
   const router = useRouter();
@@ -265,6 +266,12 @@ export default function FactTablePage() {
                     </a>
                   }
                 />
+                {usesEventName(factTable.sql) && (
+                  <div className="mt-2">
+                    <strong>eventName</strong> ={" "}
+                    <code>{factTable.eventName}</code>
+                  </div>
+                )}
               </div>
               {factTable.columns?.length > 0 && (
                 <div className="col-4">
@@ -298,8 +305,9 @@ export default function FactTablePage() {
             <h3>Filters</h3>
             <div className="mb-4">
               <div className="mb-1">
-                Filters are re-usable SQL snippets that can be applied to Facts
-                and Metrics to limit the rows that are included in an analysis.
+                Filters are re-usable SQL snippets that let you limit the rows
+                in the Fact Table that are included in a metric. For example,
+                &quot;With Promo Code&quot; or &quot;Mobile Only&quot;.
               </div>
               <div className="appbox p-3">
                 <FactFilterList factTable={factTable} />
@@ -313,8 +321,8 @@ export default function FactTablePage() {
       <div className="mb-4">
         <div className="mb-1">
           Metrics are built on top of Facts and Filters. These are what you use
-          as Goals and Guardrails in experiments. This only lists metrics tied
-          to this Fact Table. <Link href="/metrics">View all Metrics</Link>
+          as Goals and Guardrails in experiments. This page only shows metrics
+          tied to this Fact Table. <Link href="/metrics">View all Metrics</Link>
         </div>
         <div className="appbox p-3">
           <FactMetricList factTable={factTable} />

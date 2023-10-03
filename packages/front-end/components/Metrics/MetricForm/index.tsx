@@ -65,12 +65,12 @@ export type MetricFormProps = {
   secondaryCTA?: ReactElement;
 };
 
-function usesValueColumn(sql: string) {
-  return sql.match(/\{\{[^}]*valueColumn/g);
+export function usesValueColumn(sql: string) {
+  return !!sql.match(/\{\{[^}]*valueColumn/g);
 }
 
-function usesEventName(sql: string) {
-  return sql.match(/\{\{[^}]*eventName/g);
+export function usesEventName(sql: string) {
+  return !!sql.match(/\{\{[^}]*eventName/g);
 }
 
 function validateMetricSQL(

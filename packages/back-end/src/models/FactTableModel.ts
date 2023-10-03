@@ -26,6 +26,7 @@ const factTableSchema = new mongoose.Schema({
   datasource: String,
   userIdTypes: [String],
   sql: String,
+  eventName: String,
   facts: [
     {
       _id: false,
@@ -111,6 +112,7 @@ export async function createFactTable(
     tags: data.tags,
     sql: data.sql,
     userIdTypes: data.userIdTypes,
+    eventName: data.eventName,
     columns: data.columns || [],
   });
   return toInterface(doc);
