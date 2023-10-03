@@ -21,7 +21,7 @@ export async function deleteUser(req: ScimGetRequest, res: Response) {
 
   // Look up the user in the org's member list
   const userIndex = org.members.findIndex(
-    (member: any) => member.id === req.params.id
+    (member) => member.id === req.params.id
   );
 
   const updatedOrg = org;

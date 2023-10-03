@@ -5,7 +5,6 @@ import {
 } from "../../services/users";
 import { addMemberToOrg } from "../../services/organizations";
 import { OrganizationInterface } from "../../../types/organization";
-import { ScimPostRequest } from "../../../types/scim";
 import { ApiRequestLocals } from "../../../types/api";
 
 export async function createUser(
@@ -13,9 +12,11 @@ export async function createUser(
   res: Response
 ) {
   console.log("createUser endpoint was called");
-  const requestBody = req.body;
+  const requestBody = req.body.toString("utf-8");
 
-  console.log("requestBodyObject", requestBody);
+  const requestBodyObject = JSON.parse(requestBody);
+
+  console.log("requestBodyObject", requestBodyObject);
 
   const org: OrganizationInterface = req.organization;
 
@@ -23,43 +24,40 @@ export async function createUser(
 
   try {
     // Look up the user in Mongo
-    let user = await getUserByEmail(requestBody.userName);
+    let user = await getUserByEmail(requestBodyObject.userName);
+    const role = org.settings?.defaultRole?.role || "readonly";
 
-    console.log("user?.id", user?.id);
-
-    if (user) {
-      const userAlreadyExistsInOrg = org.members.find(
-        (member) => member.id === user?.id
-      );
-
-      if (userAlreadyExistsInOrg) {
-        return res.status(409).json({
-          schemas: ["urn:ietf:params:scim:api:messages:2.0:Error"],
-          scimType: "uniqueness",
-          detail: "User already exists in this organization",
-          status: 409,
-        });
-      }
-    } else {
+    if (!user) {
       user = await createNewUser(
-        requestBody.displayName,
-        requestBody.userName,
+        requestBodyObject.displayName,
+        requestBodyObject.userName,
         "12345678", // TODO: SSO shouldn't need a password. figure out how to test this
-        requestBody.externalId
+        requestBodyObject.externalId
       );
       console.log("user created:", user);
     }
 
-    const role = org.settings?.defaultRole?.role || "readonly";
+    // check if the user already exists within the org - only really relevant when the user already exists in GB
+    const orgMember = org.members.find((member) => member.id === user?.id);
 
-    await addMemberToOrg({
-      organization: org,
-      userId: user.id,
-      role,
-      limitAccessByEnvironment: false,
-      environments: [],
-      projectRoles: undefined,
-    });
+    if (orgMember) {
+      return res.status(409).json({
+        schemas: ["urn:ietf:params:scim:api:messages:2.0:Error"],
+        scimType: "uniqueness",
+        detail: "User already exists in this organization",
+        status: 409,
+      });
+    } else {
+      // Adding the user to the org
+      await addMemberToOrg({
+        organization: org,
+        userId: user.id,
+        role,
+        limitAccessByEnvironment: false,
+        environments: [],
+        projectRoles: undefined,
+      });
+    }
 
     // Add them to the org's members array
     return res.status(201).json({
