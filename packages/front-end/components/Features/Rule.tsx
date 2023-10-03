@@ -9,6 +9,7 @@ import {
 } from "react-icons/fa";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import Link from "next/link";
+import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import { getRules, useEnvironments } from "@/services/features";
@@ -31,6 +32,7 @@ interface SortableProps {
   i: number;
   rule: FeatureRule;
   feature: FeatureInterface;
+  revision: FeatureRevisionInterface | null;
   environment: string;
   experiments: Record<string, ExperimentInterfaceStringDates>;
   mutate: () => void;
@@ -50,6 +52,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
       i,
       rule,
       feature,
+      revision,
       environment,
       setRuleModal,
       mutate,
@@ -68,7 +71,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
     const linkedExperiment =
       rule.type === "experiment-ref" && experiments[rule.experimentId];
 
-    const rules = getRules(feature, environment);
+    const rules = getRules(feature, environment, revision);
     const environments = useEnvironments();
     const permissions = usePermissions();
 

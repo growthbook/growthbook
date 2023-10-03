@@ -16,6 +16,7 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import { useAuth } from "@/services/auth";
 import { getRules, isRuleFullyCovered } from "@/services/features";
 import usePermissions from "@/hooks/usePermissions";
@@ -23,12 +24,14 @@ import { Rule, SortableRule } from "./Rule";
 
 export default function RuleList({
   feature,
+  revision,
   mutate,
   experiments,
   environment,
   setRuleModal,
 }: {
   feature: FeatureInterface;
+  revision: FeatureRevisionInterface | null;
   experiments: Record<string, ExperimentInterfaceStringDates>;
   environment: string;
   mutate: () => void;
@@ -37,12 +40,12 @@ export default function RuleList({
   const { apiCall } = useAuth();
   // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'null' is not assignable to param... Remove this comment to see the full error message
   const [activeId, setActiveId] = useState<string>(null);
-  const [items, setItems] = useState(getRules(feature, environment));
+  const [items, setItems] = useState(getRules(feature, environment, revision));
   const permissions = usePermissions();
 
   useEffect(() => {
-    setItems(getRules(feature, environment));
-  }, [getRules(feature, environment)]);
+    setItems(getRules(feature, environment, revision));
+  }, [getRules(feature, environment, revision)]);
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -133,6 +136,7 @@ export default function RuleList({
             i={i}
             rule={rule}
             feature={feature}
+            revision={revision}
             mutate={mutate}
             experiments={experiments}
             setRuleModal={setRuleModal}
@@ -148,6 +152,7 @@ export default function RuleList({
             environment={environment}
             rule={activeRule}
             feature={feature}
+            revision={revision}
             mutate={mutate}
             experiments={experiments}
             setRuleModal={setRuleModal}

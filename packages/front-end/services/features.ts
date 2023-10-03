@@ -20,6 +20,7 @@ import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { FeatureUsageRecords } from "back-end/types/realtime";
 import cloneDeep from "lodash/cloneDeep";
 import { generateVariationId, validateFeatureValue } from "shared/util";
+import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import { getUpcomingScheduleRule } from "@/services/scheduleRules";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import useOrgSettings from "../hooks/useOrgSettings";
@@ -82,13 +83,34 @@ export function useEnvironments() {
 
   return environments;
 }
-export function getRules(feature: FeatureInterface, environment: string) {
-  // todo: update these draft references based on the new drafts
-  if (feature.draft?.active && feature.draft.rules?.[environment]) {
-    return feature.draft.rules[environment];
+
+/**
+ * Get the rules based on the feature or the provided revision.
+ * If no revision provided, will return the rules on teh feature.
+ * A revision can be a draft or another version of the feature.
+ * @param feature
+ * @param environment
+ * @param revision
+ */
+export function getRules(
+  feature: FeatureInterface,
+  environment: string,
+  revision: FeatureRevisionInterface | null
+): FeatureRule[] {
+  const clonedFeature = cloneDeep(feature);
+  if (revision?.rules) {
+    clonedFeature.environmentSettings = clonedFeature.environmentSettings || {};
+    Object.keys(revision.rules).forEach((key) => {
+      clonedFeature.environmentSettings[key] = {
+        enabled: clonedFeature.environmentSettings[key]?.enabled || false,
+        rules: revision.rules?.[key] || [],
+      };
+    });
   }
-  return feature?.environmentSettings?.[environment]?.rules ?? [];
+
+  return clonedFeature.environmentSettings?.[environment]?.rules || [];
 }
+
 export function getFeatureDefaultValue(feature: FeatureInterface) {
   // todo: update these draft references based on the new drafts
   if (feature.draft?.active && "defaultValue" in feature.draft) {

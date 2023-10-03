@@ -26,12 +26,12 @@ import EditTagsForm from "@/components/Tags/EditTagsForm";
 import ControlledTabs from "@/components/Tabs/ControlledTabs";
 import WatchButton from "@/components/WatchButton";
 import {
+  getAffectedEnvs,
+  getEnabledEnvironments,
   getFeatureDefaultValue,
   getRules,
-  useEnvironmentState,
   useEnvironments,
-  getEnabledEnvironments,
-  getAffectedEnvs,
+  useEnvironmentState,
 } from "@/services/features";
 import Tab from "@/components/Tabs/Tab";
 import FeatureImplementationModal from "@/components/Features/FeatureImplementationModal";
@@ -52,11 +52,16 @@ import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { useUser } from "@/services/UserContext";
 import { DeleteDemoDatasourceButton } from "@/components/DemoDataSourcePage/DemoDataSourcePage";
 import PageHead from "@/components/Layout/PageHead";
-import { FeatureDraftsDropDownContainer } from "@/components/FeatureDraftsDropDown/FeatureDraftsDropDown";
+import { FeatureDraftsDropDown } from "@/components/FeatureDraftsDropDown/FeatureDraftsDropDown";
+import {
+  FeatureDraftUiItem,
+  transformDraftsForView,
+} from "@/components/FeatureDraftsDropDown/FeatureDraftsDropdown.utils";
+import useMembers from "../../hooks/useMembers";
 
 export default function FeaturePage() {
   const router = useRouter();
-  const { fid } = router.query;
+  const { fid, rid } = router.query;
 
   const [edit, setEdit] = useState(false);
   const [editValidator, setEditValidator] = useState(false);
@@ -65,9 +70,9 @@ export default function FeaturePage() {
   const [isLegacyDraftModal, setIsLegacyDraftModal] = useState(false);
   const [duplicateModal, setDuplicateModal] = useState(false);
   const permissions = usePermissions();
-  const [activeFeature, setActiveFeature] = useState<FeatureInterface | null>(
-    null
-  );
+  const [previewType, setPreviewType] = useState<
+    "feature" | "draft" | "revision"
+  >("feature");
 
   const [env, setEnv] = useEnvironmentState();
 
@@ -93,6 +98,7 @@ export default function FeaturePage() {
     feature: FeatureInterface;
     experiments: { [key: string]: ExperimentInterfaceStringDates };
     revisions: FeatureRevisionInterface[];
+    drafts: FeatureRevisionInterface[];
   }>(`/feature/${fid}`);
   const firstFeature = router?.query && "first" in router.query;
   const [showImplementation, setShowImplementation] = useState(firstFeature);
@@ -100,11 +106,57 @@ export default function FeaturePage() {
 
   const shouldShowLegacyRevisionDropdown = !!data?.feature?.draft?.active;
 
-  useEffect(() => {
-    if (!data) return;
+  const activeRevision: FeatureRevisionInterface | null = useMemo(() => {
+    if (!data) return null;
+    if (!rid) {
+      return null;
+    }
 
-    setActiveFeature(data.feature);
-  }, [data]);
+    const activeDraft = data.drafts.find((d) => d.id === rid);
+    if (activeDraft) return activeDraft;
+
+    const activeVersion = data.revisions.find((d) => d.id == rid);
+    if (activeVersion) return activeVersion;
+
+    return null;
+  }, [rid, data]);
+
+  const displayFeature: FeatureInterface | null = useMemo(() => {
+    if (!data) return null;
+
+    if (activeRevision) {
+      return {
+        ...data.feature,
+        rules: activeRevision.rules,
+        defaultValue: activeRevision.defaultValue,
+      };
+    }
+
+    return data.feature;
+  }, [data, activeRevision]);
+
+  useEffect(
+    function enforceValidRevisionId() {
+      if (!rid) return;
+      if (!data) return;
+
+      const activeDraft = data.drafts.find((d) => d.id === rid);
+      if (activeDraft) {
+        setPreviewType("draft");
+        return;
+      }
+
+      const activeVersion = data.revisions.find((d) => d.id == rid);
+      if (activeVersion) {
+        setPreviewType("revision");
+        return;
+      }
+
+      // We have a revision ID but not a valid revision. Redirect to main feature page
+      router.replace(`/features/${fid}`);
+    },
+    [rid, fid, data, router]
+  );
 
   const featureExperiments = useMemo((): {
     [key: string]: ExperimentInterfaceStringDates;
@@ -120,17 +172,28 @@ export default function FeaturePage() {
     return data.revisions;
   }, [data]);
 
+  const { memberUsernameOptions } = useMembers();
+
+  const onDraftClicked = useCallback((draft: FeatureDraftUiItem) => {
+    console.log("draft clicked!!", draft);
+  }, []);
+
+  const draftsForUi = useMemo(
+    () => transformDraftsForView(memberUsernameOptions, data?.drafts || []),
+    [data, memberUsernameOptions]
+  );
+
   const onDiscardLegacyDraftClicked = useCallback(
     async (evt: React.MouseEvent<HTMLButtonElement>) => {
       evt.preventDefault();
 
-      if (!activeFeature) return;
+      if (!displayFeature) return;
 
       try {
-        await apiCall(`/feature/${activeFeature.id}/discard`, {
+        await apiCall(`/feature/${displayFeature.id}/discard`, {
           method: "POST",
           body: JSON.stringify({
-            draft: activeFeature.draft,
+            draft: displayFeature.draft,
           }),
         });
       } catch (err) {
@@ -139,7 +202,7 @@ export default function FeaturePage() {
       }
       await mutate();
     },
-    [apiCall, mutate, activeFeature]
+    [apiCall, mutate, displayFeature]
   );
 
   if (error) {
@@ -149,21 +212,21 @@ export default function FeaturePage() {
       </div>
     );
   }
-  if (!activeFeature) {
+  if (!displayFeature) {
     return <LoadingOverlay />;
   }
 
   const { jsonSchema, validationEnabled, schemaDateUpdated } = getValidation(
-    activeFeature
+    displayFeature
   );
 
-  const hasLegacyDraft = !!activeFeature.draft?.active;
-  const isArchived = activeFeature.archived;
+  const hasLegacyDraft = !!displayFeature.draft?.active;
+  const isArchived = displayFeature.archived;
 
-  const enabledEnvs = getEnabledEnvironments(activeFeature);
+  const enabledEnvs = getEnabledEnvironments(displayFeature);
   const hasJsonValidator = hasCommercialFeature("json-validation");
 
-  const projectId = activeFeature.project;
+  const projectId = displayFeature.project;
   const project = getProjectById(projectId || "");
   const projectName = project?.name || null;
   const projectIsDeReferenced = projectId && !projectName;
@@ -191,10 +254,10 @@ export default function FeaturePage() {
       "publishFeatures",
       projectId,
       "defaultValue" in (data?.feature?.draft || {})
-        ? getEnabledEnvironments(activeFeature)
+        ? getEnabledEnvironments(displayFeature)
         : getAffectedEnvs(
-            activeFeature,
-            Object.keys(activeFeature.draft?.rules || {})
+            displayFeature,
+            Object.keys(displayFeature.draft?.rules || {})
           )
     );
 
@@ -203,16 +266,16 @@ export default function FeaturePage() {
       {edit && (
         <EditDefaultValueModal
           close={() => setEdit(false)}
-          feature={activeFeature}
+          feature={displayFeature}
           mutate={mutate}
         />
       )}
       {editOwnerModal && (
         <EditOwnerModal
           cancel={() => setEditOwnerModal(false)}
-          owner={activeFeature.owner}
+          owner={displayFeature.owner}
           save={async (owner) => {
-            await apiCall(`/feature/${activeFeature.id}`, {
+            await apiCall(`/feature/${displayFeature.id}`, {
               method: "PUT",
               body: JSON.stringify({ owner }),
             });
@@ -223,13 +286,14 @@ export default function FeaturePage() {
       {editValidator && (
         <EditSchemaModal
           close={() => setEditValidator(false)}
-          feature={activeFeature}
+          feature={displayFeature}
           mutate={mutate}
         />
       )}
+      {/*todo: does this make a draft?? */}
       {ruleModal !== null && (
         <RuleModal
-          feature={activeFeature}
+          feature={displayFeature}
           close={() => setRuleModal(null)}
           i={ruleModal.i}
           environment={ruleModal.environment}
@@ -245,18 +309,18 @@ export default function FeaturePage() {
           size="max"
           closeCta="Close"
         >
-          <HistoryTable type="feature" id={activeFeature.id} />
+          <HistoryTable type="feature" id={displayFeature.id} />
         </Modal>
       )}
       {editProjectModal && (
         <EditProjectForm
-          apiEndpoint={`/feature/${activeFeature.id}`}
+          apiEndpoint={`/feature/${displayFeature.id}`}
           cancel={() => setEditProjectModal(false)}
           mutate={mutate}
           method="PUT"
-          current={activeFeature.project}
+          current={displayFeature.project}
           additionalMessage={
-            activeFeature.linkedExperiments?.length ? (
+            displayFeature.linkedExperiments?.length ? (
               <div className="alert alert-danger">
                 Changing the project may prevent your linked Experiments from
                 being sent to users.
@@ -267,9 +331,9 @@ export default function FeaturePage() {
       )}
       {editTagsModal && (
         <EditTagsForm
-          tags={activeFeature?.tags || []}
+          tags={displayFeature?.tags || []}
           save={async (tags) => {
-            await apiCall(`/feature/${activeFeature.id}`, {
+            await apiCall(`/feature/${displayFeature.id}`, {
               method: "PUT",
               body: JSON.stringify({ tags }),
             });
@@ -280,7 +344,7 @@ export default function FeaturePage() {
       )}
       {showImplementation && (
         <FeatureImplementationModal
-          feature={activeFeature}
+          feature={displayFeature}
           first={firstFeature}
           close={() => {
             setShowImplementation(false);
@@ -289,7 +353,7 @@ export default function FeaturePage() {
       )}
       {isLegacyDraftModal && (
         <LegacyDraftModal
-          feature={activeFeature}
+          feature={displayFeature}
           close={() => setIsLegacyDraftModal(false)}
           mutate={mutate}
         />
@@ -302,14 +366,14 @@ export default function FeaturePage() {
             const url = `/features/${feature.id}`;
             router.push(url);
           }}
-          featureToDuplicate={activeFeature}
+          featureToDuplicate={displayFeature}
         />
       )}
 
       <PageHead
         breadcrumb={[
           { display: "Features", href: "/features" },
-          { display: activeFeature.id },
+          { display: displayFeature.id },
         ]}
       />
 
@@ -355,6 +419,30 @@ export default function FeaturePage() {
         </div>
       )}
 
+      {previewType === "draft" ? (
+        <div className="alert justify-content-between alert-info mb-3 d-flex align-items-center">
+          <div className="flex-1">You are viewing a draft of the feature.</div>
+          <div className="ml-2">
+            <a href={`/features/${fid}`} className="btn btn-primary">
+              Back to feature
+            </a>
+          </div>
+        </div>
+      ) : null}
+
+      {previewType === "revision" ? (
+        <div className="alert justify-content-between alert-info mb-3 d-flex align-items-center">
+          <div className="flex-1">
+            You are viewing a previous version of the feature.
+          </div>
+          <div className="ml-2">
+            <a href={`/features/${fid}`} className="btn btn-primary">
+              Back to feature
+            </a>
+          </div>
+        </div>
+      ) : null}
+
       <div className="row align-items-center mb-2">
         <div className="col-auto">
           <h1 className="mb-0">{fid}</h1>
@@ -363,12 +451,16 @@ export default function FeaturePage() {
         <div className="col-auto">
           <div className="d-flex justify-content-end">
             <div className="mr-4">
-              <FeatureDraftsDropDownContainer />
+              <FeatureDraftsDropDown
+                drafts={draftsForUi}
+                onDraftClick={onDraftClicked}
+                reviewRequests={[]}
+              />
             </div>
 
             {shouldShowLegacyRevisionDropdown && (
               <LegacyRevisionDropdown
-                feature={activeFeature}
+                feature={displayFeature}
                 revisions={revisions}
                 publish={() => {
                   setIsLegacyDraftModal(true);
@@ -409,7 +501,7 @@ export default function FeaturePage() {
                   useIcon={false}
                   displayName="Feature"
                   onClick={async () => {
-                    await apiCall(`/feature/${activeFeature.id}`, {
+                    await apiCall(`/feature/${displayFeature.id}`, {
                       method: "DELETE",
                     });
                     router.push("/features");
@@ -422,7 +514,7 @@ export default function FeaturePage() {
               permissions.check("publishFeatures", projectId, enabledEnvs) && (
                 <ConfirmButton
                   onClick={async () => {
-                    await apiCall(`/feature/${activeFeature.id}/archive`, {
+                    await apiCall(`/feature/${displayFeature.id}/archive`, {
                       method: "POST",
                     });
                     mutate();
@@ -485,7 +577,7 @@ export default function FeaturePage() {
                   <FaExclamationTriangle /> Invalid project
                 </span>
               </Tooltip>
-            ) : currentProject && currentProject !== activeFeature.project ? (
+            ) : currentProject && currentProject !== displayFeature.project ? (
               <Tooltip body={<>This feature is not in your current project.</>}>
                 {projectId ? (
                   <strong>{projectName}</strong>
@@ -512,7 +604,7 @@ export default function FeaturePage() {
         )}
 
         <div className="col-auto">
-          Tags: <SortedTags tags={activeFeature?.tags || []} />
+          Tags: <SortedTags tags={displayFeature?.tags || []} />
           {permissions.check("manageFeatures", projectId) && (
             <a
               className="ml-1 cursor-pointer"
@@ -524,11 +616,11 @@ export default function FeaturePage() {
         </div>
 
         <div className="col-auto">
-          Type: {activeFeature.valueType || "unknown"}
+          Type: {displayFeature.valueType || "unknown"}
         </div>
 
         <div className="col-auto">
-          Owner: {activeFeature.owner ? activeFeature.owner : "None"}
+          Owner: {displayFeature.owner ? displayFeature.owner : "None"}
           {permissions.check("manageFeatures", projectId) && (
             <a
               className="ml-1 cursor-pointer"
@@ -551,18 +643,22 @@ export default function FeaturePage() {
           </a>
         </div>
         <div className="col-auto">
-          <WatchButton item={activeFeature.id} itemType="feature" type="link" />
+          <WatchButton
+            item={displayFeature.id}
+            itemType="feature"
+            type="link"
+          />
         </div>
       </div>
 
       <div className="mb-3">
-        <div className={activeFeature.description ? "appbox mb-4 p-3" : ""}>
+        <div className={displayFeature.description ? "appbox mb-4 p-3" : ""}>
           <MarkdownInlineEdit
-            value={activeFeature.description || ""}
+            value={displayFeature.description || ""}
             canEdit={permissions.check("manageFeatures", projectId)}
             canCreate={permissions.check("manageFeatures", projectId)}
             save={async (description) => {
-              await apiCall(`/feature/${activeFeature.id}`, {
+              await apiCall(`/feature/${displayFeature.id}`, {
                 method: "PUT",
                 body: JSON.stringify({
                   description,
@@ -587,7 +683,7 @@ export default function FeaturePage() {
                 {en.id}:{" "}
               </label>
               <EnvironmentToggle
-                feature={activeFeature}
+                feature={displayFeature}
                 environment={en.id}
                 mutate={() => {
                   mutate();
@@ -604,7 +700,7 @@ export default function FeaturePage() {
         </div>
       </div>
 
-      {activeFeature.valueType === "json" && (
+      {displayFeature.valueType === "json" && (
         <div>
           <h3 className={hasJsonValidator ? "" : "mb-4"}>
             <PremiumTooltip commercialFeature="json-validation">
@@ -702,7 +798,7 @@ export default function FeaturePage() {
                     <>
                       <Code
                         language="json"
-                        code={activeFeature?.jsonSchema?.schema || "{}"}
+                        code={displayFeature?.jsonSchema?.schema || "{}"}
                         className="disabled"
                       />
                     </>
@@ -726,8 +822,8 @@ export default function FeaturePage() {
       </h3>
       <div className="appbox mb-4 p-3">
         <ForceSummary
-          value={getFeatureDefaultValue(activeFeature)}
-          feature={activeFeature}
+          value={getFeatureDefaultValue(displayFeature)}
+          feature={displayFeature}
         />
       </div>
 
@@ -747,7 +843,7 @@ export default function FeaturePage() {
         buttonsClassName="px-3 py-2 h4"
       >
         {environments.map((e) => {
-          const rules = getRules(activeFeature, e.id);
+          const rules = getRules(displayFeature, e.id, activeRevision);
           return (
             <Tab
               key={e.id}
@@ -760,7 +856,8 @@ export default function FeaturePage() {
                 {rules.length > 0 ? (
                   <RuleList
                     environment={e.id}
-                    feature={activeFeature}
+                    revision={activeRevision}
+                    feature={displayFeature}
                     experiments={featureExperiments}
                     mutate={mutate}
                     setRuleModal={setRuleModal}
@@ -775,6 +872,8 @@ export default function FeaturePage() {
           );
         })}
       </ControlledTabs>
+
+      <pre>{JSON.stringify(displayFeature, null, 2)}</pre>
 
       {permissions.check("createFeatureDrafts", projectId) && (
         <div className="row">
@@ -792,7 +891,7 @@ export default function FeaturePage() {
                   onClick={() => {
                     setRuleModal({
                       environment: env,
-                      i: getRules(activeFeature, env).length,
+                      i: getRules(displayFeature, env).length,
                       defaultType: "force",
                     });
                     track("Viewed Rule Modal", {
@@ -823,7 +922,7 @@ export default function FeaturePage() {
                   onClick={() => {
                     setRuleModal({
                       environment: env,
-                      i: getRules(activeFeature, env).length,
+                      i: getRules(displayFeature, env).length,
                       defaultType: "rollout",
                     });
                     track("Viewed Rule Modal", {
@@ -854,7 +953,7 @@ export default function FeaturePage() {
                   onClick={() => {
                     setRuleModal({
                       environment: env,
-                      i: getRules(activeFeature, env).length,
+                      i: getRules(displayFeature, env).length,
                       defaultType: "experiment-ref-new",
                     });
                     track("Viewed Rule Modal", {
@@ -878,8 +977,8 @@ export default function FeaturePage() {
         <h3>Comments</h3>
         <DiscussionThread
           type="feature"
-          id={activeFeature.id}
-          project={activeFeature.project}
+          id={displayFeature.id}
+          project={displayFeature.project}
         />
       </div>
     </div>
