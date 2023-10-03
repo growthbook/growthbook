@@ -3,7 +3,7 @@ import uniqid from "uniqid";
 import { omit } from "lodash";
 import { ArchetypeInterface } from "../../types/archetype";
 
-const ArchetypeSchema = new mongoose.Schema({
+const archetypeSchema = new mongoose.Schema({
   id: {
     type: String,
     unique: true,
@@ -24,8 +24,8 @@ const ArchetypeSchema = new mongoose.Schema({
 type ArchetypeDocument = mongoose.Document & ArchetypeInterface;
 
 const ArchetypeModel = mongoose.model<ArchetypeInterface>(
-  "Archetype",
-  ArchetypeSchema
+  "archetype",
+  archetypeSchema
 );
 
 type CreateArchetypeProps = Omit<
@@ -65,34 +65,34 @@ export async function createArchetype(
   return toInterface(newUser);
 }
 
-export async function getAllArchetype(
+export async function getAllArchetypes(
   organization: string,
   owner: string
 ): Promise<ArchetypeInterface[]> {
-  const Archetype: ArchetypeDocument[] = await ArchetypeModel.find({
+  const archetype: ArchetypeDocument[] = await ArchetypeModel.find({
     organization,
   });
   return (
-    Archetype.filter((su) => su.owner === owner || su.isPublic).map((value) =>
-      value.toJSON()
-    ) || []
+    archetype
+      .filter((su) => su.owner === owner || su.isPublic)
+      .map((value) => value.toJSON()) || []
   );
 }
 
 export async function getArchetypeById(
-  ArchetypeId: string,
+  archetypeId: string,
   organization: string
 ): Promise<ArchetypeInterface | null> {
-  const Archetype = await ArchetypeModel.findOne({
-    id: ArchetypeId,
+  const archetype = await ArchetypeModel.findOne({
+    id: archetypeId,
     organization: organization,
   });
 
-  return Archetype ? toInterface(Archetype) : null;
+  return archetype ? toInterface(archetype) : null;
 }
 
 export async function updateArchetypeById(
-  ArchetypeId: string,
+  archetypeId: string,
   organization: string,
   user: UpdateArchetypeProps
 ): Promise<UpdateArchetypeProps> {
@@ -103,7 +103,7 @@ export async function updateArchetypeById(
 
   await ArchetypeModel.updateOne(
     {
-      id: ArchetypeId,
+      id: archetypeId,
       organization: organization,
     },
     changes
@@ -118,17 +118,3 @@ export async function deleteArchetypeById(id: string, organization: string) {
     organization,
   });
 }
-//
-// export function toArchetypeApiInterface(
-//   savedGroup: ArchetypeInterface
-// ): ApiArchetype {
-//   return {
-//     id: savedGroup.id,
-//     att: savedGroup.values,
-//     name: savedGroup.groupName,
-//     attributeKey: savedGroup.attributeKey,
-//     dateCreated: savedGroup.dateCreated.toISOString(),
-//     dateUpdated: savedGroup.dateUpdated.toISOString(),
-//     owner: savedGroup.owner || "",
-//   };
-// }

@@ -10,7 +10,7 @@ import {
 import {
   createArchetype,
   deleteArchetypeById,
-  getAllArchetype,
+  getAllArchetypes,
   getArchetypeById,
   updateArchetypeById,
 } from "../../models/ArchetypeModel";
@@ -45,7 +45,7 @@ export const getArchetype = async (
 
   req.checkPermissions("manageArchetype");
 
-  const archetype = await getAllArchetype(org.id, userId);
+  const archetype = await getAllArchetypes(org.id, userId);
 
   return res.status(200).json({
     status: 200,
@@ -92,7 +92,7 @@ export const getArchetypeAndEval = async (
 
   req.checkPermissions("manageArchetype");
 
-  const archetype = await getAllArchetype(org.id, userId);
+  const archetype = await getAllArchetypes(org.id, userId);
   const featureResults: { [key: string]: FeatureTestResult[] } = {};
 
   if (archetype.length) {
@@ -167,7 +167,7 @@ export const postArchetype = async (
   });
 
   await req.audit({
-    event: "Archetype.created",
+    event: "archetype.created",
     entity: {
       object: "Archetype",
       id: archetype.id,
@@ -247,7 +247,7 @@ export const putArchetype = async (
   const updatedArchetype = { ...archetype, ...changes };
 
   await req.audit({
-    event: "Archetype.updated",
+    event: "archetype.updated",
     entity: {
       object: "Archetype",
       id: updatedArchetype.id,
@@ -316,7 +316,7 @@ export const deleteArchetype = async (
   await deleteArchetypeById(id, org.id);
 
   await req.audit({
-    event: "Archetype.deleted",
+    event: "archetype.deleted",
     entity: {
       object: "Archetype",
       id: id,

@@ -24,7 +24,7 @@ const ArchetypeAttributesModal: FC<{
       name: initialValues?.name || "",
       description: initialValues?.description || "",
       attributes: initialValues?.attributes || "",
-      isPublic: initialValues?.isPublic || true,
+      isPublic: initialValues?.isPublic ?? true,
     },
   });
   const { apiCall } = useAuth();

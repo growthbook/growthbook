@@ -43,9 +43,9 @@ export type EventType =
   | "savedGroup.created"
   | "savedGroup.deleted"
   | "savedGroup.updated"
-  | "Archetype.created"
-  | "Archetype.deleted"
-  | "Archetype.updated"
+  | "archetype.created"
+  | "archetype.deleted"
+  | "archetype.updated"
   | "team.create"
   | "team.delete"
   | "team.update";
