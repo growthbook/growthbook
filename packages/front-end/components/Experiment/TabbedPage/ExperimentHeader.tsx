@@ -74,7 +74,7 @@ export default function ExperimentHeader({
   const router = useRouter();
   const permissions = usePermissions();
   const { scrollY } = useScrollPosition();
-  const headerPinned = scrollY > 70;
+  const headerPinned = scrollY > 45;
 
   const phases = experiment.phases || [];
   const lastPhaseIndex = phases.length - 1;

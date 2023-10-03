@@ -82,7 +82,7 @@ export interface UserContextValue {
   userId?: string;
   name?: string;
   email?: string;
-  admin?: boolean;
+  superAdmin?: boolean;
   license?: LicenseData;
   user?: ExpandedMember;
   users: Map<string, ExpandedMember>;
@@ -107,7 +107,7 @@ interface UserResponse {
   userName: string;
   email: string;
   verified: boolean;
-  admin: boolean;
+  superAdmin: boolean;
   organizations?: UserOrganizations;
   license?: LicenseData;
   currentUserPermissions: UserPermissions;
@@ -199,13 +199,13 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
       environments: [],
       limitAccessByEnvironment: false,
       name: data.userName,
-      role: data.admin ? "admin" : "readonly",
+      role: data.superAdmin ? "admin" : "readonly",
       projectRoles: [],
     };
   }
 
   const role =
-    (data?.admin && "admin") ||
+    (data?.superAdmin && "admin") ||
     (user?.role ?? currentOrg?.organization?.settings?.defaultRole?.role);
 
   // Build out permissions object for backwards-compatible `permissions.manageTeams` style usage
@@ -268,7 +268,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
     growthbook.setAttributes({
       id: data?.userId || "",
       name: data?.userName || "",
-      admin: data?.admin || false,
+      superAdmin: data?.superAdmin || false,
       company: currentOrg?.organization?.name || "",
       organizationId: hashedOrganizationId,
       userAgent: window.navigator.userAgent,
@@ -329,7 +329,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
         userId: data?.userId,
         name: data?.userName,
         email: data?.email,
-        admin: data?.admin,
+        superAdmin: data?.superAdmin,
         updateUser,
         user,
         users,
