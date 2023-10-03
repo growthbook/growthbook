@@ -49,6 +49,13 @@ const factTableSchema = new mongoose.Schema({
       value: String,
     },
   ],
+  columns: [
+    {
+      _id: false,
+      column: String,
+      datatype: String,
+    },
+  ],
 });
 
 factTableSchema.index({ id: 1, organization: 1 }, { unique: true });
@@ -104,6 +111,7 @@ export async function createFactTable(
     tags: data.tags,
     sql: data.sql,
     userIdTypes: data.userIdTypes,
+    columns: data.columns || [],
   });
   return toInterface(doc);
 }

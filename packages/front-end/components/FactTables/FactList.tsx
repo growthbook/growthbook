@@ -27,7 +27,28 @@ export default function FactList({ factTable }: Props) {
   const permissions = usePermissions();
 
   const { items, searchInputProps, isFiltered, SortableTH, clear } = useSearch({
-    items: factTable?.facts || [],
+    items: [
+      {
+        name: "Row Count",
+        id: "$$count",
+        column: "-",
+        dateCreated: new Date(),
+        dateUpdated: new Date(),
+        description: "Counts the total number of rows in the Fact Table.",
+        numberFormat: "",
+      },
+      {
+        name: "Unique Experiment Users",
+        id: "$$distinctUsers",
+        column: "-",
+        dateCreated: new Date(),
+        dateUpdated: new Date(),
+        description:
+          "Counts the number of unique experiment users in the Fact Table. The Identifier Type used depends on the experiment.",
+        numberFormat: "",
+      },
+      ...(factTable?.facts || []),
+    ],
     defaultSortField: "name",
     localStorageKey: "facts",
     searchFields: ["name^3", "description", "column^2"],
@@ -52,15 +73,9 @@ export default function FactList({ factTable }: Props) {
       )}
 
       <div className="row align-items-center">
-        {factTable.facts.length > 0 && (
-          <div className="col-auto mr-auto">
-            <Field
-              placeholder="Search..."
-              type="search"
-              {...searchInputProps}
-            />
-          </div>
-        )}
+        <div className="col-auto mr-auto">
+          <Field placeholder="Search..." type="search" {...searchInputProps} />
+        </div>
         <div className="col-auto">
           <Tooltip
             body={
@@ -81,75 +96,80 @@ export default function FactList({ factTable }: Props) {
           </Tooltip>
         </div>
       </div>
-      {factTable.facts.length > 0 && (
-        <>
-          <table className="table appbox gbtable mt-2 mb-0">
-            <thead>
-              <tr>
-                <SortableTH field="name">Name</SortableTH>
-                <SortableTH field="column">Column</SortableTH>
-                <th style={{ width: 30 }}></th>
-              </tr>
-            </thead>
-            <tbody>
-              {items.map((fact) => (
-                <tr key={fact.id}>
-                  <td>{fact.name}</td>
-                  <td>
-                    <InlineCode language="sql" code={fact.column} />
-                  </td>
-                  <td>
-                    {canEdit && (
-                      <MoreMenu>
-                        <button
-                          className="dropdown-item"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            setEditFactOpen(fact.id);
-                          }}
-                        >
-                          Edit
-                        </button>
-                        <DeleteButton
-                          displayName="Fact"
-                          className="dropdown-item"
-                          useIcon={false}
-                          text="Delete"
-                          onClick={async () => {
-                            await apiCall(
-                              `/fact-tables/${factTable.id}/fact/${fact.id}`,
-                              {
-                                method: "DELETE",
-                              }
-                            );
-                            mutateDefinitions();
-                          }}
-                        />
-                      </MoreMenu>
-                    )}
-                  </td>
-                </tr>
-              ))}
-              {!items.length && isFiltered && (
-                <tr>
-                  <td colSpan={4} align={"center"}>
-                    No matching facts.{" "}
-                    <a
-                      href="#"
+      <table className="table appbox gbtable mt-2 mb-0">
+        <thead>
+          <tr>
+            <SortableTH field="name">Name</SortableTH>
+            <SortableTH field="column">Column</SortableTH>
+            <th style={{ width: 30 }}></th>
+          </tr>
+        </thead>
+        <tbody>
+          {items.map((fact) => (
+            <tr key={fact.id}>
+              <td>
+                {fact.name}
+                {fact.id.match(/^\$\$/) ? (
+                  <Tooltip body={fact.description}>
+                    <span className="badge badge-purple ml-1">auto</span>
+                  </Tooltip>
+                ) : (
+                  ""
+                )}
+              </td>
+              <td>
+                <InlineCode language="sql" code={fact.column} />
+              </td>
+              <td>
+                {canEdit && !fact.id.match(/^\$\$/) && (
+                  <MoreMenu>
+                    <button
+                      className="dropdown-item"
                       onClick={(e) => {
                         e.preventDefault();
-                        clear();
+                        setEditFactOpen(fact.id);
                       }}
                     >
-                      Clear search field
-                    </a>
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </>
-      )}
+                      Edit
+                    </button>
+                    <DeleteButton
+                      displayName="Fact"
+                      className="dropdown-item"
+                      useIcon={false}
+                      text="Delete"
+                      onClick={async () => {
+                        await apiCall(
+                          `/fact-tables/${factTable.id}/fact/${fact.id}`,
+                          {
+                            method: "DELETE",
+                          }
+                        );
+                        mutateDefinitions();
+                      }}
+                    />
+                  </MoreMenu>
+                )}
+              </td>
+            </tr>
+          ))}
+          {!items.length && isFiltered && (
+            <tr>
+              <td colSpan={4} align={"center"}>
+                No matching facts.{" "}
+                <a
+                  href="#"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    clear();
+                  }}
+                >
+                  Clear search field
+                </a>
+              </td>
+            </tr>
+          )}
+        </tbody>
+      </table>
     </>
   );
 }

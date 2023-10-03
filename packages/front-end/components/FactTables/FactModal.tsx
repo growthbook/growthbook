@@ -67,12 +67,6 @@ export default function FactModal({ existing, factTable, close }: Props) {
         mutateDefinitions();
       })}
     >
-      <div className="alert alert-info">
-        <strong>Note:</strong> If you just want to count rows/users in the Fact
-        Table, you don&apos;t need to create a Fact for that. You can just
-        create a Metric directly.
-      </div>
-
       <Field label="Name" {...form.register("name")} required />
 
       {showDescription ? (
@@ -97,7 +91,15 @@ export default function FactModal({ existing, factTable, close }: Props) {
         </a>
       )}
 
-      <Field label="Column" {...form.register("column")} required />
+      <SelectField
+        label="Column"
+        options={(factTable.columns || [])
+          .filter((col) => col.datatype === "number")
+          .map(({ column }) => ({ label: column, value: column }))}
+        createable
+        value={form.watch("column")}
+        onChange={(column) => form.setValue("column", column)}
+      />
 
       <SelectField
         label="Number Format"

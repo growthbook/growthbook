@@ -21,6 +21,7 @@ import SortedTags from "@/components/Tags/SortedTags";
 import FactMetricModal from "@/components/FactTables/FactMetricModal";
 import FactMetricList from "@/components/FactTables/FactMetricList";
 import MarkdownInlineEdit from "@/components/Markdown/MarkdownInlineEdit";
+import ColumnTable from "@/components/FactTables/ColumnTable";
 
 export default function FactTablePage() {
   const router = useRouter();
@@ -244,22 +245,37 @@ export default function FactTablePage() {
           {showSQL ? <FaAngleDown /> : <FaAngleRight />}
         </a>
         {showSQL && (
-          <Code
-            code={factTable.sql}
-            language="sql"
-            className="mb-4"
-            filename={
-              <a
-                href="#"
-                onClick={(e) => {
-                  e.preventDefault();
-                  setEditOpen(true);
-                }}
-              >
-                Edit SQL <GBEdit />
-              </a>
-            }
-          />
+          <div className="appbox p-3">
+            <div className="row">
+              <div className="col">
+                <Code
+                  code={factTable.sql}
+                  language="sql"
+                  containerClassName="m-0"
+                  className="mb-4"
+                  filename={
+                    <a
+                      href="#"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        setEditOpen(true);
+                      }}
+                    >
+                      Edit SQL <GBEdit />
+                    </a>
+                  }
+                />
+              </div>
+              {factTable.columns?.length > 0 && (
+                <div className="col-4">
+                  <div className="mb-2">
+                    <strong>Columns Detected</strong>
+                  </div>
+                  <ColumnTable factTable={factTable} />
+                </div>
+              )}
+            </div>
+          </div>
         )}
       </div>
 

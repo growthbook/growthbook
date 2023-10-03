@@ -1,5 +1,17 @@
 import { z } from "zod";
 
+export const factTableColumnTypeValidator = z.enum([
+  "number",
+  "string",
+  "date",
+  "boolean",
+  "unknown",
+]);
+export const factTableColumnValidator = z.object({
+  column: z.string(),
+  datatype: factTableColumnTypeValidator,
+});
+
 export const createFactTablePropsValidator = z
   .object({
     name: z.string(),
@@ -12,6 +24,7 @@ export const createFactTablePropsValidator = z
     userIdTypes: z.array(z.string()),
     sql: z.string(),
     eventName: z.string(),
+    columns: z.array(factTableColumnValidator),
   })
   .strict();
 
@@ -25,6 +38,7 @@ export const updateFactTablePropsValidator = z
     userIdTypes: z.array(z.string()).optional(),
     sql: z.string().optional(),
     eventName: z.string(),
+    columns: z.array(factTableColumnValidator).optional(),
   })
   .strict();
 

@@ -13,6 +13,8 @@ import {
   metricTypeValidator,
   cappingValidator,
   conversionWindowUnitValidator,
+  factTableColumnValidator,
+  factTableColumnTypeValidator,
 } from "../src/routers/fact-table/fact-table.validators";
 
 export type FactNumberFormat = z.infer<typeof numberFormatValidator>;
@@ -36,6 +38,9 @@ export interface FactFilterInterface {
   value: string;
 }
 
+export type FactTableColumnType = z.infer<typeof factTableColumnTypeValidator>;
+export type FactTableColumn = z.infer<typeof factTableColumnValidator>;
+
 export interface FactTableInterface {
   organization: string;
   id: string;
@@ -52,6 +57,7 @@ export interface FactTableInterface {
   eventName: string;
   facts: FactInterface[];
   filters: FactFilterInterface[];
+  columns: FactTableColumn[];
 }
 
 export type FactRef = z.infer<typeof factRefValidator>;

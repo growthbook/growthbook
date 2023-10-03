@@ -200,6 +200,7 @@ export default function FactMetricModal({
         factId: "$$count",
         filters: [],
       },
+      projects: [],
       denominator: existing?.denominator || null,
       datasource:
         existing?.datasource ||

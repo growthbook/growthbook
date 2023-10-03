@@ -7,6 +7,7 @@ import {
   CreateFactProps,
   CreateFactTableProps,
   FactMetricInterface,
+  FactTableColumn,
   FactTableInterface,
   UpdateFactFilterProps,
   UpdateFactMetricProps,
@@ -34,6 +35,10 @@ import {
   updateFactMetric,
   deleteFactMetric as deleteFactMetricInDb,
 } from "../../models/FactMetricModel";
+import { getSourceIntegrationObject } from "../../services/datasource";
+import { getDataSourceById } from "../../models/DataSourceModel";
+import { DataSourceInterface } from "../../../types/datasource";
+import { determineColumnTypes } from "../../util/sql";
 
 export const getFactTables = async (
   req: AuthRequest,
@@ -49,6 +54,24 @@ export const getFactTables = async (
   });
 };
 
+async function getColumns(
+  datasource: DataSourceInterface,
+  factTable: Pick<FactTableInterface, "sql" | "eventName">
+): Promise<FactTableColumn[]> {
+  const integration = getSourceIntegrationObject(datasource, true);
+
+  if (!integration.getTestQuery || !integration.runTestQuery) {
+    throw new Error("Testing not supported on this data source");
+  }
+
+  const sql = integration.getTestQuery(factTable.sql, {
+    eventName: factTable.eventName,
+  });
+
+  const result = await integration.runTestQuery(sql);
+  return determineColumnTypes(result.results);
+}
+
 export const postFactTable = async (
   req: AuthRequest<CreateFactTableProps>,
   res: Response<{ status: 200; factTable: FactTableInterface }>
@@ -57,6 +80,18 @@ export const postFactTable = async (
   const { org } = getOrgFromReq(req);
 
   req.checkPermissions("manageFactTables", data.projects || "");
+
+  if (!data.datasource) {
+    throw new Error("Must specify a data source for this fact table");
+  }
+  const datasource = await getDataSourceById(data.datasource, org.id);
+  if (!datasource) {
+    throw new Error("Could not find datasource");
+  }
+
+  req.checkPermissions("runQueries", datasource.projects || "");
+
+  data.columns = await getColumns(datasource, data);
 
   const factTable = await createFactTable(org.id, data);
 
@@ -87,6 +122,15 @@ export const putFactTable = async (
   if (data.projects) {
     req.checkPermissions("manageFactTables", data.projects || "");
   }
+
+  const datasource = await getDataSourceById(factTable.datasource, org.id);
+  if (!datasource) {
+    throw new Error("Could not find datasource");
+  }
+  req.checkPermissions("runQueries", datasource.projects || "");
+
+  // Update the columns
+  data.columns = await getColumns(datasource, { ...factTable, ...data });
 
   await updateFactTable(factTable, data);
 

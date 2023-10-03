@@ -11,7 +11,7 @@ import { FaExternalLinkAlt } from "react-icons/fa";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useAuth } from "@/services/auth";
 import useOrgSettings from "@/hooks/useOrgSettings";
-import { getInitialMetricQuery } from "@/services/datasources";
+import { getInitialMetricQuery, validateSQL } from "@/services/datasources";
 import Modal from "../Modal";
 import Field from "../Forms/Field";
 import SelectField from "../Forms/SelectField";
@@ -107,6 +107,8 @@ export default function FactTableModal({ existing, close }: Props) {
           if (!value.sql) {
             throw new Error("Must add a SQL query");
           }
+
+          validateSQL(value.sql, ["timestamp", ...value.userIdTypes]);
 
           // Default eventName to the metric name
           value.eventName = value.eventName || value.name;
