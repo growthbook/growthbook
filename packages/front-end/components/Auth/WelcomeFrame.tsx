@@ -11,7 +11,6 @@ const WelcomeFrame: FC<WelcomeFrameProps> = ({
   children,
   loading: loadingState,
 }) => {
-
   return (
     <>
       <div className="welcome container-fluid">
