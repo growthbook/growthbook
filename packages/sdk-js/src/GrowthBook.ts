@@ -257,7 +257,8 @@ export class GrowthBook<
   public setAttributes(attributes: Attributes) {
     this._ctx.attributes = attributes;
     if (this._ctx.remoteEval) {
-      return this._refreshForRemoteEval();
+      this._refreshForRemoteEval();
+      return;
     }
     this._render();
     this._updateAllAutoExperiments();
@@ -266,7 +267,8 @@ export class GrowthBook<
   public setAttributeOverrides(overrides: Attributes) {
     this._attributeOverrides = overrides;
     if (this._ctx.remoteEval) {
-      return this._refreshForRemoteEval();
+      this._refreshForRemoteEval();
+      return;
     }
     this._render();
     this._updateAllAutoExperiments();
@@ -275,7 +277,8 @@ export class GrowthBook<
   public setForcedVariations(vars: Record<string, number>) {
     this._ctx.forcedVariations = vars || {};
     if (this._ctx.remoteEval) {
-      return this._refreshForRemoteEval();
+      this._refreshForRemoteEval();
+      return;
     }
     this._render();
     this._updateAllAutoExperiments();
@@ -290,9 +293,10 @@ export class GrowthBook<
   public setURL(url: string) {
     this._ctx.url = url;
     if (this._ctx.remoteEval) {
-      return this._refreshForRemoteEval().then(() =>
+      this._refreshForRemoteEval().then(() =>
         this._updateAllAutoExperiments(true)
       );
+      return;
     }
     this._updateAllAutoExperiments(true);
   }
@@ -376,7 +380,8 @@ export class GrowthBook<
     this._ctx.forcedVariations = this._ctx.forcedVariations || {};
     this._ctx.forcedVariations[key] = variation;
     if (this._ctx.remoteEval) {
-      return this._refreshForRemoteEval();
+      this._refreshForRemoteEval();
+      return;
     }
     this._updateAllAutoExperiments();
     this._render();
