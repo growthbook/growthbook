@@ -11,7 +11,6 @@ const WelcomeFrame: FC<WelcomeFrameProps> = ({
   children,
   loading: loadingState,
 }) => {
-  //const [loading] = useState(loadingState);
 
   return (
     <>
