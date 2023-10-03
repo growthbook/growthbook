@@ -249,14 +249,17 @@ export async function addMemberToOrg({
   environments: string[];
   projectRoles?: ProjectMemberRole[];
 }) {
+  console.log("inside addMemberToOrg");
   // If member is already in the org, skip
   if (organization.members.find((m) => m.id === userId)) {
+    console.log("member already in org in check");
     return;
   }
   // If member is also a pending member, remove
   let pendingMembers: PendingMember[] = organization?.pendingMembers || [];
   pendingMembers = pendingMembers.filter((m) => m.id !== userId);
 
+  console.log("membersBefore", organization.members);
   const members: Member[] = [
     ...organization.members,
     {
@@ -269,6 +272,9 @@ export async function addMemberToOrg({
     },
   ];
 
+  console.log("membersAfter", members);
+
+  console.log("about to update the org");
   await updateOrganization(organization.id, {
     members,
     pendingMembers,
@@ -921,7 +927,7 @@ export async function expandOrgMembers(
   // Add email/name to the organization members array
   const userInfo = await getUsersByIds(members.map((m) => m.id));
   const expandedMembers: ExpandedMember[] = [];
-  userInfo.forEach(({ id, email, verified, name, _id }) => {
+  userInfo.forEach(({ id, email, verified, name, _id, externalId }) => {
     const memberInfo = members.find((m) => m.id === id);
     if (!memberInfo) return;
     expandedMembers.push({
@@ -930,6 +936,7 @@ export async function expandOrgMembers(
       name: name || "",
       ...memberInfo,
       dateCreated: memberInfo.dateCreated || _id.getTimestamp(),
+      externalId,
     });
   });
   return expandedMembers;
