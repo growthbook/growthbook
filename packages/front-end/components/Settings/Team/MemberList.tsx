@@ -166,7 +166,7 @@ const MemberList: FC<{
                               Reset Password
                             </button>
                           )}
-                          {canDeleteMembers && (
+                          {canDeleteMembers && !member.externalId && (
                             <DeleteButton
                               link={true}
                               text="Remove User"
