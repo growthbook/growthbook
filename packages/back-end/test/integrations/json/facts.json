@@ -1,0 +1,14 @@
+[
+  {
+    "id": "orders.qty",
+    "column": "qty"
+  },
+  {
+    "id": "orders.amount",
+    "column": "amount"
+  },
+  {
+    "id": "orders.date",
+    "column": "date"
+  }
+]
