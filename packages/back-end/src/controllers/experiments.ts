@@ -478,7 +478,11 @@ export async function postExperiments(
   req: AuthRequest<
     Partial<ExperimentInterfaceStringDates>,
     unknown,
-    { allowDuplicateTrackingKey?: boolean }
+    {
+      allowDuplicateTrackingKey?: boolean | string | number;
+      originalId?: string;
+      importVisualChangesets?: boolean | string | number;
+    }
   >,
   res: Response<
     | { status: 200; experiment: ExperimentInterface }
@@ -591,9 +595,13 @@ export async function postExperiments(
 
   try {
     validateVariationIds(obj.variations);
+    const allowDuplicateTrackingKey =
+      req.query.allowDuplicateTrackingKey === true ||
+      req.query.allowDuplicateTrackingKey === "true" ||
+      req.query.allowDuplicateTrackingKey == 1;
 
     // Make sure id is unique
-    if (obj.trackingKey && !req.query.allowDuplicateTrackingKey) {
+    if (obj.trackingKey && !allowDuplicateTrackingKey) {
       const existing = await getExperimentByTrackingKey(
         org.id,
         obj.trackingKey
@@ -612,6 +620,36 @@ export async function postExperiments(
       organization: org,
       user: res.locals.eventAudit,
     });
+
+    const importVisualChangesets =
+      req.query.importVisualChangesets === true ||
+      req.query.importVisualChangesets === "true" ||
+      req.query.importVisualChangesets == 1;
+
+    if (importVisualChangesets && req.query.originalId) {
+      const visualChangesets = await findVisualChangesetsByExperiment(
+        req.query.originalId,
+        org.id
+      );
+      for (const visualChangeset of visualChangesets) {
+        const newVisualChangeset = await createVisualChangeset({
+          experiment,
+          urlPatterns: visualChangeset.urlPatterns,
+          editorUrl: visualChangeset.editorUrl,
+          organization: org,
+          user: res.locals.eventAudit,
+        });
+        await updateVisualChangeset({
+          visualChangeset: newVisualChangeset,
+          experiment,
+          organization: org,
+          updates: {
+            visualChanges: visualChangeset.visualChanges,
+          },
+          user: res.locals.eventAudit,
+        });
+      }
+    }
 
     await req.audit({
       event: "experiment.create",
