@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import {
   createUser as createNewUser,
-  getUserByEmail,
+  getUserByExternalId,
 } from "../../services/users";
 import { addMemberToOrg } from "../../services/organizations";
 import { OrganizationInterface } from "../../../types/organization";
@@ -24,14 +24,14 @@ export async function createUser(
 
   try {
     // Look up the user in Mongo
-    let user = await getUserByEmail(requestBodyObject.userName);
+    let user = await getUserByExternalId(requestBodyObject.externalId);
     const role = org.settings?.defaultRole?.role || "readonly";
 
     if (!user) {
       user = await createNewUser(
         requestBodyObject.displayName,
         requestBodyObject.userName,
-        "12345678", // TODO: SSO shouldn't need a password. figure out how to test this
+        requestBodyObject.password, // TODO: SSO shouldn't need a password. figure out how to test this
         requestBodyObject.externalId
       );
       console.log("user created:", user);

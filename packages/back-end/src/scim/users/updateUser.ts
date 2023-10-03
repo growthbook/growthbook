@@ -13,15 +13,40 @@ type Operation = {
   };
 };
 
+type ScimEmailObject = {
+  primary: boolean;
+  value: string;
+  type: string;
+  display: string;
+};
+
+type ScimUserObject = {
+  schemas: string[];
+  id: string;
+  userName: string;
+  name: {
+    displayName: string;
+  };
+  active: boolean;
+  emails: ScimEmailObject[];
+  groups: string[];
+  meta: {
+    resourceType: string;
+  };
+};
+
 async function removeUserFromOrg(
   org: OrganizationInterface,
-  userIndex: number
+  userIndex: number,
+  updatedScimUser: ScimUserObject
 ) {
   const updatedOrg = cloneDeep(org);
 
   updatedOrg.members.splice(userIndex, 1);
 
   await updateOrganization(org.id, updatedOrg);
+
+  updatedScimUser.active = false;
 }
 
 export async function updateUser(req: ScimUpdateRequest, res: Response) {
@@ -64,50 +89,41 @@ export async function updateUser(req: ScimUpdateRequest, res: Response) {
 
   // Finally, we need to return the updated user object
 
+  const updatedScimUser = {
+    schemas: ["urn:ietf:params:scim:schemas:core:2.0:User"],
+    id: requestBodyObject.externalId,
+    userName: user.email,
+    name: {
+      displayName: user.name || "",
+    },
+    active: userIndex > -1,
+    emails: [
+      {
+        primary: true,
+        value: user.email,
+        type: "work",
+        display: user.email,
+      },
+    ],
+    groups: [],
+    meta: {
+      resourceType: "User",
+    },
+  };
   for (const operation in operations) {
     const { op, value } = operations[operation];
     console.log("op", op);
     console.log("value:", value);
 
-    switch (op) {
-      case "replace":
-        console.log("replace");
-        if (value.active === false) {
-          // this means they want us to remove the user
-          console.log("remove user");
-          await removeUserFromOrg(org, userIndex);
-          // TODO: Build a function to handle this
-        }
-        break;
-      case "add":
-        console.log("add");
-        break;
-      case "remove":
-        console.log("remove");
-        await removeUserFromOrg(org, userIndex);
-        break;
+    // The only operation we support is making the user inactive
+    if (op === "replace" && value.active === false) {
+      // SCIM determines whether a user is active or not based on this property. If set to false, that means they want us to remove the user
+      // this means they want us to remove the user
+      console.log("remove user");
+      await removeUserFromOrg(org, userIndex, updatedScimUser);
     }
-
-    return res.status(200).json({
-      schemas: ["urn:ietf:params:scim:schemas:core:2.0:User"],
-      id: requestBodyObject.externalId,
-      userName: user.email,
-      name: {
-        displayName: user.name,
-      },
-      active: false, // This should be true if they are in the org.members array
-      emails: [
-        {
-          primary: true,
-          value: user.email,
-          type: "work",
-          display: user.email,
-        },
-      ],
-      groups: [],
-      meta: {
-        resourceType: "User",
-      },
-    });
+    // otherwise, silently ignore the operation
   }
+
+  return res.status(200).json(updatedScimUser);
 }
