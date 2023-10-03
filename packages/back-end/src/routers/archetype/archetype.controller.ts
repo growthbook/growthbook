@@ -169,7 +169,7 @@ export const postArchetype = async (
   await req.audit({
     event: "archetype.created",
     entity: {
-      object: "Archetype",
+      object: "archetype",
       id: archetype.id,
       name,
     },
@@ -249,7 +249,7 @@ export const putArchetype = async (
   await req.audit({
     event: "archetype.updated",
     entity: {
-      object: "Archetype",
+      object: "archetype",
       id: updatedArchetype.id,
       name: name,
     },
@@ -318,7 +318,7 @@ export const deleteArchetype = async (
   await req.audit({
     event: "archetype.deleted",
     entity: {
-      object: "Archetype",
+      object: "archetype",
       id: id,
       name: archetype.name,
     },
