@@ -52,7 +52,7 @@ export async function listUsers(
   const scimUsers = expandedMembers.map((user) => {
     return {
       schemas: ["urn:ietf:params:scim:schemas:core:2.0:User"],
-      id: user.id,
+      id: user.externalId || "",
       userName: user.email,
       name: {
         formatted: user.name,
