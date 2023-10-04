@@ -95,8 +95,8 @@ export async function createUser(
   name: string,
   email: string,
   password?: string,
-  externalId?: string,
-  verified: boolean = false
+  verified: boolean = false,
+  externalId?: string
 ) {
   let passwordHash = "";
 

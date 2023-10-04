@@ -55,6 +55,7 @@ export async function createUser(
         requestBodyObject.displayName,
         requestBodyObject.userName,
         requestBodyObject.password, // TODO: SSO shouldn't need a password. figure out how to test this
+        false, // TODO: Double check this logic
         requestBodyObject.externalId
       );
     }
