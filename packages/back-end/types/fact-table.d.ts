@@ -1,31 +1,33 @@
 import { z } from "zod";
 import {
   createFactFilterPropsValidator,
-  createFactPropsValidator,
+  createColumnPropsValidator,
   createFactTablePropsValidator,
   createFactMetricPropsValidator,
   numberFormatValidator,
   updateFactFilterPropsValidator,
-  updateFactPropsValidator,
+  updateColumnPropsValidator,
   updateFactTablePropsValidator,
   updateFactMetricPropsValidator,
-  factRefValidator,
+  columnRefValidator,
   metricTypeValidator,
   cappingValidator,
   conversionWindowUnitValidator,
+  factTableColumnTypeValidator,
 } from "../src/routers/fact-table/fact-table.validators";
 
-export type FactNumberFormat = z.infer<typeof numberFormatValidator>;
+export type FactTableColumnType = z.infer<typeof factTableColumnTypeValidator>;
+export type NumberFormat = z.infer<typeof numberFormatValidator>;
 
-export interface FactInterface {
-  id: string;
+export interface ColumnInterface {
   dateCreated: Date;
   dateUpdated: Date;
   name: string;
   description: string;
   column: string;
-  numberFormat: FactNumberFormat;
-  filters: string[];
+  datatype: FactTableColumnType;
+  numberFormat: NumberFormat;
+  autoDetected: boolean;
 }
 
 export interface FactFilterInterface {
@@ -50,11 +52,12 @@ export interface FactTableInterface {
   datasource: string;
   userIdTypes: string[];
   sql: string;
-  facts: FactInterface[];
+  eventName: string;
+  columns: ColumnInterface[];
   filters: FactFilterInterface[];
 }
 
-export type FactRef = z.infer<typeof factRefValidator>;
+export type ColumnRef = z.infer<typeof columnRefValidator>;
 
 export type FactMetricType = z.infer<typeof metricTypeValidator>;
 
@@ -78,8 +81,8 @@ export interface FactMetricInterface {
   inverse: boolean;
 
   metricType: FactMetricType;
-  numerator: FactRef;
-  denominator: FactRef | null;
+  numerator: ColumnRef;
+  denominator: ColumnRef | null;
 
   capping: CappingType;
   capValue: number;
@@ -112,8 +115,8 @@ export type CreateFactFilterProps = z.infer<
 export type UpdateFactFilterProps = z.infer<
   typeof updateFactFilterPropsValidator
 >;
-export type UpdateFactProps = z.infer<typeof updateFactPropsValidator>;
-export type CreateFactProps = z.infer<typeof createFactPropsValidator>;
+export type UpdateColumnProps = z.infer<typeof updateColumnPropsValidator>;
+export type CreateColumnProps = z.infer<typeof createColumnPropsValidator>;
 
 export type CreateFactMetricProps = z.infer<
   typeof createFactMetricPropsValidator

@@ -19,9 +19,15 @@ import TagsFilter, {
 } from "@/components/Tags/TagsFilter";
 import SortedTags from "@/components/Tags/SortedTags";
 import ProjectBadges from "@/components/ProjectBadges";
+import Badge from "@/components/Badge";
 
 export default function FactTablesPage() {
-  const { factTables, getDatasourceById, project } = useDefinitions();
+  const {
+    factTables,
+    getDatasourceById,
+    project,
+    factMetrics,
+  } = useDefinitions();
 
   const router = useRouter();
 
@@ -30,6 +36,19 @@ export default function FactTablesPage() {
   const [aboutOpen, setAboutOpen] = useLocalStorage("aboutFactTables", true);
 
   const [createFactOpen, setCreateFactOpen] = useState(false);
+
+  const factMetricCounts: Record<string, number> = {};
+  factMetrics.forEach((m) => {
+    const key = m.numerator.factTableId;
+    factMetricCounts[key] = factMetricCounts[key] || 0;
+    factMetricCounts[key]++;
+
+    if (m.metricType === "ratio" && m.denominator) {
+      const key = m.denominator.factTableId;
+      factMetricCounts[key] = factMetricCounts[key] || 0;
+      factMetricCounts[key]++;
+    }
+  });
 
   const filteredFactTables = project
     ? factTables.filter((t) =>
@@ -47,7 +66,7 @@ export default function FactTablesPage() {
       return {
         ...table,
         datasourceName: getDatasourceById(table.datasource)?.name || "Unknown",
-        numFacts: table.facts.length,
+        numMetrics: factMetricCounts[table.id] || 0,
         numFilters: table.filters.length,
         userIdTypes: sortedUserIdTypes,
       };
@@ -86,9 +105,11 @@ export default function FactTablesPage() {
       <PageHead breadcrumb={[{ display: "Fact Tables" }]} />
       <h1>
         Fact Tables
-        <span className="badge badge-purple border text-uppercase ml-2">
-          Beta
-        </span>
+        <Tooltip body="This initial release of Fact Tables is an early preview of what's to come. Expect some rough edges and bugs.">
+          <span className="badge badge-purple border text-uppercase ml-2">
+            Beta
+          </span>
+        </Tooltip>
       </h1>
       <div className="mb-3">
         <a
@@ -103,12 +124,6 @@ export default function FactTablesPage() {
         </a>
         {aboutOpen && (
           <div className="alert alert-info">
-            <div className="mb-2">
-              A <strong>Fact Table</strong> contains a base SQL definition, plus
-              one or more <strong>Facts</strong> built on top of this base
-              query. You can use these Facts to quickly build a library of{" "}
-              <strong>Metrics</strong>.
-            </div>
             <div className="mb-3">
               With Fact Tables, you can better organize your metrics, cut down
               on repetitive copy/pasting, and unlock massive SQL cost savings{" "}
@@ -128,32 +143,75 @@ export default function FactTablesPage() {
                   </>
                 }
               />
-              .
             </div>
-
-            <h4>Example</h4>
-            <table className="table w-auto mb-0">
+            <table className="table w-auto gbtable appbox">
               <tbody>
                 <tr>
                   <th>Fact Table</th>
-                  <td>Orders</td>
-                  <td></td>
-                  <td></td>
-                  <td></td>
+                  <td>A base SQL definition for an event</td>
+                  <td>
+                    Examples:{" "}
+                    <Badge
+                      content="Sign Up"
+                      className="badge-light mr-1 border"
+                    />
+                    <Badge
+                      content="Order"
+                      className="badge-light mr-1 border"
+                    />
+                    <Badge
+                      content="Form Submit"
+                      className="badge-light mr-1 border"
+                    />
+                  </td>
                 </tr>
                 <tr>
-                  <th>Facts</th>
-                  <td>Revenue</td>
-                  <td>Number of Items</td>
-                  <td></td>
-                  <td></td>
+                  <th>Fact</th>
+                  <td>A numeric column in the Fact Table</td>
+                  <td>
+                    Examples:
+                    <Badge
+                      content="Order Amount"
+                      className="badge-light mr-1 border"
+                    />
+                    <Badge
+                      content="Session Duration"
+                      className="badge-light mr-1 border"
+                    />
+                  </td>
                 </tr>
                 <tr>
-                  <th>Metrics</th>
-                  <td>Purchasers</td>
-                  <td>Revenue per User</td>
-                  <td>Average Order Value</td>
-                  <td>Items per Order</td>
+                  <th>Filter</th>
+                  <td>A WHERE clause to filter rows in the Fact Table</td>
+                  <td>
+                    Examples:
+                    <Badge
+                      content="With Promo Code"
+                      className="badge-light mr-1 border"
+                    />
+                    <Badge
+                      content="High Value Order"
+                      className="badge-light mr-1 border"
+                    />
+                  </td>
+                </tr>
+                <tr>
+                  <th>Metric</th>
+                  <td>
+                    Built with Facts and Filters and used as a goal in an
+                    experiment
+                  </td>
+                  <td>
+                    Examples:
+                    <Badge
+                      content="Purchase Rate"
+                      className="badge-light mr-1 border"
+                    />
+                    <Badge
+                      content="Average Order Value"
+                      className="badge-light mr-1 border"
+                    />
+                  </td>
                 </tr>
               </tbody>
             </table>
@@ -212,7 +270,7 @@ export default function FactTablesPage() {
                 <SortableTH field="tags">Tags</SortableTH>
                 <th>Projects</th>
                 <SortableTH field="userIdTypes">Identifier Types</SortableTH>
-                <SortableTH field="numFacts">Facts</SortableTH>
+                <SortableTH field="numMetrics">Metrics</SortableTH>
                 <SortableTH field="numFilters">Filters</SortableTH>
                 <SortableTH field="dateUpdated">Last Updated</SortableTH>
               </tr>
@@ -251,7 +309,7 @@ export default function FactTablesPage() {
                       </span>
                     ))}
                   </td>
-                  <td>{f.numFacts}</td>
+                  <td>{f.numMetrics}</td>
                   <td>{f.numFilters}</td>
                   <td>{date(f.dateUpdated)}</td>
                 </tr>

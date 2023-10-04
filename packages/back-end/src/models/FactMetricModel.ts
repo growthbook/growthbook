@@ -22,12 +22,12 @@ const factTableSchema = new mongoose.Schema({
   metricType: String,
   numerator: {
     factTableId: String,
-    factId: String,
+    column: String,
     filters: [String],
   },
   denominator: {
     factTableId: String,
-    factId: String,
+    column: String,
     filters: [String],
   },
   capping: String,

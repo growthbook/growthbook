@@ -10,9 +10,8 @@ import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import { useAuth } from "@/services/auth";
 import FactTableModal from "@/components/FactTables/FactTableModal";
 import Code from "@/components/SyntaxHighlighting/Code";
-import FactModal from "@/components/FactTables/FactModal";
 import usePermissions from "@/hooks/usePermissions";
-import FactList from "@/components/FactTables/FactList";
+import ColumnList from "@/components/FactTables/ColumnList";
 import FactFilterList from "@/components/FactTables/FactFilterList";
 import EditProjectsForm from "@/components/Projects/EditProjectsForm";
 import PageHead from "@/components/Layout/PageHead";
@@ -21,6 +20,7 @@ import SortedTags from "@/components/Tags/SortedTags";
 import FactMetricModal from "@/components/FactTables/FactMetricModal";
 import FactMetricList from "@/components/FactTables/FactMetricList";
 import MarkdownInlineEdit from "@/components/Markdown/MarkdownInlineEdit";
+import { usesEventName } from "@/components/Metrics/MetricForm";
 
 export default function FactTablePage() {
   const router = useRouter();
@@ -29,8 +29,6 @@ export default function FactTablePage() {
   const [editOpen, setEditOpen] = useState(false);
   const [showSQL, setShowSQL] = useState(false);
 
-  const [editFactOpen, setEditFactOpen] = useState("");
-  const [newFactOpen, setNewFactOpen] = useState(false);
   const [editProjectsOpen, setEditProjectsOpen] = useState(false);
   const [editTagsModal, setEditTagsModal] = useState(false);
 
@@ -70,16 +68,6 @@ export default function FactTablePage() {
     <div className="pagecontents container-fluid">
       {editOpen && (
         <FactTableModal close={() => setEditOpen(false)} existing={factTable} />
-      )}
-      {newFactOpen && (
-        <FactModal close={() => setNewFactOpen(false)} factTable={factTable} />
-      )}
-      {editFactOpen && (
-        <FactModal
-          close={() => setEditFactOpen("")}
-          factTable={factTable}
-          existing={factTable.facts.find((f) => f.id === editFactOpen)}
-        />
       )}
       {editProjectsOpen && (
         <EditProjectsForm
@@ -200,18 +188,6 @@ export default function FactTablePage() {
             </a>
           </Link>
         </div>
-        <div className="col-auto">
-          Identifier Types:{" "}
-          {factTable.userIdTypes.length > 0 ? (
-            factTable.userIdTypes.map((t) => (
-              <span className="badge badge-secondary mr-1" key={t}>
-                {t}
-              </span>
-            ))
-          ) : (
-            <em>None</em>
-          )}
-        </div>
       </div>
 
       <div className="appbox p-3 bg-white mb-3">
@@ -232,48 +208,57 @@ export default function FactTablePage() {
       </div>
 
       <div className="mb-4">
-        <a
-          href="#"
-          onClick={(e) => {
-            e.preventDefault();
-            setShowSQL(!showSQL);
-          }}
-          className="text-dark"
-        >
-          {showSQL ? "Hide" : "Show"} Fact Table SQL{" "}
-          {showSQL ? <FaAngleDown /> : <FaAngleRight />}
-        </a>
-        {showSQL && (
-          <Code
-            code={factTable.sql}
-            language="sql"
-            className="mb-4"
-            filename={
-              <a
-                href="#"
-                onClick={(e) => {
-                  e.preventDefault();
-                  setEditOpen(true);
-                }}
-              >
-                Edit SQL <GBEdit />
-              </a>
-            }
-          />
+        {factTable.columns?.length > 0 && (
+          <a
+            href="#"
+            onClick={(e) => {
+              e.preventDefault();
+              setShowSQL(!showSQL);
+            }}
+            className="text-dark"
+          >
+            {showSQL ? "Hide" : "Show"} Fact Table SQL{" "}
+            {showSQL ? <FaAngleDown /> : <FaAngleRight />}
+          </a>
+        )}
+        {(showSQL || !factTable.columns.length) && (
+          <div className="appbox p-3">
+            <Code
+              code={factTable.sql}
+              language="sql"
+              containerClassName="m-0"
+              className="mb-4"
+              filename={
+                <a
+                  href="#"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setEditOpen(true);
+                  }}
+                >
+                  Edit SQL <GBEdit />
+                </a>
+              }
+            />
+            {usesEventName(factTable.sql) && (
+              <div className="mt-2">
+                <strong>eventName</strong> = <code>{factTable.eventName}</code>
+              </div>
+            )}
+          </div>
         )}
       </div>
 
       <div className="row mb-4">
         <div className="col">
           <div className="mb-4">
-            <h3>Facts</h3>
+            <h3>Columns</h3>
             <div className="mb-1">
-              Facts are numeric columns or SQL expressions that represent a
-              specific value you care about. For example, &quot;Page Load
-              Time&quot;, &quot;Revenue&quot;, or &quot;API Requests&quot;.
+              All of the columns available in the Fact Table. Numeric columns
+              can be used to create Metrics.
             </div>
             <div className="appbox p-3">
-              <FactList factTable={factTable} />
+              <ColumnList factTable={factTable} />
             </div>
           </div>
         </div>
@@ -282,8 +267,8 @@ export default function FactTablePage() {
             <h3>Filters</h3>
             <div className="mb-4">
               <div className="mb-1">
-                Filters are re-usable SQL snippets that can be applied to Facts
-                and Metrics to limit the rows that are included in an analysis.
+                Filters are re-usable SQL snippets that let you limit the rows
+                that are included in a Metric.
               </div>
               <div className="appbox p-3">
                 <FactFilterList factTable={factTable} />
@@ -296,9 +281,10 @@ export default function FactTablePage() {
       <h3>Metrics</h3>
       <div className="mb-4">
         <div className="mb-1">
-          Metrics are built on top of Facts and Filters. These are what you use
-          as Goals and Guardrails in experiments. This only lists metrics tied
-          to this Fact Table. <Link href="/metrics">View all Metrics</Link>
+          Metrics are built on top of Columns and Filters. These are what you
+          use as Goals and Guardrails in experiments. This page only shows
+          metrics tied to this Fact Table.{" "}
+          <Link href="/metrics">View all Metrics</Link>
         </div>
         <div className="appbox p-3">
           <FactMetricList factTable={factTable} />

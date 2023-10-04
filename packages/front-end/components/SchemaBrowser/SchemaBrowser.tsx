@@ -1,6 +1,6 @@
 import { InformationSchemaInterface } from "@/../back-end/src/types/Integration";
 import { DataSourceInterfaceWithParams } from "@/../back-end/types/datasource";
-import React, { Fragment, useEffect, useState } from "react";
+import React, { Fragment, useCallback, useEffect, useState } from "react";
 import Collapsible from "react-collapsible";
 import { FaAngleDown, FaAngleRight, FaTable } from "react-icons/fa";
 import { cloneDeep } from "lodash";
@@ -42,6 +42,27 @@ export default function SchemaBrowser({
   const row = cursorData?.row || 0;
   const column = cursorData?.column || 0;
   const inputArray = cursorData?.input || [];
+
+  const refreshOrCreateInfoSchema = useCallback(
+    (type: "PUT" | "POST") => {
+      setError(null);
+      try {
+        apiCall<{
+          status: number;
+          message?: string;
+        }>(`/datasource/${datasource.id}/schema`, {
+          method: type,
+          body: JSON.stringify({
+            informationSchemaId: informationSchema?.id,
+          }),
+        });
+        setFetching(true);
+      } catch (e) {
+        setError(e.message);
+      }
+    },
+    [apiCall, datasource.id, informationSchema?.id]
+  );
 
   function pastePathIntoExistingQuery(
     existingQuery: string,
@@ -105,6 +126,25 @@ export default function SchemaBrowser({
   useEffect(() => {
     setCurrentTable("");
   }, [datasource]);
+
+  // This is hacky - since we updated the logic to support BigQuery data sources with multiple schemas there are some old data sources that have a now outdated error
+  // This check looks for that, and if it finds it, it will refresh the schema automatically
+  useEffect(() => {
+    if (
+      !fetching &&
+      informationSchema?.error &&
+      informationSchema?.error.message ===
+        "No schema provided. Please edit the connection settings and try again." &&
+      datasource.type === "bigquery"
+    ) {
+      refreshOrCreateInfoSchema("PUT");
+    }
+  }, [
+    datasource.type,
+    fetching,
+    informationSchema?.error,
+    refreshOrCreateInfoSchema,
+  ]);
 
   if (!data) return <LoadingSpinner />;
 
@@ -226,8 +266,10 @@ export default function SchemaBrowser({
             <div className="p-2">
               {!informationSchema && !fetching && (
                 <BuildInformationSchemaCard
-                  datasourceId={datasource.id}
-                  setFetching={setFetching}
+                  error={error}
+                  refreshOrCreateInfoSchema={(type) =>
+                    refreshOrCreateInfoSchema(type)
+                  }
                 />
               )}
               {(informationSchema?.status === "PENDING" || fetching) && (
@@ -235,9 +277,11 @@ export default function SchemaBrowser({
               )}
               {!fetching && informationSchema?.error && (
                 <RetryInformationSchemaCard
+                  error={error}
                   informationSchema={informationSchema}
-                  datasourceId={datasource.id}
-                  setFetching={setFetching}
+                  refreshOrCreateInfoSchema={(type) =>
+                    refreshOrCreateInfoSchema(type)
+                  }
                 />
               )}
             </div>

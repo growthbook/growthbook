@@ -410,7 +410,7 @@ export default function ResultsTable({
           hoveredMetricRow !== null &&
           hoveredVariationRow !== null
         }
-        timeout={0}
+        timeout={200}
         classNames="tooltip-animate"
         appear={true}
       >
@@ -747,19 +747,6 @@ export default function ResultsTable({
                               hover: isHovered,
                             })}
                             newUi={true}
-                            onMouseMove={(e) =>
-                              onPointerMove(e, {
-                                x: "element-right",
-                                offsetX: -45,
-                              })
-                            }
-                            onPointerLeave={onPointerLeave}
-                            onClick={(e) =>
-                              onPointerMove(e, {
-                                x: "element-right",
-                                offsetX: -45,
-                              })
-                            }
                           />
                         ) : (
                           <td />
@@ -772,19 +759,6 @@ export default function ResultsTable({
                             hover: isHovered,
                           })}
                           newUi={true}
-                          onMouseMove={(e) =>
-                            onPointerMove(e, {
-                              x: "element-right",
-                              offsetX: -45,
-                            })
-                          }
-                          onPointerLeave={onPointerLeave}
-                          onClick={(e) =>
-                            onPointerMove(e, {
-                              x: "element-right",
-                              offsetX: -45,
-                            })
-                          }
                         />
                         {j > 0 ? (
                           statsEngine === "bayesian" ? (
@@ -905,19 +879,6 @@ export default function ResultsTable({
                             rowResults={rowResults}
                             statsEngine={statsEngine}
                             className={resultsHighlightClassname}
-                            onMouseMove={(e) =>
-                              onPointerMove(e, {
-                                x: "element-left",
-                                offsetX: 50,
-                              })
-                            }
-                            onMouseLeave={onPointerLeave}
-                            onClick={(e) =>
-                              onPointerMove(e, {
-                                x: "element-left",
-                                offsetX: 50,
-                              })
-                            }
                           />
                         ) : (
                           <td></td>

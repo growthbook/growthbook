@@ -4,8 +4,8 @@ import {
   ProjectScopedPermission,
 } from "back-end/types/organization";
 import {
-  FactInterface,
-  FactRef,
+  ColumnInterface,
+  ColumnRef,
   FactTableInterface,
 } from "back-end/types/fact-table";
 import { ExperimentMetricInterface } from "shared/experiments";
@@ -107,13 +107,13 @@ export function formatPercent(value: number) {
   return percentFormatter.format(value);
 }
 
-export function formatFactValue(
-  fact: FactInterface,
+export function formatColumnValue(
+  column: ColumnInterface,
   value: number,
   currency?: string
 ): string {
-  switch (fact.numberFormat) {
-    case "number":
+  switch (column.numberFormat) {
+    case "":
       return formatNumber(value);
     case "currency":
       return formatCurrency(value, currency);
@@ -122,25 +122,25 @@ export function formatFactValue(
   }
 }
 
-export function formatFactRefValue(
-  factRef: FactRef,
+export function formatColumnRefValue(
+  columnRef: ColumnRef,
   getFactTableById: (id: string) => FactTableInterface | null,
   value: number,
   currency?: string
 ) {
-  if (factRef.factId === "$$count") {
+  if (columnRef.column === "$$count") {
     return formatNumber(value);
   }
-  if (factRef.factId === "$$distinctUsers") {
+  if (columnRef.column === "$$distinctUsers") {
     return formatPercent(value);
   }
 
-  const fact = getFactTableById(factRef.factTableId)?.facts?.find(
-    (f) => f.id === factRef.factId
+  const fact = getFactTableById(columnRef.factTableId)?.columns?.find(
+    (c) => c.column === columnRef.column
   );
   if (!fact) return formatNumber(value);
 
-  return formatFactValue(fact, value, currency);
+  return formatColumnValue(fact, value, currency);
 }
 
 export function formatMetricValue(
@@ -166,11 +166,11 @@ export function formatMetricValue(
         // For example: profit/revenue = $/$ = plain number
         const numerator = getFactTableById(
           metric.numerator.factTableId
-        )?.facts?.find((f) => f.id === metric.numerator.factId);
+        )?.columns?.find((c) => c.column === metric.numerator.column);
         const denominator =
           metric.denominator &&
-          getFactTableById(metric.denominator.factTableId)?.facts?.find(
-            (f) => f.id === metric.denominator?.factId
+          getFactTableById(metric.denominator.factTableId)?.columns?.find(
+            (c) => c.column === metric.denominator?.column
           );
         if (
           numerator &&
@@ -181,7 +181,7 @@ export function formatMetricValue(
         }
 
         // Otherwise, just use the numerator to figure out the value type
-        return formatFactRefValue(
+        return formatColumnRefValue(
           metric.numerator,
           getFactTableById,
           value,
@@ -190,7 +190,7 @@ export function formatMetricValue(
       })();
 
     case "mean":
-      return formatFactRefValue(
+      return formatColumnRefValue(
         metric.numerator,
         getFactTableById,
         value,
