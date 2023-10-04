@@ -1,15 +1,6 @@
 import { Request } from "express";
 import { OrganizationInterface } from "./organization";
 
-// export interface ScimRequest {
-//   schemas: string[];
-//   externalId: string;
-//   displayName: string;
-//   meta: {
-//     resourceType: string;
-//   };
-// }
-
 export type BaseScimRequest = Request & {
   organization: OrganizationInterface;
 };

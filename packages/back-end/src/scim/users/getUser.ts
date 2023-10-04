@@ -1,23 +1,13 @@
 import { Response } from "express";
 import { ScimGetRequest } from "../../../types/scim";
-import { getUserByExternalId, getUserById } from "../../services/users";
+import { getUserByExternalId } from "../../services/users";
 
 export async function getUser(req: ScimGetRequest, res: Response) {
-  console.log("get User by ID endpoint hit");
-
   const userId = req.params.id;
 
-  console.log("userId", userId);
-
-  // Unclear if we even need externalId, at least for Okta. Okta doesn't seem to refer to externalId at all
-  // in Runscope tests
-  // const user = await getUserByExternalId(userId);
-  const user = await getUserById(userId);
-
-  console.log("user", user);
+  const user = await getUserByExternalId(userId);
 
   if (!user) {
-    console.log("about to return a user not found error");
     return res.status(404).json({
       schemas: ["urn:ietf:params:scim:api:messages:2.0:Error"],
       detail: "User ID does not exist",
@@ -30,7 +20,6 @@ export async function getUser(req: ScimGetRequest, res: Response) {
 
   // TODO: I think we need to return the user object in this case, but with active set to false
   if (!orgUser) {
-    console.log("about to return a user not in org error");
     return res.status(404).json({
       schemas: ["urn:ietf:params:scim:api:messages:2.0:Error"],
       detail: "User is not a part of the organization",

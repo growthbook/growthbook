@@ -1,23 +1,30 @@
-import { Request } from "express";
-import { ApiRequestLocals } from "../../../types/api";
+import { Response, NextFunction } from "express";
+import { getAccountPlan } from "enterprise";
+import { AuthRequest } from "../../types/AuthRequest";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export default function scimMiddleware(
-  req: Request & ApiRequestLocals,
-  res: any,
-  next: any
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
 ) {
-  const acceptHeader = req.headers.accept;
+  const acceptHeader = req.get("Accept");
 
-  // console.log("req", req);
+  if (!req.organization) {
+    return res.status(400).json({
+      schemas: ["urn:ietf:params:scim:api:messages:2.0:Error"],
+      status: "400",
+      detail: "Organization is required but missing in the request.",
+    });
+  }
 
-  // if (!req.org) {
-  //   return res.status(400).json({
-  //     schemas: ["urn:ietf:params:scim:api:messages:2.0:Error"],
-  //     status: "400",
-  //     detail: "Organization is required but missing in the request.",
-  //   });
-  // }
+  if (getAccountPlan(req.organization) !== "enterprise") {
+    return res.status(500).json({
+      schemas: ["urn:ietf:params:scim:api:messages:2.0:Error"],
+      status: "403",
+      detail: "SCIM is not available for this GrowthBook organization.",
+    });
+  }
 
   // Check if the Accept header specifies SCIM JSON
   if (acceptHeader && acceptHeader.includes("application/scim+json")) {

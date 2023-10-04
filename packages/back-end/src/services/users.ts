@@ -39,6 +39,17 @@ export async function getUsersByIds(ids: string[]) {
   });
 }
 
+export async function removeExternalId(userId: string) {
+  return UserModel.updateOne({ id: userId }, { $unset: { externalId: 1 } });
+}
+
+export async function addExternalIdToExistingUser(
+  userId: string,
+  externalId: string
+) {
+  return UserModel.updateOne({ id: userId }, { $set: { externalId } });
+}
+
 async function hash(password: string): Promise<string> {
   const salt = crypto.randomBytes(SALT_LEN).toString("hex");
   const derivedKey = await (scrypt(
@@ -84,8 +95,8 @@ export async function createUser(
   name: string,
   email: string,
   password?: string,
-  externalId?: string,
-  verified: boolean = false
+  verified: boolean = false,
+  externalId?: string
 ) {
   let passwordHash = "";
 

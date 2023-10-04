@@ -1,66 +1,108 @@
 import { Response } from "express";
+import { cloneDeep } from "lodash";
 import { updateOrganization } from "../../models/OrganizationModel";
-import { getUserByExternalId } from "../../services/users";
+import { getUserByExternalId, removeExternalId } from "../../services/users";
 import { ScimUpdateRequest } from "../../../types/scim";
+import { OrganizationInterface } from "../../../types/organization";
+import { UserInterface } from "../../../types/user";
 
-export async function updateUser(req: ScimUpdateRequest, res: Response) {
-  console.log("patchUser was called");
+type Operation = {
+  op: "add" | "remove" | "replace";
+  path: string; // Path is optional for add & replace, and required for remove operations
+  value: {
+    [key: string]: unknown;
+  };
+};
 
-  const requestBody = req.body.toString("utf-8");
+type ScimEmailObject = {
+  primary: boolean;
+  value: string;
+  type: string;
+  display: string;
+};
 
-  const requestBodyObject = JSON.parse(requestBody);
-  console.log("requestBodyObject", requestBodyObject);
+type ScimUserObject = {
+  schemas: string[];
+  id: string;
+  userName: string;
+  name: {
+    displayName: string;
+  };
+  active: boolean;
+  emails: ScimEmailObject[];
+  groups: string[];
+  meta: {
+    resourceType: string;
+  };
+};
 
-  const org = req.organization;
+async function removeUserFromOrg(
+  org: OrganizationInterface,
+  userIndex: number,
+  user: UserInterface,
+  updatedScimUser: ScimUserObject
+) {
+  const updatedOrg = cloneDeep(org);
 
-  console.log("req.organization", req.organization.id);
+  // When we introduce the ability to manage roles via SCIM, we can remove this check.
+  const userIsAdmin = org.members[userIndex].role === "admin";
 
-  console.log("req.params.id", req.params.id);
+  if (userIsAdmin) {
+    const numberOfAdmins = org.members.filter(
+      (member) => member.role === "admin"
+    );
 
-  if (!org) {
-    // Return an error in the shape SCIM is expecting
+    if (numberOfAdmins.length === 1) {
+      throw new Error("Cannot remove the only admin");
+    }
   }
-
-  const requestToRemoveUser =
-    requestBodyObject.Operations[0].value.active === false;
-
-  if (!requestToRemoveUser) {
-    // throw error that this isn't supported or return something
-  }
-
-  // Look up the user in the org's member list
-  const userIndex = org.members.findIndex(
-    (member) => member.id === req.params.id
-  );
-
-  const role = org.members[userIndex].role;
-
-  const updatedOrg = org;
 
   updatedOrg.members.splice(userIndex, 1);
 
   await updateOrganization(org.id, updatedOrg);
+  await removeExternalId(user.id);
 
+  updatedScimUser.active = false;
+}
+
+export async function updateUser(req: ScimUpdateRequest, res: Response) {
+  // Get all of the params and operations
+  const requestBody = req.body.toString("utf-8");
+  const requestBodyObject = JSON.parse(requestBody);
+  const org = req.organization;
+
+  // Check if the user exists at all
+  // After this is all said and done, we need to return the user object
   const user = await getUserByExternalId(req.params.id);
-
   if (!user) {
-    return res.status(200).json({
-      schemas: ["urn:ietf:params:scim:api:messages:2.0:ListResponse"],
-      totalResults: 0,
-      Resources: [],
-      startIndex: 1,
-      itemsPerPage: 20,
+    return res.status(404).json({
+      schemas: ["urn:ietf:params:scim:api:messages:2.0:Error"],
+      status: "404",
+      detail: "User not found",
+    });
+  }
+  // Check if the user exists within the org
+  const userIndex = org.members.findIndex((member) => member.id === user.id);
+  // if not, return a 404 error
+  if (userIndex === -1) {
+    return res.status(404).json({
+      schemas: ["urn:ietf:params:scim:api:messages:2.0:Error"],
+      status: "404",
+      detail: "User not found",
     });
   }
 
-  return res.status(200).json({
+  // Then, we need to loop through operations
+  const operations: Operation[] = requestBodyObject.Operations;
+
+  const updatedScimUser = {
     schemas: ["urn:ietf:params:scim:schemas:core:2.0:User"],
-    id: requestBodyObject.externalId,
+    id: req.params.id,
     userName: user.email,
     name: {
-      displayName: user.name,
+      displayName: user.name || "",
     },
-    active: true,
+    active: userIndex > -1,
     emails: [
       {
         primary: true,
@@ -69,10 +111,29 @@ export async function updateUser(req: ScimUpdateRequest, res: Response) {
         display: user.email,
       },
     ],
-    role, //TODO: I'm not sure this is needed
     groups: [],
     meta: {
       resourceType: "User",
     },
-  });
+  };
+  for (const operation in operations) {
+    const { op, value } = operations[operation];
+    // The only operation we support is making the user inactive
+    if (op === "replace" && value.active === false) {
+      // SCIM determines whether a user is active or not based on this property. If set to false, that means they want us to remove the user
+      // this means they want us to remove the user
+      try {
+        await removeUserFromOrg(org, userIndex, user, updatedScimUser);
+      } catch (e) {
+        return res.status(400).json({
+          schemas: ["urn:ietf:params:scim:api:messages:2.0:Error"],
+          status: "400",
+          detail: "Cannot remove the only admin",
+        });
+      }
+    }
+    // otherwise, silently ignore the operation
+  }
+
+  return res.status(200).json(updatedScimUser);
 }

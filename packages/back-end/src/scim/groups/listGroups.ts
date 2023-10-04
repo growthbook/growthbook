@@ -8,8 +8,6 @@ import { ApiRequestLocals } from "../../../types/api";
 export const listGroups = createApiRequestHandler()(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   async (req: Request & ApiRequestLocals): Promise<any> => {
-    console.log("listGroups endpoint was called");
-
     const { startIndex, count, filter: filterQuery } = req.query;
 
     const org = req.organization;
