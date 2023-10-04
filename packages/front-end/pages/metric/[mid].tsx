@@ -3,7 +3,6 @@ import React, { FC, useState, useEffect, Fragment } from "react";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import Link from "next/link";
 import {
-  FaAngleLeft,
   FaArchive,
   FaChevronRight,
   FaQuestionCircle,
@@ -62,6 +61,7 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import { useCurrency } from "@/hooks/useCurrency";
 import { DeleteDemoDatasourceButton } from "@/components/DemoDataSourcePage/DemoDataSourcePage";
 import { useUser } from "@/services/UserContext";
+import PageHead from "@/components/Layout/PageHead";
 
 const MetricPage: FC = () => {
   const router = useRouter();
@@ -380,13 +380,13 @@ const MetricPage: FC = () => {
           segment={metric.segment || ""}
         />
       )}
-      <div className="mb-2">
-        <Link href="/metrics">
-          <a>
-            <FaAngleLeft /> All Metrics
-          </a>
-        </Link>
-      </div>
+
+      <PageHead
+        breadcrumb={[
+          { display: "Metrics", href: "/metrics" },
+          { display: metric.name },
+        ]}
+      />
 
       {metric.status === "archived" && (
         <div className="alert alert-secondary mb-2">

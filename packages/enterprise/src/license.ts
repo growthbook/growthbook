@@ -13,6 +13,7 @@ export type CommercialFeature =
   | "override-metrics"
   | "regression-adjustment"
   | "sequential-testing"
+  | "pipeline-mode"
   | "audit-logging"
   | "visual-editor"
   | "archetypes"
@@ -88,6 +89,7 @@ export const accountFeatures: CommercialFeaturesMap = {
     "override-metrics",
     "regression-adjustment",
     "sequential-testing",
+    "pipeline-mode",
     "visual-editor",
     "archetypes",
     "cloud-proxy",

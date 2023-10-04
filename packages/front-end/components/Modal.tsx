@@ -205,9 +205,7 @@ const Modal: FC<ModalProps> = ({
             </button>
           )}
         </div>
-      ) : (
-        ""
-      )}
+      ) : null}
     </div>
   );
 

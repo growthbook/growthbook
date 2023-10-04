@@ -22,6 +22,7 @@ export type EventType =
   | "feature.toggle"
   | "feature.archive"
   | "feature.delete"
+  | "metric.autocreate"
   | "metric.create"
   | "metric.update"
   | "metric.delete"

@@ -2,7 +2,6 @@ import {
   ExperimentInterfaceStringDates,
   ExperimentPhaseStringDates,
 } from "back-end/types/experiment";
-import Link from "next/link";
 import { FaHome } from "react-icons/fa";
 import { PiChartBarHorizontalFill } from "react-icons/pi";
 import { useRouter } from "next/router";
@@ -14,7 +13,6 @@ import { SDKConnectionInterface } from "back-end/types/sdk-connection";
 import { VisualChangesetInterface } from "back-end/types/visual-changeset";
 import clsx from "clsx";
 import { useAuth } from "@/services/auth";
-import { GBCircleArrowLeft } from "@/components/Icons";
 import WatchButton from "@/components/WatchButton";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import ConfirmButton from "@/components/Modal/ConfirmButton";
@@ -76,7 +74,7 @@ export default function ExperimentHeader({
   const router = useRouter();
   const permissions = usePermissions();
   const { scrollY } = useScrollPosition();
-  const headerPinned = scrollY > 70;
+  const headerPinned = scrollY > 45;
 
   const phases = experiment.phases || [];
   const lastPhaseIndex = phases.length - 1;
@@ -150,21 +148,6 @@ export default function ExperimentHeader({
           </Modal>
         )}
         <div className="container-fluid pagecontents position-relative">
-          <div style={{ marginTop: -8, marginBottom: 8 }}>
-            <Link
-              href={`/experiments${
-                experiment.status === "draft"
-                  ? "#drafts"
-                  : experiment.status === "stopped"
-                  ? "#stopped"
-                  : ""
-              }`}
-            >
-              <a>
-                <GBCircleArrowLeft /> Back to all experiments
-              </a>
-            </Link>
-          </div>
           <div className="d-flex align-items-center">
             <div>
               <HeaderWithEdit
@@ -200,7 +183,7 @@ export default function ExperimentHeader({
               ) : experiment.status === "stopped" && experiment.results ? (
                 <div className="experiment-status-widget border d-flex">
                   <div
-                    className="d-flex border-left"
+                    className="d-flex"
                     style={{ height: 30, lineHeight: "30px" }}
                   >
                     <ResultsIndicator results={experiment.results} />

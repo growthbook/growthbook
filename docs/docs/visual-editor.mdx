@@ -48,6 +48,13 @@ Once you created an experiment, you should be prompted to open the Visual Editor
 
 GrowthBook needs to know what page(s) of your site the experiment should run on.
 
+:::note
+
+For URL Targeting to work, you must pass the `url` targeting attribute into the GrowthBook SDK and also list it in the GrowthBook App.
+See [Targeting Attributes](/features/targeting) to learn more about targeting users with certain attributes.
+
+:::
+
 If your experiment is going to be on a single static page, enter the full URL and submit (e.g. `https://www.example.com/pricing`).
 
 If your experiment is going to be on a page with a dynamic URL (e.g. all pages that start with `/post/`), click on the "Advanced Mode" link.
@@ -175,7 +182,7 @@ Until an experiment is moved out of the "draft" phase and started, this is the o
 
 ## Stopping an Experiment
 
-When your experiment is finihsed, you can click on the `Stop Experiment` link at the top of results. This will prompt you for several bits of information about why you're stopping and what the conclusion was.
+When your experiment is finished, you can click on the `Stop Experiment` link at the top of results. This will prompt you for several bits of information about why you're stopping and what the conclusion was.
 
 If your variation won, you can optionally enable a `Temporary Rollout` when stopping. This will continue running your experiment with the same targeting conditions, but send 100% of traffic to the winning variation and disable the `trackingCallback` from being called.
 

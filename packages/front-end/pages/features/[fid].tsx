@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { useRouter } from "next/router";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { FeatureInterface } from "back-end/types/feature";
@@ -9,7 +8,7 @@ import { datetime } from "shared/dates";
 import { getValidation } from "shared/util";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
-import { GBAddCircle, GBCircleArrowLeft, GBEdit } from "@/components/Icons";
+import { GBAddCircle, GBEdit } from "@/components/Icons";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import useApi from "@/hooks/useApi";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
@@ -53,6 +52,7 @@ import Code from "@/components/SyntaxHighlighting/Code";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { useUser } from "@/services/UserContext";
 import { DeleteDemoDatasourceButton } from "@/components/DemoDataSourcePage/DemoDataSourcePage";
+import PageHead from "@/components/Layout/PageHead";
 
 export default function FeaturePage() {
   const router = useRouter();
@@ -259,6 +259,13 @@ export default function FeaturePage() {
         />
       )}
 
+      <PageHead
+        breadcrumb={[
+          { display: "Features", href: "/features" },
+          { display: data.feature.id },
+        ]}
+      />
+
       {isDraft && (
         <div
           className="alert alert-warning mb-3 text-center shadow-sm"
@@ -297,11 +304,7 @@ export default function FeaturePage() {
 
       <div className="row align-items-center mb-2">
         <div className="col-auto">
-          <Link href="/features">
-            <a>
-              <GBCircleArrowLeft /> Back to all features
-            </a>
-          </Link>
+          <h1 className="mb-0">{fid}</h1>
         </div>
         <div style={{ flex: 1 }} />
         <div className="col-auto">
@@ -403,10 +406,6 @@ export default function FeaturePage() {
             in SDK Endpoints or Webhook payloads.
           </div>
         )}
-      </div>
-
-      <div className="row align-items-center mb-2">
-        <h1 className="col-auto mb-0">{fid}</h1>
       </div>
 
       <div className="mb-2 row">

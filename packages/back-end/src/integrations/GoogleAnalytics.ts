@@ -9,6 +9,7 @@ import {
   ExperimentQueryResponses,
   MetricValueQueryResponseRows,
   PastExperimentQueryResponse,
+  ExperimentUnitsQueryResponse,
 } from "../types/Integration";
 import { GoogleAnalyticsParams } from "../../types/integrations/googleanalytics";
 import { decryptDataSourceParams } from "../services/datasource";
@@ -73,6 +74,12 @@ const GoogleAnalytics: SourceIntegrationConstructor = class
     throw new Error("Method not implemented.");
   }
   runExperimentMetricQuery(): Promise<ExperimentMetricQueryResponse> {
+    throw new Error("Method not implemented.");
+  }
+  getExperimentUnitsTableQuery(): string {
+    throw new Error("Method not implemented.");
+  }
+  runExperimentUnitsQuery(): Promise<ExperimentUnitsQueryResponse> {
     throw new Error("Method not implemented.");
   }
   getPastExperimentQuery(): string {
