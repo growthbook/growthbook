@@ -249,17 +249,14 @@ export async function addMemberToOrg({
   environments: string[];
   projectRoles?: ProjectMemberRole[];
 }) {
-  console.log("inside addMemberToOrg");
   // If member is already in the org, skip
   if (organization.members.find((m) => m.id === userId)) {
-    console.log("member already in org in check");
     return;
   }
   // If member is also a pending member, remove
   let pendingMembers: PendingMember[] = organization?.pendingMembers || [];
   pendingMembers = pendingMembers.filter((m) => m.id !== userId);
 
-  console.log("membersBefore", organization.members);
   const members: Member[] = [
     ...organization.members,
     {
@@ -272,9 +269,6 @@ export async function addMemberToOrg({
     },
   ];
 
-  console.log("membersAfter", members);
-
-  console.log("about to update the org");
   await updateOrganization(organization.id, {
     members,
     pendingMembers,

@@ -13,12 +13,9 @@ export async function createUser(
   req: Request & ApiRequestLocals,
   res: Response
 ) {
-  console.log("createUser endpoint was called");
   const requestBody = req.body.toString("utf-8");
 
   const requestBodyObject = JSON.parse(requestBody);
-
-  console.log("requestBodyObject", requestBodyObject);
 
   const org: OrganizationInterface = req.organization;
 

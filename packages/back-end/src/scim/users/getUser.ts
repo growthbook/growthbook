@@ -3,11 +3,7 @@ import { ScimGetRequest } from "../../../types/scim";
 import { getUserByExternalId } from "../../services/users";
 
 export async function getUser(req: ScimGetRequest, res: Response) {
-  console.log("get User by ID endpoint hit");
-
   const userId = req.params.id;
-
-  console.log("userId", userId);
 
   const user = await getUserByExternalId(userId);
 

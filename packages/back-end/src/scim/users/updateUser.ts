@@ -66,14 +66,9 @@ async function removeUserFromOrg(
 }
 
 export async function updateUser(req: ScimUpdateRequest, res: Response) {
-  console.log("patchUser was called");
-  console.log("req.organization", req.organization.id);
-  console.log("req.params.id", req.params.id);
-
   // Get all of the params and operations
   const requestBody = req.body.toString("utf-8");
   const requestBodyObject = JSON.parse(requestBody);
-  console.log("requestBodyObject", requestBodyObject);
   const org = req.organization;
 
   // Check if the user exists at all
@@ -87,9 +82,7 @@ export async function updateUser(req: ScimUpdateRequest, res: Response) {
     });
   }
   // Check if the user exists within the org
-  console.log("user", user);
   const userIndex = org.members.findIndex((member) => member.id === user.id);
-  console.log("userIndex", userIndex);
   // if not, return a 404 error
   if (userIndex === -1) {
     return res.status(404).json({
@@ -101,9 +94,6 @@ export async function updateUser(req: ScimUpdateRequest, res: Response) {
 
   // Then, we need to loop through operations
   const operations: Operation[] = requestBodyObject.Operations;
-  // TODO: Figure out how to handle this to satisfy all potential updates
-
-  // Finally, we need to return the updated user object
 
   const updatedScimUser = {
     schemas: ["urn:ietf:params:scim:schemas:core:2.0:User"],
@@ -128,18 +118,13 @@ export async function updateUser(req: ScimUpdateRequest, res: Response) {
   };
   for (const operation in operations) {
     const { op, value } = operations[operation];
-    console.log("op", op);
-    console.log("value:", value);
-
     // The only operation we support is making the user inactive
     if (op === "replace" && value.active === false) {
       // SCIM determines whether a user is active or not based on this property. If set to false, that means they want us to remove the user
       // this means they want us to remove the user
-      console.log("remove user");
       try {
         await removeUserFromOrg(org, userIndex, user, updatedScimUser);
       } catch (e) {
-        console.log("Error removing user from org", e);
         return res.status(400).json({
           schemas: ["urn:ietf:params:scim:api:messages:2.0:Error"],
           status: "400",
@@ -149,8 +134,6 @@ export async function updateUser(req: ScimUpdateRequest, res: Response) {
     }
     // otherwise, silently ignore the operation
   }
-
-  console.log("about to return updatedScimUser", updatedScimUser);
 
   return res.status(200).json(updatedScimUser);
 }

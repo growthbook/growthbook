@@ -3,12 +3,9 @@ import { updateOrganization } from "../../models/OrganizationModel";
 import { ScimGetRequest } from "../../../types/scim";
 
 export async function deleteUser(req: ScimGetRequest, res: Response) {
-  console.log("deleteUser was called");
-
   const requestBody = req.body.toString("utf-8");
 
   const requestBodyObject = JSON.parse(requestBody);
-  console.log("requestBodyObject", requestBodyObject);
 
   const org = req.organization;
 

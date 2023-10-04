@@ -3,12 +3,10 @@ import { parse, filter } from "scim2-parse-filter";
 import { ApiRequestLocals } from "../../../types/api";
 import { expandOrgMembers } from "../../services/organizations";
 
-//TODO: There is something wrong with the listUsersValidator - it returns an error "message": "Unexpected token o in JSON at position 1"
 export async function listUsers(
   req: Request & ApiRequestLocals,
   res: Response
 ) {
-  console.log("listUsers endpoint hit");
   const { startIndex, count, filter: filterQuery } = req.query;
 
   const org = req.organization;
@@ -45,9 +43,6 @@ export async function listUsers(
   const filteredUsers = filterQuery
     ? scimUsers.filter(filter(parse(filterQuery as string)))
     : scimUsers;
-
-  console.log({ filteredUsers });
-  console.log({ filterQuery });
 
   // change startIndex to be 1-based. if less than 1, make it 1
   const resources = filteredUsers.slice(

@@ -19,7 +19,6 @@ router.use("/groups", groupsRouter);
 
 // 404 route
 router.use(function (req, res) {
-  console.log("endpoint hit: ", req.url);
   res.status(404).json({
     message: "Unknown API endpoint",
   });
