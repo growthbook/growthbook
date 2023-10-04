@@ -78,6 +78,7 @@ export default function track(
     build_date: build.date,
     configFile: hasFileConfig(),
     role: id ? role : "",
+    // Track anonymous hashed identifiers for all deployments
     org_hash: org ? md5(org) : "",
     user_id_hash: id ? md5(id) : "",
     // Only track un-hashed identifiers on the managed cloud for priority support
