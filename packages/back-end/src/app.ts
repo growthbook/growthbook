@@ -231,7 +231,7 @@ app.use(
 // SCIM API routes (no JWT or CORS)
 app.use(
   "/scim/v2",
-  bodyParser.raw({
+  bodyParser.json({
     type: "application/scim+json",
   }),
   cors({

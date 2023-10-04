@@ -67,8 +67,7 @@ async function removeUserFromOrg(
 
 export async function updateUser(req: ScimUpdateRequest, res: Response) {
   // Get all of the params and operations
-  const requestBody = req.body.toString("utf-8");
-  const requestBodyObject = JSON.parse(requestBody);
+  const requestBody = req.body;
   const org = req.organization;
 
   // Check if the user exists at all
@@ -93,7 +92,7 @@ export async function updateUser(req: ScimUpdateRequest, res: Response) {
   }
 
   // Then, we need to loop through operations
-  const operations: Operation[] = requestBodyObject.Operations;
+  const operations: Operation[] = requestBody.Operations;
 
   const updatedScimUser = {
     schemas: ["urn:ietf:params:scim:schemas:core:2.0:User"],

@@ -13,9 +13,9 @@ export async function createUser(
   req: Request & ApiRequestLocals,
   res: Response
 ) {
-  const requestBody = req.body.toString("utf-8");
+  const requestBody = req.body;
 
-  const requestBodyObject = JSON.parse(requestBody);
+  console.log({ requestBody });
 
   const org: OrganizationInterface = req.organization;
 
@@ -23,7 +23,9 @@ export async function createUser(
 
   try {
     // Look up the user in Mongo
-    let user = await getUserByExternalId(requestBodyObject.externalId);
+    let user = await getUserByExternalId(requestBody.externalId);
+
+    console.log({ user });
 
     // If the user already exists in the org, return an error
     if (user && org.members.find((member) => member.id === user?.id)) {
@@ -37,26 +39,23 @@ export async function createUser(
 
     if (!user) {
       // If we can't find the user by externalId, try to find them by email
-      user = await getUserByEmail(requestBodyObject.userName);
+      user = await getUserByEmail(requestBody.userName);
 
       if (user && !user.externalId) {
         // if we find the user, but they don't have an externalId, add it - this happens when a user exists in GB, but now they're access is being managed by an external IDP
-        await addExternalIdToExistingUser(
-          user.id,
-          requestBodyObject.externalId
-        );
-        user.externalId = requestBodyObject.externalId;
+        await addExternalIdToExistingUser(user.id, requestBody.externalId);
+        user.externalId = requestBody.externalId;
       }
     }
 
     if (!user) {
       // If we still can't find the user, create it
       user = await createNewUser(
-        requestBodyObject.displayName,
-        requestBodyObject.userName,
-        requestBodyObject.password, // TODO: SSO shouldn't need a password. figure out how to test this
+        requestBody.displayName,
+        requestBody.userName,
+        "12345678", // TODO: SSO shouldn't need a password. figure out how to test this
         false, // TODO: Double check this logic
-        requestBodyObject.externalId
+        requestBody.externalId
       );
     }
 
@@ -81,8 +80,8 @@ export async function createUser(
       userName: user.email,
       name: {
         displayName: user.name,
-        givenName: requestBodyObject.name.givenName,
-        familyName: requestBodyObject.name.familyName,
+        givenName: requestBody.name.givenName,
+        familyName: requestBody.name.familyName,
       },
       active: true,
       emails: [
