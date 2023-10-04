@@ -1,14 +1,14 @@
 [
   {
-    "id": "orders.qty",
+    "name": "orders.qty",
     "column": "qty"
   },
   {
-    "id": "orders.amount",
+    "name": "orders.amount",
     "column": "amount"
   },
   {
-    "id": "orders.date",
+    "name": "orders.date",
     "column": "date"
   }
 ]

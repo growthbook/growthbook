@@ -415,9 +415,8 @@ def main(engines, filters, branch, skip_cache):
             )
         else:
             print("running: ", test_case["name"])
-            print(test_case['sql'])
-            #if engine not in nonlinted_engines:
-            #    validate(test_case)
+            if engine not in nonlinted_engines:
+                validate(test_case)
             if engine not in runners:
                 runners[engine] = get_sql_runner(engine)
             result = execute_query(test_case["sql"], runners[engine])

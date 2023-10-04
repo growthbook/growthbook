@@ -4,7 +4,7 @@
     "metricType": "mean",
     "numerator": {
       "factTableId": "orders",
-      "factId": "orders.qty"
+      "column": "qty"
     }
   },
   {
@@ -12,7 +12,7 @@
     "metricType": "mean",
     "numerator": {
       "factTableId": "orders",
-      "factId": "orders.qty"
+      "column": "qty"
     },
     "regressionAdjustmentDays": 4,
     "regressionAdjustmentEnabled": true
@@ -22,7 +22,7 @@
     "metricType": "mean",
     "numerator": {
       "factTableId": "orders",
-      "factId": "orders.amount",
+      "column": "amount",
       "filters": []
     }
   },
@@ -31,7 +31,7 @@
     "metricType": "mean",
     "numerator": {
       "factTableId": "orders",
-      "factId": "orders.amount",
+      "column": "amount",
       "filters": []
     },
     "regressionAdjustmentDays": 4,
@@ -42,7 +42,7 @@
     "metricType": "mean",
     "numerator": {
       "factTableId": "orders",
-      "factId": "orders.amount",
+      "column": "amount",
       "filters": []
     },
     "capping": "percentile",
@@ -53,17 +53,31 @@
     "metricType": "proportion",
     "numerator": {
       "factTableId": "events",
+      "column": "$$count",
       "filters": ["events.add"]
     }
+  },
+  {
+    "id": "fact_binomial__any_item_in_cart_regressionadjusted",
+    "metricType": "proportion",
+    "numerator": {
+      "factTableId": "events",
+      "column": "$$count",
+      "filters": ["events.add"]
+    },
+    "regressionAdjustmentDays": 4,
+    "regressionAdjustmentEnabled": true
   },
   {
     "id": "fact_ratio_binom_binom__any_purchase_over_any_item_in_cart",
     "metricType": "ratio",
     "numerator": {
-      "factTableId": "orders"
+      "factTableId": "orders",
+      "column": "$$count"
     },
     "denominator": {
       "factTableId": "events",
+      "column": "$$count",
       "filters": ["events.add"]
     }
   },
@@ -72,11 +86,12 @@
     "metricType": "ratio",
     "numerator": {
       "factTableId": "orders",
-      "factId": "orders.amount",
+      "column": "amount",
       "filters": []
     },
     "denominator": {
       "factTableId": "events",
+      "column": "$$count",
       "filters": ["events.add"]
     }
   },
@@ -85,11 +100,11 @@
     "metricType": "ratio",
     "numerator": {
       "factTableId": "orders",
-      "factId": "orders.amount"
+      "column": "amount"
     },
     "denominator": {
       "factTableId": "orders",
-      "factId": "orders.qty",
+      "column": "qty",
       "filters": []
     }
   }

@@ -1,4 +1,6 @@
 import fs from "fs";
+import { ExperimentMetricInterface, isFactMetric } from "shared/experiments";
+import cloneDeep from "lodash/cloneDeep";
 import { DataSourceInterface, DataSourceType } from "../../types/datasource";
 import {
   AttributionModel,
@@ -7,7 +9,6 @@ import {
   MetricOverride,
   Variation,
 } from "../../types/experiment";
-import { ExperimentMetricInterface, isFactMetric } from "shared/experiments";
 import { SegmentInterface } from "../../types/segment";
 import { Dimension } from "../../src/types/Integration";
 import { MetricInterface, MetricType } from "../../types/metric";
@@ -16,11 +17,10 @@ import { getSnapshotSettings } from "../../src/services/experiments";
 import { expandDenominatorMetrics } from "../../src/util/sql";
 import {
   FactFilterInterface,
-  FactInterface,
+  ColumnInterface,
   FactMetricInterface,
   FactTableInterface,
 } from "../../types/fact-table";
-import cloneDeep from "lodash/cloneDeep";
 
 const currentDate = new Date();
 const endDateString = "2022-02-01T00:00:00"; // premature end date to ensure some filter
@@ -201,42 +201,45 @@ const analysisMetrics: MetricInterface[] = metricConfigs.map(
   (metricConfig) => ({ ...baseMetric, ...metricConfig })
 );
 
-const metricMap = new Map<string, MetricInterface>();
-analysisMetrics.forEach((m) => metricMap.set(m.id, m));
-allActivationMetrics.forEach((m) => metricMap.set(m.id, m));
-
 // fact metrics
-type FactConfig = Pick<FactInterface, "id" | "column">;
+type ColumnConfig = Pick<ColumnInterface, "name" | "column">;
 type FilterConfig = Pick<FactFilterInterface, "id" | "value">;
 
-import factConfigData from "./json/facts.json";
-const facts: FactInterface[] = (factConfigData as FactConfig[]).map((f) => (
-  {
+import columnConfigData from "./json/columns.json";
+const columns: ColumnInterface[] = (columnConfigData as ColumnConfig[]).map(
+  (f) => ({
     dateCreated: new Date(),
     dateUpdated: new Date(),
-    numberFormat: "number",
+    numberFormat: "",
+    datatype: "number",
+    autoDetected: false,
     description: "",
     filters: [],
-    name: f.id,
-    ...f
-  } 
-));
+    ...f,
+  })
+);
 
 import filterConfigData from "./json/filters.json";
-const filters: FactFilterInterface[] = (filterConfigData as FilterConfig[]).map((f) => (
-  {
+const filters: FactFilterInterface[] = (filterConfigData as FilterConfig[]).map(
+  (f) => ({
     dateCreated: new Date(),
     dateUpdated: new Date(),
     description: "",
     name: f.id,
-    ...f
-  }
-));
+    ...f,
+  })
+);
 
 import factMetricConfigData from "./json/fact-metrics.json";
-type FactMetricConfig = Pick<FactMetricInterface,  "id" | "metricType" | "numerator">;
-const factMetricConfigs = factMetricConfigData as FactMetricConfig[]; 
-const baseFactMetric: Omit<FactMetricInterface, "id" | "metricType" | "numerator"> = {
+type FactMetricConfig = Pick<
+  FactMetricInterface,
+  "id" | "metricType" | "numerator"
+>;
+const factMetricConfigs = factMetricConfigData as FactMetricConfig[];
+const baseFactMetric: Omit<
+  FactMetricInterface,
+  "id" | "metricType" | "numerator"
+> = {
   organization: "",
   owner: "",
   datasource: "",
@@ -276,12 +279,11 @@ const analysisFactMetrics: FactMetricInterface[] = factMetricConfigs.map(
   (factMetricConfig) => ({ ...baseFactMetric, ...factMetricConfig })
 );
 
-type FactTableMetricConfig = Pick<FactTableInterface, "id" | "sql">;
+type FactTableConfig = Pick<FactTableInterface, "id" | "sql">;
 import factTableConfigData from "./json/fact-tables.json";
-const factTables: FactTableInterface[] = (factTableConfigData as FactTableMetricConfig[]).map(
-  (partialFactTable) => 
-  ({
-    organization: "", 
+const factTables: FactTableInterface[] = (factTableConfigData as FactTableConfig[]).map(
+  (partialFactTable) => ({
+    organization: "",
     dateCreated: new Date(),
     dateUpdated: new Date(),
     name: partialFactTable.id,
@@ -290,13 +292,20 @@ const factTables: FactTableInterface[] = (factTableConfigData as FactTableMetric
     projects: [],
     tags: [],
     datasource: "",
-    userIdTypes: ['user_id', 'anonymous_id'],
-    facts: facts.filter((f) => (f.id.startsWith(partialFactTable.id))),
-    filters: filters.filter((f) => (f.id.startsWith(partialFactTable.id))),
+    eventName: "",
+    userIdTypes: ["user_id", "anonymous_id"],
+    columns: columns.filter((f) => f.name.startsWith(partialFactTable.id)),
+    filters: filters.filter((f) => f.id.startsWith(partialFactTable.id)),
     ...partialFactTable,
   })
 );
 
+// BUILD METRIC MAPS
+const metricMap = new Map<string, MetricInterface>();
+analysisMetrics.forEach((m) => metricMap.set(m.id, m));
+allActivationMetrics.forEach((m) => metricMap.set(m.id, m));
+
+const factMetricMap = new Map(analysisFactMetrics.map((m) => [m.id, m]));
 
 // IMPORT AND BUILD TEST EXPERIMENTS
 import experimentConfigData from "./json/experiments.json";
@@ -337,7 +346,7 @@ const baseExperimentPhase: ExperimentPhase = {
 
 const baseExperiment: ExperimentInterface = {
   id: "BASE_ID_TO_BE_REPLACED",
-  metrics: metricConfigs.map((m) => m.id),
+  metrics: [],
   exposureQueryId: USER_ID_TYPE,
   hashAttribute: "",
   hashVersion: 2,
@@ -392,9 +401,12 @@ engines.forEach((engine) => {
       ...baseExperiment,
       ...experimentConfig,
     };
-    const jointMetrics: ExperimentMetricInterface[] = [...analysisMetrics, ...analysisFactMetrics];
+    const jointMetrics: ExperimentMetricInterface[] = [
+      ...analysisMetrics,
+      ...analysisFactMetrics,
+    ];
     jointMetrics.forEach((metric) => {
-
+      experiment.metrics = [metric.id];
       // if override in experiment config, have to set it to the right id
       let denominatorMetrics: MetricInterface[] = [];
       let activationMetric: MetricInterface | null = null;
@@ -415,18 +427,16 @@ engines.forEach((engine) => {
         );
       }
 
-      const factTablesCopy = cloneDeep<FactTableInterface[]>(
-        factTables
-      )
+      const factTablesCopy = cloneDeep<FactTableInterface[]>(factTables);
       if (engine === "bigquery") {
         if (activationMetric) {
           activationMetric = addDatabaseToMetric(activationMetric);
         }
         denominatorMetrics = denominatorMetrics.map(addDatabaseToMetric);
         if (isFactMetric(metric)) {
-          factTablesCopy.forEach((ft) => (
-            ft.sql = ft.sql?.replace("FROM ", "FROM sample.")
-          ));
+          factTablesCopy.forEach(
+            (ft) => (ft.sql = ft.sql?.replace("FROM ", "FROM sample."))
+          );
         } else {
           metric = addDatabaseToMetric(metric);
         }
@@ -479,7 +489,7 @@ engines.forEach((engine) => {
             regressionAdjustmentDays: metric.regressionAdjustmentDays ?? 0,
           },
         ],
-        metricMap,
+        metricMap: isFactMetric(metric) ? factMetricMap : metricMap,
       });
 
       // non-pipeline version

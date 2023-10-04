@@ -5,6 +5,6 @@
   },
   {
     "id": "events",
-    "sql": "SELECT\nuserId as user_id,\nanonymousId as anonymous_id,\ntimestamp as timestamp,\nevent,\nFROM events"
+    "sql": "SELECT\nuserId as user_id,\nanonymousId as anonymous_id,\ntimestamp as timestamp,\nevent\nFROM events"
   }
 ]
