@@ -984,7 +984,7 @@ export default function FeaturePage() {
       <div className="mb-4">
         <h3>Test Feature Rules</h3>
 
-        {/* TODO: fix this. everything is null */}
+        {/* TODO: fix this. currently displayed feature value not reflected. */}
         <AssignmentTester feature={displayFeature} />
       </div>
 
