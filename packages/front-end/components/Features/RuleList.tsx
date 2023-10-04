@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { FeatureInterface } from "back-end/types/feature";
 import {
   DndContext,
@@ -42,10 +42,6 @@ export default function RuleList({
   const [activeId, setActiveId] = useState<string>(null);
   const [items, setItems] = useState(getRules(feature, environment, revision));
   const permissions = usePermissions();
-
-  useEffect(() => {
-    setItems(getRules(feature, environment, revision));
-  }, [getRules(feature, environment, revision)]);
 
   const sensors = useSensors(
     useSensor(PointerSensor),
