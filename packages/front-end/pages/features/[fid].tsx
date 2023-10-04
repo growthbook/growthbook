@@ -983,6 +983,8 @@ export default function FeaturePage() {
 
       <div className="mb-4">
         <h3>Test Feature Rules</h3>
+
+        {/* TODO: fix this. everything is null */}
         <AssignmentTester feature={displayFeature} />
       </div>
 
