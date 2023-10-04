@@ -7,6 +7,7 @@ import { FaChevronRight, FaExclamationTriangle } from "react-icons/fa";
 import { datetime } from "shared/dates";
 import { getValidation } from "shared/util";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
+import { FeatureReviewRequest } from "back-end/types/feature-review";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import { GBAddCircle, GBEdit } from "@/components/Icons";
 import LoadingOverlay from "@/components/LoadingOverlay";
@@ -171,6 +172,9 @@ export default function FeaturePage() {
 
     return data.revisions;
   }, [data]);
+
+  // todo: fetch review requests once it's built
+  const reviewRequests: FeatureReviewRequest[] = [];
 
   const { memberUsernameOptions } = useMembers();
 
@@ -455,7 +459,7 @@ export default function FeaturePage() {
               <FeatureDraftsDropDown
                 drafts={draftsForUi}
                 onDraftClick={onDraftClicked}
-                reviewRequests={[]}
+                reviewRequests={reviewRequests}
               />
             </div>
 

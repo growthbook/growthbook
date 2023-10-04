@@ -1,17 +1,8 @@
-import React, { FC, useCallback, useMemo } from "react";
-import { FeatureRevisionInterface } from "back-end/types/feature-revision";
-import { FeatureInterface } from "back-end/types/feature";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import { useRouter } from "next/router";
+import React, { FC } from "react";
 import { ago, datetime } from "@/../shared/dates";
 import { FeatureReviewRequest } from "back-end/types/feature-review";
-import useApi from "@/hooks/useApi";
-import {
-  FeatureDraftUiItem,
-  transformDraftsForView,
-} from "@/components/FeatureDraftsDropDown/FeatureDraftsDropdown.utils";
+import { FeatureDraftUiItem } from "@/components/FeatureDraftsDropDown/FeatureDraftsDropdown.utils";
 import Avatar from "@/components/Avatar/Avatar";
-import useMembers from "@/hooks/useMembers";
 import Dropdown from "@/components/Dropdown/Dropdown";
 
 type FeatureDraftsListProps = {
@@ -155,45 +146,5 @@ export const FeatureDraftsDropDown: FC<FeatureDraftsDropDownProps> = ({
         </Dropdown>
       </div>
     </div>
-  );
-};
-
-export const FeatureDraftsDropDownContainer = () => {
-  const router = useRouter();
-  const { fid } = router.query;
-
-  const { data, error } = useApi<{
-    feature: FeatureInterface;
-    experiments: { [key: string]: ExperimentInterfaceStringDates };
-    revisions: FeatureRevisionInterface[];
-    drafts: FeatureRevisionInterface[];
-  }>(`/feature/${fid}`);
-
-  const { memberUsernameOptions } = useMembers();
-
-  const onDraftClicked = useCallback((draft: FeatureDraftUiItem) => {
-    console.log("draft clicked", draft);
-  }, []);
-
-  const revisions = useMemo(
-    () => transformDraftsForView(memberUsernameOptions, data?.drafts || []),
-    [data, memberUsernameOptions]
-  );
-
-  const drafts = revisions;
-
-  // todo: fetch review requests
-  const reviewRequests: FeatureReviewRequest[] = [];
-
-  if (error) {
-    return <div className="alert alert-danger">Could not load drafts</div>;
-  }
-
-  return (
-    <FeatureDraftsDropDown
-      drafts={drafts}
-      onDraftClick={onDraftClicked}
-      reviewRequests={reviewRequests}
-    />
   );
 };
