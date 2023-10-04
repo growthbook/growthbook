@@ -44,7 +44,7 @@ async function removeUserFromOrg(
 ) {
   const updatedOrg = cloneDeep(org);
 
-  // TODO: Should we add a check here to make sure that if the user is the only admin, we don't remove them?
+  // When we introduce the ability to manage roles via SCIM, we can remove this check.
   const userIsAdmin = org.members[userIndex].role === "admin";
 
   if (userIsAdmin) {
