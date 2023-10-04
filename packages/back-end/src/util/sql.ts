@@ -1,7 +1,7 @@
 import { format as sqlFormat, FormatOptions } from "sql-formatter";
 import Handlebars from "handlebars";
 import { SQLVars } from "../../types/sql";
-import { FactTableColumn } from "../../types/fact-table";
+import { FactTableColumnType } from "../../types/fact-table";
 import { helpers } from "./handlebarsHelpers";
 
 // Register all the helpers from handlebarsHelpers
@@ -202,11 +202,11 @@ export function replaceCountStar(aggregation: string, col: string) {
 
 export function determineColumnTypes(
   rows: Record<string, unknown>[]
-): FactTableColumn[] {
+): { column: string; datatype: FactTableColumnType }[] {
   if (!rows || !rows[0]) return [];
   const cols = Object.keys(rows[0]);
 
-  const columns: FactTableColumn[] = [];
+  const columns: { column: string; datatype: FactTableColumnType }[] = [];
   cols.forEach((col) => {
     const testValue = rows
       .map((row) => row[col])

@@ -3,13 +3,13 @@ import uniqid from "uniqid";
 import { omit } from "lodash";
 import {
   CreateFactFilterProps,
-  CreateFactProps,
+  CreateColumnProps,
   CreateFactTableProps,
   FactFilterInterface,
-  FactInterface,
+  ColumnInterface,
   FactTableInterface,
   UpdateFactFilterProps,
-  UpdateFactProps,
+  UpdateColumnProps,
   UpdateFactTableProps,
 } from "../../types/fact-table";
 
@@ -27,16 +27,16 @@ const factTableSchema = new mongoose.Schema({
   userIdTypes: [String],
   sql: String,
   eventName: String,
-  facts: [
+  columns: [
     {
       _id: false,
-      id: String,
       name: String,
       dateCreated: Date,
       dateUpdated: Date,
       description: String,
       column: String,
       numberFormat: String,
+      datatype: String,
     },
   ],
   filters: [
@@ -48,13 +48,6 @@ const factTableSchema = new mongoose.Schema({
       dateUpdated: Date,
       description: String,
       value: String,
-    },
-  ],
-  columns: [
-    {
-      _id: false,
-      column: String,
-      datatype: String,
     },
   ],
 });
@@ -105,7 +98,6 @@ export async function createFactTable(
     dateCreated: new Date(),
     dateUpdated: new Date(),
     datasource: data.datasource,
-    facts: [],
     filters: [],
     owner: data.owner,
     projects: data.projects,
@@ -136,22 +128,22 @@ export async function updateFactTable(
   );
 }
 
-export async function createFact(
+export async function createColumn(
   factTable: FactTableInterface,
-  data: CreateFactProps
+  data: CreateColumnProps
 ) {
-  const fact: FactInterface = {
-    id: data.id || uniqid("fct_"),
+  const column: ColumnInterface = {
     name: data.name,
     dateCreated: new Date(),
     dateUpdated: new Date(),
     column: data.column,
     numberFormat: data.numberFormat,
+    datatype: data.datatype,
     description: data.description,
   };
 
-  if (factTable.facts.some((f) => f.id === fact.id)) {
-    throw new Error("Fact id already exists in this fact table");
+  if (factTable.columns.some((c) => c.column === column.column)) {
+    throw new Error("That column is already defined in this fact table");
   }
 
   await FactTableModel.updateOne(
@@ -164,24 +156,24 @@ export async function createFact(
         dateUpdated: new Date(),
       },
       $push: {
-        facts: fact,
+        columns: column,
       },
     }
   );
 
-  return fact;
+  return column;
 }
 
-export async function updateFact(
+export async function updateColumn(
   factTable: FactTableInterface,
-  factId: string,
-  changes: UpdateFactProps
+  column: string,
+  changes: UpdateColumnProps
 ) {
-  const factIndex = factTable.facts.findIndex((f) => f.id === factId);
-  if (factIndex < 0) throw new Error("Could not find fact with that id");
+  const columnIndex = factTable.columns.findIndex((c) => c.column === column);
+  if (columnIndex < 0) throw new Error("Could not find that column");
 
-  factTable.facts[factIndex] = {
-    ...factTable.facts[factIndex],
+  factTable.columns[columnIndex] = {
+    ...factTable.columns[columnIndex],
     ...changes,
     dateUpdated: new Date(),
   };
@@ -194,7 +186,7 @@ export async function updateFact(
     {
       $set: {
         dateUpdated: new Date(),
-        facts: factTable.facts,
+        columns: factTable.columns,
       },
     }
   );
@@ -272,14 +264,14 @@ export async function deleteFactTable(factTable: FactTableInterface) {
   });
 }
 
-export async function deleteFact(
+export async function deleteColumn(
   factTable: FactTableInterface,
-  factId: string
+  column: string
 ) {
-  const newFacts = factTable.facts.filter((f) => f.id !== factId);
+  const newColumns = factTable.columns.filter((c) => c.column !== column);
 
-  if (newFacts.length === factTable.facts.length) {
-    throw new Error("Could not find fact with that id");
+  if (newColumns.length === factTable.columns.length) {
+    throw new Error("Could not find column");
   }
 
   await FactTableModel.updateOne(
@@ -290,7 +282,7 @@ export async function deleteFact(
     {
       $set: {
         dateUpdated: new Date(),
-        facts: newFacts,
+        columns: newColumns,
       },
     }
   );

@@ -1972,7 +1972,7 @@ AND event_name = '${eventName}'`,
 
     const isFact = isFactMetric(metric);
     const queryFormat = isFact ? "fact" : this.getMetricQueryFormat(metric);
-    const factRef = isFact
+    const columnRef = isFact
       ? useDenominator
         ? metric.denominator
         : metric.numerator
@@ -1980,7 +1980,7 @@ AND event_name = '${eventName}'`,
 
     // For fact metrics with a WHERE clause
     const factTable = isFact
-      ? factTableMap.get(factRef?.factTableId || "")
+      ? factTableMap.get(columnRef?.factTableId || "")
       : undefined;
 
     if (isFact && !factTable) {
@@ -2023,10 +2023,10 @@ AND event_name = '${eventName}'`,
     }
 
     // Add filters from the Metric
-    if (isFact && factTable && factRef) {
+    if (isFact && factTable && columnRef) {
       const filterIds: Set<string> = new Set();
-      if (factRef.filters) {
-        factRef.filters.forEach((f) => filterIds.add(f));
+      if (columnRef.filters) {
+        columnRef.filters.forEach((f) => filterIds.add(f));
       }
       filterIds.forEach((filterId) => {
         const filter = factTable.filters.find((f) => f.id === filterId);
@@ -2196,13 +2196,13 @@ AND event_name = '${eventName}'`,
   ) {
     // Fact Metrics
     if (isFactMetric(metric)) {
-      const factRef = useDenominator ? metric.denominator : metric.numerator;
+      const columnRef = useDenominator ? metric.denominator : metric.numerator;
       if (
         metric.metricType === "proportion" ||
-        factRef?.factId === "$$distinctUsers"
+        columnRef?.column === "$$distinctUsers"
       ) {
         return `MAX(COALESCE(value, 0))`;
-      } else if (factRef?.factId === "$$count") {
+      } else if (columnRef?.column === "$$count") {
         return `COUNT(value)`;
       } else {
         return `SUM(COALESCE(value, 0))`;
@@ -2264,15 +2264,15 @@ AND event_name = '${eventName}'`,
         }
       );
 
-      const factRef = useDenominator ? metric.denominator : metric.numerator;
-
-      const factTable = factTableMap.get(factRef?.factTableId || "");
-      const fact = factTable?.facts.find((f) => f.id === factRef?.factId);
+      const columnRef = useDenominator ? metric.denominator : metric.numerator;
 
       const value =
-        metric.metricType === "proportion" || factRef?.factId === "$$distinctId"
+        metric.metricType === "proportion" ||
+        !columnRef ||
+        columnRef.column === "$$distinctId" ||
+        columnRef.column === "$$count"
           ? "1"
-          : `${fact ? `${alias}.${fact.column}` : `1`}`;
+          : `${alias}.${columnRef.column}`;
 
       return {
         userIds,

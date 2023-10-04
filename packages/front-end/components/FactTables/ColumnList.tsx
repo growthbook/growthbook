@@ -1,7 +1,7 @@
 import { FactTableInterface } from "back-end/types/fact-table";
 import { useState } from "react";
 import { useAuth } from "@/services/auth";
-import { useSearch } from "@/services/search";
+import { useAddComputedFields, useSearch } from "@/services/search";
 import usePermissions from "@/hooks/usePermissions";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Field from "../Forms/Field";
@@ -9,16 +9,15 @@ import Tooltip from "../Tooltip/Tooltip";
 import { GBAddCircle } from "../Icons";
 import MoreMenu from "../Dropdown/MoreMenu";
 import DeleteButton from "../DeleteButton/DeleteButton";
-import InlineCode from "../SyntaxHighlighting/InlineCode";
-import FactModal from "./FactModal";
+import ColumnModal from "./ColumnModal";
 
 export interface Props {
   factTable: FactTableInterface;
 }
 
-export default function FactList({ factTable }: Props) {
-  const [editFactOpen, setEditFactOpen] = useState("");
-  const [newFactOpen, setNewFactOpen] = useState(false);
+export default function ColumnList({ factTable }: Props) {
+  const [editOpen, setEditOpen] = useState("");
+  const [newOpen, setNewOpen] = useState(false);
 
   const { mutateDefinitions } = useDefinitions();
 
@@ -26,31 +25,19 @@ export default function FactList({ factTable }: Props) {
 
   const permissions = usePermissions();
 
+  const columns = useAddComputedFields(factTable.columns || [], (column) => ({
+    ...column,
+    name: column.name || column.column,
+    type:
+      column.datatype === "number"
+        ? column.numberFormat || "number"
+        : column.datatype,
+  }));
+
   const { items, searchInputProps, isFiltered, SortableTH, clear } = useSearch({
-    items: [
-      {
-        name: "Row Count",
-        id: "$$count",
-        column: "-",
-        dateCreated: new Date(),
-        dateUpdated: new Date(),
-        description: "Counts the total number of rows in the Fact Table.",
-        numberFormat: "",
-      },
-      {
-        name: "Unique Experiment Users",
-        id: "$$distinctUsers",
-        column: "-",
-        dateCreated: new Date(),
-        dateUpdated: new Date(),
-        description:
-          "Counts the number of unique experiment users in the Fact Table. The Identifier Type used depends on the experiment.",
-        numberFormat: "",
-      },
-      ...(factTable?.facts || []),
-    ],
+    items: columns,
     defaultSortField: "name",
-    localStorageKey: "facts",
+    localStorageKey: "factColumns",
     searchFields: ["name^3", "description", "column^2"],
   });
 
@@ -61,14 +48,14 @@ export default function FactList({ factTable }: Props) {
 
   return (
     <>
-      {newFactOpen && (
-        <FactModal close={() => setNewFactOpen(false)} factTable={factTable} />
+      {newOpen && (
+        <ColumnModal close={() => setNewOpen(false)} factTable={factTable} />
       )}
-      {editFactOpen && (
-        <FactModal
-          close={() => setEditFactOpen("")}
+      {editOpen && (
+        <ColumnModal
+          close={() => setEditOpen("")}
           factTable={factTable}
-          existing={factTable.facts.find((f) => f.id === editFactOpen)}
+          existing={factTable.columns.find((c) => c.column === editOpen)}
         />
       )}
 
@@ -87,11 +74,11 @@ export default function FactList({ factTable }: Props) {
               onClick={(e) => {
                 e.preventDefault();
                 if (!canEdit) return;
-                setNewFactOpen(true);
+                setNewOpen(true);
               }}
               disabled={!canEdit}
             >
-              <GBAddCircle /> Add Fact
+              <GBAddCircle /> Add Column
             </button>
           </Tooltip>
         </div>
@@ -99,47 +86,43 @@ export default function FactList({ factTable }: Props) {
       <table className="table appbox gbtable mt-2 mb-0">
         <thead>
           <tr>
-            <SortableTH field="name">Name</SortableTH>
             <SortableTH field="column">Column</SortableTH>
+            <th></th>
+            <SortableTH field="type">Type</SortableTH>
             <th style={{ width: 30 }}></th>
           </tr>
         </thead>
         <tbody>
-          {items.map((fact) => (
-            <tr key={fact.id}>
+          {items.map((col) => (
+            <tr key={col.column}>
+              <td>{col.column}</td>
+              <td>{col.name !== col.column ? `"${col.name}"` : ""}</td>
               <td>
-                {fact.name}
-                {fact.id.match(/^\$\$/) ? (
-                  <Tooltip body={fact.description}>
-                    <span className="badge badge-purple ml-1">auto</span>
-                  </Tooltip>
-                ) : (
-                  ""
+                {col.datatype}{" "}
+                {col.datatype === "number" && col.numberFormat && (
+                  <>({col.numberFormat})</>
                 )}
               </td>
               <td>
-                <InlineCode language="sql" code={fact.column} />
-              </td>
-              <td>
-                {canEdit && !fact.id.match(/^\$\$/) && (
+                {canEdit && (
                   <MoreMenu>
                     <button
                       className="dropdown-item"
                       onClick={(e) => {
                         e.preventDefault();
-                        setEditFactOpen(fact.id);
+                        setEditOpen(col.column);
                       }}
                     >
                       Edit
                     </button>
                     <DeleteButton
-                      displayName="Fact"
+                      displayName="Column"
                       className="dropdown-item"
                       useIcon={false}
                       text="Delete"
                       onClick={async () => {
                         await apiCall(
-                          `/fact-tables/${factTable.id}/fact/${fact.id}`,
+                          `/fact-tables/${factTable.id}/column/${col.column}`,
                           {
                             method: "DELETE",
                           }
@@ -155,7 +138,7 @@ export default function FactList({ factTable }: Props) {
           {!items.length && isFiltered && (
             <tr>
               <td colSpan={4} align={"center"}>
-                No matching facts.{" "}
+                No matching columns.{" "}
                 <a
                   href="#"
                   onClick={(e) => {

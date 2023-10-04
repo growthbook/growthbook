@@ -66,9 +66,7 @@ export default function FactFilterModal({ existing, factTable, close }: Props) {
             body: JSON.stringify(data),
           });
         } else {
-          await apiCall<{
-            factId: string;
-          }>(`/fact-tables/${factTable.id}/filter`, {
+          await apiCall(`/fact-tables/${factTable.id}/filter`, {
             method: "POST",
             body: JSON.stringify(value),
           });

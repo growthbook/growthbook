@@ -4,7 +4,7 @@ import { ExperimentMetricInterface, isFactMetric } from "shared/experiments";
 import {
   formatConversionRate,
   formatMetricValue,
-  formatFactRefValue,
+  formatColumnRefValue,
 } from "@/services/metrics";
 import { useCurrency } from "@/hooks/useCurrency";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -56,14 +56,14 @@ export default function MetricValueColumn({
   let numerator: string;
   let denominator = numberFormatter.format(denominatorValue);
   if (isFactMetric(metric)) {
-    numerator = formatFactRefValue(
+    numerator = formatColumnRefValue(
       metric.numerator,
       getFactTableById,
       numeratorValue,
       displayCurrency
     );
     if (metric.metricType === "ratio" && metric.denominator) {
-      denominator = formatFactRefValue(
+      denominator = formatColumnRefValue(
         metric.denominator,
         getFactTableById,
         denominatorValue,

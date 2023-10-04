@@ -7,10 +7,27 @@ export const factTableColumnTypeValidator = z.enum([
   "boolean",
   "unknown",
 ]);
-export const factTableColumnValidator = z.object({
-  column: z.string(),
-  datatype: factTableColumnTypeValidator,
-});
+
+export const numberFormatValidator = z.enum(["", "currency", "time:seconds"]);
+
+export const createColumnPropsValidator = z
+  .object({
+    column: z.string(),
+    name: z.string(),
+    description: z.string(),
+    numberFormat: numberFormatValidator,
+    datatype: factTableColumnTypeValidator,
+  })
+  .strict();
+
+export const updateColumnPropsValidator = z
+  .object({
+    name: z.string(),
+    description: z.string(),
+    numberFormat: numberFormatValidator,
+    datatype: factTableColumnTypeValidator,
+  })
+  .strict();
 
 export const createFactTablePropsValidator = z
   .object({
@@ -24,7 +41,7 @@ export const createFactTablePropsValidator = z
     userIdTypes: z.array(z.string()),
     sql: z.string(),
     eventName: z.string(),
-    columns: z.array(factTableColumnValidator),
+    columns: z.array(createColumnPropsValidator),
   })
   .strict();
 
@@ -38,14 +55,14 @@ export const updateFactTablePropsValidator = z
     userIdTypes: z.array(z.string()).optional(),
     sql: z.string().optional(),
     eventName: z.string(),
-    columns: z.array(factTableColumnValidator).optional(),
+    columns: z.array(createColumnPropsValidator).optional(),
   })
   .strict();
 
-export const factRefValidator = z
+export const columnRefValidator = z
   .object({
     factTableId: z.string(),
-    factId: z.string(),
+    column: z.string(),
     filters: z.array(z.string()),
   })
   .strict();
@@ -63,8 +80,8 @@ export const createFactMetricPropsValidator = z.object({
   projects: z.array(z.string()),
 
   metricType: metricTypeValidator,
-  numerator: factRefValidator,
-  denominator: factRefValidator.nullable(),
+  numerator: columnRefValidator,
+  denominator: columnRefValidator.nullable(),
 
   capping: cappingValidator,
   capValue: z.number(),
@@ -94,8 +111,8 @@ export const updateFactMetricPropsValidator = z.object({
   projects: z.array(z.string()).optional(),
 
   metricType: metricTypeValidator.optional(),
-  numerator: factRefValidator.optional(),
-  denominator: factRefValidator.nullable().optional(),
+  numerator: columnRefValidator.optional(),
+  denominator: columnRefValidator.nullable().optional(),
 
   capping: cappingValidator.optional(),
   capValue: z.number().optional(),
@@ -116,31 +133,6 @@ export const updateFactMetricPropsValidator = z.object({
   conversionWindowValue: z.number().optional(),
   conversionWindowUnit: conversionWindowUnitValidator.optional(),
 });
-
-export const numberFormatValidator = z.enum([
-  "number",
-  "currency",
-  "time:seconds",
-]);
-
-export const createFactPropsValidator = z
-  .object({
-    id: z.string().optional(),
-    name: z.string(),
-    description: z.string(),
-    column: z.string(),
-    numberFormat: numberFormatValidator,
-  })
-  .strict();
-
-export const updateFactPropsValidator = z
-  .object({
-    name: z.string(),
-    description: z.string(),
-    column: z.string(),
-    numberFormat: numberFormatValidator,
-  })
-  .strict();
 
 export const createFactFilterPropsValidator = z
   .object({

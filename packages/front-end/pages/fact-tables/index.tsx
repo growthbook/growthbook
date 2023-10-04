@@ -22,7 +22,12 @@ import ProjectBadges from "@/components/ProjectBadges";
 import Badge from "@/components/Badge";
 
 export default function FactTablesPage() {
-  const { factTables, getDatasourceById, project } = useDefinitions();
+  const {
+    factTables,
+    getDatasourceById,
+    project,
+    factMetrics,
+  } = useDefinitions();
 
   const router = useRouter();
 
@@ -31,6 +36,19 @@ export default function FactTablesPage() {
   const [aboutOpen, setAboutOpen] = useLocalStorage("aboutFactTables", true);
 
   const [createFactOpen, setCreateFactOpen] = useState(false);
+
+  const factMetricCounts: Record<string, number> = {};
+  factMetrics.forEach((m) => {
+    const key = m.numerator.factTableId;
+    factMetricCounts[key] = factMetricCounts[key] || 0;
+    factMetricCounts[key]++;
+
+    if (m.metricType === "ratio" && m.denominator) {
+      const key = m.denominator.factTableId;
+      factMetricCounts[key] = factMetricCounts[key] || 0;
+      factMetricCounts[key]++;
+    }
+  });
 
   const filteredFactTables = project
     ? factTables.filter((t) =>
@@ -48,7 +66,7 @@ export default function FactTablesPage() {
       return {
         ...table,
         datasourceName: getDatasourceById(table.datasource)?.name || "Unknown",
-        numFacts: table.facts.length,
+        numMetrics: factMetricCounts[table.id] || 0,
         numFilters: table.filters.length,
         userIdTypes: sortedUserIdTypes,
       };
@@ -252,7 +270,7 @@ export default function FactTablesPage() {
                 <SortableTH field="tags">Tags</SortableTH>
                 <th>Projects</th>
                 <SortableTH field="userIdTypes">Identifier Types</SortableTH>
-                <SortableTH field="numFacts">Facts</SortableTH>
+                <SortableTH field="numMetrics">Metrics</SortableTH>
                 <SortableTH field="numFilters">Filters</SortableTH>
                 <SortableTH field="dateUpdated">Last Updated</SortableTH>
               </tr>
@@ -291,7 +309,7 @@ export default function FactTablesPage() {
                       </span>
                     ))}
                   </td>
-                  <td>{f.numFacts}</td>
+                  <td>{f.numMetrics}</td>
                   <td>{f.numFilters}</td>
                   <td>{date(f.dateUpdated)}</td>
                 </tr>

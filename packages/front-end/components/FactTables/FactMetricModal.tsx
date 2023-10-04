@@ -8,7 +8,7 @@ import {
 import {
   CreateFactMetricProps,
   FactMetricInterface,
-  FactRef,
+  ColumnRef,
   UpdateFactMetricProps,
 } from "back-end/types/fact-table";
 import { isProjectListValidForProject } from "shared/util";
@@ -47,18 +47,18 @@ export interface Props {
   navigateOnCreate?: boolean;
 }
 
-function FactSelector({
+function ColumnRefSelector({
   value,
   setValue,
-  includeCountDistinctFact,
-  includeFact,
+  includeCountDistinct,
+  includeColumn,
   datasource,
   disableFactTableSelector,
 }: {
-  setValue: (ref: FactRef) => void;
-  value: FactRef;
-  includeCountDistinctFact?: boolean;
-  includeFact?: boolean;
+  setValue: (ref: ColumnRef) => void;
+  value: ColumnRef;
+  includeCountDistinct?: boolean;
+  includeColumn?: boolean;
   datasource: string;
   disableFactTableSelector?: boolean;
 }) {
@@ -69,18 +69,25 @@ function FactSelector({
 
   const [showFilters, setShowFilters] = useState(value.filters.length > 0);
 
+  const columnOptions = (factTable?.columns || [])
+    .filter((col) => col.datatype === "number")
+    .map((col) => ({
+      label: `SUM(\`${col.name}\`)`,
+      value: col.column,
+    }));
+
   return (
     <div className="appbox px-3 pt-3 bg-light">
       <div className="row align-items-center">
-        {includeFact && (
+        {includeColumn && (
           <div className="col-auto">
             <SelectField
               label="SELECT"
-              value={value.factId}
-              onChange={(factId) => setValue({ ...value, factId })}
+              value={value.column}
+              onChange={(column) => setValue({ ...value, column })}
               sort={false}
               options={[
-                ...(includeCountDistinctFact
+                ...(includeCountDistinct
                   ? [
                       {
                         label: `COUNT( DISTINCT \`Experiment Users\` )`,
@@ -92,10 +99,7 @@ function FactSelector({
                   label: "COUNT(*)",
                   value: "$$count",
                 },
-                ...(factTable?.facts || []).map((f) => ({
-                  label: `SUM(\`${f.name}\`)`,
-                  value: f.id,
-                })),
+                ...columnOptions,
               ]}
               placeholder="Column..."
               formatOptionLabel={({ label }) => {
@@ -107,13 +111,13 @@ function FactSelector({
         )}
         <div className="col-auto">
           <SelectField
-            label={includeFact ? "FROM" : "SELECT FROM"}
+            label={includeColumn ? "FROM" : "SELECT FROM"}
             disabled={disableFactTableSelector}
             value={value.factTableId}
             onChange={(factTableId) =>
               setValue({
                 factTableId,
-                factId: value.factId.match(/^\$\$/) ? value.factId : "$$count",
+                column: value.column?.match(/^\$\$/) ? value.column : "$$count",
                 filters: [],
               })
             }
@@ -197,7 +201,7 @@ export default function FactMetricModal({
       metricType: existing?.metricType || "proportion",
       numerator: existing?.numerator || {
         factTableId: initialFactTable || "",
-        factId: "$$count",
+        column: "$$count",
         filters: [],
       },
       projects: [],
@@ -344,12 +348,12 @@ export default function FactMetricModal({
             form.setValue("datasource", v);
             form.setValue("numerator", {
               factTableId: "",
-              factId: "",
+              column: "",
               filters: [],
             });
             form.setValue("denominator", {
               factTableId: "",
-              factId: "",
+              column: "",
               filters: [],
             });
           }}
@@ -406,7 +410,7 @@ export default function FactMetricModal({
                     form.watch("numerator").factTableId ||
                     initialFactTable ||
                     "",
-                  factId: "$$count",
+                  column: "$$count",
                   filters: [],
                 });
               }
@@ -437,7 +441,7 @@ export default function FactMetricModal({
                 (<strong>Metric Value</strong> = Percent of Experiment Users who
                 exist in a Fact Table)
               </p>
-              <FactSelector
+              <ColumnRefSelector
                 value={form.watch("numerator")}
                 setValue={(numerator) => form.setValue("numerator", numerator)}
                 datasource={selectedDataSource.id}
@@ -450,10 +454,10 @@ export default function FactMetricModal({
                 (<strong>Metric Value</strong> = Average of a numeric value
                 among all Experiment Users)
               </p>
-              <FactSelector
+              <ColumnRefSelector
                 value={form.watch("numerator")}
                 setValue={(numerator) => form.setValue("numerator", numerator)}
-                includeFact={true}
+                includeColumn={true}
                 datasource={selectedDataSource.id}
                 disableFactTableSelector={!!initialFactTable}
               />
@@ -466,23 +470,23 @@ export default function FactMetricModal({
               </p>
               <div className="form-group">
                 <label>Numerator</label>
-                <FactSelector
+                <ColumnRefSelector
                   value={form.watch("numerator")}
                   setValue={(numerator) =>
                     form.setValue("numerator", numerator)
                   }
-                  includeFact={true}
-                  includeCountDistinctFact={true}
+                  includeColumn={true}
+                  includeCountDistinct={true}
                   datasource={selectedDataSource.id}
                   disableFactTableSelector={!!initialFactTable}
                 />
               </div>
               <div className="form-group">
                 <label>Denominator</label>
-                <FactSelector
+                <ColumnRefSelector
                   value={
                     form.watch("denominator") || {
-                      factId: "$$count",
+                      column: "$$count",
                       factTableId: "",
                       filters: [],
                     }
@@ -490,8 +494,8 @@ export default function FactMetricModal({
                   setValue={(denominator) =>
                     form.setValue("denominator", denominator)
                   }
-                  includeFact={true}
-                  includeCountDistinctFact={true}
+                  includeColumn={true}
+                  includeCountDistinct={true}
                   datasource={selectedDataSource.id}
                 />
               </div>
