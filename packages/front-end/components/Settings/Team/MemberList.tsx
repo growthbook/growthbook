@@ -112,7 +112,7 @@ const MemberList: FC<{
                       {member.externalId ? (
                         <Tooltip
                           className="mr-2"
-                          body="User is managed by an external identity provider."
+                          body="This user is managed by an external identity provider."
                         >
                           <RxIdCard className="text-blue" />
                         </Tooltip>
@@ -180,16 +180,11 @@ const MemberList: FC<{
                               Reset Password
                             </button>
                           )}
-                          {canDeleteMembers && (
+                          {canDeleteMembers && !member.externalId && (
                             <DeleteButton
                               link={true}
                               text="Remove User"
                               useIcon={false}
-                              canDelete={!member.externalId ? true : false}
-                              deleteMessage={
-                                member.externalId &&
-                                "This user is managed by an external identity provider. To remove this user, please remove them from your identity provider."
-                              }
                               className="dropdown-item"
                               displayName={member.email}
                               onClick={async () => {
