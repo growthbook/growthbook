@@ -602,12 +602,26 @@ export default abstract class SqlIntegration
     return format(limitedQuery, this.getFormatDialect());
   }
 
-  async runTestQuery(sql: string): Promise<TestQueryResult> {
+  async runTestQuery(
+    sql: string,
+    timestampCols?: string[]
+  ): Promise<TestQueryResult> {
     // Calculate the run time of the query
     const queryStartTime = Date.now();
     const results = await this.runQuery(sql);
     const queryEndTime = Date.now();
     const duration = queryEndTime - queryStartTime;
+
+    if (timestampCols) {
+      results.rows.forEach((row) => {
+        timestampCols.forEach((col) => {
+          if (row[col]) {
+            row[col] = this.convertDate(row[col]);
+          }
+        });
+      });
+    }
+
     return { results: results.rows, duration };
   }
 

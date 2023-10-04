@@ -348,7 +348,10 @@ export interface SourceIntegrationInterface {
     templateVariables?: TemplateVariables
   ): string;
   getTestQuery?(query: string, templateVariables?: TemplateVariables): string;
-  runTestQuery?(sql: string): Promise<TestQueryResult>;
+  runTestQuery?(
+    sql: string,
+    timestampCols?: string[]
+  ): Promise<TestQueryResult>;
   getMetricValueQuery(params: MetricValueParams): string;
   getExperimentMetricQuery(params: ExperimentMetricQueryParams): string;
   getExperimentUnitsTableQuery(params: ExperimentUnitsQueryParams): string;

@@ -89,8 +89,17 @@ export default class BigQuery extends SqlIntegration {
       sign === "+" ? "ADD" : "SUB"
     }(${col}, INTERVAL ${amount} ${unit.toUpperCase()})`;
   }
-  convertDate(fromDB: bq.BigQueryDatetime) {
-    return getValidDate(fromDB.value + "Z");
+  convertDate(
+    fromDB: bq.BigQueryDatetime | bq.BigQueryTimestamp | bq.BigQueryDate
+  ) {
+    if (!fromDB?.value) return getValidDate(null);
+
+    // BigQueryTimestamp already has `Z` at the end, but the others don't
+    if (!fromDB.value.endsWith("Z")) {
+      fromDB.value += "Z";
+    }
+
+    return getValidDate(fromDB.value);
   }
   dateTrunc(col: string) {
     return `date_trunc(${col}, DAY)`;
