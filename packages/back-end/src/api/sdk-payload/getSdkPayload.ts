@@ -5,7 +5,7 @@ import {
 import { createApiRequestHandler } from "../../util/handler";
 import { getPayloadParamsFromApiKey } from "../../controllers/features";
 
-export const getFeatures = createApiRequestHandler()(
+export const getSdkPayload = createApiRequestHandler()(
   async (req): Promise<FeatureDefinitionSDKPayload & { status: number }> => {
     const { key } = req.params;
 

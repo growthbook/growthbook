@@ -13,6 +13,7 @@ import segmentsRouter from "./segments/segments.router";
 import projectsRouter from "./projects/projects.router";
 import savedGroupsRouter from "./saved-groups/saved-groups.router";
 import sdkConnectionsRouter from "./sdk-connections/sdk-connections.router";
+import sdkPayloadRouter from "./sdk-payload/sdk-payload.router";
 import dataSourcesRouter from "./data-sources/data-sources.router";
 import dimensionsRouter from "./dimensions/dimensions.router";
 import visualChangesetsRouter from "./visual-changesets/visual-changesets.router";
@@ -79,6 +80,7 @@ router.use("/sdk-connections", sdkConnectionsRouter);
 router.use("/data-sources", dataSourcesRouter);
 router.use("/visual-changesets", visualChangesetsRouter);
 router.use("/saved-groups", savedGroupsRouter);
+router.use("/sdk-payload", sdkPayloadRouter);
 
 router.post("/transform-copy", postCopyTransform);
 
