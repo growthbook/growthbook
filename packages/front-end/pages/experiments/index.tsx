@@ -6,6 +6,7 @@ import { datetime, ago } from "shared/dates";
 import Link from "next/link";
 import { BsFlag } from "react-icons/bs";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
+import clsx from "clsx";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { phaseSummary } from "@/services/utils";
 import ResultsIndicator from "@/components/Experiment/ResultsIndicator";
@@ -18,9 +19,6 @@ import { useUser } from "@/services/UserContext";
 import ExperimentsGetStarted from "@/components/HomePage/ExperimentsGetStarted";
 import SortedTags from "@/components/Tags/SortedTags";
 import Field from "@/components/Forms/Field";
-import TabButtons from "@/components/Tabs/TabButtons";
-import TabButton from "@/components/Tabs/TabButton";
-import { useAnchor } from "@/components/Tabs/ControlledTabs";
 import Toggle from "@/components/Forms/Toggle";
 import AddExperimentModal from "@/components/Experiment/AddExperimentModal";
 import ImportExperimentModal from "@/components/Experiment/ImportExperimentModal";
@@ -28,6 +26,13 @@ import { AppFeatures } from "@/types/app-features";
 import { useExperiments } from "@/hooks/useExperiments";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useAuth } from "@/services/auth";
+import TagsFilter, {
+  filterByTags,
+  useTagsFilter,
+} from "@/components/Tags/TagsFilter";
+import { useWatching } from "@/services/WatchProvider";
+import ExperimentStatusIndicator from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
+import { useLocalStorage } from "@/hooks/useLocalStorage";
 
 const NUM_PER_PAGE = 20;
 
@@ -42,9 +47,12 @@ const ExperimentsPage = (): React.ReactElement => {
     project
   );
 
-  const [tab, setTab] = useAnchor(["running", "drafts", "stopped", "archived"]);
-
-  const [showMineOnly, setShowMineOnly] = useState(false);
+  const [tabs, setTabs] = useLocalStorage<string[]>("experiment_tabs", []);
+  const tagsFilter = useTagsFilter("experiments");
+  const [showMineOnly, setShowMineOnly] = useLocalStorage(
+    "showMyExperimentsOnly",
+    false
+  );
   const router = useRouter();
   const [openNewExperimentModal, setOpenNewExperimentModal] = useState(false);
 
@@ -73,7 +81,9 @@ const ExperimentsPage = (): React.ReactElement => {
           ? "drafts"
           : exp.status,
         date:
-          (exp.status === "running"
+          (exp.archived
+            ? exp.dateUpdated
+            : exp.status === "running"
             ? exp.phases?.[exp.phases?.length - 1]?.dateStarted
             : exp.status === "stopped"
             ? exp.phases?.[exp.phases?.length - 1]?.dateEnded
@@ -88,14 +98,21 @@ const ExperimentsPage = (): React.ReactElement => {
     return experiments.find((e) => e.project === projectId)?.id || "";
   }, [orgId, experiments]);
 
+  const { watchedExperiments } = useWatching();
+
   const filterResults = useCallback(
     (items: typeof experiments) => {
       if (showMineOnly) {
-        items = items.filter((item) => item.owner === userId);
+        items = items.filter(
+          (item) =>
+            item.owner === userId || watchedExperiments.includes(item.id)
+        );
       }
+      items = filterByTags(items, tagsFilter.tags);
+
       return items;
     },
-    [showMineOnly, userId]
+    [showMineOnly, userId, tagsFilter.tags, watchedExperiments]
   );
 
   const { items, searchInputProps, isFiltered, SortableTH } = useSearch({
@@ -105,8 +122,8 @@ const ExperimentsPage = (): React.ReactElement => {
     defaultSortDir: -1,
     searchFields: [
       "name^3",
-      "trackingKey^3",
-      "id^3",
+      "trackingKey^2",
+      "id",
       "hypothesis^2",
       "description",
       "tags",
@@ -129,8 +146,10 @@ const ExperimentsPage = (): React.ReactElement => {
   }, [items]);
 
   const filtered = useMemo(() => {
-    return items.filter((item) => item.tab === tab);
-  }, [items, tab]);
+    return tabs.length
+      ? items.filter((item) => tabs.includes(item.tab))
+      : items;
+  }, [tabs, items]);
 
   const [showSetup, setShowSetup] = useState(false);
 
@@ -140,7 +159,7 @@ const ExperimentsPage = (): React.ReactElement => {
   // Reset to page 1 when a filter is applied or tabs change
   useEffect(() => {
     setCurrentPage(1);
-  }, [items.length, tab, showMineOnly]);
+  }, [filtered.length]);
 
   // Show steps if coming from get started page
   useEffect(() => {
@@ -174,10 +193,19 @@ const ExperimentsPage = (): React.ReactElement => {
 
   const canAdd = permissions.check("createAnalyses", project);
 
-  const hasArchivedExperiments = items.some((item) => item.archived);
+  const hasArchivedExperiments = experiments.some((item) => item.archived);
 
   const start = (currentPage - 1) * NUM_PER_PAGE;
   const end = start + NUM_PER_PAGE;
+
+  function onToggleTab(tab: string) {
+    return () => {
+      const newTabs = new Set(tabs);
+      if (newTabs.has(tab)) newTabs.delete(tab);
+      else newTabs.add(tab);
+      setTabs([...newTabs]);
+    };
+  }
 
   return (
     <>
@@ -222,41 +250,52 @@ const ExperimentsPage = (): React.ReactElement => {
             {showSetup && <h3>All Experiments</h3>}
           </div>
           <div className="row align-items-center mb-3">
-            <div className="col-auto">
-              <TabButtons newStyle={true} className="mb-0">
-                <TabButton
-                  display="Running"
-                  anchor="running"
-                  count={tabCounts["running"] || 0}
-                  active={tab === "running"}
-                  onClick={() => setTab("running")}
-                />
-                <TabButton
-                  display="Drafts"
-                  anchor="drafts"
-                  count={tabCounts["drafts"] || 0}
-                  active={tab === "drafts"}
-                  onClick={() => setTab("drafts")}
-                />
-                <TabButton
-                  display="Stopped"
-                  anchor="stopped"
-                  count={tabCounts["stopped"] || 0}
-                  active={tab === "stopped"}
-                  onClick={() => setTab("stopped")}
-                  last={!hasArchivedExperiments}
-                />
-                {hasArchivedExperiments && (
-                  <TabButton
-                    display="Archived"
-                    anchor="archived"
-                    count={tabCounts["archived"] || 0}
-                    active={tab === "archived"}
-                    onClick={() => setTab("archived")}
-                    last={true}
-                  />
-                )}
-              </TabButtons>
+            <div className="col-auto d-flex">
+              {["running", "drafts", "stopped", "archived"].map((tab, i) => {
+                const active = tabs.includes(tab);
+
+                if (tab === "archived" && !hasArchivedExperiments) return null;
+
+                return (
+                  <button
+                    key={tab}
+                    className={clsx("border mb-0", {
+                      "badge-purple font-weight-bold": active,
+                      "bg-white text-secondary": !active,
+                      "rounded-left": i === 0,
+                      "rounded-right":
+                        tab === "archived" ||
+                        (tab === "stopped" && !hasArchivedExperiments),
+                    })}
+                    style={{
+                      fontSize: "1em",
+                      opacity: active ? 1 : 0.8,
+                      padding: "6px 12px",
+                    }}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      onToggleTab(tab)();
+                    }}
+                    title={
+                      active && tabs.length > 1
+                        ? `Hide ${tab} experiments`
+                        : active
+                        ? `Remove filter`
+                        : tabs.length === 0
+                        ? `View only ${tab} experiments`
+                        : `Include ${tab} experiments`
+                    }
+                  >
+                    <span className="mr-1">
+                      {tab.slice(0, 1).toUpperCase()}
+                      {tab.slice(1)}
+                    </span>
+                    <span className="badge bg-white border text-dark mr-2">
+                      {tabCounts[tab] || 0}
+                    </span>
+                  </button>
+                );
+              })}
             </div>
             <div className="col-auto">
               <Field
@@ -264,6 +303,9 @@ const ExperimentsPage = (): React.ReactElement => {
                 type="search"
                 {...searchInputProps}
               />
+            </div>
+            <div className="col-auto">
+              <TagsFilter filter={tagsFilter} items={items} />
             </div>
             <div className="col-auto ml-auto">
               <Toggle
@@ -289,25 +331,10 @@ const ExperimentsPage = (): React.ReactElement => {
                   <SortableTH field="projectName">Project</SortableTH>
                 )}
                 <SortableTH field="tags">Tags</SortableTH>
-                {!showMineOnly && (
-                  <SortableTH field="ownerName">Owner</SortableTH>
-                )}
-                {tab === "running" && <th>Phase</th>}
-                <SortableTH field="date">
-                  {tab === "running"
-                    ? "Started"
-                    : tab === "stopped"
-                    ? "Ended"
-                    : tab === "drafts"
-                    ? "Created"
-                    : "Date"}
-                </SortableTH>
-                {tab === "stopped" && (
-                  <SortableTH field="results">Result</SortableTH>
-                )}
-                {tab === "archived" && (
-                  <SortableTH field="status">State</SortableTH>
-                )}
+                <SortableTH field="ownerName">Owner</SortableTH>
+                <SortableTH field="status">Status</SortableTH>
+                <SortableTH field="date">Date</SortableTH>
+                <th>Summary</th>
               </tr>
             </thead>
             <tbody>
@@ -381,27 +408,39 @@ const ExperimentsPage = (): React.ReactElement => {
                     <td className="nowrap" data-title="Tags:">
                       <SortedTags tags={Object.values(e.tags)} />
                     </td>
-                    {!showMineOnly && (
-                      <td className="nowrap" data-title="Owner:">
-                        {e.ownerName}
-                      </td>
-                    )}
-                    {tab === "running" && (
-                      <td className="nowrap" data-title="Phase:">
-                        {phase && phaseSummary(phase)}
-                      </td>
-                    )}
+                    <td className="nowrap" data-title="Owner:">
+                      {e.ownerName}
+                    </td>
+                    <td className="nowrap" data-title="Status:">
+                      {e.archived ? (
+                        <span className="badge badge-secondary">archived</span>
+                      ) : (
+                        <ExperimentStatusIndicator status={e.status} />
+                      )}
+                    </td>
                     <td className="nowrap" title={datetime(e.date)}>
+                      {e.tab === "running"
+                        ? "started"
+                        : e.tab === "drafts"
+                        ? "created"
+                        : e.tab === "stopped"
+                        ? "ended"
+                        : e.tab === "archived"
+                        ? "updated"
+                        : ""}{" "}
                       {ago(e.date)}
                     </td>
-                    {tab === "stopped" && (
-                      <td className="nowrap" data-title="Results:">
-                        {e.results && <ResultsIndicator results={e.results} />}
-                      </td>
-                    )}
-                    {tab === "archived" && (
-                      <td className="nowrap">{e.status}</td>
-                    )}
+                    <td className="nowrap" data-title="Summary:">
+                      {e.archived ? (
+                        ""
+                      ) : e.status === "running" && phase ? (
+                        phaseSummary(phase)
+                      ) : e.status === "stopped" && e.results ? (
+                        <ResultsIndicator results={e.results} />
+                      ) : (
+                        ""
+                      )}
+                    </td>
                   </tr>
                 );
               })}

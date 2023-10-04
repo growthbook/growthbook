@@ -495,6 +495,7 @@ export async function createSnapshot({
     snapshotSettings: data.settings,
     variationNames: experiment.variations.map((v) => v.name),
     metricMap,
+    queryParentId: snapshot.id,
   });
 
   return queryRunner;

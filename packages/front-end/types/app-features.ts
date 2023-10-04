@@ -35,4 +35,6 @@ export type AppFeatures = {
   "visual-editor-ai-enabled": boolean;
   "team-permissions-enabled": boolean;
   "ff-approval-flow": boolean;
+  "gbdemo-checkout-layout": string;
+  "datasource-pipeline-mode": boolean;
 };
