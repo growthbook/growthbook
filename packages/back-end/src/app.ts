@@ -218,6 +218,28 @@ app.options(
   (req, res) => res.send(200)
 );
 
+if (!IS_CLOUD) {
+  // Public remoteEval for SDKs:
+  // note: Self-hosted only, recommended for debugging. Cloud orgs must use separate infrastructure.
+  app.post(
+    "/api/eval/:key?",
+    cors({
+      credentials: false,
+      origin: "*",
+    }),
+    featuresController.getEvaluatedFeaturesPublic
+  );
+  // For preflight requests
+  app.options(
+    "/api/eval/:key?",
+    cors({
+      credentials: false,
+      origin: "*",
+    }),
+    (req, res) => res.send(200)
+  );
+}
+
 // Secret API routes (no JWT or CORS)
 app.use(
   "/api/v1",

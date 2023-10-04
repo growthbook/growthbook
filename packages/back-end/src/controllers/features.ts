@@ -1,4 +1,5 @@
 import { Request, Response } from "express";
+import { evaluateFeatures } from "@growthbook/proxy-eval";
 import {
   ExperimentRefRule,
   FeatureDraftChanges,
@@ -222,6 +223,79 @@ export async function getFeaturesPublic(req: Request, res: Response) {
       res.set("x-unrecoverable", "1");
       error = e.message;
     }
+
+    return res.status(400).json({
+      status: 400,
+      error,
+    });
+  }
+}
+
+export async function getEvaluatedFeaturesPublic(req: Request, res: Response) {
+  try {
+    const { key } = req.params;
+
+    if (!key) {
+      throw new UnrecoverableApiError("Missing API key in request");
+    }
+
+    const {
+      organization,
+      environment,
+      encrypted,
+      project,
+      encryptionKey,
+      includeVisualExperiments,
+      includeDraftExperiments,
+      includeExperimentNames,
+      hashSecureAttributes,
+      remoteEvalEnabled,
+    } = await getPayloadParamsFromApiKey(key, req);
+
+    if (!remoteEvalEnabled) {
+      throw new UnrecoverableApiError(
+        "Remote evaluation disabled for this connection"
+      );
+    }
+
+    // Evaluate features using provided attributes
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const attributes: Record<string, any> = req.body?.attributes || {};
+    const forcedVariations: Record<string, number> =
+      req.body?.forcedVariations || {};
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const forcedFeatures: Map<string, any> = new Map(
+      req.body.forcedFeatures || []
+    );
+    const url = req.body?.url;
+
+    const defs = await getFeatureDefinitions({
+      organization,
+      environment,
+      project,
+      encryptionKey: encrypted ? encryptionKey : "",
+      includeVisualExperiments,
+      includeDraftExperiments,
+      includeExperimentNames,
+      hashSecureAttributes,
+    });
+
+    // This endpoint should never be cached
+    res.set("Cache-control", "no-store");
+
+    // todo: don't use link. investigate why clicking through returns the stub only.
+    const payload = evaluateFeatures({
+      payload: defs,
+      attributes,
+      forcedVariations,
+      forcedFeatures,
+      url,
+    });
+
+    res.status(200).json(payload);
+  } catch (e) {
+    // We don't want to expose internal errors like Mongo Connections to users, so default to a generic message
+    const error = "Failed to get evaluated features";
 
     return res.status(400).json({
       status: 400,
