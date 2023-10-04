@@ -9,14 +9,18 @@ if (fs.existsSync(".env.local")) {
   dotenv.config({ path: ".env.local" });
 }
 
-export const IS_CLOUD = !!process.env.IS_CLOUD;
-export const IS_MULTI_ORG = !!process.env.IS_MULTI_ORG;
+export const IS_CLOUD = process.env.IS_CLOUD === "true";
+export const IS_MULTI_ORG = process.env.IS_MULTI_ORG === "true";
 
-if (!IS_CLOUD && IS_MULTI_ORG && !process.env.LICENSE_KEY) {
+if (prod && !IS_CLOUD && IS_MULTI_ORG && !process.env.LICENSE_KEY) {
   throw new Error(
     "Must have a commercial license key to be allowed to have multiple organizations."
   );
 }
+
+// Default to true, false only if explicitly set to "false"
+export const ALLOW_SELF_ORG_CREATION =
+  process.env.ALLOW_SELF_ORG_CREATION !== "false";
 
 export const UPLOAD_METHOD = (() => {
   if (IS_CLOUD) return "s3";

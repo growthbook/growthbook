@@ -6,6 +6,7 @@ export interface EnvironmentInitValue {
   telemetry: "debug" | "enable" | "disable";
   cloud: boolean;
   isMultiOrg?: boolean;
+  allowSelfOrgCreation: boolean;
   appOrigin: string;
   apiHost: string;
   cdnHost: string;
@@ -28,6 +29,7 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
     CDN_HOST,
     IS_CLOUD,
     IS_MULTI_ORG,
+    ALLOW_SELF_ORG_CREATION,
     DISABLE_TELEMETRY,
     DEFAULT_CONVERSION_WINDOW_HOURS,
     NEXT_PUBLIC_SENTRY_DSN,
@@ -60,8 +62,9 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
     appOrigin: APP_ORIGIN || "http://localhost:3000",
     apiHost: API_HOST || "http://localhost:3100",
     cdnHost: CDN_HOST || "",
-    cloud: !!IS_CLOUD,
-    isMultiOrg: !!IS_MULTI_ORG,
+    cloud: IS_CLOUD === "true",
+    isMultiOrg: IS_MULTI_ORG === "true",
+    allowSelfOrgCreation: ALLOW_SELF_ORG_CREATION !== "false", // Default to true, false only if explicitly set to "false"
     config: hasConfigFile ? "file" : "db",
     build,
     defaultConversionWindowHours: DEFAULT_CONVERSION_WINDOW_HOURS

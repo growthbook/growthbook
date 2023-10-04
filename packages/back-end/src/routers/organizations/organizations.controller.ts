@@ -48,7 +48,12 @@ import {
 import { getAllFeatures } from "../../models/FeatureModel";
 import { findDimensionsByOrganization } from "../../models/DimensionModel";
 import { findSegmentsByOrganization } from "../../models/SegmentModel";
-import { APP_ORIGIN, IS_CLOUD, IS_MULTI_ORG } from "../../util/secrets";
+import {
+  ALLOW_SELF_ORG_CREATION,
+  APP_ORIGIN,
+  IS_CLOUD,
+  IS_MULTI_ORG,
+} from "../../util/secrets";
 import {
   sendInviteEmail,
   sendNewMemberEmail,
@@ -1028,8 +1033,8 @@ export async function deleteInvite(
 export async function signup(req: AuthRequest<SignupBody>, res: Response) {
   const { company } = req.body;
 
+  const orgs = await hasOrganization();
   if (!IS_MULTI_ORG) {
-    const orgs = await hasOrganization();
     // there are odd edge cases where a user can exist, but not an org,
     // so we want to allow org creation this way if there are no other orgs
     // on a local install.
@@ -1040,6 +1045,11 @@ export async function signup(req: AuthRequest<SignupBody>, res: Response) {
 
   let verifiedDomain = "";
   if (IS_MULTI_ORG) {
+    if (orgs && !ALLOW_SELF_ORG_CREATION && !req.superAdmin) {
+      throw new Error(
+        "You are not allowed to create an organization.  Ask your site admin."
+      );
+    }
     // if the owner is verified, try to infer a verified domain
     if (req.email && req.verified) {
       const domain = req.email.toLowerCase().split("@")[1] || "";
