@@ -419,6 +419,7 @@ export default function RuleModal({
           await apiCall(`/feature/${feature.id}/rule`, {
             method: i === rules.length ? "POST" : "PUT",
             body: JSON.stringify({
+              draftId: revision?.id,
               rule: values,
               environment,
               i,
