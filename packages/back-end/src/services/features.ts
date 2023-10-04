@@ -8,6 +8,7 @@ import {
   FeatureRule as FeatureDefinitionRule,
   AutoExperiment,
 } from "@growthbook/growthbook";
+import { validateFeatureValue } from "shared/util";
 import { FeatureDefinition } from "../../types/api";
 import {
   ExperimentRule,
@@ -867,12 +868,13 @@ export function sha256(str: string, salt: string): string {
 }
 
 const fromApiEnvSettingsRulesToFeatureEnvSettingsRules = (
+  feature: FeatureInterface,
   rules: ApiFeatureEnvSettingsRules
 ): FeatureInterface["environmentSettings"][string]["rules"] =>
   rules.map((r) => {
     if (r.type === "experiment") {
       const experimentRule: ExperimentRule = {
-        // missing id will be filled in by addIdsToRules below
+        // missing id will be filled in by addIdsToRules
         id: r.id ?? "",
         type: r.type,
         description: r.description ?? "",
@@ -880,7 +882,7 @@ const fromApiEnvSettingsRulesToFeatureEnvSettingsRules = (
         trackingKey: r.trackingKey,
         values:
           r.value?.map((v) => ({
-            value: v.value,
+            value: validateFeatureValue(feature, v.value, v.name),
             name: v.name ?? "",
             weight: v.weight,
           })) ?? [],
@@ -892,24 +894,24 @@ const fromApiEnvSettingsRulesToFeatureEnvSettingsRules = (
       return experimentRule;
     } else if (r.type === "force") {
       const forceRule: ForceRule = {
-        // missing id will be filled in by addIdsToRules below
+        // missing id will be filled in by addIdsToRules
         id: r.id ?? "",
         type: r.type,
         description: r.description ?? "",
-        value: r.value,
+        value: validateFeatureValue(feature, r.value),
         condition: r.condition,
         enabled: !!r.enabled,
       };
       return forceRule;
     }
     const rolloutRule: RolloutRule = {
-      // missing id will be filled in by addIdsToRules below
+      // missing id will be filled in by addIdsToRules
       id: r.id ?? "",
       type: r.type,
       coverage: r.coverage,
       description: r.description ?? "",
       hashAttribute: r.hashAttribute,
-      value: r.value,
+      value: validateFeatureValue(feature, r.value),
       condition: r.condition,
       enabled: !!r.enabled,
     };
@@ -917,6 +919,7 @@ const fromApiEnvSettingsRulesToFeatureEnvSettingsRules = (
   });
 
 export const createInterfaceEnvSettingsFromApiEnvSettings = (
+  feature: FeatureInterface,
   baseEnvs: Environment[],
   incomingEnvs: ApiFeatureEnvSettings
 ): FeatureInterface["environmentSettings"] =>
@@ -927,6 +930,7 @@ export const createInterfaceEnvSettingsFromApiEnvSettings = (
         enabled: incomingEnvs?.[e.id]?.enabled ?? !!e.defaultState,
         rules: incomingEnvs?.[e.id]?.rules
           ? fromApiEnvSettingsRulesToFeatureEnvSettingsRules(
+              feature,
               incomingEnvs[e.id].rules
             )
           : [],

@@ -75,16 +75,6 @@ export const postFeature = createApiRequestHandler(postFeatureValidator)(
       Object.keys(req.body.environments ?? {})
     );
 
-    const environmentSettings = createInterfaceEnvSettingsFromApiEnvSettings(
-      orgEnvs,
-      req.body.environments ?? {}
-    );
-
-    const jsonSchema = parseJsonSchemaForEnterprise(
-      req.organization,
-      req.body.jsonSchema
-    );
-
     const feature: FeatureInterface = {
       defaultValue: req.body.defaultValue ?? "",
       valueType: req.body.valueType,
@@ -106,9 +96,23 @@ export const postFeature = createApiRequestHandler(postFeatureValidator)(
           name: req.body.owner,
         },
       },
-      jsonSchema,
-      environmentSettings,
+      environmentSettings: {},
     };
+
+    const environmentSettings = createInterfaceEnvSettingsFromApiEnvSettings(
+      feature,
+      orgEnvs,
+      req.body.environments ?? {}
+    );
+
+    feature.environmentSettings = environmentSettings;
+
+    const jsonSchema = parseJsonSchemaForEnterprise(
+      req.organization,
+      req.body.jsonSchema
+    );
+
+    feature.jsonSchema = jsonSchema;
 
     // ensure default value matches value type
     feature.defaultValue = validateFeatureValue(feature, feature.defaultValue);
