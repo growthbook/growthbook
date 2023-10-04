@@ -471,6 +471,7 @@ const validateVariationIds = (variations: Variation[]) => {
 
 /**
  * Creates a new experiment
+ * If based on another experiment (originalId), it will copy the visual changesets
  * @param req
  * @param res
  */
@@ -479,9 +480,8 @@ export async function postExperiments(
     Partial<ExperimentInterfaceStringDates>,
     unknown,
     {
-      allowDuplicateTrackingKey?: boolean | string | number;
+      allowDuplicateTrackingKey?: boolean;
       originalId?: string;
-      importVisualChangesets?: boolean | string | number;
     }
   >,
   res: Response<
@@ -595,13 +595,9 @@ export async function postExperiments(
 
   try {
     validateVariationIds(obj.variations);
-    const allowDuplicateTrackingKey =
-      req.query.allowDuplicateTrackingKey === true ||
-      req.query.allowDuplicateTrackingKey === "true" ||
-      req.query.allowDuplicateTrackingKey == 1;
 
     // Make sure id is unique
-    if (obj.trackingKey && !allowDuplicateTrackingKey) {
+    if (obj.trackingKey && !req.query.allowDuplicateTrackingKey) {
       const existing = await getExperimentByTrackingKey(
         org.id,
         obj.trackingKey
@@ -621,12 +617,7 @@ export async function postExperiments(
       user: res.locals.eventAudit,
     });
 
-    const importVisualChangesets =
-      req.query.importVisualChangesets === true ||
-      req.query.importVisualChangesets === "true" ||
-      req.query.importVisualChangesets == 1;
-
-    if (importVisualChangesets && req.query.originalId) {
+    if (req.query.originalId) {
       const visualChangesets = await findVisualChangesetsByExperiment(
         req.query.originalId,
         org.id

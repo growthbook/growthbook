@@ -1,4 +1,4 @@
-import React, { FC, ReactElement, useEffect, useState } from "react";
+import React, { FC, useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import {
   ExperimentInterfaceStringDates,
@@ -19,7 +19,6 @@ import { getEqualWeights } from "@/services/utils";
 import { generateVariationId, useAttributeSchema } from "@/services/features";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
-import Toggle from "@/components/Forms/Toggle";
 import MarkdownInput from "../Markdown/MarkdownInput";
 import TagsInput from "../Tags/TagsInput";
 import Page from "../Modal/Page";
@@ -117,9 +116,6 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
   const [step, setStep] = useState(initialStep || 0);
   const [allowDuplicateTrackingKey, setAllowDuplicateTrackingKey] = useState(
     false
-  );
-  const [importVisualChangesets, setImportVisualChangesets] = useState(
-    source === "duplicate"
   );
 
   const {
@@ -244,13 +240,8 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
     if (allowDuplicateTrackingKey) {
       params.allowDuplicateTrackingKey = true;
     }
-    if (source === "duplicate") {
-      if (initialValue?.id) {
-        params.originalId = initialValue.id;
-        if (importVisualChangesets) {
-          params.importVisualChangesets = true;
-        }
-      }
+    if (source === "duplicate" && initialValue?.id) {
+      params.originalId = initialValue.id;
     }
 
     const res = await apiCall<
@@ -290,19 +281,8 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
   const { currentProjectIsDemo } = useDemoDataSourceProject();
 
   let header = isNewExperiment ? "New Experiment" : "New Experiment Analysis";
-  let footerElements: ReactElement | null = null;
   if (source === "duplicate") {
     header = "Duplicate Experiment";
-    footerElements = (
-      <div className="form-group position-absolute ml-4" style={{ left: 0 }}>
-        <Toggle
-          id="importVisualChangesets"
-          value={importVisualChangesets}
-          setValue={(v) => setImportVisualChangesets(v)}
-        />
-        <label htmlFor="importVisualChangesets">Import visual changesets</label>
-      </div>
-    );
   }
 
   return (
@@ -317,7 +297,6 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
       step={step}
       setStep={setStep}
       inline={inline}
-      secondaryCTA={footerElements ?? undefined}
     >
       <Page display="Basic Info">
         {msg && <div className="alert alert-info">{msg}</div>}
