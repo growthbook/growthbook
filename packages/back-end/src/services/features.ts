@@ -940,9 +940,10 @@ export const createInterfaceEnvSettingsFromApiEnvSettings = (
   );
 
 export const updateInterfaceEnvSettingsFromApiEnvSettings = (
-  existing: FeatureInterface["environmentSettings"],
+  feature: FeatureInterface,
   incomingEnvs: ApiFeatureEnvSettings
 ): FeatureInterface["environmentSettings"] => {
+  const existing = feature.environmentSettings;
   return Object.keys(incomingEnvs).reduce((acc, k) => {
     return {
       ...acc,
@@ -950,6 +951,7 @@ export const updateInterfaceEnvSettingsFromApiEnvSettings = (
         enabled: incomingEnvs[k].enabled ?? existing[k].enabled,
         rules: incomingEnvs[k].rules
           ? fromApiEnvSettingsRulesToFeatureEnvSettingsRules(
+              feature,
               incomingEnvs[k].rules
             )
           : existing[k].rules,
