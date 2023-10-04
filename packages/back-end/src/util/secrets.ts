@@ -12,6 +12,12 @@ if (fs.existsSync(".env.local")) {
 export const IS_CLOUD = !!process.env.IS_CLOUD;
 export const IS_MULTI_ORG = !!process.env.IS_MULTI_ORG;
 
+if (!IS_CLOUD && IS_MULTI_ORG && !process.env.LICENSE_KEY) {
+  throw new Error(
+    "Must have a commercial license key to be allow multiple organizations."
+  );
+}
+
 export const UPLOAD_METHOD = (() => {
   if (IS_CLOUD) return "s3";
 
