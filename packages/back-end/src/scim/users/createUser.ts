@@ -28,12 +28,22 @@ export async function createUser(
     // Look up the user in Mongo
     let user = await getUserByExternalId(requestBodyObject.externalId);
 
+    // If the user already exists in the org, return an error
+    if (user && org.members.find((member) => member.id === user?.id)) {
+      return res.status(409).json({
+        schemas: ["urn:ietf:params:scim:api:messages:2.0:Error"],
+        scimType: "uniqueness",
+        detail: "User already exists in this organization",
+        status: 409,
+      });
+    }
+
     if (!user) {
-      // try to see if the user already exists in GB via email
+      // If we can't find the user by externalId, try to find them by email
       user = await getUserByEmail(requestBodyObject.userName);
 
       if (user && !user.externalId) {
-        // the user already exists, we just need to update it with the externalId
+        // if we find the user, but they don't have an externalId, add it - this happens when a user exists in GB, but now they're access is being managed by an external IDP
         await addExternalIdToExistingUser(
           user.id,
           requestBodyObject.externalId
@@ -43,6 +53,7 @@ export async function createUser(
     }
 
     if (!user) {
+      // If we still can't find the user, create it
       user = await createNewUser(
         requestBodyObject.displayName,
         requestBodyObject.userName,
@@ -51,10 +62,11 @@ export async function createUser(
       );
     }
 
-    // check if the user already exists within the org - only really relevant when the user already exists in GB
+    // check if the user already exists within the org
     const orgMember = org.members.find((member) => member.id === user?.id);
 
     if (!orgMember) {
+      // If they aren't a part of the org, add them
       await addMemberToOrg({
         organization: org,
         userId: user.id,
@@ -63,16 +75,8 @@ export async function createUser(
         environments: [],
         projectRoles: [],
       });
-    } else {
-      return res.status(409).json({
-        schemas: ["urn:ietf:params:scim:api:messages:2.0:Error"],
-        scimType: "uniqueness",
-        detail: "User already exists in this organization",
-        status: 409,
-      });
     }
 
-    // Add them to the org's members array
     return res.status(201).json({
       schemas: ["urn:ietf:params:scim:schemas:core:2.0:User"],
       id: user.externalId,
@@ -91,14 +95,13 @@ export async function createUser(
           display: user.email,
         },
       ],
-      // role: role,
+      role: role,
       groups: [],
       meta: {
         resourceType: "User",
       },
     });
   } catch (e) {
-    console.log("catching an error", e);
     return res.status(500).json({
       schemas: ["urn:ietf:params:scim:api:messages:2.0:Error"],
       detail: `Unable to create the new user in GrowthBook: ${e.message}`,
