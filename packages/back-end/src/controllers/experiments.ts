@@ -623,20 +623,12 @@ export async function postExperiments(
         org.id
       );
       for (const visualChangeset of visualChangesets) {
-        const newVisualChangeset = await createVisualChangeset({
+        await createVisualChangeset({
           experiment,
           urlPatterns: visualChangeset.urlPatterns,
           editorUrl: visualChangeset.editorUrl,
           organization: org,
-          user: res.locals.eventAudit,
-        });
-        await updateVisualChangeset({
-          visualChangeset: newVisualChangeset,
-          experiment,
-          organization: org,
-          updates: {
-            visualChanges: visualChangeset.visualChanges,
-          },
+          visualChanges: visualChangeset.visualChanges,
           user: res.locals.eventAudit,
         });
       }
