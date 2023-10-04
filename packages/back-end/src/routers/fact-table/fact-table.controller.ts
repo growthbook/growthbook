@@ -55,6 +55,27 @@ export const getFactTables = async (
   });
 };
 
+async function testFilterQuery(
+  datasource: DataSourceInterface,
+  factTable: FactTableInterface,
+  filter: string
+) {
+  const integration = getSourceIntegrationObject(datasource, true);
+
+  if (!integration.getTestQuery || !integration.runTestQuery) {
+    throw new Error("Testing not supported on this data source");
+  }
+
+  const sql = integration.getTestQuery(
+    `SELECT timestamp FROM (${factTable.sql}) f WHERE ${filter}`,
+    {
+      eventName: factTable.eventName,
+    }
+  );
+
+  await integration.runTestQuery(sql);
+}
+
 async function updateColumns(
   datasource: DataSourceInterface,
   factTable: Pick<FactTableInterface, "sql" | "eventName" | "columns">
@@ -271,6 +292,14 @@ export const postFactFilter = async (
 
   req.checkPermissions("manageFactTables", factTable.projects);
 
+  const datasource = await getDataSourceById(factTable.datasource, org.id);
+  if (!datasource) {
+    throw new Error("Could not find datasource");
+  }
+  req.checkPermissions("runQueries", datasource.projects || "");
+
+  await testFilterQuery(datasource, factTable, data.value);
+
   const filter = await createFactFilter(factTable, data);
 
   res.status(200).json({
@@ -292,6 +321,20 @@ export const putFactFilter = async (
   }
 
   req.checkPermissions("manageFactTables", factTable.projects);
+
+  // If the filter SQL is changing, re-test the query
+  const existingFilter = factTable.filters.find(
+    (f) => f.id === req.params.filterId
+  );
+  if (existingFilter && existingFilter.value !== data.value) {
+    const datasource = await getDataSourceById(factTable.datasource, org.id);
+    if (!datasource) {
+      throw new Error("Could not find datasource");
+    }
+    req.checkPermissions("runQueries", datasource.projects || "");
+
+    await testFilterQuery(datasource, factTable, data.value);
+  }
 
   await updateFactFilter(factTable, req.params.filterId, data);
 
