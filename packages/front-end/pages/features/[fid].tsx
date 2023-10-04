@@ -294,6 +294,7 @@ export default function FeaturePage() {
       {ruleModal !== null && (
         <RuleModal
           feature={displayFeature}
+          revision={activeRevision}
           close={() => setRuleModal(null)}
           i={ruleModal.i}
           environment={ruleModal.environment}
