@@ -28,6 +28,7 @@ export async function getUser(req: ScimGetRequest, res: Response) {
 
   const orgUser = org.members.find((member) => member.id === user?.id);
 
+  // TODO: I think we need to return the user object in this case, but with active set to false
   if (!orgUser) {
     console.log("about to return a user not in org error");
     return res.status(404).json({
