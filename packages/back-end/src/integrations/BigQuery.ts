@@ -1,10 +1,17 @@
 import * as bq from "@google-cloud/bigquery";
+import { bigQueryCreateTableOptions } from "enterprise";
 import { getValidDate } from "shared/dates";
+import { format, FormatDialect } from "../util/sql";
 import { decryptDataSourceParams } from "../services/datasource";
 import { BigQueryConnectionParams } from "../../types/integrations/bigquery";
 import { IS_CLOUD } from "../util/secrets";
-import { FormatDialect } from "../util/sql";
-import { QueryResponse } from "../types/Integration";
+import {
+  InformationSchema,
+  QueryResponse,
+  RawInformationSchema,
+} from "../types/Integration";
+import { formatInformationSchema } from "../util/informationSchemas";
+import { logger } from "../util/logger";
 import SqlIntegration from "./SqlIntegration";
 
 export default class BigQuery extends SqlIntegration {
@@ -16,6 +23,9 @@ export default class BigQuery extends SqlIntegration {
     this.params = decryptDataSourceParams<BigQueryConnectionParams>(
       encryptedParams
     );
+  }
+  isWritingTablesSupported(): boolean {
+    return true;
   }
   getFormatDialect(): FormatDialect {
     return "bigquery";
@@ -64,6 +74,11 @@ export default class BigQuery extends SqlIntegration {
     };
     return { rows, statistics };
   }
+
+  createUnitsTableOptions() {
+    return bigQueryCreateTableOptions(this.settings.pipelineSettings ?? {});
+  }
+
   addTime(
     col: string,
     unit: "hour" | "minute",
@@ -111,14 +126,55 @@ export default class BigQuery extends SqlIntegration {
   getDefaultDatabase() {
     return this.params.projectId || "";
   }
-  getDefaultSchema() {
-    return this.params.defaultDataset;
-  }
   getInformationSchemaTable(schema?: string, database?: string): string {
     return this.generateTablePath(
       "INFORMATION_SCHEMA.COLUMNS",
       schema,
       database
+    );
+  }
+  async getInformationSchema(): Promise<InformationSchema[]> {
+    const { rows: datasets } = await this.runQuery(
+      `SELECT * FROM ${`\`${this.params.projectId}.INFORMATION_SCHEMA.SCHEMATA\``}`
+    );
+
+    const results = [];
+
+    for (const dataset of datasets) {
+      const query = `SELECT
+        table_name as table_name,
+        table_catalog as table_catalog,
+        table_schema as table_schema,
+        count(column_name) as column_count
+      FROM
+        ${this.getInformationSchemaTable(`${dataset.schema_name}`)}
+        WHERE ${this.getInformationSchemaWhereClause()}
+      GROUP BY table_name, table_schema, table_catalog
+      ORDER BY table_name;`;
+
+      try {
+        const { rows: datasetResults } = await this.runQuery(
+          format(query, this.getFormatDialect())
+        );
+
+        if (datasetResults.length > 0) {
+          results.push(...datasetResults);
+        }
+      } catch (e) {
+        logger.error(
+          `Error fetching information schema data for dataset: ${dataset.schema_name}`,
+          e
+        );
+      }
+    }
+
+    if (!results.length) {
+      throw new Error(`No tables found.`);
+    }
+
+    return formatInformationSchema(
+      results as RawInformationSchema[],
+      this.type
     );
   }
 }

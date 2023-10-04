@@ -124,7 +124,7 @@ export async function processJWT(
     req.email = user.email;
     req.userId = user.id;
     req.name = user.name;
-    req.admin = !!user.admin;
+    req.superAdmin = !!user.superAdmin;
 
     // If using default Cloud SSO (Auth0), once a user logs in with a verified email address,
     // require all future logins to be verified too.
@@ -150,7 +150,7 @@ export async function processJWT(
       if (req.organization) {
         // Make sure member is part of the organization
         if (
-          !req.admin &&
+          !req.superAdmin &&
           !req.organization.members.filter((m) => m.id === req.userId).length
         ) {
           res.status(403).json({

@@ -11,6 +11,7 @@ import { formatQuery, runQuery } from "../services/mixpanel";
 import {
   ExperimentMetricQueryResponse,
   ExperimentQueryResponses,
+  ExperimentUnitsQueryResponse,
   MetricValueParams,
   MetricValueQueryResponse,
   MetricValueQueryResponseRow,
@@ -58,7 +59,12 @@ export default class Mixpanel implements SourceIntegrationInterface {
   runExperimentMetricQuery(): Promise<ExperimentMetricQueryResponse> {
     throw new Error("Method not implemented.");
   }
-
+  getExperimentUnitsTableQuery(): string {
+    throw new Error("Method not implemented.");
+  }
+  runExperimentUnitsQuery(): Promise<ExperimentUnitsQueryResponse> {
+    throw new Error("Method not implemented.");
+  }
   private getMetricAggregationExpression(metric: MetricInterface) {
     if (metric.aggregation) {
       return `${metric.aggregation}`;
