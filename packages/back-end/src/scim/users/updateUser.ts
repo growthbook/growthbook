@@ -44,6 +44,19 @@ async function removeUserFromOrg(
 ) {
   const updatedOrg = cloneDeep(org);
 
+  // TODO: Should we add a check here to make sure that if the user is the only admin, we don't remove them?
+  const userIsAdmin = org.members[userIndex].role === "admin";
+
+  if (userIsAdmin) {
+    const numberOfAdmins = org.members.filter(
+      (member) => member.role === "admin"
+    );
+
+    if (numberOfAdmins.length === 1) {
+      throw new Error("Cannot remove the only admin");
+    }
+  }
+
   updatedOrg.members.splice(userIndex, 1);
 
   await updateOrganization(org.id, updatedOrg);
@@ -123,7 +136,16 @@ export async function updateUser(req: ScimUpdateRequest, res: Response) {
       // SCIM determines whether a user is active or not based on this property. If set to false, that means they want us to remove the user
       // this means they want us to remove the user
       console.log("remove user");
-      await removeUserFromOrg(org, userIndex, user, updatedScimUser);
+      try {
+        await removeUserFromOrg(org, userIndex, user, updatedScimUser);
+      } catch (e) {
+        console.log("Error removing user from org", e);
+        return res.status(400).json({
+          schemas: ["urn:ietf:params:scim:api:messages:2.0:Error"],
+          status: "400",
+          detail: "Cannot remove the only admin",
+        });
+      }
     }
     // otherwise, silently ignore the operation
   }
