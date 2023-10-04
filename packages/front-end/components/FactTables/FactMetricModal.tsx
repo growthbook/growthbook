@@ -410,6 +410,11 @@ export default function FactMetricModal({
                   filters: [],
                 });
               }
+
+              // When switching to ratio and using `absolute` capping, turn it off (only percentile supported)
+              if (type === "ratio" && form.watch("capping") === "absolute") {
+                form.setValue("capping", "");
+              }
             }}
             options={[
               {
@@ -603,10 +608,14 @@ export default function FactMetricModal({
                       value: "",
                       label: "No",
                     },
-                    {
-                      value: "absolute",
-                      label: "Absolute capping",
-                    },
+                    ...(type === "ratio"
+                      ? []
+                      : [
+                          {
+                            value: "absolute",
+                            label: "Absolute capping",
+                          },
+                        ]),
                     {
                       value: "percentile",
                       label: "Percentile capping",
