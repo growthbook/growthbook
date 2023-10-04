@@ -162,7 +162,7 @@ export default function AssignmentTester({ feature }: Props) {
                     {tr?.result?.value !== undefined ? (
                       <div className="col">
                         <ValueDisplay
-                          value={tr.result.value}
+                          value={JSON.stringify(tr.result.value)}
                           type={feature.valueType}
                         />
                       </div>
@@ -256,7 +256,6 @@ export default function AssignmentTester({ feature }: Props) {
     return <div>Loading...</div>;
   }
   if (error) {
-    console.error(error);
     return null;
   }
   return (
