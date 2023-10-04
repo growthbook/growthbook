@@ -95,8 +95,6 @@ export interface LegacyExperimentInterface
   phases: LegacyExperimentPhase[];
 }
 
-export type CustomExperimentField = Record<string, string>;
-
 export interface ExperimentInterface {
   id: string;
   trackingKey: string;
@@ -151,7 +149,7 @@ export interface ExperimentInterface {
   sequentialTestingEnabled?: boolean;
   sequentialTestingTuningParameter?: number;
   statsEngine?: StatsEngine;
-  customFields?: CustomExperimentField;
+  customFields?: string;
 }
 
 export type ExperimentInterfaceStringDates = Omit<

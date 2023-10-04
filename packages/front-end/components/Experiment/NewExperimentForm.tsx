@@ -19,12 +19,13 @@ import { getEqualWeights } from "@/services/utils";
 import {
   filterCustomFieldsForSectionAndProject,
   useCustomFields,
-} from "@/services/experiments";
+} from "@/hooks/useCustomFields";
 import { generateVariationId, useAttributeSchema } from "@/services/features";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import usePermissions from "@/hooks/usePermissions";
 import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
 import { useUser } from "@/services/UserContext";
+import CustomFieldInput from "@/components/CustomFields/CustomFieldInput";
 import MarkdownInput from "../Markdown/MarkdownInput";
 import TagsInput from "../Tags/TagsInput";
 import Page from "../Modal/Page";
@@ -35,7 +36,6 @@ import FeatureVariationsInput from "../Features/FeatureVariationsInput";
 import ConditionInput from "../Features/ConditionInput";
 import NamespaceSelector from "../Features/NamespaceSelector";
 import MetricsSelector from "./MetricsSelector";
-import CustomFieldInput from "./CustomFieldInput";
 
 const weekAgo = new Date();
 weekAgo.setDate(weekAgo.getDate() - 7);
@@ -204,7 +204,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
       ],
       status: !isImport ? "draft" : initialValue?.status || "running",
       ideaSource: idea || "",
-      customFields: initialValue?.customFields || {},
+      customFields: initialValue?.customFields || "",
     },
   });
   const [selectedProject, setSelectedProject] = useState(form.watch("project"));

@@ -3,15 +3,14 @@ import {
   CustomField,
   CustomFieldSection,
   CustomFieldTypes,
-} from "back-end/types/organization";
+} from "back-end/types/custom-fields";
 import uniqid from "uniqid";
 import React from "react";
 import { useAuth } from "@/services/auth";
-import { useUser } from "@/services/UserContext";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import track from "@/services/track";
-import { useCustomFields } from "@/services/experiments";
+import { useCustomFields } from "@/hooks/useCustomFields";
 import Modal from "../Modal";
 import Field from "../Forms/Field";
 import Toggle from "../Forms/Toggle";
@@ -30,10 +29,9 @@ export default function CustomFieldModal({
 }) {
   const { project, projects } = useDefinitions();
   const { apiCall } = useAuth();
-  const { userId } = useUser();
   const form = useForm<Partial<CustomField>>({
     defaultValues: {
-      id: existing.id || uniqid("field_"),
+      id: existing.id || uniqid("cfl_"),
       name: existing.name || "",
       values: existing.values || "",
       type: existing.type || "text",
@@ -44,7 +42,6 @@ export default function CustomFieldModal({
       required: existing.required ?? false,
       dateCreated:
         existing.dateCreated || new Date().toISOString().substr(0, 16),
-      active: true,
       index: true,
     },
   });
@@ -75,9 +72,9 @@ export default function CustomFieldModal({
           // make sure the default value is a boolean
           value.defaultValue = !!value.defaultValue;
         }
-        const newCustomFields = customFields ? [...customFields] : [];
+
         if (existing.id) {
-          const edit = newCustomFields.filter((e) => e.id === existing.id)[0];
+          const edit = customFields.filter((e) => e.id === existing.id)[0];
           if (!edit) throw new Error("Could not edit custom field");
           edit.name = value?.name ?? "";
           edit.type = value?.type ?? "text";
@@ -87,9 +84,17 @@ export default function CustomFieldModal({
           edit.description = value?.description ?? "";
           edit.projects = value.projects;
           edit.section = section;
+
+          await apiCall(`/custom-fields/${existing.id}`, {
+            method: "PUT",
+            body: JSON.stringify(edit),
+          });
+
+          track("Edit Custom Experiment Field", {
+            type: value.type,
+          });
         } else {
-          newCustomFields.push({
-            id: value?.id?.toLowerCase() ?? "",
+          const newCustomFields: Partial<CustomField> = {
             name: value.name ?? "",
             values: value.values,
             description: value.description ?? "",
@@ -98,28 +103,21 @@ export default function CustomFieldModal({
             projects: value.projects,
             type: value.type ?? "text",
             required: value.required ?? false,
-            creator: userId,
-            dateCreated: value.dateCreated ?? new Date().toISOString(),
-            active: value.active ?? true,
             section: section,
+          };
+
+          await apiCall(`/custom-fields`, {
+            method: "POST",
+            body: JSON.stringify(newCustomFields),
+          });
+
+          track("Edit Custom Experiment Field", {
+            type: value.type,
           });
         }
-        // Add/edit environment
-        await apiCall(`/organization`, {
-          method: "PUT",
-          body: JSON.stringify({
-            settings: {
-              customFields: newCustomFields,
-            },
-          }),
-        });
-
-        track("Create Custom Experiment Field", {
-          type: value.type,
-        });
 
         if (onSuccess) {
-          await onSuccess();
+          onSuccess();
         }
       })}
     >
@@ -199,7 +197,7 @@ export default function CustomFieldModal({
             form.setValue("required", value);
           }}
         />{" "}
-        <label htmlFor="required">Field is required for new experiments</label>
+        <label htmlFor="required">Field is required</label>
       </div>
       <Toggle
         id={"index"}

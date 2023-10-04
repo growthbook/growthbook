@@ -4,7 +4,7 @@ import MarkdownInlineEdit from "@/components/Markdown/MarkdownInlineEdit";
 import { useAuth } from "@/services/auth";
 import usePermissions from "@/hooks/usePermissions";
 import HeaderWithEdit from "@/components/Layout/HeaderWithEdit";
-import CustomFieldDisplay from "@/components/Experiment/CustomFieldDisplay";
+import CustomFieldDisplay from "@/components/CustomFields/CustomFieldDisplay";
 import VariationsTable from "../VariationsTable";
 
 export interface Props {
@@ -74,7 +74,7 @@ export default function SetupTabOverview({
             containerClassName="mb-1"
           />
           <CustomFieldDisplay
-            experiment={experiment}
+            target={experiment}
             canEdit={canEditExperiment}
             mutate={mutate}
             section="experiment"

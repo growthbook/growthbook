@@ -59,6 +59,7 @@ import { useEnvironments, useFeaturesList } from "@/services/features";
 import track from "@/services/track";
 import { formatTrafficSplit } from "@/services/utils";
 import Results_old from "@/components/Experiment/Results_old";
+import CustomFieldDisplay from "@/components/CustomFields/CustomFieldDisplay";
 import MoreMenu from "../Dropdown/MoreMenu";
 import WatchButton from "../WatchButton";
 import SortedTags from "../Tags/SortedTags";
@@ -98,7 +99,6 @@ import VisualChangesetModal from "./VisualChangesetModal";
 import AddLinkedChangesBanner from "./AddLinkedChangesBanner";
 import { StartExperimentBanner } from "./StartExperimentBanner";
 import { HashVersionTooltip } from "./HashVersionSelector";
-import CustomFieldDisplay from "./CustomFieldDisplay";
 
 function drawMetricRow(
   m: string,
@@ -951,7 +951,7 @@ export default function SinglePage({
                 containerClassName="mb-1"
               />
               <CustomFieldDisplay
-                experiment={experiment}
+                target={experiment}
                 canEdit={canEditExperiment}
                 mutate={mutate}
                 section={"experiment"}

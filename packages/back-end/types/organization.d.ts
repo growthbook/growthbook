@@ -142,35 +142,6 @@ export type Environment = {
   defaultState?: boolean;
 };
 
-export type CustomFieldTypes =
-  | "text"
-  | "textarea"
-  | "markdown"
-  | "enum"
-  | "multiselect"
-  | "url"
-  | "number"
-  | "boolean";
-
-export type CustomFieldSection = "experiment" | "feature";
-
-export type CustomField = {
-  id: string;
-  name: string;
-  description: string;
-  placeholder: string;
-  defaultValue?: boolean | string;
-  type: CustomFieldTypes;
-  values?: string;
-  required: boolean;
-  index?: boolean;
-  creator?: string;
-  projects?: string[];
-  section?: CustomFieldSection;
-  dateCreated: string | Date;
-  active: boolean;
-};
-
 export interface OrganizationSettings {
   visualEditorEnabled?: boolean;
   confidenceLevel?: number;
@@ -188,7 +159,6 @@ export interface OrganizationSettings {
   updateSchedule?: ExperimentUpdateSchedule;
   attributeSchema?: SDKAttributeSchema;
   environments?: Environment[];
-  customFields?: CustomField[];
   sdkInstructionsViewed?: boolean;
   videoInstructionsViewed?: boolean;
   multipleExposureMinPercent?: number;

@@ -1,8 +1,7 @@
 import { FC } from "react";
-import { CustomField, CustomFieldSection } from "back-end/types/organization";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { CustomField, CustomFieldSection } from "back-end/types/custom-fields";
 import { UseFormReturn } from "react-hook-form";
-import { filterCustomFieldsForSectionAndProject } from "@/services/experiments";
+import { filterCustomFieldsForSectionAndProject } from "@/hooks/useCustomFields";
 import Field from "../Forms/Field";
 import SelectField from "../Forms/SelectField";
 import MultiSelectField from "../Forms/MultiSelectField";
@@ -10,7 +9,8 @@ import Toggle from "../Forms/Toggle";
 
 const CustomFieldInput: FC<{
   customFields: CustomField[];
-  form: UseFormReturn<Partial<ExperimentInterfaceStringDates>>;
+  // eslint-disable-next-line
+  form: UseFormReturn<any>;
   section: CustomFieldSection;
   project?: string;
   className?: string;
@@ -20,6 +20,21 @@ const CustomFieldInput: FC<{
     section,
     project
   );
+
+  let currentCustomFields = {};
+  try {
+    const customFieldStrings = form.watch("customFields");
+    currentCustomFields = customFieldStrings
+      ? JSON.parse(customFieldStrings)
+      : {};
+  } catch (e) {
+    console.error(e);
+  }
+  const updateCustomField = (name, value) => {
+    currentCustomFields[name] = value;
+    form.setValue("customFields", JSON.stringify(currentCustomFields));
+  };
+
   return (
     <>
       <div className={className}>
@@ -36,12 +51,13 @@ const CustomFieldInput: FC<{
                     <div className="mb-3 mt-3">
                       <Toggle
                         id="bool"
-                        value={form.watch(`customFields.${v.id}`) === "true"}
+                        value={
+                          currentCustomFields?.[v.id]
+                            ? currentCustomFields[v.id] === "true"
+                            : false
+                        }
                         setValue={(t) => {
-                          form.setValue(
-                            `customFields.${v.id}`,
-                            JSON.stringify(t)
-                          );
+                          updateCustomField(v.id, "" + JSON.stringify(t));
                         }}
                       />
                       <label htmlFor="bool">{v.name}</label>
@@ -54,13 +70,19 @@ const CustomFieldInput: FC<{
                   ) : v.type === "enum" ? (
                     <SelectField
                       label={v.name}
-                      value={form.watch(`customFields.${v.id}`)}
-                      options={v.values
-                        .split(",")
-                        .map((k) => k.trim())
-                        .map((j) => ({ value: j, label: j }))}
+                      value={
+                        currentCustomFields?.[v.id] ?? v?.defaultValue ?? ""
+                      }
+                      options={
+                        v.values
+                          ? v.values
+                              .split(",")
+                              .map((k) => k.trim())
+                              .map((j) => ({ value: j, label: j }))
+                          : []
+                      }
                       onChange={(s) => {
-                        form.setValue(`customFields.${v.id}`, s);
+                        updateCustomField(v.id, s);
                       }}
                       helpText={v.description}
                     />
@@ -68,19 +90,20 @@ const CustomFieldInput: FC<{
                     <MultiSelectField
                       label={v.name}
                       value={
-                        form.watch(`customFields.${v.id}`)
-                          ? JSON.parse(form.watch(`customFields.${v.id}`))
+                        currentCustomFields?.[v.id]
+                          ? JSON.parse(currentCustomFields[v.id])
                           : []
                       }
-                      options={v.values
-                        .split(",")
-                        .map((k) => k.trim())
-                        .map((j) => ({ value: j, label: j }))}
+                      options={
+                        v.values
+                          ? v.values
+                              .split(",")
+                              .map((k) => k.trim())
+                              .map((j) => ({ value: j, label: j }))
+                          : []
+                      }
                       onChange={(values) => {
-                        form.setValue(
-                          `customFields.${v.id}`,
-                          JSON.stringify(values)
-                        );
+                        updateCustomField(v.id, JSON.stringify(values));
                       }}
                       helpText={v.description}
                     />
@@ -89,23 +112,23 @@ const CustomFieldInput: FC<{
                       textarea
                       minRows={2}
                       maxRows={6}
-                      value={form.watch(`customFields.${v.id}`)}
+                      value={currentCustomFields?.[v.id] ?? ""}
                       label={v.name}
                       type={v.type}
                       required={v.required}
                       onChange={(e) => {
-                        form.setValue(`customFields.${v.id}`, e.target.value);
+                        updateCustomField(v.id, e.target.value);
                       }}
                       helpText={v.description}
                     />
                   ) : (
                     <Field
-                      value={form.watch(`customFields.${v.id}`)}
+                      value={currentCustomFields?.[v.id] ?? ""}
                       label={v.name}
                       type={v.type}
                       required={v.required}
                       onChange={(e) => {
-                        form.setValue(`customFields.${v.id}`, e.target.value);
+                        updateCustomField(v.id, e.target.value);
                       }}
                       helpText={v.description}
                     />

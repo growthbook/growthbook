@@ -8,8 +8,6 @@ import {
   MetricRegressionAdjustmentStatus,
 } from "back-end/types/report";
 import {
-  CustomField,
-  CustomFieldSection,
   MetricDefaults,
   OrganizationSettings,
 } from "back-end/types/organization";
@@ -24,7 +22,6 @@ import {
   defaultWinRiskThreshold,
   formatConversionRate,
 } from "@/services/metrics";
-import useOrgSettings from "../hooks/useOrgSettings";
 
 export type ExperimentTableRow = {
   label: string;
@@ -420,40 +417,6 @@ export function pValueFormatter(pValue: number): string {
     return "";
   }
   return pValue < 0.001 ? "<0.001" : pValue.toFixed(3);
-}
-
-export function useCustomFields() {
-  const { customFields } = useOrgSettings();
-  return customFields;
-}
-
-export function filterCustomFieldsForSectionAndProject(
-  customFields: CustomField[] | undefined,
-  section: CustomFieldSection,
-  project: string | undefined
-) {
-  // for the moment, an experiment is in none/all projects, project scoped custom fields will not be available to it.
-  // if (!project) {
-  //   return customFields;
-  // }
-  const filteredCustomFields = customFields?.filter(
-    (v) => v.section === section
-  );
-  if (!filteredCustomFields || filteredCustomFields.length === 0 || !project) {
-    return filteredCustomFields;
-  }
-  return filteredCustomFields.filter((v) => {
-    if (v.projects && v.projects.length && v.projects[0] !== "") {
-      let matched = false;
-      v.projects.forEach((p) => {
-        if (p === project) {
-          matched = true;
-        }
-      });
-      return matched;
-    }
-    return true;
-  });
 }
 
 export type IndexedPValue = {

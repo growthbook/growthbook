@@ -1,5 +1,5 @@
 import React, { FC, useEffect, useMemo, useState } from "react";
-import { CustomField, CustomFieldSection } from "back-end/types/organization";
+import { CustomField, CustomFieldSection } from "back-end/types/custom-fields";
 import {
   closestCenter,
   DndContext,
@@ -16,9 +16,7 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import usePermissions from "@/hooks/usePermissions";
-import { useCustomFields } from "@/services/experiments";
 import { useAuth } from "@/services/auth";
-import { useUser } from "@/services/UserContext";
 import track from "@/services/track";
 import { GBEdit } from "@/components/Icons";
 import {
@@ -26,6 +24,7 @@ import {
   StaticCustomFieldRow,
 } from "@/components/Experiment/SortableCustomField";
 import CustomFieldModal from "@/components/Settings/CustomFieldModal";
+import { useDefinitions } from "@/services/DefinitionsContext";
 
 const CustomFields: FC<{
   section: CustomFieldSection;
@@ -33,14 +32,13 @@ const CustomFields: FC<{
 }> = ({ section, title }) => {
   const [modalOpen, setModalOpen] = useState<Partial<CustomField> | null>(null);
   const permissions = usePermissions();
-  const customFields = useCustomFields();
+  const { customFields, mutateDefinitions } = useDefinitions();
   const { apiCall } = useAuth();
-  const { refreshOrganization, updateUser } = useUser();
   const [activeId, setActiveId] = useState();
   const [items, setItems] = useState(
     customFields?.filter((x) => x.section === section)
   );
-  console.log(section, customFields, items);
+
   useEffect(() => {
     setItems(customFields?.filter((x) => x.section === section));
   }, [customFields, section]);
@@ -53,21 +51,13 @@ const CustomFields: FC<{
   }, [activeId, items]);
 
   const deleteCustomField = async (customField: CustomField) => {
-    const newCustomFields = items
-      ? [...items].filter((x) => x.id !== customField.id)
-      : [];
-    await apiCall(`/organization`, {
-      method: "PUT",
-      body: JSON.stringify({
-        settings: {
-          customFields: newCustomFields,
-        },
-      }),
+    await apiCall(`/custom-fields/${customField.id}`, {
+      method: "DELETE",
     }).then(() => {
       track("Delete Custom Experiment Field", {
         type: customField.type,
       });
-      refreshOrganization();
+      mutateDefinitions();
     });
   };
 
@@ -90,15 +80,14 @@ const CustomFields: FC<{
         const newIndex = items?.findIndex((x) => x.id === over.id);
         const newItems = arrayMove(items, oldIndex, newIndex);
         setItems(newItems);
-        await apiCall(`/organization`, {
-          method: "PUT",
+        await apiCall(`/custom-fields/reorder`, {
+          method: "POST",
           body: JSON.stringify({
-            settings: {
-              customFields: newItems,
-            },
+            oldId: active.id,
+            newId: over.id,
           }),
         }).then(() => {
-          updateUser();
+          mutateDefinitions();
         });
       }
 
@@ -210,7 +199,7 @@ const CustomFields: FC<{
           existing={modalOpen}
           section={section}
           close={() => setModalOpen(null)}
-          onSuccess={refreshOrganization}
+          onSuccess={mutateDefinitions}
         />
       )}
     </>

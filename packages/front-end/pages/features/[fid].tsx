@@ -52,6 +52,7 @@ import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { useUser } from "@/services/UserContext";
 import { DeleteDemoDatasourceButton } from "@/components/DemoDataSourcePage/DemoDataSourcePage";
 import PageHead from "@/components/Layout/PageHead";
+import CustomFieldDisplay from "@/components/CustomFields/CustomFieldDisplay";
 
 export default function FeaturePage() {
   const router = useRouter();
@@ -511,6 +512,14 @@ export default function FeaturePage() {
             }}
           />
         </div>
+      </div>
+      <div>
+        <CustomFieldDisplay
+          target={data.feature}
+          canEdit={permissions.check("manageFeatures", projectId)}
+          mutate={mutate}
+          section={"feature"}
+        />
       </div>
 
       <h3>Enabled Environments</h3>

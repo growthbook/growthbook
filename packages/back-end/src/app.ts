@@ -86,6 +86,7 @@ import { eventsRouter } from "./routers/events/events.router";
 import { eventWebHooksRouter } from "./routers/event-webhooks/event-webhooks.router";
 import { tagRouter } from "./routers/tag/tag.router";
 import { savedGroupRouter } from "./routers/saved-group/saved-group.router";
+import { customFieldsRouter } from "./routers/custom-fields/custom-fields.router";
 import { segmentRouter } from "./routers/segment/segment.router";
 import { dimensionRouter } from "./routers/dimension/dimension.router";
 import { sdkConnectionRouter } from "./routers/sdk-connection/sdk-connection.router";
@@ -322,6 +323,8 @@ if (IS_CLOUD) {
 app.use("/tag", tagRouter);
 
 app.use("/saved-groups", savedGroupRouter);
+
+app.use("/custom-fields", customFieldsRouter);
 
 // Ideas
 app.get("/ideas", ideasController.getIdeas);

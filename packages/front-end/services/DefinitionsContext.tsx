@@ -6,6 +6,7 @@ import { ProjectInterface } from "back-end/types/project";
 import { useContext, useMemo, createContext, FC, ReactNode } from "react";
 import { TagInterface } from "back-end/types/tag";
 import { SavedGroupInterface } from "back-end/types/saved-group";
+import { CustomField } from "back-end/types/custom-fields";
 import useApi from "@/hooks/useApi";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 
@@ -16,6 +17,7 @@ type Definitions = {
   segments: SegmentInterface[];
   projects: ProjectInterface[];
   savedGroups: SavedGroupInterface[];
+  customFields: CustomField[];
   tags: TagInterface[];
 };
 
@@ -53,6 +55,7 @@ const defaultValue: DefinitionContextValue = {
   segments: [],
   tags: [],
   savedGroups: [],
+  customFields: [],
   projects: [],
   getMetricById: () => null,
   getDatasourceById: () => null,
@@ -135,6 +138,7 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
       segments: data.segments,
       tags: data.tags,
       savedGroups: data.savedGroups,
+      customFields: data.customFields,
       projects: data.projects,
       project: filteredProject,
       setProject,

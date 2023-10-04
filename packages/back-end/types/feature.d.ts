@@ -52,6 +52,7 @@ export interface FeatureInterface {
     date: Date;
     enabled: boolean;
   };
+  customFields?: string;
 }
 type ScheduleRule = {
   timestamp: string | null;

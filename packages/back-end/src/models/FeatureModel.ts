@@ -95,6 +95,7 @@ const featureSchema = new mongoose.Schema({
   revision: {},
   linkedExperiments: [String],
   jsonSchema: {},
+  customFields: String,
 });
 
 featureSchema.index({ id: 1, organization: 1 }, { unique: true });

@@ -44,6 +44,9 @@ export type EventType =
   | "savedGroup.created"
   | "savedGroup.deleted"
   | "savedGroup.updated"
+  | "customField.created"
+  | "customField.deleted"
+  | "customField.updated"
   | "team.create"
   | "team.delete"
   | "team.update";

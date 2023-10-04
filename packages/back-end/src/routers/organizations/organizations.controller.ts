@@ -104,6 +104,7 @@ import {
   findAuditByEntityParent,
 } from "../../models/AuditModel";
 import { EntityType } from "../../types/Audit";
+import { getCustomFields } from "../../models/CustomFieldModel";
 
 export async function getDefinitions(req: AuthRequest, res: Response) {
   const { org } = getOrgFromReq(req);
@@ -119,6 +120,7 @@ export async function getDefinitions(req: AuthRequest, res: Response) {
     segments,
     tags,
     savedGroups,
+    customFields,
     projects,
   ] = await Promise.all([
     getMetricsByOrganization(orgId),
@@ -127,6 +129,7 @@ export async function getDefinitions(req: AuthRequest, res: Response) {
     findSegmentsByOrganization(orgId),
     getAllTags(orgId),
     getAllSavedGroups(orgId),
+    getCustomFields(orgId),
     findAllProjectsByOrganization(orgId),
   ]);
 
@@ -153,6 +156,7 @@ export async function getDefinitions(req: AuthRequest, res: Response) {
     segments,
     tags,
     savedGroups,
+    customFields: customFields?.fields ?? [],
     projects,
   });
 }

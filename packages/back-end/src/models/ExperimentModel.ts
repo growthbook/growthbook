@@ -160,7 +160,7 @@ const experimentSchema = new mongoose.Schema({
   sequentialTestingEnabled: Boolean,
   sequentialTestingTuningParameter: Number,
   statsEngine: String,
-  customFields: {},
+  customFields: String,
 });
 
 type ExperimentDocument = mongoose.Document & ExperimentInterface;
