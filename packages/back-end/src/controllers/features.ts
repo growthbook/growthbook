@@ -4,6 +4,7 @@ import {
   FeatureDraftChanges,
   FeatureInterface,
   FeatureRule,
+  FeatureTestResult,
 } from "../../types/feature";
 import { AuthRequest } from "../types/AuthRequest";
 import { getOrgFromReq } from "../services/organizations";
@@ -35,6 +36,7 @@ import { lookupOrganizationByApiKey } from "../models/ApiKeyModel";
 import {
   addIdsToRules,
   arrayMove,
+  evaluateFeature,
   getFeatureDefinitions,
   verifyDraftsAreEqual,
 } from "../services/features";
@@ -1029,6 +1031,33 @@ export async function deleteFeatureById(
 
   res.status(200).json({
     status: 200,
+  });
+}
+
+export async function postFeatureEvaluate(
+  req: AuthRequest<
+    { attributes: Record<string, boolean | string | number | object> },
+    { id: string }
+  >,
+  res: Response<
+    { status: 200; results: FeatureTestResult[] },
+    EventAuditUserForResponseLocals
+  >
+) {
+  const { id } = req.params;
+  const { org } = getOrgFromReq(req);
+  const feature = await getFeature(org.id, id);
+  const { attributes } = req.body;
+
+  if (!feature) {
+    throw new Error("Could not find feature");
+  }
+
+  const results = await evaluateFeature(feature, attributes, org);
+
+  res.status(200).json({
+    status: 200,
+    results: results,
   });
 }
 

@@ -186,12 +186,14 @@ export function getFeatureDefinition({
   groupMap,
   experimentMap,
   useDraft = false,
+  returnRuleId = false,
 }: {
   feature: FeatureInterface;
   environment: string;
   groupMap: GroupMap;
   experimentMap: Map<string, ExperimentInterface>;
   useDraft?: boolean;
+  returnRuleId?: boolean;
 }): FeatureDefinition | null {
   const settings = feature.environmentSettings?.[environment];
 
@@ -304,7 +306,7 @@ export function getFeatureDefinition({
               rule.phase = exp.phases.length - 1 + "";
               rule.name = exp.name;
             }
-
+            if (returnRuleId) rule.id = r.id;
             return rule;
           }
 
@@ -361,6 +363,7 @@ export function getFeatureDefinition({
               rule.hashAttribute = r.hashAttribute;
             }
           }
+          if (returnRuleId) rule.id = r.id;
           return rule;
         })
         ?.filter(isRule) ?? [],
