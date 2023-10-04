@@ -2,6 +2,7 @@ import React, { FC, useState } from "react";
 import { FaCheck, FaTimes } from "react-icons/fa";
 import { ExpandedMember } from "back-end/types/organization";
 import { datetime } from "shared/dates";
+import { RxIdCard } from "react-icons/rx";
 import { roleHasAccessToEnv, useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
 import ProjectBadges from "@/components/ProjectBadges";
@@ -14,6 +15,7 @@ import AdminSetPasswordModal from "@/components/Settings/Team/AdminSetPasswordMo
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import ChangeRoleModal from "@/components/Settings/Team/ChangeRoleModal";
+import Tooltip from "@/components/Tooltip/Tooltip";
 
 const MemberList: FC<{
   mutate: () => void;
@@ -105,7 +107,19 @@ const MemberList: FC<{
               return (
                 <tr key={id}>
                   <td>{member.name}</td>
-                  <td>{member.email}</td>
+                  <td>
+                    <div className="d-flex align-items-center">
+                      {member.externalId ? (
+                        <Tooltip
+                          className="mr-2"
+                          body="User is managed by an external identity provider."
+                        >
+                          <RxIdCard className="text-blue" />
+                        </Tooltip>
+                      ) : null}
+                      {member.email}
+                    </div>
+                  </td>
                   <td>{member.dateCreated && datetime(member.dateCreated)}</td>
                   <td>{roleInfo.role}</td>
                   {!project && (
@@ -166,11 +180,16 @@ const MemberList: FC<{
                               Reset Password
                             </button>
                           )}
-                          {canDeleteMembers && !member.externalId && (
+                          {canDeleteMembers && (
                             <DeleteButton
                               link={true}
                               text="Remove User"
                               useIcon={false}
+                              canDelete={!member.externalId ? true : false}
+                              deleteMessage={
+                                member.externalId &&
+                                "This user is managed by an external identity provider. To remove this user, please remove them from your identity provider."
+                              }
                               className="dropdown-item"
                               displayName={member.email}
                               onClick={async () => {
