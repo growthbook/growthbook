@@ -398,7 +398,9 @@ const ArchetypeResults: FC<{
                             <>
                               <div>
                                 <ValueDisplay
-                                  value={result.result?.value ?? null}
+                                  value={JSON.stringify(
+                                    result.result?.value ?? null
+                                  )}
                                   type={feature.valueType}
                                   full={true}
                                 />
