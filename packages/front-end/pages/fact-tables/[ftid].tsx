@@ -188,18 +188,6 @@ export default function FactTablePage() {
             </a>
           </Link>
         </div>
-        <div className="col-auto">
-          Identifier Types:{" "}
-          {factTable.userIdTypes.length > 0 ? (
-            factTable.userIdTypes.map((t) => (
-              <span className="badge badge-secondary mr-1" key={t}>
-                {t}
-              </span>
-            ))
-          ) : (
-            <em>None</em>
-          )}
-        </div>
       </div>
 
       <div className="appbox p-3 bg-white mb-3">
@@ -220,18 +208,20 @@ export default function FactTablePage() {
       </div>
 
       <div className="mb-4">
-        <a
-          href="#"
-          onClick={(e) => {
-            e.preventDefault();
-            setShowSQL(!showSQL);
-          }}
-          className="text-dark"
-        >
-          {showSQL ? "Hide" : "Show"} Fact Table SQL{" "}
-          {showSQL ? <FaAngleDown /> : <FaAngleRight />}
-        </a>
-        {showSQL && (
+        {factTable.columns?.length > 0 && (
+          <a
+            href="#"
+            onClick={(e) => {
+              e.preventDefault();
+              setShowSQL(!showSQL);
+            }}
+            className="text-dark"
+          >
+            {showSQL ? "Hide" : "Show"} Fact Table SQL{" "}
+            {showSQL ? <FaAngleDown /> : <FaAngleRight />}
+          </a>
+        )}
+        {(showSQL || !factTable.columns.length) && (
           <div className="appbox p-3">
             <Code
               code={factTable.sql}

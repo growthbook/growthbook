@@ -70,6 +70,11 @@ function ColumnRefSelector({
   const [showFilters, setShowFilters] = useState(value.filters.length > 0);
 
   const columnOptions = (factTable?.columns || [])
+    .filter(
+      (col) =>
+        col.column !== "timestamp" &&
+        !factTable?.userIdTypes?.includes(col.column)
+    )
     .filter((col) => col.datatype === "number")
     .map((col) => ({
       label: `SUM(\`${col.name}\`)`,

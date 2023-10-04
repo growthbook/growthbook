@@ -97,6 +97,7 @@ async function updateColumns(
         description: "",
         name: column,
         numberFormat: "",
+        autoDetected: true,
       });
     }
   });

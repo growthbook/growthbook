@@ -72,6 +72,12 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
         mutateDefinitions();
       })}
     >
+      {!existing && (
+        <div className="alert alert-warning">
+          This should only be used if we did not auto-detect your Fact Table
+          columns. Please double check your SQL first before using this form.
+        </div>
+      )}
       <Field
         label="Column"
         {...form.register("column")}

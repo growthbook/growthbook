@@ -140,6 +140,7 @@ export async function createColumn(
     numberFormat: data.numberFormat,
     datatype: data.datatype,
     description: data.description,
+    autoDetected: !!data.autoDetected,
   };
 
   if (factTable.columns.some((c) => c.column === column.column)) {

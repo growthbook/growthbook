@@ -17,6 +17,7 @@ export const createColumnPropsValidator = z
     description: z.string(),
     numberFormat: numberFormatValidator,
     datatype: factTableColumnTypeValidator,
+    autoDetected: z.boolean().optional(),
   })
   .strict();
 
