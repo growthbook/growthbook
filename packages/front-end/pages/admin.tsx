@@ -108,7 +108,7 @@ const Admin: FC = () => {
 
   const { orgId, setOrgId, setSpecialOrg, apiCall } = useAuth();
 
-  const { admin } = useUser();
+  const { superAdmin } = useUser();
 
   const [orgs, setOrgs] = useState<OrganizationInterface[]>([]);
   const [total, setTotal] = useState(0);
@@ -140,15 +140,15 @@ const Admin: FC = () => {
   );
 
   useEffect(() => {
-    if (!admin) return;
+    if (!superAdmin) return;
 
     loadOrgs(page, search);
     // eslint-disable-next-line
-  }, [admin]);
+  }, [superAdmin]);
 
   const [orgModalOpen, setOrgModalOpen] = useState(false);
 
-  if (!admin) {
+  if (!superAdmin) {
     return (
       <div className="alert alert-danger">
         Only super admins can view this page

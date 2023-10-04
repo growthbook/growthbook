@@ -270,6 +270,16 @@ export default function RuleModal({
               );
             }
 
+            // If we're scheduling this rule, always auto start the experiment so it's not stuck in a 'draft' state
+            if (!values.autoStart && values.scheduleRules?.length) {
+              values.autoStart = true;
+            }
+            // If we're starting the experiment immediately, remove any scheduling rules
+            // When we hide the schedule UI the form values don't update, so this resets it if you get into a weird state
+            else if (values.autoStart && values.scheduleRules?.length) {
+              values.scheduleRules = [];
+            }
+
             // All looks good, create experiment
             const exp: Partial<ExperimentInterfaceStringDates> = {
               archived: false,
@@ -352,6 +362,7 @@ export default function RuleModal({
                 value: v.value,
                 variationId: res.experiment.variations[i]?.id || "",
               })),
+              scheduleRules: values.scheduleRules || [],
             };
             mutateExperiments();
           } else if (values.type === "experiment-ref") {
@@ -689,16 +700,8 @@ export default function RuleModal({
           )}
         </div>
       )}
-      {type !== "experiment-ref-new" && type !== "experiment-ref" ? (
-        <ScheduleInputs
-          defaultValue={defaultValues.scheduleRules || []}
-          onChange={(value) => form.setValue("scheduleRules", value)}
-          scheduleToggleEnabled={scheduleToggleEnabled}
-          setScheduleToggleEnabled={setScheduleToggleEnabled}
-          setShowUpgradeModal={setShowUpgradeModal}
-        />
-      ) : type === "experiment-ref-new" ? (
-        <div className="mt-3">
+      {type === "experiment-ref-new" ? (
+        <div className="mb-3">
           <Toggle
             value={form.watch("autoStart")}
             setValue={(v) => form.setValue("autoStart", v)}
@@ -714,7 +717,27 @@ export default function RuleModal({
               changes before starting.
             </small>
           </div>
+          {!form.watch("autoStart") && (
+            <div>
+              <hr />
+              <ScheduleInputs
+                defaultValue={defaultValues.scheduleRules || []}
+                onChange={(value) => form.setValue("scheduleRules", value)}
+                scheduleToggleEnabled={scheduleToggleEnabled}
+                setScheduleToggleEnabled={setScheduleToggleEnabled}
+                setShowUpgradeModal={setShowUpgradeModal}
+              />
+            </div>
+          )}
         </div>
+      ) : type !== "experiment-ref" || rule?.scheduleRules?.length ? (
+        <ScheduleInputs
+          defaultValue={defaultValues.scheduleRules || []}
+          onChange={(value) => form.setValue("scheduleRules", value)}
+          scheduleToggleEnabled={scheduleToggleEnabled}
+          setScheduleToggleEnabled={setScheduleToggleEnabled}
+          setShowUpgradeModal={setShowUpgradeModal}
+        />
       ) : null}
     </Modal>
   );

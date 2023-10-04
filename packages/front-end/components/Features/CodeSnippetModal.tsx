@@ -447,7 +447,7 @@ export default function CodeSnippetModal({
 // hashing a secureString attribute
 myAttribute = sha256(salt + myAttribute);
 
-// hashing an secureString[] attribute
+// hashing a secureString[] attribute
 myAttributes = myAttributes.map(attribute => sha256(salt + attribute));`}
                           />
                         </div>

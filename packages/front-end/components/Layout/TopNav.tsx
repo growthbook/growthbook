@@ -1,6 +1,6 @@
-import { FC, useState } from "react";
+import { FC, Fragment, useState } from "react";
 import { useForm } from "react-hook-form";
-import { FaBars, FaBell, FaBuilding } from "react-icons/fa";
+import { FaAngleRight, FaBars, FaBell, FaBuilding } from "react-icons/fa";
 import Link from "next/link";
 import clsx from "clsx";
 import Head from "next/head";
@@ -14,14 +14,16 @@ import Modal from "../Modal";
 import Avatar from "../Avatar/Avatar";
 import ChangePasswordModal from "../Auth/ChangePasswordModal";
 import Field from "../Forms/Field";
+import OverflowText from "../Experiment/TabbedPage/OverflowText";
 import styles from "./TopNav.module.scss";
 import { ThemeToggler } from "./ThemeToggler/ThemeToggler";
 import AccountPlanBadge from "./AccountPlanBadge";
 import AccountPlanNotices from "./AccountPlanNotices";
+import { usePageHead } from "./PageHead";
 
 const TopNav: FC<{
   toggleLeftMenu?: () => void;
-  pageTitle?: string;
+  pageTitle: string;
   showNotices?: boolean;
 }> = ({ toggleLeftMenu, pageTitle, showNotices }) => {
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
@@ -31,6 +33,8 @@ const TopNav: FC<{
   const [changePasswordOpen, setChangePasswordOpen] = useState(false);
   useGlobalMenu(".top-nav-user-menu", () => setUserDropdownOpen(false));
   useGlobalMenu(".top-nav-org-menu", () => setOrgDropdownOpen(false));
+
+  const { breadcrumb } = usePageHead();
 
   const { updateUser, name, email } = useUser();
 
@@ -64,7 +68,7 @@ const TopNav: FC<{
   return (
     <>
       <Head>
-        <title>GrowthBook - {pageTitle}</title>
+        <title>GrowthBook &gt; {pageTitle}</title>
       </Head>
       {editUserOpen && (
         <Modal
@@ -85,7 +89,7 @@ const TopNav: FC<{
           left: toggleLeftMenu ? undefined : 0,
         }}
       >
-        <div className={styles.leftSection}>
+        <div className={styles.navbar}>
           {toggleLeftMenu ? (
             <a
               href="#main-menu"
@@ -109,11 +113,27 @@ const TopNav: FC<{
               />
             </div>
           )}
+          <div className={styles.pagetitle}>
+            {breadcrumb.length > 0 ? (
+              breadcrumb.map((b, i) => (
+                <span
+                  key={i}
+                  className={
+                    i < breadcrumb.length - 1 ? "d-none d-lg-inline" : ""
+                  }
+                  title={b.display}
+                >
+                  {i > 0 && (
+                    <FaAngleRight className="mx-2 d-none d-lg-inline" />
+                  )}
+                  {b.href ? <Link href={b.href}>{b.display}</Link> : b.display}
+                </span>
+              ))
+            ) : (
+              <>{pageTitle}</>
+            )}
+          </div>
 
-          <div className={styles.pagetitle}>{pageTitle}</div>
-        </div>
-
-        <div className={styles.rightSection}>
           <ThemeToggler />
 
           {showNotices && (
@@ -149,7 +169,9 @@ const TopNav: FC<{
                 style={{ cursor: "pointer" }}
               >
                 <FaBuilding className="text-muted mr-1" />
-                <span className="d-none d-lg-inline">{orgName}</span>
+                <span className="d-none d-lg-inline">
+                  <OverflowText maxWidth={200}>{orgName}</OverflowText>
+                </span>
               </div>
               <div
                 className={clsx("dropdown-menu dropdown-menu-right", {
@@ -197,7 +219,9 @@ const TopNav: FC<{
               style={{ cursor: "pointer" }}
             >
               <Avatar email={email || ""} size={26} />{" "}
-              <span className="d-none d-lg-inline">{email}</span>
+              <span className="d-none d-lg-inline">
+                <OverflowText maxWidth={200}>{email}</OverflowText>
+              </span>
             </div>
             <div
               className={clsx("dropdown-menu dropdown-menu-right", {
