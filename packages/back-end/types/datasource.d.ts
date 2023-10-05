@@ -157,6 +157,7 @@ export type DataSourceEvents = {
 
 export type DataSourcePipelineSettings = {
   allowWriting?: boolean;
+  writeDatabase?: string;
   writeDataset?: string;
   unitsTableRetentionHours?: number;
 };

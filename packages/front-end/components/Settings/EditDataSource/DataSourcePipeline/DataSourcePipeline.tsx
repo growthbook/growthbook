@@ -8,11 +8,16 @@ import { EditDataSourcePipeline } from "./EditDataSourcePipeline";
 
 type DataSourcePipelineProps = DataSourceQueryEditingModalBaseProps;
 
-export function dataSourceSchemaName(dataSourceType: DataSourceType) {
+export function dataSourcePathNames(
+  dataSourceType: DataSourceType
+): { databaseName: string; schemaName: string } {
+  let databaseName = "database";
+  let schemaName = "schema";
   if (dataSourceType === "bigquery") {
-    return "dataset";
+    databaseName = "project";
+    schemaName = "dataset";
   }
-  return "schema";
+  return { databaseName, schemaName };
 }
 
 export default function DataSourcePipeline({
@@ -35,6 +40,7 @@ export default function DataSourcePipeline({
       permissions,
       "editDatasourceSettings"
     );
+  const pathNames = dataSourcePathNames(dataSource.type);
 
   return (
     <div>
@@ -69,9 +75,13 @@ export default function DataSourcePipeline({
         {pipelineSettings?.allowWriting && (
           <>
             <div className={`mb-2 ma-5`}>
-              {`Destination ${dataSourceSchemaName(dataSource.type)}: `}
+              {`Destination ${pathNames.schemaName}: `}
               {pipelineSettings?.writeDataset ? (
-                <code>{pipelineSettings.writeDataset}</code>
+                <code>{`${
+                  pipelineSettings?.writeDatabase
+                    ? pipelineSettings?.writeDatabase + "."
+                    : ""
+                }${pipelineSettings.writeDataset}`}</code>
               ) : (
                 <em className="text-muted">not specified</em>
               )}

@@ -5,8 +5,9 @@ import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
 import Modal from "@/components/Modal";
 import Toggle from "@/components/Forms/Toggle";
 import Field from "@/components/Forms/Field";
+import Tooltip from "@/components/Tooltip/Tooltip";
 import { DataSourceQueryEditingModalBaseProps } from "../types";
-import { dataSourceSchemaName } from "./DataSourcePipeline";
+import { dataSourcePathNames } from "./DataSourcePipeline";
 
 type EditDataSourcePipelineProps = DataSourceQueryEditingModalBaseProps;
 
@@ -18,10 +19,12 @@ export const EditDataSourcePipeline: FC<EditDataSourcePipelineProps> = ({
   if (!dataSource) {
     throw new Error("ImplementationError: dataSource cannot be null");
   }
+  const pathNames = dataSourcePathNames(dataSource.type);
 
   const form = useForm({
     defaultValues: {
       allowWriting: dataSource.settings.pipelineSettings?.allowWriting ?? false,
+      writeDatabase: dataSource.settings.pipelineSettings?.writeDatabase ?? "",
       writeDataset: dataSource.settings.pipelineSettings?.writeDataset ?? "",
       unitsTableRetentionHours:
         dataSource.settings.pipelineSettings?.unitsTableRetentionHours ?? 24,
@@ -56,17 +59,28 @@ export const EditDataSourcePipeline: FC<EditDataSourcePipelineProps> = ({
       </div>
       {form.watch("allowWriting") ? (
         <div className="form-inline flex-column align-items-start mb-4 mt-4">
+          <label>
+            {`Destination ${pathNames.databaseName} (optional)`}{" "}
+            <Tooltip
+              body={`If left blank will try to write to default ${pathNames.databaseName}`}
+            />
+          </label>
           <Field
-            label={`Destination ${dataSourceSchemaName(
-              dataSource.type
-            )} with write permissions`}
             className="ml-2"
             containerClassName="mb-2"
             type="text"
+            {...form.register("writeDatabase")}
+          />
+          <label>{`Destination ${pathNames.schemaName}`} </label>
+          <Field
+            className="ml-2"
+            containerClassName="mb-2"
+            type="text"
+            required
             {...form.register("writeDataset")}
           />
           <Field
-            label="Retention of units table (hours)"
+            label="Retention of temporary units table (hours)"
             helpText={
               dataSource.type === "snowflake"
                 ? "Rounded up to nearest day for Snowflake"

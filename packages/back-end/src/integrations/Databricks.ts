@@ -1,3 +1,4 @@
+import { databricksCreateTableOptions } from "enterprise";
 import { DatabricksConnectionParams } from "../../types/integrations/databricks";
 import { runDatabricksQuery } from "../services/databricks";
 import { decryptDataSourceParams } from "../services/datasource";
@@ -13,6 +14,12 @@ export default class Databricks extends SqlIntegration {
     this.params = decryptDataSourceParams<DatabricksConnectionParams>(
       encryptedParams
     );
+  }
+  isWritingTablesSupported(): boolean {
+    return true;
+  }
+  createUnitsTableOptions() {
+    return databricksCreateTableOptions(this.settings.pipelineSettings ?? {});
   }
   getFormatDialect(): FormatDialect {
     // sql-formatter doesn't support databricks explicitly yet, so using their generic formatter instead

@@ -111,7 +111,7 @@ export const startExperimentResultQueries = async (
     unitsTableFullName = integration.generateTablePath(
       `growthbook_tmp_units_${queryParentId}`,
       integration.settings.pipelineSettings?.writeDataset,
-      "",
+      integration.settings.pipelineSettings?.writeDatabase ?? "",
       true
     );
     const unitQueryParams: ExperimentUnitsQueryParams = {

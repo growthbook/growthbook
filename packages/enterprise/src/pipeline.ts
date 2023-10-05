@@ -16,6 +16,17 @@ export function bigQueryCreateTableOptions(
       )`;
 }
 
+export function databricksCreateTableOptions(
+  settings: DataSourcePipelineSettings
+) {
+  return `OPTIONS(
+        delta.deletedFileRetentionDuration='INTERVAL ${
+          settings.unitsTableRetentionHours ??
+          UNITS_TABLE_RETENTION_HOURS_DEFAULT
+        } HOURS'
+          )`;
+}
+
 export function snowflakeCreateTableOptions(
   settings: DataSourcePipelineSettings
 ) {
