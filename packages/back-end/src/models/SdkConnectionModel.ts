@@ -229,6 +229,10 @@ export async function editSDKConnection(
     "encryptPayload",
     "hashSecureAttributes",
     "remoteEvalEnabled",
+    "includeVisualExperiments",
+    "includeDraftExperiments",
+    "includeExperimentNames",
+    "remoteEvalEnabled",
   ] as const;
   keysRequiringProxyUpdate.forEach((key) => {
     if (key in otherChanges && otherChanges[key] !== connection[key]) {
