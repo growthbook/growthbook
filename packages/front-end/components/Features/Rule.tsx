@@ -197,6 +197,8 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                     await apiCall(`/feature/${feature.id}/rule`, {
                       method: "PUT",
                       body: JSON.stringify({
+                        // todo: make sure the UI is updated when this is toggled
+                        draftId: revision?.id,
                         environment,
                         rule: {
                           ...rule,
