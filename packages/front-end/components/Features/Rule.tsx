@@ -223,6 +223,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                         await apiCall(`/feature/${feature.id}/rule`, {
                           method: "POST",
                           body: JSON.stringify({
+                            draftId: revision?.id,
                             environment: en.id,
                             rule: { ...rule, id: "" },
                           }),
