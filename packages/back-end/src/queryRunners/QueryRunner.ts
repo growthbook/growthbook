@@ -144,7 +144,7 @@ export abstract class QueryRunner<
     this.model.queries = queries;
 
     // If already finished (queries were cached)
-    let error: string | undefined = "";
+    let error = "";
     let result: Result | undefined = undefined;
 
     const queryStatus = this.getOverallQueryStatus();
