@@ -6,11 +6,12 @@ import {
 import { useForm } from "react-hook-form";
 import { useRouter } from "next/router";
 import { isProjectListValidForProject } from "shared/util";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { FaExternalLinkAlt } from "react-icons/fa";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useAuth } from "@/services/auth";
 import useOrgSettings from "@/hooks/useOrgSettings";
+import { getInitialMetricQuery, validateSQL } from "@/services/datasources";
 import Modal from "../Modal";
 import Field from "../Forms/Field";
 import SelectField from "../Forms/SelectField";
@@ -18,6 +19,7 @@ import { getNewExperimentDatasourceDefaults } from "../Experiment/NewExperimentF
 import MultiSelectField from "../Forms/MultiSelectField";
 import EditSqlModal from "../SchemaBrowser/EditSqlModal";
 import Code from "../SyntaxHighlighting/Code";
+import { usesEventName } from "../Metrics/MetricForm";
 
 export interface Props {
   existing?: FactTableInterface;
@@ -36,6 +38,11 @@ export default function FactTableModal({ existing, close }: Props) {
 
   const [sqlOpen, setSqlOpen] = useState(false);
 
+  const [
+    showAdditionalColumnMessage,
+    setShowAdditionalColumnMessage,
+  ] = useState(false);
+
   const { apiCall } = useAuth();
 
   const validDatasources = datasources
@@ -53,10 +60,24 @@ export default function FactTableModal({ existing, close }: Props) {
       sql: existing?.sql || "",
       userIdTypes: existing?.userIdTypes || [],
       tags: existing?.tags || [],
+      eventName: existing?.eventName || "",
     },
   });
 
   const selectedDataSource = getDatasourceById(form.watch("datasource"));
+
+  useEffect(() => {
+    if (!selectedDataSource || existing) return;
+
+    const [userIdTypes, sql] = getInitialMetricQuery(
+      selectedDataSource,
+      "binomial"
+    );
+
+    form.setValue("userIdTypes", userIdTypes);
+    form.setValue("sql", sql);
+    setShowAdditionalColumnMessage(true);
+  }, [selectedDataSource, form, existing]);
 
   return (
     <>
@@ -71,6 +92,12 @@ export default function FactTableModal({ existing, close }: Props) {
           value={form.watch("sql")}
           save={async (sql) => {
             form.setValue("sql", sql);
+          }}
+          templateVariables={{
+            eventName: form.watch("eventName") || "",
+          }}
+          setTemplateVariables={({ eventName }) => {
+            form.setValue("eventName", eventName || "");
           }}
         />
       )}
@@ -88,12 +115,18 @@ export default function FactTableModal({ existing, close }: Props) {
             throw new Error("Must add a SQL query");
           }
 
+          validateSQL(value.sql, ["timestamp", ...value.userIdTypes]);
+
+          // Default eventName to the metric name
+          value.eventName = value.eventName || value.name;
+
           if (existing) {
             const data: UpdateFactTableProps = {
               description: value.description,
               name: value.name,
               sql: value.sql,
               userIdTypes: value.userIdTypes,
+              eventName: value.eventName,
             };
             await apiCall(`/fact-tables/${existing.id}`, {
               method: "PUT",
@@ -105,6 +138,7 @@ export default function FactTableModal({ existing, close }: Props) {
             if (!ds) throw new Error("Must select a valid data source");
 
             value.projects = ds.projects || [];
+            value.columns = [];
 
             const { factTable, error } = await apiCall<{
               factTable: FactTableInterface;
@@ -163,9 +197,24 @@ export default function FactTableModal({ existing, close }: Props) {
           />
         )}
 
+        {selectedDataSource && usesEventName(form.watch("sql")) && (
+          <Field
+            label="Event Name in Database"
+            helpText="Available as a template variable in your SQL"
+            placeholder={form.watch("name")}
+            {...form.register("eventName")}
+          />
+        )}
+
         {selectedDataSource && (
           <div className="form-group">
             <label>Query</label>
+            {showAdditionalColumnMessage && (
+              <div className="alert alert-info">
+                We auto-generated some basic SQL for you below. Add any
+                additional columns that would be useful for building metrics.
+              </div>
+            )}
             {form.watch("sql") && (
               <Code language="sql" code={form.watch("sql")} expandable={true} />
             )}
@@ -175,6 +224,9 @@ export default function FactTableModal({ existing, close }: Props) {
                 type="button"
                 onClick={(e) => {
                   e.preventDefault();
+                  if (!form.watch("eventName")) {
+                    form.setValue("eventName", form.watch("name"));
+                  }
                   setSqlOpen(true);
                 }}
               >

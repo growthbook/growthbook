@@ -3,13 +3,21 @@ import { DimensionInterface } from "back-end/types/dimension";
 import { MetricInterface } from "back-end/types/metric";
 import { SegmentInterface } from "back-end/types/segment";
 import { ProjectInterface } from "back-end/types/project";
-import { useContext, useMemo, createContext, FC, ReactNode } from "react";
+import {
+  useContext,
+  useMemo,
+  createContext,
+  FC,
+  ReactNode,
+  useCallback,
+} from "react";
 import { TagInterface } from "back-end/types/tag";
 import { SavedGroupInterface } from "back-end/types/saved-group";
 import {
   FactMetricInterface,
   FactTableInterface,
 } from "back-end/types/fact-table";
+import { ExperimentMetricInterface, isFactMetricId } from "shared/experiments";
 import useApi from "@/hooks/useApi";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 
@@ -41,6 +49,7 @@ type DefinitionContextValue = Definitions & {
   getTagById: (id: string) => null | TagInterface;
   getFactTableById: (id: string) => null | FactTableInterface;
   getFactMetricById: (id: string) => null | FactMetricInterface;
+  getExperimentMetricById: (id: string) => null | ExperimentMetricInterface;
 };
 
 const defaultValue: DefinitionContextValue = {
@@ -73,6 +82,7 @@ const defaultValue: DefinitionContextValue = {
   getTagById: () => null,
   getFactTableById: () => null,
   getFactMetricById: () => null,
+  getExperimentMetricById: () => null,
 };
 
 export const DefinitionsContext = createContext<DefinitionContextValue>(
@@ -131,6 +141,16 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
   const getFactTableById = useGetById(data?.factTables);
   const getFactMetricById = useGetById(data?.factMetrics);
 
+  const getExperimentMetricById = useCallback(
+    (id: string) => {
+      if (isFactMetricId(id)) {
+        return getFactMetricById(id);
+      }
+      return getMetricById(id);
+    },
+    [getMetricById, getFactMetricById]
+  );
+
   let value: DefinitionContextValue;
   if (error) {
     value = { ...defaultValue, error: error?.message || "" };
@@ -163,6 +183,7 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
       getTagById,
       getFactTableById,
       getFactMetricById,
+      getExperimentMetricById,
       refreshTags: async (tags) => {
         const existingTags = data.tags.map((t) => t.id);
         const newTags = tags.filter((t) => !existingTags.includes(t));

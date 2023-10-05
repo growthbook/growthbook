@@ -22,12 +22,12 @@ const factTableSchema = new mongoose.Schema({
   metricType: String,
   numerator: {
     factTableId: String,
-    factId: String,
+    column: String,
     filters: [String],
   },
   denominator: {
     factTableId: String,
-    factId: String,
+    column: String,
     filters: [String],
   },
   capping: String,
@@ -78,7 +78,7 @@ export async function createFactMetric(
 ) {
   const doc = await FactMetricModel.create({
     organization: organization,
-    id: uniqid("fmet_"),
+    id: uniqid("fact__"),
     dateCreated: new Date(),
     dateUpdated: new Date(),
     ...data,

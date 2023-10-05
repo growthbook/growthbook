@@ -1,5 +1,4 @@
 import { useForm } from "react-hook-form";
-import clsx from "clsx";
 import { FaTimes } from "react-icons/fa";
 import { useState } from "react";
 import {
@@ -9,17 +8,16 @@ import {
 import {
   CreateFactMetricProps,
   FactMetricInterface,
-  FactRef,
+  ColumnRef,
   UpdateFactMetricProps,
 } from "back-end/types/fact-table";
 import { isProjectListValidForProject } from "shared/util";
-import { useRouter } from "next/router";
 import omit from "lodash/omit";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import {
   defaultLoseRiskThreshold,
   defaultWinRiskThreshold,
-  formatConversionRate,
+  formatNumber,
 } from "@/services/metrics";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import useOrgSettings from "@/hooks/useOrgSettings";
@@ -36,29 +34,31 @@ import RiskThresholds from "../Metrics/MetricForm/RiskThresholds";
 import Tabs from "../Tabs/Tabs";
 import Tab from "../Tabs/Tab";
 import PremiumTooltip from "../Marketing/PremiumTooltip";
-import { GBAddCircle, GBCuped } from "../Icons";
+import { GBAddCircle, GBArrowLeft, GBCuped } from "../Icons";
 import { getNewExperimentDatasourceDefaults } from "../Experiment/NewExperimentForm";
+import ButtonSelectField from "../Forms/ButtonSelectField";
 
 export interface Props {
-  close: () => void;
+  close?: () => void;
   initialFactTable?: string;
   existing?: FactMetricInterface;
   showAdvancedSettings?: boolean;
-  navigateOnCreate?: boolean;
+  onSave?: () => void;
+  goBack?: () => void;
 }
 
-function FactSelector({
+function ColumnRefSelector({
   value,
   setValue,
-  includeCountDistinctFact,
-  includeFact,
+  includeCountDistinct,
+  includeColumn,
   datasource,
   disableFactTableSelector,
 }: {
-  setValue: (ref: FactRef) => void;
-  value: FactRef;
-  includeCountDistinctFact?: boolean;
-  includeFact?: boolean;
+  setValue: (ref: ColumnRef) => void;
+  value: ColumnRef;
+  includeCountDistinct?: boolean;
+  includeColumn?: boolean;
   datasource: string;
   disableFactTableSelector?: boolean;
 }) {
@@ -69,18 +69,40 @@ function FactSelector({
 
   const [showFilters, setShowFilters] = useState(value.filters.length > 0);
 
+  // If there's nothing for the user to configure
+  if (
+    !includeColumn &&
+    disableFactTableSelector &&
+    !factTable?.filters?.length
+  ) {
+    return null;
+  }
+
+  const columnOptions = (factTable?.columns || [])
+    .filter(
+      (col) =>
+        !col.deleted &&
+        col.column !== "timestamp" &&
+        !factTable?.userIdTypes?.includes(col.column)
+    )
+    .filter((col) => col.datatype === "number")
+    .map((col) => ({
+      label: `SUM(\`${col.name}\`)`,
+      value: col.column,
+    }));
+
   return (
     <div className="appbox px-3 pt-3 bg-light">
       <div className="row align-items-center">
-        {includeFact && (
+        {includeColumn && (
           <div className="col-auto">
             <SelectField
               label="SELECT"
-              value={value.factId}
-              onChange={(factId) => setValue({ ...value, factId })}
+              value={value.column}
+              onChange={(column) => setValue({ ...value, column })}
               sort={false}
               options={[
-                ...(includeCountDistinctFact
+                ...(includeCountDistinct
                   ? [
                       {
                         label: `COUNT( DISTINCT \`Experiment Users\` )`,
@@ -92,10 +114,7 @@ function FactSelector({
                   label: "COUNT(*)",
                   value: "$$count",
                 },
-                ...(factTable?.facts || []).map((f) => ({
-                  label: `SUM(\`${f.name}\`)`,
-                  value: f.id,
-                })),
+                ...columnOptions,
               ]}
               placeholder="Column..."
               formatOptionLabel={({ label }) => {
@@ -105,29 +124,33 @@ function FactSelector({
             />
           </div>
         )}
-        <div className="col-auto">
-          <SelectField
-            label={includeFact ? "FROM" : "SELECT FROM"}
-            disabled={disableFactTableSelector}
-            value={value.factTableId}
-            onChange={(factTableId) =>
-              setValue({
-                factTableId,
-                factId: value.factId.match(/^\$\$/) ? value.factId : "$$count",
-                filters: [],
-              })
-            }
-            options={factTables
-              .filter((t) => t.datasource === datasource)
-              .map((t) => ({
-                label: t.name,
-                value: t.id,
-              }))}
-            placeholder="Select..."
-            required
-          />
-        </div>
-        {factTable && factTable.filters.length > 0 && (
+        {includeColumn || !disableFactTableSelector ? (
+          <div className="col-auto">
+            <SelectField
+              label={includeColumn ? "FROM" : "SELECT FROM"}
+              disabled={disableFactTableSelector}
+              value={value.factTableId}
+              onChange={(factTableId) =>
+                setValue({
+                  factTableId,
+                  column: value.column?.match(/^\$\$/)
+                    ? value.column
+                    : "$$count",
+                  filters: [],
+                })
+              }
+              options={factTables
+                .filter((t) => t.datasource === datasource)
+                .map((t) => ({
+                  label: t.name,
+                  value: t.id,
+                }))}
+              placeholder="Select..."
+              required
+            />
+          </div>
+        ) : null}
+        {factTable && factTable.filters.length > 0 ? (
           <div className="col-auto">
             {value.filters.length > 0 || showFilters ? (
               <MultiSelectField
@@ -142,19 +165,21 @@ function FactSelector({
                 closeMenuOnSelect={true}
               />
             ) : (
-              <button
-                className="btn btn-link"
-                type="button"
-                onClick={(e) => {
-                  e.preventDefault();
-                  setShowFilters(true);
-                }}
-              >
-                <GBAddCircle /> Add WHERE Clause
-              </button>
+              <div className="form-group">
+                <button
+                  className="btn btn-link"
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setShowFilters(true);
+                  }}
+                >
+                  <GBAddCircle /> Add WHERE Clause
+                </button>
+              </div>
             )}
           </div>
-        )}
+        ) : null}
       </div>
     </div>
   );
@@ -165,15 +190,14 @@ export default function FactMetricModal({
   initialFactTable,
   existing,
   showAdvancedSettings,
-  navigateOnCreate = true,
+  onSave,
+  goBack,
 }: Props) {
   const { metricDefaults } = useOrganizationMetricDefaults();
 
   const settings = useOrgSettings();
 
   const { hasCommercialFeature } = useUser();
-
-  const router = useRouter();
 
   const {
     datasources,
@@ -197,9 +221,10 @@ export default function FactMetricModal({
       metricType: existing?.metricType || "proportion",
       numerator: existing?.numerator || {
         factTableId: initialFactTable || "",
-        factId: "$$count",
+        column: "$$count",
         filters: [],
       },
+      projects: [],
       denominator: existing?.denominator || null,
       datasource:
         existing?.datasource ||
@@ -284,7 +309,7 @@ export default function FactMetricModal({
   return (
     <Modal
       open={true}
-      header={existing ? "Edit Metric" : "Create Metric"}
+      header={existing ? "Edit Metric" : "Create Fact Table Metric"}
       close={close}
       submit={form.handleSubmit(async (values) => {
         if (values.denominator && !values.denominator.factTableId) {
@@ -317,25 +342,39 @@ export default function FactMetricModal({
             projects: selectedDataSource.projects || [],
           };
 
-          const { factMetric } = await apiCall<{
+          await apiCall<{
             factMetric: FactMetricInterface;
           }>(`/fact-metrics`, {
             method: "POST",
             body: JSON.stringify(createPayload),
           });
           await mutateDefinitions();
-          navigateOnCreate && router.push(`/fact-metrics/${factMetric.id}`);
+
+          onSave && onSave();
         }
       })}
       size="lg"
     >
+      {goBack && (
+        <div className="mb-3">
+          <a
+            href="#"
+            onClick={(e) => {
+              e.preventDefault();
+              goBack();
+            }}
+          >
+            <GBArrowLeft /> Go Back
+          </a>
+        </div>
+      )}
       <Field
         label="Metric Name"
         {...form.register("name")}
         autoFocus
         required
       />
-      {!existing && (
+      {!existing && !initialFactTable && (
         <SelectField
           label="Data Source"
           value={form.watch("datasource")}
@@ -343,12 +382,12 @@ export default function FactMetricModal({
             form.setValue("datasource", v);
             form.setValue("numerator", {
               factTableId: "",
-              factId: "",
+              column: "",
               filters: [],
             });
             form.setValue("denominator", {
               factTableId: "",
-              factId: "",
+              column: "",
               filters: [],
             });
           }}
@@ -368,97 +407,75 @@ export default function FactMetricModal({
       )}
       {selectedDataSource && (
         <>
-          <div className="mb-3">
-            <label>
-              Type of Metric{" "}
-              <Tooltip
-                body={
-                  <div>
-                    <div className="mb-2">
-                      <strong>Proportion</strong> metrics calculate a simple
-                      conversion rate - the proportion of users in your
-                      experiment who are in a specific fact table.
-                    </div>
-                    <div className="mb-2">
-                      <strong>Mean</strong> metrics calculate the average value
-                      of a numeric column in a fact table.
-                    </div>
+          <ButtonSelectField
+            label={
+              <>
+                Type of Metric{" "}
+                <Tooltip
+                  body={
                     <div>
-                      <strong>Ratio</strong> metrics allow you to calculate a
-                      complex value by dividing two different numeric columns in
-                      your fact tables.
+                      <div className="mb-2">
+                        <strong>Proportion</strong> metrics calculate a simple
+                        conversion rate - the proportion of users in your
+                        experiment who are in a specific fact table.
+                      </div>
+                      <div className="mb-2">
+                        <strong>Mean</strong> metrics calculate the average
+                        value of a numeric column in a fact table.
+                      </div>
+                      <div>
+                        <strong>Ratio</strong> metrics allow you to calculate a
+                        complex value by dividing two different numeric columns
+                        in your fact tables.
+                      </div>
                     </div>
-                  </div>
-                }
-              />
-            </label>
-            <div>
-              <div className="btn-group">
-                <button
-                  type="button"
-                  className={clsx(
-                    "btn",
-                    type === "proportion"
-                      ? "active btn-primary"
-                      : "btn-outline-primary"
-                  )}
-                  onClick={(e) => {
-                    e.preventDefault();
-                    form.setValue("metricType", "proportion");
-                  }}
-                >
-                  Proportion
-                </button>
-                <button
-                  type="button"
-                  className={clsx(
-                    "btn",
-                    type === "mean"
-                      ? "active btn-primary"
-                      : "btn-outline-primary"
-                  )}
-                  onClick={(e) => {
-                    e.preventDefault();
-                    form.setValue("metricType", "mean");
-                  }}
-                >
-                  Mean
-                </button>
-                <button
-                  type="button"
-                  className={clsx(
-                    "btn",
-                    type === "ratio"
-                      ? "active btn-primary"
-                      : "btn-outline-primary"
-                  )}
-                  onClick={(e) => {
-                    e.preventDefault();
-                    form.setValue("metricType", "ratio");
-                    if (!form.watch("denominator")) {
-                      form.setValue("denominator", {
-                        factTableId:
-                          form.watch("numerator").factTableId ||
-                          initialFactTable ||
-                          "",
-                        factId: "$$count",
-                        filters: [],
-                      });
-                    }
-                  }}
-                >
-                  Ratio
-                </button>
-              </div>
-            </div>
-          </div>
+                  }
+                />
+              </>
+            }
+            value={type}
+            setValue={(type) => {
+              form.setValue("metricType", type);
+
+              // When switching to ratio, reset the denominator value
+              if (type === "ratio" && !form.watch("denominator")) {
+                form.setValue("denominator", {
+                  factTableId:
+                    form.watch("numerator").factTableId ||
+                    initialFactTable ||
+                    "",
+                  column: "$$count",
+                  filters: [],
+                });
+              }
+
+              // When switching to ratio and using `absolute` capping, turn it off (only percentile supported)
+              if (type === "ratio" && form.watch("capping") === "absolute") {
+                form.setValue("capping", "");
+              }
+            }}
+            options={[
+              {
+                value: "proportion",
+                label: "Proportion",
+              },
+              {
+                value: "mean",
+                label: "Mean",
+              },
+              {
+                value: "ratio",
+                label: "Ratio",
+              },
+            ]}
+          />
           {type === "proportion" ? (
             <div>
-              <p>
-                <strong>Metric Value</strong> = Percent of Experiment Users who
-                exist in a Fact Table
+              <p className="text-muted">
+                (<strong>Metric Value</strong> = Percent of Experiment Users who
+                exist in a Fact Table)
               </p>
-              <FactSelector
+              <ColumnRefSelector
                 value={form.watch("numerator")}
                 setValue={(numerator) => form.setValue("numerator", numerator)}
                 datasource={selectedDataSource.id}
@@ -467,42 +484,43 @@ export default function FactMetricModal({
             </div>
           ) : type === "mean" ? (
             <div>
-              <p>
-                <strong>Metric Value</strong> = Average of a numeric value among
-                all Experiment Users
+              <p className="text-muted">
+                (<strong>Metric Value</strong> = Average of a numeric value
+                among all Experiment Users)
               </p>
-              <FactSelector
+              <ColumnRefSelector
                 value={form.watch("numerator")}
                 setValue={(numerator) => form.setValue("numerator", numerator)}
-                includeFact={true}
+                includeColumn={true}
                 datasource={selectedDataSource.id}
                 disableFactTableSelector={!!initialFactTable}
               />
             </div>
           ) : type === "ratio" ? (
             <>
-              <p>
-                <strong>Metric Value</strong> = Numerator / Denominator
+              <p className="text-muted">
+                (<strong>Metric Value</strong> = Numerator / Denominator){" "}
+                <Tooltip body="Ratio metrics use the Delta Method to provide an accurate estimation of variance" />
               </p>
               <div className="form-group">
                 <label>Numerator</label>
-                <FactSelector
+                <ColumnRefSelector
                   value={form.watch("numerator")}
                   setValue={(numerator) =>
                     form.setValue("numerator", numerator)
                   }
-                  includeFact={true}
-                  includeCountDistinctFact={true}
+                  includeColumn={true}
+                  includeCountDistinct={true}
                   datasource={selectedDataSource.id}
                   disableFactTableSelector={!!initialFactTable}
                 />
               </div>
               <div className="form-group">
                 <label>Denominator</label>
-                <FactSelector
+                <ColumnRefSelector
                   value={
                     form.watch("denominator") || {
-                      factId: "$$count",
+                      column: "$$count",
                       factTableId: "",
                       filters: [],
                     }
@@ -510,8 +528,8 @@ export default function FactMetricModal({
                   setValue={(denominator) =>
                     form.setValue("denominator", denominator)
                   }
-                  includeFact={true}
-                  includeCountDistinctFact={true}
+                  includeColumn={true}
+                  includeCountDistinct={true}
                   datasource={selectedDataSource.id}
                 />
               </div>
@@ -580,7 +598,7 @@ export default function FactMetricModal({
                       ]}
                     />
                   </div>
-                  <div className="col-auto">of viewing experiment</div>
+                  <div className="col-auto">of first experiment exposure</div>
                 </div>
               </div>
             )}
@@ -628,10 +646,14 @@ export default function FactMetricModal({
                       value: "",
                       label: "No",
                     },
-                    {
-                      value: "absolute",
-                      label: "Absolute capping",
-                    },
+                    ...(type === "ratio"
+                      ? []
+                      : [
+                          {
+                            value: "absolute",
+                            label: "Absolute capping",
+                          },
+                        ]),
                     {
                       value: "percentile",
                       label: "Percentile capping",
@@ -833,10 +855,7 @@ export default function FactMetricModal({
                     (default{" "}
                     {type === "proportion"
                       ? metricDefaults.minimumSampleSize
-                      : formatConversionRate(
-                          "count",
-                          metricDefaults.minimumSampleSize
-                        )}
+                      : formatNumber(metricDefaults.minimumSampleSize)}
                     )
                   </small>
                 </div>

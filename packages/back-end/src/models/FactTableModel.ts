@@ -3,13 +3,11 @@ import uniqid from "uniqid";
 import { omit } from "lodash";
 import {
   CreateFactFilterProps,
-  CreateFactProps,
   CreateFactTableProps,
   FactFilterInterface,
-  FactInterface,
   FactTableInterface,
   UpdateFactFilterProps,
-  UpdateFactProps,
+  UpdateColumnProps,
   UpdateFactTableProps,
 } from "../../types/fact-table";
 
@@ -26,17 +24,18 @@ const factTableSchema = new mongoose.Schema({
   datasource: String,
   userIdTypes: [String],
   sql: String,
-  facts: [
+  eventName: String,
+  columns: [
     {
       _id: false,
-      id: String,
       name: String,
       dateCreated: Date,
       dateUpdated: Date,
       description: String,
       column: String,
       numberFormat: String,
-      filters: [String],
+      datatype: String,
+      deleted: Boolean,
     },
   ],
   filters: [
@@ -71,6 +70,16 @@ export async function getAllFactTablesForOrganization(organization: string) {
   return docs.map((doc) => toInterface(doc));
 }
 
+export type FactTableMap = Map<string, FactTableInterface>;
+
+export async function getFactTableMap(
+  organization: string
+): Promise<FactTableMap> {
+  const factTables = await getAllFactTablesForOrganization(organization);
+
+  return new Map(factTables.map((f) => [f.id, f]));
+}
+
 export async function getFactTable(organization: string, id: string) {
   const doc = await FactTableModel.findOne({ organization, id });
   return doc ? toInterface(doc) : null;
@@ -88,13 +97,14 @@ export async function createFactTable(
     dateCreated: new Date(),
     dateUpdated: new Date(),
     datasource: data.datasource,
-    facts: [],
     filters: [],
     owner: data.owner,
     projects: data.projects,
     tags: data.tags,
     sql: data.sql,
     userIdTypes: data.userIdTypes,
+    eventName: data.eventName,
+    columns: data.columns || [],
   });
   return toInterface(doc);
 }
@@ -117,53 +127,16 @@ export async function updateFactTable(
   );
 }
 
-export async function createFact(
+export async function updateColumn(
   factTable: FactTableInterface,
-  data: CreateFactProps
+  column: string,
+  changes: UpdateColumnProps
 ) {
-  const fact: FactInterface = {
-    id: data.id || uniqid("fct_"),
-    name: data.name,
-    dateCreated: new Date(),
-    dateUpdated: new Date(),
-    column: data.column,
-    numberFormat: data.numberFormat,
-    description: data.description,
-    filters: data.filters,
-  };
+  const columnIndex = factTable.columns.findIndex((c) => c.column === column);
+  if (columnIndex < 0) throw new Error("Could not find that column");
 
-  if (factTable.facts.some((f) => f.id === fact.id)) {
-    throw new Error("Fact id already exists in this fact table");
-  }
-
-  await FactTableModel.updateOne(
-    {
-      id: factTable.id,
-      organization: factTable.organization,
-    },
-    {
-      $set: {
-        dateUpdated: new Date(),
-      },
-      $push: {
-        facts: fact,
-      },
-    }
-  );
-
-  return fact;
-}
-
-export async function updateFact(
-  factTable: FactTableInterface,
-  factId: string,
-  changes: UpdateFactProps
-) {
-  const factIndex = factTable.facts.findIndex((f) => f.id === factId);
-  if (factIndex < 0) throw new Error("Could not find fact with that id");
-
-  factTable.facts[factIndex] = {
-    ...factTable.facts[factIndex],
+  factTable.columns[columnIndex] = {
+    ...factTable.columns[columnIndex],
     ...changes,
     dateUpdated: new Date(),
   };
@@ -176,7 +149,7 @@ export async function updateFact(
     {
       $set: {
         dateUpdated: new Date(),
-        facts: factTable.facts,
+        columns: factTable.columns,
       },
     }
   );
@@ -252,30 +225,6 @@ export async function deleteFactTable(factTable: FactTableInterface) {
     id: factTable.id,
     organization: factTable.organization,
   });
-}
-
-export async function deleteFact(
-  factTable: FactTableInterface,
-  factId: string
-) {
-  const newFacts = factTable.facts.filter((f) => f.id !== factId);
-
-  if (newFacts.length === factTable.facts.length) {
-    throw new Error("Could not find fact with that id");
-  }
-
-  await FactTableModel.updateOne(
-    {
-      id: factTable.id,
-      organization: factTable.organization,
-    },
-    {
-      $set: {
-        dateUpdated: new Date(),
-        facts: newFacts,
-      },
-    }
-  );
 }
 
 export async function deleteFactFilter(

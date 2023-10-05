@@ -19,9 +19,15 @@ import TagsFilter, {
 } from "@/components/Tags/TagsFilter";
 import SortedTags from "@/components/Tags/SortedTags";
 import ProjectBadges from "@/components/ProjectBadges";
+import InlineCode from "@/components/SyntaxHighlighting/InlineCode";
 
 export default function FactTablesPage() {
-  const { factTables, getDatasourceById, project } = useDefinitions();
+  const {
+    factTables,
+    getDatasourceById,
+    project,
+    factMetrics,
+  } = useDefinitions();
 
   const router = useRouter();
 
@@ -30,6 +36,19 @@ export default function FactTablesPage() {
   const [aboutOpen, setAboutOpen] = useLocalStorage("aboutFactTables", true);
 
   const [createFactOpen, setCreateFactOpen] = useState(false);
+
+  const factMetricCounts: Record<string, number> = {};
+  factMetrics.forEach((m) => {
+    const key = m.numerator.factTableId;
+    factMetricCounts[key] = factMetricCounts[key] || 0;
+    factMetricCounts[key]++;
+
+    if (m.metricType === "ratio" && m.denominator) {
+      const key = m.denominator.factTableId;
+      factMetricCounts[key] = factMetricCounts[key] || 0;
+      factMetricCounts[key]++;
+    }
+  });
 
   const filteredFactTables = project
     ? factTables.filter((t) =>
@@ -47,7 +66,7 @@ export default function FactTablesPage() {
       return {
         ...table,
         datasourceName: getDatasourceById(table.datasource)?.name || "Unknown",
-        numFacts: table.facts.length,
+        numMetrics: factMetricCounts[table.id] || 0,
         numFilters: table.filters.length,
         userIdTypes: sortedUserIdTypes,
       };
@@ -86,9 +105,9 @@ export default function FactTablesPage() {
       <PageHead breadcrumb={[{ display: "Fact Tables" }]} />
       <h1>
         Fact Tables
-        <span className="badge badge-purple border text-uppercase ml-2">
-          Beta
-        </span>
+        <Tooltip body="This initial release of Fact Tables is an early preview of what's to come. Expect some rough edges and bugs.">
+          <span className="badge badge-purple border ml-2">beta</span>
+        </Tooltip>
       </h1>
       <div className="mb-3">
         <a
@@ -102,14 +121,8 @@ export default function FactTablesPage() {
           About Fact Tables {aboutOpen ? <FaAngleDown /> : <FaAngleRight />}
         </a>
         {aboutOpen && (
-          <div className="alert alert-info">
-            <div className="mb-2">
-              A <strong>Fact Table</strong> contains a base SQL definition, plus
-              one or more <strong>Facts</strong> built on top of this base
-              query. You can use these Facts to quickly build a library of{" "}
-              <strong>Metrics</strong>.
-            </div>
-            <div className="mb-3">
+          <div className="appbox bg-light px-3 pt-3 mb-5">
+            <p>
               With Fact Tables, you can better organize your metrics, cut down
               on repetitive copy/pasting, and unlock massive SQL cost savings{" "}
               <Tooltip
@@ -128,32 +141,43 @@ export default function FactTablesPage() {
                   </>
                 }
               />
-              .
-            </div>
-
-            <h4>Example</h4>
-            <table className="table w-auto mb-0">
+            </p>
+            <p>
+              Learn more about the various parts that make up Fact Tables with
+              an example:
+            </p>
+            <table className="table w-auto gbtable appbox">
               <tbody>
                 <tr>
-                  <th>Fact Table</th>
-                  <td>Orders</td>
-                  <td></td>
-                  <td></td>
-                  <td></td>
+                  <th>Fact Table SQL</th>
+                  <td>
+                    A base SQL definition for an event with relevant columns
+                    selected
+                  </td>
+                  <td>
+                    <InlineCode language="sql" code="SELECT * FROM orders" />
+                  </td>
                 </tr>
                 <tr>
-                  <th>Facts</th>
-                  <td>Revenue</td>
-                  <td>Number of Items</td>
-                  <td></td>
-                  <td></td>
+                  <th>Filters</th>
+                  <td>
+                    Reusable SQL snippets to filter rows in the Fact Table
+                  </td>
+                  <td>
+                    <InlineCode language="sql" code="device_type = 'mobile'" />
+                  </td>
                 </tr>
                 <tr>
                   <th>Metrics</th>
-                  <td>Purchasers</td>
-                  <td>Revenue per User</td>
-                  <td>Average Order Value</td>
-                  <td>Items per Order</td>
+                  <td style={{ verticalAlign: "top" }}>
+                    Used in experiments as Goals or Guardrails
+                  </td>
+                  <td>
+                    <InlineCode
+                      language="sql"
+                      code={`SELECT SUM(revenue)\nFROM   [factTables.Orders]\nWHERE  [filters.Mobile]`}
+                    />
+                  </td>
                 </tr>
               </tbody>
             </table>
@@ -212,7 +236,7 @@ export default function FactTablesPage() {
                 <SortableTH field="tags">Tags</SortableTH>
                 <th>Projects</th>
                 <SortableTH field="userIdTypes">Identifier Types</SortableTH>
-                <SortableTH field="numFacts">Facts</SortableTH>
+                <SortableTH field="numMetrics">Metrics</SortableTH>
                 <SortableTH field="numFilters">Filters</SortableTH>
                 <SortableTH field="dateUpdated">Last Updated</SortableTH>
               </tr>
@@ -251,7 +275,7 @@ export default function FactTablesPage() {
                       </span>
                     ))}
                   </td>
-                  <td>{f.numFacts}</td>
+                  <td>{f.numMetrics}</td>
                   <td>{f.numFilters}</td>
                   <td>{date(f.dateUpdated)}</td>
                 </tr>

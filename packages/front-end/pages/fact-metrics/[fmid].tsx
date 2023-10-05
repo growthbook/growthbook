@@ -2,7 +2,8 @@ import { useRouter } from "next/router";
 import Link from "next/link";
 import { useState } from "react";
 import { FaExternalLinkAlt, FaTimes } from "react-icons/fa";
-import { FactRef, FactTableInterface } from "back-end/types/fact-table";
+import { ColumnRef, FactTableInterface } from "back-end/types/fact-table";
+import { FaTriangleExclamation } from "react-icons/fa6";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { GBCuped, GBEdit } from "@/components/Icons";
@@ -25,6 +26,7 @@ import {
   defaultWinRiskThreshold,
 } from "@/services/metrics";
 import MarkdownInlineEdit from "@/components/Markdown/MarkdownInlineEdit";
+import Tooltip from "@/components/Tooltip/Tooltip";
 
 function FactTableLink({ id }: { id?: string }) {
   const { getFactTableById } = useDefinitions();
@@ -94,26 +96,28 @@ function MetricType({ type }: { type: "proportion" | "mean" | "ratio" }) {
   return null;
 }
 
-export function FactSQL({
-  fact,
+function ColumnRefSQL({
+  columnRef,
   isProportion,
   showFrom,
 }: {
-  fact: FactRef | null;
+  columnRef: ColumnRef | null;
   isProportion?: boolean;
   showFrom?: boolean;
 }) {
   const { getFactTableById } = useDefinitions();
-  if (!fact) return null;
-  const factTable = getFactTableById(fact.factTableId);
+  if (!columnRef) return null;
+  const factTable = getFactTableById(columnRef.factTableId);
   if (!factTable) return null;
 
-  const id = isProportion ? "$$distinctUsers" : fact.factId;
+  const id = isProportion ? "$$distinctUsers" : columnRef.column;
 
-  const name = factTable.facts.find((f) => f.id === fact.factId)?.name;
+  const colData = factTable.columns.find((c) => c.column === columnRef.column);
+
+  const name = colData?.name;
 
   const where: string[] = [];
-  fact.filters.forEach((filterId) => {
+  columnRef.filters.forEach((filterId) => {
     const filter = factTable.filters.find((f) => f.id === filterId);
     if (!filter) return;
 
@@ -125,13 +129,26 @@ export function FactSQL({
       ? "COUNT(*)"
       : id === "$$distinctUsers"
       ? `COUNT(DISTINCT \`User Identifier\`)`
-      : `SUM(\`${name}\`)`;
+      : `SUM(\`${name || columnRef.column}\`)`;
 
   const from = showFrom ? `\nFROM \`${factTable.name}\`` : "";
 
   const sqlExtra = where.length > 0 ? `\nWHERE ${where.join(" AND ")}` : "";
 
-  return <InlineCode language="sql" code={column + from + sqlExtra} />;
+  return (
+    <div className="d-flex align-items-center">
+      <InlineCode language="sql" code={column + from + sqlExtra} />
+      {(!colData || colData.deleted) && (
+        <div className="ml-2">
+          <Tooltip body="This column is no longer being returned from the Fact Table">
+            <div className="rounded alert-danger px-2 py-1">
+              <FaTriangleExclamation />
+            </div>
+          </Tooltip>
+        </div>
+      )}
+    </div>
+  );
 }
 
 export default function FactMetricPage() {
@@ -171,8 +188,8 @@ export default function FactMetricPage() {
   if (!factMetric) {
     return (
       <div className="alert alert-danger">
-        Could not find the requested fact factMetric.{" "}
-        <Link href="/fact-tables">Back to all fact metrics</Link>
+        Could not find the requested metric.{" "}
+        <Link href="/metrics">Back to all metrics</Link>
       </div>
     );
   }
@@ -344,8 +361,8 @@ export default function FactMetricPage() {
                   Numerator
                 </strong>
                 <div>
-                  <FactSQL
-                    fact={factMetric.numerator}
+                  <ColumnRefSQL
+                    columnRef={factMetric.numerator}
                     showFrom={true}
                     isProportion={factMetric.metricType === "proportion"}
                   />
@@ -362,7 +379,10 @@ export default function FactMetricPage() {
                 </strong>
                 <div>
                   {factMetric.metricType === "ratio" ? (
-                    <FactSQL fact={factMetric.denominator} showFrom={true} />
+                    <ColumnRefSQL
+                      columnRef={factMetric.denominator}
+                      showFrom={true}
+                    />
                   ) : (
                     <em>All Experiment Users</em>
                   )}
@@ -391,7 +411,7 @@ export default function FactMetricPage() {
                     {factMetric.conversionWindowValue}{" "}
                     {factMetric.conversionWindowUnit}
                   </strong>{" "}
-                  of viewing an experiment.
+                  of first experiment exposure.
                 </>
               ) : (
                 <>
