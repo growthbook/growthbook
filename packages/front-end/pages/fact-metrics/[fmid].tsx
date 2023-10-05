@@ -3,6 +3,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { FaExternalLinkAlt, FaTimes } from "react-icons/fa";
 import { ColumnRef, FactTableInterface } from "back-end/types/fact-table";
+import { FaTriangleExclamation } from "react-icons/fa6";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { GBCuped, GBEdit } from "@/components/Icons";
@@ -25,6 +26,7 @@ import {
   defaultWinRiskThreshold,
 } from "@/services/metrics";
 import MarkdownInlineEdit from "@/components/Markdown/MarkdownInlineEdit";
+import Tooltip from "@/components/Tooltip/Tooltip";
 
 function FactTableLink({ id }: { id?: string }) {
   const { getFactTableById } = useDefinitions();
@@ -94,7 +96,7 @@ function MetricType({ type }: { type: "proportion" | "mean" | "ratio" }) {
   return null;
 }
 
-export function ColumnRefSQL({
+function ColumnRefSQL({
   columnRef,
   isProportion,
   showFrom,
@@ -110,8 +112,9 @@ export function ColumnRefSQL({
 
   const id = isProportion ? "$$distinctUsers" : columnRef.column;
 
-  const name = factTable.columns.find((c) => c.column === columnRef.column)
-    ?.name;
+  const colData = factTable.columns.find((c) => c.column === columnRef.column);
+
+  const name = colData?.name;
 
   const where: string[] = [];
   columnRef.filters.forEach((filterId) => {
@@ -132,7 +135,20 @@ export function ColumnRefSQL({
 
   const sqlExtra = where.length > 0 ? `\nWHERE ${where.join(" AND ")}` : "";
 
-  return <InlineCode language="sql" code={column + from + sqlExtra} />;
+  return (
+    <div className="d-flex align-items-center">
+      <InlineCode language="sql" code={column + from + sqlExtra} />
+      {(!colData || colData.deleted) && (
+        <div className="ml-2">
+          <Tooltip body="This column is no longer being returned from the Fact Table">
+            <div className="rounded alert-danger px-2 py-1">
+              <FaTriangleExclamation />
+            </div>
+          </Tooltip>
+        </div>
+      )}
+    </div>
+  );
 }
 
 export default function FactMetricPage() {

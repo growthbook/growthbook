@@ -5,7 +5,6 @@ import { validateRequestMiddleware } from "../utils/validateRequestMiddleware";
 import {
   createFactFilterPropsValidator,
   createFactMetricPropsValidator,
-  createColumnPropsValidator,
   createFactTablePropsValidator,
   updateFactFilterPropsValidator,
   updateFactMetricPropsValidator,
@@ -50,15 +49,6 @@ router.delete(
   factTableController.deleteFactTable
 );
 
-router.post(
-  "/fact-tables/:id/column",
-  validateRequestMiddleware({
-    params: factTableParams,
-    body: createColumnPropsValidator,
-  }),
-  factTableController.postColumn
-);
-
 router.put(
   "/fact-tables/:id/column/:column",
   validateRequestMiddleware({
@@ -66,14 +56,6 @@ router.put(
     body: updateColumnPropsValidator,
   }),
   factTableController.putColumn
-);
-
-router.delete(
-  "/fact-tables/:id/column/:column",
-  validateRequestMiddleware({
-    params: columnParams,
-  }),
-  factTableController.deleteColumn
 );
 
 router.post(

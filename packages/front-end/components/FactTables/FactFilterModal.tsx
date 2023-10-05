@@ -154,14 +154,14 @@ export default function FactFilterModal({ existing, factTable, close }: Props) {
             </div>
           )}
         </div>
-        {factTable.columns?.length > 0 && (
+        {factTable.columns?.some((col) => !col.deleted) ? (
           <div className="col-auto border-left">
             <div className="mb-3">
               <label>Available Columns</label>
               <ColumnTable factTable={factTable} />
             </div>
           </div>
-        )}
+        ) : null}
       </div>
     </Modal>
   );

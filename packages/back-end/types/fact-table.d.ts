@@ -27,7 +27,7 @@ export interface ColumnInterface {
   column: string;
   datatype: FactTableColumnType;
   numberFormat: NumberFormat;
-  autoDetected: boolean;
+  deleted: boolean;
 }
 
 export interface FactFilterInterface {

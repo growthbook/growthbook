@@ -5,7 +5,8 @@ export const factTableColumnTypeValidator = z.enum([
   "string",
   "date",
   "boolean",
-  "unknown",
+  "other",
+  "",
 ]);
 
 export const numberFormatValidator = z.enum(["", "currency", "time:seconds"]);
@@ -17,7 +18,7 @@ export const createColumnPropsValidator = z
     description: z.string(),
     numberFormat: numberFormatValidator,
     datatype: factTableColumnTypeValidator,
-    autoDetected: z.boolean().optional(),
+    deleted: z.boolean().optional(),
   })
   .strict();
 
@@ -27,6 +28,7 @@ export const updateColumnPropsValidator = z
     description: z.string(),
     numberFormat: numberFormatValidator,
     datatype: factTableColumnTypeValidator,
+    deleted: z.boolean().optional(),
   })
   .strict();
 
@@ -55,7 +57,7 @@ export const updateFactTablePropsValidator = z
     tags: z.array(z.string()).optional(),
     userIdTypes: z.array(z.string()).optional(),
     sql: z.string().optional(),
-    eventName: z.string(),
+    eventName: z.string().optional(),
     columns: z.array(createColumnPropsValidator).optional(),
   })
   .strict();

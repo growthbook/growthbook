@@ -3,10 +3,8 @@ import uniqid from "uniqid";
 import { omit } from "lodash";
 import {
   CreateFactFilterProps,
-  CreateColumnProps,
   CreateFactTableProps,
   FactFilterInterface,
-  ColumnInterface,
   FactTableInterface,
   UpdateFactFilterProps,
   UpdateColumnProps,
@@ -37,6 +35,7 @@ const factTableSchema = new mongoose.Schema({
       column: String,
       numberFormat: String,
       datatype: String,
+      deleted: Boolean,
     },
   ],
   filters: [
@@ -126,43 +125,6 @@ export async function updateFactTable(
       },
     }
   );
-}
-
-export async function createColumn(
-  factTable: FactTableInterface,
-  data: CreateColumnProps
-) {
-  const column: ColumnInterface = {
-    name: data.name,
-    dateCreated: new Date(),
-    dateUpdated: new Date(),
-    column: data.column,
-    numberFormat: data.numberFormat,
-    datatype: data.datatype,
-    description: data.description,
-    autoDetected: !!data.autoDetected,
-  };
-
-  if (factTable.columns.some((c) => c.column === column.column)) {
-    throw new Error("That column is already defined in this fact table");
-  }
-
-  await FactTableModel.updateOne(
-    {
-      id: factTable.id,
-      organization: factTable.organization,
-    },
-    {
-      $set: {
-        dateUpdated: new Date(),
-      },
-      $push: {
-        columns: column,
-      },
-    }
-  );
-
-  return column;
 }
 
 export async function updateColumn(
@@ -263,30 +225,6 @@ export async function deleteFactTable(factTable: FactTableInterface) {
     id: factTable.id,
     organization: factTable.organization,
   });
-}
-
-export async function deleteColumn(
-  factTable: FactTableInterface,
-  column: string
-) {
-  const newColumns = factTable.columns.filter((c) => c.column !== column);
-
-  if (newColumns.length === factTable.columns.length) {
-    throw new Error("Could not find column");
-  }
-
-  await FactTableModel.updateOne(
-    {
-      id: factTable.id,
-      organization: factTable.organization,
-    },
-    {
-      $set: {
-        dateUpdated: new Date(),
-        columns: newColumns,
-      },
-    }
-  );
 }
 
 export async function deleteFactFilter(

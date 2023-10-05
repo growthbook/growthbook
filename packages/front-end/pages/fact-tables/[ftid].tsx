@@ -64,6 +64,8 @@ export default function FactTablePage() {
     factTable.projects || ""
   );
 
+  const hasColumns = factTable.columns?.some((col) => !col.deleted);
+
   return (
     <div className="pagecontents container-fluid">
       {editOpen && (
@@ -208,7 +210,7 @@ export default function FactTablePage() {
       </div>
 
       <div className="mb-4">
-        {factTable.columns?.length > 0 && (
+        {hasColumns && (
           <a
             href="#"
             onClick={(e) => {
@@ -221,7 +223,7 @@ export default function FactTablePage() {
             {showSQL ? <FaAngleDown /> : <FaAngleRight />}
           </a>
         )}
-        {(showSQL || !factTable.columns.length) && (
+        {(showSQL || !hasColumns) && (
           <div className="appbox p-3">
             <Code
               code={factTable.sql}
@@ -254,8 +256,7 @@ export default function FactTablePage() {
           <div className="mb-4">
             <h3>Columns</h3>
             <div className="mb-1">
-              All of the columns available in the Fact Table. Numeric columns
-              can be used to create Metrics.
+              All of the columns returned by the Fact Table SQL.
             </div>
             <div className="appbox p-3">
               <ColumnList factTable={factTable} />

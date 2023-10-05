@@ -69,9 +69,19 @@ function ColumnRefSelector({
 
   const [showFilters, setShowFilters] = useState(value.filters.length > 0);
 
+  // If there's nothing for the user to configure
+  if (
+    !includeColumn &&
+    disableFactTableSelector &&
+    !factTable?.filters?.length
+  ) {
+    return null;
+  }
+
   const columnOptions = (factTable?.columns || [])
     .filter(
       (col) =>
+        !col.deleted &&
         col.column !== "timestamp" &&
         !factTable?.userIdTypes?.includes(col.column)
     )
@@ -114,29 +124,33 @@ function ColumnRefSelector({
             />
           </div>
         )}
-        <div className="col-auto">
-          <SelectField
-            label={includeColumn ? "FROM" : "SELECT FROM"}
-            disabled={disableFactTableSelector}
-            value={value.factTableId}
-            onChange={(factTableId) =>
-              setValue({
-                factTableId,
-                column: value.column?.match(/^\$\$/) ? value.column : "$$count",
-                filters: [],
-              })
-            }
-            options={factTables
-              .filter((t) => t.datasource === datasource)
-              .map((t) => ({
-                label: t.name,
-                value: t.id,
-              }))}
-            placeholder="Select..."
-            required
-          />
-        </div>
-        {factTable && factTable.filters.length > 0 && (
+        {includeColumn || !disableFactTableSelector ? (
+          <div className="col-auto">
+            <SelectField
+              label={includeColumn ? "FROM" : "SELECT FROM"}
+              disabled={disableFactTableSelector}
+              value={value.factTableId}
+              onChange={(factTableId) =>
+                setValue({
+                  factTableId,
+                  column: value.column?.match(/^\$\$/)
+                    ? value.column
+                    : "$$count",
+                  filters: [],
+                })
+              }
+              options={factTables
+                .filter((t) => t.datasource === datasource)
+                .map((t) => ({
+                  label: t.name,
+                  value: t.id,
+                }))}
+              placeholder="Select..."
+              required
+            />
+          </div>
+        ) : null}
+        {factTable && factTable.filters.length > 0 ? (
           <div className="col-auto">
             {value.filters.length > 0 || showFilters ? (
               <MultiSelectField
@@ -151,19 +165,21 @@ function ColumnRefSelector({
                 closeMenuOnSelect={true}
               />
             ) : (
-              <button
-                className="btn btn-link"
-                type="button"
-                onClick={(e) => {
-                  e.preventDefault();
-                  setShowFilters(true);
-                }}
-              >
-                <GBAddCircle /> Add WHERE Clause
-              </button>
+              <div className="form-group">
+                <button
+                  className="btn btn-link"
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setShowFilters(true);
+                  }}
+                >
+                  <GBAddCircle /> Add WHERE Clause
+                </button>
+              </div>
             )}
           </div>
-        )}
+        ) : null}
       </div>
     </div>
   );

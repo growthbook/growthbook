@@ -36,7 +36,7 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
       description: existing?.description || "",
       name: existing?.name || "",
       numberFormat: existing?.numberFormat || "",
-      datatype: existing?.datatype || "number",
+      datatype: existing?.datatype || "",
     },
   });
 
@@ -84,6 +84,61 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
         disabled={!!existing}
       />
 
+      <SelectField
+        label="Data Type"
+        value={form.watch("datatype")}
+        helpText="Only `number` data types can be used to create metrics"
+        onChange={(f) => form.setValue("datatype", f as FactTableColumnType)}
+        initialOption="Unknown"
+        required
+        options={[
+          {
+            label: "Number",
+            value: "number",
+          },
+          {
+            label: "String",
+            value: "string",
+          },
+          {
+            label: "Date / Datetime",
+            value: "date",
+          },
+          {
+            label: "Boolean",
+            value: "boolean",
+          },
+          {
+            label: "Other",
+            value: "other",
+          },
+        ]}
+      />
+
+      {form.watch("datatype") === "number" && (
+        <SelectField
+          label="Number Format"
+          value={form.watch("numberFormat")}
+          helpText="Used to properly format numbers in the UI"
+          onChange={(f) => form.setValue("numberFormat", f as NumberFormat)}
+          options={[
+            {
+              label: "Plain Number",
+              value: "",
+            },
+            {
+              label: "Currency",
+              value: "currency",
+            },
+            {
+              label: "Time (seconds)",
+              value: "time:seconds",
+            },
+          ]}
+          required
+        />
+      )}
+
       <Field
         label="Display Name"
         {...form.register("name")}
@@ -110,61 +165,6 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
         >
           + description
         </a>
-      )}
-
-      <SelectField
-        label="Data Type"
-        value={form.watch("datatype")}
-        helpText="Only `number` data types can be used to create metrics"
-        onChange={(f) => form.setValue("datatype", f as FactTableColumnType)}
-        placeholder="Choose..."
-        options={[
-          {
-            label: "Number",
-            value: "number",
-          },
-          {
-            label: "String",
-            value: "string",
-          },
-          {
-            label: "Date / Datetime",
-            value: "date",
-          },
-          {
-            label: "Boolean",
-            value: "boolean",
-          },
-          {
-            label: "Unknown / Other",
-            value: "unknown",
-          },
-        ]}
-        required
-      />
-
-      {form.watch("datatype") === "number" && (
-        <SelectField
-          label="Number Format"
-          value={form.watch("numberFormat")}
-          helpText="Used to properly format numbers in the UI"
-          onChange={(f) => form.setValue("numberFormat", f as NumberFormat)}
-          options={[
-            {
-              label: "Plain Number",
-              value: "",
-            },
-            {
-              label: "Currency",
-              value: "currency",
-            },
-            {
-              label: "Time (seconds)",
-              value: "time:seconds",
-            },
-          ]}
-          required
-        />
       )}
     </Modal>
   );
