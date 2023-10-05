@@ -54,10 +54,7 @@ import { useUser } from "@/services/UserContext";
 import { DeleteDemoDatasourceButton } from "@/components/DemoDataSourcePage/DemoDataSourcePage";
 import PageHead from "@/components/Layout/PageHead";
 import { FeatureDraftsDropDown } from "@/components/FeatureDraftsDropDown/FeatureDraftsDropDown";
-import {
-  FeatureDraftUiItem,
-  transformDraftsForView,
-} from "@/components/FeatureDraftsDropDown/FeatureDraftsDropdown.utils";
+import { transformDraftsForView } from "@/components/FeatureDraftsDropDown/FeatureDraftsDropdown.utils";
 import useMembers from "../../hooks/useMembers";
 import AssignmentTester from "../../components/Archetype/AssignmentTester";
 import { CreateDraftModal } from "../../components/CreateDraftModal/CreateDraftModal";
