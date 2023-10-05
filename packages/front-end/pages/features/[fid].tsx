@@ -455,7 +455,10 @@ export default function FeaturePage() {
 
       {previewType === "draft" ? (
         <div className="alert justify-content-between alert-info mb-3 d-flex align-items-center">
-          <div className="flex-1">You are viewing a draft of the feature.</div>
+          <div className="flex-1">
+            You are viewing a draft of the feature.{" "}
+            <strong>Version: {activeRevision?.version}</strong>
+          </div>
           <div className="ml-2">
             <a href={`/features/${fid}`} className="btn btn-primary">
               Back to feature
