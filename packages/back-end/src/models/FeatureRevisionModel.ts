@@ -116,13 +116,31 @@ export async function createFeatureRevision({
     rules[env] = feature.environmentSettings?.[env]?.rules || [];
   });
 
+  let versionNumber = 2;
+
+  const latestRevision = await FeatureRevisionModel.findOne(
+    {
+      organization: feature.organization,
+      featureId: feature.id,
+    },
+    null,
+    {
+      sort: { dateCreated: -1 },
+      limit: 1,
+    }
+  );
+
+  if (latestRevision) {
+    versionNumber = latestRevision.version + 1;
+  }
+
   try {
     const doc = await FeatureRevisionModel.create({
       id: `feat-rev_${randomUUID()}`,
       organization: feature.organization,
       featureId: feature.id,
       creatorUserId,
-      version: feature.revision?.version || 1,
+      version: versionNumber,
       dateCreated: new Date(),
       revisionDate: feature.revision?.date || feature.dateCreated,
       status: state,

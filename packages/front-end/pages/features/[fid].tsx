@@ -60,6 +60,7 @@ import {
 } from "@/components/FeatureDraftsDropDown/FeatureDraftsDropdown.utils";
 import useMembers from "../../hooks/useMembers";
 import AssignmentTester from "../../components/Archetype/AssignmentTester";
+import { CreateDraftModal } from "../../components/CreateDraftModal/CreateDraftModal";
 
 export default function FeaturePage() {
   const router = useRouter();
@@ -86,6 +87,7 @@ export default function FeaturePage() {
   const [editProjectModal, setEditProjectModal] = useState(false);
   const [editTagsModal, setEditTagsModal] = useState(false);
   const [editOwnerModal, setEditOwnerModal] = useState(false);
+  const [newDraftModal, setNewDraftModal] = useState(false);
 
   const {
     getProjectById,
@@ -210,6 +212,79 @@ export default function FeaturePage() {
     [apiCall, mutate, displayFeature]
   );
 
+  /**
+   * creates a draft and then navigates so the user can edit it.
+   */
+  const createDraftAndNavigate = useCallback(async () => {
+    if (!displayFeature) return;
+
+    try {
+      const res = await apiCall<{ draftId?: string; status: number }>(
+        `/feature/${displayFeature.id}/draft`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            comment: "Draft created",
+          }),
+        }
+      );
+      console.log("response!", res);
+
+      if (res.draftId) {
+        console.log("navigating to:", {
+          pathname: displayFeature.id,
+          query: {
+            rid: res.draftId,
+          },
+        });
+
+        location.href = location.href + `?rid=${res.draftId}`;
+
+        // router.replace({
+        //   pathname: router.pathname,
+        //   // pathname: "/features/" + displayFeature.id,
+        //   query: {
+        //     rid: res.draftId,
+        //   },
+        // });
+
+        // router.push(
+        //   router.pathname + "/" + displayFeature.id + "?rid=" + res.draftId
+        // );
+        // const result = await router.push(
+        //   `/features/${displayFeature.id}/?rid=${res.draftId}`,
+        //   undefined,
+        //   { scroll: false }
+        // );
+        // console.log("result", result);
+
+        // router.replace({
+        //   pathname: router.pathname,
+        //   query: {
+        //     fid: displayFeature.id,
+        //     // rid: res.draftId,
+        //   },
+        //   search: "?rid=" + res.draftId,
+        // });
+        // router.replace(`/features/${displayFeature.id}/?rid=${res.draftId}`);
+        // router.push({
+        //   pathname: "/features/" + displayFeature.id,
+        //   query: {
+        //     rid: res.draftId,
+        //   },
+        //   // pathname: displayFeature.id,
+        //   // query: {
+        //   //   rid: res.draftId,
+        //   // },
+        // });
+      }
+      // await mutate();
+    } catch (err) {
+      await mutate();
+      throw err;
+    }
+  }, [displayFeature, apiCall, mutate]);
+
   if (error) {
     return (
       <div className="alert alert-danger">
@@ -289,6 +364,12 @@ export default function FeaturePage() {
           }}
         />
       )}
+      {newDraftModal ? (
+        <CreateDraftModal
+          onConfirm={createDraftAndNavigate}
+          onCancel={() => setNewDraftModal(false)}
+        />
+      ) : null}
       {editValidator && (
         <EditSchemaModal
           close={() => setEditValidator(false)}
@@ -824,9 +905,13 @@ export default function FeaturePage() {
         {permissions.check("createFeatureDrafts", projectId) && (
           <button
             className="btn btn-link ml-2 cursor-pointer"
-            disabled={previewType !== "draft"}
-            // todo: create draft and navigate
-            onClick={() => setEdit(true)}
+            onClick={() => {
+              if (previewType === "draft") {
+                setEdit(true);
+              } else {
+                setNewDraftModal(true);
+              }
+            }}
           >
             <GBEdit />
           </button>
@@ -899,19 +984,21 @@ export default function FeaturePage() {
                 <div>
                   <button
                     className="btn btn-primary"
-                    // todo: make more user-friendly UI re: creating a draft
-                    disabled={previewType !== "draft"}
-                    // todo: create draft and navigate
                     onClick={() => {
-                      setRuleModal({
-                        environment: env,
-                        i: getRules(displayFeature, env, activeRevision).length,
-                        defaultType: "force",
-                      });
-                      track("Viewed Rule Modal", {
-                        source: "add-rule",
-                        type: "force",
-                      });
+                      if (previewType === "draft") {
+                        setRuleModal({
+                          environment: env,
+                          i: getRules(displayFeature, env, activeRevision)
+                            .length,
+                          defaultType: "force",
+                        });
+                        track("Viewed Rule Modal", {
+                          source: "add-rule",
+                          type: "force",
+                        });
+                      } else {
+                        setNewDraftModal(true);
+                      }
                     }}
                   >
                     <span className="h4 pr-2 m-0 d-inline-block align-top">
@@ -935,18 +1022,21 @@ export default function FeaturePage() {
                 <div>
                   <button
                     className="btn btn-primary"
-                    disabled={previewType !== "draft"}
-                    // todo: create draft and navigate
                     onClick={() => {
-                      setRuleModal({
-                        environment: env,
-                        i: getRules(displayFeature, env, activeRevision).length,
-                        defaultType: "rollout",
-                      });
-                      track("Viewed Rule Modal", {
-                        source: "add-rule",
-                        type: "rollout",
-                      });
+                      if (previewType === "draft") {
+                        setRuleModal({
+                          environment: env,
+                          i: getRules(displayFeature, env, activeRevision)
+                            .length,
+                          defaultType: "rollout",
+                        });
+                        track("Viewed Rule Modal", {
+                          source: "add-rule",
+                          type: "rollout",
+                        });
+                      } else {
+                        setNewDraftModal(true);
+                      }
                     }}
                   >
                     <span className="h4 pr-2 m-0 d-inline-block align-top">
@@ -968,18 +1058,21 @@ export default function FeaturePage() {
                 <div>
                   <button
                     className="btn btn-primary"
-                    disabled={previewType !== "draft"}
-                    // todo: create draft and navigate
                     onClick={() => {
-                      setRuleModal({
-                        environment: env,
-                        i: getRules(displayFeature, env, activeRevision).length,
-                        defaultType: "experiment-ref-new",
-                      });
-                      track("Viewed Rule Modal", {
-                        source: "add-rule",
-                        type: "experiment",
-                      });
+                      if (previewType === "draft") {
+                        setRuleModal({
+                          environment: env,
+                          i: getRules(displayFeature, env, activeRevision)
+                            .length,
+                          defaultType: "experiment-ref-new",
+                        });
+                        track("Viewed Rule Modal", {
+                          source: "add-rule",
+                          type: "experiment",
+                        });
+                      } else {
+                        setNewDraftModal(true);
+                      }
                     }}
                   >
                     <span className="h4 pr-2 m-0 d-inline-block align-top">
