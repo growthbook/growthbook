@@ -138,7 +138,7 @@ function ColumnRefSQL({
   return (
     <div className="d-flex align-items-center">
       <InlineCode language="sql" code={column + from + sqlExtra} />
-      {(!colData || colData.deleted) && (
+      {colData?.deleted && (
         <div className="ml-2">
           <Tooltip body="This column is no longer being returned from the Fact Table">
             <div className="rounded alert-danger px-2 py-1">

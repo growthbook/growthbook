@@ -13,7 +13,7 @@ import Modal from "../Modal";
 import Field from "../Forms/Field";
 import MarkdownInput from "../Markdown/MarkdownInput";
 import InlineCode from "../SyntaxHighlighting/InlineCode";
-import ColumnTable from "./ColumnTable";
+import FactTableSchema from "./FactTableSchema";
 
 export interface Props {
   factTable: FactTableInterface;
@@ -158,7 +158,7 @@ export default function FactFilterModal({ existing, factTable, close }: Props) {
           <div className="col-auto border-left">
             <div className="mb-3">
               <label>Available Columns</label>
-              <ColumnTable factTable={factTable} />
+              <FactTableSchema factTable={factTable} />
             </div>
           </div>
         ) : null}

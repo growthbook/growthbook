@@ -4,7 +4,7 @@ export interface Props {
   factTable: FactTableInterface;
 }
 
-export default function ColumnTable({ factTable }: Props) {
+export default function FactTableSchema({ factTable }: Props) {
   const columns = (factTable.columns || []).filter((col) => !col.deleted);
 
   return (
@@ -15,7 +15,11 @@ export default function ColumnTable({ factTable }: Props) {
             <td>{col.column}</td>
             <td>
               <em className="text-muted ml-1">
-                {col.datatype === "date" ? "date / datetime" : col.datatype}
+                {col.datatype === "date"
+                  ? "date / datetime"
+                  : !col.datatype
+                  ? "unknown"
+                  : col.datatype}
               </em>
             </td>
           </tr>
