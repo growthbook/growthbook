@@ -181,10 +181,6 @@ export default function FeaturePage() {
 
   const { memberUsernameOptions } = useMembers();
 
-  const onDraftClicked = useCallback((draft: FeatureDraftUiItem) => {
-    console.log("draft clicked!!", draft);
-  }, []);
-
   const draftsForUi = useMemo(
     () => transformDraftsForView(memberUsernameOptions, data?.drafts || []),
     [data, memberUsernameOptions]
@@ -494,7 +490,6 @@ export default function FeaturePage() {
             <div className="mr-4">
               <FeatureDraftsDropDown
                 drafts={draftsForUi}
-                onDraftClick={onDraftClicked}
                 reviewRequests={reviewRequests}
               />
             </div>

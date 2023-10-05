@@ -3,6 +3,7 @@ import { getValidDate } from "shared/dates";
 import { MemberData } from "@/hooks/useMembers";
 
 export type FeatureDraftUiItem = {
+  featureId: string;
   revisionId: string | null;
   dateCreated: Date;
   version: number;
@@ -16,6 +17,7 @@ export type FeatureDraftUiItem = {
 const transformDraftForView = (members: Record<string, MemberData>) => (
   revision: FeatureRevisionInterface
 ): FeatureDraftUiItem => ({
+  featureId: revision.featureId,
   revisionId: revision.id || null,
   dateCreated: getValidDate(revision.dateCreated, new Date(0)),
   version: revision.version,

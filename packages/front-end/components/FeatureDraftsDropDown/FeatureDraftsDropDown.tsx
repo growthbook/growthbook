@@ -1,19 +1,16 @@
 import React, { FC } from "react";
 import { ago, datetime } from "@/../shared/dates";
 import { FeatureReviewRequest } from "back-end/types/feature-review";
+import Link from "next/link";
 import { FeatureDraftUiItem } from "@/components/FeatureDraftsDropDown/FeatureDraftsDropdown.utils";
 import Avatar from "@/components/Avatar/Avatar";
 import Dropdown from "@/components/Dropdown/Dropdown";
 
 type FeatureDraftsListProps = {
   drafts: FeatureDraftUiItem[];
-  onDraftClick: (draft: FeatureDraftUiItem) => void;
 };
 
-export const FeatureDraftsList: FC<FeatureDraftsListProps> = ({
-  drafts,
-  onDraftClick,
-}) => {
+export const FeatureDraftsList: FC<FeatureDraftsListProps> = ({ drafts }) => {
   return (
     <div className="">
       <table className="table table-hover">
@@ -58,12 +55,11 @@ export const FeatureDraftsList: FC<FeatureDraftsListProps> = ({
                   {ago(dateCreated)}
                 </td>
                 <td>
-                  <button
-                    onClick={() => onDraftClick(draft)}
-                    className="btn btn-primary btn-sm"
+                  <Link
+                    href={`/features/${draft.featureId}?rid=${draft.revisionId}`}
                   >
-                    View
-                  </button>
+                    <a className="btn btn-primary btn-sm">View</a>
+                  </Link>
                 </td>
               </tr>
             );
@@ -77,13 +73,11 @@ export const FeatureDraftsList: FC<FeatureDraftsListProps> = ({
 type FeatureDraftsDropDownProps = {
   reviewRequests: FeatureReviewRequest[];
   drafts: FeatureDraftUiItem[];
-  onDraftClick: (draft: FeatureDraftUiItem) => void;
 };
 
 export const FeatureDraftsDropDown: FC<FeatureDraftsDropDownProps> = ({
   reviewRequests,
   drafts,
-  onDraftClick,
 }) => {
   return (
     <div>
@@ -114,7 +108,7 @@ export const FeatureDraftsDropDown: FC<FeatureDraftsDropDownProps> = ({
             </span>
           }
         >
-          <div className="p-4">
+          <div style={{ maxHeight: 500, overflowY: "scroll" }} className="p-4">
             <h3>Drafts</h3>
             <p>Drafts are unpublished versions of a feature.</p>
 
@@ -134,10 +128,7 @@ export const FeatureDraftsDropDown: FC<FeatureDraftsDropDownProps> = ({
             {/*<h4>Other drafts</h4>*/}
             <div className="mt-3">
               {drafts.length ? (
-                <FeatureDraftsList
-                  drafts={drafts}
-                  onDraftClick={onDraftClick}
-                />
+                <FeatureDraftsList drafts={drafts} />
               ) : (
                 <p className="text-center">There are currently no drafts.</p>
               )}

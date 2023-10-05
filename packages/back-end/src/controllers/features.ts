@@ -29,7 +29,6 @@ import {
   toggleFeatureEnvironment,
   updateDraft,
   updateFeature,
-  updateLegacyDraft,
 } from "../models/FeatureModel";
 import { getRealtimeUsageByHour } from "../models/RealtimeModel";
 import { lookupOrganizationByApiKey } from "../models/ApiKeyModel";
