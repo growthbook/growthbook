@@ -24,13 +24,15 @@ export const validateRequestMiddleware = <
   params: paramsSchema,
 }: ValidationParams<ParamsSchema, BodySchema, QuerySchema>): RequestHandler<
   ParamsDictionary,
-  ResponseType | { error?: string }
+  ResponseType | { status: 400; message?: string; error?: string }
 > => (req, res, next) => {
   if (paramsSchema) {
     const result = paramsSchema.safeParse(req.params);
     if (!result.success) {
       return res.status(400).json({
+        status: 400,
         error: errorStringFromZodResult(result),
+        message: errorStringFromZodResult(result),
       });
     }
   }
@@ -39,7 +41,9 @@ export const validateRequestMiddleware = <
     const result = querySchema.safeParse(req.query);
     if (!result.success) {
       return res.status(400).json({
+        status: 400,
         error: errorStringFromZodResult(result),
+        message: errorStringFromZodResult(result),
       });
     }
   }
@@ -48,7 +52,9 @@ export const validateRequestMiddleware = <
     const result = bodySchema.safeParse(req.body);
     if (!result.success) {
       return res.status(400).json({
+        status: 400,
         error: errorStringFromZodResult(result),
+        message: errorStringFromZodResult(result),
       });
     }
   }

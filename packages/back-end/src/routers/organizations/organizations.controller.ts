@@ -104,6 +104,8 @@ import {
   findAuditByEntityParent,
 } from "../../models/AuditModel";
 import { EntityType } from "../../types/Audit";
+import { getAllFactTablesForOrganization } from "../../models/FactTableModel";
+import { getAllFactMetricsForOrganization } from "../../models/FactMetricModel";
 
 export async function getDefinitions(req: AuthRequest, res: Response) {
   const { org } = getOrgFromReq(req);
@@ -120,6 +122,8 @@ export async function getDefinitions(req: AuthRequest, res: Response) {
     tags,
     savedGroups,
     projects,
+    factTables,
+    factMetrics,
   ] = await Promise.all([
     getMetricsByOrganization(orgId),
     getDataSourcesByOrganization(orgId),
@@ -128,6 +132,8 @@ export async function getDefinitions(req: AuthRequest, res: Response) {
     getAllTags(orgId),
     getAllSavedGroups(orgId),
     findAllProjectsByOrganization(orgId),
+    getAllFactTablesForOrganization(orgId),
+    getAllFactMetricsForOrganization(orgId),
   ]);
 
   return res.status(200).json({
@@ -154,6 +160,8 @@ export async function getDefinitions(req: AuthRequest, res: Response) {
     tags,
     savedGroups,
     projects,
+    factTables,
+    factMetrics,
   });
 }
 
