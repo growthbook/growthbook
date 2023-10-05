@@ -268,10 +268,11 @@ export default function FeaturePage() {
 
   return (
     <div className="contents container-fluid pagecontents">
-      {edit && (
+      {edit && activeRevision && (
         <EditDefaultValueModal
           close={() => setEdit(false)}
           feature={displayFeature}
+          revision={activeRevision}
           mutate={mutate}
         />
       )}
