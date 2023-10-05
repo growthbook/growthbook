@@ -4,6 +4,7 @@ import {
   createUser as createNewUser,
   getUserByEmail,
   getUserByExternalId,
+  updateScimUserData,
 } from "../../services/users";
 import { addMemberToOrg } from "../../services/organizations";
 import { OrganizationInterface } from "../../../types/organization";
@@ -31,6 +32,17 @@ export async function createUser(
         detail: "User already exists in this organization",
         status: 409,
       });
+    }
+
+    // If we find the user by externalId, we should check that the email and the name match, and if not, update them
+    if (user && user.email !== requestBody.userName) {
+      await updateScimUserData(user.id, {
+        email: requestBody.userName,
+        name: requestBody.displayName,
+      });
+
+      user.email = requestBody.userName;
+      user.name = requestBody.displayName;
     }
 
     if (!user) {
@@ -72,7 +84,8 @@ export async function createUser(
 
     return res.status(201).json({
       schemas: ["urn:ietf:params:scim:schemas:core:2.0:User"],
-      id: user.externalId,
+      id: user.id,
+      externalId: user.externalId,
       userName: user.email,
       name: {
         displayName: user.name,
@@ -88,7 +101,6 @@ export async function createUser(
           display: user.email,
         },
       ],
-      role: role,
       groups: [],
       meta: {
         resourceType: "User",

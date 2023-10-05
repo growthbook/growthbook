@@ -1,7 +1,11 @@
 import { Response } from "express";
 import { cloneDeep } from "lodash";
 import { updateOrganization } from "../../models/OrganizationModel";
-import { getUserByExternalId, removeExternalId } from "../../services/users";
+import {
+  getUserByExternalId,
+  getUserById,
+  removeExternalId,
+} from "../../services/users";
 import { ScimUpdateRequest } from "../../../types/scim";
 import { OrganizationInterface } from "../../../types/organization";
 import { UserInterface } from "../../../types/user";
@@ -44,7 +48,7 @@ async function removeUserFromOrg(
 ) {
   const updatedOrg = cloneDeep(org);
 
-  // When we introduce the ability to manage roles via SCIM, we can remove this check.
+  // TODO: When we introduce the ability to manage roles via SCIM, we can remove this check.
   const userIsAdmin = org.members[userIndex].role === "admin";
 
   if (userIsAdmin) {
@@ -60,7 +64,6 @@ async function removeUserFromOrg(
   updatedOrg.members.splice(userIndex, 1);
 
   await updateOrganization(org.id, updatedOrg);
-  await removeExternalId(user.id);
 
   updatedScimUser.active = false;
 }
@@ -72,12 +75,20 @@ export async function patchUser(req: ScimUpdateRequest, res: Response) {
 
   // Check if the user exists at all
   // After this is all said and done, we need to return the user object
-  const user = await getUserByExternalId(req.params.id);
+  const user = await getUserById(req.params.id);
   if (!user) {
     return res.status(404).json({
       schemas: ["urn:ietf:params:scim:api:messages:2.0:Error"],
       status: "404",
       detail: "User not found",
+    });
+  }
+
+  if (!user.externalId) {
+    return res.status(404).json({
+      schemas: ["urn:ietf:params:scim:api:messages:2.0:Error"],
+      status: "401",
+      detail: "This user isn't managed via an external IDP. Cannot update",
     });
   }
 
@@ -96,6 +107,7 @@ export async function patchUser(req: ScimUpdateRequest, res: Response) {
       givenName: user.name?.split(" ")[0],
       familyName: user.name?.split(" ")[1],
     },
+    externalId: user.externalId,
     active: userIndex > -1, // If a user has an externalId but is not in the org they're inactive
     emails: [
       {

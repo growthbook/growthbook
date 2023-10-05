@@ -1,11 +1,12 @@
 import { Response } from "express";
 import { ScimGetRequest } from "../../../types/scim";
-import { getUserByExternalId } from "../../services/users";
+import { getUserById } from "../../services/users";
 
 export async function getUser(req: ScimGetRequest, res: Response) {
   const userId = req.params.id;
+  console.log("getUser called", userId);
 
-  const user = await getUserByExternalId(userId);
+  const user = await getUserById(userId);
 
   if (!user) {
     return res.status(404).json({
@@ -63,7 +64,6 @@ export async function getUser(req: ScimGetRequest, res: Response) {
         display: user.email,
       },
     ],
-    role: orgUser.role,
     groups: [],
     meta: {
       resourceType: "User",

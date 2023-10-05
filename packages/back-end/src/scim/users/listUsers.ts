@@ -10,6 +10,7 @@ export async function listUsers(
   req: Request & ApiRequestLocals,
   res: Response
 ) {
+  console.log("listUsers called", req.query);
   const { startIndex, count, filter: filterQuery } = req.query;
 
   const queryOptions = {
@@ -29,7 +30,8 @@ export async function listUsers(
       if (user.externalId) {
         const scimUser = {
           schemas: ["urn:ietf:params:scim:schemas:core:2.0:User"],
-          id: user.externalId,
+          id: user.id,
+          externalId: user.externalId,
           userName: user.email,
           name: {
             formatted: user.name,
@@ -45,7 +47,6 @@ export async function listUsers(
               display: user.email,
             },
           ],
-          role: user.role,
           groups: [], // TODO: figure out groups object shape and include groups
           meta: {
             resourceType: "User",

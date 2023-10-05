@@ -13,7 +13,7 @@ const router = Router();
 router.get("/", listUsers);
 router.get("/:id", getUser);
 router.post("/", createUser);
-// router.put("/:id", updateUser);
+router.put("/:id", updateUser);
 router.patch("/:id", patchUser); // For Okta: Only used for user activation & deactivation (and password sync but that shouldn't be relevant)
 router.delete("/:id", deleteUser);
 
