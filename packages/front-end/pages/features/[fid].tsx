@@ -458,6 +458,7 @@ export default function FeaturePage() {
           <div className="flex-1">
             You are viewing a draft of the feature.{" "}
             <strong>Version: {activeRevision?.version}</strong>
+            {/* TODO: show the version everywhere not just here. This would only show for revisions (draft, previous versions) */}
           </div>
           <div className="ml-2">
             <a href={`/features/${fid}`} className="btn btn-primary">
@@ -493,6 +494,8 @@ export default function FeaturePage() {
                 reviewRequests={reviewRequests}
               />
             </div>
+
+            {/* TODO: update the legacy dropdown to create a new draft not a legacy draft */}
 
             {shouldShowLegacyRevisionDropdown && (
               <LegacyRevisionDropdown
