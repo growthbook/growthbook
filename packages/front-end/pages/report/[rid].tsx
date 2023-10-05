@@ -44,6 +44,7 @@ import track, { trackReport } from "@/services/track";
 import CompactResults from "@/components/Experiment/CompactResults";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import BreakDownResults from "@/components/Experiment/BreakDownResults";
+import DimensionChooser from "@/components/Dimensions/DimensionChooser";
 
 export default function ReportPage() {
   const [newUi, setNewUi] = useLocalStorage<boolean>(
@@ -288,6 +289,18 @@ export default function ReportPage() {
                   <h2>Results</h2>
                 </div>
                 <div className="flex-1"></div>
+                <div className="col-auto d-flex align-items-end mr-3">
+                  <DimensionChooser
+                    value={report.args.dimension ?? ""}
+                    activationMetric={!!report.args.activationMetric}
+                    datasourceId={report.args.datasource}
+                    exposureQueryId={report.args.exposureQueryId}
+                    userIdType={report.args.userIdType}
+                    labelClassName="mr-2"
+                    newUi={true}
+                    disabled={true}
+                  />
+                </div>
                 <div className="col-auto">
                   {hasData &&
                   report.runStarted &&

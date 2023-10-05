@@ -86,6 +86,7 @@ import { eventsRouter } from "./routers/events/events.router";
 import { eventWebHooksRouter } from "./routers/event-webhooks/event-webhooks.router";
 import { tagRouter } from "./routers/tag/tag.router";
 import { savedGroupRouter } from "./routers/saved-group/saved-group.router";
+import { ArchetypeRouter } from "./routers/archetype/archetype.router";
 import { segmentRouter } from "./routers/segment/segment.router";
 import { dimensionRouter } from "./routers/dimension/dimension.router";
 import { sdkConnectionRouter } from "./routers/sdk-connection/sdk-connection.router";
@@ -323,6 +324,8 @@ app.use("/tag", tagRouter);
 
 app.use("/saved-groups", savedGroupRouter);
 
+app.use("/archetype", ArchetypeRouter);
+
 // Ideas
 app.get("/ideas", ideasController.getIdeas);
 app.post("/ideas", ideasController.postIdeas);
@@ -336,7 +339,7 @@ app.get("/ideas/recent/:num", ideasController.getRecentIdeas);
 // Metrics
 app.get("/metrics", metricsController.getMetrics);
 app.post("/metrics", metricsController.postMetrics);
-app.get(
+app.post(
   "/metrics/tracked-events/:datasourceId",
   metricsController.getMetricsFromTrackedEvents
 );
@@ -491,6 +494,7 @@ app.delete(
 app.put("/feature/:id/rule", featuresController.putFeatureRule);
 app.delete("/feature/:id/rule", featuresController.deleteFeatureRule);
 app.post("/feature/:id/reorder", featuresController.postFeatureMoveRule);
+app.post("/feature/:id/eval", featuresController.postFeatureEvaluate);
 app.get("/usage/features", featuresController.getRealtimeUsage);
 
 // Data Sources
@@ -566,6 +570,13 @@ app.use("/teams", teamRouter);
 
 // Admin
 app.get("/admin/organizations", adminController.getOrganizations);
+
+// Meta info
+app.get("/meta/ai", (req, res) => {
+  res.json({
+    enabled: !!process.env.OPENAI_API_KEY,
+  });
+});
 
 // Fallback 404 route if nothing else matches
 app.use(function (req, res) {
