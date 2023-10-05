@@ -47,6 +47,7 @@ import {
   auditDetailsUpdate,
 } from "../services/audit";
 import {
+  createFeatureRevision,
   discardDraftFeatureRevision,
   getDraftFeatureRevisions,
   getPublishedFeatureRevisions,
@@ -519,14 +520,20 @@ export async function postFeatureDraft(
       },
     });
   } else {
-    // todo: create a new draft instead of updating the legacy one
-    await updateLegacyDraft(org, res.locals.eventAudit, feature, {
-      active: true,
+    const createdDraft = await createFeatureRevision({
+      feature,
+      creatorUserId: eventAudit?.type === "dashboard" ? eventAudit.id : null,
+      state: "draft",
       comment,
-      dateCreated: new Date(),
-      dateUpdated: new Date(),
-      defaultValue,
-      rules,
+    });
+
+    if (!createdDraft) {
+      throw new Error("draft could not be created");
+    }
+
+    return res.status(200).json({
+      status: 200,
+      draftId: createdDraft.id,
     });
   }
 

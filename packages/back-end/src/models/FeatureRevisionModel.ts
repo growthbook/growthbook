@@ -102,20 +102,22 @@ type SaveRevisionParams = {
   state: "published" | "draft";
   feature: FeatureInterface;
   creatorUserId: string | null;
+  comment?: string;
 };
 
 export async function createFeatureRevision({
   feature,
   creatorUserId,
   state,
-}: SaveRevisionParams): Promise<void> {
+  comment,
+}: SaveRevisionParams): Promise<FeatureRevisionInterface | null> {
   const rules: Record<string, FeatureRule[]> = {};
   Object.keys(feature.environmentSettings || {}).forEach((env) => {
     rules[env] = feature.environmentSettings?.[env]?.rules || [];
   });
 
   try {
-    await FeatureRevisionModel.create({
+    const doc = await FeatureRevisionModel.create({
       id: `feat-rev_${randomUUID()}`,
       organization: feature.organization,
       featureId: feature.id,
@@ -132,14 +134,18 @@ export async function createFeatureRevision({
               email: "",
               name: "",
             },
-      comment: feature.revision?.comment || "",
+      comment: comment || feature.revision?.comment || "",
       defaultValue: feature.defaultValue,
       rules,
     });
+
+    return toInterface(doc);
   } catch (e) {
     // The most likely error is a duplicate key error from the revision version
     // This is not a fatal error and should not stop the feature from being created
     logger.error(e, "Error saving feature revision");
+
+    return null;
 
     // TODO: handle duplicate key errors more elegantly
   }
