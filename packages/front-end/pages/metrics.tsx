@@ -202,6 +202,7 @@ const MetricsPage = (): React.ReactElement => {
             onClose={closeModal}
             onSuccess={onSuccess}
             source="blank-state"
+            allowFactMetrics={!modalData.duplicate && !modalData.edit}
           />
         )}
         {showAutoGenerateMetricsModal && (
@@ -281,6 +282,7 @@ const MetricsPage = (): React.ReactElement => {
           onClose={closeModal}
           onSuccess={onSuccess}
           source="metrics-list"
+          allowFactMetrics={!modalData.duplicate && !modalData.edit}
         />
       )}
       {showAutoGenerateMetricsModal && (

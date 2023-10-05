@@ -12,7 +12,6 @@ import {
   UpdateFactMetricProps,
 } from "back-end/types/fact-table";
 import { isProjectListValidForProject } from "shared/util";
-import { useRouter } from "next/router";
 import omit from "lodash/omit";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import {
@@ -35,16 +34,17 @@ import RiskThresholds from "../Metrics/MetricForm/RiskThresholds";
 import Tabs from "../Tabs/Tabs";
 import Tab from "../Tabs/Tab";
 import PremiumTooltip from "../Marketing/PremiumTooltip";
-import { GBAddCircle, GBCuped } from "../Icons";
+import { GBAddCircle, GBArrowLeft, GBCuped } from "../Icons";
 import { getNewExperimentDatasourceDefaults } from "../Experiment/NewExperimentForm";
 import ButtonSelectField from "../Forms/ButtonSelectField";
 
 export interface Props {
-  close: () => void;
+  close?: () => void;
   initialFactTable?: string;
   existing?: FactMetricInterface;
   showAdvancedSettings?: boolean;
-  navigateOnCreate?: boolean;
+  onSave?: () => void;
+  goBack?: () => void;
 }
 
 function ColumnRefSelector({
@@ -190,15 +190,14 @@ export default function FactMetricModal({
   initialFactTable,
   existing,
   showAdvancedSettings,
-  navigateOnCreate = true,
+  onSave,
+  goBack,
 }: Props) {
   const { metricDefaults } = useOrganizationMetricDefaults();
 
   const settings = useOrgSettings();
 
   const { hasCommercialFeature } = useUser();
-
-  const router = useRouter();
 
   const {
     datasources,
@@ -310,7 +309,7 @@ export default function FactMetricModal({
   return (
     <Modal
       open={true}
-      header={existing ? "Edit Metric" : "Create Metric"}
+      header={existing ? "Edit Metric" : "Create Fact Table Metric"}
       close={close}
       submit={form.handleSubmit(async (values) => {
         if (values.denominator && !values.denominator.factTableId) {
@@ -343,18 +342,32 @@ export default function FactMetricModal({
             projects: selectedDataSource.projects || [],
           };
 
-          const { factMetric } = await apiCall<{
+          await apiCall<{
             factMetric: FactMetricInterface;
           }>(`/fact-metrics`, {
             method: "POST",
             body: JSON.stringify(createPayload),
           });
           await mutateDefinitions();
-          navigateOnCreate && router.push(`/fact-metrics/${factMetric.id}`);
+
+          onSave && onSave();
         }
       })}
       size="lg"
     >
+      {goBack && (
+        <div className="mb-3">
+          <a
+            href="#"
+            onClick={(e) => {
+              e.preventDefault();
+              goBack();
+            }}
+          >
+            <GBArrowLeft /> Go Back
+          </a>
+        </div>
+      )}
       <Field
         label="Metric Name"
         {...form.register("name")}

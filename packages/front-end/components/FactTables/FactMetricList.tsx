@@ -58,7 +58,6 @@ export default function FactMetricList({ factTable }: Props) {
         <FactMetricModal
           close={() => setNewOpen(false)}
           initialFactTable={factTable.id}
-          navigateOnCreate={false}
         />
       )}
       {editOpen && (
