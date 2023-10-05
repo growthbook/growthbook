@@ -822,9 +822,14 @@ export default function FeaturePage() {
       <h3>
         Default Value
         {permissions.check("createFeatureDrafts", projectId) && (
-          <a className="ml-2 cursor-pointer" onClick={() => setEdit(true)}>
+          <button
+            className="btn btn-link ml-2 cursor-pointer"
+            disabled={previewType !== "draft"}
+            // todo: create draft and navigate
+            onClick={() => setEdit(true)}
+          >
             <GBEdit />
-          </a>
+          </button>
         )}
       </h3>
       <div className="appbox mb-4 p-3">
@@ -894,6 +899,9 @@ export default function FeaturePage() {
                 <div>
                   <button
                     className="btn btn-primary"
+                    // todo: make more user-friendly UI re: creating a draft
+                    disabled={previewType !== "draft"}
+                    // todo: create draft and navigate
                     onClick={() => {
                       setRuleModal({
                         environment: env,
@@ -927,6 +935,8 @@ export default function FeaturePage() {
                 <div>
                   <button
                     className="btn btn-primary"
+                    disabled={previewType !== "draft"}
+                    // todo: create draft and navigate
                     onClick={() => {
                       setRuleModal({
                         environment: env,
@@ -958,6 +968,8 @@ export default function FeaturePage() {
                 <div>
                   <button
                     className="btn btn-primary"
+                    disabled={previewType !== "draft"}
+                    // todo: create draft and navigate
                     onClick={() => {
                       setRuleModal({
                         environment: env,
