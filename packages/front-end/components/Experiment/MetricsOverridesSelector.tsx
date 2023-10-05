@@ -448,13 +448,10 @@ export default function MetricsOverridesSelector({
           <div className="col">
             <MetricSelector
               datasource={experiment.datasource}
-              excludeIds={usedMetrics}
+              availableIds={unusedMetrics}
               project={experiment.project}
               includeFacts={true}
-              value={
-                metricDefinitions.find((md) => md.id === selectedMetricId)
-                  ?.name || ""
-              }
+              value={selectedMetricId}
               onChange={(m) => setSelectedMetricId(m)}
               initialOption="Choose Metric..."
               disabled={disabled}

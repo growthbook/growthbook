@@ -45,7 +45,7 @@ const navlinks: SidebarLinkProps[] = [
   {
     name: "Metrics and Data",
     href: "/metrics",
-    path: /^(metric|segment|dimension|datasourcesfact-metric|fact-tables)/,
+    path: /^(metric|segment|dimension|datasources|fact-)/,
     autoClose: true,
     Icon: GBDatabase,
     subLinks: [

@@ -1,5 +1,6 @@
 import { MetricInterface } from "back-end/types/metric";
 import { FactMetricInterface, FactTableMap } from "back-end/types/fact-table";
+import { TemplateVariables } from "back-end/types/sql";
 import { DEFAULT_CONVERSION_WINDOW_HOURS } from "./settings/resolvers/genDefaultSettings";
 
 export type ExperimentMetricInterface = MetricInterface | FactMetricInterface;
@@ -12,6 +13,26 @@ export function isFactMetric(
   m: ExperimentMetricInterface
 ): m is FactMetricInterface {
   return "metricType" in m;
+}
+
+export function getMetricTemplateVariables(
+  m: ExperimentMetricInterface,
+  factTableMap: FactTableMap,
+  useDenominator?: boolean
+): TemplateVariables {
+  if (isFactMetric(m)) {
+    const columnRef = useDenominator ? m.denominator : m.numerator;
+    if (!columnRef) return {};
+
+    const factTable = factTableMap.get(columnRef.factTableId);
+    if (!factTable) return {};
+
+    return {
+      eventName: factTable.eventName,
+    };
+  }
+
+  return m.templateVariables || {};
 }
 
 export function isBinomialMetric(m: ExperimentMetricInterface) {

@@ -17,14 +17,14 @@ const MetricSelector: FC<
     datasource?: string;
     project?: string;
     includeFacts?: boolean;
-    excludeIds?: Set<string>;
+    availableIds?: string[];
   }
 > = ({
   datasource,
   project,
   includeFacts,
   placeholder,
-  excludeIds,
+  availableIds,
   ...selectProps
 }) => {
   const { metrics, factMetrics } = useDefinitions();
@@ -56,7 +56,7 @@ const MetricSelector: FC<
   ];
 
   const filteredOptions = options
-    .filter((m) => !excludeIds || !excludeIds.has(m.id))
+    .filter((m) => !availableIds || availableIds.includes(m.id))
     .filter((m) => (datasource ? m.datasource === datasource : true))
     .filter((m) => isProjectListValidForProject(m.projects, project));
 
