@@ -40,17 +40,14 @@ export const validateEnvKeys = (
 
 export const parseJsonSchemaForEnterprise = (
   org: OrganizationInterface,
-  jsonSchema: string | undefined,
-  licenseError: string
+  jsonSchema: string | undefined
 ) => {
   const defaultJsonSchema = {
     schema: "",
     date: new Date(),
     enabled: false,
   };
-  const commercialFeatures = licenseError
-    ? []
-    : [...accountFeatures[getAccountPlan(org)]];
+  const commercialFeatures = [...accountFeatures[getAccountPlan(org)]];
   if (!commercialFeatures.includes("json-validation")) return defaultJsonSchema;
   try {
     return jsonSchema ? JSON.parse(jsonSchema) : defaultJsonSchema;
@@ -62,7 +59,7 @@ export const parseJsonSchemaForEnterprise = (
 };
 
 export const postFeature = createApiRequestHandler(postFeatureValidator)(
-  async (req, res): Promise<PostFeatureResponse> => {
+  async (req): Promise<PostFeatureResponse> => {
     req.checkPermissions("manageFeatures", req.body.project);
 
     const existing = await getFeature(req.organization.id, req.body.id);
@@ -112,8 +109,7 @@ export const postFeature = createApiRequestHandler(postFeatureValidator)(
 
     const jsonSchema = parseJsonSchemaForEnterprise(
       req.organization,
-      req.body.jsonSchema,
-      res.locals.licenseError
+      req.body.jsonSchema
     );
 
     feature.jsonSchema = jsonSchema;

@@ -20,7 +20,7 @@ import { auditDetailsUpdate } from "../../services/audit";
 import { parseJsonSchemaForEnterprise, validateEnvKeys } from "./postFeature";
 
 export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
-  async (req, res): Promise<UpdateFeatureResponse> => {
+  async (req): Promise<UpdateFeatureResponse> => {
     const feature = await getFeature(req.organization.id, req.params.id);
     if (!feature) {
       throw new Error(`Feature id '${req.params.id}' not found.`);
@@ -73,11 +73,7 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
 
     const jsonSchema =
       feature.valueType === "json" && req.body.jsonSchema != null
-        ? parseJsonSchemaForEnterprise(
-            req.organization,
-            req.body.jsonSchema,
-            res.locals.licenseError
-          )
+        ? parseJsonSchemaForEnterprise(req.organization, req.body.jsonSchema)
         : null;
 
     const updates: Partial<FeatureInterface> = {

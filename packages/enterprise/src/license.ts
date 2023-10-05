@@ -232,14 +232,21 @@ export async function getVerifiedLicenseData(key: string) {
 }
 
 let licenseData: LicenseData | null = null;
+// in-memory cache to avoid hitting the license server on every request
+const keyToLicenseData: Record<string, LicenseData> = {};
 
 export async function licenseInit(licenseKey?: string) {
   const key = licenseKey || LICENSE_KEY || null;
+
   if (!key) {
     licenseData = null;
     return;
   }
+
+  if (key && keyToLicenseData[key]) return keyToLicenseData[key];
+
   licenseData = await getVerifiedLicenseData(key);
+  keyToLicenseData[key] = licenseData;
 }
 
 export function getLicense() {
