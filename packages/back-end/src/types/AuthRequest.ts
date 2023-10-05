@@ -33,7 +33,7 @@ export type AuthRequest<
   loginMethod?: SSOConnectionInterface;
   authSubject?: string;
   name?: string;
-  admin?: boolean;
+  superAdmin?: boolean;
   organization?: OrganizationInterface;
   audit: (data: Partial<AuditInterface>) => Promise<void>;
 } & PermissionFunctions;

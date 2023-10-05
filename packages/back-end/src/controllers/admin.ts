@@ -6,7 +6,7 @@ export async function getOrganizations(
   req: AuthRequest<never, never, { page?: string; search?: string }>,
   res: Response
 ) {
-  if (!req.admin) {
+  if (!req.superAdmin) {
     return res.status(403).json({
       status: 403,
       message: "Only admins can get all organizations",

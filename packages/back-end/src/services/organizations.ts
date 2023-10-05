@@ -185,7 +185,7 @@ export async function userHasAccess(
   req: AuthRequest,
   organization: string
 ): Promise<boolean> {
-  if (req.admin) return true;
+  if (req.superAdmin) return true;
   if (req.organization?.id === organization) return true;
   if (!req.userId) return false;
 
