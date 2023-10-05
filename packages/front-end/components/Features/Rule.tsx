@@ -253,6 +253,8 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                     await apiCall(`/feature/${feature.id}/rule`, {
                       method: "DELETE",
                       body: JSON.stringify({
+                        // todo: make sure UI is updated (currently the rules don't get updated)
+                        draftId: revision?.id,
                         environment,
                         i,
                       }),
