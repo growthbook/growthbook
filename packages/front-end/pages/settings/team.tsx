@@ -118,7 +118,7 @@ const TeamPage: FC = () => {
           />
         )}
 
-      {!isMultiOrg && (
+      {!isMultiOrg() && (
         <OrphanedUsersList
           mutateUsers={refreshOrganization}
           numUsersInAccount={organization.members?.length || 0}
