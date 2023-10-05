@@ -228,57 +228,10 @@ export default function FeaturePage() {
           }),
         }
       );
-      console.log("response!", res);
 
       if (res.draftId) {
-        console.log("navigating to:", {
-          pathname: displayFeature.id,
-          query: {
-            rid: res.draftId,
-          },
-        });
-
         location.href = location.href + `?rid=${res.draftId}`;
-
-        // router.replace({
-        //   pathname: router.pathname,
-        //   // pathname: "/features/" + displayFeature.id,
-        //   query: {
-        //     rid: res.draftId,
-        //   },
-        // });
-
-        // router.push(
-        //   router.pathname + "/" + displayFeature.id + "?rid=" + res.draftId
-        // );
-        // const result = await router.push(
-        //   `/features/${displayFeature.id}/?rid=${res.draftId}`,
-        //   undefined,
-        //   { scroll: false }
-        // );
-        // console.log("result", result);
-
-        // router.replace({
-        //   pathname: router.pathname,
-        //   query: {
-        //     fid: displayFeature.id,
-        //     // rid: res.draftId,
-        //   },
-        //   search: "?rid=" + res.draftId,
-        // });
-        // router.replace(`/features/${displayFeature.id}/?rid=${res.draftId}`);
-        // router.push({
-        //   pathname: "/features/" + displayFeature.id,
-        //   query: {
-        //     rid: res.draftId,
-        //   },
-        //   // pathname: displayFeature.id,
-        //   // query: {
-        //   //   rid: res.draftId,
-        //   // },
-        // });
       }
-      // await mutate();
     } catch (err) {
       await mutate();
       throw err;
