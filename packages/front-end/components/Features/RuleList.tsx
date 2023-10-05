@@ -107,6 +107,7 @@ export default function RuleList({
           await apiCall(`/feature/${feature.id}/reorder`, {
             method: "POST",
             body: JSON.stringify({
+              draftId: revision?.id,
               environment,
               from: oldIndex,
               to: newIndex,
