@@ -1,6 +1,6 @@
 import path from "path";
 import fs from "fs";
-import { Request, RequestHandler } from "express";
+import { Request, RequestHandler, Response } from "express";
 import z, { Schema, ZodNever } from "zod";
 import { ApiErrorResponse, ApiRequestLocals } from "../../types/api";
 import { ApiPaginationFields } from "../../types/openapi";
@@ -61,7 +61,8 @@ export function createApiRequestHandler<
 } = {}) {
   return <ResponseType>(
     handler: (
-      req: ApiRequest<ResponseType, ParamsSchema, BodySchema, QuerySchema>
+      req: ApiRequest<ResponseType, ParamsSchema, BodySchema, QuerySchema>,
+      res: Response
     ) => Promise<ResponseType>
   ) => {
     const wrappedHandler: RequestHandler<
@@ -109,7 +110,8 @@ export function createApiRequestHandler<
               ParamsSchema,
               BodySchema,
               QuerySchema
-            >
+            >,
+            res
           );
           return res.status(200).json(result);
         } catch (e) {
