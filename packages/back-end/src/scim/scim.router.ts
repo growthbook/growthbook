@@ -11,7 +11,7 @@ router.use(bodyParser.json({ limit: "1mb" }));
 router.use(bodyParser.urlencoded({ limit: "1mb", extended: true }));
 
 router.use(authenticateApiRequestMiddleware);
-// router.use(scimMiddleware);
+// router.use(scimMiddleware); // TODO: Re-enable after testing
 
 // API endpoints
 router.use("/users", usersRouter);

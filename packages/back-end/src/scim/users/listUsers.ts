@@ -23,6 +23,7 @@ export async function listUsers(
 
   const expandedMembers = await expandOrgMembers(org.members);
 
+  // TODO: return inactive users too to adhere to SCIM (users not in the org)
   const reduced = expandedMembers.reduce(
     (filtered: Record<string, any>, user) => {
       if (user.externalId) {
@@ -57,33 +58,6 @@ export async function listUsers(
     },
     []
   );
-
-  // const scimUsers = expandedMembers.map((user) => {
-  //   return {
-  //     schemas: ["urn:ietf:params:scim:schemas:core:2.0:User"],
-  //     id: user.externalId || "",
-  //     userName: user.email,
-  //     name: {
-  //       formatted: user.name,
-  //       givenName: user.name.split(" ")[0],
-  //       familyName: user.name.split(" ")[1],
-  //     },
-  //     active: true,
-  //     emails: [
-  //       {
-  //         primary: true,
-  //         value: user.email,
-  //         type: "work",
-  //         display: user.email,
-  //       },
-  //     ],
-  //     role: user.role,
-  //     groups: [], // TODO: figure out groups object shape and include groups
-  //     meta: {
-  //       resourceType: "User",
-  //     },
-  //   };
-  // });
 
   const filteredUsers = filterQuery
     ? reduced.filter(filter(parse(filterQuery as string)))

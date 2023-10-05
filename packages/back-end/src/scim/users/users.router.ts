@@ -2,8 +2,9 @@ import { Router } from "express";
 import { getUser } from "./getUser";
 import { createUser } from "./createUser";
 import { listUsers } from "./listUsers";
-import { updateUser } from "./updateUser";
+import { patchUser } from "./patchUser";
 import { deleteUser } from "./deleteUser";
+import { updateUser } from "./updateUser";
 
 const router = Router();
 
@@ -12,7 +13,8 @@ const router = Router();
 router.get("/", listUsers);
 router.get("/:id", getUser);
 router.post("/", createUser);
-router.patch("/:id", updateUser);
+// router.put("/:id", updateUser);
+router.patch("/:id", patchUser); // For Okta: Only used for user activation & deactivation (and password sync but that shouldn't be relevant)
 router.delete("/:id", deleteUser);
 
 export default router;

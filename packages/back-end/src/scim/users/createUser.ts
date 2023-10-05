@@ -15,8 +15,6 @@ export async function createUser(
 ) {
   const requestBody = req.body;
 
-  console.log({ requestBody });
-
   const org: OrganizationInterface = req.organization;
 
   const role = org.settings?.defaultRole?.role || "readonly";
@@ -24,8 +22,6 @@ export async function createUser(
   try {
     // Look up the user in Mongo
     let user = await getUserByExternalId(requestBody.externalId);
-
-    console.log({ user });
 
     // If the user already exists in the org, return an error
     if (user && org.members.find((member) => member.id === user?.id)) {
