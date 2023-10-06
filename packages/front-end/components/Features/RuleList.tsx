@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { FeatureInterface, FeatureRule } from "back-end/types/feature";
 import {
   DndContext,
@@ -52,8 +52,12 @@ export default function RuleList({
   const { apiCall } = useAuth();
   // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'null' is not assignable to param... Remove this comment to see the full error message
   const [activeId, setActiveId] = useState<string>(null);
-  const [items, setItems] = useState(getRules(feature, environment, revision));
+  const [items, setItems] = useState<FeatureRule[]>([]);
   const permissions = usePermissions();
+
+  useMemo(() => {
+    setItems(getRules(feature, environment, revision));
+  }, [feature, environment, revision]);
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -150,7 +154,6 @@ export default function RuleList({
             onRuleDuplicated={onRuleDuplicated}
             feature={feature}
             revision={revision}
-            mutate={mutate}
             experiments={experiments}
             setRuleModal={setRuleModal}
             // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'null' is not assignable to type 'boolean | u... Remove this comment to see the full error message
@@ -169,7 +172,6 @@ export default function RuleList({
             onRuleDuplicated={onRuleDuplicated}
             feature={feature}
             revision={revision}
-            mutate={mutate}
             experiments={experiments}
             setRuleModal={setRuleModal}
           />

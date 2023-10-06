@@ -10,7 +10,6 @@ import {
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import Link from "next/link";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
-import { useAuth } from "@/services/auth";
 import { getRules, useEnvironments } from "@/services/features";
 import usePermissions from "@/hooks/usePermissions";
 import { getUpcomingScheduleRule } from "@/services/scheduleRules";
@@ -41,7 +40,6 @@ interface SortableProps {
     idx: number
   ) => Promise<void>;
   onRuleDeleted: (rule: FeatureRule, idx: number) => Promise<void>;
-  mutate: () => void;
   setRuleModal: (args: { environment: string; i: number }) => void;
   unreachable?: boolean;
 }
@@ -64,7 +62,6 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
       onRuleEnabledStateToggled,
       onRuleDuplicated,
       onRuleDeleted,
-      mutate,
       handle,
       experiments,
       unreachable,
@@ -72,7 +69,6 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
     },
     ref
   ) => {
-    const { apiCall } = useAuth();
     const title =
       rule.description ||
       rule.type[0].toUpperCase() + rule.type.slice(1) + " Rule";
