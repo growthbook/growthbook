@@ -937,7 +937,10 @@ const fromApiEnvSettingsRulesToFeatureEnvSettingsRules = (
         enabled: r.enabled != null ? r.enabled : true,
         description: r.description ?? "",
         experimentId: r.experimentId,
-        variations: r.variations,
+        variations: r.variations.map((v) => ({
+          variationId: v.variationId,
+          value: validateFeatureValue(feature, v.value),
+        })),
       };
       return experimentRule;
     } else if (r.type === "force") {
