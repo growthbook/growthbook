@@ -921,17 +921,20 @@ export async function expandOrgMembers(
   // Add email/name to the organization members array
   const userInfo = await getUsersByIds(members.map((m) => m.id));
   const expandedMembers: ExpandedMember[] = [];
-  userInfo.forEach(({ id, email, verified, name, _id, externalId }) => {
-    const memberInfo = members.find((m) => m.id === id);
-    if (!memberInfo) return;
-    expandedMembers.push({
-      email,
-      verified,
-      name: name || "",
-      ...memberInfo,
-      dateCreated: memberInfo.dateCreated || _id.getTimestamp(),
-      externalId,
-    });
-  });
+  userInfo.forEach(
+    ({ id, email, verified, name, _id, externalId, managedByIdp }) => {
+      const memberInfo = members.find((m) => m.id === id);
+      if (!memberInfo) return;
+      expandedMembers.push({
+        email,
+        verified,
+        name: name || "",
+        ...memberInfo,
+        dateCreated: memberInfo.dateCreated || _id.getTimestamp(),
+        externalId,
+        managedByIdp,
+      });
+    }
+  );
   return expandedMembers;
 }

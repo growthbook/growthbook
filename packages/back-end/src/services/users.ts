@@ -96,6 +96,7 @@ export async function createUser(
   email: string,
   password?: string,
   verified: boolean = false,
+  managedByIdp: boolean = false,
   externalId?: string
 ) {
   let passwordHash = "";
@@ -112,6 +113,7 @@ export async function createUser(
     id: uniqid("u_"),
     externalId,
     verified,
+    managedByIdp,
   });
 }
 

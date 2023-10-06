@@ -27,7 +27,7 @@ export async function listUsers(
   // TODO: return inactive users too to adhere to SCIM (users not in the org)
   const reduced = expandedMembers.reduce(
     (filtered: Record<string, any>, user) => {
-      if (user.externalId) {
+      if (user.externalId || user.managedByIdp) {
         const scimUser = {
           schemas: ["urn:ietf:params:scim:schemas:core:2.0:User"],
           id: user.id,

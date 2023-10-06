@@ -16,6 +16,7 @@ const userSchema = new mongoose.Schema({
   verified: Boolean,
   minTokenDate: Date,
   externalId: String,
+  managedByIdp: Boolean,
 });
 
 export type UserDocument = mongoose.Document & UserInterface;

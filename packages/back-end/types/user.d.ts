@@ -7,6 +7,7 @@ export interface UserInterface {
   admin: boolean;
   minTokenDate?: Date;
   externalId?: string;
+  managedByIdp?: boolean;
 }
 
 export interface UserRef {

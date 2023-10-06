@@ -84,7 +84,7 @@ export async function patchUser(req: ScimUpdateRequest, res: Response) {
     });
   }
 
-  if (!user.externalId) {
+  if (!user.externalId || !user.managedByIdp) {
     return res.status(404).json({
       schemas: ["urn:ietf:params:scim:api:messages:2.0:Error"],
       status: "401",
