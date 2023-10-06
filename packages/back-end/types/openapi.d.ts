@@ -1203,31 +1203,17 @@ export interface operations {
                   hashAttribute: string;
                 } | {
                   description?: string;
-                  /** @description Applied to everyone by default. */
-                  condition?: string;
                   id?: string;
-                  /** @description Enabled by default. */
+                  /** @description Enabled by default */
                   enabled?: boolean;
                   /** @enum {string} */
-                  type: "experiment";
-                  /** @description Unique identifier for this experiment, used to track impressions and analyze results. */
-                  trackingKey: string;
-                  /** @description Will be hashed together with the Tracking Key to determine which variation to assign. */
-                  hashAttribute: string;
-                  namespace?: {
-                    enabled: boolean;
-                    name: string;
-                    range: (number)[];
-                  };
-                  /** @description Percent of traffic included in this experiment. Users not included in the experiment will skip this rule. */
-                  coverage: number;
-                  /** @description Values per variation */
-                  value?: ({
+                  type: "experiment-ref";
+                  condition?: string;
+                  variations: ({
                       value: string;
-                      /** @description The amount of traffic to be split to this value */
-                      weight: number;
-                      name?: string;
+                      variationId: string;
                     })[];
+                  experimentId: string;
                 })[];
               /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
               definition?: string;
@@ -1259,31 +1245,17 @@ export interface operations {
                     hashAttribute: string;
                   } | {
                     description?: string;
-                    /** @description Applied to everyone by default. */
-                    condition?: string;
                     id?: string;
-                    /** @description Enabled by default. */
+                    /** @description Enabled by default */
                     enabled?: boolean;
                     /** @enum {string} */
-                    type: "experiment";
-                    /** @description Unique identifier for this experiment, used to track impressions and analyze results. */
-                    trackingKey: string;
-                    /** @description Will be hashed together with the Tracking Key to determine which variation to assign. */
-                    hashAttribute: string;
-                    namespace?: {
-                      enabled: boolean;
-                      name: string;
-                      range: (number)[];
-                    };
-                    /** @description Percent of traffic included in this experiment. Users not included in the experiment will skip this rule. */
-                    coverage: number;
-                    /** @description Values per variation */
-                    value?: ({
+                    type: "experiment-ref";
+                    condition?: string;
+                    variations: ({
                         value: string;
-                        /** @description The amount of traffic to be split to this value */
-                        weight: number;
-                        name?: string;
+                        variationId: string;
                       })[];
+                    experimentId: string;
                   })[];
                 /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
                 definition?: string;
@@ -1629,31 +1601,17 @@ export interface operations {
                   hashAttribute: string;
                 } | {
                   description?: string;
-                  /** @description Applied to everyone by default. */
-                  condition?: string;
                   id?: string;
-                  /** @description Enabled by default. */
+                  /** @description Enabled by default */
                   enabled?: boolean;
                   /** @enum {string} */
-                  type: "experiment";
-                  /** @description Unique identifier for this experiment, used to track impressions and analyze results. */
-                  trackingKey: string;
-                  /** @description Will be hashed together with the Tracking Key to determine which variation to assign. */
-                  hashAttribute: string;
-                  namespace?: {
-                    enabled: boolean;
-                    name: string;
-                    range: (number)[];
-                  };
-                  /** @description Percent of traffic included in this experiment. Users not included in the experiment will skip this rule. */
-                  coverage: number;
-                  /** @description Values per variation */
-                  value?: ({
+                  type: "experiment-ref";
+                  condition?: string;
+                  variations: ({
                       value: string;
-                      /** @description The amount of traffic to be split to this value */
-                      weight: number;
-                      name?: string;
+                      variationId: string;
                     })[];
+                  experimentId: string;
                 })[];
               /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
               definition?: string;
@@ -1685,31 +1643,17 @@ export interface operations {
                     hashAttribute: string;
                   } | {
                     description?: string;
-                    /** @description Applied to everyone by default. */
-                    condition?: string;
                     id?: string;
-                    /** @description Enabled by default. */
+                    /** @description Enabled by default */
                     enabled?: boolean;
                     /** @enum {string} */
-                    type: "experiment";
-                    /** @description Unique identifier for this experiment, used to track impressions and analyze results. */
-                    trackingKey: string;
-                    /** @description Will be hashed together with the Tracking Key to determine which variation to assign. */
-                    hashAttribute: string;
-                    namespace?: {
-                      enabled: boolean;
-                      name: string;
-                      range: (number)[];
-                    };
-                    /** @description Percent of traffic included in this experiment. Users not included in the experiment will skip this rule. */
-                    coverage: number;
-                    /** @description Values per variation */
-                    value?: ({
+                    type: "experiment-ref";
+                    condition?: string;
+                    variations: ({
                         value: string;
-                        /** @description The amount of traffic to be split to this value */
-                        weight: number;
-                        name?: string;
+                        variationId: string;
                       })[];
+                    experimentId: string;
                   })[];
                 /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
                 definition?: string;

@@ -12,7 +12,6 @@ import {
 import { validateFeatureValue } from "shared/util";
 import { FeatureDefinition } from "../../types/api";
 import {
-  ExperimentRule,
   FeatureDraftChanges,
   FeatureEnvironment,
   FeatureInterface,
@@ -20,6 +19,7 @@ import {
   ForceRule,
   RolloutRule,
   FeatureTestResult,
+  ExperimentRefRule,
 } from "../../types/feature";
 import { getAllFeatures } from "../models/FeatureModel";
 import {
@@ -929,24 +929,15 @@ const fromApiEnvSettingsRulesToFeatureEnvSettingsRules = (
   rules: ApiFeatureEnvSettingsRules
 ): FeatureInterface["environmentSettings"][string]["rules"] =>
   rules.map((r) => {
-    if (r.type === "experiment") {
-      const experimentRule: ExperimentRule = {
+    if (r.type === "experiment-ref") {
+      const experimentRule: ExperimentRefRule = {
         // missing id will be filled in by addIdsToRules
         id: r.id ?? "",
         type: r.type,
+        enabled: r.enabled != null ? r.enabled : true,
         description: r.description ?? "",
-        hashAttribute: r.hashAttribute,
-        trackingKey: r.trackingKey,
-        values:
-          r.value?.map((v) => ({
-            value: validateFeatureValue(feature, v.value, v.name),
-            name: v.name ?? "",
-            weight: v.weight,
-          })) ?? [],
-        condition: r.condition,
-        coverage: r.coverage,
-        enabled: !!r.enabled,
-        namespace: r.namespace,
+        experimentId: r.experimentId,
+        variations: r.variations,
       };
       return experimentRule;
     } else if (r.type === "force") {
@@ -957,7 +948,7 @@ const fromApiEnvSettingsRulesToFeatureEnvSettingsRules = (
         description: r.description ?? "",
         value: validateFeatureValue(feature, r.value),
         condition: r.condition,
-        enabled: !!r.enabled,
+        enabled: r.enabled != null ? r.enabled : true,
       };
       return forceRule;
     }
@@ -970,7 +961,7 @@ const fromApiEnvSettingsRulesToFeatureEnvSettingsRules = (
       hashAttribute: r.hashAttribute,
       value: validateFeatureValue(feature, r.value),
       condition: r.condition,
-      enabled: !!r.enabled,
+      enabled: r.enabled != null ? r.enabled : true,
     };
     return rolloutRule;
   });
