@@ -11,6 +11,8 @@ import { SourceIntegrationInterface, TestQueryRow } from "../types/Integration";
 import BigQuery from "../integrations/BigQuery";
 import ClickHouse from "../integrations/ClickHouse";
 import Mixpanel from "../integrations/Mixpanel";
+import MicrosoftAppInsights from "../integrations/MicrosoftAppInsights";
+
 import {
   DataSourceInterface,
   DataSourceParams,
@@ -85,6 +87,8 @@ function getIntegrationObj(
       return new Presto(params, settings);
     case "databricks":
       return new Databricks(params, settings);
+    case "microsoft_app_insights":
+      return new MicrosoftAppInsights(params, settings);
   }
 }
 
