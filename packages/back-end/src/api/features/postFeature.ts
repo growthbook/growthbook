@@ -42,19 +42,22 @@ export const parseJsonSchemaForEnterprise = (
   org: OrganizationInterface,
   jsonSchema: string | undefined
 ) => {
-  const defaultJsonSchema = {
+  const jsonSchemaWrapper = {
     schema: "",
     date: new Date(),
-    enabled: false,
+    enabled: true,
   };
+  if (!jsonSchema) return jsonSchemaWrapper;
   const commercialFeatures = [...accountFeatures[getAccountPlan(org)]];
-  if (!commercialFeatures.includes("json-validation")) return defaultJsonSchema;
+  if (!commercialFeatures.includes("json-validation")) return jsonSchemaWrapper;
   try {
-    return jsonSchema ? JSON.parse(jsonSchema) : defaultJsonSchema;
+    // ensure the schema is valid JSON
+    jsonSchemaWrapper.schema = JSON.stringify(JSON.parse(jsonSchema));
+    return jsonSchemaWrapper;
   } catch (e) {
     // eslint-disable-next-line no-console
     console.error("failed to parse json schema", e);
-    return defaultJsonSchema;
+    return jsonSchemaWrapper;
   }
 };
 

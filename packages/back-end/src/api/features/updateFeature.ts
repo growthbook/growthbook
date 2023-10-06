@@ -87,7 +87,12 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
       ...(jsonSchema != null ? { jsonSchema } : {}),
     };
 
-    if (updates.environmentSettings) {
+    if (
+      updates.environmentSettings ||
+      updates.defaultValue != null ||
+      updates.project != null ||
+      updates.archived != null
+    ) {
       req.checkPermissions(
         "publishFeatures",
         updates.project,
