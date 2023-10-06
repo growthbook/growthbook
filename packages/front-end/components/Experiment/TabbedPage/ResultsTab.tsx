@@ -26,6 +26,7 @@ import ExperimentReportsList from "../ExperimentReportsList";
 import { useSnapshot } from "../SnapshotProvider";
 import AnalysisSettingsSummary from "./AnalysisSettingsSummary";
 import { ExperimentTab, LinkedFeature } from ".";
+import {useLocalStorage} from "@/hooks/useLocalStorage";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
@@ -60,6 +61,15 @@ export default function ResultsTab({
 }: Props) {
   const [baselineRow, setBaselineRow] = React.useState<number>(0);
   const [variationFilter, setVariationFilter] = React.useState<number[]>([]);
+  const [metricFilter, setMetricFilter] = useLocalStorage(
+    `experiment-results-metric-filter__${experiment.id}`,
+    {
+      orderByTag: true,
+      tagOrder: ["foo", "key metrics"],
+      filterByTag: true,
+      tagFilter: ["key metrics"],
+    }
+  );
 
   const {
     getDatasourceById,
@@ -309,6 +319,8 @@ export default function ResultsTab({
                   setVariationFilter={setVariationFilter}
                   baselineRow={baselineRow}
                   setBaselineRow={setBaselineRow}
+                  metricFilter={metricFilter}
+                  setMetricFilter={setMetricFilter}
                 />
               )}
             </>

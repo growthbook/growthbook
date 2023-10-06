@@ -51,6 +51,8 @@ const CompactResults: FC<{
   regressionAdjustmentEnabled?: boolean;
   metricRegressionAdjustmentStatuses?: MetricRegressionAdjustmentStatus[];
   sequentialTestingEnabled?: boolean;
+  metricFilter?: any;
+  setMetricFilter?: (filter: any) => void;
   isTabActive: boolean;
 }> = ({
   editMetrics,
@@ -73,6 +75,8 @@ const CompactResults: FC<{
   regressionAdjustmentEnabled,
   metricRegressionAdjustmentStatuses,
   sequentialTestingEnabled,
+  metricFilter,
+  setMetricFilter,
   isTabActive,
 }) => {
   const { getMetricById, ready } = useDefinitions();
@@ -125,21 +129,12 @@ const CompactResults: FC<{
     const metricDefs = metrics
       .map((metricId) => getMetricById(metricId))
       .filter(Boolean) as MetricInterface[];
-    const sortedFilteredMetrics = sortAndFilterMetricsByTags({
-      metrics: metricDefs,
-      orderByTag: true,
-      tagOrder: ["foo", "key metrics"],
-      filterByTag: true,
-      tagFilter: ["key metrics", "foo"],
-    });
+    const sortedFilteredMetrics = sortAndFilterMetricsByTags(metricDefs, metricFilter);
 
     const guardrailDefs = guardrails
       .map((metricId) => getMetricById(metricId))
       .filter(Boolean) as MetricInterface[];
-    const sortedFilteredGuardrails = sortAndFilterMetricsByTags({
-      metrics: guardrailDefs,
-      tagOrder: ["foo", "key metrics"],
-    });
+    const sortedFilteredGuardrails = sortAndFilterMetricsByTags(guardrailDefs, metricFilter);
 
     const retMetrics = sortedFilteredMetrics
       .map((metricId) => getRow(metricId, false))
@@ -156,9 +151,10 @@ const CompactResults: FC<{
     regressionAdjustmentEnabled,
     metricRegressionAdjustmentStatuses,
     pValueCorrection,
+    statsEngine,
     ready,
     getMetricById,
-    statsEngine,
+    metricFilter,
   ]);
 
   const users = useMemo(() => {

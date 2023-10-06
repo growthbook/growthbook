@@ -47,6 +47,8 @@ const Results: FC<{
   setVariationFilter?: (variationFilter: number[]) => void;
   baselineRow?: number;
   setBaselineRow?: (baselineRow: number) => void;
+  metricFilter?: any;
+  setMetricFilter?: (metricFilter: any) => void;
   isTabActive?: boolean;
 }> = ({
   experiment,
@@ -67,12 +69,10 @@ const Results: FC<{
   setVariationFilter,
   baselineRow,
   setBaselineRow,
+  metricFilter,
+  setMetricFilter,
   isTabActive = true,
 }) => {
-  // // todo: give these a proper home
-  // const [baselineRow, setBaselineRow] = React.useState<number>(0);
-  // const [variationFilter, setVariationFilter] = React.useState<number[]>([]);
-
   const { apiCall } = useAuth();
 
   // todo: move to snapshot property
@@ -315,6 +315,8 @@ const Results: FC<{
             snapshotMetricRegressionAdjustmentStatuses
           }
           sequentialTestingEnabled={analysis?.settings?.sequentialTesting}
+          metricFilter={metricFilter}
+          setMetricFilter={setMetricFilter}
         />
       ) : showCompactResults ? (
         <>
@@ -350,6 +352,8 @@ const Results: FC<{
               snapshotMetricRegressionAdjustmentStatuses
             }
             sequentialTestingEnabled={analysis.settings?.sequentialTesting}
+            metricFilter={metricFilter}
+            setMetricFilter={setMetricFilter}
             isTabActive={isTabActive}
           />
         </>
@@ -415,19 +419,19 @@ const Results: FC<{
 export default Results;
 
 // given an ordered list of tags, sort the metrics by their tags
-export function sortAndFilterMetricsByTags({
-  metrics,
-  orderByTag = false,
-  tagOrder = [],
-  filterByTag = false,
-  tagFilter = null,
-}: {
-  metrics: MetricInterface[];
-  orderByTag?: boolean;
-  tagOrder?: string[];
-  filterByTag?: boolean;
-  tagFilter?: string[] | null;
-}): string[] {
+export function sortAndFilterMetricsByTags(
+  metrics: MetricInterface[],
+  {
+    orderByTag = false,
+    tagOrder = [],
+    filterByTag = false,
+    tagFilter = null,
+  }: {
+    orderByTag?: boolean;
+    tagOrder?: string[];
+    filterByTag?: boolean;
+    tagFilter?: string[] | null;
+  }): string[] {
   if (filterByTag && !tagFilter) {
     tagFilter = tagOrder;
   }

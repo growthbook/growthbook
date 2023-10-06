@@ -18,6 +18,7 @@ import ResultsTable from "@/components/Experiment/ResultsTable";
 import { QueryStatusData } from "@/components/Queries/RunQueriesButton";
 import { getRenderLabelColumn } from "@/components/Experiment/CompactResults";
 import UsersTable from "./UsersTable";
+import {sortAndFilterMetricsByTags} from "@/components/Experiment/Results";
 
 type TableDef = {
   metric: MetricInterface;
@@ -45,6 +46,8 @@ const BreakDownResults: FC<{
   regressionAdjustmentEnabled?: boolean;
   metricRegressionAdjustmentStatuses?: MetricRegressionAdjustmentStatus[];
   sequentialTestingEnabled?: boolean;
+  metricFilter?: any;
+  setMetricFilter?: (filter: any) => void;
 }> = ({
   dimensionId,
   results,
@@ -65,6 +68,8 @@ const BreakDownResults: FC<{
   regressionAdjustmentEnabled,
   metricRegressionAdjustmentStatuses,
   sequentialTestingEnabled,
+  metricFilter,
+  setMetricFilter,
 }) => {
   const { getDimensionById, getMetricById, ready } = useDefinitions();
 
@@ -79,8 +84,12 @@ const BreakDownResults: FC<{
     }
     return Array.from(new Set(metrics.concat(guardrails || [])))
       .map((metricId) => {
-        const metric = getMetricById(metricId);
+
+        let metric = getMetricById(metricId);
         if (!metric) return;
+        const ret = sortAndFilterMetricsByTags([metric], metricFilter);
+        if (ret.length === 0) return;
+
         const { newMetric } = applyMetricOverrides(metric, metricOverrides);
         let regressionAdjustmentStatus:
           | MetricRegressionAdjustmentStatus
@@ -108,14 +117,15 @@ const BreakDownResults: FC<{
   }, [
     results,
     metrics,
+    guardrails,
     metricOverrides,
     regressionAdjustmentEnabled,
     metricRegressionAdjustmentStatuses,
     pValueCorrection,
     statsEngine,
-    guardrails,
     ready,
     getMetricById,
+    metricFilter,
   ]);
 
   const risk = useRiskVariation(
