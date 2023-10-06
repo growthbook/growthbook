@@ -80,7 +80,10 @@ export default function CustomFieldModal({
           value.defaultValue = !!value.defaultValue;
         }
 
-        if (value.type === "multiselect" || value.type === "enum") {
+        if (
+          (value.type === "multiselect" || value.type === "enum") &&
+          value.defaultValue
+        ) {
           // make sure the default value is an array
           const defaultValue = "" + value.defaultValue;
           const possibleValues = value.values
@@ -187,6 +190,7 @@ export default function CustomFieldModal({
             <></>
           )}
           {form.watch("type") !== "multiselect" &&
+            form.watch("type") !== "enum" &&
             form.watch("type") !== "textarea" && (
               <Field label="Placeholder" {...form.register("placeholder")} />
             )}
