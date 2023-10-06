@@ -8,6 +8,24 @@ import Field, { FieldProps } from "./Field";
 export type SingleValue = { label: string; value: string; tooltip?: string };
 export type GroupedValue = { label: string; options: SingleValue[] };
 
+export type SelectFieldProps = Omit<
+  FieldProps,
+  "value" | "onChange" | "options" | "multi" | "initialOption" | "placeholder"
+> & {
+  value: string;
+  placeholder?: string;
+  options: (SingleValue | GroupedValue)[];
+  initialOption?: string;
+  onChange: (value: string) => void;
+  sort?: boolean;
+  createable?: boolean;
+  formatOptionLabel?: (value: SingleValue) => ReactNode;
+  isSearchable?: boolean;
+  isClearable?: boolean;
+  closeMenuOnSelect?: boolean;
+  hideSelectedOption?: boolean;
+};
+
 export function useSelectOptions(
   options: (SingleValue | GroupedValue)[],
   initialOption?: string,
@@ -67,25 +85,7 @@ export const ReactSelectProps = {
   isSearchable: true,
 };
 
-const SelectField: FC<
-  Omit<
-    FieldProps,
-    "value" | "onChange" | "options" | "multi" | "initialOption" | "placeholder"
-  > & {
-    value: string;
-    placeholder?: string;
-    options: (SingleValue | GroupedValue)[];
-    initialOption?: string;
-    onChange: (value: string) => void;
-    sort?: boolean;
-    createable?: boolean;
-    formatOptionLabel?: (value: SingleValue) => ReactNode;
-    isSearchable?: boolean;
-    isClearable?: boolean;
-    closeMenuOnSelect?: boolean;
-    hideSelectedOption?: boolean;
-  }
-> = ({
+const SelectField: FC<SelectFieldProps> = ({
   value,
   options,
   onChange,

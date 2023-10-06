@@ -275,7 +275,7 @@ export async function getMetricsByIds(ids: string[], organization: string) {
   // If using config.yml, immediately return the list from there
   if (usingFileConfig()) {
     return getConfigMetrics(organization).filter(
-      (m) => ids.includes(m.datasource) || []
+      (m) => ids.includes(m.id) || []
     );
   }
 

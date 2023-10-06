@@ -50,7 +50,8 @@ FROM
   UNNEST(event_params) AS experiment_id_param,
   UNNEST(event_params) AS variation_id_param
 WHERE
-  _TABLE_SUFFIX BETWEEN '{{date startDateISO "yyyyMMdd"}}' AND '{{date endDateISO "yyyyMMdd"}}'
+  ((_TABLE_SUFFIX BETWEEN '{{date startDateISO "yyyyMMdd"}}' AND '{{date endDateISO "yyyyMMdd"}}') OR
+   (_TABLE_SUFFIX BETWEEN 'intraday_{{date startDateISO "yyyyMMdd"}}' AND 'intraday_{{date endDateISO "yyyyMMdd"}}'))
   AND event_name = 'experiment_viewed'  
   AND experiment_id_param.key = 'experiment_id'
   AND variation_id_param.key = 'variation_id'
@@ -84,7 +85,8 @@ FROM
 WHERE
   event_name = '{{eventName}}'  
   AND value_param.key = 'value'
-  AND _TABLE_SUFFIX BETWEEN '{{date startDateISO "yyyyMMdd"}}' AND '{{date endDateISO "yyyyMMdd"}}'
+  AND ((_TABLE_SUFFIX BETWEEN '{{date startDateISO "yyyyMMdd"}}' AND '{{date endDateISO "yyyyMMdd"}}') OR
+       (_TABLE_SUFFIX BETWEEN 'intraday_{{date startDateISO "yyyyMMdd"}}' AND 'intraday_{{date endDateISO "yyyyMMdd"}}'))
     `;
   },
 };
@@ -183,9 +185,10 @@ FROM
 const AmplitudeSchema: SchemaInterface = {
   experimentDimensions: ["country", "device", "os", "paying"],
   getExperimentSQL: (tablePrefix, userId, options) => {
-    const userCol = userId === "user_id" ? "user_id" : "$amplitude_id";
+    const userCol = userId === "user_id" ? "user_id" : "amplitude_id";
     // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
     const eventType = options.eventType || "Experiment Viewed";
+    const projectId = options?.projectId || "AMPLITUDE_PROJECT_ID";
 
     return `SELECT
   ${userCol} as ${userId},
@@ -197,7 +200,7 @@ const AmplitudeSchema: SchemaInterface = {
   country,
   paying
 FROM
-  ${tablePrefix}$events
+  ${tablePrefix}EVENTS_${projectId}
 WHERE
   event_type = '${eventType}'
   AND ${userCol} is not null
@@ -210,7 +213,7 @@ WHERE
   getMetricSQL: (type, tablePrefix) => {
     return `SELECT
   user_id,
-  $amplitude_id as anonymous_id,
+  amplitude_id as anonymous_id,
   event_time as timestamp${
     type === "revenue"
       ? ",\n  event_properties:revenue as value"
@@ -221,7 +224,7 @@ WHERE
       : `,\n  event_properties:value as value`
   }
 FROM
-  ${tablePrefix}$events
+  ${tablePrefix}EVENTS_AMPLITUDE_PROJECT_ID
 WHERE
   event_type = '{{eventName}}'
     `;

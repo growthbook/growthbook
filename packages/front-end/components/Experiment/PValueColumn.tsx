@@ -45,13 +45,11 @@ export default function PValueColumn({
   if (stats?.pValueAdjusted !== undefined && pValueCorrection) {
     pValText = showUnadjustedPValue ? (
       <>
-        <div>
-          {stats?.pValueAdjusted ? pValueFormatter(stats.pValueAdjusted) : ""}
-        </div>
+        <div>{pValueFormatter(stats.pValueAdjusted)}</div>
         <div className="text-muted">(unadj.:&nbsp;{pValText})</div>
       </>
     ) : (
-      <>{stats?.pValueAdjusted ? pValueFormatter(stats.pValueAdjusted) : ""}</>
+      <>{pValueFormatter(stats.pValueAdjusted)}</>
     );
   }
 

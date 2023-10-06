@@ -22,6 +22,7 @@ export type EventType =
   | "feature.toggle"
   | "feature.archive"
   | "feature.delete"
+  | "metric.autocreate"
   | "metric.create"
   | "metric.update"
   | "metric.delete"
@@ -43,6 +44,9 @@ export type EventType =
   | "savedGroup.created"
   | "savedGroup.deleted"
   | "savedGroup.updated"
+  | "archetype.created"
+  | "archetype.deleted"
+  | "archetype.updated"
   | "team.create"
   | "team.delete"
   | "team.update";
