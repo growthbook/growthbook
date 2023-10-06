@@ -1,5 +1,4 @@
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
-import { action } from "@storybook/addon-actions";
 import { FeatureReviewRequest } from "back-end/types/feature-review";
 import { MemberData } from "@/hooks/useMembers";
 import { transformDraftsForView } from "@/components/FeatureDraftsDropDown/FeatureDraftsDropdown.utils";
@@ -335,17 +334,11 @@ const reviewRequests: FeatureReviewRequest[] = [
 // endregion mock data
 
 export const Default = () => {
-  return (
-    <FeatureDraftsList drafts={drafts} onDraftClick={action("onDraftClick")} />
-  );
+  return <FeatureDraftsList drafts={drafts} />;
 };
 
 export const DropDownContents = () => {
   return (
-    <FeatureDraftsDropDown
-      drafts={drafts}
-      reviewRequests={reviewRequests}
-      onDraftClick={action("onDraftClick")}
-    />
+    <FeatureDraftsDropDown drafts={drafts} reviewRequests={reviewRequests} />
   );
 };
