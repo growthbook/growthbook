@@ -328,13 +328,13 @@ export default function FeaturePage() {
       await mutate();
     }
   }, [
-    apiCall,
-    displayFeature,
-    hasLegacyDraftPublishPermissions,
-    mutate,
-    router,
-    previewType,
     rid,
+    previewType,
+    hasDraftPublishPermission,
+    displayFeature,
+    apiCall,
+    router,
+    mutate,
   ]);
 
   if (error) {
