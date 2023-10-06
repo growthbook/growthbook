@@ -6,9 +6,30 @@ export type PaginationOptions<T = unknown> = {
 };
 
 export type UsePagination<T = unknown> = {
-  pageCount: number;
-  currentPage: number;
+  /**
+   * List of items currently visible
+   */
   visibleItems: T[];
+
+  /**
+   * Total number of pages
+   */
+  pageCount: number;
+
+  /**
+   * Total number of items in the items list
+   */
+  totalCount: number;
+
+  /**
+   * Current page number (starting at 1)
+   */
+  currentPage: number;
+
+  /**
+   * Changes the visible page
+   * @param pageNumber
+   */
   onPageChange: (pageNumber: number) => void;
 };
 
@@ -29,12 +50,15 @@ export const usePagination = <T = unknown>({
 
   const visibleItems = items.slice(startIndex, endIndex);
 
+  const totalCount = items.length;
+
   const onPageChange = useCallback((pageNumber: number) => {
     setCurrentPage(pageNumber);
   }, []);
 
   return {
     pageCount,
+    totalCount,
     currentPage,
     visibleItems,
     onPageChange,

@@ -19,7 +19,8 @@ export const FeatureDraftsList: FC<FeatureDraftsListProps> = ({ drafts }) => {
     onPageChange,
     currentPage,
     visibleItems,
-  } = usePagination<FeatureDraftUiItem>({
+    totalCount,
+  } = usePagination({
     items: drafts,
     pageSize,
   });
@@ -82,7 +83,7 @@ export const FeatureDraftsList: FC<FeatureDraftsListProps> = ({ drafts }) => {
 
       {pageCount > 1 && (
         <Pagination
-          numItemsTotal={drafts.length}
+          numItemsTotal={totalCount}
           currentPage={currentPage}
           perPage={pageSize}
           onPageChange={onPageChange}
