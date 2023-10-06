@@ -2369,10 +2369,7 @@ components:
             - number
             - json
         defaultValue:
-          oneOf:
-            - type: string
-            - type: number
-            - type: boolean
+          type: string
         tags:
           type: array
           items:

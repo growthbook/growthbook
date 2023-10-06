@@ -302,7 +302,7 @@ export interface components {
       project: string;
       /** @enum {string} */
       valueType: "boolean" | "string" | "number" | "json";
-      defaultValue: string | number | boolean;
+      defaultValue: string;
       tags: (string)[];
       environments: {
         [key: string]: ({
@@ -1021,7 +1021,7 @@ export interface operations {
                 project: string;
                 /** @enum {string} */
                 valueType: "boolean" | "string" | "number" | "json";
-                defaultValue: string | number | boolean;
+                defaultValue: string;
                 tags: (string)[];
                 environments: {
                   [key: string]: ({
@@ -1283,7 +1283,7 @@ export interface operations {
               project: string;
               /** @enum {string} */
               valueType: "boolean" | "string" | "number" | "json";
-              defaultValue: string | number | boolean;
+              defaultValue: string;
               tags: (string)[];
               environments: {
                 [key: string]: ({
@@ -1430,7 +1430,7 @@ export interface operations {
               project: string;
               /** @enum {string} */
               valueType: "boolean" | "string" | "number" | "json";
-              defaultValue: string | number | boolean;
+              defaultValue: string;
               tags: (string)[];
               environments: {
                 [key: string]: ({
@@ -1681,7 +1681,7 @@ export interface operations {
               project: string;
               /** @enum {string} */
               valueType: "boolean" | "string" | "number" | "json";
-              defaultValue: string | number | boolean;
+              defaultValue: string;
               tags: (string)[];
               environments: {
                 [key: string]: ({
@@ -1832,7 +1832,7 @@ export interface operations {
               project: string;
               /** @enum {string} */
               valueType: "boolean" | "string" | "number" | "json";
-              defaultValue: string | number | boolean;
+              defaultValue: string;
               tags: (string)[];
               environments: {
                 [key: string]: ({
