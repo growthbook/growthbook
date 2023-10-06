@@ -20,6 +20,7 @@ import {
 } from "@/services/experiments";
 import { GBCuped } from "@/components/Icons";
 import { QueryStatusData } from "@/components/Queries/RunQueriesButton";
+import { sortAndFilterMetricsByTags } from "@/components/Experiment/Results";
 import Tooltip from "../Tooltip/Tooltip";
 import MetricTooltipBody from "../Metrics/MetricTooltipBody";
 import DataQualityWarning from "./DataQualityWarning";
@@ -120,10 +121,30 @@ const CompactResults: FC<{
     if (pValueCorrection && statsEngine === "frequentist") {
       setAdjustedPValuesOnResults([results], metrics, pValueCorrection);
     }
-    const retMetrics = metrics
+
+    const metricDefs = metrics
+      .map((metricId) => getMetricById(metricId))
+      .filter(Boolean) as MetricInterface[];
+    const sortedFilteredMetrics = sortAndFilterMetricsByTags({
+      metrics: metricDefs,
+      orderByTag: true,
+      tagOrder: ["foo", "key metrics"],
+      filterByTag: true,
+      tagFilter: ["key metrics", "foo"],
+    });
+
+    const guardrailDefs = guardrails
+      .map((metricId) => getMetricById(metricId))
+      .filter(Boolean) as MetricInterface[];
+    const sortedFilteredGuardrails = sortAndFilterMetricsByTags({
+      metrics: guardrailDefs,
+      tagOrder: ["foo", "key metrics"],
+    });
+
+    const retMetrics = sortedFilteredMetrics
       .map((metricId) => getRow(metricId, false))
       .filter((row) => row?.metric) as ExperimentTableRow[];
-    const retGuardrails = guardrails
+    const retGuardrails = sortedFilteredGuardrails
       .map((metricId) => getRow(metricId, true))
       .filter((row) => row?.metric) as ExperimentTableRow[];
     return [...retMetrics, ...retGuardrails];

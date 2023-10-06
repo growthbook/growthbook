@@ -6,6 +6,7 @@ import { MetricRegressionAdjustmentStatus } from "back-end/types/report";
 import { getValidDate, ago } from "shared/dates";
 import { DEFAULT_STATS_ENGINE } from "shared/constants";
 import { ExperimentSnapshotInterface } from "@/../back-end/types/experiment-snapshot";
+import { MetricInterface } from "back-end/types/metric";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import usePermissions from "@/hooks/usePermissions";
 import { useAuth } from "@/services/auth";
@@ -412,3 +413,74 @@ const Results: FC<{
 };
 
 export default Results;
+
+// given an ordered list of tags, sort the metrics by their tags
+export function sortAndFilterMetricsByTags({
+  metrics,
+  orderByTag = false,
+  tagOrder = [],
+  filterByTag = false,
+  tagFilter = null,
+}: {
+  metrics: MetricInterface[];
+  orderByTag?: boolean;
+  tagOrder?: string[];
+  filterByTag?: boolean;
+  tagFilter?: string[] | null;
+}): string[] {
+  if (filterByTag && !tagFilter) {
+    tagFilter = tagOrder;
+  }
+  const sortedMetrics: string[] = [];
+
+  const metricsByTag: Record<string, string[]> = {};
+  const metricDefs: Record<string, MetricInterface> = {};
+
+  // get all possible tags from the metric definitions
+  const tagsInMetrics: Set<string> = new Set();
+  metrics.forEach((metric) => {
+    if (!metric) return;
+    metricDefs[metric.id] = metric;
+    metric.tags?.forEach((tag) => {
+      tagsInMetrics.add(tag);
+    });
+  });
+
+  // reduce tagOrder to only the tags that are in the metrics
+  tagOrder = tagOrder.filter((tag) => tagsInMetrics.has(tag));
+
+  // using tagOrder, build our initial set of sorted metrics
+  if (orderByTag) {
+    tagOrder.forEach((tag) => {
+      metricsByTag[tag] = [];
+      for (const metricId in metricDefs) {
+        const metric = metricDefs[metricId];
+        if (metric.tags?.includes(tag)) {
+          if (filterByTag && !tagFilter?.includes(tag)) {
+            continue;
+          }
+          // pick out the metrics that match the tag
+          metricsByTag[tag].push(metricId);
+          delete metricDefs[metricId];
+        }
+      }
+    });
+    for (const tag in metricsByTag) {
+      sortedMetrics.push(...metricsByTag[tag]);
+    }
+  }
+
+  // add any remaining metrics to the end
+  for (const metricId in metricDefs) {
+    const metric = metricDefs[metricId];
+    if (filterByTag) {
+      if (metric.tags?.some((tag) => tagFilter?.includes(tag))) {
+        sortedMetrics.push(metricId);
+      }
+    } else {
+      sortedMetrics.push(metricId);
+    }
+  }
+
+  return sortedMetrics;
+}
