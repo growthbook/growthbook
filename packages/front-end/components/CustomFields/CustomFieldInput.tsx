@@ -1,4 +1,4 @@
-import { FC } from "react";
+import { FC, useEffect, useMemo, useState } from "react";
 import { CustomField, CustomFieldSection } from "back-end/types/custom-fields";
 import { UseFormReturn } from "react-hook-form";
 import { filterCustomFieldsForSectionAndProject } from "@/hooks/useCustomFields";
@@ -20,16 +20,41 @@ const CustomFieldInput: FC<{
     section,
     project
   );
+  const [loadedDefaults, setLoadedDefaults] = useState(false);
 
-  let currentCustomFields = {};
-  try {
-    const customFieldStrings = form.watch("customFields");
-    currentCustomFields = customFieldStrings
-      ? JSON.parse(customFieldStrings)
-      : {};
-  } catch (e) {
-    console.error(e);
-  }
+  const customFieldStrings = form.watch("customFields");
+  const currentCustomFields = useMemo(() => {
+    try {
+      return customFieldStrings ? JSON.parse(customFieldStrings) : {};
+    } catch (e) {
+      // this should never be reachable as we control the JSON that is being parsed
+      return {};
+    }
+  }, [customFieldStrings]);
+
+  useEffect(() => {
+    if (!loadedDefaults) {
+      // here we are setting the defaults values in the form, otherwise
+      // boolean/toggles or inputs with default values will not be saved.
+      if (availableFields) {
+        availableFields.forEach((v) => {
+          if (!currentCustomFields?.[v.id] && v.defaultValue) {
+            if (v.type === "multiselect") {
+              currentCustomFields[v.id] = JSON.stringify([v.defaultValue]);
+            } else {
+              currentCustomFields[v.id] = v.defaultValue;
+            }
+          }
+          if (v.type === "boolean") {
+            currentCustomFields[v.id] = "" + JSON.stringify(v.defaultValue);
+          }
+        });
+        form.setValue("customFields", JSON.stringify(currentCustomFields));
+        setLoadedDefaults(true);
+      }
+    }
+  }, [availableFields, form, loadedDefaults, currentCustomFields]);
+
   const updateCustomField = (name, value) => {
     currentCustomFields[name] = value;
     form.setValue("customFields", JSON.stringify(currentCustomFields));
@@ -127,6 +152,7 @@ const CustomFieldInput: FC<{
                       label={v.name}
                       type={v.type}
                       required={v.required}
+                      placeholder={v?.placeholder ?? ""}
                       onChange={(e) => {
                         updateCustomField(v.id, e.target.value);
                       }}

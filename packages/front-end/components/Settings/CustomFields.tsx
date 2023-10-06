@@ -22,8 +22,8 @@ import { GBEdit } from "@/components/Icons";
 import {
   SortableCustomFieldRow,
   StaticCustomFieldRow,
-} from "@/components/Experiment/SortableCustomField";
-import CustomFieldModal from "@/components/Settings/CustomFieldModal";
+} from "@/components/CustomFields/SortableCustomField";
+import CustomFieldModal from "@/components/CustomFields/CustomFieldModal";
 import { useDefinitions } from "@/services/DefinitionsContext";
 
 const CustomFields: FC<{
@@ -139,6 +139,7 @@ const CustomFields: FC<{
                 <th>Description</th>
                 <th>Type</th>
                 <th>Default value</th>
+                <th>Placeholder</th>
                 <th>Projects</th>
                 <th>Required</th>
                 <th style={{ width: 75 }}></th>
@@ -164,7 +165,7 @@ const CustomFields: FC<{
               ) : (
                 <>
                   <tr>
-                    <td colSpan={6} className="text-center text-gray">
+                    <td colSpan={9} className="text-center text-gray">
                       <em>
                         No custom fields defined{" "}
                         <a

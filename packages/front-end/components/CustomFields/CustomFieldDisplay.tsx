@@ -10,6 +10,7 @@ import {
   useCustomFields,
   filterCustomFieldsForSectionAndProject,
 } from "@/hooks/useCustomFields";
+import Markdown from "@/components/Markdown/Markdown";
 import HeaderWithEdit from "../Layout/HeaderWithEdit";
 import Modal from "../Modal";
 import CustomFieldInput from "./CustomFieldInput";
@@ -140,22 +141,34 @@ const CustomFieldDisplay: FC<{
                 const displayValue =
                   v.type === "multiselect" ? JSON.parse(f).join(", ") : f;
                 if (displayValue) {
-                  if (v.type === "textarea" || v.type === "markdown") {
-                    return (
-                      <div className="mb-1 row" key={i}>
-                        <div className="text-muted col-auto">{v.name}</div>
-                        <div className="col">{displayValue}</div>
+                  return (
+                    <div className="mb-3 row" key={i}>
+                      <div className="text-muted col-sm-2 col-md-2 col-lg-1 col-3">
+                        {v.name}
                       </div>
-                    );
-                  } else {
-                    return (
-                      <div className="mb-1" key={i}>
-                        <span className="text-muted">{v.name}</span>
-                        {": "}
-                        {displayValue}
+                      <div className="col">
+                        {v.type === "markdown" ? (
+                          <Markdown className="card-text">
+                            {displayValue || ""}
+                          </Markdown>
+                        ) : v.type === "textarea" ? (
+                          <div style={{ whiteSpace: "pre" }}>
+                            {displayValue}
+                          </div>
+                        ) : v.type === "url" ? (
+                          <a
+                            href={displayValue}
+                            target="_blank"
+                            rel="noreferrer"
+                          >
+                            {displayValue}
+                          </a>
+                        ) : (
+                          <> {displayValue}</>
+                        )}
                       </div>
-                    );
-                  }
+                    </div>
+                  );
                 }
               }
             });

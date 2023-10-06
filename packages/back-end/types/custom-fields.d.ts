@@ -6,7 +6,9 @@ export type CustomFieldTypes =
   | "multiselect"
   | "url"
   | "number"
-  | "boolean";
+  | "boolean"
+  | "date"
+  | "datetime";
 
 export type CustomFieldSection = "experiment" | "feature";
 

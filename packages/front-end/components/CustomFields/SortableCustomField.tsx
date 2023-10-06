@@ -1,7 +1,7 @@
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import React from "react";
-import { CustomField } from "back-end/types/organization";
+import { CustomField } from "back-end/types/custom-fields";
 import { MdDragIndicator } from "react-icons/md";
 import { GBEdit } from "@/components/Icons";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
@@ -41,7 +41,7 @@ export function SortableCustomFieldRow(props: SortableProps) {
   return (
     <tr ref={setNodeRef} style={style}>
       {isDragging ? (
-        <td colSpan={7} style={draggedRowStyle}>
+        <td colSpan={9} style={draggedRowStyle}>
           &nbsp;
         </td>
       ) : (
@@ -67,6 +67,7 @@ export function SortableCustomFieldRow(props: SortableProps) {
               ? JSON.stringify(customField.defaultValue)
               : customField.defaultValue}
           </td>
+          <td className="text-gray">{customField?.placeholder ?? ""}</td>
           <td className="text-gray">
             {customField.projects && (
               <>
@@ -139,6 +140,7 @@ export function StaticCustomFieldRow({
         {(customField.type === "enum" ||
           customField.type === "multiselect") && <>: ({customField.values})</>}
       </td>
+      <td className="text-gray">{customField?.placeholder ?? ""}</td>
       <td className="text-gray">
         {customField.projects && (
           <>

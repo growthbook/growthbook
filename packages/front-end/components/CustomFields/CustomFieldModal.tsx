@@ -29,14 +29,20 @@ export default function CustomFieldModal({
 }) {
   const { project, projects } = useDefinitions();
   const { apiCall } = useAuth();
+
   const form = useForm<Partial<CustomField>>({
     defaultValues: {
       id: existing.id || uniqid("cfl_"),
       name: existing.name || "",
+      description: existing.description || "",
       values: existing.values || "",
       type: existing.type || "text",
-      defaultValue:
-        existing.defaultValue || existing.type === "boolean" ? false : "",
+      placeholder: existing.placeholder || "",
+      defaultValue: existing.defaultValue
+        ? existing.defaultValue
+        : existing.type === "boolean"
+        ? existing.defaultValue ?? false
+        : "",
       section: existing.section || section,
       projects: existing.projects || [project] || [],
       required: existing.required ?? false,
@@ -55,6 +61,7 @@ export default function CustomFieldModal({
     "multiselect",
     "boolean",
     "url",
+    "date",
   ];
 
   const availableProjects: (SingleValue | GroupedValue)[] = projects
@@ -73,6 +80,17 @@ export default function CustomFieldModal({
           value.defaultValue = !!value.defaultValue;
         }
 
+        if (value.type === "multiselect" || value.type === "enum") {
+          // make sure the default value is an array
+          const defaultValue = "" + value.defaultValue;
+          const possibleValues = value.values
+            ? value.values.split(",").map((k) => k.trim())
+            : [];
+          // check the array of values to see if the default value exists as one of the options:
+          if (!possibleValues.includes(defaultValue)) {
+            throw new Error("Default value must be one of the options");
+          }
+        }
         if (existing.id) {
           const edit = customFields.filter((e) => e.id === existing.id)[0];
           if (!edit) throw new Error("Could not edit custom field");
@@ -82,6 +100,7 @@ export default function CustomFieldModal({
           edit.values = value.values;
           edit.defaultValue = value.defaultValue;
           edit.description = value?.description ?? "";
+          edit.placeholder = value?.placeholder ?? "";
           edit.projects = value.projects;
           edit.section = section;
 
@@ -127,6 +146,7 @@ export default function CustomFieldModal({
         placeholder=""
         required={true}
       />
+      <Field label="Description" {...form.register("description")} />
       <div className="mb-3">
         <SelectField
           label="Type"
@@ -155,9 +175,22 @@ export default function CustomFieldModal({
           />
         </div>
       )}
-      <Field label="Description" {...form.register("description")} />
       {form.watch("type") !== "boolean" ? (
-        <Field label="Default value" {...form.register("defaultValue")} />
+        <>
+          {form.watch("type") !== "date" ? (
+            <Field
+              label="Default value"
+              type={form.watch("type") === "url" ? "url" : "text"}
+              {...form.register("defaultValue")}
+            />
+          ) : (
+            <></>
+          )}
+          {form.watch("type") !== "multiselect" &&
+            form.watch("type") !== "textarea" && (
+              <Field label="Placeholder" {...form.register("placeholder")} />
+            )}
+        </>
       ) : (
         <>
           <label className="mr-2">Default value</label>
