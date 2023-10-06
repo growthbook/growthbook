@@ -9,24 +9,26 @@ import {
 import { AuthRequest } from "../types/AuthRequest";
 import { getOrgFromReq } from "../services/organizations";
 import {
+  addExperimentRefRule,
   addFeatureRule,
+  archiveFeature,
   createFeature,
+  deleteExperimentRefRule,
   deleteFeature,
-  setFeatureDraftRules,
+  discardLegacyDraft,
   editFeatureRule,
   getAllFeatures,
+  getDraftChanges,
+  getDraftRules,
   getFeature,
   publishDraft,
+  publishLegacyDraft,
   setDefaultValue,
-  toggleFeatureEnvironment,
-  updateFeature,
-  archiveFeature,
-  getDraftRules,
-  discardDraft,
-  updateDraft,
   setJsonSchema,
-  addExperimentRefRule,
-  deleteExperimentRefRule,
+  setLegacyFeatureDraftRules,
+  toggleFeatureEnvironment,
+  updateDraft,
+  updateFeature,
 } from "../models/FeatureModel";
 import { getRealtimeUsageByHour } from "../models/RealtimeModel";
 import { lookupOrganizationByApiKey } from "../models/ApiKeyModel";
@@ -37,19 +39,20 @@ import {
   getFeatureDefinitions,
   verifyDraftsAreEqual,
 } from "../services/features";
-import {
-  getExperimentByTrackingKey,
-  getExperimentsByIds,
-} from "../models/ExperimentModel";
 import { FeatureUsageRecords } from "../../types/realtime";
 import {
   auditDetailsCreate,
-  auditDetailsUpdate,
   auditDetailsDelete,
+  auditDetailsUpdate,
 } from "../services/audit";
-import { getRevisions } from "../models/FeatureRevisionModel";
+import {
+  createFeatureRevision,
+  discardDraftFeatureRevision,
+  getDraftFeatureRevisions,
+  getPublishedFeatureRevisions,
+  updateDraftFeatureRevision,
+} from "../models/FeatureRevisionModel";
 import { getEnabledEnvironments } from "../util/features";
-import { ExperimentInterface } from "../../types/experiment";
 import {
   findSDKConnectionByKey,
   markSDKConnectionUsed,
@@ -61,6 +64,7 @@ import { EventAuditUserForResponseLocals } from "../events/event-types";
 import { upsertWatch } from "../models/WatchModel";
 import { getSurrogateKeysFromSDKPayloadKeys } from "../util/cdn.util";
 import { SDKPayloadKey } from "../../types/sdk-payload";
+import { getLinkedExperimentsForFeature } from "../services/experiments";
 
 class UnrecoverableApiError extends Error {
   constructor(message: string) {
@@ -318,25 +322,68 @@ export async function postFeatures(
 
 export async function postFeaturePublish(
   req: AuthRequest<
-    { draft: FeatureDraftChanges; comment?: string },
+    { draftId?: string; draft?: FeatureDraftChanges; comment?: string },
     { id: string }
   >,
   res: Response
 ) {
   const { org, email, userId, userName } = getOrgFromReq(req);
   const { id } = req.params;
-  const { draft, comment } = req.body;
+  const { draft, draftId, comment } = req.body;
 
   const feature = await getFeature(org.id, id);
 
   if (!feature) {
     throw new Error("Could not find feature");
   }
+
+  req.checkPermissions("manageFeatures", feature.project);
+
+  if (draftId) {
+    req.checkPermissions(
+      "publishFeatures",
+      feature.project,
+      (org.settings?.environments || []).map((e) => e.id)
+    );
+
+    const updatedFeature = await publishDraft({
+      featureId: feature.id,
+      organization: org,
+      draft: { type: "v2", id: draftId },
+      user: {
+        id: userId,
+        email,
+        name: userName,
+      },
+    });
+
+    await req.audit({
+      event: "feature.publish",
+      entity: {
+        object: "feature",
+        id: feature.id,
+      },
+      details: auditDetailsUpdate(feature, updatedFeature, {
+        revision: updatedFeature.revision?.version || 1,
+        comment,
+      }),
+    });
+
+    res.status(200).json({
+      status: 200,
+    });
+
+    return;
+  }
+
+  // Legacy flow
+  if (!draft) {
+    throw new Error("`draft` or `draftId` required");
+  }
+
   if (!feature.draft?.active) {
     throw new Error("There are no changes to publish.");
   }
-
-  req.checkPermissions("manageFeatures", feature.project);
 
   // If changing the default value, it affects all enabled environments
   if ("defaultValue" in draft) {
@@ -358,7 +405,7 @@ export async function postFeaturePublish(
 
   verifyDraftsAreEqual(feature.draft, draft);
 
-  const updatedFeature = await publishDraft(
+  const updatedFeature = await publishLegacyDraft(
     org,
     feature,
     {
@@ -387,12 +434,19 @@ export async function postFeaturePublish(
 }
 
 export async function postFeatureDiscard(
-  req: AuthRequest<{ draft: FeatureDraftChanges }, { id: string }>,
+  req: AuthRequest<
+    { draft?: FeatureDraftChanges; draftId?: string },
+    { id: string }
+  >,
   res: Response<{ status: 200 }, EventAuditUserForResponseLocals>
 ) {
   const { org } = getOrgFromReq(req);
   const { id } = req.params;
-  const { draft } = req.body;
+  const { draft, draftId } = req.body;
+
+  if (!draft && !draftId) {
+    throw new Error("Must provide `draft` or `draftId`");
+  }
 
   const feature = await getFeature(org.id, id);
 
@@ -403,9 +457,21 @@ export async function postFeatureDiscard(
   req.checkPermissions("manageFeatures", feature.project);
   req.checkPermissions("createFeatureDrafts", feature.project);
 
-  verifyDraftsAreEqual(feature.draft, draft);
+  if (draft) {
+    // Discard legacy draft
+    verifyDraftsAreEqual(feature.draft, draft);
 
-  await discardDraft(org, res.locals.eventAudit, feature);
+    await discardLegacyDraft(org, res.locals.eventAudit, feature);
+  } else if (draftId) {
+    // Discard new draft by ID
+    await discardDraftFeatureRevision({
+      organizationId: org.id,
+      featureId: id,
+      revisionId: draftId,
+    });
+  } else {
+    // We'd never get here as we are validating that either draft or draftId is present
+  }
 
   res.status(200).json({
     status: 200,
@@ -418,14 +484,75 @@ export async function postFeatureDraft(
       defaultValue: string;
       rules: Record<string, FeatureRule[]>;
       comment: string;
+      draftId?: string;
     },
+    { id: string }
+  >,
+  res: Response<
+    { status: 200; draftId?: string },
+    EventAuditUserForResponseLocals
+  >
+) {
+  const { org } = getOrgFromReq(req);
+  const { id } = req.params;
+  const { eventAudit } = res.locals;
+  const { defaultValue, rules, comment, draftId } = req.body;
+  const feature = await getFeature(org.id, id);
+
+  if (!feature) {
+    throw new Error("Could not find feature");
+  }
+
+  req.checkPermissions("manageFeatures", feature.project);
+  req.checkPermissions("createFeatureDrafts", feature.project);
+
+  if (draftId) {
+    await updateDraft({
+      organization: org,
+      user: eventAudit?.type === "dashboard" ? eventAudit : null,
+      draftId,
+      feature,
+      draft: {
+        rules,
+        comment,
+        defaultValue,
+      },
+    });
+  } else {
+    const createdDraft = await createFeatureRevision({
+      feature,
+      creatorUserId: eventAudit?.type === "dashboard" ? eventAudit.id : null,
+      state: "draft",
+      comment,
+    });
+
+    if (!createdDraft) {
+      throw new Error("draft could not be created");
+    }
+
+    return res.status(200).json({
+      status: 200,
+      draftId: createdDraft.id,
+    });
+  }
+
+  res.status(200).json({
+    status: 200,
+    draftId,
+  });
+}
+
+// todo: send the draftId
+export async function postFeatureRule(
+  req: AuthRequest<
+    { rule: FeatureRule; environment: string; draftId?: string },
     { id: string }
   >,
   res: Response<{ status: 200 }, EventAuditUserForResponseLocals>
 ) {
   const { org } = getOrgFromReq(req);
   const { id } = req.params;
-  const { defaultValue, rules, comment } = req.body;
+  const { environment, rule, draftId = null } = req.body;
   const feature = await getFeature(org.id, id);
 
   if (!feature) {
@@ -435,13 +562,13 @@ export async function postFeatureDraft(
   req.checkPermissions("manageFeatures", feature.project);
   req.checkPermissions("createFeatureDrafts", feature.project);
 
-  await updateDraft(org, res.locals.eventAudit, feature, {
-    active: true,
-    comment,
-    dateCreated: new Date(),
-    dateUpdated: new Date(),
-    defaultValue,
-    rules,
+  await addFeatureRule({
+    org,
+    user: res.locals.eventAudit,
+    feature,
+    environment,
+    rule,
+    draftId,
   });
 
   res.status(200).json({
@@ -449,36 +576,17 @@ export async function postFeatureDraft(
   });
 }
 
-export async function postFeatureRule(
-  req: AuthRequest<{ rule: FeatureRule; environment: string }, { id: string }>,
-  res: Response<{ status: 200 }, EventAuditUserForResponseLocals>
-) {
-  const { org } = getOrgFromReq(req);
-  const { id } = req.params;
-  const { environment, rule } = req.body;
-  const feature = await getFeature(org.id, id);
-
-  if (!feature) {
-    throw new Error("Could not find feature");
-  }
-
-  req.checkPermissions("manageFeatures", feature.project);
-  req.checkPermissions("createFeatureDrafts", feature.project);
-
-  await addFeatureRule(org, res.locals.eventAudit, feature, environment, rule);
-
-  res.status(200).json({
-    status: 200,
-  });
-}
-
+// todo: send the draftId
 export async function postFeatureExperimentRefRule(
-  req: AuthRequest<{ rule: ExperimentRefRule }, { id: string }>,
+  req: AuthRequest<
+    { rule: ExperimentRefRule; draftId?: string },
+    { id: string }
+  >,
   res: Response<{ status: 200 }, EventAuditUserForResponseLocals>
 ) {
   const { org } = getOrgFromReq(req);
   const { id } = req.params;
-  const { rule } = req.body;
+  const { rule, draftId = null } = req.body;
   const feature = await getFeature(org.id, id);
 
   if (!feature) {
@@ -496,20 +604,27 @@ export async function postFeatureExperimentRefRule(
   req.checkPermissions("manageFeatures", feature.project);
   req.checkPermissions("createFeatureDrafts", feature.project);
 
-  await addExperimentRefRule(org, res.locals.eventAudit, feature, rule);
+  await addExperimentRefRule({
+    org,
+    user: res.locals.eventAudit,
+    feature,
+    rule,
+    draftId,
+  });
 
   res.status(200).json({
     status: 200,
   });
 }
 
+// todo: send draftId
 export async function deleteFeatureExperimentRefRule(
-  req: AuthRequest<{ experimentId: string }, { id: string }>,
+  req: AuthRequest<{ experimentId: string; draftId?: string }, { id: string }>,
   res: Response<{ status: 200 }, EventAuditUserForResponseLocals>
 ) {
   const { org } = getOrgFromReq(req);
   const { id } = req.params;
-  const { experimentId } = req.body;
+  const { experimentId, draftId = null } = req.body;
   const feature = await getFeature(org.id, id);
 
   if (!feature) {
@@ -519,35 +634,43 @@ export async function deleteFeatureExperimentRefRule(
   req.checkPermissions("manageFeatures", feature.project);
   req.checkPermissions("createFeatureDrafts", feature.project);
 
-  await deleteExperimentRefRule(
+  await deleteExperimentRefRule({
+    org,
+    user: res.locals.eventAudit,
+    feature,
+    experimentId,
+    draftId,
+  });
+
+  res.status(200).json({
+    status: 200,
+  });
+}
+
+// todo: send draftId
+export async function postFeatureDefaultValue(
+  req: AuthRequest<{ defaultValue: string; draftId?: string }, { id: string }>,
+  res: Response<{ status: 200 }, EventAuditUserForResponseLocals>
+) {
+  const { org } = getOrgFromReq(req);
+  const { id } = req.params;
+  const { defaultValue, draftId = null } = req.body;
+  const feature = await getFeature(org.id, id);
+
+  if (!feature) {
+    throw new Error("Could not find feature");
+  }
+
+  req.checkPermissions("manageFeatures", feature.project);
+  req.checkPermissions("createFeatureDrafts", feature.project);
+
+  await setDefaultValue(
     org,
     res.locals.eventAudit,
     feature,
-    experimentId
+    defaultValue,
+    draftId
   );
-
-  res.status(200).json({
-    status: 200,
-  });
-}
-
-export async function postFeatureDefaultValue(
-  req: AuthRequest<{ defaultValue: string }, { id: string }>,
-  res: Response<{ status: 200 }, EventAuditUserForResponseLocals>
-) {
-  const { org } = getOrgFromReq(req);
-  const { id } = req.params;
-  const { defaultValue } = req.body;
-  const feature = await getFeature(org.id, id);
-
-  if (!feature) {
-    throw new Error("Could not find feature");
-  }
-
-  req.checkPermissions("manageFeatures", feature.project);
-  req.checkPermissions("createFeatureDrafts", feature.project);
-
-  await setDefaultValue(org, res.locals.eventAudit, feature, defaultValue);
 
   res.status(200).json({
     status: 200,
@@ -592,16 +715,22 @@ export async function postFeatureSchema(
   });
 }
 
+// todo: send the draftId
 export async function putFeatureRule(
   req: AuthRequest<
-    { rule: Partial<FeatureRule>; environment: string; i: number },
+    {
+      rule: Partial<FeatureRule>;
+      environment: string;
+      i: number;
+      draftId?: string;
+    },
     { id: string }
   >,
   res: Response<{ status: 200 }, EventAuditUserForResponseLocals>
 ) {
   const { org } = getOrgFromReq(req);
   const { id } = req.params;
-  const { environment, rule, i } = req.body;
+  const { environment, rule, i, draftId = null } = req.body;
   const feature = await getFeature(org.id, id);
 
   if (!feature) {
@@ -611,14 +740,15 @@ export async function putFeatureRule(
   req.checkPermissions("manageFeatures", feature.project);
   req.checkPermissions("createFeatureDrafts", feature.project);
 
-  await editFeatureRule(
+  await editFeatureRule({
     org,
-    res.locals.eventAudit,
+    user: res.locals.eventAudit,
     feature,
     environment,
     i,
-    rule
-  );
+    updates: rule,
+    draftId,
+  });
 
   res.status(200).json({
     status: 200,
@@ -670,16 +800,17 @@ export async function postFeatureToggle(
   });
 }
 
+// todo: send draftId
 export async function postFeatureMoveRule(
   req: AuthRequest<
-    { environment: string; from: number; to: number },
+    { environment: string; from: number; to: number; draftId?: string },
     { id: string }
   >,
   res: Response<{ status: 200 }, EventAuditUserForResponseLocals>
 ) {
   const { org } = getOrgFromReq(req);
   const { id } = req.params;
-  const { environment, from, to } = req.body;
+  const { environment, from, to, draftId = null } = req.body;
   const feature = await getFeature(org.id, id);
 
   if (!feature) {
@@ -689,33 +820,64 @@ export async function postFeatureMoveRule(
   req.checkPermissions("manageFeatures", feature.project);
   req.checkPermissions("createFeatureDrafts", feature.project);
 
-  const rules = getDraftRules(feature, environment);
+  let draft: FeatureDraftChanges | undefined;
+  if (draftId) {
+    draft = await getDraftChanges({
+      draftId,
+      organizationId: org.id,
+      featureId: id,
+    });
+  } else {
+    draft = feature.draft;
+  }
+
+  const rules = getDraftRules(draft, environment, feature.environmentSettings);
   if (!rules[from] || !rules[to]) {
     throw new Error("Invalid rule index");
   }
 
   const newRules = arrayMove(rules, from, to);
 
-  await setFeatureDraftRules(
-    org,
-    res.locals.eventAudit,
-    feature,
-    environment,
-    newRules
-  );
+  if (draftId) {
+    await updateDraftFeatureRevision({
+      id: draftId,
+      organizationId: org.id,
+      creatorUserId: req.userId,
+      featureId: id,
+      draft: {
+        ...draft,
+        rules: {
+          ...(draft || {}).rules,
+          [environment]: newRules,
+        },
+      },
+    });
+  } else {
+    await setLegacyFeatureDraftRules(
+      org,
+      res.locals.eventAudit,
+      feature,
+      environment,
+      newRules
+    );
+  }
 
   res.status(200).json({
     status: 200,
   });
 }
 
+// todo: send draftId
 export async function deleteFeatureRule(
-  req: AuthRequest<{ environment: string; i: number }, { id: string }>,
+  req: AuthRequest<
+    { environment: string; i: number; draftId?: string },
+    { id: string }
+  >,
   res: Response<{ status: 200 }, EventAuditUserForResponseLocals>
 ) {
   const { org } = getOrgFromReq(req);
   const { id } = req.params;
-  const { environment, i } = req.body;
+  const { environment, i, draftId = null } = req.body;
   const feature = await getFeature(org.id, id);
 
   if (!feature) {
@@ -725,18 +887,45 @@ export async function deleteFeatureRule(
   req.checkPermissions("manageFeatures", feature.project);
   req.checkPermissions("createFeatureDrafts", feature.project);
 
-  const rules = getDraftRules(feature, environment);
+  let draft: FeatureDraftChanges | undefined;
+  if (draftId) {
+    draft = await getDraftChanges({
+      draftId,
+      organizationId: org.id,
+      featureId: id,
+    });
+  } else {
+    draft = feature.draft;
+  }
+
+  const rules = getDraftRules(draft, environment, feature.environmentSettings);
 
   const newRules = rules.slice();
   newRules.splice(i, 1);
 
-  await setFeatureDraftRules(
-    org,
-    res.locals.eventAudit,
-    feature,
-    environment,
-    newRules
-  );
+  if (draftId) {
+    await updateDraftFeatureRevision({
+      id: draftId,
+      organizationId: org.id,
+      creatorUserId: req.userId,
+      featureId: id,
+      draft: {
+        ...draft,
+        rules: {
+          ...(draft || {}).rules,
+          [environment]: newRules,
+        },
+      },
+    });
+  } else {
+    await setLegacyFeatureDraftRules(
+      org,
+      res.locals.eventAudit,
+      feature,
+      environment,
+      newRules
+    );
+  }
 
   res.status(200).json({
     status: 200,
@@ -950,57 +1139,19 @@ export async function getFeatureById(
     throw new Error("Could not find feature");
   }
 
-  // Get linked experiments from rule and draft rules
-  const experimentIds: Set<string> = new Set();
-  const trackingKeys: Set<string> = new Set();
-  if (feature.environmentSettings) {
-    Object.values(feature.environmentSettings).forEach((env) => {
-      env.rules?.forEach((r) => {
-        if (r.type === "experiment") {
-          trackingKeys.add(r.trackingKey || feature.id);
-        } else if (r.type === "experiment-ref") {
-          experimentIds.add(r.experimentId);
-        }
-      });
-    });
-  }
-  if (feature.draft && feature.draft.active && feature.draft.rules) {
-    Object.values(feature.draft.rules).forEach((rules) => {
-      rules.forEach((r) => {
-        if (r.type === "experiment") {
-          trackingKeys.add(r.trackingKey || feature.id);
-        } else if (r.type === "experiment-ref") {
-          experimentIds.add(r.experimentId);
-        }
-      });
-    });
-  }
-
-  const experiments: { [key: string]: ExperimentInterface } = {};
-  if (trackingKeys.size > 0) {
-    await Promise.all(
-      Array.from(trackingKeys).map(async (key) => {
-        const exp = await getExperimentByTrackingKey(org.id, key);
-        if (exp) {
-          experiments[exp.id] = exp;
-        }
-      })
-    );
-  }
-  if (experimentIds.size > 0) {
-    const docs = await getExperimentsByIds(org.id, Array.from(experimentIds));
-    docs.forEach((doc) => {
-      experiments[doc.id] = doc;
-    });
-  }
-
-  const revisions = await getRevisions(org.id, id);
+  const experiments = await getLinkedExperimentsForFeature({
+    feature,
+    organization: org,
+  });
+  const revisions = await getPublishedFeatureRevisions(org.id, id);
+  const drafts = await getDraftFeatureRevisions(org.id, id);
 
   res.status(200).json({
     status: 200,
     feature,
     experiments,
     revisions,
+    drafts,
   });
 }
 

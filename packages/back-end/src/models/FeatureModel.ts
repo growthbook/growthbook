@@ -2,6 +2,7 @@ import mongoose, { FilterQuery } from "mongoose";
 import cloneDeep from "lodash/cloneDeep";
 import omit from "lodash/omit";
 import { isEqual } from "lodash";
+import { getValidDate } from "shared/dates";
 import {
   ExperimentRefRule,
   FeatureDraftChanges,
@@ -30,7 +31,12 @@ import {
   getSDKPayloadKeysByDiff,
 } from "../util/features";
 import { EventAuditUser } from "../events/event-types";
-import { saveRevision } from "./FeatureRevisionModel";
+import {
+  createFeatureRevision,
+  getFeatureRevision,
+  publishFeatureRevision,
+  updateDraftFeatureRevision,
+} from "./FeatureRevisionModel";
 import { createEvent } from "./EventModel";
 import {
   addLinkedFeatureToExperiment,
@@ -91,7 +97,12 @@ const featureSchema = new mongoose.Schema({
     },
   ],
   environmentSettings: {},
+
+  /**
+   * @deprecated
+   */
   draft: {},
+
   revision: {},
   linkedExperiments: [String],
   jsonSchema: {},
@@ -154,7 +165,11 @@ export async function createFeature(
     ...data,
     linkedExperiments,
   });
-  await saveRevision(toInterface(feature));
+  await createFeatureRevision({
+    feature: toInterface(feature),
+    state: "published",
+    creatorUserId: user && user.type === "dashboard" ? user.id : null,
+  });
 
   if (linkedExperiments.length > 0) {
     await Promise.all(
@@ -519,37 +534,95 @@ export async function toggleFeatureEnvironment(
   });
 }
 
-export function getDraftRules(feature: FeatureInterface, environment: string) {
+/**
+ * @param draft
+ * @param environment
+ * @param environmentSettings
+ * @return FeatureRule[]
+ */
+export function getDraftRules(
+  draft: FeatureDraftChanges | null | undefined,
+  environment: string,
+  environmentSettings: Record<string, FeatureEnvironment>
+): FeatureRule[] {
   return (
-    feature?.draft?.rules?.[environment] ??
-    feature?.environmentSettings?.[environment]?.rules ??
+    draft?.rules?.[environment] ??
+    environmentSettings?.[environment]?.rules ??
     []
   );
 }
 
-export async function addFeatureRule(
-  org: OrganizationInterface,
-  user: EventAuditUser,
-  feature: FeatureInterface,
-  environment: string,
-  rule: FeatureRule
-) {
+type AddFeatureRuleOptions = {
+  org: OrganizationInterface;
+  user: EventAuditUser;
+  feature: FeatureInterface;
+  environment: string;
+  rule: FeatureRule;
+  draftId: string | null;
+};
+
+export async function addFeatureRule({
+  org,
+  user,
+  feature,
+  environment,
+  rule,
+  draftId,
+}: AddFeatureRuleOptions) {
   if (!rule.id) {
     rule.id = generateRuleId();
   }
 
-  await setFeatureDraftRules(org, user, feature, environment, [
-    ...getDraftRules(feature, environment),
+  const draft = draftId
+    ? await getDraftChanges({
+        draftId,
+        organizationId: org.id,
+        featureId: feature.id,
+      })
+    : feature.draft;
+
+  const newRules = [
+    ...getDraftRules(draft, environment, feature.environmentSettings),
     rule,
-  ]);
+  ];
+
+  if (draftId) {
+    // New draft flow
+    await updateDraft({
+      user,
+      draftId,
+      feature,
+      organization: org,
+      draft: {
+        comment: draft?.comment,
+        defaultValue: draft?.defaultValue,
+        rules: {
+          ...(draft || {}).rules,
+          [environment]: newRules,
+        },
+      },
+    });
+  } else {
+    // Legacy draft flow
+    await setLegacyFeatureDraftRules(org, user, feature, environment, newRules);
+  }
 }
 
-export async function deleteExperimentRefRule(
-  org: OrganizationInterface,
-  user: EventAuditUser,
-  feature: FeatureInterface,
-  experimentId: string
-) {
+type DeleteExperimentRefRuleOptions = {
+  org: OrganizationInterface;
+  user: EventAuditUser;
+  feature: FeatureInterface;
+  experimentId: string;
+  draftId: string | null;
+};
+
+export async function deleteExperimentRefRule({
+  org,
+  user,
+  feature,
+  experimentId,
+  draftId,
+}: DeleteExperimentRefRuleOptions) {
   const environments = org.settings?.environments || [];
   const environmentIds = environments.map((e) => e.id);
 
@@ -559,11 +632,17 @@ export async function deleteExperimentRefRule(
     );
   }
 
-  const draft = getDraft(feature);
+  const draft = draftId
+    ? await getDraftChanges({
+        draftId,
+        organizationId: org.id,
+        featureId: feature.id,
+      })
+    : getLegacyDraftChanges(feature);
 
   let hasChanges = false;
   environmentIds.forEach((env) => {
-    const rules = getDraftRules(feature, env);
+    const rules = getDraftRules(draft, env, feature.environmentSettings);
 
     draft.rules = draft.rules || {};
 
@@ -574,17 +653,44 @@ export async function deleteExperimentRefRule(
     if (draft.rules[env].length < numRules) hasChanges = true;
   });
 
-  if (hasChanges) {
-    await updateDraft(org, user, feature, draft);
+  if (!hasChanges) {
+    return;
+  }
+
+  if (draftId) {
+    // Make changes to new draft
+    await updateDraft({
+      user,
+      draftId,
+      feature,
+      organization: org,
+      draft: {
+        comment: draft.comment,
+        defaultValue: draft.defaultValue,
+        rules: draft.rules,
+      },
+    });
+  } else {
+    // Make changes to legacy draft
+    await updateLegacyDraft(org, user, feature, draft);
   }
 }
 
-export async function addExperimentRefRule(
-  org: OrganizationInterface,
-  user: EventAuditUser,
-  feature: FeatureInterface,
-  rule: ExperimentRefRule
-) {
+type AddExperimentRefRuleOptions = {
+  org: OrganizationInterface;
+  user: EventAuditUser;
+  feature: FeatureInterface;
+  rule: ExperimentRefRule;
+  draftId: string | null;
+};
+
+export async function addExperimentRefRule({
+  org,
+  user,
+  feature,
+  rule,
+  draftId,
+}: AddExperimentRefRuleOptions) {
   if (!rule.id) {
     rule.id = generateRuleId();
   }
@@ -598,25 +704,64 @@ export async function addExperimentRefRule(
     );
   }
 
-  const draft = getDraft(feature);
+  const draft = draftId
+    ? await getDraftChanges({
+        draftId,
+        organizationId: org.id,
+        featureId: feature.id,
+      })
+    : getLegacyDraftChanges(feature);
 
   environmentIds.forEach((env) => {
     draft.rules = draft.rules || {};
-    draft.rules[env] = [...getDraftRules(feature, env), rule];
+    draft.rules[env] = [
+      ...getDraftRules(draft, env, feature.environmentSettings),
+      rule,
+    ];
   });
 
-  await updateDraft(org, user, feature, draft);
+  if (draftId) {
+    // New draft flow
+    await updateDraft({
+      organization: org,
+      user,
+      draft,
+      feature,
+      draftId,
+    });
+  } else {
+    await updateLegacyDraft(org, user, feature, draft);
+  }
 }
 
-export async function editFeatureRule(
-  org: OrganizationInterface,
-  user: EventAuditUser,
-  feature: FeatureInterface,
-  environment: string,
-  i: number,
-  updates: Partial<FeatureRule>
-) {
-  const rules = getDraftRules(feature, environment);
+type EditFeatureRuleOptions = {
+  org: OrganizationInterface;
+  user: EventAuditUser;
+  feature: FeatureInterface;
+  environment: string;
+  i: number;
+  updates: Partial<FeatureRule>;
+  draftId: string | null;
+};
+
+export async function editFeatureRule({
+  org,
+  user,
+  feature,
+  environment,
+  i,
+  updates,
+  draftId,
+}: EditFeatureRuleOptions) {
+  const draft = draftId
+    ? await getDraftChanges({
+        draftId,
+        featureId: feature.id,
+        organizationId: org.id,
+      })
+    : feature.draft;
+
+  const rules = getDraftRules(draft, environment, feature.environmentSettings);
   if (!rules[i]) {
     throw new Error("Unknown rule");
   }
@@ -626,21 +771,41 @@ export async function editFeatureRule(
     ...updates,
   } as FeatureRule;
 
-  await setFeatureDraftRules(org, user, feature, environment, rules);
+  if (draftId) {
+    // New draft flow
+    await updateDraft({
+      user,
+      draftId,
+      feature,
+      organization: org,
+      draft: {
+        rules: {
+          ...(draft?.rules || {}),
+          [environment]: rules,
+        },
+      },
+    });
+  } else {
+    // Legacy draft flow
+    await setLegacyFeatureDraftRules(org, user, feature, environment, rules);
+  }
 }
 
-export async function setFeatureDraftRules(
+/**
+ * @deprecated
+ */
+export async function setLegacyFeatureDraftRules(
   org: OrganizationInterface,
   user: EventAuditUser,
   feature: FeatureInterface,
   environment: string,
   rules: FeatureRule[]
 ) {
-  const draft = getDraft(feature);
+  const draft = getLegacyDraftChanges(feature);
   draft.rules = draft.rules || {};
   draft.rules[environment] = rules;
 
-  await updateDraft(org, user, feature, draft);
+  await updateLegacyDraft(org, user, feature, draft);
 }
 
 export async function removeTagInFeature(
@@ -693,12 +858,32 @@ export async function setDefaultValue(
   org: OrganizationInterface,
   user: EventAuditUser,
   feature: FeatureInterface,
-  defaultValue: string
-) {
-  const draft = getDraft(feature);
+  defaultValue: string,
+  draftId: string | null
+): Promise<FeatureInterface> {
+  const draft = draftId
+    ? await getDraftChanges({
+        draftId,
+        organizationId: org.id,
+        featureId: feature.id,
+      })
+    : getLegacyDraftChanges(feature);
+
   draft.defaultValue = defaultValue;
 
-  return updateDraft(org, user, feature, draft);
+  if (draftId) {
+    return updateDraft({
+      user,
+      draftId,
+      feature,
+      organization: org,
+      draft: {
+        defaultValue,
+      },
+    });
+  } else {
+    return updateLegacyDraft(org, user, feature, draft);
+  }
 }
 
 export async function setJsonSchema(
@@ -713,16 +898,50 @@ export async function setJsonSchema(
   });
 }
 
-export async function updateDraft(
+/**
+ * @deprecated
+ */
+export async function updateLegacyDraft(
   org: OrganizationInterface,
   user: EventAuditUser,
   feature: FeatureInterface,
   draft: FeatureDraftChanges
-) {
+): Promise<FeatureInterface> {
   return await updateFeature(org, user, feature, { draft });
 }
 
-function getDraft(feature: FeatureInterface) {
+/**
+ * Validates that the user is the creator of the draft
+ */
+export async function updateDraft({
+  organization,
+  user,
+  feature,
+  draftId,
+  draft,
+}: {
+  organization: OrganizationInterface;
+  user: EventAuditUser;
+  draftId: string;
+  feature: FeatureInterface;
+  draft: Partial<
+    Pick<FeatureDraftChanges, "comment" | "rules" | "defaultValue">
+  >;
+}): Promise<FeatureInterface> {
+  await updateDraftFeatureRevision({
+    creatorUserId: user?.type === "dashboard" ? user.id : undefined,
+    organizationId: organization.id,
+    featureId: feature.id,
+    id: draftId,
+    draft,
+  });
+
+  return await updateFeature(organization, user, feature, {
+    draft: { active: false },
+  });
+}
+
+function getLegacyDraftChanges(feature: FeatureInterface): FeatureDraftChanges {
   const draft: FeatureDraftChanges = cloneDeep(
     feature.draft || { active: false }
   );
@@ -736,7 +955,36 @@ function getDraft(feature: FeatureInterface) {
   return draft;
 }
 
-export async function discardDraft(
+export async function getDraftChanges({
+  draftId,
+  featureId,
+  organizationId,
+}: {
+  featureId: string;
+  draftId: string;
+  organizationId: string;
+}): Promise<FeatureDraftChanges> {
+  const revision = await getFeatureRevision({
+    id: draftId,
+    organizationId,
+    featureId,
+    status: "draft",
+  });
+
+  return {
+    comment: revision.comment,
+    dateCreated: getValidDate(revision.dateCreated),
+    dateUpdated: getValidDate(revision.revisionDate),
+    active: true,
+    defaultValue: revision.defaultValue,
+    rules: revision.rules,
+  };
+}
+
+/**
+ * @deprecated
+ */
+export async function discardLegacyDraft(
   org: OrganizationInterface,
   user: EventAuditUser,
   feature: FeatureInterface
@@ -752,7 +1000,123 @@ export async function discardDraft(
   });
 }
 
-export async function publishDraft(
+/**
+ * @param featureId
+ * @param organization
+ * @param draft
+ * @param user
+ */
+export async function publishDraft({
+  featureId,
+  organization,
+  draft,
+  user,
+}: {
+  featureId: string;
+  organization: OrganizationInterface;
+  user: {
+    id: string;
+    email: string;
+    name: string;
+  };
+  draft:
+    | ({ type: "legacy" } & FeatureDraftChanges)
+    | { type: "v2"; id: string };
+}): Promise<FeatureInterface> {
+  const feature = await getFeature(organization.id, featureId);
+  if (!feature)
+    throw new Error(`publishDraft: feature ${featureId} does not exist`);
+
+  switch (draft.type) {
+    case "v2":
+      return updateFeatureAndPublishRevision({
+        draftId: draft.id,
+        feature,
+        organization,
+        user,
+      });
+
+    case "legacy":
+      return publishLegacyDraft(organization, feature, user, draft.comment);
+  }
+}
+
+const updateFeatureAndPublishRevision = async ({
+  draftId,
+  feature,
+  organization,
+  user,
+}: {
+  draftId: string;
+  feature: FeatureInterface;
+  organization: OrganizationInterface;
+  user: {
+    id: string;
+    email: string;
+    name: string;
+  };
+}): Promise<FeatureInterface> => {
+  // Get existing feature revision
+  const revision = await getFeatureRevision({
+    id: draftId,
+    organizationId: organization.id,
+    featureId: feature.id,
+    status: "draft",
+  });
+
+  // Create a set of feature changes
+  const changes: Partial<FeatureInterface> = {};
+  if (
+    "defaultValue" in revision &&
+    revision.defaultValue !== feature.defaultValue
+  ) {
+    changes.defaultValue = revision.defaultValue;
+  }
+  if (revision.rules) {
+    changes.environmentSettings = cloneDeep(feature.environmentSettings || {});
+    const envSettings = changes.environmentSettings;
+    Object.keys(revision.rules).forEach((key) => {
+      envSettings[key] = {
+        enabled: envSettings[key]?.enabled || false,
+        rules: revision.rules?.[key] || [],
+      };
+    });
+    changes.nextScheduledUpdate = getNextScheduledUpdate(envSettings);
+  }
+
+  changes.draft = { active: false };
+  changes.revision = {
+    version: revision.version,
+    comment: revision.comment || "",
+    date: new Date(),
+    publishedBy: user,
+  };
+  const updatedFeature = await updateFeature(
+    organization,
+    { ...user, type: "dashboard" },
+    feature,
+    changes
+  );
+
+  await publishFeatureRevision({
+    organizationId: organization.id,
+    featureId: feature.id,
+    user,
+    revisionId: draftId,
+  });
+
+  return updatedFeature;
+};
+
+/**
+ * @deprecated
+ * Working with the legacy draft property on the {@link FeatureInterface}
+ * @param organization
+ * @param feature
+ * @param user
+ * @param comment
+ */
+export async function publishLegacyDraft(
   organization: OrganizationInterface,
   feature: FeatureInterface,
   user: {
@@ -769,7 +1133,11 @@ export async function publishDraft(
   // Features created before revisions were introduced are missing their initial revision
   // Create it now before publishing the draft and making a 2nd revision
   if (!feature.revision) {
-    await saveRevision(feature);
+    await createFeatureRevision({
+      feature,
+      state: "published",
+      creatorUserId: user.id,
+    });
   }
 
   const changes: Partial<FeatureInterface> = {};
@@ -805,7 +1173,11 @@ export async function publishDraft(
     changes
   );
 
-  await saveRevision(updatedFeature);
+  await createFeatureRevision({
+    feature: updatedFeature,
+    state: "published",
+    creatorUserId: user.id,
+  });
   return updatedFeature;
 }
 
@@ -821,9 +1193,12 @@ function getLinkedExperiments(feature: FeatureInterface) {
       });
     });
   }
+
   // Draft rules
-  if (feature.draft && feature.draft.active && feature.draft.rules) {
-    Object.values(feature.draft.rules).forEach((rules) => {
+  // todo: update these draft references based on the new drafts
+  const draft = feature.draft;
+  if (draft && draft.active && draft.rules) {
+    Object.values(draft.rules).forEach((rules) => {
       rules.forEach((rule) => {
         if (rule.type === "experiment-ref") {
           expIds.add(rule.experimentId);

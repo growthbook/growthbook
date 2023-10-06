@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { FeatureInterface } from "back-end/types/feature";
+import { useMemo, useState } from "react";
+import { FeatureInterface, FeatureRule } from "back-end/types/feature";
 import {
   DndContext,
   DragOverlay,
@@ -16,6 +16,7 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import { useAuth } from "@/services/auth";
 import { getRules, isRuleFullyCovered } from "@/services/features";
 import usePermissions from "@/hooks/usePermissions";
@@ -23,26 +24,40 @@ import { Rule, SortableRule } from "./Rule";
 
 export default function RuleList({
   feature,
+  revision,
+  onRuleEnabledStateToggled,
+  onRuleDeleted,
+  onRuleDuplicated,
   mutate,
   experiments,
   environment,
+  sortEnabled,
   setRuleModal,
 }: {
   feature: FeatureInterface;
+  revision: FeatureRevisionInterface | null;
   experiments: Record<string, ExperimentInterfaceStringDates>;
   environment: string;
   mutate: () => void;
+  sortEnabled: boolean;
+  onRuleEnabledStateToggled: (rule: FeatureRule, idx: number) => Promise<void>;
+  onRuleDuplicated: (
+    rule: FeatureRule,
+    environment: string,
+    idx: number
+  ) => Promise<void>;
+  onRuleDeleted: (rule: FeatureRule, idx: number) => Promise<void>;
   setRuleModal: ({ environment: string, i: number }) => void;
 }) {
   const { apiCall } = useAuth();
   // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'null' is not assignable to param... Remove this comment to see the full error message
   const [activeId, setActiveId] = useState<string>(null);
-  const [items, setItems] = useState(getRules(feature, environment));
+  const [items, setItems] = useState<FeatureRule[]>([]);
   const permissions = usePermissions();
 
-  useEffect(() => {
-    setItems(getRules(feature, environment));
-  }, [getRules(feature, environment)]);
+  useMemo(() => {
+    setItems(getRules(feature, environment, revision));
+  }, [feature, environment, revision]);
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -80,6 +95,7 @@ export default function RuleList({
   const activeRule = activeId ? items[getRuleIndex(activeId)] : null;
 
   const canEdit =
+    sortEnabled &&
     permissions.check("manageFeatures", feature.project) &&
     permissions.check("createFeatureDrafts", feature.project);
 
@@ -108,6 +124,7 @@ export default function RuleList({
           await apiCall(`/feature/${feature.id}/reorder`, {
             method: "POST",
             body: JSON.stringify({
+              draftId: revision?.id,
               environment,
               from: oldIndex,
               to: newIndex,
@@ -132,8 +149,11 @@ export default function RuleList({
             environment={environment}
             i={i}
             rule={rule}
+            onRuleEnabledStateToggled={onRuleEnabledStateToggled}
+            onRuleDeleted={onRuleDeleted}
+            onRuleDuplicated={onRuleDuplicated}
             feature={feature}
-            mutate={mutate}
+            revision={revision}
             experiments={experiments}
             setRuleModal={setRuleModal}
             // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'null' is not assignable to type 'boolean | u... Remove this comment to see the full error message
@@ -147,8 +167,11 @@ export default function RuleList({
             i={getRuleIndex(activeId)}
             environment={environment}
             rule={activeRule}
+            onRuleEnabledStateToggled={onRuleEnabledStateToggled}
+            onRuleDeleted={onRuleDeleted}
+            onRuleDuplicated={onRuleDuplicated}
             feature={feature}
-            mutate={mutate}
+            revision={revision}
             experiments={experiments}
             setRuleModal={setRuleModal}
           />

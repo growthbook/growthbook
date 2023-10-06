@@ -675,6 +675,7 @@ export function getApiFeatureObj({
       environment: env.id,
     });
 
+    // todo: update these draft references based on the new drafts
     const draft: null | ApiFeatureEnvironment["draft"] = feature.draft?.active
       ? {
           enabled,

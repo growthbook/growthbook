@@ -19,13 +19,17 @@ export interface Props {
   mutate: () => Promise<any>;
 }
 
-export default function RevisionDropdown({
+/**
+ * @deprecated
+ */
+export default function LegacyRevisionDropdown({
   feature,
   revisions,
   publish,
   mutate,
 }: Props) {
   const liveVersion = feature.revision?.version || 1;
+
   const isDraft = !!feature.draft?.active;
   const permissions = usePermissions();
 
@@ -89,6 +93,7 @@ export default function RevisionDropdown({
   const start = (page - 1) * NUM_PER_PAGE;
   const end = start + NUM_PER_PAGE;
 
+  // note: this is where we create features
   async function createDraft(revision: FeatureRevisionInterface) {
     await apiCall(`/feature/${feature.id}/draft`, {
       method: "POST",

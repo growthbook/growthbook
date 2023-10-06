@@ -1,18 +1,21 @@
 import { useForm } from "react-hook-form";
 import { FeatureInterface } from "back-end/types/feature";
 import { validateFeatureValue } from "shared/util";
+import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import { useAuth } from "@/services/auth";
 import { getFeatureDefaultValue } from "@/services/features";
 import Modal from "../Modal";
 import FeatureValueField from "./FeatureValueField";
 
 export interface Props {
+  revision: FeatureRevisionInterface;
   feature: FeatureInterface;
   close: () => void;
   mutate: () => void;
 }
 
 export default function EditDefaultValueModal({
+  revision,
   feature,
   close,
   mutate,
@@ -42,7 +45,7 @@ export default function EditDefaultValueModal({
 
         await apiCall(`/feature/${feature.id}/defaultvalue`, {
           method: "POST",
-          body: JSON.stringify(value),
+          body: JSON.stringify({ ...value, draftId: revision.id }),
         });
         mutate();
       })}

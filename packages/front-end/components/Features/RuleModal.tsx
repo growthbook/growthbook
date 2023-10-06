@@ -12,13 +12,14 @@ import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { getMatchingRules, includeExperimentInPayload } from "shared/util";
 import { FaBell, FaExternalLinkAlt } from "react-icons/fa";
 import Link from "next/link";
+import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import {
-  NewExperimentRefRule,
   generateVariationId,
   getDefaultRuleValue,
   getDefaultVariationValue,
   getFeatureDefaultValue,
   getRules,
+  NewExperimentRefRule,
   useAttributeSchema,
   useEnvironments,
   useFeaturesList,
@@ -48,6 +49,7 @@ import FeatureVariationsInput from "./FeatureVariationsInput";
 export interface Props {
   close: () => void;
   feature: FeatureInterface;
+  revision: FeatureRevisionInterface | null;
   mutate: () => void;
   i: number;
   environment: string;
@@ -57,6 +59,7 @@ export interface Props {
 export default function RuleModal({
   close,
   feature,
+  revision,
   i,
   mutate,
   environment,
@@ -67,7 +70,7 @@ export default function RuleModal({
 
   const { namespaces } = useOrgSettings();
 
-  const rules = getRules(feature, environment);
+  const rules = getRules(feature, environment, revision);
   const rule = rules[i];
 
   const { datasources } = useDefinitions();
@@ -416,6 +419,7 @@ export default function RuleModal({
           await apiCall(`/feature/${feature.id}/rule`, {
             method: i === rules.length ? "POST" : "PUT",
             body: JSON.stringify({
+              draftId: revision?.id,
               rule: values,
               environment,
               i,

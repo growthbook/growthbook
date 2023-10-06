@@ -9,8 +9,7 @@ import {
 } from "react-icons/fa";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import Link from "next/link";
-import { useAuth } from "@/services/auth";
-import track from "@/services/track";
+import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import { getRules, useEnvironments } from "@/services/features";
 import usePermissions from "@/hooks/usePermissions";
 import { getUpcomingScheduleRule } from "@/services/scheduleRules";
@@ -31,9 +30,16 @@ interface SortableProps {
   i: number;
   rule: FeatureRule;
   feature: FeatureInterface;
+  revision: FeatureRevisionInterface | null;
   environment: string;
   experiments: Record<string, ExperimentInterfaceStringDates>;
-  mutate: () => void;
+  onRuleEnabledStateToggled: (rule: FeatureRule, idx: number) => Promise<void>;
+  onRuleDuplicated: (
+    rule: FeatureRule,
+    environment: string,
+    idx: number
+  ) => Promise<void>;
+  onRuleDeleted: (rule: FeatureRule, idx: number) => Promise<void>;
   setRuleModal: (args: { environment: string; i: number }) => void;
   unreachable?: boolean;
 }
@@ -43,16 +49,19 @@ type RuleProps = SortableProps &
     handle?: React.HTMLAttributes<HTMLDivElement>;
   };
 
-// eslint-disable-next-line
+// eslint-disable-next-line react/display-name
 export const Rule = forwardRef<HTMLDivElement, RuleProps>(
   (
     {
       i,
       rule,
       feature,
+      revision,
       environment,
       setRuleModal,
-      mutate,
+      onRuleEnabledStateToggled,
+      onRuleDuplicated,
+      onRuleDeleted,
       handle,
       experiments,
       unreachable,
@@ -60,7 +69,6 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
     },
     ref
   ) => {
-    const { apiCall } = useAuth();
     const title =
       rule.description ||
       rule.type[0].toUpperCase() + rule.type.slice(1) + " Rule";
@@ -68,7 +76,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
     const linkedExperiment =
       rule.type === "experiment-ref" && experiments[rule.experimentId];
 
-    const rules = getRules(feature, environment);
+    const rules = getRules(feature, environment, revision);
     const environments = useEnvironments();
     const permissions = usePermissions();
 
@@ -181,28 +189,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                   color=""
                   className="dropdown-item"
                   onClick={async () => {
-                    track(
-                      rule.enabled
-                        ? "Disable Feature Rule"
-                        : "Enable Feature Rule",
-                      {
-                        ruleIndex: i,
-                        environment,
-                        type: rule.type,
-                      }
-                    );
-                    await apiCall(`/feature/${feature.id}/rule`, {
-                      method: "PUT",
-                      body: JSON.stringify({
-                        environment,
-                        rule: {
-                          ...rule,
-                          enabled: !rule.enabled,
-                        },
-                        i,
-                      }),
-                    });
-                    mutate();
+                    await onRuleEnabledStateToggled(rule, i);
                   }}
                 >
                   {rule.enabled ? "Disable" : "Enable"}
@@ -215,45 +202,32 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                       color=""
                       className="dropdown-item"
                       onClick={async () => {
-                        await apiCall(`/feature/${feature.id}/rule`, {
-                          method: "POST",
-                          body: JSON.stringify({
-                            environment: en.id,
-                            rule: { ...rule, id: "" },
-                          }),
-                        });
-                        track("Clone Feature Rule", {
-                          ruleIndex: i,
-                          environment,
-                          type: rule.type,
-                        });
-                        mutate();
+                        await onRuleDuplicated(rule, en.id, i);
                       }}
                     >
                       Copy to {en.id}
                     </Button>
                   ))}
-                <DeleteButton
-                  className="dropdown-item"
-                  displayName="Rule"
-                  useIcon={false}
-                  text="Delete"
-                  onClick={async () => {
-                    track("Delete Feature Rule", {
-                      ruleIndex: i,
-                      environment,
-                      type: rule.type,
-                    });
-                    await apiCall(`/feature/${feature.id}/rule`, {
-                      method: "DELETE",
-                      body: JSON.stringify({
-                        environment,
-                        i,
-                      }),
-                    });
-                    mutate();
-                  }}
-                />
+                {revision?.status === "draft" ? (
+                  <DeleteButton
+                    className="dropdown-item"
+                    displayName="Rule"
+                    useIcon={false}
+                    text="Delete"
+                    onClick={async () => {
+                      await onRuleDeleted(rule, i);
+                    }}
+                  />
+                ) : (
+                  <button
+                    className="dropdown-item"
+                    onClick={async () => {
+                      await onRuleDeleted(rule, i);
+                    }}
+                  >
+                    Delete
+                  </button>
+                )}
               </MoreMenu>
             )}
           </div>
