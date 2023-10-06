@@ -34,7 +34,7 @@ export const CreateDraftModal: FC<CreateDraftModalProps> = ({
       error={error}
       ctaEnabled={enabled}
     >
-      <p>Attempting to modify this property will create a new draft.</p>
+      <p>Before editing this property, you will need to create a new draft.</p>
       <p>Would you like to create a new draft?</p>
     </Modal>
   );
