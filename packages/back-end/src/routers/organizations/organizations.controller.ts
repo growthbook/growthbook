@@ -104,6 +104,8 @@ import {
   findAuditByEntityParent,
 } from "../../models/AuditModel";
 import { EntityType } from "../../types/Audit";
+import { getAllFactTablesForOrganization } from "../../models/FactTableModel";
+import { getAllFactMetricsForOrganization } from "../../models/FactMetricModel";
 import { getCustomFields } from "../../models/CustomFieldModel";
 
 export async function getDefinitions(req: AuthRequest, res: Response) {
@@ -122,6 +124,8 @@ export async function getDefinitions(req: AuthRequest, res: Response) {
     savedGroups,
     customFields,
     projects,
+    factTables,
+    factMetrics,
   ] = await Promise.all([
     getMetricsByOrganization(orgId),
     getDataSourcesByOrganization(orgId),
@@ -131,6 +135,8 @@ export async function getDefinitions(req: AuthRequest, res: Response) {
     getAllSavedGroups(orgId),
     getCustomFields(orgId),
     findAllProjectsByOrganization(orgId),
+    getAllFactTablesForOrganization(orgId),
+    getAllFactMetricsForOrganization(orgId),
   ]);
 
   return res.status(200).json({
@@ -158,6 +164,8 @@ export async function getDefinitions(req: AuthRequest, res: Response) {
     savedGroups,
     customFields: customFields?.fields ?? [],
     projects,
+    factTables,
+    factMetrics,
   });
 }
 

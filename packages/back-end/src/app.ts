@@ -86,11 +86,13 @@ import { eventsRouter } from "./routers/events/events.router";
 import { eventWebHooksRouter } from "./routers/event-webhooks/event-webhooks.router";
 import { tagRouter } from "./routers/tag/tag.router";
 import { savedGroupRouter } from "./routers/saved-group/saved-group.router";
+import { ArchetypeRouter } from "./routers/archetype/archetype.router";
 import { customFieldsRouter } from "./routers/custom-fields/custom-fields.router";
 import { segmentRouter } from "./routers/segment/segment.router";
 import { dimensionRouter } from "./routers/dimension/dimension.router";
 import { sdkConnectionRouter } from "./routers/sdk-connection/sdk-connection.router";
 import { projectRouter } from "./routers/project/project.router";
+import { factTableRouter } from "./routers/fact-table/fact-table.router";
 import verifyLicenseMiddleware from "./services/auth/verifyLicenseMiddleware";
 import { slackIntegrationRouter } from "./routers/slack-integration/slack-integration.router";
 import { dataExportRouter } from "./routers/data-export/data-export.router";
@@ -324,6 +326,8 @@ app.use("/tag", tagRouter);
 
 app.use("/saved-groups", savedGroupRouter);
 
+app.use("/archetype", ArchetypeRouter);
+
 app.use("/custom-fields", customFieldsRouter);
 
 // Ideas
@@ -464,6 +468,8 @@ app.use("/sdk-connections", sdkConnectionRouter);
 
 app.use("/projects", projectRouter);
 
+app.use(factTableRouter);
+
 app.use("/demo-datasource-project", demoDatasourceProjectRouter);
 
 // Features
@@ -494,6 +500,7 @@ app.delete(
 app.put("/feature/:id/rule", featuresController.putFeatureRule);
 app.delete("/feature/:id/rule", featuresController.deleteFeatureRule);
 app.post("/feature/:id/reorder", featuresController.postFeatureMoveRule);
+app.post("/feature/:id/eval", featuresController.postFeatureEvaluate);
 app.get("/usage/features", featuresController.getRealtimeUsage);
 
 // Data Sources
@@ -569,6 +576,13 @@ app.use("/teams", teamRouter);
 
 // Admin
 app.get("/admin/organizations", adminController.getOrganizations);
+
+// Meta info
+app.get("/meta/ai", (req, res) => {
+  res.json({
+    enabled: !!process.env.OPENAI_API_KEY,
+  });
+});
 
 // Fallback 404 route if nothing else matches
 app.use(function (req, res) {

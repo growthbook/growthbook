@@ -26,7 +26,7 @@ type ModAppProps = AppProps & {
   };
 };
 
-const growthbook = new GrowthBook<AppFeatures>({
+export const growthbook = new GrowthBook<AppFeatures>({
   apiHost: "https://cdn.growthbook.io",
   clientKey:
     process.env.NODE_ENV === "production"

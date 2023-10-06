@@ -712,7 +712,7 @@ export async function deleteExperimentByIdForOrganization(
       organization: organization.id,
     });
 
-    VisualChangesetModel.deleteMany({ experiment: experiment.id });
+    await VisualChangesetModel.deleteMany({ experiment: experiment.id });
 
     await onExperimentDelete(organization, user, experiment);
   } catch (e) {

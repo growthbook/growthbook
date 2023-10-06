@@ -1,0 +1,12 @@
+.attributeBox {
+  background-color: var(--surface-background-color);
+  max-height: 520px;
+  overflow-y: auto;
+
+  .attrHeader {
+    background-color: var(--surface-background-color);
+  }
+  .disabled {
+    opacity: 0.4;
+  }
+}
