@@ -921,6 +921,48 @@ export default function FeaturePage() {
                       experiments={featureExperiments}
                       mutate={mutate}
                       setRuleModal={setRuleModal}
+                      sortEnabled={previewType === "draft"}
+                      onRuleDeleted={async (rule, idx) => {
+                        if (previewType === "draft") {
+                          track("Delete Feature Rule", {
+                            ruleIndex: idx,
+                            environment: env,
+                            type: rule.type,
+                          });
+                          await apiCall(`/feature/${displayFeature.id}/rule`, {
+                            method: "DELETE",
+                            body: JSON.stringify({
+                              // todo: make sure UI is updated (currently the rules don't get updated)
+                              draftId: activeRevision?.id,
+                              environment: env,
+                              i: idx,
+                            }),
+                          });
+                          mutate();
+                        } else {
+                          setNewDraftModal(true);
+                        }
+                      }}
+                      onRuleDuplicated={async (rule, environment, idx) => {
+                        if (previewType === "draft") {
+                          await apiCall(`/feature/${displayFeature.id}/rule`, {
+                            method: "POST",
+                            body: JSON.stringify({
+                              draftId: activeRevision?.id,
+                              environment,
+                              rule: { ...rule, id: "" },
+                            }),
+                          });
+                          track("Clone Feature Rule", {
+                            ruleIndex: idx,
+                            environment,
+                            type: rule.type,
+                          });
+                          mutate();
+                        } else {
+                          setNewDraftModal(true);
+                        }
+                      }}
                       onRuleEnabledStateToggled={async (rule, idx) => {
                         if (previewType === "draft") {
                           track(

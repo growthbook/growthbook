@@ -26,9 +26,12 @@ export default function RuleList({
   feature,
   revision,
   onRuleEnabledStateToggled,
+  onRuleDeleted,
+  onRuleDuplicated,
   mutate,
   experiments,
   environment,
+  sortEnabled,
   setRuleModal,
 }: {
   feature: FeatureInterface;
@@ -36,7 +39,14 @@ export default function RuleList({
   experiments: Record<string, ExperimentInterfaceStringDates>;
   environment: string;
   mutate: () => void;
+  sortEnabled: boolean;
   onRuleEnabledStateToggled: (rule: FeatureRule, idx: number) => Promise<void>;
+  onRuleDuplicated: (
+    rule: FeatureRule,
+    environment: string,
+    idx: number
+  ) => Promise<void>;
+  onRuleDeleted: (rule: FeatureRule, idx: number) => Promise<void>;
   setRuleModal: ({ environment: string, i: number }) => void;
 }) {
   const { apiCall } = useAuth();
@@ -81,6 +91,7 @@ export default function RuleList({
   const activeRule = activeId ? items[getRuleIndex(activeId)] : null;
 
   const canEdit =
+    sortEnabled &&
     permissions.check("manageFeatures", feature.project) &&
     permissions.check("createFeatureDrafts", feature.project);
 
@@ -135,6 +146,8 @@ export default function RuleList({
             i={i}
             rule={rule}
             onRuleEnabledStateToggled={onRuleEnabledStateToggled}
+            onRuleDeleted={onRuleDeleted}
+            onRuleDuplicated={onRuleDuplicated}
             feature={feature}
             revision={revision}
             mutate={mutate}
@@ -152,6 +165,8 @@ export default function RuleList({
             environment={environment}
             rule={activeRule}
             onRuleEnabledStateToggled={onRuleEnabledStateToggled}
+            onRuleDeleted={onRuleDeleted}
+            onRuleDuplicated={onRuleDuplicated}
             feature={feature}
             revision={revision}
             mutate={mutate}

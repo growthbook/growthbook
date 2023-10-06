@@ -11,7 +11,6 @@ import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import Link from "next/link";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import { useAuth } from "@/services/auth";
-import track from "@/services/track";
 import { getRules, useEnvironments } from "@/services/features";
 import usePermissions from "@/hooks/usePermissions";
 import { getUpcomingScheduleRule } from "@/services/scheduleRules";
@@ -36,6 +35,12 @@ interface SortableProps {
   environment: string;
   experiments: Record<string, ExperimentInterfaceStringDates>;
   onRuleEnabledStateToggled: (rule: FeatureRule, idx: number) => Promise<void>;
+  onRuleDuplicated: (
+    rule: FeatureRule,
+    environment: string,
+    idx: number
+  ) => Promise<void>;
+  onRuleDeleted: (rule: FeatureRule, idx: number) => Promise<void>;
   mutate: () => void;
   setRuleModal: (args: { environment: string; i: number }) => void;
   unreachable?: boolean;
@@ -57,6 +62,8 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
       environment,
       setRuleModal,
       onRuleEnabledStateToggled,
+      onRuleDuplicated,
+      onRuleDeleted,
       mutate,
       handle,
       experiments,
@@ -199,48 +206,32 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                       color=""
                       className="dropdown-item"
                       onClick={async () => {
-                        await apiCall(`/feature/${feature.id}/rule`, {
-                          method: "POST",
-                          body: JSON.stringify({
-                            draftId: revision?.id,
-                            environment: en.id,
-                            rule: { ...rule, id: "" },
-                          }),
-                        });
-                        track("Clone Feature Rule", {
-                          ruleIndex: i,
-                          environment,
-                          type: rule.type,
-                        });
-                        mutate();
+                        await onRuleDuplicated(rule, en.id, i);
                       }}
                     >
                       Copy to {en.id}
                     </Button>
                   ))}
-                <DeleteButton
-                  className="dropdown-item"
-                  displayName="Rule"
-                  useIcon={false}
-                  text="Delete"
-                  onClick={async () => {
-                    track("Delete Feature Rule", {
-                      ruleIndex: i,
-                      environment,
-                      type: rule.type,
-                    });
-                    await apiCall(`/feature/${feature.id}/rule`, {
-                      method: "DELETE",
-                      body: JSON.stringify({
-                        // todo: make sure UI is updated (currently the rules don't get updated)
-                        draftId: revision?.id,
-                        environment,
-                        i,
-                      }),
-                    });
-                    mutate();
-                  }}
-                />
+                {revision?.status === "draft" ? (
+                  <DeleteButton
+                    className="dropdown-item"
+                    displayName="Rule"
+                    useIcon={false}
+                    text="Delete"
+                    onClick={async () => {
+                      await onRuleDeleted(rule, i);
+                    }}
+                  />
+                ) : (
+                  <button
+                    className="dropdown-item"
+                    onClick={async () => {
+                      await onRuleDeleted(rule, i);
+                    }}
+                  >
+                    Delete
+                  </button>
+                )}
               </MoreMenu>
             )}
           </div>
