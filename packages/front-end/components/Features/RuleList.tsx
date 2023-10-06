@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { FeatureInterface } from "back-end/types/feature";
+import { FeatureInterface, FeatureRule } from "back-end/types/feature";
 import {
   DndContext,
   DragOverlay,
@@ -25,6 +25,7 @@ import { Rule, SortableRule } from "./Rule";
 export default function RuleList({
   feature,
   revision,
+  onRuleEnabledStateToggled,
   mutate,
   experiments,
   environment,
@@ -35,6 +36,7 @@ export default function RuleList({
   experiments: Record<string, ExperimentInterfaceStringDates>;
   environment: string;
   mutate: () => void;
+  onRuleEnabledStateToggled: (rule: FeatureRule, idx: number) => Promise<void>;
   setRuleModal: ({ environment: string, i: number }) => void;
 }) {
   const { apiCall } = useAuth();
@@ -132,6 +134,7 @@ export default function RuleList({
             environment={environment}
             i={i}
             rule={rule}
+            onRuleEnabledStateToggled={onRuleEnabledStateToggled}
             feature={feature}
             revision={revision}
             mutate={mutate}
@@ -148,6 +151,7 @@ export default function RuleList({
             i={getRuleIndex(activeId)}
             environment={environment}
             rule={activeRule}
+            onRuleEnabledStateToggled={onRuleEnabledStateToggled}
             feature={feature}
             revision={revision}
             mutate={mutate}

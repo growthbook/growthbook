@@ -35,6 +35,7 @@ interface SortableProps {
   revision: FeatureRevisionInterface | null;
   environment: string;
   experiments: Record<string, ExperimentInterfaceStringDates>;
+  onRuleEnabledStateToggled: (rule: FeatureRule, idx: number) => Promise<void>;
   mutate: () => void;
   setRuleModal: (args: { environment: string; i: number }) => void;
   unreachable?: boolean;
@@ -55,6 +56,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
       revision,
       environment,
       setRuleModal,
+      onRuleEnabledStateToggled,
       mutate,
       handle,
       experiments,
@@ -184,30 +186,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                   color=""
                   className="dropdown-item"
                   onClick={async () => {
-                    track(
-                      rule.enabled
-                        ? "Disable Feature Rule"
-                        : "Enable Feature Rule",
-                      {
-                        ruleIndex: i,
-                        environment,
-                        type: rule.type,
-                      }
-                    );
-                    await apiCall(`/feature/${feature.id}/rule`, {
-                      method: "PUT",
-                      body: JSON.stringify({
-                        // todo: make sure the UI is updated when this is toggled
-                        draftId: revision?.id,
-                        environment,
-                        rule: {
-                          ...rule,
-                          enabled: !rule.enabled,
-                        },
-                        i,
-                      }),
-                    });
-                    mutate();
+                    await onRuleEnabledStateToggled(rule, i);
                   }}
                 >
                   {rule.enabled ? "Disable" : "Enable"}

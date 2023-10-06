@@ -921,6 +921,36 @@ export default function FeaturePage() {
                       experiments={featureExperiments}
                       mutate={mutate}
                       setRuleModal={setRuleModal}
+                      onRuleEnabledStateToggled={async (rule, idx) => {
+                        if (previewType === "draft") {
+                          track(
+                            rule.enabled
+                              ? "Disable Feature Rule"
+                              : "Enable Feature Rule",
+                            {
+                              ruleIndex: idx,
+                              environment: env,
+                              type: rule.type,
+                            }
+                          );
+                          await apiCall(`/feature/${displayFeature.id}/rule`, {
+                            method: "PUT",
+                            body: JSON.stringify({
+                              // todo: make sure the UI is updated when this is toggled
+                              draftId: activeRevision?.id,
+                              environment: env,
+                              rule: {
+                                ...rule,
+                                enabled: !rule.enabled,
+                              },
+                              i: idx,
+                            }),
+                          });
+                          mutate();
+                        } else {
+                          setNewDraftModal(true);
+                        }
+                      }}
                     />
                   ) : (
                     <div className="p-3 bg-white">
