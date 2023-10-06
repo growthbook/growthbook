@@ -49,7 +49,7 @@ type RuleProps = SortableProps &
     handle?: React.HTMLAttributes<HTMLDivElement>;
   };
 
-// eslint-disable-next-line
+// eslint-disable-next-line react/display-name
 export const Rule = forwardRef<HTMLDivElement, RuleProps>(
   (
     {

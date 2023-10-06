@@ -5,12 +5,25 @@ import Link from "next/link";
 import { FeatureDraftUiItem } from "@/components/FeatureDraftsDropDown/FeatureDraftsDropdown.utils";
 import Avatar from "@/components/Avatar/Avatar";
 import Dropdown from "@/components/Dropdown/Dropdown";
+import Pagination from "@/components/Pagination";
+import { usePagination } from "@/hooks/usePagination";
 
 type FeatureDraftsListProps = {
   drafts: FeatureDraftUiItem[];
 };
 
 export const FeatureDraftsList: FC<FeatureDraftsListProps> = ({ drafts }) => {
+  const pageSize = 5;
+  const {
+    pageCount,
+    onPageChange,
+    currentPage,
+    visibleItems,
+  } = usePagination<FeatureDraftUiItem>({
+    items: drafts,
+    pageSize,
+  });
+
   return (
     <div className="">
       <table className="table table-hover">
@@ -24,7 +37,7 @@ export const FeatureDraftsList: FC<FeatureDraftsListProps> = ({ drafts }) => {
         </thead>
 
         <tbody>
-          {drafts.map((draft, idx) => {
+          {visibleItems.map((draft, idx) => {
             const {
               creatorUserId,
               revisionId,
@@ -66,6 +79,15 @@ export const FeatureDraftsList: FC<FeatureDraftsListProps> = ({ drafts }) => {
           })}
         </tbody>
       </table>
+
+      {pageCount > 1 && (
+        <Pagination
+          numItemsTotal={drafts.length}
+          currentPage={currentPage}
+          perPage={pageSize}
+          onPageChange={onPageChange}
+        />
+      )}
     </div>
   );
 };
@@ -108,7 +130,7 @@ export const FeatureDraftsDropDown: FC<FeatureDraftsDropDownProps> = ({
             </span>
           }
         >
-          <div style={{ maxHeight: 500, overflowY: "scroll" }} className="p-4">
+          <div className="p-4">
             <h3>Drafts</h3>
             <p>Drafts are unpublished versions of a feature.</p>
 
