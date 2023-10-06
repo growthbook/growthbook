@@ -34,7 +34,28 @@ export type UsePagination<T = unknown> = {
 };
 
 /**
- * Meant to be used with the {@link Pagination}
+ * Meant to be used with the {@link Pagination} component
+ *
+ * Example usage:
+ *
+ *     const pageSize = 5;
+ *     const { pageCount, onPageChange, currentPage, visibleItems, totalCount } = usePagination({
+ *       items: drafts,
+ *       pageSize,
+ *     });
+ *
+ *
+ * JSX:
+ *
+ *       {pageCount > 1 && (
+ *         <Pagination
+ *           numItemsTotal={totalCount}
+ *           currentPage={currentPage}
+ *           perPage={pageSize}
+ *           onPageChange={onPageChange}
+ *         />
+ *       )}
+ *
  * @param items
  * @param pageSize
  */
