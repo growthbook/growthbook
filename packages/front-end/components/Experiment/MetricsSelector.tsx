@@ -20,12 +20,10 @@ import { arrayMove } from "react-sortable-hoc";
 import { FaTimes } from "react-icons/fa";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import SelectField from "@/components/Forms/SelectField";
-import Tooltip from "../Tooltip/Tooltip";
-import MetricTooltipBody from "../Metrics/MetricTooltipBody";
 import Tag from "../Tags/Tag";
 import OverflowText from "./TabbedPage/OverflowText";
 
-const METRIC_WIDTH = 195;
+const METRIC_WIDTH = 190;
 
 const SelectedMetric = forwardRef<
   HTMLDivElement,
@@ -38,6 +36,7 @@ const SelectedMetric = forwardRef<
 >(function SelectedMetric({ id, style, handle, removeMetric }, ref) {
   const { getMetricById } = useDefinitions();
   const metric = getMetricById(id);
+  const tooltip = metric ? `${metric.name} (${metric.type})` : id;
   return (
     <div style={style} ref={ref}>
       <div className="d-flex badge badge-purple border mb-2 mr-2 p-2 rounded text-left">
@@ -49,20 +48,14 @@ const SelectedMetric = forwardRef<
           <MdOutlineDragIndicator />
         </div>
         <div style={{ width: METRIC_WIDTH }}>
-          <Tooltip
-            body={
-              metric ? <MetricTooltipBody metric={metric} newUi={true} /> : ""
-            }
-          >
-            <OverflowText maxWidth={METRIC_WIDTH}>
-              <span>{metric?.name || id}</span>
-            </OverflowText>
-          </Tooltip>
+          <OverflowText maxWidth={METRIC_WIDTH} title={tooltip}>
+            <span>{metric?.name || id}</span>
+          </OverflowText>
         </div>
         <div>
           <a
             href="#"
-            className="text-danger"
+            className="text-purple"
             style={{ fontSize: "1em" }}
             title="Remove metric"
             onClick={(e) => {
@@ -184,12 +177,14 @@ const MetricsSelector: FC<{
     .filter((m) => (datasource ? m.datasource === datasource : true))
     .filter((m) => isProjectListValidForProject(m.projects, project));
 
-  const filteredMetrics = projectMetrics
-    .filter((m) => !filter || m.tags?.includes(filter))
-    .filter((m) => !selected.includes(m.id));
+  const unusedMetrics = projectMetrics.filter((m) => !selected.includes(m.id));
+
+  const filteredMetrics = unusedMetrics.filter(
+    (m) => !filter || m.tags?.includes(filter)
+  );
 
   const tagCounts: Record<string, number> = {};
-  filteredMetrics.forEach((m) => {
+  unusedMetrics.forEach((m) => {
     if (m.tags) {
       m.tags.forEach((t) => {
         tagCounts[t] = tagCounts[t] || 0;
@@ -319,6 +314,7 @@ const MetricsSelector: FC<{
                 }}
                 initialOption="Add Metrics..."
                 hideSelectedOption={true}
+                tabSelectsValue={false}
               />
             ) : (
               <em>All metrics selected</em>

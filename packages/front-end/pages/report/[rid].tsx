@@ -45,6 +45,7 @@ import CompactResults from "@/components/Experiment/CompactResults";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import BreakDownResults from "@/components/Experiment/BreakDownResults";
 import DimensionChooser from "@/components/Dimensions/DimensionChooser";
+import PageHead from "@/components/Layout/PageHead";
 
 export default function ReportPage() {
   const [newUi, setNewUi] = useLocalStorage<boolean>(
@@ -150,6 +151,17 @@ export default function ReportPage() {
 
   return (
     <>
+      <PageHead
+        breadcrumb={[
+          {
+            href: "/reports",
+            display: "Reports",
+          },
+          {
+            display: report.title,
+          },
+        ]}
+      />
       <div
         className="alert-secondary p-2 mb-2 text-center"
         style={{ marginTop: -5 }}

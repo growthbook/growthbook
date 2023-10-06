@@ -24,6 +24,7 @@ export type SelectFieldProps = Omit<
   isClearable?: boolean;
   closeMenuOnSelect?: boolean;
   hideSelectedOption?: boolean;
+  tabSelectsValue?: boolean;
 };
 
 export function useSelectOptions(
@@ -103,6 +104,7 @@ const SelectField: FC<SelectFieldProps> = ({
   isClearable = false,
   closeMenuOnSelect,
   hideSelectedOption,
+  tabSelectsValue = true,
   ...otherProps
 }) => {
   const [map, sorted] = useSelectOptions(options, initialOption, sort);
@@ -222,6 +224,7 @@ const SelectField: FC<SelectFieldProps> = ({
                 formatOptionLabel={formatOptionLabel}
                 isSearchable={!!isSearchable}
                 hideSelectedOptions={hideSelectedOption}
+                tabSelectsValue={tabSelectsValue}
               />
             )}
             {required && (

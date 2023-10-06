@@ -4,6 +4,7 @@ import Link from "next/link";
 import { ReportInterface } from "back-end/types/report";
 import { ExperimentInterface } from "back-end/types/experiment";
 import { datetime, ago } from "shared/dates";
+import PageHead from "@/components/Layout/PageHead";
 import LoadingOverlay from "../components/LoadingOverlay";
 import { useAddComputedFields, useSearch } from "../services/search";
 import Tooltip from "../components/Tooltip/Tooltip";
@@ -84,6 +85,7 @@ const ReportsPage = (): React.ReactElement => {
   if (!reports.length) {
     return (
       <div className="container p-4">
+        <PageHead breadcrumb={[{ display: "Reports" }]} />
         <h1>Reports</h1>
         <p>
           A report is an ad-hoc analysis of an experiment. Use them to explore
@@ -114,6 +116,7 @@ const ReportsPage = (): React.ReactElement => {
 
   return (
     <div className="container-fluid py-3 p-3 pagecontents">
+      <PageHead breadcrumb={[{ display: "Reports" }]} />
       <div className="filters md-form row mb-3 align-items-center">
         <div className="col-auto">
           <h3>

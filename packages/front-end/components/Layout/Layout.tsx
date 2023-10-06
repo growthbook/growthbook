@@ -39,7 +39,7 @@ const navlinks: SidebarLinkProps[] = [
   {
     name: "Experiments",
     href: "/experiments",
-    path: /^experiment/,
+    path: /^(experiment|report)/,
     Icon: GBExperiment,
   },
   {
