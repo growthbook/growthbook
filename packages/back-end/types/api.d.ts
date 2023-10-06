@@ -32,6 +32,7 @@ export interface ErrorResponse {
 
 export type ApiRequestLocals = PermissionFunctions & {
   apiKey: string;
+  userId?: string;
   organization: OrganizationInterface;
   eventAudit: EventAuditUser;
   audit: (data: Partial<AuditInterface>) => Promise<void>;

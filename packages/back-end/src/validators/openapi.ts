@@ -8,7 +8,7 @@ import { z } from "zod";
 
 export const listFeaturesValidator = {
   bodySchema: z.never(),
-  querySchema: z.object({"limit":z.coerce.number().int().default(10),"offset":z.coerce.number().int().optional(),"projectId":z.string().optional()}).strict(),
+  querySchema: z.object({"limit":z.coerce.number().int().default(10),"offset":z.coerce.number().int().default(0),"projectId":z.string().optional()}).strict(),
   paramsSchema: z.never(),
 };
 
@@ -26,7 +26,7 @@ export const toggleFeatureValidator = {
 
 export const listProjectsValidator = {
   bodySchema: z.never(),
-  querySchema: z.object({"limit":z.coerce.number().int().default(10),"offset":z.coerce.number().int().optional()}).strict(),
+  querySchema: z.object({"limit":z.coerce.number().int().default(10),"offset":z.coerce.number().int().default(0)}).strict(),
   paramsSchema: z.never(),
 };
 
@@ -38,7 +38,7 @@ export const getProjectValidator = {
 
 export const listDimensionsValidator = {
   bodySchema: z.never(),
-  querySchema: z.object({"limit":z.coerce.number().int().default(10),"offset":z.coerce.number().int().optional(),"datasourceId":z.string().optional()}).strict(),
+  querySchema: z.object({"limit":z.coerce.number().int().default(10),"offset":z.coerce.number().int().default(0),"datasourceId":z.string().optional()}).strict(),
   paramsSchema: z.never(),
 };
 
@@ -50,7 +50,7 @@ export const getDimensionValidator = {
 
 export const listSegmentsValidator = {
   bodySchema: z.never(),
-  querySchema: z.object({"limit":z.coerce.number().int().default(10),"offset":z.coerce.number().int().optional(),"datasourceId":z.string().optional()}).strict(),
+  querySchema: z.object({"limit":z.coerce.number().int().default(10),"offset":z.coerce.number().int().default(0),"datasourceId":z.string().optional()}).strict(),
   paramsSchema: z.never(),
 };
 
@@ -62,7 +62,7 @@ export const getSegmentValidator = {
 
 export const listSdkConnectionsValidator = {
   bodySchema: z.never(),
-  querySchema: z.object({"limit":z.coerce.number().int().default(10),"offset":z.coerce.number().int().optional(),"projectId":z.string().optional(),"withProxy":z.string().optional()}).strict(),
+  querySchema: z.object({"limit":z.coerce.number().int().default(10),"offset":z.coerce.number().int().default(0),"projectId":z.string().optional(),"withProxy":z.string().optional()}).strict(),
   paramsSchema: z.never(),
 };
 
@@ -74,7 +74,7 @@ export const getSdkConnectionValidator = {
 
 export const listDataSourcesValidator = {
   bodySchema: z.never(),
-  querySchema: z.object({"limit":z.coerce.number().int().default(10),"offset":z.coerce.number().int().optional(),"projectId":z.string().optional()}).strict(),
+  querySchema: z.object({"limit":z.coerce.number().int().default(10),"offset":z.coerce.number().int().default(0),"projectId":z.string().optional()}).strict(),
   paramsSchema: z.never(),
 };
 
@@ -86,7 +86,7 @@ export const getDataSourceValidator = {
 
 export const listExperimentsValidator = {
   bodySchema: z.never(),
-  querySchema: z.object({"limit":z.coerce.number().int().default(10),"offset":z.coerce.number().int().optional(),"projectId":z.string().optional(),"datasourceId":z.string().optional(),"experimentId":z.string().optional()}).strict(),
+  querySchema: z.object({"limit":z.coerce.number().int().default(10),"offset":z.coerce.number().int().default(0),"projectId":z.string().optional(),"datasourceId":z.string().optional(),"experimentId":z.string().optional()}).strict(),
   paramsSchema: z.never(),
 };
 
@@ -116,7 +116,7 @@ export const getExperimentResultsValidator = {
 
 export const listMetricsValidator = {
   bodySchema: z.never(),
-  querySchema: z.object({"limit":z.coerce.number().int().default(10),"offset":z.coerce.number().int().optional(),"projectId":z.string().optional(),"datasourceId":z.string().optional()}).strict(),
+  querySchema: z.object({"limit":z.coerce.number().int().default(10),"offset":z.coerce.number().int().default(0),"projectId":z.string().optional(),"datasourceId":z.string().optional()}).strict(),
   paramsSchema: z.never(),
 };
 
@@ -176,7 +176,7 @@ export const putVisualChangeValidator = {
 
 export const listSavedGroupsValidator = {
   bodySchema: z.never(),
-  querySchema: z.object({"limit":z.coerce.number().int().default(10),"offset":z.coerce.number().int().optional()}).strict(),
+  querySchema: z.object({"limit":z.coerce.number().int().default(10),"offset":z.coerce.number().int().default(0)}).strict(),
   paramsSchema: z.never(),
 };
 
@@ -202,4 +202,16 @@ export const deleteSavedGroupValidator = {
   bodySchema: z.never(),
   querySchema: z.never(),
   paramsSchema: z.object({"id":z.string()}).strict(),
+};
+
+export const listOrganizationsValidator = {
+  bodySchema: z.never(),
+  querySchema: z.object({"search":z.string().optional(),"limit":z.coerce.number().int().default(10),"offset":z.coerce.number().int().default(0)}).strict(),
+  paramsSchema: z.never(),
+};
+
+export const postOrganizationValidator = {
+  bodySchema: z.object({"name":z.string().describe("The name of the organization")}).strict(),
+  querySchema: z.never(),
+  paramsSchema: z.never(),
 };

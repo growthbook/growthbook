@@ -53,7 +53,7 @@ export default function authenticateApiRequestMiddleware(
   // Lookup organization by secret key and store in req
   lookupOrganizationByApiKey(secretKey)
     .then(async (apiKeyPartial) => {
-      const { organization, secret, id } = apiKeyPartial;
+      const { organization, secret, id, userId } = apiKeyPartial;
       if (!organization) {
         throw new Error("Invalid API key");
       }
@@ -64,6 +64,9 @@ export default function authenticateApiRequestMiddleware(
       }
       req.apiKey = id || "";
 
+      // If it's a personal access token API key, store the user ID in req
+      req.userId = userId;
+
       // Organization for key
       const org = await getOrganizationById(organization);
       if (!org) {
@@ -73,10 +76,7 @@ export default function authenticateApiRequestMiddleware(
 
       // If it's a user API key, verify that the user is part of the organization
       // This is important to check in the event that a user leaves an organization, the member list is updated, and the user's API keys are orphaned
-      if (
-        apiKeyPartial.userId &&
-        !isApiKeyForUserInOrganization(apiKeyPartial, org)
-      ) {
+      if (userId && !isApiKeyForUserInOrganization(apiKeyPartial, org)) {
         throw new Error("Could not find user attached to this API key");
       }
 

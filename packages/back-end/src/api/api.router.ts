@@ -16,6 +16,7 @@ import sdkConnectionsRouter from "./sdk-connections/sdk-connections.router";
 import dataSourcesRouter from "./data-sources/data-sources.router";
 import dimensionsRouter from "./dimensions/dimensions.router";
 import visualChangesetsRouter from "./visual-changesets/visual-changesets.router";
+import organizationsRouter from "./organizations/organizations.router";
 
 const router = Router();
 
@@ -78,6 +79,7 @@ router.use("/sdk-connections", sdkConnectionsRouter);
 router.use("/data-sources", dataSourcesRouter);
 router.use("/visual-changesets", visualChangesetsRouter);
 router.use("/saved-groups", savedGroupsRouter);
+router.use("/organizations", organizationsRouter);
 
 // 404 route
 router.use(function (req, res) {

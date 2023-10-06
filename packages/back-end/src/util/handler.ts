@@ -4,6 +4,8 @@ import { Request, RequestHandler } from "express";
 import z, { Schema, ZodNever } from "zod";
 import { ApiErrorResponse, ApiRequestLocals } from "../../types/api";
 import { ApiPaginationFields } from "../../types/openapi";
+import { getUserById } from "../services/users";
+import { IS_MULTI_ORG } from "./secrets";
 
 type ApiRequest<
   ResponseType = never,
@@ -147,6 +149,54 @@ export function getBuild() {
   return build;
 }
 
+export async function validateIsSuperUserRequest(req: { userId?: string }) {
+  if (!IS_MULTI_ORG) {
+    throw new Error("This endpoint requires multi-org mode.");
+  }
+
+  if (!req.userId) {
+    throw new Error(
+      "This endpoint requires the use of a Personal Access Token rather than an API_KEY."
+    );
+  }
+
+  const user = await getUserById(req.userId);
+
+  if (!user || !user.superAdmin) {
+    throw new Error(
+      "This endpoint requires the Personal Access Token of a super admin."
+    );
+  }
+
+  return user;
+}
+
+/**
+ * Given an already paginated list of items, return the pagination fields
+ */
+export function getPaginationReturnFields<T>(
+  items: T[],
+  total: number,
+  query: { limit: number; offset: number }
+): ApiPaginationFields {
+  const limit = query.limit;
+  const offset = query.offset;
+  const nextOffset = offset + limit;
+  const hasMore = nextOffset < total;
+
+  return {
+    limit,
+    offset,
+    count: items.length,
+    total: total,
+    hasMore,
+    nextOffset: hasMore ? nextOffset : null,
+  };
+}
+
+/**
+ * Given an unpaginated list of items and a query object, return the paginated list of items and the pagination fields
+ */
 export function applyPagination<T>(
   items: T[],
   query: { limit?: number | undefined; offset?: number | undefined }
