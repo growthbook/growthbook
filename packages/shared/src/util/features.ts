@@ -3,7 +3,7 @@ import dJSON from "dirty-json";
 import stringify from "json-stringify-pretty-compact";
 import { FeatureInterface } from "back-end/types/feature";
 
-export function getValidation(feature: FeatureInterface) {
+export function getValidation(feature: FeatureInterface | null) {
   try {
     const jsonSchema = feature?.jsonSchema?.schema
       ? JSON.parse(feature?.jsonSchema?.schema)

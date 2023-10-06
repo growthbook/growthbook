@@ -221,7 +221,6 @@ export async function getFeatureRevision({
     organization: organizationId,
     featureId,
     status,
-    dateDiscarded: null,
   });
 
   if (!doc) {
@@ -258,7 +257,7 @@ export async function publishFeatureRevision({
       id: revisionId,
       organization: organizationId,
       featureId,
-      dateDiscarded: null,
+      status: "draft",
     },
     {
       $set: {

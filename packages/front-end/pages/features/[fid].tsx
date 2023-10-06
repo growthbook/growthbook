@@ -106,7 +106,8 @@ export default function FeaturePage() {
   const [showImplementation, setShowImplementation] = useState(firstFeature);
   const environments = useEnvironments();
 
-  const shouldShowLegacyRevisionDropdown = !!data?.feature?.draft?.active;
+  // const shouldShowLegacyRevisionDropdown = !!data?.feature?.draft?.active;
+  const shouldShowLegacyRevisionDropdown = true;
 
   const activeRevision: FeatureRevisionInterface | null = useMemo(() => {
     if (!data) return null;
@@ -139,7 +140,11 @@ export default function FeaturePage() {
 
   useEffect(
     function enforceValidRevisionId() {
-      if (!rid) return;
+      if (!rid) {
+        setPreviewType("feature");
+        return;
+      }
+
       if (!data) return;
 
       const activeDraft = data.drafts.find((d) => d.id === rid);
@@ -236,28 +241,19 @@ export default function FeaturePage() {
     }
   }, [displayFeature, apiCall, mutate]);
 
-  if (error) {
-    return (
-      <div className="alert alert-danger">
-        An error occurred: {error.message}
-      </div>
-    );
-  }
-  if (!displayFeature) {
-    return <LoadingOverlay />;
-  }
-
   const { jsonSchema, validationEnabled, schemaDateUpdated } = getValidation(
     displayFeature
   );
 
-  const hasLegacyDraft = !!displayFeature.draft?.active;
-  const isArchived = displayFeature.archived;
+  const hasLegacyDraft = !!displayFeature?.draft?.active;
+  const isArchived = !!displayFeature?.archived;
 
-  const enabledEnvs = getEnabledEnvironments(displayFeature);
+  const enabledEnvs = displayFeature
+    ? getEnabledEnvironments(displayFeature)
+    : [];
   const hasJsonValidator = hasCommercialFeature("json-validation");
 
-  const projectId = displayFeature.project;
+  const projectId = displayFeature?.project;
   const project = getProjectById(projectId || "");
   const projectName = project?.name || null;
   const projectIsDeReferenced = projectId && !projectName;
@@ -279,7 +275,23 @@ export default function FeaturePage() {
   }
   const schemaDescriptionItems = [...schemaDescription.keys()];
 
+  // Checks the revision for permission
   const hasDraftPublishPermission =
+    displayFeature &&
+    permissions.check(
+      "publishFeatures",
+      projectId,
+      "defaultValue" in (activeRevision || {})
+        ? getEnabledEnvironments(displayFeature)
+        : getAffectedEnvs(
+            displayFeature,
+            Object.keys(activeRevision?.rules || {})
+          )
+    );
+
+  // Checks the legacy draft for permission
+  const hasLegacyDraftPublishPermissions =
+    displayFeature &&
     hasLegacyDraft &&
     permissions.check(
       "publishFeatures",
@@ -291,6 +303,50 @@ export default function FeaturePage() {
             Object.keys(displayFeature.draft?.rules || {})
           )
     );
+
+  const publishDraft = useCallback(async (): Promise<void> => {
+    // console.log({ rid, previewType, hasDraftPublishPermissions})
+    // You shouldn't be able to call this without a draft
+    if (!rid || previewType !== "draft") return;
+
+    // You must have permission to publish
+    if (!hasDraftPublishPermission) return;
+
+    // The feature should always be there by the time this is called
+    if (!displayFeature) return;
+
+    try {
+      await apiCall(`/feature/${displayFeature.id}/publish`, {
+        method: "POST",
+        body: JSON.stringify({
+          draftId: rid,
+        }),
+      });
+
+      router.push(`/features/${displayFeature.id}`);
+    } finally {
+      await mutate();
+    }
+  }, [
+    apiCall,
+    displayFeature,
+    hasLegacyDraftPublishPermissions,
+    mutate,
+    router,
+    previewType,
+    rid,
+  ]);
+
+  if (error) {
+    return (
+      <div className="alert alert-danger">
+        An error occurred: {error.message}
+      </div>
+    );
+  }
+  if (!displayFeature) {
+    return <LoadingOverlay />;
+  }
 
   return (
     <div className="contents container-fluid pagecontents">
@@ -328,7 +384,6 @@ export default function FeaturePage() {
           mutate={mutate}
         />
       )}
-      {/*todo: does this make a draft?? */}
       {ruleModal !== null && (
         <RuleModal
           feature={displayFeature}
@@ -430,7 +485,7 @@ export default function FeaturePage() {
               setIsLegacyDraftModal(true);
             }}
           >
-            Review{hasDraftPublishPermission && " and Publish"}
+            Review{hasLegacyDraftPublishPermissions && " and Publish"}
           </button>
           <button
             className="btn btn-outline-primary ml-3 btn-sm"
@@ -462,9 +517,18 @@ export default function FeaturePage() {
         <div className="alert justify-content-between alert-info mb-3 d-flex align-items-center">
           <div className="flex-1">You are viewing a draft of the feature.</div>
           <div className="ml-2">
-            <a href={`/features/${fid}`} className="btn btn-primary">
+            <a href={`/features/${fid}`} className="btn btn-outline-secondary">
               Back to feature
             </a>
+          </div>
+          <div className="ml-2">
+            <button
+              disabled={!hasDraftPublishPermission}
+              className="btn btn-primary"
+              onClick={publishDraft}
+            >
+              Publish
+            </button>
           </div>
         </div>
       ) : null}

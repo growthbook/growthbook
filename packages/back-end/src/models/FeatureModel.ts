@@ -1061,6 +1061,7 @@ const updateFeatureAndPublishRevision = async ({
     id: draftId,
     organizationId: organization.id,
     featureId: feature.id,
+    status: "draft",
   });
 
   // Create a set of feature changes
@@ -1085,7 +1086,7 @@ const updateFeatureAndPublishRevision = async ({
 
   changes.draft = { active: false };
   changes.revision = {
-    version: (revision.version || 1) + 1,
+    version: revision.version,
     comment: revision.comment || "",
     date: new Date(),
     publishedBy: user,
