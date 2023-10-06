@@ -4,6 +4,7 @@ import { FeatureInterface } from "back-end/types/feature";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { FaChevronRight, FaExclamationTriangle } from "react-icons/fa";
+import classNames from "classnames";
 import { datetime } from "shared/dates";
 import { getValidation } from "shared/util";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
@@ -182,6 +183,10 @@ export default function FeaturePage() {
     () => transformDraftsForView(memberUsernameOptions, data?.drafts || []),
     [data, memberUsernameOptions]
   );
+
+  const displayVersion =
+    activeRevision?.version || displayFeature?.revision?.version || null;
+  const liveVersion = displayFeature?.revision?.version || null;
 
   const onDiscardLegacyDraftClicked = useCallback(
     async (evt: React.MouseEvent<HTMLButtonElement>) => {
@@ -455,11 +460,7 @@ export default function FeaturePage() {
 
       {previewType === "draft" ? (
         <div className="alert justify-content-between alert-info mb-3 d-flex align-items-center">
-          <div className="flex-1">
-            You are viewing a draft of the feature.{" "}
-            <strong>Version: {activeRevision?.version}</strong>
-            {/* TODO: show the version everywhere not just here. This would only show for revisions (draft, previous versions) */}
-          </div>
+          <div className="flex-1">You are viewing a draft of the feature.</div>
           <div className="ml-2">
             <a href={`/features/${fid}`} className="btn btn-primary">
               Back to feature
@@ -482,8 +483,18 @@ export default function FeaturePage() {
       ) : null}
 
       <div className="row align-items-center mb-2">
-        <div className="col-auto">
+        <div className="col-auto d-flex align-items-center">
           <h1 className="mb-0">{fid}</h1>
+          {displayVersion ? (
+            <span
+              className={classNames("badge badge-pill", "ml-3", {
+                "badge-success": liveVersion === displayVersion,
+                "badge-warning": liveVersion !== displayVersion,
+              })}
+            >
+              Version: {displayVersion}
+            </span>
+          ) : null}
         </div>
         <div style={{ flex: 1 }} />
         <div className="col-auto">
