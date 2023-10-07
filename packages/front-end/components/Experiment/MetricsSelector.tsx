@@ -5,6 +5,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import SelectField from "@/components/Forms/SelectField";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import FactBadge from "../FactTables/FactBadge";
 
 type MetricOption = {
   id: string;
@@ -37,7 +38,7 @@ const MetricsSelector: FC<{
     ...(includeFacts
       ? factMetrics.map((m) => ({
           id: m.id,
-          name: "[FACT] " + m.name,
+          name: m.name,
           datasource: m.datasource,
           tags: m.tags || [],
           projects: m.projects || [],
@@ -78,6 +79,14 @@ const MetricsSelector: FC<{
         })}
         placeholder="Select metrics..."
         autoFocus={autoFocus}
+        formatOptionLabel={({ label, value }) => {
+          return (
+            <>
+              {label}
+              <FactBadge metricId={value} />
+            </>
+          );
+        }}
       />
       {Object.keys(tagCounts).length > 0 && (
         <div className="metric-from-tag text-muted form-inline mt-2">

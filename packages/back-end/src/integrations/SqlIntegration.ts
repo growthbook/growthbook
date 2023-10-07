@@ -418,6 +418,7 @@ export default abstract class SqlIntegration
           idJoinMap,
           startDate: metricStart,
           endDate: metricEnd,
+          // Facts tables are not supported for this query yet
           factTableMap: new Map(),
         })})
         , __userMetric as (
@@ -2084,7 +2085,8 @@ AND event_name = '${eventName}'`,
                   factTableMap,
                   useDenominator
                 ),
-              })}`
+              })}
+            )`
             : !isFact
             ? (schema && !metric.table?.match(/\./) ? schema + "." : "") +
               (metric.table || "")

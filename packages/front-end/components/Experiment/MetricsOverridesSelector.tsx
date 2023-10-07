@@ -33,8 +33,9 @@ export default function MetricsOverridesSelector({
   const metrics = new Set(
     form.watch("metrics").concat(form.watch("guardrails"))
   );
-  if (experiment.activationMetric) {
-    metrics.add(experiment.activationMetric);
+  const activationMetric = form.watch("activationMetric");
+  if (activationMetric) {
+    metrics.add(activationMetric);
   }
 
   const metricOverrides = useFieldArray({
