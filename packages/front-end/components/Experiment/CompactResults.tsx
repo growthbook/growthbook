@@ -79,6 +79,8 @@ const CompactResults: FC<{
   setMetricFilter,
   isTabActive,
 }) => {
+  console.log(metricFilter?.tagOrder)
+
   const { getMetricById, ready } = useDefinitions();
 
   const [totalUsers, variationUsers] = useMemo(() => {
@@ -91,6 +93,18 @@ const CompactResults: FC<{
     });
     return [totalUsers, variationUsers];
   }, [results]);
+
+  const allMetricTags = useMemo(() => {
+    const allMetricTagsSet: Set<string> = new Set();
+      [...metrics, ...guardrails].forEach((metricId) => {
+        const metric = getMetricById(metricId);
+        metric?.tags?.forEach((tag) => {
+          allMetricTagsSet.add(tag);
+        });
+      });
+    return [...allMetricTagsSet];
+
+  }, [metrics, guardrails, getMetricById]);
 
   const rows = useMemo<ExperimentTableRow[]>(() => {
     function getRow(metricId: string, isGuardrail: boolean) {
@@ -211,6 +225,9 @@ const CompactResults: FC<{
         sequentialTestingEnabled={sequentialTestingEnabled}
         pValueCorrection={pValueCorrection}
         renderLabelColumn={getRenderLabelColumn(regressionAdjustmentEnabled)}
+        metricFilter={metricFilter}
+        setMetricFilter={setMetricFilter}
+        metricTags={allMetricTags}
         isTabActive={isTabActive}
       />
 
@@ -238,6 +255,9 @@ const CompactResults: FC<{
             renderLabelColumn={getRenderLabelColumn(
               regressionAdjustmentEnabled
             )}
+            metricFilter={metricFilter}
+            setMetricFilter={setMetricFilter}
+            metricTags={allMetricTags}
             isTabActive={isTabActive}
           />
         </div>

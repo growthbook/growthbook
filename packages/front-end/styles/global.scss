@@ -2565,6 +2565,15 @@ html {
     }
   }
 }
+.multiselect-unfixed {
+  position: relative;
+  .gb-multi-select__menu-portal {
+    position: absolute !important;
+    top: -10px;
+    left: 240px;
+    //transform: translate(50%, 0px) !important;
+  }
+}
 
 #modal {
   position: relative;

@@ -50,6 +50,8 @@ import AlignedGraph from "./AlignedGraph";
 import ChanceToWinColumn from "./ChanceToWinColumn";
 import MetricValueColumn from "./MetricValueColumn";
 import PercentGraph from "./PercentGraph";
+import { MdOutlineFilterAlt } from "react-icons/md";
+import MultiSelectField from "@/components/Forms/MultiSelectField";
 
 export type ResultsTableProps = {
   id: string;
@@ -64,7 +66,7 @@ export type ResultsTableProps = {
   dimension?: string;
   metricsAsGuardrails?: boolean;
   tableRowAxis: "metric" | "dimension";
-  labelHeader: string | JSX.Element;
+  labelHeader: ReactElement | string;
   editMetrics?: () => void;
   renderLabelColumn: (
     label: string,
@@ -77,6 +79,9 @@ export type ResultsTableProps = {
   statsEngine: StatsEngine;
   pValueCorrection?: PValueCorrection;
   sequentialTestingEnabled?: boolean;
+  metricFilter?: any;
+  setMetricFilter?: (filter: any) => void;
+  metricTags?: string[];
   isTabActive: boolean;
 };
 
@@ -105,6 +110,9 @@ export default function ResultsTable({
   statsEngine,
   pValueCorrection,
   sequentialTestingEnabled = false,
+  metricFilter,
+  setMetricFilter,
+  metricTags = [],
   isTabActive,
 }: ResultsTableProps) {
   // fix any potential filter conflicts
@@ -120,6 +128,8 @@ export default function ResultsTable({
   const pValueThreshold = usePValueThreshold();
   const displayCurrency = useCurrency();
   const orgSettings = useOrgSettings();
+
+  const [showMetricFilter, setShowMetricFilter] = useState<boolean>(false);
 
   const tableContainerRef = useRef<HTMLDivElement | null>(null);
   const [graphCellWidth, setGraphCellWidth] = useState(800);
@@ -426,28 +436,84 @@ export default function ResultsTable({
           <table id="main-results" className="experiment-results table-sm">
             <thead>
               <tr className="results-top-row">
-                <th
-                  style={{
-                    lineHeight: "15px",
-                    wordBreak: "break-word",
-                    overflowWrap: "anywhere",
-                    width: 220 * tableCellScale,
-                  }}
-                  className="axis-col header-label"
-                >
-                  {labelHeader}
-                  {editMetrics ? (
-                    <a
-                      role="button"
-                      className="ml-2 cursor-pointer"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        editMetrics();
+                <th className="axis-col header-label">
+                  <div className="row px-0"
+                   style={{
+                     lineHeight: "15px",
+                     width: 220 * tableCellScale,
+                   }}
+                  >
+                    {setMetricFilter ? (
+                      <div
+                        className="col position-relative d-flex align-items-end px-0 font-weight-normal"
+                        style={{ maxWidth: 20 }}
+                      >
+                        <a
+                          role="button"
+                          onClick={() => setShowMetricFilter(!showMetricFilter)}
+                          className="px-1 btn-link"
+                          style={{ marginRight: -4 }}
+                        >
+                          <MdOutlineFilterAlt className="position-relative" style={{ bottom: 1 }} />
+                        </a>
+                        <Tooltip
+                          body={
+                            <div style={{ width: 250 }}>
+                              <h5 className="mb-0">Filter metrics by tag</h5>
+                              <hr className="my-1" />
+                              <MultiSelectField
+                                value={metricFilter?.tagOrder || []}
+                                options={metricTags.map(tag => ({ label: tag, value: tag }))}
+                                onChange={(v)=>{
+                                  setMetricFilter({
+                                    ...metricFilter,
+                                    tagOrder: v,
+                                  });
+                                }}
+                                customClassName="multiselect-unfixed"
+                              />
+                              <div className="d-flex justify-content-end">
+                                <button className={"btn btn-sm btn-primary mt-2"} onClick={() => setShowMetricFilter(false)}>
+                                  Done
+                                </button>
+                              </div>
+                            </div>
+                          }
+                          tipPosition="bottom"
+                          usePortal={true}
+                          style={{position: "absolute"}}
+                          state={showMetricFilter}
+                        >
+                          <></>
+                        </Tooltip>
+                      </div>
+                    ) : null}
+                    <div
+                      className="col-auto px-1"
+                      style={{
+                        wordBreak: "break-word",
+                        overflowWrap: "anywhere",
                       }}
                     >
-                      <GBEdit />
-                    </a>
+                      {labelHeader}
+                    </div>
+                  {editMetrics ? (
+                    <div
+                      className="col d-flex align-items-end px-0"
+                    >
+                      <a
+                        role="button"
+                        className="ml-1 cursor-pointer"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          editMetrics();
+                        }}
+                      >
+                        <GBEdit />
+                      </a>
+                    </div>
                   ) : null}
+                  </div>
                 </th>
                 {!noMetrics ? (
                   <>

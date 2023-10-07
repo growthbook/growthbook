@@ -1,6 +1,6 @@
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { getScopedSettings } from "shared/settings";
-import React, { useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import {
   MetricRegressionAdjustmentStatus,
   ReportInterface,
@@ -59,15 +59,14 @@ export default function ResultsTab({
   isTabActive,
   safeToEdit,
 }: Props) {
-  const [baselineRow, setBaselineRow] = React.useState<number>(0);
-  const [variationFilter, setVariationFilter] = React.useState<number[]>([]);
-  const [metricFilter, setMetricFilter] = useLocalStorage(
-    `experiment-results-metric-filter__${experiment.id}`,
+  const [baselineRow, setBaselineRow] = useState<number>(0);
+  const [variationFilter, setVariationFilter] = useState<number[]>([]);
+  const [metricFilter, setMetricFilter] = useState(
     {
       orderByTag: true,
       tagOrder: ["foo", "key metrics"],
-      filterByTag: true,
-      tagFilter: ["key metrics"],
+      // filterByTag: true,
+      // tagFilter: ["key metrics"],
     }
   );
 
