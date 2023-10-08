@@ -1,6 +1,6 @@
 import { useForm } from "react-hook-form";
 import { FaTimes } from "react-icons/fa";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
   DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
@@ -23,6 +23,7 @@ import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefa
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useUser } from "@/services/UserContext";
 import { useAuth } from "@/services/auth";
+import track from "@/services/track";
 import Modal from "../Modal";
 import Tooltip from "../Tooltip/Tooltip";
 import SelectField from "../Forms/SelectField";
@@ -45,6 +46,7 @@ export interface Props {
   showAdvancedSettings?: boolean;
   onSave?: () => void;
   goBack?: () => void;
+  source: string;
 }
 
 function ColumnRefSelector({
@@ -192,6 +194,7 @@ export default function FactMetricModal({
   showAdvancedSettings,
   onSave,
   goBack,
+  source,
 }: Props) {
   const { metricDefaults } = useOrganizationMetricDefaults();
 
@@ -306,6 +309,19 @@ export default function FactMetricModal({
       ? "Lookback periods under 7 days tend not to capture enough metric data to reduce variance and may be subject to weekly seasonality"
       : "";
 
+  const isNew = !existing;
+  const initialType = existing?.metricType;
+  useEffect(() => {
+    if (isNew) {
+      track("Viewed Create Fact Metric Modal", { source });
+    } else {
+      track("Viewed Edit Fact Metric Modal", {
+        type: initialType,
+        source,
+      });
+    }
+  }, [isNew, initialType, source]);
+
   return (
     <Modal
       open={true}
@@ -327,6 +343,36 @@ export default function FactMetricModal({
         values.minPercentChange = values.minPercentChange / 100;
         values.maxPercentChange = values.maxPercentChange / 100;
 
+        // Anonymized telemetry props
+        // Will help us measure which settings are being used so we can optimize the UI
+        const trackProps = {
+          type: values.metricType,
+          source,
+          capping: values.capping,
+          conversion_window: values.hasConversionWindow
+            ? `${values.conversionWindowValue} ${values.conversionWindowUnit}`
+            : "none",
+          numerator_agg:
+            values.numerator.column === "$$count"
+              ? "count"
+              : values.numerator.column === "$$distinctUsers"
+              ? "distinct_users"
+              : "sum",
+          numerator_filters: values.numerator.filters.length,
+          denominator_agg:
+            values.denominator?.column === "$$count"
+              ? "count"
+              : values.denominator?.column === "$$distinctUsers"
+              ? "distinct_users"
+              : values.denominator?.column
+              ? "sum"
+              : "none",
+          denominator_filters: values.denominator?.filters?.length || 0,
+          ratio_same_fact_table:
+            values.metricType === "ratio" &&
+            values.numerator.factTableId === values.denominator?.factTableId,
+        };
+
         if (existing) {
           const updatePayload: UpdateFactMetricProps = omit(values, [
             "datasource",
@@ -335,6 +381,7 @@ export default function FactMetricModal({
             method: "PUT",
             body: JSON.stringify(updatePayload),
           });
+          track("Edit Fact Metric", trackProps);
           await mutateDefinitions();
         } else {
           const createPayload: CreateFactMetricProps = {
@@ -348,6 +395,7 @@ export default function FactMetricModal({
             method: "POST",
             body: JSON.stringify(createPayload),
           });
+          track("Create Fact Metric", trackProps);
           await mutateDefinitions();
 
           onSave && onSave();
@@ -610,6 +658,9 @@ export default function FactMetricModal({
               onClick={(e) => {
                 e.preventDefault();
                 setAdvancedOpen(true);
+                track("View Advanced Fact Metric Settings", {
+                  source,
+                });
               }}
             >
               Show Advanced Settings

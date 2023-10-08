@@ -212,6 +212,7 @@ export default function FactMetricPage() {
         <FactMetricModal
           close={() => setEditOpen(false)}
           existing={factMetric}
+          source="fact-metric"
         />
       )}
       {editProjectsOpen && (

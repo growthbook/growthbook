@@ -5,10 +5,11 @@ import {
   UpdateFactFilterProps,
 } from "back-end/types/fact-table";
 import { useForm } from "react-hook-form";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { FaAngleDown, FaAngleRight } from "react-icons/fa";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useAuth } from "@/services/auth";
+import track from "@/services/track";
 import Modal from "../Modal";
 import Field from "../Forms/Field";
 import MarkdownInput from "../Markdown/MarkdownInput";
@@ -40,6 +41,13 @@ export default function FactFilterModal({ existing, factTable, close }: Props) {
     },
   });
 
+  const isNew = !existing;
+  useEffect(() => {
+    track(
+      isNew ? "View Create Fact Filter Modal" : "View Edit Fact Filter Modal"
+    );
+  }, [isNew]);
+
   return (
     <Modal
       open={true}
@@ -65,11 +73,13 @@ export default function FactFilterModal({ existing, factTable, close }: Props) {
             method: "PUT",
             body: JSON.stringify(data),
           });
+          track("Edit Fact Filter");
         } else {
           await apiCall(`/fact-tables/${factTable.id}/filter`, {
             method: "POST",
             body: JSON.stringify(value),
           });
+          track("Create Fact Filter");
         }
         mutateDefinitions();
       })}
