@@ -249,6 +249,11 @@ const sidebars = {
         },
         {
           type: "doc",
+          id: "experimentation-analysis/fact-tables",
+          label: "Fact Tables",
+        },
+        {
+          type: "doc",
           id: "experimentation-analysis/metrics",
           label: "Metrics",
         },
