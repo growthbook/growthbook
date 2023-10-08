@@ -7,13 +7,17 @@ slug: /app/fact-tables
 
 # Fact Tables
 
-With Fact Tables, you write SQL once for an event (for example, an `orders` table) and from that you can quickly and easily create a bunch of related metrics - for example, `Revenue per User`, `Average Order Value`, `Items per Order`.
+With Fact Tables, you write SQL once for an event (e.g. `SELECT * FROM orders`) and from that you can quickly and easily create a bunch of related metrics - for example, `Revenue per User`, `Average Order Value`, and `Items per Order`.
 
 These metrics can be used as Goals and Guardrails in Experiments.
 
+:::success New
+Fact Tables are a brand new feature of GrowthBook. If you experience any issues or have questions, check out our [Slack Channel](https://slack.growthbook.io) or [file an issue on GitHub](https://github.com/growthbook/growthbook/issues/new/choose).
+:::
+
 ## Fact Table SQL
 
-First, you have to write SQL that tells GrowthBook how to query your Fact Table. GrowthBook expects you to have a few pre-defined columns with specific names, but you can select as many additional columns as you need to build out metrics.
+First, you have to write SQL that transforms your event data into a format that GrowthBook understands. We expect you to have a few pre-defined columns with specific names, but you can select as many additional columns as you need to build out metrics.
 
 Here's an example:
 
@@ -33,6 +37,11 @@ FROM
   orders
 ```
 
+The only required columns you must select are:
+
+- `timestamp` - The date the event happened
+- One column per supported identifier type (e.g. `user_id` and `anonymous_id`). The possible identifier types depend on your data source settings.
+
 ### Columns
 
 When you create a Fact Table, we run a simple `LIMIT 1` query and inspect the returned data to determine which columns you've selected and what data types they are.
@@ -47,7 +56,7 @@ For numeric columns, you can also specify a number format, which controls how th
 
 ## Filters
 
-Filters are reusable SQL snippets to filter the rows in the Fact Table. These let you create easily create metric variants. For example, `Purchase`, `Mobile Purchase`, and `Desktop Purchase`
+Filters are reusable SQL snippets to filter the rows in the Fact Table. These let you easily create metric variants. For example, `Purchase`, `Mobile Purchase`, and `Desktop Purchase`
 
 Here's an example Filter SQL:
 
@@ -55,7 +64,7 @@ Here's an example Filter SQL:
 device_type = 'mobile'
 ```
 
-If a metric uses this Filter, GrowthBook will add it to the WHERE clause automatically.
+If a metric uses this Filter, GrowthBook will add it to the WHERE clause automatically. If there are multiple Filters, they will be ANDed together.
 
 ## Metrics
 
