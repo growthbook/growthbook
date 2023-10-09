@@ -17,42 +17,46 @@ Fact Tables are a brand new feature of GrowthBook. If you experience any issues 
 
 ## Fact Table SQL
 
-First, you have to write SQL that transforms your event data into a format that GrowthBook understands. We expect you to have a few pre-defined columns with specific names, but you can select as many additional columns as you need to build out metrics.
+First, you have to write SQL that transforms your event data into a format that GrowthBook understands. The following column names are required:
 
-Here's an example:
+- `timestamp` - The date the event happened
+- One column per supported identifier type (e.g. `user_id` and `anonymous_id`). The possible identifier types depend on your data source settings.
+
+Any other columns you return can be used to create metrics or used as a filter.
+
+Here's a full example:
 
 ```sql
 SELECT
-  -- Need a column named `timestamp`, when the event happened
+  -- Required columns
   purchase_date as timestamp,
-  -- Need columns for each of the supported identifier types
-  -- This depends on your data source, but the below 2 are the most common
   user_id,
   anonymous_id,
-  -- Anything else you select here can be used for metrics and filters
+  -- Additional columns (depends on your event)
   amount,
   coupon_code,
   device_type
 FROM
   orders
+WHERE
+  status = 'completed'
 ```
-
-The only required columns you must select are:
-
-- `timestamp` - The date the event happened
-- One column per supported identifier type (e.g. `user_id` and `anonymous_id`). The possible identifier types depend on your data source settings.
 
 ### Columns
 
-When you create a Fact Table, we run a simple `LIMIT 1` query and inspect the returned data to determine which columns you've selected and what data types they are.
+When you create a Fact Table, we query the first few rows and inspect the returned data to determine which columns you've selected and what data types they are.
 
 This process isn't perfect. For example, if the first few rows happen to have `null` as the value of a column, we can't tell if it's supposed to be a number, string, etc.. When this happens, we will show you a warning and you can manually specify the type.
 
-Only numeric columns can be used to create Metrics, so you might need to CAST your data if they are a different shape. You can use any column, including non-numeric ones, to create Filters.
+Any column can be used to create filters, but only numeric columns can be used as a metric value.
 
 #### Number Formats
 
-For numeric columns, you can also specify a number format, which controls how the metric is displayed on the front-end. Possible values are `currency` (uses the default currency specified in your organization settings) and `time:seconds`.
+For numeric columns, you can also specify a number format, which controls how the metric is displayed on the front-end. Possible values are `currency` and `time:seconds`.
+
+:::note
+The default display currency is USD, but you can change it under **Settings** > **General** > **Metric Settings**
+:::
 
 ## Filters
 
@@ -68,26 +72,25 @@ If a metric uses this Filter, GrowthBook will add it to the WHERE clause automat
 
 ## Metrics
 
-There are 3 types of supported metrics today - **Proportion**, **Mean**, and **Ratio**.
+There are 3 types of supported Fact Table metrics today - **Proportion**, **Mean**, and **Ratio**.
 
 ### Proportion Metrics
 
 Proportion Metrics measure the percent of users in an experiment who exist in a Fact Table. The number of rows the user has doesn't matter - we just care whether or not they have at least 1 row.
 
-For example, if you have an Orders Fact Table, you can create a Proportion Metric to see what percent of users purchased something.
+For example, if you have an Orders Fact Table, you can create a Proportion Metric to see what percent of users purchased something. Whether a user made 1 purchase or 10 purchases, it will just count as 1 conversion.
 
-You can optionally add Filters to limit which rows are considered. For example, adding an `Is Mobile` filter, you can see what percent of users completed a purchase on a mobile device.
+You can optionally add Filters to limit which rows are considered. For example, adding a `Mobile` filter, you can see what percent of users completed a purchase on a mobile device.
 
 ### Mean Metrics
 
 Mean Metrics are useful when there are more than 2 possible states a user can be in. For example, instead of just purchase/not purchase, you might care about the average number of orders a user makes, or the average revenue you earned per user in an experiment.
 
-For the metric value, there are 2 types of aggregations you can do. These are calculated for each user in the experiment, then averaged to get the value per variation.
+For the metric value, there are 2 types of aggregations you can do - `COUNT(*)` and `SUM(column)`. For `SUM`, you will be able to choose any numeric column in your Fact Table.
 
-- `COUNT(*)` - Number of rows in the Fact Table
-- `SUM(column)` - Total of a numeric column in the Fact Table
+For example, an **Orders per User** metric would use `COUNT(*)` since you want to count the total number of rows. A **Revenue per User** metric would use `SUM` and select the column where the order total is stored.
 
-The denominator for Mean Metrics is always the number of users in an experiment. For example, if your experiment variation has 100 users and there are 500 matching rows in the Fact Table, a Mean Metric with `COUNT(*)` would have a value of `5.0`.
+The denominator for Mean Metrics is always the number of users in an experiment variation. So, even though you may be doing `SUM(revenue)` as the aggregation, it will be divided by number of users and you will actually end up with an average value per user, not an overall sum for the variation.
 
 ### Ratio Metrics
 
@@ -98,16 +101,24 @@ For both the numerator and denominator, you can select a Fact Table, an aggregat
 The types of aggregations supported for ratio metrics are:
 
 - `COUNT(*)` - Number of rows in the Fact Table
-- `COUNT(DISTINCT 'User Identifier')` - Number of experiment users
+- `COUNT(DISTINCT 'User Identifier')` - Sample size of the experiment variation
 - `SUM(column)` - Total of a numeric column in the Fact Table
 
 Under the hood, GrowthBook uses the Delta Method to accurately determine the variance.
 
+For example, to create a **Session Duration** metric, you would do the following:
+
+- Numerator: `SUM(duration)` from a `Sessions` fact table
+- Denominator: `COUNT(*)` from a `Sessions` fact table
+
 ### Conversion Windows
 
-By default, Fact Metrics are not restricted by a conversion window. Once a user views an experiment, any subsequent row in the Fact Table for that user is included up until the experiment is stopped.
+When used in an experiment, we only consider rows in a Fact Table where the timestamp is greater than or equal to the first time the user was exposed to the experiment. In other words, if someone purchases something before seeing your experiment, it won't be included in the analysis. This behavior is ideal for the vast majority of metrics, but you can change it with the Conversion Delay setting if desired (see Advanced Settings below).
 
-You can enable conversion windows to restrict how far we look in the future for matching Fact Table rows. For example, if you specify a conversion window of **3 days** and a user is first exposed to the experiment on Jan 1 at 9:00, only rows between Jan 1, 9:00 and Jan 4, 9:00 will be included in the analysis.
+The first exposure date sets the lower bound on the rows that are included. There are 2 options for setting the upper bound:
+
+- No conversion window (default) - use the experiment end date as the upper bound
+- Specific conversion window (e.g. `3 days`) - only include rows within the specified time range of the first exposure event
 
 ### Advanced Settings
 
