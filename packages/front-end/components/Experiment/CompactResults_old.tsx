@@ -9,6 +9,7 @@ import { ExperimentStatus, MetricOverride } from "back-end/types/experiment";
 import { PValueCorrection, StatsEngine } from "back-end/types/stats";
 import Link from "next/link";
 import { FaTimes } from "react-icons/fa";
+import { getMetricLink } from "shared/experiments";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import {
   applyMetricOverrides,
@@ -58,7 +59,7 @@ const CompactResults_old: FC<{
   metricRegressionAdjustmentStatuses,
   sequentialTestingEnabled,
 }) => {
-  const { getMetricById, ready } = useDefinitions();
+  const { getExperimentMetricById, ready } = useDefinitions();
 
   const rows = useMemo<ExperimentTableRow[]>(() => {
     if (!results || !results.variations || !ready) return [];
@@ -67,7 +68,7 @@ const CompactResults_old: FC<{
     }
     return metrics
       .map((metricId) => {
-        const metric = getMetricById(metricId);
+        const metric = getExperimentMetricById(metricId);
         if (!metric) return null;
         const { newMetric } = applyMetricOverrides(metric, metricOverrides);
         let regressionAdjustmentStatus:
@@ -98,7 +99,7 @@ const CompactResults_old: FC<{
     metricRegressionAdjustmentStatuses,
     pValueCorrection,
     ready,
-    getMetricById,
+    getExperimentMetricById,
     statsEngine,
   ]);
 
@@ -165,7 +166,7 @@ const CompactResults_old: FC<{
                 }
                 tipPosition="right"
               >
-                <Link href={`/metric/${metric.id}`}>
+                <Link href={getMetricLink(metric.id)}>
                   <a className="metriclabel text-dark">{label}</a>
                 </Link>
               </Tooltip>

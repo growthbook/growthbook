@@ -24,6 +24,7 @@ import { ProjectInterface } from "../../../types/project";
 import { ExperimentSnapshotAnalysisSettings } from "../../../types/experiment-snapshot";
 import { getMetricMap } from "../../models/MetricModel";
 import { createFeature } from "../../models/FeatureModel";
+import { getFactTableMap } from "../../models/FactTableModel";
 
 // region Constants for Demo Datasource
 
@@ -380,6 +381,7 @@ spacing and headings.`,
     };
 
     const metricMap = await getMetricMap(org.id);
+    const factTableMap = await getFactTableMap(org.id);
 
     await createSnapshot({
       experiment: createdExperiment,
@@ -388,6 +390,7 @@ spacing and headings.`,
       analysisSettings: analysisSettings,
       metricRegressionAdjustmentStatuses: [],
       metricMap: metricMap,
+      factTableMap,
       useCache: true,
     });
 

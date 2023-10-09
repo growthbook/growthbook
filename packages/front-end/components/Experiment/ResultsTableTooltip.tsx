@@ -1,5 +1,4 @@
 import React, { DetailedHTMLProps, HTMLAttributes, useEffect } from "react";
-import { MetricInterface } from "back-end/types/metric";
 import { ExperimentReportVariationWithIndex } from "back-end/types/report";
 import { SnapshotMetric } from "back-end/types/experiment-snapshot";
 import { PValueCorrection, StatsEngine } from "back-end/types/stats";
@@ -13,14 +12,16 @@ import { FaArrowDown, FaArrowUp } from "react-icons/fa";
 import { HiOutlineExclamationCircle } from "react-icons/hi";
 import { RxInfoCircled } from "react-icons/rx";
 import { MdSwapCalls } from "react-icons/md";
+import { ExperimentMetricInterface, isFactMetric } from "shared/experiments";
 import NotEnoughData from "@/components/Experiment/NotEnoughData";
 import { pValueFormatter, RowResults } from "@/services/experiments";
 import { GBSuspicious } from "@/components/Icons";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import MetricValueColumn from "@/components/Experiment/MetricValueColumn";
-import { formatConversionRate } from "@/services/metrics";
+import { formatMetricValue } from "@/services/metrics";
 import { useCurrency } from "@/hooks/useCurrency";
 import { capitalizeFirstLetter } from "@/services/utils";
+import { useDefinitions } from "@/services/DefinitionsContext";
 
 export const TOOLTIP_WIDTH = 400;
 export const TOOLTIP_HEIGHT = 400; // Used for over/under layout calculation. Actual height may vary.
@@ -45,7 +46,7 @@ const percentFormatter = new Intl.NumberFormat(undefined, {
 
 export interface TooltipData {
   metricRow: number;
-  metric: MetricInterface;
+  metric: ExperimentMetricInterface;
   dimensionName?: string;
   dimensionValue?: string;
   variation: ExperimentReportVariationWithIndex;
@@ -96,6 +97,8 @@ export default function ResultsTableTooltip({
   }, [data, tooltipOpen, close]);
 
   const displayCurrency = useCurrency();
+
+  const { getFactTableById } = useDefinitions();
 
   if (!data) {
     return null;
@@ -229,7 +232,13 @@ export default function ResultsTableTooltip({
               {data.metric.name}
             </span>
             {metricInverseIconDisplay}
-            <span className="text-muted ml-2">({data.metric.type})</span>
+            <span className="text-muted ml-2">
+              (
+              {isFactMetric(data.metric)
+                ? data.metric.metricType
+                : data.metric.type}
+              )
+            </span>
           </div>
           {data.dimensionName ? (
             <div className="dimension-label d-flex align-items-center">
@@ -568,11 +577,10 @@ export default function ResultsTableTooltip({
                         showRatio={false}
                       />
                       <td>
-                        {formatConversionRate(
-                          data.metric.type === "binomial"
-                            ? "count"
-                            : data.metric.type,
+                        {formatMetricValue(
+                          data.metric,
                           row.value,
+                          getFactTableById,
                           displayCurrency
                         )}
                       </td>

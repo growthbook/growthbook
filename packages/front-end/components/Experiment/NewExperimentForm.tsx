@@ -515,6 +515,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                 onChange={(metrics) => form.setValue("metrics", metrics)}
                 datasource={datasource?.id}
                 project={project}
+                includeFacts={true}
               />
             </div>
             <div className="form-group">
@@ -528,6 +529,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                 onChange={(metrics) => form.setValue("guardrails", metrics)}
                 datasource={datasource?.id}
                 project={project}
+                includeFacts={true}
               />
             </div>
           </div>
