@@ -89,17 +89,26 @@ export default class BigQuery extends SqlIntegration {
       sign === "+" ? "ADD" : "SUB"
     }(${col}, INTERVAL ${amount} ${unit.toUpperCase()})`;
   }
+
+  // BigQueryDateTime: ISO Date string in UTC (Z at end)
+  // BigQueryDatetime: ISO Date string with no timezone
+  // BigQueryDate: YYYY-MM-DD
   convertDate(
-    fromDB: bq.BigQueryDatetime | bq.BigQueryTimestamp | bq.BigQueryDate
+    fromDB:
+      | bq.BigQueryDatetime
+      | bq.BigQueryTimestamp
+      | bq.BigQueryDate
+      | undefined
   ) {
     if (!fromDB?.value) return getValidDate(null);
 
     // BigQueryTimestamp already has `Z` at the end, but the others don't
-    if (!fromDB.value.endsWith("Z")) {
-      fromDB.value += "Z";
+    let value = fromDB.value;
+    if (!value.endsWith("Z")) {
+      value += "Z";
     }
 
-    return getValidDate(fromDB.value);
+    return getValidDate(value);
   }
   dateTrunc(col: string) {
     return `date_trunc(${col}, DAY)`;

@@ -58,7 +58,7 @@ const MoreMenu: FC<{
             }
           }}
           ref={refs.setFloating}
-          style={{ ...floatingStyles, zIndex: 980, width: "max-content" }}
+          style={{ ...floatingStyles, zIndex: 1020, width: "max-content" }}
         >
           {children}
         </div>

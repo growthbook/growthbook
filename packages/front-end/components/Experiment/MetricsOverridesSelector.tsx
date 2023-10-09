@@ -33,8 +33,9 @@ export default function MetricsOverridesSelector({
   const metrics = new Set(
     form.watch("metrics").concat(form.watch("guardrails"))
   );
-  if (experiment.activationMetric) {
-    metrics.add(experiment.activationMetric);
+  const activationMetric = form.watch("activationMetric");
+  if (activationMetric) {
+    metrics.add(activationMetric);
   }
 
   const metricOverrides = useFieldArray({
@@ -448,13 +449,10 @@ export default function MetricsOverridesSelector({
           <div className="col">
             <MetricSelector
               datasource={experiment.datasource}
-              excludeIds={usedMetrics}
+              availableIds={unusedMetrics}
               project={experiment.project}
               includeFacts={true}
-              value={
-                metricDefinitions.find((md) => md.id === selectedMetricId)
-                  ?.name || ""
-              }
+              value={selectedMetricId}
               onChange={(m) => setSelectedMetricId(m)}
               initialOption="Choose Metric..."
               disabled={disabled}

@@ -226,12 +226,12 @@ export function determineColumnTypes(
             ? "boolean"
             : testValue && testValue instanceof Date
             ? "date"
-            : "unknown",
+            : "other",
       });
     } else {
       columns.push({
         column: col,
-        datatype: "unknown",
+        datatype: "",
       });
     }
   });

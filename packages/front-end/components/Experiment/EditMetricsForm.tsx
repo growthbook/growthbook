@@ -199,6 +199,7 @@ const EditMetricsForm: FC<{
           onChange={(metric) => form.setValue("activationMetric", metric)}
           datasource={experiment.datasource}
           project={experiment.project}
+          onlyBinomial
           includeFacts={true}
         />
       </div>

@@ -357,6 +357,7 @@ export default function ConfigureReport({
         label="Activation Metric"
         labelClassName="font-weight-bold"
         initialOption="None"
+        onlyBinomial
         value={form.watch("activationMetric") || ""}
         onChange={(value) => form.setValue("activationMetric", value || "")}
         helpText="Users must convert on this metric before being included"

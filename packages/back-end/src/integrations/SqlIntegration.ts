@@ -9,6 +9,7 @@ import {
   isBinomialMetric,
   isRatioMetric,
   ExperimentMetricInterface,
+  getMetricTemplateVariables,
 } from "shared/experiments";
 import { MetricInterface, MetricType } from "../../types/metric";
 import {
@@ -417,6 +418,7 @@ export default abstract class SqlIntegration
           idJoinMap,
           startDate: metricStart,
           endDate: metricEnd,
+          // Facts tables are not supported for this query yet
           factTableMap: new Map(),
         })})
         , __userMetric as (
@@ -1094,7 +1096,7 @@ export default abstract class SqlIntegration
         startDate: settings.startDate,
         endDate: settings.endDate,
         experimentId: settings.experimentId,
-        templateVariables: isFactMetric(metric) ? {} : metric.templateVariables,
+        templateVariables: getMetricTemplateVariables(metric, factTableMap),
       });
     }
     // Replace any placeholders in the segment SQL
@@ -1103,7 +1105,7 @@ export default abstract class SqlIntegration
         startDate: settings.startDate,
         endDate: settings.endDate,
         experimentId: settings.experimentId,
-        templateVariables: isFactMetric(metric) ? {} : metric.templateVariables,
+        templateVariables: getMetricTemplateVariables(metric, factTableMap),
       });
     }
 
@@ -2078,11 +2080,13 @@ AND event_name = '${eventName}'`,
                 startDate,
                 endDate: endDate || undefined,
                 experimentId,
-                templateVariables: isFact
-                  ? { eventName: factTable?.eventName }
-                  : metric.templateVariables,
+                templateVariables: getMetricTemplateVariables(
+                  metric,
+                  factTableMap,
+                  useDenominator
+                ),
               })}
-              )`
+            )`
             : !isFact
             ? (schema && !metric.table?.match(/\./) ? schema + "." : "") +
               (metric.table || "")

@@ -1,15 +1,16 @@
 import { FactTableInterface } from "back-end/types/fact-table";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { FaClock, FaUser } from "react-icons/fa";
+import { BsArrowRepeat } from "react-icons/bs";
+import { FaTriangleExclamation } from "react-icons/fa6";
 import { useAuth } from "@/services/auth";
 import { useAddComputedFields, useSearch } from "@/services/search";
 import usePermissions from "@/hooks/usePermissions";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Field from "../Forms/Field";
 import Tooltip from "../Tooltip/Tooltip";
-import { GBAddCircle } from "../Icons";
-import MoreMenu from "../Dropdown/MoreMenu";
-import DeleteButton from "../DeleteButton/DeleteButton";
+import Button from "../Button";
+import { GBEdit } from "../Icons";
 import ColumnModal from "./ColumnModal";
 
 export interface Props {
@@ -26,7 +27,11 @@ export default function ColumnList({ factTable }: Props) {
 
   const permissions = usePermissions();
 
-  const columns = useAddComputedFields(factTable.columns || [], (column) => ({
+  const availableColumns = useMemo(() => {
+    return (factTable.columns || []).filter((col) => !col.deleted);
+  }, [factTable]);
+
+  const columns = useAddComputedFields(availableColumns, (column) => ({
     ...column,
     name: column.name || column.column,
     identifier: factTable.userIdTypes.includes(column.column),
@@ -72,27 +77,27 @@ export default function ColumnList({ factTable }: Props) {
           </div>
         )}
         <div className="col-auto">
-          <Tooltip
-            body={
-              canEdit ? "" : `You don't have permission to edit this fact table`
-            }
+          <Button
+            color="link"
+            onClick={async () => {
+              await apiCall(`/fact-tables/${factTable.id}`, {
+                method: "PUT",
+                body: JSON.stringify({}),
+              });
+              mutateDefinitions();
+            }}
           >
-            <button
-              className={
-                columns.length > 0 ? "btn btn-link" : "btn btn-primary"
-              }
-              onClick={(e) => {
-                e.preventDefault();
-                if (!canEdit) return;
-                setNewOpen(true);
-              }}
-              disabled={!canEdit}
-            >
-              <GBAddCircle /> Add Column
-            </button>
-          </Tooltip>
+            <BsArrowRepeat style={{ marginTop: -1 }} /> Refresh
+          </Button>
         </div>
       </div>
+      {columns.some((col) => !col.deleted && col.datatype === "") && (
+        <div className="alert alert-warning mt-2">
+          Could not detect the data type for some columns. You can manually
+          specify data types below. Only numeric columns can be used to create
+          Metrics.
+        </div>
+      )}
       {columns.length > 0 ? (
         <table className="table appbox gbtable mt-2 mb-0">
           <thead>
@@ -125,39 +130,27 @@ export default function ColumnList({ factTable }: Props) {
                 </td>
                 <td>{col.name !== col.column ? `"${col.name}"` : ""}</td>
                 <td>
-                  {col.datatype}{" "}
+                  {col.datatype || "unknown"}{" "}
                   {col.datatype === "number" && col.numberFormat && (
                     <>({col.numberFormat})</>
+                  )}
+                  {col.datatype === "" && (
+                    <Tooltip body="Unable to detect the data type. Edit this column to set one.">
+                      <FaTriangleExclamation className="text-danger" />
+                    </Tooltip>
                   )}
                 </td>
                 <td>
                   {canEdit && (
-                    <MoreMenu>
-                      <button
-                        className="dropdown-item"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          setEditOpen(col.column);
-                        }}
-                      >
-                        Edit
-                      </button>
-                      <DeleteButton
-                        displayName="Column"
-                        className="dropdown-item"
-                        useIcon={false}
-                        text="Delete"
-                        onClick={async () => {
-                          await apiCall(
-                            `/fact-tables/${factTable.id}/column/${col.column}`,
-                            {
-                              method: "DELETE",
-                            }
-                          );
-                          mutateDefinitions();
-                        }}
-                      />
-                    </MoreMenu>
+                    <button
+                      className="btn btn-link btn-sm"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        setEditOpen(col.column);
+                      }}
+                    >
+                      <GBEdit />
+                    </button>
                   )}
                 </td>
               </tr>
@@ -183,8 +176,7 @@ export default function ColumnList({ factTable }: Props) {
       ) : (
         <div className="alert alert-warning mt-3">
           <strong>Unable to Auto-Detect Columns</strong>. Double check your SQL
-          above to make sure it&apos;s correct and returning rows. If it&apos;s
-          still not working, you can manually define your columns here.
+          above to make sure it&apos;s correct and returning rows.
         </div>
       )}
     </>

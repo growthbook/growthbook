@@ -4,7 +4,6 @@ import { getOrgFromReq } from "../../services/organizations";
 import {
   CreateFactFilterProps,
   CreateFactMetricProps,
-  CreateColumnProps,
   CreateFactTableProps,
   FactMetricInterface,
   ColumnInterface,
@@ -16,14 +15,12 @@ import {
   FactTableColumnType,
 } from "../../../types/fact-table";
 import {
-  createColumn,
   createFactTable,
   getAllFactTablesForOrganization,
   getFactTable,
   updateColumn,
   updateFactTable,
   deleteFactTable as deleteFactTableInDb,
-  deleteColumn as deleteColumnInDb,
   deleteFactFilter as deleteFactFilterInDb,
   createFactFilter,
   updateFactFilter,
@@ -99,11 +96,27 @@ async function updateColumns(
 
   const columns = factTable.columns || [];
 
-  // Update existing column types if they were unknown
+  // Update existing column
   columns.forEach((col) => {
     const type = typeMap.get(col.column);
-    if (col.datatype === "unknown" && type && type !== "unknown") {
-      col.datatype = type;
+
+    // Column no longer exists, mark as deleted
+    if (type === undefined) {
+      col.deleted = true;
+      col.dateUpdated = new Date();
+    }
+    // Column exists
+    else {
+      if (col.deleted) {
+        col.deleted = false;
+        col.dateUpdated = new Date();
+      }
+
+      // If we now know the datatype, update it
+      if (col.datatype === "" && type !== "") {
+        col.datatype = type;
+        col.dateUpdated = new Date();
+      }
     }
   });
 
@@ -118,7 +131,7 @@ async function updateColumns(
         description: "",
         name: column,
         numberFormat: "",
-        autoDetected: true,
+        deleted: false,
       });
     }
   });
@@ -146,6 +159,10 @@ export const postFactTable = async (
   req.checkPermissions("runQueries", datasource.projects || "");
 
   data.columns = await updateColumns(datasource, data as FactTableInterface);
+
+  if (!data.columns.length) {
+    throw new Error("SQL did not return any rows");
+  }
 
   const factTable = await createFactTable(org.id, data);
 
@@ -189,6 +206,10 @@ export const putFactTable = async (
     ...data,
   } as FactTableInterface);
 
+  if (!data.columns.some((col) => !col.deleted)) {
+    throw new Error("SQL did not return any rows");
+  }
+
   await updateFactTable(factTable, data);
 
   await addTagsDiff(org.id, factTable.tags, data.tags || []);
@@ -217,27 +238,6 @@ export const deleteFactTable = async (
   });
 };
 
-export const postColumn = async (
-  req: AuthRequest<CreateColumnProps, { id: string }>,
-  res: Response<{ status: 200 }>
-) => {
-  const data = req.body;
-  const { org } = getOrgFromReq(req);
-
-  const factTable = await getFactTable(org.id, req.params.id);
-  if (!factTable) {
-    throw new Error("Could not find fact table with that id");
-  }
-
-  req.checkPermissions("manageFactTables", factTable.projects);
-
-  await createColumn(factTable, data);
-
-  res.status(200).json({
-    status: 200,
-  });
-};
-
 export const putColumn = async (
   req: AuthRequest<UpdateColumnProps, { id: string; column: string }>,
   res: Response<{ status: 200 }>
@@ -253,25 +253,6 @@ export const putColumn = async (
   req.checkPermissions("manageFactTables", factTable.projects);
 
   await updateColumn(factTable, req.params.column, data);
-
-  res.status(200).json({
-    status: 200,
-  });
-};
-
-export const deleteColumn = async (
-  req: AuthRequest<null, { id: string; column: string }>,
-  res: Response<{ status: 200 }>
-) => {
-  const { org } = getOrgFromReq(req);
-
-  const factTable = await getFactTable(org.id, req.params.id);
-  if (!factTable) {
-    throw new Error("Could not find fact table with that id");
-  }
-  req.checkPermissions("manageFactTables", factTable.projects);
-
-  await deleteColumnInDb(factTable, req.params.column);
 
   res.status(200).json({
     status: 200,

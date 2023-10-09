@@ -396,6 +396,7 @@ const AnalysisForm: FC<{
           labelClassName="font-weight-bold"
           label="Activation Metric"
           initialOption="None"
+          onlyBinomial
           value={form.watch("activationMetric")}
           onChange={(value) => form.setValue("activationMetric", value || "")}
           helpText="Users must convert on this metric before being included"

@@ -339,6 +339,7 @@ from
             dateObj: new Date(),
             bool: false,
             other: ["testing"],
+            empty: null,
           },
         ])
       ).toEqual([
@@ -347,7 +348,8 @@ from
         { column: "dateStr", datatype: "date" },
         { column: "dateObj", datatype: "date" },
         { column: "bool", datatype: "boolean" },
-        { column: "other", datatype: "unknown" },
+        { column: "other", datatype: "other" },
+        { column: "empty", datatype: "" },
       ]);
     });
     it("can skip over null values", () => {

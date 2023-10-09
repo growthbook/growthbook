@@ -1,6 +1,6 @@
 import { useForm } from "react-hook-form";
 import { FaTimes } from "react-icons/fa";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
   DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
@@ -12,7 +12,6 @@ import {
   UpdateFactMetricProps,
 } from "back-end/types/fact-table";
 import { isProjectListValidForProject } from "shared/util";
-import { useRouter } from "next/router";
 import omit from "lodash/omit";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import {
@@ -24,6 +23,7 @@ import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefa
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useUser } from "@/services/UserContext";
 import { useAuth } from "@/services/auth";
+import track from "@/services/track";
 import Modal from "../Modal";
 import Tooltip from "../Tooltip/Tooltip";
 import SelectField from "../Forms/SelectField";
@@ -35,16 +35,18 @@ import RiskThresholds from "../Metrics/MetricForm/RiskThresholds";
 import Tabs from "../Tabs/Tabs";
 import Tab from "../Tabs/Tab";
 import PremiumTooltip from "../Marketing/PremiumTooltip";
-import { GBAddCircle, GBCuped } from "../Icons";
+import { GBAddCircle, GBArrowLeft, GBCuped } from "../Icons";
 import { getNewExperimentDatasourceDefaults } from "../Experiment/NewExperimentForm";
 import ButtonSelectField from "../Forms/ButtonSelectField";
 
 export interface Props {
-  close: () => void;
+  close?: () => void;
   initialFactTable?: string;
   existing?: FactMetricInterface;
   showAdvancedSettings?: boolean;
-  navigateOnCreate?: boolean;
+  onSave?: () => void;
+  goBack?: () => void;
+  source: string;
 }
 
 function ColumnRefSelector({
@@ -69,9 +71,19 @@ function ColumnRefSelector({
 
   const [showFilters, setShowFilters] = useState(value.filters.length > 0);
 
+  // If there's nothing for the user to configure
+  if (
+    !includeColumn &&
+    disableFactTableSelector &&
+    !factTable?.filters?.length
+  ) {
+    return null;
+  }
+
   const columnOptions = (factTable?.columns || [])
     .filter(
       (col) =>
+        !col.deleted &&
         col.column !== "timestamp" &&
         !factTable?.userIdTypes?.includes(col.column)
     )
@@ -114,29 +126,33 @@ function ColumnRefSelector({
             />
           </div>
         )}
-        <div className="col-auto">
-          <SelectField
-            label={includeColumn ? "FROM" : "SELECT FROM"}
-            disabled={disableFactTableSelector}
-            value={value.factTableId}
-            onChange={(factTableId) =>
-              setValue({
-                factTableId,
-                column: value.column?.match(/^\$\$/) ? value.column : "$$count",
-                filters: [],
-              })
-            }
-            options={factTables
-              .filter((t) => t.datasource === datasource)
-              .map((t) => ({
-                label: t.name,
-                value: t.id,
-              }))}
-            placeholder="Select..."
-            required
-          />
-        </div>
-        {factTable && factTable.filters.length > 0 && (
+        {includeColumn || !disableFactTableSelector ? (
+          <div className="col-auto">
+            <SelectField
+              label={includeColumn ? "FROM" : "SELECT FROM"}
+              disabled={disableFactTableSelector}
+              value={value.factTableId}
+              onChange={(factTableId) =>
+                setValue({
+                  factTableId,
+                  column: value.column?.match(/^\$\$/)
+                    ? value.column
+                    : "$$count",
+                  filters: [],
+                })
+              }
+              options={factTables
+                .filter((t) => t.datasource === datasource)
+                .map((t) => ({
+                  label: t.name,
+                  value: t.id,
+                }))}
+              placeholder="Select..."
+              required
+            />
+          </div>
+        ) : null}
+        {factTable && factTable.filters.length > 0 ? (
           <div className="col-auto">
             {value.filters.length > 0 || showFilters ? (
               <MultiSelectField
@@ -151,19 +167,21 @@ function ColumnRefSelector({
                 closeMenuOnSelect={true}
               />
             ) : (
-              <button
-                className="btn btn-link"
-                type="button"
-                onClick={(e) => {
-                  e.preventDefault();
-                  setShowFilters(true);
-                }}
-              >
-                <GBAddCircle /> Add WHERE Clause
-              </button>
+              <div className="form-group">
+                <button
+                  className="btn btn-link"
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setShowFilters(true);
+                  }}
+                >
+                  <GBAddCircle /> Add WHERE Clause
+                </button>
+              </div>
             )}
           </div>
-        )}
+        ) : null}
       </div>
     </div>
   );
@@ -174,15 +192,15 @@ export default function FactMetricModal({
   initialFactTable,
   existing,
   showAdvancedSettings,
-  navigateOnCreate = true,
+  onSave,
+  goBack,
+  source,
 }: Props) {
   const { metricDefaults } = useOrganizationMetricDefaults();
 
   const settings = useOrgSettings();
 
   const { hasCommercialFeature } = useUser();
-
-  const router = useRouter();
 
   const {
     datasources,
@@ -291,10 +309,23 @@ export default function FactMetricModal({
       ? "Lookback periods under 7 days tend not to capture enough metric data to reduce variance and may be subject to weekly seasonality"
       : "";
 
+  const isNew = !existing;
+  const initialType = existing?.metricType;
+  useEffect(() => {
+    if (isNew) {
+      track("Viewed Create Fact Metric Modal", { source });
+    } else {
+      track("Viewed Edit Fact Metric Modal", {
+        type: initialType,
+        source,
+      });
+    }
+  }, [isNew, initialType, source]);
+
   return (
     <Modal
       open={true}
-      header={existing ? "Edit Metric" : "Create Metric"}
+      header={existing ? "Edit Metric" : "Create Fact Table Metric"}
       close={close}
       submit={form.handleSubmit(async (values) => {
         if (values.denominator && !values.denominator.factTableId) {
@@ -312,6 +343,36 @@ export default function FactMetricModal({
         values.minPercentChange = values.minPercentChange / 100;
         values.maxPercentChange = values.maxPercentChange / 100;
 
+        // Anonymized telemetry props
+        // Will help us measure which settings are being used so we can optimize the UI
+        const trackProps = {
+          type: values.metricType,
+          source,
+          capping: values.capping,
+          conversion_window: values.hasConversionWindow
+            ? `${values.conversionWindowValue} ${values.conversionWindowUnit}`
+            : "none",
+          numerator_agg:
+            values.numerator.column === "$$count"
+              ? "count"
+              : values.numerator.column === "$$distinctUsers"
+              ? "distinct_users"
+              : "sum",
+          numerator_filters: values.numerator.filters.length,
+          denominator_agg:
+            values.denominator?.column === "$$count"
+              ? "count"
+              : values.denominator?.column === "$$distinctUsers"
+              ? "distinct_users"
+              : values.denominator?.column
+              ? "sum"
+              : "none",
+          denominator_filters: values.denominator?.filters?.length || 0,
+          ratio_same_fact_table:
+            values.metricType === "ratio" &&
+            values.numerator.factTableId === values.denominator?.factTableId,
+        };
+
         if (existing) {
           const updatePayload: UpdateFactMetricProps = omit(values, [
             "datasource",
@@ -320,6 +381,7 @@ export default function FactMetricModal({
             method: "PUT",
             body: JSON.stringify(updatePayload),
           });
+          track("Edit Fact Metric", trackProps);
           await mutateDefinitions();
         } else {
           const createPayload: CreateFactMetricProps = {
@@ -327,18 +389,33 @@ export default function FactMetricModal({
             projects: selectedDataSource.projects || [],
           };
 
-          const { factMetric } = await apiCall<{
+          await apiCall<{
             factMetric: FactMetricInterface;
           }>(`/fact-metrics`, {
             method: "POST",
             body: JSON.stringify(createPayload),
           });
+          track("Create Fact Metric", trackProps);
           await mutateDefinitions();
-          navigateOnCreate && router.push(`/fact-metrics/${factMetric.id}`);
+
+          onSave && onSave();
         }
       })}
       size="lg"
     >
+      {goBack && (
+        <div className="mb-3">
+          <a
+            href="#"
+            onClick={(e) => {
+              e.preventDefault();
+              goBack();
+            }}
+          >
+            <GBArrowLeft /> Go Back
+          </a>
+        </div>
+      )}
       <Field
         label="Metric Name"
         {...form.register("name")}
@@ -581,6 +658,9 @@ export default function FactMetricModal({
               onClick={(e) => {
                 e.preventDefault();
                 setAdvancedOpen(true);
+                track("View Advanced Fact Metric Settings", {
+                  source,
+                });
               }}
             >
               Show Advanced Settings

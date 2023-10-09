@@ -19,7 +19,7 @@ import TagsFilter, {
 } from "@/components/Tags/TagsFilter";
 import SortedTags from "@/components/Tags/SortedTags";
 import ProjectBadges from "@/components/ProjectBadges";
-import Badge from "@/components/Badge";
+import InlineCode from "@/components/SyntaxHighlighting/InlineCode";
 
 export default function FactTablesPage() {
   const {
@@ -106,9 +106,7 @@ export default function FactTablesPage() {
       <h1>
         Fact Tables
         <Tooltip body="This initial release of Fact Tables is an early preview of what's to come. Expect some rough edges and bugs.">
-          <span className="badge badge-purple border text-uppercase ml-2">
-            Beta
-          </span>
+          <span className="badge badge-purple border ml-2">beta</span>
         </Tooltip>
       </h1>
       <div className="mb-3">
@@ -123,8 +121,8 @@ export default function FactTablesPage() {
           About Fact Tables {aboutOpen ? <FaAngleDown /> : <FaAngleRight />}
         </a>
         {aboutOpen && (
-          <div className="alert alert-info">
-            <div className="mb-3">
+          <div className="appbox bg-light px-3 pt-3 mb-5">
+            <p>
               With Fact Tables, you can better organize your metrics, cut down
               on repetitive copy/pasting, and unlock massive SQL cost savings{" "}
               <Tooltip
@@ -143,73 +141,41 @@ export default function FactTablesPage() {
                   </>
                 }
               />
-            </div>
+            </p>
+            <p>
+              Learn more about the various parts that make up Fact Tables with
+              an example:
+            </p>
             <table className="table w-auto gbtable appbox">
               <tbody>
                 <tr>
-                  <th>Fact Table</th>
-                  <td>A base SQL definition for an event</td>
+                  <th>Fact Table SQL</th>
                   <td>
-                    Examples:{" "}
-                    <Badge
-                      content="Sign Up"
-                      className="badge-light mr-1 border"
-                    />
-                    <Badge
-                      content="Order"
-                      className="badge-light mr-1 border"
-                    />
-                    <Badge
-                      content="Form Submit"
-                      className="badge-light mr-1 border"
-                    />
+                    A base SQL definition for an event with relevant columns
+                    selected
+                  </td>
+                  <td>
+                    <InlineCode language="sql" code="SELECT * FROM orders" />
                   </td>
                 </tr>
                 <tr>
-                  <th>Fact</th>
-                  <td>A numeric column in the Fact Table</td>
+                  <th>Filters</th>
                   <td>
-                    Examples:
-                    <Badge
-                      content="Order Amount"
-                      className="badge-light mr-1 border"
-                    />
-                    <Badge
-                      content="Session Duration"
-                      className="badge-light mr-1 border"
-                    />
+                    Reusable SQL snippets to filter rows in the Fact Table
+                  </td>
+                  <td>
+                    <InlineCode language="sql" code="device_type = 'mobile'" />
                   </td>
                 </tr>
                 <tr>
-                  <th>Filter</th>
-                  <td>A WHERE clause to filter rows in the Fact Table</td>
-                  <td>
-                    Examples:
-                    <Badge
-                      content="With Promo Code"
-                      className="badge-light mr-1 border"
-                    />
-                    <Badge
-                      content="High Value Order"
-                      className="badge-light mr-1 border"
-                    />
-                  </td>
-                </tr>
-                <tr>
-                  <th>Metric</th>
-                  <td>
-                    Built with Facts and Filters and used as a goal in an
-                    experiment
+                  <th>Metrics</th>
+                  <td style={{ verticalAlign: "top" }}>
+                    Used in experiments as Goals or Guardrails
                   </td>
                   <td>
-                    Examples:
-                    <Badge
-                      content="Purchase Rate"
-                      className="badge-light mr-1 border"
-                    />
-                    <Badge
-                      content="Average Order Value"
-                      className="badge-light mr-1 border"
+                    <InlineCode
+                      language="sql"
+                      code={`SELECT SUM(revenue)\nFROM   [factTables.Orders]\nWHERE  [filters.Mobile]`}
                     />
                   </td>
                 </tr>

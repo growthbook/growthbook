@@ -29,6 +29,21 @@ import MoreMenu from "@/components/Dropdown/MoreMenu";
 import { useAuth } from "@/services/auth";
 import AutoGenerateMetricsModal from "@/components/AutoGenerateMetricsModal";
 import AutoGenerateMetricsButton from "@/components/AutoGenerateMetricsButton";
+import FactBadge from "@/components/FactTables/FactBadge";
+
+interface MetricTableItem {
+  id: string;
+  name: string;
+  type: string;
+  tags: string[];
+  projects: string[];
+  owner: string;
+  datasource: string;
+  dateUpdated: Date | null;
+  archived: boolean;
+  onDuplicate?: () => void;
+  onArchive?: (desiredState: boolean) => Promise<void>;
+}
 
 interface MetricTableItem {
   id: string;
@@ -90,7 +105,6 @@ const MetricsPage = (): React.ReactElement => {
         projects: m.projects || [],
         tags: m.tags || [],
         type: m.type,
-        isFact: false,
         onArchive: async (desiredState) => {
           const newStatus = desiredState ? "archived" : "active";
           await apiCall(`/metric/${m.id}`, {
@@ -128,7 +142,6 @@ const MetricsPage = (): React.ReactElement => {
         dateUpdated: m.dateUpdated,
         name: m.name,
         owner: m.owner,
-        isFact: true,
         projects: m.projects || [],
         tags: m.tags || [],
         type: m.metricType,
@@ -202,6 +215,7 @@ const MetricsPage = (): React.ReactElement => {
             onClose={closeModal}
             onSuccess={onSuccess}
             source="blank-state"
+            allowFactMetrics={!modalData.duplicate && !modalData.edit}
           />
         )}
         {showAutoGenerateMetricsModal && (
@@ -281,6 +295,7 @@ const MetricsPage = (): React.ReactElement => {
           onClose={closeModal}
           onSuccess={onSuccess}
           source="metrics-list"
+          allowFactMetrics={!modalData.duplicate && !modalData.edit}
         />
       )}
       {showAutoGenerateMetricsModal && (
@@ -398,9 +413,7 @@ const MetricsPage = (): React.ReactElement => {
                     {metric.name}
                   </a>
                 </Link>
-                {metric.isFact && (
-                  <span className="badge badge-purple ml-2">FACT</span>
-                )}
+                <FactBadge metricId={metric.id} />
               </td>
               <td>{metric.type}</td>
 
