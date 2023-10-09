@@ -45,21 +45,6 @@ interface MetricTableItem {
   onArchive?: (desiredState: boolean) => Promise<void>;
 }
 
-interface MetricTableItem {
-  id: string;
-  name: string;
-  type: string;
-  tags: string[];
-  projects: string[];
-  owner: string;
-  datasource: string;
-  dateUpdated: Date | null;
-  archived: boolean;
-  isFact: boolean;
-  onDuplicate?: () => void;
-  onArchive?: (desiredState: boolean) => Promise<void>;
-}
-
 const MetricsPage = (): React.ReactElement => {
   const [modalData, setModalData] = useState<{
     current: Partial<MetricInterface>;

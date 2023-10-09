@@ -16,15 +16,6 @@ type MetricOption = {
   factTables: string[];
 };
 
-type MetricOption = {
-  id: string;
-  name: string;
-  datasource: string;
-  tags: string[];
-  projects: string[];
-  factTables: string[];
-};
-
 const MetricsSelector: FC<{
   datasource?: string;
   project?: string;
