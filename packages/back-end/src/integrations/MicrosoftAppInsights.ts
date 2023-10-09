@@ -318,7 +318,9 @@ export default abstract class MicrosoftAppInsights
     }
 
     this.applyMetricOverrides(metric, settings);
-    denominatorMetrics.forEach((m) => this.applyMetricOverrides(m, settings));
+    denominatorMetrics.forEach((m: MetricInterface) =>
+      this.applyMetricOverrides(m, settings)
+    );
 
     const dimension = params.dimension;
     // Replace any placeholders in the user defined dimension SQL
@@ -388,7 +390,7 @@ export default abstract class MicrosoftAppInsights
     const idTypeObjects = [
       [exposureQuery.userIdType],
       metric.userIdTypes || [],
-      ...denominatorMetrics.map((m) => m.userIdTypes || []),
+      ...denominatorMetrics.map((m: MetricInterface) => m.userIdTypes || []),
     ];
     // add idTypes usually handled in units query here in the case where
     // we don't have a separate table for the units query
@@ -471,7 +473,7 @@ export default abstract class MicrosoftAppInsights
       }
       
       ${denominatorMetrics
-        .map((m, i) => {
+        .map((m: MetricInterface, i: number) => {
           const nextMetric = denominatorMetrics[i + 1] || metric;
           return `let denominator${i} = (${this.getMetricCTE({
             metric: m,
