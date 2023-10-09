@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { useUser } from "@/services/UserContext";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import UpgradeMessage from "@/components/Marketing/UpgradeMessage";
-import CustomFields from "@/components/Settings/CustomFields";
+import CustomFields from "@/components/CustomFields/CustomFields";
 
 const CustomFieldsPage = (): React.ReactElement => {
   const { hasCommercialFeature } = useUser();
@@ -52,11 +52,11 @@ const CustomFieldsPage = (): React.ReactElement => {
   return (
     <>
       <div className="contents container-fluid pagecontents">
+        <CustomFields section={"feature"} title={"Custom Feature Fields"} />
         <CustomFields
           section={"experiment"}
           title={"Custom Experiment Fields"}
         />
-        <CustomFields section={"feature"} title={"Custom Feature Fields"} />
       </div>
     </>
   );
