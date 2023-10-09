@@ -2569,9 +2569,13 @@ html {
   position: relative;
   .gb-multi-select__menu-portal {
     position: absolute !important;
-    top: -10px;
-    left: 240px;
-    //transform: translate(50%, 0px) !important;
+    top: -8px;
+    left: 260px;
+    @media (max-width: 520px) {
+      top: auto;
+      bottom: 0;
+      left: 0;
+    }
   }
 }
 

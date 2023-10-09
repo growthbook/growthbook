@@ -436,13 +436,14 @@ export default function ResultsTable({
           <table id="main-results" className="experiment-results table-sm">
             <thead>
               <tr className="results-top-row">
-                <th className="axis-col header-label">
-                  <div className="row px-0"
-                   style={{
-                     lineHeight: "15px",
-                     width: 220 * tableCellScale,
-                   }}
-                  >
+                <th
+                  className="axis-col header-label"
+                  style={{
+                    lineHeight: "15px",
+                    width: 220 * tableCellScale,
+                  }}
+                >
+                  <div className="row px-0">
                     {setMetricFilter ? (
                       <div
                         className="col position-relative d-flex align-items-end px-0 font-weight-normal"
