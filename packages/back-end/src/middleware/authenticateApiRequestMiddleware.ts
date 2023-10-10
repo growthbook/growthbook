@@ -103,7 +103,11 @@ export default function authenticateApiRequestMiddleware(
 
       // If it's a user API key, verify that the user is part of the organization
       // This is important to check in the event that a user leaves an organization, the member list is updated, and the user's API keys are orphaned
-      if (userId && !isApiKeyForUserInOrganization(apiKeyPartial, org)) {
+      if (
+        userId &&
+        !req.user?.superAdmin &&
+        !isApiKeyForUserInOrganization(apiKeyPartial, org)
+      ) {
         throw new Error("Could not find user attached to this API key");
       }
 
