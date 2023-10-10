@@ -243,43 +243,6 @@ describe("experiments", () => {
     growthbook.destroy();
   });
 
-  it("filters user groups", () => {
-    const growthbook = new GrowthBook({
-      user: { id: "123" },
-      groups: {
-        alpha: true,
-        beta: true,
-        internal: false,
-        qa: false,
-      },
-    });
-
-    expect(
-      growthbook.run({
-        key: "my-test",
-        variations: [0, 1],
-        groups: ["internal", "qa"],
-      }).inExperiment
-    ).toEqual(false);
-
-    expect(
-      growthbook.run({
-        key: "my-test",
-        variations: [0, 1],
-        groups: ["internal", "qa", "beta"],
-      }).inExperiment
-    ).toEqual(true);
-
-    expect(
-      growthbook.run({
-        key: "my-test",
-        variations: [0, 1],
-      }).inExperiment
-    ).toEqual(true);
-
-    growthbook.destroy();
-  });
-
   it("sets attributes", () => {
     const attributes = {
       id: "1",

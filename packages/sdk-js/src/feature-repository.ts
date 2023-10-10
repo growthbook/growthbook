@@ -179,7 +179,14 @@ function getCacheKey(instance: GrowthBook): string {
   const baseKey = getKey(instance);
   if (!instance.isRemoteEval()) return baseKey;
 
-  const attributes = instance.getAttributes();
+  const attributes = {
+    ...instance.getAttributes(),
+  };
+  const groups = instance.getGroups();
+  if (groups.length > 0) {
+    attributes.__groups__ = groups;
+  }
+
   const cacheKeyAttributes =
     instance.getCacheKeyAttributes() || Object.keys(instance.getAttributes());
   const ca: Attributes = {};

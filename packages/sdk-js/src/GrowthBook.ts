@@ -178,6 +178,10 @@ export class GrowthBook<
     }
   }
 
+  public async refreshGroups() {
+    await this._refreshGroups(true);
+  }
+
   private async _refreshGroups(renderOnSuccess?: boolean) {
     if (!this._ctx.getGroups) return;
 
@@ -299,6 +303,11 @@ export class GrowthBook<
   }
 
   public async setAttributes(attributes: Attributes): Promise<void> {
+    // Skip if attributes have not changed
+    if (JSON.stringify(attributes) === JSON.stringify(this._ctx.attributes)) {
+      return;
+    }
+
     this._ctx.attributes = attributes;
     if (this._ctx.remoteEval) {
       await this._refreshForRemoteEval(true);
@@ -306,10 +315,18 @@ export class GrowthBook<
     }
     this._render();
     this._updateAllAutoExperiments();
+
     await this._refreshGroups(true);
   }
 
   public async setAttributeOverrides(overrides: Attributes): Promise<void> {
+    // Skip if overrides have not changed
+    if (
+      JSON.stringify(overrides) === JSON.stringify(this._attributeOverrides)
+    ) {
+      return;
+    }
+
     this._attributeOverrides = overrides;
     if (this._ctx.remoteEval) {
       await this._refreshForRemoteEval(true);
@@ -345,6 +362,10 @@ export class GrowthBook<
       return;
     }
     this._updateAllAutoExperiments(true);
+  }
+
+  public getGroups() {
+    return this._groups;
   }
 
   public getAttributes() {
