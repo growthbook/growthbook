@@ -4,7 +4,7 @@ import { Request, RequestHandler } from "express";
 import z, { Schema, ZodNever } from "zod";
 import { ApiErrorResponse, ApiRequestLocals } from "../../types/api";
 import { ApiPaginationFields } from "../../types/openapi";
-import { getUserById } from "../services/users";
+import { UserInterface } from "../../types/user";
 import { IS_MULTI_ORG } from "./secrets";
 
 type ApiRequest<
@@ -149,26 +149,26 @@ export function getBuild() {
   return build;
 }
 
-export async function validateIsSuperUserRequest(req: { userId?: string }) {
+export async function validateIsSuperUserRequest(req: {
+  user?: UserInterface;
+}) {
   if (!IS_MULTI_ORG) {
     throw new Error("This endpoint requires multi-org mode.");
   }
 
-  if (!req.userId) {
+  if (!req.user) {
     throw new Error(
       "This endpoint requires the use of a Personal Access Token rather than an API_KEY."
     );
   }
 
-  const user = await getUserById(req.userId);
-
-  if (!user || !user.superAdmin) {
+  if (!req.user.superAdmin) {
     throw new Error(
       "This endpoint requires the Personal Access Token of a super admin."
     );
   }
 
-  return user;
+  return req.user;
 }
 
 /**
