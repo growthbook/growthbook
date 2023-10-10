@@ -191,6 +191,7 @@ export type JSONValue =
   | string
   | boolean
   | Array<JSONValue>
+  | Record<string, unknown>
   | { [key: string]: JSONValue };
 
 export type WidenPrimitives<T> = T extends string
