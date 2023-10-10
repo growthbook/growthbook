@@ -532,4 +532,85 @@ describe("features", () => {
 
     growthbook.destroy();
   });
+
+  describe("Runtime Groups", () => {
+    it("Uses groups to evaluate features", async () => {
+      const gb = new GrowthBook({
+        attributes: {
+          id: "1",
+        },
+        features: {
+          feature: {
+            defaultValue: 0,
+            rules: [
+              {
+                condition: {
+                  __groups__: "one",
+                },
+                force: 1,
+              },
+              {
+                condition: {
+                  __groups__: "more-than-one",
+                },
+                force: 2,
+              },
+            ],
+          },
+        },
+        getGroups: async (attrs) => {
+          if (attrs.id === "1") return ["one"];
+          return ["more-than-one"];
+        },
+      });
+
+      expect(gb.getFeatureValue("feature", null)).toBe(0);
+
+      await gb.init();
+
+      expect(gb.getFeatureValue("feature", null)).toBe(1);
+
+      await gb.setAttributes({
+        id: "2",
+      });
+
+      expect(gb.getFeatureValue("feature", null)).toBe(2);
+
+      gb.destroy();
+    });
+
+    it("init timeout", async () => {
+      const gb = new GrowthBook({
+        features: {
+          feature: {
+            defaultValue: false,
+            rules: [
+              {
+                condition: {
+                  __groups__: "test",
+                },
+                force: true,
+              },
+            ],
+          },
+        },
+        getGroups: async () => {
+          await sleep(500);
+          return ["test"];
+        },
+      });
+
+      expect(gb.getFeatureValue("feature", null)).toBe(false);
+
+      await gb.init(100);
+
+      expect(gb.getFeatureValue("feature", null)).toBe(false);
+
+      await sleep(500);
+
+      expect(gb.getFeatureValue("feature", null)).toBe(true);
+
+      gb.destroy();
+    });
+  });
 });

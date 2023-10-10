@@ -32,6 +32,7 @@ import {
   inRange,
   isURLTargeted,
   decrypt,
+  promiseTimeout,
 } from "./util";
 import { evalCondition } from "./mongrule";
 import { refreshFeatures, subscribe, unsubscribe } from "./feature-repository";
@@ -74,6 +75,7 @@ export class GrowthBook<
     { valueHash: string; undo: () => void }
   >;
   private _loadFeaturesCalled: boolean;
+  private _groups: string[];
 
   constructor(context?: Context) {
     context = context || {};
@@ -93,6 +95,7 @@ export class GrowthBook<
     this._attributeOverrides = {};
     this._activeAutoExperiments = new Map();
     this._loadFeaturesCalled = false;
+    this._groups = [];
 
     if (context.remoteEval) {
       if (context.decryptionKey) {
@@ -148,6 +151,47 @@ export class GrowthBook<
 
     if (this._canSubscribe()) {
       subscribe(this);
+    }
+  }
+
+  public async init(timeoutMS?: number): Promise<void> {
+    const refreshGroupsPromise = promiseTimeout(
+      this._refreshGroups(true),
+      timeoutMS
+    );
+
+    if (this._ctx.clientKey) {
+      // When using remote eval, need to get the groups first before evaluating features
+      if (this._ctx.remoteEval) {
+        await refreshGroupsPromise;
+        await this.loadFeatures({ timeout: timeoutMS });
+      }
+      // Otherwise, we can fetch them in parallel
+      else {
+        await Promise.all([
+          refreshGroupsPromise,
+          this.loadFeatures({ timeout: timeoutMS }),
+        ]);
+      }
+    } else {
+      await refreshGroupsPromise;
+    }
+  }
+
+  private async _refreshGroups(renderOnSuccess?: boolean) {
+    if (!this._ctx.getGroups) return;
+
+    try {
+      this._groups = await this._ctx.getGroups(this.getAttributes());
+      if (renderOnSuccess) {
+        this._render();
+        this._updateAllAutoExperiments();
+      }
+    } catch (e) {
+      process.env.NODE_ENV !== "production" &&
+        this.log("Failed to refresh groups", {
+          error: e,
+        });
     }
   }
 
@@ -254,24 +298,26 @@ export class GrowthBook<
     this.setExperiments(JSON.parse(experimentsJSON) as AutoExperiment[]);
   }
 
-  public setAttributes(attributes: Attributes) {
+  public async setAttributes(attributes: Attributes): Promise<void> {
     this._ctx.attributes = attributes;
     if (this._ctx.remoteEval) {
-      this._refreshForRemoteEval();
+      await this._refreshForRemoteEval(true);
       return;
     }
     this._render();
     this._updateAllAutoExperiments();
+    await this._refreshGroups(true);
   }
 
-  public setAttributeOverrides(overrides: Attributes) {
+  public async setAttributeOverrides(overrides: Attributes): Promise<void> {
     this._attributeOverrides = overrides;
     if (this._ctx.remoteEval) {
-      this._refreshForRemoteEval();
+      await this._refreshForRemoteEval(true);
       return;
     }
     this._render();
     this._updateAllAutoExperiments();
+    await this._refreshGroups(true);
   }
 
   public setForcedVariations(vars: Record<string, number>) {
@@ -337,9 +383,12 @@ export class GrowthBook<
     return this._ctx.backgroundSync !== false && this._ctx.subscribeToChanges;
   }
 
-  private async _refreshForRemoteEval() {
+  private async _refreshForRemoteEval(attributesChanged?: boolean) {
     if (!this._ctx.remoteEval) return;
     if (!this._loadFeaturesCalled) return;
+    if (attributesChanged) {
+      await this._refreshGroups();
+    }
     await this._refresh({}, false, true).catch(() => {
       // Ignore errors
     });
@@ -762,7 +811,11 @@ export class GrowthBook<
   }
 
   private _conditionPasses(condition: ConditionInterface): boolean {
-    return evalCondition(this.getAttributes(), condition);
+    const attributesWithGroups = {
+      __groups__: this._groups,
+      ...this.getAttributes(),
+    };
+    return evalCondition(attributesWithGroups, condition);
   }
 
   private _isFilteredOut(filters: Filter[]): boolean {
@@ -877,18 +930,6 @@ export class GrowthBook<
     if (experiment.condition && !this._conditionPasses(experiment.condition)) {
       process.env.NODE_ENV !== "production" &&
         this.log("Skip because of condition", {
-          id: key,
-        });
-      return this._getResult(experiment, -1, false, featureId);
-    }
-
-    // 8.1. Exclude if user is not in a required group
-    if (
-      experiment.groups &&
-      !this._hasGroupOverlap(experiment.groups as string[])
-    ) {
-      process.env.NODE_ENV !== "production" &&
-        this.log("Skip because of groups", {
           id: key,
         });
       return this._getResult(experiment, -1, false, featureId);
@@ -1103,14 +1144,6 @@ export class GrowthBook<
 
     if (urlRegex.test(url)) return true;
     if (urlRegex.test(pathOnly)) return true;
-    return false;
-  }
-
-  private _hasGroupOverlap(expGroups: string[]): boolean {
-    const groups = this._ctx.groups || {};
-    for (let i = 0; i < expGroups.length; i++) {
-      if (groups[expGroups[i]]) return true;
-    }
     return false;
   }
 
