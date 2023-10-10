@@ -1,12 +1,11 @@
 import React from "react";
-import { BarRounded } from "@visx/shape";
+import { BarRounded, BarStack } from "@visx/shape";
 import { AxisBottom, AxisLeft } from "@visx/axis";
 import { Group } from "@visx/group";
 import { ParentSizeModern } from "@visx/responsive";
 import { scaleBand, scaleLinear } from "@visx/scale";
 import { GridRows } from "@visx/grid";
 import format from "date-fns/format";
-import { ExperimentStatus } from "back-end/types/experiment";
 import { TooltipWithBounds, useTooltip } from "@visx/tooltip";
 import { localPoint } from "@visx/event";
 import { getValidDate } from "shared/dates";
@@ -18,15 +17,17 @@ import styles from "./ExperimentGraph.module.scss";
 export default function ExperimentGraph({
   resolution = "month",
   num = 12,
-  status = "all",
+  //status = "all",
   height = 250,
+  showBy = "status",
 }: {
   resolution?: "month" | "day" | "year";
   num?: number;
-  status: "all" | ExperimentStatus;
+  //status: "all" | ExperimentStatus;
   height?: number;
+  showBy?: "status" | "project" | "user" | "all";
 }): React.ReactElement {
-  const { project } = useDefinitions();
+  const { project, projects } = useDefinitions();
 
   const {
     showTooltip,
@@ -35,15 +36,16 @@ export default function ExperimentGraph({
     tooltipData,
     tooltipLeft = 0,
     tooltipTop = 0,
-  } = useTooltip<number>();
+  } = useTooltip<Record<string, number | string>>();
 
   const { data, error } = useApi<{
-    data: {
+    byStatus: {
       all: { date: string; numExp: number }[];
       draft: { date: string; numExp: number }[];
       running: { date: string; numExp: number }[];
       stopped: { date: string; numExp: number }[];
     };
+    byProject: Record<string, { date: string; numExp: number }[]>;
   }>(`/experiments/frequency/${resolution}/${num}?project=${project}`);
 
   if (error) {
@@ -57,8 +59,42 @@ export default function ExperimentGraph({
     return <LoadingOverlay />;
   }
 
-  const graphData = data.data[status] ? data.data[status] : data.data.all;
+  const graphData = data.byStatus.all;
 
+  const statuses = Object.keys(data.byStatus).filter((s) => s !== "all");
+  const projectMap = new Map();
+
+  if (showBy === "status") {
+    data.byStatus.all.forEach((d, i) => {
+      statuses.forEach((s) => {
+        const statusData = data.byStatus[s].find((sd) => sd.date === d.date);
+        if (!statusData) return;
+        graphData[i][s] = statusData.numExp;
+      });
+    });
+  }
+  let stackedKeys: string[] = [];
+  if (showBy === "project") {
+    stackedKeys = projects.map((p) => p.id);
+    stackedKeys.push("all");
+    data.byProject.all.forEach((d, i) => {
+      projects.forEach((p) => {
+        const projectData = data.byProject[p.id].find(
+          (pd) => pd.date === d.date
+        );
+        if (projectData) {
+          graphData[i][p.id] = projectData.numExp;
+        } else {
+          graphData[i][p.id] = 0;
+        }
+      });
+      graphData[i]["all"] = d.numExp;
+    });
+    projects.forEach((p) => {
+      projectMap.set(p.id, p.name);
+    });
+  }
+  console.log("graph data", graphData, "keys", stackedKeys);
   if (!graphData.length) {
     return <div>no data to show</div>;
   }
@@ -75,7 +111,9 @@ export default function ExperimentGraph({
 
         const barWidth = 35;
         const xScale = scaleBand({
-          domain: graphData.map((d) => new Date(d.date)),
+          domain: graphData.map((d) => {
+            return new Date(d.date);
+          }),
           range: [barWidth / 2, xMax],
           round: true,
           align: 0.5,
@@ -93,7 +131,11 @@ export default function ExperimentGraph({
           const xCoord = (coords?.x ?? 0) - barWidth;
 
           const barData = graphData.map((d) => {
-            return { xcord: xScale(getValidDate(d.date)), numExp: d.numExp };
+            return {
+              raw: { ...d },
+              xcord: xScale(getValidDate(d.date)),
+              numExp: d.numExp,
+            };
           });
 
           const closestBar = barData.reduce((prev, curr) =>
@@ -102,6 +144,7 @@ export default function ExperimentGraph({
               ? curr
               : prev
           );
+          console.log(closestBar);
           let barHeight = yMax - (yScale(closestBar.numExp) ?? 0);
           if (barHeight === 0) barHeight = 6;
           const barY = yMax - barHeight;
@@ -109,7 +152,7 @@ export default function ExperimentGraph({
           showTooltip({
             tooltipTop: barY - 25,
             tooltipLeft: closestBar.xcord,
-            tooltipData: closestBar.numExp,
+            tooltipData: closestBar.raw,
           });
         };
 
@@ -126,10 +169,38 @@ export default function ExperimentGraph({
                 <TooltipWithBounds
                   left={tooltipLeft}
                   top={tooltipTop}
-                  className={styles.tooltip}
+                  className={styles.tooltiplg}
                   unstyled={true}
                 >
-                  {tooltipData} ex
+                  <>
+                    {showBy === "all" ? (
+                      <>{tooltipData?.numExp} experiments</>
+                    ) : showBy === "project" ? (
+                      <>
+                        <h4 className="mb-1">
+                          {format(getValidDate(tooltipData?.date), "MMM yyy")}
+                        </h4>
+                        {stackedKeys.map((k) => (
+                          <div key={k} className={styles.tooltipRow}>
+                            <div className={styles.tooltipName}>
+                              {projectMap.has(k)
+                                ? projectMap.get(k)
+                                : k === "all"
+                                ? "All projects"
+                                : k}
+                            </div>
+                            <div className={styles.tooltipValue}>
+                              {tooltipData?.[k] ?? 0}
+                            </div>
+                          </div>
+                        ))}
+                      </>
+                    ) : showBy === "status" ? (
+                      <></>
+                    ) : (
+                      <>{tooltipData?.numExp ?? 0} experiments</>
+                    )}
+                  </>
                 </TooltipWithBounds>
               )}
             </div>
@@ -149,19 +220,58 @@ export default function ExperimentGraph({
                   if (barHeight === 0) barHeight = 6;
                   const barY = yMax - barHeight;
                   const name = format(getValidDate(d.date), "MMM yyy");
-                  return (
-                    <BarRounded
-                      key={name + i}
-                      x={barX + 5}
-                      y={barY}
-                      width={Math.max(10, barWidth - 10)}
-                      height={barHeight}
-                      fill={"#73D1F0"}
-                      top
-                      radius={6}
-                      className={styles.barHov}
-                    />
-                  );
+                  if (showBy === "all") {
+                    return (
+                      <BarRounded
+                        key={name + i}
+                        x={barX + 5}
+                        y={barY}
+                        width={Math.max(10, barWidth - 10)}
+                        height={barHeight}
+                        fill={"#73D1F0"}
+                        top
+                        radius={6}
+                        className={styles.barHov}
+                      />
+                    );
+                  }
+                  if (showBy === "project") {
+                    return (
+                      <BarStack
+                        data={graphData}
+                        keys={stackedKeys}
+                        x={(d) => new Date(d.date)}
+                        yScale={yScale}
+                        xScale={xScale}
+                        color={(key: string, index: number) => {
+                          if (key === "all") return "#73D1F0";
+                          if (index === 0) return "#7388f0";
+                          if (index === 1) return "#ab73f0";
+                          if (index === 2) return "#f073ee";
+                          return "#f08a73";
+                        }}
+                      >
+                        {(barStacks) =>
+                          barStacks.map((barStack) =>
+                            barStack.bars.map((bar) => {
+                              //console.log(bar);
+
+                              return (
+                                <rect
+                                  key={`bar-stack-${barStack.index}-${bar.index}`}
+                                  x={bar.x}
+                                  y={bar.height === 0 ? bar.y - 6 : bar.y}
+                                  height={Math.max(bar.height, 6)}
+                                  width={Math.max(10, barWidth - 10)}
+                                  fill={bar.color}
+                                />
+                              );
+                            })
+                          )
+                        }
+                      </BarStack>
+                    );
+                  }
                 })}
 
                 <AxisBottom

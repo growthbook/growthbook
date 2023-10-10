@@ -1,7 +1,8 @@
-import React from "react";
+import React, { useState } from "react";
 import Link from "next/link";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { useUser } from "@/services/UserContext";
+import Field from "@/components/Forms/Field";
 import ActivityList from "../ActivityList";
 import ExperimentList from "../Experiment/ExperimentList";
 import ExperimentGraph from "../Experiment/ExperimentGraph";
@@ -15,6 +16,9 @@ export interface Props {
 
 export default function Dashboard({ experiments }: Props) {
   const { name } = useUser();
+  const [showBy, setShowBy] = useState<"status" | "project" | "all" | "user">(
+    "all"
+  );
 
   const nameMap = new Map<string, string>();
   experiments.forEach((e) => {
@@ -33,12 +37,48 @@ export default function Dashboard({ experiments }: Props) {
         <div className="row">
           <div className="col-lg-12 col-md-12 col-xl-8 mb-3">
             <div className="list-group activity-box fixed-height overflow-auto">
-              <h4 className="mb-3">Experiments by month</h4>
+              <div className="row mb-3 align-content-end">
+                <div className="col">
+                  <h4 className="mb-0">Experiments by month</h4>
+                </div>
+                <div className="col-auto small">
+                  Show:
+                  <Field
+                    containerClassName="d-inline-block ml-2 mb-0 small"
+                    options={[
+                      {
+                        value: "all",
+                        display: "All experiments",
+                      },
+                      {
+                        value: "status",
+                        display: "By status",
+                      },
+                      {
+                        value: "project",
+                        display: "By projects",
+                      },
+                    ]}
+                    value={showBy}
+                    onChange={(e) => {
+                      if (
+                        e.target.value === "user" ||
+                        e.target.value === "all" ||
+                        e.target.value === "project" ||
+                        e.target.value === "status"
+                      ) {
+                        setShowBy(e.target.value);
+                      }
+                    }}
+                  />
+                </div>
+              </div>
               <ExperimentGraph
                 resolution={"month"}
                 num={12}
                 status={"all"}
                 height={220}
+                showBy={showBy}
               />
             </div>
           </div>

@@ -84,7 +84,10 @@ import { MetricRegressionAdjustmentStatus } from "../../types/report";
 import { VisualChangesetInterface } from "../../types/visual-changeset";
 import { PrivateApiErrorResponse } from "../../types/api";
 import { EventAuditUserForResponseLocals } from "../events/event-types";
-import { findProjectById } from "../models/ProjectModel";
+import {
+  findAllProjectsByOrganization,
+  findProjectById,
+} from "../models/ProjectModel";
 import { ExperimentResultsQueryRunner } from "../queryRunners/ExperimentResultsQueryRunner";
 import { PastExperimentsQueryRunner } from "../queryRunners/PastExperimentsQueryRunner";
 import {
@@ -128,6 +131,7 @@ export async function getExperimentsFrequencyMonth(
     project = req.query.project;
   }
 
+  const allProjects = await findAllProjectsByOrganization(org.id);
   const { num } = req.params;
   const experiments = await getAllExperiments(org.id, project);
 
@@ -152,6 +156,12 @@ export async function getExperimentsFrequencyMonth(
     stopped: JSON.parse(JSON.stringify(allData)),
   };
 
+  const dataByProject: Record<string, [{ date: string; numExp: number }]> = {};
+  allProjects.forEach((p) => {
+    dataByProject[p.id] = JSON.parse(JSON.stringify(allData));
+  });
+  dataByProject["all"] = JSON.parse(JSON.stringify(allData));
+
   // now get the right number of experiments:
   experiments.forEach((e) => {
     let dateStarted: Date | null = null;
@@ -171,13 +181,20 @@ export async function getExperimentsFrequencyMonth(
         md.numExp++;
         // I can do this because the indexes will represent the same month
         dataByStatus[e.status][i].numExp++;
+
+        if (e.project) {
+          dataByProject[e.project][i].numExp++;
+        } else {
+          dataByProject["all"][i].numExp++;
+        }
       }
     });
   });
 
   res.status(200).json({
     status: 200,
-    data: { all: allData, ...dataByStatus },
+    byStatus: { all: allData, ...dataByStatus },
+    byProject: { ...dataByProject },
   });
 }
 

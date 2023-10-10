@@ -2,11 +2,31 @@
   background-color: #050549;
   border-radius: 2px;
   position: absolute;
-  width: 35px;
+  width: 45px;
   box-shadow: -1px 2px 4px rgba(0, 0, 0, 0.15);
   color: white;
   padding: 3px 4px;
   font-size: 12px;
+}
+.tooltiplg {
+  width: 200px;
+  background-color: #050549;
+  border-radius: 2px;
+  position: absolute;
+  box-shadow: -1px 2px 4px rgba(0, 0, 0, 0.15);
+  color: white;
+  padding: 3px 4px;
+  font-size: 12px;
+}
+.tooltipName {
+  font-weight: bold;
+  font-size: 14px;
+  display: inline;
+  margin-right: 10px;
+}
+.tooltipValue {
+  font-size: 14px;
+  display: inline;
 }
 .barHov:hover {
   fill: #31c0f0;
