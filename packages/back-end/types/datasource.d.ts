@@ -38,7 +38,8 @@ export type DataSourceParams =
   | SnowflakeConnectionParams
   | BigQueryConnectionParams
   | ClickHouseConnectionParams
-  | MixpanelConnectionParams;
+  | MixpanelConnectionParams
+  | MicrosoftAppInsightsParams;
 
 export type QueryLanguage = "sql" | "kusto" | "javascript" | "json" | "none";
 
