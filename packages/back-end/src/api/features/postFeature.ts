@@ -45,7 +45,7 @@ export const parseJsonSchemaForEnterprise = (
   const jsonSchemaWrapper = {
     schema: "",
     date: new Date(),
-    enabled: true,
+    enabled: false,
   };
   if (!jsonSchema) return jsonSchemaWrapper;
   const commercialFeatures = [...accountFeatures[getAccountPlan(org)]];
@@ -53,6 +53,7 @@ export const parseJsonSchemaForEnterprise = (
   try {
     // ensure the schema is valid JSON
     jsonSchemaWrapper.schema = JSON.stringify(JSON.parse(jsonSchema));
+    jsonSchemaWrapper.enabled = true;
     return jsonSchemaWrapper;
   } catch (e) {
     // eslint-disable-next-line no-console
