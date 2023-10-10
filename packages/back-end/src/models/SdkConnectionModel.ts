@@ -158,7 +158,6 @@ export async function createSDKConnection(params: CreateSDKConnectionParams) {
       version: "",
       error: "",
     }),
-    remoteEvalEnabled: false,
   };
 
   if (connection.proxy.enabled && connection.proxy.host) {

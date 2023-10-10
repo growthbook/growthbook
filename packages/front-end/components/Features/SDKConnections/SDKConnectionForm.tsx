@@ -19,7 +19,6 @@ import Modal from "@/components/Modal";
 import { useAuth } from "@/services/auth";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
-import UpgradeModal from "@/components/Settings/UpgradeModal";
 import Toggle from "@/components/Forms/Toggle";
 import { isCloud } from "@/services/env";
 import track from "@/services/track";
@@ -75,7 +74,6 @@ export default function SDKConnectionForm({
   const [selectedSecurityTab, setSelectedSecurityTab] = useState<string | null>(
     getSecurityTabState(initialValue)
   );
-  const [upgradeModal, setUpgradeModal] = useState(false);
 
   const form = useForm({
     defaultValues: {
@@ -154,25 +152,11 @@ export default function SDKConnectionForm({
     }
   }, [
     selectedSecurityTab,
-    setSelectedSecurityTab,
-    initialValue,
     form,
-    gb,
     hasEncryptionFeature,
     hasSecureAttributesFeature,
-    hasRemoteEvaluationFeature,
     enableRemoteEval,
   ]);
-
-  if (upgradeModal) {
-    return (
-      <UpgradeModal
-        close={() => setUpgradeModal(false)}
-        reason="To enable SDK encryption,"
-        source="encrypt-features-endpoint"
-      />
-    );
-  }
 
   return (
     <Modal
@@ -544,7 +528,7 @@ export default function SDKConnectionForm({
                       tipMinWidth="600px"
                       body={
                         <>
-                          <p>
+                          <div className="mb-2">
                             <strong>Remote Evaluation</strong> fully secures
                             your SDK by evaluating feature flags exclusively on
                             a private server instead of within a front-end
@@ -555,8 +539,8 @@ export default function SDKConnectionForm({
                             provides the same benefits as a backend SDK.
                             However, this feature is not needed in a backend
                             context and is not supported.
-                          </p>
-                          <p>
+                          </div>
+                          <div className="mb-2">
                             Remote evaluation does come with a few cost
                             considerations:
                             <ol className="pl-3 mt-2">
@@ -572,7 +556,7 @@ export default function SDKConnectionForm({
                                 from the server.
                               </li>
                             </ol>
-                          </p>
+                          </div>
                           <div className="mt-4" style={{ lineHeight: 1.2 }}>
                             <p className="mb-0">
                               <span className="badge badge-purple text-uppercase mr-2">
