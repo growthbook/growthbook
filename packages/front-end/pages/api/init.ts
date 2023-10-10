@@ -1,11 +1,13 @@
 import path from "path";
 import fs from "fs";
 import { NextApiRequest, NextApiResponse } from "next";
+import { getLicense } from "enterprise";
 
 export interface EnvironmentInitValue {
   telemetry: "debug" | "enable" | "disable";
   cloud: boolean;
   appOrigin: string;
+  licenseKeyRef: string;
   apiHost: string;
   cdnHost: string;
   config: "file" | "db";
@@ -56,6 +58,7 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
 
   const body: EnvironmentInitValue = {
     appOrigin: APP_ORIGIN || "http://localhost:3000",
+    licenseKeyRef: getLicense()?.ref || "",
     apiHost: API_HOST || "http://localhost:3100",
     cdnHost: CDN_HOST || "",
     cloud: !!IS_CLOUD,

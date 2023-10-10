@@ -19,6 +19,7 @@ import { ExperimentReportInterface } from "@/../back-end/types/report";
 import { DEFAULT_STATS_ENGINE } from "shared/constants";
 import { getCurrentUser } from "./UserContext";
 import {
+  getLicenseKeyRef,
   getGrowthBookBuild,
   hasFileConfig,
   inTelemetryDebugMode,
@@ -66,6 +67,7 @@ export default function track(
   const host = isLocalhost ? "localhost" : isCloud() ? "cloud" : "self-hosted";
   const trackProps = {
     ...props,
+    license_key_ref: getLicenseKeyRef(),
     page_url: location.pathname,
     page_title: "",
     source_ip: "",

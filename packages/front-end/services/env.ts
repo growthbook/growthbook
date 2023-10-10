@@ -4,6 +4,7 @@ import { EnvironmentInitValue } from "../pages/api/init";
 const env: EnvironmentInitValue = {
   telemetry: "enable",
   cloud: false,
+  licenseKeyRef: "",
   appOrigin: "",
   apiHost: "",
   cdnHost: "",
@@ -34,6 +35,9 @@ export function getCdnHost(): string {
   return env.cdnHost;
 }
 
+export function getLicenseKeyRef(): string {
+  return env.licenseKeyRef;
+}
 export function getApiHost(): string {
   return env.apiHost;
 }
