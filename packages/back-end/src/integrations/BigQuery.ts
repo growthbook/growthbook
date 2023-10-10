@@ -151,10 +151,19 @@ export default class BigQuery extends SqlIntegration {
       database
     );
   }
+
+  async listDatasets(): Promise<(string | undefined)[]> {
+    const [datasets] = await this.getClient().getDatasets();
+
+    return datasets.map((dataset: bq.Dataset) => {
+      if (dataset.id) {
+        return dataset.id;
+      }
+    });
+  }
+
   async getInformationSchema(): Promise<InformationSchema[]> {
-    const { rows: datasets } = await this.runQuery(
-      `SELECT * FROM ${`\`${this.params.projectId}.INFORMATION_SCHEMA.SCHEMATA\``}`
-    );
+    const datasets = await this.listDatasets();
 
     const results = [];
 
@@ -165,7 +174,7 @@ export default class BigQuery extends SqlIntegration {
         table_schema as table_schema,
         count(column_name) as column_count
       FROM
-        ${this.getInformationSchemaTable(`${dataset.schema_name}`)}
+        ${this.getInformationSchemaTable(`${dataset}`)}
         WHERE ${this.getInformationSchemaWhereClause()}
       GROUP BY table_name, table_schema, table_catalog
       ORDER BY table_name;`;
@@ -180,7 +189,7 @@ export default class BigQuery extends SqlIntegration {
         }
       } catch (e) {
         logger.error(
-          `Error fetching information schema data for dataset: ${dataset.schema_name}`,
+          `Error fetching information schema data for dataset: ${dataset}`,
           e
         );
       }
