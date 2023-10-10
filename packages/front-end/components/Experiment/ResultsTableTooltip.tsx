@@ -12,13 +12,17 @@ import { FaArrowDown, FaArrowUp } from "react-icons/fa";
 import { HiOutlineExclamationCircle } from "react-icons/hi";
 import { RxInfoCircled } from "react-icons/rx";
 import { MdSwapCalls } from "react-icons/md";
-import { ExperimentMetricInterface, isFactMetric } from "shared/experiments";
+import {
+  ExperimentMetricInterface,
+  isBinomialMetric,
+  isFactMetric,
+} from "shared/experiments";
 import NotEnoughData from "@/components/Experiment/NotEnoughData";
 import { pValueFormatter, RowResults } from "@/services/experiments";
 import { GBSuspicious } from "@/components/Icons";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import MetricValueColumn from "@/components/Experiment/MetricValueColumn";
-import { formatMetricValue } from "@/services/metrics";
+import { formatMetricValue, formatNumber } from "@/services/metrics";
 import { useCurrency } from "@/hooks/useCurrency";
 import { capitalizeFirstLetter } from "@/services/utils";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -577,12 +581,14 @@ export default function ResultsTableTooltip({
                         showRatio={false}
                       />
                       <td>
-                        {formatMetricValue(
-                          data.metric,
-                          row.value,
-                          getFactTableById,
-                          displayCurrency
-                        )}
+                        {isBinomialMetric(data.metric)
+                          ? formatNumber(row.value)
+                          : formatMetricValue(
+                              data.metric,
+                              row.value,
+                              getFactTableById,
+                              displayCurrency
+                            )}
                       </td>
                     </tr>
                   );
