@@ -89,9 +89,9 @@ export const languageMapping: Record<
     color: "#29BEB0",
     label: "Golang",
     docs: "go",
-    supportsEncryption: false,
+    supportsEncryption: true,
     supportsVisualExperiments: false,
-    supportsSSE: false,
+    supportsSSE: true,
     supportsRemoteEval: false,
   },
   ios: {
@@ -111,7 +111,7 @@ export const languageMapping: Record<
     docs: "java",
     supportsEncryption: true,
     supportsVisualExperiments: false,
-    supportsSSE: false,
+    supportsSSE: true,
     supportsRemoteEval: false,
   },
   javascript: {
@@ -142,7 +142,7 @@ export const languageMapping: Record<
     supportsEncryption: true,
     supportsVisualExperiments: false,
     supportsSSE: true,
-    supportsRemoteEval: true,
+    supportsRemoteEval: false,
   },
   other: {
     Icon: FaCode,

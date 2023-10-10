@@ -3045,6 +3045,9 @@ input:disabled {
     padding: 22px 20px 14px;
 
     &.selected {
+      border-color: #28a745 !important;
+    }
+    &.active {
       background: transparent;
       box-shadow: 0 0 0 3px var(--text-color-primary);
     }

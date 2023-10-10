@@ -97,9 +97,18 @@ export default function SDKConnectionForm({
 
   const languages = form.watch("languages");
 
+  const selectedLanguagesWithoutRemoteEvalSupport = languages.filter(
+    (l) => !languageMapping[l].supportsRemoteEval
+  );
+
   const selectedLanguagesWithoutEncryptionSupport = languages.filter(
     (l) => !languageMapping[l].supportsEncryption
   );
+
+  const enableRemoteEval =
+    hasRemoteEvaluationFeature &&
+    !!gb?.isOn("remote-evaluation") &&
+    selectedLanguagesWithoutRemoteEvalSupport.length === 0;
 
   const showVisualEditorSettings =
     !languages.length ||
@@ -135,21 +144,24 @@ export default function SDKConnectionForm({
       form.setValue("encryptPayload", enableEncryption);
       form.setValue("hashSecureAttributes", enableSecureAttributes);
     } else if (selectedSecurityTab === "server") {
-      const enableRemoteEval =
-        hasRemoteEvaluationFeature && !!gb?.isOn("remote-evaluation");
-      if (!enableRemoteEval) return;
+      if (!enableRemoteEval) {
+        form.setValue("remoteEvalEnabled", false);
+        return;
+      }
       form.setValue("remoteEvalEnabled", true);
       form.setValue("encryptPayload", false);
       form.setValue("hashSecureAttributes", false);
     }
   }, [
     selectedSecurityTab,
+    setSelectedSecurityTab,
     initialValue,
     form,
     gb,
     hasEncryptionFeature,
     hasSecureAttributesFeature,
     hasRemoteEvaluationFeature,
+    enableRemoteEval,
   ]);
 
   if (upgradeModal) {
@@ -178,9 +190,7 @@ export default function SDKConnectionForm({
         }
 
         // filter for remote eval
-        if (
-          value.languages.some((l) => !languageMapping[l].supportsRemoteEval)
-        ) {
+        if (languages.every((l) => !languageMapping[l].supportsRemoteEval)) {
           value.remoteEvalEnabled = false;
         }
 
@@ -543,8 +553,8 @@ export default function SDKConnectionForm({
                             variations are never seen by the client. When used
                             in a front-end context, server side evaluation
                             provides the same benefits as a backend SDK.
-                            However, this feature is not needed nor recommended
-                            for backend contexts.
+                            However, this feature is not needed in a backend
+                            context and is not supported.
                           </p>
                           <p>
                             Remote evaluation does come with a few cost
@@ -556,16 +566,10 @@ export default function SDKConnectionForm({
                                 users; therefore CDN cache misses will increase.
                               </li>
                               <li>
-                                Connections using instant feature deployments
-                                through{" "}
-                                <strong>
-                                  {isCloud()
-                                    ? "Streaming Updates"
-                                    : "GrowthBook Proxy"}
-                                </strong>{" "}
-                                will incur a slight delay. An additional network
-                                hop is required to retrieve the evaluated
-                                payload from the server.
+                                Any connections using Streaming Updates will
+                                incur a slight delay. An additional network hop
+                                is required to retrieve the evaluated payload
+                                from the server.
                               </li>
                             </ol>
                           </p>
@@ -595,17 +599,35 @@ export default function SDKConnectionForm({
                           <Toggle
                             id="remote-evaluation"
                             value={form.watch("remoteEvalEnabled")}
-                            setValue={(val) =>
-                              form.setValue("remoteEvalEnabled", val)
+                            setValue={(val) => {
+                              if (
+                                selectedLanguagesWithoutRemoteEvalSupport.length >
+                                0
+                              ) {
+                                form.setValue("remoteEvalEnabled", false);
+                              } else {
+                                form.setValue("remoteEvalEnabled", val);
+                              }
+                            }}
+                            disabled={
+                              !hasRemoteEvaluationFeature ||
+                              selectedLanguagesWithoutRemoteEvalSupport.length >
+                                0
                             }
-                            disabled={!hasRemoteEvaluationFeature}
                           />
                           {isCloud() ? (
-                            <div className="alert alert-info mb-0 ml-2 py-1 px-2">
+                            <div className="alert alert-info mb-0 ml-3 py-1 px-2">
                               <FaExclamationCircle className="mr-1" />
                               Cloud customers must self-host a remote evaluation
-                              service such as GrowthBook Proxy or a CDN edge
-                              worker.
+                              service such as{" "}
+                              <a
+                                target="_blank"
+                                href="https://github.com/growthbook/growthbook-proxy"
+                                rel="noreferrer"
+                              >
+                                GrowthBook Proxy
+                              </a>{" "}
+                              or a CDN edge worker.
                             </div>
                           ) : null}
                         </>
@@ -626,6 +648,37 @@ export default function SDKConnectionForm({
                   </div>
                 </div>
               </div>
+              {gb?.isOn("remote-evaluation") &&
+              selectedLanguagesWithoutRemoteEvalSupport.length > 0 ? (
+                <div
+                  className="ml-2 mt-3 text-warning-orange small"
+                  style={{ marginBottom: -5 }}
+                >
+                  <FaExclamationCircle /> Remote evaluation is currently only
+                  supported in a subset of front-end SDKs. It is not supported
+                  in the selected SDK
+                  {selectedLanguagesWithoutRemoteEvalSupport.length === 1
+                    ? ""
+                    : "s"}
+                  :
+                  <div className="ml-2 mt-1">
+                    {selectedLanguagesWithoutRemoteEvalSupport.map((id, i) => (
+                      <span className="nowrap" key={id}>
+                        <SDKLanguageLogo language={id} size={14} />
+                        <span
+                          className="text-muted font-weight-bold"
+                          style={{ marginLeft: 2, verticalAlign: 3 }}
+                        >
+                          {languageMapping[id].label}
+                        </span>
+                        {i <
+                          selectedLanguagesWithoutRemoteEvalSupport.length -
+                            1 && ", "}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
             </Tab>
           </ControlledTabs>
         </div>
