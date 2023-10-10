@@ -13,6 +13,7 @@ import {
   createManualSnapshot,
   createSnapshot,
   createSnapshotAnalysis,
+  getExperimentMetricById,
   getManualSnapshotData,
 } from "../services/experiments";
 import { MetricStats } from "../../types/metric";
@@ -61,7 +62,7 @@ import {
   ExperimentTargetingData,
   Variation,
 } from "../../types/experiment";
-import { getMetricById, getMetricMap } from "../models/MetricModel";
+import { getMetricMap } from "../models/MetricModel";
 import { IdeaModel } from "../models/IdeasModel";
 import { IdeaInterface } from "../../types/idea";
 import { getDataSourceById } from "../models/DataSourceModel";
@@ -91,6 +92,7 @@ import {
   getVisualEditorApiKey,
 } from "../models/ApiKeyModel";
 import { getExperimentWatchers, upsertWatch } from "../models/WatchModel";
+import { getFactTableMap } from "../models/FactTableModel";
 
 export async function getExperiments(
   req: AuthRequest<
@@ -471,6 +473,7 @@ const validateVariationIds = (variations: Variation[]) => {
 
 /**
  * Creates a new experiment
+ * If based on another experiment (originalId), it will copy the visual changesets
  * @param req
  * @param res
  */
@@ -478,7 +481,10 @@ export async function postExperiments(
   req: AuthRequest<
     Partial<ExperimentInterfaceStringDates>,
     unknown,
-    { allowDuplicateTrackingKey?: boolean }
+    {
+      allowDuplicateTrackingKey?: boolean;
+      originalId?: string;
+    }
   >,
   res: Response<
     | { status: 200; experiment: ExperimentInterface }
@@ -508,7 +514,10 @@ export async function postExperiments(
   // Validate that specified metrics exist and belong to the organization
   if (data.metrics && data.metrics.length) {
     for (let i = 0; i < data.metrics.length; i++) {
-      const metric = await getMetricById(data.metrics[i], data.organization);
+      const metric = await getExperimentMetricById(
+        data.metrics[i],
+        data.organization
+      );
 
       if (metric) {
         // Make sure it is tied to the same datasource as the experiment
@@ -613,6 +622,23 @@ export async function postExperiments(
       user: res.locals.eventAudit,
     });
 
+    if (req.query.originalId) {
+      const visualChangesets = await findVisualChangesetsByExperiment(
+        req.query.originalId,
+        org.id
+      );
+      for (const visualChangeset of visualChangesets) {
+        await createVisualChangeset({
+          experiment,
+          urlPatterns: visualChangeset.urlPatterns,
+          editorUrl: visualChangeset.editorUrl,
+          organization: org,
+          visualChanges: visualChangeset.visualChanges,
+          user: res.locals.eventAudit,
+        });
+      }
+    }
+
     await req.audit({
       event: "experiment.create",
       entity: {
@@ -698,7 +724,7 @@ export async function postExperiment(
 
   if (data.metrics && data.metrics.length) {
     for (let i = 0; i < data.metrics.length; i++) {
-      const metric = await getMetricById(data.metrics[i], org.id);
+      const metric = await getExperimentMetricById(data.metrics[i], org.id);
 
       if (metric) {
         // Make sure it is tied to the same datasource as the experiment
@@ -1807,6 +1833,7 @@ export async function postSnapshot(
   };
 
   const metricMap = await getMetricMap(org.id);
+  const factTableMap = await getFactTableMap(org.id);
 
   // Manual snapshot
   if (!experiment.datasource) {
@@ -1872,6 +1899,7 @@ export async function postSnapshot(
       metricRegressionAdjustmentStatuses:
         metricRegressionAdjustmentStatuses || [],
       metricMap,
+      factTableMap,
     });
     const snapshot = queryRunner.model;
 

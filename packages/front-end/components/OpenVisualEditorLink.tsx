@@ -5,6 +5,7 @@ import { getApiHost } from "@/services/env";
 import track from "@/services/track";
 import { appendQueryParamsToURL } from "@/services/utils";
 import { AuthContextValue, useAuth } from "@/services/auth";
+import { growthbook } from "@/pages/_app";
 import Modal from "./Modal";
 import Button from "./Button";
 
@@ -38,10 +39,16 @@ export async function openVisualEditor(
   }
 
   const apiHost = getApiHost();
+  const { enabled: aiFeatureMeta } = await apiCall<{ enabled: boolean }>(
+    `/meta/ai`
+  );
+  const isAiFeatureEnabled = growthbook.isOn("visual-editor-ai-enabled");
+
   url = appendQueryParamsToURL(url, {
     "vc-id": vc.id,
     "v-idx": 1,
     "exp-url": encodeURIComponent(window.location.href),
+    ...(aiFeatureMeta && isAiFeatureEnabled ? { "ai-enabled": "true" } : {}),
   });
 
   if (!bypassChecks) {

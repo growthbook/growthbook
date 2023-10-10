@@ -184,10 +184,193 @@ paths:
                         items:
                           $ref: '#/components/schemas/Feature'
                   - $ref: '#/components/schemas/PaginationFields'
+    post:
+      summary: Create a single feature
+      parameters: []
+      tags:
+        - features
+      operationId: postFeature
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -X POST https://api.growthbook.io/api/v1/features \
+              -d '{ id: "test-01", description: "A cool feature", ... }'
+              -u secret_abc123DEF456:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - id
+                - owner
+                - valueType
+                - defaultValue
+              properties:
+                id:
+                  type: string
+                  description: 'A unique key name for the feature. Feature keys can only include letters, numbers, hyphens, and underscores.'
+                archived:
+                  type: boolean
+                description:
+                  type: string
+                  description: Description of the feature
+                owner:
+                  type: string
+                  description: Email of the person who owns this experiment
+                project:
+                  type: string
+                  description: An associated project ID
+                valueType:
+                  type: string
+                  description: The data type of the feature payload. Boolean by default.
+                  enum:
+                    - boolean
+                    - string
+                    - number
+                    - json
+                defaultValue:
+                  description: Default value when feature is enabled. Type must match `valueType`.
+                  type: string
+                tags:
+                  type: array
+                  items:
+                    type: string
+                  description: List of associated tags
+                environments:
+                  type: object
+                  description: A dictionary of environments that are enabled for this feature. Keys supply the names of environments. Environments belong to organization and are not specified will be disabled by default.
+                  additionalProperties:
+                    type: object
+                    required:
+                      - enabled
+                      - rules
+                    properties:
+                      enabled:
+                        type: boolean
+                      rules:
+                        type: array
+                        items:
+                          anyOf:
+                            - type: object
+                              required:
+                                - type
+                                - value
+                              properties:
+                                description:
+                                  type: string
+                                condition:
+                                  type: string
+                                  description: Applied to everyone by default.
+                                id:
+                                  type: string
+                                enabled:
+                                  type: boolean
+                                  description: Enabled by default
+                                type:
+                                  type: string
+                                  enum:
+                                    - force
+                                value:
+                                  type: string
+                            - type: object
+                              required:
+                                - type
+                                - value
+                                - coverage
+                                - hashAttribute
+                              properties:
+                                description:
+                                  type: string
+                                condition:
+                                  type: string
+                                  description: Applied to everyone by default.
+                                id:
+                                  type: string
+                                enabled:
+                                  type: boolean
+                                  description: Enabled by default
+                                type:
+                                  type: string
+                                  enum:
+                                    - rollout
+                                value:
+                                  type: string
+                                coverage:
+                                  type: number
+                                  description: Percent of traffic included in this experiment. Users not included in the experiment will skip this rule.
+                                hashAttribute:
+                                  type: string
+                            - type: object
+                              required:
+                                - type
+                                - variations
+                                - experimentId
+                              properties:
+                                description:
+                                  type: string
+                                id:
+                                  type: string
+                                enabled:
+                                  type: boolean
+                                  description: Enabled by default
+                                type:
+                                  type: string
+                                  enum:
+                                    - experiment-ref
+                                condition:
+                                  type: string
+                                variations:
+                                  type: array
+                                  items:
+                                    type: object
+                                    required:
+                                      - value
+                                      - variationId
+                                    properties:
+                                      value:
+                                        type: string
+                                      variationId:
+                                        type: string
+                                experimentId:
+                                  type: string
+                      definition:
+                        type: string
+                        description: 'A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model)'
+                      draft:
+                        type: object
+                        description: Use to write draft changes without publishing them.
+                        required:
+                          - rules
+                        properties:
+                          enabled:
+                            type: boolean
+                          rules:
+                            type: array
+                            items:
+                              $ref: '#/paths/~1features/post/requestBody/content/application~1json/schema/properties/environments/additionalProperties/properties/rules/items'
+                          definition:
+                            type: string
+                            description: 'A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model)'
+                jsonSchema:
+                  type: string
+                  description: Use JSON schema to validate the payload of a JSON-type feature value (enterprise only).
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - feature
+                properties:
+                  feature:
+                    $ref: '#/components/schemas/Feature'
   '/features/{id}':
-    parameters:
-      - $ref: '#/components/parameters/id'
     get:
+      parameters:
+        - $ref: '#/components/parameters/id'
       summary: Get a single feature
       tags:
         - features
@@ -197,6 +380,61 @@ paths:
           source: |
             curl https://api.growthbook.io/api/v1/features/my_feature \
               -u secret_abc123DEF456:
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - feature
+                properties:
+                  feature:
+                    $ref: '#/components/schemas/Feature'
+    post:
+      summary: Partially update a feature
+      parameters:
+        - $ref: '#/components/parameters/id'
+      tags:
+        - features
+      operationId: updateFeature
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -X POST https://api.growthbook.io/api/v1/features/test-01 \
+              -d '{ description: "A cool feature flag", ... }'
+              -u secret_abc123DEF456:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                description:
+                  type: string
+                  description: Description of the feature
+                archived:
+                  type: boolean
+                project:
+                  type: string
+                  description: An associated project ID
+                owner:
+                  type: string
+                defaultValue:
+                  type: string
+                tags:
+                  type: array
+                  items:
+                    type: string
+                  description: List of associated tags. Will override tags completely with submitted list
+                environments:
+                  type: object
+                  additionalProperties:
+                    $ref: '#/paths/~1features/post/requestBody/content/application~1json/schema/properties/environments/additionalProperties'
+                jsonSchema:
+                  type: string
+                  description: Use JSON schema to validate the payload of a JSON-type feature value (enterprise only).
       responses:
         '200':
           content:

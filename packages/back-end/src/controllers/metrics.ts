@@ -274,10 +274,11 @@ export async function getMetric(
 }
 
 export async function getMetricsFromTrackedEvents(
-  req: AuthRequest<null, { datasourceId: string }>,
+  req: AuthRequest<{ schema: string }, { datasourceId: string }>,
   res: Response
 ) {
   const { org } = getOrgFromReq(req);
+  const { schema } = req.body;
   const { datasourceId } = req.params;
 
   const dataSourceObj = await getDataSourceById(datasourceId, org.id);
@@ -312,11 +313,14 @@ export async function getMetricsFromTrackedEvents(
 
     const trackedEvents: TrackedEventData[] = await integration.getEventsTrackedByDatasource(
       integration.settings.schemaFormat,
-      existingMetrics
+      existingMetrics,
+      schema
     );
 
     if (!trackedEvents.length) {
-      throw new Error("No recent events found");
+      throw new Error(
+        "No events found. The query we run to identify tracked events only looks at events from the last 7 days."
+      );
     }
 
     return res.status(200).json({
@@ -327,8 +331,7 @@ export async function getMetricsFromTrackedEvents(
     res.status(200).json({
       status: 200,
       trackedEvents: [],
-      message:
-        "We were unable to identify any metrics to generate for you automatically. You can still create metrics manually.",
+      message: e.message,
     });
     return;
   }

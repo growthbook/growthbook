@@ -5,7 +5,7 @@ import {
   DEFAULT_STATS_ENGINE,
 } from "shared/constants";
 import { putBaselineVariationFirst } from "shared/util";
-import { MetricInterface } from "../../types/metric";
+import { ExperimentMetricInterface } from "shared/experiments";
 import { ExperimentMetricAnalysis, StatsEngine } from "../../types/stats";
 import {
   ExperimentMetricQueryResponseRows,
@@ -29,7 +29,7 @@ export const MAX_DIMENSIONS = 20;
 
 export async function analyzeExperimentMetric(
   variations: ExperimentReportVariation[],
-  metric: MetricInterface,
+  metric: ExperimentMetricInterface,
   rows: ExperimentMetricQueryResponseRows,
   dimension: string | null = null,
   statsEngine: StatsEngine = DEFAULT_STATS_ENGINE,
@@ -71,7 +71,7 @@ data = json.loads("""${JSON.stringify({
       var_names: sortedVariations.map((v) => v.name),
       weights: sortedVariations.map((v) => v.weight),
       baseline_index: baselineVariationIndex ?? 0,
-      ignore_nulls: !!metric.ignoreNulls,
+      ignore_nulls: "ignoreNulls" in metric && !!metric.ignoreNulls,
       inverse: !!metric.inverse,
       max_dimensions:
         dimension?.substring(0, 8) === "pre:date" ? 9999 : MAX_DIMENSIONS,
@@ -157,7 +157,7 @@ export async function analyzeExperimentResults({
   analysisSettings: ExperimentSnapshotAnalysisSettings;
   snapshotSettings: ExperimentSnapshotSettings;
   variationNames: string[];
-  metricMap: Map<string, MetricInterface>;
+  metricMap: Map<string, ExperimentMetricInterface>;
 }): Promise<ExperimentReportResults> {
   const metricRows: {
     metric: string;

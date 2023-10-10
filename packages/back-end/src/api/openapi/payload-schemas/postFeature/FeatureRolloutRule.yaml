@@ -1,0 +1,28 @@
+type: object
+required:
+  - type
+  - value
+  - coverage
+  - hashAttribute
+properties:
+  description:
+    type: string
+  condition:
+    type: string
+    description: Applied to everyone by default.
+  id:
+    type: string
+  enabled:
+    type: boolean
+    description: Enabled by default
+  type:
+    type: string
+    enum:
+      - rollout
+  value:
+    type: string
+  coverage:
+    type: number
+    description: Percent of traffic included in this experiment. Users not included in the experiment will skip this rule.
+  hashAttribute:
+    type: string

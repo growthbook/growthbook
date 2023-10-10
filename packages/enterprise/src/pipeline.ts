@@ -15,3 +15,12 @@ export function bigQueryCreateTableOptions(
         )
       )`;
 }
+
+export function snowflakeCreateTableOptions(
+  settings: DataSourcePipelineSettings
+) {
+  return `DATA_RETENTION_TIME_IN_DAYS = ${Math.ceil(
+    (settings.unitsTableRetentionHours ?? UNITS_TABLE_RETENTION_HOURS_DEFAULT) /
+      24
+  )}`;
+}
