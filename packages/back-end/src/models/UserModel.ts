@@ -12,7 +12,7 @@ const userSchema = new mongoose.Schema({
     unique: true,
   },
   passwordHash: String,
-  admin: Boolean,
+  superAdmin: Boolean,
   verified: Boolean,
   minTokenDate: Date,
   externalId: String,
