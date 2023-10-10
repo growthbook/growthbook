@@ -40,6 +40,7 @@ export default function EditTargetingModal({
   const form = useForm<ExperimentTargetingData>({
     defaultValues: {
       condition: lastPhase?.condition ?? "",
+      savedGroups: lastPhase?.savedGroups ?? [],
       coverage: lastPhase?.coverage ?? 1,
       hashAttribute: experiment.hashAttribute || "id",
       hashVersion: experiment.hashVersion || 2,

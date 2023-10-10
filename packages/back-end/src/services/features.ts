@@ -22,10 +22,7 @@ import {
   getAllPayloadExperiments,
   getAllVisualExperiments,
 } from "../models/ExperimentModel";
-import {
-  getFeatureDefinition,
-  replaceSavedGroupsInCondition,
-} from "../util/features";
+import { getFeatureDefinition, getParsedCondition } from "../util/features";
 import { getAllSavedGroups } from "../models/SavedGroupModel";
 import {
   OrganizationInterface,
@@ -105,16 +102,11 @@ function generateVisualExperimentsPayload({
           ? e.variations.find((v) => v.id === e.releasedVariationId)
           : null;
 
-      let condition;
-      if (phase?.condition && phase.condition !== "{}") {
-        try {
-          condition = JSON.parse(
-            replaceSavedGroupsInCondition(phase.condition, groupMap)
-          );
-        } catch (e) {
-          // ignore condition parse errors here
-        }
-      }
+      const condition = getParsedCondition(
+        groupMap,
+        phase?.condition,
+        phase?.savedGroups
+      );
 
       if (!phase) return null;
 
@@ -184,7 +176,7 @@ export async function getSavedGroupMap(
     allGroups.map((group) => {
       const attributeType = attributeMap?.get(group.attributeKey);
       const values = getGroupValues(group.values, attributeType);
-      return [group.id, values];
+      return [group.id, { values, attribute: group.attributeKey }];
     })
   );
 

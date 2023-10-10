@@ -310,23 +310,33 @@ export interface components {
         [key: string]: ({
           enabled: boolean;
           defaultValue: string;
-          rules: ({
+          rules: (({
               description: string;
               condition: string;
+              savedGroups?: ({
+                  /** @enum {string} */
+                  match: "all" | "none" | "any";
+                  ids: (string)[];
+                })[];
               id: string;
               enabled: boolean;
               type: string;
               value: string;
-            } | {
+            }) | ({
               description: string;
               condition: string;
+              savedGroups?: ({
+                  /** @enum {string} */
+                  match: "all" | "none" | "any";
+                  ids: (string)[];
+                })[];
               id: string;
               enabled: boolean;
               type: string;
               value: string;
               coverage: number;
               hashAttribute: string;
-            } | {
+            }) | {
               description: string;
               condition: string;
               id: string;
@@ -362,23 +372,33 @@ export interface components {
           draft?: {
             enabled: boolean;
             defaultValue: string;
-            rules: ({
+            rules: (({
                 description: string;
                 condition: string;
+                savedGroups?: ({
+                    /** @enum {string} */
+                    match: "all" | "none" | "any";
+                    ids: (string)[];
+                  })[];
                 id: string;
                 enabled: boolean;
                 type: string;
                 value: string;
-              } | {
+              }) | ({
                 description: string;
                 condition: string;
+                savedGroups?: ({
+                    /** @enum {string} */
+                    match: "all" | "none" | "any";
+                    ids: (string)[];
+                  })[];
                 id: string;
                 enabled: boolean;
                 type: string;
                 value: string;
                 coverage: number;
                 hashAttribute: string;
-              } | {
+              }) | {
                 description: string;
                 condition: string;
                 id: string;
@@ -425,23 +445,33 @@ export interface components {
     FeatureEnvironment: {
       enabled: boolean;
       defaultValue: string;
-      rules: ({
+      rules: (({
           description: string;
           condition: string;
+          savedGroups?: ({
+              /** @enum {string} */
+              match: "all" | "none" | "any";
+              ids: (string)[];
+            })[];
           id: string;
           enabled: boolean;
           type: string;
           value: string;
-        } | {
+        }) | ({
           description: string;
           condition: string;
+          savedGroups?: ({
+              /** @enum {string} */
+              match: "all" | "none" | "any";
+              ids: (string)[];
+            })[];
           id: string;
           enabled: boolean;
           type: string;
           value: string;
           coverage: number;
           hashAttribute: string;
-        } | {
+        }) | {
           description: string;
           condition: string;
           id: string;
@@ -477,23 +507,33 @@ export interface components {
       draft?: {
         enabled: boolean;
         defaultValue: string;
-        rules: ({
+        rules: (({
             description: string;
             condition: string;
+            savedGroups?: ({
+                /** @enum {string} */
+                match: "all" | "none" | "any";
+                ids: (string)[];
+              })[];
             id: string;
             enabled: boolean;
             type: string;
             value: string;
-          } | {
+          }) | ({
             description: string;
             condition: string;
+            savedGroups?: ({
+                /** @enum {string} */
+                match: "all" | "none" | "any";
+                ids: (string)[];
+              })[];
             id: string;
             enabled: boolean;
             type: string;
             value: string;
             coverage: number;
             hashAttribute: string;
-          } | {
+          }) | {
             description: string;
             condition: string;
             id: string;
@@ -528,23 +568,33 @@ export interface components {
         definition?: string;
       };
     };
-    FeatureRule: {
+    FeatureRule: ({
       description: string;
       condition: string;
+      savedGroups?: ({
+          /** @enum {string} */
+          match: "all" | "none" | "any";
+          ids: (string)[];
+        })[];
       id: string;
       enabled: boolean;
       type: string;
       value: string;
-    } | {
+    }) | ({
       description: string;
       condition: string;
+      savedGroups?: ({
+          /** @enum {string} */
+          match: "all" | "none" | "any";
+          ids: (string)[];
+        })[];
       id: string;
       enabled: boolean;
       type: string;
       value: string;
       coverage: number;
       hashAttribute: string;
-    } | {
+    }) | {
       description: string;
       condition: string;
       id: string;
@@ -593,6 +643,11 @@ export interface components {
     FeatureForceRule: {
       description: string;
       condition: string;
+      savedGroups?: ({
+          /** @enum {string} */
+          match: "all" | "none" | "any";
+          ids: (string)[];
+        })[];
       id: string;
       enabled: boolean;
       type: string;
@@ -601,6 +656,11 @@ export interface components {
     FeatureRolloutRule: {
       description: string;
       condition: string;
+      savedGroups?: ({
+          /** @enum {string} */
+          match: "all" | "none" | "any";
+          ids: (string)[];
+        })[];
       id: string;
       enabled: boolean;
       type: string;
@@ -1029,23 +1089,33 @@ export interface operations {
                   [key: string]: ({
                     enabled: boolean;
                     defaultValue: string;
-                    rules: ({
+                    rules: (({
                         description: string;
                         condition: string;
+                        savedGroups?: ({
+                            /** @enum {string} */
+                            match: "all" | "none" | "any";
+                            ids: (string)[];
+                          })[];
                         id: string;
                         enabled: boolean;
                         type: string;
                         value: string;
-                      } | {
+                      }) | ({
                         description: string;
                         condition: string;
+                        savedGroups?: ({
+                            /** @enum {string} */
+                            match: "all" | "none" | "any";
+                            ids: (string)[];
+                          })[];
                         id: string;
                         enabled: boolean;
                         type: string;
                         value: string;
                         coverage: number;
                         hashAttribute: string;
-                      } | {
+                      }) | {
                         description: string;
                         condition: string;
                         id: string;
@@ -1081,23 +1151,33 @@ export interface operations {
                     draft?: {
                       enabled: boolean;
                       defaultValue: string;
-                      rules: ({
+                      rules: (({
                           description: string;
                           condition: string;
+                          savedGroups?: ({
+                              /** @enum {string} */
+                              match: "all" | "none" | "any";
+                              ids: (string)[];
+                            })[];
                           id: string;
                           enabled: boolean;
                           type: string;
                           value: string;
-                        } | {
+                        }) | ({
                           description: string;
                           condition: string;
+                          savedGroups?: ({
+                              /** @enum {string} */
+                              match: "all" | "none" | "any";
+                              ids: (string)[];
+                            })[];
                           id: string;
                           enabled: boolean;
                           type: string;
                           value: string;
                           coverage: number;
                           hashAttribute: string;
-                        } | {
+                        }) | {
                           description: string;
                           condition: string;
                           id: string;
@@ -1177,23 +1257,33 @@ export interface operations {
                 [key: string]: ({
                   enabled: boolean;
                   defaultValue: string;
-                  rules: ({
+                  rules: (({
                       description: string;
                       condition: string;
+                      savedGroups?: ({
+                          /** @enum {string} */
+                          match: "all" | "none" | "any";
+                          ids: (string)[];
+                        })[];
                       id: string;
                       enabled: boolean;
                       type: string;
                       value: string;
-                    } | {
+                    }) | ({
                       description: string;
                       condition: string;
+                      savedGroups?: ({
+                          /** @enum {string} */
+                          match: "all" | "none" | "any";
+                          ids: (string)[];
+                        })[];
                       id: string;
                       enabled: boolean;
                       type: string;
                       value: string;
                       coverage: number;
                       hashAttribute: string;
-                    } | {
+                    }) | {
                       description: string;
                       condition: string;
                       id: string;
@@ -1229,23 +1319,33 @@ export interface operations {
                   draft?: {
                     enabled: boolean;
                     defaultValue: string;
-                    rules: ({
+                    rules: (({
                         description: string;
                         condition: string;
+                        savedGroups?: ({
+                            /** @enum {string} */
+                            match: "all" | "none" | "any";
+                            ids: (string)[];
+                          })[];
                         id: string;
                         enabled: boolean;
                         type: string;
                         value: string;
-                      } | {
+                      }) | ({
                         description: string;
                         condition: string;
+                        savedGroups?: ({
+                            /** @enum {string} */
+                            match: "all" | "none" | "any";
+                            ids: (string)[];
+                          })[];
                         id: string;
                         enabled: boolean;
                         type: string;
                         value: string;
                         coverage: number;
                         hashAttribute: string;
-                      } | {
+                      }) | {
                         description: string;
                         condition: string;
                         id: string;
@@ -1328,23 +1428,33 @@ export interface operations {
                 [key: string]: ({
                   enabled: boolean;
                   defaultValue: string;
-                  rules: ({
+                  rules: (({
                       description: string;
                       condition: string;
+                      savedGroups?: ({
+                          /** @enum {string} */
+                          match: "all" | "none" | "any";
+                          ids: (string)[];
+                        })[];
                       id: string;
                       enabled: boolean;
                       type: string;
                       value: string;
-                    } | {
+                    }) | ({
                       description: string;
                       condition: string;
+                      savedGroups?: ({
+                          /** @enum {string} */
+                          match: "all" | "none" | "any";
+                          ids: (string)[];
+                        })[];
                       id: string;
                       enabled: boolean;
                       type: string;
                       value: string;
                       coverage: number;
                       hashAttribute: string;
-                    } | {
+                    }) | {
                       description: string;
                       condition: string;
                       id: string;
@@ -1380,23 +1490,33 @@ export interface operations {
                   draft?: {
                     enabled: boolean;
                     defaultValue: string;
-                    rules: ({
+                    rules: (({
                         description: string;
                         condition: string;
+                        savedGroups?: ({
+                            /** @enum {string} */
+                            match: "all" | "none" | "any";
+                            ids: (string)[];
+                          })[];
                         id: string;
                         enabled: boolean;
                         type: string;
                         value: string;
-                      } | {
+                      }) | ({
                         description: string;
                         condition: string;
+                        savedGroups?: ({
+                            /** @enum {string} */
+                            match: "all" | "none" | "any";
+                            ids: (string)[];
+                          })[];
                         id: string;
                         enabled: boolean;
                         type: string;
                         value: string;
                         coverage: number;
                         hashAttribute: string;
-                      } | {
+                      }) | {
                         description: string;
                         condition: string;
                         id: string;
@@ -2004,6 +2124,11 @@ export interface operations {
               targetingCondition?: string;
               reason?: string;
               condition?: string;
+              savedGroups?: ({
+                  /** @enum {string} */
+                  match: "all" | "none" | "any";
+                  ids: (string)[];
+                })[];
               variationWeights?: (number)[];
             })[];
         };
@@ -2283,6 +2408,11 @@ export interface operations {
               targetingCondition?: string;
               reason?: string;
               condition?: string;
+              savedGroups?: ({
+                  /** @enum {string} */
+                  match: "all" | "none" | "any";
+                  ids: (string)[];
+                })[];
               variationWeights?: (number)[];
             })[];
         };

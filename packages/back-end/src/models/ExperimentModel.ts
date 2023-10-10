@@ -143,6 +143,13 @@ const experimentSchema = new mongoose.Schema({
       reason: String,
       coverage: Number,
       condition: String,
+      savedGroups: [
+        {
+          _id: false,
+          ids: [String],
+          match: String,
+        },
+      ],
       namespace: {},
       seed: String,
       variationWeights: [Number],

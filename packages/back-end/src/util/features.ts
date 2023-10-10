@@ -5,12 +5,80 @@ import {
   FeatureInterface,
   FeatureRule,
   FeatureValueType,
+  SavedGroupTargeting,
 } from "../../types/feature";
 import { FeatureDefinition } from "../../types/api";
 import { GroupMap } from "../../types/saved-group";
 import { SDKPayloadKey } from "../../types/sdk-payload";
 import { ExperimentInterface } from "../../types/experiment";
 import { getCurrentEnabledState } from "./scheduleRules";
+
+export function getParsedCondition(
+  groupMap: GroupMap,
+  condition?: string,
+  savedGroups?: SavedGroupTargeting[]
+) {
+  const conditions = [];
+  if (condition && condition !== "{}") {
+    try {
+      conditions.push(
+        JSON.parse(replaceSavedGroupsInCondition(condition, groupMap))
+      );
+    } catch (e) {
+      // ignore condition parse errors here
+    }
+  }
+
+  if (savedGroups) {
+    savedGroups.forEach(({ ids, match }) => {
+      const groups = ids.map((id) => groupMap.get(id)).filter(Boolean) as {
+        attribute: string;
+        values: string[] | number[];
+      }[];
+      if (!groups.length) return;
+
+      // Add each group as a separate top-level AND
+      if (match === "all") {
+        groups.forEach((group) => {
+          conditions.push({
+            [group.attribute]: { $in: group.values },
+          });
+        });
+      }
+      // Add one top-level AND with nested OR conditions
+      else if (match === "any") {
+        const ors: Record<string, { $in: string[] | number[] }>[] = [];
+        groups.forEach((group) => {
+          ors.push({
+            [group.attribute]: { $in: group.values },
+          });
+        });
+        conditions.push({
+          $or: ors,
+        });
+      }
+      // Add each group as a separate top-level AND with a NOT condition
+      else if (match === "none") {
+        groups.forEach((group) => {
+          conditions.push({
+            [group.attribute]: { $nin: group.values },
+          });
+        });
+      }
+    });
+  }
+
+  // No conditions
+  if (!conditions.length) return undefined;
+  // Exactly one condition, return it
+  if (conditions.length === 1) {
+    return conditions[0];
+  }
+  // Multiple conditions, AND them together
+  return {
+    $and: conditions,
+  };
+}
 
 export function replaceSavedGroupsInCondition(
   condition: string,
@@ -21,7 +89,7 @@ export function replaceSavedGroupsInCondition(
     /[\s|\n]*"\$(inGroup|notInGroup)"[\s|\n]*:[\s|\n]*"([^"]*)"[\s|\n]*/g,
     (match: string, operator: string, groupId: string) => {
       const newOperator = operator === "inGroup" ? "$in" : "$nin";
-      const ids: string[] | number[] = groupMap.get(groupId) ?? [];
+      const ids: string[] | number[] = groupMap.get(groupId)?.values ?? [];
       return `"${newOperator}": ${JSON.stringify(ids)}`;
     }
   );
@@ -241,14 +309,13 @@ export function getFeatureDefinition({
             const phase = exp.phases[exp.phases.length - 1];
             if (!phase) return null;
 
-            if (phase.condition && phase.condition !== "{}") {
-              try {
-                rule.condition = JSON.parse(
-                  replaceSavedGroupsInCondition(phase.condition, groupMap)
-                );
-              } catch (e) {
-                // ignore condition parse errors here
-              }
+            const condition = getParsedCondition(
+              groupMap,
+              phase.condition,
+              phase.savedGroups
+            );
+            if (condition) {
+              rule.condition = condition;
             }
 
             rule.coverage = phase.coverage;
@@ -309,14 +376,13 @@ export function getFeatureDefinition({
             return rule;
           }
 
-          if (r.condition && r.condition !== "{}") {
-            try {
-              rule.condition = JSON.parse(
-                replaceSavedGroupsInCondition(r.condition, groupMap)
-              );
-            } catch (e) {
-              // ignore condition parse errors here
-            }
+          const condition = getParsedCondition(
+            groupMap,
+            r.condition,
+            r.savedGroups
+          );
+          if (condition) {
+            rule.condition = condition;
           }
 
           if (r.type === "force") {

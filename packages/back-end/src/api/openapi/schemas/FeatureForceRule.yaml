@@ -11,6 +11,24 @@ properties:
     type: string
   condition:
     type: string
+  savedGroups:
+    type: array
+    items:
+      type: object
+      required:
+        - match
+        - ids
+      properties:
+        match:
+          type: string
+          enum:
+            - all
+            - none
+            - any
+        ids:
+          type: array
+          items:
+            type: string
   id:
     type: string
   enabled:

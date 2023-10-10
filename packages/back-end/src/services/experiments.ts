@@ -1513,6 +1513,7 @@ export function postExperimentApiPayloadToInterface(
     reason: p.reason || "",
     coverage: p.coverage != null ? p.coverage : 1,
     condition: p.condition || "{}",
+    savedGroups: p.savedGroups || [],
     namespace: {
       name: p.namespace?.namespaceId || "",
       range: toNamespaceRange(p.namespace?.range),
@@ -1531,6 +1532,7 @@ export function postExperimentApiPayloadToInterface(
         () => 1 / payload.variations.length
       ),
       condition: "",
+      savedGroups: [],
       namespace: {
         enabled: false,
         name: "",
@@ -1654,6 +1656,7 @@ export function updateExperimentApiPayloadToInterface(
             reason: p.reason || "",
             coverage: p.coverage != null ? p.coverage : 1,
             condition: p.condition || "{}",
+            savedGroups: p.savedGroups || [],
             namespace: {
               name: p.namespace?.namespaceId || "",
               range: toNamespaceRange(p.namespace?.range),

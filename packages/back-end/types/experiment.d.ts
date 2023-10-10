@@ -1,4 +1,4 @@
-import { NamespaceValue } from "./feature";
+import { NamespaceValue, SavedGroupTargeting } from "./feature";
 import { StatsEngine } from "./stats";
 
 export type ImplementationType = "visual" | "code" | "configuration" | "custom";
@@ -51,6 +51,7 @@ export interface ExperimentPhase {
   reason: string;
   coverage: number;
   condition: string;
+  savedGroups?: SavedGroupTargeting[];
   namespace: NamespaceValue;
   seed?: string;
   variationWeights: number[];
@@ -164,7 +165,12 @@ export type Changeset = Partial<ExperimentInterface>;
 
 export type ExperimentTargetingData = Pick<
   ExperimentPhaseStringDates,
-  "condition" | "coverage" | "namespace" | "seed" | "variationWeights"
+  | "condition"
+  | "coverage"
+  | "namespace"
+  | "seed"
+  | "variationWeights"
+  | "savedGroups"
 > &
   Pick<
     ExperimentInterfaceStringDates,
