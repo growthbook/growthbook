@@ -152,29 +152,37 @@ export default class BigQuery extends SqlIntegration {
     );
   }
 
-  async listDatasets(): Promise<(string | undefined)[]> {
+  async listDatasets(): Promise<string[]> {
     const [datasets] = await this.getClient().getDatasets();
 
-    return datasets.map((dataset: bq.Dataset) => {
+    const datasetNames: string[] = [];
+    for (let i = 0; i < datasets.length; i++) {
+      const dataset = datasets[i];
       if (dataset.id) {
-        return dataset.id;
+        datasetNames.push(dataset.id);
       }
-    });
+    }
+
+    return datasetNames;
   }
 
   async getInformationSchema(): Promise<InformationSchema[]> {
-    const datasets = await this.listDatasets();
+    const datasetNames = await this.listDatasets();
+
+    if (!datasetNames.length) {
+      throw new Error(`No datasets found.`);
+    }
 
     const results = [];
 
-    for (const dataset of datasets) {
+    for (const datasetName of datasetNames) {
       const query = `SELECT
         table_name as table_name,
         table_catalog as table_catalog,
         table_schema as table_schema,
         count(column_name) as column_count
       FROM
-        ${this.getInformationSchemaTable(`${dataset}`)}
+        ${this.getInformationSchemaTable(`${datasetName}`)}
         WHERE ${this.getInformationSchemaWhereClause()}
       GROUP BY table_name, table_schema, table_catalog
       ORDER BY table_name;`;
@@ -189,7 +197,7 @@ export default class BigQuery extends SqlIntegration {
         }
       } catch (e) {
         logger.error(
-          `Error fetching information schema data for dataset: ${dataset}`,
+          `Error fetching information schema data for dataset: ${datasetName}`,
           e
         );
       }
