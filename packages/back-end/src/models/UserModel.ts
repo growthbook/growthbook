@@ -12,9 +12,11 @@ const userSchema = new mongoose.Schema({
     unique: true,
   },
   passwordHash: String,
-  superAdmin: Boolean,
+  admin: Boolean,
   verified: Boolean,
   minTokenDate: Date,
+  externalId: String,
+  managedByIdp: Boolean,
 });
 
 export type UserDocument = mongoose.Document & UserInterface;

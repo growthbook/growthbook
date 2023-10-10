@@ -21,6 +21,12 @@ export async function getUserByEmail(email: string) {
   });
 }
 
+export async function getUserByExternalId(externalId: string) {
+  return UserModel.findOne({
+    externalId,
+  });
+}
+
 export async function getUserById(id: string) {
   return UserModel.findOne({
     id,
@@ -31,6 +37,17 @@ export async function getUsersByIds(ids: string[]) {
   return UserModel.find({
     id: { $in: ids },
   });
+}
+
+export async function removeExternalId(userId: string) {
+  return UserModel.updateOne({ id: userId }, { $unset: { externalId: 1 } });
+}
+
+export async function addExternalIdToExistingUser(
+  userId: string,
+  externalId: string
+) {
+  return UserModel.updateOne({ id: userId }, { $set: { externalId } });
 }
 
 async function hash(password: string): Promise<string> {
@@ -78,7 +95,9 @@ export async function createUser(
   name: string,
   email: string,
   password?: string,
-  verified: boolean = false
+  verified: boolean = false,
+  managedByIdp: boolean = false,
+  externalId?: string
 ) {
   let passwordHash = "";
 
@@ -92,8 +111,27 @@ export async function createUser(
     email,
     passwordHash,
     id: uniqid("u_"),
+    externalId,
     verified,
+    managedByIdp,
   });
+}
+
+export async function updateScimUserData(
+  userId: string,
+  updates: { email: string; name: string }
+) {
+  return UserModel.updateOne(
+    {
+      id: userId,
+    },
+    {
+      $set: {
+        email: updates.email,
+        name: updates.name,
+      },
+    }
+  );
 }
 
 /**
