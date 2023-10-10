@@ -149,8 +149,7 @@ app.use(function(req, res, next) {
             encryptionKey
               ? `\n    decryptionKey: ${JSON.stringify(encryptionKey)}`
               : ""
-          }${remoteEvalEnabled ? `\n    remoteEval: true,` : ""}
-    enableDevMode: true,
+          }enableDevMode: true,
     trackingCallback: (experiment, result) => {
       // ${trackingComment}
       console.log("Viewed Experiment", {
