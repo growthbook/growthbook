@@ -1,5 +1,5 @@
-import fetch from "node-fetch";
 import https from "https";
+import fetch from "node-fetch";
 import cloneDeep from "lodash/cloneDeep";
 import { getValidDate } from "shared";
 import { DimensionInterface } from "../../types/dimension";
@@ -48,8 +48,7 @@ const httpsAgent = new https.Agent({
 });
 
 export default abstract class MicrosoftAppInsights
-  implements SourceIntegrationInterface
-{
+  implements SourceIntegrationInterface {
   params: MicrosoftAppInsightsParams;
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
   // @ts-expect-error
@@ -68,8 +67,9 @@ export default abstract class MicrosoftAppInsights
   constructor(encryptedParams: string, settings: DataSourceSettings) {
     try {
       // logStorageContainer
-      this.params =
-        decryptDataSourceParams<MicrosoftAppInsightsParams>(encryptedParams);
+      this.params = decryptDataSourceParams<MicrosoftAppInsightsParams>(
+        encryptedParams
+      );
     } catch (e) {
       this.params = {
         appId: "",
@@ -701,7 +701,7 @@ export default abstract class MicrosoftAppInsights
   async runExperimentMetricQuery(
     query: string
   ): Promise<ExperimentMetricQueryResponse> {
-    const kustoResult: any = await this.queryAppInsights(query);
+    const kustoResult = await this.queryAppInsights(query);
 
     return (
       (kustoResult?.tables?.[0]?.rows &&
@@ -741,9 +741,9 @@ export default abstract class MicrosoftAppInsights
 
   getPastExperimentQuery(params: PastExperimentParams) {
     // TODO: for past experiments, UNION all exposure queries together
-    const experimentQueries = (this.settings.queries?.exposure || []).map(
-      ({ id }) => this.getExposureQuery(id)
-    );
+    const experimentQueries = (
+      this.settings.queries?.exposure || []
+    ).map(({ id }) => this.getExposureQuery(id));
 
     return format(
       `// Past Experiments
@@ -809,7 +809,7 @@ export default abstract class MicrosoftAppInsights
         by exposure_query, experiment_id, variation_id
       );
     variations
-    | where
+    | where
       // Skip experiments at start of date range since it's likely missing data
       ${this.dateDiff(this.toTimestamp(params.from), "start_date")} > 2
     | sort by experiment_id asc, variation_id asc`,
@@ -817,9 +817,7 @@ export default abstract class MicrosoftAppInsights
     );
   }
 
-  async runPastExperimentQuery(
-    query: string
-  ): Promise<PastExperimentQueryResponse> {
+  async runPastExperimentQuery(): Promise<PastExperimentQueryResponse> {
     // const rows = await this.runQuery();
 
     // return rows.map((row) => {
@@ -1000,22 +998,18 @@ export default abstract class MicrosoftAppInsights
   private async queryAppInsights(query: string): Promise<any> {
     let data = null;
 
-    try {
-      const res = await fetch(
-        `https://api.applicationinsights.io/v1/apps/${this.params.appId}/query${
-          query !== "" ? `?query=${encodeURIComponent(query)}` : ""
-        }`,
-        {
-          agent: httpsAgent,
-          headers: {
-            ["x-api-key"]: this.params.apiKey,
-          },
-        }
-      );
-      data = await res.json();
-    } catch (ex) {
-      throw ex;
-    }
+    const res = await fetch(
+      `https://api.applicationinsights.io/v1/apps/${this.params.appId}/query${
+        query !== "" ? `?query=${encodeURIComponent(query)}` : ""
+      }`,
+      {
+        agent: httpsAgent,
+        headers: {
+          ["x-api-key"]: this.params.apiKey,
+        },
+      }
+    );
+    data = await res.json();
 
     return data;
   }
@@ -1353,6 +1347,7 @@ export default abstract class MicrosoftAppInsights
                 conversionDelayHours + conversionWindowHours
               )}`
         }
+        ${join}
         ${where.length ? `| where ${where.join(" and ")}` : ""}
     `;
   }
@@ -1422,9 +1417,8 @@ export default abstract class MicrosoftAppInsights
   ) {
     if (!metric) return;
 
-    const computed = settings.metricSettings.find(
-      (s) => s.id === metric.id
-    )?.computedSettings;
+    const computed = settings.metricSettings.find((s) => s.id === metric.id)
+      ?.computedSettings;
     if (!computed) return;
 
     metric.conversionDelayHours = computed.conversionDelayHours;
@@ -1715,7 +1709,7 @@ export default abstract class MicrosoftAppInsights
 
   async runTestQuery(kql: string): Promise<TestQueryResult> {
     const queryStartTime = Date.now();
-    const kustoResult: any = await this.queryAppInsights(kql);
+    const kustoResult = await this.queryAppInsights(kql);
     const queryEndTime = Date.now();
     const duration = queryEndTime - queryStartTime;
     const results = kustoResult?.tables[0].rows.map((row: any) => {

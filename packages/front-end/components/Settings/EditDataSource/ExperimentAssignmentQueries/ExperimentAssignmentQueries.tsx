@@ -14,13 +14,15 @@ import Code from "@/components/SyntaxHighlighting/Code";
 import { AddEditExperimentAssignmentQueryModal } from "@/components/Settings/EditDataSource/ExperimentAssignmentQueries/AddEditExperimentAssignmentQueryModal";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import Button from "@/components/Button";
-import Button from "@/components/Button";
 
 type ExperimentAssignmentQueriesProps = DataSourceQueryEditingModalBaseProps;
 
-export const ExperimentAssignmentQueries: FC<
-  ExperimentAssignmentQueriesProps
-> = ({ dataSource, onSave, onCancel, canEdit = true }) => {
+export const ExperimentAssignmentQueries: FC<ExperimentAssignmentQueriesProps> = ({
+  dataSource,
+  onSave,
+  onCancel,
+  canEdit = true,
+}) => {
   const router = useRouter();
   let intitialOpenIndexes: boolean[] = [];
   if (router.query.openAll === "1") {
@@ -31,8 +33,9 @@ export const ExperimentAssignmentQueries: FC<
 
   const [uiMode, setUiMode] = useState<"view" | "edit" | "add">("view");
   const [editingIndex, setEditingIndex] = useState<number>(-1);
-  const [openIndexes, setOpenIndexes] =
-    useState<boolean[]>(intitialOpenIndexes);
+  const [openIndexes, setOpenIndexes] = useState<boolean[]>(
+    intitialOpenIndexes
+  );
 
   const permissions = usePermissions();
   canEdit =
