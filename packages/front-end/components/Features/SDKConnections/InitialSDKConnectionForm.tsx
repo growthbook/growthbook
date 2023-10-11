@@ -3,7 +3,7 @@ import {
   SDKLanguage,
 } from "back-end/types/sdk-connection";
 import { useForm } from "react-hook-form";
-import { ReactElement, useEffect, useState } from "react";
+import React, { ReactElement, useEffect, useState } from "react";
 import { FeatureInterface } from "back-end/types/feature";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import Modal from "@/components/Modal";
@@ -128,17 +128,13 @@ export default function InitialSDKConnectionForm({
       <Field label="Name of your app" {...form.register("name")} required />
 
       <div className="form-group">
-        <label>Tech Stack</label>
-        <small className="text-muted ml-3">(Select all that apply)</small>
+        <label>SDK Language</label>
         <SDKLanguageSelector
           value={form.watch("languages")}
           setValue={(languages) => form.setValue("languages", languages)}
-          multiple={true}
+          multiple={false}
           includeOther={true}
         />
-        <small className="form-text text-muted">
-          This helps us give you personalized setup instructions
-        </small>
       </div>
     </Modal>
   );

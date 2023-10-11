@@ -71,7 +71,7 @@ export default function SDKConnectionsList() {
               {projects.length > 0 && <th>Project</th>}
               <th>Environment</th>
               <th className="text-center">Features</th>
-              <th>Languages</th>
+              <th>Language</th>
               <th style={{ width: 25 }}></th>
             </tr>
           </thead>

@@ -78,6 +78,8 @@ export default function SDKConnectionForm({
     getSecurityTabState(initialValue)
   );
 
+  const [languageError, setLanguageError] = useState<string | null>(null);
+
   const form = useForm({
     defaultValues: {
       name: initialValue.name ?? "",
@@ -101,7 +103,9 @@ export default function SDKConnectionForm({
     languages.map((l) => languageMapping[l].environment)
   );
   const languageEnvironment =
-    languageEnvironments.size === 1
+    languageEnvironments.size === 0
+      ? "backend" // show the least amount of configuration options if nothing is set
+      : languageEnvironments.size === 1
       ? [...languageEnvironments][0]
       : languageEnvironments.has("frontend")
       ? "frontend"
@@ -124,9 +128,9 @@ export default function SDKConnectionForm({
     !!gb?.isOn("remote-evaluation") &&
     selectedLanguagesWithoutRemoteEvalSupport.length === 0;
 
-  const showVisualEditorSettings =
-    !languages.length ||
-    languages.some((l) => languageMapping[l].supportsVisualExperiments);
+  const showVisualEditorSettings = languages.some(
+    (l) => languageMapping[l].supportsVisualExperiments
+  );
 
   const projectsOptions = projects.map((p) => ({
     label: p.name,
@@ -144,12 +148,25 @@ export default function SDKConnectionForm({
     });
   }
 
+  useEffect(() => {
+    if (languageEnvironment === "backend") {
+      setSelectedSecurityTab("none");
+    }
+  }, [languageEnvironment, setSelectedSecurityTab]);
+
+  useEffect(() => {
+    if (!showVisualEditorSettings) {
+      form.setValue("includeVisualExperiments", false);
+    }
+  }, [showVisualEditorSettings, form]);
+
   // complex setter for clicking a "SDK Payload Security" button
   useEffect(() => {
     if (selectedSecurityTab === "none") {
       form.setValue("remoteEvalEnabled", false);
       form.setValue("encryptPayload", false);
       form.setValue("hashSecureAttributes", false);
+      form.setValue("includeExperimentNames", true);
     } else if (selectedSecurityTab === "client") {
       const enableEncryption = hasEncryptionFeature;
       const enableSecureAttributes = hasSecureAttributesFeature;
@@ -157,6 +174,7 @@ export default function SDKConnectionForm({
       form.setValue("remoteEvalEnabled", false);
       form.setValue("encryptPayload", enableEncryption);
       form.setValue("hashSecureAttributes", enableSecureAttributes);
+      form.setValue("includeExperimentNames", false);
     } else if (selectedSecurityTab === "server") {
       if (!enableRemoteEval) {
         form.setValue("remoteEvalEnabled", false);
@@ -165,6 +183,7 @@ export default function SDKConnectionForm({
       form.setValue("remoteEvalEnabled", true);
       form.setValue("encryptPayload", false);
       form.setValue("hashSecureAttributes", false);
+      form.setValue("includeExperimentNames", false);
     }
   }, [
     selectedSecurityTab,
@@ -174,10 +193,17 @@ export default function SDKConnectionForm({
     enableRemoteEval,
   ]);
 
+  useEffect(() => {
+    if (languages.length > 0 && languageError) {
+      setLanguageError(null);
+    }
+  }, [languages, languageError, setLanguageError]);
+
   return (
     <Modal
       header={edit ? "Edit SDK Connection" : "New SDK Connection"}
       size={"lg"}
+      error={form.formState.errors.languages?.message}
       submit={form.handleSubmit(async (value) => {
         // filter for visual experiments
         if (
@@ -225,6 +251,16 @@ export default function SDKConnectionForm({
           await router.push(`/sdks/${res.connection.id}`);
         }
       })}
+      customValidation={() => {
+        // manual validation for languages
+        if (languages.length === 0) {
+          setLanguageError("Please select an SDK language");
+          return false;
+        } else {
+          setLanguageError(null);
+          return true;
+        }
+      }}
       close={close}
       open={true}
       cta="Save"
@@ -233,7 +269,14 @@ export default function SDKConnectionForm({
         <Field label="Name" {...form.register("name")} required />
 
         <div className="form-group">
-          <label>SDK Language</label>
+          <div className="d-flex align-items-center mb-1">
+            <label className="mb-0">SDK Language</label>
+            {languageError ? (
+              <span className="ml-3 alert px-1 py-0 mb-0 alert-danger">
+                {languageError}
+              </span>
+            ) : null}
+          </div>
           <SDKLanguageSelector
             value={form.watch("languages")}
             setValue={(languages) => form.setValue("languages", languages)}
@@ -376,7 +419,7 @@ export default function SDKConnectionForm({
                     }
                   >
                     <div className="d-flex">
-                      <div className="col-4">
+                      <div className="col-4 px-0">
                         <label htmlFor="encryptSDK">
                           <PremiumTooltip
                             commercialFeature="encrypt-features-endpoint"
@@ -418,7 +461,7 @@ export default function SDKConnectionForm({
                         </div>
                       </div>
 
-                      <div className="col-4">
+                      <div className="col-4 px-0">
                         <label htmlFor="hash-secure-attributes">
                           <PremiumTooltip
                             commercialFeature="hash-secure-attributes"
@@ -456,6 +499,38 @@ export default function SDKConnectionForm({
                               form.setValue("hashSecureAttributes", val)
                             }
                             disabled={!hasSecureAttributesFeature}
+                          />
+                        </div>
+                      </div>
+
+                      <div className="col-4 px-0">
+                        <label htmlFor="sdk-connection-include-experiment-meta">
+                          <Tooltip
+                            body={
+                              <>
+                                <p>
+                                  This can help add context when debugging or
+                                  tracking events.
+                                </p>
+                                <div>
+                                  However, this could expose potentially
+                                  sensitive information to your users if enabled
+                                  for a client-side or mobile application.
+                                </div>
+                              </>
+                            }
+                          >
+                            Add experiment/variation names?{" "}
+                            <FaInfoCircle style={{ marginRight: -10 }} />
+                          </Tooltip>
+                        </label>
+                        <div>
+                          <Toggle
+                            id="sdk-connection-include-experiment-meta"
+                            value={form.watch("includeExperimentNames")}
+                            setValue={(val) =>
+                              form.setValue("includeExperimentNames", val)
+                            }
                           />
                         </div>
                       </div>
@@ -760,34 +835,6 @@ export default function SDKConnectionForm({
             </div>
           </>
         )}
-
-        <div className="mt-3 mb-3">
-          <Tooltip
-            body={
-              <>
-                <p>
-                  This can help add context when debugging or tracking events.
-                </p>
-                <div>
-                  However, this could expose potentially sensitive information
-                  to your users if enabled for a client-side or mobile
-                  application.
-                </div>
-              </>
-            }
-          >
-            <label htmlFor="sdk-connection-include-experiment-meta">
-              Include experiment/variation names? <FaInfoCircle />
-            </label>
-          </Tooltip>
-          <div>
-            <Toggle
-              id="sdk-connection-include-experiment-meta"
-              value={form.watch("includeExperimentNames")}
-              setValue={(val) => form.setValue("includeExperimentNames", val)}
-            />
-          </div>
-        </div>
 
         {isCloud() && gb?.isOn("proxy-cloud") && (
           <div
