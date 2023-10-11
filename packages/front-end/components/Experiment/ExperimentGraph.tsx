@@ -152,7 +152,7 @@ export default function ExperimentGraph({
 
   return (
     <>
-      <div className="row mb-3 align-content-end">
+      <div className="row mb-1 align-content-end">
         <div className="col">
           <h4 className="mb-0">
             {title}{" "}
