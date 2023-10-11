@@ -7,12 +7,6 @@ properties:
     type: string
     format: date-time
     description: The date the organization was created
-  verifiedDomain:
-    type: string
-    description: The verified domain for the organization
-  url:
-    type: string
-    description: The URL for the organization
   name:
     type: string
     description: The name of the organization

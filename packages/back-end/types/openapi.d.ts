@@ -982,10 +982,6 @@ export interface components {
        * @description The date the organization was created
        */
       dateCreated?: string;
-      /** @description The verified domain for the organization */
-      verifiedDomain?: string;
-      /** @description The URL for the organization */
-      url?: string;
       /** @description The name of the organization */
       name?: string;
       /** @description The email address of the organization owner */
@@ -3378,10 +3374,6 @@ export interface operations {
                  * @description The date the organization was created
                  */
                 dateCreated?: string;
-                /** @description The verified domain for the organization */
-                verifiedDomain?: string;
-                /** @description The URL for the organization */
-                url?: string;
                 /** @description The name of the organization */
                 name?: string;
                 /** @description The email address of the organization owner */
@@ -3421,10 +3413,6 @@ export interface operations {
                * @description The date the organization was created
                */
               dateCreated?: string;
-              /** @description The verified domain for the organization */
-              verifiedDomain?: string;
-              /** @description The URL for the organization */
-              url?: string;
               /** @description The name of the organization */
               name?: string;
               /** @description The email address of the organization owner */
