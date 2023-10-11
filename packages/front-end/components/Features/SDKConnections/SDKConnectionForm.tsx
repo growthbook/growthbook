@@ -35,14 +35,14 @@ import SDKLanguageLogo, {
 
 function getSecurityTabState(
   value: Partial<SDKConnectionInterface>
-): "none" | "client" | "server" {
-  if (value.remoteEvalEnabled) return "server";
+): "none" | "ciphered" | "remote" {
+  if (value.remoteEvalEnabled) return "remote";
   if (
     value.encryptPayload ||
     value.hashSecureAttributes ||
     !value.includeExperimentNames
   )
-    return "client";
+    return "ciphered";
   return "none";
 }
 
@@ -172,15 +172,14 @@ export default function SDKConnectionForm({
       form.setValue("encryptPayload", false);
       form.setValue("hashSecureAttributes", false);
       form.setValue("includeExperimentNames", true);
-    } else if (selectedSecurityTab === "client") {
+    } else if (selectedSecurityTab === "ciphered") {
       const enableEncryption = hasEncryptionFeature;
       const enableSecureAttributes = hasSecureAttributesFeature;
-      if (!enableEncryption && !enableSecureAttributes) return;
       form.setValue("remoteEvalEnabled", false);
       form.setValue("encryptPayload", enableEncryption);
       form.setValue("hashSecureAttributes", enableSecureAttributes);
       form.setValue("includeExperimentNames", false);
-    } else if (selectedSecurityTab === "server") {
+    } else if (selectedSecurityTab === "remote") {
       if (!enableRemoteEval) {
         form.setValue("remoteEvalEnabled", false);
         return;
@@ -393,12 +392,13 @@ export default function SDKConnectionForm({
                   languageEnvironment
                 ) && (
                   <Tab
-                    id="client"
+                    id="ciphered"
                     padding={false}
                     className="pt-1 pb-2"
                     display={
                       <>
-                        {getSecurityTabState(form.getValues()) === "client" && (
+                        {getSecurityTabState(form.getValues()) ===
+                          "ciphered" && (
                           <>
                             <FaCheck className="check text-success" />{" "}
                           </>
@@ -579,12 +579,12 @@ export default function SDKConnectionForm({
 
                 {["frontend", "hybrid"].includes(languageEnvironment) && (
                   <Tab
-                    id="server"
+                    id="remote"
                     padding={false}
                     className="pt-1 pb-2"
                     display={
                       <>
-                        {getSecurityTabState(form.getValues()) === "server" && (
+                        {getSecurityTabState(form.getValues()) === "remote" && (
                           <>
                             <FaCheck className="check text-success" />{" "}
                           </>
@@ -642,9 +642,9 @@ export default function SDKConnectionForm({
                                 </div>
                                 <div className="mb-2">
                                   Remote evaluation provides the same security
-                                  benefits as a backend SDK. However, remote
-                                  evaluation is neither needed nor supported for
-                                  backend SDKs.
+                                  benefits as a includeExperimentNames SDK.
+                                  However, remote evaluation is neither needed
+                                  nor supported for backend SDKs.
                                 </div>
                                 <div className="mb-2">
                                   Remote evaluation does come with a few cost
