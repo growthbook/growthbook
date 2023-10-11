@@ -156,11 +156,20 @@ export async function getExperimentsFrequencyMonth(
     stopped: JSON.parse(JSON.stringify(allData)),
   };
 
+  // create stubs for each month by all the projects:
   const dataByProject: Record<string, [{ date: string; numExp: number }]> = {};
   allProjects.forEach((p) => {
     dataByProject[p.id] = JSON.parse(JSON.stringify(allData));
   });
   dataByProject["all"] = JSON.parse(JSON.stringify(allData));
+
+  // create stubs for each month by all the result:
+  const dataByResult = {
+    won: JSON.parse(JSON.stringify(allData)),
+    lost: JSON.parse(JSON.stringify(allData)),
+    inconclusive: JSON.parse(JSON.stringify(allData)),
+    dnf: JSON.parse(JSON.stringify(allData)),
+  };
 
   // now get the right number of experiments:
   experiments.forEach((e) => {
@@ -174,7 +183,6 @@ export async function getExperimentsFrequencyMonth(
       });
     }
     const monthYear = format(getValidDate(dateStarted), "MMM yyy");
-
     allData.forEach((md, i) => {
       const name = format(getValidDate(md.date), "MMM yyy");
       if (name === monthYear) {
@@ -187,6 +195,10 @@ export async function getExperimentsFrequencyMonth(
         } else {
           dataByProject["all"][i].numExp++;
         }
+
+        if (e.results) {
+          dataByResult[e.results][i].numExp++;
+        }
       }
     });
   });
@@ -195,6 +207,7 @@ export async function getExperimentsFrequencyMonth(
     status: 200,
     byStatus: { all: allData, ...dataByStatus },
     byProject: { ...dataByProject },
+    byResults: { ...dataByResult },
   });
 }
 

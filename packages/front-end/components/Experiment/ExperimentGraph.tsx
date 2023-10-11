@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { BarRounded, BarStack } from "@visx/shape";
 import { AxisBottom, AxisLeft } from "@visx/axis";
 import { Group } from "@visx/group";
@@ -11,24 +11,29 @@ import { localPoint } from "@visx/event";
 import { getValidDate } from "shared/dates";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import useApi from "@/hooks/useApi";
+import Field from "@/components/Forms/Field";
 import LoadingOverlay from "../LoadingOverlay";
 import styles from "./ExperimentGraph.module.scss";
 
 export default function ExperimentGraph({
   resolution = "month",
   num = 12,
+  title = "Experiments by month",
   //status = "all",
   height = 250,
-  showBy = "status",
+  initialShowBy = "all",
 }: {
   resolution?: "month" | "day" | "year";
   num?: number;
+  title?: string;
   //status: "all" | ExperimentStatus;
   height?: number;
-  showBy?: "status" | "project" | "user" | "all";
+  initialShowBy?: "status" | "project" | "results" | "user" | "all";
 }): React.ReactElement {
   const { project, projects } = useDefinitions();
-
+  const [showBy, setShowBy] = useState<
+    "status" | "project" | "all" | "results" | "user"
+  >(initialShowBy);
   const {
     showTooltip,
     hideTooltip,
@@ -38,6 +43,33 @@ export default function ExperimentGraph({
     tooltipTop = 0,
   } = useTooltip<Record<string, number | string>>();
 
+  let stackedKeys: string[] = [];
+  const getGraphColor = (key: string) => {
+    return "var(--graph-color-" + ((stackedKeys.indexOf(key) % 17) + 1) + ")";
+  };
+
+  const showSelectOptions = [
+    {
+      value: "all",
+      display: "All experiments",
+    },
+    {
+      value: "status",
+      display: "By status",
+    },
+    {
+      value: "results",
+      display: "By results",
+    },
+  ];
+  // have a dropdown for projects doesn't make sense when viewing just one project
+  if (!project) {
+    showSelectOptions.push({
+      value: "project",
+      display: "By projects",
+    });
+  }
+
   const { data, error } = useApi<{
     byStatus: {
       all: { date: string; numExp: number }[];
@@ -46,6 +78,12 @@ export default function ExperimentGraph({
       stopped: { date: string; numExp: number }[];
     };
     byProject: Record<string, { date: string; numExp: number }[]>;
+    byResults: {
+      won: { date: string; numExp: number }[];
+      lost: { date: string; numExp: number }[];
+      dnf: { date: string; numExp: number }[];
+      inconclusive: { date: string; numExp: number }[];
+    };
   }>(`/experiments/frequency/${resolution}/${num}?project=${project}`);
 
   if (error) {
@@ -63,8 +101,13 @@ export default function ExperimentGraph({
 
   const statuses = Object.keys(data.byStatus).filter((s) => s !== "all");
   const projectMap = new Map();
+  projects.forEach((p) => {
+    projectMap.set(p.id, p.name);
+  });
+  projectMap.set("all", "All projects");
 
   if (showBy === "status") {
+    stackedKeys = statuses;
     data.byStatus.all.forEach((d, i) => {
       statuses.forEach((s) => {
         const statusData = data.byStatus[s].find((sd) => sd.date === d.date);
@@ -73,7 +116,18 @@ export default function ExperimentGraph({
       });
     });
   }
-  let stackedKeys: string[] = [];
+
+  if (showBy === "results") {
+    stackedKeys = ["won", "lost", "inconclusive", "dnf"];
+    data.byResults.won.forEach((d, i) => {
+      stackedKeys.forEach((s) => {
+        const resultData = data.byResults[s].find((sd) => sd.date === d.date);
+        if (!resultData) return;
+        graphData[i][s] = resultData.numExp;
+      });
+    });
+  }
+
   if (showBy === "project") {
     stackedKeys = projects.map((p) => p.id);
     stackedKeys.push("all");
@@ -90,233 +144,328 @@ export default function ExperimentGraph({
       });
       graphData[i]["all"] = d.numExp;
     });
-    projects.forEach((p) => {
-      projectMap.set(p.id, p.name);
-    });
   }
-  console.log("graph data", graphData, "keys", stackedKeys);
+
   if (!graphData.length) {
     return <div>no data to show</div>;
   }
 
   return (
-    <ParentSizeModern>
-      {({ width }) => {
-        const margin = [15, 30, 30, 30];
-        const yMax = height - margin[0] - margin[2];
-        const xMax = width - margin[1] - margin[3];
-        const maxYValue = Math.ceil(
-          Math.max(...graphData.map((d) => d.numExp), 1)
-        );
-
-        const barWidth = 35;
-        const xScale = scaleBand({
-          domain: graphData.map((d) => {
-            return new Date(d.date);
-          }),
-          range: [barWidth / 2, xMax],
-          round: true,
-          align: 0.5,
-          padding: 1,
-          paddingOuter: 0.15,
-        });
-        const yScale = scaleLinear<number>({
-          domain: [0, maxYValue],
-          range: [yMax, 0],
-          round: true,
-        });
-
-        const handlePointer = (event: React.MouseEvent<SVGElement>) => {
-          const coords = localPoint(event);
-          const xCoord = (coords?.x ?? 0) - barWidth;
-
-          const barData = graphData.map((d) => {
-            return {
-              raw: { ...d },
-              xcord: xScale(getValidDate(d.date)),
-              numExp: d.numExp,
-            };
-          });
-
-          const closestBar = barData.reduce((prev, curr) =>
-            Math.abs((curr?.xcord ?? 0) - xCoord) <
-            Math.abs((prev?.xcord ?? 0) - xCoord)
-              ? curr
-              : prev
-          );
-          console.log(closestBar);
-          let barHeight = yMax - (yScale(closestBar.numExp) ?? 0);
-          if (barHeight === 0) barHeight = 6;
-          const barY = yMax - barHeight;
-
-          showTooltip({
-            tooltipTop: barY - 25,
-            tooltipLeft: closestBar.xcord,
-            tooltipData: closestBar.raw,
-          });
-        };
-
-        return (
-          <div
-            onMouseLeave={() => {
-              window.setTimeout(() => {
-                hideTooltip();
-              }, 100);
+    <>
+      <div className="row mb-3 align-content-end">
+        <div className="col">
+          <h4 className="mb-0">
+            {title}{" "}
+            {projectMap.has(project) ? "for " + projectMap.get(project) : ""}
+          </h4>
+        </div>
+        <div className="col-auto small">
+          <Field
+            containerClassName="d-inline-block ml-2 mb-0 small"
+            options={showSelectOptions}
+            value={showBy}
+            onChange={(e) => {
+              if (
+                e.target.value === "user" ||
+                e.target.value === "all" ||
+                e.target.value === "project" ||
+                e.target.value === "results" ||
+                e.target.value === "status"
+              ) {
+                setShowBy(e.target.value);
+              }
             }}
-          >
-            <div style={{ position: "relative" }}>
-              {tooltipOpen && (
-                <TooltipWithBounds
-                  left={tooltipLeft}
-                  top={tooltipTop}
-                  className={styles.tooltiplg}
-                  unstyled={true}
-                >
-                  <>
-                    {showBy === "all" ? (
-                      <>{tooltipData?.numExp} experiments</>
-                    ) : showBy === "project" ? (
-                      <>
-                        <h4 className="mb-1">
-                          {format(getValidDate(tooltipData?.date), "MMM yyy")}
-                        </h4>
-                        {stackedKeys.map((k) => (
-                          <div key={k} className={styles.tooltipRow}>
-                            <div className={styles.tooltipName}>
-                              {projectMap.has(k)
-                                ? projectMap.get(k)
-                                : k === "all"
-                                ? "All projects"
-                                : k}
+          />
+        </div>
+      </div>
+
+      <ParentSizeModern>
+        {({ width }) => {
+          const margin = [15, 30, 30, 30];
+          const yMax = height - margin[0] - margin[2];
+          const xMax = width - margin[1] - margin[3];
+          const maxYValue = Math.ceil(
+            Math.max(...graphData.map((d) => d.numExp), 1)
+          );
+
+          const barWidth = 35;
+          const xScale = scaleBand({
+            domain: graphData.map((d) => {
+              return new Date(d.date);
+            }),
+            range: [barWidth / 2, xMax],
+            round: true,
+            align: 0.5,
+            padding: 1,
+            paddingOuter: 0.15,
+          });
+          const yScale = scaleLinear<number>({
+            domain: [0, maxYValue],
+            range: [yMax, 0],
+            round: true,
+          });
+
+          const handlePointer = (event: React.MouseEvent<SVGElement>) => {
+            const coords = localPoint(event);
+            const xCoord = (coords?.x ?? 0) - barWidth;
+
+            const barData = graphData.map((d) => {
+              return {
+                raw: { ...d },
+                xcord: xScale(getValidDate(d.date)),
+                numExp: d.numExp,
+              };
+            });
+
+            const closestBar = barData.reduce((prev, curr) =>
+              Math.abs((curr?.xcord ?? 0) - xCoord) <
+              Math.abs((prev?.xcord ?? 0) - xCoord)
+                ? curr
+                : prev
+            );
+
+            let barHeight = yMax - (yScale(closestBar.numExp) ?? 0);
+            if (barHeight === 0) barHeight = 6;
+            const barY = yMax - barHeight;
+
+            showTooltip({
+              tooltipTop:
+                showBy === "all" ? barY - 15 : stackedKeys.length * 20 * -1, //<- estimate the rough number of lines we're going to show
+              tooltipLeft: closestBar.xcord,
+              tooltipData: closestBar.raw,
+            });
+          };
+
+          return (
+            <div
+              onMouseLeave={() => {
+                window.setTimeout(() => {
+                  hideTooltip();
+                }, 100);
+              }}
+            >
+              <div style={{ position: "relative" }}>
+                {tooltipOpen && (
+                  <TooltipWithBounds
+                    left={tooltipLeft}
+                    top={tooltipTop}
+                    className={
+                      showBy === "all" ? styles.tooltip : styles.tooltiplg
+                    }
+                    unstyled={true}
+                  >
+                    <>
+                      {showBy === "project" ? (
+                        <>
+                          <h4 className={`mb-1 ${styles.tooltipHeader}`}>
+                            {format(getValidDate(tooltipData?.date), "MMM yyy")}
+                          </h4>
+                          {stackedKeys.map((k) => (
+                            <div key={k} className={styles.tooltipRow}>
+                              <div className={styles.tooltipName}>
+                                {projectMap.has(k)
+                                  ? projectMap.get(k)
+                                  : k === "all"
+                                  ? "All projects"
+                                  : k}
+                              </div>
+                              <div className={styles.tooltipValue}>
+                                {tooltipData?.[k] ?? 0}
+                              </div>
                             </div>
-                            <div className={styles.tooltipValue}>
-                              {tooltipData?.[k] ?? 0}
+                          ))}
+                        </>
+                      ) : showBy === "status" || showBy === "results" ? (
+                        <>
+                          <h4 className="mb-1">
+                            {format(getValidDate(tooltipData?.date), "MMM yyy")}
+                          </h4>
+                          {stackedKeys.map((k) => (
+                            <div key={k} className={styles.tooltipRow}>
+                              <div className={styles.tooltipName}>{k}</div>
+                              <div className={styles.tooltipValue}>
+                                {tooltipData?.[k] ?? 0}
+                              </div>
                             </div>
-                          </div>
-                        ))}
-                      </>
-                    ) : showBy === "status" ? (
-                      <></>
-                    ) : (
-                      <>{tooltipData?.numExp ?? 0} experiments</>
-                    )}
-                  </>
-                </TooltipWithBounds>
-              )}
-            </div>
-            <svg width={width} height={height} onMouseMove={handlePointer}>
-              <Group left={margin[3]} top={margin[0]}>
-                <GridRows
-                  scale={yScale}
-                  numTicks={Math.min(maxYValue, 5)}
-                  width={xMax + barWidth / 2}
-                  stroke="var(--border-color-200)"
-                />
-                {graphData.map((d, i) => {
-                  const barX =
-                    (xScale(getValidDate(d.date)) ?? 0) - barWidth / 2;
-                  let barHeight = yMax - (yScale(d.numExp) ?? 0);
-                  // if there are no experiments this month, show a little nub for design reasons.
-                  if (barHeight === 0) barHeight = 6;
-                  const barY = yMax - barHeight;
-                  const name = format(getValidDate(d.date), "MMM yyy");
-                  if (showBy === "all") {
-                    return (
-                      <BarRounded
-                        key={name + i}
-                        x={barX + 5}
-                        y={barY}
-                        width={Math.max(10, barWidth - 10)}
-                        height={barHeight}
-                        fill={"#73D1F0"}
-                        top
-                        radius={6}
-                        className={styles.barHov}
-                      />
-                    );
-                  }
-                  if (showBy === "project") {
+                          ))}
+                        </>
+                      ) : (
+                        <>
+                          {tooltipData?.numExp} experiment
+                          {tooltipData?.numExp === 0 ? "s" : ""}
+                        </>
+                      )}
+                    </>
+                  </TooltipWithBounds>
+                )}
+              </div>
+              <svg width={width} height={height} onMouseMove={handlePointer}>
+                <Group left={margin[3]} top={margin[0]}>
+                  <GridRows
+                    scale={yScale}
+                    numTicks={Math.min(maxYValue, 5)}
+                    width={xMax + barWidth / 2}
+                    stroke="var(--border-color-200)"
+                  />
+                  {graphData.map((d, i) => {
+                    const barX =
+                      (xScale(getValidDate(d.date)) ?? 0) - barWidth / 2;
+                    let barHeight = yMax - (yScale(d.numExp) ?? 0);
+                    // if there are no experiments this month, show a little nub for design reasons.
+                    if (barHeight === 0) barHeight = 6;
+                    const barY = yMax - barHeight;
+                    const name = format(getValidDate(d.date), "MMM yyy");
+                    if (showBy === "all") {
+                      return (
+                        <BarRounded
+                          key={name + i}
+                          x={barX + 5}
+                          y={barY}
+                          width={Math.max(10, barWidth - 10)}
+                          height={barHeight}
+                          fill={"#73D1F0"}
+                          top
+                          radius={6}
+                          className={styles.barHov}
+                        />
+                      );
+                    }
+
+                    // Stacked bar version:
                     return (
                       <BarStack
+                        key={name + i}
                         data={graphData}
                         keys={stackedKeys}
                         x={(d) => new Date(d.date)}
                         yScale={yScale}
                         xScale={xScale}
-                        color={(key: string, index: number) => {
-                          if (key === "all") return "#73D1F0";
-                          if (index === 0) return "#7388f0";
-                          if (index === 1) return "#ab73f0";
-                          if (index === 2) return "#f073ee";
-                          return "#f08a73";
-                        }}
+                        radius={6}
+                        color={getGraphColor}
                       >
-                        {(barStacks) =>
-                          barStacks.map((barStack) =>
-                            barStack.bars.map((bar) => {
-                              //console.log(bar);
+                        {(barStacks) => {
+                          // each barStack is a group of bars for a given key
+                          // since we are stacking by date, we need to find index of the top bar for each date
+                          // and show that one as rounded
+                          const topBarsIndex = {};
+                          barStacks.map((barStack) => {
+                            barStack.bars.forEach((bar, i) => {
+                              if (bar.height > 0) {
+                                topBarsIndex[i] = bar.key;
+                              }
+                            });
+                          });
 
+                          return barStacks.map((barStack) => {
+                            return barStack.bars.map((bar, i) => {
+                              if (bar.height === 0) return null;
+                              if (topBarsIndex?.[i] === bar.key) {
+                                return (
+                                  <BarRounded
+                                    key={`bar-stack-${barStack.index}-${bar.index}`}
+                                    x={bar.x - 10}
+                                    y={bar.y}
+                                    height={Math.max(bar.height, 0)}
+                                    width={Math.max(10, barWidth - 10)}
+                                    fill={bar.color}
+                                    top
+                                    radius={6}
+                                    className={styles.barHovStacked}
+                                  />
+                                );
+                              }
                               return (
                                 <rect
                                   key={`bar-stack-${barStack.index}-${bar.index}`}
-                                  x={bar.x}
-                                  y={bar.height === 0 ? bar.y - 6 : bar.y}
-                                  height={Math.max(bar.height, 6)}
+                                  x={bar.x - 10}
+                                  y={bar.y}
+                                  height={Math.max(bar.height, 0)}
                                   width={Math.max(10, barWidth - 10)}
                                   fill={bar.color}
+                                  className={styles.barHovStacked}
                                 />
                               );
-                            })
-                          )
-                        }
+                            });
+                          });
+                        }}
                       </BarStack>
                     );
-                  }
-                })}
+                  })}
 
-                <AxisBottom
-                  top={yMax}
-                  scale={xScale}
-                  numTicks={
-                    width > 670
-                      ? graphData.length
-                      : Math.ceil(graphData.length / 2)
-                  }
-                  tickLabelProps={() => ({
-                    fill: "var(--text-color-table)",
-                    fontSize: 11,
-                    textAnchor: "start",
-                    dx: -25,
-                  })}
-                  hideAxisLine={false}
-                  stroke={"var(--text-color-table)"}
-                  hideTicks={true}
-                  rangePadding={barWidth / 2}
-                  tickFormat={(v) => {
-                    return format(v as Date, "LLL yyyy");
-                  }}
-                />
-                <AxisLeft
-                  scale={yScale}
-                  numTicks={Math.min(maxYValue, 5)}
-                  tickLabelProps={() => ({
-                    fill: "var(--text-color-table)",
-                    fontSize: 11,
-                    textAnchor: "end",
-                    dx: -2,
-                    dy: 2,
-                  })}
-                  stroke={"var(--text-color-table)"}
-                  hideTicks={true}
-                  tickFormat={(v) => {
-                    return Math.round(v as number) + "";
-                  }}
-                />
-              </Group>
-            </svg>
-          </div>
-        );
-      }}
-    </ParentSizeModern>
+                  <AxisBottom
+                    top={yMax}
+                    scale={xScale}
+                    numTicks={
+                      width > 670
+                        ? graphData.length
+                        : Math.ceil(graphData.length / 2)
+                    }
+                    tickLabelProps={() => ({
+                      fill: "var(--text-color-table)",
+                      fontSize: 11,
+                      textAnchor: "start",
+                      dx: -25,
+                    })}
+                    hideAxisLine={false}
+                    stroke={"var(--text-color-table)"}
+                    hideTicks={true}
+                    rangePadding={barWidth / 2}
+                    tickFormat={(v) => {
+                      return format(v as Date, "LLL yyyy");
+                    }}
+                  />
+                  <AxisLeft
+                    scale={yScale}
+                    numTicks={Math.min(maxYValue, 5)}
+                    tickLabelProps={() => ({
+                      fill: "var(--text-color-table)",
+                      fontSize: 11,
+                      textAnchor: "end",
+                      dx: -2,
+                      dy: 2,
+                    })}
+                    stroke={"var(--text-color-table)"}
+                    hideTicks={true}
+                    tickFormat={(v) => {
+                      return Math.round(v as number) + "";
+                    }}
+                  />
+                </Group>
+              </svg>
+              {showBy !== "all" && (
+                <>
+                  <div
+                    style={{
+                      position: "absolute",
+                      bottom: 6,
+                      width: "100%",
+                      display: "flex",
+                      justifyContent: "center",
+                      fontSize: "14px",
+                    }}
+                  >
+                    {stackedKeys.map((k) => (
+                      <div key={k} className={styles.legendRow}>
+                        <div
+                          className={styles.legendColor}
+                          style={{ backgroundColor: getGraphColor(k) }}
+                        ></div>
+                        <div className={styles.legendName}>
+                          {projectMap.has(k)
+                            ? projectMap.get(k)
+                            : k === "all"
+                            ? "All projects"
+                            : k}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+          );
+        }}
+      </ParentSizeModern>
+    </>
   );
 }
