@@ -97,6 +97,7 @@ export const accountFeatures: CommercialFeaturesMap = {
     "hash-secure-attributes",
     "json-validation",
     "livechat",
+    "multi-org",
   ]),
 };
 
