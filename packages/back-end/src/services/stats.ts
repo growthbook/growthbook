@@ -54,6 +54,12 @@ export async function analyzeExperimentMetric(
   sortedVariations.map((v, i) => {
     variationIdMap[v.id] = i;
   });
+
+  const sequentialTestingTuningParameterNumber =
+    Number(sequentialTestingTuningParameter) ||
+    DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER;
+  const pValueThresholdNumber =
+    Number(pValueThreshold) || DEFAULT_P_VALUE_THRESHOLD;
   const result = await promisify(PythonShell.runString)(
     `
 from gbstats.gbstats import (
@@ -112,12 +118,12 @@ reduced = reduce_dimensionality(
 
 engine_config=${
       statsEngine === "frequentist" && sequentialTestingEnabled
-        ? `{'sequential': True, 'sequential_tuning_parameter': ${sequentialTestingTuningParameter}}`
+        ? `{'sequential': True, 'sequential_tuning_parameter': ${sequentialTestingTuningParameterNumber}}`
         : "{}"
     }
 ${
-  statsEngine === "frequentist" && pValueThreshold !== undefined
-    ? `engine_config['alpha'] = ${pValueThreshold}`
+  statsEngine === "frequentist" && pValueThresholdNumber
+    ? `engine_config['alpha'] = ${pValueThresholdNumber}`
     : ""
 }
 
