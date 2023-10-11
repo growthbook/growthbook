@@ -24,6 +24,11 @@ async function removeUserFromOrg(
     }
   }
 
+  // TODO: Refactor to be a function in services/organizations.ts
+  updatedOrg.removedMembers = [
+    ...(org.removedMembers ?? []),
+    org.members[userIndex],
+  ];
   updatedOrg.members.splice(userIndex, 1);
 
   await updateOrganization(org.id, updatedOrg);

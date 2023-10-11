@@ -19,12 +19,10 @@ export async function createUser(req: ScimUserPutOrPostRequest, res: Response) {
     // Look up the user in Mongo
     let user = await getUserByEmail(userName);
 
-    // If the user already exists in the org, return an error
     if (user && org.members.find((member) => member.id === user?.id)) {
-      // Check if they have an externalId and/or if they're managed by an external IDP
+      // Check if they're managed by an external IDP
       if (user.managedByIdp) {
         // If so, return an error
-        // otherwise, update the user with the externalId and managedByIdp: true
         return res.status(409).json({
           schemas: ["urn:ietf:params:scim:api:messages:2.0:Error"],
           scimType: "uniqueness",
@@ -32,6 +30,7 @@ export async function createUser(req: ScimUserPutOrPostRequest, res: Response) {
           status: 409,
         });
       } else {
+        // otherwise, update the user with the externalId and managedByIdp: true
         await convertUserToManagedByIdp(
           user.id,
           externalId ? externalId : undefined

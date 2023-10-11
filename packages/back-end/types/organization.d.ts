@@ -250,6 +250,7 @@ export interface OrganizationInterface {
   members: Member[];
   invites: Invite[];
   pendingMembers?: PendingMember[];
+  removedMembers?: Member[];
   connections?: OrganizationConnections;
   settings?: OrganizationSettings;
   messages?: OrganizationMessage[];

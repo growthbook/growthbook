@@ -61,6 +61,12 @@ const organizationSchema = new mongoose.Schema({
       email: String,
     },
   ],
+  removedMembers: [
+    {
+      ...baseMemberFields,
+      id: String,
+    },
+  ],
   messages: {
     required: false,
     type: [
