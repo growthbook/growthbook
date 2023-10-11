@@ -7,7 +7,7 @@ import {
 import dJSON from "dirty-json";
 
 import React, { ReactElement, useState } from "react";
-import { validateFeatureValue } from "shared/util";
+import { stringToBoolean, validateFeatureValue } from "shared/util";
 import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -42,7 +42,7 @@ function parseDefaultValue(
   valueType: FeatureValueType
 ): string {
   if (valueType === "boolean") {
-    return defaultValue === "true" ? "true" : "false";
+    return stringToBoolean(defaultValue) ? "true" : "false";
   }
   if (valueType === "number") {
     return parseFloat(defaultValue) + "";

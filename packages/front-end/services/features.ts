@@ -19,7 +19,11 @@ import stringify from "json-stringify-pretty-compact";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { FeatureUsageRecords } from "back-end/types/realtime";
 import cloneDeep from "lodash/cloneDeep";
-import { generateVariationId, validateFeatureValue } from "shared/util";
+import {
+  generateVariationId,
+  stringToBoolean,
+  validateFeatureValue,
+} from "shared/util";
 import { getUpcomingScheduleRule } from "@/services/scheduleRules";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import useOrgSettings from "../hooks/useOrgSettings";
@@ -111,7 +115,7 @@ export function getVariationDefaultName(
   }
 
   if (type === "boolean") {
-    return val.value === "true" ? "On" : "Off";
+    return stringToBoolean(val.value) ? "On" : "Off";
   }
 
   if (type === "json") {
@@ -713,7 +717,7 @@ function parseValue(
   type?: "string" | "number" | "boolean" | "secureString"
 ) {
   if (type === "number") return parseFloat(value) || 0;
-  if (type === "boolean") return value === "false" ? false : true;
+  if (type === "boolean") return stringToBoolean(value, true);
   return value;
 }
 
@@ -826,7 +830,7 @@ export function getExperimentDefinitionFromFeature(
       if (v?.name) {
         name = v.name;
       } else if (feature.valueType === "boolean") {
-        name = v.value === "true" ? "On" : "Off";
+        name = stringToBoolean(v.value) ? "On" : "Off";
       }
       return {
         name,

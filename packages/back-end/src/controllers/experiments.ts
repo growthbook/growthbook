@@ -4,7 +4,7 @@ import format from "date-fns/format";
 import cloneDeep from "lodash/cloneDeep";
 import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
 import { getValidDate } from "shared/dates";
-import { getAffectedEnvsForExperiment } from "shared/util";
+import { getAffectedEnvsForExperiment, stringToBoolean } from "shared/util";
 import { getScopedSettings } from "shared/settings";
 import { orgHasPremiumFeature } from "enterprise";
 import { v4 as uuidv4 } from "uuid";
@@ -422,7 +422,7 @@ const getExperimentDefinitionFromFeatureAndRule = (
     variations: expRule.values.map((v, i) => {
       let name = i ? `Variation ${i}` : "Control";
       if (feature.valueType === "boolean") {
-        name = v.value === "true" ? "On" : "Off";
+        name = stringToBoolean(v.value) ? "On" : "Off";
       }
       return {
         id: uniqid("var_"),

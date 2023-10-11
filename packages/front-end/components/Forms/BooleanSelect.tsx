@@ -1,5 +1,6 @@
 import clsx from "clsx";
 import { Controller, Control } from "react-hook-form";
+import { stringToBoolean } from "shared/util";
 
 // eslint-disable-next-line
 export type BooleanSelectControl = Control<any>;
@@ -42,7 +43,7 @@ export default function BooleanSelect(
                 ...e,
                 target: {
                   ...e.target,
-                  value: e.target.value === "true",
+                  value: stringToBoolean(e.target.value),
                 },
               });
             }}

@@ -1,6 +1,7 @@
 import { FeatureValueType } from "back-end/types/feature";
 import { useMemo } from "react";
 import stringify from "json-stringify-pretty-compact";
+import { stringToBoolean } from "shared/util";
 import InlineCode from "../SyntaxHighlighting/InlineCode";
 
 export default function ValueDisplay({
@@ -24,7 +25,7 @@ export default function ValueDisplay({
   }, [value, type]);
 
   if (type === "boolean") {
-    const on = !(value === "false" || !value);
+    const on = stringToBoolean(value, true); //default to true
     return (
       <span>
         <div
