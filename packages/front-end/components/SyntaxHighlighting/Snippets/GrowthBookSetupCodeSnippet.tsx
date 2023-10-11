@@ -147,9 +147,10 @@ app.use(function(req, res, next) {
     apiHost: ${JSON.stringify(apiHost)},
     clientKey: ${JSON.stringify(apiKey)},${
             encryptionKey
-              ? `\n    decryptionKey: ${JSON.stringify(encryptionKey)}`
+              ? `\n    decryptionKey: ${JSON.stringify(encryptionKey)},`
               : ""
-          }enableDevMode: true,
+          }
+    enableDevMode: true,
     trackingCallback: (experiment, result) => {
       // ${trackingComment}
       console.log("Viewed Experiment", {
