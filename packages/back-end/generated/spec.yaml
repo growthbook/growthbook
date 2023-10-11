@@ -2687,6 +2687,8 @@ components:
           type: boolean
         hashSecureAttributes:
           type: boolean
+        remoteEvalEnabled:
+          type: boolean
     Experiment:
       type: object
       required:
