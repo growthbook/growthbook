@@ -89,9 +89,15 @@ tags:
     description: Defined sets of attribute values which can be used with feature rules for targeting features at particular users.
 paths:
   /features:
-    $ref: "./paths/listFeatures.yaml"
+    get:
+      $ref: "./paths/listFeatures.yaml"
+    post:
+      $ref: "./paths/postFeature.yaml"
   /features/{id}:
-    $ref: "./paths/getFeature.yaml"
+    get:
+      $ref: "./paths/getFeature.yaml"
+    post:
+      $ref: "./paths/updateFeature.yaml"
   /features/{id}/toggle:
     $ref: "./paths/toggleFeature.yaml"
   /projects:

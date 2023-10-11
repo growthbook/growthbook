@@ -9,7 +9,8 @@ const EditProjectsForm: FC<{
   save: (projects: string[]) => Promise<void>;
   cancel: () => void;
   mutate: () => void;
-}> = ({ projects = [], save, cancel, mutate }) => {
+  entityName?: string;
+}> = ({ projects = [], save, cancel, mutate, entityName }) => {
   const { projects: projectDefinitions } = useDefinitions();
   const form = useForm({
     defaultValues: {
@@ -38,7 +39,7 @@ const EditProjectsForm: FC<{
         }))}
         onChange={(v) => form.setValue("projects", v)}
         customClassName="label-overflow-ellipsis"
-        helpText="Assign this metric to specific projects"
+        helpText={`Assign this ${entityName} to specific projects`}
       />
       <div style={{ height: 200 }} />
     </Modal>

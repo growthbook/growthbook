@@ -195,6 +195,9 @@ const SidebarLink: FC<SidebarLinkProps> = (props) => {
                         </>
                       )}
                       {l.name}
+                      {l.beta && (
+                        <div className="badge badge-purple ml-2">beta</div>
+                      )}
                     </a>
                   </Link>
                 </li>

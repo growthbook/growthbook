@@ -49,7 +49,7 @@ const Presentation = ({
   customTheme,
   preview = false,
 }: Props): ReactElement => {
-  const { getMetricById } = useDefinitions();
+  const { getExperimentMetricById } = useDefinitions();
   const em = new Map<
     string,
     {
@@ -163,7 +163,7 @@ const Presentation = ({
                 <span style={{ fontSize: "1rem" }}>
                   Primary metrics:{" "}
                   {e?.experiment?.metrics
-                    .map((m) => getMetricById(m)?.name ?? m)
+                    .map((m) => getExperimentMetricById(m)?.name ?? m)
                     .join(", ")}
                 </span>
               </>
