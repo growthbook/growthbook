@@ -1,6 +1,6 @@
 import isEqual from "lodash/isEqual";
 import { FeatureRule as FeatureDefinitionRule } from "@growthbook/growthbook";
-import { includeExperimentInPayload, stringToBoolean } from "shared/util";
+import { includeExperimentInPayload } from "shared/util";
 import {
   FeatureInterface,
   FeatureRule,
@@ -172,7 +172,7 @@ export function getJSONValue(type: FeatureValueType, value: string): any {
   }
   if (type === "number") return parseFloat(value) || 0;
   if (type === "string") return value;
-  if (type === "boolean") return stringToBoolean(value, true); //default to true
+  if (type === "boolean") return value === "false" ? false : true;
   return null;
 }
 

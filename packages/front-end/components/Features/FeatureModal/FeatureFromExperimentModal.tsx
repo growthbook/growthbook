@@ -11,7 +11,7 @@ import { ReactElement, useState } from "react";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import Link from "next/link";
 import { FaExternalLinkAlt } from "react-icons/fa";
-import { stringToBoolean, validateFeatureValue } from "shared/util";
+import { validateFeatureValue } from "shared/util";
 import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -47,7 +47,7 @@ function parseDefaultValue(
   valueType: FeatureValueType
 ): string {
   if (valueType === "boolean") {
-    return stringToBoolean(defaultValue) ? "true" : "false";
+    return defaultValue === "true" ? "true" : "false";
   }
   if (valueType === "number") {
     return parseFloat(defaultValue) + "";

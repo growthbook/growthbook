@@ -1,6 +1,5 @@
 import { FeatureValueType } from "back-end/types/feature";
 import { ReactNode } from "react";
-import { stringToBoolean } from "shared/util";
 import Field from "../Forms/Field";
 import Toggle from "../Forms/Toggle";
 
@@ -31,14 +30,14 @@ export default function FeatureValueField({
         <div>
           <Toggle
             id={id + "__toggle"}
-            value={stringToBoolean(value)}
+            value={value === "true"}
             setValue={(v) => {
               setValue(v ? "true" : "false");
             }}
             type="featureValue"
           />
           <span className="text-muted pl-2">
-            <strong>{stringToBoolean(value) ? "on" : "off"}</strong>
+            <strong>{value === "true" ? "on" : "off"}</strong>
           </span>
         </div>
         {helpText && <small className="text-muted">{helpText}</small>}
