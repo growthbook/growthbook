@@ -378,7 +378,7 @@ export default function SDKConnectionForm({
                         }
                       >
                         <div className="subtitle">
-                          Insecure, but extremely fast and cacheable
+                          High cacheable, but may leak sensitive info to users
                           <FaInfoCircle className="ml-1" />
                         </div>
                       </Tooltip>
@@ -416,7 +416,7 @@ export default function SDKConnectionForm({
                           }
                         >
                           <div className="subtitle">
-                            Good mix of performance and security
+                            Adds obfuscation while remaining cacheable
                             <FaInfoCircle className="ml-1" />
                           </div>
                         </Tooltip>
@@ -514,14 +514,18 @@ export default function SDKConnectionForm({
                             body={
                               <>
                                 <p>
-                                  This can help add context when debugging or
-                                  tracking events.
+                                  Experiment and variation names can help add
+                                  context when debugging or tracking events.
                                 </p>
-                                <div>
+                                <p>
                                   However, this could expose potentially
                                   sensitive information to your users if enabled
                                   for a client-side or mobile application.
-                                </div>
+                                </p>
+                                <p>
+                                  For maximum privacy and security, we recommend
+                                  hiding these fields.
+                                </p>
                               </>
                             }
                           >
