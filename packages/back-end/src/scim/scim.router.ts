@@ -1,5 +1,6 @@
 import { Router } from "express";
 import authenticateApiRequestMiddleware from "../middleware/authenticateApiRequestMiddleware";
+import verifyLicenseMiddleware from "../services/auth/verifyLicenseMiddleware";
 import usersRouter from "./users/users.router";
 import scimMiddleware from "./middleware/scimMiddleware";
 import groupsRouter from "./groups/groups.router";
@@ -7,7 +8,8 @@ import groupsRouter from "./groups/groups.router";
 const router = Router();
 
 router.use(authenticateApiRequestMiddleware);
-router.use(scimMiddleware); // TODO: Comment out for testing
+router.use(verifyLicenseMiddleware);
+router.use(scimMiddleware);
 
 // API endpoints
 router.use("/users", usersRouter);

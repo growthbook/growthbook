@@ -10,6 +10,13 @@ export default function scimMiddleware(
 ) {
   const acceptHeader = req.get("Accept");
 
+  // Check if the Accept header specifies SCIM JSON
+  if (acceptHeader && acceptHeader.includes("application/scim+json")) {
+    res.setHeader("Content-Type", "application/scim+json");
+  }
+
+  req.checkPermissions("manageTeam");
+
   if (!req.organization) {
     return res.status(400).json({
       schemas: ["urn:ietf:params:scim:api:messages:2.0:Error"],
@@ -19,25 +26,20 @@ export default function scimMiddleware(
   }
 
   if (getAccountPlan(req.organization) !== "enterprise") {
-    return res.status(500).json({
+    return res.status(403).json({
       schemas: ["urn:ietf:params:scim:api:messages:2.0:Error"],
       status: "403",
-      detail: "SCIM is not available for this GrowthBook organization.",
+      detail: "SCIM requires an Enterprise GrowthBook License.",
     });
   }
 
   if (!usingOpenId()) {
-    return res.status(500).json({
+    return res.status(403).json({
       schemas: ["urn:ietf:params:scim:api:messages:2.0:Error"],
       status: "403",
       detail:
         "SCIM is not available for Growthbook organizations not using SSO.",
     });
-  }
-
-  // Check if the Accept header specifies SCIM JSON
-  if (acceptHeader && acceptHeader.includes("application/scim+json")) {
-    res.setHeader("Content-Type", "application/scim+json");
   }
 
   // Continue processing the request
