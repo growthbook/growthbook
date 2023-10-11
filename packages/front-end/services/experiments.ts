@@ -542,12 +542,14 @@ export function setAdjustedPValuesOnResults(
 function adjustedCI(
   adjustedPValue: number,
   uplift: { dist: string; mean?: number; stddev?: number },
-  zScore: number
+  zScore: number,
+  maxPValueToAdjust: number
 ): [number, number] {
-  if (adjustedPValue > 0.9999 || !uplift.stddev || !uplift.mean)
+  if (!uplift.stddev || !uplift.mean)
     return [uplift.mean ?? 0, uplift.mean ?? 0];
+  const pValue = Math.min(adjustedPValue, maxPValueToAdjust);
   const adjStdDev = Math.abs(
-    uplift.mean / jStat.normal.inv(1 - adjustedPValue / 2, 0, 1)
+    uplift.mean / jStat.normal.inv(1 - pValue / 2, 0, 1)
   );
   const width = zScore * adjStdDev;
   return [uplift.mean - width, uplift.mean + width];
@@ -563,8 +565,18 @@ export function adjustCIs(
       for (const key in v.metrics) {
         const pValueAdjusted = v.metrics[key].pValueAdjusted;
         const uplift = v.metrics[key].uplift;
-        if (pValueAdjusted !== undefined && uplift !== undefined) {
-          v.metrics[key].ci = adjustedCI(pValueAdjusted, uplift, zScore);
+        const ci = v.metrics[key].ci;
+        if (
+          pValueAdjusted !== undefined &&
+          uplift !== undefined &&
+          ci !== undefined
+        ) {
+          console.log(pValueAdjusted);
+          const adjCI = adjustedCI(pValueAdjusted, uplift, zScore, 0.99);
+          // only update if CI got wider, should never get more narrow
+          if (adjCI[0] < ci[0] && adjCI[1] > ci[1]) {
+            v.metrics[key].ci = adjCI;
+          }
         }
       }
     });
