@@ -1,4 +1,5 @@
 import { Response } from "express";
+import { cloneDeep } from "lodash";
 import {
   convertUserToManagedByIdp,
   createUser as createNewUser,
@@ -9,7 +10,7 @@ import { OrganizationInterface } from "../../../types/organization";
 import { ScimUserPutOrPostRequest } from "../../../types/scim";
 
 export async function createUser(req: ScimUserPutOrPostRequest, res: Response) {
-  const { externalId, name, displayName, userName } = req.body;
+  const { externalId, displayName, userName } = req.body;
 
   const org: OrganizationInterface = req.organization;
 
@@ -44,7 +45,7 @@ export async function createUser(req: ScimUserPutOrPostRequest, res: Response) {
         displayName,
         userName,
         "12345678", // TODO: SSO shouldn't need a password. figure out how to test this
-        false, // TODO: Double check this logic
+        false,
         true,
         externalId ? externalId : undefined
       );
@@ -59,31 +60,11 @@ export async function createUser(req: ScimUserPutOrPostRequest, res: Response) {
       projectRoles: [],
     });
 
-    return res.status(201).json({
-      schemas: ["urn:ietf:params:scim:schemas:core:2.0:User"],
-      id: user.id,
-      displayName: user.name,
-      externalId: user.externalId,
-      userName: user.email,
-      name: {
-        formatted: user.name,
-        givenName: name.givenName,
-        familyName: name.familyName,
-      },
-      active: true,
-      emails: [
-        {
-          primary: true,
-          value: user.email,
-          type: "work",
-          display: user.email,
-        },
-      ],
-      groups: [],
-      meta: {
-        resourceType: "User",
-      },
-    });
+    const responseObj = cloneDeep(req.body);
+
+    responseObj.id = user.id;
+
+    return res.status(201).json(responseObj);
   } catch (e) {
     return res.status(500).json({
       schemas: ["urn:ietf:params:scim:api:messages:2.0:Error"],
