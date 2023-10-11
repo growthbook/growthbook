@@ -1719,3 +1719,28 @@ export async function putLicenseKey(
     status: 200,
   });
 }
+
+export function putDefaultRole(
+  req: AuthRequest<{ defaultRole: MemberRole }>,
+  res: Response
+) {
+  const { org } = getOrgFromReq(req);
+  const { defaultRole } = req.body;
+
+  req.checkPermissions("manageTeam");
+
+  updateOrganization(org.id, {
+    settings: {
+      ...org.settings,
+      defaultRole: {
+        role: defaultRole,
+        limitAccessByEnvironment: false,
+        environments: [],
+      },
+    },
+  });
+
+  res.status(200).json({
+    status: 200,
+  });
+}

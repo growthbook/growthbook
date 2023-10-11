@@ -12,9 +12,15 @@ import OrphanedUsersList from "@/components/Settings/Team/OrphanedUsersList";
 import PendingMemberList from "@/components/Settings/Team/PendingMemberList";
 import { isCloud } from "@/services/env";
 import AutoApproveMembersToggle from "@/components/Settings/Team/AutoApproveMembersToggle";
+import TeamSettingsForm from "@/components/Settings/Team/TeamSettingsForm";
 
 const TeamPage: FC = () => {
-  const { refreshOrganization, enterpriseSSO, organization } = useUser();
+  const {
+    refreshOrganization,
+    enterpriseSSO,
+    organization,
+    accountPlan,
+  } = useUser();
 
   const { project, projects } = useDefinitions();
 
@@ -120,6 +126,7 @@ const TeamPage: FC = () => {
         mutateUsers={refreshOrganization}
         numUsersInAccount={organization.members?.length || 0}
       />
+      {accountPlan === "enterprise" ? <TeamSettingsForm /> : null}
     </div>
   );
 };
