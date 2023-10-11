@@ -88,6 +88,11 @@ const ROW_HEIGHT = 56;
 const METRIC_LABEL_ROW_HEIGHT = 44;
 const SPACER_ROW_HEIGHT = 6;
 
+const percentFormatter = new Intl.NumberFormat(undefined, {
+  style: "percent",
+  maximumFractionDigits: 2,
+});
+
 export default function ResultsTable({
   id,
   isLatestPhase,
@@ -976,13 +981,13 @@ function getPercentChangeTooltip(
     );
   }
   if (statsEngine === "frequentist") {
-    const confidencePct = Math.round(100 - 100 * pValueThreshold);
+    const confidencePct = percentFormatter.format(1 - pValueThreshold);
     return (
       <>
         <p className="mb-0">
-          The interval is a {confidencePct}% confidence interval. If you re-ran
+          The interval is a {confidencePct} confidence interval. If you re-ran
           the experiment 100 times, the true value would be in this range{" "}
-          {confidencePct}% of the time.
+          {confidencePct} of the time.
         </p>
         {sequentialTestingEnabled && (
           <p className="mt-4 mb-0">
