@@ -37,7 +37,12 @@ function getSecurityTabState(
   value: Partial<SDKConnectionInterface>
 ): "none" | "client" | "server" {
   if (value.remoteEvalEnabled) return "server";
-  if (value.encryptPayload || value.hashSecureAttributes) return "client";
+  if (
+    value.encryptPayload ||
+    value.hashSecureAttributes ||
+    !value.includeExperimentNames
+  )
+    return "client";
   return "none";
 }
 
@@ -91,7 +96,7 @@ export default function SDKConnectionForm({
         initialValue.hashSecureAttributes ?? hasSecureAttributesFeature,
       includeVisualExperiments: initialValue.includeVisualExperiments ?? false,
       includeDraftExperiments: initialValue.includeDraftExperiments ?? false,
-      includeExperimentNames: initialValue.includeExperimentNames ?? false,
+      includeExperimentNames: initialValue.includeExperimentNames ?? true,
       proxyEnabled: initialValue.proxy?.enabled ?? false,
       proxyHost: initialValue.proxy?.host ?? "",
       remoteEvalEnabled: initialValue.remoteEvalEnabled ?? false,
@@ -520,16 +525,16 @@ export default function SDKConnectionForm({
                               </>
                             }
                           >
-                            Add experiment/variation names?{" "}
+                            Hide experiment/variation names?{" "}
                             <FaInfoCircle style={{ marginRight: -10 }} />
                           </Tooltip>
                         </label>
                         <div>
                           <Toggle
                             id="sdk-connection-include-experiment-meta"
-                            value={form.watch("includeExperimentNames")}
+                            value={!form.watch("includeExperimentNames")}
                             setValue={(val) =>
-                              form.setValue("includeExperimentNames", val)
+                              form.setValue("includeExperimentNames", !val)
                             }
                           />
                         </div>
