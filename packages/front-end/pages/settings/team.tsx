@@ -12,7 +12,7 @@ import OrphanedUsersList from "@/components/Settings/Team/OrphanedUsersList";
 import PendingMemberList from "@/components/Settings/Team/PendingMemberList";
 import { isCloud } from "@/services/env";
 import AutoApproveMembersToggle from "@/components/Settings/Team/AutoApproveMembersToggle";
-import TeamSettingsForm from "@/components/Settings/Team/TeamSettingsForm";
+import UpdateDefaultRoleForm from "@/components/Settings/Team/UpdateDefaultRoleForm";
 
 const TeamPage: FC = () => {
   const {
@@ -126,7 +126,7 @@ const TeamPage: FC = () => {
         mutateUsers={refreshOrganization}
         numUsersInAccount={organization.members?.length || 0}
       />
-      {accountPlan === "enterprise" ? <TeamSettingsForm /> : null}
+      {accountPlan === "enterprise" ? <UpdateDefaultRoleForm /> : null}
     </div>
   );
 };

@@ -6,7 +6,7 @@ import SelectField from "@/components/Forms/SelectField";
 import { useUser } from "@/services/UserContext";
 import { useAuth } from "@/services/auth";
 
-export default function TeamSettingsForm() {
+export default function UpdateDefaultRoleForm() {
   const { refreshOrganization, organization, roles } = useUser();
   const [defaultRoleError, setDefaultRoleError] = useState<string | null>(null);
 
