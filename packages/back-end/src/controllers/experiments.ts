@@ -183,6 +183,7 @@ export async function getExperimentsFrequencyMonth(
       });
     }
     const monthYear = format(getValidDate(dateStarted), "MMM yyy");
+
     allData.forEach((md, i) => {
       const name = format(getValidDate(md.date), "MMM yyy");
       if (name === monthYear) {
@@ -190,6 +191,7 @@ export async function getExperimentsFrequencyMonth(
         // I can do this because the indexes will represent the same month
         dataByStatus[e.status][i].numExp++;
 
+        // experiments without a project, are included in the 'all projects'
         if (e.project) {
           dataByProject[e.project][i].numExp++;
         } else {
@@ -205,7 +207,8 @@ export async function getExperimentsFrequencyMonth(
 
   res.status(200).json({
     status: 200,
-    byStatus: { all: allData, ...dataByStatus },
+    all: allData,
+    byStatus: { ...dataByStatus },
     byProject: { ...dataByProject },
     byResults: { ...dataByResult },
   });

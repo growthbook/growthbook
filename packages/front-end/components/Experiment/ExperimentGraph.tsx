@@ -19,14 +19,12 @@ export default function ExperimentGraph({
   resolution = "month",
   num = 12,
   title = "Experiments by month",
-  //status = "all",
   height = 250,
   initialShowBy = "all",
 }: {
   resolution?: "month" | "day" | "year";
   num?: number;
   title?: string;
-  //status: "all" | ExperimentStatus;
   height?: number;
   initialShowBy?: "status" | "project" | "results" | "user" | "all";
 }): React.ReactElement {
@@ -45,6 +43,12 @@ export default function ExperimentGraph({
 
   let stackedKeys: string[] = [];
   const getGraphColor = (key: string) => {
+    if (showBy === "results") {
+      return `var(--results-${key})`;
+    }
+    if (showBy === "status") {
+      return `var(--status-${key})`;
+    }
     return "var(--graph-color-" + ((stackedKeys.indexOf(key) % 17) + 1) + ")";
   };
 
@@ -71,8 +75,8 @@ export default function ExperimentGraph({
   }
 
   const { data, error } = useApi<{
+    all: { date: string; numExp: number }[];
     byStatus: {
-      all: { date: string; numExp: number }[];
       draft: { date: string; numExp: number }[];
       running: { date: string; numExp: number }[];
       stopped: { date: string; numExp: number }[];
@@ -97,7 +101,7 @@ export default function ExperimentGraph({
     return <LoadingOverlay />;
   }
 
-  const graphData = data.byStatus.all;
+  const graphData = data.all;
 
   const statuses = Object.keys(data.byStatus).filter((s) => s !== "all");
   const projectMap = new Map();
@@ -108,7 +112,7 @@ export default function ExperimentGraph({
 
   if (showBy === "status") {
     stackedKeys = statuses;
-    data.byStatus.all.forEach((d, i) => {
+    data.all.forEach((d, i) => {
       statuses.forEach((s) => {
         const statusData = data.byStatus[s].find((sd) => sd.date === d.date);
         if (!statusData) return;
@@ -147,7 +151,19 @@ export default function ExperimentGraph({
   }
 
   if (!graphData.length) {
-    return <div>no data to show</div>;
+    return (
+      <>
+        <div className="row mb-1 align-content-end">
+          <div className="col">
+            <h4 className="mb-0">
+              {title}{" "}
+              {projectMap.has(project) ? "for " + projectMap.get(project) : ""}
+            </h4>
+          </div>
+          <div>no data to show</div>
+        </div>
+      </>
+    );
   }
 
   return (
@@ -312,7 +328,7 @@ export default function ExperimentGraph({
                       (xScale(getValidDate(d.date)) ?? 0) - barWidth / 2;
                     let barHeight = yMax - (yScale(d.numExp) ?? 0);
                     // if there are no experiments this month, show a little nub for design reasons.
-                    if (barHeight === 0) barHeight = 6;
+                    if (barHeight === 0) barHeight = 4;
                     const barY = yMax - barHeight;
                     const name = format(getValidDate(d.date), "MMM yyy");
                     if (showBy === "all") {

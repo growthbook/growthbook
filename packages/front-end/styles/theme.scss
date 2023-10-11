@@ -67,6 +67,15 @@
 
   --bg-muted-yellow: #f5f2dc;
 
+  --results-won: #{colors.$success};
+  --results-lost: #{colors.$danger};
+  --results-dnf: #{colors.$warning};
+  --results-inconclusive: #{colors.$secondary};
+
+  --status-running: #{colors.$info};
+  --status-draft: #{colors.$warning};
+  --status-stopped: #{colors.$secondary};
+
   --graph-color-1: #73d1f0;
   --graph-color-2: #7388f0;
   --graph-color-3: #ab73f0;
@@ -156,6 +165,15 @@
   --disabled-background: #3f3f3f;
 
   --bg-muted-yellow: #4c4a44;
+
+  --results-won: #{colors.$success};
+  --results-lost: #{colors.$danger};
+  --results-dnf: #{colors.$warning};
+  --results-inconclusive: #{colors.$secondary};
+
+  --status-running: #{colors.$info};
+  --status-draft: #{colors.$warning};
+  --status-stopped: #{colors.$secondary};
 
   --graph-color-1: #73d1f0;
   --graph-color-2: #7388f0;
