@@ -986,9 +986,11 @@ function getPercentChangeTooltip(
         )}
         {pValueCorrection && (
           <p className="mt-4 mb-0">
-            These confidence intervals are not adjusted for multiple comparisons
-            as the multiple comparisons adjustments GrowthBook implements only
-            have associated adjusted p-values, not confidence intervals.
+            Because your organization has multiple comparisons corrections
+            enabled, these confidence intervals have been inflated so that they
+            match the adjusted psuedo-p-value. For adjusted psuedo-p-values that
+            are 1.0, we construct confidence intervals as if the adjusted
+            psuedo-p-value was 0.9.
           </p>
         )}
       </>

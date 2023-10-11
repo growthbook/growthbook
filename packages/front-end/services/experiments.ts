@@ -571,8 +571,7 @@ export function adjustCIs(
           uplift !== undefined &&
           ci !== undefined
         ) {
-          console.log(pValueAdjusted);
-          const adjCI = adjustedCI(pValueAdjusted, uplift, zScore, 0.99);
+          const adjCI = adjustedCI(pValueAdjusted, uplift, zScore, 0.9);
           // only update if CI got wider, should never get more narrow
           if (adjCI[0] < ci[0] && adjCI[1] > ci[1]) {
             v.metrics[key].ci = adjCI;
