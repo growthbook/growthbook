@@ -3029,7 +3029,7 @@ input:disabled {
 }
 
 .sdk-security-button-wrapper {
-  justify-content: space-between;
+  justify-content: space-around;
   gap: 1rem;
 
   .check {
@@ -3043,6 +3043,7 @@ input:disabled {
     box-sizing: border-box;
     flex: 1;
     padding: 22px 20px 14px;
+    max-width: 300px;
 
     &.selected {
       border-color: #28a745 !important;

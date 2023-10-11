@@ -183,7 +183,7 @@ export default function SDKConnectionPage() {
           <>
             <div className="col-auto ml-auto">
               <a
-                href="#"
+                role="button"
                 className="btn btn-outline-primary"
                 onClick={(e) => {
                   e.preventDefault();
