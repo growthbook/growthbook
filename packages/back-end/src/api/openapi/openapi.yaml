@@ -92,9 +92,15 @@ tags:
     description: Organizations are used for multi-org deployments where different teams can run their own isolated feature flags and experiments. These endpoints are only via a super-admin's Personal Access Token.
 paths:
   /features:
-    $ref: "./paths/listFeatures.yaml"
+    get:
+      $ref: "./paths/listFeatures.yaml"
+    post:
+      $ref: "./paths/postFeature.yaml"
   /features/{id}:
-    $ref: "./paths/getFeature.yaml"
+    get:
+      $ref: "./paths/getFeature.yaml"
+    post:
+      $ref: "./paths/updateFeature.yaml"
   /features/{id}/toggle:
     $ref: "./paths/toggleFeature.yaml"
   /projects:

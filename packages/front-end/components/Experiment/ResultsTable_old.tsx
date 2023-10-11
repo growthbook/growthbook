@@ -1,11 +1,11 @@
 import clsx from "clsx";
 import React, { ReactElement } from "react";
 import { FaQuestionCircle } from "react-icons/fa";
-import { MetricInterface } from "back-end/types/metric";
 import { ExperimentReportVariation } from "back-end/types/report";
 import { ExperimentStatus } from "back-end/types/experiment";
 import { PValueCorrection, StatsEngine } from "back-end/types/stats";
 import { DEFAULT_STATS_ENGINE } from "shared/constants";
+import { ExperimentMetricInterface } from "shared/experiments";
 import { ExperimentTableRow, useDomain } from "@/services/experiments";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import Tooltip from "../Tooltip/Tooltip";
@@ -29,7 +29,7 @@ export type ResultsTableProps_old = {
   labelHeader: string;
   renderLabelColumn: (
     label: string,
-    metric: MetricInterface,
+    metric: ExperimentMetricInterface,
     row: ExperimentTableRow
   ) => string | ReactElement;
   dateCreated: Date;
