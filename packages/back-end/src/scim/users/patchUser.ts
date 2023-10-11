@@ -1,50 +1,13 @@
-import { Response } from "express";
 import { cloneDeep } from "lodash";
+import { Response } from "express";
 import { updateOrganization } from "../../models/OrganizationModel";
-import {
-  getUserByExternalId,
-  getUserById,
-  removeExternalId,
-} from "../../services/users";
-import { ScimUpdateRequest } from "../../../types/scim";
+import { getUserById } from "../../services/users";
+import { ScimPatchRequest, ScimUser } from "../../../types/scim";
 import { OrganizationInterface } from "../../../types/organization";
-import { UserInterface } from "../../../types/user";
-
-type Operation = {
-  op: "add" | "remove" | "replace";
-  path: string; // Path is optional for add & replace, and required for remove operations
-  value: {
-    [key: string]: unknown;
-  };
-};
-
-type ScimEmailObject = {
-  primary: boolean;
-  value: string;
-  type: string;
-  display: string;
-};
-
-type ScimUserObject = {
-  schemas: string[];
-  id: string;
-  userName: string;
-  name: {
-    displayName: string;
-  };
-  active: boolean;
-  emails: ScimEmailObject[];
-  groups: string[];
-  meta: {
-    resourceType: string;
-  };
-};
 
 async function removeUserFromOrg(
   org: OrganizationInterface,
-  userIndex: number,
-  user: UserInterface,
-  updatedScimUser: ScimUserObject
+  userIndex: number
 ) {
   const updatedOrg = cloneDeep(org);
 
@@ -64,17 +27,14 @@ async function removeUserFromOrg(
   updatedOrg.members.splice(userIndex, 1);
 
   await updateOrganization(org.id, updatedOrg);
-
-  updatedScimUser.active = false;
 }
 
-export async function patchUser(req: ScimUpdateRequest, res: Response) {
+export async function patchUser(req: ScimPatchRequest, res: Response) {
   // Get all of the params and operations
-  const requestBody = req.body;
+  const { Operations } = req.body;
   const org = req.organization;
 
   // Check if the user exists at all
-  // After this is all said and done, we need to return the user object
   const user = await getUserById(req.params.id);
   if (!user) {
     return res.status(404).json({
@@ -84,7 +44,7 @@ export async function patchUser(req: ScimUpdateRequest, res: Response) {
     });
   }
 
-  if (!user.externalId || !user.managedByIdp) {
+  if (!user.managedByIdp) {
     return res.status(404).json({
       schemas: ["urn:ietf:params:scim:api:messages:2.0:Error"],
       status: "401",
@@ -95,20 +55,18 @@ export async function patchUser(req: ScimUpdateRequest, res: Response) {
   // Check if the user exists within the org
   const userIndex = org.members.findIndex((member) => member.id === user.id);
 
-  // Then, we need to loop through operations
-  const operations: Operation[] = requestBody.Operations;
-
-  const updatedScimUser = {
+  const updatedScimUser: ScimUser = {
     schemas: ["urn:ietf:params:scim:schemas:core:2.0:User"],
     id: req.params.id,
+    displayName: user.name || "",
     userName: user.email,
     name: {
-      displayName: user.name || "",
-      givenName: user.name?.split(" ")[0],
-      familyName: user.name?.split(" ")[1],
+      formatted: user.name || "",
+      givenName: user.name?.split(" ")[0] || "",
+      familyName: user.name?.split(" ")[1] || "",
     },
     externalId: user.externalId,
-    active: userIndex > -1, // If a user has an externalId but is not in the org they're inactive
+    active: false, // Hard coded to false because we only support deactivation through PATCH currently
     emails: [
       {
         primary: true,
@@ -122,7 +80,9 @@ export async function patchUser(req: ScimUpdateRequest, res: Response) {
       resourceType: "User",
     },
   };
-  for (const operation of operations) {
+
+  // Then, we need to loop through operations
+  for (const operation of Operations) {
     const { op, value } = operation;
     // Okta will only ever use PATCH to active/deactivate a user or sync a user's password
     // https://developer.okta.com/docs/reference/scim/scim-20/#update-a-specific-user-patch
@@ -130,7 +90,7 @@ export async function patchUser(req: ScimUpdateRequest, res: Response) {
       // SCIM determines whether a user is active or not based on this property. If set to false, that means they want us to remove the user
       // this means they want us to remove the user
       try {
-        await removeUserFromOrg(org, userIndex, user, updatedScimUser);
+        await removeUserFromOrg(org, userIndex);
       } catch (e) {
         return res.status(400).json({
           schemas: ["urn:ietf:params:scim:api:messages:2.0:Error"],
@@ -139,7 +99,7 @@ export async function patchUser(req: ScimUpdateRequest, res: Response) {
         });
       }
     } else if (op === "replace" && value.active === true) {
-      // TODO: Add user to org
+      // TODO: Add user back to org (self-hosted only. doing for cloud could leak user data)
     }
     // Silently ignore any operation to change a user's password
   }

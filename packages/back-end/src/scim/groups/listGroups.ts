@@ -4,11 +4,20 @@ import { getTeamsForOrganization } from "../../models/TeamModel";
 import { expandOrgMembers } from "../../services/organizations";
 import { createApiRequestHandler } from "../../util/handler";
 import { ApiRequestLocals } from "../../../types/api";
+import { COUNT_DEFAULT, START_INDEX_DEFAULT } from "../users/listUsers";
+import { ScimGroup, ScimListResponse } from "../../../types/scim";
 
 export const listGroups = createApiRequestHandler()(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  async (req: Request & ApiRequestLocals): Promise<any> => {
+  async (req: Request & ApiRequestLocals): Promise<ScimListResponse> => {
     const { startIndex, count, filter: filterQuery } = req.query;
+
+    const queryOptions = {
+      startIndex: startIndex
+        ? parseInt(startIndex as string)
+        : START_INDEX_DEFAULT,
+      count: count ? parseInt(count as string) : COUNT_DEFAULT,
+    };
 
     const org = req.organization;
 
@@ -27,7 +36,7 @@ export const listGroups = createApiRequestHandler()(
 
     const hydratedGroups = await Promise.all(groupsWithMembersP);
 
-    const SCIMGroups = hydratedGroups.map((group) => {
+    const SCIMGroups: ScimGroup[] = hydratedGroups.map((group) => {
       return {
         schemas: ["urn:ietf:params:scim:schemas:core:2.0:Group"],
         id: group.id,
@@ -55,8 +64,8 @@ export const listGroups = createApiRequestHandler()(
       schemas: ["urn:ietf:params:scim:api:messages:2.0:ListResponse"],
       totalResults: filteredGroups.length,
       Resources: resources,
-      startIndex: parseInt(startIndex as string),
-      itemsPerPage: parseInt(count as string),
+      startIndex: queryOptions.startIndex,
+      itemsPerPage: queryOptions.count,
     };
   }
 );

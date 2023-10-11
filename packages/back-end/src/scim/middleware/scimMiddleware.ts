@@ -1,8 +1,8 @@
 import { Response, NextFunction } from "express";
 import { getAccountPlan } from "enterprise";
 import { AuthRequest } from "../../types/AuthRequest";
+import { usingOpenId } from "../../services/auth";
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export default function scimMiddleware(
   req: AuthRequest,
   res: Response,
@@ -23,6 +23,15 @@ export default function scimMiddleware(
       schemas: ["urn:ietf:params:scim:api:messages:2.0:Error"],
       status: "403",
       detail: "SCIM is not available for this GrowthBook organization.",
+    });
+  }
+
+  if (!usingOpenId()) {
+    return res.status(500).json({
+      schemas: ["urn:ietf:params:scim:api:messages:2.0:Error"],
+      status: "403",
+      detail:
+        "SCIM is not available for Growthbook organizations not using SSO.",
     });
   }
 

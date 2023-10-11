@@ -7,7 +7,7 @@ import groupsRouter from "./groups/groups.router";
 const router = Router();
 
 router.use(authenticateApiRequestMiddleware);
-// router.use(scimMiddleware); // TODO: Re-enable after testing
+router.use(scimMiddleware); // TODO: Comment out for testing
 
 // API endpoints
 router.use("/users", usersRouter);

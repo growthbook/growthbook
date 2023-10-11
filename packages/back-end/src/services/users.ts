@@ -43,11 +43,14 @@ export async function removeExternalId(userId: string) {
   return UserModel.updateOne({ id: userId }, { $unset: { externalId: 1 } });
 }
 
-export async function addExternalIdToExistingUser(
+export async function convertUserToManagedByIdp(
   userId: string,
-  externalId: string
+  externalId?: string
 ) {
-  return UserModel.updateOne({ id: userId }, { $set: { externalId } });
+  return UserModel.updateOne(
+    { id: userId },
+    { $set: { managedByIdp: true, externalId } }
+  );
 }
 
 async function hash(password: string): Promise<string> {
@@ -91,6 +94,7 @@ export async function updatePassword(userId: string, password: string) {
   );
 }
 
+// TODO: Change arguments into an object
 export async function createUser(
   name: string,
   email: string,

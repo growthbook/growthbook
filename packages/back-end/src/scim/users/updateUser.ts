@@ -1,14 +1,14 @@
-import { Request, Response } from "express";
-import { ApiRequestLocals } from "../../../types/api";
+import { Response } from "express";
 import { getUserById, updateScimUserData } from "../../services/users";
+import { ScimUserPutOrPostRequest } from "../../../types/scim";
 
 export async function updateUser(
-  req: Request & ApiRequestLocals,
+  req: ScimUserPutOrPostRequest,
   res: Response
 ): Promise<Response> {
-  console.log("updateUser called", req.body);
-
   const user = await getUserById(req.params.id);
+
+  const { name, userName, displayName } = req.body;
 
   if (!user) {
     return res.status(404).json({
@@ -19,20 +19,21 @@ export async function updateUser(
   }
 
   try {
+    // TODO: Explore if we should support updating external ID
     await updateScimUserData(user.id, {
-      email: req.body.userName,
-      name: req.body.displayName,
+      email: userName,
+      name: displayName,
     });
 
     return res.status(200).json({
       schemas: ["urn:ietf:params:scim:schemas:core:2.0:User"],
       id: user.id,
       externalId: user.externalId,
-      userName: user.email,
+      userName,
       name: {
-        displayName: user.name,
-        givenName: req.body.name.givenName,
-        familyName: req.body.name.familyName,
+        formatted: name.formatted,
+        givenName: name.givenName,
+        familyName: name.familyName,
       },
       active: true,
       emails: [

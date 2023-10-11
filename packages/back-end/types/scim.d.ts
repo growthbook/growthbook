@@ -1,9 +1,57 @@
 import { Request } from "express";
-import { OrganizationInterface } from "./organization";
+import { ApiRequestLocals } from "./api";
 
-export type BaseScimRequest = Request & {
-  organization: OrganizationInterface;
-};
+export type BaseScimRequest = Request & ApiRequestLocals;
+
+export interface ScimEmail {
+  primary: boolean;
+  value: string;
+  type: string;
+  display: string;
+}
+
+export interface ScimUser {
+  schemas: ["urn:ietf:params:scim:schemas:core:2.0:User"];
+  id: string;
+  displayName: string;
+  externalId?: string;
+  userName: string;
+  name: {
+    formatted: string;
+    givenName: string;
+    familyName: string;
+  };
+  active: boolean;
+  emails: ScimEmail[];
+  groups: ScimGroup[]; // TODO: figure out groups object shape and include groups
+  meta: {
+    resourceType: string;
+  };
+}
+
+export interface ScimGroup {
+  schemas: ["urn:ietf:params:scim:schemas:core:2.0:Group"];
+  id: string;
+  displayName: string;
+  members: { value: string; display: string }[];
+  meta: {
+    resourceType: "Group";
+  };
+}
+
+export interface ScimListResponse {
+  schemas: ["urn:ietf:params:scim:api:messages:2.0:ListResponse"];
+  totalResults: number;
+  Resources: ScimUser[] | ScimGroup[];
+  startIndex: number;
+  itemsPerPage: number;
+}
+
+export interface ScimError {
+  schemas: ["urn:ietf:params:scim:api:messages:2.0:Error"];
+  status: string;
+  detail: string;
+}
 
 export type ScimGetRequest = BaseScimRequest & {
   params: {
@@ -11,33 +59,35 @@ export type ScimGetRequest = BaseScimRequest & {
   };
 };
 
-export type ScimPostRequest = BaseScimRequest & {
-  // TODO: The body might actually be encrypted
-  body: {
-    schemas: string[];
-    externalId: string;
-    displayName: string;
-    meta: {
-      resourceType: string;
-    };
-  };
-};
+export interface ScimUserPutOrPostRequest extends BaseScimRequest {
+  body: ScimUser;
+}
 
-export type ScimListRequest = BaseScimRequest & {
+export interface ScimGroupPostRequest extends BaseScimRequest {
+  body: ScimGroup;
+}
+
+export interface ScimListRequest extends BaseScimRequest {
   query: {
-    filter: string;
+    filter?: string;
+    startIndex?: string;
+    count?: string;
+  };
+}
+
+type ScimOperation = {
+  op: "add" | "remove" | "replace";
+  path?: string; // Path is optional for add & replace, and required for remove operations
+  value: {
+    [key: string]: unknown;
   };
 };
 
-export type ScimUpdateRequest = BaseScimRequest & {
+export interface ScimPatchRequest extends BaseScimRequest {
   params: {
     id: string;
   };
   body: {
-    Operations: {
-      op: string; //TODO: Can I make this an enum?
-      path: string; //TODO: Can I make this an enum?
-      value: unknown;
-    }[];
+    Operations: ScimOperation[];
   };
-};
+}

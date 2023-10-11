@@ -1,19 +1,15 @@
-import { Request, Response } from "express";
+import { Response } from "express";
 import {
+  convertUserToManagedByIdp,
   createUser as createNewUser,
   getUserByEmail,
 } from "../../services/users";
 import { addMemberToOrg } from "../../services/organizations";
 import { OrganizationInterface } from "../../../types/organization";
-import { ApiRequestLocals } from "../../../types/api";
+import { ScimUserPutOrPostRequest } from "../../../types/scim";
 
-export async function createUser(
-  req: Request & ApiRequestLocals,
-  res: Response
-) {
-  const requestBody = req.body;
-
-  console.log({ requestBody });
+export async function createUser(req: ScimUserPutOrPostRequest, res: Response) {
+  const { externalId, name, displayName, userName } = req.body;
 
   const org: OrganizationInterface = req.organization;
 
@@ -21,49 +17,37 @@ export async function createUser(
 
   try {
     // Look up the user in Mongo
-    let user = await getUserByEmail(requestBody.userName);
+    let user = await getUserByEmail(userName);
 
     // If the user already exists in the org, return an error
     if (user && org.members.find((member) => member.id === user?.id)) {
-      return res.status(409).json({
-        schemas: ["urn:ietf:params:scim:api:messages:2.0:Error"],
-        scimType: "uniqueness",
-        detail: "User already exists in this organization",
-        status: 409,
-      });
+      // Check if they have an externalId and/or if they're managed by an external IDP
+      if (user.managedByIdp) {
+        // If so, return an error
+        // otherwise, update the user with the externalId and managedByIdp: true
+        return res.status(409).json({
+          schemas: ["urn:ietf:params:scim:api:messages:2.0:Error"],
+          scimType: "uniqueness",
+          detail: "User already exists in this organization",
+          status: 409,
+        });
+      } else {
+        await convertUserToManagedByIdp(
+          user.id,
+          externalId ? externalId : undefined
+        );
+      }
     }
-
-    // If we find the user by externalId, we should check that the email and the name match, and if not, update them
-    // if (user && user.email !== requestBody.userName) {
-    //   await updateScimUserData(user.id, {
-    //     email: requestBody.userName,
-    //     name: requestBody.displayName,
-    //   });
-
-    //   user.email = requestBody.userName;
-    //   user.name = requestBody.displayName;
-    // }
-
-    // if (!user) {
-    //   // If we can't find the user by externalId, try to find them by email
-    //   user = await getUserByEmail(requestBody.userName);
-
-    //   if (user && !user.externalId) {
-    //     // if we find the user, but they don't have an externalId, add it - this happens when a user exists in GB, but now they're access is being managed by an external IDP
-    //     await addExternalIdToExistingUser(user.id, requestBody.externalId);
-    //     user.externalId = requestBody.externalId;
-    //   }
-    // }
 
     if (!user) {
       // If we still can't find the user, create it
       user = await createNewUser(
-        requestBody.displayName,
-        requestBody.userName,
+        displayName,
+        userName,
         "12345678", // TODO: SSO shouldn't need a password. figure out how to test this
         false, // TODO: Double check this logic
         true,
-        requestBody.externalId ? requestBody.externalId : undefined
+        externalId ? externalId : undefined
       );
     }
 
@@ -79,12 +63,13 @@ export async function createUser(
     return res.status(201).json({
       schemas: ["urn:ietf:params:scim:schemas:core:2.0:User"],
       id: user.id,
+      displayName: user.name,
       externalId: user.externalId,
       userName: user.email,
       name: {
-        displayName: user.name,
-        givenName: requestBody.name.givenName,
-        familyName: requestBody.name.familyName,
+        formatted: user.name,
+        givenName: name.givenName,
+        familyName: name.familyName,
       },
       active: true,
       emails: [

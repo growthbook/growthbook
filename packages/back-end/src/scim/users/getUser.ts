@@ -4,7 +4,6 @@ import { getUserById } from "../../services/users";
 
 export async function getUser(req: ScimGetRequest, res: Response) {
   const userId = req.params.id;
-  console.log("getUser called", userId);
 
   const user = await getUserById(userId);
 
