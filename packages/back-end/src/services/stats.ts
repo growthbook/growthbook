@@ -1,6 +1,7 @@
 import { promisify } from "util";
 import { PythonShell } from "python-shell";
 import {
+  DEFAULT_P_VALUE_THRESHOLD,
   DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
   DEFAULT_STATS_ENGINE,
 } from "shared/constants";
@@ -35,7 +36,8 @@ export async function analyzeExperimentMetric(
   statsEngine: StatsEngine = DEFAULT_STATS_ENGINE,
   sequentialTestingEnabled: boolean = false,
   sequentialTestingTuningParameter: number = DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
-  baselineVariationIndex: number | null = null
+  baselineVariationIndex: number | null = null,
+  pValueThreshold: number = DEFAULT_P_VALUE_THRESHOLD
 ): Promise<ExperimentMetricAnalysis> {
   if (!rows || !rows.length) {
     return {
@@ -108,6 +110,17 @@ reduced = reduce_dimensionality(
   max=max_dimensions
 )
 
+engine_config=${
+      statsEngine === "frequentist" && sequentialTestingEnabled
+        ? `{'sequential': True, 'sequential_tuning_parameter': ${sequentialTestingTuningParameter}}`
+        : "{}"
+    }
+${
+  statsEngine === "frequentist" && pValueThreshold !== undefined
+    ? `engine_config['alpha'] = ${pValueThreshold}`
+    : ""
+}
+
 result = analyze_metric_df(
   df=reduced,
   weights=weights,
@@ -117,11 +130,7 @@ result = analyze_metric_df(
       ? "StatsEngine.FREQUENTIST"
       : "StatsEngine.BAYESIAN"
   },
-  engine_config=${
-    statsEngine === "frequentist" && sequentialTestingEnabled
-      ? `{'sequential': True, 'sequential_tuning_parameter': ${sequentialTestingTuningParameter}}`
-      : "{}"
-  }
+  engine_config=engine_config,
 )
 
 print(json.dumps({
@@ -233,7 +242,8 @@ export async function analyzeExperimentResults({
           analysisSettings.statsEngine,
           analysisSettings.sequentialTesting,
           analysisSettings.sequentialTestingTuningParameter,
-          analysisSettings.baselineVariationIndex
+          analysisSettings.baselineVariationIndex,
+          analysisSettings.pValueThreshold
         );
         unknownVariations = unknownVariations.concat(result.unknownVariations);
         multipleExposures = Math.max(

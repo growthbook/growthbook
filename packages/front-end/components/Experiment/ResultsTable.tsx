@@ -16,7 +16,10 @@ import {
 } from "back-end/types/report";
 import { ExperimentStatus } from "back-end/types/experiment";
 import { PValueCorrection, StatsEngine } from "back-end/types/stats";
-import { DEFAULT_STATS_ENGINE } from "shared/constants";
+import {
+  DEFAULT_P_VALUE_THRESHOLD,
+  DEFAULT_STATS_ENGINE,
+} from "shared/constants";
 import { getValidDate } from "shared/dates";
 import { useTooltip, useTooltipInPortal } from "@visx/tooltip";
 import { FaExclamationTriangle } from "react-icons/fa";
@@ -549,7 +552,8 @@ export default function ResultsTable({
                               {getPValueTooltip(
                                 !!sequentialTestingEnabled,
                                 pValueCorrection ?? null,
-                                orgSettings.pValueThreshold ?? 0.05,
+                                orgSettings.pValueThreshold ??
+                                  DEFAULT_P_VALUE_THRESHOLD,
                                 tableRowAxis
                               )}
                             </div>
@@ -597,7 +601,8 @@ export default function ResultsTable({
                                 statsEngine || DEFAULT_STATS_ENGINE,
                                 hasRisk,
                                 !!sequentialTestingEnabled,
-                                pValueCorrection ?? null
+                                pValueCorrection ?? null,
+                                pValueThreshold
                               )}
                             </div>
                           }
@@ -959,7 +964,8 @@ function getPercentChangeTooltip(
   statsEngine: StatsEngine,
   hasRisk: boolean,
   sequentialTestingEnabled: boolean,
-  pValueCorrection: PValueCorrection
+  pValueCorrection: PValueCorrection,
+  pValueThreshold: number
 ) {
   if (hasRisk && statsEngine === "bayesian") {
     return (
@@ -970,12 +976,13 @@ function getPercentChangeTooltip(
     );
   }
   if (statsEngine === "frequentist") {
+    const confidencePct = Math.round(100 - 100 * pValueThreshold);
     return (
       <>
         <p className="mb-0">
-          The interval is a 95% confidence interval. If you re-ran the
-          experiment 100 times, the true value would be in this range 95% of the
-          time.
+          The interval is a {confidencePct}% confidence interval. If you re-ran
+          the experiment 100 times, the true value would be in this range{" "}
+          {confidencePct}% of the time.
         </p>
         {sequentialTestingEnabled && (
           <p className="mt-4 mb-0">
