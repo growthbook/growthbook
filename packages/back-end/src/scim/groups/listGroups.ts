@@ -1,15 +1,16 @@
 import { parse, filter } from "scim2-parse-filter";
-import { Request } from "express";
 import { getTeamsForOrganization } from "../../models/TeamModel";
 import { expandOrgMembers } from "../../services/organizations";
 import { createApiRequestHandler } from "../../util/handler";
-import { ApiRequestLocals } from "../../../types/api";
 import { COUNT_DEFAULT, START_INDEX_DEFAULT } from "../users/listUsers";
-import { ScimGroup, ScimListResponse } from "../../../types/scim";
+import {
+  ScimGroup,
+  ScimListRequest,
+  ScimListResponse,
+} from "../../../types/scim";
 
 export const listGroups = createApiRequestHandler()(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  async (req: Request & ApiRequestLocals): Promise<ScimListResponse> => {
+  async (req: ScimListRequest): Promise<ScimListResponse> => {
     const { startIndex, count, filter: filterQuery } = req.query;
 
     const queryOptions = {
