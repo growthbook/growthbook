@@ -97,6 +97,7 @@ export interface ExperimentSnapshotAnalysisSettings {
   sequentialTesting?: boolean;
   sequentialTestingTuningParameter?: number;
   pValueCorrection?: null | "holm-bonferroni" | "benjamini-hochberg";
+  pValueThreshold?: number;
   baselineVariationIndex?: number;
 }
 
