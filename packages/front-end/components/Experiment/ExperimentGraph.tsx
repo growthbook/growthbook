@@ -11,7 +11,7 @@ import { localPoint } from "@visx/event";
 import { getValidDate } from "shared/dates";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import useApi from "@/hooks/useApi";
-import Field from "@/components/Forms/Field";
+import SelectField from "@/components/Forms/SelectField";
 import LoadingOverlay from "../LoadingOverlay";
 import styles from "./ExperimentGraph.module.scss";
 
@@ -51,22 +51,22 @@ export default function ExperimentGraph({
   const showSelectOptions = [
     {
       value: "all",
-      display: "All experiments",
+      label: "All experiments",
     },
     {
       value: "status",
-      display: "By status",
+      label: "By status",
     },
     {
       value: "results",
-      display: "By results",
+      label: "By results",
     },
   ];
   // have a dropdown for projects doesn't make sense when viewing just one project
   if (!project) {
     showSelectOptions.push({
       value: "project",
-      display: "By projects",
+      label: "By projects",
     });
   }
 
@@ -159,20 +159,20 @@ export default function ExperimentGraph({
             {projectMap.has(project) ? "for " + projectMap.get(project) : ""}
           </h4>
         </div>
-        <div className="col-auto small">
-          <Field
-            containerClassName="d-inline-block ml-2 mb-0 small"
+        <div className="col-auto">
+          <SelectField
+            containerClassName="d-inline-block ml-2 mb-0"
             options={showSelectOptions}
             value={showBy}
-            onChange={(e) => {
+            onChange={(value) => {
               if (
-                e.target.value === "user" ||
-                e.target.value === "all" ||
-                e.target.value === "project" ||
-                e.target.value === "results" ||
-                e.target.value === "status"
+                value === "user" ||
+                value === "all" ||
+                value === "project" ||
+                value === "results" ||
+                value === "status"
               ) {
-                setShowBy(e.target.value);
+                setShowBy(value);
               }
             }}
           />
