@@ -1,5 +1,13 @@
 # Changelog
 
+## **0.29.0** - Oct 4, 2023
+
+- Add optional `remoteEval` mode for client-side applications (plus `cacheKeyAttributes` option to control when to re-fetch from the server)
+- New options to better control network requests (useful for corporate proxies): `apiHostRequestHeaders`, `streamingHost`, and `streamingHostRequestHeaders`
+- New public methods `getForcedVariations` and `getForcedFeatures` to see what's currently being overridden by DevTools, etc.
+- Fix bug when using the GrowthBook DevTools Extension with Visual Editor experiments
+- New `maxEntries` cache setting to enable garbage collection on the localStorage cache
+
 ## **0.28.0** - Aug 29, 2023
 
 - Fix bug with streaming SSE connections only working on initial page load
