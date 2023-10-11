@@ -12,6 +12,7 @@ import { VisualChangesetInterface } from "back-end/types/visual-changeset";
 import { SDKConnectionInterface } from "back-end/types/sdk-connection";
 import Link from "next/link";
 import { useRouter } from "next/router";
+import { DifferenceType } from "back-end/types/stats";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import useOrgSettings from "@/hooks/useOrgSettings";
@@ -59,6 +60,9 @@ export default function ResultsTab({
   safeToEdit,
 }: Props) {
   const [baselineRow, setBaselineRow] = React.useState<number>(0);
+  const [differenceType, setDifferenceType] = React.useState<DifferenceType>(
+    "relative"
+  );
   const [variationFilter, setVariationFilter] = React.useState<number[]>([]);
 
   const {
@@ -311,6 +315,8 @@ export default function ResultsTab({
                   setVariationFilter={setVariationFilter}
                   baselineRow={baselineRow}
                   setBaselineRow={setBaselineRow}
+                  differenceType={differenceType}
+                  setDifferenceType={setDifferenceType}
                 />
               )}
             </>

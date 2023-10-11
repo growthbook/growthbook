@@ -9,7 +9,7 @@ import {
   ExperimentReportVariation,
   MetricRegressionAdjustmentStatus,
 } from "back-end/types/report";
-import { StatsEngine } from "back-end/types/stats";
+import { DifferenceType, StatsEngine } from "back-end/types/stats";
 import {
   FaExclamationCircle,
   FaExclamationTriangle,
@@ -42,6 +42,7 @@ import RefreshSnapshotButton from "./RefreshSnapshotButton";
 import ResultMoreMenu from "./ResultMoreMenu";
 import PhaseSelector from "./PhaseSelector";
 import { useSnapshot } from "./SnapshotProvider";
+import DifferenceTypeChooser from "./DifferenceTypeChooser";
 
 export default function AnalysisSettingsBar({
   mutateExperiment,
@@ -62,6 +63,8 @@ export default function AnalysisSettingsBar({
   setVariationFilter,
   baselineRow,
   setBaselineRow,
+  differenceType,
+  setDifferenceType,
 }: {
   mutateExperiment: () => void;
   setAnalysisSettings: (
@@ -83,6 +86,8 @@ export default function AnalysisSettingsBar({
   setVariationFilter?: (variationFilter: number[]) => void;
   baselineRow?: number;
   setBaselineRow?: (baselineRow: number) => void;
+  differenceType?: DifferenceType;
+  setDifferenceType?: (differenceType: DifferenceType) => void;
 }) {
   const {
     experiment,
@@ -196,6 +201,19 @@ export default function AnalysisSettingsBar({
               setAnalysisSettings={setAnalysisSettings}
             />
           </div>
+          {newUi && setDifferenceType ? (
+            <div className="col-auto form-inline pr-5">
+              <DifferenceTypeChooser
+                differenceType={differenceType ?? "relative"}
+                setDifferenceType={setDifferenceType}
+                snapshot={snapshot}
+                analysis={analysis}
+                setAnalysisSettings={setAnalysisSettings}
+                loading={!!loading}
+                mutate={mutate}
+              />
+            </div>
+          ) : null}
           {newUi &&
             experiment.phases &&
             (alwaysShowPhaseSelector || experiment.phases.length > 1) && (

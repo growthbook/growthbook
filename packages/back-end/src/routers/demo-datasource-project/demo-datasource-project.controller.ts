@@ -377,6 +377,7 @@ spacing and headings.`,
 
     const analysisSettings: ExperimentSnapshotAnalysisSettings = {
       statsEngine: org.settings?.statsEngine || DEFAULT_STATS_ENGINE,
+      differenceType: "relative",
       dimensions: [],
     };
 

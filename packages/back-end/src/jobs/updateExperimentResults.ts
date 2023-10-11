@@ -176,6 +176,7 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
         experiment?.sequentialTestingTuningParameter ??
         organization.settings?.sequentialTestingTuningParameter ??
         DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
+      differenceType: "relative",
       baselineVariationIndex: 0,
     };
 

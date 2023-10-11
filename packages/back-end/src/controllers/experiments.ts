@@ -1828,6 +1828,7 @@ export async function postSnapshot(
     regressionAdjusted: !!regressionAdjustmentEnabled,
     dimensions: dimension ? [dimension] : [],
     sequentialTesting: !!sequentialTestingEnabled,
+    differenceType: "relative",
     sequentialTestingTuningParameter: sequentialTestingTuningParameter,
     baselineVariationIndex: 0,
   };

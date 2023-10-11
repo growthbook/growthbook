@@ -1,6 +1,6 @@
 import { QueryLanguage } from "./datasource";
 import { MetricInterface, MetricStats } from "./metric";
-import { StatsEngine } from "./stats";
+import { DifferenceType, StatsEngine } from "./stats";
 import { Queries } from "./query";
 import {
   ExperimentReportResultDimension,
@@ -96,6 +96,7 @@ export interface ExperimentSnapshotAnalysisSettings {
   regressionAdjusted?: boolean;
   sequentialTesting?: boolean;
   sequentialTestingTuningParameter?: number;
+  differenceType: DifferenceType;
   pValueCorrection?: null | "holm-bonferroni" | "benjamini-hochberg";
   baselineVariationIndex?: number;
 }

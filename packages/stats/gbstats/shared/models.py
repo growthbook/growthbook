@@ -4,6 +4,8 @@ from typing import List, Union
 
 import numpy as np
 
+from gbstats.shared.constants import DifferenceType
+
 
 @dataclass
 class Statistic(ABC):
@@ -193,6 +195,10 @@ def create_joint_statistic(
         "Statistic types for a metric must not be different types across variations."
     )
 
+# Data class for test config
+@dataclass
+class BaseConfig:
+    difference_type: DifferenceType = DifferenceType.RELATIVE
 
 # Data classes for the results of tests
 @dataclass
@@ -213,7 +219,6 @@ class TestResult:
 class BayesianTestResult(TestResult):
     chance_to_win: float
     risk: List[float]
-    relative_risk: List[float]
 
 
 @dataclass

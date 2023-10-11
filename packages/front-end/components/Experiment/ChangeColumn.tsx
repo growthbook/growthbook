@@ -21,20 +21,25 @@ interface Props
   rowResults: RowResults;
   statsEngine: StatsEngine;
   showPlusMinus?: boolean;
+  percent?: boolean;
   showCI?: boolean;
   className?: string;
 }
 
-export default function PercentChangeColumn({
+export default function ChangeColumn({
   metric,
   stats,
   rowResults,
   statsEngine,
   showPlusMinus = true,
   showCI = false,
+  percent = true,
   className,
   ...otherProps
 }: Props) {
+  const formatter = percent ? percentFormatter : Intl.NumberFormat();
+  const multiplier = percent ? 100 : 1;
+  const digits = percent ? 1 : 3;
   return (
     <>
       {metric && rowResults.enoughData ? (
@@ -55,7 +60,7 @@ export default function PercentChangeColumn({
               )}
             </span>{" "}
             <span className="expected">
-              {parseFloat(((stats.expected ?? 0) * 100).toFixed(1)) + "%"}{" "}
+              {parseFloat(((stats.expected ?? 0) * multiplier).toFixed(digits)) + (percent ? "%" : "")}{" "}
             </span>
             {statsEngine === "frequentist" && showPlusMinus ? (
               <span className="plusminus font-weight-normal text-gray ml-1">
@@ -63,17 +68,17 @@ export default function PercentChangeColumn({
                   parseFloat(
                     (
                       Math.abs((stats.expected ?? 0) - (stats.ci?.[0] ?? 0)) *
-                      100
-                    ).toFixed(1)
+                      multiplier
+                    ).toFixed(digits)
                   ) +
-                  "%"}
+                  (percent ? "%" : "")}
               </span>
             ) : null}
           </div>
           {showCI ? (
             <div className="ci text-right nowrap font-weight-normal text-gray">
-              [{percentFormatter.format(stats.ci?.[0] ?? 0)},{" "}
-              {percentFormatter.format(stats.ci?.[1] ?? 0)}]
+              [{formatter.format(stats.ci?.[0] ?? 0)},{" "}
+              {formatter.format(stats.ci?.[1] ?? 0)}]
             </div>
           ) : null}
         </td>

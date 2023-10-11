@@ -6,15 +6,18 @@ import numpy as np
 from scipy.stats import t  # type: ignore
 
 from gbstats.shared.models import (
+    BaseConfig,
     FrequentistTestResult,
     Statistic,
     Uplift,
 )
 from gbstats.shared.tests import BaseABTest
 
+from gbstats.shared.constants import DifferenceType
+
 
 @dataclass
-class FrequentistConfig:
+class FrequentistConfig(BaseConfig):
     alpha: float = 0.05
     test_value: float = 0
 
@@ -43,18 +46,25 @@ class TTest(BaseABTest):
         super().__init__(stat_a, stat_b)
         self.alpha = config.alpha
         self.test_value = config.test_value
+        self.relative = config.difference_type == DifferenceType.RELATIVE
 
     @property
     def variance(self) -> float:
-        return self.stat_b.variance / (
-            pow(self.stat_a.unadjusted_mean, 2) * self.stat_b.n
-        ) + self.stat_a.variance * pow(self.stat_b.unadjusted_mean, 2) / (
-            pow(self.stat_a.unadjusted_mean, 4) * self.stat_a.n
-        )
+        if self.relative:
+            return self.stat_b.variance / (
+                pow(self.stat_a.unadjusted_mean, 2) * self.stat_b.n
+            ) + self.stat_a.variance * pow(self.stat_b.unadjusted_mean, 2) / (
+                pow(self.stat_a.unadjusted_mean, 4) * self.stat_a.n
+            )
+        return self.stat_b.variance / self.stat_b.n + self.stat_a.variance / self.stat_a.n
 
     @property
     def point_estimate(self) -> float:
-        return (self.stat_b.mean - self.stat_a.mean) / self.stat_a.unadjusted_mean
+        absolute_diff = (self.stat_b.mean - self.stat_a.mean)
+        if self.relative:
+            return absolute_diff / self.stat_a.unadjusted_mean
+        else:
+            return absolute_diff
 
     @property
     def critical_value(self) -> float:

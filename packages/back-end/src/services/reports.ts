@@ -142,6 +142,7 @@ export function getSnapshotSettingsFromReportArgs(
     pValueCorrection: null,
     sequentialTesting: args.sequentialTestingEnabled,
     sequentialTestingTuningParameter: args.sequentialTestingTuningParameter,
+    differenceType: "relative",
   };
 
   return { snapshotSettings, analysisSettings };
