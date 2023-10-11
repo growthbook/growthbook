@@ -13,10 +13,12 @@ import {
   setAdjustedPValuesOnResults,
   ExperimentTableRow,
   useRiskVariation,
+  adjustCIs,
 } from "@/services/experiments";
 import ResultsTable from "@/components/Experiment/ResultsTable";
 import { QueryStatusData } from "@/components/Queries/RunQueriesButton";
 import { getRenderLabelColumn } from "@/components/Experiment/CompactResults";
+import usePValueThreshold from "@/hooks/usePValueThreshold";
 import UsersTable from "./UsersTable";
 
 type TableDef = {
@@ -67,6 +69,7 @@ const BreakDownResults: FC<{
   sequentialTestingEnabled,
 }) => {
   const { getDimensionById, getExperimentMetricById, ready } = useDefinitions();
+  const pValueThreshold = usePValueThreshold();
 
   const dimension = useMemo(() => {
     return getDimensionById(dimensionId)?.name || "Dimension";
@@ -76,6 +79,7 @@ const BreakDownResults: FC<{
     if (!ready) return [];
     if (pValueCorrection && statsEngine === "frequentist") {
       setAdjustedPValuesOnResults(results, metrics, pValueCorrection);
+      adjustCIs(results, pValueThreshold);
     }
     return Array.from(new Set(metrics.concat(guardrails || [])))
       .map((metricId) => {
@@ -114,6 +118,7 @@ const BreakDownResults: FC<{
     pValueCorrection,
     statsEngine,
     guardrails,
+    pValueThreshold,
     ready,
     getExperimentMetricById,
   ]);

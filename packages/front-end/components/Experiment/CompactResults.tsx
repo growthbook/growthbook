@@ -17,9 +17,11 @@ import {
   setAdjustedPValuesOnResults,
   ExperimentTableRow,
   useRiskVariation,
+  adjustCIs,
 } from "@/services/experiments";
 import { GBCuped } from "@/components/Icons";
 import { QueryStatusData } from "@/components/Queries/RunQueriesButton";
+import usePValueThreshold from "@/hooks/usePValueThreshold";
 import Tooltip from "../Tooltip/Tooltip";
 import MetricTooltipBody from "../Metrics/MetricTooltipBody";
 import FactBadge from "../FactTables/FactBadge";
@@ -76,6 +78,7 @@ const CompactResults: FC<{
   isTabActive,
 }) => {
   const { getExperimentMetricById, ready } = useDefinitions();
+  const pValueThreshold = usePValueThreshold();
 
   const [totalUsers, variationUsers] = useMemo(() => {
     let totalUsers = 0;
@@ -121,6 +124,7 @@ const CompactResults: FC<{
     if (!results || !results.variations || !ready) return [];
     if (pValueCorrection && statsEngine === "frequentist") {
       setAdjustedPValuesOnResults([results], metrics, pValueCorrection);
+      adjustCIs([results], pValueThreshold);
     }
     const retMetrics = metrics
       .map((metricId) => getRow(metricId, false))
@@ -137,6 +141,7 @@ const CompactResults: FC<{
     regressionAdjustmentEnabled,
     metricRegressionAdjustmentStatuses,
     pValueCorrection,
+    pValueThreshold,
     ready,
     getExperimentMetricById,
     statsEngine,

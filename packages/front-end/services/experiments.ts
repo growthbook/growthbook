@@ -2,6 +2,7 @@ import { SnapshotMetric } from "back-end/types/experiment-snapshot";
 import { MetricInterface } from "back-end/types/metric";
 import { PValueCorrection, StatsEngine } from "back-end/types/stats";
 import { useState } from "react";
+import { jStat } from "jstat";
 import {
   ExperimentReportResultDimension,
   ExperimentReportVariationWithIndex,
@@ -534,6 +535,39 @@ export function setAdjustedPValuesOnResults(
     const ijk = ip.index;
     results[ijk[0]].variations[ijk[1]].metrics[ijk[2]].pValueAdjusted =
       ip.pValue;
+  });
+  return;
+}
+
+function adjustedCI(
+  adjustedPValue: number,
+  uplift: { dist: string; mean?: number; stddev?: number },
+  zScore: number
+): [number, number] {
+  if (adjustedPValue > 0.9999 || !uplift.stddev || !uplift.mean)
+    return [uplift.mean ?? 0, uplift.mean ?? 0];
+  const adjStdDev = Math.abs(
+    uplift.mean / jStat.normal.inv(1 - adjustedPValue / 2, 0, 1)
+  );
+  const width = zScore * adjStdDev;
+  return [uplift.mean - width, uplift.mean + width];
+}
+
+export function adjustCIs(
+  results: ExperimentReportResultDimension[],
+  pValueThreshold: number
+): void {
+  const zScore = jStat.normal.inv(1 - pValueThreshold / 2, 0, 1);
+  results.forEach((r) => {
+    r.variations.forEach((v) => {
+      for (const key in v.metrics) {
+        const pValueAdjusted = v.metrics[key].pValueAdjusted;
+        const uplift = v.metrics[key].uplift;
+        if (pValueAdjusted !== undefined && uplift !== undefined) {
+          v.metrics[key].ci = adjustedCI(pValueAdjusted, uplift, zScore);
+        }
+      }
+    });
   });
   return;
 }
