@@ -12,7 +12,7 @@ if (fs.existsSync(".env.local")) {
 export const IS_CLOUD = process.env.IS_CLOUD === "true";
 export const IS_MULTI_ORG = process.env.IS_MULTI_ORG === "true";
 
-if (prod && !IS_CLOUD && IS_MULTI_ORG && !process.env.LICENSE_KEY) {
+if (!IS_CLOUD && IS_MULTI_ORG && !process.env.LICENSE_KEY) {
   throw new Error(
     "Must have a commercial license key to be allowed to have multiple organizations."
   );
