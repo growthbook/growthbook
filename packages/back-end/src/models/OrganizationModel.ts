@@ -333,12 +333,10 @@ export async function setOrganizationMessages(
 export function toOrganizationApiInterface(
   org: OrganizationInterface
 ): ApiOrganization {
-  const { id, name, url, verifiedDomain, ownerEmail, dateCreated } = org;
+  const { id, name, ownerEmail, dateCreated } = org;
   return {
     id,
     name,
-    url,
-    verifiedDomain,
     ownerEmail,
     dateCreated: dateCreated?.toISOString() || "",
   };
