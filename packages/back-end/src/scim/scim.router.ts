@@ -3,7 +3,6 @@ import authenticateApiRequestMiddleware from "../middleware/authenticateApiReque
 import verifyLicenseMiddleware from "../services/auth/verifyLicenseMiddleware";
 import usersRouter from "./users/users.router";
 import scimMiddleware from "./middleware/scimMiddleware";
-import groupsRouter from "./groups/groups.router";
 
 const router = Router();
 
@@ -13,7 +12,6 @@ router.use(scimMiddleware);
 
 // API endpoints
 router.use("/users", usersRouter);
-router.use("/groups", groupsRouter);
 
 // 404 route
 router.use(function (req, res) {
