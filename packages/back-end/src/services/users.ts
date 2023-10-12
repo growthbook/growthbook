@@ -21,12 +21,6 @@ export async function getUserByEmail(email: string) {
   });
 }
 
-export async function getUserByExternalId(externalId: string) {
-  return UserModel.findOne({
-    externalId,
-  });
-}
-
 export async function getUserById(id: string) {
   return UserModel.findOne({
     id,
@@ -37,20 +31,6 @@ export async function getUsersByIds(ids: string[]) {
   return UserModel.find({
     id: { $in: ids },
   });
-}
-
-export async function removeExternalId(userId: string) {
-  return UserModel.updateOne({ id: userId }, { $unset: { externalId: 1 } });
-}
-
-export async function convertUserToManagedByIdp(
-  userId: string,
-  externalId?: string
-) {
-  return UserModel.updateOne(
-    { id: userId },
-    { $set: { managedByIdp: true, externalId } }
-  );
 }
 
 async function hash(password: string): Promise<string> {
@@ -94,14 +74,11 @@ export async function updatePassword(userId: string, password: string) {
   );
 }
 
-// TODO: Change arguments into an object
 export async function createUser(
   name: string,
   email: string,
   password?: string,
-  verified: boolean = false,
-  managedByIdp: boolean = false,
-  externalId?: string
+  verified: boolean = false
 ) {
   let passwordHash = "";
 
@@ -115,9 +92,7 @@ export async function createUser(
     email,
     passwordHash,
     id: uniqid("u_"),
-    externalId,
     verified,
-    managedByIdp,
   });
 }
 
