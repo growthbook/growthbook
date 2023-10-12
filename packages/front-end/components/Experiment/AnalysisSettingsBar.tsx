@@ -18,6 +18,7 @@ import {
 import { OrganizationSettings } from "back-end/types/organization";
 import { ago, datetime, getValidDate } from "shared/dates";
 import {
+  DEFAULT_P_VALUE_THRESHOLD,
   DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
   DEFAULT_STATS_ENGINE,
 } from "shared/constants";
@@ -507,8 +508,8 @@ export default function AnalysisSettingsBar({
 }
 
 function isDifferent(
-  val1?: string | boolean | null,
-  val2?: string | boolean | null
+  val1?: string | boolean | number | null,
+  val2?: string | boolean | number | null
 ) {
   if (!val1 && !val2) return false;
   return val1 !== val2;
@@ -610,6 +611,14 @@ export function isOutdated(
     )
   ) {
     reasons.push("Analysis dates changed");
+  }
+  if (
+    isDifferent(
+      analysisSettings.pValueThreshold || DEFAULT_P_VALUE_THRESHOLD,
+      orgSettings.pValueThreshold || DEFAULT_P_VALUE_THRESHOLD
+    )
+  ) {
+    reasons.push("P-value threshold changed");
   }
 
   const experimentRegressionAdjustmentEnabled =

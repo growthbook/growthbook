@@ -21,6 +21,7 @@ export type CommercialFeature =
   | "hash-secure-attributes"
   | "livechat"
   | "json-validation"
+  | "remote-evaluation"
   | "multi-org";
 export type CommercialFeaturesMap = Record<AccountPlan, Set<CommercialFeature>>;
 
@@ -66,6 +67,7 @@ export const accountFeatures: CommercialFeaturesMap = {
     "cloud-proxy",
     "hash-secure-attributes",
     "livechat",
+    "remote-evaluation",
   ]),
   pro_sso: new Set<CommercialFeature>([
     "sso",
@@ -80,6 +82,7 @@ export const accountFeatures: CommercialFeaturesMap = {
     "cloud-proxy",
     "hash-secure-attributes",
     "livechat",
+    "remote-evaluation",
   ]),
   enterprise: new Set<CommercialFeature>([
     "sso",
@@ -97,6 +100,7 @@ export const accountFeatures: CommercialFeaturesMap = {
     "hash-secure-attributes",
     "json-validation",
     "livechat",
+    "remote-evaluation",
     "multi-org",
   ]),
 };

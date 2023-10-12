@@ -6,7 +6,7 @@ import { BsLightningFill } from "react-icons/bs";
 import { RxDesktop } from "react-icons/rx";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import LoadingOverlay from "@/components/LoadingOverlay";
-import { GBAddCircle, GBHashLock } from "@/components/Icons";
+import { GBAddCircle, GBHashLock, GBRemoteEvalIcon } from "@/components/Icons";
 import usePermissions from "@/hooks/usePermissions";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import StatusCircle from "@/components/Helpers/StatusCircle";
@@ -71,7 +71,7 @@ export default function SDKConnectionsList() {
               {projects.length > 0 && <th>Project</th>}
               <th>Environment</th>
               <th className="text-center">Features</th>
-              <th>Languages</th>
+              <th>Language</th>
               <th style={{ width: 25 }}></th>
             </tr>
           </thead>
@@ -142,6 +142,17 @@ export default function SDKConnectionsList() {
                   )}
                   <td>{connection.environment}</td>
                   <td className="text-center">
+                    {connection.remoteEvalEnabled && (
+                      <Tooltip
+                        body={
+                          <>
+                            <strong>Remote Evaluation</strong> is enabled
+                          </>
+                        }
+                      >
+                        <GBRemoteEvalIcon className="mx-1 text-purple" />
+                      </Tooltip>
+                    )}
                     {connection.hashSecureAttributes && (
                       <Tooltip
                         body={
