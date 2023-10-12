@@ -267,9 +267,8 @@ export async function verifyCloud() {
     // At startup, it can take longer to fetch the public license key
     const licenseData = await getVerifiedLicenseData(CLOUD_LICENSE_KEY, 10000);
     if (licenseData.ref !== "cloud") {
-      throw new Error(
-        "Not running on the actual cloud server: " + licenseData.ref
-      );
+      logger.error("Failed to verify that we are on the real cloud.");
+      process.kill(process.pid, "SIGTERM");
     }
   }
 }

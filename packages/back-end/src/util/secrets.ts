@@ -1,30 +1,18 @@
 import fs from "fs";
 import dotenv from "dotenv";
+import trimEnd from "lodash/trimEnd";
+
+export const ENVIRONMENT = process.env.NODE_ENV;
+const prod = ENVIRONMENT === "production";
 
 if (fs.existsSync(".env.local")) {
   dotenv.config({ path: ".env.local" });
 }
 
-import trimEnd from "lodash/trimEnd";
-import { verifyCloud } from "enterprise";
-import { logger } from "./logger";
-
-export const ENVIRONMENT = process.env.NODE_ENV;
-const prod = ENVIRONMENT === "production";
-
 export const IS_CLOUD = !!process.env.IS_CLOUD;
 
-async function checkCloud() {
-  if (IS_CLOUD) {
-    try {
-      await verifyCloud();
-    } catch {
-      logger.error("Failed to verify that we are on the real cloud.");
-      process.kill(process.pid, "SIGTERM");
-    }
-  }
-}
-checkCloud();
+import { verifyCloud } from "enterprise";
+verifyCloud();
 
 export const UPLOAD_METHOD = (() => {
   if (IS_CLOUD) return "s3";
