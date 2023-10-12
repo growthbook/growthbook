@@ -48,12 +48,7 @@ export async function createUser(req: ScimUserPutOrPostRequest, res: Response) {
     let user = await getUserByEmail(userName);
 
     if (!user) {
-      user = await createNewUser(
-        displayName,
-        userName,
-        "12345678", // TODO: SSO shouldn't need a password. figure out how to test this
-        false
-      );
+      user = await createNewUser(displayName, userName);
     }
 
     await addMemberToOrg({

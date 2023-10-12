@@ -14,19 +14,8 @@ export interface ScimUser {
   schemas: ["urn:ietf:params:scim:schemas:core:2.0:User"];
   id: string;
   displayName: string;
-  externalId?: string;
   userName: string;
-  name: {
-    formatted: string;
-    givenName: string;
-    familyName: string;
-  };
   active: boolean;
-  emails: ScimEmail[];
-  groups: ScimGroup[]; // TODO: figure out groups object shape and include groups
-  meta: {
-    resourceType: string;
-  };
 }
 
 export interface ScimGroup {

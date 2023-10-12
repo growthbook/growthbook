@@ -10,27 +10,9 @@ export const expandedMembertoScimUser = (
   return {
     schemas: ["urn:ietf:params:scim:schemas:core:2.0:User"],
     id: member.id,
-    displayName: member.name,
-    externalId: member.externalId,
     userName: member.email,
-    name: {
-      formatted: member.name,
-      givenName: member.name.split(" ")[0],
-      familyName: member.name.split(" ")[1],
-    },
+    displayName: member.name,
     active,
-    emails: [
-      {
-        primary: true,
-        value: member.email,
-        type: "work",
-        display: member.email,
-      },
-    ],
-    groups: [], // TODO: figure out groups object shape and include groups
-    meta: {
-      resourceType: "User",
-    },
   };
 };
 

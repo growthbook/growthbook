@@ -9,7 +9,7 @@ import { expandedMembertoScimUser } from "./getUser";
 async function removeUserFromOrg(org: OrganizationInterface, user: Member) {
   const updatedOrgMembers = cloneDeep(org.members);
 
-  // TODO: When we introduce the ability to manage roles via SCIM, we can remove this check.
+  // If/When we introduce the ability to manage roles via SCIM, we can remove this check.
   const userIsAdmin = user.role === "admin";
 
   if (userIsAdmin) {
@@ -30,11 +30,9 @@ async function removeUserFromOrg(org: OrganizationInterface, user: Member) {
 }
 
 export async function patchUser(req: ScimPatchRequest, res: Response) {
-  // Get all of the params and operations
   const { Operations } = req.body;
   const { id: userId } = req.params;
 
-  // Check if the user exists in the org
   const org = req.organization;
 
   const orgUser = org.members.find((member) => member.id === userId);
@@ -77,11 +75,7 @@ export async function patchUser(req: ScimPatchRequest, res: Response) {
           detail: `Unable to deactivate the user in GrowthBook: ${e.message}`,
         });
       }
-    } else if (op === "replace" && value.active === true) {
-      // Silently ignore
-      // We never return deactivated users in listUsers this conditional should never be hit
     }
-    // Silently ignore any operation to change a user's password
   }
 
   return res.status(200).json(updatedScimUser);

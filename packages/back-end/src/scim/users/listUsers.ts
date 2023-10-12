@@ -42,12 +42,14 @@ export async function listUsers(req: ScimListRequest, res: Response) {
     correctedStartIndex + queryOptions.count
   );
 
-  // TODO: figure out a max for itemsPerPage. if count > max we will return max # of resources
   return res.status(200).json({
     schemas: ["urn:ietf:params:scim:api:messages:2.0:ListResponse"],
     totalResults: filteredUsers.length,
     Resources: resources,
     startIndex: queryOptions.startIndex,
-    itemsPerPage: queryOptions.count,
+    itemsPerPage:
+      resources.length < queryOptions.count
+        ? resources.length
+        : queryOptions.count,
   });
 }
