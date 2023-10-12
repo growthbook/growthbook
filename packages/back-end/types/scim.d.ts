@@ -16,6 +16,7 @@ export interface ScimUser {
   displayName: string;
   userName: string;
   active: boolean;
+  externalId?: string;
 }
 
 export interface ScimGroup {
