@@ -16,16 +16,22 @@ import cloneDeep from "lodash/cloneDeep";
 import { DEFAULT_REGRESSION_ADJUSTMENT_DAYS } from "shared/constants";
 import { getValidDate } from "shared/dates";
 import { isNil } from "lodash";
+import { FactTableInterface } from "back-end/types/fact-table";
+import {
+  ExperimentMetricInterface,
+  isBinomialMetric,
+  isFactMetric,
+} from "shared/experiments";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import {
   defaultLoseRiskThreshold,
   defaultWinRiskThreshold,
-  formatConversionRate,
+  formatMetricValue,
 } from "@/services/metrics";
 
 export type ExperimentTableRow = {
   label: string;
-  metric: MetricInterface;
+  metric: ExperimentMetricInterface;
   metricOverrideFields: string[];
   variations: SnapshotMetric[];
   rowClass?: string;
@@ -36,7 +42,7 @@ export type ExperimentTableRow = {
 export function hasEnoughData(
   baseline: SnapshotMetric,
   stats: SnapshotMetric,
-  metric: MetricInterface,
+  metric: { minSampleSize?: number },
   metricDefaults: MetricDefaults
 ): boolean {
   if (!baseline?.value || !stats?.value) return false;
@@ -51,7 +57,7 @@ export function hasEnoughData(
 export function isSuspiciousUplift(
   baseline: SnapshotMetric,
   stats: SnapshotMetric,
-  metric: MetricInterface,
+  metric: { maxPercentChange?: number },
   metricDefaults: MetricDefaults
 ): boolean {
   if (!baseline?.cr || !stats?.cr) return false;
@@ -65,7 +71,7 @@ export function isSuspiciousUplift(
 export function isBelowMinChange(
   baseline: SnapshotMetric,
   stats: SnapshotMetric,
-  metric: MetricInterface,
+  metric: { minPercentChange?: number },
   metricDefaults: MetricDefaults
 ): boolean {
   if (!baseline?.cr || !stats?.cr) return false;
@@ -84,14 +90,13 @@ export function shouldHighlight({
   hasEnoughData,
   belowMinChange,
 }: {
-  metric: MetricInterface;
+  metric: { id: string };
   baseline: SnapshotMetric;
   stats: SnapshotMetric;
   hasEnoughData: boolean;
   belowMinChange: boolean;
 }): boolean {
-  // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'number | boolean' is not assignable to type ... Remove this comment to see the full error message
-  return (
+  return !!(
     metric &&
     baseline?.value &&
     stats?.value &&
@@ -103,7 +108,11 @@ export function shouldHighlight({
 export function getRisk(
   stats: SnapshotMetric,
   baseline: SnapshotMetric,
-  metric: MetricInterface,
+  metric: {
+    minSampleSize?: number;
+    maxPercentChange?: number;
+    inverse?: boolean;
+  },
   metricDefaults: MetricDefaults
 ): { risk: number; relativeRisk: number; showRisk: boolean } {
   const risk = stats.risk?.[metric.inverse ? 0 : 1] ?? 0;
@@ -251,11 +260,11 @@ export function useDomain(
   return [lowerBound, upperBound];
 }
 
-export function applyMetricOverrides(
-  metric: MetricInterface,
+export function applyMetricOverrides<T extends ExperimentMetricInterface>(
+  metric: T,
   metricOverrides?: MetricOverride[]
 ): {
-  newMetric: MetricInterface;
+  newMetric: T;
   overrideFields: string[];
 } {
   if (!metric || !metricOverrides) {
@@ -264,12 +273,20 @@ export function applyMetricOverrides(
       overrideFields: [],
     };
   }
-  const newMetric = cloneDeep<MetricInterface>(metric);
+  const newMetric = cloneDeep<T>(metric);
   const overrideFields: string[] = [];
   const metricOverride = metricOverrides.find((mo) => mo.id === newMetric.id);
   if (metricOverride) {
     if (!isNil(metricOverride?.conversionWindowHours)) {
-      newMetric.conversionWindowHours = metricOverride.conversionWindowHours;
+      if ("conversionWindowValue" in newMetric) {
+        // Fact metrics
+        newMetric.conversionWindowUnit = "hours";
+        newMetric.conversionWindowValue = metricOverride.conversionWindowHours;
+      } else {
+        // Old metrics
+        newMetric.conversionWindowHours = metricOverride.conversionWindowHours;
+      }
+
       overrideFields.push("conversionWindowHours");
     }
     if (!isNil(metricOverride?.conversionDelayHours)) {
@@ -303,23 +320,25 @@ export function applyMetricOverrides(
   return { newMetric, overrideFields };
 }
 
-export function getRegressionAdjustmentsForMetric({
+export function getRegressionAdjustmentsForMetric<
+  T extends ExperimentMetricInterface
+>({
   metric,
   denominatorMetrics,
   experimentRegressionAdjustmentEnabled,
   organizationSettings,
   metricOverrides,
 }: {
-  metric: MetricInterface;
+  metric: T;
   denominatorMetrics: MetricInterface[];
   experimentRegressionAdjustmentEnabled: boolean;
   organizationSettings?: Partial<OrganizationSettings>; // can be RA fields from a snapshot of org settings
   metricOverrides?: MetricOverride[];
 }): {
-  newMetric: MetricInterface;
+  newMetric: T;
   metricRegressionAdjustmentStatus: MetricRegressionAdjustmentStatus;
 } {
-  const newMetric = cloneDeep<MetricInterface>(metric);
+  const newMetric = cloneDeep<T>(metric);
 
   // start with default RA settings
   let regressionAdjustmentEnabled = false;
@@ -364,7 +383,12 @@ export function getRegressionAdjustmentsForMetric({
 
   // final gatekeeping
   if (regressionAdjustmentEnabled) {
-    if (metric?.denominator) {
+    if (isFactMetric(metric)) {
+      if (metric.metricType === "ratio") {
+        regressionAdjustmentEnabled = false;
+        reason = "ratio metrics not supported";
+      }
+    } else if (metric?.denominator) {
       const denominator = denominatorMetrics.find(
         (m) => m.id === metric?.denominator
       );
@@ -374,7 +398,7 @@ export function getRegressionAdjustmentsForMetric({
       }
     }
   }
-  if (metric?.aggregation) {
+  if ("aggregation" in metric && metric?.aggregation) {
     regressionAdjustmentEnabled = false;
     reason = "custom aggregation";
   }
@@ -399,7 +423,7 @@ export function getRegressionAdjustmentsForMetric({
 
 export function isExpectedDirection(
   stats: SnapshotMetric,
-  metric: MetricInterface
+  metric: { inverse?: boolean }
 ): boolean {
   const expected: number = stats?.expected ?? 0;
   if (metric.inverse) {
@@ -484,10 +508,10 @@ export function setAdjustedPValuesOnResults(
   results.forEach((r, i) => {
     r.variations.forEach((v, j) => {
       nonGuardrailMetrics.forEach((m) => {
-        if (v.metrics[m]?.pValue !== undefined) {
+        const pValue = v.metrics[m]?.pValue;
+        if (pValue !== undefined) {
           indexedPValues.push({
-            // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'number | undefined' is not assignable to typ... Remove this comment to see the full error message
-            pValue: v.metrics[m].pValue,
+            pValue: pValue,
             index: [i, j, m],
           });
         }
@@ -563,11 +587,12 @@ export function getRowResults({
   isLatestPhase,
   experimentStatus,
   displayCurrency,
+  getFactTableById,
 }: {
   stats: SnapshotMetric;
   baseline: SnapshotMetric;
   statsEngine: StatsEngine;
-  metric: MetricInterface;
+  metric: ExperimentMetricInterface;
   metricDefaults: MetricDefaults;
   isGuardrail: boolean;
   minSampleSize: number;
@@ -579,10 +604,15 @@ export function getRowResults({
   isLatestPhase: boolean;
   experimentStatus: ExperimentStatus;
   displayCurrency: string;
+  getFactTableById: (id: string) => null | FactTableInterface;
 }): RowResults {
   const compactNumberFormatter = Intl.NumberFormat("en-US", {
     notation: "compact",
     maximumFractionDigits: 2,
+  });
+  const numberFormatter = Intl.NumberFormat("en-US", {
+    notation: "compact",
+    maximumFractionDigits: 4,
   });
   const percentFormatter = new Intl.NumberFormat(undefined, {
     style: "percent",
@@ -699,10 +729,15 @@ export function getRowResults({
     )}) for this metric.`;
   }
   let riskFormatted = "";
-  if (metric.type !== "binomial") {
-    riskFormatted = `${formatConversionRate(
-      metric.type,
+
+  const isBinomial = isBinomialMetric(metric);
+
+  // TODO: support formatted risk for fact metrics
+  if (!isBinomial) {
+    riskFormatted = `${formatMetricValue(
+      metric,
       risk,
+      getFactTableById,
       displayCurrency
     )} / user`;
   }
@@ -747,7 +782,7 @@ export function getRowResults({
     }
   } else {
     if (_shouldHighlight && significant && directionalStatus === "winning") {
-      resultsReason = `Significant win as the p-value is below the ${percentFormatter.format(
+      resultsReason = `Significant win as the p-value is below the ${numberFormatter.format(
         pValueThreshold
       )} threshold`;
       resultsStatus = "won";
@@ -756,8 +791,8 @@ export function getRowResults({
       significant &&
       directionalStatus === "losing"
     ) {
-      resultsReason = `Significant loss as the p-value is above the ${percentFormatter.format(
-        1 - pValueThreshold
+      resultsReason = `Significant loss as the p-value is below the ${numberFormatter.format(
+        pValueThreshold
       )} threshold`;
       resultsStatus = "lost";
     } else if (enoughData && significant && belowMinChange) {

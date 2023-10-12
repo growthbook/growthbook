@@ -87,7 +87,7 @@ async function updateColumns(
     eventName: factTable.eventName,
   });
 
-  const result = await integration.runTestQuery(sql);
+  const result = await integration.runTestQuery(sql, ["timestamp"]);
 
   const typeMap = new Map<string, FactTableColumnType>();
   determineColumnTypes(result.results).forEach((col) => {

@@ -26,7 +26,6 @@ import ExperimentReportsList from "../ExperimentReportsList";
 import { useSnapshot } from "../SnapshotProvider";
 import AnalysisSettingsSummary from "./AnalysisSettingsSummary";
 import { ExperimentTab, LinkedFeature } from ".";
-import {useLocalStorage} from "@/hooks/useLocalStorage";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
@@ -72,7 +71,7 @@ export default function ResultsTab({
 
   const {
     getDatasourceById,
-    getMetricById,
+    getExperimentMetricById,
     getProjectById,
     metrics,
     datasources,
@@ -110,13 +109,15 @@ export default function ResultsTab({
     ...(experiment.guardrails ?? []),
   ]);
   const allExperimentMetrics = allExperimentMetricIds.map((m) =>
-    getMetricById(m)
+    getExperimentMetricById(m)
   );
   const denominatorMetricIds = uniq<string>(
-    allExperimentMetrics.map((m) => m?.denominator).filter(Boolean) as string[]
+    allExperimentMetrics
+      .map((m) => m?.denominator)
+      .filter((d) => d && typeof d === "string") as string[]
   );
   const denominatorMetrics = denominatorMetricIds
-    .map((m) => getMetricById(m as string))
+    .map((m) => getExperimentMetricById(m as string))
     .filter(Boolean) as MetricInterface[];
 
   const orgSettings = useOrgSettings();

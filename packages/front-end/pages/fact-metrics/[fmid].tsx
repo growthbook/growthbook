@@ -27,6 +27,7 @@ import {
 } from "@/services/metrics";
 import MarkdownInlineEdit from "@/components/Markdown/MarkdownInlineEdit";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import FactBadge from "@/components/FactTables/FactBadge";
 
 function FactTableLink({ id }: { id?: string }) {
   const { getFactTableById } = useDefinitions();
@@ -211,6 +212,7 @@ export default function FactMetricPage() {
         <FactMetricModal
           close={() => setEditOpen(false)}
           existing={factMetric}
+          source="fact-metric"
         />
       )}
       {editProjectsOpen && (
@@ -251,8 +253,8 @@ export default function FactMetricPage() {
       <div className="row mb-3">
         <div className="col-auto">
           <h1 className="mb-0">
-            {factMetric.name}{" "}
-            <span className="badge badge-purple ml-2">FACT</span>
+            {factMetric.name}
+            <FactBadge metricId={factMetric.id} />
           </h1>
         </div>
         {canEdit && (

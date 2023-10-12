@@ -4,6 +4,8 @@ import { PermissionFunctions } from "../src/types/AuthRequest";
 import { AuditInterface } from "./audit";
 import { ExperimentStatus } from "./experiment";
 import { OrganizationInterface } from "./organization";
+import { UserInterface } from "./user";
+
 export interface ExperimentOverride {
   weights?: number[];
   status?: ExperimentStatus;
@@ -32,6 +34,7 @@ export interface ErrorResponse {
 
 export type ApiRequestLocals = PermissionFunctions & {
   apiKey: string;
+  user?: UserInterface;
   organization: OrganizationInterface;
   eventAudit: EventAuditUser;
   audit: (data: Partial<AuditInterface>) => Promise<void>;

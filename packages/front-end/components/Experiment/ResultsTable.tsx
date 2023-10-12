@@ -10,17 +10,20 @@ import {
 } from "react";
 import { CSSTransition } from "react-transition-group";
 import { RxInfoCircled } from "react-icons/rx";
-import { MetricInterface } from "back-end/types/metric";
 import {
   ExperimentReportVariation,
   ExperimentReportVariationWithIndex,
 } from "back-end/types/report";
 import { ExperimentStatus } from "back-end/types/experiment";
 import { PValueCorrection, StatsEngine } from "back-end/types/stats";
-import { DEFAULT_STATS_ENGINE } from "shared/constants";
+import {
+  DEFAULT_P_VALUE_THRESHOLD,
+  DEFAULT_STATS_ENGINE,
+} from "shared/constants";
 import { getValidDate } from "shared/dates";
 import { useTooltip, useTooltipInPortal } from "@visx/tooltip";
 import { FaExclamationTriangle } from "react-icons/fa";
+import { ExperimentMetricInterface } from "shared/experiments";
 import {
   ExperimentTableRow,
   getRowResults,
@@ -45,6 +48,7 @@ import ResultsTableTooltip, {
   YAlign,
 } from "@/components/Experiment/ResultsTableTooltip";
 import { QueryStatusData } from "@/components/Queries/RunQueriesButton";
+import { useDefinitions } from "@/services/DefinitionsContext";
 import Tooltip from "../Tooltip/Tooltip";
 import AlignedGraph from "./AlignedGraph";
 import ChanceToWinColumn from "./ChanceToWinColumn";
@@ -70,7 +74,7 @@ export type ResultsTableProps = {
   editMetrics?: () => void;
   renderLabelColumn: (
     label: string,
-    metric: MetricInterface,
+    metric: ExperimentMetricInterface,
     row: ExperimentTableRow,
     maxRows?: number
   ) => string | ReactElement;
@@ -88,6 +92,11 @@ export type ResultsTableProps = {
 const ROW_HEIGHT = 56;
 const METRIC_LABEL_ROW_HEIGHT = 44;
 const SPACER_ROW_HEIGHT = 6;
+
+const percentFormatter = new Intl.NumberFormat(undefined, {
+  style: "percent",
+  maximumFractionDigits: 2,
+});
 
 export default function ResultsTable({
   id,
@@ -119,6 +128,8 @@ export default function ResultsTable({
   if (variationFilter?.includes(baselineRow)) {
     variationFilter = variationFilter.filter((v) => v !== baselineRow);
   }
+
+  const { getFactTableById } = useDefinitions();
 
   const {
     metricDefaults,
@@ -223,6 +234,7 @@ export default function ResultsTable({
           isLatestPhase,
           experimentStatus: status,
           displayCurrency,
+          getFactTableById,
         });
         rr[i].push(rowResults);
       });
@@ -246,6 +258,7 @@ export default function ResultsTable({
     status,
     displayCurrency,
     queryStatusData,
+    getFactTableById,
   ]);
 
   const noMetrics = rows.length === 0;
@@ -611,7 +624,8 @@ export default function ResultsTable({
                               {getPValueTooltip(
                                 !!sequentialTestingEnabled,
                                 pValueCorrection ?? null,
-                                orgSettings.pValueThreshold ?? 0.05,
+                                orgSettings.pValueThreshold ??
+                                  DEFAULT_P_VALUE_THRESHOLD,
                                 tableRowAxis
                               )}
                             </div>
@@ -659,7 +673,8 @@ export default function ResultsTable({
                                 statsEngine || DEFAULT_STATS_ENGINE,
                                 hasRisk,
                                 !!sequentialTestingEnabled,
-                                pValueCorrection ?? null
+                                pValueCorrection ?? null,
+                                pValueThreshold
                               )}
                             </div>
                           }
@@ -1021,7 +1036,8 @@ function getPercentChangeTooltip(
   statsEngine: StatsEngine,
   hasRisk: boolean,
   sequentialTestingEnabled: boolean,
-  pValueCorrection: PValueCorrection
+  pValueCorrection: PValueCorrection,
+  pValueThreshold: number
 ) {
   if (hasRisk && statsEngine === "bayesian") {
     return (
@@ -1032,12 +1048,13 @@ function getPercentChangeTooltip(
     );
   }
   if (statsEngine === "frequentist") {
+    const confidencePct = percentFormatter.format(1 - pValueThreshold);
     return (
       <>
         <p className="mb-0">
-          The interval is a 95% confidence interval. If you re-ran the
-          experiment 100 times, the true value would be in this range 95% of the
-          time.
+          The interval is a {confidencePct} confidence interval. If you re-ran
+          the experiment 100 times, the true value would be in this range{" "}
+          {confidencePct} of the time.
         </p>
         {sequentialTestingEnabled && (
           <p className="mt-4 mb-0">

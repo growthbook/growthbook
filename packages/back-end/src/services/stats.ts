@@ -1,11 +1,12 @@
 import { promisify } from "util";
 import { PythonShell } from "python-shell";
 import {
+  DEFAULT_P_VALUE_THRESHOLD,
   DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
   DEFAULT_STATS_ENGINE,
 } from "shared/constants";
 import { putBaselineVariationFirst } from "shared/util";
-import { MetricInterface } from "../../types/metric";
+import { ExperimentMetricInterface } from "shared/experiments";
 import { ExperimentMetricAnalysis, StatsEngine } from "../../types/stats";
 import {
   ExperimentMetricQueryResponseRows,
@@ -29,13 +30,14 @@ export const MAX_DIMENSIONS = 20;
 
 export async function analyzeExperimentMetric(
   variations: ExperimentReportVariation[],
-  metric: MetricInterface,
+  metric: ExperimentMetricInterface,
   rows: ExperimentMetricQueryResponseRows,
   dimension: string | null = null,
   statsEngine: StatsEngine = DEFAULT_STATS_ENGINE,
   sequentialTestingEnabled: boolean = false,
   sequentialTestingTuningParameter: number = DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
-  baselineVariationIndex: number | null = null
+  baselineVariationIndex: number | null = null,
+  pValueThreshold: number = DEFAULT_P_VALUE_THRESHOLD
 ): Promise<ExperimentMetricAnalysis> {
   if (!rows || !rows.length) {
     return {
@@ -52,6 +54,12 @@ export async function analyzeExperimentMetric(
   sortedVariations.map((v, i) => {
     variationIdMap[v.id] = i;
   });
+
+  const sequentialTestingTuningParameterNumber =
+    Number(sequentialTestingTuningParameter) ||
+    DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER;
+  const pValueThresholdNumber =
+    Number(pValueThreshold) || DEFAULT_P_VALUE_THRESHOLD;
   const result = await promisify(PythonShell.runString)(
     `
 from gbstats.gbstats import (
@@ -71,7 +79,7 @@ data = json.loads("""${JSON.stringify({
       var_names: sortedVariations.map((v) => v.name),
       weights: sortedVariations.map((v) => v.weight),
       baseline_index: baselineVariationIndex ?? 0,
-      ignore_nulls: !!metric.ignoreNulls,
+      ignore_nulls: "ignoreNulls" in metric && !!metric.ignoreNulls,
       inverse: !!metric.inverse,
       max_dimensions:
         dimension?.substring(0, 8) === "pre:date" ? 9999 : MAX_DIMENSIONS,
@@ -108,6 +116,17 @@ reduced = reduce_dimensionality(
   max=max_dimensions
 )
 
+engine_config=${
+      statsEngine === "frequentist" && sequentialTestingEnabled
+        ? `{'sequential': True, 'sequential_tuning_parameter': ${sequentialTestingTuningParameterNumber}}`
+        : "{}"
+    }
+${
+  statsEngine === "frequentist" && pValueThresholdNumber
+    ? `engine_config['alpha'] = ${pValueThresholdNumber}`
+    : ""
+}
+
 result = analyze_metric_df(
   df=reduced,
   weights=weights,
@@ -117,11 +136,7 @@ result = analyze_metric_df(
       ? "StatsEngine.FREQUENTIST"
       : "StatsEngine.BAYESIAN"
   },
-  engine_config=${
-    statsEngine === "frequentist" && sequentialTestingEnabled
-      ? `{'sequential': True, 'sequential_tuning_parameter': ${sequentialTestingTuningParameter}}`
-      : "{}"
-  }
+  engine_config=engine_config,
 )
 
 print(json.dumps({
@@ -157,7 +172,7 @@ export async function analyzeExperimentResults({
   analysisSettings: ExperimentSnapshotAnalysisSettings;
   snapshotSettings: ExperimentSnapshotSettings;
   variationNames: string[];
-  metricMap: Map<string, MetricInterface>;
+  metricMap: Map<string, ExperimentMetricInterface>;
 }): Promise<ExperimentReportResults> {
   const metricRows: {
     metric: string;
@@ -233,7 +248,8 @@ export async function analyzeExperimentResults({
           analysisSettings.statsEngine,
           analysisSettings.sequentialTesting,
           analysisSettings.sequentialTestingTuningParameter,
-          analysisSettings.baselineVariationIndex
+          analysisSettings.baselineVariationIndex,
+          analysisSettings.pValueThreshold
         );
         unknownVariations = unknownVariations.concat(result.unknownVariations);
         multipleExposures = Math.max(

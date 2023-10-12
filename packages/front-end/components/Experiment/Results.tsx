@@ -5,8 +5,8 @@ import { StatsEngine } from "back-end/types/stats";
 import { MetricRegressionAdjustmentStatus } from "back-end/types/report";
 import { getValidDate, ago } from "shared/dates";
 import { DEFAULT_STATS_ENGINE } from "shared/constants";
+import { ExperimentMetricInterface } from "shared/experiments";
 import { ExperimentSnapshotInterface } from "@/../back-end/types/experiment-snapshot";
-import { MetricInterface } from "back-end/types/metric";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import usePermissions from "@/hooks/usePermissions";
 import { useAuth } from "@/services/auth";
@@ -420,7 +420,7 @@ export default Results;
 
 // given an ordered list of tags, sort the metrics by their tags
 export function sortAndFilterMetricsByTags(
-  metrics: MetricInterface[],
+  metrics: ExperimentMetricInterface[],
   {
     orderByTag = false,
     tagOrder = [],
@@ -438,7 +438,7 @@ export function sortAndFilterMetricsByTags(
   const sortedMetrics: string[] = [];
 
   const metricsByTag: Record<string, string[]> = {};
-  const metricDefs: Record<string, MetricInterface> = {};
+  const metricDefs: Record<string, ExperimentMetricInterface> = {};
 
   // get all possible tags from the metric definitions
   const tagsInMetrics: Set<string> = new Set();
