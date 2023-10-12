@@ -1,6 +1,16 @@
 import cloneDeep from "lodash/cloneDeep";
 import { dateStringArrayBetweenDates, getValidDate } from "shared/dates";
 import { format as formatDate, subDays } from "date-fns";
+import {
+  getConversionWindowHours,
+  getUserIdTypes,
+  isFactMetric,
+  isFunnelMetric,
+  isBinomialMetric,
+  isRatioMetric,
+  ExperimentMetricInterface,
+  getMetricTemplateVariables,
+} from "shared/experiments";
 import { MetricInterface, MetricType } from "../../types/metric";
 import {
   DataSourceSettings,
@@ -32,10 +42,7 @@ import {
   ExperimentUnitsQueryResponse,
 } from "../types/Integration";
 import { DimensionInterface } from "../../types/dimension";
-import {
-  DEFAULT_CONVERSION_WINDOW_HOURS,
-  IMPORT_LIMIT_DAYS,
-} from "../util/secrets";
+import { IMPORT_LIMIT_DAYS } from "../util/secrets";
 import { SegmentInterface } from "../../types/segment";
 import {
   getBaseIdTypeAndJoins,
@@ -47,6 +54,7 @@ import {
 import { formatInformationSchema } from "../util/informationSchemas";
 import { ExperimentSnapshotSettings } from "../../types/experiment-snapshot";
 import { TemplateVariables } from "../../types/sql";
+import { FactTableMap } from "../models/FactTableModel";
 
 export default abstract class SqlIntegration
   implements SourceIntegrationInterface {
@@ -197,7 +205,7 @@ export default abstract class SqlIntegration
   }
 
   applyMetricOverrides(
-    metric: MetricInterface,
+    metric: ExperimentMetricInterface,
     settings: ExperimentSnapshotSettings
   ) {
     if (!metric) return;
@@ -207,7 +215,14 @@ export default abstract class SqlIntegration
     if (!computed) return;
 
     metric.conversionDelayHours = computed.conversionDelayHours;
-    metric.conversionWindowHours = computed.conversionWindowHours;
+
+    if (isFactMetric(metric)) {
+      metric.conversionWindowUnit = "hours";
+      metric.conversionWindowValue = computed.conversionWindowHours;
+    } else {
+      metric.conversionWindowHours = computed.conversionWindowHours;
+    }
+
     metric.regressionAdjustmentEnabled = computed.regressionAdjustmentEnabled;
     metric.regressionAdjustmentDays = computed.regressionAdjustmentDays;
 
@@ -403,6 +418,8 @@ export default abstract class SqlIntegration
           idJoinMap,
           startDate: metricStart,
           endDate: metricEnd,
+          // Facts tables are not supported for this query yet
+          factTableMap: new Map(),
         })})
         , __userMetric as (
           -- Add in the aggregate metric value for each user
@@ -587,12 +604,26 @@ export default abstract class SqlIntegration
     return format(limitedQuery, this.getFormatDialect());
   }
 
-  async runTestQuery(sql: string): Promise<TestQueryResult> {
+  async runTestQuery(
+    sql: string,
+    timestampCols?: string[]
+  ): Promise<TestQueryResult> {
     // Calculate the run time of the query
     const queryStartTime = Date.now();
     const results = await this.runQuery(sql);
     const queryEndTime = Date.now();
     const duration = queryEndTime - queryStartTime;
+
+    if (timestampCols) {
+      results.rows.forEach((row) => {
+        timestampCols.forEach((col) => {
+          if (row[col]) {
+            row[col] = this.convertDate(row[col]);
+          }
+        });
+      });
+    }
+
     return { results: results.rows, duration };
   }
 
@@ -639,7 +670,7 @@ export default abstract class SqlIntegration
 
   private getFunnelUsersCTE(
     baseIdType: string,
-    metrics: MetricInterface[],
+    metrics: ExperimentMetricInterface[],
     isRegressionAdjusted: boolean = false,
     ignoreConversionEnd: boolean = false,
     tablePrefix: string = "__denominator",
@@ -729,12 +760,11 @@ export default abstract class SqlIntegration
   private getConversionWindowClause(
     baseCol: string,
     metricCol: string,
-    metric: MetricInterface,
+    metric: ExperimentMetricInterface,
     ignoreConversionEnd: boolean
   ): string {
     const conversionDelayHours = metric.conversionDelayHours ?? 0;
-    const conversionWindowHours =
-      metric.conversionWindowHours ?? DEFAULT_CONVERSION_WINDOW_HOURS;
+    const conversionWindowHours = getConversionWindowHours(metric);
     return `
       ${metricCol} >= ${this.addHours(baseCol, conversionDelayHours)}
       ${
@@ -747,7 +777,7 @@ export default abstract class SqlIntegration
       }`;
   }
 
-  private getMetricMinDelay(metrics: MetricInterface[]) {
+  private getMetricMinDelay(metrics: ExperimentMetricInterface[]) {
     let runningDelay = 0;
     let minDelay = 0;
     metrics.forEach((m) => {
@@ -776,7 +806,7 @@ export default abstract class SqlIntegration
   }
 
   private getMetricEnd(
-    metrics: MetricInterface[],
+    metrics: ExperimentMetricInterface[],
     initial?: Date,
     ignoreConversionEnd?: boolean
   ): Date | null {
@@ -789,7 +819,7 @@ export default abstract class SqlIntegration
     metrics.forEach((m) => {
       const hours =
         runningHours +
-        (m.conversionWindowHours || DEFAULT_CONVERSION_WINDOW_HOURS) +
+        getConversionWindowHours(m) +
         (m.conversionDelayHours || 0);
       if (hours > maxHours) maxHours = hours;
       runningHours = hours;
@@ -835,11 +865,18 @@ export default abstract class SqlIntegration
   }
 
   getExperimentUnitsQuery(params: ExperimentUnitsQueryParams): string {
-    const { settings, segment, activationMetric: activationMetricDoc } = params;
+    const {
+      settings,
+      segment,
+      activationMetric: activationMetricDoc,
+      factTableMap,
+    } = params;
 
-    let activationMetric = null;
+    let activationMetric: null | ExperimentMetricInterface = null;
     if (activationMetricDoc) {
-      activationMetric = cloneDeep<MetricInterface>(activationMetricDoc);
+      activationMetric = cloneDeep<ExperimentMetricInterface>(
+        activationMetricDoc
+      );
       this.applyMetricOverrides(activationMetric, settings);
     }
 
@@ -867,7 +904,7 @@ export default abstract class SqlIntegration
     const { baseIdType, idJoinMap, idJoinSQL } = this.getIdentitiesCTE(
       [
         [exposureQuery.userIdType],
-        activationMetric?.userIdTypes ?? [],
+        activationMetric ? getUserIdTypes(activationMetric, factTableMap) : [],
         dimension?.type === "user"
           ? [dimension.dimension.userIdType || "user_id"]
           : [],
@@ -892,8 +929,17 @@ export default abstract class SqlIntegration
     const experimentDimension =
       dimension?.type === "experiment" ? dimension.id : null;
 
-    const ignoreConversionEnd =
+    let ignoreConversionEnd =
       settings.attributionModel === "experimentDuration";
+
+    // If the fact metric doesn't have a conversion window, always treat like Experiment Duration
+    if (
+      activationMetric &&
+      isFactMetric(activationMetric) &&
+      !activationMetric.hasConversionWindow
+    ) {
+      ignoreConversionEnd = true;
+    }
 
     return `
     ${params.includeIdJoins ? idJoinSQL : ""}
@@ -936,6 +982,7 @@ export default abstract class SqlIntegration
             ),
             endDate: this.getMetricEnd([activationMetric], settings.endDate),
             experimentId: settings.experimentId,
+            factTableMap,
           })})
         `
         : ""
@@ -1016,15 +1063,27 @@ export default abstract class SqlIntegration
       segment,
     } = params;
 
+    const factTableMap = params.factTableMap;
+
     // clone the metrics before we mutate them
-    const metric = cloneDeep<MetricInterface>(metricDoc);
-    const denominatorMetrics = cloneDeep<MetricInterface[]>(
+    const metric = cloneDeep<ExperimentMetricInterface>(metricDoc);
+    let denominatorMetrics = cloneDeep<ExperimentMetricInterface[]>(
       denominatorMetricsDocs
     );
     let activationMetric = null;
     if (activationMetricDoc) {
-      activationMetric = cloneDeep<MetricInterface>(activationMetricDoc);
+      activationMetric = cloneDeep<ExperimentMetricInterface>(
+        activationMetricDoc
+      );
       this.applyMetricOverrides(activationMetric, settings);
+    }
+
+    // Fact metrics are self-contained, so they don't need to reference other metrics for the denominator
+    if (isFactMetric(metric)) {
+      denominatorMetrics = [];
+      if (isRatioMetric(metric)) {
+        denominatorMetrics.push(metric);
+      }
     }
 
     this.applyMetricOverrides(metric, settings);
@@ -1037,7 +1096,7 @@ export default abstract class SqlIntegration
         startDate: settings.startDate,
         endDate: settings.endDate,
         experimentId: settings.experimentId,
-        templateVariables: metric.templateVariables,
+        templateVariables: getMetricTemplateVariables(metric, factTableMap),
       });
     }
     // Replace any placeholders in the segment SQL
@@ -1046,7 +1105,7 @@ export default abstract class SqlIntegration
         startDate: settings.startDate,
         endDate: settings.endDate,
         experimentId: settings.experimentId,
-        templateVariables: metric.templateVariables,
+        templateVariables: getMetricTemplateVariables(metric, factTableMap),
       });
     }
 
@@ -1057,10 +1116,8 @@ export default abstract class SqlIntegration
     // e.g. "Purchase/Signup" is filtering to users who signed up and then counting purchases
     // When the denominator is a count, it's a real ratio, dividing two quantities
     // e.g. "Pages/Session" is dividing number of page views by number of sessions
-    const ratioMetric = ["count", "duration", "revenue"].includes(
-      denominator?.type
-    );
-    const funnelMetric = denominator?.type === "binomial";
+    const ratioMetric = isRatioMetric(metric, denominator);
+    const funnelMetric = isFunnelMetric(metric, denominator);
 
     const cumulativeDate =
       dimension?.type === "datecumulative" || dimension?.type === "datedaily";
@@ -1077,8 +1134,13 @@ export default abstract class SqlIntegration
       ? (metric.regressionAdjustmentDays ?? 0) * 24
       : 0;
 
-    const ignoreConversionEnd =
+    let ignoreConversionEnd =
       settings.attributionModel === "experimentDuration";
+
+    // If a fact metric has disabled conversion windows, always use "Experiment Duration"
+    if (isFactMetric(metric) && !metric.hasConversionWindow) {
+      ignoreConversionEnd = true;
+    }
 
     // Get capping settings and final coalesce statement
     const isPercentileCapped =
@@ -1119,8 +1181,8 @@ export default abstract class SqlIntegration
     // Get any required identity join queries
     const idTypeObjects = [
       [exposureQuery.userIdType],
-      metric.userIdTypes || [],
-      ...denominatorMetrics.map((m) => m.userIdTypes || []),
+      getUserIdTypes(metric, factTableMap),
+      ...denominatorMetrics.map((m) => getUserIdTypes(m, factTableMap, true)),
     ];
     // add idTypes usually handled in units query here in the case where
     // we don't have a separate table for the units query
@@ -1130,7 +1192,7 @@ export default abstract class SqlIntegration
           ? [dimension.dimension.userIdType || "user_id"]
           : [],
         segment ? [segment.userIdType || "user_id"] : [],
-        activationMetric?.userIdTypes || []
+        activationMetric ? getUserIdTypes(activationMetric, factTableMap) : []
       );
     }
     const { baseIdType, idJoinMap, idJoinSQL } = this.getIdentitiesCTE(
@@ -1141,13 +1203,14 @@ export default abstract class SqlIntegration
       settings.experimentId
     );
 
-    const intialMetric =
+    const initialMetric =
       denominatorMetrics.length > 0 ? denominatorMetrics[0] : metric;
 
     // Get date range for experiment and analysis
-    const initialConversionWindowHours =
-      intialMetric.conversionWindowHours || DEFAULT_CONVERSION_WINDOW_HOURS;
-    const initialConversionDelayHours = intialMetric.conversionDelayHours || 0;
+    const initialConversionWindowHours = getConversionWindowHours(
+      initialMetric
+    );
+    const initialConversionDelayHours = initialMetric.conversionDelayHours || 0;
 
     const startDate: Date = settings.startDate;
     const endDate: Date | null = this.getExperimentEndDate(
@@ -1156,7 +1219,9 @@ export default abstract class SqlIntegration
     );
 
     return format(
-      `-- ${metric.name} (${metric.type})
+      `-- ${metric.name} (${
+        isFactMetric(metric) ? metric.metricType : metric.type
+      })
     WITH
       ${idJoinSQL}
       ${
@@ -1208,6 +1273,7 @@ export default abstract class SqlIntegration
         startDate: metricStart,
         endDate: metricEnd,
         experimentId: settings.experimentId,
+        factTableMap,
       })})
       ${denominatorMetrics
         .map((m, i) => {
@@ -1218,6 +1284,8 @@ export default abstract class SqlIntegration
             startDate: metricStart,
             endDate: metricEnd,
             experimentId: settings.experimentId,
+            factTableMap,
+            useDenominator: true,
           })})`;
         })
         .join("\n")}
@@ -1304,7 +1372,7 @@ export default abstract class SqlIntegration
                 d.dimension AS dimension,
                 ${cumulativeDate ? `dr.day AS day,` : ""}
                 d.${baseIdType} AS ${baseIdType},
-                ${this.getAggregateMetricColumn(denominator)} as value
+                ${this.getAggregateMetricColumn(denominator, true)} as value
               FROM
                 __distinctUsers d
                 JOIN __denominator${denominatorMetrics.length - 1} m ON (
@@ -1381,7 +1449,9 @@ export default abstract class SqlIntegration
           ratioMetric,
           isRegressionAdjusted
         )}' as statistic_type,
-        '${metric.type}' as main_metric_type,
+        '${
+          isBinomialMetric(metric) ? "binomial" : "count"
+        }' as main_metric_type,
         ${
           isPercentileCapped
             ? "MAX(COALESCE(cap.cap_value, 0)) as main_cap_value,"
@@ -1392,7 +1462,9 @@ export default abstract class SqlIntegration
         ${
           ratioMetric
             ? `,
-          '${denominator?.type}' as denominator_metric_type,
+          '${
+            isBinomialMetric(denominator) ? "binomial" : "count"
+          }' as denominator_metric_type,
           ${
             denominatorIsPercentileCapped
               ? "MAX(COALESCE(capd.cap_value, 0)) as denominator_cap_value,"
@@ -1407,7 +1479,9 @@ export default abstract class SqlIntegration
         ${
           isRegressionAdjusted
             ? `,
-          '${metric.type}' as covariate_metric_type,
+          '${
+            isBinomialMetric(metric) ? "binomial" : "count"
+          }' as covariate_metric_type,
           SUM(${capCoalesceCovariate}) AS covariate_sum,
           SUM(POWER(${capCoalesceCovariate}, 2)) AS covariate_sum_squares,
           SUM(${capCoalesceMetric} * ${capCoalesceCovariate}) AS main_covariate_sum_product
@@ -1438,7 +1512,11 @@ export default abstract class SqlIntegration
           : ""
       }
       ${isPercentileCapped ? `CROSS JOIN __capValue cap` : ""}
-      ${metric.ignoreNulls ? `WHERE m.value != 0` : ""}
+      ${
+        "ignoreNulls" in metric && metric.ignoreNulls
+          ? `WHERE m.value != 0`
+          : ""
+      }
       GROUP BY
         m.variation,
         ${cumulativeDate ? `${this.formatDate("m.day")}` : "m.dimension"}
@@ -1456,7 +1534,7 @@ export default abstract class SqlIntegration
   }
   private capCoalesceValue(
     valueCol: string,
-    metric: MetricInterface,
+    metric: ExperimentMetricInterface,
     capTablePrefix: string = "c"
   ): string {
     if (metric?.capping === "absolute" && metric.capValue) {
@@ -1883,30 +1961,56 @@ AND event_name = '${eventName}'`,
     startDate,
     endDate,
     experimentId,
+    factTableMap,
+    useDenominator,
   }: {
-    metric: MetricInterface;
+    metric: ExperimentMetricInterface;
     baseIdType: string;
     idJoinMap: Record<string, string>;
     startDate: Date;
     endDate: Date | null;
     experimentId?: string;
+    factTableMap: FactTableMap;
+    useDenominator?: boolean;
   }) {
-    const queryFormat = this.getMetricQueryFormat(metric);
-
-    const cols = this.getMetricColumns(metric, "m");
+    const cols = this.getMetricColumns(
+      metric,
+      factTableMap,
+      "m",
+      useDenominator
+    );
 
     // Determine the identifier column to select from
     let userIdCol = cols.userIds[baseIdType] || "user_id";
     let join = "";
 
+    const userIdTypes = getUserIdTypes(metric, factTableMap, useDenominator);
+
+    const isFact = isFactMetric(metric);
+    const queryFormat = isFact ? "fact" : this.getMetricQueryFormat(metric);
+    const columnRef = isFact
+      ? useDenominator
+        ? metric.denominator
+        : metric.numerator
+      : null;
+
+    // For fact metrics with a WHERE clause
+    const factTable = isFact
+      ? factTableMap.get(columnRef?.factTableId || "")
+      : undefined;
+
+    if (isFact && !factTable) {
+      throw new Error("Could not find fact table");
+    }
+
     // query builder does not use a sub-query to get a the userId column to
     // equal the userIdType, so when using the query builder, continue to
     // use the actual input column name rather than the id type
-    if (metric.userIdTypes?.includes(baseIdType)) {
+    if (userIdTypes.includes(baseIdType)) {
       userIdCol = queryFormat === "builder" ? userIdCol : baseIdType;
-    } else if (metric.userIdTypes) {
-      for (let i = 0; i < metric.userIdTypes.length; i++) {
-        const userIdType: string = metric.userIdTypes[i];
+    } else if (userIdTypes.length > 0) {
+      for (let i = 0; i < userIdTypes.length; i++) {
+        const userIdType: string = userIdTypes[i];
         if (userIdType in idJoinMap) {
           const metricUserIdCol =
             queryFormat === "builder"
@@ -1925,13 +2029,35 @@ AND event_name = '${eventName}'`,
     const schema = this.getSchema();
 
     const where: string[] = [];
+    let sql = "";
 
     // From old, deprecated query builder UI
-    if (queryFormat === "builder" && metric.conditions?.length) {
+    if (queryFormat === "builder" && !isFact && metric.conditions?.length) {
       metric.conditions.forEach((c) => {
         where.push(`m.${c.column} ${c.operator} '${c.value}'`);
       });
     }
+
+    // Add filters from the Metric
+    if (isFact && factTable && columnRef) {
+      const filterIds: Set<string> = new Set();
+      if (columnRef.filters) {
+        columnRef.filters.forEach((f) => filterIds.add(f));
+      }
+      filterIds.forEach((filterId) => {
+        const filter = factTable.filters.find((f) => f.id === filterId);
+        if (filter) {
+          where.push(filter.value);
+        }
+      });
+
+      sql = factTable.sql;
+    }
+
+    if (!isFact && queryFormat === "sql") {
+      sql = metric.sql || "";
+    }
+
     // Add a rough date filter to improve query performance
     if (startDate) {
       where.push(`${cols.timestamp} >= ${this.toTimestamp(startDate)}`);
@@ -1948,17 +2074,23 @@ AND event_name = '${eventName}'`,
         ${timestampDateTimeColumn} as timestamp
       FROM
         ${
-          queryFormat === "sql"
+          queryFormat === "sql" || queryFormat === "fact"
             ? `(
-              ${compileSqlTemplate(metric.sql || "", {
+              ${compileSqlTemplate(sql, {
                 startDate,
                 endDate: endDate || undefined,
                 experimentId,
-                templateVariables: metric.templateVariables,
+                templateVariables: getMetricTemplateVariables(
+                  metric,
+                  factTableMap,
+                  useDenominator
+                ),
               })}
-              )`
-            : (schema && !metric.table?.match(/\./) ? schema + "." : "") +
+            )`
+            : !isFact
+            ? (schema && !metric.table?.match(/\./) ? schema + "." : "") +
               (metric.table || "")
+            : ""
         } m
         ${join}
         ${where.length ? `WHERE ${where.join(" AND ")}` : ""}
@@ -2055,7 +2187,7 @@ AND event_name = '${eventName}'`,
 
   private addCaseWhenTimeFilter(
     col: string,
-    metric: MetricInterface,
+    metric: ExperimentMetricInterface,
     ignoreConversionEnd: boolean,
     cumulativeDate: boolean
   ): string {
@@ -2076,7 +2208,27 @@ AND event_name = '${eventName}'`,
     )}`;
   }
 
-  private getAggregateMetricColumn(metric: MetricInterface) {
+  private getAggregateMetricColumn(
+    metric: ExperimentMetricInterface,
+    useDenominator?: boolean
+  ) {
+    // Fact Metrics
+    if (isFactMetric(metric)) {
+      const columnRef = useDenominator ? metric.denominator : metric.numerator;
+      if (
+        metric.metricType === "proportion" ||
+        columnRef?.column === "$$distinctUsers"
+      ) {
+        return `MAX(COALESCE(value, 0))`;
+      } else if (columnRef?.column === "$$count") {
+        return `COUNT(value)`;
+      } else {
+        return `SUM(COALESCE(value, 0))`;
+      }
+    }
+
+    // Non-fact Metrics
+
     // Binomial metrics don't have a value, so use hard-coded "1" as the value
     if (metric.type === "binomial") {
       return `MAX(COALESCE(value, 0))`;
@@ -2116,7 +2268,37 @@ AND event_name = '${eventName}'`,
     }
   }
 
-  private getMetricColumns(metric: MetricInterface, alias = "m") {
+  private getMetricColumns(
+    metric: ExperimentMetricInterface,
+    factTableMap: FactTableMap,
+    alias = "m",
+    useDenominator?: boolean
+  ) {
+    if (isFactMetric(metric)) {
+      const userIds: Record<string, string> = {};
+      getUserIdTypes(metric, factTableMap, useDenominator).forEach(
+        (userIdType) => {
+          userIds[userIdType] = `${alias}.${userIdType}`;
+        }
+      );
+
+      const columnRef = useDenominator ? metric.denominator : metric.numerator;
+
+      const value =
+        metric.metricType === "proportion" ||
+        !columnRef ||
+        columnRef.column === "$$distinctId" ||
+        columnRef.column === "$$count"
+          ? "1"
+          : `${alias}.${columnRef.column}`;
+
+      return {
+        userIds,
+        timestamp: `${alias}.timestamp`,
+        value,
+      };
+    }
+
     const queryFormat = this.getMetricQueryFormat(metric);
 
     // Directly inputting SQL (preferred)

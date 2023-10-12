@@ -1,5 +1,5 @@
 import { NextFunction, Request, Response } from "express";
-import { SSO_CONFIG } from "enterprise";
+import { licenseInit, SSO_CONFIG } from "enterprise";
 import { hasPermission } from "shared/permissions";
 import { IS_CLOUD } from "../../util/secrets";
 import { AuthRequest } from "../../types/AuthRequest";
@@ -170,6 +170,9 @@ export async function processJWT(
           });
           return;
         }
+
+        // init license for org if it exists
+        await licenseInit(req.organization.licenseKey);
       } else {
         res.status(404).json({
           status: 404,

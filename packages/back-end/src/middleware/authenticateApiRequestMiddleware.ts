@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from "express";
+import { licenseInit } from "enterprise";
 import { hasPermission } from "shared/permissions";
 import { ApiRequestLocals } from "../../types/api";
 import { lookupOrganizationByApiKey } from "../models/ApiKeyModel";
@@ -155,6 +156,9 @@ export default function authenticateApiRequestMiddleware(
           dateCreated: new Date(),
         });
       };
+
+      // init license for org if it exists
+      await licenseInit(req.organization.licenseKey);
 
       // Continue to the actual request handler
       next();

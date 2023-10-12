@@ -2,9 +2,11 @@ import path from "path";
 import fs from "fs";
 import { Request, RequestHandler } from "express";
 import z, { Schema, ZodNever } from "zod";
+import { orgHasPremiumFeature } from "enterprise";
 import { ApiErrorResponse, ApiRequestLocals } from "../../types/api";
 import { ApiPaginationFields } from "../../types/openapi";
 import { UserInterface } from "../../types/user";
+import { OrganizationInterface } from "../../types/organization";
 import { IS_MULTI_ORG } from "./secrets";
 
 type ApiRequest<
@@ -151,9 +153,16 @@ export function getBuild() {
 
 export async function validateIsSuperUserRequest(req: {
   user?: UserInterface;
+  organization: OrganizationInterface;
 }) {
   if (!IS_MULTI_ORG) {
     throw new Error("This endpoint requires multi-org mode.");
+  }
+
+  if (req.organization) {
+    if (!orgHasPremiumFeature(req.organization, "multi-org")) {
+      throw new Error("This endpoint requires an Enterprise plan.");
+    }
   }
 
   if (!req.user) {

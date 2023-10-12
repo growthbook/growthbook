@@ -22,7 +22,11 @@ const FilterSummary: FC<{
     snapshot.settings.segment ||
     snapshot.settings.queryFilter ||
     snapshot.settings.activationMetric;
-  const { getSegmentById, getMetricById, getDatasourceById } = useDefinitions();
+  const {
+    getSegmentById,
+    getExperimentMetricById,
+    getDatasourceById,
+  } = useDefinitions();
   const datasource = getDatasourceById(experiment.datasource);
 
   return (
@@ -116,8 +120,8 @@ const FilterSummary: FC<{
             </div>
             <div className="col">
               {snapshot.settings.activationMetric ? (
-                getMetricById(snapshot.settings.activationMetric)?.name ??
-                "(unknown)"
+                getExperimentMetricById(snapshot.settings.activationMetric)
+                  ?.name ?? "(unknown)"
               ) : (
                 <em>none</em>
               )}

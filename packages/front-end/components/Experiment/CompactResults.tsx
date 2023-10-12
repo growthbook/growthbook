@@ -9,8 +9,8 @@ import { ExperimentStatus, MetricOverride } from "back-end/types/experiment";
 import { PValueCorrection, StatsEngine } from "back-end/types/stats";
 import Link from "next/link";
 import { FaAngleRight, FaTimes, FaUsers } from "react-icons/fa";
-import { MetricInterface } from "back-end/types/metric";
 import Collapsible from "react-collapsible";
+import { ExperimentMetricInterface, getMetricLink } from "shared/experiments";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import {
   applyMetricOverrides,
@@ -22,6 +22,7 @@ import { GBCuped } from "@/components/Icons";
 import { QueryStatusData } from "@/components/Queries/RunQueriesButton";
 import Tooltip from "../Tooltip/Tooltip";
 import MetricTooltipBody from "../Metrics/MetricTooltipBody";
+import FactBadge from "../FactTables/FactBadge";
 import DataQualityWarning from "./DataQualityWarning";
 import ResultsTable from "./ResultsTable";
 import MultipleExposureWarning from "./MultipleExposureWarning";
@@ -74,7 +75,7 @@ const CompactResults: FC<{
   sequentialTestingEnabled,
   isTabActive,
 }) => {
-  const { getMetricById, ready } = useDefinitions();
+  const { getExperimentMetricById, ready } = useDefinitions();
 
   const [totalUsers, variationUsers] = useMemo(() => {
     let totalUsers = 0;
@@ -89,7 +90,8 @@ const CompactResults: FC<{
 
   const rows = useMemo<ExperimentTableRow[]>(() => {
     function getRow(metricId: string, isGuardrail: boolean) {
-      const metric = getMetricById(metricId);
+      const metric = getExperimentMetricById(metricId);
+
       if (!metric) return null;
       const { newMetric, overrideFields } = applyMetricOverrides(
         metric,
@@ -136,7 +138,7 @@ const CompactResults: FC<{
     metricRegressionAdjustmentStatuses,
     pValueCorrection,
     ready,
-    getMetricById,
+    getExperimentMetricById,
     statsEngine,
   ]);
 
@@ -235,7 +237,7 @@ export default CompactResults;
 export function getRenderLabelColumn(regressionAdjustmentEnabled) {
   return function renderLabelColumn(
     label: string,
-    metric: MetricInterface,
+    metric: ExperimentMetricInterface,
     row: ExperimentTableRow,
     maxRows?: number
   ) {
@@ -274,8 +276,11 @@ export function getRenderLabelColumn(regressionAdjustmentEnabled) {
                 }
           }
         >
-          <Link href={`/metric/${metric.id}`}>
-            <a className="metriclabel text-dark">{label}</a>
+          <Link href={getMetricLink(metric.id)}>
+            <a className="metriclabel text-dark">
+              {label}
+              <FactBadge metricId={metric.id} />
+            </a>
           </Link>
         </span>
       </Tooltip>
