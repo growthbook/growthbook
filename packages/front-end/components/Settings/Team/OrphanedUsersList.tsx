@@ -4,7 +4,7 @@ import MoreMenu from "@/components/Dropdown/MoreMenu";
 import useApi from "@/hooks/useApi";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { useAuth } from "@/services/auth";
-import { isCloud } from "@/services/env";
+import { isCloud, isMultiOrg } from "@/services/env";
 import AddOrphanedUserModal from "./AddOrphanedUserModal";
 
 const OrphanedUsersList: FC<{
@@ -23,8 +23,8 @@ const OrphanedUsersList: FC<{
     mutate();
   }, [numUsersInAccount, mutate]);
 
-  // Only available when self-hosting since Cloud is a multi-tenant environment
-  if (isCloud()) return null;
+  // Only available when self-hosting with a single org, since Cloud is a multi-tenant environment
+  if (isCloud() || isMultiOrg()) return null;
 
   if (error) {
     return <div className="alert alert-danger">{error.message}</div>;

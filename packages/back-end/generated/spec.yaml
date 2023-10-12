@@ -87,6 +87,9 @@ tags:
   - name: saved-groups
     x-displayName: Saved Groups
     description: Defined sets of attribute values which can be used with feature rules for targeting features at particular users.
+  - name: organizations
+    x-displayName: Organizations
+    description: Organizations are used for multi-org deployments where different teams can run their own isolated feature flags and experiments. These endpoints are only via a super-admin's Personal Access Token.
   - name: DataSource_model
     x-displayName: DataSource
     description: <SchemaDefinition schemaRef="#/components/schemas/DataSource" />
@@ -132,6 +135,9 @@ tags:
   - name: Metric_model
     x-displayName: Metric
     description: <SchemaDefinition schemaRef="#/components/schemas/Metric" />
+  - name: Organization_model
+    x-displayName: Organization
+    description: <SchemaDefinition schemaRef="#/components/schemas/Organization" />
   - name: PaginationFields_model
     x-displayName: PaginationFields
     description: <SchemaDefinition schemaRef="#/components/schemas/PaginationFields" />
@@ -2002,6 +2008,75 @@ paths:
                 properties:
                   deletedId:
                     type: string
+  /organizations:
+    get:
+      summary: Get all organizations
+      tags:
+        - organizations
+      parameters:
+        - name: search
+          in: query
+          description: Search string to search organization names and owner emails by
+          schema:
+            type: string
+        - $ref: '#/components/parameters/limit'
+        - $ref: '#/components/parameters/offset'
+      operationId: listOrganizations
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl https://api.growthbook.io/api/v1/organizations \
+              -u secret_abc123DEF456:
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - type: object
+                    required:
+                      - organizations
+                    properties:
+                      organizations:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Organization'
+                  - $ref: '#/components/schemas/PaginationFields'
+    post:
+      parameters: []
+      tags:
+        - organizations
+      summary: Create a single organization
+      operationId: postOrganization
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -X POST https://api.growthbook.io/api/v1/organizations \
+              -d '{ name: "My Subsidiary" }' \
+              -u secret_abc123DEF456:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+              properties:
+                name:
+                  type: string
+                  description: The name of the organization
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - organization
+                properties:
+                  organization:
+                    $ref: '#/components/schemas/Organization'
 components:
   parameters:
     id:
@@ -2027,6 +2102,7 @@ components:
       schema:
         type: integer
         min: 0
+        default: 0
     projectId:
       name: projectId
       in: query
@@ -3269,6 +3345,22 @@ components:
           type: array
           items:
             type: string
+    Organization:
+      type: object
+      properties:
+        id:
+          type: string
+          description: The unique identifier for the organization
+        dateCreated:
+          type: string
+          format: date-time
+          description: The date the organization was created
+        name:
+          type: string
+          description: The name of the organization
+        ownerEmail:
+          type: string
+          description: The email address of the organization owner
   securitySchemes:
     bearerAuth:
       type: http
@@ -3315,6 +3407,7 @@ x-tagGroups:
       - sdk-connections
       - visual-changesets
       - saved-groups
+      - organizations
   - name: Models
     tags:
       - DataSource_model
@@ -3332,6 +3425,7 @@ x-tagGroups:
       - FeatureRolloutRule_model
       - FeatureRule_model
       - Metric_model
+      - Organization_model
       - PaginationFields_model
       - Project_model
       - SavedGroup_model

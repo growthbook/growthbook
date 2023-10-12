@@ -12,7 +12,7 @@ import {
 import { FeatureInterface } from "back-end/types/feature";
 import Link from "next/link";
 import useOrgSettings from "@/hooks/useOrgSettings";
-import { getApiHost, getCdnHost, isCloud } from "@/services/env";
+import { getApiHost, getCdnHost } from "@/services/env";
 import Code from "@/components/SyntaxHighlighting/Code";
 import { useAttributeSchema } from "@/services/features";
 import { GBHashLock } from "@/components/Icons";
@@ -38,11 +38,6 @@ export function getApiBaseUrl(connection?: SDKConnectionInterface): string {
     return trimTrailingSlash(
       connection.proxy.hostExternal || connection.proxy.host
     );
-  }
-
-  //TODO: We should be able to remove this if we add an env variable to our cloud instance
-  if (isCloud()) {
-    return `https://cdn.growthbook.io`;
   }
 
   return trimTrailingSlash(getCdnHost() || getApiHost());

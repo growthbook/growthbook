@@ -18,6 +18,7 @@ import sdkPayloadRouter from "./sdk-payload/sdk-payload.router";
 import dataSourcesRouter from "./data-sources/data-sources.router";
 import dimensionsRouter from "./dimensions/dimensions.router";
 import visualChangesetsRouter from "./visual-changesets/visual-changesets.router";
+import organizationsRouter from "./organizations/organizations.router";
 import { postCopyTransform } from "./openai/postCopyTransform";
 
 const router = Router();
@@ -82,6 +83,7 @@ router.use("/sdk-connections", sdkConnectionsRouter);
 router.use("/data-sources", dataSourcesRouter);
 router.use("/visual-changesets", visualChangesetsRouter);
 router.use("/saved-groups", savedGroupsRouter);
+router.use("/organizations", organizationsRouter);
 router.use("/sdk-payload", sdkPayloadRouter);
 
 router.post("/transform-copy", postCopyTransform);

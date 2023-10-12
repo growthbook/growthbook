@@ -21,7 +21,8 @@ export type CommercialFeature =
   | "hash-secure-attributes"
   | "livechat"
   | "json-validation"
-  | "remote-evaluation";
+  | "remote-evaluation"
+  | "multi-org";
 export type CommercialFeaturesMap = Record<AccountPlan, Set<CommercialFeature>>;
 
 export type LicenseData = {
@@ -100,6 +101,7 @@ export const accountFeatures: CommercialFeaturesMap = {
     "json-validation",
     "livechat",
     "remote-evaluation",
+    "multi-org",
   ]),
 };
 
@@ -203,6 +205,15 @@ export async function getVerifiedLicenseData(key: string) {
     !planHasPremiumFeature(decodedLicense.plan, "sso")
   ) {
     throw new Error(`Your License Key does not support SSO.`);
+  }
+  // Trying to use IS_MULTI_ORG, but the plan doesn't support it
+  if (
+    process.env.IS_MULTI_ORG &&
+    !planHasPremiumFeature(decodedLicense.plan, "multi-org")
+  ) {
+    throw new Error(
+      `Your License Key does not support multiple organizations.`
+    );
   }
 
   // If the public key failed to load, just assume the license is valid

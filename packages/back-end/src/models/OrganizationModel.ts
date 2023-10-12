@@ -8,6 +8,7 @@ import {
   OrganizationMessage,
 } from "../../types/organization";
 import { upgradeOrganizationDoc } from "../util/migrations";
+import { ApiOrganization } from "../../types/openapi";
 
 const baseMemberFields = {
   _id: false,
@@ -170,15 +171,20 @@ export async function createOrganization({
   });
   return toInterface(doc);
 }
-export async function findAllOrganizations(page: number, search: string) {
+
+export async function findAllOrganizations(
+  page: number,
+  search: string,
+  limit: number = 50
+) {
   const regex = new RegExp(search, "i");
 
   const query = search ? { $or: [{ name: regex }, { ownerEmail: regex }] } : {};
 
   const docs = await OrganizationModel.find(query)
     .sort({ _id: -1 })
-    .skip((page - 1) * 50)
-    .limit(50);
+    .skip((page - 1) * limit)
+    .limit(limit);
 
   const total = await (search
     ? OrganizationModel.find(query).countDocuments()
@@ -322,4 +328,16 @@ export async function setOrganizationMessages(
       runValidators: true,
     }
   );
+}
+
+export function toOrganizationApiInterface(
+  org: OrganizationInterface
+): ApiOrganization {
+  const { id, name, ownerEmail, dateCreated } = org;
+  return {
+    id,
+    name,
+    ownerEmail,
+    dateCreated: dateCreated?.toISOString() || "",
+  };
 }
