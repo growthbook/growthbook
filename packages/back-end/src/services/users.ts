@@ -96,23 +96,6 @@ export async function createUser(
   });
 }
 
-export async function updateScimUserData(
-  userId: string,
-  updates: { email: string; name: string }
-) {
-  return UserModel.updateOne(
-    {
-      id: userId,
-    },
-    {
-      $set: {
-        email: updates.email,
-        name: updates.name,
-      },
-    }
-  );
-}
-
 /**
  * Some tracking properties exist on the request object
  * @param req
