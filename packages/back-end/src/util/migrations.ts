@@ -498,6 +498,7 @@ export function migrateSnapshot(
             pValueCorrection: null,
             regressionAdjusted,
             sequentialTesting: !!sequentialTestingEnabled,
+            differenceType: "relative",
             sequentialTestingTuningParameter:
               sequentialTestingTuningParameter ||
               DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,

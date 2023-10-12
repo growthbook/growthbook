@@ -143,7 +143,11 @@ export function getSnapshotSettingsFromReportArgs(
     pValueCorrection: null,
     sequentialTesting: args.sequentialTestingEnabled,
     sequentialTestingTuningParameter: args.sequentialTestingTuningParameter,
+<<<<<<< HEAD
     pValueThreshold: args.pValueThreshold,
+=======
+    differenceType: "relative",
+>>>>>>> ls/diff_type
   };
 
   return { snapshotSettings, analysisSettings };

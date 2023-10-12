@@ -7,7 +7,11 @@ import {
 } from "shared/constants";
 import { putBaselineVariationFirst } from "shared/util";
 import { ExperimentMetricInterface } from "shared/experiments";
-import { ExperimentMetricAnalysis, StatsEngine } from "../../types/stats";
+import {
+  DifferenceType,
+  ExperimentMetricAnalysis,
+  StatsEngine,
+} from "../../types/stats";
 import {
   ExperimentMetricQueryResponseRows,
   ExperimentResults,
@@ -36,8 +40,13 @@ export async function analyzeExperimentMetric(
   statsEngine: StatsEngine = DEFAULT_STATS_ENGINE,
   sequentialTestingEnabled: boolean = false,
   sequentialTestingTuningParameter: number = DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
+<<<<<<< HEAD
   baselineVariationIndex: number | null = null,
   pValueThreshold: number = DEFAULT_P_VALUE_THRESHOLD
+=======
+  differenceType: DifferenceType = "relative",
+  baselineVariationIndex: number | null = null
+>>>>>>> ls/diff_type
 ): Promise<ExperimentMetricAnalysis> {
   if (!rows || !rows.length) {
     return {
@@ -54,12 +63,96 @@ export async function analyzeExperimentMetric(
   sortedVariations.map((v, i) => {
     variationIdMap[v.id] = i;
   });
+<<<<<<< HEAD
 
   const sequentialTestingTuningParameterNumber =
     Number(sequentialTestingTuningParameter) ||
     DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER;
   const pValueThresholdNumber =
     Number(pValueThreshold) || DEFAULT_P_VALUE_THRESHOLD;
+=======
+  console.log(`
+  from gbstats.gbstats import (
+    diff_for_daily_time_series,
+    detect_unknown_variations,
+    analyze_metric_df,
+    get_metric_df,
+    reduce_dimensionality,
+    format_results
+  )
+  from gbstats.shared.constants import DifferenceType, StatsEngine
+  import pandas as pd
+  import json
+  
+  data = json.loads("""${JSON.stringify({
+        var_id_map: variationIdMap,
+        var_names: sortedVariations.map((v) => v.name),
+        weights: sortedVariations.map((v) => v.weight),
+        baseline_index: baselineVariationIndex ?? 0,
+        ignore_nulls: "ignoreNulls" in metric && !!metric.ignoreNulls,
+        inverse: !!metric.inverse,
+        max_dimensions:
+          dimension?.substring(0, 8) === "pre:date" ? 9999 : MAX_DIMENSIONS,
+        rows,
+      }).replace(/\\/g, "\\\\")}""", strict=False)
+  
+  var_id_map = data['var_id_map']
+  var_names = data['var_names']
+  ignore_nulls = data['ignore_nulls']
+  inverse = data['inverse']
+  weights = data['weights']
+  max_dimensions = data['max_dimensions']
+  baseline_index = data['baseline_index']
+  
+  rows = pd.DataFrame(data['rows'])
+  
+  unknown_var_ids = detect_unknown_variations(
+    rows=rows,
+    var_id_map=var_id_map
+  )
+  
+  ${
+    dimension === "pre:datedaily" ? `rows = diff_for_daily_time_series(rows)` : ``
+  }
+  
+  df = get_metric_df(
+    rows=rows,
+    var_id_map=var_id_map,
+    var_names=var_names,
+  )
+  
+  reduced = reduce_dimensionality(
+    df=df, 
+    max=max_dimensions,
+  )
+  
+  engine_config = {'difference_type': ${differenceType === "relative" ? `DifferenceType.RELATIVE` : `DifferenceType.ABSOLUTE`}}
+  ${
+    statsEngine === "frequentist" && sequentialTestingEnabled
+      ? `
+  engine_config['sequential'] = True
+  engine_config['sequential_tuning_parameter'] = ${sequentialTestingTuningParameter}`
+      : ""
+  }
+  
+  result = analyze_metric_df(
+    df=reduced,
+    weights=weights,
+    inverse=inverse,
+    engine=${
+      statsEngine === "frequentist"
+        ? "StatsEngine.FREQUENTIST"
+        : "StatsEngine.BAYESIAN"
+    },
+    engine_config=engine_config,
+  )
+  
+  print(json.dumps({
+    'unknownVariations': list(unknown_var_ids),
+    'dimensions': format_results(result, baseline_index)
+  }, allow_nan=False))
+  `);
+>>>>>>> ls/diff_type
   const result = await promisify(PythonShell.runString)(
     `
 from gbstats.gbstats import (
@@ -70,7 +163,7 @@ from gbstats.gbstats import (
   reduce_dimensionality,
   format_results
 )
-from gbstats.shared.constants import StatsEngine
+from gbstats.shared.constants import DifferenceType, StatsEngine
 import pandas as pd
 import json
 
@@ -113,9 +206,10 @@ df = get_metric_df(
 
 reduced = reduce_dimensionality(
   df=df, 
-  max=max_dimensions
+  max=max_dimensions,
 )
 
+<<<<<<< HEAD
 engine_config=${
       statsEngine === "frequentist" && sequentialTestingEnabled
         ? `{'sequential': True, 'sequential_tuning_parameter': ${sequentialTestingTuningParameterNumber}}`
@@ -124,6 +218,14 @@ engine_config=${
 ${
   statsEngine === "frequentist" && pValueThresholdNumber
     ? `engine_config['alpha'] = ${pValueThresholdNumber}`
+=======
+engine_config = {'difference_type': ${differenceType === "relative" ? `DifferenceType.RELATIVE` : `DifferenceType.ABSOLUTE`}}
+${
+  statsEngine === "frequentist" && sequentialTestingEnabled
+    ? `
+engine_config['sequential'] = True
+engine_config['sequential_tuning_parameter'] = ${sequentialTestingTuningParameter}`
+>>>>>>> ls/diff_type
     : ""
 }
 
@@ -146,6 +248,7 @@ print(json.dumps({
     {}
   );
 
+  console.log(result);
   let parsed: ExperimentMetricAnalysis;
   try {
     parsed = JSON.parse(result?.[0]);
@@ -248,8 +351,13 @@ export async function analyzeExperimentResults({
           analysisSettings.statsEngine,
           analysisSettings.sequentialTesting,
           analysisSettings.sequentialTestingTuningParameter,
+<<<<<<< HEAD
           analysisSettings.baselineVariationIndex,
           analysisSettings.pValueThreshold
+=======
+          analysisSettings.differenceType,
+          analysisSettings.baselineVariationIndex
+>>>>>>> ls/diff_type
         );
         unknownVariations = unknownVariations.concat(result.unknownVariations);
         multipleExposures = Math.max(

@@ -15,11 +15,16 @@ import {
   ExperimentReportVariationWithIndex,
 } from "back-end/types/report";
 import { ExperimentStatus } from "back-end/types/experiment";
+<<<<<<< HEAD
 import { PValueCorrection, StatsEngine } from "back-end/types/stats";
 import {
   DEFAULT_P_VALUE_THRESHOLD,
   DEFAULT_STATS_ENGINE,
 } from "shared/constants";
+=======
+import { DifferenceType, PValueCorrection, StatsEngine } from "back-end/types/stats";
+import { DEFAULT_STATS_ENGINE } from "shared/constants";
+>>>>>>> ls/diff_type
 import { getValidDate } from "shared/dates";
 import { useTooltip, useTooltipInPortal } from "@visx/tooltip";
 import { FaExclamationTriangle } from "react-icons/fa";
@@ -37,7 +42,7 @@ import usePValueThreshold from "@/hooks/usePValueThreshold";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import { useCurrency } from "@/hooks/useCurrency";
 import PValueColumn from "@/components/Experiment/PValueColumn";
-import PercentChangeColumn from "@/components/Experiment/PercentChangeColumn";
+import ChangeColumn from "@/components/Experiment/ChangeColumn";
 import ResultsTableTooltip, {
   TOOLTIP_HEIGHT,
   TOOLTIP_TIMEOUT,
@@ -80,6 +85,7 @@ export type ResultsTableProps = {
   hasRisk: boolean;
   statsEngine: StatsEngine;
   pValueCorrection?: PValueCorrection;
+  differenceType?: DifferenceType;
   sequentialTestingEnabled?: boolean;
   isTabActive: boolean;
 };
@@ -113,6 +119,7 @@ export default function ResultsTable({
   hasRisk,
   statsEngine,
   pValueCorrection,
+  differenceType,
   sequentialTestingEnabled = false,
   isTabActive,
 }: ResultsTableProps) {
@@ -587,6 +594,7 @@ export default function ResultsTable({
                           showAxis={true}
                           axisOnly={true}
                           graphWidth={graphCellWidth}
+                          percent={differenceType === "relative"}
                           height={45}
                           newUi={true}
                         />
@@ -612,7 +620,7 @@ export default function ResultsTable({
                             </div>
                           }
                         >
-                          % Change <RxInfoCircled />
+                          {differenceType === "relative" ? "Absolute" : "%"}{" Change"} <RxInfoCircled />
                         </Tooltip>
                       </div>
                     </th>
@@ -845,6 +853,7 @@ export default function ResultsTable({
                               newUi={true}
                               // className={}
                               isHovered={isHovered}
+                              percent={differenceType === "relative"}
                               className={clsx(
                                 resultsHighlightClassname,
                                 "overflow-hidden"
@@ -875,6 +884,7 @@ export default function ResultsTable({
                               domain={domain}
                               significant={true}
                               showAxis={false}
+                              percent={differenceType === "relative"}
                               axisOnly={true}
                               graphWidth={graphCellWidth}
                               height={32}
@@ -883,10 +893,11 @@ export default function ResultsTable({
                           )}
                         </td>
                         {j > 0 ? (
-                          <PercentChangeColumn
+                          <ChangeColumn
                             metric={row.metric}
                             stats={stats}
                             rowResults={rowResults}
+                            percent={differenceType === "relative"}
                             statsEngine={statsEngine}
                             className={resultsHighlightClassname}
                           />

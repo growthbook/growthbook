@@ -1864,6 +1864,7 @@ export async function postSnapshot(
     regressionAdjusted: !!regressionAdjustmentEnabled,
     dimensions: dimension ? [dimension] : [],
     sequentialTesting: !!sequentialTestingEnabled,
+    differenceType: "relative",
     sequentialTestingTuningParameter: sequentialTestingTuningParameter,
     baselineVariationIndex: 0,
     pValueThreshold: org.settings?.pValueThreshold ?? DEFAULT_P_VALUE_THRESHOLD,
