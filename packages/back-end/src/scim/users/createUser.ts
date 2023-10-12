@@ -73,10 +73,10 @@ export async function createUser(
 
     return res.status(201).json(responseObj);
   } catch (e) {
-    return res.status(500).json({
+    return res.status(400).json({
       schemas: ["urn:ietf:params:scim:api:messages:2.0:Error"],
       detail: `Unable to create the new user in GrowthBook: ${e.message}`,
-      status: "500",
+      status: "400",
     });
   }
 }
