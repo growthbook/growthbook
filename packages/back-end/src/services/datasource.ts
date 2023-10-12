@@ -152,7 +152,9 @@ export async function testQuery(
 
   const sql = integration.getTestQuery(query, templateVariables);
   try {
-    const { results, duration } = await integration.runTestQuery(sql);
+    const { results, duration } = await integration.runTestQuery(sql, [
+      "timestamp",
+    ]);
     return {
       results,
       duration,

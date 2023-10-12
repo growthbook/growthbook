@@ -1,4 +1,5 @@
 import { BigQueryTimestamp } from "@google-cloud/bigquery";
+import { ExperimentMetricInterface } from "shared/experiments";
 import {
   DataSourceProperties,
   DataSourceSettings,
@@ -11,6 +12,7 @@ import { QueryStatistics } from "../../types/query";
 import { SegmentInterface } from "../../types/segment";
 import { FormatDialect } from "../util/sql";
 import { TemplateVariables } from "../../types/sql";
+import { FactTableMap } from "../models/FactTableModel";
 
 export class MissingDatasourceParamsError extends Error {
   constructor(message: string) {
@@ -92,9 +94,10 @@ export type Dimension =
 
 export type ExperimentMetricQueryParams = {
   settings: ExperimentSnapshotSettings;
-  metric: MetricInterface;
-  activationMetric: MetricInterface | null;
-  denominatorMetrics: MetricInterface[];
+  metric: ExperimentMetricInterface;
+  activationMetric: ExperimentMetricInterface | null;
+  denominatorMetrics: ExperimentMetricInterface[];
+  factTableMap: FactTableMap;
   dimension: Dimension | null;
   segment: SegmentInterface | null;
   useUnitsTable: boolean;
@@ -103,7 +106,8 @@ export type ExperimentMetricQueryParams = {
 
 export type ExperimentUnitsQueryParams = {
   settings: ExperimentSnapshotSettings;
-  activationMetric: MetricInterface | null;
+  activationMetric: ExperimentMetricInterface | null;
+  factTableMap: FactTableMap;
   dimension: Dimension | null;
   segment: SegmentInterface | null;
   unitsTableFullName?: string;
@@ -320,15 +324,15 @@ export interface SourceIntegrationInterface {
   getSensitiveParamKeys(): string[];
   getExperimentResultsQuery(
     snapshotSettings: ExperimentSnapshotSettings,
-    metrics: MetricInterface[],
-    activationMetric: MetricInterface | null,
+    metrics: ExperimentMetricInterface[],
+    activationMetric: ExperimentMetricInterface | null,
     dimension: DimensionInterface | null
   ): string;
   getFormatDialect?(): FormatDialect;
   getExperimentResults(
     snapshotSettings: ExperimentSnapshotSettings,
-    metrics: MetricInterface[],
-    activationMetric: MetricInterface | null,
+    metrics: ExperimentMetricInterface[],
+    activationMetric: ExperimentMetricInterface | null,
     dimension: DimensionInterface | null
   ): Promise<ExperimentQueryResponses>;
   getSourceProperties(): DataSourceProperties;
@@ -344,7 +348,10 @@ export interface SourceIntegrationInterface {
     templateVariables?: TemplateVariables
   ): string;
   getTestQuery?(query: string, templateVariables?: TemplateVariables): string;
-  runTestQuery?(sql: string): Promise<TestQueryResult>;
+  runTestQuery?(
+    sql: string,
+    timestampCols?: string[]
+  ): Promise<TestQueryResult>;
   getMetricValueQuery(params: MetricValueParams): string;
   getExperimentMetricQuery(params: ExperimentMetricQueryParams): string;
   getExperimentUnitsTableQuery(params: ExperimentUnitsQueryParams): string;

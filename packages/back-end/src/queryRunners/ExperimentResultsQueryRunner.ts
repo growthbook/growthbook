@@ -1,4 +1,5 @@
 import { orgHasPremiumFeature } from "enterprise";
+import { ExperimentMetricInterface, isFactMetric } from "shared/experiments";
 import {
   ExperimentSnapshotAnalysis,
   ExperimentSnapshotAnalysisSettings,
@@ -25,6 +26,7 @@ import {
 } from "../types/Integration";
 import { expandDenominatorMetrics } from "../util/sql";
 import { getOrganizationById } from "../services/organizations";
+import { FactTableMap } from "../models/FactTableModel";
 import {
   QueryRunner,
   QueryMap,
@@ -43,7 +45,8 @@ export type ExperimentResultsQueryParams = {
   snapshotSettings: ExperimentSnapshotSettings;
   analysisSettings: ExperimentSnapshotAnalysisSettings;
   variationNames: string[];
-  metricMap: Map<string, MetricInterface>;
+  metricMap: Map<string, ExperimentMetricInterface>;
+  factTableMap: FactTableMap;
   queryParentId: string;
 };
 
@@ -75,7 +78,7 @@ export const startExperimentResultQueries = async (
     )
   )
     .map((m) => metricMap.get(m))
-    .filter((m) => m) as MetricInterface[];
+    .filter((m) => m) as ExperimentMetricInterface[];
   if (!selectedMetrics.length) {
     throw new Error("Experiment must have at least 1 metric selected.");
   }
@@ -121,6 +124,7 @@ export const startExperimentResultQueries = async (
       settings: snapshotSettings,
       unitsTableFullName: unitsTableFullName,
       includeIdJoins: true,
+      factTableMap: params.factTableMap,
     };
     unitQuery = await startQuery({
       name: queryParentId,
@@ -134,14 +138,17 @@ export const startExperimentResultQueries = async (
 
   const promises = selectedMetrics.map(async (m) => {
     const denominatorMetrics: MetricInterface[] = [];
-    if (m.denominator) {
+    if (!isFactMetric(m) && m.denominator) {
       denominatorMetrics.push(
-        ...expandDenominatorMetrics(m.denominator, metricMap)
+        ...expandDenominatorMetrics(
+          m.denominator,
+          metricMap as Map<string, MetricInterface>
+        )
           .map((m) => metricMap.get(m) as MetricInterface)
           .filter(Boolean)
       );
     }
-    const params: ExperimentMetricQueryParams = {
+    const queryParams: ExperimentMetricQueryParams = {
       activationMetric,
       denominatorMetrics,
       dimension: dimensionObj,
@@ -150,11 +157,12 @@ export const startExperimentResultQueries = async (
       settings: snapshotSettings,
       useUnitsTable: useUnitsTable,
       unitsTableFullName: unitsTableFullName,
+      factTableMap: params.factTableMap,
     };
     queries.push(
       await startQuery({
         name: m.id,
-        query: integration.getExperimentMetricQuery(params),
+        query: integration.getExperimentMetricQuery(queryParams),
         dependencies: unitQuery ? [unitQuery.query] : [],
         run: (query) => integration.runExperimentMetricQuery(query),
         process: (rows) => rows,
@@ -172,7 +180,7 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
   SnapshotResult
 > {
   private variationNames: string[] = [];
-  private metricMap: Map<string, MetricInterface> = new Map();
+  private metricMap: Map<string, ExperimentMetricInterface> = new Map();
 
   async startQueries(params: ExperimentResultsQueryParams): Promise<Queries> {
     this.metricMap = params.metricMap;
@@ -282,7 +290,7 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
       )
     )
       .map((m) => metricMap.get(m))
-      .filter((m) => m) as MetricInterface[];
+      .filter((m) => m) as ExperimentMetricInterface[];
     if (!selectedMetrics.length) {
       throw new Error("Experiment must have at least 1 metric selected.");
     }

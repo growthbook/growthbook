@@ -2,10 +2,13 @@ import path from "path";
 import fs from "fs";
 import { NextApiRequest, NextApiResponse } from "next";
 import { getLicense, licenseInit } from "enterprise";
+import { stringToBoolean } from "shared/util";
 
 export interface EnvironmentInitValue {
   telemetry: "debug" | "enable" | "disable";
   cloud: boolean;
+  isMultiOrg?: boolean;
+  allowSelfOrgCreation: boolean;
   appOrigin: string;
   licenseKeyRef: string;
   apiHost: string;
@@ -31,6 +34,8 @@ export default async function handler(
     API_HOST,
     CDN_HOST,
     IS_CLOUD,
+    IS_MULTI_ORG,
+    ALLOW_SELF_ORG_CREATION,
     DISABLE_TELEMETRY,
     DEFAULT_CONVERSION_WINDOW_HOURS,
     NEXT_PUBLIC_SENTRY_DSN,
@@ -73,7 +78,9 @@ export default async function handler(
     licenseKeyRef: getLicense()?.ref || "",
     apiHost: API_HOST || "http://localhost:3100",
     cdnHost: CDN_HOST || "",
-    cloud: !!IS_CLOUD,
+    cloud: stringToBoolean(IS_CLOUD),
+    isMultiOrg: stringToBoolean(IS_MULTI_ORG),
+    allowSelfOrgCreation: stringToBoolean(ALLOW_SELF_ORG_CREATION, true), // Default to true
     config: hasConfigFile ? "file" : "db",
     build,
     defaultConversionWindowHours: DEFAULT_CONVERSION_WINDOW_HOURS
@@ -86,8 +93,8 @@ export default async function handler(
         ? "disable"
         : "enable",
     sentryDSN: NEXT_PUBLIC_SENTRY_DSN || "",
-    usingSSO: !!SSO_CONFIG,
-    storeSegmentsInMongo: !!STORE_SEGMENTS_IN_MONGO,
+    usingSSO: !!SSO_CONFIG, // No matter what SSO_CONFIG is set to we want it to count as using it.
+    storeSegmentsInMongo: stringToBoolean(STORE_SEGMENTS_IN_MONGO),
   };
 
   res.status(200).json(body);

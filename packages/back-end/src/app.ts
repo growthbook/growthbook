@@ -86,10 +86,12 @@ import { eventsRouter } from "./routers/events/events.router";
 import { eventWebHooksRouter } from "./routers/event-webhooks/event-webhooks.router";
 import { tagRouter } from "./routers/tag/tag.router";
 import { savedGroupRouter } from "./routers/saved-group/saved-group.router";
+import { ArchetypeRouter } from "./routers/archetype/archetype.router";
 import { segmentRouter } from "./routers/segment/segment.router";
 import { dimensionRouter } from "./routers/dimension/dimension.router";
 import { sdkConnectionRouter } from "./routers/sdk-connection/sdk-connection.router";
 import { projectRouter } from "./routers/project/project.router";
+import { factTableRouter } from "./routers/fact-table/fact-table.router";
 import verifyLicenseMiddleware from "./services/auth/verifyLicenseMiddleware";
 import { slackIntegrationRouter } from "./routers/slack-integration/slack-integration.router";
 import { dataExportRouter } from "./routers/data-export/data-export.router";
@@ -197,6 +199,8 @@ app.get(
   }),
   getExperimentConfig
 );
+
+// Public features for SDKs
 app.get(
   "/api/features/:key?",
   cors({
@@ -212,10 +216,30 @@ app.options(
     credentials: false,
     origin: "*",
   }),
-  function (req, res) {
-    res.send(200);
-  }
+  (req, res) => res.send(200)
 );
+
+if (!IS_CLOUD) {
+  // Public remoteEval for SDKs:
+  // note: Self-hosted only, recommended for debugging. Cloud orgs must use separate infrastructure.
+  app.post(
+    "/api/eval/:key?",
+    cors({
+      credentials: false,
+      origin: "*",
+    }),
+    featuresController.getEvaluatedFeaturesPublic
+  );
+  // For preflight requests
+  app.options(
+    "/api/eval/:key?",
+    cors({
+      credentials: false,
+      origin: "*",
+    }),
+    (req, res) => res.send(200)
+  );
+}
 
 // Secret API routes (no JWT or CORS)
 app.use(
@@ -322,6 +346,8 @@ if (IS_CLOUD) {
 app.use("/tag", tagRouter);
 
 app.use("/saved-groups", savedGroupRouter);
+
+app.use("/archetype", ArchetypeRouter);
 
 // Ideas
 app.get("/ideas", ideasController.getIdeas);
@@ -461,6 +487,8 @@ app.use("/sdk-connections", sdkConnectionRouter);
 
 app.use("/projects", projectRouter);
 
+app.use(factTableRouter);
+
 app.use("/demo-datasource-project", demoDatasourceProjectRouter);
 
 // Features
@@ -491,6 +519,7 @@ app.delete(
 app.put("/feature/:id/rule", featuresController.putFeatureRule);
 app.delete("/feature/:id/rule", featuresController.deleteFeatureRule);
 app.post("/feature/:id/reorder", featuresController.postFeatureMoveRule);
+app.post("/feature/:id/eval", featuresController.postFeatureEvaluate);
 app.get("/usage/features", featuresController.getRealtimeUsage);
 
 // Data Sources
@@ -566,6 +595,13 @@ app.use("/teams", teamRouter);
 
 // Admin
 app.get("/admin/organizations", adminController.getOrganizations);
+
+// Meta info
+app.get("/meta/ai", (req, res) => {
+  res.json({
+    enabled: !!process.env.OPENAI_API_KEY,
+  });
+});
 
 // Fallback 404 route if nothing else matches
 app.use(function (req, res) {
