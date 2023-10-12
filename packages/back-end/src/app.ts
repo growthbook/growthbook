@@ -199,6 +199,8 @@ app.get(
   }),
   getExperimentConfig
 );
+
+// Public features for SDKs
 app.get(
   "/api/features/:key?",
   cors({
@@ -214,10 +216,30 @@ app.options(
     credentials: false,
     origin: "*",
   }),
-  function (req, res) {
-    res.send(200);
-  }
+  (req, res) => res.send(200)
 );
+
+if (!IS_CLOUD) {
+  // Public remoteEval for SDKs:
+  // note: Self-hosted only, recommended for debugging. Cloud orgs must use separate infrastructure.
+  app.post(
+    "/api/eval/:key?",
+    cors({
+      credentials: false,
+      origin: "*",
+    }),
+    featuresController.getEvaluatedFeaturesPublic
+  );
+  // For preflight requests
+  app.options(
+    "/api/eval/:key?",
+    cors({
+      credentials: false,
+      origin: "*",
+    }),
+    (req, res) => res.send(200)
+  );
+}
 
 // Secret API routes (no JWT or CORS)
 app.use(

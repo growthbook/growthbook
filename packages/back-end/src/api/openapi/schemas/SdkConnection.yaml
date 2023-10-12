@@ -54,3 +54,5 @@ properties:
     type: boolean
   hashSecureAttributes:
     type: boolean
+  remoteEvalEnabled:
+    type: boolean
