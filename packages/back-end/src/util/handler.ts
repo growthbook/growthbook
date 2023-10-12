@@ -5,7 +5,7 @@ import z, { Schema, ZodNever } from "zod";
 import { orgHasPremiumFeature } from "enterprise";
 import { ApiErrorResponse, ApiRequestLocals } from "../../types/api";
 import { ApiPaginationFields } from "../../types/openapi";
-import { getUserById } from "../services/users";
+import { UserInterface } from "../../types/user";
 import { OrganizationInterface } from "../../types/organization";
 import { IS_MULTI_ORG } from "./secrets";
 
@@ -152,7 +152,7 @@ export function getBuild() {
 }
 
 export async function validateIsSuperUserRequest(req: {
-  userId?: string;
+  user?: UserInterface;
   organization: OrganizationInterface;
 }) {
   if (!IS_MULTI_ORG) {
@@ -165,21 +165,19 @@ export async function validateIsSuperUserRequest(req: {
     }
   }
 
-  if (!req.userId) {
+  if (!req.user) {
     throw new Error(
       "This endpoint requires the use of a Personal Access Token rather than an API_KEY."
     );
   }
 
-  const user = await getUserById(req.userId);
-
-  if (!user || !user.superAdmin) {
+  if (!req.user.superAdmin) {
     throw new Error(
       "This endpoint requires the Personal Access Token of a super admin."
     );
   }
 
-  return user;
+  return req.user;
 }
 
 /**
