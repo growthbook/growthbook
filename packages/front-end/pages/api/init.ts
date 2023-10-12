@@ -61,7 +61,11 @@ export default async function handler(
   }
 
   if (LICENSE_KEY) {
-    await licenseInit(LICENSE_KEY || "");
+    try {
+      await licenseInit(LICENSE_KEY || "");
+    } catch (e) {
+      // This error will be logged by the back-end, no need to log it here too
+    }
   }
 
   const body: EnvironmentInitValue = {
