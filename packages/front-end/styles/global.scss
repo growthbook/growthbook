@@ -226,6 +226,19 @@ pre {
   color: inherit;
 }
 
+.btn-link-filter-on {
+  color: var(--text-color-primary);
+  &:hover {
+    color: var(--text-link-hover-color);
+  }
+}
+.btn-link-filter-off {
+  color: var(--text-color-muted);
+  &:hover {
+    color: var(--text-link-hover-color);
+  }
+}
+
 .experiment-status-widget {
   background-color: var(--surface-background-color);
   border-radius: 20px !important;
@@ -2570,7 +2583,7 @@ html {
   .gb-multi-select__menu-portal {
     position: absolute !important;
     top: -8px;
-    left: 260px;
+    left: 290px;
     @media (max-width: 520px) {
       top: auto;
       bottom: 0;

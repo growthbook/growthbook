@@ -47,8 +47,8 @@ const Results: FC<{
   setVariationFilter?: (variationFilter: number[]) => void;
   baselineRow?: number;
   setBaselineRow?: (baselineRow: number) => void;
-  metricFilter?: any;
-  setMetricFilter?: (metricFilter: any) => void;
+  metricFilter?: ResultsMetricFilters;
+  setMetricFilter?: (metricFilter: ResultsMetricFilters) => void;
   isTabActive?: boolean;
 }> = ({
   experiment,
@@ -419,19 +419,15 @@ const Results: FC<{
 export default Results;
 
 // given an ordered list of tags, sort the metrics by their tags
+export type ResultsMetricFilters = {
+  tagOrder?: string[];
+  filterByTag?: boolean;
+  tagFilter?: string[] | null; // if null, use tagOrder
+};
 export function sortAndFilterMetricsByTags(
   metrics: ExperimentMetricInterface[],
-  {
-    orderByTag = false,
-    tagOrder = [],
-    filterByTag = false,
-    tagFilter = null,
-  }: {
-    orderByTag?: boolean;
-    tagOrder?: string[];
-    filterByTag?: boolean;
-    tagFilter?: string[] | null;
-  }): string[] {
+  { tagOrder = [], filterByTag = false, tagFilter = null }: ResultsMetricFilters
+): string[] {
   if (filterByTag && !tagFilter) {
     tagFilter = tagOrder;
   }
@@ -454,7 +450,7 @@ export function sortAndFilterMetricsByTags(
   tagOrder = tagOrder.filter((tag) => tagsInMetrics.has(tag));
 
   // using tagOrder, build our initial set of sorted metrics
-  if (orderByTag) {
+  if (tagOrder?.length) {
     tagOrder.forEach((tag) => {
       metricsByTag[tag] = [];
       for (const metricId in metricDefs) {

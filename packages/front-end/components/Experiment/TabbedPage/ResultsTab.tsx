@@ -19,6 +19,7 @@ import { getRegressionAdjustmentsForMetric } from "@/services/experiments";
 import { useAuth } from "@/services/auth";
 import Button from "@/components/Button";
 import { GBAddCircle } from "@/components/Icons";
+import { useLocalStorage } from "@/hooks/useLocalStorage";
 import Results from "../Results";
 import { StartExperimentBanner } from "../StartExperimentBanner";
 import AnalysisForm from "../AnalysisForm";
@@ -60,13 +61,16 @@ export default function ResultsTab({
 }: Props) {
   const [baselineRow, setBaselineRow] = useState<number>(0);
   const [variationFilter, setVariationFilter] = useState<number[]>([]);
-  const [metricFilter, setMetricFilter] = useState(
+  const [metricFilter, setMetricFilter] = useLocalStorage(
+    `metricFilter-${experiment.id}`,
     {
-      orderByTag: true,
-      tagOrder: ["foo", "key metrics"],
-      // filterByTag: true,
-      // tagFilter: ["key metrics"],
+      tagOrder: [],
+      filterByTag: false,
     }
+    // orderByTag: true,
+    // tagOrder: ["foo", "key metrics"],
+    // filterByTag: true,
+    // tagFilter: ["key metrics"],
   );
 
   const {
