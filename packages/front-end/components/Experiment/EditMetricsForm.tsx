@@ -6,13 +6,11 @@ import {
 } from "back-end/types/experiment";
 import cloneDeep from "lodash/cloneDeep";
 import { DEFAULT_REGRESSION_ADJUSTMENT_DAYS } from "shared/constants";
-import { MetricInterface } from "back-end/types/metric";
 import { OrganizationSettings } from "back-end/types/organization";
-import { isProjectListValidForProject } from "shared/util";
+import { ExperimentMetricInterface } from "shared/experiments";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useAuth } from "../../services/auth";
 import Modal from "../Modal";
-import SelectField from "../Forms/SelectField";
 import { useDefinitions } from "../../services/DefinitionsContext";
 import { useUser } from "../../services/UserContext";
 import PremiumTooltip from "../Marketing/PremiumTooltip";
@@ -20,6 +18,7 @@ import UpgradeMessage from "../Marketing/UpgradeMessage";
 import UpgradeModal from "../Settings/UpgradeModal";
 import MetricsOverridesSelector from "./MetricsOverridesSelector";
 import MetricsSelector from "./MetricsSelector";
+import MetricSelector from "./MetricSelector";
 
 export interface EditMetricsFormInterface {
   metrics: string[];
@@ -39,7 +38,7 @@ export interface EditMetricsFormInterface {
 
 export function getDefaultMetricOverridesFormValue(
   overrides: MetricOverride[],
-  getMetricById: (id: string) => MetricInterface | null,
+  getExperimentMetricById: (id: string) => ExperimentMetricInterface | null,
   settings: OrganizationSettings
 ) {
   const defaultMetricOverrides = cloneDeep(overrides);
@@ -58,7 +57,9 @@ export function getDefaultMetricOverridesFormValue(
       }
     }
     if (defaultMetricOverrides[i].regressionAdjustmentDays === undefined) {
-      const metricDefinition = getMetricById(defaultMetricOverrides[i].id);
+      const metricDefinition = getExperimentMetricById(
+        defaultMetricOverrides[i].id
+      );
       if (metricDefinition?.regressionAdjustmentOverride) {
         defaultMetricOverrides[i].regressionAdjustmentDays =
           metricDefinition.regressionAdjustmentDays;
@@ -109,17 +110,11 @@ const EditMetricsForm: FC<{
   const { hasCommercialFeature } = useUser();
   const hasOverrideMetricsFeature = hasCommercialFeature("override-metrics");
 
-  const { metrics, getDatasourceById, getMetricById } = useDefinitions();
-  const datasource = getDatasourceById(experiment.datasource);
-  const filteredMetrics = metrics
-    .filter((m) => m.datasource === datasource?.id)
-    .filter((m) =>
-      isProjectListValidForProject(m.projects, experiment.project)
-    );
+  const { getExperimentMetricById } = useDefinitions();
 
   const defaultMetricOverrides = getDefaultMetricOverridesFormValue(
     experiment.metricOverrides || [],
-    getMetricById,
+    getExperimentMetricById,
     settings
   );
 
@@ -173,6 +168,7 @@ const EditMetricsForm: FC<{
           datasource={experiment.datasource}
           project={experiment.project}
           autoFocus={true}
+          includeFacts={true}
         />
       </div>
 
@@ -187,6 +183,7 @@ const EditMetricsForm: FC<{
           onChange={(metrics) => form.setValue("guardrails", metrics)}
           datasource={experiment.datasource}
           project={experiment.project}
+          includeFacts={true}
         />
       </div>
 
@@ -195,16 +192,15 @@ const EditMetricsForm: FC<{
         <div className="mb-1 font-italic">
           Users must convert on this metric before being included.
         </div>
-        <SelectField
-          options={filteredMetrics.map((m) => {
-            return {
-              label: m.name,
-              value: m.id,
-            };
-          })}
+
+        <MetricSelector
           initialOption="None"
           value={form.watch("activationMetric")}
           onChange={(metric) => form.setValue("activationMetric", metric)}
+          datasource={experiment.datasource}
+          project={experiment.project}
+          onlyBinomial
+          includeFacts={true}
         />
       </div>
 

@@ -24,6 +24,7 @@ import { getOrgFromReq } from "../services/organizations";
 import { reportArgsFromSnapshot } from "../services/reports";
 import { AuthRequest } from "../types/AuthRequest";
 import { ExperimentInterface } from "../../types/experiment";
+import { getFactTableMap } from "../models/FactTableModel";
 
 export async function postReportFromSnapshot(
   req: AuthRequest<null, { snapshot: string }>,
@@ -216,6 +217,7 @@ export async function refreshReport(
       : false;
 
   const metricMap = await getMetricMap(org.id);
+  const factTableMap = await getFactTableMap(org.id);
 
   const integration = await getIntegrationFromDatasourceId(
     org.id,
@@ -226,6 +228,7 @@ export async function refreshReport(
 
   const updatedReport = await queryRunner.startAnalysis({
     metricMap,
+    factTableMap,
   });
 
   return res.status(200).json({
@@ -290,6 +293,7 @@ export async function putReport(
   };
   if (needsRun) {
     const metricMap = await getMetricMap(org.id);
+    const factTableMap = await getFactTableMap(org.id);
 
     const integration = await getIntegrationFromDatasourceId(
       org.id,
@@ -300,6 +304,7 @@ export async function putReport(
 
     await queryRunner.startAnalysis({
       metricMap,
+      factTableMap,
     });
   }
 

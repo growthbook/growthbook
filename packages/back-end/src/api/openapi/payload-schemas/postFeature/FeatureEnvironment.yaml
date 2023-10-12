@@ -1,0 +1,29 @@
+type: object
+required:
+  - enabled
+  - rules
+properties:
+  enabled:
+    type: boolean
+  rules:
+    type: array
+    items:
+      $ref: "./FeatureRule.yaml"
+  definition:
+    type: string
+    description: "A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model)"
+  draft:
+    type: object
+    description: Use to write draft changes without publishing them.
+    required:
+      - rules
+    properties:
+      enabled:
+        type: boolean
+      rules:
+        type: array
+        items:
+          $ref: "./FeatureRule.yaml"
+      definition:
+        type: string
+        description: "A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model)"

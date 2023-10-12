@@ -35,6 +35,7 @@ import {
   fixMetricOverridesBeforeSaving,
   getDefaultMetricOverridesFormValue,
 } from "./EditMetricsForm";
+import MetricSelector from "./MetricSelector";
 
 const AnalysisForm: FC<{
   experiment: ExperimentInterfaceStringDates;
@@ -54,11 +55,10 @@ const AnalysisForm: FC<{
   editMetrics = false,
 }) => {
   const {
-    metrics,
     segments,
     getProjectById,
     getDatasourceById,
-    getMetricById,
+    getExperimentMetricById,
     getSegmentById,
     datasources,
   } = useDefinitions();
@@ -136,7 +136,7 @@ const AnalysisForm: FC<{
       guardrails: experiment.guardrails || [],
       metricOverrides: getDefaultMetricOverridesFormValue(
         experiment.metricOverrides || [],
-        getMetricById,
+        getExperimentMetricById,
         orgSettings
       ),
       statsEngine: experiment.statsEngine,
@@ -175,9 +175,6 @@ const AnalysisForm: FC<{
   const datasource = getDatasourceById(form.watch("datasource"));
   const datasourceProperties = datasource?.properties;
 
-  const filteredMetrics = metrics.filter(
-    (m) => m.datasource === datasource?.id
-  );
   const filteredSegments = segments.filter(
     (s) => s.datasource === datasource?.id
   );
@@ -274,32 +271,22 @@ const AnalysisForm: FC<{
             form.setValue("segment", "");
           }
 
+          const isValidMetric = (id: string) =>
+            getExperimentMetricById(id)?.datasource === newDatasource;
+
           // If the activationMetric is now invalid
           const activationMetric = form.watch("activationMetric");
-          if (
-            activationMetric &&
-            getMetricById(activationMetric)?.datasource !== newDatasource
-          ) {
+          if (activationMetric && !isValidMetric(activationMetric)) {
             form.setValue("activationMetric", "");
           }
 
           // Filter the selected metrics to only valid ones
           const metrics = form.watch("metrics");
-          form.setValue(
-            "metrics",
-            metrics.filter(
-              (m) => getMetricById(m)?.datasource === newDatasource
-            )
-          );
+          form.setValue("metrics", metrics.filter(isValidMetric));
 
           // Filter the selected guardrails to only valid ones
           const guardrails = form.watch("guardrails");
-          form.setValue(
-            "guardrails",
-            guardrails.filter(
-              (m) => getMetricById(m)?.datasource === newDatasource
-            )
-          );
+          form.setValue("guardrails", guardrails.filter(isValidMetric));
         }}
         options={datasources
           .filter(
@@ -402,16 +389,14 @@ const AnalysisForm: FC<{
         </div>
       )}
       {datasource && (
-        <SelectField
-          label="Activation Metric"
+        <MetricSelector
+          datasource={form.watch("datasource")}
+          project={experiment.project}
+          includeFacts={true}
           labelClassName="font-weight-bold"
-          options={filteredMetrics.map((m) => {
-            return {
-              label: m.name,
-              value: m.id,
-            };
-          })}
+          label="Activation Metric"
           initialOption="None"
+          onlyBinomial
           value={form.watch("activationMetric")}
           onChange={(value) => form.setValue("activationMetric", value || "")}
           helpText="Users must convert on this metric before being included"
@@ -611,6 +596,7 @@ const AnalysisForm: FC<{
               datasource={form.watch("datasource")}
               project={experiment.project}
               autoFocus={true}
+              includeFacts={true}
             />
           </div>
 
@@ -625,6 +611,7 @@ const AnalysisForm: FC<{
               onChange={(metrics) => form.setValue("guardrails", metrics)}
               datasource={form.watch("datasource")}
               project={experiment.project}
+              includeFacts={true}
             />
           </div>
 

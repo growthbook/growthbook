@@ -249,6 +249,12 @@ const sidebars = {
         },
         {
           type: "doc",
+          id: "experimentation-analysis/fact-tables",
+          label: "Fact Tables",
+          className: "pill-new",
+        },
+        {
+          type: "doc",
           id: "experimentation-analysis/metrics",
           label: "Metrics",
         },

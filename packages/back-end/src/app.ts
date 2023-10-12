@@ -91,6 +91,7 @@ import { segmentRouter } from "./routers/segment/segment.router";
 import { dimensionRouter } from "./routers/dimension/dimension.router";
 import { sdkConnectionRouter } from "./routers/sdk-connection/sdk-connection.router";
 import { projectRouter } from "./routers/project/project.router";
+import { factTableRouter } from "./routers/fact-table/fact-table.router";
 import verifyLicenseMiddleware from "./services/auth/verifyLicenseMiddleware";
 import { slackIntegrationRouter } from "./routers/slack-integration/slack-integration.router";
 import { dataExportRouter } from "./routers/data-export/data-export.router";
@@ -198,6 +199,8 @@ app.get(
   }),
   getExperimentConfig
 );
+
+// Public features for SDKs
 app.get(
   "/api/features/:key?",
   cors({
@@ -213,10 +216,30 @@ app.options(
     credentials: false,
     origin: "*",
   }),
-  function (req, res) {
-    res.send(200);
-  }
+  (req, res) => res.send(200)
 );
+
+if (!IS_CLOUD) {
+  // Public remoteEval for SDKs:
+  // note: Self-hosted only, recommended for debugging. Cloud orgs must use separate infrastructure.
+  app.post(
+    "/api/eval/:key?",
+    cors({
+      credentials: false,
+      origin: "*",
+    }),
+    featuresController.getEvaluatedFeaturesPublic
+  );
+  // For preflight requests
+  app.options(
+    "/api/eval/:key?",
+    cors({
+      credentials: false,
+      origin: "*",
+    }),
+    (req, res) => res.send(200)
+  );
+}
 
 // Secret API routes (no JWT or CORS)
 app.use(
@@ -463,6 +486,8 @@ app.use("/dimensions", dimensionRouter);
 app.use("/sdk-connections", sdkConnectionRouter);
 
 app.use("/projects", projectRouter);
+
+app.use(factTableRouter);
 
 app.use("/demo-datasource-project", demoDatasourceProjectRouter);
 
