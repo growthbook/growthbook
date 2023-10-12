@@ -13,6 +13,8 @@ type ValidationParams<
   params?: ParamsSchema;
 };
 
+type ValidationError = { status: 400; message?: string; error?: string };
+
 export const validateRequestMiddleware = <
   ParamsSchema extends Schema,
   ResponseType,
@@ -24,7 +26,7 @@ export const validateRequestMiddleware = <
   params: paramsSchema,
 }: ValidationParams<ParamsSchema, BodySchema, QuerySchema>): RequestHandler<
   ParamsDictionary,
-  ResponseType | { status: 400; message?: string; error?: string }
+  ResponseType | ValidationError
 > => (req, res, next) => {
   if (paramsSchema) {
     const result = paramsSchema.safeParse(req.params);
@@ -33,7 +35,7 @@ export const validateRequestMiddleware = <
         status: 400,
         error: errorStringFromZodResult(result),
         message: errorStringFromZodResult(result),
-      });
+      } as ValidationError);
     }
   }
 
@@ -44,7 +46,7 @@ export const validateRequestMiddleware = <
         status: 400,
         error: errorStringFromZodResult(result),
         message: errorStringFromZodResult(result),
-      });
+      } as ValidationError);
     }
   }
 
@@ -55,7 +57,7 @@ export const validateRequestMiddleware = <
         status: 400,
         error: errorStringFromZodResult(result),
         message: errorStringFromZodResult(result),
-      });
+      } as ValidationError);
     }
   }
 

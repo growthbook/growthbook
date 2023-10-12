@@ -1,0 +1,84 @@
+import { Request } from "express";
+import { ApiRequestLocals } from "./api";
+
+export type BaseScimRequest = Request & ApiRequestLocals;
+
+export interface ScimEmail {
+  primary: boolean;
+  value: string;
+  type: string;
+  display: string;
+}
+
+export interface ScimUser {
+  schemas: ["urn:ietf:params:scim:schemas:core:2.0:User"];
+  id: string;
+  displayName: string;
+  userName: string;
+  active: boolean;
+  externalId?: string;
+}
+
+export interface ScimGroup {
+  schemas: ["urn:ietf:params:scim:schemas:core:2.0:Group"];
+  id: string;
+  displayName: string;
+  members: { value: string; display: string }[];
+  meta: {
+    resourceType: "Group";
+  };
+}
+
+export interface ScimListResponse {
+  schemas: ["urn:ietf:params:scim:api:messages:2.0:ListResponse"];
+  totalResults: number;
+  Resources: ScimUser[] | ScimGroup[];
+  startIndex: number;
+  itemsPerPage: number;
+}
+
+export interface ScimError {
+  schemas: ["urn:ietf:params:scim:api:messages:2.0:Error"];
+  scimType?: string;
+  status: string;
+  detail: string;
+}
+
+export type ScimGetRequest = BaseScimRequest & {
+  params: {
+    id: string;
+  };
+};
+
+export interface ScimUserPutOrPostRequest extends BaseScimRequest {
+  body: ScimUser;
+}
+
+export interface ScimGroupPostRequest extends BaseScimRequest {
+  body: ScimGroup;
+}
+
+export interface ScimListRequest extends BaseScimRequest {
+  query: {
+    filter?: string;
+    startIndex?: string;
+    count?: string;
+  };
+}
+
+type ScimOperation = {
+  op: "add" | "remove" | "replace";
+  path?: string; // Path is optional for add & replace, and required for remove operations
+  value: {
+    [key: string]: unknown;
+  };
+};
+
+export interface ScimPatchRequest extends BaseScimRequest {
+  params: {
+    id: string;
+  };
+  body: {
+    Operations: ScimOperation[];
+  };
+}
