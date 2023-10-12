@@ -142,12 +142,12 @@ export function orgHasPremiumFeature(
   return planHasPremiumFeature(getAccountPlan(org), feature);
 }
 
-async function getPublicKey() {
+async function getPublicKey(timeoutMs = 3000) {
   // Timeout after 3 seconds of waiting for the public key to load
   const controller = new AbortController();
   const timeout = setTimeout(() => {
     controller.abort();
-  }, 3000);
+  }, timeoutMs);
 
   let publicKey: Buffer | null = null;
   try {
@@ -169,7 +169,7 @@ async function getPublicKey() {
   return publicKey;
 }
 
-export async function getVerifiedLicenseData(key: string) {
+export async function getVerifiedLicenseData(key: string, timeout = 3000) {
   const [license, signature] = key
     .split(".")
     .map((s) => Buffer.from(s, "base64url"));
@@ -206,7 +206,7 @@ export async function getVerifiedLicenseData(key: string) {
   }
 
   // If the public key failed to load, just assume the license is valid
-  const publicKey = await getPublicKey();
+  const publicKey = await getPublicKey(timeout);
   if (!publicKey) {
     logger.warn(
       decodedLicense,
@@ -259,4 +259,17 @@ export function getLicense() {
 export async function setLicense(l: LicenseData | null) {
   // make sure we trust that l is already verified before setting:
   licenseData = l;
+}
+
+export async function verifyCloud() {
+  if (process.env.IS_CLOUD) {
+    const CLOUD_LICENSE_KEY = process.env.CLOUD_LICENSE_KEY || "";
+    // At startup, it can take longer to fetch the public license key
+    const licenseData = await getVerifiedLicenseData(CLOUD_LICENSE_KEY, 10000);
+    if (licenseData.ref !== "cloud") {
+      throw new Error(
+        "Not running on the actual cloud server: " + licenseData.ref
+      );
+    }
+  }
 }
