@@ -185,6 +185,12 @@ export interface paths {
     /** Deletes a single saved group */
     delete: operations["deleteSavedGroup"];
   };
+  "/organizations": {
+    /** Get all organizations */
+    get: operations["listOrganizations"];
+    /** Create a single organization */
+    post: operations["postOrganization"];
+  };
 }
 
 export type webhooks = Record<string, never>;
@@ -965,6 +971,19 @@ export interface components {
       owner?: string;
       attributeKey: string;
       values: (string)[];
+    };
+    Organization: {
+      /** @description The unique identifier for the organization */
+      id?: string;
+      /**
+       * Format: date-time 
+       * @description The date the organization was created
+       */
+      dateCreated?: string;
+      /** @description The name of the organization */
+      name?: string;
+      /** @description The email address of the organization owner */
+      ownerEmail?: string;
     };
   };
   responses: {
@@ -3841,6 +3860,79 @@ export interface operations {
       };
     };
   };
+  listOrganizations: {
+    /** Get all organizations */
+    parameters: {
+        /** @description Search string to search organization names and owner emails by */
+        /** @description The number of items to return */
+        /** @description How many items to skip (use in conjunction with limit for pagination) */
+      query: {
+        search?: string;
+        limit?: number;
+        offset?: number;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            organizations: ({
+                /** @description The unique identifier for the organization */
+                id?: string;
+                /**
+                 * Format: date-time 
+                 * @description The date the organization was created
+                 */
+                dateCreated?: string;
+                /** @description The name of the organization */
+                name?: string;
+                /** @description The email address of the organization owner */
+                ownerEmail?: string;
+              })[];
+          } & {
+            limit: number;
+            offset: number;
+            count: number;
+            total: number;
+            hasMore: boolean;
+            nextOffset: OneOf<[number, null]>;
+          };
+        };
+      };
+    };
+  };
+  postOrganization: {
+    /** Create a single organization */
+    requestBody: {
+      content: {
+        "application/json": {
+          /** @description The name of the organization */
+          name: string;
+        };
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            organization: {
+              /** @description The unique identifier for the organization */
+              id?: string;
+              /**
+               * Format: date-time 
+               * @description The date the organization was created
+               */
+              dateCreated?: string;
+              /** @description The name of the organization */
+              name?: string;
+              /** @description The email address of the organization owner */
+              ownerEmail?: string;
+            };
+          };
+        };
+      };
+    };
+  };
 }
 
 // Schemas
@@ -3866,6 +3958,7 @@ export type ApiDataSource = components["schemas"]["DataSource"];
 export type ApiVisualChangeset = components["schemas"]["VisualChangeset"];
 export type ApiVisualChange = components["schemas"]["VisualChange"];
 export type ApiSavedGroup = components["schemas"]["SavedGroup"];
+export type ApiOrganization = components["schemas"]["Organization"];
 
 // Operations
 export type ListFeaturesResponse = operations["listFeatures"]["responses"]["200"]["content"]["application/json"];
@@ -3903,3 +3996,5 @@ export type PostSavedGroupResponse = operations["postSavedGroup"]["responses"]["
 export type GetSavedGroupResponse = operations["getSavedGroup"]["responses"]["200"]["content"]["application/json"];
 export type UpdateSavedGroupResponse = operations["updateSavedGroup"]["responses"]["200"]["content"]["application/json"];
 export type DeleteSavedGroupResponse = operations["deleteSavedGroup"]["responses"]["200"]["content"]["application/json"];
+export type ListOrganizationsResponse = operations["listOrganizations"]["responses"]["200"]["content"]["application/json"];
+export type PostOrganizationResponse = operations["postOrganization"]["responses"]["200"]["content"]["application/json"];

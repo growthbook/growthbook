@@ -18,6 +18,7 @@ import {
 } from "../util/organization.util";
 import { ApiKeyInterface } from "../../types/apikey";
 import { insertAudit } from "../models/AuditModel";
+import { getUserById } from "../services/users";
 
 export default function authenticateApiRequestMiddleware(
   req: Request & ApiRequestLocals,
@@ -45,6 +46,8 @@ export default function authenticateApiRequestMiddleware(
     });
   }
 
+  const xOrganizationHeader = req.headers["x-organization"] as string;
+
   // If using Basic scheme, need to base64 decode and extract the username
   const secretKey =
     scheme === "Basic"
@@ -54,7 +57,7 @@ export default function authenticateApiRequestMiddleware(
   // Lookup organization by secret key and store in req
   lookupOrganizationByApiKey(secretKey)
     .then(async (apiKeyPartial) => {
-      const { organization, secret, id } = apiKeyPartial;
+      const { organization, secret, id, userId } = apiKeyPartial;
       if (!organization) {
         throw new Error("Invalid API key");
       }
@@ -65,17 +68,45 @@ export default function authenticateApiRequestMiddleware(
       }
       req.apiKey = id || "";
 
+      // If it's a personal access token API key, store the user ID in req
+      if (userId) {
+        req.user = (await getUserById(userId)) || undefined;
+        if (!req.user) {
+          throw new Error("Could not find user attached to this API key");
+        }
+      }
+
+      let asOrg = organization;
+      if (xOrganizationHeader) {
+        if (!req.user?.superAdmin) {
+          throw new Error(
+            "Only super admins can use the x-organization header"
+          );
+        } else {
+          asOrg = xOrganizationHeader;
+        }
+      }
+
       // Organization for key
-      const org = await getOrganizationById(organization);
+      const org = await getOrganizationById(asOrg);
       if (!org) {
-        throw new Error("Could not find organization attached to this API key");
+        if (xOrganizationHeader) {
+          throw new Error(
+            `Could not find organization from x-organization header: ${xOrganizationHeader}`
+          );
+        } else {
+          throw new Error(
+            "Could not find organization attached to this API key"
+          );
+        }
       }
       req.organization = org;
 
       // If it's a user API key, verify that the user is part of the organization
       // This is important to check in the event that a user leaves an organization, the member list is updated, and the user's API keys are orphaned
       if (
-        apiKeyPartial.userId &&
+        userId &&
+        !req.user?.superAdmin &&
         !isApiKeyForUserInOrganization(apiKeyPartial, org)
       ) {
         throw new Error("Could not find user attached to this API key");
