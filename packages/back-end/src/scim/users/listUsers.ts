@@ -1,13 +1,20 @@
 import { Response } from "express";
 import { parse, filter } from "scim2-parse-filter";
 import { expandOrgMembers } from "../../services/organizations";
-import { ScimListRequest, ScimUser } from "../../../types/scim";
+import {
+  ScimListRequest,
+  ScimListResponse,
+  ScimUser,
+} from "../../../types/scim";
 import { expandedMembertoScimUser } from "./getUser";
 
 export const START_INDEX_DEFAULT = 0;
 export const COUNT_DEFAULT = 20;
 
-export async function listUsers(req: ScimListRequest, res: Response) {
+export async function listUsers(
+  req: ScimListRequest,
+  res: Response<ScimListResponse>
+) {
   const { startIndex, count, filter: filterQuery } = req.query;
 
   // startIndex queryParam is 1-based so we need to subtract 1

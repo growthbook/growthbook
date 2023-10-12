@@ -39,6 +39,7 @@ export interface ScimListResponse {
 
 export interface ScimError {
   schemas: ["urn:ietf:params:scim:api:messages:2.0:Error"];
+  scimType?: string;
   status: string;
   detail: string;
 }

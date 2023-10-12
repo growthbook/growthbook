@@ -1,7 +1,7 @@
 import { cloneDeep } from "lodash";
 import { Response } from "express";
 import { updateOrganization } from "../../models/OrganizationModel";
-import { ScimPatchRequest, ScimUser } from "../../../types/scim";
+import { ScimError, ScimPatchRequest, ScimUser } from "../../../types/scim";
 import { Member, OrganizationInterface } from "../../../types/organization";
 import { expandOrgMembers } from "../../services/organizations";
 import { expandedMembertoScimUser } from "./getUser";
@@ -29,7 +29,10 @@ async function removeUserFromOrg(org: OrganizationInterface, user: Member) {
   await updateOrganization(org.id, { members: updatedOrgMembers });
 }
 
-export async function patchUser(req: ScimPatchRequest, res: Response) {
+export async function patchUser(
+  req: ScimPatchRequest,
+  res: Response<ScimUser | ScimError>
+) {
   const { Operations } = req.body;
   const { id: userId } = req.params;
 
@@ -41,13 +44,14 @@ export async function patchUser(req: ScimPatchRequest, res: Response) {
     return res.status(404).json({
       schemas: ["urn:ietf:params:scim:api:messages:2.0:Error"],
       detail: "User ID does not exist",
+      status: "404",
     });
   }
 
   const expandedMember = await expandOrgMembers([orgUser]);
 
   if (!expandedMember[0].managedByIdp) {
-    return res.status(404).json({
+    return res.status(401).json({
       schemas: ["urn:ietf:params:scim:api:messages:2.0:Error"],
       status: "401",
       detail: "This user isn't managed via an external IDP. Cannot update",

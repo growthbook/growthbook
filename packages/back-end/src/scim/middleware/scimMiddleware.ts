@@ -2,12 +2,13 @@ import { Response, NextFunction } from "express";
 import { getAccountPlan } from "enterprise";
 import { AuthRequest } from "../../types/AuthRequest";
 import { usingOpenId } from "../../services/auth";
+import { ScimError } from "../../../types/scim";
 
 export default function scimMiddleware(
   req: AuthRequest,
   res: Response,
   next: NextFunction
-) {
+): Response<ScimError> | undefined {
   const acceptHeader = req.get("Accept");
 
   // Check if the Accept header specifies SCIM JSON

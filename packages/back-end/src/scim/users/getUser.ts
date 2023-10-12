@@ -1,5 +1,5 @@
 import { Response } from "express";
-import { ScimGetRequest, ScimUser } from "../../../types/scim";
+import { ScimError, ScimGetRequest, ScimUser } from "../../../types/scim";
 import { ExpandedMember } from "../../../types/organization";
 import { expandOrgMembers } from "../../services/organizations";
 
@@ -16,7 +16,10 @@ export const expandedMembertoScimUser = (
   };
 };
 
-export async function getUser(req: ScimGetRequest, res: Response) {
+export async function getUser(
+  req: ScimGetRequest,
+  res: Response<ScimUser | ScimError>
+) {
   const userId = req.params.id;
 
   const org = req.organization;
@@ -27,6 +30,7 @@ export async function getUser(req: ScimGetRequest, res: Response) {
     return res.status(404).json({
       schemas: ["urn:ietf:params:scim:api:messages:2.0:Error"],
       detail: "User ID does not exist",
+      status: "404",
     });
   }
 

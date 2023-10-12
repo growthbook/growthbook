@@ -6,13 +6,20 @@ import {
   expandOrgMembers,
 } from "../../services/organizations";
 import { OrganizationInterface } from "../../../types/organization";
-import { ScimUserPutOrPostRequest } from "../../../types/scim";
+import {
+  ScimError,
+  ScimUser,
+  ScimUserPutOrPostRequest,
+} from "../../../types/scim";
 import {
   createUser as createNewUser,
   getUserByEmail,
 } from "../../services/users";
 
-export async function createUser(req: ScimUserPutOrPostRequest, res: Response) {
+export async function createUser(
+  req: ScimUserPutOrPostRequest,
+  res: Response<ScimUser | ScimError>
+) {
   const { externalId, displayName, userName } = req.body;
 
   const org: OrganizationInterface = req.organization;
@@ -32,7 +39,7 @@ export async function createUser(req: ScimUserPutOrPostRequest, res: Response) {
         schemas: ["urn:ietf:params:scim:api:messages:2.0:Error"],
         scimType: "uniqueness",
         detail: "User already exists in this organization",
-        status: 409,
+        status: "409",
       });
     } else if (existingOrgMember && !existingOrgMember.managedByIdp) {
       // If created through GrowthBook, update the user with the externalId and managedByIdp: true
@@ -69,7 +76,7 @@ export async function createUser(req: ScimUserPutOrPostRequest, res: Response) {
     return res.status(500).json({
       schemas: ["urn:ietf:params:scim:api:messages:2.0:Error"],
       detail: `Unable to create the new user in GrowthBook: ${e.message}`,
-      status: 500,
+      status: "500",
     });
   }
 }
