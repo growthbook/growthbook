@@ -1,7 +1,7 @@
 import path from "path";
 import fs from "fs";
 import { NextApiRequest, NextApiResponse } from "next";
-import { getLicense } from "enterprise";
+import { getLicense, licenseInit } from "enterprise";
 
 export interface EnvironmentInitValue {
   telemetry: "debug" | "enable" | "disable";
@@ -22,7 +22,10 @@ export interface EnvironmentInitValue {
 }
 
 // Get env variables at runtime on the front-end while still using SSG
-export default function handler(req: NextApiRequest, res: NextApiResponse) {
+export default async function handler(
+  req: NextApiRequest,
+  res: NextApiResponse
+) {
   const {
     APP_ORIGIN,
     API_HOST,
@@ -33,6 +36,7 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
     NEXT_PUBLIC_SENTRY_DSN,
     SSO_CONFIG,
     STORE_SEGMENTS_IN_MONGO,
+    LICENSE_KEY,
   } = process.env;
 
   const rootPath = path.join(__dirname, "..", "..", "..", "..", "..", "..");
@@ -54,6 +58,10 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
     build.date = fs
       .readFileSync(path.join(rootPath, "buildinfo", "DATE"))
       .toString();
+  }
+
+  if (LICENSE_KEY) {
+    await licenseInit(LICENSE_KEY || "");
   }
 
   const body: EnvironmentInitValue = {
