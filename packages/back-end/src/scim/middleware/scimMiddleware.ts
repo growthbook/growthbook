@@ -15,7 +15,15 @@ export default function scimMiddleware(
     res.setHeader("Content-Type", "application/scim+json");
   }
 
-  req.checkPermissions("manageTeam");
+  try {
+    req.checkPermissions("manageTeam");
+  } catch (e) {
+    return res.status(403).json({
+      schemas: ["urn:ietf:params:scim:api:messages:2.0:Error"],
+      status: "403",
+      detail: "You do not have permission to use SCIM.",
+    });
+  }
 
   if (!req.organization) {
     return res.status(400).json({
@@ -42,6 +50,5 @@ export default function scimMiddleware(
     });
   }
 
-  // Continue processing the request
   next();
 }

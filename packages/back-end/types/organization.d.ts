@@ -84,8 +84,6 @@ export interface ExpandedMember extends Member {
   email: string;
   name: string;
   verified: boolean;
-  managedByIdp?: boolean;
-  externalId?: string;
 }
 
 export interface NorthStarMetric {
