@@ -76,6 +76,8 @@ export interface PendingMember extends MemberRoleWithProjects {
 export interface Member extends MemberRoleWithProjects {
   id: string;
   dateCreated?: Date;
+  externalId?: string;
+  managedByIdp?: boolean;
 }
 
 export interface ExpandedMember extends Member {
@@ -250,7 +252,6 @@ export interface OrganizationInterface {
   members: Member[];
   invites: Invite[];
   pendingMembers?: PendingMember[];
-  removedMembers?: Member[];
   connections?: OrganizationConnections;
   settings?: OrganizationSettings;
   messages?: OrganizationMessage[];

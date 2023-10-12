@@ -25,6 +25,8 @@ const baseMemberFields = {
     },
   ],
   teams: [String],
+  externalId: String,
+  managedByIdp: Boolean,
 };
 
 const organizationSchema = new mongoose.Schema({
@@ -59,12 +61,6 @@ const organizationSchema = new mongoose.Schema({
       id: String,
       name: String,
       email: String,
-    },
-  ],
-  removedMembers: [
-    {
-      ...baseMemberFields,
-      id: String,
     },
   ],
   messages: {

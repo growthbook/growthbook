@@ -1,71 +1,54 @@
 import { Response } from "express";
-import { ScimGetRequest } from "../../../types/scim";
-import { getUserById } from "../../services/users";
+import { ScimGetRequest, ScimUser } from "../../../types/scim";
+import { ExpandedMember } from "../../../types/organization";
+import { expandOrgMembers } from "../../services/organizations";
+
+export const expandedMembertoScimUser = (
+  member: ExpandedMember,
+  active: boolean = true
+): ScimUser => {
+  return {
+    schemas: ["urn:ietf:params:scim:schemas:core:2.0:User"],
+    id: member.id,
+    displayName: member.name,
+    externalId: member.externalId,
+    userName: member.email,
+    name: {
+      formatted: member.name,
+      givenName: member.name.split(" ")[0],
+      familyName: member.name.split(" ")[1],
+    },
+    active,
+    emails: [
+      {
+        primary: true,
+        value: member.email,
+        type: "work",
+        display: member.email,
+      },
+    ],
+    groups: [], // TODO: figure out groups object shape and include groups
+    meta: {
+      resourceType: "User",
+    },
+  };
+};
 
 export async function getUser(req: ScimGetRequest, res: Response) {
   const userId = req.params.id;
 
-  const user = await getUserById(userId);
+  const org = req.organization;
 
-  if (!user) {
+  const orgUser = org.members.find((member) => member.id === userId);
+
+  if (!orgUser) {
     return res.status(404).json({
       schemas: ["urn:ietf:params:scim:api:messages:2.0:Error"],
       detail: "User ID does not exist",
     });
   }
 
-  const org = req.organization;
+  const expandedMember = await expandOrgMembers([orgUser]);
 
-  const orgUser = org.members.find((member) => member.id === user?.id);
-
-  // TODO: Create a function to map Growthbook users to SCIM users that we can use here and in listUsers
-  if (!orgUser) {
-    return res.status(200).json({
-      schemas: ["urn:ietf:params:scim:schemas:core:2.0:User"],
-      id: req.params.id,
-      userName: user.email,
-      name: {
-        displayName: user.name,
-        givenName: user.name?.split(" ")[0],
-        familyName: user.name?.split(" ")[1],
-      },
-      active: false,
-      emails: [
-        {
-          primary: true,
-          value: user.email,
-          type: "work",
-          display: user.email,
-        },
-      ],
-      groups: [],
-      meta: {
-        resourceType: "User",
-      },
-    });
-  }
-
-  return res.status(200).json({
-    schemas: ["urn:ietf:params:scim:schemas:core:2.0:User"],
-    id: req.params.id,
-    userName: user.email,
-    name: {
-      displayName: user.name,
-      givenName: user.name?.split(" ")[0],
-      familyName: user.name?.split(" ")[1],
-    },
-    active: true,
-    emails: [
-      {
-        primary: true,
-        value: user.email,
-        type: "work",
-        display: user.email,
-      },
-    ],
-    groups: [],
-    meta: {
-      resourceType: "User",
-    },
-  });
+  return res.status(200).json(expandedMembertoScimUser(expandedMember[0]));
 }
