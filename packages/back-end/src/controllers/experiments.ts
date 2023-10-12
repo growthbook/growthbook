@@ -87,7 +87,10 @@ import { MetricRegressionAdjustmentStatus } from "../../types/report";
 import { VisualChangesetInterface } from "../../types/visual-changeset";
 import { PrivateApiErrorResponse } from "../../types/api";
 import { EventAuditUserForResponseLocals } from "../events/event-types";
-import { findProjectById } from "../models/ProjectModel";
+import {
+  findAllProjectsByOrganization,
+  findProjectById,
+} from "../models/ProjectModel";
 import { ExperimentResultsQueryRunner } from "../queryRunners/ExperimentResultsQueryRunner";
 import { PastExperimentsQueryRunner } from "../queryRunners/PastExperimentsQueryRunner";
 import {
@@ -131,6 +134,7 @@ export async function getExperimentsFrequencyMonth(
     project = req.query.project;
   }
 
+  const allProjects = await findAllProjectsByOrganization(org.id);
   const { num } = req.params;
   const experiments = await getAllExperiments(org.id, project);
 
@@ -155,6 +159,21 @@ export async function getExperimentsFrequencyMonth(
     stopped: JSON.parse(JSON.stringify(allData)),
   };
 
+  // create stubs for each month by all the projects:
+  const dataByProject: Record<string, [{ date: string; numExp: number }]> = {};
+  allProjects.forEach((p) => {
+    dataByProject[p.id] = JSON.parse(JSON.stringify(allData));
+  });
+  dataByProject["all"] = JSON.parse(JSON.stringify(allData));
+
+  // create stubs for each month by all the result:
+  const dataByResult = {
+    won: JSON.parse(JSON.stringify(allData)),
+    lost: JSON.parse(JSON.stringify(allData)),
+    inconclusive: JSON.parse(JSON.stringify(allData)),
+    dnf: JSON.parse(JSON.stringify(allData)),
+  };
+
   // now get the right number of experiments:
   experiments.forEach((e) => {
     let dateStarted: Date | null = null;
@@ -174,13 +193,27 @@ export async function getExperimentsFrequencyMonth(
         md.numExp++;
         // I can do this because the indexes will represent the same month
         dataByStatus[e.status][i].numExp++;
+
+        // experiments without a project, are included in the 'all projects'
+        if (e.project) {
+          dataByProject[e.project][i].numExp++;
+        } else {
+          dataByProject["all"][i].numExp++;
+        }
+
+        if (e.results) {
+          dataByResult[e.results][i].numExp++;
+        }
       }
     });
   });
 
   res.status(200).json({
     status: 200,
-    data: { all: allData, ...dataByStatus },
+    all: allData,
+    byStatus: { ...dataByStatus },
+    byProject: { ...dataByProject },
+    byResults: { ...dataByResult },
   });
 }
 
