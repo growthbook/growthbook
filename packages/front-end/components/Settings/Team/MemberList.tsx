@@ -109,7 +109,7 @@ const MemberList: FC<{
                   <td>{member.name}</td>
                   <td>
                     <div className="d-flex align-items-center">
-                      {member.externalId ? (
+                      {member.managedByIdp ? (
                         <Tooltip
                           className="mr-2"
                           body="This user is managed by an external identity provider."
@@ -180,7 +180,7 @@ const MemberList: FC<{
                               Reset Password
                             </button>
                           )}
-                          {canDeleteMembers && !member.externalId && (
+                          {canDeleteMembers && !member.managedByIdp && (
                             <DeleteButton
                               link={true}
                               text="Remove User"
