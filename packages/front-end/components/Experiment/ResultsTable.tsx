@@ -1027,9 +1027,13 @@ function getPercentChangeTooltip(
         )}
         {pValueCorrection && (
           <p className="mt-4 mb-0">
-            These confidence intervals are not adjusted for multiple comparisons
-            as the multiple comparisons adjustments GrowthBook implements only
-            have associated adjusted p-values, not confidence intervals.
+            Because your organization has multiple comparisons corrections
+            enabled, these confidence intervals have been inflated so that they
+            match the adjusted psuedo-p-value. Because confidence intervals do
+            not generally exist for all adjusted p-values, we use a method that
+            recreates the confidence intervals that would have produced these
+            psuedo-p-values. For adjusted psuedo-p-values that are 1.0, the
+            confidence intervals are infinite.
           </p>
         )}
       </>
@@ -1063,7 +1067,7 @@ function getPValueTooltip(
           {tableRowAxis === "dimension"
             ? "all dimension values, non-guardrail metrics, and variations"
             : "all non-guardrail metrics and variations"}
-          . The unadjusted p-values are returned in parentheses.
+          . The unadjusted p-values are returned in the tooltip.
         </div>
       )}
     </>

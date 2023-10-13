@@ -13,10 +13,12 @@ import {
   setAdjustedPValuesOnResults,
   ExperimentTableRow,
   useRiskVariation,
+  setAdjustedCIs,
 } from "@/services/experiments";
 import ResultsTable from "@/components/Experiment/ResultsTable";
 import { QueryStatusData } from "@/components/Queries/RunQueriesButton";
 import { getRenderLabelColumn } from "@/components/Experiment/CompactResults";
+import usePValueThreshold from "@/hooks/usePValueThreshold";
 import {
   ResultsMetricFilters,
   sortAndFilterMetricsByTags,
@@ -78,6 +80,7 @@ const BreakDownResults: FC<{
   const [showMetricFilter, setShowMetricFilter] = useState<boolean>(false);
 
   const { getDimensionById, getExperimentMetricById, ready } = useDefinitions();
+  const pValueThreshold = usePValueThreshold();
 
   const dimension = useMemo(() => {
     return getDimensionById(dimensionId)?.name || "Dimension";
@@ -98,6 +101,7 @@ const BreakDownResults: FC<{
     if (!ready) return [];
     if (pValueCorrection && statsEngine === "frequentist") {
       setAdjustedPValuesOnResults(results, metrics, pValueCorrection);
+      setAdjustedCIs(results, pValueThreshold);
     }
 
     const metricDefs = [...metrics, ...(guardrails || [])]
@@ -148,6 +152,7 @@ const BreakDownResults: FC<{
     metricRegressionAdjustmentStatuses,
     pValueCorrection,
     statsEngine,
+    pValueThreshold,
     ready,
     getExperimentMetricById,
     metricFilter,

@@ -13,8 +13,10 @@ import {
   setAdjustedPValuesOnResults,
   ExperimentTableRow,
   useRiskVariation,
+  setAdjustedCIs,
 } from "@/services/experiments";
 import ResultsTable_old from "@/components/Experiment/ResultsTable_old";
+import usePValueThreshold from "@/hooks/usePValueThreshold";
 import Toggle from "../Forms/Toggle";
 import UsersTable from "./UsersTable";
 
@@ -62,6 +64,7 @@ const BreakDownResults_old: FC<{
   sequentialTestingEnabled,
 }) => {
   const { getDimensionById, getExperimentMetricById, ready } = useDefinitions();
+  const pValueThreshold = usePValueThreshold();
 
   const dimension = useMemo(() => {
     return getDimensionById(dimensionId)?.name || "Dimension";
@@ -76,6 +79,7 @@ const BreakDownResults_old: FC<{
     if (!ready) return [];
     if (pValueCorrection && statsEngine === "frequentist") {
       setAdjustedPValuesOnResults(results, metrics, pValueCorrection);
+      setAdjustedCIs(results, pValueThreshold);
     }
     return Array.from(new Set(metrics.concat(guardrails || [])))
       .map((metricId) => {
@@ -112,6 +116,7 @@ const BreakDownResults_old: FC<{
     regressionAdjustmentEnabled,
     metricRegressionAdjustmentStatuses,
     pValueCorrection,
+    pValueThreshold,
     statsEngine,
     guardrails,
     ready,

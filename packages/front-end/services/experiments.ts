@@ -2,6 +2,7 @@ import { SnapshotMetric } from "back-end/types/experiment-snapshot";
 import { MetricInterface } from "back-end/types/metric";
 import { PValueCorrection, StatsEngine } from "back-end/types/stats";
 import { useState } from "react";
+import { jStat } from "jstat";
 import {
   ExperimentReportResultDimension,
   ExperimentReportVariationWithIndex,
@@ -250,7 +251,11 @@ export function useDomain(
         return;
       }
 
-      const ci = stats.ci || [0, 0];
+      let ci = stats?.ciAdjusted ?? stats.ci ?? [0, 0];
+      // If adjusted values are Inf, use unadjusted
+      if (Math.abs(ci[0]) === Infinity || Math.abs(ci[1]) === Infinity) {
+        ci = stats.ci ?? [0, 0];
+      }
       if (!lowerBound || ci[0] < lowerBound) lowerBound = ci[0];
       if (!upperBound || ci[1] > upperBound) upperBound = ci[1];
     });
@@ -534,6 +539,54 @@ export function setAdjustedPValuesOnResults(
     const ijk = ip.index;
     results[ijk[0]].variations[ijk[1]].metrics[ijk[2]].pValueAdjusted =
       ip.pValue;
+  });
+  return;
+}
+
+export function adjustedCI(
+  adjustedPValue: number,
+  uplift: { dist: string; mean?: number; stddev?: number },
+  zScore: number
+): [number, number] {
+  if (!uplift.mean) return [uplift.mean ?? 0, uplift.mean ?? 0];
+  const adjStdDev = Math.abs(
+    uplift.mean / jStat.normal.inv(1 - adjustedPValue / 2, 0, 1)
+  );
+  const width = zScore * adjStdDev;
+  return [uplift.mean - width, uplift.mean + width];
+}
+
+export function setAdjustedCIs(
+  results: ExperimentReportResultDimension[],
+  pValueThreshold: number
+): void {
+  const zScore = jStat.normal.inv(1 - pValueThreshold / 2, 0, 1);
+  results.forEach((r) => {
+    r.variations.forEach((v) => {
+      for (const key in v.metrics) {
+        const pValueAdjusted = v.metrics[key].pValueAdjusted;
+        const uplift = v.metrics[key].uplift;
+        const ci = v.metrics[key].ci;
+        if (pValueAdjusted === undefined) {
+          continue;
+        } else if (pValueAdjusted > 0.999999) {
+          // set to Inf if adjusted pValue is 1
+          v.metrics[key].ciAdjusted = [-Infinity, Infinity];
+        } else if (
+          pValueAdjusted !== undefined &&
+          uplift !== undefined &&
+          ci !== undefined
+        ) {
+          const adjCI = adjustedCI(pValueAdjusted, uplift, zScore);
+          // only update if CI got wider, should never get more narrow
+          if (adjCI[0] < ci[0] && adjCI[1] > ci[1]) {
+            v.metrics[key].ciAdjusted = adjCI;
+          } else {
+            v.metrics[key].ciAdjusted = v.metrics[key].ci;
+          }
+        }
+      }
+    });
   });
   return;
 }
