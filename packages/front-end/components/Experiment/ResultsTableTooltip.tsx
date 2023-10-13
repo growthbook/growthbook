@@ -169,14 +169,11 @@ export default function ResultsTableTooltip({
     data.stats?.ciAdjusted?.[0] !== undefined ? (
       <>
         <div>
-          [{percentFormatter.format(ci0)},{" "}
-          {percentFormatter.format(ci1)}]
+          [{percentFormatter.format(ci0)}, {percentFormatter.format(ci1)}]
         </div>
         <div className="text-muted font-weight-normal">
-          (unadj.:&nbsp;
-          [{percentFormatter.format(data.stats.ci?.[0] ?? 0)},{" "}
-          {percentFormatter.format(data.stats.ci?.[1] ?? 0)}]
-          )
+          (unadj.:&nbsp; [{percentFormatter.format(data.stats.ci?.[0] ?? 0)},{" "}
+          {percentFormatter.format(data.stats.ci?.[1] ?? 0)}] )
         </div>
       </>
     ) : (
