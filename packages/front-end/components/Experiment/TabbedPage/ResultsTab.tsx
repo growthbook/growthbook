@@ -20,7 +20,7 @@ import { useAuth } from "@/services/auth";
 import Button from "@/components/Button";
 import { GBAddCircle } from "@/components/Icons";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
-import Results, {ResultsMetricFilters} from "../Results";
+import Results, { ResultsMetricFilters } from "../Results";
 import { StartExperimentBanner } from "../StartExperimentBanner";
 import AnalysisForm from "../AnalysisForm";
 import ExperimentReportsList from "../ExperimentReportsList";

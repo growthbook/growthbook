@@ -426,8 +426,14 @@ export type ResultsMetricFilters = {
 };
 export function sortAndFilterMetricsByTags(
   metrics: ExperimentMetricInterface[],
-  { tagOrder = [], filterByTag = false, tagFilter = null }: ResultsMetricFilters
+  filters?: ResultsMetricFilters
 ): string[] {
+  let { tagOrder, filterByTag, tagFilter } = filters || {};
+  // normalize input
+  if (!tagOrder) tagOrder = [];
+  if (!filterByTag) filterByTag = false;
+  if (!tagFilter) tagFilter = null;
+
   if (filterByTag && !tagFilter) {
     tagFilter = tagOrder;
   }

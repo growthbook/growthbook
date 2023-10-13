@@ -1,4 +1,11 @@
-import {ReactNode, FC, HTMLAttributes, useState, useEffect, CSSProperties} from "react";
+import {
+  ReactNode,
+  FC,
+  HTMLAttributes,
+  useState,
+  useEffect,
+  CSSProperties,
+} from "react";
 import { MdInfoOutline } from "react-icons/md";
 import { usePopper } from "react-popper";
 import clsx from "clsx";
