@@ -26,6 +26,8 @@ const baseMemberFields = {
     },
   ],
   teams: [String],
+  externalId: String,
+  managedByIdp: Boolean,
 };
 
 const organizationSchema = new mongoose.Schema({

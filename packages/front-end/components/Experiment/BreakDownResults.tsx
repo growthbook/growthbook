@@ -1,4 +1,4 @@
-import { FC, useMemo } from "react";
+import { FC, useMemo, useState } from "react";
 import {
   ExperimentReportResultDimension,
   ExperimentReportVariation,
@@ -19,6 +19,11 @@ import ResultsTable from "@/components/Experiment/ResultsTable";
 import { QueryStatusData } from "@/components/Queries/RunQueriesButton";
 import { getRenderLabelColumn } from "@/components/Experiment/CompactResults";
 import usePValueThreshold from "@/hooks/usePValueThreshold";
+import {
+  ResultsMetricFilters,
+  sortAndFilterMetricsByTags,
+} from "@/components/Experiment/Results";
+import ResultsMetricFilter from "@/components/Experiment/ResultsMetricFilter";
 import UsersTable from "./UsersTable";
 
 type TableDef = {
@@ -47,6 +52,8 @@ const BreakDownResults: FC<{
   regressionAdjustmentEnabled?: boolean;
   metricRegressionAdjustmentStatuses?: MetricRegressionAdjustmentStatus[];
   sequentialTestingEnabled?: boolean;
+  metricFilter?: ResultsMetricFilters;
+  setMetricFilter?: (filter: ResultsMetricFilters) => void;
 }> = ({
   dimensionId,
   results,
@@ -67,7 +74,11 @@ const BreakDownResults: FC<{
   regressionAdjustmentEnabled,
   metricRegressionAdjustmentStatuses,
   sequentialTestingEnabled,
+  metricFilter,
+  setMetricFilter,
 }) => {
+  const [showMetricFilter, setShowMetricFilter] = useState<boolean>(false);
+
   const { getDimensionById, getExperimentMetricById, ready } = useDefinitions();
   const pValueThreshold = usePValueThreshold();
 
@@ -75,16 +86,39 @@ const BreakDownResults: FC<{
     return getDimensionById(dimensionId)?.name || "Dimension";
   }, [getDimensionById, dimensionId]);
 
+  const allMetricTags = useMemo(() => {
+    const allMetricTagsSet: Set<string> = new Set();
+    [...metrics, ...(guardrails || [])].forEach((metricId) => {
+      const metric = getExperimentMetricById(metricId);
+      metric?.tags?.forEach((tag) => {
+        allMetricTagsSet.add(tag);
+      });
+    });
+    return [...allMetricTagsSet];
+  }, [metrics, guardrails, getExperimentMetricById]);
+
   const tables = useMemo<TableDef[]>(() => {
     if (!ready) return [];
     if (pValueCorrection && statsEngine === "frequentist") {
       setAdjustedPValuesOnResults(results, metrics, pValueCorrection);
       setAdjustedCIs(results, pValueThreshold);
     }
-    return Array.from(new Set(metrics.concat(guardrails || [])))
+
+    const metricDefs = [...metrics, ...(guardrails || [])]
+      .map((metricId) => getExperimentMetricById(metricId))
+      .filter(Boolean) as ExperimentMetricInterface[];
+    const sortedFilteredMetrics = sortAndFilterMetricsByTags(
+      metricDefs,
+      metricFilter
+    );
+
+    return Array.from(new Set(sortedFilteredMetrics))
       .map((metricId) => {
         const metric = getExperimentMetricById(metricId);
         if (!metric) return;
+        const ret = sortAndFilterMetricsByTags([metric], metricFilter);
+        if (ret.length === 0) return;
+
         const { newMetric } = applyMetricOverrides(metric, metricOverrides);
         let regressionAdjustmentStatus:
           | MetricRegressionAdjustmentStatus
@@ -112,6 +146,7 @@ const BreakDownResults: FC<{
   }, [
     results,
     metrics,
+    guardrails,
     metricOverrides,
     regressionAdjustmentEnabled,
     metricRegressionAdjustmentStatuses,
@@ -121,6 +156,7 @@ const BreakDownResults: FC<{
     pValueThreshold,
     ready,
     getExperimentMetricById,
+    metricFilter,
   ]);
 
   const risk = useRiskVariation(
@@ -146,7 +182,18 @@ const BreakDownResults: FC<{
         />
       </div>
 
-      <h3 className="mx-2 mb-0">Goal Metrics</h3>
+      <div className="d-flex mx-2">
+        {setMetricFilter ? (
+          <ResultsMetricFilter
+            metricTags={allMetricTags}
+            metricFilter={metricFilter}
+            setMetricFilter={setMetricFilter}
+            showMetricFilter={showMetricFilter}
+            setShowMetricFilter={setShowMetricFilter}
+          />
+        ) : null}
+        <span className="h3 mb-0">Goal Metrics</span>
+      </div>
       {tables.map((table, i) => {
         return (
           <>
@@ -200,6 +247,7 @@ const BreakDownResults: FC<{
                   )}
                 </>
               )}
+              metricFilter={metricFilter}
               isTabActive={true}
             />
             <div className="mb-5" />

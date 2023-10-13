@@ -49,6 +49,8 @@ import ResultsTableTooltip, {
 } from "@/components/Experiment/ResultsTableTooltip";
 import { QueryStatusData } from "@/components/Queries/RunQueriesButton";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import ResultsMetricFilter from "@/components/Experiment/ResultsMetricFilter";
+import { ResultsMetricFilters } from "@/components/Experiment/Results";
 import Tooltip from "../Tooltip/Tooltip";
 import AlignedGraph from "./AlignedGraph";
 import ChanceToWinColumn from "./ChanceToWinColumn";
@@ -68,7 +70,7 @@ export type ResultsTableProps = {
   dimension?: string;
   metricsAsGuardrails?: boolean;
   tableRowAxis: "metric" | "dimension";
-  labelHeader: string | JSX.Element;
+  labelHeader: ReactElement | string;
   editMetrics?: () => void;
   renderLabelColumn: (
     label: string,
@@ -81,6 +83,9 @@ export type ResultsTableProps = {
   statsEngine: StatsEngine;
   pValueCorrection?: PValueCorrection;
   sequentialTestingEnabled?: boolean;
+  metricFilter?: ResultsMetricFilters;
+  setMetricFilter?: (filter: ResultsMetricFilters) => void;
+  metricTags?: string[];
   isTabActive: boolean;
 };
 
@@ -114,6 +119,9 @@ export default function ResultsTable({
   statsEngine,
   pValueCorrection,
   sequentialTestingEnabled = false,
+  metricFilter,
+  setMetricFilter,
+  metricTags = [],
   isTabActive,
 }: ResultsTableProps) {
   // fix any potential filter conflicts
@@ -131,6 +139,8 @@ export default function ResultsTable({
   const pValueThreshold = usePValueThreshold();
   const displayCurrency = useCurrency();
   const orgSettings = useOrgSettings();
+
+  const [showMetricFilter, setShowMetricFilter] = useState<boolean>(false);
 
   const tableContainerRef = useRef<HTMLDivElement | null>(null);
   const [graphCellWidth, setGraphCellWidth] = useState(800);
@@ -440,27 +450,46 @@ export default function ResultsTable({
             <thead>
               <tr className="results-top-row">
                 <th
+                  className="axis-col header-label"
                   style={{
                     lineHeight: "15px",
-                    wordBreak: "break-word",
-                    overflowWrap: "anywhere",
                     width: 220 * tableCellScale,
                   }}
-                  className="axis-col header-label"
                 >
-                  {labelHeader}
-                  {editMetrics ? (
-                    <a
-                      role="button"
-                      className="ml-2 cursor-pointer"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        editMetrics();
+                  <div className="row px-0">
+                    {setMetricFilter ? (
+                      <ResultsMetricFilter
+                        metricTags={metricTags}
+                        metricFilter={metricFilter}
+                        setMetricFilter={setMetricFilter}
+                        showMetricFilter={showMetricFilter}
+                        setShowMetricFilter={setShowMetricFilter}
+                      />
+                    ) : null}
+                    <div
+                      className="col-auto px-1"
+                      style={{
+                        wordBreak: "break-word",
+                        overflowWrap: "anywhere",
                       }}
                     >
-                      <GBEdit />
-                    </a>
-                  ) : null}
+                      {labelHeader}
+                    </div>
+                    {editMetrics ? (
+                      <div className="col d-flex align-items-end px-0">
+                        <a
+                          role="button"
+                          className="ml-1 cursor-pointer"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            editMetrics();
+                          }}
+                        >
+                          <GBEdit />
+                        </a>
+                      </div>
+                    ) : null}
+                  </div>
                 </th>
                 {!noMetrics ? (
                   <>
