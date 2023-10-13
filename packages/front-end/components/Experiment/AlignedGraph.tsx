@@ -204,6 +204,8 @@ const AlignedGraph: FC<Props> = ({
     }
   }
 
+  const maskId = "mask_" + id;
+
   return (
     <>
       <div
@@ -226,8 +228,8 @@ const AlignedGraph: FC<Props> = ({
                 });
                 return (
                   <svg width={graphWidth} height={height} className="d-block">
-                    {gradient.length > 0 && (
-                      <defs>
+                    <defs>
+                      {gradient.length > 0 && (
                         <linearGradient
                           id={gradientId}
                           x1="0%"
@@ -243,8 +245,33 @@ const AlignedGraph: FC<Props> = ({
                             />
                           ))}
                         </linearGradient>
-                      </defs>
-                    )}
+                      )}
+                      <mask id={maskId}>
+                        <linearGradient
+                          id={maskId + "_grad"}
+                          x1="0%"
+                          y1="0%"
+                          x2="100%"
+                          y2="0%"
+                        >
+                          {(ci?.[0] ?? 0) < domain[0] && (
+                            <stop offset="0%" stopColor="#222" />
+                          )}
+                          <stop offset="5%" stopColor="#fff" />
+                          <stop offset="95%" stopColor="#fff" />
+                          {(ci?.[1] ?? 0) > domain[1] && (
+                            <stop offset="100%" stopColor="#222" />
+                          )}
+                        </linearGradient>
+                        <rect
+                          x={0}
+                          y={0}
+                          width={graphWidth}
+                          height={height}
+                          fill={`url(#${maskId}_grad)`}
+                        />
+                      </mask>
+                    </defs>
                     {!showAxis && (
                       <>
                         <GridColumns
@@ -345,6 +372,7 @@ const AlignedGraph: FC<Props> = ({
                                 ? violinOpacitySignificant
                                 : violinOpacityNotSignificant
                             }
+                            mask={`url(#${maskId})`}
                           />
                         )}
                         {barType === "pill" && (
@@ -366,6 +394,7 @@ const AlignedGraph: FC<Props> = ({
                             fill={barFill}
                             fillOpacity={0.8}
                             rx={newUi ? 10 : 8}
+                            mask={`url(#${maskId})`}
                           />
                         )}
                         <Line
