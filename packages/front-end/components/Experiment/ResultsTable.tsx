@@ -1029,9 +1029,11 @@ function getPercentChangeTooltip(
           <p className="mt-4 mb-0">
             Because your organization has multiple comparisons corrections
             enabled, these confidence intervals have been inflated so that they
-            match the adjusted psuedo-p-value. For adjusted psuedo-p-values that
-            are 1.0, we construct confidence intervals as if the adjusted
-            psuedo-p-value was 0.9.
+            match the adjusted psuedo-p-value. Because confidence intervals do
+            not generally exist for all adjusted p-values, we use a method that
+            recreates the confidence intervals that would have produced these
+            psuedo-p-values. For adjusted psuedo-p-values that are 1.0, the
+            confidence intervals are infinite.
           </p>
         )}
       </>

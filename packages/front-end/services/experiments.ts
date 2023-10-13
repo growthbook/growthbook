@@ -539,13 +539,12 @@ export function setAdjustedPValuesOnResults(
   return;
 }
 
-function adjustedCI(
+export function adjustedCI(
   adjustedPValue: number,
   uplift: { dist: string; mean?: number; stddev?: number },
   zScore: number
 ): [number, number] {
-  if (!uplift.stddev || !uplift.mean)
-    return [uplift.mean ?? 0, uplift.mean ?? 0];
+  if (!uplift.mean) return [uplift.mean ?? 0, uplift.mean ?? 0];
   const adjStdDev = Math.abs(
     uplift.mean / jStat.normal.inv(1 - adjustedPValue / 2, 0, 1)
   );
@@ -567,7 +566,7 @@ export function setAdjustedCIs(
         if (pValueAdjusted === undefined) {
           continue;
         } else if (pValueAdjusted > 0.999999) {
-          // set to NaN if adjusted pValue is 1
+          // set to Inf if adjusted pValue is 1
           v.metrics[key].ciAdjusted = [-Infinity, Infinity];
         } else if (
           pValueAdjusted !== undefined &&
