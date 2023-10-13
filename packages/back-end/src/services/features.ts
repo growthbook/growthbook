@@ -524,6 +524,12 @@ export async function evaluateFeature(
 
   const results: FeatureTestResult[] = [];
 
+  // change the NODE ENV so that we can get the debug log information:
+  let switchEnv = false;
+  if (process.env.NODE_ENV === "production") {
+    process.env.NODE_ENV = "development";
+    switchEnv = true;
+  }
   // I could loop through the feature's defined environments, but if environments change in the org,
   // the values in the feature will be wrong.
   environments.forEach((env) => {
@@ -564,6 +570,10 @@ export async function evaluateFeature(
     }
     results.push(thisEnvResult);
   });
+  if (switchEnv) {
+    // change the NODE ENV back
+    process.env.NODE_ENV = "production";
+  }
   return results;
 }
 
