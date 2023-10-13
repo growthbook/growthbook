@@ -12,7 +12,7 @@ import {
 import { FeatureInterface } from "back-end/types/feature";
 import Link from "next/link";
 import useOrgSettings from "@/hooks/useOrgSettings";
-import { getApiHost, getCdnHost, isCloud } from "@/services/env";
+import { getApiHost, getCdnHost } from "@/services/env";
 import Code from "@/components/SyntaxHighlighting/Code";
 import { useAttributeSchema } from "@/services/features";
 import { GBHashLock } from "@/components/Icons";
@@ -38,11 +38,6 @@ export function getApiBaseUrl(connection?: SDKConnectionInterface): string {
     return trimTrailingSlash(
       connection.proxy.hostExternal || connection.proxy.host
     );
-  }
-
-  //TODO: We should be able to remove this if we add an env variable to our cloud instance
-  if (isCloud()) {
-    return `https://cdn.growthbook.io`;
   }
 
   return trimTrailingSlash(getCdnHost() || getApiHost());
@@ -117,16 +112,16 @@ export default function CodeSnippetModal({
   const apiHost = getApiBaseUrl(currentConnection);
   const clientKey = currentConnection.key;
   const featuresEndpoint = apiHost + "/api/features/" + clientKey;
-  const encryptionKey =
-    currentConnection &&
-    currentConnection.encryptPayload &&
-    currentConnection.encryptionKey;
+  const encryptionKey = currentConnection.encryptPayload
+    ? currentConnection.encryptionKey
+    : undefined;
   const hashSecureAttributes = !!currentConnection.hashSecureAttributes;
   const secureAttributes =
     attributeSchema?.filter((a) =>
       ["secureString", "secureString[]"].includes(a.datatype)
     ) || [];
   const secureAttributeSalt = settings.secureAttributeSalt ?? "";
+  const remoteEvalEnabled = !!currentConnection.remoteEvalEnabled;
 
   if (showTestModal && includeCheck && !inline) {
     return (
@@ -343,7 +338,8 @@ export default function CodeSnippetModal({
                     language={language}
                     apiHost={apiHost}
                     apiKey={clientKey}
-                    encryptionKey={encryptionKey ? encryptionKey : undefined}
+                    encryptionKey={encryptionKey}
+                    remoteEvalEnabled={remoteEvalEnabled}
                   />
                 </div>
               )}
@@ -398,20 +394,22 @@ export default function CodeSnippetModal({
                               which need to be hashed before using them in the
                               SDK:
                               <table className="table table-borderless w-auto mt-1 ml-2">
-                                {secureAttributes.map((a, i) => (
-                                  <tr key={i}>
-                                    <td className="pt-1 pb-0">
-                                      <code className="font-weight-bold">
-                                        {a.property}
-                                      </code>
-                                    </td>
-                                    <td className="pt-1 pb-0">
-                                      <span className="text-gray">
-                                        {a.datatype}
-                                      </span>
-                                    </td>
-                                  </tr>
-                                ))}
+                                <tbody>
+                                  {secureAttributes.map((a, i) => (
+                                    <tr key={i}>
+                                      <td className="pt-1 pb-0">
+                                        <code className="font-weight-bold">
+                                          {a.property}
+                                        </code>
+                                      </td>
+                                      <td className="pt-1 pb-0">
+                                        <span className="text-gray">
+                                          {a.datatype}
+                                        </span>
+                                      </td>
+                                    </tr>
+                                  ))}
+                                </tbody>
                               </table>
                             </>
                           )}

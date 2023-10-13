@@ -91,6 +91,7 @@ export function reportArgsFromSnapshot(
     sequentialTestingEnabled: analysisSettings.sequentialTesting,
     sequentialTestingTuningParameter:
       analysisSettings.sequentialTestingTuningParameter,
+    pValueThreshold: analysisSettings.pValueThreshold,
   };
 }
 
@@ -142,6 +143,7 @@ export function getSnapshotSettingsFromReportArgs(
     pValueCorrection: null,
     sequentialTesting: args.sequentialTestingEnabled,
     sequentialTestingTuningParameter: args.sequentialTestingTuningParameter,
+    pValueThreshold: args.pValueThreshold,
   };
 
   return { snapshotSettings, analysisSettings };

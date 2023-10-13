@@ -10,7 +10,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import SelectField from "@/components/Forms/SelectField";
 import OrphanedUsersList from "@/components/Settings/Team/OrphanedUsersList";
 import PendingMemberList from "@/components/Settings/Team/PendingMemberList";
-import { isCloud } from "@/services/env";
+import { isMultiOrg } from "@/services/env";
 import AutoApproveMembersToggle from "@/components/Settings/Team/AutoApproveMembersToggle";
 import UpdateDefaultRoleForm from "@/components/Settings/Team/UpdateDefaultRoleForm";
 
@@ -95,7 +95,9 @@ const TeamPage: FC = () => {
           </div>
         </div>
       )}
-      {isCloud() && <AutoApproveMembersToggle mutate={refreshOrganization} />}
+      {isMultiOrg() && (
+        <AutoApproveMembersToggle mutate={refreshOrganization} />
+      )}
       <MemberList
         mutate={refreshOrganization}
         project={currentProject}
@@ -121,11 +123,12 @@ const TeamPage: FC = () => {
             project={currentProject}
           />
         )}
-
-      <OrphanedUsersList
-        mutateUsers={refreshOrganization}
-        numUsersInAccount={organization.members?.length || 0}
-      />
+      {!isMultiOrg() && (
+        <OrphanedUsersList
+          mutateUsers={refreshOrganization}
+          numUsersInAccount={organization.members?.length || 0}
+        />
+      )}
       {accountPlan === "enterprise" ? <UpdateDefaultRoleForm /> : null}
     </div>
   );

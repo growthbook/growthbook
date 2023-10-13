@@ -610,6 +610,10 @@ export function getRowResults({
     notation: "compact",
     maximumFractionDigits: 2,
   });
+  const numberFormatter = Intl.NumberFormat("en-US", {
+    notation: "compact",
+    maximumFractionDigits: 4,
+  });
   const percentFormatter = new Intl.NumberFormat(undefined, {
     style: "percent",
     maximumFractionDigits: 2,
@@ -632,7 +636,7 @@ export function getRowResults({
     } else {
       significant = false;
       significantUnadjusted = false;
-      significantReason = `This metric is not statistically significant. The chance to win it outside the CI interval [${percentFormatter.format(
+      significantReason = `This metric is not statistically significant. The chance to win is outside the CI interval [${percentFormatter.format(
         ciLower
       )}, ${percentFormatter.format(ciUpper)}].`;
     }
@@ -778,7 +782,7 @@ export function getRowResults({
     }
   } else {
     if (_shouldHighlight && significant && directionalStatus === "winning") {
-      resultsReason = `Significant win as the p-value is below the ${percentFormatter.format(
+      resultsReason = `Significant win as the p-value is below the ${numberFormatter.format(
         pValueThreshold
       )} threshold`;
       resultsStatus = "won";
@@ -787,8 +791,8 @@ export function getRowResults({
       significant &&
       directionalStatus === "losing"
     ) {
-      resultsReason = `Significant loss as the p-value is above the ${percentFormatter.format(
-        1 - pValueThreshold
+      resultsReason = `Significant loss as the p-value is below the ${numberFormatter.format(
+        pValueThreshold
       )} threshold`;
       resultsStatus = "lost";
     } else if (enoughData && significant && belowMinChange) {
