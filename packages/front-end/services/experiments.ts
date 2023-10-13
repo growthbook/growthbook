@@ -251,7 +251,11 @@ export function useDomain(
         return;
       }
 
-      const ci = stats.ci || [0, 0];
+      let ci = stats?.ciAdjusted ?? stats.ci ?? [0, 0];
+      // If adjusted values are Inf, use unadjusted
+      if (Math.abs(ci[0]) === Infinity || Math.abs(ci[1]) === Infinity) {
+        ci = stats.ci ?? [0, 0];
+      }
       if (!lowerBound || ci[0] < lowerBound) lowerBound = ci[0];
       if (!upperBound || ci[1] > upperBound) upperBound = ci[1];
     });

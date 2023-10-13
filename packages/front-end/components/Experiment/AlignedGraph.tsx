@@ -356,9 +356,12 @@ const AlignedGraph: FC<Props> = ({
                               hover: isHovered,
                             })}
                             style={{ transition: "100ms all" }}
-                            x={xScale(ci?.[0] ?? 0)}
+                            x={xScale(Math.max(ci?.[0] ?? 0, domain[0] - 0.1))}
                             y={barHeight}
-                            width={xScale(ci?.[1] ?? 0) - xScale(ci?.[0] ?? 0)}
+                            width={
+                              xScale(Math.min(ci?.[1] ?? 0, domain[1] + 0.1)) -
+                              xScale(Math.max(ci?.[0] ?? 0, domain[0] - 0.1))
+                            }
                             height={barThickness}
                             fill={barFill}
                             fillOpacity={0.8}
