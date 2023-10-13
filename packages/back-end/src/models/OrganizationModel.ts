@@ -213,7 +213,7 @@ export async function updateOrganization(
   id: string,
   update: Partial<OrganizationInterface>
 ) {
-  await OrganizationModel.updateOne(
+  return await OrganizationModel.updateOne(
     {
       id,
     },

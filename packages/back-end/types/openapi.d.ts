@@ -186,9 +186,11 @@ export interface paths {
     delete: operations["deleteSavedGroup"];
   };
   "/organizations": {
-    /** Get all organizations */
+    /** Get all organizations (Multi-org Enterprise Plan only) */
     get: operations["listOrganizations"];
-    /** Create a single organization */
+    /** Edit a single organization (Multi-org Enterprise Plan only) */
+    put: operations["putOrganization"];
+    /** Create a single organization (Multi-org Enterprise Plan only) */
     post: operations["postOrganization"];
   };
 }
@@ -3866,7 +3868,7 @@ export interface operations {
     };
   };
   listOrganizations: {
-    /** Get all organizations */
+    /** Get all organizations (Multi-org Enterprise Plan only) */
     parameters: {
         /** @description Search string to search organization names, owner emails, and reference ids by */
         /** @description The number of items to return */
@@ -3908,8 +3910,46 @@ export interface operations {
       };
     };
   };
+  putOrganization: {
+    /** Edit a single organization (Multi-org Enterprise Plan only) */
+    requestBody: {
+      content: {
+        "application/json": {
+          /** @description The Growthbook unique identifier for the organization */
+          id: string;
+          /** @description The name of the organization */
+          name?: string;
+          /** @description An optional identifier that you use within your company for the organization */
+          referenceId?: string;
+        };
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            organization: {
+              /** @description The Growthbook unique identifier for the organization */
+              id?: string;
+              /** @description An optional identifier that you use within your company for the organization */
+              referenceId?: string;
+              /**
+               * Format: date-time 
+               * @description The date the organization was created
+               */
+              dateCreated?: string;
+              /** @description The name of the organization */
+              name?: string;
+              /** @description The email address of the organization owner */
+              ownerEmail?: string;
+            };
+          };
+        };
+      };
+    };
+  };
   postOrganization: {
-    /** Create a single organization */
+    /** Create a single organization (Multi-org Enterprise Plan only) */
     requestBody: {
       content: {
         "application/json": {
@@ -4009,3 +4049,4 @@ export type UpdateSavedGroupResponse = operations["updateSavedGroup"]["responses
 export type DeleteSavedGroupResponse = operations["deleteSavedGroup"]["responses"]["200"]["content"]["application/json"];
 export type ListOrganizationsResponse = operations["listOrganizations"]["responses"]["200"]["content"]["application/json"];
 export type PostOrganizationResponse = operations["postOrganization"]["responses"]["200"]["content"]["application/json"];
+export type PutOrganizationResponse = operations["putOrganization"]["responses"]["200"]["content"]["application/json"];

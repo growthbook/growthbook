@@ -59,7 +59,7 @@ const EditOrganization: FC<{
         />
         {showReferenceId && (
           <div className="mt-3">
-            Reference Id: Id used for the organization within your name
+            Reference Id: Id used for the organization within your company
             (optional)
             <input
               type="text"

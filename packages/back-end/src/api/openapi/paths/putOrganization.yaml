@@ -1,20 +1,22 @@
 parameters: []
 tags:
   - organizations
-summary: Create a single organization (Multi-org Enterprise Plan only)
-operationId: postOrganization
+summary: Edit a single organization (Multi-org Enterprise Plan only)
+operationId: putOrganization
 x-codeSamples:
   - lang: "cURL"
     source: |
-      curl -X POST https://api.growthbook.io/api/v1/organizations \
+      curl -X PUT https://api.growthbook.io/api/v1/organizations \
+        -d '{ id: "org_19exnt4zjlneslts6" }}'
         -d '{ name: "My Subsidiary" }' \
+        -d '{ referenceId: "subsidiary-123" }'
         -u secret_abc123DEF456:
 requestBody:
   required: true
   content:
     application/json:
       schema:
-        $ref: "../payload-schemas/PostOrganizationPayload.yaml"
+        $ref: "../payload-schemas/PutOrganizationPayload.yaml"
 responses:
   "200":
     content:

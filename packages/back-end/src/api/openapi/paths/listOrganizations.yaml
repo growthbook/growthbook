@@ -1,4 +1,4 @@
-summary: Get all organizations
+summary: Get all organizations (Multi-org Enterprise Plan only)
 tags:
   - organizations
 parameters:
