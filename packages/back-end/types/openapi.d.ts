@@ -974,8 +974,10 @@ export interface components {
       values: (string)[];
     };
     Organization: {
-      /** @description The unique identifier for the organization */
+      /** @description The Growthbook unique identifier for the organization */
       id?: string;
+      /** @description An optional identifier that you use within your company for the organization */
+      referenceId?: string;
       /**
        * Format: date-time 
        * @description The date the organization was created
@@ -3866,7 +3868,7 @@ export interface operations {
   listOrganizations: {
     /** Get all organizations */
     parameters: {
-        /** @description Search string to search organization names and owner emails by */
+        /** @description Search string to search organization names, owner emails, and reference ids by */
         /** @description The number of items to return */
         /** @description How many items to skip (use in conjunction with limit for pagination) */
       query: {
@@ -3880,8 +3882,10 @@ export interface operations {
         content: {
           "application/json": {
             organizations: ({
-                /** @description The unique identifier for the organization */
+                /** @description The Growthbook unique identifier for the organization */
                 id?: string;
+                /** @description An optional identifier that you use within your company for the organization */
+                referenceId?: string;
                 /**
                  * Format: date-time 
                  * @description The date the organization was created
@@ -3911,6 +3915,8 @@ export interface operations {
         "application/json": {
           /** @description The name of the organization */
           name: string;
+          /** @description An optional identifier that you use within your company for the organization */
+          referenceId?: string;
         };
       };
     };
@@ -3919,8 +3925,10 @@ export interface operations {
         content: {
           "application/json": {
             organization: {
-              /** @description The unique identifier for the organization */
+              /** @description The Growthbook unique identifier for the organization */
               id?: string;
+              /** @description An optional identifier that you use within your company for the organization */
+              referenceId?: string;
               /**
                * Format: date-time 
                * @description The date the organization was created

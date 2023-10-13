@@ -2016,7 +2016,7 @@ paths:
       parameters:
         - name: search
           in: query
-          description: Search string to search organization names and owner emails by
+          description: 'Search string to search organization names, owner emails, and reference ids by'
           schema:
             type: string
         - $ref: '#/components/parameters/limit'
@@ -2066,6 +2066,9 @@ paths:
                 name:
                   type: string
                   description: The name of the organization
+                referenceId:
+                  type: string
+                  description: An optional identifier that you use within your company for the organization
       responses:
         '200':
           content:
@@ -3350,7 +3353,10 @@ components:
       properties:
         id:
           type: string
-          description: The unique identifier for the organization
+          description: The Growthbook unique identifier for the organization
+        referenceId:
+          type: string
+          description: An optional identifier that you use within your company for the organization
         dateCreated:
           type: string
           format: date-time

@@ -971,6 +971,7 @@ export async function postInvite(
 
 interface SignupBody {
   company: string;
+  referenceId: string;
 }
 
 export async function deleteMember(
@@ -1039,7 +1040,7 @@ export async function deleteInvite(
 }
 
 export async function signup(req: AuthRequest<SignupBody>, res: Response) {
-  const { company } = req.body;
+  const { company, referenceId } = req.body;
 
   const orgs = await hasOrganization();
   if (!IS_MULTI_ORG) {
@@ -1080,6 +1081,7 @@ export async function signup(req: AuthRequest<SignupBody>, res: Response) {
       userId: req.userId,
       name: company,
       verifiedDomain,
+      referenceId,
     });
 
     // Alert the site manager about new organizations that are created

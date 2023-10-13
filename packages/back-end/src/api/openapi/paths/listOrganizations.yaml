@@ -4,7 +4,7 @@ tags:
 parameters:
   - name: search
     in: query
-    description: Search string to search organization names and owner emails by
+    description: Search string to search organization names, owner emails, and reference ids by
     schema:
       type: string
   - $ref: "../parameters.yaml#/limit"

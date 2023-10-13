@@ -9,6 +9,7 @@ import Field from "@/components/Forms/Field";
 import Pagination from "@/components/Pagination";
 import { useUser } from "@/services/UserContext";
 import Code from "@/components/SyntaxHighlighting/Code";
+import { isCloud } from "@/services/env";
 import LoadingOverlay from "../components/LoadingOverlay";
 import { useAuth } from "../services/auth";
 import CreateOrganization from "../components/CreateOrganization";
@@ -19,10 +20,12 @@ function OrganizationRow({
   organization,
   current,
   switchTo,
+  showReferenceId,
 }: {
   organization: OrganizationInterface;
   switchTo: (organization: OrganizationInterface) => void;
   current: boolean;
+  showReferenceId: boolean;
 }) {
   const [expanded, setExpanded] = useState(false);
 
@@ -52,6 +55,11 @@ function OrganizationRow({
         <td>
           <small>{organization.id}</small>
         </td>
+        {showReferenceId && (
+          <td>
+            <small>{organization.referenceId}</small>
+          </td>
+        )}
         <td style={{ width: 40 }} className="p-0 text-center">
           <a
             href="#"
@@ -130,6 +138,7 @@ const Admin: FC = () => {
         }>(`/admin/organizations?${params.toString()}`);
         setOrgs(res.organizations);
         setTotal(res.total);
+        setError("");
       } catch (e) {
         setError(e.message);
       }
@@ -161,6 +170,7 @@ const Admin: FC = () => {
       {orgModalOpen && (
         <CreateOrganization
           isAdmin={true}
+          showReferenceId={!isCloud()}
           onCreate={() => {
             loadOrgs(page, search);
           }}
@@ -222,6 +232,7 @@ const Admin: FC = () => {
               <th>Owner</th>
               <th>Created</th>
               <th>Id</th>
+              {!isCloud() && <th>Reference Id</th>}
               <th></th>
             </tr>
           </thead>
@@ -229,6 +240,7 @@ const Admin: FC = () => {
             {orgs.map((o) => (
               <OrganizationRow
                 organization={o}
+                showReferenceId={!isCloud()}
                 key={o.id}
                 current={o.id === orgId}
                 switchTo={(org) => {

@@ -6,8 +6,10 @@ const CreateOrganization: FC<{
   onCreate: () => void;
   close?: () => void;
   isAdmin?: boolean;
-}> = ({ onCreate, close, isAdmin }) => {
+  showReferenceId?: boolean;
+}> = ({ onCreate, close, isAdmin, showReferenceId }) => {
   const [company, setCompany] = useState("");
+  const [referenceId, setReferenceId] = useState("");
 
   const { apiCall } = useAuth();
 
@@ -20,6 +22,7 @@ const CreateOrganization: FC<{
       method: "POST",
       body: JSON.stringify({
         company,
+        referenceId,
       }),
     });
     onCreate();
@@ -60,6 +63,19 @@ const CreateOrganization: FC<{
           minLength={3}
           onChange={(e) => setCompany(e.target.value)}
         />
+        {showReferenceId && (
+          <div className="mt-3">
+            Reference Id: Id used for the organization within your company
+            (optional)
+            <input
+              type="text"
+              className="form-control"
+              value={referenceId}
+              minLength={3}
+              onChange={(e) => setReferenceId(e.target.value)}
+            />
+          </div>
+        )}
       </div>
     </Modal>
   );

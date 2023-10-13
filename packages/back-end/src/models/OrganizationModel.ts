@@ -35,6 +35,7 @@ const organizationSchema = new mongoose.Schema({
   },
   dateCreated: Date,
   verifiedDomain: String,
+  referenceId: String,
   url: String,
   name: String,
   ownerEmail: String,
@@ -133,12 +134,14 @@ export async function createOrganization({
   name,
   url = "",
   verifiedDomain = "",
+  referenceId = "",
 }: {
   email: string;
   userId: string;
   name: string;
   url?: string;
   verifiedDomain?: string;
+  referenceId?: string;
 }) {
   // TODO: sanitize fields
   const doc = await OrganizationModel.create({
@@ -146,6 +149,7 @@ export async function createOrganization({
     name,
     url,
     verifiedDomain,
+    referenceId,
     invites: [],
     members: [
       {
@@ -179,7 +183,9 @@ export async function findAllOrganizations(
 ) {
   const regex = new RegExp(search, "i");
 
-  const query = search ? { $or: [{ name: regex }, { ownerEmail: regex }] } : {};
+  const query = search
+    ? { $or: [{ name: regex }, { ownerEmail: regex }, { referenceId: regex }] }
+    : {};
 
   const docs = await OrganizationModel.find(query)
     .sort({ _id: -1 })
@@ -333,9 +339,10 @@ export async function setOrganizationMessages(
 export function toOrganizationApiInterface(
   org: OrganizationInterface
 ): ApiOrganization {
-  const { id, name, ownerEmail, dateCreated } = org;
+  const { id, referenceId, name, ownerEmail, dateCreated } = org;
   return {
     id,
+    referenceId,
     name,
     ownerEmail,
     dateCreated: dateCreated?.toISOString() || "",
