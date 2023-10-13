@@ -184,7 +184,14 @@ export async function findAllOrganizations(
   const regex = new RegExp(search, "i");
 
   const query = search
-    ? { $or: [{ name: regex }, { ownerEmail: regex }, { referenceId: regex }] }
+    ? {
+        $or: [
+          { name: regex },
+          { ownerEmail: regex },
+          { id: regex },
+          { referenceId: regex },
+        ],
+      }
     : {};
 
   const docs = await OrganizationModel.find(query)

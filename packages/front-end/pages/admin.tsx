@@ -200,14 +200,14 @@ const Admin: FC = () => {
             }}
           >
             <Field
-              label="Org name / email"
+              label="Search:"
               labelClassName="mr-2"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               type="search"
             />
             <div>
-              <button type="submit" className="btn btn-primary">
+              <button type="submit" className="btn btn-primary ml-2">
                 <FaSearch />
               </button>
             </div>
