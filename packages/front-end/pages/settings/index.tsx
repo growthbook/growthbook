@@ -25,7 +25,7 @@ import { useAuth } from "@/services/auth";
 import EditOrganizationModal from "@/components/Settings/EditOrganizationModal";
 import BackupConfigYamlButton from "@/components/Settings/BackupConfigYamlButton";
 import RestoreConfigYamlButton from "@/components/Settings/RestoreConfigYamlButton";
-import { hasFileConfig, isCloud } from "@/services/env";
+import { hasFileConfig, isCloud, isMultiOrg } from "@/services/env";
 import Field from "@/components/Forms/Field";
 import MetricsSelector from "@/components/Experiment/MetricsSelector";
 import TempMessage from "@/components/TempMessage";
@@ -50,6 +50,7 @@ import StatsEngineSelect from "@/components/Settings/forms/StatsEngineSelect";
 import { useCurrency } from "@/hooks/useCurrency";
 import { AppFeatures } from "@/types/app-features";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import EditReferenceIdModal from "@/components/Settings/EditReferenceIdModal";
 
 export const supportedCurrencies = {
   AED: "UAE Dirham (AED)",
@@ -242,6 +243,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
     hasCommercialFeature,
   } = useUser();
   const [editOpen, setEditOpen] = useState(false);
+  const [editReferenceIdOpen, setEditReferenceIdOpen] = useState(false);
   const [editLicenseOpen, setEditLicenseOpen] = useState(false);
   const [saveMsg, setSaveMsg] = useState(false);
   const [originalValue, setOriginalValue] = useState<OrganizationSettings>({});
@@ -534,9 +536,15 @@ const GeneralSettingsPage = (): React.ReactElement => {
       <div className="container-fluid pagecontents">
         {editOpen && (
           <EditOrganizationModal
-            // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'string | undefined' is not assignable to typ... Remove this comment to see the full error message
-            name={organization.name}
+            name={organization.name || ""}
             close={() => setEditOpen(false)}
+            mutate={refreshOrganization}
+          />
+        )}
+        {editReferenceIdOpen && (
+          <EditReferenceIdModal
+            referenceId={organization.referenceId || ""}
+            close={() => setEditReferenceIdOpen(false)}
             mutate={refreshOrganization}
           />
         )}
@@ -575,6 +583,23 @@ const GeneralSettingsPage = (): React.ReactElement => {
                     <strong>Owner:</strong> {organization.ownerEmail}
                   </div>
                 </div>
+                {!isCloud() && isMultiOrg() && (
+                  <div className="form-group row">
+                    <div className="col-sm-12">
+                      <strong>Reference Id:</strong> {organization.referenceId}
+                      <a
+                        href="#"
+                        className="pl-1"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          setEditReferenceIdOpen(true);
+                        }}
+                      >
+                        <FaPencilAlt />
+                      </a>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
             <div className="divider border-bottom mb-3 mt-3" />

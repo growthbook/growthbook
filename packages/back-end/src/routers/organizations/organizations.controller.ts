@@ -605,6 +605,7 @@ export async function getOrganization(req: AuthRequest, res: Response) {
     disableSelfServeBilling,
     licenseKey,
     messages,
+    referenceId,
   } = org;
 
   if (!IS_CLOUD && licenseKey) {
@@ -644,6 +645,7 @@ export async function getOrganization(req: AuthRequest, res: Response) {
     organization: {
       invites,
       ownerEmail,
+      referenceId,
       name,
       id,
       url,
@@ -1108,7 +1110,7 @@ export async function putOrganization(
   res: Response
 ) {
   const { org } = getOrgFromReq(req);
-  const { name, settings, connections } = req.body;
+  const { name, settings, connections, referenceId } = req.body;
 
   const deletedEnvIds: string[] = [];
 
@@ -1170,6 +1172,10 @@ export async function putOrganization(
     if (name) {
       updates.name = name;
       orig.name = org.name;
+    }
+    if (referenceId !== undefined) {
+      updates.referenceId = referenceId;
+      orig.referenceId = org.referenceId;
     }
     if (settings) {
       updates.settings = {
