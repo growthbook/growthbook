@@ -205,3 +205,14 @@ export function isProjectListValidForProject(
   // Otherwise, it's valid only if the project list contains the selected project
   return projects.includes(project);
 }
+
+export function stringToBoolean(
+  value: string | undefined,
+  defaultValue = false
+): boolean {
+  if (value === undefined) return defaultValue;
+  if (["true", "yes", "on", "1"].includes(value.toLowerCase())) return true;
+  if (["false", "no", "off", "0", ""].includes(value.toLowerCase()))
+    return false;
+  return defaultValue;
+}

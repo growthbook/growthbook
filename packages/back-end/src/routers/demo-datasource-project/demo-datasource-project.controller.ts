@@ -3,7 +3,10 @@ import {
   getDemoDataSourceFeatureId,
   getDemoDatasourceProjectIdForOrganization,
 } from "shared/demo-datasource";
-import { DEFAULT_STATS_ENGINE } from "shared/constants";
+import {
+  DEFAULT_P_VALUE_THRESHOLD,
+  DEFAULT_STATS_ENGINE,
+} from "shared/constants";
 import { AuthRequest } from "../../types/AuthRequest";
 import { getOrgFromReq } from "../../services/organizations";
 import { EventAuditUserForResponseLocals } from "../../events/event-types";
@@ -378,6 +381,8 @@ spacing and headings.`,
     const analysisSettings: ExperimentSnapshotAnalysisSettings = {
       statsEngine: org.settings?.statsEngine || DEFAULT_STATS_ENGINE,
       dimensions: [],
+      pValueThreshold:
+        org.settings?.pValueThreshold ?? DEFAULT_P_VALUE_THRESHOLD,
     };
 
     const metricMap = await getMetricMap(org.id);

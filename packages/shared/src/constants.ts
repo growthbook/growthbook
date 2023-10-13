@@ -1,5 +1,7 @@
 export const DEFAULT_STATS_ENGINE = "bayesian";
 
+export const DEFAULT_P_VALUE_THRESHOLD = 0.05;
+
 // Regression Adjustment (CUPED):
 export const DEFAULT_REGRESSION_ADJUSTMENT_ENABLED = false;
 export const DEFAULT_REGRESSION_ADJUSTMENT_DAYS = 14;

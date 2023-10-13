@@ -20,6 +20,10 @@ import {
 } from "@/services/experiments";
 import { GBCuped } from "@/components/Icons";
 import { QueryStatusData } from "@/components/Queries/RunQueriesButton";
+import {
+  ResultsMetricFilters,
+  sortAndFilterMetricsByTags,
+} from "@/components/Experiment/Results";
 import Tooltip from "../Tooltip/Tooltip";
 import MetricTooltipBody from "../Metrics/MetricTooltipBody";
 import FactBadge from "../FactTables/FactBadge";
@@ -51,6 +55,8 @@ const CompactResults: FC<{
   regressionAdjustmentEnabled?: boolean;
   metricRegressionAdjustmentStatuses?: MetricRegressionAdjustmentStatus[];
   sequentialTestingEnabled?: boolean;
+  metricFilter?: ResultsMetricFilters;
+  setMetricFilter?: (filter: ResultsMetricFilters) => void;
   isTabActive: boolean;
 }> = ({
   editMetrics,
@@ -73,6 +79,8 @@ const CompactResults: FC<{
   regressionAdjustmentEnabled,
   metricRegressionAdjustmentStatuses,
   sequentialTestingEnabled,
+  metricFilter,
+  setMetricFilter,
   isTabActive,
 }) => {
   const { getExperimentMetricById, ready } = useDefinitions();
@@ -87,6 +95,17 @@ const CompactResults: FC<{
     });
     return [totalUsers, variationUsers];
   }, [results]);
+
+  const allMetricTags = useMemo(() => {
+    const allMetricTagsSet: Set<string> = new Set();
+    [...metrics, ...guardrails].forEach((metricId) => {
+      const metric = getExperimentMetricById(metricId);
+      metric?.tags?.forEach((tag) => {
+        allMetricTagsSet.add(tag);
+      });
+    });
+    return [...allMetricTagsSet];
+  }, [metrics, guardrails, getExperimentMetricById]);
 
   const rows = useMemo<ExperimentTableRow[]>(() => {
     function getRow(metricId: string, isGuardrail: boolean) {
@@ -122,10 +141,27 @@ const CompactResults: FC<{
     if (pValueCorrection && statsEngine === "frequentist") {
       setAdjustedPValuesOnResults([results], metrics, pValueCorrection);
     }
-    const retMetrics = metrics
+
+    const metricDefs = metrics
+      .map((metricId) => getExperimentMetricById(metricId))
+      .filter(Boolean) as ExperimentMetricInterface[];
+    const sortedFilteredMetrics = sortAndFilterMetricsByTags(
+      metricDefs,
+      metricFilter
+    );
+
+    const guardrailDefs = guardrails
+      .map((metricId) => getExperimentMetricById(metricId))
+      .filter(Boolean) as ExperimentMetricInterface[];
+    const sortedFilteredGuardrails = sortAndFilterMetricsByTags(
+      guardrailDefs,
+      metricFilter
+    );
+
+    const retMetrics = sortedFilteredMetrics
       .map((metricId) => getRow(metricId, false))
       .filter((row) => row?.metric) as ExperimentTableRow[];
-    const retGuardrails = guardrails
+    const retGuardrails = sortedFilteredGuardrails
       .map((metricId) => getRow(metricId, true))
       .filter((row) => row?.metric) as ExperimentTableRow[];
     return [...retMetrics, ...retGuardrails];
@@ -137,9 +173,10 @@ const CompactResults: FC<{
     regressionAdjustmentEnabled,
     metricRegressionAdjustmentStatuses,
     pValueCorrection,
+    statsEngine,
     ready,
     getExperimentMetricById,
-    statsEngine,
+    metricFilter,
   ]);
 
   const users = useMemo(() => {
@@ -196,6 +233,9 @@ const CompactResults: FC<{
         sequentialTestingEnabled={sequentialTestingEnabled}
         pValueCorrection={pValueCorrection}
         renderLabelColumn={getRenderLabelColumn(regressionAdjustmentEnabled)}
+        metricFilter={metricFilter}
+        setMetricFilter={setMetricFilter}
+        metricTags={allMetricTags}
         isTabActive={isTabActive}
       />
 
@@ -223,6 +263,9 @@ const CompactResults: FC<{
             renderLabelColumn={getRenderLabelColumn(
               regressionAdjustmentEnabled
             )}
+            metricFilter={metricFilter}
+            setMetricFilter={setMetricFilter}
+            metricTags={allMetricTags}
             isTabActive={isTabActive}
           />
         </div>

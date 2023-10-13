@@ -16,7 +16,10 @@ import {
 } from "back-end/types/report";
 import { ExperimentStatus } from "back-end/types/experiment";
 import { PValueCorrection, StatsEngine } from "back-end/types/stats";
-import { DEFAULT_STATS_ENGINE } from "shared/constants";
+import {
+  DEFAULT_P_VALUE_THRESHOLD,
+  DEFAULT_STATS_ENGINE,
+} from "shared/constants";
 import { getValidDate } from "shared/dates";
 import { useTooltip, useTooltipInPortal } from "@visx/tooltip";
 import { FaExclamationTriangle } from "react-icons/fa";
@@ -46,6 +49,8 @@ import ResultsTableTooltip, {
 } from "@/components/Experiment/ResultsTableTooltip";
 import { QueryStatusData } from "@/components/Queries/RunQueriesButton";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import ResultsMetricFilter from "@/components/Experiment/ResultsMetricFilter";
+import { ResultsMetricFilters } from "@/components/Experiment/Results";
 import Tooltip from "../Tooltip/Tooltip";
 import AlignedGraph from "./AlignedGraph";
 import ChanceToWinColumn from "./ChanceToWinColumn";
@@ -65,7 +70,7 @@ export type ResultsTableProps = {
   dimension?: string;
   metricsAsGuardrails?: boolean;
   tableRowAxis: "metric" | "dimension";
-  labelHeader: string | JSX.Element;
+  labelHeader: ReactElement | string;
   editMetrics?: () => void;
   renderLabelColumn: (
     label: string,
@@ -78,12 +83,20 @@ export type ResultsTableProps = {
   statsEngine: StatsEngine;
   pValueCorrection?: PValueCorrection;
   sequentialTestingEnabled?: boolean;
+  metricFilter?: ResultsMetricFilters;
+  setMetricFilter?: (filter: ResultsMetricFilters) => void;
+  metricTags?: string[];
   isTabActive: boolean;
 };
 
 const ROW_HEIGHT = 56;
 const METRIC_LABEL_ROW_HEIGHT = 44;
 const SPACER_ROW_HEIGHT = 6;
+
+const percentFormatter = new Intl.NumberFormat(undefined, {
+  style: "percent",
+  maximumFractionDigits: 2,
+});
 
 export default function ResultsTable({
   id,
@@ -106,6 +119,9 @@ export default function ResultsTable({
   statsEngine,
   pValueCorrection,
   sequentialTestingEnabled = false,
+  metricFilter,
+  setMetricFilter,
+  metricTags = [],
   isTabActive,
 }: ResultsTableProps) {
   // fix any potential filter conflicts
@@ -123,6 +139,8 @@ export default function ResultsTable({
   const pValueThreshold = usePValueThreshold();
   const displayCurrency = useCurrency();
   const orgSettings = useOrgSettings();
+
+  const [showMetricFilter, setShowMetricFilter] = useState<boolean>(false);
 
   const tableContainerRef = useRef<HTMLDivElement | null>(null);
   const [graphCellWidth, setGraphCellWidth] = useState(800);
@@ -432,27 +450,46 @@ export default function ResultsTable({
             <thead>
               <tr className="results-top-row">
                 <th
+                  className="axis-col header-label"
                   style={{
                     lineHeight: "15px",
-                    wordBreak: "break-word",
-                    overflowWrap: "anywhere",
                     width: 220 * tableCellScale,
                   }}
-                  className="axis-col header-label"
                 >
-                  {labelHeader}
-                  {editMetrics ? (
-                    <a
-                      role="button"
-                      className="ml-2 cursor-pointer"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        editMetrics();
+                  <div className="row px-0">
+                    {setMetricFilter ? (
+                      <ResultsMetricFilter
+                        metricTags={metricTags}
+                        metricFilter={metricFilter}
+                        setMetricFilter={setMetricFilter}
+                        showMetricFilter={showMetricFilter}
+                        setShowMetricFilter={setShowMetricFilter}
+                      />
+                    ) : null}
+                    <div
+                      className="col-auto px-1"
+                      style={{
+                        wordBreak: "break-word",
+                        overflowWrap: "anywhere",
                       }}
                     >
-                      <GBEdit />
-                    </a>
-                  ) : null}
+                      {labelHeader}
+                    </div>
+                    {editMetrics ? (
+                      <div className="col d-flex align-items-end px-0">
+                        <a
+                          role="button"
+                          className="ml-1 cursor-pointer"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            editMetrics();
+                          }}
+                        >
+                          <GBEdit />
+                        </a>
+                      </div>
+                    ) : null}
+                  </div>
                 </th>
                 {!noMetrics ? (
                   <>
@@ -549,7 +586,8 @@ export default function ResultsTable({
                               {getPValueTooltip(
                                 !!sequentialTestingEnabled,
                                 pValueCorrection ?? null,
-                                orgSettings.pValueThreshold ?? 0.05,
+                                orgSettings.pValueThreshold ??
+                                  DEFAULT_P_VALUE_THRESHOLD,
                                 tableRowAxis
                               )}
                             </div>
@@ -597,7 +635,8 @@ export default function ResultsTable({
                                 statsEngine || DEFAULT_STATS_ENGINE,
                                 hasRisk,
                                 !!sequentialTestingEnabled,
-                                pValueCorrection ?? null
+                                pValueCorrection ?? null,
+                                pValueThreshold
                               )}
                             </div>
                           }
@@ -959,7 +998,8 @@ function getPercentChangeTooltip(
   statsEngine: StatsEngine,
   hasRisk: boolean,
   sequentialTestingEnabled: boolean,
-  pValueCorrection: PValueCorrection
+  pValueCorrection: PValueCorrection,
+  pValueThreshold: number
 ) {
   if (hasRisk && statsEngine === "bayesian") {
     return (
@@ -970,12 +1010,13 @@ function getPercentChangeTooltip(
     );
   }
   if (statsEngine === "frequentist") {
+    const confidencePct = percentFormatter.format(1 - pValueThreshold);
     return (
       <>
         <p className="mb-0">
-          The interval is a 95% confidence interval. If you re-ran the
-          experiment 100 times, the true value would be in this range 95% of the
-          time.
+          The interval is a {confidencePct} confidence interval. If you re-ran
+          the experiment 100 times, the true value would be in this range{" "}
+          {confidencePct} of the time.
         </p>
         {sequentialTestingEnabled && (
           <p className="mt-4 mb-0">
