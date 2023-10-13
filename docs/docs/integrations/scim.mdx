@@ -48,7 +48,7 @@ We are actively working to expand functionality to include group provisioning an
 
 ![](../../static/images/integrations/scim/GrowthBook-SCIM-Enable-API-Integration.png)
 
-6. Choose to enable API Integration, and input your credentials. Contact your account representative to obtain the SCIM 2.0 Base URL. You can acquire your OAuth Bearer Token by creating a new Secret API Key. To do this, go to your GrowthBook account, and in the left navigation, select "Settings > API Keys." We recommend creating a dedicated API key exclusively for your SCIM integration.
+6. Choose to enable API Integration, and input your credentials. Contact your account representative to obtain the SCIM 2.0 Base URL. You can acquire your OAuth Bearer Token by creating a new Secret API Key with an `Admin` role. To do this, go to your GrowthBook account, and in the left navigation, select "Settings > API Keys." We recommend creating a dedicated API key exclusively for your SCIM integration.
 
 7. After adding your credentials, click "Test API Credentials" to ensure they are valid. If they pass the test, click "Save."
 
@@ -62,20 +62,26 @@ We are actively working to expand functionality to include group provisioning an
 
 ## Frequently Asked Questions
 
-Q: What features are supported with SCIM?
-A: Currently, GrowthBook supports user provisioning and deprovisioning.
+**What features are supported with SCIM?**
 
-Q: What identity providers are supported?
-A: At present, GrowthBook only supports Okta, but we are actively working on adding support for additional identity providers.
+Currently, GrowthBook supports user provisioning and deprovisioning.
 
-Q: What happens if I deprovision a user in my identity provider?
-A: If a user is deprovisioned in your identity provider, they will be removed from GrowthBook. If they are re-provisioned, they will be added back to GrowthBook, and their role will reset to the organization's default role.
+**What identity providers are supported?**
 
-Q: What if I already have users in GrowthBook?
-A: Existing users in GrowthBook will not be affected by SCIM. You can continue to manage them through the GrowthBook application as usual. If you wish to transition them to be managed by your identity provider, you can provision them through your identity provider. As long as the email matches, the existing GrowthBook user will be converted to be managed by your identity provider.
+At present, GrowthBook only supports Okta, but we are actively working on adding support for additional identity providers.
 
-Q: Do you support groups?
-A: Currently, we do not support groups, but we are actively working on adding group support in the future.
+**What happens if I deprovision a user in my identity provider?**
 
-Q: Does GrowthBook follow SCIM 1.1 or 2.0 Protocol?
-A: GrowthBook follows the SCIM 2.0 protocol.
+If a user is deprovisioned in your identity provider, they will be removed from GrowthBook. If they are re-provisioned, they will be added back to GrowthBook, and their role will reset to the organization's default role.
+
+**What if I already have users in GrowthBook?**
+
+Existing users in GrowthBook will not be affected by SCIM. You can continue to manage them through the GrowthBook application as usual. If you wish to transition them to be managed by your identity provider, you can provision them through your identity provider. As long as the email matches, the existing GrowthBook user will be converted to be managed by your identity provider.
+
+**Do you support groups?**
+
+Currently, we do not support groups, but we are actively working on adding group support in the future.
+
+**Does GrowthBook follow SCIM 1.1 or 2.0 Protocol?**
+
+GrowthBook follows the SCIM 2.0 protocol.
