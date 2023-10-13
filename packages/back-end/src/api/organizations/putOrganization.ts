@@ -16,7 +16,14 @@ export const putOrganization = createApiRequestHandler(
 )(
   async (req): Promise<PostOrganizationResponse> => {
     await validateIsSuperUserRequest(req);
-    const { id, name, referenceId } = req.body;
+
+    const id = req.params.id;
+    const { name, referenceId } = req.body;
+
+    const org = await findOrganizationById(id);
+    if (!org) {
+      throw Error("Organization not found");
+    }
 
     const updates: Partial<OrganizationInterface> = {};
     if (name) {
@@ -29,18 +36,13 @@ export const putOrganization = createApiRequestHandler(
       updates.referenceId = referenceId;
     }
 
-    await updateOrganization(id, {
-      referenceId,
-      name,
-    });
-
-    const org = await findOrganizationById(id);
-    if (!org) {
-      throw Error("Organization not found");
-    }
+    await updateOrganization(id, updates);
 
     return {
-      organization: toOrganizationApiInterface(org),
+      organization: toOrganizationApiInterface({
+        ...org,
+        ...updates,
+      }),
     };
   }
 );

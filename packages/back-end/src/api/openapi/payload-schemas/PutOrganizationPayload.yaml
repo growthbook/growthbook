@@ -1,10 +1,5 @@
 type: object
-required:
-  - id
 properties:
-  id:
-    type: string
-    description: The Growthbook unique identifier for the organization
   name:
     type: string
     description: The name of the organization

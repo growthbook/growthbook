@@ -16,10 +16,10 @@ import Pagination from "@/components/Pagination";
 import { useUser } from "@/services/UserContext";
 import Code from "@/components/SyntaxHighlighting/Code";
 import { isCloud } from "@/services/env";
-import EditOrganization from "@/components/EditOrganization";
-import LoadingOverlay from "../components/LoadingOverlay";
+import EditOrganization from "@/components/Admin/EditOrganization";
+import LoadingOverlay from "@/components/LoadingOverlay";
+import CreateOrganization from "@/components/Admin/CreateOrganization";
 import { useAuth } from "../services/auth";
-import CreateOrganization from "../components/CreateOrganization";
 
 const numberFormatter = new Intl.NumberFormat();
 
@@ -202,7 +202,6 @@ const Admin: FC = () => {
     <div className="container-fluid p-3 pagecontents">
       {orgModalOpen && (
         <CreateOrganization
-          isAdmin={true}
           showReferenceId={!isCloud()}
           onCreate={() => {
             loadOrgs(page, search);

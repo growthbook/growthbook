@@ -229,7 +229,7 @@ export const postOrganizationValidator = {
 };
 
 export const putOrganizationValidator = {
-  bodySchema: z.object({"id":z.string().describe("The Growthbook unique identifier for the organization"),"name":z.string().describe("The name of the organization").optional(),"referenceId":z.string().describe("An optional identifier that you use within your company for the organization").optional()}).strict(),
+  bodySchema: z.object({"name":z.string().describe("The name of the organization").optional(),"referenceId":z.string().describe("An optional identifier that you use within your company for the organization").optional()}).strict(),
   querySchema: z.never(),
-  paramsSchema: z.never(),
+  paramsSchema: z.object({"id":z.string()}).strict(),
 };

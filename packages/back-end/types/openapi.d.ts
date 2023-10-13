@@ -188,10 +188,12 @@ export interface paths {
   "/organizations": {
     /** Get all organizations (Multi-org Enterprise Plan only) */
     get: operations["listOrganizations"];
-    /** Edit a single organization (Multi-org Enterprise Plan only) */
-    put: operations["putOrganization"];
     /** Create a single organization (Multi-org Enterprise Plan only) */
     post: operations["postOrganization"];
+  };
+  "/organizations/{id}": {
+    /** Edit a single organization (Multi-org Enterprise Plan only) */
+    put: operations["putOrganization"];
   };
 }
 
@@ -3910,15 +3912,13 @@ export interface operations {
       };
     };
   };
-  putOrganization: {
-    /** Edit a single organization (Multi-org Enterprise Plan only) */
+  postOrganization: {
+    /** Create a single organization (Multi-org Enterprise Plan only) */
     requestBody: {
       content: {
         "application/json": {
-          /** @description The Growthbook unique identifier for the organization */
-          id: string;
           /** @description The name of the organization */
-          name?: string;
+          name: string;
           /** @description An optional identifier that you use within your company for the organization */
           referenceId?: string;
         };
@@ -3948,13 +3948,19 @@ export interface operations {
       };
     };
   };
-  postOrganization: {
-    /** Create a single organization (Multi-org Enterprise Plan only) */
+  putOrganization: {
+    /** Edit a single organization (Multi-org Enterprise Plan only) */
+    parameters: {
+        /** @description The id of the requested resource */
+      path: {
+        id: string;
+      };
+    };
     requestBody: {
       content: {
         "application/json": {
           /** @description The name of the organization */
-          name: string;
+          name?: string;
           /** @description An optional identifier that you use within your company for the organization */
           referenceId?: string;
         };

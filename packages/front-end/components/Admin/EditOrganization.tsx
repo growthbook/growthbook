@@ -1,15 +1,24 @@
 import { useState, FC } from "react";
-import { useAuth } from "../services/auth";
-import Modal from "./Modal";
+import { useAuth } from "../../services/auth";
+import Modal from "../Modal";
 
-const CreateOrganization: FC<{
-  onCreate: () => void;
+const EditOrganization: FC<{
+  onEdit: () => void;
   close?: () => void;
-  isAdmin?: boolean;
+  id: string;
+  currentName: string;
+  currentReferenceId: string;
   showReferenceId?: boolean;
-}> = ({ onCreate, close, isAdmin, showReferenceId }) => {
-  const [company, setCompany] = useState("");
-  const [referenceId, setReferenceId] = useState("");
+}> = ({
+  onEdit,
+  close,
+  id,
+  currentName,
+  currentReferenceId,
+  showReferenceId,
+}) => {
+  const [name, setName] = useState(currentName);
+  const [referenceId, setReferenceId] = useState(currentReferenceId);
 
   const { apiCall } = useAuth();
 
@@ -19,49 +28,34 @@ const CreateOrganization: FC<{
       message?: string;
       orgId?: string;
     }>("/organization", {
-      method: "POST",
+      method: "PUT",
+      headers: { "X-Organization": id },
       body: JSON.stringify({
-        company,
+        name,
         referenceId,
       }),
     });
-    onCreate();
+    onEdit();
   };
 
   return (
     <Modal
       submit={handleSubmit}
       open={true}
-      header={
-        isAdmin ? (
-          "Create New Organization"
-        ) : (
-          <img
-            alt="GrowthBook"
-            src="/logo/growthbook-logo.png"
-            style={{ height: 40 }}
-          />
-        )
-      }
-      cta={"Create"}
+      header={"Edit Organization"}
+      cta={"Edit"}
       close={close}
       inline={!close}
     >
-      {!isAdmin && (
-        <p className="text-muted">
-          It looks like you don&apos;t belong to an organization yet. Create one
-          below.
-        </p>
-      )}
       <div className="form-group">
         Company Name
         <input
           type="text"
           className="form-control"
-          value={company}
+          value={name}
           required
           minLength={3}
-          onChange={(e) => setCompany(e.target.value)}
+          onChange={(e) => setName(e.target.value)}
         />
         {showReferenceId && (
           <div className="mt-3">
@@ -81,4 +75,4 @@ const CreateOrganization: FC<{
   );
 };
 
-export default CreateOrganization;
+export default EditOrganization;

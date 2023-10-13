@@ -1,4 +1,5 @@
-parameters: []
+parameters:
+  - $ref: "../parameters.yaml#/id"
 tags:
   - organizations
 summary: Edit a single organization (Multi-org Enterprise Plan only)
@@ -6,8 +7,7 @@ operationId: putOrganization
 x-codeSamples:
   - lang: "cURL"
     source: |
-      curl -X PUT https://api.growthbook.io/api/v1/organizations \
-        -d '{ id: "org_19exnt4zjlneslts6" }}'
+      curl -X PUT https://api.growthbook.io/api/v1/organizations/org_abc123 \
         -d '{ name: "My Subsidiary" }' \
         -d '{ referenceId: "subsidiary-123" }'
         -u secret_abc123DEF456:

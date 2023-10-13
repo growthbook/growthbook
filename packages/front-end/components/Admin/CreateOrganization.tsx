@@ -1,24 +1,14 @@
 import { useState, FC } from "react";
-import { useAuth } from "../services/auth";
-import Modal from "./Modal";
+import { useAuth } from "../../services/auth";
+import Modal from "../Modal";
 
-const EditOrganization: FC<{
-  onEdit: () => void;
+const CreateOrganization: FC<{
+  onCreate: () => void;
   close?: () => void;
-  id: string;
-  currentName: string;
-  currentReferenceId: string;
   showReferenceId?: boolean;
-}> = ({
-  onEdit,
-  close,
-  id,
-  currentName,
-  currentReferenceId,
-  showReferenceId,
-}) => {
-  const [name, setName] = useState(currentName);
-  const [referenceId, setReferenceId] = useState(currentReferenceId);
+}> = ({ onCreate, close, showReferenceId }) => {
+  const [company, setCompany] = useState("");
+  const [referenceId, setReferenceId] = useState("");
 
   const { apiCall } = useAuth();
 
@@ -28,22 +18,21 @@ const EditOrganization: FC<{
       message?: string;
       orgId?: string;
     }>("/organization", {
-      method: "PUT",
-      headers: { "X-Organization": id },
+      method: "POST",
       body: JSON.stringify({
-        name,
+        company,
         referenceId,
       }),
     });
-    onEdit();
+    onCreate();
   };
 
   return (
     <Modal
       submit={handleSubmit}
       open={true}
-      header={"Edit Organization"}
-      cta={"Edit"}
+      header={"Create New Organization"}
+      cta={"Create"}
       close={close}
       inline={!close}
     >
@@ -52,10 +41,10 @@ const EditOrganization: FC<{
         <input
           type="text"
           className="form-control"
-          value={name}
+          value={company}
           required
           minLength={3}
-          onChange={(e) => setName(e.target.value)}
+          onChange={(e) => setCompany(e.target.value)}
         />
         {showReferenceId && (
           <div className="mt-3">
@@ -75,4 +64,4 @@ const EditOrganization: FC<{
   );
 };
 
-export default EditOrganization;
+export default CreateOrganization;
