@@ -1067,7 +1067,7 @@ function getPValueTooltip(
           {tableRowAxis === "dimension"
             ? "all dimension values, non-guardrail metrics, and variations"
             : "all non-guardrail metrics and variations"}
-          . The unadjusted p-values are returned in parentheses.
+          . The unadjusted p-values are returned in the tooltip.
         </div>
       )}
     </>
