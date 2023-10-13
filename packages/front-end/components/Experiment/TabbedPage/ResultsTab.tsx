@@ -20,7 +20,7 @@ import { useAuth } from "@/services/auth";
 import Button from "@/components/Button";
 import { GBAddCircle } from "@/components/Icons";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
-import Results from "../Results";
+import Results, {ResultsMetricFilters} from "../Results";
 import { StartExperimentBanner } from "../StartExperimentBanner";
 import AnalysisForm from "../AnalysisForm";
 import ExperimentReportsList from "../ExperimentReportsList";
@@ -61,16 +61,12 @@ export default function ResultsTab({
 }: Props) {
   const [baselineRow, setBaselineRow] = useState<number>(0);
   const [variationFilter, setVariationFilter] = useState<number[]>([]);
-  const [metricFilter, setMetricFilter] = useLocalStorage(
-    `metricFilter-${experiment.id}`,
+  const [metricFilter, setMetricFilter] = useLocalStorage<ResultsMetricFilters>(
+    `experiment-page__${experiment.id}__metric_filter`,
     {
       tagOrder: [],
       filterByTag: false,
     }
-    // orderByTag: true,
-    // tagOrder: ["foo", "key metrics"],
-    // filterByTag: true,
-    // tagFilter: ["key metrics"],
   );
 
   const {

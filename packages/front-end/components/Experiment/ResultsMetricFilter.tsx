@@ -9,13 +9,13 @@ import { ResultsMetricFilters } from "@/components/Experiment/Results";
 
 export default function ResultsMetricFilter({
   metricTags = [],
-  metricFilter,
+  metricFilter = {},
   setMetricFilter,
   showMetricFilter,
   setShowMetricFilter,
 }: {
   metricTags?: string[];
-  metricFilter: ResultsMetricFilters;
+  metricFilter?: ResultsMetricFilters;
   setMetricFilter: (filter: ResultsMetricFilters) => void;
   showMetricFilter: boolean;
   setShowMetricFilter: (show: boolean) => void;
