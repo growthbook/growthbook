@@ -152,7 +152,6 @@ const BreakDownResults: FC<{
     metricRegressionAdjustmentStatuses,
     pValueCorrection,
     statsEngine,
-    guardrails,
     pValueThreshold,
     ready,
     getExperimentMetricById,

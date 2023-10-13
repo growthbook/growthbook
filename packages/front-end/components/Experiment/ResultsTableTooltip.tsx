@@ -162,6 +162,30 @@ export default function ResultsTableTooltip({
     );
   }
 
+  const expected = data.stats?.expected ?? 0;
+  const ci1 = data.stats?.ciAdjusted?.[1] ?? data.stats?.ci?.[1] ?? 0;
+  const ci0 = data.stats?.ciAdjusted?.[0] ?? data.stats?.ci?.[0] ?? 0;
+  const ciRangeText =
+    data.stats?.ciAdjusted?.[0] !== undefined ? (
+      <>
+        <div>
+          [{percentFormatter.format(ci0)},{" "}
+          {percentFormatter.format(ci1)}]
+        </div>
+        <div className="text-muted font-weight-normal">
+          (unadj.:&nbsp;
+          [{percentFormatter.format(data.stats.ci?.[0] ?? 0)},{" "}
+          {percentFormatter.format(data.stats.ci?.[1] ?? 0)}]
+          )
+        </div>
+      </>
+    ) : (
+      <>
+        [{percentFormatter.format(data.stats.ci?.[0] ?? 0)},{" "}
+        {percentFormatter.format(data.stats.ci?.[1] ?? 0)}]
+      </>
+    );
+
   const arrowLeft =
     data.layoutX === "element-right"
       ? "3%"
@@ -362,16 +386,11 @@ export default function ResultsTableTooltip({
                 </span>
                 {data.statsEngine === "frequentist" ? (
                   <span className="plusminus ml-1">
-                    {"±" +
-                      parseFloat(
-                        (
-                          Math.abs(
-                            (data.stats.expected ?? 0) -
-                              (data.stats.ci?.[0] ?? 0)
-                          ) * 100
-                        ).toFixed(1)
-                      ) +
-                      "%"}
+                    ±
+                    {Math.abs(ci0) === Infinity || Math.abs(ci1) === Infinity
+                      ? "∞"
+                      : parseFloat((Math.abs(expected - ci0) * 100).toFixed(1))}
+                    %
                   </span>
                 ) : null}
               </div>
@@ -396,8 +415,7 @@ export default function ResultsTableTooltip({
                   opacity50: !data.rowResults.enoughData,
                 })}
               >
-                [{percentFormatter.format(data.stats.ci?.[0] ?? 0)},{" "}
-                {percentFormatter.format(data.stats.ci?.[1] ?? 0)}]
+                {ciRangeText}
               </div>
             </div>
 

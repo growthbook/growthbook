@@ -43,6 +43,7 @@ export default function PValueColumn({
     <>{stats?.pValue !== undefined ? pValueFormatter(stats.pValue) : ""}</>
   );
   if (stats?.pValueAdjusted !== undefined && pValueCorrection) {
+    console.log("stats", stats);
     pValText = showUnadjustedPValue ? (
       <>
         <div>{pValueFormatter(stats.pValueAdjusted)}</div>
