@@ -1,7 +1,13 @@
 import { FC, useCallback, useEffect, useState } from "react";
 import { OrganizationInterface } from "back-end/types/organization";
 import clsx from "clsx";
-import { FaAngleDown, FaAngleRight, FaPlus, FaSearch } from "react-icons/fa";
+import {
+  FaAngleDown,
+  FaAngleRight,
+  FaPencilAlt,
+  FaPlus,
+  FaSearch,
+} from "react-icons/fa";
 import { date } from "shared/dates";
 import stringify from "json-stringify-pretty-compact";
 import Collapsible from "react-collapsible";
@@ -10,6 +16,7 @@ import Pagination from "@/components/Pagination";
 import { useUser } from "@/services/UserContext";
 import Code from "@/components/SyntaxHighlighting/Code";
 import { isCloud } from "@/services/env";
+import EditOrganization from "@/components/EditOrganization";
 import LoadingOverlay from "../components/LoadingOverlay";
 import { useAuth } from "../services/auth";
 import CreateOrganization from "../components/CreateOrganization";
@@ -21,18 +28,31 @@ function OrganizationRow({
   current,
   switchTo,
   showReferenceId,
+  onEdit,
 }: {
   organization: OrganizationInterface;
   switchTo: (organization: OrganizationInterface) => void;
   current: boolean;
   showReferenceId: boolean;
+  onEdit: () => void;
 }) {
   const [expanded, setExpanded] = useState(false);
+  const [editOrgModalOpen, setEditOrgModalOpen] = useState(false);
 
   const { settings, members, ...otherAttributes } = organization;
 
   return (
     <>
+      {editOrgModalOpen && (
+        <EditOrganization
+          id={organization.id}
+          currentName={organization.name}
+          currentReferenceId={organization.referenceId || ""}
+          showReferenceId={!isCloud()}
+          onEdit={onEdit}
+          close={() => setEditOrgModalOpen(false)}
+        />
+      )}
       <tr
         className={clsx({
           "table-warning": current,
@@ -60,6 +80,19 @@ function OrganizationRow({
             <small>{organization.referenceId}</small>
           </td>
         )}
+        <td className="p-0 text-center">
+          <a
+            href="#"
+            className="d-block w-100 h-100"
+            onClick={(e) => {
+              e.preventDefault();
+              setEditOrgModalOpen(true);
+            }}
+            style={{ lineHeight: "40px" }}
+          >
+            <FaPencilAlt />
+          </a>
+        </td>
         <td style={{ width: 40 }} className="p-0 text-center">
           <a
             href="#"
@@ -234,6 +267,7 @@ const Admin: FC = () => {
               <th>Id</th>
               {!isCloud() && <th>Reference Id</th>}
               <th></th>
+              <th></th>
             </tr>
           </thead>
           <tbody>
@@ -243,6 +277,9 @@ const Admin: FC = () => {
                 showReferenceId={!isCloud()}
                 key={o.id}
                 current={o.id === orgId}
+                onEdit={() => {
+                  loadOrgs(page, search);
+                }}
                 switchTo={(org) => {
                   if (setOrgId) {
                     setOrgId(org.id);
