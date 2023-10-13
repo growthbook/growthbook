@@ -17,7 +17,7 @@ import {
   setAdjustedPValuesOnResults,
   ExperimentTableRow,
   useRiskVariation,
-  adjustCIs,
+  setAdjustedCIs,
 } from "@/services/experiments";
 import { GBCuped } from "@/components/Icons";
 import { QueryStatusData } from "@/components/Queries/RunQueriesButton";
@@ -124,7 +124,7 @@ const CompactResults: FC<{
     if (!results || !results.variations || !ready) return [];
     if (pValueCorrection && statsEngine === "frequentist") {
       setAdjustedPValuesOnResults([results], metrics, pValueCorrection);
-      adjustCIs([results], pValueThreshold);
+      setAdjustedCIs([results], pValueThreshold);
     }
     const retMetrics = metrics
       .map((metricId) => getRow(metricId, false))

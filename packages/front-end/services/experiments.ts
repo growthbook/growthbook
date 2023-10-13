@@ -553,7 +553,7 @@ function adjustedCI(
   return [uplift.mean - width, uplift.mean + width];
 }
 
-export function adjustCIs(
+export function setAdjustedCIs(
   results: ExperimentReportResultDimension[],
   pValueThreshold: number
 ): void {
@@ -564,8 +564,11 @@ export function adjustCIs(
         const pValueAdjusted = v.metrics[key].pValueAdjusted;
         const uplift = v.metrics[key].uplift;
         const ci = v.metrics[key].ci;
-        if (pValueAdjusted === 1) {
-          v.metrics[key].ci = [NaN, NaN];
+        if (pValueAdjusted === undefined) {
+          continue;
+        } else if (pValueAdjusted > 0.999999) {
+          // set to NaN if adjusted pValue is 1
+          v.metrics[key].ciAdjusted = [-Infinity, Infinity];
         } else if (
           pValueAdjusted !== undefined &&
           uplift !== undefined &&
@@ -574,7 +577,9 @@ export function adjustCIs(
           const adjCI = adjustedCI(pValueAdjusted, uplift, zScore);
           // only update if CI got wider, should never get more narrow
           if (adjCI[0] < ci[0] && adjCI[1] > ci[1]) {
-            v.metrics[key].ci = adjCI;
+            v.metrics[key].ciAdjusted = adjCI;
+          } else {
+            v.metrics[key].ciAdjusted = v.metrics[key].ci;
           }
         }
       }

@@ -16,7 +16,7 @@ import {
   setAdjustedPValuesOnResults,
   ExperimentTableRow,
   useRiskVariation,
-  adjustCIs,
+  setAdjustedCIs,
 } from "@/services/experiments";
 import { GBCuped } from "@/components/Icons";
 import usePValueThreshold from "@/hooks/usePValueThreshold";
@@ -68,7 +68,7 @@ const CompactResults_old: FC<{
     if (!results || !results.variations || !ready) return [];
     if (pValueCorrection && statsEngine === "frequentist") {
       setAdjustedPValuesOnResults([results], metrics, pValueCorrection);
-      adjustCIs([results], pValueThreshold);
+      setAdjustedCIs([results], pValueThreshold);
     }
     return metrics
       .map((metricId) => {

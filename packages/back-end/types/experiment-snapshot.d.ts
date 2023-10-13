@@ -15,6 +15,7 @@ export interface SnapshotMetric {
   users: number;
   denominator?: number;
   ci?: [number, number];
+  ciAdjusted?: [number, number];
   expected?: number;
   risk?: [number, number];
   stats?: MetricStats;

@@ -13,7 +13,7 @@ import {
   setAdjustedPValuesOnResults,
   ExperimentTableRow,
   useRiskVariation,
-  adjustCIs,
+  setAdjustedCIs,
 } from "@/services/experiments";
 import ResultsTable from "@/components/Experiment/ResultsTable";
 import { QueryStatusData } from "@/components/Queries/RunQueriesButton";
@@ -79,7 +79,7 @@ const BreakDownResults: FC<{
     if (!ready) return [];
     if (pValueCorrection && statsEngine === "frequentist") {
       setAdjustedPValuesOnResults(results, metrics, pValueCorrection);
-      adjustCIs(results, pValueThreshold);
+      setAdjustedCIs(results, pValueThreshold);
     }
     return Array.from(new Set(metrics.concat(guardrails || [])))
       .map((metricId) => {
