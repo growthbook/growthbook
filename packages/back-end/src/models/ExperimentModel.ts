@@ -1111,6 +1111,27 @@ export const getAllVisualExperiments = async (
     });
 };
 
+export function getPayloadKeysForAllEnvs(
+  organization: OrganizationInterface,
+  projects: string[]
+) {
+  const uniqueProjects = new Set(projects);
+
+  const environments: string[] =
+    organization.settings?.environments?.map((e) => e.id) ?? [];
+
+  const keys: SDKPayloadKey[] = [];
+  uniqueProjects.forEach((p) => {
+    environments.forEach((e) => {
+      keys.push({
+        environment: e,
+        project: p,
+      });
+    });
+  });
+  return keys;
+}
+
 export const getPayloadKeys = (
   organization: OrganizationInterface,
   experiment: ExperimentInterface,
