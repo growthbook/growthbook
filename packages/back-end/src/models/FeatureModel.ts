@@ -376,6 +376,7 @@ export async function onFeatureUpdate(
     organization,
     getSDKPayloadKeysByDiff(feature, updatedFeature),
     null,
+    undefined,
     skipRefreshForProject
   );
 

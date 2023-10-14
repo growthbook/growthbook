@@ -53,9 +53,13 @@ export function getParsedCondition(
             [group.attribute]: { $in: group.values },
           });
         });
-        conditions.push({
-          $or: ors,
-        });
+        conditions.push(
+          ors.length > 1
+            ? {
+                $or: ors,
+              }
+            : ors[0]
+        );
       }
       // Add each group as a separate top-level AND with a NOT condition
       else if (match === "none") {

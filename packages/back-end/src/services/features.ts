@@ -196,6 +196,7 @@ export async function refreshSDKPayloadCache(
   organization: OrganizationInterface,
   payloadKeys: SDKPayloadKey[],
   allFeatures: FeatureInterface[] | null = null,
+  experimentMap?: Map<string, ExperimentInterface>,
   skipRefreshForProject?: string
 ) {
   // Ignore any old environments which don't exist anymore
@@ -214,7 +215,8 @@ export async function refreshSDKPayloadCache(
   // If no environments are affected, we don't need to update anything
   if (!payloadKeys.length) return;
 
-  const experimentMap = await getAllPayloadExperiments(organization.id);
+  experimentMap =
+    experimentMap || (await getAllPayloadExperiments(organization.id));
   const groupMap = await getSavedGroupMap(organization);
   allFeatures = allFeatures || (await getAllFeatures(organization.id));
   const allVisualExperiments = await getAllVisualExperiments(

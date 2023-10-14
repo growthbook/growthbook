@@ -4,6 +4,7 @@ import {
   getEnabledEnvironments,
   getFeatureDefinition,
   getJSONValue,
+  getParsedCondition,
   getSDKPayloadKeysByDiff,
   replaceSavedGroupsInCondition,
   roundVariationWeight,
@@ -39,6 +40,87 @@ const baseFeature: FeatureInterface = {
     },
   },
 };
+
+describe("getParsedCondition", () => {
+  it("compiles correctly", () => {
+    groupMap.clear();
+    groupMap.set("a", { values: ["0", "1"], attribute: "id_a" });
+    groupMap.set("b", { values: ["2"], attribute: "id_b" });
+    groupMap.set("c", { values: ["3"], attribute: "id_c" });
+    groupMap.set("d", { values: ["4"], attribute: "id_d" });
+    groupMap.set("e", { values: ["5"], attribute: "id_e" });
+    groupMap.set("f", { values: ["6"], attribute: "id_f" });
+
+    expect(
+      getParsedCondition(groupMap, "", [{ match: "any", ids: ["a"] }])
+    ).toEqual({
+      id_a: {
+        $in: ["0", "1"],
+      },
+    });
+
+    expect(
+      getParsedCondition(groupMap, JSON.stringify({ country: "US" }), [
+        {
+          match: "all",
+          ids: ["a", "b", "x"],
+        },
+        {
+          match: "any",
+          ids: ["c", "d"],
+        },
+        {
+          match: "none",
+          ids: ["e", "f"],
+        },
+      ])
+    ).toEqual({
+      $and: [
+        // Attribute targeting
+        { country: "US" },
+        // ALL
+        {
+          id_a: {
+            $in: ["0", "1"],
+          },
+        },
+        {
+          id_b: {
+            $in: ["2"],
+          },
+        },
+        // ANY
+        {
+          $or: [
+            {
+              id_c: {
+                $in: ["3"],
+              },
+            },
+            {
+              id_d: {
+                $in: ["4"],
+              },
+            },
+          ],
+        },
+        // NONE
+        {
+          id_e: {
+            $nin: ["5"],
+          },
+        },
+        {
+          id_f: {
+            $nin: ["6"],
+          },
+        },
+      ],
+    });
+
+    groupMap.clear();
+  });
+});
 
 describe("replaceSavedGroupsInCondition", () => {
   it("does not format condition that doesn't contain $inGroup", () => {
