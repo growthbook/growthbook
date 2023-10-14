@@ -269,6 +269,24 @@ paths:
                                 condition:
                                   type: string
                                   description: Applied to everyone by default.
+                                savedGroupTargeting:
+                                  type: array
+                                  items:
+                                    type: object
+                                    required:
+                                      - matchType
+                                      - savedGroups
+                                    properties:
+                                      matchType:
+                                        type: string
+                                        enum:
+                                          - all
+                                          - any
+                                          - none
+                                      savedGroups:
+                                        type: array
+                                        items:
+                                          type: string
                                 id:
                                   type: string
                                 enabled:
@@ -292,6 +310,24 @@ paths:
                                 condition:
                                   type: string
                                   description: Applied to everyone by default.
+                                savedGroupTargeting:
+                                  type: array
+                                  items:
+                                    type: object
+                                    required:
+                                      - matchType
+                                      - savedGroups
+                                    properties:
+                                      matchType:
+                                        type: string
+                                        enum:
+                                          - all
+                                          - any
+                                          - none
+                                      savedGroups:
+                                        type: array
+                                        items:
+                                          type: string
                                 id:
                                   type: string
                                 enabled:
@@ -981,21 +1017,21 @@ paths:
                         type: string
                       condition:
                         type: string
-                      savedGroups:
+                      savedGroupTargeting:
                         type: array
                         items:
                           type: object
                           required:
-                            - match
-                            - ids
+                            - matchType
+                            - savedGroups
                           properties:
-                            match:
+                            matchType:
                               type: string
                               enum:
                                 - all
-                                - none
                                 - any
-                            ids:
+                                - none
+                            savedGroups:
                               type: array
                               items:
                                 type: string
@@ -1198,21 +1234,21 @@ paths:
                         type: string
                       condition:
                         type: string
-                      savedGroups:
+                      savedGroupTargeting:
                         type: array
                         items:
                           type: object
                           required:
-                            - match
-                            - ids
+                            - matchType
+                            - savedGroups
                           properties:
-                            match:
+                            matchType:
                               type: string
                               enum:
                                 - all
-                                - none
                                 - any
-                            ids:
+                                - none
+                            savedGroups:
                               type: array
                               items:
                                 type: string
@@ -2616,21 +2652,21 @@ components:
           type: string
         condition:
           type: string
-        savedGroups:
+        savedGroupTargeting:
           type: array
           items:
             type: object
             required:
-              - match
-              - ids
+              - matchType
+              - savedGroups
             properties:
-              match:
+              matchType:
                 type: string
                 enum:
                   - all
-                  - none
                   - any
-              ids:
+                  - none
+              savedGroups:
                 type: array
                 items:
                   type: string
@@ -2658,21 +2694,21 @@ components:
           type: string
         condition:
           type: string
-        savedGroups:
+        savedGroupTargeting:
           type: array
           items:
             type: object
             required:
-              - match
-              - ids
+              - matchType
+              - savedGroups
             properties:
-              match:
+              matchType:
                 type: string
                 enum:
                   - all
-                  - none
                   - any
-              ids:
+                  - none
+              savedGroups:
                 type: array
                 items:
                   type: string
@@ -2929,6 +2965,7 @@ components:
               - coverage
               - trafficSplit
               - targetingCondition
+              - savedGroups
             properties:
               name:
                 type: string
@@ -2968,6 +3005,24 @@ components:
                     rangeEnd: number
               targetingCondition:
                 type: string
+              savedGroupTargeting:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - matchType
+                    - savedGroups
+                  properties:
+                    matchType:
+                      type: string
+                      enum:
+                        - all
+                        - any
+                        - none
+                    savedGroups:
+                      type: array
+                      items:
+                        type: string
         settings:
           $ref: '#/components/schemas/ExperimentAnalysisSettings'
         resultSummary:

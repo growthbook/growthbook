@@ -28,6 +28,7 @@ import SelectField from "../Forms/SelectField";
 import FeatureVariationsInput from "../Features/FeatureVariationsInput";
 import ConditionInput from "../Features/ConditionInput";
 import NamespaceSelector from "../Features/NamespaceSelector";
+import SavedGroupTargetingField from "../Features/SavedGroupTargetingField";
 import MetricsSelector from "./MetricsSelector";
 
 const weekAgo = new Date();
@@ -389,9 +390,16 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
           </div>
         )}
         {isNewExperiment && (
+          <SavedGroupTargetingField
+            value={form.watch("phases.0.savedGroups") || []}
+            setValue={(savedGroups) =>
+              form.setValue("phases.0.savedGroups", savedGroups)
+            }
+          />
+        )}
+        {isNewExperiment && (
           <ConditionInput
             defaultValue={""}
-            labelClassName="font-weight-bold"
             onChange={(value) => form.setValue("phases.0.condition", value)}
           />
         )}

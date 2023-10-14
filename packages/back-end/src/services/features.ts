@@ -681,6 +681,10 @@ export function getApiFeatureObj({
           ? rule.coverage ?? 1
           : 1,
       condition: rule.condition || "",
+      savedGroupTargeting: (rule.savedGroups || []).map((s) => ({
+        matchType: s.match,
+        savedGroups: s.ids,
+      })),
       enabled: !!rule.enabled,
     }));
     const definition = getFeatureDefinition({
@@ -701,6 +705,10 @@ export function getApiFeatureObj({
                 ? rule.coverage ?? 1
                 : 1,
             condition: rule.condition || "",
+            savedGroupTargeting: (rule.savedGroups || []).map((s) => ({
+              matchType: s.match,
+              savedGroups: s.ids,
+            })),
             enabled: !!rule.enabled,
           })),
         }
@@ -953,6 +961,10 @@ const fromApiEnvSettingsRulesToFeatureEnvSettingsRules = (
         description: r.description ?? "",
         value: validateFeatureValue(feature, r.value),
         condition: r.condition,
+        savedGroups: (r.savedGroupTargeting || []).map((s) => ({
+          ids: s.savedGroups,
+          match: s.matchType,
+        })),
         enabled: r.enabled != null ? r.enabled : true,
       };
       return forceRule;
@@ -966,6 +978,10 @@ const fromApiEnvSettingsRulesToFeatureEnvSettingsRules = (
       hashAttribute: r.hashAttribute,
       value: validateFeatureValue(feature, r.value),
       condition: r.condition,
+      savedGroups: (r.savedGroupTargeting || []).map((s) => ({
+        ids: s.savedGroups,
+        match: s.matchType,
+      })),
       enabled: r.enabled != null ? r.enabled : true,
     };
     return rolloutRule;

@@ -13,8 +13,9 @@ import { FeatureInterface, ScheduleRule } from "../types/feature";
 import { hashStrings } from "../src/services/features";
 import { SDKAttributeSchema } from "../types/organization";
 import { ExperimentInterface } from "../types/experiment";
+import { GroupMap } from "../types/saved-group";
 
-const groupMap = new Map();
+const groupMap: GroupMap = new Map();
 const experimentMap = new Map();
 
 const baseFeature: FeatureInterface = {
@@ -51,7 +52,7 @@ describe("replaceSavedGroupsInCondition", () => {
   it("replaces the $inGroup and groupId with $in and the array of IDs", () => {
     const ids = ["123", "345", "678", "910"];
     const groupId = "grp_exl5jgrdl8bzy4x4";
-    groupMap.set(groupId, ids);
+    groupMap.set(groupId, { values: ids, attribute: "id" });
 
     const rawCondition = JSON.stringify({ id: { $inGroup: groupId } });
 
@@ -63,7 +64,7 @@ describe("replaceSavedGroupsInCondition", () => {
   it("replaces the $notInGroup and groupId with $nin and the array of IDs", () => {
     const ids = ["123", "345", "678", "910"];
     const groupId = "grp_exl5jgrdl8bzy4x4";
-    groupMap.set(groupId, ids);
+    groupMap.set(groupId, { values: ids, attribute: "id" });
 
     const rawCondition = JSON.stringify({ id: { $notInGroup: groupId } });
 
@@ -75,7 +76,7 @@ describe("replaceSavedGroupsInCondition", () => {
   it("should replace the $in operator in and if the group.attributeKey is a number, the output array should be numbers", () => {
     const ids = [1, 2, 3, 4];
     const groupId = "grp_exl5jijgl8c3n0qt";
-    groupMap.set(groupId, ids);
+    groupMap.set(groupId, { values: ids, attribute: "id" });
 
     const rawCondition = JSON.stringify({ number: { $inGroup: groupId } });
 
@@ -87,7 +88,7 @@ describe("replaceSavedGroupsInCondition", () => {
   it("should replace the $in operator in more complex conditions correctly", () => {
     const ids = [1, 2, 3, 4];
     const groupId = "grp_exl5jijgl8c3n0qt";
-    groupMap.set(groupId, ids);
+    groupMap.set(groupId, { values: ids, attribute: "id" });
 
     const rawCondition = JSON.stringify({
       number: { $inGroup: groupId },
@@ -103,7 +104,7 @@ describe("replaceSavedGroupsInCondition", () => {
   it("should correctly replace the $in operator in advanced mode conditions", () => {
     const ids = [1, 2, 3, 4];
     const groupId = "grp_exl5jijgl8c3n0qt";
-    groupMap.set(groupId, ids);
+    groupMap.set(groupId, { values: ids, attribute: "id" });
 
     const rawCondition = JSON.stringify({
       $and: [
@@ -124,11 +125,11 @@ describe("replaceSavedGroupsInCondition", () => {
   it("handle extra whitespace and spaces correctly", () => {
     const ids = ["123", "345", "678", "910"];
     const groupId = "grp_exl5jgrdl8bzy4x4";
-    groupMap.set(groupId, ids);
+    groupMap.set(groupId, { values: ids, attribute: "id" });
 
-  /* eslint-disable */
-  const rawCondition =
-    '{"id":{   "$inGroup"           :            "grp_exl5jgrdl8bzy4x4"   }}';
+    /* eslint-disable */
+    const rawCondition =
+      '{"id":{   "$inGroup"           :            "grp_exl5jgrdl8bzy4x4"   }}';
     /* eslint-enable */
 
     expect(replaceSavedGroupsInCondition(rawCondition, groupMap)).toEqual(
@@ -139,10 +140,10 @@ describe("replaceSavedGroupsInCondition", () => {
   it("handle extra newlines and spaces correctly", () => {
     const ids = ["123", "345", "678", "910"];
     const groupId = "grp_exl5jgrdl8bzy4x4";
-    groupMap.set(groupId, ids);
+    groupMap.set(groupId, { values: ids, attribute: "id" });
 
-  /* eslint-disable */
-  const rawCondition = `{"id":{"$notInGroup"
+    /* eslint-disable */
+    const rawCondition = `{"id":{"$notInGroup"
        :
              "grp_exl5jgrdl8bzy4x4"
     }}`;
@@ -156,7 +157,7 @@ describe("replaceSavedGroupsInCondition", () => {
   it("should replace the $in operator and add an empty array if groupId doesn't exist", () => {
     const ids = ["1", "2", "3", "4"];
     const groupId = "grp_exl5jijgl8c3n0qt";
-    groupMap.set(groupId, ids);
+    groupMap.set(groupId, { values: ids, attribute: "id" });
 
     const rawCondition = JSON.stringify({
       number: { $inGroup: "invalid-groupId" },
@@ -170,7 +171,7 @@ describe("replaceSavedGroupsInCondition", () => {
   it("should NOT replace $inGroup text if it appears in a string somewhere randomly", () => {
     const ids = ["1", "2", "3", "4"];
     const groupId = "grp_exl5jijgl8c3n0qt";
-    groupMap.set(groupId, ids);
+    groupMap.set(groupId, { values: ids, attribute: "id" });
 
     const rawCondition = JSON.stringify({
       number: { $eq: "$inGroup" },
@@ -184,7 +185,7 @@ describe("replaceSavedGroupsInCondition", () => {
   it("should NOT replace someone hand writes a condition with $inGroup: false", () => {
     const ids = ["1", "2", "3", "4"];
     const groupId = "grp_exl5jijgl8c3n0qt";
-    groupMap.set(groupId, ids);
+    groupMap.set(groupId, { values: ids, attribute: "id" });
 
     const rawCondition = JSON.stringify({
       number: { $inGroup: false },

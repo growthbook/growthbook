@@ -149,21 +149,21 @@ properties:
           type: string
         condition:
           type: string
-        savedGroups:
+        savedGroupTargeting:
           type: array
           items:
             type: object
             required:
-              - match
-              - ids
+              - matchType
+              - savedGroups
             properties:
-              match:
+              matchType:
                 type: string
                 enum:
-                  - all
-                  - none
-                  - any
-              ids:
+                  - "all"
+                  - "any"
+                  - "none"
+              savedGroups:
                 type: array
                 items:
                   type: string

@@ -468,20 +468,14 @@ export function getDefaultRuleValue({
     };
   }
   if (ruleType === "force" || !ruleType) {
-    const firstAttr = attributeSchema?.[0];
-    const condition = firstAttr
-      ? JSON.stringify({
-          [firstAttr.property]: firstAttr.datatype === "boolean" ? "true" : "",
-        })
-      : "";
-
     return {
       type: "force",
       description: "",
       id: "",
       value,
       enabled: true,
-      condition,
+      condition: "",
+      savedGroups: [],
       scheduleRules: [
         {
           enabled: true,

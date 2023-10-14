@@ -653,6 +653,10 @@ export async function toExperimentApiInterface(
         weight: p.variationWeights[i] || 0,
       })),
       targetingCondition: p.condition || "",
+      savedGroupTargeting: (p.savedGroups || []).map((s) => ({
+        matchType: s.match,
+        savedGroups: s.ids,
+      })),
       namespace: p.namespace?.enabled
         ? {
             namespaceId: p.namespace.name,
@@ -1513,7 +1517,10 @@ export function postExperimentApiPayloadToInterface(
     reason: p.reason || "",
     coverage: p.coverage != null ? p.coverage : 1,
     condition: p.condition || "{}",
-    savedGroups: p.savedGroups || [],
+    savedGroups: (p.savedGroupTargeting || []).map((s) => ({
+      match: s.matchType,
+      ids: s.savedGroups,
+    })),
     namespace: {
       name: p.namespace?.namespaceId || "",
       range: toNamespaceRange(p.namespace?.range),
@@ -1656,7 +1663,10 @@ export function updateExperimentApiPayloadToInterface(
             reason: p.reason || "",
             coverage: p.coverage != null ? p.coverage : 1,
             condition: p.condition || "{}",
-            savedGroups: p.savedGroups || [],
+            savedGroups: (p.savedGroupTargeting || []).map((s) => ({
+              match: s.matchType,
+              ids: s.savedGroups,
+            })),
             namespace: {
               name: p.namespace?.namespaceId || "",
               range: toNamespaceRange(p.namespace?.range),

@@ -1,6 +1,7 @@
 import { SavedGroupInterface } from "back-end/types/saved-group";
 import stringify from "json-stringify-pretty-compact";
 import { useMemo } from "react";
+import { SavedGroupTargeting } from "back-end/types/feature";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { jsonToConds, useAttributeMap } from "@/services/features";
 import InlineCode from "../SyntaxHighlighting/InlineCode";
@@ -77,8 +78,14 @@ function getValue(
   return value;
 }
 
-export default function ConditionDisplay({ condition }: { condition: string }) {
-  const { savedGroups } = useDefinitions();
+export default function ConditionDisplay({
+  condition,
+  savedGroups: savedGroupTargeting,
+}: {
+  condition: string;
+  savedGroups?: SavedGroupTargeting[];
+}) {
+  const { savedGroups, getSavedGroupById } = useDefinitions();
 
   const jsonFormatted = useMemo(() => {
     try {
@@ -99,22 +106,36 @@ export default function ConditionDisplay({ condition }: { condition: string }) {
     return <InlineCode language="json" code={jsonFormatted} />;
   }
 
-  return (
-    <div className="row">
-      {conds.map(({ field, operator, value }, i) => (
-        <div key={i} className="col-auto d-flex flex-wrap">
-          {i > 0 && <span className="mr-1">AND</span>}
-          <span className="mr-1 border px-2 bg-light rounded">{field}</span>
-          <span className="mr-1">{operatorToText(operator)}</span>
-          {needsValue(operator) ? (
-            <span className="mr-1 border px-2 bg-light rounded">
-              {getValue(operator, value, savedGroups)}
-            </span>
-          ) : (
-            ""
-          )}
-        </div>
-      ))}
+  const parts = conds.map(({ field, operator, value }, i) => (
+    <div key={i} className="col-auto d-flex flex-wrap">
+      {i > 0 && <span className="mr-1">AND</span>}
+      <span className="mr-1 border px-2 bg-light rounded">{field}</span>
+      <span className="mr-1">{operatorToText(operator)}</span>
+      {needsValue(operator) ? (
+        <span className="mr-1 border px-2 bg-light rounded">
+          {getValue(operator, value, savedGroups)}
+        </span>
+      ) : (
+        ""
+      )}
     </div>
-  );
+  ));
+
+  if (savedGroupTargeting && savedGroupTargeting.length > 0) {
+    savedGroupTargeting.forEach((g, i) => {
+      parts.push(
+        <div key={"grp-" + i} className="col-auto d-flex flex-wrap">
+          {(i > 0 || parts.length > 0) && <span className="mr-1">AND</span>}
+          <span className="mr-1">in {g.match} of the groups</span>
+          {g.ids.map((id) => (
+            <span className="mr-1 border px-2 bg-light rounded" key={id}>
+              {getSavedGroupById(id)?.groupName || id}
+            </span>
+          ))}
+        </div>
+      );
+    });
+  }
+
+  return <div className="row">{parts}</div>;
 }

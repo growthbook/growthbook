@@ -22,6 +22,8 @@ interface Props {
   labelClassName?: string;
 }
 
+const title = "Target by Attribute";
+
 export default function ConditionInput(props: Props) {
   const { savedGroups } = useDefinitions();
 
@@ -69,7 +71,7 @@ export default function ConditionInput(props: Props) {
     return (
       <div className="mb-3">
         <CodeTextArea
-          label="Targeting Conditions"
+          label={title}
           labelClassName={props.labelClassName}
           language="json"
           value={value}
@@ -112,9 +114,7 @@ export default function ConditionInput(props: Props) {
   if (!conds.length) {
     return (
       <div className="form-group">
-        <label className={props.labelClassName || ""}>
-          Targeting Conditions
-        </label>
+        <label className={props.labelClassName || ""}>{title}</label>
         <div className={`mb-3 bg-light p-3 ${styles.conditionbox}`}>
           <em className="text-muted mr-3">Applied to everyone by default.</em>
           <a
@@ -131,7 +131,7 @@ export default function ConditionInput(props: Props) {
               ]);
             }}
           >
-            Add targeting condition
+            Add attribute targeting
           </a>
         </div>
       </div>
@@ -140,7 +140,7 @@ export default function ConditionInput(props: Props) {
 
   return (
     <div className="form-group">
-      <label className={props.labelClassName || ""}>Targeting Conditions</label>
+      <label className={props.labelClassName || ""}>{title}</label>
       <div className={`mb-3 bg-light px-3 pb-3 ${styles.conditionbox}`}>
         <ul className={styles.conditionslist}>
           {conds.map(({ field, operator, value }, i) => {
