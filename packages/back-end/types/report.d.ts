@@ -58,6 +58,7 @@ export interface ExperimentReportArgs {
   metricRegressionAdjustmentStatuses?: MetricRegressionAdjustmentStatus[];
   sequentialTestingEnabled?: boolean;
   sequentialTestingTuningParameter?: number;
+  pValueThreshold?: number;
 }
 export interface ExperimentReportResultDimension {
   name: string;

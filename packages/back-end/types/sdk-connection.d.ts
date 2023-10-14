@@ -22,6 +22,7 @@ export type EditSDKConnectionParams = {
   includeVisualExperiments?: boolean;
   includeDraftExperiments?: boolean;
   includeExperimentNames?: boolean;
+  remoteEvalEnabled?: boolean;
 };
 export type CreateSDKConnectionParams = {
   organization: string;
@@ -36,6 +37,7 @@ export type CreateSDKConnectionParams = {
   includeVisualExperiments: boolean;
   includeDraftExperiments: boolean;
   includeExperimentNames: boolean;
+  remoteEvalEnabled?: boolean;
 };
 
 export type SDKLanguage =
@@ -79,6 +81,8 @@ export interface SDKConnectionInterface {
   // Set to true when it's used for the first time
   connected: boolean;
   proxy: ProxyConnection;
+
+  remoteEvalEnabled?: boolean;
 }
 
 export interface ProxyTestResult {

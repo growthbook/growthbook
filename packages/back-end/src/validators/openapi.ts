@@ -8,12 +8,24 @@ import { z } from "zod";
 
 export const listFeaturesValidator = {
   bodySchema: z.never(),
-  querySchema: z.object({"limit":z.coerce.number().int().default(10),"offset":z.coerce.number().int().optional(),"projectId":z.string().optional()}).strict(),
+  querySchema: z.object({"limit":z.coerce.number().int().default(10),"offset":z.coerce.number().int().default(0),"projectId":z.string().optional()}).strict(),
+  paramsSchema: z.never(),
+};
+
+export const postFeatureValidator = {
+  bodySchema: z.object({"id":z.string().describe("A unique key name for the feature. Feature keys can only include letters, numbers, hyphens, and underscores."),"archived":z.boolean().optional(),"description":z.string().describe("Description of the feature").optional(),"owner":z.string().describe("Email of the person who owns this experiment"),"project":z.string().describe("An associated project ID").optional(),"valueType":z.enum(["boolean","string","number","json"]).describe("The data type of the feature payload. Boolean by default."),"defaultValue":z.string().describe("Default value when feature is enabled. Type must match `valueType`."),"tags":z.array(z.string()).describe("List of associated tags").optional(),"environments":z.record(z.object({"enabled":z.boolean(),"rules":z.array(z.union([z.object({"description":z.string().optional(),"condition":z.string().describe("Applied to everyone by default.").optional(),"id":z.string().optional(),"enabled":z.boolean().describe("Enabled by default").optional(),"type":z.enum(["force"]),"value":z.string()}),z.object({"description":z.string().optional(),"condition":z.string().describe("Applied to everyone by default.").optional(),"id":z.string().optional(),"enabled":z.boolean().describe("Enabled by default").optional(),"type":z.enum(["rollout"]),"value":z.string(),"coverage":z.number().describe("Percent of traffic included in this experiment. Users not included in the experiment will skip this rule."),"hashAttribute":z.string()}),z.object({"description":z.string().optional(),"id":z.string().optional(),"enabled":z.boolean().describe("Enabled by default").optional(),"type":z.enum(["experiment-ref"]),"condition":z.string().optional(),"variations":z.array(z.object({"value":z.string(),"variationId":z.string()})),"experimentId":z.string()})])),"definition":z.string().describe("A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model)").optional(),"draft":z.object({"enabled":z.boolean().optional(),"rules":z.array(z.union([z.object({"description":z.string().optional(),"condition":z.string().describe("Applied to everyone by default.").optional(),"id":z.string().optional(),"enabled":z.boolean().describe("Enabled by default").optional(),"type":z.enum(["force"]),"value":z.string()}),z.object({"description":z.string().optional(),"condition":z.string().describe("Applied to everyone by default.").optional(),"id":z.string().optional(),"enabled":z.boolean().describe("Enabled by default").optional(),"type":z.enum(["rollout"]),"value":z.string(),"coverage":z.number().describe("Percent of traffic included in this experiment. Users not included in the experiment will skip this rule."),"hashAttribute":z.string()}),z.object({"description":z.string().optional(),"id":z.string().optional(),"enabled":z.boolean().describe("Enabled by default").optional(),"type":z.enum(["experiment-ref"]),"condition":z.string().optional(),"variations":z.array(z.object({"value":z.string(),"variationId":z.string()})),"experimentId":z.string()})])),"definition":z.string().describe("A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model)").optional()}).describe("Use to write draft changes without publishing them.").optional()})).describe("A dictionary of environments that are enabled for this feature. Keys supply the names of environments. Environments belong to organization and are not specified will be disabled by default.").optional(),"jsonSchema":z.string().describe("Use JSON schema to validate the payload of a JSON-type feature value (enterprise only).").optional()}).strict(),
+  querySchema: z.never(),
   paramsSchema: z.never(),
 };
 
 export const getFeatureValidator = {
   bodySchema: z.never(),
+  querySchema: z.never(),
+  paramsSchema: z.object({"id":z.string()}).strict(),
+};
+
+export const updateFeatureValidator = {
+  bodySchema: z.object({"description":z.string().describe("Description of the feature").optional(),"archived":z.boolean().optional(),"project":z.string().describe("An associated project ID").optional(),"owner":z.string().optional(),"defaultValue":z.string().optional(),"tags":z.array(z.string()).describe("List of associated tags. Will override tags completely with submitted list").optional(),"environments":z.record(z.object({"enabled":z.boolean(),"rules":z.array(z.union([z.object({"description":z.string().optional(),"condition":z.string().describe("Applied to everyone by default.").optional(),"id":z.string().optional(),"enabled":z.boolean().describe("Enabled by default").optional(),"type":z.enum(["force"]),"value":z.string()}),z.object({"description":z.string().optional(),"condition":z.string().describe("Applied to everyone by default.").optional(),"id":z.string().optional(),"enabled":z.boolean().describe("Enabled by default").optional(),"type":z.enum(["rollout"]),"value":z.string(),"coverage":z.number().describe("Percent of traffic included in this experiment. Users not included in the experiment will skip this rule."),"hashAttribute":z.string()}),z.object({"description":z.string().optional(),"id":z.string().optional(),"enabled":z.boolean().describe("Enabled by default").optional(),"type":z.enum(["experiment-ref"]),"condition":z.string().optional(),"variations":z.array(z.object({"value":z.string(),"variationId":z.string()})),"experimentId":z.string()})])),"definition":z.string().describe("A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model)").optional(),"draft":z.object({"enabled":z.boolean().optional(),"rules":z.array(z.union([z.object({"description":z.string().optional(),"condition":z.string().describe("Applied to everyone by default.").optional(),"id":z.string().optional(),"enabled":z.boolean().describe("Enabled by default").optional(),"type":z.enum(["force"]),"value":z.string()}),z.object({"description":z.string().optional(),"condition":z.string().describe("Applied to everyone by default.").optional(),"id":z.string().optional(),"enabled":z.boolean().describe("Enabled by default").optional(),"type":z.enum(["rollout"]),"value":z.string(),"coverage":z.number().describe("Percent of traffic included in this experiment. Users not included in the experiment will skip this rule."),"hashAttribute":z.string()}),z.object({"description":z.string().optional(),"id":z.string().optional(),"enabled":z.boolean().describe("Enabled by default").optional(),"type":z.enum(["experiment-ref"]),"condition":z.string().optional(),"variations":z.array(z.object({"value":z.string(),"variationId":z.string()})),"experimentId":z.string()})])),"definition":z.string().describe("A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model)").optional()}).describe("Use to write draft changes without publishing them.").optional()})).optional(),"jsonSchema":z.string().describe("Use JSON schema to validate the payload of a JSON-type feature value (enterprise only).").optional()}).strict(),
   querySchema: z.never(),
   paramsSchema: z.object({"id":z.string()}).strict(),
 };
@@ -26,7 +38,7 @@ export const toggleFeatureValidator = {
 
 export const listProjectsValidator = {
   bodySchema: z.never(),
-  querySchema: z.object({"limit":z.coerce.number().int().default(10),"offset":z.coerce.number().int().optional()}).strict(),
+  querySchema: z.object({"limit":z.coerce.number().int().default(10),"offset":z.coerce.number().int().default(0)}).strict(),
   paramsSchema: z.never(),
 };
 
@@ -38,7 +50,7 @@ export const getProjectValidator = {
 
 export const listDimensionsValidator = {
   bodySchema: z.never(),
-  querySchema: z.object({"limit":z.coerce.number().int().default(10),"offset":z.coerce.number().int().optional(),"datasourceId":z.string().optional()}).strict(),
+  querySchema: z.object({"limit":z.coerce.number().int().default(10),"offset":z.coerce.number().int().default(0),"datasourceId":z.string().optional()}).strict(),
   paramsSchema: z.never(),
 };
 
@@ -50,7 +62,7 @@ export const getDimensionValidator = {
 
 export const listSegmentsValidator = {
   bodySchema: z.never(),
-  querySchema: z.object({"limit":z.coerce.number().int().default(10),"offset":z.coerce.number().int().optional(),"datasourceId":z.string().optional()}).strict(),
+  querySchema: z.object({"limit":z.coerce.number().int().default(10),"offset":z.coerce.number().int().default(0),"datasourceId":z.string().optional()}).strict(),
   paramsSchema: z.never(),
 };
 
@@ -62,7 +74,7 @@ export const getSegmentValidator = {
 
 export const listSdkConnectionsValidator = {
   bodySchema: z.never(),
-  querySchema: z.object({"limit":z.coerce.number().int().default(10),"offset":z.coerce.number().int().optional(),"projectId":z.string().optional(),"withProxy":z.string().optional()}).strict(),
+  querySchema: z.object({"limit":z.coerce.number().int().default(10),"offset":z.coerce.number().int().default(0),"projectId":z.string().optional(),"withProxy":z.string().optional()}).strict(),
   paramsSchema: z.never(),
 };
 
@@ -74,7 +86,7 @@ export const getSdkConnectionValidator = {
 
 export const listDataSourcesValidator = {
   bodySchema: z.never(),
-  querySchema: z.object({"limit":z.coerce.number().int().default(10),"offset":z.coerce.number().int().optional(),"projectId":z.string().optional()}).strict(),
+  querySchema: z.object({"limit":z.coerce.number().int().default(10),"offset":z.coerce.number().int().default(0),"projectId":z.string().optional()}).strict(),
   paramsSchema: z.never(),
 };
 
@@ -86,7 +98,7 @@ export const getDataSourceValidator = {
 
 export const listExperimentsValidator = {
   bodySchema: z.never(),
-  querySchema: z.object({"limit":z.coerce.number().int().default(10),"offset":z.coerce.number().int().optional(),"projectId":z.string().optional(),"datasourceId":z.string().optional(),"experimentId":z.string().optional()}).strict(),
+  querySchema: z.object({"limit":z.coerce.number().int().default(10),"offset":z.coerce.number().int().default(0),"projectId":z.string().optional(),"datasourceId":z.string().optional(),"experimentId":z.string().optional()}).strict(),
   paramsSchema: z.never(),
 };
 
@@ -116,7 +128,7 @@ export const getExperimentResultsValidator = {
 
 export const listMetricsValidator = {
   bodySchema: z.never(),
-  querySchema: z.object({"limit":z.coerce.number().int().default(10),"offset":z.coerce.number().int().optional(),"projectId":z.string().optional(),"datasourceId":z.string().optional()}).strict(),
+  querySchema: z.object({"limit":z.coerce.number().int().default(10),"offset":z.coerce.number().int().default(0),"projectId":z.string().optional(),"datasourceId":z.string().optional()}).strict(),
   paramsSchema: z.never(),
 };
 
@@ -176,7 +188,7 @@ export const putVisualChangeValidator = {
 
 export const listSavedGroupsValidator = {
   bodySchema: z.never(),
-  querySchema: z.object({"limit":z.coerce.number().int().default(10),"offset":z.coerce.number().int().optional()}).strict(),
+  querySchema: z.object({"limit":z.coerce.number().int().default(10),"offset":z.coerce.number().int().default(0)}).strict(),
   paramsSchema: z.never(),
 };
 
@@ -202,4 +214,16 @@ export const deleteSavedGroupValidator = {
   bodySchema: z.never(),
   querySchema: z.never(),
   paramsSchema: z.object({"id":z.string()}).strict(),
+};
+
+export const listOrganizationsValidator = {
+  bodySchema: z.never(),
+  querySchema: z.object({"search":z.string().optional(),"limit":z.coerce.number().int().default(10),"offset":z.coerce.number().int().default(0)}).strict(),
+  paramsSchema: z.never(),
+};
+
+export const postOrganizationValidator = {
+  bodySchema: z.object({"name":z.string().describe("The name of the organization")}).strict(),
+  querySchema: z.never(),
+  paramsSchema: z.never(),
 };

@@ -1,5 +1,6 @@
 import { randomBytes } from "crypto";
 import { freeEmailDomains } from "free-email-domains-typescript";
+import { cloneDeep } from "lodash";
 import {
   createOrganization,
   findAllOrganizations,
@@ -241,6 +242,8 @@ export async function addMemberToOrg({
   environments,
   limitAccessByEnvironment,
   projectRoles,
+  externalId,
+  managedByIdp,
 }: {
   organization: OrganizationInterface;
   userId: string;
@@ -248,6 +251,8 @@ export async function addMemberToOrg({
   limitAccessByEnvironment: boolean;
   environments: string[];
   projectRoles?: ProjectMemberRole[];
+  externalId?: string;
+  managedByIdp?: boolean;
 }) {
   // If member is already in the org, skip
   if (organization.members.find((m) => m.id === userId)) {
@@ -266,6 +271,8 @@ export async function addMemberToOrg({
       environments,
       projectRoles,
       dateCreated: new Date(),
+      externalId,
+      managedByIdp,
     },
   ];
 
@@ -303,6 +310,31 @@ export async function addMemberToTeam({
   member.teams.push(teamId);
 
   await updateOrganization(organization.id, { members: organization.members });
+}
+
+export async function convertMemberToManagedByIdp({
+  organization,
+  userId,
+  externalId,
+}: {
+  organization: OrganizationInterface;
+  userId: string;
+  externalId?: string;
+}) {
+  const newMembers = cloneDeep(organization.members);
+
+  const memberToUpdate = newMembers.find((member) => member.id === userId);
+
+  if (!memberToUpdate) {
+    throw new Error(
+      "Tried to update a member that does not exist in the organization"
+    );
+  }
+
+  memberToUpdate.externalId = externalId;
+  memberToUpdate.managedByIdp = true;
+
+  return await updateOrganization(organization.id, { members: newMembers });
 }
 
 export async function removeMemberFromTeam({
