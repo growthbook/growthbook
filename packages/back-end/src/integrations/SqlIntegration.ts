@@ -920,7 +920,7 @@ export default abstract class SqlIntegration
 
     // Get date range for experiment
     const startDate: Date = settings.startDate;
-    const endDate: Date | null = this.getExperimentEndDate(settings, 0);
+    const endDate: Date = this.getExperimentEndDate(settings, 0);
 
     const timestampColumn = "e.timestamp";
     // BQ datetime cast for SELECT statements (do not use for where)
@@ -1213,10 +1213,25 @@ export default abstract class SqlIntegration
     const initialConversionDelayHours = initialMetric.conversionDelayHours || 0;
 
     const startDate: Date = settings.startDate;
-    const endDate: Date | null = this.getExperimentEndDate(
+    const endDate: Date = this.getExperimentEndDate(
       settings,
       initialConversionWindowHours + initialConversionDelayHours
     );
+
+    const timestampColumn =
+      activationMetric && dimension?.type !== "activation"
+        ? "first_activation_timestamp"
+        : "first_exposure_timestamp";
+
+    const distinctUsersWhere: string[] = [];
+    if (activationMetric && dimension?.type !== "activation") {
+      distinctUsersWhere.push("first_activation_timestamp IS NOT NULL");
+    }
+    if (settings.skipPartialData) {
+      distinctUsersWhere.push(
+        `${timestampColumn} <= ${this.toTimestamp(endDate)}`
+      );
+    }
 
     return format(
       `-- ${metric.name} (${
@@ -1237,11 +1252,7 @@ export default abstract class SqlIntegration
           ${baseIdType},
           dimension,
           variation,
-          ${
-            activationMetric && dimension?.type !== "activation"
-              ? "first_activation_timestamp"
-              : "first_exposure_timestamp"
-          } AS timestamp,
+          ${timestampColumn} AS timestamp,
           ${this.dateTrunc("first_exposure_timestamp")} AS first_exposure_date
           ${
             isRegressionAdjusted
@@ -1261,8 +1272,8 @@ export default abstract class SqlIntegration
             : "__experimentUnits"
         }
         ${
-          activationMetric && dimension?.type !== "activation"
-            ? "WHERE first_activation_timestamp IS NOT NULL"
+          distinctUsersWhere.length
+            ? `WHERE ${distinctUsersWhere.join(" AND ")}`
             : ""
         }
       )
@@ -2101,7 +2112,7 @@ AND event_name = '${eventName}'`,
   private getExperimentEndDate(
     settings: ExperimentSnapshotSettings,
     conversionWindowHours: number
-  ): Date | null {
+  ): Date {
     // If we need to wait until users have had a chance to fully convert
     if (settings.skipPartialData) {
       // The last date allowed to give enough time for users to convert

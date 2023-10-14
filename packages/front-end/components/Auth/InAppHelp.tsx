@@ -106,8 +106,7 @@ export default function InAppHelp() {
                   className="btn btn-premium font-weight-normal my-2 w-100"
                   onClick={() => setUpgradeModal(true)}
                 >
-                  Start {isCloud() ? "Free" : "Enterprise"} Trial{" "}
-                  <GBPremiumBadge />
+                  Start Free Trial <GBPremiumBadge />
                 </button>
               </div>
             )}
