@@ -55,7 +55,11 @@ import {
   Operator,
 } from "../../types/metric";
 import { SegmentInterface } from "../../types/segment";
-import { ExperimentInterface, MetricOverride } from "../../types/experiment";
+import {
+  ExperimentInterface,
+  ExperimentPhase,
+  MetricOverride,
+} from "../../types/experiment";
 import { promiseAllChunks } from "../util/promise";
 import { findDimensionById } from "../models/DimensionModel";
 import { findSegmentById } from "../models/SegmentModel";
@@ -1510,7 +1514,7 @@ export function postExperimentApiPayloadToInterface(
   organization: OrganizationInterface,
   datasource: DataSourceInterface
 ): Omit<ExperimentInterface, "dateCreated" | "dateUpdated" | "id"> {
-  const phases = payload.phases?.map((p) => ({
+  const phases: ExperimentPhase[] = payload.phases?.map((p) => ({
     ...p,
     dateStarted: new Date(p.dateStarted),
     dateEnded: p.dateEnded ? new Date(p.dateEnded) : undefined,
