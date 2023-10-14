@@ -154,7 +154,8 @@ export class GrowthBook<
     }
   }
 
-  public async init(timeoutMS?: number): Promise<void> {
+  public async init(options?: { timeoutMS?: number }): Promise<void> {
+    const timeoutMS = options && options.timeoutMS;
     const refreshGroupsPromise = promiseTimeout(
       this._refreshGroups(true),
       timeoutMS
