@@ -602,7 +602,7 @@ describe("features", () => {
 
       expect(gb.getFeatureValue("feature", null)).toBe(false);
 
-      await gb.init(100);
+      await gb.init({ timeoutMS: 100 });
 
       expect(gb.getFeatureValue("feature", null)).toBe(false);
 
