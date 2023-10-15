@@ -21,14 +21,12 @@ const getSavedGroupMessage = (
   featuresUsingSavedGroups: Set<string> | undefined
 ) => {
   return async () => {
-    // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-    if (featuresUsingSavedGroups?.size > 0) {
+    if (featuresUsingSavedGroups && featuresUsingSavedGroups?.size > 0) {
       return (
         <div>
           <p className="alert alert-danger">
             <strong>Whoops!</strong> Before you can delete this saved group, you
             will need to update the feature
-            {/* @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'. */}
             {featuresUsingSavedGroups.size > 1 && "s"} listed below by removing
             any targeting conditions that rely on this saved group.
           </p>
@@ -36,7 +34,6 @@ const getSavedGroupMessage = (
             className="border rounded bg-light pt-3 pb-3 overflow-auto"
             style={{ maxHeight: "200px" }}
           >
-            {/* @ts-expect-error TS(2488) If you come across this, please fix it!: Type 'Set<string> | undefined' must have a '[Symbo... Remove this comment to see the full error message */}
             {[...featuresUsingSavedGroups].map((feature) => {
               return (
                 <li key={feature}>
@@ -68,6 +65,7 @@ export default function SavedGroupsPage() {
   const { features } = useFeaturesList();
 
   // Get a list of feature ids for every saved group
+  // TODO: also get experiments
   const savedGroupFeatureIds = useMemo(() => {
     const map: Record<string, Set<string>> = {};
     features.forEach((feature) => {
@@ -75,7 +73,10 @@ export default function SavedGroupsPage() {
         if (feature.environmentSettings[env]?.rules) {
           feature.environmentSettings[env].rules.forEach((rule) => {
             savedGroups.forEach((group) => {
-              if (rule.condition?.includes(group.id)) {
+              if (
+                rule.condition?.includes(group.id) ||
+                rule.savedGroups?.some((g) => g.ids.includes(group.id))
+              ) {
                 map[group.id] = map[group.id] || new Set();
                 map[group.id].add(feature.id);
               }

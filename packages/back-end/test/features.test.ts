@@ -60,6 +60,15 @@ describe("getParsedCondition", () => {
     });
 
     expect(
+      getParsedCondition(groupMap, "", [
+        { match: "any", ids: ["b"] },
+        { match: "all", ids: ["g"] },
+      ])
+    ).toEqual({
+      id_b: { $in: ["2"] },
+    });
+
+    expect(
       getParsedCondition(groupMap, JSON.stringify({ country: "US" }), [
         {
           match: "all",
