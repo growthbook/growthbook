@@ -3,7 +3,10 @@ import { isEqual } from "lodash";
 import { AuthRequest } from "../../types/AuthRequest";
 import { ApiErrorResponse } from "../../../types/api";
 import { getOrgFromReq } from "../../services/organizations";
-import { SavedGroupInterface } from "../../../types/saved-group";
+import {
+  SavedGroupInterface,
+  SavedGroupSource,
+} from "../../../types/saved-group";
 import {
   createSavedGroup,
   deleteSavedGroupById,
@@ -24,6 +27,7 @@ type CreateSavedGroupRequest = AuthRequest<{
   owner: string;
   attributeKey: string;
   groupList: string[];
+  source: SavedGroupSource;
 }>;
 
 type CreateSavedGroupResponse = {
@@ -42,12 +46,13 @@ export const postSavedGroup = async (
   res: Response<CreateSavedGroupResponse>
 ) => {
   const { org } = getOrgFromReq(req);
-  const { groupName, owner, attributeKey, groupList } = req.body;
+  const { groupName, owner, attributeKey, groupList, source } = req.body;
 
   req.checkPermissions("manageSavedGroups");
 
   const savedGroup = await createSavedGroup({
     values: groupList,
+    source: source || "inline",
     groupName,
     owner,
     attributeKey,

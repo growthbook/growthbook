@@ -193,7 +193,7 @@ export const listSavedGroupsValidator = {
 };
 
 export const postSavedGroupValidator = {
-  bodySchema: z.object({"name":z.string().describe("The display name of the Saved Group"),"values":z.array(z.string()).describe("An array of values to target (Ex: a list of userIds)."),"attributeKey":z.string().describe("The parameter you want to target users with. Ex: userId, orgId, ..."),"owner":z.string().describe("The person or team that owns this Saved Group. If no owner, you can pass an empty string.").optional()}).strict(),
+  bodySchema: z.object({"name":z.string().describe("The display name of the Saved Group"),"source":z.enum(["inline","runtime"]).optional(),"values":z.array(z.string()).describe("An array of values to target (Ex: a list of userIds). Not applicable for runtime groups").optional(),"attributeKey":z.string().describe("For inline groups, the name of the attribute the values belong to (e.g. `user_id`). For runtime groups, the group name you reference in your code"),"owner":z.string().describe("The person or team that owns this Saved Group. If no owner, you can pass an empty string.").optional()}).strict(),
   querySchema: z.never(),
   paramsSchema: z.never(),
 };

@@ -1034,6 +1034,8 @@ export interface components {
       /** Format: date-time */
       dateUpdated: string;
       name: string;
+      /** @enum {string} */
+      source: "inline" | "runtime";
       owner?: string;
       attributeKey: string;
       values: (string)[];
@@ -3957,7 +3959,7 @@ export interface operations {
     responses: {
       200: {
         content: {
-          "application/json": {
+          "application/json": ({
             savedGroups: ({
                 id: string;
                 /** Format: date-time */
@@ -3965,11 +3967,13 @@ export interface operations {
                 /** Format: date-time */
                 dateUpdated: string;
                 name: string;
+                /** @enum {string} */
+                source: "inline" | "runtime";
                 owner?: string;
                 attributeKey: string;
                 values: (string)[];
               })[];
-          } & {
+          }) & {
             limit: number;
             offset: number;
             count: number;
@@ -3988,9 +3992,11 @@ export interface operations {
         "application/json": {
           /** @description The display name of the Saved Group */
           name: string;
-          /** @description An array of values to target (Ex: a list of userIds). */
-          values: (string)[];
-          /** @description The parameter you want to target users with. Ex: userId, orgId, ... */
+          /** @enum {string} */
+          source?: "inline" | "runtime";
+          /** @description An array of values to target (Ex: a list of userIds). Not applicable for runtime groups */
+          values?: (string)[];
+          /** @description For inline groups, the name of the attribute the values belong to (e.g. `user_id`). For runtime groups, the group name you reference in your code */
           attributeKey: string;
           /** @description The person or team that owns this Saved Group. If no owner, you can pass an empty string. */
           owner?: string;
@@ -4008,6 +4014,8 @@ export interface operations {
               /** Format: date-time */
               dateUpdated: string;
               name: string;
+              /** @enum {string} */
+              source: "inline" | "runtime";
               owner?: string;
               attributeKey: string;
               values: (string)[];
@@ -4036,6 +4044,8 @@ export interface operations {
               /** Format: date-time */
               dateUpdated: string;
               name: string;
+              /** @enum {string} */
+              source: "inline" | "runtime";
               owner?: string;
               attributeKey: string;
               values: (string)[];
@@ -4076,6 +4086,8 @@ export interface operations {
               /** Format: date-time */
               dateUpdated: string;
               name: string;
+              /** @enum {string} */
+              source: "inline" | "runtime";
               owner?: string;
               attributeKey: string;
               values: (string)[];

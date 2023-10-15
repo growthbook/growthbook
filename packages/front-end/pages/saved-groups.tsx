@@ -2,6 +2,7 @@ import { SavedGroupInterface } from "back-end/types/saved-group";
 import React, { useMemo, useState } from "react";
 import Link from "next/link";
 import { ago } from "shared/dates";
+import Tooltip from "@/components/Tooltip/Tooltip";
 import Button from "../components/Button";
 import SavedGroupForm from "../components/SavedGroupForm";
 import { GBAddCircle } from "../components/Icons";
@@ -21,14 +22,12 @@ const getSavedGroupMessage = (
   featuresUsingSavedGroups: Set<string> | undefined
 ) => {
   return async () => {
-    // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-    if (featuresUsingSavedGroups?.size > 0) {
+    if (featuresUsingSavedGroups && featuresUsingSavedGroups?.size > 0) {
       return (
         <div>
           <p className="alert alert-danger">
             <strong>Whoops!</strong> Before you can delete this saved group, you
             will need to update the feature
-            {/* @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'. */}
             {featuresUsingSavedGroups.size > 1 && "s"} listed below by removing
             any targeting conditions that rely on this saved group.
           </p>
@@ -36,7 +35,6 @@ const getSavedGroupMessage = (
             className="border rounded bg-light pt-3 pb-3 overflow-auto"
             style={{ maxHeight: "200px" }}
           >
-            {/* @ts-expect-error TS(2488) If you come across this, please fix it!: Type 'Set<string> | undefined' must have a '[Symbo... Remove this comment to see the full error message */}
             {[...featuresUsingSavedGroups].map((feature) => {
               return (
                 <li key={feature}>
@@ -68,6 +66,7 @@ export default function SavedGroupsPage() {
   const { features } = useFeaturesList();
 
   // Get a list of feature ids for every saved group
+  // TODO: also get experiments
   const savedGroupFeatureIds = useMemo(() => {
     const map: Record<string, Set<string>> = {};
     features.forEach((feature) => {
@@ -75,7 +74,10 @@ export default function SavedGroupsPage() {
         if (feature.environmentSettings[env]?.rules) {
           feature.environmentSettings[env].rules.forEach((rule) => {
             savedGroups.forEach((group) => {
-              if (rule.condition?.includes(group.id)) {
+              if (
+                rule.condition?.includes(group.id) ||
+                rule.savedGroups?.some((g) => g.ids.includes(group.id))
+              ) {
                 map[group.id] = map[group.id] || new Set();
                 map[group.id].add(feature.id);
               }
@@ -166,11 +168,28 @@ export default function SavedGroupsPage() {
                 <thead>
                   <tr>
                     <SortableTH field={"groupName"}>Name</SortableTH>
+                    <SortableTH field="source">
+                      Source{" "}
+                      <Tooltip
+                        body={
+                          <>
+                            <p>
+                              <strong>Inline:</strong> attribute values are
+                              defined as a comma-separated list directly within
+                              the GrowthBook UI
+                            </p>
+                            <p>
+                              <strong>Runtime:</strong> your application
+                              determines group membership and passes it into the
+                              GrowthBook SDK at runtime
+                            </p>
+                          </>
+                        }
+                      />
+                    </SortableTH>
                     <SortableTH field={"owner"}>Owner</SortableTH>
-                    <SortableTH field={"attributeKey"}>Attribute</SortableTH>
-                    <th className="d-none d-lg-table-cell">
-                      Comma Separated List
-                    </th>
+                    <SortableTH field={"attributeKey"}>Key</SortableTH>
+                    <th className="d-none d-lg-table-cell">Values</th>
                     <SortableTH field={"dateUpdated"}>Date Updated</SortableTH>
                     {permissions.manageSavedGroups && <th></th>}
                   </tr>
@@ -180,6 +199,7 @@ export default function SavedGroupsPage() {
                     return (
                       <tr key={s.id}>
                         <td>{s.groupName}</td>
+                        <td>{s.source}</td>
                         <td>{s.owner}</td>
                         <td>{s.attributeKey}</td>
                         <td
@@ -249,9 +269,14 @@ export default function SavedGroupsPage() {
       {savedGroups.length === 0 && (
         <>
           <p className="mb-3">
-            Saved Groups are defined sets of attribute values which can be used
-            with feature rules for targeting features at particular users. For
-            example, you might create a list of internal users.
+            Saved Groups let you define a group of your users once and reference
+            it when targeting feature flag rules or experiments.
+          </p>
+          <p>
+            For example, you might create a saved group of your Beta Users and
+            target those users across many different features. If you add a new
+            user to the group later, all of the existing features that reference
+            it will automatically be updated.
           </p>
           <div className="alert alert-info mb-2">
             You don&apos;t have any saved groups defined yet.{" "}

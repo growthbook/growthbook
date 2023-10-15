@@ -14,5 +14,5 @@ export interface SavedGroupInterface {
 
 export type GroupMap = Map<
   string,
-  { values: string[] | number[]; attribute: string }
+  { values: string[] | number[]; key: string; source: SavedGroupSource }
 >;

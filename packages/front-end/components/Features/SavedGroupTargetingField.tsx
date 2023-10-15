@@ -16,7 +16,9 @@ export default function SavedGroupTargetingField({ value, setValue }: Props) {
 
   const options = savedGroups.map((s) => ({
     value: s.id,
-    label: `${s.groupName} (${s.values.length})`,
+    label: `${s.groupName} (${
+      s.source === "runtime" ? "dynamic" : s.values.length
+    })`,
   }));
 
   const conflicts = getSavedGroupTargetingConflicts(value);
