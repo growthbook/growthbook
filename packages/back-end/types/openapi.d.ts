@@ -4072,6 +4072,8 @@ export interface operations {
           values?: (string)[];
           /** @description The person or team that owns this Saved Group. If no owner, you can pass an empty string. */
           owner?: string;
+          /** @description (Runtime groups only) The key used to reference the Saved Group in the SDK */
+          attributeKey?: string;
         };
       };
     };

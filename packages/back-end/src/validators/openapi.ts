@@ -205,7 +205,7 @@ export const getSavedGroupValidator = {
 };
 
 export const updateSavedGroupValidator = {
-  bodySchema: z.object({"name":z.string().describe("The display name of the Saved Group").optional(),"values":z.array(z.string()).describe("An array of values to target (Ex: a list of userIds).").optional(),"owner":z.string().describe("The person or team that owns this Saved Group. If no owner, you can pass an empty string.").optional()}).strict(),
+  bodySchema: z.object({"name":z.string().describe("The display name of the Saved Group").optional(),"values":z.array(z.string()).describe("An array of values to target (Ex: a list of userIds).").optional(),"owner":z.string().describe("The person or team that owns this Saved Group. If no owner, you can pass an empty string.").optional(),"attributeKey":z.string().describe("(Runtime groups only) The key used to reference the Saved Group in the SDK").optional()}).strict(),
   querySchema: z.never(),
   paramsSchema: z.object({"id":z.string()}).strict(),
 };

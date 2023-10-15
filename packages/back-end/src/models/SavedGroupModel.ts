@@ -35,14 +35,11 @@ type CreateSavedGroupProps = Omit<
   "dateCreated" | "dateUpdated" | "id"
 >;
 
-type UpdateSavedGroupProps = Omit<
-  SavedGroupInterface,
-  | "dateCreated"
-  | "dateUpdated"
-  | "id"
-  | "organization"
-  | "attributeKey"
-  | "source"
+export type UpdateSavedGroupProps = Partial<
+  Omit<
+    SavedGroupInterface,
+    "dateCreated" | "dateUpdated" | "id" | "organization" | "source"
+  >
 >;
 
 const toInterface = (doc: SavedGroupDocument): SavedGroupInterface => {
@@ -93,6 +90,19 @@ export async function getSavedGroupById(
 ): Promise<SavedGroupInterface | null> {
   const savedGroup = await SavedGroupModel.findOne({
     id: savedGroupId,
+    organization: organization,
+  });
+
+  return savedGroup ? toInterface(savedGroup) : null;
+}
+
+export async function getRuntimeSavedGroup(
+  key: string,
+  organization: string
+): Promise<SavedGroupInterface | null> {
+  const savedGroup = await SavedGroupModel.findOne({
+    attributeKey: key,
+    source: "runtime",
     organization: organization,
   });
 

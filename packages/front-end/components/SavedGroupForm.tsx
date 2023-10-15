@@ -38,7 +38,7 @@ const SavedGroupForm: FC<{
       attributeKey: current.attributeKey || "",
       groupList: current.values || [],
       id: current.id || "",
-      source: "inline",
+      source: current.source || "inline",
     },
   });
 

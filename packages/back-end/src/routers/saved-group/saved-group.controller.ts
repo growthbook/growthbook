@@ -8,8 +8,10 @@ import {
   SavedGroupSource,
 } from "../../../types/saved-group";
 import {
+  UpdateSavedGroupProps,
   createSavedGroup,
   deleteSavedGroupById,
+  getRuntimeSavedGroup,
   getSavedGroupById,
   updateSavedGroupById,
 } from "../../models/SavedGroupModel";
@@ -49,6 +51,14 @@ export const postSavedGroup = async (
   const { groupName, owner, attributeKey, groupList, source } = req.body;
 
   req.checkPermissions("manageSavedGroups");
+
+  // If this is a runtime saved group, make sure the attributeKey is unique
+  if (source === "runtime") {
+    const existing = await getRuntimeSavedGroup(attributeKey, org.id);
+    if (existing) {
+      throw new Error("A runtime saved group with that key already exists");
+    }
+  }
 
   const savedGroup = await createSavedGroup({
     values: groupList,
@@ -104,7 +114,7 @@ export const putSavedGroup = async (
   res: Response<PutSavedGroupResponse | ApiErrorResponse>
 ) => {
   const { org } = getOrgFromReq(req);
-  const { groupName, owner, groupList } = req.body;
+  const { groupName, owner, groupList, attributeKey } = req.body;
   const { id } = req.params;
 
   if (!id) {
@@ -119,11 +129,25 @@ export const putSavedGroup = async (
     throw new Error("Could not find saved group");
   }
 
-  const changes = await updateSavedGroupById(id, org.id, {
+  const fieldsToUpdate: UpdateSavedGroupProps = {
     values: groupList,
     groupName,
     owner,
-  });
+  };
+
+  if (
+    savedGroup.source === "runtime" &&
+    attributeKey !== savedGroup.attributeKey
+  ) {
+    const existing = await getRuntimeSavedGroup(attributeKey, org.id);
+    if (existing) {
+      throw new Error("A runtime saved group with that key already exists");
+    }
+
+    fieldsToUpdate.attributeKey = attributeKey;
+  }
+
+  const changes = await updateSavedGroupById(id, org.id, fieldsToUpdate);
 
   const updatedSavedGroup = { ...savedGroup, ...changes };
 

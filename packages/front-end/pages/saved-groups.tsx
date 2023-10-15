@@ -3,6 +3,8 @@ import React, { useMemo, useState } from "react";
 import Link from "next/link";
 import { ago } from "shared/dates";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
+import ClickToCopy from "@/components/Settings/ClickToCopy";
 import Button from "../components/Button";
 import SavedGroupForm from "../components/SavedGroupForm";
 import { GBAddCircle } from "../components/Icons";
@@ -174,22 +176,21 @@ export default function SavedGroupsPage() {
                         body={
                           <>
                             <p>
-                              <strong>Inline:</strong> attribute values are
+                              <strong>Inline:</strong> Attribute values are
                               defined as a comma-separated list directly within
                               the GrowthBook UI
                             </p>
-                            <p>
-                              <strong>Runtime:</strong> your application
+                            <p className="mb-0">
+                              <strong>Runtime:</strong> Your application
                               determines group membership and passes it into the
-                              GrowthBook SDK at runtime
+                              GrowthBook SDK at runtime using a unique key.
                             </p>
                           </>
                         }
                       />
                     </SortableTH>
+                    <th>Targeting</th>
                     <SortableTH field={"owner"}>Owner</SortableTH>
-                    <SortableTH field={"attributeKey"}>Key</SortableTH>
-                    <th className="d-none d-lg-table-cell">Values</th>
                     <SortableTH field={"dateUpdated"}>Date Updated</SortableTH>
                     {permissions.manageSavedGroups && <th></th>}
                   </tr>
@@ -200,14 +201,36 @@ export default function SavedGroupsPage() {
                       <tr key={s.id}>
                         <td>{s.groupName}</td>
                         <td>{s.source}</td>
-                        <td>{s.owner}</td>
-                        <td>{s.attributeKey}</td>
-                        <td
-                          className="d-none d-md-table-cell text-truncate"
-                          style={{ maxWidth: "100px" }}
-                        >
-                          {s.values.join(", ")}
+                        <td>
+                          {s.source === "runtime" ? (
+                            <div className="d-flex">
+                              <strong className="mr-2">Key:</strong>
+                              <ClickToCopy compact>
+                                {s.attributeKey}
+                              </ClickToCopy>
+                            </div>
+                          ) : (
+                            <div>
+                              <div>
+                                <strong>Attribute:</strong> {s.attributeKey}
+                              </div>
+                              <div>
+                                <strong>Values</strong>{" "}
+                                <OverflowText maxWidth={150}>
+                                  {s.values.map((v) => (
+                                    <span
+                                      className="badge badge-secondary mr-1"
+                                      key={v}
+                                    >
+                                      {v}
+                                    </span>
+                                  ))}
+                                </OverflowText>
+                              </div>
+                            </div>
+                          )}
                         </td>
+                        <td>{s.owner}</td>
                         <td>{ago(s.dateUpdated)}</td>
                         {permissions.manageSavedGroups && (
                           <td style={{ width: 30 }}>
