@@ -12,4 +12,7 @@ export interface SavedGroupInterface {
   dateCreated: Date;
 }
 
-export type GroupMap = Map<string, string[] | number[]>;
+export type GroupMap = Map<
+  string,
+  { values: string[] | number[]; attribute: string }
+>;
