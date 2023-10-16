@@ -92,6 +92,10 @@ export async function processJWT(
       return false;
     }
 
+    if (req.superAdmin) {
+      return true;
+    }
+
     // Generate full list of permissions for the user
     const userPermissions = getUserPermissions(req.userId, req.organization);
 
