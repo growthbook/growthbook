@@ -5,7 +5,6 @@ import {
   Helpers,
   Polyfills,
 } from "./types/growthbook";
-import { promiseTimeout } from "./util";
 import type { GrowthBook } from ".";
 
 type CacheEntry = {
@@ -179,14 +178,7 @@ function getCacheKey(instance: GrowthBook): string {
   const baseKey = getKey(instance);
   if (!instance.isRemoteEval()) return baseKey;
 
-  const attributes = {
-    ...instance.getAttributes(),
-  };
-  const groups = instance.getGroups();
-  if (groups.length > 0) {
-    attributes.__groups__ = groups;
-  }
-
+  const attributes = instance.getAttributes();
   const cacheKeyAttributes =
     instance.getCacheKeyAttributes() || Object.keys(instance.getAttributes());
   const ca: Attributes = {};
@@ -202,6 +194,31 @@ function getCacheKey(instance: GrowthBook): string {
     fv,
     url,
   })}`;
+}
+
+// Guarantee the promise always resolves within {timeout} ms
+// Resolved value will be `null` when there's an error or it takes too long
+// Note: The promise will continue running in the background, even if the timeout is hit
+function promiseTimeout<T>(
+  promise: Promise<T>,
+  timeout?: number
+): Promise<T | null> {
+  return new Promise((resolve) => {
+    let resolved = false;
+    let timer: unknown;
+    const finish = (data?: T) => {
+      if (resolved) return;
+      resolved = true;
+      timer && clearTimeout(timer as NodeJS.Timer);
+      resolve(data || null);
+    };
+
+    if (timeout) {
+      timer = setTimeout(() => finish(), timeout);
+    }
+
+    promise.then((data) => finish(data)).catch(() => finish());
+  });
 }
 
 // Populate cache from localStorage (if available)

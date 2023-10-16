@@ -151,7 +151,6 @@ export interface Context {
   qaMode?: boolean;
   backgroundSync?: boolean;
   subscribeToChanges?: boolean;
-  getGroups?: (attributes: Attributes) => Promise<string[]> | string[];
   enableDevMode?: boolean;
   /* @deprecated */
   disableDevTools?: boolean;
@@ -168,6 +167,8 @@ export interface Context {
   };
   /* @deprecated */
   overrides?: Record<string, ExperimentOverride>;
+  /* @deprecated */
+  groups?: Record<string, boolean>;
   apiHost?: string;
   streamingHost?: string;
   apiHostRequestHeaders?: Record<string, string>;

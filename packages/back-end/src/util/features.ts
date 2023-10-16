@@ -22,7 +22,7 @@ function getSavedGroupCondition(
 ): Record<string, unknown> {
   if (group.source === "runtime") {
     const cond = {
-      __groups__: {
+      $groups: {
         $elemMatch: { $eq: group.key },
       },
     };

@@ -1,25 +1,24 @@
 import { FC, useState } from "react";
-import {
-  SavedGroupInterface,
-  SavedGroupSource,
-} from "back-end/types/saved-group";
+import { SavedGroupInterface } from "back-end/types/saved-group";
 import { useForm } from "react-hook-form";
-import { useAuth } from "../services/auth";
-import useMembers from "../hooks/useMembers";
-import { useAttributeSchema } from "../services/features";
-import { useDefinitions } from "../services/DefinitionsContext";
-import Modal from "./Modal";
-import Field from "./Forms/Field";
-import SelectField from "./Forms/SelectField";
-import StringArrayField from "./Forms/StringArrayField";
-import ButtonSelectField from "./Forms/ButtonSelectField";
-import Tooltip from "./Tooltip/Tooltip";
-import Code from "./SyntaxHighlighting/Code";
+import { useAuth } from "../../services/auth";
+import useMembers from "../../hooks/useMembers";
+import { useAttributeSchema } from "../../services/features";
+import { useDefinitions } from "../../services/DefinitionsContext";
+import Modal from "../Modal";
+import Field from "../Forms/Field";
+import SelectField from "../Forms/SelectField";
+import StringArrayField from "../Forms/StringArrayField";
+
+function getKeyFromName(name: string) {
+  return name.toLowerCase().split(/\s+/g).join("_").replace(/__*/g, "_");
+}
 
 const SavedGroupForm: FC<{
   close: () => void;
   current: Partial<SavedGroupInterface>;
-}> = ({ close, current }) => {
+  runtime: boolean;
+}> = ({ close, current, runtime }) => {
   const { apiCall } = useAuth();
   const { memberUsernameOptions } = useMembers();
 
@@ -29,7 +28,6 @@ const SavedGroupForm: FC<{
 
   const [rawTextMode, setRawTextMode] = useState(false);
   const [rawText, setRawText] = useState(current.values?.join(", ") || "");
-  const [exampleOpen, setExampleOpen] = useState(false);
 
   const form = useForm({
     defaultValues: {
@@ -38,7 +36,7 @@ const SavedGroupForm: FC<{
       attributeKey: current.attributeKey || "",
       groupList: current.values || [],
       id: current.id || "",
-      source: current.source || "inline",
+      source: runtime ? "runtime" : "inline",
     },
   });
 
@@ -47,10 +45,17 @@ const SavedGroupForm: FC<{
       close={close}
       open={true}
       size="lg"
-      header={current.id ? "Edit Group" : "New Group"}
+      header={`${current.id ? "Edit" : "New"} ${
+        runtime ? "Runtime Group" : "Inline Group"
+      }`}
       submit={form.handleSubmit(async (value) => {
-        if (value.source === "runtime") {
+        if (runtime) {
+          value.source = "runtime";
           value.groupList = [];
+
+          if (!value.attributeKey) {
+            value.attributeKey = getKeyFromName(value.groupName);
+          }
         }
 
         await apiCall(
@@ -81,83 +86,13 @@ const SavedGroupForm: FC<{
           }))}
         />
       )}
-      {!current.id && (
-        <ButtonSelectField
-          value={form.watch("source")}
-          setValue={(value) => {
-            form.setValue("source", value as SavedGroupSource);
-            form.setValue(
-              "attributeKey",
-              value === "runtime" ? form.watch("groupName") : ""
-            );
-          }}
-          options={[
-            { label: "Inline", value: "inline" },
-            { label: "At Runtime", value: "runtime" },
-          ]}
-          label={
-            <>
-              How do you want to define the users in your group?{" "}
-              <Tooltip
-                body={
-                  <>
-                    <p>
-                      <strong>Inline</strong>: Pick a targeting attribute and
-                      enter a list of values directly in the GrowthBook UI
-                    </p>
-                    <p>
-                      <strong>At Runtime</strong>: Your application determines
-                      group membership at runtime and passes the result into the
-                      GrowthBook SDK
-                    </p>
-                  </>
-                }
-              />
-            </>
-          }
+      {runtime ? (
+        <Field
+          {...form.register("attributeKey")}
+          label="Group Identifier"
+          placeholder={getKeyFromName(form.watch("groupName"))}
+          helpText="This is the unique group identifier you will reference in your code."
         />
-      )}
-      {form.watch("source") === "runtime" ? (
-        <>
-          <Field
-            {...form.register("attributeKey")}
-            label="Group Key"
-            helpText="This is the unique group identifier you will use in your code. It cannot be changed later."
-          />
-          <div className="alert alert-info">
-            <strong>Note:</strong> Using a Runtime Group requires making changes
-            to your GrowthBook SDK implementation.{" "}
-            <a
-              href="#"
-              onClick={(e) => {
-                e.preventDefault();
-                setExampleOpen(!exampleOpen);
-              }}
-            >
-              {exampleOpen ? "hide" : "show"} example
-            </a>
-            {exampleOpen && (
-              <Code
-                language="javascript"
-                code={`
-function getGroups(attributes) {
-  const groups = [];
-  // TODO: actual logic for determining if user is in this group
-  if (true) {
-    groups.push(${JSON.stringify(form.watch("attributeKey"))});
-  }
-  return groups;
-}
-
-const growthbook = new GrowthBook({
-  ... // other settings
-  getGroups: getGroups
-})
-            `.trim()}
-              />
-            )}
-          </div>
-        </>
       ) : (
         <>
           <SelectField
@@ -214,10 +149,10 @@ const growthbook = new GrowthBook({
           </a>
         </>
       )}
-      {current.id && current.source !== "runtime" && (
+      {current.id && (
         <div className="alert alert-warning mt-2">
           <b>Warning:</b> Updating this group will automatically update any
-          feature that has an override rule that uses this group.
+          feature or experiment that references it.
         </div>
       )}
     </Modal>

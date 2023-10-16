@@ -304,28 +304,3 @@ export function paddedVersionString(input: string): string {
     .map((v) => (v.match(/^[0-9]+$/) ? v.padStart(5, " ") : v))
     .join("-");
 }
-
-// Guarantee the promise always resolves within {timeout} ms
-// Resolved value will be `null` when there's an error or it takes too long
-// Note: The promise will continue running in the background, even if the timeout is hit
-export function promiseTimeout<T>(
-  promise: Promise<T>,
-  timeout?: number
-): Promise<T | null> {
-  return new Promise((resolve) => {
-    let resolved = false;
-    let timer: unknown;
-    const finish = (data?: T) => {
-      if (resolved) return;
-      resolved = true;
-      timer && clearTimeout(timer as NodeJS.Timer);
-      resolve(data || null);
-    };
-
-    if (timeout) {
-      timer = setTimeout(() => finish(), timeout);
-    }
-
-    promise.then((data) => finish(data)).catch(() => finish());
-  });
-}

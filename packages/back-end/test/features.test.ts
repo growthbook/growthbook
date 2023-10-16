@@ -153,24 +153,24 @@ describe("getParsedCondition", () => {
     ).toEqual({
       $and: [
         {
-          __groups__: {
+          $groups: {
             $elemMatch: { $eq: "group_a" },
           },
         },
         {
-          __groups__: {
+          $groups: {
             $elemMatch: { $eq: "group_b" },
           },
         },
         {
           $or: [
             {
-              __groups__: {
+              $groups: {
                 $elemMatch: { $eq: "group_a" },
               },
             },
             {
-              __groups__: {
+              $groups: {
                 $elemMatch: { $eq: "group_b" },
               },
             },
@@ -178,14 +178,14 @@ describe("getParsedCondition", () => {
         },
         {
           $not: {
-            __groups__: {
+            $groups: {
               $elemMatch: { $eq: "group_a" },
             },
           },
         },
         {
           $not: {
-            __groups__: {
+            $groups: {
               $elemMatch: { $eq: "group_b" },
             },
           },
