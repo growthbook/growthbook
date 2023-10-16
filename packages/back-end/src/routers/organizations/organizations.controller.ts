@@ -953,6 +953,10 @@ export async function postInvite(
     projectRoles,
   } = req.body;
 
+  if (role === "scim") {
+    throw new Error("Cannot invite a user with SCIM role");
+  }
+
   const { emailSent, inviteUrl } = await inviteUser({
     organization: org,
     email,
