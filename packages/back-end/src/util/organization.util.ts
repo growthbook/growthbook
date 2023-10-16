@@ -174,6 +174,12 @@ export function getRoles(_organization: OrganizationInterface): Role[] {
         "All access + invite teammates and configure organization settings",
       permissions: [...ALL_PERMISSIONS],
     },
+    {
+      id: "scim",
+      description:
+        "SCIM Access - Add and remove users via an external identity provider",
+      permissions: ["manageTeam"],
+    },
   ];
 }
 

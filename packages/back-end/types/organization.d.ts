@@ -37,6 +37,7 @@ export type MemberRole =
   | "developer"
   | "engineer"
   | "experimenter"
+  | "scim"
   | "admin";
 
 export type Role = {

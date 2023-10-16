@@ -344,7 +344,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
         refreshOrganization: async () => {
           await refreshOrganization();
         },
-        roles: currentOrg?.roles || [],
+        roles: currentOrg?.roles?.filter((role) => role.id !== "scim") || [],
         permissions: {
           ...permissionsObj,
           check: permissionsCheck,

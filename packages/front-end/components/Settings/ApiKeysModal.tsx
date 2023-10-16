@@ -15,7 +15,7 @@ const ApiKeysModal: FC<{
   onCreate: () => void;
   defaultDescription?: string;
   secret?: boolean;
-  type?: "admin" | "readonly" | "user";
+  type?: "admin" | "readonly" | "user" | "scim";
 }> = ({ close, type, onCreate, defaultDescription = "", secret = false }) => {
   const { apiCall } = useAuth();
   const environments = useEnvironments();
@@ -126,6 +126,7 @@ const ApiKeysModal: FC<{
               label: "Read-only",
               value: "readonly",
             },
+            { label: "SCIM", value: "scim" },
           ]}
         />
       )}

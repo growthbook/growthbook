@@ -96,7 +96,7 @@ export async function createOrganizationApiKey({
 }: {
   organizationId: string;
   description: string;
-  role: "admin" | "readonly";
+  role: "admin" | "readonly" | "scim";
 }): Promise<ApiKeyInterface> {
   return await createApiKey({
     organization: organizationId,

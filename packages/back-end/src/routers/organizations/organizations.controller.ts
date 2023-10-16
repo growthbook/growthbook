@@ -1291,14 +1291,14 @@ export async function postApiKey(
 
   // Handle organization secret tokens
   if (secret) {
-    if (type && !["readonly", "admin"].includes(type)) {
+    if (type && !["readonly", "admin", "scim"].includes(type)) {
       throw new Error("can only assign readonly or admin roles");
     }
 
     const key = await createOrganizationApiKey({
       organizationId: org.id,
       description,
-      role: type as "readonly" | "admin",
+      role: type as "readonly" | "admin" | "scim",
     });
 
     return res.status(200).json({
