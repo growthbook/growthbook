@@ -3,6 +3,7 @@ import { useForm } from "react-hook-form";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useAuth } from "@/services/auth";
 import { useEnvironments } from "@/services/features";
+import { useUser } from "@/services/UserContext";
 import Modal from "../Modal";
 import track from "../../services/track";
 import Field from "../Forms/Field";
@@ -21,6 +22,25 @@ const ApiKeysModal: FC<{
   const environments = useEnvironments();
   const [upgradeModal, setUpgradeModal] = useState(false);
   const { projects, project } = useDefinitions();
+  const { hasCommercialFeature } = useUser();
+
+  const roleOptions = [
+    {
+      label: "Admin",
+      value: "admin",
+    },
+    {
+      label: "Read-only",
+      value: "readonly",
+    },
+  ];
+
+  if (hasCommercialFeature("sso")) {
+    roleOptions.push({
+      label: "SCIM",
+      value: "scim",
+    });
+  }
 
   const form = useForm<{
     description: string;
@@ -117,17 +137,7 @@ const ApiKeysModal: FC<{
           label="Role"
           value={form.watch("type")}
           onChange={(v) => form.setValue("type", v)}
-          options={[
-            {
-              label: "Admin",
-              value: "admin",
-            },
-            {
-              label: "Read-only",
-              value: "readonly",
-            },
-            { label: "SCIM", value: "scim" },
-          ]}
+          options={roleOptions}
         />
       )}
     </Modal>

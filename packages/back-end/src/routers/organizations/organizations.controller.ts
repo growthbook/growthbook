@@ -1292,7 +1292,11 @@ export async function postApiKey(
   // Handle organization secret tokens
   if (secret) {
     if (type && !["readonly", "admin", "scim"].includes(type)) {
-      throw new Error("can only assign readonly or admin roles");
+      throw new Error("can only assign readonly, scim or admin roles");
+    }
+
+    if (type === "scim" && !org.licenseKey) {
+      throw new Error("Must have a commercial license key to create SCIM keys");
     }
 
     const key = await createOrganizationApiKey({
