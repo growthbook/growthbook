@@ -9,6 +9,6 @@ const router = Router();
 // Mounted at /api/v1/organizations
 router.get("/", listOrganizations);
 router.post("/", postOrganization);
-router.put("/", putOrganization);
+router.put("/:id", putOrganization);
 
 export default router;
