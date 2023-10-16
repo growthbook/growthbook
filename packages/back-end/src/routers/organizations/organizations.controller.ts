@@ -1344,9 +1344,9 @@ export async function deleteApiKey(
 
   if (keyObj.secret) {
     if (!keyObj.userId) {
-      // If there is no userId, this is an API Key
+      // If there is no userId, this is an API Key, so we check permissions.
       req.checkPermissions("manageApiKeys");
-      // Otherwise, this is a Personal Access Token - users can delete only their own Personal Access Tokens
+      // Otherwise, this is a Personal Access Token (PAT) - users can delete only their own PATs regardless of permission level.
     } else if (keyObj.userId !== userId) {
       throw new Error("You do not have permission to delete this.");
     }
