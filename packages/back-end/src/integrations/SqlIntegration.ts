@@ -61,6 +61,8 @@ import { ExperimentSnapshotSettings } from "../../types/experiment-snapshot";
 import { TemplateVariables } from "../../types/sql";
 import { FactTableMap } from "../models/FactTableModel";
 
+const MAX_ROWS_UNIT_AGGREGATE_QUERY = 3000;
+
 export default abstract class SqlIntegration
   implements SourceIntegrationInterface {
   settings: DataSourceSettings;
@@ -559,48 +561,22 @@ export default abstract class SqlIntegration
     query: string
   ): Promise<ExperimentAggregateUnitsQueryResponse> {
     const { rows, statistics } = await this.runQuery(query);
-    if (rows.length === 3000) {throw new Error("TODO BETTER ERROR MESSAGE")}
+    if (rows.length === MAX_ROWS_UNIT_AGGREGATE_QUERY) {
+      throw new Error(
+        "Too many rows returned; contact admin to change default dimension settings"
+      );
+    }
     return {
       rows: rows.map((row) => {
-        console.log(row);
-        const processedRow = {
+        return {
           variation: row.variation ?? "",
           units: parseInt(row.units) || 0,
-          exposureDate: row.dim_exposure_date ?? "",
-          activated: row.dim_activated ?? null,
+          dimension_value: row.dimension_value ?? "",
+          dimension_name: row.dimension_name ?? "",
         };
-        const dimRows: { [key: string]: string } = {}
-        for (const colName in row) {
-          if (colName.substring(0, 8) == "dim_exp_") {
-            dimRows[colName] = row[colName] ?? "";
-          }
-        }
-        return {...processedRow, ...dimRows};
       }),
       statistics: statistics,
     };
-  }
-
-  async processExperimentAggregateUnitsQueryResponseRows(
-    rows: ExperimentAggregateUnitsQueryResponseRows
-  ): Promise<ExperimentAggregateUnitsQueryResponseProcessedRows> {
-    console.dir(rows);
-    return rows.map((row) => {
-        const processedRow: ExperimentAggregateUnitsQueryResponseProcessedRow = {
-          variation: (row.variation as string),
-          exposureDate: (row.exposureDate as string),
-          activated: (row.activated as string),
-          units: (row.units as number),
-          dimensions: {}
-        };
-        for (const colName in row) {
-          if (!['variation', 'units', 'exposureDate', 'activated'].includes(colName)) {
-            processedRow.dimensions[colName] = (row[colName] as string);
-          }
-        }
-        console.log(processedRow);
-        return processedRow;
-      });
   }
 
   async runExperimentUnitsQuery(
@@ -797,9 +773,9 @@ export default abstract class SqlIntegration
       return `SUBSTRING(
         MIN(
           CONCAT(SUBSTRING(${this.formatDateTimeString("e.timestamp")}, 1, 19), 
-            coalesce(${this.castToString(`e.dim_${dimension.id}`)}, ${this.castToString(
-        `'${missingDimString}'`
-      )})
+            coalesce(${this.castToString(
+              `e.dim_${dimension.id}`
+            )}, ${this.castToString(`'${missingDimString}'`)})
           )
         ),
         20, 
@@ -903,24 +879,27 @@ export default abstract class SqlIntegration
     settings: ExperimentSnapshotSettings,
     activationMetric: ExperimentMetricInterface | null
   ): ProcessedDimensions {
-    let processedDimensions: ProcessedDimensions = {
+    const processedDimensions: ProcessedDimensions = {
       unitDimensions: [],
       experimentDimensions: [],
-      activationDimension: null
-    }
+      activationDimension: null,
+    };
     dimensions.forEach((dimension) => {
       if (dimension?.type === "activation" && !!activationMetric) {
-        processedDimensions.activationDimension = {type: 'activation'}
+        processedDimensions.activationDimension = { type: "activation" };
       } else {
         if (dimension?.type === "user") {
           // Replace any placeholders in the user defined dimension SQL
-          dimension.dimension.sql = compileSqlTemplate(dimension.dimension.sql, {
-            startDate: settings.startDate,
-            endDate: settings.endDate,
-            experimentId: settings.experimentId,
-          });
+          dimension.dimension.sql = compileSqlTemplate(
+            dimension.dimension.sql,
+            {
+              startDate: settings.startDate,
+              endDate: settings.endDate,
+              experimentId: settings.experimentId,
+            }
+          );
           processedDimensions.unitDimensions.push(dimension);
-        } else if (dimension?. type === "experiment") {
+        } else if (dimension?.type === "experiment") {
           processedDimensions.experimentDimensions.push(dimension);
         }
       }
@@ -947,7 +926,10 @@ export default abstract class SqlIntegration
     );
   }
 
-  processActivationMetric(activationMetricDoc: null | ExperimentMetricInterface, settings: ExperimentSnapshotSettings): null | ExperimentMetricInterface {
+  processActivationMetric(
+    activationMetricDoc: null | ExperimentMetricInterface,
+    settings: ExperimentSnapshotSettings
+  ): null | ExperimentMetricInterface {
     let activationMetric: null | ExperimentMetricInterface = null;
     if (activationMetricDoc) {
       activationMetric = cloneDeep<ExperimentMetricInterface>(
@@ -966,11 +948,17 @@ export default abstract class SqlIntegration
       factTableMap,
     } = params;
 
-
-    const activationMetric = this.processActivationMetric(activationMetricDoc, settings);
+    const activationMetric = this.processActivationMetric(
+      activationMetricDoc,
+      settings
+    );
 
     // Replace any placeholders in the user defined dimension SQL
-    const {experimentDimensions, unitDimensions} = this.processDimensions(params.dimensions, settings, activationMetric);
+    const { experimentDimensions, unitDimensions } = this.processDimensions(
+      params.dimensions,
+      settings,
+      activationMetric
+    );
 
     // Replace any placeholders in the segment SQL
     if (segment?.sql) {
@@ -988,7 +976,7 @@ export default abstract class SqlIntegration
       [
         [exposureQuery.userIdType],
         activationMetric ? getUserIdTypes(activationMetric, factTableMap) : [],
-        ...unitDimensions.map((d) => ([d.dimension.userIdType || "user_id"])),
+        ...unitDimensions.map((d) => [d.dimension.userIdType || "user_id"]),
         segment ? [segment.userIdType || "user_id"] : [],
       ],
       settings.startDate,
@@ -1031,7 +1019,9 @@ export default abstract class SqlIntegration
         e.${baseIdType} as ${baseIdType}
         , ${this.castToString("e.variation_id")} as variation
         , ${timestampDateTimeColumn} as timestamp
-        ${experimentDimensions.map((d) => `, e.${d.id} AS dim_${d.id}`).join('\n')}
+        ${experimentDimensions
+          .map((d) => `, e.${d.id} AS dim_${d.id}`)
+          .join("\n")}
       FROM
           __rawExperiment e
       WHERE
@@ -1071,15 +1061,15 @@ export default abstract class SqlIntegration
           )})`
         : ""
     }
-    ${
-      unitDimensions.map((d, i) => {
+    ${unitDimensions
+      .map((d, i) => {
         `, __dim_unit_${d.dimension.id} as (${this.getDimensionCTE(
-            d.dimension,
-            baseIdType,
-            idJoinMap
-          )})`
-      }).join('\n')
-    }
+          d.dimension,
+          baseIdType,
+          idJoinMap
+        )})`;
+      })
+      .join("\n")}
     , __experimentUnits AS (
       -- One row per user
       SELECT
@@ -1090,10 +1080,20 @@ export default abstract class SqlIntegration
           "max(e.variation)"
         )} AS variation
         , MIN(${timestampColumn}) AS first_exposure_timestamp
-        ${unitDimensions.map((d) => `
-          , ${this.getDimensionColumn(baseIdType, d)} AS dim_unit_${d.dimension.id}`).join('\n')}
-        ${experimentDimensions.map((d) => `
-          , ${this.getDimensionColumn(baseIdType, d)} AS dim_exp_${d.id}`).join('\n')}
+        ${unitDimensions
+          .map(
+            (d) => `
+          , ${this.getDimensionColumn(baseIdType, d)} AS dim_unit_${
+              d.dimension.id
+            }`
+          )
+          .join("\n")}
+        ${experimentDimensions
+          .map(
+            (d) => `
+          , ${this.getDimensionColumn(baseIdType, d)} AS dim_exp_${d.id}`
+          )
+          .join("\n")}
         
         ${
           activationMetric
@@ -1117,11 +1117,13 @@ export default abstract class SqlIntegration
             ? `JOIN __segment s ON (s.${baseIdType} = e.${baseIdType})`
             : ""
         }
-        ${
-          unitDimensions.map((d) => `
+        ${unitDimensions
+          .map(
+            (d) => `
             LEFT JOIN __dim_unit_${d.dimension.id} ud_${d.dimension.id} ON ( ud_${d.dimension.id}.${baseIdType} = e.${baseIdType})
-          `).join('\n')
-        }
+          `
+          )
+          .join("\n")}
         ${
           activationMetric
             ? `LEFT JOIN __activationMetric a ON (a.${baseIdType} = e.${baseIdType})`
@@ -1133,17 +1135,19 @@ export default abstract class SqlIntegration
     )`;
   }
 
-  getExperimentAggregateUnitsQuery(params: ExperimentUnitsQueryParams, useUnitsTable: boolean): string {
-    const {
-      activationMetric,
-      settings,
-      segment,
-      factTableMap,
-    } = params;
+  getExperimentAggregateUnitsQuery(
+    params: ExperimentUnitsQueryParams,
+    useUnitsTable: boolean
+  ): string {
+    const { activationMetric, settings, segment, factTableMap } = params;
 
     // Replace any placeholders in the user defined dimension SQL
     console.log(params.dimensions);
-    const {experimentDimensions, unitDimensions} = this.processDimensions(params.dimensions, settings, activationMetric);
+    const { experimentDimensions } = this.processDimensions(
+      params.dimensions,
+      settings,
+      activationMetric
+    );
 
     // Replace any placeholders in the segment SQL
     if (segment?.sql) {
@@ -1157,16 +1161,13 @@ export default abstract class SqlIntegration
     const exposureQuery = this.getExposureQuery(settings.exposureQueryId || "");
 
     // Get any required identity join queries
-    const idTypeObjects = [
-      [exposureQuery.userIdType],
-    ];
+    const idTypeObjects = [[exposureQuery.userIdType]];
     // add idTypes usually handled in units query here in the case where
     // we don't have a separate table for the units query
     if (!useUnitsTable) {
       idTypeObjects.push(
-        ...unitDimensions.map((d) => ([d.dimension.userIdType || "user_id"])),
         segment ? [segment.userIdType || "user_id"] : [],
-        activationMetric ? getUserIdTypes(activationMetric, factTableMap) : [],
+        activationMetric ? getUserIdTypes(activationMetric, factTableMap) : []
       );
     }
     const { baseIdType, idJoinMap, idJoinSQL } = this.getIdentitiesCTE(
@@ -1193,49 +1194,48 @@ export default abstract class SqlIntegration
         SELECT
           ${baseIdType}
           , variation
-          , ${this.formatDate(this.dateTrunc("first_exposure_timestamp"))} AS dim_exposure_date
-          ${experimentDimensions.map((d) => `, dim_exp_${d.id}`).join('\n')}
+          , ${this.formatDate(
+            this.dateTrunc("first_exposure_timestamp")
+          )} AS dim_exposure_date
+          ${experimentDimensions.map((d) => `, dim_exp_${d.id}`).join("\n")}
           ${
-            activationMetric 
-            ? `, ${this.ifElse(
-              `first_activation_timestamp IS NULL`,
-              "'Not Activated'",
-              "'Activated'"
-            )} AS dim_activated`
-            : ""
+            activationMetric
+              ? `, ${this.ifElse(
+                  `first_activation_timestamp IS NULL`,
+                  "'Not Activated'",
+                  "'Activated'"
+                )} AS dim_activated`
+              : ""
           }
         FROM ${
-          useUnitsTable
-            ? `${params.unitsTableFullName}`
-            : "__experimentUnits"
+          useUnitsTable ? `${params.unitsTableFullName}` : "__experimentUnits"
         }
       )
-      -- One row per variation/dimension with aggregations
-      SELECT
-        d.variation AS variation
-        , d.dim_exposure_date
-        , COUNT(*) AS units
-        ${experimentDimensions.map((d) => `, d.dim_exp_${d.id}`).join('\n')}
-        ${
-          activationMetric 
-          ? `, d.dim_activated`
-          : ""
-        }
-      FROM
-        __distinctUnits d
-      GROUP BY
-        d.variation
-        , d.dim_exposure_date
-        ${experimentDimensions.map((d) => `, d.dim_exp_${d.id}`).join('\n')}
-        ${
-          activationMetric 
-          ? `, d.dim_activated`
-          : ""
-        }
-      LIMIT 3000
+      -- One row per variation per dimension slice
+      ${[
+        "dim_exposure_date",
+        ...experimentDimensions.map((d) => `dim_exp_${d.id}`),
+        ...(activationMetric ? ["dim_activated"] : []),
+      ]
+        .map((d) => this.getUnitCountCTE(d))
+        .join("\nUNION ALL\n")}
+      LIMIT ${MAX_ROWS_UNIT_AGGREGATE_QUERY}
     `,
       this.getFormatDialect()
     );
+  }
+
+  getUnitCountCTE(dimensionColumn: string): string {
+    return `SELECT
+      d.variation AS variation
+      , d.${dimensionColumn} as dimension_value
+      , MAX('${dimensionColumn}') as dimension_name
+      , COUNT(*) AS units
+    FROM
+      __distinctUnits d
+    GROUP BY
+      d.variation
+      , d.${dimensionColumn}`;
   }
 
   getExperimentMetricQuery(params: ExperimentMetricQueryParams): string {
@@ -1254,7 +1254,10 @@ export default abstract class SqlIntegration
     let denominatorMetrics = cloneDeep<ExperimentMetricInterface[]>(
       denominatorMetricsDocs
     );
-    const activationMetric = this.processActivationMetric(activationMetricDoc, settings);
+    const activationMetric = this.processActivationMetric(
+      activationMetricDoc,
+      settings
+    );
 
     // Fact metrics are self-contained, so they don't need to reference other metrics for the denominator
     if (isFactMetric(metric)) {
@@ -1395,7 +1398,7 @@ export default abstract class SqlIntegration
       settings,
       initialConversionWindowHours + initialConversionDelayHours
     );
-    
+
     let dimensionCol = "'All'";
     if (dimension?.type === "experiment") {
       dimensionCol = `dim_exp_${dimension.id}`;
@@ -1446,16 +1449,8 @@ export default abstract class SqlIntegration
           ${baseIdType},
           ${dimensionCol} AS dimension,
           variation,
-<<<<<<< HEAD
-          ${
-            activationMetric && dimension?.type !== "activation"
-              ? "first_activation_timestamp"
-              : "first_exposure_timestamp"
-          } AS timestamp,
-=======
           ${timestampColumn} AS timestamp,
           ${this.dateTrunc("first_exposure_timestamp")} AS first_exposure_date
->>>>>>> origin/main
           ${
             isRegressionAdjusted
               ? `, ${this.addHours(

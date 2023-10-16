@@ -93,8 +93,10 @@ export const startExperimentResultQueries = async (
     segmentObj = await findSegmentById(snapshotSettings.segment, organization);
   }
 
-  const exposureQuery = (integration.settings?.queries?.exposure || []).find((q) => q.id === snapshotSettings.exposureQueryId);
-  let availableExperimentDimensions: ExperimentDimension[] = [];
+  const exposureQuery = (integration.settings?.queries?.exposure || []).find(
+    (q) => q.id === snapshotSettings.exposureQueryId
+  );
+  const availableExperimentDimensions: ExperimentDimension[] = [];
   // Add experiment dimensions based on the selected exposure query
   if (exposureQuery) {
     if (exposureQuery.dimensions.length > 0) {
@@ -190,25 +192,26 @@ export const startExperimentResultQueries = async (
   });
   await Promise.all(promises);
 
-  if (!dimensionObj) {
-    const unitQueryParams: ExperimentUnitsQueryParams = {
-      activationMetric: activationMetric,
-      dimensions: dimensionObj ? [dimensionObj] : availableExperimentDimensions,
-      segment: segmentObj,
-      settings: snapshotSettings,
-      unitsTableFullName: unitsTableFullName,
-      factTableMap: params.factTableMap,
-      includeIdJoins: true,
-    };
-    const healthQuery = await startQuery({
-      name: queryParentId.concat("_health"),
-      query: integration.getExperimentAggregateUnitsQuery(unitQueryParams, !!unitQuery),
-      dependencies: unitQuery ? [unitQuery.query] : [],
-      run: (query) => integration.runExperimentAggregateUnitsQuery(query),
-      process: (rows: ExperimentAggregateUnitsQueryResponseRows) => integration.processExperimentAggregateUnitsQueryResponseRows(rows),
-    })
-    queries.push(healthQuery);
-  }
+  const unitQueryParams: ExperimentUnitsQueryParams = {
+    activationMetric: activationMetric,
+    dimensions: availableExperimentDimensions,
+    segment: segmentObj,
+    settings: snapshotSettings,
+    unitsTableFullName: unitsTableFullName,
+    factTableMap: params.factTableMap,
+    includeIdJoins: true,
+  };
+  const healthQuery = await startQuery({
+    name: queryParentId.concat("_health"),
+    query: integration.getExperimentAggregateUnitsQuery(
+      unitQueryParams,
+      !!unitQuery
+    ),
+    dependencies: unitQuery ? [unitQuery.query] : [],
+    run: (query) => integration.runExperimentAggregateUnitsQuery(query),
+    process: (rows) => rows,
+  });
+  queries.push(healthQuery);
 
   return queries;
 };
