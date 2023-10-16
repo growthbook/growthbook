@@ -51,21 +51,18 @@ export default function UpdateDefaultRoleForm() {
             onChange={async (role: MemberRole) => {
               form.setValue("defaultRole", role);
             }}
-            options={roles
-              .filter((r) => true || r.id !== "admin")
-              .map((r) => ({
-                label: r.id,
-                value: r.id,
-              }))}
+            options={roles.map((r) => ({
+              label: r.id,
+              value: r.id,
+            }))}
             sort={false}
             formatOptionLabel={(value) => {
-              const r = roles.find((r) => r.id === value.label);
+              const r = roles.find((r) => r.id === value.value);
+              if (!r) return value.label;
               return (
                 <div className="d-flex align-items-center">
-                  {/* @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'. */}
                   <strong style={{ width: 110 }}>{r.id}</strong>
                   <small className="ml-2">
-                    {/* @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'. */}
                     <em>{r.description}</em>
                   </small>
                 </div>

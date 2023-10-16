@@ -19,7 +19,7 @@ const TeamPage: FC = () => {
     refreshOrganization,
     enterpriseSSO,
     organization,
-    accountPlan,
+    hasCommercialFeature,
   } = useUser();
 
   const { project, projects } = useDefinitions();
@@ -129,7 +129,7 @@ const TeamPage: FC = () => {
           numUsersInAccount={organization.members?.length || 0}
         />
       )}
-      {accountPlan === "enterprise" ? <UpdateDefaultRoleForm /> : null}
+      {!hasCommercialFeature("sso") ? <UpdateDefaultRoleForm /> : null}
     </div>
   );
 };

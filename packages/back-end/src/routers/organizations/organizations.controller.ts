@@ -1755,6 +1755,12 @@ export function putDefaultRole(
   const { org } = getOrgFromReq(req);
   const { defaultRole } = req.body;
 
+  if (!org.licenseKey) {
+    throw new Error(
+      "Must have a commercial License Key to update the organization's default role."
+    );
+  }
+
   req.checkPermissions("manageTeam");
 
   updateOrganization(org.id, {
