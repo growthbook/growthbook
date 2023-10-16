@@ -99,9 +99,13 @@ export default function RuntimeGroupsList({ groups, mutate }: Props) {
           </div>
         )}
       </div>
-      <p className="text-gray mb-3">
-        With <strong>Runtime Groups</strong>, your application passes a list of
-        groups the user belongs to into the GrowthBook SDK.
+      <p className="text-gray mb-1">
+        With <strong>Runtime Groups</strong>, your application uses custom logic
+        to determine which groups a user is in at runtime.
+      </p>
+      <p className="text-gray">
+        For example, doing a database lookup to see if the user is in an
+        &quot;Admin&quot; group.
       </p>
       {runtimeGroups.length > 0 && (
         <>

@@ -74,15 +74,16 @@ export default function SavedGroupsPage() {
         <strong>Inline</strong> or at <strong>Runtime</strong>.
       </p>
 
-      {error && (
+      {error ? (
         <div className="alert alert-danger">
           There was an error loading the list of groups.
         </div>
+      ) : (
+        <>
+          <InlineGroupsList groups={savedGroups} mutate={mutateDefinitions} />
+          <RuntimeGroupsList groups={savedGroups} mutate={mutateDefinitions} />
+        </>
       )}
-
-      <InlineGroupsList groups={savedGroups} mutate={mutateDefinitions} />
-
-      <RuntimeGroupsList groups={savedGroups} mutate={mutateDefinitions} />
 
       {auditModal && (
         <Modal

@@ -96,9 +96,13 @@ export default function InlineGroupsList({ groups, mutate }: Props) {
           </div>
         )}
       </div>
-      <p className="text-gray mb-3">
-        With <strong>Inline Groups</strong>, attribute values are defined as a
-        comma-separated list directly within the GrowthBook UI.
+      <p className="text-gray mb-1">
+        With <strong>Inline Groups</strong>, you pick an attribute and add a
+        list of included values directly within the GrowthBook UI.
+      </p>
+      <p className="text-gray">
+        For example, a &quot;Beta Testers&quot; group containing a specific set
+        of <code>device_id</code> values.
       </p>
       {inlineGroups.length > 0 && (
         <>

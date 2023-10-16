@@ -47,7 +47,7 @@ export const postSavedGroup = async (
   req: CreateSavedGroupRequest,
   res: Response<CreateSavedGroupResponse>
 ) => {
-  const { org } = getOrgFromReq(req);
+  const { org, userName } = getOrgFromReq(req);
   const { groupName, owner, attributeKey, groupList, source } = req.body;
 
   req.checkPermissions("manageSavedGroups");
@@ -64,7 +64,7 @@ export const postSavedGroup = async (
     values: groupList,
     source: source || "inline",
     groupName,
-    owner,
+    owner: owner || userName,
     attributeKey,
     organization: org.id,
   });
