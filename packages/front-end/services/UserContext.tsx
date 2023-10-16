@@ -27,7 +27,7 @@ import {
 import * as Sentry from "@sentry/react";
 import { GROWTHBOOK_SECURE_ATTRIBUTE_SALT } from "shared/constants";
 import { hasPermission } from "shared/permissions";
-import { isCloud, isSentryEnabled } from "@/services/env";
+import { isCloud, isMultiOrg, isSentryEnabled } from "@/services/env";
 import useApi from "@/hooks/useApi";
 import { useAuth, UserOrganizations } from "@/services/auth";
 import track from "@/services/track";
@@ -275,6 +275,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
       userAgent: window.navigator.userAgent,
       url: router?.pathname || "",
       cloud: isCloud(),
+      multiOrg: isMultiOrg(),
       accountPlan: currentOrg?.accountPlan || "unknown",
       hasLicenseKey: !!data?.license,
       freeSeats: currentOrg?.organization?.freeSeats || 3,

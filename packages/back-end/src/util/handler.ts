@@ -2,8 +2,12 @@ import path from "path";
 import fs from "fs";
 import { Request, RequestHandler } from "express";
 import z, { Schema, ZodNever } from "zod";
+import { orgHasPremiumFeature } from "enterprise";
 import { ApiErrorResponse, ApiRequestLocals } from "../../types/api";
 import { ApiPaginationFields } from "../../types/openapi";
+import { UserInterface } from "../../types/user";
+import { OrganizationInterface } from "../../types/organization";
+import { IS_MULTI_ORG } from "./secrets";
 
 type ApiRequest<
   ResponseType = never,
@@ -147,6 +151,61 @@ export function getBuild() {
   return build;
 }
 
+export async function validateIsSuperUserRequest(req: {
+  user?: UserInterface;
+  organization: OrganizationInterface;
+}) {
+  if (!IS_MULTI_ORG) {
+    throw new Error("This endpoint requires multi-org mode.");
+  }
+
+  if (req.organization) {
+    if (!orgHasPremiumFeature(req.organization, "multi-org")) {
+      throw new Error("This endpoint requires an Enterprise plan.");
+    }
+  }
+
+  if (!req.user) {
+    throw new Error(
+      "This endpoint requires the use of a Personal Access Token rather than an API_KEY."
+    );
+  }
+
+  if (!req.user.superAdmin) {
+    throw new Error(
+      "This endpoint requires the Personal Access Token of a super admin."
+    );
+  }
+
+  return req.user;
+}
+
+/**
+ * Given an already paginated list of items, return the pagination fields
+ */
+export function getPaginationReturnFields<T>(
+  items: T[],
+  total: number,
+  query: { limit: number; offset: number }
+): ApiPaginationFields {
+  const limit = query.limit;
+  const offset = query.offset;
+  const nextOffset = offset + limit;
+  const hasMore = nextOffset < total;
+
+  return {
+    limit,
+    offset,
+    count: items.length,
+    total: total,
+    hasMore,
+    nextOffset: hasMore ? nextOffset : null,
+  };
+}
+
+/**
+ * Given an unpaginated list of items and a query object, return the paginated list of items and the pagination fields
+ */
 export function applyPagination<T>(
   items: T[],
   query: { limit?: number | undefined; offset?: number | undefined }

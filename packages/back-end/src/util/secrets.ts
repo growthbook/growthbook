@@ -1,6 +1,7 @@
 import fs from "fs";
 import dotenv from "dotenv";
 import trimEnd from "lodash/trimEnd";
+import { stringToBoolean } from "shared/util";
 
 export const ENVIRONMENT = process.env.NODE_ENV;
 const prod = ENVIRONMENT === "production";
@@ -9,7 +10,20 @@ if (fs.existsSync(".env.local")) {
   dotenv.config({ path: ".env.local" });
 }
 
-export const IS_CLOUD = !!process.env.IS_CLOUD;
+export const IS_CLOUD = stringToBoolean(process.env.IS_CLOUD);
+export const IS_MULTI_ORG = stringToBoolean(process.env.IS_MULTI_ORG);
+
+if (!IS_CLOUD && IS_MULTI_ORG && !process.env.LICENSE_KEY) {
+  throw new Error(
+    "Must have a commercial license key to be allowed to have multiple organizations."
+  );
+}
+
+// Default to true
+export const ALLOW_SELF_ORG_CREATION = stringToBoolean(
+  process.env.ALLOW_SELF_ORG_CREATION,
+  true
+);
 
 export const UPLOAD_METHOD = (() => {
   if (IS_CLOUD) return "s3";
@@ -70,7 +84,7 @@ if ((prod || !isLocalhost) && !IS_CLOUD && JWT_SECRET === "dev") {
   );
 }
 
-export const EMAIL_ENABLED = process.env.EMAIL_ENABLED === "true";
+export const EMAIL_ENABLED = stringToBoolean(process.env.EMAIL_ENABLED);
 export const EMAIL_HOST = process.env.EMAIL_HOST;
 export const EMAIL_PORT = parseInt(process.env.EMAIL_PORT || "") || 587;
 export const EMAIL_HOST_USER = process.env.EMAIL_HOST_USER;
@@ -108,17 +122,20 @@ export const QUERY_CACHE_TTL_MINS =
 export const IMPORT_LIMIT_DAYS =
   parseInt(process.env?.IMPORT_LIMIT_DAYS || "") || 365;
 
-export const CRON_ENABLED = !process.env.CRON_DISABLED;
+export const CRON_ENABLED = !stringToBoolean(process.env.CRON_DISABLED);
 
 export const VERCEL_CLIENT_ID = process.env.VERCEL_CLIENT_ID || "";
 export const VERCEL_CLIENT_SECRET = process.env.VERCEL_CLIENT_SECRET || "";
 
 export const SENTRY_DSN = process.env.SENTRY_DSN || "";
 
-export const STORE_SEGMENTS_IN_MONGO = !!process.env.STORE_SEGMENTS_IN_MONGO;
+export const STORE_SEGMENTS_IN_MONGO = stringToBoolean(
+  process.env.STORE_SEGMENTS_IN_MONGO
+);
 // Add a default secret access key via an environment variable
-// Only allowed while self-hosting, don't allow using "dev" (default value) in prod
-let secretAPIKey = IS_CLOUD ? "" : process.env.SECRET_API_KEY || "";
+// Only allowed while self-hosting and not multi org
+let secretAPIKey = IS_MULTI_ORG ? "" : process.env.SECRET_API_KEY || "";
+// Don't allow using "dev" (default value) in prod
 if ((prod || !isLocalhost) && secretAPIKey === "dev") {
   secretAPIKey = "";
   // eslint-disable-next-line
@@ -130,7 +147,7 @@ export const SECRET_API_KEY = secretAPIKey;
 // This is typically used for the Proxy Server, which only requires readonly access
 export const SECRET_API_KEY_ROLE =
   process.env.SECRET_API_KEY_ROLE || "readonly";
-export const PROXY_ENABLED = !!process.env.PROXY_ENABLED;
+export const PROXY_ENABLED = stringToBoolean(process.env.PROXY_ENABLED);
 export const PROXY_HOST_INTERNAL = process.env.PROXY_HOST_INTERNAL || "";
 export const PROXY_HOST_PUBLIC = process.env.PROXY_HOST_PUBLIC || "";
 
