@@ -1,9 +1,10 @@
 import { SavedGroupInterface } from "back-end/types/saved-group";
 import { useMemo, useState } from "react";
 import { ago } from "shared/dates";
+import { getMatchingRules } from "shared/util";
 import usePermissions from "@/hooks/usePermissions";
 import { useAuth } from "@/services/auth";
-import { useFeaturesList } from "@/services/features";
+import { useEnvironments, useFeaturesList } from "@/services/features";
 import { useSearch } from "@/services/search";
 import { getSavedGroupMessage } from "@/pages/saved-groups";
 import LoadingOverlay from "../LoadingOverlay";
@@ -35,29 +36,32 @@ export default function InlineGroupsList({ groups, mutate }: Props) {
 
   const { features } = useFeaturesList();
 
+  const environments = useEnvironments();
+
   // Get a list of feature ids for every saved group
   // TODO: also get experiments
   const savedGroupFeatureIds = useMemo(() => {
     const map: Record<string, Set<string>> = {};
+
     features.forEach((feature) => {
-      for (const env in feature.environmentSettings) {
-        if (feature.environmentSettings[env]?.rules) {
-          feature.environmentSettings[env].rules.forEach((rule) => {
-            inlineGroups.forEach((group) => {
-              if (
-                rule.condition?.includes(group.id) ||
-                rule.savedGroups?.some((g) => g.ids.includes(group.id))
-              ) {
-                map[group.id] = map[group.id] || new Set();
-                map[group.id].add(feature.id);
-              }
-            });
-          });
+      inlineGroups.forEach((group) => {
+        const matches = getMatchingRules(
+          feature,
+          (rule) =>
+            rule.condition?.includes(group.id) ||
+            rule.savedGroups?.some((g) => g.ids.includes(group.id)) ||
+            false,
+          environments.map((e) => e.id)
+        );
+
+        if (matches.length > 0) {
+          map[group.id] = map[group.id] || new Set();
+          map[group.id].add(feature.id);
         }
-      }
+      });
     });
     return map;
-  }, [inlineGroups, features]);
+  }, [inlineGroups, environments, features]);
 
   const { items, searchInputProps, isFiltered, SortableTH } = useSearch({
     items: inlineGroups,

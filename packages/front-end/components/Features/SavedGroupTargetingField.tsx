@@ -88,16 +88,8 @@ export default function SavedGroupTargetingField({ value, setValue }: Props) {
                         return (
                           <>
                             {label}
-                            {group?.source === "runtime" && (
-                              <span
-                                className="badge badge-purple ml-1"
-                                title="Group membership evaluated by your application at runtime"
-                              >
-                                runtime
-                              </span>
-                            )}
                             {group?.source === "inline" && (
-                              <span className="badge badge-light ml-1 border text-dark">
+                              <span className="badge ml-1 border bg-light text-dark">
                                 {group.values.length}
                               </span>
                             )}
