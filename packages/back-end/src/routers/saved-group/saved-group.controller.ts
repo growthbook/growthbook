@@ -161,8 +161,8 @@ export const putSavedGroup = async (
     details: auditDetailsUpdate(savedGroup, updatedSavedGroup),
   });
 
-  // If the values change, we need to invalidate cached feature rules
-  if (!isEqual(savedGroup.values, groupList)) {
+  // If the values or key change, we need to invalidate cached feature rules
+  if (!isEqual(savedGroup.values, groupList) || fieldsToUpdate.attributeKey) {
     savedGroupUpdated(org, savedGroup.id);
   }
 
