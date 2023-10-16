@@ -180,7 +180,7 @@ export default function InlineGroupsList({ groups, mutate }: Props) {
                                   savedGroupFeatureIds[s.id]
                                 )}
                                 canDelete={
-                                  savedGroupFeatureIds[s.id]?.size === 0
+                                  (savedGroupFeatureIds[s.id]?.size || 0) === 0
                                 }
                               />
                             </MoreMenu>

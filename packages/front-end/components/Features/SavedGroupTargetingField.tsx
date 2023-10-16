@@ -16,9 +16,7 @@ export default function SavedGroupTargetingField({ value, setValue }: Props) {
 
   const options = savedGroups.map((s) => ({
     value: s.id,
-    label: `${s.groupName} (${
-      s.source === "runtime" ? "dynamic" : s.values.length
-    })`,
+    label: s.groupName,
   }));
 
   const conflicts = getSavedGroupTargetingConflicts(value);
@@ -84,6 +82,28 @@ export default function SavedGroupTargetingField({ value, setValue }: Props) {
                       options={options}
                       required
                       placeholder="Select groups..."
+                      closeMenuOnSelect={true}
+                      formatOptionLabel={({ value, label }) => {
+                        const group = getSavedGroupById(value);
+                        return (
+                          <>
+                            {label}
+                            {group?.source === "runtime" && (
+                              <span
+                                className="badge badge-purple ml-1"
+                                title="Group membership evaluated by your application at runtime"
+                              >
+                                runtime
+                              </span>
+                            )}
+                            {group?.source === "inline" && (
+                              <span className="badge badge-light ml-1 border text-dark">
+                                {group.values.length}
+                              </span>
+                            )}
+                          </>
+                        );
+                      }}
                     />
                   </div>
                   <div className="col-auto ml-auto">
