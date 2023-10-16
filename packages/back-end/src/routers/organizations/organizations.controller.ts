@@ -1299,7 +1299,8 @@ export async function postApiKey(
       throw new Error("can only assign readonly, scim or admin roles");
     }
 
-    if (type === "scim" && !org.licenseKey) {
+    const commercialFeatures = [...accountFeatures[getAccountPlan(org)]];
+    if (type === "scim" && !commercialFeatures.includes("sso")) {
       throw new Error("Must have a commercial license key to create SCIM keys");
     }
 
