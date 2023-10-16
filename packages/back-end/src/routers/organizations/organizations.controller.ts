@@ -1755,7 +1755,9 @@ export function putDefaultRole(
   const { org } = getOrgFromReq(req);
   const { defaultRole } = req.body;
 
-  if (!org.licenseKey) {
+  const commercialFeatures = [...accountFeatures[getAccountPlan(org)]];
+
+  if (!commercialFeatures.includes("sso")) {
     throw new Error(
       "Must have a commercial License Key to update the organization's default role."
     );
