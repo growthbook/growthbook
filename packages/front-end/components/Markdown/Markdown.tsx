@@ -1,6 +1,7 @@
 import { DetailedHTMLProps, FC, HTMLAttributes } from "react";
 import clsx from "clsx";
 import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import AuthorizedImage from "../AuthorizedImage";
 import styles from "./Markdown.module.scss";
 
@@ -21,6 +22,7 @@ const Markdown: FC<
   return (
     <div {...props} className={clsx(className, styles.markdown)}>
       <ReactMarkdown
+        remarkPlugins={[remarkGfm]}
         components={{
           img: ({ ...props }) => (
             <AuthorizedImage imageCache={imageCache} {...props} />
