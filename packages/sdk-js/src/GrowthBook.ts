@@ -1,40 +1,45 @@
 import mutate, { DeclarativeMutation } from "dom-mutator";
 import type {
+  ApiHost,
+  Attributes,
+  AutoExperiment,
+  AutoExperimentVariation,
+  ClientKey,
   Context,
   Experiment,
+  FeatureDefinition,
   FeatureResult,
+  FeatureResultSource,
+  Filter,
+  LoadFeaturesOptions,
+  RealtimeUsageData,
+  RefreshFeaturesOptions,
   Result,
   SubscriptionFunction,
-  FeatureDefinition,
-  FeatureResultSource,
-  Attributes,
-  WidenPrimitives,
-  RealtimeUsageData,
-  LoadFeaturesOptions,
-  RefreshFeaturesOptions,
-  ApiHost,
-  ClientKey,
   VariationMeta,
-  Filter,
   VariationRange,
-  AutoExperimentVariation,
-  AutoExperiment,
+  WidenPrimitives,
 } from "./types/growthbook";
 import type { ConditionInterface } from "./types/mongrule";
 import {
-  getUrlRegExp,
-  isIncluded,
-  getBucketRanges,
-  hash,
   chooseVariation,
+  decrypt,
+  getBucketRanges,
   getQueryStringOverride,
+  getUrlRegExp,
+  hash,
   inNamespace,
   inRange,
+  isIncluded,
   isURLTargeted,
-  decrypt,
 } from "./util";
 import { evalCondition } from "./mongrule";
-import { refreshFeatures, subscribe, unsubscribe } from "./feature-repository";
+import {
+  helpers,
+  refreshFeatures,
+  subscribe,
+  unsubscribe,
+} from "./feature-repository";
 
 const isBrowser =
   typeof window !== "undefined" && typeof document !== "undefined";
@@ -74,6 +79,7 @@ export class GrowthBook<
     { valueHash: string; undo: () => void }
   >;
   private _loadFeaturesCalled: boolean;
+  private _idleListenerCleanupFn?: () => void;
 
   constructor(context?: Context) {
     context = context || {};
@@ -148,6 +154,9 @@ export class GrowthBook<
 
     if (this._canSubscribe()) {
       subscribe(this);
+      if (!this._ctx.allowIdleStreams) {
+        this._idleListenerCleanupFn = helpers.startIdleListener(this);
+      }
     }
   }
 
@@ -360,6 +369,7 @@ export class GrowthBook<
       clearTimeout(this._rtTimer);
     }
     unsubscribe(this);
+    this._idleListenerCleanupFn?.();
 
     if (isBrowser && window._growthbook === this) {
       delete window._growthbook;

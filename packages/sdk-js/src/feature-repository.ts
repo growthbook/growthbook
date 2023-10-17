@@ -17,6 +17,7 @@ type ScopedChannel = {
   src: EventSource | null;
   cb: (event: MessageEvent<string>) => void;
   errors: number;
+  state: "active" | "idle" | "disabled";
 };
 
 // Config settings
@@ -57,6 +58,21 @@ export const helpers: Helpers = {
       });
     }
     return new polyfills.EventSource(`${host}/sub/${clientKey}`);
+  },
+  startIdleListener: (instance: GrowthBook): (() => void) | undefined => {
+    const isBrowser =
+      typeof window !== "undefined" && typeof document !== "undefined";
+    if (!isBrowser) return;
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        onVisible(instance);
+      } else if (document.visibilityState === "hidden") {
+        onHidden(instance);
+      }
+    };
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    return () =>
+      document.removeEventListener("visibilitychange", onVisibilityChange);
   },
 };
 
@@ -423,6 +439,7 @@ function startAutoRefresh(instance: GrowthBook): void {
         }
       },
       errors: 0,
+      state: "active",
     };
     streams.set(key, channel);
     enableChannel(
@@ -447,9 +464,28 @@ function onSSEError(
       Math.pow(3, channel.errors - 3) * (1000 + Math.random() * 1000);
     disableChannel(channel);
     setTimeout(() => {
+      if (["idle", "active"].includes(channel.state)) return;
       enableChannel(channel, host, clientKey, headers);
     }, Math.min(delay, 300000)); // 5 minutes max
   }
+}
+
+export function onHidden(instance: GrowthBook) {
+  const key = getKey(instance);
+  const channel = streams.get(key);
+  if (!channel) return;
+  channel.state = "idle";
+  disableChannel(channel);
+}
+
+export function onVisible(instance: GrowthBook) {
+  const { streamingHost, streamingHostRequestHeaders } = instance.getApiHosts();
+  const clientKey = instance.getClientKey();
+  const key = getKey(instance);
+  const channel = streams.get(key);
+  if (!channel) return;
+  if (channel.state !== "idle") return;
+  enableChannel(channel, streamingHost, clientKey, streamingHostRequestHeaders);
 }
 
 function disableChannel(channel: ScopedChannel) {
@@ -458,6 +494,9 @@ function disableChannel(channel: ScopedChannel) {
   channel.src.onerror = null;
   channel.src.close();
   channel.src = null;
+  if (channel.state === "active") {
+    channel.state = "disabled";
+  }
 }
 
 function enableChannel(
@@ -471,6 +510,7 @@ function enableChannel(
     clientKey,
     headers,
   }) as EventSource;
+  channel.state = "active";
   channel.src.addEventListener("features", channel.cb);
   channel.src.addEventListener("features-updated", channel.cb);
   channel.src.onerror = () => {

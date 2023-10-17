@@ -173,6 +173,7 @@ export interface Context {
   streamingHost?: string;
   apiHostRequestHeaders?: Record<string, string>;
   streamingHostRequestHeaders?: Record<string, string>;
+  allowIdleStreams?: boolean;
   clientKey?: string;
   decryptionKey?: string;
   remoteEval?: boolean;
@@ -269,6 +270,7 @@ export type Helpers = {
     clientKey: string;
     headers?: Record<string, string>;
   }) => EventSource;
+  startIdleListener: (instance: GrowthBook) => (() => void) | undefined;
 };
 
 export interface LocalStorageCompat {

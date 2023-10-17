@@ -1,5 +1,9 @@
 # Changelog
 
+## **0.30.0** - Oct 18, 2023
+
+- Pause and resume streaming connections when the browser tab is hidden or visible. Can be disabled by setting `allowIdleStreams: true` in the context options.
+
 ## **0.29.0** - Oct 4, 2023
 
 - Add optional `remoteEval` mode for client-side applications (plus `cacheKeyAttributes` option to control when to re-fetch from the server)
