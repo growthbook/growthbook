@@ -73,6 +73,11 @@ export async function uploadFile(
 }
 
 export async function getImageData(filePath: string) {
+  // Watch out for poison null bytes
+  if (filePath.indexOf("\0") !== -1) {
+    throw new Error("Error: Filename must not contain null bytes");
+  }
+
   if (UPLOAD_METHOD === "s3") {
     const params = {
       Bucket: S3_BUCKET,
