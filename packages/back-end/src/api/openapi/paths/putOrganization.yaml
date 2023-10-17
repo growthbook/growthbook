@@ -2,7 +2,7 @@ parameters:
   - $ref: "../parameters.yaml#/id"
 tags:
   - organizations
-summary: Edit a single organization (Multi-org Enterprise Plan only)
+summary: Edit a single organization (only for super admins on multi-org Enterprise Plan only)
 operationId: putOrganization
 x-codeSamples:
   - lang: "cURL"

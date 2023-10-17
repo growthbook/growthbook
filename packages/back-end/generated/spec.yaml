@@ -2010,7 +2010,7 @@ paths:
                     type: string
   /organizations:
     get:
-      summary: Get all organizations (Multi-org Enterprise Plan only)
+      summary: Get all organizations (only for super admins on multi-org Enterprise Plan only)
       tags:
         - organizations
       parameters:
@@ -2046,7 +2046,7 @@ paths:
       parameters: []
       tags:
         - organizations
-      summary: Create a single organization (Multi-org Enterprise Plan only)
+      summary: Create a single organization (only for super admins on multi-org Enterprise Plan only)
       operationId: postOrganization
       x-codeSamples:
         - lang: cURL
@@ -2086,7 +2086,7 @@ paths:
         - $ref: '#/components/parameters/id'
       tags:
         - organizations
-      summary: Edit a single organization (Multi-org Enterprise Plan only)
+      summary: Edit a single organization (only for super admins on multi-org Enterprise Plan only)
       operationId: putOrganization
       x-codeSamples:
         - lang: cURL

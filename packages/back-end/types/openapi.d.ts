@@ -186,13 +186,13 @@ export interface paths {
     delete: operations["deleteSavedGroup"];
   };
   "/organizations": {
-    /** Get all organizations (Multi-org Enterprise Plan only) */
+    /** Get all organizations (only for super admins on multi-org Enterprise Plan only) */
     get: operations["listOrganizations"];
-    /** Create a single organization (Multi-org Enterprise Plan only) */
+    /** Create a single organization (only for super admins on multi-org Enterprise Plan only) */
     post: operations["postOrganization"];
   };
   "/organizations/{id}": {
-    /** Edit a single organization (Multi-org Enterprise Plan only) */
+    /** Edit a single organization (only for super admins on multi-org Enterprise Plan only) */
     put: operations["putOrganization"];
   };
 }
@@ -3870,7 +3870,7 @@ export interface operations {
     };
   };
   listOrganizations: {
-    /** Get all organizations (Multi-org Enterprise Plan only) */
+    /** Get all organizations (only for super admins on multi-org Enterprise Plan only) */
     parameters: {
         /** @description Search string to search organization names, owner emails, and external ids by */
         /** @description The number of items to return */
@@ -3913,7 +3913,7 @@ export interface operations {
     };
   };
   postOrganization: {
-    /** Create a single organization (Multi-org Enterprise Plan only) */
+    /** Create a single organization (only for super admins on multi-org Enterprise Plan only) */
     requestBody: {
       content: {
         "application/json": {
@@ -3949,7 +3949,7 @@ export interface operations {
     };
   };
   putOrganization: {
-    /** Edit a single organization (Multi-org Enterprise Plan only) */
+    /** Edit a single organization (only for super admins on multi-org Enterprise Plan only) */
     parameters: {
         /** @description The id of the requested resource */
       path: {
