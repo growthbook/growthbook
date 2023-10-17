@@ -64,7 +64,7 @@ export default function MetricValueColumn({
       displayCurrency,
       ratioMetric
     );
-    if (metric.metricType === "ratio" && metric.denominator) {
+    if (ratioMetric && metric.denominator) {
       denominator = formatColumnRefValue(
         metric.denominator,
         getFactTableById,
