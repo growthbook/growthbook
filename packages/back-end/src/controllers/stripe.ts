@@ -154,6 +154,7 @@ export async function getSubscriptionQuote(req: AuthRequest, res: Response) {
     additionalSeatPrice,
     planName,
     interval: price?.recurring?.interval,
+    intervalCount: price?.recurring?.interval_count,
   };
 
   return res.status(200).json({

@@ -57,7 +57,9 @@ export default function SubscriptionInfo() {
         <div className="col-md-12 mb-3">
           <strong>Current Price:</strong>{" "}
           {currencyFormatter.format(quote.total || 0)}
-          {quote?.interval ? ` / ${quote.interval}` : ""}
+          {quote?.intervalCount && quote?.intervalCount > 1
+            ? ` every ${quote.intervalCount} ${quote.interval}s`
+            : ` / ${quote.interval}`}
           <Tooltip
             className="ml-2"
             body="Click the Manage Subscription button below to see how this is calculated."

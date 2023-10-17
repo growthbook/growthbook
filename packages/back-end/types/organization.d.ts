@@ -192,6 +192,7 @@ export interface SubscriptionQuote {
   additionalSeatPrice: number;
   planName: string;
   interval?: string;
+  intervalCount?: number;
 }
 
 export interface OrganizationConnections {
