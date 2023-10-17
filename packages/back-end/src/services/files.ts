@@ -86,5 +86,18 @@ export async function getImageData(filePath: string) {
     const file = bucket.file(filePath);
     const data = await file.download();
     return data[0];
+  } else {
+    //local image
+    const rootDirectory = getUploadsDir();
+    const fullPath = path.join(rootDirectory, filePath);
+
+    // Prevent directory traversal
+    if (fullPath.indexOf(rootDirectory) !== 0) {
+      throw new Error(
+        "Error: Path must not escape out of the 'uploads' directory."
+      );
+    }
+
+    return fs.promises.readFile(fullPath);
   }
 }
