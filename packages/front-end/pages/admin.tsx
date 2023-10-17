@@ -9,6 +9,8 @@ import Field from "@/components/Forms/Field";
 import Pagination from "@/components/Pagination";
 import { useUser } from "@/services/UserContext";
 import Code from "@/components/SyntaxHighlighting/Code";
+import OrphanedUsersList from "@/components/Settings/Team/OrphanedUsersList";
+import { isCloud, isMultiOrg } from "@/services/env";
 import LoadingOverlay from "../components/LoadingOverlay";
 import { useAuth } from "../services/auth";
 import CreateOrganization from "../components/CreateOrganization";
@@ -253,6 +255,18 @@ const Admin: FC = () => {
           }}
         />
       </div>
+
+      {!isCloud() && isMultiOrg() && (
+        <div>
+          <OrphanedUsersList
+            mutateUsers={() => {
+              loadOrgs(page, search);
+            }}
+            numUsersInAccount={0}
+            enableAdd={false}
+          />
+        </div>
+      )}
     </div>
   );
 };
