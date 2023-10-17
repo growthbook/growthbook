@@ -5,10 +5,10 @@ import Modal from "../Modal";
 const CreateOrganization: FC<{
   onCreate: () => void;
   close?: () => void;
-  showReferenceId?: boolean;
-}> = ({ onCreate, close, showReferenceId }) => {
+  showExternalId?: boolean;
+}> = ({ onCreate, close, showExternalId }) => {
   const [company, setCompany] = useState("");
-  const [referenceId, setReferenceId] = useState("");
+  const [externalId, setExternalId] = useState("");
 
   const { apiCall } = useAuth();
 
@@ -21,7 +21,7 @@ const CreateOrganization: FC<{
       method: "POST",
       body: JSON.stringify({
         company,
-        referenceId,
+        externalId,
       }),
     });
     onCreate();
@@ -46,16 +46,16 @@ const CreateOrganization: FC<{
           minLength={3}
           onChange={(e) => setCompany(e.target.value)}
         />
-        {showReferenceId && (
+        {showExternalId && (
           <div className="mt-3">
-            Reference Id: Id used for the organization within your company
+            External Id: Id used for the organization within your company
             (optional)
             <input
               type="text"
               className="form-control"
-              value={referenceId}
+              value={externalId}
               minLength={3}
-              onChange={(e) => setReferenceId(e.target.value)}
+              onChange={(e) => setExternalId(e.target.value)}
             />
           </div>
         )}

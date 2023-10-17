@@ -3,7 +3,7 @@ properties:
   id:
     type: string
     description: The Growthbook unique identifier for the organization
-  referenceId:
+  externalId:
     type: string
     description: An optional identifier that you use within your company for the organization
   dateCreated:

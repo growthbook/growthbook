@@ -605,7 +605,7 @@ export async function getOrganization(req: AuthRequest, res: Response) {
     disableSelfServeBilling,
     licenseKey,
     messages,
-    referenceId,
+    externalId,
   } = org;
 
   if (!IS_CLOUD && licenseKey) {
@@ -645,7 +645,7 @@ export async function getOrganization(req: AuthRequest, res: Response) {
     organization: {
       invites,
       ownerEmail,
-      referenceId,
+      externalId,
       name,
       id,
       url,
@@ -973,7 +973,7 @@ export async function postInvite(
 
 interface SignupBody {
   company: string;
-  referenceId: string;
+  externalId: string;
 }
 
 export async function deleteMember(
@@ -1042,7 +1042,7 @@ export async function deleteInvite(
 }
 
 export async function signup(req: AuthRequest<SignupBody>, res: Response) {
-  const { company, referenceId } = req.body;
+  const { company, externalId } = req.body;
 
   const orgs = await hasOrganization();
   if (!IS_MULTI_ORG) {
@@ -1083,7 +1083,7 @@ export async function signup(req: AuthRequest<SignupBody>, res: Response) {
       userId: req.userId,
       name: company,
       verifiedDomain,
-      referenceId,
+      externalId,
     });
 
     // Alert the site manager about new organizations that are created
@@ -1110,7 +1110,7 @@ export async function putOrganization(
   res: Response
 ) {
   const { org } = getOrgFromReq(req);
-  const { name, settings, connections, referenceId } = req.body;
+  const { name, settings, connections, externalId } = req.body;
 
   const deletedEnvIds: string[] = [];
 
@@ -1173,9 +1173,9 @@ export async function putOrganization(
       updates.name = name;
       orig.name = org.name;
     }
-    if (referenceId !== undefined) {
-      updates.referenceId = referenceId;
-      orig.referenceId = org.referenceId;
+    if (externalId !== undefined) {
+      updates.externalId = externalId;
+      orig.externalId = org.externalId;
     }
     if (settings) {
       updates.settings = {

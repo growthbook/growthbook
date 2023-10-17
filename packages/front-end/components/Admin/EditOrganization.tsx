@@ -7,18 +7,18 @@ const EditOrganization: FC<{
   close?: () => void;
   id: string;
   currentName: string;
-  currentReferenceId: string;
-  showReferenceId?: boolean;
+  currentExternalId: string;
+  showExternalId?: boolean;
 }> = ({
   onEdit,
   close,
   id,
   currentName,
-  currentReferenceId,
-  showReferenceId,
+  currentExternalId,
+  showExternalId,
 }) => {
   const [name, setName] = useState(currentName);
-  const [referenceId, setReferenceId] = useState(currentReferenceId);
+  const [externalId, setExternalId] = useState(currentExternalId);
 
   const { apiCall } = useAuth();
 
@@ -32,7 +32,7 @@ const EditOrganization: FC<{
       headers: { "X-Organization": id },
       body: JSON.stringify({
         name,
-        referenceId,
+        externalId,
       }),
     });
     onEdit();
@@ -57,16 +57,16 @@ const EditOrganization: FC<{
           minLength={3}
           onChange={(e) => setName(e.target.value)}
         />
-        {showReferenceId && (
+        {showExternalId && (
           <div className="mt-3">
-            Reference Id: Id used for the organization within your company
+            External Id: Id used for the organization within your company
             (optional)
             <input
               type="text"
               className="form-control"
-              value={referenceId}
+              value={externalId}
               minLength={3}
-              onChange={(e) => setReferenceId(e.target.value)}
+              onChange={(e) => setExternalId(e.target.value)}
             />
           </div>
         )}

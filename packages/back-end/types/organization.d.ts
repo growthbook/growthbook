@@ -219,7 +219,7 @@ export interface OrganizationInterface {
   url: string;
   dateCreated: Date;
   verifiedDomain?: string;
-  referenceId?: string;
+  externalId?: string;
   name: string;
   ownerEmail: string;
   stripeCustomerId?: string;

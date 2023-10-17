@@ -9,7 +9,7 @@ x-codeSamples:
     source: |
       curl -X PUT https://api.growthbook.io/api/v1/organizations/org_abc123 \
         -d '{ name: "My Subsidiary" }' \
-        -d '{ referenceId: "subsidiary-123" }'
+        -d '{ externalId: "subsidiary-123" }'
         -u secret_abc123DEF456:
 requestBody:
   required: true

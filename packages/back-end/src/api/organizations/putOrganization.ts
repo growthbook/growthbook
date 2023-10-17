@@ -18,7 +18,7 @@ export const putOrganization = createApiRequestHandler(
     await validateIsSuperUserRequest(req);
 
     const id = req.params.id;
-    const { name, referenceId } = req.body;
+    const { name, externalId } = req.body;
 
     const org = await findOrganizationById(id);
     if (!org) {
@@ -32,8 +32,8 @@ export const putOrganization = createApiRequestHandler(
       }
       updates.name = name;
     }
-    if (referenceId) {
-      updates.referenceId = referenceId;
+    if (externalId) {
+      updates.externalId = externalId;
     }
 
     await updateOrganization(id, updates);

@@ -27,13 +27,13 @@ function OrganizationRow({
   organization,
   current,
   switchTo,
-  showReferenceId,
+  showExternalId,
   onEdit,
 }: {
   organization: OrganizationInterface;
   switchTo: (organization: OrganizationInterface) => void;
   current: boolean;
-  showReferenceId: boolean;
+  showExternalId: boolean;
   onEdit: () => void;
 }) {
   const [expanded, setExpanded] = useState(false);
@@ -47,8 +47,8 @@ function OrganizationRow({
         <EditOrganization
           id={organization.id}
           currentName={organization.name}
-          currentReferenceId={organization.referenceId || ""}
-          showReferenceId={!isCloud()}
+          currentExternalId={organization.externalId || ""}
+          showExternalId={!isCloud()}
           onEdit={onEdit}
           close={() => setEditOrgModalOpen(false)}
         />
@@ -75,9 +75,9 @@ function OrganizationRow({
         <td>
           <small>{organization.id}</small>
         </td>
-        {showReferenceId && (
+        {showExternalId && (
           <td>
-            <small>{organization.referenceId}</small>
+            <small>{organization.externalId}</small>
           </td>
         )}
         <td className="p-0 text-center">
@@ -202,7 +202,7 @@ const Admin: FC = () => {
     <div className="container-fluid p-3 pagecontents">
       {orgModalOpen && (
         <CreateOrganization
-          showReferenceId={!isCloud()}
+          showExternalId={!isCloud()}
           onCreate={() => {
             loadOrgs(page, search);
           }}
@@ -264,7 +264,7 @@ const Admin: FC = () => {
               <th>Owner</th>
               <th>Created</th>
               <th>Id</th>
-              {!isCloud() && <th>Reference Id</th>}
+              {!isCloud() && <th>External Id</th>}
               <th></th>
               <th></th>
             </tr>
@@ -273,7 +273,7 @@ const Admin: FC = () => {
             {orgs.map((o) => (
               <OrganizationRow
                 organization={o}
-                showReferenceId={!isCloud()}
+                showExternalId={!isCloud()}
                 key={o.id}
                 current={o.id === orgId}
                 onEdit={() => {

@@ -981,7 +981,7 @@ export interface components {
       /** @description The Growthbook unique identifier for the organization */
       id?: string;
       /** @description An optional identifier that you use within your company for the organization */
-      referenceId?: string;
+      externalId?: string;
       /**
        * Format: date-time 
        * @description The date the organization was created
@@ -3872,7 +3872,7 @@ export interface operations {
   listOrganizations: {
     /** Get all organizations (Multi-org Enterprise Plan only) */
     parameters: {
-        /** @description Search string to search organization names, owner emails, and reference ids by */
+        /** @description Search string to search organization names, owner emails, and external ids by */
         /** @description The number of items to return */
         /** @description How many items to skip (use in conjunction with limit for pagination) */
       query: {
@@ -3889,7 +3889,7 @@ export interface operations {
                 /** @description The Growthbook unique identifier for the organization */
                 id?: string;
                 /** @description An optional identifier that you use within your company for the organization */
-                referenceId?: string;
+                externalId?: string;
                 /**
                  * Format: date-time 
                  * @description The date the organization was created
@@ -3920,7 +3920,7 @@ export interface operations {
           /** @description The name of the organization */
           name: string;
           /** @description An optional identifier that you use within your company for the organization */
-          referenceId?: string;
+          externalId?: string;
         };
       };
     };
@@ -3932,7 +3932,7 @@ export interface operations {
               /** @description The Growthbook unique identifier for the organization */
               id?: string;
               /** @description An optional identifier that you use within your company for the organization */
-              referenceId?: string;
+              externalId?: string;
               /**
                * Format: date-time 
                * @description The date the organization was created
@@ -3962,7 +3962,7 @@ export interface operations {
           /** @description The name of the organization */
           name?: string;
           /** @description An optional identifier that you use within your company for the organization */
-          referenceId?: string;
+          externalId?: string;
         };
       };
     };
@@ -3974,7 +3974,7 @@ export interface operations {
               /** @description The Growthbook unique identifier for the organization */
               id?: string;
               /** @description An optional identifier that you use within your company for the organization */
-              referenceId?: string;
+              externalId?: string;
               /**
                * Format: date-time 
                * @description The date the organization was created

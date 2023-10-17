@@ -2016,7 +2016,7 @@ paths:
       parameters:
         - name: search
           in: query
-          description: 'Search string to search organization names, owner emails, and reference ids by'
+          description: 'Search string to search organization names, owner emails, and external ids by'
           schema:
             type: string
         - $ref: '#/components/parameters/limit'
@@ -2066,7 +2066,7 @@ paths:
                 name:
                   type: string
                   description: The name of the organization
-                referenceId:
+                externalId:
                   type: string
                   description: An optional identifier that you use within your company for the organization
       responses:
@@ -2093,7 +2093,7 @@ paths:
           source: |
             curl -X PUT https://api.growthbook.io/api/v1/organizations/org_abc123 \
               -d '{ name: "My Subsidiary" }' \
-              -d '{ referenceId: "subsidiary-123" }'
+              -d '{ externalId: "subsidiary-123" }'
               -u secret_abc123DEF456:
       requestBody:
         required: true
@@ -2105,7 +2105,7 @@ paths:
                 name:
                   type: string
                   description: The name of the organization
-                referenceId:
+                externalId:
                   type: string
                   description: An optional identifier that you use within your company for the organization
       responses:
@@ -3393,7 +3393,7 @@ components:
         id:
           type: string
           description: The Growthbook unique identifier for the organization
-        referenceId:
+        externalId:
           type: string
           description: An optional identifier that you use within your company for the organization
         dateCreated:
