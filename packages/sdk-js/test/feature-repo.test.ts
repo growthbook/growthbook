@@ -26,6 +26,7 @@ const localStorageCacheKey = "growthbook:cache:features";
 configureCache({
   staleTTL: 100,
   cacheKey: localStorageCacheKey,
+  idleStreamInterval: 500, // half a second before closing SSE connection
 });
 
 async function sleep(ms: number) {
@@ -876,6 +877,100 @@ describe("feature-repo", () => {
     growthbook2.destroy();
     cleanup();
     event.clear();
+  });
+
+  it("pauses and resumes SSE streams when browser loses and gains focus", async () => {
+    await clearCache();
+
+    //
+    const [, cleanup] = mockApi(
+      {
+        features: {
+          foo: {
+            defaultValue: "initial",
+          },
+        },
+      },
+      true
+    );
+
+    // Simulate SSE data
+    const event = new MockEvent({
+      url: "https://fakeapi.sample.io/sub/qwerty1234",
+      setInterval: 1000, // wait 1 second before sending update
+      responses: [
+        {
+          type: "features",
+          data: JSON.stringify({
+            features: {
+              foo: {
+                defaultValue: "update 1",
+              },
+            },
+          }),
+        },
+      ],
+    });
+
+    const event2 = new MockEvent({
+      url: "https://fakeapi.sample.io/sub/qwerty1234",
+      setInterval: 2000, // another update after 1 second
+      responses: [
+        {
+          type: "features",
+          data: JSON.stringify({
+            features: {
+              foo: {
+                defaultValue: "update 2",
+              },
+            },
+          }),
+        },
+      ],
+    });
+
+    const growthbook = new GrowthBook({
+      apiHost: "https://fakeapi.sample.io",
+      clientKey: "qwerty1234",
+      subscribeToChanges: true,
+    });
+
+    expect(growthbook.evalFeature("foo").value).toEqual(null);
+
+    await growthbook.loadFeatures();
+
+    // Initial value from API
+    expect(growthbook.evalFeature("foo").value).toEqual("initial");
+
+    // force override visibility state
+    Object.defineProperty(document, "visibilityState", {
+      value: "hidden",
+      writable: true,
+    });
+    Object.defineProperty(document, "hidden", { value: true, writable: true });
+    document.dispatchEvent(new Event("visibilitychange"));
+
+    // first SSE update is ignored because window is hidden
+    await sleep(1200);
+    expect(growthbook.evalFeature("foo").value).toEqual("initial");
+
+    // force override visibility state
+    Object.defineProperty(document, "visibilityState", {
+      value: "visible",
+      writable: true,
+    });
+    Object.defineProperty(document, "hidden", { value: false, writable: true });
+    document.dispatchEvent(new Event("visibilitychange"));
+
+    // second SSE update is consumed because window is visible
+    await sleep(1000);
+    expect(growthbook.evalFeature("foo").value).toEqual("update 2");
+
+    await clearCache();
+    growthbook.destroy();
+    cleanup();
+    event.clear();
+    event2.clear();
   });
 
   it("decrypts features correctly", async () => {
