@@ -18,6 +18,7 @@ import {
   getCoupon,
   getPrice,
   getStripeCustomerId,
+  isStripeProduct,
 } from "../services/stripe";
 import { SubscriptionQuote } from "../../types/organization";
 import { sendStripeTrialWillEndEmail } from "../services/email";
@@ -117,8 +118,19 @@ export async function getSubscriptionQuote(req: AuthRequest, res: Response) {
 
   const { org } = getOrgFromReq(req);
 
+  let unitPrice = 20;
+  let planName = "GrowthBook Cloud";
+
   const price = await getPrice(org.priceId || STRIPE_PRICE);
-  const unitPrice = (price?.unit_amount || 2000) / 100;
+  if (price) {
+    if (price.unit_amount) {
+      unitPrice = price.unit_amount / 100;
+    }
+
+    if (isStripeProduct(price.product)) {
+      planName = price.product.name;
+    }
+  }
 
   const coupon = await getCoupon(org.discountCode);
   const discountAmount = (-1 * (coupon?.amount_off || 0)) / 100;
@@ -140,6 +152,8 @@ export async function getSubscriptionQuote(req: AuthRequest, res: Response) {
     subtotal,
     total,
     additionalSeatPrice,
+    planName,
+    interval: price?.recurring?.interval,
   };
 
   return res.status(200).json({
