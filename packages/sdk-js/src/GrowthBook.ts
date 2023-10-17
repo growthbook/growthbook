@@ -386,6 +386,10 @@ export class GrowthBook<
     this._renderer = renderer;
   }
 
+  public getIdleStreamInterval() {
+    return this._ctx.idleStreamInterval;
+  }
+
   public forceVariation(key: string, variation: number) {
     this._ctx.forcedVariations = this._ctx.forcedVariations || {};
     this._ctx.forcedVariations[key] = variation;

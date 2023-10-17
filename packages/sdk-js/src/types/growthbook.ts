@@ -174,6 +174,7 @@ export interface Context {
   apiHostRequestHeaders?: Record<string, string>;
   streamingHostRequestHeaders?: Record<string, string>;
   allowIdleStreams?: boolean;
+  idleStreamInterval?: number;
   clientKey?: string;
   decryptionKey?: string;
   remoteEval?: boolean;

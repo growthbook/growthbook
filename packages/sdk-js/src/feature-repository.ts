@@ -60,14 +60,19 @@ export const helpers: Helpers = {
     return new polyfills.EventSource(`${host}/sub/${clientKey}`);
   },
   startIdleListener: (instance: GrowthBook): (() => void) | undefined => {
+    let idleTimeout: number | undefined;
     const isBrowser =
       typeof window !== "undefined" && typeof document !== "undefined";
     if (!isBrowser) return;
     const onVisibilityChange = () => {
       if (document.visibilityState === "visible") {
+        window.clearTimeout(idleTimeout);
         onVisible(instance);
       } else if (document.visibilityState === "hidden") {
-        onHidden(instance);
+        idleTimeout = window.setTimeout(
+          () => onHidden(instance),
+          instance.getIdleStreamInterval() || 20000
+        );
       }
     };
     document.addEventListener("visibilitychange", onVisibilityChange);
@@ -143,7 +148,26 @@ export function unsubscribe(instance: GrowthBook): void {
   subscribedInstances.forEach((s) => s.delete(instance));
 }
 
+export function onHidden(instance: GrowthBook) {
+  const key = getKey(instance);
+  const channel = streams.get(key);
+  if (!channel) return;
+  channel.state = "idle";
+  disableChannel(channel);
+}
+
+export function onVisible(instance: GrowthBook) {
+  const { streamingHost, streamingHostRequestHeaders } = instance.getApiHosts();
+  const clientKey = instance.getClientKey();
+  const key = getKey(instance);
+  const channel = streams.get(key);
+  if (!channel) return;
+  if (channel.state !== "idle") return;
+  enableChannel(channel, streamingHost, clientKey, streamingHostRequestHeaders);
+}
+
 // Private functions
+
 async function updatePersistentCache() {
   try {
     if (!polyfills.localStorage) return;
@@ -468,24 +492,6 @@ function onSSEError(
       enableChannel(channel, host, clientKey, headers);
     }, Math.min(delay, 300000)); // 5 minutes max
   }
-}
-
-export function onHidden(instance: GrowthBook) {
-  const key = getKey(instance);
-  const channel = streams.get(key);
-  if (!channel) return;
-  channel.state = "idle";
-  disableChannel(channel);
-}
-
-export function onVisible(instance: GrowthBook) {
-  const { streamingHost, streamingHostRequestHeaders } = instance.getApiHosts();
-  const clientKey = instance.getClientKey();
-  const key = getKey(instance);
-  const channel = streams.get(key);
-  if (!channel) return;
-  if (channel.state !== "idle") return;
-  enableChannel(channel, streamingHost, clientKey, streamingHostRequestHeaders);
 }
 
 function disableChannel(channel: ScopedChannel) {
