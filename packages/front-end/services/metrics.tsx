@@ -186,7 +186,8 @@ export function formatMetricValue(
           metric.numerator,
           getFactTableById,
           value,
-          currency
+          currency,
+          true
         );
       })();
 
