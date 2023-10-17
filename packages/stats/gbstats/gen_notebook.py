@@ -126,6 +126,10 @@ def create_notebook(
                 ),
             )
         )
+        if len(metric["rows"]) == 0:
+            cells.append(nbf.new_markdown_cell("No data for this metric"))
+            continue
+
         cells.append(nbf.new_markdown_cell("### Data Quality Checks / Preparation"))
 
         if dimension == "pre:datedaily":

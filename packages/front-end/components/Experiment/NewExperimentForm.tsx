@@ -235,18 +235,22 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
 
     const body = JSON.stringify(data);
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const params: Record<string, any> = {};
+    if (allowDuplicateTrackingKey) {
+      params.allowDuplicateTrackingKey = true;
+    }
+    if (source === "duplicate" && initialValue?.id) {
+      params.originalId = initialValue.id;
+    }
+
     const res = await apiCall<
       | { experiment: ExperimentInterfaceStringDates }
       | { duplicateTrackingKey: true; existingId: string }
-    >(
-      `/experiments${
-        allowDuplicateTrackingKey ? "?allowDuplicateTrackingKey=true" : ""
-      }`,
-      {
-        method: "POST",
-        body,
-      }
-    );
+    >(`/experiments?${new URLSearchParams(params).toString()}`, {
+      method: "POST",
+      body,
+    });
 
     if ("duplicateTrackingKey" in res) {
       setAllowDuplicateTrackingKey(true);
@@ -276,9 +280,14 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
 
   const { currentProjectIsDemo } = useDemoDataSourceProject();
 
+  let header = isNewExperiment ? "New Experiment" : "New Experiment Analysis";
+  if (source === "duplicate") {
+    header = "Duplicate Experiment";
+  }
+
   return (
     <PagedModal
-      header={isNewExperiment ? "New Experiment" : "New Experiment Analysis"}
+      header={header}
       close={onClose}
       docSection="experiments"
       submit={onSubmit}
@@ -506,6 +515,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                 onChange={(metrics) => form.setValue("metrics", metrics)}
                 datasource={datasource?.id}
                 project={project}
+                includeFacts={true}
               />
             </div>
             <div className="form-group">
@@ -519,6 +529,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                 onChange={(metrics) => form.setValue("guardrails", metrics)}
                 datasource={datasource?.id}
                 project={project}
+                includeFacts={true}
               />
             </div>
           </div>
