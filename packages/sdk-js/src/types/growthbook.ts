@@ -173,8 +173,6 @@ export interface Context {
   streamingHost?: string;
   apiHostRequestHeaders?: Record<string, string>;
   streamingHostRequestHeaders?: Record<string, string>;
-  allowIdleStreams?: boolean;
-  idleStreamInterval?: number;
   clientKey?: string;
   decryptionKey?: string;
   remoteEval?: boolean;
@@ -271,7 +269,8 @@ export type Helpers = {
     clientKey: string;
     headers?: Record<string, string>;
   }) => EventSource;
-  startIdleListener: (instance: GrowthBook) => (() => void) | undefined;
+  startIdleListener: () => (() => void) | void;
+  stopIdleListener: () => void;
 };
 
 export interface LocalStorageCompat {
@@ -284,6 +283,8 @@ export type CacheSettings = {
   cacheKey: string;
   staleTTL: number;
   maxEntries: number;
+  disableIdleStreams: boolean;
+  idleStreamInterval: number;
 };
 
 export type ApiHost = string;

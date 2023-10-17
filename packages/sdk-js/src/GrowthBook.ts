@@ -34,12 +34,7 @@ import {
   isURLTargeted,
 } from "./util";
 import { evalCondition } from "./mongrule";
-import {
-  helpers,
-  refreshFeatures,
-  subscribe,
-  unsubscribe,
-} from "./feature-repository";
+import { refreshFeatures, subscribe, unsubscribe } from "./feature-repository";
 
 const isBrowser =
   typeof window !== "undefined" && typeof document !== "undefined";
@@ -79,7 +74,6 @@ export class GrowthBook<
     { valueHash: string; undo: () => void }
   >;
   private _loadFeaturesCalled: boolean;
-  private _idleListenerCleanupFn?: () => void;
 
   constructor(context?: Context) {
     context = context || {};
@@ -154,9 +148,6 @@ export class GrowthBook<
 
     if (this._canSubscribe()) {
       subscribe(this);
-      if (!this._ctx.allowIdleStreams) {
-        this._idleListenerCleanupFn = helpers.startIdleListener(this);
-      }
     }
   }
 
@@ -369,7 +360,6 @@ export class GrowthBook<
       clearTimeout(this._rtTimer);
     }
     unsubscribe(this);
-    this._idleListenerCleanupFn?.();
 
     if (isBrowser && window._growthbook === this) {
       delete window._growthbook;
@@ -384,10 +374,6 @@ export class GrowthBook<
 
   public setRenderer(renderer: () => void) {
     this._renderer = renderer;
-  }
-
-  public getIdleStreamInterval() {
-    return this._ctx.idleStreamInterval;
   }
 
   public forceVariation(key: string, variation: number) {
