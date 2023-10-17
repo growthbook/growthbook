@@ -39,6 +39,7 @@ const AuthorizedImage: FC<AuthorizedImageProps> = ({
       // Images in the cache do not need to be fetched again
       setImageSrc(imageCache[src]);
     } else if (src.startsWith("https://storage.googleapis.com/")) {
+      // For legacy GCS images which link directly to the bucket:
       // We convert GCS images to the GB url that acts as a proxy using the correct credentials
       // This way they can lock their bucket down to only allow access from the proxy.
       const withoutDomain = src.replace("https://storage.googleapis.com/", "");
@@ -47,6 +48,7 @@ const AuthorizedImage: FC<AuthorizedImageProps> = ({
       const apiUrl = getApiHost() + "/upload/" + parts.join("/");
       fetchData(src, apiUrl);
     } else if (getS3Domain() && src.startsWith(getS3Domain())) {
+      // For legacy s3 images which link directly to the bucket:
       // We convert s3 images to the GB url that acts as a proxy using the correct credentials
       // This way they can lock their bucket down to only allow access from the proxy.
       const apiUrl =
