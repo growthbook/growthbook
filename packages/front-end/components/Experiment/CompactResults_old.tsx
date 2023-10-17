@@ -16,8 +16,10 @@ import {
   setAdjustedPValuesOnResults,
   ExperimentTableRow,
   useRiskVariation,
+  setAdjustedCIs,
 } from "@/services/experiments";
 import { GBCuped } from "@/components/Icons";
+import usePValueThreshold from "@/hooks/usePValueThreshold";
 import Tooltip from "../Tooltip/Tooltip";
 import MetricTooltipBody from "../Metrics/MetricTooltipBody";
 import DataQualityWarning from "./DataQualityWarning";
@@ -60,11 +62,13 @@ const CompactResults_old: FC<{
   sequentialTestingEnabled,
 }) => {
   const { getExperimentMetricById, ready } = useDefinitions();
+  const pValueThreshold = usePValueThreshold();
 
   const rows = useMemo<ExperimentTableRow[]>(() => {
     if (!results || !results.variations || !ready) return [];
     if (pValueCorrection && statsEngine === "frequentist") {
       setAdjustedPValuesOnResults([results], metrics, pValueCorrection);
+      setAdjustedCIs([results], pValueThreshold);
     }
     return metrics
       .map((metricId) => {
@@ -98,6 +102,7 @@ const CompactResults_old: FC<{
     regressionAdjustmentEnabled,
     metricRegressionAdjustmentStatuses,
     pValueCorrection,
+    pValueThreshold,
     ready,
     getExperimentMetricById,
     statsEngine,

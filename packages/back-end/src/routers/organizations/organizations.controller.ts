@@ -48,7 +48,12 @@ import {
 import { getAllFeatures } from "../../models/FeatureModel";
 import { findDimensionsByOrganization } from "../../models/DimensionModel";
 import { findSegmentsByOrganization } from "../../models/SegmentModel";
-import { APP_ORIGIN, IS_CLOUD } from "../../util/secrets";
+import {
+  ALLOW_SELF_ORG_CREATION,
+  APP_ORIGIN,
+  IS_CLOUD,
+  IS_MULTI_ORG,
+} from "../../util/secrets";
 import {
   sendInviteEmail,
   sendNewMemberEmail,
@@ -1036,8 +1041,8 @@ export async function deleteInvite(
 export async function signup(req: AuthRequest<SignupBody>, res: Response) {
   const { company } = req.body;
 
-  if (!IS_CLOUD) {
-    const orgs = await hasOrganization();
+  const orgs = await hasOrganization();
+  if (!IS_MULTI_ORG) {
     // there are odd edge cases where a user can exist, but not an org,
     // so we want to allow org creation this way if there are no other orgs
     // on a local install.
@@ -1047,7 +1052,12 @@ export async function signup(req: AuthRequest<SignupBody>, res: Response) {
   }
 
   let verifiedDomain = "";
-  if (IS_CLOUD) {
+  if (IS_MULTI_ORG) {
+    if (orgs && !ALLOW_SELF_ORG_CREATION && !req.superAdmin) {
+      throw new Error(
+        "You are not allowed to create an organization.  Ask your site admin."
+      );
+    }
     // if the owner is verified, try to infer a verified domain
     if (req.email && req.verified) {
       const domain = req.email.toLowerCase().split("@")[1] || "";
@@ -1316,7 +1326,7 @@ export async function deleteApiKey(
   req: AuthRequest<{ key?: string; id?: string }>,
   res: Response
 ) {
-  const { org } = getOrgFromReq(req);
+  const { org, userId } = getOrgFromReq(req);
   // Old API keys did not have an id, so we need to delete by the key value itself
   const { key, id } = req.body;
   if (!key && !id) {
@@ -1333,7 +1343,13 @@ export async function deleteApiKey(
   }
 
   if (keyObj.secret) {
-    req.checkPermissions("manageApiKeys");
+    if (!keyObj.userId) {
+      // If there is no userId, this is an API Key, so we check permissions.
+      req.checkPermissions("manageApiKeys");
+      // Otherwise, this is a Personal Access Token (PAT) - users can delete only their own PATs regardless of permission level.
+    } else if (keyObj.userId !== userId) {
+      throw new Error("You do not have permission to delete this.");
+    }
   } else {
     req.checkPermissions("manageEnvironments", "", [keyObj.environment || ""]);
   }
@@ -1509,6 +1525,12 @@ export async function getOrphanedUsers(req: AuthRequest, res: Response) {
     throw new Error("Unable to get orphaned users on GrowthBook Cloud");
   }
 
+  if (IS_MULTI_ORG && !req.superAdmin) {
+    throw new Error(
+      "Only super admins get orphaned users on multi-org deployments"
+    );
+  }
+
   const allUsers = await getAllUsers();
   const { organizations: allOrgs } = await findAllOrganizations(1, "");
 
@@ -1541,6 +1563,12 @@ export async function addOrphanedUser(
 
   if (IS_CLOUD) {
     throw new Error("This action is not permitted on GrowthBook Cloud");
+  }
+
+  if (IS_MULTI_ORG && !req.superAdmin) {
+    throw new Error(
+      "Only super admins can add orphaned users on multi-org deployments"
+    );
   }
 
   const { org } = getOrgFromReq(req);
@@ -1593,6 +1621,12 @@ export async function deleteOrphanedUser(
 
   if (IS_CLOUD) {
     throw new Error("Unable to delete orphaned users on GrowthBook Cloud");
+  }
+
+  if (IS_MULTI_ORG && !req.superAdmin) {
+    throw new Error(
+      "Only super admins delete orphaned users on multi-org deployments"
+    );
   }
 
   const { id } = req.params;

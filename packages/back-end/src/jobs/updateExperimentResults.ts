@@ -1,5 +1,8 @@
 import Agenda, { Job } from "agenda";
-import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
+import {
+  DEFAULT_P_VALUE_THRESHOLD,
+  DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
+} from "shared/constants";
 import { getScopedSettings } from "shared/settings";
 import { getSnapshotAnalysis } from "shared/util";
 import { orgHasPremiumFeature } from "enterprise";
@@ -177,6 +180,8 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
         organization.settings?.sequentialTestingTuningParameter ??
         DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
       baselineVariationIndex: 0,
+      pValueThreshold:
+        organization.settings?.pValueThreshold ?? DEFAULT_P_VALUE_THRESHOLD,
     };
 
     const metricMap = await getMetricMap(organization.id);
