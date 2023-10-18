@@ -32,10 +32,11 @@ export async function patchGroup(
     });
   }
 
-  console.log({ Operations });
-
   for (const operation of Operations) {
     const { op, value, path } = operation;
+
+    console.log(operation);
+
     try {
       if (op === "remove") {
         // Remove requested members
@@ -99,5 +100,5 @@ export async function patchGroup(
     }
   }
 
-  return res.status(204);
+  return res.status(204).json();
 }
