@@ -1,10 +1,9 @@
 import mongoose, { FilterQuery } from "mongoose";
 import cloneDeep from "lodash/cloneDeep";
 import omit from "lodash/omit";
-import { isEqual } from "lodash";
+import isEqual from "lodash/isEqual";
 import {
   ExperimentRefRule,
-  FeatureDraftChanges,
   FeatureEnvironment,
   FeatureInterface,
   FeatureRule,
@@ -30,13 +29,18 @@ import {
   getSDKPayloadKeysByDiff,
 } from "../util/features";
 import { EventAuditUser } from "../events/event-types";
-import { saveRevision } from "./FeatureRevisionModel";
+import { FeatureRevisionInterface } from "../../types/feature-revision";
 import { createEvent } from "./EventModel";
 import {
   addLinkedFeatureToExperiment,
   getExperimentMapForFeature,
   removeLinkedFeatureFromExperiment,
 } from "./ExperimentModel";
+import {
+  createInitialRevision,
+  markRevisionAsPublished,
+  updateRevision,
+} from "./FeatureRevisionModel";
 
 const featureSchema = new mongoose.Schema({
   id: String,
@@ -48,6 +52,7 @@ const featureSchema = new mongoose.Schema({
   project: String,
   dateCreated: Date,
   dateUpdated: Date,
+  version: Number,
   valueType: String,
   defaultValue: String,
   environments: [String],
@@ -154,7 +159,8 @@ export async function createFeature(
     ...data,
     linkedExperiments,
   });
-  await saveRevision(toInterface(feature));
+
+  await createInitialRevision(toInterface(feature), user);
 
   if (linkedExperiments.length > 0) {
     await Promise.all(
@@ -519,35 +525,27 @@ export async function toggleFeatureEnvironment(
   });
 }
 
-export function getDraftRules(feature: FeatureInterface, environment: string) {
-  return (
-    feature?.draft?.rules?.[environment] ??
-    feature?.environmentSettings?.[environment]?.rules ??
-    []
-  );
-}
-
 export async function addFeatureRule(
-  org: OrganizationInterface,
-  user: EventAuditUser,
-  feature: FeatureInterface,
-  environment: string,
+  revision: FeatureRevisionInterface,
+  env: string,
   rule: FeatureRule
 ) {
   if (!rule.id) {
     rule.id = generateRuleId();
   }
 
-  await setFeatureDraftRules(org, user, feature, environment, [
-    ...getDraftRules(feature, environment),
-    rule,
-  ]);
+  const changes = {
+    rules: revision.rules || {},
+  };
+  changes.rules[env] = changes.rules[env] || [];
+  changes.rules[env].push(rule);
+
+  await updateRevision(revision, changes);
 }
 
 export async function deleteExperimentRefRule(
   org: OrganizationInterface,
-  user: EventAuditUser,
-  feature: FeatureInterface,
+  revision: FeatureRevisionInterface,
   experimentId: string
 ) {
   const environments = org.settings?.environments || [];
@@ -559,30 +557,26 @@ export async function deleteExperimentRefRule(
     );
   }
 
-  const draft = getDraft(feature);
-
   let hasChanges = false;
+  const changes = { rules: { ...revision.rules } };
   environmentIds.forEach((env) => {
-    const rules = getDraftRules(feature, env);
+    changes.rules[env] = changes.rules[env] || [];
+    const numRules = changes.rules[env].length;
 
-    draft.rules = draft.rules || {};
-
-    const numRules = rules.length;
-    draft.rules[env] = rules.filter(
+    changes.rules[env] = changes.rules[env].filter(
       (r) => !(r.type === "experiment-ref" && r.experimentId === experimentId)
     );
-    if (draft.rules[env].length < numRules) hasChanges = true;
+    if (changes.rules[env].length < numRules) hasChanges = true;
   });
 
   if (hasChanges) {
-    await updateDraft(org, user, feature, draft);
+    await updateRevision(revision, changes);
   }
 }
 
 export async function addExperimentRefRule(
   org: OrganizationInterface,
-  user: EventAuditUser,
-  feature: FeatureInterface,
+  revision: FeatureRevisionInterface,
   rule: ExperimentRefRule
 ) {
   if (!rule.id) {
@@ -598,49 +592,36 @@ export async function addExperimentRefRule(
     );
   }
 
-  const draft = getDraft(feature);
-
+  const changes = {
+    rules: revision.rules || {},
+  };
   environmentIds.forEach((env) => {
-    draft.rules = draft.rules || {};
-    draft.rules[env] = [...getDraftRules(feature, env), rule];
+    changes.rules[env] = changes.rules[env] || [];
+    changes.rules[env].push(rule);
   });
 
-  await updateDraft(org, user, feature, draft);
+  await updateRevision(revision, changes);
 }
 
 export async function editFeatureRule(
-  org: OrganizationInterface,
-  user: EventAuditUser,
-  feature: FeatureInterface,
+  revision: FeatureRevisionInterface,
   environment: string,
   i: number,
   updates: Partial<FeatureRule>
 ) {
-  const rules = getDraftRules(feature, environment);
-  if (!rules[i]) {
+  const changes = { rules: revision.rules || {} };
+
+  changes.rules[environment] = changes.rules[environment] || [];
+  if (!changes.rules[environment][i]) {
     throw new Error("Unknown rule");
   }
 
-  rules[i] = {
-    ...rules[i],
+  changes.rules[environment][i] = {
+    ...changes.rules[environment][i],
     ...updates,
   } as FeatureRule;
 
-  await setFeatureDraftRules(org, user, feature, environment, rules);
-}
-
-export async function setFeatureDraftRules(
-  org: OrganizationInterface,
-  user: EventAuditUser,
-  feature: FeatureInterface,
-  environment: string,
-  rules: FeatureRule[]
-) {
-  const draft = getDraft(feature);
-  draft.rules = draft.rules || {};
-  draft.rules[environment] = rules;
-
-  await updateDraft(org, user, feature, draft);
+  await updateRevision(revision, changes);
 }
 
 export async function removeTagInFeature(
@@ -690,15 +671,10 @@ export async function removeProjectFromFeatures(
 }
 
 export async function setDefaultValue(
-  org: OrganizationInterface,
-  user: EventAuditUser,
-  feature: FeatureInterface,
+  revision: FeatureRevisionInterface,
   defaultValue: string
 ) {
-  const draft = getDraft(feature);
-  draft.defaultValue = defaultValue;
-
-  return updateDraft(org, user, feature, draft);
+  await updateRevision(revision, { defaultValue });
 }
 
 export async function setJsonSchema(
@@ -713,99 +689,57 @@ export async function setJsonSchema(
   });
 }
 
-export async function updateDraft(
-  org: OrganizationInterface,
-  user: EventAuditUser,
-  feature: FeatureInterface,
-  draft: FeatureDraftChanges
-) {
-  return await updateFeature(org, user, feature, { draft });
-}
-
-function getDraft(feature: FeatureInterface) {
-  const draft: FeatureDraftChanges = cloneDeep(
-    feature.draft || { active: false }
-  );
-
-  if (!draft.active) {
-    draft.active = true;
-    draft.dateCreated = new Date();
-  }
-  draft.dateUpdated = new Date();
-
-  return draft;
-}
-
-export async function discardDraft(
-  org: OrganizationInterface,
-  user: EventAuditUser,
-  feature: FeatureInterface
-) {
-  if (!feature.draft?.active) {
-    throw new Error("There are no draft changes to discard.");
-  }
-
-  await updateFeature(org, user, feature, {
-    draft: {
-      active: false,
-    },
-  });
-}
-
-export async function publishDraft(
+export async function publishRevision(
   organization: OrganizationInterface,
   feature: FeatureInterface,
-  user: {
-    id: string;
-    email: string;
-    name: string;
-  },
-  comment?: string
+  revision: FeatureRevisionInterface,
+  user: EventAuditUser
 ) {
-  if (!feature.draft?.active) {
-    throw new Error("There are no draft changes to publish.");
+  if (revision.status !== "draft") {
+    throw new Error("Can only publish a draft revision");
   }
 
-  // Features created before revisions were introduced are missing their initial revision
-  // Create it now before publishing the draft and making a 2nd revision
-  if (!feature.revision) {
-    await saveRevision(feature);
-  }
-
+  let hasChanges = false;
   const changes: Partial<FeatureInterface> = {};
-  if (
-    "defaultValue" in feature.draft &&
-    feature.draft.defaultValue !== feature.defaultValue
-  ) {
-    changes.defaultValue = feature.draft.defaultValue;
-  }
-  if (feature.draft.rules) {
-    changes.environmentSettings = cloneDeep(feature.environmentSettings || {});
-    const envSettings = changes.environmentSettings;
-    Object.keys(feature.draft.rules).forEach((key) => {
-      envSettings[key] = {
-        enabled: envSettings[key]?.enabled || false,
-        rules: feature?.draft?.rules?.[key] || [],
-      };
-    });
-    changes.nextScheduledUpdate = getNextScheduledUpdate(envSettings);
+  if (revision.defaultValue !== feature.defaultValue) {
+    changes.defaultValue = revision.defaultValue;
+    hasChanges = true;
   }
 
-  changes.draft = { active: false };
-  changes.revision = {
-    version: (feature.revision?.version || 1) + 1,
-    comment: comment || "",
-    date: new Date(),
-    publishedBy: user,
-  };
+  Object.entries(revision.rules).forEach(([env, rules]) => {
+    if (!isEqual(rules, feature.environmentSettings?.[env]?.rules) || []) {
+      changes.environmentSettings =
+        changes.environmentSettings ||
+        cloneDeep(feature.environmentSettings || {});
+      changes.environmentSettings[env] = changes.environmentSettings[env] || {};
+      changes.environmentSettings[env].enabled =
+        changes.environmentSettings[env].enabled || false;
+      changes.environmentSettings[env].rules = rules;
+      hasChanges = true;
+    }
+  });
+
+  if (!hasChanges) {
+    throw new Error("No changes to publish");
+  }
+
+  if (changes.environmentSettings) {
+    changes.nextScheduledUpdate = getNextScheduledUpdate(
+      changes.environmentSettings
+    );
+  }
+
+  changes.version = revision.version;
+
+  // TODO: wrap these 2 calls in a transaction
   const updatedFeature = await updateFeature(
     organization,
-    { ...user, type: "dashboard" },
+    user,
     feature,
     changes
   );
+  await markRevisionAsPublished(revision, user);
 
-  await saveRevision(updatedFeature);
   return updatedFeature;
 }
 
@@ -815,16 +749,6 @@ function getLinkedExperiments(feature: FeatureInterface) {
   if (feature.environmentSettings) {
     Object.values(feature.environmentSettings).forEach((env) => {
       env.rules?.forEach((rule) => {
-        if (rule.type === "experiment-ref") {
-          expIds.add(rule.experimentId);
-        }
-      });
-    });
-  }
-  // Draft rules
-  if (feature.draft && feature.draft.active && feature.draft.rules) {
-    Object.values(feature.draft.rules).forEach((rules) => {
-      rules.forEach((rule) => {
         if (rule.type === "experiment-ref") {
           expIds.add(rule.experimentId);
         }

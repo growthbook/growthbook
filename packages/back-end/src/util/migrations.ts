@@ -261,7 +261,7 @@ export function upgradeFeatureRule(rule: FeatureRule): FeatureRule {
 export function upgradeFeatureInterface(
   feature: LegacyFeatureInterface
 ): FeatureInterface {
-  const { environments, rules, ...newFeature } = feature;
+  const { environments, rules, revision, ...newFeature } = feature;
 
   // Copy over old way of storing rules/toggles to new environment-scoped settings
   updateEnvironmentSettings(rules || [], environments || [], "dev", newFeature);
@@ -271,6 +271,8 @@ export function upgradeFeatureInterface(
     "production",
     newFeature
   );
+
+  feature.version = revision?.version || 1;
 
   // Upgrade all published rules
   for (const env in newFeature.environmentSettings) {

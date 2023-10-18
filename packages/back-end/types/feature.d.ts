@@ -11,10 +11,15 @@ export interface FeatureEnvironment {
 }
 
 export type LegacyFeatureInterface = FeatureInterface & {
-  /** @deprecated */
   environments?: string[];
-  /** @deprecated */
   rules?: FeatureRule[];
+  revision?: {
+    version: number;
+    comment: string;
+    date: Date;
+    publishedBy: UserRef;
+  };
+  draft?: FeatureDraftChanges;
 };
 
 export interface FeatureDraftChanges {
@@ -38,15 +43,9 @@ export interface FeatureInterface {
   dateUpdated: Date;
   valueType: FeatureValueType;
   defaultValue: string;
+  version: number;
   tags?: string[];
   environmentSettings: Record<string, FeatureEnvironment>;
-  draft?: FeatureDraftChanges;
-  revision?: {
-    version: number;
-    comment: string;
-    date: Date;
-    publishedBy: UserRef;
-  };
   linkedExperiments?: string[];
   jsonSchema?: {
     schema: string;
