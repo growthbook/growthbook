@@ -428,11 +428,11 @@ export async function putDataSource(
   req: AuthRequest<
     {
       name: string;
-      description?: string;
+      description: string;
       type: DataSourceType;
       params: DataSourceParams;
       settings: DataSourceSettings;
-      projects?: string[];
+      projects: string[];
       metricsToCreate?: { name: string; type: MetricType; sql: string }[];
     },
     { id: string }
@@ -513,25 +513,15 @@ export async function putDataSource(
 
   try {
     const updates: Partial<DataSourceInterface> = {
+      name,
+      description,
+      settings,
+      projects,
       dateUpdated: new Date(),
     };
 
-    if (name) {
-      updates.name = name;
-    }
-    if (description) {
-      updates.description = description;
-    }
-    if (settings) {
-      updates.settings = settings;
-    }
-    if (projects) {
-      updates.projects = projects;
-    }
-
     if (
       type === "google_analytics" &&
-      params &&
       (params as GoogleAnalyticsParams).refreshToken
     ) {
       const oauth2Client = getOauth2Client();
@@ -546,14 +536,10 @@ export async function putDataSource(
       req.checkPermissions(permissionLevel, updates.projects);
     }
 
-    // If the connection params changed, re-validate the connection
-    // If the user is just updating the display name, no need to do this
-    if (params) {
-      const integration = getSourceIntegrationObject(datasource);
-      mergeParams(integration, params);
-      await integration.testConnection();
-      updates.params = encryptParams(integration.params);
-    }
+    const integration = getSourceIntegrationObject(datasource);
+    mergeParams(integration, params);
+    await integration.testConnection();
+    updates.params = encryptParams(integration.params);
 
     await updateDataSource(datasource, org.id, updates);
 
