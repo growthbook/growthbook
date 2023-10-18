@@ -172,23 +172,6 @@ export function getMatchingRules(
     );
   }
 
-  if (feature.draft && feature.draft.active && feature.draft.rules) {
-    Object.entries(feature.draft.rules).forEach(([environmentId, rules]) => {
-      rules.forEach((rule, i) => {
-        if (filter(rule)) {
-          matches.push({
-            rule,
-            i,
-            draft: true,
-            environmentEnabled: !!feature.environmentSettings[environmentId]
-              ?.enabled,
-            environmentId,
-          });
-        }
-      });
-    });
-  }
-
   return matches;
 }
 

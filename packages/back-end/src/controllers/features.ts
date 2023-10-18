@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import { evaluateFeatures } from "@growthbook/proxy-eval";
 import { isEqual } from "lodash";
+import { mergeRevision } from "shared/util";
 import {
   ExperimentRefRule,
   FeatureInterface,
@@ -32,7 +33,6 @@ import {
   arrayMove,
   evaluateFeature,
   getFeatureDefinitions,
-  mergeRevision,
 } from "../services/features";
 import {
   getExperimentByTrackingKey,
@@ -1103,7 +1103,7 @@ export async function getFeatureById(
 
   res.status(200).json({
     status: 200,
-    feature: revision ? mergeRevision(feature, revision) : feature,
+    feature,
     revision,
     experiments,
     revisions,

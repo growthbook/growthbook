@@ -10,7 +10,6 @@ import {
   GrowthBook,
 } from "@growthbook/growthbook";
 import { validateFeatureValue } from "shared/util";
-import { cloneDeep } from "lodash";
 import { FeatureDefinition } from "../../types/api";
 import {
   FeatureDraftChanges,
@@ -57,7 +56,6 @@ import {
   ApiFeatureEnvSettingsRules,
 } from "../api/features/postFeature";
 import { ArchetypeAttributeValues } from "../../types/archetype";
-import { FeatureRevisionInterface } from "../../types/feature-revision";
 import { getEnvironments, getOrganizationById } from "./organizations";
 
 export type AttributeMap = Map<string, string>;
@@ -665,24 +663,6 @@ export async function encrypt(
     new TextEncoder().encode(plainText)
   );
   return bufToBase64(iv) + "." + bufToBase64(encryptedBuffer);
-}
-
-export function mergeRevision(
-  feature: FeatureInterface,
-  revision: FeatureRevisionInterface
-) {
-  const newFeature = cloneDeep(feature);
-
-  newFeature.defaultValue = revision.defaultValue;
-
-  const envSettings = newFeature.environmentSettings;
-  Object.entries(revision.rules).forEach(([env, rules]) => {
-    envSettings[env] = envSettings[env] || {};
-    envSettings[env].enabled = envSettings[env].enabled || false;
-    envSettings[env].rules = rules;
-  });
-
-  return newFeature;
 }
 
 export function getApiFeatureObj({

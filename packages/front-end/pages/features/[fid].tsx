@@ -1,11 +1,14 @@
 import { useRouter } from "next/router";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { FeatureInterface } from "back-end/types/feature";
-import { FeatureRevisionInterface } from "back-end/types/feature-revision";
+import {
+  FeatureRevisionInterface,
+  FeatureRevisionSummary,
+} from "back-end/types/feature-revision";
 import React, { useState } from "react";
 import { FaChevronRight, FaExclamationTriangle } from "react-icons/fa";
 import { datetime } from "shared/dates";
-import { getValidation } from "shared/util";
+import { getValidation, mergeRevision } from "shared/util";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import { GBAddCircle, GBEdit } from "@/components/Icons";
@@ -86,11 +89,14 @@ export default function FeaturePage() {
   const { apiCall } = useAuth();
   const { hasCommercialFeature, organization } = useUser();
 
+  const [version, setVersion] = useState<number | null>(null);
+
   const { data, error, mutate } = useApi<{
     feature: FeatureInterface;
     experiments: { [key: string]: ExperimentInterfaceStringDates };
-    revisions: FeatureRevisionInterface[];
-  }>(`/feature/${fid}`);
+    revision?: FeatureRevisionInterface;
+    revisions: FeatureRevisionSummary[];
+  }>(`/feature/${fid}/${version || ""}`);
   const firstFeature = router?.query && "first" in router.query;
   const [showImplementation, setShowImplementation] = useState(firstFeature);
   const environments = useEnvironments();
@@ -106,17 +112,23 @@ export default function FeaturePage() {
     return <LoadingOverlay />;
   }
 
+  const feature = data.revision
+    ? mergeRevision(data.feature, data.revision)
+    : data.feature;
+
   const { jsonSchema, validationEnabled, schemaDateUpdated } = getValidation(
-    data.feature
+    feature
   );
 
-  const isDraft = !!data.feature.draft?.active;
-  const isArchived = data.feature.archived;
+  const currentVersion = version || feature.version;
 
-  const enabledEnvs = getEnabledEnvironments(data.feature);
+  const isDraft = !!data.revision;
+  const isArchived = feature.archived;
+
+  const enabledEnvs = getEnabledEnvironments(feature);
   const hasJsonValidator = hasCommercialFeature("json-validation");
 
-  const projectId = data.feature.project;
+  const projectId = feature.project;
   const project = getProjectById(projectId || "");
   const projectName = project?.name || null;
   const projectIsDeReferenced = projectId && !projectName;
@@ -143,12 +155,9 @@ export default function FeaturePage() {
     permissions.check(
       "publishFeatures",
       projectId,
-      "defaultValue" in (data?.feature?.draft || {})
-        ? getEnabledEnvironments(data.feature)
-        : getAffectedEnvs(
-            data.feature,
-            Object.keys(data.feature.draft?.rules || {})
-          )
+      data.revision?.defaultValue !== data.feature.defaultValue
+        ? getEnabledEnvironments(feature)
+        : getAffectedEnvs(feature, Object.keys(data.revision?.rules || {}))
     );
 
   return (
@@ -156,16 +165,16 @@ export default function FeaturePage() {
       {edit && (
         <EditDefaultValueModal
           close={() => setEdit(false)}
-          feature={data.feature}
+          feature={feature}
           mutate={mutate}
         />
       )}
       {editOwnerModal && (
         <EditOwnerModal
           cancel={() => setEditOwnerModal(false)}
-          owner={data.feature.owner}
+          owner={feature.owner}
           save={async (owner) => {
-            await apiCall(`/feature/${data.feature.id}`, {
+            await apiCall(`/feature/${feature.id}`, {
               method: "PUT",
               body: JSON.stringify({ owner }),
             });
@@ -176,13 +185,13 @@ export default function FeaturePage() {
       {editValidator && (
         <EditSchemaModal
           close={() => setEditValidator(false)}
-          feature={data.feature}
+          feature={feature}
           mutate={mutate}
         />
       )}
       {ruleModal !== null && (
         <RuleModal
-          feature={data.feature}
+          feature={feature}
           close={() => setRuleModal(null)}
           i={ruleModal.i}
           environment={ruleModal.environment}
@@ -198,18 +207,18 @@ export default function FeaturePage() {
           size="max"
           closeCta="Close"
         >
-          <HistoryTable type="feature" id={data.feature.id} />
+          <HistoryTable type="feature" id={feature.id} />
         </Modal>
       )}
       {editProjectModal && (
         <EditProjectForm
-          apiEndpoint={`/feature/${data.feature.id}`}
+          apiEndpoint={`/feature/${feature.id}`}
           cancel={() => setEditProjectModal(false)}
           mutate={mutate}
           method="PUT"
-          current={data.feature.project}
+          current={feature.project}
           additionalMessage={
-            data.feature.linkedExperiments?.length ? (
+            feature.linkedExperiments?.length ? (
               <div className="alert alert-danger">
                 Changing the project may prevent your linked Experiments from
                 being sent to users.
@@ -220,9 +229,9 @@ export default function FeaturePage() {
       )}
       {editTagsModal && (
         <EditTagsForm
-          tags={data.feature?.tags || []}
+          tags={feature.tags || []}
           save={async (tags) => {
-            await apiCall(`/feature/${data.feature.id}`, {
+            await apiCall(`/feature/${feature.id}`, {
               method: "PUT",
               body: JSON.stringify({ tags }),
             });
@@ -233,7 +242,7 @@ export default function FeaturePage() {
       )}
       {showImplementation && (
         <FeatureImplementationModal
-          feature={data.feature}
+          feature={feature}
           first={firstFeature}
           close={() => {
             setShowImplementation(false);
@@ -242,7 +251,7 @@ export default function FeaturePage() {
       )}
       {draftModal && (
         <DraftModal
-          feature={data.feature}
+          feature={feature}
           close={() => setDraftModal(false)}
           mutate={mutate}
         />
@@ -255,14 +264,14 @@ export default function FeaturePage() {
             const url = `/features/${feature.id}`;
             router.push(url);
           }}
-          featureToDuplicate={data.feature}
+          featureToDuplicate={feature}
         />
       )}
 
       <PageHead
         breadcrumb={[
           { display: "Features", href: "/features" },
-          { display: data.feature.id },
+          { display: feature.id },
         ]}
       />
 
@@ -309,12 +318,10 @@ export default function FeaturePage() {
         <div style={{ flex: 1 }} />
         <div className="col-auto">
           <RevisionDropdown
-            feature={data.feature}
+            feature={feature}
+            version={currentVersion}
+            setVersion={setVersion}
             revisions={data.revisions || []}
-            publish={() => {
-              setDraftModal(true);
-            }}
-            mutate={mutate}
           />
         </div>
         <div className="col-auto">
@@ -348,7 +355,7 @@ export default function FeaturePage() {
                   useIcon={false}
                   displayName="Feature"
                   onClick={async () => {
-                    await apiCall(`/feature/${data.feature.id}`, {
+                    await apiCall(`/feature/${feature.id}`, {
                       method: "DELETE",
                     });
                     router.push("/features");
@@ -361,7 +368,7 @@ export default function FeaturePage() {
               permissions.check("publishFeatures", projectId, enabledEnvs) && (
                 <ConfirmButton
                   onClick={async () => {
-                    await apiCall(`/feature/${data.feature.id}/archive`, {
+                    await apiCall(`/feature/${feature.id}/archive`, {
                       method: "POST",
                     });
                     mutate();
@@ -424,7 +431,7 @@ export default function FeaturePage() {
                   <FaExclamationTriangle /> Invalid project
                 </span>
               </Tooltip>
-            ) : currentProject && currentProject !== data.feature.project ? (
+            ) : currentProject && currentProject !== feature.project ? (
               <Tooltip body={<>This feature is not in your current project.</>}>
                 {projectId ? (
                   <strong>{projectName}</strong>
@@ -451,7 +458,7 @@ export default function FeaturePage() {
         )}
 
         <div className="col-auto">
-          Tags: <SortedTags tags={data.feature?.tags || []} />
+          Tags: <SortedTags tags={feature.tags || []} />
           {permissions.check("manageFeatures", projectId) && (
             <a
               className="ml-1 cursor-pointer"
@@ -462,12 +469,10 @@ export default function FeaturePage() {
           )}
         </div>
 
-        <div className="col-auto">
-          Type: {data.feature.valueType || "unknown"}
-        </div>
+        <div className="col-auto">Type: {feature.valueType || "unknown"}</div>
 
         <div className="col-auto">
-          Owner: {data.feature.owner ? data.feature.owner : "None"}
+          Owner: {feature.owner ? feature.owner : "None"}
           {permissions.check("manageFeatures", projectId) && (
             <a
               className="ml-1 cursor-pointer"
@@ -490,18 +495,18 @@ export default function FeaturePage() {
           </a>
         </div>
         <div className="col-auto">
-          <WatchButton item={data.feature.id} itemType="feature" type="link" />
+          <WatchButton item={feature.id} itemType="feature" type="link" />
         </div>
       </div>
 
       <div className="mb-3">
-        <div className={data.feature.description ? "appbox mb-4 p-3" : ""}>
+        <div className={feature.description ? "appbox mb-4 p-3" : ""}>
           <MarkdownInlineEdit
-            value={data.feature.description || ""}
+            value={feature.description || ""}
             canEdit={permissions.check("manageFeatures", projectId)}
             canCreate={permissions.check("manageFeatures", projectId)}
             save={async (description) => {
-              await apiCall(`/feature/${data.feature.id}`, {
+              await apiCall(`/feature/${feature.id}`, {
                 method: "PUT",
                 body: JSON.stringify({
                   description,
@@ -526,7 +531,7 @@ export default function FeaturePage() {
                 {en.id}:{" "}
               </label>
               <EnvironmentToggle
-                feature={data.feature}
+                feature={feature}
                 environment={en.id}
                 mutate={() => {
                   mutate();
@@ -543,7 +548,7 @@ export default function FeaturePage() {
         </div>
       </div>
 
-      {data.feature.valueType === "json" && (
+      {feature.valueType === "json" && (
         <div>
           <h3 className={hasJsonValidator ? "" : "mb-4"}>
             <PremiumTooltip commercialFeature="json-validation">
@@ -641,7 +646,7 @@ export default function FeaturePage() {
                     <>
                       <Code
                         language="json"
-                        code={data.feature?.jsonSchema?.schema || "{}"}
+                        code={feature?.jsonSchema?.schema || "{}"}
                         className="disabled"
                       />
                     </>
@@ -665,8 +670,8 @@ export default function FeaturePage() {
       </h3>
       <div className="appbox mb-4 p-3">
         <ForceSummary
-          value={getFeatureDefaultValue(data.feature)}
-          feature={data.feature}
+          value={getFeatureDefaultValue(feature)}
+          feature={feature}
         />
       </div>
 
@@ -687,7 +692,7 @@ export default function FeaturePage() {
           buttonsClassName="px-3 py-2 h4"
         >
           {environments.map((e) => {
-            const rules = getRules(data.feature, e.id);
+            const rules = getRules(feature, e.id);
             return (
               <Tab
                 key={e.id}
@@ -700,7 +705,7 @@ export default function FeaturePage() {
                   {rules.length > 0 ? (
                     <RuleList
                       environment={e.id}
-                      feature={data.feature}
+                      feature={feature}
                       experiments={data.experiments || {}}
                       mutate={mutate}
                       setRuleModal={setRuleModal}
@@ -732,7 +737,7 @@ export default function FeaturePage() {
                     onClick={() => {
                       setRuleModal({
                         environment: env,
-                        i: getRules(data.feature, env).length,
+                        i: getRules(feature, env).length,
                         defaultType: "force",
                       });
                       track("Viewed Rule Modal", {
@@ -765,7 +770,7 @@ export default function FeaturePage() {
                     onClick={() => {
                       setRuleModal({
                         environment: env,
-                        i: getRules(data.feature, env).length,
+                        i: getRules(feature, env).length,
                         defaultType: "rollout",
                       });
                       track("Viewed Rule Modal", {
@@ -796,7 +801,7 @@ export default function FeaturePage() {
                     onClick={() => {
                       setRuleModal({
                         environment: env,
-                        i: getRules(data.feature, env).length,
+                        i: getRules(feature, env).length,
                         defaultType: "experiment-ref-new",
                       });
                       track("Viewed Rule Modal", {
@@ -819,15 +824,15 @@ export default function FeaturePage() {
 
       <div className="mb-4">
         <h3>Test Feature Rules</h3>
-        <AssignmentTester feature={data.feature} />
+        <AssignmentTester feature={feature} />
       </div>
 
       <div className="mb-4">
         <h3>Comments</h3>
         <DiscussionThread
           type="feature"
-          id={data.feature.id}
-          project={data.feature.project}
+          id={feature.id}
+          project={feature.project}
         />
       </div>
     </div>

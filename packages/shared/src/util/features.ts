@@ -2,6 +2,8 @@ import Ajv from "ajv";
 import dJSON from "dirty-json";
 import stringify from "json-stringify-pretty-compact";
 import { FeatureInterface } from "back-end/types/feature";
+import { FeatureRevisionInterface } from "back-end/types/feature-revision";
+import cloneDeep from "lodash/cloneDeep";
 
 export function getValidation(feature: FeatureInterface) {
   try {
@@ -19,6 +21,24 @@ export function getValidation(feature: FeatureInterface) {
       schemaDateUpdated: null,
     };
   }
+}
+
+export function mergeRevision(
+  feature: FeatureInterface,
+  revision: FeatureRevisionInterface
+) {
+  const newFeature = cloneDeep(feature);
+
+  newFeature.defaultValue = revision.defaultValue;
+
+  const envSettings = newFeature.environmentSettings;
+  Object.entries(revision.rules).forEach(([env, rules]) => {
+    envSettings[env] = envSettings[env] || {};
+    envSettings[env].enabled = envSettings[env].enabled || false;
+    envSettings[env].rules = rules;
+  });
+
+  return newFeature;
 }
 
 export function validateJSONFeatureValue(
