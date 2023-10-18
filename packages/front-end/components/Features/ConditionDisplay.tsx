@@ -5,6 +5,7 @@ import { SavedGroupTargeting } from "back-end/types/feature";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { jsonToConds, useAttributeMap } from "@/services/features";
 import InlineCode from "../SyntaxHighlighting/InlineCode";
+import SavedGroupTargetingDisplay from "./SavedGroupTargetingDisplay";
 
 function operatorToText(operator: string): string {
   switch (operator) {
@@ -85,7 +86,7 @@ export default function ConditionDisplay({
   condition: string;
   savedGroups?: SavedGroupTargeting[];
 }) {
-  const { savedGroups, getSavedGroupById } = useDefinitions();
+  const { savedGroups } = useDefinitions();
 
   const jsonFormatted = useMemo(() => {
     try {
@@ -122,19 +123,12 @@ export default function ConditionDisplay({
   ));
 
   if (savedGroupTargeting && savedGroupTargeting.length > 0) {
-    savedGroupTargeting.forEach((g, i) => {
-      parts.push(
-        <div key={"grp-" + i} className="col-auto d-flex flex-wrap">
-          {(i > 0 || parts.length > 0) && <span className="mr-1">AND</span>}
-          <span className="mr-1">in {g.match} of the groups</span>
-          {g.ids.map((id) => (
-            <span className="mr-1 border px-2 bg-light rounded" key={id}>
-              {getSavedGroupById(id)?.groupName || id}
-            </span>
-          ))}
-        </div>
-      );
-    });
+    parts.push(
+      <div className="col-auto d-flex flex-wrap">
+        {parts.length > 0 && <span className="mr-1">AND</span>}
+        <SavedGroupTargetingDisplay savedGroups={savedGroupTargeting} />
+      </div>
+    );
   }
 
   return <div className="row">{parts}</div>;

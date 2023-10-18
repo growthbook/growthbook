@@ -13,6 +13,27 @@ import { SDKPayloadKey } from "../../types/sdk-payload";
 import { ExperimentInterface } from "../../types/experiment";
 import { getCurrentEnabledState } from "./scheduleRules";
 
+// eslint-disable-next-line
+type GroupMapValue = GroupMap extends Map<any, infer I> ? I : never;
+
+function getSavedGroupCondition(
+  group: GroupMapValue,
+  include: boolean
+): Record<string, unknown> {
+  if (group.source === "runtime") {
+    const cond = {
+      $groups: {
+        $elemMatch: { $eq: group.key },
+      },
+    };
+    return include ? cond : { $not: cond };
+  }
+
+  return {
+    [group.key]: { [include ? "$in" : "$nin"]: group.values },
+  };
+}
+
 export function getParsedCondition(
   groupMap: GroupMap,
   condition?: string,
@@ -31,42 +52,29 @@ export function getParsedCondition(
 
   if (savedGroups) {
     savedGroups.forEach(({ ids, match }) => {
-      const groups = ids.map((id) => groupMap.get(id)).filter(Boolean) as {
-        attribute: string;
-        values: string[] | number[];
-      }[];
+      const groups = ids
+        .map((id) => groupMap.get(id))
+        .filter(Boolean) as GroupMapValue[];
       if (!groups.length) return;
 
       // Add each group as a separate top-level AND
       if (match === "all") {
         groups.forEach((group) => {
-          conditions.push({
-            [group.attribute]: { $in: group.values },
-          });
+          conditions.push(getSavedGroupCondition(group, true));
         });
       }
       // Add one top-level AND with nested OR conditions
       else if (match === "any") {
-        const ors: Record<string, { $in: string[] | number[] }>[] = [];
+        const ors: Record<string, unknown>[] = [];
         groups.forEach((group) => {
-          ors.push({
-            [group.attribute]: { $in: group.values },
-          });
+          ors.push(getSavedGroupCondition(group, true));
         });
-        conditions.push(
-          ors.length > 1
-            ? {
-                $or: ors,
-              }
-            : ors[0]
-        );
+        conditions.push(ors.length > 1 ? { $or: ors } : ors[0]);
       }
       // Add each group as a separate top-level AND with a NOT condition
       else if (match === "none") {
         groups.forEach((group) => {
-          conditions.push({
-            [group.attribute]: { $nin: group.values },
-          });
+          conditions.push(getSavedGroupCondition(group, false));
         });
       }
     });

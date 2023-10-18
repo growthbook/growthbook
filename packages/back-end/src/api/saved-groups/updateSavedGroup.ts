@@ -1,5 +1,7 @@
 import { UpdateSavedGroupResponse } from "../../../types/openapi";
 import {
+  UpdateSavedGroupProps,
+  getRuntimeSavedGroup,
   getSavedGroupById,
   toSavedGroupApiInterface,
   updateSavedGroupById,
@@ -11,7 +13,7 @@ export const updateSavedGroup = createApiRequestHandler(
   updateSavedGroupValidator
 )(
   async (req): Promise<UpdateSavedGroupResponse> => {
-    const { name, values } = req.body;
+    const { name, values, attributeKey } = req.body;
     let { owner } = req.body;
 
     const { id } = req.params;
@@ -34,14 +36,33 @@ export const updateSavedGroup = createApiRequestHandler(
       owner = savedGroup.owner;
     }
 
+    const fieldsToUpdate: UpdateSavedGroupProps = {
+      values: values ? values : savedGroup.values,
+      groupName: name ? name : savedGroup.groupName,
+      owner,
+    };
+
+    if (attributeKey && attributeKey !== savedGroup.attributeKey) {
+      if (savedGroup.source === "runtime") {
+        const existing = await getRuntimeSavedGroup(
+          attributeKey,
+          req.organization.id
+        );
+        if (existing) {
+          throw new Error("A runtime saved group with that key already exists");
+        }
+        fieldsToUpdate.attributeKey = attributeKey;
+      } else {
+        throw new Error(
+          "Cannot update the attributeKey for an inline Saved Group"
+        );
+      }
+    }
+
     const updatedSavedGroup = await updateSavedGroupById(
       id,
       req.organization.id,
-      {
-        values: values ? values : savedGroup.values,
-        groupName: name ? name : savedGroup.groupName,
-        owner,
-      }
+      fieldsToUpdate
     );
 
     return {

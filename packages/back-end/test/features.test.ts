@@ -44,12 +44,12 @@ const baseFeature: FeatureInterface = {
 describe("getParsedCondition", () => {
   it("compiles correctly", () => {
     groupMap.clear();
-    groupMap.set("a", { values: ["0", "1"], attribute: "id_a" });
-    groupMap.set("b", { values: ["2"], attribute: "id_b" });
-    groupMap.set("c", { values: ["3"], attribute: "id_c" });
-    groupMap.set("d", { values: ["4"], attribute: "id_d" });
-    groupMap.set("e", { values: ["5"], attribute: "id_e" });
-    groupMap.set("f", { values: ["6"], attribute: "id_f" });
+    groupMap.set("a", { values: ["0", "1"], key: "id_a", source: "inline" });
+    groupMap.set("b", { values: ["2"], key: "id_b", source: "inline" });
+    groupMap.set("c", { values: ["3"], key: "id_c", source: "inline" });
+    groupMap.set("d", { values: ["4"], key: "id_d", source: "inline" });
+    groupMap.set("e", { values: ["5"], key: "id_e", source: "inline" });
+    groupMap.set("f", { values: ["6"], key: "id_f", source: "inline" });
 
     expect(
       getParsedCondition(groupMap, "", [{ match: "any", ids: ["a"] }])
@@ -129,6 +129,72 @@ describe("getParsedCondition", () => {
 
     groupMap.clear();
   });
+
+  it("works with runtime groups", () => {
+    groupMap.clear();
+    groupMap.set("a", { values: [], key: "group_a", source: "runtime" });
+    groupMap.set("b", { values: [], key: "group_b", source: "runtime" });
+
+    expect(
+      getParsedCondition(groupMap, "", [
+        {
+          match: "all",
+          ids: ["a", "b"],
+        },
+        {
+          match: "any",
+          ids: ["a", "b"],
+        },
+        {
+          match: "none",
+          ids: ["a", "b"],
+        },
+      ])
+    ).toEqual({
+      $and: [
+        {
+          $groups: {
+            $elemMatch: { $eq: "group_a" },
+          },
+        },
+        {
+          $groups: {
+            $elemMatch: { $eq: "group_b" },
+          },
+        },
+        {
+          $or: [
+            {
+              $groups: {
+                $elemMatch: { $eq: "group_a" },
+              },
+            },
+            {
+              $groups: {
+                $elemMatch: { $eq: "group_b" },
+              },
+            },
+          ],
+        },
+        {
+          $not: {
+            $groups: {
+              $elemMatch: { $eq: "group_a" },
+            },
+          },
+        },
+        {
+          $not: {
+            $groups: {
+              $elemMatch: { $eq: "group_b" },
+            },
+          },
+        },
+      ],
+    });
+
+    groupMap.clear();
+  });
 });
 
 describe("replaceSavedGroupsInCondition", () => {
@@ -143,7 +209,7 @@ describe("replaceSavedGroupsInCondition", () => {
   it("replaces the $inGroup and groupId with $in and the array of IDs", () => {
     const ids = ["123", "345", "678", "910"];
     const groupId = "grp_exl5jgrdl8bzy4x4";
-    groupMap.set(groupId, { values: ids, attribute: "id" });
+    groupMap.set(groupId, { values: ids, key: "id", source: "inline" });
 
     const rawCondition = JSON.stringify({ id: { $inGroup: groupId } });
 
@@ -155,7 +221,7 @@ describe("replaceSavedGroupsInCondition", () => {
   it("replaces the $notInGroup and groupId with $nin and the array of IDs", () => {
     const ids = ["123", "345", "678", "910"];
     const groupId = "grp_exl5jgrdl8bzy4x4";
-    groupMap.set(groupId, { values: ids, attribute: "id" });
+    groupMap.set(groupId, { values: ids, key: "id", source: "inline" });
 
     const rawCondition = JSON.stringify({ id: { $notInGroup: groupId } });
 
@@ -167,7 +233,7 @@ describe("replaceSavedGroupsInCondition", () => {
   it("should replace the $in operator in and if the group.attributeKey is a number, the output array should be numbers", () => {
     const ids = [1, 2, 3, 4];
     const groupId = "grp_exl5jijgl8c3n0qt";
-    groupMap.set(groupId, { values: ids, attribute: "id" });
+    groupMap.set(groupId, { values: ids, key: "id", source: "inline" });
 
     const rawCondition = JSON.stringify({ number: { $inGroup: groupId } });
 
@@ -179,7 +245,7 @@ describe("replaceSavedGroupsInCondition", () => {
   it("should replace the $in operator in more complex conditions correctly", () => {
     const ids = [1, 2, 3, 4];
     const groupId = "grp_exl5jijgl8c3n0qt";
-    groupMap.set(groupId, { values: ids, attribute: "id" });
+    groupMap.set(groupId, { values: ids, key: "id", source: "inline" });
 
     const rawCondition = JSON.stringify({
       number: { $inGroup: groupId },
@@ -195,7 +261,7 @@ describe("replaceSavedGroupsInCondition", () => {
   it("should correctly replace the $in operator in advanced mode conditions", () => {
     const ids = [1, 2, 3, 4];
     const groupId = "grp_exl5jijgl8c3n0qt";
-    groupMap.set(groupId, { values: ids, attribute: "id" });
+    groupMap.set(groupId, { values: ids, key: "id", source: "inline" });
 
     const rawCondition = JSON.stringify({
       $and: [
@@ -216,7 +282,7 @@ describe("replaceSavedGroupsInCondition", () => {
   it("handle extra whitespace and spaces correctly", () => {
     const ids = ["123", "345", "678", "910"];
     const groupId = "grp_exl5jgrdl8bzy4x4";
-    groupMap.set(groupId, { values: ids, attribute: "id" });
+    groupMap.set(groupId, { values: ids, key: "id", source: "inline" });
 
     /* eslint-disable */
     const rawCondition =
@@ -231,7 +297,7 @@ describe("replaceSavedGroupsInCondition", () => {
   it("handle extra newlines and spaces correctly", () => {
     const ids = ["123", "345", "678", "910"];
     const groupId = "grp_exl5jgrdl8bzy4x4";
-    groupMap.set(groupId, { values: ids, attribute: "id" });
+    groupMap.set(groupId, { values: ids, key: "id", source: "inline" });
 
     /* eslint-disable */
     const rawCondition = `{"id":{"$notInGroup"
@@ -248,7 +314,7 @@ describe("replaceSavedGroupsInCondition", () => {
   it("should replace the $in operator and add an empty array if groupId doesn't exist", () => {
     const ids = ["1", "2", "3", "4"];
     const groupId = "grp_exl5jijgl8c3n0qt";
-    groupMap.set(groupId, { values: ids, attribute: "id" });
+    groupMap.set(groupId, { values: ids, key: "id", source: "inline" });
 
     const rawCondition = JSON.stringify({
       number: { $inGroup: "invalid-groupId" },
@@ -262,7 +328,7 @@ describe("replaceSavedGroupsInCondition", () => {
   it("should NOT replace $inGroup text if it appears in a string somewhere randomly", () => {
     const ids = ["1", "2", "3", "4"];
     const groupId = "grp_exl5jijgl8c3n0qt";
-    groupMap.set(groupId, { values: ids, attribute: "id" });
+    groupMap.set(groupId, { values: ids, key: "id", source: "inline" });
 
     const rawCondition = JSON.stringify({
       number: { $eq: "$inGroup" },
@@ -276,7 +342,7 @@ describe("replaceSavedGroupsInCondition", () => {
   it("should NOT replace someone hand writes a condition with $inGroup: false", () => {
     const ids = ["1", "2", "3", "4"];
     const groupId = "grp_exl5jijgl8c3n0qt";
-    groupMap.set(groupId, { values: ids, attribute: "id" });
+    groupMap.set(groupId, { values: ids, key: "id", source: "inline" });
 
     const rawCondition = JSON.stringify({
       number: { $inGroup: false },
