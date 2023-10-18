@@ -9,7 +9,7 @@ import { useState } from "react";
 import { date } from "shared/dates";
 import uniqId from "uniqid";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import { getMatchingRules } from "shared/util";
+import { getMatchingRules, includeExperimentInPayload } from "shared/util";
 import { FaBell, FaExternalLinkAlt } from "react-icons/fa";
 import Link from "next/link";
 import {
@@ -36,6 +36,8 @@ import UpgradeModal from "../Settings/UpgradeModal";
 import StatusIndicator from "../Experiment/StatusIndicator";
 import Toggle from "../Forms/Toggle";
 import { getNewExperimentDatasourceDefaults } from "../Experiment/NewExperimentForm";
+import TargetingInfo from "../Experiment/TabbedPage/TargetingInfo";
+import EditTargetingModal from "../Experiment/EditTargetingModal";
 import RolloutPercentInput from "./RolloutPercentInput";
 import ConditionInput from "./ConditionInput";
 import FeatureValueField from "./FeatureValueField";
@@ -70,13 +72,13 @@ export default function RuleModal({
 
   const { datasources } = useDefinitions();
 
-  const { experiments, experimentsMap, mutateExperiments } = useExperiments(
-    feature.project
-  );
+  const { experiments, experimentsMap, mutateExperiments } = useExperiments();
 
   const [allowDuplicateTrackingKey, setAllowDuplicateTrackingKey] = useState(
     false
   );
+
+  const [showTargetingModal, setShowTargetingModal] = useState(false);
 
   const settings = useOrgSettings();
 
@@ -155,7 +157,11 @@ export default function RuleModal({
 
   const experimentOptions = experiments
     .filter(
-      (e) => e.id === experimentId || (!e.archived && e.status !== "stopped")
+      (e) =>
+        e.id === experimentId ||
+        (!e.archived &&
+          e.status !== "stopped" &&
+          (e.project || "") === (feature.project || ""))
     )
     .sort((a, b) => b.dateCreated.localeCompare(a.dateCreated))
     .map((e) => ({
@@ -183,6 +189,30 @@ export default function RuleModal({
     hasLegacyExperimentRules &&
     !hasNewExperimentRules &&
     (type === "experiment-ref" || type === "experiment-ref-new");
+
+  const canEditTargeting =
+    !!selectedExperiment &&
+    selectedExperiment.linkedFeatures?.length === 1 &&
+    selectedExperiment.linkedFeatures[0] === feature.id &&
+    !selectedExperiment.hasVisualChangesets;
+
+  if (showTargetingModal && canEditTargeting) {
+    const safeToEdit =
+      selectedExperiment.status !== "running" ||
+      !includeExperimentInPayload(selectedExperiment, [feature]);
+
+    return (
+      <EditTargetingModal
+        close={() => setShowTargetingModal(false)}
+        mutate={() => {
+          mutateExperiments();
+          mutate();
+        }}
+        experiment={selectedExperiment}
+        safeToEdit={safeToEdit}
+      />
+    );
+  }
 
   return (
     <Modal
@@ -238,6 +268,16 @@ export default function RuleModal({
               throw new Error(
                 "We fixed some errors in the rule. If it looks correct, submit again."
               );
+            }
+
+            // If we're scheduling this rule, always auto start the experiment so it's not stuck in a 'draft' state
+            if (!values.autoStart && values.scheduleRules?.length) {
+              values.autoStart = true;
+            }
+            // If we're starting the experiment immediately, remove any scheduling rules
+            // When we hide the schedule UI the form values don't update, so this resets it if you get into a weird state
+            else if (values.autoStart && values.scheduleRules?.length) {
+              values.scheduleRules = [];
             }
 
             // All looks good, create experiment
@@ -318,20 +358,11 @@ export default function RuleModal({
               id: values.id,
               condition: "",
               enabled: values.enabled ?? true,
-              scheduleRules: [
-                {
-                  enabled: true,
-                  timestamp: null,
-                },
-                {
-                  enabled: false,
-                  timestamp: null,
-                },
-              ],
               variations: values.values.map((v, i) => ({
                 value: v.value,
                 variationId: res.experiment.variations[i]?.id || "",
               })),
+              scheduleRules: values.scheduleRules || [],
             };
             mutateExperiments();
           } else if (values.type === "experiment-ref") {
@@ -339,16 +370,30 @@ export default function RuleModal({
             const experimentId = values.experimentId;
             const exp = experimentsMap.get(experimentId);
             if (!exp) throw new Error("Must select an experiment");
-            const variationIds = new Set(exp.variations.map((v) => v.id));
 
-            if (values.variations.length !== variationIds.size)
-              throw new Error("Must specify a value for every variation");
+            const valuesByIndex = values.variations.map((v) => v.value);
+            const valuesByVariationId = new Map(
+              values.variations.map((v) => [v.variationId, v.value])
+            );
 
-            values.variations.forEach((v) => {
-              if (!variationIds.has(v.variationId)) {
-                throw new Error("Unknown variation id: " + v.variationId);
-              }
+            values.variations = exp.variations.map((v, i) => {
+              return {
+                variationId: v.id,
+                value: valuesByVariationId.get(v.id) ?? valuesByIndex[i] ?? "",
+              };
             });
+
+            delete (values as FeatureRule).condition;
+            // eslint-disable-next-line
+            delete (values as any).value;
+          }
+
+          if (
+            values.scheduleRules &&
+            values.scheduleRules.length === 0 &&
+            !rule?.scheduleRules
+          ) {
+            delete values.scheduleRules;
           }
 
           const correctedRule = validateFeatureRule(values, feature);
@@ -435,6 +480,8 @@ export default function RuleModal({
               label="Experiment"
               initialOption="Choose One..."
               options={experimentOptions}
+              readOnly={!!rules[i]}
+              disabled={!!rules[i]}
               required
               sort={false}
               value={experimentId || ""}
@@ -476,7 +523,7 @@ export default function RuleModal({
                 return label;
               }}
             />
-          ) : (
+          ) : !rules[i] ? (
             <div className="alert alert-warning">
               <div className="d-flex align-items-center">
                 {experiments.length > 0
@@ -494,15 +541,34 @@ export default function RuleModal({
                 </button>
               </div>
             </div>
+          ) : (
+            <div className="alert alert-danger">
+              Could not find this experiment. Has it been deleted?
+            </div>
           )}
+
           {selectedExperiment && rules[i] && (
-            <div className="alert alert-info">
-              <Link href={`/experiment/${selectedExperiment.id}`}>
-                <a className="alert-link">
-                  View the Experiment <FaExternalLinkAlt />
-                </a>
-              </Link>{" "}
-              to make changes to assignment or targeting conditions.
+            <div className="appbox px-3 pt-3 bg-light">
+              {!canEditTargeting && (
+                <div className="alert alert-info">
+                  <Link href={`/experiment/${selectedExperiment.id}#overview`}>
+                    <a className="alert-link">
+                      View the Experiment <FaExternalLinkAlt />
+                    </a>
+                  </Link>{" "}
+                  to make changes to assignment or targeting conditions.
+                </div>
+              )}
+              <TargetingInfo
+                experiment={selectedExperiment}
+                editTargeting={
+                  canEditTargeting
+                    ? () => {
+                        setShowTargetingModal(true);
+                      }
+                    : null
+                }
+              />
             </div>
           )}
           {selectedExperiment && (
@@ -634,16 +700,8 @@ export default function RuleModal({
           )}
         </div>
       )}
-      {type !== "experiment-ref-new" ? (
-        <ScheduleInputs
-          defaultValue={defaultValues.scheduleRules || []}
-          onChange={(value) => form.setValue("scheduleRules", value)}
-          scheduleToggleEnabled={scheduleToggleEnabled}
-          setScheduleToggleEnabled={setScheduleToggleEnabled}
-          setShowUpgradeModal={setShowUpgradeModal}
-        />
-      ) : (
-        <div className="mt-3">
+      {type === "experiment-ref-new" ? (
+        <div className="mb-3">
           <Toggle
             value={form.watch("autoStart")}
             setValue={(v) => form.setValue("autoStart", v)}
@@ -659,8 +717,28 @@ export default function RuleModal({
               changes before starting.
             </small>
           </div>
+          {!form.watch("autoStart") && (
+            <div>
+              <hr />
+              <ScheduleInputs
+                defaultValue={defaultValues.scheduleRules || []}
+                onChange={(value) => form.setValue("scheduleRules", value)}
+                scheduleToggleEnabled={scheduleToggleEnabled}
+                setScheduleToggleEnabled={setScheduleToggleEnabled}
+                setShowUpgradeModal={setShowUpgradeModal}
+              />
+            </div>
+          )}
         </div>
-      )}
+      ) : type !== "experiment-ref" || rule?.scheduleRules?.length ? (
+        <ScheduleInputs
+          defaultValue={defaultValues.scheduleRules || []}
+          onChange={(value) => form.setValue("scheduleRules", value)}
+          scheduleToggleEnabled={scheduleToggleEnabled}
+          setScheduleToggleEnabled={setScheduleToggleEnabled}
+          setShowUpgradeModal={setShowUpgradeModal}
+        />
+      ) : null}
     </Modal>
   );
 }

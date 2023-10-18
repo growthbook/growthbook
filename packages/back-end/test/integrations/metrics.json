@@ -6,6 +6,13 @@
     "sql": "SELECT\nuserId as user_id,\ntimestamp as timestamp,\nqty as value\nFROM orders"
   },
   {
+    "id": "nonbinom__purchased_items_anonymous",
+    "userIdTypes": ["anonymous_id"],
+    "type": "count",
+    "ignoreNulls": false,
+    "sql": "SELECT\nanonymousId as anonymous_id,\ntimestamp as timestamp,\nqty as value\nFROM orders"
+  },
+  {
     "id": "nonbinomcustom__purchased_items",
     "type": "count",
     "ignoreNulls": false,
@@ -92,6 +99,13 @@
     "ignoreNulls": false,
     "sql": "SELECT\nuserId as user_id,\ntimestamp as timestamp,\namount as value\nFROM orders",
     "denominator": "nonbinom__purchased_items"
+  },
+  {
+    "id": "ratio_binom_binom__large_purchase_over_any_purchase_over_any_item_in_cart",
+    "type": "binomial",
+    "ignoreNulls": false,
+    "sql": "SELECT\nuserId as user_id,\ntimestamp as timestamp\nFROM orders\nWHERE amount >= 10",
+    "denominator": "ratio_binom_binom__any_purchase_over_any_item_in_cart"
   },
   {
     "id": "ratio_nonbinom_nonbinom__purchased_value_over_purchased_value_pctilecap",

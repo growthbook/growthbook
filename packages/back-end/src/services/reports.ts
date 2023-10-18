@@ -2,7 +2,12 @@ import {
   DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
   DEFAULT_STATS_ENGINE,
 } from "shared/constants";
-import { MetricInterface } from "../../types/metric";
+import {
+  getConversionWindowHours,
+  isFactMetric,
+  isBinomialMetric,
+  ExperimentMetricInterface,
+} from "shared/experiments";
 import {
   ExperimentReportArgs,
   ExperimentReportVariation,
@@ -19,7 +24,6 @@ import {
   ExperimentSnapshotSettings,
   MetricForSnapshot,
 } from "../../types/experiment-snapshot";
-import { DEFAULT_CONVERSION_WINDOW_HOURS } from "../util/secrets";
 
 export function getReportVariations(
   experiment: ExperimentInterface,
@@ -87,12 +91,13 @@ export function reportArgsFromSnapshot(
     sequentialTestingEnabled: analysisSettings.sequentialTesting,
     sequentialTestingTuningParameter:
       analysisSettings.sequentialTestingTuningParameter,
+    pValueThreshold: analysisSettings.pValueThreshold,
   };
 }
 
 export function getSnapshotSettingsFromReportArgs(
   args: ExperimentReportArgs,
-  metricMap: Map<string, MetricInterface>
+  metricMap: Map<string, ExperimentMetricInterface>
 ): {
   snapshotSettings: ExperimentSnapshotSettings;
   analysisSettings: ExperimentSnapshotAnalysisSettings;
@@ -130,7 +135,7 @@ export function getSnapshotSettingsFromReportArgs(
       weight: v.weight,
     })),
   };
-
+  // TODO: add baselineVariation here
   const analysisSettings: ExperimentSnapshotAnalysisSettings = {
     dimensions: args.dimension ? [args.dimension] : [],
     statsEngine: args.statsEngine || DEFAULT_STATS_ENGINE,
@@ -138,6 +143,7 @@ export function getSnapshotSettingsFromReportArgs(
     pValueCorrection: null,
     sequentialTesting: args.sequentialTestingEnabled,
     sequentialTestingTuningParameter: args.sequentialTestingTuningParameter,
+    pValueThreshold: args.pValueThreshold,
   };
 
   return { snapshotSettings, analysisSettings };
@@ -145,7 +151,7 @@ export function getSnapshotSettingsFromReportArgs(
 
 export function getMetricForSnapshot(
   id: string | null | undefined,
-  metricMap: Map<string, MetricInterface>,
+  metricMap: Map<string, ExperimentMetricInterface>,
   metricRegressionAdjustmentStatuses?: MetricRegressionAdjustmentStatus[],
   metricOverrides?: MetricOverride[]
 ): MetricForSnapshot | null {
@@ -160,21 +166,19 @@ export function getMetricForSnapshot(
     id,
     settings: {
       datasource: metric.datasource,
-      type: metric.type,
-      aggregation: metric.aggregation || undefined,
+      type: isBinomialMetric(metric) ? "binomial" : "count",
+      aggregation: ("aggregation" in metric && metric.aggregation) || undefined,
       capping: metric.capping || null,
       capValue: metric.capValue || undefined,
-      denominator: metric.denominator || undefined,
-      sql: metric.sql || undefined,
-      userIdTypes: metric.userIdTypes || undefined,
+      denominator: (!isFactMetric(metric) && metric.denominator) || undefined,
+      sql: (!isFactMetric(metric) && metric.sql) || undefined,
+      userIdTypes: (!isFactMetric(metric) && metric.userIdTypes) || undefined,
     },
     computedSettings: {
       conversionDelayHours:
         overrides?.conversionDelayHours ?? metric.conversionDelayHours ?? 0,
       conversionWindowHours:
-        overrides?.conversionWindowHours ??
-        metric.conversionWindowHours ??
-        DEFAULT_CONVERSION_WINDOW_HOURS,
+        overrides?.conversionWindowHours ?? getConversionWindowHours(metric),
       regressionAdjustmentDays:
         regressionAdjustmentStatus?.regressionAdjustmentDays ??
         DEFAULT_REGRESSION_ADJUSTMENT_DAYS,

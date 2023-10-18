@@ -2,6 +2,7 @@ import { keyBy } from "lodash";
 import omit from "lodash/omit";
 import mongoose from "mongoose";
 import uniqid from "uniqid";
+import { hasVisualChanges } from "shared/util";
 import { ExperimentInterface, Variation } from "../../types/experiment";
 import { ApiVisualChangeset } from "../../types/openapi";
 import { OrganizationInterface } from "../../types/organization";
@@ -254,12 +255,14 @@ export const createVisualChangeset = async ({
   organization,
   urlPatterns,
   editorUrl,
+  visualChanges,
   user,
 }: {
   experiment: ExperimentInterface;
   organization: OrganizationInterface;
   urlPatterns: VisualChangesetURLPattern[];
   editorUrl: VisualChangesetInterface["editorUrl"];
+  visualChanges?: VisualChange[];
   user: EventAuditUser;
 }): Promise<VisualChangesetInterface> => {
   const visualChangeset = toInterface(
@@ -269,7 +272,8 @@ export const createVisualChangeset = async ({
       organization: organization.id,
       urlPatterns,
       editorUrl,
-      visualChanges: experiment.variations.map(genNewVisualChange),
+      visualChanges:
+        visualChanges || experiment.variations.map(genNewVisualChange),
     })
   );
 
@@ -364,9 +368,6 @@ export const updateVisualChangeset = async ({
   return { nModified: res.modifiedCount, visualChanges };
 };
 
-const hasVisualChanges = ({ visualChanges }: VisualChangesetInterface) =>
-  visualChanges.some((vc) => !!vc.css || !!vc.domMutations.length);
-
 const onVisualChangesetCreate = async ({
   organization,
   visualChangeset,
@@ -376,7 +377,7 @@ const onVisualChangesetCreate = async ({
   visualChangeset: VisualChangesetInterface;
   experiment: ExperimentInterface;
 }) => {
-  if (!hasVisualChanges(visualChangeset)) return;
+  if (!hasVisualChanges(visualChangeset.visualChanges)) return;
 
   const payloadKeys = getPayloadKeys(organization, experiment);
 
@@ -419,7 +420,7 @@ const onVisualChangesetDelete = async ({
   visualChangeset: VisualChangesetInterface;
 }) => {
   // if there were no visual changes before deleting, return early
-  if (!hasVisualChanges(visualChangeset)) return;
+  if (!hasVisualChanges(visualChangeset.visualChanges)) return;
 
   // get payload keys
   const experiment = await getExperimentById(

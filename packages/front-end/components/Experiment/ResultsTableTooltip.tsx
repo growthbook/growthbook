@@ -1,22 +1,32 @@
 import React, { DetailedHTMLProps, HTMLAttributes, useEffect } from "react";
-import { MetricInterface } from "back-end/types/metric";
-import { ExperimentReportVariation } from "back-end/types/report";
+import { ExperimentReportVariationWithIndex } from "back-end/types/report";
 import { SnapshotMetric } from "back-end/types/experiment-snapshot";
 import { PValueCorrection, StatsEngine } from "back-end/types/stats";
-import { BsXCircle, BsHourglassSplit } from "react-icons/bs";
+import {
+  BsXCircle,
+  BsHourglassSplit,
+  BsArrowReturnRight,
+} from "react-icons/bs";
 import clsx from "clsx";
 import { FaArrowDown, FaArrowUp } from "react-icons/fa";
 import { HiOutlineExclamationCircle } from "react-icons/hi";
 import { RxInfoCircled } from "react-icons/rx";
 import { MdSwapCalls } from "react-icons/md";
+import {
+  ExperimentMetricInterface,
+  isBinomialMetric,
+  isFactMetric,
+} from "shared/experiments";
 import NotEnoughData from "@/components/Experiment/NotEnoughData";
 import { pValueFormatter, RowResults } from "@/services/experiments";
 import { GBSuspicious } from "@/components/Icons";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import MetricValueColumn from "@/components/Experiment/MetricValueColumn";
-import { formatConversionRate } from "@/services/metrics";
+import { formatMetricValue, formatNumber } from "@/services/metrics";
 import { useCurrency } from "@/hooks/useCurrency";
 import { capitalizeFirstLetter } from "@/services/utils";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import usePValueThreshold from "@/hooks/usePValueThreshold";
 
 export const TOOLTIP_WIDTH = 400;
 export const TOOLTIP_HEIGHT = 400; // Used for over/under layout calculation. Actual height may vary.
@@ -41,13 +51,13 @@ const percentFormatter = new Intl.NumberFormat(undefined, {
 
 export interface TooltipData {
   metricRow: number;
-  variationRow: number;
-  metric: MetricInterface;
-  variation: ExperimentReportVariation;
+  metric: ExperimentMetricInterface;
+  dimensionName?: string;
+  dimensionValue?: string;
+  variation: ExperimentReportVariationWithIndex;
   stats: SnapshotMetric;
   baseline: SnapshotMetric;
-  baselineVariation: ExperimentReportVariation;
-  baselineRow: number;
+  baselineVariation: ExperimentReportVariationWithIndex;
   rowResults: RowResults;
   statsEngine: StatsEngine;
   pValueCorrection?: PValueCorrection;
@@ -93,6 +103,8 @@ export default function ResultsTableTooltip({
 
   const displayCurrency = useCurrency();
 
+  const { getFactTableById } = useDefinitions();
+  const pValueThreshold = usePValueThreshold();
   if (!data) {
     return null;
   }
@@ -126,6 +138,8 @@ export default function ResultsTableTooltip({
     </Tooltip>
   ) : null;
 
+  const confidencePct = percentFormatter.format(1 - pValueThreshold);
+
   let pValText = (
     <>
       {data.stats?.pValue !== undefined
@@ -140,17 +154,34 @@ export default function ResultsTableTooltip({
   ) {
     pValText = (
       <>
-        <div>
-          {data.stats?.pValueAdjusted
-            ? pValueFormatter(data.stats.pValueAdjusted)
-            : ""}
-        </div>
+        <div>{pValueFormatter(data.stats.pValueAdjusted)}</div>
         <div className="text-muted font-weight-normal">
           (unadj.:&nbsp;{pValText})
         </div>
       </>
     );
   }
+
+  const expected = data.stats?.expected ?? 0;
+  const ci1 = data.stats?.ciAdjusted?.[1] ?? data.stats?.ci?.[1] ?? 0;
+  const ci0 = data.stats?.ciAdjusted?.[0] ?? data.stats?.ci?.[0] ?? 0;
+  const ciRangeText =
+    data.stats?.ciAdjusted?.[0] !== undefined ? (
+      <>
+        <div>
+          [{percentFormatter.format(ci0)}, {percentFormatter.format(ci1)}]
+        </div>
+        <div className="text-muted font-weight-normal">
+          (unadj.:&nbsp; [{percentFormatter.format(data.stats.ci?.[0] ?? 0)},{" "}
+          {percentFormatter.format(data.stats.ci?.[1] ?? 0)}] )
+        </div>
+      </>
+    ) : (
+      <>
+        [{percentFormatter.format(data.stats.ci?.[0] ?? 0)},{" "}
+        {percentFormatter.format(data.stats.ci?.[1] ?? 0)}]
+      </>
+    );
 
   const arrowLeft =
     data.layoutX === "element-right"
@@ -166,7 +197,7 @@ export default function ResultsTableTooltip({
       className="experiment-row-tooltip-wrapper"
       style={{
         position: "absolute",
-        width: Math.min(TOOLTIP_WIDTH, window.innerWidth),
+        width: Math.min(TOOLTIP_WIDTH, window.innerWidth - 20),
         height: TOOLTIP_HEIGHT,
         left,
         top,
@@ -179,7 +210,7 @@ export default function ResultsTableTooltip({
         })}
         style={{
           position: "absolute",
-          width: Math.min(TOOLTIP_WIDTH, window.innerWidth),
+          width: Math.min(TOOLTIP_WIDTH, window.innerWidth - 20),
           top: data.yAlign === "top" ? 0 : "auto",
           bottom: data.yAlign === "bottom" ? 0 : "auto",
           transformOrigin: `${arrowLeft} ${
@@ -222,21 +253,47 @@ export default function ResultsTableTooltip({
             </div>
           ) : null}
           <div className="metric-label d-flex align-items-end">
-            <span className="h5 mb-0 text-dark">{data.metric.name}</span>
+            <span
+              className="h5 mb-0 text-dark text-ellipsis"
+              style={{ maxWidth: 350 }}
+            >
+              {data.metric.name}
+            </span>
             {metricInverseIconDisplay}
-            <span className="text-muted ml-2">({data.metric.type})</span>
+            <span className="text-muted ml-2">
+              (
+              {isFactMetric(data.metric)
+                ? data.metric.metricType
+                : data.metric.type}
+              )
+            </span>
           </div>
+          {data.dimensionName ? (
+            <div className="dimension-label d-flex align-items-center">
+              <BsArrowReturnRight size={12} className="mx-1" />
+              <span className="text-ellipsis" style={{ maxWidth: 150 }}>
+                {data.dimensionName}
+              </span>
+              :{" "}
+              <span
+                className="ml-1 font-weight-bold text-ellipsis"
+                style={{ maxWidth: 250 }}
+              >
+                {data.dimensionValue}
+              </span>
+            </div>
+          ) : null}
 
           <div
             className="variation-label mt-2 d-flex justify-content-between"
             style={{ gap: 8 }}
           >
             <div
-              className={`variation variation${data.variationRow} with-variation-label d-inline-flex align-items-center`}
+              className={`variation variation${data.variation.index} with-variation-label d-inline-flex align-items-center`}
               style={{ maxWidth: 300 }}
             >
               <span className="label" style={{ width: 16, height: 16 }}>
-                {data.variationRow}
+                {data.variation.index}
               </span>
               <span className="d-inline-block text-ellipsis font-weight-bold">
                 {data.variation.name}
@@ -326,16 +383,11 @@ export default function ResultsTableTooltip({
                 </span>
                 {data.statsEngine === "frequentist" ? (
                   <span className="plusminus ml-1">
-                    {"±" +
-                      parseFloat(
-                        (
-                          Math.abs(
-                            (data.stats.expected ?? 0) -
-                              (data.stats.ci?.[0] ?? 0)
-                          ) * 100
-                        ).toFixed(1)
-                      ) +
-                      "%"}
+                    ±
+                    {Math.abs(ci0) === Infinity || Math.abs(ci1) === Infinity
+                      ? "∞"
+                      : parseFloat((Math.abs(expected - ci0) * 100).toFixed(1))}
+                    %
                   </span>
                 ) : null}
               </div>
@@ -350,7 +402,7 @@ export default function ResultsTableTooltip({
               <div className="label mr-2">
                 {data.statsEngine === "bayesian"
                   ? "95% Credible Interval:"
-                  : "95% Confidence Interval:"}
+                  : `${confidencePct} Confidence Interval:`}
               </div>
               <div
                 className={clsx("value nowrap", {
@@ -360,8 +412,7 @@ export default function ResultsTableTooltip({
                   opacity50: !data.rowResults.enoughData,
                 })}
               >
-                [{percentFormatter.format(data.stats.ci?.[0] ?? 0)},{" "}
-                {percentFormatter.format(data.stats.ci?.[1] ?? 0)}]
+                {ciRangeText}
               </div>
             </div>
 
@@ -503,12 +554,14 @@ export default function ResultsTableTooltip({
               <tbody>
                 {rows.map((row, i) => {
                   const rowNumber =
-                    i === 0 ? data.baselineRow : data.variationRow;
+                    i === 0
+                      ? data?.baselineVariation.index
+                      : data.variation.index;
                   const rowName =
                     i === 0 ? data.baselineVariation.name : data.variation.name;
                   return (
                     <tr key={i}>
-                      <td style={{ width: 130 }}>
+                      <td style={{ width: 130, height: 40 }}>
                         <div
                           className={`variation variation${rowNumber} with-variation-label d-inline-flex align-items-center`}
                         >
@@ -525,6 +578,18 @@ export default function ResultsTableTooltip({
                             {rowName}
                           </span>
                         </div>
+                        {i === 0 ? (
+                          <div
+                            className="text-muted text-uppercase"
+                            style={{
+                              fontSize: "10px",
+                              marginTop: -4,
+                              marginLeft: 20,
+                            }}
+                          >
+                            baseline
+                          </div>
+                        ) : null}
                       </td>
                       <td>{numberFormatter.format(row.users)}</td>
                       <MetricValueColumn
@@ -534,13 +599,14 @@ export default function ResultsTableTooltip({
                         showRatio={false}
                       />
                       <td>
-                        {formatConversionRate(
-                          data.metric.type === "binomial"
-                            ? "count"
-                            : data.metric.type,
-                          row.value,
-                          displayCurrency
-                        )}
+                        {isBinomialMetric(data.metric)
+                          ? formatNumber(row.value)
+                          : formatMetricValue(
+                              data.metric,
+                              row.value,
+                              getFactTableById,
+                              displayCurrency
+                            )}
                       </td>
                     </tr>
                   );

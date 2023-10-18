@@ -3,7 +3,6 @@ import React, { FC, useState, useEffect, Fragment } from "react";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import Link from "next/link";
 import {
-  FaAngleLeft,
   FaArchive,
   FaChevronRight,
   FaQuestionCircle,
@@ -14,6 +13,7 @@ import { useForm } from "react-hook-form";
 import { BsGear } from "react-icons/bs";
 import { IdeaInterface } from "back-end/types/idea";
 import { date } from "shared/dates";
+import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import useApi from "@/hooks/useApi";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import DiscussionThread from "@/components/DiscussionThread";
@@ -59,6 +59,9 @@ import { GBCuped, GBEdit } from "@/components/Icons";
 import Toggle from "@/components/Forms/Toggle";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useCurrency } from "@/hooks/useCurrency";
+import { DeleteDemoDatasourceButton } from "@/components/DemoDataSourcePage/DemoDataSourcePage";
+import { useUser } from "@/services/UserContext";
+import PageHead from "@/components/Layout/PageHead";
 
 const MetricPage: FC = () => {
   const router = useRouter();
@@ -96,6 +99,8 @@ const MetricPage: FC = () => {
   const onHoverCallback = (ret: { d: number | null }) => {
     setHoverDate(ret.d);
   };
+
+  const { organization } = useUser();
 
   const { data, error, mutate } = useApi<{
     metric: MetricInterface;
@@ -375,19 +380,36 @@ const MetricPage: FC = () => {
           segment={metric.segment || ""}
         />
       )}
-      <div className="mb-2">
-        <Link href="/metrics">
-          <a>
-            <FaAngleLeft /> All Metrics
-          </a>
-        </Link>
-      </div>
+
+      <PageHead
+        breadcrumb={[
+          { display: "Metrics", href: "/metrics" },
+          { display: metric.name },
+        ]}
+      />
 
       {metric.status === "archived" && (
         <div className="alert alert-secondary mb-2">
           <strong>This metric is archived.</strong> Existing references will
           continue working, but you will be unable to add this metric to new
           experiments.
+        </div>
+      )}
+
+      {metric.projects?.includes(
+        getDemoDatasourceProjectIdForOrganization(organization.id)
+      ) && (
+        <div className="alert alert-info mb-3 d-flex align-items-center mt-3">
+          <div className="flex-1">
+            This metric is part of our sample dataset. You can safely delete
+            this once you are done exploring.
+          </div>
+          <div style={{ width: 180 }} className="ml-2">
+            <DeleteDemoDatasourceButton
+              onDelete={() => router.push("/metrics")}
+              source="metric"
+            />
+          </div>
         </div>
       )}
 

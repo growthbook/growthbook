@@ -12,6 +12,7 @@ import cronstrue from "cronstrue";
 import { AttributionModel } from "back-end/types/experiment";
 import { PValueCorrection } from "back-end/types/stats";
 import {
+  DEFAULT_P_VALUE_THRESHOLD,
   DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
   DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
   DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
@@ -310,7 +311,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
       },
       multipleExposureMinPercent: 0.01,
       confidenceLevel: 0.95,
-      pValueThreshold: 0.05,
+      pValueThreshold: DEFAULT_P_VALUE_THRESHOLD,
       pValueCorrection: null,
       statsEngine: DEFAULT_STATS_ENGINE,
       regressionAdjustmentEnabled: DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
@@ -777,6 +778,8 @@ const GeneralSettingsPage = (): React.ReactElement => {
                     disabled={hasFileConfig()}
                     {...form.register("pastExperimentsMinLength", {
                       valueAsNumber: true,
+                      min: 0,
+                      max: 31,
                     })}
                   />
 
@@ -796,6 +799,8 @@ const GeneralSettingsPage = (): React.ReactElement => {
                     helpText={<span className="ml-2">from 0 to 1</span>}
                     {...form.register("multipleExposureMinPercent", {
                       valueAsNumber: true,
+                      min: 0,
+                      max: 1,
                     })}
                   />
 
@@ -863,6 +868,8 @@ const GeneralSettingsPage = (): React.ReactElement => {
                           disabled={hasFileConfig()}
                           {...form.register("updateSchedule.hours", {
                             valueAsNumber: true,
+                            min: 1,
+                            max: 168,
                           })}
                         />
                       </div>
@@ -945,6 +952,8 @@ const GeneralSettingsPage = (): React.ReactElement => {
                         }
                         {...form.register("confidenceLevel", {
                           valueAsNumber: true,
+                          min: 50,
+                          max: 100,
                         })}
                       />
                     </div>
@@ -986,6 +995,8 @@ const GeneralSettingsPage = (): React.ReactElement => {
                         }
                         {...form.register("pValueThreshold", {
                           valueAsNumber: true,
+                          min: 0,
+                          max: 1,
                         })}
                       />
                     </div>
@@ -1233,11 +1244,13 @@ const GeneralSettingsPage = (): React.ReactElement => {
                       <Field
                         label="Minimum Sample Size"
                         type="number"
+                        min={0}
                         className="ml-2"
                         containerClassName="mt-2"
                         disabled={hasFileConfig()}
                         {...form.register("metricDefaults.minimumSampleSize", {
                           valueAsNumber: true,
+                          min: 0,
                         })}
                       />
                     </div>
@@ -1256,6 +1269,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
                       <Field
                         label="Maximum Percentage Change"
                         type="number"
+                        min={0}
                         append="%"
                         className="ml-2"
                         containerClassName="mt-2"
@@ -1264,6 +1278,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
                           "metricDefaults.maxPercentageChange",
                           {
                             valueAsNumber: true,
+                            min: 0,
                           }
                         )}
                       />
@@ -1283,6 +1298,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
                       <Field
                         label="Minimum Percentage Change"
                         type="number"
+                        min={0}
                         append="%"
                         className="ml-2"
                         containerClassName="mt-2"
@@ -1291,6 +1307,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
                           "metricDefaults.minPercentageChange",
                           {
                             valueAsNumber: true,
+                            min: 0,
                           }
                         )}
                       />

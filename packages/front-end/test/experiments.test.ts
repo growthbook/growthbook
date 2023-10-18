@@ -9,6 +9,7 @@ import {
   IndexedPValue,
   adjustPValuesBenjaminiHochberg,
   adjustPValuesHolmBonferroni,
+  adjustedCI,
   setAdjustedPValuesOnResults,
 } from "../services/experiments";
 
@@ -160,7 +161,7 @@ describe("pvalue correction method", () => {
 });
 
 describe("results edited in place", () => {
-  it("pvals adjusted in place", () => {
+  it("pvals and CIs adjusted in place", () => {
     const results = [
       {
         name: "res1",
@@ -254,5 +255,24 @@ describe("results edited in place", () => {
         [3, 0, 4, 1, 6, 2, 5]
       )
     );
+  });
+
+  it("adjusts CIs as we expect", () => {
+    const adjCIs95pct = adjustedCI(
+      0.049999999,
+      { dist: "normal", mean: 0.1 },
+      1.959963984540054
+    );
+    expect(adjCIs95pct[0]).toBeGreaterThan(0);
+    expect(adjCIs95pct[1]).toBeLessThan(0.2);
+    expect(adjCIs95pct.map((x) => +x.toFixed(8))).toEqual([0, 0.2]);
+
+    expect(
+      adjustedCI(
+        0.0099999999,
+        { dist: "normal", mean: 0.1 },
+        2.5758293035489004
+      ).map((x) => +x.toFixed(8))
+    ).toEqual([0, 0.2]);
   });
 });

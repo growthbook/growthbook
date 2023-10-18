@@ -111,6 +111,12 @@ table (which will be `experiment_viewed` if you use Segment or Rudderstack).
 
 When you click save, GrowthBook will test the connection to make sure the credentials are correct. If the connection is successful, you should see a success message on the next page.
 
+## Enabling Data Pipeline Mode (Enterprise)
+
+Enterprise customers can enable pipeline mode, which can reduce query costs if you grant the GrowthBook service account write permissions in your data warehouse.
+
+[More details can be found here.](/app/data-pipeline)
+
 ## Monitoring GrowthBook query cost
 
 Whenever we query your BigQuery database we add `{ integration: "growthbook" }` as a label to the query job to make it easy for you to monitor cost or filter GrowthBook query jobs by label for other use cases.

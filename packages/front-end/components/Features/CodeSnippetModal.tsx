@@ -12,10 +12,7 @@ import {
 import { FeatureInterface } from "back-end/types/feature";
 import Link from "next/link";
 import useOrgSettings from "@/hooks/useOrgSettings";
-import usePermissions from "@/hooks/usePermissions";
-import { useAuth } from "@/services/auth";
-import { useUser } from "@/services/UserContext";
-import { getApiHost, getCdnHost, isCloud } from "@/services/env";
+import { getApiHost, getCdnHost } from "@/services/env";
 import Code from "@/components/SyntaxHighlighting/Code";
 import { useAttributeSchema } from "@/services/features";
 import { GBHashLock } from "@/components/Icons";
@@ -41,11 +38,6 @@ export function getApiBaseUrl(connection?: SDKConnectionInterface): string {
     return trimTrailingSlash(
       connection.proxy.hostExternal || connection.proxy.host
     );
-  }
-
-  //TODO: We should be able to remove this if we add an env variable to our cloud instance
-  if (isCloud()) {
-    return `https://cdn.growthbook.io`;
   }
 
   return trimTrailingSlash(getCdnHost() || getApiHost());
@@ -91,7 +83,6 @@ export default function CodeSnippetModal({
   const [showTestModal, setShowTestModal] = useState(false);
 
   const [language, setLanguage] = useState<SDKLanguage>("javascript");
-  const permissions = usePermissions();
 
   const [configOpen, setConfigOpen] = useState(true);
   const [installationOpen, setInstallationOpen] = useState(true);
@@ -99,30 +90,8 @@ export default function CodeSnippetModal({
   const [usageOpen, setUsageOpen] = useState(true);
   const [attributesOpen, setAttributesOpen] = useState(true);
 
-  const { apiCall } = useAuth();
-
-  const { refreshOrganization } = useUser();
   const settings = useOrgSettings();
   const attributeSchema = useAttributeSchema();
-
-  // Record the fact that the SDK instructions have been seen
-  useEffect(() => {
-    if (!settings) return;
-    if (settings.sdkInstructionsViewed) return;
-    if (!connections.length) return;
-    if (!permissions.check("manageEnvironments", "", [])) return;
-    (async () => {
-      await apiCall(`/organization`, {
-        method: "PUT",
-        body: JSON.stringify({
-          settings: {
-            sdkInstructionsViewed: true,
-          },
-        }),
-      });
-      await refreshOrganization();
-    })();
-  }, [settings, connections.length]);
 
   useEffect(() => {
     if (!currentConnection) return;
@@ -143,16 +112,32 @@ export default function CodeSnippetModal({
   const apiHost = getApiBaseUrl(currentConnection);
   const clientKey = currentConnection.key;
   const featuresEndpoint = apiHost + "/api/features/" + clientKey;
-  const encryptionKey =
-    currentConnection &&
-    currentConnection.encryptPayload &&
-    currentConnection.encryptionKey;
+  const encryptionKey = currentConnection.encryptPayload
+    ? currentConnection.encryptionKey
+    : undefined;
   const hashSecureAttributes = !!currentConnection.hashSecureAttributes;
   const secureAttributes =
     attributeSchema?.filter((a) =>
       ["secureString", "secureString[]"].includes(a.datatype)
     ) || [];
   const secureAttributeSalt = settings.secureAttributeSalt ?? "";
+  const remoteEvalEnabled = !!currentConnection.remoteEvalEnabled;
+
+  if (showTestModal && includeCheck && !inline) {
+    return (
+      <CheckSDKConnectionModal
+        close={() => {
+          mutateConnections();
+          setShowTestModal(false);
+        }}
+        connection={currentConnection}
+        mutate={mutateConnections}
+        goToNextStep={submit}
+        cta={"Finish"}
+        showModalClose={false}
+      />
+    );
+  }
 
   return (
     <>
@@ -165,6 +150,7 @@ export default function CodeSnippetModal({
           connection={currentConnection}
           mutate={mutateConnections}
           goToNextStep={submit}
+          showModalClose={true}
         />
       )}
       <Modal
@@ -352,7 +338,8 @@ export default function CodeSnippetModal({
                     language={language}
                     apiHost={apiHost}
                     apiKey={clientKey}
-                    encryptionKey={encryptionKey ? encryptionKey : undefined}
+                    encryptionKey={encryptionKey}
+                    remoteEvalEnabled={remoteEvalEnabled}
                   />
                 </div>
               )}
@@ -407,20 +394,22 @@ export default function CodeSnippetModal({
                               which need to be hashed before using them in the
                               SDK:
                               <table className="table table-borderless w-auto mt-1 ml-2">
-                                {secureAttributes.map((a, i) => (
-                                  <tr key={i}>
-                                    <td className="pt-1 pb-0">
-                                      <code className="font-weight-bold">
-                                        {a.property}
-                                      </code>
-                                    </td>
-                                    <td className="pt-1 pb-0">
-                                      <span className="text-gray">
-                                        {a.datatype}
-                                      </span>
-                                    </td>
-                                  </tr>
-                                ))}
+                                <tbody>
+                                  {secureAttributes.map((a, i) => (
+                                    <tr key={i}>
+                                      <td className="pt-1 pb-0">
+                                        <code className="font-weight-bold">
+                                          {a.property}
+                                        </code>
+                                      </td>
+                                      <td className="pt-1 pb-0">
+                                        <span className="text-gray">
+                                          {a.datatype}
+                                        </span>
+                                      </td>
+                                    </tr>
+                                  ))}
+                                </tbody>
                               </table>
                             </>
                           )}
@@ -453,7 +442,7 @@ export default function CodeSnippetModal({
 // hashing a secureString attribute
 myAttribute = sha256(salt + myAttribute);
 
-// hashing an secureString[] attribute
+// hashing a secureString[] attribute
 myAttributes = myAttributes.map(attribute => sha256(salt + attribute));`}
                           />
                         </div>

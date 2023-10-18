@@ -3,13 +3,19 @@ import {
   getDemoDataSourceFeatureId,
   getDemoDatasourceProjectIdForOrganization,
 } from "shared/demo-datasource";
-import { DEFAULT_STATS_ENGINE } from "shared/constants";
+import {
+  DEFAULT_P_VALUE_THRESHOLD,
+  DEFAULT_STATS_ENGINE,
+} from "shared/constants";
 import { AuthRequest } from "../../types/AuthRequest";
 import { getOrgFromReq } from "../../services/organizations";
 import { EventAuditUserForResponseLocals } from "../../events/event-types";
 import { PostgresConnectionParams } from "../../../types/integrations/postgres";
 import { createDataSource } from "../../models/DataSourceModel";
-import { createExperiment } from "../../models/ExperimentModel";
+import {
+  createExperiment,
+  getAllExperiments,
+} from "../../models/ExperimentModel";
 import { createProject, findProjectById } from "../../models/ProjectModel";
 import { createMetric, createSnapshot } from "../../services/experiments";
 import { PrivateApiErrorResponse } from "../../../types/api";
@@ -21,6 +27,7 @@ import { ProjectInterface } from "../../../types/project";
 import { ExperimentSnapshotAnalysisSettings } from "../../../types/experiment-snapshot";
 import { getMetricMap } from "../../models/MetricModel";
 import { createFeature } from "../../models/FeatureModel";
+import { getFactTableMap } from "../../models/FactTableModel";
 
 // region Constants for Demo Datasource
 
@@ -130,6 +137,7 @@ type CreateDemoDatasourceProjectRequest = AuthRequest;
 type CreateDemoDatasourceProjectResponse = {
   status: 200;
   project: ProjectInterface;
+  experimentId: string;
 };
 
 /**
@@ -159,9 +167,15 @@ export const postDemoDatasourceProject = async (
   );
 
   if (existingDemoProject) {
+    const existingExperiments = await getAllExperiments(
+      org.id,
+      existingDemoProject.id
+    );
+
     res.status(200).json({
       status: 200,
       project: existingDemoProject,
+      experimentId: existingExperiments[0]?.id || "",
     });
     return;
   }
@@ -169,17 +183,16 @@ export const postDemoDatasourceProject = async (
   try {
     const project = await createProject(org.id, {
       id: demoProjId,
-      name: "GrowthBook Demo Project",
-      description: "GrowthBook Demo Project",
+      name: "Sample Data",
     });
     const datasource = await createDataSource(
       org.id,
-      "GrowthBook Demo Postgres Datasource",
+      "Sample Data Source",
       DATASOURCE_TYPE,
       DEMO_DATASOURCE_PARAMS,
       DEMO_DATASOURCE_SETTINGS,
       undefined,
-      "Datasource used for demoing GrowthBook Metrics, Experiments, and Datasource Connections",
+      "",
       [project.id]
     );
 
@@ -368,9 +381,12 @@ spacing and headings.`,
     const analysisSettings: ExperimentSnapshotAnalysisSettings = {
       statsEngine: org.settings?.statsEngine || DEFAULT_STATS_ENGINE,
       dimensions: [],
+      pValueThreshold:
+        org.settings?.pValueThreshold ?? DEFAULT_P_VALUE_THRESHOLD,
     };
 
     const metricMap = await getMetricMap(org.id);
+    const factTableMap = await getFactTableMap(org.id);
 
     await createSnapshot({
       experiment: createdExperiment,
@@ -379,12 +395,14 @@ spacing and headings.`,
       analysisSettings: analysisSettings,
       metricRegressionAdjustmentStatuses: [],
       metricMap: metricMap,
+      factTableMap,
       useCache: true,
     });
 
     res.status(200).json({
       status: 200,
       project: project,
+      experimentId: createdExperiment.id,
     });
   } catch (e) {
     res.status(500).json({

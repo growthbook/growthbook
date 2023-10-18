@@ -11,23 +11,43 @@ import {
   DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
 } from "shared/constants";
 import { getScopedSettings } from "shared/settings";
-import { getSnapshotAnalysis, generateVariationId } from "shared/util";
+import {
+  getSnapshotAnalysis,
+  generateVariationId,
+  isAnalysisAllowed,
+} from "shared/util";
+import {
+  ExperimentMetricInterface,
+  isBinomialMetric,
+  isFactMetric,
+  isFactMetricId,
+  isRatioMetric,
+} from "shared/experiments";
 import { updateExperiment } from "../models/ExperimentModel";
 import {
+  ExperimentSnapshotAnalysis,
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotInterface,
   ExperimentSnapshotSettings,
   MetricForSnapshot,
   SnapshotVariation,
 } from "../../types/experiment-snapshot";
-import { getMetricsByIds, insertMetric } from "../models/MetricModel";
+import {
+  getMetricById,
+  getMetricMap,
+  insertMetric,
+} from "../models/MetricModel";
 import { checkSrm, sumSquaresFromStats } from "../util/stats";
 import { addTags } from "../models/TagModel";
+import {
+  addOrUpdateSnapshotAnalysis,
+  createExperimentSnapshotModel,
+  updateSnapshotAnalysis,
+} from "../models/ExperimentSnapshotModel";
 import {
   Dimension,
   ExperimentMetricQueryResponseRows,
 } from "../types/Integration";
-import { createExperimentSnapshotModel } from "../models/ExperimentSnapshotModel";
 import {
   Condition,
   MetricInterface,
@@ -68,9 +88,12 @@ import { VisualChangesetInterface } from "../../types/visual-changeset";
 import { findProjectById } from "../models/ProjectModel";
 import { MetricAnalysisQueryRunner } from "../queryRunners/MetricAnalysisQueryRunner";
 import { ExperimentResultsQueryRunner } from "../queryRunners/ExperimentResultsQueryRunner";
+import { QueryMap, getQueryMap } from "../queryRunners/QueryRunner";
+import { getFactMetric } from "../models/FactMetricModel";
+import { FactTableMap } from "../models/FactTableModel";
 import { getReportVariations, getMetricForSnapshot } from "./reports";
 import { getIntegrationFromDatasourceId } from "./datasource";
-import { analyzeExperimentMetric } from "./stats";
+import { analyzeExperimentMetric, analyzeExperimentResults } from "./stats";
 
 export const DEFAULT_METRIC_ANALYSIS_DAYS = 90;
 
@@ -87,6 +110,16 @@ export async function createMetric(data: Partial<MetricInterface>) {
   }
 
   return metric;
+}
+
+export async function getExperimentMetricById(
+  metricId: string,
+  orgId: string
+): Promise<ExperimentMetricInterface | null> {
+  if (isFactMetricId(metricId)) {
+    return getFactMetric(orgId, metricId);
+  }
+  return getMetricById(metricId, orgId);
 }
 
 export async function refreshMetric(
@@ -165,7 +198,7 @@ export async function getManualSnapshotData(
   metrics: {
     [key: string]: MetricStats[];
   },
-  metricMap: Map<string, MetricInterface>
+  metricMap: Map<string, ExperimentMetricInterface>
 ) {
   const phase = experiment.phases[phaseIndex];
 
@@ -188,7 +221,7 @@ export async function getManualSnapshotData(
             users: s.count,
             count: s.count,
             statistic_type: "mean", // ratio not supported for now
-            main_metric_type: metric.type,
+            main_metric_type: isBinomialMetric(metric) ? "binomial" : "count",
             main_sum: s.mean * s.count,
             main_sum_squares: sumSquaresFromStats(
               s.mean * s.count,
@@ -232,7 +265,7 @@ export function getSnapshotSettings({
   phaseIndex: number;
   settings: ExperimentSnapshotAnalysisSettings;
   metricRegressionAdjustmentStatuses: MetricRegressionAdjustmentStatus[];
-  metricMap: Map<string, MetricInterface>;
+  metricMap: Map<string, ExperimentMetricInterface>;
 }): ExperimentSnapshotSettings {
   const phase = experiment.phases[phaseIndex];
   if (!phase) {
@@ -290,7 +323,7 @@ export async function createManualSnapshot(
     [key: string]: MetricStats[];
   },
   settings: ExperimentSnapshotAnalysisSettings,
-  metricMap: Map<string, MetricInterface>
+  metricMap: Map<string, ExperimentMetricInterface>
 ) {
   const { srm, variations } = await getManualSnapshotData(
     experiment,
@@ -405,6 +438,7 @@ export async function createSnapshot({
   analysisSettings,
   metricRegressionAdjustmentStatuses,
   metricMap,
+  factTableMap,
 }: {
   experiment: ExperimentInterface;
   organization: OrganizationInterface;
@@ -413,7 +447,8 @@ export async function createSnapshot({
   useCache?: boolean;
   analysisSettings: ExperimentSnapshotAnalysisSettings;
   metricRegressionAdjustmentStatuses: MetricRegressionAdjustmentStatus[];
-  metricMap: Map<string, MetricInterface>;
+  metricMap: Map<string, ExperimentMetricInterface>;
+  factTableMap: FactTableMap;
 }): Promise<ExperimentResultsQueryRunner> {
   const dimension = analysisSettings.dimensions[0] || null;
 
@@ -480,9 +515,66 @@ export async function createSnapshot({
     snapshotSettings: data.settings,
     variationNames: experiment.variations.map((v) => v.name),
     metricMap,
+    queryParentId: snapshot.id,
+    factTableMap,
   });
 
   return queryRunner;
+}
+
+export async function createSnapshotAnalysis({
+  experiment,
+  organization,
+  analysisSettings,
+  metricMap,
+  snapshot,
+}: {
+  experiment: ExperimentInterface;
+  organization: OrganizationInterface;
+  analysisSettings: ExperimentSnapshotAnalysisSettings;
+  metricMap: Map<string, ExperimentMetricInterface>;
+  snapshot: ExperimentSnapshotInterface;
+}): Promise<void> {
+  // check if analysis is possible
+  if (!isAnalysisAllowed(snapshot.settings, analysisSettings)) {
+    throw new Error("Analysis not allowed with this snapshot");
+  }
+
+  if (
+    snapshot.queries.some(
+      (q) => q.status === "failed" || q.status === "running"
+    )
+  ) {
+    throw new Error("Snapshot queries not available for analysis");
+  }
+  const analysis: ExperimentSnapshotAnalysis = {
+    results: [],
+    status: "running",
+    settings: analysisSettings,
+    dateCreated: new Date(),
+  };
+  // and analysis to mongo record if it does not exist, overwrite if it does
+  addOrUpdateSnapshotAnalysis(organization.id, snapshot.id, analysis);
+
+  // Format data correctly
+  const queryMap: QueryMap = await getQueryMap(
+    organization.id,
+    snapshot.queries
+  );
+
+  // Run the analysis
+  const results = await analyzeExperimentResults({
+    queryData: queryMap,
+    snapshotSettings: snapshot.settings,
+    analysisSettings: analysisSettings,
+    variationNames: experiment.variations.map((v) => v.name),
+    metricMap: metricMap,
+  });
+  analysis.results = results.dimensions || [];
+  analysis.status = "success";
+  analysis.error = undefined;
+
+  updateSnapshotAnalysis(organization.id, snapshot.id, analysis);
 }
 
 function getExperimentMetric(
@@ -1594,29 +1686,30 @@ export async function getRegressionAdjustmentInfo(
     return { regressionAdjustmentEnabled, metricRegressionAdjustmentStatuses };
   }
 
+  const metricMap = await getMetricMap(organization.id);
+
   const allExperimentMetricIds = uniq([
     ...experiment.metrics,
     ...(experiment.guardrails ?? []),
   ]);
-  const allExperimentMetrics = await getMetricsByIds(
-    allExperimentMetricIds,
-    organization.id
-  );
-  const denominatorMetricIds = uniq(
-    allExperimentMetrics.map((m) => m.denominator).filter((m) => m)
-  ) as string[];
-  const denominatorMetrics = await getMetricsByIds(
-    denominatorMetricIds,
-    organization.id
-  );
+  const allExperimentMetrics = allExperimentMetricIds
+    .map((id) => metricMap.get(id))
+    .filter(Boolean);
+
+  const denominatorMetrics = allExperimentMetrics
+    .filter((m) => m && !isFactMetric(m) && m.denominator)
+    .map((m: ExperimentMetricInterface) =>
+      metricMap.get(m.denominator as string)
+    )
+    .filter(Boolean) as ExperimentMetricInterface[];
 
   for (const metric of allExperimentMetrics) {
     if (!metric) continue;
     const {
       metricRegressionAdjustmentStatus,
     } = getRegressionAdjustmentsForMetric({
-      metric: metric as MetricInterface,
-      denominatorMetrics: denominatorMetrics as MetricInterface[],
+      metric: metric,
+      denominatorMetrics: denominatorMetrics,
       experimentRegressionAdjustmentEnabled:
         experiment.regressionAdjustmentEnabled ??
         DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
@@ -1641,16 +1734,16 @@ export function getRegressionAdjustmentsForMetric({
   organizationSettings,
   metricOverrides,
 }: {
-  metric: MetricInterface;
-  denominatorMetrics: MetricInterface[];
+  metric: ExperimentMetricInterface;
+  denominatorMetrics: ExperimentMetricInterface[];
   experimentRegressionAdjustmentEnabled: boolean;
   organizationSettings?: Partial<OrganizationSettings>; // can be RA fields from a snapshot of org settings
   metricOverrides?: MetricOverride[];
 }): {
-  newMetric: MetricInterface;
+  newMetric: ExperimentMetricInterface;
   metricRegressionAdjustmentStatus: MetricRegressionAdjustmentStatus;
 } {
-  const newMetric = cloneDeep<MetricInterface>(metric);
+  const newMetric = cloneDeep<ExperimentMetricInterface>(metric);
 
   // start with default RA settings
   let regressionAdjustmentEnabled = true;
@@ -1669,7 +1762,7 @@ export function getRegressionAdjustmentsForMetric({
   }
 
   // get RA settings from metric
-  if (metric?.regressionAdjustmentOverride) {
+  if (metric && !isFactMetric(metric) && metric?.regressionAdjustmentOverride) {
     regressionAdjustmentEnabled = !!metric?.regressionAdjustmentEnabled;
     regressionAdjustmentDays =
       metric?.regressionAdjustmentDays ?? DEFAULT_REGRESSION_ADJUSTMENT_DAYS;
@@ -1695,17 +1788,26 @@ export function getRegressionAdjustmentsForMetric({
 
   // final gatekeeping
   if (regressionAdjustmentEnabled) {
-    if (metric?.denominator) {
+    if (metric && !isFactMetric(metric) && metric?.denominator) {
       const denominator = denominatorMetrics.find(
         (m) => m.id === metric?.denominator
       );
-      if (denominator?.type === "count") {
+      if (denominator && !isBinomialMetric(denominator)) {
         regressionAdjustmentEnabled = false;
         reason = "denominator is count";
       }
     }
+  } else if (metric && isFactMetric(metric) && isRatioMetric(metric)) {
+    regressionAdjustmentEnabled = false;
+    reason = "ratio metrics not supported";
   }
-  if (metric?.type === "binomial" && metric?.aggregation) {
+
+  if (
+    metric &&
+    !isFactMetric(metric) &&
+    metric?.type === "binomial" &&
+    metric?.aggregation
+  ) {
     regressionAdjustmentEnabled = false;
     reason = "custom aggregation";
   }

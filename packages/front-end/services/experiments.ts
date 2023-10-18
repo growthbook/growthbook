@@ -2,9 +2,10 @@ import { SnapshotMetric } from "back-end/types/experiment-snapshot";
 import { MetricInterface } from "back-end/types/metric";
 import { PValueCorrection, StatsEngine } from "back-end/types/stats";
 import { useState } from "react";
+import { jStat } from "jstat";
 import {
   ExperimentReportResultDimension,
-  ExperimentReportVariation,
+  ExperimentReportVariationWithIndex,
   MetricRegressionAdjustmentStatus,
 } from "back-end/types/report";
 import {
@@ -16,16 +17,22 @@ import cloneDeep from "lodash/cloneDeep";
 import { DEFAULT_REGRESSION_ADJUSTMENT_DAYS } from "shared/constants";
 import { getValidDate } from "shared/dates";
 import { isNil } from "lodash";
+import { FactTableInterface } from "back-end/types/fact-table";
+import {
+  ExperimentMetricInterface,
+  isBinomialMetric,
+  isFactMetric,
+} from "shared/experiments";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import {
   defaultLoseRiskThreshold,
   defaultWinRiskThreshold,
-  formatConversionRate,
+  formatMetricValue,
 } from "@/services/metrics";
 
 export type ExperimentTableRow = {
   label: string;
-  metric: MetricInterface;
+  metric: ExperimentMetricInterface;
   metricOverrideFields: string[];
   variations: SnapshotMetric[];
   rowClass?: string;
@@ -36,7 +43,7 @@ export type ExperimentTableRow = {
 export function hasEnoughData(
   baseline: SnapshotMetric,
   stats: SnapshotMetric,
-  metric: MetricInterface,
+  metric: { minSampleSize?: number },
   metricDefaults: MetricDefaults
 ): boolean {
   if (!baseline?.value || !stats?.value) return false;
@@ -51,7 +58,7 @@ export function hasEnoughData(
 export function isSuspiciousUplift(
   baseline: SnapshotMetric,
   stats: SnapshotMetric,
-  metric: MetricInterface,
+  metric: { maxPercentChange?: number },
   metricDefaults: MetricDefaults
 ): boolean {
   if (!baseline?.cr || !stats?.cr) return false;
@@ -65,7 +72,7 @@ export function isSuspiciousUplift(
 export function isBelowMinChange(
   baseline: SnapshotMetric,
   stats: SnapshotMetric,
-  metric: MetricInterface,
+  metric: { minPercentChange?: number },
   metricDefaults: MetricDefaults
 ): boolean {
   if (!baseline?.cr || !stats?.cr) return false;
@@ -82,23 +89,19 @@ export function shouldHighlight({
   baseline,
   stats,
   hasEnoughData,
-  suspiciousChange,
   belowMinChange,
 }: {
-  metric: MetricInterface;
+  metric: { id: string };
   baseline: SnapshotMetric;
   stats: SnapshotMetric;
   hasEnoughData: boolean;
-  suspiciousChange: boolean;
   belowMinChange: boolean;
 }): boolean {
-  // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'number | boolean' is not assignable to type ... Remove this comment to see the full error message
-  return (
+  return !!(
     metric &&
     baseline?.value &&
     stats?.value &&
     hasEnoughData &&
-    !suspiciousChange &&
     !belowMinChange
   );
 }
@@ -106,7 +109,11 @@ export function shouldHighlight({
 export function getRisk(
   stats: SnapshotMetric,
   baseline: SnapshotMetric,
-  metric: MetricInterface,
+  metric: {
+    minSampleSize?: number;
+    maxPercentChange?: number;
+    inverse?: boolean;
+  },
   metricDefaults: MetricDefaults
 ): { risk: number; relativeRisk: number; showRisk: boolean } {
   const risk = stats.risk?.[metric.inverse ? 0 : 1] ?? 0;
@@ -220,7 +227,7 @@ export function useRiskVariation(
   return { hasRisk, riskVariation, setRiskVariation };
 }
 export function useDomain(
-  variations: ExperimentReportVariation[],
+  variations: ExperimentReportVariationWithIndex[], // must be ordered, baseline first
   rows: ExperimentTableRow[]
 ): [number, number] {
   const { metricDefaults } = useOrganizationMetricDefaults();
@@ -228,14 +235,14 @@ export function useDomain(
   let lowerBound = 0;
   let upperBound = 0;
   rows.forEach((row) => {
-    const baseline = row.variations[0];
+    const baseline = row.variations[variations[0].index];
     if (!baseline) return;
-    variations?.forEach((v, i) => {
+    variations?.forEach((v: ExperimentReportVariationWithIndex, i) => {
       // Skip for baseline
       if (!i) return;
 
       // Skip if missing or bad data
-      const stats = row.variations[i];
+      const stats = row.variations[v.index];
       if (!stats) return;
       if (!hasEnoughData(baseline, stats, row.metric, metricDefaults)) {
         return;
@@ -244,7 +251,11 @@ export function useDomain(
         return;
       }
 
-      const ci = stats.ci || [0, 0];
+      let ci = stats?.ciAdjusted ?? stats.ci ?? [0, 0];
+      // If adjusted values are Inf, use unadjusted
+      if (Math.abs(ci[0]) === Infinity || Math.abs(ci[1]) === Infinity) {
+        ci = stats.ci ?? [0, 0];
+      }
       if (!lowerBound || ci[0] < lowerBound) lowerBound = ci[0];
       if (!upperBound || ci[1] > upperBound) upperBound = ci[1];
     });
@@ -254,11 +265,11 @@ export function useDomain(
   return [lowerBound, upperBound];
 }
 
-export function applyMetricOverrides(
-  metric: MetricInterface,
+export function applyMetricOverrides<T extends ExperimentMetricInterface>(
+  metric: T,
   metricOverrides?: MetricOverride[]
 ): {
-  newMetric: MetricInterface;
+  newMetric: T;
   overrideFields: string[];
 } {
   if (!metric || !metricOverrides) {
@@ -267,12 +278,20 @@ export function applyMetricOverrides(
       overrideFields: [],
     };
   }
-  const newMetric = cloneDeep<MetricInterface>(metric);
+  const newMetric = cloneDeep<T>(metric);
   const overrideFields: string[] = [];
   const metricOverride = metricOverrides.find((mo) => mo.id === newMetric.id);
   if (metricOverride) {
     if (!isNil(metricOverride?.conversionWindowHours)) {
-      newMetric.conversionWindowHours = metricOverride.conversionWindowHours;
+      if ("conversionWindowValue" in newMetric) {
+        // Fact metrics
+        newMetric.conversionWindowUnit = "hours";
+        newMetric.conversionWindowValue = metricOverride.conversionWindowHours;
+      } else {
+        // Old metrics
+        newMetric.conversionWindowHours = metricOverride.conversionWindowHours;
+      }
+
       overrideFields.push("conversionWindowHours");
     }
     if (!isNil(metricOverride?.conversionDelayHours)) {
@@ -306,23 +325,25 @@ export function applyMetricOverrides(
   return { newMetric, overrideFields };
 }
 
-export function getRegressionAdjustmentsForMetric({
+export function getRegressionAdjustmentsForMetric<
+  T extends ExperimentMetricInterface
+>({
   metric,
   denominatorMetrics,
   experimentRegressionAdjustmentEnabled,
   organizationSettings,
   metricOverrides,
 }: {
-  metric: MetricInterface;
+  metric: T;
   denominatorMetrics: MetricInterface[];
   experimentRegressionAdjustmentEnabled: boolean;
   organizationSettings?: Partial<OrganizationSettings>; // can be RA fields from a snapshot of org settings
   metricOverrides?: MetricOverride[];
 }): {
-  newMetric: MetricInterface;
+  newMetric: T;
   metricRegressionAdjustmentStatus: MetricRegressionAdjustmentStatus;
 } {
-  const newMetric = cloneDeep<MetricInterface>(metric);
+  const newMetric = cloneDeep<T>(metric);
 
   // start with default RA settings
   let regressionAdjustmentEnabled = false;
@@ -367,7 +388,12 @@ export function getRegressionAdjustmentsForMetric({
 
   // final gatekeeping
   if (regressionAdjustmentEnabled) {
-    if (metric?.denominator) {
+    if (isFactMetric(metric)) {
+      if (metric.metricType === "ratio") {
+        regressionAdjustmentEnabled = false;
+        reason = "ratio metrics not supported";
+      }
+    } else if (metric?.denominator) {
       const denominator = denominatorMetrics.find(
         (m) => m.id === metric?.denominator
       );
@@ -377,7 +403,7 @@ export function getRegressionAdjustmentsForMetric({
       }
     }
   }
-  if (metric?.aggregation) {
+  if ("aggregation" in metric && metric?.aggregation) {
     regressionAdjustmentEnabled = false;
     reason = "custom aggregation";
   }
@@ -402,7 +428,7 @@ export function getRegressionAdjustmentsForMetric({
 
 export function isExpectedDirection(
   stats: SnapshotMetric,
-  metric: MetricInterface
+  metric: { inverse?: boolean }
 ): boolean {
   const expected: number = stats?.expected ?? 0;
   if (metric.inverse) {
@@ -487,10 +513,10 @@ export function setAdjustedPValuesOnResults(
   results.forEach((r, i) => {
     r.variations.forEach((v, j) => {
       nonGuardrailMetrics.forEach((m) => {
-        if (v.metrics[m]?.pValue !== undefined) {
+        const pValue = v.metrics[m]?.pValue;
+        if (pValue !== undefined) {
           indexedPValues.push({
-            // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'number | undefined' is not assignable to typ... Remove this comment to see the full error message
-            pValue: v.metrics[m].pValue,
+            pValue: pValue,
             index: [i, j, m],
           });
         }
@@ -513,6 +539,54 @@ export function setAdjustedPValuesOnResults(
     const ijk = ip.index;
     results[ijk[0]].variations[ijk[1]].metrics[ijk[2]].pValueAdjusted =
       ip.pValue;
+  });
+  return;
+}
+
+export function adjustedCI(
+  adjustedPValue: number,
+  uplift: { dist: string; mean?: number; stddev?: number },
+  zScore: number
+): [number, number] {
+  if (!uplift.mean) return [uplift.mean ?? 0, uplift.mean ?? 0];
+  const adjStdDev = Math.abs(
+    uplift.mean / jStat.normal.inv(1 - adjustedPValue / 2, 0, 1)
+  );
+  const width = zScore * adjStdDev;
+  return [uplift.mean - width, uplift.mean + width];
+}
+
+export function setAdjustedCIs(
+  results: ExperimentReportResultDimension[],
+  pValueThreshold: number
+): void {
+  const zScore = jStat.normal.inv(1 - pValueThreshold / 2, 0, 1);
+  results.forEach((r) => {
+    r.variations.forEach((v) => {
+      for (const key in v.metrics) {
+        const pValueAdjusted = v.metrics[key].pValueAdjusted;
+        const uplift = v.metrics[key].uplift;
+        const ci = v.metrics[key].ci;
+        if (pValueAdjusted === undefined) {
+          continue;
+        } else if (pValueAdjusted > 0.999999) {
+          // set to Inf if adjusted pValue is 1
+          v.metrics[key].ciAdjusted = [-Infinity, Infinity];
+        } else if (
+          pValueAdjusted !== undefined &&
+          uplift !== undefined &&
+          ci !== undefined
+        ) {
+          const adjCI = adjustedCI(pValueAdjusted, uplift, zScore);
+          // only update if CI got wider, should never get more narrow
+          if (adjCI[0] < ci[0] && adjCI[1] > ci[1]) {
+            v.metrics[key].ciAdjusted = adjCI;
+          } else {
+            v.metrics[key].ciAdjusted = v.metrics[key].ci;
+          }
+        }
+      }
+    });
   });
   return;
 }
@@ -566,11 +640,12 @@ export function getRowResults({
   isLatestPhase,
   experimentStatus,
   displayCurrency,
+  getFactTableById,
 }: {
   stats: SnapshotMetric;
   baseline: SnapshotMetric;
   statsEngine: StatsEngine;
-  metric: MetricInterface;
+  metric: ExperimentMetricInterface;
   metricDefaults: MetricDefaults;
   isGuardrail: boolean;
   minSampleSize: number;
@@ -582,7 +657,16 @@ export function getRowResults({
   isLatestPhase: boolean;
   experimentStatus: ExperimentStatus;
   displayCurrency: string;
+  getFactTableById: (id: string) => null | FactTableInterface;
 }): RowResults {
+  const compactNumberFormatter = Intl.NumberFormat("en-US", {
+    notation: "compact",
+    maximumFractionDigits: 2,
+  });
+  const numberFormatter = Intl.NumberFormat("en-US", {
+    notation: "compact",
+    maximumFractionDigits: 4,
+  });
   const percentFormatter = new Intl.NumberFormat(undefined, {
     style: "percent",
     maximumFractionDigits: 2,
@@ -605,7 +689,7 @@ export function getRowResults({
     } else {
       significant = false;
       significantUnadjusted = false;
-      significantReason = `This metric is not statistically significant. The chance to win it outside the CI interval [${percentFormatter.format(
+      significantReason = `This metric is not statistically significant. The chance to win is outside the CI interval [${percentFormatter.format(
         ciLower
       )}, ${percentFormatter.format(ciUpper)}].`;
     }
@@ -624,7 +708,13 @@ export function getRowResults({
 
   const hasData = !!stats?.value && !!baseline?.value;
   const enoughData = hasEnoughData(baseline, stats, metric, metricDefaults);
-  const enoughDataReason = `This metric has a minimum total of ${minSampleSize}; this value must be reached in one variation before results are displayed. The total metric value of the variation is ${stats.value} and the baseline total is ${baseline.value}.`;
+  const enoughDataReason =
+    `This metric has a minimum total of ${minSampleSize}; this value must be reached in one variation before results are displayed. ` +
+    `The total metric value of the variation is ${compactNumberFormatter.format(
+      stats.value
+    )} and the baseline total is ${compactNumberFormatter.format(
+      baseline.value
+    )}.`;
   const percentComplete =
     minSampleSize > 0
       ? Math.max(stats.value, baseline.value) / minSampleSize
@@ -655,8 +745,7 @@ export function getRowResults({
   );
   const suspiciousChangeReason = suspiciousChange
     ? `A suspicious result occurs when the percent change exceeds your maximum percent change (${percentFormatter.format(
-        (metric.maxPercentChange ?? metricDefaults?.maxPercentageChange ?? 0) *
-          100
+        metric.maxPercentChange ?? metricDefaults?.maxPercentageChange ?? 0
       )}).`
     : "";
 
@@ -693,10 +782,15 @@ export function getRowResults({
     )}) for this metric.`;
   }
   let riskFormatted = "";
-  if (metric.type !== "binomial") {
-    riskFormatted = `${formatConversionRate(
-      metric.type,
+
+  const isBinomial = isBinomialMetric(metric);
+
+  // TODO: support formatted risk for fact metrics
+  if (!isBinomial) {
+    riskFormatted = `${formatMetricValue(
+      metric,
       risk,
+      getFactTableById,
       displayCurrency
     )} / user`;
   }
@@ -713,7 +807,6 @@ export function getRowResults({
     baseline,
     stats,
     hasEnoughData: enoughData,
-    suspiciousChange,
     belowMinChange,
   });
 
@@ -742,7 +835,7 @@ export function getRowResults({
     }
   } else {
     if (_shouldHighlight && significant && directionalStatus === "winning") {
-      resultsReason = `Significant win as the p-value is below the ${percentFormatter.format(
+      resultsReason = `Significant win as the p-value is below the ${numberFormatter.format(
         pValueThreshold
       )} threshold`;
       resultsStatus = "won";
@@ -751,8 +844,8 @@ export function getRowResults({
       significant &&
       directionalStatus === "losing"
     ) {
-      resultsReason = `Significant loss as the p-value is above the ${percentFormatter.format(
-        1 - pValueThreshold
+      resultsReason = `Significant loss as the p-value is below the ${numberFormatter.format(
+        pValueThreshold
       )} threshold`;
       resultsStatus = "lost";
     } else if (enoughData && significant && belowMinChange) {

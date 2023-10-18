@@ -10,14 +10,20 @@ import {
 } from "react";
 import { CSSTransition } from "react-transition-group";
 import { RxInfoCircled } from "react-icons/rx";
-import { MetricInterface } from "back-end/types/metric";
-import { ExperimentReportVariation } from "back-end/types/report";
+import {
+  ExperimentReportVariation,
+  ExperimentReportVariationWithIndex,
+} from "back-end/types/report";
 import { ExperimentStatus } from "back-end/types/experiment";
 import { PValueCorrection, StatsEngine } from "back-end/types/stats";
-import { DEFAULT_STATS_ENGINE } from "shared/constants";
+import {
+  DEFAULT_P_VALUE_THRESHOLD,
+  DEFAULT_STATS_ENGINE,
+} from "shared/constants";
 import { getValidDate } from "shared/dates";
 import { useTooltip, useTooltipInPortal } from "@visx/tooltip";
 import { FaExclamationTriangle } from "react-icons/fa";
+import { ExperimentMetricInterface } from "shared/experiments";
 import {
   ExperimentTableRow,
   getRowResults,
@@ -42,6 +48,9 @@ import ResultsTableTooltip, {
   YAlign,
 } from "@/components/Experiment/ResultsTableTooltip";
 import { QueryStatusData } from "@/components/Queries/RunQueriesButton";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import ResultsMetricFilter from "@/components/Experiment/ResultsMetricFilter";
+import { ResultsMetricFilters } from "@/components/Experiment/Results";
 import Tooltip from "../Tooltip/Tooltip";
 import AlignedGraph from "./AlignedGraph";
 import ChanceToWinColumn from "./ChanceToWinColumn";
@@ -51,18 +60,21 @@ import PercentGraph from "./PercentGraph";
 export type ResultsTableProps = {
   id: string;
   variations: ExperimentReportVariation[];
+  variationFilter?: number[];
+  baselineRow?: number;
   status: ExperimentStatus;
   queryStatusData?: QueryStatusData;
   isLatestPhase: boolean;
   startDate: string;
   rows: ExperimentTableRow[];
+  dimension?: string;
   metricsAsGuardrails?: boolean;
   tableRowAxis: "metric" | "dimension";
-  labelHeader: string;
+  labelHeader: ReactElement | string;
   editMetrics?: () => void;
   renderLabelColumn: (
     label: string,
-    metric: MetricInterface,
+    metric: ExperimentMetricInterface,
     row: ExperimentTableRow,
     maxRows?: number
   ) => string | ReactElement;
@@ -71,6 +83,9 @@ export type ResultsTableProps = {
   statsEngine: StatsEngine;
   pValueCorrection?: PValueCorrection;
   sequentialTestingEnabled?: boolean;
+  metricFilter?: ResultsMetricFilters;
+  setMetricFilter?: (filter: ResultsMetricFilters) => void;
+  metricTags?: string[];
   isTabActive: boolean;
 };
 
@@ -78,17 +93,25 @@ const ROW_HEIGHT = 56;
 const METRIC_LABEL_ROW_HEIGHT = 44;
 const SPACER_ROW_HEIGHT = 6;
 
+const percentFormatter = new Intl.NumberFormat(undefined, {
+  style: "percent",
+  maximumFractionDigits: 2,
+});
+
 export default function ResultsTable({
   id,
   isLatestPhase,
   status,
   queryStatusData,
   rows,
+  dimension,
   metricsAsGuardrails = false,
   tableRowAxis,
   labelHeader,
   editMetrics,
   variations,
+  variationFilter,
+  baselineRow = 0,
   startDate,
   renderLabelColumn,
   dateCreated,
@@ -96,8 +119,18 @@ export default function ResultsTable({
   statsEngine,
   pValueCorrection,
   sequentialTestingEnabled = false,
+  metricFilter,
+  setMetricFilter,
+  metricTags = [],
   isTabActive,
 }: ResultsTableProps) {
+  // fix any potential filter conflicts
+  if (variationFilter?.includes(baselineRow)) {
+    variationFilter = variationFilter.filter((v) => v !== baselineRow);
+  }
+
+  const { getFactTableById } = useDefinitions();
+
   const {
     metricDefaults,
     getMinSampleSizeForMetric,
@@ -106,7 +139,8 @@ export default function ResultsTable({
   const pValueThreshold = usePValueThreshold();
   const displayCurrency = useCurrency();
   const orgSettings = useOrgSettings();
-  const domain = useDomain(variations, rows);
+
+  const [showMetricFilter, setShowMetricFilter] = useState<boolean>(false);
 
   const tableContainerRef = useRef<HTMLDivElement | null>(null);
   const [graphCellWidth, setGraphCellWidth] = useState(800);
@@ -134,9 +168,21 @@ export default function ResultsTable({
   useLayoutEffect(onResize, []);
   useEffect(onResize, [isTabActive]);
 
-  const baselineRow = 0;
+  const orderedVariations: ExperimentReportVariationWithIndex[] = useMemo(() => {
+    return variations
+      .map<ExperimentReportVariationWithIndex>((v, i) => ({ ...v, index: i }))
+      .sort((a, b) => {
+        if (a.index === baselineRow) return -1;
+        return a.index - b.index;
+      });
+  }, [variations, baselineRow]);
 
-  const compactResults = variations.length === 2;
+  const filteredVariations = orderedVariations.filter(
+    (v) => !variationFilter?.includes(v.index)
+  );
+  const compactResults = filteredVariations.length <= 2;
+
+  const domain = useDomain(filteredVariations, rows);
 
   const rowsResults: (RowResults | "query error" | null)[][] = useMemo(() => {
     const rr: (RowResults | "query error" | null)[][] = [];
@@ -147,9 +193,12 @@ export default function ResultsTable({
         cr: 0,
         users: 0,
       };
-      variations.map((v, j) => {
-        let skipVariation = false; // todo: use filter
-        if (j === baselineRow) {
+      orderedVariations.map((v) => {
+        let skipVariation = false;
+        if (variationFilter?.length && variationFilter?.includes(v.index)) {
+          skipVariation = true;
+        }
+        if (v.index === baselineRow) {
           skipVariation = true;
         }
         if (skipVariation) {
@@ -163,7 +212,7 @@ export default function ResultsTable({
           rr[i].push("query error");
           return;
         }
-        const stats = row.variations[j] || {
+        const stats = row.variations[v.index] || {
           value: 0,
           cr: 0,
           users: 0,
@@ -185,6 +234,7 @@ export default function ResultsTable({
           isLatestPhase,
           experimentStatus: status,
           displayCurrency,
+          getFactTableById,
         });
         rr[i].push(rowResults);
       });
@@ -192,7 +242,9 @@ export default function ResultsTable({
     return rr;
   }, [
     rows,
-    variations,
+    orderedVariations,
+    baselineRow,
+    variationFilter,
     metricDefaults,
     metricsAsGuardrails,
     getMinSampleSizeForMetric,
@@ -206,6 +258,7 @@ export default function ResultsTable({
     status,
     displayCurrency,
     queryStatusData,
+    getFactTableById,
   ]);
 
   const noMetrics = rows.length === 0;
@@ -295,15 +348,15 @@ export default function ResultsTable({
         : event.clientX + 10) + offsetX;
 
     // Prevent tooltip from going off the screen (x-axis)
-    if (targetLeft < 0) {
-      targetLeft = 0;
+    if (targetLeft < 10) {
+      targetLeft = 10;
     }
     if (
       targetLeft + Math.min(TOOLTIP_WIDTH, window.innerWidth) >
-      window.innerWidth
+      window.innerWidth - 10
     ) {
       targetLeft =
-        window.innerWidth - Math.min(TOOLTIP_WIDTH, window.innerWidth);
+        window.innerWidth - Math.min(TOOLTIP_WIDTH, window.innerWidth) - 10;
     }
 
     if (hoveredX === null && hoveredY === null) {
@@ -312,32 +365,32 @@ export default function ResultsTable({
     }
 
     const row = rows[metricRow];
-    const baseline = row.variations[baselineRow] || {
+    const baseline = row.variations[orderedVariations[0].index] || {
       value: 0,
       cr: 0,
       users: 0,
     };
-    const stats = row.variations[variationRow] || {
+    const stats = row.variations[orderedVariations[variationRow].index] || {
       value: 0,
       cr: 0,
       users: 0,
     };
     const metric = row.metric;
-    const variation = variations[variationRow];
-    const baselineVariation = variations[baselineRow];
+    const variation = orderedVariations[variationRow];
+    const baselineVariation = orderedVariations[0];
     const rowResults = rowsResults[metricRow][variationRow];
     if (!rowResults) return;
     if (rowResults === "query error") return;
     showTooltip({
       tooltipData: {
         metricRow,
-        variationRow,
         metric,
+        dimensionName: dimension,
+        dimensionValue: dimension ? row.label : undefined,
         variation,
         stats,
         baseline,
         baselineVariation,
-        baselineRow,
         rowResults,
         statsEngine,
         pValueCorrection,
@@ -375,7 +428,7 @@ export default function ResultsTable({
           hoveredMetricRow !== null &&
           hoveredVariationRow !== null
         }
-        timeout={0}
+        timeout={200}
         classNames="tooltip-animate"
         appear={true}
       >
@@ -397,25 +450,46 @@ export default function ResultsTable({
             <thead>
               <tr className="results-top-row">
                 <th
+                  className="axis-col header-label"
                   style={{
                     lineHeight: "15px",
                     width: 220 * tableCellScale,
                   }}
-                  className="axis-col header-label"
                 >
-                  {labelHeader}
-                  {editMetrics ? (
-                    <a
-                      role="button"
-                      className="ml-2 cursor-pointer"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        editMetrics();
+                  <div className="row px-0">
+                    {setMetricFilter ? (
+                      <ResultsMetricFilter
+                        metricTags={metricTags}
+                        metricFilter={metricFilter}
+                        setMetricFilter={setMetricFilter}
+                        showMetricFilter={showMetricFilter}
+                        setShowMetricFilter={setShowMetricFilter}
+                      />
+                    ) : null}
+                    <div
+                      className="col-auto px-1"
+                      style={{
+                        wordBreak: "break-word",
+                        overflowWrap: "anywhere",
                       }}
                     >
-                      <GBEdit />
-                    </a>
-                  ) : null}
+                      {labelHeader}
+                    </div>
+                    {editMetrics ? (
+                      <div className="col d-flex align-items-end px-0">
+                        <a
+                          role="button"
+                          className="ml-1 cursor-pointer"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            editMetrics();
+                          }}
+                        >
+                          <GBEdit />
+                        </a>
+                      </div>
+                    ) : null}
+                  </div>
                 </th>
                 {!noMetrics ? (
                   <>
@@ -458,13 +532,13 @@ export default function ResultsTable({
                         usePortal={true}
                         innerClassName={"text-left"}
                         body={
-                          variations.length > 2 ? (
+                          !compactResults ? (
                             ""
                           ) : (
                             <div style={{ lineHeight: 1.5 }}>
                               The variation being compared to the baseline.
                               <div
-                                className={`variation variation1 with-variation-label d-flex mt-1 align-items-top`}
+                                className={`variation variation${filteredVariations[1]?.index} with-variation-label d-flex mt-1 align-items-top`}
                                 style={{ marginBottom: 2 }}
                               >
                                 <span
@@ -475,30 +549,28 @@ export default function ResultsTable({
                                     marginTop: 2,
                                   }}
                                 >
-                                  1
+                                  {filteredVariations[1]?.index}
                                 </span>
                                 <span className="font-weight-bold">
-                                  {variations[1]?.name}
+                                  {filteredVariations[1]?.name}
                                 </span>
                               </div>
                             </div>
                           )
                         }
                       >
-                        Variation{" "}
-                        {variations.length > 2 ? null : <RxInfoCircled />}
+                        Variation {compactResults ? <RxInfoCircled /> : null}
                       </Tooltip>
                     </th>
                     <th
                       style={{ width: 120 * tableCellScale }}
-                      className="axis-col label text-right"
+                      className="axis-col label"
                     >
                       {statsEngine === "bayesian" ? (
                         <div
                           style={{
                             lineHeight: "15px",
                             marginBottom: 2,
-                            marginLeft: -20,
                           }}
                         >
                           <span className="nowrap">Chance</span>{" "}
@@ -514,7 +586,8 @@ export default function ResultsTable({
                               {getPValueTooltip(
                                 !!sequentialTestingEnabled,
                                 pValueCorrection ?? null,
-                                orgSettings.pValueThreshold ?? 0.05,
+                                orgSettings.pValueThreshold ??
+                                  DEFAULT_P_VALUE_THRESHOLD,
                                 tableRowAxis
                               )}
                             </div>
@@ -559,10 +632,11 @@ export default function ResultsTable({
                           body={
                             <div style={{ lineHeight: 1.5 }}>
                               {getPercentChangeTooltip(
-                                statsEngine ?? DEFAULT_STATS_ENGINE,
+                                statsEngine || DEFAULT_STATS_ENGINE,
                                 hasRisk,
                                 !!sequentialTestingEnabled,
-                                pValueCorrection ?? null
+                                pValueCorrection ?? null,
+                                pValueThreshold
                               )}
                             </div>
                           }
@@ -584,6 +658,7 @@ export default function ResultsTable({
                 cr: 0,
                 users: 0,
               };
+              let alreadyShownQueryError = false;
 
               return (
                 <tbody className={clsx("results-group-row")} key={i}>
@@ -597,8 +672,8 @@ export default function ResultsTable({
                       domain,
                     })}
 
-                  {variations.map((v, j) => {
-                    const stats = row.variations[j] || {
+                  {orderedVariations.map((v, j) => {
+                    const stats = row.variations[v.index] || {
                       value: 0,
                       cr: 0,
                       users: 0,
@@ -608,24 +683,38 @@ export default function ResultsTable({
                       return null;
                     }
                     if (rowResults === "query error") {
-                      if (j > 1) {
-                        return null;
-                      } else {
+                      if (!alreadyShownQueryError) {
+                        alreadyShownQueryError = true;
                         return drawEmptyRow({
                           key: j,
                           className:
                             "results-variation-row align-items-center error-row",
                           label: (
-                            <div className="alert alert-danger px-2 py-1 mb-1 ml-1">
-                              <FaExclamationTriangle className="mr-1" />
-                              Query error
-                            </div>
+                            <>
+                              {compactResults ? (
+                                <div className="mb-1">
+                                  {renderLabelColumn(
+                                    row.label,
+                                    row.metric,
+                                    row
+                                  )}
+                                </div>
+                              ) : null}
+                              <div className="alert alert-danger px-2 py-1 mb-1 ml-1">
+                                <FaExclamationTriangle className="mr-1" />
+                                Query error
+                              </div>
+                            </>
                           ),
                           graphCellWidth,
-                          rowHeight: ROW_HEIGHT,
+                          rowHeight: compactResults
+                            ? ROW_HEIGHT + 20
+                            : ROW_HEIGHT,
                           id,
                           domain,
                         });
+                      } else {
+                        return null;
                       }
                     }
                     const isHovered =
@@ -643,6 +732,10 @@ export default function ResultsTable({
                       e,
                       settings?: TooltipHoverSettings
                     ) => {
+                      // No hover tooltip if the screen is too narrow. Clicks still work.
+                      if (e?.type === "mousemove" && window.innerWidth < 900) {
+                        return;
+                      }
                       if (!rowResults.hasData) return;
                       hoverRow(i, j, e, settings);
                     };
@@ -657,7 +750,7 @@ export default function ResultsTable({
                         key={j}
                       >
                         <td
-                          className={`variation with-variation-label variation${j}`}
+                          className={`variation with-variation-label variation${v.index}`}
                           style={{
                             width: 220 * tableCellScale,
                           }}
@@ -668,7 +761,7 @@ export default function ResultsTable({
                                 className="label ml-1"
                                 style={{ width: 20, height: 20 }}
                               >
-                                {j}
+                                {v.index}
                               </span>
                               <span
                                 className="d-inline-block text-ellipsis"
@@ -685,12 +778,13 @@ export default function ResultsTable({
                           )}
                         </td>
                         {j > 0 ? (
-                          // draw baseline value once, merge rows
                           <MetricValueColumn
                             metric={row.metric}
                             stats={baseline}
                             users={baseline?.users || 0}
-                            className="value baseline"
+                            className={clsx("value baseline", {
+                              hover: isHovered,
+                            })}
                             newUi={true}
                           />
                         ) : (
@@ -704,19 +798,6 @@ export default function ResultsTable({
                             hover: isHovered,
                           })}
                           newUi={true}
-                          onMouseMove={(e) =>
-                            onPointerMove(e, {
-                              x: "element-right",
-                              offsetX: -45,
-                            })
-                          }
-                          onPointerLeave={onPointerLeave}
-                          onClick={(e) =>
-                            onPointerMove(e, {
-                              x: "element-right",
-                              offsetX: -45,
-                            })
-                          }
                         />
                         {j > 0 ? (
                           statsEngine === "bayesian" ? (
@@ -773,19 +854,35 @@ export default function ResultsTable({
                                   ? "pill"
                                   : undefined
                               }
+                              barFillType={
+                                statsEngine === "frequentist"
+                                  ? "significant"
+                                  : "gradient"
+                              }
+                              significant={rowResults.significant}
                               baseline={baseline}
                               domain={domain}
                               metric={row.metric}
                               stats={stats}
-                              id={`${id}_violin_row${i}_var${j}`}
+                              id={`${id}_violin_row${i}_var${j}_${
+                                metricsAsGuardrails ? "guardrail" : "goal"
+                              }_${encodeURIComponent(dimension ?? "d-none")}`}
                               graphWidth={graphCellWidth}
                               height={
                                 compactResults ? ROW_HEIGHT + 10 : ROW_HEIGHT
                               }
                               newUi={true}
+                              // className={}
                               isHovered={isHovered}
-                              className={resultsHighlightClassname}
-                              rowStatus={rowResults.resultsStatus}
+                              className={clsx(
+                                resultsHighlightClassname,
+                                "overflow-hidden"
+                              )}
+                              rowStatus={
+                                statsEngine === "frequentist"
+                                  ? rowResults.resultsStatus
+                                  : undefined
+                              }
                               onMouseMove={(e) =>
                                 onPointerMove(e, {
                                   x: "element-center",
@@ -821,19 +918,6 @@ export default function ResultsTable({
                             rowResults={rowResults}
                             statsEngine={statsEngine}
                             className={resultsHighlightClassname}
-                            onMouseMove={(e) =>
-                              onPointerMove(e, {
-                                x: "element-left",
-                                offsetX: 50,
-                              })
-                            }
-                            onMouseLeave={onPointerLeave}
-                            onClick={(e) =>
-                              onPointerMove(e, {
-                                x: "element-left",
-                                offsetX: 50,
-                              })
-                            }
                           />
                         ) : (
                           <td></td>
@@ -914,7 +998,8 @@ function getPercentChangeTooltip(
   statsEngine: StatsEngine,
   hasRisk: boolean,
   sequentialTestingEnabled: boolean,
-  pValueCorrection: PValueCorrection
+  pValueCorrection: PValueCorrection,
+  pValueThreshold: number
 ) {
   if (hasRisk && statsEngine === "bayesian") {
     return (
@@ -925,12 +1010,13 @@ function getPercentChangeTooltip(
     );
   }
   if (statsEngine === "frequentist") {
+    const confidencePct = percentFormatter.format(1 - pValueThreshold);
     return (
       <>
         <p className="mb-0">
-          The interval is a 95% confidence interval. If you re-ran the
-          experiment 100 times, the true value would be in this range 95% of the
-          time.
+          The interval is a {confidencePct} confidence interval. If you re-ran
+          the experiment 100 times, the true value would be in this range{" "}
+          {confidencePct} of the time.
         </p>
         {sequentialTestingEnabled && (
           <p className="mt-4 mb-0">
@@ -941,9 +1027,13 @@ function getPercentChangeTooltip(
         )}
         {pValueCorrection && (
           <p className="mt-4 mb-0">
-            These confidence intervals are not adjusted for multiple comparisons
-            as the multiple comparisons adjustments GrowthBook implements only
-            have associated adjusted p-values, not confidence intervals.
+            Because your organization has multiple comparisons corrections
+            enabled, these confidence intervals have been inflated so that they
+            match the adjusted psuedo-p-value. Because confidence intervals do
+            not generally exist for all adjusted p-values, we use a method that
+            recreates the confidence intervals that would have produced these
+            psuedo-p-values. For adjusted psuedo-p-values that are 1.0, the
+            confidence intervals are infinite.
           </p>
         )}
       </>
@@ -977,7 +1067,7 @@ function getPValueTooltip(
           {tableRowAxis === "dimension"
             ? "all dimension values, non-guardrail metrics, and variations"
             : "all non-guardrail metrics and variations"}
-          . The unadjusted p-values are returned in parentheses.
+          . The unadjusted p-values are returned in the tooltip.
         </div>
       )}
     </>

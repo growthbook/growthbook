@@ -12,7 +12,6 @@ export default function Analysis(): React.ReactElement {
   const {
     experiments,
     error: experimentsError,
-    mutateExperiments,
     loading: experimentsLoading,
   } = useExperiments(project);
 
@@ -43,16 +42,7 @@ export default function Analysis(): React.ReactElement {
           <Dashboard experiments={experiments} />
         ) : (
           <div className="getstarted">
-            <h1>Experiment Analysis</h1>
-            <p>
-              GrowthBook can pull experiment results directly from your data
-              source and analyze it with our statistics engine. Start by
-              connecting to your data source and defining metrics.
-            </p>
-            <ExperimentsGetStarted
-              experiments={experiments}
-              mutate={mutateExperiments}
-            />
+            <ExperimentsGetStarted />
           </div>
         )}
       </div>

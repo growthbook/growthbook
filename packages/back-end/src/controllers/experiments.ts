@@ -2,7 +2,10 @@ import { Response } from "express";
 import uniqid from "uniqid";
 import format from "date-fns/format";
 import cloneDeep from "lodash/cloneDeep";
-import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
+import {
+  DEFAULT_P_VALUE_THRESHOLD,
+  DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
+} from "shared/constants";
 import { getValidDate } from "shared/dates";
 import { getAffectedEnvsForExperiment } from "shared/util";
 import { getScopedSettings } from "shared/settings";
@@ -12,6 +15,8 @@ import { AuthRequest, ResponseWithStatusAndError } from "../types/AuthRequest";
 import {
   createManualSnapshot,
   createSnapshot,
+  createSnapshotAnalysis,
+  getExperimentMetricById,
   getManualSnapshotData,
 } from "../services/experiments";
 import { MetricStats } from "../../types/metric";
@@ -60,7 +65,7 @@ import {
   ExperimentTargetingData,
   Variation,
 } from "../../types/experiment";
-import { getMetricById, getMetricMap } from "../models/MetricModel";
+import { getMetricMap } from "../models/MetricModel";
 import { IdeaModel } from "../models/IdeasModel";
 import { IdeaInterface } from "../../types/idea";
 import { getDataSourceById } from "../models/DataSourceModel";
@@ -82,7 +87,10 @@ import { MetricRegressionAdjustmentStatus } from "../../types/report";
 import { VisualChangesetInterface } from "../../types/visual-changeset";
 import { PrivateApiErrorResponse } from "../../types/api";
 import { EventAuditUserForResponseLocals } from "../events/event-types";
-import { findProjectById } from "../models/ProjectModel";
+import {
+  findAllProjectsByOrganization,
+  findProjectById,
+} from "../models/ProjectModel";
 import { ExperimentResultsQueryRunner } from "../queryRunners/ExperimentResultsQueryRunner";
 import { PastExperimentsQueryRunner } from "../queryRunners/PastExperimentsQueryRunner";
 import {
@@ -90,6 +98,7 @@ import {
   getVisualEditorApiKey,
 } from "../models/ApiKeyModel";
 import { getExperimentWatchers, upsertWatch } from "../models/WatchModel";
+import { getFactTableMap } from "../models/FactTableModel";
 
 export async function getExperiments(
   req: AuthRequest<
@@ -125,6 +134,7 @@ export async function getExperimentsFrequencyMonth(
     project = req.query.project;
   }
 
+  const allProjects = await findAllProjectsByOrganization(org.id);
   const { num } = req.params;
   const experiments = await getAllExperiments(org.id, project);
 
@@ -149,6 +159,21 @@ export async function getExperimentsFrequencyMonth(
     stopped: JSON.parse(JSON.stringify(allData)),
   };
 
+  // create stubs for each month by all the projects:
+  const dataByProject: Record<string, [{ date: string; numExp: number }]> = {};
+  allProjects.forEach((p) => {
+    dataByProject[p.id] = JSON.parse(JSON.stringify(allData));
+  });
+  dataByProject["all"] = JSON.parse(JSON.stringify(allData));
+
+  // create stubs for each month by all the result:
+  const dataByResult = {
+    won: JSON.parse(JSON.stringify(allData)),
+    lost: JSON.parse(JSON.stringify(allData)),
+    inconclusive: JSON.parse(JSON.stringify(allData)),
+    dnf: JSON.parse(JSON.stringify(allData)),
+  };
+
   // now get the right number of experiments:
   experiments.forEach((e) => {
     let dateStarted: Date | null = null;
@@ -168,13 +193,27 @@ export async function getExperimentsFrequencyMonth(
         md.numExp++;
         // I can do this because the indexes will represent the same month
         dataByStatus[e.status][i].numExp++;
+
+        // experiments without a project, are included in the 'all projects'
+        if (e.project) {
+          dataByProject[e.project][i].numExp++;
+        } else {
+          dataByProject["all"][i].numExp++;
+        }
+
+        if (e.results) {
+          dataByResult[e.results][i].numExp++;
+        }
       }
     });
   });
 
   res.status(200).json({
     status: 200,
-    data: { all: allData, ...dataByStatus },
+    all: allData,
+    byStatus: { ...dataByStatus },
+    byProject: { ...dataByProject },
+    byResults: { ...dataByResult },
   });
 }
 
@@ -470,6 +509,7 @@ const validateVariationIds = (variations: Variation[]) => {
 
 /**
  * Creates a new experiment
+ * If based on another experiment (originalId), it will copy the visual changesets
  * @param req
  * @param res
  */
@@ -477,7 +517,10 @@ export async function postExperiments(
   req: AuthRequest<
     Partial<ExperimentInterfaceStringDates>,
     unknown,
-    { allowDuplicateTrackingKey?: boolean }
+    {
+      allowDuplicateTrackingKey?: boolean;
+      originalId?: string;
+    }
   >,
   res: Response<
     | { status: 200; experiment: ExperimentInterface }
@@ -507,7 +550,10 @@ export async function postExperiments(
   // Validate that specified metrics exist and belong to the organization
   if (data.metrics && data.metrics.length) {
     for (let i = 0; i < data.metrics.length; i++) {
-      const metric = await getMetricById(data.metrics[i], data.organization);
+      const metric = await getExperimentMetricById(
+        data.metrics[i],
+        data.organization
+      );
 
       if (metric) {
         // Make sure it is tied to the same datasource as the experiment
@@ -585,6 +631,7 @@ export async function postExperiments(
       data.sequentialTestingTuningParameter ??
       org?.settings?.sequentialTestingTuningParameter ??
       DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
+    statsEngine: data.statsEngine,
   };
 
   try {
@@ -610,6 +657,23 @@ export async function postExperiments(
       organization: org,
       user: res.locals.eventAudit,
     });
+
+    if (req.query.originalId) {
+      const visualChangesets = await findVisualChangesetsByExperiment(
+        req.query.originalId,
+        org.id
+      );
+      for (const visualChangeset of visualChangesets) {
+        await createVisualChangeset({
+          experiment,
+          urlPatterns: visualChangeset.urlPatterns,
+          editorUrl: visualChangeset.editorUrl,
+          organization: org,
+          visualChanges: visualChangeset.visualChanges,
+          user: res.locals.eventAudit,
+        });
+      }
+    }
 
     await req.audit({
       event: "experiment.create",
@@ -696,7 +760,7 @@ export async function postExperiment(
 
   if (data.metrics && data.metrics.length) {
     for (let i = 0; i < data.metrics.length; i++) {
-      const metric = await getMetricById(data.metrics[i], org.id);
+      const metric = await getExperimentMetricById(data.metrics[i], org.id);
 
       if (metric) {
         // Make sure it is tied to the same datasource as the experiment
@@ -764,6 +828,7 @@ export async function postExperiment(
     "hasVisualChangesets",
     "sequentialTestingEnabled",
     "sequentialTestingTuningParameter",
+    "statsEngine",
   ];
   const existing: ExperimentInterface = experiment;
   const changes: Changeset = {};
@@ -1055,6 +1120,29 @@ export async function postExperimentStatus(
       reason,
       dateEnded: dateEnded ? getValidDate(dateEnded + ":00Z") : new Date(),
     };
+    changes.phases = phases;
+  }
+  // If starting an experiment from draft, use the current date as the phase start date
+  else if (
+    experiment.status === "draft" &&
+    status === "running" &&
+    phases?.length > 0
+  ) {
+    phases[phases.length - 1] = {
+      ...phases[phases.length - 1],
+      dateStarted: new Date(),
+    };
+    changes.phases = phases;
+  }
+  // If starting a stopped experiment, clear the phase end date
+  else if (
+    experiment.status === "stopped" &&
+    status === "running" &&
+    phases?.length > 0
+  ) {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- we don't want the dateEnded
+    const { dateEnded: _, ...newPhase } = phases[phases.length - 1];
+    phases[phases.length - 1] = newPhase;
     changes.phases = phases;
   }
 
@@ -1776,10 +1864,13 @@ export async function postSnapshot(
     regressionAdjusted: !!regressionAdjustmentEnabled,
     dimensions: dimension ? [dimension] : [],
     sequentialTesting: !!sequentialTestingEnabled,
-    sequentialTestingTuningParameter,
+    sequentialTestingTuningParameter: sequentialTestingTuningParameter,
+    baselineVariationIndex: 0,
+    pValueThreshold: org.settings?.pValueThreshold ?? DEFAULT_P_VALUE_THRESHOLD,
   };
 
   const metricMap = await getMetricMap(org.id);
+  const factTableMap = await getFactTableMap(org.id);
 
   // Manual snapshot
   if (!experiment.datasource) {
@@ -1845,6 +1936,7 @@ export async function postSnapshot(
       metricRegressionAdjustmentStatuses:
         metricRegressionAdjustmentStatuses || [],
       metricMap,
+      factTableMap,
     });
     const snapshot = queryRunner.model;
 
@@ -1867,6 +1959,59 @@ export async function postSnapshot(
     });
   } catch (e) {
     req.log.error(e, "Failed to create experiment snapshot");
+    res.status(400).json({
+      status: 400,
+      message: e.message,
+    });
+  }
+}
+export async function postSnapshotAnalysis(
+  req: AuthRequest<
+    {
+      analysisSettings: ExperimentSnapshotAnalysisSettings;
+    },
+    { id: string }
+  >,
+  res: Response
+) {
+  const { org } = getOrgFromReq(req);
+
+  const { id } = req.params;
+  const snapshot = await findSnapshotById(org.id, id);
+  if (!snapshot) {
+    res.status(404).json({
+      status: 404,
+      message: "Snapshot not found",
+    });
+    return;
+  }
+
+  const { analysisSettings } = req.body;
+
+  const experiment = await getExperimentById(org.id, snapshot.experiment);
+  if (!experiment) {
+    res.status(404).json({
+      status: 404,
+      message: "Experiment not found",
+    });
+    return;
+  }
+
+  const metricMap = await getMetricMap(org.id);
+
+  try {
+    await createSnapshotAnalysis({
+      experiment: experiment,
+      organization: org,
+      analysisSettings: analysisSettings,
+      metricMap: metricMap,
+      snapshot: snapshot,
+    });
+    res.status(200).json({
+      status: 200,
+    });
+  } catch (e) {
+    req.log.error(e, "Failed to create experiment snapshot analysis");
     res.status(400).json({
       status: 400,
       message: e.message,

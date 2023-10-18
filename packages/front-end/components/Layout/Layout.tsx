@@ -19,6 +19,7 @@ import ProjectSelector from "./ProjectSelector";
 import SidebarLink, { SidebarLinkProps } from "./SidebarLink";
 import TopNav from "./TopNav";
 import styles from "./Layout.module.scss";
+import { usePageHead } from "./PageHead";
 
 // move experiments inside of 'analysis' menu
 const navlinks: SidebarLinkProps[] = [
@@ -44,14 +45,21 @@ const navlinks: SidebarLinkProps[] = [
   {
     name: "Metrics and Data",
     href: "/metrics",
-    path: /^(metric|segment|dimension|datasources)/,
+    path: /^(metric|segment|dimension|datasources|fact-)/,
     autoClose: true,
     Icon: GBDatabase,
     subLinks: [
       {
         name: "Metrics",
         href: "/metrics",
-        path: /^metric/,
+        path: /^(metric|fact-metric)/,
+      },
+      {
+        name: "Fact Tables",
+        href: "/fact-tables",
+        path: /^fact-tables/,
+        beta: true,
+        feature: "fact-tables",
       },
       {
         name: "Segments",
@@ -196,6 +204,7 @@ const navlinks: SidebarLinkProps[] = [
         href: "/integrations/slack",
         path: /^integrations\/slack/,
         feature: "slack-integration",
+        permissions: ["manageIntegrations"],
       },
       {
         name: "Import your data",
@@ -215,7 +224,7 @@ const navlinks: SidebarLinkProps[] = [
         name: "Admin",
         href: "/admin",
         path: /^admin/,
-        cloudOnly: true,
+        multiOrgOnly: true,
         divider: true,
         superAdmin: true,
       },
@@ -275,6 +284,8 @@ const Layout = (): React.ReactElement => {
   const settings = useOrgSettings();
   const { accountPlan } = useUser();
 
+  const { breadcrumb } = usePageHead();
+
   const [upgradeModal, setUpgradeModal] = useState(false);
   // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'string | undefined' is not assig... Remove this comment to see the full error message
   const showUpgradeButton = ["oss", "starter"].includes(accountPlan);
@@ -288,7 +299,9 @@ const Layout = (): React.ReactElement => {
     return null;
   }
 
-  let pageTitle: string;
+  let pageTitle = breadcrumb.map((b) => b.display).join(" > ");
+
+  // If no breadcrumb provided, try to figure out a page name based on the path
   otherPageTitles.forEach((o) => {
     if (!pageTitle && o.path.test(path)) {
       pageTitle = o.title;
@@ -473,7 +486,6 @@ const Layout = (): React.ReactElement => {
       </div>
 
       <TopNav
-        // @ts-expect-error TS(2454) If you come across this, please fix it!: Variable 'pageTitle' is used before being assigned... Remove this comment to see the full error message
         pageTitle={pageTitle}
         showNotices={true}
         toggleLeftMenu={() => setOpen(!open)}

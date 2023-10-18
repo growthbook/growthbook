@@ -14,7 +14,6 @@ import {
   EXPRESS_TRUST_PROXY_OPTS,
   IS_CLOUD,
   SENTRY_DSN,
-  UPLOAD_METHOD,
 } from "./util/secrets";
 import {
   getExperimentConfig,
@@ -24,6 +23,7 @@ import { verifySlackRequestSignature } from "./services/slack";
 import { getAuthConnection, processJWT, usingOpenId } from "./services/auth";
 import { wrapController } from "./routers/wrapController";
 import apiRouter from "./api/api.router";
+import scimRouter from "./scim/scim.router";
 
 if (SENTRY_DSN) {
   Sentry.init({ dsn: SENTRY_DSN });
@@ -82,21 +82,24 @@ import { getBuild } from "./util/handler";
 import { getCustomLogProps, httpLogger } from "./util/logger";
 import { usersRouter } from "./routers/users/users.router";
 import { organizationsRouter } from "./routers/organizations/organizations.router";
-import { uploadsRouter } from "./routers/upload/upload.router";
+import { putUploadRouter } from "./routers/upload/put-upload.router";
 import { eventsRouter } from "./routers/events/events.router";
 import { eventWebHooksRouter } from "./routers/event-webhooks/event-webhooks.router";
 import { tagRouter } from "./routers/tag/tag.router";
 import { savedGroupRouter } from "./routers/saved-group/saved-group.router";
+import { ArchetypeRouter } from "./routers/archetype/archetype.router";
 import { segmentRouter } from "./routers/segment/segment.router";
 import { dimensionRouter } from "./routers/dimension/dimension.router";
 import { sdkConnectionRouter } from "./routers/sdk-connection/sdk-connection.router";
 import { projectRouter } from "./routers/project/project.router";
+import { factTableRouter } from "./routers/fact-table/fact-table.router";
 import verifyLicenseMiddleware from "./services/auth/verifyLicenseMiddleware";
 import { slackIntegrationRouter } from "./routers/slack-integration/slack-integration.router";
 import { dataExportRouter } from "./routers/data-export/data-export.router";
 import { demoDatasourceProjectRouter } from "./routers/demo-datasource-project/demo-datasource-project.router";
 import { environmentRouter } from "./routers/environment/environment.router";
 import { teamRouter } from "./routers/teams/teams.router";
+import { staticFilesRouter } from "./routers/upload/static-files.router";
 
 const app = express();
 
@@ -197,6 +200,8 @@ app.get(
   }),
   getExperimentConfig
 );
+
+// Public features for SDKs
 app.get(
   "/api/features/:key?",
   cors({
@@ -212,10 +217,30 @@ app.options(
     credentials: false,
     origin: "*",
   }),
-  function (req, res) {
-    res.send(200);
-  }
+  (req, res) => res.send(200)
 );
+
+if (!IS_CLOUD) {
+  // Public remoteEval for SDKs:
+  // note: Self-hosted only, recommended for debugging. Cloud orgs must use separate infrastructure.
+  app.post(
+    "/api/eval/:key?",
+    cors({
+      credentials: false,
+      origin: "*",
+    }),
+    featuresController.getEvaluatedFeaturesPublic
+  );
+  // For preflight requests
+  app.options(
+    "/api/eval/:key?",
+    cors({
+      credentials: false,
+      origin: "*",
+    }),
+    (req, res) => res.send(200)
+  );
+}
 
 // Secret API routes (no JWT or CORS)
 app.use(
@@ -225,6 +250,18 @@ app.use(
     origin: "*",
   }),
   apiRouter
+);
+
+// SCIM API routes (no JWT or CORS)
+app.use(
+  "/scim/v2",
+  bodyParser.json({
+    type: "application/scim+json",
+  }),
+  cors({
+    origin: "*",
+  }),
+  scimRouter
 );
 
 // Accept cross-origin requests from the frontend app
@@ -261,18 +298,14 @@ app.post("/auth/refresh", authController.postRefresh);
 app.post("/auth/logout", authController.postLogout);
 app.get("/auth/hasorgs", authController.getHasOrganizations);
 
-// File uploads don't require auth tokens.
-// Upload urls are signed and image access is public.
-if (UPLOAD_METHOD === "local") {
-  app.use("/upload", uploadsRouter);
-}
+app.use("/upload", staticFilesRouter);
 
 // All other routes require a valid JWT
 const auth = getAuthConnection();
 app.use(auth.middleware);
 
 // Add logged in user props to the request
-app.use(processJWT);
+app.use(asyncHandler(processJWT));
 
 // Add logged in user props to the logger
 app.use(
@@ -327,6 +360,8 @@ app.use("/tag", tagRouter);
 
 app.use("/saved-groups", savedGroupRouter);
 
+app.use("/archetype", ArchetypeRouter);
+
 // Ideas
 app.get("/ideas", ideasController.getIdeas);
 app.post("/ideas", ideasController.postIdeas);
@@ -340,7 +375,7 @@ app.get("/ideas/recent/:num", ideasController.getRecentIdeas);
 // Metrics
 app.get("/metrics", metricsController.getMetrics);
 app.post("/metrics", metricsController.postMetrics);
-app.get(
+app.post(
   "/metrics/tracked-events/:datasourceId",
   metricsController.getMetricsFromTrackedEvents
 );
@@ -368,6 +403,7 @@ app.get(
 app.get("/experiment/:id", experimentsController.getExperiment);
 app.get("/experiment/:id/reports", reportsController.getReportsOnExperiment);
 app.post("/snapshot/:id/cancel", experimentsController.cancelSnapshot);
+app.post("/snapshot/:id/analysis", experimentsController.postSnapshotAnalysis);
 app.get("/experiment/:id/snapshot/:phase", experimentsController.getSnapshot);
 app.get(
   "/experiment/:id/snapshot/:phase/:dimension",
@@ -464,6 +500,8 @@ app.use("/sdk-connections", sdkConnectionRouter);
 
 app.use("/projects", projectRouter);
 
+app.use(factTableRouter);
+
 app.use("/demo-datasource-project", demoDatasourceProjectRouter);
 
 // Features
@@ -494,6 +532,7 @@ app.delete(
 app.put("/feature/:id/rule", featuresController.putFeatureRule);
 app.delete("/feature/:id/rule", featuresController.deleteFeatureRule);
 app.post("/feature/:id/reorder", featuresController.postFeatureMoveRule);
+app.post("/feature/:id/eval", featuresController.postFeatureEvaluate);
 app.get("/usage/features", featuresController.getRealtimeUsage);
 
 // Data Sources
@@ -562,13 +601,20 @@ app.delete(
   discussionsController.deleteComment
 );
 app.get("/discussions/recent/:num", discussionsController.getRecentDiscussions);
-app.post("/file/upload/:filetype", discussionsController.postImageUploadUrl);
+app.use("/putupload", putUploadRouter);
 
 // Teams
 app.use("/teams", teamRouter);
 
 // Admin
 app.get("/admin/organizations", adminController.getOrganizations);
+
+// Meta info
+app.get("/meta/ai", (req, res) => {
+  res.json({
+    enabled: !!process.env.OPENAI_API_KEY,
+  });
+});
 
 // Fallback 404 route if nothing else matches
 app.use(function (req, res) {

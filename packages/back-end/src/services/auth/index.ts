@@ -1,5 +1,5 @@
 import { NextFunction, Request, Response } from "express";
-import { SSO_CONFIG } from "enterprise";
+import { licenseInit, SSO_CONFIG } from "enterprise";
 import { hasPermission } from "shared/permissions";
 import { IS_CLOUD } from "../../util/secrets";
 import { AuthRequest } from "../../types/AuthRequest";
@@ -38,6 +38,7 @@ type IdToken = {
   given_name?: string;
   name?: string;
   sub?: string;
+  iat?: number;
 };
 
 export function getAuthConnection(): AuthConnection {
@@ -50,6 +51,15 @@ async function getUserFromJWT(token: IdToken): Promise<null | UserInterface> {
   }
   const user = await getUserByEmail(String(token.email));
   if (!user) return null;
+
+  if (!usingOpenId() && user.minTokenDate && token.iat) {
+    if (token.iat < Math.floor(user.minTokenDate.getTime() / 1000)) {
+      throw new Error(
+        "Your session has been revoked. Please refresh the page and login."
+      );
+    }
+  }
+
   return user.toJSON<UserInterface>();
 }
 function getInitialDataFromJWT(user: IdToken): JWTInfo {
@@ -65,7 +75,7 @@ export async function processJWT(
   req: AuthRequest & { user: IdToken },
   res: Response<unknown, EventAuditUserForResponseLocals>,
   next: NextFunction
-) {
+): Promise<void> {
   const { email, name, verified } = getInitialDataFromJWT(req.user);
 
   req.authSubject = req.user.sub || "";
@@ -114,17 +124,18 @@ export async function processJWT(
     req.email = user.email;
     req.userId = user.id;
     req.name = user.name;
-    req.admin = !!user.admin;
+    req.superAdmin = !!user.superAdmin;
 
     // If using default Cloud SSO (Auth0), once a user logs in with a verified email address,
     // require all future logins to be verified too.
     // This stops someone from creating an unverified email/password account and gaining access to
     // an account using "Login with Google"
     if (IS_CLOUD && !req.loginMethod?.id && user.verified && !req.verified) {
-      return res.status(406).json({
+      res.status(406).json({
         status: 406,
         message: "You must verify your email address before using GrowthBook",
       });
+      return;
     }
 
     if (!user.verified && req.verified) {
@@ -139,29 +150,35 @@ export async function processJWT(
       if (req.organization) {
         // Make sure member is part of the organization
         if (
-          !req.admin &&
+          !req.superAdmin &&
           !req.organization.members.filter((m) => m.id === req.userId).length
         ) {
-          return res.status(403).json({
+          res.status(403).json({
             status: 403,
             message: "You do not have access to that organization",
           });
+          return;
         }
 
         // Make sure this is a valid login method for the organization
         try {
           validateLoginMethod(req.organization, req);
         } catch (e) {
-          return res.status(403).json({
+          res.status(403).json({
             status: 403,
             message: e.message,
           });
+          return;
         }
+
+        // init license for org if it exists
+        await licenseInit(req.organization.licenseKey);
       } else {
-        return res.status(404).json({
+        res.status(404).json({
           status: 404,
           message: "Organization not found",
         });
+        return;
       }
     }
 

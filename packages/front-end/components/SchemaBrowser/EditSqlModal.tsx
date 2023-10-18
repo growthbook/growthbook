@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { useForm } from "react-hook-form";
 import { FaPlay } from "react-icons/fa";
 import { TestQueryRow } from "back-end/src/types/Integration";
 import clsx from "clsx";
+import { TemplateVariables } from "back-end/types/sql";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { validateSQL } from "@/services/datasources";
@@ -11,6 +12,8 @@ import Modal from "../Modal";
 import { CursorData } from "../Segments/SegmentForm";
 import DisplayTestQueryResults from "../Settings/DisplayTestQueryResults";
 import Button from "../Button";
+import { usesEventName, usesValueColumn } from "../Metrics/MetricForm";
+import Field from "../Forms/Field";
 import SchemaBrowser from "./SchemaBrowser";
 import styles from "./EditSqlModal.module.scss";
 
@@ -28,7 +31,8 @@ export interface Props {
   close: () => void;
   requiredColumns: Set<string>;
   placeholder?: string;
-  validateResponse?: (response: TestQueryResults) => void;
+  validateResponseOverride?: (response: TestQueryRow) => void;
+  setTemplateVariables?: (templateVariables: TemplateVariables) => void;
   templateVariables?: {
     eventName?: string;
     valueColumn?: string;
@@ -42,8 +46,9 @@ export default function EditSqlModal({
   requiredColumns,
   placeholder = "",
   datasourceId,
-  validateResponse,
+  validateResponseOverride,
   templateVariables,
+  setTemplateVariables,
 }: Props) {
   const [
     testQueryResults,
@@ -62,39 +67,77 @@ export default function EditSqlModal({
   const [cursorData, setCursorData] = useState<null | CursorData>(null);
   const [testingQuery, setTestingQuery] = useState(false);
 
-  const runTestQuery = async (sql: string) => {
-    validateSQL(sql, []);
-    setTestQueryResults(null);
-    const res: TestQueryResults = await apiCall("/query/test", {
-      method: "POST",
-      body: JSON.stringify({
-        query: sql,
-        datasourceId: datasourceId,
-        templateVariables: templateVariables,
-      }),
-    });
+  const validateRequiredColumns = useCallback(
+    (result: TestQueryRow) => {
+      if (!result) return;
 
-    if (res.results?.length && validateResponse) {
-      validateResponse(res.results[0]);
-    }
+      const requiredColumnsArray = Array.from(requiredColumns);
+      const missingColumns = requiredColumnsArray.filter(
+        (col) => !((col as string) in result)
+      );
 
-    return res;
-  };
+      if (missingColumns.length > 0) {
+        throw new Error(
+          `You are missing the following columns: ${missingColumns.join(", ")}`
+        );
+      }
+    },
+    // eslint-disable-next-line
+    [Array.from(requiredColumns).join("")]
+  );
 
-  const handleTestQuery = async () => {
+  const runTestQuery = useCallback(
+    async (sql: string) => {
+      validateSQL(sql, []);
+      setTestQueryResults(null);
+      const res: TestQueryResults = await apiCall("/query/test", {
+        method: "POST",
+        body: JSON.stringify({
+          query: sql,
+          datasourceId: datasourceId,
+          templateVariables: templateVariables,
+        }),
+      });
+
+      if (res.results?.length) {
+        if (validateResponseOverride) {
+          validateResponseOverride(res.results[0]);
+        } else {
+          validateRequiredColumns(res.results[0]);
+        }
+      }
+
+      return res;
+    },
+    // eslint-disable-next-line
+    [
+      apiCall,
+      datasourceId,
+      validateRequiredColumns,
+      validateResponseOverride,
+      // eslint-disable-next-line
+      JSON.stringify(templateVariables),
+    ]
+  );
+
+  const handleTestQuery = useCallback(async () => {
     setTestingQuery(true);
+    const sql = form.getValues("sql");
     try {
-      const sql = form.getValues("sql");
       const res = await runTestQuery(sql);
       setTestQueryResults({ ...res, error: res.error ? res.error : "" });
     } catch (e) {
-      setTestQueryResults({ error: e.message });
+      setTestQueryResults({ sql: sql, error: e.message });
     }
     setTestingQuery(false);
-  };
+  }, [form, runTestQuery]);
+
   const datasource = getDatasourceById(datasourceId);
   const supportsSchemaBrowser =
     datasource?.properties?.supportsInformationSchema;
+
+  const hasEventName = usesEventName(form.watch("sql"));
+  const hasValueCol = usesValueColumn(form.watch("sql"));
 
   return (
     <Modal
@@ -102,17 +145,28 @@ export default function EditSqlModal({
       header="Edit SQL"
       submit={form.handleSubmit(async (value) => {
         if (testQueryBeforeSaving) {
-          const res = await runTestQuery(value.sql);
+          let res: TestQueryResults;
+          try {
+            res = await runTestQuery(value.sql);
+          } catch (e) {
+            setTestQueryResults({ sql: value.sql, error: e.message });
+            // Rejecting with a blank error as we handle the error in the
+            // DisplayTestQueryResults component rather than in the Modal component
+            return Promise.reject(new Error());
+          }
           if (res.error) {
-            throw new Error(res.error);
+            setTestQueryResults(res);
+            // Rejecting with a blank error as we handle the error in the
+            // DisplayTestQueryResults component rather than in the Modal component
+            return Promise.reject(new Error());
           }
         }
 
         await save(value.sql);
       })}
       close={close}
-      error={testQueryResults?.error}
       size="max"
+      overflowAuto={false}
       bodyClassName="p-0"
       cta="Save"
       closeCta="Back"
@@ -146,6 +200,7 @@ export default function EditSqlModal({
                     className="btn-sm"
                     onClick={handleTestQuery}
                     loading={testingQuery}
+                    type="button"
                   >
                     <span className="pr-2">
                       <FaPlay />
@@ -165,6 +220,55 @@ export default function EditSqlModal({
                 )}
               </div>
             </div>
+            {setTemplateVariables && (hasEventName || hasValueCol) && (
+              <div className="bg-light px-3 py-1 border-top form-inline">
+                <div className="row align-items-center">
+                  <div className="col-auto">
+                    <strong>SQL Template Variables:</strong>
+                  </div>
+                  {hasEventName && (
+                    <div className="col-auto">
+                      <Field
+                        label="eventName"
+                        labelClassName="mr-2"
+                        value={templateVariables?.eventName || ""}
+                        onChange={(e) =>
+                          setTemplateVariables({
+                            ...templateVariables,
+                            eventName: e.target.value,
+                          })
+                        }
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" && e.ctrlKey) {
+                            handleTestQuery();
+                          }
+                        }}
+                      />
+                    </div>
+                  )}
+                  {hasValueCol && (
+                    <div className="col-auto">
+                      <Field
+                        label="valueColumn"
+                        labelClassName="mr-2"
+                        value={templateVariables?.valueColumn || ""}
+                        onChange={(e) =>
+                          setTemplateVariables({
+                            ...templateVariables,
+                            valueColumn: e.target.value,
+                          })
+                        }
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" && e.ctrlKey) {
+                            handleTestQuery();
+                          }
+                        }}
+                      />
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
             <div className="" style={{ flex: 1 }}>
               <CodeTextArea
                 required
@@ -176,14 +280,17 @@ export default function EditSqlModal({
                 fullHeight
                 setCursorData={setCursorData}
                 onCtrlEnter={handleTestQuery}
+                resizeDependency={!!testQueryResults}
               />
             </div>
-            {testQueryResults && !testQueryResults?.error && (
-              <div className="" style={{ flex: 1 }}>
+            {testQueryResults && (
+              <div className="" style={{ flex: 1, maxHeight: "45%" }}>
                 <DisplayTestQueryResults
                   duration={parseInt(testQueryResults.duration || "0")}
                   results={testQueryResults.results || []}
                   sql={testQueryResults.sql || ""}
+                  error={testQueryResults.error || ""}
+                  close={() => setTestQueryResults(null)}
                 />
               </div>
             )}

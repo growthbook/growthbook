@@ -15,6 +15,7 @@ export interface SnapshotMetric {
   users: number;
   denominator?: number;
   ci?: [number, number];
+  ciAdjusted?: [number, number];
   expected?: number;
   risk?: [number, number];
   stats?: MetricStats;
@@ -97,6 +98,8 @@ export interface ExperimentSnapshotAnalysisSettings {
   sequentialTesting?: boolean;
   sequentialTestingTuningParameter?: number;
   pValueCorrection?: null | "holm-bonferroni" | "benjamini-hochberg";
+  pValueThreshold?: number;
+  baselineVariationIndex?: number;
 }
 
 export interface ExperimentSnapshotAnalysis {

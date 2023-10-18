@@ -5,6 +5,7 @@ import { StatsEngine } from "back-end/types/stats";
 import { MetricRegressionAdjustmentStatus } from "back-end/types/report";
 import { getValidDate, ago } from "shared/dates";
 import { DEFAULT_STATS_ENGINE } from "shared/constants";
+import { ExperimentMetricInterface } from "shared/experiments";
 import { ExperimentSnapshotInterface } from "@/../back-end/types/experiment-snapshot";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import usePermissions from "@/hooks/usePermissions";
@@ -42,6 +43,12 @@ const Results: FC<{
   regressionAdjustmentHasValidMetrics?: boolean;
   metricRegressionAdjustmentStatuses?: MetricRegressionAdjustmentStatus[];
   onRegressionAdjustmentChange?: (enabled: boolean) => void;
+  variationFilter?: number[];
+  setVariationFilter?: (variationFilter: number[]) => void;
+  baselineRow?: number;
+  setBaselineRow?: (baselineRow: number) => void;
+  metricFilter?: ResultsMetricFilters;
+  setMetricFilter?: (metricFilter: ResultsMetricFilters) => void;
   isTabActive?: boolean;
 }> = ({
   experiment,
@@ -58,6 +65,12 @@ const Results: FC<{
   regressionAdjustmentHasValidMetrics = false,
   metricRegressionAdjustmentStatuses,
   onRegressionAdjustmentChange,
+  variationFilter,
+  setVariationFilter,
+  baselineRow,
+  setBaselineRow,
+  metricFilter,
+  setMetricFilter,
   isTabActive = true,
 }) => {
   const { apiCall } = useAuth();
@@ -74,7 +87,9 @@ const Results: FC<{
     phase,
     setPhase,
     dimension,
+    setAnalysisSettings,
     mutateSnapshot: mutate,
+    loading: snapshotLoading,
   } = useSnapshot();
 
   const queryStatusData = getQueryStatus(latest?.queries || [], latest?.error);
@@ -105,7 +120,6 @@ const Results: FC<{
       weight: phaseObj?.variationWeights?.[i] || 0,
     };
   });
-
   const snapshotMetricRegressionAdjustmentStatuses =
     snapshot?.settings?.metricSettings?.map((m) => ({
       metric: m.id,
@@ -124,6 +138,24 @@ const Results: FC<{
     analysis.results?.[0] &&
     !analysis?.settings?.dimensions?.length;
 
+  const showBreakDownResults =
+    !draftMode &&
+    hasData &&
+    snapshot?.dimension &&
+    snapshot.dimension.substring(0, 8) !== "pre:date" && // todo: refactor hardcoded dimension
+    analysis &&
+    analysis.results?.[0] &&
+    analysis?.settings?.dimensions?.length; // todo: needed? separate desired vs actual
+
+  const showDateResults =
+    !draftMode &&
+    hasData &&
+    snapshot?.dimension &&
+    snapshot.dimension.substring(0, 8) === "pre:date" && // todo: refactor hardcoded dimension
+    analysis &&
+    analysis.results?.[0] &&
+    analysis?.settings?.dimensions?.length; // todo: needed? separate desired vs actual
+
   if (error) {
     return <div className="alert alert-danger m-3">{error.message}</div>;
   }
@@ -133,6 +165,7 @@ const Results: FC<{
       {!draftMode ? (
         <AnalysisSettingsBar
           mutateExperiment={mutateExperiment}
+          setAnalysisSettings={setAnalysisSettings}
           editMetrics={editMetrics}
           variations={variations}
           editPhases={editPhases}
@@ -149,6 +182,10 @@ const Results: FC<{
           onRegressionAdjustmentChange={onRegressionAdjustmentChange}
           newUi={true}
           showMoreMenu={false}
+          variationFilter={variationFilter}
+          setVariationFilter={(v: number[]) => setVariationFilter?.(v)}
+          baselineRow={baselineRow}
+          setBaselineRow={(b: number) => setBaselineRow?.(b)}
         />
       ) : (
         <StatusBanner
@@ -178,7 +215,8 @@ const Results: FC<{
       {!hasData &&
         !snapshot?.unknownVariations?.length &&
         status !== "running" &&
-        experiment.metrics.length > 0 && (
+        experiment.metrics.length > 0 &&
+        !snapshotLoading && (
           <div className="alert alert-info m-3">
             No data yet.{" "}
             {snapshot &&
@@ -192,6 +230,7 @@ const Results: FC<{
             {!snapshot &&
               permissions.check("runQueries", experiment.project) &&
               `Click the "Update" button above.`}
+            {snapshotLoading && <div> Snapshot loading...</div>}
           </div>
         )}
 
@@ -243,44 +282,43 @@ const Results: FC<{
           project={experiment.project}
         />
       )}
-      {!draftMode &&
-        hasData &&
-        snapshot?.dimension &&
-        (snapshot.dimension.substring(0, 8) === "pre:date" ? (
-          <DateResults
-            metrics={experiment.metrics}
-            guardrails={experiment.guardrails}
-            results={analysis?.results ?? []}
-            seriestype={snapshot.dimension}
-            variations={variations}
-            statsEngine={
-              analysis?.settings?.statsEngine ?? DEFAULT_STATS_ENGINE
-            }
-          />
-        ) : (
-          <BreakDownResults
-            key={snapshot.dimension}
-            results={analysis?.results ?? []}
-            variations={variations}
-            metrics={experiment.metrics}
-            metricOverrides={experiment.metricOverrides ?? []}
-            guardrails={experiment.guardrails}
-            dimensionId={snapshot.dimension}
-            isLatestPhase={phase === experiment.phases.length - 1}
-            startDate={phaseObj?.dateStarted ?? ""}
-            reportDate={snapshot.dateCreated}
-            activationMetric={experiment.activationMetric}
-            status={experiment.status}
-            statsEngine={analysis?.settings?.statsEngine}
-            pValueCorrection={pValueCorrection}
-            regressionAdjustmentEnabled={analysis?.settings?.regressionAdjusted}
-            metricRegressionAdjustmentStatuses={
-              snapshotMetricRegressionAdjustmentStatuses
-            }
-            sequentialTestingEnabled={analysis?.settings?.sequentialTesting}
-          />
-        ))}
-      {showCompactResults && (
+      {showDateResults ? (
+        <DateResults
+          metrics={experiment.metrics}
+          guardrails={experiment.guardrails}
+          results={analysis?.results ?? []}
+          seriestype={snapshot.dimension ?? ""}
+          variations={variations}
+          statsEngine={analysis?.settings?.statsEngine || DEFAULT_STATS_ENGINE}
+        />
+      ) : showBreakDownResults ? (
+        <BreakDownResults
+          key={snapshot.dimension}
+          results={analysis?.results ?? []}
+          queryStatusData={queryStatusData}
+          variations={variations}
+          variationFilter={variationFilter}
+          baselineRow={baselineRow}
+          metrics={experiment.metrics}
+          metricOverrides={experiment.metricOverrides ?? []}
+          guardrails={experiment.guardrails}
+          dimensionId={snapshot.dimension ?? ""}
+          isLatestPhase={phase === experiment.phases.length - 1}
+          startDate={phaseObj?.dateStarted ?? ""}
+          reportDate={snapshot.dateCreated}
+          activationMetric={experiment.activationMetric}
+          status={experiment.status}
+          statsEngine={analysis.settings.statsEngine}
+          pValueCorrection={pValueCorrection}
+          regressionAdjustmentEnabled={analysis?.settings?.regressionAdjusted}
+          metricRegressionAdjustmentStatuses={
+            snapshotMetricRegressionAdjustmentStatuses
+          }
+          sequentialTestingEnabled={analysis?.settings?.sequentialTesting}
+          metricFilter={metricFilter}
+          setMetricFilter={setMetricFilter}
+        />
+      ) : showCompactResults ? (
         <>
           {reportDetailsLink && (
             <div className="float-right pr-3">
@@ -294,6 +332,8 @@ const Results: FC<{
           <CompactResults
             editMetrics={editMetrics}
             variations={variations}
+            variationFilter={variationFilter}
+            baselineRow={baselineRow}
             multipleExposures={snapshot.multipleExposures || 0}
             results={analysis.results[0]}
             queryStatusData={queryStatusData}
@@ -312,10 +352,12 @@ const Results: FC<{
               snapshotMetricRegressionAdjustmentStatuses
             }
             sequentialTestingEnabled={analysis.settings?.sequentialTesting}
+            metricFilter={metricFilter}
+            setMetricFilter={setMetricFilter}
             isTabActive={isTabActive}
           />
         </>
-      )}
+      ) : null}
 
       {!draftMode && hasData ? (
         <div className="row align-items-center mx-2 my-3">
@@ -375,3 +417,76 @@ const Results: FC<{
 };
 
 export default Results;
+
+// given an ordered list of tags, sort the metrics by their tags
+export type ResultsMetricFilters = {
+  tagOrder?: string[];
+  filterByTag?: boolean;
+  tagFilter?: string[] | null; // if null, use tagOrder
+};
+export function sortAndFilterMetricsByTags(
+  metrics: ExperimentMetricInterface[],
+  filters?: ResultsMetricFilters
+): string[] {
+  let { tagOrder, filterByTag, tagFilter } = filters || {};
+  // normalize input
+  if (!tagOrder) tagOrder = [];
+  if (!filterByTag) filterByTag = false;
+  if (!tagFilter) tagFilter = null;
+
+  if (filterByTag && !tagFilter) {
+    tagFilter = tagOrder;
+  }
+  const sortedMetrics: string[] = [];
+
+  const metricsByTag: Record<string, string[]> = {};
+  const metricDefs: Record<string, ExperimentMetricInterface> = {};
+
+  // get all possible tags from the metric definitions
+  const tagsInMetrics: Set<string> = new Set();
+  metrics.forEach((metric) => {
+    if (!metric) return;
+    metricDefs[metric.id] = metric;
+    metric.tags?.forEach((tag) => {
+      tagsInMetrics.add(tag);
+    });
+  });
+
+  // reduce tagOrder to only the tags that are in the metrics
+  tagOrder = tagOrder.filter((tag) => tagsInMetrics.has(tag));
+
+  // using tagOrder, build our initial set of sorted metrics
+  if (tagOrder?.length) {
+    tagOrder.forEach((tag) => {
+      metricsByTag[tag] = [];
+      for (const metricId in metricDefs) {
+        const metric = metricDefs[metricId];
+        if (metric.tags?.includes(tag)) {
+          if (filterByTag && !tagFilter?.includes(tag)) {
+            continue;
+          }
+          // pick out the metrics that match the tag
+          metricsByTag[tag].push(metricId);
+          delete metricDefs[metricId];
+        }
+      }
+    });
+    for (const tag in metricsByTag) {
+      sortedMetrics.push(...metricsByTag[tag]);
+    }
+  }
+
+  // add any remaining metrics to the end
+  for (const metricId in metricDefs) {
+    const metric = metricDefs[metricId];
+    if (filterByTag) {
+      if (metric.tags?.some((tag) => tagFilter?.includes(tag))) {
+        sortedMetrics.push(metricId);
+      }
+    } else {
+      sortedMetrics.push(metricId);
+    }
+  }
+
+  return sortedMetrics;
+}
