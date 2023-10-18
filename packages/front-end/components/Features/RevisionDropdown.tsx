@@ -1,11 +1,11 @@
 import { FeatureInterface } from "back-end/types/feature";
-import { FeatureRevisionSummary } from "back-end/types/feature-revision";
+import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import { ago } from "shared/dates";
 import SelectField from "../Forms/SelectField";
 
 export interface Props {
   feature: FeatureInterface;
-  revisions: FeatureRevisionSummary[];
+  revisions: FeatureRevisionInterface[];
   version: number;
   setVersion: (version: number) => void;
 }
@@ -18,22 +18,11 @@ export default function RevisionDropdown({
 }: Props) {
   const liveVersion = feature.version;
 
-  if (!revisions.length) {
-    revisions.push({
-      baseVersion: 0,
-      comment: "",
-      createdBy: null,
-      dateCreated: feature.dateCreated,
-      datePublished: feature.dateCreated,
-      dateUpdated: feature.dateUpdated,
-      status: "published",
-      version: 1,
-    });
-  }
+  const allRevisions = [...revisions];
 
-  const versions = new Map(revisions.map((r) => [r.version + "", r]));
+  const versions = new Map(allRevisions.map((r) => [r.version + "", r]));
 
-  const options = revisions.map((r) => ({
+  const options = allRevisions.map((r) => ({
     value: r.version + "",
     label: r.version + "",
   }));
@@ -61,11 +50,11 @@ export default function RevisionDropdown({
                 <span className="badge badge-success">published</span>
               ) : revision?.status === "draft" ? (
                 <span className="badge badge-warning">draft</span>
-              ) : (
-                <span className="badge badge-secondary">old</span>
-              )}
+              ) : revision?.status === "published" ? (
+                <span className="badge badge-light border">locked</span>
+              ) : null}
             </div>
-            <div>
+            <div style={{ marginTop: -4 }}>
               {date && <small className="text-muted">{ago(date)}</small>}
             </div>
           </div>

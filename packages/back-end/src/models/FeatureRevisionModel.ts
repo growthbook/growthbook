@@ -1,11 +1,7 @@
 import mongoose from "mongoose";
 import omit from "lodash/omit";
-import { pick } from "lodash";
 import { FeatureInterface, FeatureRule } from "../../types/feature";
-import {
-  FeatureRevisionInterface,
-  FeatureRevisionSummary,
-} from "../../types/feature-revision";
+import { FeatureRevisionInterface } from "../../types/feature-revision";
 import { EventAuditUser, EventAuditUserLoggedIn } from "../events/event-types";
 
 const featureRevisionSchema = new mongoose.Schema({
@@ -62,28 +58,15 @@ function toInterface(doc: FeatureRevisionDocument): FeatureRevisionInterface {
   return revision;
 }
 
-export async function getRevisionSummaries(
+export async function getRevisions(
   organization: string,
   featureId: string
-): Promise<FeatureRevisionSummary[]> {
+): Promise<FeatureRevisionInterface[]> {
   const docs: FeatureRevisionDocument[] = await FeatureRevisionModel.find({
     organization,
     featureId,
   });
-  return docs
-    .map(toInterface)
-    .map((revision) =>
-      pick(revision, [
-        "version",
-        "baseVersion",
-        "comment",
-        "createdBy",
-        "dateCreated",
-        "datePublished",
-        "dateUpdated",
-        "status",
-      ])
-    );
+  return docs.map(toInterface);
 }
 
 export async function getRevision(
@@ -124,6 +107,11 @@ export async function createInitialRevision(
     defaultValue: feature.defaultValue,
     rules,
   });
+}
+
+export async function createRevisionFromLegacyDraft(feature: FeatureInterface) {
+  if (!feature.legacyDraft) return;
+  await FeatureRevisionModel.create(feature.legacyDraft);
 }
 
 export async function createRevision(

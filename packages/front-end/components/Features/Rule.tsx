@@ -7,7 +7,6 @@ import {
   FaExclamationTriangle,
   FaExternalLinkAlt,
 } from "react-icons/fa";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import Link from "next/link";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
@@ -15,6 +14,7 @@ import { getRules, useEnvironments } from "@/services/features";
 import usePermissions from "@/hooks/usePermissions";
 import { getUpcomingScheduleRule } from "@/services/scheduleRules";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import { useExperiments } from "@/hooks/useExperiments";
 import Button from "../Button";
 import DeleteButton from "../DeleteButton/DeleteButton";
 import MoreMenu from "../Dropdown/MoreMenu";
@@ -32,7 +32,6 @@ interface SortableProps {
   rule: FeatureRule;
   feature: FeatureInterface;
   environment: string;
-  experiments: Record<string, ExperimentInterfaceStringDates>;
   mutate: () => void;
   setRuleModal: (args: { environment: string; i: number }) => void;
   unreachable?: boolean;
@@ -54,7 +53,6 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
       setRuleModal,
       mutate,
       handle,
-      experiments,
       unreachable,
       ...props
     },
@@ -65,8 +63,10 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
       rule.description ||
       rule.type[0].toUpperCase() + rule.type.slice(1) + " Rule";
 
+    const { experimentsMap } = useExperiments(feature.project);
+
     const linkedExperiment =
-      rule.type === "experiment-ref" && experiments[rule.experimentId];
+      rule.type === "experiment-ref" && experimentsMap.get(rule.experimentId);
 
     const rules = getRules(feature, environment);
     const environments = useEnvironments();
@@ -293,7 +293,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
             {rule.type === "experiment" && (
               <ExperimentSummary
                 feature={feature}
-                experiment={Object.values(experiments).find(
+                experiment={Array.from(experimentsMap.values()).find(
                   (exp) => exp.trackingKey === (rule.trackingKey || feature.id)
                 )}
                 rule={rule}
@@ -302,7 +302,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
             {rule.type === "experiment-ref" && (
               <ExperimentRefSummary
                 feature={feature}
-                experiment={experiments[rule.experimentId]}
+                experiment={experimentsMap.get(rule.experimentId)}
                 rule={rule}
               />
             )}

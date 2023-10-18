@@ -15,7 +15,6 @@ import {
   sortableKeyboardCoordinates,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { useAuth } from "@/services/auth";
 import { getRules, isRuleFullyCovered } from "@/services/features";
 import usePermissions from "@/hooks/usePermissions";
@@ -24,19 +23,16 @@ import { Rule, SortableRule } from "./Rule";
 export default function RuleList({
   feature,
   mutate,
-  experiments,
   environment,
   setRuleModal,
 }: {
   feature: FeatureInterface;
-  experiments: Record<string, ExperimentInterfaceStringDates>;
   environment: string;
   mutate: () => void;
-  setRuleModal: ({ environment: string, i: number }) => void;
+  setRuleModal: (rule: { environment: string; i: number }) => void;
 }) {
   const { apiCall } = useAuth();
-  // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'null' is not assignable to param... Remove this comment to see the full error message
-  const [activeId, setActiveId] = useState<string>(null);
+  const [activeId, setActiveId] = useState<string | null>(null);
   const [items, setItems] = useState(getRules(feature, environment));
   const permissions = usePermissions();
 
@@ -89,7 +85,6 @@ export default function RuleList({
       collisionDetection={closestCenter}
       onDragEnd={async ({ active, over }) => {
         if (!canEdit) {
-          // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'null' is not assignable to param... Remove this comment to see the full error message
           setActiveId(null);
           return;
         }
@@ -115,7 +110,6 @@ export default function RuleList({
           });
           mutate();
         }
-        // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'null' is not assignable to param... Remove this comment to see the full error message
         setActiveId(null);
       }}
       onDragStart={({ active }) => {
@@ -134,22 +128,19 @@ export default function RuleList({
             rule={rule}
             feature={feature}
             mutate={mutate}
-            experiments={experiments}
             setRuleModal={setRuleModal}
-            // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'null' is not assignable to type 'boolean | u... Remove this comment to see the full error message
-            unreachable={unreachableIndex && i >= unreachableIndex}
+            unreachable={!!unreachableIndex && i >= unreachableIndex}
           />
         ))}
       </SortableContext>
       <DragOverlay>
         {activeRule ? (
           <Rule
-            i={getRuleIndex(activeId)}
+            i={getRuleIndex(activeId as string)}
             environment={environment}
             rule={activeRule}
             feature={feature}
             mutate={mutate}
-            experiments={experiments}
             setRuleModal={setRuleModal}
           />
         ) : null}

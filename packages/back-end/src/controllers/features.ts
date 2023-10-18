@@ -25,6 +25,7 @@ import {
   addExperimentRefRule,
   deleteExperimentRefRule,
   publishRevision,
+  migrateDraft,
 } from "../models/FeatureModel";
 import { getRealtimeUsageByHour } from "../models/RealtimeModel";
 import { lookupOrganizationByApiKey } from "../models/ApiKeyModel";
@@ -34,10 +35,6 @@ import {
   evaluateFeature,
   getFeatureDefinitions,
 } from "../services/features";
-import {
-  getExperimentByTrackingKey,
-  getExperimentsByIds,
-} from "../models/ExperimentModel";
 import { FeatureUsageRecords } from "../../types/realtime";
 import {
   auditDetailsCreate,
@@ -47,11 +44,10 @@ import {
 import {
   discardRevision,
   getRevision,
-  getRevisionSummaries,
+  getRevisions,
   updateRevision,
 } from "../models/FeatureRevisionModel";
 import { getEnabledEnvironments } from "../util/features";
-import { ExperimentInterface } from "../../types/experiment";
 import {
   findSDKConnectionByKey,
   markSDKConnectionUsed,
@@ -1038,74 +1034,27 @@ export async function getFeatures(
 }
 
 export async function getFeatureById(
-  req: AuthRequest<null, { id: string; version?: string }>,
+  req: AuthRequest<null, { id: string }>,
   res: Response
 ) {
   const { org } = getOrgFromReq(req);
-  const { id, version } = req.params;
+  const { id } = req.params;
 
   const feature = await getFeature(org.id, id);
   if (!feature) {
     throw new Error("Could not find feature");
   }
 
-  const revision =
-    version && parseInt(version) !== feature.version
-      ? await getRevision(org.id, feature.id, parseInt(version))
-      : null;
-
-  // Get linked experiments from rule and draft rules
-  const experimentIds: Set<string> = new Set();
-  const trackingKeys: Set<string> = new Set();
-  if (feature.environmentSettings) {
-    Object.values(feature.environmentSettings).forEach((env) => {
-      env.rules?.forEach((r) => {
-        if (r.type === "experiment") {
-          trackingKeys.add(r.trackingKey || feature.id);
-        } else if (r.type === "experiment-ref") {
-          experimentIds.add(r.experimentId);
-        }
-      });
-    });
+  // Migrate old drafts to revisions
+  if (feature.legacyDraft) {
+    await migrateDraft(feature);
   }
 
-  if (revision) {
-    Object.values(revision.rules || {}).forEach((rules) => {
-      rules.forEach((r) => {
-        if (r.type === "experiment") {
-          trackingKeys.add(r.trackingKey || feature.id);
-        } else if (r.type === "experiment-ref") {
-          experimentIds.add(r.experimentId);
-        }
-      });
-    });
-  }
-
-  const experiments: { [key: string]: ExperimentInterface } = {};
-  if (trackingKeys.size > 0) {
-    await Promise.all(
-      Array.from(trackingKeys).map(async (key) => {
-        const exp = await getExperimentByTrackingKey(org.id, key);
-        if (exp) {
-          experiments[exp.id] = exp;
-        }
-      })
-    );
-  }
-  if (experimentIds.size > 0) {
-    const docs = await getExperimentsByIds(org.id, Array.from(experimentIds));
-    docs.forEach((doc) => {
-      experiments[doc.id] = doc;
-    });
-  }
-
-  const revisions = await getRevisionSummaries(org.id, id);
+  const revisions = await getRevisions(org.id, id);
 
   res.status(200).json({
     status: 200,
     feature,
-    revision,
-    experiments,
     revisions,
   });
 }

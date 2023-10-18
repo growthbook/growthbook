@@ -30,6 +30,7 @@ import {
 } from "../util/features";
 import { EventAuditUser } from "../events/event-types";
 import { FeatureRevisionInterface } from "../../types/feature-revision";
+import { logger } from "../util/logger";
 import { createEvent } from "./EventModel";
 import {
   addLinkedFeatureToExperiment,
@@ -38,6 +39,7 @@ import {
 } from "./ExperimentModel";
 import {
   createInitialRevision,
+  createRevisionFromLegacyDraft,
   markRevisionAsPublished,
   updateRevision,
 } from "./FeatureRevisionModel";
@@ -138,6 +140,27 @@ export async function getFeature(
 ): Promise<FeatureInterface | null> {
   const feature = await FeatureModel.findOne({ organization, id });
   return feature ? upgradeFeatureInterface(toInterface(feature)) : null;
+}
+
+export async function migrateDraft(feature: FeatureInterface) {
+  if (!feature.legacyDraft) return;
+
+  try {
+    await createRevisionFromLegacyDraft(feature);
+    await FeatureModel.updateOne(
+      {
+        organization: feature.organization,
+        id: feature.id,
+      },
+      {
+        $set: {
+          "draft.active": false,
+        },
+      }
+    );
+  } catch (e) {
+    logger.error(e, "Error migrating old feature draft");
+  }
 }
 
 export async function getFeaturesByIds(

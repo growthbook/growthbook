@@ -1,18 +1,6 @@
 import { EventAuditUser } from "../src/events/event-types";
 import { FeatureRule } from "./feature";
 
-export type FeatureRevisionSummary = Pick<
-  FeatureRevisionInterface,
-  | "version"
-  | "baseVersion"
-  | "dateCreated"
-  | "datePublished"
-  | "dateUpdated"
-  | "comment"
-  | "createdBy"
-  | "status"
->;
-
 export interface FeatureRevisionInterface {
   featureId: string;
   organization: string;

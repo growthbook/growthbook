@@ -2,7 +2,6 @@ import Link from "next/link";
 import React, { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/router";
 import { useFeature } from "@growthbook/growthbook-react";
-import { FaExclamationTriangle } from "react-icons/fa";
 import { FeatureInterface, FeatureRule } from "back-end/types/feature";
 import { ago, datetime } from "shared/dates";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
@@ -300,9 +299,7 @@ export default function FeaturesPage() {
                 const firstRule = orderedRules[0];
                 const totalRules = rules.length || 0;
 
-                const isDraft = !!feature.draft?.active;
-                let version = feature.revision?.version || 1;
-                if (isDraft) version++;
+                const version = feature.version;
 
                 const projectId = feature.project;
                 const projectName = projectId
@@ -375,14 +372,7 @@ export default function FeaturesPage() {
                         </small>
                       )}
                     </td>
-                    <td style={{ textAlign: "center" }}>
-                      {version}{" "}
-                      {isDraft && (
-                        <Tooltip body="This is a draft version and is not visible to users">
-                          <FaExclamationTriangle className="text-warning" />
-                        </Tooltip>
-                      )}
-                    </td>
+                    <td style={{ textAlign: "center" }}>{version}</td>
                     <td title={datetime(feature.dateUpdated)}>
                       {ago(feature.dateUpdated)}
                     </td>

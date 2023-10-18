@@ -1,10 +1,6 @@
 import { useRouter } from "next/router";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { FeatureInterface } from "back-end/types/feature";
-import {
-  FeatureRevisionInterface,
-  FeatureRevisionSummary,
-} from "back-end/types/feature-revision";
+import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import React, { useState } from "react";
 import { FaChevronRight, FaExclamationTriangle } from "react-icons/fa";
 import { datetime } from "shared/dates";
@@ -93,9 +89,7 @@ export default function FeaturePage() {
 
   const { data, error, mutate } = useApi<{
     feature: FeatureInterface;
-    experiments: { [key: string]: ExperimentInterfaceStringDates };
-    revision?: FeatureRevisionInterface;
-    revisions: FeatureRevisionSummary[];
+    revisions: FeatureRevisionInterface[];
   }>(`/feature/${fid}/${version || ""}`);
   const firstFeature = router?.query && "first" in router.query;
   const [showImplementation, setShowImplementation] = useState(firstFeature);
@@ -112,17 +106,20 @@ export default function FeaturePage() {
     return <LoadingOverlay />;
   }
 
-  const feature = data.revision
-    ? mergeRevision(data.feature, data.revision)
-    : data.feature;
+  const currentVersion = version || data.feature.version;
+
+  const revision = data.revisions.find((r) => r.version === currentVersion);
+
+  const feature =
+    revision && revision.version !== data.feature.version
+      ? mergeRevision(data.feature, revision)
+      : data.feature;
 
   const { jsonSchema, validationEnabled, schemaDateUpdated } = getValidation(
     feature
   );
 
-  const currentVersion = version || feature.version;
-
-  const isDraft = !!data.revision;
+  const isDraft = revision?.status === "draft";
   const isArchived = feature.archived;
 
   const enabledEnvs = getEnabledEnvironments(feature);
@@ -155,9 +152,9 @@ export default function FeaturePage() {
     permissions.check(
       "publishFeatures",
       projectId,
-      data.revision?.defaultValue !== data.feature.defaultValue
+      revision?.defaultValue !== data.feature.defaultValue
         ? getEnabledEnvironments(feature)
-        : getAffectedEnvs(feature, Object.keys(data.revision?.rules || {}))
+        : getAffectedEnvs(feature, Object.keys(revision?.rules || {}))
     );
 
   return (
@@ -706,7 +703,6 @@ export default function FeaturePage() {
                     <RuleList
                       environment={e.id}
                       feature={feature}
-                      experiments={data.experiments || {}}
                       mutate={mutate}
                       setRuleModal={setRuleModal}
                     />

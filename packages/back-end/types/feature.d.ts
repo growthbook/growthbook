@@ -2,6 +2,7 @@
 
 import type { FeatureDefinition, FeatureResult } from "@growthbook/growthbook";
 import { UserRef } from "./user";
+import { FeatureRevisionInterface } from "./feature-revision";
 
 export type FeatureValueType = "boolean" | "string" | "number" | "json";
 
@@ -52,6 +53,9 @@ export interface FeatureInterface {
     date: Date;
     enabled: boolean;
   };
+
+  /** @deprecated */
+  legacyDraft?: FeatureRevisionInterface | null;
 }
 type ScheduleRule = {
   timestamp: string | null;

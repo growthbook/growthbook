@@ -12,6 +12,7 @@ import {
 import SqlIntegration from "../integrations/SqlIntegration";
 import { getSourceIntegrationObject } from "../services/datasource";
 import {
+  FeatureDraftChanges,
   FeatureEnvironment,
   FeatureInterface,
   FeatureRule,
@@ -206,23 +207,23 @@ function updateEnvironmentSettings(
   feature.environmentSettings[environment] = settings as FeatureEnvironment;
 }
 
-function draftHasChanges(feature: FeatureInterface) {
-  if (!feature.draft?.active) return false;
+function draftHasChanges(
+  feature: FeatureInterface,
+  draft: FeatureDraftChanges
+) {
+  if (!draft?.active) return false;
 
-  if (
-    "defaultValue" in feature.draft &&
-    feature.draft.defaultValue !== feature.defaultValue
-  ) {
+  if ("defaultValue" in draft && draft.defaultValue !== feature.defaultValue) {
     return true;
   }
 
-  if (feature.draft.rules) {
+  if (draft.rules) {
     const comp: Record<string, FeatureRule[]> = {};
-    Object.keys(feature.draft.rules).forEach((key) => {
+    Object.keys(draft.rules).forEach((key) => {
       comp[key] = feature.environmentSettings?.[key]?.rules || [];
     });
 
-    if (!isEqual(comp, feature.draft.rules)) {
+    if (!isEqual(comp, draft.rules)) {
       return true;
     }
   }
@@ -261,7 +262,7 @@ export function upgradeFeatureRule(rule: FeatureRule): FeatureRule {
 export function upgradeFeatureInterface(
   feature: LegacyFeatureInterface
 ): FeatureInterface {
-  const { environments, rules, revision, ...newFeature } = feature;
+  const { environments, rules, revision, draft, ...newFeature } = feature;
 
   // Copy over old way of storing rules/toggles to new environment-scoped settings
   updateEnvironmentSettings(rules || [], environments || [], "dev", newFeature);
@@ -281,17 +282,48 @@ export function upgradeFeatureInterface(
       settings.rules = settings.rules.map((r) => upgradeFeatureRule(r));
     }
   }
-  // Upgrade all draft rules
-  if (newFeature.draft?.rules) {
-    for (const env in newFeature.draft.rules) {
-      const rules = newFeature.draft.rules;
-      rules[env] = rules[env].map((r) => upgradeFeatureRule(r));
-    }
-  }
 
-  // Ignore drafts if nothing has changed
-  if (newFeature.draft?.active && !draftHasChanges(newFeature)) {
-    newFeature.draft = { active: false };
+  if (draft) {
+    // Upgrade all draft rules
+    if (draft?.rules) {
+      for (const env in draft.rules) {
+        const rules = draft.rules;
+        rules[env] = rules[env].map((r) => upgradeFeatureRule(r));
+      }
+    }
+    // Ignore drafts if nothing has changed
+    if (draft?.active && !draftHasChanges(newFeature, draft)) {
+      draft.active = false;
+    }
+
+    if (draft.active) {
+      const revisionRules: Record<string, FeatureRule[]> = {};
+      Object.entries(newFeature.environmentSettings).forEach(
+        ([env, { rules }]) => {
+          revisionRules[env] = rules;
+
+          if (draft.rules && draft.rules[env]) {
+            revisionRules[env] = draft.rules[env];
+          }
+        }
+      );
+
+      newFeature.legacyDraft = {
+        baseVersion: newFeature.version,
+        comment: draft.comment || "",
+        createdBy: null,
+        dateCreated: draft.dateCreated || feature.dateCreated,
+        datePublished: null,
+        dateUpdated: draft.dateUpdated || feature.dateUpdated,
+        defaultValue: draft.defaultValue ?? newFeature.defaultValue,
+        featureId: newFeature.id,
+        organization: newFeature.organization,
+        publishedBy: null,
+        status: "draft",
+        version: newFeature.version + 1,
+        rules: revisionRules,
+      };
+    }
   }
 
   return newFeature;
