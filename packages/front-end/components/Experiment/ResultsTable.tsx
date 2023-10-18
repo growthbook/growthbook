@@ -15,16 +15,15 @@ import {
   ExperimentReportVariationWithIndex,
 } from "back-end/types/report";
 import { ExperimentStatus } from "back-end/types/experiment";
-<<<<<<< HEAD
-import { PValueCorrection, StatsEngine } from "back-end/types/stats";
+import {
+  DifferenceType,
+  PValueCorrection,
+  StatsEngine,
+} from "back-end/types/stats";
 import {
   DEFAULT_P_VALUE_THRESHOLD,
   DEFAULT_STATS_ENGINE,
 } from "shared/constants";
-=======
-import { DifferenceType, PValueCorrection, StatsEngine } from "back-end/types/stats";
-import { DEFAULT_STATS_ENGINE } from "shared/constants";
->>>>>>> ls/diff_type
 import { getValidDate } from "shared/dates";
 import { useTooltip, useTooltipInPortal } from "@visx/tooltip";
 import { FaExclamationTriangle } from "react-icons/fa";
@@ -54,6 +53,8 @@ import ResultsTableTooltip, {
 } from "@/components/Experiment/ResultsTableTooltip";
 import { QueryStatusData } from "@/components/Queries/RunQueriesButton";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import ResultsMetricFilter from "@/components/Experiment/ResultsMetricFilter";
+import { ResultsMetricFilters } from "@/components/Experiment/Results";
 import Tooltip from "../Tooltip/Tooltip";
 import AlignedGraph from "./AlignedGraph";
 import ChanceToWinColumn from "./ChanceToWinColumn";
@@ -73,7 +74,7 @@ export type ResultsTableProps = {
   dimension?: string;
   metricsAsGuardrails?: boolean;
   tableRowAxis: "metric" | "dimension";
-  labelHeader: string | JSX.Element;
+  labelHeader: ReactElement | string;
   editMetrics?: () => void;
   renderLabelColumn: (
     label: string,
@@ -87,6 +88,9 @@ export type ResultsTableProps = {
   pValueCorrection?: PValueCorrection;
   differenceType?: DifferenceType;
   sequentialTestingEnabled?: boolean;
+  metricFilter?: ResultsMetricFilters;
+  setMetricFilter?: (filter: ResultsMetricFilters) => void;
+  metricTags?: string[];
   isTabActive: boolean;
 };
 
@@ -121,6 +125,9 @@ export default function ResultsTable({
   pValueCorrection,
   differenceType,
   sequentialTestingEnabled = false,
+  metricFilter,
+  setMetricFilter,
+  metricTags = [],
   isTabActive,
 }: ResultsTableProps) {
   // fix any potential filter conflicts
@@ -138,6 +145,8 @@ export default function ResultsTable({
   const pValueThreshold = usePValueThreshold();
   const displayCurrency = useCurrency();
   const orgSettings = useOrgSettings();
+
+  const [showMetricFilter, setShowMetricFilter] = useState<boolean>(false);
 
   const tableContainerRef = useRef<HTMLDivElement | null>(null);
   const [graphCellWidth, setGraphCellWidth] = useState(800);
@@ -435,6 +444,7 @@ export default function ResultsTable({
           data={tooltipData}
           tooltipOpen={tooltipOpen}
           close={closeTooltip}
+          percent={differenceType === "relative"}
           onPointerMove={resetTimeout}
           onClick={resetTimeout}
           onPointerLeave={leaveRow}
@@ -447,27 +457,46 @@ export default function ResultsTable({
             <thead>
               <tr className="results-top-row">
                 <th
+                  className="axis-col header-label"
                   style={{
                     lineHeight: "15px",
-                    wordBreak: "break-word",
-                    overflowWrap: "anywhere",
                     width: 220 * tableCellScale,
                   }}
-                  className="axis-col header-label"
                 >
-                  {labelHeader}
-                  {editMetrics ? (
-                    <a
-                      role="button"
-                      className="ml-2 cursor-pointer"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        editMetrics();
+                  <div className="row px-0">
+                    {setMetricFilter ? (
+                      <ResultsMetricFilter
+                        metricTags={metricTags}
+                        metricFilter={metricFilter}
+                        setMetricFilter={setMetricFilter}
+                        showMetricFilter={showMetricFilter}
+                        setShowMetricFilter={setShowMetricFilter}
+                      />
+                    ) : null}
+                    <div
+                      className="col-auto px-1"
+                      style={{
+                        wordBreak: "break-word",
+                        overflowWrap: "anywhere",
                       }}
                     >
-                      <GBEdit />
-                    </a>
-                  ) : null}
+                      {labelHeader}
+                    </div>
+                    {editMetrics ? (
+                      <div className="col d-flex align-items-end px-0">
+                        <a
+                          role="button"
+                          className="ml-1 cursor-pointer"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            editMetrics();
+                          }}
+                        >
+                          <GBEdit />
+                        </a>
+                      </div>
+                    ) : null}
+                  </div>
                 </th>
                 {!noMetrics ? (
                   <>
@@ -601,7 +630,7 @@ export default function ResultsTable({
                       </div>
                     </th>
                     <th
-                      style={{ width: 140 * tableCellScale }}
+                      style={{ width: 150 * tableCellScale }}
                       className="axis-col label text-right"
                     >
                       <div style={{ lineHeight: "15px", marginBottom: 2 }}>
@@ -620,7 +649,8 @@ export default function ResultsTable({
                             </div>
                           }
                         >
-                          {differenceType === "relative" ? "Absolute" : "%"}{" Change"} <RxInfoCircled />
+                          {differenceType === "absolute" ? "Absolute" : "%"}
+                          {" Change"} <RxInfoCircled />
                         </Tooltip>
                       </div>
                     </th>
@@ -1011,9 +1041,11 @@ function getPercentChangeTooltip(
           <p className="mt-4 mb-0">
             Because your organization has multiple comparisons corrections
             enabled, these confidence intervals have been inflated so that they
-            match the adjusted psuedo-p-value. For adjusted psuedo-p-values that
-            are 1.0, we construct confidence intervals as if the adjusted
-            psuedo-p-value was 0.9.
+            match the adjusted psuedo-p-value. Because confidence intervals do
+            not generally exist for all adjusted p-values, we use a method that
+            recreates the confidence intervals that would have produced these
+            psuedo-p-values. For adjusted psuedo-p-values that are 1.0, the
+            confidence intervals are infinite.
           </p>
         )}
       </>
@@ -1047,7 +1079,7 @@ function getPValueTooltip(
           {tableRowAxis === "dimension"
             ? "all dimension values, non-guardrail metrics, and variations"
             : "all non-guardrail metrics and variations"}
-          . The unadjusted p-values are returned in parentheses.
+          . The unadjusted p-values are returned in the tooltip.
         </div>
       )}
     </>

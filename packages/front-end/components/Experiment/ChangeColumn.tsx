@@ -5,11 +5,7 @@ import React, { DetailedHTMLProps, TdHTMLAttributes } from "react";
 import { StatsEngine } from "back-end/types/stats";
 import { ExperimentMetricInterface } from "shared/experiments";
 import { RowResults } from "@/services/experiments";
-
-const percentFormatter = new Intl.NumberFormat(undefined, {
-  style: "percent",
-  maximumFractionDigits: 1,
-});
+import { formatNumber, formatPercent } from "@/services/metrics";
 
 interface Props
   extends DetailedHTMLProps<
@@ -37,9 +33,13 @@ export default function ChangeColumn({
   className,
   ...otherProps
 }: Props) {
-  const formatter = percent ? percentFormatter : Intl.NumberFormat();
-  const multiplier = percent ? 100 : 1;
-  const digits = percent ? 1 : 3;
+  const expected = stats?.expected ?? 0;
+  const ci0 = stats?.ciAdjusted?.[0] ?? stats?.ci?.[0] ?? 0;
+  const ci1 = stats?.ciAdjusted?.[1] ?? stats?.ci?.[1] ?? 0;
+
+  const formatter = percent ? formatPercent : formatNumber;
+  const formatterOptions = percent ? { maximumFractionDigits: 1 } : {};
+
   return (
     <>
       {metric && rowResults.enoughData ? (
@@ -60,25 +60,25 @@ export default function ChangeColumn({
               )}
             </span>{" "}
             <span className="expected">
-              {parseFloat(((stats.expected ?? 0) * multiplier).toFixed(digits)) + (percent ? "%" : "")}{" "}
+              {formatter(expected, formatterOptions)}{" "}
             </span>
             {statsEngine === "frequentist" && showPlusMinus ? (
               <span className="plusminus font-weight-normal text-gray ml-1">
-                {"±" +
-                  parseFloat(
-                    (
-                      Math.abs((stats.expected ?? 0) - (stats.ci?.[0] ?? 0)) *
-                      multiplier
-                    ).toFixed(digits)
-                  ) +
-                  (percent ? "%" : "")}
+                ±
+                {Math.abs(ci0) === Infinity || Math.abs(ci1) === Infinity ? (
+                  <span style={{ fontSize: "18px", verticalAlign: "-2px" }}>
+                    ∞
+                  </span>
+                ) : (
+                  formatter(expected - ci0, formatterOptions)
+                )}
               </span>
             ) : null}
           </div>
           {showCI ? (
             <div className="ci text-right nowrap font-weight-normal text-gray">
-              [{formatter.format(stats.ci?.[0] ?? 0)},{" "}
-              {formatter.format(stats.ci?.[1] ?? 0)}]
+              [{formatter(ci0, formatterOptions)},{" "}
+              {formatter(ci1, formatterOptions)}]
             </div>
           ) : null}
         </td>

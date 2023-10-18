@@ -251,7 +251,11 @@ export function useDomain(
         return;
       }
 
-      const ci = stats.ci || [0, 0];
+      let ci = stats?.ciAdjusted ?? stats.ci ?? [0, 0];
+      // If adjusted values are Inf, use unadjusted
+      if (Math.abs(ci[0]) === Infinity || Math.abs(ci[1]) === Infinity) {
+        ci = stats.ci ?? [0, 0];
+      }
       if (!lowerBound || ci[0] < lowerBound) lowerBound = ci[0];
       if (!upperBound || ci[1] > upperBound) upperBound = ci[1];
     });
@@ -539,23 +543,20 @@ export function setAdjustedPValuesOnResults(
   return;
 }
 
-function adjustedCI(
+export function adjustedCI(
   adjustedPValue: number,
   uplift: { dist: string; mean?: number; stddev?: number },
-  zScore: number,
-  maxPValueToAdjust: number
+  zScore: number
 ): [number, number] {
-  if (!uplift.stddev || !uplift.mean)
-    return [uplift.mean ?? 0, uplift.mean ?? 0];
-  const pValue = Math.min(adjustedPValue, maxPValueToAdjust);
+  if (!uplift.mean) return [uplift.mean ?? 0, uplift.mean ?? 0];
   const adjStdDev = Math.abs(
-    uplift.mean / jStat.normal.inv(1 - pValue / 2, 0, 1)
+    uplift.mean / jStat.normal.inv(1 - adjustedPValue / 2, 0, 1)
   );
   const width = zScore * adjStdDev;
   return [uplift.mean - width, uplift.mean + width];
 }
 
-export function adjustCIs(
+export function setAdjustedCIs(
   results: ExperimentReportResultDimension[],
   pValueThreshold: number
 ): void {
@@ -566,15 +567,22 @@ export function adjustCIs(
         const pValueAdjusted = v.metrics[key].pValueAdjusted;
         const uplift = v.metrics[key].uplift;
         const ci = v.metrics[key].ci;
-        if (
+        if (pValueAdjusted === undefined) {
+          continue;
+        } else if (pValueAdjusted > 0.999999) {
+          // set to Inf if adjusted pValue is 1
+          v.metrics[key].ciAdjusted = [-Infinity, Infinity];
+        } else if (
           pValueAdjusted !== undefined &&
           uplift !== undefined &&
           ci !== undefined
         ) {
-          const adjCI = adjustedCI(pValueAdjusted, uplift, zScore, 0.9);
+          const adjCI = adjustedCI(pValueAdjusted, uplift, zScore);
           // only update if CI got wider, should never get more narrow
           if (adjCI[0] < ci[0] && adjCI[1] > ci[1]) {
-            v.metrics[key].ci = adjCI;
+            v.metrics[key].ciAdjusted = adjCI;
+          } else {
+            v.metrics[key].ciAdjusted = v.metrics[key].ci;
           }
         }
       }
@@ -681,7 +689,7 @@ export function getRowResults({
     } else {
       significant = false;
       significantUnadjusted = false;
-      significantReason = `This metric is not statistically significant. The chance to win it outside the CI interval [${percentFormatter.format(
+      significantReason = `This metric is not statistically significant. The chance to win is outside the CI interval [${percentFormatter.format(
         ciLower
       )}, ${percentFormatter.format(ciUpper)}].`;
     }

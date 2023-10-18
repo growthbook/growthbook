@@ -11,11 +11,6 @@ import {
 import { ExperimentMetricInterface } from "shared/experiments";
 import { PermissionFunctions } from "@/services/UserContext";
 
-const percentFormatter = new Intl.NumberFormat(undefined, {
-  style: "percent",
-  maximumFractionDigits: 2,
-});
-
 export const defaultWinRiskThreshold = 0.0025;
 export const defaultLoseRiskThreshold = 0.0125;
 
@@ -94,16 +89,27 @@ export function formatDurationSeconds(value: number) {
 
   return f;
 }
-export function formatNumber(value: number) {
+export function formatNumber(
+  value: number,
+  options?: Intl.NumberFormatOptions
+) {
   const digits = value > 1000 ? 0 : value > 100 ? 1 : value > 10 ? 2 : 3;
   // Show fewer fractional digits for bigger numbers
   const formatter = new Intl.NumberFormat(undefined, {
     maximumFractionDigits: digits,
     minimumFractionDigits: 0,
+    ...options,
   });
   return formatter.format(value);
 }
-export function formatPercent(value: number) {
+export function formatPercent(
+  value: number,
+  options?: Intl.NumberFormatOptions
+) {
+  const percentFormatter = new Intl.NumberFormat(undefined, {
+    style: "percent",
+    ...options,
+  });
   return percentFormatter.format(value);
 }
 
@@ -126,12 +132,13 @@ export function formatColumnRefValue(
   columnRef: ColumnRef,
   getFactTableById: (id: string) => FactTableInterface | null,
   value: number,
-  currency?: string
+  currency?: string,
+  ratio?: boolean
 ) {
   if (columnRef.column === "$$count") {
     return formatNumber(value);
   }
-  if (columnRef.column === "$$distinctUsers") {
+  if (columnRef.column === "$$distinctUsers" && !ratio) {
     return formatPercent(value);
   }
 
@@ -185,7 +192,8 @@ export function formatMetricValue(
           metric.numerator,
           getFactTableById,
           value,
-          currency
+          currency,
+          true
         );
       })();
 

@@ -7,6 +7,7 @@ import {
 } from "back-end/types/experiment-snapshot";
 import { getSnapshotAnalysis } from "shared/util";
 import { DifferenceType } from "back-end/types/stats";
+import { FaCheck } from "react-icons/fa";
 import Dropdown from "@/components/Dropdown/Dropdown";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
@@ -40,7 +41,11 @@ export default function DifferenceTypeChooser({
   const [desiredDifferenceType, setDesiredDifferenceType] = useState(
     differenceType
   );
-  const differenceTypes: DifferenceType[] = ["relative", "absolute"];
+  const differenceTypeMap = new Map<DifferenceType, string>([
+    ["relative", "Relative"],
+    ["absolute", "Absolute"],
+  ]);
+  const selectedDifferenceName = differenceTypeMap.get(differenceType);
   const triggerAnalysisUpdate = useCallback(
     async (
       newSettings: ExperimentSnapshotAnalysisSettings
@@ -84,9 +89,7 @@ export default function DifferenceTypeChooser({
   const title = (
     <div className="d-inline-flex align-items-center">
       <div className={`d-flex align-items-center`}>
-        <span className="label" style={{ width: 20, height: 20 }}>
-          {differenceType}
-        </span>
+        <span className="label">{selectedDifferenceName}</span>
         {((loading && differenceType !== analysis?.settings?.differenceType) ||
           postLoading) && <LoadingSpinner className="ml-1" />}
       </div>
@@ -97,7 +100,7 @@ export default function DifferenceTypeChooser({
     <div>
       <div className="uppercase-title text-muted">Difference Type</div>
       <Dropdown
-        uuid={"baseline-selector"}
+        uuid={"difference-type-selector"}
         right={false}
         className="mt-2"
         toggleClassName={clsx("dropdown-underline")}
@@ -108,7 +111,7 @@ export default function DifferenceTypeChooser({
         open={open}
         setOpen={(b: boolean) => setOpen(b)}
       >
-        {differenceTypes.map((newDifferenceType) => {
+        {[...differenceTypeMap.keys()].map((newDifferenceType) => {
           const clickDifferenceType = () => {
             setDesiredDifferenceType(newDifferenceType);
             if (!snapshot) {
@@ -149,7 +152,13 @@ export default function DifferenceTypeChooser({
                   setOpen(false);
                 }}
               >
-                {newDifferenceType}
+                <div
+                  className="flex align-items-center justify-content-center px-1 mr-2"
+                  style={{ width: 20 }}
+                >
+                  {desiredDifferenceType === newDifferenceType && <FaCheck />}
+                </div>
+                {differenceTypeMap.get(newDifferenceType)}
               </div>
             </div>
           );

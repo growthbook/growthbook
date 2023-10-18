@@ -22,7 +22,11 @@ import { pValueFormatter, RowResults } from "@/services/experiments";
 import { GBSuspicious } from "@/components/Icons";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import MetricValueColumn from "@/components/Experiment/MetricValueColumn";
-import { formatMetricValue, formatNumber } from "@/services/metrics";
+import {
+  formatMetricValue,
+  formatPercent,
+  formatNumber,
+} from "@/services/metrics";
 import { useCurrency } from "@/hooks/useCurrency";
 import { capitalizeFirstLetter } from "@/services/utils";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -73,6 +77,7 @@ interface Props
   data?: TooltipData;
   tooltipOpen: boolean;
   close: () => void;
+  percent: boolean;
 }
 export default function ResultsTableTooltip({
   left,
@@ -80,6 +85,7 @@ export default function ResultsTableTooltip({
   data,
   tooltipOpen,
   close,
+  percent,
   ...otherProps
 }: Props) {
   useEffect(() => {
@@ -108,6 +114,8 @@ export default function ResultsTableTooltip({
   if (!data) {
     return null;
   }
+  const formatter = percent ? formatPercent : formatNumber;
+  const formatterOptions = percent ? { maximumFractionDigits: 2 } : {};
 
   const rows = [data.baseline, data.stats];
 
@@ -161,6 +169,28 @@ export default function ResultsTableTooltip({
       </>
     );
   }
+
+  const expected = data.stats?.expected ?? 0;
+  const ci1 = data.stats?.ciAdjusted?.[1] ?? data.stats?.ci?.[1] ?? 0;
+  const ci0 = data.stats?.ciAdjusted?.[0] ?? data.stats?.ci?.[0] ?? 0;
+  const ciRangeText =
+    data.stats?.ciAdjusted?.[0] !== undefined ? (
+      <>
+        <div>
+          [{formatter(ci0, formatterOptions)},{" "}
+          {formatter(ci1, formatterOptions)}]
+        </div>
+        <div className="text-muted font-weight-normal">
+          (unadj.:&nbsp; [{formatter(data.stats.ci?.[0] ?? 0, formatterOptions)}
+          , {formatter(data.stats.ci?.[1] ?? 0, formatterOptions)}] )
+        </div>
+      </>
+    ) : (
+      <>
+        [{formatter(data.stats.ci?.[0] ?? 0, formatterOptions)},{" "}
+        {formatter(data.stats.ci?.[1] ?? 0, formatterOptions)}]
+      </>
+    );
 
   const arrowLeft =
     data.layoutX === "element-right"
@@ -357,21 +387,14 @@ export default function ResultsTableTooltip({
                   )}
                 </span>{" "}
                 <span className="expected bold">
-                  {parseFloat(((data.stats.expected ?? 0) * 100).toFixed(1)) +
-                    "%"}
+                  {formatter(data.stats.expected ?? 0)}
                 </span>
                 {data.statsEngine === "frequentist" ? (
                   <span className="plusminus ml-1">
-                    {"±" +
-                      parseFloat(
-                        (
-                          Math.abs(
-                            (data.stats.expected ?? 0) -
-                              (data.stats.ci?.[0] ?? 0)
-                          ) * 100
-                        ).toFixed(1)
-                      ) +
-                      "%"}
+                    ±
+                    {Math.abs(ci0) === Infinity || Math.abs(ci1) === Infinity
+                      ? "∞"
+                      : formatter(Math.abs(expected - ci0))}
                   </span>
                 ) : null}
               </div>
@@ -396,8 +419,7 @@ export default function ResultsTableTooltip({
                   opacity50: !data.rowResults.enoughData,
                 })}
               >
-                [{percentFormatter.format(data.stats.ci?.[0] ?? 0)},{" "}
-                {percentFormatter.format(data.stats.ci?.[1] ?? 0)}]
+                {ciRangeText}
               </div>
             </div>
 

@@ -1326,7 +1326,7 @@ export async function deleteApiKey(
   req: AuthRequest<{ key?: string; id?: string }>,
   res: Response
 ) {
-  const { org } = getOrgFromReq(req);
+  const { org, userId } = getOrgFromReq(req);
   // Old API keys did not have an id, so we need to delete by the key value itself
   const { key, id } = req.body;
   if (!key && !id) {
@@ -1343,7 +1343,13 @@ export async function deleteApiKey(
   }
 
   if (keyObj.secret) {
-    req.checkPermissions("manageApiKeys");
+    if (!keyObj.userId) {
+      // If there is no userId, this is an API Key, so we check permissions.
+      req.checkPermissions("manageApiKeys");
+      // Otherwise, this is a Personal Access Token (PAT) - users can delete only their own PATs regardless of permission level.
+    } else if (keyObj.userId !== userId) {
+      throw new Error("You do not have permission to delete this.");
+    }
   } else {
     req.checkPermissions("manageEnvironments", "", [keyObj.environment || ""]);
   }

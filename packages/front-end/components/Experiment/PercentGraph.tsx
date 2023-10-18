@@ -73,7 +73,7 @@ export default function PercentGraph({
 
   return (
     <AlignedGraph
-      ci={showGraph ? stats.ci || [] : [0, 0]}
+      ci={showGraph ? stats?.ciAdjusted ?? stats.ci ?? [] : [0, 0]}
       id={id}
       domain={domain}
       uplift={showGraph ? stats.uplift : undefined}

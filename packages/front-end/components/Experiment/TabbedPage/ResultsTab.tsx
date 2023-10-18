@@ -1,6 +1,6 @@
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { getScopedSettings } from "shared/settings";
-import React, { useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import {
   MetricRegressionAdjustmentStatus,
   ReportInterface,
@@ -20,7 +20,8 @@ import { getRegressionAdjustmentsForMetric } from "@/services/experiments";
 import { useAuth } from "@/services/auth";
 import Button from "@/components/Button";
 import { GBAddCircle } from "@/components/Icons";
-import Results from "../Results";
+import { useLocalStorage } from "@/hooks/useLocalStorage";
+import Results, { ResultsMetricFilters } from "../Results";
 import { StartExperimentBanner } from "../StartExperimentBanner";
 import AnalysisForm from "../AnalysisForm";
 import ExperimentReportsList from "../ExperimentReportsList";
@@ -59,11 +60,18 @@ export default function ResultsTab({
   isTabActive,
   safeToEdit,
 }: Props) {
-  const [baselineRow, setBaselineRow] = React.useState<number>(0);
-  const [differenceType, setDifferenceType] = React.useState<DifferenceType>(
+  const [baselineRow, setBaselineRow] = useState<number>(0);
+  const [differenceType, setDifferenceType] = useState<DifferenceType>(
     "relative"
   );
-  const [variationFilter, setVariationFilter] = React.useState<number[]>([]);
+  const [variationFilter, setVariationFilter] = useState<number[]>([]);
+  const [metricFilter, setMetricFilter] = useLocalStorage<ResultsMetricFilters>(
+    `experiment-page__${experiment.id}__metric_filter`,
+    {
+      tagOrder: [],
+      filterByTag: false,
+    }
+  );
 
   const {
     getDatasourceById,
@@ -317,6 +325,8 @@ export default function ResultsTab({
                   setBaselineRow={setBaselineRow}
                   differenceType={differenceType}
                   setDifferenceType={setDifferenceType}
+                  metricFilter={metricFilter}
+                  setMetricFilter={setMetricFilter}
                 />
               )}
             </>

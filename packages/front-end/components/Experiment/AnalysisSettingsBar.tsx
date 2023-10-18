@@ -198,6 +198,7 @@ export default function AnalysisSettingsBar({
               labelClassName="mr-2"
               setVariationFilter={setVariationFilter}
               setBaselineRow={setBaselineRow}
+              setDifferenceType={setDifferenceType}
               newUi={newUi}
               setAnalysisSettings={setAnalysisSettings}
             />
@@ -406,6 +407,7 @@ export default function AnalysisSettingsBar({
                           setBaselineRow?.(0);
                           setVariationFilter?.([]);
                         }
+                        setDifferenceType?.("relative");
                       }}
                     />
                   </form>
@@ -426,6 +428,7 @@ export default function AnalysisSettingsBar({
                         setBaselineRow?.(0);
                         setVariationFilter?.([]);
                       }
+                      setDifferenceType?.("relative");
                     }}
                   />
                 )}

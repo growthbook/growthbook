@@ -61,7 +61,6 @@ export default function BaselineChooser({
 
   const triggerAnalysisUpdate = useCallback(
     async (
-      newBaseline: number,
       newSettings: ExperimentSnapshotAnalysisSettings
     ): Promise<"success" | "fail" | "abort"> => {
       if (!analysis || !snapshot) return "abort";
@@ -197,23 +196,21 @@ export default function BaselineChooser({
               ...analysis.settings,
               baselineVariationIndex: variation.index,
             };
-            triggerAnalysisUpdate(variation.index, newSettings).then(
-              (status) => {
-                if (status === "success") {
-                  setBaselineRow(variation.index);
-                  setVariationFilter([]);
-                  setAnalysisSettings(newSettings);
-                  track("Experiment Analysis: switch baseline", {
-                    baseline: variation.index,
-                  });
-                  mutate();
-                } else if (status === "fail") {
-                  setDesiredBaselineRow(baselineRow);
-                  mutate();
-                }
-                setPostLoading(false);
+            triggerAnalysisUpdate(newSettings).then((status) => {
+              if (status === "success") {
+                setBaselineRow(variation.index);
+                setVariationFilter([]);
+                setAnalysisSettings(newSettings);
+                track("Experiment Analysis: switch baseline", {
+                  baseline: variation.index,
+                });
+                mutate();
+              } else if (status === "fail") {
+                setDesiredBaselineRow(baselineRow);
+                mutate();
               }
-            );
+              setPostLoading(false);
+            });
           };
 
           return (
