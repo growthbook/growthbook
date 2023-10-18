@@ -124,7 +124,7 @@ export async function getSubscriptionQuote(req: AuthRequest, res: Response) {
   const planName =
     price?.product && isProductExpanded(price?.product)
       ? price.product.name
-      : "GrowthBook Cloud";
+      : "";
 
   const coupon = await getCoupon(org.discountCode);
   const discountAmount = (-1 * (coupon?.amount_off || 0)) / 100;

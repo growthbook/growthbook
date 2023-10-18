@@ -190,7 +190,7 @@ export interface SubscriptionQuote {
   subtotal: number;
   total: number;
   additionalSeatPrice: number;
-  planName: string;
+  planName?: string;
   interval?: string;
   intervalCount?: number;
 }
