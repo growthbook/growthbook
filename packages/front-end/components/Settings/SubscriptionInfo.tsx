@@ -3,19 +3,12 @@ import { FaCheckCircle, FaExclamationTriangle } from "react-icons/fa";
 import { redirectWithTimeout, useAuth } from "@/services/auth";
 import useStripeSubscription from "@/hooks/useStripeSubscription";
 import LoadingOverlay from "../LoadingOverlay";
-import Tooltip from "../Tooltip/Tooltip";
 import Button from "../Button";
 import UpgradeModal from "./UpgradeModal";
-
-const currencyFormatter = new Intl.NumberFormat(undefined, {
-  style: "currency",
-  currency: "USD",
-});
 
 export default function SubscriptionInfo() {
   const { apiCall } = useAuth();
   const {
-    planName,
     nextBillDate,
     dateToBeCanceled,
     cancelationDate,
@@ -42,7 +35,7 @@ export default function SubscriptionInfo() {
         />
       )}
       <div className="col-auto mb-3">
-        <strong>Current Plan:</strong> {planName}
+        <strong>Current Plan:</strong> Cloud Pro
         {subscriptionStatus === "trialing" && (
           <>
             {" "}
@@ -53,22 +46,6 @@ export default function SubscriptionInfo() {
       <div className="col-md-12 mb-3">
         <strong>Number Of Seats:</strong> {quote?.activeAndInvitedUsers || 0}
       </div>
-      {quote && (
-        <div className="col-md-12 mb-3">
-          <strong>Current Price:</strong>{" "}
-          {currencyFormatter.format(quote.total || 0)}
-          {quote?.intervalCount && quote?.intervalCount > 1
-            ? ` every ${quote.intervalCount} ${quote.interval}s`
-            : quote?.interval
-            ? ` / ${quote?.interval}`
-            : null}
-          <Tooltip
-            className="ml-2"
-            body="Click the Manage Subscription button below to see how this is calculated."
-            tipMinWidth="200px"
-          />
-        </div>
-      )}
       {subscriptionStatus !== "canceled" && !pendingCancelation && (
         <div className="col-md-12 mb-3">
           <div>
@@ -103,7 +80,7 @@ export default function SubscriptionInfo() {
                   valid payment method.
                 </p>
                 <p className="mb-0">
-                  Click <strong>Manage Subscription</strong> below to add a
+                  Click <strong>View Plan Details</strong> below to add a
                   payment method.
                 </p>
               </div>
@@ -142,7 +119,7 @@ export default function SubscriptionInfo() {
             }}
           >
             {subscriptionStatus !== "canceled"
-              ? "Manage Subscription"
+              ? "View Plan Details"
               : "View Previous Invoices"}
           </Button>
         </div>

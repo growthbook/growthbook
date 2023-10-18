@@ -103,7 +103,7 @@ export async function getPrice(priceId: string): Promise<Stripe.Price | null> {
 
   try {
     priceData[priceId] = await stripe.prices.retrieve(priceId, {
-      expand: ["tiers", "product"],
+      expand: ["tiers"],
     });
     return priceData[priceId];
   } catch (e) {
@@ -157,11 +157,4 @@ export async function getStripeCustomerId(org: OrganizationInterface) {
   });
 
   return id;
-}
-
-// When retriving a price, check if the product property is expanded - https://stripe.com/docs/api/expanding_objects
-export function isProductExpanded(
-  obj: string | Stripe.Product | Stripe.DeletedProduct
-): obj is Stripe.Product {
-  return typeof obj === "object" && obj !== null && "name" in obj;
 }

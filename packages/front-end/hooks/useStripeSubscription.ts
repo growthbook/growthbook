@@ -70,7 +70,6 @@ export default function useStripeSubscription() {
   return {
     freeSeats,
     quote: quote,
-    planName: quote?.planName || "GrowthBook Cloud",
     nextBillDate,
     dateToBeCanceled,
     cancelationDate,

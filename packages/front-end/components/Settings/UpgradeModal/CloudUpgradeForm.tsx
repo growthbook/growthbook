@@ -254,12 +254,7 @@ export default function CloudUpgradeForm({
                 &#10019; You may opt to continue your subscription at the rate
                 of{" "}
                 <strong>
-                  {currencyFormatter.format(quote?.total || 0)}
-                  {quote?.intervalCount && quote?.intervalCount > 1
-                    ? ` every ${quote.intervalCount} ${quote.interval}s`
-                    : quote?.interval
-                    ? ` / ${quote?.interval}`
-                    : null}
+                  {currencyFormatter.format(quote?.total || 0)} / month
                 </strong>{" "}
                 by adding a credit card to your account.
               </div>
