@@ -75,7 +75,7 @@ export const helpers: Helpers = {
         onVisible();
       } else if (document.visibilityState === "hidden") {
         idleTimeout = window.setTimeout(
-          () => onHidden(),
+          onHidden,
           cacheSettings.idleStreamInterval
         );
       }
