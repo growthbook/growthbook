@@ -28,8 +28,8 @@ const BillingPage: FC = () => {
     return (
       <div className="container pagecontents">
         <div className="alert alert-info">
-          This page is not available for enterprise installations. Please
-          contact your account rep for any billing questions or changes.
+          This page is not available for enterprise customers. Please contact
+          your account rep for any billing questions or changes.
         </div>
       </div>
     );
