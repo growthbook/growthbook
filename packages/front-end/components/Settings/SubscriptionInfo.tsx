@@ -59,7 +59,9 @@ export default function SubscriptionInfo() {
           {currencyFormatter.format(quote.total || 0)}
           {quote?.intervalCount && quote?.intervalCount > 1
             ? ` every ${quote.intervalCount} ${quote.interval}s`
-            : ` / ${quote.interval}`}
+            : quote?.interval
+            ? ` / ${quote?.interval}`
+            : null}
           <Tooltip
             className="ml-2"
             body="Click the Manage Subscription button below to see how this is calculated."

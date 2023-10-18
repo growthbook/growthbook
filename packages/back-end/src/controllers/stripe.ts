@@ -18,7 +18,7 @@ import {
   getCoupon,
   getPrice,
   getStripeCustomerId,
-  isStripeProduct,
+  isProductExpanded,
 } from "../services/stripe";
 import { SubscriptionQuote } from "../../types/organization";
 import { sendStripeTrialWillEndEmail } from "../services/email";
@@ -118,19 +118,13 @@ export async function getSubscriptionQuote(req: AuthRequest, res: Response) {
 
   const { org } = getOrgFromReq(req);
 
-  let unitPrice = 20;
-  let planName = "GrowthBook Cloud";
-
   const price = await getPrice(org.priceId || STRIPE_PRICE);
-  if (price) {
-    if (price.unit_amount) {
-      unitPrice = price.unit_amount / 100;
-    }
 
-    if (isStripeProduct(price.product)) {
-      planName = price.product.name;
-    }
-  }
+  const unitPrice = price?.unit_amount ? price.unit_amount / 100 : 20;
+  const planName =
+    price?.product && isProductExpanded(price?.product)
+      ? price.product.name
+      : "GrowthBook Cloud";
 
   const coupon = await getCoupon(org.discountCode);
   const discountAmount = (-1 * (coupon?.amount_off || 0)) / 100;
@@ -142,6 +136,8 @@ export async function getSubscriptionQuote(req: AuthRequest, res: Response) {
   const currentSeatsPaidFor = org.subscription?.qty || 0;
   const subtotal = activeAndInvitedUsers * unitPrice;
   const total = Math.max(0, subtotal + discountAmount);
+  const interval = price?.recurring?.interval;
+  const intervalCount = price?.recurring?.interval_count;
 
   const quote: SubscriptionQuote = {
     activeAndInvitedUsers,
@@ -153,8 +149,8 @@ export async function getSubscriptionQuote(req: AuthRequest, res: Response) {
     total,
     additionalSeatPrice,
     planName,
-    interval: price?.recurring?.interval,
-    intervalCount: price?.recurring?.interval_count,
+    interval,
+    intervalCount,
   };
 
   return res.status(200).json({
