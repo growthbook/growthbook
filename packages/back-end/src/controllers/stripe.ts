@@ -119,7 +119,7 @@ export async function getSubscriptionQuote(req: AuthRequest, res: Response) {
 
   const price = await getPrice(org.priceId || STRIPE_PRICE);
 
-  const unitPrice = price?.unit_amount ? price.unit_amount / 100 : 20;
+  const unitPrice = (price?.unit_amount || 2000) / 100;
 
   const coupon = await getCoupon(org.discountCode);
   const discountAmount = (-1 * (coupon?.amount_off || 0)) / 100;
