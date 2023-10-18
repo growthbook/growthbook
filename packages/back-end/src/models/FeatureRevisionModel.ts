@@ -1,7 +1,11 @@
 import mongoose from "mongoose";
 import omit from "lodash/omit";
+import { pick } from "lodash";
 import { FeatureInterface, FeatureRule } from "../../types/feature";
-import { FeatureRevisionInterface } from "../../types/feature-revision";
+import {
+  FeatureRevisionInterface,
+  FeatureRevisionSummary,
+} from "../../types/feature-revision";
 import { EventAuditUser, EventAuditUserLoggedIn } from "../events/event-types";
 
 const featureRevisionSchema = new mongoose.Schema({
@@ -58,15 +62,28 @@ function toInterface(doc: FeatureRevisionDocument): FeatureRevisionInterface {
   return revision;
 }
 
-export async function getRevisions(
+export async function getRevisionSummaries(
   organization: string,
   featureId: string
-): Promise<FeatureRevisionInterface[]> {
+): Promise<FeatureRevisionSummary[]> {
   const docs: FeatureRevisionDocument[] = await FeatureRevisionModel.find({
     organization,
     featureId,
   });
-  return docs.map(toInterface);
+  return docs
+    .map(toInterface)
+    .map((revision) =>
+      pick(revision, [
+        "version",
+        "baseVersion",
+        "comment",
+        "createdBy",
+        "dateCreated",
+        "datePublished",
+        "dateUpdated",
+        "status",
+      ])
+    );
 }
 
 export async function getRevision(

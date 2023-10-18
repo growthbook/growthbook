@@ -32,6 +32,7 @@ import {
   arrayMove,
   evaluateFeature,
   getFeatureDefinitions,
+  mergeRevision,
 } from "../services/features";
 import {
   getExperimentByTrackingKey,
@@ -46,7 +47,7 @@ import {
 import {
   discardRevision,
   getRevision,
-  getRevisions,
+  getRevisionSummaries,
   updateRevision,
 } from "../models/FeatureRevisionModel";
 import { getEnabledEnvironments } from "../util/features";
@@ -946,23 +947,29 @@ export async function deleteFeatureById(
 export async function postFeatureEvaluate(
   req: AuthRequest<
     { attributes: Record<string, boolean | string | number | object> },
-    { id: string }
+    { id: string; version: string }
   >,
   res: Response<
     { status: 200; results: FeatureTestResult[] },
     EventAuditUserForResponseLocals
   >
 ) {
-  const { id } = req.params;
+  const { id, version } = req.params;
   const { org } = getOrgFromReq(req);
-  const feature = await getFeature(org.id, id);
   const { attributes } = req.body;
 
+  const feature = await getFeature(org.id, id);
   if (!feature) {
     throw new Error("Could not find feature");
   }
 
-  const results = await evaluateFeature(feature, attributes, org);
+  const revision = await getRevision(org.id, feature.id, parseInt(version));
+  if (!revision) {
+    throw new Error("Could not find feature revision");
+  }
+
+  const featureWithRevision = mergeRevision(feature, revision);
+  const results = await evaluateFeature(featureWithRevision, attributes, org);
 
   res.status(200).json({
     status: 200,
@@ -1031,7 +1038,7 @@ export async function getFeatures(
 }
 
 export async function getFeatureById(
-  req: AuthRequest<null, { id: string; version: string }>,
+  req: AuthRequest<null, { id: string; version?: string }>,
   res: Response
 ) {
   const { org } = getOrgFromReq(req);
@@ -1042,10 +1049,10 @@ export async function getFeatureById(
     throw new Error("Could not find feature");
   }
 
-  const revision = await getRevision(org.id, feature.id, parseInt(version));
-  if (!revision) {
-    throw new Error("Could not find feature revision");
-  }
+  const revision =
+    version && parseInt(version) !== feature.version
+      ? await getRevision(org.id, feature.id, parseInt(version))
+      : null;
 
   // Get linked experiments from rule and draft rules
   const experimentIds: Set<string> = new Set();
@@ -1061,15 +1068,18 @@ export async function getFeatureById(
       });
     });
   }
-  Object.values(revision.rules || {}).forEach((rules) => {
-    rules.forEach((r) => {
-      if (r.type === "experiment") {
-        trackingKeys.add(r.trackingKey || feature.id);
-      } else if (r.type === "experiment-ref") {
-        experimentIds.add(r.experimentId);
-      }
+
+  if (revision) {
+    Object.values(revision.rules || {}).forEach((rules) => {
+      rules.forEach((r) => {
+        if (r.type === "experiment") {
+          trackingKeys.add(r.trackingKey || feature.id);
+        } else if (r.type === "experiment-ref") {
+          experimentIds.add(r.experimentId);
+        }
+      });
     });
-  });
+  }
 
   const experiments: { [key: string]: ExperimentInterface } = {};
   if (trackingKeys.size > 0) {
@@ -1089,11 +1099,12 @@ export async function getFeatureById(
     });
   }
 
-  const revisions = await getRevisions(org.id, id);
+  const revisions = await getRevisionSummaries(org.id, id);
 
   res.status(200).json({
     status: 200,
-    feature,
+    feature: revision ? mergeRevision(feature, revision) : feature,
+    revision,
     experiments,
     revisions,
   });
