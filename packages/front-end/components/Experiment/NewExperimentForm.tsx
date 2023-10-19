@@ -28,7 +28,9 @@ import SelectField from "../Forms/SelectField";
 import FeatureVariationsInput from "../Features/FeatureVariationsInput";
 import ConditionInput from "../Features/ConditionInput";
 import NamespaceSelector from "../Features/NamespaceSelector";
-import SavedGroupTargetingField from "../Features/SavedGroupTargetingField";
+import SavedGroupTargetingField, {
+  validateSavedGroupTargeting,
+} from "../Features/SavedGroupTargetingField";
 import MetricsSelector from "./MetricsSelector";
 
 const weekAgo = new Date();
@@ -215,7 +217,6 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
     }
 
     // TODO: more validation?
-
     const data = { ...value };
 
     if (data.status !== "stopped" && data.phases?.[0]) {
@@ -232,6 +233,8 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
       if (data.phases[0].dateEnded && !data.phases[0].dateEnded.match(/Z$/)) {
         data.phases[0].dateEnded += ":00Z";
       }
+
+      validateSavedGroupTargeting(data.phases[0].savedGroups);
     }
 
     const body = JSON.stringify(data);

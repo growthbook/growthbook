@@ -3,15 +3,21 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 
 export interface Props {
   savedGroups?: SavedGroupTargeting[];
+  initialPrefix?: string;
+  groupClassName?: string;
 }
 
-export default function SavedGroupTargetingDisplay({ savedGroups }: Props) {
+export default function SavedGroupTargetingDisplay({
+  savedGroups,
+  initialPrefix = "Users",
+  groupClassName = "",
+}: Props) {
   const { getSavedGroupById } = useDefinitions();
 
   return (
-    <div>
+    <>
       {savedGroups?.map((s, i) => {
-        const prefix = i ? "AND" : "Users";
+        const prefix = i ? "AND" : initialPrefix;
 
         let description = "in";
 
@@ -24,7 +30,7 @@ export default function SavedGroupTargetingDisplay({ savedGroups }: Props) {
         }
 
         return (
-          <div className="d-flex" key={i}>
+          <div className={"d-flex " + groupClassName} key={"savedGroup-" + i}>
             <div className="mr-1">{prefix}</div>
             <div className="mr-1">{description}</div>
             <div>
@@ -39,6 +45,6 @@ export default function SavedGroupTargetingDisplay({ savedGroups }: Props) {
           </div>
         );
       })}
-    </div>
+    </>
   );
 }

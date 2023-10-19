@@ -124,10 +124,11 @@ export default function ConditionDisplay({
 
   if (savedGroupTargeting && savedGroupTargeting.length > 0) {
     parts.push(
-      <div className="col-auto d-flex flex-wrap">
-        {parts.length > 0 && <span className="mr-1">AND</span>}
-        <SavedGroupTargetingDisplay savedGroups={savedGroupTargeting} />
-      </div>
+      <SavedGroupTargetingDisplay
+        savedGroups={savedGroupTargeting}
+        groupClassName="col-auto"
+        initialPrefix={parts.length > 0 ? "AND" : "Users"}
+      />
     );
   }
 
