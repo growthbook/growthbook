@@ -27,15 +27,15 @@ let MONGODB_URI = process.env.MONGODB_URI;
 if (!MONGODB_URI) {
   // Check for alternate mongo db environment variables
   if (
-    process.env.MONGO_DB_USERNAME &&
-    process.env.MONGO_DB_PASSWORD &&
-    process.env.MONGO_DB_HOSTNAME
+    process.env.MONGODB_USERNAME &&
+    process.env.MONGODB_PASSWORD &&
+    process.env.MONGODB_HOSTNAME
   ) {
-    MONGODB_URI = `mongodb://${process.env.MONGO_DB_USERNAME}:${process.env.MONGO_DB_PASSWORD}@${process.env.MONGO_DB_HOSTNAME}/growthbook`;
+    MONGODB_URI = `mongodb://${process.env.MONGODB_USERNAME}:${process.env.MONGODB_PASSWORD}@${process.env.MONGODB_HOSTNAME}/growthbook`;
 
     // Add extra args if they exist
-    if (process.env.MONGO_DB_EXTRA_ARGS) {
-      MONGODB_URI += `?${process.env.MONGO_DB_EXTRA_ARGS}`;
+    if (process.env.MONGODB_EXTRA_ARGS) {
+      MONGODB_URI += `?${process.env.MONGODB_EXTRA_ARGS}`;
     }
   }
 }
