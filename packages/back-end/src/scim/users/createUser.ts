@@ -54,7 +54,7 @@ export async function createUser(
       let newUser = await getUserByEmail(userName);
 
       if (!newUser) {
-        newUser = await createNewUser(displayName, userName, "12345678"); // TODO: DELETE LAST ARGUMENT AFTER TESTING
+        newUser = await createNewUser(displayName, userName);
       }
 
       await addMemberToOrg({

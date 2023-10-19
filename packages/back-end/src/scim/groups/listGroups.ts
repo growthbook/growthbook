@@ -10,7 +10,6 @@ export async function listGroups(
   req: ScimListRequest,
   res: Response
 ): Promise<Response<ScimListResponse>> {
-  console.log("listGroups endpoint was called");
   const { startIndex, count, filter: filterQuery } = req.query;
 
   // startIndex queryParam is 1-based so we need to subtract 1

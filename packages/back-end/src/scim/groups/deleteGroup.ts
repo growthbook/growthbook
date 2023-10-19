@@ -1,5 +1,5 @@
 import { Response } from "express";
-import { ScimError, ScimGetRequest, ScimGroup } from "../../../types/scim";
+import { ScimError, ScimGetRequest } from "../../../types/scim";
 import { deleteTeam, findTeamById } from "../../models/TeamModel";
 import { removeMemberFromTeam } from "../../services/organizations";
 
@@ -7,8 +7,6 @@ export async function deleteGroup(
   req: ScimGetRequest,
   res: Response
 ): Promise<Response<ScimError>> {
-  console.log("deleteGroup endpoint was called");
-
   const { id } = req.params;
 
   const org = req.organization;

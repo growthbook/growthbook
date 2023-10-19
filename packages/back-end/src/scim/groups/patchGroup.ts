@@ -1,4 +1,5 @@
 import { Response } from "express";
+import { parse, filter } from "scim2-parse-filter";
 import {
   BasicScimGroup,
   ScimError,
@@ -9,6 +10,7 @@ import {
 import { findTeamById, updateTeamMetadata } from "../../models/TeamModel";
 import {
   addMemberToTeam,
+  expandOrgMembers,
   removeMemberFromTeam,
 } from "../../services/organizations";
 import { Member } from "../../../types/organization";
@@ -35,13 +37,39 @@ export async function patchGroup(
   for (const operation of Operations) {
     const { op, value, path } = operation;
 
-    console.log(operation);
-
     try {
       if (op === "remove") {
         // Remove requested members
-        // UNIMPLEMENTED
-        // TODO: parse filter within operation path (i.e. "members[value eq \"89bb1940-b905-4575-9e7f-6f887cfb368e\"]")
+        // Maps each team member to a ScimGroupMember keyed with 'members' so that we can filter by the requested path
+        // i.e. path: 'members[value eq "u_123abcdefg"]'
+        const members: { members: ScimGroupMember }[] = (
+          await expandOrgMembers(org.members)
+        )
+          .filter((member) => member.teams?.includes(team.id))
+          .map((member) => {
+            return { members: { value: member.id, display: member.email } };
+          });
+
+        if (!path) {
+          return res.status(400).json({
+            schemas: ["urn:ietf:params:scim:api:messages:2.0:Error"],
+            status: "400",
+            detail: "Remove operation must include a path",
+          });
+        }
+
+        const f = filter(parse(path));
+        const filtered = members.filter(f);
+
+        await Promise.all(
+          filtered.map((member) => {
+            return removeMemberFromTeam({
+              organization: org,
+              userId: member.members.value,
+              teamId: team.id,
+            });
+          })
+        );
       } else if (op === "add" && path === "members") {
         // Add requested members
         await Promise.all(

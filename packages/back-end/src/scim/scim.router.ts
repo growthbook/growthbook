@@ -9,7 +9,7 @@ const router = Router();
 
 router.use(authenticateApiRequestMiddleware);
 router.use(verifyLicenseMiddleware);
-// router.use(scimMiddleware);
+router.use(scimMiddleware);
 
 // API endpoints
 router.use("/users", usersRouter);

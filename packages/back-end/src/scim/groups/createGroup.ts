@@ -17,8 +17,6 @@ export async function createGroup(
   req: ScimGroupPostRequest,
   res: Response
 ): Promise<Response<ScimGroup | ScimError>> {
-  console.log("createGroup endpoint was called");
-
   const { displayName, members } = req.body;
 
   const org = req.organization;

@@ -23,8 +23,6 @@ export async function getGroup(
   req: ScimGetRequest,
   res: Response
 ): Promise<Response<ScimGroup | ScimError>> {
-  console.log("getGroup endpoint was called");
-
   const { id } = req.params;
 
   const org = req.organization;
