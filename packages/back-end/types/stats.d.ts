@@ -4,7 +4,7 @@ export type StatsEngine = "bayesian" | "frequentist";
 
 export type PValueCorrection = null | "benjamini-hochberg" | "holm-bonferroni";
 
-export type DifferenceType = "relative" | "absolute";
+export type DifferenceType = "relative" | "absolute" | "scaled";
 
 interface BaseVariationResponse {
   cr: number;

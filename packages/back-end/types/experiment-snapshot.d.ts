@@ -136,6 +136,7 @@ export interface ExperimentSnapshotSettings {
     id: string;
     weight: number;
   }[];
+  coverage?: number;
 }
 
 export interface ExperimentSnapshotInterface {

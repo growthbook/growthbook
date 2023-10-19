@@ -86,7 +86,7 @@ export type ResultsTableProps = {
   hasRisk: boolean;
   statsEngine: StatsEngine;
   pValueCorrection?: PValueCorrection;
-  differenceType?: DifferenceType;
+  differenceType: DifferenceType;
   sequentialTestingEnabled?: boolean;
   metricFilter?: ResultsMetricFilters;
   setMetricFilter?: (filter: ResultsMetricFilters) => void;
@@ -422,6 +422,13 @@ export default function ResultsTable({
     };
   }, [hoverTimeout]);
 
+  let changeTitle = "% Change";
+  if (differenceType === "absolute") {
+    changeTitle = "Absolute Change";
+  } else if (differenceType === "scaled") {
+    changeTitle = "Scaled Impact";
+  }
+
   return (
     <div className="position-relative" ref={containerRef}>
       <CSSTransition
@@ -649,8 +656,7 @@ export default function ResultsTable({
                             </div>
                           }
                         >
-                          {differenceType === "absolute" ? "Absolute" : "%"}
-                          {" Change"} <RxInfoCircled />
+                          {changeTitle} <RxInfoCircled />
                         </Tooltip>
                       </div>
                     </th>
@@ -927,7 +933,7 @@ export default function ResultsTable({
                             metric={row.metric}
                             stats={stats}
                             rowResults={rowResults}
-                            percent={differenceType === "relative"}
+                            differenceType={differenceType}
                             statsEngine={statsEngine}
                             className={resultsHighlightClassname}
                           />

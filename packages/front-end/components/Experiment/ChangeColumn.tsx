@@ -2,10 +2,15 @@ import clsx from "clsx";
 import { SnapshotMetric } from "back-end/types/experiment-snapshot";
 import { FaArrowDown, FaArrowUp } from "react-icons/fa";
 import React, { DetailedHTMLProps, TdHTMLAttributes } from "react";
-import { StatsEngine } from "back-end/types/stats";
+import { DifferenceType, StatsEngine } from "back-end/types/stats";
 import { ExperimentMetricInterface } from "shared/experiments";
 import { RowResults } from "@/services/experiments";
-import { formatNumber, formatPercent } from "@/services/metrics";
+import {
+  formatPercent,
+  getExperimentMetricFormatter,
+} from "@/services/metrics";
+import { useCurrency } from "@/hooks/useCurrency";
+import { useDefinitions } from "@/services/DefinitionsContext";
 
 interface Props
   extends DetailedHTMLProps<
@@ -17,7 +22,7 @@ interface Props
   rowResults: RowResults;
   statsEngine: StatsEngine;
   showPlusMinus?: boolean;
-  percent?: boolean;
+  differenceType: DifferenceType;
   showCI?: boolean;
   className?: string;
 }
@@ -29,17 +34,26 @@ export default function ChangeColumn({
   statsEngine,
   showPlusMinus = true,
   showCI = false,
-  percent = true,
+  differenceType,
   className,
   ...otherProps
 }: Props) {
+  const displayCurrency = useCurrency();
+  const { getFactTableById } = useDefinitions();
+
   const expected = stats?.expected ?? 0;
   const ci0 = stats?.ciAdjusted?.[0] ?? stats?.ci?.[0] ?? 0;
   const ci1 = stats?.ciAdjusted?.[1] ?? stats?.ci?.[1] ?? 0;
 
-  const formatter = percent ? formatPercent : formatNumber;
-  const formatterOptions = percent ? { maximumFractionDigits: 1 } : {};
-
+  const formatter =
+    differenceType === "relative"
+      ? formatPercent
+      : getExperimentMetricFormatter(metric, getFactTableById, true);
+  const formatterOptions: Intl.NumberFormatOptions = {
+    currency: displayCurrency,
+    ...(differenceType === "relative" ? { maximumFractionDigits: 1 } : {}),
+    ...(differenceType === "scaled" ? { notation: "compact" } : {}),
+  };
   return (
     <>
       {metric && rowResults.enoughData ? (

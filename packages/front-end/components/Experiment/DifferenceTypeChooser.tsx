@@ -17,6 +17,7 @@ export interface Props {
   differenceType: DifferenceType;
   setDifferenceType: (differenceType: DifferenceType) => void;
   snapshot?: ExperimentSnapshotInterface;
+  phase: number;
   analysis?: ExperimentSnapshotAnalysis;
   setAnalysisSettings: (
     settings: ExperimentSnapshotAnalysisSettings | null
@@ -29,6 +30,7 @@ export default function DifferenceTypeChooser({
   differenceType,
   setDifferenceType,
   snapshot,
+  phase,
   analysis,
   setAnalysisSettings,
   loading,
@@ -44,6 +46,7 @@ export default function DifferenceTypeChooser({
   const differenceTypeMap = new Map<DifferenceType, string>([
     ["relative", "Relative"],
     ["absolute", "Absolute"],
+    ["scaled", "Scaled Impact"],
   ]);
   const selectedDifferenceName = differenceTypeMap.get(differenceType);
   const triggerAnalysisUpdate = useCallback(
@@ -59,6 +62,7 @@ export default function DifferenceTypeChooser({
           method: "POST",
           body: JSON.stringify({
             analysisSettings: newSettings,
+            phaseIndex: phase,
           }),
         })
           .then((resp) => {
@@ -79,7 +83,7 @@ export default function DifferenceTypeChooser({
 
       return status;
     },
-    [analysis, snapshot, apiCall]
+    [analysis, snapshot, phase, apiCall]
   );
 
   useEffect(() => {

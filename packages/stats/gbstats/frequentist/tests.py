@@ -5,6 +5,8 @@ from typing import List
 import numpy as np
 from scipy.stats import t  # type: ignore
 
+
+from gbstats.shared.constants import DifferenceType
 from gbstats.shared.models import (
     BaseConfig,
     FrequentistTestResult,
@@ -12,8 +14,6 @@ from gbstats.shared.models import (
     Uplift,
 )
 from gbstats.shared.tests import BaseABTest
-
-from gbstats.shared.constants import DifferenceType
 
 
 @dataclass
@@ -47,6 +47,8 @@ class TTest(BaseABTest):
         self.alpha = config.alpha
         self.test_value = config.test_value
         self.relative = config.difference_type == DifferenceType.RELATIVE
+        self.scaled = config.difference_type == DifferenceType.SCALED
+        self.traffic_proportion_b = config.traffic_proportion_b
 
     @property
     def variance(self) -> float:
@@ -56,11 +58,13 @@ class TTest(BaseABTest):
             ) + self.stat_a.variance * pow(self.stat_b.unadjusted_mean, 2) / (
                 pow(self.stat_a.unadjusted_mean, 4) * self.stat_a.n
             )
-        return self.stat_b.variance / self.stat_b.n + self.stat_a.variance / self.stat_a.n
+        return (
+            self.stat_b.variance / self.stat_b.n + self.stat_a.variance / self.stat_a.n
+        )
 
     @property
     def point_estimate(self) -> float:
-        absolute_diff = (self.stat_b.mean - self.stat_a.mean)
+        absolute_diff = self.stat_b.mean - self.stat_a.mean
         if self.relative:
             return absolute_diff / self.stat_a.unadjusted_mean
         else:
@@ -122,7 +126,7 @@ class TTest(BaseABTest):
             return self._default_output()
         if self._has_zero_variance():
             return self._default_output()
-        return FrequentistTestResult(
+        result = FrequentistTestResult(
             expected=self.point_estimate,
             ci=self.confidence_interval,
             p_value=self.p_value,
@@ -130,6 +134,24 @@ class TTest(BaseABTest):
                 dist="normal",
                 mean=self.point_estimate,
                 stddev=np.sqrt(self.variance),
+            ),
+        )
+        if self.scaled:
+            result = self.scale_result(result, self.traffic_proportion_b)
+        return result
+
+    def scale_result(
+        self, result: FrequentistTestResult, traffic_proportion_b: float
+    ) -> FrequentistTestResult:
+        adjustment = self.stat_b.n / traffic_proportion_b
+        return FrequentistTestResult(
+            expected=result.expected * adjustment,
+            ci=[result.ci[0] * adjustment, result.ci[1] * adjustment],
+            p_value=self.p_value,
+            uplift=Uplift(
+                dist=result.uplift.dist,
+                mean=result.uplift.mean * adjustment,
+                stddev=result.uplift.stddev * adjustment,
             ),
         )
 

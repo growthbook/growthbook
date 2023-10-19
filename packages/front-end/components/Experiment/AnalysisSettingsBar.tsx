@@ -213,6 +213,7 @@ export default function AnalysisSettingsBar({
                 setAnalysisSettings={setAnalysisSettings}
                 loading={!!loading}
                 mutate={mutate}
+                phase={phase}
               />
             </div>
           ) : null}

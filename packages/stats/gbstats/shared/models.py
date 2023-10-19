@@ -195,10 +195,13 @@ def create_joint_statistic(
         "Statistic types for a metric must not be different types across variations."
     )
 
+
 # Data class for test config
 @dataclass
 class BaseConfig:
     difference_type: DifferenceType = DifferenceType.RELATIVE
+    traffic_proportion_b: float = 1
+
 
 # Data classes for the results of tests
 @dataclass

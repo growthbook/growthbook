@@ -229,7 +229,9 @@ def analyze_metric_df(
                 engine, sequential, binomial_test
             )
             # Run the A/B test analysis of baseline vs variation
-            test = ABTestClass(stat_a, stat_b, ABTestConfig(**test_config))
+            test_config_copy = test_config.copy()
+            test_config_copy["traffic_proportion_b"] = weights[i]
+            test = ABTestClass(stat_a, stat_b, ABTestConfig(**test_config_copy))
             res = test.compute_result()
 
             # Unpack result in Pandas row
@@ -238,7 +240,6 @@ def analyze_metric_df(
                 s[f"v{i}_prob_beat_baseline"] = res.chance_to_win
             elif isinstance(res, FrequentistTestResult):
                 s[f"v{i}_p_value"] = res.p_value
-
             if stat_a.unadjusted_mean <= 0:
                 # negative or missing control mean
                 s[f"v{i}_expected"] = 0
@@ -372,11 +373,12 @@ def check_srm(users, weights):
     if not total_observed:
         return 1
 
+    total_weight = sum(weights)
     x = 0
     for i, o in enumerate(users):
         if weights[i] <= 0:
             continue
-        e = weights[i] * total_observed
+        e = weights[i] / total_weight * total_observed
         x = x + ((o - e) ** 2) / e
 
     return chi2.sf(x, len(users) - 1)

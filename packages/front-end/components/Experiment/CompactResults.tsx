@@ -6,7 +6,11 @@ import {
   MetricRegressionAdjustmentStatus,
 } from "back-end/types/report";
 import { ExperimentStatus, MetricOverride } from "back-end/types/experiment";
-import { DifferenceType, PValueCorrection, StatsEngine } from "back-end/types/stats";
+import {
+  DifferenceType,
+  PValueCorrection,
+  StatsEngine,
+} from "back-end/types/stats";
 import Link from "next/link";
 import { FaAngleRight, FaTimes, FaUsers } from "react-icons/fa";
 import Collapsible from "react-collapsible";
@@ -57,7 +61,7 @@ const CompactResults: FC<{
   regressionAdjustmentEnabled?: boolean;
   metricRegressionAdjustmentStatuses?: MetricRegressionAdjustmentStatus[];
   sequentialTestingEnabled?: boolean;
-  differenceType?: DifferenceType;
+  differenceType: DifferenceType;
   metricFilter?: ResultsMetricFilters;
   setMetricFilter?: (filter: ResultsMetricFilters) => void;
   isTabActive: boolean;

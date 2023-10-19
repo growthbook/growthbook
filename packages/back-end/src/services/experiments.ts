@@ -312,6 +312,7 @@ export function getSnapshotSettings({
       id: v.key || i + "",
       weight: phase.variationWeights[i] || 0,
     })),
+    coverage: phase.coverage ?? 1,
   };
 }
 

@@ -19,7 +19,6 @@ from gbstats.shared.tests import BaseABTest
 from gbstats.shared.constants import DifferenceType
 
 
-
 @dataclass
 class GaussianPrior:
     mean: float = 0
@@ -96,7 +95,7 @@ class BayesianABTest(BaseABTest):
         self, mean_diff: float, std_diff: float, ccr: float, log: bool
     ) -> List[float]:
         ci = norm.ppf([ccr / 2, 1 - ccr / 2], mean_diff, std_diff)
-        
+
         if log:
             return (np.exp(ci) - 1).tolist()
         return ci.tolist()
@@ -106,6 +105,23 @@ class BayesianABTest(BaseABTest):
             return 1 - norm.sf(0, mean_diff, std_diff)
         else:
             return norm.sf(0, mean_diff, std_diff)
+
+    def scale_result(self, result: BayesianTestResult, p: float) -> BayesianTestResult:
+        if result.uplift.dist != "normal":
+            raise ValueError("Cannot scale relative results.")
+        adjustment = self.stat_b.n / p
+        return BayesianTestResult(
+            chance_to_win=result.chance_to_win,
+            expected=result.expected * adjustment,
+            ci=[result.ci[0] * adjustment, result.ci[1] * adjustment],
+            uplift=Uplift(
+                dist=result.uplift.dist,
+                mean=result.uplift.mean * adjustment,
+                stddev=result.uplift.stddev * adjustment,
+            ),
+            risk=result.risk,
+        )
+
 
 class BinomialBayesianABTest(BayesianABTest):
     def __init__(
@@ -118,6 +134,8 @@ class BinomialBayesianABTest(BayesianABTest):
         self.prior_a = config.prior_a
         self.prior_b = config.prior_b
         self.relative = config.difference_type == DifferenceType.RELATIVE
+        self.scaled = config.difference_type == DifferenceType.SCALED
+        self.traffic_proportion_b = config.traffic_proportion_b
 
     def compute_result(self) -> BayesianTestResult:
         # TODO refactor validation to base test
@@ -135,7 +153,7 @@ class BinomialBayesianABTest(BayesianABTest):
 
         mean_diff = mean_b - mean_a
         std_diff = np.sqrt(var_a + var_b)
-            
+
         risk = Beta.risk(alpha_a, beta_a, alpha_b, beta_b).tolist()
         # Flip risk and chance to win for inverse metrics
         risk = [risk[0], risk[1]] if not self.inverse else [risk[1], risk[0]]
@@ -152,9 +170,15 @@ class BinomialBayesianABTest(BayesianABTest):
             chance_to_win=ctw,
             expected=expected,
             ci=ci,
-            uplift=Uplift(dist="lognormal" if self.relative else "normal", mean=mean_diff, stddev=std_diff),
+            uplift=Uplift(
+                dist="lognormal" if self.relative else "normal",
+                mean=mean_diff,
+                stddev=std_diff,
+            ),
             risk=risk,
         )
+        if self.scaled:
+            result = self.scale_result(result, self.traffic_proportion_b)
         return result
 
 
@@ -170,6 +194,8 @@ class GaussianBayesianABTest(BayesianABTest):
         self.prior_b = config.prior_b
         self.epsilon = config.epsilon
         self.relative = config.difference_type == DifferenceType.RELATIVE
+        self.scaled = config.difference_type == DifferenceType.SCALED
+        self.traffic_proportion_b = config.traffic_proportion_b
 
     def _is_log_approximation_inexact(
         self, mean_std_dev_pairs: Tuple[Tuple[float, float], Tuple[float, float]]
@@ -219,12 +245,17 @@ class GaussianBayesianABTest(BayesianABTest):
             ],
         )
 
-
-        if self.relative & self._is_log_approximation_inexact(((mu_a, sd_a), (mu_b, sd_b))):
+        if self.relative & self._is_log_approximation_inexact(
+            ((mu_a, sd_a), (mu_b, sd_b))
+        ):
             return self._default_output()
 
-        mean_a, var_a = Norm.moments(mu_a, sd_a, log=self.relative, epsilon=self.epsilon)
-        mean_b, var_b = Norm.moments(mu_b, sd_b, log=self.relative, epsilon=self.epsilon)
+        mean_a, var_a = Norm.moments(
+            mu_a, sd_a, log=self.relative, epsilon=self.epsilon
+        )
+        mean_b, var_b = Norm.moments(
+            mu_b, sd_b, log=self.relative, epsilon=self.epsilon
+        )
 
         mean_diff = mean_b - mean_a
         std_diff = np.sqrt(var_a + var_b)
@@ -243,7 +274,13 @@ class GaussianBayesianABTest(BayesianABTest):
             chance_to_win=ctw,
             expected=expected,
             ci=ci,
-            uplift=Uplift(dist="lognormal" if self.relative else "normal", mean=mean_diff, stddev=std_diff),
+            uplift=Uplift(
+                dist="lognormal" if self.relative else "normal",
+                mean=mean_diff,
+                stddev=std_diff,
+            ),
             risk=risk,
         )
+        if self.scaled:
+            result = self.scale_result(result, self.traffic_proportion_b)
         return result

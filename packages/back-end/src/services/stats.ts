@@ -36,6 +36,7 @@ export async function analyzeExperimentMetric(
   variations: ExperimentReportVariation[],
   metric: ExperimentMetricInterface,
   rows: ExperimentMetricQueryResponseRows,
+  coverage: number = 1,
   dimension: string | null = null,
   statsEngine: StatsEngine = DEFAULT_STATS_ENGINE,
   sequentialTestingEnabled: boolean = false,
@@ -65,6 +66,12 @@ export async function analyzeExperimentMetric(
     DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER;
   const pValueThresholdNumber =
     Number(pValueThreshold) || DEFAULT_P_VALUE_THRESHOLD;
+  let differenceTypeString = "DifferenceType.RELATIVE";
+  if (differenceType == "absolute") {
+    differenceTypeString = "DifferenceType.ABSOLUTE";
+  } else if (differenceType == "scaled") {
+    differenceTypeString = "DifferenceType.SCALED";
+  }
   const result = await promisify(PythonShell.runString)(
     `
 from gbstats.gbstats import (
@@ -82,7 +89,7 @@ import json
 data = json.loads("""${JSON.stringify({
       var_id_map: variationIdMap,
       var_names: sortedVariations.map((v) => v.name),
-      weights: sortedVariations.map((v) => v.weight),
+      weights: sortedVariations.map((v) => v.weight * coverage),
       baseline_index: baselineVariationIndex ?? 0,
       ignore_nulls: "ignoreNulls" in metric && !!metric.ignoreNulls,
       inverse: !!metric.inverse,
@@ -126,11 +133,7 @@ engine_config=${
         ? `{'sequential': True, 'sequential_tuning_parameter': ${sequentialTestingTuningParameterNumber}}`
         : "{}"
     }
-engine_config = {'difference_type': ${
-      differenceType === "relative"
-        ? `DifferenceType.RELATIVE`
-        : `DifferenceType.ABSOLUTE`
-    }}
+engine_config = {'difference_type': ${differenceTypeString}}
 ${
   statsEngine === "frequentist" && pValueThresholdNumber
     ? `engine_config['alpha'] = ${pValueThresholdNumber}`
@@ -254,6 +257,7 @@ export async function analyzeExperimentResults({
           })),
           metric,
           data.rows,
+          snapshotSettings.coverage ?? 1,
           analysisSettings.dimensions[0],
           analysisSettings.statsEngine,
           analysisSettings.sequentialTesting,

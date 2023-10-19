@@ -1970,6 +1970,7 @@ export async function postSnapshotAnalysis(
   req: AuthRequest<
     {
       analysisSettings: ExperimentSnapshotAnalysisSettings;
+      phaseIndex?: number;
     },
     { id: string }
   >,
@@ -1987,7 +1988,7 @@ export async function postSnapshotAnalysis(
     return;
   }
 
-  const { analysisSettings } = req.body;
+  const { analysisSettings, phaseIndex } = req.body;
 
   const experiment = await getExperimentById(org.id, snapshot.experiment);
   if (!experiment) {
@@ -1999,6 +2000,12 @@ export async function postSnapshotAnalysis(
   }
 
   const metricMap = await getMetricMap(org.id);
+
+  if (snapshot.settings.coverage === undefined) {
+    const latestPhase = experiment.phases.length - 1;
+    snapshot.settings.coverage =
+      experiment.phases[phaseIndex ?? latestPhase].coverage;
+  }
 
   try {
     await createSnapshotAnalysis({

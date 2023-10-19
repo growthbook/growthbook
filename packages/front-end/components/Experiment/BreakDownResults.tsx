@@ -56,7 +56,7 @@ const BreakDownResults: FC<{
   regressionAdjustmentEnabled?: boolean;
   metricRegressionAdjustmentStatuses?: MetricRegressionAdjustmentStatus[];
   sequentialTestingEnabled?: boolean;
-  differenceType?: DifferenceType;
+  differenceType: DifferenceType;
   metricFilter?: ResultsMetricFilters;
   setMetricFilter?: (filter: ResultsMetricFilters) => void;
 }> = ({
