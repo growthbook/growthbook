@@ -10,6 +10,7 @@ import { FeatureDefinition } from "../../types/api";
 import { GroupMap } from "../../types/saved-group";
 import { SDKPayloadKey } from "../../types/sdk-payload";
 import { ExperimentInterface } from "../../types/experiment";
+import { FeatureRevisionInterface } from "../../types/feature-revision";
 import { getCurrentEnabledState } from "./scheduleRules";
 
 export function replaceSavedGroupsInCondition(
@@ -185,14 +186,14 @@ export function getFeatureDefinition({
   environment,
   groupMap,
   experimentMap,
-  useDraft = false,
+  revision,
   returnRuleId = false,
 }: {
   feature: FeatureInterface;
   environment: string;
   groupMap: GroupMap;
   experimentMap: Map<string, ExperimentInterface>;
-  useDraft?: boolean;
+  revision?: FeatureRevisionInterface;
   returnRuleId?: boolean;
 }): FeatureDefinition | null {
   const settings = feature.environmentSettings?.[environment];
@@ -202,17 +203,12 @@ export function getFeatureDefinition({
     return null;
   }
 
-  const draft = feature.draft;
-  if (!draft?.active) {
-    useDraft = false;
-  }
-
-  const defaultValue = useDraft
-    ? draft?.defaultValue ?? feature.defaultValue
+  const defaultValue = revision
+    ? revision.defaultValue ?? feature.defaultValue
     : feature.defaultValue;
 
-  const rules = useDraft
-    ? draft?.rules?.[environment] ?? settings.rules
+  const rules = revision
+    ? revision.rules?.[environment] ?? settings.rules
     : settings.rules;
 
   const isRule = (

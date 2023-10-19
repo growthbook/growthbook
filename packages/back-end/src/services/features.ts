@@ -56,6 +56,7 @@ import {
   ApiFeatureEnvSettingsRules,
 } from "../api/features/postFeature";
 import { ArchetypeAttributeValues } from "../../types/archetype";
+import { FeatureRevisionInterface } from "../../types/feature-revision";
 import { getEnvironments, getOrganizationById } from "./organizations";
 
 export type AttributeMap = Map<string, string>;
@@ -515,6 +516,7 @@ export async function getFeatureDefinitions({
 
 export async function evaluateFeature(
   feature: FeatureInterface,
+  revision: FeatureRevisionInterface,
   attributes: ArchetypeAttributeValues,
   org: OrganizationInterface
 ) {
@@ -547,7 +549,7 @@ export async function evaluateFeature(
         groupMap,
         experimentMap,
         environment: env.id,
-        useDraft: true,
+        revision,
         returnRuleId: true,
       });
       if (definition) {

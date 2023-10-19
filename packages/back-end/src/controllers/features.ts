@@ -1,7 +1,6 @@
 import { Request, Response } from "express";
 import { evaluateFeatures } from "@growthbook/proxy-eval";
 import { isEqual } from "lodash";
-import { mergeRevision } from "shared/util";
 import {
   ExperimentRefRule,
   FeatureInterface,
@@ -1037,8 +1036,7 @@ export async function postFeatureEvaluate(
     throw new Error("Could not find feature revision");
   }
 
-  const featureWithRevision = mergeRevision(feature, revision);
-  const results = await evaluateFeature(featureWithRevision, attributes, org);
+  const results = await evaluateFeature(feature, revision, attributes, org);
 
   res.status(200).json({
     status: 200,

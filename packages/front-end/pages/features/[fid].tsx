@@ -1,7 +1,7 @@
 import { useRouter } from "next/router";
 import { FeatureInterface, FeatureRule } from "back-end/types/feature";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import { FaChevronRight, FaExclamationTriangle } from "react-icons/fa";
 import { datetime } from "shared/dates";
 import { getValidation, mergeRevision } from "shared/util";
@@ -96,22 +96,13 @@ export default function FeaturePage() {
   const [showImplementation, setShowImplementation] = useState(firstFeature);
   const environments = useEnvironments();
 
-  if (error) {
-    return (
-      <div className="alert alert-danger">
-        An error occurred: {error.message}
-      </div>
+  const revision = useMemo<FeatureRevisionInterface | null>(() => {
+    if (!data) return null;
+    const match = data.revisions.find(
+      (r) => r.version === (version || data.feature.version)
     );
-  }
-  if (!data) {
-    return <LoadingOverlay />;
-  }
+    if (match) return match;
 
-  const currentVersion = version || data.feature.version;
-
-  let revision = data.revisions.find((r) => r.version === currentVersion);
-
-  if (!revision) {
     const rules: Record<string, FeatureRule[]> = {};
     Object.entries(data.feature.environmentSettings).forEach(
       ([env, settings]) => {
@@ -119,7 +110,7 @@ export default function FeaturePage() {
       }
     );
 
-    revision = {
+    return {
       baseVersion: data.feature.version,
       comment: "",
       createdBy: null,
@@ -134,12 +125,27 @@ export default function FeaturePage() {
       status: "published",
       version: data.feature.version,
     };
-  }
+  }, [data, version]);
 
-  const feature =
-    revision.version !== data.feature.version
+  const feature = useMemo(() => {
+    if (!revision || !data) return null;
+    return revision.version !== data.feature.version
       ? mergeRevision(data.feature, revision)
       : data.feature;
+  }, [data, revision]);
+
+  if (error) {
+    return (
+      <div className="alert alert-danger">
+        An error occurred: {error.message}
+      </div>
+    );
+  }
+  if (!data || !feature || !revision) {
+    return <LoadingOverlay />;
+  }
+
+  const currentVersion = version || data.feature.version;
 
   const { jsonSchema, validationEnabled, schemaDateUpdated } = getValidation(
     feature
@@ -854,7 +860,7 @@ export default function FeaturePage() {
 
       <div className="mb-4">
         <h3>Test Feature Rules</h3>
-        <AssignmentTester feature={feature} />
+        <AssignmentTester feature={feature} version={currentVersion} />
       </div>
 
       <div className="mb-4">

@@ -23,6 +23,7 @@ import { FeatureTestResult } from "../../../types/feature";
 import { evaluateFeature } from "../../services/features";
 import { getFeature } from "../../models/FeatureModel";
 import { promiseAllChunks } from "../../util/promise";
+import { getRevision } from "../../models/FeatureRevisionModel";
 
 // region GET /sample-users
 
@@ -55,7 +56,7 @@ export const getArchetype = async (
 
 // endregion GET /sample-users
 
-// region GET /sample-users/eval/:id
+// region GET /archetype/eval/:id
 
 type GetArchetypeAndEvalResponse = {
   status: 200;
@@ -66,17 +67,17 @@ type GetArchetypeAndEvalResponse = {
 };
 
 /**
- * GET /sample-users/eval/:id
+ * GET /archetype/eval/:id
  * Get sample users and eval for a given feature
  * @param req
  * @param res
  */
 export const getArchetypeAndEval = async (
-  req: AuthRequest<null, { id: string }>,
+  req: AuthRequest<null, { id: string; version: string }>,
   res: Response<GetArchetypeAndEvalResponse | PrivateApiErrorResponse>
 ) => {
   const { org, userId } = getOrgFromReq(req);
-  const { id } = req.params;
+  const { id, version } = req.params;
   const feature = await getFeature(org.id, id);
 
   if (!feature) {
@@ -96,12 +97,17 @@ export const getArchetypeAndEval = async (
   const featureResults: { [key: string]: FeatureTestResult[] } = {};
 
   if (archetype.length) {
+    const revision = await getRevision(org.id, feature.id, parseInt(version));
+    if (!revision) {
+      throw new Error("Could not find feature revision");
+    }
+
     const promiseCallbacks: (() => Promise<unknown>)[] = [];
     archetype.forEach((arch) => {
       try {
         const attrs = JSON.parse(arch.attributes) as ArchetypeAttributeValues;
         promiseCallbacks.push(async () => {
-          const result = await evaluateFeature(feature, attrs, org);
+          const result = await evaluateFeature(feature, revision, attrs, org);
           if (!result) return;
           featureResults[arch.id] = result;
         });
