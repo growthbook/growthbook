@@ -295,6 +295,22 @@ export function getAffectedEnvs(
   return changedEnvs.filter((e) => settings?.[e]?.enabled);
 }
 
+export function getDefaultValue(valueType: FeatureValueType): string {
+  if (valueType === "boolean") {
+    return "false";
+  }
+  if (valueType === "number") {
+    return "1";
+  }
+  if (valueType === "string") {
+    return "foo";
+  }
+  if (valueType === "json") {
+    return "{}";
+  }
+  return "";
+}
+
 export function getAffectedRevisionEnvs(
   liveFeature: FeatureInterface,
   revision: FeatureRevisionInterface

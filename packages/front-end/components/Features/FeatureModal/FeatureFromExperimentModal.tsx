@@ -109,6 +109,7 @@ const genFormDefaultValues = ({
     existing: "",
     valueType: type,
     defaultValue,
+    version: 1,
     description: experiment.description || "",
     id: "",
     owner: "",
@@ -271,12 +272,15 @@ export default function FeatureFromExperimentModal({
         }
 
         if (existing) {
-          await apiCall(`/feature/${featureToCreate.id}/experiment`, {
-            method: "POST",
-            body: JSON.stringify({
-              rule: rule,
-            }),
-          });
+          await apiCall(
+            `/feature/${featureToCreate.id}/${featureToCreate.version}/experiment`,
+            {
+              method: "POST",
+              body: JSON.stringify({
+                rule: rule,
+              }),
+            }
+          );
         } else {
           featureToCreate.defaultValue = parseDefaultValue(
             values.defaultValue,
