@@ -526,7 +526,6 @@ app.post(
 app.post("/feature/:id/archive", featuresController.postFeatureArchive);
 app.post("/feature/:id/toggle", featuresController.postFeatureToggle);
 app.post("/feature/:id/:version/fork", featuresController.postFeatureFork);
-app.post("/feature/:id/:version/draft", featuresController.postFeatureDraft);
 app.post("/feature/:id/:version/rule", featuresController.postFeatureRule);
 app.post(
   "/feature/:id/:version/experiment",

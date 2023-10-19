@@ -411,6 +411,10 @@ export async function postFeaturePublish(
     throw new Error("Could not find feature revision");
   }
 
+  if (revision.status !== "draft") {
+    throw new Error("Can only publish Draft revisions");
+  }
+
   req.checkPermissions("manageFeatures", feature.project);
 
   // If changing the default value, it affects all enabled environments
@@ -513,45 +517,14 @@ export async function postFeatureDiscard(
     throw new Error("Could not find feature revision");
   }
 
+  if (revision.status !== "draft") {
+    throw new Error("Can only discard draft revisions");
+  }
+
   req.checkPermissions("manageFeatures", feature.project);
   req.checkPermissions("createFeatureDrafts", feature.project);
 
   await discardRevision(revision);
-
-  res.status(200).json({
-    status: 200,
-  });
-}
-
-export async function postFeatureDraft(
-  req: AuthRequest<
-    {
-      defaultValue: string;
-      rules: Record<string, FeatureRule[]>;
-      comment: string;
-    },
-    { id: string; version: string }
-  >,
-  res: Response<{ status: 200 }, EventAuditUserForResponseLocals>
-) {
-  const { org } = getOrgFromReq(req);
-  const { id, version } = req.params;
-  const { defaultValue, rules, comment } = req.body;
-  const feature = await getFeature(org.id, id);
-
-  if (!feature) {
-    throw new Error("Could not find feature");
-  }
-
-  const revision = await getRevision(org.id, feature.id, parseInt(version));
-  if (!revision) {
-    throw new Error("Could not find feature revision");
-  }
-
-  req.checkPermissions("manageFeatures", feature.project);
-  req.checkPermissions("createFeatureDrafts", feature.project);
-
-  await updateRevision(revision, { defaultValue, rules, comment });
 
   res.status(200).json({
     status: 200,
@@ -563,28 +536,34 @@ export async function postFeatureRule(
     { rule: FeatureRule; environment: string },
     { id: string; version: string }
   >,
-  res: Response<{ status: 200 }, EventAuditUserForResponseLocals>
+  res: Response<
+    { status: 200; version: number },
+    EventAuditUserForResponseLocals
+  >
 ) {
   const { org } = getOrgFromReq(req);
   const { id, version } = req.params;
   const { environment, rule } = req.body;
-  const feature = await getFeature(org.id, id);
 
+  const feature = await getFeature(org.id, id);
   if (!feature) {
     throw new Error("Could not find feature");
-  }
-  const revision = await getRevision(org.id, feature.id, parseInt(version));
-  if (!revision) {
-    throw new Error("Could not find feature revision");
   }
 
   req.checkPermissions("manageFeatures", feature.project);
   req.checkPermissions("createFeatureDrafts", feature.project);
 
+  const revision = await getDraftRevision(
+    feature,
+    parseInt(version),
+    res.locals.eventAudit
+  );
+
   await addFeatureRule(revision, environment, rule);
 
   res.status(200).json({
     status: 200,
+    version: revision.version,
   });
 }
 
@@ -593,7 +572,10 @@ export async function postFeatureExperimentRefRule(
     { rule: ExperimentRefRule },
     { id: string; version: string }
   >,
-  res: Response<{ status: 200 }, EventAuditUserForResponseLocals>
+  res: Response<
+    { status: 200; version: number },
+    EventAuditUserForResponseLocals
+  >
 ) {
   const { org } = getOrgFromReq(req);
   const { id, version } = req.params;
@@ -613,24 +595,29 @@ export async function postFeatureExperimentRefRule(
     throw new Error("Could not find feature");
   }
 
-  const revision = await getRevision(org.id, feature.id, parseInt(version));
-  if (!revision) {
-    throw new Error("Could not find feature revision");
-  }
-
   req.checkPermissions("manageFeatures", feature.project);
   req.checkPermissions("createFeatureDrafts", feature.project);
+
+  const revision = await getDraftRevision(
+    feature,
+    parseInt(version),
+    res.locals.eventAudit
+  );
 
   await addExperimentRefRule(org, revision, rule);
 
   res.status(200).json({
     status: 200,
+    version: revision.version,
   });
 }
 
 export async function deleteFeatureExperimentRefRule(
   req: AuthRequest<{ experimentId: string }, { id: string; version: string }>,
-  res: Response<{ status: 200 }, EventAuditUserForResponseLocals>
+  res: Response<
+    { status: 200; version: number },
+    EventAuditUserForResponseLocals
+  >
 ) {
   const { org } = getOrgFromReq(req);
   const { id, version } = req.params;
@@ -641,26 +628,33 @@ export async function deleteFeatureExperimentRefRule(
     throw new Error("Could not find feature");
   }
 
-  const revision = await getRevision(org.id, feature.id, parseInt(version));
-  if (!revision) {
-    throw new Error("Could not find feature revision");
-  }
-
   req.checkPermissions("manageFeatures", feature.project);
   req.checkPermissions("createFeatureDrafts", feature.project);
+
+  const revision = await getDraftRevision(
+    feature,
+    parseInt(version),
+    res.locals.eventAudit
+  );
 
   await deleteExperimentRefRule(org, revision, experimentId);
 
   res.status(200).json({
     status: 200,
+    version: revision.version,
   });
 }
 
 async function getDraftRevision(
   feature: FeatureInterface,
-  revision: FeatureRevisionInterface,
+  version: number,
   user: EventAuditUser
 ): Promise<FeatureRevisionInterface> {
+  const revision = await getRevision(feature.organization, feature.id, version);
+  if (!revision) {
+    throw new Error("Cannot find revision");
+  }
+
   // This is the published version, create a new draft revision
   if (revision.version === feature.version) {
     return await createRevision(feature, user, revision);
@@ -690,21 +684,17 @@ export async function postFeatureDefaultValue(
   req.checkPermissions("manageFeatures", feature.project);
   req.checkPermissions("createFeatureDrafts", feature.project);
 
-  const revision = await getRevision(org.id, feature.id, parseInt(version));
-  if (!revision) {
-    throw new Error("Could not find feature revision");
-  }
-
-  const draftRevision = await getDraftRevision(
+  const revision = await getDraftRevision(
     feature,
-    revision,
+    parseInt(version),
     res.locals.eventAudit
   );
-  await setDefaultValue(draftRevision, defaultValue);
+
+  await setDefaultValue(revision, defaultValue);
 
   res.status(200).json({
     status: 200,
-    version: draftRevision.version,
+    version: revision.version,
   });
 }
 
@@ -751,7 +741,10 @@ export async function putFeatureRule(
     { rule: Partial<FeatureRule>; environment: string; i: number },
     { id: string; version: string }
   >,
-  res: Response<{ status: 200 }, EventAuditUserForResponseLocals>
+  res: Response<
+    { status: 200; version: number },
+    EventAuditUserForResponseLocals
+  >
 ) {
   const { org } = getOrgFromReq(req);
   const { id, version } = req.params;
@@ -762,18 +755,20 @@ export async function putFeatureRule(
     throw new Error("Could not find feature");
   }
 
-  const revision = await getRevision(org.id, feature.id, parseInt(version));
-  if (!revision) {
-    throw new Error("Could not find feature revision");
-  }
-
   req.checkPermissions("manageFeatures", feature.project);
   req.checkPermissions("createFeatureDrafts", feature.project);
+
+  const revision = await getDraftRevision(
+    feature,
+    parseInt(version),
+    res.locals.eventAudit
+  );
 
   await editFeatureRule(revision, environment, i, rule);
 
   res.status(200).json({
     status: 200,
+    version: revision.version,
   });
 }
 
@@ -827,7 +822,10 @@ export async function postFeatureMoveRule(
     { environment: string; from: number; to: number },
     { id: string; version: string }
   >,
-  res: Response<{ status: 200 }, EventAuditUserForResponseLocals>
+  res: Response<
+    { status: 200; version: number },
+    EventAuditUserForResponseLocals
+  >
 ) {
   const { org } = getOrgFromReq(req);
   const { id, version } = req.params;
@@ -838,13 +836,14 @@ export async function postFeatureMoveRule(
     throw new Error("Could not find feature");
   }
 
-  const revision = await getRevision(org.id, feature.id, parseInt(version));
-  if (!revision) {
-    throw new Error("Could not find feature revision");
-  }
-
   req.checkPermissions("manageFeatures", feature.project);
   req.checkPermissions("createFeatureDrafts", feature.project);
+
+  const revision = await getDraftRevision(
+    feature,
+    parseInt(version),
+    res.locals.eventAudit
+  );
 
   const changes = { rules: revision.rules || {} };
   const rules = changes.rules[environment];
@@ -857,6 +856,7 @@ export async function postFeatureMoveRule(
 
   res.status(200).json({
     status: 200,
+    version: revision.version,
   });
 }
 
@@ -865,7 +865,10 @@ export async function deleteFeatureRule(
     { environment: string; i: number },
     { id: string; version: string }
   >,
-  res: Response<{ status: 200 }, EventAuditUserForResponseLocals>
+  res: Response<
+    { status: 200; version: number },
+    EventAuditUserForResponseLocals
+  >
 ) {
   const { org } = getOrgFromReq(req);
   const { id, version } = req.params;
@@ -876,13 +879,14 @@ export async function deleteFeatureRule(
     throw new Error("Could not find feature");
   }
 
-  const revision = await getRevision(org.id, feature.id, parseInt(version));
-  if (!revision) {
-    throw new Error("Could not find feature revision");
-  }
-
   req.checkPermissions("manageFeatures", feature.project);
   req.checkPermissions("createFeatureDrafts", feature.project);
+
+  const revision = await getDraftRevision(
+    feature,
+    parseInt(version),
+    res.locals.eventAudit
+  );
 
   const changes = { rules: revision.rules || {} };
   const rules = changes.rules[environment];
@@ -897,6 +901,7 @@ export async function deleteFeatureRule(
 
   res.status(200).json({
     status: 200,
+    version: revision.version,
   });
 }
 

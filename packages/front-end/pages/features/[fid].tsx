@@ -188,7 +188,7 @@ export default function FeaturePage() {
           close={() => setEdit(false)}
           feature={feature}
           mutate={mutate}
-          revision={revision}
+          version={currentVersion}
           setVersion={setVersion}
         />
       )}
@@ -220,6 +220,8 @@ export default function FeaturePage() {
           environment={ruleModal.environment}
           mutate={mutate}
           defaultType={ruleModal.defaultType || ""}
+          version={currentVersion}
+          setVersion={setVersion}
         />
       )}
       {auditModal && (
@@ -278,6 +280,10 @@ export default function FeaturePage() {
           revision={revision}
           close={() => setDraftModal(false)}
           mutate={mutate}
+          onDiscard={() => {
+            // When discarding a draft, switch back to the live version
+            setVersion(feature.version);
+          }}
         />
       )}
       {duplicateModal && (
@@ -731,6 +737,8 @@ export default function FeaturePage() {
                       feature={feature}
                       mutate={mutate}
                       setRuleModal={setRuleModal}
+                      version={currentVersion}
+                      setVersion={setVersion}
                     />
                   ) : (
                     <div className="p-3 bg-white">

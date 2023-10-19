@@ -25,11 +25,15 @@ export default function RuleList({
   mutate,
   environment,
   setRuleModal,
+  version,
+  setVersion,
 }: {
   feature: FeatureInterface;
   environment: string;
   mutate: () => void;
   setRuleModal: (rule: { environment: string; i: number }) => void;
+  version: number;
+  setVersion: (version: number) => void;
 }) {
   const { apiCall } = useAuth();
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -100,15 +104,19 @@ export default function RuleList({
           const newRules = arrayMove(items, oldIndex, newIndex);
 
           setItems(newRules);
-          await apiCall(`/feature/${feature.id}/reorder`, {
-            method: "POST",
-            body: JSON.stringify({
-              environment,
-              from: oldIndex,
-              to: newIndex,
-            }),
-          });
-          mutate();
+          const res = await apiCall<{ version: number }>(
+            `/feature/${feature.id}/${version}/reorder`,
+            {
+              method: "POST",
+              body: JSON.stringify({
+                environment,
+                from: oldIndex,
+                to: newIndex,
+              }),
+            }
+          );
+          await mutate();
+          res.version && setVersion(res.version);
         }
         setActiveId(null);
       }}
@@ -130,6 +138,8 @@ export default function RuleList({
             mutate={mutate}
             setRuleModal={setRuleModal}
             unreachable={!!unreachableIndex && i >= unreachableIndex}
+            version={version}
+            setVersion={setVersion}
           />
         ))}
       </SortableContext>
@@ -142,6 +152,8 @@ export default function RuleList({
             feature={feature}
             mutate={mutate}
             setRuleModal={setRuleModal}
+            version={version}
+            setVersion={setVersion}
           />
         ) : null}
       </DragOverlay>

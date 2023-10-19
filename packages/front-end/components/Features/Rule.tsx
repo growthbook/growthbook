@@ -35,6 +35,8 @@ interface SortableProps {
   mutate: () => void;
   setRuleModal: (args: { environment: string; i: number }) => void;
   unreachable?: boolean;
+  version: number;
+  setVersion: (version: number) => void;
 }
 
 type RuleProps = SortableProps &
@@ -54,6 +56,8 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
       mutate,
       handle,
       unreachable,
+      version,
+      setVersion,
       ...props
     },
     ref
@@ -191,18 +195,22 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                         type: rule.type,
                       }
                     );
-                    await apiCall(`/feature/${feature.id}/rule`, {
-                      method: "PUT",
-                      body: JSON.stringify({
-                        environment,
-                        rule: {
-                          ...rule,
-                          enabled: !rule.enabled,
-                        },
-                        i,
-                      }),
-                    });
-                    mutate();
+                    const res = await apiCall<{ version: number }>(
+                      `/feature/${feature.id}/${version}/rule`,
+                      {
+                        method: "PUT",
+                        body: JSON.stringify({
+                          environment,
+                          rule: {
+                            ...rule,
+                            enabled: !rule.enabled,
+                          },
+                          i,
+                        }),
+                      }
+                    );
+                    await mutate();
+                    res.version && setVersion(res.version);
                   }}
                 >
                   {rule.enabled ? "Disable" : "Enable"}
@@ -215,19 +223,23 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                       color=""
                       className="dropdown-item"
                       onClick={async () => {
-                        await apiCall(`/feature/${feature.id}/rule`, {
-                          method: "POST",
-                          body: JSON.stringify({
-                            environment: en.id,
-                            rule: { ...rule, id: "" },
-                          }),
-                        });
+                        const res = await apiCall<{ version: number }>(
+                          `/feature/${feature.id}/${version}/rule`,
+                          {
+                            method: "POST",
+                            body: JSON.stringify({
+                              environment: en.id,
+                              rule: { ...rule, id: "" },
+                            }),
+                          }
+                        );
                         track("Clone Feature Rule", {
                           ruleIndex: i,
                           environment,
                           type: rule.type,
                         });
-                        mutate();
+                        await mutate();
+                        res.version && setVersion(res.version);
                       }}
                     >
                       Copy to {en.id}
@@ -244,14 +256,18 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                       environment,
                       type: rule.type,
                     });
-                    await apiCall(`/feature/${feature.id}/rule`, {
-                      method: "DELETE",
-                      body: JSON.stringify({
-                        environment,
-                        i,
-                      }),
-                    });
-                    mutate();
+                    const res = await apiCall<{ version: number }>(
+                      `/feature/${feature.id}/${version}/rule`,
+                      {
+                        method: "DELETE",
+                        body: JSON.stringify({
+                          environment,
+                          i,
+                        }),
+                      }
+                    );
+                    await mutate();
+                    res.version && setVersion(res.version);
                   }}
                 />
               </MoreMenu>

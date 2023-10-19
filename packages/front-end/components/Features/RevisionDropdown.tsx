@@ -22,10 +22,12 @@ export default function RevisionDropdown({
 
   const versions = new Map(allRevisions.map((r) => [r.version + "", r]));
 
-  const options = allRevisions.map((r) => ({
-    value: r.version + "",
-    label: r.version + "",
-  }));
+  const options = allRevisions
+    .filter((r) => r.status !== "discarded" || r.version === version)
+    .map((r) => ({
+      value: r.version + "",
+      label: r.version + "",
+    }));
   options.sort((a, b) => parseInt(b.value) - parseInt(a.value));
 
   return (
@@ -52,6 +54,13 @@ export default function RevisionDropdown({
                 <span className="badge badge-warning">draft</span>
               ) : revision?.status === "published" ? (
                 <span className="badge badge-light border">locked</span>
+              ) : revision?.status === "discarded" ? (
+                <span
+                  className="badge badge-secondary border"
+                  style={{ opacity: 0.6 }}
+                >
+                  discarded
+                </span>
               ) : null}
             </div>
             <div style={{ marginTop: -4 }}>
