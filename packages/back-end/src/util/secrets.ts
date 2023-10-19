@@ -29,9 +29,10 @@ if (!MONGODB_URI) {
   if (
     process.env.MONGODB_USERNAME &&
     process.env.MONGODB_PASSWORD &&
-    process.env.MONGODB_HOSTNAME
+    process.env.MONGODB_HOSTNAME &&
+    process.env.MONGODB_DBNAME
   ) {
-    MONGODB_URI = `mongodb://${process.env.MONGODB_USERNAME}:${process.env.MONGODB_PASSWORD}@${process.env.MONGODB_HOSTNAME}/growthbook`;
+    MONGODB_URI = `mongodb://${process.env.MONGODB_USERNAME}:${process.env.MONGODB_PASSWORD}@${process.env.MONGODB_HOSTNAME}/${process.env.MONGODB_DBNAME}`;
 
     // Add extra args if they exist
     if (process.env.MONGODB_EXTRA_ARGS) {
@@ -40,20 +41,18 @@ if (!MONGODB_URI) {
   }
 }
 
+// For backwards compatibility, if no dbname is explicitly set, use "test" and add the authSource db.
+// This matches the default behavior of the MongoDB driver 3.X, which changed when we updated to 4.X
+if (!MONGODB_URI) {
+  MONGODB_URI = process.env.MONGODB_URI ?? (prod ? "" : "mongodb://root:password@localhost:27017/test?authSource=admin");
+}
+
 // Check if MONGODB_URI is still not set (either from environment or from the above generation)
 if (!MONGODB_URI) {
   throw new Error("Missing MONGODB_URI or required environment variables to generate it");
 }
 
-// For backwards compatibility, if no dbname is explicitly set, use "test" and add the authSource db.
-// This matches the default behavior of the MongoDB driver 3.X, which changed when we updated to 4.X
-if (MONGODB_URI.match(/:27017(\/)?$/)) {
-  MONGODB_URI = trimEnd(MONGODB_URI, "/") + "/test?authSource=admin";
-}
-
 export { MONGODB_URI };
-
-
 
 export const APP_ORIGIN = process.env.APP_ORIGIN || "http://localhost:3000";
 const isLocalhost = APP_ORIGIN.includes("localhost");
