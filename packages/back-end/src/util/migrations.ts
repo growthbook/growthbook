@@ -273,7 +273,7 @@ export function upgradeFeatureInterface(
     newFeature
   );
 
-  newFeature.version = revision?.version || 1;
+  newFeature.version = feature.version || revision?.version || 1;
 
   // Upgrade all published rules
   for (const env in newFeature.environmentSettings) {

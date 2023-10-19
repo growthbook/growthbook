@@ -2,11 +2,9 @@ import { FeatureInterface } from "back-end/types/feature";
 import ReactDiffViewer, { DiffMethod } from "react-diff-viewer";
 import { useState, useMemo } from "react";
 import { FaAngleDown, FaAngleRight } from "react-icons/fa";
-import {
-  getAffectedEnvs,
-  getEnabledEnvironments,
-  useEnvironments,
-} from "@/services/features";
+import { FeatureRevisionInterface } from "back-end/types/feature-revision";
+import isEqual from "lodash/isEqual";
+import { getAffectedRevisionEnvs, useEnvironments } from "@/services/features";
 import { useAuth } from "@/services/auth";
 import usePermissions from "@/hooks/usePermissions";
 import Modal from "../Modal";
@@ -15,6 +13,7 @@ import Field from "../Forms/Field";
 
 export interface Props {
   feature: FeatureInterface;
+  revision: FeatureRevisionInterface;
   close: () => void;
   mutate: () => void;
   onPublish?: () => void;
@@ -64,6 +63,7 @@ function ExpandableDiff({
 
 export default function DraftModal({
   feature,
+  revision,
   close,
   mutate,
   onPublish,
@@ -74,38 +74,30 @@ export default function DraftModal({
 
   const { apiCall } = useAuth();
 
-  const [comment, setComment] = useState(feature.draft?.comment || "");
+  const [comment, setComment] = useState(revision.comment || "");
 
   const diffs = useMemo(() => {
     const diffs: { a: string; b: string; title: string }[] = [];
 
-    // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-    if ("defaultValue" in feature.draft) {
+    if (revision.defaultValue !== feature.defaultValue) {
       diffs.push({
         title: "Default Value",
         a: feature.defaultValue,
-        // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'string | undefined' is not assignable to typ... Remove this comment to see the full error message
-        b: feature.draft.defaultValue,
+        b: revision.defaultValue,
       });
     }
-    // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-    if ("rules" in feature.draft) {
-      environments.forEach((env) => {
-        // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-        if (env.id in feature.draft.rules) {
-          diffs.push({
-            title: `Rules - ${env.id}`,
-            a: JSON.stringify(
-              feature.environmentSettings?.[env.id]?.rules || [],
-              null,
-              2
-            ),
-            // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-            b: JSON.stringify(feature.draft.rules[env.id] || [], null, 2),
-          });
-        }
-      });
-    }
+    environments.forEach((env) => {
+      const liveRules = feature.environmentSettings?.[env.id]?.rules || [];
+      const draftRules = revision.rules?.[env.id] || [];
+
+      if (!isEqual(liveRules, draftRules)) {
+        diffs.push({
+          title: `Rules - ${env.id}`,
+          a: JSON.stringify(liveRules, null, 2),
+          b: JSON.stringify(draftRules, null, 2),
+        });
+      }
+    });
 
     return diffs;
   }, [feature]);
@@ -113,28 +105,26 @@ export default function DraftModal({
   const hasPermission = permissions.check(
     "publishFeatures",
     feature.project,
-    // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-    "defaultValue" in feature.draft
-      ? getEnabledEnvironments(feature)
-      : getAffectedEnvs(feature, Object.keys(feature.draft?.rules || {}))
+    getAffectedRevisionEnvs(feature, revision)
   );
 
   return (
     <Modal
       open={true}
       header={"Review Draft Changes"}
-      // @ts-expect-error TS(2322) If you come across this, please fix it!: Type '(() => Promise<void>) | null' is not assigna... Remove this comment to see the full error message
       submit={
         hasPermission
           ? async () => {
               try {
-                await apiCall(`/feature/${feature.id}/publish`, {
-                  method: "POST",
-                  body: JSON.stringify({
-                    draft: feature.draft,
-                    comment,
-                  }),
-                });
+                await apiCall(
+                  `/feature/${feature.id}/${revision.version}/publish`,
+                  {
+                    method: "POST",
+                    body: JSON.stringify({
+                      comment,
+                    }),
+                  }
+                );
               } catch (e) {
                 await mutate();
                 throw e;
@@ -142,25 +132,24 @@ export default function DraftModal({
               await mutate();
               onPublish && onPublish();
             }
-          : null
+          : undefined
       }
       cta="Publish"
       close={close}
       closeCta="close"
       size="max"
-      // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'Element | null' is not assignable to type 'R... Remove this comment to see the full error message
       secondaryCTA={
         permissions.check("createFeatureDrafts", feature.project) ? (
           <Button
             color="outline-danger"
             onClick={async () => {
               try {
-                await apiCall(`/feature/${feature.id}/discard`, {
-                  method: "POST",
-                  body: JSON.stringify({
-                    draft: feature.draft,
-                  }),
-                });
+                await apiCall(
+                  `/feature/${feature.id}/${revision.version}/discard`,
+                  {
+                    method: "POST",
+                  }
+                );
               } catch (e) {
                 await mutate();
                 throw e;
@@ -172,7 +161,7 @@ export default function DraftModal({
           >
             Discard
           </Button>
-        ) : null
+        ) : undefined
       }
     >
       <h3>Review Changes</h3>

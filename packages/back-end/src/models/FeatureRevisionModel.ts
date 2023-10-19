@@ -116,7 +116,8 @@ export async function createRevisionFromLegacyDraft(feature: FeatureInterface) {
 
 export async function createRevision(
   feature: FeatureInterface,
-  user: EventAuditUser
+  user: EventAuditUser,
+  revisionBase?: FeatureRevisionInterface
 ) {
   // Get max version number
   const lastRevision = (
@@ -129,10 +130,18 @@ export async function createRevision(
   )[0];
   const newVersion = lastRevision ? lastRevision.version + 1 : 1;
 
+  const defaultValue = revisionBase
+    ? revisionBase.defaultValue
+    : feature.defaultValue;
+
   const rules: Record<string, FeatureRule[]> = {};
-  Object.keys(feature.environmentSettings || {}).forEach((env) => {
-    rules[env] = feature.environmentSettings?.[env]?.rules || [];
-  });
+  if (revisionBase) {
+    Object.entries(revisionBase.rules).forEach(([env, r]) => (rules[env] = r));
+  } else {
+    Object.keys(feature.environmentSettings || {}).forEach((env) => {
+      rules[env] = feature.environmentSettings?.[env]?.rules || [];
+    });
+  }
 
   const doc = await FeatureRevisionModel.create({
     organization: feature.organization,
@@ -142,11 +151,11 @@ export async function createRevision(
     dateUpdated: new Date(),
     datePublished: null,
     createdBy: user,
-    baseVersion: feature.version,
+    baseVersion: revisionBase ? revisionBase.version : feature.version,
     status: "draft",
     publishedBy: null,
     comment: "",
-    defaultValue: feature.defaultValue,
+    defaultValue,
     rules,
   });
 
@@ -177,7 +186,8 @@ export async function updateRevision(
 
 export async function markRevisionAsPublished(
   revision: FeatureRevisionInterface,
-  user: EventAuditUser
+  user: EventAuditUser,
+  comment?: string
 ) {
   if (revision.status !== "draft") {
     throw new Error("Can only publish draft revisions");
@@ -195,6 +205,7 @@ export async function markRevisionAsPublished(
         publishedBy: user,
         datePublished: new Date(),
         dateUpdated: new Date(),
+        comment: comment ?? revision.comment,
       },
     }
   );

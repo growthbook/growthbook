@@ -42,6 +42,7 @@ import {
   auditDetailsDelete,
 } from "../services/audit";
 import {
+  createRevision,
   discardRevision,
   getRevision,
   getRevisions,
@@ -55,10 +56,14 @@ import {
 import { logger } from "../util/logger";
 import { addTagsDiff } from "../models/TagModel";
 import { FASTLY_SERVICE_ID } from "../util/secrets";
-import { EventAuditUserForResponseLocals } from "../events/event-types";
+import {
+  EventAuditUser,
+  EventAuditUserForResponseLocals,
+} from "../events/event-types";
 import { upsertWatch } from "../models/WatchModel";
 import { getSurrogateKeysFromSDKPayloadKeys } from "../util/cdn.util";
 import { SDKPayloadKey } from "../../types/sdk-payload";
+import { FeatureRevisionInterface } from "../../types/feature-revision";
 
 class UnrecoverableApiError extends Error {
   constructor(message: string) {
@@ -388,10 +393,11 @@ export async function postFeatures(
 }
 
 export async function postFeaturePublish(
-  req: AuthRequest<never, { id: string; version: string }>,
+  req: AuthRequest<{ comment: string }, { id: string; version: string }>,
   res: Response
 ) {
   const { org } = getOrgFromReq(req);
+  const { comment } = req.body;
   const { id, version } = req.params;
   const feature = await getFeature(org.id, id);
 
@@ -432,7 +438,8 @@ export async function postFeaturePublish(
     org,
     feature,
     revision,
-    res.locals.eventAudit
+    res.locals.eventAudit,
+    comment
   );
 
   await req.audit({
@@ -443,11 +450,48 @@ export async function postFeaturePublish(
     },
     details: auditDetailsUpdate(feature, updatedFeature, {
       revision: revision.version,
+      comment,
     }),
   });
 
   res.status(200).json({
     status: 200,
+  });
+}
+
+export async function postFeatureFork(
+  req: AuthRequest<never, { id: string; version: string }>,
+  res: Response<
+    { status: 200; version: number },
+    EventAuditUserForResponseLocals
+  >
+) {
+  const { org } = getOrgFromReq(req);
+  const { id, version } = req.params;
+
+  const feature = await getFeature(org.id, id);
+
+  if (!feature) {
+    throw new Error("Could not find feature");
+  }
+
+  const revision = await getRevision(org.id, feature.id, parseInt(version));
+  if (!revision) {
+    throw new Error("Could not find feature revision");
+  }
+
+  req.checkPermissions("manageFeatures", feature.project);
+  req.checkPermissions("createFeatureDrafts", feature.project);
+
+  const newRevision = await createRevision(
+    feature,
+    res.locals.eventAudit,
+    revision
+  );
+
+  res.status(200).json({
+    status: 200,
+    version: newRevision.version,
   });
 }
 
@@ -612,9 +656,27 @@ export async function deleteFeatureExperimentRefRule(
   });
 }
 
+async function getDraftRevision(
+  feature: FeatureInterface,
+  revision: FeatureRevisionInterface,
+  user: EventAuditUser
+): Promise<FeatureRevisionInterface> {
+  // This is the published version, create a new draft revision
+  if (revision.version === feature.version) {
+    return await createRevision(feature, user, revision);
+  } else if (revision.status !== "draft") {
+    throw new Error("Can only make changes to draft revisions");
+  }
+
+  return revision;
+}
+
 export async function postFeatureDefaultValue(
   req: AuthRequest<{ defaultValue: string }, { id: string; version: string }>,
-  res: Response<{ status: 200 }, EventAuditUserForResponseLocals>
+  res: Response<
+    { status: 200; version: number },
+    EventAuditUserForResponseLocals
+  >
 ) {
   const { org } = getOrgFromReq(req);
   const { id, version } = req.params;
@@ -625,18 +687,24 @@ export async function postFeatureDefaultValue(
     throw new Error("Could not find feature");
   }
 
+  req.checkPermissions("manageFeatures", feature.project);
+  req.checkPermissions("createFeatureDrafts", feature.project);
+
   const revision = await getRevision(org.id, feature.id, parseInt(version));
   if (!revision) {
     throw new Error("Could not find feature revision");
   }
 
-  req.checkPermissions("manageFeatures", feature.project);
-  req.checkPermissions("createFeatureDrafts", feature.project);
-
-  await setDefaultValue(revision, defaultValue);
+  const draftRevision = await getDraftRevision(
+    feature,
+    revision,
+    res.locals.eventAudit
+  );
+  await setDefaultValue(draftRevision, defaultValue);
 
   res.status(200).json({
     status: 200,
+    version: draftRevision.version,
   });
 }
 

@@ -1,6 +1,7 @@
 import { useForm } from "react-hook-form";
 import { FeatureInterface } from "back-end/types/feature";
 import { validateFeatureValue } from "shared/util";
+import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import { useAuth } from "@/services/auth";
 import { getFeatureDefaultValue } from "@/services/features";
 import Modal from "../Modal";
@@ -8,14 +9,18 @@ import FeatureValueField from "./FeatureValueField";
 
 export interface Props {
   feature: FeatureInterface;
+  revision: FeatureRevisionInterface;
   close: () => void;
   mutate: () => void;
+  setVersion: (version: number) => void;
 }
 
 export default function EditDefaultValueModal({
   feature,
+  revision,
   close,
   mutate,
+  setVersion,
 }: Props) {
   const form = useForm({
     defaultValues: {
@@ -40,11 +45,15 @@ export default function EditDefaultValueModal({
           );
         }
 
-        await apiCall(`/feature/${feature.id}/defaultvalue`, {
-          method: "POST",
-          body: JSON.stringify(value),
-        });
-        mutate();
+        const res = await apiCall<{ version: number }>(
+          `/feature/${feature.id}/${revision.version}/defaultvalue`,
+          {
+            method: "POST",
+            body: JSON.stringify(value),
+          }
+        );
+        await mutate();
+        setVersion(res.version);
       })}
       close={close}
       open={true}

@@ -716,7 +716,8 @@ export async function publishRevision(
   organization: OrganizationInterface,
   feature: FeatureInterface,
   revision: FeatureRevisionInterface,
-  user: EventAuditUser
+  user: EventAuditUser,
+  comment?: string
 ) {
   if (revision.status !== "draft") {
     throw new Error("Can only publish a draft revision");
@@ -761,7 +762,7 @@ export async function publishRevision(
     feature,
     changes
   );
-  await markRevisionAsPublished(revision, user);
+  await markRevisionAsPublished(revision, user, comment);
 
   return updatedFeature;
 }

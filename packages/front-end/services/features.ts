@@ -20,6 +20,8 @@ import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { FeatureUsageRecords } from "back-end/types/realtime";
 import cloneDeep from "lodash/cloneDeep";
 import { generateVariationId, validateFeatureValue } from "shared/util";
+import { FeatureRevisionInterface } from "back-end/types/feature-revision";
+import isEqual from "lodash/isEqual";
 import { getUpcomingScheduleRule } from "@/services/scheduleRules";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import useOrgSettings from "../hooks/useOrgSettings";
@@ -293,21 +295,21 @@ export function getAffectedEnvs(
   return changedEnvs.filter((e) => settings?.[e]?.enabled);
 }
 
-export function getDefaultValue(valueType: FeatureValueType): string {
-  if (valueType === "boolean") {
-    return "false";
-  }
-  if (valueType === "number") {
-    return "1";
-  }
-  if (valueType === "string") {
-    return "foo";
-  }
-  if (valueType === "json") {
-    return "{}";
-  }
-  return "";
+export function getAffectedRevisionEnvs(
+  liveFeature: FeatureInterface,
+  revision: FeatureRevisionInterface
+): string[] {
+  const enabledEnvs = getEnabledEnvironments(liveFeature);
+  if (revision.defaultValue !== liveFeature.defaultValue) return enabledEnvs;
+
+  return enabledEnvs.filter((env) => {
+    const liveRules = liveFeature.environmentSettings?.[env]?.rules || [];
+    const revisionRules = revision.rules?.[env] || [];
+
+    return !isEqual(liveRules, revisionRules);
+  });
 }
+
 export function getDefaultVariationValue(defaultValue: string) {
   const map: Record<string, string> = {
     true: "false",

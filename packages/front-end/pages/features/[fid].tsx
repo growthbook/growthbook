@@ -1,11 +1,12 @@
 import { useRouter } from "next/router";
-import { FeatureInterface } from "back-end/types/feature";
+import { FeatureInterface, FeatureRule } from "back-end/types/feature";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import React, { useState } from "react";
 import { FaChevronRight, FaExclamationTriangle } from "react-icons/fa";
 import { datetime } from "shared/dates";
 import { getValidation, mergeRevision } from "shared/util";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
+import { MdRocketLaunch } from "react-icons/md";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import { GBAddCircle, GBEdit } from "@/components/Icons";
 import LoadingOverlay from "@/components/LoadingOverlay";
@@ -30,7 +31,7 @@ import {
   useEnvironmentState,
   useEnvironments,
   getEnabledEnvironments,
-  getAffectedEnvs,
+  getAffectedRevisionEnvs,
 } from "@/services/features";
 import AssignmentTester from "@/components/Archetype/AssignmentTester";
 import Tab from "@/components/Tabs/Tab";
@@ -90,7 +91,7 @@ export default function FeaturePage() {
   const { data, error, mutate } = useApi<{
     feature: FeatureInterface;
     revisions: FeatureRevisionInterface[];
-  }>(`/feature/${fid}/${version || ""}`);
+  }>(`/feature/${fid}`);
   const firstFeature = router?.query && "first" in router.query;
   const [showImplementation, setShowImplementation] = useState(firstFeature);
   const environments = useEnvironments();
@@ -108,10 +109,35 @@ export default function FeaturePage() {
 
   const currentVersion = version || data.feature.version;
 
-  const revision = data.revisions.find((r) => r.version === currentVersion);
+  let revision = data.revisions.find((r) => r.version === currentVersion);
+
+  if (!revision) {
+    const rules: Record<string, FeatureRule[]> = {};
+    Object.entries(data.feature.environmentSettings).forEach(
+      ([env, settings]) => {
+        rules[env] = settings.rules || [];
+      }
+    );
+
+    revision = {
+      baseVersion: data.feature.version,
+      comment: "",
+      createdBy: null,
+      dateCreated: data.feature.dateCreated,
+      datePublished: data.feature.dateCreated,
+      dateUpdated: data.feature.dateUpdated,
+      defaultValue: data.feature.defaultValue,
+      featureId: data.feature.id,
+      organization: data.feature.organization,
+      publishedBy: null,
+      rules: rules,
+      status: "published",
+      version: data.feature.version,
+    };
+  }
 
   const feature =
-    revision && revision.version !== data.feature.version
+    revision.version !== data.feature.version
       ? mergeRevision(data.feature, revision)
       : data.feature;
 
@@ -152,9 +178,7 @@ export default function FeaturePage() {
     permissions.check(
       "publishFeatures",
       projectId,
-      revision?.defaultValue !== data.feature.defaultValue
-        ? getEnabledEnvironments(feature)
-        : getAffectedEnvs(feature, Object.keys(revision?.rules || {}))
+      getAffectedRevisionEnvs(data.feature, revision)
     );
 
   return (
@@ -164,6 +188,8 @@ export default function FeaturePage() {
           close={() => setEdit(false)}
           feature={feature}
           mutate={mutate}
+          revision={revision}
+          setVersion={setVersion}
         />
       )}
       {editOwnerModal && (
@@ -246,9 +272,10 @@ export default function FeaturePage() {
           }}
         />
       )}
-      {draftModal && (
+      {draftModal && revision && (
         <DraftModal
-          feature={feature}
+          feature={data.feature}
+          revision={revision}
           close={() => setDraftModal(false)}
           mutate={mutate}
         />
@@ -272,25 +299,6 @@ export default function FeaturePage() {
         ]}
       />
 
-      {isDraft && (
-        <div
-          className="alert alert-warning mb-3 text-center shadow-sm"
-          style={{ top: 65, position: "sticky", zIndex: 900 }}
-        >
-          <FaExclamationTriangle className="text-warning" /> This feature has
-          unpublished changes.
-          <button
-            className="btn btn-primary ml-3 btn-sm"
-            onClick={(e) => {
-              e.preventDefault();
-              setDraftModal(true);
-            }}
-          >
-            Review{hasDraftPublishPermission && " and Publish"}
-          </button>
-        </div>
-      )}
-
       {projectId ===
         getDemoDatasourceProjectIdForOrganization(organization.id) && (
         <div className="alert alert-info mb-3 d-flex align-items-center">
@@ -313,6 +321,24 @@ export default function FeaturePage() {
           <h1 className="mb-0">{fid}</h1>
         </div>
         <div style={{ flex: 1 }} />
+        <div className="col-auto">
+          {revision?.status === "draft" && hasDraftPublishPermission && (
+            <Tooltip
+              body="View a diff of this draft revision and decide to either Publish or Discard the changes."
+              popperClassName="mt-2"
+            >
+              <button
+                className="btn btn-teal"
+                onClick={(e) => {
+                  e.preventDefault();
+                  setDraftModal(true);
+                }}
+              >
+                Review and Publish <MdRocketLaunch />
+              </button>
+            </Tooltip>
+          )}
+        </div>
         <div className="col-auto">
           <RevisionDropdown
             feature={feature}
