@@ -126,12 +126,13 @@ export function formatColumnRefValue(
   columnRef: ColumnRef,
   getFactTableById: (id: string) => FactTableInterface | null,
   value: number,
-  currency?: string
+  currency?: string,
+  ratio?: boolean
 ) {
   if (columnRef.column === "$$count") {
     return formatNumber(value);
   }
-  if (columnRef.column === "$$distinctUsers") {
+  if (columnRef.column === "$$distinctUsers" && !ratio) {
     return formatPercent(value);
   }
 
@@ -185,7 +186,8 @@ export function formatMetricValue(
           metric.numerator,
           getFactTableById,
           value,
-          currency
+          currency,
+          true
         );
       })();
 
