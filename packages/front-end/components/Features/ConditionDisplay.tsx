@@ -127,7 +127,7 @@ export default function ConditionDisplay({
       <SavedGroupTargetingDisplay
         savedGroups={savedGroupTargeting}
         groupClassName="col-auto"
-        initialPrefix={parts.length > 0 ? "AND" : "Users"}
+        initialAnd={parts.length > 0}
       />
     );
   }

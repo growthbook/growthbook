@@ -42,7 +42,7 @@ export default function SavedGroupTargetingField({ value, setValue }: Props) {
               return (
                 <div className="row align-items-center mb-3" key={i}>
                   <div className="col-auto" style={{ width: 70 }}>
-                    {i === 0 ? "Users in" : "AND"}
+                    {i === 0 ? "In" : "AND"}
                   </div>
                   <div className="col-auto">
                     <SelectField
