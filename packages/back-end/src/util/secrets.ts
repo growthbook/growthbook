@@ -29,10 +29,11 @@ if (!MONGODB_URI) {
   if (
     process.env.MONGODB_USERNAME &&
     process.env.MONGODB_PASSWORD &&
-    process.env.MONGODB_HOSTNAME &&
-    process.env.MONGODB_DBNAME
+    process.env.MONGODB_HOSTNAME
   ) {
-    MONGODB_URI = `mongodb://${process.env.MONGODB_USERNAME}:${process.env.MONGODB_PASSWORD}@${process.env.MONGODB_HOSTNAME}/${process.env.MONGODB_DBNAME}`;
+
+    const dbname = process.env.MONGODB_DBNAME || "growthbook"
+    MONGODB_URI = `mongodb://${process.env.MONGODB_USERNAME}:${process.env.MONGODB_PASSWORD}@${process.env.MONGODB_HOSTNAME}/${dbname}`;
 
     // Add extra args if they exist
     if (process.env.MONGODB_EXTRA_ARGS) {
@@ -43,13 +44,11 @@ if (!MONGODB_URI) {
 
 // For backwards compatibility, if no dbname is explicitly set, use "test" and add the authSource db.
 // This matches the default behavior of the MongoDB driver 3.X, which changed when we updated to 4.X
-if (!MONGODB_URI) {
-  MONGODB_URI = process.env.MONGODB_URI ?? (prod ? "" : "mongodb://root:password@localhost:27017/test?authSource=admin");
-}
-
-// Check if MONGODB_URI is still not set (either from environment or from the above generation)
-if (!MONGODB_URI) {
-  throw new Error("Missing MONGODB_URI or required environment variables to generate it");
+if(!MONOGODB_URI) {
+   if (prod) {
+      throw new Error("Missing MONGODB_URI or required alternate environment variables to generate it");
+   }
+   MONGODB_URI = "mongodb://root:password@localhost:27017/test?authSource=admin"
 }
 
 export { MONGODB_URI };
