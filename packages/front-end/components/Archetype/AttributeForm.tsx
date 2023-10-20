@@ -39,7 +39,6 @@ export default function AttributeForm({
   const orderedAttributes = useMemo<SDKAttributeSchema>(
     () => [
       ...attributeSchema.filter((o) => !o.archived),
-      ...attributeSchema.filter((o) => o.archived),
       ...(savedGroups.some((s) => s.source === "runtime")
         ? [
             {
@@ -52,6 +51,7 @@ export default function AttributeForm({
             } as const,
           ]
         : []),
+      ...attributeSchema.filter((o) => o.archived),
     ],
     [attributeSchema, savedGroups]
   );
