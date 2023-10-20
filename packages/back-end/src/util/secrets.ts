@@ -37,7 +37,7 @@ if (!MONGODB_URI) {
 
     // Add extra args if they exist
     if (process.env.MONGODB_EXTRA_ARGS) {
-      MONGODB_URI += `?${process.env.MONGODB_EXTRA_ARGS}`;
+      MONGODB_URI += `${process.env.MONGODB_EXTRA_ARGS}`;
     }
   }
 }
