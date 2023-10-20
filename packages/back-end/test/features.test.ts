@@ -50,7 +50,33 @@ describe("getParsedCondition", () => {
     groupMap.set("d", { values: ["4"], key: "id_d", source: "inline" });
     groupMap.set("e", { values: ["5"], key: "id_e", source: "inline" });
     groupMap.set("f", { values: ["6"], key: "id_f", source: "inline" });
+    groupMap.set("empty", { values: [], key: "empty", source: "inline" });
 
+    // No condition or saved group
+    expect(getParsedCondition(groupMap, "", [])).toBeUndefined();
+
+    // Single empty saved group
+    expect(
+      getParsedCondition(groupMap, "", [{ match: "any", ids: ["empty"] }])
+    ).toBeUndefined();
+
+    // No saved groups
+    expect(
+      getParsedCondition(groupMap, JSON.stringify({ country: "US" }), [])
+    ).toEqual({ country: "US" });
+
+    // Saved group in condition
+    expect(
+      getParsedCondition(
+        groupMap,
+        JSON.stringify({ id: { $inGroup: "a" } }),
+        []
+      )
+    ).toEqual({
+      id: { $in: ["0", "1"] },
+    });
+
+    // Single saved group
     expect(
       getParsedCondition(groupMap, "", [{ match: "any", ids: ["a"] }])
     ).toEqual({
@@ -59,15 +85,17 @@ describe("getParsedCondition", () => {
       },
     });
 
+    // Only 1 valid saved group
     expect(
       getParsedCondition(groupMap, "", [
-        { match: "any", ids: ["b"] },
-        { match: "all", ids: ["g"] },
+        { match: "any", ids: ["b", "empty", "g"] },
+        { match: "all", ids: ["g", "empty"] },
       ])
     ).toEqual({
       id_b: { $in: ["2"] },
     });
 
+    // Condition + a bunch of saved groups
     expect(
       getParsedCondition(groupMap, JSON.stringify({ country: "US" }), [
         {

@@ -54,7 +54,10 @@ export function getParsedCondition(
     savedGroups.forEach(({ ids, match }) => {
       const groups = ids
         .map((id) => groupMap.get(id))
-        .filter(Boolean) as GroupMapValue[];
+        // Must either have at least 1 value or be defined at runtime
+        .filter(
+          (group) => group?.source === "runtime" || !!group?.values?.length
+        ) as GroupMapValue[];
       if (!groups.length) return;
 
       // Add each group as a separate top-level AND
