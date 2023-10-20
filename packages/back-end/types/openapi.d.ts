@@ -711,6 +711,7 @@ export interface components {
       /** Format: date-time */
       dateUpdated: string;
       name: string;
+      organization: string;
       languages: (string)[];
       environment: string;
       project: string;
@@ -2385,6 +2386,7 @@ export interface operations {
                 /** Format: date-time */
                 dateUpdated: string;
                 name: string;
+                organization: string;
                 languages: (string)[];
                 environment: string;
                 project: string;
@@ -2426,6 +2428,7 @@ export interface operations {
               /** Format: date-time */
               dateUpdated: string;
               name: string;
+              organization: string;
               languages: (string)[];
               environment: string;
               project: string;

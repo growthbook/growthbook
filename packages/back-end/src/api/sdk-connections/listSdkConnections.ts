@@ -1,6 +1,7 @@
 import { ListSdkConnectionsResponse } from "../../../types/openapi";
 import {
   findSDKConnectionsByOrganization,
+  findSDKConnectionsByOrganizations,
   toApiSDKConnectionInterface,
 } from "../../models/SdkConnectionModel";
 import {
@@ -9,14 +10,24 @@ import {
   createApiRequestHandler,
 } from "../../util/handler";
 import { listSdkConnectionsValidator } from "../../validators/openapi";
+import { findOrganizationsByMemberId } from "../../models/OrganizationModel";
+import { SDKConnectionInterface } from "../../../types/sdk-connection";
 
 export const listSdkConnections = createApiRequestHandler(
   listSdkConnectionsValidator
 )(
   async (req): Promise<ListSdkConnectionsResponse> => {
-    const connections = await findSDKConnectionsByOrganization(
-      req.organization.id
-    );
+    let connections: SDKConnectionInterface[] = [];
+    const user = req?.user;
+
+    if (user) {
+      const orgs = await findOrganizationsByMemberId(user.id);
+      connections = await findSDKConnectionsByOrganizations(
+        orgs.map((o) => o.id)
+      );
+    } else {
+      connections = await findSDKConnectionsByOrganization(req.organization.id);
+    }
 
     const { filtered, returnFields } = applyPagination(
       connections

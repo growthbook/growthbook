@@ -2828,6 +2828,7 @@ components:
         - dateCreated
         - dateUpdated
         - name
+        - organization
         - languages
         - environment
         - project
@@ -2847,6 +2848,8 @@ components:
           type: string
           format: date-time
         name:
+          type: string
+        organization:
           type: string
         languages:
           type: array
