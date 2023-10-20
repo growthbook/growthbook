@@ -7,12 +7,6 @@ import {
 } from "../../../types/scim";
 import { addMemberToTeam } from "../../services/organizations";
 
-const DEFAULT_TEAM_PERMISSIONS = {
-  role: "collaborator",
-  limitAccessByEnvironment: false,
-  environments: [],
-};
-
 export async function createGroup(
   req: ScimGroupPostRequest,
   res: Response
@@ -21,12 +15,19 @@ export async function createGroup(
 
   const org = req.organization;
 
+  const DEFAULT_TEAM_PERMISSIONS = {
+    role: org.settings?.defaultRole?.role || "collaborator",
+    limitAccessByEnvironment: false,
+    environments: [],
+  };
+
   try {
     const group = await createTeam({
       name: displayName,
       createdBy: "SCIM",
       description: "Created via SCIM.",
       organization: org.id,
+      managedByIdp: true,
       ...DEFAULT_TEAM_PERMISSIONS,
     });
 

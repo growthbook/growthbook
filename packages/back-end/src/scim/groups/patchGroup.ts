@@ -40,6 +40,14 @@ export async function patchGroup(
     try {
       if (op === "remove") {
         // Remove requested members
+        if (!path) {
+          return res.status(400).json({
+            schemas: ["urn:ietf:params:scim:api:messages:2.0:Error"],
+            status: "400",
+            detail: "Remove operation must include a path",
+          });
+        }
+
         // Maps each team member to a ScimGroupMember keyed with 'members' so that we can filter by the requested path
         // i.e. path: 'members[value eq "u_123abcdefg"]'
         const members: { members: ScimGroupMember }[] = (
@@ -49,14 +57,6 @@ export async function patchGroup(
           .map((member) => {
             return { members: { value: member.id, display: member.email } };
           });
-
-        if (!path) {
-          return res.status(400).json({
-            schemas: ["urn:ietf:params:scim:api:messages:2.0:Error"],
-            status: "400",
-            detail: "Remove operation must include a path",
-          });
-        }
 
         const f = filter(parse(path));
         const filtered = members.filter(f);
@@ -111,6 +111,7 @@ export async function patchGroup(
         await updateTeamMetadata(team.id, org.id, {
           ...team,
           name: (value as BasicScimGroup).displayName,
+          managedByIdp: true,
         });
       } else {
         return res.status(400).json({

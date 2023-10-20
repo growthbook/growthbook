@@ -21,6 +21,15 @@ export async function deleteGroup(
     });
   }
 
+  if (!group.managedByIdp) {
+    return res.status(400).json({
+      schemas: ["urn:ietf:params:scim:api:messages:2.0:Error"],
+      detail:
+        "Team is currently managed by GrowthBook. Please link to an Okta group to use SCIM.",
+      status: "400",
+    });
+  }
+
   const members = org.members.filter((member) => member.teams?.includes(id));
 
   try {

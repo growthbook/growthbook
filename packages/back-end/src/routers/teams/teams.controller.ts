@@ -55,6 +55,7 @@ export const postTeam = async (
     description,
     organization: org.id,
     ...permissions,
+    managedByIdp: true,
   });
 
   await req.audit({
@@ -198,6 +199,7 @@ export const updateTeam = async (
     description,
     projectRoles: [],
     ...permissions,
+    managedByIdp: team.managedByIdp,
   });
 
   // If making changes to members remove members and add new requested members
@@ -273,6 +275,14 @@ export const deleteTeamById = async (
       status: 400,
       message:
         "Cannot delete a team that has members. Please delete members before retrying.",
+    });
+  }
+
+  if (team?.managedByIdp) {
+    return res.status(400).json({
+      status: 400,
+      message:
+        "Cannot delete a team that is being managed by Okta. Please delete the team through the Okta UI.",
     });
   }
 
