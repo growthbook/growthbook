@@ -1,5 +1,5 @@
 # Build the python gbstats package
-FROM python:3.9-slim AS pybuild
+FROM python:3.12.0b1-slim AS pybuild
 WORKDIR /usr/local/src/app
 COPY ./packages/stats .
 RUN \
@@ -38,7 +38,7 @@ RUN \
 
 
 # Package the full app together
-FROM python:3.9-slim
+FROM python:3.12.0b1-slim
 WORKDIR /usr/local/src/app
 RUN apt-get update && \
   apt-get install -y wget gnupg2 && \
