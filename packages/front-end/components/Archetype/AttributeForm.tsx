@@ -137,7 +137,7 @@ export default function AttributeForm({
                   attribute.enum
                     ? attribute.enum
                         .split(",")
-                        .map((v) => ({ value: v, label: v }))
+                        .map((v) => ({ value: v.trim(), label: v.trim() }))
                     : []
                 }
                 value={attributeForm.watch(attribute.property) || []}
@@ -145,7 +145,7 @@ export default function AttributeForm({
                   attributeForm.setValue(attribute.property, value);
                   updateFormValues();
                 }}
-                creatable
+                creatable={!attribute.enum}
               />
             ) : (
               <Field
