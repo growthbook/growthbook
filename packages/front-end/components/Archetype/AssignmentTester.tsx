@@ -163,7 +163,11 @@ export default function AssignmentTester({ feature, version }: Props) {
                     {tr?.result?.value !== undefined ? (
                       <div className="col">
                         <ValueDisplay
-                          value={JSON.stringify(tr.result.value)}
+                          value={
+                            typeof tr.result.value === "string"
+                              ? tr.result.value
+                              : JSON.stringify(tr.result.value)
+                          }
                           type={feature.valueType}
                         />
                       </div>

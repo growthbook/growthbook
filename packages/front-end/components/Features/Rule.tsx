@@ -93,6 +93,9 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
       (linkedExperiment && isExperimentRefRuleSkipped(linkedExperiment)) ||
       !rule.enabled;
 
+    const hasCondition =
+      (rule.condition && rule.condition !== "{}") || !!rule.savedGroups?.length;
+
     return (
       <div
         className={`p-3 ${
@@ -283,18 +286,19 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
             }}
             className="pt-1 position-relative"
           >
-            {rule.condition &&
-              rule.condition !== "{}" &&
-              rule.type !== "experiment-ref" && (
-                <div className="row mb-3 align-items-top">
-                  <div className="col-auto">
-                    <strong>IF</strong>
-                  </div>
-                  <div className="col">
-                    <ConditionDisplay condition={rule.condition} />
-                  </div>
+            {hasCondition && rule.type !== "experiment-ref" && (
+              <div className="row mb-3 align-items-top">
+                <div className="col-auto">
+                  <strong>IF</strong>
                 </div>
-              )}
+                <div className="col">
+                  <ConditionDisplay
+                    condition={rule.condition || ""}
+                    savedGroups={rule.savedGroups}
+                  />
+                </div>
+              </div>
+            )}
             {rule.type === "force" && (
               <ForceSummary value={rule.value} feature={feature} />
             )}

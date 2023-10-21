@@ -55,7 +55,11 @@ import {
   Operator,
 } from "../../types/metric";
 import { SegmentInterface } from "../../types/segment";
-import { ExperimentInterface, MetricOverride } from "../../types/experiment";
+import {
+  ExperimentInterface,
+  ExperimentPhase,
+  MetricOverride,
+} from "../../types/experiment";
 import { promiseAllChunks } from "../util/promise";
 import { findDimensionById } from "../models/DimensionModel";
 import { findSegmentById } from "../models/SegmentModel";
@@ -653,6 +657,10 @@ export async function toExperimentApiInterface(
         weight: p.variationWeights[i] || 0,
       })),
       targetingCondition: p.condition || "",
+      savedGroupTargeting: (p.savedGroups || []).map((s) => ({
+        matchType: s.match,
+        savedGroups: s.ids,
+      })),
       namespace: p.namespace?.enabled
         ? {
             namespaceId: p.namespace.name,
@@ -1506,13 +1514,17 @@ export function postExperimentApiPayloadToInterface(
   organization: OrganizationInterface,
   datasource: DataSourceInterface
 ): Omit<ExperimentInterface, "dateCreated" | "dateUpdated" | "id"> {
-  const phases = payload.phases?.map((p) => ({
+  const phases: ExperimentPhase[] = payload.phases?.map((p) => ({
     ...p,
     dateStarted: new Date(p.dateStarted),
     dateEnded: p.dateEnded ? new Date(p.dateEnded) : undefined,
     reason: p.reason || "",
     coverage: p.coverage != null ? p.coverage : 1,
     condition: p.condition || "{}",
+    savedGroups: (p.savedGroupTargeting || []).map((s) => ({
+      match: s.matchType,
+      ids: s.savedGroups,
+    })),
     namespace: {
       name: p.namespace?.namespaceId || "",
       range: toNamespaceRange(p.namespace?.range),
@@ -1531,6 +1543,7 @@ export function postExperimentApiPayloadToInterface(
         () => 1 / payload.variations.length
       ),
       condition: "",
+      savedGroups: [],
       namespace: {
         enabled: false,
         name: "",
@@ -1654,6 +1667,10 @@ export function updateExperimentApiPayloadToInterface(
             reason: p.reason || "",
             coverage: p.coverage != null ? p.coverage : 1,
             condition: p.condition || "{}",
+            savedGroups: (p.savedGroupTargeting || []).map((s) => ({
+              match: s.matchType,
+              ids: s.savedGroups,
+            })),
             namespace: {
               name: p.namespace?.namespaceId || "",
               range: toNamespaceRange(p.namespace?.range),

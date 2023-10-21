@@ -26,10 +26,7 @@ import {
   getAllPayloadExperiments,
   getAllVisualExperiments,
 } from "../models/ExperimentModel";
-import {
-  getFeatureDefinition,
-  replaceSavedGroupsInCondition,
-} from "../util/features";
+import { getFeatureDefinition, getParsedCondition } from "../util/features";
 import { getAllSavedGroups } from "../models/SavedGroupModel";
 import {
   Environment,
@@ -115,16 +112,11 @@ function generateVisualExperimentsPayload({
           ? e.variations.find((v) => v.id === e.releasedVariationId)
           : null;
 
-      let condition;
-      if (phase?.condition && phase.condition !== "{}") {
-        try {
-          condition = JSON.parse(
-            replaceSavedGroupsInCondition(phase.condition, groupMap)
-          );
-        } catch (e) {
-          // ignore condition parse errors here
-        }
-      }
+      const condition = getParsedCondition(
+        groupMap,
+        phase?.condition,
+        phase?.savedGroups
+      );
 
       if (!phase) return null;
 
@@ -194,7 +186,10 @@ export async function getSavedGroupMap(
     allGroups.map((group) => {
       const attributeType = attributeMap?.get(group.attributeKey);
       const values = getGroupValues(group.values, attributeType);
-      return [group.id, values];
+      return [
+        group.id,
+        { values, key: group.attributeKey, source: group.source },
+      ];
     })
   );
 
@@ -205,6 +200,7 @@ export async function refreshSDKPayloadCache(
   organization: OrganizationInterface,
   payloadKeys: SDKPayloadKey[],
   allFeatures: FeatureInterface[] | null = null,
+  experimentMap?: Map<string, ExperimentInterface>,
   skipRefreshForProject?: string
 ) {
   // Ignore any old environments which don't exist anymore
@@ -223,7 +219,8 @@ export async function refreshSDKPayloadCache(
   // If no environments are affected, we don't need to update anything
   if (!payloadKeys.length) return;
 
-  const experimentMap = await getAllPayloadExperiments(organization.id);
+  experimentMap =
+    experimentMap || (await getAllPayloadExperiments(organization.id));
   const groupMap = await getSavedGroupMap(organization);
   allFeatures = allFeatures || (await getAllFeatures(organization.id));
   const allVisualExperiments = await getAllVisualExperiments(
@@ -691,6 +688,10 @@ export function getApiFeatureObj({
           ? rule.coverage ?? 1
           : 1,
       condition: rule.condition || "",
+      savedGroupTargeting: (rule.savedGroups || []).map((s) => ({
+        matchType: s.match,
+        savedGroups: s.ids,
+      })),
       enabled: !!rule.enabled,
     }));
     const definition = getFeatureDefinition({
@@ -932,6 +933,10 @@ const fromApiEnvSettingsRulesToFeatureEnvSettingsRules = (
         description: r.description ?? "",
         value: validateFeatureValue(feature, r.value),
         condition: r.condition,
+        savedGroups: (r.savedGroupTargeting || []).map((s) => ({
+          ids: s.savedGroups,
+          match: s.matchType,
+        })),
         enabled: r.enabled != null ? r.enabled : true,
       };
       return forceRule;
@@ -945,6 +950,10 @@ const fromApiEnvSettingsRulesToFeatureEnvSettingsRules = (
       hashAttribute: r.hashAttribute,
       value: validateFeatureValue(feature, r.value),
       condition: r.condition,
+      savedGroups: (r.savedGroupTargeting || []).map((s) => ({
+        ids: s.savedGroups,
+        match: s.matchType,
+      })),
       enabled: r.enabled != null ? r.enabled : true,
     };
     return rolloutRule;

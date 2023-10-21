@@ -314,23 +314,33 @@ export interface components {
         [key: string]: ({
           enabled: boolean;
           defaultValue: string;
-          rules: ({
+          rules: (({
               description: string;
               condition: string;
+              savedGroupTargeting?: ({
+                  /** @enum {string} */
+                  matchType: "all" | "any" | "none";
+                  savedGroups: (string)[];
+                })[];
               id: string;
               enabled: boolean;
               type: string;
               value: string;
-            } | {
+            }) | ({
               description: string;
               condition: string;
+              savedGroupTargeting?: ({
+                  /** @enum {string} */
+                  matchType: "all" | "any" | "none";
+                  savedGroups: (string)[];
+                })[];
               id: string;
               enabled: boolean;
               type: string;
               value: string;
               coverage: number;
               hashAttribute: string;
-            } | {
+            }) | {
               description: string;
               condition: string;
               id: string;
@@ -366,23 +376,33 @@ export interface components {
           draft?: {
             enabled: boolean;
             defaultValue: string;
-            rules: ({
+            rules: (({
                 description: string;
                 condition: string;
+                savedGroupTargeting?: ({
+                    /** @enum {string} */
+                    matchType: "all" | "any" | "none";
+                    savedGroups: (string)[];
+                  })[];
                 id: string;
                 enabled: boolean;
                 type: string;
                 value: string;
-              } | {
+              }) | ({
                 description: string;
                 condition: string;
+                savedGroupTargeting?: ({
+                    /** @enum {string} */
+                    matchType: "all" | "any" | "none";
+                    savedGroups: (string)[];
+                  })[];
                 id: string;
                 enabled: boolean;
                 type: string;
                 value: string;
                 coverage: number;
                 hashAttribute: string;
-              } | {
+              }) | {
                 description: string;
                 condition: string;
                 id: string;
@@ -429,23 +449,33 @@ export interface components {
     FeatureEnvironment: {
       enabled: boolean;
       defaultValue: string;
-      rules: ({
+      rules: (({
           description: string;
           condition: string;
+          savedGroupTargeting?: ({
+              /** @enum {string} */
+              matchType: "all" | "any" | "none";
+              savedGroups: (string)[];
+            })[];
           id: string;
           enabled: boolean;
           type: string;
           value: string;
-        } | {
+        }) | ({
           description: string;
           condition: string;
+          savedGroupTargeting?: ({
+              /** @enum {string} */
+              matchType: "all" | "any" | "none";
+              savedGroups: (string)[];
+            })[];
           id: string;
           enabled: boolean;
           type: string;
           value: string;
           coverage: number;
           hashAttribute: string;
-        } | {
+        }) | {
           description: string;
           condition: string;
           id: string;
@@ -481,23 +511,33 @@ export interface components {
       draft?: {
         enabled: boolean;
         defaultValue: string;
-        rules: ({
+        rules: (({
             description: string;
             condition: string;
+            savedGroupTargeting?: ({
+                /** @enum {string} */
+                matchType: "all" | "any" | "none";
+                savedGroups: (string)[];
+              })[];
             id: string;
             enabled: boolean;
             type: string;
             value: string;
-          } | {
+          }) | ({
             description: string;
             condition: string;
+            savedGroupTargeting?: ({
+                /** @enum {string} */
+                matchType: "all" | "any" | "none";
+                savedGroups: (string)[];
+              })[];
             id: string;
             enabled: boolean;
             type: string;
             value: string;
             coverage: number;
             hashAttribute: string;
-          } | {
+          }) | {
             description: string;
             condition: string;
             id: string;
@@ -532,23 +572,33 @@ export interface components {
         definition?: string;
       };
     };
-    FeatureRule: {
+    FeatureRule: ({
       description: string;
       condition: string;
+      savedGroupTargeting?: ({
+          /** @enum {string} */
+          matchType: "all" | "any" | "none";
+          savedGroups: (string)[];
+        })[];
       id: string;
       enabled: boolean;
       type: string;
       value: string;
-    } | {
+    }) | ({
       description: string;
       condition: string;
+      savedGroupTargeting?: ({
+          /** @enum {string} */
+          matchType: "all" | "any" | "none";
+          savedGroups: (string)[];
+        })[];
       id: string;
       enabled: boolean;
       type: string;
       value: string;
       coverage: number;
       hashAttribute: string;
-    } | {
+    }) | {
       description: string;
       condition: string;
       id: string;
@@ -597,6 +647,11 @@ export interface components {
     FeatureForceRule: {
       description: string;
       condition: string;
+      savedGroupTargeting?: ({
+          /** @enum {string} */
+          matchType: "all" | "any" | "none";
+          savedGroups: (string)[];
+        })[];
       id: string;
       enabled: boolean;
       type: string;
@@ -605,6 +660,11 @@ export interface components {
     FeatureRolloutRule: {
       description: string;
       condition: string;
+      savedGroupTargeting?: ({
+          /** @enum {string} */
+          matchType: "all" | "any" | "none";
+          savedGroups: (string)[];
+        })[];
       id: string;
       enabled: boolean;
       type: string;
@@ -708,6 +768,11 @@ export interface components {
             range: (unknown)[];
           };
           targetingCondition: string;
+          savedGroupTargeting?: ({
+              /** @enum {string} */
+              matchType: "all" | "any" | "none";
+              savedGroups: (string)[];
+            })[];
         })[];
       settings: {
         datasourceId: string;
@@ -969,6 +1034,8 @@ export interface components {
       /** Format: date-time */
       dateUpdated: string;
       name: string;
+      /** @enum {string} */
+      source: "inline" | "runtime";
       owner?: string;
       attributeKey: string;
       values: (string)[];
@@ -1047,23 +1114,33 @@ export interface operations {
                   [key: string]: ({
                     enabled: boolean;
                     defaultValue: string;
-                    rules: ({
+                    rules: (({
                         description: string;
                         condition: string;
+                        savedGroupTargeting?: ({
+                            /** @enum {string} */
+                            matchType: "all" | "any" | "none";
+                            savedGroups: (string)[];
+                          })[];
                         id: string;
                         enabled: boolean;
                         type: string;
                         value: string;
-                      } | {
+                      }) | ({
                         description: string;
                         condition: string;
+                        savedGroupTargeting?: ({
+                            /** @enum {string} */
+                            matchType: "all" | "any" | "none";
+                            savedGroups: (string)[];
+                          })[];
                         id: string;
                         enabled: boolean;
                         type: string;
                         value: string;
                         coverage: number;
                         hashAttribute: string;
-                      } | {
+                      }) | {
                         description: string;
                         condition: string;
                         id: string;
@@ -1099,23 +1176,33 @@ export interface operations {
                     draft?: {
                       enabled: boolean;
                       defaultValue: string;
-                      rules: ({
+                      rules: (({
                           description: string;
                           condition: string;
+                          savedGroupTargeting?: ({
+                              /** @enum {string} */
+                              matchType: "all" | "any" | "none";
+                              savedGroups: (string)[];
+                            })[];
                           id: string;
                           enabled: boolean;
                           type: string;
                           value: string;
-                        } | {
+                        }) | ({
                           description: string;
                           condition: string;
+                          savedGroupTargeting?: ({
+                              /** @enum {string} */
+                              matchType: "all" | "any" | "none";
+                              savedGroups: (string)[];
+                            })[];
                           id: string;
                           enabled: boolean;
                           type: string;
                           value: string;
                           coverage: number;
                           hashAttribute: string;
-                        } | {
+                        }) | {
                           description: string;
                           condition: string;
                           id: string;
@@ -1198,20 +1285,30 @@ export interface operations {
           environments?: {
             [key: string]: ({
               enabled: boolean;
-              rules: ({
+              rules: (({
                   description?: string;
                   /** @description Applied to everyone by default. */
                   condition?: string;
+                  savedGroupTargeting?: ({
+                      /** @enum {string} */
+                      matchType: "all" | "any" | "none";
+                      savedGroups: (string)[];
+                    })[];
                   id?: string;
                   /** @description Enabled by default */
                   enabled?: boolean;
                   /** @enum {string} */
                   type: "force";
                   value: string;
-                } | {
+                }) | ({
                   description?: string;
                   /** @description Applied to everyone by default. */
                   condition?: string;
+                  savedGroupTargeting?: ({
+                      /** @enum {string} */
+                      matchType: "all" | "any" | "none";
+                      savedGroups: (string)[];
+                    })[];
                   id?: string;
                   /** @description Enabled by default */
                   enabled?: boolean;
@@ -1221,7 +1318,7 @@ export interface operations {
                   /** @description Percent of traffic included in this experiment. Users not included in the experiment will skip this rule. */
                   coverage: number;
                   hashAttribute: string;
-                } | {
+                }) | {
                   description?: string;
                   id?: string;
                   /** @description Enabled by default */
@@ -1240,20 +1337,30 @@ export interface operations {
               /** @description Use to write draft changes without publishing them. */
               draft?: {
                 enabled?: boolean;
-                rules: ({
+                rules: (({
                     description?: string;
                     /** @description Applied to everyone by default. */
                     condition?: string;
+                    savedGroupTargeting?: ({
+                        /** @enum {string} */
+                        matchType: "all" | "any" | "none";
+                        savedGroups: (string)[];
+                      })[];
                     id?: string;
                     /** @description Enabled by default */
                     enabled?: boolean;
                     /** @enum {string} */
                     type: "force";
                     value: string;
-                  } | {
+                  }) | ({
                     description?: string;
                     /** @description Applied to everyone by default. */
                     condition?: string;
+                    savedGroupTargeting?: ({
+                        /** @enum {string} */
+                        matchType: "all" | "any" | "none";
+                        savedGroups: (string)[];
+                      })[];
                     id?: string;
                     /** @description Enabled by default */
                     enabled?: boolean;
@@ -1263,7 +1370,7 @@ export interface operations {
                     /** @description Percent of traffic included in this experiment. Users not included in the experiment will skip this rule. */
                     coverage: number;
                     hashAttribute: string;
-                  } | {
+                  }) | {
                     description?: string;
                     id?: string;
                     /** @description Enabled by default */
@@ -1309,23 +1416,33 @@ export interface operations {
                 [key: string]: ({
                   enabled: boolean;
                   defaultValue: string;
-                  rules: ({
+                  rules: (({
                       description: string;
                       condition: string;
+                      savedGroupTargeting?: ({
+                          /** @enum {string} */
+                          matchType: "all" | "any" | "none";
+                          savedGroups: (string)[];
+                        })[];
                       id: string;
                       enabled: boolean;
                       type: string;
                       value: string;
-                    } | {
+                    }) | ({
                       description: string;
                       condition: string;
+                      savedGroupTargeting?: ({
+                          /** @enum {string} */
+                          matchType: "all" | "any" | "none";
+                          savedGroups: (string)[];
+                        })[];
                       id: string;
                       enabled: boolean;
                       type: string;
                       value: string;
                       coverage: number;
                       hashAttribute: string;
-                    } | {
+                    }) | {
                       description: string;
                       condition: string;
                       id: string;
@@ -1361,23 +1478,33 @@ export interface operations {
                   draft?: {
                     enabled: boolean;
                     defaultValue: string;
-                    rules: ({
+                    rules: (({
                         description: string;
                         condition: string;
+                        savedGroupTargeting?: ({
+                            /** @enum {string} */
+                            matchType: "all" | "any" | "none";
+                            savedGroups: (string)[];
+                          })[];
                         id: string;
                         enabled: boolean;
                         type: string;
                         value: string;
-                      } | {
+                      }) | ({
                         description: string;
                         condition: string;
+                        savedGroupTargeting?: ({
+                            /** @enum {string} */
+                            matchType: "all" | "any" | "none";
+                            savedGroups: (string)[];
+                          })[];
                         id: string;
                         enabled: boolean;
                         type: string;
                         value: string;
                         coverage: number;
                         hashAttribute: string;
-                      } | {
+                      }) | {
                         description: string;
                         condition: string;
                         id: string;
@@ -1456,23 +1583,33 @@ export interface operations {
                 [key: string]: ({
                   enabled: boolean;
                   defaultValue: string;
-                  rules: ({
+                  rules: (({
                       description: string;
                       condition: string;
+                      savedGroupTargeting?: ({
+                          /** @enum {string} */
+                          matchType: "all" | "any" | "none";
+                          savedGroups: (string)[];
+                        })[];
                       id: string;
                       enabled: boolean;
                       type: string;
                       value: string;
-                    } | {
+                    }) | ({
                       description: string;
                       condition: string;
+                      savedGroupTargeting?: ({
+                          /** @enum {string} */
+                          matchType: "all" | "any" | "none";
+                          savedGroups: (string)[];
+                        })[];
                       id: string;
                       enabled: boolean;
                       type: string;
                       value: string;
                       coverage: number;
                       hashAttribute: string;
-                    } | {
+                    }) | {
                       description: string;
                       condition: string;
                       id: string;
@@ -1508,23 +1645,33 @@ export interface operations {
                   draft?: {
                     enabled: boolean;
                     defaultValue: string;
-                    rules: ({
+                    rules: (({
                         description: string;
                         condition: string;
+                        savedGroupTargeting?: ({
+                            /** @enum {string} */
+                            matchType: "all" | "any" | "none";
+                            savedGroups: (string)[];
+                          })[];
                         id: string;
                         enabled: boolean;
                         type: string;
                         value: string;
-                      } | {
+                      }) | ({
                         description: string;
                         condition: string;
+                        savedGroupTargeting?: ({
+                            /** @enum {string} */
+                            matchType: "all" | "any" | "none";
+                            savedGroups: (string)[];
+                          })[];
                         id: string;
                         enabled: boolean;
                         type: string;
                         value: string;
                         coverage: number;
                         hashAttribute: string;
-                      } | {
+                      }) | {
                         description: string;
                         condition: string;
                         id: string;
@@ -1596,20 +1743,30 @@ export interface operations {
           environments?: {
             [key: string]: ({
               enabled: boolean;
-              rules: ({
+              rules: (({
                   description?: string;
                   /** @description Applied to everyone by default. */
                   condition?: string;
+                  savedGroupTargeting?: ({
+                      /** @enum {string} */
+                      matchType: "all" | "any" | "none";
+                      savedGroups: (string)[];
+                    })[];
                   id?: string;
                   /** @description Enabled by default */
                   enabled?: boolean;
                   /** @enum {string} */
                   type: "force";
                   value: string;
-                } | {
+                }) | ({
                   description?: string;
                   /** @description Applied to everyone by default. */
                   condition?: string;
+                  savedGroupTargeting?: ({
+                      /** @enum {string} */
+                      matchType: "all" | "any" | "none";
+                      savedGroups: (string)[];
+                    })[];
                   id?: string;
                   /** @description Enabled by default */
                   enabled?: boolean;
@@ -1619,7 +1776,7 @@ export interface operations {
                   /** @description Percent of traffic included in this experiment. Users not included in the experiment will skip this rule. */
                   coverage: number;
                   hashAttribute: string;
-                } | {
+                }) | {
                   description?: string;
                   id?: string;
                   /** @description Enabled by default */
@@ -1638,20 +1795,30 @@ export interface operations {
               /** @description Use to write draft changes without publishing them. */
               draft?: {
                 enabled?: boolean;
-                rules: ({
+                rules: (({
                     description?: string;
                     /** @description Applied to everyone by default. */
                     condition?: string;
+                    savedGroupTargeting?: ({
+                        /** @enum {string} */
+                        matchType: "all" | "any" | "none";
+                        savedGroups: (string)[];
+                      })[];
                     id?: string;
                     /** @description Enabled by default */
                     enabled?: boolean;
                     /** @enum {string} */
                     type: "force";
                     value: string;
-                  } | {
+                  }) | ({
                     description?: string;
                     /** @description Applied to everyone by default. */
                     condition?: string;
+                    savedGroupTargeting?: ({
+                        /** @enum {string} */
+                        matchType: "all" | "any" | "none";
+                        savedGroups: (string)[];
+                      })[];
                     id?: string;
                     /** @description Enabled by default */
                     enabled?: boolean;
@@ -1661,7 +1828,7 @@ export interface operations {
                     /** @description Percent of traffic included in this experiment. Users not included in the experiment will skip this rule. */
                     coverage: number;
                     hashAttribute: string;
-                  } | {
+                  }) | {
                     description?: string;
                     id?: string;
                     /** @description Enabled by default */
@@ -1707,23 +1874,33 @@ export interface operations {
                 [key: string]: ({
                   enabled: boolean;
                   defaultValue: string;
-                  rules: ({
+                  rules: (({
                       description: string;
                       condition: string;
+                      savedGroupTargeting?: ({
+                          /** @enum {string} */
+                          matchType: "all" | "any" | "none";
+                          savedGroups: (string)[];
+                        })[];
                       id: string;
                       enabled: boolean;
                       type: string;
                       value: string;
-                    } | {
+                    }) | ({
                       description: string;
                       condition: string;
+                      savedGroupTargeting?: ({
+                          /** @enum {string} */
+                          matchType: "all" | "any" | "none";
+                          savedGroups: (string)[];
+                        })[];
                       id: string;
                       enabled: boolean;
                       type: string;
                       value: string;
                       coverage: number;
                       hashAttribute: string;
-                    } | {
+                    }) | {
                       description: string;
                       condition: string;
                       id: string;
@@ -1759,23 +1936,33 @@ export interface operations {
                   draft?: {
                     enabled: boolean;
                     defaultValue: string;
-                    rules: ({
+                    rules: (({
                         description: string;
                         condition: string;
+                        savedGroupTargeting?: ({
+                            /** @enum {string} */
+                            matchType: "all" | "any" | "none";
+                            savedGroups: (string)[];
+                          })[];
                         id: string;
                         enabled: boolean;
                         type: string;
                         value: string;
-                      } | {
+                      }) | ({
                         description: string;
                         condition: string;
+                        savedGroupTargeting?: ({
+                            /** @enum {string} */
+                            matchType: "all" | "any" | "none";
+                            savedGroups: (string)[];
+                          })[];
                         id: string;
                         enabled: boolean;
                         type: string;
                         value: string;
                         coverage: number;
                         hashAttribute: string;
-                      } | {
+                      }) | {
                         description: string;
                         condition: string;
                         id: string;
@@ -1858,23 +2045,33 @@ export interface operations {
                 [key: string]: ({
                   enabled: boolean;
                   defaultValue: string;
-                  rules: ({
+                  rules: (({
                       description: string;
                       condition: string;
+                      savedGroupTargeting?: ({
+                          /** @enum {string} */
+                          matchType: "all" | "any" | "none";
+                          savedGroups: (string)[];
+                        })[];
                       id: string;
                       enabled: boolean;
                       type: string;
                       value: string;
-                    } | {
+                    }) | ({
                       description: string;
                       condition: string;
+                      savedGroupTargeting?: ({
+                          /** @enum {string} */
+                          matchType: "all" | "any" | "none";
+                          savedGroups: (string)[];
+                        })[];
                       id: string;
                       enabled: boolean;
                       type: string;
                       value: string;
                       coverage: number;
                       hashAttribute: string;
-                    } | {
+                    }) | {
                       description: string;
                       condition: string;
                       id: string;
@@ -1910,23 +2107,33 @@ export interface operations {
                   draft?: {
                     enabled: boolean;
                     defaultValue: string;
-                    rules: ({
+                    rules: (({
                         description: string;
                         condition: string;
+                        savedGroupTargeting?: ({
+                            /** @enum {string} */
+                            matchType: "all" | "any" | "none";
+                            savedGroups: (string)[];
+                          })[];
                         id: string;
                         enabled: boolean;
                         type: string;
                         value: string;
-                      } | {
+                      }) | ({
                         description: string;
                         condition: string;
+                        savedGroupTargeting?: ({
+                            /** @enum {string} */
+                            matchType: "all" | "any" | "none";
+                            savedGroups: (string)[];
+                          })[];
                         id: string;
                         enabled: boolean;
                         type: string;
                         value: string;
                         coverage: number;
                         hashAttribute: string;
-                      } | {
+                      }) | {
                         description: string;
                         condition: string;
                         id: string;
@@ -2410,6 +2617,11 @@ export interface operations {
                       range: (unknown)[];
                     };
                     targetingCondition: string;
+                    savedGroupTargeting?: ({
+                        /** @enum {string} */
+                        matchType: "all" | "any" | "none";
+                        savedGroups: (string)[];
+                      })[];
                   })[];
                 settings: {
                   datasourceId: string;
@@ -2536,6 +2748,11 @@ export interface operations {
               targetingCondition?: string;
               reason?: string;
               condition?: string;
+              savedGroupTargeting?: ({
+                  /** @enum {string} */
+                  matchType: "all" | "any" | "none";
+                  savedGroups: (string)[];
+                })[];
               variationWeights?: (number)[];
             })[];
         };
@@ -2586,6 +2803,11 @@ export interface operations {
                     range: (unknown)[];
                   };
                   targetingCondition: string;
+                  savedGroupTargeting?: ({
+                      /** @enum {string} */
+                      matchType: "all" | "any" | "none";
+                      savedGroups: (string)[];
+                    })[];
                 })[];
               settings: {
                 datasourceId: string;
@@ -2693,6 +2915,11 @@ export interface operations {
                     range: (unknown)[];
                   };
                   targetingCondition: string;
+                  savedGroupTargeting?: ({
+                      /** @enum {string} */
+                      matchType: "all" | "any" | "none";
+                      savedGroups: (string)[];
+                    })[];
                 })[];
               settings: {
                 datasourceId: string;
@@ -2815,6 +3042,11 @@ export interface operations {
               targetingCondition?: string;
               reason?: string;
               condition?: string;
+              savedGroupTargeting?: ({
+                  /** @enum {string} */
+                  matchType: "all" | "any" | "none";
+                  savedGroups: (string)[];
+                })[];
               variationWeights?: (number)[];
             })[];
         };
@@ -2865,6 +3097,11 @@ export interface operations {
                     range: (unknown)[];
                   };
                   targetingCondition: string;
+                  savedGroupTargeting?: ({
+                      /** @enum {string} */
+                      matchType: "all" | "any" | "none";
+                      savedGroups: (string)[];
+                    })[];
                 })[];
               settings: {
                 datasourceId: string;
@@ -3582,6 +3819,11 @@ export interface operations {
                     range: (unknown)[];
                   };
                   targetingCondition: string;
+                  savedGroupTargeting?: ({
+                      /** @enum {string} */
+                      matchType: "all" | "any" | "none";
+                      savedGroups: (string)[];
+                    })[];
                 })[];
               settings: {
                 datasourceId: string;
@@ -3717,7 +3959,7 @@ export interface operations {
     responses: {
       200: {
         content: {
-          "application/json": {
+          "application/json": ({
             savedGroups: ({
                 id: string;
                 /** Format: date-time */
@@ -3725,11 +3967,13 @@ export interface operations {
                 /** Format: date-time */
                 dateUpdated: string;
                 name: string;
+                /** @enum {string} */
+                source: "inline" | "runtime";
                 owner?: string;
                 attributeKey: string;
                 values: (string)[];
               })[];
-          } & {
+          }) & {
             limit: number;
             offset: number;
             count: number;
@@ -3748,9 +3992,11 @@ export interface operations {
         "application/json": {
           /** @description The display name of the Saved Group */
           name: string;
-          /** @description An array of values to target (Ex: a list of userIds). */
-          values: (string)[];
-          /** @description The parameter you want to target users with. Ex: userId, orgId, ... */
+          /** @enum {string} */
+          source?: "inline" | "runtime";
+          /** @description An array of values to target (Ex: a list of userIds). Not applicable for runtime groups */
+          values?: (string)[];
+          /** @description For inline groups, the name of the attribute the values belong to (e.g. `user_id`). For runtime groups, the group name you reference in your code */
           attributeKey: string;
           /** @description The person or team that owns this Saved Group. If no owner, you can pass an empty string. */
           owner?: string;
@@ -3768,6 +4014,8 @@ export interface operations {
               /** Format: date-time */
               dateUpdated: string;
               name: string;
+              /** @enum {string} */
+              source: "inline" | "runtime";
               owner?: string;
               attributeKey: string;
               values: (string)[];
@@ -3796,6 +4044,8 @@ export interface operations {
               /** Format: date-time */
               dateUpdated: string;
               name: string;
+              /** @enum {string} */
+              source: "inline" | "runtime";
               owner?: string;
               attributeKey: string;
               values: (string)[];
@@ -3822,6 +4072,8 @@ export interface operations {
           values?: (string)[];
           /** @description The person or team that owns this Saved Group. If no owner, you can pass an empty string. */
           owner?: string;
+          /** @description (Runtime groups only) The key used to reference the Saved Group in the SDK */
+          attributeKey?: string;
         };
       };
     };
@@ -3836,6 +4088,8 @@ export interface operations {
               /** Format: date-time */
               dateUpdated: string;
               name: string;
+              /** @enum {string} */
+              source: "inline" | "runtime";
               owner?: string;
               attributeKey: string;
               values: (string)[];
