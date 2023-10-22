@@ -748,6 +748,34 @@ async function getDraftRevision(
   return revision;
 }
 
+export async function putRevisionComment(
+  req: AuthRequest<{ comment: string }, { id: string; version: string }>,
+  res: Response<{ status: 200 }, EventAuditUserForResponseLocals>
+) {
+  const { org } = getOrgFromReq(req);
+  const { id, version } = req.params;
+  const { comment } = req.body;
+
+  const feature = await getFeature(org.id, id);
+  if (!feature) {
+    throw new Error("Could not find feature");
+  }
+
+  req.checkPermissions("manageFeatures", feature.project);
+  req.checkPermissions("createFeatureDrafts", feature.project);
+
+  const revision = await getRevision(org.id, feature.id, parseInt(version));
+  if (!revision) {
+    throw new Error("Could not find feature revision");
+  }
+
+  await updateRevision(revision, { comment });
+
+  res.status(200).json({
+    status: 200,
+  });
+}
+
 export async function postFeatureDefaultValue(
   req: AuthRequest<{ defaultValue: string }, { id: string; version: string }>,
   res: Response<

@@ -179,8 +179,11 @@ export async function updateRevision(
     Pick<FeatureRevisionInterface, "comment" | "defaultValue" | "rules">
   >
 ) {
-  if (revision.status !== "draft") {
-    throw new Error("Can only update draft revisions");
+  // If editing defaultValue or rules, require the revision to be a draft
+  if ("defaultValue" in changes || changes.rules) {
+    if (revision.status !== "draft") {
+      throw new Error("Can only update draft revisions");
+    }
   }
 
   await FeatureRevisionModel.updateOne(

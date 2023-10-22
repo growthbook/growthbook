@@ -62,6 +62,7 @@ import { DeleteDemoDatasourceButton } from "@/components/DemoDataSourcePage/Demo
 import PageHead from "@/components/Layout/PageHead";
 import AuditUser from "@/components/Avatar/AuditUser";
 import RevertModal from "@/components/Features/RevertModal";
+import EditRevisionCommentModal from "@/components/Features/EditRevisionCommentModal";
 
 export default function FeaturePage() {
   const router = useRouter();
@@ -88,6 +89,7 @@ export default function FeaturePage() {
   const [editProjectModal, setEditProjectModal] = useState(false);
   const [editTagsModal, setEditTagsModal] = useState(false);
   const [editOwnerModal, setEditOwnerModal] = useState(false);
+  const [editCommentModel, setEditCommentModal] = useState(false);
 
   const {
     getProjectById,
@@ -370,6 +372,14 @@ export default function FeaturePage() {
             undone.
           </p>
         </Modal>
+      )}
+      {editCommentModel && revision && (
+        <EditRevisionCommentModal
+          close={() => setEditCommentModal(false)}
+          feature={feature}
+          mutate={mutate}
+          revision={revision}
+        />
       )}
 
       <PageHead
@@ -903,6 +913,18 @@ export default function FeaturePage() {
             <div className="col-auto">
               <span className="text-muted">Revision Comment:</span>{" "}
               {revision.comment || <em>None</em>}
+              {canEditDrafts && (
+                <a
+                  href="#"
+                  className="ml-1"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setEditCommentModal(true);
+                  }}
+                >
+                  <GBEdit />
+                </a>
+              )}
             </div>
           </div>
         )}
@@ -969,6 +991,8 @@ export default function FeaturePage() {
               );
             })}
           </ControlledTabs>
+
+          {canEditDrafts && !isLocked && <h4>Add Rules</h4>}
 
           {canEditDrafts && !isLocked && (
             <div className="row">

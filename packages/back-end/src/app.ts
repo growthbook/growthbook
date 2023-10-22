@@ -536,6 +536,7 @@ app.delete(
   "/feature/:id/:version/experiment",
   featuresController.deleteFeatureExperimentRefRule
 );
+app.put("/feature/:id/:version/comment", featuresController.putRevisionComment);
 app.put("/feature/:id/:version/rule", featuresController.putFeatureRule);
 app.delete("/feature/:id/:version/rule", featuresController.deleteFeatureRule);
 app.post(
