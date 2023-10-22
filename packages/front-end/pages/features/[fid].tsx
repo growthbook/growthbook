@@ -5,6 +5,7 @@ import React, { useMemo, useState } from "react";
 import {
   FaChevronRight,
   FaDraftingCompass,
+  FaExchangeAlt,
   FaExclamationTriangle,
   FaLock,
   FaTimes,
@@ -13,7 +14,6 @@ import { ago, date, datetime } from "shared/dates";
 import { getValidation, mergeRevision } from "shared/util";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import { MdHistory, MdRocketLaunch } from "react-icons/md";
-import { FaCodeFork } from "react-icons/fa6";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import { GBAddCircle, GBEdit } from "@/components/Icons";
 import LoadingOverlay from "@/components/LoadingOverlay";
@@ -161,6 +161,7 @@ export default function FeaturePage() {
   );
 
   const isDraft = revision?.status === "draft";
+  const isLive = revision?.version === feature.version;
   const isArchived = feature.archived;
 
   const enabledEnvs = getEnabledEnvironments(feature);
@@ -196,9 +197,11 @@ export default function FeaturePage() {
       getAffectedRevisionEnvs(data.feature, revision)
     );
 
+  const drafts = data.revisions.filter((r) => r.status === "draft");
+
   const isLocked =
     (revision.status === "published" || revision.status === "discarded") &&
-    revision.version !== data.feature.version;
+    (!isLive || drafts.length > 0);
 
   const canEdit = permissions.check("manageFeatures", projectId);
   const canEditDrafts = permissions.check(
@@ -343,6 +346,7 @@ export default function FeaturePage() {
               throw e;
             }
             await mutate();
+            setVersion(feature.version);
           }}
         >
           <p>
@@ -730,7 +734,54 @@ export default function FeaturePage() {
               />
             </div>
           </div>
-          {isLocked ? (
+          {isLive ? (
+            <div className="px-3 py-2 alert alert-success mb-0">
+              <div className="d-flex align-items-center">
+                <strong className="mr-3">
+                  <MdRocketLaunch /> Live Revision
+                </strong>
+                <div className="mr-3">
+                  {!isLocked ? (
+                    "Changes you make below will start a new draft"
+                  ) : (
+                    <>
+                      There is already an active draft. Switch to that to make
+                      changes.
+                    </>
+                  )}
+                </div>
+                <div className="ml-auto"></div>
+                {canEditDrafts && drafts.length > 0 && (
+                  <div>
+                    <a
+                      href="#"
+                      className="font-weight-bold text-purple"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        setVersion(drafts[0].version);
+                      }}
+                    >
+                      <FaExchangeAlt /> Switch to Draft
+                    </a>
+                  </div>
+                )}
+                {canEditDrafts && (
+                  <div className="ml-4">
+                    <a
+                      href="#"
+                      className="font-weight-bold text-danger"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        throw new Error("Not Implemented");
+                      }}
+                    >
+                      <MdHistory /> Revert to Previous
+                    </a>
+                  </div>
+                )}
+              </div>
+            </div>
+          ) : isLocked ? (
             <div className="px-3 py-2 alert-secondary mb-0">
               <div className="d-flex align-items-center">
                 <strong className="mr-3">
@@ -792,32 +843,6 @@ export default function FeaturePage() {
                       }}
                     >
                       <FaTimes /> Discard
-                    </a>
-                  </div>
-                )}
-              </div>
-            </div>
-          ) : revision.version === feature.version ? (
-            <div className="px-3 py-2 alert alert-success mb-0">
-              <div className="d-flex align-items-center">
-                <strong className="mr-3">
-                  <MdRocketLaunch /> Live Revision
-                </strong>
-                <div className="mr-3">
-                  Changes you make below will start a new draft
-                </div>
-                <div className="ml-auto"></div>
-                {canEditDrafts && (
-                  <div>
-                    <a
-                      href="#"
-                      className="font-weight-bold text-purple"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        throw new Error("Not Implemented");
-                      }}
-                    >
-                      <FaCodeFork /> Create New Draft
                     </a>
                   </div>
                 )}

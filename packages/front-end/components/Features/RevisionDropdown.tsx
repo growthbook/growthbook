@@ -38,10 +38,6 @@ export default function RevisionDropdown({
       onChange={(version) => setVersion(parseInt(version))}
       sort={false}
       formatOptionLabel={({ value }, { context }) => {
-        if (context !== "menu") {
-          return <strong>Revision {value}</strong>;
-        }
-
         const revision = versions.get(value);
 
         const date =
@@ -67,13 +63,17 @@ export default function RevisionDropdown({
                   discarded
                 </span>
               ) : null}
-              <div style={{ marginTop: -4 }}>
-                {date && <small className="text-muted">{ago(date)}</small>}
+              {context !== "value" && (
+                <div style={{ marginTop: -4 }}>
+                  {date && <small className="text-muted">{ago(date)}</small>}
+                </div>
+              )}
+            </div>
+            {context !== "value" && (
+              <div className="ml-auto">
+                <AuditUser user={revision?.createdBy} />
               </div>
-            </div>
-            <div className="ml-auto">
-              <AuditUser user={revision?.createdBy} />
-            </div>
+            )}
           </div>
         );
       }}
