@@ -61,6 +61,7 @@ import { useUser } from "@/services/UserContext";
 import { DeleteDemoDatasourceButton } from "@/components/DemoDataSourcePage/DemoDataSourcePage";
 import PageHead from "@/components/Layout/PageHead";
 import AuditUser from "@/components/Avatar/AuditUser";
+import RevertModal from "@/components/Features/RevertModal";
 
 export default function FeaturePage() {
   const router = useRouter();
@@ -74,6 +75,8 @@ export default function FeaturePage() {
   const [duplicateModal, setDuplicateModal] = useState(false);
   const [confirmDiscard, setConfirmDiscard] = useState(false);
   const permissions = usePermissions();
+
+  const [revertIndex, setRevertIndex] = useState(0);
 
   const [env, setEnv] = useEnvironmentState();
 
@@ -278,6 +281,19 @@ export default function FeaturePage() {
               </div>
             ) : null
           }
+        />
+      )}
+      {revertIndex > 0 && (
+        <RevertModal
+          close={() => setRevertIndex(0)}
+          feature={data.feature}
+          revision={
+            data.revisions.find(
+              (r) => r.version === revertIndex
+            ) as FeatureRevisionInterface
+          }
+          mutate={mutate}
+          setVersion={setVersion}
         />
       )}
       {editTagsModal && (
@@ -772,7 +788,19 @@ export default function FeaturePage() {
                       className="font-weight-bold text-danger"
                       onClick={(e) => {
                         e.preventDefault();
-                        throw new Error("Not Implemented");
+
+                        // Get highest revision number that is published and less than the current revision
+                        const previousRevision = data.revisions
+                          .filter(
+                            (r) =>
+                              r.status === "published" &&
+                              r.version < feature.version
+                          )
+                          .sort((a, b) => b.version - a.version)[0];
+
+                        if (previousRevision) {
+                          setRevertIndex(previousRevision.version);
+                        }
                       }}
                     >
                       <MdHistory /> Revert to Previous
@@ -798,7 +826,7 @@ export default function FeaturePage() {
                       className="font-weight-bold text-purple"
                       onClick={(e) => {
                         e.preventDefault();
-                        throw new Error("Not Implemented");
+                        setRevertIndex(revision.version);
                       }}
                       title="Create a new Draft based on this revision"
                     >

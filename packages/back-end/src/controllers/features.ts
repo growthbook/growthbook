@@ -25,6 +25,7 @@ import {
   deleteExperimentRefRule,
   publishRevision,
   migrateDraft,
+  applyRevisionChanges,
 } from "../models/FeatureModel";
 import { getRealtimeUsageByHour } from "../models/RealtimeModel";
 import { lookupOrganizationByApiKey } from "../models/ApiKeyModel";
@@ -462,6 +463,88 @@ export async function postFeaturePublish(
   });
 }
 
+export async function postFeatureRevert(
+  req: AuthRequest<{ comment: string }, { id: string; version: string }>,
+  res: Response<
+    { status: 200; version: number },
+    EventAuditUserForResponseLocals
+  >
+) {
+  const { org } = getOrgFromReq(req);
+  const { id, version } = req.params;
+  const { comment } = req.body;
+
+  const feature = await getFeature(org.id, id);
+
+  if (!feature) {
+    throw new Error("Could not find feature");
+  }
+
+  const revision = await getRevision(org.id, feature.id, parseInt(version));
+  if (!revision) {
+    throw new Error("Could not find feature revision");
+  }
+
+  if (revision.version === feature.version || revision.status !== "published") {
+    throw new Error("Can only revert to previously published revisions");
+  }
+
+  req.checkPermissions("manageFeatures", feature.project);
+
+  // If changing the default value, it affects all enabled environments
+  if (revision.defaultValue !== feature.defaultValue) {
+    req.checkPermissions(
+      "publishFeatures",
+      feature.project,
+      getEnabledEnvironments(feature)
+    );
+  }
+  // Otherwise, only the environments with rule changes are affected
+  else {
+    const changedEnvs: string[] = [];
+    Object.entries(revision.rules).forEach(([env, rules]) => {
+      if (!isEqual(rules, feature.environmentSettings?.[env]?.rules || [])) {
+        changedEnvs.push(env);
+      }
+    });
+    if (changedEnvs.length > 0) {
+      req.checkPermissions("publishFeatures", feature.project, changedEnvs);
+    }
+  }
+
+  // TODO: do these 2 calls within a transaction
+  const newRevision = await createRevision({
+    feature,
+    user: res.locals.eventAudit,
+    baseVersion: revision.version,
+    changes: revision,
+    publish: true,
+    comment: comment || `Revert to #${revision.version}`,
+  });
+  const updatedFeature = await applyRevisionChanges(
+    org,
+    feature,
+    newRevision,
+    res.locals.eventAudit
+  );
+
+  await req.audit({
+    event: "feature.revert",
+    entity: {
+      object: "feature",
+      id: feature.id,
+    },
+    details: auditDetailsUpdate(feature, updatedFeature, {
+      revision: revision.version,
+    }),
+  });
+
+  res.status(200).json({
+    status: 200,
+    version: newRevision.version,
+  });
+}
+
 export async function postFeatureFork(
   req: AuthRequest<never, { id: string; version: string }>,
   res: Response<
@@ -486,11 +569,12 @@ export async function postFeatureFork(
   req.checkPermissions("manageFeatures", feature.project);
   req.checkPermissions("createFeatureDrafts", feature.project);
 
-  const newRevision = await createRevision(
+  const newRevision = await createRevision({
     feature,
-    res.locals.eventAudit,
-    revision
-  );
+    user: res.locals.eventAudit,
+    baseVersion: revision.version,
+    changes: revision,
+  });
 
   res.status(200).json({
     status: 200,
@@ -656,7 +740,7 @@ async function getDraftRevision(
 
   // This is the published version, create a new draft revision
   if (revision.version === feature.version) {
-    return await createRevision(feature, user, revision);
+    return await createRevision({ feature, user });
   } else if (revision.status !== "draft") {
     throw new Error("Can only make changes to draft revisions");
   }

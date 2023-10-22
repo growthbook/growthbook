@@ -20,7 +20,7 @@ export interface Props {
   onDiscard?: () => void;
 }
 
-function ExpandableDiff({
+export function ExpandableDiff({
   title,
   a,
   b,

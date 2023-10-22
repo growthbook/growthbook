@@ -114,11 +114,21 @@ export async function createRevisionFromLegacyDraft(feature: FeatureInterface) {
   await FeatureRevisionModel.create(feature.legacyDraft);
 }
 
-export async function createRevision(
-  feature: FeatureInterface,
-  user: EventAuditUser,
-  revisionBase?: FeatureRevisionInterface
-) {
+export async function createRevision({
+  feature,
+  user,
+  baseVersion,
+  changes,
+  publish,
+  comment,
+}: {
+  feature: FeatureInterface;
+  user: EventAuditUser;
+  baseVersion?: number;
+  changes?: Partial<FeatureRevisionInterface>;
+  publish?: boolean;
+  comment?: string;
+}) {
   // Get max version number
   const lastRevision = (
     await FeatureRevisionModel.find({
@@ -130,13 +140,14 @@ export async function createRevision(
   )[0];
   const newVersion = lastRevision ? lastRevision.version + 1 : 1;
 
-  const defaultValue = revisionBase
-    ? revisionBase.defaultValue
-    : feature.defaultValue;
+  const defaultValue =
+    changes && "defaultValue" in changes
+      ? changes.defaultValue
+      : feature.defaultValue;
 
   const rules: Record<string, FeatureRule[]> = {};
-  if (revisionBase) {
-    Object.entries(revisionBase.rules).forEach(([env, r]) => (rules[env] = r));
+  if (changes && changes.rules) {
+    Object.entries(changes.rules).forEach(([env, r]) => (rules[env] = r));
   } else {
     Object.keys(feature.environmentSettings || {}).forEach((env) => {
       rules[env] = feature.environmentSettings?.[env]?.rules || [];
@@ -149,12 +160,12 @@ export async function createRevision(
     version: newVersion,
     dateCreated: new Date(),
     dateUpdated: new Date(),
-    datePublished: null,
+    datePublished: publish ? new Date() : null,
     createdBy: user,
-    baseVersion: revisionBase ? revisionBase.version : feature.version,
-    status: "draft",
-    publishedBy: null,
-    comment: "",
+    baseVersion: baseVersion || feature.version,
+    status: publish ? "published" : "draft",
+    publishedBy: publish ? user : null,
+    comment: comment || "",
     defaultValue,
     rules,
   });

@@ -720,17 +720,12 @@ export async function setJsonSchema(
   });
 }
 
-export async function publishRevision(
+export async function applyRevisionChanges(
   organization: OrganizationInterface,
   feature: FeatureInterface,
   revision: FeatureRevisionInterface,
-  user: EventAuditUser,
-  comment?: string
+  user: EventAuditUser
 ) {
-  if (revision.status !== "draft") {
-    throw new Error("Can only publish a draft revision");
-  }
-
   let hasChanges = false;
   const changes: Partial<FeatureInterface> = {};
   if (revision.defaultValue !== feature.defaultValue) {
@@ -763,13 +758,28 @@ export async function publishRevision(
 
   changes.version = revision.version;
 
+  return await updateFeature(organization, user, feature, changes);
+}
+
+export async function publishRevision(
+  organization: OrganizationInterface,
+  feature: FeatureInterface,
+  revision: FeatureRevisionInterface,
+  user: EventAuditUser,
+  comment?: string
+) {
+  if (revision.status !== "draft") {
+    throw new Error("Can only publish a draft revision");
+  }
+
   // TODO: wrap these 2 calls in a transaction
-  const updatedFeature = await updateFeature(
+  const updatedFeature = await applyRevisionChanges(
     organization,
-    user,
     feature,
-    changes
+    revision,
+    user
   );
+
   await markRevisionAsPublished(revision, user, comment);
 
   return updatedFeature;
