@@ -1889,6 +1889,9 @@ main.main.report {
 .bg-purple-light {
   background: colors.$highlight-purple-light;
 }
+.bg-purple-light-2 {
+  background: var(--form-multivalue-background-color);
+}
 .bg-muted-yellow {
   background: var(--bg-muted-yellow);
 }

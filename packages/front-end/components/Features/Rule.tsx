@@ -37,6 +37,7 @@ interface SortableProps {
   unreachable?: boolean;
   version: number;
   setVersion: (version: number) => void;
+  locked: boolean;
 }
 
 type RuleProps = SortableProps &
@@ -58,6 +59,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
       unreachable,
       version,
       setVersion,
+      locked,
       ...props
     },
     ref
@@ -77,6 +79,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
     const permissions = usePermissions();
 
     const canEdit =
+      !locked &&
       permissions.check("manageFeatures", feature.project) &&
       permissions.check("createFeatureDrafts", feature.project);
 

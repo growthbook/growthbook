@@ -2,6 +2,7 @@ import { FeatureInterface } from "back-end/types/feature";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import { ago } from "shared/dates";
 import SelectField from "../Forms/SelectField";
+import AuditUser from "../Avatar/AuditUser";
 
 export interface Props {
   feature: FeatureInterface;
@@ -36,7 +37,11 @@ export default function RevisionDropdown({
       value={version + ""}
       onChange={(version) => setVersion(parseInt(version))}
       sort={false}
-      formatOptionLabel={({ value }) => {
+      formatOptionLabel={({ value }, { context }) => {
+        if (context !== "menu") {
+          return <strong>Revision {value}</strong>;
+        }
+
         const revision = versions.get(value);
 
         const date =
@@ -45,11 +50,11 @@ export default function RevisionDropdown({
             : revision?.dateUpdated;
 
         return (
-          <div>
-            <div>
+          <div className="d-flex w-100">
+            <div className="mr-3">
               <strong className="mr-2">Revision {value}</strong>
               {revision?.version === liveVersion ? (
-                <span className="badge badge-success">published</span>
+                <span className="badge badge-success">live</span>
               ) : revision?.status === "draft" ? (
                 <span className="badge badge-warning">draft</span>
               ) : revision?.status === "published" ? (
@@ -62,9 +67,12 @@ export default function RevisionDropdown({
                   discarded
                 </span>
               ) : null}
+              <div style={{ marginTop: -4 }}>
+                {date && <small className="text-muted">{ago(date)}</small>}
+              </div>
             </div>
-            <div style={{ marginTop: -4 }}>
-              {date && <small className="text-muted">{ago(date)}</small>}
+            <div className="ml-auto">
+              <AuditUser user={revision?.createdBy} />
             </div>
           </div>
         );

@@ -27,6 +27,7 @@ export default function RuleList({
   setRuleModal,
   version,
   setVersion,
+  locked,
 }: {
   feature: FeatureInterface;
   environment: string;
@@ -34,6 +35,7 @@ export default function RuleList({
   setRuleModal: (rule: { environment: string; i: number }) => void;
   version: number;
   setVersion: (version: number) => void;
+  locked: boolean;
 }) {
   const { apiCall } = useAuth();
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -80,6 +82,7 @@ export default function RuleList({
   const activeRule = activeId ? items[getRuleIndex(activeId)] : null;
 
   const canEdit =
+    !locked &&
     permissions.check("manageFeatures", feature.project) &&
     permissions.check("createFeatureDrafts", feature.project);
 
@@ -140,6 +143,7 @@ export default function RuleList({
             unreachable={!!unreachableIndex && i >= unreachableIndex}
             version={version}
             setVersion={setVersion}
+            locked={locked}
           />
         ))}
       </SortableContext>
@@ -154,6 +158,7 @@ export default function RuleList({
             setRuleModal={setRuleModal}
             version={version}
             setVersion={setVersion}
+            locked={locked}
           />
         ) : null}
       </DragOverlay>

@@ -2,11 +2,18 @@ import { useRouter } from "next/router";
 import { FeatureInterface, FeatureRule } from "back-end/types/feature";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import React, { useMemo, useState } from "react";
-import { FaChevronRight, FaExclamationTriangle } from "react-icons/fa";
-import { datetime } from "shared/dates";
+import {
+  FaChevronRight,
+  FaDraftingCompass,
+  FaExclamationTriangle,
+  FaLock,
+  FaTimes,
+} from "react-icons/fa";
+import { ago, date, datetime } from "shared/dates";
 import { getValidation, mergeRevision } from "shared/util";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
-import { MdRocketLaunch } from "react-icons/md";
+import { MdHistory, MdRocketLaunch } from "react-icons/md";
+import { FaCodeFork } from "react-icons/fa6";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import { GBAddCircle, GBEdit } from "@/components/Icons";
 import LoadingOverlay from "@/components/LoadingOverlay";
@@ -53,6 +60,7 @@ import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { useUser } from "@/services/UserContext";
 import { DeleteDemoDatasourceButton } from "@/components/DemoDataSourcePage/DemoDataSourcePage";
 import PageHead from "@/components/Layout/PageHead";
+import AuditUser from "@/components/Avatar/AuditUser";
 
 export default function FeaturePage() {
   const router = useRouter();
@@ -64,6 +72,7 @@ export default function FeaturePage() {
   const [auditModal, setAuditModal] = useState(false);
   const [draftModal, setDraftModal] = useState(false);
   const [duplicateModal, setDuplicateModal] = useState(false);
+  const [confirmDiscard, setConfirmDiscard] = useState(false);
   const permissions = usePermissions();
 
   const [env, setEnv] = useEnvironmentState();
@@ -187,6 +196,16 @@ export default function FeaturePage() {
       getAffectedRevisionEnvs(data.feature, revision)
     );
 
+  const isLocked =
+    (revision.status === "published" || revision.status === "discarded") &&
+    revision.version !== data.feature.version;
+
+  const canEdit = permissions.check("manageFeatures", projectId);
+  const canEditDrafts = permissions.check(
+    "createFeatureDrafts",
+    feature.project
+  );
+
   return (
     <div className="contents container-fluid pagecontents">
       {edit && (
@@ -303,6 +322,35 @@ export default function FeaturePage() {
           featureToDuplicate={feature}
         />
       )}
+      {confirmDiscard && (
+        <Modal
+          open={true}
+          close={() => setConfirmDiscard(false)}
+          header="Discard Draft"
+          cta={"Discard"}
+          submitColor="danger"
+          closeCta={"Cancel"}
+          submit={async () => {
+            try {
+              await apiCall(
+                `/feature/${feature.id}/${revision.version}/discard`,
+                {
+                  method: "POST",
+                }
+              );
+            } catch (e) {
+              await mutate();
+              throw e;
+            }
+            await mutate();
+          }}
+        >
+          <p>
+            Are you sure you want to discard this draft? This action cannot be
+            undone.
+          </p>
+        </Modal>
+      )}
 
       <PageHead
         breadcrumb={[
@@ -334,32 +382,6 @@ export default function FeaturePage() {
         </div>
         <div style={{ flex: 1 }} />
         <div className="col-auto">
-          {revision?.status === "draft" && hasDraftPublishPermission && (
-            <Tooltip
-              body="View a diff of this draft revision and decide to either Publish or Discard the changes."
-              popperClassName="mt-2"
-            >
-              <button
-                className="btn btn-teal"
-                onClick={(e) => {
-                  e.preventDefault();
-                  setDraftModal(true);
-                }}
-              >
-                Review and Publish <MdRocketLaunch />
-              </button>
-            </Tooltip>
-          )}
-        </div>
-        <div className="col-auto">
-          <RevisionDropdown
-            feature={feature}
-            version={currentVersion}
-            setVersion={setVersion}
-            revisions={data.revisions || []}
-          />
-        </div>
-        <div className="col-auto">
           <MoreMenu>
             <a
               className="dropdown-item"
@@ -371,7 +393,7 @@ export default function FeaturePage() {
             >
               Show implementation
             </a>
-            {permissions.check("manageFeatures", projectId) &&
+            {canEdit &&
               permissions.check("publishFeatures", projectId, enabledEnvs) && (
                 <a
                   className="dropdown-item"
@@ -384,7 +406,7 @@ export default function FeaturePage() {
                   Duplicate feature
                 </a>
               )}
-            {permissions.check("manageFeatures", projectId) &&
+            {canEdit &&
               permissions.check("publishFeatures", projectId, enabledEnvs) && (
                 <DeleteButton
                   useIcon={false}
@@ -399,7 +421,7 @@ export default function FeaturePage() {
                   text="Delete feature"
                 />
               )}
-            {permissions.check("manageFeatures", projectId) &&
+            {canEdit &&
               permissions.check("publishFeatures", projectId, enabledEnvs) && (
                 <ConfirmButton
                   onClick={async () => {
@@ -480,7 +502,7 @@ export default function FeaturePage() {
             ) : (
               <em className="text-muted">None</em>
             )}
-            {permissions.check("manageFeatures", projectId) &&
+            {canEdit &&
               permissions.check("publishFeatures", projectId, enabledEnvs) && (
                 <a
                   className="ml-2 cursor-pointer"
@@ -494,7 +516,7 @@ export default function FeaturePage() {
 
         <div className="col-auto">
           Tags: <SortedTags tags={feature.tags || []} />
-          {permissions.check("manageFeatures", projectId) && (
+          {canEdit && (
             <a
               className="ml-1 cursor-pointer"
               onClick={() => setEditTagsModal(true)}
@@ -508,7 +530,7 @@ export default function FeaturePage() {
 
         <div className="col-auto">
           Owner: {feature.owner ? feature.owner : "None"}
-          {permissions.check("manageFeatures", projectId) && (
+          {canEdit && (
             <a
               className="ml-1 cursor-pointer"
               onClick={() => setEditOwnerModal(true)}
@@ -538,8 +560,8 @@ export default function FeaturePage() {
         <div className={feature.description ? "appbox mb-4 p-3" : ""}>
           <MarkdownInlineEdit
             value={feature.description || ""}
-            canEdit={permissions.check("manageFeatures", projectId)}
-            canCreate={permissions.check("manageFeatures", projectId)}
+            canEdit={canEdit}
+            canCreate={canEdit}
             save={async (description) => {
               await apiCall(`/feature/${feature.id}`, {
                 method: "PUT",
@@ -555,12 +577,16 @@ export default function FeaturePage() {
       </div>
 
       <h3>Enabled Environments</h3>
+      <div className="mb-1">
+        In disabled environments, the feature will always evaluate to{" "}
+        <code>null</code>. The default value and override rules will be ignored.
+      </div>
       <div className="appbox mb-4 p-3">
-        <div className="row mb-2">
+        <div className="row">
           {environments.map((en) => (
             <div className="col-auto" key={en.id}>
               <label
-                className="font-weight-bold mr-2"
+                className="font-weight-bold mr-2 mb-0"
                 htmlFor={`${en.id}_toggle`}
               >
                 {en.id}:{" "}
@@ -576,11 +602,6 @@ export default function FeaturePage() {
             </div>
           ))}
         </div>
-        <div>
-          In a disabled environment, the feature will always evaluate to{" "}
-          <code>null</code>. The default value and override rules will be
-          ignored.
-        </div>
       </div>
 
       {feature.valueType === "json" && (
@@ -595,17 +616,16 @@ export default function FeaturePage() {
                 "Adding a json schema will allow you to validate json objects used in this feature."
               }
             />
-            {hasJsonValidator &&
-              permissions.check("createFeatureDrafts", projectId) && (
-                <>
-                  <a
-                    className="ml-2 cursor-pointer"
-                    onClick={() => setEditValidator(true)}
-                  >
-                    <GBEdit />
-                  </a>
-                </>
-              )}
+            {hasJsonValidator && canEdit && (
+              <>
+                <a
+                  className="ml-2 cursor-pointer"
+                  onClick={() => setEditValidator(true)}
+                >
+                  <GBEdit />
+                </a>
+              </>
+            )}
           </h3>
           {hasJsonValidator && (
             <div className="appbox mb-4 p-3 card">
@@ -695,167 +715,310 @@ export default function FeaturePage() {
         </div>
       )}
 
-      <h3>
-        Default Value
-        {permissions.check("createFeatureDrafts", projectId) && (
-          <a className="ml-2 cursor-pointer" onClick={() => setEdit(true)}>
-            <GBEdit />
-          </a>
-        )}
-      </h3>
-      <div className="appbox mb-4 p-3">
-        <ForceSummary
-          value={getFeatureDefaultValue(feature)}
-          feature={feature}
-        />
-      </div>
-
-      <h3>Override Rules</h3>
-      <p>
-        Add powerful logic on top of your feature. The first matching rule
-        applies and overrides the default value.
-      </p>
-
-      <div className="mb-4">
-        <ControlledTabs
-          setActive={(v) => {
-            setEnv(v || "");
-          }}
-          active={env}
-          showActiveCount={true}
-          newStyle={false}
-          buttonsClassName="px-3 py-2 h4"
-        >
-          {environments.map((e) => {
-            const rules = getRules(feature, e.id);
-            return (
-              <Tab
-                key={e.id}
-                id={e.id}
-                display={e.id}
-                count={rules.length}
-                padding={false}
-              >
-                <div className="border mb-4 border-top-0">
-                  {rules.length > 0 ? (
-                    <RuleList
-                      environment={e.id}
-                      feature={feature}
-                      mutate={mutate}
-                      setRuleModal={setRuleModal}
-                      version={currentVersion}
-                      setVersion={setVersion}
-                    />
-                  ) : (
-                    <div className="p-3 bg-white">
-                      <em>No override rules for this environment yet</em>
-                    </div>
-                  )}
+      {revision && (
+        <>
+          <div className="row mb-2 align-items-center">
+            <div className="col-auto">
+              <h3 className="mb-0">Rules and Values</h3>
+            </div>
+            <div className="col-auto">
+              <RevisionDropdown
+                feature={feature}
+                version={currentVersion}
+                setVersion={setVersion}
+                revisions={data.revisions || []}
+              />
+            </div>
+          </div>
+          {isLocked ? (
+            <div className="px-3 py-2 alert-secondary mb-0">
+              <div className="d-flex align-items-center">
+                <strong className="mr-3">
+                  <FaLock /> Revision Locked
+                </strong>
+                <div className="mr-2">
+                  This revision is no longer active and cannot be modified.
                 </div>
-              </Tab>
-            );
-          })}
-        </ControlledTabs>
-
-        {permissions.check("createFeatureDrafts", projectId) && (
-          <div className="row">
-            <div className="col mb-3">
-              <div
-                className="bg-white border p-3 d-flex flex-column"
-                style={{ height: "100%" }}
-              >
-                <h4>Forced Value</h4>
-                <p>Target groups of users and give them all the same value.</p>
-                <div style={{ flex: 1 }} />
-                <div>
-                  <button
-                    className="btn btn-primary"
-                    onClick={() => {
-                      setRuleModal({
-                        environment: env,
-                        i: getRules(feature, env).length,
-                        defaultType: "force",
-                      });
-                      track("Viewed Rule Modal", {
-                        source: "add-rule",
-                        type: "force",
-                      });
-                    }}
-                  >
-                    <span className="h4 pr-2 m-0 d-inline-block align-top">
-                      <GBAddCircle />
-                    </span>
-                    Add Forced Rule
-                  </button>
-                </div>
+                <div className="ml-auto"></div>
+                {canEditDrafts && (
+                  <div>
+                    <a
+                      href="#"
+                      className="font-weight-bold text-purple"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        throw new Error("Not Implemented");
+                      }}
+                      title="Create a new Draft based on this revision"
+                    >
+                      <MdHistory /> Revert to this Revision
+                    </a>
+                  </div>
+                )}
               </div>
             </div>
-            <div className="col mb-3">
-              <div
-                className="bg-white border p-3 d-flex flex-column"
-                style={{ height: "100%" }}
-              >
-                <h4>Percentage Rollout</h4>
-                <p>
-                  Release to a small percent of users while you monitor logs.
-                </p>
-                <div style={{ flex: 1 }} />
-                <div>
-                  <button
-                    className="btn btn-primary"
-                    onClick={() => {
-                      setRuleModal({
-                        environment: env,
-                        i: getRules(feature, env).length,
-                        defaultType: "rollout",
-                      });
-                      track("Viewed Rule Modal", {
-                        source: "add-rule",
-                        type: "rollout",
-                      });
-                    }}
-                  >
-                    <span className="h4 pr-2 m-0 d-inline-block align-top">
-                      <GBAddCircle />
-                    </span>
-                    Add Rollout Rule
-                  </button>
+          ) : isDraft ? (
+            <div className="px-3 py-2 alert alert-warning mb-0">
+              <div className="d-flex align-items-center">
+                <strong className="mr-3">
+                  <FaDraftingCompass /> Draft Revision
+                </strong>
+                <div className="mr-3">
+                  Make changes below and publish when you are ready
                 </div>
+                <div className="ml-auto"></div>
+                {hasDraftPublishPermission && (
+                  <div>
+                    <a
+                      href="#"
+                      className="font-weight-bold text-purple"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        setDraftModal(true);
+                      }}
+                    >
+                      <MdRocketLaunch /> Review and Publish
+                    </a>
+                  </div>
+                )}
+                {canEditDrafts && (
+                  <div className="ml-4">
+                    <a
+                      href="#"
+                      className="font-weight-bold text-danger"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        setConfirmDiscard(true);
+                      }}
+                    >
+                      <FaTimes /> Discard
+                    </a>
+                  </div>
+                )}
               </div>
             </div>
-            <div className="col mb-3">
-              <div
-                className="bg-white border p-3 d-flex flex-column"
-                style={{ height: "100%" }}
-              >
-                <h4>A/B Experiment</h4>
-                <p>Measure the impact of this feature on your key metrics.</p>
-                <div style={{ flex: 1 }} />
-                <div>
-                  <button
-                    className="btn btn-primary"
-                    onClick={() => {
-                      setRuleModal({
-                        environment: env,
-                        i: getRules(feature, env).length,
-                        defaultType: "experiment-ref-new",
-                      });
-                      track("Viewed Rule Modal", {
-                        source: "add-rule",
-                        type: "experiment",
-                      });
-                    }}
-                  >
-                    <span className="h4 pr-2 m-0 d-inline-block align-top">
-                      <GBAddCircle />
-                    </span>
-                    Add Experiment Rule
-                  </button>
+          ) : revision.version === feature.version ? (
+            <div className="px-3 py-2 alert alert-success mb-0">
+              <div className="d-flex align-items-center">
+                <strong className="mr-3">
+                  <MdRocketLaunch /> Live Revision
+                </strong>
+                <div className="mr-3">
+                  Changes you make below will start a new draft
                 </div>
+                <div className="ml-auto"></div>
+                {canEditDrafts && (
+                  <div>
+                    <a
+                      href="#"
+                      className="font-weight-bold text-purple"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        throw new Error("Not Implemented");
+                      }}
+                    >
+                      <FaCodeFork /> Create New Draft
+                    </a>
+                  </div>
+                )}
               </div>
+            </div>
+          ) : null}
+        </>
+      )}
+      <div className={revision ? "appbox mb-4 px-3 pt-3" : ""}>
+        {revision && (
+          <div className="row mb-3">
+            <div className="col-auto">
+              <span className="text-muted">Revision created by</span>{" "}
+              <AuditUser user={revision.createdBy} display="name" />{" "}
+              <span className="text-muted">on</span>{" "}
+              {date(revision.dateCreated)}
+            </div>
+            {revision.status === "published" && revision.datePublished && (
+              <div className="col-auto">
+                <span className="text-muted">Published on</span>{" "}
+                {date(revision.datePublished)}
+              </div>
+            )}
+            {revision.status === "draft" && (
+              <div className="col-auto">
+                <span className="text-muted">Last updated</span>{" "}
+                {ago(revision.dateUpdated)}
+              </div>
+            )}
+            <div className="col-auto">
+              <span className="text-muted">Revision Comment:</span>{" "}
+              {revision.comment || <em>None</em>}
             </div>
           </div>
         )}
+
+        <h3>
+          Default Value
+          {canEdit && !isLocked && canEditDrafts && (
+            <a className="ml-2 cursor-pointer" onClick={() => setEdit(true)}>
+              <GBEdit />
+            </a>
+          )}
+        </h3>
+        <div className="appbox mb-4 p-3">
+          <ForceSummary
+            value={getFeatureDefaultValue(feature)}
+            feature={feature}
+          />
+        </div>
+
+        <h3>Override Rules</h3>
+        <p>
+          Add powerful logic on top of your feature. The first matching rule
+          applies and overrides the default value.
+        </p>
+
+        <div className="mb-0">
+          <ControlledTabs
+            setActive={(v) => {
+              setEnv(v || "");
+            }}
+            active={env}
+            showActiveCount={true}
+            newStyle={false}
+            buttonsClassName="px-3 py-2 h4"
+          >
+            {environments.map((e) => {
+              const rules = getRules(feature, e.id);
+              return (
+                <Tab
+                  key={e.id}
+                  id={e.id}
+                  display={e.id}
+                  count={rules.length}
+                  padding={false}
+                >
+                  <div className="border mb-4 border-top-0">
+                    {rules.length > 0 ? (
+                      <RuleList
+                        environment={e.id}
+                        feature={feature}
+                        mutate={mutate}
+                        setRuleModal={setRuleModal}
+                        version={currentVersion}
+                        setVersion={setVersion}
+                        locked={isLocked}
+                      />
+                    ) : (
+                      <div className="p-3 bg-white">
+                        <em>No override rules for this environment yet</em>
+                      </div>
+                    )}
+                  </div>
+                </Tab>
+              );
+            })}
+          </ControlledTabs>
+
+          {canEditDrafts && !isLocked && (
+            <div className="row">
+              <div className="col mb-3">
+                <div
+                  className="bg-white border p-3 d-flex flex-column"
+                  style={{ height: "100%" }}
+                >
+                  <h4>Forced Value</h4>
+                  <p>
+                    Target groups of users and give them all the same value.
+                  </p>
+                  <div style={{ flex: 1 }} />
+                  <div>
+                    <button
+                      className="btn btn-primary"
+                      onClick={() => {
+                        setRuleModal({
+                          environment: env,
+                          i: getRules(feature, env).length,
+                          defaultType: "force",
+                        });
+                        track("Viewed Rule Modal", {
+                          source: "add-rule",
+                          type: "force",
+                        });
+                      }}
+                    >
+                      <span className="h4 pr-2 m-0 d-inline-block align-top">
+                        <GBAddCircle />
+                      </span>
+                      Add Forced Rule
+                    </button>
+                  </div>
+                </div>
+              </div>
+              <div className="col mb-3">
+                <div
+                  className="bg-white border p-3 d-flex flex-column"
+                  style={{ height: "100%" }}
+                >
+                  <h4>Percentage Rollout</h4>
+                  <p>
+                    Release to a small percent of users while you monitor logs.
+                  </p>
+                  <div style={{ flex: 1 }} />
+                  <div>
+                    <button
+                      className="btn btn-primary"
+                      onClick={() => {
+                        setRuleModal({
+                          environment: env,
+                          i: getRules(feature, env).length,
+                          defaultType: "rollout",
+                        });
+                        track("Viewed Rule Modal", {
+                          source: "add-rule",
+                          type: "rollout",
+                        });
+                      }}
+                    >
+                      <span className="h4 pr-2 m-0 d-inline-block align-top">
+                        <GBAddCircle />
+                      </span>
+                      Add Rollout Rule
+                    </button>
+                  </div>
+                </div>
+              </div>
+              <div className="col mb-3">
+                <div
+                  className="bg-white border p-3 d-flex flex-column"
+                  style={{ height: "100%" }}
+                >
+                  <h4>A/B Experiment</h4>
+                  <p>Measure the impact of this feature on your key metrics.</p>
+                  <div style={{ flex: 1 }} />
+                  <div>
+                    <button
+                      className="btn btn-primary"
+                      onClick={() => {
+                        setRuleModal({
+                          environment: env,
+                          i: getRules(feature, env).length,
+                          defaultType: "experiment-ref-new",
+                        });
+                        track("Viewed Rule Modal", {
+                          source: "add-rule",
+                          type: "experiment",
+                        });
+                      }}
+                    >
+                      <span className="h4 pr-2 m-0 d-inline-block align-top">
+                        <GBAddCircle />
+                      </span>
+                      Add Experiment Rule
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="mb-4">
