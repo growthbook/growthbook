@@ -130,6 +130,10 @@ export default function ExperimentRefSummary({
     : 1;
   const effectiveCoverage = namespaceRange * (phase.coverage ?? 1);
 
+  const hasCondition =
+    (phase.condition && phase.condition !== "{}") ||
+    !!phase.savedGroups?.length;
+
   return (
     <div>
       {experiment.status === "draft" && (
@@ -146,13 +150,16 @@ export default function ExperimentRefSummary({
           Experiment page.
         </div>
       )}
-      {phase.condition && phase.condition !== "{}" && (
+      {hasCondition && (
         <div className="row mb-3 align-items-top">
           <div className="col-auto">
             <strong>IF</strong>
           </div>
           <div className="col">
-            <ConditionDisplay condition={phase.condition} />
+            <ConditionDisplay
+              condition={phase.condition}
+              savedGroups={phase.savedGroups}
+            />
           </div>
         </div>
       )}
