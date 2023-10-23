@@ -26,7 +26,7 @@ export async function createUser(
 
   let role = org.settings?.defaultRole?.role || "readonly";
 
-  const roleObj = req.body["urn:ietf:params:scim:schemas:extensions:2.0:User"];
+  const roleObj = req.body["urn:ietf:params:scim:schemas:Core:2.0:User"];
 
   if (roleObj?.growthbookRole) {
     role = roleObj.growthbookRole;
