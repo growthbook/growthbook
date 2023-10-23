@@ -1,5 +1,5 @@
 import clsx from "clsx";
-import { useCallback, useEffect, useState } from "react";
+import { SetStateAction, useCallback, useEffect, useState } from "react";
 import {
   ExperimentSnapshotAnalysis,
   ExperimentSnapshotAnalysisSettings,
@@ -12,6 +12,48 @@ import Dropdown from "@/components/Dropdown/Dropdown";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import LoadingSpinner from "@/components/LoadingSpinner";
+
+export async function analysisUpdate(
+  newSettings: ExperimentSnapshotAnalysisSettings,
+  analysis: ExperimentSnapshotAnalysis,
+  snapshot: ExperimentSnapshotInterface,
+  apiCall: <T>(
+    url: string | null,
+    options?: RequestInit | undefined
+  ) => Promise<T>,
+  setPostLoading: (value: SetStateAction<boolean>) => void,
+  phase?: number
+): Promise<"success" | "fail" | "abort"> {
+  if (!analysis || !snapshot) return "abort";
+  let status: "success" | "fail" | "abort" = "fail";
+
+  if (!getSnapshotAnalysis(snapshot, newSettings)) {
+    setPostLoading(true);
+    await apiCall(`/snapshot/${snapshot.id}/analysis`, {
+      method: "POST",
+      body: JSON.stringify({
+        analysisSettings: newSettings,
+        phaseIndex: phase,
+      }),
+    })
+      .then((resp) => {
+        // @ts-expect-error the resp should have a status
+        if ((resp?.status ?? 400) + "" === "200") {
+          status = "success";
+        } else {
+          status = "fail";
+        }
+      })
+      .catch((e) => {
+        console.error(e);
+        status = "fail";
+      });
+  } else {
+    status = "success";
+  }
+
+  return status;
+}
 
 export interface Props {
   differenceType: DifferenceType;
@@ -49,42 +91,12 @@ export default function DifferenceTypeChooser({
     ["scaled", "Scaled Impact"],
   ]);
   const selectedDifferenceName = differenceTypeMap.get(differenceType);
-  const triggerAnalysisUpdate = useCallback(
-    async (
-      newSettings: ExperimentSnapshotAnalysisSettings
-    ): Promise<"success" | "fail" | "abort"> => {
-      if (!analysis || !snapshot) return "abort";
-      let status: "success" | "fail" | "abort" = "fail";
-
-      if (!getSnapshotAnalysis(snapshot, newSettings)) {
-        setPostLoading(true);
-        await apiCall(`/snapshot/${snapshot.id}/analysis`, {
-          method: "POST",
-          body: JSON.stringify({
-            analysisSettings: newSettings,
-            phaseIndex: phase,
-          }),
-        })
-          .then((resp) => {
-            // @ts-expect-error the resp should have a status
-            if ((resp?.status ?? 400) + "" === "200") {
-              status = "success";
-            } else {
-              status = "fail";
-            }
-          })
-          .catch((e) => {
-            console.error(e);
-            status = "fail";
-          });
-      } else {
-        status = "success";
-      }
-
-      return status;
-    },
-    [analysis, snapshot, phase, apiCall]
-  );
+  const triggerAnalysisUpdate = useCallback(analysisUpdate, [
+    analysis,
+    snapshot,
+    phase,
+    apiCall,
+  ]);
 
   useEffect(() => {
     setDesiredDifferenceType(differenceType);
@@ -128,7 +140,14 @@ export default function DifferenceTypeChooser({
               ...analysis.settings,
               differenceType: newDifferenceType,
             };
-            triggerAnalysisUpdate(newSettings).then((status) => {
+            triggerAnalysisUpdate(
+              newSettings,
+              analysis,
+              snapshot,
+              apiCall,
+              setPostLoading,
+              phase
+            ).then((status) => {
               if (status === "success") {
                 setDifferenceType(newDifferenceType);
                 setAnalysisSettings(newSettings);
