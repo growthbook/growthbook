@@ -223,7 +223,13 @@ export const listOrganizationsValidator = {
 };
 
 export const postOrganizationValidator = {
-  bodySchema: z.object({"name":z.string().describe("The name of the organization")}).strict(),
+  bodySchema: z.object({"name":z.string().describe("The name of the organization"),"externalId":z.string().describe("An optional identifier that you use within your company for the organization").optional()}).strict(),
   querySchema: z.never(),
   paramsSchema: z.never(),
+};
+
+export const putOrganizationValidator = {
+  bodySchema: z.object({"name":z.string().describe("The name of the organization").optional(),"externalId":z.string().describe("An optional identifier that you use within your company for the organization").optional()}).strict(),
+  querySchema: z.never(),
+  paramsSchema: z.object({"id":z.string()}).strict(),
 };
