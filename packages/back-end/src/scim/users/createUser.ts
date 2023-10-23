@@ -26,10 +26,11 @@ export async function createUser(
 
   let role = org.settings?.defaultRole?.role || "readonly";
 
-  const roleObj = req.body["urn:ietf:params:scim:schemas:Core:2.0:User"];
+  const scimDefinedRole =
+    req.body["urn:ietf:params:scim:schemas:Core:2.0:User"]?.growthbookRole;
 
-  if (roleObj?.growthbookRole) {
-    role = roleObj.growthbookRole;
+  if (scimDefinedRole) {
+    role = scimDefinedRole;
   }
 
   const expandedMembers = await expandOrgMembers(org.members);
@@ -61,7 +62,7 @@ export async function createUser(
       let newUser = await getUserByEmail(userName);
 
       if (!newUser) {
-        newUser = await createNewUser(displayName, userName, "testpassword123");
+        newUser = await createNewUser(displayName, userName);
       }
 
       await addMemberToOrg({
