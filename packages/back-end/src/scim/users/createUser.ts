@@ -24,12 +24,19 @@ export async function createUser(
 
   const org: OrganizationInterface = req.organization;
 
+  let role = org.settings?.defaultRole?.role || "readonly";
+
+  const roleObj = req.body["urn:ietf:params:scim:schemas:extensions:2.0:User"];
+
+  if (roleObj?.growthbookRole) {
+    role = roleObj.growthbookRole;
+  }
+
   const expandedMembers = await expandOrgMembers(org.members);
   const existingOrgMember = expandedMembers.find(
     (member) => member.email === userName
   );
 
-  const role = org.settings?.defaultRole?.role || "readonly";
   const responseObj = cloneDeep(req.body);
 
   try {
@@ -54,7 +61,7 @@ export async function createUser(
       let newUser = await getUserByEmail(userName);
 
       if (!newUser) {
-        newUser = await createNewUser(displayName, userName);
+        newUser = await createNewUser(displayName, userName, "testpassword123");
       }
 
       await addMemberToOrg({
