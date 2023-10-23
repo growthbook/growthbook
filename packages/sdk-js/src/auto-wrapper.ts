@@ -18,7 +18,7 @@ const getUUID = () => {
 
   // use the browsers crypto.randomUUID if set
   const genUUID = () => {
-    if (window?.crypto?.randomUUID) return window.crypto.randomUUID();
+    if (window.crypto && crypto.randomUUID) return crypto.randomUUID();
     return ("" + 1e7 + -1e3 + -4e3 + -8e3 + -1e11).replace(/[018]/g, (c) =>
       (
         ((c as unknown) as number) ^
@@ -28,13 +28,9 @@ const getUUID = () => {
     );
   };
   const getCookie = (name: string): string => {
-    const value = `; ${document.cookie}`;
+    const value = "; " + document.cookie;
     const parts = value.split(`; ${name}=`);
-    if (parts.length === 2) {
-      const end = parts.pop();
-      return (end && end.split(";")[0]) || "";
-    }
-    return "";
+    return parts.length === 2 ? parts[1].split(";")[0] : "";
   };
   const setCookie = (name: string, value: string) => {
     const d = new Date();

@@ -28,11 +28,31 @@ To **create visual experiments**, all you need is the following:
 
 - The [GrowthBook Chrome Extension](https://chrome.google.com/webstore/detail/growthbook-devtools/opemhndcehfgipokneipaafbglcecjia) installed on your Chrome Browser.
 
-To **run your visual experiments** against users in your web app, you additionally need:
-
-- The [JavaScript](/lib/js) or [ReactJS](/lib/react) SDK loaded in your web application.
-
 The application you want to experiment on **must be a front-end web application viewed in a browser**. Our Visual Editor does not work for mobile apps (Native or ReactNative) or desktop apps (e.g. Electron). For unsupported platforms, we recommend using [Feature Flags](/app/features) instead to implement your changes in code.
+
+## Deploying to Users
+
+Before you start your first experiment, you need to integrate GrowthBook into your website.
+
+### Using our SDKs
+
+If you also plan to use Feature Flags, we recommend doing a full custom integration with our [JavaScript](/lib/js) or [ReactJS](/lib/react) SDKs. This integration requires the help of a developer to set up.
+
+### Pre-built Script Tag
+
+If you only plan on using the Visual Editor or do not have access to a developer, you can use our pre-built script tag instead.
+
+First, create an SDK Connection in GrowthBook and note your **Client Key**.
+
+Then, add the script tag below to your website and replace `YOUR_CLIENT_KEY_HERE` with your actual client key:
+
+```html
+<script async data-client-key="YOUR_CLIENT_KEY_HERE"
+  src="https://cdn.jsdelivr.net/npm/@growthbook/growthbook/dist/bundles/auto.min.js"
+></script>
+```
+
+For best performance, we recommend adding this script tag directly to your website's `<head>`, however it is also possible to load through something like Google Tag Manager if that is your only option.
 
 ## Creating a Visual Experiment
 
