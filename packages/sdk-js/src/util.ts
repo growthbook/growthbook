@@ -296,7 +296,7 @@ export function paddedVersionString(input: any): string {
   // Remove build info and leading `v` if any
   // Split version into parts (both core version numbers and pre-release tags)
   // "v1.2.3-rc.1+build123" -> ["1","2","3","rc","1"]
-  const parts = input.replace(/(^v|\+.*$)/g, "").split(/[-.]/);
+  const parts = (input as string).replace(/(^v|\+.*$)/g, "").split(/[-.]/);
 
   // If it's SemVer without a pre-release, add `~` to the end
   // ["1","0","0"] -> ["1","0","0","~"]
