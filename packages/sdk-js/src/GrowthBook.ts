@@ -32,6 +32,7 @@ import {
   inRange,
   isURLTargeted,
   decrypt,
+  loadSDKVersion,
 } from "./util";
 import { evalCondition } from "./mongrule";
 import { refreshFeatures, subscribe, unsubscribe } from "./feature-repository";
@@ -39,8 +40,7 @@ import { refreshFeatures, subscribe, unsubscribe } from "./feature-repository";
 const isBrowser =
   typeof window !== "undefined" && typeof document !== "undefined";
 
-// @ts-expect-error right-hand value to be replaced by build with string literal
-const SDK_VERSION = __SDK_VERSION__;
+const SDK_VERSION = loadSDKVersion();
 
 export class GrowthBook<
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
