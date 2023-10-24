@@ -33,14 +33,13 @@ export class ReportQueryRunner extends QueryRunner<
   async startQueries(params: ReportQueryParams): Promise<Queries> {
     this.metricMap = params.metricMap;
 
-    const {
-      analysisSettings,
-      snapshotSettings,
-    } = getSnapshotSettingsFromReportArgs(this.model.args, params.metricMap);
+    const { snapshotSettings } = getSnapshotSettingsFromReportArgs(
+      this.model.args,
+      params.metricMap
+    );
 
     const experimentParams: ExperimentResultsQueryParams = {
       metricMap: params.metricMap,
-      analysisSettings,
       snapshotSettings,
       variationNames: this.model.args.variations.map((v) => v.name),
       queryParentId: this.model.id,
