@@ -411,7 +411,10 @@ const ExperimentsPage = (): React.ReactElement => {
                       </td>
                     )}
                     <td className="nowrap" data-title="Tags:">
-                      <SortedTags tags={Object.values(e.tags)} />
+                      <SortedTags
+                        tags={Object.values(e.tags)}
+                        shouldShowEllipsis={true}
+                      />
                     </td>
                     <td className="nowrap" data-title="Owner:">
                       {e.ownerName}

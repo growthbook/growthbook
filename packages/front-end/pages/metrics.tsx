@@ -405,6 +405,7 @@ const MetricsPage = (): React.ReactElement => {
               <td className="nowrap">
                 <SortedTags
                   tags={metric.tags ? Object.values(metric.tags) : []}
+                  shouldShowEllipsis={true}
                 />
               </td>
               <td className="col-2">
