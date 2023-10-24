@@ -256,7 +256,7 @@ export default function AssignmentTester({ feature }: Props) {
 
   if (hasArchetypeAccess) {
     if (!data) {
-      return "Loading...";
+      return <div>Loading...</div>;
     }
     if (error) {
       return null;
