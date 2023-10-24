@@ -143,7 +143,9 @@ const AlignedGraph: FC<Props> = ({
   const domainWidth = rightDomain - leftDomain;
 
   const tickFormat = (v: number) => {
-    return !percent ? numberFormatter.format(v) : domainWidth < 0.05
+    return !percent
+      ? numberFormatter.format(v)
+      : domainWidth < 0.05
       ? smallPercentFormatter.format(v)
       : percentFormatter.format(v);
   };
@@ -427,7 +429,9 @@ const AlignedGraph: FC<Props> = ({
                 {(expected ?? 0) > 0 ? <FaArrowUp /> : <FaArrowDown />}
               </span>{" "}
               <span className="expected bold">
-                {parseFloat(((expected ?? 0) * (percent ? 100 : 1)).toFixed(1)) + (percent ? "%" : "")}{" "}
+                {parseFloat(
+                  ((expected ?? 0) * (percent ? 100 : 1)).toFixed(1)
+                ) + (percent ? "%" : "")}{" "}
               </span>
             </div>
           </>
