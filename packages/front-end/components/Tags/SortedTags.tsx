@@ -24,7 +24,7 @@ export default function SortedTags({
     return sortedIds.indexOf(a) - sortedIds.indexOf(b);
   });
 
-  const renderTag = () => {
+  const renderTags = () => {
     //only whant to show ellipsis if the length is >  SHOW_ELLIPSIS_AT_INDEX;
     shouldShowEllipsis =
       shouldShowEllipsis && sorted.length - 1 !== SHOW_ELLIPSIS_AT_INDEX;
@@ -42,5 +42,5 @@ export default function SortedTags({
     });
   };
 
-  return <>{renderTag()}</>;
+  return <>{renderTags()}</>;
 }
