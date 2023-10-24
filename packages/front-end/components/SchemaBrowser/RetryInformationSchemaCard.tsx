@@ -1,49 +1,25 @@
-import { useState } from "react";
 import { InformationSchemaInterface } from "@/../back-end/src/types/Integration";
-import { useAuth } from "@/services/auth";
 
 export default function RetryInformationSchemaCard({
-  datasourceId,
-  setFetching,
   informationSchema,
+  refreshOrCreateInfoSchema,
+  error,
 }: {
-  datasourceId: string;
-  setFetching: (fetching: boolean) => void;
   informationSchema: InformationSchemaInterface;
+  refreshOrCreateInfoSchema: (type: "PUT" | "POST") => void;
+  error: string | null;
 }) {
-  const [error, setError] = useState<null | string>(null);
-  const { apiCall } = useAuth();
-
-  async function onClick() {
-    setError(null);
-    try {
-      await apiCall<{
-        status: number;
-        message?: string;
-      }>(`/datasource/${datasourceId}/schema`, {
-        method: "PUT",
-        body: JSON.stringify({
-          informationSchemaId: informationSchema.id,
-        }),
-      });
-      setFetching(true);
-    } catch (e) {
-      setError(e.message);
-    }
-  }
-
   return (
     <div>
       <div className="alert alert-warning d-flex align-items-center">
-        <div>
-          {/* @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'. */}
-          <span>{error ? error : informationSchema.error.message}</span>
-        </div>
+        {error || informationSchema?.error?.message ? (
+          <span>{error || informationSchema?.error?.message}</span>
+        ) : null}
         <button
           className="btn btn-link"
           onClick={async (e) => {
             e.preventDefault();
-            onClick();
+            refreshOrCreateInfoSchema("PUT");
           }}
         >
           Retry

@@ -1,0 +1,32 @@
+summary: Get all organizations (only for super admins on multi-org Enterprise Plan only)
+tags:
+  - organizations
+parameters:
+  - name: search
+    in: query
+    description: Search string to search organization names, owner emails, and external ids by
+    schema:
+      type: string
+  - $ref: "../parameters.yaml#/limit"
+  - $ref: "../parameters.yaml#/offset"
+operationId: listOrganizations
+x-codeSamples:
+  - lang: "cURL"
+    source: |
+      curl https://api.growthbook.io/api/v1/organizations \
+        -u secret_abc123DEF456:
+responses:
+  "200":
+    content:
+      application/json:
+        schema:
+          allOf:
+            - type: object
+              required:
+                - organizations
+              properties:
+                organizations:
+                  type: array
+                  items:
+                    $ref: "../schemas/Organization.yaml"
+            - $ref: "../schemas/PaginationFields.yaml"

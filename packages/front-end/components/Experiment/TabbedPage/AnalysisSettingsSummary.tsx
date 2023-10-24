@@ -31,6 +31,7 @@ import RunQueriesButton, {
 import RefreshSnapshotButton from "@/components/Experiment/RefreshSnapshotButton";
 import usePermissions from "@/hooks/usePermissions";
 import ViewAsyncQueriesButton from "@/components/Queries/ViewAsyncQueriesButton";
+import FactBadge from "@/components/FactTables/FactBadge";
 import AnalysisForm from "../AnalysisForm";
 import OverflowText from "./OverflowText";
 
@@ -57,7 +58,11 @@ export default function AnalysisSettingsSummary({
   baselineRow,
   setBaselineRow,
 }: Props) {
-  const { getDatasourceById, getSegmentById, getMetricById } = useDefinitions();
+  const {
+    getDatasourceById,
+    getSegmentById,
+    getExperimentMetricById,
+  } = useDefinitions();
   const orgSettings = useOrgSettings();
   const permissions = usePermissions();
 
@@ -113,16 +118,18 @@ export default function AnalysisSettingsSummary({
   );
   const segment = getSegmentById(experiment.segment || "");
 
-  const activationMetric = getMetricById(experiment.activationMetric || "");
+  const activationMetric = getExperimentMetricById(
+    experiment.activationMetric || ""
+  );
 
   const goals: string[] = [];
   experiment.metrics?.forEach((m) => {
-    const name = getMetricById(m)?.name;
+    const name = getExperimentMetricById(m)?.name;
     if (name) goals.push(name);
   });
   const guardrails: string[] = [];
   experiment.guardrails?.forEach((m) => {
-    const name = getMetricById(m)?.name;
+    const name = getExperimentMetricById(m)?.name;
     if (name) guardrails.push(name);
   });
 
@@ -164,7 +171,12 @@ export default function AnalysisSettingsSummary({
   }
   if (activationMetric) {
     items.push({
-      value: activationMetric.name,
+      value: (
+        <>
+          {activationMetric.name}
+          <FactBadge metricId={activationMetric.id} />
+        </>
+      ),
       icon: <HiCursorClick className="mr-1" />,
       tooltip: "Activation Metric",
     });
@@ -442,8 +454,8 @@ export default function AnalysisSettingsSummary({
           <ResultMoreMenu
             id={snapshot?.id || ""}
             forceRefresh={
-              (experiment.metrics.length > 0 ||
-                (experiment.guardrails?.length ?? 0)) > 0
+              experiment.metrics.length > 0 ||
+              (experiment.guardrails?.length ?? 0) > 0
                 ? async () => {
                     await apiCall<{ snapshot: ExperimentSnapshotInterface }>(
                       `/experiment/${experiment.id}/snapshot?force=true`,

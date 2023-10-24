@@ -12,6 +12,7 @@ import cronstrue from "cronstrue";
 import { AttributionModel } from "back-end/types/experiment";
 import { PValueCorrection } from "back-end/types/stats";
 import {
+  DEFAULT_P_VALUE_THRESHOLD,
   DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
   DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
   DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
@@ -310,7 +311,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
       },
       multipleExposureMinPercent: 0.01,
       confidenceLevel: 0.95,
-      pValueThreshold: 0.05,
+      pValueThreshold: DEFAULT_P_VALUE_THRESHOLD,
       pValueCorrection: null,
       statsEngine: DEFAULT_STATS_ENGINE,
       regressionAdjustmentEnabled: DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
@@ -533,8 +534,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
       <div className="container-fluid pagecontents">
         {editOpen && (
           <EditOrganizationModal
-            // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'string | undefined' is not assignable to typ... Remove this comment to see the full error message
-            name={organization.name}
+            name={organization.name || ""}
             close={() => setEditOpen(false)}
             mutate={refreshOrganization}
           />

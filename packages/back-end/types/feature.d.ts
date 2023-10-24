@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
+import type { FeatureDefinition, FeatureResult } from "@growthbook/growthbook";
 import { UserRef } from "./user";
 
 export type FeatureValueType = "boolean" | "string" | "number" | "json";
@@ -57,12 +58,19 @@ type ScheduleRule = {
   timestamp: string | null;
   enabled: boolean;
 };
+
+export interface SavedGroupTargeting {
+  match: "all" | "none" | "any";
+  ids: string[];
+}
+
 export interface BaseRule {
   description: string;
   condition?: string;
   id: string;
   enabled?: boolean;
   scheduleRules?: ScheduleRule[];
+  savedGroups?: SavedGroupTargeting[];
 }
 
 export interface ForceRule extends BaseRule {
@@ -117,3 +125,12 @@ export type FeatureRule =
   | RolloutRule
   | ExperimentRule
   | ExperimentRefRule;
+
+export interface FeatureTestResult {
+  env: string;
+  enabled: boolean;
+  result: null | FeatureResult;
+  defaultValue: boolean | string | object;
+  log?: [string, any][];
+  featureDefinition?: FeatureDefinition;
+}

@@ -143,6 +143,13 @@ const experimentSchema = new mongoose.Schema({
       reason: String,
       coverage: Number,
       condition: String,
+      savedGroups: [
+        {
+          _id: false,
+          ids: [String],
+          match: String,
+        },
+      ],
       namespace: {},
       seed: String,
       variationWeights: [Number],
@@ -711,7 +718,7 @@ export async function deleteExperimentByIdForOrganization(
       organization: organization.id,
     });
 
-    VisualChangesetModel.deleteMany({ experiment: experiment.id });
+    await VisualChangesetModel.deleteMany({ experiment: experiment.id });
 
     await onExperimentDelete(organization, user, experiment);
   } catch (e) {
@@ -1103,6 +1110,27 @@ export const getAllVisualExperiments = async (
       return true;
     });
 };
+
+export function getPayloadKeysForAllEnvs(
+  organization: OrganizationInterface,
+  projects: string[]
+) {
+  const uniqueProjects = new Set(projects);
+
+  const environments: string[] =
+    organization.settings?.environments?.map((e) => e.id) ?? [];
+
+  const keys: SDKPayloadKey[] = [];
+  uniqueProjects.forEach((p) => {
+    environments.forEach((e) => {
+      keys.push({
+        environment: e,
+        project: p,
+      });
+    });
+  });
+  return keys;
+}
 
 export const getPayloadKeys = (
   organization: OrganizationInterface,

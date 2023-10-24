@@ -8,7 +8,7 @@ import { FiChevronRight } from "react-icons/fi";
 import { GlobalPermission, Permission } from "back-end/types/organization";
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import { AppFeatures } from "@/types/app-features";
-import { isCloud } from "../../services/env";
+import { isCloud, isMultiOrg } from "../../services/env";
 import { useUser } from "../../services/UserContext";
 import styles from "./SidebarLink.module.scss";
 
@@ -23,6 +23,7 @@ export type SidebarLinkProps = {
   className?: string;
   superAdmin?: boolean;
   cloudOnly?: boolean;
+  multiOrgOnly?: boolean;
   selfHostedOnly?: boolean;
   autoClose?: boolean;
   permissions?: Permission[];
@@ -33,7 +34,7 @@ export type SidebarLinkProps = {
 };
 
 const SidebarLink: FC<SidebarLinkProps> = (props) => {
-  const { permissions, admin, accountPlan } = useUser();
+  const { permissions, superAdmin, accountPlan } = useUser();
   const router = useRouter();
 
   const path = router.route.substr(1);
@@ -56,7 +57,7 @@ const SidebarLink: FC<SidebarLinkProps> = (props) => {
     return null;
   }
 
-  if (props.superAdmin && !admin) return null;
+  if (props.superAdmin && !superAdmin) return null;
   if (props.permissions) {
     let allowed = false;
     for (let i = 0; i < props.permissions.length; i++) {
@@ -67,6 +68,9 @@ const SidebarLink: FC<SidebarLinkProps> = (props) => {
     if (!allowed) return null;
   }
 
+  if (props.multiOrgOnly && !isMultiOrg()) {
+    return null;
+  }
   if (props.cloudOnly && !isCloud()) {
     return null;
   }
@@ -136,7 +140,7 @@ const SidebarLink: FC<SidebarLinkProps> = (props) => {
               (subLink) => !subLink.feature || growthbook.isOn(subLink.feature)
             )
             .map((l) => {
-              if (l.superAdmin && !admin) return null;
+              if (l.superAdmin && !superAdmin) return null;
 
               if (l.permissions) {
                 for (let i = 0; i < l.permissions.length; i++) {
@@ -146,6 +150,9 @@ const SidebarLink: FC<SidebarLinkProps> = (props) => {
                     return null;
                   }
                 }
+              }
+              if (l.multiOrgOnly && !isMultiOrg()) {
+                return null;
               }
               if (l.cloudOnly && !isCloud()) {
                 return null;
@@ -188,6 +195,9 @@ const SidebarLink: FC<SidebarLinkProps> = (props) => {
                         </>
                       )}
                       {l.name}
+                      {l.beta && (
+                        <div className="badge badge-purple ml-2">beta</div>
+                      )}
                     </a>
                   </Link>
                 </li>

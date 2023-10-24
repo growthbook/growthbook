@@ -384,7 +384,7 @@ def validate(test_case):
         raise ValueError("sqlfluff error")
 
 
-def main(engines, filter, branch, skip_cache):
+def main(engines, filters, branch, skip_cache):
     test_cases = read_queries_json()
 
     cache = read_queries_cache()
@@ -399,10 +399,11 @@ def main(engines, filter, branch, skip_cache):
         engine = test_case["engine"]
         if engines and engine not in engines:
             continue
-        if filter and filter not in test_case["name"]:
+        if filters and all([f not in test_case["name"] for f in filters]):
             continue
         key = engine + "::" + test_case["sql"]
         if not skip_cache and key in cache and "error" not in cache[key]:
+            print("cache: ", test_case["name"])
             update_fields = ["engine", "name"]
             results.append(
                 {
@@ -413,6 +414,7 @@ def main(engines, filter, branch, skip_cache):
                 }
             )
         else:
+            print("running: ", test_case["name"])
             if engine not in nonlinted_engines:
                 validate(test_case)
             if engine not in runners:
@@ -457,8 +459,8 @@ if __name__ == "__main__":
         - redshift
         """,
     )
-    parser.add_argument("--filter", help="string that must be in test name to run")
+    parser.add_argument("--filter", help="comma separated strings that must be in test name to run (has to match any one string)")
     args = parser.parse_args()
     print(args)
 
-    main(args.engines.split(","), args.filter, args.branch, args.cache == "nocache")
+    main(args.engines.split(","), args.filter.split(","), args.branch, args.cache == "nocache")

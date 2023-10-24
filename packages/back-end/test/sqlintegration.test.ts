@@ -51,30 +51,34 @@ describe("bigquery integration", () => {
     // builder metrics not tested
 
     expect(
-      bqIntegration["addCaseWhenTimeFilter"]("val", false, false).replace(
-        /\s+/g,
-        " "
-      )
+      bqIntegration["addCaseWhenTimeFilter"](
+        "val",
+        normalSqlMetric,
+        false,
+        false
+      ).replace(/\s+/g, " ")
     ).toEqual(
-      "(CASE WHEN m.timestamp >= d.conversion_start AND m.timestamp <= d.conversion_end THEN val ELSE NULL END)"
+      "(CASE WHEN m.timestamp >= d.timestamp AND m.timestamp <= DATETIME_ADD(d.timestamp, INTERVAL 72 HOUR) THEN val ELSE NULL END)"
     );
 
     expect(
-      bqIntegration["addCaseWhenTimeFilter"]("val", true, false).replace(
-        /\s+/g,
-        " "
-      )
-    ).toEqual(
-      "(CASE WHEN m.timestamp >= d.conversion_start THEN val ELSE NULL END)"
-    );
+      bqIntegration["addCaseWhenTimeFilter"](
+        "val",
+        normalSqlMetric,
+        true,
+        false
+      ).replace(/\s+/g, " ")
+    ).toEqual("(CASE WHEN m.timestamp >= d.timestamp THEN val ELSE NULL END)");
 
     expect(
-      bqIntegration["addCaseWhenTimeFilter"]("val", true, true).replace(
-        /\s+/g,
-        " "
-      )
+      bqIntegration["addCaseWhenTimeFilter"](
+        "val",
+        normalSqlMetric,
+        true,
+        true
+      ).replace(/\s+/g, " ")
     ).toEqual(
-      "(CASE WHEN m.timestamp >= d.conversion_start AND date_trunc(m.timestamp, DAY) <= dr.day THEN val ELSE NULL END)"
+      "(CASE WHEN m.timestamp >= d.timestamp AND date_trunc(m.timestamp, DAY) <= dr.day THEN val ELSE NULL END)"
     );
 
     expect(

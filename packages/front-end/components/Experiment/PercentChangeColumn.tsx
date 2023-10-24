@@ -1,9 +1,9 @@
 import clsx from "clsx";
 import { SnapshotMetric } from "back-end/types/experiment-snapshot";
-import { MetricInterface } from "back-end/types/metric";
 import { FaArrowDown, FaArrowUp } from "react-icons/fa";
 import React, { DetailedHTMLProps, TdHTMLAttributes } from "react";
 import { StatsEngine } from "back-end/types/stats";
+import { ExperimentMetricInterface } from "shared/experiments";
 import { RowResults } from "@/services/experiments";
 
 const percentFormatter = new Intl.NumberFormat(undefined, {
@@ -16,7 +16,7 @@ interface Props
     TdHTMLAttributes<HTMLTableCellElement>,
     HTMLTableCellElement
   > {
-  metric: MetricInterface;
+  metric: ExperimentMetricInterface;
   stats: SnapshotMetric;
   rowResults: RowResults;
   statsEngine: StatsEngine;
@@ -35,6 +35,9 @@ export default function PercentChangeColumn({
   className,
   ...otherProps
 }: Props) {
+  const expected = stats?.expected ?? 0;
+  const ci0 = stats?.ciAdjusted?.[0] ?? stats?.ci?.[0] ?? 0;
+  const ci1 = stats?.ciAdjusted?.[1] ?? stats?.ci?.[1] ?? 0;
   return (
     <>
       {metric && rowResults.enoughData ? (
@@ -55,25 +58,25 @@ export default function PercentChangeColumn({
               )}
             </span>{" "}
             <span className="expected">
-              {parseFloat(((stats.expected ?? 0) * 100).toFixed(1)) + "%"}{" "}
+              {parseFloat((expected * 100).toFixed(1)) + "%"}{" "}
             </span>
             {statsEngine === "frequentist" && showPlusMinus ? (
               <span className="plusminus font-weight-normal text-gray ml-1">
-                {"±" +
-                  parseFloat(
-                    (
-                      Math.abs((stats.expected ?? 0) - (stats.ci?.[0] ?? 0)) *
-                      100
-                    ).toFixed(1)
-                  ) +
-                  "%"}
+                ±
+                {Math.abs(ci0) === Infinity || Math.abs(ci1) === Infinity ? (
+                  <span style={{ fontSize: "18px", verticalAlign: "-2px" }}>
+                    ∞
+                  </span>
+                ) : (
+                  parseFloat((Math.abs(expected - ci0) * 100).toFixed(1))
+                )}
+                %
               </span>
             ) : null}
           </div>
           {showCI ? (
             <div className="ci text-right nowrap font-weight-normal text-gray">
-              [{percentFormatter.format(stats.ci?.[0] ?? 0)},{" "}
-              {percentFormatter.format(stats.ci?.[1] ?? 0)}]
+              [{percentFormatter.format(ci0)}, {percentFormatter.format(ci1)}]
             </div>
           ) : null}
         </td>

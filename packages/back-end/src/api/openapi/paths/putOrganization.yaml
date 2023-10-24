@@ -1,0 +1,30 @@
+parameters:
+  - $ref: "../parameters.yaml#/id"
+tags:
+  - organizations
+summary: Edit a single organization (only for super admins on multi-org Enterprise Plan only)
+operationId: putOrganization
+x-codeSamples:
+  - lang: "cURL"
+    source: |
+      curl -X PUT https://api.growthbook.io/api/v1/organizations/org_abc123 \
+        -d '{ name: "My Subsidiary" }' \
+        -d '{ externalId: "subsidiary-123" }'
+        -u secret_abc123DEF456:
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "../payload-schemas/PutOrganizationPayload.yaml"
+responses:
+  "200":
+    content:
+      application/json:
+        schema:
+          type: object
+          required:
+            - organization
+          properties:
+            organization:
+              $ref: "../schemas/Organization.yaml"

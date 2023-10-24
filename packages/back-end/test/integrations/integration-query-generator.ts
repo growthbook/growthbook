@@ -12,6 +12,7 @@ import { Dimension } from "../../src/types/Integration";
 import { MetricInterface, MetricType } from "../../types/metric";
 import { getSourceIntegrationObject } from "../../src/services/datasource";
 import { getSnapshotSettings } from "../../src/services/experiments";
+import { expandDenominatorMetrics } from "../../src/util/sql";
 import metricConfigData from "./metrics.json";
 
 const currentDate = new Date();
@@ -97,6 +98,7 @@ const baseExperiment: ExperimentInterface = {
   metrics: metricConfigs.map((m) => m.id),
   exposureQueryId: USER_ID_TYPE,
   hashAttribute: "",
+  hashVersion: 2,
   releasedVariationId: "",
   trackingKey: "checkout-layout",
   datasource: "",
@@ -156,6 +158,15 @@ const allActivationMetrics: MetricInterface[] = [
     sql:
       "SELECT\nuserId as user_id,\ntimestamp as timestamp\nFROM events\nWHERE event = 'Cart Loaded'",
   },
+  {
+    ...baseMetric,
+    id: "cart_loaded_anonymous",
+    userIdTypes: ["anonymous_id"],
+    type: "binomial",
+    ignoreNulls: false,
+    sql:
+      "SELECT\nanonymousId as anonymous_id,\ntimestamp as timestamp\nFROM events\nWHERE event = 'Cart Loaded'",
+  },
 ];
 
 // Build full metric objects
@@ -185,6 +196,14 @@ function buildInterface(engine: string): DataSourceInterface {
               engine === "bigquery" ? "sample." : ""
             }experiment_viewed`,
             dimensions: ["browser"],
+          },
+        ],
+        identityJoins: [
+          {
+            ids: ["user_id", "anonymous_id"],
+            query: `SELECT DISTINCT\nuserId as user_id,anonymousId as anonymous_id\nFROM ${
+              engine === "bigquery" ? "sample." : ""
+            }orders`,
           },
         ],
       },
@@ -282,21 +301,25 @@ engines.forEach((engine) => {
         experiment.metricOverrides[0].id = metric.id;
       }
 
-      let activationMetrics: MetricInterface[] = [];
+      let activationMetric: MetricInterface | null = null;
       if (experiment.activationMetric) {
-        activationMetrics = allActivationMetrics.filter(
+        activationMetric = allActivationMetrics.find(
           (m) => m.id === experiment.activationMetric
         );
       }
       let denominatorMetrics: MetricInterface[] = [];
       if (metric.denominator) {
-        denominatorMetrics = analysisMetrics.filter(
-          (m) => m.id === metric.denominator
+        denominatorMetrics.push(
+          ...expandDenominatorMetrics(metric.denominator, metricMap)
+            .map((m) => metricMap.get(m) as MetricInterface)
+            .filter(Boolean)
         );
       }
 
       if (engine === "bigquery") {
-        activationMetrics = activationMetrics.map(addDatabaseToMetric);
+        if (activationMetric) {
+          activationMetric = addDatabaseToMetric(activationMetric);
+        }
         denominatorMetrics = denominatorMetrics.map(addDatabaseToMetric);
         metric = addDatabaseToMetric(metric);
       }
@@ -349,13 +372,15 @@ engines.forEach((engine) => {
         metricMap,
       });
 
+      // non-pipeline version
       const sql = integration.getExperimentMetricQuery({
         settings: snapshotSettings,
         metric: metric,
-        activationMetrics: activationMetrics,
+        activationMetric: activationMetric,
         denominatorMetrics: denominatorMetrics,
         dimension: dimension,
         segment: segment,
+        useUnitsTable: false,
       });
 
       testCases.push({
@@ -363,6 +388,39 @@ engines.forEach((engine) => {
         engine: engine,
         sql: sql,
       });
+
+      // pipeline version
+      const pipelineEnabled = ["bigquery"];
+      if (pipelineEnabled.includes(engine)) {
+        const unitsTableFullName = `${
+          engine === "bigquery" ? "sample." : ""
+        }growthbook_tmp_units_${experiment.id}_${metric.id}`;
+        const unitsSql = integration.getExperimentUnitsTableQuery({
+          settings: snapshotSettings,
+          activationMetric: activationMetric,
+          dimension: dimension,
+          segment: segment,
+          unitsTableFullName: unitsTableFullName,
+          includeIdJoins: true,
+        });
+        const metricSql = integration.getExperimentMetricQuery({
+          settings: snapshotSettings,
+          metric: metric,
+          activationMetric: activationMetric,
+          denominatorMetrics: denominatorMetrics,
+          dimension: dimension,
+          segment: segment,
+          useUnitsTable: true,
+          unitsTableFullName: unitsTableFullName,
+        });
+
+        // just prepend units table creation (rather than queueing jobs)
+        testCases.push({
+          name: `${engine} > ${experiment.id}_pipeline > ${metric.id}`,
+          engine: engine,
+          sql: unitsSql.concat(metricSql),
+        });
+      }
     });
   });
 });
