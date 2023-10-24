@@ -39,6 +39,9 @@ import { refreshFeatures, subscribe, unsubscribe } from "./feature-repository";
 const isBrowser =
   typeof window !== "undefined" && typeof document !== "undefined";
 
+// @ts-expect-error right-hand value to be replaced by build with string literal
+const SDK_VERSION = __SDK_VERSION__;
+
 export class GrowthBook<
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   AppFeatures extends Record<string, any> = Record<string, any>
@@ -48,6 +51,7 @@ export class GrowthBook<
   private context: Context;
   public debug: boolean;
   public ready: boolean;
+  public version: string;
 
   // Properties and methods that start with "_" are mangled by Terser (saves ~150 bytes)
   private _ctx: Context;
@@ -79,6 +83,7 @@ export class GrowthBook<
     context = context || {};
     // These properties are all initialized in the constructor instead of above
     // This saves ~80 bytes in the final output
+    this.version = SDK_VERSION;
     this._ctx = this.context = context;
     this._renderer = null;
     this._trackedExperiments = new Set();
