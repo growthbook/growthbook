@@ -129,45 +129,30 @@ Once you create an SDK Connection, you need to integrate GrowthBook into your we
 
 ### Option 1: Using our SDKs
 
-If you also plan to use Feature Flags, we recommend doing a full custom integration with our [JavaScript](/lib/js) or [ReactJS](/lib/react) SDKs. This integration requires the help of a developer to set up.
+This option requires a developer, but allows for more customization and a deeper integration into your website. We especially recommend this approach if you also plan to use Feature Flags.
+
+View the full instructions for integrating either our [JavaScript](/lib/js) or [ReactJS](/lib/react) SDKs.
 
 :::note
 
-The Visual Editor requires the latest versions of our SDKs. If you've already been using GrowthBook for feature flags, you may need to update your installed version.
+If you've already been using our front-end SDKs for feature flagging, make sure you:
+
+1. Update to the latest SDK version
+2. Follow the "Visual Editor" instructions in the SDK docs
 
 :::
 
-If you have a Single Page Application (SPA) that does client-side routing, you'll need to update the URL within the GrowthBook SDK every time it changes.
-
-For example, with Next.js you can do the following:
-
-```js
-function updateGrowthBookURL() {
-  gb.setURL(window.location.href);
-}
-
-export default function MyApp() {
-  // Subscribe to route change events and update GrowthBook
-  const router = useRouter();
-  useEffect(() => {
-    router.events.on("routeChangeComplete", updateGrowthBookURL);
-    return () => router.events.off("routeChangeComplete", updateGrowthBookURL);
-  }, []);
-
-  // ...
-}
-```
-
 ### Option 2: Pre-built Script Tag
 
-If you only plan on using the Visual Editor or do not have access to a developer, you can use our pre-built script tag instead.
+This option is quick and easy and only requires the ability to insert a `<script>` tag into your site's source code. However, you do lose some flexibility compared to a full SDK integration.
 
 For this, you'll need the **Client Key** from the SDK Connection you created earlier.
 
 Add the following script tag to your website and replace `YOUR_CLIENT_KEY_HERE` with your actual client key:
 
 ```html
-<script async data-client-key="YOUR_CLIENT_KEY_HERE"
+<script async
+  data-client-key="YOUR_CLIENT_KEY_HERE"
   src="https://cdn.jsdelivr.net/npm/@growthbook/growthbook/dist/bundles/auto.min.js"
 ></script>
 ```
@@ -191,25 +176,7 @@ With the pre-built script tag, the following targeting attributes are set automa
 
 In addition, experiment events will be automatically tracked with both GA4 (using `dataLayer`) and Segment (using `analytics.track`) when available.
 
-All of this default behavior is customizable by defining a `window.growthbook_config` object BEFORE you load the script tag:
-
-```html
-<script>
-window.growthbook_config = {
-  trackingCallback: (experiment, result) => {
-    customTrack("Viewed Experiment", {
-      experiment_id: experiment.key,
-      variation_id: result.key
-    })
-  },
-  attributes: {
-    customAttribute: "something"
-  }
-}
-</script>
-```
-
-Alternatively, you can customize some settings by adding `data-*` attributes to the pre-built script tag directly. Here's an example of overriding the API host and setting a decryption key:
+You can override some settings by adding `data-*` attributes directly to the script tag. Here's an example of overriding the API host and setting a decryption key:
 
 ```html
 <script async
@@ -219,6 +186,27 @@ Alternatively, you can customize some settings by adding `data-*` attributes to 
   src="https://cdn.jsdelivr.net/npm/@growthbook/growthbook/dist/bundles/auto.min.js"
 ></script>
 ```
+
+For more control, you can define a `window.growthbook_config` object BEFORE you load the script tag. This accepts the same settings as our [JavaScript SDK](/lib/js) and is especially useful when you have custom event tracking or attributes that you want to set.
+
+```html
+<script>
+window.growthbook_config = {
+  trackingCallback: (experiment, result) => {
+    customEventTracker("Viewed Experiment", {
+      experiment_id: experiment.key,
+      variation_id: result.key
+    })
+  },
+  // These will be merged with all of the auto-attributes above
+  attributes: {
+    customAttribute: "something"
+  }
+}
+</script>
+```
+
+And lastly, you can access the GrowthBook SDK instance at `window._growthbook` if you need low level access for any reason.
 
 ### Content Security Policy (CSP) Changes
 

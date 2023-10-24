@@ -3,6 +3,9 @@ import resolve from "@rollup/plugin-node-resolve";
 import { terser } from "rollup-plugin-terser";
 import replace from "@rollup/plugin-replace";
 
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const { version } = require("./package.json");
+
 const extensions = [".js", ".ts"];
 
 const terserSettings = terser({
@@ -84,6 +87,10 @@ export default [
       resolve({ extensions, jsnext: true }),
       replace({
         "process.env.NODE_ENV": JSON.stringify("production"),
+        preventAssignment: true,
+      }),
+      replace({
+        __SDK_VERSION__: JSON.stringify(version),
         preventAssignment: true,
       }),
       babel({

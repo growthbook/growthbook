@@ -481,6 +481,7 @@ const getExperimentDefinitionFromFeatureAndRule = (
         reason: "",
         dateStarted: new Date().toISOString(),
         condition: expRule.condition || "",
+        savedGroups: expRule.savedGroups || [],
         namespace: expRule.namespace || {
           enabled: false,
           name: "",
@@ -1412,6 +1413,7 @@ export async function postExperimentTargeting(
 
   const {
     condition,
+    savedGroups,
     coverage,
     hashAttribute,
     hashVersion,
@@ -1450,6 +1452,7 @@ export async function postExperimentTargeting(
     phases[phases.length - 1] = {
       ...phases[phases.length - 1],
       condition,
+      savedGroups,
       coverage,
       namespace,
       variationWeights,
@@ -1463,6 +1466,7 @@ export async function postExperimentTargeting(
 
     phases.push({
       condition,
+      savedGroups,
       coverage,
       dateStarted: new Date(),
       name: "Main",
