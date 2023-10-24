@@ -178,17 +178,46 @@ function mergeUserAndTeamPermissions(
     teamPermissions.global,
   ]);
 
+  // If a user is on a team that has project-level permissions,
+  // but they're user-level permissions don't have project-level permissions,
+  // set the user's project-level permissions equal to their global permissions.
+  for (const project in teamPermissions.projects) {
+    if (!userPermissions.projects[project]) {
+      userPermissions.projects[project] = {
+        limitAccessByEnvironment:
+          userPermissions.global.limitAccessByEnvironment,
+        environments: userPermissions.global.environments,
+        permissions: userPermissions.global.permissions,
+      };
+    }
+  }
+
+  // If the user is on a team that doesn't have project-level permissions that the user has,
+  // set the team's project-level permissions equal to the team's global role
+  for (const project in userPermissions.projects) {
+    if (!teamPermissions.projects[project]) {
+      teamPermissions.projects[project] = {
+        limitAccessByEnvironment:
+          teamPermissions.global.limitAccessByEnvironment,
+        environments: teamPermissions.global.environments,
+        permissions: teamPermissions.global.permissions,
+      };
+    }
+  }
+
+  // Loop through each team project and merge it's permissions with the user's project permissions
   for (const project in teamPermissions.projects) {
     userPermissions.projects[project] = mergeUserPermissionObj([
-      userPermissions.projects[project] || userPermissions.global,
+      userPermissions.projects[project],
       teamPermissions.projects[project],
     ]);
   }
 
+  // Loop through each user project and merge it's permissions with the team's project permissions
   for (const project in userPermissions.projects) {
     userPermissions.projects[project] = mergeUserPermissionObj([
       userPermissions.projects[project],
-      teamPermissions.projects[project] || teamPermissions.global,
+      teamPermissions.projects[project],
     ]);
   }
 }
