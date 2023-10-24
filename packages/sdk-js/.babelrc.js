@@ -39,7 +39,7 @@ module.exports = {
             identifierName: "__SDK_VERSION__",
             replacement: {
               type: "stringLiteral",
-              value: JSON.stringify(version),
+              value: version,
             },
           },
         ],
