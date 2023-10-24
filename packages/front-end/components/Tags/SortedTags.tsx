@@ -31,7 +31,7 @@ export default function SortedTags({
 
     return sorted.map((tag, i) => {
       if (i === SHOW_ELLIPSIS_AT_INDEX && !!shouldShowEllipsis) {
-        return <Tag tag="..." key="tag-ellipsis" />;
+        return <Tag tag="&hellip;" key="tag-ellipsis" />;
       } else if (i < SHOW_ELLIPSIS_AT_INDEX || !shouldShowEllipsis) {
         return (
           <Tag tag={tag} key={tag} skipMargin={skipFirstMargin && i === 0} />
