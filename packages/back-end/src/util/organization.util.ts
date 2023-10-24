@@ -179,16 +179,17 @@ function mergeUserAndTeamPermissions(
   ]);
 
   for (const project in teamPermissions.projects) {
-    // If the userPermissions.projects doesn't have this project, just add it
-    if (!userPermissions.projects[project]) {
-      userPermissions.projects[project] = teamPermissions.projects[project];
-    } else {
-      // Otherwise, merge the permissions
-      userPermissions.projects[project] = mergeUserPermissionObj([
-        userPermissions.projects[project],
-        teamPermissions.projects[project],
-      ]);
-    }
+    userPermissions.projects[project] = mergeUserPermissionObj([
+      userPermissions.projects[project] || userPermissions.global,
+      teamPermissions.projects[project],
+    ]);
+  }
+
+  for (const project in userPermissions.projects) {
+    userPermissions.projects[project] = mergeUserPermissionObj([
+      userPermissions.projects[project],
+      teamPermissions.projects[project] || teamPermissions.global,
+    ]);
   }
 }
 
