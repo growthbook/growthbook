@@ -109,6 +109,7 @@ import {
   findAuditByEntityParent,
 } from "../../models/AuditModel";
 import { EntityType } from "../../types/Audit";
+import { getTeamsForOrganization } from "../../models/TeamModel";
 import { getAllFactTablesForOrganization } from "../../models/FactTableModel";
 import { getAllFactMetricsForOrganization } from "../../models/FactMetricModel";
 
@@ -629,7 +630,9 @@ export async function getOrganization(req: AuthRequest, res: Response) {
 
   const expandedMembers = await expandOrgMembers(members);
 
-  const currentUserPermissions = getUserPermissions(userId, org);
+  const teams = await getTeamsForOrganization(org.id);
+
+  const currentUserPermissions = getUserPermissions(userId, org, teams || []);
 
   return res.status(200).json({
     status: 200,
