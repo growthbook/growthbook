@@ -39,7 +39,7 @@
   },
   "author": "Jeremy Dorn",
   "dependencies": {
-    "dom-mutator": "^0.5.0"
+    "dom-mutator": "^0.6.0"
   },
   "devDependencies": {
     "@babel/cli": "^7.19.3",
