@@ -88,8 +88,6 @@ export default function AssignmentTester({ feature }: Props) {
       .catch((e) => console.error(e));
   }, [formValues, apiCall, feature]);
 
-  if (!data?.archetype) return null;
-
   const showResults = () => {
     if (!results) {
       return <div>Add attributes to see results</div>;
@@ -256,12 +254,15 @@ export default function AssignmentTester({ feature }: Props) {
     );
   };
 
-  if (!data) {
-    return <div>Loading...</div>;
+  if (hasArchetypeAccess) {
+    if (!data) {
+      return <div>Loading...</div>;
+    }
+    if (error) {
+      return null;
+    }
   }
-  if (error) {
-    return null;
-  }
+
   return (
     <>
       {!open ? (
@@ -299,21 +300,23 @@ export default function AssignmentTester({ feature }: Props) {
             </div>
           </div>
           <div>
-            <ArchetypeResults
-              feature={feature}
-              archetype={data.archetype}
-              featureResults={data.featureResults}
-              onChange={async () => {
-                await mutate();
-              }}
-            />
+            {data && data?.archetype.length > 0 && (
+              <ArchetypeResults
+                feature={feature}
+                archetype={data.archetype}
+                featureResults={data.featureResults}
+                onChange={async () => {
+                  await mutate();
+                }}
+              />
+            )}
           </div>
 
           <div className="appbox p-3">
             <div
               className="d-flex flex-row align-items-center justify-content-between cursor-pointer"
               onClick={() => {
-                if (data?.archetype.length > 0) {
+                if (data && data?.archetype.length > 0) {
                   setShowSimulateForm(!showSimulateForm);
                 }
               }}
@@ -322,7 +325,7 @@ export default function AssignmentTester({ feature }: Props) {
                 Simulate how your rules will apply to users.{" "}
                 <Tooltip body="Enter attributes, like are set by your app via the SDK, and see how Growthbook would evaluate this feature for the different environments. Will use draft rules."></Tooltip>
               </div>
-              {data?.archetype.length > 0 && (
+              {data && data?.archetype.length > 0 && (
                 <div className="cursor-pointer">
                   <FaChevronRight
                     style={{
