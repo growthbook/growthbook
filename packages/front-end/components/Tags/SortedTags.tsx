@@ -5,12 +5,20 @@ import Tag from "./Tag";
 export interface Props {
   tags?: string[];
   shouldShowEllipsis?: boolean;
+  skipFirstMargin?: boolean;
+  useFlex?: boolean;
+  showEllipsisAtIndex?: number;
 }
 
-export default function SortedTags({ tags, shouldShowEllipsis }: Props) {
+export default function SortedTags({
+  tags,
+  shouldShowEllipsis = true,
+  skipFirstMargin = false,
+  useFlex = false,
+  showEllipsisAtIndex = 6,
+}: Props) {
   const { tags: all } = useDefinitions();
   //index starting at 0
-  const SHOW_ELLIPSIS_AT_INDEX = 6;
   if (!tags || !tags.length) return null;
 
   const sortedIds = all.map((t) => t.id);
@@ -21,15 +29,18 @@ export default function SortedTags({ tags, shouldShowEllipsis }: Props) {
   });
 
   const renderEllipsis = () => {
-    const tags = sorted.slice(SHOW_ELLIPSIS_AT_INDEX);
+    const tags = sorted.slice(showEllipsisAtIndex);
     const tagCopy = `${tags.length} more tags...`;
-
+    const tagElements = renderTags(tags);
     return (
-      <Tooltip body={<>{renderTags(tags)}</>} usePortal={true}>
+      <Tooltip
+        body={<>{renderFlexContainer(tagElements, true)}</>}
+        usePortal={true}
+      >
         <Tag
           tag={tagCopy}
           key="tag-ellipsis"
-          skipMargin={true}
+          skipMargin={useFlex}
           color="#ffffff"
         />
       </Tooltip>
@@ -37,20 +48,33 @@ export default function SortedTags({ tags, shouldShowEllipsis }: Props) {
   };
 
   const renderTags = (tags: string[]) => {
-    return tags.map((tag) => <Tag tag={tag} key={tag} skipMargin={true} />);
+    return tags.map((tag, i) => {
+      const skipMargin = useFlex || (skipFirstMargin && i === 0);
+      return <Tag tag={tag} key={tag} skipMargin={skipMargin} />;
+    });
+  };
+  const renderFlexContainer = (
+    child: JSX.Element | JSX.Element[],
+    shouldUseFlex = useFlex
+  ) => {
+    return shouldUseFlex ? (
+      <div className="tags-container">{child}</div>
+    ) : (
+      child
+    );
   };
 
   const renderTruncatedTags = () => {
-    //only whant to show ellipsis if the length is >  SHOW_ELLIPSIS_AT_INDEX;
     const truncatedTags = shouldShowEllipsis
-      ? sorted.slice(0, SHOW_ELLIPSIS_AT_INDEX - 1)
+      ? sorted.slice(0, showEllipsisAtIndex - 1)
       : sorted;
     const shouldRenderEllipsis =
       shouldShowEllipsis && truncatedTags.length < sorted.length;
-    return (
-      <div className="tags-container">
-        {renderTags(truncatedTags)} {shouldRenderEllipsis && renderEllipsis()}{" "}
-      </div>
+    return renderFlexContainer(
+      <>
+        {renderTags(truncatedTags)}
+        {shouldRenderEllipsis && renderEllipsis()}
+      </>
     );
   };
 
