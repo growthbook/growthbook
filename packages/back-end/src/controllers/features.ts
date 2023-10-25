@@ -198,7 +198,7 @@ export async function getFeaturesPublic(req: Request, res: Response) {
     // The default is Cache for 30 seconds, serve stale up to 1 hour (10 hours if origin is down)
     res.set(
       "Cache-control",
-      `public, max-age=${CACHE_CONTROL_MAX_AGE}, stale-while-revalidate=${CACHE_CONTROL_STALE_IF_ERROR}, stale-if-error=${CACHE_CONTROL_STALE_WHILE_REVALIDATE}`
+      `public, max-age=${CACHE_CONTROL_MAX_AGE}, stale-while-revalidate=${CACHE_CONTROL_STALE_WHILE_REVALIDATE}, stale-if-error=${CACHE_CONTROL_STALE_IF_ERROR}`
     );
 
     // If using Fastly, add surrogate key header for cache purging

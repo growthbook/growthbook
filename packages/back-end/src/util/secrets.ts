@@ -145,9 +145,9 @@ export const IMPORT_LIMIT_DAYS =
 export const CACHE_CONTROL_MAX_AGE =
   parseInt(process.env?.CACHE_CONTROL_MAX_AGE || "") || 30;
 export const CACHE_CONTROL_STALE_WHILE_REVALIDATE =
-  parseInt(process.env?.CACHE_CONTROL_MAX_AGE || "") || 3600;
+  parseInt(process.env?.CACHE_CONTROL_STALE_WHILE_REVALIDATE || "") || 3600;
 export const CACHE_CONTROL_STALE_IF_ERROR =
-  parseInt(process.env?.CACHE_CONTROL_MAX_AGE || "") || 36000;
+  parseInt(process.env?.CACHE_CONTROL_STALE_IF_ERROR || "") || 36000;
 
 // update Feature every
 
