@@ -173,24 +173,14 @@ function mergeUserAndTeamPermissions(
   userPermissions: UserPermissions,
   teamPermissions: UserPermissions
 ) {
-  userPermissions.global = mergeUserPermissionObj([
-    userPermissions.global,
-    teamPermissions.global,
+  // Build a list of all projects
+  const allProjects = new Set([
+    ...Object.keys(userPermissions.projects),
+    ...Object.keys(teamPermissions.projects),
   ]);
 
-  for (const project in userPermissions.projects) {
-    userPermissions.projects[project] = mergeUserPermissionObj([
-      userPermissions.projects[project],
-      teamPermissions.projects[project] || {
-        limitAccessByEnvironment:
-          teamPermissions.global.limitAccessByEnvironment,
-        environments: teamPermissions.global.environments,
-        permissions: teamPermissions.global.permissions,
-      },
-    ]);
-  }
-
-  for (const project in teamPermissions.projects) {
+  // Loop through that list of projects and merge the user and team permissions
+  allProjects.forEach((project) => {
     userPermissions.projects[project] = mergeUserPermissionObj([
       userPermissions.projects[project] || {
         limitAccessByEnvironment:
@@ -198,9 +188,20 @@ function mergeUserAndTeamPermissions(
         environments: userPermissions.global.environments,
         permissions: userPermissions.global.permissions,
       },
-      teamPermissions.projects[project],
+      teamPermissions.projects[project] || {
+        limitAccessByEnvironment:
+          teamPermissions.global.limitAccessByEnvironment,
+        environments: teamPermissions.global.environments,
+        permissions: teamPermissions.global.permissions,
+      },
     ]);
-  }
+  });
+
+  // Merge the global permissions
+  userPermissions.global = mergeUserPermissionObj([
+    userPermissions.global,
+    teamPermissions.global,
+  ]);
 }
 
 export function getUserPermissions(
