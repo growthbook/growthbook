@@ -18,9 +18,7 @@ export interface ScimUser {
   userName: string;
   active: boolean;
   externalId?: string;
-  "urn:ietf:params:scim:schemas:Core:2.0:User"?: {
-    growthbookRole: MemberRole;
-  };
+  growthbookRole: MemberRole;
 }
 
 export interface ScimGroup {
