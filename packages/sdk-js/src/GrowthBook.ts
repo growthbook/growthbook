@@ -32,7 +32,6 @@ import {
   inRange,
   isIncluded,
   isURLTargeted,
-  decrypt,
   loadSDKVersion,
 } from "./util";
 import { evalCondition } from "./mongrule";
