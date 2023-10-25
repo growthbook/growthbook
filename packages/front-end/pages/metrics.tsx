@@ -30,7 +30,6 @@ import { useAuth } from "@/services/auth";
 import AutoGenerateMetricsModal from "@/components/AutoGenerateMetricsModal";
 import AutoGenerateMetricsButton from "@/components/AutoGenerateMetricsButton";
 import FactBadge from "@/components/FactTables/FactBadge";
-
 interface MetricTableItem {
   id: string;
   name: string;
@@ -402,7 +401,7 @@ const MetricsPage = (): React.ReactElement => {
               </td>
               <td>{metric.type}</td>
 
-              <td className="nowrap">
+              <td className="col-4">
                 <SortedTags
                   tags={metric.tags ? Object.values(metric.tags) : []}
                   shouldShowEllipsis={true}
