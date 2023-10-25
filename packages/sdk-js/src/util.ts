@@ -311,3 +311,14 @@ export function paddedVersionString(input: any): string {
     .map((v) => (v.match(/^[0-9]+$/) ? v.padStart(5, " ") : v))
     .join("-");
 }
+
+export function loadSDKVersion(): string {
+  let version: string;
+  try {
+    // @ts-expect-error right-hand value to be replaced by build with string literal
+    version = __SDK_VERSION__;
+  } catch (e) {
+    version = "";
+  }
+  return version;
+}

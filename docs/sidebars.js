@@ -428,6 +428,12 @@ const sidebars = {
           label: "DataDog",
           className: "pill-new",
         },
+        {
+          type: "doc",
+          id: "integrations/scim",
+          label: "SCIM",
+          className: "pill-new",
+        },
       ],
     },
     { type: "doc", id: "faq", label: "FAQ" },
