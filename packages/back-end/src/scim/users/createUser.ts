@@ -6,18 +6,14 @@ import {
   expandOrgMembers,
 } from "../../services/organizations";
 import { OrganizationInterface } from "../../../types/organization";
-import {
-  ScimError,
-  ScimUser,
-  ScimUserPutOrPostRequest,
-} from "../../../types/scim";
+import { ScimError, ScimUser, ScimUserPostRequest } from "../../../types/scim";
 import {
   createUser as createNewUser,
   getUserByEmail,
 } from "../../services/users";
 
 export async function createUser(
-  req: ScimUserPutOrPostRequest,
+  req: ScimUserPostRequest,
   res: Response<ScimUser | ScimError>
 ) {
   const { externalId, displayName, userName } = req.body;
