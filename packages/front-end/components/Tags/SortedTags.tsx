@@ -4,18 +4,13 @@ import Tag from "./Tag";
 
 export interface Props {
   tags?: string[];
-  skipFirstMargin?: boolean;
   shouldShowEllipsis?: boolean;
 }
 
-export default function SortedTags({
-  tags,
-  skipFirstMargin,
-  shouldShowEllipsis,
-}: Props) {
+export default function SortedTags({ tags, shouldShowEllipsis }: Props) {
   const { tags: all } = useDefinitions();
   //index starting at 0
-  const SHOW_ELLIPSIS_AT_INDEX = 20;
+  const SHOW_ELLIPSIS_AT_INDEX = 6;
   if (!tags || !tags.length) return null;
 
   const sortedIds = all.map((t) => t.id);
@@ -25,16 +20,24 @@ export default function SortedTags({
     return sortedIds.indexOf(a) - sortedIds.indexOf(b);
   });
 
-  const renderEllipsis = () => (
-    <Tooltip body={<>{renderTags(sorted)}</>} usePortal={true}>
-      <Tag tag="&hellip;" key="tag-ellipsis" />
-    </Tooltip>
-  );
+  const renderEllipsis = () => {
+    const tags = sorted.slice(SHOW_ELLIPSIS_AT_INDEX);
+    const tagCopy = `${tags.length} more tags...`;
+
+    return (
+      <Tooltip body={<>{renderTags(tags)}</>} usePortal={true}>
+        <Tag
+          tag={tagCopy}
+          key="tag-ellipsis"
+          skipMargin={true}
+          color="#ffffff"
+        />
+      </Tooltip>
+    );
+  };
 
   const renderTags = (tags: string[]) => {
-    return tags.map((tag, i) => (
-      <Tag tag={tag} key={tag} skipMargin={skipFirstMargin && i === 0} />
-    ));
+    return tags.map((tag) => <Tag tag={tag} key={tag} skipMargin={true} />);
   };
 
   const renderTruncatedTags = () => {
@@ -45,9 +48,9 @@ export default function SortedTags({
     const shouldRenderEllipsis =
       shouldShowEllipsis && truncatedTags.length < sorted.length;
     return (
-      <>
+      <div className="tags-container">
         {renderTags(truncatedTags)} {shouldRenderEllipsis && renderEllipsis()}{" "}
-      </>
+      </div>
     );
   };
 

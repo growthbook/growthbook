@@ -411,7 +411,7 @@ const ExperimentsPage = (): React.ReactElement => {
                       </td>
                     )}
 
-                    <td className="col-4" data-title="Tags:">
+                    <td data-title="Tags:" className="table-tags">
                       <SortedTags
                         tags={Object.values(e.tags)}
                         shouldShowEllipsis={true}
