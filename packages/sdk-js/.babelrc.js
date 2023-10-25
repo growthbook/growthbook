@@ -27,8 +27,14 @@ const cjs = {
 module.exports = {
   ...esm,
   env: {
-    esmUnbundled: esm,
-    cjs: cjs,
+    esmUnbundled: {
+      ...esm,
+      ignore: ["./src/auto-wrapper.ts"],
+    },
+    cjs: {
+      ...cjs,
+      ignore: ["./src/auto-wrapper.ts"],
+    },
   },
   plugins: [
     [
