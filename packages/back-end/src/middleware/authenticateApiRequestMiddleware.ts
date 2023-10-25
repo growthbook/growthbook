@@ -122,6 +122,10 @@ export default function authenticateApiRequestMiddleware(
         project?: string | (string | undefined)[] | undefined,
         envs?: string[] | Set<string>
       ) => {
+        // Super admins have full access to every organization
+        if (req.user?.superAdmin) {
+          return;
+        }
         let checkProjects: (string | undefined)[];
         if (Array.isArray(project)) {
           checkProjects = project.length > 0 ? project : [undefined];
