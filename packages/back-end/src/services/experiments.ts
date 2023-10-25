@@ -9,6 +9,7 @@ import {
   DEFAULT_STATS_ENGINE,
   DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
   DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
+  DEFAULT_P_VALUE_THRESHOLD,
 } from "shared/constants";
 import { getScopedSettings } from "shared/settings";
 import {
@@ -23,6 +24,7 @@ import {
   isFactMetricId,
   isRatioMetric,
 } from "shared/experiments";
+import { orgHasPremiumFeature } from "enterprise";
 import { updateExperiment } from "../models/ExperimentModel";
 import {
   ExperimentSnapshotAnalysis,
@@ -95,6 +97,7 @@ import { ExperimentResultsQueryRunner } from "../queryRunners/ExperimentResultsQ
 import { QueryMap, getQueryMap } from "../queryRunners/QueryRunner";
 import { getFactMetric } from "../models/FactMetricModel";
 import { FactTableMap } from "../models/FactTableModel";
+import { StatsEngine } from "../../types/stats";
 import { getReportVariations, getMetricForSnapshot } from "./reports";
 import { getIntegrationFromDatasourceId } from "./datasource";
 import { analyzeExperimentMetric, analyzeExperimentResults } from "./stats";
@@ -256,6 +259,60 @@ export async function getManualSnapshotData(
     srm,
     variations,
   };
+}
+
+export function getDefaultExperimentAnalysisSettings(
+  statsEngine: StatsEngine,
+  experiment: ExperimentInterface,
+  organization: OrganizationInterface,
+  regressionAdjustmentEnabled?: boolean,
+  dimension?: string
+): ExperimentSnapshotAnalysisSettings {
+  const hasRegressionAdjustmentFeature = organization
+    ? orgHasPremiumFeature(organization, "regression-adjustment")
+    : false;
+  const hasSequentialTestingFeature = organization
+    ? orgHasPremiumFeature(organization, "sequential-testing")
+    : false;
+  return {
+    statsEngine,
+    dimensions: dimension ? [dimension] : [],
+    regressionAdjusted:
+      hasRegressionAdjustmentFeature &&
+      statsEngine === "frequentist" &&
+      (regressionAdjustmentEnabled !== undefined
+        ? regressionAdjustmentEnabled
+        : organization.settings?.regressionAdjustmentEnabled ?? false),
+    sequentialTesting:
+      hasSequentialTestingFeature &&
+      statsEngine === "frequentist" &&
+      (experiment?.sequentialTestingEnabled ??
+        !!organization.settings?.sequentialTestingEnabled),
+    sequentialTestingTuningParameter:
+      experiment?.sequentialTestingTuningParameter ??
+      organization.settings?.sequentialTestingTuningParameter ??
+      DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
+    baselineVariationIndex: 0,
+    pValueThreshold:
+      organization.settings?.pValueThreshold ?? DEFAULT_P_VALUE_THRESHOLD,
+  };
+}
+
+export function getAdditionalExperimentAnalysisSettings(
+  defaultAnalysisSettings: ExperimentSnapshotAnalysisSettings,
+  experiment: ExperimentInterface
+): ExperimentSnapshotAnalysisSettings[] {
+  // one analysis per possible baseline
+  const additionalAnalyses: ExperimentSnapshotAnalysisSettings[] = [];
+  experiment.variations.forEach((v, i) => {
+    if (i > 0) {
+      additionalAnalyses.push({
+        ...defaultAnalysisSettings,
+        baselineVariationIndex: i,
+      });
+    }
+  });
+  return additionalAnalyses;
 }
 
 export function getSnapshotSettings({
@@ -439,7 +496,8 @@ export async function createSnapshot({
   user = null,
   phaseIndex,
   useCache = false,
-  analysisSettings,
+  defaultAnalysisSettings,
+  additionalAnalysisSettings,
   metricRegressionAdjustmentStatuses,
   metricMap,
   factTableMap,
@@ -449,12 +507,21 @@ export async function createSnapshot({
   user?: EventAuditUser;
   phaseIndex: number;
   useCache?: boolean;
-  analysisSettings: ExperimentSnapshotAnalysisSettings;
+  defaultAnalysisSettings: ExperimentSnapshotAnalysisSettings;
+  additionalAnalysisSettings: ExperimentSnapshotAnalysisSettings[];
   metricRegressionAdjustmentStatuses: MetricRegressionAdjustmentStatus[];
   metricMap: Map<string, ExperimentMetricInterface>;
   factTableMap: FactTableMap;
 }): Promise<ExperimentResultsQueryRunner> {
-  const dimension = analysisSettings.dimensions[0] || null;
+  const dimension = defaultAnalysisSettings.dimensions[0] || null;
+
+  const snapshotSettings = getSnapshotSettings({
+    experiment,
+    phaseIndex,
+    settings: defaultAnalysisSettings,
+    metricRegressionAdjustmentStatuses,
+    metricMap,
+  });
 
   const data: ExperimentSnapshotInterface = {
     id: uniqid("snp_"),
@@ -466,22 +533,27 @@ export async function createSnapshot({
     phase: phaseIndex,
     queries: [],
     dimension: dimension || null,
-    settings: getSnapshotSettings({
-      experiment,
-      phaseIndex,
-      settings: analysisSettings,
-      metricRegressionAdjustmentStatuses,
-      metricMap,
-    }),
+    settings: snapshotSettings,
     unknownVariations: [],
     multipleExposures: 0,
     analyses: [
       {
         dateCreated: new Date(),
         results: [],
-        settings: analysisSettings,
+        settings: defaultAnalysisSettings,
         status: "running",
       },
+      ...additionalAnalysisSettings
+        .filter((a) => isAnalysisAllowed(snapshotSettings, a))
+        .map((a) => {
+          const analysis: ExperimentSnapshotAnalysis = {
+            dateCreated: new Date(),
+            results: [],
+            settings: a,
+            status: "running",
+          };
+          return analysis;
+        }),
     ],
     status: "running",
   };
@@ -515,7 +587,6 @@ export async function createSnapshot({
     useCache
   );
   await queryRunner.startAnalysis({
-    analysisSettings,
     snapshotSettings: data.settings,
     variationNames: experiment.variations.map((v) => v.name),
     metricMap,
