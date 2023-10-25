@@ -481,6 +481,7 @@ function startAutoRefresh(instance: GrowthBook): void {
 }
 
 function onSSEError(channel: ScopedChannel) {
+  if (channel.state === "idle") return;
   channel.errors++;
   if (channel.errors > 3 || (channel.src && channel.src.readyState === 2)) {
     // exponential backoff after 4 errors, with jitter
