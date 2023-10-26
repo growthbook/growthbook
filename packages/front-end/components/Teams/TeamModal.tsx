@@ -10,10 +10,12 @@ export default function TeamModal({
   existing,
   close,
   onSuccess,
+  managedByIdp = false,
 }: {
   existing: Partial<TeamInterface>;
   close: () => void;
   onSuccess?: () => Promise<unknown>;
+  managedByIdp?: boolean;
 }) {
   const form = useForm<{
     name: string;
@@ -50,7 +52,13 @@ export default function TeamModal({
         onSuccess ? await onSuccess() : null;
       })}
     >
-      <Field label="Name" maxLength={30} required {...form.register("name")} />
+      <Field
+        disabled={managedByIdp}
+        label="Name"
+        maxLength={30}
+        required
+        {...form.register("name")}
+      />
       <Field
         label="Description"
         maxLength={100}

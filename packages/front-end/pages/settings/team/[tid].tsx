@@ -85,6 +85,7 @@ const TeamPage: FC = () => {
           existing={team}
           close={() => setTeamModalOpen(false)}
           onSuccess={() => mutate()}
+          managedByIdp={!isEditable}
         />
       )}
       <AddMembersModal
