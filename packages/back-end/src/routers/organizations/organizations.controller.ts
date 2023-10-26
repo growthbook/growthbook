@@ -109,6 +109,7 @@ import {
   findAuditByEntityParent,
 } from "../../models/AuditModel";
 import { EntityType } from "../../types/Audit";
+import { getTeamsForOrganization } from "../../models/TeamModel";
 import { getAllFactTablesForOrganization } from "../../models/FactTableModel";
 import { getAllFactMetricsForOrganization } from "../../models/FactMetricModel";
 
@@ -605,6 +606,7 @@ export async function getOrganization(req: AuthRequest, res: Response) {
     disableSelfServeBilling,
     licenseKey,
     messages,
+    externalId,
   } = org;
 
   if (!IS_CLOUD && licenseKey) {
@@ -628,7 +630,9 @@ export async function getOrganization(req: AuthRequest, res: Response) {
 
   const expandedMembers = await expandOrgMembers(members);
 
-  const currentUserPermissions = getUserPermissions(userId, org);
+  const teams = await getTeamsForOrganization(org.id);
+
+  const currentUserPermissions = getUserPermissions(userId, org, teams || []);
 
   return res.status(200).json({
     status: 200,
@@ -644,6 +648,7 @@ export async function getOrganization(req: AuthRequest, res: Response) {
     organization: {
       invites,
       ownerEmail,
+      externalId,
       name,
       id,
       url,
@@ -975,6 +980,7 @@ export async function postInvite(
 
 interface SignupBody {
   company: string;
+  externalId: string;
 }
 
 export async function deleteMember(
@@ -1043,7 +1049,7 @@ export async function deleteInvite(
 }
 
 export async function signup(req: AuthRequest<SignupBody>, res: Response) {
-  const { company } = req.body;
+  const { company, externalId } = req.body;
 
   const orgs = await hasOrganization();
   if (!IS_MULTI_ORG) {
@@ -1084,6 +1090,7 @@ export async function signup(req: AuthRequest<SignupBody>, res: Response) {
       userId: req.userId,
       name: company,
       verifiedDomain,
+      externalId,
     });
 
     // Alert the site manager about new organizations that are created
@@ -1110,7 +1117,7 @@ export async function putOrganization(
   res: Response
 ) {
   const { org } = getOrgFromReq(req);
-  const { name, settings, connections } = req.body;
+  const { name, settings, connections, externalId } = req.body;
 
   const deletedEnvIds: string[] = [];
 
@@ -1172,6 +1179,10 @@ export async function putOrganization(
     if (name) {
       updates.name = name;
       orig.name = org.name;
+    }
+    if (externalId !== undefined) {
+      updates.externalId = externalId;
+      orig.externalId = org.externalId;
     }
     if (settings) {
       updates.settings = {
@@ -1335,7 +1346,7 @@ export async function deleteApiKey(
   req: AuthRequest<{ key?: string; id?: string }>,
   res: Response
 ) {
-  const { org } = getOrgFromReq(req);
+  const { org, userId } = getOrgFromReq(req);
   // Old API keys did not have an id, so we need to delete by the key value itself
   const { key, id } = req.body;
   if (!key && !id) {
@@ -1352,7 +1363,13 @@ export async function deleteApiKey(
   }
 
   if (keyObj.secret) {
-    req.checkPermissions("manageApiKeys");
+    if (!keyObj.userId) {
+      // If there is no userId, this is an API Key, so we check permissions.
+      req.checkPermissions("manageApiKeys");
+      // Otherwise, this is a Personal Access Token (PAT) - users can delete only their own PATs regardless of permission level.
+    } else if (keyObj.userId !== userId) {
+      throw new Error("You do not have permission to delete this.");
+    }
   } else {
     req.checkPermissions("manageEnvironments", "", [keyObj.environment || ""]);
   }
@@ -1751,6 +1768,39 @@ export async function putLicenseKey(
   } catch (e) {
     throw new Error("Failed to save license key");
   }
+
+  res.status(200).json({
+    status: 200,
+  });
+}
+
+export function putDefaultRole(
+  req: AuthRequest<{ defaultRole: MemberRole }>,
+  res: Response
+) {
+  const { org } = getOrgFromReq(req);
+  const { defaultRole } = req.body;
+
+  const commercialFeatures = [...accountFeatures[getAccountPlan(org)]];
+
+  if (!commercialFeatures.includes("sso")) {
+    throw new Error(
+      "Must have a commercial License Key to update the organization's default role."
+    );
+  }
+
+  req.checkPermissions("manageTeam");
+
+  updateOrganization(org.id, {
+    settings: {
+      ...org.settings,
+      defaultRole: {
+        role: defaultRole,
+        limitAccessByEnvironment: false,
+        environments: [],
+      },
+    },
+  });
 
   res.status(200).json({
     status: 200,

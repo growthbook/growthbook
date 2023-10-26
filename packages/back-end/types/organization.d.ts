@@ -222,6 +222,7 @@ export interface OrganizationInterface {
   url: string;
   dateCreated: Date;
   verifiedDomain?: string;
+  externalId?: string;
   name: string;
   ownerEmail: string;
   stripeCustomerId?: string;
