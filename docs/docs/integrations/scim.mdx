@@ -139,3 +139,7 @@ No, at this time, you can only provision a user's global role. Project-specific 
 **Can I change a user's global role after they've been provisioned?**
 
 Yes, you can change a user's global role through the GrowthBook application or via Okta. Please note that if you change a user's global role through the GrowthBook Application, it will then be out-of-date in Okta. If you then update the user in Okta, it will update the user's global role.
+
+**I'm changing the user's role in Okta, but it's not changing in GrowthBook**
+
+In order for the user's role to be updated in GrowthBook, you must update your Application provisioning to support "updates". Please note that the only property GrowthBook supports updating is the `growthBookRole`.
