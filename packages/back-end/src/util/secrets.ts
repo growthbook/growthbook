@@ -36,11 +36,29 @@ export const UPLOAD_METHOD = (() => {
   return "local";
 })();
 
-export let MONGODB_URI =
-  process.env.MONGODB_URI ??
-  (prod ? "" : "mongodb://root:password@localhost:27017/test?authSource=admin");
+let MONGODB_URI = process.env.MONGODB_URI || "";
+
 if (!MONGODB_URI) {
-  throw new Error("Missing MONGODB_URI environment variable");
+  // Check for alternate mongo db environment variables
+  if (
+    process.env.MONGODB_USERNAME &&
+    process.env.MONGODB_PASSWORD &&
+    process.env.MONGODB_HOST
+  ) {
+    const port = process.env.MONGODB_PORT || "27017";
+    const dbname = process.env.MONGODB_DBNAME || "growthbook";
+    const extraArgs = process.env.MONGODB_EXTRA_ARGS || "?authSource=admin";
+    MONGODB_URI = `mongodb://${process.env.MONGODB_USERNAME}:${process.env.MONGODB_PASSWORD}@${process.env.MONGODB_HOST}:${port}/${dbname}${extraArgs}`;
+  }
+}
+
+if (!MONGODB_URI) {
+  if (prod) {
+    throw new Error(
+      "Missing MONGODB_URI or required alternate environment variables to generate it"
+    );
+  }
+  MONGODB_URI = "mongodb://root:password@localhost:27017/test?authSource=admin";
 }
 
 // For backwards compatibility, if no dbname is explicitly set, use "test" and add the authSource db.
@@ -48,6 +66,7 @@ if (!MONGODB_URI) {
 if (MONGODB_URI.match(/:27017(\/)?$/)) {
   MONGODB_URI = trimEnd(MONGODB_URI, "/") + "/test?authSource=admin";
 }
+export { MONGODB_URI };
 
 export const APP_ORIGIN = process.env.APP_ORIGIN || "http://localhost:3000";
 const isLocalhost = APP_ORIGIN.includes("localhost");
