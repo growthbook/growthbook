@@ -2,7 +2,10 @@ type: object
 properties:
   id:
     type: string
-    description: The unique identifier for the organization
+    description: The Growthbook unique identifier for the organization
+  externalId:
+    type: string
+    description: An optional identifier that you use within your company for the organization
   dateCreated:
     type: string
     format: date-time
