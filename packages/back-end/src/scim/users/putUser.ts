@@ -25,6 +25,8 @@ export async function putUser(
 ) {
   const userId = req.params.id;
 
+  const { displayName, userName, growthbookRole } = req.body;
+
   const org = req.organization;
 
   const orgUser = org.members.find((member) => member.id === userId);
@@ -37,9 +39,16 @@ export async function putUser(
     });
   }
 
-  const expandedMember = await expandOrgMembers([orgUser]);
+  const expandedMembers = await expandOrgMembers([orgUser]);
 
-  if (!expandedMember[0].managedByIdp) {
+  const {
+    name: currentMemberName,
+    email: currentMemberEmail,
+    managedByIdp: currentMemberManagedByIdp,
+    role: currentMemberRole,
+  } = expandedMembers[0];
+
+  if (!currentMemberManagedByIdp) {
     return res.status(401).json({
       schemas: ["urn:ietf:params:scim:api:messages:2.0:Error"],
       status: "401",
@@ -47,7 +56,7 @@ export async function putUser(
     });
   }
 
-  if (expandedMember[0].name !== req.body.displayName) {
+  if (currentMemberName !== displayName) {
     return res.status(400).json({
       schemas: ["urn:ietf:params:scim:api:messages:2.0:Error"],
       status: "400",
@@ -55,7 +64,7 @@ export async function putUser(
     });
   }
 
-  if (expandedMember[0].email !== req.body.userName) {
+  if (currentMemberEmail !== userName) {
     return res.status(400).json({
       schemas: ["urn:ietf:params:scim:api:messages:2.0:Error"],
       status: "400",
@@ -65,12 +74,9 @@ export async function putUser(
 
   const responseObj = cloneDeep(req.body);
 
-  if (
-    req.body.growthbookRole &&
-    req.body.growthbookRole !== expandedMember[0].role
-  ) {
+  if (growthbookRole && growthbookRole !== currentMemberRole) {
     try {
-      await updateUserRole(org, userId, req.body.growthbookRole);
+      await updateUserRole(org, userId, growthbookRole);
     } catch (e) {
       return res.status(400).json({
         schemas: ["urn:ietf:params:scim:api:messages:2.0:Error"],
