@@ -7,14 +7,19 @@ import TeamModal from "@/components/Teams/TeamModal";
 import { useUser } from "@/services/UserContext";
 import Tabs from "@/components/Tabs/Tabs";
 import Tab from "@/components/Tabs/Tab";
+import UpgradeMessage from "@/components/Marketing/UpgradeMessage";
+import UpgradeModal from "@/components/Settings/UpgradeModal";
+import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import MembersPage from "./members";
 
 const TeamPage: FC = () => {
-  const { refreshTeams } = useUser();
+  const [upgradeModal, setUpgradeModal] = useState(false);
+  const { refreshTeams, hasCommercialFeature } = useUser();
   const permissions = usePermissions();
   const [modalOpen, setModalOpen] = useState<Partial<TeamInterface> | null>(
     null
   );
+  const hasTeamsFeature = hasCommercialFeature("teams");
 
   if (!permissions.manageTeam) {
     return (
@@ -23,6 +28,16 @@ const TeamPage: FC = () => {
           You do not have access to view this page.
         </div>
       </div>
+    );
+  }
+
+  if (upgradeModal) {
+    return (
+      <UpgradeModal
+        close={() => setUpgradeModal(false)}
+        reason="To manage user permissions through teams,"
+        source="teams"
+      />
     );
   }
 
@@ -42,12 +57,15 @@ const TeamPage: FC = () => {
           )}
           <div className="filters md-form row mb-3 align-items-center">
             <div className="col-auto d-flex">
-              <h1>Teams</h1>
+              <h1>
+                <PremiumTooltip commercialFeature="teams">Teams</PremiumTooltip>
+              </h1>
             </div>
             <div style={{ flex: 1 }} />
             <div className="col-auto">
               <button
                 className="btn btn-primary"
+                disabled={!hasTeamsFeature}
                 onClick={(e) => {
                   e.preventDefault();
                   setModalOpen({});
@@ -56,8 +74,16 @@ const TeamPage: FC = () => {
                 <FaUsers /> <span> </span>Create Team
               </button>
             </div>
+            {!hasTeamsFeature && (
+              <UpgradeMessage
+                className="mt-2"
+                showUpgradeModal={() => setUpgradeModal(true)}
+                commercialFeature="teams"
+                upgradeMessage="manage user permissions through teams"
+              />
+            )}
           </div>
-          <TeamsList />
+          {hasTeamsFeature && <TeamsList />}
         </Tab>
       </Tabs>
     </div>
