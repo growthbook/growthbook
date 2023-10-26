@@ -117,6 +117,7 @@ export function formatPercent(
 ) {
   const percentFormatter = new Intl.NumberFormat(undefined, {
     style: "percent",
+    maximumSignificantDigits: 3,
     ...options,
   });
   return percentFormatter.format(value);
