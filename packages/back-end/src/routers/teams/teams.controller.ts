@@ -4,6 +4,7 @@ import {
   createTeam,
   deleteTeam,
   findTeamById,
+  findTeamByName,
   getTeamsForOrganization,
   updateTeamMetadata,
 } from "../../models/TeamModel";
@@ -30,8 +31,9 @@ type CreateTeamRequest = AuthRequest<{
 }>;
 
 type CreateTeamResponse = {
-  status: 200;
-  team: TeamInterface;
+  status: 200 | 400;
+  team?: TeamInterface;
+  message?: string;
 };
 
 /**
@@ -49,7 +51,15 @@ export const postTeam = async (
 
   req.checkPermissions("manageTeam");
 
-  // TODO: Check if team name exists and block creation if it does
+  const existingTeamWithName = await findTeamByName(name, org.id);
+
+  if (existingTeamWithName) {
+    return res.status(400).json({
+      status: 400,
+      message:
+        "A team already exists with the specified name. Please try a unique name.",
+    });
+  }
 
   const team = await createTeam({
     name,

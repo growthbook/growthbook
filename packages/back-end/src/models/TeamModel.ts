@@ -67,6 +67,17 @@ export async function findTeamById(
   return teamDoc ? toInterface(teamDoc) : null;
 }
 
+export async function findTeamByName(
+  name: string,
+  orgId: string
+): Promise<TeamInterface | null> {
+  const teamDoc = await TeamModel.findOne({
+    name: { $regex: name, $options: "i" },
+    organization: orgId,
+  });
+  return teamDoc ? toInterface(teamDoc) : null;
+}
+
 export async function getTeamsForOrganization(
   orgId: string
 ): Promise<TeamInterface[]> {
