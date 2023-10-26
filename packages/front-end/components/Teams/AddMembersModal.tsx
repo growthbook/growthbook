@@ -27,12 +27,12 @@ export const AddMembersModal = ({
     },
   });
   const { apiCall } = useAuth();
-  const { users, refreshOrganization } = useUser();
+  const { user, users, refreshOrganization } = useUser();
 
   const userList = [...users.values()];
 
   const addableMembers = userList.filter(
-    (member) => !member.teams?.includes(teamId)
+    (member) => !member.teams?.includes(teamId) && member.id !== user?.id
   );
 
   const handleClose = () => {
