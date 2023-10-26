@@ -65,6 +65,13 @@ const featureSchema = new mongoose.Schema({
       hashAttribute: String,
       enabled: Boolean,
       condition: String,
+      savedGroups: [
+        {
+          _id: false,
+          ids: [String],
+          match: String,
+        },
+      ],
       description: String,
       experimentId: String,
       values: [
@@ -369,6 +376,7 @@ export async function onFeatureUpdate(
     organization,
     getSDKPayloadKeysByDiff(feature, updatedFeature),
     null,
+    undefined,
     skipRefreshForProject
   );
 

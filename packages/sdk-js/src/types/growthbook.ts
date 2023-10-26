@@ -269,6 +269,8 @@ export type Helpers = {
     clientKey: string;
     headers?: Record<string, string>;
   }) => EventSource;
+  startIdleListener: () => (() => void) | void;
+  stopIdleListener: () => void;
 };
 
 export interface LocalStorageCompat {
@@ -281,6 +283,8 @@ export type CacheSettings = {
   cacheKey: string;
   staleTTL: number;
   maxEntries: number;
+  disableIdleStreams: boolean;
+  idleStreamInterval: number;
 };
 
 export type ApiHost = string;

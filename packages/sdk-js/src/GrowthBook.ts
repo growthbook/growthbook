@@ -1,43 +1,46 @@
 import mutate, { DeclarativeMutation } from "dom-mutator";
 import type {
+  ApiHost,
+  Attributes,
+  AutoExperiment,
+  AutoExperimentVariation,
+  ClientKey,
   Context,
   Experiment,
+  FeatureDefinition,
   FeatureResult,
+  FeatureResultSource,
+  Filter,
+  LoadFeaturesOptions,
+  RealtimeUsageData,
+  RefreshFeaturesOptions,
   Result,
   SubscriptionFunction,
-  FeatureDefinition,
-  FeatureResultSource,
-  Attributes,
-  WidenPrimitives,
-  RealtimeUsageData,
-  LoadFeaturesOptions,
-  RefreshFeaturesOptions,
-  ApiHost,
-  ClientKey,
   VariationMeta,
-  Filter,
   VariationRange,
-  AutoExperimentVariation,
-  AutoExperiment,
+  WidenPrimitives,
 } from "./types/growthbook";
 import type { ConditionInterface } from "./types/mongrule";
 import {
-  getUrlRegExp,
-  isIncluded,
-  getBucketRanges,
-  hash,
   chooseVariation,
+  decrypt,
+  getBucketRanges,
   getQueryStringOverride,
+  getUrlRegExp,
+  hash,
   inNamespace,
   inRange,
+  isIncluded,
   isURLTargeted,
-  decrypt,
+  loadSDKVersion,
 } from "./util";
 import { evalCondition } from "./mongrule";
 import { refreshFeatures, subscribe, unsubscribe } from "./feature-repository";
 
 const isBrowser =
   typeof window !== "undefined" && typeof document !== "undefined";
+
+const SDK_VERSION = loadSDKVersion();
 
 export class GrowthBook<
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -48,6 +51,7 @@ export class GrowthBook<
   private context: Context;
   public debug: boolean;
   public ready: boolean;
+  public version: string;
 
   // Properties and methods that start with "_" are mangled by Terser (saves ~150 bytes)
   private _ctx: Context;
@@ -79,6 +83,7 @@ export class GrowthBook<
     context = context || {};
     // These properties are all initialized in the constructor instead of above
     // This saves ~80 bytes in the final output
+    this.version = SDK_VERSION;
     this._ctx = this.context = context;
     this._renderer = null;
     this._trackedExperiments = new Set();
