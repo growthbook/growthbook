@@ -127,3 +127,15 @@ Currently, we do not support groups, but we are actively working on adding group
 **Does GrowthBook follow SCIM 1.1 or 2.0 Protocol?**
 
 GrowthBook follows the SCIM 2.0 protocol.
+
+**What happens if I provision a user with a role that doesn't exist?**
+
+GrowthBook will fallback to your organization's default role.
+
+**Can I provision a user with project-specific permissions?**
+
+No, at this time, you can only provision a user's global role. Project-specific permissions must be managed through the GrowthBook application.
+
+**Can I change a user's global role after they've been provisioned?**
+
+Yes, you can change a user's global role through the GrowthBook application or via Okta. Please note that if you change a user's global role through the GrowthBook Application, it will then be out-of-date in Okta. If you then update the user in Okta, it will update the user's global role.
