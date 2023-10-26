@@ -15,14 +15,16 @@ import RoleSelector from "@/components/Settings/Team/RoleSelector";
 import TeamModal from "@/components/Teams/TeamModal";
 import useApi from "@/hooks/useApi";
 import Modal from "@/components/Modal";
+import { AddMembersModal } from "@/components/Teams/AddMembersModal";
 
 const TeamPage: FC = () => {
   const { apiCall } = useAuth();
   const { tid } = router.query as { tid: string };
-  const [modalOpen, setModalOpen] = useState<boolean>(false);
+  const [teamModalOpen, setTeamModalOpen] = useState<boolean>(false);
   const [permissionModalOpen, setPermissionModalOpen] = useState<boolean>(
     false
   );
+  const [memberModalOpen, setMemberModalOpen] = useState<boolean>(false);
 
   const permissions = usePermissions();
   const canManageTeam = permissions.check("manageTeam");
@@ -78,17 +80,22 @@ const TeamPage: FC = () => {
 
   return (
     <>
-      {modalOpen && (
+      {teamModalOpen && (
         <TeamModal
           existing={team}
-          close={() => setModalOpen(false)}
+          close={() => setTeamModalOpen(false)}
           onSuccess={() => mutate()}
         />
       )}
+      <AddMembersModal
+        teamId={tid}
+        open={memberModalOpen}
+        onClose={() => setMemberModalOpen(false)}
+      />
       <PermissionsModal />
       <div className="container pagecontents">
         <div className="mb-4">
-          <Link href="/settings/teams">
+          <Link href="/settings/team#teams">
             <a>
               <GBCircleArrowLeft /> Back to all teams
             </a>
@@ -110,7 +117,7 @@ const TeamPage: FC = () => {
                 href="#"
                 onClick={(e) => {
                   e.preventDefault();
-                  setModalOpen(true);
+                  setTeamModalOpen(true);
                 }}
               >
                 <GBEdit />
@@ -138,7 +145,7 @@ const TeamPage: FC = () => {
               href="#"
               onClick={(e) => {
                 e.preventDefault();
-                setModalOpen(true);
+                setTeamModalOpen(true);
               }}
             >
               <GBEdit />
@@ -152,7 +159,7 @@ const TeamPage: FC = () => {
             <span
               className="h4 pr-2 align-self-center"
               role="button"
-              onClick={() => undefined} // TODO: Create add member modal. Options available are all users in the org with the users in the team filtered out
+              onClick={() => setMemberModalOpen(true)}
             >
               <GBAddCircle />
             </span>

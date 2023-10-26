@@ -324,6 +324,63 @@ export const deleteTeamById = async (
 
 // endregion DELETE /teams/:id
 
+// region POST /teams/:id/members
+
+/**
+ * POST /teams/:id/members
+ * Add users in the list to the team
+ * @param req
+ * @param res
+ */
+export const addTeamMembers = async (
+  req: AuthRequest<{ members: string[] }, { id: string }>,
+  res: Response<DeleteTeamResponse>
+) => {
+  const { org } = getOrgFromReq(req);
+  const { id } = req.params;
+  const { members } = req.body;
+
+  req.checkPermissions("manageTeam");
+
+  const team = await findTeamById(id, org.id);
+
+  if (!team) {
+    return res.status(400).json({
+      status: 400,
+      message: "Team does not exist. Cannot add members.",
+    });
+  }
+
+  await Promise.all(
+    members.map((member) => {
+      return addMemberToTeam({
+        organization: org,
+        userId: member,
+        teamId: team.id,
+      });
+    })
+  );
+
+  const teamMembers = org.members.filter((member) =>
+    member.teams?.includes(id)
+  );
+  const expandedMembers = await expandOrgMembers(teamMembers);
+
+  await req.audit({
+    event: "team.update",
+    entity: {
+      object: "team",
+      id: id,
+      name: team.name,
+    },
+    details: auditDetailsUpdate(team, { ...team, members: expandedMembers }),
+  });
+
+  return res.status(200).json({
+    status: 200,
+  });
+};
+
 // region DELETE /teams/:id/member/:memberId
 
 /**
