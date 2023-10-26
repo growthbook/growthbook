@@ -18,9 +18,12 @@ export const listSdkConnections = createApiRequestHandler(
 )(
   async (req): Promise<ListSdkConnectionsResponse> => {
     let connections: SDKConnectionInterface[] = [];
-    const user = req?.user;
 
-    if (user) {
+    if (req.query.multiOrg) {
+      const user = req?.user;
+      if (!user) {
+        throw new Error("User not found");
+      }
       const orgs = await findOrganizationsByMemberId(user.id);
       connections = await findSDKConnectionsByOrganizations(
         orgs.map((o) => o.id)
