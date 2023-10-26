@@ -7,7 +7,7 @@ import TeamModal from "@/components/Teams/TeamModal";
 import { useUser } from "@/services/UserContext";
 
 const TeamPage: FC = () => {
-  const { refreshOrganization } = useUser();
+  const { refreshTeams } = useUser();
   const permissions = usePermissions();
   const [modalOpen, setModalOpen] = useState<Partial<TeamInterface> | null>(
     null
@@ -29,7 +29,7 @@ const TeamPage: FC = () => {
         <TeamModal
           existing={modalOpen}
           close={() => setModalOpen(null)}
-          onSuccess={() => refreshOrganization()}
+          onSuccess={() => refreshTeams()}
         />
       )}
       <div className="container-fluid pagecontents">

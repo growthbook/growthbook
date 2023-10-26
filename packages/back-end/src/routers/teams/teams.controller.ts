@@ -49,11 +49,14 @@ export const postTeam = async (
 
   req.checkPermissions("manageTeam");
 
+  // TODO: Check if team name exists and block creation if it does
+
   const team = await createTeam({
     name,
     createdBy: userName,
     description,
     organization: org.id,
+    managedByIdp: false,
     ...permissions,
   });
 
@@ -281,7 +284,7 @@ export const deleteTeamById = async (
 
   const members = org.members.filter((member) => member.teams?.includes(id));
 
-  if (members) {
+  if (members.length !== 0) {
     return res.status(400).json({
       status: 400,
       message:
@@ -320,3 +323,68 @@ export const deleteTeamById = async (
 };
 
 // endregion DELETE /teams/:id
+
+// region DELETE /teams/:id/member/:memberId
+
+/**
+ * DELETE /teams/:id/member/:memberId
+ * Delete team member for given member id
+ * members of the team.
+ * @param req
+ * @param res
+ */
+export const deleteTeamMember = async (
+  req: AuthRequest<null, { id: string; memberId: string }>,
+  res: Response<DeleteTeamResponse>
+) => {
+  const { org } = getOrgFromReq(req);
+  const { id, memberId } = req.params;
+
+  req.checkPermissions("manageTeam");
+
+  const team = await findTeamById(id, org.id);
+
+  if (!team) {
+    return res.status(400).json({
+      status: 400,
+      message: "Team does not exist. Cannot delete member.",
+    });
+  }
+
+  const member = org.members.filter(
+    (member) => member.teams?.includes(id) && member.id === memberId
+  );
+
+  if (!member) {
+    return res.status(400).json({
+      status: 400,
+      message: "Cannot delete a member that does not exist in the team",
+    });
+  }
+
+  // Delete the team member
+  await removeMemberFromTeam({
+    organization: org,
+    userId: memberId,
+    teamId: id,
+  });
+
+  await req.audit({
+    event: "team.update",
+    entity: {
+      object: "team",
+      id: id,
+      name: team.name,
+    },
+    details: auditDetailsUpdate(team, {
+      ...team,
+      members: team.members?.filter((m) => m.id !== memberId),
+    }),
+  });
+
+  return res.status(200).json({
+    status: 200,
+  });
+};
+
+// endregion DELETE /teams/:id/member/:memberId

@@ -18,6 +18,8 @@ router.get("/:id", teamController.getTeamById);
 
 router.get("/", teamController.getTeams);
 
+router.delete("/:id/member/:memberId", teamController.deleteTeamMember);
+
 router.post(
   "/",
   validateRequestMiddleware({
@@ -41,12 +43,14 @@ router.put(
   validateRequestMiddleware({
     body: z
       .object({
-        name: z.string(),
-        description: z.string(),
+        name: z.string().optional(),
+        description: z.string().optional(),
         permissions: PermissionZodObject.extend({
           projectRoles: PermissionZodObject.extend({
             project: z.string(),
-          }).array(),
+          })
+            .array()
+            .optional(),
         }),
         members: z.string().array().optional(),
       })

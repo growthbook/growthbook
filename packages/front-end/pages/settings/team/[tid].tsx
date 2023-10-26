@@ -3,8 +3,10 @@ import { FC, useState } from "react";
 import { TeamInterface } from "back-end/types/team";
 import { datetime } from "shared/dates";
 import Link from "next/link";
-import { MemberRole } from "back-end/types/organization";
-// import { useAuth } from "@/services/auth";
+import { MemberRoleWithProjects } from "back-end/types/organization";
+import { FaUserLock } from "react-icons/fa";
+import { useForm } from "react-hook-form";
+import { useAuth } from "@/services/auth";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import usePermissions from "@/hooks/usePermissions";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
@@ -12,40 +14,67 @@ import { GBAddCircle, GBCircleArrowLeft, GBEdit } from "@/components/Icons";
 import RoleSelector from "@/components/Settings/Team/RoleSelector";
 import TeamModal from "@/components/Teams/TeamModal";
 import useApi from "@/hooks/useApi";
+import Modal from "@/components/Modal";
 
 const TeamPage: FC = () => {
-  //const { apiCall } = useAuth();
+  const { apiCall } = useAuth();
   const { tid } = router.query as { tid: string };
-  // const [loading, setLoading] = useState<boolean>(false);
-  const [newTeam, setNewTeam] = useState<Partial<TeamInterface> | null>(null);
   const [modalOpen, setModalOpen] = useState<boolean>(false);
+  const [permissionModalOpen, setPermissionModalOpen] = useState<boolean>(
+    false
+  );
 
   const permissions = usePermissions();
   const canManageTeam = permissions.check("manageTeam");
 
-  console.log({ newTeam });
-
-  const { data } = useApi<{
+  const { data, mutate } = useApi<{
     team: TeamInterface;
   }>(`/teams/${tid}`);
-
-  console.log({ data });
 
   if (!data) {
     return <LoadingOverlay />;
   }
 
-  //   if (!data) {
-  //     return (
-  //       <div className="container pagecontents">
-  //         <div className="alert alert-danger">
-  //           Team <code>{tid}</code> does not exist.
-  //         </div>
-  //       </div>
-  //     );
-  //   }
-
   const { team } = data;
+  const isEditable = !team.managedByIdp;
+
+  const PermissionsModal = () => {
+    const form = useForm<{
+      roleInfo: MemberRoleWithProjects;
+    }>({
+      defaultValues: {
+        roleInfo: {
+          role: team.role,
+          limitAccessByEnvironment: team.limitAccessByEnvironment,
+          environments: team.environments,
+          projectRoles: team.projectRoles || [],
+        },
+      },
+    });
+    const { apiCall } = useAuth();
+
+    return (
+      <Modal
+        open={permissionModalOpen}
+        close={() => setPermissionModalOpen(false)}
+        header={"Edit Team Permissions"}
+        submit={form.handleSubmit(async (value) => {
+          await apiCall(`/teams/${team.id}`, {
+            method: "PUT",
+            body: JSON.stringify({
+              permissions: { ...value.roleInfo },
+            }),
+          });
+          mutate();
+        })}
+      >
+        <RoleSelector
+          value={form.watch("roleInfo")}
+          setValue={(value) => form.setValue("roleInfo", value)}
+        />
+      </Modal>
+    );
+  };
 
   return (
     <>
@@ -53,29 +82,51 @@ const TeamPage: FC = () => {
         <TeamModal
           existing={team}
           close={() => setModalOpen(false)}
-          onSuccess={() => new Promise(() => undefined)}
+          onSuccess={() => mutate()}
         />
       )}
+      <PermissionsModal />
       <div className="container pagecontents">
-        <div className="mb-2">
+        <div className="mb-4">
           <Link href="/settings/teams">
             <a>
               <GBCircleArrowLeft /> Back to all teams
             </a>
           </Link>
         </div>
+        {!isEditable && (
+          <div className="alert alert-info">
+            This team is managed by Okta. To make changes to the{" "}
+            <b>team name</b> or <b>team membership</b> please visit Okta and
+            edit the corresponding Okta group. Team permissions must be edited
+            via the <b>Edit Permissions</b> button below.
+          </div>
+        )}
         <div className="d-flex align-items-center mb-2">
           <h1 className="mb-0">{team.name}</h1>
-          <div className="ml-1">
-            <a
-              href="#"
+          {isEditable && (
+            <div className="ml-1">
+              <a
+                href="#"
+                onClick={(e) => {
+                  e.preventDefault();
+                  setModalOpen(true);
+                }}
+              >
+                <GBEdit />
+              </a>
+            </div>
+          )}
+          <div className="ml-auto">
+            <button
+              className="btn btn-primary"
               onClick={(e) => {
                 e.preventDefault();
-                setModalOpen(true);
+                setPermissionModalOpen(true);
               }}
             >
-              <GBEdit />
-            </a>
+              <FaUserLock /> <span> </span>Edit Permissions
+            </button>
           </div>
         </div>
         <div className="d-flex align-items-center mb-2">
@@ -97,13 +148,15 @@ const TeamPage: FC = () => {
 
         <div className="d-flex align-center">
           <h2 className="mt-4 mb-4 mr-2">Team Members</h2>
-          <span
-            className="h4 pr-2 align-self-center"
-            role="button"
-            onClick={() => undefined}
-          >
-            <GBAddCircle />
-          </span>
+          {isEditable && (
+            <span
+              className="h4 pr-2 align-self-center"
+              role="button"
+              onClick={() => undefined}
+            >
+              <GBAddCircle />
+            </span>
+          )}
         </div>
 
         <div className="mb-4">
@@ -130,17 +183,20 @@ const TeamPage: FC = () => {
                       {member.dateCreated && datetime(member.dateCreated)}
                     </td>
                     <td>
-                      {canManageTeam && (
+                      {canManageTeam && isEditable && (
                         <>
                           <DeleteButton
                             link={true}
                             useIcon={true}
                             displayName={member.email}
-                            onClick={() => {
-                              //   await apiCall(`/member/${member.id}`, {
-                              //     method: "DELETE",
-                              //   });
-                              // mutate();
+                            onClick={async () => {
+                              await apiCall(
+                                `/teams/${team.id}/member/${member.id}`,
+                                {
+                                  method: "DELETE",
+                                }
+                              );
+                              mutate();
                             }}
                           />
                         </>
@@ -151,22 +207,6 @@ const TeamPage: FC = () => {
               })}
             </tbody>
           </table>
-        </div>
-        <h2 className="mt-4 mb-4">Team Settings</h2>
-        <div className="row">
-          <div className="col-sm-6">
-            <div className="bg-white p-3 border">
-              <RoleSelector
-                value={{
-                  environments: team.environments || [],
-                  limitAccessByEnvironment: !!team.limitAccessByEnvironment,
-                  role: team.role as MemberRole,
-                  projectRoles: team.projectRoles,
-                }}
-                setValue={setNewTeam}
-              />
-            </div>
-          </div>
         </div>
       </div>
     </>

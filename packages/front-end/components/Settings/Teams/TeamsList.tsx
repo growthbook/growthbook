@@ -2,14 +2,25 @@ import { FC } from "react";
 import { useRouter } from "next/router";
 import Link from "next/link";
 import { date } from "shared/dates";
+import { FaCheck, FaTimes } from "react-icons/fa";
+import { RxIdCard } from "react-icons/rx";
 import { useUser } from "@/services/UserContext";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import ProjectBadges from "@/components/ProjectBadges";
+import DeleteButton from "@/components/DeleteButton/DeleteButton";
+import { useEnvironments } from "@/services/features";
+import { roleHasAccessToEnv, useAuth } from "@/services/auth";
+import usePermissions from "@/hooks/usePermissions";
+import Tooltip from "@/components/Tooltip/Tooltip";
 
 const TeamsList: FC = () => {
-  const { teams } = useUser();
+  const { teams, refreshTeams } = useUser();
   const { projects } = useDefinitions();
   const router = useRouter();
+  const environments = useEnvironments();
+  const { apiCall } = useAuth();
+  const permissions = usePermissions();
+  const canManageTeam = permissions.check("manageTeam");
 
   return (
     <div className="my-4">
@@ -26,8 +37,11 @@ const TeamsList: FC = () => {
                 <th className="col-2">Date Updated</th>
                 <th className="col-2">Global Role</th>
                 <th className="col-2">Project Roles</th>
+                {environments.map((env) => (
+                  <th key={env.id}>{env.id}</th>
+                ))}
                 <th className="col-1">Members</th>
-                <th className="w-50"></th>
+                <th className="w-50" />
               </tr>
             </thead>
             <tbody>
@@ -70,13 +84,45 @@ const TeamsList: FC = () => {
                           return null;
                         })}
                     </td>
+                    {environments.map((env) => {
+                      const access = roleHasAccessToEnv(t, env.id);
+                      return (
+                        <td key={env.id}>
+                          {access === "N/A" ? (
+                            <span className="text-muted">N/A</span>
+                          ) : access === "yes" ? (
+                            <FaCheck className="text-success" />
+                          ) : (
+                            <FaTimes className="text-danger" />
+                          )}
+                        </td>
+                      );
+                    })}
                     <td>{t.members ? t.members.length : 0}</td>
-                    <td
-                      style={{ cursor: "initial" }}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                      }}
-                    ></td>
+                    <td onClick={(e) => e.stopPropagation()}>
+                      {(canManageTeam && !t.managedByIdp && (
+                        <>
+                          <DeleteButton
+                            link={true}
+                            useIcon={true}
+                            displayName={t.name}
+                            onClick={async () => {
+                              await apiCall(`/teams/${t.id}`, {
+                                method: "DELETE",
+                              });
+                              refreshTeams();
+                            }}
+                          />
+                        </>
+                      )) || (
+                        <Tooltip
+                          className="mr-2"
+                          body="This team is managed by an external identity provider."
+                        >
+                          <RxIdCard className="text-blue" />
+                        </Tooltip>
+                      )}
+                    </td>
                   </tr>
                 );
               })}

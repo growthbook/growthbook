@@ -13,4 +13,5 @@ export interface TeamInterface {
   environments: string[];
   projectRoles?: ProjectMemberRole[];
   members?: ExpandedMember[];
+  managedByIdp: boolean;
 }

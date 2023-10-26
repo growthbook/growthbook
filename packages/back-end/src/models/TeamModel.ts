@@ -37,10 +37,7 @@ type CreateTeamProps = Omit<
   "dateCreated" | "dateUpdated" | "id"
 >;
 
-type UpdateTeamProps = Omit<
-  TeamInterface,
-  "dateCreated" | "dateUpdated" | "id" | "organization" | "createdBy"
->;
+type UpdateTeamProps = Partial<TeamInterface>;
 
 /**
  * Convert the Mongo document to a TeamInterface, omitting Mongo default fields __v, _id

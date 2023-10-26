@@ -13,7 +13,7 @@ export default function TeamModal({
 }: {
   existing: Partial<TeamInterface>;
   close: () => void;
-  onSuccess?: () => Promise<void>;
+  onSuccess?: () => Promise<unknown>;
 }) {
   const form = useForm<{
     name: string;
@@ -59,10 +59,12 @@ export default function TeamModal({
         textarea={true}
         {...form.register("description")}
       />
-      <RoleSelector
-        value={form.watch("roleInfo")}
-        setValue={(value) => form.setValue("roleInfo", value)}
-      />
+      {!existing.id && (
+        <RoleSelector
+          value={form.watch("roleInfo")}
+          setValue={(value) => form.setValue("roleInfo", value)}
+        />
+      )}
     </Modal>
   );
 }

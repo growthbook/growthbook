@@ -104,6 +104,7 @@ export interface UserContextValue {
   organization: Partial<OrganizationInterface>;
   roles: Role[];
   teams: TeamInterface[];
+  refreshTeams: () => Promise<void>;
   error?: string;
   hasCommercialFeature: (feature: CommercialFeature) => boolean;
 }
@@ -136,6 +137,9 @@ export const UserContext = createContext<UserContextValue>({
   apiKeys: [],
   organization: {},
   teams: [],
+  refreshTeams: async () => {
+    // Do nothing
+  },
   hasCommercialFeature: () => false,
 });
 
@@ -369,6 +373,9 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
         apiKeys: currentOrg?.apiKeys || [],
         organization: currentOrg?.organization || {},
         teams: teamsData?.teams || [],
+        refreshTeams: async () => {
+          await refreshTeams();
+        },
         error,
         // hasCommercialFeature: (feature) => commercialFeatures.has(feature),
         hasCommercialFeature: () => true,
