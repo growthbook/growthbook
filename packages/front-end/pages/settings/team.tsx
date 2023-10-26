@@ -12,9 +12,15 @@ import OrphanedUsersList from "@/components/Settings/Team/OrphanedUsersList";
 import PendingMemberList from "@/components/Settings/Team/PendingMemberList";
 import { isMultiOrg } from "@/services/env";
 import AutoApproveMembersToggle from "@/components/Settings/Team/AutoApproveMembersToggle";
+import UpdateDefaultRoleForm from "@/components/Settings/Team/UpdateDefaultRoleForm";
 
 const TeamPage: FC = () => {
-  const { refreshOrganization, enterpriseSSO, organization } = useUser();
+  const {
+    refreshOrganization,
+    enterpriseSSO,
+    organization,
+    hasCommercialFeature,
+  } = useUser();
 
   const { project, projects } = useDefinitions();
 
@@ -117,13 +123,13 @@ const TeamPage: FC = () => {
             project={currentProject}
           />
         )}
-
       {!isMultiOrg() && (
         <OrphanedUsersList
           mutateUsers={refreshOrganization}
           numUsersInAccount={organization.members?.length || 0}
         />
       )}
+      {!hasCommercialFeature("sso") ? <UpdateDefaultRoleForm /> : null}
     </div>
   );
 };
