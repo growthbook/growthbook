@@ -106,10 +106,12 @@ class BayesianABTest(BaseABTest):
         else:
             return norm.sf(0, mean_diff, std_diff)
 
-    def scale_result(self, result: BayesianTestResult, p: float) -> BayesianTestResult:
+    def scale_result(
+        self, result: BayesianTestResult, p: float, d: float
+    ) -> BayesianTestResult:
         if result.uplift.dist != "normal":
             raise ValueError("Cannot scale relative results.")
-        adjustment = self.stat_b.n / p
+        adjustment = self.stat_b.n / p / d
         return BayesianTestResult(
             chance_to_win=result.chance_to_win,
             expected=result.expected * adjustment,
@@ -136,6 +138,7 @@ class BinomialBayesianABTest(BayesianABTest):
         self.relative = config.difference_type == DifferenceType.RELATIVE
         self.scaled = config.difference_type == DifferenceType.SCALED
         self.traffic_proportion_b = config.traffic_proportion_b
+        self.phase_length_days = config.phase_length_days
 
     def compute_result(self) -> BayesianTestResult:
         # TODO refactor validation to base test
@@ -178,7 +181,9 @@ class BinomialBayesianABTest(BayesianABTest):
             risk=risk,
         )
         if self.scaled:
-            result = self.scale_result(result, self.traffic_proportion_b)
+            result = self.scale_result(
+                result, self.traffic_proportion_b, self.phase_length_days
+            )
         return result
 
 
@@ -196,6 +201,7 @@ class GaussianBayesianABTest(BayesianABTest):
         self.relative = config.difference_type == DifferenceType.RELATIVE
         self.scaled = config.difference_type == DifferenceType.SCALED
         self.traffic_proportion_b = config.traffic_proportion_b
+        self.phase_length_days = config.phase_length_days
 
     def _is_log_approximation_inexact(
         self, mean_std_dev_pairs: Tuple[Tuple[float, float], Tuple[float, float]]
@@ -282,5 +288,7 @@ class GaussianBayesianABTest(BayesianABTest):
             risk=risk,
         )
         if self.scaled:
-            result = self.scale_result(result, self.traffic_proportion_b)
+            result = self.scale_result(
+                result, self.traffic_proportion_b, self.phase_length_days
+            )
         return result

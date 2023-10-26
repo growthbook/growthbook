@@ -201,6 +201,7 @@ def create_joint_statistic(
 class BaseConfig:
     difference_type: DifferenceType = DifferenceType.RELATIVE
     traffic_proportion_b: float = 1
+    phase_length_days: float = 1
 
 
 # Data classes for the results of tests

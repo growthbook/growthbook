@@ -19,7 +19,9 @@ import { GBSuspicious } from "@/components/Icons";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import MetricValueColumn from "@/components/Experiment/MetricValueColumn";
 import {
+  formatNumber,
   formatPercent,
+  getColumnRefFormatter,
   getExperimentMetricFormatter,
 } from "@/services/metrics";
 import { useCurrency } from "@/hooks/useCurrency";
@@ -166,7 +168,22 @@ export default function ResultsTableTooltip({
       </>
     );
   }
-
+  let denomFormatter = formatNumber;
+  const hasCustomDenominator =
+    (isFactMetric(data.metric) && data.metric.metricType === "ratio") ||
+    !!data.metric.denominator;
+  if (
+    hasCustomDenominator &&
+    isFactMetric(data.metric) &&
+    !!data.metric.denominator
+  ) {
+    denomFormatter = getColumnRefFormatter(
+      data.metric.denominator,
+      getFactTableById,
+      true
+    );
+  }
+  // Lift units
   const expected = data.stats?.expected ?? 0;
   const ci1 = data.stats?.ciAdjusted?.[1] ?? data.stats?.ci?.[1] ?? 0;
   const ci0 = data.stats?.ciAdjusted?.[0] ?? data.stats?.ci?.[0] ?? 0;
@@ -558,8 +575,9 @@ export default function ResultsTableTooltip({
                 <tr>
                   <th style={{ width: 130 }}>Variation</th>
                   <th>Users</th>
+                  <th>Numerator</th>
+                  {hasCustomDenominator ? <th>Denom.</th> : null}
                   <th>Value</th>
-                  <th>Total</th>
                 </tr>
               </thead>
               <tbody>
@@ -603,18 +621,27 @@ export default function ResultsTableTooltip({
                         ) : null}
                       </td>
                       <td>{numberFormatter.format(row.users)}</td>
+
+                      <td>
+                        {getExperimentMetricFormatter(
+                          data.metric,
+                          getFactTableById,
+                          true
+                        )(row.value, { currency: displayCurrency })}
+                      </td>
+                      {hasCustomDenominator ? (
+                        <td>
+                          {denomFormatter(row.denominator || row.users, {
+                            currency: displayCurrency,
+                          })}
+                        </td>
+                      ) : null}
                       <MetricValueColumn
                         metric={data.metric}
                         stats={row}
                         users={row?.users || 0}
                         showRatio={false}
                       />
-                      <td>
-                        {getExperimentMetricFormatter(
-                          data.metric,
-                          getFactTableById
-                        )(row.value, { currency: displayCurrency })}
-                      </td>
                     </tr>
                   );
                 })}

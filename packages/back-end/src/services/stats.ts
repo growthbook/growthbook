@@ -7,6 +7,7 @@ import {
 } from "shared/constants";
 import { putBaselineVariationFirst } from "shared/util";
 import { ExperimentMetricInterface } from "shared/experiments";
+import { hoursBetween } from "shared/dates";
 import {
   DifferenceType,
   ExperimentMetricAnalysis,
@@ -36,6 +37,7 @@ export async function analyzeExperimentMetric(
   variations: ExperimentReportVariation[],
   metric: ExperimentMetricInterface,
   rows: ExperimentMetricQueryResponseRows,
+  phaseLengthHours: number = 1,
   coverage: number = 1,
   dimension: string | null = null,
   statsEngine: StatsEngine = DEFAULT_STATS_ENGINE,
@@ -72,6 +74,7 @@ export async function analyzeExperimentMetric(
   } else if (differenceType == "scaled") {
     differenceTypeString = "DifferenceType.SCALED";
   }
+  const phaseLengthDays = Number(phaseLengthHours / 24);
   const result = await promisify(PythonShell.runString)(
     `
 from gbstats.gbstats import (
@@ -133,7 +136,8 @@ engine_config=${
         ? `{'sequential': True, 'sequential_tuning_parameter': ${sequentialTestingTuningParameterNumber}}`
         : "{}"
     }
-engine_config = {'difference_type': ${differenceTypeString}}
+engine_config['difference_type'] = ${differenceTypeString}
+engine_config['phase_length_days'] = ${phaseLengthDays}
 ${
   statsEngine === "frequentist" && pValueThresholdNumber
     ? `engine_config['alpha'] = ${pValueThresholdNumber}`
@@ -257,6 +261,10 @@ export async function analyzeExperimentResults({
           })),
           metric,
           data.rows,
+          Math.max(
+            hoursBetween(snapshotSettings.startDate, snapshotSettings.endDate),
+            1
+          ),
           snapshotSettings.coverage ?? 1,
           analysisSettings.dimensions[0],
           analysisSettings.statsEngine,

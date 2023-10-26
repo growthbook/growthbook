@@ -49,6 +49,7 @@ class TTest(BaseABTest):
         self.relative = config.difference_type == DifferenceType.RELATIVE
         self.scaled = config.difference_type == DifferenceType.SCALED
         self.traffic_proportion_b = config.traffic_proportion_b
+        self.phase_length_days = config.phase_length_days
 
     @property
     def variance(self) -> float:
@@ -137,17 +138,19 @@ class TTest(BaseABTest):
             ),
         )
         if self.scaled:
-            result = self.scale_result(result, self.traffic_proportion_b)
+            result = self.scale_result(
+                result, self.traffic_proportion_b, self.phase_length_days
+            )
         return result
 
     def scale_result(
-        self, result: FrequentistTestResult, traffic_proportion_b: float
+        self, result: FrequentistTestResult, p: float, d: float
     ) -> FrequentistTestResult:
-        adjustment = self.stat_b.n / traffic_proportion_b
+        adjustment = self.stat_b.n / p / d
         return FrequentistTestResult(
             expected=result.expected * adjustment,
             ci=[result.ci[0] * adjustment, result.ci[1] * adjustment],
-            p_value=self.p_value,
+            p_value=result.p_value,
             uplift=Uplift(
                 dist=result.uplift.dist,
                 mean=result.uplift.mean * adjustment,

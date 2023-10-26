@@ -313,6 +313,15 @@ export function getAdditionalExperimentAnalysisSettings(
       });
     }
   });
+  // for default baseline, get difference types
+  additionalAnalyses.push({
+    ...defaultAnalysisSettings,
+    differenceType: "absolute",
+  });
+  additionalAnalyses.push({
+    ...defaultAnalysisSettings,
+    differenceType: "scaled",
+  });
   return additionalAnalyses;
 }
 
