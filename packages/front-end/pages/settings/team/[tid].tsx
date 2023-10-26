@@ -152,7 +152,7 @@ const TeamPage: FC = () => {
             <span
               className="h4 pr-2 align-self-center"
               role="button"
-              onClick={() => undefined}
+              onClick={() => undefined} // TODO: Create add member modal. Options available are all users in the org with the users in the team filtered out
             >
               <GBAddCircle />
             </span>

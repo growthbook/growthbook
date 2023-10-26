@@ -158,15 +158,9 @@ const navlinks: SidebarLinkProps[] = [
         permissions: ["organizationSettings"],
       },
       {
-        name: "Members",
-        href: "/settings/members",
-        path: /^settings\/members/,
-        permissions: ["manageTeam"],
-      },
-      {
-        name: "Teams",
-        href: "/settings/teams",
-        path: /^settings\/teams/,
+        name: "Team",
+        href: "/settings/team",
+        path: /^settings\/team/,
         permissions: ["manageTeam"],
       },
       {
