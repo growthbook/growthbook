@@ -2373,6 +2373,7 @@ export interface operations {
         offset?: number;
         projectId?: string;
         withProxy?: string;
+        multiOrg?: string;
       };
     };
     responses: {
