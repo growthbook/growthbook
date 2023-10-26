@@ -1,5 +1,5 @@
 from abc import abstractmethod
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from typing import List
 
 import numpy as np
@@ -199,12 +199,11 @@ class SequentialTwoSidedTTest(TTest):
         stat_b: Statistic,
         config: SequentialConfig = SequentialConfig(),
     ):
-        super().__init__(
-            stat_a,
-            stat_b,
-            FrequentistConfig(alpha=config.alpha, test_value=config.test_value),
+        config_dict = asdict(config)
+        self.sequential_tuning_parameter = config_dict.pop(
+            "sequential_tuning_parameter"
         )
-        self.sequential_tuning_parameter = config.sequential_tuning_parameter
+        super().__init__(stat_a, stat_b, FrequentistConfig(**config_dict)),
 
     @property
     def confidence_interval(self) -> List[float]:

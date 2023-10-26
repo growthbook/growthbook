@@ -646,8 +646,10 @@ export default function ResultsTable({
                           innerClassName={"text-left"}
                           body={
                             <div style={{ lineHeight: 1.5 }}>
-                              {getPercentChangeTooltip(
+                              {getChangeTooltip(
+                                changeTitle,
                                 statsEngine || DEFAULT_STATS_ENGINE,
+                                differenceType,
                                 hasRisk,
                                 !!sequentialTestingEnabled,
                                 pValueCorrection ?? null,
@@ -1012,15 +1014,35 @@ function drawEmptyRow({
   );
 }
 
-function getPercentChangeTooltip(
+function getChangeTooltip(
+  changeTitle: string,
   statsEngine: StatsEngine,
+  differenceType: DifferenceType,
   hasRisk: boolean,
   sequentialTestingEnabled: boolean,
   pValueCorrection: PValueCorrection,
   pValueThreshold: number
 ) {
+  let changeText =
+    "The uplift comparing the variation to the baseline, in percent change from the baseline value.";
+  if (differenceType == "absolute") {
+    changeText =
+      "The absolute difference between the average values in the variation and the baseline. For non-ratio metrics, this is average difference between users in the variation and the baseline.";
+  } else if (differenceType == "scaled") {
+    changeText =
+      "The total change in the metric per day if 100% of traffic were to have gone to the variation.";
+  }
+
+  const changeElem = (
+    <>
+      <p>
+        <b>{changeTitle}</b> - {changeText}
+      </p>
+    </>
+  );
+  let intervalText = <></>;
   if (hasRisk && statsEngine === "bayesian") {
-    return (
+    intervalText = (
       <>
         The interval is a 95% credible interval. The true value is more likely
         to be in the thicker parts of the graph.
@@ -1029,22 +1051,20 @@ function getPercentChangeTooltip(
   }
   if (statsEngine === "frequentist") {
     const confidencePct = percentFormatter.format(1 - pValueThreshold);
-    return (
+    intervalText = (
       <>
-        <p className="mb-0">
-          The interval is a {confidencePct} confidence interval. If you re-ran
-          the experiment 100 times, the true value would be in this range{" "}
-          {confidencePct} of the time.
-        </p>
+        The interval is a {confidencePct} confidence interval. If you re-ran the
+        experiment 100 times, the true value would be in this range{" "}
+        {confidencePct} of the time.
         {sequentialTestingEnabled && (
-          <p className="mt-4 mb-0">
+          <p className="mt-2 mb-0">
             Because sequential testing is enabled, these confidence intervals
             are valid no matter how many times you analyze (or peek at) this
             experiment as it runs.
           </p>
         )}
         {pValueCorrection && (
-          <p className="mt-4 mb-0">
+          <p className="mt-2 mb-0">
             Because your organization has multiple comparisons corrections
             enabled, these confidence intervals have been inflated so that they
             match the adjusted psuedo-p-value. Because confidence intervals do
@@ -1057,7 +1077,14 @@ function getPercentChangeTooltip(
       </>
     );
   }
-  return <></>;
+  return (
+    <>
+      {changeElem}
+      <p className="mt-3">
+        <b>Graph</b> - {intervalText}
+      </p>
+    </>
+  );
 }
 
 function getPValueTooltip(
