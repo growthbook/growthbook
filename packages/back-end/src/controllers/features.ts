@@ -56,11 +56,16 @@ import {
 } from "../models/SdkConnectionModel";
 import { logger } from "../util/logger";
 import { addTagsDiff } from "../models/TagModel";
-import { FASTLY_SERVICE_ID } from "../util/secrets";
 import {
   EventAuditUser,
   EventAuditUserForResponseLocals,
 } from "../events/event-types";
+import {
+  FASTLY_SERVICE_ID,
+  CACHE_CONTROL_MAX_AGE,
+  CACHE_CONTROL_STALE_IF_ERROR,
+  CACHE_CONTROL_STALE_WHILE_REVALIDATE,
+} from "../util/secrets";
 import { upsertWatch } from "../models/WatchModel";
 import { getSurrogateKeysFromSDKPayloadKeys } from "../util/cdn.util";
 import { SDKPayloadKey } from "../../types/sdk-payload";
@@ -193,10 +198,10 @@ export async function getFeaturesPublic(req: Request, res: Response) {
       hashSecureAttributes,
     });
 
-    // Cache for 30 seconds, serve stale up to 1 hour (10 hours if origin is down)
+    // The default is Cache for 30 seconds, serve stale up to 1 hour (10 hours if origin is down)
     res.set(
       "Cache-control",
-      "public, max-age=30, stale-while-revalidate=3600, stale-if-error=36000"
+      `public, max-age=${CACHE_CONTROL_MAX_AGE}, stale-while-revalidate=${CACHE_CONTROL_STALE_WHILE_REVALIDATE}, stale-if-error=${CACHE_CONTROL_STALE_IF_ERROR}`
     );
 
     // If using Fastly, add surrogate key header for cache purging

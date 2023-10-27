@@ -1764,3 +1764,36 @@ export async function putLicenseKey(
     status: 200,
   });
 }
+
+export function putDefaultRole(
+  req: AuthRequest<{ defaultRole: MemberRole }>,
+  res: Response
+) {
+  const { org } = getOrgFromReq(req);
+  const { defaultRole } = req.body;
+
+  const commercialFeatures = [...accountFeatures[getAccountPlan(org)]];
+
+  if (!commercialFeatures.includes("sso")) {
+    throw new Error(
+      "Must have a commercial License Key to update the organization's default role."
+    );
+  }
+
+  req.checkPermissions("manageTeam");
+
+  updateOrganization(org.id, {
+    settings: {
+      ...org.settings,
+      defaultRole: {
+        role: defaultRole,
+        limitAccessByEnvironment: false,
+        environments: [],
+      },
+    },
+  });
+
+  res.status(200).json({
+    status: 200,
+  });
+}
