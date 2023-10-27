@@ -7,6 +7,7 @@ import {
   FaDraftingCompass,
   FaExchangeAlt,
   FaExclamationTriangle,
+  FaList,
   FaLock,
   FaTimes,
 } from "react-icons/fa";
@@ -65,6 +66,7 @@ import AuditUser from "@/components/Avatar/AuditUser";
 import RevertModal from "@/components/Features/RevertModal";
 import EditRevisionCommentModal from "@/components/Features/EditRevisionCommentModal";
 import FixConflictsModal from "@/components/Features/FixConflictsModal";
+import Revisionlog from "@/components/Features/RevisionLog";
 
 export default function FeaturePage() {
   const router = useRouter();
@@ -78,6 +80,7 @@ export default function FeaturePage() {
   const [conflictModal, setConflictModal] = useState(false);
   const [duplicateModal, setDuplicateModal] = useState(false);
   const [confirmDiscard, setConfirmDiscard] = useState(false);
+  const [logModal, setLogModal] = useState(false);
   const permissions = usePermissions();
 
   const [revertIndex, setRevertIndex] = useState(0);
@@ -312,6 +315,18 @@ export default function FeaturePage() {
           mutate={mutate}
           setVersion={setVersion}
         />
+      )}
+      {logModal && revision && (
+        <Modal
+          open={true}
+          close={() => setLogModal(false)}
+          header="Revision Log"
+          closeCta={"Close"}
+          size="lg"
+        >
+          <h3>Revision {revision.version}</h3>
+          <Revisionlog feature={feature} revision={revision} />
+        </Modal>
       )}
       {editTagsModal && (
         <EditTagsForm
@@ -963,18 +978,6 @@ export default function FeaturePage() {
               <span className="text-muted">on</span>{" "}
               {date(revision.dateCreated)}
             </div>
-            {revision.status === "published" && revision.datePublished && (
-              <div className="col-auto">
-                <span className="text-muted">Published on</span>{" "}
-                {date(revision.datePublished)}
-              </div>
-            )}
-            {revision.status === "draft" && (
-              <div className="col-auto">
-                <span className="text-muted">Last updated</span>{" "}
-                {ago(revision.dateUpdated)}
-              </div>
-            )}
             <div className="col-auto">
               <span className="text-muted">Revision Comment:</span>{" "}
               {revision.comment || <em>None</em>}
@@ -990,6 +993,30 @@ export default function FeaturePage() {
                   <GBEdit />
                 </a>
               )}
+            </div>
+            <div className="ml-auto"></div>
+            {revision.status === "published" && revision.datePublished && (
+              <div className="col-auto">
+                <span className="text-muted">Published on</span>{" "}
+                {date(revision.datePublished)}
+              </div>
+            )}
+            {revision.status === "draft" && (
+              <div className="col-auto">
+                <span className="text-muted">Last updated</span>{" "}
+                {ago(revision.dateUpdated)}
+              </div>
+            )}
+            <div className="col-auto">
+              <a
+                href="#"
+                onClick={(e) => {
+                  e.preventDefault();
+                  setLogModal(true);
+                }}
+              >
+                <FaList /> View Log
+              </a>
             </div>
           </div>
         )}
