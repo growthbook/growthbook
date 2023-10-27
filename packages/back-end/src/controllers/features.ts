@@ -462,7 +462,7 @@ export async function postFeatureRebase(
     {
       user: res.locals.eventAudit,
       action: "rebase",
-      subject: `on top of #${live.version}`,
+      subject: `on top of revision #${live.version}`,
       value: JSON.stringify(mergeResult.result),
     }
   );
@@ -1087,7 +1087,7 @@ export async function postFeatureMoveRule(
   await updateRevision(revision, changes, {
     user: res.locals.eventAudit,
     action: "move rule",
-    subject: `from ${environment}.${from} to ${environment}.${to}`,
+    subject: `in ${environment} from position ${from} to ${to}`,
     value: JSON.stringify(rule),
   });
 
@@ -1139,7 +1139,7 @@ export async function deleteFeatureRule(
   await updateRevision(revision, changes, {
     user: res.locals.eventAudit,
     action: "delete rule",
-    subject: `${environment}.${i}`,
+    subject: `in ${environment} (position ${i})`,
     value: JSON.stringify(rule),
   });
 

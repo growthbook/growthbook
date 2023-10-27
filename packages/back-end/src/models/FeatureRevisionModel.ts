@@ -171,6 +171,19 @@ export async function createRevision({
     });
   }
 
+  const log: RevisionLog = {
+    action: "new revision",
+    subject: `based on revision #${baseVersion || feature.version}`,
+    timestamp: new Date(),
+    user,
+    value: JSON.stringify({
+      status: publish ? "published" : "draft",
+      comment: comment || "",
+      defaultValue,
+      rules,
+    }),
+  };
+
   const doc = await FeatureRevisionModel.create({
     organization: feature.organization,
     featureId: feature.id,
@@ -185,6 +198,7 @@ export async function createRevision({
     comment: comment || "",
     defaultValue,
     rules,
+    log: [log],
   });
 
   return toInterface(doc);
@@ -234,6 +248,14 @@ export async function markRevisionAsPublished(
     throw new Error("Can only publish draft revisions");
   }
 
+  const log: RevisionLog = {
+    action: "publish",
+    subject: "",
+    timestamp: new Date(),
+    user,
+    value: JSON.stringify(comment ? { comment } : {}),
+  };
+
   await FeatureRevisionModel.updateOne(
     {
       organization: revision.organization,
@@ -247,6 +269,9 @@ export async function markRevisionAsPublished(
         datePublished: new Date(),
         dateUpdated: new Date(),
         comment: comment ?? revision.comment,
+      },
+      $push: {
+        log,
       },
     }
   );

@@ -576,7 +576,7 @@ export async function addFeatureRule(
   await updateRevision(revision, changes, {
     user,
     action: "add rule",
-    subject: `to ${env}.${changes.rules[env].length - 1}`,
+    subject: `to ${env}`,
     value: JSON.stringify(rule),
   });
 }
@@ -612,7 +612,7 @@ export async function deleteExperimentRefRule(
     await updateRevision(revision, changes, {
       user,
       action: "delete experiment rule",
-      subject: `${experimentId}`,
+      subject: `from all environments`,
       value: "{}",
     });
   }
@@ -648,7 +648,7 @@ export async function addExperimentRefRule(
   await updateRevision(revision, changes, {
     user,
     action: "add experiment rule",
-    subject: `${rule.experimentId}`,
+    subject: `to all environments`,
     value: "{}",
   });
 }
@@ -675,7 +675,7 @@ export async function editFeatureRule(
   await updateRevision(revision, changes, {
     user,
     action: "edit rule",
-    subject: `${environment}.${i}`,
+    subject: `in ${environment} (position ${i})`,
     value: JSON.stringify(updates),
   });
 }
