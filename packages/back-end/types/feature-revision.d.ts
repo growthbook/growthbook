@@ -1,6 +1,14 @@
 import { EventAuditUser } from "../src/events/event-types";
 import { FeatureRule } from "./feature";
 
+export interface RevisionLog {
+  user: EventAuditUser;
+  timestamp: Date;
+  action: string;
+  subject: string;
+  value: string;
+}
+
 export interface FeatureRevisionInterface {
   featureId: string;
   organization: string;
@@ -15,4 +23,5 @@ export interface FeatureRevisionInterface {
   status: "draft" | "published" | "discarded";
   defaultValue: string;
   rules: Record<string, FeatureRule[]>;
+  log?: RevisionLog[];
 }

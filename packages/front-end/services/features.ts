@@ -530,7 +530,12 @@ export function isRuleFullyCovered(rule: FeatureRule): boolean {
   }
 
   // force rule at 100%: (doesn't have coverage)
-  return rule.type === "force" && rule.condition === "{}" && !ruleDisabled;
+  return (
+    rule.type === "force" &&
+    rule.condition === "{}" &&
+    !rule.savedGroups?.length &&
+    !ruleDisabled
+  );
 }
 
 export function jsonToConds(

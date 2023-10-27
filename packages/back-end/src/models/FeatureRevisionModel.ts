@@ -1,7 +1,10 @@
 import mongoose from "mongoose";
 import omit from "lodash/omit";
 import { FeatureInterface, FeatureRule } from "../../types/feature";
-import { FeatureRevisionInterface } from "../../types/feature-revision";
+import {
+  FeatureRevisionInterface,
+  RevisionLog,
+} from "../../types/feature-revision";
 import { EventAuditUser, EventAuditUserLoggedIn } from "../events/event-types";
 
 const featureRevisionSchema = new mongoose.Schema({
@@ -18,6 +21,16 @@ const featureRevisionSchema = new mongoose.Schema({
   defaultValue: String,
   rules: {},
   status: String,
+  log: [
+    {
+      _id: false,
+      user: {},
+      timestamp: Date,
+      action: String,
+      subject: String,
+      value: String,
+    },
+  ],
 });
 
 featureRevisionSchema.index(
@@ -66,7 +79,11 @@ export async function getRevisions(
     organization,
     featureId,
   });
-  return docs.map(toInterface);
+  // Remove the log when fetching all revisions since it can be large to send over the network
+  return docs.map(toInterface).map((d) => {
+    delete d.log;
+    return d;
+  });
 }
 
 export async function getRevision(
@@ -180,7 +197,8 @@ export async function updateRevision(
       FeatureRevisionInterface,
       "comment" | "defaultValue" | "rules" | "baseVersion"
     >
-  >
+  >,
+  log: Omit<RevisionLog, "timestamp">
 ) {
   // If editing defaultValue or rules, require the revision to be a draft
   if ("defaultValue" in changes || changes.rules) {
@@ -197,6 +215,12 @@ export async function updateRevision(
     },
     {
       $set: { ...changes, dateUpdated: new Date() },
+      $push: {
+        log: {
+          ...log,
+          timestamp: new Date(),
+        },
+      },
     }
   );
 }

@@ -452,11 +452,20 @@ export async function postFeatureRebase(
     newRules[env] = mergeResult.result.rules?.[env] || liveRules;
   });
 
-  await updateRevision(revision, {
-    baseVersion: live.version,
-    defaultValue: mergeResult.result.defaultValue ?? live.defaultValue,
-    rules: newRules,
-  });
+  await updateRevision(
+    revision,
+    {
+      baseVersion: live.version,
+      defaultValue: mergeResult.result.defaultValue ?? live.defaultValue,
+      rules: newRules,
+    },
+    {
+      user: res.locals.eventAudit,
+      action: "rebase",
+      subject: `on top of #${live.version}`,
+      value: JSON.stringify(mergeResult.result),
+    }
+  );
 
   res.status(200).json({
     status: 200,
@@ -739,7 +748,7 @@ export async function postFeatureRule(
     res.locals.eventAudit
   );
 
-  await addFeatureRule(revision, environment, rule);
+  await addFeatureRule(revision, environment, rule, res.locals.eventAudit);
 
   res.status(200).json({
     status: 200,
@@ -784,7 +793,7 @@ export async function postFeatureExperimentRefRule(
     res.locals.eventAudit
   );
 
-  await addExperimentRefRule(org, revision, rule);
+  await addExperimentRefRule(org, revision, rule, res.locals.eventAudit);
 
   res.status(200).json({
     status: 200,
@@ -817,7 +826,12 @@ export async function deleteFeatureExperimentRefRule(
     res.locals.eventAudit
   );
 
-  await deleteExperimentRefRule(org, revision, experimentId);
+  await deleteExperimentRefRule(
+    org,
+    revision,
+    experimentId,
+    res.locals.eventAudit
+  );
 
   res.status(200).json({
     status: 200,
@@ -866,7 +880,16 @@ export async function putRevisionComment(
     throw new Error("Could not find feature revision");
   }
 
-  await updateRevision(revision, { comment });
+  await updateRevision(
+    revision,
+    { comment },
+    {
+      user: res.locals.eventAudit,
+      action: "edit comment",
+      subject: "",
+      value: JSON.stringify(comment),
+    }
+  );
 
   res.status(200).json({
     status: 200,
@@ -898,7 +921,7 @@ export async function postFeatureDefaultValue(
     res.locals.eventAudit
   );
 
-  await setDefaultValue(revision, defaultValue);
+  await setDefaultValue(revision, defaultValue, res.locals.eventAudit);
 
   res.status(200).json({
     status: 200,
@@ -972,7 +995,7 @@ export async function putFeatureRule(
     res.locals.eventAudit
   );
 
-  await editFeatureRule(revision, environment, i, rule);
+  await editFeatureRule(revision, environment, i, rule, res.locals.eventAudit);
 
   res.status(200).json({
     status: 200,
@@ -1058,9 +1081,15 @@ export async function postFeatureMoveRule(
   if (!rules || !rules[from] || !rules[to]) {
     throw new Error("Invalid rule index");
   }
+  const rule = rules[from];
   changes.rules[environment] = arrayMove(rules, from, to);
 
-  await updateRevision(revision, changes);
+  await updateRevision(revision, changes, {
+    user: res.locals.eventAudit,
+    action: "move rule",
+    subject: `from ${environment}.${from} to ${environment}.${to}`,
+    value: JSON.stringify(rule),
+  });
 
   res.status(200).json({
     status: 200,
@@ -1102,10 +1131,17 @@ export async function deleteFeatureRule(
     throw new Error("Invalid rule index");
   }
 
+  const rule = rules[i];
+
   changes.rules[environment] = rules.slice();
   changes.rules[environment].splice(i, 1);
 
-  await updateRevision(revision, changes);
+  await updateRevision(revision, changes, {
+    user: res.locals.eventAudit,
+    action: "delete rule",
+    subject: `${environment}.${i}`,
+    value: JSON.stringify(rule),
+  });
 
   res.status(200).json({
     status: 200,
@@ -1310,6 +1346,29 @@ export async function getFeatures(
   res.status(200).json({
     status: 200,
     features,
+  });
+}
+
+export async function getRevisionLog(
+  req: AuthRequest<null, { id: string; version: string }>,
+  res: Response
+) {
+  const { org } = getOrgFromReq(req);
+  const { id, version } = req.params;
+
+  const feature = await getFeature(org.id, id);
+  if (!feature) {
+    throw new Error("Could not find feature");
+  }
+
+  const revision = await getRevision(org.id, feature.id, parseInt(version));
+  if (!revision) {
+    throw new Error("Could not find feature revision");
+  }
+
+  res.json({
+    status: 200,
+    log: revision.log || [],
   });
 }
 

@@ -822,7 +822,7 @@ export default function FeaturePage() {
                     </a>
                   </div>
                 )}
-                {canEditDrafts && (
+                {canEditDrafts && revision.version > 1 && (
                   <div className="ml-4">
                     <a
                       href="#"

@@ -560,7 +560,8 @@ export async function toggleFeatureEnvironment(
 export async function addFeatureRule(
   revision: FeatureRevisionInterface,
   env: string,
-  rule: FeatureRule
+  rule: FeatureRule,
+  user: EventAuditUser
 ) {
   if (!rule.id) {
     rule.id = generateRuleId();
@@ -572,13 +573,19 @@ export async function addFeatureRule(
   changes.rules[env] = changes.rules[env] || [];
   changes.rules[env].push(rule);
 
-  await updateRevision(revision, changes);
+  await updateRevision(revision, changes, {
+    user,
+    action: "add rule",
+    subject: `to ${env}.${changes.rules[env].length - 1}`,
+    value: JSON.stringify(rule),
+  });
 }
 
 export async function deleteExperimentRefRule(
   org: OrganizationInterface,
   revision: FeatureRevisionInterface,
-  experimentId: string
+  experimentId: string,
+  user: EventAuditUser
 ) {
   const environments = org.settings?.environments || [];
   const environmentIds = environments.map((e) => e.id);
@@ -602,14 +609,20 @@ export async function deleteExperimentRefRule(
   });
 
   if (hasChanges) {
-    await updateRevision(revision, changes);
+    await updateRevision(revision, changes, {
+      user,
+      action: "delete experiment rule",
+      subject: `${experimentId}`,
+      value: "{}",
+    });
   }
 }
 
 export async function addExperimentRefRule(
   org: OrganizationInterface,
   revision: FeatureRevisionInterface,
-  rule: ExperimentRefRule
+  rule: ExperimentRefRule,
+  user: EventAuditUser
 ) {
   if (!rule.id) {
     rule.id = generateRuleId();
@@ -632,14 +645,20 @@ export async function addExperimentRefRule(
     changes.rules[env].push(rule);
   });
 
-  await updateRevision(revision, changes);
+  await updateRevision(revision, changes, {
+    user,
+    action: "add experiment rule",
+    subject: `${rule.experimentId}`,
+    value: "{}",
+  });
 }
 
 export async function editFeatureRule(
   revision: FeatureRevisionInterface,
   environment: string,
   i: number,
-  updates: Partial<FeatureRule>
+  updates: Partial<FeatureRule>,
+  user: EventAuditUser
 ) {
   const changes = { rules: revision.rules || {} };
 
@@ -653,7 +672,12 @@ export async function editFeatureRule(
     ...updates,
   } as FeatureRule;
 
-  await updateRevision(revision, changes);
+  await updateRevision(revision, changes, {
+    user,
+    action: "edit rule",
+    subject: `${environment}.${i}`,
+    value: JSON.stringify(updates),
+  });
 }
 
 export async function removeTagInFeature(
@@ -704,9 +728,19 @@ export async function removeProjectFromFeatures(
 
 export async function setDefaultValue(
   revision: FeatureRevisionInterface,
-  defaultValue: string
+  defaultValue: string,
+  user: EventAuditUser
 ) {
-  await updateRevision(revision, { defaultValue });
+  await updateRevision(
+    revision,
+    { defaultValue },
+    {
+      user,
+      action: "edit default value",
+      subject: ``,
+      value: JSON.stringify(defaultValue),
+    }
+  );
 }
 
 export async function setJsonSchema(

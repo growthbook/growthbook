@@ -523,6 +523,7 @@ app.post(
   "/feature/:id/:version/publish",
   featuresController.postFeaturePublish
 );
+app.get("/feature/:id/:version/log", featuresController.getRevisionLog);
 app.post("/feature/:id/archive", featuresController.postFeatureArchive);
 app.post("/feature/:id/toggle", featuresController.postFeatureToggle);
 app.post("/feature/:id/:version/fork", featuresController.postFeatureFork);
