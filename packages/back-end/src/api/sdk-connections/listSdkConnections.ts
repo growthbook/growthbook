@@ -20,14 +20,8 @@ export const listSdkConnections = createApiRequestHandler(
     let connections: SDKConnectionInterface[] = [];
 
     if (req.query.multiOrg) {
-      const user = req?.user;
-      if (!user) {
-        throw new Error("User not found");
-      }
-      const orgs = await findOrganizationsByMemberId(user.id);
-      connections = await findSDKConnectionsByOrganizations(
-        orgs.map((o) => o.id)
-      );
+      await validateIsSuperUserRequest(req);
+      connections = await findAllSDKConnections();
     } else {
       connections = await findSDKConnectionsByOrganization(req.organization.id);
     }
