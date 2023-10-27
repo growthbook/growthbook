@@ -1,16 +1,16 @@
 import { ListSdkConnectionsResponse } from "../../../types/openapi";
 import {
+  findAllSDKConnections,
   findSDKConnectionsByOrganization,
-  findSDKConnectionsByOrganizations,
   toApiSDKConnectionInterface,
 } from "../../models/SdkConnectionModel";
 import {
   applyFilter,
   applyPagination,
   createApiRequestHandler,
+  validateIsSuperUserRequest,
 } from "../../util/handler";
 import { listSdkConnectionsValidator } from "../../validators/openapi";
-import { findOrganizationsByMemberId } from "../../models/OrganizationModel";
 import { SDKConnectionInterface } from "../../../types/sdk-connection";
 
 export const listSdkConnections = createApiRequestHandler(

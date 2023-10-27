@@ -100,12 +100,8 @@ export async function findSDKConnectionsByOrganization(organization: string) {
   return docs.map(toInterface);
 }
 
-export async function findSDKConnectionsByOrganizations(
-  organizations: string[]
-) {
-  const docs = await SDKConnectionModel.find({
-    organizations,
-  });
+export async function findAllSDKConnections() {
+  const docs = await SDKConnectionModel.find();
   return docs.map(toInterface);
 }
 
