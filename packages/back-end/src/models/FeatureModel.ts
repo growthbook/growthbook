@@ -2,6 +2,7 @@ import mongoose, { FilterQuery } from "mongoose";
 import cloneDeep from "lodash/cloneDeep";
 import omit from "lodash/omit";
 import isEqual from "lodash/isEqual";
+import { MergeResultChanges } from "shared/util";
 import {
   ExperimentRefRule,
   FeatureEnvironment,
@@ -724,26 +725,25 @@ export async function applyRevisionChanges(
   organization: OrganizationInterface,
   feature: FeatureInterface,
   revision: FeatureRevisionInterface,
+  result: MergeResultChanges,
   user: EventAuditUser
 ) {
   let hasChanges = false;
   const changes: Partial<FeatureInterface> = {};
-  if (revision.defaultValue !== feature.defaultValue) {
-    changes.defaultValue = revision.defaultValue;
+  if (result.defaultValue !== undefined) {
+    changes.defaultValue = result.defaultValue;
     hasChanges = true;
   }
 
-  Object.entries(revision.rules).forEach(([env, rules]) => {
-    if (!isEqual(rules, feature.environmentSettings?.[env]?.rules) || []) {
-      changes.environmentSettings =
-        changes.environmentSettings ||
-        cloneDeep(feature.environmentSettings || {});
-      changes.environmentSettings[env] = changes.environmentSettings[env] || {};
-      changes.environmentSettings[env].enabled =
-        changes.environmentSettings[env].enabled || false;
-      changes.environmentSettings[env].rules = rules;
-      hasChanges = true;
-    }
+  Object.entries(result.rules || {}).forEach(([env, rules]) => {
+    changes.environmentSettings =
+      changes.environmentSettings ||
+      cloneDeep(feature.environmentSettings || {});
+    changes.environmentSettings[env] = changes.environmentSettings[env] || {};
+    changes.environmentSettings[env].enabled =
+      changes.environmentSettings[env].enabled || false;
+    changes.environmentSettings[env].rules = rules;
+    hasChanges = true;
   });
 
   if (!hasChanges) {
@@ -765,6 +765,7 @@ export async function publishRevision(
   organization: OrganizationInterface,
   feature: FeatureInterface,
   revision: FeatureRevisionInterface,
+  result: MergeResultChanges,
   user: EventAuditUser,
   comment?: string
 ) {
@@ -777,6 +778,7 @@ export async function publishRevision(
     organization,
     feature,
     revision,
+    result,
     user
   );
 

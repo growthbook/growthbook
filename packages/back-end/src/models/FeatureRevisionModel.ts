@@ -176,7 +176,10 @@ export async function createRevision({
 export async function updateRevision(
   revision: FeatureRevisionInterface,
   changes: Partial<
-    Pick<FeatureRevisionInterface, "comment" | "defaultValue" | "rules">
+    Pick<
+      FeatureRevisionInterface,
+      "comment" | "defaultValue" | "rules" | "baseVersion"
+    >
   >
 ) {
   // If editing defaultValue or rules, require the revision to be a draft

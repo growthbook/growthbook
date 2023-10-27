@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import { evaluateFeatures } from "@growthbook/proxy-eval";
 import { isEqual } from "lodash";
+import { MergeResultChanges, MergeStrategy, autoMerge } from "shared/util";
 import {
   ExperimentRefRule,
   FeatureInterface,
@@ -392,33 +393,121 @@ export async function postFeatures(
   });
 }
 
-export async function postFeaturePublish(
-  req: AuthRequest<{ comment: string }, { id: string; version: string }>,
+export async function postFeatureRebase(
+  req: AuthRequest<
+    {
+      strategies: Record<string, MergeStrategy>;
+      mergeResultSerialized: string;
+    },
+    { id: string; version: string }
+  >,
   res: Response
 ) {
   const { org } = getOrgFromReq(req);
-  const { comment } = req.body;
+  const { strategies, mergeResultSerialized } = req.body;
   const { id, version } = req.params;
   const feature = await getFeature(org.id, id);
 
   if (!feature) {
     throw new Error("Could not find feature");
   }
+  req.checkPermissions("manageFeatures", feature.project);
+  req.checkPermissions("createFeatureDrafts", feature.project);
 
-  const revision = await getRevision(org.id, feature.id, parseInt(version));
+  const revisions = await getRevisions(org.id, feature.id);
 
+  const revision = revisions.find((r) => r.version === parseInt(version));
   if (!revision) {
     throw new Error("Could not find feature revision");
   }
+  if (revision.status !== "draft") {
+    throw new Error("Can only fix conflicts for Draft revisions");
+  }
 
+  const live = revisions.find((r) => r.version === feature.version);
+  const base = revisions.find((r) => r.version === revision.baseVersion);
+
+  if (!live || !base) {
+    throw new Error("Could not lookup feature history");
+  }
+
+  const mergeResult = autoMerge(live, base, revision, strategies || {});
+  if (JSON.stringify(mergeResult) !== mergeResultSerialized) {
+    throw new Error(
+      "Something seems to have changed while you were reviewing the draft. Please re-review with the latest changes and submit again."
+    );
+  }
+
+  if (!mergeResult.success) {
+    throw new Error("Please resolve conflicts before saving");
+  }
+
+  const newRules: Record<string, FeatureRule[]> = {};
+  Object.entries(live.rules).forEach(([env, liveRules]) => {
+    newRules[env] = mergeResult.result.rules?.[env] || liveRules;
+  });
+
+  await updateRevision(revision, {
+    baseVersion: live.version,
+    defaultValue: mergeResult.result.defaultValue ?? live.defaultValue,
+    rules: newRules,
+  });
+
+  res.status(200).json({
+    status: 200,
+  });
+}
+
+export async function postFeaturePublish(
+  req: AuthRequest<
+    {
+      comment: string;
+      mergeResultSerialized: string;
+    },
+    { id: string; version: string }
+  >,
+  res: Response
+) {
+  const { org } = getOrgFromReq(req);
+  const { comment, mergeResultSerialized } = req.body;
+  const { id, version } = req.params;
+  const feature = await getFeature(org.id, id);
+
+  if (!feature) {
+    throw new Error("Could not find feature");
+  }
+  req.checkPermissions("manageFeatures", feature.project);
+
+  const revisions = await getRevisions(org.id, feature.id);
+
+  const revision = revisions.find((r) => r.version === parseInt(version));
+  if (!revision) {
+    throw new Error("Could not find feature revision");
+  }
   if (revision.status !== "draft") {
     throw new Error("Can only publish Draft revisions");
   }
 
-  req.checkPermissions("manageFeatures", feature.project);
+  const live = revisions.find((r) => r.version === feature.version);
+  const base = revisions.find((r) => r.version === revision.baseVersion);
+
+  if (!live || !base) {
+    throw new Error("Could not lookup feature history");
+  }
+
+  const mergeResult = autoMerge(live, base, revision, {});
+  if (JSON.stringify(mergeResult) !== mergeResultSerialized) {
+    throw new Error(
+      "Something seems to have changed while you were reviewing the draft. Please re-review with the latest changes and submit again."
+    );
+  }
+
+  if (!mergeResult.success) {
+    throw new Error("Please resolve conflicts before publishing");
+  }
 
   // If changing the default value, it affects all enabled environments
-  if (revision.defaultValue !== feature.defaultValue) {
+  if (mergeResult.result.defaultValue !== undefined) {
     req.checkPermissions(
       "publishFeatures",
       feature.project,
@@ -427,12 +516,7 @@ export async function postFeaturePublish(
   }
   // Otherwise, only the environments with rule changes are affected
   else {
-    const changedEnvs: string[] = [];
-    Object.entries(revision.rules).forEach(([env, rules]) => {
-      if (!isEqual(rules, feature.environmentSettings?.[env]?.rules || [])) {
-        changedEnvs.push(env);
-      }
-    });
+    const changedEnvs = Object.keys(mergeResult.result.rules || {});
     if (changedEnvs.length > 0) {
       req.checkPermissions("publishFeatures", feature.project, changedEnvs);
     }
@@ -442,6 +526,7 @@ export async function postFeaturePublish(
     org,
     feature,
     revision,
+    mergeResult.result,
     res.locals.eventAudit,
     comment
   );
@@ -521,10 +606,17 @@ export async function postFeatureRevert(
     publish: true,
     comment: comment || `Revert to #${revision.version}`,
   });
+
+  const changes: MergeResultChanges = {
+    rules: newRevision.rules,
+    defaultValue: newRevision.defaultValue,
+  };
+
   const updatedFeature = await applyRevisionChanges(
     org,
     feature,
     newRevision,
+    changes,
     res.locals.eventAudit
   );
 

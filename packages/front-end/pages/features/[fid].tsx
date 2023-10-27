@@ -11,9 +11,10 @@ import {
   FaTimes,
 } from "react-icons/fa";
 import { ago, date, datetime } from "shared/dates";
-import { getValidation, mergeRevision } from "shared/util";
+import { autoMerge, getValidation, mergeRevision } from "shared/util";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import { MdHistory, MdRocketLaunch } from "react-icons/md";
+import { FaPlusMinus } from "react-icons/fa6";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import { GBAddCircle, GBEdit } from "@/components/Icons";
 import LoadingOverlay from "@/components/LoadingOverlay";
@@ -63,6 +64,7 @@ import PageHead from "@/components/Layout/PageHead";
 import AuditUser from "@/components/Avatar/AuditUser";
 import RevertModal from "@/components/Features/RevertModal";
 import EditRevisionCommentModal from "@/components/Features/EditRevisionCommentModal";
+import FixConflictsModal from "@/components/Features/FixConflictsModal";
 
 export default function FeaturePage() {
   const router = useRouter();
@@ -73,6 +75,7 @@ export default function FeaturePage() {
   const [showSchema, setShowSchema] = useState(false);
   const [auditModal, setAuditModal] = useState(false);
   const [draftModal, setDraftModal] = useState(false);
+  const [conflictModal, setConflictModal] = useState(false);
   const [duplicateModal, setDuplicateModal] = useState(false);
   const [confirmDiscard, setConfirmDiscard] = useState(false);
   const permissions = usePermissions();
@@ -147,6 +150,18 @@ export default function FeaturePage() {
       ? mergeRevision(data.feature, revision)
       : data.feature;
   }, [data, revision]);
+
+  const mergeResult = useMemo(() => {
+    if (!data || !feature || !revision) return null;
+    const baseRevision = data.revisions.find(
+      (r) => r.version === revision?.baseVersion
+    );
+    const liveRevision = data.revisions.find(
+      (r) => r.version === feature.version
+    );
+    if (!revision || !baseRevision || !liveRevision) return null;
+    return autoMerge(liveRevision, baseRevision, revision, {});
+  }, [data, revision, feature]);
 
   if (error) {
     return (
@@ -323,13 +338,23 @@ export default function FeaturePage() {
       {draftModal && revision && (
         <DraftModal
           feature={data.feature}
-          revision={revision}
+          revisions={data.revisions}
+          version={revision.version}
           close={() => setDraftModal(false)}
           mutate={mutate}
           onDiscard={() => {
             // When discarding a draft, switch back to the live version
             setVersion(feature.version);
           }}
+        />
+      )}
+      {conflictModal && revision && (
+        <FixConflictsModal
+          feature={data.feature}
+          revisions={data.revisions}
+          version={revision.version}
+          close={() => setConflictModal(false)}
+          mutate={mutate}
         />
       )}
       {duplicateModal && (
@@ -761,7 +786,13 @@ export default function FeaturePage() {
             </div>
           </div>
           {isLive ? (
-            <div className="px-3 py-2 alert alert-success mb-0">
+            <div
+              className="px-3 py-2 alert alert-success mb-0"
+              style={{
+                borderBottomLeftRadius: 0,
+                borderBottomRightRadius: 0,
+              }}
+            >
               <div className="d-flex align-items-center">
                 <strong className="mr-3">
                   <MdRocketLaunch /> Live Revision
@@ -820,7 +851,13 @@ export default function FeaturePage() {
               </div>
             </div>
           ) : isLocked ? (
-            <div className="px-3 py-2 alert-secondary mb-0">
+            <div
+              className="px-3 py-2 alert-secondary mb-0"
+              style={{
+                borderBottomLeftRadius: 0,
+                borderBottomRightRadius: 0,
+              }}
+            >
               <div className="d-flex align-items-center">
                 <strong className="mr-3">
                   <FaLock /> Revision Locked
@@ -847,7 +884,13 @@ export default function FeaturePage() {
               </div>
             </div>
           ) : isDraft ? (
-            <div className="px-3 py-2 alert alert-warning mb-0">
+            <div
+              className="px-3 py-2 alert alert-warning mb-0"
+              style={{
+                borderBottomLeftRadius: 0,
+                borderBottomRightRadius: 0,
+              }}
+            >
               <div className="d-flex align-items-center">
                 <strong className="mr-3">
                   <FaDraftingCompass /> Draft Revision
@@ -856,7 +899,7 @@ export default function FeaturePage() {
                   Make changes below and publish when you are ready
                 </div>
                 <div className="ml-auto"></div>
-                {hasDraftPublishPermission && (
+                {hasDraftPublishPermission && mergeResult?.success && (
                   <div>
                     <a
                       href="#"
@@ -870,6 +913,22 @@ export default function FeaturePage() {
                     </a>
                   </div>
                 )}
+                {canEditDrafts && mergeResult && !mergeResult.success && (
+                  <div>
+                    <Tooltip body="There have been new conflicting changes published since you created your draft that must be resolved before you can publish">
+                      <a
+                        href="#"
+                        className="font-weight-bold text-purple"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          setConflictModal(true);
+                        }}
+                      >
+                        <FaPlusMinus /> Fix Conflicts
+                      </a>
+                    </Tooltip>
+                  </div>
+                )}
                 {canEditDrafts && (
                   <div className="ml-4">
                     <a
@@ -880,7 +939,7 @@ export default function FeaturePage() {
                         setConfirmDiscard(true);
                       }}
                     >
-                      <FaTimes /> Discard
+                      <FaTimes /> Discard Draft
                     </a>
                   </div>
                 )}
@@ -889,7 +948,13 @@ export default function FeaturePage() {
           ) : null}
         </>
       )}
-      <div className={revision ? "appbox mb-4 px-3 pt-3" : ""}>
+      <div
+        className={revision ? "appbox mb-4 px-3 pt-3" : ""}
+        style={{
+          borderTopRightRadius: 0,
+          borderTopLeftRadius: 0,
+        }}
+      >
         {revision && (
           <div className="row mb-3">
             <div className="col-auto">

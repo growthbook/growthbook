@@ -3,7 +3,7 @@ import ReactDiffViewer, { DiffMethod } from "react-diff-viewer";
 import { useState, useMemo } from "react";
 import { FaAngleDown, FaAngleRight } from "react-icons/fa";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
-import isEqual from "lodash/isEqual";
+import { autoMerge } from "shared/util";
 import { getAffectedRevisionEnvs, useEnvironments } from "@/services/features";
 import { useAuth } from "@/services/auth";
 import usePermissions from "@/hooks/usePermissions";
@@ -13,7 +13,8 @@ import Field from "../Forms/Field";
 
 export interface Props {
   feature: FeatureInterface;
-  revision: FeatureRevisionInterface;
+  version: number;
+  revisions: FeatureRevisionInterface[];
   close: () => void;
   mutate: () => void;
   onPublish?: () => void;
@@ -63,7 +64,8 @@ export function ExpandableDiff({
 
 export default function DraftModal({
   feature,
-  revision,
+  version,
+  revisions,
   close,
   mutate,
   onPublish,
@@ -74,39 +76,62 @@ export default function DraftModal({
 
   const { apiCall } = useAuth();
 
-  const [comment, setComment] = useState(revision.comment || "");
+  const revision = revisions.find((r) => r.version === version);
+  const baseRevision = revisions.find(
+    (r) => r.version === revision?.baseVersion
+  );
+  const liveRevision = revisions.find((r) => r.version === feature.version);
 
-  const diffs = useMemo(() => {
+  const mergeResult = useMemo(() => {
+    if (!revision || !baseRevision || !liveRevision) return null;
+    return autoMerge(liveRevision, baseRevision, revision, {});
+  }, [revision, baseRevision, liveRevision]);
+
+  const [comment, setComment] = useState(revision?.comment || "");
+
+  const resultDiffs = useMemo(() => {
     const diffs: { a: string; b: string; title: string }[] = [];
 
-    if (revision.defaultValue !== feature.defaultValue) {
+    if (!mergeResult) return diffs;
+    if (!mergeResult.success) return diffs;
+
+    const result = mergeResult.result;
+
+    if (result.defaultValue !== undefined) {
       diffs.push({
         title: "Default Value",
         a: feature.defaultValue,
-        b: revision.defaultValue,
+        b: result.defaultValue,
       });
     }
-    environments.forEach((env) => {
-      const liveRules = feature.environmentSettings?.[env.id]?.rules || [];
-      const draftRules = revision.rules?.[env.id] || [];
-
-      if (!isEqual(liveRules, draftRules)) {
-        diffs.push({
-          title: `Rules - ${env.id}`,
-          a: JSON.stringify(liveRules, null, 2),
-          b: JSON.stringify(draftRules, null, 2),
-        });
-      }
-    });
+    if (result.rules) {
+      environments.forEach((env) => {
+        const liveRules = feature.environmentSettings?.[env.id]?.rules || [];
+        if (result.rules && result.rules[env.id]) {
+          diffs.push({
+            title: `Rules - ${env.id}`,
+            a: JSON.stringify(liveRules, null, 2),
+            b: JSON.stringify(result.rules[env.id], null, 2),
+          });
+        }
+      });
+    }
 
     return diffs;
-  }, [feature]);
+  }, [mergeResult]);
+
+  if (!revision || !mergeResult) return null;
 
   const hasPermission = permissions.check(
     "publishFeatures",
     feature.project,
     getAffectedRevisionEnvs(feature, revision)
   );
+
+  const hasChanges =
+    !mergeResult.success ||
+    Object.keys(mergeResult.result.rules || {}).length > 0 ||
+    !!mergeResult.result.defaultValue;
 
   return (
     <Modal
@@ -121,6 +146,7 @@ export default function DraftModal({
                   {
                     method: "POST",
                     body: JSON.stringify({
+                      mergeResultSerialized: JSON.stringify(mergeResult),
                       comment,
                     }),
                   }
@@ -135,8 +161,9 @@ export default function DraftModal({
           : undefined
       }
       cta="Publish"
+      ctaEnabled={!!mergeResult.success && hasChanges}
       close={close}
-      closeCta="close"
+      closeCta="Cancel"
       size="max"
       secondaryCTA={
         permissions.check("createFeatureDrafts", feature.project) ? (
@@ -164,26 +191,44 @@ export default function DraftModal({
         ) : undefined
       }
     >
-      <h3>Review Changes</h3>
-      <p>
-        The changes below will go live when this draft version is published. You
-        will be able to revert later if needed.
-      </p>
-      <div className="list-group mb-4">
-        {diffs.map((diff) => (
-          <ExpandableDiff {...diff} key={diff.title} />
-        ))}
-      </div>
-      {hasPermission && (
-        <Field
-          label="Add a Comment (optional)"
-          textarea
-          placeholder="Summary of changes..."
-          value={comment}
-          onChange={(e) => {
-            setComment(e.target.value);
-          }}
-        />
+      {mergeResult.conflicts.length > 0 && (
+        <div className="alert alert-danger">
+          <strong>Conflicts Detected</strong>. Please fix conflicts before
+          publishing this draft.
+        </div>
+      )}
+
+      {!hasChanges && !mergeResult.conflicts.length && (
+        <div className="alert alert-info">
+          There are no changes to publish. Either discard the draft or add
+          changes first before publishing.
+        </div>
+      )}
+
+      {mergeResult.success && hasChanges && (
+        <div>
+          <h3>Review Final Changes</h3>
+          <p>
+            The changes below will go live when this draft revision is
+            published. You will be able to revert later if needed.
+          </p>
+          <div className="list-group mb-4">
+            {resultDiffs.map((diff) => (
+              <ExpandableDiff {...diff} key={diff.title} />
+            ))}
+          </div>
+          {hasPermission && (
+            <Field
+              label="Add a Comment (optional)"
+              textarea
+              placeholder="Summary of changes..."
+              value={comment}
+              onChange={(e) => {
+                setComment(e.target.value);
+              }}
+            />
+          )}
+        </div>
       )}
     </Modal>
   );

@@ -137,18 +137,23 @@ export function validateFeatureValue(
 }
 
 export interface MergeConflict {
-  field: string;
+  name: string;
+  key: string;
   resolved: boolean;
+  base: string;
+  live: string;
+  revision: string;
 }
-export type MergeStrategy = "error" | "overwrite" | "discard";
+export type MergeStrategy = "" | "overwrite" | "discard";
+export type MergeResultChanges = {
+  defaultValue?: string;
+  rules?: Record<string, FeatureRule[]>;
+};
 export type AutoMergeResult =
   | {
       success: true;
       conflicts: MergeConflict[];
-      result: {
-        defaultValue?: string;
-        rules?: Record<string, FeatureRule[]>;
-      };
+      result: MergeResultChanges;
     }
   | {
       success: false;
@@ -164,7 +169,7 @@ export function autoMerge(
   live: RulesAndValues,
   base: RulesAndValues,
   revision: RulesAndValues,
-  strategy: MergeStrategy
+  strategies: Record<string, MergeStrategy>
 ): AutoMergeResult {
   // If the base and feature have not diverged, no need to merge anything
   if (live.version === base.version) {
@@ -186,27 +191,35 @@ export function autoMerge(
   const conflicts: MergeConflict[] = [];
 
   // If the revision's defaultValue has been changed
-  if (revision.defaultValue !== base.defaultValue) {
+  if (
+    revision.defaultValue !== base.defaultValue &&
+    live.defaultValue !== revision.defaultValue
+  ) {
     // If there's a conflict with the live version
-    if (
-      live.defaultValue !== base.defaultValue &&
-      live.defaultValue !== revision.defaultValue
-    ) {
+    if (live.defaultValue !== base.defaultValue) {
+      const conflictInfo = {
+        name: "Default Value",
+        key: "defaultValue",
+        base: base.defaultValue,
+        live: live.defaultValue,
+        revision: revision.defaultValue,
+      };
+      const strategy = strategies[conflictInfo.key];
+
       if (strategy === "overwrite") {
         conflicts.push({
-          field: "defaultValue",
+          ...conflictInfo,
           resolved: true,
         });
         result.defaultValue = revision.defaultValue;
       } else if (strategy === "discard") {
         conflicts.push({
-          field: "defaultValue",
+          ...conflictInfo,
           resolved: true,
         });
-        result.defaultValue = live.defaultValue;
-      } else if (strategy === "error") {
+      } else {
         conflicts.push({
-          field: "defaultValue",
+          ...conflictInfo,
           resolved: false,
         });
       }
@@ -220,7 +233,9 @@ export function autoMerge(
   // Check for conflicts in rules
   Object.entries(revision.rules).forEach(([env, rules]) => {
     // If the revision doesn't have changes in this environment, skip
-    if (isEqual(rules, base.rules[env])) return;
+    if (isEqual(rules, base.rules[env]) || isEqual(rules, live.rules[env])) {
+      return;
+    }
 
     result.rules = result.rules || {};
 
@@ -231,21 +246,29 @@ export function autoMerge(
       !isEqual(live.rules[env], base.rules[env]) &&
       !isEqual(live.rules[env], rules)
     ) {
+      const conflictInfo = {
+        name: `Rules - ${env}`,
+        key: `rules.${env}`,
+        base: JSON.stringify(base.rules[env], null, 2),
+        live: JSON.stringify(live.rules[env], null, 2),
+        revision: JSON.stringify(rules, null, 2),
+      };
+      const strategy = strategies[conflictInfo.key];
+
       if (strategy === "overwrite") {
         conflicts.push({
-          field: `rules.${env}`,
+          ...conflictInfo,
           resolved: true,
         });
         result.rules[env] = rules;
       } else if (strategy === "discard") {
         conflicts.push({
-          field: `rules.${env}`,
+          ...conflictInfo,
           resolved: true,
         });
-        result.rules[env] = live.rules[env];
-      } else if (strategy === "error") {
+      } else {
         conflicts.push({
-          field: `rules.${env}`,
+          ...conflictInfo,
           resolved: false,
         });
       }
