@@ -1148,10 +1148,16 @@ export const getPayloadKeys = (
 
   // Visual editor experiments always affect all environments
   if (experiment.hasVisualChangesets) {
-    return environments.map((e) => ({
-      environment: e,
-      project,
-    }));
+    const keys: SDKPayloadKey[] = [];
+
+    environments.forEach((e) => {
+      // Always update the "no-project" payload
+      keys.push({ environment: e, project: "" });
+      // If the experiment is in a project, update that payload as well
+      if (project) keys.push({ environment: e, project });
+    });
+
+    return keys;
   }
 
   // Feature flag experiments only affect the environments where the experiment rule is active
