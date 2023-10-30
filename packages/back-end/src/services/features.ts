@@ -510,15 +510,19 @@ export async function getFeatureDefinitions({
   });
 }
 
-export async function evaluateFeature(
-  feature: FeatureInterface,
-  attributes: ArchetypeAttributeValues,
-  org: OrganizationInterface
-) {
-  const groupMap = await getSavedGroupMap(org);
-  const experimentMap = await getAllPayloadExperiments(org.id);
-  const environments = getEnvironments(org);
-
+export function evaluateFeature({
+  feature,
+  attributes,
+  environments,
+  groupMap,
+  experimentMap,
+}: {
+  feature: FeatureInterface;
+  attributes: ArchetypeAttributeValues;
+  groupMap: GroupMap;
+  experimentMap: Map<string, ExperimentInterface>;
+  environments: Environment[];
+}) {
   const results: FeatureTestResult[] = [];
 
   // change the NODE ENV so that we can get the debug log information:
@@ -554,7 +558,6 @@ export async function evaluateFeature(
           features: {
             [feature.id]: definition,
           },
-          disableDevTools: true,
           attributes: attributes,
           log: (msg: string, ctx: never) => {
             log.push([msg, ctx]);
@@ -563,6 +566,7 @@ export async function evaluateFeature(
         gb.debug = true;
         thisEnvResult.result = gb.evalFeature(feature.id);
         thisEnvResult.log = log;
+        gb.destroy();
       }
     }
     results.push(thisEnvResult);

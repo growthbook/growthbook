@@ -8,7 +8,7 @@ import {
   FeatureTestResult,
 } from "../../types/feature";
 import { AuthRequest } from "../types/AuthRequest";
-import { getOrgFromReq } from "../services/organizations";
+import { getEnvironments, getOrgFromReq } from "../services/organizations";
 import {
   addFeatureRule,
   createFeature,
@@ -36,9 +36,11 @@ import {
   arrayMove,
   evaluateFeature,
   getFeatureDefinitions,
+  getSavedGroupMap,
   verifyDraftsAreEqual,
 } from "../services/features";
 import {
+  getAllPayloadExperiments,
   getExperimentByTrackingKey,
   getExperimentsByIds,
 } from "../models/ExperimentModel";
@@ -958,7 +960,16 @@ export async function postFeatureEvaluate(
     throw new Error("Could not find feature");
   }
 
-  const results = await evaluateFeature(feature, attributes, org);
+  const groupMap = await getSavedGroupMap(org);
+  const experimentMap = await getAllPayloadExperiments(org.id);
+  const environments = getEnvironments(org);
+  const results = evaluateFeature({
+    feature,
+    attributes,
+    groupMap,
+    experimentMap,
+    environments,
+  });
 
   res.status(200).json({
     status: 200,

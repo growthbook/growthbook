@@ -146,6 +146,7 @@ export class OpenIdAuthConnection implements AuthConnection {
       const middleware = jwtExpress({
         secret: jwks.expressJwtSecret({
           cache: true,
+          cacheMaxEntries: 50,
           rateLimit: true,
           jwksRequestsPerMinute: 5,
           jwksUri,
