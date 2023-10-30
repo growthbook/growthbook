@@ -10,7 +10,7 @@ import Tab from "@/components/Tabs/Tab";
 import UpgradeMessage from "@/components/Marketing/UpgradeMessage";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
-import MembersPage from "./members";
+import { MembersTabView } from "@/components/Settings/Team/MembersTabView";
 
 const TeamPage: FC = () => {
   const [upgradeModal, setUpgradeModal] = useState(false);
@@ -45,7 +45,7 @@ const TeamPage: FC = () => {
     <div className="container-fluid pagecontents">
       <Tabs defaultTab="members" newStyle={true}>
         <Tab anchor="members" id="members" display="Members" padding={false}>
-          <MembersPage />
+          <MembersTabView />
         </Tab>
         <Tab anchor="teams" id="teams" display="Teams" padding={false} lazy>
           {modalOpen && (

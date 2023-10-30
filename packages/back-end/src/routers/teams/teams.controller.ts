@@ -418,7 +418,7 @@ export const deleteTeamMember = async (
     });
   }
 
-  const member = org.members.filter(
+  const member = org.members.find(
     (member) => member.teams?.includes(id) && member.id === memberId
   );
 

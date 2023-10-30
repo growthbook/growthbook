@@ -14,7 +14,7 @@ import { isMultiOrg } from "@/services/env";
 import AutoApproveMembersToggle from "@/components/Settings/Team/AutoApproveMembersToggle";
 import UpdateDefaultRoleForm from "@/components/Settings/Team/UpdateDefaultRoleForm";
 
-const MembersPage: FC = () => {
+export const MembersTabView: FC = () => {
   const {
     refreshOrganization,
     enterpriseSSO,
@@ -133,4 +133,3 @@ const MembersPage: FC = () => {
     </div>
   );
 };
-export default MembersPage;

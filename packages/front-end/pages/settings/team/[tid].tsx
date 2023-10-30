@@ -3,19 +3,16 @@ import { FC, useState } from "react";
 import { TeamInterface } from "back-end/types/team";
 import { datetime } from "shared/dates";
 import Link from "next/link";
-import { MemberRoleWithProjects } from "back-end/types/organization";
 import { FaUserLock } from "react-icons/fa";
-import { useForm } from "react-hook-form";
 import { useAuth } from "@/services/auth";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import usePermissions from "@/hooks/usePermissions";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import { GBAddCircle, GBCircleArrowLeft, GBEdit } from "@/components/Icons";
-import RoleSelector from "@/components/Settings/Team/RoleSelector";
 import TeamModal from "@/components/Teams/TeamModal";
 import useApi from "@/hooks/useApi";
-import Modal from "@/components/Modal";
 import { AddMembersModal } from "@/components/Teams/AddMembersModal";
+import { PermissionsModal } from "@/components/Settings/Teams/PermissionModal";
 
 const TeamPage: FC = () => {
   const { apiCall } = useAuth();
@@ -40,44 +37,6 @@ const TeamPage: FC = () => {
   const { team } = data;
   const isEditable = !team.managedByIdp;
 
-  const PermissionsModal = () => {
-    const form = useForm<{
-      roleInfo: MemberRoleWithProjects;
-    }>({
-      defaultValues: {
-        roleInfo: {
-          role: team.role,
-          limitAccessByEnvironment: team.limitAccessByEnvironment,
-          environments: team.environments,
-          projectRoles: team.projectRoles || [],
-        },
-      },
-    });
-    const { apiCall } = useAuth();
-
-    return (
-      <Modal
-        open={permissionModalOpen}
-        close={() => setPermissionModalOpen(false)}
-        header={"Edit Team Permissions"}
-        submit={form.handleSubmit(async (value) => {
-          await apiCall(`/teams/${team.id}`, {
-            method: "PUT",
-            body: JSON.stringify({
-              permissions: { ...value.roleInfo },
-            }),
-          });
-          mutate();
-        })}
-      >
-        <RoleSelector
-          value={form.watch("roleInfo")}
-          setValue={(value) => form.setValue("roleInfo", value)}
-        />
-      </Modal>
-    );
-  };
-
   return (
     <>
       {teamModalOpen && (
@@ -93,7 +52,12 @@ const TeamPage: FC = () => {
         open={memberModalOpen}
         onClose={() => setMemberModalOpen(false)}
       />
-      <PermissionsModal />
+      <PermissionsModal
+        team={team}
+        open={permissionModalOpen}
+        onClose={() => setPermissionModalOpen(false)}
+        onSuccess={() => mutate()}
+      />
       <div className="container pagecontents">
         <div className="mb-4">
           <Link href="/settings/team#teams">

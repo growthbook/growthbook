@@ -23,7 +23,7 @@ export const AddMembersModal = ({
     members: string[];
   }>({
     defaultValues: {
-      members: data?.team.members?.map((m) => m.id) || [],
+      members: [],
     },
   });
   const { apiCall } = useAuth();
