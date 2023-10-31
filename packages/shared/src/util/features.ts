@@ -136,7 +136,8 @@ export function isFeatureStale(
   }
 
   const twoWeeksAgo = subWeeks(new Date(), 2);
-  const stale = feature.dateUpdated < twoWeeksAgo;
+  // TODO why is dateUpdated a string?
+  const stale = new Date(feature.dateUpdated) < twoWeeksAgo;
 
   if (!stale) return { stale };
 
@@ -150,6 +151,8 @@ export function isFeatureStale(
   const rules = envSettings.map((e) => e.rules).flat();
 
   if (rules.length === 0) return { stale, reason: "no-rules" };
+
+  // TODO check if there are 'active' rules and return early if os
 
   const noExpsActive = !linkedExperiments.some((e) => e.status === "running");
   if (noExpsActive) return { stale, reason: "no-active-exps" };

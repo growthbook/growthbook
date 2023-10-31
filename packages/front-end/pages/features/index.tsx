@@ -314,6 +314,12 @@ export default function FeaturesPage() {
                   ? getProjectById(projectId)?.name || null
                   : null;
                 const projectIsDeReferenced = projectId && !projectName;
+                const { stale, reason: staleReason } = isFeatureStale(
+                  feature,
+                  experiments.filter((e) =>
+                    feature.linkedExperiments?.includes(e.id)
+                  )
+                );
 
                 return (
                   <tr
@@ -400,13 +406,10 @@ export default function FeaturesPage() {
                       </td>
                     )}
                     <td style={{ textAlign: "center" }}>
-                      {isFeatureStale(
-                        feature,
-                        experiments.filter((e) =>
-                          feature.linkedExperiments?.includes(e.id)
-                        )
-                      ) && (
-                        <Tooltip body="This feature has not been marked stale.">
+                      {stale && (
+                        <Tooltip
+                          body={`This feature has been marked stale. ${staleReason}`}
+                        >
                           <FaExclamationTriangle className="text-warning" />
                         </Tooltip>
                       )}
