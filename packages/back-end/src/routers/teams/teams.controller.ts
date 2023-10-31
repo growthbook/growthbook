@@ -14,13 +14,13 @@ import {
   auditDetailsUpdate,
 } from "../../services/audit";
 import {
-  addMemberToTeam,
+  addMembersToTeam,
   expandOrgMembers,
   getOrgFromReq,
-  removeMemberFromTeam,
+  removeMembersFromTeam,
 } from "../../services/organizations";
 import { AuthRequest } from "../../types/AuthRequest";
-import { Member, MemberRoleWithProjects } from "../../../types/organization";
+import { MemberRoleWithProjects } from "../../../types/organization";
 
 // region POST /teams
 
@@ -205,7 +205,7 @@ export const updateTeam = async (
   res: Response<PutTeamResponse>
 ) => {
   const { org } = getOrgFromReq(req);
-  const { name, description, permissions, members } = req.body;
+  const { name, description, permissions } = req.body;
   const { id } = req.params;
 
   req.checkPermissions("manageTeam");
@@ -225,31 +225,6 @@ export const updateTeam = async (
     projectRoles: [],
     ...permissions,
   });
-
-  // If making changes to members remove members and add new requested members
-  if (members) {
-    const prevMembers: Member[] = org.members.filter((member) =>
-      member.teams?.includes(id)
-    );
-    await Promise.all(
-      prevMembers.map((member) => {
-        return removeMemberFromTeam({
-          organization: org,
-          userId: member.id,
-          teamId: id,
-        });
-      })
-    );
-    await Promise.all(
-      members.map((member) => {
-        return addMemberToTeam({
-          organization: org,
-          userId: member,
-          teamId: id,
-        });
-      })
-    );
-  }
 
   await req.audit({
     event: "team.update",
@@ -361,20 +336,15 @@ export const addTeamMembers = async (
     });
   }
 
-  await Promise.all(
-    members.map((member) => {
-      return addMemberToTeam({
-        organization: org,
-        userId: member,
-        teamId: team.id,
-      });
-    })
-  );
+  await addMembersToTeam({
+    organization: org,
+    userIds: members,
+    teamId: team.id,
+  });
 
   const teamMembers = org.members.filter((member) =>
     member.teams?.includes(id)
   );
-  const expandedMembers = await expandOrgMembers(teamMembers);
 
   await req.audit({
     event: "team.update",
@@ -383,7 +353,10 @@ export const addTeamMembers = async (
       id: id,
       name: team.name,
     },
-    details: auditDetailsUpdate(team, { ...team, members: expandedMembers }),
+    details: auditDetailsUpdate(team, {
+      ...team,
+      members: teamMembers.map((m) => m.id),
+    }),
   });
 
   return res.status(200).json({
@@ -430,9 +403,9 @@ export const deleteTeamMember = async (
   }
 
   // Delete the team member
-  await removeMemberFromTeam({
+  await removeMembersFromTeam({
     organization: org,
-    userId: memberId,
+    userIds: [memberId],
     teamId: id,
   });
 
@@ -445,7 +418,7 @@ export const deleteTeamMember = async (
     },
     details: auditDetailsUpdate(team, {
       ...team,
-      members: team.members?.filter((m) => m.id !== memberId),
+      members: team.members?.filter((m) => m !== memberId),
     }),
   });
 

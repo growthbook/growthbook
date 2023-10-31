@@ -45,9 +45,6 @@ type OrgSettingsResponse = {
   commercialFeatures: CommercialFeature[];
   licenseKey?: string;
   currentUserPermissions: UserPermissions;
-};
-
-type TeamsResponse = {
   teams: TeamInterface[];
 };
 
@@ -103,7 +100,7 @@ export interface UserContextValue {
   apiKeys: ApiKeyInterface[];
   organization: Partial<OrganizationInterface>;
   roles: Role[];
-  teams: TeamInterface[];
+  teams?: (Omit<TeamInterface, "members"> & { members?: ExpandedMember[] })[];
   refreshTeams: () => Promise<void>;
   error?: string;
   hasCommercialFeature: (feature: CommercialFeature) => boolean;
@@ -168,10 +165,6 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
     mutate: refreshOrganization,
   } = useApi<OrgSettingsResponse>(isAuthenticated ? `/organization` : null);
 
-  const { data: teamsData, mutate: refreshTeams } = useApi<TeamsResponse>(
-    isAuthenticated ? `/teams` : null
-  );
-
   const [hashedOrganizationId, setHashedOrganizationId] = useState<string>("");
   useEffect(() => {
     const id = currentOrg?.organization?.id || "";
@@ -204,6 +197,22 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
     });
     return userMap;
   }, [currentOrg?.members]);
+
+  const teams = useMemo(() => {
+    return currentOrg?.teams.map((team) => {
+      const hydratedMembers = team.members?.reduce<ExpandedMember[]>(
+        (res, member) => {
+          const user = users.get(member);
+          if (user) {
+            res.push(user);
+          }
+          return res;
+        },
+        []
+      );
+      return { ...team, members: hydratedMembers };
+    });
+  }, [currentOrg?.teams, users]);
 
   // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'string | undefined' is not assig... Remove this comment to see the full error message
   let user = users.get(data?.userId);
@@ -259,8 +268,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
       return;
     }
     void updateUser();
-    void refreshTeams();
-  }, [isAuthenticated, refreshTeams, updateUser]);
+  }, [isAuthenticated, updateUser]);
 
   // Refresh user and org after loading license
   useEffect(() => {
@@ -372,10 +380,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
         commercialFeatures: currentOrg?.commercialFeatures || [],
         apiKeys: currentOrg?.apiKeys || [],
         organization: currentOrg?.organization || {},
-        teams: teamsData?.teams || [],
-        refreshTeams: async () => {
-          await refreshTeams();
-        },
+        teams,
         error,
         hasCommercialFeature: (feature) => commercialFeatures.has(feature),
       }}

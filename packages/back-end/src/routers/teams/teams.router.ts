@@ -54,7 +54,6 @@ router.put(
             .array()
             .optional(),
         }),
-        members: z.string().array().optional(),
       })
       .strict(),
   }),
