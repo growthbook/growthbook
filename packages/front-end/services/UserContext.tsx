@@ -102,7 +102,7 @@ export interface UserContextValue {
   accountPlan?: AccountPlan;
   commercialFeatures: CommercialFeature[];
   apiKeys: ApiKeyInterface[];
-  organization: Partial<OrganizationInterface>;
+  organization?: Partial<OrganizationInterface>;
   roles: Role[];
   teams?: Team[];
   error?: string;
@@ -379,7 +379,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
         accountPlan: currentOrg?.accountPlan,
         commercialFeatures: currentOrg?.commercialFeatures || [],
         apiKeys: currentOrg?.apiKeys || [],
-        organization: currentOrg?.organization || {},
+        organization: currentOrg?.organization,
         teams,
         error,
         hasCommercialFeature: (feature) => commercialFeatures.has(feature),
