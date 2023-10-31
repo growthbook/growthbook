@@ -14,10 +14,6 @@ const PermissionZodObject = z.object({
   environments: z.string().array(),
 });
 
-// router.get("/:id", teamController.getTeamById);
-
-// router.get("/", teamController.getTeams);
-
 router.post("/:id/members", teamController.addTeamMembers);
 
 router.delete("/:id/member/:memberId", teamController.deleteTeamMember);

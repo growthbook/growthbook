@@ -70,9 +70,9 @@ const TeamPage: FC = () => {
         </div>
         {!isEditable && (
           <div className="alert alert-info">
-            This team is managed by Okta. To make changes to the{" "}
-            <b>team name</b> or <b>team membership</b> please visit Okta and
-            edit the corresponding Okta group. Team permissions must be edited
+            This team is managed by an idP. To make changes to the{" "}
+            <b>team name</b> or <b>team membership</b> please access your idP
+            and edit the corresponding group. Team permissions must be edited
             via the <b>Edit Permissions</b> button below.
           </div>
         )}
