@@ -14,7 +14,7 @@ import usePermissions from "@/hooks/usePermissions";
 import Tooltip from "@/components/Tooltip/Tooltip";
 
 const TeamsList: FC = () => {
-  const { teams, refreshTeams } = useUser();
+  const { teams, refreshOrganization } = useUser();
   const { projects } = useDefinitions();
   const router = useRouter();
   const environments = useEnvironments();
@@ -28,7 +28,7 @@ const TeamsList: FC = () => {
         Place organization members into teams to grant permissions by group.
       </p>
       <div>
-        {teams.length > 0 ? (
+        {teams && teams.length > 0 ? (
           <table className="table appbox gbtable table-hover">
             <thead>
               <tr>
@@ -110,7 +110,7 @@ const TeamsList: FC = () => {
                               await apiCall(`/teams/${t.id}`, {
                                 method: "DELETE",
                               });
-                              refreshTeams();
+                              refreshOrganization();
                             }}
                           />
                         </>

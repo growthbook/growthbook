@@ -14,7 +14,7 @@ import { MembersTabView } from "@/components/Settings/Team/MembersTabView";
 
 const TeamPage: FC = () => {
   const [upgradeModal, setUpgradeModal] = useState(false);
-  const { refreshTeams, hasCommercialFeature } = useUser();
+  const { refreshOrganization, hasCommercialFeature } = useUser();
   const permissions = usePermissions();
   const [modalOpen, setModalOpen] = useState<Partial<TeamInterface> | null>(
     null
@@ -52,7 +52,7 @@ const TeamPage: FC = () => {
             <TeamModal
               existing={modalOpen}
               close={() => setModalOpen(null)}
-              onSuccess={() => refreshTeams()}
+              onSuccess={() => refreshOrganization()}
             />
           )}
           <div className="filters md-form row mb-3 align-items-center">
