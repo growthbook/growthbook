@@ -102,7 +102,7 @@ export interface UserContextValue {
   accountPlan?: AccountPlan;
   commercialFeatures: CommercialFeature[];
   apiKeys: ApiKeyInterface[];
-  organization?: Partial<OrganizationInterface>;
+  organization: Partial<OrganizationInterface>;
   roles: Role[];
   teams?: Team[];
   error?: string;
@@ -379,6 +379,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
         accountPlan: currentOrg?.accountPlan,
         commercialFeatures: currentOrg?.commercialFeatures || [],
         apiKeys: currentOrg?.apiKeys || [],
+        // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'OrganizationInterface | undefined' is not as... Remove this comment to see the full error message
         organization: currentOrg?.organization,
         teams,
         error,
