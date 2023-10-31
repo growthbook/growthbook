@@ -1,8 +1,8 @@
 import { MemberRoleWithProjects } from "back-end/types/organization";
-import { TeamInterface } from "back-end/types/team";
 import { useForm } from "react-hook-form";
 import Modal from "@/components/Modal";
 import { useAuth } from "@/services/auth";
+import { Team } from "@/services/UserContext";
 import RoleSelector from "../Team/RoleSelector";
 
 export const PermissionsModal = ({
@@ -11,7 +11,7 @@ export const PermissionsModal = ({
   onClose,
   onSuccess,
 }: {
-  team: TeamInterface;
+  team: Team;
   open: boolean;
   onClose: () => void;
   onSuccess: () => Promise<unknown>;

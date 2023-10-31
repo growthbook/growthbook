@@ -5,7 +5,6 @@ import {
   deleteTeam,
   findTeamById,
   findTeamByName,
-  getTeamsForOrganization,
   updateTeamMetadata,
 } from "../../models/TeamModel";
 import {
@@ -15,7 +14,6 @@ import {
 } from "../../services/audit";
 import {
   addMembersToTeam,
-  expandOrgMembers,
   getOrgFromReq,
   removeMembersFromTeam,
 } from "../../services/organizations";
@@ -90,10 +88,10 @@ export const postTeam = async (
 
 // region GET /teams
 
-type GetTeamsResponse = {
-  status: 200;
-  teams: TeamInterface[];
-};
+// type GetTeamsResponse = {
+//   status: 200;
+//   teams: TeamInterface[];
+// };
 
 /**
  * GET /teams
@@ -101,79 +99,79 @@ type GetTeamsResponse = {
  * @param req
  * @param res
  */
-export const getTeams = async (
-  req: AuthRequest,
-  res: Response<GetTeamsResponse>
-) => {
-  const { org } = getOrgFromReq(req);
+// export const getTeams = async (
+//   req: AuthRequest,
+//   res: Response<GetTeamsResponse>
+// ) => {
+//   const { org } = getOrgFromReq(req);
 
-  req.checkPermissions("manageTeam");
+//   req.checkPermissions("manageTeam");
 
-  const teams = await getTeamsForOrganization(org.id);
+//   const teams = await getTeamsForOrganization(org.id);
 
-  const teamsWithMembersP = teams.map(async (team) => {
-    const members = org.members.filter((member) =>
-      member.teams?.includes(team.id)
-    );
-    const expandedMembers = await expandOrgMembers(members);
-    return {
-      ...team,
-      members: expandedMembers,
-    };
-  });
+//   const teamsWithMembersP = teams.map(async (team) => {
+//     const members = org.members.filter((member) =>
+//       member.teams?.includes(team.id)
+//     );
+//     const expandedMembers = await expandOrgMembers(members);
+//     return {
+//       ...team,
+//       members: expandedMembers,
+//     };
+//   });
 
-  const teamsWithMembers = await Promise.all(teamsWithMembersP);
+//   const teamsWithMembers = await Promise.all(teamsWithMembersP);
 
-  return res.status(200).json({
-    status: 200,
-    teams: teamsWithMembers,
-  });
-};
+//   return res.status(200).json({
+//     status: 200,
+//     teams: teamsWithMembers,
+//   });
+// };
 
-// endregion GET /teams
+// // endregion GET /teams
 
-// region GET /teams/:id
+// // region GET /teams/:id
 
-type GetTeamResponse = {
-  status: 200 | 404;
-  team?: TeamInterface;
-  message?: string;
-};
+// type GetTeamResponse = {
+//   status: 200 | 404;
+//   team?: TeamInterface;
+//   message?: string;
+// };
 
-/**
- * GET /teams/:id
- * Get team document for the given id
- * @param req
- * @param res
- */
-export const getTeamById = async (
-  req: AuthRequest<null, { id: string }>,
-  res: Response<GetTeamResponse>
-) => {
-  const { org } = getOrgFromReq(req);
-  const { id } = req.params;
+// /**
+//  * GET /teams/:id
+//  * Get team document for the given id
+//  * @param req
+//  * @param res
+//  */
+// export const getTeamById = async (
+//   req: AuthRequest<null, { id: string }>,
+//   res: Response<GetTeamResponse>
+// ) => {
+//   const { org } = getOrgFromReq(req);
+//   const { id } = req.params;
 
-  req.checkPermissions("manageTeam");
+//   req.checkPermissions("manageTeam");
 
-  const team = await findTeamById(id, org.id);
-  const members = org.members.filter((member) => member.teams?.includes(id));
-  const expandedMembers = await expandOrgMembers(members);
+//   const team = await findTeamById(id, org.id);
+//   const members = org.members.filter((member) => member.teams?.includes(id));
+//   const expandedMembers = await expandOrgMembers(members);
 
-  if (!team) {
-    return res.status(404).json({
-      status: 404,
-      message: "Cannot find team",
-    });
-  }
+//   if (!team) {
+//     return res.status(404).json({
+//       status: 404,
+//       message: "Cannot find team",
+//     });
+//   }
 
-  return res.status(200).json({
-    status: 200,
-    team: {
-      ...team,
-      members: expandedMembers,
-    },
-  });
-};
+//   return res.status(200).json({
+//     status: 200,
+//     team: {
+//       ...team,
+//       members: expandedMembers,
+//     },
+//   });
+// };
 
 // endregion GET /teams/:id
 

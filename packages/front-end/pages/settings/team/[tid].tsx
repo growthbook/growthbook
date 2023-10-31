@@ -1,18 +1,16 @@
 import router from "next/router";
 import { FC, useState } from "react";
-import { TeamInterface } from "back-end/types/team";
 import { datetime } from "shared/dates";
 import Link from "next/link";
 import { FaUserLock } from "react-icons/fa";
 import { useAuth } from "@/services/auth";
-import LoadingOverlay from "@/components/LoadingOverlay";
 import usePermissions from "@/hooks/usePermissions";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import { GBAddCircle, GBCircleArrowLeft, GBEdit } from "@/components/Icons";
 import TeamModal from "@/components/Teams/TeamModal";
-import useApi from "@/hooks/useApi";
 import { AddMembersModal } from "@/components/Teams/AddMembersModal";
 import { PermissionsModal } from "@/components/Settings/Teams/PermissionModal";
+import { useUser } from "@/services/UserContext";
 
 const TeamPage: FC = () => {
   const { apiCall } = useAuth();
@@ -26,16 +24,26 @@ const TeamPage: FC = () => {
   const permissions = usePermissions();
   const canManageTeam = permissions.check("manageTeam");
 
-  const { data, mutate } = useApi<{
-    team: TeamInterface;
-  }>(`/teams/${tid}`);
+  // const { data, mutate } = useApi<{
+  //   team: TeamInterface;
+  // }>(`/teams/${tid}`);
 
-  if (!data) {
-    return <LoadingOverlay />;
+  const { teams, refreshOrganization } = useUser();
+
+  // if (!data) {
+  //   return <LoadingOverlay />;
+  // }
+
+  const team = teams?.find((team) => team.id === tid);
+  const isEditable = !team?.managedByIdp;
+
+  if (!team) {
+    return (
+      <>
+        <p>This team does not exist</p>
+      </>
+    );
   }
-
-  const { team } = data;
-  const isEditable = !team.managedByIdp;
 
   return (
     <>
@@ -43,7 +51,7 @@ const TeamPage: FC = () => {
         <TeamModal
           existing={team}
           close={() => setTeamModalOpen(false)}
-          onSuccess={() => mutate()}
+          onSuccess={() => refreshOrganization()}
           managedByIdp={!isEditable}
         />
       )}
@@ -56,7 +64,7 @@ const TeamPage: FC = () => {
         team={team}
         open={permissionModalOpen}
         onClose={() => setPermissionModalOpen(false)}
-        onSuccess={() => mutate()}
+        onSuccess={() => refreshOrganization()}
       />
       <div className="container pagecontents">
         <div className="mb-4">
@@ -168,7 +176,7 @@ const TeamPage: FC = () => {
                                   method: "DELETE",
                                 }
                               );
-                              mutate();
+                              refreshOrganization();
                             }}
                           />
                         </>

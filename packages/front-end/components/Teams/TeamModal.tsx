@@ -1,9 +1,9 @@
 import { useForm } from "react-hook-form";
-import { TeamInterface } from "back-end/types/team";
 import { MemberRoleWithProjects } from "back-end/types/organization";
 import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
+import { Team } from "@/services/UserContext";
 import RoleSelector from "../Settings/Team/RoleSelector";
 
 export default function TeamModal({
@@ -12,7 +12,7 @@ export default function TeamModal({
   onSuccess,
   managedByIdp = false,
 }: {
-  existing: Partial<TeamInterface>;
+  existing: Partial<Team>;
   close: () => void;
   onSuccess?: () => Promise<unknown>;
   managedByIdp?: boolean;

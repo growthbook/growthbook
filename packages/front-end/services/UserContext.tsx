@@ -61,6 +61,10 @@ export interface PermissionFunctions {
   ): boolean;
 }
 
+export type Team = Omit<TeamInterface, "members"> & {
+  members?: ExpandedMember[];
+};
+
 export const DEFAULT_PERMISSIONS: Record<GlobalPermission, boolean> = {
   createDimensions: false,
   createPresentations: false,
@@ -100,7 +104,7 @@ export interface UserContextValue {
   apiKeys: ApiKeyInterface[];
   organization: Partial<OrganizationInterface>;
   roles: Role[];
-  teams?: (Omit<TeamInterface, "members"> & { members?: ExpandedMember[] })[];
+  teams?: Team[];
   error?: string;
   hasCommercialFeature: (feature: CommercialFeature) => boolean;
 }

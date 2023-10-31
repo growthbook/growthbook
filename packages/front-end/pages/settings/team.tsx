@@ -1,10 +1,9 @@
 import { FC, useState } from "react";
 import { FaUsers } from "react-icons/fa";
-import { TeamInterface } from "back-end/types/team";
 import usePermissions from "@/hooks/usePermissions";
 import TeamsList from "@/components/Settings/Teams/TeamsList";
 import TeamModal from "@/components/Teams/TeamModal";
-import { useUser } from "@/services/UserContext";
+import { Team, useUser } from "@/services/UserContext";
 import Tabs from "@/components/Tabs/Tabs";
 import Tab from "@/components/Tabs/Tab";
 import UpgradeMessage from "@/components/Marketing/UpgradeMessage";
@@ -16,9 +15,7 @@ const TeamPage: FC = () => {
   const [upgradeModal, setUpgradeModal] = useState(false);
   const { refreshOrganization, hasCommercialFeature } = useUser();
   const permissions = usePermissions();
-  const [modalOpen, setModalOpen] = useState<Partial<TeamInterface> | null>(
-    null
-  );
+  const [modalOpen, setModalOpen] = useState<Partial<Team> | null>(null);
   const hasTeamsFeature = hasCommercialFeature("teams");
 
   if (!permissions.manageTeam) {
