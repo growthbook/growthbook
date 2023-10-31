@@ -1,12 +1,13 @@
 import { useRouter } from "next/router";
 import { FeatureInterface, FeatureRule } from "back-end/types/feature";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   FaChevronRight,
   FaDraftingCompass,
   FaExchangeAlt,
   FaExclamationTriangle,
+  FaLink,
   FaList,
   FaLock,
   FaTimes,
@@ -67,7 +68,8 @@ import RevertModal from "@/components/Features/RevertModal";
 import EditRevisionCommentModal from "@/components/Features/EditRevisionCommentModal";
 import FixConflictsModal from "@/components/Features/FixConflictsModal";
 import Revisionlog from "@/components/Features/RevisionLog";
-import { useLocalStorage } from "@/hooks/useLocalStorage";
+import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
+import { SimpleTooltip } from "@/components/SimpleTooltip/SimpleTooltip";
 
 export default function FeaturePage() {
   const router = useRouter();
@@ -107,20 +109,7 @@ export default function FeaturePage() {
   const { apiCall } = useAuth();
   const { hasCommercialFeature, organization } = useUser();
 
-  const [lastVersion, setLastVersion] = useLocalStorage<number | null>(
-    `feat_${fid}_version`,
-    null
-  );
-
   const [version, setVersion] = useState<number | null>(null);
-
-  const setVersionAndPersist = useCallback(
-    (version: number) => {
-      setVersion(version);
-      setLastVersion(version);
-    },
-    [setVersion, setLastVersion]
-  );
 
   const { data, error, mutate } = useApi<{
     feature: FeatureInterface;
@@ -130,32 +119,35 @@ export default function FeaturePage() {
   const [showImplementation, setShowImplementation] = useState(firstFeature);
   const environments = useEnvironments();
 
+  const { performCopy, copySuccess, copySupported } = useCopyToClipboard({
+    timeout: 800,
+  });
+
   useEffect(() => {
     if (!data) return;
-    if (version !== null) return;
+    if (version) return;
 
-    // If last viewed version is a draft, switch to it
-    if (lastVersion) {
-      if (
-        data.revisions.find((r) => r.version === lastVersion)?.status ===
-        "draft"
-      ) {
-        setVersion(lastVersion);
+    // Version being forced via querystring
+    if ("v" in router.query) {
+      const v = parseInt(router.query.v as string);
+      if (v && data.revisions.some((r) => r.version === v)) {
+        setVersion(v);
         return;
       }
     }
 
-    // Otherwise, default to the live version
-    setVersion(data.feature.version);
-  }, [data, version, lastVersion]);
+    // If there's an active draft, show that by default, otherwise show the live version
+    const draft = data.revisions.find((r) => r.status === "draft");
+    setVersion(draft ? draft.version : data.feature.version);
+  }, [data, version, router.query]);
 
   const revision = useMemo<FeatureRevisionInterface | null>(() => {
-    if (!data) return null;
-    const match = data.revisions.find(
-      (r) => r.version === (version || data.feature.version)
-    );
+    if (!data || !version) return null;
+    const match = data.revisions.find((r) => r.version === version);
     if (match) return match;
 
+    // If we can't find the revision, create a dummy revision just so the page can render
+    // This is for old features that don't have any revision history saved
     const rules: Record<string, FeatureRule[]> = {};
     Object.entries(data.feature.environmentSettings).forEach(
       ([env, settings]) => {
@@ -279,7 +271,7 @@ export default function FeaturePage() {
           feature={feature}
           mutate={mutate}
           version={currentVersion}
-          setVersion={setVersionAndPersist}
+          setVersion={setVersion}
         />
       )}
       {editOwnerModal && (
@@ -311,7 +303,7 @@ export default function FeaturePage() {
           mutate={mutate}
           defaultType={ruleModal.defaultType || ""}
           version={currentVersion}
-          setVersion={setVersionAndPersist}
+          setVersion={setVersion}
         />
       )}
       {auditModal && (
@@ -352,7 +344,7 @@ export default function FeaturePage() {
             ) as FeatureRevisionInterface
           }
           mutate={mutate}
-          setVersion={setVersionAndPersist}
+          setVersion={setVersion}
         />
       )}
       {logModal && revision && (
@@ -398,7 +390,7 @@ export default function FeaturePage() {
           mutate={mutate}
           onDiscard={() => {
             // When discarding a draft, switch back to the live version
-            setVersionAndPersist(feature.version);
+            setVersion(feature.version);
           }}
         />
       )}
@@ -443,7 +435,7 @@ export default function FeaturePage() {
               throw e;
             }
             await mutate();
-            setVersionAndPersist(feature.version);
+            setVersion(feature.version);
           }}
         >
           <p>
@@ -834,9 +826,32 @@ export default function FeaturePage() {
               <RevisionDropdown
                 feature={feature}
                 version={currentVersion}
-                setVersion={setVersionAndPersist}
+                setVersion={setVersion}
                 revisions={data.revisions || []}
               />
+            </div>
+            <div className="col-auto">
+              <a
+                title="Copy a link to this revision"
+                href={`/features/${fid}?v=${version}`}
+                className="position-relative"
+                onClick={(e) => {
+                  if (!copySupported) return;
+
+                  e.preventDefault();
+                  const url =
+                    window.location.href.replace(/[?#].*/, "") +
+                    `?v=${version}`;
+                  performCopy(url);
+                }}
+              >
+                <FaLink />
+                {copySuccess ? (
+                  <SimpleTooltip position="right">
+                    Copied to clipboard!
+                  </SimpleTooltip>
+                ) : null}
+              </a>
             </div>
           </div>
           {isLive ? (
@@ -869,7 +884,7 @@ export default function FeaturePage() {
                       className="font-weight-bold text-purple"
                       onClick={(e) => {
                         e.preventDefault();
-                        setVersionAndPersist(drafts[0].version);
+                        setVersion(drafts[0].version);
                       }}
                     >
                       <FaExchangeAlt /> Switch to Draft
@@ -1111,7 +1126,7 @@ export default function FeaturePage() {
                         mutate={mutate}
                         setRuleModal={setRuleModal}
                         version={currentVersion}
-                        setVersion={setVersionAndPersist}
+                        setVersion={setVersion}
                         locked={isLocked}
                       />
                     ) : (
