@@ -101,7 +101,6 @@ export interface UserContextValue {
   organization: Partial<OrganizationInterface>;
   roles: Role[];
   teams?: (Omit<TeamInterface, "members"> & { members?: ExpandedMember[] })[];
-  refreshTeams: () => Promise<void>;
   error?: string;
   hasCommercialFeature: (feature: CommercialFeature) => boolean;
 }
@@ -134,9 +133,6 @@ export const UserContext = createContext<UserContextValue>({
   apiKeys: [],
   organization: {},
   teams: [],
-  refreshTeams: async () => {
-    // Do nothing
-  },
   hasCommercialFeature: () => false,
 });
 
