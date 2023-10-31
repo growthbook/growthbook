@@ -18,6 +18,8 @@ import {
 } from "../util/organization.util";
 import { ApiKeyInterface } from "../../types/apikey";
 import { insertAudit } from "../models/AuditModel";
+import { getTeamsForOrganization } from "../models/TeamModel";
+import { TeamInterface } from "../../types/team";
 import { getUserById } from "../services/users";
 
 export default function authenticateApiRequestMiddleware(
@@ -112,12 +114,18 @@ export default function authenticateApiRequestMiddleware(
         throw new Error("Could not find user attached to this API key");
       }
 
+      const teams = await getTeamsForOrganization(org.id);
+
       // Check permissions for user API keys
       req.checkPermissions = (
         permission: Permission,
         project?: string | (string | undefined)[] | undefined,
         envs?: string[] | Set<string>
       ) => {
+        // Super admins have full access to every organization
+        if (req.user?.superAdmin) {
+          return;
+        }
         let checkProjects: (string | undefined)[];
         if (Array.isArray(project)) {
           checkProjects = project.length > 0 ? project : [undefined];
@@ -132,6 +140,7 @@ export default function authenticateApiRequestMiddleware(
             organization: org,
             project: p,
             environments: envs ? [...envs] : undefined,
+            teams,
           });
         }
       };
@@ -174,6 +183,7 @@ function doesUserHavePermission(
   org: OrganizationInterface,
   permission: Permission,
   apiKeyPartial: Partial<ApiKeyInterface>,
+  teams: TeamInterface[],
   project?: string,
   envs?: string[]
 ): boolean {
@@ -184,7 +194,7 @@ function doesUserHavePermission(
     }
 
     // Generate full list of permissions for the user
-    const userPermissions = getUserPermissions(userId, org);
+    const userPermissions = getUserPermissions(userId, org, teams);
 
     // Check if the user has the permission
     return hasPermission(userPermissions, permission, project, envs);
@@ -199,6 +209,7 @@ type VerifyApiKeyPermissionOptions = {
   organization: OrganizationInterface;
   project?: string;
   environments?: string[];
+  teams: TeamInterface[];
 };
 
 /**
@@ -214,6 +225,7 @@ export function verifyApiKeyPermission({
   organization,
   environments,
   project,
+  teams,
 }: VerifyApiKeyPermissionOptions) {
   if (apiKey.userId) {
     if (
@@ -221,6 +233,7 @@ export function verifyApiKeyPermission({
         organization,
         permission,
         apiKey,
+        teams,
         project,
         environments
       )
