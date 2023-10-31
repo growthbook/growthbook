@@ -39,9 +39,11 @@ const TeamPage: FC = () => {
 
   if (!team) {
     return (
-      <>
-        <p>This team does not exist</p>
-      </>
+      <div className="container pagecontents">
+        <div className="alert alert-danger">
+          Team <code>{tid}</code> does not exist.
+        </div>
+      </div>
     );
   }
 
