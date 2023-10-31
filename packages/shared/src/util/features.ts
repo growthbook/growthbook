@@ -1,7 +1,9 @@
 import Ajv from "ajv";
+import { subWeeks } from "date-fns";
 import dJSON from "dirty-json";
 import stringify from "json-stringify-pretty-compact";
 import { FeatureInterface } from "back-end/types/feature";
+import { ExperimentInterface } from "back-end/types/experiment";
 
 export function getValidation(feature: FeatureInterface) {
   try {
@@ -113,4 +115,52 @@ export function validateFeatureValue(
   }
 
   return value;
+}
+
+type StaleFeatureReason =
+  | "error"
+  | "draft-state"
+  | "no-active-envs"
+  | "no-rules"
+  | "no-active-exps"
+  | "all-exps-onesided";
+
+export function isFeatureStale(
+  feature: FeatureInterface,
+  linkedExperiments: ExperimentInterface[] | undefined = []
+): { stale: boolean; reason?: StaleFeatureReason } {
+  if (feature.linkedExperiments?.length && !linkedExperiments.length) {
+    // eslint-disable-next-line no-console
+    console.error("isFeatureStale: linkedExperiments not provided");
+    return { stale: false, reason: "error" };
+  }
+
+  const twoWeeksAgo = subWeeks(new Date(), 2);
+  const stale = feature.dateUpdated < twoWeeksAgo;
+
+  if (!stale) return { stale };
+
+  if (feature.draft) return { stale, reason: "draft-state" };
+
+  const envSettings = Object.values(feature.environmentSettings ?? {});
+
+  const noneEnabled = !envSettings.some((e) => e.enabled);
+  if (noneEnabled) return { stale, reason: "no-active-envs" };
+
+  const rules = envSettings.map((e) => e.rules).flat();
+
+  if (rules.length === 0) return { stale, reason: "no-rules" };
+
+  const noExpsActive = !linkedExperiments.some((e) => e.status === "running");
+  if (noExpsActive) return { stale, reason: "no-active-exps" };
+
+  const allExpsOneSided = linkedExperiments.every((e) => {
+    const latestPhase = e.phases.slice(-1)?.[0];
+    if (!latestPhase) return false;
+    return latestPhase.variationWeights.includes(1);
+  });
+
+  if (allExpsOneSided) return { stale, reason: "all-exps-onesided" };
+
+  return { stale: false };
 }
