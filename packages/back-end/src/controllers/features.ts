@@ -70,6 +70,7 @@ import { upsertWatch } from "../models/WatchModel";
 import { getSurrogateKeysFromSDKPayloadKeys } from "../util/cdn.util";
 import { SDKPayloadKey } from "../../types/sdk-payload";
 import { FeatureRevisionInterface } from "../../types/feature-revision";
+import { getExperimentById } from "../models/ExperimentModel";
 
 class UnrecoverableApiError extends Error {
   constructor(message: string) {
@@ -787,13 +788,24 @@ export async function postFeatureExperimentRefRule(
   req.checkPermissions("manageFeatures", feature.project);
   req.checkPermissions("createFeatureDrafts", feature.project);
 
+  const experiment = await getExperimentById(org.id, rule.experimentId);
+  if (!experiment) {
+    throw new Error("Invalid experiment selected");
+  }
+
   const revision = await getDraftRevision(
     feature,
     parseInt(version),
     res.locals.eventAudit
   );
 
-  await addExperimentRefRule(org, revision, rule, res.locals.eventAudit);
+  await addExperimentRefRule(
+    org,
+    revision,
+    rule,
+    experiment.name,
+    res.locals.eventAudit
+  );
 
   res.status(200).json({
     status: 200,

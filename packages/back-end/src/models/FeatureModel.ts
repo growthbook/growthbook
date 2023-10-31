@@ -613,7 +613,9 @@ export async function deleteExperimentRefRule(
       user,
       action: "delete experiment rule",
       subject: `from all environments`,
-      value: "{}",
+      value: JSON.stringify({
+        id: experimentId,
+      }),
     });
   }
 }
@@ -622,6 +624,7 @@ export async function addExperimentRefRule(
   org: OrganizationInterface,
   revision: FeatureRevisionInterface,
   rule: ExperimentRefRule,
+  experimentName: string,
   user: EventAuditUser
 ) {
   if (!rule.id) {
@@ -639,6 +642,7 @@ export async function addExperimentRefRule(
 
   const changes = {
     rules: revision.rules || {},
+    comment: revision.comment || `Add experiment - ${experimentName}`,
   };
   environmentIds.forEach((env) => {
     changes.rules[env] = changes.rules[env] || [];
@@ -649,7 +653,10 @@ export async function addExperimentRefRule(
     user,
     action: "add experiment rule",
     subject: `to all environments`,
-    value: "{}",
+    value: JSON.stringify({
+      id: rule.experimentId,
+      name: experimentName,
+    }),
   });
 }
 

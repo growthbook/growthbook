@@ -1,7 +1,7 @@
 import { useRouter } from "next/router";
 import { FeatureInterface, FeatureRule } from "back-end/types/feature";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
-import React, { useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   FaChevronRight,
   FaDraftingCompass,
@@ -67,6 +67,7 @@ import RevertModal from "@/components/Features/RevertModal";
 import EditRevisionCommentModal from "@/components/Features/EditRevisionCommentModal";
 import FixConflictsModal from "@/components/Features/FixConflictsModal";
 import Revisionlog from "@/components/Features/RevisionLog";
+import { useLocalStorage } from "@/hooks/useLocalStorage";
 
 export default function FeaturePage() {
   const router = useRouter();
@@ -106,7 +107,20 @@ export default function FeaturePage() {
   const { apiCall } = useAuth();
   const { hasCommercialFeature, organization } = useUser();
 
+  const [lastVersion, setLastVersion] = useLocalStorage<number | null>(
+    `feat_${fid}_version`,
+    null
+  );
+
   const [version, setVersion] = useState<number | null>(null);
+
+  const setVersionAndPersist = useCallback(
+    (version: number) => {
+      setVersion(version);
+      setLastVersion(version);
+    },
+    [setVersion, setLastVersion]
+  );
 
   const { data, error, mutate } = useApi<{
     feature: FeatureInterface;
@@ -115,6 +129,25 @@ export default function FeaturePage() {
   const firstFeature = router?.query && "first" in router.query;
   const [showImplementation, setShowImplementation] = useState(firstFeature);
   const environments = useEnvironments();
+
+  useEffect(() => {
+    if (!data) return;
+    if (version !== null) return;
+
+    // If last viewed version is a draft, switch to it
+    if (lastVersion) {
+      if (
+        data.revisions.find((r) => r.version === lastVersion)?.status ===
+        "draft"
+      ) {
+        setVersion(lastVersion);
+        return;
+      }
+    }
+
+    // Otherwise, default to the live version
+    setVersion(data.feature.version);
+  }, [data, version, lastVersion]);
 
   const revision = useMemo<FeatureRevisionInterface | null>(() => {
     if (!data) return null;
@@ -187,6 +220,12 @@ export default function FeaturePage() {
   const isLive = revision?.version === feature.version;
   const isArchived = feature.archived;
 
+  const revisionHasChanges =
+    !!mergeResult &&
+    (!mergeResult.success ||
+      Object.keys(mergeResult.result.rules || {}).length > 0 ||
+      !!mergeResult.result.defaultValue);
+
   const enabledEnvs = getEnabledEnvironments(feature);
   const hasJsonValidator = hasCommercialFeature("json-validation");
 
@@ -240,7 +279,7 @@ export default function FeaturePage() {
           feature={feature}
           mutate={mutate}
           version={currentVersion}
-          setVersion={setVersion}
+          setVersion={setVersionAndPersist}
         />
       )}
       {editOwnerModal && (
@@ -272,7 +311,7 @@ export default function FeaturePage() {
           mutate={mutate}
           defaultType={ruleModal.defaultType || ""}
           version={currentVersion}
-          setVersion={setVersion}
+          setVersion={setVersionAndPersist}
         />
       )}
       {auditModal && (
@@ -313,7 +352,7 @@ export default function FeaturePage() {
             ) as FeatureRevisionInterface
           }
           mutate={mutate}
-          setVersion={setVersion}
+          setVersion={setVersionAndPersist}
         />
       )}
       {logModal && revision && (
@@ -359,7 +398,7 @@ export default function FeaturePage() {
           mutate={mutate}
           onDiscard={() => {
             // When discarding a draft, switch back to the live version
-            setVersion(feature.version);
+            setVersionAndPersist(feature.version);
           }}
         />
       )}
@@ -404,7 +443,7 @@ export default function FeaturePage() {
               throw e;
             }
             await mutate();
-            setVersion(feature.version);
+            setVersionAndPersist(feature.version);
           }}
         >
           <p>
@@ -795,7 +834,7 @@ export default function FeaturePage() {
               <RevisionDropdown
                 feature={feature}
                 version={currentVersion}
-                setVersion={setVersion}
+                setVersion={setVersionAndPersist}
                 revisions={data.revisions || []}
               />
             </div>
@@ -830,7 +869,7 @@ export default function FeaturePage() {
                       className="font-weight-bold text-purple"
                       onClick={(e) => {
                         e.preventDefault();
-                        setVersion(drafts[0].version);
+                        setVersionAndPersist(drafts[0].version);
                       }}
                     >
                       <FaExchangeAlt /> Switch to Draft
@@ -914,20 +953,22 @@ export default function FeaturePage() {
                   Make changes below and publish when you are ready
                 </div>
                 <div className="ml-auto"></div>
-                {hasDraftPublishPermission && mergeResult?.success && (
-                  <div>
-                    <a
-                      href="#"
-                      className="font-weight-bold text-purple"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        setDraftModal(true);
-                      }}
-                    >
-                      <MdRocketLaunch /> Review and Publish
-                    </a>
-                  </div>
-                )}
+                {hasDraftPublishPermission &&
+                  mergeResult?.success &&
+                  revisionHasChanges && (
+                    <div>
+                      <a
+                        href="#"
+                        className="font-weight-bold text-purple"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          setDraftModal(true);
+                        }}
+                      >
+                        <MdRocketLaunch /> Review and Publish
+                      </a>
+                    </div>
+                  )}
                 {canEditDrafts && mergeResult && !mergeResult.success && (
                   <div>
                     <Tooltip body="There have been new conflicting changes published since you created your draft that must be resolved before you can publish">
@@ -1070,7 +1111,7 @@ export default function FeaturePage() {
                         mutate={mutate}
                         setRuleModal={setRuleModal}
                         version={currentVersion}
-                        setVersion={setVersion}
+                        setVersion={setVersionAndPersist}
                         locked={isLocked}
                       />
                     ) : (
