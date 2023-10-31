@@ -291,12 +291,17 @@ export async function putMemberRole(
   req.checkPermissions("manageTeam");
 
   const { org, userId } = getOrgFromReq(req);
+
   const {
     role,
     limitAccessByEnvironment,
     environments,
     projectRoles,
   } = req.body;
+
+  if (role === "scim") {
+    throw new Error("The SCIM role type can only be applied to API keys.");
+  }
   const { id } = req.params;
 
   if (id === userId) {
@@ -355,6 +360,8 @@ export async function putMember(
   }>,
   res: Response
 ) {
+  req.checkPermissions("manageTeam");
+
   if (!req.userId || !req.email) {
     throw new Error("Must be logged in");
   }
@@ -464,6 +471,10 @@ export async function postMemberApproval(
     });
   }
 
+  if (pendingMember.role === "scim") {
+    throw new Error("The SCIM role type can only be applied to API keys.");
+  }
+
   try {
     await addMemberToOrg({
       organization: org,
@@ -535,6 +546,11 @@ export async function putInviteRole(
     environments,
     projectRoles,
   } = req.body;
+
+  if (role === "scim") {
+    throw new Error("The SCIM role type can only be applied to API keys.");
+  }
+
   const { key } = req.params;
   const originalInvites: Invite[] = cloneDeep(org.invites);
 
@@ -1600,6 +1616,10 @@ export async function addOrphanedUser(
     limitAccessByEnvironment,
     projectRoles,
   } = req.body;
+
+  if (role === "scim") {
+    throw new Error("The SCIM role type can only be applied to API keys.");
+  }
 
   // Make sure user exists
   const user = await findUserById(id);

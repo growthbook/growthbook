@@ -30,6 +30,14 @@ export async function createUser(
   );
 
   const role = org.settings?.defaultRole?.role || "readonly";
+
+  if (role === "scim") {
+    return res.status(403).json({
+      schemas: ["urn:ietf:params:scim:api:messages:2.0:Error"],
+      detail: "SCIM users cannot be created through the SCIM API",
+      status: "400",
+    });
+  }
   const responseObj = cloneDeep(req.body);
 
   try {
