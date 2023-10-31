@@ -186,20 +186,6 @@ export const deleteTeamById = async (
     });
   }
 
-  // TODO: Replace error above with code below once we add a double confirm delete dialog for team deletion in the UI
-
-  // // Remove members from team to be deleted
-  // await Promise.all(
-  //   members.map((member) => {
-  //     return removeMemberFromTeam({
-  //       organization: org,
-  //       userId: member.id,
-  //       teamId: id,
-  //     });
-  //   })
-  // );
-
-  // Delete the team
   await deleteTeam(id, org.id);
 
   await req.audit({
