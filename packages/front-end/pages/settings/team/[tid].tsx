@@ -24,15 +24,7 @@ const TeamPage: FC = () => {
   const permissions = usePermissions();
   const canManageTeam = permissions.check("manageTeam");
 
-  // const { data, mutate } = useApi<{
-  //   team: TeamInterface;
-  // }>(`/teams/${tid}`);
-
   const { teams, refreshOrganization } = useUser();
-
-  // if (!data) {
-  //   return <LoadingOverlay />;
-  // }
 
   const team = teams?.find((team) => team.id === tid);
   const isEditable = !team?.managedByIdp;
