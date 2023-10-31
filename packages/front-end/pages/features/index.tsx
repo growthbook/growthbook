@@ -162,6 +162,9 @@ export default function FeaturesPage() {
             router.push(url);
             mutate({
               features: [...features, feature],
+              // we don't care about updating linked experiments since its only
+              // used for stale feature detection
+              linkedExperiments: experiments,
             });
           }}
           featureToDuplicate={featureToDuplicate || undefined}
