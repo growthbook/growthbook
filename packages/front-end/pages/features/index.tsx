@@ -5,6 +5,7 @@ import { useFeature } from "@growthbook/growthbook-react";
 import { FaExclamationTriangle } from "react-icons/fa";
 import { FeatureInterface, FeatureRule } from "back-end/types/feature";
 import { ago, datetime } from "shared/dates";
+import { isFeatureStale } from "shared/util";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { GBAddCircle } from "@/components/Icons";
@@ -65,7 +66,7 @@ export default function FeaturesPage() {
   const { project, getProjectById } = useDefinitions();
   const settings = useOrgSettings();
   const environments = useEnvironments();
-  const { features, loading, error, mutate } = useFeaturesList();
+  const { features, experiments, loading, error, mutate } = useFeaturesList();
 
   const { usage, usageDomain } = useRealtimeData(
     features,
@@ -280,6 +281,7 @@ export default function FeaturesPage() {
                     <Tooltip body="Client-side feature evaluations for the past 30 minutes. Blue means the feature was 'on', Gray means it was 'off'." />
                   </th>
                 )}
+                <th>Stale</th>
                 <th style={{ width: 30 }}></th>
               </tr>
             </thead>
@@ -394,6 +396,18 @@ export default function FeaturesPage() {
                         />
                       </td>
                     )}
+                    <td style={{ textAlign: "center" }}>
+                      {isFeatureStale(
+                        feature,
+                        experiments.filter((e) =>
+                          feature.linkedExperiments?.includes(e.id)
+                        )
+                      ) && (
+                        <Tooltip body="This feature has not been marked stale.">
+                          <FaExclamationTriangle className="text-warning" />
+                        </Tooltip>
+                      )}
+                    </td>
                     <td>
                       <MoreMenu>
                         <button
