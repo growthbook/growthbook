@@ -282,7 +282,7 @@ export const deleteTeamById = async (
     return res.status(400).json({
       status: 400,
       message:
-        "Cannot delete a team that is being managed by Okta. Please delete the team through the Okta UI.",
+        "Cannot delete a team that is being managed by an idP. Please delete the team through your idP.",
     });
   }
 
