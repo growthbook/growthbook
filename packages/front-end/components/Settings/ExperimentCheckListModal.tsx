@@ -1,9 +1,20 @@
 import { useState } from "react";
-import { OrganizationInterface } from "back-end/types/organization";
 import CreatableSelect from "react-select/creatable";
+import { ExperimentLaunchChecklistInterface } from "back-end/types/experimentLaunchChecklist";
 import { useAuth } from "@/services/auth";
 import Modal from "../Modal";
 import Button from "../Button";
+
+const checklistOptions = [
+  {
+    value: "Experiment must have a hypothesis",
+    label: "Experiment must have a hypothesis",
+  },
+  {
+    value: "Upload screenshots of each variation",
+    label: "Upload screenshots of each variation",
+  },
+];
 
 function ChecklistItem({
   value,
@@ -16,15 +27,25 @@ function ChecklistItem({
   experimentLaunchChecklist: string[];
   setExperimentLaunchChecklist: (value: string[]) => void;
 }) {
-  console.log("value", value);
   return (
     <div className="d-flex align-items-center py-1">
       <CreatableSelect
         className="w-100"
         isMulti={false}
+        options={checklistOptions.filter((option) => {
+          return !experimentLaunchChecklist.includes(option.value);
+        })}
         placeholder="Select a checklist option or create your own"
+        onChange={(option) => {
+          if (!option) return;
+          const updatedChecklist = [...experimentLaunchChecklist];
+          updatedChecklist[index] = option.value;
+          setExperimentLaunchChecklist(updatedChecklist);
+        }}
         onCreateOption={(inputValue) => {
-          console.log("inputValue", inputValue);
+          const updatedChecklist = [...experimentLaunchChecklist];
+          updatedChecklist[index] = inputValue;
+          setExperimentLaunchChecklist(updatedChecklist);
         }}
         value={value ? { label: value, value } : null}
       />
@@ -44,33 +65,40 @@ function ChecklistItem({
 }
 
 export default function ExperimentCheckListModal({
-  org,
   close,
+  currentChecklist,
+  mutate,
 }: {
-  org: Partial<OrganizationInterface>;
   close: () => void;
+  currentChecklist: ExperimentLaunchChecklistInterface | null;
+  mutate: () => void;
 }) {
-  const [experimentLaunchChecklist, setExperimentLaunchChecklist] = useState<
-    string[]
-  >(() => org.settings?.experimentLaunchChecklist || []);
   const { apiCall } = useAuth();
+  const [experimentLaunchChecklist, setExperimentLaunchChecklist] = useState<
+    string[] | []
+  >(currentChecklist?.checklistItems ? currentChecklist.checklistItems : []);
 
   async function handleSubmit() {
-    const settings = {
-      experimentLaunchChecklist,
-    };
-    await apiCall(`/organization`, {
-      method: "PUT",
+    const checklist = experimentLaunchChecklist;
+
+    if (checklist[checklist.length - 1] === "") {
+      checklist.pop();
+    }
+    await apiCall(`/experiments/launch-checklist`, {
+      method: currentChecklist?.id ? "PUT" : "POST",
       body: JSON.stringify({
-        settings,
+        checklist,
+        id: currentChecklist?.id,
       }),
     });
+    mutate();
   }
+
   return (
     <Modal
       open={true}
       close={close}
-      header={"Edit Experiment Checklist"}
+      header={`${currentChecklist?.id ? "Edit" : "Add"} Experiment Checklist`}
       cta="Save"
       submit={() => handleSubmit()}
     >
@@ -89,6 +117,9 @@ export default function ExperimentCheckListModal({
       ))}
       <button
         className="btn btn-outline-primary"
+        disabled={
+          experimentLaunchChecklist[experimentLaunchChecklist.length - 1] === ""
+        }
         onClick={async (e) => {
           e.preventDefault();
           setExperimentLaunchChecklist([...experimentLaunchChecklist, ""]);

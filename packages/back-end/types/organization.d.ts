@@ -179,7 +179,6 @@ export interface OrganizationSettings {
   secureAttributeSalt?: string;
   killswitchConfirmation?: boolean;
   defaultDataSource?: string;
-  experimentLaunchChecklist?: string[];
 }
 
 export interface SubscriptionQuote {

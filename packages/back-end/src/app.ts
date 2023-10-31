@@ -39,6 +39,11 @@ const datasourcesController = wrapController(datasourcesControllerRaw);
 import * as experimentsControllerRaw from "./controllers/experiments";
 const experimentsController = wrapController(experimentsControllerRaw);
 
+import * as experimentLaunchChecklistControllerRaw from "./controllers/experimentLaunchChecklist";
+const experimentLaunchChecklistController = wrapController(
+  experimentLaunchChecklistControllerRaw
+);
+
 import * as metricsControllerRaw from "./controllers/metrics";
 const metricsController = wrapController(metricsControllerRaw);
 
@@ -468,6 +473,18 @@ app.post(
 app.post(
   "/experiments/:id/visual-changeset",
   experimentsController.postVisualChangeset
+);
+app.post(
+  "/experiments/launch-checklist",
+  experimentLaunchChecklistController.postExperimentLaunchChecklist
+);
+app.put(
+  "/experiments/launch-checklist",
+  experimentLaunchChecklistController.putExperimentLaunchChecklist
+);
+app.get(
+  "/experiments/launch-checklist",
+  experimentLaunchChecklistController.getExperimentCheckListByOrg
 );
 
 // Visual Changesets

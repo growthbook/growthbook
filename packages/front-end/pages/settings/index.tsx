@@ -51,6 +51,7 @@ import { useCurrency } from "@/hooks/useCurrency";
 import { AppFeatures } from "@/types/app-features";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import ExperimentCheckListModal from "@/components/Settings/ExperimentCheckListModal";
+import useApi from "@/hooks/useApi";
 
 export const supportedCurrencies = {
   AED: "UAE Dirham (AED)",
@@ -269,6 +270,8 @@ const GeneralSettingsPage = (): React.ReactElement => {
   );
 
   const { metricDefaults } = useOrganizationMetricDefaults();
+
+  const { data, mutate } = useApi("/experiments/launch-checklist");
 
   const [upgradeModal, setUpgradeModal] = useState(false);
   const [editChecklistOpen, setEditChecklistOpen] = useState(false);
@@ -535,8 +538,9 @@ const GeneralSettingsPage = (): React.ReactElement => {
 
       {editChecklistOpen ? (
         <ExperimentCheckListModal
-          org={organization}
           close={() => setEditChecklistOpen(false)}
+          currentChecklist={data.checklist}
+          mutate={mutate}
         />
       ) : null}
 
