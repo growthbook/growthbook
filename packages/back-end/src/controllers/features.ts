@@ -15,7 +15,6 @@ import {
   deleteFeature,
   setFeatureDraftRules,
   editFeatureRule,
-  getAllFeatures,
   getFeature,
   publishDraft,
   setDefaultValue,
@@ -28,6 +27,7 @@ import {
   setJsonSchema,
   addExperimentRefRule,
   deleteExperimentRefRule,
+  getAllFeaturesWithLinkedExperiments,
 } from "../models/FeatureModel";
 import { getRealtimeUsageByHour } from "../models/RealtimeModel";
 import { lookupOrganizationByApiKey } from "../models/ApiKeyModel";
@@ -1018,11 +1018,15 @@ export async function getFeatures(
     project = req.query.project;
   }
 
-  const features = await getAllFeatures(org.id, project);
+  const { features, experiments } = await getAllFeaturesWithLinkedExperiments(
+    org.id,
+    project
+  );
 
   res.status(200).json({
     status: 200,
     features,
+    linkedExperiments: experiments,
   });
 }
 

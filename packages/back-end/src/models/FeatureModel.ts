@@ -10,6 +10,7 @@ import {
   FeatureRule,
   LegacyFeatureInterface,
 } from "../../types/feature";
+import { ExperimentInterface } from "../../types/experiment";
 import {
   generateRuleId,
   getApiFeatureObj,
@@ -36,6 +37,7 @@ import {
   addLinkedFeatureToExperiment,
   getExperimentMapForFeature,
   removeLinkedFeatureFromExperiment,
+  getExperimentsByIds,
 } from "./ExperimentModel";
 
 const featureSchema = new mongoose.Schema({
@@ -132,6 +134,36 @@ export async function getAllFeatures(
   return (await FeatureModel.find(q)).map((m) =>
     upgradeFeatureInterface(toInterface(m))
   );
+}
+
+const _undefinedTypeGuard = (x: string[] | undefined): x is string[] =>
+  typeof x !== "undefined";
+
+export async function getAllFeaturesWithLinkedExperiments(
+  organization: string,
+  project?: string
+): Promise<{
+  features: FeatureInterface[];
+  experiments: ExperimentInterface[];
+}> {
+  const q: FilterQuery<FeatureDocument> = { organization };
+  if (project) {
+    q.project = project;
+  }
+
+  const features = await FeatureModel.find(q);
+  const expIds = new Set<string>(
+    features
+      .map((f) => f.linkedExperiments)
+      .filter(_undefinedTypeGuard)
+      .flat()
+  );
+  const experiments = await getExperimentsByIds(organization, [...expIds]);
+
+  return {
+    features: features.map((m) => upgradeFeatureInterface(toInterface(m))),
+    experiments,
+  };
 }
 
 export async function getFeature(
