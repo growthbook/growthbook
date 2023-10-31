@@ -47,6 +47,7 @@ import {
   discardRevision,
   getRevision,
   getRevisions,
+  hasDraft,
   updateRevision,
 } from "../models/FeatureRevisionModel";
 import { getEnabledEnvironments } from "../util/features";
@@ -71,6 +72,7 @@ import { getSurrogateKeysFromSDKPayloadKeys } from "../util/cdn.util";
 import { SDKPayloadKey } from "../../types/sdk-payload";
 import { FeatureRevisionInterface } from "../../types/feature-revision";
 import { getExperimentById } from "../models/ExperimentModel";
+import { OrganizationInterface } from "../../types/organization";
 
 class UnrecoverableApiError extends Error {
   constructor(message: string) {
@@ -360,6 +362,7 @@ export async function postFeatures(
     id: id.toLowerCase(),
     archived: false,
     version: 1,
+    hasDrafts: false,
     jsonSchema: {
       schema: "",
       date: new Date(),
@@ -682,6 +685,9 @@ export async function postFeatureFork(
     baseVersion: revision.version,
     changes: revision,
   });
+  await updateFeature(org, res.locals.eventAudit, feature, {
+    hasDrafts: true,
+  });
 
   res.status(200).json({
     status: 200,
@@ -716,6 +722,13 @@ export async function postFeatureDiscard(
 
   await discardRevision(revision);
 
+  const hasDrafts = await hasDraft(org.id, feature, [revision.version]);
+  if (!hasDrafts) {
+    await updateFeature(org, res.locals.eventAudit, feature, {
+      hasDrafts: false,
+    });
+  }
+
   res.status(200).json({
     status: 200,
   });
@@ -744,6 +757,7 @@ export async function postFeatureRule(
   req.checkPermissions("createFeatureDrafts", feature.project);
 
   const revision = await getDraftRevision(
+    org,
     feature,
     parseInt(version),
     res.locals.eventAudit
@@ -794,6 +808,7 @@ export async function postFeatureExperimentRefRule(
   }
 
   const revision = await getDraftRevision(
+    org,
     feature,
     parseInt(version),
     res.locals.eventAudit
@@ -833,6 +848,7 @@ export async function deleteFeatureExperimentRefRule(
   req.checkPermissions("createFeatureDrafts", feature.project);
 
   const revision = await getDraftRevision(
+    org,
     feature,
     parseInt(version),
     res.locals.eventAudit
@@ -852,6 +868,7 @@ export async function deleteFeatureExperimentRefRule(
 }
 
 async function getDraftRevision(
+  org: OrganizationInterface,
   feature: FeatureInterface,
   version: number,
   user: EventAuditUser
@@ -863,7 +880,13 @@ async function getDraftRevision(
 
   // This is the published version, create a new draft revision
   if (revision.version === feature.version) {
-    return await createRevision({ feature, user });
+    const newRevision = await createRevision({ feature, user });
+
+    await updateFeature(org, user, feature, {
+      hasDrafts: true,
+    });
+
+    return newRevision;
   } else if (revision.status !== "draft") {
     throw new Error("Can only make changes to draft revisions");
   }
@@ -928,6 +951,7 @@ export async function postFeatureDefaultValue(
   req.checkPermissions("createFeatureDrafts", feature.project);
 
   const revision = await getDraftRevision(
+    org,
     feature,
     parseInt(version),
     res.locals.eventAudit
@@ -1002,6 +1026,7 @@ export async function putFeatureRule(
   req.checkPermissions("createFeatureDrafts", feature.project);
 
   const revision = await getDraftRevision(
+    org,
     feature,
     parseInt(version),
     res.locals.eventAudit
@@ -1083,6 +1108,7 @@ export async function postFeatureMoveRule(
   req.checkPermissions("createFeatureDrafts", feature.project);
 
   const revision = await getDraftRevision(
+    org,
     feature,
     parseInt(version),
     res.locals.eventAudit
@@ -1099,7 +1125,7 @@ export async function postFeatureMoveRule(
   await updateRevision(revision, changes, {
     user: res.locals.eventAudit,
     action: "move rule",
-    subject: `in ${environment} from position ${from} to ${to}`,
+    subject: `in ${environment} from position ${from + 1} to ${to + 1}`,
     value: JSON.stringify(rule),
   });
 
@@ -1132,6 +1158,7 @@ export async function deleteFeatureRule(
   req.checkPermissions("createFeatureDrafts", feature.project);
 
   const revision = await getDraftRevision(
+    org,
     feature,
     parseInt(version),
     res.locals.eventAudit
@@ -1151,7 +1178,7 @@ export async function deleteFeatureRule(
   await updateRevision(revision, changes, {
     user: res.locals.eventAudit,
     action: "delete rule",
-    subject: `in ${environment} (position ${i})`,
+    subject: `in ${environment} (position ${i + 1})`,
     value: JSON.stringify(rule),
   });
 

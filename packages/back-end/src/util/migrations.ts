@@ -326,6 +326,10 @@ export function upgradeFeatureInterface(
     }
   }
 
+  if (newFeature.legacyDraft && !newFeature.legacyDraftMigrated) {
+    newFeature.hasDrafts = true;
+  }
+
   return newFeature;
 }
 

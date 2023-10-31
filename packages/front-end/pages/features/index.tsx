@@ -5,6 +5,7 @@ import { useFeature } from "@growthbook/growthbook-react";
 import { FeatureInterface, FeatureRule } from "back-end/types/feature";
 import { ago, datetime } from "shared/dates";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
+import { FaTriangleExclamation } from "react-icons/fa6";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { GBAddCircle } from "@/components/Icons";
 import FeatureModal from "@/components/Features/FeatureModal";
@@ -372,7 +373,14 @@ export default function FeaturesPage() {
                         </small>
                       )}
                     </td>
-                    <td style={{ textAlign: "center" }}>{version}</td>
+                    <td style={{ textAlign: "center" }}>
+                      {version}
+                      {feature?.hasDrafts ? (
+                        <Tooltip body="This feature has an active draft that has not been published yet">
+                          <FaTriangleExclamation className="text-danger ml-1" />
+                        </Tooltip>
+                      ) : null}
+                    </td>
                     <td title={datetime(feature.dateUpdated)}>
                       {ago(feature.dateUpdated)}
                     </td>

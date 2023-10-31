@@ -41,6 +41,7 @@ import {
 import {
   createInitialRevision,
   createRevisionFromLegacyDraft,
+  hasDraft,
   markRevisionAsPublished,
   updateRevision,
 } from "./FeatureRevisionModel";
@@ -151,7 +152,7 @@ export async function getFeature(
 }
 
 export async function migrateDraft(feature: FeatureInterface) {
-  if (!feature.legacyDraft) return;
+  if (!feature.legacyDraft || feature.legacyDraftMigrated) return;
 
   try {
     await createRevisionFromLegacyDraft(feature);
@@ -162,7 +163,8 @@ export async function migrateDraft(feature: FeatureInterface) {
       },
       {
         $set: {
-          "draft.active": false,
+          legacyDraftMigrated: true,
+          hasDrafts: true,
         },
       }
     );
@@ -682,7 +684,7 @@ export async function editFeatureRule(
   await updateRevision(revision, changes, {
     user,
     action: "edit rule",
-    subject: `in ${environment} (position ${i})`,
+    subject: `in ${environment} (position ${i + 1})`,
     value: JSON.stringify(updates),
   });
 }
@@ -798,6 +800,11 @@ export async function applyRevisionChanges(
   }
 
   changes.version = revision.version;
+
+  // Update the `hasDrafts` field
+  changes.hasDrafts = await hasDraft(organization.id, feature, [
+    revision.version,
+  ]);
 
   return await updateFeature(organization, user, feature, changes);
 }

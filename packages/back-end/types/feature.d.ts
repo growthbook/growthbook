@@ -45,6 +45,7 @@ export interface FeatureInterface {
   valueType: FeatureValueType;
   defaultValue: string;
   version: number;
+  hasDrafts?: boolean;
   tags?: string[];
   environmentSettings: Record<string, FeatureEnvironment>;
   linkedExperiments?: string[];
@@ -56,6 +57,8 @@ export interface FeatureInterface {
 
   /** @deprecated */
   legacyDraft?: FeatureRevisionInterface | null;
+  /** @deprecated */
+  legacyDraftMigrated?: boolean;
 }
 type ScheduleRule = {
   timestamp: string | null;

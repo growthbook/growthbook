@@ -86,6 +86,21 @@ export async function getRevisions(
   });
 }
 
+export async function hasDraft(
+  organization: string,
+  feature: FeatureInterface,
+  excludeVersions: number[] = []
+): Promise<boolean> {
+  const doc = await FeatureRevisionModel.findOne({
+    organization,
+    featureId: feature.id,
+    status: "draft",
+    version: { $nin: excludeVersions },
+  });
+
+  return doc ? true : false;
+}
+
 export async function getRevision(
   organization: string,
   featureId: string,
