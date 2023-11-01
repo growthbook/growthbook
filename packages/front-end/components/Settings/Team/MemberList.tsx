@@ -124,8 +124,7 @@ const MemberList: FC<{
                   <td>{roleInfo.role}</td>
                   {!project && (
                     <td className="col-3">
-                      {/* @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'. */}
-                      {member.projectRoles.map((pr) => {
+                      {member.projectRoles?.map((pr) => {
                         const p = projects.find((p) => p.id === pr.project);
                         if (p?.name) {
                           return (
@@ -133,7 +132,7 @@ const MemberList: FC<{
                               <ProjectBadges
                                 projectIds={[p.id]}
                                 className="badge-ellipsis align-middle font-weight-normal"
-                              />
+                              />{" "}
                               — {pr.role}
                             </div>
                           );
