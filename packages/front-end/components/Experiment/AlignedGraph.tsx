@@ -57,8 +57,6 @@ const percentFormatter = new Intl.NumberFormat(undefined, {
   maximumFractionDigits: 0,
 });
 
-const numberFormatter = Intl.NumberFormat();
-
 const AlignedGraph: FC<Props> = ({
   id,
   ci,
@@ -142,6 +140,9 @@ const AlignedGraph: FC<Props> = ({
 
   const domainWidth = rightDomain - leftDomain;
 
+  const numberFormatter = Intl.NumberFormat(undefined, {
+    ...(domainWidth > 5000 ? { notation: "compact" } : {}),
+  });
   const tickFormat = (v: number) => {
     return !percent
       ? numberFormatter.format(v)

@@ -3,16 +3,11 @@ import { PythonShell } from "python-shell";
 import {
   DEFAULT_P_VALUE_THRESHOLD,
   DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
-  DEFAULT_STATS_ENGINE,
 } from "shared/constants";
 import { putBaselineVariationFirst } from "shared/util";
 import { ExperimentMetricInterface } from "shared/experiments";
 import { hoursBetween } from "shared/dates";
-import {
-  DifferenceType,
-  ExperimentMetricAnalysis,
-  StatsEngine,
-} from "../../types/stats";
+import { ExperimentMetricAnalysis } from "../../types/stats";
 import {
   ExperimentMetricQueryResponseRows,
   ExperimentResults,
@@ -20,12 +15,12 @@ import {
 import {
   ExperimentReportResultDimension,
   ExperimentReportResults,
-  ExperimentReportVariation,
 } from "../../types/report";
 import { promiseAllChunks } from "../util/promise";
 import { checkSrm } from "../util/stats";
 import { logger } from "../util/logger";
 import {
+  ExperimentMetricAnalysisParams,
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotSettings,
 } from "../../types/experiment-snapshot";
@@ -34,19 +29,22 @@ import { QueryMap } from "../queryRunners/QueryRunner";
 export const MAX_DIMENSIONS = 20;
 
 export async function analyzeExperimentMetric(
-  variations: ExperimentReportVariation[],
-  metric: ExperimentMetricInterface,
-  rows: ExperimentMetricQueryResponseRows,
-  phaseLengthHours: number = 1,
-  coverage: number = 1,
-  dimension: string | null = null,
-  statsEngine: StatsEngine = DEFAULT_STATS_ENGINE,
-  sequentialTestingEnabled: boolean = false,
-  sequentialTestingTuningParameter: number = DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
-  baselineVariationIndex: number | null = null,
-  pValueThreshold: number = DEFAULT_P_VALUE_THRESHOLD,
-  differenceType: DifferenceType = "relative"
+  params: ExperimentMetricAnalysisParams
 ): Promise<ExperimentMetricAnalysis> {
+  const {
+    variations,
+    metric,
+    rows,
+    dimension,
+    baselineVariationIndex,
+    differenceType,
+    phaseLengthHours,
+    coverage,
+    statsEngine,
+    sequentialTestingEnabled,
+    sequentialTestingTuningParameter,
+    pValueThreshold,
+  } = params;
   if (!rows || !rows.length) {
     return {
       unknownVariations: [],
@@ -254,26 +252,29 @@ export async function analyzeExperimentResults({
       const metric = metricMap.get(data.metric);
       return async () => {
         if (!metric) return;
-        const result = await analyzeExperimentMetric(
-          snapshotSettings.variations.map((v, i) => ({
+        const result = await analyzeExperimentMetric({
+          variations: snapshotSettings.variations.map((v, i) => ({
             ...v,
             name: variationNames[i] || v.id,
           })),
-          metric,
-          data.rows,
-          Math.max(
+          metric: metric,
+          rows: data.rows,
+          dimension: analysisSettings.dimensions[0],
+          baselineVariationIndex: analysisSettings.baselineVariationIndex ?? 0,
+          differenceType: analysisSettings.differenceType,
+          coverage: snapshotSettings.coverage ?? 1,
+          phaseLengthHours: Math.max(
             hoursBetween(snapshotSettings.startDate, snapshotSettings.endDate),
             1
           ),
-          snapshotSettings.coverage ?? 1,
-          analysisSettings.dimensions[0],
-          analysisSettings.statsEngine,
-          analysisSettings.sequentialTesting,
-          analysisSettings.sequentialTestingTuningParameter,
-          analysisSettings.baselineVariationIndex,
-          analysisSettings.pValueThreshold,
-          analysisSettings.differenceType
-        );
+          statsEngine: analysisSettings.statsEngine,
+          sequentialTestingEnabled: analysisSettings.sequentialTesting ?? false,
+          sequentialTestingTuningParameter:
+            analysisSettings.sequentialTestingTuningParameter ??
+            DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
+          pValueThreshold:
+            analysisSettings.pValueThreshold ?? DEFAULT_P_VALUE_THRESHOLD,
+        });
         unknownVariations = unknownVariations.concat(result.unknownVariations);
         multipleExposures = Math.max(
           multipleExposures,
