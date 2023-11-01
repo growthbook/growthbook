@@ -2405,6 +2405,18 @@ export async function putLaunchChecklist(
     changes: updatedExperiment,
   });
 
+  await req.audit({
+    event: "experiment.launchChecklist.updated",
+    entity: {
+      object: "experiment",
+      id: experiment.id,
+    },
+    details: auditDetailsCreate({
+      checklistKey,
+      status,
+    }),
+  });
+
   res.status(200).json({ status: 200 });
 }
 
