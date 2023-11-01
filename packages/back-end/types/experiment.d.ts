@@ -150,6 +150,9 @@ export interface ExperimentInterface {
   sequentialTestingEnabled?: boolean;
   sequentialTestingTuningParameter?: number;
   statsEngine?: StatsEngine;
+  manualLaunchChecklist?: {
+    [key: string]: boolean;
+  };
 }
 
 export type ExperimentInterfaceStringDates = Omit<

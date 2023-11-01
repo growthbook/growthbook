@@ -6,15 +6,15 @@ import {
   getExperimentLaunchChecklistByOrgIg,
   updateExperimentLaunchChecklist,
 } from "../models/ExperimentLaunchChecklistModel";
+import { ChecklistItem } from "../../types/experimentLaunchChecklist";
 
 export async function postExperimentLaunchChecklist(
-  req: AuthRequest<{ checklist: string[] }>,
+  req: AuthRequest<{ checklist: ChecklistItem[] }>,
   res: Response
 ) {
   const { org } = getOrgFromReq(req);
 
   const { checklist } = req.body;
-  console.log("checklist", checklist);
 
   const userId = req.userId;
 
@@ -44,12 +44,9 @@ export async function getExperimentCheckListByOrg(
   req: AuthRequest,
   res: Response
 ) {
-  console.log("getExperimentCheckListByOrg was called");
   const { org } = getOrgFromReq(req);
 
   const checklist = await getExperimentLaunchChecklistByOrgIg(org.id);
-
-  console.log("checklist", checklist);
 
   return res.status(200).json({
     status: 200,
@@ -58,10 +55,9 @@ export async function getExperimentCheckListByOrg(
 }
 
 export async function putExperimentLaunchChecklist(
-  req: AuthRequest<{ checklist: string[]; id: string }>,
+  req: AuthRequest<{ checklist: ChecklistItem[]; id: string }>,
   res: Response
 ) {
-  console.log("req.body", req.body);
   const { org } = getOrgFromReq(req);
   const { id, checklist } = req.body;
 

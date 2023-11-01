@@ -1,7 +1,10 @@
 import mongoose from "mongoose";
 import uniqid from "uniqid";
 import { omit } from "lodash";
-import { ExperimentLaunchChecklistInterface } from "../../types/experimentLaunchChecklist";
+import {
+  ChecklistItem,
+  ExperimentLaunchChecklistInterface,
+} from "../../types/experimentLaunchChecklist";
 
 const experimentLaunchChecklistSchema = new mongoose.Schema({
   id: String,
@@ -9,7 +12,16 @@ const experimentLaunchChecklistSchema = new mongoose.Schema({
   dateCreated: Date,
   dateUpdated: Date,
   updatedByUserId: String,
-  checklistItems: [String],
+  checklistItems: [
+    {
+      item: String,
+      type: { type: String, enum: ["manual", "auto"] },
+      statusKey: {
+        type: String,
+        enum: ["description", "hypothesis", "project", "tag", "screenshots"],
+      },
+    },
+  ],
 });
 
 export type ExperimentLaunchChecklistDocument = mongoose.Document &
@@ -29,7 +41,7 @@ function toInterface(
 export async function createExperimentLaunchChecklist(
   organizationId: string,
   createdByUserId: string,
-  checklistItems: string[]
+  checklistItems: ChecklistItem[]
 ): Promise<ExperimentLaunchChecklistInterface> {
   const doc: ExperimentLaunchChecklistDocument = await ExperimentLaunchChecklistModel.create(
     {
@@ -62,7 +74,7 @@ export async function updateExperimentLaunchChecklist(
   organizationId: string,
   updatedByUserId: string,
   checklistId: string,
-  checklistItems: string[]
+  checklistItems: ChecklistItem[]
 ): Promise<ExperimentLaunchChecklistInterface | null> {
   const doc: ExperimentLaunchChecklistDocument | null = await ExperimentLaunchChecklistModel.findOneAndUpdate(
     {

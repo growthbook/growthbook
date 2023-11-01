@@ -2369,6 +2369,45 @@ export async function putVisualChangeset(
   });
 }
 
+export async function putLaunchChecklist(
+  req: AuthRequest<{ checklistKey: string; status: boolean }, { id: string }>,
+  res: Response
+) {
+  const { org } = getOrgFromReq(req);
+
+  const { id } = req.params;
+  const { checklistKey, status } = req.body;
+
+  const experiment = await getExperimentById(org.id, id);
+
+  if (!experiment) {
+    throw new Error("Could not find experiment");
+  }
+
+  const envs = experiment ? getAffectedEnvsForExperiment({ experiment }) : [];
+
+  req.checkPermissions("runExperiments", experiment?.project || "", envs);
+
+  const updatedExperiment = cloneDeep(experiment);
+
+  if (updatedExperiment.manualLaunchChecklist) {
+    updatedExperiment.manualLaunchChecklist[checklistKey] = status;
+  } else {
+    updatedExperiment.manualLaunchChecklist = {
+      [checklistKey]: status,
+    };
+  }
+
+  await updateExperiment({
+    organization: org,
+    experiment,
+    user: res.locals.eventAudit,
+    changes: updatedExperiment,
+  });
+
+  res.status(200).json({ status: 200 });
+}
+
 export async function deleteVisualChangeset(
   req: AuthRequest<null, { id: string }>,
   res: Response

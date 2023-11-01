@@ -3,15 +3,45 @@ import { SDKConnectionInterface } from "back-end/types/sdk-connection";
 import { VisualChangesetInterface } from "back-end/types/visual-changeset";
 import Link from "next/link";
 import { MdRocketLaunch } from "react-icons/md";
-import { ReactElement } from "react";
+import { ReactElement, useState } from "react";
 import { FaCheckSquare, FaExternalLinkAlt, FaTimes } from "react-icons/fa";
 import { hasVisualChanges } from "shared/util";
+import { ChecklistItem } from "back-end/types/experimentLaunchChecklist";
 import track from "@/services/track";
 import { useAuth } from "@/services/auth";
+import useApi from "@/hooks/useApi";
 import Button from "../Button";
 import Tooltip from "../Tooltip/Tooltip";
 import ConfirmButton from "../Modal/ConfirmButton";
 import { LinkedFeature } from "./TabbedPage";
+
+type ManualChecklist = {
+  key: string;
+  content: string | ReactElement;
+};
+
+function getChecklistItemStatus(
+  checklistItem: ChecklistItem,
+  experiment: ExperimentInterfaceStringDates
+): boolean {
+  switch (checklistItem.statusKey) {
+    case "hypothesis":
+      return !!experiment.hypothesis;
+    case "screenshots":
+      for (const variation of experiment.variations) {
+        if (!variation.screenshots.length) return false;
+      }
+      return true;
+    case "description":
+      return !!experiment.description;
+    case "project":
+      return !!experiment.project;
+    case "tag":
+      return experiment.tags?.length > 0;
+    default:
+      return false;
+  }
+}
 
 export function StartExperimentBanner({
   experiment,
@@ -39,8 +69,32 @@ export function StartExperimentBanner({
   noConfirm?: boolean;
 }) {
   const { apiCall } = useAuth();
+  const [manualChecklistStatus, setManualChecklistStatus] = useState(
+    experiment.manualLaunchChecklist || {}
+  );
 
-  if (experiment.status !== "draft") return null;
+  const manualChecklist: ManualChecklist[] = [];
+
+  manualChecklist.push({
+    key: "sdk-connection",
+    content: (
+      <>
+        Verify your app is passing both <code>attributes</code> and a{" "}
+        <code>trackingCallback</code> into the GrowthBook SDK
+      </>
+    ),
+  });
+  manualChecklist.push({
+    key: "metrics-tracked",
+    content: (
+      <>
+        Verify your app is tracking events for all of the metrics that you plan
+        to include in the analysis
+      </>
+    ),
+  });
+
+  const { data } = useApi("/experiments/launch-checklist");
 
   type CheckListItem = {
     display: string | ReactElement;
@@ -49,6 +103,8 @@ export function StartExperimentBanner({
     action?: ReactElement | null;
   };
   const checklist: CheckListItem[] = [];
+
+  if (experiment.status !== "draft") return null;
 
   // At least one linked change
   const hasLinkedChanges =
@@ -175,21 +231,22 @@ export function StartExperimentBanner({
     status: hasPhases ? "success" : "error",
   });
 
-  const manualChecklist: (string | ReactElement)[] = [];
+  if (data?.checklist && data?.checklist.checklistItems.length > 0) {
+    data?.checklist.checklistItems.forEach((item) => {
+      if (item.type === "manual") {
+        manualChecklist.push({ key: item.item, content: <>{item.item}</> });
+      }
 
-  // TODO: Do we have a way to validate this or at least give a way for users to dismiss this?
-  manualChecklist.push(
-    <>
-      Verify your app is passing both <code>attributes</code> and a{" "}
-      <code>trackingCallback</code> into the GrowthBook SDK
-    </>
-  );
-  manualChecklist.push(
-    <>
-      Verify your app is tracking events for all of the metrics that you plan to
-      include in the analysis
-    </>
-  );
+      if (item.type === "auto" && item.statusKey) {
+        checklist.push({
+          display: item.item,
+          status: getChecklistItemStatus(item, experiment)
+            ? "success"
+            : "error",
+        });
+      }
+    });
+  }
 
   async function startExperiment() {
     if (!experiment.phases?.length) {
@@ -215,7 +272,9 @@ export function StartExperimentBanner({
     onStart && onStart();
   }
 
-  const allPassed = !checklist.some((c) => c.status === "error");
+  const allPassed =
+    !checklist.some((c) => c.status === "error") &&
+    !manualChecklist.some((c) => manualChecklistStatus[c.key] === false);
 
   // Prompt them to start with an option to edit the targeting first
   return (
@@ -255,8 +314,36 @@ export function StartExperimentBanner({
           <Tooltip body={"We're not able to verify these automatically"} />
           <ul style={{ fontSize: "1.1em" }} className="ml-0 pl-0 mb-0 pb-0">
             {manualChecklist.map((item, i) => (
-              <li key={i} style={{ listStyleType: "none", marginLeft: 0 }}>
-                &bull; {item}
+              <li
+                key={i}
+                style={{
+                  listStyleType: "none",
+                  marginLeft: 0,
+                  marginBottom: 3,
+                }}
+              >
+                <input
+                  type="checkbox"
+                  className="ml-0 pl-0"
+                  checked={!!manualChecklistStatus[item.key]}
+                  onChange={async (e) => {
+                    setManualChecklistStatus((prevStatus) => ({
+                      ...prevStatus,
+                      [item.key]: e.target.checked,
+                    }));
+                    await apiCall(
+                      `/experiments/${experiment.id}/launch-checklist`,
+                      {
+                        method: "PUT",
+                        body: JSON.stringify({
+                          checklistKey: item.key,
+                          status: e.target.checked,
+                        }),
+                      }
+                    );
+                  }}
+                />{" "}
+                {item.content}
               </li>
             ))}
           </ul>

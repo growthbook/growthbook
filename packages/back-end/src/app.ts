@@ -486,6 +486,10 @@ app.get(
   "/experiments/launch-checklist",
   experimentLaunchChecklistController.getExperimentCheckListByOrg
 );
+app.put(
+  "/experiments/:id/launch-checklist",
+  experimentsController.putLaunchChecklist
+);
 
 // Visual Changesets
 app.put("/visual-changesets/:id", experimentsController.putVisualChangeset);

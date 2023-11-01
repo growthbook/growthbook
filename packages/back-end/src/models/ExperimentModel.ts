@@ -167,6 +167,10 @@ const experimentSchema = new mongoose.Schema({
   sequentialTestingEnabled: Boolean,
   sequentialTestingTuningParameter: Number,
   statsEngine: String,
+  manualLaunchChecklist: {
+    type: Map,
+    of: Object,
+  },
 });
 
 type ExperimentDocument = mongoose.Document & ExperimentInterface;
