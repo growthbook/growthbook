@@ -58,12 +58,19 @@ type ScheduleRule = {
   timestamp: string | null;
   enabled: boolean;
 };
+
+export interface SavedGroupTargeting {
+  match: "all" | "none" | "any";
+  ids: string[];
+}
+
 export interface BaseRule {
   description: string;
   condition?: string;
   id: string;
   enabled?: boolean;
   scheduleRules?: ScheduleRule[];
+  savedGroups?: SavedGroupTargeting[];
 }
 
 export interface ForceRule extends BaseRule {

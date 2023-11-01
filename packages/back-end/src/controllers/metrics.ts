@@ -437,6 +437,7 @@ export async function postMetrics(
     timestampColumn,
     userIdColumns,
     userIdTypes,
+    templateVariables,
   } = req.body;
 
   req.checkPermissions("createMetrics", projects?.length ? projects : "");
@@ -487,6 +488,7 @@ export async function postMetrics(
     regressionAdjustmentOverride,
     regressionAdjustmentEnabled,
     regressionAdjustmentDays,
+    templateVariables,
   });
 
   res.status(200).json({
