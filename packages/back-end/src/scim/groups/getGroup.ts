@@ -46,7 +46,7 @@ export async function getGroup(
     return res.status(400).json({
       schemas: ["urn:ietf:params:scim:api:messages:2.0:Error"],
       detail:
-        "Team is currently managed by GrowthBook. Please link to an Okta group to use SCIM.",
+        "Team is currently managed by GrowthBook. Please link to a group in your idP to use SCIM.",
       status: "400",
     });
   }
