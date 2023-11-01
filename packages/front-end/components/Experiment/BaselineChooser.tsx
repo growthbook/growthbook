@@ -141,7 +141,7 @@ export default function BaselineChooser({
         uuid={"baseline-selector"}
         right={false}
         className="mt-2"
-        toggleClassName={clsx({
+        toggleClassName={clsx("d-inline-block", {
           "dropdown-underline": dropdownEnabled,
           "dropdown-underline-disabled": !dropdownEnabled,
         })}

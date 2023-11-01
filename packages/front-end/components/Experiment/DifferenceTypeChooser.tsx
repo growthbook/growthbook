@@ -1,4 +1,3 @@
-import clsx from "clsx";
 import { SetStateAction, useCallback, useEffect, useState } from "react";
 import {
   ExperimentSnapshotAnalysis,
@@ -105,7 +104,7 @@ export default function DifferenceTypeChooser({
   const title = (
     <div className="d-inline-flex align-items-center">
       <div className={`d-flex align-items-center`}>
-        <span className="label">{selectedDifferenceName}</span>
+        <span className="hover">{selectedDifferenceName}</span>
         {((loading && differenceType !== analysis?.settings?.differenceType) ||
           postLoading) && <LoadingSpinner className="ml-1" />}
       </div>
@@ -119,7 +118,7 @@ export default function DifferenceTypeChooser({
         uuid={"difference-type-selector"}
         right={false}
         className="mt-2"
-        toggleClassName={clsx("dropdown-underline")}
+        toggleClassName="d-inline-block dropdown-underline"
         header={<div className="h6 mb-0">Difference Type</div>}
         toggle={<div className="d-inline-flex align-items-center">{title}</div>}
         caret={true}
