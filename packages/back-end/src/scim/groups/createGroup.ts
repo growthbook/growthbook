@@ -5,7 +5,7 @@ import {
   ScimGroup,
   ScimGroupPostRequest,
 } from "../../../types/scim";
-import { addMemberToTeam } from "../../services/organizations";
+import { addMembersToTeam } from "../../services/organizations";
 
 export async function createGroup(
   req: ScimGroupPostRequest,
@@ -31,15 +31,11 @@ export async function createGroup(
       ...DEFAULT_TEAM_PERMISSIONS,
     });
 
-    await Promise.all(
-      members.map((member) => {
-        return addMemberToTeam({
-          organization: org,
-          userId: member.value,
-          teamId: group.id,
-        });
-      })
-    );
+    await addMembersToTeam({
+      organization: org,
+      userIds: members.map((m) => m.value),
+      teamId: group.id,
+    });
 
     return res.status(201).json({
       schemas: ["urn:ietf:params:scim:schemas:core:2.0:Group"],

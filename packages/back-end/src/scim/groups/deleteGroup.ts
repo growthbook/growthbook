@@ -1,7 +1,7 @@
 import { Response } from "express";
 import { ScimError, ScimGetRequest } from "../../../types/scim";
 import { deleteTeam, findTeamById } from "../../models/TeamModel";
-import { removeMemberFromTeam } from "../../services/organizations";
+import { removeMembersFromTeam } from "../../services/organizations";
 
 export async function deleteGroup(
   req: ScimGetRequest,
@@ -33,15 +33,11 @@ export async function deleteGroup(
   const members = org.members.filter((member) => member.teams?.includes(id));
 
   try {
-    await Promise.all(
-      members.map((member) => {
-        return removeMemberFromTeam({
-          organization: org,
-          userId: member.id,
-          teamId: id,
-        });
-      })
-    );
+    await removeMembersFromTeam({
+      organization: org,
+      userIds: members.map((m) => m.id),
+      teamId: id,
+    });
 
     // Delete the team
     await deleteTeam(id, org.id);

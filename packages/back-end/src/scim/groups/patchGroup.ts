@@ -9,9 +9,9 @@ import {
 } from "../../../types/scim";
 import { findTeamById, updateTeamMetadata } from "../../models/TeamModel";
 import {
-  addMemberToTeam,
+  addMembersToTeam,
   expandOrgMembers,
-  removeMemberFromTeam,
+  removeMembersFromTeam,
 } from "../../services/organizations";
 import { Member } from "../../../types/organization";
 
@@ -61,50 +61,35 @@ export async function patchGroup(
         const f = filter(parse(path));
         const filtered = members.filter(f);
 
-        await Promise.all(
-          filtered.map((member) => {
-            return removeMemberFromTeam({
-              organization: org,
-              userId: member.members.value,
-              teamId: team.id,
-            });
-          })
-        );
+        await removeMembersFromTeam({
+          organization: org,
+          userIds: filtered.map((m) => m.members.value),
+          teamId: team.id,
+        });
       } else if (op === "add" && path === "members") {
         // Add requested members
-        await Promise.all(
-          (value as ScimGroupMember[]).map((member) => {
-            return addMemberToTeam({
-              organization: org,
-              userId: member.value,
-              teamId: team.id,
-            });
-          })
-        );
+        await addMembersToTeam({
+          organization: org,
+          userIds: (value as ScimGroupMember[]).map((m) => m.value),
+          teamId: team.id,
+        });
       } else if (op === "replace" && path === "members") {
         // Replace all team members with requested members
         if (value) {
           const prevMembers: Member[] = org.members.filter((member) =>
             member.teams?.includes(id)
           );
-          await Promise.all(
-            prevMembers.map((member) => {
-              return removeMemberFromTeam({
-                organization: org,
-                userId: member.id,
-                teamId: id,
-              });
-            })
-          );
-          await Promise.all(
-            (value as ScimGroupMember[]).map((member) => {
-              return addMemberToTeam({
-                organization: org,
-                userId: member.value,
-                teamId: id,
-              });
-            })
-          );
+          await removeMembersFromTeam({
+            organization: org,
+            userIds: prevMembers.map((m) => m.id),
+            teamId: id,
+          });
+
+          await addMembersToTeam({
+            organization: org,
+            userIds: (value as ScimGroupMember[]).map((m) => m.value),
+            teamId: id,
+          });
         }
       } else if (op === "replace" && !path) {
         // Update Group object

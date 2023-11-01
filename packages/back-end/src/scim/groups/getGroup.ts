@@ -3,8 +3,13 @@ import { findTeamById } from "../../models/TeamModel";
 import { expandOrgMembers } from "../../services/organizations";
 import { ScimError, ScimGetRequest, ScimGroup } from "../../../types/scim";
 import { TeamInterface } from "../../../types/team";
+import { ExpandedMember } from "../../../types/organization";
 
-export const teamtoScimGroup = (team: TeamInterface): ScimGroup => {
+type TeamWithMembers = Omit<TeamInterface, "members"> & {
+  members: ExpandedMember[];
+};
+
+export const teamtoScimGroup = (team: TeamWithMembers): ScimGroup => {
   return {
     schemas: ["urn:ietf:params:scim:schemas:core:2.0:Group"],
     id: team.id,

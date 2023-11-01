@@ -23,7 +23,7 @@ export async function listGroups(
   const groups = await getTeamsForOrganization(org.id);
   const expandedMembers = await expandOrgMembers(org.members);
 
-  const groupsWithMembersP = groups.map(async (group) => {
+  const hydratedGroups = groups.map((group) => {
     const members = expandedMembers.filter((member) =>
       member.teams?.includes(group.id)
     );
@@ -32,8 +32,6 @@ export async function listGroups(
       members,
     };
   });
-
-  const hydratedGroups = await Promise.all(groupsWithMembersP);
 
   const SCIMGroups = hydratedGroups.map((group) => {
     return teamtoScimGroup(group);
