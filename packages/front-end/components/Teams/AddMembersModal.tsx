@@ -1,6 +1,4 @@
-import { TeamInterface } from "back-end/types/team";
 import { useForm } from "react-hook-form";
-import useApi from "@/hooks/useApi";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
 import Modal from "../Modal";
@@ -15,9 +13,9 @@ export const AddMembersModal = ({
   open: boolean;
   onClose: () => void;
 }) => {
-  const { data, mutate } = useApi<{
-    team: TeamInterface;
-  }>(`/teams/${teamId}`);
+  const { teams, refreshOrganization, user, users } = useUser();
+
+  const team = teams?.find((team) => team.id === teamId);
 
   const form = useForm<{
     members: string[];
@@ -27,7 +25,6 @@ export const AddMembersModal = ({
     },
   });
   const { apiCall } = useAuth();
-  const { user, users, refreshOrganization } = useUser();
 
   const userList = [...users.values()];
 
@@ -46,13 +43,12 @@ export const AddMembersModal = ({
       close={() => handleClose()}
       header={"Add Team Members"}
       submit={form.handleSubmit(async (value) => {
-        await apiCall(`/teams/${data?.team.id}/members`, {
+        await apiCall(`/teams/${team?.id}/members`, {
           method: "POST",
           body: JSON.stringify({
             members: value.members,
           }),
         });
-        mutate();
         refreshOrganization();
       })}
     >
