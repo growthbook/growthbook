@@ -23,6 +23,7 @@ export type FeatureRule<T = any> = {
   weights?: number[];
   key?: string;
   hashAttribute?: string;
+  fallbackAttribute?: string;
   hashVersion?: number;
   range?: VariationRange;
   coverage?: number;
@@ -91,6 +92,7 @@ export type Experiment<T> = {
   namespace?: [string, number, number];
   force?: number;
   hashAttribute?: string;
+  fallbackAttribute?: string;
   hashVersion?: number;
   active?: boolean;
   /** @deprecated */
@@ -147,6 +149,8 @@ export interface Context {
   features?: Record<string, FeatureDefinition>;
   experiments?: AutoExperiment[];
   forcedVariations?: Record<string, number>;
+  stickyBucketAssignments?: Record<string, number>;
+  stickyBucketIdentifierAttributes?: string[];
   log?: (msg: string, ctx: any) => void;
   qaMode?: boolean;
   backgroundSync?: boolean;
@@ -176,6 +180,7 @@ export interface Context {
   clientKey?: string;
   decryptionKey?: string;
   remoteEval?: boolean;
+  stickyBucketService?: any;
 }
 
 export type SubscriptionFunction = (
@@ -291,12 +296,14 @@ export type ApiHost = string;
 export type ClientKey = string;
 
 export type LoadFeaturesOptions = {
-  /**
-   * @deprecated
-   */
+  /** @deprecated */
   autoRefresh?: boolean;
   timeout?: number;
   skipCache?: boolean;
+};
+
+export type InitOptions = {
+  loadFeaturesOptions?: LoadFeaturesOptions;
 };
 
 export type RefreshFeaturesOptions = {

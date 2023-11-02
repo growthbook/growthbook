@@ -11,6 +11,7 @@ import type {
   FeatureResult,
   FeatureResultSource,
   Filter,
+  InitOptions,
   LoadFeaturesOptions,
   RealtimeUsageData,
   RefreshFeaturesOptions,
@@ -139,6 +140,22 @@ export class GrowthBook<
 
     if (context.clientKey && !context.remoteEval) {
       this._refresh({}, true, false);
+    }
+  }
+
+  public async init(options?: InitOptions) {
+    options = options || {};
+    const loadFeaturesOptions: LoadFeaturesOptions =
+      options.loadFeaturesOptions || {};
+
+    await this.loadFeatures(loadFeaturesOptions);
+
+    this.context.stickyBucketIdentifierAttributes =
+      this.context.stickyBucketIdentifierAttributes ??
+      this._deriveStickyBucketIdentifierAttributes();
+
+    if (this.context.stickyBucketService) {
+      this.context.stickyBucketAssignments = await this.context.stickyBucketService.getAssignments();
     }
   }
 
@@ -1142,5 +1159,57 @@ export class GrowthBook<
     return () => {
       undo.forEach((fn) => fn());
     };
+  }
+
+  private _deriveStickyBucketIdentifierAttributes() {
+    const attributes = new Set<string>();
+    const features = this.getFeatures();
+    Object.keys(features).forEach((id) => {
+      const feature = features[id];
+      if (feature.rules) {
+        for (const rule of feature.rules) {
+          if (rule.variations) {
+            attributes.add(rule.hashAttribute || "id");
+            if (rule.fallbackAttribute) {
+              attributes.add(rule.fallbackAttribute);
+            }
+          }
+        }
+      }
+    });
+    this.getExperiments().map((experiment) => {
+      attributes.add(experiment.hashAttribute || "id");
+      if (experiment.fallbackAttribute) {
+        attributes.add(experiment.fallbackAttribute);
+      }
+    });
+    return Array.from(attributes);
+  }
+}
+
+export abstract class StickyBucketService {
+  // The "key" argument will be a combination of the attribute name + value
+  // For example: `anonId::abc123`
+
+  // todo: take 2 args?
+  abstract getAssignments(key: string): Promise<Record<string, number> | null>;
+  abstract saveAssignments(
+    key: string,
+    assignments: Record<string, number>
+  ): unknown;
+}
+
+export class LocalStorageStickyBucketService extends StickyBucketService {
+  private prefix: string;
+  constructor(prefix: string = "assignments::") {
+    super();
+    this.prefix = prefix;
+  }
+  async getAssignments(key: string) {
+    const raw = localStorage.getItem(this.prefix + key);
+    return raw ? JSON.parse(raw) : null;
+  }
+  async saveAssignments(key: string, assignments: Record<string, number>) {
+    localStorage.setItem(this.prefix + key, JSON.stringify(assignments));
   }
 }
