@@ -3088,6 +3088,16 @@ input:disabled {
     }
   }
 }
-
+.table-tags {
+  min-width: 250px;
+  width: 100%;
+}
+.tags-container {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 7px;
+}
 @import "./components/react-select.scss";
 @import "./components/demo-datasource-banner";
