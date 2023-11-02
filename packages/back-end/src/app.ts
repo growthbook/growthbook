@@ -488,7 +488,7 @@ app.get(
 );
 app.put(
   "/experiments/:id/launch-checklist",
-  experimentsController.putLaunchChecklist
+  experimentLaunchChecklistController.putLaunchChecklist
 );
 
 // Visual Changesets

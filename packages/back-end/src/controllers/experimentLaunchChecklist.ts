@@ -1,4 +1,6 @@
 import { Response } from "express";
+import { cloneDeep } from "lodash";
+import { getAffectedEnvsForExperiment } from "shared/util";
 import { getOrgFromReq } from "../services/organizations";
 import { AuthRequest } from "../types/AuthRequest";
 import {
@@ -6,10 +8,12 @@ import {
   getExperimentLaunchChecklistByOrgIg,
   updateExperimentLaunchChecklist,
 } from "../models/ExperimentLaunchChecklistModel";
-import { ChecklistItem } from "../../types/experimentLaunchChecklist";
+import { ChecklistTask } from "../../types/experimentLaunchChecklist";
+import { getExperimentById, updateExperiment } from "../models/ExperimentModel";
+import { auditDetailsCreate } from "../services/audit";
 
 export async function postExperimentLaunchChecklist(
-  req: AuthRequest<{ checklist: ChecklistItem[] }>,
+  req: AuthRequest<{ checklist: ChecklistTask[] }>,
   res: Response
 ) {
   const { org } = getOrgFromReq(req);
@@ -46,16 +50,16 @@ export async function getExperimentCheckListByOrg(
 ) {
   const { org } = getOrgFromReq(req);
 
-  const checklist = await getExperimentLaunchChecklistByOrgIg(org.id);
+  const checklistObj = await getExperimentLaunchChecklistByOrgIg(org.id);
 
   return res.status(200).json({
     status: 200,
-    checklist,
+    checklistObj,
   });
 }
 
 export async function putExperimentLaunchChecklist(
-  req: AuthRequest<{ checklist: ChecklistItem[]; id: string }>,
+  req: AuthRequest<{ checklist: ChecklistTask[]; id: string }>,
   res: Response
 ) {
   const { org } = getOrgFromReq(req);
@@ -92,4 +96,55 @@ export async function putExperimentLaunchChecklist(
   return res.status(200).json({
     status: 200,
   });
+}
+
+export async function putLaunchChecklist(
+  req: AuthRequest<{ checklistKey: string; status: boolean }, { id: string }>,
+  res: Response
+) {
+  const { org } = getOrgFromReq(req);
+
+  const { id } = req.params;
+  const { checklistKey, status } = req.body;
+
+  const experiment = await getExperimentById(org.id, id);
+
+  if (!experiment) {
+    throw new Error("Could not find experiment");
+  }
+
+  const envs = experiment ? getAffectedEnvsForExperiment({ experiment }) : [];
+
+  req.checkPermissions("runExperiments", experiment?.project || "", envs);
+
+  const updatedExperiment = cloneDeep(experiment);
+
+  if (updatedExperiment.manualLaunchChecklist) {
+    updatedExperiment.manualLaunchChecklist[checklistKey] = status;
+  } else {
+    updatedExperiment.manualLaunchChecklist = {
+      [checklistKey]: status,
+    };
+  }
+
+  await updateExperiment({
+    organization: org,
+    experiment,
+    user: res.locals.eventAudit,
+    changes: updatedExperiment,
+  });
+
+  await req.audit({
+    event: "experiment.launchChecklist.updated",
+    entity: {
+      object: "experiment",
+      id: experiment.id,
+    },
+    details: auditDetailsCreate({
+      checklistKey,
+      status,
+    }),
+  });
+
+  res.status(200).json({ status: 200 });
 }

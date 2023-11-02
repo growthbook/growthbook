@@ -1,7 +1,12 @@
-export interface ChecklistItem {
-  item: string;
-  type: "manual" | "auto";
-  statusKey?: "description" | "hypothesis" | "project" | "tag" | "screenshots";
+export interface ChecklistTask {
+  task: string;
+  completionType: "manual" | "auto";
+  propertyKey?:
+    | "description"
+    | "hypothesis"
+    | "project"
+    | "tag"
+    | "screenshots";
 }
 
 export interface ExperimentLaunchChecklistInterface {
@@ -10,5 +15,5 @@ export interface ExperimentLaunchChecklistInterface {
   dateCreated: Date;
   dateUpdated: Date;
   updatedByUserId: string;
-  checklistItems: ChecklistItem[];
+  checklist: ChecklistTask[];
 }

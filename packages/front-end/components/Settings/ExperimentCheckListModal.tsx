@@ -1,87 +1,91 @@
 import { useState } from "react";
 import CreatableSelect from "react-select/creatable";
 import {
-  ChecklistItem,
+  ChecklistTask,
   ExperimentLaunchChecklistInterface,
 } from "back-end/types/experimentLaunchChecklist";
 import { useAuth } from "@/services/auth";
 import Modal from "../Modal";
 import Button from "../Button";
 
-type ChecklistOptions = {
-  //TODO: Rename this
+type AutoChecklistOptions = {
   value: string;
   label: string;
-  statusKey: "hypothesis" | "screenshots" | "description" | "project" | "tag";
+  propertyKey: "hypothesis" | "screenshots" | "description" | "project" | "tag";
 };
 
-const checklistOptions: ChecklistOptions[] = [
+const autoChecklistOptions: AutoChecklistOptions[] = [
   {
     value: "Add a descriptive hypothesis for this experiment",
     label: "Add a descriptive hypothesis for this experiment",
-    statusKey: "hypothesis",
+    propertyKey: "hypothesis",
   },
   {
     value: "Upload a screenshot for each variation of the experiment",
     label: "Upload a screenshot for each variation of the experiment",
-    statusKey: "screenshots",
+    propertyKey: "screenshots",
   },
   {
     value: "Add a description for this experiment",
     label: "Add a description for this experiment",
-    statusKey: "description",
+    propertyKey: "description",
   },
   {
     value: "Add this experiment to a project",
     label: "Add this experiment to a project",
-    statusKey: "project",
+    propertyKey: "project",
   },
   {
     value: "Add atleast 1 tag to this experiment",
     label: "Add atleast 1 tag to this experiment",
-    statusKey: "tag",
+    propertyKey: "tag",
   },
 ];
 
 function ChecklistItem({
   value,
-  statusKey,
+  propertyKey,
   index,
   experimentLaunchChecklist,
   setExperimentLaunchChecklist,
 }: {
   value: string;
   index: number;
-  statusKey?: "hypothesis" | "screenshots" | "description" | "project" | "tag";
-  experimentLaunchChecklist: ChecklistItem[];
-  setExperimentLaunchChecklist: (value: ChecklistItem[]) => void;
+  propertyKey?:
+    | "hypothesis"
+    | "screenshots"
+    | "description"
+    | "project"
+    | "tag";
+  experimentLaunchChecklist: ChecklistTask[];
+  setExperimentLaunchChecklist: (value: ChecklistTask[]) => void;
 }) {
   return (
     <div className="d-flex align-items-center py-1">
       <CreatableSelect
         className="w-100"
         isMulti={false}
-        options={checklistOptions.filter((option) => {
+        options={autoChecklistOptions.filter((option) => {
           return !experimentLaunchChecklist.some(
-            (index) => index.item === option.value
+            (index) => index.task === option.value
           );
         })}
         placeholder="Select a checklist option or create your own"
-        onChange={(option: ChecklistOptions) => {
+        onChange={(option: AutoChecklistOptions) => {
           if (!option) return;
           const updatedChecklist = [...experimentLaunchChecklist];
-          updatedChecklist[index].item = option.value;
-          updatedChecklist[index].type = "auto";
-          updatedChecklist[index].statusKey = option.statusKey;
+          updatedChecklist[index].task = option.value;
+          updatedChecklist[index].completionType = "auto";
+          updatedChecklist[index].propertyKey = option.propertyKey;
           setExperimentLaunchChecklist(updatedChecklist);
         }}
         onCreateOption={(inputValue) => {
           const updatedChecklist = [...experimentLaunchChecklist];
-          updatedChecklist[index].item = inputValue;
-          updatedChecklist[index].type = "manual";
+          updatedChecklist[index].task = inputValue;
+          updatedChecklist[index].completionType = "manual";
           setExperimentLaunchChecklist(updatedChecklist);
         }}
-        value={value ? { label: value, value, statusKey } : null}
+        value={value ? { label: value, value, propertyKey } : null}
       />
       <Button
         color="link"
@@ -100,29 +104,29 @@ function ChecklistItem({
 
 export default function ExperimentCheckListModal({
   close,
-  currentChecklist,
   mutate,
+  checklistObj,
 }: {
   close: () => void;
-  currentChecklist: ExperimentLaunchChecklistInterface | null;
   mutate: () => void;
+  checklistObj?: ExperimentLaunchChecklistInterface;
 }) {
   const { apiCall } = useAuth();
   const [experimentLaunchChecklist, setExperimentLaunchChecklist] = useState<
-    ChecklistItem[] | []
-  >(currentChecklist?.checklistItems ? currentChecklist.checklistItems : []);
+    ChecklistTask[] | []
+  >(checklistObj?.checklist ? checklistObj.checklist : []);
 
   async function handleSubmit() {
     const checklist = experimentLaunchChecklist;
 
-    if (checklist[checklist.length - 1].item === "") {
+    if (checklist[checklist.length - 1].task === "") {
       checklist.pop();
     }
     await apiCall(`/experiments/launch-checklist`, {
-      method: currentChecklist?.id ? "PUT" : "POST",
+      method: checklistObj?.id ? "PUT" : "POST",
       body: JSON.stringify({
         checklist,
-        id: currentChecklist?.id,
+        id: checklistObj?.id,
       }),
     });
     mutate();
@@ -133,7 +137,7 @@ export default function ExperimentCheckListModal({
       open={true}
       close={close}
       size="max"
-      header={`${currentChecklist?.id ? "Edit" : "Add"} Pre-Launch Checklist`}
+      header={`${checklistObj?.id ? "Edit" : "Add"} Pre-Launch Checklist`}
       cta="Save"
       submit={() => handleSubmit()}
     >
@@ -143,11 +147,11 @@ export default function ExperimentCheckListModal({
           customizing your organizations pre-launch checklist. Choose from our
           pre-defined list, or create your own custom launch requirements.
         </p>
-        {experimentLaunchChecklist.map((item, i) => (
+        {experimentLaunchChecklist.map((item, i: number) => (
           <ChecklistItem
             key={i}
-            value={item.item}
-            statusKey={item.statusKey}
+            value={item.task}
+            propertyKey={item.propertyKey}
             index={i}
             experimentLaunchChecklist={experimentLaunchChecklist}
             setExperimentLaunchChecklist={setExperimentLaunchChecklist}
@@ -158,13 +162,13 @@ export default function ExperimentCheckListModal({
           disabled={
             experimentLaunchChecklist.length > 0 &&
             experimentLaunchChecklist[experimentLaunchChecklist.length - 1]
-              .item === ""
+              .task === ""
           }
           onClick={async (e) => {
             e.preventDefault();
             setExperimentLaunchChecklist([
               ...experimentLaunchChecklist,
-              { item: "", type: "manual" },
+              { task: "", completionType: "manual" },
             ]);
           }}
         >

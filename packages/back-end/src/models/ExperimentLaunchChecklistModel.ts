@@ -2,7 +2,7 @@ import mongoose from "mongoose";
 import uniqid from "uniqid";
 import { omit } from "lodash";
 import {
-  ChecklistItem,
+  ChecklistTask,
   ExperimentLaunchChecklistInterface,
 } from "../../types/experimentLaunchChecklist";
 
@@ -41,7 +41,7 @@ function toInterface(
 export async function createExperimentLaunchChecklist(
   organizationId: string,
   createdByUserId: string,
-  checklistItems: ChecklistItem[]
+  checklistItems: ChecklistTask[]
 ): Promise<ExperimentLaunchChecklistInterface> {
   const doc: ExperimentLaunchChecklistDocument = await ExperimentLaunchChecklistModel.create(
     {
@@ -74,7 +74,7 @@ export async function updateExperimentLaunchChecklist(
   organizationId: string,
   updatedByUserId: string,
   checklistId: string,
-  checklistItems: ChecklistItem[]
+  checklistItems: ChecklistTask[]
 ): Promise<ExperimentLaunchChecklistInterface | null> {
   const doc: ExperimentLaunchChecklistDocument | null = await ExperimentLaunchChecklistModel.findOneAndUpdate(
     {

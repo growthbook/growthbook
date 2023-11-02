@@ -21,6 +21,7 @@ import {
 import { OrganizationSettings } from "@/../back-end/types/organization";
 import Link from "next/link";
 import { useGrowthBook } from "@growthbook/growthbook-react";
+import { ExperimentLaunchChecklistInterface } from "back-end/types/experimentLaunchChecklist";
 import { useAuth } from "@/services/auth";
 import EditOrganizationModal from "@/components/Settings/EditOrganizationModal";
 import BackupConfigYamlButton from "@/components/Settings/BackupConfigYamlButton";
@@ -271,7 +272,9 @@ const GeneralSettingsPage = (): React.ReactElement => {
 
   const { metricDefaults } = useOrganizationMetricDefaults();
 
-  const { data, mutate } = useApi("/experiments/launch-checklist");
+  const { data, mutate } = useApi<{
+    checklistObj: ExperimentLaunchChecklistInterface;
+  }>("/experiments/launch-checklist");
 
   const [upgradeModal, setUpgradeModal] = useState(false);
   const [editChecklistOpen, setEditChecklistOpen] = useState(false);
@@ -539,7 +542,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
       {editChecklistOpen ? (
         <ExperimentCheckListModal
           close={() => setEditChecklistOpen(false)}
-          currentChecklist={data.checklist}
+          checklistObj={data?.checklistObj}
           mutate={mutate}
         />
       ) : null}

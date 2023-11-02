@@ -6,7 +6,10 @@ import { MdRocketLaunch } from "react-icons/md";
 import { ReactElement, useState } from "react";
 import { FaCheckSquare, FaExternalLinkAlt, FaTimes } from "react-icons/fa";
 import { hasVisualChanges } from "shared/util";
-import { ChecklistItem } from "back-end/types/experimentLaunchChecklist";
+import {
+  ChecklistTask,
+  ExperimentLaunchChecklistInterface,
+} from "back-end/types/experimentLaunchChecklist";
 import track from "@/services/track";
 import { useAuth } from "@/services/auth";
 import useApi from "@/hooks/useApi";
@@ -21,10 +24,10 @@ type ManualChecklist = {
 };
 
 function getChecklistItemStatus(
-  checklistItem: ChecklistItem,
+  checklistTask: ChecklistTask,
   experiment: ExperimentInterfaceStringDates
 ): boolean {
-  switch (checklistItem.statusKey) {
+  switch (checklistTask.propertyKey) {
     case "hypothesis":
       return !!experiment.hypothesis;
     case "screenshots":
@@ -94,7 +97,9 @@ export function StartExperimentBanner({
     ),
   });
 
-  const { data } = useApi("/experiments/launch-checklist");
+  const { data } = useApi<{ checklistObj: ExperimentLaunchChecklistInterface }>(
+    "/experiments/launch-checklist"
+  );
 
   type CheckListItem = {
     display: string | ReactElement;
@@ -231,15 +236,15 @@ export function StartExperimentBanner({
     status: hasPhases ? "success" : "error",
   });
 
-  if (data?.checklist && data?.checklist.checklistItems.length > 0) {
-    data?.checklist.checklistItems.forEach((item) => {
-      if (item.type === "manual") {
-        manualChecklist.push({ key: item.item, content: <>{item.item}</> });
+  if (data?.checklistObj && data?.checklistObj.checklist.length > 0) {
+    data?.checklistObj.checklist.forEach((item) => {
+      if (item.completionType === "manual") {
+        manualChecklist.push({ key: item.task, content: <>{item.task}</> });
       }
 
-      if (item.type === "auto" && item.statusKey) {
+      if (item.completionType === "auto" && item.propertyKey) {
         checklist.push({
-          display: item.item,
+          display: item.task,
           status: getChecklistItemStatus(item, experiment)
             ? "success"
             : "error",
