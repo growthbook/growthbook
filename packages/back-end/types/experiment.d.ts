@@ -151,7 +151,7 @@ export interface ExperimentInterface {
   sequentialTestingTuningParameter?: number;
   statsEngine?: StatsEngine;
   manualLaunchChecklist?: {
-    [key: string]: boolean;
+    [key: string]: "complete" | "incomplete";
   };
 }
 

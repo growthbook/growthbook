@@ -97,7 +97,7 @@ export function StartExperimentBanner({
     ),
   });
 
-  const { data } = useApi<{ checklistObj: ExperimentLaunchChecklistInterface }>(
+  const { data } = useApi<{ checklist: ExperimentLaunchChecklistInterface }>(
     "/experiments/launch-checklist"
   );
 
@@ -107,14 +107,14 @@ export function StartExperimentBanner({
     tooltip?: string | ReactElement;
     action?: ReactElement | null;
   };
-  const checklist: CheckListItem[] = [];
+  const tasks: CheckListItem[] = [];
 
   if (experiment.status !== "draft") return null;
 
   // At least one linked change
   const hasLinkedChanges =
     linkedFeatures.length > 0 || visualChangesets.length > 0;
-  checklist.push({
+  tasks.push({
     display: "Add at least one Linked Feature or Visual Editor change.",
     status: hasLinkedChanges ? "success" : "error",
     action:
@@ -139,7 +139,7 @@ export function StartExperimentBanner({
           (r) => !r.draft && r.environmentEnabled && r.rule.enabled !== false
         )
     );
-    checklist.push({
+    tasks.push({
       display: "Publish and enable all Linked Feature rules.",
       status: hasFeatureFlagsErrors ? "error" : "success",
       action: openSetupTab ? (
@@ -161,7 +161,7 @@ export function StartExperimentBanner({
     const hasSomeVisualChanges = visualChangesets.some((vc) =>
       hasVisualChanges(vc.visualChanges)
     );
-    checklist.push({
+    tasks.push({
       display: "Add changes in the Visual Editor.",
       status: hasSomeVisualChanges ? "success" : "error",
       action: openSetupTab ? (
@@ -192,7 +192,7 @@ export function StartExperimentBanner({
   const verifiedConnections = matchingConnections.filter(
     (connection) => connection.connected
   );
-  checklist.push({
+  tasks.push({
     display: "Integrate the GrowthBook SDK into your app.",
     action: (
       <Link href="/sdks">
@@ -219,7 +219,7 @@ export function StartExperimentBanner({
 
   // Experiment has phases
   const hasPhases = experiment.phases.length > 0;
-  checklist.push({
+  tasks.push({
     display: "Configure variation assignment and targeting behavior.",
     action: editTargeting ? (
       <a
@@ -236,14 +236,14 @@ export function StartExperimentBanner({
     status: hasPhases ? "success" : "error",
   });
 
-  if (data?.checklistObj && data?.checklistObj.checklist.length > 0) {
-    data?.checklistObj.checklist.forEach((item) => {
+  if (data?.checklist && data?.checklist.tasks.length > 0) {
+    data?.checklist.tasks.forEach((item) => {
       if (item.completionType === "manual") {
         manualChecklist.push({ key: item.task, content: <>{item.task}</> });
       }
 
       if (item.completionType === "auto" && item.propertyKey) {
-        checklist.push({
+        tasks.push({
           display: item.task,
           status: getChecklistItemStatus(item, experiment)
             ? "success"
@@ -278,8 +278,8 @@ export function StartExperimentBanner({
   }
 
   const allPassed =
-    !checklist.some((c) => c.status === "error") &&
-    !manualChecklist.some((c) => manualChecklistStatus[c.key] === false);
+    !tasks.some((c) => c.status === "error") &&
+    !manualChecklist.some((c) => manualChecklistStatus[c.key] === "incomplete");
 
   // Prompt them to start with an option to edit the targeting first
   return (
@@ -288,7 +288,7 @@ export function StartExperimentBanner({
         <div className="col-auto text-left">
           <h3 className="text-purple">Pre-launch Check List</h3>
           <ul style={{ fontSize: "1.1em" }} className="ml-0 pl-0">
-            {checklist.map((item, i) => (
+            {tasks.map((item, i) => (
               <li
                 key={i}
                 style={{
@@ -330,11 +330,11 @@ export function StartExperimentBanner({
                 <input
                   type="checkbox"
                   className="ml-0 pl-0"
-                  checked={!!manualChecklistStatus[item.key]}
+                  checked={manualChecklistStatus[item.key] === "complete"}
                   onChange={async (e) => {
                     setManualChecklistStatus((prevStatus) => ({
                       ...prevStatus,
-                      [item.key]: e.target.checked,
+                      [item.key]: e.target.checked ? "complete" : "incomplete",
                     }));
                     await apiCall(
                       `/experiments/${experiment.id}/launch-checklist`,
@@ -342,10 +342,11 @@ export function StartExperimentBanner({
                         method: "PUT",
                         body: JSON.stringify({
                           checklistKey: item.key,
-                          status: e.target.checked,
+                          status: e.target.checked ? "complete" : "incomplete",
                         }),
                       }
                     );
+                    mutateExperiment();
                   }}
                 />{" "}
                 {item.content}

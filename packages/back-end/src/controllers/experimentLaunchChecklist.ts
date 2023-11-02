@@ -13,12 +13,12 @@ import { getExperimentById, updateExperiment } from "../models/ExperimentModel";
 import { auditDetailsCreate } from "../services/audit";
 
 export async function postExperimentLaunchChecklist(
-  req: AuthRequest<{ checklist: ChecklistTask[] }>,
+  req: AuthRequest<{ tasks: ChecklistTask[] }>,
   res: Response
 ) {
   const { org } = getOrgFromReq(req);
 
-  const { checklist } = req.body;
+  const { tasks } = req.body;
 
   const userId = req.userId;
 
@@ -29,7 +29,6 @@ export async function postExperimentLaunchChecklist(
     });
   }
 
-  // Confirm that the user is a member of the organization
   if (!org.members.some((member) => member.id === userId)) {
     return res.status(403).json({
       status: 403,
@@ -39,7 +38,7 @@ export async function postExperimentLaunchChecklist(
 
   req.checkPermissions("organizationSettings");
 
-  await createExperimentLaunchChecklist(org.id, userId, checklist);
+  await createExperimentLaunchChecklist(org.id, userId, tasks);
 
   return res.status(201).json({});
 }
@@ -50,20 +49,20 @@ export async function getExperimentCheckListByOrg(
 ) {
   const { org } = getOrgFromReq(req);
 
-  const checklistObj = await getExperimentLaunchChecklistByOrgIg(org.id);
+  const checklist = await getExperimentLaunchChecklistByOrgIg(org.id);
 
   return res.status(200).json({
     status: 200,
-    checklistObj,
+    checklist,
   });
 }
 
 export async function putExperimentLaunchChecklist(
-  req: AuthRequest<{ checklist: ChecklistTask[]; id: string }>,
+  req: AuthRequest<{ tasks: ChecklistTask[]; id: string }>,
   res: Response
 ) {
   const { org } = getOrgFromReq(req);
-  const { id, checklist } = req.body;
+  const { id, tasks } = req.body;
 
   if (!id) {
     return res.status(400).json({
@@ -81,7 +80,6 @@ export async function putExperimentLaunchChecklist(
     });
   }
 
-  // Confirm that the user is a member of the organization
   if (!org.members.some((member) => member.id === userId)) {
     return res.status(403).json({
       status: 403,
@@ -91,7 +89,7 @@ export async function putExperimentLaunchChecklist(
 
   req.checkPermissions("organizationSettings");
 
-  await updateExperimentLaunchChecklist(org.id, userId, id, checklist);
+  await updateExperimentLaunchChecklist(org.id, userId, id, tasks);
 
   return res.status(200).json({
     status: 200,
@@ -99,7 +97,10 @@ export async function putExperimentLaunchChecklist(
 }
 
 export async function putLaunchChecklist(
-  req: AuthRequest<{ checklistKey: string; status: boolean }, { id: string }>,
+  req: AuthRequest<
+    { checklistKey: string; status: "complete" | "incomplete" },
+    { id: string }
+  >,
   res: Response
 ) {
   const { org } = getOrgFromReq(req);

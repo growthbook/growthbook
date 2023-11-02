@@ -12,11 +12,11 @@ const experimentLaunchChecklistSchema = new mongoose.Schema({
   dateCreated: Date,
   dateUpdated: Date,
   updatedByUserId: String,
-  checklistItems: [
+  tasks: [
     {
-      item: String,
-      type: { type: String, enum: ["manual", "auto"] },
-      statusKey: {
+      task: String,
+      completionType: { type: String, enum: ["manual", "auto"] },
+      propertyKey: {
         type: String,
         enum: ["description", "hypothesis", "project", "tag", "screenshots"],
       },
@@ -41,7 +41,7 @@ function toInterface(
 export async function createExperimentLaunchChecklist(
   organizationId: string,
   createdByUserId: string,
-  checklistItems: ChecklistTask[]
+  tasks: ChecklistTask[]
 ): Promise<ExperimentLaunchChecklistInterface> {
   const doc: ExperimentLaunchChecklistDocument = await ExperimentLaunchChecklistModel.create(
     {
@@ -51,7 +51,7 @@ export async function createExperimentLaunchChecklist(
       dateUpdated: new Date(),
       updatedByUserId: createdByUserId,
       createdByUserId,
-      checklistItems,
+      tasks,
     }
   );
 
@@ -74,7 +74,7 @@ export async function updateExperimentLaunchChecklist(
   organizationId: string,
   updatedByUserId: string,
   checklistId: string,
-  checklistItems: ChecklistTask[]
+  tasks: ChecklistTask[]
 ): Promise<ExperimentLaunchChecklistInterface | null> {
   const doc: ExperimentLaunchChecklistDocument | null = await ExperimentLaunchChecklistModel.findOneAndUpdate(
     {
@@ -84,7 +84,7 @@ export async function updateExperimentLaunchChecklist(
     {
       dateUpdated: new Date(),
       updatedByUserId,
-      checklistItems,
+      tasks,
     }
   );
 

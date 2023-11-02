@@ -105,28 +105,28 @@ function ChecklistItem({
 export default function ExperimentCheckListModal({
   close,
   mutate,
-  checklistObj,
+  checklist,
 }: {
   close: () => void;
   mutate: () => void;
-  checklistObj?: ExperimentLaunchChecklistInterface;
+  checklist?: ExperimentLaunchChecklistInterface;
 }) {
   const { apiCall } = useAuth();
   const [experimentLaunchChecklist, setExperimentLaunchChecklist] = useState<
     ChecklistTask[] | []
-  >(checklistObj?.checklist ? checklistObj.checklist : []);
+  >(checklist?.tasks ? checklist.tasks : []);
 
   async function handleSubmit() {
-    const checklist = experimentLaunchChecklist;
+    const tasks = experimentLaunchChecklist;
 
-    if (checklist[checklist.length - 1].task === "") {
-      checklist.pop();
+    if (tasks[tasks.length - 1].task === "") {
+      tasks.pop();
     }
     await apiCall(`/experiments/launch-checklist`, {
-      method: checklistObj?.id ? "PUT" : "POST",
+      method: checklist?.id ? "PUT" : "POST",
       body: JSON.stringify({
-        checklist,
-        id: checklistObj?.id,
+        tasks,
+        id: checklist?.id,
       }),
     });
     mutate();
@@ -137,7 +137,7 @@ export default function ExperimentCheckListModal({
       open={true}
       close={close}
       size="max"
-      header={`${checklistObj?.id ? "Edit" : "Add"} Pre-Launch Checklist`}
+      header={`${checklist?.id ? "Edit" : "Add"} Pre-Launch Checklist`}
       cta="Save"
       submit={() => handleSubmit()}
     >

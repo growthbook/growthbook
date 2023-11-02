@@ -273,7 +273,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
   const { metricDefaults } = useOrganizationMetricDefaults();
 
   const { data, mutate } = useApi<{
-    checklistObj: ExperimentLaunchChecklistInterface;
+    checklist: ExperimentLaunchChecklistInterface;
   }>("/experiments/launch-checklist");
 
   const [upgradeModal, setUpgradeModal] = useState(false);
@@ -542,7 +542,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
       {editChecklistOpen ? (
         <ExperimentCheckListModal
           close={() => setEditChecklistOpen(false)}
-          checklistObj={data?.checklistObj}
+          checklist={data?.checklist}
           mutate={mutate}
         />
       ) : null}
