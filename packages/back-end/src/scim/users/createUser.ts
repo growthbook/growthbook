@@ -13,17 +13,17 @@ import {
 } from "../../services/users";
 
 export function isRoleValid(role: MemberRole) {
-  const validRoles: MemberRole[] = [
-    "readonly",
-    "collaborator",
-    "designer",
-    "analyst",
-    "developer",
-    "engineer",
-    "experimenter",
-    "admin",
-  ];
-  return validRoles.includes(role);
+  const validRoles: Record<MemberRole, boolean> = {
+    readonly: true,
+    collaborator: true,
+    designer: true,
+    analyst: true,
+    developer: true,
+    engineer: true,
+    experimenter: true,
+    admin: true,
+  };
+  return validRoles[role] || false;
 }
 
 export async function createUser(
