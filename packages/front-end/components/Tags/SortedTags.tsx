@@ -66,10 +66,8 @@ export default function SortedTags({
 
   const renderTruncatedTags = () => {
     let truncatedTags = sorted;
-    if (sorted.length > showEllipsisAtIndex + 1) {
-      truncatedTags = shouldShowEllipsis
-        ? sorted.slice(0, showEllipsisAtIndex)
-        : sorted;
+    if (shouldShowEllipsis && sorted.length > showEllipsisAtIndex + 1) {
+      truncatedTags = sorted.slice(0, showEllipsisAtIndex);
     }
 
     const shouldRenderEllipsis =
