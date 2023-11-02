@@ -6,6 +6,8 @@ import { stringToBoolean } from "shared/util";
 export const ENVIRONMENT = process.env.NODE_ENV;
 const prod = ENVIRONMENT === "production";
 
+export const LOG_LEVEL = process.env.LOG_LEVEL;
+
 if (fs.existsSync(".env.local")) {
   dotenv.config({ path: ".env.local" });
 }
@@ -140,6 +142,16 @@ export const QUERY_CACHE_TTL_MINS =
 // When importing past experiments, limit to this number of days:
 export const IMPORT_LIMIT_DAYS =
   parseInt(process.env?.IMPORT_LIMIT_DAYS || "") || 365;
+
+// cache control currently feature only /api/features/*
+export const CACHE_CONTROL_MAX_AGE =
+  parseInt(process.env?.CACHE_CONTROL_MAX_AGE || "") || 30;
+export const CACHE_CONTROL_STALE_WHILE_REVALIDATE =
+  parseInt(process.env?.CACHE_CONTROL_STALE_WHILE_REVALIDATE || "") || 3600;
+export const CACHE_CONTROL_STALE_IF_ERROR =
+  parseInt(process.env?.CACHE_CONTROL_STALE_IF_ERROR || "") || 36000;
+
+// update Feature every
 
 export const CRON_ENABLED = !stringToBoolean(process.env.CRON_DISABLED);
 

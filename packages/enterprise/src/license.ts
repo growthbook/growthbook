@@ -22,7 +22,8 @@ export type CommercialFeature =
   | "livechat"
   | "json-validation"
   | "remote-evaluation"
-  | "multi-org";
+  | "multi-org"
+  | "teams";
 export type CommercialFeaturesMap = Record<AccountPlan, Set<CommercialFeature>>;
 
 export type LicenseData = {
@@ -102,6 +103,7 @@ export const accountFeatures: CommercialFeaturesMap = {
     "livechat",
     "remote-evaluation",
     "multi-org",
+    "teams",
   ]),
 };
 

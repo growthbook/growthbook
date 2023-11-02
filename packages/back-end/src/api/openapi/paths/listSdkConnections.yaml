@@ -10,6 +10,10 @@ get:
     in: query
     schema:
       type: string
+  - name: multiOrg
+    in: query
+    schema:
+      type: string
   operationId: listSdkConnections
   x-codeSamples:
     - lang: 'cURL'
