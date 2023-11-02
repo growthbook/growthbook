@@ -15,7 +15,7 @@ export default function SortedTags({
   shouldShowEllipsis = true,
   skipFirstMargin = false,
   useFlex = false,
-  showEllipsisAtIndex = 6,
+  showEllipsisAtIndex = 5,
 }: Props) {
   const { tags: all } = useDefinitions();
   //index starting at 0
@@ -30,7 +30,7 @@ export default function SortedTags({
 
   const renderEllipsis = () => {
     const tags = sorted.slice(showEllipsisAtIndex);
-    const tagCopy = `${tags.length} more tags...`;
+    const tagCopy = `${tags.length} more tag${tags.length === 1 ? "" : "s"}...`;
     const tagElements = renderTags(tags);
     return (
       <Tooltip
@@ -65,9 +65,13 @@ export default function SortedTags({
   };
 
   const renderTruncatedTags = () => {
-    const truncatedTags = shouldShowEllipsis
-      ? sorted.slice(0, showEllipsisAtIndex - 1)
-      : sorted;
+    let truncatedTags = sorted;
+    if (sorted.length > showEllipsisAtIndex + 1) {
+      truncatedTags = shouldShowEllipsis
+        ? sorted.slice(0, showEllipsisAtIndex)
+        : sorted;
+    }
+
     const shouldRenderEllipsis =
       shouldShowEllipsis && truncatedTags.length < sorted.length;
     return renderFlexContainer(
