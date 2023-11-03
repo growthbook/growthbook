@@ -243,6 +243,7 @@ export async function getExperimentsByIds(
   organization: string,
   ids: string[]
 ): Promise<ExperimentInterface[]> {
+  if (!ids.length) return [];
   return await findExperiments({
     id: { $in: ids },
     organization,

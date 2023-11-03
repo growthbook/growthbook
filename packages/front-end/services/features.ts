@@ -16,10 +16,7 @@ import {
   RolloutRule,
 } from "back-end/types/feature";
 import stringify from "json-stringify-pretty-compact";
-import {
-  ExperimentInterface,
-  ExperimentInterfaceStringDates,
-} from "back-end/types/experiment";
+import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { FeatureUsageRecords } from "back-end/types/realtime";
 import cloneDeep from "lodash/cloneDeep";
 import { generateVariationId, validateFeatureValue } from "shared/util";
@@ -166,7 +163,7 @@ export function useFeaturesList(withProject = true) {
 
   const { data, error, mutate } = useApi<{
     features: FeatureInterface[];
-    linkedExperiments: ExperimentInterface[];
+    linkedExperiments: ExperimentInterfaceStringDates[];
   }>(url);
 
   return {

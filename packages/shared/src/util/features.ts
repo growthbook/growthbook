@@ -3,7 +3,9 @@ import { subWeeks } from "date-fns";
 import dJSON from "dirty-json";
 import stringify from "json-stringify-pretty-compact";
 import { FeatureInterface } from "back-end/types/feature";
-import { ExperimentInterface } from "back-end/types/experiment";
+import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { getValidDate } from "../dates";
+import { includeExperimentInPayload } from ".";
 
 export function getValidation(feature: FeatureInterface) {
   try {
@@ -120,14 +122,13 @@ export function validateFeatureValue(
 type StaleFeatureReason =
   | "error"
   | "draft-state"
-  | "no-active-envs"
   | "no-rules"
   | "no-active-exps"
   | "all-exps-onesided";
 
 export function isFeatureStale(
   feature: FeatureInterface,
-  linkedExperiments: ExperimentInterface[] | undefined = []
+  linkedExperiments: ExperimentInterfaceStringDates[] | undefined = []
 ): { stale: boolean; reason?: StaleFeatureReason } {
   if (feature.linkedExperiments?.length && !linkedExperiments.length) {
     // eslint-disable-next-line no-console
@@ -136,34 +137,28 @@ export function isFeatureStale(
   }
 
   const twoWeeksAgo = subWeeks(new Date(), 2);
-  // TODO why is dateUpdated a string?
-  const stale = new Date(feature.dateUpdated) < twoWeeksAgo;
+  const dateUpdated = getValidDate(feature.dateUpdated);
+  const stale = dateUpdated < twoWeeksAgo;
 
   if (!stale) return { stale };
 
-  if (feature.draft) return { stale, reason: "draft-state" };
+  const isDraftStale =
+    feature.draft && getValidDate(feature.draft.dateUpdated) < twoWeeksAgo;
+  if (isDraftStale) return { stale: isDraftStale, reason: "draft-state" };
 
   const envSettings = Object.values(feature.environmentSettings ?? {});
 
-  const noneEnabled = !envSettings.some((e) => e.enabled);
-  if (noneEnabled) return { stale, reason: "no-active-envs" };
-
-  const rules = envSettings.map((e) => e.rules).flat();
+  const enabledEnvs = envSettings.filter((e) => e.enabled);
+  const rules = enabledEnvs.map((e) => e.rules).flat();
 
   if (rules.length === 0) return { stale, reason: "no-rules" };
 
   // TODO check if there are 'active' rules and return early if os
 
-  const noExpsActive = !linkedExperiments.some((e) => e.status === "running");
+  const noExpsActive =
+    !!linkedExperiments.length &&
+    !linkedExperiments.some((e) => includeExperimentInPayload(e));
   if (noExpsActive) return { stale, reason: "no-active-exps" };
-
-  const allExpsOneSided = linkedExperiments.every((e) => {
-    const latestPhase = e.phases.slice(-1)?.[0];
-    if (!latestPhase) return false;
-    return latestPhase.variationWeights.includes(1);
-  });
-
-  if (allExpsOneSided) return { stale, reason: "all-exps-onesided" };
 
   return { stale: false };
 }

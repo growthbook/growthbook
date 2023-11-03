@@ -1,4 +1,4 @@
-import { ExperimentInterface } from "back-end/types/experiment";
+import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { FeatureInterface, ExperimentRefRule } from "back-end/types/feature";
 
 import { subWeeks } from "date-fns";
@@ -8,7 +8,7 @@ const genMockExperiment = ({
   id,
   status,
   ...rest
-}: Partial<ExperimentInterface>): ExperimentInterface => ({
+}: Partial<ExperimentInterfaceStringDates>): ExperimentInterfaceStringDates => ({
   id: id || "exp_123",
   status: status || "running",
   trackingKey: "",
@@ -20,8 +20,8 @@ const genMockExperiment = ({
   hashAttribute: "id",
   hashVersion: 2,
   name: "test",
-  dateCreated: new Date(),
-  dateUpdated: new Date(),
+  dateCreated: new Date().toISOString(),
+  dateUpdated: new Date().toISOString(),
   tags: [],
   metrics: [],
   autoAssign: false,
@@ -65,11 +65,25 @@ describe("isFeatureStale", () => {
       dateCreated: new Date("2020-04-20"),
       dateUpdated: new Date("2020-04-20"),
       defaultValue: "true",
-      environmentSettings: {},
+      environmentSettings: {
+        dev: {
+          enabled: true,
+          rules: [
+            {
+              description: "test",
+              type: "force",
+              id: "123",
+              value: "123",
+            },
+          ],
+        },
+        production: { enabled: true, rules: [] },
+      },
       id: "feature-123",
       organization: "123",
       owner: "adnan",
       valueType: "boolean",
+      linkedExperiments: [],
     };
   });
   describe("if the feature is in a draft state", () => {
@@ -79,15 +93,15 @@ describe("isFeatureStale", () => {
         ...feature,
       };
     });
-    describe("and has been updated within past two weeks", () => {
+    describe("and draft has been updated within past two weeks", () => {
       it("is not stale", () => {
-        feature.dateUpdated = subWeeks(new Date(), 1);
+        feature.draft.dateUpdated = subWeeks(new Date(), 1);
         expect(isFeatureStale(feature)).toEqual({ stale: false });
       });
     });
-    describe("and has not been updated within past two weeks", () => {
+    describe("and draft has not been updated within past two weeks", () => {
       it("is stale", () => {
-        feature.dateUpdated = subWeeks(new Date(), 3);
+        feature.draft.dateUpdated = subWeeks(new Date(), 3);
         expect(isFeatureStale(feature)).toEqual({
           stale: true,
           reason: "draft-state",
@@ -126,7 +140,7 @@ describe("isFeatureStale", () => {
         feature.dateUpdated = subWeeks(new Date(), 3);
         expect(isFeatureStale(feature)).toEqual({
           stale: true,
-          reason: "no-active-envs",
+          reason: "no-rules",
         });
       });
     });
@@ -172,7 +186,7 @@ describe("isFeatureStale", () => {
     });
 
     describe("if all linked experiments are inactive (either draft or stopped)", () => {
-      let experiments: ExperimentInterface[];
+      let experiments: ExperimentInterfaceStringDates[];
       beforeEach(() => {
         experiments = [
           genMockExperiment({ id: "exp_1", status: "draft" }),
@@ -217,257 +231,5 @@ describe("isFeatureStale", () => {
         });
       });
     });
-
-    describe("if all linked experiments are routing 100% to a single variation", () => {
-      let experiments: ExperimentInterface[];
-      beforeEach(() => {
-        experiments = [
-          genMockExperiment({
-            id: "exp_1",
-            status: "running",
-            variations: [
-              {
-                id: "var-01",
-                name: "var-01",
-                key: "var-01",
-                screenshots: [],
-              },
-              {
-                id: "var-02",
-                name: "var-02",
-                key: "var-02",
-                screenshots: [],
-              },
-              {
-                id: "var-03",
-                name: "var-03",
-                key: "var-03",
-                screenshots: [],
-              },
-            ],
-            phases: [
-              {
-                dateStarted: new Date(),
-                name: "",
-                reason: "",
-                coverage: 1,
-                condition: "",
-                namespace: {
-                  enabled: false,
-                  name: "",
-                  range: [0, 1],
-                },
-                variationWeights: [0, 0, 1],
-              },
-            ],
-          }),
-          genMockExperiment({
-            id: "exp_2",
-            status: "running",
-            variations: [
-              {
-                id: "var-01",
-                name: "var-01",
-                key: "var-01",
-                screenshots: [],
-              },
-              {
-                id: "var-02",
-                name: "var-02",
-                key: "var-02",
-                screenshots: [],
-              },
-              {
-                id: "var-03",
-                name: "var-03",
-                key: "var-03",
-                screenshots: [],
-              },
-            ],
-            phases: [
-              {
-                dateStarted: new Date(),
-                name: "",
-                reason: "",
-                coverage: 1,
-                condition: "",
-                namespace: {
-                  enabled: false,
-                  name: "",
-                  range: [0, 1],
-                },
-                variationWeights: [0, 1],
-              },
-            ],
-          }),
-        ];
-
-        feature.linkedExperiments = experiments.map((e) => e.id);
-
-        feature.environmentSettings = {
-          dev: {
-            enabled: true,
-            rules: experiments.map((e) =>
-              genExperimentRef({
-                experimentId: e.id,
-              })
-            ),
-          },
-          prod: {
-            enabled: true,
-            rules: experiments.map((e) =>
-              genExperimentRef({
-                experimentId: e.id,
-              })
-            ),
-          },
-        };
-      });
-      describe("and has been updated within past two weeks", () => {
-        it("is not stale", () => {
-          feature.dateUpdated = subWeeks(new Date(), 1);
-          expect(isFeatureStale(feature, experiments)).toEqual({
-            stale: false,
-          });
-        });
-      });
-      describe("and has not been updated within past two weeks", () => {
-        it("is stale", () => {
-          feature.dateUpdated = subWeeks(new Date(), 3);
-          expect(isFeatureStale(feature, experiments)).toEqual({
-            stale: true,
-            reason: "all-exps-onesided",
-          });
-        });
-      });
-    });
-
-    describe("if all linked experiments are NOT routing 100% to a single variation", () => {
-      let experiments: ExperimentInterface[];
-      beforeEach(() => {
-        experiments = [
-          genMockExperiment({
-            id: "exp_1",
-            status: "running",
-            variations: [
-              {
-                id: "var-01",
-                name: "var-01",
-                key: "var-01",
-                screenshots: [],
-              },
-              {
-                id: "var-02",
-                name: "var-02",
-                key: "var-02",
-                screenshots: [],
-              },
-              {
-                id: "var-03",
-                name: "var-03",
-                key: "var-03",
-                screenshots: [],
-              },
-            ],
-            phases: [
-              {
-                dateStarted: new Date(),
-                name: "",
-                reason: "",
-                coverage: 1,
-                condition: "",
-                namespace: {
-                  enabled: false,
-                  name: "",
-                  range: [0, 1],
-                },
-                variationWeights: [0, 0, 1],
-              },
-            ],
-          }),
-          genMockExperiment({
-            id: "exp_2",
-            status: "running",
-            variations: [
-              {
-                id: "var-01",
-                name: "var-01",
-                key: "var-01",
-                screenshots: [],
-              },
-              {
-                id: "var-02",
-                name: "var-02",
-                key: "var-02",
-                screenshots: [],
-              },
-              {
-                id: "var-03",
-                name: "var-03",
-                key: "var-03",
-                screenshots: [],
-              },
-            ],
-            phases: [
-              {
-                dateStarted: new Date(),
-                name: "",
-                reason: "",
-                coverage: 1,
-                condition: "",
-                namespace: {
-                  enabled: false,
-                  name: "",
-                  range: [0, 1],
-                },
-                variationWeights: [0.3, 7],
-              },
-            ],
-          }),
-        ];
-
-        feature.linkedExperiments = experiments.map((e) => e.id);
-
-        feature.environmentSettings = {
-          dev: {
-            enabled: true,
-            rules: experiments.map((e) =>
-              genExperimentRef({
-                experimentId: e.id,
-              })
-            ),
-          },
-          prod: {
-            enabled: true,
-            rules: experiments.map((e) =>
-              genExperimentRef({
-                experimentId: e.id,
-              })
-            ),
-          },
-        };
-      });
-      describe("and has been updated within past two weeks", () => {
-        it("is not stale", () => {
-          feature.dateUpdated = subWeeks(new Date(), 1);
-          expect(isFeatureStale(feature, experiments)).toEqual({
-            stale: false,
-          });
-        });
-      });
-      describe("and has not been updated within past two weeks", () => {
-        it("is not stale", () => {
-          feature.dateUpdated = subWeeks(new Date(), 3);
-          expect(isFeatureStale(feature, experiments)).toEqual({
-            stale: false,
-          });
-        });
-      });
-    });
   });
-
-  // TODO
-  // describe("when includeExperimentInPayload returns true", () => {
-  //   it("should never be stale", () => {});
-  // });
 });
