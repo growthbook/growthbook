@@ -39,6 +39,7 @@ import {
   deleteSnapshotById,
   findSnapshotById,
   getLatestSnapshot,
+  updateSnapshot,
   updateSnapshotsOnPhaseDelete,
 } from "../models/ExperimentSnapshotModel";
 import {
@@ -1978,13 +1979,15 @@ export async function postSnapshotAnalysis(
     return;
   }
 
-  const metricMap = await getMetricMap(org.id);
-
   if (snapshot.settings.coverage === undefined) {
     const latestPhase = experiment.phases.length - 1;
     snapshot.settings.coverage =
       experiment.phases[phaseIndex ?? latestPhase].coverage;
+    // JIT migrate snapshots to have
+    await updateSnapshot(org.id, id, { settings: snapshot.settings });
   }
+
+  const metricMap = await getMetricMap(org.id);
 
   try {
     await createSnapshotAnalysis({

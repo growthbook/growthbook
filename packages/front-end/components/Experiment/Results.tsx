@@ -191,7 +191,7 @@ const Results: FC<{
           baselineRow={baselineRow}
           setBaselineRow={(b: number) => setBaselineRow?.(b)}
           differenceType={differenceType}
-          setDifferenceType={(d: DifferenceType) => setDifferenceType?.(d)}
+          setDifferenceType={setDifferenceType}
         />
       ) : (
         <StatusBanner
