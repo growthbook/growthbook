@@ -228,7 +228,7 @@ export default function ResultsTab({
             setVariationFilter={(v: number[]) => setVariationFilter(v)}
             baselineRow={baselineRow}
             setBaselineRow={(b: number) => setBaselineRow(b)}
-            setDifferenceType={(d: DifferenceType) => setDifferenceType(d)}
+            setDifferenceType={setDifferenceType}
           />
           {experiment.status === "draft" ? (
             <div className="mx-3">

@@ -45,7 +45,7 @@ export interface Props {
   setVariationFilter?: (variationFilter: number[]) => void;
   baselineRow?: number;
   setBaselineRow?: (baselineRow: number) => void;
-  setDifferenceType?: (differenceType: DifferenceType) => void;
+  setDifferenceType: (differenceType: DifferenceType) => void;
 }
 
 export default function AnalysisSettingsSummary({
@@ -388,7 +388,7 @@ export default function AnalysisSettingsSummary({
                         setBaselineRow?.(0);
                         setVariationFilter?.([]);
                       }
-                      setDifferenceType?.("relative");
+                      setDifferenceType("relative");
                     }}
                     newUi={true}
                   />
@@ -410,7 +410,7 @@ export default function AnalysisSettingsSummary({
                       setBaselineRow?.(0);
                       setVariationFilter?.([]);
                     }
-                    setDifferenceType?.("relative");
+                    setDifferenceType("relative");
                   }}
                   newUi={true}
                 />
