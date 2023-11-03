@@ -59,8 +59,9 @@ const TeamPage: FC = () => {
               </button>
             </div>
           </div>
-          {hasTeamsFeature && <TeamsList />}
-          {!hasTeamsFeature && (
+          {hasTeamsFeature ? (
+            <TeamsList />
+          ) : (
             <div className="alert alert-warning">
               Teams are only available on the Enterprise plan. Email
               sales@growthbook.io for more information and to set up a call.
