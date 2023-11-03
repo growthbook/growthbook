@@ -171,22 +171,32 @@ export function autoMerge(
   revision: RulesAndValues,
   strategies: Record<string, MergeStrategy>
 ): AutoMergeResult {
-  // If the base and feature have not diverged, no need to merge anything
-  if (live.version === base.version) {
-    return {
-      success: true,
-      result: {
-        defaultValue: revision.defaultValue,
-        rules: revision.rules,
-      },
-      conflicts: [],
-    };
-  }
-
   const result: {
     defaultValue?: string;
     rules?: Record<string, FeatureRule[]>;
   } = {};
+
+  // If the base and feature have not diverged, no need to merge anything
+  if (live.version === base.version) {
+    // Only add changes to result if it's different from the base
+    if (revision.defaultValue !== base.defaultValue) {
+      result.defaultValue = revision.defaultValue;
+    }
+
+    Object.entries(revision.rules).forEach(([env, rules]) => {
+      if (isEqual(rules, base.rules[env])) {
+        return;
+      }
+      result.rules = result.rules || {};
+      result.rules[env] = rules;
+    });
+
+    return {
+      success: true,
+      result,
+      conflicts: [],
+    };
+  }
 
   const conflicts: MergeConflict[] = [];
 
