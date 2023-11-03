@@ -63,7 +63,7 @@ const autoChecklistOptions: AutoChecklistOptions[] = [
 
 type SortableProps = {
   id: string;
-  experimentLaunchChecklist: ChecklistTask[] | [];
+  experimentLaunchChecklist: ChecklistTask[];
   setExperimentLaunchChecklist: (checklist: ChecklistTask[] | []) => void;
   value: string;
   propertyKey?:
