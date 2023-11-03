@@ -26,6 +26,7 @@ const teamSchema = new mongoose.Schema({
       environments: [String],
     },
   ],
+  managedByIdp: Boolean,
 });
 
 type TeamDocument = mongoose.Document & TeamInterface;

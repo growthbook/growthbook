@@ -238,8 +238,6 @@ export async function refreshSDKPayloadCache(
       ? allVisualExperiments.filter((e) => e.experiment.project === key.project)
       : allVisualExperiments;
 
-    if (!projectFeatures.length && !projectExperiments.length) continue;
-
     const featureDefinitions = generatePayload({
       features: projectFeatures,
       environment: key.environment,
