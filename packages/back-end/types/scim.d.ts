@@ -19,11 +19,16 @@ export interface ScimUser {
   externalId?: string;
 }
 
+export interface ScimGroupMember {
+  value: string; // User ID
+  display: string; // Username
+}
+
 export interface ScimGroup {
   schemas: ["urn:ietf:params:scim:schemas:core:2.0:Group"];
   id: string;
   displayName: string;
-  members: { value: string; display: string }[];
+  members: ScimGroupMember[];
   meta: {
     resourceType: "Group";
   };
@@ -74,11 +79,31 @@ type ScimOperation = {
   };
 };
 
+export interface BasicScimGroup {
+  id: string;
+  displayName: string;
+}
+
+type ScimGroupOperation = {
+  op: "add" | "remove" | "replace";
+  path?: string; // Path is optional for add & replace, and required for remove operations
+  value: ScimGroupMember[] | BasicScimGroup;
+};
+
 export interface ScimPatchRequest extends BaseScimRequest {
   params: {
     id: string;
   };
   body: {
     Operations: ScimOperation[];
+  };
+}
+
+export interface ScimGroupPatchRequest extends BaseScimRequest {
+  params: {
+    id: string;
+  };
+  body: {
+    Operations: ScimGroupOperation[];
   };
 }
