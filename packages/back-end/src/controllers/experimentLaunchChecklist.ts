@@ -96,9 +96,9 @@ export async function putExperimentLaunchChecklist(
   });
 }
 
-export async function putLaunchChecklist(
+export async function putManualLaunchChecklist(
   req: AuthRequest<
-    { checklistKey: string; status: "complete" | "incomplete" },
+    { checklist: { key: string; status: "complete" | "incomplete" }[] },
     { id: string }
   >,
   res: Response
@@ -106,7 +106,7 @@ export async function putLaunchChecklist(
   const { org } = getOrgFromReq(req);
 
   const { id } = req.params;
-  const { checklistKey, status } = req.body;
+  const { checklist } = req.body;
 
   const experiment = await getExperimentById(org.id, id);
 
@@ -120,13 +120,7 @@ export async function putLaunchChecklist(
 
   const updatedExperiment = cloneDeep(experiment);
 
-  if (updatedExperiment.manualLaunchChecklist) {
-    updatedExperiment.manualLaunchChecklist[checklistKey] = status;
-  } else {
-    updatedExperiment.manualLaunchChecklist = {
-      [checklistKey]: status,
-    };
-  }
+  updatedExperiment.manualLaunchChecklist = checklist;
 
   await updateExperiment({
     organization: org,
@@ -142,8 +136,7 @@ export async function putLaunchChecklist(
       id: experiment.id,
     },
     details: auditDetailsCreate({
-      checklistKey,
-      status,
+      checklist,
     }),
   });
 

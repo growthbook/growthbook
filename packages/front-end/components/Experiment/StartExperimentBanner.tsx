@@ -73,9 +73,8 @@ export function StartExperimentBanner({
 }) {
   const { apiCall } = useAuth();
   const [manualChecklistStatus, setManualChecklistStatus] = useState(
-    experiment.manualLaunchChecklist || {}
+    experiment.manualLaunchChecklist || []
   );
-
   const manualChecklist: ManualChecklist[] = [];
 
   manualChecklist.push({
@@ -281,6 +280,18 @@ export function StartExperimentBanner({
     !tasks.some((c) => c.status === "error") &&
     !manualChecklist.some((c) => manualChecklistStatus[c.key] === "incomplete");
 
+  const isCompleted = (currentTask: string) => {
+    const index = manualChecklistStatus.findIndex(
+      (task) => task.key === currentTask
+    );
+
+    if (index === -1 || !manualChecklistStatus[index]) {
+      return false;
+    }
+
+    return manualChecklistStatus[index].status === "complete";
+  };
+
   // Prompt them to start with an option to edit the targeting first
   return (
     <div className={className ?? `appbox p-4 my-4`}>
@@ -330,19 +341,42 @@ export function StartExperimentBanner({
                 <input
                   type="checkbox"
                   className="ml-0 pl-0"
-                  checked={manualChecklistStatus[item.key] === "complete"}
+                  checked={isCompleted(item.key)}
                   onChange={async (e) => {
-                    setManualChecklistStatus((prevStatus) => ({
-                      ...prevStatus,
-                      [item.key]: e.target.checked ? "complete" : "incomplete",
-                    }));
+                    const updatedManualChecklistStatus = Array.isArray(
+                      manualChecklistStatus
+                    )
+                      ? [...manualChecklistStatus]
+                      : [];
+
+                    if (!updatedManualChecklistStatus.length) {
+                      updatedManualChecklistStatus.push({
+                        key: item.key,
+                        status: e.target.checked ? "complete" : "incomplete",
+                      });
+                    } else {
+                      const index = updatedManualChecklistStatus.findIndex(
+                        (task) => task.key === item.key
+                      );
+                      if (index === -1) {
+                        updatedManualChecklistStatus.push({
+                          key: item.key,
+                          status: e.target.checked ? "complete" : "incomplete",
+                        });
+                      } else {
+                        updatedManualChecklistStatus[index] = {
+                          key: item.key,
+                          status: e.target.checked ? "complete" : "incomplete",
+                        };
+                      }
+                    }
+                    setManualChecklistStatus(updatedManualChecklistStatus);
                     await apiCall(
                       `/experiments/${experiment.id}/launch-checklist`,
                       {
                         method: "PUT",
                         body: JSON.stringify({
-                          checklistKey: item.key,
-                          status: e.target.checked ? "complete" : "incomplete",
+                          checklist: updatedManualChecklistStatus,
                         }),
                       }
                     );
