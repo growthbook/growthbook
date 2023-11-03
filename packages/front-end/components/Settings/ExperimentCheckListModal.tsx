@@ -193,7 +193,7 @@ export default function ExperimentCheckListModal({
   const { apiCall } = useAuth();
   const [activeItem, setActiveItem] = useState<string>("");
   const [experimentLaunchChecklist, setExperimentLaunchChecklist] = useState<
-    ChecklistTask[] | []
+    ChecklistTask[]
   >(
     checklist?.tasks
       ? checklist.tasks
