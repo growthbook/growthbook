@@ -62,6 +62,7 @@ const autoChecklistOptions: AutoChecklistOptions[] = [
 ];
 
 type SortableProps = {
+  id: string;
   experimentLaunchChecklist: ChecklistTask[] | [];
   setExperimentLaunchChecklist: (checklist: ChecklistTask[] | []) => void;
   value: string;
@@ -154,7 +155,7 @@ export const ChecklistItem = forwardRef<HTMLDivElement, TaskProps>(
   }
 );
 
-function SortableChecklistItem(props: any) {
+function SortableChecklistItem(props: SortableProps) {
   const {
     attributes,
     listeners,
@@ -299,6 +300,7 @@ export default function ExperimentCheckListModal({
             <DragOverlay>
               {activeTask ? (
                 <ChecklistItem
+                  id={activeItem}
                   key={getTaskIndex(activeItem)}
                   value={activeItem}
                   propertyKey={

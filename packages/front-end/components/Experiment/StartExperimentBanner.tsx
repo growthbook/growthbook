@@ -276,10 +276,6 @@ export function StartExperimentBanner({
     onStart && onStart();
   }
 
-  const allPassed =
-    !tasks.some((c) => c.status === "error") &&
-    !manualChecklist.some((c) => manualChecklistStatus[c.key] === "incomplete");
-
   const isCompleted = (currentTask: string) => {
     const index = manualChecklistStatus.findIndex(
       (task) => task.key === currentTask
@@ -292,7 +288,10 @@ export function StartExperimentBanner({
     return manualChecklistStatus[index].status === "complete";
   };
 
-  // Prompt them to start with an option to edit the targeting first
+  const allPassed =
+    !tasks.some((c) => c.status === "error") &&
+    manualChecklist.every((task) => isCompleted(task.key));
+
   return (
     <div className={className ?? `appbox p-4 my-4`}>
       <div className="row">
