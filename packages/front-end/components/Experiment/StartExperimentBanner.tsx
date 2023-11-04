@@ -74,9 +74,7 @@ export function StartExperimentBanner({
   if (linkedFeatures.length > 0) {
     const hasFeatureFlagsErrors = linkedFeatures.some(
       (f) =>
-        !f.rules.some(
-          (r) => !r.draft && r.environmentEnabled && r.rule.enabled !== false
-        )
+        !f.rules.some((r) => r.environmentEnabled && r.rule.enabled !== false)
     );
     checklist.push({
       display: "Publish and enable all Linked Feature rules.",

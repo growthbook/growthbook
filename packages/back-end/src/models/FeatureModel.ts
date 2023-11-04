@@ -438,7 +438,6 @@ export async function updateFeature(
   // Refresh linkedExperiments if needed
   const linkedExperiments = getLinkedExperiments(updatedFeature);
   const experimentsAdded = new Set<string>();
-  const experimentsRemoved = new Set<string>();
   if (!isEqual(linkedExperiments, feature.linkedExperiments)) {
     allUpdates.linkedExperiments = linkedExperiments;
     updatedFeature.linkedExperiments = linkedExperiments;
@@ -447,12 +446,6 @@ export async function updateFeature(
     linkedExperiments.forEach((exp) => {
       if (!feature.linkedExperiments?.includes(exp)) {
         experimentsAdded.add(exp);
-      }
-    });
-    // Experiments this feature was removed from
-    feature.linkedExperiments?.forEach((exp) => {
-      if (!linkedExperiments.includes(exp)) {
-        experimentsRemoved.add(exp);
       }
     });
   }
@@ -468,13 +461,6 @@ export async function updateFeature(
     await Promise.all(
       [...experimentsAdded].map(async (exp) => {
         await addLinkedFeatureToExperiment(org, user, exp, feature.id);
-      })
-    );
-  }
-  if (experimentsRemoved.size > 0) {
-    await Promise.all(
-      [...experimentsRemoved].map(async (exp) => {
-        await removeLinkedFeatureFromExperiment(org, user, exp, feature.id);
       })
     );
   }
@@ -840,8 +826,12 @@ export async function publishRevision(
 }
 
 function getLinkedExperiments(feature: FeatureInterface) {
-  const expIds: Set<string> = new Set();
-  // Published rules
+  // Always start from the list of existing linked experiments
+  // Even if an experiment is removed from a feature, there should still be a link
+  // Otherwise, viewing a past revision of a feature will be broken
+  const expIds: Set<string> = new Set(feature.linkedExperiments || []);
+
+  // Add any missing one from the published rules
   if (feature.environmentSettings) {
     Object.values(feature.environmentSettings).forEach((env) => {
       env.rules?.forEach((rule) => {

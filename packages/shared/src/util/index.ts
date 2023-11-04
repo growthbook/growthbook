@@ -119,7 +119,6 @@ export function includeExperimentInPayload(
         Object.keys(feature.environmentSettings)
       );
       return rules.some((r) => {
-        if (r.draft) return false;
         if (!r.environmentEnabled) return false;
         if (r.rule.enabled === false) return false;
         return true;
@@ -140,7 +139,6 @@ export const hasVisualChanges = (visualChanges: VisualChange[]) =>
 export type MatchingRule = {
   environmentId: string;
   i: number;
-  draft: boolean;
   environmentEnabled: boolean;
   rule: FeatureRule;
 };
@@ -161,7 +159,6 @@ export function getMatchingRules(
               matches.push({
                 rule,
                 i,
-                draft: false,
                 environmentEnabled: settings.enabled,
                 environmentId,
               });

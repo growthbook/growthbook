@@ -49,10 +49,9 @@ export default function LinkedFeatureFlag({
   const { apiCall } = useAuth();
 
   const activeRules = rules.filter(({ rule }) => rule.enabled);
-  const liveRules = activeRules.filter(({ draft }) => !draft);
 
-  // If all matching rules are drafts, it is unpublished
-  const unpublished = !rules.some((r) => !r.draft);
+  // If there are no published matching rules, it must be linked via a draft or old revision
+  const unpublished = !rules.length;
 
   const uniqueValueMappings = new Set(
     rules.map(({ rule }) => JSON.stringify(getValues(rule, experiment)))
@@ -62,27 +61,24 @@ export default function LinkedFeatureFlag({
   const isLegacy = rules.some((r) => r.rule.type === "experiment");
 
   const environmentInfo = environments.map((env) => {
-    // First, prefer showing a live rule, then draft, then disabled
+    // First, prefer showing a live rule, then disabled/unpublished
     const firstMatch =
-      liveRules.find(({ environmentId }) => environmentId === env.id) ||
       activeRules.find(({ environmentId }) => environmentId === env.id) ||
       rules.find(({ environmentId }) => environmentId === env.id);
 
     // Differentiate between enabled, different ways it can be disabled, and missing
     const state = !firstMatch
-      ? "missing"
+      ? "unpublished"
       : !firstMatch.environmentEnabled
       ? "disabledEnvironment"
       : !firstMatch.rule.enabled
       ? "disabledRule"
-      : firstMatch.draft
-      ? "draft"
       : "active";
 
     return {
       id: env.id,
       color:
-        state === "missing"
+        state === "unpublished"
           ? "secondary"
           : state === "active"
           ? "primary"
@@ -95,9 +91,7 @@ export default function LinkedFeatureFlag({
           ? "The environment is disabled for this feature, so the experiment is not active"
           : state === "disabledRule"
           ? "The experiment is disabled in this environment and is not active"
-          : state === "draft"
-          ? "The experiment rule is still a draft and has not been published yet"
-          : "The experiment does not exist in this environment",
+          : "The experiment is not published in this environment",
     };
   });
 
@@ -162,7 +156,9 @@ export default function LinkedFeatureFlag({
           ))}
         </div>
 
-        <div className="font-weight-bold mb-2">Feature values</div>
+        {firstRule && (
+          <div className="font-weight-bold mb-2">Feature values</div>
+        )}
         {firstRule && (
           <table className="table table-sm table-bordered w-auto">
             <tbody>

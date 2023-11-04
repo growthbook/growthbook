@@ -1258,13 +1258,13 @@ const onExperimentUpdate = async ({
     hasChangesForSDKPayloadRefresh(oldExperiment, newExperiment)
   ) {
     // Get linked features
-    const featureIds = [
+    const featureIds = new Set([
       ...(oldExperiment.linkedFeatures || []),
       ...(newExperiment.linkedFeatures || []),
-    ];
+    ]);
     let linkedFeatures: FeatureInterface[] = [];
-    if (featureIds.length > 0) {
-      linkedFeatures = await getFeaturesByIds(organization.id, featureIds);
+    if (featureIds.size > 0) {
+      linkedFeatures = await getFeaturesByIds(organization.id, [...featureIds]);
     }
 
     const oldPayloadKeys = oldExperiment

@@ -139,6 +139,12 @@ export default function TabbedPage({
         linkedFeatures.push({ feature, rules: refRules });
         return;
       }
+      // Always include explicitly linked features even if they aren't published
+      // Otherwise, we would be missing links to drafts or old revisions of features
+      else if (experiment.linkedFeatures?.includes(feature.id)) {
+        linkedFeatures.push({ feature, rules: [] });
+        return;
+      }
 
       const legacyRules = getMatchingRules(
         feature,
@@ -153,11 +159,17 @@ export default function TabbedPage({
     });
 
     return { linkedFeatures, legacyFeatures };
-  }, [features, environments, experiment.id, experiment.trackingKey]);
+  }, [
+    features,
+    environments,
+    experiment.id,
+    experiment.trackingKey,
+    experiment.linkedFeatures,
+  ]);
 
   const hasLiveLinkedChanges = includeExperimentInPayload(
     experiment,
-    features.filter((f) => experiment.linkedFeatures?.includes(f.id))
+    linkedFeatures.map((f) => f.feature)
   );
 
   const { data: sdkConnectionsData } = useSDKConnections();

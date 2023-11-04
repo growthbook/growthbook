@@ -465,13 +465,18 @@ export default function SinglePage({
     if (rules.length > 0) {
       linkedFeatures.push({ feature, rules });
     }
+    // Always include explicitly linked features, even if they don't have a published rule
+    // The rule might be in a draft or a previously published revision, but we still want to link to it
+    else if (experiment.linkedFeatures?.includes(feature.id)) {
+      linkedFeatures.push({ feature, rules: [] });
+    }
   });
 
   const numLinkedChanges = visualChangesets.length + linkedFeatures.length;
 
   const hasLiveLinkedChanges = includeExperimentInPayload(
     experiment,
-    features.filter((f) => experiment.linkedFeatures?.includes(f.id))
+    linkedFeatures.map((f) => f.feature)
   );
 
   // Get name or email of all active users watching this experiment

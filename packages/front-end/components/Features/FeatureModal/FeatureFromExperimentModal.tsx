@@ -147,6 +147,7 @@ export default function FeatureFromExperimentModal({
   });
 
   // Skip features that already have this experiment
+  // TODO: include features where the only reference to this experiment is an old revision
   const validFeatures = features.filter((f) => {
     if (f.archived) return false;
     if (experiment.linkedFeatures?.includes(f.id)) return false;
