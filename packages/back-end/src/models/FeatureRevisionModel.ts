@@ -117,20 +117,23 @@ export async function getRevision(
 
 export async function createInitialRevision(
   feature: FeatureInterface,
-  user: EventAuditUser
+  user: EventAuditUser | null,
+  date?: Date
 ) {
   const rules: Record<string, FeatureRule[]> = {};
   Object.keys(feature.environmentSettings || {}).forEach((env) => {
     rules[env] = feature.environmentSettings?.[env]?.rules || [];
   });
 
-  await FeatureRevisionModel.create({
+  date = date || new Date();
+
+  const doc = await FeatureRevisionModel.create({
     organization: feature.organization,
     featureId: feature.id,
     version: 1,
-    dateCreated: new Date(),
-    dateUpdated: new Date(),
-    datePublished: new Date(),
+    dateCreated: date,
+    dateUpdated: date,
+    datePublished: date,
     createdBy: user,
     baseVersion: 0,
     status: "published",
@@ -139,11 +142,14 @@ export async function createInitialRevision(
     defaultValue: feature.defaultValue,
     rules,
   });
+
+  return toInterface(doc);
 }
 
 export async function createRevisionFromLegacyDraft(feature: FeatureInterface) {
   if (!feature.legacyDraft) return;
-  await FeatureRevisionModel.create(feature.legacyDraft);
+  const doc = await FeatureRevisionModel.create(feature.legacyDraft);
+  return toInterface(doc);
 }
 
 export async function createRevision({

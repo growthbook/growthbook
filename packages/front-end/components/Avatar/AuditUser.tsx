@@ -7,7 +7,7 @@ export interface Props {
 }
 
 export default function AuditUser({ user, display = "avatar" }: Props) {
-  if (user?.type === "dashboard") {
+  if (user?.type === "dashboard" && user?.email) {
     return (
       <>
         {display === "avatar" ? (
@@ -17,7 +17,9 @@ export default function AuditUser({ user, display = "avatar" }: Props) {
         )}
       </>
     );
-  } else if (user?.type === "api_key") {
+  }
+
+  if (user?.type === "api_key") {
     return <span className="badge badge-secondary">API</span>;
   }
 

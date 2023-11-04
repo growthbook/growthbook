@@ -43,6 +43,7 @@ import {
   auditDetailsDelete,
 } from "../services/audit";
 import {
+  createInitialRevision,
   createRevision,
   discardRevision,
   getRevision,
@@ -1423,12 +1424,27 @@ export async function getFeatureById(
     throw new Error("Could not find feature");
   }
 
-  // Migrate old drafts to revisions
-  if (feature.legacyDraft) {
-    await migrateDraft(feature);
+  const revisions = await getRevisions(org.id, id);
+
+  // If feature doesn't have any revisions, add revision 1 automatically
+  if (!revisions.length) {
+    try {
+      revisions.push(
+        await createInitialRevision(feature, null, feature.dateCreated)
+      );
+    } catch (e) {
+      // This is not a fatal error, so don't block the request from happening
+      req.log.warn("Error creating initial feature revision", { feature: id });
+    }
   }
 
-  const revisions = await getRevisions(org.id, id);
+  // Migrate old drafts to revisions
+  if (feature.legacyDraft) {
+    const draft = await migrateDraft(feature);
+    if (draft) {
+      revisions.push(draft);
+    }
+  }
 
   res.status(200).json({
     status: 200,

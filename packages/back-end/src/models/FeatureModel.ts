@@ -108,6 +108,8 @@ const featureSchema = new mongoose.Schema({
   ],
   environmentSettings: {},
   draft: {},
+  legacyDraftMigrated: Boolean,
+  hasDrafts: Boolean,
   revision: {},
   linkedExperiments: [String],
   jsonSchema: {},
@@ -152,10 +154,10 @@ export async function getFeature(
 }
 
 export async function migrateDraft(feature: FeatureInterface) {
-  if (!feature.legacyDraft || feature.legacyDraftMigrated) return;
+  if (!feature.legacyDraft || feature.legacyDraftMigrated) return null;
 
   try {
-    await createRevisionFromLegacyDraft(feature);
+    const draft = await createRevisionFromLegacyDraft(feature);
     await FeatureModel.updateOne(
       {
         organization: feature.organization,
@@ -168,9 +170,11 @@ export async function migrateDraft(feature: FeatureInterface) {
         },
       }
     );
+    return draft;
   } catch (e) {
     logger.error(e, "Error migrating old feature draft");
   }
+  return null;
 }
 
 export async function getFeaturesByIds(

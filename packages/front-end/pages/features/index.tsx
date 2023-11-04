@@ -377,7 +377,10 @@ export default function FeaturesPage() {
                       {version}
                       {feature?.hasDrafts ? (
                         <Tooltip body="This feature has an active draft that has not been published yet">
-                          <FaTriangleExclamation className="text-danger ml-1" />
+                          <FaTriangleExclamation
+                            className="text-warning ml-1"
+                            style={{ marginTop: -3 }}
+                          />
                         </Tooltip>
                       ) : null}
                     </td>
