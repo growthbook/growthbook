@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 import type { GrowthBook } from "..";
+import { StickyBucketService } from "../GrowthBook";
 import { ConditionInterface } from "./mongrule";
 
 declare global {
@@ -180,7 +181,7 @@ export interface Context {
   clientKey?: string;
   decryptionKey?: string;
   remoteEval?: boolean;
-  stickyBucketService?: any;
+  stickyBucketService?: StickyBucketService;
 }
 
 export type SubscriptionFunction = (

@@ -39,6 +39,10 @@ export {
   onHidden,
 } from "./feature-repository";
 
-export { GrowthBook } from "./GrowthBook";
+export {
+  GrowthBook,
+  StickyBucketService,
+  LocalStorageStickyBucketService,
+} from "./GrowthBook";
 
 export { isURLTargeted } from "./util";

@@ -136,13 +136,16 @@ export async function refreshFeatures(
     cacheSettings.backgroundSync = false;
   }
 
+  console.log("refreshFeatures 1");
   const data = await fetchFeaturesWithCache(
     instance,
     allowStale,
     timeout,
     skipCache
   );
+  console.log("refreshFeatures 2", data);
   updateInstance && data && (await refreshInstance(instance, data));
+  console.log("refreshFeatures 3", data);
 }
 
 // Subscribe a GrowthBook instance to feature changes
@@ -348,6 +351,7 @@ function onNewFeatureData(
 
   // Update features for all subscribed GrowthBook instances
   const instances = subscribedInstances.get(key);
+  console.log("new data", data);
   instances && instances.forEach((instance) => refreshInstance(instance, data));
 }
 
@@ -355,21 +359,14 @@ async function refreshInstance(
   instance: GrowthBook,
   data: FeatureApiResponse
 ): Promise<void> {
-  await (data.encryptedExperiments
-    ? instance.setEncryptedExperiments(
-        data.encryptedExperiments,
-        undefined,
-        polyfills.SubtleCrypto
-      )
-    : instance.setExperiments(data.experiments || instance.getExperiments()));
+  data = await instance.decryptPayload(data, polyfills.SubtleCrypto);
 
-  await (data.encryptedFeatures
-    ? instance.setEncryptedFeatures(
-        data.encryptedFeatures,
-        undefined,
-        polyfills.SubtleCrypto
-      )
-    : instance.setFeatures(data.features || instance.getFeatures()));
+  console.log("refresh instance", undefined, data.experiments);
+  // todo: derive the sticky bucket keys here?
+  await instance.refreshStickyBuckets(data);
+
+  instance.setExperiments(data.experiments || instance.getExperiments());
+  instance.setFeatures(data.features || instance.getFeatures());
 }
 
 async function fetchFeatures(
