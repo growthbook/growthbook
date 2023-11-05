@@ -15,6 +15,7 @@ import {
   getAdditionalExperimentAnalysisSettings,
   getDefaultExperimentAnalysisSettings,
   getExperimentMetricById,
+  getLinkedFeatureInfo,
   getManualSnapshotData,
 } from "../services/experiments";
 import { MetricStats } from "../../types/metric";
@@ -276,10 +277,13 @@ export async function getExperiment(
     org.id
   );
 
+  const linkedFeatures = await getLinkedFeatureInfo(org, experiment);
+
   res.status(200).json({
     status: 200,
     experiment,
     visualChangesets,
+    linkedFeatures,
     idea,
   });
 }

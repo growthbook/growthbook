@@ -1,4 +1,7 @@
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import {
+  ExperimentInterfaceStringDates,
+  LinkedFeatureInfo,
+} from "back-end/types/experiment";
 import { getScopedSettings } from "shared/settings";
 import { useMemo, useState } from "react";
 import {
@@ -26,7 +29,7 @@ import AnalysisForm from "../AnalysisForm";
 import ExperimentReportsList from "../ExperimentReportsList";
 import { useSnapshot } from "../SnapshotProvider";
 import AnalysisSettingsSummary from "./AnalysisSettingsSummary";
-import { ExperimentTab, LinkedFeature } from ".";
+import { ExperimentTab } from ".";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
@@ -37,7 +40,7 @@ export interface Props {
   editPhases?: (() => void) | null;
   visualChangesets: VisualChangesetInterface[];
   editTargeting?: (() => void) | null;
-  linkedFeatures: LinkedFeature[];
+  linkedFeatures: LinkedFeatureInfo[];
   setTab: (tab: ExperimentTab) => void;
   connections: SDKConnectionInterface[];
   isTabActive: boolean;

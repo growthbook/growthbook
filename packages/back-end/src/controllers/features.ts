@@ -27,6 +27,7 @@ import {
   publishRevision,
   migrateDraft,
   applyRevisionChanges,
+  addLinkedExperiment,
 } from "../models/FeatureModel";
 import { getRealtimeUsageByHour } from "../models/RealtimeModel";
 import { lookupOrganizationByApiKey } from "../models/ApiKeyModel";
@@ -72,7 +73,10 @@ import { upsertWatch } from "../models/WatchModel";
 import { getSurrogateKeysFromSDKPayloadKeys } from "../util/cdn.util";
 import { SDKPayloadKey } from "../../types/sdk-payload";
 import { FeatureRevisionInterface } from "../../types/feature-revision";
-import { getExperimentById } from "../models/ExperimentModel";
+import {
+  addLinkedFeatureToExperiment,
+  getExperimentById,
+} from "../models/ExperimentModel";
 import { OrganizationInterface } from "../../types/organization";
 
 class UnrecoverableApiError extends Error {
@@ -766,6 +770,20 @@ export async function postFeatureRule(
 
   await addFeatureRule(revision, environment, rule, res.locals.eventAudit);
 
+  // If referencing a new experiment, add it to linkedExperiments
+  if (
+    rule.type === "experiment-ref" &&
+    !feature.linkedExperiments?.includes(rule.experimentId)
+  ) {
+    await addLinkedFeatureToExperiment(
+      org,
+      res.locals.eventAudit,
+      rule.experimentId,
+      feature.id
+    );
+    await addLinkedExperiment(feature, rule.experimentId);
+  }
+
   res.status(200).json({
     status: 200,
     version: revision.version,
@@ -822,6 +840,8 @@ export async function postFeatureExperimentRefRule(
     experiment.name,
     res.locals.eventAudit
   );
+
+  await addLinkedExperiment(feature, experiment.id);
 
   res.status(200).json({
     status: 200,

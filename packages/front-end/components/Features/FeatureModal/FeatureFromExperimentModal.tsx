@@ -21,6 +21,7 @@ import {
   useEnvironments,
   getDefaultVariationValue,
   validateFeatureRule,
+  useFeaturesList,
 } from "@/services/features";
 import { useWatching } from "@/services/WatchProvider";
 import usePermissions from "@/hooks/usePermissions";
@@ -34,11 +35,9 @@ import ValueTypeField from "./ValueTypeField";
 
 export type Props = {
   close?: () => void;
-  onSuccess: () => Promise<void>;
   inline?: boolean;
   cta?: string;
   secondaryCTA?: ReactElement;
-  features: FeatureInterface[];
   experiment: ExperimentInterfaceStringDates;
 };
 
@@ -130,8 +129,6 @@ export default function FeatureFromExperimentModal({
   inline,
   cta = "Create",
   secondaryCTA,
-  onSuccess,
-  features,
   experiment,
 }: Props) {
   const { project, refreshTags } = useDefinitions();
@@ -145,6 +142,8 @@ export default function FeatureFromExperimentModal({
     experiment,
     project,
   });
+
+  const { features, mutate } = useFeaturesList(false);
 
   // Skip features that already have this experiment
   // TODO: include features where the only reference to this experiment is an old revision
@@ -311,7 +310,7 @@ export default function FeatureFromExperimentModal({
           refreshWatching();
         }
 
-        await onSuccess();
+        await mutate();
       })}
     >
       <SelectField

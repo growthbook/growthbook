@@ -469,6 +469,22 @@ export async function updateFeature(
   return updatedFeature;
 }
 
+export async function addLinkedExperiment(
+  feature: FeatureInterface,
+  experimentId: string
+) {
+  if (feature.linkedExperiments?.includes(experimentId)) return;
+
+  await FeatureModel.updateOne(
+    { organization: feature.organization, id: feature.id },
+    {
+      $addToSet: {
+        linkedExperiments: experimentId,
+      },
+    }
+  );
+}
+
 export async function getScheduledFeaturesToUpdate() {
   const features = await FeatureModel.find({
     nextScheduledUpdate: {

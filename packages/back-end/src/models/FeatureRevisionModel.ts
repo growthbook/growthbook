@@ -314,3 +314,24 @@ export async function discardRevision(revision: FeatureRevisionInterface) {
     }
   );
 }
+
+export async function getFeatureRevisionsByFeatureIds(
+  organization: string,
+  featureIds: string[]
+): Promise<Record<string, FeatureRevisionInterface[]>> {
+  const revisionsByFeatureId: Record<string, FeatureRevisionInterface[]> = {};
+
+  if (featureIds.length) {
+    const revisions = await FeatureRevisionModel.find({
+      organization,
+      featureId: { $in: featureIds },
+    });
+    revisions.forEach((revision) => {
+      const featureId = revision.featureId;
+      revisionsByFeatureId[featureId] = revisionsByFeatureId[featureId] || [];
+      revisionsByFeatureId[featureId].push(toInterface(revision));
+    });
+  }
+
+  return revisionsByFeatureId;
+}

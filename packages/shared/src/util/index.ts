@@ -13,6 +13,7 @@ import {
 import { FeatureInterface, FeatureRule } from "back-end/types/feature";
 import { ExperimentReportVariation } from "back-end/types/report";
 import { VisualChange } from "back-end/types/visual-changeset";
+import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 
 export * from "./features";
 
@@ -142,10 +143,12 @@ export type MatchingRule = {
   environmentEnabled: boolean;
   rule: FeatureRule;
 };
+
 export function getMatchingRules(
   feature: FeatureInterface,
   filter: (rule: FeatureRule) => boolean,
-  environments: string[]
+  environments: string[],
+  revision?: FeatureRevisionInterface
 ): MatchingRule[] {
   const matches: MatchingRule[] = [];
 
@@ -153,8 +156,11 @@ export function getMatchingRules(
     Object.entries(feature.environmentSettings).forEach(
       ([environmentId, settings]) => {
         if (!environments.includes(environmentId)) return;
-        if (settings.rules) {
-          settings.rules.forEach((rule, i) => {
+
+        const rules = revision ? revision.rules[environmentId] : settings.rules;
+
+        if (rules) {
+          rules.forEach((rule, i) => {
             if (filter(rule)) {
               matches.push({
                 rule,
