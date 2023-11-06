@@ -410,8 +410,9 @@ const ExperimentsPage = (): React.ReactElement => {
                         )}
                       </td>
                     )}
-                    <td className="nowrap" data-title="Tags:">
-                      <SortedTags tags={Object.values(e.tags)} />
+
+                    <td data-title="Tags:" className="table-tags">
+                      <SortedTags tags={Object.values(e.tags)} useFlex={true} />
                     </td>
                     <td className="nowrap" data-title="Owner:">
                       {e.ownerName}

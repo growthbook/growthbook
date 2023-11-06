@@ -112,6 +112,7 @@ import { EntityType } from "../../types/Audit";
 import { getTeamsForOrganization } from "../../models/TeamModel";
 import { getAllFactTablesForOrganization } from "../../models/FactTableModel";
 import { getAllFactMetricsForOrganization } from "../../models/FactMetricModel";
+import { TeamInterface } from "../../../types/team";
 
 export async function getDefinitions(req: AuthRequest, res: Response) {
   const { org } = getOrgFromReq(req);
@@ -632,6 +633,16 @@ export async function getOrganization(req: AuthRequest, res: Response) {
 
   const teams = await getTeamsForOrganization(org.id);
 
+  const teamsWithMembers: TeamInterface[] = teams.map((team) => {
+    const memberIds = org.members
+      .filter((member) => member.teams?.includes(team.id))
+      .map((m) => m.id);
+    return {
+      ...team,
+      members: memberIds,
+    };
+  });
+
   const currentUserPermissions = getUserPermissions(userId, org, teams || []);
 
   return res.status(200).json({
@@ -645,6 +656,7 @@ export async function getOrganization(req: AuthRequest, res: Response) {
     roles: getRoles(org),
     members: expandedMembers,
     currentUserPermissions,
+    teams: teamsWithMembers,
     organization: {
       invites,
       ownerEmail,

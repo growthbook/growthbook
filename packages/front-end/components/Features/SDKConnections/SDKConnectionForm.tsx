@@ -176,9 +176,17 @@ export default function SDKConnectionForm({
       const enableEncryption = hasEncryptionFeature;
       const enableSecureAttributes = hasSecureAttributesFeature;
       form.setValue("remoteEvalEnabled", false);
-      form.setValue("encryptPayload", enableEncryption);
-      form.setValue("hashSecureAttributes", enableSecureAttributes);
-      form.setValue("includeExperimentNames", false);
+      if (
+        !(
+          form.watch("encryptPayload") ||
+          form.watch("hashSecureAttributes") ||
+          !form.watch("includeExperimentNames")
+        )
+      ) {
+        form.setValue("encryptPayload", enableEncryption);
+        form.setValue("hashSecureAttributes", enableSecureAttributes);
+        form.setValue("includeExperimentNames", false);
+      }
     } else if (selectedSecurityTab === "remote") {
       if (!enableRemoteEval) {
         form.setValue("remoteEvalEnabled", false);
@@ -187,7 +195,7 @@ export default function SDKConnectionForm({
       form.setValue("remoteEvalEnabled", true);
       form.setValue("encryptPayload", false);
       form.setValue("hashSecureAttributes", false);
-      form.setValue("includeExperimentNames", false);
+      form.setValue("includeExperimentNames", true);
     }
   }, [
     selectedSecurityTab,
