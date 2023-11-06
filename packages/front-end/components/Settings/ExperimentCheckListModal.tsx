@@ -299,7 +299,9 @@ export default function ExperimentCheckListModal({
       open={true}
       close={close}
       size="max"
-      header={`${checklist?.id ? "Edit" : "Add"} Pre-Launch Checklist`}
+      header={`${
+        checklist?.id ? "Edit" : "Add"
+      } Experiment Pre-Launch Checklist`}
       cta="Save"
       submit={() => handleSubmit()}
     >
@@ -307,7 +309,7 @@ export default function ExperimentCheckListModal({
         <p>
           Ensure all experiments meet essential criteria before launch by
           customizing your organizations pre-launch checklist. Choose from our
-          pre-defined list, or create your own custom launch requirements.
+          pre-defined options, or create your own custom launch requirements.
         </p>
         <div className="pt-3 pb-5">
           <DndContext

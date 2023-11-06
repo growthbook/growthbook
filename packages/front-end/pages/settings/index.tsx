@@ -1225,7 +1225,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
                 </div>
 
                 <div className="mb-3 form-group flex-column align-items-start">
-                  <h4>Pre-Launch Checklist</h4>
+                  <h4>Experiment Pre-Launch Checklist</h4>
                   <p>
                     Configure required steps that need to be completed before an
                     experiment can be launched.
@@ -1234,7 +1234,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
                     // className="mt-3"
                     onClick={async () => setEditChecklistOpen(true)}
                   >
-                    Edit Launch Steps
+                    Edit Checklist
                   </Button>
                 </div>
               </div>
