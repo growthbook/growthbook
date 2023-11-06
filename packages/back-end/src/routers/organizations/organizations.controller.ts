@@ -1736,6 +1736,11 @@ export async function putLicenseKey(
   if (IS_CLOUD) {
     throw new Error("License keys are only applicable to self-hosted accounts");
   }
+
+  if (IS_MULTI_ORG && !req.superAdmin) {
+    throw new Error("Only super admins can edit licenses on multi-org sites");
+  }
+
   const { licenseKey } = req.body;
   if (!licenseKey) {
     throw new Error("missing license key");
