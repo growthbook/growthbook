@@ -65,8 +65,6 @@ type SortableProps = {
   experimentLaunchChecklist: ChecklistTask[];
   setExperimentLaunchChecklist: (checklist: ChecklistTask[] | []) => void;
   item: ChecklistTask;
-  key: number;
-  newTaskInput: ChecklistTask | undefined;
   setNewTaskInput: (task: ChecklistTask | undefined) => void;
   isNewTask?: boolean;
 };
@@ -76,59 +74,50 @@ type TaskProps = SortableProps &
     handle?: React.HTMLAttributes<HTMLDivElement>;
   };
 
-type CreatableSelectWrapperProps = Omit<SortableProps, "id">;
+type CreatableSelectWrapperProps = Omit<SortableProps, "id" | "newTask">;
 
 function CreatableSelectWrapper({
   experimentLaunchChecklist,
   setExperimentLaunchChecklist,
   item,
-  key,
-  newTaskInput,
   setNewTaskInput,
-  isNewTask = false,
 }: CreatableSelectWrapperProps) {
   const [showDeleteBtn, setShowDeleteBtn] = useState(false);
 
-  function handleOnChange(option: AutoChecklistOptions, isNewTask: boolean) {
-    if (!option) return;
-    if (isNewTask && newTaskInput && setNewTaskInput) {
-      const updatedNewTaskInput = newTaskInput;
-      updatedNewTaskInput.task = option.value;
-      updatedNewTaskInput.completionType = "auto";
-      updatedNewTaskInput.propertyKey = option.propertyKey;
-      const updatedChecklist = [...experimentLaunchChecklist];
-      updatedChecklist.push(updatedNewTaskInput);
-      setExperimentLaunchChecklist(updatedChecklist);
-      setNewTaskInput(undefined);
-    } else {
-      const updatedChecklist = [...experimentLaunchChecklist];
-      updatedChecklist[key].task = option.value;
-      updatedChecklist[key].completionType = "auto";
-      updatedChecklist[key].propertyKey = option.propertyKey;
-      setExperimentLaunchChecklist(updatedChecklist);
+  const index = experimentLaunchChecklist.findIndex(
+    (checklist) => checklist.task === item.task
+  );
+
+  function handleChange(option: string | AutoChecklistOptions) {
+    const updatedChecklist = [...experimentLaunchChecklist];
+
+    const isOptionString = typeof option === "string";
+
+    const updatedOption: ChecklistTask = {
+      task: isOptionString ? option : option.value,
+      completionType: isOptionString ? "manual" : "auto",
+    };
+
+    if (!isOptionString) {
+      updatedOption.propertyKey = option.propertyKey;
     }
+
+    // If this is an existing task, update it
+    if (index >= 0) {
+      updatedChecklist[index] = updatedOption;
+    } else {
+      // Otherwise, this is a new task, so add it to the end of the list
+      updatedChecklist.push(updatedOption);
+      setNewTaskInput(undefined);
+    }
+
+    setExperimentLaunchChecklist(updatedChecklist);
   }
 
-  function handleOnCreate(inputValue: string, isNewTask: boolean) {
-    if (isNewTask && newTaskInput && setNewTaskInput) {
-      const updatedChecklist = [...experimentLaunchChecklist];
-      const updatedNewTaskInput = newTaskInput;
-      updatedNewTaskInput.task = inputValue;
-      updatedChecklist.push(updatedNewTaskInput);
-      setExperimentLaunchChecklist(updatedChecklist);
-      setNewTaskInput(undefined);
-    } else {
-      const updatedChecklist = [...experimentLaunchChecklist];
-      updatedChecklist[key].task = inputValue;
-      updatedChecklist[key].completionType = "manual";
-      setExperimentLaunchChecklist(updatedChecklist);
-    }
-  }
-
-  function addNewTask(e: React.MouseEvent<HTMLElement>) {
+  function removeTask(e: React.MouseEvent<HTMLElement>) {
     e.preventDefault();
     const newChecklist = [...experimentLaunchChecklist];
-    newChecklist.splice(key, 1);
+    newChecklist.splice(index, 1);
     setExperimentLaunchChecklist(newChecklist);
   }
   return (
@@ -146,10 +135,8 @@ function CreatableSelectWrapper({
           );
         })}
         placeholder="Select a task or start typing to create your own"
-        onChange={(option: AutoChecklistOptions) =>
-          handleOnChange(option, isNewTask)
-        }
-        onCreateOption={(inputValue) => handleOnCreate(inputValue, isNewTask)}
+        onChange={(option: AutoChecklistOptions) => handleChange(option)}
+        onCreateOption={(inputValue) => handleChange(inputValue)}
         value={
           item.task
             ? {
@@ -166,7 +153,7 @@ function CreatableSelectWrapper({
           color: "red",
           visibility: showDeleteBtn ? "visible" : "hidden",
         }}
-        onClick={(e) => addNewTask(e)}
+        onClick={(e) => removeTask(e)}
       >
         <FaTimes />
       </button>
@@ -181,10 +168,8 @@ export const ChecklistItem = forwardRef<HTMLDivElement, TaskProps>(
       experimentLaunchChecklist,
       setExperimentLaunchChecklist,
       item,
-      key,
       handle,
       isNewTask = false,
-      newTaskInput,
       setNewTaskInput,
       ...props
     },
@@ -212,11 +197,8 @@ export const ChecklistItem = forwardRef<HTMLDivElement, TaskProps>(
         <CreatableSelectWrapper
           experimentLaunchChecklist={experimentLaunchChecklist}
           setExperimentLaunchChecklist={setExperimentLaunchChecklist}
-          key={key}
           item={item}
-          newTaskInput={newTaskInput}
           setNewTaskInput={setNewTaskInput}
-          isNewTask
         />
       </div>
     );
@@ -349,7 +331,6 @@ export default function ExperimentCheckListModal({
                     item={item}
                     experimentLaunchChecklist={experimentLaunchChecklist}
                     setExperimentLaunchChecklist={setExperimentLaunchChecklist}
-                    newTaskInput={newTaskInput}
                     setNewTaskInput={setNewTaskInput}
                   />
                 )
@@ -359,11 +340,9 @@ export default function ExperimentCheckListModal({
           {newTaskInput ? (
             <SortableChecklistItem
               id={newTaskInput.task}
-              key={experimentLaunchChecklist.length - 1 || 0}
               item={newTaskInput}
               experimentLaunchChecklist={experimentLaunchChecklist}
               setExperimentLaunchChecklist={setExperimentLaunchChecklist}
-              newTaskInput={newTaskInput}
               setNewTaskInput={setNewTaskInput}
               isNewTask={true}
             />
