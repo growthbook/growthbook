@@ -136,7 +136,13 @@ export abstract class QueryRunner<
       this.timer = setTimeout(async () => {
         this.timer = null;
         try {
-          logger.debug("Getting latest model");
+          logger.debug(
+            "Getting latest model for " +
+              typeof this +
+              " (" +
+              typeof this.model +
+              ")"
+          );
           this.model = await this.getLatestModel();
           const queryMap = await this.refreshQueryStatuses();
           await this.startReadyQueries(queryMap);
@@ -451,7 +457,7 @@ export abstract class QueryRunner<
     run(doc.query, setExternalId)
       .then(async ({ rows, statistics }) => {
         clearInterval(timer);
-        logger.debug("Query succeeded");
+        logger.debug("Query succeeded: " + doc.id);
         await updateQuery(doc, {
           finishedAt: new Date(),
           status: "succeeded",
