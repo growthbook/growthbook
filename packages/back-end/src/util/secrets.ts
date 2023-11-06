@@ -214,3 +214,15 @@ const getTrustProxyConfig = (): boolean | string | number => {
 };
 
 export const EXPRESS_TRUST_PROXY_OPTS = getTrustProxyConfig();
+
+export const AGENDA_DEFAULT_LOCK_LIMIT =
+  parseInt(process.env.AGENDA_DEFAULT_LOCK_LIMIT || "") || 5;
+
+export const AGENDA_LOCK_LIMIT =
+  parseInt(process.env.AGENDA_LOCK_LIMIT || "") || 5;
+
+export const AGENDA_DEFAULT_CONCURRENCY =
+  parseInt(process.env.AGENDA_DEFAULT_CONCURRENCY || "") || 5;
+
+export const AGENDA_MAX_CONCURRENCY =
+  parseInt(process.env.AGENDA_MAX_CONCURRENCY || "") || 20;
