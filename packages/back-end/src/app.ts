@@ -479,7 +479,7 @@ app.post(
   experimentLaunchChecklistController.postExperimentLaunchChecklist
 );
 app.put(
-  "/experiments/launch-checklist",
+  "/experiments/launch-checklist/:id",
   experimentLaunchChecklistController.putExperimentLaunchChecklist
 );
 app.get(

@@ -270,13 +270,20 @@ export default function ExperimentCheckListModal({
     if (tasks.length && tasks[tasks.length - 1].task === "") {
       tasks.pop();
     }
-    await apiCall(`/experiments/launch-checklist`, {
-      method: checklist?.id ? "PUT" : "POST",
-      body: JSON.stringify({
-        tasks,
-        id: checklist?.id,
-      }),
-    });
+
+    if (checklist?.id) {
+      await apiCall(`/experiments/launch-checklist/${checklist.id}`, {
+        method: "PUT",
+        body: JSON.stringify({ tasks }),
+      });
+    } else {
+      await apiCall(`/experiments/launch-checklist`, {
+        method: "POST",
+        body: JSON.stringify({
+          tasks,
+        }),
+      });
+    }
     mutate();
   }
 

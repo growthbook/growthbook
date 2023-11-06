@@ -106,14 +106,14 @@ export function StartExperimentBanner({
     tooltip?: string | ReactElement;
     action?: ReactElement | null;
   };
-  const tasks: CheckListItem[] = [];
+  const checklist: CheckListItem[] = [];
 
   if (experiment.status !== "draft") return null;
 
   // At least one linked change
   const hasLinkedChanges =
     linkedFeatures.length > 0 || visualChangesets.length > 0;
-  tasks.push({
+  checklist.push({
     display: "Add at least one Linked Feature or Visual Editor change.",
     status: hasLinkedChanges ? "success" : "error",
     action:
@@ -138,7 +138,7 @@ export function StartExperimentBanner({
           (r) => !r.draft && r.environmentEnabled && r.rule.enabled !== false
         )
     );
-    tasks.push({
+    checklist.push({
       display: "Publish and enable all Linked Feature rules.",
       status: hasFeatureFlagsErrors ? "error" : "success",
       action: openSetupTab ? (
@@ -160,7 +160,7 @@ export function StartExperimentBanner({
     const hasSomeVisualChanges = visualChangesets.some((vc) =>
       hasVisualChanges(vc.visualChanges)
     );
-    tasks.push({
+    checklist.push({
       display: "Add changes in the Visual Editor.",
       status: hasSomeVisualChanges ? "success" : "error",
       action: openSetupTab ? (
@@ -191,7 +191,7 @@ export function StartExperimentBanner({
   const verifiedConnections = matchingConnections.filter(
     (connection) => connection.connected
   );
-  tasks.push({
+  checklist.push({
     display: "Integrate the GrowthBook SDK into your app.",
     action: (
       <Link href="/sdks">
@@ -218,7 +218,7 @@ export function StartExperimentBanner({
 
   // Experiment has phases
   const hasPhases = experiment.phases.length > 0;
-  tasks.push({
+  checklist.push({
     display: "Configure variation assignment and targeting behavior.",
     action: editTargeting ? (
       <a
@@ -242,7 +242,7 @@ export function StartExperimentBanner({
       }
 
       if (item.completionType === "auto" && item.propertyKey) {
-        tasks.push({
+        checklist.push({
           display: item.task,
           status: getChecklistItemStatus(item, experiment)
             ? "success"
@@ -276,7 +276,7 @@ export function StartExperimentBanner({
     onStart && onStart();
   }
 
-  const isCompleted = (currentTask: string) => {
+  const isTaskCompleted = (currentTask: string) => {
     const index = manualChecklistStatus.findIndex(
       (task) => task.key === currentTask
     );
@@ -289,8 +289,44 @@ export function StartExperimentBanner({
   };
 
   const allPassed =
-    !tasks.some((c) => c.status === "error") &&
-    manualChecklist.every((task) => isCompleted(task.key));
+    !checklist.some((c) => c.status === "error") &&
+    manualChecklist.every((task) => isTaskCompleted(task.key));
+
+  async function updateTaskStatus(checked: boolean, item: ManualChecklist) {
+    const updatedManualChecklistStatus = Array.isArray(manualChecklistStatus)
+      ? [...manualChecklistStatus]
+      : [];
+
+    if (!updatedManualChecklistStatus.length) {
+      updatedManualChecklistStatus.push({
+        key: item.key,
+        status: checked ? "complete" : "incomplete",
+      });
+    } else {
+      const index = updatedManualChecklistStatus.findIndex(
+        (task) => task.key === item.key
+      );
+      if (index === -1) {
+        updatedManualChecklistStatus.push({
+          key: item.key,
+          status: checked ? "complete" : "incomplete",
+        });
+      } else {
+        updatedManualChecklistStatus[index] = {
+          key: item.key,
+          status: checked ? "complete" : "incomplete",
+        };
+      }
+    }
+    setManualChecklistStatus(updatedManualChecklistStatus);
+    await apiCall(`/experiments/${experiment.id}/launch-checklist`, {
+      method: "PUT",
+      body: JSON.stringify({
+        checklist: updatedManualChecklistStatus,
+      }),
+    });
+    mutateExperiment();
+  }
 
   return (
     <div className={className ?? `appbox p-4 my-4`}>
@@ -298,7 +334,7 @@ export function StartExperimentBanner({
         <div className="col-auto text-left">
           <h3 className="text-purple">Pre-launch Check List</h3>
           <ul style={{ fontSize: "1.1em" }} className="ml-0 pl-0">
-            {tasks.map((item, i) => (
+            {checklist.map((item, i) => (
               <li
                 key={i}
                 style={{
@@ -340,47 +376,10 @@ export function StartExperimentBanner({
                 <input
                   type="checkbox"
                   className="ml-0 pl-0"
-                  checked={isCompleted(item.key)}
-                  onChange={async (e) => {
-                    const updatedManualChecklistStatus = Array.isArray(
-                      manualChecklistStatus
-                    )
-                      ? [...manualChecklistStatus]
-                      : [];
-
-                    if (!updatedManualChecklistStatus.length) {
-                      updatedManualChecklistStatus.push({
-                        key: item.key,
-                        status: e.target.checked ? "complete" : "incomplete",
-                      });
-                    } else {
-                      const index = updatedManualChecklistStatus.findIndex(
-                        (task) => task.key === item.key
-                      );
-                      if (index === -1) {
-                        updatedManualChecklistStatus.push({
-                          key: item.key,
-                          status: e.target.checked ? "complete" : "incomplete",
-                        });
-                      } else {
-                        updatedManualChecklistStatus[index] = {
-                          key: item.key,
-                          status: e.target.checked ? "complete" : "incomplete",
-                        };
-                      }
-                    }
-                    setManualChecklistStatus(updatedManualChecklistStatus);
-                    await apiCall(
-                      `/experiments/${experiment.id}/launch-checklist`,
-                      {
-                        method: "PUT",
-                        body: JSON.stringify({
-                          checklist: updatedManualChecklistStatus,
-                        }),
-                      }
-                    );
-                    mutateExperiment();
-                  }}
+                  checked={isTaskCompleted(item.key)}
+                  onChange={async (e) =>
+                    updateTaskStatus(e.target.checked, item)
+                  }
                 />{" "}
                 {item.content}
               </li>

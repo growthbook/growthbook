@@ -16,18 +16,9 @@ export async function postExperimentLaunchChecklist(
   req: AuthRequest<{ tasks: ChecklistTask[] }>,
   res: Response
 ) {
-  const { org } = getOrgFromReq(req);
+  const { org, userId } = getOrgFromReq(req);
 
   const { tasks } = req.body;
-
-  const userId = req.userId;
-
-  if (!userId) {
-    return res.status(403).json({
-      status: 403,
-      message: "User not found",
-    });
-  }
 
   if (!org.members.some((member) => member.id === userId)) {
     return res.status(403).json({
@@ -58,27 +49,13 @@ export async function getExperimentCheckListByOrg(
 }
 
 export async function putExperimentLaunchChecklist(
-  req: AuthRequest<{ tasks: ChecklistTask[]; id: string }>,
+  req: AuthRequest<{ tasks: ChecklistTask[] }, { id: string }>,
   res: Response
 ) {
-  const { org } = getOrgFromReq(req);
-  const { id, tasks } = req.body;
+  const { org, userId } = getOrgFromReq(req);
+  const { tasks } = req.body;
 
-  if (!id) {
-    return res.status(400).json({
-      status: 400,
-      message: "Must provide checklist id",
-    });
-  }
-
-  const userId = req.userId;
-
-  if (!userId) {
-    return res.status(403).json({
-      status: 403,
-      message: "User not found",
-    });
-  }
+  const { id } = req.params;
 
   if (!org.members.some((member) => member.id === userId)) {
     return res.status(403).json({
@@ -103,7 +80,14 @@ export async function putManualLaunchChecklist(
   >,
   res: Response
 ) {
-  const { org } = getOrgFromReq(req);
+  const { org, userId } = getOrgFromReq(req);
+
+  if (!org.members.some((member) => member.id === userId)) {
+    return res.status(403).json({
+      status: 403,
+      message: "User is not a member of the organization",
+    });
+  }
 
   const { id } = req.params;
   const { checklist } = req.body;
