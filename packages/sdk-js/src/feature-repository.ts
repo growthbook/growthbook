@@ -136,16 +136,13 @@ export async function refreshFeatures(
     cacheSettings.backgroundSync = false;
   }
 
-  console.log("refreshFeatures 1");
   const data = await fetchFeaturesWithCache(
     instance,
     allowStale,
     timeout,
     skipCache
   );
-  console.log("refreshFeatures 2", data);
   updateInstance && data && (await refreshInstance(instance, data));
-  console.log("refreshFeatures 3", data);
 }
 
 // Subscribe a GrowthBook instance to feature changes
@@ -351,7 +348,6 @@ function onNewFeatureData(
 
   // Update features for all subscribed GrowthBook instances
   const instances = subscribedInstances.get(key);
-  console.log("new data", data);
   instances && instances.forEach((instance) => refreshInstance(instance, data));
 }
 
@@ -361,7 +357,6 @@ async function refreshInstance(
 ): Promise<void> {
   data = await instance.decryptPayload(data, polyfills.SubtleCrypto);
 
-  console.log("refresh instance", undefined, data.experiments);
   // todo: derive the sticky bucket keys here?
   await instance.refreshStickyBuckets(data);
 
