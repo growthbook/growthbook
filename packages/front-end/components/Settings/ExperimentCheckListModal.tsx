@@ -115,10 +115,14 @@ function CreatableSelectWrapper({
   }
 
   function removeTask(e: React.MouseEvent<HTMLElement>) {
-    e.preventDefault();
-    const newChecklist = [...experimentLaunchChecklist];
-    newChecklist.splice(index, 1);
-    setExperimentLaunchChecklist(newChecklist);
+    if (index === -1) {
+      setNewTaskInput(undefined);
+    } else {
+      e.preventDefault();
+      const newChecklist = [...experimentLaunchChecklist];
+      newChecklist.splice(index, 1);
+      setExperimentLaunchChecklist(newChecklist);
+    }
   }
   return (
     <div
@@ -137,6 +141,7 @@ function CreatableSelectWrapper({
         placeholder="Select a task or start typing to create your own"
         onChange={(option: AutoChecklistOptions) => handleChange(option)}
         onCreateOption={(inputValue) => handleChange(inputValue)}
+        noOptionsMessage={() => "Start typing to create a new task"}
         value={
           item.task
             ? {
