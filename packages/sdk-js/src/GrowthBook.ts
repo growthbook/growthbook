@@ -691,6 +691,7 @@ export class GrowthBook<
             !this._isIncludedInRollout(
               rule.seed || id,
               rule.hashAttribute,
+              rule.stickyBucketing ? rule.fallbackAttribute : undefined,
               rule.range,
               rule.coverage,
               rule.hashVersion
@@ -781,13 +782,17 @@ export class GrowthBook<
   private _isIncludedInRollout(
     seed: string,
     hashAttribute: string | undefined,
+    fallbackAttribute: string | undefined,
     range: VariationRange | undefined,
     coverage: number | undefined,
     hashVersion: number | undefined
   ): boolean {
     if (!range && coverage === undefined) return true;
 
-    const { hashValue } = this._getHashAttribute(hashAttribute);
+    const { hashValue } = this._getHashAttribute(
+      hashAttribute,
+      fallbackAttribute
+    );
     if (!hashValue) {
       return false;
     }
@@ -876,7 +881,10 @@ export class GrowthBook<
     }
 
     // 6. Get the hash attribute and return if empty
-    const { hashValue } = this._getHashAttribute(experiment.hashAttribute);
+    const { hashValue } = this._getHashAttribute(
+      experiment.hashAttribute,
+      experiment.stickyBucketing ? experiment.fallbackAttribute : undefined
+    );
     if (!hashValue) {
       process.env.NODE_ENV !== "production" &&
         this.log("Skip because missing hashAttribute", {
@@ -979,31 +987,12 @@ export class GrowthBook<
       );
 
     let assigned = -1;
-
-    // Apply a sticky bucket?
-    console.log("bef", this._ctx.features, experiment);
-    const stickyExperimentId = `${experiment.key}__${
-      experiment.bucketVersion ?? 1
-    }`;
     let foundStickyBucket = false;
-    const stickyVariation = this._ctx.stickyBucketAssignments?.[
-      stickyExperimentId
-    ];
-    if (stickyVariation !== undefined) {
+    assigned = this._getStickyBucketVariation<T>(experiment);
+    if (assigned >= 0) {
       foundStickyBucket = true;
-      assigned = stickyVariation;
-      console.log(
-        "assignment: found sticky bucket. val:",
-        assigned,
-        this._ctx.features
-      );
     } else {
       assigned = chooseVariation(n, ranges);
-      console.log(
-        "assignment: normal assignment. val:",
-        assigned,
-        this._ctx.features
-      );
     }
 
     // 10. Return if not in experiment
@@ -1061,7 +1050,11 @@ export class GrowthBook<
       this._ctx.stickyBucketService?.saveAssignments(
         stickyAttributeName,
         stickyAttributeValue,
-        { [stickyExperimentId]: result.variationId }
+        {
+          [this._getStickyBucketExperimentId<T>(
+            experiment
+          )]: result.variationId,
+        }
       );
       console.log("saved sticky bucket doc...", this._ctx.features);
     }
@@ -1118,8 +1111,8 @@ export class GrowthBook<
     return experiment;
   }
 
-  private _getHashAttribute(attr?: string) {
-    const hashAttribute = attr || "id";
+  private _getHashAttribute(attr?: string, fallback?: string) {
+    const hashAttribute = attr || fallback || "id";
 
     let hashValue = "";
     if (this._attributeOverrides[hashAttribute]) {
@@ -1148,7 +1141,8 @@ export class GrowthBook<
     }
 
     const { hashAttribute, hashValue } = this._getHashAttribute(
-      experiment.hashAttribute
+      experiment.hashAttribute,
+      experiment.stickyBucketing ? experiment.fallbackAttribute : undefined
     );
 
     const meta: Partial<VariationMeta> = experiment.meta
@@ -1225,6 +1219,7 @@ export class GrowthBook<
     const attributes = new Set<string>();
     const features = data?.features ?? this.getFeatures();
     const experiments = data?.experiments ?? this.getExperiments();
+    // todo: make sure we're checking data store for hash attribute before fallbackattribute
     Object.keys(features).forEach((id) => {
       const feature = features[id];
       if (feature.rules) {
@@ -1263,9 +1258,27 @@ export class GrowthBook<
     }
   }
 
+  private _getStickyBucketExperimentId<T>(experiment: Experiment<T>) {
+    return `${experiment.key}__${experiment.bucketVersion ?? 1}`;
+  }
+
+  private _getStickyBucketVariation<T>(experiment: Experiment<T>): number {
+    const id = this._getStickyBucketExperimentId<T>(experiment);
+    const variation = this._ctx.stickyBucketAssignments?.[id];
+    if (variation === undefined) return -1;
+
+    console.log(
+      "assignment: found sticky bucket. val:",
+      variation,
+      this._ctx.features
+    );
+    return variation;
+  }
+
   private _getStickyBucketAttributes(
     data?: FeatureApiResponse
   ): Record<string, string> {
+    // todo: make hashAttribute primary lookup, use fallback if not found
     const attributes: Record<string, string> = {};
     this.context.stickyBucketIdentifierAttributes = data
       ? this._deriveStickyBucketIdentifierAttributes(data)
@@ -1324,23 +1337,22 @@ export abstract class StickyBucketService {
     assignments: StickyAssignments
   ): unknown;
 
-  getAllAssignments(
+  async getAllAssignments(
     attributes: Record<string, string>
   ): Promise<StickyAssignments> {
-    console.log("SB: getAllAssignments", attributes);
-    return Promise.all(
+    const scopedAssignments = await Promise.all(
       Object.entries(attributes).map(([attributeName, attributeValue]) => {
         return this.getAssignments(attributeName, attributeValue);
       })
-    ).then((scopedAssignments) => {
-      const mergedAssignments: StickyAssignments = {};
-      scopedAssignments.forEach((assignments) => {
-        if (assignments) {
-          Object.assign(mergedAssignments, assignments);
-        }
-      });
-      return mergedAssignments;
+    );
+    const mergedAssignments: StickyAssignments = {};
+    scopedAssignments.forEach((assignments) => {
+      if (assignments) {
+        Object.assign(mergedAssignments, assignments);
+      }
     });
+    console.log("SB: getAllAssignments", attributes, mergedAssignments);
+    return mergedAssignments;
   }
 }
 
