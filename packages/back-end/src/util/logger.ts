@@ -69,7 +69,7 @@ const isValidLevel = (input: unknown): input is Level => {
 
 export const httpLogger = pinoHttp({
   autoLogging: ENVIRONMENT === "production",
-  useLevel: isValidLevel(LOG_LEVEL) ? LOG_LEVEL : "info",
+  level: isValidLevel(LOG_LEVEL) ? LOG_LEVEL : "info",
   redact: {
     paths: redactPaths,
     remove: true,
