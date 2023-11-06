@@ -7,7 +7,6 @@ import {
 import { FaBars, FaTimes } from "react-icons/fa";
 import {
   DndContext,
-  DragOverlay,
   KeyboardSensor,
   PointerSensor,
   closestCenter,
@@ -65,14 +64,11 @@ type SortableProps = {
   id: string;
   experimentLaunchChecklist: ChecklistTask[];
   setExperimentLaunchChecklist: (checklist: ChecklistTask[] | []) => void;
-  value: string;
-  propertyKey?:
-    | "tag"
-    | "project"
-    | "description"
-    | "screenshots"
-    | "hypothesis";
-  index: number;
+  item: ChecklistTask;
+  key: number;
+  newTaskInput: ChecklistTask | undefined;
+  setNewTaskInput: (task: ChecklistTask | undefined) => void;
+  isNewTask?: boolean;
 };
 
 type TaskProps = SortableProps &
@@ -80,76 +76,148 @@ type TaskProps = SortableProps &
     handle?: React.HTMLAttributes<HTMLDivElement>;
   };
 
+type CreatableSelectWrapperProps = Omit<SortableProps, "id">;
+
+function CreatableSelectWrapper({
+  experimentLaunchChecklist,
+  setExperimentLaunchChecklist,
+  item,
+  key,
+  newTaskInput,
+  setNewTaskInput,
+  isNewTask = false,
+}: CreatableSelectWrapperProps) {
+  const [showDeleteBtn, setShowDeleteBtn] = useState(false);
+
+  function handleOnChange(option: AutoChecklistOptions, isNewTask: boolean) {
+    if (!option) return;
+    if (isNewTask && newTaskInput && setNewTaskInput) {
+      const updatedNewTaskInput = newTaskInput;
+      updatedNewTaskInput.task = option.value;
+      updatedNewTaskInput.completionType = "auto";
+      updatedNewTaskInput.propertyKey = option.propertyKey;
+      const updatedChecklist = [...experimentLaunchChecklist];
+      updatedChecklist.push(updatedNewTaskInput);
+      setExperimentLaunchChecklist(updatedChecklist);
+      setNewTaskInput(undefined);
+    } else {
+      const updatedChecklist = [...experimentLaunchChecklist];
+      updatedChecklist[key].task = option.value;
+      updatedChecklist[key].completionType = "auto";
+      updatedChecklist[key].propertyKey = option.propertyKey;
+      setExperimentLaunchChecklist(updatedChecklist);
+    }
+  }
+
+  function handleOnCreate(inputValue: string, isNewTask: boolean) {
+    if (isNewTask && newTaskInput && setNewTaskInput) {
+      const updatedChecklist = [...experimentLaunchChecklist];
+      const updatedNewTaskInput = newTaskInput;
+      updatedNewTaskInput.task = inputValue;
+      updatedChecklist.push(updatedNewTaskInput);
+      setExperimentLaunchChecklist(updatedChecklist);
+      setNewTaskInput(undefined);
+    } else {
+      const updatedChecklist = [...experimentLaunchChecklist];
+      updatedChecklist[key].task = inputValue;
+      updatedChecklist[key].completionType = "manual";
+      setExperimentLaunchChecklist(updatedChecklist);
+    }
+  }
+
+  function addNewTask(e: React.MouseEvent<HTMLElement>) {
+    e.preventDefault();
+    const newChecklist = [...experimentLaunchChecklist];
+    newChecklist.splice(key, 1);
+    setExperimentLaunchChecklist(newChecklist);
+  }
+  return (
+    <div
+      className="d-flex align-items-center w-100"
+      onMouseEnter={() => setShowDeleteBtn(true)}
+      onMouseLeave={() => setShowDeleteBtn(false)}
+    >
+      <CreatableSelect
+        className="w-100 pl-3"
+        isMulti={false}
+        options={autoChecklistOptions.filter((option) => {
+          return !experimentLaunchChecklist.some(
+            (index) => index.task === option.value
+          );
+        })}
+        placeholder="Select a task or start typing to create your own"
+        onChange={(option: AutoChecklistOptions) =>
+          handleOnChange(option, isNewTask)
+        }
+        onCreateOption={(inputValue) => handleOnCreate(inputValue, isNewTask)}
+        value={
+          item.task
+            ? {
+                label: item.task,
+                value: item.task,
+                propertyKey: item.propertyKey,
+              }
+            : null
+        }
+      />
+      <button
+        className="btn"
+        style={{
+          color: "red",
+          visibility: showDeleteBtn ? "visible" : "hidden",
+        }}
+        onClick={(e) => addNewTask(e)}
+      >
+        <FaTimes />
+      </button>
+    </div>
+  );
+}
+
 // eslint-disable-next-line
 export const ChecklistItem = forwardRef<HTMLDivElement, TaskProps>(
   (
     {
       experimentLaunchChecklist,
       setExperimentLaunchChecklist,
-      value,
+      item,
+      key,
       handle,
-      propertyKey,
-      index,
+      isNewTask = false,
+      newTaskInput,
+      setNewTaskInput,
       ...props
     },
     ref
   ) => {
-    const [showDeleteBtn, setShowDeleteBtn] = useState(false);
     return (
       <div
         ref={ref}
         {...props}
         className="d-flex align-items-center p-3 my-2 rounded bg-light"
-        onMouseEnter={() => setShowDeleteBtn(true)}
-        onMouseLeave={() => setShowDeleteBtn(false)}
       >
         <div
-          {...handle}
           title="Drag and drop to re-order rules"
           className="mr-2"
+          {...(isNewTask ? {} : handle)}
         >
-          <FaBars />
+          {isNewTask ? (
+            <Tooltip body="You must enter a task before you can drag and drop it.">
+              <FaBars />
+            </Tooltip>
+          ) : (
+            <FaBars />
+          )}
         </div>
-        <CreatableSelect
-          className="w-100 pl-3"
-          isMulti={false}
-          options={autoChecklistOptions.filter((option) => {
-            return !experimentLaunchChecklist.some(
-              (index) => index.task === option.value
-            );
-          })}
-          placeholder="Select a task or start typing to create your own"
-          onChange={(option: AutoChecklistOptions) => {
-            if (!option) return;
-            const updatedChecklist = [...experimentLaunchChecklist];
-            updatedChecklist[index].task = option.value;
-            updatedChecklist[index].completionType = "auto";
-            updatedChecklist[index].propertyKey = option.propertyKey;
-            setExperimentLaunchChecklist(updatedChecklist);
-          }}
-          onCreateOption={(inputValue) => {
-            const updatedChecklist = [...experimentLaunchChecklist];
-            updatedChecklist[index].task = inputValue;
-            updatedChecklist[index].completionType = "manual";
-            setExperimentLaunchChecklist(updatedChecklist);
-          }}
-          value={value ? { label: value, value, propertyKey } : null}
+        <CreatableSelectWrapper
+          experimentLaunchChecklist={experimentLaunchChecklist}
+          setExperimentLaunchChecklist={setExperimentLaunchChecklist}
+          key={key}
+          item={item}
+          newTaskInput={newTaskInput}
+          setNewTaskInput={setNewTaskInput}
+          isNewTask
         />
-        <button
-          className="btn"
-          style={{
-            color: "red",
-            visibility: showDeleteBtn ? "visible" : "hidden",
-          }}
-          onClick={(e) => {
-            e.preventDefault();
-            const newChecklist = [...experimentLaunchChecklist];
-            newChecklist.splice(index, 1);
-            setExperimentLaunchChecklist(newChecklist);
-          }}
-        >
-          <FaTimes />
-        </button>
       </div>
     );
   }
@@ -191,7 +259,6 @@ export default function ExperimentCheckListModal({
   checklist?: ExperimentLaunchChecklistInterface;
 }) {
   const { apiCall } = useAuth();
-  const [activeItem, setActiveItem] = useState<string>("");
   const [experimentLaunchChecklist, setExperimentLaunchChecklist] = useState<
     ChecklistTask[]
   >(
@@ -233,10 +300,6 @@ export default function ExperimentCheckListModal({
     return -1;
   }
 
-  const activeTask = activeItem
-    ? experimentLaunchChecklist[getTaskIndex(activeItem)]
-    : null;
-
   return (
     <Modal
       open={true}
@@ -269,13 +332,8 @@ export default function ExperimentCheckListModal({
                   oldIndex,
                   newIndex
                 );
-
                 setExperimentLaunchChecklist(newRules);
               }
-              setActiveItem("");
-            }}
-            onDragStart={async ({ active }) => {
-              setActiveItem(active.id);
             }}
           >
             <h5>Pre-Launch Requirements</h5>
@@ -286,93 +344,29 @@ export default function ExperimentCheckListModal({
               {experimentLaunchChecklist.map(
                 (item: ChecklistTask, i: number) => (
                   <SortableChecklistItem
-                    key={i}
-                    value={item.task}
                     id={item.task}
-                    propertyKey={item.propertyKey}
-                    index={i}
+                    key={i}
+                    item={item}
                     experimentLaunchChecklist={experimentLaunchChecklist}
                     setExperimentLaunchChecklist={setExperimentLaunchChecklist}
+                    newTaskInput={newTaskInput}
+                    setNewTaskInput={setNewTaskInput}
                   />
                 )
               )}
             </SortableContext>
-            <DragOverlay>
-              {activeTask ? (
-                <ChecklistItem
-                  id={activeItem}
-                  key={getTaskIndex(activeItem)}
-                  value={activeItem}
-                  propertyKey={
-                    experimentLaunchChecklist[getTaskIndex(activeItem)]
-                      .propertyKey
-                  }
-                  index={getTaskIndex(activeItem)}
-                  experimentLaunchChecklist={experimentLaunchChecklist}
-                  setExperimentLaunchChecklist={setExperimentLaunchChecklist}
-                />
-              ) : null}
-            </DragOverlay>
           </DndContext>
           {newTaskInput ? (
-            <div className="d-flex align-items-center p-3 my-2 rounded bg-light">
-              <div title="Drag and drop to re-order rules" className="mr-2">
-                <Tooltip body="You must enter a task before you can drag and drop it.">
-                  <FaBars />
-                </Tooltip>
-              </div>
-              <CreatableSelect
-                className="w-100 pl-3"
-                isMulti={false}
-                options={autoChecklistOptions.filter((option) => {
-                  return !experimentLaunchChecklist.some(
-                    (index) => index.task === option.value
-                  );
-                })}
-                placeholder="Select a task or start typing to create your own"
-                onChange={(option: AutoChecklistOptions) => {
-                  if (!option) return;
-                  const updatedNewTaskInput = newTaskInput;
-                  updatedNewTaskInput.task = option.value;
-                  updatedNewTaskInput.completionType = "auto";
-                  updatedNewTaskInput.propertyKey = option.propertyKey;
-                  const updatedChecklist = [...experimentLaunchChecklist];
-                  updatedChecklist.push(updatedNewTaskInput);
-                  setExperimentLaunchChecklist(updatedChecklist);
-                  setNewTaskInput(undefined);
-                }}
-                noOptionsMessage={() => "Start typing to create a new task"}
-                onCreateOption={(inputValue: string) => {
-                  const updatedChecklist = [...experimentLaunchChecklist];
-                  const updatedNewTaskInput = newTaskInput;
-                  updatedNewTaskInput.task = inputValue;
-                  updatedChecklist.push(updatedNewTaskInput);
-                  setExperimentLaunchChecklist(updatedChecklist);
-                  setNewTaskInput(undefined);
-                }}
-                value={
-                  newTaskInput.task
-                    ? {
-                        label: newTaskInput.task,
-                        value: newTaskInput.task,
-                        propertyKey: newTaskInput.propertyKey,
-                      }
-                    : null
-                }
-              />
-              <button
-                className="btn"
-                style={{
-                  color: "red",
-                }}
-                onClick={(e) => {
-                  e.preventDefault();
-                  setNewTaskInput(undefined);
-                }}
-              >
-                <FaTimes />
-              </button>
-            </div>
+            <SortableChecklistItem
+              id={newTaskInput.task}
+              key={experimentLaunchChecklist.length - 1 || 0}
+              item={newTaskInput}
+              experimentLaunchChecklist={experimentLaunchChecklist}
+              setExperimentLaunchChecklist={setExperimentLaunchChecklist}
+              newTaskInput={newTaskInput}
+              setNewTaskInput={setNewTaskInput}
+              isNewTask={true}
+            />
           ) : null}
           <button
             className="btn btn-primary mt-3"
