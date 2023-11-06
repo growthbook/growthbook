@@ -25,19 +25,11 @@ import { getFeature } from "../../models/FeatureModel";
 import { promiseAllChunks } from "../../util/promise";
 import { getRevision } from "../../models/FeatureRevisionModel";
 
-// region GET /sample-users
-
 type GetArchetypeResponse = {
   status: 200;
   archetype: ArchetypeInterface[];
 };
 
-/**
- * GET /sample-users
- * Create a sample user
- * @param req
- * @param res
- */
 export const getArchetype = async (
   req: AuthRequest,
   res: Response<GetArchetypeResponse>
@@ -54,10 +46,6 @@ export const getArchetype = async (
   });
 };
 
-// endregion GET /sample-users
-
-// region GET /archetype/eval/:id
-
 type GetArchetypeAndEvalResponse = {
   status: 200;
   archetype: ArchetypeInterface[];
@@ -66,12 +54,6 @@ type GetArchetypeAndEvalResponse = {
     | Record<string, never>;
 };
 
-/**
- * GET /archetype/eval/:id
- * Get sample users and eval for a given feature
- * @param req
- * @param res
- */
 export const getArchetypeAndEval = async (
   req: AuthRequest<null, { id: string; version: string }>,
   res: Response<GetArchetypeAndEvalResponse | PrivateApiErrorResponse>
@@ -124,9 +106,6 @@ export const getArchetypeAndEval = async (
     featureResults,
   });
 };
-// endregion GET /sample-users/eval/:id
-
-// region POST /sample-users
 
 type CreateArchetypeRequest = AuthRequest<{
   name: string;
@@ -141,12 +120,6 @@ type CreateArchetypeResponse = {
   archetype: ArchetypeInterface;
 };
 
-/**
- * POST /sample-users
- * Create a sample user
- * @param req
- * @param res
- */
 export const postArchetype = async (
   req: CreateArchetypeRequest,
   res: Response<CreateArchetypeResponse | PrivateApiErrorResponse>
@@ -188,10 +161,6 @@ export const postArchetype = async (
   });
 };
 
-// endregion POST /sample-users
-
-// region PUT /sample-users/:id
-
 type PutArchetypeRequest = AuthRequest<
   {
     name: string;
@@ -207,12 +176,6 @@ type PutArchetypeResponse = {
   status: 200;
 };
 
-/**
- * PUT /sample-users/:id
- * Update one sample user
- * @param req
- * @param res
- */
 export const putArchetype = async (
   req: PutArchetypeRequest,
   res: Response<
@@ -267,10 +230,6 @@ export const putArchetype = async (
   });
 };
 
-// endregion PUT /sample-users/:id
-
-// region DELETE /sample-users/:id
-
 type DeleteArchetypeRequest = AuthRequest<
   Record<string, never>,
   { id: string },
@@ -286,12 +245,6 @@ type DeleteArchetypeResponse =
       message: string;
     };
 
-/**
- * DELETE /sample-users/:id
- * Delete one sample-users resource by ID
- * @param req
- * @param res
- */
 export const deleteArchetype = async (
   req: DeleteArchetypeRequest,
   res: Response<DeleteArchetypeResponse>
@@ -335,5 +288,3 @@ export const deleteArchetype = async (
     status: 200,
   });
 };
-
-// endregion DELETE /sample-users/:id

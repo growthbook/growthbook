@@ -96,10 +96,8 @@ export default function RuleList({
           return;
         }
 
-        // @ts-expect-error TS(2531) If you come across this, please fix it!: Object is possibly 'null'.
-        if (active.id !== over.id) {
+        if (over && active.id !== over.id) {
           const oldIndex = getRuleIndex(active.id);
-          // @ts-expect-error TS(2531) If you come across this, please fix it!: Object is possibly 'null'.
           const newIndex = getRuleIndex(over.id);
 
           if (oldIndex === -1 || newIndex === -1) return;

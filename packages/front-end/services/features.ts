@@ -855,10 +855,12 @@ export function getExperimentDefinitionFromFeature(
         name: "Main",
         reason: "",
         dateStarted: new Date().toISOString(),
-        // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'string | undefined' is not assignable to typ... Remove this comment to see the full error message
-        condition: expRule.condition,
-        // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'NamespaceValue | undefined' is not assignabl... Remove this comment to see the full error message
-        namespace: expRule.namespace,
+        condition: expRule.condition || "",
+        namespace: expRule.namespace || {
+          enabled: false,
+          name: "",
+          range: [0, 0],
+        },
         seed: trackingKey,
       },
     ],
@@ -937,10 +939,12 @@ export function genDuplicatedKey({ id }: FeatureInterface) {
     // Take the '_4' out of 'feature_a_4'
     const numSuffix = id.match(/_[\d]+$/)?.[0];
     // Store 'feature_a' from 'feature_a_4'
-    const keyRoot = numSuffix ? id.substr(0, id.length - numSuffix.length) : id;
+    const keyRoot = numSuffix
+      ? id.substring(0, id.length - numSuffix.length)
+      : id;
     // Parse the 4 (number) out of '_4' (string)
-    // @ts-expect-error TS(2531) If you come across this, please fix it!: Object is possibly 'null'.
-    const num = (numSuffix ? parseInt(numSuffix.match(/[\d]+/)[0]) : 0) + 1;
+    const num =
+      (numSuffix ? parseInt(numSuffix.match(/[\d]+/)?.[0] || "0") : 0) + 1;
 
     return `${keyRoot}_${num}`;
   } catch (e) {
