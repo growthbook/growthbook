@@ -77,6 +77,7 @@ const experimentSnapshotSchema = new mongoose.Schema({
       ],
     },
   ],
+  health: {}, // TODO
   hasRawQueries: Boolean,
   queryFilter: String,
   segment: String,

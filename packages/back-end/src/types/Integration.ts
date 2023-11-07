@@ -120,6 +120,10 @@ export type ExperimentUnitsQueryParams = {
   includeIdJoins: boolean;
 };
 
+export type ExperimentAggregateUnitsQueryParams = ExperimentUnitsQueryParams & {
+  useUnitsTable: boolean;
+};
+
 export type PastExperimentParams = {
   from: Date;
 };
@@ -223,6 +227,13 @@ export type ExperimentMetricQueryResponseRows = {
   main_covariate_sum_product?: number;
 }[];
 
+export type ExperimentUnitsQueryResponseRows = {
+  variation: string;
+  dimension_value: string;
+  dimension_name: string;
+  units: number;
+}[];
+
 export type ExperimentAggregateUnitsQueryResponseProcessedRow = {
   variation: string;
   exposureDate: string;
@@ -233,8 +244,10 @@ export type ExperimentAggregateUnitsQueryResponseProcessedRow = {
 
 export type ExperimentAggregateUnitsQueryResponseProcessedRows = ExperimentAggregateUnitsQueryResponseProcessedRow[];
 
-
-export type ExperimentAggregateUnitsQueryResponseRows = Record<string, string | number>[];
+export type ExperimentAggregateUnitsQueryResponseRows = Record<
+  string,
+  string | number
+>[];
 
 // eslint-disable-next-line
 export type QueryResponse<Rows = Record<string, any>[]> = {
@@ -374,7 +387,9 @@ export interface SourceIntegrationInterface {
   ): Promise<TestQueryResult>;
   getMetricValueQuery(params: MetricValueParams): string;
   getExperimentMetricQuery(params: ExperimentMetricQueryParams): string;
-  getExperimentAggregateUnitsQuery(params: ExperimentUnitsQueryParams, useUnitsTable: boolean): string;
+  getExperimentAggregateUnitsQuery(
+    params: ExperimentAggregateUnitsQueryParams
+  ): string;
   getExperimentUnitsTableQuery(params: ExperimentUnitsQueryParams): string;
   getPastExperimentQuery(params: PastExperimentParams): string;
   runMetricValueQuery(query: string): Promise<MetricValueQueryResponse>;
@@ -382,9 +397,10 @@ export interface SourceIntegrationInterface {
     query: string
   ): Promise<ExperimentMetricQueryResponse>;
   runExperimentUnitsQuery(query: string): Promise<ExperimentUnitsQueryResponse>;
-  runExperimentAggregateUnitsQuery(query: string): Promise<ExperimentAggregateUnitsQueryResponse>;
+  runExperimentAggregateUnitsQuery(
+    query: string
+  ): Promise<ExperimentAggregateUnitsQueryResponse>;
   runPastExperimentQuery(query: string): Promise<PastExperimentQueryResponse>;
-  processExperimentAggregateUnitsQueryResponseRows(rows: ExperimentAggregateUnitsQueryResponseRows): Promise<ExperimentAggregateUnitsQueryResponseProcessedRows>;
   getEventsTrackedByDatasource?: (
     schemaFormat: SchemaFormat,
     existingMetrics: MetricInterface[],

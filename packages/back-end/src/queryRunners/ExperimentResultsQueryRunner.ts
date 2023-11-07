@@ -2,13 +2,15 @@ import { orgHasPremiumFeature } from "enterprise";
 import { ExperimentMetricInterface, isFactMetric } from "shared/experiments";
 import {
   ExperimentSnapshotAnalysis,
+  ExperimentSnapshotHealth,
   ExperimentSnapshotInterface,
   ExperimentSnapshotSettings,
+  ExperimentSnapshotTraffic,
+  ExperimentSnapshotTrafficDimension,
 } from "../../types/experiment-snapshot";
 import { MetricInterface } from "../../types/metric";
 import { Queries, QueryPointer, QueryStatus } from "../../types/query";
 import { SegmentInterface } from "../../types/segment";
-import { findDimensionById } from "../models/DimensionModel";
 import {
   findSnapshotById,
   updateSnapshot,
@@ -17,20 +19,19 @@ import { findSegmentById } from "../models/SegmentModel";
 import { parseDimensionId } from "../services/experiments";
 import { analyzeExperimentResults } from "../services/stats";
 import {
-  Dimension,
-  ExperimentAggregateUnitsQueryResponseRows,
   ExperimentDimension,
   ExperimentMetricQueryParams,
   ExperimentMetricStats,
   ExperimentQueryResponses,
   ExperimentResults,
   ExperimentUnitsQueryParams,
+  ExperimentUnitsQueryResponseRows,
   SourceIntegrationInterface,
-  UserDimension,
 } from "../types/Integration";
 import { expandDenominatorMetrics } from "../util/sql";
 import { getOrganizationById } from "../services/organizations";
 import { FactTableMap } from "../models/FactTableModel";
+import { checkSrm } from "../util/stats";
 import {
   QueryRunner,
   QueryMap,
@@ -43,6 +44,7 @@ export type SnapshotResult = {
   unknownVariations: string[];
   multipleExposures: number;
   analyses: ExperimentSnapshotAnalysis[];
+  health: ExperimentSnapshotHealth;
 };
 
 export type ExperimentResultsQueryParams = {
@@ -52,6 +54,8 @@ export type ExperimentResultsQueryParams = {
   factTableMap: FactTableMap;
   queryParentId: string;
 };
+
+export const TRAFFIC_QUERY_NAME = "traffic";
 
 export const startExperimentResultQueries = async (
   params: ExperimentResultsQueryParams,
@@ -106,7 +110,6 @@ export const startExperimentResultQueries = async (
       });
     }
   }
-  console.log(exposureQuery?.dimensions);
   const dimensionObj = await parseDimensionId(
     snapshotSettings.dimensions[0]?.id,
     organization
@@ -121,7 +124,25 @@ export const startExperimentResultQueries = async (
       hasPipelineModeFeature) ??
     false;
   let unitQuery: QueryPointer | null = null;
-  let unitsTableFullName = "";
+  const unitsTableFullName =
+    useUnitsTable && !!integration.generateTablePath
+      ? integration.generateTablePath(
+          `growthbook_tmp_units_${queryParentId}`,
+          integration.settings.pipelineSettings?.writeDataset,
+          "",
+          true
+        )
+      : "";
+
+  const unitQueryParams: ExperimentUnitsQueryParams = {
+    activationMetric: activationMetric,
+    dimensions: dimensionObj ? [dimensionObj] : availableExperimentDimensions,
+    segment: segmentObj,
+    settings: snapshotSettings,
+    unitsTableFullName: unitsTableFullName,
+    includeIdJoins: true,
+    factTableMap: params.factTableMap,
+  };
 
   if (useUnitsTable) {
     // The Mixpanel integration does not support writing tables
@@ -130,21 +151,6 @@ export const startExperimentResultQueries = async (
         "Unable to generate table; table path generator not specified."
       );
     }
-    unitsTableFullName = integration.generateTablePath(
-      `growthbook_tmp_units_${queryParentId}`,
-      integration.settings.pipelineSettings?.writeDataset,
-      "",
-      true
-    );
-    const unitQueryParams: ExperimentUnitsQueryParams = {
-      activationMetric: activationMetric,
-      dimensions: dimensionObj ? [dimensionObj] : availableExperimentDimensions,
-      segment: segmentObj,
-      settings: snapshotSettings,
-      unitsTableFullName: unitsTableFullName,
-      includeIdJoins: true,
-      factTableMap: params.factTableMap,
-    };
     unitQuery = await startQuery({
       name: queryParentId,
       query: integration.getExperimentUnitsTableQuery(unitQueryParams),
@@ -174,7 +180,7 @@ export const startExperimentResultQueries = async (
       metric: m,
       segment: segmentObj,
       settings: snapshotSettings,
-      useUnitsTable: useUnitsTable,
+      useUnitsTable: !!unitQuery,
       unitsTableFullName: unitsTableFullName,
       factTableMap: params.factTableMap,
     };
@@ -189,27 +195,18 @@ export const startExperimentResultQueries = async (
     );
   });
   await Promise.all(promises);
-
-  const unitQueryParams: ExperimentUnitsQueryParams = {
-    activationMetric: activationMetric,
-    dimensions: availableExperimentDimensions,
-    segment: segmentObj,
-    settings: snapshotSettings,
-    unitsTableFullName: unitsTableFullName,
-    factTableMap: params.factTableMap,
-    includeIdJoins: true,
-  };
-  const healthQuery = await startQuery({
-    name: queryParentId.concat("_health"),
-    query: integration.getExperimentAggregateUnitsQuery(
-      unitQueryParams,
-      !!unitQuery
-    ),
+  // TODO add to only run if enabled at datasource level
+  const trafficQuery = await startQuery({
+    name: TRAFFIC_QUERY_NAME,
+    query: integration.getExperimentAggregateUnitsQuery({
+      ...unitQueryParams,
+      useUnitsTable: !!unitQuery,
+    }),
     dependencies: unitQuery ? [unitQuery.query] : [],
     run: (query) => integration.runExperimentAggregateUnitsQuery(query),
     process: (rows) => rows,
   });
-  queries.push(healthQuery);
+  queries.push(trafficQuery);
 
   return queries;
 };
@@ -244,6 +241,7 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
       analyses: this.model.analyses,
       multipleExposures: 0,
       unknownVariations: [],
+      health: { traffic: {} },
     };
 
     // Run each analysis
@@ -269,6 +267,79 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
         })()
       );
     });
+
+    // Run health checks
+    const healthQuery = queryMap.get(TRAFFIC_QUERY_NAME);
+    if (healthQuery) {
+      // move somewhere else
+      const variationIdMap: { [key: string]: number } = {};
+      const variationWeights: number[] = [];
+      this.model.settings.variations.map((v, i) => {
+        variationIdMap[v.id] = i;
+        variationWeights.push(v.weight);
+      });
+      const nVariations = this.model.settings.variations.length;
+      const res = healthQuery.result as ExperimentUnitsQueryResponseRows;
+      const trafficResults: {
+        [dimName: string]: {
+          [dimValue: string]: ExperimentSnapshotTrafficDimension;
+        };
+      } = {
+        overall: {
+          overall: {
+            name: "",
+            srm: 0,
+            variationUnits: Array(nVariations).fill(0),
+          },
+        },
+      };
+      res.forEach((r) => {
+        const variationIndex = variationIdMap[r.variation];
+        const dimTraffic = trafficResults[r.dimension_name];
+        if (dimTraffic) {
+          const dimValueTraffic = dimTraffic[r.dimension_value];
+          if (dimValueTraffic) {
+            dimValueTraffic.variationUnits[variationIndex] = r.units;
+          } else {
+            const trafficArray = Array(nVariations).fill(0);
+            trafficArray[variationIndex] = r.units;
+            dimTraffic[r.dimension_value] = {
+              name: r.dimension_value,
+              srm: 0,
+              variationUnits: trafficArray,
+            };
+          }
+        } else {
+          const trafficArray = Array(nVariations).fill(0);
+          trafficArray[variationIndex] = r.units;
+          trafficResults[r.dimension_name][r.dimension_value] = {
+            name: r.dimension_value,
+            srm: 0,
+            variationUnits: trafficArray,
+          };
+        }
+        // use date for overall
+        if (r.dimension_name === "dim_exposure_date") {
+          trafficResults.overall.overall.variationUnits[variationIndex] +=
+            r.units;
+        }
+      });
+      const trafficResult: ExperimentSnapshotTraffic = {};
+      for (const [dimName, dimTraffic] of Object.entries(trafficResults)) {
+        for (const dimValueTraffic of Object.values(dimTraffic)) {
+          dimValueTraffic.srm = checkSrm(
+            dimValueTraffic.variationUnits,
+            variationWeights
+          );
+          if (dimName in trafficResult) {
+            trafficResult[dimName].push(dimValueTraffic);
+          } else {
+            trafficResult[dimName] = [dimValueTraffic];
+          }
+        }
+      }
+      result.health.traffic = trafficResult;
+    }
 
     if (analysisPromises.length > 0) {
       await Promise.all(analysisPromises);

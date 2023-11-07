@@ -42,9 +42,7 @@ import {
   ExperimentUnitsQueryResponse,
   ProcessedDimensions,
   ExperimentAggregateUnitsQueryResponse,
-  ExperimentAggregateUnitsQueryResponseProcessedRow,
-  ExperimentAggregateUnitsQueryResponseRows,
-  ExperimentAggregateUnitsQueryResponseProcessedRows,
+  ExperimentAggregateUnitsQueryParams,
 } from "../types/Integration";
 import { DimensionInterface } from "../../types/dimension";
 import { IMPORT_LIMIT_DAYS } from "../util/secrets";
@@ -1062,7 +1060,7 @@ export default abstract class SqlIntegration
         : ""
     }
     ${unitDimensions
-      .map((d, i) => {
+      .map((d) => {
         `, __dim_unit_${d.dimension.id} as (${this.getDimensionCTE(
           d.dimension,
           baseIdType,
@@ -1136,13 +1134,17 @@ export default abstract class SqlIntegration
   }
 
   getExperimentAggregateUnitsQuery(
-    params: ExperimentUnitsQueryParams,
-    useUnitsTable: boolean
+    params: ExperimentAggregateUnitsQueryParams
   ): string {
-    const { activationMetric, settings, segment, factTableMap } = params;
+    const {
+      activationMetric,
+      settings,
+      segment,
+      factTableMap,
+      useUnitsTable,
+    } = params;
 
     // Replace any placeholders in the user defined dimension SQL
-    console.log(params.dimensions);
     const { experimentDimensions } = this.processDimensions(
       params.dimensions,
       settings,
@@ -1157,7 +1159,6 @@ export default abstract class SqlIntegration
         experimentId: settings.experimentId,
       });
     }
-    console.log(experimentDimensions);
     const exposureQuery = this.getExposureQuery(settings.exposureQueryId || "");
 
     // Get any required identity join queries
@@ -1170,7 +1171,7 @@ export default abstract class SqlIntegration
         activationMetric ? getUserIdTypes(activationMetric, factTableMap) : []
       );
     }
-    const { baseIdType, idJoinMap, idJoinSQL } = this.getIdentitiesCTE(
+    const { baseIdType, idJoinSQL } = this.getIdentitiesCTE(
       idTypeObjects,
       settings.startDate,
       settings.endDate,
@@ -2495,7 +2496,7 @@ AND event_name = '${eventName}'`,
       const value =
         metric.metricType === "proportion" ||
         !columnRef ||
-        columnRef.column === "$$distinctUsers" ||
+        columnRef.column === "$$distinctId" ||
         columnRef.column === "$$count"
           ? "1"
           : `${alias}.${columnRef.column}`;

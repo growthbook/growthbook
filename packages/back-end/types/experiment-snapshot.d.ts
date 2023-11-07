@@ -159,4 +159,19 @@ export interface ExperimentSnapshotInterface {
   unknownVariations: string[];
   multipleExposures: number;
   analyses: ExperimentSnapshotAnalysis[];
+
+  health: ExperimentSnapshotHealth;
+}
+
+export interface ExperimentSnapshotHealth {
+  traffic: ExperimentSnapshotTraffic;
+}
+
+export interface ExperimentSnapshotTraffic {
+  [dimension: string]: ExperimentSnapshotTrafficDimension[];
+}
+export interface ExperimentSnapshotTrafficDimension {
+  name: string;
+  srm: number;
+  variationUnits: number[];
 }

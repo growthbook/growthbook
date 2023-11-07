@@ -427,6 +427,7 @@ export async function createManualSnapshot(
         ],
       },
     ],
+    health: { traffic: {} },
   };
 
   const snapshot = await createExperimentSnapshotModel(data);
@@ -556,6 +557,7 @@ export async function createSnapshot({
         }),
     ],
     status: "running",
+    health: { traffic: {} },
   };
 
   const nextUpdate =
