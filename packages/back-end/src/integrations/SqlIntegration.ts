@@ -2495,7 +2495,7 @@ AND event_name = '${eventName}'`,
       const value =
         metric.metricType === "proportion" ||
         !columnRef ||
-        columnRef.column === "$$distinctId" ||
+        columnRef.column === "$$distinctUsers" ||
         columnRef.column === "$$count"
           ? "1"
           : `${alias}.${columnRef.column}`;

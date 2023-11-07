@@ -143,6 +143,13 @@ const experimentSchema = new mongoose.Schema({
       reason: String,
       coverage: Number,
       condition: String,
+      savedGroups: [
+        {
+          _id: false,
+          ids: [String],
+          match: String,
+        },
+      ],
       namespace: {},
       seed: String,
       variationWeights: [Number],
@@ -1104,6 +1111,27 @@ export const getAllVisualExperiments = async (
     });
 };
 
+export function getPayloadKeysForAllEnvs(
+  organization: OrganizationInterface,
+  projects: string[]
+) {
+  const uniqueProjects = new Set(projects);
+
+  const environments: string[] =
+    organization.settings?.environments?.map((e) => e.id) ?? [];
+
+  const keys: SDKPayloadKey[] = [];
+  uniqueProjects.forEach((p) => {
+    environments.forEach((e) => {
+      keys.push({
+        environment: e,
+        project: p,
+      });
+    });
+  });
+  return keys;
+}
+
 export const getPayloadKeys = (
   organization: OrganizationInterface,
   experiment: ExperimentInterface,
@@ -1120,10 +1148,16 @@ export const getPayloadKeys = (
 
   // Visual editor experiments always affect all environments
   if (experiment.hasVisualChangesets) {
-    return environments.map((e) => ({
-      environment: e,
-      project,
-    }));
+    const keys: SDKPayloadKey[] = [];
+
+    environments.forEach((e) => {
+      // Always update the "no-project" payload
+      keys.push({ environment: e, project: "" });
+      // If the experiment is in a project, update that payload as well
+      if (project) keys.push({ environment: e, project });
+    });
+
+    return keys;
   }
 
   // Feature flag experiments only affect the environments where the experiment rule is active

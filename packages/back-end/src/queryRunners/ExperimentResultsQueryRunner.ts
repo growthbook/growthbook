@@ -2,7 +2,6 @@ import { orgHasPremiumFeature } from "enterprise";
 import { ExperimentMetricInterface, isFactMetric } from "shared/experiments";
 import {
   ExperimentSnapshotAnalysis,
-  ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotInterface,
   ExperimentSnapshotSettings,
 } from "../../types/experiment-snapshot";
@@ -48,7 +47,6 @@ export type SnapshotResult = {
 
 export type ExperimentResultsQueryParams = {
   snapshotSettings: ExperimentSnapshotSettings;
-  analysisSettings: ExperimentSnapshotAnalysisSettings;
   variationNames: string[];
   metricMap: Map<string, ExperimentMetricInterface>;
   factTableMap: FactTableMap;

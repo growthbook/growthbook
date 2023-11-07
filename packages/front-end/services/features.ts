@@ -468,20 +468,14 @@ export function getDefaultRuleValue({
     };
   }
   if (ruleType === "force" || !ruleType) {
-    const firstAttr = attributeSchema?.[0];
-    const condition = firstAttr
-      ? JSON.stringify({
-          [firstAttr.property]: firstAttr.datatype === "boolean" ? "true" : "",
-        })
-      : "";
-
     return {
       type: "force",
       description: "",
       id: "",
       value,
       enabled: true,
-      condition,
+      condition: "",
+      savedGroups: [],
       scheduleRules: [
         {
           enabled: true,
@@ -516,7 +510,8 @@ export function isRuleFullyCovered(rule: FeatureRule): boolean {
     (rule.type === "rollout" || rule.type === "experiment") &&
     rule.coverage === 1 &&
     rule.enabled === true &&
-    rule.condition === "{}" &&
+    (!rule.condition || rule.condition === "{}") &&
+    !rule.savedGroups?.length &&
     !ruleDisabled
   ) {
     return true;

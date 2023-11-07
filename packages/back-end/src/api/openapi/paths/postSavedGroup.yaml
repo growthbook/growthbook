@@ -18,20 +18,24 @@ requestBody:
         type: object
         required:
           - name
-          - values
           - attributeKey
         properties:
           name:
             type: string
             description: The display name of the Saved Group
+          source:
+            type: string
+            enum:
+              - inline
+              - runtime
           values:
             type: array
             items:
               type: string
-            description: "An array of values to target (Ex: a list of userIds)."
+            description: "An array of values to target (Ex: a list of userIds). Not applicable for runtime groups"
           attributeKey:
             type: string
-            description: "The parameter you want to target users with. Ex: userId, orgId, ..."
+            description: "For inline groups, the name of the attribute the values belong to (e.g. `user_id`). For runtime groups, the group name you reference in your code"
           owner:
             type: string
             description: "The person or team that owns this Saved Group. If no owner, you can pass an empty string."

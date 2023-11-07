@@ -3,10 +3,15 @@ import { isEqual } from "lodash";
 import { AuthRequest } from "../../types/AuthRequest";
 import { ApiErrorResponse } from "../../../types/api";
 import { getOrgFromReq } from "../../services/organizations";
-import { SavedGroupInterface } from "../../../types/saved-group";
 import {
+  SavedGroupInterface,
+  SavedGroupSource,
+} from "../../../types/saved-group";
+import {
+  UpdateSavedGroupProps,
   createSavedGroup,
   deleteSavedGroupById,
+  getRuntimeSavedGroup,
   getSavedGroupById,
   updateSavedGroupById,
 } from "../../models/SavedGroupModel";
@@ -24,6 +29,7 @@ type CreateSavedGroupRequest = AuthRequest<{
   owner: string;
   attributeKey: string;
   groupList: string[];
+  source: SavedGroupSource;
 }>;
 
 type CreateSavedGroupResponse = {
@@ -41,15 +47,24 @@ export const postSavedGroup = async (
   req: CreateSavedGroupRequest,
   res: Response<CreateSavedGroupResponse>
 ) => {
-  const { org } = getOrgFromReq(req);
-  const { groupName, owner, attributeKey, groupList } = req.body;
+  const { org, userName } = getOrgFromReq(req);
+  const { groupName, owner, attributeKey, groupList, source } = req.body;
 
   req.checkPermissions("manageSavedGroups");
 
+  // If this is a runtime saved group, make sure the attributeKey is unique
+  if (source === "runtime") {
+    const existing = await getRuntimeSavedGroup(attributeKey, org.id);
+    if (existing) {
+      throw new Error("A runtime saved group with that key already exists");
+    }
+  }
+
   const savedGroup = await createSavedGroup({
     values: groupList,
+    source: source || "inline",
     groupName,
-    owner,
+    owner: owner || userName,
     attributeKey,
     organization: org.id,
   });
@@ -99,7 +114,7 @@ export const putSavedGroup = async (
   res: Response<PutSavedGroupResponse | ApiErrorResponse>
 ) => {
   const { org } = getOrgFromReq(req);
-  const { groupName, owner, groupList } = req.body;
+  const { groupName, owner, groupList, attributeKey } = req.body;
   const { id } = req.params;
 
   if (!id) {
@@ -114,11 +129,25 @@ export const putSavedGroup = async (
     throw new Error("Could not find saved group");
   }
 
-  const changes = await updateSavedGroupById(id, org.id, {
+  const fieldsToUpdate: UpdateSavedGroupProps = {
     values: groupList,
     groupName,
     owner,
-  });
+  };
+
+  if (
+    savedGroup.source === "runtime" &&
+    attributeKey !== savedGroup.attributeKey
+  ) {
+    const existing = await getRuntimeSavedGroup(attributeKey, org.id);
+    if (existing) {
+      throw new Error("A runtime saved group with that key already exists");
+    }
+
+    fieldsToUpdate.attributeKey = attributeKey;
+  }
+
+  const changes = await updateSavedGroupById(id, org.id, fieldsToUpdate);
 
   const updatedSavedGroup = { ...savedGroup, ...changes };
 
@@ -132,8 +161,8 @@ export const putSavedGroup = async (
     details: auditDetailsUpdate(savedGroup, updatedSavedGroup),
   });
 
-  // If the values change, we need to invalidate cached feature rules
-  if (!isEqual(savedGroup.values, groupList)) {
+  // If the values or key change, we need to invalidate cached feature rules
+  if (!isEqual(savedGroup.values, groupList) || fieldsToUpdate.attributeKey) {
     savedGroupUpdated(org, savedGroup.id);
   }
 
