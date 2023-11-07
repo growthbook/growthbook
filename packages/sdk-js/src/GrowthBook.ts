@@ -739,6 +739,7 @@ export class GrowthBook<
         if (rule.hashAttribute) exp.hashAttribute = rule.hashAttribute;
         if (rule.fallbackAttribute)
           exp.fallbackAttribute = rule.fallbackAttribute;
+        if (rule.stickyBucketing) exp.stickyBucketing = rule.stickyBucketing;
         if (rule.bucketVersion) exp.bucketVersion = rule.bucketVersion;
         if (rule.namespace) exp.namespace = rule.namespace;
         if (rule.meta) exp.meta = rule.meta;
@@ -881,7 +882,7 @@ export class GrowthBook<
     }
 
     // 6. Get the hash attribute and return if empty
-    const { hashValue } = this._getHashAttribute(
+    const { hashAttribute, hashValue } = this._getHashAttribute(
       experiment.hashAttribute,
       experiment.stickyBucketing ? experiment.fallbackAttribute : undefined
     );
@@ -986,12 +987,8 @@ export class GrowthBook<
         experiment.weights
       );
 
-    let assigned = -1;
-    let foundStickyBucket = false;
-    assigned = this._getStickyBucketVariation<T>(experiment);
-    if (assigned >= 0) {
-      foundStickyBucket = true;
-    } else {
+    let assigned = this._getStickyBucketVariation<T>(experiment);
+    if (assigned === -1) {
       assigned = chooseVariation(n, ranges);
     }
 
@@ -1041,23 +1038,18 @@ export class GrowthBook<
     const result = this._getResult(experiment, assigned, true, featureId, n);
 
     // 13.5. Persist sticky bucket
-    if (!foundStickyBucket) {
-      const stickyAttributeName = experiment.hashAttribute || "id";
-      const stickyAttributeValue = this._getStickyBucketAttributeValue(
-        stickyAttributeName
-      );
-      // todo: append existing doc
-      this._ctx.stickyBucketService?.saveAssignments(
-        stickyAttributeName,
-        stickyAttributeValue,
-        {
-          [this._getStickyBucketExperimentId<T>(
-            experiment
-          )]: result.variationId,
-        }
-      );
-      console.log("saved sticky bucket doc...", this._ctx.features);
-    }
+    // Always save the sticky bucket even if it already exists.
+    const stickyAttributeValue = this._getStickyBucketAttributeValue(
+      hashAttribute
+    );
+    this._ctx.stickyBucketService?.saveAssignments(
+      hashAttribute,
+      stickyAttributeValue,
+      {
+        [this._getStickyBucketExperimentId<T>(experiment)]: result.variationId,
+      }
+    );
+    // todo: if found a fallback bucket but now a primary is present, write the primary
 
     // 14. Fire the tracking callback
     this._track(experiment, result);
@@ -1112,7 +1104,7 @@ export class GrowthBook<
   }
 
   private _getHashAttribute(attr?: string, fallback?: string) {
-    const hashAttribute = attr || fallback || "id";
+    let hashAttribute = attr || "id";
 
     let hashValue = "";
     if (this._attributeOverrides[hashAttribute]) {
@@ -1121,6 +1113,20 @@ export class GrowthBook<
       hashValue = this._ctx.attributes[hashAttribute] || "";
     } else if (this._ctx.user) {
       hashValue = this._ctx.user[hashAttribute] || "";
+    }
+
+    // if no match, try fallback
+    if (!hashValue && fallback) {
+      if (this._attributeOverrides[fallback]) {
+        hashValue = this._attributeOverrides[fallback];
+      } else if (this._ctx.attributes) {
+        hashValue = this._ctx.attributes[fallback] || "";
+      } else if (this._ctx.user) {
+        hashValue = this._ctx.user[fallback] || "";
+      }
+      if (hashValue) {
+        hashAttribute = fallback;
+      }
     }
 
     return { hashAttribute, hashValue };
@@ -1239,17 +1245,14 @@ export class GrowthBook<
         attributes.add(experiment.fallbackAttribute);
       }
     });
-    console.log("deriveSBIA...", attributes);
     return Array.from(attributes);
   }
 
   // todo: trigger this when other dependencies change
   public async refreshStickyBuckets(data?: FeatureApiResponse) {
-    console.log("refresh sticky buckets...");
     if (this.context.stickyBucketService) {
       // todo: disable SB with context flag
       const attributes = this._getStickyBucketAttributes(data);
-      console.log("refresh. attributes:", attributes);
 
       // todo: append assignments rather than overwriting (done?)
       this.context.stickyBucketAssignments = await this.context.stickyBucketService.getAllAssignments(
@@ -1266,12 +1269,6 @@ export class GrowthBook<
     const id = this._getStickyBucketExperimentId<T>(experiment);
     const variation = this._ctx.stickyBucketAssignments?.[id];
     if (variation === undefined) return -1;
-
-    console.log(
-      "assignment: found sticky bucket. val:",
-      variation,
-      this._ctx.features
-    );
     return variation;
   }
 
@@ -1351,7 +1348,6 @@ export abstract class StickyBucketService {
         Object.assign(mergedAssignments, assignments);
       }
     });
-    console.log("SB: getAllAssignments", attributes, mergedAssignments);
     return mergedAssignments;
   }
 }
@@ -1376,7 +1372,6 @@ export class LocalStorageStickyBucketService extends StickyBucketService {
       // Ignore localStorage errors
     }
     if (doc) this.assignmentDocs[key] = doc;
-    console.log("SB: getAssignments", doc);
     return doc?.assignments ?? {};
   }
   async saveAssignments(
@@ -1386,13 +1381,18 @@ export class LocalStorageStickyBucketService extends StickyBucketService {
   ) {
     const key = `${attributeName}||${attributeValue}`;
     const existingAssignments = this.assignmentDocs?.[key]?.assignments ?? {};
-    const doc: AssignmentDocument = {
-      attributeName,
-      attributeValue,
-      assignments: { ...existingAssignments, ...assignments },
-    };
-    this.assignmentDocs[key] = doc;
-    localStorage.setItem(this.prefix + key, JSON.stringify(doc));
-    console.log("SB: saveAssignments", doc);
+    const newAssignments = { ...existingAssignments, ...assignments };
+    // only write if changed
+    if (
+      JSON.stringify(existingAssignments) !== JSON.stringify(newAssignments)
+    ) {
+      const doc: AssignmentDocument = {
+        attributeName,
+        attributeValue,
+        assignments: newAssignments,
+      };
+      this.assignmentDocs[key] = doc;
+      localStorage.setItem(this.prefix + key, JSON.stringify(doc));
+    }
   }
 }
