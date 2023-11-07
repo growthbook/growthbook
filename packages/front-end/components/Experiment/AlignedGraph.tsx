@@ -41,6 +41,7 @@ interface Props
   className?: string;
   rowStatus?: string;
   isHovered?: boolean;
+  percent?: boolean;
   onMouseMove?: (e: React.MouseEvent<SVGPathElement>) => void;
   onMouseLeave?: (e: React.MouseEvent<SVGPathElement>) => void;
   onClick?: (e: React.MouseEvent<SVGPathElement, MouseEvent>) => void;
@@ -86,6 +87,7 @@ const AlignedGraph: FC<Props> = ({
   className,
   rowStatus,
   isHovered = false,
+  percent = true,
   onMouseMove,
   onMouseLeave,
   onClick,
@@ -138,8 +140,13 @@ const AlignedGraph: FC<Props> = ({
 
   const domainWidth = rightDomain - leftDomain;
 
+  const numberFormatter = Intl.NumberFormat(undefined, {
+    ...(domainWidth > 5000 ? { notation: "compact" } : {}),
+  });
   const tickFormat = (v: number) => {
-    return domainWidth < 0.05
+    return !percent
+      ? numberFormatter.format(v)
+      : domainWidth < 0.05
       ? smallPercentFormatter.format(v)
       : percentFormatter.format(v);
   };
@@ -423,7 +430,9 @@ const AlignedGraph: FC<Props> = ({
                 {(expected ?? 0) > 0 ? <FaArrowUp /> : <FaArrowDown />}
               </span>{" "}
               <span className="expected bold">
-                {parseFloat(((expected ?? 0) * 100).toFixed(1)) + "%"}{" "}
+                {parseFloat(
+                  ((expected ?? 0) * (percent ? 100 : 1)).toFixed(1)
+                ) + (percent ? "%" : "")}{" "}
               </span>
             </div>
           </>

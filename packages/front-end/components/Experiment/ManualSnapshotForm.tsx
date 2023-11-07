@@ -10,8 +10,8 @@ import { useForm } from "react-hook-form";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import {
-  formatConversionRate,
   getMetricConversionTitle,
+  getMetricFormatter,
 } from "@/services/metrics";
 import { trackSnapshot } from "@/services/track";
 import Modal from "../Modal";
@@ -312,8 +312,7 @@ const ManualSnapshotForm: FC<{
                         <td>
                           {values.users[i] > 0 &&
                             values.metrics[m.id][i].count > 0 &&
-                            formatConversionRate(
-                              m.type,
+                            getMetricFormatter(m.type)(
                               values.metrics[m.id][i].count / values.users[i]
                             )}
                         </td>

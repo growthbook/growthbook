@@ -15,7 +15,11 @@ import {
   ExperimentReportVariationWithIndex,
 } from "back-end/types/report";
 import { ExperimentStatus } from "back-end/types/experiment";
-import { PValueCorrection, StatsEngine } from "back-end/types/stats";
+import {
+  DifferenceType,
+  PValueCorrection,
+  StatsEngine,
+} from "back-end/types/stats";
 import {
   DEFAULT_P_VALUE_THRESHOLD,
   DEFAULT_STATS_ENGINE,
@@ -37,7 +41,7 @@ import usePValueThreshold from "@/hooks/usePValueThreshold";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import { useCurrency } from "@/hooks/useCurrency";
 import PValueColumn from "@/components/Experiment/PValueColumn";
-import PercentChangeColumn from "@/components/Experiment/PercentChangeColumn";
+import ChangeColumn from "@/components/Experiment/ChangeColumn";
 import ResultsTableTooltip, {
   TOOLTIP_HEIGHT,
   TOOLTIP_TIMEOUT,
@@ -82,6 +86,7 @@ export type ResultsTableProps = {
   hasRisk: boolean;
   statsEngine: StatsEngine;
   pValueCorrection?: PValueCorrection;
+  differenceType: DifferenceType;
   sequentialTestingEnabled?: boolean;
   metricFilter?: ResultsMetricFilters;
   setMetricFilter?: (filter: ResultsMetricFilters) => void;
@@ -118,6 +123,7 @@ export default function ResultsTable({
   hasRisk,
   statsEngine,
   pValueCorrection,
+  differenceType,
   sequentialTestingEnabled = false,
   metricFilter,
   setMetricFilter,
@@ -416,6 +422,13 @@ export default function ResultsTable({
     };
   }, [hoverTimeout]);
 
+  let changeTitle = "% Change";
+  if (differenceType === "absolute") {
+    changeTitle = "Absolute Change";
+  } else if (differenceType === "scaled") {
+    changeTitle = "Scaled Impact";
+  }
+
   return (
     <div className="position-relative" ref={containerRef}>
       <CSSTransition
@@ -438,6 +451,7 @@ export default function ResultsTable({
           data={tooltipData}
           tooltipOpen={tooltipOpen}
           close={closeTooltip}
+          percent={differenceType === "relative"}
           onPointerMove={resetTimeout}
           onClick={resetTimeout}
           onPointerLeave={leaveRow}
@@ -616,13 +630,14 @@ export default function ResultsTable({
                           showAxis={true}
                           axisOnly={true}
                           graphWidth={graphCellWidth}
+                          percent={differenceType === "relative"}
                           height={45}
                           newUi={true}
                         />
                       </div>
                     </th>
                     <th
-                      style={{ width: 140 * tableCellScale }}
+                      style={{ width: 150 * tableCellScale }}
                       className="axis-col label text-right"
                     >
                       <div style={{ lineHeight: "15px", marginBottom: 2 }}>
@@ -631,8 +646,10 @@ export default function ResultsTable({
                           innerClassName={"text-left"}
                           body={
                             <div style={{ lineHeight: 1.5 }}>
-                              {getPercentChangeTooltip(
+                              {getChangeTooltip(
+                                changeTitle,
                                 statsEngine || DEFAULT_STATS_ENGINE,
+                                differenceType,
                                 hasRisk,
                                 !!sequentialTestingEnabled,
                                 pValueCorrection ?? null,
@@ -641,7 +658,7 @@ export default function ResultsTable({
                             </div>
                           }
                         >
-                          % Change <RxInfoCircled />
+                          {changeTitle} <RxInfoCircled />
                         </Tooltip>
                       </div>
                     </th>
@@ -874,6 +891,7 @@ export default function ResultsTable({
                               newUi={true}
                               // className={}
                               isHovered={isHovered}
+                              percent={differenceType === "relative"}
                               className={clsx(
                                 resultsHighlightClassname,
                                 "overflow-hidden"
@@ -904,6 +922,7 @@ export default function ResultsTable({
                               domain={domain}
                               significant={true}
                               showAxis={false}
+                              percent={differenceType === "relative"}
                               axisOnly={true}
                               graphWidth={graphCellWidth}
                               height={32}
@@ -912,10 +931,11 @@ export default function ResultsTable({
                           )}
                         </td>
                         {j > 0 ? (
-                          <PercentChangeColumn
+                          <ChangeColumn
                             metric={row.metric}
                             stats={stats}
                             rowResults={rowResults}
+                            differenceType={differenceType}
                             statsEngine={statsEngine}
                             className={resultsHighlightClassname}
                           />
@@ -994,15 +1014,35 @@ function drawEmptyRow({
   );
 }
 
-function getPercentChangeTooltip(
+function getChangeTooltip(
+  changeTitle: string,
   statsEngine: StatsEngine,
+  differenceType: DifferenceType,
   hasRisk: boolean,
   sequentialTestingEnabled: boolean,
   pValueCorrection: PValueCorrection,
   pValueThreshold: number
 ) {
+  let changeText =
+    "The uplift comparing the variation to the baseline, in percent change from the baseline value.";
+  if (differenceType == "absolute") {
+    changeText =
+      "The absolute difference between the average values in the variation and the baseline. For non-ratio metrics, this is average difference between users in the variation and the baseline.";
+  } else if (differenceType == "scaled") {
+    changeText =
+      "The total change in the metric per day if 100% of traffic were to have gone to the variation.";
+  }
+
+  const changeElem = (
+    <>
+      <p>
+        <b>{changeTitle}</b> - {changeText}
+      </p>
+    </>
+  );
+  let intervalText = <></>;
   if (hasRisk && statsEngine === "bayesian") {
-    return (
+    intervalText = (
       <>
         The interval is a 95% credible interval. The true value is more likely
         to be in the thicker parts of the graph.
@@ -1011,22 +1051,20 @@ function getPercentChangeTooltip(
   }
   if (statsEngine === "frequentist") {
     const confidencePct = percentFormatter.format(1 - pValueThreshold);
-    return (
+    intervalText = (
       <>
-        <p className="mb-0">
-          The interval is a {confidencePct} confidence interval. If you re-ran
-          the experiment 100 times, the true value would be in this range{" "}
-          {confidencePct} of the time.
-        </p>
+        The interval is a {confidencePct} confidence interval. If you re-ran the
+        experiment 100 times, the true value would be in this range{" "}
+        {confidencePct} of the time.
         {sequentialTestingEnabled && (
-          <p className="mt-4 mb-0">
+          <p className="mt-2 mb-0">
             Because sequential testing is enabled, these confidence intervals
             are valid no matter how many times you analyze (or peek at) this
             experiment as it runs.
           </p>
         )}
         {pValueCorrection && (
-          <p className="mt-4 mb-0">
+          <p className="mt-2 mb-0">
             Because your organization has multiple comparisons corrections
             enabled, these confidence intervals have been inflated so that they
             match the adjusted psuedo-p-value. Because confidence intervals do
@@ -1039,7 +1077,14 @@ function getPercentChangeTooltip(
       </>
     );
   }
-  return <></>;
+  return (
+    <>
+      {changeElem}
+      <p className="mt-3">
+        <b>Graph</b> - {intervalText}
+      </p>
+    </>
+  );
 }
 
 function getPValueTooltip(

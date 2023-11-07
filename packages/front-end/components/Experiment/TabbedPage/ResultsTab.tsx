@@ -12,6 +12,7 @@ import { VisualChangesetInterface } from "back-end/types/visual-changeset";
 import { SDKConnectionInterface } from "back-end/types/sdk-connection";
 import Link from "next/link";
 import { useRouter } from "next/router";
+import { DifferenceType } from "back-end/types/stats";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import useOrgSettings from "@/hooks/useOrgSettings";
@@ -60,6 +61,9 @@ export default function ResultsTab({
   safeToEdit,
 }: Props) {
   const [baselineRow, setBaselineRow] = useState<number>(0);
+  const [differenceType, setDifferenceType] = useState<DifferenceType>(
+    "relative"
+  );
   const [variationFilter, setVariationFilter] = useState<number[]>([]);
   const [metricFilter, setMetricFilter] = useLocalStorage<ResultsMetricFilters>(
     `experiment-page__${experiment.id}__metric_filter`,
@@ -224,6 +228,7 @@ export default function ResultsTab({
             setVariationFilter={(v: number[]) => setVariationFilter(v)}
             baselineRow={baselineRow}
             setBaselineRow={(b: number) => setBaselineRow(b)}
+            setDifferenceType={setDifferenceType}
           />
           {experiment.status === "draft" ? (
             <div className="mx-3">
@@ -319,6 +324,8 @@ export default function ResultsTab({
                   setVariationFilter={setVariationFilter}
                   baselineRow={baselineRow}
                   setBaselineRow={setBaselineRow}
+                  differenceType={differenceType}
+                  setDifferenceType={setDifferenceType}
                   metricFilter={metricFilter}
                   setMetricFilter={setMetricFilter}
                 />

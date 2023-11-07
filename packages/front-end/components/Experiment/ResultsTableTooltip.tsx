@@ -12,17 +12,18 @@ import { FaArrowDown, FaArrowUp } from "react-icons/fa";
 import { HiOutlineExclamationCircle } from "react-icons/hi";
 import { RxInfoCircled } from "react-icons/rx";
 import { MdSwapCalls } from "react-icons/md";
-import {
-  ExperimentMetricInterface,
-  isBinomialMetric,
-  isFactMetric,
-} from "shared/experiments";
+import { ExperimentMetricInterface, isFactMetric } from "shared/experiments";
 import NotEnoughData from "@/components/Experiment/NotEnoughData";
 import { pValueFormatter, RowResults } from "@/services/experiments";
 import { GBSuspicious } from "@/components/Icons";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import MetricValueColumn from "@/components/Experiment/MetricValueColumn";
-import { formatMetricValue, formatNumber } from "@/services/metrics";
+import {
+  formatNumber,
+  formatPercent,
+  getColumnRefFormatter,
+  getExperimentMetricFormatter,
+} from "@/services/metrics";
 import { useCurrency } from "@/hooks/useCurrency";
 import { capitalizeFirstLetter } from "@/services/utils";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -40,10 +41,7 @@ export type TooltipHoverSettings = {
 export type LayoutX = "element-center" | "element-left" | "element-right";
 export type YAlign = "top" | "bottom";
 
-const numberFormatter = Intl.NumberFormat("en-US", {
-  notation: "compact",
-  maximumFractionDigits: 1,
-});
+const numberFormatter = Intl.NumberFormat();
 const percentFormatter = new Intl.NumberFormat(undefined, {
   style: "percent",
   maximumFractionDigits: 2,
@@ -73,6 +71,7 @@ interface Props
   data?: TooltipData;
   tooltipOpen: boolean;
   close: () => void;
+  percent: boolean;
 }
 export default function ResultsTableTooltip({
   left,
@@ -80,6 +79,7 @@ export default function ResultsTableTooltip({
   data,
   tooltipOpen,
   close,
+  percent,
   ...otherProps
 }: Props) {
   useEffect(() => {
@@ -108,6 +108,13 @@ export default function ResultsTableTooltip({
   if (!data) {
     return null;
   }
+  const deltaFormatter = percent
+    ? formatPercent
+    : getExperimentMetricFormatter(data.metric, getFactTableById, true);
+  const deltaFormatterOptions = {
+    currency: displayCurrency,
+    ...(percent ? { maximumFractionDigits: 2 } : {}),
+  };
 
   const rows = [data.baseline, data.stats];
 
@@ -161,7 +168,22 @@ export default function ResultsTableTooltip({
       </>
     );
   }
-
+  let denomFormatter = formatNumber;
+  const hasCustomDenominator =
+    (isFactMetric(data.metric) && data.metric.metricType === "ratio") ||
+    !!data.metric.denominator;
+  if (
+    hasCustomDenominator &&
+    isFactMetric(data.metric) &&
+    !!data.metric.denominator
+  ) {
+    denomFormatter = getColumnRefFormatter(
+      data.metric.denominator,
+      getFactTableById,
+      true
+    );
+  }
+  // Lift units
   const expected = data.stats?.expected ?? 0;
   const ci1 = data.stats?.ciAdjusted?.[1] ?? data.stats?.ci?.[1] ?? 0;
   const ci0 = data.stats?.ciAdjusted?.[0] ?? data.stats?.ci?.[0] ?? 0;
@@ -169,17 +191,19 @@ export default function ResultsTableTooltip({
     data.stats?.ciAdjusted?.[0] !== undefined ? (
       <>
         <div>
-          [{percentFormatter.format(ci0)}, {percentFormatter.format(ci1)}]
+          [{deltaFormatter(ci0, deltaFormatterOptions)},{" "}
+          {deltaFormatter(ci1, deltaFormatterOptions)}]
         </div>
         <div className="text-muted font-weight-normal">
-          (unadj.:&nbsp; [{percentFormatter.format(data.stats.ci?.[0] ?? 0)},{" "}
-          {percentFormatter.format(data.stats.ci?.[1] ?? 0)}] )
+          (unadj.:&nbsp; [
+          {deltaFormatter(data.stats.ci?.[0] ?? 0, deltaFormatterOptions)},{" "}
+          {deltaFormatter(data.stats.ci?.[1] ?? 0, deltaFormatterOptions)}] )
         </div>
       </>
     ) : (
       <>
-        [{percentFormatter.format(data.stats.ci?.[0] ?? 0)},{" "}
-        {percentFormatter.format(data.stats.ci?.[1] ?? 0)}]
+        [{deltaFormatter(data.stats.ci?.[0] ?? 0, deltaFormatterOptions)},{" "}
+        {deltaFormatter(data.stats.ci?.[1] ?? 0, deltaFormatterOptions)}]
       </>
     );
 
@@ -378,16 +402,20 @@ export default function ResultsTableTooltip({
                   )}
                 </span>{" "}
                 <span className="expected bold">
-                  {parseFloat(((data.stats.expected ?? 0) * 100).toFixed(1)) +
-                    "%"}
+                  {deltaFormatter(
+                    data.stats.expected ?? 0,
+                    deltaFormatterOptions
+                  )}
                 </span>
                 {data.statsEngine === "frequentist" ? (
                   <span className="plusminus ml-1">
                     ±
                     {Math.abs(ci0) === Infinity || Math.abs(ci1) === Infinity
                       ? "∞"
-                      : parseFloat((Math.abs(expected - ci0) * 100).toFixed(1))}
-                    %
+                      : deltaFormatter(
+                          Math.abs(expected - ci0),
+                          deltaFormatterOptions
+                        )}
                   </span>
                 ) : null}
               </div>
@@ -547,8 +575,9 @@ export default function ResultsTableTooltip({
                 <tr>
                   <th style={{ width: 130 }}>Variation</th>
                   <th>Users</th>
+                  <th>Numerator</th>
+                  {hasCustomDenominator ? <th>Denom.</th> : null}
                   <th>Value</th>
-                  <th>Total</th>
                 </tr>
               </thead>
               <tbody>
@@ -592,22 +621,27 @@ export default function ResultsTableTooltip({
                         ) : null}
                       </td>
                       <td>{numberFormatter.format(row.users)}</td>
+
+                      <td>
+                        {getExperimentMetricFormatter(
+                          data.metric,
+                          getFactTableById,
+                          true
+                        )(row.value, { currency: displayCurrency })}
+                      </td>
+                      {hasCustomDenominator ? (
+                        <td>
+                          {denomFormatter(row.denominator || row.users, {
+                            currency: displayCurrency,
+                          })}
+                        </td>
+                      ) : null}
                       <MetricValueColumn
                         metric={data.metric}
                         stats={row}
                         users={row?.users || 0}
                         showRatio={false}
                       />
-                      <td>
-                        {isBinomialMetric(data.metric)
-                          ? formatNumber(row.value)
-                          : formatMetricValue(
-                              data.metric,
-                              row.value,
-                              getFactTableById,
-                              displayCurrency
-                            )}
-                      </td>
                     </tr>
                   );
                 })}
