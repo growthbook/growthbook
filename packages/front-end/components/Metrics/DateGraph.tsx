@@ -17,7 +17,7 @@ import {
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { ScaleLinear } from "d3-scale";
 import { getValidDate, date } from "shared/dates";
-import { formatConversionRate } from "@/services/metrics";
+import { getMetricFormatter } from "@/services/metrics";
 import { useCurrency } from "@/hooks/useCurrency";
 import styles from "./DateGraph.module.scss";
 type TooltipData = { x: number; y: number; d: Datapoint };
@@ -84,6 +84,8 @@ function getTooltipContents(
   displayCurrency?: string
 ) {
   if (!d || d.oor) return null;
+  const formatter = getMetricFormatter(type);
+  const formatterOptions = { currency: displayCurrency };
   return (
     <>
       {type === "binomial" ? (
@@ -97,14 +99,14 @@ function getTooltipContents(
         <>
           <div className={styles.val}>
             {method === "sum" ? `Σ` : `μ`}:{" "}
-            {formatConversionRate(type, d.v as number, displayCurrency)}
+            {formatter(d.v as number, formatterOptions)}
             {smoothBy === "week" && (
               <sub style={{ fontWeight: "normal", fontSize: 8 }}> smooth</sub>
             )}
           </div>
           {"s" in d && method === "avg" && (
             <div className={styles.secondary}>
-              {`σ`}: {formatConversionRate(type, d.s || 0, displayCurrency)}
+              {`σ`}: {formatter(d.s || 0, formatterOptions)}
               {smoothBy === "week" && (
                 <sub style={{ fontWeight: "normal", fontSize: 8 }}> smooth</sub>
               )}
@@ -178,6 +180,9 @@ const DateGraph: FC<DateGraphProps> = ({
 }: DateGraphProps) => {
   const [marginTop, marginRight, marginBottom, marginLeft] = margin;
   const displayCurrency = useCurrency();
+
+  const formatter = getMetricFormatter(type);
+  const formatterOptions = { currency: displayCurrency };
 
   const data = useMemo(
     () =>
@@ -666,7 +671,7 @@ const DateGraph: FC<DateGraphProps> = ({
                   tickFormat={(v) =>
                     type === "binomial"
                       ? (v as number).toLocaleString()
-                      : formatConversionRate(type, v as number, displayCurrency)
+                      : formatter(v as number, formatterOptions)
                   }
                 />
               </Group>
