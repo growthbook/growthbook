@@ -379,6 +379,19 @@ export default function ExperimentHeader({
                   activeClassName="active-tab"
                   last={false}
                 />
+                <TabButton
+                  active={tab === "health"}
+                  display={
+                    <>
+                      <PiChartBarHorizontalFill /> Health
+                    </>
+                  }
+                  anchor="health"
+                  onClick={() => setTab("health")}
+                  newStyle={false}
+                  activeClassName="active-tab"
+                  last={true}
+                />
               </TabButtons>
             </div>
 

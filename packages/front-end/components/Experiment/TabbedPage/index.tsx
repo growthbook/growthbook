@@ -35,8 +35,9 @@ import SetupTabOverview from "./SetupTabOverview";
 import Implementation from "./Implementation";
 import ResultsTab from "./ResultsTab";
 import StoppedExperimentBanner from "./StoppedExperimentBanner";
+import HealthTab from "./HealthTab";
 
-const experimentTabs = ["overview", "results"] as const;
+const experimentTabs = ["overview", "results", "health"] as const;
 export type ExperimentTab = typeof experimentTabs[number];
 
 export type LinkedFeature = {
@@ -369,6 +370,9 @@ export default function TabbedPage({
             isTabActive={tab === "results"}
             safeToEdit={safeToEdit}
           />
+        </div>
+        <div className={tab === "health" ? "d-block" : "d-none d-print-block"}>
+          <HealthTab experiment={experiment} />
         </div>
       </div>
 
