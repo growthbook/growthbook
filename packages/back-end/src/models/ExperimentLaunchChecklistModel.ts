@@ -20,6 +20,7 @@ const experimentLaunchChecklistSchema = new mongoose.Schema({
         type: String,
         enum: ["description", "hypothesis", "project", "tag", "screenshots"],
       },
+      url: String,
     },
   ],
 });

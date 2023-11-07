@@ -1,6 +1,7 @@
 export interface ChecklistTask {
   task: string;
   completionType: "manual" | "auto";
+  url?: string;
   propertyKey?:
     | "description"
     | "hypothesis"

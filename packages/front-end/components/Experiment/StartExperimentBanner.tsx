@@ -238,7 +238,16 @@ export function StartExperimentBanner({
   if (data?.checklist && data?.checklist.tasks.length > 0) {
     data?.checklist.tasks.forEach((item) => {
       if (item.completionType === "manual") {
-        manualChecklist.push({ key: item.task, content: <>{item.task}</> });
+        manualChecklist.push({
+          key: item.task,
+          content: item.url ? (
+            <a href={item.url} target="_blank" rel="noreferrer">
+              {item.task}
+            </a>
+          ) : (
+            <>{item.task}</>
+          ),
+        });
       }
 
       if (item.completionType === "auto" && item.propertyKey) {

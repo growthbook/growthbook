@@ -51,8 +51,8 @@ import StatsEngineSelect from "@/components/Settings/forms/StatsEngineSelect";
 import { useCurrency } from "@/hooks/useCurrency";
 import { AppFeatures } from "@/types/app-features";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import ExperimentCheckListModal from "@/components/Settings/ExperimentCheckListModal";
 import useApi from "@/hooks/useApi";
+import ExperimentCheckListModal from "@/components/Settings/ExperimentCheckListModal";
 
 export const supportedCurrencies = {
   AED: "UAE Dirham (AED)",
@@ -1231,8 +1231,9 @@ const GeneralSettingsPage = (): React.ReactElement => {
                     experiment can be launched.
                   </p>
                   <Button
-                    // className="mt-3"
-                    onClick={async () => setEditChecklistOpen(true)}
+                    onClick={async () => {
+                      setEditChecklistOpen(true);
+                    }}
                   >
                     Edit Checklist
                   </Button>
