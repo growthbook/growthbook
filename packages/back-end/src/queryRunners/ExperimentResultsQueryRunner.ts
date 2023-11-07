@@ -287,7 +287,7 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
       } = {
         overall: {
           overall: {
-            name: "",
+            name: "All",
             srm: 0,
             variationUnits: Array(nVariations).fill(0),
           },
@@ -312,6 +312,7 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
         } else {
           const trafficArray = Array(nVariations).fill(0);
           trafficArray[variationIndex] = r.units;
+          trafficResults[r.dimension_name] = {};
           trafficResults[r.dimension_name][r.dimension_value] = {
             name: r.dimension_value,
             srm: 0,
