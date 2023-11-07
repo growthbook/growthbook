@@ -15,6 +15,9 @@ import type {
   RealtimeUsageData,
   RefreshFeaturesOptions,
   Result,
+  StickyAssignments,
+  StickyAssignmentsDocument,
+  StickyAttributeKey,
   SubscriptionFunction,
   VariationMeta,
   VariationRange,
@@ -36,7 +39,7 @@ import {
 } from "./util";
 import { evalCondition } from "./mongrule";
 import { refreshFeatures, subscribe, unsubscribe } from "./feature-repository";
-import { FeatureApiResponse } from "./types/growthbook";
+import { FeatureApiResponse, StickyExperimentKey } from "./types/growthbook";
 
 const isBrowser =
   typeof window !== "undefined" && typeof document !== "undefined";
@@ -987,8 +990,11 @@ export class GrowthBook<
         experiment.weights
       );
 
+    let foundStickyBucket = false;
     let assigned = this._getStickyBucketVariation<T>(experiment);
-    if (assigned === -1) {
+    if (assigned >= 0) {
+      foundStickyBucket = true;
+    } else {
       assigned = chooseVariation(n, ranges);
     }
 
@@ -1035,20 +1041,30 @@ export class GrowthBook<
     }
 
     // 13. Build the result object
-    const result = this._getResult(experiment, assigned, true, featureId, n);
+    const result = this._getResult(
+      experiment,
+      assigned,
+      true,
+      featureId,
+      n,
+      foundStickyBucket
+    );
 
     // 13.5. Persist sticky bucket
     // Always save the sticky bucket even if it already exists.
     const stickyAttributeValue = this._getStickyBucketAttributeValue(
       hashAttribute
     );
-    this._ctx.stickyBucketService?.saveAssignments(
+    const { changed, doc } = this._generateStickyBucketAssignmentDoc(
       hashAttribute,
       stickyAttributeValue,
       {
-        [this._getStickyBucketExperimentId<T>(experiment)]: result.variationId,
+        [this._getStickyBucketExperimentKey<T>(experiment)]: result.variationId,
       }
     );
+    if (changed) {
+      this._ctx.stickyBucketService?.saveAssignments(doc);
+    }
     // todo: if found a fallback bucket but now a primary is present, write the primary
 
     // 14. Fire the tracking callback
@@ -1137,7 +1153,8 @@ export class GrowthBook<
     variationIndex: number,
     hashUsed: boolean,
     featureId: string | null,
-    bucket?: number
+    bucket?: number,
+    stickyBucketUsed?: boolean
   ): Result<T> {
     let inExperiment = true;
     // If assigned variation is not valid, use the baseline and mark the user as not in the experiment
@@ -1164,6 +1181,7 @@ export class GrowthBook<
       value: experiment.variations[variationIndex],
       hashAttribute,
       hashValue,
+      stickyBucketUsed,
     };
 
     if (meta.name) res.name = meta.name;
@@ -1248,34 +1266,43 @@ export class GrowthBook<
     return Array.from(attributes);
   }
 
-  // todo: trigger this when other dependencies change
   public async refreshStickyBuckets(data?: FeatureApiResponse) {
     if (this.context.stickyBucketService) {
       // todo: disable SB with context flag
       const attributes = this._getStickyBucketAttributes(data);
-
-      // todo: append assignments rather than overwriting (done?)
-      this.context.stickyBucketAssignments = await this.context.stickyBucketService.getAllAssignments(
+      this.context.stickyBucketAssignmentDocs = await this.context.stickyBucketService.getAllAssignments(
         attributes
       );
     }
   }
 
-  private _getStickyBucketExperimentId<T>(experiment: Experiment<T>) {
-    return `${experiment.key}__${experiment.bucketVersion ?? 1}`;
+  private _getStickyBucketAssignments(): StickyAssignments {
+    const mergedAssignments: StickyAssignments = {};
+    // todo: we could be smarter about prioritizing hashAttributes over secondaryAttributes
+    Object.entries(this.context.stickyBucketAssignmentDocs ?? {}).forEach(
+      ([, doc]) => {
+        if (doc?.assignments) Object.assign(mergedAssignments, doc.assignments);
+      }
+    );
+    return mergedAssignments;
   }
 
   private _getStickyBucketVariation<T>(experiment: Experiment<T>): number {
-    const id = this._getStickyBucketExperimentId<T>(experiment);
-    const variation = this._ctx.stickyBucketAssignments?.[id];
+    const id = this._getStickyBucketExperimentKey<T>(experiment);
+    const variation = this._getStickyBucketAssignments()[id];
     if (variation === undefined) return -1;
     return variation;
+  }
+
+  private _getStickyBucketExperimentKey<T>(
+    experiment: Experiment<T>
+  ): StickyExperimentKey {
+    return `${experiment.key}__${experiment.bucketVersion ?? 1}`;
   }
 
   private _getStickyBucketAttributes(
     data?: FeatureApiResponse
   ): Record<string, string> {
-    // todo: make hashAttribute primary lookup, use fallback if not found
     const attributes: Record<string, string> = {};
     this.context.stickyBucketIdentifierAttributes = data
       ? this._deriveStickyBucketIdentifierAttributes(data)
@@ -1296,15 +1323,31 @@ export class GrowthBook<
     }
     return JSON.stringify(hashValue);
   }
-}
 
-export type StickyAttributeKey = string; // `${attributeName}||${attributeValue}`
-export type StickyExperimentId = string; // `${experimentId}__{version}`
-export type StickyAssignments = Record<StickyExperimentId, number>;
-export interface AssignmentDocument {
-  attributeName: string;
-  attributeValue: string;
-  assignments: StickyAssignments;
+  private _generateStickyBucketAssignmentDoc(
+    attributeName: string,
+    attributeValue: string,
+    assignments: StickyAssignments
+  ): {
+    doc: StickyAssignmentsDocument;
+    changed: boolean;
+  } {
+    const key = `${attributeName}||${attributeValue}`;
+    const existingAssignments =
+      this.context.stickyBucketAssignmentDocs?.[key]?.assignments ?? {};
+    const newAssignments = { ...existingAssignments, ...assignments };
+    const changed =
+      JSON.stringify(existingAssignments) !== JSON.stringify(newAssignments);
+
+    return {
+      changed,
+      doc: {
+        attributeName,
+        attributeValue,
+        assignments: newAssignments,
+      },
+    };
+  }
 }
 
 /**
@@ -1326,42 +1369,39 @@ export abstract class StickyBucketService {
   abstract getAssignments(
     attributeName: string,
     attributeValue: string
-  ): Promise<StickyAssignments>;
+  ): Promise<StickyAssignmentsDocument | null>;
 
-  abstract saveAssignments(
-    attributeName: string,
-    attributeValue: string,
-    assignments: StickyAssignments
-  ): unknown;
+  abstract saveAssignments(doc: StickyAssignmentsDocument): Promise<unknown>;
 
   async getAllAssignments(
     attributes: Record<string, string>
-  ): Promise<StickyAssignments> {
-    const scopedAssignments = await Promise.all(
-      Object.entries(attributes).map(([attributeName, attributeValue]) => {
-        return this.getAssignments(attributeName, attributeValue);
-      })
-    );
-    const mergedAssignments: StickyAssignments = {};
-    scopedAssignments.forEach((assignments) => {
-      if (assignments) {
-        Object.assign(mergedAssignments, assignments);
+  ): Promise<Record<StickyAttributeKey, StickyAssignmentsDocument>> {
+    const docs: Record<string, StickyAssignmentsDocument> = {};
+    (
+      await Promise.all(
+        Object.entries(attributes).map(([attributeName, attributeValue]) =>
+          this.getAssignments(attributeName, attributeValue)
+        )
+      )
+    ).forEach((doc) => {
+      if (doc) {
+        const key = `${doc.attributeName}||${doc.attributeValue}`;
+        docs[key] = doc;
       }
     });
-    return mergedAssignments;
+    return docs;
   }
 }
 
 export class LocalStorageStickyBucketService extends StickyBucketService {
   private prefix: string;
-  private assignmentDocs: Record<string, AssignmentDocument> = {};
   constructor(prefix: string = "gbStickyBuckets::") {
     super();
     this.prefix = prefix;
   }
   async getAssignments(attributeName: string, attributeValue: string) {
     const key = `${attributeName}||${attributeValue}`;
-    let doc: AssignmentDocument | null = null;
+    let doc: StickyAssignmentsDocument | null = null;
     try {
       const raw = localStorage.getItem(this.prefix + key);
       const data = JSON.parse(raw || "{}");
@@ -1371,28 +1411,10 @@ export class LocalStorageStickyBucketService extends StickyBucketService {
     } catch (e) {
       // Ignore localStorage errors
     }
-    if (doc) this.assignmentDocs[key] = doc;
-    return doc?.assignments ?? {};
+    return doc;
   }
-  async saveAssignments(
-    attributeName: string,
-    attributeValue: string,
-    assignments: StickyAssignments
-  ) {
-    const key = `${attributeName}||${attributeValue}`;
-    const existingAssignments = this.assignmentDocs?.[key]?.assignments ?? {};
-    const newAssignments = { ...existingAssignments, ...assignments };
-    // only write if changed
-    if (
-      JSON.stringify(existingAssignments) !== JSON.stringify(newAssignments)
-    ) {
-      const doc: AssignmentDocument = {
-        attributeName,
-        attributeValue,
-        assignments: newAssignments,
-      };
-      this.assignmentDocs[key] = doc;
-      localStorage.setItem(this.prefix + key, JSON.stringify(doc));
-    }
+  async saveAssignments(doc: StickyAssignmentsDocument) {
+    const key = `${doc.attributeName}||${doc.attributeValue}`;
+    localStorage.setItem(this.prefix + key, JSON.stringify(doc));
   }
 }

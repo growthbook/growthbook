@@ -2736,12 +2736,26 @@
     uuid "^8.0.0"
     xdg-basedir "^4.0.0"
 
+"@growthbook/growthbook-react@^0.20.0":
+  version "0.20.0"
+  resolved "https://registry.yarnpkg.com/@growthbook/growthbook-react/-/growthbook-react-0.20.0.tgz#0ebee1bb8c60e0d0c5951c3f5071f481641b25e2"
+  integrity sha512-mFlp0z6oZv71uRcze7QMkr5xRqoWAFxXahY9DFa/mwHwLS1giqC7wE5DQUKz2ZaC8G3YZ7ORpXB9bOc9ucILZw==
+  dependencies:
+    "@growthbook/growthbook" "^0.30.0"
+
 "@growthbook/growthbook@^0.29.0":
   version "0.29.0"
   resolved "https://registry.yarnpkg.com/@growthbook/growthbook/-/growthbook-0.29.0.tgz#357f005d9fc28b4b018358d1dd2839066fca807a"
   integrity sha512-hRYtBw1cg3fqjBRKRfazkRfCJyFpIxjdEUjmwkFaSBorzVDiX35gcp8x83vytQdx5E9xfQo3x/m9Z1yEMDrN7A==
   dependencies:
     dom-mutator "^0.5.0"
+
+"@growthbook/growthbook@^0.30.0":
+  version "0.30.0"
+  resolved "https://registry.yarnpkg.com/@growthbook/growthbook/-/growthbook-0.30.0.tgz#52532c2d5dfa7c017815027678bb241421c308b1"
+  integrity sha512-ennMHKZIhAZokHHcnA9/tOTLFdBB4DQR0WHT8Lf1pD80jWVv8JBCAzsV1jzSjYUQhb8R8pLR2Kho0IfgjzIZGQ==
+  dependencies:
+    dom-mutator "^0.6.0"
 
 "@growthbook/proxy-eval@^1.0.0":
   version "1.0.0"

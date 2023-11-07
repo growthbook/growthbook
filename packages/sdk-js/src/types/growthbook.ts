@@ -132,12 +132,12 @@ export interface Result<T> {
   name?: string;
   bucket?: number;
   passthrough?: boolean;
-
   inExperiment: boolean;
   hashUsed?: boolean;
   hashAttribute: string;
   hashValue: string;
   featureId: string | null;
+  stickyBucketUsed?: boolean;
 }
 
 export type Attributes = Record<string, any>;
@@ -154,7 +154,10 @@ export interface Context {
   features?: Record<string, FeatureDefinition>;
   experiments?: AutoExperiment[];
   forcedVariations?: Record<string, number>;
-  stickyBucketAssignments?: Record<string, number>;
+  stickyBucketAssignmentDocs?: Record<
+    StickyAttributeKey,
+    StickyAssignmentsDocument
+  >;
   stickyBucketIdentifierAttributes?: string[];
   log?: (msg: string, ctx: any) => void;
   qaMode?: boolean;
@@ -325,4 +328,13 @@ export interface Filter {
   hashVersion: number;
   // Only include these resulting ranges
   ranges: VariationRange[];
+}
+
+export type StickyAttributeKey = string; // `${attributeName}||${attributeValue}`
+export type StickyExperimentKey = string; // `${experimentId}__{version}`
+export type StickyAssignments = Record<StickyExperimentKey, number>;
+export interface StickyAssignmentsDocument {
+  attributeName: string;
+  attributeValue: string;
+  assignments: StickyAssignments;
 }
