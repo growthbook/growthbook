@@ -891,13 +891,8 @@ async function getDraftRevision(
   version: number,
   user: EventAuditUser
 ): Promise<FeatureRevisionInterface> {
-  const revision = await getRevision(feature.organization, feature.id, version);
-  if (!revision) {
-    throw new Error("Cannot find revision");
-  }
-
   // This is the published version, create a new draft revision
-  if (revision.version === feature.version) {
+  if (version === feature.version) {
     const newRevision = await createRevision({ feature, user });
 
     await updateFeature(org, user, feature, {
@@ -905,7 +900,14 @@ async function getDraftRevision(
     });
 
     return newRevision;
-  } else if (revision.status !== "draft") {
+  }
+
+  // If this is already a draft, return it
+  const revision = await getRevision(feature.organization, feature.id, version);
+  if (!revision) {
+    throw new Error("Cannot find revision");
+  }
+  if (revision.status !== "draft") {
     throw new Error("Can only make changes to draft revisions");
   }
 
