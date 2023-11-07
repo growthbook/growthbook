@@ -17,6 +17,7 @@ import { autoMerge, getValidation, mergeRevision } from "shared/util";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import { MdHistory, MdRocketLaunch } from "react-icons/md";
 import { FaPlusMinus } from "react-icons/fa6";
+import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import { GBAddCircle, GBEdit } from "@/components/Icons";
 import LoadingOverlay from "@/components/LoadingOverlay";
@@ -114,6 +115,7 @@ export default function FeaturePage() {
   const { data, error, mutate } = useApi<{
     feature: FeatureInterface;
     revisions: FeatureRevisionInterface[];
+    experimentsMap: Map<string, ExperimentInterfaceStringDates>;
   }>(`/feature/${fid}`);
   const firstFeature = router?.query && "first" in router.query;
   const [showImplementation, setShowImplementation] = useState(firstFeature);
@@ -1128,6 +1130,7 @@ export default function FeaturePage() {
                         version={currentVersion}
                         setVersion={setVersion}
                         locked={isLocked}
+                        experimentsMap={data.experimentsMap || new Map()}
                       />
                     ) : (
                       <div className="p-3 bg-white">

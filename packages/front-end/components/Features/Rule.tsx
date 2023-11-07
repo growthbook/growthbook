@@ -8,13 +8,13 @@ import {
   FaExternalLinkAlt,
 } from "react-icons/fa";
 import Link from "next/link";
+import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import { getRules, useEnvironments } from "@/services/features";
 import usePermissions from "@/hooks/usePermissions";
 import { getUpcomingScheduleRule } from "@/services/scheduleRules";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import { useExperiments } from "@/hooks/useExperiments";
 import Button from "../Button";
 import DeleteButton from "../DeleteButton/DeleteButton";
 import MoreMenu from "../Dropdown/MoreMenu";
@@ -38,6 +38,7 @@ interface SortableProps {
   version: number;
   setVersion: (version: number) => void;
   locked: boolean;
+  experimentsMap: Map<string, ExperimentInterfaceStringDates>;
 }
 
 type RuleProps = SortableProps &
@@ -60,6 +61,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
       version,
       setVersion,
       locked,
+      experimentsMap,
       ...props
     },
     ref
@@ -68,8 +70,6 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
     const title =
       rule.description ||
       rule.type[0].toUpperCase() + rule.type.slice(1) + " Rule";
-
-    const { experimentsMap } = useExperiments(feature.project);
 
     const linkedExperiment =
       rule.type === "experiment-ref" && experimentsMap.get(rule.experimentId);

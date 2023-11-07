@@ -76,8 +76,11 @@ import { FeatureRevisionInterface } from "../../types/feature-revision";
 import {
   addLinkedFeatureToExperiment,
   getExperimentById,
+  getExperimentsByIds,
+  getExperimentsByTrackingKeys,
 } from "../models/ExperimentModel";
 import { OrganizationInterface } from "../../types/organization";
+import { ExperimentInterface } from "../../types/experiment";
 
 class UnrecoverableApiError extends Error {
   constructor(message: string) {
@@ -1466,10 +1469,44 @@ export async function getFeatureById(
     }
   }
 
+  // Get all linked experiments
+  const experimentIds = new Set<string>();
+  const trackingKeys = new Set<string>();
+
+  revisions.forEach((revision) => {
+    Object.values(revision.rules).forEach((rules) => {
+      rules.forEach((rule) => {
+        // New rules store the experiment id directly
+        if (rule.type === "experiment-ref") {
+          experimentIds.add(rule.experimentId);
+        }
+        // Old rules store the trackingKey
+        else if (rule.type === "experiment") {
+          trackingKeys.add(rule.trackingKey || feature.id);
+        }
+      });
+    });
+  });
+  const experimentsMap: Map<string, ExperimentInterface> = new Map();
+  if (trackingKeys.size) {
+    const exps = await getExperimentsByTrackingKeys(org.id, [...trackingKeys]);
+    exps.forEach((exp) => {
+      experimentsMap.set(exp.id, exp);
+      experimentIds.delete(exp.id);
+    });
+  }
+  if (experimentIds.size) {
+    const exps = await getExperimentsByIds(org.id, [...experimentIds]);
+    exps.forEach((exp) => {
+      experimentsMap.set(exp.id, exp);
+    });
+  }
+
   res.status(200).json({
     status: 200,
     feature,
     revisions,
+    experimentsMap,
   });
 }
 

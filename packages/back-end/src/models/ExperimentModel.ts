@@ -249,6 +249,16 @@ export async function getExperimentsByIds(
   });
 }
 
+export async function getExperimentsByTrackingKeys(
+  organization: string,
+  trackingKeys: string[]
+): Promise<ExperimentInterface[]> {
+  return await findExperiments({
+    trackingKey: { $in: trackingKeys },
+    organization,
+  });
+}
+
 export async function getSampleExperiment(
   organization: string
 ): Promise<ExperimentInterface | null> {

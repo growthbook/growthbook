@@ -15,6 +15,7 @@ import {
   sortableKeyboardCoordinates,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
+import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { useAuth } from "@/services/auth";
 import { getRules, isRuleFullyCovered } from "@/services/features";
 import usePermissions from "@/hooks/usePermissions";
@@ -28,6 +29,7 @@ export default function RuleList({
   version,
   setVersion,
   locked,
+  experimentsMap,
 }: {
   feature: FeatureInterface;
   environment: string;
@@ -36,6 +38,7 @@ export default function RuleList({
   version: number;
   setVersion: (version: number) => void;
   locked: boolean;
+  experimentsMap: Map<string, ExperimentInterfaceStringDates>;
 }) {
   const { apiCall } = useAuth();
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -142,6 +145,7 @@ export default function RuleList({
             version={version}
             setVersion={setVersion}
             locked={locked}
+            experimentsMap={experimentsMap}
           />
         ))}
       </SortableContext>
@@ -157,6 +161,7 @@ export default function RuleList({
             version={version}
             setVersion={setVersion}
             locked={locked}
+            experimentsMap={experimentsMap}
           />
         ) : null}
       </DragOverlay>
