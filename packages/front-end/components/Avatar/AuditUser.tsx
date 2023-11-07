@@ -23,5 +23,13 @@ export default function AuditUser({ user, display = "avatar" }: Props) {
     return <span className="badge badge-secondary">API</span>;
   }
 
+  if (display === "name") {
+    return (
+      <span>
+        <em>unknown</em>
+      </span>
+    );
+  }
+
   return null;
 }

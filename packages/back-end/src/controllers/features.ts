@@ -44,6 +44,7 @@ import {
   auditDetailsDelete,
 } from "../services/audit";
 import {
+  cleanUpPreviousRevisions,
   createInitialRevision,
   createRevision,
   discardRevision,
@@ -1447,9 +1448,18 @@ export async function getFeatureById(
     throw new Error("Could not find feature");
   }
 
-  const revisions = await getRevisions(org.id, id);
+  let revisions = await getRevisions(org.id, id);
+
+  // Historically, we haven't properly cleared revision history when deleting a feature
+  // So if you create a feature with the same name as a previously deleted one, it would inherit the revision history
+  // This can seriously mess up the feature page, so if we detect any old revisions, delete them
+  if (revisions.some((r) => r.dateCreated < feature.dateCreated)) {
+    await cleanUpPreviousRevisions(org.id, feature.id, feature.dateCreated);
+    revisions = revisions.filter((r) => r.dateCreated >= feature.dateCreated);
+  }
 
   // If feature doesn't have any revisions, add revision 1 automatically
+  // We haven't always created revisions when creating a feature, so this lets us backfill
   if (!revisions.length) {
     try {
       revisions.push(

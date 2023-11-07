@@ -335,3 +335,27 @@ export async function getFeatureRevisionsByFeatureIds(
 
   return revisionsByFeatureId;
 }
+
+export async function deleteAllRevisionsForFeature(
+  organization: string,
+  featureId: string
+) {
+  await FeatureRevisionModel.deleteMany({
+    organization,
+    featureId,
+  });
+}
+
+export async function cleanUpPreviousRevisions(
+  organization: string,
+  featureId: string,
+  date: Date
+) {
+  await FeatureRevisionModel.deleteMany({
+    organization,
+    featureId,
+    dateCreated: {
+      $lt: date,
+    },
+  });
+}

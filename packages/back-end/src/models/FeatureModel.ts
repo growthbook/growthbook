@@ -41,6 +41,7 @@ import {
 import {
   createInitialRevision,
   createRevisionFromLegacyDraft,
+  deleteAllRevisionsForFeature,
   hasDraft,
   markRevisionAsPublished,
   updateRevision,
@@ -197,6 +198,10 @@ export async function createFeature(
     linkedExperiments,
   });
 
+  // Historically, we haven't properly removed revisions when deleting a feature
+  // So, clean up any conflicting revisions first before creating a new one
+  await deleteAllRevisionsForFeature(org.id, feature.id);
+
   await createInitialRevision(toInterface(feature), user);
 
   if (linkedExperiments.length > 0) {
@@ -216,6 +221,7 @@ export async function deleteFeature(
   feature: FeatureInterface
 ) {
   await FeatureModel.deleteOne({ organization: org.id, id: feature.id });
+  await deleteAllRevisionsForFeature(org.id, feature.id);
 
   if (feature.linkedExperiments) {
     await Promise.all(
