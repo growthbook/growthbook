@@ -29,7 +29,9 @@ export default function RevertModal({
 
   const { apiCall } = useAuth();
 
-  const [comment, setComment] = useState(`Revert to #${revision.version}`);
+  const [comment, setComment] = useState(
+    revision.comment || `Revert from #${feature.version}`
+  );
 
   const diffs = useMemo(() => {
     const diffs: { a: string; b: string; title: string }[] = [];

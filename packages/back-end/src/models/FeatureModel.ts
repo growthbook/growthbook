@@ -759,7 +759,7 @@ export async function setDefaultValue(
       user,
       action: "edit default value",
       subject: ``,
-      value: JSON.stringify(defaultValue),
+      value: JSON.stringify({ defaultValue }),
     }
   );
 }

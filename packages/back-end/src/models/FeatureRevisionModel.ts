@@ -265,12 +265,10 @@ export async function markRevisionAsPublished(
   user: EventAuditUser,
   comment?: string
 ) {
-  if (revision.status !== "draft") {
-    throw new Error("Can only publish draft revisions");
-  }
+  const action = revision.status === "draft" ? "publish" : "re-publish";
 
   const log: RevisionLog = {
-    action: "publish",
+    action,
     subject: "",
     timestamp: new Date(),
     user,
@@ -298,10 +296,21 @@ export async function markRevisionAsPublished(
   );
 }
 
-export async function discardRevision(revision: FeatureRevisionInterface) {
+export async function discardRevision(
+  revision: FeatureRevisionInterface,
+  user: EventAuditUser
+) {
   if (revision.status !== "draft") {
     throw new Error("Can only discard draft revisions");
   }
+
+  const log: RevisionLog = {
+    action: "discard",
+    subject: "",
+    timestamp: new Date(),
+    user,
+    value: JSON.stringify({}),
+  };
 
   await FeatureRevisionModel.updateOne(
     {
@@ -311,6 +320,9 @@ export async function discardRevision(revision: FeatureRevisionInterface) {
     },
     {
       $set: { status: "discarded", dateUpdated: new Date() },
+      $push: {
+        log,
+      },
     }
   );
 }

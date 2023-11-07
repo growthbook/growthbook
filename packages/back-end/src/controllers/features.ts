@@ -51,6 +51,7 @@ import {
   getRevision,
   getRevisions,
   hasDraft,
+  markRevisionAsPublished,
   updateRevision,
 } from "../models/FeatureRevisionModel";
 import { getEnabledEnvironments } from "../util/features";
@@ -603,6 +604,8 @@ export async function postFeatureRevert(
 
   req.checkPermissions("manageFeatures", feature.project);
 
+  const changes: MergeResultChanges = {};
+
   // If changing the default value, it affects all enabled environments
   if (revision.defaultValue !== feature.defaultValue) {
     req.checkPermissions(
@@ -610,6 +613,7 @@ export async function postFeatureRevert(
       feature.project,
       getEnabledEnvironments(feature)
     );
+    changes.defaultValue = revision.defaultValue;
   }
   // Otherwise, only the environments with rule changes are affected
   else {
@@ -617,6 +621,8 @@ export async function postFeatureRevert(
     Object.entries(revision.rules).forEach(([env, rules]) => {
       if (!isEqual(rules, feature.environmentSettings?.[env]?.rules || [])) {
         changedEnvs.push(env);
+        changes.rules = changes.rules || {};
+        changes.rules[env] = rules;
       }
     });
     if (changedEnvs.length > 0) {
@@ -624,28 +630,15 @@ export async function postFeatureRevert(
     }
   }
 
-  // TODO: do these 2 calls within a transaction
-  const newRevision = await createRevision({
-    feature,
-    user: res.locals.eventAudit,
-    baseVersion: revision.version,
-    changes: revision,
-    publish: true,
-    comment: comment || `Revert to #${revision.version}`,
-  });
-
-  const changes: MergeResultChanges = {
-    rules: newRevision.rules,
-    defaultValue: newRevision.defaultValue,
-  };
-
   const updatedFeature = await applyRevisionChanges(
     org,
     feature,
-    newRevision,
+    revision,
     changes,
     res.locals.eventAudit
   );
+
+  await markRevisionAsPublished(revision, res.locals.eventAudit, comment);
 
   await req.audit({
     event: "feature.revert",
@@ -660,7 +653,7 @@ export async function postFeatureRevert(
 
   res.status(200).json({
     status: 200,
-    version: newRevision.version,
+    version: revision.version,
   });
 }
 
@@ -729,7 +722,7 @@ export async function postFeatureDiscard(
   req.checkPermissions("manageFeatures", feature.project);
   req.checkPermissions("createFeatureDrafts", feature.project);
 
-  await discardRevision(revision);
+  await discardRevision(revision, res.locals.eventAudit);
 
   const hasDrafts = await hasDraft(org.id, feature, [revision.version]);
   if (!hasDrafts) {
@@ -947,7 +940,7 @@ export async function putRevisionComment(
       user: res.locals.eventAudit,
       action: "edit comment",
       subject: "",
-      value: JSON.stringify(comment),
+      value: JSON.stringify({ comment }),
     }
   );
 
