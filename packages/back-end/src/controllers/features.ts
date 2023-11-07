@@ -1506,7 +1506,7 @@ export async function getFeatureById(
     status: 200,
     feature,
     revisions,
-    experimentsMap,
+    experiments: [...experimentsMap.values()],
   });
 }
 

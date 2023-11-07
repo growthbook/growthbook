@@ -115,7 +115,7 @@ export default function FeaturePage() {
   const { data, error, mutate } = useApi<{
     feature: FeatureInterface;
     revisions: FeatureRevisionInterface[];
-    experimentsMap: Map<string, ExperimentInterfaceStringDates>;
+    experiments: ExperimentInterfaceStringDates[];
   }>(`/feature/${fid}`);
   const firstFeature = router?.query && "first" in router.query;
   const [showImplementation, setShowImplementation] = useState(firstFeature);
@@ -124,6 +124,14 @@ export default function FeaturePage() {
   const { performCopy, copySuccess, copySupported } = useCopyToClipboard({
     timeout: 800,
   });
+
+  const experimentsMap = useMemo(() => {
+    if (!data?.experiments) return new Map();
+
+    return new Map<string, ExperimentInterfaceStringDates>(
+      data.experiments.map((exp) => [exp.id, exp])
+    );
+  }, [data?.experiments]);
 
   useEffect(() => {
     if (!data) return;
@@ -1130,7 +1138,7 @@ export default function FeaturePage() {
                         version={currentVersion}
                         setVersion={setVersion}
                         locked={isLocked}
-                        experimentsMap={data.experimentsMap || new Map()}
+                        experimentsMap={experimentsMap}
                       />
                     ) : (
                       <div className="p-3 bg-white">
