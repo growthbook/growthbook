@@ -534,7 +534,7 @@ export async function evaluateFeature(
       env: env.id,
       result: null,
       enabled: false,
-      defaultValue: feature.defaultValue,
+      defaultValue: revision.defaultValue,
     };
     const settings = feature.environmentSettings[env.id] ?? null;
     if (settings) {

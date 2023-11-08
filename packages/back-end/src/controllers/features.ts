@@ -606,8 +606,8 @@ export async function postFeatureRevert(
 
   const changes: MergeResultChanges = {};
 
-  // If changing the default value, it affects all enabled environments
   if (revision.defaultValue !== feature.defaultValue) {
+    // If changing the default value, it affects all enabled environments
     req.checkPermissions(
       "publishFeatures",
       feature.project,
@@ -615,19 +615,17 @@ export async function postFeatureRevert(
     );
     changes.defaultValue = revision.defaultValue;
   }
-  // Otherwise, only the environments with rule changes are affected
-  else {
-    const changedEnvs: string[] = [];
-    Object.entries(revision.rules).forEach(([env, rules]) => {
-      if (!isEqual(rules, feature.environmentSettings?.[env]?.rules || [])) {
-        changedEnvs.push(env);
-        changes.rules = changes.rules || {};
-        changes.rules[env] = rules;
-      }
-    });
-    if (changedEnvs.length > 0) {
-      req.checkPermissions("publishFeatures", feature.project, changedEnvs);
+
+  const changedEnvs: string[] = [];
+  Object.entries(revision.rules).forEach(([env, rules]) => {
+    if (!isEqual(rules, feature.environmentSettings?.[env]?.rules || [])) {
+      changedEnvs.push(env);
+      changes.rules = changes.rules || {};
+      changes.rules[env] = rules;
     }
+  });
+  if (changedEnvs.length > 0) {
+    req.checkPermissions("publishFeatures", feature.project, changedEnvs);
   }
 
   const updatedFeature = await applyRevisionChanges(
