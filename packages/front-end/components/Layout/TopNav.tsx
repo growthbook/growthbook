@@ -10,11 +10,14 @@ import { useUser } from "@/services/UserContext";
 import { useAuth } from "@/services/auth";
 import { usingSSO } from "@/services/env";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import { useLocalStorage } from "@/hooks/useLocalStorage";
 import Modal from "../Modal";
 import Avatar from "../Avatar/Avatar";
 import ChangePasswordModal from "../Auth/ChangePasswordModal";
 import Field from "../Forms/Field";
 import OverflowText from "../Experiment/TabbedPage/OverflowText";
+import Toggle from "../Forms/Toggle";
+import Tooltip from "../Tooltip/Tooltip";
 import styles from "./TopNav.module.scss";
 import { ThemeToggler } from "./ThemeToggler/ThemeToggler";
 import AccountPlanBadge from "./AccountPlanBadge";
@@ -33,6 +36,10 @@ const TopNav: FC<{
   const [changePasswordOpen, setChangePasswordOpen] = useState(false);
   useGlobalMenu(".top-nav-user-menu", () => setUserDropdownOpen(false));
   useGlobalMenu(".top-nav-org-menu", () => setOrgDropdownOpen(false));
+  const [enableCelebrations, setEnableCelebrations] = useLocalStorage<boolean>(
+    `enable_growthbook_celebrations`,
+    true
+  );
 
   const { breadcrumb } = usePageHead();
 
@@ -43,16 +50,24 @@ const TopNav: FC<{
   const { apiCall, logout, organizations, orgId, setOrgId } = useAuth();
 
   const form = useForm({
-    defaultValues: { name: name || "" },
+    defaultValues: { name: name || "", enableCelebrations },
   });
 
-  const onSubmitEditName = form.handleSubmit(async (value) => {
-    await apiCall(`/user/name`, {
-      method: "PUT",
-      body: JSON.stringify(value),
-    });
-    updateUser();
-    setUserDropdownOpen(false);
+  const onSubmitEditProfile = form.handleSubmit(async (value) => {
+    // Update name if it changed
+    if (value.name !== name) {
+      await apiCall(`/user/name`, {
+        method: "PUT",
+        body: JSON.stringify(value),
+      });
+      updateUser();
+      setUserDropdownOpen(false);
+    }
+
+    // Update enableCelebrations value if it changed
+    if (value.enableCelebrations !== enableCelebrations) {
+      setEnableCelebrations(value.enableCelebrations);
+    }
   });
 
   let orgName = orgId || "";
@@ -73,11 +88,31 @@ const TopNav: FC<{
       {editUserOpen && (
         <Modal
           close={() => setEditUserOpen(false)}
-          submit={onSubmitEditName}
+          submit={onSubmitEditProfile}
           header="Edit Profile"
           open={true}
         >
           <Field label="Name" {...form.register("name")} />
+          {/* <Field
+            label="Disable celebration"
+            type="checkbox"
+            {...form.register("disableCelebration")}
+          /> */}
+          {/* <Field labe */}
+          <label className="mr-3">
+            Enable Celebrations{" "}
+            <Tooltip
+              body={
+                "GrowthBook adds on-screen confetti celebrations randomly when you complete certain actions like launching an experiment. You can disable this if you find it distracting."
+              }
+            />
+          </label>
+          <Toggle
+            id="disableCelebration"
+            label="Disable celebration"
+            value={form.watch("enableCelebrations")}
+            setValue={(v) => form.setValue("enableCelebrations", v)}
+          />
         </Modal>
       )}
       {changePasswordOpen && (

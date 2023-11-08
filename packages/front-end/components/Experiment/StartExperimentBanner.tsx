@@ -8,6 +8,8 @@ import { FaCheckSquare, FaExternalLinkAlt, FaTimes } from "react-icons/fa";
 import { hasVisualChanges } from "shared/util";
 import track from "@/services/track";
 import { useAuth } from "@/services/auth";
+import { startCelebration } from "@/services/celebration";
+import { useLocalStorage } from "@/hooks/useLocalStorage";
 import Button from "../Button";
 import Tooltip from "../Tooltip/Tooltip";
 import ConfirmButton from "../Modal/ConfirmButton";
@@ -39,6 +41,10 @@ export function StartExperimentBanner({
   noConfirm?: boolean;
 }) {
   const { apiCall } = useAuth();
+  const [enableCelebrations] = useLocalStorage<boolean>(
+    `enable_growthbook_celebrations`,
+    true
+  );
 
   if (experiment.status !== "draft") return null;
 
@@ -192,6 +198,7 @@ export function StartExperimentBanner({
   );
 
   async function startExperiment() {
+    startCelebration(enableCelebrations, 1);
     if (!experiment.phases?.length) {
       if (newPhase) {
         newPhase();
