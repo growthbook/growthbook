@@ -1051,21 +1051,28 @@ export class GrowthBook<
     );
 
     // 13.5. Persist sticky bucket
-    // Always save the sticky bucket even if it already exists.
     const stickyAttributeValue = this._getStickyBucketAttributeValue(
       hashAttribute
     );
-    const { changed, doc } = this._generateStickyBucketAssignmentDoc(
+    const {
+      changed,
+      key: attrKey,
+      doc,
+    } = this._generateStickyBucketAssignmentDoc(
       hashAttribute,
       stickyAttributeValue,
       {
         [this._getStickyBucketExperimentKey<T>(experiment)]: result.variationId,
       }
     );
+    // update local docs
+    this._ctx.stickyBucketAssignmentDocs =
+      this._ctx.stickyBucketAssignmentDocs ?? {};
+    this._ctx.stickyBucketAssignmentDocs[attrKey] = doc;
+    // write doc if it changed
     if (changed) {
       this._ctx.stickyBucketService?.saveAssignments(doc);
     }
-    // todo: if found a fallback bucket but now a primary is present, write the primary
 
     // 14. Fire the tracking callback
     this._track(experiment, result);
@@ -1181,7 +1188,7 @@ export class GrowthBook<
       value: experiment.variations[variationIndex],
       hashAttribute,
       hashValue,
-      stickyBucketUsed,
+      stickyBucketUsed: !!stickyBucketUsed,
     };
 
     if (meta.name) res.name = meta.name;
@@ -1289,7 +1296,8 @@ export class GrowthBook<
 
   private _getStickyBucketVariation<T>(experiment: Experiment<T>): number {
     const id = this._getStickyBucketExperimentKey<T>(experiment);
-    const variation = this._getStickyBucketAssignments()[id];
+    const assignments = this._getStickyBucketAssignments();
+    const variation = assignments[id];
     if (variation === undefined) return -1;
     return variation;
   }
@@ -1329,6 +1337,7 @@ export class GrowthBook<
     attributeValue: string,
     assignments: StickyAssignments
   ): {
+    key: StickyAttributeKey;
     doc: StickyAssignmentsDocument;
     changed: boolean;
   } {
@@ -1340,12 +1349,13 @@ export class GrowthBook<
       JSON.stringify(existingAssignments) !== JSON.stringify(newAssignments);
 
     return {
-      changed,
+      key,
       doc: {
         attributeName,
         attributeValue,
         assignments: newAssignments,
       },
+      changed,
     };
   }
 }

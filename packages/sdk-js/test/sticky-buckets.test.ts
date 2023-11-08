@@ -69,13 +69,13 @@ function mockApi(
   ] as const;
 }
 
-const sdkPayload = {
+const sdkPayload: FeatureApiResponse = {
   features: {
     exp1: {
       defaultValue: "control",
       rules: [
         {
-          coverage: 1,
+          key: "feature-exp",
           seed: "feature-exp",
           hashAttribute: "id",
           fallbackAttribute: "deviceId",
@@ -83,13 +83,50 @@ const sdkPayload = {
           stickyBucketing: true,
           bucketVersion: 1,
           variations: ["control", "red", "blue"],
+          coverage: 1,
           weights: [0.3334, 0.3333, 0.3333],
-          key: "feature-exp",
           phase: "0",
         },
       ],
     },
   },
+  experiments: [
+    {
+      key: "manual-experiment",
+      seed: "s1",
+      hashAttribute: "id",
+      fallbackAttribute: "anonymousId",
+      hashVersion: 2,
+      stickyBucketing: true,
+      bucketVersion: 1,
+      manual: true,
+      variations: [
+        {},
+        {
+          domMutations: [
+            {
+              selector: "h1",
+              action: "set",
+              attribute: "html",
+              value: "red",
+            },
+          ],
+        },
+        {
+          domMutations: [
+            {
+              selector: "h1",
+              action: "set",
+              attribute: "html",
+              value: "blue",
+            },
+          ],
+        },
+      ],
+      weights: [0.3334, 0.3333, 0.3333],
+      coverage: 1,
+    },
+  ],
 };
 
 describe("sticky-buckets", () => {
@@ -104,6 +141,7 @@ describe("sticky-buckets", () => {
       stickyBucketService: new LocalStorageStickyBucketService(),
       attributes: {
         deviceId: "d123",
+        anonymousId: "ses123",
         foo: "bar",
       },
     });
@@ -114,6 +152,7 @@ describe("sticky-buckets", () => {
       clientKey: "qwerty1234",
       attributes: {
         deviceId: "d123",
+        anonymousId: "ses123",
         foo: "bar",
       },
     });
@@ -130,6 +169,11 @@ describe("sticky-buckets", () => {
     expect(result1.value).toBe("red");
     expect(result2.value).toBe("red");
 
+    let expResult1 = growthbook1a.triggerExperiment("manual-experiment");
+    let expResult2 = growthbook2a.triggerExperiment("manual-experiment");
+    expect(expResult1?.variationId).toBe(2);
+    expect(expResult2?.variationId).toBe(2);
+
     growthbook1a.destroy();
     growthbook2a.destroy();
     console.log("localStorage A\n==============", localStorage);
@@ -142,6 +186,7 @@ describe("sticky-buckets", () => {
       stickyBucketService: new LocalStorageStickyBucketService(),
       attributes: {
         deviceId: "d123",
+        anonymousId: "ses123",
         id: "12345",
         foo: "bar",
       },
@@ -151,6 +196,7 @@ describe("sticky-buckets", () => {
       clientKey: "qwerty1234",
       attributes: {
         deviceId: "d123",
+        anonymousId: "ses123",
         id: "12345",
         foo: "bar",
       },
@@ -165,6 +211,11 @@ describe("sticky-buckets", () => {
     result2 = growthbook2b.evalFeature("exp1");
     expect(result1.value).toBe("red");
     expect(result2.value).toBe("blue");
+
+    expResult1 = growthbook1b.triggerExperiment("manual-experiment");
+    expResult2 = growthbook2b.triggerExperiment("manual-experiment");
+    expect(expResult1?.variationId).toBe(2);
+    expect(expResult2?.variationId).toBe(1);
 
     growthbook1b.destroy();
     growthbook2b.destroy();
@@ -200,6 +251,11 @@ describe("sticky-buckets", () => {
     result2 = growthbook2c.evalFeature("exp1");
     expect(result1.value).toBe("red");
     expect(result2.value).toBe("blue");
+
+    expResult1 = growthbook1c.triggerExperiment("manual-experiment");
+    expResult2 = growthbook2c.triggerExperiment("manual-experiment");
+    expect(expResult1?.variationId).toBe(2);
+    expect(expResult2?.variationId).toBe(1);
 
     growthbook1c.destroy();
     growthbook2c.destroy();
