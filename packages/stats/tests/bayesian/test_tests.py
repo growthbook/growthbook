@@ -42,7 +42,6 @@ class TestBinom(TestCase):
         stat_a = ProportionStatistic(sum=49, n=100)
         stat_b = ProportionStatistic(sum=51, n=100)
         result = BinomialBayesianABTest(stat_a, stat_b).compute_result()
-        print(asdict(result))
         expected_rounded_dict = asdict(
             BayesianTestResult(
                 expected=0.0404,
