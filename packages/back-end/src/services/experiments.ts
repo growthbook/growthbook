@@ -337,8 +337,8 @@ export function getAdditionalExperimentAnalysisSettings(
   });
 
   // Skip all of these additional analyses until we fix the performance issues
-  return additionalAnalyses;
-  //return [];
+  //return additionalAnalyses;
+  return [];
 }
 
 export function getSnapshotSettings({
