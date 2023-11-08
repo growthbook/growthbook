@@ -1044,6 +1044,7 @@ describe("Snapshot Migration", () => {
           results: results,
           status: "success",
           settings: {
+            differenceType: "relative",
             dimensions: ["pre:date"],
             statsEngine: "bayesian",
             pValueCorrection: null,
@@ -1229,6 +1230,7 @@ describe("Snapshot Migration", () => {
           dateCreated: now,
           results,
           settings: {
+            differenceType: "relative",
             dimensions: [],
             statsEngine: "bayesian",
             pValueCorrection: null,

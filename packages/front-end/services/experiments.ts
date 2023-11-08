@@ -27,7 +27,7 @@ import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefa
 import {
   defaultLoseRiskThreshold,
   defaultWinRiskThreshold,
-  formatMetricValue,
+  getExperimentMetricFormatter,
 } from "@/services/metrics";
 
 export type ExperimentTableRow = {
@@ -787,12 +787,10 @@ export function getRowResults({
 
   // TODO: support formatted risk for fact metrics
   if (!isBinomial) {
-    riskFormatted = `${formatMetricValue(
+    riskFormatted = `${getExperimentMetricFormatter(
       metric,
-      risk,
-      getFactTableById,
-      displayCurrency
-    )} / user`;
+      getFactTableById
+    )(risk, { currency: displayCurrency })} / user`;
   }
   const riskMeta: RiskMeta = {
     riskStatus,

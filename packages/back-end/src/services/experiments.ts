@@ -27,6 +27,7 @@ import {
   isRatioMetric,
 } from "shared/experiments";
 import { orgHasPremiumFeature } from "enterprise";
+import { hoursBetween } from "shared/dates";
 import { updateExperiment } from "../models/ExperimentModel";
 import {
   ExperimentSnapshotAnalysis,
@@ -246,11 +247,23 @@ export async function getManualSnapshotData(
           };
         });
 
-        const res = await analyzeExperimentMetric(
-          getReportVariations(experiment, phase),
-          metric,
-          rows
-        );
+        const res = await analyzeExperimentMetric({
+          variations: getReportVariations(experiment, phase),
+          metric: metric,
+          rows: rows,
+          phaseLengthHours: Math.max(
+            hoursBetween(phase.dateStarted, phase.dateEnded ?? new Date()),
+            1
+          ),
+          coverage: 1,
+          dimension: null,
+          statsEngine: DEFAULT_STATS_ENGINE,
+          sequentialTestingEnabled: false,
+          sequentialTestingTuningParameter: DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
+          baselineVariationIndex: 0,
+          pValueThreshold: DEFAULT_P_VALUE_THRESHOLD,
+          differenceType: "relative",
+        });
         const data = res.dimensions[0];
         if (!data) return;
         data.variations.map((v, i) => {
@@ -301,6 +314,7 @@ export function getDefaultExperimentAnalysisSettings(
       organization.settings?.sequentialTestingTuningParameter ??
       DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
     baselineVariationIndex: 0,
+    differenceType: "relative",
     pValueThreshold:
       organization.settings?.pValueThreshold ?? DEFAULT_P_VALUE_THRESHOLD,
   };
@@ -319,6 +333,15 @@ export function getAdditionalExperimentAnalysisSettings(
         baselineVariationIndex: i,
       });
     }
+  });
+  // for default baseline, get difference types
+  additionalAnalyses.push({
+    ...defaultAnalysisSettings,
+    differenceType: "absolute",
+  });
+  additionalAnalyses.push({
+    ...defaultAnalysisSettings,
+    differenceType: "scaled",
   });
   return additionalAnalyses;
 }
@@ -381,6 +404,7 @@ export function getSnapshotSettings({
       id: v.key || i + "",
       weight: phase.variationWeights[i] || 0,
     })),
+    coverage: phase.coverage ?? 1,
   };
 }
 
