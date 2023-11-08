@@ -293,25 +293,6 @@ export interface LocalStorageCompat {
   setItem(key: string, value: string): void | Promise<void>;
 }
 
-export interface CookieAttributes {
-  expires?: number | Date | undefined;
-  path?: string | undefined;
-  domain?: string | undefined;
-  secure?: boolean | undefined;
-  sameSite?: "strict" | "Strict" | "lax" | "Lax" | "none" | "None" | undefined;
-  [property: string]: any;
-}
-export interface JsCookiesCompat<T = string> {
-  set(
-    name: string,
-    value: string | T,
-    options?: CookieAttributes
-  ): string | undefined;
-  get(name: string): string | T | undefined;
-  get(): { [key: string]: string };
-  remove(name: string, options?: CookieAttributes): void;
-}
-
 export type CacheSettings = {
   backgroundSync: boolean;
   cacheKey: string;

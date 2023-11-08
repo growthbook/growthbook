@@ -6,13 +6,13 @@ import {
   setPolyfills,
   FeatureApiResponse,
   LocalStorageStickyBucketService,
+  BrowserCookieStickyBucketService,
 } from "../src";
 
 /* eslint-disable */
 const { webcrypto } = require("node:crypto");
 import { TextEncoder, TextDecoder } from "util";
 import { ApiHost, ClientKey } from "../src/types/growthbook";
-import {BrowserCookieStickyBucketService} from "../src/GrowthBook";
 global.TextEncoder = TextEncoder;
 (global as any).TextDecoder = TextDecoder;
 const { MockEvent, EventSource } = require("mocksse");
