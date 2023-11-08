@@ -360,6 +360,10 @@ export class GrowthBook<
     return this._forcedFeatureValues || new Map<string, any>();
   }
 
+  public getStickyBucketAssignmentDocs() {
+    return this._ctx.stickyBucketAssignmentDocs || {};
+  }
+
   public getUrl() {
     return this._ctx.url || "";
   }
@@ -1001,7 +1005,10 @@ export class GrowthBook<
     let foundStickyBucket = false;
     let assigned = -1;
     if (experiment.stickyBucketing) {
-      assigned = this._getStickyBucketVariation<T>(experiment);
+      assigned = this._getStickyBucketVariation(
+        experiment.key,
+        experiment.bucketVersion
+      );
     }
     if (assigned >= 0) {
       foundStickyBucket = true;
@@ -1083,8 +1090,9 @@ export class GrowthBook<
         hashAttribute,
         toString(hashValue),
         {
-          [this._getStickyBucketExperimentKey<T>(
-            experiment
+          [this._getStickyBucketExperimentKey(
+            experiment.key,
+            experiment.bucketVersion
           )]: result.variationId,
         }
       );
@@ -1299,6 +1307,7 @@ export class GrowthBook<
   }
 
   public async refreshStickyBuckets(data?: FeatureApiResponse) {
+    // todo: support remote eval
     if (this.context.stickyBucketService) {
       // todo: disable SB with context flag
       const attributes = this._getStickyBucketAttributes(data);
@@ -1319,18 +1328,25 @@ export class GrowthBook<
     return mergedAssignments;
   }
 
-  private _getStickyBucketVariation<T>(experiment: Experiment<T>): number {
-    const id = this._getStickyBucketExperimentKey<T>(experiment);
+  private _getStickyBucketVariation(
+    experimentKey: string,
+    experimentBucketVersion: number = 1
+  ): number {
+    const id = this._getStickyBucketExperimentKey(
+      experimentKey,
+      experimentBucketVersion
+    );
     const assignments = this._getStickyBucketAssignments();
     const variation = assignments[id];
     if (variation === undefined) return -1;
     return variation;
   }
 
-  private _getStickyBucketExperimentKey<T>(
-    experiment: Experiment<T>
+  private _getStickyBucketExperimentKey(
+    experimentKey: string,
+    experimentBucketVersion: number = 1
   ): StickyExperimentKey {
-    return `${experiment.key}__${experiment.bucketVersion ?? 1}`;
+    return `${experimentKey}__${experimentBucketVersion}`;
   }
 
   private _getStickyBucketAttributes(
