@@ -1,7 +1,11 @@
 import React, { DetailedHTMLProps, HTMLAttributes, useEffect } from "react";
 import { ExperimentReportVariationWithIndex } from "back-end/types/report";
 import { SnapshotMetric } from "back-end/types/experiment-snapshot";
-import { DifferenceType, PValueCorrection, StatsEngine } from "back-end/types/stats";
+import {
+  DifferenceType,
+  PValueCorrection,
+  StatsEngine,
+} from "back-end/types/stats";
 import {
   BsXCircle,
   BsHourglassSplit,
@@ -14,7 +18,11 @@ import { RxInfoCircled } from "react-icons/rx";
 import { MdSwapCalls } from "react-icons/md";
 import { ExperimentMetricInterface, isFactMetric } from "shared/experiments";
 import NotEnoughData from "@/components/Experiment/NotEnoughData";
-import { getEffectLabel, pValueFormatter, RowResults } from "@/services/experiments";
+import {
+  getEffectLabel,
+  pValueFormatter,
+  RowResults,
+} from "@/services/experiments";
 import { GBSuspicious } from "@/components/Icons";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import MetricValueColumn from "@/components/Experiment/MetricValueColumn";
@@ -108,9 +116,10 @@ export default function ResultsTableTooltip({
   if (!data) {
     return null;
   }
-  const deltaFormatter = differenceType === "relative"
-    ? formatPercent
-    : getExperimentMetricFormatter(data.metric, getFactTableById, true);
+  const deltaFormatter =
+    differenceType === "relative"
+      ? formatPercent
+      : getExperimentMetricFormatter(data.metric, getFactTableById, true);
   const deltaFormatterOptions = {
     currency: displayCurrency,
     ...(differenceType === "relative" ? { maximumFractionDigits: 2 } : {}),
