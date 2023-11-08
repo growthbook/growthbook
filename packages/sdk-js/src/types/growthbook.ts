@@ -1,7 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-import type { GrowthBook } from "..";
-import { StickyBucketService } from "../GrowthBook";
+import type { GrowthBook, StickyBucketService } from "..";
 import { ConditionInterface } from "./mongrule";
 
 declare global {
