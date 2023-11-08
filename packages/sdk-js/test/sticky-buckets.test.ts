@@ -176,7 +176,7 @@ describe("sticky-buckets", () => {
 
     growthbook1a.destroy();
     growthbook2a.destroy();
-    console.log("localStorage A\n==============", localStorage);
+    // console.log("localStorage A", localStorage);
     await sleep(100);
 
     // provide the primary hashAttribute "id" as well as fallbackAttribute "deviceId"
@@ -219,7 +219,7 @@ describe("sticky-buckets", () => {
 
     growthbook1b.destroy();
     growthbook2b.destroy();
-    console.log("localStorage B\n==============", localStorage);
+    // console.log("localStorage B", localStorage);
     await sleep(100);
 
     // remove the fallbackAttribute "deviceId".
@@ -260,7 +260,7 @@ describe("sticky-buckets", () => {
     growthbook1c.destroy();
     growthbook2c.destroy();
     cleanup();
-    console.log("localStorage C\n==============", localStorage);
+    // console.log("localStorage C", localStorage);
 
     localStorage.clear();
   });

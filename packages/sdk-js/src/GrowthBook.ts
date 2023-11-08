@@ -36,6 +36,7 @@ import {
   isIncluded,
   isURLTargeted,
   loadSDKVersion,
+  toString,
 } from "./util";
 import { evalCondition } from "./mongrule";
 import { refreshFeatures, subscribe, unsubscribe } from "./feature-repository";
@@ -744,6 +745,8 @@ export class GrowthBook<
           exp.fallbackAttribute = rule.fallbackAttribute;
         if (rule.stickyBucketing) exp.stickyBucketing = rule.stickyBucketing;
         if (rule.bucketVersion) exp.bucketVersion = rule.bucketVersion;
+        if (rule.blockedVariations)
+          exp.blockedVariations = rule.blockedVariations;
         if (rule.namespace) exp.namespace = rule.namespace;
         if (rule.meta) exp.meta = rule.meta;
         if (rule.ranges) exp.ranges = rule.ranges;
@@ -987,15 +990,31 @@ export class GrowthBook<
       getBucketRanges(
         numVariations,
         experiment.coverage === undefined ? 1 : experiment.coverage,
-        experiment.weights
+        experiment.weights,
+        experiment.blockedVariations
       );
 
     let foundStickyBucket = false;
-    let assigned = this._getStickyBucketVariation<T>(experiment);
+    let assigned = -1;
+    if (experiment.stickyBucketing) {
+      assigned = this._getStickyBucketVariation<T>(experiment);
+    }
     if (assigned >= 0) {
       foundStickyBucket = true;
     } else {
       assigned = chooseVariation(n, ranges);
+    }
+
+    // 9.5 Unenroll if sticky bucket is in a blocked variation
+    if (
+      foundStickyBucket &&
+      (experiment.blockedVariations ?? []).includes(assigned)
+    ) {
+      process.env.NODE_ENV !== "production" &&
+        this.log("Skip because sticky bucket is a blocked variation", {
+          id: key,
+        });
+      return this._getResult(experiment, -1, false, featureId, undefined, true);
     }
 
     // 10. Return if not in experiment
@@ -1051,27 +1070,28 @@ export class GrowthBook<
     );
 
     // 13.5. Persist sticky bucket
-    const stickyAttributeValue = this._getStickyBucketAttributeValue(
-      hashAttribute
-    );
-    const {
-      changed,
-      key: attrKey,
-      doc,
-    } = this._generateStickyBucketAssignmentDoc(
-      hashAttribute,
-      stickyAttributeValue,
-      {
-        [this._getStickyBucketExperimentKey<T>(experiment)]: result.variationId,
+    if (experiment.stickyBucketing) {
+      const {
+        changed,
+        key: attrKey,
+        doc,
+      } = this._generateStickyBucketAssignmentDoc(
+        hashAttribute,
+        toString(hashValue),
+        {
+          [this._getStickyBucketExperimentKey<T>(
+            experiment
+          )]: result.variationId,
+        }
+      );
+      if (changed) {
+        // update local docs
+        this._ctx.stickyBucketAssignmentDocs =
+          this._ctx.stickyBucketAssignmentDocs ?? {};
+        this._ctx.stickyBucketAssignmentDocs[attrKey] = doc;
+        // save doc
+        this._ctx.stickyBucketService?.saveAssignments(doc);
       }
-    );
-    // update local docs
-    this._ctx.stickyBucketAssignmentDocs =
-      this._ctx.stickyBucketAssignmentDocs ?? {};
-    this._ctx.stickyBucketAssignmentDocs[attrKey] = doc;
-    // write doc if it changed
-    if (changed) {
-      this._ctx.stickyBucketService?.saveAssignments(doc);
     }
 
     // 14. Fire the tracking callback
@@ -1128,8 +1148,9 @@ export class GrowthBook<
 
   private _getHashAttribute(attr?: string, fallback?: string) {
     let hashAttribute = attr || "id";
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let hashValue: any = "";
 
-    let hashValue = "";
     if (this._attributeOverrides[hashAttribute]) {
       hashValue = this._attributeOverrides[hashAttribute];
     } else if (this._ctx.attributes) {
@@ -1316,20 +1337,10 @@ export class GrowthBook<
       ? this._deriveStickyBucketIdentifierAttributes(data)
       : this.context.stickyBucketIdentifierAttributes ?? [];
     this.context.stickyBucketIdentifierAttributes.forEach((attr) => {
-      attributes[attr] = this._getStickyBucketAttributeValue(attr);
+      const { hashValue } = this._getHashAttribute(attr);
+      attributes[attr] = toString(hashValue);
     });
     return attributes;
-  }
-
-  private _getStickyBucketAttributeValue(attr: string) {
-    const { hashValue } = this._getHashAttribute(attr);
-    if (["string", "number"].includes(typeof hashValue)) {
-      return hashValue + "";
-    }
-    if (!hashValue) {
-      return "";
-    }
-    return JSON.stringify(hashValue);
   }
 
   private _generateStickyBucketAssignmentDoc(

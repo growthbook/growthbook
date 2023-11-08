@@ -28,6 +28,7 @@ export type FeatureRule<T = any> = {
   hashVersion?: number;
   stickyBucketing?: boolean;
   bucketVersion?: number;
+  blockedVariations?: number[];
   range?: VariationRange;
   coverage?: number;
   /** @deprecated */
@@ -99,6 +100,7 @@ export type Experiment<T> = {
   hashVersion?: number;
   stickyBucketing?: boolean;
   bucketVersion?: number;
+  blockedVariations?: number[];
   active?: boolean;
   /** @deprecated */
   status?: ExperimentStatus;

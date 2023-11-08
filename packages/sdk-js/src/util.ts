@@ -168,7 +168,8 @@ function _evalURLTarget(
 export function getBucketRanges(
   numVariations: number,
   coverage: number | undefined,
-  weights?: number[]
+  weights?: number[],
+  blockedVariations?: number[]
 ): VariationRange[] {
   coverage = coverage === undefined ? 1 : coverage;
 
@@ -206,11 +207,22 @@ export function getBucketRanges(
     weights = equal;
   }
 
+  // If any variations are blocked, set their weight to 0 and rebalance
+  blockedVariations = blockedVariations || [];
+  if (blockedVariations.length > 0) {
+    blockedVariations.forEach((v) => ((weights as number[])[v] = 0));
+    const newTotalWeight = weights.reduce((w, sum) => sum + w, 0);
+    weights = weights.map((w) => (w * totalWeight) / newTotalWeight);
+  }
+
   // Covert weights to ranges
   let cumulative = 0;
-  return weights.map((w) => {
+  return weights.map((w, i) => {
     const start = cumulative;
     cumulative += w;
+    if ((blockedVariations || []).includes(i)) {
+      return [-1, -1];
+    }
     return [start, start + (coverage as number) * w];
   }) as VariationRange[];
 }
@@ -283,6 +295,12 @@ export async function decrypt(
   } catch (e) {
     throw new Error("Failed to decrypt");
   }
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function toString(input: any): string {
+  if (typeof input === "string") return input;
+  return JSON.stringify(input);
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
