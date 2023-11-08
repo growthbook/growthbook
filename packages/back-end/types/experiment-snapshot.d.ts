@@ -177,6 +177,7 @@ export interface ExperimentSnapshotTraffic {
   dimension: {
     [dimension: string]: ExperimentSnapshotTrafficDimension[];
   };
+  error?: string;
 }
 export interface ExperimentSnapshotTrafficDimension {
   name: string;
