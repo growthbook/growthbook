@@ -1,4 +1,4 @@
-import { FC, MouseEventHandler } from "react";
+import { FC, MouseEventHandler, ReactNode } from "react";
 import ReactSelect, {
   components,
   MultiValueGenericProps,
@@ -80,6 +80,7 @@ const MultiSelectField: FC<
     customClassName?: string;
     closeMenuOnSelect?: boolean;
     creatable?: boolean;
+    formatOptionLabel?: (value: SingleValue) => ReactNode;
   }
 > = ({
   value,
@@ -94,6 +95,7 @@ const MultiSelectField: FC<
   customClassName,
   creatable,
   closeMenuOnSelect = false,
+  formatOptionLabel,
   ...otherProps
 }) => {
   const [map, sorted] = useSelectOptions(options, initialOption, sort);
@@ -131,6 +133,7 @@ const MultiSelectField: FC<
             getHelperDimensions={({ node }) => node.getBoundingClientRect()}
             id={id}
             ref={ref}
+            formatOptionLabel={formatOptionLabel}
             isDisabled={disabled || false}
             options={sorted}
             isMulti={true}

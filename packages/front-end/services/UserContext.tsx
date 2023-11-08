@@ -1,5 +1,6 @@
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import { ApiKeyInterface } from "back-end/types/apikey";
+import { TeamInterface } from "back-end/types/team";
 import {
   EnvScopedPermission,
   GlobalPermission,
@@ -27,7 +28,7 @@ import {
 import * as Sentry from "@sentry/react";
 import { GROWTHBOOK_SECURE_ATTRIBUTE_SALT } from "shared/constants";
 import { hasPermission } from "shared/permissions";
-import { isCloud, isSentryEnabled } from "@/services/env";
+import { isCloud, isMultiOrg, isSentryEnabled } from "@/services/env";
 import useApi from "@/hooks/useApi";
 import { useAuth, UserOrganizations } from "@/services/auth";
 import track from "@/services/track";
@@ -44,6 +45,7 @@ type OrgSettingsResponse = {
   commercialFeatures: CommercialFeature[];
   licenseKey?: string;
   currentUserPermissions: UserPermissions;
+  teams: TeamInterface[];
 };
 
 export interface PermissionFunctions {
@@ -59,6 +61,10 @@ export interface PermissionFunctions {
   ): boolean;
 }
 
+export type Team = Omit<TeamInterface, "members"> & {
+  members?: ExpandedMember[];
+};
+
 export const DEFAULT_PERMISSIONS: Record<GlobalPermission, boolean> = {
   createDimensions: false,
   createPresentations: false,
@@ -68,6 +74,7 @@ export const DEFAULT_PERMISSIONS: Record<GlobalPermission, boolean> = {
   manageNamespaces: false,
   manageNorthStarMetric: false,
   manageSavedGroups: false,
+  manageArchetype: false,
   manageTags: false,
   manageTargetingAttributes: false,
   manageTeam: false,
@@ -82,7 +89,7 @@ export interface UserContextValue {
   userId?: string;
   name?: string;
   email?: string;
-  admin?: boolean;
+  superAdmin?: boolean;
   license?: LicenseData;
   user?: ExpandedMember;
   users: Map<string, ExpandedMember>;
@@ -97,6 +104,7 @@ export interface UserContextValue {
   apiKeys: ApiKeyInterface[];
   organization: Partial<OrganizationInterface>;
   roles: Role[];
+  teams?: Team[];
   error?: string;
   hasCommercialFeature: (feature: CommercialFeature) => boolean;
 }
@@ -107,7 +115,7 @@ interface UserResponse {
   userName: string;
   email: string;
   verified: boolean;
-  admin: boolean;
+  superAdmin: boolean;
   organizations?: UserOrganizations;
   license?: LicenseData;
   currentUserPermissions: UserPermissions;
@@ -128,6 +136,7 @@ export const UserContext = createContext<UserContextValue>({
   },
   apiKeys: [],
   organization: {},
+  teams: [],
   hasCommercialFeature: () => false,
 });
 
@@ -189,6 +198,22 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
     return userMap;
   }, [currentOrg?.members]);
 
+  const teams = useMemo(() => {
+    return currentOrg?.teams.map((team) => {
+      const hydratedMembers = team.members?.reduce<ExpandedMember[]>(
+        (res, member) => {
+          const user = users.get(member);
+          if (user) {
+            res.push(user);
+          }
+          return res;
+        },
+        []
+      );
+      return { ...team, members: hydratedMembers };
+    });
+  }, [currentOrg?.teams, users]);
+
   // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'string | undefined' is not assig... Remove this comment to see the full error message
   let user = users.get(data?.userId);
   if (!user && data) {
@@ -199,13 +224,13 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
       environments: [],
       limitAccessByEnvironment: false,
       name: data.userName,
-      role: data.admin ? "admin" : "readonly",
+      role: data.superAdmin ? "admin" : "readonly",
       projectRoles: [],
     };
   }
 
   const role =
-    (data?.admin && "admin") ||
+    (data?.superAdmin && "admin") ||
     (user?.role ?? currentOrg?.organization?.settings?.defaultRole?.role);
 
   // Build out permissions object for backwards-compatible `permissions.manageTeams` style usage
@@ -268,12 +293,13 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
     growthbook.setAttributes({
       id: data?.userId || "",
       name: data?.userName || "",
-      admin: data?.admin || false,
+      superAdmin: data?.superAdmin || false,
       company: currentOrg?.organization?.name || "",
       organizationId: hashedOrganizationId,
       userAgent: window.navigator.userAgent,
       url: router?.pathname || "",
       cloud: isCloud(),
+      multiOrg: isMultiOrg(),
       accountPlan: currentOrg?.accountPlan || "unknown",
       hasLicenseKey: !!data?.license,
       freeSeats: currentOrg?.organization?.freeSeats || 3,
@@ -329,7 +355,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
         userId: data?.userId,
         name: data?.userName,
         email: data?.email,
-        admin: data?.admin,
+        superAdmin: data?.superAdmin,
         updateUser,
         user,
         users,
@@ -349,13 +375,13 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
         },
         settings: currentOrg?.organization?.settings || {},
         license: data?.license,
-        // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'SSOConnectionInterface | null | undefined' i... Remove this comment to see the full error message
-        enterpriseSSO: currentOrg?.enterpriseSSO,
+        enterpriseSSO: currentOrg?.enterpriseSSO || undefined,
         accountPlan: currentOrg?.accountPlan,
         commercialFeatures: currentOrg?.commercialFeatures || [],
         apiKeys: currentOrg?.apiKeys || [],
         // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'OrganizationInterface | undefined' is not as... Remove this comment to see the full error message
         organization: currentOrg?.organization,
+        teams,
         error,
         hasCommercialFeature: (feature) => commercialFeatures.has(feature),
       }}

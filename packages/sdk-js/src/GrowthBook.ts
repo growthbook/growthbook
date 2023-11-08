@@ -1,43 +1,46 @@
 import mutate, { DeclarativeMutation } from "dom-mutator";
 import type {
+  ApiHost,
+  Attributes,
+  AutoExperiment,
+  AutoExperimentVariation,
+  ClientKey,
   Context,
   Experiment,
+  FeatureDefinition,
   FeatureResult,
+  FeatureResultSource,
+  Filter,
+  LoadFeaturesOptions,
+  RealtimeUsageData,
+  RefreshFeaturesOptions,
   Result,
   SubscriptionFunction,
-  FeatureDefinition,
-  FeatureResultSource,
-  Attributes,
-  WidenPrimitives,
-  RealtimeUsageData,
-  LoadFeaturesOptions,
-  RefreshFeaturesOptions,
-  ApiHost,
-  ClientKey,
   VariationMeta,
-  Filter,
   VariationRange,
-  AutoExperimentVariation,
-  AutoExperiment,
+  WidenPrimitives,
 } from "./types/growthbook";
 import type { ConditionInterface } from "./types/mongrule";
 import {
-  getUrlRegExp,
-  isIncluded,
-  getBucketRanges,
-  hash,
   chooseVariation,
+  decrypt,
+  getBucketRanges,
   getQueryStringOverride,
+  getUrlRegExp,
+  hash,
   inNamespace,
   inRange,
+  isIncluded,
   isURLTargeted,
-  decrypt,
+  loadSDKVersion,
 } from "./util";
 import { evalCondition } from "./mongrule";
 import { refreshFeatures, subscribe, unsubscribe } from "./feature-repository";
 
 const isBrowser =
   typeof window !== "undefined" && typeof document !== "undefined";
+
+const SDK_VERSION = loadSDKVersion();
 
 export class GrowthBook<
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -48,6 +51,7 @@ export class GrowthBook<
   private context: Context;
   public debug: boolean;
   public ready: boolean;
+  public version: string;
 
   // Properties and methods that start with "_" are mangled by Terser (saves ~150 bytes)
   private _ctx: Context;
@@ -73,11 +77,13 @@ export class GrowthBook<
     string,
     { valueHash: string; undo: () => void }
   >;
+  private _loadFeaturesCalled: boolean;
 
   constructor(context?: Context) {
     context = context || {};
     // These properties are all initialized in the constructor instead of above
     // This saves ~80 bytes in the final output
+    this.version = SDK_VERSION;
     this._ctx = this.context = context;
     this._renderer = null;
     this._trackedExperiments = new Set();
@@ -91,6 +97,31 @@ export class GrowthBook<
     this._forcedFeatureValues = new Map();
     this._attributeOverrides = {};
     this._activeAutoExperiments = new Map();
+    this._loadFeaturesCalled = false;
+
+    if (context.remoteEval) {
+      if (context.decryptionKey) {
+        throw new Error("Encryption is not available for remoteEval");
+      }
+      if (!context.clientKey) {
+        throw new Error("Missing clientKey");
+      }
+      let isGbHost = false;
+      try {
+        isGbHost = !!new URL(context.apiHost || "").hostname.match(
+          /growthbook\.io$/i
+        );
+      } catch (e) {
+        // ignore invalid URLs
+      }
+      if (isGbHost) {
+        throw new Error("Cannot use remoteEval on GrowthBook Cloud");
+      }
+    } else {
+      if (context.cacheKeyAttributes) {
+        throw new Error("cacheKeyAttributes are only used for remoteEval");
+      }
+    }
 
     if (context.features) {
       this.ready = true;
@@ -106,18 +137,21 @@ export class GrowthBook<
       this._updateAllAutoExperiments();
     }
 
-    if (context.clientKey) {
+    if (context.clientKey && !context.remoteEval) {
       this._refresh({}, true, false);
     }
   }
 
   public async loadFeatures(options?: LoadFeaturesOptions): Promise<void> {
+    if (options && options.autoRefresh) {
+      // interpret deprecated autoRefresh option as subscribeToChanges
+      this._ctx.subscribeToChanges = true;
+    }
+    this._loadFeaturesCalled = true;
+
     await this._refresh(options, true, true);
 
-    if (
-      this._ctx.backgroundSync !== false &&
-      (this._ctx.subscribeToChanges || (options && options.autoRefresh))
-    ) {
+    if (this._canSubscribe()) {
       subscribe(this);
     }
   }
@@ -129,10 +163,35 @@ export class GrowthBook<
   }
 
   public getApiInfo(): [ApiHost, ClientKey] {
-    return [
-      (this._ctx.apiHost || "https://cdn.growthbook.io").replace(/\/*$/, ""),
-      this._ctx.clientKey || "",
-    ];
+    return [this.getApiHosts().apiHost, this.getClientKey()];
+  }
+  public getApiHosts(): {
+    apiHost: string;
+    streamingHost: string;
+    apiRequestHeaders?: Record<string, string>;
+    streamingHostRequestHeaders?: Record<string, string>;
+  } {
+    const defaultHost = this._ctx.apiHost || "https://cdn.growthbook.io";
+    return {
+      apiHost: defaultHost.replace(/\/*$/, ""),
+      streamingHost: (this._ctx.streamingHost || defaultHost).replace(
+        /\/*$/,
+        ""
+      ),
+      apiRequestHeaders: this._ctx.apiHostRequestHeaders,
+      streamingHostRequestHeaders: this._ctx.streamingHostRequestHeaders,
+    };
+  }
+  public getClientKey(): string {
+    return this._ctx.clientKey || "";
+  }
+
+  public isRemoteEval(): boolean {
+    return this._ctx.remoteEval || false;
+  }
+
+  public getCacheKeyAttributes(): (keyof Attributes)[] | undefined {
+    return this._ctx.cacheKeyAttributes;
   }
 
   private async _refresh(
@@ -202,20 +261,34 @@ export class GrowthBook<
 
   public setAttributes(attributes: Attributes) {
     this._ctx.attributes = attributes;
+    if (this._ctx.remoteEval) {
+      this._refreshForRemoteEval();
+      return;
+    }
     this._render();
     this._updateAllAutoExperiments();
   }
 
   public setAttributeOverrides(overrides: Attributes) {
     this._attributeOverrides = overrides;
+    if (this._ctx.remoteEval) {
+      this._refreshForRemoteEval();
+      return;
+    }
     this._render();
     this._updateAllAutoExperiments();
   }
+
   public setForcedVariations(vars: Record<string, number>) {
     this._ctx.forcedVariations = vars || {};
+    if (this._ctx.remoteEval) {
+      this._refreshForRemoteEval();
+      return;
+    }
     this._render();
     this._updateAllAutoExperiments();
   }
+
   // eslint-disable-next-line
   public setForcedFeatures(map: Map<string, any>) {
     this._forcedFeatureValues = map;
@@ -224,11 +297,30 @@ export class GrowthBook<
 
   public setURL(url: string) {
     this._ctx.url = url;
+    if (this._ctx.remoteEval) {
+      this._refreshForRemoteEval().then(() =>
+        this._updateAllAutoExperiments(true)
+      );
+      return;
+    }
     this._updateAllAutoExperiments(true);
   }
 
   public getAttributes() {
     return { ...this._ctx.attributes, ...this._attributeOverrides };
+  }
+
+  public getForcedVariations() {
+    return this._ctx.forcedVariations || {};
+  }
+
+  public getForcedFeatures() {
+    // eslint-disable-next-line
+    return this._forcedFeatureValues || new Map<string, any>();
+  }
+
+  public getUrl() {
+    return this._ctx.url || "";
   }
 
   public getFeatures() {
@@ -241,10 +333,21 @@ export class GrowthBook<
 
   public subscribe(cb: SubscriptionFunction): () => void {
     this._subscriptions.add(cb);
-
     return () => {
       this._subscriptions.delete(cb);
     };
+  }
+
+  private _canSubscribe() {
+    return this._ctx.backgroundSync !== false && this._ctx.subscribeToChanges;
+  }
+
+  private async _refreshForRemoteEval() {
+    if (!this._ctx.remoteEval) return;
+    if (!this._loadFeaturesCalled) return;
+    await this._refresh({}, false, true).catch(() => {
+      // Ignore errors
+    });
   }
 
   public getAllResults() {
@@ -281,6 +384,11 @@ export class GrowthBook<
   public forceVariation(key: string, variation: number) {
     this._ctx.forcedVariations = this._ctx.forcedVariations || {};
     this._ctx.forcedVariations[key] = variation;
+    if (this._ctx.remoteEval) {
+      this._refreshForRemoteEval();
+      return;
+    }
+    this._updateAllAutoExperiments();
     this._render();
   }
 

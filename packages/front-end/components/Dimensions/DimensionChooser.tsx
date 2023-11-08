@@ -1,12 +1,13 @@
 import { useEffect } from "react";
 import { ExperimentSnapshotAnalysisSettings } from "back-end/types/experiment-snapshot";
+import { DifferenceType } from "back-end/types/stats";
 import { getExposureQuery } from "@/services/datasources";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import SelectField from "../Forms/SelectField";
 
 export interface Props {
   value: string;
-  setValue: (value: string) => void;
+  setValue?: (value: string) => void;
   datasourceId?: string;
   exposureQueryId?: string;
   activationMetric?: boolean;
@@ -16,9 +17,11 @@ export interface Props {
   newUi?: boolean;
   setVariationFilter?: (variationFilter: number[]) => void;
   setBaselineRow?: (baselineRow: number) => void;
-  setAnalysisSettings: (
+  setDifferenceType?: (differenceType: DifferenceType) => void;
+  setAnalysisSettings?: (
     settings: ExperimentSnapshotAnalysisSettings | null
   ) => void;
+  disabled?: boolean;
 }
 
 export default function DimensionChooser({
@@ -33,7 +36,9 @@ export default function DimensionChooser({
   newUi = false,
   setVariationFilter,
   setBaselineRow,
+  setDifferenceType,
   setAnalysisSettings,
+  disabled,
 }: Props) {
   const { dimensions, getDatasourceById } = useDefinitions();
   const datasource = datasourceId ? getDatasourceById(datasourceId) : null;
@@ -41,9 +46,9 @@ export default function DimensionChooser({
   // If activation metric is not selected, don't allow using that dimension
   useEffect(() => {
     if (value === "pre:activation" && !activationMetric) {
-      setValue("");
+      setValue?.("");
     }
-  }, [value, activationMetric]);
+  }, [value, setValue, activationMetric]);
 
   // Don't show anything if the datasource doesn't support dimensions
   if (!datasource || !datasource.properties?.dimensions) {
@@ -122,14 +127,16 @@ export default function DimensionChooser({
         value={value}
         onChange={(v) => {
           if (v === value) return;
-          setAnalysisSettings(null);
+          setAnalysisSettings?.(null);
           setBaselineRow?.(0);
+          setDifferenceType?.("relative");
           setVariationFilter?.([]);
-          setValue(v);
+          setValue?.(v);
         }}
         helpText={
           showHelp ? "Break down results for each metric by a dimension" : ""
         }
+        disabled={disabled}
       />
     </div>
   );

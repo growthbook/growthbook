@@ -44,6 +44,7 @@ import track, { trackReport } from "@/services/track";
 import CompactResults from "@/components/Experiment/CompactResults";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import BreakDownResults from "@/components/Experiment/BreakDownResults";
+import DimensionChooser from "@/components/Dimensions/DimensionChooser";
 
 export default function ReportPage() {
   const [newUi, setNewUi] = useLocalStorage<boolean>(
@@ -56,7 +57,7 @@ export default function ReportPage() {
 
   const [editModalOpen, setEditModalOpen] = useState(false);
 
-  const { getMetricById, getDatasourceById } = useDefinitions();
+  const { getExperimentMetricById, getDatasourceById } = useDefinitions();
   const { data, error, mutate } = useApi<{ report: ReportInterface }>(
     `/report/${rid}`
   );
@@ -288,6 +289,18 @@ export default function ReportPage() {
                   <h2>Results</h2>
                 </div>
                 <div className="flex-1"></div>
+                <div className="col-auto d-flex align-items-end mr-3">
+                  <DimensionChooser
+                    value={report.args.dimension ?? ""}
+                    activationMetric={!!report.args.activationMetric}
+                    datasourceId={report.args.datasource}
+                    exposureQueryId={report.args.exposureQueryId}
+                    userIdType={report.args.userIdType}
+                    labelClassName="mr-2"
+                    newUi={true}
+                    disabled={true}
+                  />
+                </div>
                 <div className="col-auto">
                   {hasData &&
                   report.runStarted &&
@@ -566,6 +579,7 @@ export default function ReportPage() {
                           report.args.metricRegressionAdjustmentStatuses
                         }
                         sequentialTestingEnabled={sequentialTestingEnabled}
+                        differenceType={"relative"}
                         isTabActive={true}
                       />
                     </div>
@@ -604,7 +618,7 @@ export default function ReportPage() {
                           <div className="row">
                             {/* @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'. */}
                             {report.args.guardrails.map((g) => {
-                              const metric = getMetricById(g);
+                              const metric = getExperimentMetricById(g);
                               if (!metric) return "";
 
                               const data =

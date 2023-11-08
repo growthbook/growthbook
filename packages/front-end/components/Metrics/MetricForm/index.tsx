@@ -7,7 +7,7 @@ import {
   Operator,
 } from "back-end/types/metric";
 import { useFieldArray, useForm } from "react-hook-form";
-import { FaExternalLinkAlt, FaTimes } from "react-icons/fa";
+import { FaArrowRight, FaExternalLinkAlt, FaTimes } from "react-icons/fa";
 import {
   DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
   DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
@@ -22,7 +22,7 @@ import { getDefaultConversionWindowHours } from "@/services/env";
 import {
   defaultLoseRiskThreshold,
   defaultWinRiskThreshold,
-  formatConversionRate,
+  getMetricFormatter,
 } from "@/services/metrics";
 import { useAuth } from "@/services/auth";
 import RadioSelector from "@/components/Forms/RadioSelector";
@@ -47,6 +47,7 @@ import usePermissions from "@/hooks/usePermissions";
 import { useCurrency } from "@/hooks/useCurrency";
 import ConfirmModal from "@/components/ConfirmModal";
 import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
+import FactMetricModal from "@/components/FactTables/FactMetricModal";
 
 const weekAgo = new Date();
 weekAgo.setDate(weekAgo.getDate() - 7);
@@ -63,14 +64,15 @@ export type MetricFormProps = {
   cta?: string;
   onSuccess?: () => void;
   secondaryCTA?: ReactElement;
+  allowFactMetrics?: boolean;
 };
 
-function usesValueColumn(sql: string) {
-  return sql.match(/\{\{[^}]*valueColumn/g);
+export function usesValueColumn(sql: string) {
+  return !!sql.match(/\{\{[^}]*valueColumn/g);
 }
 
-function usesEventName(sql: string) {
-  return sql.match(/\{\{[^}]*eventName/g);
+export function usesEventName(sql: string) {
+  return !!sql.match(/\{\{[^}]*eventName/g);
 }
 
 function validateMetricSQL(
@@ -206,6 +208,7 @@ const MetricForm: FC<MetricFormProps> = ({
   cta = "Save",
   onSuccess,
   secondaryCTA,
+  allowFactMetrics,
 }) => {
   const {
     datasources,
@@ -213,6 +216,7 @@ const MetricForm: FC<MetricFormProps> = ({
     metrics,
     projects,
     project,
+    factTables,
   } = useDefinitions();
   const settings = useOrgSettings();
   const { hasCommercialFeature } = useUser();
@@ -222,6 +226,8 @@ const MetricForm: FC<MetricFormProps> = ({
   const [showAdvanced, setShowAdvanced] = useState(advanced);
   const [hideTags, setHideTags] = useState(!current?.tags?.length);
   const [sqlOpen, setSqlOpen] = useState(false);
+
+  const [factMetric, setFactMetric] = useState(false);
 
   const currentDatasource = current?.datasource
     ? getDatasourceById(current?.datasource)
@@ -613,6 +619,19 @@ const MetricForm: FC<MetricFormProps> = ({
     disabledMessage = "You don't have permission to create metrics.";
   }
 
+  // If creating a Fact Metric instead
+  if (allowFactMetrics && factMetric) {
+    return (
+      <FactMetricModal
+        close={onClose}
+        goBack={() => {
+          setFactMetric(false);
+        }}
+        source={source}
+      />
+    );
+  }
+
   return (
     <>
       {supportsSQL && sqlOpen && (
@@ -664,11 +683,25 @@ const MetricForm: FC<MetricFormProps> = ({
             }
           }}
         >
-          {isExclusivelyForDemoDatasourceProject && (
+          {isExclusivelyForDemoDatasourceProject ? (
             <div className="alert alert-warning">
               You are creating a metric under the demo datasource project.
             </div>
-          )}
+          ) : allowFactMetrics && factTables.length > 0 ? (
+            <div className="alert border badge-purple text-center">
+              Want to use Fact Tables to create your metric instead?{" "}
+              <a
+                href="#"
+                className="ml-2 btn btn-primary btn-sm"
+                onClick={(e) => {
+                  e.preventDefault();
+                  setFactMetric(true);
+                }}
+              >
+                Use Fact Tables <FaArrowRight />
+              </a>
+            </div>
+          ) : null}
           <div className="form-group">
             <label>Metric Name</label>
             <input
@@ -1329,8 +1362,7 @@ const MetricForm: FC<MetricFormProps> = ({
                   (default{" "}
                   {value.type === "binomial"
                     ? metricDefaults.minimumSampleSize
-                    : formatConversionRate(
-                        value.type,
+                    : getMetricFormatter(value.type)(
                         metricDefaults.minimumSampleSize
                       )}
                   )

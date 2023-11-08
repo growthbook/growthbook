@@ -32,7 +32,7 @@ export default function RuleList({
   experiments: Record<string, ExperimentInterfaceStringDates>;
   environment: string;
   mutate: () => void;
-  setRuleModal: ({ environment: string, i: number }) => void;
+  setRuleModal: (rule: { environment: string; i: number }) => void;
 }) {
   const { apiCall } = useAuth();
   // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'null' is not assignable to param... Remove this comment to see the full error message

@@ -1,10 +1,10 @@
 import pinoHttp from "pino-http";
 import * as Sentry from "@sentry/node";
 import { Request } from "express";
-import { BaseLogger } from "pino";
+import { BaseLogger, Level } from "pino";
 import { ApiRequestLocals } from "../../types/api";
 import { AuthRequest } from "../types/AuthRequest";
-import { ENVIRONMENT, IS_CLOUD } from "./secrets";
+import { ENVIRONMENT, IS_CLOUD, LOG_LEVEL } from "./secrets";
 
 const redactPaths = [
   "req.headers.authorization",
@@ -50,13 +50,26 @@ export function getCustomLogProps(req: Request) {
   if (typedReq.userId) {
     data.userId = typedReq.userId;
   }
-  if (typedReq.admin) {
-    data.admin = true;
+  if (typedReq.superAdmin) {
+    data.superAdmin = true;
   }
   return data;
 }
+
+const isValidLevel = (input: unknown): input is Level => {
+  return ([
+    "fatal",
+    "error",
+    "warn",
+    "info",
+    "debug",
+    "trace",
+  ] as const).includes(input as Level);
+};
+
 export const httpLogger = pinoHttp({
   autoLogging: ENVIRONMENT === "production",
+  useLevel: isValidLevel(LOG_LEVEL) ? LOG_LEVEL : "info",
   redact: {
     paths: redactPaths,
     remove: true,

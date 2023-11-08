@@ -67,5 +67,95 @@ describe("Mongrule", () => {
         )
       ).toBe(false);
     });
+
+    it("Counts both undefined and null attributes as not existing, but not other falsy values", () => {
+      expect(
+        evalCondition(
+          {
+            email: undefined,
+          },
+          {
+            email: { $exists: true },
+          }
+        )
+      ).toBe(false);
+
+      expect(
+        evalCondition(
+          {
+            email: undefined,
+          },
+          {
+            email: { $exists: false },
+          }
+        )
+      ).toBe(true);
+
+      expect(
+        evalCondition(
+          {
+            email: null,
+          },
+          {
+            email: { $exists: true },
+          }
+        )
+      ).toBe(false);
+
+      expect(
+        evalCondition(
+          {
+            email: null,
+          },
+          {
+            email: { $exists: false },
+          }
+        )
+      ).toBe(true);
+
+      expect(
+        evalCondition(
+          {
+            email: "",
+          },
+          {
+            email: { $exists: true },
+          }
+        )
+      ).toBe(true);
+
+      expect(
+        evalCondition(
+          {
+            email: "",
+          },
+          {
+            email: { $exists: false },
+          }
+        )
+      ).toBe(false);
+
+      expect(
+        evalCondition(
+          {
+            email: 0,
+          },
+          {
+            email: { $exists: true },
+          }
+        )
+      ).toBe(true);
+
+      expect(
+        evalCondition(
+          {
+            email: 0,
+          },
+          {
+            email: { $exists: false },
+          }
+        )
+      ).toBe(false);
+    });
   });
 });

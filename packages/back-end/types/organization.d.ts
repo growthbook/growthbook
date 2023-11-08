@@ -76,6 +76,8 @@ export interface PendingMember extends MemberRoleWithProjects {
 export interface Member extends MemberRoleWithProjects {
   id: string;
   dateCreated?: Date;
+  externalId?: string;
+  managedByIdp?: boolean;
 }
 
 export interface ExpandedMember extends Member {
@@ -219,6 +221,7 @@ export interface OrganizationInterface {
   url: string;
   dateCreated: Date;
   verifiedDomain?: string;
+  externalId?: string;
   name: string;
   ownerEmail: string;
   stripeCustomerId?: string;

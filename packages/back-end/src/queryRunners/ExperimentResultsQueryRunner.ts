@@ -1,6 +1,7 @@
+import { orgHasPremiumFeature } from "enterprise";
+import { ExperimentMetricInterface, isFactMetric } from "shared/experiments";
 import {
   ExperimentSnapshotAnalysis,
-  ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotInterface,
   ExperimentSnapshotSettings,
 } from "../../types/experiment-snapshot";
@@ -19,9 +20,12 @@ import {
   ExperimentMetricStats,
   ExperimentQueryResponses,
   ExperimentResults,
+  ExperimentUnitsQueryParams,
   SourceIntegrationInterface,
 } from "../types/Integration";
 import { expandDenominatorMetrics } from "../util/sql";
+import { getOrganizationById } from "../services/organizations";
+import { FactTableMap } from "../models/FactTableModel";
 import {
   QueryRunner,
   QueryMap,
@@ -38,9 +42,10 @@ export type SnapshotResult = {
 
 export type ExperimentResultsQueryParams = {
   snapshotSettings: ExperimentSnapshotSettings;
-  analysisSettings: ExperimentSnapshotAnalysisSettings;
   variationNames: string[];
-  metricMap: Map<string, MetricInterface>;
+  metricMap: Map<string, ExperimentMetricInterface>;
+  factTableMap: FactTableMap;
+  queryParentId: string;
 };
 
 export const startExperimentResultQueries = async (
@@ -52,16 +57,17 @@ export const startExperimentResultQueries = async (
   ) => Promise<QueryPointer>
 ): Promise<Queries> => {
   const snapshotSettings = params.snapshotSettings;
+  const queryParentId = params.queryParentId;
   const metricMap = params.metricMap;
 
-  const activationMetrics: MetricInterface[] = [];
-  if (snapshotSettings.activationMetric) {
-    activationMetrics.push(
-      ...expandDenominatorMetrics(snapshotSettings.activationMetric, metricMap)
-        .map((m) => metricMap.get(m) as MetricInterface)
-        .filter(Boolean)
-    );
-  }
+  const org = await getOrganizationById(organization);
+  const hasPipelineModeFeature = org
+    ? orgHasPremiumFeature(org, "pipeline-mode")
+    : false;
+
+  const activationMetric = snapshotSettings.activationMetric
+    ? metricMap.get(snapshotSettings.activationMetric) ?? null
+    : null;
 
   // Only include metrics tied to this experiment (both goal and guardrail metrics)
   const selectedMetrics = Array.from(
@@ -70,7 +76,7 @@ export const startExperimentResultQueries = async (
     )
   )
     .map((m) => metricMap.get(m))
-    .filter((m) => m) as MetricInterface[];
+    .filter((m) => m) as ExperimentMetricInterface[];
   if (!selectedMetrics.length) {
     throw new Error("Experiment must have at least 1 metric selected.");
   }
@@ -87,28 +93,75 @@ export const startExperimentResultQueries = async (
 
   const queries: Queries = [];
 
+  const useUnitsTable =
+    (integration.getSourceProperties().supportsWritingTables &&
+      integration.settings.pipelineSettings?.allowWriting &&
+      !!integration.settings.pipelineSettings?.writeDataset &&
+      hasPipelineModeFeature) ??
+    false;
+  let unitQuery: QueryPointer | null = null;
+  let unitsTableFullName = "";
+
+  if (useUnitsTable) {
+    // The Mixpanel integration does not support writing tables
+    if (!integration.generateTablePath) {
+      throw new Error(
+        "Unable to generate table; table path generator not specified."
+      );
+    }
+    unitsTableFullName = integration.generateTablePath(
+      `growthbook_tmp_units_${queryParentId}`,
+      integration.settings.pipelineSettings?.writeDataset,
+      "",
+      true
+    );
+    const unitQueryParams: ExperimentUnitsQueryParams = {
+      activationMetric: activationMetric,
+      dimension: dimensionObj,
+      segment: segmentObj,
+      settings: snapshotSettings,
+      unitsTableFullName: unitsTableFullName,
+      includeIdJoins: true,
+      factTableMap: params.factTableMap,
+    };
+    unitQuery = await startQuery({
+      name: queryParentId,
+      query: integration.getExperimentUnitsTableQuery(unitQueryParams),
+      dependencies: [],
+      run: (query) => integration.runExperimentUnitsQuery(query),
+      process: (rows) => rows,
+    });
+    queries.push(unitQuery);
+  }
+
   const promises = selectedMetrics.map(async (m) => {
     const denominatorMetrics: MetricInterface[] = [];
-    if (m.denominator) {
+    if (!isFactMetric(m) && m.denominator) {
       denominatorMetrics.push(
-        ...expandDenominatorMetrics(m.denominator, metricMap)
+        ...expandDenominatorMetrics(
+          m.denominator,
+          metricMap as Map<string, MetricInterface>
+        )
           .map((m) => metricMap.get(m) as MetricInterface)
           .filter(Boolean)
       );
     }
-    const params: ExperimentMetricQueryParams = {
-      activationMetrics,
+    const queryParams: ExperimentMetricQueryParams = {
+      activationMetric,
       denominatorMetrics,
       dimension: dimensionObj,
       metric: m,
       segment: segmentObj,
       settings: snapshotSettings,
+      useUnitsTable: useUnitsTable,
+      unitsTableFullName: unitsTableFullName,
+      factTableMap: params.factTableMap,
     };
     queries.push(
       await startQuery({
         name: m.id,
-        query: integration.getExperimentMetricQuery(params),
-        dependencies: [],
+        query: integration.getExperimentMetricQuery(queryParams),
+        dependencies: unitQuery ? [unitQuery.query] : [],
         run: (query) => integration.runExperimentMetricQuery(query),
         process: (rows) => rows,
       })
@@ -125,12 +178,11 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
   SnapshotResult
 > {
   private variationNames: string[] = [];
-  private metricMap: Map<string, MetricInterface> = new Map();
+  private metricMap: Map<string, ExperimentMetricInterface> = new Map();
 
   async startQueries(params: ExperimentResultsQueryParams): Promise<Queries> {
     this.metricMap = params.metricMap;
     this.variationNames = params.variationNames;
-
     if (
       this.integration.getSourceProperties().separateExperimentResultQueries
     ) {
@@ -225,17 +277,9 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
     const snapshotSettings = params.snapshotSettings;
     const metricMap = params.metricMap;
 
-    const activationMetrics: MetricInterface[] = [];
-    if (snapshotSettings.activationMetric) {
-      activationMetrics.push(
-        ...expandDenominatorMetrics(
-          snapshotSettings.activationMetric,
-          metricMap
-        )
-          .map((m) => metricMap.get(m) as MetricInterface)
-          .filter(Boolean)
-      );
-    }
+    const activationMetric = snapshotSettings.activationMetric
+      ? metricMap.get(snapshotSettings.activationMetric) ?? null
+      : null;
 
     // Only include metrics tied to this experiment (both goal and guardrail metrics)
     const selectedMetrics = Array.from(
@@ -244,7 +288,7 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
       )
     )
       .map((m) => metricMap.get(m))
-      .filter((m) => m) as MetricInterface[];
+      .filter((m) => m) as ExperimentMetricInterface[];
     if (!selectedMetrics.length) {
       throw new Error("Experiment must have at least 1 metric selected.");
     }
@@ -259,7 +303,7 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
     const query = this.integration.getExperimentResultsQuery(
       snapshotSettings,
       selectedMetrics,
-      activationMetrics[0],
+      activationMetric,
       dimension
     );
 
@@ -272,7 +316,7 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
           const rows = (await this.integration.getExperimentResults(
             snapshotSettings,
             selectedMetrics,
-            activationMetrics[0],
+            activationMetric,
             dimension
             // eslint-disable-next-line
           )) as any[];

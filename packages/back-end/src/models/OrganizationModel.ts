@@ -8,6 +8,7 @@ import {
   OrganizationMessage,
 } from "../../types/organization";
 import { upgradeOrganizationDoc } from "../util/migrations";
+import { ApiOrganization } from "../../types/openapi";
 
 const baseMemberFields = {
   _id: false,
@@ -25,6 +26,8 @@ const baseMemberFields = {
     },
   ],
   teams: [String],
+  externalId: String,
+  managedByIdp: Boolean,
 };
 
 const organizationSchema = new mongoose.Schema({
@@ -34,6 +37,7 @@ const organizationSchema = new mongoose.Schema({
   },
   dateCreated: Date,
   verifiedDomain: String,
+  externalId: String,
   url: String,
   name: String,
   ownerEmail: String,
@@ -132,12 +136,14 @@ export async function createOrganization({
   name,
   url = "",
   verifiedDomain = "",
+  externalId = "",
 }: {
   email: string;
   userId: string;
   name: string;
   url?: string;
   verifiedDomain?: string;
+  externalId?: string;
 }) {
   // TODO: sanitize fields
   const doc = await OrganizationModel.create({
@@ -145,6 +151,7 @@ export async function createOrganization({
     name,
     url,
     verifiedDomain,
+    externalId,
     invites: [],
     members: [
       {
@@ -170,15 +177,29 @@ export async function createOrganization({
   });
   return toInterface(doc);
 }
-export async function findAllOrganizations(page: number, search: string) {
+
+export async function findAllOrganizations(
+  page: number,
+  search: string,
+  limit: number = 50
+) {
   const regex = new RegExp(search, "i");
 
-  const query = search ? { $or: [{ name: regex }, { ownerEmail: regex }] } : {};
+  const query = search
+    ? {
+        $or: [
+          { name: regex },
+          { ownerEmail: regex },
+          { id: regex },
+          { externalId: regex },
+        ],
+      }
+    : {};
 
   const docs = await OrganizationModel.find(query)
     .sort({ _id: -1 })
-    .skip((page - 1) * 50)
-    .limit(50);
+    .skip((page - 1) * limit)
+    .limit(limit);
 
   const total = await (search
     ? OrganizationModel.find(query).countDocuments()
@@ -322,4 +343,17 @@ export async function setOrganizationMessages(
       runValidators: true,
     }
   );
+}
+
+export function toOrganizationApiInterface(
+  org: OrganizationInterface
+): ApiOrganization {
+  const { id, externalId, name, ownerEmail, dateCreated } = org;
+  return {
+    id,
+    externalId,
+    name,
+    ownerEmail,
+    dateCreated: dateCreated?.toISOString() || "",
+  };
 }

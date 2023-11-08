@@ -44,6 +44,7 @@ import FeatureValueField from "./FeatureValueField";
 import NamespaceSelector from "./NamespaceSelector";
 import ScheduleInputs from "./ScheduleInputs";
 import FeatureVariationsInput from "./FeatureVariationsInput";
+import SavedGroupTargetingField from "./SavedGroupTargetingField";
 
 export interface Props {
   close: () => void;
@@ -171,6 +172,7 @@ export default function RuleModal({
 
   function changeRuleType(v: string) {
     const existingCondition = form.watch("condition");
+    const existingSavedGroups = form.watch("savedGroups");
     const newVal = {
       ...getDefaultRuleValue({
         defaultValue: getFeatureDefaultValue(feature),
@@ -181,6 +183,9 @@ export default function RuleModal({
     };
     if (existingCondition && existingCondition !== "{}") {
       newVal.condition = existingCondition;
+    }
+    if (existingSavedGroups) {
+      newVal.savedGroups = existingSavedGroups;
     }
     form.reset(newVal);
   }
@@ -270,6 +275,16 @@ export default function RuleModal({
               );
             }
 
+            // If we're scheduling this rule, always auto start the experiment so it's not stuck in a 'draft' state
+            if (!values.autoStart && values.scheduleRules?.length) {
+              values.autoStart = true;
+            }
+            // If we're starting the experiment immediately, remove any scheduling rules
+            // When we hide the schedule UI the form values don't update, so this resets it if you get into a weird state
+            else if (values.autoStart && values.scheduleRules?.length) {
+              values.scheduleRules = [];
+            }
+
             // All looks good, create experiment
             const exp: Partial<ExperimentInterfaceStringDates> = {
               archived: false,
@@ -305,6 +320,7 @@ export default function RuleModal({
               phases: [
                 {
                   condition: values.condition || "",
+                  savedGroups: values.savedGroups || [],
                   coverage: values.coverage ?? 1,
                   dateStarted: new Date().toISOString().substr(0, 16),
                   name: "Main",
@@ -347,11 +363,13 @@ export default function RuleModal({
               experimentId: res.experiment.id,
               id: values.id,
               condition: "",
+              savedGroups: [],
               enabled: values.enabled ?? true,
               variations: values.values.map((v, i) => ({
                 value: v.value,
                 variationId: res.experiment.variations[i]?.id || "",
               })),
+              scheduleRules: values.scheduleRules || [],
             };
             mutateExperiments();
           } else if (values.type === "experiment-ref") {
@@ -373,6 +391,7 @@ export default function RuleModal({
             });
 
             delete (values as FeatureRule).condition;
+            delete (values as FeatureRule).savedGroups;
             // eslint-disable-next-line
             delete (values as any).value;
           }
@@ -399,6 +418,7 @@ export default function RuleModal({
             environment,
             type: values.type,
             hasCondition: values.condition && values.condition.length > 2,
+            hasSavedGroups: !!values.savedGroups?.length,
             hasDescription: values.description.length > 0,
           });
 
@@ -418,6 +438,7 @@ export default function RuleModal({
             environment,
             type: values.type,
             hasCondition: values.condition && values.condition.length > 2,
+            hasSavedGroups: !!values.savedGroups?.length,
             hasDescription: values.description.length > 0,
             error: e.message,
           });
@@ -591,6 +612,12 @@ export default function RuleModal({
             {...form.register("description")}
             placeholder="Short human-readable description of the rule"
           />
+          <SavedGroupTargetingField
+            value={form.watch("savedGroups") || []}
+            setValue={(savedGroups) =>
+              form.setValue("savedGroups", savedGroups)
+            }
+          />
           <ConditionInput
             defaultValue={defaultValues.condition || ""}
             onChange={(value) => form.setValue("condition", value)}
@@ -689,16 +716,8 @@ export default function RuleModal({
           )}
         </div>
       )}
-      {type !== "experiment-ref-new" && type !== "experiment-ref" ? (
-        <ScheduleInputs
-          defaultValue={defaultValues.scheduleRules || []}
-          onChange={(value) => form.setValue("scheduleRules", value)}
-          scheduleToggleEnabled={scheduleToggleEnabled}
-          setScheduleToggleEnabled={setScheduleToggleEnabled}
-          setShowUpgradeModal={setShowUpgradeModal}
-        />
-      ) : type === "experiment-ref-new" ? (
-        <div className="mt-3">
+      {type === "experiment-ref-new" ? (
+        <div className="mb-3">
           <Toggle
             value={form.watch("autoStart")}
             setValue={(v) => form.setValue("autoStart", v)}
@@ -714,7 +733,27 @@ export default function RuleModal({
               changes before starting.
             </small>
           </div>
+          {!form.watch("autoStart") && (
+            <div>
+              <hr />
+              <ScheduleInputs
+                defaultValue={defaultValues.scheduleRules || []}
+                onChange={(value) => form.setValue("scheduleRules", value)}
+                scheduleToggleEnabled={scheduleToggleEnabled}
+                setScheduleToggleEnabled={setScheduleToggleEnabled}
+                setShowUpgradeModal={setShowUpgradeModal}
+              />
+            </div>
+          )}
         </div>
+      ) : type !== "experiment-ref" || rule?.scheduleRules?.length ? (
+        <ScheduleInputs
+          defaultValue={defaultValues.scheduleRules || []}
+          onChange={(value) => form.setValue("scheduleRules", value)}
+          scheduleToggleEnabled={scheduleToggleEnabled}
+          setScheduleToggleEnabled={setScheduleToggleEnabled}
+          setShowUpgradeModal={setShowUpgradeModal}
+        />
       ) : null}
     </Modal>
   );

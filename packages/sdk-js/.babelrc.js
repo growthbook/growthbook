@@ -1,3 +1,6 @@
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const { version } = require("./package.json");
+
 const esm = {
   presets: [
     [
@@ -24,7 +27,29 @@ const cjs = {
 module.exports = {
   ...esm,
   env: {
-    esmUnbundled: esm,
-    cjs: cjs,
+    esmUnbundled: {
+      ...esm,
+      ignore: ["./src/auto-wrapper.ts"],
+    },
+    cjs: {
+      ...cjs,
+      ignore: ["./src/auto-wrapper.ts"],
+    },
   },
+  plugins: [
+    [
+      "minify-replace",
+      {
+        replacements: [
+          {
+            identifierName: "__SDK_VERSION__",
+            replacement: {
+              type: "stringLiteral",
+              value: version,
+            },
+          },
+        ],
+      },
+    ],
+  ],
 };

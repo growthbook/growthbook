@@ -108,3 +108,23 @@ as two experiment ranges do not overlap, users will only ever be in at most one 
 ![Namespaces](/images/namespaces.png)
 
 Before you can use namespaces, you must configure them under _SDK Configuration > Namespaces_.
+
+## Testing Rules
+
+You can test your rules in the GrowthBook UI by clicking on the "Test Feature Rules" under the rules. This will open a
+form that will allow you to adjust user attributes and see in real time how the rules will be applied, and what value
+they'll get. User attributes can also added as JSON objects, by clicking on the JSON tab. You can also expand the
+results to see more debug information about why each rule was or wasn't applied.
+
+![Test Feature Rules](/images/features/feature-test-rules.gif)
+
+### Archetype
+
+Archetypes are a way you can save preset user attributes to see how your if the rules will apply to them. This is useful
+if you have specific sets of users who you frequently want to target features to. They are automatically shown along with
+the feature values at the top of the test rules form. Mouse over any value to see more debug information about why that
+value was returned. Archetypes are part of the GrowthBook Enterprise plan.
+
+![Archetypes](/images/features/feature-archetypes.png)
+
+From the testing form, you can click on the _Save Archetype_ button to open the _Create Archetype_ modal to create new archetypes.

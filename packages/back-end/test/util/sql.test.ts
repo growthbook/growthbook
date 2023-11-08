@@ -4,6 +4,7 @@ import {
   expandDenominatorMetrics,
   format,
   replaceCountStar,
+  determineColumnTypes,
 } from "../../src/util/sql";
 
 describe("backend", () => {
@@ -324,6 +325,44 @@ from
       expect(
         replaceCountStar("SUM(value) / COUNT( * ) + COUNT(*)", "m.user_id")
       ).toEqual("SUM(value) / COUNT(m.user_id) + COUNT(m.user_id)");
+    });
+  });
+
+  describe("determineColumns", () => {
+    it("can determine columns and types from result", () => {
+      expect(
+        determineColumnTypes([
+          {
+            num: 123,
+            str: "hello",
+            dateStr: "2023-01-01 00:00:00",
+            dateObj: new Date(),
+            bool: false,
+            other: ["testing"],
+            empty: null,
+          },
+        ])
+      ).toEqual([
+        { column: "num", datatype: "number" },
+        { column: "str", datatype: "string" },
+        { column: "dateStr", datatype: "date" },
+        { column: "dateObj", datatype: "date" },
+        { column: "bool", datatype: "boolean" },
+        { column: "other", datatype: "other" },
+        { column: "empty", datatype: "" },
+      ]);
+    });
+    it("can skip over null values", () => {
+      expect(
+        determineColumnTypes([
+          {
+            col: null,
+          },
+          {
+            col: 123,
+          },
+        ])
+      ).toEqual([{ column: "col", datatype: "number" }]);
     });
   });
 });

@@ -3,7 +3,6 @@ import React, { FC, useState, useEffect, Fragment } from "react";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import Link from "next/link";
 import {
-  FaAngleLeft,
   FaArchive,
   FaChevronRight,
   FaQuestionCircle,
@@ -24,10 +23,10 @@ import LoadingOverlay from "@/components/LoadingOverlay";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import { useAuth } from "@/services/auth";
 import {
-  formatConversionRate,
   defaultWinRiskThreshold,
   defaultLoseRiskThreshold,
   checkMetricProjectPermissions,
+  getMetricFormatter,
 } from "@/services/metrics";
 import MetricForm from "@/components/Metrics/MetricForm";
 import Tabs from "@/components/Tabs/Tabs";
@@ -62,6 +61,7 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import { useCurrency } from "@/hooks/useCurrency";
 import { DeleteDemoDatasourceButton } from "@/components/DemoDataSourcePage/DemoDataSourcePage";
 import { useUser } from "@/services/UserContext";
+import PageHead from "@/components/Layout/PageHead";
 
 const MetricPage: FC = () => {
   const router = useRouter();
@@ -380,13 +380,13 @@ const MetricPage: FC = () => {
           segment={metric.segment || ""}
         />
       )}
-      <div className="mb-2">
-        <Link href="/metrics">
-          <a>
-            <FaAngleLeft /> All Metrics
-          </a>
-        </Link>
-      </div>
+
+      <PageHead
+        breadcrumb={[
+          { display: "Metrics", href: "/metrics" },
+          { display: metric.name },
+        ]}
+      />
 
       {metric.status === "archived" && (
         <div className="alert alert-secondary mb-2">
@@ -684,10 +684,11 @@ const MetricPage: FC = () => {
                           {metric.type !== "binomial" && (
                             <div className="d-flex flex-row align-items-end">
                               <div style={{ fontSize: "2.5em" }}>
-                                {formatConversionRate(
-                                  metric.type,
+                                {getMetricFormatter(metric.type)(
                                   analysis.average,
-                                  displayCurrency
+                                  {
+                                    currency: displayCurrency,
+                                  }
                                 )}
                               </div>
                               <div className="pb-2 ml-1">average</div>

@@ -1,13 +1,13 @@
 import { FC, useMemo, useState } from "react";
-import { MetricInterface } from "back-end/types/metric";
 import {
   ExperimentReportResultDimension,
   ExperimentReportVariation,
 } from "back-end/types/report";
 import { getValidDate } from "shared/dates";
 import { StatsEngine } from "back-end/types/stats";
+import { ExperimentMetricInterface } from "shared/experiments";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import { formatConversionRate } from "@/services/metrics";
+import { getExperimentMetricFormatter } from "@/services/metrics";
 import {
   isExpectedDirection,
   isStatSig,
@@ -29,7 +29,7 @@ const numberFormatter = new Intl.NumberFormat();
 
 // Represents data for one metric graph
 type Metric = {
-  metric: MetricInterface;
+  metric: ExperimentMetricInterface;
   isGuardrail: boolean;
   datapoints: ExperimentDateGraphDataPoint[];
 };
@@ -49,7 +49,7 @@ const DateResults: FC<{
   guardrails,
   statsEngine,
 }) => {
-  const { getMetricById, ready } = useDefinitions();
+  const { getExperimentMetricById, getFactTableById, ready } = useDefinitions();
 
   const pValueThreshold = usePValueThreshold();
   const { ciUpper, ciLower } = useConfidenceLevels();
@@ -102,7 +102,7 @@ const DateResults: FC<{
     return (
       Array.from(new Set(metrics.concat(guardrails || [])))
         .map((metricId) => {
-          const metric = getMetricById(metricId);
+          const metric = getExperimentMetricById(metricId);
           if (!metric) return;
           // Keep track of cumulative users and value for each variation
           const totalUsers: number[] = [];
@@ -151,14 +151,16 @@ const DateResults: FC<{
                     up = crA ? (crB - crA) / crA : 0;
                   }
 
-                  const v_formatted = formatConversionRate(
-                    metric?.type,
+                  const v_formatted = getExperimentMetricFormatter(
+                    metric,
+                    getFactTableById
+                  )(
                     cumulative
                       ? totalUsers[i]
                         ? totalValue[i] / totalUsers[i]
                         : 0
                       : stats?.cr || 0,
-                    displayCurrency
+                    { currency: displayCurrency }
                   );
 
                   const p = stats?.pValueAdjusted ?? stats?.pValue ?? 1;
@@ -230,7 +232,8 @@ const DateResults: FC<{
     ciLower,
     ciUpper,
     displayCurrency,
-    getMetricById,
+    getExperimentMetricById,
+    getFactTableById,
     guardrails,
     metrics,
     pValueThreshold,
