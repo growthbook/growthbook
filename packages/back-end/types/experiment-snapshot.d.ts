@@ -169,15 +169,20 @@ export interface ExperimentSnapshotInterface {
 // Params for gbstats
 export interface ExperimentMetricAnalysisParams {
   variations: ExperimentReportVariation[];
-  metric: ExperimentMetricInterface;
-  rows: ExperimentMetricQueryResponseRows;
-  dimension: string | null;
-  baselineVariationIndex: number;
-  differenceType: DifferenceType;
   phaseLengthHours: number;
   coverage: number;
-  statsEngine: StatsEngine;
-  sequentialTestingEnabled: boolean;
-  sequentialTestingTuningParameter: number;
-  pValueThreshold: number;
+
+  metrics: ({
+    metric: ExperimentMetricInterface;
+    rows: ExperimentMetricQueryResponseRows;
+    analyses: {
+      dimension: string | null;
+      baselineVariationIndex: number;
+      differenceType: DifferenceType;
+      statsEngine: StatsEngine;
+      sequentialTestingEnabled: boolean;
+      sequentialTestingTuningParameter: number;
+      pValueThreshold: number;
+    }[];
+  } | null)[];
 }

@@ -1,4 +1,5 @@
 import { promisify } from "util";
+import os from "os";
 import { PythonShell } from "python-shell";
 import {
   DEFAULT_P_VALUE_THRESHOLD,
@@ -16,7 +17,6 @@ import {
   ExperimentReportResultDimension,
   ExperimentReportResults,
 } from "../../types/report";
-import { promiseAllChunks } from "../util/promise";
 import { checkSrm } from "../util/stats";
 import { logger } from "../util/logger";
 import {
@@ -28,23 +28,93 @@ import { QueryMap } from "../queryRunners/QueryRunner";
 
 export const MAX_DIMENSIONS = 20;
 
+export function getAvgCPU(pre: os.CpuInfo[], post: os.CpuInfo[]) {
+  let user = 0;
+  let system = 0;
+  let total = 0;
+
+  post.forEach((cpu, i) => {
+    const preTimes = pre[i]?.times || { user: 0, sys: 0 };
+    const postTimes = cpu.times;
+
+    user += postTimes.user - preTimes.user;
+    system += postTimes.sys - preTimes.sys;
+    total +=
+      Object.values(postTimes).reduce((n, sum) => n + sum, 0) -
+      Object.values(preTimes).reduce((n, sum) => n + sum, 0);
+  });
+
+  return { user: user / total, system: system / total };
+}
+
 export async function analyzeExperimentMetric(
   params: ExperimentMetricAnalysisParams
 ): Promise<ExperimentMetricAnalysis> {
-  const {
-    variations,
-    metric,
-    rows,
-    dimension,
-    baselineVariationIndex,
-    differenceType,
-    phaseLengthHours,
-    coverage,
-    statsEngine,
-    sequentialTestingEnabled,
-    sequentialTestingTuningParameter,
-    pValueThreshold,
-  } = params;
+  const { variations, metrics, phaseLengthHours, coverage } = params;
+
+  const phaseLengthDays = Number(phaseLengthHours / 24);
+  const variationIdMap: { [key: string]: number } = {};
+  variations.forEach((v, i) => {
+    variationIdMap[v.id] = i;
+  });
+
+  const metricData = metrics
+    .map((data) => {
+      if (!data) return null;
+
+      const { metric, rows, analyses } = data;
+
+      return {
+        metric: metric.id,
+        rows,
+        multiple_exposures:
+          rows.filter((r) => r.variation === "__multiple__")?.[0]?.users || 0,
+        analyses: analyses.map(
+          ({
+            dimension,
+            baselineVariationIndex,
+            differenceType,
+            statsEngine,
+            sequentialTestingEnabled,
+            sequentialTestingTuningParameter,
+            pValueThreshold,
+          }) => {
+            const sortedVariations = putBaselineVariationFirst(
+              variations,
+              baselineVariationIndex
+            );
+
+            const sequentialTestingTuningParameterNumber =
+              Number(sequentialTestingTuningParameter) ||
+              DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER;
+            const pValueThresholdNumber =
+              Number(pValueThreshold) || DEFAULT_P_VALUE_THRESHOLD;
+
+            return {
+              var_names: sortedVariations.map((v) => v.name),
+              weights: sortedVariations.map((v) => v.weight * coverage),
+              baseline_index: baselineVariationIndex ?? 0,
+              ignore_nulls: "ignoreNulls" in metric && !!metric.ignoreNulls,
+              inverse: !!metric.inverse,
+              dimension: dimension || "",
+              stats_engine: statsEngine,
+              sequential_testing_enabled: sequentialTestingEnabled,
+              sequential_tuning_parameter: sequentialTestingTuningParameterNumber,
+              difference_type: differenceType,
+              phase_length_days: phaseLengthDays,
+              alpha: pValueThresholdNumber,
+              max_dimensions:
+                dimension?.substring(0, 8) === "pre:date"
+                  ? 9999
+                  : MAX_DIMENSIONS,
+            };
+          }
+        ),
+      };
+    })
+    .filter(Boolean);
+
+  /*
   if (!rows || !rows.length) {
     return {
       unknownVariations: [],
@@ -52,27 +122,10 @@ export async function analyzeExperimentMetric(
       dimensions: [],
     };
   }
-  const sortedVariations = putBaselineVariationFirst(
-    variations,
-    baselineVariationIndex
-  );
-  const variationIdMap: { [key: string]: number } = {};
-  sortedVariations.map((v, i) => {
-    variationIdMap[v.id] = i;
-  });
+  */
 
-  const sequentialTestingTuningParameterNumber =
-    Number(sequentialTestingTuningParameter) ||
-    DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER;
-  const pValueThresholdNumber =
-    Number(pValueThreshold) || DEFAULT_P_VALUE_THRESHOLD;
-  let differenceTypeString = "DifferenceType.RELATIVE";
-  if (differenceType == "absolute") {
-    differenceTypeString = "DifferenceType.ABSOLUTE";
-  } else if (differenceType == "scaled") {
-    differenceTypeString = "DifferenceType.SCALED";
-  }
-  const phaseLengthDays = Number(phaseLengthHours / 24);
+  const start = Date.now();
+  const cpus = os.cpus();
   const result = await promisify(PythonShell.runString)(
     `
 from gbstats.gbstats import (
@@ -86,94 +139,119 @@ from gbstats.gbstats import (
 from gbstats.shared.constants import DifferenceType, StatsEngine
 import pandas as pd
 import json
+import time
+
+start = time.time()
 
 data = json.loads("""${JSON.stringify({
       var_id_map: variationIdMap,
-      var_names: sortedVariations.map((v) => v.name),
-      weights: sortedVariations.map((v) => v.weight * coverage),
-      baseline_index: baselineVariationIndex ?? 0,
-      ignore_nulls: "ignoreNulls" in metric && !!metric.ignoreNulls,
-      inverse: !!metric.inverse,
-      max_dimensions:
-        dimension?.substring(0, 8) === "pre:date" ? 9999 : MAX_DIMENSIONS,
-      rows,
+      phase_length_days: phaseLengthDays,
+      metrics: metricData,
     }).replace(/\\/g, "\\\\")}""", strict=False)
 
 var_id_map = data['var_id_map']
-var_names = data['var_names']
-ignore_nulls = data['ignore_nulls']
-inverse = data['inverse']
-weights = data['weights']
-max_dimensions = data['max_dimensions']
-baseline_index = data['baseline_index']
+phase_length_days = data['phase_length_days']
+metrics = data['metrics']
 
-rows = pd.DataFrame(data['rows'])
+results = []
 
-unknown_var_ids = detect_unknown_variations(
-  rows=rows,
-  var_id_map=var_id_map
-)
+for mdata in metrics:
+  rows = pd.DataFrame(mdata['rows'])
+  multiple_exposures = mdata['multiple_exposures']
 
-${
-  dimension === "pre:datedaily" ? `rows = diff_for_daily_time_series(rows)` : ``
-}
+  metric_result = {
+    'metric': mdata['metric'],
+    'analyses': []
+  }
 
-df = get_metric_df(
-  rows=rows,
-  var_id_map=var_id_map,
-  var_names=var_names,
-)
+  for analysis in mdata['analyses']:
+    var_names = analysis['var_names']
+    ignore_nulls = analysis['ignore_nulls']
+    inverse = analysis['inverse']
+    weights = analysis['weights']
+    max_dimensions = analysis['max_dimensions']
+    baseline_index = analysis['baseline_index']
+    stats_engine = StatsEngine.FREQUENTIST if analysis['stats_engine'] == 'frequentist' else StatsEngine.BAYESIAN
 
-reduced = reduce_dimensionality(
-  df=df, 
-  max=max_dimensions,
-)
+    unknown_var_ids = detect_unknown_variations(
+      rows=rows,
+      var_id_map=var_id_map
+    )
 
-engine_config=${
-      statsEngine === "frequentist" && sequentialTestingEnabled
-        ? `{'sequential': True, 'sequential_tuning_parameter': ${sequentialTestingTuningParameterNumber}}`
-        : "{}"
+    if analysis['dimension'] == "pre:datedaily":
+      rows = diff_for_daily_time_series(rows)
+
+    df = get_metric_df(
+      rows=rows,
+      var_id_map=var_id_map,
+      var_names=var_names,
+    )
+
+    reduced = reduce_dimensionality(
+      df=df, 
+      max=max_dimensions,
+    )
+
+    engine_config = {
+      'phase_length_days': phase_length_days
     }
-engine_config['difference_type'] = ${differenceTypeString}
-engine_config['phase_length_days'] = ${phaseLengthDays}
-${
-  statsEngine === "frequentist" && pValueThresholdNumber
-    ? `engine_config['alpha'] = ${pValueThresholdNumber}`
-    : ""
-}
 
-result = analyze_metric_df(
-  df=reduced,
-  weights=weights,
-  inverse=inverse,
-  engine=${
-    statsEngine === "frequentist"
-      ? "StatsEngine.FREQUENTIST"
-      : "StatsEngine.BAYESIAN"
-  },
-  engine_config=engine_config,
-)
+    if analysis['difference_type'] == "absolute":
+      engine_config['difference_type'] = DifferenceType.ABSOLUTE
+    elif analysis['difference_type'] == "scaled":
+      engine_config['difference_type'] = DifferenceType.SCALED
+    else:
+      engine_config['difference_type'] = DifferenceType.RELATIVE
+
+    if stats_engine == StatsEngine.FREQUENTIST and analysis['sequential_testing_enabled']:
+      engine_config['sequential'] = True
+      engine_config['sequential_tuning_parameter'] = analysis['sequential_tuning_parameter']
+
+    if stats_engine == StatsEngine.FREQUENTIST and analysis['alpha']:
+      engine_config['alpha'] = analysis['alpha']
+
+    result = analyze_metric_df(
+      df=reduced,
+      weights=weights,
+      inverse=inverse,
+      engine=stats_engine,
+      engine_config=engine_config,
+    )
+
+    metric_result['analyses'].append({
+      'unknownVariations': list(unknown_var_ids),
+      'dimensions': format_results(result, baseline_index),
+      'multipleExposures': multiple_exposures
+    })
+  
+  results.append(metric_result)
 
 print(json.dumps({
-  'unknownVariations': list(unknown_var_ids),
-  'dimensions': format_results(result, baseline_index)
+  'results': results,
+  'time': time.time() - start
 }, allow_nan=False))`,
     {}
   );
 
-  let parsed: ExperimentMetricAnalysis;
   try {
-    parsed = JSON.parse(result?.[0]);
+    const parsed: {
+      results: ExperimentMetricAnalysis;
+      time: number;
+    } = JSON.parse(result?.[0]);
 
-    // Add multiple exposures
-    parsed.multipleExposures =
-      rows.filter((r) => r.variation === "__multiple__")?.[0]?.users || 0;
+    logger.debug(`StatsEngine: Python time: ${parsed.time}`);
+    logger.debug(
+      `StatsEngine: Typescript time: ${(Date.now() - start) / 1000}`
+    );
+    logger.debug(
+      `StatsEngine: Average CPU: ${JSON.stringify(getAvgCPU(cpus, os.cpus()))}`
+    );
+
+    return parsed.results;
   } catch (e) {
     logger.error(e, "Failed to run stats model: " + result);
     throw e;
   }
-
-  return parsed;
 }
 
 export async function analyzeExperimentResults({
@@ -184,11 +262,11 @@ export async function analyzeExperimentResults({
   metricMap,
 }: {
   queryData: QueryMap;
-  analysisSettings: ExperimentSnapshotAnalysisSettings;
+  analysisSettings: ExperimentSnapshotAnalysisSettings[];
   snapshotSettings: ExperimentSnapshotSettings;
   variationNames: string[];
   metricMap: Map<string, ExperimentMetricInterface>;
-}): Promise<ExperimentReportResults> {
+}): Promise<ExperimentReportResults[]> {
   const metricRows: {
     metric: string;
     rows: ExperimentMetricQueryResponseRows;
@@ -246,88 +324,105 @@ export async function analyzeExperimentResults({
     });
   }
 
-  const dimensionMap: Map<string, ExperimentReportResultDimension> = new Map();
-  await promiseAllChunks(
-    metricRows.map((data) => {
+  const results = await analyzeExperimentMetric({
+    coverage: snapshotSettings.coverage ?? 1,
+    phaseLengthHours: Math.max(
+      hoursBetween(snapshotSettings.startDate, snapshotSettings.endDate),
+      1
+    ),
+    variations: snapshotSettings.variations.map((v, i) => ({
+      ...v,
+      name: variationNames[i] || v.id,
+    })),
+    metrics: metricRows.map((data) => {
       const metric = metricMap.get(data.metric);
-      return async () => {
-        if (!metric) return;
-        const result = await analyzeExperimentMetric({
-          variations: snapshotSettings.variations.map((v, i) => ({
-            ...v,
-            name: variationNames[i] || v.id,
-          })),
-          metric: metric,
-          rows: data.rows,
-          dimension: analysisSettings.dimensions[0],
-          baselineVariationIndex: analysisSettings.baselineVariationIndex ?? 0,
-          differenceType: analysisSettings.differenceType,
-          coverage: snapshotSettings.coverage ?? 1,
-          phaseLengthHours: Math.max(
-            hoursBetween(snapshotSettings.startDate, snapshotSettings.endDate),
-            1
-          ),
-          statsEngine: analysisSettings.statsEngine,
-          sequentialTestingEnabled: analysisSettings.sequentialTesting ?? false,
-          sequentialTestingTuningParameter:
-            analysisSettings.sequentialTestingTuningParameter ??
-            DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
-          pValueThreshold:
-            analysisSettings.pValueThreshold ?? DEFAULT_P_VALUE_THRESHOLD,
-        });
-        unknownVariations = unknownVariations.concat(result.unknownVariations);
-        multipleExposures = Math.max(
-          multipleExposures,
-          result.multipleExposures
-        );
-
-        result.dimensions.forEach((row) => {
-          const dim = dimensionMap.get(row.dimension) || {
-            name: row.dimension,
-            srm: 1,
-            variations: [],
+      if (!metric) return null;
+      return {
+        metric,
+        rows: data.rows,
+        analyses: analysisSettings.map((analysisSettings) => {
+          return {
+            dimension: analysisSettings.dimensions[0],
+            baselineVariationIndex:
+              analysisSettings.baselineVariationIndex ?? 0,
+            differenceType: analysisSettings.differenceType,
+            coverage: snapshotSettings.coverage ?? 1,
+            statsEngine: analysisSettings.statsEngine,
+            sequentialTestingEnabled:
+              analysisSettings.sequentialTesting ?? false,
+            sequentialTestingTuningParameter:
+              analysisSettings.sequentialTestingTuningParameter ??
+              DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
+            pValueThreshold:
+              analysisSettings.pValueThreshold ?? DEFAULT_P_VALUE_THRESHOLD,
           };
-
-          row.variations.forEach((v, i) => {
-            const data = dim.variations[i] || {
-              users: v.users,
-              metrics: {},
-            };
-            data.users = Math.max(data.users, v.users);
-            data.metrics[metric.id] = {
-              ...v,
-              buckets: [],
-            };
-            dim.variations[i] = data;
-          });
-
-          dimensionMap.set(row.dimension, dim);
-        });
+        }),
       };
     }),
-    3
-  );
+  });
 
-  const dimensions = Array.from(dimensionMap.values());
-  if (!dimensions.length) {
-    dimensions.push({
-      name: "All",
-      srm: 1,
-      variations: [],
-    });
-  } else {
-    dimensions.forEach((dimension) => {
-      // Calculate SRM
-      dimension.srm = checkSrm(
-        dimension.variations.map((v) => v.users),
-        snapshotSettings.variations.map((v) => v.weight)
-      );
-    });
-  }
+  const ret: ExperimentReportResults[] = [];
 
-  return {
-    multipleExposures,
-    unknownVariations: Array.from(new Set(unknownVariations)),
-    dimensions,
-  };
+  analysisSettings.forEach((_, i) => {
+    const dimensionMap: Map<
+      string,
+      ExperimentReportResultDimension
+    > = new Map();
+
+    results.forEach(({ metric, analyses }) => {
+      const result = analyses[i];
+      if (!result) return;
+
+      unknownVariations = unknownVariations.concat(result.unknownVariations);
+      multipleExposures = Math.max(multipleExposures, result.multipleExposures);
+
+      result.dimensions.forEach((row) => {
+        const dim = dimensionMap.get(row.dimension) || {
+          name: row.dimension,
+          srm: 1,
+          variations: [],
+        };
+
+        row.variations.forEach((v, i) => {
+          const data = dim.variations[i] || {
+            users: v.users,
+            metrics: {},
+          };
+          data.users = Math.max(data.users, v.users);
+          data.metrics[metric] = {
+            ...v,
+            buckets: [],
+          };
+          dim.variations[i] = data;
+        });
+
+        dimensionMap.set(row.dimension, dim);
+      });
+    });
+
+    const dimensions = Array.from(dimensionMap.values());
+    if (!dimensions.length) {
+      dimensions.push({
+        name: "All",
+        srm: 1,
+        variations: [],
+      });
+    } else {
+      dimensions.forEach((dimension) => {
+        // Calculate SRM
+        dimension.srm = checkSrm(
+          dimension.variations.map((v) => v.users),
+          snapshotSettings.variations.map((v) => v.weight)
+        );
+      });
+    }
+
+    ret.push({
+      multipleExposures,
+      unknownVariations: Array.from(new Set(unknownVariations)),
+      dimensions,
+    });
+  });
+
+  return ret;
 }
