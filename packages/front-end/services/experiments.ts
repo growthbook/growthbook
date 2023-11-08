@@ -1,6 +1,6 @@
 import { SnapshotMetric } from "back-end/types/experiment-snapshot";
 import { MetricInterface } from "back-end/types/metric";
-import { PValueCorrection, StatsEngine } from "back-end/types/stats";
+import { DifferenceType, PValueCorrection, StatsEngine } from "back-end/types/stats";
 import { useState } from "react";
 import { jStat } from "jstat";
 import {
@@ -881,4 +881,14 @@ export function getRowResults({
     riskMeta,
     guardrailWarning,
   };
+}
+
+export function getEffectLabel(differenceType: DifferenceType): string {
+  if (differenceType === "absolute") {
+    return "Absolute Change";
+  }
+    if (differenceType === "scaled") {
+    return "Scaled Impact";
+  }
+  return "% Change";
 }
