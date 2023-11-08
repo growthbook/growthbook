@@ -12,10 +12,12 @@ import {
 const { webcrypto } = require("node:crypto");
 import { TextEncoder, TextDecoder } from "util";
 import { ApiHost, ClientKey } from "../src/types/growthbook";
+import {BrowserCookieStickyBucketService} from "../src/GrowthBook";
 global.TextEncoder = TextEncoder;
 (global as any).TextDecoder = TextDecoder;
 const { MockEvent, EventSource } = require("mocksse");
 require("jest-localstorage-mock");
+const Cookie = require("js-cookie");
 /* eslint-enable */
 
 setPolyfills({
@@ -130,7 +132,7 @@ const sdkPayload: FeatureApiResponse = {
 };
 
 describe("sticky-buckets", () => {
-  it("applies a simple sticky bucket using localstorage driver", async () => {
+  it("reads, writes, and upgrades sticky buckets using localStorage driver", async () => {
     await clearCache();
     const [, cleanup] = mockApi(sdkPayload);
 
@@ -262,6 +264,100 @@ describe("sticky-buckets", () => {
     cleanup();
     // console.log("localStorage C", localStorage);
 
+    localStorage.clear();
+  });
+
+  it("reads, writes, and upgrades sticky buckets using browser cookies driver", async () => {
+    await clearCache();
+    const [, cleanup] = mockApi(sdkPayload);
+
+    // with sticky bucket support
+    const growthbook1 = new GrowthBook({
+      apiHost: "https://fakeapi.sample.io",
+      clientKey: "qwerty1234",
+      stickyBucketService: new BrowserCookieStickyBucketService({
+        jsCookie: Cookie,
+      }),
+      attributes: {
+        deviceId: "d123",
+        anonymousId: "ses123",
+        foo: "bar",
+      },
+    });
+    await growthbook1.loadFeatures();
+    await sleep(10);
+
+    // evaluate based on fallbackAttribute "deviceId"
+    const result1 = growthbook1.evalFeature("exp1");
+    expect(result1.value).toBe("red");
+
+    const expResult1 = growthbook1.triggerExperiment("manual-experiment");
+    expect(expResult1?.variationId).toBe(2);
+
+    growthbook1.destroy();
+    // console.log("cookie A", document.cookie);
+    await sleep(100);
+
+    // provide the primary hashAttribute "id" as well as fallbackAttribute "deviceId"
+    const growthbook2 = new GrowthBook({
+      apiHost: "https://fakeapi.sample.io",
+      clientKey: "qwerty1234",
+      stickyBucketService: new BrowserCookieStickyBucketService({
+        jsCookie: Cookie,
+      }),
+      attributes: {
+        deviceId: "d123",
+        anonymousId: "ses123",
+        id: "12345",
+        foo: "bar",
+      },
+    });
+    await growthbook2.loadFeatures();
+    await sleep(10);
+
+    const result2 = growthbook2.evalFeature("exp1");
+    expect(result2.value).toBe("red");
+
+    const expResult2 = growthbook2.triggerExperiment("manual-experiment");
+    expect(expResult2?.variationId).toBe(2);
+
+    growthbook2.destroy();
+    // console.log("cookie B", document.cookie);
+    await sleep(100);
+
+    // remove the fallbackAttribute "deviceId".
+    // bucketing for "id" should have persisted in growthbook1 only
+    const growthbook3 = new GrowthBook({
+      apiHost: "https://fakeapi.sample.io",
+      clientKey: "qwerty1234",
+      stickyBucketService: new BrowserCookieStickyBucketService({
+        jsCookie: Cookie,
+      }),
+      attributes: {
+        id: "12345",
+        foo: "bar",
+      },
+    });
+    await growthbook3.loadFeatures();
+    await sleep(10);
+
+    const result3 = growthbook3.evalFeature("exp1");
+    expect(result3.value).toBe("red");
+
+    const expResult3 = growthbook3.triggerExperiment("manual-experiment");
+    expect(expResult3?.variationId).toBe(2);
+
+    growthbook3.destroy();
+    cleanup();
+    // console.log("cookie C", document.cookie);
+
+    document.cookie
+      .split(";")
+      .forEach(
+        (cookie) =>
+          (document.cookie = cookie + "=; expires=" + new Date(0).toUTCString())
+      );
+    // console.log("cookie D", document.cookie);
     localStorage.clear();
   });
 

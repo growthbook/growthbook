@@ -41,7 +41,9 @@ import {
 import { evalCondition } from "./mongrule";
 import { refreshFeatures, subscribe, unsubscribe } from "./feature-repository";
 import {
+  CookieAttributes,
   FeatureApiResponse,
+  JsCookiesCompat,
   LocalStorageCompat,
   StickyExperimentKey,
 } from "./types/growthbook";
@@ -1472,5 +1474,106 @@ export class LocalStorageStickyBucketService extends StickyBucketService {
   async saveAssignments(doc: StickyAssignmentsDocument) {
     const key = `${doc.attributeName}||${doc.attributeValue}`;
     await this.localStorage?.setItem(this.prefix + key, JSON.stringify(doc));
+  }
+}
+
+export class BrowserCookieStickyBucketService extends StickyBucketService {
+  private prefix: string;
+  private jsCookie: JsCookiesCompat | undefined;
+  private cookieAttributes: CookieAttributes;
+  constructor({
+    prefix = "gbStickyBuckets::",
+    jsCookie,
+    cookieAttributes = {},
+  }: {
+    prefix?: string;
+    jsCookie?: JsCookiesCompat;
+    cookieAttributes?: CookieAttributes;
+  } = {}) {
+    super();
+    this.prefix = prefix;
+    this.jsCookie = jsCookie;
+    this.cookieAttributes = cookieAttributes;
+    if (!this.jsCookie)
+      throw new Error(
+        "BrowserCookieStickyBucketService: missing jsCookie implementation"
+      );
+  }
+  async getAssignments(attributeName: string, attributeValue: string) {
+    const key = `${attributeName}||${attributeValue}`;
+    let doc: StickyAssignmentsDocument | null = null;
+    try {
+      const raw = await this.jsCookie?.get(this.prefix + key);
+      const data = JSON.parse(raw || "{}");
+      if (data.attributeName && data.attributeValue && data.assignments) {
+        doc = data;
+      }
+    } catch (e) {
+      // Ignore cookie errors
+    }
+    return doc;
+  }
+  async saveAssignments(doc: StickyAssignmentsDocument) {
+    const key = `${doc.attributeName}||${doc.attributeValue}`;
+    await this.jsCookie?.set(
+      this.prefix + key,
+      JSON.stringify(doc),
+      this.cookieAttributes
+    );
+  }
+}
+
+export class ExpressCookieStickyBucketService extends StickyBucketService {
+  /** intended to be used with cookieParser() middleware from npm: 'cookie-parser' **/
+  private prefix: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private req: any;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private res: any;
+  private cookieAttributes: CookieAttributes;
+  constructor({
+    prefix = "gbStickyBuckets::",
+    req,
+    res,
+    cookieAttributes = {},
+  }: {
+    prefix?: string;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    req?: any;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    res?: any;
+    cookieAttributes?: CookieAttributes;
+  } = {}) {
+    super();
+    this.prefix = prefix;
+    this.req = req;
+    this.res = res;
+    this.cookieAttributes = cookieAttributes;
+    if (!this.req)
+      throw new Error("ExpressCookieStickyBucketService: missing req");
+    if (!this.res)
+      throw new Error("ExpressCookieStickyBucketService: missing res");
+  }
+  async getAssignments(attributeName: string, attributeValue: string) {
+    const key = `${attributeName}||${attributeValue}`;
+    let doc: StickyAssignmentsDocument | null = null;
+    try {
+      const raw = this.req?.cookies?.[this.prefix + key];
+      const data = JSON.parse(raw || "{}");
+      if (data.attributeName && data.attributeValue && data.assignments) {
+        doc = data;
+      }
+    } catch (e) {
+      // Ignore cookie errors
+    }
+    return doc;
+  }
+  async saveAssignments(doc: StickyAssignmentsDocument) {
+    const key = `${doc.attributeName}||${doc.attributeValue}`;
+    this.res?.cookie?.(
+      this.prefix + key,
+      JSON.stringify(doc),
+      this.cookieAttributes
+    );
   }
 }

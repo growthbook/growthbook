@@ -43,6 +43,7 @@ export {
   GrowthBook,
   StickyBucketService,
   LocalStorageStickyBucketService,
+  BrowserCookieStickyBucketService,
 } from "./GrowthBook";
 
 export { isURLTargeted } from "./util";
