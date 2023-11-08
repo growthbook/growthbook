@@ -165,7 +165,7 @@ export interface ExperimentSnapshotInterface {
   multipleExposures: number;
   analyses: ExperimentSnapshotAnalysis[];
 
-  health: ExperimentSnapshotHealth;
+  health?: ExperimentSnapshotHealth;
 }
 
 export interface ExperimentSnapshotHealth {
@@ -173,7 +173,10 @@ export interface ExperimentSnapshotHealth {
 }
 
 export interface ExperimentSnapshotTraffic {
-  [dimension: string]: ExperimentSnapshotTrafficDimension[];
+  overall: ExperimentSnapshotTrafficDimension;
+  dimension: {
+    [dimension: string]: ExperimentSnapshotTrafficDimension[];
+  };
 }
 export interface ExperimentSnapshotTrafficDimension {
   name: string;

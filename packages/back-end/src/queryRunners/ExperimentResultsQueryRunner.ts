@@ -44,7 +44,7 @@ export type SnapshotResult = {
   unknownVariations: string[];
   multipleExposures: number;
   analyses: ExperimentSnapshotAnalysis[];
-  health: ExperimentSnapshotHealth;
+  health?: ExperimentSnapshotHealth;
 };
 
 export type ExperimentResultsQueryParams = {
@@ -241,7 +241,6 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
       analyses: this.model.analyses,
       multipleExposures: 0,
       unknownVariations: [],
-      health: { traffic: {} },
     };
 
     // Run each analysis
@@ -280,22 +279,22 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
       });
       const nVariations = this.model.settings.variations.length;
       const res = healthQuery.result as ExperimentUnitsQueryResponseRows;
-      const trafficResults: {
+      const trafficResults: ExperimentSnapshotTraffic = {
+        overall: {
+          name: "All",
+          srm: 0,
+          variationUnits: Array(nVariations).fill(0),
+        },
+        dimension: {},
+      };
+      const dimTrafficResults: {
         [dimName: string]: {
           [dimValue: string]: ExperimentSnapshotTrafficDimension;
         };
-      } = {
-        overall: {
-          overall: {
-            name: "All",
-            srm: 0,
-            variationUnits: Array(nVariations).fill(0),
-          },
-        },
-      };
+      } = {};
       res.forEach((r) => {
         const variationIndex = variationIdMap[r.variation];
-        const dimTraffic = trafficResults[r.dimension_name];
+        const dimTraffic = dimTrafficResults[r.dimension_name];
         if (dimTraffic) {
           const dimValueTraffic = dimTraffic[r.dimension_value];
           if (dimValueTraffic) {
@@ -312,34 +311,36 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
         } else {
           const trafficArray = Array(nVariations).fill(0);
           trafficArray[variationIndex] = r.units;
-          trafficResults[r.dimension_name] = {};
-          trafficResults[r.dimension_name][r.dimension_value] = {
+          dimTrafficResults[r.dimension_name] = {};
+          dimTrafficResults[r.dimension_name][r.dimension_value] = {
             name: r.dimension_value,
             srm: 0,
             variationUnits: trafficArray,
           };
         }
-        // use date for overall
+        // use date for overall because it always exists in payload
         if (r.dimension_name === "dim_exposure_date") {
-          trafficResults.overall.overall.variationUnits[variationIndex] +=
-            r.units;
+          trafficResults.overall.variationUnits[variationIndex] += r.units;
         }
       });
-      const trafficResult: ExperimentSnapshotTraffic = {};
-      for (const [dimName, dimTraffic] of Object.entries(trafficResults)) {
+      trafficResults.overall.srm = checkSrm(
+        trafficResults.overall.variationUnits,
+        variationWeights
+      );
+      for (const [dimName, dimTraffic] of Object.entries(dimTrafficResults)) {
         for (const dimValueTraffic of Object.values(dimTraffic)) {
           dimValueTraffic.srm = checkSrm(
             dimValueTraffic.variationUnits,
             variationWeights
           );
-          if (dimName in trafficResult) {
-            trafficResult[dimName].push(dimValueTraffic);
+          if (dimName in trafficResults.dimension) {
+            trafficResults.dimension[dimName].push(dimValueTraffic);
           } else {
-            trafficResult[dimName] = [dimValueTraffic];
+            trafficResults.dimension[dimName] = [dimValueTraffic];
           }
         }
       }
-      result.health.traffic = trafficResult;
+      result.health = { traffic: trafficResults };
     }
 
     if (analysisPromises.length > 0) {
