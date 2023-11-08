@@ -6,6 +6,7 @@ import numpy as np
 
 from gbstats.messages import ZERO_NEGATIVE_VARIANCE_MESSAGE
 from gbstats.frequentist.tests import (
+    FrequentistConfig,
     SequentialConfig,
     SequentialTwoSidedTTest,
     TwoSidedTTest,
