@@ -1505,6 +1505,27 @@ export async function getFeatureById(
     });
   }
 
+  // Sanity check to make sure the published revision values and rules match what's stored in the feature
+  const live = revisions.find((r) => r.version === feature.version);
+  if (live) {
+    try {
+      if (live.defaultValue !== feature.defaultValue) {
+        throw new Error(
+          `Published revision defaultValue does not match feature ${org.id}.${feature.id}`
+        );
+      }
+      Object.entries(feature.environmentSettings).forEach(([env, settings]) => {
+        if (!isEqual(settings.rules, live.rules[env])) {
+          throw new Error(
+            `Published revision rules.${env} does not match feature ${org.id}.${feature.id}`
+          );
+        }
+      });
+    } catch (e) {
+      logger.error(e, e.message);
+    }
+  }
+
   res.status(200).json({
     status: 200,
     feature,
