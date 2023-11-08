@@ -93,14 +93,8 @@ const TopNav: FC<{
           open={true}
         >
           <Field label="Name" {...form.register("name")} />
-          {/* <Field
-            label="Disable celebration"
-            type="checkbox"
-            {...form.register("disableCelebration")}
-          /> */}
-          {/* <Field labe */}
           <label className="mr-3">
-            Enable Celebrations{" "}
+            Allow Celebrations{" "}
             <Tooltip
               body={
                 "GrowthBook adds on-screen confetti celebrations randomly when you complete certain actions like launching an experiment. You can disable this if you find it distracting."
@@ -108,8 +102,8 @@ const TopNav: FC<{
             />
           </label>
           <Toggle
-            id="disableCelebration"
-            label="Disable celebration"
+            id="allowCelebration"
+            label="Allow celebration"
             value={form.watch("enableCelebrations")}
             setValue={(v) => form.setValue("enableCelebrations", v)}
           />
