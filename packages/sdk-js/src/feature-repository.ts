@@ -355,7 +355,7 @@ async function refreshInstance(
   instance: GrowthBook,
   data: FeatureApiResponse
 ): Promise<void> {
-  data = await instance.decryptPayload(data, polyfills.SubtleCrypto);
+  data = await instance.decryptPayload(data, undefined, polyfills.SubtleCrypto);
 
   await instance.refreshStickyBuckets(data);
   instance.setExperiments(data.experiments || instance.getExperiments());

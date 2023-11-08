@@ -8,6 +8,9 @@ Object.defineProperty(window, "location", {
   writable: true,
 });
 
+async function sleep(ms: number) {
+  await new Promise((resolve) => setTimeout(resolve, ms));
+}
 const mockCallback = (context: Context) => {
   const onExperimentViewed = jest.fn((a) => {
     return a;
@@ -672,7 +675,7 @@ describe("experiments", () => {
     growthbook.destroy();
   });
 
-  it("renders when attributes are updated", () => {
+  it("renders when attributes are updated", async () => {
     const context: Context = {
       user: { id: "1" },
     };
@@ -684,6 +687,7 @@ describe("experiments", () => {
 
     expect(called).toEqual(false);
     growthbook.setAttributes({ id: "2" });
+    await sleep(1);
     expect(called).toEqual(true);
 
     growthbook.destroy();

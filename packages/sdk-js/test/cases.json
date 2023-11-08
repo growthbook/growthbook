@@ -2550,7 +2550,8 @@
           "hashAttribute": "id",
           "hashValue": "123",
           "bucket": 0.863,
-          "key": "2"
+          "key": "2",
+          "stickyBucketUsed": false
         },
         "source": "experiment"
       }
@@ -2589,7 +2590,8 @@
           "hashAttribute": "id",
           "hashValue": "456",
           "bucket": 0.178,
-          "key": "0"
+          "key": "0",
+          "stickyBucketUsed": false
         },
         "source": "experiment"
       }
@@ -2628,7 +2630,8 @@
           "hashAttribute": "id",
           "hashValue": "fds",
           "bucket": 0.514,
-          "key": "1"
+          "key": "1",
+          "stickyBucketUsed": false
         },
         "source": "experiment"
       }
@@ -2730,7 +2733,8 @@
           "hashValue": "123",
           "bucket": 0.5231,
           "key": "v1",
-          "name": "variation 1"
+          "name": "variation 1",
+          "stickyBucketUsed": false
         }
       }
     ],
@@ -2924,7 +2928,8 @@
           "value": 1,
           "variationId": 1,
           "key": "1",
-          "bucket": 0.863
+          "bucket": 0.863,
+          "stickyBucketUsed": false
         }
       }
     ],
@@ -2994,7 +2999,8 @@
           "hashUsed": false,
           "hashAttribute": "id",
           "hashValue": "123",
-          "key": "1"
+          "key": "1",
+          "stickyBucketUsed": false
         }
       }
     ],
@@ -3199,7 +3205,8 @@
           "key": "0",
           "value": 3,
           "variationId": 0,
-          "bucket": 0.4413
+          "bucket": 0.4413,
+          "stickyBucketUsed": false
         }
       }
     ],
@@ -3271,7 +3278,8 @@
           "key": "0",
           "value": 1,
           "variationId": 0,
-          "bucket": 0.8043
+          "bucket": 0.8043,
+          "stickyBucketUsed": false
         }
       }
     ]
