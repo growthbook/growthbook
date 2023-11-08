@@ -343,7 +343,10 @@ export function getAdditionalExperimentAnalysisSettings(
     ...defaultAnalysisSettings,
     differenceType: "scaled",
   });
-  return additionalAnalyses;
+
+  // Skip all of these additional analyses until we fix the performance issues
+  //return additionalAnalyses;
+  return [];
 }
 
 export function getSnapshotSettings({
