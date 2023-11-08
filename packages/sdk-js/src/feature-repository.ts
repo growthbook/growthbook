@@ -357,9 +357,7 @@ async function refreshInstance(
 ): Promise<void> {
   data = await instance.decryptPayload(data, polyfills.SubtleCrypto);
 
-  // todo: derive the sticky bucket keys here?
   await instance.refreshStickyBuckets(data);
-
   instance.setExperiments(data.experiments || instance.getExperiments());
   instance.setFeatures(data.features || instance.getFeatures());
 }

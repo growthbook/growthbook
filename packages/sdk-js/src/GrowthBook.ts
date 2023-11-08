@@ -1443,7 +1443,7 @@ export class LocalStorageStickyBucketService extends StickyBucketService {
   }: {
     prefix?: string;
     localStorage?: LocalStorageCompat;
-  }) {
+  } = {}) {
     super();
     this.prefix = prefix;
     this.localStorage = localStorage;

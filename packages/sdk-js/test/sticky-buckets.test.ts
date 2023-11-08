@@ -138,7 +138,7 @@ describe("sticky-buckets", () => {
     const growthbook1a = new GrowthBook({
       apiHost: "https://fakeapi.sample.io",
       clientKey: "qwerty1234",
-      stickyBucketService: new LocalStorageStickyBucketService({}),
+      stickyBucketService: new LocalStorageStickyBucketService(),
       attributes: {
         deviceId: "d123",
         anonymousId: "ses123",
@@ -183,7 +183,7 @@ describe("sticky-buckets", () => {
     const growthbook1b = new GrowthBook({
       apiHost: "https://fakeapi.sample.io",
       clientKey: "qwerty1234",
-      stickyBucketService: new LocalStorageStickyBucketService({}),
+      stickyBucketService: new LocalStorageStickyBucketService(),
       attributes: {
         deviceId: "d123",
         anonymousId: "ses123",
@@ -227,7 +227,7 @@ describe("sticky-buckets", () => {
     const growthbook1c = new GrowthBook({
       apiHost: "https://fakeapi.sample.io",
       clientKey: "qwerty1234",
-      stickyBucketService: new LocalStorageStickyBucketService({}),
+      stickyBucketService: new LocalStorageStickyBucketService(),
       attributes: {
         id: "12345",
         foo: "bar",
@@ -261,6 +261,245 @@ describe("sticky-buckets", () => {
     growthbook2c.destroy();
     cleanup();
     // console.log("localStorage C", localStorage);
+
+    localStorage.clear();
+  });
+
+  it("stops using sticky buckets when the experiment changes and turns off stickyBucketing", async () => {
+    await clearCache();
+
+    const [, cleanup] = mockApi(sdkPayload, true);
+
+    // SSE update will disable stickyBucketing
+    const newPayload = {
+      ...sdkPayload,
+      features: {
+        exp1: {
+          ...sdkPayload?.features?.exp1,
+          rules: [
+            {
+              key: "feature-exp",
+              seed: "feature-exp",
+              hashAttribute: "id",
+              fallbackAttribute: "deviceId",
+              hashVersion: 2,
+              stickyBucketing: false, // <---------------- off
+              bucketVersion: 1,
+              variations: ["control", "red", "blue"],
+              coverage: 1,
+              weights: [0.3334, 0.3333, 0.3333],
+              phase: "0",
+            },
+          ],
+        },
+      },
+    };
+    const event = new MockEvent({
+      url: "https://fakeapi.sample.io/sub/qwerty1234",
+      setInterval: 500,
+      responses: [
+        {
+          type: "features",
+          data: JSON.stringify(newPayload),
+        },
+      ],
+    });
+
+    // evaluate based on fallbackAttribute "deviceId"
+    const growthbook1 = new GrowthBook({
+      apiHost: "https://fakeapi.sample.io",
+      clientKey: "qwerty1234",
+      stickyBucketService: new LocalStorageStickyBucketService(),
+      attributes: {
+        iteration: 1,
+        deviceId: "d123",
+        foo: "bar",
+      },
+      subscribeToChanges: true,
+    });
+
+    await growthbook1.loadFeatures();
+    await sleep(10);
+
+    const result1 = growthbook1.evalFeature("exp1");
+    expect(result1.value).toBe("red");
+    await sleep(100);
+
+    // provide the primary hashAttribute "id" as well as fallbackAttribute "deviceId"
+    growthbook1.setAttributes({
+      iteration: 2,
+      deviceId: "d123",
+      id: "12345",
+      foo: "bar",
+    });
+
+    await sleep(10);
+
+    const result2 = growthbook1.evalFeature("exp1");
+    expect(result2.value).toBe("red");
+
+    // remote the fallbackAttribute and rely on the hashAttribute
+    growthbook1.setAttributes({
+      iteration: 3,
+      id: "12345",
+      foo: "bar",
+    });
+    await sleep(500);
+
+    const result3 = growthbook1.evalFeature("exp1");
+    // console.log({result3})
+
+    expect(result3.value).toBe("blue");
+
+    growthbook1.destroy();
+    cleanup();
+    event.clear();
+
+    localStorage.clear();
+  });
+
+  it("stops test enrollment when blockedVariations includes the sticky bucket variation", async () => {
+    await clearCache();
+
+    const [, cleanup] = mockApi(sdkPayload, true);
+
+    // SSE update will block variation 1 "red"
+    const newPayload = {
+      ...sdkPayload,
+      features: {
+        exp1: {
+          ...sdkPayload?.features?.exp1,
+          rules: [
+            {
+              key: "feature-exp",
+              seed: "feature-exp",
+              hashAttribute: "id",
+              fallbackAttribute: "deviceId",
+              hashVersion: 2,
+              stickyBucketing: true,
+              blockedVariations: [1], // <---------------- changed
+              bucketVersion: 1,
+              variations: ["control", "red", "blue"],
+              coverage: 1,
+              weights: [0.3334, 0.3333, 0.3333],
+              phase: "0",
+            },
+          ],
+        },
+      },
+    };
+    const event = new MockEvent({
+      url: "https://fakeapi.sample.io/sub/qwerty1234",
+      setInterval: 200,
+      responses: [
+        {
+          type: "features",
+          data: JSON.stringify(newPayload),
+        },
+      ],
+    });
+
+    // evaluate based on fallbackAttribute "deviceId"
+    const growthbook1 = new GrowthBook({
+      apiHost: "https://fakeapi.sample.io",
+      clientKey: "qwerty1234",
+      stickyBucketService: new LocalStorageStickyBucketService(),
+      attributes: {
+        iteration: 1,
+        deviceId: "d123",
+        foo: "bar",
+      },
+      subscribeToChanges: true,
+    });
+
+    await growthbook1.loadFeatures();
+    await sleep(10);
+
+    const result1 = growthbook1.evalFeature("exp1");
+    expect(result1.value).toBe("red");
+    await sleep(800);
+
+    const result2 = growthbook1.evalFeature("exp1");
+    expect(result2.value).toBe("control");
+    // console.log({result2})
+
+    growthbook1.destroy();
+    cleanup();
+    event.clear();
+
+    localStorage.clear();
+  });
+
+  it("resets sticky bucketing when the bucketVersion changes", async () => {
+    await clearCache();
+
+    const [, cleanup] = mockApi(sdkPayload, true);
+
+    // SSE update will block variation 1 "red"
+    const newPayload = {
+      ...sdkPayload,
+      features: {
+        exp1: {
+          ...sdkPayload?.features?.exp1,
+          rules: [
+            {
+              key: "feature-exp",
+              seed: "feature-exp",
+              hashAttribute: "id",
+              fallbackAttribute: "deviceId",
+              hashVersion: 2,
+              stickyBucketing: true,
+              bucketVersion: 2, // <---------------- changed
+              variations: ["control", "red", "blue"],
+              coverage: 1,
+              weights: [0.3334, 0.3333, 0.3333],
+              phase: "0",
+            },
+          ],
+        },
+      },
+    };
+    const event = new MockEvent({
+      url: "https://fakeapi.sample.io/sub/qwerty1234",
+      setInterval: 200,
+      responses: [
+        {
+          type: "features",
+          data: JSON.stringify(newPayload),
+        },
+      ],
+    });
+
+    // evaluate based on fallbackAttribute "deviceId"
+    const growthbook1 = new GrowthBook({
+      apiHost: "https://fakeapi.sample.io",
+      clientKey: "qwerty1234",
+      stickyBucketService: new LocalStorageStickyBucketService(),
+      attributes: {
+        iteration: 1,
+        deviceId: "d123",
+        foo: "bar",
+      },
+      subscribeToChanges: true,
+    });
+
+    await growthbook1.loadFeatures();
+    await sleep(10);
+
+    const result1 = growthbook1.evalFeature("exp1");
+    expect(result1?.experimentResult?.stickyBucketUsed).toBe(false);
+    await sleep(10);
+
+    const result2 = growthbook1.evalFeature("exp1");
+    expect(result2?.experimentResult?.stickyBucketUsed).toBe(true);
+    await sleep(800);
+
+    const result3 = growthbook1.evalFeature("exp1");
+    expect(result3?.experimentResult?.stickyBucketUsed).toBe(false);
+
+    growthbook1.destroy();
+    cleanup();
+    event.clear();
 
     localStorage.clear();
   });
