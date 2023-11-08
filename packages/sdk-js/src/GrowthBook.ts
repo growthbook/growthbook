@@ -40,7 +40,11 @@ import {
 } from "./util";
 import { evalCondition } from "./mongrule";
 import { refreshFeatures, subscribe, unsubscribe } from "./feature-repository";
-import { FeatureApiResponse, StickyExperimentKey } from "./types/growthbook";
+import {
+  FeatureApiResponse,
+  LocalStorageCompat,
+  StickyExperimentKey,
+} from "./types/growthbook";
 
 const isBrowser =
   typeof window !== "undefined" && typeof document !== "undefined";
@@ -1416,15 +1420,30 @@ export abstract class StickyBucketService {
 
 export class LocalStorageStickyBucketService extends StickyBucketService {
   private prefix: string;
-  constructor(prefix: string = "gbStickyBuckets::") {
+  private localStorage: LocalStorageCompat | undefined;
+  constructor({
+    prefix = "gbStickyBuckets::",
+    localStorage,
+  }: {
+    prefix?: string;
+    localStorage?: LocalStorageCompat;
+  }) {
     super();
     this.prefix = prefix;
+    this.localStorage = localStorage;
+    try {
+      if (!this.localStorage && globalThis.localStorage) {
+        this.localStorage = globalThis.localStorage;
+      }
+    } catch (e) {
+      // Ignore localStorage errors
+    }
   }
   async getAssignments(attributeName: string, attributeValue: string) {
     const key = `${attributeName}||${attributeValue}`;
     let doc: StickyAssignmentsDocument | null = null;
     try {
-      const raw = localStorage.getItem(this.prefix + key);
+      const raw = await this.localStorage?.getItem(this.prefix + key);
       const data = JSON.parse(raw || "{}");
       if (data.attributeName && data.attributeValue && data.assignments) {
         doc = data;
@@ -1436,6 +1455,6 @@ export class LocalStorageStickyBucketService extends StickyBucketService {
   }
   async saveAssignments(doc: StickyAssignmentsDocument) {
     const key = `${doc.attributeName}||${doc.attributeValue}`;
-    localStorage.setItem(this.prefix + key, JSON.stringify(doc));
+    await this.localStorage?.setItem(this.prefix + key, JSON.stringify(doc));
   }
 }

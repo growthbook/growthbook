@@ -138,7 +138,7 @@ describe("sticky-buckets", () => {
     const growthbook1a = new GrowthBook({
       apiHost: "https://fakeapi.sample.io",
       clientKey: "qwerty1234",
-      stickyBucketService: new LocalStorageStickyBucketService(),
+      stickyBucketService: new LocalStorageStickyBucketService({}),
       attributes: {
         deviceId: "d123",
         anonymousId: "ses123",
@@ -183,7 +183,7 @@ describe("sticky-buckets", () => {
     const growthbook1b = new GrowthBook({
       apiHost: "https://fakeapi.sample.io",
       clientKey: "qwerty1234",
-      stickyBucketService: new LocalStorageStickyBucketService(),
+      stickyBucketService: new LocalStorageStickyBucketService({}),
       attributes: {
         deviceId: "d123",
         anonymousId: "ses123",
@@ -227,7 +227,7 @@ describe("sticky-buckets", () => {
     const growthbook1c = new GrowthBook({
       apiHost: "https://fakeapi.sample.io",
       clientKey: "qwerty1234",
-      stickyBucketService: new LocalStorageStickyBucketService(),
+      stickyBucketService: new LocalStorageStickyBucketService({}),
       attributes: {
         id: "12345",
         foo: "bar",
