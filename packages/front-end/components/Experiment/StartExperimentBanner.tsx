@@ -198,7 +198,7 @@ export function StartExperimentBanner({
   );
 
   async function startExperiment() {
-    startCelebration(enableCelebrations, 1);
+    startCelebration(enableCelebrations, 5);
     if (!experiment.phases?.length) {
       if (newPhase) {
         newPhase();
