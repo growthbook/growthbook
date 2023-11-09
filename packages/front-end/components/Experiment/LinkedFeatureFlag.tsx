@@ -4,26 +4,16 @@ import {
 } from "back-end/types/experiment";
 import { FaCheck, FaExclamationTriangle } from "react-icons/fa";
 import LinkedChange from "@/components/Experiment/LinkedChange";
-import { useAuth } from "@/services/auth";
 import Tooltip from "../Tooltip/Tooltip";
-import DeleteButton from "../DeleteButton/DeleteButton";
 import ForceSummary from "../Features/ForceSummary";
 
 type Props = {
   info: LinkedFeatureInfo;
   experiment: ExperimentInterfaceStringDates;
-  mutate: () => void;
   open?: boolean;
 };
 
-export default function LinkedFeatureFlag({
-  info,
-  experiment,
-  mutate,
-  open,
-}: Props) {
-  const { apiCall } = useAuth();
-
+export default function LinkedFeatureFlag({ info, experiment, open }: Props) {
   const orderedValues = experiment.variations.map((v) => {
     return info.values.find((v2) => v2.variationId === v.id)?.value || "";
   });
@@ -44,28 +34,6 @@ export default function LinkedFeatureFlag({
       open={open ?? experiment.status === "draft"}
     >
       <div className="mt-2 pb-1 px-3">
-        <div className="d-flex">
-          {experiment.status === "draft" && info.state === "draft" && (
-            <div className="ml-auto">
-              <DeleteButton
-                displayName="Feature Rule"
-                onClick={async () => {
-                  await apiCall(
-                    `/feature/${info.feature.id}/${info.feature.version}/experiment`,
-                    {
-                      method: "DELETE",
-                      body: JSON.stringify({
-                        experimentId: experiment.id,
-                      }),
-                    }
-                  );
-                  mutate();
-                }}
-              />
-            </div>
-          )}
-        </div>
-
         {info.state !== "locked" && (
           <div className="mb-3">
             <div className="font-weight-bold">Environments</div>

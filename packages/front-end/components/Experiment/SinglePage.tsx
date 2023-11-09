@@ -1091,7 +1091,6 @@ export default function SinglePage({
                         info={info}
                         experiment={experiment}
                         key={i}
-                        mutate={mutate}
                       />
                     ))}
                     {experiment.status === "draft" &&
