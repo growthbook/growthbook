@@ -7,7 +7,7 @@ import { getValidDate } from "shared/dates";
 import { StatsEngine } from "back-end/types/stats";
 import { ExperimentMetricInterface } from "shared/experiments";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import { formatMetricValue } from "@/services/metrics";
+import { getExperimentMetricFormatter } from "@/services/metrics";
 import {
   isExpectedDirection,
   isStatSig,
@@ -151,15 +151,16 @@ const DateResults: FC<{
                     up = crA ? (crB - crA) / crA : 0;
                   }
 
-                  const v_formatted = formatMetricValue(
+                  const v_formatted = getExperimentMetricFormatter(
                     metric,
+                    getFactTableById
+                  )(
                     cumulative
                       ? totalUsers[i]
                         ? totalValue[i] / totalUsers[i]
                         : 0
                       : stats?.cr || 0,
-                    getFactTableById,
-                    displayCurrency
+                    { currency: displayCurrency }
                   );
 
                   const p = stats?.pValueAdjusted ?? stats?.pValue ?? 1;

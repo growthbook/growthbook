@@ -146,8 +146,8 @@ export default function ExperimentRefSummary({
         <div className="alert alert-info">
           This experiment is stopped and a <strong>Temporary Rollout</strong> is
           enabled. All users in the experiment will receive the winning
-          variation. If this is no longer needed, you can stop it from the
-          Experiment page.
+          variation. If no longer needed, you can stop it from the Experiment
+          page.
         </div>
       )}
       {hasCondition && (

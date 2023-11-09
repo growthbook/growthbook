@@ -19,9 +19,10 @@ import styles from "./AssignmentTester.module.scss";
 
 export interface Props {
   feature: FeatureInterface;
+  version: number;
 }
 
-export default function AssignmentTester({ feature }: Props) {
+export default function AssignmentTester({ feature, version }: Props) {
   const [open, setOpen] = useState(false);
   const [formValues, setFormValues] = useState({});
   const [results, setResults] = useState<null | FeatureTestResult[]>(null);
@@ -40,7 +41,7 @@ export default function AssignmentTester({ feature }: Props) {
     status: number;
     archetype: ArchetypeInterface[];
     featureResults: Record<string, FeatureTestResult[]>;
-  }>(`/archetype/eval/${feature.id}`);
+  }>(`/archetype/eval/${feature.id}/${version}`);
 
   const { hasCommercialFeature } = useUser();
   const hasArchetypeAccess = hasCommercialFeature("archetypes");
@@ -78,7 +79,7 @@ export default function AssignmentTester({ feature }: Props) {
   useEffect(() => {
     apiCall<{
       results: FeatureTestResult[];
-    }>(`/feature/${feature.id}/eval`, {
+    }>(`/feature/${feature.id}/${version}/eval`, {
       method: "POST",
       body: JSON.stringify({ attributes: formValues }),
     })
@@ -86,7 +87,7 @@ export default function AssignmentTester({ feature }: Props) {
         setResults(data.results);
       })
       .catch((e) => console.error(e));
-  }, [formValues, apiCall, feature]);
+  }, [formValues, apiCall, feature, version]);
 
   const showResults = () => {
     if (!results) {

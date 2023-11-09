@@ -128,6 +128,7 @@ export default function ConditionDisplay({
         savedGroups={savedGroupTargeting}
         groupClassName="col-auto"
         initialAnd={parts.length > 0}
+        key="saved-group-targeting"
       />
     );
   }

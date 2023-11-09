@@ -1,7 +1,7 @@
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import React, { FC, useEffect } from "react";
 import dynamic from "next/dynamic";
-import { StatsEngine } from "back-end/types/stats";
+import { DifferenceType, StatsEngine } from "back-end/types/stats";
 import { MetricRegressionAdjustmentStatus } from "back-end/types/report";
 import { getValidDate, ago } from "shared/dates";
 import { DEFAULT_STATS_ENGINE } from "shared/constants";
@@ -47,6 +47,8 @@ const Results: FC<{
   setVariationFilter?: (variationFilter: number[]) => void;
   baselineRow?: number;
   setBaselineRow?: (baselineRow: number) => void;
+  differenceType?: DifferenceType;
+  setDifferenceType?: (differenceType: DifferenceType) => void;
   metricFilter?: ResultsMetricFilters;
   setMetricFilter?: (metricFilter: ResultsMetricFilters) => void;
   isTabActive?: boolean;
@@ -69,6 +71,8 @@ const Results: FC<{
   setVariationFilter,
   baselineRow,
   setBaselineRow,
+  differenceType,
+  setDifferenceType,
   metricFilter,
   setMetricFilter,
   isTabActive = true,
@@ -186,6 +190,8 @@ const Results: FC<{
           setVariationFilter={(v: number[]) => setVariationFilter?.(v)}
           baselineRow={baselineRow}
           setBaselineRow={(b: number) => setBaselineRow?.(b)}
+          differenceType={differenceType}
+          setDifferenceType={setDifferenceType}
         />
       ) : (
         <StatusBanner
@@ -315,6 +321,7 @@ const Results: FC<{
             snapshotMetricRegressionAdjustmentStatuses
           }
           sequentialTestingEnabled={analysis?.settings?.sequentialTesting}
+          differenceType={analysis.settings?.differenceType}
           metricFilter={metricFilter}
           setMetricFilter={setMetricFilter}
         />
@@ -352,6 +359,7 @@ const Results: FC<{
               snapshotMetricRegressionAdjustmentStatuses
             }
             sequentialTestingEnabled={analysis.settings?.sequentialTesting}
+            differenceType={analysis.settings?.differenceType}
             metricFilter={metricFilter}
             setMetricFilter={setMetricFilter}
             isTabActive={isTabActive}

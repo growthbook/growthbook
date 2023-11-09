@@ -44,8 +44,6 @@ export default function useStripeSubscription() {
     subscriptionStatus || ""
   );
 
-  const planName = organization?.subscription?.planNickname || "";
-
   const nextBillDate = new Date(
     (organization?.subscription?.current_period_end || 0) * 1000
   ).toDateString();
@@ -72,7 +70,6 @@ export default function useStripeSubscription() {
   return {
     freeSeats,
     quote: quote,
-    planName,
     nextBillDate,
     dateToBeCanceled,
     cancelationDate,

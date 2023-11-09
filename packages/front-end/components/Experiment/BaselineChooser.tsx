@@ -7,11 +7,11 @@ import {
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotInterface,
 } from "back-end/types/experiment-snapshot";
-import { getSnapshotAnalysis } from "shared/util";
 import Dropdown from "@/components/Dropdown/Dropdown";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import LoadingSpinner from "@/components/LoadingSpinner";
+import { analysisUpdate } from "./DifferenceTypeChooser";
 
 export interface Props {
   variations: Variation[];
@@ -59,42 +59,11 @@ export default function BaselineChooser({
     indexedVariations.find((v) => v.index === desiredBaselineRow) ??
     indexedVariations[0];
 
-  const triggerAnalysisUpdate = useCallback(
-    async (
-      newBaseline: number,
-      newSettings: ExperimentSnapshotAnalysisSettings
-    ): Promise<"success" | "fail" | "abort"> => {
-      if (!analysis || !snapshot) return "abort";
-      let status: "success" | "fail" | "abort" = "fail";
-
-      if (!getSnapshotAnalysis(snapshot, newSettings)) {
-        setPostLoading(true);
-        await apiCall(`/snapshot/${snapshot.id}/analysis`, {
-          method: "POST",
-          body: JSON.stringify({
-            analysisSettings: newSettings,
-          }),
-        })
-          .then((resp) => {
-            // @ts-expect-error the resp should have a status
-            if ((resp?.status ?? 400) + "" === "200") {
-              status = "success";
-            } else {
-              status = "fail";
-            }
-          })
-          .catch((e) => {
-            console.error(e);
-            status = "fail";
-          });
-      } else {
-        status = "success";
-      }
-
-      return status;
-    },
-    [analysis, snapshot, apiCall]
-  );
+  const triggerAnalysisUpdate = useCallback(analysisUpdate, [
+    analysis,
+    snapshot,
+    apiCall,
+  ]);
 
   useEffect(() => {
     setDesiredBaselineRow(baselineRow);
@@ -172,7 +141,7 @@ export default function BaselineChooser({
         uuid={"baseline-selector"}
         right={false}
         className="mt-2"
-        toggleClassName={clsx({
+        toggleClassName={clsx("d-inline-block", {
           "dropdown-underline": dropdownEnabled,
           "dropdown-underline-disabled": !dropdownEnabled,
         })}
@@ -197,23 +166,27 @@ export default function BaselineChooser({
               ...analysis.settings,
               baselineVariationIndex: variation.index,
             };
-            triggerAnalysisUpdate(variation.index, newSettings).then(
-              (status) => {
-                if (status === "success") {
-                  setBaselineRow(variation.index);
-                  setVariationFilter([]);
-                  setAnalysisSettings(newSettings);
-                  track("Experiment Analysis: switch baseline", {
-                    baseline: variation.index,
-                  });
-                  mutate();
-                } else if (status === "fail") {
-                  setDesiredBaselineRow(baselineRow);
-                  mutate();
-                }
-                setPostLoading(false);
+            triggerAnalysisUpdate(
+              newSettings,
+              analysis,
+              snapshot,
+              apiCall,
+              setPostLoading
+            ).then((status) => {
+              if (status === "success") {
+                setBaselineRow(variation.index);
+                setVariationFilter([]);
+                setAnalysisSettings(newSettings);
+                track("Experiment Analysis: switch baseline", {
+                  baseline: variation.index,
+                });
+                mutate();
+              } else if (status === "fail") {
+                setDesiredBaselineRow(baselineRow);
+                mutate();
               }
-            );
+              setPostLoading(false);
+            });
           };
 
           return (

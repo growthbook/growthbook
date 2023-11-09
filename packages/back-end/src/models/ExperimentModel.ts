@@ -249,6 +249,16 @@ export async function getExperimentsByIds(
   });
 }
 
+export async function getExperimentsByTrackingKeys(
+  organization: string,
+  trackingKeys: string[]
+): Promise<ExperimentInterface[]> {
+  return await findExperiments({
+    trackingKey: { $in: trackingKeys },
+    organization,
+  });
+}
+
 export async function getSampleExperiment(
   organization: string
 ): Promise<ExperimentInterface | null> {
@@ -1148,10 +1158,16 @@ export const getPayloadKeys = (
 
   // Visual editor experiments always affect all environments
   if (experiment.hasVisualChangesets) {
-    return environments.map((e) => ({
-      environment: e,
-      project,
-    }));
+    const keys: SDKPayloadKey[] = [];
+
+    environments.forEach((e) => {
+      // Always update the "no-project" payload
+      keys.push({ environment: e, project: "" });
+      // If the experiment is in a project, update that payload as well
+      if (project) keys.push({ environment: e, project });
+    });
+
+    return keys;
   }
 
   // Feature flag experiments only affect the environments where the experiment rule is active
@@ -1252,13 +1268,13 @@ const onExperimentUpdate = async ({
     hasChangesForSDKPayloadRefresh(oldExperiment, newExperiment)
   ) {
     // Get linked features
-    const featureIds = [
+    const featureIds = new Set([
       ...(oldExperiment.linkedFeatures || []),
       ...(newExperiment.linkedFeatures || []),
-    ];
+    ]);
     let linkedFeatures: FeatureInterface[] = [];
-    if (featureIds.length > 0) {
-      linkedFeatures = await getFeaturesByIds(organization.id, featureIds);
+    if (featureIds.size > 0) {
+      linkedFeatures = await getFeaturesByIds(organization.id, [...featureIds]);
     }
 
     const oldPayloadKeys = oldExperiment

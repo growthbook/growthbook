@@ -26,6 +26,7 @@ const teamSchema = new mongoose.Schema({
       environments: [String],
     },
   ],
+  managedByIdp: Boolean,
 });
 
 type TeamDocument = mongoose.Document & TeamInterface;
@@ -37,10 +38,7 @@ type CreateTeamProps = Omit<
   "dateCreated" | "dateUpdated" | "id"
 >;
 
-type UpdateTeamProps = Omit<
-  TeamInterface,
-  "dateCreated" | "dateUpdated" | "id" | "organization" | "createdBy"
->;
+type UpdateTeamProps = Partial<TeamInterface>;
 
 /**
  * Convert the Mongo document to a TeamInterface, omitting Mongo default fields __v, _id
@@ -67,6 +65,17 @@ export async function findTeamById(
   orgId: string
 ): Promise<TeamInterface | null> {
   const teamDoc = await TeamModel.findOne({ id, organization: orgId });
+  return teamDoc ? toInterface(teamDoc) : null;
+}
+
+export async function findTeamByName(
+  name: string,
+  orgId: string
+): Promise<TeamInterface | null> {
+  const teamDoc = await TeamModel.findOne({
+    name: { $regex: name, $options: "i" },
+    organization: orgId,
+  });
   return teamDoc ? toInterface(teamDoc) : null;
 }
 
