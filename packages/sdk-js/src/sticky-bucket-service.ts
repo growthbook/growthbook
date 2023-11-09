@@ -31,18 +31,6 @@ export interface IORedisCompat {
 
 /**
  * Responsible for reading and writing documents which describe sticky bucket assignments.
- *
- * Getting assignments:
- * Given a user's identifier attribute (name & value), fetch the document which describes the user's bucket assignments.
- * Bucket assignments will be keyed by a composite key of experimentId and version: `${experimentId}__{version}`
- *
- * Setting assignments:
- * Given a user's identifier attribute (name & value) and an updated local document which describes the user's bucket assignments,
- * put (overwrite) the document in a persistent store.
- *
- * Optional: Get all assignments:
- * If provided, must return an array of all AssignmentDocuments given a record of identifier attributes (name: value).
- * If not provided, the SDK will fetch each attribute's AssignmentDocument individually.
  */
 export abstract class StickyBucketService {
   abstract getAssignments(
@@ -52,6 +40,11 @@ export abstract class StickyBucketService {
 
   abstract saveAssignments(doc: StickyAssignmentsDocument): Promise<unknown>;
 
+  /**
+   * The SDK calls getAllAssignments to populate sticky buckets. This in turn will
+   * typically loop through individual getAssignments calls. However, some StickyBucketService
+   * instances (i.e. Redis) will instead perform a multi-query inside getAllAssignments instead.
+   */
   async getAllAssignments(
     attributes: Record<string, string>
   ): Promise<Record<StickyAttributeKey, StickyAssignmentsDocument>> {
