@@ -20,6 +20,16 @@ properties:
     type: string
   hashAttribute:
     type: string
+  fallbackAttribute:
+    type: string
+  stickyBucketing:
+    type: boolean
+  bucketVersion:
+    type: number
+  blockedVariations:
+    type: array
+    items:
+      type: number
   namespace:
     type: obect
     required:

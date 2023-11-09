@@ -118,7 +118,11 @@ export interface ExperimentInterface {
    */
   userIdType?: "anonymous" | "user";
   hashAttribute: string;
+  fallbackAttribute?: string;
   hashVersion: 1 | 2;
+  stickyBucketing?: boolean;
+  bucketVersion?: number;
+  blockedVariations?: number[];
   name: string;
   dateCreated: Date;
   dateUpdated: Date;

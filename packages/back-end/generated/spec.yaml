@@ -924,11 +924,21 @@ paths:
                   type: boolean
                 hashAttribute:
                   type: string
+                fallbackAttribute:
+                  type: string
                 hashVersion:
                   type: number
                   enum:
                     - 1
                     - 2
+                stickyBucketing:
+                  type: boolean
+                bucketVersion:
+                  type: number
+                blockedVariations:
+                  type: array
+                  items:
+                    type: number
                 releasedVariationId:
                   type: string
                 excludeFromPayload:
@@ -1141,11 +1151,21 @@ paths:
                   type: boolean
                 hashAttribute:
                   type: string
+                fallbackAttribute:
+                  type: string
                 hashVersion:
                   type: number
                   enum:
                     - 1
                     - 2
+                stickyBucketing:
+                  type: boolean
+                bucketVersion:
+                  type: number
+                blockedVariations:
+                  type: array
+                  items:
+                    type: number
                 releasedVariationId:
                   type: string
                 excludeFromPayload:
@@ -2800,6 +2820,16 @@ components:
           type: string
         hashAttribute:
           type: string
+        fallbackAttribute:
+          type: string
+        stickyBucketing:
+          type: boolean
+        bucketVersion:
+          type: number
+        blockedVariations:
+          type: array
+          items:
+            type: number
         namespace:
           type: obect
           required:
@@ -2980,11 +3010,21 @@ components:
           type: boolean
         hashAttribute:
           type: string
+        fallbackAttribute:
+          type: string
         hashVersion:
           type: number
           enum:
             - 1
             - 2
+        stickyBucketing:
+          type: boolean
+        bucketVersion:
+          type: number
+        blockedVariations:
+          type: array
+          items:
+            type: number
         variations:
           type: array
           items:

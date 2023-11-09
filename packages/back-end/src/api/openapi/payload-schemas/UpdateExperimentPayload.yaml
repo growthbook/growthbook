@@ -43,9 +43,19 @@ properties:
     type: boolean
   hashAttribute:
     type: string
+  fallbackAttribute:
+    type: string
   hashVersion:
     type: number
     enum: [1, 2]
+  stickyBucketing:
+    type: boolean
+  bucketVersion:
+    type: number
+  blockedVariations:
+    type: array
+    items:
+      type: number
   releasedVariationId:
     type: string
   excludeFromPayload:
