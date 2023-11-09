@@ -100,15 +100,15 @@ function mockRemoteEvalApi(
             } = body;
             return data
               ? Promise.resolve(
-                evaluateFeatures({
-                  payload: cloneDeep(data),
-                  attributes,
-                  forcedVariations,
-                  forcedFeatures: new Map(forcedFeaturesArray),
-                  url: evalUrl,
-                  enableStickyBucketing,
-                })
-              )
+                  evaluateFeatures({
+                    payload: cloneDeep(data),
+                    attributes,
+                    forcedVariations,
+                    forcedFeatures: new Map(forcedFeaturesArray),
+                    url: evalUrl,
+                    enableStickyBucketing,
+                  })
+                )
               : Promise.reject("Fetch error");
           },
         });
