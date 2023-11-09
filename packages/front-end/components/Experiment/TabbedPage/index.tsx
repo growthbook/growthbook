@@ -192,6 +192,7 @@ export default function TabbedPage({
         <FeatureFromExperimentModal
           experiment={experiment}
           close={() => setFeatureModal(false)}
+          mutate={mutate}
         />
       )}
       <ExperimentHeader

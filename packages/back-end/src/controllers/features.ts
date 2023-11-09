@@ -838,6 +838,13 @@ export async function postFeatureExperimentRefRule(
 
   await addLinkedExperiment(feature, experiment.id);
 
+  await addLinkedFeatureToExperiment(
+    org,
+    res.locals.eventAudit,
+    rule.experimentId,
+    feature.id
+  );
+
   res.status(200).json({
     status: 200,
     version: revision.version,
