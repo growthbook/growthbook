@@ -18,6 +18,7 @@ export type EventType =
   | "experiment.refresh"
   | "feature.create"
   | "feature.publish"
+  | "feature.revert"
   | "feature.update"
   | "feature.toggle"
   | "feature.archive"

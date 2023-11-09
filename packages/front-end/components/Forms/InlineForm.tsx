@@ -3,7 +3,6 @@ import { ReactElement, useState } from "react";
 import LoadingOverlay from "../LoadingOverlay";
 import LoadingSpinner from "../LoadingSpinner";
 
-// eslint-disable-next-line
 export default function InlineForm({
   editing,
   setEdit,
@@ -25,8 +24,7 @@ export default function InlineForm({
   canEdit?: boolean;
 }): ReactElement {
   const [saving, setSaving] = useState(false);
-  // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'null' is not assignable to param... Remove this comment to see the full error message
-  const [error, setError] = useState<string>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const startEditing = () => {
     if (!canEdit) return;
@@ -37,7 +35,6 @@ export default function InlineForm({
 
   const save = async () => {
     if (saving) return;
-    // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'null' is not assignable to param... Remove this comment to see the full error message
     setError(null);
     setSaving(true);
     try {
