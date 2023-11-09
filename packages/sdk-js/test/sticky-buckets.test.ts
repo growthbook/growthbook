@@ -14,6 +14,7 @@ import {
 const { webcrypto } = require("node:crypto");
 import { TextEncoder, TextDecoder } from "util";
 import { ApiHost, ClientKey } from "../src/types/growthbook";
+import {evaluateFeatures, remoteEvalRedis} from "./helpers/evaluateFeatures";
 global.TextEncoder = TextEncoder;
 (global as any).TextDecoder = TextDecoder;
 const { MockEvent, EventSource } = require("mocksse");
@@ -56,6 +57,60 @@ function mockApi(
             data
               ? Promise.resolve(cloneDeep(data))
               : Promise.reject("Fetch error"),
+        });
+      }, delay);
+    });
+  });
+
+  setPolyfills({
+    fetch: f,
+  });
+
+  return [
+    f,
+    () => {
+      setPolyfills({ fetch: undefined });
+    },
+  ] as const;
+}
+
+function mockRemoteEvalApi(
+  data: FeatureApiResponse | null,
+  supportSSE: boolean = false,
+  delay: number = 50
+) {
+  // eslint-disable-next-line
+  const f = jest.fn((url: string, resp: any) => {
+    return new Promise((resolve) => {
+      setTimeout(() => {
+        resolve({
+          headers: {
+            get: (header: string) =>
+              header === "x-sse-support" && supportSSE ? "enabled" : undefined,
+          },
+          url,
+          json: () => {
+            const body = JSON.parse(resp.body);
+            const {
+              attributes,
+              forcedVariations,
+              forcedFeatures: forcedFeaturesArray,
+              url: evalUrl,
+              enableStickyBucketing,
+            } = body;
+            return data
+              ? Promise.resolve(
+                evaluateFeatures({
+                  payload: cloneDeep(data),
+                  attributes,
+                  forcedVariations,
+                  forcedFeatures: new Map(forcedFeaturesArray),
+                  url: evalUrl,
+                  enableStickyBucketing,
+                })
+              )
+              : Promise.reject("Fetch error");
+          },
         });
       }, delay);
     });
@@ -454,6 +509,79 @@ describe("sticky-buckets", () => {
     cleanup();
 
     redis.flushall();
+  });
+
+  it("performs remote evaluation with remote-stored sticky buckets", async () => {
+    await clearCache();
+    remoteEvalRedis.flushall();
+    const [, cleanup] = mockRemoteEvalApi(sdkPayload);
+
+    // with sticky bucket support
+    const growthbook1 = new GrowthBook({
+      apiHost: "https://fakeapi.sample.io",
+      clientKey: "qwerty1234",
+      enableStickyBucketing: true,
+      remoteEval: true,
+      attributes: {
+        deviceId: "d123",
+        anonymousId: "ses123",
+        foo: "bar",
+      },
+    });
+    await growthbook1.loadFeatures();
+    await sleep(10);
+
+    // evaluate based on fallbackAttribute "deviceId"
+    const result1 = growthbook1.evalFeature("exp1");
+    expect(result1.value).toBe("red");
+
+    growthbook1.destroy();
+    await sleep(100);
+
+    // provide the primary hashAttribute "id" as well as fallbackAttribute "deviceId"
+    const growthbook2 = new GrowthBook({
+      apiHost: "https://fakeapi.sample.io",
+      clientKey: "qwerty1234",
+      enableStickyBucketing: true,
+      remoteEval: true,
+      attributes: {
+        deviceId: "d123",
+        anonymousId: "ses123",
+        id: "12345",
+        foo: "bar",
+      },
+    });
+    await growthbook2.loadFeatures();
+    await sleep(10);
+
+    const result2 = growthbook2.evalFeature("exp1");
+    // console.log({result2})
+    expect(result2.value).toBe("red");
+
+    growthbook2.destroy();
+    await sleep(100);
+
+    // remove the fallbackAttribute "deviceId".
+    // bucketing for "id" should have persisted in growthbook1 only
+    const growthbook3 = new GrowthBook({
+      apiHost: "https://fakeapi.sample.io",
+      clientKey: "qwerty1234",
+      enableStickyBucketing: true,
+      remoteEval: true,
+      attributes: {
+        id: "12345",
+        foo: "bar",
+      },
+    });
+    await growthbook3.loadFeatures();
+    await sleep(10);
+
+    const result3 = growthbook3.evalFeature("exp1");
+    expect(result3.value).toBe("red");
+
+    growthbook3.destroy();
+    cleanup();
+    remoteEvalRedis.flushall();
   });
 
   it("stops using sticky buckets when the experiment changes and turns off stickyBucketing", async () => {

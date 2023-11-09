@@ -353,6 +353,10 @@ export class GrowthBook<
     this._ctx.enableStickyBucketing = false;
   }
 
+  public stickyBucketingEnabled() {
+    return this._ctx.enableStickyBucketing;
+  }
+
   public getAttributes() {
     return { ...this._ctx.attributes, ...this._attributeOverrides };
   }
@@ -1359,7 +1363,9 @@ export class GrowthBook<
     data?: FeatureApiResponse
   ): Record<string, string> {
     const attributes: Record<string, string> = {};
-    this.context.stickyBucketIdentifierAttributes = data
+    const shouldDeriveIdentifierAttributes =
+      data || this.context.stickyBucketIdentifierAttributes === undefined;
+    this.context.stickyBucketIdentifierAttributes = shouldDeriveIdentifierAttributes
       ? this._deriveStickyBucketIdentifierAttributes(data)
       : this.context.stickyBucketIdentifierAttributes ?? [];
     this.context.stickyBucketIdentifierAttributes.forEach((attr) => {
