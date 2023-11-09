@@ -7,6 +7,7 @@ import type {
   ClientKey,
   Context,
   Experiment,
+  FeatureApiResponse,
   FeatureDefinition,
   FeatureResult,
   FeatureResultSource,
@@ -18,6 +19,7 @@ import type {
   StickyAssignments,
   StickyAssignmentsDocument,
   StickyAttributeKey,
+  StickyExperimentKey,
   SubscriptionFunction,
   VariationMeta,
   VariationRange,
@@ -40,7 +42,6 @@ import {
 } from "./util";
 import { evalCondition } from "./mongrule";
 import { refreshFeatures, subscribe, unsubscribe } from "./feature-repository";
-import { FeatureApiResponse, StickyExperimentKey } from "./types/growthbook";
 
 const isBrowser =
   typeof window !== "undefined" && typeof document !== "undefined";
@@ -341,6 +342,15 @@ export class GrowthBook<
       return;
     }
     this._updateAllAutoExperiments(true);
+  }
+
+  public async enableStickyBucketing() {
+    this._ctx.enableStickyBucketing = true;
+    await this.refreshStickyBuckets();
+  }
+
+  public disableStickyBucketing() {
+    this._ctx.enableStickyBucketing = false;
   }
 
   public getAttributes() {
@@ -1000,15 +1010,16 @@ export class GrowthBook<
 
     let foundStickyBucket = false;
     let assigned = -1;
-    if (experiment.stickyBucketing) {
+    if (this.context.enableStickyBucketing && experiment.stickyBucketing) {
       assigned = this._getStickyBucketVariation(
         experiment.key,
         experiment.bucketVersion
       );
+      if (assigned > 0) {
+        foundStickyBucket = true;
+      }
     }
-    if (assigned >= 0) {
-      foundStickyBucket = true;
-    } else {
+    if (!foundStickyBucket) {
       assigned = chooseVariation(n, ranges);
     }
 
@@ -1077,7 +1088,7 @@ export class GrowthBook<
     );
 
     // 13.5. Persist sticky bucket
-    if (experiment.stickyBucketing) {
+    if (this.context.enableStickyBucketing && experiment.stickyBucketing) {
       const {
         changed,
         key: attrKey,
@@ -1279,7 +1290,6 @@ export class GrowthBook<
     const attributes = new Set<string>();
     const features = data?.features ?? this.getFeatures();
     const experiments = data?.experiments ?? this.getExperiments();
-    // todo: make sure we're checking data store for hash attribute before fallbackattribute
     Object.keys(features).forEach((id) => {
       const feature = features[id];
       if (feature.rules) {
@@ -1303,9 +1313,10 @@ export class GrowthBook<
   }
 
   public async refreshStickyBuckets(data?: FeatureApiResponse) {
-    // todo: support remote eval
-    if (this.context.stickyBucketService) {
-      // todo: disable SB with context flag
+    if (
+      this.context.enableStickyBucketing &&
+      this.context.stickyBucketService
+    ) {
       const attributes = this._getStickyBucketAttributes(data);
       this.context.stickyBucketAssignmentDocs = await this.context.stickyBucketService.getAllAssignments(
         attributes
@@ -1315,7 +1326,6 @@ export class GrowthBook<
 
   private _getStickyBucketAssignments(): StickyAssignments {
     const mergedAssignments: StickyAssignments = {};
-    // todo: we could be smarter about prioritizing hashAttributes over secondaryAttributes
     Object.entries(this.context.stickyBucketAssignmentDocs ?? {}).forEach(
       ([, doc]) => {
         if (doc?.assignments) Object.assign(mergedAssignments, doc.assignments);

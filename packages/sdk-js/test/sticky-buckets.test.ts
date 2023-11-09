@@ -7,7 +7,7 @@ import {
   FeatureApiResponse,
   LocalStorageStickyBucketService,
   BrowserCookieStickyBucketService,
-  IORedisStickyBucketService,
+  RedisStickyBucketService,
 } from "../src";
 
 /* eslint-disable */
@@ -371,7 +371,7 @@ describe("sticky-buckets", () => {
     const growthbook1 = new GrowthBook({
       apiHost: "https://fakeapi.sample.io",
       clientKey: "qwerty1234",
-      stickyBucketService: new IORedisStickyBucketService({
+      stickyBucketService: new RedisStickyBucketService({
         redis,
       }),
       attributes: {
@@ -397,7 +397,7 @@ describe("sticky-buckets", () => {
     const growthbook2 = new GrowthBook({
       apiHost: "https://fakeapi.sample.io",
       clientKey: "qwerty1234",
-      stickyBucketService: new IORedisStickyBucketService({
+      stickyBucketService: new RedisStickyBucketService({
         redis,
       }),
       attributes: {
@@ -424,7 +424,7 @@ describe("sticky-buckets", () => {
     const growthbook3 = new GrowthBook({
       apiHost: "https://fakeapi.sample.io",
       clientKey: "qwerty1234",
-      stickyBucketService: new IORedisStickyBucketService({
+      stickyBucketService: new RedisStickyBucketService({
         redis,
       }),
       attributes: {

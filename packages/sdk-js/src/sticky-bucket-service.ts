@@ -112,6 +112,7 @@ export class LocalStorageStickyBucketService extends StickyBucketService {
     await this.localStorage?.setItem(this.prefix + key, JSON.stringify(doc));
   }
 }
+
 export class ExpressCookieStickyBucketService extends StickyBucketService {
   /** intended to be used with cookieParser() middleware from npm: 'cookie-parser' **/
   private prefix: string;
@@ -168,6 +169,7 @@ export class ExpressCookieStickyBucketService extends StickyBucketService {
 }
 
 export class BrowserCookieStickyBucketService extends StickyBucketService {
+  /** intended to be used with npm: 'js-cookie' **/
   private prefix: string;
   private jsCookie: JsCookiesCompat | undefined;
   private cookieAttributes: CookieAttributes;
@@ -213,9 +215,9 @@ export class BrowserCookieStickyBucketService extends StickyBucketService {
   }
 }
 
-export class IORedisStickyBucketService extends StickyBucketService {
+export class RedisStickyBucketService extends StickyBucketService {
+  /** intended to be used with npm: 'ioredis' **/
   private redis: IORedisCompat | undefined;
-
   constructor({
     redis,
   }: {

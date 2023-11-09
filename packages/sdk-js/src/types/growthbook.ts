@@ -155,11 +155,13 @@ export interface Context {
   features?: Record<string, FeatureDefinition>;
   experiments?: AutoExperiment[];
   forcedVariations?: Record<string, number>;
+  enableStickyBucketing?: boolean;
   stickyBucketAssignmentDocs?: Record<
     StickyAttributeKey,
     StickyAssignmentsDocument
   >;
   stickyBucketIdentifierAttributes?: string[];
+  stickyBucketService?: StickyBucketService;
   log?: (msg: string, ctx: any) => void;
   qaMode?: boolean;
   backgroundSync?: boolean;
@@ -189,7 +191,6 @@ export interface Context {
   clientKey?: string;
   decryptionKey?: string;
   remoteEval?: boolean;
-  stickyBucketService?: StickyBucketService;
 }
 
 export type SubscriptionFunction = (
