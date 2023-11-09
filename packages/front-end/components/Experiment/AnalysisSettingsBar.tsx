@@ -545,14 +545,13 @@ function isDifferentStringArray(
   if (val1.length !== val2.length) return true;
   return val1.some((v) => !val2.includes(v));
 }
-function parentStringDoesNotContainAllChildrenValues(
-  parent?: string[] | null,
-  child?: string[] | null
+function isStringArrayMissingElements(
+  strings: string[] = [],
+  elements: string[] = []
 ) {
-  if (!parent && !child) return false;
-  if (!parent || !child) return true;
-  if (child.length > parent.length) return true;
-  return child.some((v) => !parent.includes(v));
+  if (!elements) return false;
+  if (elements.length > strings.length) return true;
+  return elements.some((v) => !strings.includes(v));
 }
 function isDifferentDate(val1: Date, val2: Date, threshold: number = 86400000) {
   // 86400000 = 1 day
@@ -616,7 +615,7 @@ export function isOutdated(
     reasons.push("Attribution model changed");
   }
   if (
-    parentStringDoesNotContainAllChildrenValues(
+    isStringArrayMissingElements(
       [...snapshotSettings.goalMetrics, ...snapshotSettings.guardrailMetrics],
       [...experiment.metrics, ...(experiment?.guardrails || [])]
     )
