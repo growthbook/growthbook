@@ -143,6 +143,7 @@ describe("sticky-buckets", () => {
       apiHost: "https://fakeapi.sample.io",
       clientKey: "qwerty1234",
       stickyBucketService: new LocalStorageStickyBucketService(),
+      enableStickyBucketing: true,
       attributes: {
         deviceId: "d123",
         anonymousId: "ses123",
@@ -188,6 +189,7 @@ describe("sticky-buckets", () => {
       apiHost: "https://fakeapi.sample.io",
       clientKey: "qwerty1234",
       stickyBucketService: new LocalStorageStickyBucketService(),
+      enableStickyBucketing: true,
       attributes: {
         deviceId: "d123",
         anonymousId: "ses123",
@@ -232,6 +234,7 @@ describe("sticky-buckets", () => {
       apiHost: "https://fakeapi.sample.io",
       clientKey: "qwerty1234",
       stickyBucketService: new LocalStorageStickyBucketService(),
+      enableStickyBucketing: true,
       attributes: {
         id: "12345",
         foo: "bar",
@@ -280,6 +283,7 @@ describe("sticky-buckets", () => {
       stickyBucketService: new BrowserCookieStickyBucketService({
         jsCookie: Cookie,
       }),
+      enableStickyBucketing: true,
       attributes: {
         deviceId: "d123",
         anonymousId: "ses123",
@@ -307,6 +311,7 @@ describe("sticky-buckets", () => {
       stickyBucketService: new BrowserCookieStickyBucketService({
         jsCookie: Cookie,
       }),
+      enableStickyBucketing: true,
       attributes: {
         deviceId: "d123",
         anonymousId: "ses123",
@@ -335,6 +340,7 @@ describe("sticky-buckets", () => {
       stickyBucketService: new BrowserCookieStickyBucketService({
         jsCookie: Cookie,
       }),
+      enableStickyBucketing: true,
       attributes: {
         id: "12345",
         foo: "bar",
@@ -374,6 +380,7 @@ describe("sticky-buckets", () => {
       stickyBucketService: new RedisStickyBucketService({
         redis,
       }),
+      enableStickyBucketing: true,
       attributes: {
         deviceId: "d123",
         anonymousId: "ses123",
@@ -400,6 +407,7 @@ describe("sticky-buckets", () => {
       stickyBucketService: new RedisStickyBucketService({
         redis,
       }),
+      enableStickyBucketing: true,
       attributes: {
         deviceId: "d123",
         anonymousId: "ses123",
@@ -427,6 +435,7 @@ describe("sticky-buckets", () => {
       stickyBucketService: new RedisStickyBucketService({
         redis,
       }),
+      enableStickyBucketing: true,
       attributes: {
         id: "12345",
         foo: "bar",
@@ -492,6 +501,7 @@ describe("sticky-buckets", () => {
       apiHost: "https://fakeapi.sample.io",
       clientKey: "qwerty1234",
       stickyBucketService: new LocalStorageStickyBucketService(),
+      enableStickyBucketing: true,
       attributes: {
         iteration: 1,
         deviceId: "d123",
@@ -586,6 +596,7 @@ describe("sticky-buckets", () => {
       apiHost: "https://fakeapi.sample.io",
       clientKey: "qwerty1234",
       stickyBucketService: new LocalStorageStickyBucketService(),
+      enableStickyBucketing: true,
       attributes: {
         iteration: 1,
         deviceId: "d123",
@@ -657,6 +668,7 @@ describe("sticky-buckets", () => {
       apiHost: "https://fakeapi.sample.io",
       clientKey: "qwerty1234",
       stickyBucketService: new LocalStorageStickyBucketService(),
+      enableStickyBucketing: true,
       attributes: {
         iteration: 1,
         deviceId: "d123",
