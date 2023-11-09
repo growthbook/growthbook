@@ -870,8 +870,8 @@ export async function postFeatureExperimentRefRule(
 
   updates.version = revision.version;
 
-  if (!updates.linkedExperiments?.includes(experiment.id)) {
-    updates.linkedExperiments = updates.linkedExperiments || [];
+  if (!feature.linkedExperiments?.includes(experiment.id)) {
+    updates.linkedExperiments = feature.linkedExperiments || [];
     updates.linkedExperiments.push(experiment.id);
   }
 
