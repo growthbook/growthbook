@@ -65,7 +65,7 @@ const UnitCountDateGraph = ({ results, seriestype, variations }) => {
         </div>
       )}
       <div className="mb-2">
-        <h2>Users</h2>
+        <h2>Experiment Traffic</h2>
         <ExperimentDateGraph
           yaxis="users"
           variationNames={variations.map((v) => v.name)}
@@ -117,18 +117,18 @@ export default function HealthTab({ experiment }: Props) {
     <>
       <MultipleExposureWarning
         users={variationUsers}
-        multipleExposures={34655}
+        multipleExposures={123456}
+      />
+      <UnitCountDateGraph
+        results={analysis?.results ?? []}
+        seriestype={snapshot?.dimension ?? ""}
+        variations={variations}
       />
       <VariationUsersTable
         users={variationUsers}
         variations={variations}
         srm={analysis?.results[0].srm} // Why do we use the 0-index?
         hasHealthData
-      />
-      <UnitCountDateGraph
-        results={analysis?.results ?? []}
-        seriestype={snapshot?.dimension ?? ""}
-        variations={variations}
       />
     </>
   );
