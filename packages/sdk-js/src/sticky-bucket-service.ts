@@ -24,6 +24,11 @@ export interface JsCookiesCompat<T = string> {
   remove(name: string, options?: CookieAttributes): void;
 }
 
+export interface IORedisCompat {
+  mget(...keys: string[]): Promise<string[]>;
+  set(key: string, value: string): Promise<string>;
+}
+
 /**
  * Responsible for reading and writing documents which describe sticky bucket assignments.
  *
@@ -205,5 +210,53 @@ export class BrowserCookieStickyBucketService extends StickyBucketService {
       JSON.stringify(doc),
       this.cookieAttributes
     );
+  }
+}
+
+export class IORedisStickyBucketService extends StickyBucketService {
+  private redis: IORedisCompat | undefined;
+
+  constructor({
+    redis,
+  }: {
+    redis?: IORedisCompat;
+  } = {}) {
+    super();
+    this.redis = redis;
+    if (!this.redis)
+      throw new Error("IORedisStickyBucketService: missing redis client");
+  }
+
+  async getAllAssignments(
+    attributes: Record<string, string>
+  ): Promise<Record<StickyAttributeKey, StickyAssignmentsDocument>> {
+    const docs: Record<string, StickyAssignmentsDocument> = {};
+    const keys = Object.entries(attributes).map(
+      ([attributeName, attributeValue]) => `${attributeName}||${attributeValue}`
+    );
+    this.redis?.mget(...keys).then((values) => {
+      values.forEach((raw) => {
+        try {
+          const data = JSON.parse(raw || "{}");
+          if (data.attributeName && data.attributeValue && data.assignments) {
+            const key = `${data.attributeName}||${data.attributeValue}`;
+            docs[key] = data;
+          }
+        } catch (e) {
+          // ignore redis doc parse errors
+        }
+      });
+    });
+    return docs;
+  }
+
+  async getAssignments(_attributeName: string, _attributeValue: string) {
+    // not implemented
+    return null;
+  }
+
+  async saveAssignments(doc: StickyAssignmentsDocument) {
+    const key = `${doc.attributeName}||${doc.attributeValue}`;
+    await this.redis?.set(key, JSON.stringify(doc));
   }
 }
