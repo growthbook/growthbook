@@ -7,9 +7,9 @@ import {
   FeatureValueType,
   SavedGroupTargeting,
 } from "../../types/feature";
-import { FeatureDefinition } from "../../types/api";
+import { FeatureDefinitionWithProject } from "../../types/api";
 import { GroupMap } from "../../types/saved-group";
-import { SDKPayloadKey } from "../../types/sdk-payload";
+import { SDKPayloadChangeKey } from "../../types/sdk-payload";
 import { ExperimentInterface } from "../../types/experiment";
 import { FeatureRevisionInterface } from "../../types/feature-revision";
 import { getCurrentEnabledState } from "./scheduleRules";
@@ -153,7 +153,7 @@ export function getSDKPayloadKeys(
   environments: Set<string>,
   projects: Set<string>
 ) {
-  const keys: SDKPayloadKey[] = [];
+  const keys: SDKPayloadChangeKey[] = [];
 
   environments.forEach((e) => {
     projects.forEach((p) => {
@@ -170,7 +170,7 @@ export function getSDKPayloadKeys(
 export function getSDKPayloadKeysByDiff(
   originalFeature: FeatureInterface,
   updatedFeature: FeatureInterface
-): SDKPayloadKey[] {
+): SDKPayloadChangeKey[] {
   const environments = new Set<string>();
 
   // If the feature is archived both before and after the change, no payloads need to update
@@ -225,8 +225,8 @@ export function getSDKPayloadKeysByDiff(
 export function getAffectedSDKPayloadKeys(
   features: FeatureInterface[],
   ruleFilter?: (rule: FeatureRule) => boolean | unknown
-): SDKPayloadKey[] {
-  const keys: SDKPayloadKey[] = [];
+): SDKPayloadChangeKey[] {
+  const keys: SDKPayloadChangeKey[] = [];
 
   features.forEach((feature) => {
     const environments = getEnabledEnvironments(feature, ruleFilter);
@@ -278,7 +278,7 @@ export function getFeatureDefinition({
   experimentMap: Map<string, ExperimentInterface>;
   revision?: FeatureRevisionInterface;
   returnRuleId?: boolean;
-}): FeatureDefinition | null {
+}): FeatureDefinitionWithProject | null {
   const settings = feature.environmentSettings?.[environment];
 
   // Don't include features which are disabled for this environment
@@ -298,8 +298,9 @@ export function getFeatureDefinition({
     rule: FeatureDefinitionRule | null
   ): rule is FeatureDefinitionRule => !!rule;
 
-  const def: FeatureDefinition = {
+  const def: FeatureDefinitionWithProject = {
     defaultValue: getJSONValue(feature.valueType, defaultValue),
+    project: feature.project,
     rules:
       rules
         ?.filter(isRuleEnabled)

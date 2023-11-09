@@ -16,7 +16,7 @@ export type EditSDKConnectionParams = {
   proxyEnabled?: boolean;
   proxyHost?: string;
   environment?: string;
-  project?: string;
+  projects?: string[];
   encryptPayload?: boolean;
   hashSecureAttributes?: boolean;
   includeVisualExperiments?: boolean;
@@ -31,7 +31,7 @@ export type CreateSDKConnectionParams = {
   proxyEnabled?: boolean;
   proxyHost?: string;
   environment: string;
-  project: string;
+  projects: string[];
   encryptPayload: boolean;
   hashSecureAttributes: boolean;
   includeVisualExperiments: boolean;
@@ -67,7 +67,7 @@ export interface SDKConnectionInterface {
 
   // SDK payload settings
   environment: string;
-  project: string;
+  projects: string[];
   encryptPayload: boolean;
   encryptionKey: string;
   hashSecureAttributes?: boolean;

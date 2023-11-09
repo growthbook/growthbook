@@ -1,18 +1,13 @@
 import fetch from "node-fetch";
-import { SDKPayloadKey } from "../../types/sdk-payload";
 import { logger } from "./logger";
 import { FASTLY_API_TOKEN, FASTLY_SERVICE_ID } from "./secrets";
 
-export function getSurrogateKeysFromSDKPayloadKeys(
+export function getSurrogateKeysFromEnvironments(
   orgId: string,
-  payloadKeys: SDKPayloadKey[]
+  environments: string[]
 ): string[] {
-  return payloadKeys.map((k) => {
-    // Fill with default values if missing
-    const project = k.project || "AllProjects";
-    const environment = k.environment || "production";
-
-    const key = `${orgId}_${project}_${environment}`;
+  return environments.map((k) => {
+    const key = `${orgId}_${k}`;
 
     // Protect against environments or projects having unusual characters
     return key.replace(/[^a-zA-Z0-9_-]/g, "");

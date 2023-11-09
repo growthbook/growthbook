@@ -6,7 +6,7 @@ import { getExperimentOverrides } from "../services/organizations";
 import { getFeatureDefinitions } from "../services/features";
 import { WebhookInterface } from "../../types/webhook";
 import { CRON_ENABLED } from "../util/secrets";
-import { SDKPayloadKey } from "../../types/sdk-payload";
+import { SDKPayloadChangeKey } from "../../types/sdk-payload";
 
 const WEBHOOK_JOB_NAME = "fireWebhook";
 type WebhookJob = Job<{
@@ -33,7 +33,7 @@ export default function (ag: Agenda) {
       organization: webhook.organization,
       environment:
         webhook.environment === undefined ? "production" : webhook.environment,
-      project: webhook.project || "",
+      projects: webhook.project ? [webhook.project] : [],
     });
 
     // eslint-disable-next-line
@@ -121,7 +121,7 @@ export default function (ag: Agenda) {
 
 export async function queueWebhook(
   orgId: string,
-  payloadKeys: SDKPayloadKey[],
+  payloadKeys: SDKPayloadChangeKey[],
   isFeature?: boolean
 ) {
   if (!CRON_ENABLED) return;

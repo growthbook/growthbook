@@ -1,6 +1,8 @@
-import { AutoExperiment } from "@growthbook/growthbook";
 import mongoose from "mongoose";
-import { FeatureDefinition } from "../../types/api";
+import {
+  AutoExperimentWithProject,
+  FeatureDefinitionWithProject,
+} from "../../types/api";
 import {
   SDKPayloadContents,
   SDKPayloadInterface,
@@ -8,7 +10,7 @@ import {
 } from "../../types/sdk-payload";
 
 // Increment this if we change the payload contents in a backwards-incompatible way
-export const LATEST_SDK_PAYLOAD_SCHEMA_VERSION = 1;
+export const LATEST_SDK_PAYLOAD_SCHEMA_VERSION = 2;
 
 const sdkPayloadSchema = new mongoose.Schema({
   organization: String,
@@ -49,17 +51,15 @@ function toInterface(doc: SDKPayloadDocument): SDKPayloadInterface | null {
 
 export async function getSDKPayload({
   organization,
-  project,
   environment,
 }: {
   organization: string;
-  project: string;
   environment: string;
 }): Promise<SDKPayloadInterface | null> {
   const doc = await SDKPayloadModel.findOne({
     organization,
-    project,
     environment,
+    project: "",
     schemaVersion: LATEST_SDK_PAYLOAD_SCHEMA_VERSION,
   });
   return doc ? toInterface(doc) : null;
@@ -67,16 +67,14 @@ export async function getSDKPayload({
 
 export async function updateSDKPayload({
   organization,
-  project,
   environment,
   featureDefinitions,
   experimentsDefinitions,
 }: {
   organization: string;
-  project: string;
   environment: string;
-  featureDefinitions: Record<string, FeatureDefinition>;
-  experimentsDefinitions: AutoExperiment[];
+  featureDefinitions: Record<string, FeatureDefinitionWithProject>;
+  experimentsDefinitions: AutoExperimentWithProject[];
 }) {
   const contents: SDKPayloadContents = {
     features: featureDefinitions,
@@ -86,7 +84,7 @@ export async function updateSDKPayload({
   await SDKPayloadModel.updateOne(
     {
       organization,
-      project,
+      project: "",
       environment,
     },
     {

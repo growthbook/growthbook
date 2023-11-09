@@ -1,4 +1,7 @@
-import { FeatureRule as FeatureDefinitionRule } from "@growthbook/growthbook";
+import {
+  AutoExperiment,
+  FeatureRule as FeatureDefinitionRule,
+} from "@growthbook/growthbook";
 import { EventAuditUser } from "../src/events/event-types";
 import { PermissionFunctions } from "../src/types/AuthRequest";
 import { AuditInterface } from "./audit";
@@ -20,6 +23,14 @@ export interface FeatureDefinition {
   defaultValue: any;
   rules?: FeatureDefinitionRule[];
 }
+
+export type FeatureDefinitionWithProject = FeatureDefinition & {
+  project?: string;
+};
+
+export type AutoExperimentWithProject = AutoExperiment & {
+  project?: string;
+};
 
 export interface ExperimentOverridesResponse {
   status: 200;

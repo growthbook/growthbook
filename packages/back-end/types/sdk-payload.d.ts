@@ -48,7 +48,7 @@ export type SDKStringifiedPayloadInterface = Omit<
   contents: string;
 };
 
-export type SDKPayloadKey = {
+export type SDKPayloadChangeKey = {
   environment: string;
   project: string;
 };

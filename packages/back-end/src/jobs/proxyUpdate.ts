@@ -2,7 +2,7 @@ import { createHmac } from "crypto";
 import Agenda, { Job } from "agenda";
 import { getFeatureDefinitions } from "../services/features";
 import { CRON_ENABLED, IS_CLOUD } from "../util/secrets";
-import { SDKPayloadKey } from "../../types/sdk-payload";
+import { SDKPayloadChangeKey } from "../../types/sdk-payload";
 import {
   findSDKConnectionById,
   findSDKConnectionsByOrganization,
@@ -48,7 +48,7 @@ export default function addProxyUpdateJob(ag: Agenda) {
     const defs = await getFeatureDefinitions({
       organization: connection.organization,
       environment: connection.environment,
-      project: connection.project,
+      projects: connection.projects,
       encryptionKey: connection.encryptPayload
         ? connection.encryptionKey
         : undefined,
@@ -130,7 +130,7 @@ export async function queueSingleProxyUpdate(
 
 export async function queueProxyUpdate(
   orgId: string,
-  payloadKeys: SDKPayloadKey[]
+  payloadKeys: SDKPayloadChangeKey[]
 ) {
   if (!CRON_ENABLED) return;
   if (!payloadKeys.length) return;
@@ -146,7 +146,7 @@ export async function queueProxyUpdate(
     if (
       !payloadKeys.some(
         (key) =>
-          key.project === connection.project &&
+          connection.projects.includes(key.project) &&
           key.environment === connection.environment
       )
     ) {
