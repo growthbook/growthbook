@@ -44,5 +44,6 @@ export {
   StickyBucketService,
   LocalStorageStickyBucketService,
   BrowserCookieStickyBucketService,
+  IORedisStickyBucketService,
 } from "./sticky-bucket-service";
 export { isURLTargeted } from "./util";

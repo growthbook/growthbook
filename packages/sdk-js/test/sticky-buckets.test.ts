@@ -7,6 +7,7 @@ import {
   FeatureApiResponse,
   LocalStorageStickyBucketService,
   BrowserCookieStickyBucketService,
+  IORedisStickyBucketService,
 } from "../src";
 
 /* eslint-disable */
@@ -18,6 +19,7 @@ global.TextEncoder = TextEncoder;
 const { MockEvent, EventSource } = require("mocksse");
 require("jest-localstorage-mock");
 const Cookie = require("js-cookie");
+const Redis = require('ioredis-mock');
 /* eslint-enable */
 
 setPolyfills({
@@ -358,7 +360,91 @@ describe("sticky-buckets", () => {
           (document.cookie = cookie + "=; expires=" + new Date(0).toUTCString())
       );
     // console.log("cookie D", document.cookie);
-    localStorage.clear();
+  });
+
+  it("reads, writes, and upgrades sticky buckets using ioredis driver", async () => {
+    await clearCache();
+    const [, cleanup] = mockApi(sdkPayload);
+    const redis = new Redis();
+
+    // with sticky bucket support
+    const growthbook1 = new GrowthBook({
+      apiHost: "https://fakeapi.sample.io",
+      clientKey: "qwerty1234",
+      stickyBucketService: new IORedisStickyBucketService({
+        redis,
+      }),
+      attributes: {
+        deviceId: "d123",
+        anonymousId: "ses123",
+        foo: "bar",
+      },
+    });
+    await growthbook1.loadFeatures();
+    await sleep(10);
+
+    // evaluate based on fallbackAttribute "deviceId"
+    const result1 = growthbook1.evalFeature("exp1");
+    expect(result1.value).toBe("red");
+
+    const expResult1 = growthbook1.triggerExperiment("manual-experiment");
+    expect(expResult1?.variationId).toBe(2);
+
+    growthbook1.destroy();
+    await sleep(100);
+
+    // provide the primary hashAttribute "id" as well as fallbackAttribute "deviceId"
+    const growthbook2 = new GrowthBook({
+      apiHost: "https://fakeapi.sample.io",
+      clientKey: "qwerty1234",
+      stickyBucketService: new IORedisStickyBucketService({
+        redis,
+      }),
+      attributes: {
+        deviceId: "d123",
+        anonymousId: "ses123",
+        id: "12345",
+        foo: "bar",
+      },
+    });
+    await growthbook2.loadFeatures();
+    await sleep(10);
+
+    const result2 = growthbook2.evalFeature("exp1");
+    expect(result2.value).toBe("red");
+
+    const expResult2 = growthbook2.triggerExperiment("manual-experiment");
+    expect(expResult2?.variationId).toBe(2);
+
+    growthbook2.destroy();
+    await sleep(100);
+
+    // remove the fallbackAttribute "deviceId".
+    // bucketing for "id" should have persisted in growthbook1 only
+    const growthbook3 = new GrowthBook({
+      apiHost: "https://fakeapi.sample.io",
+      clientKey: "qwerty1234",
+      stickyBucketService: new IORedisStickyBucketService({
+        redis,
+      }),
+      attributes: {
+        id: "12345",
+        foo: "bar",
+      },
+    });
+    await growthbook3.loadFeatures();
+    await sleep(10);
+
+    const result3 = growthbook3.evalFeature("exp1");
+    expect(result3.value).toBe("red");
+
+    const expResult3 = growthbook3.triggerExperiment("manual-experiment");
+    expect(expResult3?.variationId).toBe(2);
+
+    growthbook3.destroy();
+    cleanup();
+
+    redis.flushall();
   });
 
   it("stops using sticky buckets when the experiment changes and turns off stickyBucketing", async () => {
