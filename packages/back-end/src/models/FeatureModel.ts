@@ -4,7 +4,6 @@ import omit from "lodash/omit";
 import isEqual from "lodash/isEqual";
 import { MergeResultChanges } from "shared/util";
 import {
-  ExperimentRefRule,
   FeatureEnvironment,
   FeatureInterface,
   FeatureRule,
@@ -632,46 +631,6 @@ export async function deleteExperimentRefRule(
       }),
     });
   }
-}
-
-export async function addExperimentRefRule(
-  org: OrganizationInterface,
-  revision: FeatureRevisionInterface,
-  rule: ExperimentRefRule,
-  experimentName: string,
-  user: EventAuditUser
-) {
-  if (!rule.id) {
-    rule.id = generateRuleId();
-  }
-
-  const environments = org.settings?.environments || [];
-  const environmentIds = environments.map((e) => e.id);
-
-  if (!environmentIds.length) {
-    throw new Error(
-      "Must have at least one environment configured to use Feature Flags"
-    );
-  }
-
-  const changes = {
-    rules: revision.rules || {},
-    comment: revision.comment || `Add experiment - ${experimentName}`,
-  };
-  environmentIds.forEach((env) => {
-    changes.rules[env] = changes.rules[env] || [];
-    changes.rules[env].push(rule);
-  });
-
-  await updateRevision(revision, changes, {
-    user,
-    action: "add experiment rule",
-    subject: `to all environments`,
-    value: JSON.stringify({
-      id: rule.experimentId,
-      name: experimentName,
-    }),
-  });
 }
 
 export async function editFeatureRule(

@@ -22,7 +22,6 @@ import {
   updateFeature,
   archiveFeature,
   setJsonSchema,
-  addExperimentRefRule,
   deleteExperimentRefRule,
   publishRevision,
   migrateDraft,
@@ -35,6 +34,7 @@ import {
   addIdsToRules,
   arrayMove,
   evaluateFeature,
+  generateRuleId,
   getFeatureDefinitions,
 } from "../services/features";
 import { FeatureUsageRecords } from "../../types/realtime";
@@ -786,17 +786,14 @@ export async function postFeatureRule(
 }
 
 export async function postFeatureExperimentRefRule(
-  req: AuthRequest<
-    { rule: ExperimentRefRule },
-    { id: string; version: string }
-  >,
+  req: AuthRequest<{ rule: ExperimentRefRule }, { id: string }>,
   res: Response<
     { status: 200; version: number },
     EventAuditUserForResponseLocals
   >
 ) {
   const { org } = getOrgFromReq(req);
-  const { id, version } = req.params;
+  const { id } = req.params;
   const { rule } = req.body;
 
   if (
@@ -808,35 +805,101 @@ export async function postFeatureExperimentRefRule(
     throw new Error("Invalid experiment rule");
   }
 
+  const environments = org.settings?.environments || [];
+  const environmentIds = environments.map((e) => e.id);
+
+  if (!environmentIds.length) {
+    throw new Error(
+      "Must have at least one environment configured to use Feature Flags"
+    );
+  }
+
   const feature = await getFeature(org.id, id);
   if (!feature) {
     throw new Error("Could not find feature");
   }
 
   req.checkPermissions("manageFeatures", feature.project);
-  req.checkPermissions("createFeatureDrafts", feature.project);
+
+  req.checkPermissions(
+    "publishFeatures",
+    feature.project,
+    getEnabledEnvironments(feature)
+  );
 
   const experiment = await getExperimentById(org.id, rule.experimentId);
   if (!experiment) {
     throw new Error("Invalid experiment selected");
   }
 
-  const revision = await getDraftRevision(
-    org,
+  const updates: Partial<FeatureInterface> = {
+    environmentSettings: feature.environmentSettings,
+  };
+  const changes: Pick<FeatureRevisionInterface, "rules"> = {
+    rules: {},
+  };
+  environmentIds.forEach((env) => {
+    const envRule = {
+      ...rule,
+      id: generateRuleId(),
+    };
+
+    // Revision changes
+    changes.rules[env] = feature.environmentSettings?.[env]?.rules || [];
+    changes.rules[env].push(envRule);
+
+    // Feature updates
+    updates.environmentSettings = updates.environmentSettings || {};
+    updates.environmentSettings[env] = updates.environmentSettings[env] || {
+      enabled: false,
+      rules: [],
+    };
+    updates.environmentSettings[env].rules =
+      updates.environmentSettings[env].rules || [];
+    updates.environmentSettings[env].rules.push(envRule);
+  });
+
+  const revision = await createRevision({
     feature,
-    parseInt(version),
-    res.locals.eventAudit
-  );
+    user: res.locals.eventAudit,
+    baseVersion: feature.version,
+    publish: true,
+    changes,
+    comment: `Add Experiment - ${experiment.name}`,
+  });
 
-  await addExperimentRefRule(
+  updates.version = revision.version;
+
+  if (!feature.linkedExperiments?.includes(experiment.id)) {
+    updates.linkedExperiments = feature.linkedExperiments || [];
+    updates.linkedExperiments.push(experiment.id);
+  }
+
+  const updatedFeature = await updateFeature(
     org,
-    revision,
-    rule,
-    experiment.name,
-    res.locals.eventAudit
+    res.locals.eventAudit,
+    feature,
+    updates
   );
 
-  await addLinkedExperiment(feature, experiment.id);
+  await addLinkedFeatureToExperiment(
+    org,
+    res.locals.eventAudit,
+    rule.experimentId,
+    feature.id,
+    experiment
+  );
+
+  await req.audit({
+    event: "feature.update",
+    entity: {
+      object: "feature",
+      id: feature.id,
+    },
+    details: auditDetailsUpdate(feature, updatedFeature, {
+      revision: revision.version,
+    }),
+  });
 
   res.status(200).json({
     status: 200,

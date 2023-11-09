@@ -546,6 +546,7 @@ export default function SinglePage({
         <FeatureFromExperimentModal
           experiment={experiment}
           close={() => setFeatureModal(false)}
+          mutate={mutate}
         />
       )}
       <div className="row align-items-center mb-1">
@@ -1090,7 +1091,6 @@ export default function SinglePage({
                         info={info}
                         experiment={experiment}
                         key={i}
-                        mutate={mutate}
                       />
                     ))}
                     {experiment.status === "draft" &&

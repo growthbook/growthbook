@@ -109,7 +109,6 @@ export default function Implementation({
                     info={info}
                     experiment={experiment}
                     key={i}
-                    mutate={mutate}
                   />
                 ))}
                 {experiment.status === "draft" && hasVisualEditorPermission && (
