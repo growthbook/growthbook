@@ -34,7 +34,7 @@ export function formatCurrency(
 ) {
   const cleanedOptions = {
     ...options,
-    currency: options.currency || "USD",
+    currency: options?.currency || "USD",
   };
   // Don't show fractional currency if the value is large
   if (value > 1000) {
