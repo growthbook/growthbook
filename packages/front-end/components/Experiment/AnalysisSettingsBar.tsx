@@ -549,7 +549,7 @@ function isStringArrayMissingElements(
   strings: string[] = [],
   elements: string[] = []
 ) {
-  if (!elements) return false;
+  if (!elements.length) return false;
   if (elements.length > strings.length) return true;
   return elements.some((v) => !strings.includes(v));
 }
