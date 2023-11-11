@@ -132,7 +132,7 @@ export default function SDKConnectionsList() {
                           );
                         } else {
                           return (
-                            <span className="badge badge-secondary">
+                            <span className="badge badge-secondary mr-1">
                               {proj.name}
                             </span>
                           );

@@ -309,6 +309,7 @@ export default function SDKConnectionForm({
                 onChange={(projects) => form.setValue("projects", projects)}
                 options={projectsOptions}
                 sort={false}
+                closeMenuOnSelect={true}
               />
             </div>
           )}

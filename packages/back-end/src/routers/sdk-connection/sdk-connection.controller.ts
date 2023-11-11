@@ -42,7 +42,7 @@ export const postSDKConnection = async (
   const { org } = getOrgFromReq(req);
   const params = req.body;
 
-  req.checkPermissions("manageEnvironments", params.project, [
+  req.checkPermissions("manageEnvironments", params.projects, [
     params.environment,
   ]);
 
@@ -92,11 +92,11 @@ export const putSDKConnection = async (
     throw new Error("Could not find SDK Connection");
   }
 
-  req.checkPermissions(
-    "manageEnvironments",
-    [connection.project, req.body.project || ""],
-    [connection.environment]
-  );
+  const projects = [...connection.projects, ...(req.body.projects || [])];
+
+  req.checkPermissions("manageEnvironments", projects, [
+    connection.environment,
+  ]);
 
   let encryptPayload = req.body.encryptPayload || false;
   const encryptionPermitted = orgHasPremiumFeature(
@@ -148,7 +148,7 @@ export const deleteSDKConnection = async (
     throw new Error("Could not find SDK Connection");
   }
 
-  req.checkPermissions("manageEnvironments", connection.project, [
+  req.checkPermissions("manageEnvironments", connection.projects, [
     connection.environment,
   ]);
 

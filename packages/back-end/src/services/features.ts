@@ -208,6 +208,12 @@ export async function refreshSDKPayloadCache(
   experimentMap?: Map<string, ExperimentInterface>,
   skipRefreshForProject?: string
 ) {
+  logger.debug(
+    `Refreshing SDK Payloads for ${organization.id}: ${JSON.stringify(
+      payloadKeys
+    )}`
+  );
+
   // Ignore any old environments which don't exist anymore
   const allowedEnvs = new Set(
     organization.settings?.environments?.map((e) => e.id) || []
@@ -222,7 +228,10 @@ export async function refreshSDKPayloadCache(
   }
 
   // If no environments are affected, we don't need to update anything
-  if (!payloadKeys.length) return;
+  if (!payloadKeys.length) {
+    logger.debug("Skipping SDK Payload refresh - no environments affected");
+    return;
+  }
 
   experimentMap =
     experimentMap || (await getAllPayloadExperiments(organization.id));
@@ -234,10 +243,12 @@ export async function refreshSDKPayloadCache(
   );
 
   // For each affected environment, generate a new SDK payload and update the cache
-  const environments = new Set(payloadKeys.map((k) => k.environment));
+  const environments = Array.from(
+    new Set(payloadKeys.map((k) => k.environment))
+  );
 
   const promises: (() => Promise<void>)[] = [];
-  for (const env in environments) {
+  for (const env of environments) {
     const featureDefinitions = generatePayload({
       features: allFeatures,
       environment: env,
@@ -252,6 +263,7 @@ export async function refreshSDKPayloadCache(
     });
 
     promises.push(async () => {
+      logger.debug(`Updating SDK Payload for ${organization.id} ${env}`);
       await updateSDKPayload({
         organization: organization.id,
         environment: env,
