@@ -6,7 +6,7 @@ import {
 } from "../models/ExperimentModel";
 import { getAllFeatures } from "../models/FeatureModel";
 import { getAffectedSDKPayloadKeys } from "../util/features";
-import { SDKPayloadChangeKey } from "../../types/sdk-payload";
+import { SDKPayloadKey } from "../../types/sdk-payload";
 import { refreshSDKPayloadCache } from "./features";
 
 export async function savedGroupUpdated(
@@ -14,8 +14,8 @@ export async function savedGroupUpdated(
   id: string
 ) {
   // Use a map to build a list of unique SDK payload keys
-  const payloadKeys: Map<string, SDKPayloadChangeKey> = new Map();
-  const addKeys = (keys: SDKPayloadChangeKey[]) =>
+  const payloadKeys: Map<string, SDKPayloadKey> = new Map();
+  const addKeys = (keys: SDKPayloadKey[]) =>
     keys.forEach((key) =>
       payloadKeys.set(key.environment + "<>" + key.project, key)
     );

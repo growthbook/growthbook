@@ -9,7 +9,7 @@ import {
 } from "../../types/feature";
 import { FeatureDefinitionWithProject } from "../../types/api";
 import { GroupMap } from "../../types/saved-group";
-import { SDKPayloadChangeKey } from "../../types/sdk-payload";
+import { SDKPayloadKey } from "../../types/sdk-payload";
 import { ExperimentInterface } from "../../types/experiment";
 import { FeatureRevisionInterface } from "../../types/feature-revision";
 import { getCurrentEnabledState } from "./scheduleRules";
@@ -153,7 +153,7 @@ export function getSDKPayloadKeys(
   environments: Set<string>,
   projects: Set<string>
 ) {
-  const keys: SDKPayloadChangeKey[] = [];
+  const keys: SDKPayloadKey[] = [];
 
   environments.forEach((e) => {
     projects.forEach((p) => {
@@ -170,7 +170,7 @@ export function getSDKPayloadKeys(
 export function getSDKPayloadKeysByDiff(
   originalFeature: FeatureInterface,
   updatedFeature: FeatureInterface
-): SDKPayloadChangeKey[] {
+): SDKPayloadKey[] {
   const environments = new Set<string>();
 
   // If the feature is archived both before and after the change, no payloads need to update
@@ -225,8 +225,8 @@ export function getSDKPayloadKeysByDiff(
 export function getAffectedSDKPayloadKeys(
   features: FeatureInterface[],
   ruleFilter?: (rule: FeatureRule) => boolean | unknown
-): SDKPayloadChangeKey[] {
-  const keys: SDKPayloadChangeKey[] = [];
+): SDKPayloadKey[] {
+  const keys: SDKPayloadKey[] = [];
 
   features.forEach((feature) => {
     const environments = getEnabledEnvironments(feature, ruleFilter);

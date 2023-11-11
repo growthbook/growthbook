@@ -2,7 +2,7 @@ import { createHmac } from "crypto";
 import Agenda, { Job } from "agenda";
 import { getFeatureDefinitions } from "../services/features";
 import { CRON_ENABLED, IS_CLOUD } from "../util/secrets";
-import { SDKPayloadChangeKey } from "../../types/sdk-payload";
+import { SDKPayloadKey } from "../../types/sdk-payload";
 import {
   findSDKConnectionById,
   findSDKConnectionsByOrganization,
@@ -130,7 +130,7 @@ export async function queueSingleProxyUpdate(
 
 export async function queueProxyUpdate(
   orgId: string,
-  payloadKeys: SDKPayloadChangeKey[]
+  payloadKeys: SDKPayloadKey[]
 ) {
   if (!CRON_ENABLED) return;
   if (!payloadKeys.length) return;

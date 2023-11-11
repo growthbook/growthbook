@@ -6,7 +6,7 @@ import { getExperimentOverrides } from "../services/organizations";
 import { getFeatureDefinitions } from "../services/features";
 import { WebhookInterface } from "../../types/webhook";
 import { CRON_ENABLED } from "../util/secrets";
-import { SDKPayloadChangeKey } from "../../types/sdk-payload";
+import { SDKPayloadKey } from "../../types/sdk-payload";
 
 const WEBHOOK_JOB_NAME = "fireWebhook";
 type WebhookJob = Job<{
@@ -121,7 +121,7 @@ export default function (ag: Agenda) {
 
 export async function queueWebhook(
   orgId: string,
-  payloadKeys: SDKPayloadChangeKey[],
+  payloadKeys: SDKPayloadKey[],
   isFeature?: boolean
 ) {
   if (!CRON_ENABLED) return;

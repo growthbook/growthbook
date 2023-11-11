@@ -25,7 +25,7 @@ import { EventNotifier } from "../events/notifiers/EventNotifier";
 import { logger } from "../util/logger";
 import { upgradeExperimentDoc } from "../util/migrations";
 import { refreshSDKPayloadCache, VisualExperiment } from "../services/features";
-import { SDKPayloadChangeKey } from "../../types/sdk-payload";
+import { SDKPayloadKey } from "../../types/sdk-payload";
 import { EventAuditUser } from "../events/event-types";
 import { FeatureInterface } from "../../types/feature";
 import { getAffectedSDKPayloadKeys } from "../util/features";
@@ -1133,7 +1133,7 @@ export function getPayloadKeysForAllEnvs(
   const environments: string[] =
     organization.settings?.environments?.map((e) => e.id) ?? [];
 
-  const keys: SDKPayloadChangeKey[] = [];
+  const keys: SDKPayloadKey[] = [];
   uniqueProjects.forEach((p) => {
     environments.forEach((e) => {
       keys.push({
@@ -1149,7 +1149,7 @@ export const getPayloadKeys = (
   organization: OrganizationInterface,
   experiment: ExperimentInterface,
   linkedFeatures?: FeatureInterface[]
-): SDKPayloadChangeKey[] => {
+): SDKPayloadKey[] => {
   // If experiment is not included in the SDK payload
   if (!includeExperimentInPayload(experiment, linkedFeatures)) {
     return [];
@@ -1161,7 +1161,7 @@ export const getPayloadKeys = (
 
   // Visual editor experiments always affect all environments
   if (experiment.hasVisualChangesets) {
-    const keys: SDKPayloadChangeKey[] = [];
+    const keys: SDKPayloadKey[] = [];
 
     environments.forEach((e) => {
       // Always update the "no-project" payload
