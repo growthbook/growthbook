@@ -338,13 +338,13 @@ async function getFeatureDefinitionsResponse({
     // Remove names from every feature rule
     for (const k in features) {
       if (features[k]?.rules) {
-        features[k]?.rules?.forEach((rule) => {
-          if (rule.meta) {
-            rule.meta = rule.meta.map((m) => omit(m, ["name"]));
-          }
-          if (rule.name) {
-            delete rule.name;
-          }
+        features[k].rules = features[k].rules?.map((rule) => {
+          return {
+            ...omit(rule, ["name", "meta"]),
+            meta: rule.meta
+              ? rule.meta.map((m) => omit(m, ["name"]))
+              : undefined,
+          };
         });
       }
     }
@@ -355,22 +355,21 @@ async function getFeatureDefinitionsResponse({
     experiments = experiments.filter((exp) =>
       projects.includes(exp.project || "")
     );
-
-    features = { ...features };
-    for (const k in features) {
-      if (!projects.includes(features[k].project || "")) {
-        delete features[k];
-      }
-    }
+    features = Object.fromEntries(
+      Object.entries(features).filter(([_, feature]) =>
+        projects.includes(feature.project || "")
+      )
+    );
   }
 
   // Remove `project` from all features/experiments
-  Object.values(features).forEach((feature) => {
-    delete feature.project;
-  });
-  experiments.forEach((experiment) => {
-    delete experiment.project;
-  });
+  features = Object.fromEntries(
+    Object.entries(features).map(([key, feature]) => [
+      key,
+      omit(feature, ["project"]),
+    ])
+  );
+  experiments = experiments.map((exp) => omit(exp, ["project"]));
 
   const hasSecureAttributes = attributes?.some((a) =>
     ["secureString", "secureString[]"].includes(a.datatype)
@@ -441,8 +440,9 @@ export async function getFeatureDefinitions({
   hashSecureAttributes,
 }: FeatureDefinitionArgs): Promise<FeatureDefinitionSDKPayload> {
   // Return cached payload from Mongo if exists
+  let updatePayloadInMongo = true;
   try {
-    const cached = await getSDKPayload({
+    const { payload: cached, shouldSave } = await getSDKPayload({
       organization,
       environment,
     });
@@ -470,6 +470,7 @@ export async function getFeatureDefinitions({
         projects: projects || [],
       });
     }
+    if (!shouldSave) updatePayloadInMongo = false;
   } catch (e) {
     logger.error(e, "Failed to fetch SDK payload from cache");
   }
@@ -523,12 +524,14 @@ export async function getFeatureDefinitions({
   });
 
   // Cache in Mongo
-  await updateSDKPayload({
-    organization,
-    environment,
-    featureDefinitions,
-    experimentsDefinitions,
-  });
+  if (updatePayloadInMongo) {
+    await updateSDKPayload({
+      organization,
+      environment,
+      featureDefinitions,
+      experimentsDefinitions,
+    });
+  }
 
   return await getFeatureDefinitionsResponse({
     features: featureDefinitions,

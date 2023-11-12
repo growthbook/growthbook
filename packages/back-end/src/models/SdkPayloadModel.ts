@@ -55,14 +55,29 @@ export async function getSDKPayload({
 }: {
   organization: string;
   environment: string;
-}): Promise<SDKPayloadInterface | null> {
+}): Promise<{ payload: SDKPayloadInterface | null; shouldSave: boolean }> {
   const doc = await SDKPayloadModel.findOne({
     organization,
     environment,
     project: "",
-    schemaVersion: LATEST_SDK_PAYLOAD_SCHEMA_VERSION,
   });
-  return doc ? toInterface(doc) : null;
+
+  // Exists and is the proper version already
+  if (doc && doc.schemaVersion === LATEST_SDK_PAYLOAD_SCHEMA_VERSION) {
+    return { payload: toInterface(doc), shouldSave: false };
+  }
+
+  // Exists, but the saved copy in Mongo is a newer version
+  // Re-generate the payload, but don't save the result in Mongo
+  // During a deploy, we have both old and new containers running at the same time
+  // This prevents the version in Mongo from constantly flipping back and forth
+  if (doc && doc.schemaVersion > LATEST_SDK_PAYLOAD_SCHEMA_VERSION) {
+    return { payload: null, shouldSave: false };
+  }
+
+  // Does not exist (or the saved copy in Mongo is an old version)
+  // Re-generate and save the result in Mongo
+  return { payload: null, shouldSave: true };
 }
 
 export async function updateSDKPayload({
