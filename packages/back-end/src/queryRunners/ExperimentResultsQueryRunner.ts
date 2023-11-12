@@ -5,8 +5,6 @@ import {
   ExperimentSnapshotHealth,
   ExperimentSnapshotInterface,
   ExperimentSnapshotSettings,
-  ExperimentSnapshotTraffic,
-  ExperimentSnapshotTrafficDimension,
 } from "../../types/experiment-snapshot";
 import { MetricInterface } from "../../types/metric";
 import { Queries, QueryPointer, QueryStatus } from "../../types/query";
@@ -17,7 +15,10 @@ import {
 } from "../models/ExperimentSnapshotModel";
 import { findSegmentById } from "../models/SegmentModel";
 import { parseDimensionId } from "../services/experiments";
-import { analyzeExperimentResults } from "../services/stats";
+import {
+  analyzeExperimentResults,
+  analyzeExperimentTraffic,
+} from "../services/stats";
 import {
   ExperimentDimension,
   ExperimentMetricQueryParams,
@@ -31,7 +32,6 @@ import {
 import { expandDenominatorMetrics } from "../util/sql";
 import { getOrganizationById } from "../services/organizations";
 import { FactTableMap } from "../models/FactTableModel";
-import { checkSrm } from "../util/stats";
 import {
   QueryRunner,
   QueryMap,
@@ -270,77 +270,11 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
     // Run health checks
     const healthQuery = queryMap.get(TRAFFIC_QUERY_NAME);
     if (healthQuery) {
-      // move somewhere else
-      const variationIdMap: { [key: string]: number } = {};
-      const variationWeights: number[] = [];
-      this.model.settings.variations.map((v, i) => {
-        variationIdMap[v.id] = i;
-        variationWeights.push(v.weight);
+      const trafficHealth = analyzeExperimentTraffic({
+        rows: healthQuery.result as ExperimentUnitsQueryResponseRows,
+        variations: this.model.settings.variations,
       });
-      const nVariations = this.model.settings.variations.length;
-      const res = healthQuery.result as ExperimentUnitsQueryResponseRows;
-      const trafficResults: ExperimentSnapshotTraffic = {
-        overall: {
-          name: "All",
-          srm: 0,
-          variationUnits: Array(nVariations).fill(0),
-        },
-        dimension: {},
-      };
-      const dimTrafficResults: {
-        [dimName: string]: {
-          [dimValue: string]: ExperimentSnapshotTrafficDimension;
-        };
-      } = {};
-      res.forEach((r) => {
-        const variationIndex = variationIdMap[r.variation];
-        const dimTraffic = dimTrafficResults[r.dimension_name];
-        if (dimTraffic) {
-          const dimValueTraffic = dimTraffic[r.dimension_value];
-          if (dimValueTraffic) {
-            dimValueTraffic.variationUnits[variationIndex] = r.units;
-          } else {
-            const trafficArray = Array(nVariations).fill(0);
-            trafficArray[variationIndex] = r.units;
-            dimTraffic[r.dimension_value] = {
-              name: r.dimension_value,
-              srm: 0,
-              variationUnits: trafficArray,
-            };
-          }
-        } else {
-          const trafficArray = Array(nVariations).fill(0);
-          trafficArray[variationIndex] = r.units;
-          dimTrafficResults[r.dimension_name] = {};
-          dimTrafficResults[r.dimension_name][r.dimension_value] = {
-            name: r.dimension_value,
-            srm: 0,
-            variationUnits: trafficArray,
-          };
-        }
-        // use date for overall because it always exists in payload
-        if (r.dimension_name === "dim_exposure_date") {
-          trafficResults.overall.variationUnits[variationIndex] += r.units;
-        }
-      });
-      trafficResults.overall.srm = checkSrm(
-        trafficResults.overall.variationUnits,
-        variationWeights
-      );
-      for (const [dimName, dimTraffic] of Object.entries(dimTrafficResults)) {
-        for (const dimValueTraffic of Object.values(dimTraffic)) {
-          dimValueTraffic.srm = checkSrm(
-            dimValueTraffic.variationUnits,
-            variationWeights
-          );
-          if (dimName in trafficResults.dimension) {
-            trafficResults.dimension[dimName].push(dimValueTraffic);
-          } else {
-            trafficResults.dimension[dimName] = [dimValueTraffic];
-          }
-        }
-      }
-      result.health = { traffic: trafficResults };
+      result.health = { traffic: trafficHealth };
     }
 
     if (analysisPromises.length > 0) {

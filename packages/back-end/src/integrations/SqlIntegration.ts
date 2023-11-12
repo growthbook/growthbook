@@ -59,7 +59,7 @@ import { ExperimentSnapshotSettings } from "../../types/experiment-snapshot";
 import { TemplateVariables } from "../../types/sql";
 import { FactTableMap } from "../models/FactTableModel";
 
-const MAX_ROWS_UNIT_AGGREGATE_QUERY = 3000;
+export const MAX_ROWS_UNIT_AGGREGATE_QUERY = 3000;
 
 export default abstract class SqlIntegration
   implements SourceIntegrationInterface {
@@ -559,11 +559,6 @@ export default abstract class SqlIntegration
     query: string
   ): Promise<ExperimentAggregateUnitsQueryResponse> {
     const { rows, statistics } = await this.runQuery(query);
-    if (rows.length === MAX_ROWS_UNIT_AGGREGATE_QUERY) {
-      throw new Error(
-        "Too many rows returned; contact admin to change default dimension settings"
-      );
-    }
     return {
       rows: rows.map((row) => {
         return {

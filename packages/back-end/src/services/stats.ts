@@ -11,6 +11,7 @@ import { ExperimentMetricAnalysis } from "../../types/stats";
 import {
   ExperimentMetricQueryResponseRows,
   ExperimentResults,
+  ExperimentUnitsQueryResponseRows,
 } from "../types/Integration";
 import {
   ExperimentReportResultDimension,
@@ -23,8 +24,11 @@ import {
   ExperimentMetricAnalysisParams,
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotSettings,
+  ExperimentSnapshotTraffic,
+  ExperimentSnapshotTrafficDimension,
 } from "../../types/experiment-snapshot";
 import { QueryMap } from "../queryRunners/QueryRunner";
+import { MAX_ROWS_UNIT_AGGREGATE_QUERY } from "../integrations/SqlIntegration";
 
 export const MAX_DIMENSIONS = 20;
 
@@ -330,4 +334,99 @@ export async function analyzeExperimentResults({
     unknownVariations: Array.from(new Set(unknownVariations)),
     dimensions,
   };
+}
+
+export function analyzeExperimentTraffic({
+  rows,
+  variations,
+}: {
+  rows: ExperimentUnitsQueryResponseRows;
+  variations: {
+    id: string;
+    weight: number;
+  }[];
+}): ExperimentSnapshotTraffic {
+  if (!rows.length || !rows) {
+    return {
+      overall: [],
+      dimension: {},
+      error: "NO_ROWS_IN_UNIT_QUERY",
+    };
+  }
+  if (rows.length == MAX_ROWS_UNIT_AGGREGATE_QUERY) {
+    return {
+      overall: [],
+      dimension: {},
+      error: "TOO_MANY_ROWS",
+    };
+  }
+
+  // build variation data to check traffic
+  const variationIdMap: { [key: string]: number } = {};
+  const variationWeights: number[] = [];
+  variations.map((v, i) => {
+    variationIdMap[v.id] = i;
+    variationWeights.push(v.weight);
+  });
+
+  // use nested objects to easily fill values as we iterate over
+  // query result
+  const dimTrafficResults: Map<
+    string,
+    Map<string, ExperimentSnapshotTrafficDimension>
+  > = new Map();
+
+  // instantiate return object here, as we can fill `overall`
+  // unit data on the first pass
+  const trafficResults: ExperimentSnapshotTraffic = {
+    overall: [
+      {
+        name: "All",
+        srm: 0,
+        variationUnits: Array(variations.length).fill(0),
+      },
+    ],
+    dimension: {},
+  };
+
+  rows.forEach((r) => {
+    const variationIndex = variationIdMap[r.variation];
+    const dimTraffic: Map<string, ExperimentSnapshotTrafficDimension> =
+      dimTrafficResults.get(r.dimension_name) ?? new Map();
+    const dimValueTraffic: ExperimentSnapshotTrafficDimension = dimTraffic.get(
+      r.dimension_value
+    ) || {
+      name: r.dimension_value,
+      srm: 0,
+      variationUnits: Array(variations.length).fill(0),
+    };
+    // assumes one row per dimension slice in the payload, use += if there will be multiple
+    dimValueTraffic.variationUnits[variationIndex] = r.units;
+
+    dimTraffic.set(r.dimension_value, dimValueTraffic);
+    dimTrafficResults.set(r.dimension_name, dimTraffic);
+
+    // use date for overall because it always exists in payload
+    if (r.dimension_name === "dim_exposure_date") {
+      trafficResults.overall[0].variationUnits[variationIndex] += r.units;
+    }
+  });
+  trafficResults.overall[0].srm = checkSrm(
+    trafficResults.overall[0].variationUnits,
+    variationWeights
+  );
+  for (const [dimName, dimTraffic] of dimTrafficResults) {
+    for (const dimValueTraffic of dimTraffic.values()) {
+      dimValueTraffic.srm = checkSrm(
+        dimValueTraffic.variationUnits,
+        variationWeights
+      );
+      if (dimName in trafficResults.dimension) {
+        trafficResults.dimension[dimName].push(dimValueTraffic);
+      } else {
+        trafficResults.dimension[dimName] = [dimValueTraffic];
+      }
+    }
+  }
+  return trafficResults;
 }
