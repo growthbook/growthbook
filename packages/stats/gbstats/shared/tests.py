@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 
-from gbstats.shared.models import Statistic, TestResult
+from gbstats.shared.models import TestResult
+from gbstats.shared.statistics import Statistic
 
 
 class BaseABTest(ABC):

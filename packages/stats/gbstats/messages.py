@@ -1,5 +1,5 @@
 from gbstats.shared.constants import StatsEngine
-from gbstats.shared.models import RegressionAdjustedStatistic, Statistic
+from gbstats.shared.statistics import RegressionAdjustedStatistic, Statistic
 
 
 RA_NOT_COMPATIBLE_WITH_BAYESIAN_ERROR = (

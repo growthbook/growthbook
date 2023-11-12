@@ -900,6 +900,10 @@ export default abstract class SqlIntegration
 
     const exposureQuery = this.getExposureQuery(settings.exposureQueryId || "");
 
+
+    // TODO if clustered, find cluster ID type
+    // TODO throw error if not 1:m
+
     // Get any required identity join queries
     const { baseIdType, idJoinMap, idJoinSQL } = this.getIdentitiesCTE(
       [
@@ -915,6 +919,7 @@ export default abstract class SqlIntegration
       exposureQuery.userIdType,
       settings.experimentId
     );
+    //const clustered = !!settings.clusterIdType;
 
     const dimensionCol = this.getDimensionColumn(baseIdType, dimension);
 
@@ -929,10 +934,10 @@ export default abstract class SqlIntegration
     const experimentDimension =
       dimension?.type === "experiment" ? dimension.id : null;
 
+    // Only used for activation metric, which ignores the conversion window
+    // to be activated if you use experiment duration
     let ignoreConversionEnd =
       settings.attributionModel === "experimentDuration";
-
-    // If the fact metric doesn't have a conversion window, always treat like Experiment Duration
     if (
       activationMetric &&
       isFactMetric(activationMetric) &&
@@ -1232,6 +1237,7 @@ export default abstract class SqlIntegration
         `${timestampColumn} <= ${this.toTimestamp(endDate)}`
       );
     }
+    const clusterIdType = "anonymous_id";
 
     return format(
       `-- ${metric.name} (${
@@ -1323,10 +1329,11 @@ export default abstract class SqlIntegration
       }
       , __userMetricJoin as (
         SELECT
-          d.variation AS variation,
-          d.dimension AS dimension,
-          ${cumulativeDate ? `dr.day AS day,` : ""}
-          d.${baseIdType} AS ${baseIdType},
+          d.variation AS variation
+          , d.dimension AS dimension
+          ${cumulativeDate ? `, dr.day AS day` : ""}
+          , d.${baseIdType} AS ${baseIdType}
+          ${clusterIdType ? `, m.${clusterIdType} AS ${clusterIdType}` : ""}
           ${this.addCaseWhenTimeFilter(
             "m.value",
             metric,
@@ -1353,7 +1360,8 @@ export default abstract class SqlIntegration
           variation,
           dimension,
           ${cumulativeDate ? "day," : ""}
-          ${baseIdType},
+          MAX(${baseIdType}) as ,
+          ${clusterIdType ? `, m.${clusterIdType} AS ${clusterIdType}` : ""}
           ${this.getAggregateMetricColumn(metric)} as value
         FROM
           __userMetricJoin
@@ -1361,7 +1369,7 @@ export default abstract class SqlIntegration
           variation,
           dimension,
           ${cumulativeDate ? "day," : ""}
-          ${baseIdType}
+          ${clusterIdType ? clusterIdType : baseIdType}
       )
       ${
         isPercentileCapped
@@ -2033,6 +2041,12 @@ AND event_name = '${eventName}'`,
         }
       }
     }
+    // TODO consider how this works with builder metrics
+    let clusterIdCol = null;
+    const clusterIdType = "anonymous_id";
+    if (!!clusterIdType) {
+      clusterIdCol == `i.${clusterIdType}`;
+    }
 
     // BQ datetime cast for SELECT statements (do not use for where)
     const timestampDateTimeColumn = this.castUserDateCol(cols.timestamp);
@@ -2080,9 +2094,10 @@ AND event_name = '${eventName}'`,
 
     return `-- Metric (${metric.name})
       SELECT
-        ${userIdCol} as ${baseIdType},
-        ${cols.value} as value,
-        ${timestampDateTimeColumn} as timestamp
+        ${userIdCol} as ${baseIdType}
+        ${join && clusterIdType ? `, ${clusterIdCol}` : ""}
+        , ${cols.value} as value
+        , ${timestampDateTimeColumn} as timestamp
       FROM
         ${
           queryFormat === "sql" || queryFormat === "fact"

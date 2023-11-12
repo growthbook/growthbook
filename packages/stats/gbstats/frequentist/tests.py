@@ -10,9 +10,9 @@ from gbstats.shared.constants import DifferenceType
 from gbstats.shared.models import (
     BaseConfig,
     FrequentistTestResult,
-    Statistic,
     Uplift,
 )
+from gbstats.shared.statistics import Statistic
 from gbstats.shared.tests import BaseABTest
 
 

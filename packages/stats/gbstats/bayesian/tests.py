@@ -9,11 +9,13 @@ from gbstats.bayesian.dists import Beta, Norm
 from gbstats.shared.models import (
     BaseConfig,
     BayesianTestResult,
+    Uplift,
+)
+from gbstats.shared.statistics import (
     ProportionStatistic,
     RatioStatistic,
     SampleMeanStatistic,
     Statistic,
-    Uplift,
 )
 from gbstats.shared.tests import BaseABTest
 from gbstats.shared.constants import DifferenceType

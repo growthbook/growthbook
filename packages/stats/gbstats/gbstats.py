@@ -18,12 +18,14 @@ from gbstats.frequentist.tests import (
 )
 from gbstats.shared.constants import StatsEngine
 from gbstats.shared.models import (
-    compute_theta,
     BayesianTestResult,
     FrequentistTestResult,
+)
+from gbstats.shared.statistics import (
+    compute_theta,
     ProportionStatistic,
-    SampleMeanStatistic,
     RatioStatistic,
+    SampleMeanStatistic,
     RegressionAdjustedStatistic,
     Statistic,
 )
@@ -41,6 +43,8 @@ SUM_COLS = [
     "covariate_sum",
     "covariate_sum_squares",
     "main_covariate_sum_product",
+    "sum_cluster_sizes_squared",
+    "cluster_sizes_cluster_sums_sum_of_products",
 ]
 
 
@@ -65,6 +69,8 @@ def diff_for_daily_time_series(df: pd.DataFrame) -> pd.DataFrame:
             "denominator_sum_squares",
             "main_denominator_sum_product",
             "main_covariate_sum_product",
+            "sum_cluster_sizes_squared",
+            "cluster_sizes_cluster_sums_sum_of_products",
         ]
         if x in dfc.columns
     ]
@@ -307,8 +313,10 @@ def format_results(df, baseline_index=0):
     return results
 
 
-def variation_statistic_from_metric_row(row: pd.Series, prefix: str) -> Statistic:
+def variation_statistic_from_metric_row(row: pd.Series, prefix: str, cluster: bool) -> Statistic:
     statistic_type = row["statistic_type"]
+    if cluster:
+        return base_statistic_from_metric_row(row, prefix, "main")
     if statistic_type == "ratio":
         return RatioStatistic(
             m_statistic=base_statistic_from_metric_row(row, prefix, "main"),
@@ -324,7 +332,7 @@ def variation_statistic_from_metric_row(row: pd.Series, prefix: str) -> Statisti
             pre_statistic=base_statistic_from_metric_row(row, prefix, "covariate"),
             post_pre_sum_of_products=row[f"{prefix}_main_covariate_sum_product"],
             n=row[f"{prefix}_users"],
-            # Theta should be overriden with correct value later
+            # Theta will be overriden with correct value later
             theta=0,
         )
     else:
