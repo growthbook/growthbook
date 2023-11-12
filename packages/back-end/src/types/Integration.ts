@@ -98,31 +98,29 @@ export type ProcessedDimensions = {
   activationDimension: ActivationDimension | null;
 };
 
-export type ExperimentMetricQueryParams = {
-  settings: ExperimentSnapshotSettings;
-  metric: ExperimentMetricInterface;
-  activationMetric: ExperimentMetricInterface | null;
-  denominatorMetrics: ExperimentMetricInterface[];
-  factTableMap: FactTableMap;
-  dimension: Dimension | null;
-  segment: SegmentInterface | null;
-  useUnitsTable: boolean;
-  unitsTableFullName?: string;
-};
-
-export type ExperimentUnitsQueryParams = {
+interface ExperimentBaseQueryParams {
   settings: ExperimentSnapshotSettings;
   activationMetric: ExperimentMetricInterface | null;
   factTableMap: FactTableMap;
   dimensions: Dimension[];
   segment: SegmentInterface | null;
   unitsTableFullName?: string;
-  includeIdJoins: boolean;
-};
+}
 
-export type ExperimentAggregateUnitsQueryParams = ExperimentUnitsQueryParams & {
+export interface ExperimentUnitsQueryParams extends ExperimentBaseQueryParams {
+  includeIdJoins: boolean;
+}
+
+export interface ExperimentMetricQueryParams extends ExperimentBaseQueryParams {
+  metric: ExperimentMetricInterface;
+  denominatorMetrics: ExperimentMetricInterface[];
   useUnitsTable: boolean;
-};
+}
+
+export interface ExperimentAggregateUnitsQueryParams
+  extends ExperimentBaseQueryParams {
+  useUnitsTable: boolean;
+}
 
 export type PastExperimentParams = {
   from: Date;

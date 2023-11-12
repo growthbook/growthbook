@@ -160,7 +160,6 @@ export const startExperimentResultQueries = async (
     });
     queries.push(unitQuery);
   }
-
   const promises = selectedMetrics.map(async (m) => {
     const denominatorMetrics: MetricInterface[] = [];
     if (!isFactMetric(m) && m.denominator) {
@@ -176,7 +175,7 @@ export const startExperimentResultQueries = async (
     const queryParams: ExperimentMetricQueryParams = {
       activationMetric,
       denominatorMetrics,
-      dimension: dimensionObj,
+      dimensions: dimensionObj ? [dimensionObj] : [],
       metric: m,
       segment: segmentObj,
       settings: snapshotSettings,
@@ -194,19 +193,23 @@ export const startExperimentResultQueries = async (
       })
     );
   });
+
   await Promise.all(promises);
+
   // TODO add to only run if enabled at datasource level
-  const trafficQuery = await startQuery({
-    name: TRAFFIC_QUERY_NAME,
-    query: integration.getExperimentAggregateUnitsQuery({
-      ...unitQueryParams,
-      useUnitsTable: !!unitQuery,
-    }),
-    dependencies: unitQuery ? [unitQuery.query] : [],
-    run: (query) => integration.runExperimentAggregateUnitsQuery(query),
-    process: (rows) => rows,
-  });
-  queries.push(trafficQuery);
+  if (!dimensionObj) {
+    const trafficQuery = await startQuery({
+      name: TRAFFIC_QUERY_NAME,
+      query: integration.getExperimentAggregateUnitsQuery({
+        ...unitQueryParams,
+        useUnitsTable: !!unitQuery,
+      }),
+      dependencies: unitQuery ? [unitQuery.query] : [],
+      run: (query) => integration.runExperimentAggregateUnitsQuery(query),
+      process: (rows) => rows,
+    });
+    queries.push(trafficQuery);
+  }
 
   return queries;
 };

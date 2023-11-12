@@ -56,7 +56,7 @@ import {
 } from "../util/sql";
 import { formatInformationSchema } from "../util/informationSchemas";
 import { ExperimentSnapshotSettings } from "../../types/experiment-snapshot";
-import { TemplateVariables } from "../../types/sql";
+import { SQLVars, TemplateVariables } from "../../types/sql";
 import { FactTableMap } from "../models/FactTableModel";
 
 export const MAX_ROWS_UNIT_AGGREGATE_QUERY = 3000;
@@ -404,6 +404,7 @@ export default abstract class SqlIntegration
 
     const aggregate = this.getAggregateMetricColumn(params.metric);
 
+    // TODO query is broken if segment has template variables
     return format(
       `-- ${params.name} - ${params.metric.name} Metric
       WITH
@@ -758,7 +759,7 @@ export default abstract class SqlIntegration
       )})`;
     } else if (dimension.type === "user") {
       return `COALESCE(MAX(${this.castToString(
-        "d.value"
+        `__dim_unit_${dimension.dimension.id}.value`
       )}),'${missingDimString}')`;
     } else if (dimension.type === "date") {
       return `MIN(${this.formatDate(this.dateTrunc("e.timestamp"))})`;
@@ -878,23 +879,20 @@ export default abstract class SqlIntegration
       activationDimension: null,
     };
     dimensions.forEach((dimension) => {
-      if (dimension?.type === "activation" && !!activationMetric) {
-        processedDimensions.activationDimension = { type: "activation" };
-      } else {
-        if (dimension?.type === "user") {
-          // Replace any placeholders in the user defined dimension SQL
-          dimension.dimension.sql = compileSqlTemplate(
-            dimension.dimension.sql,
-            {
-              startDate: settings.startDate,
-              endDate: settings.endDate,
-              experimentId: settings.experimentId,
-            }
-          );
-          processedDimensions.unitDimensions.push(dimension);
-        } else if (dimension?.type === "experiment") {
-          processedDimensions.experimentDimensions.push(dimension);
+      if (dimension?.type === "activation") {
+        if (activationMetric) {
+          processedDimensions.activationDimension = { type: "activation" };
         }
+      } else if (dimension?.type === "user") {
+        // Replace any placeholders in the user defined dimension SQL
+        dimension.dimension.sql = compileSqlTemplate(dimension.dimension.sql, {
+          startDate: settings.startDate,
+          endDate: settings.endDate,
+          experimentId: settings.experimentId,
+        });
+        processedDimensions.unitDimensions.push(dimension);
+      } else if (dimension?.type === "experiment") {
+        processedDimensions.experimentDimensions.push(dimension);
       }
     });
     return processedDimensions;
@@ -953,15 +951,6 @@ export default abstract class SqlIntegration
       activationMetric
     );
 
-    // Replace any placeholders in the segment SQL
-    if (segment?.sql) {
-      segment.sql = compileSqlTemplate(segment.sql, {
-        startDate: settings.startDate,
-        endDate: settings.endDate,
-        experimentId: settings.experimentId,
-      });
-    }
-
     const exposureQuery = this.getExposureQuery(settings.exposureQueryId || "");
 
     // Get any required identity join queries
@@ -996,7 +985,6 @@ export default abstract class SqlIntegration
     ) {
       ignoreConversionEnd = true;
     }
-
     return `
     ${params.includeIdJoins ? idJoinSQL : ""}
     __rawExperiment AS (
@@ -1050,18 +1038,24 @@ export default abstract class SqlIntegration
         ? `, __segment as (${this.getSegmentCTE(
             segment,
             baseIdType,
-            idJoinMap
+            idJoinMap,
+            {
+              startDate: settings.startDate,
+              endDate: settings.endDate,
+              experimentId: settings.experimentId,
+            }
           )})`
         : ""
     }
     ${unitDimensions
-      .map((d) => {
-        `, __dim_unit_${d.dimension.id} as (${this.getDimensionCTE(
-          d.dimension,
-          baseIdType,
-          idJoinMap
-        )})`;
-      })
+      .map(
+        (d) =>
+          `, __dim_unit_${d.dimension.id} as (${this.getDimensionCTE(
+            d.dimension,
+            baseIdType,
+            idJoinMap
+          )})`
+      )
       .join("\n")}
     , __experimentUnits AS (
       -- One row per user
@@ -1113,7 +1107,7 @@ export default abstract class SqlIntegration
         ${unitDimensions
           .map(
             (d) => `
-            LEFT JOIN __dim_unit_${d.dimension.id} ud_${d.dimension.id} ON ( ud_${d.dimension.id}.${baseIdType} = e.${baseIdType})
+            LEFT JOIN __dim_unit_${d.dimension.id} __dim_unit_${d.dimension.id} ON ( __dim_unit_${d.dimension.id}.${baseIdType} = e.${baseIdType})
           `
           )
           .join("\n")}
@@ -1131,13 +1125,7 @@ export default abstract class SqlIntegration
   getExperimentAggregateUnitsQuery(
     params: ExperimentAggregateUnitsQueryParams
   ): string {
-    const {
-      activationMetric,
-      settings,
-      segment,
-      factTableMap,
-      useUnitsTable,
-    } = params;
+    const { activationMetric, settings, factTableMap, useUnitsTable } = params;
 
     // Replace any placeholders in the user defined dimension SQL
     const { experimentDimensions } = this.processDimensions(
@@ -1146,23 +1134,16 @@ export default abstract class SqlIntegration
       activationMetric
     );
 
-    // Replace any placeholders in the segment SQL
-    if (segment?.sql) {
-      segment.sql = compileSqlTemplate(segment.sql, {
-        startDate: settings.startDate,
-        endDate: settings.endDate,
-        experimentId: settings.experimentId,
-      });
-    }
     const exposureQuery = this.getExposureQuery(settings.exposureQueryId || "");
 
     // Get any required identity join queries
     const idTypeObjects = [[exposureQuery.userIdType]];
     // add idTypes usually handled in units query here in the case where
     // we don't have a separate table for the units query
+    // then for this query we just need the activation metric for activation
+    // dimensions
     if (!useUnitsTable) {
       idTypeObjects.push(
-        segment ? [segment.userIdType || "user_id"] : [],
         activationMetric ? getUserIdTypes(activationMetric, factTableMap) : []
       );
     }
@@ -1175,7 +1156,7 @@ export default abstract class SqlIntegration
     );
 
     return format(
-      `-- Aggregate Units Query
+      `-- Traffic Query for Health Tab
     WITH
       ${idJoinSQL}
       ${
@@ -1213,7 +1194,14 @@ export default abstract class SqlIntegration
         ...experimentDimensions.map((d) => `dim_exp_${d.id}`),
         ...(activationMetric ? ["dim_activated"] : []),
       ]
-        .map((d) => this.getUnitCountCTE(d))
+        .map((d) =>
+          this.getUnitCountCTE(
+            d,
+            activationMetric && d !== "dim_activated"
+              ? "WHERE dim_activated = 'Activated'"
+              : ""
+          )
+        )
         .join("\nUNION ALL\n")}
       LIMIT ${MAX_ROWS_UNIT_AGGREGATE_QUERY}
     `,
@@ -1221,17 +1209,19 @@ export default abstract class SqlIntegration
     );
   }
 
-  getUnitCountCTE(dimensionColumn: string): string {
-    return `SELECT
+  getUnitCountCTE(dimensionColumn: string, whereClause: string): string {
+    return ` -- ${dimensionColumn}
+    (SELECT
       d.variation AS variation
       , d.${dimensionColumn} as dimension_value
       , MAX('${dimensionColumn}') as dimension_name
       , COUNT(*) AS units
     FROM
       __distinctUnits d
+    ${whereClause}
     GROUP BY
       d.variation
-      , d.${dimensionColumn}`;
+      , d.${dimensionColumn})`;
   }
 
   getExperimentMetricQuery(params: ExperimentMetricQueryParams): string {
@@ -1266,25 +1256,12 @@ export default abstract class SqlIntegration
     this.applyMetricOverrides(metric, settings);
     denominatorMetrics.forEach((m) => this.applyMetricOverrides(m, settings));
 
-    const dimension = params.dimension;
     // Replace any placeholders in the user defined dimension SQL
-    if (dimension?.type === "user") {
-      dimension.dimension.sql = compileSqlTemplate(dimension.dimension.sql, {
-        startDate: settings.startDate,
-        endDate: settings.endDate,
-        experimentId: settings.experimentId,
-        templateVariables: getMetricTemplateVariables(metric, factTableMap),
-      });
-    }
-    // Replace any placeholders in the segment SQL
-    if (segment?.sql) {
-      segment.sql = compileSqlTemplate(segment.sql, {
-        startDate: settings.startDate,
-        endDate: settings.endDate,
-        experimentId: settings.experimentId,
-        templateVariables: getMetricTemplateVariables(metric, factTableMap),
-      });
-    }
+    const { unitDimensions } = this.processDimensions(
+      params.dimensions,
+      settings,
+      activationMetric
+    );
 
     const exposureQuery = this.getExposureQuery(settings.exposureQueryId || "");
 
@@ -1296,8 +1273,7 @@ export default abstract class SqlIntegration
     const ratioMetric = isRatioMetric(metric, denominator);
     const funnelMetric = isFunnelMetric(metric, denominator);
 
-    const cumulativeDate =
-      dimension?.type === "datecumulative" || dimension?.type === "datedaily";
+    const cumulativeDate = false; // TODO enable flag for time series
 
     // redundant checks to make sure configuration makes sense and we only build expensive queries for the cases
     // where RA is actually possible
@@ -1365,9 +1341,7 @@ export default abstract class SqlIntegration
     // we don't have a separate table for the units query
     if (!params.useUnitsTable) {
       idTypeObjects.push(
-        dimension?.type === "user"
-          ? [dimension.dimension.userIdType || "user_id"]
-          : [],
+        ...unitDimensions.map((d) => [d.dimension.userIdType || "user_id"]),
         segment ? [segment.userIdType || "user_id"] : [],
         activationMetric ? getUserIdTypes(activationMetric, factTableMap) : []
       );
@@ -1395,13 +1369,21 @@ export default abstract class SqlIntegration
       initialConversionWindowHours + initialConversionDelayHours
     );
 
+    if (params.dimensions.length > 1) {
+      throw new Error(
+        "Multiple dimensions not supported in metric analysis yet. Please contact GrowthBook."
+      );
+    }
+    const dimension = params.dimensions[0];
     let dimensionCol = "'All'";
     if (dimension?.type === "experiment") {
       dimensionCol = `dim_exp_${dimension.id}`;
     } else if (dimension?.type === "user") {
-      dimensionCol = `dim_exp_${dimension.dimension.id}`;
+      dimensionCol = `dim_unit_${dimension.dimension.id}`;
     } else if (dimension?.type === "date") {
-      dimensionCol = `dim_exposure_date`;
+      dimensionCol = `${this.formatDate(
+        this.dateTrunc("first_exposure_timestamp")
+      )}`;
     } else if (dimension?.type === "activation") {
       dimensionCol = this.ifElse(
         `first_activation_timestamp IS NULL`,
@@ -1435,7 +1417,7 @@ export default abstract class SqlIntegration
         !params.useUnitsTable
           ? `${this.getExperimentUnitsQuery({
               ...params,
-              dimensions: params.dimension ? [params.dimension] : [],
+              dimensions: params.dimensions,
               includeIdJoins: false,
             })},`
           : ""
@@ -2327,8 +2309,13 @@ AND event_name = '${eventName}'`,
   private getSegmentCTE(
     segment: SegmentInterface,
     baseIdType: string,
-    idJoinMap: Record<string, string>
+    idJoinMap: Record<string, string>,
+    sqlVars?: SQLVars
   ) {
+    // replace template variables
+    const segmentSql = sqlVars
+      ? compileSqlTemplate(segment.sql, sqlVars)
+      : segment.sql;
     const dateCol = this.castUserDateCol("s.date");
 
     const userIdType = segment.userIdType || "user_id";
@@ -2341,7 +2328,7 @@ AND event_name = '${eventName}'`,
         ${dateCol} as date
       FROM
         (
-          ${segment.sql}
+          ${segmentSql}
         ) s
         JOIN ${idJoinMap[userIdType]} i ON ( i.${userIdType} = s.${userIdType} )
       `;
@@ -2354,7 +2341,7 @@ AND event_name = '${eventName}'`,
         ${dateCol} as date
       FROM
         (
-          ${segment.sql}
+          ${segmentSql}
         ) s`;
     }
 

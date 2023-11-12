@@ -346,7 +346,7 @@ export function analyzeExperimentTraffic({
     weight: number;
   }[];
 }): ExperimentSnapshotTraffic {
-  if (!rows.length || !rows) {
+  if (!rows || !rows.length) {
     return {
       overall: [],
       dimension: {},
@@ -406,7 +406,7 @@ export function analyzeExperimentTraffic({
     dimTraffic.set(r.dimension_value, dimValueTraffic);
     dimTrafficResults.set(r.dimension_name, dimTraffic);
 
-    // use date for overall because it always exists in payload
+    // use activated users if available, otherwise use date
     if (r.dimension_name === "dim_exposure_date") {
       trafficResults.overall[0].variationUnits[variationIndex] += r.units;
     }
