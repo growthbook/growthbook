@@ -10,11 +10,10 @@ import {
 } from "../../types/sdk-payload";
 
 // Increment this if we change the payload contents in a backwards-incompatible way
-export const LATEST_SDK_PAYLOAD_SCHEMA_VERSION = 2;
+export const LATEST_SDK_PAYLOAD_SCHEMA_VERSION = 1;
 
 const sdkPayloadSchema = new mongoose.Schema({
   organization: String,
-  project: String,
   environment: String,
   dateUpdated: Date,
   deployed: Boolean,
@@ -22,13 +21,13 @@ const sdkPayloadSchema = new mongoose.Schema({
   contents: String,
 });
 sdkPayloadSchema.index(
-  { organization: 1, project: 1, environment: 1 },
+  { organization: 1, environment: 1, schemaVersion: 1 },
   { unique: true }
 );
 type SDKPayloadDocument = mongoose.Document & SDKStringifiedPayloadInterface;
 
 const SDKPayloadModel = mongoose.model<SDKStringifiedPayloadInterface>(
-  "SdkPayload",
+  "SdkPayloadCache",
   sdkPayloadSchema
 );
 
@@ -55,29 +54,14 @@ export async function getSDKPayload({
 }: {
   organization: string;
   environment: string;
-}): Promise<{ payload: SDKPayloadInterface | null; shouldSave: boolean }> {
+}): Promise<SDKPayloadInterface | null> {
   const doc = await SDKPayloadModel.findOne({
     organization,
     environment,
-    project: "",
+    schemaVersion: LATEST_SDK_PAYLOAD_SCHEMA_VERSION,
   });
 
-  // Exists and is the proper version already
-  if (doc && doc.schemaVersion === LATEST_SDK_PAYLOAD_SCHEMA_VERSION) {
-    return { payload: toInterface(doc), shouldSave: false };
-  }
-
-  // Exists, but the saved copy in Mongo is a newer version
-  // Re-generate the payload, but don't save the result in Mongo
-  // During a deploy, we have both old and new containers running at the same time
-  // This prevents the version in Mongo from constantly flipping back and forth
-  if (doc && doc.schemaVersion > LATEST_SDK_PAYLOAD_SCHEMA_VERSION) {
-    return { payload: null, shouldSave: false };
-  }
-
-  // Does not exist (or the saved copy in Mongo is an old version)
-  // Re-generate and save the result in Mongo
-  return { payload: null, shouldSave: true };
+  return doc ? toInterface(doc) : null;
 }
 
 export async function updateSDKPayload({
@@ -99,14 +83,13 @@ export async function updateSDKPayload({
   await SDKPayloadModel.updateOne(
     {
       organization,
-      project: "",
       environment,
+      schemaVersion: LATEST_SDK_PAYLOAD_SCHEMA_VERSION,
     },
     {
       $set: {
         dateUpdated: new Date(),
         deployed: false,
-        schemaVersion: LATEST_SDK_PAYLOAD_SCHEMA_VERSION,
         // Contents need to be serialized since they may contain invalid Mongo field keys
         contents: JSON.stringify(contents),
       },

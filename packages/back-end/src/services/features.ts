@@ -440,9 +440,8 @@ export async function getFeatureDefinitions({
   hashSecureAttributes,
 }: FeatureDefinitionArgs): Promise<FeatureDefinitionSDKPayload> {
   // Return cached payload from Mongo if exists
-  let updatePayloadInMongo = true;
   try {
-    const { payload: cached, shouldSave } = await getSDKPayload({
+    const cached = await getSDKPayload({
       organization,
       environment,
     });
@@ -470,7 +469,6 @@ export async function getFeatureDefinitions({
         projects: projects || [],
       });
     }
-    if (!shouldSave) updatePayloadInMongo = false;
   } catch (e) {
     logger.error(e, "Failed to fetch SDK payload from cache");
   }
@@ -524,14 +522,12 @@ export async function getFeatureDefinitions({
   });
 
   // Cache in Mongo
-  if (updatePayloadInMongo) {
-    await updateSDKPayload({
-      organization,
-      environment,
-      featureDefinitions,
-      experimentsDefinitions,
-    });
-  }
+  await updateSDKPayload({
+    organization,
+    environment,
+    featureDefinitions,
+    experimentsDefinitions,
+  });
 
   return await getFeatureDefinitionsResponse({
     features: featureDefinitions,

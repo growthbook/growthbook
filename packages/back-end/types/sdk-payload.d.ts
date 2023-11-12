@@ -33,7 +33,6 @@ type VariationRange = [number, number];
 
 export interface SDKPayloadInterface {
   organization: string;
-  project: string;
   environment: string;
   dateUpdated: Date;
   deployed: boolean;
