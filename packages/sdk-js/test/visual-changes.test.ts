@@ -342,7 +342,7 @@ describe("Auto experiments", () => {
       url: "https://example.com",
     });
 
-    // Changes should not be applied right away for the first page
+    // Changes should be applied right away for the first page
     await sleep();
     expect(document.body.innerHTML).toEqual("<h1>page1</h1>");
 
@@ -350,6 +350,7 @@ describe("Auto experiments", () => {
     document.body.innerHTML = "<h1>new title</h1>";
     gb.setURL("https://example.com/page2");
 
+    // Changes should be applied to the second page
     await sleep();
     expect(document.body.innerHTML).toEqual("<h1>page2</h1>");
 
@@ -357,6 +358,7 @@ describe("Auto experiments", () => {
     document.body.innerHTML = "<h1>another title</h1>";
     gb.setURL("https://example.com/page3");
 
+    // The experiment should be reverted and the navigated page title should be live
     await sleep();
     expect(document.body.innerHTML).toEqual("<h1>another title</h1>");
 
