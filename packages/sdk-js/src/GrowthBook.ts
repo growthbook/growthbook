@@ -74,9 +74,10 @@ export class GrowthBook<
   private _forcedFeatureValues: Map<string, any>;
   private _attributeOverrides: Attributes;
   private _activeAutoExperiments: Map<
-    string,
+    AutoExperiment,
     { valueHash: string; undo: () => void }
   >;
+  private _triggeredExpKeys: Set<string>;
   private _loadFeaturesCalled: boolean;
 
   constructor(context?: Context) {
@@ -97,6 +98,7 @@ export class GrowthBook<
     this._forcedFeatureValues = new Map();
     this._attributeOverrides = {};
     this._activeAutoExperiments = new Map();
+    this._triggeredExpKeys = new Set();
     this._loadFeaturesCalled = false;
 
     if (context.remoteEval) {
@@ -375,6 +377,7 @@ export class GrowthBook<
       exp.undo();
     });
     this._activeAutoExperiments.clear();
+    this._triggeredExpKeys.clear();
   }
 
   public setRenderer(renderer: () => void) {
@@ -399,22 +402,25 @@ export class GrowthBook<
   }
 
   public triggerExperiment(key: string) {
+    this._triggeredExpKeys.add(key);
     if (!this._ctx.experiments) return null;
-    const exp = this._ctx.experiments.find((exp) => exp.key === key);
-    if (!exp || !exp.manual) return null;
-    return this._runAutoExperiment(exp, true);
+    const experiments = this._ctx.experiments.filter((exp) => exp.key === key);
+    experiments.forEach((exp) => {
+      if (!exp.manual) return null;
+      this._runAutoExperiment(exp);
+    });
   }
 
-  private _runAutoExperiment(
-    experiment: AutoExperiment,
-    forceManual?: boolean,
-    forceRerun?: boolean
-  ) {
-    const key = experiment.key;
-    const existing = this._activeAutoExperiments.get(key);
+  private _runAutoExperiment(experiment: AutoExperiment, forceRerun?: boolean) {
+    const existing = this._activeAutoExperiments.get(experiment);
 
     // If this is a manual experiment and it's not already running, skip
-    if (experiment.manual && !forceManual && !existing) return null;
+    if (
+      experiment.manual &&
+      !this._triggeredExpKeys.has(experiment.key) &&
+      !existing
+    )
+      return null;
 
     // Run the experiment
     const result = this.run(experiment);
@@ -433,13 +439,13 @@ export class GrowthBook<
     }
 
     // Undo any existing changes
-    if (existing) this._undoActiveAutoExperiment(key);
+    if (existing) this._undoActiveAutoExperiment(experiment);
 
     // Apply new changes
     if (result.inExperiment) {
       const undo = this._applyDOMChanges(result.value);
       if (undo) {
-        this._activeAutoExperiments.set(experiment.key, {
+        this._activeAutoExperiments.set(experiment, {
           undo,
           valueHash,
         });
@@ -449,11 +455,11 @@ export class GrowthBook<
     return result;
   }
 
-  private _undoActiveAutoExperiment(key: string) {
-    const exp = this._activeAutoExperiments.get(key);
-    if (exp) {
-      exp.undo();
-      this._activeAutoExperiments.delete(key);
+  private _undoActiveAutoExperiment(exp: AutoExperiment) {
+    const data = this._activeAutoExperiments.get(exp);
+    if (data) {
+      data.undo();
+      this._activeAutoExperiments.delete(exp);
     }
   }
 
@@ -461,7 +467,7 @@ export class GrowthBook<
     const experiments = this._ctx.experiments || [];
 
     // Stop any experiments that are no longer defined
-    const keys = new Set(experiments.map((e) => e.key));
+    const keys = new Set(experiments);
     this._activeAutoExperiments.forEach((v, k) => {
       if (!keys.has(k)) {
         v.undo();
@@ -471,7 +477,7 @@ export class GrowthBook<
 
     // Re-run all new/updated experiments
     experiments.forEach((exp) => {
-      this._runAutoExperiment(exp, false, forceRerun);
+      this._runAutoExperiment(exp, forceRerun);
     });
   }
 
