@@ -293,7 +293,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
     <PagedModal
       header={header}
       close={onClose}
-      docSection="experiments"
+      docSection="experimentConfiguration"
       submit={onSubmit}
       cta={"Save"}
       closeCta="Cancel"

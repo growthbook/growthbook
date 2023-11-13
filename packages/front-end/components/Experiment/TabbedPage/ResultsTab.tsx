@@ -1,4 +1,7 @@
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import {
+  ExperimentInterfaceStringDates,
+  LinkedFeatureInfo,
+} from "back-end/types/experiment";
 import { getScopedSettings } from "shared/settings";
 import { useMemo, useState } from "react";
 import {
@@ -12,6 +15,7 @@ import { VisualChangesetInterface } from "back-end/types/visual-changeset";
 import { SDKConnectionInterface } from "back-end/types/sdk-connection";
 import Link from "next/link";
 import { useRouter } from "next/router";
+import { DifferenceType } from "back-end/types/stats";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import useOrgSettings from "@/hooks/useOrgSettings";
@@ -26,7 +30,7 @@ import AnalysisForm from "../AnalysisForm";
 import ExperimentReportsList from "../ExperimentReportsList";
 import { useSnapshot } from "../SnapshotProvider";
 import AnalysisSettingsSummary from "./AnalysisSettingsSummary";
-import { ExperimentTab, LinkedFeature } from ".";
+import { ExperimentTab } from ".";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
@@ -37,7 +41,7 @@ export interface Props {
   editPhases?: (() => void) | null;
   visualChangesets: VisualChangesetInterface[];
   editTargeting?: (() => void) | null;
-  linkedFeatures: LinkedFeature[];
+  linkedFeatures: LinkedFeatureInfo[];
   setTab: (tab: ExperimentTab) => void;
   connections: SDKConnectionInterface[];
   isTabActive: boolean;
@@ -60,6 +64,9 @@ export default function ResultsTab({
   safeToEdit,
 }: Props) {
   const [baselineRow, setBaselineRow] = useState<number>(0);
+  const [differenceType, setDifferenceType] = useState<DifferenceType>(
+    "relative"
+  );
   const [variationFilter, setVariationFilter] = useState<number[]>([]);
   const [metricFilter, setMetricFilter] = useLocalStorage<ResultsMetricFilters>(
     `experiment-page__${experiment.id}__metric_filter`,
@@ -224,6 +231,7 @@ export default function ResultsTab({
             setVariationFilter={(v: number[]) => setVariationFilter(v)}
             baselineRow={baselineRow}
             setBaselineRow={(b: number) => setBaselineRow(b)}
+            setDifferenceType={setDifferenceType}
           />
           {experiment.status === "draft" ? (
             <div className="mx-3">
@@ -319,6 +327,8 @@ export default function ResultsTab({
                   setVariationFilter={setVariationFilter}
                   baselineRow={baselineRow}
                   setBaselineRow={setBaselineRow}
+                  differenceType={differenceType}
+                  setDifferenceType={setDifferenceType}
                   metricFilter={metricFilter}
                   setMetricFilter={setMetricFilter}
                 />

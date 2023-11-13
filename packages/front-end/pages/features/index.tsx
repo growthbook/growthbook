@@ -2,11 +2,11 @@ import Link from "next/link";
 import React, { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/router";
 import { useFeature } from "@growthbook/growthbook-react";
-import { FaExclamationTriangle } from "react-icons/fa";
 import { FeatureInterface, FeatureRule } from "back-end/types/feature";
 import { ago, datetime } from "shared/dates";
 import { isFeatureStale } from "shared/util";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
+import { FaTriangleExclamation } from "react-icons/fa6";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { GBAddCircle } from "@/components/Icons";
 import FeatureModal from "@/components/Features/FeatureModal";
@@ -305,9 +305,7 @@ export default function FeaturesPage() {
                 const firstRule = orderedRules[0];
                 const totalRules = rules.length || 0;
 
-                const isDraft = !!feature.draft?.active;
-                let version = feature.revision?.version || 1;
-                if (isDraft) version++;
+                const version = feature.version;
 
                 const projectId = feature.project;
                 const projectName = projectId
@@ -387,12 +385,15 @@ export default function FeaturesPage() {
                       )}
                     </td>
                     <td style={{ textAlign: "center" }}>
-                      {version}{" "}
-                      {isDraft && (
-                        <Tooltip body="This is a draft version and is not visible to users">
-                          <FaExclamationTriangle className="text-warning" />
+                      {version}
+                      {feature?.hasDrafts ? (
+                        <Tooltip body="This feature has an active draft that has not been published yet">
+                          <FaTriangleExclamation
+                            className="text-warning ml-1"
+                            style={{ marginTop: -3 }}
+                          />
                         </Tooltip>
-                      )}
+                      ) : null}
                     </td>
                     <td title={datetime(feature.dateUpdated)}>
                       {ago(feature.dateUpdated)}
@@ -410,7 +411,7 @@ export default function FeaturesPage() {
                         <Tooltip
                           body={`This feature has been marked stale. ${staleReason}`}
                         >
-                          <FaExclamationTriangle className="text-warning" />
+                          <FaTriangleExclamation className="text-warning" />
                         </Tooltip>
                       )}
                     </td>

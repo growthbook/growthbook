@@ -1,9 +1,12 @@
+import { ExperimentMetricInterface } from "shared/experiments";
+import { ExperimentMetricQueryResponseRows } from "../src/types/Integration";
 import { QueryLanguage } from "./datasource";
 import { MetricInterface, MetricStats } from "./metric";
-import { StatsEngine } from "./stats";
+import { DifferenceType, StatsEngine } from "./stats";
 import { Queries } from "./query";
 import {
   ExperimentReportResultDimension,
+  ExperimentReportVariation,
   MetricRegressionAdjustmentStatus,
 } from "./report";
 import { DimensionInterface } from "./dimension";
@@ -97,6 +100,7 @@ export interface ExperimentSnapshotAnalysisSettings {
   regressionAdjusted?: boolean;
   sequentialTesting?: boolean;
   sequentialTestingTuningParameter?: number;
+  differenceType: DifferenceType;
   pValueCorrection?: null | "holm-bonferroni" | "benjamini-hochberg";
   pValueThreshold?: number;
   baselineVariationIndex?: number;
@@ -135,6 +139,7 @@ export interface ExperimentSnapshotSettings {
     id: string;
     weight: number;
   }[];
+  coverage?: number;
 }
 
 export interface ExperimentSnapshotInterface {
@@ -159,4 +164,20 @@ export interface ExperimentSnapshotInterface {
   unknownVariations: string[];
   multipleExposures: number;
   analyses: ExperimentSnapshotAnalysis[];
+}
+
+// Params for gbstats
+export interface ExperimentMetricAnalysisParams {
+  variations: ExperimentReportVariation[];
+  metric: ExperimentMetricInterface;
+  rows: ExperimentMetricQueryResponseRows;
+  dimension: string | null;
+  baselineVariationIndex: number;
+  differenceType: DifferenceType;
+  phaseLengthHours: number;
+  coverage: number;
+  statsEngine: StatsEngine;
+  sequentialTestingEnabled: boolean;
+  sequentialTestingTuningParameter: number;
+  pValueThreshold: number;
 }

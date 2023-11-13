@@ -15,7 +15,7 @@ router.get(
 );
 
 router.get(
-  "/eval/:id",
+  "/eval/:id/:version",
   validateRequestMiddleware({}),
   ArchetypeController.getArchetypeAndEval
 );
