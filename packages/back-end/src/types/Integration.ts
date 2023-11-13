@@ -225,27 +225,12 @@ export type ExperimentMetricQueryResponseRows = {
   main_covariate_sum_product?: number;
 }[];
 
-export type ExperimentUnitsQueryResponseRows = {
+export type ExperimentAggregateUnitsQueryResponseRows = {
   variation: string;
   dimension_value: string;
   dimension_name: string;
   units: number;
 }[];
-
-export type ExperimentAggregateUnitsQueryResponseProcessedRow = {
-  variation: string;
-  exposureDate: string;
-  activated: string | null;
-  dimensions: { [key: string]: string };
-  units: number;
-};
-
-export type ExperimentAggregateUnitsQueryResponseProcessedRows = ExperimentAggregateUnitsQueryResponseProcessedRow[];
-
-export type ExperimentAggregateUnitsQueryResponseRows = Record<
-  string,
-  string | number
->[];
 
 // eslint-disable-next-line
 export type QueryResponse<Rows = Record<string, any>[]> = {

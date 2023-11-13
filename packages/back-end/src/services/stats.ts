@@ -9,9 +9,9 @@ import { ExperimentMetricInterface } from "shared/experiments";
 import { hoursBetween } from "shared/dates";
 import { ExperimentMetricAnalysis } from "../../types/stats";
 import {
+  ExperimentAggregateUnitsQueryResponseRows,
   ExperimentMetricQueryResponseRows,
   ExperimentResults,
-  ExperimentUnitsQueryResponseRows,
 } from "../types/Integration";
 import {
   ExperimentReportResultDimension,
@@ -26,6 +26,7 @@ import {
   ExperimentSnapshotSettings,
   ExperimentSnapshotTraffic,
   ExperimentSnapshotTrafficDimension,
+  SnapshotSettingsVariation,
 } from "../../types/experiment-snapshot";
 import { QueryMap } from "../queryRunners/QueryRunner";
 import { MAX_ROWS_UNIT_AGGREGATE_QUERY } from "../integrations/SqlIntegration";
@@ -340,11 +341,8 @@ export function analyzeExperimentTraffic({
   rows,
   variations,
 }: {
-  rows: ExperimentUnitsQueryResponseRows;
-  variations: {
-    id: string;
-    weight: number;
-  }[];
+  rows: ExperimentAggregateUnitsQueryResponseRows;
+  variations: SnapshotSettingsVariation[];
 }): ExperimentSnapshotTraffic {
   if (!rows || !rows.length) {
     return {

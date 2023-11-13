@@ -115,6 +115,11 @@ export interface ExperimentSnapshotAnalysis {
   results: ExperimentReportResultDimension[];
 }
 
+export interface SnapshotSettingsVariation {
+  id: string;
+  weight: number;
+}
+
 // Settings that control which queries are run
 // Used to determine which types of analyses are possible
 // Also used to determine when to show "out-of-date" in the UI
@@ -135,10 +140,7 @@ export interface ExperimentSnapshotSettings {
   exposureQueryId: string;
   startDate: Date;
   endDate: Date;
-  variations: {
-    id: string;
-    weight: number;
-  }[];
+  variations: SnapshotSettingsVariation[];
   coverage?: number;
 }
 

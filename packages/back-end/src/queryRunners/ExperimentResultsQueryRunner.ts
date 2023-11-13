@@ -20,13 +20,13 @@ import {
   analyzeExperimentTraffic,
 } from "../services/stats";
 import {
+  ExperimentAggregateUnitsQueryResponseRows,
   ExperimentDimension,
   ExperimentMetricQueryParams,
   ExperimentMetricStats,
   ExperimentQueryResponses,
   ExperimentResults,
   ExperimentUnitsQueryParams,
-  ExperimentUnitsQueryResponseRows,
   SourceIntegrationInterface,
 } from "../types/Integration";
 import { expandDenominatorMetrics } from "../util/sql";
@@ -136,7 +136,7 @@ export const startExperimentResultQueries = async (
 
   const unitQueryParams: ExperimentUnitsQueryParams = {
     activationMetric: activationMetric,
-    dimensions: dimensionObj ? [dimensionObj] : availableExperimentDimensions,
+    dimensions: dimensionObj ? [dimensionObj] : [],
     segment: segmentObj,
     settings: snapshotSettings,
     unitsTableFullName: unitsTableFullName,
@@ -202,6 +202,7 @@ export const startExperimentResultQueries = async (
       name: TRAFFIC_QUERY_NAME,
       query: integration.getExperimentAggregateUnitsQuery({
         ...unitQueryParams,
+        dimensions: availableExperimentDimensions,
         useUnitsTable: !!unitQuery,
       }),
       dependencies: unitQuery ? [unitQuery.query] : [],
@@ -274,7 +275,7 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
     const healthQuery = queryMap.get(TRAFFIC_QUERY_NAME);
     if (healthQuery) {
       const trafficHealth = analyzeExperimentTraffic({
-        rows: healthQuery.result as ExperimentUnitsQueryResponseRows,
+        rows: healthQuery.result as ExperimentAggregateUnitsQueryResponseRows,
         variations: this.model.settings.variations,
       });
       result.health = { traffic: trafficHealth };

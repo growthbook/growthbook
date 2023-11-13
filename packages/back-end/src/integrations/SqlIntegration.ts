@@ -944,7 +944,6 @@ export default abstract class SqlIntegration
       settings
     );
 
-    // Replace any placeholders in the user defined dimension SQL
     const { experimentDimensions, unitDimensions } = this.processDimensions(
       params.dimensions,
       settings,
@@ -1107,7 +1106,9 @@ export default abstract class SqlIntegration
         ${unitDimensions
           .map(
             (d) => `
-            LEFT JOIN __dim_unit_${d.dimension.id} __dim_unit_${d.dimension.id} ON ( __dim_unit_${d.dimension.id}.${baseIdType} = e.${baseIdType})
+            LEFT JOIN __dim_unit_${d.dimension.id} __dim_unit_${d.dimension.id} ON (
+              __dim_unit_${d.dimension.id}.${baseIdType} = e.${baseIdType}
+            )
           `
           )
           .join("\n")}
@@ -1125,9 +1126,15 @@ export default abstract class SqlIntegration
   getExperimentAggregateUnitsQuery(
     params: ExperimentAggregateUnitsQueryParams
   ): string {
-    const { activationMetric, settings, factTableMap, useUnitsTable } = params;
+    const {
+      activationMetric,
+      segment,
+      settings,
+      factTableMap,
+      useUnitsTable,
+    } = params;
 
-    // Replace any placeholders in the user defined dimension SQL
+    // unitDimensions not supported yet
     const { experimentDimensions } = this.processDimensions(
       params.dimensions,
       settings,
@@ -1137,18 +1144,18 @@ export default abstract class SqlIntegration
     const exposureQuery = this.getExposureQuery(settings.exposureQueryId || "");
 
     // Get any required identity join queries
-    const idTypeObjects = [[exposureQuery.userIdType]];
-    // add idTypes usually handled in units query here in the case where
-    // we don't have a separate table for the units query
-    // then for this query we just need the activation metric for activation
-    // dimensions
-    if (!useUnitsTable) {
-      idTypeObjects.push(
-        activationMetric ? getUserIdTypes(activationMetric, factTableMap) : []
-      );
-    }
     const { baseIdType, idJoinSQL } = this.getIdentitiesCTE(
-      idTypeObjects,
+      // add idTypes usually handled in units query here in the case where
+      // we don't have a separate table for the units query
+      // then for this query we just need the activation metric for activation
+      // dimensions
+      [
+        [exposureQuery.userIdType],
+        !useUnitsTable && activationMetric
+          ? getUserIdTypes(activationMetric, factTableMap)
+          : [],
+        !useUnitsTable && segment ? [segment.userIdType || "user_id"] : [],
+      ],
       settings.startDate,
       settings.endDate,
       exposureQuery.userIdType,
@@ -1417,7 +1424,6 @@ export default abstract class SqlIntegration
         !params.useUnitsTable
           ? `${this.getExperimentUnitsQuery({
               ...params,
-              dimensions: params.dimensions,
               includeIdJoins: false,
             })},`
           : ""
