@@ -20,6 +20,7 @@ interface Props {
   defaultValue: string;
   onChange: (value: string) => void;
   labelClassName?: string;
+  emptyText?: string;
 }
 
 const title = "Target by Attribute";
@@ -50,6 +51,8 @@ export default function ConditionInput(props: Props) {
     props.onChange(value);
     setSimpleAllowed(jsonToConds(value, attributes) !== null);
   }, [value, attributes]);
+
+  const emptyText = props.emptyText || "Applied to everyone by default.";
 
   const savedGroupOperators = [
     {
@@ -116,7 +119,7 @@ export default function ConditionInput(props: Props) {
       <div className="form-group">
         <label className={props.labelClassName || ""}>{title}</label>
         <div className={`mb-3 bg-light p-3 ${styles.conditionbox}`}>
-          <em className="text-muted mr-3">Applied to everyone by default.</em>
+          <em className="text-muted mr-3">{emptyText}</em>
           <a
             href="#"
             onClick={(e) => {
@@ -151,9 +154,10 @@ export default function ConditionInput(props: Props) {
               return;
             }
 
+            // This is for legacy support only
             const savedGroupOptions = savedGroups
-              // First, limit to groups with the correct attribute
-              .filter((g) => g.source !== "runtime" && g.attributeKey === field)
+              // Only include currently selected groups
+              .filter((g) => g.source !== "runtime" && g.id === value)
               // Then, transform into the select option format
               .map((g) => ({ label: g.groupName, value: g.id }));
 
@@ -328,7 +332,7 @@ export default function ConditionInput(props: Props) {
                   ].includes(operator) ? (
                     ""
                   ) : ["$inGroup", "$notInGroup"].includes(operator) &&
-                    savedGroups ? (
+                    savedGroupOptions.length > 0 ? (
                     <SelectField
                       options={savedGroupOptions}
                       value={value}
@@ -365,7 +369,7 @@ export default function ConditionInput(props: Props) {
                       )}
                       <a
                         href="#"
-                        style={{ fontSize: "0.5em" }}
+                        style={{ fontSize: "0.8em" }}
                         onClick={(e) => {
                           e.preventDefault();
                           setRawTextMode((prev) => !prev);

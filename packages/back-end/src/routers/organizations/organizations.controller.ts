@@ -137,7 +137,7 @@ export async function getDefinitions(req: AuthRequest, res: Response) {
     findDimensionsByOrganization(orgId),
     findSegmentsByOrganization(orgId),
     getAllTags(orgId),
-    getAllSavedGroups(orgId),
+    getAllSavedGroups(org),
     findAllProjectsByOrganization(orgId),
     getAllFactTablesForOrganization(orgId),
     getAllFactMetricsForOrganization(orgId),

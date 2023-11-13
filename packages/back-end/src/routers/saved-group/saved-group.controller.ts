@@ -1,5 +1,5 @@
 import type { Response } from "express";
-import { isEqual } from "lodash";
+import { isEqual, pick } from "lodash";
 import { AuthRequest } from "../../types/AuthRequest";
 import { ApiErrorResponse } from "../../../types/api";
 import { getOrgFromReq } from "../../services/organizations";
@@ -28,8 +28,8 @@ type CreateSavedGroupRequest = AuthRequest<{
   groupName: string;
   owner: string;
   attributeKey: string;
-  groupList: string[];
   source: SavedGroupSource;
+  condition: string;
 }>;
 
 type CreateSavedGroupResponse = {
@@ -48,7 +48,7 @@ export const postSavedGroup = async (
   res: Response<CreateSavedGroupResponse>
 ) => {
   const { org, userName } = getOrgFromReq(req);
-  const { groupName, owner, attributeKey, groupList, source } = req.body;
+  const { groupName, owner, attributeKey, source, condition } = req.body;
 
   req.checkPermissions("manageSavedGroups");
 
@@ -61,12 +61,12 @@ export const postSavedGroup = async (
   }
 
   const savedGroup = await createSavedGroup({
-    values: groupList,
     source: source || "inline",
     groupName,
     owner: owner || userName,
     attributeKey,
     organization: org.id,
+    condition,
   });
 
   await req.audit({
@@ -94,7 +94,7 @@ type PutSavedGroupRequest = AuthRequest<
     groupName: string;
     owner: string;
     attributeKey: string;
-    groupList: string[];
+    condition: string;
   },
   { id: string }
 >;
@@ -114,7 +114,7 @@ export const putSavedGroup = async (
   res: Response<PutSavedGroupResponse | ApiErrorResponse>
 ) => {
   const { org } = getOrgFromReq(req);
-  const { groupName, owner, groupList, attributeKey } = req.body;
+  const { groupName, owner, attributeKey, condition } = req.body;
   const { id } = req.params;
 
   if (!id) {
@@ -123,16 +123,16 @@ export const putSavedGroup = async (
 
   req.checkPermissions("manageSavedGroups");
 
-  const savedGroup = await getSavedGroupById(id, org.id);
+  const savedGroup = await getSavedGroupById(id, org);
 
   if (!savedGroup) {
     throw new Error("Could not find saved group");
   }
 
   const fieldsToUpdate: UpdateSavedGroupProps = {
-    values: groupList,
     groupName,
     owner,
+    condition,
   };
 
   if (
@@ -161,8 +161,15 @@ export const putSavedGroup = async (
     details: auditDetailsUpdate(savedGroup, updatedSavedGroup),
   });
 
-  // If the values or key change, we need to invalidate cached feature rules
-  if (!isEqual(savedGroup.values, groupList) || fieldsToUpdate.attributeKey) {
+  // If anything important changes, we need to regenerate the SDK Payload
+  const importantKeys: (keyof SavedGroupInterface)[] = [
+    "attributeKey",
+    "condition",
+  ];
+  const pre = pick(savedGroup, importantKeys);
+  const post = pick(updatedSavedGroup, importantKeys);
+
+  if (!isEqual(pre, post)) {
     savedGroupUpdated(org, savedGroup.id);
   }
 
@@ -205,7 +212,7 @@ export const deleteSavedGroup = async (
   const { id } = req.params;
   const { org } = getOrgFromReq(req);
 
-  const savedGroup = await getSavedGroupById(id, org.id);
+  const savedGroup = await getSavedGroupById(id, org);
 
   if (!savedGroup) {
     res.status(403).json({

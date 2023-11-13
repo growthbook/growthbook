@@ -1,14 +1,13 @@
-import { FC, useState } from "react";
+import { FC } from "react";
 import { SavedGroupInterface } from "back-end/types/saved-group";
 import { useForm } from "react-hook-form";
 import { useAuth } from "../../services/auth";
 import useMembers from "../../hooks/useMembers";
-import { useAttributeSchema } from "../../services/features";
 import { useDefinitions } from "../../services/DefinitionsContext";
 import Modal from "../Modal";
 import Field from "../Forms/Field";
 import SelectField from "../Forms/SelectField";
-import StringArrayField from "../Forms/StringArrayField";
+import ConditionInput from "../Features/ConditionInput";
 
 function getKeyFromName(name: string) {
   return name.toLowerCase().split(/\s+/g).join("_").replace(/__*/g, "_");
@@ -22,21 +21,16 @@ const SavedGroupForm: FC<{
   const { apiCall } = useAuth();
   const { memberUsernameOptions } = useMembers();
 
-  const attributeSchema = useAttributeSchema();
-
   const { mutateDefinitions } = useDefinitions();
-
-  const [rawTextMode, setRawTextMode] = useState(false);
-  const [rawText, setRawText] = useState(current.values?.join(", ") || "");
 
   const form = useForm({
     defaultValues: {
       groupName: current.groupName || "",
       owner: current.owner || "",
       attributeKey: current.attributeKey || "",
-      groupList: current.values || [],
       id: current.id || "",
       source: runtime ? "runtime" : "inline",
+      condition: current.condition || "",
     },
   });
 
@@ -51,10 +45,16 @@ const SavedGroupForm: FC<{
       submit={form.handleSubmit(async (value) => {
         if (runtime) {
           value.source = "runtime";
-          value.groupList = [];
+          value.condition = "";
 
           if (!value.attributeKey) {
             value.attributeKey = getKeyFromName(value.groupName);
+          }
+        } else {
+          value.source = "inline";
+          value.attributeKey = "";
+          if (!value.condition || value.condition === "{}") {
+            throw new Error("Please add at least one condition");
           }
         }
 
@@ -94,60 +94,13 @@ const SavedGroupForm: FC<{
           helpText="This is the unique group identifier you will reference in your code."
         />
       ) : (
-        <>
-          <SelectField
-            label="Attribute Key"
-            required
-            value={form.watch("attributeKey")}
-            disabled={!!current.attributeKey}
-            onChange={(v) => form.setValue("attributeKey", v)}
-            placeholder="Choose one..."
-            options={attributeSchema.map((a) => ({
-              value: a.property,
-              label: a.property,
-            }))}
-            helpText={current.attributeKey && "This field can not be edited."}
-          />
-          {rawTextMode ? (
-            <Field
-              containerClassName="mb-0"
-              label="Create list of comma separated values"
-              required
-              textarea
-              value={rawText}
-              onChange={(e) => {
-                setRawText(e.target.value);
-                form.setValue(
-                  "groupList",
-                  e.target.value.split(",").map((val) => val.trim())
-                );
-              }}
-            />
-          ) : (
-            <StringArrayField
-              containerClassName="mb-0"
-              label="Create list of values"
-              value={form.watch("groupList")}
-              onChange={(values) => {
-                form.setValue("groupList", values);
-                setRawText(values.join(","));
-              }}
-              placeholder="Enter some values..."
-              delimiters={["Enter", "Tab"]}
-            />
-          )}
-          <a
-            className="d-flex flex-column align-items-end"
-            href="#"
-            style={{ fontSize: "0.8em" }}
-            onClick={(e) => {
-              e.preventDefault();
-              setRawTextMode((prev) => !prev);
-            }}
-          >
-            Switch to {rawTextMode ? "token" : "raw text"} mode
-          </a>
-        </>
+        <ConditionInput
+          defaultValue={form.watch("condition") || ""}
+          onChange={(condition) => {
+            form.setValue("condition", condition);
+          }}
+          emptyText="No conditions specified."
+        />
       )}
       {current.id && (
         <div className="alert alert-warning mt-2">

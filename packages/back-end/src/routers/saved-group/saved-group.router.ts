@@ -15,7 +15,7 @@ router.post(
       groupName: z.string(),
       owner: z.string(),
       attributeKey: z.string(),
-      groupList: z.string().array(),
+      condition: z.string(),
     }),
   }),
   savedGroupController.postSavedGroup
@@ -33,7 +33,7 @@ router.put(
       groupName: z.string(),
       owner: z.string(),
       attributeKey: z.string(),
-      groupList: z.string().array(),
+      condition: z.string(),
     }),
   }),
   savedGroupController.putSavedGroup

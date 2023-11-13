@@ -1044,6 +1044,7 @@ export interface components {
       owner?: string;
       attributeKey: string;
       values: (string)[];
+      condition?: string;
     };
     Organization: {
       /** @description The Growthbook unique identifier for the organization */
@@ -3982,6 +3983,7 @@ export interface operations {
                 owner?: string;
                 attributeKey: string;
                 values: (string)[];
+                condition?: string;
               })[];
           }) & {
             limit: number;
@@ -4002,12 +4004,14 @@ export interface operations {
         "application/json": {
           /** @description The display name of the Saved Group */
           name: string;
+          /** @description (Inline groups only) A JSON-encoded targeting condition that defines the group. This is an alternative to including attributeKey/value. */
+          condition?: string;
           /** @enum {string} */
           source?: "inline" | "runtime";
-          /** @description An array of values to target (Ex: a list of userIds). Not applicable for runtime groups */
+          /** @description An array of values to target (Ex: a list of userIds). This is an alternative to providing a condition. Not applicable for runtime groups. */
           values?: (string)[];
-          /** @description For inline groups, the name of the attribute the values belong to (e.g. `user_id`). For runtime groups, the group name you reference in your code */
-          attributeKey: string;
+          /** @description For inline groups, the name of the attribute the values belong to (e.g. `user_id`). This is an alternative to providing a condition.  For runtime groups, the group name you reference in your code */
+          attributeKey?: string;
           /** @description The person or team that owns this Saved Group. If no owner, you can pass an empty string. */
           owner?: string;
         };
@@ -4029,6 +4033,7 @@ export interface operations {
               owner?: string;
               attributeKey: string;
               values: (string)[];
+              condition?: string;
             };
           };
         };
@@ -4059,6 +4064,7 @@ export interface operations {
               owner?: string;
               attributeKey: string;
               values: (string)[];
+              condition?: string;
             };
           };
         };
@@ -4078,7 +4084,9 @@ export interface operations {
         "application/json": {
           /** @description The display name of the Saved Group */
           name?: string;
-          /** @description An array of values to target (Ex: a list of userIds). */
+          /** @description (Inline groups only) A JSON-encoded targeting condition that defines the group.  Alternative to providing values. */
+          condition?: string;
+          /** @description (Inline groups only) An array of values to target (Ex: a list of userIds). Alternative to providing a condition. */
           values?: (string)[];
           /** @description The person or team that owns this Saved Group. If no owner, you can pass an empty string. */
           owner?: string;
@@ -4103,6 +4111,7 @@ export interface operations {
               owner?: string;
               attributeKey: string;
               values: (string)[];
+              condition?: string;
             };
           };
         };

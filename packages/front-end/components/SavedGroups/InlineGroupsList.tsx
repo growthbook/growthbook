@@ -13,14 +13,13 @@ import { GBAddCircle } from "../Icons";
 import Field from "../Forms/Field";
 import MoreMenu from "../Dropdown/MoreMenu";
 import DeleteButton from "../DeleteButton/DeleteButton";
+import ConditionDisplay from "../Features/ConditionDisplay";
 import SavedGroupForm from "./SavedGroupForm";
 
 export interface Props {
   groups: SavedGroupInterface[];
   mutate: () => void;
 }
-
-const LIMIT = 3;
 
 export default function InlineGroupsList({ groups, mutate }: Props) {
   const [
@@ -68,7 +67,7 @@ export default function InlineGroupsList({ groups, mutate }: Props) {
     localStorageKey: "savedGroups",
     defaultSortField: "dateCreated",
     defaultSortDir: -1,
-    searchFields: ["groupName^3", "attributeKey^2", "owner", "values"],
+    searchFields: ["groupName^3", "owner", "condition"],
   });
 
   if (!inlineGroups) return <LoadingOverlay />;
@@ -101,8 +100,8 @@ export default function InlineGroupsList({ groups, mutate }: Props) {
         )}
       </div>
       <p className="text-gray mb-1">
-        With <strong>Inline Groups</strong>, you pick an attribute and add a
-        list of included values directly within the GrowthBook UI.
+        With <strong>Inline Groups</strong>, you define targeting rules and
+        values directly within the GrowthBook UI.
       </p>
       <p className="text-gray">
         For example, a &quot;Beta Testers&quot; group containing a specific set
@@ -125,8 +124,7 @@ export default function InlineGroupsList({ groups, mutate }: Props) {
                 <thead>
                   <tr>
                     <SortableTH field={"groupName"}>Name</SortableTH>
-                    <SortableTH field="attributeKey">Attribute</SortableTH>
-                    <th>Values</th>
+                    <th>Targeting Rules</th>
                     <SortableTH field={"owner"}>Owner</SortableTH>
                     <SortableTH field={"dateUpdated"}>Date Updated</SortableTH>
                     {permissions.manageSavedGroups && <th></th>}
@@ -137,21 +135,8 @@ export default function InlineGroupsList({ groups, mutate }: Props) {
                     return (
                       <tr key={s.id}>
                         <td>{s.groupName}</td>
-                        <td>{s.attributeKey}</td>
                         <td>
-                          {s.values.slice(0, LIMIT).map((v) => (
-                            <span
-                              className="badge badge-secondary mr-2"
-                              key={v}
-                            >
-                              {v}
-                            </span>
-                          ))}
-                          {s.values.length > LIMIT && (
-                            <em className="text-muted">
-                              +{s.values.length - LIMIT} more
-                            </em>
-                          )}
+                          <ConditionDisplay condition={s.condition} />
                         </td>
                         <td>{s.owner}</td>
                         <td>{ago(s.dateUpdated)}</td>

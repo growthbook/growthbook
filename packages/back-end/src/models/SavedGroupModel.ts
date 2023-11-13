@@ -3,7 +3,11 @@ import uniqid from "uniqid";
 import { omit } from "lodash";
 import { ApiSavedGroup } from "../../types/openapi";
 import { SavedGroupInterface } from "../../types/saved-group";
-import { usingFileConfig } from "../init/config";
+import {
+  OrganizationInterface,
+  SDKAttributeSchema,
+} from "../../types/organization";
+import { AttributeMap } from "../services/features";
 
 const savedGroupSchema = new mongoose.Schema({
   id: {
@@ -18,7 +22,7 @@ const savedGroupSchema = new mongoose.Schema({
   owner: String,
   dateCreated: Date,
   dateUpdated: Date,
-  values: [String],
+  condition: String,
   source: String,
   attributeKey: String,
 });
@@ -29,6 +33,10 @@ const SavedGroupModel = mongoose.model<SavedGroupInterface>(
   "savedGroup",
   savedGroupSchema
 );
+
+type LegacySavedGroup = SavedGroupInterface & {
+  values?: string[];
+};
 
 type CreateSavedGroupProps = Omit<
   SavedGroupInterface,
@@ -42,26 +50,48 @@ export type UpdateSavedGroupProps = Partial<
   >
 >;
 
-const toInterface = (doc: SavedGroupDocument): SavedGroupInterface => {
+function getGroupValues(values: string[], type?: string): string[] | number[] {
+  if (type === "number") {
+    return values.map((v) => parseFloat(v));
+  }
+  return values;
+}
+
+const toInterface = (
+  doc: SavedGroupDocument,
+  attributes?: SDKAttributeSchema | undefined
+): SavedGroupInterface => {
   const group = omit(
     doc.toJSON<SavedGroupDocument>({ flattenMaps: true }),
     ["__v", "_id"]
   );
 
-  // JIT migration - before we had a 'source' field all saved groups were defined inline
+  const attributeMap: AttributeMap = new Map();
+  attributes?.forEach((attribute) => {
+    attributeMap.set(attribute.property, attribute.datatype);
+  });
+
+  // JIT migration for old documents
   if (!group.source) group.source = "inline";
+  if (
+    group.source === "inline" &&
+    !group.condition &&
+    (group as LegacySavedGroup).values &&
+    group.attributeKey
+  ) {
+    group.condition = JSON.stringify({
+      [group.attributeKey]: {
+        $in: getGroupValues(
+          (group as LegacySavedGroup).values || [],
+          attributeMap.get(group.attributeKey)
+        ),
+      },
+    });
+  }
+  group.condition = group.condition || "";
 
   return group;
 };
-
-export function parseSavedGroupString(list: string) {
-  const values = list
-    .split(",")
-    .map((value) => value.trim())
-    .filter((value) => !!value);
-
-  return [...new Set(values)];
-}
 
 export async function createSavedGroup(
   group: CreateSavedGroupProps
@@ -76,24 +106,28 @@ export async function createSavedGroup(
 }
 
 export async function getAllSavedGroups(
-  organization: string
+  organization: OrganizationInterface
 ): Promise<SavedGroupInterface[]> {
   const savedGroups: SavedGroupDocument[] = await SavedGroupModel.find({
-    organization,
+    organization: organization.id,
   });
-  return savedGroups.map(toInterface);
+  return savedGroups.map((doc) =>
+    toInterface(doc, organization?.settings?.attributeSchema)
+  );
 }
 
 export async function getSavedGroupById(
   savedGroupId: string,
-  organization: string
+  organization: OrganizationInterface
 ): Promise<SavedGroupInterface | null> {
   const savedGroup = await SavedGroupModel.findOne({
     id: savedGroupId,
-    organization: organization,
+    organization: organization.id,
   });
 
-  return savedGroup ? toInterface(savedGroup) : null;
+  return savedGroup
+    ? toInterface(savedGroup, organization?.settings?.attributeSchema)
+    : null;
 }
 
 export async function getRuntimeSavedGroup(
@@ -131,27 +165,52 @@ export async function updateSavedGroupById(
 }
 
 export async function deleteSavedGroupById(id: string, organization: string) {
-  if (usingFileConfig()) {
-    throw new Error("Cannot delete. Saved Groups managed by config.yml");
-  }
-
   await SavedGroupModel.deleteOne({
     id,
     organization,
   });
 }
 
+export function getLegacySavedGroupValues(
+  condition: string,
+  attributeKey: string
+): string[] | number[] {
+  if (condition && condition !== "{}") {
+    try {
+      const parsed = JSON.parse(condition);
+      if (parsed && Object.keys(parsed).length === 1 && parsed[attributeKey]) {
+        const cond = parsed[attributeKey];
+        if (cond && Object.keys(cond).length === 1 && cond["$in"]) {
+          return cond["$in"];
+        }
+      }
+    } catch (e) {
+      // Ignore parse errors
+    }
+  }
+
+  return [];
+}
+
 export function toSavedGroupApiInterface(
   savedGroup: SavedGroupInterface
 ): ApiSavedGroup {
+  const values =
+    savedGroup.source === "inline"
+      ? getLegacySavedGroupValues(savedGroup.condition, savedGroup.attributeKey)
+      : [];
+
+  // Populate the `values` field from legacy saved groups with a really simple condition
+
   return {
     id: savedGroup.id,
-    values: savedGroup.values,
+    values: values.map((v) => v + ""),
     name: savedGroup.groupName,
     attributeKey: savedGroup.attributeKey,
     dateCreated: savedGroup.dateCreated.toISOString(),
     dateUpdated: savedGroup.dateUpdated.toISOString(),
     owner: savedGroup.owner || "",
     source: savedGroup.source,
+    condition: savedGroup.condition || "",
   };
 }

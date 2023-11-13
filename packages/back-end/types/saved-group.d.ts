@@ -3,10 +3,10 @@ export type SavedGroupSource = "inline" | "runtime";
 export interface SavedGroupInterface {
   id: string;
   organization: string;
+  condition: string;
   groupName: string;
   owner: string;
   attributeKey: string;
-  values: string[];
   source: SavedGroupSource;
   dateUpdated: Date;
   dateCreated: Date;
@@ -14,5 +14,9 @@ export interface SavedGroupInterface {
 
 export type GroupMap = Map<
   string,
-  { values: string[] | number[]; key: string; source: SavedGroupSource }
+  {
+    condition: string;
+    key: string;
+    source: SavedGroupSource;
+  }
 >;

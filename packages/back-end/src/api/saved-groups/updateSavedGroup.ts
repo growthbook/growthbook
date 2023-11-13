@@ -1,4 +1,4 @@
-import { isEqual } from "lodash";
+import { isEqual, pick } from "lodash";
 import { UpdateSavedGroupResponse } from "../../../types/openapi";
 import {
   UpdateSavedGroupProps,
@@ -10,26 +10,21 @@ import {
 import { createApiRequestHandler } from "../../util/handler";
 import { updateSavedGroupValidator } from "../../validators/openapi";
 import { savedGroupUpdated } from "../../services/savedGroups";
+import { SavedGroupInterface } from "../../../types/saved-group";
 
 export const updateSavedGroup = createApiRequestHandler(
   updateSavedGroupValidator
 )(
   async (req): Promise<UpdateSavedGroupResponse> => {
-    const { name, values, attributeKey } = req.body;
+    const { name, attributeKey, condition } = req.body;
     let { owner } = req.body;
 
     const { id } = req.params;
 
-    const savedGroup = await getSavedGroupById(id, req.organization.id);
+    const savedGroup = await getSavedGroupById(id, req.organization);
 
     if (!savedGroup) {
       throw new Error(`Unable to locate the saved-group: ${id}`);
-    }
-
-    if (!values && !name && typeof owner === "undefined") {
-      throw new Error(
-        'You must pass in at least one of the following: "values", "name", "owner".'
-      );
     }
 
     if (typeof owner === "string") {
@@ -39,9 +34,9 @@ export const updateSavedGroup = createApiRequestHandler(
     }
 
     const fieldsToUpdate: UpdateSavedGroupProps = {
-      values: values ? values : savedGroup.values,
       groupName: name ? name : savedGroup.groupName,
       owner,
+      condition: condition ?? savedGroup.condition ?? "",
     };
 
     if (attributeKey && attributeKey !== savedGroup.attributeKey) {
@@ -67,11 +62,15 @@ export const updateSavedGroup = createApiRequestHandler(
       fieldsToUpdate
     );
 
-    // If the values or key change, we need to invalidate cached feature rules
-    if (
-      !isEqual(savedGroup.values, fieldsToUpdate.values) ||
-      fieldsToUpdate.attributeKey
-    ) {
+    // If anything important changes, we need to regenerate the SDK Payload
+    const importantKeys: (keyof SavedGroupInterface)[] = [
+      "attributeKey",
+      "condition",
+    ];
+    const pre = pick(savedGroup, importantKeys);
+    const post = pick(updatedSavedGroup, importantKeys);
+
+    if (!isEqual(pre, post)) {
       savedGroupUpdated(req.organization, savedGroup.id);
     }
 

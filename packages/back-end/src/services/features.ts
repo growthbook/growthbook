@@ -162,33 +162,17 @@ function generateVisualExperimentsPayload({
 export async function getSavedGroupMap(
   organization: OrganizationInterface
 ): Promise<GroupMap> {
-  const attributes = organization.settings?.attributeSchema;
-
-  const attributeMap: AttributeMap = new Map();
-  attributes?.forEach((attribute) => {
-    attributeMap.set(attribute.property, attribute.datatype);
-  });
-
-  // Get "SavedGroups" for an organization and build a map of the SavedGroup's Id to the actual array of IDs, respecting the type.
-  const allGroups = await getAllSavedGroups(organization.id);
-
-  function getGroupValues(
-    values: string[],
-    type?: string
-  ): string[] | number[] {
-    if (type === "number") {
-      return values.map((v) => parseFloat(v));
-    }
-    return values;
-  }
+  const allGroups = await getAllSavedGroups(organization);
 
   const groupMap: GroupMap = new Map(
     allGroups.map((group) => {
-      const attributeType = attributeMap?.get(group.attributeKey);
-      const values = getGroupValues(group.values, attributeType);
       return [
         group.id,
-        { values, key: group.attributeKey, source: group.source },
+        {
+          condition: group.condition || "",
+          key: group.attributeKey,
+          source: group.source,
+        },
       ];
     })
   );

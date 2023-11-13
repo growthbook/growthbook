@@ -22,11 +22,14 @@ requestBody:
           name:
             type: string
             description: The display name of the Saved Group
+          condition:
+            type: string
+            description: "(Inline groups only) A JSON-encoded targeting condition that defines the group.  Alternative to providing values."
           values:
             type: array
             items:
               type: string
-            description: "An array of values to target (Ex: a list of userIds)."
+            description: "(Inline groups only) An array of values to target (Ex: a list of userIds). Alternative to providing a condition."
           owner:
             type: string
             description: "The person or team that owns this Saved Group. If no owner, you can pass an empty string."

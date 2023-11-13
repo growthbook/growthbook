@@ -10,10 +10,7 @@ export const deleteSavedGroup = createApiRequestHandler(
   deleteSavedGroupValidator
 )(
   async (req): Promise<DeleteSavedGroupResponse> => {
-    const savedGroup = await getSavedGroupById(
-      req.params.id,
-      req.organization.id
-    );
+    const savedGroup = await getSavedGroupById(req.params.id, req.organization);
 
     if (!savedGroup) {
       throw new Error("Unable to delete saved group. No group found.");

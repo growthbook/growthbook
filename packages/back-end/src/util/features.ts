@@ -12,6 +12,7 @@ import { GroupMap } from "../../types/saved-group";
 import { SDKPayloadKey } from "../../types/sdk-payload";
 import { ExperimentInterface } from "../../types/experiment";
 import { FeatureRevisionInterface } from "../../types/feature-revision";
+import { getLegacySavedGroupValues } from "../models/SavedGroupModel";
 import { getCurrentEnabledState } from "./scheduleRules";
 
 // eslint-disable-next-line
@@ -20,7 +21,7 @@ type GroupMapValue = GroupMap extends Map<any, infer I> ? I : never;
 function getSavedGroupCondition(
   group: GroupMapValue,
   include: boolean
-): Record<string, unknown> {
+): Record<string, unknown> | undefined {
   if (group.source === "runtime") {
     const cond = {
       $groups: {
@@ -28,11 +29,14 @@ function getSavedGroupCondition(
       },
     };
     return include ? cond : { $not: cond };
+  } else if (group.condition) {
+    const cond = getParsedCondition(new Map(), group.condition);
+    if (!cond) return undefined;
+
+    return include ? cond : { $not: cond };
   }
 
-  return {
-    [group.key]: { [include ? "$in" : "$nin"]: group.values },
-  };
+  return undefined;
 }
 
 export function getParsedCondition(
@@ -55,30 +59,37 @@ export function getParsedCondition(
     savedGroups.forEach(({ ids, match }) => {
       const groups = ids
         .map((id) => groupMap.get(id))
-        // Must either have at least 1 value or be defined at runtime
-        .filter(
-          (group) => group?.source === "runtime" || !!group?.values?.length
-        ) as GroupMapValue[];
+        // Must either be a runtime group or have a condition defined
+        .filter((group) => {
+          if (group?.source === "runtime") return true;
+          if (group?.condition && group.condition !== "{}") {
+            return true;
+          }
+          return false;
+        }) as GroupMapValue[];
       if (!groups.length) return;
 
       // Add each group as a separate top-level AND
       if (match === "all") {
         groups.forEach((group) => {
-          conditions.push(getSavedGroupCondition(group, true));
+          const cond = getSavedGroupCondition(group, true);
+          if (cond) conditions.push(cond);
         });
       }
       // Add one top-level AND with nested OR conditions
       else if (match === "any") {
         const ors: Record<string, unknown>[] = [];
         groups.forEach((group) => {
-          ors.push(getSavedGroupCondition(group, true));
+          const cond = getSavedGroupCondition(group, true);
+          if (cond) ors.push(cond);
         });
         conditions.push(ors.length > 1 ? { $or: ors } : ors[0]);
       }
       // Add each group as a separate top-level AND with a NOT condition
       else if (match === "none") {
         groups.forEach((group) => {
-          conditions.push(getSavedGroupCondition(group, false));
+          const cond = getSavedGroupCondition(group, false);
+          if (cond) conditions.push(cond);
         });
       }
     });
@@ -105,7 +116,11 @@ export function replaceSavedGroupsInCondition(
     /[\s|\n]*"\$(inGroup|notInGroup)"[\s|\n]*:[\s|\n]*"([^"]*)"[\s|\n]*/g,
     (match: string, operator: string, groupId: string) => {
       const newOperator = operator === "inGroup" ? "$in" : "$nin";
-      const ids: string[] | number[] = groupMap.get(groupId)?.values ?? [];
+      const group = groupMap.get(groupId);
+      const ids = group
+        ? getLegacySavedGroupValues(group.condition, group.key)
+        : [];
+      // TODO: fix numeric attributes
       return `"${newOperator}": ${JSON.stringify(ids)}`;
     }
   );

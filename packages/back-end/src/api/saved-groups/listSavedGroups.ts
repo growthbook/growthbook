@@ -10,7 +10,7 @@ export const listSavedGroups = createApiRequestHandler(
   listSavedGroupsValidator
 )(
   async (req): Promise<ListSavedGroupsResponse> => {
-    const savedGroups = await getAllSavedGroups(req.organization.id);
+    const savedGroups = await getAllSavedGroups(req.organization);
 
     // TODO: Move sorting/limiting to the database query for better performance
     const { filtered, returnFields } = applyPagination(
