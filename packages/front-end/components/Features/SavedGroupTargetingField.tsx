@@ -83,19 +83,6 @@ export default function SavedGroupTargetingField({ value, setValue }: Props) {
                       required
                       placeholder="Select groups..."
                       closeMenuOnSelect={true}
-                      formatOptionLabel={({ value, label }) => {
-                        const group = getSavedGroupById(value);
-                        return (
-                          <>
-                            {label}
-                            {group?.source === "inline" && (
-                              <span className="badge ml-1 border bg-light text-dark">
-                                {group.values.length}
-                              </span>
-                            )}
-                          </>
-                        );
-                      }}
                     />
                   </div>
                   <div className="col-auto ml-auto">
