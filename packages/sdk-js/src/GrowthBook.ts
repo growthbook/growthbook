@@ -713,7 +713,9 @@ export class GrowthBook<
             !this._isIncludedInRollout(
               rule.seed || id,
               rule.hashAttribute,
-              rule.stickyBucketing ? rule.fallbackAttribute : undefined,
+              this._ctx.enableStickyBucketing
+                ? rule.fallbackAttribute
+                : undefined,
               rule.range,
               rule.coverage,
               rule.hashVersion
@@ -761,7 +763,6 @@ export class GrowthBook<
         if (rule.hashAttribute) exp.hashAttribute = rule.hashAttribute;
         if (rule.fallbackAttribute)
           exp.fallbackAttribute = rule.fallbackAttribute;
-        if (rule.stickyBucketing) exp.stickyBucketing = rule.stickyBucketing;
         if (rule.bucketVersion) exp.bucketVersion = rule.bucketVersion;
         if (rule.blockedVariations)
           exp.blockedVariations = rule.blockedVariations;
@@ -908,7 +909,7 @@ export class GrowthBook<
     // 6. Get the hash attribute and return if empty
     const { hashAttribute, hashValue } = this._getHashAttribute(
       experiment.hashAttribute,
-      experiment.stickyBucketing ? experiment.fallbackAttribute : undefined
+      this._ctx.enableStickyBucketing ? experiment.fallbackAttribute : undefined
     );
     if (!hashValue) {
       process.env.NODE_ENV !== "production" &&
@@ -1014,7 +1015,7 @@ export class GrowthBook<
 
     let foundStickyBucket = false;
     let assigned = -1;
-    if (this.context.enableStickyBucketing && experiment.stickyBucketing) {
+    if (this.context.enableStickyBucketing) {
       assigned = this._getStickyBucketVariation(
         experiment.key,
         experiment.bucketVersion
@@ -1092,7 +1093,7 @@ export class GrowthBook<
     );
 
     // 13.5. Persist sticky bucket
-    if (this.context.enableStickyBucketing && experiment.stickyBucketing) {
+    if (this.context.enableStickyBucketing) {
       const {
         changed,
         key: attrKey,
@@ -1216,7 +1217,7 @@ export class GrowthBook<
 
     const { hashAttribute, hashValue } = this._getHashAttribute(
       experiment.hashAttribute,
-      experiment.stickyBucketing ? experiment.fallbackAttribute : undefined
+      this._ctx.enableStickyBucketing ? experiment.fallbackAttribute : undefined
     );
 
     const meta: Partial<VariationMeta> = experiment.meta

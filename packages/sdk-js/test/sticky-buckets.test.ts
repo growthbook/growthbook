@@ -139,7 +139,6 @@ const sdkPayload: FeatureApiResponse = {
           hashAttribute: "id",
           fallbackAttribute: "deviceId",
           hashVersion: 2,
-          stickyBucketing: true,
           bucketVersion: 1,
           variations: ["control", "red", "blue"],
           coverage: 1,
@@ -156,7 +155,6 @@ const sdkPayload: FeatureApiResponse = {
       hashAttribute: "id",
       fallbackAttribute: "anonymousId",
       hashVersion: 2,
-      stickyBucketing: true,
       bucketVersion: 1,
       manual: true,
       variations: [
@@ -206,10 +204,11 @@ describe("sticky-buckets", () => {
       },
     });
 
-    // no sticky bucket support
+    // no sticky bucket support (but enabled anyhow)
     const growthbook2a = new GrowthBook({
       apiHost: "https://fakeapi.sample.io",
       clientKey: "qwerty1234",
+      enableStickyBucketing: true,
       attributes: {
         deviceId: "d123",
         anonymousId: "ses123",
@@ -255,6 +254,7 @@ describe("sticky-buckets", () => {
     const growthbook2b = new GrowthBook({
       apiHost: "https://fakeapi.sample.io",
       clientKey: "qwerty1234",
+      enableStickyBucketing: true,
       attributes: {
         deviceId: "d123",
         anonymousId: "ses123",
@@ -298,6 +298,7 @@ describe("sticky-buckets", () => {
     const growthbook2c = new GrowthBook({
       apiHost: "https://fakeapi.sample.io",
       clientKey: "qwerty1234",
+      enableStickyBucketing: true,
       attributes: {
         id: "12345",
         foo: "bar",
@@ -584,45 +585,10 @@ describe("sticky-buckets", () => {
     remoteEvalRedis.flushall();
   });
 
-  it("stops using sticky buckets when the experiment changes and turns off stickyBucketing", async () => {
+  it("stops using sticky buckets when the enableStickyBucketing is turned off in the SDK", async () => {
     await clearCache();
 
     const [, cleanup] = mockApi(sdkPayload, true);
-
-    // SSE update will disable stickyBucketing
-    const newPayload = {
-      ...sdkPayload,
-      features: {
-        exp1: {
-          ...sdkPayload?.features?.exp1,
-          rules: [
-            {
-              key: "feature-exp",
-              seed: "feature-exp",
-              hashAttribute: "id",
-              fallbackAttribute: "deviceId",
-              hashVersion: 2,
-              stickyBucketing: false, // <---------------- off
-              bucketVersion: 1,
-              variations: ["control", "red", "blue"],
-              coverage: 1,
-              weights: [0.3334, 0.3333, 0.3333],
-              phase: "0",
-            },
-          ],
-        },
-      },
-    };
-    const event = new MockEvent({
-      url: "https://fakeapi.sample.io/sub/qwerty1234",
-      setInterval: 500,
-      responses: [
-        {
-          type: "features",
-          data: JSON.stringify(newPayload),
-        },
-      ],
-    });
 
     // evaluate based on fallbackAttribute "deviceId"
     const growthbook1 = new GrowthBook({
@@ -643,7 +609,7 @@ describe("sticky-buckets", () => {
 
     const result1 = growthbook1.evalFeature("exp1");
     expect(result1.value).toBe("red");
-    await sleep(100);
+    await sleep(10);
 
     // provide the primary hashAttribute "id" as well as fallbackAttribute "deviceId"
     growthbook1.setAttributes({
@@ -658,22 +624,13 @@ describe("sticky-buckets", () => {
     const result2 = growthbook1.evalFeature("exp1");
     expect(result2.value).toBe("red");
 
-    // remote the fallbackAttribute and rely on the hashAttribute
-    growthbook1.setAttributes({
-      iteration: 3,
-      id: "12345",
-      foo: "bar",
-    });
-    await sleep(500);
-
+    // Without sticky bucketing, we should rebucket based on the hashAttribute "id" instead of the stickied bucket.
+    growthbook1.disableStickyBucketing();
     const result3 = growthbook1.evalFeature("exp1");
-    // console.log({result3})
-
     expect(result3.value).toBe("blue");
 
     growthbook1.destroy();
     cleanup();
-    event.clear();
 
     localStorage.clear();
   });
