@@ -12,6 +12,7 @@ import Code from "@/components/SyntaxHighlighting/Code";
 import StringArrayField from "@/components/Forms/StringArrayField";
 import Toggle from "@/components/Forms/Toggle";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import MultiSelectField from "@/components/Forms/MultiSelectField";
 import Modal from "../../../Modal";
 import Field from "../../../Forms/Field";
 import EditSqlModal from "../../../SchemaBrowser/EditSqlModal";
@@ -52,7 +53,7 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
 
   const defaultQuery = `SELECT\n  ${defaultUserId} as ${defaultUserId},\n  timestamp as timestamp,\n  experiment_id as experiment_id,\n  variation_id as variation_id\nFROM my_table`;
 
-  const form = useForm<ExposureQuery>({
+  const form = useForm<ExposureQuery & { dimensionsForTraffic: string[] }>({
     defaultValues:
       mode === "edit" && exposureQuery
         ? cloneDeep<ExposureQuery>(exposureQuery)
@@ -61,6 +62,7 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
             id: uniqId("tbl_"),
             name: "",
             dimensions: [],
+            dimensionsForTraffic: [],
             query: defaultQuery,
             userIdType: userIdTypeOptions ? userIdTypeOptions[0]?.value : "",
           },
@@ -321,6 +323,23 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
                       onChange={(dimensions) => {
                         form.setValue("dimensions", dimensions);
                       }}
+                    />
+                    <MultiSelectField
+                      label="Dimensions to use in traffic breakdowns"
+                      value={form.watch("dimensionsForTraffic") || []}
+                      onChange={(ids) => {
+                        const newValue = [...value];
+                        newValue[i] = { ...v };
+                        newValue[i].ids = ids;
+                        setValue(newValue);
+                      }}
+                      options={form.watch("dimensions").map((s) => ({
+                        value: s,
+                        label: s,
+                      }))}
+                      required
+                      placeholder="Select dimensions..."
+                      closeMenuOnSelect={true}
                     />
                   </div>
                 )}

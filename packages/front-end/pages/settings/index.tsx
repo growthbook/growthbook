@@ -20,7 +20,7 @@ import {
 } from "shared/constants";
 import { OrganizationSettings } from "@/../back-end/types/organization";
 import Link from "next/link";
-import { useGrowthBook } from "@growthbook/growthbook-react";
+import { useFeatureIsOn, useGrowthBook } from "@growthbook/growthbook-react";
 import { useAuth } from "@/services/auth";
 import EditOrganizationModal from "@/components/Settings/EditOrganizationModal";
 import BackupConfigYamlButton from "@/components/Settings/BackupConfigYamlButton";
@@ -251,6 +251,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
   const displayCurrency = useCurrency();
   const growthbook = useGrowthBook<AppFeatures>();
   const { datasources } = useDefinitions();
+  const healthTabSettingsEnabled = useFeatureIsOn<AppFeatures>("health-tab");
 
   const currencyOptions = Object.entries(
     supportedCurrencies
@@ -309,6 +310,8 @@ const GeneralSettingsPage = (): React.ReactElement => {
         hours: 6,
         cron: "0 */6 * * *",
       },
+      runHealthTrafficQuery: true,
+      srmThreshold: 0.001,
       multipleExposureMinPercent: 0.01,
       confidenceLevel: 0.95,
       pValueThreshold: DEFAULT_P_VALUE_THRESHOLD,
@@ -892,6 +895,48 @@ const GeneralSettingsPage = (): React.ReactElement => {
                       </div>
                     )}
                   </div>
+                  {healthTabSettingsEnabled && (
+                    <>
+                      <div>
+                        <label
+                          className="mr-1"
+                          htmlFor="toggle-runHealthTrafficQuery"
+                        >
+                          Run health traffic query by default
+                        </label>
+                      </div>
+                      <div>
+                        <Toggle
+                          id={"toggle-runHealthTrafficQuery"}
+                          value={!!form.watch("runHealthTrafficQuery")}
+                          setValue={(value) => {
+                            form.setValue("runHealthTrafficQuery", value);
+                          }}
+                        />
+                      </div>
+
+                      <Field
+                        label="SRM threshold"
+                        type="number"
+                        step="0.001"
+                        max="0.5"
+                        min="0.001"
+                        className={`ml-2`}
+                        containerClassName="mb-3"
+                        append=""
+                        disabled={hasFileConfig()}
+                        helpText={
+                          <span className="ml-2">(0.001 is default)</span>
+                        }
+                        {...form.register("srmThreshold", {
+                          valueAsNumber: true,
+                          min: 0,
+                          max: 1,
+                        })}
+                      />
+                    </>
+                  )}
+
                   <StatsEngineSelect
                     label="Default Statistics Engine"
                     allowUndefined={false}
