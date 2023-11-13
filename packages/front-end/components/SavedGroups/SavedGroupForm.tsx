@@ -1,6 +1,7 @@
 import { FC } from "react";
 import { SavedGroupInterface } from "back-end/types/saved-group";
 import { useForm } from "react-hook-form";
+import { useAttributeSchema } from "@/services/features";
 import { useAuth } from "../../services/auth";
 import useMembers from "../../hooks/useMembers";
 import { useDefinitions } from "../../services/DefinitionsContext";
@@ -23,6 +24,8 @@ const SavedGroupForm: FC<{
 
   const { mutateDefinitions } = useDefinitions();
 
+  const attributes = useAttributeSchema();
+
   const form = useForm({
     defaultValues: {
       groupName: current.groupName || "",
@@ -30,7 +33,15 @@ const SavedGroupForm: FC<{
       attributeKey: current.attributeKey || "",
       id: current.id || "",
       source: runtime ? "runtime" : "inline",
-      condition: current.condition || "",
+      condition:
+        current.condition ||
+        (attributes[0]
+          ? JSON.stringify({
+              [attributes[0].property]: {
+                $in: [],
+              },
+            })
+          : ""),
     },
   });
 
@@ -100,6 +111,8 @@ const SavedGroupForm: FC<{
             form.setValue("condition", condition);
           }}
           emptyText="No conditions specified."
+          title="Include all users who match the following"
+          require
         />
       )}
       {current.id && (

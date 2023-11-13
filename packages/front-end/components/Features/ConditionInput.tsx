@@ -21,12 +21,14 @@ interface Props {
   onChange: (value: string) => void;
   labelClassName?: string;
   emptyText?: string;
+  title?: string;
+  require?: boolean;
 }
-
-const title = "Target by Attribute";
 
 export default function ConditionInput(props: Props) {
   const { savedGroups } = useDefinitions();
+
+  const title = props.title || "Target by Attribute";
 
   const attributes = useAttributeMap();
 
@@ -418,20 +420,22 @@ export default function ConditionInput(props: Props) {
                   ) : (
                     ""
                   )}
-                  <div className="col-md-auto col-sm-12">
-                    <button
-                      className="btn btn-link text-danger float-right"
-                      type="button"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        const newConds = [...conds];
-                        newConds.splice(i, 1);
-                        setConds(newConds);
-                      }}
-                    >
-                      remove
-                    </button>
-                  </div>
+                  {(conds.length > 1 || !props.require) && (
+                    <div className="col-md-auto col-sm-12">
+                      <button
+                        className="btn btn-link text-danger float-right"
+                        type="button"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          const newConds = [...conds];
+                          newConds.splice(i, 1);
+                          setConds(newConds);
+                        }}
+                      >
+                        remove
+                      </button>
+                    </div>
+                  )}
                 </div>
               </li>
             );
