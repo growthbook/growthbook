@@ -59,8 +59,6 @@ properties:
   hashVersion:
     type: number
     enum: [1, 2]
-  stickyBucketing:
-    type: boolean
   bucketVersion:
     type: number
   blockedVariations:

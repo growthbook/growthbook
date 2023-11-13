@@ -50,13 +50,20 @@ export default function TargetingInfo({
             </div>
             <div className="mb-3">
               <div className="mb-1">
-                <strong>Assignment Attribute</strong>{" "}
+                <strong>
+                  Assignment Attribute{experiment.fallbackAttribute ? "s" : ""}
+                </strong>{" "}
                 <Tooltip body="This user attribute will be used to assign variations. This is typically either a logged-in user id or an anonymous id stored in a long-lived cookie.">
                   <MdInfoOutline className="text-info" />
                 </Tooltip>
               </div>
               <div>
-                {experiment.hashAttribute || "id"}{" "}
+                {experiment.hashAttribute || "id"}
+                {experiment.fallbackAttribute ? (
+                  <>, {experiment.fallbackAttribute} </>
+                ) : (
+                  " "
+                )}
                 {
                   <HashVersionTooltip>
                     <small className="text-muted ml-1">

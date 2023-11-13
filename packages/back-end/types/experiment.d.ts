@@ -120,7 +120,6 @@ export interface ExperimentInterface {
   hashAttribute: string;
   fallbackAttribute?: string;
   hashVersion: 1 | 2;
-  stickyBucketing?: boolean;
   bucketVersion?: number;
   blockedVariations?: number[];
   name: string;
@@ -183,7 +182,12 @@ export type ExperimentTargetingData = Pick<
 > &
   Pick<
     ExperimentInterfaceStringDates,
-    "hashAttribute" | "hashVersion" | "trackingKey"
+    | "hashAttribute"
+    | "fallbackAttribute"
+    | "hashVersion"
+    | "bucketVersion"
+    | "blockedVariations"
+    | "trackingKey"
   > & {
     newPhase: boolean;
     reseed: boolean;

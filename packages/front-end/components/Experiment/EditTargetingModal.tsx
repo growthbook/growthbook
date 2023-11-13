@@ -4,7 +4,7 @@ import {
   ExperimentPhaseStringDates,
   ExperimentTargetingData,
 } from "back-end/types/experiment";
-import { useEffect, useMemo } from "react";
+import React, { useEffect, useMemo } from "react";
 import { useAuth } from "@/services/auth";
 import { getEqualWeights } from "@/services/utils";
 import { useAttributeSchema } from "@/services/features";
@@ -46,7 +46,10 @@ export default function EditTargetingModal({
       savedGroups: lastPhase?.savedGroups ?? [],
       coverage: lastPhase?.coverage ?? 1,
       hashAttribute: experiment.hashAttribute || "id",
+      fallbackAttribute: experiment.fallbackAttribute || "",
       hashVersion: experiment.hashVersion || 2,
+      bucketVersion: experiment.bucketVersion || 1,
+      blockedVariations: experiment.blockedVariations || [],
       namespace: lastPhase?.namespace || {
         enabled: false,
         name: "",
@@ -162,20 +165,49 @@ export default function EditTargetingModal({
             {...form.register("trackingKey")}
             helpText="Unique identifier for this experiment, used to track impressions and analyze results"
           />
-          <SelectField
-            label="Assignment Attribute"
-            labelClassName="font-weight-bold"
-            options={attributeSchema
-              .filter((s) => !hasHashAttributes || s.hashAttribute)
-              .map((s) => ({ label: s.property, value: s.property }))}
-            value={form.watch("hashAttribute")}
-            onChange={(v) => {
-              form.setValue("hashAttribute", v);
-            }}
-            helpText={
-              "Will be hashed together with the Tracking Key to determine which variation to assign"
-            }
-          />
+          <div className="d-flex" style={{ gap: "2rem" }}>
+            <SelectField
+              containerClassName="flex-1"
+              label="Assign variation based on attribute"
+              labelClassName="font-weight-bold"
+              options={attributeSchema
+                .filter((s) => !hasHashAttributes || s.hashAttribute)
+                .map((s) => ({ label: s.property, value: s.property }))}
+              sort={false}
+              value={form.watch("hashAttribute")}
+              onChange={(v) => {
+                form.setValue("hashAttribute", v);
+              }}
+              helpText={
+                "Will be hashed together with the Tracking Key to determine which variation to assign"
+              }
+            />
+            <SelectField
+              containerClassName="flex-1"
+              label="Fallback attribute"
+              labelClassName="font-weight-bold"
+              options={[
+                { label: "none", value: "" },
+                ...attributeSchema
+                  .filter((s) => !hasHashAttributes || s.hashAttribute)
+                  .map((s) => ({ label: s.property, value: s.property })),
+              ]}
+              formatOptionLabel={({ value, label }) => {
+                if (!value) {
+                  return <em className="text-muted">{label}</em>;
+                }
+                return label;
+              }}
+              sort={false}
+              value={form.watch("fallbackAttribute") || ""}
+              onChange={(v) => {
+                form.setValue("fallbackAttribute", v);
+              }}
+              helpText={
+                "If the user's assignment attribute is not available the fallback attribute may be used instead"
+              }
+            />
+          </div>
           <HashVersionSelector
             value={form.watch("hashVersion")}
             onChange={(v) => form.setValue("hashVersion", v)}

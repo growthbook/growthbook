@@ -931,8 +931,6 @@ paths:
                   enum:
                     - 1
                     - 2
-                stickyBucketing:
-                  type: boolean
                 bucketVersion:
                   type: number
                 blockedVariations:
@@ -1158,8 +1156,6 @@ paths:
                   enum:
                     - 1
                     - 2
-                stickyBucketing:
-                  type: boolean
                 bucketVersion:
                   type: number
                 blockedVariations:
@@ -2822,8 +2818,6 @@ components:
           type: string
         fallbackAttribute:
           type: string
-        stickyBucketing:
-          type: boolean
         bucketVersion:
           type: number
         blockedVariations:
@@ -3017,8 +3011,6 @@ components:
           enum:
             - 1
             - 2
-        stickyBucketing:
-          type: boolean
         bucketVersion:
           type: number
         blockedVariations:

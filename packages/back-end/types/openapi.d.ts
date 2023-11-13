@@ -353,7 +353,6 @@ export interface components {
               trackingKey?: string;
               hashAttribute?: string;
               fallbackAttribute?: string;
-              stickyBucketing?: boolean;
               bucketVersion?: number;
               blockedVariations?: (number)[];
               namespace?: {
@@ -419,7 +418,6 @@ export interface components {
                 trackingKey?: string;
                 hashAttribute?: string;
                 fallbackAttribute?: string;
-                stickyBucketing?: boolean;
                 bucketVersion?: number;
                 blockedVariations?: (number)[];
                 namespace?: {
@@ -496,7 +494,6 @@ export interface components {
           trackingKey?: string;
           hashAttribute?: string;
           fallbackAttribute?: string;
-          stickyBucketing?: boolean;
           bucketVersion?: number;
           blockedVariations?: (number)[];
           namespace?: {
@@ -562,7 +559,6 @@ export interface components {
             trackingKey?: string;
             hashAttribute?: string;
             fallbackAttribute?: string;
-            stickyBucketing?: boolean;
             bucketVersion?: number;
             blockedVariations?: (number)[];
             namespace?: {
@@ -627,7 +623,6 @@ export interface components {
       trackingKey?: string;
       hashAttribute?: string;
       fallbackAttribute?: string;
-      stickyBucketing?: boolean;
       bucketVersion?: number;
       blockedVariations?: (number)[];
       namespace?: {
@@ -705,7 +700,6 @@ export interface components {
       trackingKey?: string;
       hashAttribute?: string;
       fallbackAttribute?: string;
-      stickyBucketing?: boolean;
       bucketVersion?: number;
       blockedVariations?: (number)[];
       namespace?: {
@@ -775,7 +769,6 @@ export interface components {
       fallbackAttribute?: string;
       /** @enum {number} */
       hashVersion: 1 | 2;
-      stickyBucketing?: boolean;
       bucketVersion?: number;
       blockedVariations?: (number)[];
       variations: ({
@@ -1184,7 +1177,6 @@ export interface operations {
                         trackingKey?: string;
                         hashAttribute?: string;
                         fallbackAttribute?: string;
-                        stickyBucketing?: boolean;
                         bucketVersion?: number;
                         blockedVariations?: (number)[];
                         namespace?: {
@@ -1250,7 +1242,6 @@ export interface operations {
                           trackingKey?: string;
                           hashAttribute?: string;
                           fallbackAttribute?: string;
-                          stickyBucketing?: boolean;
                           bucketVersion?: number;
                           blockedVariations?: (number)[];
                           namespace?: {
@@ -1494,7 +1485,6 @@ export interface operations {
                       trackingKey?: string;
                       hashAttribute?: string;
                       fallbackAttribute?: string;
-                      stickyBucketing?: boolean;
                       bucketVersion?: number;
                       blockedVariations?: (number)[];
                       namespace?: {
@@ -1560,7 +1550,6 @@ export interface operations {
                         trackingKey?: string;
                         hashAttribute?: string;
                         fallbackAttribute?: string;
-                        stickyBucketing?: boolean;
                         bucketVersion?: number;
                         blockedVariations?: (number)[];
                         namespace?: {
@@ -1669,7 +1658,6 @@ export interface operations {
                       trackingKey?: string;
                       hashAttribute?: string;
                       fallbackAttribute?: string;
-                      stickyBucketing?: boolean;
                       bucketVersion?: number;
                       blockedVariations?: (number)[];
                       namespace?: {
@@ -1735,7 +1723,6 @@ export interface operations {
                         trackingKey?: string;
                         hashAttribute?: string;
                         fallbackAttribute?: string;
-                        stickyBucketing?: boolean;
                         bucketVersion?: number;
                         blockedVariations?: (number)[];
                         namespace?: {
@@ -1968,7 +1955,6 @@ export interface operations {
                       trackingKey?: string;
                       hashAttribute?: string;
                       fallbackAttribute?: string;
-                      stickyBucketing?: boolean;
                       bucketVersion?: number;
                       blockedVariations?: (number)[];
                       namespace?: {
@@ -2034,7 +2020,6 @@ export interface operations {
                         trackingKey?: string;
                         hashAttribute?: string;
                         fallbackAttribute?: string;
-                        stickyBucketing?: boolean;
                         bucketVersion?: number;
                         blockedVariations?: (number)[];
                         namespace?: {
@@ -2147,7 +2132,6 @@ export interface operations {
                       trackingKey?: string;
                       hashAttribute?: string;
                       fallbackAttribute?: string;
-                      stickyBucketing?: boolean;
                       bucketVersion?: number;
                       blockedVariations?: (number)[];
                       namespace?: {
@@ -2213,7 +2197,6 @@ export interface operations {
                         trackingKey?: string;
                         hashAttribute?: string;
                         fallbackAttribute?: string;
-                        stickyBucketing?: boolean;
                         bucketVersion?: number;
                         blockedVariations?: (number)[];
                         namespace?: {
@@ -2673,7 +2656,6 @@ export interface operations {
                 fallbackAttribute?: string;
                 /** @enum {number} */
                 hashVersion: 1 | 2;
-                stickyBucketing?: boolean;
                 bucketVersion?: number;
                 blockedVariations?: (number)[];
                 variations: ({
@@ -2796,7 +2778,6 @@ export interface operations {
           fallbackAttribute?: string;
           /** @enum {number} */
           hashVersion?: 1 | 2;
-          stickyBucketing?: boolean;
           bucketVersion?: number;
           blockedVariations?: (number)[];
           releasedVariationId?: string;
@@ -2867,7 +2848,6 @@ export interface operations {
               fallbackAttribute?: string;
               /** @enum {number} */
               hashVersion: 1 | 2;
-              stickyBucketing?: boolean;
               bucketVersion?: number;
               blockedVariations?: (number)[];
               variations: ({
@@ -2983,7 +2963,6 @@ export interface operations {
               fallbackAttribute?: string;
               /** @enum {number} */
               hashVersion: 1 | 2;
-              stickyBucketing?: boolean;
               bucketVersion?: number;
               blockedVariations?: (number)[];
               variations: ({
@@ -3102,7 +3081,6 @@ export interface operations {
           fallbackAttribute?: string;
           /** @enum {number} */
           hashVersion?: 1 | 2;
-          stickyBucketing?: boolean;
           bucketVersion?: number;
           blockedVariations?: (number)[];
           releasedVariationId?: string;
@@ -3173,7 +3151,6 @@ export interface operations {
               fallbackAttribute?: string;
               /** @enum {number} */
               hashVersion: 1 | 2;
-              stickyBucketing?: boolean;
               bucketVersion?: number;
               blockedVariations?: (number)[];
               variations: ({
@@ -3899,7 +3876,6 @@ export interface operations {
               fallbackAttribute?: string;
               /** @enum {number} */
               hashVersion: 1 | 2;
-              stickyBucketing?: boolean;
               bucketVersion?: number;
               blockedVariations?: (number)[];
               variations: ({

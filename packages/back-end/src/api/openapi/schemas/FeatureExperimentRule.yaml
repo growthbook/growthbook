@@ -22,8 +22,6 @@ properties:
     type: string
   fallbackAttribute:
     type: string
-  stickyBucketing:
-    type: boolean
   bucketVersion:
     type: number
   blockedVariations:
