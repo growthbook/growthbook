@@ -30,6 +30,7 @@ export const PROJECT_SCOPED_PERMISSIONS = [
   "createDatasources",
   "editDatasourceSettings",
   "runQueries",
+  "readData",
 ] as const;
 
 export const GLOBAL_PERMISSIONS = [
@@ -270,9 +271,15 @@ export function getRoles(_organization: OrganizationInterface): Role[] {
   // TODO: support custom roles?
   return [
     {
+      id: "noaccess",
+      description:
+        "Cannot view any features or experiments. Most useful when combined with project-scoped roles.",
+      permissions: [],
+    },
+    {
       id: "readonly",
       description: "View all features and experiment results",
-      permissions: [],
+      permissions: ["readData"],
     },
     {
       id: "collaborator",

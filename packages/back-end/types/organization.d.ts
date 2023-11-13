@@ -30,6 +30,7 @@ export type UserPermissions = {
 };
 
 export type MemberRole =
+  | "noaccess"
   | "readonly"
   | "collaborator"
   | "designer"
