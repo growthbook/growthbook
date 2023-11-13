@@ -9,11 +9,27 @@ import { createEvent } from "../models/EventModel";
 import { UserLoginAuditableProperties } from "../events/event-types";
 import { logger } from "../util/logger";
 import { usingOpenId, validatePasswordFormat } from "./auth";
+import { IS_CLOUD } from "../util/secrets";
+import md5 from "md5";
 
 const SALT_LEN = 16;
 const HASH_LEN = 64;
 
 const scrypt = promisify(crypto.scrypt);
+
+// Generate unique codes for each user by taking a porition of the hash of their email.
+// This is used to identify seats being used of a license when
+export async function getAllUserLicenseCodes() {
+  if (IS_CLOUD) {
+    throw new Error("getAllUsers() is not supported in cloud");
+  }
+  const users = await UserModel.find();
+  return Promise.all(
+    users.map(async (user) => {
+      return md5(user.email).slice(0, 8);
+    })
+  );
+}
 
 export async function getUserByEmail(email: string) {
   return UserModel.findOne({

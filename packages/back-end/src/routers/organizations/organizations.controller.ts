@@ -30,7 +30,7 @@ import {
   getNonSensitiveParams,
   getSourceIntegrationObject,
 } from "../../services/datasource";
-import { updatePassword } from "../../services/users";
+import { getAllUserLicenseCodes, updatePassword } from "../../services/users";
 import { getAllTags } from "../../models/TagModel";
 import {
   Invite,
@@ -615,7 +615,11 @@ export async function getOrganization(req: AuthRequest, res: Response) {
     const licenseData = getLicense();
     if (!licenseData || (licenseData.org && licenseData.org !== id)) {
       try {
-        await licenseInit(licenseKey);
+        const allUserLicenseCodes = IS_CLOUD
+          ? []
+          : await getAllUserLicenseCodes();
+
+        await licenseInit(allUserLicenseCodes, licenseKey);
       } catch (e) {
         // eslint-disable-next-line no-console
         console.error("setting license failed", e);
@@ -1745,7 +1749,9 @@ export async function putLicenseKey(
   let licenseData = null;
   try {
     // set new license
-    await licenseInit(licenseKey);
+    const allUserLicenseCodes = IS_CLOUD ? [] : await getAllUserLicenseCodes();
+
+    await licenseInit(allUserLicenseCodes, licenseKey);
     licenseData = getLicense();
   } catch (e) {
     // eslint-disable-next-line no-console

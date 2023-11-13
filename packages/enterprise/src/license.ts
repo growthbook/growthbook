@@ -2,6 +2,9 @@ import crypto from "crypto";
 import fetch from "node-fetch";
 import type Stripe from "stripe";
 import pino from "pino";
+
+//TODO: Set this to the real prod license server
+const LICENSE_SERVER = "http://localhost:8080";
 const logger = pino();
 
 export type AccountPlan = "oss" | "starter" | "pro" | "pro_sso" | "enterprise";
@@ -249,10 +252,54 @@ export async function getVerifiedLicenseData(key: string) {
 }
 
 let licenseData: LicenseData | null = null;
+let cacheDate: Date | null = null;
 // in-memory cache to avoid hitting the license server on every request
 const keyToLicenseData: Record<string, LicenseData> = {};
 
-export async function licenseInit(licenseKey?: string) {
+async function getLicenseDataFromServer(
+  licenseId: string,
+  allUserLicenseCodes: string[]
+): Promise<LicenseData> {
+  const url = `${LICENSE_SERVER}/api/v1/license/${licenseId}/usage`;
+  const options = {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      users: allUserLicenseCodes,
+    }),
+  };
+
+  let serverResult;
+
+  try {
+    serverResult = await fetch(url, options);
+  } catch (e) {
+    throw new Error("Could not connect to license server");
+  }
+
+  if (!serverResult.ok) {
+    throw new Error("Invalid license key");
+  }
+
+  const serverData = await serverResult.json();
+  return {
+    ref: serverData.licenseId,
+    sub: serverData.companyName,
+    org: serverData.organizationId,
+    qty: serverData.seats,
+    iat: serverData.dateCreated,
+    exp: serverData.dateExpires,
+    trial: serverData.isTrial,
+    plan: serverData.plan,
+  };
+}
+
+export async function licenseInit(
+  userLicenseCodes: string[],
+  licenseKey?: string
+) {
   const key = licenseKey || LICENSE_KEY || null;
 
   if (!key) {
@@ -260,9 +307,24 @@ export async function licenseInit(licenseKey?: string) {
     return;
   }
 
-  if (key && keyToLicenseData[key]) return keyToLicenseData[key];
+  const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
 
-  licenseData = await getVerifiedLicenseData(key);
+  if (
+    key &&
+    keyToLicenseData[key] &&
+    (cacheDate === null || cacheDate > oneDayAgo)
+  ) {
+    return keyToLicenseData[key];
+  }
+
+  if (key.startsWith("license_")) {
+    licenseData = await getLicenseDataFromServer(key, userLicenseCodes);
+    cacheDate = new Date(Date.now());
+  } else {
+    // Old style: the key itself has the encrypted license data in it.
+    licenseData = await getVerifiedLicenseData(key);
+  }
+
   keyToLicenseData[key] = licenseData;
 }
 
