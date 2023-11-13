@@ -52,6 +52,7 @@ export class GrowthBook<
   public debug: boolean;
   public ready: boolean;
   public version: string;
+  public initializationPromise: null | Promise<void>;
 
   // Properties and methods that start with "_" are mangled by Terser (saves ~150 bytes)
   private _ctx: Context;
@@ -138,8 +139,9 @@ export class GrowthBook<
     }
 
     if (context.clientKey && !context.remoteEval) {
-      this._refresh({}, true, false);
-    }
+      this.initializationPromise = this._refresh({}, true, false);
+    } else {
+      this.initializationPromise = null;
   }
 
   public async loadFeatures(options?: LoadFeaturesOptions): Promise<void> {
