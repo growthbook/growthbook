@@ -576,7 +576,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
                 </div>
               </div>
             </div>
-            {!isMultiOrg() && (
+            {(isCloud() || !isMultiOrg()) && (
               <div>
                 <div className="divider border-bottom mb-3 mt-3" />
 

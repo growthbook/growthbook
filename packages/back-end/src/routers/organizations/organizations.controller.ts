@@ -1737,8 +1737,10 @@ export async function putLicenseKey(
     throw new Error("License keys are only applicable to self-hosted accounts");
   }
 
-  if (IS_MULTI_ORG && !req.superAdmin) {
-    throw new Error("Only super admins can edit licenses on multi-org sites");
+  if (IS_MULTI_ORG) {
+    throw new Error(
+      "You must use the LICENSE_KEY environmental variable on multi org sites."
+    );
   }
 
   const { licenseKey } = req.body;
