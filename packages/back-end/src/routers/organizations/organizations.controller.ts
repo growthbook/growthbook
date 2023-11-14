@@ -30,7 +30,7 @@ import {
   getNonSensitiveParams,
   getSourceIntegrationObject,
 } from "../../services/datasource";
-import { getAllUserLicenseCodes, updatePassword } from "../../services/users";
+import { getUserLicenseCodes, updatePassword } from "../../services/users";
 import { getAllTags } from "../../models/TagModel";
 import {
   Invite,
@@ -615,9 +615,7 @@ export async function getOrganization(req: AuthRequest, res: Response) {
     const licenseData = getLicense();
     if (!licenseData || (licenseData.org && licenseData.org !== id)) {
       try {
-        const allUserLicenseCodes = IS_CLOUD
-          ? []
-          : await getAllUserLicenseCodes();
+        const allUserLicenseCodes = IS_CLOUD ? [] : await getUserLicenseCodes();
 
         await licenseInit(allUserLicenseCodes, licenseKey);
       } catch (e) {
@@ -1749,7 +1747,7 @@ export async function putLicenseKey(
   let licenseData = null;
   try {
     // set new license
-    const allUserLicenseCodes = IS_CLOUD ? [] : await getAllUserLicenseCodes();
+    const allUserLicenseCodes = IS_CLOUD ? [] : await getUserLicenseCodes();
 
     await licenseInit(allUserLicenseCodes, licenseKey);
     licenseData = getLicense();

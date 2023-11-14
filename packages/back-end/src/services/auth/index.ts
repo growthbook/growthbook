@@ -8,7 +8,7 @@ import { getOrganizationById, validateLoginMethod } from "../organizations";
 import { Permission } from "../../../types/organization";
 import { UserInterface } from "../../../types/user";
 import { AuditInterface } from "../../../types/audit";
-import { getAllUserLicenseCodes, getUserByEmail } from "../users";
+import { getUserLicenseCodes, getUserByEmail } from "../users";
 import { hasOrganization } from "../../models/OrganizationModel";
 import {
   IdTokenCookie,
@@ -187,9 +187,7 @@ export async function processJWT(
           return;
         }
 
-        const allUserLicenseCodes = IS_CLOUD
-          ? []
-          : await getAllUserLicenseCodes();
+        const allUserLicenseCodes = IS_CLOUD ? [] : await getUserLicenseCodes();
 
         // init license for org if it exists
         await licenseInit(allUserLicenseCodes, req.organization.licenseKey);

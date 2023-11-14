@@ -1,9 +1,9 @@
 import { licenseInit } from "enterprise";
 import { logger } from "../util/logger";
+import { IS_CLOUD } from "../util/secrets";
+import { getUserLicenseCodes } from "../services/users";
 import mongoInit from "./mongo";
 import { queueInit } from "./queue";
-import { IS_CLOUD } from "../util/secrets";
-import { getAllUserLicenseCodes } from "../services/users";
 
 let initPromise: Promise<void>;
 export async function init() {
@@ -11,9 +11,7 @@ export async function init() {
     initPromise = (async () => {
       await mongoInit();
       await queueInit();
-      const allUserLicenseCodes = IS_CLOUD
-        ? []
-        : await getAllUserLicenseCodes();
+      const allUserLicenseCodes = IS_CLOUD ? [] : await getUserLicenseCodes();
       await licenseInit(allUserLicenseCodes);
     })();
   }

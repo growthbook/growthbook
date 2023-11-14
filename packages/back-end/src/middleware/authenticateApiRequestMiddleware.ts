@@ -20,7 +20,7 @@ import { ApiKeyInterface } from "../../types/apikey";
 import { insertAudit } from "../models/AuditModel";
 import { getTeamsForOrganization } from "../models/TeamModel";
 import { TeamInterface } from "../../types/team";
-import { getAllUserLicenseCodes, getUserById } from "../services/users";
+import { getUserLicenseCodes, getUserById } from "../services/users";
 import { IS_CLOUD } from "../util/secrets";
 
 export default function authenticateApiRequestMiddleware(
@@ -167,9 +167,7 @@ export default function authenticateApiRequestMiddleware(
         });
       };
 
-      const allUserLicenseCodes = IS_CLOUD
-        ? []
-        : await getAllUserLicenseCodes();
+      const allUserLicenseCodes = IS_CLOUD ? [] : await getUserLicenseCodes();
 
       // init license for org if it exists
       await licenseInit(allUserLicenseCodes, req.organization.licenseKey);

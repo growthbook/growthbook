@@ -258,7 +258,7 @@ const keyToLicenseData: Record<string, LicenseData> = {};
 
 async function getLicenseDataFromServer(
   licenseId: string,
-  allUserLicenseCodes: string[]
+  userLicenseCodes: string[]
 ): Promise<LicenseData> {
   const url = `${LICENSE_SERVER}/api/v1/license/${licenseId}/usage`;
   const options = {
@@ -267,7 +267,7 @@ async function getLicenseDataFromServer(
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      users: allUserLicenseCodes,
+      users: userLicenseCodes,
     }),
   };
 

@@ -2,28 +2,47 @@ import crypto from "crypto";
 import { promisify } from "util";
 import uniqid from "uniqid";
 import { Request } from "express";
+import md5 from "md5";
 import { UserDocument, UserModel } from "../models/UserModel";
 import { findOrganizationsByMemberId } from "../models/OrganizationModel";
 import { UserLoginNotificationEvent } from "../events/notification-events";
 import { createEvent } from "../models/EventModel";
 import { UserLoginAuditableProperties } from "../events/event-types";
 import { logger } from "../util/logger";
-import { usingOpenId, validatePasswordFormat } from "./auth";
 import { IS_CLOUD } from "../util/secrets";
-import md5 from "md5";
+import { usingOpenId, validatePasswordFormat } from "./auth";
 
 const SALT_LEN = 16;
 const HASH_LEN = 64;
 
 const scrypt = promisify(crypto.scrypt);
 
-// Generate unique codes for each user by taking a porition of the hash of their email.
-// This is used to identify seats being used of a license when
-export async function getAllUserLicenseCodes() {
+// Generate unique codes for each user who is part of at least one organization
+// by taking a porition of the hash of their email.
+// This is used to identify seats being used of a license on self-serve.
+// We base the code on their email so that the same user on multiple installations
+// e.g. dev and production, will have the same code and be treated as a single seat.
+export async function getUserLicenseCodes() {
   if (IS_CLOUD) {
-    throw new Error("getAllUsers() is not supported in cloud");
+    throw new Error("getAllUserLicenseCodes() is not supported in cloud");
   }
-  const users = await UserModel.find();
+
+  const users = await UserModel.aggregate([
+    {
+      $lookup: {
+        from: "organizations",
+        localField: "id",
+        foreignField: "members.id",
+        as: "orgs",
+      },
+    },
+    {
+      $match: {
+        "orgs.0": { $exists: true },
+      },
+    },
+  ]);
+
   return Promise.all(
     users.map(async (user) => {
       return md5(user.email).slice(0, 8);
