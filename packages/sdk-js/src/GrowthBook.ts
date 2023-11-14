@@ -1080,7 +1080,7 @@ export class GrowthBook<
     );
 
     // 13.5. Persist sticky bucket
-    if (this.context.stickyBucketService) {
+    if (this._ctx.stickyBucketService) {
       const {
         changed,
         key: attrKey,
@@ -1101,7 +1101,7 @@ export class GrowthBook<
           this._ctx.stickyBucketAssignmentDocs ?? {};
         this._ctx.stickyBucketAssignmentDocs[attrKey] = doc;
         // save doc
-        this._ctx.stickyBucketService?.saveAssignments(doc);
+        this._ctx.stickyBucketService.saveAssignments(doc);
       }
     }
 
@@ -1280,8 +1280,12 @@ export class GrowthBook<
 
   private _deriveStickyBucketIdentifierAttributes(data?: FeatureApiResponse) {
     const attributes = new Set<string>();
-    const features = data?.features ?? this.getFeatures();
-    const experiments = data?.experiments ?? this.getExperiments();
+    const features = data
+      ? data.features ?? this.getFeatures()
+      : this.getFeatures();
+    const experiments = data
+      ? data.experiments ?? this.getExperiments()
+      : this.getExperiments();
     Object.keys(features).forEach((id) => {
       const feature = features[id];
       if (feature.rules) {
@@ -1317,7 +1321,7 @@ export class GrowthBook<
     const mergedAssignments: StickyAssignments = {};
     Object.entries(this.context.stickyBucketAssignmentDocs ?? {}).forEach(
       ([, doc]) => {
-        if (doc?.assignments) Object.assign(mergedAssignments, doc.assignments);
+        if (doc.assignments) Object.assign(mergedAssignments, doc.assignments);
       }
     );
     return mergedAssignments;
@@ -1371,7 +1375,10 @@ export class GrowthBook<
   } {
     const key = `${attributeName}||${attributeValue}`;
     const existingAssignments =
-      this.context.stickyBucketAssignmentDocs?.[key]?.assignments ?? {};
+      this.context.stickyBucketAssignmentDocs &&
+      this.context.stickyBucketAssignmentDocs[key]
+        ? this.context.stickyBucketAssignmentDocs[key].assignments ?? {}
+        : {};
     const newAssignments = { ...existingAssignments, ...assignments };
     const changed =
       JSON.stringify(existingAssignments) !== JSON.stringify(newAssignments);

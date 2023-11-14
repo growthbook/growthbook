@@ -29,6 +29,19 @@ export interface IORedisCompat {
   set(key: string, value: string): Promise<string>;
 }
 
+export interface RequestCompat {
+  cookies: Record<string, string>;
+  [key: string]: unknown;
+}
+export interface ResponseCompat {
+  cookie(
+    name: string,
+    value: string,
+    options?: CookieAttributes
+  ): ResponseCompat;
+  [key: string]: unknown;
+}
+
 /**
  * Responsible for reading and writing documents which describe sticky bucket assignments.
  */
@@ -89,8 +102,9 @@ export class LocalStorageStickyBucketService extends StickyBucketService {
   async getAssignments(attributeName: string, attributeValue: string) {
     const key = `${attributeName}||${attributeValue}`;
     let doc: StickyAssignmentsDocument | null = null;
+    if (!this.localStorage) return doc;
     try {
-      const raw = await this.localStorage?.getItem(this.prefix + key);
+      const raw = await this.localStorage.getItem(this.prefix + key);
       const data = JSON.parse(raw || "{}");
       if (data.attributeName && data.attributeValue && data.assignments) {
         doc = data;
@@ -102,17 +116,16 @@ export class LocalStorageStickyBucketService extends StickyBucketService {
   }
   async saveAssignments(doc: StickyAssignmentsDocument) {
     const key = `${doc.attributeName}||${doc.attributeValue}`;
-    await this.localStorage?.setItem(this.prefix + key, JSON.stringify(doc));
+    if (!this.localStorage) return;
+    await this.localStorage.setItem(this.prefix + key, JSON.stringify(doc));
   }
 }
 
 export class ExpressCookieStickyBucketService extends StickyBucketService {
   /** intended to be used with cookieParser() middleware from npm: 'cookie-parser' **/
   private prefix: string;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  private req: any;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  private res: any;
+  private req: RequestCompat | undefined;
+  private res: ResponseCompat | undefined;
   private cookieAttributes: CookieAttributes;
   constructor({
     prefix = "gbStickyBuckets::",
@@ -121,10 +134,8 @@ export class ExpressCookieStickyBucketService extends StickyBucketService {
     cookieAttributes = {},
   }: {
     prefix?: string;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    req?: any;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    res?: any;
+    req?: RequestCompat;
+    res?: ResponseCompat;
     cookieAttributes?: CookieAttributes;
   } = {}) {
     super();
@@ -140,8 +151,9 @@ export class ExpressCookieStickyBucketService extends StickyBucketService {
   async getAssignments(attributeName: string, attributeValue: string) {
     const key = `${attributeName}||${attributeValue}`;
     let doc: StickyAssignmentsDocument | null = null;
+    if (!this.req) return doc;
     try {
-      const raw = this.req?.cookies?.[this.prefix + key];
+      const raw = this.req.cookies[this.prefix + key];
       const data = JSON.parse(raw || "{}");
       if (data.attributeName && data.attributeValue && data.assignments) {
         doc = data;
@@ -153,7 +165,8 @@ export class ExpressCookieStickyBucketService extends StickyBucketService {
   }
   async saveAssignments(doc: StickyAssignmentsDocument) {
     const key = `${doc.attributeName}||${doc.attributeValue}`;
-    this.res?.cookie?.(
+    if (!this.res) return;
+    this.res.cookie(
       this.prefix + key,
       JSON.stringify(doc),
       this.cookieAttributes
@@ -187,8 +200,9 @@ export class BrowserCookieStickyBucketService extends StickyBucketService {
   async getAssignments(attributeName: string, attributeValue: string) {
     const key = `${attributeName}||${attributeValue}`;
     let doc: StickyAssignmentsDocument | null = null;
+    if (!this.jsCookie) return doc;
     try {
-      const raw = await this.jsCookie?.get(this.prefix + key);
+      const raw = this.jsCookie.get(this.prefix + key);
       const data = JSON.parse(raw || "{}");
       if (data.attributeName && data.attributeValue && data.assignments) {
         doc = data;
@@ -200,7 +214,8 @@ export class BrowserCookieStickyBucketService extends StickyBucketService {
   }
   async saveAssignments(doc: StickyAssignmentsDocument) {
     const key = `${doc.attributeName}||${doc.attributeValue}`;
-    await this.jsCookie?.set(
+    if (!this.jsCookie) return;
+    this.jsCookie.set(
       this.prefix + key,
       JSON.stringify(doc),
       this.cookieAttributes
@@ -225,11 +240,12 @@ export class RedisStickyBucketService extends StickyBucketService {
   async getAllAssignments(
     attributes: Record<string, string>
   ): Promise<Record<StickyAttributeKey, StickyAssignmentsDocument>> {
-    const docs: Record<string, StickyAssignmentsDocument> = {};
+    const docs: Record<StickyAttributeKey, StickyAssignmentsDocument> = {};
     const keys = Object.entries(attributes).map(
       ([attributeName, attributeValue]) => `${attributeName}||${attributeValue}`
     );
-    this.redis?.mget(...keys).then((values) => {
+    if (!this.redis) return docs;
+    this.redis.mget(...keys).then((values) => {
       values.forEach((raw) => {
         try {
           const data = JSON.parse(raw || "{}");
@@ -252,6 +268,7 @@ export class RedisStickyBucketService extends StickyBucketService {
 
   async saveAssignments(doc: StickyAssignmentsDocument) {
     const key = `${doc.attributeName}||${doc.attributeValue}`;
-    await this.redis?.set(key, JSON.stringify(doc));
+    if (!this.redis) return;
+    await this.redis.set(key, JSON.stringify(doc));
   }
 }
