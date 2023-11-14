@@ -319,6 +319,7 @@ spacing and headings.`,
     // Create feature
     const featureToCreate: FeatureInterface = {
       id: getDemoDataSourceFeatureId(),
+      version: 1,
       project: project.id,
       organization: org.id,
       dateCreated: new Date(),

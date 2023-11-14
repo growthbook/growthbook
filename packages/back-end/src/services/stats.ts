@@ -267,7 +267,7 @@ export async function analyzeExperimentResults({
           dimension: analysisSettings.dimensions[0],
           baselineVariationIndex: analysisSettings.baselineVariationIndex ?? 0,
           differenceType: analysisSettings.differenceType,
-          coverage: snapshotSettings.coverage ?? 1,
+          coverage: snapshotSettings.coverage || 1,
           phaseLengthHours: Math.max(
             hoursBetween(snapshotSettings.startDate, snapshotSettings.endDate),
             1

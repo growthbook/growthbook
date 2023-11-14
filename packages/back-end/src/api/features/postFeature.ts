@@ -90,16 +90,7 @@ export const postFeature = createApiRequestHandler(postFeatureValidator)(
       organization: req.organization.id,
       id: req.body.id.toLowerCase(),
       archived: !!req.body.archived,
-      revision: {
-        version: 1,
-        comment: "New feature",
-        date: new Date(),
-        publishedBy: {
-          id: req.body.owner,
-          email: req.body.owner,
-          name: req.body.owner,
-        },
-      },
+      version: 1,
       environmentSettings: {},
     };
 
