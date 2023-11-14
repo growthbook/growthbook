@@ -51,6 +51,9 @@ properties:
   hashVersion:
     type: number
     enum: [1, 2]
+  environments:
+    type: object
+    required: enabled
   variations:
     type: array
     items:

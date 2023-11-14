@@ -750,6 +750,7 @@ export interface components {
       hashAttribute: string;
       /** @enum {number} */
       hashVersion: 1 | 2;
+      environments?: any;
       variations: ({
           variationId: string;
           key: string;
@@ -2604,6 +2605,7 @@ export interface operations {
                 hashAttribute: string;
                 /** @enum {number} */
                 hashVersion: 1 | 2;
+                environments?: any;
                 variations: ({
                     variationId: string;
                     key: string;
@@ -2790,6 +2792,7 @@ export interface operations {
               hashAttribute: string;
               /** @enum {number} */
               hashVersion: 1 | 2;
+              environments?: any;
               variations: ({
                   variationId: string;
                   key: string;
@@ -2902,6 +2905,7 @@ export interface operations {
               hashAttribute: string;
               /** @enum {number} */
               hashVersion: 1 | 2;
+              environments?: any;
               variations: ({
                   variationId: string;
                   key: string;
@@ -3084,6 +3088,7 @@ export interface operations {
               hashAttribute: string;
               /** @enum {number} */
               hashVersion: 1 | 2;
+              environments?: any;
               variations: ({
                   variationId: string;
                   key: string;
@@ -3806,6 +3811,7 @@ export interface operations {
               hashAttribute: string;
               /** @enum {number} */
               hashVersion: 1 | 2;
+              environments?: any;
               variations: ({
                   variationId: string;
                   key: string;
