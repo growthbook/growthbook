@@ -465,8 +465,10 @@ const GeneralSettingsPage = (): React.ReactElement => {
       : "";
 
   const srmHighlightColor =
-    // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-    value.srmThreshold > 0.01 || value.srmThreshold < 0.001 ? "#B39F01" : "";
+    value.srmThreshold &&
+    (value.srmThreshold > 0.01 || value.srmThreshold < 0.001)
+      ? "#B39F01"
+      : "";
 
   const regressionAdjustmentDaysHighlightColor =
     // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
@@ -509,11 +511,9 @@ const GeneralSettingsPage = (): React.ReactElement => {
       : "";
 
   const srmWarningMsg =
-    // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-    value.srmThreshold > 0.01
+    value.srmThreshold && value.srmThreshold > 0.01
       ? "Thresholds above 0.01 may lead to many false positives, especially if you refresh results regularly"
-      : // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-      value.srmThreshold < 0.001
+      : value.srmThreshold && value.srmThreshold < 0.001
       ? "Thresholds below 0.001 may make it hard to detect imbalances without lots of traffic."
       : "";
 
