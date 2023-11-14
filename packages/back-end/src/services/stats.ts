@@ -362,7 +362,7 @@ export function analyzeExperimentTraffic({
   // build variation data to check traffic
   const variationIdMap: { [key: string]: number } = {};
   const variationWeights: number[] = [];
-  variations.map((v, i) => {
+  variations.forEach((v, i) => {
     variationIdMap[v.id] = i;
     variationWeights.push(v.weight);
   });
@@ -404,7 +404,7 @@ export function analyzeExperimentTraffic({
     dimTraffic.set(r.dimension_value, dimValueTraffic);
     dimTrafficResults.set(r.dimension_name, dimTraffic);
 
-    // use activated users if available, otherwise use date
+    // aggregate over date unit counts for overall unit counts
     if (r.dimension_name === "dim_exposure_date") {
       trafficResults.overall[0].variationUnits[variationIndex] += r.units;
     }

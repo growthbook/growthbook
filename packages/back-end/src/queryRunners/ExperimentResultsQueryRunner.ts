@@ -98,18 +98,13 @@ export const startExperimentResultQueries = async (
   const exposureQuery = (integration.settings?.queries?.exposure || []).find(
     (q) => q.id === snapshotSettings.exposureQueryId
   );
-  const availableExperimentDimensions: ExperimentDimension[] = [];
   // Add experiment dimensions based on the selected exposure query
-  if (exposureQuery) {
-    if (exposureQuery.dimensions.length > 0) {
-      exposureQuery.dimensions.map(async (d) => {
-        availableExperimentDimensions.push({
-          type: "experiment",
-          id: d,
-        });
-      });
-    }
-  }
+  const availableExperimentDimensions: ExperimentDimension[] = (
+    exposureQuery?.dimensions || []
+  ).map((id) => ({
+    type: "experiment",
+    id,
+  }));
   const dimensionObj = await parseDimensionId(
     snapshotSettings.dimensions[0]?.id,
     organization

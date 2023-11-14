@@ -43,6 +43,7 @@ import {
   ProcessedDimensions,
   ExperimentAggregateUnitsQueryResponse,
   ExperimentAggregateUnitsQueryParams,
+  UserDimension,
 } from "../types/Integration";
 import { DimensionInterface } from "../../types/dimension";
 import { IMPORT_LIMIT_DAYS } from "../util/secrets";
@@ -885,12 +886,16 @@ export default abstract class SqlIntegration
         }
       } else if (dimension?.type === "user") {
         // Replace any placeholders in the user defined dimension SQL
-        dimension.dimension.sql = compileSqlTemplate(dimension.dimension.sql, {
-          startDate: settings.startDate,
-          endDate: settings.endDate,
-          experimentId: settings.experimentId,
-        });
-        processedDimensions.unitDimensions.push(dimension);
+        const clonedDimension = cloneDeep<UserDimension>(dimension);
+        clonedDimension.dimension.sql = compileSqlTemplate(
+          dimension.dimension.sql,
+          {
+            startDate: settings.startDate,
+            endDate: settings.endDate,
+            experimentId: settings.experimentId,
+          }
+        );
+        processedDimensions.unitDimensions.push(clonedDimension);
       } else if (dimension?.type === "experiment") {
         processedDimensions.experimentDimensions.push(dimension);
       }
@@ -2352,7 +2357,7 @@ AND event_name = '${eventName}'`,
     }
 
     return `-- Segment (${segment.name})
-    ${segment.sql}
+    ${segmentSql}
     `;
   }
 
