@@ -169,13 +169,12 @@ const areRulesOneSided = (
   const forceRules = rules.filter(isForceRule);
   const expRules = rules.filter(isExperimentRule);
 
-  if (!rolloutRules.length && !forceRules.length) return false;
+  const rolloutRulesOnesided =
+    !rolloutRules.length ||
+    rolloutRules.every((r) => r.coverage === 1 && !r.condition);
 
-  const rolloutRulesOnesided = rolloutRules.every(
-    (r) => r.coverage === 1 && !r.condition
-  );
-
-  const forceRulesOnesided = forceRules.every((r) => !r.condition);
+  const forceRulesOnesided =
+    !forceRules.length || forceRules.every((r) => !r.condition);
 
   const expRulesOnesided =
     !expRules.length ||
@@ -216,9 +215,6 @@ export function isFeatureStale(
 
   if (enabledRules.length === 0) return { stale, reason: "no-rules" };
 
-  if (areRulesOneSided(enabledRules, linkedExperiments))
-    return { stale, reason: "rules-one-sided" };
-
   // features with only exp rules that are inactive are stale
   if (
     enabledRules.every(
@@ -230,6 +226,9 @@ export function isFeatureStale(
       !linkedExperiments.some((e) => includeExperimentInPayload(e));
     if (noExpsActive) return { stale, reason: "no-active-exps" };
   }
+
+  if (areRulesOneSided(enabledRules, linkedExperiments))
+    return { stale, reason: "rules-one-sided" };
 
   return { stale: false };
 }
