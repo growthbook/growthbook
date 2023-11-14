@@ -8,7 +8,7 @@ import { ImTable2 } from "react-icons/im";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { formatTrafficSplit } from "@/services/utils";
 import Tooltip from "../Tooltip/Tooltip";
-import { SRM_THRESHOLD } from "./SRMWarning";
+import { DEFAULT } from "./SRMWarning";
 
 const numberFormatter = new Intl.NumberFormat();
 

@@ -348,6 +348,8 @@ const GeneralSettingsPage = (): React.ReactElement => {
     secondaryColor: form.watch("secondaryColor"),
     northStar: form.watch("northStar"),
     updateSchedule: form.watch("updateSchedule"),
+    runHealthTrafficQuery: form.watch("runHealthTrafficQuery"),
+    srmThreshold: form.watch("srmThreshold"),
     multipleExposureMinPercent: form.watch("multipleExposureMinPercent"),
     statsEngine: form.watch("statsEngine"),
     confidenceLevel: form.watch("confidenceLevel"),
@@ -462,6 +464,10 @@ const GeneralSettingsPage = (): React.ReactElement => {
       ? "#B39F01"
       : "";
 
+  const srmHighlightColor =
+    // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
+    value.srmThreshold > 0.01 || value.srmThreshold < 0.001 ? "#B39F01" : "";
+
   const regressionAdjustmentDaysHighlightColor =
     // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
     value.regressionAdjustmentDays > 28 || value.regressionAdjustmentDays < 7
@@ -500,6 +506,15 @@ const GeneralSettingsPage = (): React.ReactElement => {
       : // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
       value.pValueThreshold <= 0.01
       ? "Threshold values of 0.01 and lower can take lots of data to achieve"
+      : "";
+
+  const srmWarningMsg =
+    // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
+    value.srmThreshold > 0.01
+      ? "Thresholds above 0.01 may lead to many false positives, especially if you refresh results regularly"
+      : // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
+      value.srmThreshold < 0.001
+      ? "Thresholds below 0.001 may make it hard to detect imbalances without lots of traffic."
       : "";
 
   const regressionAdjustmentDaysWarningMsg =
@@ -921,14 +936,31 @@ const GeneralSettingsPage = (): React.ReactElement => {
                         label="SRM threshold"
                         type="number"
                         step="0.001"
-                        max="0.5"
-                        min="0.001"
+                        style={{
+                          borderColor: srmHighlightColor,
+                          backgroundColor: srmHighlightColor
+                            ? srmHighlightColor + "15"
+                            : "",
+                        }}
+                        max="0.1"
+                        min="0.00001"
                         className={`ml-2`}
                         containerClassName="mb-3"
                         append=""
                         disabled={hasFileConfig()}
                         helpText={
-                          <span className="ml-2">(0.001 is default)</span>
+                          <>
+                            <span className="ml-2">(0.001 is default)</span>
+                            <div
+                              className="ml-2"
+                              style={{
+                                color: srmHighlightColor,
+                                flexBasis: "100%",
+                              }}
+                            >
+                              {srmWarningMsg}
+                            </div>
+                          </>
                         }
                         {...form.register("srmThreshold", {
                           valueAsNumber: true,

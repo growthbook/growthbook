@@ -15,6 +15,7 @@ import Toggle from "@/components/Forms/Toggle";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import { AppFeatures } from "@/types/app-features";
+import { useUser } from "@/services/UserContext";
 import Modal from "../../../Modal";
 import Field from "../../../Forms/Field";
 import EditSqlModal from "../../../SchemaBrowser/EditSqlModal";
@@ -37,6 +38,9 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
   const [showAdvancedMode, setShowAdvancedMode] = useState(false);
   const [sqlOpen, setSqlOpen] = useState(false);
   const healthTabSettingsEnabled = useFeatureIsOn<AppFeatures>("health-tab");
+  const { settings } = useUser();
+  const showDimensionsForTraffic =
+    healthTabSettingsEnabled && settings.runHealthTrafficQuery;
   const modalTitle =
     mode === "add"
       ? "Add an Experiment Assignment query"
@@ -79,13 +83,17 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
   const userEnteredDimsForTraffic = form.watch("dimensionsForTraffic");
 
   const handleSubmit = form.handleSubmit(async (value) => {
-    await onSave(value);
+    // Do a JIT migration if user doesn't supply any dimensions for traffic
+    await onSave(
+      userEnteredDimsForTraffic ? value : { ...value, dimensionsForTraffic: [] }
+    );
 
     form.reset({
       id: undefined,
       query: "",
       name: "",
       dimensions: [],
+      dimensionsForTraffic: [],
       description: "",
       hasNameCol: false,
       userIdType: undefined,
@@ -336,7 +344,7 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
                         }
                       }}
                     />
-                    {healthTabSettingsEnabled && (
+                    {showDimensionsForTraffic && (
                       <MultiSelectField
                         label="Dimensions to use in traffic breakdowns"
                         value={userEnteredDimsForTraffic || []}
