@@ -371,7 +371,7 @@ export abstract class QueryRunner<
         .filter((q) => q.status === "running")
         .map((q) => q.query);
 
-      if (runningIds) {
+      if (runningIds.length) {
         const queryDocs = await getQueriesByIds(
           this.model.organization,
           runningIds
