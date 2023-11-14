@@ -44,6 +44,7 @@ import {
   ExperimentAggregateUnitsQueryResponse,
   ExperimentAggregateUnitsQueryParams,
   UserDimension,
+  ExperimentDimension,
 } from "../types/Integration";
 import { DimensionInterface } from "../../types/dimension";
 import { IMPORT_LIMIT_DAYS } from "../util/secrets";
@@ -744,26 +745,17 @@ export default abstract class SqlIntegration
         initial.${baseIdType}`;
   }
 
-  private getDimensionColumn(baseIdType: string, dimension: Dimension | null) {
+  private getDimensionColumn(
+    baseIdType: string,
+    dimension: UserDimension | ExperimentDimension | null
+  ) {
     const missingDimString = "__NULL_DIMENSION";
-    if (
-      !dimension ||
-      dimension.type === "datecumulative" ||
-      dimension.type === "datedaily"
-    ) {
+    if (!dimension) {
       return this.castToString("'All'");
-    } else if (dimension.type === "activation") {
-      return `MAX(${this.ifElse(
-        `a.${baseIdType} IS NULL`,
-        "'Not Activated'",
-        "'Activated'"
-      )})`;
     } else if (dimension.type === "user") {
       return `COALESCE(MAX(${this.castToString(
         `__dim_unit_${dimension.dimension.id}.value`
       )}),'${missingDimString}')`;
-    } else if (dimension.type === "date") {
-      return `MIN(${this.formatDate(this.dateTrunc("e.timestamp"))})`;
     } else if (dimension.type === "experiment") {
       return `SUBSTRING(
         MIN(
