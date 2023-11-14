@@ -19,6 +19,7 @@ import { useUser } from "@/services/UserContext";
 import Modal from "../../../Modal";
 import Field from "../../../Forms/Field";
 import EditSqlModal from "../../../SchemaBrowser/EditSqlModal";
+import { TrafficDimensionsTooltip } from "./TrafficDimensionsTooltip";
 
 type EditExperimentAssignmentQueryProps = {
   exposureQuery?: ExposureQuery;
@@ -346,7 +347,14 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
                     />
                     {showDimensionsForTraffic && (
                       <MultiSelectField
-                        label="Dimensions to use in traffic breakdowns"
+                        label={
+                          <>
+                            <span className="mr-2">
+                              Dimensions to use in traffic breakdowns
+                            </span>
+                            <TrafficDimensionsTooltip />
+                          </>
+                        }
                         value={userEnteredDimsForTraffic || []}
                         onChange={(dimensions) => {
                           form.setValue("dimensionsForTraffic", dimensions);
