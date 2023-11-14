@@ -4,7 +4,13 @@ import dJSON from "dirty-json";
 import stringify from "json-stringify-pretty-compact";
 import cloneDeep from "lodash/cloneDeep";
 import isEqual from "lodash/isEqual";
-import { FeatureInterface, FeatureRule } from "back-end/types/feature";
+import {
+  ExperimentRefRule,
+  FeatureInterface,
+  FeatureRule,
+  ForceRule,
+  RolloutRule,
+} from "back-end/types/feature";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import { getValidDate } from "../dates";
@@ -145,7 +151,41 @@ type StaleFeatureReason =
   | "draft-state"
   | "no-rules"
   | "no-active-exps"
-  | "all-exps-onesided";
+  | "rules-one-sided";
+
+// type guards
+const isRolloutRule = (rule: FeatureRule): rule is RolloutRule =>
+  rule.type === "rollout";
+const isForceRule = (rule: FeatureRule): rule is ForceRule =>
+  rule.type === "force";
+const isExperimentRule = (rule: FeatureRule): rule is ExperimentRefRule =>
+  rule.type === "experiment" || rule.type === "experiment-ref";
+
+const areRulesOneSided = (
+  rules: FeatureRule[], // can assume all rules are enabled
+  linkedExperiments: ExperimentInterfaceStringDates[]
+) => {
+  const rolloutRules = rules.filter(isRolloutRule);
+  const forceRules = rules.filter(isForceRule);
+  const expRules = rules.filter(isExperimentRule);
+
+  if (!rolloutRules.length && !forceRules.length) return false;
+
+  const rolloutRulesOnesided = rolloutRules.every(
+    (r) => r.coverage === 1 && !r.condition
+  );
+
+  const forceRulesOnesided = forceRules.every((r) => !r.condition);
+
+  const expRulesOnesided =
+    !expRules.length ||
+    expRules.every((r) => {
+      const linkedExp = linkedExperiments.find((e) => e.id === r.experimentId);
+      return linkedExp?.status === "draft" || linkedExp?.status === "stopped";
+    });
+
+  return rolloutRulesOnesided && forceRulesOnesided && expRulesOnesided;
+};
 
 export function isFeatureStale(
   feature: FeatureInterface,
@@ -163,24 +203,33 @@ export function isFeatureStale(
 
   if (!stale) return { stale };
 
-  // TODO bring up to speed w/ draft refactor
-  // const isDraftStale =
-  //   feature.draft && getValidDate(feature.draft.dateUpdated) < twoWeeksAgo;
-  // if (isDraftStale) return { stale: isDraftStale, reason: "draft-state" };
+  // features with draft revisions are not stale
+  if (feature.hasDrafts) return { stale: false };
 
   const envSettings = Object.values(feature.environmentSettings ?? {});
 
   const enabledEnvs = envSettings.filter((e) => e.enabled);
-  const rules = enabledEnvs.map((e) => e.rules).flat();
+  const enabledRules = enabledEnvs
+    .map((e) => e.rules)
+    .flat()
+    .filter((r) => r.enabled);
 
-  if (rules.length === 0) return { stale, reason: "no-rules" };
+  if (enabledRules.length === 0) return { stale, reason: "no-rules" };
 
-  // TODO check if there are 'active' rules and return early if os
+  if (areRulesOneSided(enabledRules, linkedExperiments))
+    return { stale, reason: "rules-one-sided" };
 
-  const noExpsActive =
-    !!linkedExperiments.length &&
-    !linkedExperiments.some((e) => includeExperimentInPayload(e));
-  if (noExpsActive) return { stale, reason: "no-active-exps" };
+  // features with only exp rules that are inactive are stale
+  if (
+    enabledRules.every(
+      (r) => r.type === "experiment" || r.type === "experiment-ref"
+    )
+  ) {
+    const noExpsActive =
+      !!linkedExperiments.length &&
+      !linkedExperiments.some((e) => includeExperimentInPayload(e));
+    if (noExpsActive) return { stale, reason: "no-active-exps" };
+  }
 
   return { stale: false };
 }

@@ -62,6 +62,8 @@ describe("isFeatureStale", () => {
 
   beforeEach(() => {
     feature = {
+      hasDrafts: false,
+      version: 1,
       dateCreated: new Date("2020-04-20"),
       dateUpdated: new Date("2020-04-20"),
       defaultValue: "true",
@@ -86,27 +88,13 @@ describe("isFeatureStale", () => {
       linkedExperiments: [],
     };
   });
-  describe("if the feature is in a draft state", () => {
+
+  describe("if the feature has a draft revision", () => {
     beforeEach(() => {
-      feature.draft = {
-        active: true,
-        ...feature,
-      };
+      feature.hasDrafts = true;
     });
-    describe("and draft has been updated within past two weeks", () => {
-      it("is not stale", () => {
-        feature.draft.dateUpdated = subWeeks(new Date(), 1);
-        expect(isFeatureStale(feature)).toEqual({ stale: false });
-      });
-    });
-    describe("and draft has not been updated within past two weeks", () => {
-      it("is stale", () => {
-        feature.draft.dateUpdated = subWeeks(new Date(), 3);
-        expect(isFeatureStale(feature)).toEqual({
-          stale: true,
-          reason: "draft-state",
-        });
-      });
+    it("is not stale", () => {
+      expect(isFeatureStale(feature)).toEqual({ stale: false });
     });
   });
 
@@ -166,6 +154,922 @@ describe("isFeatureStale", () => {
         expect(isFeatureStale(feature)).toEqual({
           stale: true,
           reason: "no-rules",
+        });
+      });
+    });
+  });
+
+  describe("when feature has rules", () => {
+    describe("if every environment contains only rollout rules (or no rules at all)", () => {
+      describe("and some have <100% coverage or targeting conditions", () => {
+        beforeEach(() => {
+          feature.environmentSettings = {
+            development: {
+              enabled: true,
+              rules: [
+                {
+                  condition: '{"id": "15"}',
+                  coverage: 1,
+                  enabled: true,
+                  hashAttribute: "id",
+                  value: "2",
+                  description: "",
+                  id: "fr_1xx71305loywqomm",
+                  type: "rollout",
+                },
+              ],
+            },
+            staging: {
+              enabled: true,
+              rules: [
+                {
+                  coverage: 0.8,
+                  enabled: true,
+                  hashAttribute: "id",
+                  value: "2",
+                  description: "",
+                  id: "fr_1xx71305loywqomm",
+                  type: "rollout",
+                },
+              ],
+            },
+            production: {
+              enabled: false,
+              rules: [],
+            },
+          };
+        });
+        describe("and has been updated within past two weeks", () => {
+          it("is not stale", () => {
+            feature.dateUpdated = subWeeks(new Date(), 1);
+            expect(isFeatureStale(feature)).toEqual({ stale: false });
+          });
+        });
+        describe("and has not been updated within past two weeks", () => {
+          it("is not stale", () => {
+            feature.dateUpdated = subWeeks(new Date(), 3);
+            expect(isFeatureStale(feature)).toEqual({ stale: false });
+          });
+        });
+      });
+      describe("and all have coverage of 100% with no targeting conditions", () => {
+        beforeEach(() => {
+          feature.environmentSettings = {
+            development: {
+              enabled: true,
+              rules: [
+                {
+                  coverage: 1,
+                  enabled: true,
+                  hashAttribute: "id",
+                  value: "2",
+                  description: "",
+                  id: "fr_1xx71305loywqomm",
+                  type: "rollout",
+                },
+              ],
+            },
+            staging: {
+              enabled: true,
+              rules: [
+                {
+                  coverage: 1,
+                  enabled: true,
+                  hashAttribute: "id",
+                  value: "2",
+                  description: "",
+                  id: "fr_1xx71305loywqomm",
+                  type: "rollout",
+                },
+              ],
+            },
+            production: {
+              enabled: false,
+              rules: [],
+            },
+          };
+        });
+        describe("and has been updated within past two weeks", () => {
+          it("is not stale", () => {
+            feature.dateUpdated = subWeeks(new Date(), 1);
+            expect(isFeatureStale(feature)).toEqual({ stale: false });
+          });
+        });
+        describe("and has not been updated within past two weeks", () => {
+          it("is stale", () => {
+            feature.dateUpdated = subWeeks(new Date(), 3);
+            expect(isFeatureStale(feature)).toEqual({
+              stale: true,
+              reason: "rules-one-sided",
+            });
+          });
+        });
+      });
+    });
+
+    describe("if every environment contains only force rules (or no rules at all)", () => {
+      describe("and some have targeting conditions", () => {
+        beforeEach(() => {
+          feature.environmentSettings = {
+            development: {
+              enabled: true,
+              rules: [
+                {
+                  condition: '{"id": "123"}',
+                  id: "fr_1xx71305loyw36tv",
+                  enabled: true,
+                  value: "45",
+                  description: "",
+                  savedGroups: [],
+                  type: "force",
+                },
+              ],
+            },
+            staging: {
+              enabled: true,
+              rules: [],
+            },
+            production: {
+              enabled: true,
+              rules: [
+                {
+                  id: "fr_1xx71305loyw36tv",
+                  enabled: true,
+                  value: "45",
+                  description: "",
+                  savedGroups: [],
+                  type: "force",
+                },
+              ],
+            },
+          };
+        });
+        describe("and has been updated within past two weeks", () => {
+          it("is not stale", () => {
+            feature.dateUpdated = subWeeks(new Date(), 1);
+            expect(isFeatureStale(feature)).toEqual({ stale: false });
+          });
+        });
+        describe("and has not been updated within past two weeks", () => {
+          it("is not stale", () => {
+            feature.dateUpdated = subWeeks(new Date(), 3);
+            expect(isFeatureStale(feature)).toEqual({ stale: false });
+          });
+        });
+      });
+      describe("and none have targeting conditions", () => {
+        beforeEach(() => {
+          feature.environmentSettings = {
+            development: {
+              enabled: true,
+              rules: [],
+            },
+            staging: {
+              enabled: true,
+              rules: [
+                {
+                  id: "fr_1xx71305loyw36tv",
+                  enabled: true,
+                  value: "45",
+                  description: "",
+                  savedGroups: [],
+                  type: "force",
+                },
+              ],
+            },
+            production: {
+              enabled: false,
+              rules: [
+                {
+                  id: "fr_1xx71305loyw36tv",
+                  enabled: true,
+                  value: "45",
+                  description: "",
+                  savedGroups: [],
+                  type: "force",
+                },
+              ],
+            },
+          };
+        });
+        describe("and has been updated within past two weeks", () => {
+          it("is not stale", () => {
+            feature.dateUpdated = subWeeks(new Date(), 1);
+            expect(isFeatureStale(feature)).toEqual({ stale: false });
+          });
+        });
+        describe("and has not been updated within past two weeks", () => {
+          it("is stale", () => {
+            feature.dateUpdated = subWeeks(new Date(), 3);
+            expect(isFeatureStale(feature)).toEqual({
+              stale: true,
+              reason: "rules-one-sided",
+            });
+          });
+        });
+      });
+    });
+
+    describe("if every environment contains a mix of rules (or no rules at all)", () => {
+      let experiments: ExperimentInterfaceStringDates[];
+      describe("and all rollout rules have 100% coverage and no targeting conditions", () => {
+        describe("and all force rules have no targeting conditions", () => {
+          describe("and there are no experiment rules", () => {
+            beforeEach(() => {
+              feature.environmentSettings = {
+                development: {
+                  enabled: true,
+                  rules: [
+                    {
+                      coverage: 1,
+                      enabled: true,
+                      hashAttribute: "id",
+                      value: "2",
+                      description: "",
+                      id: "fr_1xx71305loywqomm",
+                      type: "rollout",
+                    },
+                  ],
+                },
+                staging: {
+                  enabled: true,
+                  rules: [],
+                },
+                production: {
+                  enabled: true,
+                  rules: [
+                    {
+                      id: "fr_1xx71305loyw36tv",
+                      enabled: true,
+                      value: "45",
+                      description: "",
+                      savedGroups: [],
+                      type: "force",
+                    },
+                    {
+                      coverage: 1,
+                      enabled: true,
+                      hashAttribute: "id",
+                      value: "45",
+                      description: "",
+                      id: "fr_2xx71305loywqomm",
+                      type: "rollout",
+                    },
+                  ],
+                },
+              };
+            });
+            describe("and has been updated within past two weeks", () => {
+              it("is not stale", () => {
+                feature.dateUpdated = subWeeks(new Date(), 1);
+                expect(isFeatureStale(feature)).toEqual({ stale: false });
+              });
+            });
+            describe("and has not been updated within past two weeks", () => {
+              it("is stale", () => {
+                feature.dateUpdated = subWeeks(new Date(), 3);
+                expect(isFeatureStale(feature)).toEqual({
+                  stale: true,
+                  reason: "rules-one-sided",
+                });
+              });
+            });
+          });
+          describe("and there are experiment rules but experiments are inactive", () => {
+            beforeEach(() => {
+              experiments = [
+                genMockExperiment({ id: "exp_1", status: "draft" }),
+              ];
+              feature.linkedExperiments = experiments.map((e) => e.id);
+              feature.environmentSettings = {
+                development: {
+                  enabled: true,
+                  rules: [
+                    {
+                      coverage: 1,
+                      enabled: true,
+                      hashAttribute: "id",
+                      value: "2",
+                      description: "",
+                      id: "fr_1xx71305loywqomm",
+                      type: "rollout",
+                    },
+                  ],
+                },
+                staging: {
+                  enabled: true,
+                  rules: [
+                    {
+                      type: "experiment-ref",
+                      enabled: true,
+                      description: "",
+                      experimentId: experiments[0].id,
+                      id: "fr_1xx71305loywztkc",
+                      variations: [
+                        {
+                          variationId: "var_lmayh582",
+                          value: "1",
+                        },
+                        {
+                          variationId: "var_lmayh583",
+                          value: "0",
+                        },
+                      ],
+                    },
+                  ],
+                },
+                production: {
+                  enabled: false,
+                  rules: [
+                    {
+                      id: "fr_1xx71305loyw36tv",
+                      enabled: true,
+                      value: "45",
+                      description: "",
+                      savedGroups: [],
+                      type: "force",
+                    },
+                    {
+                      coverage: 1,
+                      enabled: true,
+                      hashAttribute: "id",
+                      value: "45",
+                      description: "",
+                      id: "fr_2xx71305loywqomm",
+                      type: "rollout",
+                    },
+                  ],
+                },
+              };
+            });
+            describe("and has been updated within past two weeks", () => {
+              it("is not stale", () => {
+                feature.dateUpdated = subWeeks(new Date(), 1);
+                expect(isFeatureStale(feature, experiments)).toEqual({
+                  stale: false,
+                });
+              });
+            });
+            describe("and has not been updated within past two weeks", () => {
+              it("is stale", () => {
+                feature.dateUpdated = subWeeks(new Date(), 3);
+                expect(isFeatureStale(feature, experiments)).toEqual({
+                  stale: true,
+                  reason: "rules-one-sided",
+                });
+              });
+            });
+          });
+          describe("and there are active experiment rules", () => {
+            beforeEach(() => {
+              experiments = [
+                genMockExperiment({ id: "exp_1", status: "running" }),
+              ];
+              feature.linkedExperiments = experiments.map((e) => e.id);
+              feature.environmentSettings = {
+                development: {
+                  enabled: true,
+                  rules: [
+                    {
+                      coverage: 1,
+                      enabled: true,
+                      hashAttribute: "id",
+                      value: "2",
+                      description: "",
+                      id: "fr_1xx71305loywqomm",
+                      type: "rollout",
+                    },
+                  ],
+                },
+                staging: {
+                  enabled: true,
+                  rules: [
+                    {
+                      type: "experiment-ref",
+                      enabled: true,
+                      description: "",
+                      experimentId: experiments[0].id,
+                      id: "fr_1xx71305loywztkc",
+                      variations: [
+                        {
+                          variationId: "var_lmayh582",
+                          value: "1",
+                        },
+                        {
+                          variationId: "var_lmayh583",
+                          value: "0",
+                        },
+                      ],
+                    },
+                  ],
+                },
+                production: {
+                  enabled: false,
+                  rules: [
+                    {
+                      id: "fr_1xx71305loyw36tv",
+                      enabled: true,
+                      value: "45",
+                      description: "",
+                      savedGroups: [],
+                      type: "force",
+                    },
+                    {
+                      coverage: 1,
+                      enabled: true,
+                      hashAttribute: "id",
+                      value: "45",
+                      description: "",
+                      id: "fr_2xx71305loywqomm",
+                      type: "rollout",
+                    },
+                  ],
+                },
+              };
+            });
+            describe("and has been updated within past two weeks", () => {
+              it("is not stale", () => {
+                feature.dateUpdated = subWeeks(new Date(), 1);
+                expect(isFeatureStale(feature, experiments)).toEqual({
+                  stale: false,
+                });
+              });
+            });
+            describe("and has not been updated within past two weeks", () => {
+              it("is not stale", () => {
+                feature.dateUpdated = subWeeks(new Date(), 3);
+                expect(isFeatureStale(feature, experiments)).toEqual({
+                  stale: false,
+                });
+              });
+            });
+          });
+        });
+        describe("and some force rules have targeting conditions", () => {
+          describe("and there are no experiment rules", () => {
+            beforeEach(() => {
+              feature.environmentSettings = {
+                development: {
+                  enabled: true,
+                  rules: [
+                    {
+                      id: "fr_1xx71305loyw36tv",
+                      enabled: true,
+                      value: "45",
+                      description: "",
+                      savedGroups: [],
+                      type: "force",
+                    },
+                  ],
+                },
+                staging: {
+                  enabled: true,
+                  rules: [],
+                },
+                production: {
+                  enabled: true,
+                  rules: [
+                    {
+                      condition: '{"id": "15"}',
+                      id: "fr_1xx71305loyw36tv",
+                      enabled: true,
+                      value: "45",
+                      description: "",
+                      savedGroups: [],
+                      type: "force",
+                    },
+                    {
+                      coverage: 0.8,
+                      enabled: true,
+                      hashAttribute: "id",
+                      value: "45",
+                      description: "",
+                      id: "fr_2xx71305loywqomm",
+                      type: "rollout",
+                    },
+                  ],
+                },
+              };
+            });
+            describe("and has been updated within past two weeks", () => {
+              it("is not stale", () => {
+                feature.dateUpdated = subWeeks(new Date(), 1);
+                expect(isFeatureStale(feature, experiments)).toEqual({
+                  stale: false,
+                });
+              });
+            });
+            describe("and has not been updated within past two weeks", () => {
+              it("is not stale", () => {
+                feature.dateUpdated = subWeeks(new Date(), 3);
+                expect(isFeatureStale(feature, experiments)).toEqual({
+                  stale: false,
+                });
+              });
+            });
+          });
+          describe("and there are experiment rules but experiments are inactive", () => {
+            beforeEach(() => {
+              experiments = [
+                genMockExperiment({ id: "exp_1", status: "draft" }),
+              ];
+              feature.linkedExperiments = experiments.map((e) => e.id);
+              feature.environmentSettings = {
+                development: {
+                  enabled: true,
+                  rules: [
+                    {
+                      id: "fr_1xx71305loyw36tv",
+                      enabled: true,
+                      value: "45",
+                      description: "",
+                      savedGroups: [],
+                      type: "force",
+                    },
+                  ],
+                },
+                staging: {
+                  enabled: true,
+                  rules: [
+                    {
+                      type: "experiment-ref",
+                      enabled: true,
+                      description: "",
+                      experimentId: experiments[0].id,
+                      id: "fr_1xx71305loywztkc",
+                      variations: [
+                        {
+                          variationId: "var_lmayh582",
+                          value: "1",
+                        },
+                        {
+                          variationId: "var_lmayh583",
+                          value: "0",
+                        },
+                      ],
+                    },
+                  ],
+                },
+                production: {
+                  enabled: true,
+                  rules: [
+                    {
+                      condition: '{"id": "15"}',
+                      id: "fr_1xx71305loyw36tv",
+                      enabled: true,
+                      value: "45",
+                      description: "",
+                      savedGroups: [],
+                      type: "force",
+                    },
+                    {
+                      coverage: 0.8,
+                      enabled: true,
+                      hashAttribute: "id",
+                      value: "45",
+                      description: "",
+                      id: "fr_2xx71305loywqomm",
+                      type: "rollout",
+                    },
+                  ],
+                },
+              };
+            });
+            describe("and has been updated within past two weeks", () => {
+              it("is not stale", () => {
+                feature.dateUpdated = subWeeks(new Date(), 1);
+                expect(isFeatureStale(feature, experiments)).toEqual({
+                  stale: false,
+                });
+              });
+            });
+            describe("and has not been updated within past two weeks", () => {
+              it("is not stale", () => {
+                feature.dateUpdated = subWeeks(new Date(), 3);
+                expect(isFeatureStale(feature, experiments)).toEqual({
+                  stale: false,
+                });
+              });
+            });
+          });
+          describe("and there are active experiment rules", () => {
+            beforeEach(() => {
+              experiments = [
+                genMockExperiment({ id: "exp_1", status: "running" }),
+              ];
+              feature.linkedExperiments = experiments.map((e) => e.id);
+              feature.environmentSettings = {
+                development: {
+                  enabled: true,
+                  rules: [
+                    {
+                      id: "fr_1xx71305loyw36tv",
+                      enabled: true,
+                      value: "45",
+                      description: "",
+                      savedGroups: [],
+                      type: "force",
+                    },
+                  ],
+                },
+                staging: {
+                  enabled: true,
+                  rules: [
+                    {
+                      type: "experiment-ref",
+                      enabled: true,
+                      description: "",
+                      experimentId: experiments[0].id,
+                      id: "fr_1xx71305loywztkc",
+                      variations: [
+                        {
+                          variationId: "var_lmayh582",
+                          value: "1",
+                        },
+                        {
+                          variationId: "var_lmayh583",
+                          value: "0",
+                        },
+                      ],
+                    },
+                  ],
+                },
+                production: {
+                  enabled: true,
+                  rules: [
+                    {
+                      condition: '{"id": "15"}',
+                      id: "fr_1xx71305loyw36tv",
+                      enabled: true,
+                      value: "45",
+                      description: "",
+                      savedGroups: [],
+                      type: "force",
+                    },
+                    {
+                      coverage: 0.8,
+                      enabled: true,
+                      hashAttribute: "id",
+                      value: "45",
+                      description: "",
+                      id: "fr_2xx71305loywqomm",
+                      type: "rollout",
+                    },
+                  ],
+                },
+              };
+            });
+            describe("and has been updated within past two weeks", () => {
+              it("is not stale", () => {
+                feature.dateUpdated = subWeeks(new Date(), 1);
+                expect(isFeatureStale(feature, experiments)).toEqual({
+                  stale: false,
+                });
+              });
+            });
+            describe("and has not been updated within past two weeks", () => {
+              it("is not stale", () => {
+                feature.dateUpdated = subWeeks(new Date(), 3);
+                expect(isFeatureStale(feature, experiments)).toEqual({
+                  stale: false,
+                });
+              });
+            });
+          });
+        });
+      });
+      describe("and only some rollout rules have 100% coverage", () => {
+        describe("and all force rules have no targeting conditions", () => {
+          describe("and there are no experiment rules", () => {
+            beforeEach(() => {
+              feature.environmentSettings = {
+                development: {
+                  enabled: true,
+                  rules: [
+                    {
+                      coverage: 0.8,
+                      enabled: true,
+                      hashAttribute: "id",
+                      value: "45",
+                      description: "",
+                      id: "fr_2xx71305loywqomm",
+                      type: "rollout",
+                    },
+                  ],
+                },
+                staging: {
+                  enabled: true,
+                  rules: [],
+                },
+                production: {
+                  enabled: true,
+                  rules: [
+                    {
+                      id: "fr_1xx71305loyw36tv",
+                      enabled: true,
+                      value: "45",
+                      description: "",
+                      savedGroups: [],
+                      type: "force",
+                    },
+                    {
+                      coverage: 1,
+                      enabled: true,
+                      hashAttribute: "id",
+                      value: "2",
+                      description: "",
+                      id: "fr_1xx71305loywqomm",
+                      type: "rollout",
+                    },
+                  ],
+                },
+              };
+            });
+            describe("and has been updated within past two weeks", () => {
+              it("is not stale", () => {
+                feature.dateUpdated = subWeeks(new Date(), 1);
+                expect(isFeatureStale(feature, experiments)).toEqual({
+                  stale: false,
+                });
+              });
+            });
+            describe("and has not been updated within past two weeks", () => {
+              it("is not stale", () => {
+                feature.dateUpdated = subWeeks(new Date(), 3);
+                expect(isFeatureStale(feature, experiments)).toEqual({
+                  stale: false,
+                });
+              });
+            });
+          });
+          describe("and there are experiment rules but they are inactive", () => {
+            beforeEach(() => {
+              experiments = [
+                genMockExperiment({ id: "exp_1", status: "draft" }),
+              ];
+              feature.linkedExperiments = experiments.map((e) => e.id);
+              feature.environmentSettings = {
+                development: {
+                  enabled: true,
+                  rules: [
+                    {
+                      coverage: 0.8,
+                      enabled: true,
+                      hashAttribute: "id",
+                      value: "45",
+                      description: "",
+                      id: "fr_2xx71305loywqomm",
+                      type: "rollout",
+                    },
+                  ],
+                },
+                staging: {
+                  enabled: true,
+                  rules: [
+                    {
+                      type: "experiment-ref",
+                      enabled: true,
+                      description: "",
+                      experimentId: experiments[0].id,
+                      id: "fr_1xx71305loywztkc",
+                      variations: [
+                        {
+                          variationId: "var_lmayh582",
+                          value: "1",
+                        },
+                        {
+                          variationId: "var_lmayh583",
+                          value: "0",
+                        },
+                      ],
+                    },
+                  ],
+                },
+                production: {
+                  enabled: true,
+                  rules: [
+                    {
+                      id: "fr_1xx71305loyw36tv",
+                      enabled: true,
+                      value: "45",
+                      description: "",
+                      savedGroups: [],
+                      type: "force",
+                    },
+                    {
+                      coverage: 1,
+                      enabled: true,
+                      hashAttribute: "id",
+                      value: "2",
+                      description: "",
+                      id: "fr_1xx71305loywqomm",
+                      type: "rollout",
+                    },
+                  ],
+                },
+              };
+            });
+            describe("and has been updated within past two weeks", () => {
+              it("is not stale", () => {
+                feature.dateUpdated = subWeeks(new Date(), 1);
+                expect(isFeatureStale(feature, experiments)).toEqual({
+                  stale: false,
+                });
+              });
+            });
+            describe("and has not been updated within past two weeks", () => {
+              it("is not stale", () => {
+                feature.dateUpdated = subWeeks(new Date(), 3);
+                expect(isFeatureStale(feature, experiments)).toEqual({
+                  stale: false,
+                });
+              });
+            });
+          });
+          describe("and there are active experiment rules", () => {
+            beforeEach(() => {
+              experiments = [
+                genMockExperiment({ id: "exp_1", status: "running" }),
+              ];
+              feature.linkedExperiments = experiments.map((e) => e.id);
+              feature.environmentSettings = {
+                development: {
+                  enabled: true,
+                  rules: [
+                    {
+                      coverage: 0.8,
+                      enabled: true,
+                      hashAttribute: "id",
+                      value: "45",
+                      description: "",
+                      id: "fr_2xx71305loywqomm",
+                      type: "rollout",
+                    },
+                  ],
+                },
+                staging: {
+                  enabled: true,
+                  rules: [
+                    {
+                      type: "experiment-ref",
+                      enabled: true,
+                      description: "",
+                      experimentId: experiments[0].id,
+                      id: "fr_1xx71305loywztkc",
+                      variations: [
+                        {
+                          variationId: "var_lmayh582",
+                          value: "1",
+                        },
+                        {
+                          variationId: "var_lmayh583",
+                          value: "0",
+                        },
+                      ],
+                    },
+                  ],
+                },
+                production: {
+                  enabled: true,
+                  rules: [
+                    {
+                      id: "fr_1xx71305loyw36tv",
+                      enabled: true,
+                      value: "45",
+                      description: "",
+                      savedGroups: [],
+                      type: "force",
+                    },
+                    {
+                      coverage: 1,
+                      enabled: true,
+                      hashAttribute: "id",
+                      value: "2",
+                      description: "",
+                      id: "fr_1xx71305loywqomm",
+                      type: "rollout",
+                    },
+                  ],
+                },
+              };
+            });
+            describe("and has been updated within past two weeks", () => {
+              it("is not stale", () => {
+                feature.dateUpdated = subWeeks(new Date(), 1);
+                expect(isFeatureStale(feature, experiments)).toEqual({
+                  stale: false,
+                });
+              });
+            });
+            describe("and has not been updated within past two weeks", () => {
+              it("is not stale", () => {
+                feature.dateUpdated = subWeeks(new Date(), 3);
+                expect(isFeatureStale(feature, experiments)).toEqual({
+                  stale: false,
+                });
+              });
+            });
+          });
         });
       });
     });
