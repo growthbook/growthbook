@@ -487,7 +487,7 @@ app.get(
   experimentLaunchChecklistController.getExperimentCheckListByOrg
 );
 app.put(
-  "/experiments/:id/launch-checklist",
+  "/experiment/:id/launch-checklist",
   experimentLaunchChecklistController.putManualLaunchChecklist
 );
 
