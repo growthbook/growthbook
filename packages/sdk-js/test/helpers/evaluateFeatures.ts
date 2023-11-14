@@ -11,7 +11,6 @@ export async function evaluateFeatures({
   forcedVariations,
   forcedFeatures,
   url,
-  enableStickyBucketing,
   ctx,
 }: {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -22,7 +21,6 @@ export async function evaluateFeatures({
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   forcedFeatures?: Map<string, any>;
   url?: string;
-  enableStickyBucketing?: boolean;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   ctx?: any;
 }) {
@@ -46,8 +44,8 @@ export async function evaluateFeatures({
   if (url !== undefined) {
     context.url = url;
   }
-  if (enableStickyBucketing !== undefined) {
-    context.enableStickyBucketing = enableStickyBucketing;
+  // non-standard enable/disable flag for testing purposes
+  if (ctx?.enableStickyBucketing) {
     context.stickyBucketService = new RedisStickyBucketService({
       redis: remoteEvalRedis,
     });
@@ -62,7 +60,7 @@ export async function evaluateFeatures({
       gb.debug = true;
     }
 
-    if (enableStickyBucketing) {
+    if (context.stickyBucketService) {
       await gb.refreshStickyBuckets();
     }
 

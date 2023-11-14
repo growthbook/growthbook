@@ -344,19 +344,6 @@ export class GrowthBook<
     this._updateAllAutoExperiments(true);
   }
 
-  public async enableStickyBucketing() {
-    this._ctx.enableStickyBucketing = true;
-    await this.refreshStickyBuckets();
-  }
-
-  public disableStickyBucketing() {
-    this._ctx.enableStickyBucketing = false;
-  }
-
-  public stickyBucketingEnabled() {
-    return this._ctx.enableStickyBucketing;
-  }
-
   public getAttributes() {
     return { ...this._ctx.attributes, ...this._attributeOverrides };
   }
@@ -713,7 +700,7 @@ export class GrowthBook<
             !this._isIncludedInRollout(
               rule.seed || id,
               rule.hashAttribute,
-              this._ctx.enableStickyBucketing
+              this._ctx.stickyBucketService
                 ? rule.fallbackAttribute
                 : undefined,
               rule.range,
@@ -909,7 +896,7 @@ export class GrowthBook<
     // 6. Get the hash attribute and return if empty
     const { hashAttribute, hashValue } = this._getHashAttribute(
       experiment.hashAttribute,
-      this._ctx.enableStickyBucketing ? experiment.fallbackAttribute : undefined
+      this._ctx.stickyBucketService ? experiment.fallbackAttribute : undefined
     );
     if (!hashValue) {
       process.env.NODE_ENV !== "production" &&
@@ -1015,7 +1002,7 @@ export class GrowthBook<
 
     let foundStickyBucket = false;
     let assigned = -1;
-    if (this.context.enableStickyBucketing) {
+    if (this.context.stickyBucketService) {
       assigned = this._getStickyBucketVariation(
         experiment.key,
         experiment.bucketVersion
@@ -1093,7 +1080,7 @@ export class GrowthBook<
     );
 
     // 13.5. Persist sticky bucket
-    if (this.context.enableStickyBucketing) {
+    if (this.context.stickyBucketService) {
       const {
         changed,
         key: attrKey,
@@ -1217,7 +1204,7 @@ export class GrowthBook<
 
     const { hashAttribute, hashValue } = this._getHashAttribute(
       experiment.hashAttribute,
-      this._ctx.enableStickyBucketing ? experiment.fallbackAttribute : undefined
+      this._ctx.stickyBucketService ? experiment.fallbackAttribute : undefined
     );
 
     const meta: Partial<VariationMeta> = experiment.meta
@@ -1318,10 +1305,7 @@ export class GrowthBook<
   }
 
   public async refreshStickyBuckets(data?: FeatureApiResponse) {
-    if (
-      this.context.enableStickyBucketing &&
-      this.context.stickyBucketService
-    ) {
+    if (this.context.stickyBucketService) {
       const attributes = this._getStickyBucketAttributes(data);
       this.context.stickyBucketAssignmentDocs = await this.context.stickyBucketService.getAllAssignments(
         attributes

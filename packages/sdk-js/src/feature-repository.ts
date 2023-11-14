@@ -382,7 +382,6 @@ async function fetchFeatures(
             forcedVariations: instance.getForcedVariations(),
             forcedFeatures: Array.from(instance.getForcedFeatures().entries()),
             url: instance.getUrl(),
-            enableStickyBucketing: instance.stickyBucketingEnabled(),
           },
           headers: apiRequestHeaders,
         })

@@ -153,7 +153,6 @@ export interface Context {
   features?: Record<string, FeatureDefinition>;
   experiments?: AutoExperiment[];
   forcedVariations?: Record<string, number>;
-  enableStickyBucketing?: boolean;
   stickyBucketAssignmentDocs?: Record<
     StickyAttributeKey,
     StickyAssignmentsDocument

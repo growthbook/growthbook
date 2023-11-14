@@ -96,7 +96,6 @@ function mockRemoteEvalApi(
               forcedVariations,
               forcedFeatures: forcedFeaturesArray,
               url: evalUrl,
-              enableStickyBucketing,
             } = body;
             return data
               ? Promise.resolve(
@@ -106,7 +105,7 @@ function mockRemoteEvalApi(
                     forcedVariations,
                     forcedFeatures: new Map(forcedFeaturesArray),
                     url: evalUrl,
-                    enableStickyBucketing,
+                    ctx: { enableStickyBucketing: true }, // non-standard property for testing purposes
                   })
                 )
               : Promise.reject("Fetch error");
@@ -196,7 +195,6 @@ describe("sticky-buckets", () => {
       apiHost: "https://fakeapi.sample.io",
       clientKey: "qwerty1234",
       stickyBucketService: new LocalStorageStickyBucketService(),
-      enableStickyBucketing: true,
       attributes: {
         deviceId: "d123",
         anonymousId: "ses123",
@@ -208,7 +206,6 @@ describe("sticky-buckets", () => {
     const growthbook2a = new GrowthBook({
       apiHost: "https://fakeapi.sample.io",
       clientKey: "qwerty1234",
-      enableStickyBucketing: true,
       attributes: {
         deviceId: "d123",
         anonymousId: "ses123",
@@ -226,12 +223,12 @@ describe("sticky-buckets", () => {
     let result1 = growthbook1a.evalFeature("exp1");
     let result2 = growthbook2a.evalFeature("exp1");
     expect(result1.value).toBe("red");
-    expect(result2.value).toBe("red");
+    expect(result2.value).toBe("control"); // cannot use fallbackAttribute, no hashAttribute
 
     let expResult1 = growthbook1a.triggerExperiment("manual-experiment");
     let expResult2 = growthbook2a.triggerExperiment("manual-experiment");
     expect(expResult1?.variationId).toBe(2);
-    expect(expResult2?.variationId).toBe(2);
+    expect(expResult2?.variationId).toBe(0);
 
     growthbook1a.destroy();
     growthbook2a.destroy();
@@ -243,7 +240,6 @@ describe("sticky-buckets", () => {
       apiHost: "https://fakeapi.sample.io",
       clientKey: "qwerty1234",
       stickyBucketService: new LocalStorageStickyBucketService(),
-      enableStickyBucketing: true,
       attributes: {
         deviceId: "d123",
         anonymousId: "ses123",
@@ -254,7 +250,6 @@ describe("sticky-buckets", () => {
     const growthbook2b = new GrowthBook({
       apiHost: "https://fakeapi.sample.io",
       clientKey: "qwerty1234",
-      enableStickyBucketing: true,
       attributes: {
         deviceId: "d123",
         anonymousId: "ses123",
@@ -289,7 +284,6 @@ describe("sticky-buckets", () => {
       apiHost: "https://fakeapi.sample.io",
       clientKey: "qwerty1234",
       stickyBucketService: new LocalStorageStickyBucketService(),
-      enableStickyBucketing: true,
       attributes: {
         id: "12345",
         foo: "bar",
@@ -298,7 +292,6 @@ describe("sticky-buckets", () => {
     const growthbook2c = new GrowthBook({
       apiHost: "https://fakeapi.sample.io",
       clientKey: "qwerty1234",
-      enableStickyBucketing: true,
       attributes: {
         id: "12345",
         foo: "bar",
@@ -339,7 +332,6 @@ describe("sticky-buckets", () => {
       stickyBucketService: new BrowserCookieStickyBucketService({
         jsCookie: Cookie,
       }),
-      enableStickyBucketing: true,
       attributes: {
         deviceId: "d123",
         anonymousId: "ses123",
@@ -367,7 +359,6 @@ describe("sticky-buckets", () => {
       stickyBucketService: new BrowserCookieStickyBucketService({
         jsCookie: Cookie,
       }),
-      enableStickyBucketing: true,
       attributes: {
         deviceId: "d123",
         anonymousId: "ses123",
@@ -396,7 +387,6 @@ describe("sticky-buckets", () => {
       stickyBucketService: new BrowserCookieStickyBucketService({
         jsCookie: Cookie,
       }),
-      enableStickyBucketing: true,
       attributes: {
         id: "12345",
         foo: "bar",
@@ -436,7 +426,6 @@ describe("sticky-buckets", () => {
       stickyBucketService: new RedisStickyBucketService({
         redis,
       }),
-      enableStickyBucketing: true,
       attributes: {
         deviceId: "d123",
         anonymousId: "ses123",
@@ -463,7 +452,6 @@ describe("sticky-buckets", () => {
       stickyBucketService: new RedisStickyBucketService({
         redis,
       }),
-      enableStickyBucketing: true,
       attributes: {
         deviceId: "d123",
         anonymousId: "ses123",
@@ -491,7 +479,6 @@ describe("sticky-buckets", () => {
       stickyBucketService: new RedisStickyBucketService({
         redis,
       }),
-      enableStickyBucketing: true,
       attributes: {
         id: "12345",
         foo: "bar",
@@ -521,7 +508,6 @@ describe("sticky-buckets", () => {
     const growthbook1 = new GrowthBook({
       apiHost: "https://fakeapi.sample.io",
       clientKey: "qwerty1234",
-      enableStickyBucketing: true,
       remoteEval: true,
       attributes: {
         deviceId: "d123",
@@ -543,7 +529,6 @@ describe("sticky-buckets", () => {
     const growthbook2 = new GrowthBook({
       apiHost: "https://fakeapi.sample.io",
       clientKey: "qwerty1234",
-      enableStickyBucketing: true,
       remoteEval: true,
       attributes: {
         deviceId: "d123",
@@ -567,7 +552,6 @@ describe("sticky-buckets", () => {
     const growthbook3 = new GrowthBook({
       apiHost: "https://fakeapi.sample.io",
       clientKey: "qwerty1234",
-      enableStickyBucketing: true,
       remoteEval: true,
       attributes: {
         id: "12345",
@@ -583,56 +567,6 @@ describe("sticky-buckets", () => {
     growthbook3.destroy();
     cleanup();
     remoteEvalRedis.flushall();
-  });
-
-  it("stops using sticky buckets when the enableStickyBucketing is turned off in the SDK", async () => {
-    await clearCache();
-
-    const [, cleanup] = mockApi(sdkPayload, true);
-
-    // evaluate based on fallbackAttribute "deviceId"
-    const growthbook1 = new GrowthBook({
-      apiHost: "https://fakeapi.sample.io",
-      clientKey: "qwerty1234",
-      stickyBucketService: new LocalStorageStickyBucketService(),
-      enableStickyBucketing: true,
-      attributes: {
-        iteration: 1,
-        deviceId: "d123",
-        foo: "bar",
-      },
-      subscribeToChanges: true,
-    });
-
-    await growthbook1.loadFeatures();
-    await sleep(10);
-
-    const result1 = growthbook1.evalFeature("exp1");
-    expect(result1.value).toBe("red");
-    await sleep(10);
-
-    // provide the primary hashAttribute "id" as well as fallbackAttribute "deviceId"
-    growthbook1.setAttributes({
-      iteration: 2,
-      deviceId: "d123",
-      id: "12345",
-      foo: "bar",
-    });
-
-    await sleep(10);
-
-    const result2 = growthbook1.evalFeature("exp1");
-    expect(result2.value).toBe("red");
-
-    // Without sticky bucketing, we should rebucket based on the hashAttribute "id" instead of the stickied bucket.
-    growthbook1.disableStickyBucketing();
-    const result3 = growthbook1.evalFeature("exp1");
-    expect(result3.value).toBe("blue");
-
-    growthbook1.destroy();
-    cleanup();
-
-    localStorage.clear();
   });
 
   it("stops test enrollment when blockedVariations includes the sticky bucket variation", async () => {
@@ -681,7 +615,6 @@ describe("sticky-buckets", () => {
       apiHost: "https://fakeapi.sample.io",
       clientKey: "qwerty1234",
       stickyBucketService: new LocalStorageStickyBucketService(),
-      enableStickyBucketing: true,
       attributes: {
         iteration: 1,
         deviceId: "d123",
@@ -753,7 +686,6 @@ describe("sticky-buckets", () => {
       apiHost: "https://fakeapi.sample.io",
       clientKey: "qwerty1234",
       stickyBucketService: new LocalStorageStickyBucketService(),
-      enableStickyBucketing: true,
       attributes: {
         iteration: 1,
         deviceId: "d123",
