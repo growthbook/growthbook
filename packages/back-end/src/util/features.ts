@@ -33,6 +33,14 @@ function getSavedGroupCondition(
     const cond = getParsedCondition(new Map(), group.condition);
     if (!cond) return undefined;
 
+    // If condition is an empty $in clause, ignore it
+    if (
+      Object.keys(cond).length === 1 &&
+      isEqual(cond[Object.keys(cond)[0]], { $in: [] })
+    ) {
+      return undefined;
+    }
+
     return include ? cond : { $not: cond };
   }
 

@@ -46,43 +46,48 @@ describe("getParsedCondition", () => {
   it("compiles correctly", () => {
     groupMap.clear();
     groupMap.set("a", {
-      key: "",
+      key: "id_a",
       source: "inline",
       condition: JSON.stringify({ id_a: { $in: ["0", "1"] } }),
     });
     groupMap.set("b", {
-      key: "",
+      key: "id_b",
       source: "inline",
       condition: JSON.stringify({ id_b: { $in: ["2"] } }),
     });
     groupMap.set("c", {
-      key: "",
+      key: "id_c",
       source: "inline",
       condition: JSON.stringify({ id_c: { $in: ["3"] } }),
     });
     groupMap.set("d", {
-      key: "",
+      key: "id_d",
       source: "inline",
       condition: JSON.stringify({ id_d: { $in: ["4"] } }),
     });
     groupMap.set("e", {
-      key: "",
+      key: "id_e",
       source: "inline",
       condition: JSON.stringify({ id_e: { $in: ["5"] } }),
     });
     groupMap.set("f", {
-      key: "",
+      key: "id_f",
       source: "inline",
       condition: JSON.stringify({ id_f: { $in: ["6"] } }),
     });
     groupMap.set("empty", {
-      key: "",
+      key: "empty",
       source: "inline",
       condition: JSON.stringify({ empty: { $in: [] } }),
     });
 
     // No condition or saved group
     expect(getParsedCondition(groupMap, "", [])).toBeUndefined();
+
+    // Single unknown saved group
+    expect(
+      getParsedCondition(groupMap, "", [{ match: "any", ids: ["unknown"] }])
+    ).toBeUndefined();
 
     // Single empty saved group
     expect(
@@ -98,11 +103,11 @@ describe("getParsedCondition", () => {
     expect(
       getParsedCondition(
         groupMap,
-        JSON.stringify({ id: { $inGroup: "a" } }),
+        JSON.stringify({ id_a: { $inGroup: "a" } }),
         []
       )
     ).toEqual({
-      id: { $in: ["0", "1"] },
+      id_a: { $in: ["0", "1"] },
     });
 
     // Single saved group
@@ -172,13 +177,17 @@ describe("getParsedCondition", () => {
         },
         // NONE
         {
-          id_e: {
-            $nin: ["5"],
+          $not: {
+            id_e: {
+              $in: ["5"],
+            },
           },
         },
         {
-          id_f: {
-            $nin: ["6"],
+          $not: {
+            id_f: {
+              $in: ["6"],
+            },
           },
         },
       ],
@@ -275,7 +284,7 @@ describe("replaceSavedGroupsInCondition", () => {
     const ids = ["123", "345", "678", "910"];
     const groupId = "grp_exl5jgrdl8bzy4x4";
     groupMap.set(groupId, {
-      key: "",
+      key: "id",
       source: "inline",
       condition: JSON.stringify({ id: { $in: ids } }),
     });
@@ -291,7 +300,7 @@ describe("replaceSavedGroupsInCondition", () => {
     const ids = ["123", "345", "678", "910"];
     const groupId = "grp_exl5jgrdl8bzy4x4";
     groupMap.set(groupId, {
-      key: "",
+      key: "id",
       source: "inline",
       condition: JSON.stringify({ id: { $in: ids } }),
     });
@@ -307,9 +316,9 @@ describe("replaceSavedGroupsInCondition", () => {
     const ids = [1, 2, 3, 4];
     const groupId = "grp_exl5jijgl8c3n0qt";
     groupMap.set(groupId, {
-      key: "",
+      key: "number",
       source: "inline",
-      condition: JSON.stringify({ id: { $in: ids } }),
+      condition: JSON.stringify({ number: { $in: ids } }),
     });
 
     const rawCondition = JSON.stringify({ number: { $inGroup: groupId } });
@@ -323,9 +332,9 @@ describe("replaceSavedGroupsInCondition", () => {
     const ids = [1, 2, 3, 4];
     const groupId = "grp_exl5jijgl8c3n0qt";
     groupMap.set(groupId, {
-      key: "",
+      key: "number",
       source: "inline",
-      condition: JSON.stringify({ id: { $in: ids } }),
+      condition: JSON.stringify({ number: { $in: ids } }),
     });
 
     const rawCondition = JSON.stringify({
@@ -343,7 +352,7 @@ describe("replaceSavedGroupsInCondition", () => {
     const ids = [1, 2, 3, 4];
     const groupId = "grp_exl5jijgl8c3n0qt";
     groupMap.set(groupId, {
-      key: "",
+      key: "id",
       source: "inline",
       condition: JSON.stringify({ id: { $in: ids } }),
     });
@@ -368,7 +377,7 @@ describe("replaceSavedGroupsInCondition", () => {
     const ids = ["123", "345", "678", "910"];
     const groupId = "grp_exl5jgrdl8bzy4x4";
     groupMap.set(groupId, {
-      key: "",
+      key: "id",
       source: "inline",
       condition: JSON.stringify({ id: { $in: ids } }),
     });
@@ -387,7 +396,7 @@ describe("replaceSavedGroupsInCondition", () => {
     const ids = ["123", "345", "678", "910"];
     const groupId = "grp_exl5jgrdl8bzy4x4";
     groupMap.set(groupId, {
-      key: "",
+      key: "id",
       source: "inline",
       condition: JSON.stringify({ id: { $in: ids } }),
     });
@@ -408,7 +417,7 @@ describe("replaceSavedGroupsInCondition", () => {
     const ids = ["1", "2", "3", "4"];
     const groupId = "grp_exl5jijgl8c3n0qt";
     groupMap.set(groupId, {
-      key: "",
+      key: "id",
       source: "inline",
       condition: JSON.stringify({ id: { $in: ids } }),
     });
@@ -426,7 +435,7 @@ describe("replaceSavedGroupsInCondition", () => {
     const ids = ["1", "2", "3", "4"];
     const groupId = "grp_exl5jijgl8c3n0qt";
     groupMap.set(groupId, {
-      key: "",
+      key: "id",
       source: "inline",
       condition: JSON.stringify({ id: { $in: ids } }),
     });
@@ -444,7 +453,7 @@ describe("replaceSavedGroupsInCondition", () => {
     const ids = ["1", "2", "3", "4"];
     const groupId = "grp_exl5jijgl8c3n0qt";
     groupMap.set(groupId, {
-      key: "",
+      key: "id",
       source: "inline",
       condition: JSON.stringify({ id: { $in: ids } }),
     });
