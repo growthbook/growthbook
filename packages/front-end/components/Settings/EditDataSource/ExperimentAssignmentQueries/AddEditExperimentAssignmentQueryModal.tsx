@@ -8,11 +8,13 @@ import cloneDeep from "lodash/cloneDeep";
 import uniqId from "uniqid";
 import { FaExclamationTriangle, FaExternalLinkAlt } from "react-icons/fa";
 import { TestQueryRow } from "back-end/src/types/Integration";
+import { useFeatureIsOn } from "@growthbook/growthbook-react";
 import Code from "@/components/SyntaxHighlighting/Code";
 import StringArrayField from "@/components/Forms/StringArrayField";
 import Toggle from "@/components/Forms/Toggle";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
+import { AppFeatures } from "@/types/app-features";
 import Modal from "../../../Modal";
 import Field from "../../../Forms/Field";
 import EditSqlModal from "../../../SchemaBrowser/EditSqlModal";
@@ -34,6 +36,7 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
 }) => {
   const [showAdvancedMode, setShowAdvancedMode] = useState(false);
   const [sqlOpen, setSqlOpen] = useState(false);
+  const healthTabSettingsEnabled = useFeatureIsOn<AppFeatures>("health-tab");
   const modalTitle =
     mode === "add"
       ? "Add an Experiment Assignment query"
@@ -53,7 +56,7 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
 
   const defaultQuery = `SELECT\n  ${defaultUserId} as ${defaultUserId},\n  timestamp as timestamp,\n  experiment_id as experiment_id,\n  variation_id as variation_id\nFROM my_table`;
 
-  const form = useForm<ExposureQuery & { dimensionsForTraffic: string[] }>({
+  const form = useForm<ExposureQuery>({
     defaultValues:
       mode === "edit" && exposureQuery
         ? cloneDeep<ExposureQuery>(exposureQuery)
@@ -324,20 +327,22 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
                         form.setValue("dimensions", dimensions);
                       }}
                     />
-                    <MultiSelectField
-                      label="Dimensions to use in traffic breakdowns"
-                      value={form.watch("dimensionsForTraffic") || []}
-                      onChange={(dimensions) => {
-                        form.setValue("dimensionsForTraffic", dimensions);
-                      }}
-                      options={form.watch("dimensions").map((s) => ({
-                        value: s,
-                        label: s,
-                      }))}
-                      required
-                      placeholder="Select dimensions..."
-                      closeMenuOnSelect={true}
-                    />
+                    {healthTabSettingsEnabled && (
+                      <MultiSelectField
+                        label="Dimensions to use in traffic breakdowns"
+                        value={form.watch("dimensionsForTraffic") || []}
+                        onChange={(dimensions) => {
+                          form.setValue("dimensionsForTraffic", dimensions);
+                        }}
+                        options={form.watch("dimensions").map((s) => ({
+                          value: s,
+                          label: s,
+                        }))}
+                        required
+                        placeholder="Select dimensions..."
+                        closeMenuOnSelect={true}
+                      />
+                    )}
                   </div>
                 )}
               </div>
