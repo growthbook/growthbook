@@ -49,6 +49,8 @@ import SavedGroupTargetingField from "./SavedGroupTargetingField";
 export interface Props {
   close: () => void;
   feature: FeatureInterface;
+  version: number;
+  setVersion: (version: number) => void;
   mutate: () => void;
   i: number;
   environment: string;
@@ -62,6 +64,8 @@ export default function RuleModal({
   mutate,
   environment,
   defaultType = "force",
+  version,
+  setVersion,
 }: Props) {
   const attributeSchema = useAttributeSchema();
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
@@ -422,15 +426,19 @@ export default function RuleModal({
             hasDescription: values.description.length > 0,
           });
 
-          await apiCall(`/feature/${feature.id}/rule`, {
-            method: i === rules.length ? "POST" : "PUT",
-            body: JSON.stringify({
-              rule: values,
-              environment,
-              i,
-            }),
-          });
-          mutate();
+          const res = await apiCall<{ version: number }>(
+            `/feature/${feature.id}/${version}/rule`,
+            {
+              method: i === rules.length ? "POST" : "PUT",
+              body: JSON.stringify({
+                rule: values,
+                environment,
+                i,
+              }),
+            }
+          );
+          await mutate();
+          res.version && setVersion(res.version);
         } catch (e) {
           track("Feature Rule Error", {
             source: ruleAction,

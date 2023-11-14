@@ -1,4 +1,7 @@
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import {
+  ExperimentInterfaceStringDates,
+  LinkedFeatureInfo,
+} from "back-end/types/experiment";
 import { SDKConnectionInterface } from "back-end/types/sdk-connection";
 import { VisualChangesetInterface } from "back-end/types/visual-changeset";
 import Link from "next/link";
@@ -16,7 +19,6 @@ import useApi from "@/hooks/useApi";
 import Button from "../Button";
 import Tooltip from "../Tooltip/Tooltip";
 import ConfirmButton from "../Modal/ConfirmButton";
-import { LinkedFeature } from "./TabbedPage";
 
 type ManualChecklist = {
   key: string;
@@ -60,7 +62,7 @@ export function StartExperimentBanner({
   noConfirm,
 }: {
   experiment: ExperimentInterfaceStringDates;
-  linkedFeatures: LinkedFeature[];
+  linkedFeatures: LinkedFeatureInfo[];
   visualChangesets: VisualChangesetInterface[];
   connections: SDKConnectionInterface[];
   mutateExperiment: () => unknown | Promise<unknown>;
@@ -112,7 +114,8 @@ export function StartExperimentBanner({
 
   // At least one linked change
   const hasLinkedChanges =
-    linkedFeatures.length > 0 || visualChangesets.length > 0;
+    linkedFeatures.some((f) => f.state === "live" || f.state === "draft") ||
+    visualChangesets.length > 0;
   checklist.push({
     display: "Add at least one Linked Feature or Visual Editor change.",
     status: hasLinkedChanges ? "success" : "error",
@@ -134,9 +137,9 @@ export function StartExperimentBanner({
   if (linkedFeatures.length > 0) {
     const hasFeatureFlagsErrors = linkedFeatures.some(
       (f) =>
-        !f.rules.some(
-          (r) => !r.draft && r.environmentEnabled && r.rule.enabled !== false
-        )
+        f.state === "draft" ||
+        (f.state === "live" &&
+          !Object.values(f.environmentStates || {}).some((s) => s === "active"))
     );
     checklist.push({
       display: "Publish and enable all Linked Feature rules.",

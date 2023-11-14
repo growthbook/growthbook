@@ -19,6 +19,7 @@ export type EventType =
   | "experiment.launchChecklist.updated"
   | "feature.create"
   | "feature.publish"
+  | "feature.revert"
   | "feature.update"
   | "feature.toggle"
   | "feature.archive"

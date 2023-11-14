@@ -2,12 +2,13 @@ import React, { ReactNode } from "react";
 import { FaAngleRight, FaExternalLinkAlt } from "react-icons/fa";
 import Collapsible from "react-collapsible";
 import { BsFlag } from "react-icons/bs";
-import { FeatureInterface } from "back-end/types/feature";
+import { FeatureValueType } from "back-end/types/feature";
 import Link from "next/link";
 
 type Props = {
   changeType: "flag" | "visual";
-  feature?: FeatureInterface;
+  feature?: { id: string; valueType: FeatureValueType };
+  additionalBadge?: ReactNode;
   page?: string;
   changes?: string[];
   open: boolean;
@@ -19,6 +20,7 @@ export default function LinkedChange({
   feature,
   page,
   changes,
+  additionalBadge,
   open,
   children,
 }: Props) {
@@ -43,6 +45,7 @@ export default function LinkedChange({
                   <span className="badge badge-dark badge-pill ml-3">
                     {feature?.valueType}
                   </span>
+                  {additionalBadge}
                 </div>
                 <div className="col-auto ml-auto">
                   <Link href={`/features/${feature?.id}`} className="ml-4">

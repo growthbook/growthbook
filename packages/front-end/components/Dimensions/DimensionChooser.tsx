@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { ExperimentSnapshotAnalysisSettings } from "back-end/types/experiment-snapshot";
+import { DifferenceType } from "back-end/types/stats";
 import { getExposureQuery } from "@/services/datasources";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import SelectField from "../Forms/SelectField";
@@ -16,6 +17,7 @@ export interface Props {
   newUi?: boolean;
   setVariationFilter?: (variationFilter: number[]) => void;
   setBaselineRow?: (baselineRow: number) => void;
+  setDifferenceType?: (differenceType: DifferenceType) => void;
   setAnalysisSettings?: (
     settings: ExperimentSnapshotAnalysisSettings | null
   ) => void;
@@ -34,6 +36,7 @@ export default function DimensionChooser({
   newUi = false,
   setVariationFilter,
   setBaselineRow,
+  setDifferenceType,
   setAnalysisSettings,
   disabled,
 }: Props) {
@@ -126,6 +129,7 @@ export default function DimensionChooser({
           if (v === value) return;
           setAnalysisSettings?.(null);
           setBaselineRow?.(0);
+          setDifferenceType?.("relative");
           setVariationFilter?.([]);
           setValue?.(v);
         }}

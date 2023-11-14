@@ -28,7 +28,7 @@ interface SortableProps {
   variation: SortableVariation;
   variations: SortableVariation[];
   valueType: FeatureValueType;
-  setVariations: (value: ExperimentValue[]) => void;
+  setVariations?: (value: ExperimentValue[]) => void;
   setWeight: (i: number, weight: number) => void;
   customSplit: boolean;
   valueAsId: boolean;
@@ -171,7 +171,6 @@ export const VariationRow = forwardRef<HTMLTableRowElement, VariationProps>(
                 {decimalToPercent(weights[i])}%
               </div>
             )}
-            {/* @ts-expect-error TS(2774) If you come across this, please fix it!: This condition will always return true since this ... Remove this comment to see the full error message */}
             {variations.length > 1 && setVariations && (
               <div {...handle} title="Drag and drop to re-order rules">
                 <FaArrowsAlt />

@@ -107,14 +107,26 @@ chances of typos. Currently, JSON validation is part of our enterprise plan.
 
 ## Publishing Changes
 
-When you make changes to a feature's definition (default value or override rules), a new draft version of the feature is created automatically. This draft version is unpublished and is only visible within the GrowthBook UI, not to your users.
+When you make changes to a feature's definition (default value or override rules), a new draft revision of the feature is created automatically. This draft revision is unpublished and is only visible within the GrowthBook UI, not to your users.
 
 You can continue adding changes to this draft and when you are ready, publish them all at once with an optional commit message.
 
 ![Draft Modal](/images/features/feature-publishing.png)
 
-## Revision History
+### Revisions
 
-You can view a revision history for your feature and revert to a past version by clicking the blue revert icons. This will create a new draft based on the past version you select, so you can safely review it (or add additional changes) before deciding to publish.
+Once a draft revision has been published, it becomes locked and you can no longer make changes to it.
 
-![Feature Revisions](/images/feature-revisions.png)
+If you need to undo changes and revert back to a previous state, you can do so easily. Use the Revision dropdown to select the version you want to revert to and then click the Revert link. This will let you review the changes that will applied before submitting.
+
+![Feature Revisions](/images/features/revision-dropdown.png)
+
+### Merge Conflicts
+
+It's possible to get into a state where your draft has diverged from the live version of a feature. Some changes we are able to merge automatically (e.g. if you change a rule in "dev" and someone else changes a rule in "production"). For changes that we cannot resolve automatically, you will have to fix the conflicts first before you are able to publish your draft.
+
+We use a similar process to Version Control Systems like git. For each conflict, you will be shown a diff of the conflict and given a choice of how to proceed.
+
+In the example below, the Default Value was set to `foo` when you first created your draft. In your draft, you changed the value to `bar`. At the same time, someone else published a new version, changing the value to `hi!!`. So, now you have to choose which change you want to keep.
+
+![Resolve Conflicts](/images/features/resolve-conflicts.png)

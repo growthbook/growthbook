@@ -26,7 +26,7 @@ import { useAuth } from "@/services/auth";
 import EditOrganizationModal from "@/components/Settings/EditOrganizationModal";
 import BackupConfigYamlButton from "@/components/Settings/BackupConfigYamlButton";
 import RestoreConfigYamlButton from "@/components/Settings/RestoreConfigYamlButton";
-import { hasFileConfig, isCloud } from "@/services/env";
+import { hasFileConfig, isCloud, isMultiOrg } from "@/services/env";
 import Field from "@/components/Forms/Field";
 import MetricsSelector from "@/components/Experiment/MetricsSelector";
 import TempMessage from "@/components/TempMessage";
@@ -592,86 +592,90 @@ const GeneralSettingsPage = (): React.ReactElement => {
                 </div>
               </div>
             </div>
-            <div className="divider border-bottom mb-3 mt-3" />
-            <div className="row">
-              <div className="col-sm-3">
-                <h4>License</h4>
-              </div>
-              <div className="col-sm-9">
-                <div className="form-group row mb-2">
-                  <div className="col-sm-12">
-                    <strong>Plan type: </strong> {licensePlanText}{" "}
+            {(isCloud() || !isMultiOrg()) && (
+              <div>
+                <div className="divider border-bottom mb-3 mt-3" />
+                <div className="row">
+                  <div className="col-sm-3">
+                    <h4>License</h4>
                   </div>
-                </div>
-                {showUpgradeButton && (
-                  <div className="form-group row mb-1">
-                    <div className="col-sm-12">
-                      <button
-                        className="btn btn-premium font-weight-normal"
-                        onClick={() => setUpgradeModal(true)}
-                      >
-                        {accountPlan === "oss" ? (
+                  <div className="col-sm-9">
+                    <div className="form-group row mb-2">
+                      <div className="col-sm-12">
+                        <strong>Plan type: </strong> {licensePlanText}{" "}
+                      </div>
+                    </div>
+                    {showUpgradeButton && (
+                      <div className="form-group row mb-1">
+                        <div className="col-sm-12">
+                          <button
+                            className="btn btn-premium font-weight-normal"
+                            onClick={() => setUpgradeModal(true)}
+                          >
+                            {accountPlan === "oss" ? (
+                              <>
+                                Try Enterprise <GBPremiumBadge />
+                              </>
+                            ) : (
+                              <>
+                                Try Pro <GBPremiumBadge />
+                              </>
+                            )}
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                    {!isCloud() && permissions.manageBilling && (
+                      <div className="form-group row mt-3 mb-0">
+                        <div className="col-sm-4">
+                          <div>
+                            <strong>License Key: </strong>
+                          </div>
+                          <div
+                            className="d-inline-block mt-1 mb-2 text-center text-muted"
+                            style={{
+                              width: 100,
+                              borderBottom: "1px solid #cccccc",
+                              pointerEvents: "none",
+                              overflow: "hidden",
+                              verticalAlign: "top",
+                            }}
+                          >
+                            {license ? "***************" : "(none)"}
+                          </div>{" "}
+                          <a
+                            href="#"
+                            className="pl-1"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              setEditLicenseOpen(true);
+                            }}
+                          >
+                            <FaPencilAlt />
+                          </a>
+                        </div>
+                        {license && (
                           <>
-                            Try Enterprise <GBPremiumBadge />
-                          </>
-                        ) : (
-                          <>
-                            Try Pro <GBPremiumBadge />
+                            <div className="col-sm-2">
+                              <div>Issued:</div>
+                              <span className="text-muted">{license.iat}</span>
+                            </div>
+                            <div className="col-sm-2">
+                              <div>Expires:</div>
+                              <span className="text-muted">{license.exp}</span>
+                            </div>
+                            <div className="col-sm-2">
+                              <div>Seats:</div>
+                              <span className="text-muted">{license.qty}</span>
+                            </div>
                           </>
                         )}
-                      </button>
-                    </div>
-                  </div>
-                )}
-                {!isCloud() && permissions.manageBilling && (
-                  <div className="form-group row mt-3 mb-0">
-                    <div className="col-sm-4">
-                      <div>
-                        <strong>License Key: </strong>
                       </div>
-                      <div
-                        className="d-inline-block mt-1 mb-2 text-center text-muted"
-                        style={{
-                          width: 100,
-                          borderBottom: "1px solid #cccccc",
-                          pointerEvents: "none",
-                          overflow: "hidden",
-                          verticalAlign: "top",
-                        }}
-                      >
-                        {license ? "***************" : "(none)"}
-                      </div>{" "}
-                      <a
-                        href="#"
-                        className="pl-1"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          setEditLicenseOpen(true);
-                        }}
-                      >
-                        <FaPencilAlt />
-                      </a>
-                    </div>
-                    {license && (
-                      <>
-                        <div className="col-sm-2">
-                          <div>Issued:</div>
-                          <span className="text-muted">{license.iat}</span>
-                        </div>
-                        <div className="col-sm-2">
-                          <div>Expires:</div>
-                          <span className="text-muted">{license.exp}</span>
-                        </div>
-                        <div className="col-sm-2">
-                          <div>Seats:</div>
-                          <span className="text-muted">{license.qty}</span>
-                        </div>
-                      </>
                     )}
                   </div>
-                )}
+                </div>
               </div>
-            </div>
+            )}
           </div>
 
           <div className="my-3 bg-white p-3 border">

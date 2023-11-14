@@ -532,28 +532,41 @@ app.post("/feature", featuresController.postFeatures);
 app.put("/feature/:id", featuresController.putFeature);
 app.delete("/feature/:id", featuresController.deleteFeatureById);
 app.post(
-  "/feature/:id/defaultvalue",
+  "/feature/:id/:version/defaultvalue",
   featuresController.postFeatureDefaultValue
 );
 app.post("/feature/:id/schema", featuresController.postFeatureSchema);
-app.post("/feature/:id/discard", featuresController.postFeatureDiscard);
-app.post("/feature/:id/publish", featuresController.postFeaturePublish);
+app.post(
+  "/feature/:id/:version/discard",
+  featuresController.postFeatureDiscard
+);
+app.post(
+  "/feature/:id/:version/publish",
+  featuresController.postFeaturePublish
+);
+app.get("/feature/:id/:version/log", featuresController.getRevisionLog);
 app.post("/feature/:id/archive", featuresController.postFeatureArchive);
 app.post("/feature/:id/toggle", featuresController.postFeatureToggle);
-app.post("/feature/:id/draft", featuresController.postFeatureDraft);
-app.post("/feature/:id/rule", featuresController.postFeatureRule);
+app.post("/feature/:id/:version/fork", featuresController.postFeatureFork);
+app.post("/feature/:id/:version/rebase", featuresController.postFeatureRebase);
+app.post("/feature/:id/:version/revert", featuresController.postFeatureRevert);
+app.post("/feature/:id/:version/rule", featuresController.postFeatureRule);
 app.post(
-  "/feature/:id/experiment",
+  "/feature/:id/:version/experiment",
   featuresController.postFeatureExperimentRefRule
 );
 app.delete(
-  "/feature/:id/experiment",
+  "/feature/:id/:version/experiment",
   featuresController.deleteFeatureExperimentRefRule
 );
-app.put("/feature/:id/rule", featuresController.putFeatureRule);
-app.delete("/feature/:id/rule", featuresController.deleteFeatureRule);
-app.post("/feature/:id/reorder", featuresController.postFeatureMoveRule);
-app.post("/feature/:id/eval", featuresController.postFeatureEvaluate);
+app.put("/feature/:id/:version/comment", featuresController.putRevisionComment);
+app.put("/feature/:id/:version/rule", featuresController.putFeatureRule);
+app.delete("/feature/:id/:version/rule", featuresController.deleteFeatureRule);
+app.post(
+  "/feature/:id/:version/reorder",
+  featuresController.postFeatureMoveRule
+);
+app.post("/feature/:id/:version/eval", featuresController.postFeatureEvaluate);
 app.get("/usage/features", featuresController.getRealtimeUsage);
 
 // Data Sources
