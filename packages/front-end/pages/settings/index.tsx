@@ -902,7 +902,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
                           className="mr-1"
                           htmlFor="toggle-runHealthTrafficQuery"
                         >
-                          Run health traffic query by default
+                          Run traffic query by default
                         </label>
                       </div>
                       <div>

@@ -327,11 +327,8 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
                     <MultiSelectField
                       label="Dimensions to use in traffic breakdowns"
                       value={form.watch("dimensionsForTraffic") || []}
-                      onChange={(ids) => {
-                        const newValue = [...value];
-                        newValue[i] = { ...v };
-                        newValue[i].ids = ids;
-                        setValue(newValue);
+                      onChange={(dimensions) => {
+                        form.setValue("dimensionsForTraffic", dimensions);
                       }}
                       options={form.watch("dimensions").map((s) => ({
                         value: s,
