@@ -2,21 +2,20 @@ import { Response } from "express";
 import uniqid from "uniqid";
 import format from "date-fns/format";
 import cloneDeep from "lodash/cloneDeep";
-import {
-  DEFAULT_P_VALUE_THRESHOLD,
-  DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
-} from "shared/constants";
+import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
 import { getValidDate } from "shared/dates";
 import { getAffectedEnvsForExperiment } from "shared/util";
 import { getScopedSettings } from "shared/settings";
-import { orgHasPremiumFeature } from "enterprise";
 import { v4 as uuidv4 } from "uuid";
 import { AuthRequest, ResponseWithStatusAndError } from "../types/AuthRequest";
 import {
   createManualSnapshot,
   createSnapshot,
   createSnapshotAnalysis,
+  getAdditionalExperimentAnalysisSettings,
+  getDefaultExperimentAnalysisSettings,
   getExperimentMetricById,
+  getLinkedFeatureInfo,
   getManualSnapshotData,
 } from "../services/experiments";
 import { MetricStats } from "../../types/metric";
@@ -41,6 +40,7 @@ import {
   deleteSnapshotById,
   findSnapshotById,
   getLatestSnapshot,
+  updateSnapshot,
   updateSnapshotsOnPhaseDelete,
 } from "../models/ExperimentSnapshotModel";
 import {
@@ -278,10 +278,13 @@ export async function getExperiment(
     org.id
   );
 
+  const linkedFeatures = await getLinkedFeatureInfo(org, experiment);
+
   res.status(200).json({
     status: 200,
     experiment,
     visualChangesets,
+    linkedFeatures,
     idea,
   });
 }
@@ -481,6 +484,7 @@ const getExperimentDefinitionFromFeatureAndRule = (
         reason: "",
         dateStarted: new Date().toISOString(),
         condition: expRule.condition || "",
+        savedGroups: expRule.savedGroups || [],
         namespace: expRule.namespace || {
           enabled: false,
           name: "",
@@ -1412,6 +1416,7 @@ export async function postExperimentTargeting(
 
   const {
     condition,
+    savedGroups,
     coverage,
     hashAttribute,
     hashVersion,
@@ -1450,6 +1455,7 @@ export async function postExperimentTargeting(
     phases[phases.length - 1] = {
       ...phases[phases.length - 1],
       condition,
+      savedGroups,
       coverage,
       namespace,
       variationWeights,
@@ -1463,6 +1469,7 @@ export async function postExperimentTargeting(
 
     phases.push({
       condition,
+      savedGroups,
       coverage,
       dateStarted: new Date(),
       name: "Main",
@@ -1802,10 +1809,11 @@ export async function postSnapshot(
 
   req.checkPermissions("runQueries", experiment.project || "");
 
-  const orgSettings = org.settings || {};
-
-  let { statsEngine, regressionAdjustmentEnabled } = req.body;
-  const { metricRegressionAdjustmentStatuses } = req.body;
+  let { statsEngine } = req.body;
+  const {
+    metricRegressionAdjustmentStatuses,
+    regressionAdjustmentEnabled,
+  } = req.body;
   const { phase, dimension } = req.body;
 
   if (!experiment.phases[phase]) {
@@ -1828,46 +1836,19 @@ export async function postSnapshot(
   statsEngine = ["bayesian", "frequentist"].includes(statsEngine + "")
     ? statsEngine
     : scopedSettings.statsEngine.value;
-
-  const hasRegressionAdjustmentFeature = org
-    ? orgHasPremiumFeature(org, "regression-adjustment")
-    : false;
-  const hasSequentialTestingFeature = org
-    ? orgHasPremiumFeature(org, "sequential-testing")
-    : false;
-
-  regressionAdjustmentEnabled =
-    hasRegressionAdjustmentFeature &&
-    statsEngine === "frequentist" &&
-    (regressionAdjustmentEnabled !== undefined
-      ? regressionAdjustmentEnabled
-      : orgSettings?.regressionAdjustmentEnabled ?? false);
-
-  const sequentialTestingEnabled =
-    hasSequentialTestingFeature &&
-    statsEngine === "frequentist" &&
-    (experiment?.sequentialTestingEnabled ??
-      !!orgSettings?.sequentialTestingEnabled);
-  const sequentialTestingTuningParameter =
-    experiment?.sequentialTestingTuningParameter ??
-    orgSettings?.sequentialTestingTuningParameter ??
-    DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER;
-
   const useCache = !req.query["force"];
 
   // This is doing an expensive analytics SQL query, so may take a long time
   // Set timeout to 30 minutes
   req.setTimeout(30 * 60 * 1000);
 
-  const analysisSettings: ExperimentSnapshotAnalysisSettings = {
-    statsEngine: statsEngine as StatsEngine,
-    regressionAdjusted: !!regressionAdjustmentEnabled,
-    dimensions: dimension ? [dimension] : [],
-    sequentialTesting: !!sequentialTestingEnabled,
-    sequentialTestingTuningParameter: sequentialTestingTuningParameter,
-    baselineVariationIndex: 0,
-    pValueThreshold: org.settings?.pValueThreshold ?? DEFAULT_P_VALUE_THRESHOLD,
-  };
+  const analysisSettings = getDefaultExperimentAnalysisSettings(
+    statsEngine as StatsEngine,
+    experiment,
+    org,
+    regressionAdjustmentEnabled,
+    dimension
+  );
 
   const metricMap = await getMetricMap(org.id);
   const factTableMap = await getFactTableMap(org.id);
@@ -1932,7 +1913,11 @@ export async function postSnapshot(
       user: res.locals.eventAudit,
       phaseIndex: phase,
       useCache,
-      analysisSettings,
+      defaultAnalysisSettings: analysisSettings,
+      additionalAnalysisSettings: getAdditionalExperimentAnalysisSettings(
+        analysisSettings,
+        experiment
+      ),
       metricRegressionAdjustmentStatuses:
         metricRegressionAdjustmentStatuses || [],
       metricMap,
@@ -1969,6 +1954,7 @@ export async function postSnapshotAnalysis(
   req: AuthRequest<
     {
       analysisSettings: ExperimentSnapshotAnalysisSettings;
+      phaseIndex?: number;
     },
     { id: string }
   >,
@@ -1986,7 +1972,7 @@ export async function postSnapshotAnalysis(
     return;
   }
 
-  const { analysisSettings } = req.body;
+  const { analysisSettings, phaseIndex } = req.body;
 
   const experiment = await getExperimentById(org.id, snapshot.experiment);
   if (!experiment) {
@@ -1995,6 +1981,14 @@ export async function postSnapshotAnalysis(
       message: "Experiment not found",
     });
     return;
+  }
+
+  if (snapshot.settings.coverage === undefined) {
+    const latestPhase = experiment.phases.length - 1;
+    snapshot.settings.coverage =
+      experiment.phases[phaseIndex ?? latestPhase].coverage;
+    // JIT migrate snapshots to have
+    await updateSnapshot(org.id, id, { settings: snapshot.settings });
   }
 
   const metricMap = await getMetricMap(org.id);

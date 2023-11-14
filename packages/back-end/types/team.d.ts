@@ -1,4 +1,4 @@
-import { ExpandedMember, ProjectMemberRole } from "./organization";
+import { MemberRole, ProjectMemberRole } from "./organization";
 
 export interface TeamInterface {
   id: string;
@@ -8,9 +8,10 @@ export interface TeamInterface {
   dateUpdated: Date;
   createdBy: string;
   description: string;
-  role: string;
+  role: MemberRole;
   limitAccessByEnvironment: boolean;
   environments: string[];
   projectRoles?: ProjectMemberRole[];
-  members?: ExpandedMember[];
+  members?: string[];
+  managedByIdp: boolean;
 }

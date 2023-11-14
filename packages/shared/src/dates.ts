@@ -1,6 +1,7 @@
 import format from "date-fns/format";
 import formatDistance from "date-fns/formatDistance";
 import differenceInDays from "date-fns/differenceInDays";
+import differenceInHours from "date-fns/differenceInHours";
 import addMonths from "date-fns/addMonths";
 
 export function date(date: string | Date): string {
@@ -26,6 +27,9 @@ export function monthYear(date: string | Date): string {
 }
 export function daysBetween(start: string | Date, end: string | Date): number {
   return differenceInDays(getValidDate(end), getValidDate(start));
+}
+export function hoursBetween(start: string | Date, end: string | Date): number {
+  return differenceInHours(getValidDate(end), getValidDate(start));
 }
 
 // returns of the format ["'2022-01-05'", "'2022-01-06'"] for

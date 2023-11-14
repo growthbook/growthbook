@@ -319,6 +319,7 @@ spacing and headings.`,
     // Create feature
     const featureToCreate: FeatureInterface = {
       id: getDemoDataSourceFeatureId(),
+      version: 1,
       project: project.id,
       organization: org.id,
       dateCreated: new Date(),
@@ -380,6 +381,7 @@ spacing and headings.`,
 
     const analysisSettings: ExperimentSnapshotAnalysisSettings = {
       statsEngine: org.settings?.statsEngine || DEFAULT_STATS_ENGINE,
+      differenceType: "relative",
       dimensions: [],
       pValueThreshold:
         org.settings?.pValueThreshold ?? DEFAULT_P_VALUE_THRESHOLD,
@@ -392,7 +394,8 @@ spacing and headings.`,
       experiment: createdExperiment,
       organization: org,
       phaseIndex: 0,
-      analysisSettings: analysisSettings,
+      defaultAnalysisSettings: analysisSettings,
+      additionalAnalysisSettings: [],
       metricRegressionAdjustmentStatuses: [],
       metricMap: metricMap,
       factTableMap,

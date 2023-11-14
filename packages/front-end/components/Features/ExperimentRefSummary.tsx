@@ -130,6 +130,10 @@ export default function ExperimentRefSummary({
     : 1;
   const effectiveCoverage = namespaceRange * (phase.coverage ?? 1);
 
+  const hasCondition =
+    (phase.condition && phase.condition !== "{}") ||
+    !!phase.savedGroups?.length;
+
   return (
     <div>
       {experiment.status === "draft" && (
@@ -142,17 +146,20 @@ export default function ExperimentRefSummary({
         <div className="alert alert-info">
           This experiment is stopped and a <strong>Temporary Rollout</strong> is
           enabled. All users in the experiment will receive the winning
-          variation. If this is no longer needed, you can stop it from the
-          Experiment page.
+          variation. If no longer needed, you can stop it from the Experiment
+          page.
         </div>
       )}
-      {phase.condition && phase.condition !== "{}" && (
+      {hasCondition && (
         <div className="row mb-3 align-items-top">
           <div className="col-auto">
             <strong>IF</strong>
           </div>
           <div className="col">
-            <ConditionDisplay condition={phase.condition} />
+            <ConditionDisplay
+              condition={phase.condition}
+              savedGroups={phase.savedGroups}
+            />
           </div>
         </div>
       )}

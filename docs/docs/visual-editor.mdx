@@ -10,7 +10,7 @@ import Pill from '@site/src/components/Pill';
 
 # Visual Editor 2.0
 
-The Visual Editor enables non-technical users to design A/B tests on their site directly in their browser, run them in production, and analyze results, all without writing a single line of code. To use the Visual Editor, you will need to integrate either our [JavaScript](/lib/js) or [ReactJS](/lib/react) SDK to your application (requires a developer).
+With the Visual Editor, users can design A/B tests on their site directly in their browser, run them in production, and analyze results, all without writing a single line of code. To use the Visual Editor, a software developer will need to integrate either our [JavaScript](/lib/js) or [ReactJS](/lib/react) SDK with your application.
 
 In March 2023, we released version 2.0 of our Visual Editor, which had many improvements.
 
@@ -18,21 +18,15 @@ In March 2023, we released version 2.0 of our Visual Editor, which had many impr
 
 The Visual Editor may not work optimally on client-side rendered apps (e.g. React.js, Vue.js). Consider using [Feature Flags](/app/features) instead for smoother integration. Contact support@growthbook.io if you have any questions.
 
-If you do decide to use a framework like React or Vue, be sure to see our [section on SPA support below](#spa-support).
-
 :::
 
 ## Requirements
 
-To **create visual experiments**, all you need is the following:
-
-- The [GrowthBook Chrome Extension](https://chrome.google.com/webstore/detail/growthbook-devtools/opemhndcehfgipokneipaafbglcecjia) installed on your Chrome Browser.
-
-To **run your visual experiments** against users in your web app, you additionally need:
-
-- The [JavaScript](/lib/js) or [ReactJS](/lib/react) SDK loaded in your web application.
+All you need to get started is the [GrowthBook Chrome Extension](https://chrome.google.com/webstore/detail/growthbook-devtools/opemhndcehfgipokneipaafbglcecjia) installed on your Chrome Browser.
 
 The application you want to experiment on **must be a front-end web application viewed in a browser**. Our Visual Editor does not work for mobile apps (Native or ReactNative) or desktop apps (e.g. Electron). For unsupported platforms, we recommend using [Feature Flags](/app/features) instead to implement your changes in code.
+
+Once you've create your first experiment and are ready to deploy to production, there are some additional steps required (see **Deploying to Production** below).
 
 ## Creating a Visual Experiment
 
@@ -112,54 +106,132 @@ Below that is your toolbar. It has the following tools in order from left to rig
 1. **Interactive Mode** - Click around your site normally
 2. **Element Selector** - Point and click to select an element on your site to edit. This is the most common way to make changes.
 3. **Global CSS** - Inject global CSS styles into the page. Use this to control things like page background color or font size.
-4. **Custom DOM Changes** - A low level way to specify changes to elements
+4. **Custom JavaScript** - Inject Javascript into the page. Use this to create complex variations.
 5. **Change List** - See a summary of all of the changes you've made to the page so far
 
 When you're using the Element Selector, after you pick an element to edit, you'll be able to modify the Inner HTML (i.e. the copy), any attributes (e.g. a link HREF), and the list of CSS classes.
 
 When you're finished making changes, click the **Done Editing** button to be taken back to GrowthBook.
 
-## Production
+## Deploying to Production
 
-Before publishing an A/B test to production you will need to integrate either our [JavaScript](/lib/js) or [ReactJS](/lib/js) SDK to your application (requires a developer).
-
-:::note
-
-The Visual Editor requires the latest versions of our SDKs. If you've already been using GrowthBook for feature flags, you may need to update your installed version.
-
-:::
-
-### SDK Connection
-
-You will need a **client key** to pass into the SDK. You can get this by creating a new SDK Connection (under **Features** in the left navigation).
+Before you start your first experiment, you will first need to generate a **Client Key** in GrowthBook. You can get this by creating a new SDK Connection (under **SDK Configuration** in the left navigation).
 
 **Important**: Make sure to enable the "Include Visual Experiments" toggle. If you forget this step, Visual Editor experiments will not be sent to your application.
 
 ![Enable the Visual Editor in your SDK Connection](/images/sdk-connection-visual-editor.png)
 
-You can also optionally include Draft Experiments. These are not run automatically like Production experiments. Instead, they can be triggered via special URLs (see below for more info). Drafts are useful for QA testing before releasing to your actual users.
+You can also optionally include Draft Experiments (see below).
 
-### SPA Support
+Once you create an SDK Connection, you need to integrate GrowthBook into your website. There are 2 ways to do this - using our SDKs or using our pre-built script tag.
 
-If you have a Single Page Application (SPA) that does client-side routing, you'll need to update the URL within the GrowthBook SDK every time it changes.
+### Option 1: Using our SDKs
 
-For example, with Next.js you can do the following:
+This option requires a developer, but allows for more customization and a deeper integration into your website. We especially recommend this approach if you also plan to use Feature Flags.
 
-```js
-function updateGrowthBookURL() {
-  gb.setURL(window.location.href);
+View the full instructions for integrating either our [JavaScript](/lib/js) or [ReactJS](/lib/react) SDKs.
+
+:::note
+
+If you've already been using our front-end SDKs for feature flagging, make sure you:
+
+1. Update to the latest SDK version
+2. Follow the "Visual Editor" instructions in the SDK docs
+
+:::
+
+### Option 2: Pre-built Script Tag (best for Shopify, Webflow)
+
+This option is quick and easy and only requires the ability to insert a `<script>` tag into your site's source code. However, you do lose some flexibility compared to a full SDK integration.
+
+For this, you'll need the **Client Key** from the SDK Connection you created earlier.
+
+Add the following script tag to your website and replace `YOUR_CLIENT_KEY_HERE` with your actual client key:
+
+```html
+<script async
+  data-client-key="YOUR_CLIENT_KEY_HERE"
+  src="https://cdn.jsdelivr.net/npm/@growthbook/growthbook/dist/bundles/auto.min.js"
+></script>
+```
+
+For best performance, we recommend adding this script tag directly to your website's `<head>`, however it is also possible to load through something like Google Tag Manager if that is your only option.
+
+With the pre-built script tag, the following targeting attributes are set automatically:
+
+- `id` - creates a long-lived `gbuuid` cookie if it doesn't exist already
+- `url`
+- `path`
+- `host`
+- `query`
+- `deviceType` - either `mobile` or `desktop`
+- `browser` - one of `chrome`, `edge`, `firefox`, `safari`, or `unknown`
+- `utmSource`
+- `utmMedium`
+- `utmCampaign`
+- `utmTerm`
+- `utmContent`
+
+In addition, experiment events will be automatically tracked with both GA4 (using `dataLayer`) and Segment (using `analytics.track`) when available.
+
+You can override some settings by adding `data-*` attributes directly to the script tag. Here's an example of overriding the API host and setting a decryption key:
+
+```html
+<script async
+  data-api-host="https://growthbook-api.example.com"
+  data-client-key="YOUR_CLIENT_KEY_HERE"
+  data-decryption-key="YOUR_DECRYPTION_KEY_HERE"
+  src="https://cdn.jsdelivr.net/npm/@growthbook/growthbook/dist/bundles/auto.min.js"
+></script>
+```
+
+For more control, you can define a `window.growthbook_config` object BEFORE you load the script tag. This accepts the same settings as our [JavaScript SDK](/lib/js) and is especially useful when you have custom event tracking or attributes that you want to set.
+
+```html
+<script>
+window.growthbook_config = {
+  trackingCallback: (experiment, result) => {
+    customEventTracker("Viewed Experiment", {
+      experiment_id: experiment.key,
+      variation_id: result.key
+    })
+  },
+  // These will be merged with all of the auto-attributes above
+  attributes: {
+    customAttribute: "something"
+  }
 }
+</script>
+```
 
-export default function MyApp() {
-  // Subscribe to route change events and update GrowthBook
-  const router = useRouter();
-  useEffect(() => {
-    router.events.on("routeChangeComplete", updateGrowthBookURL);
-    return () => router.events.off("routeChangeComplete", updateGrowthBookURL);
-  }, []);
+And lastly, you can access the GrowthBook SDK instance at `window._growthbook` if you need low level access for any reason.
 
-  // ...
-}
+### Content Security Policy (CSP) Changes
+
+If your website uses a Content Security Policy (CSP), there are some additional changes you'll need to make. This applies to both SDK and pre-build script tag integration.
+
+#### connect-src
+
+If you have the `connect-src` directive defined in your website's CSP, you'll need to include the URL of your GrowthBook API Host in order for your website to load experiments from GrowthBook's servers.
+
+```
+Content-Security-Policy: connect-src <GROWTHBOOK_API_HOST>;
+```
+
+If you use GrowthBook Cloud, use our global CDN: https://cdn.growthbook.io
+
+```
+Content-Security-Policy: connect-src https://cdn.growthbook.io;
+```
+
+#### script-src
+
+Changing the `script-src` directive in your CSP is only required if you are writing custom JavaScript in the Visual Editor. If you are only changing styles or copy using the point-and-click editor, this is not required and you can skip this section.
+
+If you have the `script-src` directive defined in your website's CSP, you'll need to enable `'unsafe-inline'` and `'unsafe-eval'` in order to leverage the Global JavaScript injection feature of the Visual Editor:
+
+```
+Content-Security-Policy: script-src 'self' 'unsafe-inline' 'unsafe-eval';
 ```
 
 ## Drafts and QA
@@ -192,31 +264,3 @@ The reason it's called a "Temporary" Rollout is because you don't want to rely o
 2. Changes in code will be picked up for SEO
 3. Changes applied through the visual editor require the SDK to download data from GrowthBook. Although lightweight, these stopped experiments can add up over time and further slow down your site.
 4. Reduce the chance of conflicts. If two visual editor experiments try to change the same element at the same time, it will not always work as expected. Moving the winning variation to code will avoid this issue.
-
-## Security Requirements
-
-If your website uses a Content Security Policy (CSP) in its HTTP headers or in a `<meta>` tag you must include your GrowthBook API Host domain in order to use the Visual Editor.
-
-### CSP Requirements for Visual Editor
-
-If you have the `connect-src` directive defined in your website's CSP, you'll need to include the URL of your GrowthBook API Host in order to allow the Visual Editor to work correctly:
-
-```
-Content-Security-Policy: connect-src <GROWTHBOOK_API_HOST>;
-```
-
-Here is an example of a CSP definition that includes the GrowthBook Cloud API host:
-
-```
-Content-Security-Policy: connect-src https://api.growthbook.io;
-```
-
-### CSP Requirements for Global JavaScript
-
-If you have the `script-src` directive defined in your website's CSP, you'll need to enable `'unsafe-inline'` and `'unsafe-eval'` in order to leverage the Global JavaScript injection feature of the Visual Editor:
-
-```
-Content-Security-Policy: script-src 'self' 'unsafe-inline' 'unsafe-eval';
-```
-
-Read more about Content Security Policy [here](https://developer.mozilla.org/en-US/docs/Web/HTTP/CSP).

@@ -87,7 +87,7 @@ type LDReducerState = {
    */
   gbFeatures: Omit<
     FeatureInterface,
-    "dateCreated" | "dateUpdated" | "revision" | "organization"
+    "dateCreated" | "dateUpdated" | "version" | "organization"
   >[];
 
   /**
@@ -499,7 +499,7 @@ export const useImportFromLaunchDarkly = (): UseImportFromLaunchDarkly => {
           string,
           Omit<
             FeatureInterface,
-            "dateCreated" | "dateUpdated" | "revision" | "organization"
+            "dateCreated" | "dateUpdated" | "organization" | "version"
           >
         >();
 
@@ -543,7 +543,7 @@ export const useImportFromLaunchDarkly = (): UseImportFromLaunchDarkly => {
         const createFeatureTasks: QueueTask<
           Omit<
             FeatureInterface,
-            "dateCreated" | "dateUpdated" | "revision" | "organization"
+            "dateCreated" | "dateUpdated" | "organization" | "version"
           >
         >[] = [];
         featuresToCreate.forEach((feature, id) => {
@@ -559,7 +559,7 @@ export const useImportFromLaunchDarkly = (): UseImportFromLaunchDarkly => {
         } = await enqueueTasks<
           Omit<
             FeatureInterface,
-            "dateCreated" | "dateUpdated" | "revision" | "organization"
+            "dateCreated" | "dateUpdated" | "version" | "organization"
           >,
           FeatureInterface
         >(createFeatureTasks, {
@@ -600,7 +600,7 @@ export const useImportFromLaunchDarkly = (): UseImportFromLaunchDarkly => {
           async perform(
             data: Omit<
               FeatureInterface,
-              "dateCreated" | "dateUpdated" | "revision" | "organization"
+              "dateCreated" | "dateUpdated" | "version" | "organization"
             >
           ): Promise<TaskResult<FeatureInterface>> {
             try {

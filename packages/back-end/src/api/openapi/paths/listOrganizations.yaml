@@ -1,10 +1,10 @@
-summary: Get all organizations
+summary: Get all organizations (only for super admins on multi-org Enterprise Plan only)
 tags:
   - organizations
 parameters:
   - name: search
     in: query
-    description: Search string to search organization names and owner emails by
+    description: Search string to search organization names, owner emails, and external ids by
     schema:
       type: string
   - $ref: "../parameters.yaml#/limit"

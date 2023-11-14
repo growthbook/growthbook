@@ -26,10 +26,7 @@ import {
   getAllPayloadExperiments,
   getAllVisualExperiments,
 } from "../models/ExperimentModel";
-import {
-  getFeatureDefinition,
-  replaceSavedGroupsInCondition,
-} from "../util/features";
+import { getFeatureDefinition, getParsedCondition } from "../util/features";
 import { getAllSavedGroups } from "../models/SavedGroupModel";
 import {
   Environment,
@@ -56,6 +53,7 @@ import {
   ApiFeatureEnvSettingsRules,
 } from "../api/features/postFeature";
 import { ArchetypeAttributeValues } from "../../types/archetype";
+import { FeatureRevisionInterface } from "../../types/feature-revision";
 import { getEnvironments, getOrganizationById } from "./organizations";
 
 export type AttributeMap = Map<string, string>;
@@ -114,16 +112,11 @@ function generateVisualExperimentsPayload({
           ? e.variations.find((v) => v.id === e.releasedVariationId)
           : null;
 
-      let condition;
-      if (phase?.condition && phase.condition !== "{}") {
-        try {
-          condition = JSON.parse(
-            replaceSavedGroupsInCondition(phase.condition, groupMap)
-          );
-        } catch (e) {
-          // ignore condition parse errors here
-        }
-      }
+      const condition = getParsedCondition(
+        groupMap,
+        phase?.condition,
+        phase?.savedGroups
+      );
 
       if (!phase) return null;
 
@@ -193,7 +186,10 @@ export async function getSavedGroupMap(
     allGroups.map((group) => {
       const attributeType = attributeMap?.get(group.attributeKey);
       const values = getGroupValues(group.values, attributeType);
-      return [group.id, values];
+      return [
+        group.id,
+        { values, key: group.attributeKey, source: group.source },
+      ];
     })
   );
 
@@ -204,6 +200,7 @@ export async function refreshSDKPayloadCache(
   organization: OrganizationInterface,
   payloadKeys: SDKPayloadKey[],
   allFeatures: FeatureInterface[] | null = null,
+  experimentMap?: Map<string, ExperimentInterface>,
   skipRefreshForProject?: string
 ) {
   // Ignore any old environments which don't exist anymore
@@ -222,7 +219,8 @@ export async function refreshSDKPayloadCache(
   // If no environments are affected, we don't need to update anything
   if (!payloadKeys.length) return;
 
-  const experimentMap = await getAllPayloadExperiments(organization.id);
+  experimentMap =
+    experimentMap || (await getAllPayloadExperiments(organization.id));
   const groupMap = await getSavedGroupMap(organization);
   allFeatures = allFeatures || (await getAllFeatures(organization.id));
   const allVisualExperiments = await getAllVisualExperiments(
@@ -239,8 +237,6 @@ export async function refreshSDKPayloadCache(
     const projectExperiments = key.project
       ? allVisualExperiments.filter((e) => e.experiment.project === key.project)
       : allVisualExperiments;
-
-    if (!projectFeatures.length && !projectExperiments.length) continue;
 
     const featureDefinitions = generatePayload({
       features: projectFeatures,
@@ -515,6 +511,7 @@ export async function getFeatureDefinitions({
 
 export async function evaluateFeature(
   feature: FeatureInterface,
+  revision: FeatureRevisionInterface,
   attributes: ArchetypeAttributeValues,
   org: OrganizationInterface
 ) {
@@ -537,7 +534,7 @@ export async function evaluateFeature(
       env: env.id,
       result: null,
       enabled: false,
-      defaultValue: feature.defaultValue,
+      defaultValue: revision.defaultValue,
     };
     const settings = feature.environmentSettings[env.id] ?? null;
     if (settings) {
@@ -547,7 +544,7 @@ export async function evaluateFeature(
         groupMap,
         experimentMap,
         environment: env.id,
-        useDraft: true,
+        revision,
         returnRuleId: true,
       });
       if (definition) {
@@ -689,6 +686,10 @@ export function getApiFeatureObj({
           ? rule.coverage ?? 1
           : 1,
       condition: rule.condition || "",
+      savedGroupTargeting: (rule.savedGroups || []).map((s) => ({
+        matchType: s.match,
+        savedGroups: s.ids,
+      })),
       enabled: !!rule.enabled,
     }));
     const definition = getFeatureDefinition({
@@ -698,42 +699,11 @@ export function getApiFeatureObj({
       environment: env.id,
     });
 
-    const draft: null | ApiFeatureEnvironment["draft"] = feature.draft?.active
-      ? {
-          enabled,
-          defaultValue: feature.draft?.defaultValue ?? defaultValue,
-          rules: (feature.draft?.rules?.[env.id] ?? rules).map((rule) => ({
-            ...rule,
-            coverage:
-              rule.type === "rollout" || rule.type === "experiment"
-                ? rule.coverage ?? 1
-                : 1,
-            condition: rule.condition || "",
-            enabled: !!rule.enabled,
-          })),
-        }
-      : null;
-    if (draft) {
-      const draftDefinition = getFeatureDefinition({
-        feature,
-        groupMap,
-        experimentMap,
-        environment: env.id,
-        useDraft: true,
-      });
-      if (draftDefinition) {
-        draft.definition = JSON.stringify(draftDefinition);
-      }
-    }
-
     featureEnvironments[env.id] = {
       enabled,
       defaultValue,
       rules,
     };
-    if (draft) {
-      featureEnvironments[env.id].draft = draft;
-    }
     if (definition) {
       featureEnvironments[env.id].definition = JSON.stringify(definition);
     }
@@ -752,10 +722,10 @@ export function getApiFeatureObj({
     tags: feature.tags || [],
     valueType: feature.valueType,
     revision: {
-      comment: feature.revision?.comment || "",
-      date: (feature.revision?.date || feature.dateCreated).toISOString(),
-      publishedBy: feature.revision?.publishedBy?.email || "",
-      version: feature.revision?.version || 1,
+      comment: "",
+      date: feature.dateCreated.toISOString(),
+      publishedBy: "",
+      version: feature.version,
     },
   };
 
@@ -961,6 +931,10 @@ const fromApiEnvSettingsRulesToFeatureEnvSettingsRules = (
         description: r.description ?? "",
         value: validateFeatureValue(feature, r.value),
         condition: r.condition,
+        savedGroups: (r.savedGroupTargeting || []).map((s) => ({
+          ids: s.savedGroups,
+          match: s.matchType,
+        })),
         enabled: r.enabled != null ? r.enabled : true,
       };
       return forceRule;
@@ -974,6 +948,10 @@ const fromApiEnvSettingsRulesToFeatureEnvSettingsRules = (
       hashAttribute: r.hashAttribute,
       value: validateFeatureValue(feature, r.value),
       condition: r.condition,
+      savedGroups: (r.savedGroupTargeting || []).map((s) => ({
+        ids: s.savedGroups,
+        match: s.matchType,
+      })),
       enabled: r.enabled != null ? r.enabled : true,
     };
     return rolloutRule;

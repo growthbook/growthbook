@@ -100,6 +100,11 @@ export async function findSDKConnectionsByOrganization(organization: string) {
   return docs.map(toInterface);
 }
 
+export async function findAllSDKConnections() {
+  const docs = await SDKConnectionModel.find();
+  return docs.map(toInterface);
+}
+
 export async function findSDKConnectionByKey(key: string) {
   const doc = await SDKConnectionModel.findOne({ key });
   return doc ? toInterface(doc) : null;
@@ -404,6 +409,7 @@ export function toApiSDKConnectionInterface(
   return {
     id: connection.id,
     name: connection.name,
+    organization: connection.organization,
     dateCreated: connection.dateCreated.toISOString(),
     dateUpdated: connection.dateUpdated.toISOString(),
     languages: connection.languages,
