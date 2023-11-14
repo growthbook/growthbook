@@ -26,6 +26,7 @@ export type FeatureRule<T = any> = {
   fallbackAttribute?: string;
   hashVersion?: number;
   bucketVersion?: number;
+  minBucketVersion?: number;
   blockedVariations?: number[];
   range?: VariationRange;
   coverage?: number;
@@ -97,6 +98,7 @@ export type Experiment<T> = {
   fallbackAttribute?: string;
   hashVersion?: number;
   bucketVersion?: number;
+  minBucketVersion?: number;
   blockedVariations?: number[];
   active?: boolean;
   /** @deprecated */
