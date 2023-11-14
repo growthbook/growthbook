@@ -2,7 +2,6 @@ import { Response } from "express";
 import { cloneDeep } from "lodash";
 import { freeEmailDomains } from "free-email-domains-typescript";
 import {
-  licenseInit,
   accountFeatures,
   getAccountPlan,
   getLicense,
@@ -30,7 +29,7 @@ import {
   getNonSensitiveParams,
   getSourceIntegrationObject,
 } from "../../services/datasource";
-import { getUserLicenseCodes, updatePassword } from "../../services/users";
+import { updatePassword } from "../../services/users";
 import { getAllTags } from "../../models/TagModel";
 import {
   Invite,
@@ -113,6 +112,7 @@ import { getTeamsForOrganization } from "../../models/TeamModel";
 import { getAllFactTablesForOrganization } from "../../models/FactTableModel";
 import { getAllFactMetricsForOrganization } from "../../models/FactMetricModel";
 import { TeamInterface } from "../../../types/team";
+import { initializeLicense } from "../../services/licenseData";
 
 export async function getDefinitions(req: AuthRequest, res: Response) {
   const { org } = getOrgFromReq(req);
@@ -615,9 +615,7 @@ export async function getOrganization(req: AuthRequest, res: Response) {
     const licenseData = getLicense();
     if (!licenseData || (licenseData.org && licenseData.org !== id)) {
       try {
-        const allUserLicenseCodes = IS_CLOUD ? [] : await getUserLicenseCodes();
-
-        await licenseInit(allUserLicenseCodes, licenseKey);
+        await initializeLicense(licenseKey);
       } catch (e) {
         // eslint-disable-next-line no-console
         console.error("setting license failed", e);
@@ -1747,9 +1745,7 @@ export async function putLicenseKey(
   let licenseData = null;
   try {
     // set new license
-    const allUserLicenseCodes = IS_CLOUD ? [] : await getUserLicenseCodes();
-
-    await licenseInit(allUserLicenseCodes, licenseKey);
+    await initializeLicense(licenseKey);
     licenseData = getLicense();
   } catch (e) {
     // eslint-disable-next-line no-console

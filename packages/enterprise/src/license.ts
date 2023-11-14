@@ -258,7 +258,8 @@ const keyToLicenseData: Record<string, LicenseData> = {};
 
 async function getLicenseDataFromServer(
   licenseId: string,
-  userLicenseCodes: string[]
+  userLicenseCodes: string[],
+  metaData: LicenseMetaData
 ): Promise<LicenseData> {
   const url = `${LICENSE_SERVER}/api/v1/license/${licenseId}/usage`;
   const options = {
@@ -268,6 +269,7 @@ async function getLicenseDataFromServer(
     },
     body: JSON.stringify({
       users: userLicenseCodes,
+      metaData,
     }),
   };
 
@@ -296,8 +298,19 @@ async function getLicenseDataFromServer(
   };
 }
 
+export interface LicenseMetaData {
+  installationId: string;
+  gitSha: string;
+  gitCommitDate: string;
+  sdkLanguages: string[];
+  dataSourceTypes: string[];
+  eventTrackers: string[];
+  isCloud: boolean;
+}
+
 export async function licenseInit(
   userLicenseCodes: string[],
+  metaData: LicenseMetaData,
   licenseKey?: string
 ) {
   const key = licenseKey || LICENSE_KEY || null;
@@ -318,7 +331,11 @@ export async function licenseInit(
   }
 
   if (key.startsWith("license_")) {
-    licenseData = await getLicenseDataFromServer(key, userLicenseCodes);
+    licenseData = await getLicenseDataFromServer(
+      key,
+      userLicenseCodes,
+      metaData
+    );
     cacheDate = new Date(Date.now());
   } else {
     // Old style: the key itself has the encrypted license data in it.

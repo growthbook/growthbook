@@ -1,5 +1,5 @@
 import { NextFunction, Request, Response } from "express";
-import { licenseInit, SSO_CONFIG } from "enterprise";
+import { SSO_CONFIG } from "enterprise";
 import { hasPermission } from "shared/permissions";
 import { IS_CLOUD } from "../../util/secrets";
 import { AuthRequest } from "../../types/AuthRequest";
@@ -8,7 +8,7 @@ import { getOrganizationById, validateLoginMethod } from "../organizations";
 import { Permission } from "../../../types/organization";
 import { UserInterface } from "../../../types/user";
 import { AuditInterface } from "../../../types/audit";
-import { getUserLicenseCodes, getUserByEmail } from "../users";
+import { getUserByEmail } from "../users";
 import { hasOrganization } from "../../models/OrganizationModel";
 import {
   IdTokenCookie,
@@ -27,6 +27,7 @@ import { getTeamsForOrganization } from "../../models/TeamModel";
 import { AuthConnection } from "./AuthConnection";
 import { OpenIdAuthConnection } from "./OpenIdAuthConnection";
 import { LocalAuthConnection } from "./LocalAuthConnection";
+import { initializeLicense } from "../licenseData";
 
 type JWTInfo = {
   email?: string;
@@ -187,10 +188,8 @@ export async function processJWT(
           return;
         }
 
-        const allUserLicenseCodes = IS_CLOUD ? [] : await getUserLicenseCodes();
-
         // init license for org if it exists
-        await licenseInit(allUserLicenseCodes, req.organization.licenseKey);
+        await initializeLicense(req.organization.licenseKey);
       } else {
         res.status(404).json({
           status: 404,
