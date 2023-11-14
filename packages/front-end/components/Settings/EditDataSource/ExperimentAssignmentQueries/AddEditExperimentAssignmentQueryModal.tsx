@@ -76,6 +76,7 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
   const userEnteredQuery = form.watch("query");
   const userEnteredDimensions = form.watch("dimensions");
   const userEnteredHasNameCol = form.watch("hasNameCol");
+  const userEnteredDimsForTraffic = form.watch("dimensionsForTraffic");
 
   const handleSubmit = form.handleSubmit(async (value) => {
     await onSave(value);
@@ -325,12 +326,20 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
                       value={userEnteredDimensions}
                       onChange={(dimensions) => {
                         form.setValue("dimensions", dimensions);
+                        if (userEnteredDimsForTraffic?.length) {
+                          form.setValue(
+                            "dimensionsForTraffic",
+                            userEnteredDimsForTraffic.filter((d) =>
+                              userEnteredDimensions.includes(d)
+                            )
+                          );
+                        }
                       }}
                     />
                     {healthTabSettingsEnabled && (
                       <MultiSelectField
                         label="Dimensions to use in traffic breakdowns"
-                        value={form.watch("dimensionsForTraffic") || []}
+                        value={userEnteredDimsForTraffic || []}
                         onChange={(dimensions) => {
                           form.setValue("dimensionsForTraffic", dimensions);
                         }}
