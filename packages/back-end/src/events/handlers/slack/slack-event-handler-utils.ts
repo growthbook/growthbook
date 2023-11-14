@@ -15,8 +15,7 @@ import {
 } from "../../notification-events";
 import { SlackIntegrationInterface } from "../../../../types/slack-integration";
 import { APP_ORIGIN } from "../../../util/secrets";
-import { ApiFeature } from "../../../../types/openapi";
-import { NotificationEventName } from "../../base-types";
+import { ApiExperiment, ApiFeature } from "../../../../types/openapi";
 
 // region Filtering
 
@@ -146,16 +145,23 @@ export const filterSlackIntegrationForRelevance = (
   slackIntegration: SlackIntegrationInterface,
   event: NotificationEvent
 ): boolean => {
-  console.log("event", event);
-  console.log("slackIntegration", slackIntegration);
   switch (event.event) {
     case "user.login":
       return false;
 
     case "experiment.created":
+      return filterEventByEnvironment(
+        slackIntegration.environments,
+        event.data.current
+      );
     case "experiment.updated":
-    case "experiment.deleted":
+      //TODO: Build this out
       return true;
+    case "experiment.deleted":
+      return filterEventByEnvironment(
+        slackIntegration.environments,
+        event.data.previous
+      );
 
     case "feature.created":
       return filterEventByEnvironment(
@@ -175,7 +181,7 @@ export const filterSlackIntegrationForRelevance = (
 
 const filterEventByEnvironment = (
   envsToLimit: string[],
-  eventData: ApiFeature
+  eventData: ApiFeature | ApiExperiment //TODO: Update this to just take in the event envs?
 ): boolean => {
   // if no environments are specified in the Slack integration, don't filter by events
   if (!envsToLimit.length) {

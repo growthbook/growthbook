@@ -106,7 +106,12 @@ import { FactTableMap } from "../models/FactTableModel";
 import { StatsEngine } from "../../types/stats";
 import { getFeaturesByIds } from "../models/FeatureModel";
 import { getFeatureRevisionsByFeatureIds } from "../models/FeatureRevisionModel";
-import { ExperimentRefRule, FeatureRule } from "../../types/feature";
+import {
+  ExperimentRefRule,
+  FeatureEnvironment,
+  FeatureInterface,
+  FeatureRule,
+} from "../../types/feature";
 import { getReportVariations, getMetricForSnapshot } from "./reports";
 import { getIntegrationFromDatasourceId } from "./datasource";
 import { analyzeExperimentMetric, analyzeExperimentResults } from "./stats";
@@ -728,6 +733,20 @@ export async function toExperimentApiInterface(
     // todo: experiment settings
   });
 
+  const linkedFeatureIds: string[] = experiment.linkedFeatures || [];
+
+  let environments: Record<string, FeatureEnvironment> = {};
+
+  const linkedFeatures: FeatureInterface[] = await getFeaturesByIds(
+    organization.id,
+    linkedFeatureIds
+  );
+
+  linkedFeatures.forEach((feature) => {
+    environments = feature.environmentSettings;
+  });
+  // TODO: This won't work for multiple linked features
+
   const activationMetric = experiment.activationMetric;
   return {
     id: experiment.id,
@@ -737,6 +756,7 @@ export async function toExperimentApiInterface(
     description: experiment.description || "",
     tags: experiment.tags || [],
     owner: experiment.owner || "",
+    environments,
     dateCreated: experiment.dateCreated.toISOString(),
     dateUpdated: experiment.dateUpdated.toISOString(),
     archived: !!experiment.archived,
