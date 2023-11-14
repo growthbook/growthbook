@@ -223,6 +223,8 @@ export const supportedCurrencies = {
   ZWL: "Zimbabwe Dollar (ZWL)",
 };
 
+export const DEFAULT_SRM_THRESHOLD = 0.001;
+
 function hasChanges(
   value: OrganizationSettings,
   existing: OrganizationSettings
@@ -311,7 +313,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
         cron: "0 */6 * * *",
       },
       runHealthTrafficQuery: true,
-      srmThreshold: 0.001,
+      srmThreshold: DEFAULT_SRM_THRESHOLD,
       multipleExposureMinPercent: 0.01,
       confidenceLevel: 0.95,
       pValueThreshold: DEFAULT_P_VALUE_THRESHOLD,

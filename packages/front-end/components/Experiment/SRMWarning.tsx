@@ -1,8 +1,8 @@
 import { FC, useState } from "react";
 import { formatTrafficSplit, getSRMNeededPrecisionP1 } from "@/services/utils";
+import { useUser } from "@/services/UserContext";
+import { DEFAULT_SRM_THRESHOLD } from "@/pages/settings";
 import Modal from "../Modal";
-
-export const SRM_THRESHOLD = 0.001;
 
 const SRMWarning: FC<{
   srm: number;
@@ -10,8 +10,10 @@ const SRMWarning: FC<{
   observed: number[];
 }> = ({ srm, expected, observed }) => {
   const [open, setOpen] = useState(false);
+  const { settings } = useUser();
+  const srmThreshold = settings.srmThreshold ?? DEFAULT_SRM_THRESHOLD;
 
-  if (typeof srm !== "number" || srm >= SRM_THRESHOLD) {
+  if (typeof srm !== "number" || srm >= srmThreshold) {
     return null;
   }
 
