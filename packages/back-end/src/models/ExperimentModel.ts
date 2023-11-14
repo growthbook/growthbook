@@ -896,12 +896,15 @@ export async function addLinkedFeatureToExperiment(
   organization: OrganizationInterface,
   user: EventAuditUser,
   experimentId: string,
-  featureId: string
+  featureId: string,
+  experiment?: ExperimentInterface | null
 ) {
-  const experiment = await findExperiment({
-    experimentId,
-    organizationId: organization.id,
-  });
+  if (!experiment) {
+    experiment = await findExperiment({
+      experimentId,
+      organizationId: organization.id,
+    });
+  }
 
   if (!experiment) return;
 

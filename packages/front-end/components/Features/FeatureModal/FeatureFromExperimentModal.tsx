@@ -39,6 +39,7 @@ export type Props = {
   cta?: string;
   secondaryCTA?: ReactElement;
   experiment: ExperimentInterfaceStringDates;
+  mutate: () => void;
 };
 
 function parseDefaultValue(
@@ -130,6 +131,7 @@ export default function FeatureFromExperimentModal({
   cta = "Create",
   secondaryCTA,
   experiment,
+  mutate,
 }: Props) {
   const { project, refreshTags } = useDefinitions();
   const environments = useEnvironments();
@@ -143,7 +145,7 @@ export default function FeatureFromExperimentModal({
     project,
   });
 
-  const { features, mutate } = useFeaturesList(false);
+  const { features, mutate: mutateFeatures } = useFeaturesList(false);
 
   // Skip features that already have this experiment
   // TODO: include features where the only reference to this experiment is an old revision
@@ -311,6 +313,7 @@ export default function FeatureFromExperimentModal({
         }
 
         await mutate();
+        await mutateFeatures();
       })}
     >
       <SelectField
