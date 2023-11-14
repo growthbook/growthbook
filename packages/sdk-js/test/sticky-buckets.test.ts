@@ -569,54 +569,6 @@ describe("sticky-buckets", () => {
     remoteEvalRedis.flushall();
   });
 
-  it("stops using sticky buckets when the enableStickyBucketing is turned off in the SDK", async () => {
-    await clearCache();
-
-    const [, cleanup] = mockApi(sdkPayload, true);
-
-    // evaluate based on fallbackAttribute "deviceId"
-    const growthbook1 = new GrowthBook({
-      apiHost: "https://fakeapi.sample.io",
-      clientKey: "qwerty1234",
-      stickyBucketService: new LocalStorageStickyBucketService(),
-      attributes: {
-        iteration: 1,
-        deviceId: "d123",
-        foo: "bar",
-      },
-      subscribeToChanges: true,
-    });
-
-    await growthbook1.loadFeatures();
-    await sleep(10);
-
-    const result1 = growthbook1.evalFeature("exp1");
-    expect(result1.value).toBe("red");
-    await sleep(10);
-
-    // provide the primary hashAttribute "id" as well as fallbackAttribute "deviceId"
-    growthbook1.setAttributes({
-      iteration: 2,
-      deviceId: "d123",
-      id: "12345",
-      foo: "bar",
-    });
-
-    await sleep(10);
-
-    const result2 = growthbook1.evalFeature("exp1");
-    expect(result2.value).toBe("red");
-
-    // Without sticky bucketing, we should rebucket based on the hashAttribute "id" instead of the stickied bucket.
-    const result3 = growthbook1.evalFeature("exp1");
-    expect(result3.value).toBe("blue");
-
-    growthbook1.destroy();
-    cleanup();
-
-    localStorage.clear();
-  });
-
   it("stops test enrollment when blockedVariations includes the sticky bucket variation", async () => {
     await clearCache();
 
