@@ -16,6 +16,7 @@ import {
 import { SlackIntegrationInterface } from "../../../../types/slack-integration";
 import { APP_ORIGIN } from "../../../util/secrets";
 import { ApiFeature } from "../../../../types/openapi";
+import { NotificationEventName } from "../../base-types";
 
 // region Filtering
 
@@ -145,6 +146,8 @@ export const filterSlackIntegrationForRelevance = (
   slackIntegration: SlackIntegrationInterface,
   event: NotificationEvent
 ): boolean => {
+  console.log("event", event);
+  console.log("slackIntegration", slackIntegration);
   switch (event.event) {
     case "user.login":
       return false;
@@ -155,12 +158,38 @@ export const filterSlackIntegrationForRelevance = (
       return true;
 
     case "feature.created":
+      return filterEventByEnvironment(
+        slackIntegration.environments,
+        event.data.current
+      );
     case "feature.deleted":
-      return true;
+      return filterEventByEnvironment(
+        slackIntegration.environments,
+        event.data.previous
+      );
 
     case "feature.updated":
       return filterFeatureUpdateEventForRelevance(slackIntegration, event);
   }
+};
+
+const filterEventByEnvironment = (
+  envsToLimit: string[],
+  eventData: ApiFeature
+): boolean => {
+  // if no environments are specified in the Slack integration, don't filter by events
+  if (!envsToLimit.length) {
+    return true;
+  }
+
+  const environmentsArr = Object.keys(eventData.environments || {});
+
+  // only enabled environments are relevant
+  const activeEnvs = environmentsArr.filter(
+    (env) => eventData.environments && eventData.environments[env]?.enabled
+  );
+
+  return intersection(activeEnvs, envsToLimit).length > 0;
 };
 
 // region Filtering -> feature
