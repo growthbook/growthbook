@@ -1140,6 +1140,14 @@ export async function postFeatureToggle(
   const currentState =
     feature.environmentSettings?.[environment]?.enabled || false;
 
+  // If we're already in the desired state, no need to update
+  // This can be caused by race conditions (e.g. two people with the feature open, both toggling at the same time)
+  if (currentState === state) {
+    return res.status(200).json({
+      status: 200,
+    });
+  }
+
   await toggleFeatureEnvironment(
     org,
     res.locals.eventAudit,
