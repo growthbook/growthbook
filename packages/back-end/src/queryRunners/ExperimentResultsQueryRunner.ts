@@ -98,13 +98,7 @@ export const startExperimentResultQueries = async (
   const exposureQuery = (integration.settings?.queries?.exposure || []).find(
     (q) => q.id === snapshotSettings.exposureQueryId
   );
-  // Add experiment dimensions based on the selected exposure query
-  const availableExperimentDimensions: ExperimentDimension[] = (
-    exposureQuery?.dimensions || []
-  ).map((id) => ({
-    type: "experiment",
-    id,
-  }));
+
   const dimensionObj = await parseDimensionId(
     snapshotSettings.dimensions[0]?.id,
     organization
@@ -193,13 +187,21 @@ export const startExperimentResultQueries = async (
 
   await Promise.all(promises);
 
-  // TODO add to only run if enabled at datasource level
-  if (!dimensionObj) {
+  const runTrafficQuery = !dimensionObj && org?.settings?.runHealthTrafficQuery;
+  if (runTrafficQuery) {
+    // Add experiment dimensions based on the selected exposure query
+    const dimensionsForTraffic: ExperimentDimension[] = (
+      exposureQuery?.dimensionsForTraffic || []
+    ).map((id) => ({
+      type: "experiment",
+      id,
+    }));
+
     const trafficQuery = await startQuery({
       name: TRAFFIC_QUERY_NAME,
       query: integration.getExperimentAggregateUnitsQuery({
         ...unitQueryParams,
-        dimensions: availableExperimentDimensions,
+        dimensions: dimensionsForTraffic,
         useUnitsTable: !!unitQuery,
       }),
       dependencies: unitQuery ? [unitQuery.query] : [],

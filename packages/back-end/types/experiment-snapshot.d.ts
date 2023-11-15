@@ -175,7 +175,7 @@ export interface ExperimentSnapshotHealth {
 }
 
 export interface ExperimentSnapshotTraffic {
-  overall: ExperimentSnapshotTrafficDimension[];
+  overall: ExperimentSnapshotTrafficDimension;
   dimension: {
     [dimension: string]: ExperimentSnapshotTrafficDimension[];
   };

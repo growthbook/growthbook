@@ -3,6 +3,7 @@ import { PythonShell } from "python-shell";
 import {
   DEFAULT_P_VALUE_THRESHOLD,
   DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
+  EXPOSURE_DATE_DIMENSION_NAME,
 } from "shared/constants";
 import { putBaselineVariationFirst } from "shared/util";
 import { ExperimentMetricInterface } from "shared/experiments";
@@ -344,16 +345,21 @@ export function analyzeExperimentTraffic({
   rows: ExperimentAggregateUnitsQueryResponseRows;
   variations: SnapshotSettingsVariation[];
 }): ExperimentSnapshotTraffic {
+  const overallResults: ExperimentSnapshotTrafficDimension = {
+    name: "All",
+    srm: 0,
+    variationUnits: Array(variations.length).fill(0),
+  }
   if (!rows || !rows.length) {
     return {
-      overall: [],
+      overall: overallResults,
       dimension: {},
       error: "NO_ROWS_IN_UNIT_QUERY",
     };
   }
   if (rows.length == MAX_ROWS_UNIT_AGGREGATE_QUERY) {
     return {
-      overall: [],
+      overall: overallResults,
       dimension: {},
       error: "TOO_MANY_ROWS",
     };
@@ -377,13 +383,7 @@ export function analyzeExperimentTraffic({
   // instantiate return object here, as we can fill `overall`
   // unit data on the first pass
   const trafficResults: ExperimentSnapshotTraffic = {
-    overall: [
-      {
-        name: "All",
-        srm: 0,
-        variationUnits: Array(variations.length).fill(0),
-      },
-    ],
+    overall: overallResults,
     dimension: {},
   };
 
@@ -405,12 +405,12 @@ export function analyzeExperimentTraffic({
     dimTrafficResults.set(r.dimension_name, dimTraffic);
 
     // aggregate over date unit counts for overall unit counts
-    if (r.dimension_name === "dim_exposure_date") {
-      trafficResults.overall[0].variationUnits[variationIndex] += r.units;
+    if (r.dimension_name === EXPOSURE_DATE_DIMENSION_NAME) {
+      trafficResults.overall.variationUnits[variationIndex] += r.units;
     }
   });
-  trafficResults.overall[0].srm = checkSrm(
-    trafficResults.overall[0].variationUnits,
+  trafficResults.overall.srm = checkSrm(
+    trafficResults.overall.variationUnits,
     variationWeights
   );
   for (const [dimName, dimTraffic] of dimTrafficResults) {
