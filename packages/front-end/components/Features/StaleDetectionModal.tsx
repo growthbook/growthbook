@@ -18,7 +18,7 @@ export default function StaleDetectionModal({
       close={close}
       header={`${
         feature.neverStale ? "Enable" : "Disable"
-      } Stale Feature Flag Detection`}
+      } stale feature flag detection for ${feature.id}`}
       cta={feature.neverStale ? "Enable" : "Disable"}
       submit={async () => {
         await apiCall(`/feature/${feature.id}/toggleStaleDetection`, {
@@ -29,8 +29,8 @@ export default function StaleDetectionModal({
     >
       <p>
         {feature.neverStale
-          ? "This will enable stale feature flag detection for this feature. After two weeks of no updates, if the feature flag meets certain criteria we will mark it as stale."
-          : "This will disable stale feature flag detection. The feature flag will be ignored by our detection algorithm and never be marked as stale."}
+          ? `This will enable stale feature flag detection for ${feature.id}. After two weeks with no changes, if the feature flag meets certain criteria we will mark it as stale.`
+          : `This will disable stale feature flag detection for ${feature.id}. The feature flag will be ignored by our detection algorithm and not be marked as stale. You can re-enable this at any time.`}
       </p>
     </Modal>
   );

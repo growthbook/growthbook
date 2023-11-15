@@ -27,11 +27,23 @@ const genMockExperiment = ({
   autoAssign: false,
   previewURL: "",
   targetURLRegex: "",
-  phases: [],
+  phases: [
+    {
+      coverage: 1,
+      dateStarted: "2023-08-05T05:27:00Z",
+      variationWeights: [0.5, 0.5],
+      namespace: { enabled: false, name: "", range: [0, 1] },
+      condition: '{"country": "123"}',
+      name: "Main",
+      reason: "",
+      seed: "viusal-07",
+    },
+  ],
   releasedVariationId: "",
   autoSnapshots: false,
   variations: [],
   archived: false,
+  hasVisualChangesets: true,
   ...rest,
 });
 
@@ -233,6 +245,52 @@ describe("isFeatureStale", () => {
           });
         });
       });
+      describe("and at least one has a saved group", () => {
+        beforeEach(() => {
+          feature.environmentSettings = {
+            development: {
+              enabled: true,
+              rules: [
+                {
+                  savedGroups: [
+                    {
+                      ids: ["123"],
+                      match: "all",
+                    },
+                  ],
+                  coverage: 1,
+                  enabled: true,
+                  hashAttribute: "id",
+                  value: "2",
+                  description: "",
+                  id: "fr_1xx71305loywqomm",
+                  type: "rollout",
+                },
+              ],
+            },
+            staging: {
+              enabled: true,
+              rules: [],
+            },
+            production: {
+              enabled: false,
+              rules: [],
+            },
+          };
+        });
+        describe("and has been updated within past two weeks", () => {
+          it("is not stale", () => {
+            feature.dateUpdated = subWeeks(new Date(), 1);
+            expect(isFeatureStale(feature)).toEqual({ stale: false });
+          });
+        });
+        describe("and has not been updated within past two weeks", () => {
+          it("is not stale", () => {
+            feature.dateUpdated = subWeeks(new Date(), 3);
+            expect(isFeatureStale(feature)).toEqual({ stale: false });
+          });
+        });
+      });
       describe("and all have coverage of 100% with no targeting conditions", () => {
         beforeEach(() => {
           feature.environmentSettings = {
@@ -302,6 +360,59 @@ describe("isFeatureStale", () => {
                   value: "45",
                   description: "",
                   savedGroups: [],
+                  type: "force",
+                },
+              ],
+            },
+            staging: {
+              enabled: true,
+              rules: [],
+            },
+            production: {
+              enabled: true,
+              rules: [
+                {
+                  id: "fr_1xx71305loyw36tv",
+                  enabled: true,
+                  value: "45",
+                  description: "",
+                  savedGroups: [],
+                  type: "force",
+                },
+              ],
+            },
+          };
+        });
+        describe("and has been updated within past two weeks", () => {
+          it("is not stale", () => {
+            feature.dateUpdated = subWeeks(new Date(), 1);
+            expect(isFeatureStale(feature)).toEqual({ stale: false });
+          });
+        });
+        describe("and has not been updated within past two weeks", () => {
+          it("is not stale", () => {
+            feature.dateUpdated = subWeeks(new Date(), 3);
+            expect(isFeatureStale(feature)).toEqual({ stale: false });
+          });
+        });
+      });
+      describe("and at least one has a saved group", () => {
+        beforeEach(() => {
+          feature.environmentSettings = {
+            development: {
+              enabled: true,
+              rules: [
+                {
+                  id: "fr_1xx71305loyw36tv",
+                  enabled: true,
+                  value: "45",
+                  description: "",
+                  savedGroups: [
+                    {
+                      ids: ["123"],
+                      match: "any",
+                    },
+                  ],
                   type: "force",
                 },
               ],
@@ -459,7 +570,7 @@ describe("isFeatureStale", () => {
           describe("and there are experiment rules but experiments are inactive", () => {
             beforeEach(() => {
               experiments = [
-                genMockExperiment({ id: "exp_1", status: "draft" }),
+                genMockExperiment({ id: "exp_1", status: "draft", phases: [] }),
               ];
               feature.linkedExperiments = experiments.map((e) => e.id);
               feature.environmentSettings = {
@@ -1128,13 +1239,13 @@ describe("isFeatureStale", () => {
       });
     });
 
-    describe("if all linked experiments are inactive (either draft or stopped)", () => {
+    describe("if all linked experiments are inactive (stopped or draft w/ no phases)", () => {
       let experiments: ExperimentInterfaceStringDates[];
       beforeEach(() => {
         experiments = [
-          genMockExperiment({ id: "exp_1", status: "draft" }),
-          genMockExperiment({ id: "exp_2", status: "stopped" }),
-          genMockExperiment({ id: "exp_3", status: "draft" }),
+          genMockExperiment({ id: "exp_1", status: "stopped" }),
+          genMockExperiment({ id: "exp_2", status: "draft", phases: [] }),
+          genMockExperiment({ id: "exp_3", status: "stopped" }),
         ];
         feature.linkedExperiments = experiments.map((e) => e.id);
         feature.environmentSettings = {
@@ -1169,7 +1280,7 @@ describe("isFeatureStale", () => {
           feature.dateUpdated = subWeeks(new Date(), 3);
           expect(isFeatureStale(feature, experiments)).toEqual({
             stale: true,
-            reason: "no-active-exps",
+            reason: "rules-one-sided",
           });
         });
       });
