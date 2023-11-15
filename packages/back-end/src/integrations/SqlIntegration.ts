@@ -40,6 +40,7 @@ import {
   TrackedEventData,
   TrackedEventResponseRow,
   ExperimentUnitsQueryResponse,
+  ExternalIdCallback,
 } from "../types/Integration";
 import { DimensionInterface } from "../../types/dimension";
 import { IMPORT_LIMIT_DAYS } from "../util/secrets";
@@ -55,6 +56,7 @@ import { formatInformationSchema } from "../util/informationSchemas";
 import { ExperimentSnapshotSettings } from "../../types/experiment-snapshot";
 import { TemplateVariables } from "../../types/sql";
 import { FactTableMap } from "../models/FactTableModel";
+import { logger } from "../util/logger";
 
 export default abstract class SqlIntegration
   implements SourceIntegrationInterface {
@@ -66,7 +68,13 @@ export default abstract class SqlIntegration
   params: any;
   type!: DataSourceType;
   abstract setParams(encryptedParams: string): void;
-  abstract runQuery(sql: string): Promise<QueryResponse>;
+  abstract runQuery(
+    sql: string,
+    setExternalId?: ExternalIdCallback
+  ): Promise<QueryResponse>;
+  async cancelQuery(externalId: string): Promise<void> {
+    logger.debug(`Cancel query: ${externalId} - not implemented`);
+  }
   abstract getSensitiveParamKeys(): string[];
 
   constructor(encryptedParams: string, settings: DataSourceSettings) {
@@ -358,9 +366,10 @@ export default abstract class SqlIntegration
     );
   }
   async runPastExperimentQuery(
-    query: string
+    query: string,
+    setExternalId: ExternalIdCallback
   ): Promise<PastExperimentQueryResponse> {
-    const { rows, statistics } = await this.runQuery(query);
+    const { rows, statistics } = await this.runQuery(query, setExternalId);
 
     return {
       rows: rows.map((row) => {
@@ -511,9 +520,10 @@ export default abstract class SqlIntegration
   }
 
   async runExperimentMetricQuery(
-    query: string
+    query: string,
+    setExternalId: ExternalIdCallback
   ): Promise<ExperimentMetricQueryResponse> {
-    const { rows, statistics } = await this.runQuery(query);
+    const { rows, statistics } = await this.runQuery(query, setExternalId);
     return {
       rows: rows.map((row) => {
         return {
@@ -551,13 +561,17 @@ export default abstract class SqlIntegration
   }
 
   async runExperimentUnitsQuery(
-    query: string
+    query: string,
+    setExternalId: ExternalIdCallback
   ): Promise<ExperimentUnitsQueryResponse> {
-    return await this.runQuery(query);
+    return await this.runQuery(query, setExternalId);
   }
 
-  async runMetricValueQuery(query: string): Promise<MetricValueQueryResponse> {
-    const { rows, statistics } = await this.runQuery(query);
+  async runMetricValueQuery(
+    query: string,
+    setExternalId: ExternalIdCallback
+  ): Promise<MetricValueQueryResponse> {
+    const { rows, statistics } = await this.runQuery(query, setExternalId);
 
     return {
       rows: rows.map((row) => {

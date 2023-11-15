@@ -94,7 +94,13 @@ export async function getImpactEstimate(
     segment: segmentObj || undefined,
   });
 
-  const queryResponse = await integration.runMetricValueQuery(query);
+  const queryResponse = await integration.runMetricValueQuery(
+    query,
+    // We're not storing a query in Mongo for this, so we don't support cancelling here
+    async () => {
+      // Ignore calls to setExternalId
+    }
+  );
   const value = processMetricValueQueryResponse(queryResponse.rows);
 
   let daysWithData = numDays;
