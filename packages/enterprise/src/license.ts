@@ -261,7 +261,7 @@ async function getLicenseDataFromServer(
   userLicenseCodes: string[],
   metaData: LicenseMetaData
 ): Promise<LicenseData> {
-  const url = `${LICENSE_SERVER}/api/v1/license/${licenseId}/usage`;
+  const url = `${LICENSE_SERVER}/api/v1/license/${licenseId}/check`;
   const options = {
     method: "PUT",
     headers: {
