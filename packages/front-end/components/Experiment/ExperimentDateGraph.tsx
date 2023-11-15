@@ -19,7 +19,6 @@ import { pValueFormatter } from "@/services/experiments";
 import { srmHealthCheck } from "../HealthTab/SRMDrawer";
 import { BadgeColors } from "../HealthTab/HealthDrawer";
 import styles from "./ExperimentDateGraph.module.scss";
-import { SRM_THRESHOLD } from "./SRMWarning";
 
 export interface DataPointVariation {
   v: number;
@@ -87,9 +86,11 @@ const getTooltipContents = (
   return (
     <>
       {health && (
-        <span className={"badge border ml-2 " + BadgeColors[health]}>
-          {health}
-        </span>
+        <div className="d-flex justify-content-center">
+          <span className={"badge border ml-2 " + BadgeColors[health]}>
+            {health}
+          </span>
+        </div>
       )}
       <table
         className={`table-condensed ${styles.table} ${
@@ -224,7 +225,7 @@ const ExperimentDateGraph: FC<ExperimentDateGraphProps> = ({
   tickFormat,
   statsEngine = "bayesian",
   hasStats = true,
-  srmThreshold = SRM_THRESHOLD,
+  srmThreshold,
 }) => {
   // yaxis = "users";
   const { containerRef, containerBounds } = useTooltipInPortal({

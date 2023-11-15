@@ -9,6 +9,8 @@ import HealthDrawer from "@/components/HealthTab/HealthDrawer";
 import SRMDrawer from "@/components/HealthTab/SRMDrawer";
 import MultipleExposuresDrawer from "@/components/HealthTab/MultipleExposuresDrawer";
 import { useUser } from "@/services/UserContext";
+import usePermissions from "@/hooks/usePermissions";
+import useOrgSettings from "@/hooks/useOrgSettings";
 import { useSnapshot } from "../SnapshotProvider";
 import ExperimentDateGraph, {
   ExperimentDateGraphDataPoint,
@@ -86,7 +88,7 @@ const UnitCountDateGraph = ({
           label="Users"
           datapoints={usersPerDate}
           tickFormat={(v) => numberFormatter.format(v)}
-          srmThreshold={srmThreshold}
+          srmThreshold={cumulative ? undefined : srmThreshold}
         />
       </div>
     </>
@@ -95,28 +97,45 @@ const UnitCountDateGraph = ({
 
 export default function HealthTab({ experiment }: Props) {
   const { error, snapshot, phase } = useSnapshot();
+  const { runHealthTrafficQuery } = useOrgSettings();
+  const permissions = usePermissions();
+  const hasPermissionToEditOrgSettings = permissions.check(
+    "organizationSettings"
+  );
+
+  // If org has not updated settings since the health tab was introduced, prompt the user
+  // to enable the traffic query setting
+  if (runHealthTrafficQuery === undefined) {
+    return (
+      <div className="alert alert-info mt-3">
+        Welcome to the new health tab! You can use this tab to view experiment
+        traffic over time, perform balance checks, and check for multiple
+        exposures. To get started,{" "}
+        {hasPermissionToEditOrgSettings ? (
+          <>
+            visit your <Link href={"/settings"}>Organization Settings</Link> and
+            enable <b>Run traffic query by default</b> under the Experiment
+            Health Settings section.
+          </>
+        ) : (
+          <>
+            ask someone with permission to manage organization settings to
+            enable <b>Run traffic query by default</b> under the Experiment
+            Health Settings section.
+          </>
+        )}
+      </div>
+    );
+  }
 
   if (error) {
     return <div className="alert alert-danger">{error.message}</div>;
   }
 
-  if (!snapshot?.health?.traffic.dimension?.dim_exposure_date) {
-    return (
-      <div className="alert alert-info">
-        Please return to the results page and run a query to see health data.
-      </div>
-    );
-  }
-
-  const totalUsers = snapshot?.health?.traffic.overall[0].variationUnits.reduce(
-    (acc, a) => acc + a,
-    0
-  );
-
   // TODO: Grab the datasource id and link the user to the specific datasource page
-  if (snapshot.health.traffic.error === "TOO_MANY_ROWS") {
+  if (snapshot?.health?.traffic.error === "TOO_MANY_ROWS") {
     return (
-      <div className="alert alert-danger">
+      <div className="alert alert-danger mt-3">
         Your selected dimensions for the health breakdown have too many slices
         to be computed. Please go to your{" "}
         <Link href={"/datasources/"}>
@@ -126,6 +145,19 @@ export default function HealthTab({ experiment }: Props) {
       </div>
     );
   }
+
+  if (!snapshot?.health?.traffic.dimension?.dim_exposure_date) {
+    return (
+      <div className="alert alert-info mt-3">
+        Please return to the results page and run a query to see health data.
+      </div>
+    );
+  }
+
+  const totalUsers = snapshot?.health?.traffic.overall[0].variationUnits.reduce(
+    (acc, a) => acc + a,
+    0
+  );
 
   const traffic = snapshot.health.traffic;
   const dimensions = snapshot.health.traffic.dimension;

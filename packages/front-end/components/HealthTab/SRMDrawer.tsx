@@ -2,6 +2,7 @@ import { ExperimentSnapshotTraffic } from "back-end/types/experiment-snapshot";
 import { ExperimentReportVariation } from "back-end/types/report";
 import { useState } from "react";
 import { useUser } from "@/services/UserContext";
+import { pValueFormatter } from "@/services/experiments";
 import VariationUsersTable from "../Experiment/TabbedPage/VariationUsersTable";
 import SRMWarning, { SRM_THRESHOLD } from "../Experiment/SRMWarning";
 import SelectField, { SingleValue } from "../Forms/SelectField";
@@ -36,6 +37,8 @@ export const srmHealthCheck = ({
   return "unhealthy";
 };
 
+const EXPERIMENT_DIMENSION_PREFIX = "dim_exp_";
+
 const HEALTHY_TOOLTIP_MESSAGE =
   "Unit counts per variation are as expected. No imbalances detected.";
 
@@ -59,7 +62,7 @@ const renderTooltipBody = ({
 }) => {
   return (
     <div>
-      <b>P-Value:</b> {parseFloat(srm.toFixed(8))}
+      <b>P-Value:</b> {pValueFormatter(srm)}
       {health === "healthy" && <div>{HEALTHY_TOOLTIP_MESSAGE}</div>}
       {health === "unhealthy" && <div>{UNHEALTHY_TOOLTIP_MESSAGE}</div>}
       {health === "unknown" && (
@@ -97,7 +100,10 @@ export default function SRMDrawer({ traffic, variations, totalUsers }: Props) {
     if (dim === "dim_exposure_date") {
       return filtered;
     }
-    return [...filtered, { label: dim.replace("dim_exp_", ""), value: dim }];
+    return [
+      ...filtered,
+      { label: dim.replace(EXPERIMENT_DIMENSION_PREFIX, ""), value: dim },
+    ];
   }, []);
 
   const areDimensionsAvailable = !!availableDimensions.length;
@@ -113,16 +119,6 @@ export default function SRMDrawer({ traffic, variations, totalUsers }: Props) {
       })}
     >
       <div className="mt-4">
-        {!areDimensionsAvailable && (
-          <div className="alert alert-warning">
-            It looks like you haven&apos;t selected any dimensions to use for
-            traffic within your datasource&apos;s experiment assignment query.
-            If you&apos;d like to be able to view traffic breakdown by
-            dimension, please edit your experiment assignment query and add the
-            dimensions you&apos;d like to support under `Dimensions to use in
-            traffic breakdowns`
-          </div>
-        )}
         <div className="row justify-content-between mb-2">
           <VariationUsersTable
             users={traffic.overall[0].variationUnits}
@@ -148,7 +144,10 @@ export default function SRMDrawer({ traffic, variations, totalUsers }: Props) {
               </div>
             )}
           </div>
-          <div className="col-auto mr-5">
+        </div>
+        <hr />
+        <div className="row mt-4 mb-2">
+          <div className="col-1 ml-2 mr-5">
             <div className="uppercase-title text-muted">Dimension</div>
             <SelectField
               containerClassName={"select-dropdown-underline"}
@@ -163,53 +162,65 @@ export default function SRMDrawer({ traffic, variations, totalUsers }: Props) {
               disabled={!areDimensionsAvailable}
             />
           </div>
-        </div>
-        {selectedDimension && (
-          <div className="ml-4">
-            {traffic.dimension[selectedDimension].map((d) => {
-              const totalDimUsers = d.variationUnits.reduce(
-                (acc, a) => acc + a,
-                0
-              );
-              const dimensionHealth = srmHealthCheck({
-                srm: d.srm,
-                srmThreshold,
-                variations,
-                totalUsers: totalDimUsers,
-              });
-              return (
-                <HealthDrawer
-                  title={d.name}
-                  status={dimensionHealth}
-                  key={d.name}
-                  tooltipBody={renderTooltipBody({
+          <div className="col-lg mr-5">
+            {!areDimensionsAvailable && (
+              <div className="alert alert-warning">
+                It looks like you haven&apos;t selected any dimensions to use
+                for traffic within your datasource&apos;s experiment assignment
+                query. If you&apos;d like to be able to view traffic breakdown
+                by dimension, please edit your experiment assignment query and
+                add the dimensions you&apos;d like to support under{" "}
+                <b>Dimensions to use in traffic breakdowns</b>
+              </div>
+            )}
+            {selectedDimension && (
+              <div className="ml-4">
+                {traffic.dimension[selectedDimension].map((d) => {
+                  const totalDimUsers = d.variationUnits.reduce(
+                    (acc, a) => acc + a,
+                    0
+                  );
+                  const dimensionHealth = srmHealthCheck({
                     srm: d.srm,
-                    health: dimensionHealth,
-                  })}
-                >
-                  <div className="mt-4">
-                    <div className="row justify-content-between mb-2">
-                      <VariationUsersTable
-                        users={d.variationUnits}
-                        variations={variations}
-                        srm={d.srm}
-                      />
-                      <div className="col-sm ml-4 mr-4">
-                        {overallHealth === "unhealthy" && (
-                          <SRMWarning
+                    srmThreshold,
+                    variations,
+                    totalUsers: totalDimUsers,
+                  });
+                  return (
+                    <HealthDrawer
+                      title={d.name}
+                      status={dimensionHealth}
+                      key={d.name}
+                      tooltipBody={renderTooltipBody({
+                        srm: d.srm,
+                        health: dimensionHealth,
+                      })}
+                    >
+                      <div className="mt-4">
+                        <div className="row justify-content-between mb-2">
+                          <VariationUsersTable
+                            users={d.variationUnits}
+                            variations={variations}
                             srm={d.srm}
-                            expected={variations.map((v) => v.weight)}
-                            observed={d.variationUnits}
                           />
-                        )}
+                          <div className="col-sm ml-4 mr-4">
+                            {overallHealth === "unhealthy" && (
+                              <SRMWarning
+                                srm={d.srm}
+                                expected={variations.map((v) => v.weight)}
+                                observed={d.variationUnits}
+                              />
+                            )}
+                          </div>
+                        </div>
                       </div>
-                    </div>
-                  </div>
-                </HealthDrawer>
-              );
-            })}
+                    </HealthDrawer>
+                  );
+                })}
+              </div>
+            )}
           </div>
-        )}
+        </div>
       </div>
     </HealthDrawer>
   );

@@ -6,7 +6,10 @@ export interface Props {
   srm?: number;
 }
 
-const numberFormatter = Intl.NumberFormat();
+const numberFormatter = Intl.NumberFormat(undefined, {
+  minimumFractionDigits: 0,
+  maximumFractionDigits: 1,
+});
 
 const percentFormatter = Intl.NumberFormat(undefined, {
   style: "percent",
@@ -15,7 +18,6 @@ const percentFormatter = Intl.NumberFormat(undefined, {
 
 const diffFormatter = Intl.NumberFormat(undefined, {
   signDisplay: "exceptZero",
-  style: "percent",
   maximumFractionDigits: 2,
 });
 
@@ -30,10 +32,22 @@ export default function VariationUsersTable({ variations, users }: Props) {
       <table className="table mx-2 mt-0 mb-3" style={{ width: "auto" }}>
         <thead>
           <tr>
+            <th className="border-top-0 border-bottom-0" colSpan={1}></th>
+            <th className="border-top-0 text-center" colSpan={2}>
+              Units
+            </th>
+            <th className="border-top-0 border-bottom-0" colSpan={0}></th>
+            <th className="border-top-0 text-center" colSpan={3}>
+              %
+            </th>
+          </tr>
+          <tr>
             <th className="border-top-0">Variation</th>
-            <th className="border-top-0">Units</th>
-            <th className="border-top-0">Expected %</th>
-            <th className="border-top-0">Actual %</th>
+            <th className="border-top-0">Actual</th>
+            <th className="border-top-0">Expected</th>
+            <th className="border-top-0"></th>
+            <th className="border-top-0">Actual</th>
+            <th className="border-top-0">Expected</th>
             <th className="border-top-0">∆</th>
           </tr>
         </thead>
@@ -62,16 +76,31 @@ export default function VariationUsersTable({ variations, users }: Props) {
                 </td>
                 <td>{numberFormatter.format(users[i] || 0)}</td>
                 <td>
-                  {totalWeight > 0
-                    ? percentFormatter.format(v.weight / totalWeight)
-                    : "-"}
+                  {numberFormatter.format(
+                    totalUsers * (v.weight / totalWeight) || 0
+                  )}
                 </td>
+                <td></td>
                 <td>
                   {totalUsers > 0
                     ? percentFormatter.format(users[i] / totalUsers)
                     : "-"}
                 </td>
-                <td>{diff ? diffFormatter.format(diff) : "-"}</td>
+                <td>
+                  {totalWeight > 0
+                    ? percentFormatter.format(v.weight / totalWeight)
+                    : "-"}
+                </td>
+                <td>
+                  {diff ? (
+                    <>
+                      {diffFormatter.format(diff * 100)}
+                      <sub>pp</sub>
+                    </>
+                  ) : (
+                    "-"
+                  )}
+                </td>
               </tr>
             );
           })}
