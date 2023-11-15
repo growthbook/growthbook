@@ -73,21 +73,23 @@ export default function MultipleExposuresDrawer({
       status={health}
       tooltipBody={renderTooltipBody({ multipleExposures, health })}
     >
-      <div className="mt-4">
-        {health === "healthy" ? (
-          <div className="alert alert-info">{HEALTHY_TOOLTIP_MESSAGE}</div>
-        ) : (
-          <div className="alert alert-warning">
-            <strong>Multiple Exposures Warning</strong>.{" "}
-            {numberFormatter.format(multipleExposures)} users (
-            {percentFormatter.format(
-              multipleExposures / (multipleExposures + totalUsers)
-            )}
-            ) saw multiple variations and were automatically removed from
-            results. Check for bugs in your implementation, event tracking, or
-            data pipeline.
-          </div>
-        )}
+      <div className="row justify-content-start mb-2">
+        <div className="ml-2 mt-4">
+          {health === "healthy" ? (
+            <div className="alert alert-info">{HEALTHY_TOOLTIP_MESSAGE}</div>
+          ) : (
+            <div className="alert alert-warning">
+              <strong>Multiple Exposures Warning</strong>.{" "}
+              {numberFormatter.format(multipleExposures)} users (
+              {percentFormatter.format(
+                multipleExposures / (multipleExposures + totalUsers)
+              )}
+              ) saw multiple variations and were automatically removed from
+              results. Check for bugs in your implementation, event tracking, or
+              data pipeline.
+            </div>
+          )}
+        </div>
       </div>
     </HealthDrawer>
   );

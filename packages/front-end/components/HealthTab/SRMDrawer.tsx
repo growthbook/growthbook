@@ -119,13 +119,13 @@ export default function SRMDrawer({ traffic, variations, totalUsers }: Props) {
       })}
     >
       <div className="mt-4">
-        <div className="row justify-content-between mb-2">
+        <div className="row justify-content-start mb-2">
           <VariationUsersTable
             users={traffic.overall[0].variationUnits}
             variations={variations}
             srm={traffic.overall[0].srm}
           />
-          <div className="col-sm ml-4 mr-4">
+          <div className="col-4 ml-4 mr-2">
             {overallHealth === "healthy" && (
               <div className="alert alert-info">{HEALTHY_TOOLTIP_MESSAGE}</div>
             )}
@@ -197,7 +197,7 @@ export default function SRMDrawer({ traffic, variations, totalUsers }: Props) {
                       })}
                     >
                       <div className="mt-4">
-                        <div className="row justify-content-between mb-2">
+                        <div className="row justify-content-start mb-2">
                           <VariationUsersTable
                             users={d.variationUnits}
                             variations={variations}
