@@ -132,6 +132,27 @@ describe("isFeatureStale", () => {
         });
       });
     });
+    describe("when the feature has been marked as neverStale", () => {
+      beforeEach(() => {
+        feature.neverStale = true;
+      });
+      describe("and has been updated within past two weeks", () => {
+        it("is not stale", () => {
+          feature.dateUpdated = subWeeks(new Date(), 1);
+          expect(isFeatureStale(feature)).toEqual({
+            stale: false,
+          });
+        });
+      });
+      describe("and has not been updated within past two weeks", () => {
+        it("is not stale", () => {
+          feature.dateUpdated = subWeeks(new Date(), 3);
+          expect(isFeatureStale(feature)).toEqual({
+            stale: false,
+          });
+        });
+      });
+    });
   });
 
   describe("when feature has no rules", () => {

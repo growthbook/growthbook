@@ -189,6 +189,8 @@ export function isFeatureStale(
   feature: FeatureInterface,
   linkedExperiments: ExperimentInterfaceStringDates[] | undefined = []
 ): { stale: boolean; reason?: StaleFeatureReason } {
+  if (feature.neverStale) return { stale: false };
+
   if (feature.linkedExperiments?.length !== linkedExperiments.length) {
     // eslint-disable-next-line no-console
     console.error("isFeatureStale: linkedExperiments length mismatch");
