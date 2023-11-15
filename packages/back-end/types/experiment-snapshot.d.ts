@@ -179,7 +179,7 @@ export interface ExperimentSnapshotTraffic {
   dimension: {
     [dimension: string]: ExperimentSnapshotTrafficDimension[];
   };
-  error?: string;
+  error?: "NO_ROWS_IN_UNIT_QUERY" | "TOO_MANY_ROWS";
 }
 export interface ExperimentSnapshotTrafficDimension {
   name: string;

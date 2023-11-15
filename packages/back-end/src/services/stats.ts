@@ -349,7 +349,7 @@ export function analyzeExperimentTraffic({
     name: "All",
     srm: 0,
     variationUnits: Array(variations.length).fill(0),
-  }
+  };
   if (!rows || !rows.length) {
     return {
       overall: overallResults,
