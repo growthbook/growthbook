@@ -186,6 +186,7 @@ export default function HealthTab({ experiment }: Props) {
         traffic={traffic}
         variations={variations}
         totalUsers={totalUsers}
+        datasource={experiment.datasource}
       />
       <MultipleExposuresDrawer
         multipleExposures={snapshot.multipleExposures}

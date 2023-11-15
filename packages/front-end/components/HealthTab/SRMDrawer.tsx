@@ -1,6 +1,7 @@
 import { ExperimentSnapshotTraffic } from "back-end/types/experiment-snapshot";
 import { ExperimentReportVariation } from "back-end/types/report";
 import { useState } from "react";
+import Link from "next/link";
 import { useUser } from "@/services/UserContext";
 import { pValueFormatter } from "@/services/experiments";
 import VariationUsersTable from "../Experiment/TabbedPage/VariationUsersTable";
@@ -13,6 +14,7 @@ interface Props {
   traffic: ExperimentSnapshotTraffic;
   variations: ExperimentReportVariation[];
   totalUsers: number;
+  datasource: string;
 }
 
 export const srmHealthCheck = ({
@@ -76,9 +78,16 @@ const renderTooltipBody = ({
   );
 };
 
-export default function SRMDrawer({ traffic, variations, totalUsers }: Props) {
+export default function SRMDrawer({
+  traffic,
+  variations,
+  totalUsers,
+  datasource,
+}: Props) {
   const [selectedDimension, setSelectedDimension] = useState<string>("");
   const { settings } = useUser();
+
+  console.log({ datasource });
 
   const srmThreshold = settings.srmThreshold ?? SRM_THRESHOLD;
 
@@ -166,11 +175,14 @@ export default function SRMDrawer({ traffic, variations, totalUsers }: Props) {
             {!areDimensionsAvailable && (
               <div className="alert alert-warning">
                 It looks like you haven&apos;t selected any dimensions to use
-                for traffic within your datasource&apos;s experiment assignment
-                query. If you&apos;d like to be able to view traffic breakdown
-                by dimension, please edit your experiment assignment query and
-                add the dimensions you&apos;d like to support under{" "}
-                <b>Dimensions to use in traffic breakdowns</b>
+                for traffic within your{" "}
+                <Link href={`/datasources/${datasource}`}>
+                  datasource&apos;s
+                </Link>{" "}
+                experiment assignment query. If you&apos;d like to be able to
+                view traffic breakdown by dimension, please edit your experiment
+                assignment query and add the dimensions you&apos;d like to
+                support under <b>Dimensions to use in traffic breakdowns</b>
               </div>
             )}
             {selectedDimension && (
