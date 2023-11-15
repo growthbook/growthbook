@@ -8,7 +8,7 @@ import { PiChartBarHorizontalFill } from "react-icons/pi";
 import { FaMagnifyingGlassChart } from "react-icons/fa6";
 import { useRouter } from "next/router";
 import { getAffectedEnvsForExperiment } from "shared/util";
-import React, { useState } from "react";
+import React, { ReactNode, useState } from "react";
 import { date, daysBetween } from "shared/dates";
 import { MdRocketLaunch } from "react-icons/md";
 import { SDKConnectionInterface } from "back-end/types/sdk-connection";
@@ -25,8 +25,10 @@ import usePermissions from "@/hooks/usePermissions";
 import HeaderWithEdit from "@/components/Layout/HeaderWithEdit";
 import Modal from "@/components/Modal";
 import { useScrollPosition } from "@/hooks/useScrollPosition";
+import Tooltip from "@/components/Tooltip/Tooltip";
 import ResultsIndicator from "../ResultsIndicator";
 import { StartExperimentBanner } from "../StartExperimentBanner";
+import { useSnapshot } from "../SnapshotProvider";
 import ExperimentStatusIndicator from "./ExperimentStatusIndicator";
 import StopExperimentButton from "./StopExperimentButton";
 import { ExperimentTab } from ".";
@@ -52,6 +54,28 @@ export interface Props {
   editPhases?: (() => void) | null;
 }
 
+const datasourcesWithoutHealthData = new Set(["mixpanel", "google_analytics"]);
+
+const DisabledHealthTabTooltip = ({
+  reason,
+  children,
+}: {
+  reason: "UNSUPPORTED_DATASOURCE" | "DIMENSION_SELECTED";
+  children: ReactNode;
+}) => {
+  return (
+    <Tooltip
+      body={
+        reason === "UNSUPPORTED_DATASOURCE"
+          ? "Experiment Health is not available for Mixpanel or (legacy) Google Analytics data sources"
+          : "Set the Dimension to None to see Experiment Health"
+      }
+    >
+      {children}
+    </Tooltip>
+  );
+};
+
 export default function ExperimentHeader({
   tab,
   setTab,
@@ -76,6 +100,7 @@ export default function ExperimentHeader({
   const router = useRouter();
   const permissions = usePermissions();
   const { scrollY } = useScrollPosition();
+  const { dimension } = useSnapshot();
   const headerPinned = scrollY > 45;
 
   const phases = experiment.phases || [];
@@ -112,6 +137,11 @@ export default function ExperimentHeader({
 
   const hasLinkedChanges =
     linkedFeatures.length > 0 || visualChangesets.length > 0;
+
+  const isUsingHealthUnsupportDatasource = datasourcesWithoutHealthData.has(
+    experiment.datasource
+  );
+  const disableHealthTab = isUsingHealthUnsupportDatasource || !!dimension;
 
   return (
     <>
@@ -381,19 +411,33 @@ export default function ExperimentHeader({
                   activeClassName="active-tab"
                   last={false}
                 />
-                <TabButton
-                  active={tab === "health"}
-                  display={
-                    <>
+                {disableHealthTab ? (
+                  <DisabledHealthTabTooltip
+                    reason={
+                      isUsingHealthUnsupportDatasource
+                        ? "UNSUPPORTED_DATASOURCE"
+                        : "DIMENSION_SELECTED"
+                    }
+                  >
+                    <span className="nav-item nav-link text-muted">
                       <FaMagnifyingGlassChart /> Health
-                    </>
-                  }
-                  anchor="health"
-                  onClick={() => setTab("health")}
-                  newStyle={false}
-                  activeClassName="active-tab"
-                  last={true}
-                />
+                    </span>
+                  </DisabledHealthTabTooltip>
+                ) : (
+                  <TabButton
+                    active={tab === "health"}
+                    display={
+                      <>
+                        <FaMagnifyingGlassChart /> Health
+                      </>
+                    }
+                    anchor="health"
+                    onClick={() => setTab("health")}
+                    newStyle={false}
+                    activeClassName="active-tab"
+                    last={true}
+                  />
+                )}
               </TabButtons>
             </div>
 

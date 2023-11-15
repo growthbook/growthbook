@@ -1,27 +1,32 @@
-import { ReactNode } from "react";
+import { ReactNode, useState } from "react";
 import { FaAngleDown, FaAngleRight } from "react-icons/fa";
+import Tooltip from "../Tooltip/Tooltip";
 
 export interface Props {
   title: string;
   children: ReactNode;
-  status: "healthy" | "unhealthy" | "notEnoughData";
-  open: boolean;
-  handleOpen: (boolean) => void;
+  status?: HealthStatus;
+  openByDefault?: boolean;
+  tooltipBody?: string | JSX.Element;
 }
 
-const BadgeColors = {
+export const BadgeColors = {
   healthy: "badge-green",
   unhealthy: "badge-red",
-  notEnoughData: "badge-gray",
+  unknown: "badge-gray",
 };
+
+export type HealthStatus = keyof typeof BadgeColors;
 
 export default function HealthDrawer({
   title,
   children,
   status,
-  open,
-  handleOpen,
+  openByDefault = false,
+  tooltipBody = "",
 }: Props) {
+  const [open, setOpen] = useState(openByDefault);
+
   return (
     <div className="appbox mb-4 p-3">
       <a
@@ -29,15 +34,23 @@ export default function HealthDrawer({
         href="#"
         onClick={(e) => {
           e.preventDefault();
-          handleOpen(!open);
+          setOpen((prev) => !prev);
         }}
         style={{ textDecoration: "none" }}
       >
         <h2 className="d-inline">{title}</h2>{" "}
-        <span className={"badge border ml-2 " + BadgeColors[status]}>
-          {status}
-        </span>{" "}
-        {open ? <FaAngleDown /> : <FaAngleRight />}
+        {status && (
+          <Tooltip
+            body={tooltipBody}
+            className={"badge border ml-2 " + BadgeColors[status]}
+            tipPosition="top"
+          >
+            {status}
+          </Tooltip>
+        )}
+        <div className="float-right">
+          {open ? <FaAngleDown /> : <FaAngleRight />}
+        </div>
       </a>
       {open && <div>{children}</div>}
     </div>

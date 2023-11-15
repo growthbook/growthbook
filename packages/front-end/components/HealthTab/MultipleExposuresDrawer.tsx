@@ -1,0 +1,94 @@
+import useOrgSettings from "@/hooks/useOrgSettings";
+import { MINIMUM_MULTIPLE_EXPOSURES } from "../Experiment/MultipleExposureWarning";
+import HealthDrawer, { HealthStatus } from "./HealthDrawer";
+
+interface Props {
+  totalUsers: number;
+  multipleExposures: number;
+}
+
+const percentFormatter = new Intl.NumberFormat(undefined, {
+  style: "percent",
+  maximumFractionDigits: 2,
+});
+const numberFormatter = new Intl.NumberFormat();
+
+const HEALTHY_TOOLTIP_MESSAGE = "Multiple exposures were not detected.";
+
+const UNHEALTHY_TOOLTIP_MESSAGE = " multiple exposures detected!";
+
+const multiExposureCheck = ({
+  multipleExposures,
+  minMultipleExposures,
+  totalUsers,
+  minPercent,
+}): HealthStatus => {
+  if (multipleExposures < minMultipleExposures) return "healthy";
+
+  const percent = multipleExposures / (multipleExposures + totalUsers);
+
+  if (percent < minPercent) {
+    return "healthy";
+  }
+
+  return "unhealthy";
+};
+
+const renderTooltipBody = ({
+  multipleExposures,
+  health,
+}: {
+  multipleExposures: number;
+  health: HealthStatus;
+}) => {
+  return (
+    <div>
+      {health === "healthy" && <div>{HEALTHY_TOOLTIP_MESSAGE}</div>}
+      {health === "unhealthy" && (
+        <div>
+          <b>{multipleExposures}</b>
+          {UNHEALTHY_TOOLTIP_MESSAGE}
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default function MultipleExposuresDrawer({
+  totalUsers,
+  multipleExposures,
+}: Props) {
+  const settings = useOrgSettings();
+  const MIN_PERCENT = settings?.multipleExposureMinPercent ?? 0.01;
+  const health = multiExposureCheck({
+    multipleExposures,
+    minMultipleExposures: MINIMUM_MULTIPLE_EXPOSURES,
+    totalUsers,
+    minPercent: MIN_PERCENT,
+  });
+
+  return (
+    <HealthDrawer
+      title="Multiple Exposures Check"
+      status={health}
+      tooltipBody={renderTooltipBody({ multipleExposures, health })}
+    >
+      <div className="mt-4">
+        {health === "healthy" ? (
+          <div className="alert alert-info">{HEALTHY_TOOLTIP_MESSAGE}</div>
+        ) : (
+          <div className="alert alert-warning">
+            <strong>Multiple Exposures Warning</strong>.{" "}
+            {numberFormatter.format(multipleExposures)} users (
+            {percentFormatter.format(
+              multipleExposures / (multipleExposures + totalUsers)
+            )}
+            ) saw multiple variations and were automatically removed from
+            results. Check for bugs in your implementation, event tracking, or
+            data pipeline.
+          </div>
+        )}
+      </div>
+    </HealthDrawer>
+  );
+}

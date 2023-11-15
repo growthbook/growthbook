@@ -16,9 +16,12 @@ import { date } from "shared/dates";
 import { variant_0, variant_1, variant_2, variant_3 } from "shared/constants";
 import { StatsEngine } from "back-end/types/stats";
 import { pValueFormatter } from "@/services/experiments";
+import { srmHealthCheck } from "../HealthTab/SRMDrawer";
+import { BadgeColors } from "../HealthTab/HealthDrawer";
 import styles from "./ExperimentDateGraph.module.scss";
+import { SRM_THRESHOLD } from "./SRMWarning";
 
-interface DataPointVariation {
+export interface DataPointVariation {
   v: number;
   v_formatted: string;
   users?: number; // used for uplift plot tooltips
@@ -31,6 +34,7 @@ interface DataPointVariation {
 export interface ExperimentDateGraphDataPoint {
   d: Date;
   variations: DataPointVariation[];
+  srm?: number;
 }
 export interface ExperimentDateGraphProps {
   yaxis: "users" | "uplift";
@@ -40,6 +44,7 @@ export interface ExperimentDateGraphProps {
   tickFormat: (v: number) => string;
   statsEngine?: StatsEngine;
   hasStats?: boolean;
+  srmThreshold?: number;
 }
 
 const percentFormatter = new Intl.NumberFormat(undefined, {
@@ -64,11 +69,28 @@ const getTooltipContents = (
   data: TooltipData,
   variationNames: string[],
   statsEngine: StatsEngine,
-  hasStats: boolean = true
+  hasStats: boolean = true,
+  srmThreshold?: number
 ) => {
   const { d, yaxis } = data;
+  const totalUsers = d.variations.reduce((acc, a) => acc + a.v, 0);
+  const health =
+    d.srm && srmThreshold
+      ? srmHealthCheck({
+          srm: d.srm,
+          variations: d.variations,
+          srmThreshold,
+          totalUsers,
+        })
+      : undefined;
+
   return (
     <>
+      {health && (
+        <span className={"badge border ml-2 " + BadgeColors[health]}>
+          {health}
+        </span>
+      )}
       <table
         className={`table-condensed ${styles.table} ${
           yaxis !== "uplift" && "mt-1"
@@ -202,6 +224,7 @@ const ExperimentDateGraph: FC<ExperimentDateGraphProps> = ({
   tickFormat,
   statsEngine = "bayesian",
   hasStats = true,
+  srmThreshold = SRM_THRESHOLD,
 }) => {
   // yaxis = "users";
   const { containerRef, containerBounds } = useTooltipInPortal({
@@ -325,7 +348,8 @@ const ExperimentDateGraph: FC<ExperimentDateGraphProps> = ({
                   tooltipData,
                   variationNames,
                   statsEngine,
-                  hasStats
+                  hasStats,
+                  srmThreshold
                 )}
               </TooltipWithBounds>
             )}
