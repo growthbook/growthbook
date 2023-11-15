@@ -5,7 +5,6 @@ import styles from "./StaleFeatureIcon.module.scss";
 
 const staleReasonToMessageMap: Record<StaleFeatureReason, string> = {
   "no-rules": "No rules have been defined for this feature.",
-  "no-active-exps": "No experiments are currently active for this feature.",
   "rules-one-sided": "All rules are one-sided.",
   error: "An error occurred while evaluating the staleness of this feature.",
 };
