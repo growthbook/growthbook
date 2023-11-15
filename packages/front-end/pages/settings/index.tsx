@@ -512,7 +512,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
 
   const srmWarningMsg =
     value.srmThreshold && value.srmThreshold > 0.01
-      ? "Thresholds above 0.01 may lead to many false positives, especially if you refresh results regularly"
+      ? "Thresholds above 0.01 may lead to many false positives, especially if you refresh results regularly."
       : value.srmThreshold && value.srmThreshold < 0.001
       ? "Thresholds below 0.001 may make it hard to detect imbalances without lots of traffic."
       : "";
