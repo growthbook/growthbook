@@ -268,7 +268,7 @@ async function getLicenseDataFromServer(
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      users: userLicenseCodes,
+      userHashes: userLicenseCodes,
       metaData,
     }),
   };
