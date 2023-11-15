@@ -1690,11 +1690,6 @@ export async function toggleStaleFFDetectionForFeature(
   }
 
   req.checkPermissions("manageFeatures", feature.project);
-  req.checkPermissions(
-    "publishFeatures",
-    feature.project,
-    getEnabledEnvironments(feature)
-  );
 
   await updateFeature(org, res.locals.eventAudit, feature, {
     neverStale: !feature.neverStale,

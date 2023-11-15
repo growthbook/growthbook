@@ -1,6 +1,7 @@
 import { FaTriangleExclamation } from "react-icons/fa6";
 import { StaleFeatureReason } from "shared/util";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import styles from "./StaleFeatureIcon.module.scss";
 
 const staleReasonToMessageMap: Record<StaleFeatureReason, string> = {
   "no-rules": "No rules have been defined for this feature.",
@@ -11,8 +12,10 @@ const staleReasonToMessageMap: Record<StaleFeatureReason, string> = {
 
 export default function StaleFeatureIcon({
   staleReason,
+  onClick,
 }: {
   staleReason: StaleFeatureReason | undefined;
+  onClick: () => void;
 }) {
   return (
     <Tooltip
@@ -20,7 +23,7 @@ export default function StaleFeatureIcon({
         (staleReason && staleReasonToMessageMap[staleReason]) ?? ""
       }`}
     >
-      <FaTriangleExclamation className="text-warning" />
+      <FaTriangleExclamation onClick={onClick} className={styles.staleIcon} />
     </Tooltip>
   );
 }

@@ -77,6 +77,7 @@ import Revisionlog from "@/components/Features/RevisionLog";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import { SimpleTooltip } from "@/components/SimpleTooltip/SimpleTooltip";
 import StaleFeatureIcon from "@/components/StaleFeatureIcon";
+import StaleDetectionModal from "@/components/Features/StaleDetectionModal";
 
 export default function FeaturePage() {
   const router = useRouter();
@@ -91,6 +92,7 @@ export default function FeaturePage() {
   const [duplicateModal, setDuplicateModal] = useState(false);
   const [confirmDiscard, setConfirmDiscard] = useState(false);
   const [logModal, setLogModal] = useState(false);
+  const [staleFFModal, setStaleFFModal] = useState(false);
   const permissions = usePermissions();
 
   const [revertIndex, setRevertIndex] = useState(0);
@@ -471,6 +473,14 @@ export default function FeaturePage() {
         />
       )}
 
+      {staleFFModal && (
+        <StaleDetectionModal
+          close={() => setStaleFFModal(false)}
+          feature={feature}
+          mutate={mutate}
+        />
+      )}
+
       <PageHead
         breadcrumb={[
           { display: "Features", href: "/features" },
@@ -500,7 +510,10 @@ export default function FeaturePage() {
           <h1 className="mb-0">{fid}</h1>
           {stale && (
             <div className="ml-2">
-              <StaleFeatureIcon staleReason={reason} />
+              <StaleFeatureIcon
+                staleReason={reason}
+                onClick={() => setStaleFFModal(true)}
+              />
             </div>
           )}
         </div>
@@ -583,6 +596,20 @@ export default function FeaturePage() {
                   </button>
                 </ConfirmButton>
               )}
+            {canEdit && (
+              <a
+                className="dropdown-item"
+                href="#"
+                onClick={(e) => {
+                  e.preventDefault();
+                  setStaleFFModal(true);
+                }}
+              >
+                {feature.neverStale
+                  ? "Enable stale detection"
+                  : "Disable stale detection"}
+              </a>
+            )}
           </MoreMenu>
         </div>
       </div>

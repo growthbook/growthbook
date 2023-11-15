@@ -44,6 +44,7 @@ import Field from "@/components/Forms/Field";
 import { useUser } from "@/services/UserContext";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import StaleFeatureIcon from "@/components/StaleFeatureIcon";
+import StaleDetectionModal from "@/components/Features/StaleDetectionModal";
 
 const NUM_PER_PAGE = 20;
 
@@ -57,6 +58,10 @@ export default function FeaturesPage() {
   const [
     featureToDuplicate,
     setFeatureToDuplicate,
+  ] = useState<FeatureInterface | null>(null);
+  const [
+    featureToToggleStaleDetection,
+    setFeatureToToggleStaleDetection,
   ] = useState<FeatureInterface | null>(null);
 
   const showGraphs = useFeature("feature-list-realtime-graphs").on;
@@ -169,6 +174,13 @@ export default function FeaturesPage() {
             });
           }}
           featureToDuplicate={featureToDuplicate || undefined}
+        />
+      )}
+      {featureToToggleStaleDetection && (
+        <StaleDetectionModal
+          close={() => setFeatureToToggleStaleDetection(null)}
+          feature={featureToToggleStaleDetection}
+          mutate={mutate}
         />
       )}
       <div className="row mb-3">
@@ -408,7 +420,15 @@ export default function FeaturesPage() {
                       </td>
                     )}
                     <td style={{ textAlign: "center" }}>
-                      {stale && <StaleFeatureIcon staleReason={staleReason} />}
+                      {stale && (
+                        <StaleFeatureIcon
+                          staleReason={staleReason}
+                          onClick={() => {
+                            if (permissions.check("manageFeatures", project))
+                              setFeatureToToggleStaleDetection(feature);
+                          }}
+                        />
+                      )}
                     </td>
                     <td>
                       <MoreMenu>
