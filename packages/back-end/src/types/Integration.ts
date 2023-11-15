@@ -14,6 +14,8 @@ import { FormatDialect } from "../util/sql";
 import { TemplateVariables } from "../../types/sql";
 import { FactTableMap } from "../models/FactTableModel";
 
+export type ExternalIdCallback = (id: string) => Promise<void>;
+
 export class MissingDatasourceParamsError extends Error {
   constructor(message: string) {
     super(message);
@@ -375,15 +377,26 @@ export interface SourceIntegrationInterface {
   ): string;
   getExperimentUnitsTableQuery(params: ExperimentUnitsQueryParams): string;
   getPastExperimentQuery(params: PastExperimentParams): string;
-  runMetricValueQuery(query: string): Promise<MetricValueQueryResponse>;
+  runMetricValueQuery(
+    query: string,
+    setExternalId: ExternalIdCallback
+  ): Promise<MetricValueQueryResponse>;
   runExperimentMetricQuery(
-    query: string
+    query: string,
+    setExternalId: ExternalIdCallback
   ): Promise<ExperimentMetricQueryResponse>;
-  runExperimentUnitsQuery(query: string): Promise<ExperimentUnitsQueryResponse>;
   runExperimentAggregateUnitsQuery(
-    query: string
+    query: string,
+    setExternalId: ExternalIdCallback
   ): Promise<ExperimentAggregateUnitsQueryResponse>;
-  runPastExperimentQuery(query: string): Promise<PastExperimentQueryResponse>;
+  runExperimentUnitsQuery(
+    query: string,
+    setExternalId: ExternalIdCallback
+  ): Promise<ExperimentUnitsQueryResponse>;
+  runPastExperimentQuery(
+    query: string,
+    setExternalId: ExternalIdCallback
+  ): Promise<PastExperimentQueryResponse>;
   getEventsTrackedByDatasource?: (
     schemaFormat: SchemaFormat,
     existingMetrics: MetricInterface[],
@@ -401,4 +414,5 @@ export interface SourceIntegrationInterface {
     database?: string,
     requireSchema?: boolean
   ): string;
+  cancelQuery?(externalId: string): Promise<void>;
 }

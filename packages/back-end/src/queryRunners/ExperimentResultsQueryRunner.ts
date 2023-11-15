@@ -150,7 +150,8 @@ export const startExperimentResultQueries = async (
       name: queryParentId,
       query: integration.getExperimentUnitsTableQuery(unitQueryParams),
       dependencies: [],
-      run: (query) => integration.runExperimentUnitsQuery(query),
+      run: (query, setExternalId) =>
+        integration.runExperimentUnitsQuery(query, setExternalId),
       process: (rows) => rows,
     });
     queries.push(unitQuery);
@@ -183,7 +184,8 @@ export const startExperimentResultQueries = async (
         name: m.id,
         query: integration.getExperimentMetricQuery(queryParams),
         dependencies: unitQuery ? [unitQuery.query] : [],
-        run: (query) => integration.runExperimentMetricQuery(query),
+        run: (query, setExternalId) =>
+          integration.runExperimentMetricQuery(query, setExternalId),
         process: (rows) => rows,
       })
     );
@@ -201,7 +203,8 @@ export const startExperimentResultQueries = async (
         useUnitsTable: !!unitQuery,
       }),
       dependencies: unitQuery ? [unitQuery.query] : [],
-      run: (query) => integration.runExperimentAggregateUnitsQuery(query),
+      run: (query, setExternalId) =>
+        integration.runExperimentAggregateUnitsQuery(query, setExternalId),
       process: (rows) => rows,
     });
     queries.push(trafficQuery);

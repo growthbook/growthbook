@@ -20,7 +20,7 @@ import {
 } from "shared/constants";
 import { OrganizationSettings } from "@/../back-end/types/organization";
 import Link from "next/link";
-import { useGrowthBook } from "@growthbook/growthbook-react";
+import { useFeatureIsOn, useGrowthBook } from "@growthbook/growthbook-react";
 import { useAuth } from "@/services/auth";
 import EditOrganizationModal from "@/components/Settings/EditOrganizationModal";
 import BackupConfigYamlButton from "@/components/Settings/BackupConfigYamlButton";
@@ -223,6 +223,8 @@ export const supportedCurrencies = {
   ZWL: "Zimbabwe Dollar (ZWL)",
 };
 
+export const DEFAULT_SRM_THRESHOLD = 0.001;
+
 function hasChanges(
   value: OrganizationSettings,
   existing: OrganizationSettings
@@ -251,6 +253,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
   const displayCurrency = useCurrency();
   const growthbook = useGrowthBook<AppFeatures>();
   const { datasources } = useDefinitions();
+  const healthTabSettingsEnabled = useFeatureIsOn<AppFeatures>("health-tab");
 
   const currencyOptions = Object.entries(
     supportedCurrencies
@@ -309,6 +312,8 @@ const GeneralSettingsPage = (): React.ReactElement => {
         hours: 6,
         cron: "0 */6 * * *",
       },
+      runHealthTrafficQuery: true,
+      srmThreshold: DEFAULT_SRM_THRESHOLD,
       multipleExposureMinPercent: 0.01,
       confidenceLevel: 0.95,
       pValueThreshold: DEFAULT_P_VALUE_THRESHOLD,
@@ -343,6 +348,8 @@ const GeneralSettingsPage = (): React.ReactElement => {
     secondaryColor: form.watch("secondaryColor"),
     northStar: form.watch("northStar"),
     updateSchedule: form.watch("updateSchedule"),
+    runHealthTrafficQuery: form.watch("runHealthTrafficQuery"),
+    srmThreshold: form.watch("srmThreshold"),
     multipleExposureMinPercent: form.watch("multipleExposureMinPercent"),
     statsEngine: form.watch("statsEngine"),
     confidenceLevel: form.watch("confidenceLevel"),
@@ -457,6 +464,12 @@ const GeneralSettingsPage = (): React.ReactElement => {
       ? "#B39F01"
       : "";
 
+  const srmHighlightColor =
+    value.srmThreshold &&
+    (value.srmThreshold > 0.01 || value.srmThreshold < 0.001)
+      ? "#B39F01"
+      : "";
+
   const regressionAdjustmentDaysHighlightColor =
     // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
     value.regressionAdjustmentDays > 28 || value.regressionAdjustmentDays < 7
@@ -495,6 +508,13 @@ const GeneralSettingsPage = (): React.ReactElement => {
       : // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
       value.pValueThreshold <= 0.01
       ? "Threshold values of 0.01 and lower can take lots of data to achieve"
+      : "";
+
+  const srmWarningMsg =
+    value.srmThreshold && value.srmThreshold > 0.01
+      ? "Thresholds above 0.01 may lead to many false positives, especially if you refresh results regularly."
+      : value.srmThreshold && value.srmThreshold < 0.001
+      ? "Thresholds below 0.001 may make it hard to detect imbalances without lots of traffic."
       : "";
 
   const regressionAdjustmentDaysWarningMsg =
@@ -896,6 +916,65 @@ const GeneralSettingsPage = (): React.ReactElement => {
                       </div>
                     )}
                   </div>
+                  {healthTabSettingsEnabled && (
+                    <>
+                      <div>
+                        <label
+                          className="mr-1"
+                          htmlFor="toggle-runHealthTrafficQuery"
+                        >
+                          Run traffic query by default
+                        </label>
+                      </div>
+                      <div>
+                        <Toggle
+                          id={"toggle-runHealthTrafficQuery"}
+                          value={!!form.watch("runHealthTrafficQuery")}
+                          setValue={(value) => {
+                            form.setValue("runHealthTrafficQuery", value);
+                          }}
+                        />
+                      </div>
+
+                      <Field
+                        label="SRM threshold"
+                        type="number"
+                        step="0.001"
+                        style={{
+                          borderColor: srmHighlightColor,
+                          backgroundColor: srmHighlightColor
+                            ? srmHighlightColor + "15"
+                            : "",
+                        }}
+                        max="0.1"
+                        min="0.00001"
+                        className={`ml-2`}
+                        containerClassName="mb-3"
+                        append=""
+                        disabled={hasFileConfig()}
+                        helpText={
+                          <>
+                            <span className="ml-2">(0.001 is default)</span>
+                            <div
+                              className="ml-2"
+                              style={{
+                                color: srmHighlightColor,
+                                flexBasis: "100%",
+                              }}
+                            >
+                              {srmWarningMsg}
+                            </div>
+                          </>
+                        }
+                        {...form.register("srmThreshold", {
+                          valueAsNumber: true,
+                          min: 0,
+                          max: 1,
+                        })}
+                      />
+                    </>
+                  )}
+
                   <StatsEngineSelect
                     label="Default Statistics Engine"
                     allowUndefined={false}

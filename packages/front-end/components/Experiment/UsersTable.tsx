@@ -7,8 +7,9 @@ import {
 import { ImTable2 } from "react-icons/im";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { formatTrafficSplit } from "@/services/utils";
+import { useUser } from "@/services/UserContext";
+import { DEFAULT_SRM_THRESHOLD } from "@/pages/settings";
 import Tooltip from "../Tooltip/Tooltip";
-import { SRM_THRESHOLD } from "./SRMWarning";
 
 const numberFormatter = new Intl.NumberFormat();
 
@@ -25,7 +26,10 @@ const UsersTable: FC<{
     return getDimensionById(dimensionId)?.name || "Dimension";
   }, [getDimensionById, dimensionId]);
 
-  const hasSrm = (results || []).find((row) => row.srm < SRM_THRESHOLD);
+  const { settings } = useUser();
+  const srmThreshold = settings.srmThreshold ?? DEFAULT_SRM_THRESHOLD;
+
+  const hasSrm = (results || []).find((row) => row.srm < srmThreshold);
 
   if (!hasSrm && !expand) {
     return (
@@ -106,7 +110,7 @@ const UsersTable: FC<{
                   1
                 )}
               </td>
-              {r.srm < SRM_THRESHOLD ? (
+              {r.srm < srmThreshold ? (
                 <td className="bg-danger text-light">
                   <FaExclamationTriangle className="mr-1" />
                   {(r.srm || 0).toFixed(6)}

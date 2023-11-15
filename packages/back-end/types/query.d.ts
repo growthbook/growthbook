@@ -41,4 +41,5 @@ export interface QueryInterface {
   dependencies?: string[];
   cachedQueryUsed?: string;
   statistics?: QueryStatistics;
+  externalId?: string;
 }
