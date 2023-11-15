@@ -312,7 +312,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
         hours: 6,
         cron: "0 */6 * * *",
       },
-      runHealthTrafficQuery: true,
+      runHealthTrafficQuery: false,
       srmThreshold: DEFAULT_SRM_THRESHOLD,
       multipleExposureMinPercent: 0.01,
       confidenceLevel: 0.95,
