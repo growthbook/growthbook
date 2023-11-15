@@ -19,13 +19,6 @@ export async function postExperimentLaunchChecklist(
 
   const { tasks, projectId } = req.body;
 
-  if (!org.members.some((member) => member.id === userId)) {
-    return res.status(403).json({
-      status: 403,
-      message: "User is not a member of the organization",
-    });
-  }
-
   req.checkPermissions("organizationSettings");
 
   const existingChecklist = await getExperimentLaunchChecklist(
@@ -79,13 +72,6 @@ export async function putExperimentLaunchChecklist(
 
   const { id } = req.params;
 
-  if (!org.members.some((member) => member.id === userId)) {
-    return res.status(403).json({
-      status: 403,
-      message: "User is not a member of the organization",
-    });
-  }
-
   req.checkPermissions("organizationSettings");
 
   await updateExperimentLaunchChecklist(org.id, userId, id, tasks);
@@ -103,13 +89,6 @@ export async function putManualLaunchChecklist(
   res: Response
 ) {
   const { org, userId } = getOrgFromReq(req);
-
-  if (!org.members.some((member) => member.id === userId)) {
-    return res.status(403).json({
-      status: 403,
-      message: "User is not a member of the organization",
-    });
-  }
 
   const { id } = req.params;
   const { checklist } = req.body;
