@@ -23,7 +23,8 @@ export type CommercialFeature =
   | "json-validation"
   | "remote-evaluation"
   | "multi-org"
-  | "teams";
+  | "teams"
+  | "sticky-bucketing";
 export type CommercialFeaturesMap = Record<AccountPlan, Set<CommercialFeature>>;
 
 export type LicenseData = {
@@ -69,6 +70,7 @@ export const accountFeatures: CommercialFeaturesMap = {
     "hash-secure-attributes",
     "livechat",
     "remote-evaluation",
+    "sticky-bucketing",
   ]),
   pro_sso: new Set<CommercialFeature>([
     "sso",
@@ -84,6 +86,7 @@ export const accountFeatures: CommercialFeaturesMap = {
     "hash-secure-attributes",
     "livechat",
     "remote-evaluation",
+    "sticky-bucketing",
   ]),
   enterprise: new Set<CommercialFeature>([
     "sso",
@@ -104,6 +107,7 @@ export const accountFeatures: CommercialFeaturesMap = {
     "remote-evaluation",
     "multi-org",
     "teams",
+    "sticky-bucketing",
   ]),
 };
 

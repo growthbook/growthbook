@@ -11,6 +11,7 @@ export default function StatsEngineSelect({
   label = "Statistics Engine",
   value,
   onChange,
+  labelClassName = "font-weight-bold text-muted mr-2",
 }: {
   value?: StatsEngine;
   parentSettings?: ScopedSettings;
@@ -18,6 +19,7 @@ export default function StatsEngineSelect({
   allowUndefined?: boolean;
   label?: ReactNode;
   onChange?: (v: StatsEngine) => void;
+  labelClassName?: string;
 }) {
   const parentScopeId = parentSettings?.statsEngine?.meta?.scopeApplied;
   const options = [
@@ -44,7 +46,7 @@ export default function StatsEngineSelect({
       label={label}
       className="w-200px"
       containerClassName="mb-3"
-      labelClassName="font-weight-bold text-muted mr-2"
+      labelClassName={labelClassName}
       sort={false}
       options={options}
       value={value ?? options[0].value}

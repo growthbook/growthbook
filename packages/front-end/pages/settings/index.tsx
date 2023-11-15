@@ -323,6 +323,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
       secureAttributeSalt: "",
       killswitchConfirmation: false,
       defaultDataSource: settings.defaultDataSource || "",
+      useStickyBucketing: false,
     },
   });
   const { apiCall } = useAuth();
@@ -359,6 +360,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
     secureAttributeSalt: form.watch("secureAttributeSalt"),
     killswitchConfirmation: form.watch("killswitchConfirmation"),
     defaultDataSource: form.watch("defaultDataSource"),
+    useStickyBucketing: form.watch("useStickyBucketing"),
   };
 
   const [cronString, setCronString] = useState("");
@@ -662,38 +664,6 @@ const GeneralSettingsPage = (): React.ReactElement => {
             )}
           </div>
 
-          <div className="my-3 bg-white p-3 border">
-            <div className="row">
-              <div className="col-sm-3">
-                <h4>North Star Metrics</h4>
-              </div>
-              <div className="col-sm-9">
-                <p>
-                  North stars are metrics your team is focused on improving.
-                  These metrics are shown on the home page with the experiments
-                  that have the metric as a goal.
-                </p>
-                <div className={"form-group"}>
-                  <div className="my-3">
-                    <div className="form-group">
-                      <label>Metric(s)</label>
-                      <MetricsSelector
-                        selected={form.watch("northStar.metricIds")}
-                        onChange={(metrics) =>
-                          form.setValue("northStar.metricIds", metrics)
-                        }
-                      />
-                    </div>
-                    <Field
-                      label="Title"
-                      {...form.register("northStar.title")}
-                    />
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
           {hasFileConfig() && (
             <div className="alert alert-info my-3">
               The below settings are controlled through your{" "}
@@ -708,6 +678,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
               .
             </div>
           )}
+
           {!hasFileConfig() && (
             <div className="alert alert-info my-3">
               <h3>Import/Export config.yml</h3>
@@ -760,6 +731,38 @@ const GeneralSettingsPage = (): React.ReactElement => {
             </div>
           )}
 
+          <div className="my-3 bg-white p-3 border">
+            <div className="row">
+              <div className="col-sm-3">
+                <h4>North Star Metrics</h4>
+              </div>
+              <div className="col-sm-9">
+                <p>
+                  North stars are metrics your team is focused on improving.
+                  These metrics are shown on the home page with the experiments
+                  that have the metric as a goal.
+                </p>
+                <div className={"form-group"}>
+                  <div className="my-3">
+                    <div className="form-group">
+                      <label>Metric(s)</label>
+                      <MetricsSelector
+                        selected={form.watch("northStar.metricIds")}
+                        onChange={(metrics) =>
+                          form.setValue("northStar.metricIds", metrics)
+                        }
+                      />
+                    </div>
+                    <Field
+                      label="Title"
+                      {...form.register("northStar.title")}
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
           <div className="bg-white p-3 border position-relative">
             <div className="row">
               <div className="col-sm-3">
@@ -767,7 +770,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
               </div>
 
               <div className="col-sm-9">
-                <div className="form-inline flex-column align-items-start mb-4">
+                <div className="form-inline flex-column align-items-start mb-3">
                   <Field
                     label="Minimum experiment length (in days) when importing past
                   experiments"
@@ -836,7 +839,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
                     />
                   </div>
 
-                  <div className="mb-3 form-group flex-column align-items-start">
+                  <div className="mb-4 form-group flex-column align-items-start">
                     <Field
                       label="Experiment Auto-Update Frequency"
                       className="ml-2"
@@ -896,6 +899,57 @@ const GeneralSettingsPage = (): React.ReactElement => {
                       </div>
                     )}
                   </div>
+
+                  <div className="mb-4 d-flex">
+                    <label className="mr-2" htmlFor="toggle-useStickyBucketing">
+                      <PremiumTooltip
+                        commercialFeature={"sticky-bucketing"}
+                        body={
+                          <>
+                            <p>
+                              Sticky bucketing allows you to persist a
+                              user&apos;s assigned variation if any of the
+                              following change:
+                              <ol className="mt-1 mb-2" type="a">
+                                <li>the user logs in or logs out</li>
+                                <li>experiment targeting conditions change</li>
+                                <li>experiment coverage changes</li>
+                                <li>variation weights change</li>
+                              </ol>
+                            </p>
+                            <p>
+                              Enabling sticky bucketing also allows you to set
+                              fine controls over bucketing behavior, such as:
+                              <ul className="mt-1 mb-2">
+                                <li>
+                                  assigning variations based on both a{" "}
+                                  <code>user_id</code> and{" "}
+                                  <code>anonymous_id</code>
+                                </li>
+                                <li>invalidating existing buckets</li>
+                                <li>blocking specific variants</li>
+                                <li>and more</li>
+                              </ul>
+                            </p>
+                            <p className="mb-0">
+                              You must enable this feature in your SDK
+                              integration code for it to take effect.
+                            </p>
+                          </>
+                        }
+                      >
+                        Enable Sticky Bucketing <FaQuestionCircle />
+                      </PremiumTooltip>
+                    </label>
+                    <Toggle
+                      id={"toggle-useStickyBucketing"}
+                      value={!!form.watch("useStickyBucketing")}
+                      setValue={(value) => {
+                        form.setValue("useStickyBucketing", value);
+                      }}
+                    />
+                  </div>
+
                   <StatsEngineSelect
                     label="Default Statistics Engine"
                     allowUndefined={false}
@@ -904,6 +958,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
                       setStatsEngineTab(value);
                       form.setValue("statsEngine", value);
                     }}
+                    labelClassName="mr-2"
                   />
                 </div>
 
@@ -1205,8 +1260,84 @@ const GeneralSettingsPage = (): React.ReactElement => {
                 </ControlledTabs>
               </div>
             </div>
+            <div className="divider border-bottom my-4" />
 
-            <div className="divider border-bottom mb-3 mt-3" />
+            <div className="row">
+              <div className="col-sm-3">
+                <h4>Features Settings</h4>
+              </div>
+              <div className="col-sm-9">
+                <div className="form-inline">
+                  <Field
+                    label={
+                      <PremiumTooltip
+                        commercialFeature={"hash-secure-attributes"}
+                        body={
+                          <>
+                            <p>
+                              Feature targeting conditions referencing{" "}
+                              <code>secureString</code> attributes will be
+                              anonymized via SHA-256 hashing. When evaluating
+                              feature flags in a public or insecure environment
+                              (such as a browser), hashing provides an
+                              additional layer of security through obfuscation.
+                              This allows you to target users based on sensitive
+                              attributes.
+                            </p>
+                            <p>
+                              To enable hashing, you must append a cryptographic
+                              salt string (a random string of your choosing) to
+                              the hashing algorithm, which helps defend against
+                              hash lookup vulnerabilities.
+                            </p>
+                            <p>
+                              You must enable hashing in your SDK Connection for
+                              it to take effect. Additionally, this field must
+                              not be empty for hashing to take effect.
+                            </p>
+                            <p className="mb-0 text-warning-orange small">
+                              <FaExclamationCircle /> When using an insecure
+                              environment, do not rely exclusively on hashing as
+                              a means of securing highly sensitive data. Hashing
+                              is an obfuscation technique that makes it very
+                              difficult, but not impossible, to extract
+                              sensitive data.
+                            </p>
+                          </>
+                        }
+                      >
+                        Salt string for secure attributes <FaQuestionCircle />
+                      </PremiumTooltip>
+                    }
+                    disabled={!hasSecureAttributesFeature}
+                    className="ml-2"
+                    containerClassName="mb-3"
+                    type="string"
+                    {...form.register("secureAttributeSalt")}
+                  />
+                </div>
+
+                <div>
+                  <label
+                    className="mr-1"
+                    htmlFor="toggle-killswitchConfirmation"
+                  >
+                    Require confirmation when changing an environment kill
+                    switch
+                  </label>
+                </div>
+                <div>
+                  <Toggle
+                    id={"toggle-killswitchConfirmation"}
+                    value={!!form.watch("killswitchConfirmation")}
+                    setValue={(value) => {
+                      form.setValue("killswitchConfirmation", value);
+                    }}
+                  />
+                </div>
+              </div>
+            </div>
+            <div className="divider border-bottom my-4" />
 
             <div className="row">
               <div className="col-sm-3">
@@ -1340,84 +1471,8 @@ const GeneralSettingsPage = (): React.ReactElement => {
                 </>
               </div>
             </div>
+            <div className="divider border-bottom my-4" />
 
-            <div className="divider border-bottom mb-3 mt-3" />
-
-            <div className="row">
-              <div className="col-sm-3">
-                <h4>Features Settings</h4>
-              </div>
-              <div className="col-sm-9">
-                <div className="form-inline">
-                  <Field
-                    label={
-                      <PremiumTooltip
-                        commercialFeature={"hash-secure-attributes"}
-                        body={
-                          <>
-                            <p>
-                              Feature targeting conditions referencing{" "}
-                              <code>secureString</code> attributes will be
-                              anonymized via SHA-256 hashing. When evaluating
-                              feature flags in a public or insecure environment
-                              (such as a browser), hashing provides an
-                              additional layer of security through obfuscation.
-                              This allows you to target users based on sensitive
-                              attributes.
-                            </p>
-                            <p>
-                              You must enable this feature in your SDK
-                              Connection for it to take effect.
-                            </p>
-                            <p>
-                              You may add a cryptographic salt string (a random
-                              string of your choosing) to the hashing algorithm,
-                              which helps defend against hash lookup
-                              vulnerabilities.
-                            </p>
-                            <p className="mb-0 text-warning-orange small">
-                              <FaExclamationCircle /> When using an insecure
-                              environment, do not rely exclusively on hashing as
-                              a means of securing highly sensitive data. Hashing
-                              is an obfuscation technique that makes it very
-                              difficult, but not impossible, to extract
-                              sensitive data.
-                            </p>
-                          </>
-                        }
-                      >
-                        Salt string for secure attributes <FaQuestionCircle />
-                      </PremiumTooltip>
-                    }
-                    disabled={!hasSecureAttributesFeature}
-                    className="ml-2"
-                    containerClassName="mb-3"
-                    type="string"
-                    {...form.register("secureAttributeSalt")}
-                  />
-                </div>
-
-                <div>
-                  <label
-                    className="mr-1"
-                    htmlFor="toggle-killswitchConfirmation"
-                  >
-                    Require confirmation when changing an environment kill
-                    switch
-                  </label>
-                </div>
-                <div>
-                  <Toggle
-                    id={"toggle-killswitchConfirmation"}
-                    value={!!form.watch("killswitchConfirmation")}
-                    setValue={(value) => {
-                      form.setValue("killswitchConfirmation", value);
-                    }}
-                  />
-                </div>
-              </div>
-            </div>
-            <div className="divider border-bottom mb-3 mt-3" />
             <div className="row">
               <div className="col-sm-3">
                 <h4>Data Source Settings</h4>
