@@ -106,6 +106,7 @@ export const startExperimentResultQueries = async (
 
   const queries: Queries = [];
 
+  // Settings for units table
   const useUnitsTable =
     (integration.getSourceProperties().supportsWritingTables &&
       integration.settings.pipelineSettings?.allowWriting &&
@@ -123,9 +124,18 @@ export const startExperimentResultQueries = async (
         )
       : "";
 
+  // Settings for health query
+  const runTrafficQuery = !dimensionObj && org?.settings?.runHealthTrafficQuery;
+  const dimensionsForTraffic: ExperimentDimension[] = runTrafficQuery
+    ? (exposureQuery?.dimensionsForTraffic || []).map((id) => ({
+        type: "experiment",
+        id,
+      }))
+    : [];
+
   const unitQueryParams: ExperimentUnitsQueryParams = {
     activationMetric: activationMetric,
-    dimensions: dimensionObj ? [dimensionObj] : [],
+    dimensions: dimensionObj ? [dimensionObj] : dimensionsForTraffic,
     segment: segmentObj,
     settings: snapshotSettings,
     unitsTableFullName: unitsTableFullName,
@@ -187,16 +197,7 @@ export const startExperimentResultQueries = async (
 
   await Promise.all(promises);
 
-  const runTrafficQuery = !dimensionObj && org?.settings?.runHealthTrafficQuery;
   if (runTrafficQuery) {
-    // Add experiment dimensions based on the selected exposure query
-    const dimensionsForTraffic: ExperimentDimension[] = (
-      exposureQuery?.dimensionsForTraffic || []
-    ).map((id) => ({
-      type: "experiment",
-      id,
-    }));
-
     const trafficQuery = await startQuery({
       name: TRAFFIC_QUERY_NAME,
       query: integration.getExperimentAggregateUnitsQuery({
