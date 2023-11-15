@@ -87,8 +87,6 @@ export default function SRMDrawer({
   const [selectedDimension, setSelectedDimension] = useState<string>("");
   const { settings } = useUser();
 
-  console.log({ datasource });
-
   const srmThreshold = settings.srmThreshold ?? SRM_THRESHOLD;
 
   // Skip checks if experiment phase has extremely uneven weights
