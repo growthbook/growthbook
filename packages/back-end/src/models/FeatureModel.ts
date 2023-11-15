@@ -858,3 +858,12 @@ function getLinkedExperiments(feature: FeatureInterface) {
 
   return [...expIds];
 }
+
+export async function toggleNeverStale(
+  organization: OrganizationInterface,
+  feature: FeatureInterface,
+  user: EventAuditUser,
+  neverStale: boolean
+) {
+  return await updateFeature(organization, user, feature, { neverStale });
+}
