@@ -20,12 +20,12 @@ import {
 } from "shared/constants";
 import { OrganizationSettings } from "@/../back-end/types/organization";
 import Link from "next/link";
-import { useGrowthBook } from "@growthbook/growthbook-react";
+import { useFeatureIsOn, useGrowthBook } from "@growthbook/growthbook-react";
 import { useAuth } from "@/services/auth";
 import EditOrganizationModal from "@/components/Settings/EditOrganizationModal";
 import BackupConfigYamlButton from "@/components/Settings/BackupConfigYamlButton";
 import RestoreConfigYamlButton from "@/components/Settings/RestoreConfigYamlButton";
-import { hasFileConfig, isCloud } from "@/services/env";
+import { hasFileConfig, isCloud, isMultiOrg } from "@/services/env";
 import Field from "@/components/Forms/Field";
 import MetricsSelector from "@/components/Experiment/MetricsSelector";
 import TempMessage from "@/components/TempMessage";
@@ -223,6 +223,8 @@ export const supportedCurrencies = {
   ZWL: "Zimbabwe Dollar (ZWL)",
 };
 
+export const DEFAULT_SRM_THRESHOLD = 0.001;
+
 function hasChanges(
   value: OrganizationSettings,
   existing: OrganizationSettings
@@ -251,6 +253,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
   const displayCurrency = useCurrency();
   const growthbook = useGrowthBook<AppFeatures>();
   const { datasources } = useDefinitions();
+  const healthTabSettingsEnabled = useFeatureIsOn<AppFeatures>("health-tab");
 
   const currencyOptions = Object.entries(
     supportedCurrencies
@@ -309,6 +312,8 @@ const GeneralSettingsPage = (): React.ReactElement => {
         hours: 6,
         cron: "0 */6 * * *",
       },
+      runHealthTrafficQuery: true,
+      srmThreshold: DEFAULT_SRM_THRESHOLD,
       multipleExposureMinPercent: 0.01,
       confidenceLevel: 0.95,
       pValueThreshold: DEFAULT_P_VALUE_THRESHOLD,
@@ -343,6 +348,8 @@ const GeneralSettingsPage = (): React.ReactElement => {
     secondaryColor: form.watch("secondaryColor"),
     northStar: form.watch("northStar"),
     updateSchedule: form.watch("updateSchedule"),
+    runHealthTrafficQuery: form.watch("runHealthTrafficQuery"),
+    srmThreshold: form.watch("srmThreshold"),
     multipleExposureMinPercent: form.watch("multipleExposureMinPercent"),
     statsEngine: form.watch("statsEngine"),
     confidenceLevel: form.watch("confidenceLevel"),
@@ -457,6 +464,12 @@ const GeneralSettingsPage = (): React.ReactElement => {
       ? "#B39F01"
       : "";
 
+  const srmHighlightColor =
+    value.srmThreshold &&
+    (value.srmThreshold > 0.01 || value.srmThreshold < 0.001)
+      ? "#B39F01"
+      : "";
+
   const regressionAdjustmentDaysHighlightColor =
     // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
     value.regressionAdjustmentDays > 28 || value.regressionAdjustmentDays < 7
@@ -495,6 +508,13 @@ const GeneralSettingsPage = (): React.ReactElement => {
       : // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
       value.pValueThreshold <= 0.01
       ? "Threshold values of 0.01 and lower can take lots of data to achieve"
+      : "";
+
+  const srmWarningMsg =
+    value.srmThreshold && value.srmThreshold > 0.01
+      ? "Thresholds above 0.01 may lead to many false positives, especially if you refresh results regularly."
+      : value.srmThreshold && value.srmThreshold < 0.001
+      ? "Thresholds below 0.001 may make it hard to detect imbalances without lots of traffic."
       : "";
 
   const regressionAdjustmentDaysWarningMsg =
@@ -576,86 +596,90 @@ const GeneralSettingsPage = (): React.ReactElement => {
                 </div>
               </div>
             </div>
-            <div className="divider border-bottom mb-3 mt-3" />
-            <div className="row">
-              <div className="col-sm-3">
-                <h4>License</h4>
-              </div>
-              <div className="col-sm-9">
-                <div className="form-group row mb-2">
-                  <div className="col-sm-12">
-                    <strong>Plan type: </strong> {licensePlanText}{" "}
+            {(isCloud() || !isMultiOrg()) && (
+              <div>
+                <div className="divider border-bottom mb-3 mt-3" />
+                <div className="row">
+                  <div className="col-sm-3">
+                    <h4>License</h4>
                   </div>
-                </div>
-                {showUpgradeButton && (
-                  <div className="form-group row mb-1">
-                    <div className="col-sm-12">
-                      <button
-                        className="btn btn-premium font-weight-normal"
-                        onClick={() => setUpgradeModal(true)}
-                      >
-                        {accountPlan === "oss" ? (
+                  <div className="col-sm-9">
+                    <div className="form-group row mb-2">
+                      <div className="col-sm-12">
+                        <strong>Plan type: </strong> {licensePlanText}{" "}
+                      </div>
+                    </div>
+                    {showUpgradeButton && (
+                      <div className="form-group row mb-1">
+                        <div className="col-sm-12">
+                          <button
+                            className="btn btn-premium font-weight-normal"
+                            onClick={() => setUpgradeModal(true)}
+                          >
+                            {accountPlan === "oss" ? (
+                              <>
+                                Try Enterprise <GBPremiumBadge />
+                              </>
+                            ) : (
+                              <>
+                                Try Pro <GBPremiumBadge />
+                              </>
+                            )}
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                    {!isCloud() && permissions.manageBilling && (
+                      <div className="form-group row mt-3 mb-0">
+                        <div className="col-sm-4">
+                          <div>
+                            <strong>License Key: </strong>
+                          </div>
+                          <div
+                            className="d-inline-block mt-1 mb-2 text-center text-muted"
+                            style={{
+                              width: 100,
+                              borderBottom: "1px solid #cccccc",
+                              pointerEvents: "none",
+                              overflow: "hidden",
+                              verticalAlign: "top",
+                            }}
+                          >
+                            {license ? "***************" : "(none)"}
+                          </div>{" "}
+                          <a
+                            href="#"
+                            className="pl-1"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              setEditLicenseOpen(true);
+                            }}
+                          >
+                            <FaPencilAlt />
+                          </a>
+                        </div>
+                        {license && (
                           <>
-                            Try Enterprise <GBPremiumBadge />
-                          </>
-                        ) : (
-                          <>
-                            Try Pro <GBPremiumBadge />
+                            <div className="col-sm-2">
+                              <div>Issued:</div>
+                              <span className="text-muted">{license.iat}</span>
+                            </div>
+                            <div className="col-sm-2">
+                              <div>Expires:</div>
+                              <span className="text-muted">{license.exp}</span>
+                            </div>
+                            <div className="col-sm-2">
+                              <div>Seats:</div>
+                              <span className="text-muted">{license.qty}</span>
+                            </div>
                           </>
                         )}
-                      </button>
-                    </div>
-                  </div>
-                )}
-                {!isCloud() && permissions.manageBilling && (
-                  <div className="form-group row mt-3 mb-0">
-                    <div className="col-sm-4">
-                      <div>
-                        <strong>License Key: </strong>
                       </div>
-                      <div
-                        className="d-inline-block mt-1 mb-2 text-center text-muted"
-                        style={{
-                          width: 100,
-                          borderBottom: "1px solid #cccccc",
-                          pointerEvents: "none",
-                          overflow: "hidden",
-                          verticalAlign: "top",
-                        }}
-                      >
-                        {license ? "***************" : "(none)"}
-                      </div>{" "}
-                      <a
-                        href="#"
-                        className="pl-1"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          setEditLicenseOpen(true);
-                        }}
-                      >
-                        <FaPencilAlt />
-                      </a>
-                    </div>
-                    {license && (
-                      <>
-                        <div className="col-sm-2">
-                          <div>Issued:</div>
-                          <span className="text-muted">{license.iat}</span>
-                        </div>
-                        <div className="col-sm-2">
-                          <div>Expires:</div>
-                          <span className="text-muted">{license.exp}</span>
-                        </div>
-                        <div className="col-sm-2">
-                          <div>Seats:</div>
-                          <span className="text-muted">{license.qty}</span>
-                        </div>
-                      </>
                     )}
                   </div>
-                )}
+                </div>
               </div>
-            </div>
+            )}
           </div>
 
           <div className="my-3 bg-white p-3 border">
@@ -892,6 +916,65 @@ const GeneralSettingsPage = (): React.ReactElement => {
                       </div>
                     )}
                   </div>
+                  {healthTabSettingsEnabled && (
+                    <>
+                      <div>
+                        <label
+                          className="mr-1"
+                          htmlFor="toggle-runHealthTrafficQuery"
+                        >
+                          Run traffic query by default
+                        </label>
+                      </div>
+                      <div>
+                        <Toggle
+                          id={"toggle-runHealthTrafficQuery"}
+                          value={!!form.watch("runHealthTrafficQuery")}
+                          setValue={(value) => {
+                            form.setValue("runHealthTrafficQuery", value);
+                          }}
+                        />
+                      </div>
+
+                      <Field
+                        label="SRM threshold"
+                        type="number"
+                        step="0.001"
+                        style={{
+                          borderColor: srmHighlightColor,
+                          backgroundColor: srmHighlightColor
+                            ? srmHighlightColor + "15"
+                            : "",
+                        }}
+                        max="0.1"
+                        min="0.00001"
+                        className={`ml-2`}
+                        containerClassName="mb-3"
+                        append=""
+                        disabled={hasFileConfig()}
+                        helpText={
+                          <>
+                            <span className="ml-2">(0.001 is default)</span>
+                            <div
+                              className="ml-2"
+                              style={{
+                                color: srmHighlightColor,
+                                flexBasis: "100%",
+                              }}
+                            >
+                              {srmWarningMsg}
+                            </div>
+                          </>
+                        }
+                        {...form.register("srmThreshold", {
+                          valueAsNumber: true,
+                          min: 0,
+                          max: 1,
+                        })}
+                      />
+                    </>
+                  )}
+
                   <StatsEngineSelect
                     label="Default Statistics Engine"
                     allowUndefined={false}

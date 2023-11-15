@@ -38,4 +38,5 @@ export type AppFeatures = {
   "gbdemo-checkout-layout": string;
   "datasource-pipeline-mode": boolean;
   "fact-tables": boolean;
+  "health-tab": boolean;
 };
