@@ -14,9 +14,10 @@ import {
   getMetricFormatter,
 } from "@/services/metrics";
 import { trackSnapshot } from "@/services/track";
+import { DEFAULT_SRM_THRESHOLD } from "@/pages/settings";
+import { useUser } from "@/services/UserContext";
 import Modal from "../Modal";
 import Field from "../Forms/Field";
-import { SRM_THRESHOLD } from "./SRMWarning";
 
 type SnapshotPreview = {
   srm: number;
@@ -33,6 +34,8 @@ const ManualSnapshotForm: FC<{
   const { metrics, getMetricById } = useDefinitions();
   const { apiCall } = useAuth();
   const { getDatasourceById } = useDefinitions();
+  const { settings } = useUser();
+  const srmThreshold = settings.srmThreshold ?? DEFAULT_SRM_THRESHOLD;
 
   const filteredMetrics: MetricInterface[] = [];
 
@@ -254,7 +257,7 @@ const ManualSnapshotForm: FC<{
                 />
               </div>
             ))}
-            {preview && preview.srm < SRM_THRESHOLD && (
+            {preview && preview.srm < srmThreshold && (
               <div className="col-12">
                 <div className="my-2 alert alert-danger">
                   Sample Ratio Mismatch (SRM) detected. Please double check the

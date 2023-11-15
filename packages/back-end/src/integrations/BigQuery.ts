@@ -6,6 +6,7 @@ import { decryptDataSourceParams } from "../services/datasource";
 import { BigQueryConnectionParams } from "../../types/integrations/bigquery";
 import { IS_CLOUD } from "../util/secrets";
 import {
+  ExternalIdCallback,
   InformationSchema,
   QueryResponse,
   RawInformationSchema,
@@ -49,7 +50,23 @@ export default class BigQuery extends SqlIntegration {
     });
   }
 
-  async runQuery(sql: string): Promise<QueryResponse> {
+  async cancelQuery(externalId: string): Promise<void> {
+    const client = this.getClient();
+    const job = client.job(externalId);
+
+    // Attempt to cancel job
+    const [apiResult] = await job.cancel();
+    logger.debug(
+      `Cancelled BigQuery job ${externalId} - ${JSON.stringify(
+        apiResult.job?.status
+      )}`
+    );
+  }
+
+  async runQuery(
+    sql: string,
+    setExternalId?: ExternalIdCallback
+  ): Promise<QueryResponse> {
     const client = this.getClient();
 
     const [job] = await client.createQueryJob({
@@ -57,6 +74,11 @@ export default class BigQuery extends SqlIntegration {
       query: sql,
       useLegacySql: false,
     });
+
+    if (setExternalId && job.id) {
+      await setExternalId(job.id);
+    }
+
     const [rows] = await job.getQueryResults();
     const [metadata] = await job.getMetadata();
     const statistics = {
