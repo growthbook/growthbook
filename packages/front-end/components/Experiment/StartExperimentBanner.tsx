@@ -29,6 +29,7 @@ function isChecklistItemComplete(
   checklistTask: ChecklistTask,
   experiment: ExperimentInterfaceStringDates
 ): boolean {
+  if (!checklistTask.propertyKey) return false;
   switch (checklistTask.propertyKey) {
     case "hypothesis":
       return !!experiment.hypothesis;
@@ -40,8 +41,6 @@ function isChecklistItemComplete(
       return !!experiment.project;
     case "tag":
       return experiment.tags?.length > 0;
-    default:
-      return false;
   }
 }
 
@@ -323,12 +322,16 @@ export function StartExperimentBanner({
       };
     }
     setManualChecklistStatus(updatedManualChecklistStatus);
-    await apiCall(`/experiment/${experiment.id}/launch-checklist`, {
-      method: "PUT",
-      body: JSON.stringify({
-        checklist: updatedManualChecklistStatus,
-      }),
-    });
+    try {
+      await apiCall(`/experiment/${experiment.id}/launch-checklist`, {
+        method: "PUT",
+        body: JSON.stringify({
+          checklist: updatedManualChecklistStatus,
+        }),
+      });
+    } catch (e) {
+      setUpdatingChecklist(false);
+    }
     setUpdatingChecklist(false);
     mutateExperiment();
   }

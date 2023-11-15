@@ -43,7 +43,8 @@ function toInterface(
 export async function createExperimentLaunchChecklist(
   organizationId: string,
   createdByUserId: string,
-  tasks: ChecklistTask[]
+  tasks: ChecklistTask[],
+  projectId: string
 ): Promise<ExperimentLaunchChecklistInterface> {
   const doc: ExperimentLaunchChecklistDocument = await ExperimentLaunchChecklistModel.create(
     {
@@ -54,6 +55,7 @@ export async function createExperimentLaunchChecklist(
       updatedByUserId: createdByUserId,
       createdByUserId,
       tasks,
+      projectId,
     }
   );
 
@@ -62,7 +64,7 @@ export async function createExperimentLaunchChecklist(
 
 export async function getExperimentLaunchChecklist(
   organizationId: string,
-  projectId?: string
+  projectId: string
 ): Promise<ExperimentLaunchChecklistInterface | null> {
   const doc: ExperimentLaunchChecklistDocument | null = await ExperimentLaunchChecklistModel.findOne(
     {
@@ -71,6 +73,19 @@ export async function getExperimentLaunchChecklist(
     }
   );
 
+  return doc ? toInterface(doc) : null;
+}
+
+export async function getExperimentLaunchChecklistById(
+  organizationId: string,
+  id: string
+): Promise<ExperimentLaunchChecklistInterface | null> {
+  const doc: ExperimentLaunchChecklistDocument | null = await ExperimentLaunchChecklistModel.findOne(
+    {
+      organizationId,
+      id,
+    }
+  );
   return doc ? toInterface(doc) : null;
 }
 

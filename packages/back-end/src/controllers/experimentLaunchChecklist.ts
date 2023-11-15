@@ -5,11 +5,12 @@ import { AuthRequest } from "../types/AuthRequest";
 import {
   createExperimentLaunchChecklist,
   getExperimentLaunchChecklist,
+  getExperimentLaunchChecklistById,
   updateExperimentLaunchChecklist,
 } from "../models/ExperimentLaunchChecklistModel";
 import { ChecklistTask } from "../../types/experimentLaunchChecklist";
 import { getExperimentById, updateExperiment } from "../models/ExperimentModel";
-import { auditDetailsCreate } from "../services/audit";
+import { auditDetailsUpdate } from "../services/audit";
 
 export async function postExperimentLaunchChecklist(
   req: AuthRequest<{ tasks: ChecklistTask[]; projectId?: string }>,
@@ -23,12 +24,12 @@ export async function postExperimentLaunchChecklist(
 
   const existingChecklist = await getExperimentLaunchChecklist(
     org.id,
-    projectId
+    projectId || ""
   );
 
   if (existingChecklist) {
-    return res.status(409).json({
-      status: 409,
+    return res.status(400).json({
+      status: 400,
       message: `A checklist already exists for this ${
         projectId ? "project" : "organization"
       }"}`,
@@ -38,10 +39,11 @@ export async function postExperimentLaunchChecklist(
   const checklist = await createExperimentLaunchChecklist(
     org.id,
     userId,
-    tasks
+    tasks,
+    projectId || ""
   );
 
-  return res.status(201).json({
+  return res.status(200).json({
     status: 200,
     checklist,
   });
@@ -53,7 +55,7 @@ export async function getExperimentCheckListByOrg(
 ) {
   const { org } = getOrgFromReq(req);
 
-  const checklist = await getExperimentLaunchChecklist(org.id);
+  const checklist = await getExperimentLaunchChecklist(org.id, "");
 
   return res.status(200).json({
     status: 200,
@@ -74,6 +76,15 @@ export async function putExperimentLaunchChecklist(
 
   req.checkPermissions("organizationSettings");
 
+  const checklist = await getExperimentLaunchChecklistById(org.id, id);
+
+  if (!checklist) {
+    return res.status(404).json({
+      status: 404,
+      message: "Could not find checklist",
+    });
+  }
+
   await updateExperimentLaunchChecklist(org.id, userId, id, tasks);
 
   return res.status(200).json({
@@ -88,7 +99,7 @@ export async function putManualLaunchChecklist(
   >,
   res: Response
 ) {
-  const { org, userId } = getOrgFromReq(req);
+  const { org } = getOrgFromReq(req);
 
   const { id } = req.params;
   const { checklist } = req.body;
@@ -116,9 +127,7 @@ export async function putManualLaunchChecklist(
       object: "experiment",
       id: experiment.id,
     },
-    details: auditDetailsCreate({
-      checklist,
-    }),
+    details: auditDetailsUpdate(experiment.manualLaunchChecklist, checklist),
   });
 
   res.status(200).json({ status: 200 });
