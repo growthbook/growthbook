@@ -15,8 +15,7 @@ export function TrafficDimensionsTooltip({
           dimension-specific traffic splits. This setting selects which
           dimension splits we compute by default. More dimensions, especially
           those with high cardinality, might cause errors computing traffic
-          results by returning too many rows. For more, see the{" "}
-          <a>[docs here]</a>.
+          results by returning too many rows.
         </div>
       }
     >
