@@ -269,6 +269,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
   const hasSecureAttributesFeature = hasCommercialFeature(
     "hash-secure-attributes"
   );
+  const hasStickyBucketFeature = hasCommercialFeature("sticky-bucketing");
 
   const { metricDefaults } = useOrganizationMetricDefaults();
 
@@ -408,6 +409,12 @@ const GeneralSettingsPage = (): React.ReactElement => {
         if (k === "confidenceLevel" && newVal?.confidenceLevel <= 1) {
           // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
           newVal.confidenceLevel = newVal.confidenceLevel * 100;
+        }
+
+        if (k === "useStickyBucketing") {
+          newVal.useStickyBucketing = hasStickyBucketFeature
+            ? newVal.useStickyBucketing
+            : false;
         }
       });
       form.reset(newVal);
@@ -1024,8 +1031,12 @@ const GeneralSettingsPage = (): React.ReactElement => {
                       id={"toggle-useStickyBucketing"}
                       value={!!form.watch("useStickyBucketing")}
                       setValue={(value) => {
-                        form.setValue("useStickyBucketing", value);
+                        form.setValue(
+                          "useStickyBucketing",
+                          hasStickyBucketFeature ? value : false
+                        );
                       }}
+                      disabled={!hasStickyBucketFeature}
                     />
                   </div>
 
