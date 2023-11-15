@@ -8,21 +8,17 @@ import React, { useEffect, useMemo } from "react";
 import { useAuth } from "@/services/auth";
 import { getEqualWeights } from "@/services/utils";
 import { useAttributeSchema } from "@/services/features";
+import ReleaseChangesForm from "@/components/Experiment/ReleaseChangesForm";
 import Field from "../Forms/Field";
 import Modal from "../Modal";
 import FeatureVariationsInput from "../Features/FeatureVariationsInput";
 import ConditionInput from "../Features/ConditionInput";
 import NamespaceSelector from "../Features/NamespaceSelector";
 import SelectField from "../Forms/SelectField";
-import Toggle from "../Forms/Toggle";
-import Tooltip from "../Tooltip/Tooltip";
-import { DocLink } from "../DocLink";
 import SavedGroupTargetingField, {
   validateSavedGroupTargeting,
 } from "../Features/SavedGroupTargetingField";
-import HashVersionSelector, {
-  NewBucketingSDKList,
-} from "./HashVersionSelector";
+import HashVersionSelector from "./HashVersionSelector";
 
 export interface Props {
   close: () => void;
@@ -71,7 +67,6 @@ export default function EditTargetingModal({
   const hasHashAttributes =
     attributeSchema.filter((x) => x.hashAttribute).length > 0;
 
-  const newPhase = form.watch("newPhase");
   const variationWeights = form.watch("variationWeights");
   const coverage = form.watch("coverage");
   const condition = form.watch("condition");
@@ -261,81 +256,7 @@ export default function EditTargetingModal({
       />
 
       {!safeToEdit && lastPhase && (
-        <>
-          <hr />
-          <div className="alert alert-info">
-            We have defaulted you to the recommended release settings below
-            based on the changes you made above. These recommendations will
-            prevent bias and data quality issues in your results.{" "}
-            <DocLink docSection="targetingChanges">Learn more</DocLink>
-          </div>
-          <SelectField
-            label="How to release changes"
-            options={[
-              {
-                label: "Start a new phase",
-                value: "new",
-              },
-              {
-                label: "Update the existing phase",
-                value: "existing",
-              },
-            ]}
-            formatOptionLabel={(value) => {
-              const recommended =
-                (value.value === "new" && shouldCreateNewPhase) ||
-                (value.value === "existing" && !shouldCreateNewPhase);
-
-              return (
-                <>
-                  {value.label}{" "}
-                  {recommended && (
-                    <span className="badge badge-purple badge-pill ml-2">
-                      recommended
-                    </span>
-                  )}
-                </>
-              );
-            }}
-            value={newPhase ? "new" : "existing"}
-            onChange={(value) =>
-              form.setValue("newPhase", value === "new" ? true : false)
-            }
-          />
-
-          {newPhase && (
-            <div className="form-group">
-              <Toggle
-                id="reseed-traffic"
-                value={form.watch("reseed")}
-                setValue={(reseed) => form.setValue("reseed", reseed)}
-              />{" "}
-              <label htmlFor="reseed-traffic" className="text-dark">
-                Re-randomize Traffic
-              </label>{" "}
-              <span className="badge badge-purple badge-pill ml-2">
-                recommended
-              </span>
-              <small className="form-text text-muted">
-                Removes carryover bias. Returning visitors will be re-bucketed
-                and may start seeing a different variation from before. Only
-                supported in{" "}
-                <Tooltip
-                  body={
-                    <>
-                      Only supported in the following SDKs:
-                      <NewBucketingSDKList />
-                      Unsupported SDKs and versions will simply ignore this
-                      setting and continue with the previous randomization.
-                    </>
-                  }
-                >
-                  <span className="text-primary">some SDKs</span>
-                </Tooltip>
-              </small>
-            </div>
-          )}
-        </>
+        <ReleaseChangesForm experiment={experiment} form={form} />
       )}
     </Modal>
   );
