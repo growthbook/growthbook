@@ -84,10 +84,7 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
   const userEnteredDimsForTraffic = form.watch("dimensionsForTraffic");
 
   const handleSubmit = form.handleSubmit(async (value) => {
-    // Do a JIT migration if user doesn't supply any dimensions for traffic
-    await onSave(
-      userEnteredDimsForTraffic ? value : { ...value, dimensionsForTraffic: [] }
-    );
+    await onSave(value);
 
     form.reset({
       id: undefined,
