@@ -100,10 +100,8 @@ export default function NewExperimentChecklistItem({
             type="url"
             helpText="Add a URL to this task to help your team complete this task."
             {...newTaskInput}
-            {...newTaskInput}
             onKeyDown={(e) => {
               if (e.key === "Enter") {
-                // Prevent this action from closing the modal
                 e.preventDefault();
                 addNewTask(newTaskInput);
               }
@@ -112,8 +110,7 @@ export default function NewExperimentChecklistItem({
               const url = e.target.value.toLowerCase();
 
               const containsHttp =
-                url.substring(0, 8) == "https://" ||
-                url.substring(0, 7) == "http://";
+                url.startsWith("http://") || url.startsWith("https://");
 
               setNewTaskInput({
                 ...newTaskInput,
@@ -124,6 +121,7 @@ export default function NewExperimentChecklistItem({
         ) : null}
         <div>
           <button
+            disabled={!newTaskInput.task}
             className="btn btn-primary"
             onClick={(e) => {
               e.preventDefault();
@@ -134,7 +132,10 @@ export default function NewExperimentChecklistItem({
           </button>
           <button
             className="btn btn-link"
-            onClick={() => setNewTaskInput(undefined)}
+            onClick={(e) => {
+              e.preventDefault();
+              setNewTaskInput(undefined);
+            }}
           >
             Cancel
           </button>

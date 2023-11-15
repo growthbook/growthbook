@@ -1,11 +1,10 @@
 import { Response } from "express";
-import { cloneDeep } from "lodash";
 import { getAffectedEnvsForExperiment } from "shared/util";
 import { getOrgFromReq } from "../services/organizations";
 import { AuthRequest } from "../types/AuthRequest";
 import {
   createExperimentLaunchChecklist,
-  getExperimentLaunchChecklistByOrgIg,
+  getExperimentLaunchChecklist,
   updateExperimentLaunchChecklist,
 } from "../models/ExperimentLaunchChecklistModel";
 import { ChecklistTask } from "../../types/experimentLaunchChecklist";
@@ -13,12 +12,12 @@ import { getExperimentById, updateExperiment } from "../models/ExperimentModel";
 import { auditDetailsCreate } from "../services/audit";
 
 export async function postExperimentLaunchChecklist(
-  req: AuthRequest<{ tasks: ChecklistTask[] }>,
+  req: AuthRequest<{ tasks: ChecklistTask[]; projectId?: string }>,
   res: Response
 ) {
   const { org, userId } = getOrgFromReq(req);
 
-  const { tasks } = req.body;
+  const { tasks, projectId } = req.body;
 
   if (!org.members.some((member) => member.id === userId)) {
     return res.status(403).json({
@@ -29,9 +28,30 @@ export async function postExperimentLaunchChecklist(
 
   req.checkPermissions("organizationSettings");
 
-  await createExperimentLaunchChecklist(org.id, userId, tasks);
+  const existingChecklist = await getExperimentLaunchChecklist(
+    org.id,
+    projectId
+  );
 
-  return res.status(201).json({});
+  if (existingChecklist) {
+    return res.status(409).json({
+      status: 409,
+      message: `A checklist already exists for this ${
+        projectId ? "project" : "organization"
+      }"}`,
+    });
+  }
+
+  const checklist = await createExperimentLaunchChecklist(
+    org.id,
+    userId,
+    tasks
+  );
+
+  return res.status(201).json({
+    status: 200,
+    checklist,
+  });
 }
 
 export async function getExperimentCheckListByOrg(
@@ -40,13 +60,15 @@ export async function getExperimentCheckListByOrg(
 ) {
   const { org } = getOrgFromReq(req);
 
-  const checklist = await getExperimentLaunchChecklistByOrgIg(org.id);
+  const checklist = await getExperimentLaunchChecklist(org.id);
 
   return res.status(200).json({
     status: 200,
     checklist,
   });
 }
+
+//TODO: Add getExperimentCheckListByProject method
 
 export async function putExperimentLaunchChecklist(
   req: AuthRequest<{ tasks: ChecklistTask[] }, { id: string }>,
@@ -102,15 +124,11 @@ export async function putManualLaunchChecklist(
 
   req.checkPermissions("runExperiments", experiment?.project || "", envs);
 
-  const updatedExperiment = cloneDeep(experiment);
-
-  updatedExperiment.manualLaunchChecklist = checklist;
-
   await updateExperiment({
     organization: org,
     experiment,
     user: res.locals.eventAudit,
-    changes: updatedExperiment,
+    changes: { manualLaunchChecklist: checklist },
   });
 
   await req.audit({

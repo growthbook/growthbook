@@ -48,7 +48,6 @@ export const ChecklistItem = forwardRef<HTMLDivElement, ChecklistItemProps>(
       <div
         ref={ref}
         {...props}
-        key={index}
         className="d-flex align-items-center justify-content-between border rounded ml-3 px-3 py-2 my-1 shadow-sm bg-white"
         onMouseEnter={() => setShowDeleteBtn(true)}
         onMouseLeave={() => setShowDeleteBtn(false)}
@@ -164,7 +163,7 @@ export default function SortableExperimentChecklist({
         >
           <ol>
             {experimentLaunchChecklist.map((item: ChecklistTask, i: number) => (
-              <li key={i}>
+              <li key={`${item}-${i}`}>
                 <SortableChecklistItem
                   item={item}
                   index={i}

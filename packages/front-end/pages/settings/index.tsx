@@ -20,7 +20,6 @@ import {
 } from "shared/constants";
 import { OrganizationSettings } from "@/../back-end/types/organization";
 import Link from "next/link";
-import { ExperimentLaunchChecklistInterface } from "back-end/types/experimentLaunchChecklist";
 import { useFeatureIsOn, useGrowthBook } from "@growthbook/growthbook-react";
 import { useAuth } from "@/services/auth";
 import EditOrganizationModal from "@/components/Settings/EditOrganizationModal";
@@ -51,7 +50,6 @@ import StatsEngineSelect from "@/components/Settings/forms/StatsEngineSelect";
 import { useCurrency } from "@/hooks/useCurrency";
 import { AppFeatures } from "@/types/app-features";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import useApi from "@/hooks/useApi";
 import ExperimentCheckListModal from "@/components/Settings/ExperimentCheckListModal";
 
 export const supportedCurrencies = {
@@ -274,10 +272,6 @@ const GeneralSettingsPage = (): React.ReactElement => {
   );
 
   const { metricDefaults } = useOrganizationMetricDefaults();
-
-  const { data, mutate } = useApi<{
-    checklist: ExperimentLaunchChecklistInterface;
-  }>("/experiments/launch-checklist");
 
   const [upgradeModal, setUpgradeModal] = useState(false);
   const [editChecklistOpen, setEditChecklistOpen] = useState(false);
@@ -560,11 +554,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
       )}
 
       {editChecklistOpen ? (
-        <ExperimentCheckListModal
-          close={() => setEditChecklistOpen(false)}
-          checklist={data?.checklist}
-          mutate={mutate}
-        />
+        <ExperimentCheckListModal close={() => setEditChecklistOpen(false)} />
       ) : null}
 
       <div className="container-fluid pagecontents">

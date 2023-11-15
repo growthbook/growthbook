@@ -12,6 +12,7 @@ const experimentLaunchChecklistSchema = new mongoose.Schema({
   dateCreated: Date,
   dateUpdated: Date,
   updatedByUserId: String,
+  projectId: String, //TODO: This won't be used until we add support for project-level checklists
   tasks: [
     {
       task: String,
@@ -59,12 +60,14 @@ export async function createExperimentLaunchChecklist(
   return toInterface(doc);
 }
 
-export async function getExperimentLaunchChecklistByOrgIg(
-  organizationId: string
+export async function getExperimentLaunchChecklist(
+  organizationId: string,
+  projectId?: string
 ): Promise<ExperimentLaunchChecklistInterface | null> {
   const doc: ExperimentLaunchChecklistDocument | null = await ExperimentLaunchChecklistModel.findOne(
     {
       organizationId,
+      projectId,
     }
   );
 

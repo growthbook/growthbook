@@ -25,7 +25,7 @@ type ManualChecklist = {
   content: string | ReactElement;
 };
 
-function getChecklistItemStatus(
+function isChecklistItemComplete(
   checklistTask: ChecklistTask,
   experiment: ExperimentInterfaceStringDates
 ): boolean {
@@ -33,10 +33,7 @@ function getChecklistItemStatus(
     case "hypothesis":
       return !!experiment.hypothesis;
     case "screenshots":
-      for (const variation of experiment.variations) {
-        if (!variation.screenshots.length) return false;
-      }
-      return true;
+      return experiment.variations.every((v) => !!v.screenshots.length);
     case "description":
       return !!experiment.description;
     case "project":
@@ -77,6 +74,7 @@ export function StartExperimentBanner({
   const [manualChecklistStatus, setManualChecklistStatus] = useState(
     experiment.manualLaunchChecklist || []
   );
+  const [updatingChecklist, setUpdatingChecklist] = useState(false);
   const manualChecklist: ManualChecklist[] = [];
 
   manualChecklist.push({
@@ -256,7 +254,7 @@ export function StartExperimentBanner({
       if (item.completionType === "auto" && item.propertyKey) {
         checklist.push({
           display: item.task,
-          status: getChecklistItemStatus(item, experiment)
+          status: isChecklistItemComplete(item, experiment)
             ? "success"
             : "error",
         });
@@ -305,38 +303,33 @@ export function StartExperimentBanner({
     manualChecklist.every((task) => isTaskCompleted(task.key));
 
   async function updateTaskStatus(checked: boolean, item: ManualChecklist) {
+    setUpdatingChecklist(true);
     const updatedManualChecklistStatus = Array.isArray(manualChecklistStatus)
       ? [...manualChecklistStatus]
       : [];
 
-    if (!updatedManualChecklistStatus.length) {
+    const index = updatedManualChecklistStatus.findIndex(
+      (task) => task.key === item.key
+    );
+    if (index === -1) {
       updatedManualChecklistStatus.push({
         key: item.key,
         status: checked ? "complete" : "incomplete",
       });
     } else {
-      const index = updatedManualChecklistStatus.findIndex(
-        (task) => task.key === item.key
-      );
-      if (index === -1) {
-        updatedManualChecklistStatus.push({
-          key: item.key,
-          status: checked ? "complete" : "incomplete",
-        });
-      } else {
-        updatedManualChecklistStatus[index] = {
-          key: item.key,
-          status: checked ? "complete" : "incomplete",
-        };
-      }
+      updatedManualChecklistStatus[index] = {
+        key: item.key,
+        status: checked ? "complete" : "incomplete",
+      };
     }
     setManualChecklistStatus(updatedManualChecklistStatus);
-    await apiCall(`/experiments/${experiment.id}/launch-checklist`, {
+    await apiCall(`/experiment/${experiment.id}/launch-checklist`, {
       method: "PUT",
       body: JSON.stringify({
         checklist: updatedManualChecklistStatus,
       }),
     });
+    setUpdatingChecklist(false);
     mutateExperiment();
   }
 
@@ -371,32 +364,35 @@ export function StartExperimentBanner({
               </li>
             ))}
           </ul>
-          <small className="text-uppercase">
-            <strong>Manual Checks</strong>
-          </small>{" "}
-          <Tooltip body={"We're not able to verify these automatically"} />
-          <ul style={{ fontSize: "1.1em" }} className="ml-0 pl-0 mb-0 pb-0">
-            {manualChecklist.map((item, i) => (
-              <li
-                key={i}
-                style={{
-                  listStyleType: "none",
-                  marginLeft: 0,
-                  marginBottom: 3,
-                }}
-              >
-                <input
-                  type="checkbox"
-                  className="ml-0 pl-0"
-                  checked={isTaskCompleted(item.key)}
-                  onChange={async (e) =>
-                    updateTaskStatus(e.target.checked, item)
-                  }
-                />{" "}
-                {item.content}
-              </li>
-            ))}
-          </ul>
+          <div className={updatingChecklist ? "text-muted" : ""}>
+            <small className="text-uppercase">
+              <strong>Manual Checks</strong>
+            </small>{" "}
+            <Tooltip body={"We're not able to verify these automatically"} />
+            <ul style={{ fontSize: "1.1em" }} className="ml-0 pl-0 mb-0 pb-0">
+              {manualChecklist.map((item, i) => (
+                <li
+                  key={i}
+                  style={{
+                    listStyleType: "none",
+                    marginLeft: 0,
+                    marginBottom: 3,
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    disabled={updatingChecklist}
+                    className="ml-0 pl-0"
+                    checked={isTaskCompleted(item.key)}
+                    onChange={async (e) =>
+                      updateTaskStatus(e.target.checked, item)
+                    }
+                  />{" "}
+                  {item.content}
+                </li>
+              ))}
+            </ul>
+          </div>
         </div>
 
         <div className="col pt-3 text-center">

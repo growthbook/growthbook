@@ -170,7 +170,10 @@ const experimentSchema = new mongoose.Schema({
   manualLaunchChecklist: [
     {
       key: String,
-      status: String,
+      status: {
+        type: String,
+        enum: ["complete", "incomplete"],
+      },
     },
   ],
 });
