@@ -114,7 +114,7 @@ export default function SRMDrawer({ traffic, variations, totalUsers }: Props) {
     >
       <div className="mt-4">
         {!areDimensionsAvailable && (
-          <div className="alert alert-info">
+          <div className="alert alert-warning">
             It looks like you haven&apos;t selected any dimensions to use for
             traffic within your datasource&apos;s experiment assignment query.
             If you&apos;d like to be able to view traffic breakdown by
