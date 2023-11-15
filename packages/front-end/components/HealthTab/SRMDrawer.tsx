@@ -100,6 +100,8 @@ export default function SRMDrawer({ traffic, variations, totalUsers }: Props) {
     return [...filtered, { label: dim.replace("dim_exp_", ""), value: dim }];
   }, []);
 
+  const areDimensionsAvailable = !!availableDimensions.length;
+
   return (
     <HealthDrawer
       title="Experiment Balance Check"
@@ -111,6 +113,15 @@ export default function SRMDrawer({ traffic, variations, totalUsers }: Props) {
       })}
     >
       <div className="mt-4">
+        {!areDimensionsAvailable && (
+          <div className="alert alert-info">
+            It looks like you haven&apos;t selected any dimensions to use for
+            traffic within your datasource&apos;s experiment assignment query.
+            If you&apos;d like to be able to view traffic breakdown by
+            dimension, please edit your experiment assignment query and add the
+            dimensions you&apos;d like to support under `Dimensions for Traffic`
+          </div>
+        )}
         <div className="row justify-content-between mb-2">
           <VariationUsersTable
             users={traffic.overall[0].variationUnits}
@@ -148,6 +159,7 @@ export default function SRMDrawer({ traffic, variations, totalUsers }: Props) {
                 setSelectedDimension(v);
               }}
               helpText={"Break down traffic by dimension"}
+              disabled={!areDimensionsAvailable}
             />
           </div>
         </div>
