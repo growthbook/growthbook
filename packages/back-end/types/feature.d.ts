@@ -112,6 +112,7 @@ export interface ExperimentRule extends BaseRule {
   hashAttribute: string;
   fallbackAttribute?: string;
   bucketVersion?: number;
+  minBucketVersion?: number;
   blockedVariations?: number[];
   namespace?: NamespaceValue;
   coverage?: number;

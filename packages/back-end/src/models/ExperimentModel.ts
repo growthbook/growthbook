@@ -65,6 +65,7 @@ const experimentSchema = new mongoose.Schema({
   fallbackAttribute: String,
   hashVersion: Number,
   bucketVersion: Number,
+  minBucketVersion: Number,
   blockedVariations: [Number],
   name: String,
   dateCreated: Date,

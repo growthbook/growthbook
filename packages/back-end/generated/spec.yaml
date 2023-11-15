@@ -933,6 +933,8 @@ paths:
                     - 2
                 bucketVersion:
                   type: number
+                minBucketVersion:
+                  type: number
                 blockedVariations:
                   type: array
                   items:
@@ -1157,6 +1159,8 @@ paths:
                     - 1
                     - 2
                 bucketVersion:
+                  type: number
+                minBucketVersion:
                   type: number
                 blockedVariations:
                   type: array
@@ -2820,6 +2824,8 @@ components:
           type: string
         bucketVersion:
           type: number
+        minBucketVersion:
+          type: number
         blockedVariations:
           type: array
           items:
@@ -3012,6 +3018,8 @@ components:
             - 1
             - 2
         bucketVersion:
+          type: number
+        minBucketVersion:
           type: number
         blockedVariations:
           type: array

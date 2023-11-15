@@ -55,6 +55,8 @@ properties:
     enum: [1, 2]
   bucketVersion:
     type: number
+  minBucketVersion:
+    type: number
   blockedVariations:
     type: array
     items:

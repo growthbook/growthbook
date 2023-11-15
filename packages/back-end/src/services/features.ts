@@ -132,6 +132,7 @@ function generateVisualExperimentsPayload({
         hashAttribute: e.hashAttribute,
         fallbackAttribute: e.fallbackAttribute,
         bucketVersion: e.bucketVersion,
+        minBucketVersion: e.minBucketVersion,
         blockedVariations: e.blockedVariations,
         urlPatterns: v.urlPatterns,
         weights: phase.variationWeights,

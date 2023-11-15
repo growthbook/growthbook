@@ -24,6 +24,8 @@ properties:
     type: string
   bucketVersion:
     type: number
+  minBucketVersion:
+    type: number
   blockedVariations:
     type: array
     items:

@@ -340,6 +340,9 @@ export function getFeatureDefinition({
             if (exp.bucketVersion) {
               rule.bucketVersion = exp.bucketVersion;
             }
+            if (exp.minBucketVersion) {
+              rule.minBucketVersion = exp.minBucketVersion;
+            }
             if (exp.blockedVariations) {
               rule.blockedVariations = exp.blockedVariations;
             }
@@ -434,6 +437,9 @@ export function getFeatureDefinition({
             }
             if (r.bucketVersion) {
               rule.bucketVersion = r.bucketVersion;
+            }
+            if (r.minBucketVersion) {
+              rule.minBucketVersion = r.minBucketVersion;
             }
             if (r.blockedVariations) {
               rule.blockedVariations = r.blockedVariations;

@@ -1422,6 +1422,7 @@ export async function postExperimentTargeting(
     fallbackAttribute,
     hashVersion,
     bucketVersion,
+    minBucketVersion,
     blockedVariations,
     namespace,
     trackingKey,
@@ -1488,6 +1489,7 @@ export async function postExperimentTargeting(
   changes.fallbackAttribute = fallbackAttribute;
   changes.hashVersion = hashVersion;
   changes.bucketVersion = bucketVersion;
+  changes.minBucketVersion = minBucketVersion;
   changes.blockedVariations = blockedVariations;
   if (trackingKey) changes.trackingKey = trackingKey;
 
@@ -1528,12 +1530,12 @@ export async function postExperimentTargeting(
 }
 
 export async function postExperimentPhase(
-  req: AuthRequest<ExperimentPhase, { id: string }>,
+  req: AuthRequest<ExperimentPhase & { reseed: boolean }, { id: string }>,
   res: Response
 ) {
   const { org, userId } = getOrgFromReq(req);
   const { id } = req.params;
-  const { reason, dateStarted, ...data } = req.body;
+  const { reason, dateStarted, reseed, ...data } = req.body;
 
   const changes: Changeset = {};
 
@@ -1586,6 +1588,7 @@ export async function postExperimentPhase(
     dateStarted: date,
     dateEnded: undefined,
     reason: "",
+    seed: phases.length && reseed ? uuidv4() : data.seed,
   });
 
   // TODO: validation

@@ -121,6 +121,7 @@ export interface ExperimentInterface {
   fallbackAttribute?: string;
   hashVersion: 1 | 2;
   bucketVersion?: number;
+  minBucketVersion?: number;
   blockedVariations?: number[];
   name: string;
   dateCreated: Date;
@@ -186,6 +187,7 @@ export type ExperimentTargetingData = Pick<
     | "fallbackAttribute"
     | "hashVersion"
     | "bucketVersion"
+    | "minBucketVersion"
     | "blockedVariations"
     | "trackingKey"
   > & {

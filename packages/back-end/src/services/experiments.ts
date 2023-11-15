@@ -746,6 +746,7 @@ export async function toExperimentApiInterface(
     fallbackAttribute: experiment.fallbackAttribute,
     hashVersion: experiment.hashVersion || 2,
     bucketVersion: experiment.bucketVersion,
+    minBucketVersion: experiment.minBucketVersion,
     blockedVariations: experiment.blockedVariations,
     variations: experiment.variations.map((v) => ({
       variationId: v.id,

@@ -1,4 +1,4 @@
-import { FC } from "react";
+import React, { FC } from "react";
 import {
   ExperimentInterfaceStringDates,
   ExperimentPhaseStringDates,
@@ -7,6 +7,9 @@ import { useForm } from "react-hook-form";
 import { useAuth } from "@/services/auth";
 import { useWatching } from "@/services/WatchProvider";
 import { getEqualWeights } from "@/services/utils";
+import Toggle from "@/components/Forms/Toggle";
+import Tooltip from "@/components/Tooltip/Tooltip";
+import { NewBucketingSDKList } from "@/components/Experiment/HashVersionSelector";
 import Modal from "../Modal";
 import Field from "../Forms/Field";
 import FeatureVariationsInput from "../Features/FeatureVariationsInput";
@@ -28,7 +31,7 @@ const NewPhaseForm: FC<{
   const prevPhase: Partial<ExperimentPhaseStringDates> =
     experiment.phases[experiment.phases.length - 1] || {};
 
-  const form = useForm<ExperimentPhaseStringDates>({
+  const form = useForm<ExperimentPhaseStringDates & { reseed: boolean }>({
     defaultValues: {
       name: prevPhase.name || "Main",
       coverage: prevPhase.coverage || 1,
@@ -45,6 +48,7 @@ const NewPhaseForm: FC<{
         name: prevPhase.namespace?.name || "",
         range: prevPhase.namespace?.range || [0, 0.5],
       },
+      reseed: true,
     },
   });
 
@@ -159,6 +163,39 @@ const NewPhaseForm: FC<{
           featureId={experiment.trackingKey}
           trackingKey={experiment.trackingKey}
         />
+      )}
+
+      {!firstPhase && (
+        <div className="form-group mt-4">
+          <Toggle
+            id="reseed-traffic"
+            value={form.watch("reseed")}
+            setValue={(reseed) => form.setValue("reseed", reseed)}
+          />{" "}
+          <label htmlFor="reseed-traffic" className="text-dark">
+            Re-randomize Traffic
+          </label>{" "}
+          <span className="badge badge-purple badge-pill ml-2">
+            recommended
+          </span>
+          <small className="form-text text-muted">
+            Removes carryover bias. Returning visitors will be re-bucketed and
+            may start seeing a different variation from before. Only supported
+            in{" "}
+            <Tooltip
+              body={
+                <>
+                  Only supported in the following SDKs:
+                  <NewBucketingSDKList />
+                  Unsupported SDKs and versions will simply ignore this setting
+                  and continue with the previous randomization.
+                </>
+              }
+            >
+              <span className="text-primary">some SDKs</span>
+            </Tooltip>
+          </small>
+        </div>
       )}
     </Modal>
   );

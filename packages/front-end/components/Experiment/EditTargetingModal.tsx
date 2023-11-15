@@ -49,6 +49,7 @@ export default function EditTargetingModal({
       fallbackAttribute: experiment.fallbackAttribute || "",
       hashVersion: experiment.hashVersion || 2,
       bucketVersion: experiment.bucketVersion || 1,
+      minBucketVersion: experiment.minBucketVersion || 0,
       blockedVariations: experiment.blockedVariations || [],
       namespace: lastPhase?.namespace || {
         enabled: false,

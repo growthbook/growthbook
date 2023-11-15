@@ -354,6 +354,7 @@ export interface components {
               hashAttribute?: string;
               fallbackAttribute?: string;
               bucketVersion?: number;
+              minBucketVersion?: number;
               blockedVariations?: (number)[];
               namespace?: {
                 enabled: boolean;
@@ -419,6 +420,7 @@ export interface components {
                 hashAttribute?: string;
                 fallbackAttribute?: string;
                 bucketVersion?: number;
+                minBucketVersion?: number;
                 blockedVariations?: (number)[];
                 namespace?: {
                   enabled: boolean;
@@ -495,6 +497,7 @@ export interface components {
           hashAttribute?: string;
           fallbackAttribute?: string;
           bucketVersion?: number;
+          minBucketVersion?: number;
           blockedVariations?: (number)[];
           namespace?: {
             enabled: boolean;
@@ -560,6 +563,7 @@ export interface components {
             hashAttribute?: string;
             fallbackAttribute?: string;
             bucketVersion?: number;
+            minBucketVersion?: number;
             blockedVariations?: (number)[];
             namespace?: {
               enabled: boolean;
@@ -624,6 +628,7 @@ export interface components {
       hashAttribute?: string;
       fallbackAttribute?: string;
       bucketVersion?: number;
+      minBucketVersion?: number;
       blockedVariations?: (number)[];
       namespace?: {
         enabled: boolean;
@@ -701,6 +706,7 @@ export interface components {
       hashAttribute?: string;
       fallbackAttribute?: string;
       bucketVersion?: number;
+      minBucketVersion?: number;
       blockedVariations?: (number)[];
       namespace?: {
         enabled: boolean;
@@ -770,6 +776,7 @@ export interface components {
       /** @enum {number} */
       hashVersion: 1 | 2;
       bucketVersion?: number;
+      minBucketVersion?: number;
       blockedVariations?: (number)[];
       variations: ({
           variationId: string;
@@ -1178,6 +1185,7 @@ export interface operations {
                         hashAttribute?: string;
                         fallbackAttribute?: string;
                         bucketVersion?: number;
+                        minBucketVersion?: number;
                         blockedVariations?: (number)[];
                         namespace?: {
                           enabled: boolean;
@@ -1243,6 +1251,7 @@ export interface operations {
                           hashAttribute?: string;
                           fallbackAttribute?: string;
                           bucketVersion?: number;
+                          minBucketVersion?: number;
                           blockedVariations?: (number)[];
                           namespace?: {
                             enabled: boolean;
@@ -1486,6 +1495,7 @@ export interface operations {
                       hashAttribute?: string;
                       fallbackAttribute?: string;
                       bucketVersion?: number;
+                      minBucketVersion?: number;
                       blockedVariations?: (number)[];
                       namespace?: {
                         enabled: boolean;
@@ -1551,6 +1561,7 @@ export interface operations {
                         hashAttribute?: string;
                         fallbackAttribute?: string;
                         bucketVersion?: number;
+                        minBucketVersion?: number;
                         blockedVariations?: (number)[];
                         namespace?: {
                           enabled: boolean;
@@ -1659,6 +1670,7 @@ export interface operations {
                       hashAttribute?: string;
                       fallbackAttribute?: string;
                       bucketVersion?: number;
+                      minBucketVersion?: number;
                       blockedVariations?: (number)[];
                       namespace?: {
                         enabled: boolean;
@@ -1724,6 +1736,7 @@ export interface operations {
                         hashAttribute?: string;
                         fallbackAttribute?: string;
                         bucketVersion?: number;
+                        minBucketVersion?: number;
                         blockedVariations?: (number)[];
                         namespace?: {
                           enabled: boolean;
@@ -1956,6 +1969,7 @@ export interface operations {
                       hashAttribute?: string;
                       fallbackAttribute?: string;
                       bucketVersion?: number;
+                      minBucketVersion?: number;
                       blockedVariations?: (number)[];
                       namespace?: {
                         enabled: boolean;
@@ -2021,6 +2035,7 @@ export interface operations {
                         hashAttribute?: string;
                         fallbackAttribute?: string;
                         bucketVersion?: number;
+                        minBucketVersion?: number;
                         blockedVariations?: (number)[];
                         namespace?: {
                           enabled: boolean;
@@ -2133,6 +2148,7 @@ export interface operations {
                       hashAttribute?: string;
                       fallbackAttribute?: string;
                       bucketVersion?: number;
+                      minBucketVersion?: number;
                       blockedVariations?: (number)[];
                       namespace?: {
                         enabled: boolean;
@@ -2198,6 +2214,7 @@ export interface operations {
                         hashAttribute?: string;
                         fallbackAttribute?: string;
                         bucketVersion?: number;
+                        minBucketVersion?: number;
                         blockedVariations?: (number)[];
                         namespace?: {
                           enabled: boolean;
@@ -2657,6 +2674,7 @@ export interface operations {
                 /** @enum {number} */
                 hashVersion: 1 | 2;
                 bucketVersion?: number;
+                minBucketVersion?: number;
                 blockedVariations?: (number)[];
                 variations: ({
                     variationId: string;
@@ -2779,6 +2797,7 @@ export interface operations {
           /** @enum {number} */
           hashVersion?: 1 | 2;
           bucketVersion?: number;
+          minBucketVersion?: number;
           blockedVariations?: (number)[];
           releasedVariationId?: string;
           excludeFromPayload?: boolean;
@@ -2849,6 +2868,7 @@ export interface operations {
               /** @enum {number} */
               hashVersion: 1 | 2;
               bucketVersion?: number;
+              minBucketVersion?: number;
               blockedVariations?: (number)[];
               variations: ({
                   variationId: string;
@@ -2964,6 +2984,7 @@ export interface operations {
               /** @enum {number} */
               hashVersion: 1 | 2;
               bucketVersion?: number;
+              minBucketVersion?: number;
               blockedVariations?: (number)[];
               variations: ({
                   variationId: string;
@@ -3082,6 +3103,7 @@ export interface operations {
           /** @enum {number} */
           hashVersion?: 1 | 2;
           bucketVersion?: number;
+          minBucketVersion?: number;
           blockedVariations?: (number)[];
           releasedVariationId?: string;
           excludeFromPayload?: boolean;
@@ -3152,6 +3174,7 @@ export interface operations {
               /** @enum {number} */
               hashVersion: 1 | 2;
               bucketVersion?: number;
+              minBucketVersion?: number;
               blockedVariations?: (number)[];
               variations: ({
                   variationId: string;
@@ -3877,6 +3900,7 @@ export interface operations {
               /** @enum {number} */
               hashVersion: 1 | 2;
               bucketVersion?: number;
+              minBucketVersion?: number;
               blockedVariations?: (number)[];
               variations: ({
                   variationId: string;
