@@ -1,4 +1,5 @@
 import { validateFeatureValue } from "shared/util";
+import { isEqual } from "lodash";
 import { UpdateFeatureResponse } from "../../../types/openapi";
 import { createApiRequestHandler } from "../../util/handler";
 import { updateFeatureValidator } from "../../validators/openapi";
@@ -17,6 +18,8 @@ import { FeatureInterface } from "../../../types/feature";
 import { getEnabledEnvironments } from "../../util/features";
 import { addTagsDiff } from "../../models/TagModel";
 import { auditDetailsUpdate } from "../../services/audit";
+import { createRevision } from "../../models/FeatureRevisionModel";
+import { FeatureRevisionInterface } from "../../../types/feature-revision";
 import { parseJsonSchemaForEnterprise, validateEnvKeys } from "./postFeature";
 
 export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
@@ -102,6 +105,48 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
         })
       );
       addIdsToRules(updates.environmentSettings, feature.id);
+    }
+
+    // Create a revision for the changes and publish them immediately
+    if ("defaultValue" in updates || "environmentSettings" in updates) {
+      const revisionChanges: Partial<FeatureRevisionInterface> = {};
+
+      let hasChanges = false;
+      if (
+        "defaultValue" in updates &&
+        updates.defaultValue !== feature.defaultValue
+      ) {
+        revisionChanges.defaultValue = updates.defaultValue;
+        hasChanges = true;
+      }
+      if (updates.environmentSettings) {
+        Object.entries(updates.environmentSettings).forEach(
+          ([env, settings]) => {
+            if (
+              !isEqual(
+                settings.rules,
+                feature.environmentSettings?.[env]?.rules || []
+              )
+            ) {
+              hasChanges = true;
+              revisionChanges.rules = revisionChanges.rules || {};
+              revisionChanges.rules[env] = settings.rules;
+            }
+          }
+        );
+      }
+
+      if (hasChanges) {
+        const revision = await createRevision({
+          feature,
+          user: req.eventAudit,
+          baseVersion: feature.version,
+          comment: "Created via REST API",
+          publish: true,
+          changes: revisionChanges,
+        });
+        updates.version = revision.version;
+      }
     }
 
     const updatedFeature = await updateFeatureToDb(

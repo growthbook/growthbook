@@ -3,11 +3,11 @@ import { PythonShell } from "python-shell";
 import {
   DEFAULT_P_VALUE_THRESHOLD,
   DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
-  DEFAULT_STATS_ENGINE,
 } from "shared/constants";
 import { putBaselineVariationFirst } from "shared/util";
 import { ExperimentMetricInterface } from "shared/experiments";
-import { ExperimentMetricAnalysis, StatsEngine } from "../../types/stats";
+import { hoursBetween } from "shared/dates";
+import { ExperimentMetricAnalysis } from "../../types/stats";
 import {
   ExperimentMetricQueryResponseRows,
   ExperimentResults,
@@ -15,12 +15,12 @@ import {
 import {
   ExperimentReportResultDimension,
   ExperimentReportResults,
-  ExperimentReportVariation,
 } from "../../types/report";
 import { promiseAllChunks } from "../util/promise";
 import { checkSrm } from "../util/stats";
 import { logger } from "../util/logger";
 import {
+  ExperimentMetricAnalysisParams,
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotSettings,
 } from "../../types/experiment-snapshot";
@@ -29,16 +29,22 @@ import { QueryMap } from "../queryRunners/QueryRunner";
 export const MAX_DIMENSIONS = 20;
 
 export async function analyzeExperimentMetric(
-  variations: ExperimentReportVariation[],
-  metric: ExperimentMetricInterface,
-  rows: ExperimentMetricQueryResponseRows,
-  dimension: string | null = null,
-  statsEngine: StatsEngine = DEFAULT_STATS_ENGINE,
-  sequentialTestingEnabled: boolean = false,
-  sequentialTestingTuningParameter: number = DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
-  baselineVariationIndex: number | null = null,
-  pValueThreshold: number = DEFAULT_P_VALUE_THRESHOLD
+  params: ExperimentMetricAnalysisParams
 ): Promise<ExperimentMetricAnalysis> {
+  const {
+    variations,
+    metric,
+    rows,
+    dimension,
+    baselineVariationIndex,
+    differenceType,
+    phaseLengthHours,
+    coverage,
+    statsEngine,
+    sequentialTestingEnabled,
+    sequentialTestingTuningParameter,
+    pValueThreshold,
+  } = params;
   if (!rows || !rows.length) {
     return {
       unknownVariations: [],
@@ -60,6 +66,13 @@ export async function analyzeExperimentMetric(
     DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER;
   const pValueThresholdNumber =
     Number(pValueThreshold) || DEFAULT_P_VALUE_THRESHOLD;
+  let differenceTypeString = "DifferenceType.RELATIVE";
+  if (differenceType == "absolute") {
+    differenceTypeString = "DifferenceType.ABSOLUTE";
+  } else if (differenceType == "scaled") {
+    differenceTypeString = "DifferenceType.SCALED";
+  }
+  const phaseLengthDays = Number(phaseLengthHours / 24);
   const result = await promisify(PythonShell.runString)(
     `
 from gbstats.gbstats import (
@@ -70,14 +83,14 @@ from gbstats.gbstats import (
   reduce_dimensionality,
   format_results
 )
-from gbstats.shared.constants import StatsEngine
+from gbstats.shared.constants import DifferenceType, StatsEngine
 import pandas as pd
 import json
 
 data = json.loads("""${JSON.stringify({
       var_id_map: variationIdMap,
       var_names: sortedVariations.map((v) => v.name),
-      weights: sortedVariations.map((v) => v.weight),
+      weights: sortedVariations.map((v) => v.weight * coverage),
       baseline_index: baselineVariationIndex ?? 0,
       ignore_nulls: "ignoreNulls" in metric && !!metric.ignoreNulls,
       inverse: !!metric.inverse,
@@ -113,7 +126,7 @@ df = get_metric_df(
 
 reduced = reduce_dimensionality(
   df=df, 
-  max=max_dimensions
+  max=max_dimensions,
 )
 
 engine_config=${
@@ -121,6 +134,8 @@ engine_config=${
         ? `{'sequential': True, 'sequential_tuning_parameter': ${sequentialTestingTuningParameterNumber}}`
         : "{}"
     }
+engine_config['difference_type'] = ${differenceTypeString}
+engine_config['phase_length_days'] = ${phaseLengthDays}
 ${
   statsEngine === "frequentist" && pValueThresholdNumber
     ? `engine_config['alpha'] = ${pValueThresholdNumber}`
@@ -237,20 +252,29 @@ export async function analyzeExperimentResults({
       const metric = metricMap.get(data.metric);
       return async () => {
         if (!metric) return;
-        const result = await analyzeExperimentMetric(
-          snapshotSettings.variations.map((v, i) => ({
+        const result = await analyzeExperimentMetric({
+          variations: snapshotSettings.variations.map((v, i) => ({
             ...v,
             name: variationNames[i] || v.id,
           })),
-          metric,
-          data.rows,
-          analysisSettings.dimensions[0],
-          analysisSettings.statsEngine,
-          analysisSettings.sequentialTesting,
-          analysisSettings.sequentialTestingTuningParameter,
-          analysisSettings.baselineVariationIndex,
-          analysisSettings.pValueThreshold
-        );
+          metric: metric,
+          rows: data.rows,
+          dimension: analysisSettings.dimensions[0],
+          baselineVariationIndex: analysisSettings.baselineVariationIndex ?? 0,
+          differenceType: analysisSettings.differenceType,
+          coverage: snapshotSettings.coverage || 1,
+          phaseLengthHours: Math.max(
+            hoursBetween(snapshotSettings.startDate, snapshotSettings.endDate),
+            1
+          ),
+          statsEngine: analysisSettings.statsEngine,
+          sequentialTestingEnabled: analysisSettings.sequentialTesting ?? false,
+          sequentialTestingTuningParameter:
+            analysisSettings.sequentialTestingTuningParameter ??
+            DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
+          pValueThreshold:
+            analysisSettings.pValueThreshold ?? DEFAULT_P_VALUE_THRESHOLD,
+        });
         unknownVariations = unknownVariations.concat(result.unknownVariations);
         multipleExposures = Math.max(
           multipleExposures,

@@ -29,6 +29,7 @@ const baseFeature: FeatureInterface = {
   valueType: "boolean" as const,
   archived: false,
   description: "",
+  version: 1,
   environmentSettings: {
     dev: {
       enabled: true,
@@ -795,21 +796,8 @@ describe("Detecting Feature Changes", () => {
     expect(getSDKPayloadKeysByDiff(feature, updatedFeature)).toEqual([]);
 
     updatedFeature.description = "New description";
-    updatedFeature.draft = {
-      active: true,
-    };
     updatedFeature.owner = "new owner";
     updatedFeature.tags = ["a"];
-    updatedFeature.revision = {
-      comment: "",
-      date: new Date(),
-      publishedBy: {
-        email: "",
-        id: "",
-        name: "",
-      },
-      version: 1,
-    };
     updatedFeature.dateUpdated = new Date();
 
     expect(getSDKPayloadKeysByDiff(feature, updatedFeature)).toEqual([]);
@@ -1032,7 +1020,6 @@ describe("SDK Payloads", () => {
         environment: "production",
         groupMap: groupMap,
         experimentMap: experimentMap,
-        useDraft: false,
       })
     ).toEqual({
       defaultValue: true,
@@ -1073,7 +1060,6 @@ describe("SDK Payloads", () => {
         environment: "production",
         groupMap: groupMap,
         experimentMap: experimentMap,
-        useDraft: false,
       })
     ).toEqual({
       defaultValue: true,
@@ -1088,7 +1074,6 @@ describe("SDK Payloads", () => {
         environment: "production",
         groupMap: groupMap,
         experimentMap: experimentMap,
-        useDraft: false,
       })
     ).toEqual({
       defaultValue: true,
@@ -1102,7 +1087,6 @@ describe("SDK Payloads", () => {
         environment: "production",
         groupMap: groupMap,
         experimentMap: experimentMap,
-        useDraft: false,
       })
     ).toEqual({
       defaultValue: true,
@@ -1129,7 +1113,6 @@ describe("SDK Payloads", () => {
         environment: "production",
         groupMap: groupMap,
         experimentMap: experimentMap,
-        useDraft: false,
       })
     ).toEqual({
       defaultValue: true,
@@ -1145,7 +1128,6 @@ describe("SDK Payloads", () => {
         environment: "production",
         groupMap: groupMap,
         experimentMap: experimentMap,
-        useDraft: false,
       })
     ).toEqual({
       defaultValue: true,
@@ -1159,7 +1141,6 @@ describe("SDK Payloads", () => {
         environment: "production",
         groupMap: groupMap,
         experimentMap: experimentMap,
-        useDraft: false,
       })
     ).toEqual(null);
 
@@ -1169,7 +1150,6 @@ describe("SDK Payloads", () => {
         environment: "unknown",
         groupMap: groupMap,
         experimentMap: experimentMap,
-        useDraft: false,
       })
     ).toEqual(null);
 
@@ -1244,7 +1224,6 @@ describe("SDK Payloads", () => {
         environment: "dev",
         groupMap: groupMap,
         experimentMap: experimentMap,
-        useDraft: false,
       })
     ).toEqual({
       defaultValue: true,
