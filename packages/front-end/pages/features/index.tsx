@@ -43,6 +43,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import Field from "@/components/Forms/Field";
 import { useUser } from "@/services/UserContext";
 import useSDKConnections from "@/hooks/useSDKConnections";
+import StaleFeatureIcon from "@/components/StaleFeatureIcon";
 
 const NUM_PER_PAGE = 20;
 
@@ -407,13 +408,7 @@ export default function FeaturesPage() {
                       </td>
                     )}
                     <td style={{ textAlign: "center" }}>
-                      {stale && (
-                        <Tooltip
-                          body={`This feature has been marked stale. ${staleReason}`}
-                        >
-                          <FaTriangleExclamation className="text-warning" />
-                        </Tooltip>
-                      )}
+                      {stale && <StaleFeatureIcon staleReason={staleReason} />}
                     </td>
                     <td>
                       <MoreMenu>

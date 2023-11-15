@@ -13,7 +13,12 @@ import {
   FaTimes,
 } from "react-icons/fa";
 import { ago, date, datetime } from "shared/dates";
-import { autoMerge, getValidation, mergeRevision } from "shared/util";
+import {
+  autoMerge,
+  getValidation,
+  isFeatureStale,
+  mergeRevision,
+} from "shared/util";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import { MdHistory, MdRocketLaunch } from "react-icons/md";
 import { FaPlusMinus } from "react-icons/fa6";
@@ -71,6 +76,7 @@ import FixConflictsModal from "@/components/Features/FixConflictsModal";
 import Revisionlog from "@/components/Features/RevisionLog";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import { SimpleTooltip } from "@/components/SimpleTooltip/SimpleTooltip";
+import StaleFeatureIcon from "@/components/StaleFeatureIcon";
 
 export default function FeaturePage() {
   const router = useRouter();
@@ -272,6 +278,8 @@ export default function FeaturePage() {
     "createFeatureDrafts",
     feature.project
   );
+
+  const { stale, reason } = isFeatureStale(feature, data.experiments);
 
   return (
     <div className="contents container-fluid pagecontents">
@@ -488,8 +496,13 @@ export default function FeaturePage() {
       )}
 
       <div className="row align-items-center mb-2">
-        <div className="col-auto">
+        <div className="col-auto d-flex align-items-center">
           <h1 className="mb-0">{fid}</h1>
+          {stale && (
+            <div className="ml-2">
+              <StaleFeatureIcon staleReason={reason} />
+            </div>
+          )}
         </div>
         <div style={{ flex: 1 }} />
         <div className="col-auto">

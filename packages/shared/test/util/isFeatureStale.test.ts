@@ -654,7 +654,7 @@ describe("isFeatureStale", () => {
             describe("and has been updated within past two weeks", () => {
               it("is not stale", () => {
                 feature.dateUpdated = subWeeks(new Date(), 1);
-                expect(isFeatureStale(feature, experiments)).toEqual({
+                expect(isFeatureStale(feature)).toEqual({
                   stale: false,
                 });
               });
@@ -662,7 +662,7 @@ describe("isFeatureStale", () => {
             describe("and has not been updated within past two weeks", () => {
               it("is not stale", () => {
                 feature.dateUpdated = subWeeks(new Date(), 3);
-                expect(isFeatureStale(feature, experiments)).toEqual({
+                expect(isFeatureStale(feature)).toEqual({
                   stale: false,
                 });
               });
@@ -888,7 +888,7 @@ describe("isFeatureStale", () => {
             describe("and has been updated within past two weeks", () => {
               it("is not stale", () => {
                 feature.dateUpdated = subWeeks(new Date(), 1);
-                expect(isFeatureStale(feature, experiments)).toEqual({
+                expect(isFeatureStale(feature)).toEqual({
                   stale: false,
                 });
               });
@@ -896,7 +896,7 @@ describe("isFeatureStale", () => {
             describe("and has not been updated within past two weeks", () => {
               it("is not stale", () => {
                 feature.dateUpdated = subWeeks(new Date(), 3);
-                expect(isFeatureStale(feature, experiments)).toEqual({
+                expect(isFeatureStale(feature)).toEqual({
                   stale: false,
                 });
               });
@@ -1083,6 +1083,24 @@ describe("isFeatureStale", () => {
     describe("but no experiments are supplied to isFeatureStale util fn", () => {
       it("should fail silently and return false", () => {
         expect(isFeatureStale(feature)).toEqual({
+          stale: false,
+          reason: "error",
+        });
+      });
+    });
+
+    describe("but the experiments passed in are the wrong experiments (not linked ones)", () => {
+      let experiments: ExperimentInterfaceStringDates[];
+      beforeEach(() => {
+        experiments = [
+          genMockExperiment({ id: "exp_a", status: "running" }),
+          genMockExperiment({ id: "exp_b", status: "stopped" }),
+          genMockExperiment({ id: "exp_c", status: "draft" }),
+        ];
+        feature.linkedExperiments = ["exp_1", "exp_2", "exp_3"];
+      });
+      it("should fail silently and return false", () => {
+        expect(isFeatureStale(feature, experiments)).toEqual({
           stale: false,
           reason: "error",
         });

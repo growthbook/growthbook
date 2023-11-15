@@ -146,9 +146,8 @@ export function validateFeatureValue(
   return value;
 }
 
-type StaleFeatureReason =
+export type StaleFeatureReason =
   | "error"
-  | "draft-state"
   | "no-rules"
   | "no-active-exps"
   | "rules-one-sided";
@@ -190,9 +189,18 @@ export function isFeatureStale(
   feature: FeatureInterface,
   linkedExperiments: ExperimentInterfaceStringDates[] | undefined = []
 ): { stale: boolean; reason?: StaleFeatureReason } {
-  if (feature.linkedExperiments?.length && !linkedExperiments.length) {
+  if (feature.linkedExperiments?.length !== linkedExperiments.length) {
     // eslint-disable-next-line no-console
-    console.error("isFeatureStale: linkedExperiments not provided");
+    console.error("isFeatureStale: linkedExperiments length mismatch");
+    return { stale: false, reason: "error" };
+  }
+
+  const linkedExperimentIds = linkedExperiments.map((e) => e.id);
+  if (
+    !linkedExperimentIds.every((id) => feature.linkedExperiments?.includes(id))
+  ) {
+    // eslint-disable-next-line no-console
+    console.error("isFeatureStale: linkedExperiments id mismatch");
     return { stale: false, reason: "error" };
   }
 
@@ -221,6 +229,7 @@ export function isFeatureStale(
       (r) => r.type === "experiment" || r.type === "experiment-ref"
     )
   ) {
+    // TODO add test for experiments that are draft or stopped
     const noExpsActive =
       !!linkedExperiments.length &&
       !linkedExperiments.some((e) => includeExperimentInPayload(e));
