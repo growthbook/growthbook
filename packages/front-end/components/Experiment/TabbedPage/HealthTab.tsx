@@ -2,6 +2,7 @@ import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { useMemo, useState } from "react";
 import { getValidDate } from "shared/dates";
 import Toggle from "@/components/Forms/Toggle";
+import HealthDrawer from "@/components/HealthTab/HealthDrawer";
 import { useSnapshot } from "../SnapshotProvider";
 import MultipleExposureWarning from "../MultipleExposureWarning";
 import ExperimentDateGraph, {
@@ -90,6 +91,8 @@ export default function HealthTab({ experiment }: Props) {
     loading: snapshotLoading,
   } = useSnapshot();
 
+  const [balanceCheckOpen, setBalanceCheckOpen] = useState(false);
+
   //TODO: grab "" dimension and "pre:date" dimension
 
   const [totalUsers, variationUsers] = useMemo(() => {
@@ -119,17 +122,24 @@ export default function HealthTab({ experiment }: Props) {
         users={variationUsers}
         multipleExposures={123456}
       />
-      <UnitCountDateGraph
+      {/* <UnitCountDateGraph
         results={analysis?.results ?? []}
         seriestype={snapshot?.dimension ?? ""}
         variations={variations}
-      />
-      <VariationUsersTable
-        users={variationUsers}
-        variations={variations}
-        srm={analysis?.results[0].srm} // Why do we use the 0-index?
-        hasHealthData
-      />
+      /> */}
+      <HealthDrawer
+        title="Experiment Balance Check"
+        status="healthy"
+        open={balanceCheckOpen}
+        handleOpen={setBalanceCheckOpen}
+      >
+        <VariationUsersTable
+          users={variationUsers}
+          variations={variations}
+          srm={analysis?.results[0].srm} // Why do we use the 0-index?
+          hasHealthData
+        />{" "}
+      </HealthDrawer>
     </>
   );
 }

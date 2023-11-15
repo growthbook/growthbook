@@ -4,6 +4,7 @@ import {
 } from "back-end/types/experiment";
 import { FaHome } from "react-icons/fa";
 import { PiChartBarHorizontalFill } from "react-icons/pi";
+import { FaMagnifyingGlassChart } from "react-icons/fa6";
 import { useRouter } from "next/router";
 import { getAffectedEnvsForExperiment } from "shared/util";
 import React, { useState } from "react";
@@ -383,7 +384,7 @@ export default function ExperimentHeader({
                   active={tab === "health"}
                   display={
                     <>
-                      <PiChartBarHorizontalFill /> Health
+                      <FaMagnifyingGlassChart /> Health
                     </>
                   }
                   anchor="health"

@@ -1,8 +1,8 @@
 import { ExperimentReportVariation } from "back-end/types/report";
 import { FaCheck, FaExclamationTriangle } from "react-icons/fa";
 import clsx from "clsx";
-import { SRM_THRESHOLD } from "../SRMWarning";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import { SRM_THRESHOLD } from "../SRMWarning";
 
 export interface Props {
   variations: ExperimentReportVariation[];
@@ -45,7 +45,6 @@ export default function VariationUsersTable({
 
   return (
     <>
-      <h2>Experiment Balance Check</h2>
       <table className="table mx-2 mt-0 mb-3" style={{ width: "auto" }}>
         <thead>
           <tr>
