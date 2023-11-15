@@ -99,7 +99,6 @@ export default function NewExperimentChecklistItem({
             autoFocus
             type="url"
             helpText="Add a URL to this task to help your team complete this task."
-            {...newTaskInput}
             onKeyDown={(e) => {
               if (e.key === "Enter") {
                 e.preventDefault();
