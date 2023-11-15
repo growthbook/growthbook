@@ -119,7 +119,8 @@ export default function SRMDrawer({ traffic, variations, totalUsers }: Props) {
             traffic within your datasource&apos;s experiment assignment query.
             If you&apos;d like to be able to view traffic breakdown by
             dimension, please edit your experiment assignment query and add the
-            dimensions you&apos;d like to support under `Dimensions for Traffic`
+            dimensions you&apos;d like to support under `Dimensions to use in
+            traffic breakdowns`
           </div>
         )}
         <div className="row justify-content-between mb-2">
