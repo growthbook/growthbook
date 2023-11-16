@@ -1,5 +1,6 @@
 import { AppProps } from "next/app";
 import "../styles/global.scss";
+import "../styles/tailwind.css";
 import Head from "next/head";
 import { useEffect, useState } from "react";
 import { GrowthBook, GrowthBookProvider } from "@growthbook/growthbook-react";
