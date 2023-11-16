@@ -136,12 +136,13 @@ export default function HealthTab({ experiment }: Props) {
   if (snapshot?.health?.traffic.error === "TOO_MANY_ROWS") {
     return (
       <div className="alert alert-danger mt-3">
-        Your selected dimensions for the health breakdown have too many slices
-        to be computed. Please go to your{" "}
-        <Link href={"/datasources/"}>
-          <a>Datasource Settings</a>
+        Please update your{" "}
+        <Link href={`/datasources/${experiment.datasource}`}>
+          Datasource Settings
         </Link>{" "}
-        and select fewer dimensions
+        to return fewer dimension slices per dimension or select fewer
+        dimensions to use in traffic breakdowns. For more advice, see the
+        documentation on the Health Tab <a>here</a>.
       </div>
     );
   }
