@@ -215,6 +215,7 @@ const columns: ColumnInterface[] = (columnConfigData as ColumnConfig[]).map(
     autoDetected: false,
     description: "",
     filters: [],
+    deleted: false,
     ...f,
   })
 );
@@ -474,6 +475,7 @@ engines.forEach((engine) => {
         phaseIndex: 0,
         settings: {
           dimensions: dimensionId ? [dimensionId] : [],
+          differenceType: "relative",
           statsEngine: "frequentist",
           pValueCorrection: null,
           regressionAdjusted: metric.regressionAdjustmentEnabled ?? false,
@@ -499,7 +501,7 @@ engines.forEach((engine) => {
         activationMetric: activationMetric,
         denominatorMetrics: denominatorMetrics,
         factTableMap: factTableMap,
-        dimension: dimension,
+        dimensions: dimension ? [dimension] : [],
         segment: segment,
         useUnitsTable: false,
       });
@@ -511,7 +513,7 @@ engines.forEach((engine) => {
       });
 
       // pipeline version
-      const pipelineEnabled = ["bigquery"];
+      const pipelineEnabled = ["bigquery", "snowflake"];
       if (pipelineEnabled.includes(engine)) {
         const unitsTableFullName = `${
           engine === "bigquery" ? "sample." : ""
@@ -520,7 +522,7 @@ engines.forEach((engine) => {
           settings: snapshotSettings,
           activationMetric: activationMetric,
           factTableMap: factTableMap,
-          dimension: dimension,
+          dimensions: dimension ? [dimension] : [],
           segment: segment,
           unitsTableFullName: unitsTableFullName,
           includeIdJoins: true,
@@ -531,7 +533,7 @@ engines.forEach((engine) => {
           activationMetric: activationMetric,
           denominatorMetrics: denominatorMetrics,
           factTableMap: factTableMap,
-          dimension: dimension,
+          dimensions: dimension ? [dimension] : [],
           segment: segment,
           useUnitsTable: true,
           unitsTableFullName: unitsTableFullName,
