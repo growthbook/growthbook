@@ -59,6 +59,7 @@ export interface FeatureInterface {
   legacyDraft?: FeatureRevisionInterface | null;
   /** @deprecated */
   legacyDraftMigrated?: boolean;
+  neverStale?: boolean;
 }
 type ScheduleRule = {
   timestamp: string | null;

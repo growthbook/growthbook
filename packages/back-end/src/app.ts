@@ -547,6 +547,10 @@ app.post(
 );
 app.post("/feature/:id/:version/eval", featuresController.postFeatureEvaluate);
 app.get("/usage/features", featuresController.getRealtimeUsage);
+app.post(
+  "/feature/:id/toggleStaleDetection",
+  featuresController.toggleStaleFFDetectionForFeature
+);
 
 // Data Sources
 app.get("/datasources", datasourcesController.getDataSources);
