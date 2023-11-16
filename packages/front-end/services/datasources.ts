@@ -673,6 +673,30 @@ export function validateSQL(sql: string, requiredColumns: string[]): void {
   }
 }
 
+export function validateKQL(kql: string, requiredColumns: string[]): void {
+  if (!kql) throw new Error("KQL cannot be empty");
+
+  // VALIDATE KQL
+
+  if (kql.match(/;(\s|\n)*$/)) {
+    throw new Error(
+      "Don't end your KQL statements with semicolons since it will break our generated queries"
+    );
+  }
+
+  const missingCols = requiredColumns.filter(
+    (col) => !kql.toLowerCase().includes(col.toLowerCase())
+  );
+
+  if (missingCols.length > 0) {
+    throw new Error(
+      `Missing the following required columns: ${missingCols
+        .map((col) => '"' + col + '"')
+        .join(", ")}`
+    );
+  }
+}
+
 export function checkDatasourceProjectPermissions(
   datasource: DataSourceInterfaceWithParams,
   permissions: Record<GlobalPermission, boolean> & PermissionFunctions,

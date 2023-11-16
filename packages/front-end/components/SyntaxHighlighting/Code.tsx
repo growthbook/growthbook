@@ -37,7 +37,8 @@ export type Language =
   | "xml"
   | "dart"
   | "csharp"
-  | "java";
+  | "java"
+  | "kusto";
 
 const LanguageDisplay: Record<string, string> = {
   sh: "Terminal",

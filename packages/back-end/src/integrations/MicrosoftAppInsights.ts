@@ -1,7 +1,7 @@
 import https from "https";
 import fetch from "node-fetch";
 import cloneDeep from "lodash/cloneDeep";
-import { getValidDate } from "shared";
+import { getValidDate } from "shared/dates";
 import { DimensionInterface } from "../../types/dimension";
 import {
   SourceIntegrationInterface,
@@ -818,21 +818,6 @@ export default abstract class MicrosoftAppInsights
   }
 
   async runPastExperimentQuery(): Promise<PastExperimentQueryResponse> {
-    // const rows = await this.runQuery();
-
-    // return rows.map((row) => {
-    //   return {
-    //     exposure_query: row.exposure_query,
-    //     experiment_id: row.experiment_id,
-    //     experiment_name: row.experiment_name,
-    //     variation_id: row.variation_id ?? "",
-    //     variation_name: row.variation_name,
-    //     users: parseInt(row.users) || 0,
-    //     end_date: this.convertDate(row.end_date).toISOString(),
-    //     start_date: this.convertDate(row.start_date).toISOString(),
-    //   };
-    // });
-
     return { rows: [] };
   }
 
