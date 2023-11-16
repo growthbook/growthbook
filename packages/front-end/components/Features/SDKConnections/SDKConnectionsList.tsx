@@ -118,7 +118,7 @@ export default function SDKConnectionsList() {
                     )}
                   </td>
                   <td className="text-break">
-                    <Link href={`/sdks/${connection.id}`}>
+                    <Link href={`/sdks/${connection.id}`} legacyBehavior>
                       {connection.name}
                     </Link>
                   </td>

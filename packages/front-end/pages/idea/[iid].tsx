@@ -134,9 +134,8 @@ const IdeaPage = (): ReactElement => {
       <div className="mb-2 mt-2 row d-flex">
         <div className="col-auto">
           <Link href="/ideas">
-            <a>
-              <FaAngleLeft /> All Ideas
-            </a>
+            <FaAngleLeft />
+            All Ideas
           </Link>
         </div>
         {idea.archived && (
@@ -215,10 +214,8 @@ const IdeaPage = (): ReactElement => {
         <div className="bg-white border border-info p-3 mb-3">
           <div className="d-flex">
             <strong className="mr-3">Linked Experiment: </strong>
-            <Link href={`/experiment/${data.experiment.id}`}>
-              <a className="mr-3">
-                <FaExternalLinkAlt /> {data.experiment.name}
-              </a>
+            <Link href={`/experiment/${data.experiment.id}`} className="mr-3">
+              <FaExternalLinkAlt /> {data.experiment.name}
             </Link>
             {data.experiment.status && (
               <StatusIndicator

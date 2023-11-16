@@ -48,9 +48,8 @@ export const EventWebHookDetail: FC<EventWebHookDetailProps> = ({
     <div>
       <div className="mb-3">
         <Link href="/settings/webhooks">
-          <a>
-            <FaAngleLeft /> All Webhooks
-          </a>
+          <FaAngleLeft />
+          All Webhooks
         </Link>
       </div>
 

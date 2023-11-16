@@ -99,8 +99,8 @@ const ReportsPage = (): React.ReactElement => {
           <li>Select &quot;ad-hoc report&quot;</li>
         </ol>
 
-        <Link href="/experiments">
-          <a className="btn btn-primary mb-2">Go to Experiments</a>
+        <Link href="/experiments" className="btn btn-primary mb-2">
+          Go to Experiments
         </Link>
 
         <p>
@@ -159,8 +159,11 @@ const ReportsPage = (): React.ReactElement => {
               style={{ cursor: "pointer" }}
             >
               <td>
-                <Link href={`/report/${report.id}`}>
-                  <a className={`text-dark font-weight-bold`}>{report.title}</a>
+                <Link
+                  href={`/report/${report.id}`}
+                  className={`text-dark font-weight-bold`}
+                >
+                  {report.title}
                 </Link>
               </td>
               <td

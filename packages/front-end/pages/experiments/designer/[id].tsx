@@ -671,10 +671,11 @@ const EditorPage: FC = () => {
       <div className={clsx(styles.topBar, "px-2 bg-dark text-light")}>
         <div className="row align-items-center h-100">
           <div className="col-auto">
-            <Link href={`/experiment/${data.experiment.id}`}>
-              <a className="text-light">
-                <FaChevronLeft />
-              </a>
+            <Link
+              href={`/experiment/${data.experiment.id}`}
+              className="text-light"
+            >
+              <FaChevronLeft />
             </Link>
           </div>
           <div className="col-auto text-left pl-0">

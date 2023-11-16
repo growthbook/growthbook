@@ -72,8 +72,11 @@ const HeaderResult: FC<{
       {status === "danger" && <FaExclamation className="mr-1" />}
       {status === "secondary" && <FaQuestionCircle className="mr-1" />}
       <Tooltip body={<MetricTooltipBody metric={metric} />} tipPosition="right">
-        <Link href={getMetricLink(metric.id)}>
-          <a className="text-black-50 font-weight-bold">{metric.name}</a>
+        <Link
+          href={getMetricLink(metric.id)}
+          className="text-black-50 font-weight-bold"
+        >
+          {metric.name}
         </Link>
       </Tooltip>
     </div>

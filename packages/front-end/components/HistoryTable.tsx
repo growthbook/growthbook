@@ -32,11 +32,7 @@ function EventDetails({
 
   // Link to ad-hoc report
   if (eventType === "experiment.analysis" && json.report) {
-    return (
-      <Link href={`/report/${json.report}`}>
-        <a>View Report</a>
-      </Link>
-    );
+    return <Link href={`/report/${json.report}`}>View Report</Link>;
   }
 
   // Diff (create, update, delete)
@@ -128,7 +124,15 @@ export function HistoryTableRow({
         <td title={datetime(event.dateCreated)}>{ago(event.dateCreated)}</td>
         {showType && <td>{event.entity.object}</td>}
         {showName && (
-          <td>{url ? <Link href={url}>{displayName}</Link> : displayName}</td>
+          <td>
+            {url ? (
+              <Link href={url} legacyBehavior>
+                {displayName}
+              </Link>
+            ) : (
+              displayName
+            )}
+          </td>
         )}
         <td>{userDisplay}</td>
         <td>{event.event}</td>

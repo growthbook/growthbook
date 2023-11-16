@@ -168,10 +168,7 @@ const ImpactModal: FC<{
           !possibleSegments?.length ? (
             <>
               No segments defined for the selected metric&apos;s datasource.{" "}
-              <Link href="/segments">
-                <a>Add Segments</a>
-              </Link>
-              .
+              <Link href="/segments">Add Segments</Link>.
             </>
           ) : null
         }

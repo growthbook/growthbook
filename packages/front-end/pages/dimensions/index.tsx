@@ -157,7 +157,10 @@ const DimensionsPage: FC = () => {
                       <td className="d-none d-sm-table-cell">
                         {datasource && (
                           <>
-                            <Link href={`/datasources/${datasource.id}`}>
+                            <Link
+                              href={`/datasources/${datasource.id}`}
+                              legacyBehavior
+                            >
                               {datasource.name}
                             </Link>{" "}
                             {datasource.description ? (
@@ -242,8 +245,8 @@ const DimensionsPage: FC = () => {
           settings.
         </p>
 
-        <Link href="/datasources">
-          <a className="btn btn-outline-primary">View Data Sources</a>
+        <Link href="/datasources" className="btn btn-outline-primary">
+          View Data Sources
         </Link>
       </div>
     </div>
