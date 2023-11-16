@@ -37,7 +37,7 @@ jobs:
           cache: 'pip'
 
       - name: Cache eslint
-				uses: buildjet/cache@v3
+        uses: buildjet/cache@v3
         with:
           path: ${{ github.workspace }}/.eslintcache
           key: ${{ runner.os }}-eslint-${{ hashFiles('**/yarn.lock') }}-${{ hashFiles('**/*.ts', '**/*.tsx') }}
