@@ -16,6 +16,7 @@
   --text-dark: #343a40; // default Bootstrap .text-dark
   --text-link-color: #007bff; // default Bootstrap
   --text-link-hover-color: #0056b3; // default Bootstrap
+  --text-hover-color: #{colors.$black};
   --text-color-muted: #{colors.$gray-600};
   --text-color-on-bright: #{colors.$white};
   --text-color-primary: #{colors.$highlight-purple};
@@ -115,6 +116,7 @@
   --text-dark: #{colors.$gray6};
   --text-link-color: #{lighten(#007bff, 20%)};
   --text-link-hover-color: #{lighten(#007bff, 10%)};
+  --text-hover-color: #{colors.$black};
   --text-color-muted: #{colors.$gray-500};
   --text-color-on-bright: #{colors.$black};
   --text-color-primary: #{colors.$highlight-purple-light};

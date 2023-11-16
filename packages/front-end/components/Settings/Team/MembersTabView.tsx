@@ -129,7 +129,7 @@ export const MembersTabView: FC = () => {
           numUsersInAccount={organization.members?.length || 0}
         />
       )}
-      {!hasCommercialFeature("sso") ? <UpdateDefaultRoleForm /> : null}
+      {hasCommercialFeature("sso") ? <UpdateDefaultRoleForm /> : null}
     </div>
   );
 };

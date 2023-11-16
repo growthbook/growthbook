@@ -16,6 +16,7 @@ export type EventType =
   | "experiment.screenshot.create"
   | "experiment.screenshot.delete"
   | "experiment.refresh"
+  | "experiment.launchChecklist.updated"
   | "feature.create"
   | "feature.publish"
   | "feature.revert"

@@ -67,7 +67,7 @@ export default function MetricValueColumn({
         metric.denominator,
         getFactTableById,
         ratioMetric
-      )(numeratorValue, formatterOptions);
+      )(denominatorValue, formatterOptions);
     }
   } else {
     numerator = getMetricFormatter(
