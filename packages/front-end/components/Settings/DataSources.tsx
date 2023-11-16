@@ -74,7 +74,9 @@ const DataSources: FC = () => {
                 }}
               >
                 <td>
-                  <Link href={`/datasources/${d.id}`}>{d.name}</Link>{" "}
+                  <Link href={`/datasources/${d.id}`} legacyBehavior>
+                    {d.name}
+                  </Link>{" "}
                   {d.decryptionError && (
                     <Tooltip
                       body={
@@ -134,8 +136,8 @@ const DataSources: FC = () => {
             <>
               <p>
                 You can also create a{" "}
-                <Link href="/demo-datasource-project">
-                  <a className="info">demo datasource project</a>
+                <Link href="/demo-datasource-project" className="info">
+                  demo datasource project
                 </Link>
                 .
               </p>

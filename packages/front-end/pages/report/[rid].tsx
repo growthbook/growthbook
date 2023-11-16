@@ -217,9 +217,8 @@ export default function ReportPage() {
         <div className="mb-3">
           {report?.experimentId && (
             <Link href={`/experiment/${report.experimentId}#results`}>
-              <a>
-                <GBCircleArrowLeft /> Go to experiment results
-              </a>
+              <GBCircleArrowLeft />
+              Go to experiment results
             </Link>
           )}
           {permissions.check("createAnalyses", "") &&

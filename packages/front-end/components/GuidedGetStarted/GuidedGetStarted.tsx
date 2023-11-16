@@ -73,10 +73,8 @@ export default function GuidedGetStarted({
       additionalCta: (
         <>
           {permissions.manageTeam && (
-            <Link href="/settings/team">
-              <a className="font-weight-bold">
-                Not an engineer? Invite a developer to get started.
-              </a>
+            <Link href="/settings/team" className="font-weight-bold">
+              Not an engineer? Invite a developer to get started.
             </Link>
           )}
         </>
@@ -305,7 +303,11 @@ export default function GuidedGetStarted({
       render: (
         <div className="col-12 col-sm-8 col-lg-6">
           {permissions.check("manageTeam") ? (
-            <Link href="/settings/team" className={styles.nextStepWrapper}>
+            <Link
+              href="/settings/team"
+              className={styles.nextStepWrapper}
+              legacyBehavior
+            >
               <h2
                 role="button"
                 className={clsx("text-center p-4 m-1", styles.nextStepLink)}
@@ -314,7 +316,11 @@ export default function GuidedGetStarted({
               </h2>
             </Link>
           ) : (
-            <Link href="/features" className={styles.nextStepWrapper}>
+            <Link
+              href="/features"
+              className={styles.nextStepWrapper}
+              legacyBehavior
+            >
               <h2
                 role="button"
                 className={clsx("text-center p-4 m-1", styles.nextStepLink)}
@@ -323,7 +329,11 @@ export default function GuidedGetStarted({
               </h2>
             </Link>
           )}
-          <Link href="/experiments" className={styles.nextStepWrapper}>
+          <Link
+            href="/experiments"
+            className={styles.nextStepWrapper}
+            legacyBehavior
+          >
             <h2
               role="button"
               className={clsx("text-center p-4 m-1", styles.nextStepLink)}

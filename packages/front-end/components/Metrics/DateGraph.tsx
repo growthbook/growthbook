@@ -754,10 +754,11 @@ const DateGraph: FC<DateGraphProps> = ({
                   style={{ color: "#fff", fontSize: "12px", maxWidth: "250px" }}
                 >
                   <p className="mb-1">
-                    <Link href={`/experiment/${highlightExp.id}`}>
-                      <a style={{ color: "#b3e8ff", fontSize: "12px" }}>
-                        <strong>{highlightExp.name}</strong>
-                      </a>
+                    <Link
+                      href={`/experiment/${highlightExp.id}`}
+                      style={{ color: "#b3e8ff", fontSize: "12px" }}
+                    >
+                      <strong>{highlightExp.name}</strong>
                     </Link>
                   </p>
                   <p className="mb-1">

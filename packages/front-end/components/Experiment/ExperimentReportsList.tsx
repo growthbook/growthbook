@@ -79,10 +79,11 @@ export default function ExperimentReportsList({
                       </Tooltip>
                     ) : null}
 
-                    <Link href={`/report/${report.id}`}>
-                      <a className={`text-dark font-weight-bold`}>
-                        {report.title}
-                      </a>
+                    <Link
+                      href={`/report/${report.id}`}
+                      className={`text-dark font-weight-bold`}
+                    >
+                      {report.title}
                     </Link>
                   </div>
                 </td>
@@ -93,8 +94,8 @@ export default function ExperimentReportsList({
                     router.push(`/report/${report.id}`);
                   }}
                 >
-                  <Link href={`/report/${report.id}`}>
-                    <a className={`text-dark`}>{report.description}</a>
+                  <Link href={`/report/${report.id}`} className={`text-dark`}>
+                    {report.description}
                   </Link>
                 </td>
                 <td

@@ -48,30 +48,31 @@ export default function ExperimentList({
         return (
           <li key={i} className="w-100 hover-highlight">
             <div key={test.id} className="d-flex">
-              <Link href={`/experiment/${test.id}`}>
-                <a className="w-100 no-link-color">
-                  <div className="d-flex w-100">
-                    <div className="mb-1">
-                      <strong>{test.name}</strong>{" "}
-                    </div>
-                    <div style={{ flex: 1 }} />
-                    <div className="">
-                      <span className="purple-phase">
-                        {phaseSummary(currentPhase)}
-                      </span>
-                    </div>
+              <Link
+                href={`/experiment/${test.id}`}
+                className="w-100 no-link-color"
+              >
+                <div className="d-flex w-100">
+                  <div className="mb-1">
+                    <strong>{test.name}</strong>{" "}
                   </div>
-                  <div className="d-flex">
-                    <div className="text-muted" title={datetime(startDate)}>
-                      {ago(startDate)}
-                    </div>
-                    <div style={{ flex: 1 }} />
-                    <div>
-                      {" "}
-                      {currentPhase?.name} ({test.variations.length} variations)
-                    </div>
+                  <div style={{ flex: 1 }} />
+                  <div className="">
+                    <span className="purple-phase">
+                      {phaseSummary(currentPhase)}
+                    </span>
                   </div>
-                </a>
+                </div>
+                <div className="d-flex">
+                  <div className="text-muted" title={datetime(startDate)}>
+                    {ago(startDate)}
+                  </div>
+                  <div style={{ flex: 1 }} />
+                  <div>
+                    {" "}
+                    {currentPhase?.name} ({test.variations.length} variations)
+                  </div>
+                </div>
               </Link>
             </div>
           </li>

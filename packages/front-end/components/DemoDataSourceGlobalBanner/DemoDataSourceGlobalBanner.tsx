@@ -31,10 +31,11 @@ export const DemoDataSourceGlobalBanner: FC<DemoDataSourceGlobalBannerProps> = (
           {onDemoPage ? (
             <span className="demo-datasource-banner__text">Demo Project</span>
           ) : (
-            <Link href="/demo-datasource-project">
-              <a className="demo-datasource-banner__text text-white">
-                Demo Project
-              </a>
+            <Link
+              href="/demo-datasource-project"
+              className="demo-datasource-banner__text text-white"
+            >
+              Demo Project
             </Link>
           )}
         </div>
