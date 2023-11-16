@@ -19,7 +19,7 @@ on:
 jobs:
   # Linting, type-checking, and tests
   ci:
-    runs-on: ubuntu-latest
+    runs-on: buildjet-4vcpu-ubuntu-2204
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
@@ -37,7 +37,7 @@ jobs:
           cache: 'pip'
 
       - name: Cache eslint
-        uses: actions/cache@v2
+				uses: buildjet/cache@v3
         with:
           path: ${{ github.workspace }}/.eslintcache
           key: ${{ runner.os }}-eslint-${{ hashFiles('**/yarn.lock') }}-${{ hashFiles('**/*.ts', '**/*.tsx') }}
