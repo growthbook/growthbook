@@ -235,7 +235,7 @@ export function StartExperimentBanner({
     status: hasPhases ? "success" : "error",
   });
 
-  if (data?.checklist && data?.checklist.tasks.length > 0) {
+  if (data && data.checklist?.tasks?.length > 0) {
     data?.checklist.tasks.forEach((item) => {
       if (item.completionType === "manual") {
         manualChecklist.push({

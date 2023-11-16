@@ -1,5 +1,6 @@
 import { Response } from "express";
 import { getAffectedEnvsForExperiment } from "shared/util";
+import { accountFeatures, getAccountPlan } from "enterprise";
 import { getOrgFromReq } from "../services/organizations";
 import { AuthRequest } from "../types/AuthRequest";
 import {
@@ -21,6 +22,14 @@ export async function postExperimentLaunchChecklist(
   const { tasks, projectId } = req.body;
 
   req.checkPermissions("organizationSettings");
+
+  const commercialFeatures = [...accountFeatures[getAccountPlan(org)]];
+
+  if (!commercialFeatures.includes("custom-launch-checklist")) {
+    throw new Error(
+      "Must have a commercial License Key to customize the organization's pre-launch checklist."
+    );
+  }
 
   const existingChecklist = await getExperimentLaunchChecklist(
     org.id,
@@ -55,6 +64,15 @@ export async function getExperimentCheckListByOrg(
 ) {
   const { org } = getOrgFromReq(req);
 
+  const commercialFeatures = [...accountFeatures[getAccountPlan(org)]];
+
+  if (!commercialFeatures.includes("custom-launch-checklist")) {
+    return res.status(200).json({
+      status: 200,
+      checklist: [],
+    });
+  }
+
   const checklist = await getExperimentLaunchChecklist(org.id, "");
 
   return res.status(200).json({
@@ -75,6 +93,14 @@ export async function putExperimentLaunchChecklist(
   const { id } = req.params;
 
   req.checkPermissions("organizationSettings");
+
+  const commercialFeatures = [...accountFeatures[getAccountPlan(org)]];
+
+  if (!commercialFeatures.includes("custom-launch-checklist")) {
+    throw new Error(
+      "Must have a commercial License Key to update the organization's pre-launch checklist."
+    );
+  }
 
   const checklist = await getExperimentLaunchChecklistById(org.id, id);
 

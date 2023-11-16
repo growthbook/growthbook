@@ -271,6 +271,10 @@ const GeneralSettingsPage = (): React.ReactElement => {
     "hash-secure-attributes"
   );
 
+  const hasCustomChecklistFeature = hasCommercialFeature(
+    "custom-launch-checklist"
+  );
+
   const { metricDefaults } = useOrganizationMetricDefaults();
 
   const [upgradeModal, setUpgradeModal] = useState(false);
@@ -1296,14 +1300,22 @@ const GeneralSettingsPage = (): React.ReactElement => {
                     </Tab>
                   </ControlledTabs>
                 </div>
-
                 <div className="mb-3 form-group flex-column align-items-start">
-                  <h4>Experiment Pre-Launch Checklist</h4>
-                  <p>
+                  <PremiumTooltip
+                    className="d-flex align-items-center"
+                    commercialFeature="custom-launch-checklist"
+                    body="Custom pre-launch checklists are available to Enterprise customers"
+                  >
+                    <h4 className="mb-0 pl-1">
+                      Experiment Pre-Launch Checklist
+                    </h4>
+                  </PremiumTooltip>
+                  <p className="pt-2">
                     Configure required steps that need to be completed before an
                     experiment can be launched.
                   </p>
                   <Button
+                    disabled={!hasCustomChecklistFeature}
                     onClick={async () => {
                       setEditChecklistOpen(true);
                     }}
