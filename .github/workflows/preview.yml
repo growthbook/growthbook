@@ -16,16 +16,49 @@ jobs:
     runs-on: ubuntu-latest
     if: ${{ github.repository == 'growthbook/growthbook' }}
     steps:
-    - name: Context
-      uses: okteto/context@latest
-      with:
-        url: ${{ secrets.OKTETO_URL }}
-        token: ${{ secrets.OKTETO_TOKEN }}
+      - name: Context
+        uses: okteto/context@latest
+        with:
+          url: ${{ secrets.OKTETO_URL }}
+          token: ${{ secrets.OKTETO_TOKEN }}
 
-    - name: Deploy preview environment
-      uses: okteto/deploy-preview@latest
-      env:
-       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        name: pr-${{ github.event.number }}-bttf
-        timeout: 30m
+      - name: Deploy preview environment
+        id: deploy-preview
+        uses: okteto/deploy-preview@latest
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          name: pr-${{ github.event.number }}-bttf
+          timeout: 30m
+
+  stably-test:
+    needs: [preview]
+    name: Stably Test Runner
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        id: checkout
+        uses: actions/checkout@v4
+
+      - name: Stably Runner Action
+        id: stably-runner
+        uses: stablyhq/stably-runner-action@v3
+        with:
+          api-key: ${{ secrets.STABLY_API_KEY }}
+          run-group-ids: |-
+            clp2xrhh60001l608s1b4w4zd
+          domain-override: |-
+            https://app.growthbook.io/
+            https://growthbook-3000-pr-${{ github.event.number }}-bttf.growthbook.okteto.dev/
+
+      - name: Print Output
+        id: output
+        run: echo "${{ steps.stably-runner.outputs.success }}"
+
+      - name: Check Test Results
+        id: check-test-results
+        run: |
+          if [ "${{ steps.stably-runner.outputs.success }}" == "false" ]; then
+            echo "Atleast one test failed"
+            exit 1
+          fi
