@@ -9,7 +9,7 @@ RUN \
 
 
 # Build the nodejs app
-FROM node:16-slim AS nodebuild
+FROM node:18-slim AS nodebuild
 WORKDIR /usr/local/src/app
 # Copy over minimum files to install dependencies
 COPY package.json ./package.json
