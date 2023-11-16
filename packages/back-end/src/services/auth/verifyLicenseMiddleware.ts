@@ -18,8 +18,8 @@ export default function verifyLicenseMiddleware(
   }
 
   // Check if license is expired (2 day buffer)
-  if (license.exp) {
-    let expiresWithBuffer = new Date(license.exp);
+  if (license.dateExpires) {
+    let expiresWithBuffer = new Date(license.dateExpires);
     expiresWithBuffer = new Date(
       expiresWithBuffer.setDate(expiresWithBuffer.getDate() + 2)
     );
@@ -30,8 +30,8 @@ export default function verifyLicenseMiddleware(
   }
 
   // Validate organization id with license
-  if (req.headers["x-organization"] && license?.org) {
-    if (req.headers["x-organization"] !== license.org) {
+  if (req.headers["x-organization"] && license?.organizationId) {
+    if (req.headers["x-organization"] !== license.organizationId) {
       res.locals.licenseError = "Organization id does not match license";
       res.setHeader(
         "X-License-Error",

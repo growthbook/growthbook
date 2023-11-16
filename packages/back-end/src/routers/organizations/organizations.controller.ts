@@ -613,7 +613,10 @@ export async function getOrganization(req: AuthRequest, res: Response) {
   if (!IS_CLOUD && licenseKey) {
     // automatically set the license data based on org license key
     const licenseData = getLicense();
-    if (!licenseData || (licenseData.org && licenseData.org !== id)) {
+    if (
+      !licenseData ||
+      (licenseData.organizationId && licenseData.organizationId !== id)
+    ) {
       try {
         await initializeLicense(licenseKey);
       } catch (e) {

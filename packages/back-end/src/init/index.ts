@@ -1,7 +1,7 @@
 import { logger } from "../util/logger";
+import { initializeLicense } from "../services/licenseData";
 import mongoInit from "./mongo";
 import { queueInit } from "./queue";
-import { initializeLicense } from "../services/licenseData";
 
 let initPromise: Promise<void>;
 export async function init() {

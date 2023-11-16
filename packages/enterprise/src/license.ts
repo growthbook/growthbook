@@ -29,7 +29,24 @@ export type CommercialFeature =
   | "teams";
 export type CommercialFeaturesMap = Record<AccountPlan, Set<CommercialFeature>>;
 
-export type LicenseData = {
+export interface LicenseInterface {
+  id: string; // Unique ID for the license key
+  companyName: string; // Name of the organization on the license
+  organizationId?: string; // OrganizationId (keys prior to 12/2022 do not contain this field)
+  seats: number; // Maximum number of seats on the license
+  dateCreated: string; // Date the license was issued
+  dateExpires: string; // Date the license expires
+  isTrial: boolean; // True if this is a trial license
+  plan: AccountPlan; // The plan (pro, enterprise, etc.) for this license
+  seatsInUse: number; // Number of seats currently in use
+  installationUsers: {
+    [installationId: string]: { date: string; userHashes: string[] };
+  }; // Map of first 7 chars of user email shas to the last time they were in a usage request
+  archived: boolean; // True if this license has been deleted/archived
+}
+
+// Old style license keys where the license data is encrypted in the key itself
+type LicenseData = {
   // Unique id for the license key
   ref: string;
   // Name of organization on the license
@@ -176,7 +193,9 @@ async function getPublicKey() {
   return publicKey;
 }
 
-export async function getVerifiedLicenseData(key: string) {
+export async function getVerifiedLicenseData(
+  key: string
+): Promise<Partial<LicenseInterface>> {
   const [license, signature] = key
     .split(".")
     .map((s) => Buffer.from(s, "base64url"));
@@ -221,14 +240,25 @@ export async function getVerifiedLicenseData(key: string) {
     );
   }
 
+  const convertedLicense: Partial<LicenseInterface> = {
+    id: decodedLicense.ref,
+    companyName: decodedLicense.sub,
+    organizationId: decodedLicense.org,
+    seats: decodedLicense.qty,
+    dateCreated: decodedLicense.iat,
+    dateExpires: decodedLicense.exp,
+    isTrial: decodedLicense.trial,
+    plan: decodedLicense.plan,
+  };
+
   // If the public key failed to load, just assume the license is valid
   const publicKey = await getPublicKey();
   if (!publicKey) {
     logger.warn(
-      decodedLicense,
+      convertedLicense,
       "Could not contact license verification server"
     );
-    return decodedLicense;
+    return convertedLicense;
   }
 
   const isVerified = crypto.verify(
@@ -248,19 +278,19 @@ export async function getVerifiedLicenseData(key: string) {
 
   logger.info(decodedLicense, "Using verified license key");
 
-  return decodedLicense;
+  return convertedLicense;
 }
 
-let licenseData: LicenseData | null = null;
+let licenseData: Partial<LicenseInterface> | null = null;
 let cacheDate: Date | null = null;
 // in-memory cache to avoid hitting the license server on every request
-const keyToLicenseData: Record<string, LicenseData> = {};
+const keyToLicenseData: Record<string, Partial<LicenseInterface>> = {};
 
 async function getLicenseDataFromServer(
   licenseId: string,
   userLicenseCodes: string[],
   metaData: LicenseMetaData
-): Promise<LicenseData> {
+): Promise<LicenseInterface> {
   const url = `${LICENSE_SERVER}/api/v1/license/${licenseId}/check`;
   const options = {
     method: "PUT",
@@ -285,17 +315,7 @@ async function getLicenseDataFromServer(
     throw new Error("Invalid license key");
   }
 
-  const serverData = await serverResult.json();
-  return {
-    ref: serverData.licenseId,
-    sub: serverData.companyName,
-    org: serverData.organizationId,
-    qty: serverData.seats,
-    iat: serverData.dateCreated,
-    exp: serverData.dateExpires,
-    trial: serverData.isTrial,
-    plan: serverData.plan,
-  };
+  return await serverResult.json();
 }
 
 export interface LicenseMetaData {
@@ -348,7 +368,7 @@ export async function licenseInit(
 export function getLicense() {
   return licenseData;
 }
-export async function setLicense(l: LicenseData | null) {
+export async function setLicense(l: Partial<LicenseInterface> | null) {
   // make sure we trust that l is already verified before setting:
   licenseData = l;
 }

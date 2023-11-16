@@ -88,8 +88,10 @@ export default function AccountPlanNotices() {
   // Self-hosted-specific Notices
   if (!isCloud() && license) {
     // Trial license is up
-    const licenseTrialRemaining = license.trial ? daysLeft(license.exp) : -1;
-    if (license?.org && license.org !== organization.id) {
+    const licenseTrialRemaining = license.isTrial
+      ? daysLeft(license.dateExpires)
+      : -1;
+    if (license?.organizationId && license.organizationId !== organization.id) {
       return (
         <Tooltip
           body={
@@ -125,13 +127,13 @@ export default function AccountPlanNotices() {
     }
 
     // License expired
-    if (license.exp < new Date().toISOString().substring(0, 10)) {
+    if (license.dateExpires < new Date().toISOString().substring(0, 10)) {
       return (
         <Tooltip
           body={
             <>
-              Your license expired on <strong>{license.exp}</strong>. Contact
-              sales@growthbook.io to renew.
+              Your license expired on <strong>{license.dateExpires}</strong>.
+              Contact sales@growthbook.io to renew.
             </>
           }
         >
@@ -143,12 +145,12 @@ export default function AccountPlanNotices() {
     }
 
     // More seats than the license allows for
-    if (activeAndInvitedUsers > license.qty) {
+    if (activeAndInvitedUsers > license.seats) {
       return (
         <Tooltip
           body={
             <>
-              Your license is valid for <strong>{license.qty} seats</strong>,
+              Your license is valid for <strong>{license.seats} seats</strong>,
               but you are currently using{" "}
               <strong>{activeAndInvitedUsers}</strong>. Contact
               sales@growthbook.io to extend your quota.

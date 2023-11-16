@@ -24,10 +24,10 @@ import {
 import { insertAudit } from "../../models/AuditModel";
 import { TeamInterface } from "../../../types/team";
 import { getTeamsForOrganization } from "../../models/TeamModel";
+import { initializeLicense } from "../licenseData";
 import { AuthConnection } from "./AuthConnection";
 import { OpenIdAuthConnection } from "./OpenIdAuthConnection";
 import { LocalAuthConnection } from "./LocalAuthConnection";
-import { initializeLicense } from "../licenseData";
 
 type JWTInfo = {
   email?: string;
