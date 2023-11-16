@@ -87,6 +87,8 @@ export default function SRMDrawer({
   const [selectedDimension, setSelectedDimension] = useState<string>("");
   const { settings } = useUser();
 
+  console.log({ datasource });
+
   const srmThreshold = settings.srmThreshold ?? SRM_THRESHOLD;
 
   // Skip checks if experiment phase has extremely uneven weights
@@ -154,7 +156,7 @@ export default function SRMDrawer({
         </div>
         <hr />
         <div className="row mt-4 mb-2">
-          <div className="col-1 ml-2 mr-5">
+          <div className="col-2 ml-2 mr-2">
             <div className="uppercase-title text-muted">Dimension</div>
             <SelectField
               containerClassName={"select-dropdown-underline"}
@@ -200,6 +202,7 @@ export default function SRMDrawer({
                     <HealthDrawer
                       title={d.name}
                       status={dimensionHealth}
+                      statusAlign="right"
                       key={d.name}
                       tooltipBody={renderTooltipBody({
                         srm: d.srm,

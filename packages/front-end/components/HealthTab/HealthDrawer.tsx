@@ -8,6 +8,7 @@ export interface Props {
   status?: HealthStatus;
   openByDefault?: boolean;
   tooltipBody?: string | JSX.Element;
+  statusAlign?: "left" | "right";
 }
 
 export const BadgeColors = {
@@ -18,17 +19,30 @@ export const BadgeColors = {
 
 export type HealthStatus = keyof typeof BadgeColors;
 
+const StatusBadge = ({ status, tooltipBody }) => {
+  return (
+    <Tooltip
+      body={tooltipBody}
+      className={"badge border ml-2 mr-2 " + BadgeColors[status]}
+      tipPosition="top"
+    >
+      {status}
+    </Tooltip>
+  );
+};
+
 export default function HealthDrawer({
   title,
   children,
   status,
   openByDefault = false,
   tooltipBody = "",
+  statusAlign = "left",
 }: Props) {
   const [open, setOpen] = useState(openByDefault);
 
   return (
-    <div className="appbox mb-4 p-3">
+    <div className="appbox my-2 p-3">
       <a
         className="text-reset"
         href="#"
@@ -39,16 +53,13 @@ export default function HealthDrawer({
         style={{ textDecoration: "none" }}
       >
         <h2 className="d-inline">{title}</h2>{" "}
-        {status && (
-          <Tooltip
-            body={tooltipBody}
-            className={"badge border ml-2 " + BadgeColors[status]}
-            tipPosition="top"
-          >
-            {status}
-          </Tooltip>
+        {status && statusAlign === "left" && (
+          <StatusBadge tooltipBody={tooltipBody} status={status} />
         )}
         <div className="float-right">
+          {status && statusAlign === "right" && (
+            <StatusBadge tooltipBody={tooltipBody} status={status} />
+          )}
           {open ? <FaAngleDown /> : <FaAngleRight />}
         </div>
       </a>

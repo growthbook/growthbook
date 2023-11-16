@@ -132,7 +132,6 @@ export default function HealthTab({ experiment }: Props) {
     return <div className="alert alert-danger">{error.message}</div>;
   }
 
-  // TODO: Grab the datasource id and link the user to the specific datasource page
   if (snapshot?.health?.traffic.error === "TOO_MANY_ROWS") {
     return (
       <div className="alert alert-danger mt-3">
@@ -176,7 +175,7 @@ export default function HealthTab({ experiment }: Props) {
   });
 
   return (
-    <>
+    <div className="mt-4">
       <HealthDrawer title="Experiment Traffic" openByDefault>
         <UnitCountDateGraph
           trafficByDate={trafficByDate}
@@ -193,6 +192,6 @@ export default function HealthTab({ experiment }: Props) {
         multipleExposures={snapshot.multipleExposures}
         totalUsers={totalUsers}
       />
-    </>
+    </div>
   );
 }
