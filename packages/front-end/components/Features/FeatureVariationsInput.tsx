@@ -1,5 +1,6 @@
 import { FeatureValueType } from "back-end/types/feature";
 import React, { useState } from "react";
+import { FaInfoCircle } from "react-icons/fa";
 import {
   decimalToPercent,
   distributeWeights,
@@ -19,7 +20,6 @@ import {
   SortableVariation,
 } from "./SortableFeatureVariationRow";
 import SortableVariationsList from "./SortableVariationsList";
-import {FaInfoCircle} from "react-icons/fa";
 
 export interface Props {
   valueType: FeatureValueType;
@@ -159,10 +159,18 @@ export default function FeatureVariationsInput({
                 <th className="text-center">
                   <Tooltip
                     popperClassName="text-left"
-                    body={<>
-                      <p>Prevent users from being bucketed into this variation.</p>
-                      <p className="mb-0">Any users with sticky buckets who were already bucketed in this variation will be excluded from the experiment.</p>
-                    </>}
+                    body={
+                      <>
+                        <p>
+                          Prevent users from being bucketed into this variation.
+                        </p>
+                        <p className="mb-0">
+                          Any users with sticky buckets who were already
+                          bucketed in this variation will be excluded from the
+                          experiment.
+                        </p>
+                      </>
+                    }
                     tipPosition="top"
                   >
                     Block? <FaInfoCircle />

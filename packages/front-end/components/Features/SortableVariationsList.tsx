@@ -68,7 +68,7 @@ const SortableVariationsList: FC<{
           setVariations(newVariations);
 
           if (setBlockedVariations) {
-            let newBlockedVariations = [...blockedVariations];
+            const newBlockedVariations = [...blockedVariations];
             const blockedIndex = blockedVariations.indexOf(oldIndex);
             if (blockedIndex !== -1) {
               newBlockedVariations.splice(blockedIndex, 1);
