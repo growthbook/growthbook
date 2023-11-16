@@ -267,7 +267,7 @@ const sidebars = {
         {
           type: "doc",
           id: "experimentation-analysis/experiment-configuration",
-          label: "Experiments (Adding and Configuring)",
+          label: "Experiments (Setup)",
         },
         {
           type: "doc",
