@@ -114,8 +114,9 @@ function getRecommendedRolloutData({
     disableVariation = true;
   }
 
-  // Nothing risky?
-  if (
+  if (!stickyBucketing) {
+    // no sticky bucketing means no issues to control for
+  } else if (
     !moreRestrictiveTargeting &&
     !otherTargetingChanges &&
     !decreaseCoverage &&
@@ -126,6 +127,7 @@ function getRecommendedRolloutData({
     !disableVariation
   ) {
     // recommend no release changes
+    messages.push("No risky changes detected");
   }
 
   return {
