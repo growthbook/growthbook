@@ -236,6 +236,7 @@ export default function EditTargetingModal({
         setWeight={(i, weight) =>
           form.setValue(`variationWeights.${i}`, weight)
         }
+        setBlockedVariations={(bv) => form.setValue("blockedVariations", bv)}
         valueAsId={true}
         variations={
           experiment.variations.map((v, i) => {
@@ -247,6 +248,7 @@ export default function EditTargetingModal({
             };
           }) || []
         }
+        blockedVariations={form.watch("blockedVariations") || []}
         showPreview={false}
       />
       <NamespaceSelector

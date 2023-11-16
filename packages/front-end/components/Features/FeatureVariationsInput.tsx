@@ -19,13 +19,16 @@ import {
   SortableVariation,
 } from "./SortableFeatureVariationRow";
 import SortableVariationsList from "./SortableVariationsList";
+import {FaInfoCircle} from "react-icons/fa";
 
 export interface Props {
   valueType: FeatureValueType;
   defaultValue?: string;
   variations: SortableVariation[];
+  blockedVariations?: number[];
   setWeight: (i: number, weight: number) => void;
   setVariations?: (variations: SortableVariation[]) => void;
+  setBlockedVariations?: (variations: number[]) => void;
   coverage: number;
   setCoverage: (coverage: number) => void;
   coverageTooltip?: string;
@@ -37,6 +40,8 @@ export interface Props {
 export default function FeatureVariationsInput({
   variations,
   setVariations,
+  blockedVariations = [],
+  setBlockedVariations,
   setWeight,
   coverage,
   setCoverage,
@@ -121,8 +126,12 @@ export default function FeatureVariationsInput({
               <th className="pl-3">Id</th>
               {!valueAsId && <th>Variation</th>}
               <th>
-                Name{" "}
-                <Tooltip body="Optional way to identify the variations within GrowthBook." />
+                <Tooltip
+                  body="Optional way to identify the variations within GrowthBook."
+                  tipPosition="top"
+                >
+                  Name <FaInfoCircle />
+                </Tooltip>
               </th>
               <th>
                 Split
@@ -146,12 +155,28 @@ export default function FeatureVariationsInput({
                   </label>
                 </div>
               </th>
+              {setBlockedVariations && (
+                <th className="text-center">
+                  <Tooltip
+                    popperClassName="text-left"
+                    body={<>
+                      <p>Prevent users from being bucketed into this variation.</p>
+                      <p className="mb-0">Any users with sticky buckets who were already bucketed in this variation will be excluded from the experiment.</p>
+                    </>}
+                    tipPosition="top"
+                  >
+                    Block? <FaInfoCircle />
+                  </Tooltip>
+                </th>
+              )}
             </tr>
           </thead>
           <tbody>
             <SortableVariationsList
               variations={variations}
               setVariations={setVariations}
+              blockedVariations={blockedVariations}
+              setBlockedVariations={setBlockedVariations}
             >
               {variations.map((variation, i) => (
                 <SortableFeatureVariationRow
@@ -160,6 +185,8 @@ export default function FeatureVariationsInput({
                   variation={variation}
                   variations={variations}
                   setVariations={setVariations}
+                  blockedVariations={blockedVariations}
+                  setBlockedVariations={setBlockedVariations}
                   setWeight={setWeight}
                   customSplit={customSplit}
                   valueType={valueType}
@@ -168,7 +195,7 @@ export default function FeatureVariationsInput({
               ))}
             </SortableVariationsList>
             <tr>
-              <td colSpan={4}>
+              <td colSpan={setBlockedVariations ? 5 : 4}>
                 <div className="row">
                   <div className="col">
                     {valueType !== "boolean" && setVariations && (
