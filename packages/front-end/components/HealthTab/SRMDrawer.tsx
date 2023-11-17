@@ -186,16 +186,15 @@ export default function SRMDrawer({
           <div className="col-lg mr-5">
             {!areDimensionsAvailable && (
               <div className="alert alert-warning">
-                It looks like you haven&apos;t selected any dimensions to use
-                for traffic within your{" "}
-                <Link href={`/datasources/${datasource}`}>
-                  datasource&apos;s
-                </Link>{" "}
-                experiment assignment query. If you&apos;d like to be able to
-                view traffic breakdown by dimension, please edit your experiment
-                assignment query and add the dimensions you&apos;d like to
-                support under <b>Dimensions to use in traffic breakdowns</b>.
-                Once you do that you&apos;ll want to re-run your queries.
+                No dimensions have been selected for automatic traffic checks.
+                If you&apos;d like to be able to view traffic breakdown by
+                dimension, go to your{" "}
+                <Link href={`/datasources/${datasource}`}>datasource</Link> and
+                follow the documentation{" "}
+                <a href="https://docs.growthbook.io/app/experiment-results#adding-dimensions-to-health-tab">
+                  here
+                </a>
+                .
               </div>
             )}
             {selectedDimension && (
