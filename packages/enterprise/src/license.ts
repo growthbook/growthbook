@@ -1,7 +1,11 @@
 import crypto from "crypto";
+import fs from "fs";
+import path from "path";
 import fetch from "node-fetch";
 import type Stripe from "stripe";
 import pino from "pino";
+import { omit, sortBy } from "lodash";
+import { LicenseDocument, LicenseModel } from "./models/licenseModel";
 
 //TODO: Set this to the real prod license server
 const LICENSE_SERVER = "http://localhost:8080";
@@ -43,6 +47,8 @@ export interface LicenseInterface {
     [installationId: string]: { date: string; userHashes: string[] };
   }; // Map of first 7 chars of user email shas to the last time they were in a usage request
   archived: boolean; // True if this license has been deleted/archived
+  dateUpdated: string; // Date the license was last updated
+  signedChecksum: string; // Checksum of the license data signed with the private key
 }
 
 // Old style license keys where the license data is encrypted in the key itself
@@ -166,31 +172,22 @@ export function orgHasPremiumFeature(
   return planHasPremiumFeature(getAccountPlan(org), feature);
 }
 
-async function getPublicKey() {
-  // Timeout after 3 seconds of waiting for the public key to load
-  const controller = new AbortController();
-  const timeout = setTimeout(() => {
-    controller.abort();
-  }, 3000);
-
-  let publicKey: Buffer | null = null;
-  try {
-    const res = await fetch(
-      "https://cdn.growthbook.io/license_public_key.pem",
-      {
-        signal: controller.signal,
+async function getPublicKey(): Promise<Buffer> {
+  return new Promise((resolve, reject) => {
+    fs.readFile(
+      path.join(__dirname, "..", "license_public_key.pem"),
+      (err, data) => {
+        if (err) {
+          logger.error(
+            "Failed to find Growthbook public key files for license verification"
+          );
+          reject(err);
+        } else {
+          resolve(data);
+        }
       }
     );
-    publicKey = Buffer.from(await res.arrayBuffer());
-  } catch (e) {
-    logger.error(
-      e,
-      "Failed to load GrowthBook public key for license verification"
-    );
-  }
-
-  clearTimeout(timeout);
-  return publicKey;
+  });
 }
 
 export async function getVerifiedLicenseData(
@@ -253,13 +250,6 @@ export async function getVerifiedLicenseData(
 
   // If the public key failed to load, just assume the license is valid
   const publicKey = await getPublicKey();
-  if (!publicKey) {
-    logger.warn(
-      convertedLicense,
-      "Could not contact license verification server"
-    );
-    return convertedLicense;
-  }
 
   const isVerified = crypto.verify(
     "sha256",
@@ -286,6 +276,56 @@ let cacheDate: Date | null = null;
 // in-memory cache to avoid hitting the license server on every request
 const keyToLicenseData: Record<string, Partial<LicenseInterface>> = {};
 
+async function getLicenseDataFromMongoCache(
+  cache: LicenseDocument | null
+): Promise<LicenseInterface> {
+  if (!cache) {
+    throw new Error(
+      "License server is not working and no cached license data exists"
+    );
+  }
+  if (
+    new Date(cache.dateUpdated) > new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) // 7 days
+  ) {
+    // If the public key failed to load, just assume the license is valid
+    const publicKey = await getPublicKey();
+
+    // In order to verify the license key, we need to strip out the fields that are not part of the license data
+    // and sort the fields alphabetically as we do on the license server itself.
+    const strippedLicense = omit(cache.toJSON(), [
+      "__v",
+      "_id",
+      "dateUpdated",
+      "signedChecksum",
+    ]) as LicenseInterface;
+    const data = Object.fromEntries(sortBy(Object.entries(strippedLicense)));
+    const dataBuffer = Buffer.from(JSON.stringify(data));
+
+    const signature = Buffer.from(cache.signedChecksum, "base64url");
+
+    const isVerified = crypto.verify(
+      "sha256",
+      dataBuffer,
+      {
+        key: publicKey,
+        padding: crypto.constants.RSA_PKCS1_PSS_PADDING,
+      },
+      signature
+    );
+
+    // License key signature is invalid, don't use it
+    if (!isVerified) {
+      throw new Error("Cached Invalid license key signature");
+    }
+
+    logger.info("Using cached license data");
+    return cache;
+  }
+  throw new Error(
+    "License server is not working and cached license data is too old"
+  );
+}
+
 async function getLicenseDataFromServer(
   licenseId: string,
   userLicenseCodes: string[],
@@ -305,17 +345,35 @@ async function getLicenseDataFromServer(
 
   let serverResult;
 
+  const currentCache = await LicenseModel.findOne({ id: licenseId });
+
   try {
     serverResult = await fetch(url, options);
   } catch (e) {
-    throw new Error("Could not connect to license server");
+    logger.warn("Could not connect to license server. Falling back to cache.");
+    return getLicenseDataFromMongoCache(currentCache);
   }
 
   if (!serverResult.ok) {
-    throw new Error("Invalid license key");
+    logger.warn("License server threw an error. Falling back to cache.");
+    return getLicenseDataFromMongoCache(currentCache);
   }
 
-  return await serverResult.json();
+  const licenseData = await serverResult.json();
+
+  if (!currentCache) {
+    // Create a cached version of the license key in case the license server goes down.
+    await LicenseModel.create({
+      ...licenseData,
+      dateUpdated: new Date(),
+    });
+  } else {
+    // Update the cached version of the license key in case the license server goes down.
+    currentCache.set({ ...licenseData, dateUpdated: new Date() });
+    await currentCache.save();
+  }
+
+  return licenseData;
 }
 
 export interface LicenseMetaData {
