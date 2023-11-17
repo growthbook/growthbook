@@ -142,7 +142,11 @@ export default function HealthTab({ experiment, onDrawerNotify }: Props) {
         </Link>{" "}
         to return fewer dimension slices per dimension or select fewer
         dimensions to use in traffic breakdowns. For more advice, see the
-        documentation on the Health Tab <a>here</a>.
+        documentation on the Health Tab{" "}
+        <a href="https://docs.growthbook.io/app/experiment-results#adding-dimensions-to-health-tab">
+          here
+        </a>
+        .
       </div>
     );
   }
