@@ -686,7 +686,7 @@ export class GrowthBook<
             rule.bucketVersion,
             rule.minBucketVersion
           );
-          if (variation > 0) {
+          if (variation >= 0) {
             foundStickyBucket = true;
           }
         }
@@ -1036,7 +1036,7 @@ export class GrowthBook<
       );
       assigned = res.variation;
       blocked = res.blocked;
-      if (assigned > 0) {
+      if (assigned >= 0) {
         foundStickyBucket = true;
       }
     }
