@@ -4,8 +4,9 @@ import { useState } from "react";
 import Link from "next/link";
 import { useUser } from "@/services/UserContext";
 import { pValueFormatter } from "@/services/experiments";
+import { DEFAULT_SRM_THRESHOLD } from "@/pages/settings";
 import VariationUsersTable from "../Experiment/TabbedPage/VariationUsersTable";
-import SRMWarning, { SRM_THRESHOLD } from "../Experiment/SRMWarning";
+import SRMWarning from "../Experiment/SRMWarning";
 import SelectField, { SingleValue } from "../Forms/SelectField";
 import { DataPointVariation } from "../Experiment/ExperimentDateGraph";
 import HealthDrawer, { HealthStatus } from "./HealthDrawer";
@@ -89,7 +90,7 @@ export default function SRMDrawer({
 
   console.log({ datasource });
 
-  const srmThreshold = settings.srmThreshold ?? SRM_THRESHOLD;
+  const srmThreshold = settings.srmThreshold ?? DEFAULT_SRM_THRESHOLD;
 
   // Skip checks if experiment phase has extremely uneven weights
   // This causes too many false positives with the current data quality checks
@@ -97,7 +98,7 @@ export default function SRMDrawer({
   const overallHealth = skipSrmCheck
     ? "unknown"
     : srmHealthCheck({
-        srm: traffic.overall[0].srm,
+        srm: traffic.overall.srm,
         srmThreshold,
         variations,
         totalUsers,
@@ -122,7 +123,7 @@ export default function SRMDrawer({
       title="Experiment Balance Check"
       status={overallHealth}
       tooltipBody={renderTooltipBody({
-        srm: traffic.overall[0].srm,
+        srm: traffic.overall.srm,
         health: overallHealth,
         wasSrmCheckSkipped: skipSrmCheck,
       })}
@@ -130,9 +131,9 @@ export default function SRMDrawer({
       <div className="mt-4">
         <div className="row justify-content-start mb-2">
           <VariationUsersTable
-            users={traffic.overall[0].variationUnits}
+            users={traffic.overall.variationUnits}
             variations={variations}
-            srm={traffic.overall[0].srm}
+            srm={traffic.overall.srm}
           />
           <div className="col-4 ml-4 mr-2">
             {overallHealth === "healthy" && (
@@ -140,9 +141,9 @@ export default function SRMDrawer({
             )}
             {overallHealth === "unhealthy" && (
               <SRMWarning
-                srm={traffic.overall[0].srm}
+                srm={traffic.overall.srm}
                 expected={variations.map((v) => v.weight)}
-                observed={traffic.overall[0].variationUnits}
+                observed={traffic.overall.variationUnits}
               />
             )}
             {overallHealth === "unknown" && (

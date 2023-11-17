@@ -1160,9 +1160,88 @@ const GeneralSettingsPage = (): React.ReactElement => {
                           )}
                         </div>
                       </div>
-                    </div>
-                  </Tab>
-                </ControlledTabs>
+
+                      <div className="p-3 my-3 border rounded">
+                        <h5 className="font-weight-bold mb-4">
+                          <PremiumTooltip commercialFeature="sequential-testing">
+                            <GBSequential /> Sequential Testing
+                          </PremiumTooltip>
+                        </h5>
+                        <div className="form-group mb-0 mr-2">
+                          <div className="d-flex">
+                            <label
+                              className="mr-1"
+                              htmlFor="toggle-sequentialTestingEnabled"
+                            >
+                              Apply sequential testing by default
+                            </label>
+                            <Toggle
+                              id={"toggle-sequentialTestingEnabled"}
+                              value={!!form.watch("sequentialTestingEnabled")}
+                              setValue={(value) => {
+                                form.setValue(
+                                  "sequentialTestingEnabled",
+                                  value
+                                );
+                              }}
+                              disabled={
+                                !hasSequentialTestingFeature || hasFileConfig()
+                              }
+                            />
+                          </div>
+                          {form.watch("sequentialTestingEnabled") &&
+                            form.watch("statsEngine") === "bayesian" && (
+                              <div className="d-flex">
+                                <small className="mb-1 text-warning-orange">
+                                  <FaExclamationTriangle /> Your organization
+                                  uses Bayesian statistics by default and
+                                  sequential testing is not implemented for the
+                                  Bayesian engine.
+                                </small>
+                              </div>
+                            )}
+                        </div>
+                        <div
+                          className="form-group mt-3 mb-0 mr-2 form-inline"
+                          style={{
+                            opacity: form.watch("sequentialTestingEnabled")
+                              ? "1"
+                              : "0.5",
+                          }}
+                        >
+                          <Field
+                            label="Tuning parameter"
+                            type="number"
+                            className={`ml-2`}
+                            containerClassName="mb-0"
+                            min="0"
+                            disabled={
+                              !hasSequentialTestingFeature || hasFileConfig()
+                            }
+                            helpText={
+                              <>
+                                <span className="ml-2">
+                                  ({DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER}{" "}
+                                  is default)
+                                </span>
+                              </>
+                            }
+                            {...form.register(
+                              "sequentialTestingTuningParameter",
+                              {
+                                valueAsNumber: true,
+                                validate: (v) => {
+                                  // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
+                                  return !(v <= 0);
+                                },
+                              }
+                            )}
+                          />
+                        </div>
+                      </div>
+                    </Tab>
+                  </ControlledTabs>
+                </div>
                 {healthTabSettingsEnabled && (
                   <>
                     <h4 className="mt-4 mb-2">Experiment Health Settings</h4>
