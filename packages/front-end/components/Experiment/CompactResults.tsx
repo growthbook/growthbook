@@ -22,6 +22,7 @@ import {
   ExperimentTableRow,
   useRiskVariation,
   setAdjustedCIs,
+  pValueFormatter,
 } from "@/services/experiments";
 import { GBCuped } from "@/components/Icons";
 import { QueryStatusData } from "@/components/Queries/RunQueriesButton";
@@ -37,6 +38,7 @@ import DataQualityWarning from "./DataQualityWarning";
 import ResultsTable from "./ResultsTable";
 import MultipleExposureWarning from "./MultipleExposureWarning";
 import VariationUsersTable from "./TabbedPage/VariationUsersTable";
+import { ExperimentTab } from "./TabbedPage";
 
 const numberFormatter = Intl.NumberFormat();
 
@@ -65,6 +67,7 @@ const CompactResults: FC<{
   metricFilter?: ResultsMetricFilters;
   setMetricFilter?: (filter: ResultsMetricFilters) => void;
   isTabActive: boolean;
+  setTab?: (tab: ExperimentTab) => void;
 }> = ({
   editMetrics,
   variations,
@@ -90,6 +93,7 @@ const CompactResults: FC<{
   metricFilter,
   setMetricFilter,
   isTabActive,
+  setTab,
 }) => {
   const { getExperimentMetricById, ready } = useDefinitions();
   const pValueThreshold = usePValueThreshold();
@@ -213,13 +217,19 @@ const CompactResults: FC<{
             <VariationUsersTable
               variations={variations}
               users={variationUsers}
+              srm={pValueFormatter(results.srm)}
             />
           </Collapsible>
         </div>
       )}
 
       <div className="mx-3">
-        <DataQualityWarning results={results} variations={variations} />
+        <DataQualityWarning
+          results={results}
+          variations={variations}
+          linkToHealthTab
+          setTab={setTab}
+        />
         <MultipleExposureWarning
           users={users}
           multipleExposures={multipleExposures}

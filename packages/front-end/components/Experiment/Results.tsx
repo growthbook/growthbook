@@ -20,6 +20,7 @@ import StatusBanner from "@/components/Experiment/StatusBanner";
 import { GBCuped, GBSequential } from "@/components/Icons";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { trackSnapshot } from "@/services/track";
+import { ExperimentTab } from "./TabbedPage";
 
 const BreakDownResults = dynamic(
   () => import("@/components/Experiment/BreakDownResults")
@@ -52,6 +53,7 @@ const Results: FC<{
   metricFilter?: ResultsMetricFilters;
   setMetricFilter?: (metricFilter: ResultsMetricFilters) => void;
   isTabActive?: boolean;
+  setTab?: (tab: ExperimentTab) => void;
 }> = ({
   experiment,
   mutateExperiment,
@@ -76,6 +78,7 @@ const Results: FC<{
   metricFilter,
   setMetricFilter,
   isTabActive = true,
+  setTab,
 }) => {
   const { apiCall } = useAuth();
 
@@ -363,6 +366,7 @@ const Results: FC<{
             metricFilter={metricFilter}
             setMetricFilter={setMetricFilter}
             isTabActive={isTabActive}
+            setTab={setTab}
           />
         </>
       ) : null}

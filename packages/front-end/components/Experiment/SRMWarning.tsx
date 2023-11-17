@@ -2,15 +2,21 @@ import { FC, useState } from "react";
 import { formatTrafficSplit, getSRMNeededPrecisionP1 } from "@/services/utils";
 import { useUser } from "@/services/UserContext";
 import { DEFAULT_SRM_THRESHOLD } from "@/pages/settings";
+import track from "@/services/track";
 import Modal from "../Modal";
+import { ExperimentTab } from "./TabbedPage";
+import { useSnapshot } from "./SnapshotProvider";
 
 const SRMWarning: FC<{
   srm: number;
   expected: number[];
   observed: number[];
-}> = ({ srm, expected, observed }) => {
+  linkToHealthTab?: boolean;
+  setTab?: (tab: ExperimentTab) => void;
+}> = ({ srm, expected, observed, linkToHealthTab, setTab }) => {
   const [open, setOpen] = useState(false);
   const { settings } = useUser();
+  const { snapshot } = useSnapshot();
   const srmThreshold = settings.srmThreshold ?? DEFAULT_SRM_THRESHOLD;
 
   if (typeof srm !== "number" || srm >= srmThreshold) {
@@ -98,26 +104,45 @@ const SRMWarning: FC<{
         </p>
       </Modal>
       <div className="alert alert-danger">
-        <strong>Warning: Sample Ratio Mismatch (SRM) detected</strong>. We
-        expected a <code>{formatTrafficSplit(expected, 1)}</code> split, but
-        observed a{" "}
-        <code>
-          {formatTrafficSplit(
-            observed,
-            getSRMNeededPrecisionP1(observed, expected)
-          )}
-        </code>{" "}
-        split (p-value = <code>{srm}</code>). There is likely a bug in the
-        implementation.{" "}
-        <a
-          href="#"
-          onClick={(e) => {
-            e.preventDefault();
-            setOpen(true);
-          }}
-        >
-          Learn More
-        </a>
+        {linkToHealthTab &&
+        setTab &&
+        snapshot?.health?.traffic.dimension?.dim_exposure_date ? (
+          <>
+            Results are likely untrustworthy. See the{" "}
+            <a
+              onClick={() => {
+                track("Open health tab");
+                setTab("health");
+              }}
+            >
+              health tab
+            </a>{" "}
+            for more details.
+          </>
+        ) : (
+          <>
+            We expected a <code>{formatTrafficSplit(expected, 1)}</code> split,
+            but observed a{" "}
+            <code>
+              {formatTrafficSplit(
+                observed,
+                getSRMNeededPrecisionP1(observed, expected)
+              )}
+            </code>{" "}
+            split (p-value = <code>{srm}</code>). There is likely a bug in the
+            implementation.{" "}
+            <a
+              href="#"
+              onClick={(e) => {
+                e.preventDefault();
+                setOpen(true);
+              }}
+            >
+              Learn More
+            </a>
+          </>
+        )}
+        <strong>Warning: Sample Ratio Mismatch (SRM) detected</strong>.
       </div>
     </>
   );

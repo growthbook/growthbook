@@ -4,11 +4,14 @@ import {
   ExperimentReportVariation,
 } from "back-end/types/report";
 import SRMWarning from "./SRMWarning";
+import { ExperimentTab } from "./TabbedPage";
 
 const DataQualityWarning: FC<{
   results: ExperimentReportResultDimension;
   variations: ExperimentReportVariation[];
-}> = ({ results, variations }) => {
+  linkToHealthTab?: boolean;
+  setTab?: (tab: ExperimentTab) => void;
+}> = ({ results, variations, linkToHealthTab = false, setTab }) => {
   if (!results) return null;
   const variationResults = results?.variations || [];
 
@@ -33,6 +36,8 @@ const DataQualityWarning: FC<{
       srm={results.srm}
       expected={variations.map((v) => v.weight)}
       observed={results.variations.map((v) => v.users)}
+      linkToHealthTab={linkToHealthTab}
+      setTab={setTab}
     />
   );
 };
