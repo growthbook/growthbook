@@ -9,7 +9,8 @@ import VariationUsersTable from "../Experiment/TabbedPage/VariationUsersTable";
 import SRMWarning from "../Experiment/SRMWarning";
 import SelectField, { SingleValue } from "../Forms/SelectField";
 import { DataPointVariation } from "../Experiment/ExperimentDateGraph";
-import HealthDrawer, { HealthStatus } from "./HealthDrawer";
+import HealthDrawer from "./HealthDrawer";
+import { HealthStatus } from "./StatusBadge";
 
 interface Props {
   traffic: ExperimentSnapshotTraffic;

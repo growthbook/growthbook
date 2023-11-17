@@ -17,7 +17,7 @@ import { variant_0, variant_1, variant_2, variant_3 } from "shared/constants";
 import { StatsEngine } from "back-end/types/stats";
 import { pValueFormatter } from "@/services/experiments";
 import { srmHealthCheck } from "../HealthTab/SRMDrawer";
-import { BadgeColors } from "../HealthTab/HealthDrawer";
+import { HealthStatus, StatusBadge } from "../HealthTab/StatusBadge";
 import styles from "./ExperimentDateGraph.module.scss";
 
 export interface DataPointVariation {
@@ -73,7 +73,7 @@ const getTooltipContents = (
 ) => {
   const { d, yaxis } = data;
   const totalUsers = d.variations.reduce((acc, a) => acc + a.v, 0);
-  const health =
+  const health: HealthStatus | undefined =
     d.srm && srmThreshold
       ? srmHealthCheck({
           srm: d.srm,
@@ -87,9 +87,7 @@ const getTooltipContents = (
     <>
       {health && (
         <div className="d-flex justify-content-center">
-          <span className={"badge border ml-2 " + BadgeColors[health]}>
-            {health}
-          </span>
+          <StatusBadge status={health} />
         </div>
       )}
       <table

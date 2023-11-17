@@ -1,6 +1,6 @@
 import { ReactNode, useState } from "react";
 import { FaAngleDown, FaAngleRight } from "react-icons/fa";
-import Tooltip from "../Tooltip/Tooltip";
+import { HealthStatus, StatusBadge } from "./StatusBadge";
 
 export interface Props {
   title: string;
@@ -11,26 +11,6 @@ export interface Props {
   tooltipBody?: string | JSX.Element;
   statusAlign?: "left" | "right";
 }
-
-export const BadgeColors = {
-  healthy: "badge-green",
-  unhealthy: "badge-red",
-  unknown: "badge-gray",
-};
-
-export type HealthStatus = keyof typeof BadgeColors;
-
-const StatusBadge = ({ status, tooltipBody }) => {
-  return (
-    <Tooltip
-      body={tooltipBody}
-      className={"badge border ml-2 mr-2 " + BadgeColors[status]}
-      tipPosition="top"
-    >
-      {status}
-    </Tooltip>
-  );
-};
 
 export default function HealthDrawer({
   title,
@@ -57,11 +37,11 @@ export default function HealthDrawer({
         <h2 className="d-inline">{title}</h2>{" "}
         <p className="d-inline text-muted">{helpText}</p>
         {status && statusAlign === "left" && (
-          <StatusBadge tooltipBody={tooltipBody} status={status} />
+          <StatusBadge hasTooltip tooltipBody={tooltipBody} status={status} />
         )}
         <div className="float-right">
           {status && statusAlign === "right" && (
-            <StatusBadge tooltipBody={tooltipBody} status={status} />
+            <StatusBadge hasTooltip tooltipBody={tooltipBody} status={status} />
           )}
           {open ? <FaAngleDown /> : <FaAngleRight />}
         </div>

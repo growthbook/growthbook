@@ -1,6 +1,7 @@
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { MINIMUM_MULTIPLE_EXPOSURES } from "../Experiment/MultipleExposureWarning";
-import HealthDrawer, { HealthStatus } from "./HealthDrawer";
+import HealthDrawer from "./HealthDrawer";
+import { HealthStatus } from "./StatusBadge";
 
 interface Props {
   totalUsers: number;
