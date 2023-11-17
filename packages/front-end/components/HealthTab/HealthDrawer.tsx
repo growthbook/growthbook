@@ -21,7 +21,9 @@ export default function HealthDrawer({
   tooltipBody = "",
   statusAlign = "left",
 }: Props) {
-  const [open, setOpen] = useState(openByDefault);
+  const [open, setOpen] = useState(
+    status === "unhealthy" ? true : openByDefault
+  );
 
   return (
     <div className="appbox my-2 p-3">
