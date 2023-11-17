@@ -122,7 +122,6 @@ export default function ExperimentHeader({
       : new Date();
 
   const [startExperiment, setStartExperiment] = useState(false);
-  console.log({ healthNotificationCount });
 
   const canCreateAnalyses = permissions.check(
     "createAnalyses",
@@ -443,6 +442,8 @@ export default function ExperimentHeader({
                     newStyle={false}
                     activeClassName="active-tab"
                     last={true}
+                    notificationCount={healthNotificationCount}
+                    showNotificationCount
                   />
                 )}
               </TabButtons>

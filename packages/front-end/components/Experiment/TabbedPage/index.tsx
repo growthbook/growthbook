@@ -5,7 +5,7 @@ import {
 import { IdeaInterface } from "back-end/types/idea";
 import { VisualChangesetInterface } from "back-end/types/visual-changeset";
 import { includeExperimentInPayload } from "shared/util";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { FaChartBar } from "react-icons/fa";
 import clsx from "clsx";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
@@ -114,6 +114,10 @@ export default function TabbedPage({
       behavior: "smooth",
     });
   };
+
+  const handleIncrementHealthNotifications = useCallback(() => {
+    setHealthNotificationCount((prev) => prev + 1);
+  }, []);
 
   const hasLiveLinkedChanges = includeExperimentInPayload(
     experiment,
@@ -329,10 +333,7 @@ export default function TabbedPage({
         <div className={tab === "health" ? "d-block" : "d-none d-print-block"}>
           <HealthTab
             experiment={experiment}
-            onDrawerNotify={() =>
-              // setHealthNotificationCount((prev) => prev + 1)
-              undefined
-            }
+            onDrawerNotify={handleIncrementHealthNotifications}
           />
         </div>
       </div>

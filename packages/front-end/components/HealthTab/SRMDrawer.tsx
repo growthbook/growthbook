@@ -107,7 +107,7 @@ export default function SRMDrawer({
       });
 
   useEffect(() => {
-    if (overallHealth === "healthy") {
+    if (overallHealth === "unhealthy") {
       onNotify();
     }
   }, [overallHealth, onNotify]);

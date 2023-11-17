@@ -71,7 +71,7 @@ export default function MultipleExposuresDrawer({
     minPercent: MIN_PERCENT,
   });
   useEffect(() => {
-    if (health === "healthy") {
+    if (health === "unhealthy") {
       onNotify();
     }
   }, [health, onNotify]);

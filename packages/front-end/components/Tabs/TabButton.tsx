@@ -13,6 +13,8 @@ export interface Props {
   className?: string;
   showActiveCount?: boolean;
   activeClassName?: string;
+  notificationCount?: number;
+  showNotificationCount?: boolean;
 }
 
 export default function TabButton({
@@ -27,6 +29,8 @@ export default function TabButton({
   className,
   showActiveCount = false,
   activeClassName,
+  showNotificationCount,
+  notificationCount,
 }: Props) {
   return (
     <a
@@ -54,6 +58,13 @@ export default function TabButton({
       {/* @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'. */}
       {(showActiveCount || !active) && (count === 0 || count > 0) ? (
         <span className={`badge badge-gray ml-2`}>{count}</span>
+      ) : (
+        ""
+      )}
+      {showNotificationCount && notificationCount ? (
+        <span className={`badge badge-red ml-2 rounded-circle`}>
+          {notificationCount}
+        </span>
       ) : (
         ""
       )}
