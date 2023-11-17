@@ -167,7 +167,11 @@ The health tab provides you with more insights on the traffic to your experiment
 
 We also provide you with a dimension chooser that will provide dimension specific splits and traffic analysis automatically when you run your experiment. You can select certain Experiment Dimensions to automatically pre-compute when you refresh your overall results so that you don't need to compute dimension metric results just to see the traffic breakdown.
 
-// IMAGE
+<img
+  src="/images/health-dim.png"
+  alt="Health Dimension Splits"
+  style={{ width: 600, margin: "0 auto" }}
+/>
 
 By default, we do not include any dimensions in the health tab. This is because if a dimension is too high cardinality, we would be unable to process the returned data and show you meaningful results. Ideally, you can define your Experiment Assignment Queries such that you only return a few values for each dimension.
 
