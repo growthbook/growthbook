@@ -139,6 +139,7 @@ const sdkPayload: FeatureApiResponse = {
           fallbackAttribute: "deviceId",
           hashVersion: 2,
           bucketVersion: 1,
+          condition: { country: "USA" },
           variations: ["control", "red", "blue"],
           coverage: 1,
           weights: [0.3334, 0.3333, 0.3333],
@@ -199,6 +200,7 @@ describe("sticky-buckets", () => {
         deviceId: "d123",
         anonymousId: "ses123",
         foo: "bar",
+        country: "USA",
       },
     });
 
@@ -210,6 +212,7 @@ describe("sticky-buckets", () => {
         deviceId: "d123",
         anonymousId: "ses123",
         foo: "bar",
+        country: "USA",
       },
     });
 
@@ -245,6 +248,7 @@ describe("sticky-buckets", () => {
         anonymousId: "ses123",
         id: "12345",
         foo: "bar",
+        country: "USA",
       },
     });
     const growthbook2b = new GrowthBook({
@@ -255,6 +259,7 @@ describe("sticky-buckets", () => {
         anonymousId: "ses123",
         id: "12345",
         foo: "bar",
+        country: "USA",
       },
     });
     await Promise.all([
@@ -287,6 +292,7 @@ describe("sticky-buckets", () => {
       attributes: {
         id: "12345",
         foo: "bar",
+        country: "Canada", // <-- change the country to demonstrate that the bucket persists
       },
     });
     const growthbook2c = new GrowthBook({
@@ -295,6 +301,7 @@ describe("sticky-buckets", () => {
       attributes: {
         id: "12345",
         foo: "bar",
+        country: "USA",
       },
     });
     await Promise.all([
@@ -336,6 +343,7 @@ describe("sticky-buckets", () => {
         deviceId: "d123",
         anonymousId: "ses123",
         foo: "bar",
+        country: "USA",
       },
     });
     await growthbook1.loadFeatures();
@@ -364,6 +372,7 @@ describe("sticky-buckets", () => {
         anonymousId: "ses123",
         id: "12345",
         foo: "bar",
+        country: "USA",
       },
     });
     await growthbook2.loadFeatures();
@@ -390,6 +399,7 @@ describe("sticky-buckets", () => {
       attributes: {
         id: "12345",
         foo: "bar",
+        country: "USA",
       },
     });
     await growthbook3.loadFeatures();
@@ -430,6 +440,7 @@ describe("sticky-buckets", () => {
         deviceId: "d123",
         anonymousId: "ses123",
         foo: "bar",
+        country: "USA",
       },
     });
     await growthbook1.loadFeatures();
@@ -457,6 +468,7 @@ describe("sticky-buckets", () => {
         anonymousId: "ses123",
         id: "12345",
         foo: "bar",
+        country: "USA",
       },
     });
     await growthbook2.loadFeatures();
@@ -482,6 +494,7 @@ describe("sticky-buckets", () => {
       attributes: {
         id: "12345",
         foo: "bar",
+        country: "USA",
       },
     });
     await growthbook3.loadFeatures();
@@ -513,6 +526,7 @@ describe("sticky-buckets", () => {
         deviceId: "d123",
         anonymousId: "ses123",
         foo: "bar",
+        country: "USA",
       },
     });
     await growthbook1.loadFeatures();
@@ -535,6 +549,7 @@ describe("sticky-buckets", () => {
         anonymousId: "ses123",
         id: "12345",
         foo: "bar",
+        country: "USA",
       },
     });
     await growthbook2.loadFeatures();
@@ -556,6 +571,7 @@ describe("sticky-buckets", () => {
       attributes: {
         id: "12345",
         foo: "bar",
+        country: "USA",
       },
     });
     await growthbook3.loadFeatures();
@@ -590,6 +606,7 @@ describe("sticky-buckets", () => {
               stickyBucketing: true,
               blockedVariations: [1], // <---------------- changed
               bucketVersion: 1,
+              condition: { country: "USA" },
               variations: ["control", "red", "blue"],
               coverage: 1,
               weights: [0.3334, 0.3333, 0.3333],
@@ -619,6 +636,7 @@ describe("sticky-buckets", () => {
         iteration: 1,
         deviceId: "d123",
         foo: "bar",
+        country: "USA",
       },
       subscribeToChanges: true,
     });
@@ -661,6 +679,7 @@ describe("sticky-buckets", () => {
               hashVersion: 2,
               stickyBucketing: true,
               bucketVersion: 2, // <---------------- changed
+              condition: { country: "USA" },
               variations: ["control", "red", "blue"],
               coverage: 1,
               weights: [0.3334, 0.3333, 0.3333],
@@ -690,6 +709,7 @@ describe("sticky-buckets", () => {
         iteration: 1,
         deviceId: "d123",
         foo: "bar",
+        country: "USA",
       },
       subscribeToChanges: true,
     });
@@ -736,6 +756,7 @@ describe("sticky-buckets", () => {
               stickyBucketing: true,
               bucketVersion: 2, // <---------------- changed
               minBucketVersion: 1, // <---------------- changed
+              condition: { country: "USA" },
               variations: ["control", "red", "blue"],
               coverage: 1,
               weights: [0.3334, 0.3333, 0.3333],
@@ -765,6 +786,7 @@ describe("sticky-buckets", () => {
         iteration: 1,
         deviceId: "d123",
         foo: "bar",
+        country: "USA",
       },
       subscribeToChanges: true,
     });

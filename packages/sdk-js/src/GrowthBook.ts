@@ -674,71 +674,95 @@ export class GrowthBook<
     // Loop through the rules
     if (feature.rules) {
       for (const rule of feature.rules) {
-        // If it's a conditional rule, skip if the condition doesn't pass
-        if (rule.condition && !this._conditionPasses(rule.condition)) {
-          process.env.NODE_ENV !== "production" &&
-            this.log("Skip rule because of condition", {
-              id,
-              rule,
-            });
-          continue;
-        }
-        // If there are filters for who is included (e.g. namespaces)
-        if (rule.filters && this._isFilteredOut(rule.filters)) {
-          process.env.NODE_ENV !== "production" &&
-            this.log("Skip rule because of filters", {
-              id,
-              rule,
-            });
-          continue;
+        // Pre-check if we have an experiment-based sticky bucket, since that supersedes feature rules:
+        let foundStickyBucket = false;
+        if (
+          this._ctx.stickyBucketService &&
+          rule.variations &&
+          rule.variations.length > 1
+        ) {
+          const { variation } = this._getStickyBucketVariation(
+            rule.key || id,
+            rule.bucketVersion,
+            rule.minBucketVersion
+          );
+          if (variation > 0) {
+            foundStickyBucket = true;
+          }
         }
 
-        // Feature value is being forced
-        if ("force" in rule) {
-          // If this is a percentage rollout, skip if not included
-          if (
-            !this._isIncludedInRollout(
-              rule.seed || id,
-              rule.hashAttribute,
-              this._ctx.stickyBucketService
-                ? rule.fallbackAttribute
-                : undefined,
-              rule.range,
-              rule.coverage,
-              rule.hashVersion
-            )
-          ) {
+        if (!foundStickyBucket) {
+          // If it's a conditional rule, skip if the condition doesn't pass
+          if (rule.condition && !this._conditionPasses(rule.condition)) {
             process.env.NODE_ENV !== "production" &&
-              this.log("Skip rule because user not included in rollout", {
+              this.log("Skip rule because of condition ff", {
+                id,
+                rule,
+              });
+            continue;
+          }
+          // If there are filters for who is included (e.g. namespaces)
+          if (rule.filters && this._isFilteredOut(rule.filters)) {
+            process.env.NODE_ENV !== "production" &&
+              this.log("Skip rule because of filters", {
                 id,
                 rule,
               });
             continue;
           }
 
-          process.env.NODE_ENV !== "production" &&
-            this.log("Force value from rule", {
-              id,
-              rule,
-            });
+          // Feature value is being forced
+          if ("force" in rule) {
+            // If this is a percentage rollout, skip if not included
+            if (
+              !this._isIncludedInRollout(
+                rule.seed || id,
+                rule.hashAttribute,
+                this._ctx.stickyBucketService
+                  ? rule.fallbackAttribute
+                  : undefined,
+                rule.range,
+                rule.coverage,
+                rule.hashVersion
+              )
+            ) {
+              process.env.NODE_ENV !== "production" &&
+                this.log("Skip rule because user not included in rollout", {
+                  id,
+                  rule,
+                });
+              continue;
+            }
 
-          // If this was a remotely evaluated experiment, fire the tracking callbacks
-          if (rule.tracks) {
-            rule.tracks.forEach((t) => {
-              this._track(t.experiment, t.result);
-            });
+            process.env.NODE_ENV !== "production" &&
+              this.log("Force value from rule", {
+                id,
+                rule,
+              });
+
+            // If this was a remotely evaluated experiment, fire the tracking callbacks
+            if (rule.tracks) {
+              rule.tracks.forEach((t) => {
+                this._track(t.experiment, t.result);
+              });
+            }
+
+            return this._getFeatureResult(
+              id,
+              rule.force as V,
+              "force",
+              rule.id
+            );
           }
+          if (!rule.variations) {
+            process.env.NODE_ENV !== "production" &&
+              this.log("Skip invalid rule", {
+                id,
+                rule,
+              });
 
-          return this._getFeatureResult(id, rule.force as V, "force", rule.id);
-        }
-        if (!rule.variations) {
-          process.env.NODE_ENV !== "production" &&
-            this.log("Skip invalid rule", {
-              id,
-              rule,
-            });
-
-          continue;
+            continue;
+          }
         }
         // For experiment rules, run an experiment
         const exp: Experiment<V> = {
@@ -939,7 +963,7 @@ export class GrowthBook<
     // 8. Exclude if condition is false
     if (experiment.condition && !this._conditionPasses(experiment.condition)) {
       process.env.NODE_ENV !== "production" &&
-        this.log("Skip because of condition", {
+        this.log("Skip because of condition exp", {
           id: key,
         });
       return this._getResult(experiment, -1, false, featureId);
