@@ -1394,7 +1394,7 @@ export default abstract class SqlIntegration
       );
     }
     const dimension = params.dimensions[0];
-    let dimensionCol = "'All'";
+    let dimensionCol = this.castToString("'All'");
     if (dimension?.type === "experiment") {
       dimensionCol = `dim_exp_${dimension.id}`;
     } else if (dimension?.type === "user") {
