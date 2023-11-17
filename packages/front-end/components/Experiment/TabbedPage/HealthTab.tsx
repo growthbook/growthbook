@@ -106,12 +106,12 @@ export default function HealthTab({ experiment, onDrawerNotify }: Props) {
 
   // If org has not updated settings since the health tab was introduced, prompt the user
   // to enable the traffic query setting
-  if (runHealthTrafficQuery === undefined) {
+  if (!runHealthTrafficQuery) {
     return (
       <div className="alert alert-info mt-3">
-        Welcome to the new health tab! You can use this tab to view experiment
-        traffic over time, perform balance checks, and check for multiple
-        exposures. To get started,{" "}
+        {runHealthTrafficQuery === undefined
+          ? "Welcome to the new health tab! You can use this tab to view experiment traffic over time, perform balance checks, and check for multiple exposures. To get started, "
+          : "Health queries are disabled in your Organization Settings. To enable them, "}
         {hasPermissionToEditOrgSettings ? (
           <>
             visit your <Link href={"/settings"}>Organization Settings</Link> and
