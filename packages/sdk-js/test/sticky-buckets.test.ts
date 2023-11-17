@@ -228,8 +228,8 @@ describe("sticky-buckets", () => {
     expect(result1.value).toBe("red");
     expect(result2.value).toBe("control"); // cannot use fallbackAttribute, no hashAttribute
 
-    let expResult1 = growthbook1a.triggerExperiment("manual-experiment");
-    let expResult2 = growthbook2a.triggerExperiment("manual-experiment");
+    let expResult1 = growthbook1a.triggerExperiment("manual-experiment")?.[0];
+    let expResult2 = growthbook2a.triggerExperiment("manual-experiment")?.[0];
     expect(expResult1?.variationId).toBe(2);
     expect(expResult2?.variationId).toBe(0);
 
@@ -273,8 +273,8 @@ describe("sticky-buckets", () => {
     expect(result1.value).toBe("red");
     expect(result2.value).toBe("blue");
 
-    expResult1 = growthbook1b.triggerExperiment("manual-experiment");
-    expResult2 = growthbook2b.triggerExperiment("manual-experiment");
+    expResult1 = growthbook1b.triggerExperiment("manual-experiment")?.[0];
+    expResult2 = growthbook2b.triggerExperiment("manual-experiment")?.[0];
     expect(expResult1?.variationId).toBe(2);
     expect(expResult2?.variationId).toBe(1);
 
@@ -315,8 +315,8 @@ describe("sticky-buckets", () => {
     expect(result1.value).toBe("red");
     expect(result2.value).toBe("blue");
 
-    expResult1 = growthbook1c.triggerExperiment("manual-experiment");
-    expResult2 = growthbook2c.triggerExperiment("manual-experiment");
+    expResult1 = growthbook1c.triggerExperiment("manual-experiment")?.[0];
+    expResult2 = growthbook2c.triggerExperiment("manual-experiment")?.[0];
     expect(expResult1?.variationId).toBe(2);
     expect(expResult2?.variationId).toBe(1);
 
@@ -353,7 +353,7 @@ describe("sticky-buckets", () => {
     const result1 = growthbook1.evalFeature("exp1");
     expect(result1.value).toBe("red");
 
-    const expResult1 = growthbook1.triggerExperiment("manual-experiment");
+    const expResult1 = growthbook1.triggerExperiment("manual-experiment")?.[0];
     expect(expResult1?.variationId).toBe(2);
 
     growthbook1.destroy();
@@ -381,7 +381,7 @@ describe("sticky-buckets", () => {
     const result2 = growthbook2.evalFeature("exp1");
     expect(result2.value).toBe("red");
 
-    const expResult2 = growthbook2.triggerExperiment("manual-experiment");
+    const expResult2 = growthbook2.triggerExperiment("manual-experiment")?.[0];
     expect(expResult2?.variationId).toBe(2);
 
     growthbook2.destroy();
@@ -408,7 +408,7 @@ describe("sticky-buckets", () => {
     const result3 = growthbook3.evalFeature("exp1");
     expect(result3.value).toBe("red");
 
-    const expResult3 = growthbook3.triggerExperiment("manual-experiment");
+    const expResult3 = growthbook3.triggerExperiment("manual-experiment")?.[0];
     expect(expResult3?.variationId).toBe(2);
 
     growthbook3.destroy();
@@ -450,7 +450,7 @@ describe("sticky-buckets", () => {
     const result1 = growthbook1.evalFeature("exp1");
     expect(result1.value).toBe("red");
 
-    const expResult1 = growthbook1.triggerExperiment("manual-experiment");
+    const expResult1 = growthbook1.triggerExperiment("manual-experiment")?.[0];
     expect(expResult1?.variationId).toBe(2);
 
     growthbook1.destroy();
@@ -477,7 +477,7 @@ describe("sticky-buckets", () => {
     const result2 = growthbook2.evalFeature("exp1");
     expect(result2.value).toBe("red");
 
-    const expResult2 = growthbook2.triggerExperiment("manual-experiment");
+    const expResult2 = growthbook2.triggerExperiment("manual-experiment")?.[0];
     expect(expResult2?.variationId).toBe(2);
 
     growthbook2.destroy();
@@ -503,7 +503,7 @@ describe("sticky-buckets", () => {
     const result3 = growthbook3.evalFeature("exp1");
     expect(result3.value).toBe("red");
 
-    const expResult3 = growthbook3.triggerExperiment("manual-experiment");
+    const expResult3 = growthbook3.triggerExperiment("manual-experiment")?.[0];
     expect(expResult3?.variationId).toBe(2);
 
     growthbook3.destroy();

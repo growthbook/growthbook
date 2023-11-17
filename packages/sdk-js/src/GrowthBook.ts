@@ -459,10 +459,12 @@ export class GrowthBook<
     this._triggeredExpKeys.add(key);
     if (!this._ctx.experiments) return null;
     const experiments = this._ctx.experiments.filter((exp) => exp.key === key);
-    experiments.forEach((exp) => {
-      if (!exp.manual) return null;
-      this._runAutoExperiment(exp);
-    });
+    return experiments
+      .map((exp) => {
+        if (!exp.manual) return null;
+        return this._runAutoExperiment(exp);
+      })
+      .filter((res) => res !== null);
   }
 
   private _runAutoExperiment(experiment: AutoExperiment, forceRerun?: boolean) {
