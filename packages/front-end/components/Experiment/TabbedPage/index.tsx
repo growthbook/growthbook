@@ -86,6 +86,7 @@ export default function TabbedPage({
   const [watchersModal, setWatchersModal] = useState(false);
   const [visualEditorModal, setVisualEditorModal] = useState(false);
   const [featureModal, setFeatureModal] = useState(false);
+  const [healthNotificationCount, setHealthNotificationCount] = useState(0);
 
   useEffect(() => {
     const handler = () => {
@@ -215,6 +216,7 @@ export default function TabbedPage({
         editTargeting={editTargeting}
         newPhase={newPhase}
         editPhases={editPhases}
+        healthNotificationCount={healthNotificationCount}
       />
       <div className="container pagecontents pb-4">
         {experiment.project ===
@@ -325,7 +327,13 @@ export default function TabbedPage({
           />
         </div>
         <div className={tab === "health" ? "d-block" : "d-none d-print-block"}>
-          <HealthTab experiment={experiment} />
+          <HealthTab
+            experiment={experiment}
+            onDrawerNotify={() =>
+              // setHealthNotificationCount((prev) => prev + 1)
+              undefined
+            }
+          />
         </div>
       </div>
 

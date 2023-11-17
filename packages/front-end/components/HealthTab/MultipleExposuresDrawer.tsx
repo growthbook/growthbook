@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { MINIMUM_MULTIPLE_EXPOSURES } from "../Experiment/MultipleExposureWarning";
 import HealthDrawer from "./HealthDrawer";
@@ -6,6 +7,7 @@ import { HealthStatus } from "./StatusBadge";
 interface Props {
   totalUsers: number;
   multipleExposures: number;
+  onNotify: () => void;
 }
 
 const percentFormatter = new Intl.NumberFormat(undefined, {
@@ -58,6 +60,7 @@ const renderTooltipBody = ({
 export default function MultipleExposuresDrawer({
   totalUsers,
   multipleExposures,
+  onNotify,
 }: Props) {
   const settings = useOrgSettings();
   const MIN_PERCENT = settings?.multipleExposureMinPercent ?? 0.01;
@@ -67,6 +70,11 @@ export default function MultipleExposuresDrawer({
     totalUsers,
     minPercent: MIN_PERCENT,
   });
+  useEffect(() => {
+    if (health === "healthy") {
+      onNotify();
+    }
+  }, [health, onNotify]);
 
   return (
     <HealthDrawer

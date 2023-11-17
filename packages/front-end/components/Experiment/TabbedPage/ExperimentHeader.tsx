@@ -26,6 +26,7 @@ import HeaderWithEdit from "@/components/Layout/HeaderWithEdit";
 import Modal from "@/components/Modal";
 import { useScrollPosition } from "@/hooks/useScrollPosition";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import track from "@/services/track";
 import ResultsIndicator from "../ResultsIndicator";
 import { StartExperimentBanner } from "../StartExperimentBanner";
 import { useSnapshot } from "../SnapshotProvider";
@@ -52,6 +53,7 @@ export interface Props {
   newPhase?: (() => void) | null;
   editTargeting?: (() => void) | null;
   editPhases?: (() => void) | null;
+  healthNotificationCount: number;
 }
 
 const datasourcesWithoutHealthData = new Set(["mixpanel", "google_analytics"]);
@@ -95,6 +97,7 @@ export default function ExperimentHeader({
   editTargeting,
   newPhase,
   editPhases,
+  healthNotificationCount,
 }: Props) {
   const { apiCall } = useAuth();
   const router = useRouter();
@@ -119,6 +122,7 @@ export default function ExperimentHeader({
       : new Date();
 
   const [startExperiment, setStartExperiment] = useState(false);
+  console.log({ healthNotificationCount });
 
   const canCreateAnalyses = permissions.check(
     "createAnalyses",
@@ -432,7 +436,10 @@ export default function ExperimentHeader({
                       </>
                     }
                     anchor="health"
-                    onClick={() => setTab("health")}
+                    onClick={() => {
+                      track("Open health tab");
+                      setTab("health");
+                    }}
                     newStyle={false}
                     activeClassName="active-tab"
                     last={true}

@@ -3,7 +3,7 @@ import Tooltip from "../Tooltip/Tooltip";
 export const BadgeColors = {
   healthy: "badge-green",
   unhealthy: "badge-red",
-  unknown: "badge-gray",
+  "not enough data": "badge-gray",
 };
 export type HealthStatus = keyof typeof BadgeColors;
 

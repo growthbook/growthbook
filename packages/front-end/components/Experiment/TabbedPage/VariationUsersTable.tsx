@@ -3,6 +3,8 @@ import { ExperimentReportVariation } from "back-end/types/report";
 export interface Props {
   variations: ExperimentReportVariation[];
   users: number[];
+  srm?: string;
+  isUnhealthy?: boolean;
 }
 
 const numberFormatter = Intl.NumberFormat(undefined, {
@@ -20,7 +22,12 @@ const diffFormatter = Intl.NumberFormat(undefined, {
   maximumFractionDigits: 2,
 });
 
-export default function VariationUsersTable({ variations, users }: Props) {
+export default function VariationUsersTable({
+  variations,
+  users,
+  srm,
+  isUnhealthy,
+}: Props) {
   const totalUsers = users.reduce((sum, n) => sum + n, 0);
   const totalWeight = variations
     .map((v) => v.weight)
@@ -56,7 +63,17 @@ export default function VariationUsersTable({ variations, users }: Props) {
               totalWeight > 0 ? v.weight / totalWeight : undefined;
             const actual = totalUsers > 0 ? users[i] / totalUsers : undefined;
 
-            const diff = actual && expected ? actual - expected : undefined;
+            const diff =
+              actual && expected ? (actual - expected) * 100 : undefined;
+
+            let diffColor;
+
+            if (diff && diff < 0) {
+              diffColor = "lightcoral";
+            } else if (diff && diff > 0) {
+              diffColor = "lightgreen";
+            }
+
             return (
               <tr key={i}>
                 <td className={`variation with-variation-label variation${i}`}>
@@ -90,12 +107,12 @@ export default function VariationUsersTable({ variations, users }: Props) {
                     ? percentFormatter.format(v.weight / totalWeight)
                     : "-"}
                 </td>
-                <td>
+                <td style={diffColor ? { color: diffColor } : undefined}>
                   {diff ? (
-                    <>
-                      {diffFormatter.format(diff * 100)}
+                    <b>
+                      {diffFormatter.format(diff)}
                       <sub>pp</sub>
-                    </>
+                    </b>
                   ) : (
                     "-"
                   )}
@@ -103,6 +120,25 @@ export default function VariationUsersTable({ variations, users }: Props) {
               </tr>
             );
           })}
+          {srm && (
+            <tr>
+              <td></td>
+              <td></td>
+              <td>
+                <b>SRM p-value</b>
+              </td>
+              <td></td>
+              <td
+                className={
+                  isUnhealthy ? "text-danger font-weight-bold" : undefined
+                }
+              >
+                {srm}
+              </td>
+              <td></td>
+              <td></td>
+            </tr>
+          )}
         </tbody>
       </table>
     </>

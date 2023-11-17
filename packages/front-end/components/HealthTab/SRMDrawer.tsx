@@ -1,10 +1,11 @@
 import { ExperimentSnapshotTraffic } from "back-end/types/experiment-snapshot";
 import { ExperimentReportVariation } from "back-end/types/report";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useUser } from "@/services/UserContext";
 import { pValueFormatter } from "@/services/experiments";
 import { DEFAULT_SRM_THRESHOLD } from "@/pages/settings";
+import track from "@/services/track";
 import VariationUsersTable from "../Experiment/TabbedPage/VariationUsersTable";
 import SRMWarning from "../Experiment/SRMWarning";
 import SelectField, { SingleValue } from "../Forms/SelectField";
@@ -17,6 +18,7 @@ interface Props {
   variations: ExperimentReportVariation[];
   totalUsers: number;
   datasource: string;
+  onNotify: () => void;
 }
 
 export const srmHealthCheck = ({
@@ -31,7 +33,7 @@ export const srmHealthCheck = ({
   totalUsers: number;
 }): HealthStatus => {
   if (totalUsers && totalUsers < 8 * variations.length) {
-    return "unknown";
+    return "not enough data";
   }
 
   if (srm >= srmThreshold) {
@@ -50,10 +52,10 @@ const UNHEALTHY_TOOLTIP_MESSAGE =
   "Sample Ratio Mismatch detected. Click into the drawer to investigate.";
 
 const NOT_ENOUGH_DATA_TOOLTIP_MESSAGE =
-  "Not enough data is available to detect a Sample Ratio Mismatch. Please come back later to check in on the experiment's balance.";
+  "Not enough data to compute balance check.";
 
 const SRM_CHECK_SKIPPED_TOOLTIP_MESSAGE =
-  "This experiment's variations have extremely uneven weights. The SRM check has been skipped to avoid false positives";
+  "This experiment's variations have extremely uneven weights. The SRM check has been skipped to avoid false positives.";
 
 const renderTooltipBody = ({
   srm,
@@ -69,7 +71,7 @@ const renderTooltipBody = ({
       <b>P-Value:</b> {pValueFormatter(srm)}
       {health === "healthy" && <div>{HEALTHY_TOOLTIP_MESSAGE}</div>}
       {health === "unhealthy" && <div>{UNHEALTHY_TOOLTIP_MESSAGE}</div>}
-      {health === "unknown" && (
+      {health === "not enough data" && (
         <div>
           {wasSrmCheckSkipped
             ? SRM_CHECK_SKIPPED_TOOLTIP_MESSAGE
@@ -85,11 +87,10 @@ export default function SRMDrawer({
   variations,
   totalUsers,
   datasource,
+  onNotify,
 }: Props) {
   const [selectedDimension, setSelectedDimension] = useState<string>("");
   const { settings } = useUser();
-
-  console.log({ datasource });
 
   const srmThreshold = settings.srmThreshold ?? DEFAULT_SRM_THRESHOLD;
 
@@ -97,13 +98,19 @@ export default function SRMDrawer({
   // This causes too many false positives with the current data quality checks
   const skipSrmCheck = variations.filter((x) => x.weight < 0.02).length > 0;
   const overallHealth = skipSrmCheck
-    ? "unknown"
+    ? "not enough data"
     : srmHealthCheck({
         srm: traffic.overall.srm,
         srmThreshold,
         variations,
         totalUsers,
       });
+
+  useEffect(() => {
+    if (overallHealth === "healthy") {
+      onNotify();
+    }
+  }, [overallHealth, onNotify]);
 
   const availableDimensions: SingleValue[] = Object.keys(
     traffic.dimension
@@ -134,7 +141,10 @@ export default function SRMDrawer({
           <VariationUsersTable
             users={traffic.overall.variationUnits}
             variations={variations}
+            srm={pValueFormatter(traffic.overall.srm)}
+            isUnhealthy={overallHealth === "unhealthy"}
           />
+
           <div className="col-4 ml-4 mr-2">
             {overallHealth === "healthy" && (
               <div className="alert alert-info">{HEALTHY_TOOLTIP_MESSAGE}</div>
@@ -146,7 +156,7 @@ export default function SRMDrawer({
                 observed={traffic.overall.variationUnits}
               />
             )}
-            {overallHealth === "unknown" && (
+            {overallHealth === "not enough data" && (
               <div className="alert alert-info">
                 {skipSrmCheck
                   ? SRM_CHECK_SKIPPED_TOOLTIP_MESSAGE
@@ -166,6 +176,7 @@ export default function SRMDrawer({
               value={selectedDimension}
               onChange={(v) => {
                 if (v === selectedDimension) return;
+                track("Select health tab dimension");
                 setSelectedDimension(v);
               }}
               helpText={"Break down traffic by dimension"}
@@ -217,6 +228,8 @@ export default function SRMDrawer({
                           <VariationUsersTable
                             users={d.variationUnits}
                             variations={variations}
+                            srm={pValueFormatter(d.srm)}
+                            isUnhealthy={dimensionHealth === "unhealthy"}
                           />
                           <div className="col-sm ml-4 mr-4">
                             {overallHealth === "unhealthy" && (

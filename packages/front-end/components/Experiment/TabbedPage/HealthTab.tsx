@@ -19,6 +19,7 @@ import ExperimentDateGraph, {
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
+  onDrawerNotify: () => void;
 }
 
 const numberFormatter = new Intl.NumberFormat();
@@ -95,7 +96,7 @@ const UnitCountDateGraph = ({
   );
 };
 
-export default function HealthTab({ experiment }: Props) {
+export default function HealthTab({ experiment, onDrawerNotify }: Props) {
   const { error, snapshot, phase } = useSnapshot();
   const { runHealthTrafficQuery } = useOrgSettings();
   const permissions = usePermissions();
@@ -190,10 +191,12 @@ export default function HealthTab({ experiment }: Props) {
         variations={variations}
         totalUsers={totalUsers}
         datasource={experiment.datasource}
+        onNotify={onDrawerNotify}
       />
       <MultipleExposuresDrawer
         multipleExposures={snapshot.multipleExposures}
         totalUsers={totalUsers}
+        onNotify={onDrawerNotify}
       />
     </div>
   );
