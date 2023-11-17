@@ -2,6 +2,7 @@ import { orgHasPremiumFeature } from "enterprise";
 import { ExperimentMetricInterface, isFactMetric } from "shared/experiments";
 import {
   ExperimentSnapshotAnalysis,
+  ExperimentSnapshotHealth,
   ExperimentSnapshotInterface,
   ExperimentSnapshotSettings,
 } from "../../types/experiment-snapshot";
@@ -14,8 +15,13 @@ import {
 } from "../models/ExperimentSnapshotModel";
 import { findSegmentById } from "../models/SegmentModel";
 import { parseDimensionId } from "../services/experiments";
-import { analyzeExperimentResults } from "../services/stats";
 import {
+  analyzeExperimentResults,
+  analyzeExperimentTraffic,
+} from "../services/stats";
+import {
+  ExperimentAggregateUnitsQueryResponseRows,
+  ExperimentDimension,
   ExperimentMetricQueryParams,
   ExperimentMetricStats,
   ExperimentQueryResponses,
@@ -38,6 +44,7 @@ export type SnapshotResult = {
   unknownVariations: string[];
   multipleExposures: number;
   analyses: ExperimentSnapshotAnalysis[];
+  health?: ExperimentSnapshotHealth;
 };
 
 export type ExperimentResultsQueryParams = {
@@ -47,6 +54,8 @@ export type ExperimentResultsQueryParams = {
   factTableMap: FactTableMap;
   queryParentId: string;
 };
+
+export const TRAFFIC_QUERY_NAME = "traffic";
 
 export const startExperimentResultQueries = async (
   params: ExperimentResultsQueryParams,
@@ -86,6 +95,10 @@ export const startExperimentResultQueries = async (
     segmentObj = await findSegmentById(snapshotSettings.segment, organization);
   }
 
+  const exposureQuery = (integration.settings?.queries?.exposure || []).find(
+    (q) => q.id === snapshotSettings.exposureQueryId
+  );
+
   const dimensionObj = await parseDimensionId(
     snapshotSettings.dimensions[0]?.id,
     organization
@@ -93,6 +106,7 @@ export const startExperimentResultQueries = async (
 
   const queries: Queries = [];
 
+  // Settings for units table
   const useUnitsTable =
     (integration.getSourceProperties().supportsWritingTables &&
       integration.settings.pipelineSettings?.allowWriting &&
@@ -100,7 +114,34 @@ export const startExperimentResultQueries = async (
       hasPipelineModeFeature) ??
     false;
   let unitQuery: QueryPointer | null = null;
-  let unitsTableFullName = "";
+  const unitsTableFullName =
+    useUnitsTable && !!integration.generateTablePath
+      ? integration.generateTablePath(
+          `growthbook_tmp_units_${queryParentId}`,
+          integration.settings.pipelineSettings?.writeDataset,
+          "",
+          true
+        )
+      : "";
+
+  // Settings for health query
+  const runTrafficQuery = !dimensionObj && org?.settings?.runHealthTrafficQuery;
+  const dimensionsForTraffic: ExperimentDimension[] = runTrafficQuery
+    ? (exposureQuery?.dimensionsForTraffic || []).map((id) => ({
+        type: "experiment",
+        id,
+      }))
+    : [];
+
+  const unitQueryParams: ExperimentUnitsQueryParams = {
+    activationMetric: activationMetric,
+    dimensions: dimensionObj ? [dimensionObj] : dimensionsForTraffic,
+    segment: segmentObj,
+    settings: snapshotSettings,
+    unitsTableFullName: unitsTableFullName,
+    includeIdJoins: true,
+    factTableMap: params.factTableMap,
+  };
 
   if (useUnitsTable) {
     // The Mixpanel integration does not support writing tables
@@ -109,31 +150,16 @@ export const startExperimentResultQueries = async (
         "Unable to generate table; table path generator not specified."
       );
     }
-    unitsTableFullName = integration.generateTablePath(
-      `growthbook_tmp_units_${queryParentId}`,
-      integration.settings.pipelineSettings?.writeDataset,
-      "",
-      true
-    );
-    const unitQueryParams: ExperimentUnitsQueryParams = {
-      activationMetric: activationMetric,
-      dimension: dimensionObj,
-      segment: segmentObj,
-      settings: snapshotSettings,
-      unitsTableFullName: unitsTableFullName,
-      includeIdJoins: true,
-      factTableMap: params.factTableMap,
-    };
     unitQuery = await startQuery({
       name: queryParentId,
       query: integration.getExperimentUnitsTableQuery(unitQueryParams),
       dependencies: [],
-      run: (query) => integration.runExperimentUnitsQuery(query),
+      run: (query, setExternalId) =>
+        integration.runExperimentUnitsQuery(query, setExternalId),
       process: (rows) => rows,
     });
     queries.push(unitQuery);
   }
-
   const promises = selectedMetrics.map(async (m) => {
     const denominatorMetrics: MetricInterface[] = [];
     if (!isFactMetric(m) && m.denominator) {
@@ -149,11 +175,11 @@ export const startExperimentResultQueries = async (
     const queryParams: ExperimentMetricQueryParams = {
       activationMetric,
       denominatorMetrics,
-      dimension: dimensionObj,
+      dimensions: dimensionObj ? [dimensionObj] : [],
       metric: m,
       segment: segmentObj,
       settings: snapshotSettings,
-      useUnitsTable: useUnitsTable,
+      useUnitsTable: !!unitQuery,
       unitsTableFullName: unitsTableFullName,
       factTableMap: params.factTableMap,
     };
@@ -162,12 +188,30 @@ export const startExperimentResultQueries = async (
         name: m.id,
         query: integration.getExperimentMetricQuery(queryParams),
         dependencies: unitQuery ? [unitQuery.query] : [],
-        run: (query) => integration.runExperimentMetricQuery(query),
+        run: (query, setExternalId) =>
+          integration.runExperimentMetricQuery(query, setExternalId),
         process: (rows) => rows,
       })
     );
   });
+
   await Promise.all(promises);
+
+  if (runTrafficQuery) {
+    const trafficQuery = await startQuery({
+      name: TRAFFIC_QUERY_NAME,
+      query: integration.getExperimentAggregateUnitsQuery({
+        ...unitQueryParams,
+        dimensions: dimensionsForTraffic,
+        useUnitsTable: !!unitQuery,
+      }),
+      dependencies: unitQuery ? [unitQuery.query] : [],
+      run: (query, setExternalId) =>
+        integration.runExperimentAggregateUnitsQuery(query, setExternalId),
+      process: (rows) => rows,
+    });
+    queries.push(trafficQuery);
+  }
 
   return queries;
 };
@@ -227,6 +271,16 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
         })()
       );
     });
+
+    // Run health checks
+    const healthQuery = queryMap.get(TRAFFIC_QUERY_NAME);
+    if (healthQuery) {
+      const trafficHealth = analyzeExperimentTraffic({
+        rows: healthQuery.result as ExperimentAggregateUnitsQueryResponseRows,
+        variations: this.model.settings.variations,
+      });
+      result.health = { traffic: trafficHealth };
+    }
 
     if (analysisPromises.length > 0) {
       await Promise.all(analysisPromises);

@@ -167,6 +167,15 @@ const experimentSchema = new mongoose.Schema({
   sequentialTestingEnabled: Boolean,
   sequentialTestingTuningParameter: Number,
   statsEngine: String,
+  manualLaunchChecklist: [
+    {
+      key: String,
+      status: {
+        type: String,
+        enum: ["complete", "incomplete"],
+      },
+    },
+  ],
 });
 
 type ExperimentDocument = mongoose.Document & ExperimentInterface;
@@ -243,8 +252,19 @@ export async function getExperimentsByIds(
   organization: string,
   ids: string[]
 ): Promise<ExperimentInterface[]> {
+  if (!ids.length) return [];
   return await findExperiments({
     id: { $in: ids },
+    organization,
+  });
+}
+
+export async function getExperimentsByTrackingKeys(
+  organization: string,
+  trackingKeys: string[]
+): Promise<ExperimentInterface[]> {
+  return await findExperiments({
+    trackingKey: { $in: trackingKeys },
     organization,
   });
 }
@@ -883,12 +903,15 @@ export async function addLinkedFeatureToExperiment(
   organization: OrganizationInterface,
   user: EventAuditUser,
   experimentId: string,
-  featureId: string
+  featureId: string,
+  experiment?: ExperimentInterface | null
 ) {
-  const experiment = await findExperiment({
-    experimentId,
-    organizationId: organization.id,
-  });
+  if (!experiment) {
+    experiment = await findExperiment({
+      experimentId,
+      organizationId: organization.id,
+    });
+  }
 
   if (!experiment) return;
 
@@ -1258,13 +1281,13 @@ const onExperimentUpdate = async ({
     hasChangesForSDKPayloadRefresh(oldExperiment, newExperiment)
   ) {
     // Get linked features
-    const featureIds = [
+    const featureIds = new Set([
       ...(oldExperiment.linkedFeatures || []),
       ...(newExperiment.linkedFeatures || []),
-    ];
+    ]);
     let linkedFeatures: FeatureInterface[] = [];
-    if (featureIds.length > 0) {
-      linkedFeatures = await getFeaturesByIds(organization.id, featureIds);
+    if (featureIds.size > 0) {
+      linkedFeatures = await getFeaturesByIds(organization.id, [...featureIds]);
     }
 
     const oldPayloadKeys = oldExperiment

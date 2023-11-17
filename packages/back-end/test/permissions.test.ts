@@ -797,6 +797,7 @@ describe("Build base user permissions", () => {
         limitAccessByEnvironment: false,
         environments: [],
         projectRoles: [],
+        managedByIdp: false,
       },
     ];
 
@@ -959,6 +960,7 @@ describe("Build base user permissions", () => {
         limitAccessByEnvironment: false,
         environments: [],
         projectRoles: [],
+        managedByIdp: false,
       },
     ];
 
@@ -1033,6 +1035,7 @@ describe("Build base user permissions", () => {
         limitAccessByEnvironment: true,
         environments: ["staging", "development"],
         projectRoles: [],
+        managedByIdp: false,
       },
     ];
 
@@ -1117,6 +1120,7 @@ describe("Build base user permissions", () => {
             environments: [],
           },
         ],
+        managedByIdp: false,
       },
     ];
 
@@ -1236,6 +1240,7 @@ describe("Build base user permissions", () => {
         limitAccessByEnvironment: true,
         environments: ["staging", "production"],
         projectRoles: [],
+        managedByIdp: false,
       },
     ];
 
@@ -1310,6 +1315,7 @@ describe("Build base user permissions", () => {
         limitAccessByEnvironment: true,
         environments: ["staging", "production"],
         projectRoles: [],
+        managedByIdp: false,
       },
     ];
 
@@ -1384,6 +1390,7 @@ describe("Build base user permissions", () => {
         limitAccessByEnvironment: true,
         environments: ["staging", "production"],
         projectRoles: [],
+        managedByIdp: false,
       },
     ];
 
@@ -1458,6 +1465,7 @@ describe("Build base user permissions", () => {
         limitAccessByEnvironment: true,
         environments: ["staging", "development"],
         projectRoles: [],
+        managedByIdp: false,
       },
     ];
 
@@ -1541,6 +1549,7 @@ describe("Build base user permissions", () => {
             environments: [],
           },
         ],
+        managedByIdp: false,
       },
     ];
 
@@ -1667,6 +1676,7 @@ describe("Build base user permissions", () => {
             environments: [],
           },
         ],
+        managedByIdp: false,
       },
     ];
 
@@ -1786,6 +1796,7 @@ describe("Build base user permissions", () => {
             environments: [],
           },
         ],
+        managedByIdp: false,
       },
     ];
 
@@ -1912,6 +1923,7 @@ describe("Build base user permissions", () => {
             environments: ["production", "staging"],
           },
         ],
+        managedByIdp: false,
       },
     ];
 
@@ -2038,6 +2050,7 @@ describe("Build base user permissions", () => {
             environments: [],
           },
         ],
+        managedByIdp: false,
       },
     ];
 

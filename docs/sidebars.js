@@ -266,8 +266,13 @@ const sidebars = {
         },
         {
           type: "doc",
-          id: "experimentation-analysis/experiments",
-          label: "Experiments",
+          id: "experimentation-analysis/experiment-configuration",
+          label: "Experiments (Adding and Configuring)",
+        },
+        {
+          type: "doc",
+          id: "experimentation-analysis/experiment-results",
+          label: "Experiments (Results)",
         },
         {
           type: "doc",

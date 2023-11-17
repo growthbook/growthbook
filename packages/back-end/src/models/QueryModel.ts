@@ -34,6 +34,7 @@ const querySchema = new mongoose.Schema({
   startedAt: Date,
   finishedAt: Date,
   heartbeat: Date,
+  externalId: String,
   result: {},
   rawResult: [],
   error: String,
