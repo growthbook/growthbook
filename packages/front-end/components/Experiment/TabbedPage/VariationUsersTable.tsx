@@ -121,22 +121,20 @@ export default function VariationUsersTable({
             );
           })}
           {srm && (
-            <tr>
-              <td></td>
-              <td></td>
-              <td>
+            <tr className="text-right">
+              <td colSpan={3}></td>
+              <td colSpan={3} className="text-nowrap">
                 <b>SRM p-value</b>
               </td>
-              <td></td>
               <td
                 className={
-                  isUnhealthy ? "text-danger font-weight-bold" : undefined
+                  isUnhealthy
+                    ? "text-left text-danger font-weight-bold"
+                    : "text-left"
                 }
               >
                 {srm}
               </td>
-              <td></td>
-              <td></td>
             </tr>
           )}
         </tbody>
