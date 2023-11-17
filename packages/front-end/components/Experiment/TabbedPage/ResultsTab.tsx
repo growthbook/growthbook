@@ -331,6 +331,7 @@ export default function ResultsTab({
                   setDifferenceType={setDifferenceType}
                   metricFilter={metricFilter}
                   setMetricFilter={setMetricFilter}
+                  setTab={setTab}
                 />
               )}
             </>

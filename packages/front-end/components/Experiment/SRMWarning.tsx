@@ -104,13 +104,16 @@ const SRMWarning: FC<{
         </p>
       </Modal>
       <div className="alert alert-danger">
+        <strong>Warning: Sample Ratio Mismatch (SRM) detected</strong>.{" "}
         {linkToHealthTab &&
         setTab &&
         snapshot?.health?.traffic.dimension?.dim_exposure_date ? (
           <>
             Results are likely untrustworthy. See the{" "}
             <a
-              onClick={() => {
+              href="#"
+              onClick={(e) => {
+                e.preventDefault();
                 track("Open health tab");
                 setTab("health");
               }}
@@ -142,7 +145,6 @@ const SRMWarning: FC<{
             </a>
           </>
         )}
-        <strong>Warning: Sample Ratio Mismatch (SRM) detected</strong>.
       </div>
     </>
   );
