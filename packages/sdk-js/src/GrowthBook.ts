@@ -42,6 +42,7 @@ import {
 } from "./util";
 import { evalCondition } from "./mongrule";
 import { refreshFeatures, subscribe, unsubscribe } from "./feature-repository";
+import { ExperimentEvaluationContext } from "./types/growthbook";
 
 const isBrowser =
   typeof window !== "undefined" && typeof document !== "undefined";
@@ -435,7 +436,22 @@ export class GrowthBook<
   }
 
   public run<T>(experiment: Experiment<T>): Result<T> {
-    const result = this._run(experiment, null);
+    const ctx: ExperimentEvaluationContext = {};
+    if (
+      this._ctx.stickyBucketService &&
+      experiment.variations &&
+      experiment.variations.length > 1
+    ) {
+      const { variation, blocked } = this._getStickyBucketVariation(
+        experiment.key,
+        experiment.bucketVersion,
+        experiment.minBucketVersion
+      );
+      ctx.foundStickyBucket = variation >= 0;
+      ctx.stickyBucketAssigned = variation;
+      ctx.stickyBucketBlocked = blocked;
+    }
+    const result = this._run(experiment, null, ctx);
     this._fireSubscriptions(experiment, result);
     return result;
   }
@@ -674,24 +690,25 @@ export class GrowthBook<
     // Loop through the rules
     if (feature.rules) {
       for (const rule of feature.rules) {
+        const ctx: ExperimentEvaluationContext = {};
         // Pre-check if we have an experiment-based sticky bucket, since that supersedes feature rules:
-        let foundStickyBucket = false;
         if (
           this._ctx.stickyBucketService &&
           rule.variations &&
           rule.variations.length > 1
         ) {
-          const { variation } = this._getStickyBucketVariation(
+          const { variation, blocked } = this._getStickyBucketVariation(
             rule.key || id,
             rule.bucketVersion,
             rule.minBucketVersion
           );
-          if (variation >= 0) {
-            foundStickyBucket = true;
-          }
+          ctx.foundStickyBucket = variation >= 0;
+          ctx.stickyBucketAssigned = variation;
+          ctx.stickyBucketBlocked = blocked;
         }
 
-        if (!foundStickyBucket) {
+        // If we have a sticky bucket, skip non-experiment rules
+        if (!ctx.foundStickyBucket) {
           // If it's a conditional rule, skip if the condition doesn't pass
           if (rule.condition && !this._conditionPasses(rule.condition)) {
             process.env.NODE_ENV !== "production" &&
@@ -764,6 +781,7 @@ export class GrowthBook<
             continue;
           }
         }
+
         // For experiment rules, run an experiment
         const exp: Experiment<V> = {
           variations: rule.variations as [V, V, ...V[]],
@@ -788,7 +806,7 @@ export class GrowthBook<
         if (rule.filters) exp.filters = rule.filters;
 
         // Only return a value if the user is part of the experiment
-        const res = this._run(exp, id);
+        const res = this._run(exp, id, ctx);
         this._fireSubscriptions(exp, res);
         if (res.inExperiment && !res.passthrough) {
           return this._getFeatureResult(
@@ -861,7 +879,8 @@ export class GrowthBook<
 
   private _run<T>(
     experiment: Experiment<T>,
-    featureId: string | null
+    featureId: string | null,
+    ctx: ExperimentEvaluationContext = {}
   ): Result<T> {
     const key = experiment.key;
     const numVariations = experiment.variations.length;
@@ -931,78 +950,85 @@ export class GrowthBook<
       return this._getResult(experiment, -1, false, featureId);
     }
 
-    // 7. Exclude if user is filtered out (used to be called "namespace")
-    if (experiment.filters) {
-      if (this._isFilteredOut(experiment.filters)) {
+    // Some checks are not needed if we already have a sticky bucket
+    if (!ctx.foundStickyBucket) {
+      // 7. Exclude if user is filtered out (used to be called "namespace")
+      if (experiment.filters) {
+        if (this._isFilteredOut(experiment.filters)) {
+          process.env.NODE_ENV !== "production" &&
+            this.log("Skip because of filters", {
+              id: key,
+            });
+          return this._getResult(experiment, -1, false, featureId);
+        }
+      } else if (
+        experiment.namespace &&
+        !inNamespace(hashValue, experiment.namespace)
+      ) {
         process.env.NODE_ENV !== "production" &&
-          this.log("Skip because of filters", {
+          this.log("Skip because of namespace", {
             id: key,
           });
         return this._getResult(experiment, -1, false, featureId);
       }
-    } else if (
-      experiment.namespace &&
-      !inNamespace(hashValue, experiment.namespace)
-    ) {
-      process.env.NODE_ENV !== "production" &&
-        this.log("Skip because of namespace", {
-          id: key,
-        });
-      return this._getResult(experiment, -1, false, featureId);
+
+      // 7.5. Exclude if experiment.include returns false or throws
+      if (experiment.include && !isIncluded(experiment.include)) {
+        process.env.NODE_ENV !== "production" &&
+          this.log("Skip because of include function", {
+            id: key,
+          });
+        return this._getResult(experiment, -1, false, featureId);
+      }
+
+      // 8. Exclude if condition is false
+      if (
+        experiment.condition &&
+        !this._conditionPasses(experiment.condition)
+      ) {
+        process.env.NODE_ENV !== "production" &&
+          this.log("Skip because of condition exp", {
+            id: key,
+          });
+        return this._getResult(experiment, -1, false, featureId);
+      }
+
+      // 8.1. Exclude if user is not in a required group
+      if (
+        experiment.groups &&
+        !this._hasGroupOverlap(experiment.groups as string[])
+      ) {
+        process.env.NODE_ENV !== "production" &&
+          this.log("Skip because of groups", {
+            id: key,
+          });
+        return this._getResult(experiment, -1, false, featureId);
+      }
+
+      // 8.2. Old style URL targeting
+      if (experiment.url && !this._urlIsValid(experiment.url as RegExp)) {
+        process.env.NODE_ENV !== "production" &&
+          this.log("Skip because of url", {
+            id: key,
+          });
+        return this._getResult(experiment, -1, false, featureId);
+      }
+
+      // 8.3. New, more powerful URL targeting
+      if (
+        experiment.urlPatterns &&
+        !isURLTargeted(this._getContextUrl(), experiment.urlPatterns)
+      ) {
+        process.env.NODE_ENV !== "production" &&
+          this.log("Skip because of url targeting", {
+            id: key,
+          });
+        return this._getResult(experiment, -1, false, featureId);
+      }
     }
 
-    // 7.5. Exclude if experiment.include returns false or throws
-    if (experiment.include && !isIncluded(experiment.include)) {
-      process.env.NODE_ENV !== "production" &&
-        this.log("Skip because of include function", {
-          id: key,
-        });
-      return this._getResult(experiment, -1, false, featureId);
-    }
-
-    // 8. Exclude if condition is false
-    if (experiment.condition && !this._conditionPasses(experiment.condition)) {
-      process.env.NODE_ENV !== "production" &&
-        this.log("Skip because of condition exp", {
-          id: key,
-        });
-      return this._getResult(experiment, -1, false, featureId);
-    }
-
-    // 8.1. Exclude if user is not in a required group
-    if (
-      experiment.groups &&
-      !this._hasGroupOverlap(experiment.groups as string[])
-    ) {
-      process.env.NODE_ENV !== "production" &&
-        this.log("Skip because of groups", {
-          id: key,
-        });
-      return this._getResult(experiment, -1, false, featureId);
-    }
-
-    // 8.2. Old style URL targeting
-    if (experiment.url && !this._urlIsValid(experiment.url as RegExp)) {
-      process.env.NODE_ENV !== "production" &&
-        this.log("Skip because of url", {
-          id: key,
-        });
-      return this._getResult(experiment, -1, false, featureId);
-    }
-
-    // 8.3. New, more powerful URL targeting
-    if (
-      experiment.urlPatterns &&
-      !isURLTargeted(this._getContextUrl(), experiment.urlPatterns)
-    ) {
-      process.env.NODE_ENV !== "production" &&
-        this.log("Skip because of url targeting", {
-          id: key,
-        });
-      return this._getResult(experiment, -1, false, featureId);
-    }
-
-    // 9. Get bucket ranges and choose variation
+    // 9. Get the variation from the sticky bucket or get bucket ranges and choose variation
+    let assigned = -1;
     const n = hash(
       experiment.seed || key,
       hashValue,
@@ -1016,37 +1042,24 @@ export class GrowthBook<
       return this._getResult(experiment, -1, false, featureId);
     }
 
-    const ranges =
-      experiment.ranges ||
-      getBucketRanges(
-        numVariations,
-        experiment.coverage === undefined ? 1 : experiment.coverage,
-        experiment.weights,
-        experiment.blockedVariations
-      );
+    if (ctx.foundStickyBucket) {
+      assigned = ctx.stickyBucketAssigned || -1;
+    } else {
+      const ranges =
+        experiment.ranges ||
+        getBucketRanges(
+          numVariations,
+          experiment.coverage === undefined ? 1 : experiment.coverage,
+          experiment.weights,
+          experiment.blockedVariations
+        );
 
-    let foundStickyBucket = false;
-    let assigned = -1;
-    let blocked = false;
-    if (this.context.stickyBucketService) {
-      const res = this._getStickyBucketVariation(
-        experiment.key,
-        experiment.bucketVersion,
-        experiment.minBucketVersion
-      );
-      assigned = res.variation;
-      blocked = res.blocked;
-      if (assigned >= 0) {
-        foundStickyBucket = true;
-      }
-    }
-    if (!foundStickyBucket) {
       assigned = chooseVariation(n, ranges);
     }
 
     // 9.5 Unenroll if sticky bucket is in a blocked variation
     if (
-      foundStickyBucket &&
+      ctx.foundStickyBucket &&
       (experiment.blockedVariations ?? []).includes(assigned)
     ) {
       process.env.NODE_ENV !== "production" &&
@@ -1056,7 +1069,7 @@ export class GrowthBook<
       return this._getResult(experiment, -1, false, featureId, undefined, true);
     }
     // 9.6 Unenroll if any prior sticky buckets are blocked by version
-    if (blocked) {
+    if (ctx.stickyBucketBlocked) {
       process.env.NODE_ENV !== "production" &&
         this.log("Skip because sticky bucket version is blocked", {
           id: key,
@@ -1113,7 +1126,7 @@ export class GrowthBook<
       true,
       featureId,
       n,
-      foundStickyBucket
+      !!ctx.foundStickyBucket
     );
 
     // 13.5. Persist sticky bucket
@@ -1150,6 +1163,7 @@ export class GrowthBook<
       this.log("In experiment", {
         id: key,
         variation: result.variationId,
+        ctx,
       });
     return result;
   }

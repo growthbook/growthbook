@@ -633,7 +633,6 @@ describe("sticky-buckets", () => {
       clientKey: "qwerty1234",
       stickyBucketService: new LocalStorageStickyBucketService(),
       attributes: {
-        iteration: 1,
         deviceId: "d123",
         foo: "bar",
         country: "USA",
@@ -706,7 +705,6 @@ describe("sticky-buckets", () => {
       clientKey: "qwerty1234",
       stickyBucketService: new LocalStorageStickyBucketService(),
       attributes: {
-        iteration: 1,
         deviceId: "d123",
         foo: "bar",
         country: "USA",
@@ -783,7 +781,6 @@ describe("sticky-buckets", () => {
       clientKey: "qwerty1234",
       stickyBucketService: new LocalStorageStickyBucketService(),
       attributes: {
-        iteration: 1,
         deviceId: "d123",
         foo: "bar",
         country: "USA",
