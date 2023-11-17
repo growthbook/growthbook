@@ -1,4 +1,4 @@
-import React, { FC, useMemo, useState } from "react";
+import React, { FC, useEffect, useMemo, useState } from "react";
 import {
   DataSourceInterfaceWithParams,
   ExposureQuery,
@@ -7,7 +7,7 @@ import { useForm } from "react-hook-form";
 import cloneDeep from "lodash/cloneDeep";
 import uniqId from "uniqid";
 import { FaExclamationTriangle, FaExternalLinkAlt } from "react-icons/fa";
-import { TestQueryRow } from "back-end/src/types/Integration";
+import { ReliableDimensionInterface, TestQueryRow } from "back-end/src/types/Integration";
 import { useFeatureIsOn } from "@growthbook/growthbook-react";
 import Code from "@/components/SyntaxHighlighting/Code";
 import StringArrayField from "@/components/Forms/StringArrayField";
@@ -20,6 +20,8 @@ import Modal from "../../../Modal";
 import Field from "../../../Forms/Field";
 import EditSqlModal from "../../../SchemaBrowser/EditSqlModal";
 import { TrafficDimensionsTooltip } from "./TrafficDimensionsTooltip";
+import { useAuth } from "@/services/auth";
+import { UpdateReliableDimensions } from "../ReliableDimension/UpdateReliableDimensions";
 
 type EditExperimentAssignmentQueryProps = {
   exposureQuery?: ExposureQuery;
@@ -36,6 +38,7 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
   onSave,
   onCancel,
 }) => {
+
   const [showAdvancedMode, setShowAdvancedMode] = useState(false);
   const [sqlOpen, setSqlOpen] = useState(false);
   const healthTabSettingsEnabled = useFeatureIsOn<AppFeatures>("health-tab");
@@ -224,6 +227,41 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
       }
     }
   };
+  // TODO escape hatch if query fails
+  // let rqb = <></>;
+  
+  // const getReliableDimension = async () => {
+  //   if (exposureQuery) {
+  //     const data = await apiCall<{ reliableDimension: ReliableDimensionInterface }>("/reliable-dimension", {
+  //       method: "POST",
+  //       body: JSON.stringify({
+  //         datasourceId: dataSource.id,
+  //         queryId: exposureQuery.id
+  //       }),
+  //     });
+  //     console.dir(data, {depth:null})
+  //   //   let { data, error, mutate } = useApi<{
+  //   //     reliableDimension: ReliableDimensionInterface;
+  //   //   }>(`/datasource/${dataSource.id}/${exposureQuery.id}/reliable-dimension`);
+  
+  //   //   if (!data) {
+  //   //     const res = async() => 
+  //   //   }
+  //   //   rqb = <RunQueriesButton
+  //   //     icon="refresh"
+  //   //     cta={"Run Dim Query"}
+  //   //     model={data.reliableDimension}
+  //   //     cancelEndpoint={`/metric/1/analysis/cancel`}
+  //   //     color="outline-primary"
+  //   //     position="left"
+  //   //     mutate={mutate}
+  //   //   ></RunQueriesButton>;
+  //   }
+  // }
+  // useEffect(() => {
+  //   getReliableDimension();
+  // }, [dataSource.id]);
+
 
   return (
     <>

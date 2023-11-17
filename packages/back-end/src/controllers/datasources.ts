@@ -47,6 +47,9 @@ import { MetricType } from "../../types/metric";
 import { TemplateVariables } from "../../types/sql";
 import { getUserById } from "../services/users";
 import { AuditUserLoggedIn } from "../../types/audit";
+import { createReliableDimension, getLatestReliableDimension, getReliableDimensionById } from "../models/ReliableDimensionModel";
+import { ReliableDimensionQueryRunner } from "../queryRunners/ReliableDimensionQueryRunner";
+import { ReliableDimensionInterface } from "../types/Integration";
 
 export async function postSampleData(
   req: AuthRequest,
@@ -661,4 +664,76 @@ export async function getDataSourceMetrics(
     status: 200,
     metrics,
   });
+}
+
+export async function getReliableDimension(
+  req: AuthRequest<null, { id: string }>,
+  res: Response
+) {
+  const { org } = getOrgFromReq(req);
+  const { id } = req.params;
+
+  const reliableDimension = await getReliableDimensionById(org.id, id);
+
+  res.status(200).json({
+    status: 200,
+    reliableDimension,
+  });
+}
+
+export async function getLatestReliableDimensionForDatasource(
+  req: AuthRequest<null, { datasourceId: string, exposureQueryId: string }>,
+  res: Response
+) {
+  const { org } = getOrgFromReq(req);
+  const { datasourceId, exposureQueryId } = req.params;
+  console.log("get latest");
+  console.log(datasourceId);
+  console.log(exposureQueryId);
+  const reliableDimension = await getLatestReliableDimension(org.id, datasourceId, exposureQueryId);
+  console.log(reliableDimension);
+  res.status(200).json({
+    status: 200,
+    reliableDimension,
+  });
+}
+
+export async function postReliableDimension(
+  req: AuthRequest<{ datasourceId: string; queryId: string }>,
+  res: Response
+) {
+  const { org } = getOrgFromReq(req);
+  const { datasourceId, queryId } = req.body;
+
+  const datasourceObj = await getDataSourceById(datasourceId, org.id);
+  if (!datasourceObj) {
+    throw new Error("Could not find datasource");
+  }
+  req.checkPermissions(
+    "runQueries",
+    datasourceObj?.projects?.length ? datasourceObj.projects : ""
+  );
+
+  const integration = getSourceIntegrationObject(datasourceObj, true);
+
+  // todo caching?
+  const model = await createReliableDimension({
+    organization: org.id,
+    datasourceId,
+    queryId,
+  });
+  const queryRunner = new ReliableDimensionQueryRunner(
+    model,
+    integration,
+    false
+  )
+  const outputmodel = await queryRunner.startAnalysis({
+    exposureQueryId: queryId
+  });
+  res.status(200).json({
+    status: 200,
+    reliableDimension: outputmodel
+  });
+
+  // audit?
 }

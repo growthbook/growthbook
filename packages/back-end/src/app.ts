@@ -352,6 +352,10 @@ app.post("/subscription/manage", stripeController.postCreateBillingSession);
 app.post("/subscription/success", stripeController.postSubscriptionSuccess);
 app.get("/queries/:ids", datasourcesController.getQueries);
 app.post("/query/test", datasourcesController.testLimitedQuery);
+app.get("/reliable-dimension/datasource/:datasourceId/:exposureQueryId", datasourcesController.getLatestReliableDimensionForDatasource);
+app.post("/reliable-dimension", datasourcesController.postReliableDimension);
+app.get("/reliable-dimension/:id", datasourcesController.getReliableDimension);
+
 app.post("/organization/sample-data", datasourcesController.postSampleData);
 
 if (IS_CLOUD) {

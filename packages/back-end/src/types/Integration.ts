@@ -8,7 +8,7 @@ import {
 import { DimensionInterface } from "../../types/dimension";
 import { ExperimentSnapshotSettings } from "../../types/experiment-snapshot";
 import { MetricInterface, MetricType } from "../../types/metric";
-import { QueryStatistics } from "../../types/query";
+import { Queries, QueryStatistics } from "../../types/query";
 import { SegmentInterface } from "../../types/segment";
 import { FormatDialect } from "../util/sql";
 import { TemplateVariables } from "../../types/sql";
@@ -124,6 +124,11 @@ export interface ExperimentAggregateUnitsQueryParams
   useUnitsTable: boolean;
 }
 
+export type ReliableDimensionQueryParams = {
+  exposureQueryId: string,
+  dimensions: ExperimentDimension[];
+};
+
 export type PastExperimentParams = {
   from: Date;
 };
@@ -234,6 +239,12 @@ export type ExperimentAggregateUnitsQueryResponseRows = {
   units: number;
 }[];
 
+export type ReliableDimensionQueryResponseRows = {
+  dimension_value: string;
+  dimension_name: string;
+  units: number;
+}[];
+
 // eslint-disable-next-line
 export type QueryResponse<Rows = Record<string, any>[]> = {
   rows: Rows;
@@ -245,6 +256,7 @@ export type PastExperimentQueryResponse = QueryResponse<PastExperimentResponseRo
 export type ExperimentMetricQueryResponse = QueryResponse<ExperimentMetricQueryResponseRows>;
 export type ExperimentUnitsQueryResponse = QueryResponse;
 export type ExperimentAggregateUnitsQueryResponse = QueryResponse<ExperimentAggregateUnitsQueryResponseRows>;
+export type ReliableDimensionQueryResponse = QueryResponse<ReliableDimensionQueryResponseRows>;
 
 export interface SourceIntegrationConstructor {
   new (
@@ -331,6 +343,25 @@ export interface InformationSchemaTablesInterface {
   informationSchemaId: string;
 }
 
+export interface ReliableDimensionResult {
+  dimension: string;
+  dimensionValues: string[];
+  sql: string;
+}
+export interface ReliableDimensionInterface {
+  id: string;
+  organization: string;
+
+  runStarted: Date;
+  queries: Queries;
+  error?: string,
+
+  datasource: string,
+  exposureQueryId: string,
+
+  results: ReliableDimensionResult[],
+}
+
 export interface SourceIntegrationInterface {
   datasource: string;
   organization: string;
@@ -377,6 +408,12 @@ export interface SourceIntegrationInterface {
   ): string;
   getExperimentUnitsTableQuery(params: ExperimentUnitsQueryParams): string;
   getPastExperimentQuery(params: PastExperimentParams): string;
+  getReliableDimensionQuery(params: ReliableDimensionQueryParams): string;
+  runReliableDimensionQuery(
+    query: string,
+    setExternalId: ExternalIdCallback
+  ): Promise<ReliableDimensionQueryResponse>;
+  getDimensionInStatement(dimension: string, values: string[]): string;
   runMetricValueQuery(
     query: string,
     setExternalId: ExternalIdCallback

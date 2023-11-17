@@ -14,6 +14,7 @@ import Code from "@/components/SyntaxHighlighting/Code";
 import { AddEditExperimentAssignmentQueryModal } from "@/components/Settings/EditDataSource/ExperimentAssignmentQueries/AddEditExperimentAssignmentQueryModal";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import Button from "@/components/Button";
+import { UpdateReliableDimensions, UpdateReliableDimensionsModal } from "../ReliableDimension/UpdateReliableDimensions";
 
 type ExperimentAssignmentQueriesProps = DataSourceQueryEditingModalBaseProps;
 
@@ -31,7 +32,7 @@ export const ExperimentAssignmentQueries: FC<ExperimentAssignmentQueriesProps> =
     ).fill(true);
   }
 
-  const [uiMode, setUiMode] = useState<"view" | "edit" | "add">("view");
+  const [uiMode, setUiMode] = useState<"view" | "edit" | "add" | "dimension">("view");
   const [editingIndex, setEditingIndex] = useState<number>(-1);
   const [openIndexes, setOpenIndexes] = useState<boolean[]>(
     intitialOpenIndexes
@@ -63,6 +64,7 @@ export const ExperimentAssignmentQueries: FC<ExperimentAssignmentQueriesProps> =
     onCancel();
   }, [onCancel]);
 
+
   const experimentExposureQueries = useMemo(
     // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
     () => dataSource.settings?.queries.exposure || [],
@@ -83,6 +85,13 @@ export const ExperimentAssignmentQueries: FC<ExperimentAssignmentQueriesProps> =
     []
   );
 
+  const handleDimensionEditClicked = useCallback(
+    (idx: number) => async () => {
+      setEditingIndex(idx);
+      setUiMode("dimension");
+    },
+    []
+  );
   const handleActionDeleteClicked = useCallback(
     (idx: number) => async () => {
       const copy = cloneDeep<DataSourceInterfaceWithParams>(dataSource);
@@ -122,6 +131,7 @@ export const ExperimentAssignmentQueries: FC<ExperimentAssignmentQueriesProps> =
     console.error("ImplementationError: dataSource cannot be null");
     return null;
   }
+
 
   return (
     <div>
@@ -186,6 +196,26 @@ export const ExperimentAssignmentQueries: FC<ExperimentAssignmentQueriesProps> =
                     {!query.dimensions.length && (
                       <em className="text-muted">none</em>
                     )}
+                    <Button
+                        onClick={handleDimensionEditClicked(idx)}
+                      >
+                        Check Dimensions
+                      </Button>
+                    
+                  {query.processedDimensions && (
+                    <div className="col-auto">
+                      <strong>Processed Dimensions: </strong>
+                      {query.processedDimensions.map((d, i) => (
+                        <Fragment key={i}>
+                          {i ? ", " : ""}
+                          <code key={d}>{d}</code>
+                        </Fragment>
+                      ))}
+                      {!query.processedDimensions.length && (
+                        <em className="text-muted">none</em>
+                      )}
+                    </div>
+                  )}
                   </div>
                 </div>
                 {query.error && (
@@ -285,6 +315,16 @@ export const ExperimentAssignmentQueries: FC<ExperimentAssignmentQueriesProps> =
           onSave={handleSave(editingIndex)}
           onCancel={handleCancel}
         />
+      ) : null}
+
+      {uiMode === "dimension" ? (
+        <UpdateReliableDimensionsModal
+
+        exposureQuery={experimentExposureQueries[editingIndex]}
+        dataSource={dataSource}
+        close={() => setUiMode("view")}
+        onSave={handleSave(editingIndex)}
+      />
       ) : null}
 
       {/* endregion Add/Edit modal */}

@@ -46,6 +46,8 @@ import {
   UserDimension,
   ExperimentDimension,
   ExternalIdCallback,
+  ReliableDimensionQueryResponse,
+  ReliableDimensionQueryParams,
 } from "../types/Integration";
 import { DimensionInterface } from "../../types/dimension";
 import { IMPORT_LIMIT_DAYS } from "../util/secrets";
@@ -1228,19 +1230,135 @@ export default abstract class SqlIntegration
     );
   }
 
-  getUnitCountCTE(dimensionColumn: string, whereClause: string): string {
+  getUnitCountCTE(dimensionColumn: string, whereClause?: string): string {
     return ` -- ${dimensionColumn}
     (SELECT
-      d.variation AS variation
-      , d.${dimensionColumn} as dimension_value
-      , MAX('${dimensionColumn}') as dimension_name
+      variation AS variation
+      , ${dimensionColumn} AS dimension_value
+      , MAX('${dimensionColumn}') AS dimension_name
       , COUNT(*) AS units
     FROM
-      __distinctUnits d
-    ${whereClause}
+      __distinctUnits
+    ${whereClause ?? ""}
     GROUP BY
-      d.variation
-      , d.${dimensionColumn})`;
+      variation
+      , ${dimensionColumn})`;
+  }
+
+  getDimensionInStatement(dimension: string, values: string[]): string {
+    return this.ifElse(`${dimension} IN ('${values.join("','")}')`, this.castToString(dimension), `"Other"`)
+  }
+
+  getReliableDimensionQuery(params: ReliableDimensionQueryParams) {
+    // TODO only pass experiment dims that aren't in the "curated by GrowthBook" collection
+
+    const exposureQuery = this.getExposureQuery(params.exposureQueryId || "");
+
+    const { baseIdType } = getBaseIdTypeAndJoins([[exposureQuery.userIdType]]);
+
+    const startDate = subDays(new Date(), 9999);
+    const timestampColumn = "e.timestamp"
+    // TODO consider not getting first dim
+    return format(
+      `-- Suggest Dimensions
+    WITH
+      __rawExperiment AS (
+        ${compileSqlTemplate(exposureQuery.query, {
+          startDate: startDate,
+        })}
+      ),
+      __experimentExposures AS (
+        -- Viewed Experiment
+        SELECT
+          e.${baseIdType} as ${baseIdType}
+          , e.timestamp
+          ${params.dimensions
+            .map((d) => `, e.${d.id} AS dim_${d.id}`)
+            .join("\n")}
+        FROM
+          __rawExperiment e
+        WHERE
+          ${timestampColumn} >= ${this.toTimestamp(startDate)}
+      ),
+      __distinctUnits AS (
+        SELECT
+          ${baseIdType}
+          ${params.dimensions
+            .map(
+              (d) => `
+            , ${this.getDimensionColumn(baseIdType, d)} AS dim_exp_${d.id}`
+            )
+            .join("\n")}
+          , 1 AS variation
+        FROM
+          __experimentExposures e
+        GROUP BY
+          e.${baseIdType}
+      ),
+      -- One row per dimension slice
+      dim_values AS (
+        (SELECT
+          1 AS variation
+          , ${this.castToString("'All'")} AS dimension_value
+          , ${this.castToString("'All'")} AS dimension_name
+          , COUNT(*) AS units
+        FROM
+          __distinctUnits
+          ) UNION ALL
+        ${params.dimensions.map((d) => 
+            this.getUnitCountCTE(`dim_exp_${d.id}`)
+          )
+          .join("\nUNION ALL\n")}
+      ),
+      total_n AS (
+        SELECT
+          SUM(units) AS N
+        FROM dim_values
+        WHERE dimension_name = 'All'
+      ),
+      dim_values_sorted AS (
+        SELECT
+          dimension_name
+          , dimension_value
+          , units
+          , ROW_NUMBER() OVER (PARTITION BY dimension_name ORDER BY units DESC) as rn
+        FROM
+          dim_values
+        WHERE
+          dimension_name != 'All'
+      )
+      SELECT
+        dim_values_sorted.dimension_name AS dimension_name,
+        dim_values_sorted.dimension_value AS dimension_value,
+        dim_values_sorted.units AS units
+      FROM
+        dim_values_sorted
+      CROSS JOIN total_n n
+      WHERE 
+        units / n.N > 0.01
+        AND rn <= 20
+    `,
+      this.getFormatDialect()
+    );
+    // TODO would you like to apply this change, would you like to auto-compute results and health for these dimensions?
+  }
+
+  async runReliableDimensionQuery(
+    query: string,
+    setExternalId: ExternalIdCallback
+  ): Promise<ReliableDimensionQueryResponse> {
+    console.log(query);
+    const { rows, statistics } = await this.runQuery(query, setExternalId);
+    return {
+      rows: rows.map((row) => {
+        return {
+          dimension_value: row.dimension_value ?? "",
+          dimension_name: row.dimension_name ?? "",
+          units: parseInt(row.units) || 0,
+        };
+      }),
+      statistics: statistics,
+    };
   }
 
   getExperimentMetricQuery(params: ExperimentMetricQueryParams): string {
