@@ -103,8 +103,6 @@ export default function HealthTab({ experiment }: Props) {
     "organizationSettings"
   );
 
-  console.log(snapshot?.health);
-
   // If org has not updated settings since the health tab was introduced, prompt the user
   // to enable the traffic query setting
   if (runHealthTrafficQuery === undefined) {
