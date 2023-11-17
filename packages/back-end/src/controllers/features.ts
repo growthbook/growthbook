@@ -15,7 +15,6 @@ import {
   createFeature,
   deleteFeature,
   editFeatureRule,
-  getAllFeatures,
   getFeature,
   setDefaultValue,
   toggleFeatureEnvironment,
@@ -23,6 +22,7 @@ import {
   archiveFeature,
   setJsonSchema,
   deleteExperimentRefRule,
+  getAllFeaturesWithLinkedExperiments,
   publishRevision,
   migrateDraft,
   applyRevisionChanges,
@@ -1469,11 +1469,15 @@ export async function getFeatures(
     project = req.query.project;
   }
 
-  const features = await getAllFeatures(org.id, project);
+  const { features, experiments } = await getAllFeaturesWithLinkedExperiments(
+    org.id,
+    project
+  );
 
   res.status(200).json({
     status: 200,
     features,
+    linkedExperiments: experiments,
   });
 }
 
@@ -1678,5 +1682,28 @@ export async function getRealtimeUsage(
   res.status(200).json({
     status: 200,
     usage,
+  });
+}
+
+export async function toggleStaleFFDetectionForFeature(
+  req: AuthRequest<null, { id: string }>,
+  res: Response<{ status: 200 }, EventAuditUserForResponseLocals>
+) {
+  const { id } = req.params;
+  const { org } = getOrgFromReq(req);
+  const feature = await getFeature(org.id, id);
+
+  if (!feature) {
+    throw new Error("Could not find feature");
+  }
+
+  req.checkPermissions("manageFeatures", feature.project);
+
+  await updateFeature(org, res.locals.eventAudit, feature, {
+    neverStale: !feature.neverStale,
+  });
+
+  res.status(200).json({
+    status: 200,
   });
 }

@@ -284,6 +284,87 @@ describe("Auto experiments", () => {
     gb.destroy();
   });
 
+  it("supports multi-page experiments", async () => {
+    document.body.innerHTML = "<h1>title</h1>";
+
+    const gb = new GrowthBook({
+      attributes: { id: "1" },
+      experiments: [
+        {
+          key: "my-experiment",
+          weights: [0.1, 0.9],
+          variations: [
+            {},
+            {
+              domMutations: [
+                {
+                  selector: "h1",
+                  action: "set",
+                  attribute: "html",
+                  value: "page1",
+                },
+              ],
+            },
+          ],
+          urlPatterns: [
+            {
+              type: "simple",
+              include: true,
+              pattern: "example.com",
+            },
+          ],
+        },
+        {
+          key: "my-experiment",
+          weights: [0.1, 0.9],
+          variations: [
+            {},
+            {
+              domMutations: [
+                {
+                  selector: "h1",
+                  action: "set",
+                  attribute: "html",
+                  value: "page2",
+                },
+              ],
+            },
+          ],
+          urlPatterns: [
+            {
+              type: "simple",
+              include: true,
+              pattern: "example.com/page2",
+            },
+          ],
+        },
+      ],
+      url: "https://example.com",
+    });
+
+    // Changes should be applied right away for the first page
+    await sleep();
+    expect(document.body.innerHTML).toEqual("<h1>page1</h1>");
+
+    // Simulate a navigation
+    document.body.innerHTML = "<h1>new title</h1>";
+    gb.setURL("https://example.com/page2");
+
+    // Changes should be applied to the second page
+    await sleep();
+    expect(document.body.innerHTML).toEqual("<h1>page2</h1>");
+
+    // Simulate another navigation to a non-tested page
+    document.body.innerHTML = "<h1>another title</h1>";
+    gb.setURL("https://example.com/page3");
+
+    // The experiment should be reverted and the navigated page title should be live
+    await sleep();
+    expect(document.body.innerHTML).toEqual("<h1>another title</h1>");
+
+    gb.destroy();
+  });
+
   it("responds to changes in the experiment definition", async () => {
     document.head.innerHTML = "";
     document.body.innerHTML = "<h1>title</h1>";

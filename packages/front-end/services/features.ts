@@ -159,10 +159,12 @@ export function useFeaturesList(withProject = true) {
 
   const { data, error, mutate } = useApi<{
     features: FeatureInterface[];
+    linkedExperiments: ExperimentInterfaceStringDates[];
   }>(url);
 
   return {
     features: data?.features || [],
+    experiments: data?.linkedExperiments || [],
     loading: !data,
     error,
     mutate,
