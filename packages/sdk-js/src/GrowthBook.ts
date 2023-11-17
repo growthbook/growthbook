@@ -437,11 +437,7 @@ export class GrowthBook<
 
   public run<T>(experiment: Experiment<T>): Result<T> {
     const ctx: ExperimentEvaluationContext = {};
-    if (
-      this._ctx.stickyBucketService &&
-      experiment.variations &&
-      experiment.variations.length > 1
-    ) {
+    if (this._ctx.stickyBucketService) {
       const { variation, blocked } = this._getStickyBucketVariation(
         experiment.key,
         experiment.bucketVersion,
@@ -694,8 +690,8 @@ export class GrowthBook<
         // Pre-check if we have an experiment-based sticky bucket, since that supersedes feature rules:
         if (
           this._ctx.stickyBucketService &&
-          rule.variations &&
-          rule.variations.length > 1
+          !("force" in rule) &&
+          rule.variations
         ) {
           const { variation, blocked } = this._getStickyBucketVariation(
             rule.key || id,
