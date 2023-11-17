@@ -11,11 +11,11 @@ import MultipleExposuresDrawer from "@/components/HealthTab/MultipleExposuresDra
 import { useUser } from "@/services/UserContext";
 import usePermissions from "@/hooks/usePermissions";
 import useOrgSettings from "@/hooks/useOrgSettings";
+import { DEFAULT_SRM_THRESHOLD } from "@/pages/settings";
 import { useSnapshot } from "../SnapshotProvider";
 import ExperimentDateGraph, {
   ExperimentDateGraphDataPoint,
 } from "../ExperimentDateGraph";
-import { SRM_THRESHOLD } from "../SRMWarning";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
@@ -33,7 +33,7 @@ const UnitCountDateGraph = ({
   const [cumulative, setCumulative] = useState(false);
   const { settings } = useUser();
 
-  const srmThreshold = settings.srmThreshold ?? SRM_THRESHOLD;
+  const srmThreshold = settings.srmThreshold ?? DEFAULT_SRM_THRESHOLD;
 
   // Get data for users graph
   const usersPerDate = useMemo<ExperimentDateGraphDataPoint[]>(() => {
@@ -103,6 +103,8 @@ export default function HealthTab({ experiment }: Props) {
     "organizationSettings"
   );
 
+  console.log(snapshot?.health);
+
   // If org has not updated settings since the health tab was introduced, prompt the user
   // to enable the traffic query setting
   if (runHealthTrafficQuery === undefined) {
@@ -146,7 +148,10 @@ export default function HealthTab({ experiment }: Props) {
     );
   }
 
-  if (!snapshot?.health?.traffic.dimension?.dim_exposure_date) {
+  if (
+    !snapshot?.health?.traffic.dimension?.dim_exposure_date ||
+    snapshot?.health?.traffic.error === "NO_ROWS_IN_UNIT_QUERY"
+  ) {
     return (
       <div className="alert alert-info mt-3">
         Please return to the results page and run a query to see health data.
@@ -154,7 +159,7 @@ export default function HealthTab({ experiment }: Props) {
     );
   }
 
-  const totalUsers = snapshot?.health?.traffic.overall[0].variationUnits.reduce(
+  const totalUsers = snapshot?.health?.traffic?.overall?.variationUnits?.reduce(
     (acc, a) => acc + a,
     0
   );

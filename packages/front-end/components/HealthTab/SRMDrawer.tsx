@@ -133,7 +133,6 @@ export default function SRMDrawer({
           <VariationUsersTable
             users={traffic.overall.variationUnits}
             variations={variations}
-            srm={traffic.overall.srm}
           />
           <div className="col-4 ml-4 mr-2">
             {overallHealth === "healthy" && (
@@ -183,7 +182,8 @@ export default function SRMDrawer({
                 experiment assignment query. If you&apos;d like to be able to
                 view traffic breakdown by dimension, please edit your experiment
                 assignment query and add the dimensions you&apos;d like to
-                support under <b>Dimensions to use in traffic breakdowns</b>
+                support under <b>Dimensions to use in traffic breakdowns</b>.
+                Once you do that you&apos;ll want to re-run your queries.
               </div>
             )}
             {selectedDimension && (
@@ -202,6 +202,7 @@ export default function SRMDrawer({
                   return (
                     <HealthDrawer
                       title={d.name}
+                      helpText={`(${totalDimUsers} total units)`}
                       status={dimensionHealth}
                       statusAlign="right"
                       key={d.name}
@@ -215,7 +216,6 @@ export default function SRMDrawer({
                           <VariationUsersTable
                             users={d.variationUnits}
                             variations={variations}
-                            srm={d.srm}
                           />
                           <div className="col-sm ml-4 mr-4">
                             {overallHealth === "unhealthy" && (

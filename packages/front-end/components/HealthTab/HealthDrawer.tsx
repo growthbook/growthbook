@@ -4,6 +4,7 @@ import Tooltip from "../Tooltip/Tooltip";
 
 export interface Props {
   title: string;
+  helpText?: string;
   children: ReactNode;
   status?: HealthStatus;
   openByDefault?: boolean;
@@ -33,6 +34,7 @@ const StatusBadge = ({ status, tooltipBody }) => {
 
 export default function HealthDrawer({
   title,
+  helpText,
   children,
   status,
   openByDefault = false,
@@ -53,6 +55,7 @@ export default function HealthDrawer({
         style={{ textDecoration: "none" }}
       >
         <h2 className="d-inline">{title}</h2>{" "}
+        <p className="d-inline text-muted">{helpText}</p>
         {status && statusAlign === "left" && (
           <StatusBadge tooltipBody={tooltipBody} status={status} />
         )}

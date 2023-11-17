@@ -3,7 +3,6 @@ import { ExperimentReportVariation } from "back-end/types/report";
 export interface Props {
   variations: ExperimentReportVariation[];
   users: number[];
-  srm?: number;
 }
 
 const numberFormatter = Intl.NumberFormat(undefined, {

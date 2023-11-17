@@ -1245,7 +1245,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
                 {healthTabSettingsEnabled && (
                   <>
                     <h4 className="mt-4 mb-2">Experiment Health Settings</h4>
-                    <div className="tab-content border p-3">
+                    <div className="tab-content border mb-3 p-3">
                       <Tab display="health">
                         <div className="form-group mb-2 mt-2 mr-2 form-inline">
                           <label
@@ -1311,9 +1311,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
                     commercialFeature="custom-launch-checklist"
                     body="Custom pre-launch checklists are available to Enterprise customers"
                   >
-                    <h4 className="mb-0 pl-1">
-                      Experiment Pre-Launch Checklist
-                    </h4>
+                    <h4 className="mb-0">Experiment Pre-Launch Checklist</h4>
                   </PremiumTooltip>
                   <p className="pt-2">
                     Configure required steps that need to be completed before an
