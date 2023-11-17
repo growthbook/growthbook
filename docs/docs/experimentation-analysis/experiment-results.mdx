@@ -173,6 +173,8 @@ We also provide you with a dimension chooser that will provide dimension specifi
   style={{ width: 600, margin: "0 auto" }}
 />
 
+#### Adding Dimensions to Health Tab
+
 By default, we do not include any dimensions in the health tab. This is because if a dimension is too high cardinality, we would be unable to process the returned data and show you meaningful results. Ideally, you can define your Experiment Assignment Queries such that you only return a few values for each dimension.
 
 If you have some dimensions that are have only a few, meaningful different values (e.g. you modify your query so that you only return "Edge", "Safari", "Chrome", "Firefox", "Other" for a `browser` column), then you can navigate to your Experiment Assignment Query, click edit, and add a dimension to be computed for your health tab like so:
