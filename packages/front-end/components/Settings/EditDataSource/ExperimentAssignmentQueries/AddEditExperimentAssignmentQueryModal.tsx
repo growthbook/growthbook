@@ -8,13 +8,11 @@ import cloneDeep from "lodash/cloneDeep";
 import uniqId from "uniqid";
 import { FaExclamationTriangle, FaExternalLinkAlt } from "react-icons/fa";
 import { TestQueryRow } from "back-end/src/types/Integration";
-import { useFeatureIsOn } from "@growthbook/growthbook-react";
 import Code from "@/components/SyntaxHighlighting/Code";
 import StringArrayField from "@/components/Forms/StringArrayField";
 import Toggle from "@/components/Forms/Toggle";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
-import { AppFeatures } from "@/types/app-features";
 import { useUser } from "@/services/UserContext";
 import Modal from "../../../Modal";
 import Field from "../../../Forms/Field";
@@ -38,10 +36,8 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
 }) => {
   const [showAdvancedMode, setShowAdvancedMode] = useState(false);
   const [sqlOpen, setSqlOpen] = useState(false);
-  const healthTabSettingsEnabled = useFeatureIsOn<AppFeatures>("health-tab");
   const { settings } = useUser();
-  const showDimensionsForTraffic =
-    healthTabSettingsEnabled && settings.runHealthTrafficQuery;
+  const showDimensionsForTraffic = settings.runHealthTrafficQuery;
   const modalTitle =
     mode === "add"
       ? "Add an Experiment Assignment query"
