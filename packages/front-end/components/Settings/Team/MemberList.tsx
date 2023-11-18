@@ -49,6 +49,10 @@ const MemberList: FC<{
 
   const roleModalUser = users.get(roleModal);
 
+  const members = Array.from(users).sort((a, b) =>
+    a[1].name.localeCompare(b[1].name)
+  );
+
   return (
     <div className="my-4">
       <h5>Active Members{` (${users.size})`}</h5>
@@ -99,7 +103,7 @@ const MemberList: FC<{
             </tr>
           </thead>
           <tbody>
-            {Array.from(users).map(([id, member]) => {
+            {members.map(([id, member]) => {
               const roleInfo =
                 (project &&
                   member.projectRoles?.find((r) => r.project === project)) ||
