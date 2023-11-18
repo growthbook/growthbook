@@ -95,7 +95,7 @@ export const transformLDFeatureFlagToGBFeature = (
   project: string
 ): Omit<
   FeatureInterface,
-  "dateCreated" | "dateUpdated" | "revision" | "organization"
+  "dateCreated" | "dateUpdated" | "version" | "organization"
 >[] => {
   return data.items.map(
     ({

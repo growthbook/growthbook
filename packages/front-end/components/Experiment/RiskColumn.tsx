@@ -1,12 +1,14 @@
 import clsx from "clsx";
+import { isBinomialMetric } from "shared/experiments";
 import { ExperimentTableRow, getRiskByVariation } from "@/services/experiments";
 import {
   defaultLoseRiskThreshold,
   defaultWinRiskThreshold,
-  formatConversionRate,
+  getExperimentMetricFormatter,
 } from "@/services/metrics";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import { useCurrency } from "@/hooks/useCurrency";
+import { useDefinitions } from "@/services/DefinitionsContext";
 
 const percentFormatter = new Intl.NumberFormat(undefined, {
   style: "percent",
@@ -27,6 +29,7 @@ export default function RiskColumn({
     metricDefaults
   );
   const displayCurrency = useCurrency();
+  const { getFactTableById } = useDefinitions();
 
   const winRiskThreshold = row.metric.winRisk ?? defaultWinRiskThreshold;
   const loseRiskThreshold = row.metric.loseRisk ?? defaultLoseRiskThreshold;
@@ -34,6 +37,8 @@ export default function RiskColumn({
   if (!row.variations[0]?.value || !showRisk) {
     return <td className="empty-td"></td>;
   }
+
+  const showRatio = !isBinomialMetric(row.metric);
 
   return (
     <td
@@ -49,11 +54,14 @@ export default function RiskColumn({
       <div className="result-number">
         {percentFormatter.format(relativeRisk)}
       </div>
-      {row.metric.type !== "binomial" && (
+      {showRatio && (
         <div>
           <small className="text-muted">
             <em>
-              {formatConversionRate(row.metric.type, risk, displayCurrency)}
+              {getExperimentMetricFormatter(row.metric, getFactTableById)(
+                risk,
+                { currency: displayCurrency }
+              )}
               &nbsp;/&nbsp;user
             </em>
           </small>

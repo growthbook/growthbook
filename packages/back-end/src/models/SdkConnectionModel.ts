@@ -45,6 +45,7 @@ const sdkConnectionSchema = new mongoose.Schema({
   includeDraftExperiments: Boolean,
   includeExperimentNames: Boolean,
   connected: Boolean,
+  remoteEvalEnabled: Boolean,
   key: {
     type: String,
     unique: true,
@@ -99,6 +100,11 @@ export async function findSDKConnectionsByOrganization(organization: string) {
   return docs.map(toInterface);
 }
 
+export async function findAllSDKConnections() {
+  const docs = await SDKConnectionModel.find();
+  return docs.map(toInterface);
+}
+
 export async function findSDKConnectionByKey(key: string) {
   const doc = await SDKConnectionModel.findOne({ key });
   return doc ? toInterface(doc) : null;
@@ -118,6 +124,7 @@ export const createSDKConnectionValidator = z
     includeExperimentNames: z.boolean().optional(),
     proxyEnabled: z.boolean().optional(),
     proxyHost: z.string().optional(),
+    remoteEvalEnabled: z.boolean().optional(),
   })
   .strict();
 
@@ -182,6 +189,7 @@ export const editSDKConnectionValidator = z
     includeVisualExperiments: z.boolean().optional(),
     includeDraftExperiments: z.boolean().optional(),
     includeExperimentNames: z.boolean().optional(),
+    remoteEvalEnabled: z.boolean().optional(),
   })
   .strict();
 
@@ -224,6 +232,11 @@ export async function editSDKConnection(
     "environment",
     "encryptPayload",
     "hashSecureAttributes",
+    "remoteEvalEnabled",
+    "includeVisualExperiments",
+    "includeDraftExperiments",
+    "includeExperimentNames",
+    "remoteEvalEnabled",
   ] as const;
   keysRequiringProxyUpdate.forEach((key) => {
     if (key in otherChanges && otherChanges[key] !== connection[key]) {
@@ -396,6 +409,7 @@ export function toApiSDKConnectionInterface(
   return {
     id: connection.id,
     name: connection.name,
+    organization: connection.organization,
     dateCreated: connection.dateCreated.toISOString(),
     dateUpdated: connection.dateUpdated.toISOString(),
     languages: connection.languages,
@@ -411,5 +425,6 @@ export function toApiSDKConnectionInterface(
     proxyEnabled: connection.proxy.enabled,
     proxyHost: connection.proxy.host,
     proxySigningKey: connection.proxy.signingKey,
+    remoteEvalEnabled: connection.remoteEvalEnabled,
   };
 }

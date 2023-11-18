@@ -21,7 +21,8 @@ export class MetricAnalysisQueryRunner extends QueryRunner<
         name: "metric",
         query: this.integration.getMetricValueQuery(params),
         dependencies: [],
-        run: (query) => this.integration.runMetricValueQuery(query),
+        run: (query, setExternalId) =>
+          this.integration.runMetricValueQuery(query, setExternalId),
         process: (rows) => processMetricValueQueryResponse(rows),
       }),
     ];

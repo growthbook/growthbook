@@ -22,7 +22,7 @@ import { getDefaultConversionWindowHours } from "@/services/env";
 import {
   defaultLoseRiskThreshold,
   defaultWinRiskThreshold,
-  formatConversionRate,
+  getMetricFormatter,
 } from "@/services/metrics";
 import { useAuth } from "@/services/auth";
 import RadioSelector from "@/components/Forms/RadioSelector";
@@ -627,6 +627,7 @@ const MetricForm: FC<MetricFormProps> = ({
         goBack={() => {
           setFactMetric(false);
         }}
+        source={source}
       />
     );
   }
@@ -687,11 +688,11 @@ const MetricForm: FC<MetricFormProps> = ({
               You are creating a metric under the demo datasource project.
             </div>
           ) : allowFactMetrics && factTables.length > 0 ? (
-            <div className="alert border badge-purple">
+            <div className="alert border badge-purple text-center">
               Want to use Fact Tables to create your metric instead?{" "}
               <a
                 href="#"
-                className="ml-2"
+                className="ml-2 btn btn-primary btn-sm"
                 onClick={(e) => {
                   e.preventDefault();
                   setFactMetric(true);
@@ -1361,8 +1362,7 @@ const MetricForm: FC<MetricFormProps> = ({
                   (default{" "}
                   {value.type === "binomial"
                     ? metricDefaults.minimumSampleSize
-                    : formatConversionRate(
-                        value.type,
+                    : getMetricFormatter(value.type)(
                         metricDefaults.minimumSampleSize
                       )}
                   )

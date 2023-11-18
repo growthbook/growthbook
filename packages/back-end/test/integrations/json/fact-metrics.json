@@ -1,0 +1,111 @@
+[
+  {
+    "id": "fact_nonbinom__purchased_items",
+    "metricType": "mean",
+    "numerator": {
+      "factTableId": "orders",
+      "column": "qty"
+    }
+  },
+  {
+    "id": "fact_nonbinom__purchased_items_regressionadjusted",
+    "metricType": "mean",
+    "numerator": {
+      "factTableId": "orders",
+      "column": "qty"
+    },
+    "regressionAdjustmentDays": 4,
+    "regressionAdjustmentEnabled": true
+  },
+  {
+    "id": "fact_nonbinom_null__purchased_value",
+    "metricType": "mean",
+    "numerator": {
+      "factTableId": "orders",
+      "column": "amount",
+      "filters": []
+    }
+  },
+  {
+    "id": "fact_nonbinom_null__purchased_value_regressionadjusted",
+    "metricType": "mean",
+    "numerator": {
+      "factTableId": "orders",
+      "column": "amount",
+      "filters": []
+    },
+    "regressionAdjustmentDays": 4,
+    "regressionAdjustmentEnabled": true
+  },
+  {
+    "id": "fact_nonbinom_null__purchased_value_pctilecap",
+    "metricType": "mean",
+    "numerator": {
+      "factTableId": "orders",
+      "column": "amount",
+      "filters": []
+    },
+    "capping": "percentile",
+    "capValue": 0.9
+  },
+  {
+    "id": "fact_binomial__any_item_in_cart",
+    "metricType": "proportion",
+    "numerator": {
+      "factTableId": "events",
+      "column": "$$count",
+      "filters": ["events.add"]
+    }
+  },
+  {
+    "id": "fact_binomial__any_item_in_cart_regressionadjusted",
+    "metricType": "proportion",
+    "numerator": {
+      "factTableId": "events",
+      "column": "$$count",
+      "filters": ["events.add"]
+    },
+    "regressionAdjustmentDays": 4,
+    "regressionAdjustmentEnabled": true
+  },
+  {
+    "id": "fact_ratio_binom_binom__any_purchase_over_any_item_in_cart",
+    "metricType": "ratio",
+    "numerator": {
+      "factTableId": "orders",
+      "column": "$$count"
+    },
+    "denominator": {
+      "factTableId": "events",
+      "column": "$$count",
+      "filters": ["events.add"]
+    }
+  },
+  {
+    "id": "fact_ratio_nonbinom_binom__purchased_value_over_any_item_in_cart",
+    "metricType": "ratio",
+    "numerator": {
+      "factTableId": "orders",
+      "column": "amount",
+      "filters": []
+    },
+    "denominator": {
+      "factTableId": "events",
+      "column": "$$count",
+      "filters": ["events.add"]
+    }
+  },
+  {
+    "id": "fact_ratio_nonbinom_nonbinom__purchased_value_over_purchased_items",
+    "metricType": "ratio",
+    "numerator": {
+      "factTableId": "orders",
+      "column": "amount"
+    },
+    "denominator": {
+      "factTableId": "orders",
+      "column": "qty",
+      "filters": []
+    }
+  }
+]

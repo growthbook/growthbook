@@ -1,11 +1,16 @@
 export const DEFAULT_STATS_ENGINE = "bayesian";
 
+export const DEFAULT_P_VALUE_THRESHOLD = 0.05;
+
 // Regression Adjustment (CUPED):
 export const DEFAULT_REGRESSION_ADJUSTMENT_ENABLED = false;
 export const DEFAULT_REGRESSION_ADJUSTMENT_DAYS = 14;
 
 // Sequential Testing:
 export const DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER = 5000;
+
+// Dimension name constants:
+export const EXPOSURE_DATE_DIMENSION_NAME = "dim_exposure_date";
 
 // Colors:
 export const variant_null = "#999";

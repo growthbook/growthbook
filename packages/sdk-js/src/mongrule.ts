@@ -169,7 +169,8 @@ function evalOperatorCondition(
     case "$gte":
       return actual >= expected;
     case "$exists":
-      return expected ? actual !== null : actual === null;
+      // Using `!=` and `==` instead of strict checks so it also matches for undefined
+      return expected ? actual != null : actual == null;
     case "$in":
       if (!Array.isArray(expected)) return false;
       return isIn(actual, expected);

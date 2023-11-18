@@ -1,4 +1,9 @@
-import { NamespaceValue } from "./feature";
+import {
+  ExperimentRefVariation,
+  FeatureInterface,
+  NamespaceValue,
+  SavedGroupTargeting,
+} from "./feature";
 import { StatsEngine } from "./stats";
 import { CustomFieldValues } from "./custom-fields";
 
@@ -52,6 +57,7 @@ export interface ExperimentPhase {
   reason: string;
   coverage: number;
   condition: string;
+  savedGroups?: SavedGroupTargeting[];
   namespace: NamespaceValue;
   seed?: string;
   variationWeights: number[];
@@ -150,6 +156,7 @@ export interface ExperimentInterface {
   sequentialTestingEnabled?: boolean;
   sequentialTestingTuningParameter?: number;
   statsEngine?: StatsEngine;
+  manualLaunchChecklist?: { key: string; status: "complete" | "incomplete" }[];
   customFields?: CustomFieldValues;
 }
 
@@ -166,7 +173,12 @@ export type Changeset = Partial<ExperimentInterface>;
 
 export type ExperimentTargetingData = Pick<
   ExperimentPhaseStringDates,
-  "condition" | "coverage" | "namespace" | "seed" | "variationWeights"
+  | "condition"
+  | "coverage"
+  | "namespace"
+  | "seed"
+  | "variationWeights"
+  | "savedGroups"
 > &
   Pick<
     ExperimentInterfaceStringDates,
@@ -175,3 +187,21 @@ export type ExperimentTargetingData = Pick<
     newPhase: boolean;
     reseed: boolean;
   };
+
+export type LinkedFeatureState = "locked" | "live" | "draft" | "discarded";
+
+export type LinkedFeatureEnvState =
+  | "missing"
+  | "disabled-env"
+  | "disabled-rule"
+  | "active";
+
+export interface LinkedFeatureInfo {
+  feature: FeatureInterface;
+  state: LinkedFeatureState;
+  values: ExperimentRefVariation[];
+  valuesFrom: string;
+  inconsistentValues: boolean;
+  rulesAbove: boolean;
+  environmentStates: Record<string, LinkedFeatureEnvState>;
+}

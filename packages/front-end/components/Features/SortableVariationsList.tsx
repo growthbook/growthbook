@@ -20,7 +20,7 @@ import { SortableVariation } from "./SortableFeatureVariationRow";
 const SortableVariationsList: FC<{
   children: ReactNode;
   variations: (SortableVariation | Variation)[];
-  setVariations: (variations: (SortableVariation | Variation)[]) => void;
+  setVariations?: (variations: (SortableVariation | Variation)[]) => void;
   sortingStrategy?: "vertical" | "rect";
 }> = ({
   children,
@@ -47,10 +47,10 @@ const SortableVariationsList: FC<{
       sensors={sensors}
       collisionDetection={closestCenter}
       onDragEnd={({ active, over }) => {
-        // @ts-expect-error TS(2531) If you come across this, please fix it!: Object is possibly 'null'.
-        if (active.id !== over.id) {
+        if (!setVariations) return;
+
+        if (over && active.id !== over.id) {
           const oldIndex = getVariationIndex(active.id);
-          // @ts-expect-error TS(2531) If you come across this, please fix it!: Object is possibly 'null'.
           const newIndex = getVariationIndex(over.id);
 
           if (oldIndex === -1 || newIndex === -1) return;

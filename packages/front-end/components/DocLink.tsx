@@ -4,11 +4,12 @@ const docSections = {
   //Pages
   home: "",
   features: "/app/features",
-  experiments: "/app/experiments",
+  experimentConfiguration: "/app/experiment-configuration",
+  experimentResults: "/app/experiment-results",
   metrics: "/app/metrics",
   dimensions: "/app/dimensions",
   datasources: "/app/datasources",
-  dashboard: "/app/experiments",
+  dashboard: "/app/experiment-configuration",
   api: "/app/api",
   webhooks: "/app/webhooks",
   //DataSourceType
@@ -42,7 +43,8 @@ const docSections = {
   encryptedSDKEndpoints: "/lib/js#loading-features",
   hashSecureAttributes: "/lib/js#secure-attributes",
   autoMetrics: "/app/metrics/#auto-generate-metrics",
-  targetingChanges: "/app/experiments#making-changes-while-running",
+  targetingChanges:
+    "/app/experiment-configuration#making-changes-while-running",
 };
 
 export type DocSection = keyof typeof docSections;
@@ -50,14 +52,14 @@ export type DocSection = keyof typeof docSections;
 const urlPathMapping: Record<string, DocSection> = {
   "/": "home",
   "/features": "features",
-  "/experiment": "experiments",
-  "/experiments": "experiments",
+  "/experiment": "experimentResults",
+  "/experiments": "experimentConfiguration",
   "/metric": "metrics",
   "/metrics": "metrics",
   "/segments": "datasources",
   "/dimensions": "dimensions",
   "/datasources": "datasources",
-  "/dashboard": "experiments",
+  "/dashboard": "experimentConfiguration",
   "/settings/keys": "api",
   "/environments": "api",
   "/settings/webhooks": "webhooks",

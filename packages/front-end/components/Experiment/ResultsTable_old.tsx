@@ -1,13 +1,14 @@
 import clsx from "clsx";
 import React, { ReactElement } from "react";
 import { FaQuestionCircle } from "react-icons/fa";
-import { MetricInterface } from "back-end/types/metric";
 import { ExperimentReportVariation } from "back-end/types/report";
 import { ExperimentStatus } from "back-end/types/experiment";
 import { PValueCorrection, StatsEngine } from "back-end/types/stats";
 import { DEFAULT_STATS_ENGINE } from "shared/constants";
+import { ExperimentMetricInterface } from "shared/experiments";
 import { ExperimentTableRow, useDomain } from "@/services/experiments";
 import useOrgSettings from "@/hooks/useOrgSettings";
+import usePValueThreshold from "@/hooks/usePValueThreshold";
 import Tooltip from "../Tooltip/Tooltip";
 import SelectField from "../Forms/SelectField";
 import AlignedGraph from "./AlignedGraph";
@@ -29,7 +30,7 @@ export type ResultsTableProps_old = {
   labelHeader: string;
   renderLabelColumn: (
     label: string,
-    metric: MetricInterface,
+    metric: ExperimentMetricInterface,
     row: ExperimentTableRow
   ) => string | ReactElement;
   dateCreated: Date;
@@ -69,11 +70,14 @@ export default function ResultsTable_old({
   sequentialTestingEnabled = false,
 }: ResultsTableProps_old) {
   const orgSettings = useOrgSettings();
+  const pValueThreshold = usePValueThreshold();
 
   const domain = useDomain(
     variations.map((v, i) => ({ ...v, index: i })),
     rows
   );
+
+  const confidencePct = percentFormatter.format(1 - pValueThreshold);
 
   return (
     <table
@@ -212,9 +216,10 @@ export default function ResultsTable_old({
                           body={
                             <>
                               <p className="mb-0">
-                                This is a 95% confidence interval. If you re-ran
-                                the experiment 100 times, the true value would
-                                be in this range 95% of the time.
+                                This is a {confidencePct} confidence interval.
+                                If you re-ran the experiment 100 times, the true
+                                value would be in this range {confidencePct} of
+                                the time.
                               </p>
                               {sequentialTestingEnabled && (
                                 <p className="mt-4 mb-0">

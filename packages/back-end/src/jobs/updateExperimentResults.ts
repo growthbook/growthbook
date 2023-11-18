@@ -1,8 +1,6 @@
 import Agenda, { Job } from "agenda";
-import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
 import { getScopedSettings } from "shared/settings";
 import { getSnapshotAnalysis } from "shared/util";
-import { orgHasPremiumFeature } from "enterprise";
 import {
   getExperimentById,
   getExperimentsToUpdate,
@@ -13,21 +11,22 @@ import { getDataSourceById } from "../models/DataSourceModel";
 import { isEmailEnabled, sendExperimentChangesEmail } from "../services/email";
 import {
   createSnapshot,
+  getAdditionalExperimentAnalysisSettings,
+  getDefaultExperimentAnalysisSettings,
+  getExperimentMetricById,
   getRegressionAdjustmentInfo,
 } from "../services/experiments";
 import { getConfidenceLevelsForOrg } from "../services/organizations";
 import { getLatestSnapshot } from "../models/ExperimentSnapshotModel";
 import { ExperimentInterface } from "../../types/experiment";
-import { getMetricById, getMetricMap } from "../models/MetricModel";
+import { getMetricMap } from "../models/MetricModel";
 import { EXPERIMENT_REFRESH_FREQUENCY } from "../util/secrets";
 import { findOrganizationById } from "../models/OrganizationModel";
 import { logger } from "../util/logger";
-import {
-  ExperimentSnapshotAnalysisSettings,
-  ExperimentSnapshotInterface,
-} from "../../types/experiment-snapshot";
+import { ExperimentSnapshotInterface } from "../../types/experiment-snapshot";
 import { findProjectById } from "../models/ProjectModel";
 import { getExperimentWatchers } from "../models/WatchModel";
+import { getFactTableMap } from "../models/FactTableModel";
 
 // Time between experiment result updates (default 6 hours)
 const UPDATE_EVERY = EXPERIMENT_REFRESH_FREQUENCY * 60 * 60 * 1000;
@@ -130,13 +129,6 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
 
   if (organization?.settings?.updateSchedule?.type === "never") return;
 
-  const hasRegressionAdjustmentFeature = organization
-    ? orgHasPremiumFeature(organization, "regression-adjustment")
-    : false;
-  const hasSequentialTestingFeature = organization
-    ? orgHasPremiumFeature(organization, "sequential-testing")
-    : false;
-
   try {
     logger.info("Start Refreshing Results for experiment " + experimentId);
     const datasource = await getDataSourceById(
@@ -156,37 +148,29 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
       metricRegressionAdjustmentStatuses,
     } = await getRegressionAdjustmentInfo(experiment, organization);
 
-    const statsEngine = scopedSettings.statsEngine.value;
-
-    const analysisSettings: ExperimentSnapshotAnalysisSettings = {
-      statsEngine,
-      dimensions: [],
-      regressionAdjusted:
-        hasRegressionAdjustmentFeature &&
-        statsEngine === "frequentist" &&
-        regressionAdjustmentEnabled,
-      sequentialTesting:
-        hasSequentialTestingFeature &&
-        statsEngine === "frequentist" &&
-        (experiment?.sequentialTestingEnabled ??
-          !!organization.settings?.sequentialTestingEnabled),
-      sequentialTestingTuningParameter:
-        experiment?.sequentialTestingTuningParameter ??
-        organization.settings?.sequentialTestingTuningParameter ??
-        DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
-      baselineVariationIndex: 0,
-    };
+    const analysisSettings = getDefaultExperimentAnalysisSettings(
+      experiment.statsEngine ?? scopedSettings.statsEngine.value,
+      experiment,
+      organization,
+      regressionAdjustmentEnabled
+    );
 
     const metricMap = await getMetricMap(organization.id);
+    const factTableMap = await getFactTableMap(organization.id);
 
     const queryRunner = await createSnapshot({
       experiment,
       organization,
       phaseIndex: experiment.phases.length - 1,
-      analysisSettings,
+      defaultAnalysisSettings: analysisSettings,
+      additionalAnalysisSettings: getAdditionalExperimentAnalysisSettings(
+        analysisSettings,
+        experiment
+      ),
       metricRegressionAdjustmentStatuses:
         metricRegressionAdjustmentStatuses || [],
       metricMap,
+      factTableMap,
       useCache: true,
     });
     await queryRunner.waitForResults();
@@ -267,7 +251,8 @@ async function sendSignificanceEmail(
             // this test variation has gone significant, and won
             experimentChanges.push(
               "The metric " +
-                (await getMetricById(m, experiment.organization))?.name +
+                (await getExperimentMetricById(m, experiment.organization))
+                  ?.name +
                 " for variation " +
                 experiment.variations[i].name +
                 " has reached a " +
@@ -281,7 +266,8 @@ async function sendSignificanceEmail(
             // this test variation has gone significant, and lost
             experimentChanges.push(
               "The metric " +
-                (await getMetricById(m, experiment.organization))?.name +
+                (await getExperimentMetricById(m, experiment.organization))
+                  ?.name +
                 " for variation " +
                 experiment.variations[i].name +
                 " has dropped to a " +

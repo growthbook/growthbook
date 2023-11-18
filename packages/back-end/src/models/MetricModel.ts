@@ -1,4 +1,5 @@
 import mongoose, { FilterQuery } from "mongoose";
+import { ExperimentMetricInterface } from "shared/experiments";
 import { LegacyMetricInterface, MetricInterface } from "../../types/metric";
 import { getConfigMetrics, usingFileConfig } from "../init/config";
 import { upgradeMetricDoc } from "../util/migrations";
@@ -8,6 +9,7 @@ import { queriesSchema } from "./QueryModel";
 import { ImpactEstimateModel } from "./ImpactEstimateModel";
 import { removeMetricFromExperiments } from "./ExperimentModel";
 import { addTagsDiff } from "./TagModel";
+import { getAllFactMetricsForOrganization } from "./FactMetricModel";
 
 export const ALLOWED_METRIC_TYPES = [
   "binomial",
@@ -191,9 +193,14 @@ export async function deleteAllMetricsForAProject({
 }
 
 export async function getMetricMap(organization: string) {
-  const metricMap = new Map<string, MetricInterface>();
+  const metricMap = new Map<string, ExperimentMetricInterface>();
   const allMetrics = await getMetricsByOrganization(organization);
   allMetrics.forEach((m) => {
+    metricMap.set(m.id, m);
+  });
+
+  const allFactMetrics = await getAllFactMetricsForOrganization(organization);
+  allFactMetrics.forEach((m) => {
     metricMap.set(m.id, m);
   });
 

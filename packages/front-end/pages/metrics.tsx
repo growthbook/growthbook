@@ -5,6 +5,7 @@ import { useRouter } from "next/router";
 import Link from "next/link";
 import { ago, datetime } from "shared/dates";
 import { isProjectListValidForProject } from "shared/util";
+import { getMetricLink } from "shared/experiments";
 import SortedTags from "@/components/Tags/SortedTags";
 import { GBAddCircle } from "@/components/Icons";
 import ProjectBadges from "@/components/ProjectBadges";
@@ -28,10 +29,9 @@ import MoreMenu from "@/components/Dropdown/MoreMenu";
 import { useAuth } from "@/services/auth";
 import AutoGenerateMetricsModal from "@/components/AutoGenerateMetricsModal";
 import AutoGenerateMetricsButton from "@/components/AutoGenerateMetricsButton";
-
+import FactBadge from "@/components/FactTables/FactBadge";
 interface MetricTableItem {
   id: string;
-  href: string;
   name: string;
   type: string;
   tags: string[];
@@ -40,7 +40,6 @@ interface MetricTableItem {
   datasource: string;
   dateUpdated: Date | null;
   archived: boolean;
-  isFact: boolean;
   onDuplicate?: () => void;
   onArchive?: (desiredState: boolean) => Promise<void>;
 }
@@ -85,13 +84,11 @@ const MetricsPage = (): React.ReactElement => {
         archived: m.status === "archived",
         datasource: m.datasource || "",
         dateUpdated: m.dateUpdated,
-        href: `/metric/${m.id}`,
         name: m.name,
         owner: m.owner || "",
         projects: m.projects || [],
         tags: m.tags || [],
         type: m.type,
-        isFact: false,
         onArchive: async (desiredState) => {
           const newStatus = desiredState ? "archived" : "active";
           await apiCall(`/metric/${m.id}`, {
@@ -127,10 +124,8 @@ const MetricsPage = (): React.ReactElement => {
         archived: false,
         datasource: m.datasource,
         dateUpdated: m.dateUpdated,
-        href: `/fact-metrics/${m.id}`,
         name: m.name,
         owner: m.owner,
-        isFact: true,
         projects: m.projects || [],
         tags: m.tags || [],
         type: m.metricType,
@@ -204,6 +199,7 @@ const MetricsPage = (): React.ReactElement => {
             onClose={closeModal}
             onSuccess={onSuccess}
             source="blank-state"
+            allowFactMetrics={!modalData.duplicate && !modalData.edit}
           />
         )}
         {showAutoGenerateMetricsModal && (
@@ -283,6 +279,7 @@ const MetricsPage = (): React.ReactElement => {
           onClose={closeModal}
           onSuccess={onSuccess}
           source="metrics-list"
+          allowFactMetrics={!modalData.duplicate && !modalData.edit}
         />
       )}
       {showAutoGenerateMetricsModal && (
@@ -385,13 +382,13 @@ const MetricsPage = (): React.ReactElement => {
               key={metric.id}
               onClick={(e) => {
                 e.preventDefault();
-                router.push(metric.href);
+                router.push(getMetricLink(metric.id));
               }}
               style={{ cursor: "pointer" }}
               className={metric.archived ? "text-muted" : ""}
             >
               <td>
-                <Link href={metric.href}>
+                <Link href={getMetricLink(metric.id)}>
                   <a
                     className={`${
                       metric.archived ? "text-muted" : "text-dark"
@@ -400,15 +397,14 @@ const MetricsPage = (): React.ReactElement => {
                     {metric.name}
                   </a>
                 </Link>
-                {metric.isFact && (
-                  <span className="badge badge-purple ml-2">FACT</span>
-                )}
+                <FactBadge metricId={metric.id} />
               </td>
               <td>{metric.type}</td>
 
-              <td className="nowrap">
+              <td className="col-4">
                 <SortedTags
                   tags={metric.tags ? Object.values(metric.tags) : []}
+                  shouldShowEllipsis={true}
                 />
               </td>
               <td className="col-2">

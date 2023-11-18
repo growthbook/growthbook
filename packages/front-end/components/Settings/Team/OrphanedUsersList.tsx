@@ -10,7 +10,8 @@ import AddOrphanedUserModal from "./AddOrphanedUserModal";
 const OrphanedUsersList: FC<{
   mutateUsers: () => void;
   numUsersInAccount: number;
-}> = ({ mutateUsers, numUsersInAccount }) => {
+  enableAdd?: boolean;
+}> = ({ mutateUsers, numUsersInAccount, enableAdd = true }) => {
   const { apiCall } = useAuth();
   const [addModal, setAddModal] = useState<string>("");
 
@@ -23,7 +24,7 @@ const OrphanedUsersList: FC<{
     mutate();
   }, [numUsersInAccount, mutate]);
 
-  // Only available when self-hosting since Cloud is a multi-tenant environment
+  // Only available when self-hosting, since Cloud is a multi-tenant environment
   if (isCloud()) return null;
 
   if (error) {
@@ -52,7 +53,7 @@ const OrphanedUsersList: FC<{
           {...addModalData}
         />
       )}
-      <h5>Removed Members{` (${users.length})`}</h5>
+      <h5>Orphaned Users{` (${users.length})`}</h5>
       <table className="table appbox gbtable">
         <thead>
           <tr>
@@ -68,20 +69,35 @@ const OrphanedUsersList: FC<{
                 <td>{name}</td>
                 <td>{email}</td>
                 <td style={{ width: 30 }}>
-                  <MoreMenu>
-                    <button
-                      className="dropdown-item"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        setAddModal(id);
-                      }}
-                    >
-                      Add back to account
-                    </button>
+                  {(enableAdd && (
+                    <MoreMenu>
+                      <button
+                        className="dropdown-item"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          setAddModal(id);
+                        }}
+                      >
+                        Add back to account
+                      </button>
+                      <DeleteButton
+                        link={true}
+                        text="Permanently delete"
+                        useIcon={false}
+                        className="dropdown-item"
+                        displayName={email}
+                        onClick={async () => {
+                          await apiCall(`/orphaned-users/${id}/delete`, {
+                            method: "POST",
+                          });
+                          mutate();
+                        }}
+                      />
+                    </MoreMenu>
+                  )) || (
                     <DeleteButton
                       link={true}
-                      text="Permanently delete"
-                      useIcon={false}
+                      useIcon={true}
                       className="dropdown-item"
                       displayName={email}
                       onClick={async () => {
@@ -91,7 +107,7 @@ const OrphanedUsersList: FC<{
                         mutate();
                       }}
                     />
-                  </MoreMenu>
+                  )}
                 </td>
               </tr>
             );

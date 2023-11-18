@@ -16,6 +16,7 @@
   --text-dark: #343a40; // default Bootstrap .text-dark
   --text-link-color: #007bff; // default Bootstrap
   --text-link-hover-color: #0056b3; // default Bootstrap
+  --text-hover-color: #{colors.$black};
   --text-color-muted: #{colors.$gray-600};
   --text-color-on-bright: #{colors.$white};
   --text-color-primary: #{colors.$highlight-purple};
@@ -66,6 +67,34 @@
   --disabled-background: #eaeaea;
 
   --bg-muted-yellow: #f5f2dc;
+
+  --results-won: #{colors.$success};
+  --results-lost: #{colors.$danger};
+  --results-dnf: #{colors.$warning};
+  --results-inconclusive: #{colors.$secondary};
+
+  --status-running: #{colors.$info};
+  --status-draft: #{colors.$warning};
+  --status-stopped: #{colors.$secondary};
+
+  --graph-color-1: #73d1f0;
+  --graph-color-2: #7388f0;
+  --graph-color-3: #ab73f0;
+  --graph-color-4: #f073ee;
+  --graph-color-5: #f08273;
+  --graph-color-6: #dfbb6d;
+  --graph-color-7: #a0e572;
+  --graph-color-8: #72e1e5;
+  --graph-color-9: #1637e6;
+  --graph-color-10: #6216e6;
+  --graph-color-11: #b916e6;
+  --graph-color-12: #e616bc;
+  --graph-color-13: #e6161d;
+  --graph-color-14: #e67416;
+  --graph-color-15: #e6ca16;
+  --graph-color-16: #88e616;
+  --graph-color-17: #16e6b5;
+  --graph-color-18: #14b8ff;
 }
 
 @mixin dark-theme {
@@ -87,6 +116,7 @@
   --text-dark: #{colors.$gray6};
   --text-link-color: #{lighten(#007bff, 20%)};
   --text-link-hover-color: #{lighten(#007bff, 10%)};
+  --text-hover-color: #{colors.$black};
   --text-color-muted: #{colors.$gray-500};
   --text-color-on-bright: #{colors.$black};
   --text-color-primary: #{colors.$highlight-purple-light};
@@ -137,6 +167,34 @@
   --disabled-background: #3f3f3f;
 
   --bg-muted-yellow: #4c4a44;
+
+  --results-won: #{colors.$success};
+  --results-lost: #{colors.$danger};
+  --results-dnf: #{colors.$warning};
+  --results-inconclusive: #{colors.$secondary};
+
+  --status-running: #{colors.$info};
+  --status-draft: #{colors.$warning};
+  --status-stopped: #{colors.$secondary};
+
+  --graph-color-1: #73d1f0;
+  --graph-color-2: #7388f0;
+  --graph-color-3: #ab73f0;
+  --graph-color-4: #f073ee;
+  --graph-color-5: #f08273;
+  --graph-color-6: #dfbb6d;
+  --graph-color-7: #a0e572;
+  --graph-color-8: #72e1e5;
+  --graph-color-9: #1637e6;
+  --graph-color-10: #6216e6;
+  --graph-color-11: #b916e6;
+  --graph-color-12: #e616bc;
+  --graph-color-13: #e6161d;
+  --graph-color-14: #e67416;
+  --graph-color-15: #e6ca16;
+  --graph-color-16: #88e616;
+  --graph-color-17: #16e6b5;
+  --graph-color-18: #14b8ff;
 }
 
 .theme--light {

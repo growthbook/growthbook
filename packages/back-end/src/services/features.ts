@@ -9,25 +9,27 @@ import {
   AutoExperiment,
   GrowthBook,
 } from "@growthbook/growthbook";
+import { validateFeatureValue } from "shared/util";
 import { FeatureDefinition } from "../../types/api";
 import {
   FeatureDraftChanges,
   FeatureEnvironment,
   FeatureInterface,
   FeatureRule,
+  ForceRule,
+  RolloutRule,
   FeatureTestResult,
+  ExperimentRefRule,
 } from "../../types/feature";
 import { getAllFeatures } from "../models/FeatureModel";
 import {
   getAllPayloadExperiments,
   getAllVisualExperiments,
 } from "../models/ExperimentModel";
-import {
-  getFeatureDefinition,
-  replaceSavedGroupsInCondition,
-} from "../util/features";
+import { getFeatureDefinition, getParsedCondition } from "../util/features";
 import { getAllSavedGroups } from "../models/SavedGroupModel";
 import {
+  Environment,
   OrganizationInterface,
   SDKAttribute,
   SDKAttributeSchema,
@@ -46,7 +48,12 @@ import {
   getSurrogateKeysFromSDKPayloadKeys,
   purgeCDNCache,
 } from "../util/cdn.util";
+import {
+  ApiFeatureEnvSettings,
+  ApiFeatureEnvSettingsRules,
+} from "../api/features/postFeature";
 import { ArchetypeAttributeValues } from "../../types/archetype";
+import { FeatureRevisionInterface } from "../../types/feature-revision";
 import { getEnvironments, getOrganizationById } from "./organizations";
 
 export type AttributeMap = Map<string, string>;
@@ -105,16 +112,11 @@ function generateVisualExperimentsPayload({
           ? e.variations.find((v) => v.id === e.releasedVariationId)
           : null;
 
-      let condition;
-      if (phase?.condition && phase.condition !== "{}") {
-        try {
-          condition = JSON.parse(
-            replaceSavedGroupsInCondition(phase.condition, groupMap)
-          );
-        } catch (e) {
-          // ignore condition parse errors here
-        }
-      }
+      const condition = getParsedCondition(
+        groupMap,
+        phase?.condition,
+        phase?.savedGroups
+      );
 
       if (!phase) return null;
 
@@ -184,7 +186,10 @@ export async function getSavedGroupMap(
     allGroups.map((group) => {
       const attributeType = attributeMap?.get(group.attributeKey);
       const values = getGroupValues(group.values, attributeType);
-      return [group.id, values];
+      return [
+        group.id,
+        { values, key: group.attributeKey, source: group.source },
+      ];
     })
   );
 
@@ -195,6 +200,7 @@ export async function refreshSDKPayloadCache(
   organization: OrganizationInterface,
   payloadKeys: SDKPayloadKey[],
   allFeatures: FeatureInterface[] | null = null,
+  experimentMap?: Map<string, ExperimentInterface>,
   skipRefreshForProject?: string
 ) {
   // Ignore any old environments which don't exist anymore
@@ -213,7 +219,8 @@ export async function refreshSDKPayloadCache(
   // If no environments are affected, we don't need to update anything
   if (!payloadKeys.length) return;
 
-  const experimentMap = await getAllPayloadExperiments(organization.id);
+  experimentMap =
+    experimentMap || (await getAllPayloadExperiments(organization.id));
   const groupMap = await getSavedGroupMap(organization);
   allFeatures = allFeatures || (await getAllFeatures(organization.id));
   const allVisualExperiments = await getAllVisualExperiments(
@@ -230,8 +237,6 @@ export async function refreshSDKPayloadCache(
     const projectExperiments = key.project
       ? allVisualExperiments.filter((e) => e.experiment.project === key.project)
       : allVisualExperiments;
-
-    if (!projectFeatures.length && !projectExperiments.length) continue;
 
     const featureDefinitions = generatePayload({
       features: projectFeatures,
@@ -506,6 +511,7 @@ export async function getFeatureDefinitions({
 
 export async function evaluateFeature(
   feature: FeatureInterface,
+  revision: FeatureRevisionInterface,
   attributes: ArchetypeAttributeValues,
   org: OrganizationInterface
 ) {
@@ -515,6 +521,12 @@ export async function evaluateFeature(
 
   const results: FeatureTestResult[] = [];
 
+  // change the NODE ENV so that we can get the debug log information:
+  let switchEnv = false;
+  if (process.env.NODE_ENV === "production") {
+    process.env.NODE_ENV = "development";
+    switchEnv = true;
+  }
   // I could loop through the feature's defined environments, but if environments change in the org,
   // the values in the feature will be wrong.
   environments.forEach((env) => {
@@ -522,7 +534,7 @@ export async function evaluateFeature(
       env: env.id,
       result: null,
       enabled: false,
-      defaultValue: feature.defaultValue,
+      defaultValue: revision.defaultValue,
     };
     const settings = feature.environmentSettings[env.id] ?? null;
     if (settings) {
@@ -532,7 +544,7 @@ export async function evaluateFeature(
         groupMap,
         experimentMap,
         environment: env.id,
-        useDraft: true,
+        revision,
         returnRuleId: true,
       });
       if (definition) {
@@ -555,6 +567,10 @@ export async function evaluateFeature(
     }
     results.push(thisEnvResult);
   });
+  if (switchEnv) {
+    // change the NODE ENV back
+    process.env.NODE_ENV = "production";
+  }
   return results;
 }
 
@@ -657,15 +673,23 @@ export function getApiFeatureObj({
   groupMap: GroupMap;
   experimentMap: Map<string, ExperimentInterface>;
 }): ApiFeature {
+  const defaultValue = feature.defaultValue;
   const featureEnvironments: Record<string, ApiFeatureEnvironment> = {};
   const environments = getEnvironments(organization);
   environments.forEach((env) => {
-    const defaultValue = feature.defaultValue;
     const envSettings = feature.environmentSettings?.[env.id];
     const enabled = !!envSettings?.enabled;
     const rules = (envSettings?.rules || []).map((rule) => ({
       ...rule,
+      coverage:
+        rule.type === "rollout" || rule.type === "experiment"
+          ? rule.coverage ?? 1
+          : 1,
       condition: rule.condition || "",
+      savedGroupTargeting: (rule.savedGroups || []).map((s) => ({
+        matchType: s.match,
+        savedGroups: s.ids,
+      })),
       enabled: !!rule.enabled,
     }));
     const definition = getFeatureDefinition({
@@ -675,38 +699,11 @@ export function getApiFeatureObj({
       environment: env.id,
     });
 
-    const draft: null | ApiFeatureEnvironment["draft"] = feature.draft?.active
-      ? {
-          enabled,
-          defaultValue: feature.draft?.defaultValue ?? defaultValue,
-          rules: (feature.draft?.rules?.[env.id] ?? rules).map((rule) => ({
-            ...rule,
-            condition: rule.condition || "",
-            enabled: !!rule.enabled,
-          })),
-        }
-      : null;
-    if (draft) {
-      const draftDefinition = getFeatureDefinition({
-        feature,
-        groupMap,
-        experimentMap,
-        environment: env.id,
-        useDraft: true,
-      });
-      if (draftDefinition) {
-        draft.definition = JSON.stringify(draftDefinition);
-      }
-    }
-
     featureEnvironments[env.id] = {
-      defaultValue,
       enabled,
+      defaultValue,
       rules,
     };
-    if (draft) {
-      featureEnvironments[env.id].draft = draft;
-    }
     if (definition) {
       featureEnvironments[env.id].definition = JSON.stringify(definition);
     }
@@ -725,10 +722,10 @@ export function getApiFeatureObj({
     tags: feature.tags || [],
     valueType: feature.valueType,
     revision: {
-      comment: feature.revision?.comment || "",
-      date: (feature.revision?.date || feature.dateCreated).toISOString(),
-      publishedBy: feature.revision?.publishedBy?.email || "",
-      version: feature.revision?.version || 1,
+      comment: "",
+      date: feature.dateCreated.toISOString(),
+      publishedBy: "",
+      version: feature.version,
     },
   };
 
@@ -906,3 +903,98 @@ export function sha256(str: string, salt: string): string {
     .update(salt + str)
     .digest("hex");
 }
+
+const fromApiEnvSettingsRulesToFeatureEnvSettingsRules = (
+  feature: FeatureInterface,
+  rules: ApiFeatureEnvSettingsRules
+): FeatureInterface["environmentSettings"][string]["rules"] =>
+  rules.map((r) => {
+    if (r.type === "experiment-ref") {
+      const experimentRule: ExperimentRefRule = {
+        // missing id will be filled in by addIdsToRules
+        id: r.id ?? "",
+        type: r.type,
+        enabled: r.enabled != null ? r.enabled : true,
+        description: r.description ?? "",
+        experimentId: r.experimentId,
+        variations: r.variations.map((v) => ({
+          variationId: v.variationId,
+          value: validateFeatureValue(feature, v.value),
+        })),
+      };
+      return experimentRule;
+    } else if (r.type === "force") {
+      const forceRule: ForceRule = {
+        // missing id will be filled in by addIdsToRules
+        id: r.id ?? "",
+        type: r.type,
+        description: r.description ?? "",
+        value: validateFeatureValue(feature, r.value),
+        condition: r.condition,
+        savedGroups: (r.savedGroupTargeting || []).map((s) => ({
+          ids: s.savedGroups,
+          match: s.matchType,
+        })),
+        enabled: r.enabled != null ? r.enabled : true,
+      };
+      return forceRule;
+    }
+    const rolloutRule: RolloutRule = {
+      // missing id will be filled in by addIdsToRules
+      id: r.id ?? "",
+      type: r.type,
+      coverage: r.coverage,
+      description: r.description ?? "",
+      hashAttribute: r.hashAttribute,
+      value: validateFeatureValue(feature, r.value),
+      condition: r.condition,
+      savedGroups: (r.savedGroupTargeting || []).map((s) => ({
+        ids: s.savedGroups,
+        match: s.matchType,
+      })),
+      enabled: r.enabled != null ? r.enabled : true,
+    };
+    return rolloutRule;
+  });
+
+export const createInterfaceEnvSettingsFromApiEnvSettings = (
+  feature: FeatureInterface,
+  baseEnvs: Environment[],
+  incomingEnvs: ApiFeatureEnvSettings
+): FeatureInterface["environmentSettings"] =>
+  baseEnvs.reduce(
+    (acc, e) => ({
+      ...acc,
+      [e.id]: {
+        enabled: incomingEnvs?.[e.id]?.enabled ?? !!e.defaultState,
+        rules: incomingEnvs?.[e.id]?.rules
+          ? fromApiEnvSettingsRulesToFeatureEnvSettingsRules(
+              feature,
+              incomingEnvs[e.id].rules
+            )
+          : [],
+      },
+    }),
+    {} as Record<string, FeatureEnvironment>
+  );
+
+export const updateInterfaceEnvSettingsFromApiEnvSettings = (
+  feature: FeatureInterface,
+  incomingEnvs: ApiFeatureEnvSettings
+): FeatureInterface["environmentSettings"] => {
+  const existing = feature.environmentSettings;
+  return Object.keys(incomingEnvs).reduce((acc, k) => {
+    return {
+      ...acc,
+      [k]: {
+        enabled: incomingEnvs[k].enabled ?? existing[k].enabled,
+        rules: incomingEnvs[k].rules
+          ? fromApiEnvSettingsRulesToFeatureEnvSettingsRules(
+              feature,
+              incomingEnvs[k].rules
+            )
+          : existing[k].rules,
+      },
+    };
+  }, existing);
+};

@@ -226,6 +226,19 @@ pre {
   color: inherit;
 }
 
+.btn-link-filter-on {
+  color: var(--text-color-primary);
+  &:hover {
+    color: var(--text-link-hover-color);
+  }
+}
+.btn-link-filter-off {
+  color: var(--text-color-muted);
+  &:hover {
+    color: var(--text-link-hover-color);
+  }
+}
+
 .experiment-status-widget {
   background-color: var(--surface-background-color);
   border-radius: 20px !important;
@@ -1876,6 +1889,9 @@ main.main.report {
 .bg-purple-light {
   background: colors.$highlight-purple-light;
 }
+.bg-purple-light-2 {
+  background: var(--form-multivalue-background-color);
+}
 .bg-muted-yellow {
   background: var(--bg-muted-yellow);
 }
@@ -2565,6 +2581,19 @@ html {
     }
   }
 }
+.multiselect-unfixed {
+  position: relative;
+  .gb-multi-select__menu-portal {
+    position: absolute !important;
+    top: -8px;
+    left: 290px;
+    @media (max-width: 520px) {
+      top: auto;
+      bottom: 0;
+      left: 0;
+    }
+  }
+}
 
 #modal {
   position: relative;
@@ -3028,5 +3057,50 @@ input:disabled {
   }
 }
 
+.sdk-security-button-wrapper {
+  justify-content: space-around;
+  gap: 1rem;
+
+  .check {
+    position: relative;
+    top: -2px;
+    font-size: 18px;
+  }
+
+  .sdk-security-button {
+    position: relative;
+    box-sizing: border-box;
+    flex: 1;
+    padding: 22px 20px 14px;
+    max-width: 300px;
+
+    &.selected {
+      border-color: #28a745 !important;
+    }
+    &.active {
+      background: transparent;
+      box-shadow: 0 0 0 3px var(--text-color-primary);
+    }
+
+    .subtitle {
+      font-size: 12px;
+      line-height: 1rem;
+      color: var(--text-dark);
+      font-weight: normal;
+      margin: 12px 10px 0;
+    }
+  }
+}
+.table-tags {
+  min-width: 250px;
+  width: 100%;
+}
+.tags-container {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 7px;
+}
 @import "./components/react-select.scss";
 @import "./components/demo-datasource-banner";

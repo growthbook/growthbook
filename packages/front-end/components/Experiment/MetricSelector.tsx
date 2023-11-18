@@ -2,6 +2,7 @@ import { FC } from "react";
 import { isProjectListValidForProject } from "shared/util";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import SelectField, { SelectFieldProps } from "@/components/Forms/SelectField";
+import FactBadge from "../FactTables/FactBadge";
 
 type MetricOption = {
   id: string;
@@ -10,6 +11,7 @@ type MetricOption = {
   tags: string[];
   projects: string[];
   factTables: string[];
+  isBinomial: boolean;
 };
 
 const MetricSelector: FC<
@@ -17,14 +19,16 @@ const MetricSelector: FC<
     datasource?: string;
     project?: string;
     includeFacts?: boolean;
-    excludeIds?: Set<string>;
+    availableIds?: string[];
+    onlyBinomial?: boolean;
   }
 > = ({
   datasource,
   project,
   includeFacts,
   placeholder,
-  excludeIds,
+  availableIds,
+  onlyBinomial,
   ...selectProps
 }) => {
   const { metrics, factMetrics } = useDefinitions();
@@ -37,11 +41,12 @@ const MetricSelector: FC<
       tags: m.tags || [],
       projects: m.projects || [],
       factTables: [],
+      isBinomial: m.type === "binomial" && !m.denominator,
     })),
     ...(includeFacts
       ? factMetrics.map((m) => ({
           id: m.id,
-          name: "[FACT] " + m.name,
+          name: m.name,
           datasource: m.datasource,
           tags: m.tags || [],
           projects: m.projects || [],
@@ -51,13 +56,15 @@ const MetricSelector: FC<
               ? m.denominator.factTableId
               : "") || "",
           ],
+          isBinomial: m.metricType === "proportion",
         }))
       : []),
   ];
 
   const filteredOptions = options
-    .filter((m) => !excludeIds || !excludeIds.has(m.id))
+    .filter((m) => !availableIds || availableIds.includes(m.id))
     .filter((m) => (datasource ? m.datasource === datasource : true))
+    .filter((m) => !onlyBinomial || m.isBinomial)
     .filter((m) => isProjectListValidForProject(m.projects, project));
 
   return (
@@ -70,6 +77,14 @@ const MetricSelector: FC<
           label: m.name,
         };
       })}
+      formatOptionLabel={({ label, value }) => {
+        return (
+          <>
+            {label}
+            <FactBadge metricId={value} />
+          </>
+        );
+      }}
     />
   );
 };

@@ -1,9 +1,10 @@
 import {
   CreateSDKConnectionParams,
+  SDKConnectionInterface,
   SDKLanguage,
 } from "back-end/types/sdk-connection";
 import { useForm } from "react-hook-form";
-import { ReactElement, useEffect, useState } from "react";
+import React, { ReactElement, useEffect, useState } from "react";
 import { FeatureInterface } from "back-end/types/feature";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import Modal from "@/components/Modal";
@@ -36,10 +37,12 @@ export default function InitialSDKConnectionForm({
   const connections = data?.connections;
 
   const { apiCall } = useAuth();
-  const [currentConnection, setCurrentConnection] = useState(null);
+  const [
+    currentConnection,
+    setCurrentConnection,
+  ] = useState<SDKConnectionInterface | null>(null);
 
   useEffect(() => {
-    // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type '() => SDKConnectionInterface | n... Remove this comment to see the full error message
     setCurrentConnection(() => {
       if (connections && connections[0]) {
         return connections[0];
@@ -102,6 +105,7 @@ export default function InitialSDKConnectionForm({
           languages: value.languages,
           encryptPayload: false,
           hashSecureAttributes: false,
+          remoteEvalEnabled: false,
           includeVisualExperiments: false,
           includeDraftExperiments: false,
           includeExperimentNames: false,
@@ -127,17 +131,13 @@ export default function InitialSDKConnectionForm({
       <Field label="Name of your app" {...form.register("name")} required />
 
       <div className="form-group">
-        <label>Tech Stack</label>
-        <small className="text-muted ml-3">(Select all that apply)</small>
+        <label>SDK Language</label>
         <SDKLanguageSelector
           value={form.watch("languages")}
           setValue={(languages) => form.setValue("languages", languages)}
-          multiple={true}
+          multiple={false}
           includeOther={true}
         />
-        <small className="form-text text-muted">
-          This helps us give you personalized setup instructions
-        </small>
       </div>
     </Modal>
   );

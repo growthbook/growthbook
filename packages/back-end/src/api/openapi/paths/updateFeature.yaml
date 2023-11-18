@@ -1,0 +1,29 @@
+summary: Partially update a feature
+parameters:
+  - $ref: "../parameters.yaml#/id"
+tags:
+  - features
+operationId: updateFeature
+x-codeSamples:
+  - lang: "cURL"
+    source: |
+      curl -X POST https://api.growthbook.io/api/v1/features/test-01 \
+        -d '{ description: "A cool feature flag", ... }'
+        -u secret_abc123DEF456:
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "../payload-schemas/UpdateFeaturePayload.yaml"
+responses:
+  "200":
+    content:
+      application/json:
+        schema:
+          type: object
+          required:
+            - feature
+          properties:
+            feature:
+              $ref: "../schemas/Feature.yaml"

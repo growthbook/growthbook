@@ -37,4 +37,6 @@ export type AppFeatures = {
   "ff-approval-flow": boolean;
   "gbdemo-checkout-layout": string;
   "datasource-pipeline-mode": boolean;
+  "fact-tables": boolean;
+  "health-tab": boolean;
 };

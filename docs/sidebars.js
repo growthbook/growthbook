@@ -249,13 +249,30 @@ const sidebars = {
         },
         {
           type: "doc",
+          id: "experimentation-analysis/data-pipeline",
+          label: "Data Pipeline",
+          className: "pill-new",
+        },
+        {
+          type: "doc",
+          id: "experimentation-analysis/fact-tables",
+          label: "Fact Tables",
+          className: "pill-new",
+        },
+        {
+          type: "doc",
           id: "experimentation-analysis/metrics",
           label: "Metrics",
         },
         {
           type: "doc",
-          id: "experimentation-analysis/experiments",
-          label: "Experiments",
+          id: "experimentation-analysis/experiment-configuration",
+          label: "Experiments (Adding and Configuring)",
+        },
+        {
+          type: "doc",
+          id: "experimentation-analysis/experiment-results",
+          label: "Experiments (Results)",
         },
         {
           type: "doc",
@@ -276,19 +293,16 @@ const sidebars = {
               type: "doc",
               id: "statistics/cuped",
               label: "Regression Adjustment (CUPED)",
-              className: "pill-new",
             },
             {
               type: "doc",
               id: "statistics/multiple-corrections",
               label: "Multiple Testing Corrections",
-              className: "pill-new",
             },
             {
               type: "doc",
               id: "statistics/sequential",
               label: "Sequential Testing",
-              className: "pill-new",
             },
             {
               type: "doc",
@@ -417,6 +431,12 @@ const sidebars = {
           type: "doc",
           id: "integrations/datadog",
           label: "DataDog",
+          className: "pill-new",
+        },
+        {
+          type: "doc",
+          id: "integrations/scim",
+          label: "SCIM",
           className: "pill-new",
         },
       ],

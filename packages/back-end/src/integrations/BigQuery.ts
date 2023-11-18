@@ -6,6 +6,7 @@ import { decryptDataSourceParams } from "../services/datasource";
 import { BigQueryConnectionParams } from "../../types/integrations/bigquery";
 import { IS_CLOUD } from "../util/secrets";
 import {
+  ExternalIdCallback,
   InformationSchema,
   QueryResponse,
   RawInformationSchema,
@@ -49,7 +50,23 @@ export default class BigQuery extends SqlIntegration {
     });
   }
 
-  async runQuery(sql: string): Promise<QueryResponse> {
+  async cancelQuery(externalId: string): Promise<void> {
+    const client = this.getClient();
+    const job = client.job(externalId);
+
+    // Attempt to cancel job
+    const [apiResult] = await job.cancel();
+    logger.debug(
+      `Cancelled BigQuery job ${externalId} - ${JSON.stringify(
+        apiResult.job?.status
+      )}`
+    );
+  }
+
+  async runQuery(
+    sql: string,
+    setExternalId?: ExternalIdCallback
+  ): Promise<QueryResponse> {
     const client = this.getClient();
 
     const [job] = await client.createQueryJob({
@@ -57,6 +74,11 @@ export default class BigQuery extends SqlIntegration {
       query: sql,
       useLegacySql: false,
     });
+
+    if (setExternalId && job.id) {
+      await setExternalId(job.id);
+    }
+
     const [rows] = await job.getQueryResults();
     const [metadata] = await job.getMetadata();
     const statistics = {
@@ -89,8 +111,26 @@ export default class BigQuery extends SqlIntegration {
       sign === "+" ? "ADD" : "SUB"
     }(${col}, INTERVAL ${amount} ${unit.toUpperCase()})`;
   }
-  convertDate(fromDB: bq.BigQueryDatetime) {
-    return getValidDate(fromDB.value + "Z");
+
+  // BigQueryDateTime: ISO Date string in UTC (Z at end)
+  // BigQueryDatetime: ISO Date string with no timezone
+  // BigQueryDate: YYYY-MM-DD
+  convertDate(
+    fromDB:
+      | bq.BigQueryDatetime
+      | bq.BigQueryTimestamp
+      | bq.BigQueryDate
+      | undefined
+  ) {
+    if (!fromDB?.value) return getValidDate(null);
+
+    // BigQueryTimestamp already has `Z` at the end, but the others don't
+    let value = fromDB.value;
+    if (!value.endsWith("Z")) {
+      value += "Z";
+    }
+
+    return getValidDate(value);
   }
   dateTrunc(col: string) {
     return `date_trunc(${col}, DAY)`;
@@ -133,21 +173,38 @@ export default class BigQuery extends SqlIntegration {
       database
     );
   }
+
+  async listDatasets(): Promise<string[]> {
+    const [datasets] = await this.getClient().getDatasets();
+
+    const datasetNames: string[] = [];
+    for (let i = 0; i < datasets.length; i++) {
+      const dataset = datasets[i];
+      if (dataset.id) {
+        datasetNames.push(dataset.id);
+      }
+    }
+
+    return datasetNames;
+  }
+
   async getInformationSchema(): Promise<InformationSchema[]> {
-    const { rows: datasets } = await this.runQuery(
-      `SELECT * FROM ${`\`${this.params.projectId}.INFORMATION_SCHEMA.SCHEMATA\``}`
-    );
+    const datasetNames = await this.listDatasets();
+
+    if (!datasetNames.length) {
+      throw new Error(`No datasets found.`);
+    }
 
     const results = [];
 
-    for (const dataset of datasets) {
+    for (const datasetName of datasetNames) {
       const query = `SELECT
         table_name as table_name,
         table_catalog as table_catalog,
         table_schema as table_schema,
         count(column_name) as column_count
       FROM
-        ${this.getInformationSchemaTable(`${dataset.schema_name}`)}
+        ${this.getInformationSchemaTable(`${datasetName}`)}
         WHERE ${this.getInformationSchemaWhereClause()}
       GROUP BY table_name, table_schema, table_catalog
       ORDER BY table_name;`;
@@ -162,7 +219,7 @@ export default class BigQuery extends SqlIntegration {
         }
       } catch (e) {
         logger.error(
-          `Error fetching information schema data for dataset: ${dataset.schema_name}`,
+          `Error fetching information schema data for dataset: ${datasetName}`,
           e
         );
       }

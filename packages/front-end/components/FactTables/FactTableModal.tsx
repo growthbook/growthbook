@@ -12,6 +12,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import { useAuth } from "@/services/auth";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { getInitialMetricQuery, validateSQL } from "@/services/datasources";
+import track from "@/services/track";
 import Modal from "../Modal";
 import Field from "../Forms/Field";
 import SelectField from "../Forms/SelectField";
@@ -79,6 +80,13 @@ export default function FactTableModal({ existing, close }: Props) {
     setShowAdditionalColumnMessage(true);
   }, [selectedDataSource, form, existing]);
 
+  const isNew = !existing;
+  useEffect(() => {
+    track(
+      isNew ? "Viewed Create Fact Table Modal" : "Viewed Edit Fact Table Modal"
+    );
+  }, [isNew]);
+
   return (
     <>
       {sqlOpen && (
@@ -132,6 +140,7 @@ export default function FactTableModal({ existing, close }: Props) {
               method: "PUT",
               body: JSON.stringify(data),
             });
+            track("Edit Fact Table");
             await mutateDefinitions();
           } else {
             const ds = getDatasourceById(value.datasource);
@@ -151,6 +160,7 @@ export default function FactTableModal({ existing, close }: Props) {
             if (error) {
               throw new Error(error);
             }
+            track("Create Fact Table");
 
             await mutateDefinitions();
             router.push(`/fact-tables/${factTable.id}`);
@@ -227,6 +237,9 @@ export default function FactTableModal({ existing, close }: Props) {
                   if (!form.watch("eventName")) {
                     form.setValue("eventName", form.watch("name"));
                   }
+                  track("Edit Fact Table SQL", {
+                    type: selectedDataSource.settings.schemaFormat,
+                  });
                   setSqlOpen(true);
                 }}
               >

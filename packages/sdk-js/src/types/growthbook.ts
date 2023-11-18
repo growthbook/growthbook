@@ -191,6 +191,7 @@ export type JSONValue =
   | string
   | boolean
   | Array<JSONValue>
+  | Record<string, unknown>
   | { [key: string]: JSONValue };
 
 export type WidenPrimitives<T> = T extends string
@@ -269,6 +270,8 @@ export type Helpers = {
     clientKey: string;
     headers?: Record<string, string>;
   }) => EventSource;
+  startIdleListener: () => (() => void) | void;
+  stopIdleListener: () => void;
 };
 
 export interface LocalStorageCompat {
@@ -281,6 +284,8 @@ export type CacheSettings = {
   cacheKey: string;
   staleTTL: number;
   maxEntries: number;
+  disableIdleStreams: boolean;
+  idleStreamInterval: number;
 };
 
 export type ApiHost = string;

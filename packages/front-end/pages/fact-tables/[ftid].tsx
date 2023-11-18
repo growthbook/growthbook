@@ -17,7 +17,6 @@ import EditProjectsForm from "@/components/Projects/EditProjectsForm";
 import PageHead from "@/components/Layout/PageHead";
 import EditTagsForm from "@/components/Tags/EditTagsForm";
 import SortedTags from "@/components/Tags/SortedTags";
-import FactMetricModal from "@/components/FactTables/FactMetricModal";
 import FactMetricList from "@/components/FactTables/FactMetricList";
 import MarkdownInlineEdit from "@/components/Markdown/MarkdownInlineEdit";
 import { usesEventName } from "@/components/Metrics/MetricForm";
@@ -31,8 +30,6 @@ export default function FactTablePage() {
 
   const [editProjectsOpen, setEditProjectsOpen] = useState(false);
   const [editTagsModal, setEditTagsModal] = useState(false);
-
-  const [metricOpen, setMetricOpen] = useState(false);
 
   const { apiCall } = useAuth();
 
@@ -98,12 +95,6 @@ export default function FactTablePage() {
           }}
           cancel={() => setEditTagsModal(false)}
           mutate={mutateDefinitions}
-        />
-      )}
-      {metricOpen && (
-        <FactMetricModal
-          close={() => setMetricOpen(false)}
-          initialFactTable={factTable.id}
         />
       )}
       <PageHead

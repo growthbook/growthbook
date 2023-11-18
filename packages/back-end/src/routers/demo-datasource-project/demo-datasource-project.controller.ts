@@ -3,7 +3,10 @@ import {
   getDemoDataSourceFeatureId,
   getDemoDatasourceProjectIdForOrganization,
 } from "shared/demo-datasource";
-import { DEFAULT_STATS_ENGINE } from "shared/constants";
+import {
+  DEFAULT_P_VALUE_THRESHOLD,
+  DEFAULT_STATS_ENGINE,
+} from "shared/constants";
 import { AuthRequest } from "../../types/AuthRequest";
 import { getOrgFromReq } from "../../services/organizations";
 import { EventAuditUserForResponseLocals } from "../../events/event-types";
@@ -24,6 +27,7 @@ import { ProjectInterface } from "../../../types/project";
 import { ExperimentSnapshotAnalysisSettings } from "../../../types/experiment-snapshot";
 import { getMetricMap } from "../../models/MetricModel";
 import { createFeature } from "../../models/FeatureModel";
+import { getFactTableMap } from "../../models/FactTableModel";
 
 // region Constants for Demo Datasource
 
@@ -315,6 +319,7 @@ spacing and headings.`,
     // Create feature
     const featureToCreate: FeatureInterface = {
       id: getDemoDataSourceFeatureId(),
+      version: 1,
       project: project.id,
       organization: org.id,
       dateCreated: new Date(),
@@ -376,18 +381,24 @@ spacing and headings.`,
 
     const analysisSettings: ExperimentSnapshotAnalysisSettings = {
       statsEngine: org.settings?.statsEngine || DEFAULT_STATS_ENGINE,
+      differenceType: "relative",
       dimensions: [],
+      pValueThreshold:
+        org.settings?.pValueThreshold ?? DEFAULT_P_VALUE_THRESHOLD,
     };
 
     const metricMap = await getMetricMap(org.id);
+    const factTableMap = await getFactTableMap(org.id);
 
     await createSnapshot({
       experiment: createdExperiment,
       organization: org,
       phaseIndex: 0,
-      analysisSettings: analysisSettings,
+      defaultAnalysisSettings: analysisSettings,
+      additionalAnalysisSettings: [],
       metricRegressionAdjustmentStatuses: [],
       metricMap: metricMap,
+      factTableMap,
       useCache: true,
     });
 

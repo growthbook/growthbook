@@ -45,14 +45,21 @@ const navlinks: SidebarLinkProps[] = [
   {
     name: "Metrics and Data",
     href: "/metrics",
-    path: /^(metric|segment|dimension|datasources)/,
+    path: /^(metric|segment|dimension|datasources|fact-)/,
     autoClose: true,
     Icon: GBDatabase,
     subLinks: [
       {
         name: "Metrics",
         href: "/metrics",
-        path: /^metric/,
+        path: /^(metric|fact-metric)/,
+      },
+      {
+        name: "Fact Tables",
+        href: "/fact-tables",
+        path: /^fact-tables/,
+        beta: true,
+        feature: "fact-tables",
       },
       {
         name: "Segments",
@@ -216,7 +223,7 @@ const navlinks: SidebarLinkProps[] = [
         name: "Admin",
         href: "/admin",
         path: /^admin/,
-        cloudOnly: true,
+        multiOrgOnly: true,
         divider: true,
         superAdmin: true,
       },
