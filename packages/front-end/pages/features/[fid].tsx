@@ -193,9 +193,13 @@ export default function FeaturePage() {
   const feature = useMemo(() => {
     if (!revision || !data) return null;
     return revision.version !== data.feature.version
-      ? mergeRevision(data.feature, revision)
+      ? mergeRevision(
+          data.feature,
+          revision,
+          environments.map((e) => e.id)
+        )
       : data.feature;
-  }, [data, revision]);
+  }, [data, revision, environments]);
 
   const mergeResult = useMemo(() => {
     if (!data || !feature || !revision) return null;
@@ -206,8 +210,14 @@ export default function FeaturePage() {
       (r) => r.version === feature.version
     );
     if (!revision || !baseRevision || !liveRevision) return null;
-    return autoMerge(liveRevision, baseRevision, revision, {});
-  }, [data, revision, feature]);
+    return autoMerge(
+      liveRevision,
+      baseRevision,
+      revision,
+      environments.map((e) => e.id),
+      {}
+    );
+  }, [data, revision, feature, environments]);
 
   if (error) {
     return (

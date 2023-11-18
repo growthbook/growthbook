@@ -70,7 +70,7 @@ describe("autoMerge", () => {
       version: 5,
     };
 
-    expect(autoMerge(live, base, revision, {})).toEqual({
+    expect(autoMerge(live, base, revision, ["dev", "prod"], {})).toEqual({
       success: true,
       conflicts: [],
       result: {
@@ -105,7 +105,7 @@ describe("autoMerge", () => {
       version: 5,
     };
 
-    expect(autoMerge(base, base, revision, {})).toEqual({
+    expect(autoMerge(base, base, revision, ["dev", "prod"], {})).toEqual({
       success: true,
       conflicts: [],
       result: {
@@ -180,13 +180,15 @@ describe("autoMerge", () => {
       revision: JSON.stringify(revision.rules["prod"], null, 2),
     };
 
-    expect(autoMerge(live, base, revision, {})).toEqual({
+    expect(autoMerge(live, base, revision, ["dev", "prod"], {})).toEqual({
       success: false,
       conflicts: [defaultValueConflict, prodConflict],
     });
 
     expect(
-      autoMerge(live, base, revision, { "rules.prod": "discard" })
+      autoMerge(live, base, revision, ["dev", "prod"], {
+        "rules.prod": "discard",
+      })
     ).toEqual({
       success: false,
       conflicts: [
@@ -201,7 +203,7 @@ describe("autoMerge", () => {
     });
 
     expect(
-      autoMerge(live, base, revision, {
+      autoMerge(live, base, revision, ["dev", "prod"], {
         "rules.prod": "discard",
         defaultValue: "discard",
       })
@@ -225,7 +227,7 @@ describe("autoMerge", () => {
     });
 
     expect(
-      autoMerge(live, base, revision, {
+      autoMerge(live, base, revision, ["dev", "prod"], {
         "rules.prod": "discard",
         defaultValue: "overwrite",
       })
@@ -250,7 +252,7 @@ describe("autoMerge", () => {
     });
 
     expect(
-      autoMerge(live, base, revision, {
+      autoMerge(live, base, revision, ["dev", "prod"], {
         "rules.prod": "overwrite",
         defaultValue: "overwrite",
       })

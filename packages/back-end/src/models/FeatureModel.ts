@@ -782,7 +782,13 @@ export async function applyRevisionChanges(
     hasChanges = true;
   }
 
-  Object.entries(result.rules || {}).forEach(([env, rules]) => {
+  const environments =
+    organization.settings?.environments?.map((e) => e.id) || [];
+
+  environments.forEach((env) => {
+    const rules = result.rules?.[env];
+    if (!rules) return;
+
     changes.environmentSettings =
       changes.environmentSettings ||
       cloneDeep(feature.environmentSettings || {});

@@ -84,7 +84,13 @@ export default function DraftModal({
 
   const mergeResult = useMemo(() => {
     if (!revision || !baseRevision || !liveRevision) return null;
-    return autoMerge(liveRevision, baseRevision, revision, {});
+    return autoMerge(
+      liveRevision,
+      baseRevision,
+      revision,
+      environments.map((e) => e.id),
+      {}
+    );
   }, [revision, baseRevision, liveRevision]);
 
   const [comment, setComment] = useState(revision?.comment || "");

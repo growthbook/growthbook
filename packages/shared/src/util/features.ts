@@ -35,14 +35,17 @@ export function getValidation(feature: FeatureInterface) {
 
 export function mergeRevision(
   feature: FeatureInterface,
-  revision: FeatureRevisionInterface
+  revision: FeatureRevisionInterface,
+  environments: string[]
 ) {
   const newFeature = cloneDeep(feature);
 
   newFeature.defaultValue = revision.defaultValue;
 
   const envSettings = newFeature.environmentSettings;
-  Object.entries(revision.rules).forEach(([env, rules]) => {
+  environments.forEach((env) => {
+    const rules = revision.rules?.[env];
+    if (!rules) return;
     envSettings[env] = envSettings[env] || {};
     envSettings[env].enabled = envSettings[env].enabled || false;
     envSettings[env].rules = rules;
@@ -263,6 +266,7 @@ export function autoMerge(
   live: RulesAndValues,
   base: RulesAndValues,
   revision: RulesAndValues,
+  environments: string[],
   strategies: Record<string, MergeStrategy>
 ): AutoMergeResult {
   const result: {
@@ -277,7 +281,9 @@ export function autoMerge(
       result.defaultValue = revision.defaultValue;
     }
 
-    Object.entries(revision.rules).forEach(([env, rules]) => {
+    environments.forEach((env) => {
+      const rules = revision.rules?.[env];
+      if (!rules) return;
       if (isEqual(rules, base.rules[env])) {
         return;
       }
@@ -335,7 +341,10 @@ export function autoMerge(
   }
 
   // Check for conflicts in rules
-  Object.entries(revision.rules).forEach(([env, rules]) => {
+  environments.forEach((env) => {
+    const rules = revision.rules?.[env];
+    if (!rules) return;
+
     // If the revision doesn't have changes in this environment, skip
     if (isEqual(rules, base.rules[env]) || isEqual(rules, live.rules[env])) {
       return;

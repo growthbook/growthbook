@@ -450,7 +450,15 @@ export async function postFeatureRebase(
     throw new Error("Could not lookup feature history");
   }
 
-  const mergeResult = autoMerge(live, base, revision, strategies || {});
+  const environments = org.settings?.environments?.map((e) => e.id) || [];
+
+  const mergeResult = autoMerge(
+    live,
+    base,
+    revision,
+    environments,
+    strategies || {}
+  );
   if (JSON.stringify(mergeResult) !== mergeResultSerialized) {
     throw new Error(
       "Something seems to have changed while you were reviewing the draft. Please re-review with the latest changes and submit again."
@@ -462,8 +470,9 @@ export async function postFeatureRebase(
   }
 
   const newRules: Record<string, FeatureRule[]> = {};
-  Object.entries(live.rules).forEach(([env, liveRules]) => {
-    newRules[env] = mergeResult.result.rules?.[env] || liveRules;
+
+  environments.forEach((env) => {
+    newRules[env] = mergeResult.result.rules?.[env] || live.rules[env] || [];
   });
 
   await updateRevision(
@@ -523,7 +532,9 @@ export async function postFeaturePublish(
     throw new Error("Could not lookup feature history");
   }
 
-  const mergeResult = autoMerge(live, base, revision, {});
+  const environments = org.settings?.environments?.map((e) => e.id) || [];
+
+  const mergeResult = autoMerge(live, base, revision, environments, {});
   if (JSON.stringify(mergeResult) !== mergeResultSerialized) {
     throw new Error(
       "Something seems to have changed while you were reviewing the draft. Please re-review with the latest changes and submit again."
@@ -616,12 +627,20 @@ export async function postFeatureRevert(
     changes.defaultValue = revision.defaultValue;
   }
 
+  const environments = org.settings?.environments?.map((e) => e.id) || [];
+
   const changedEnvs: string[] = [];
-  Object.entries(revision.rules).forEach(([env, rules]) => {
-    if (!isEqual(rules, feature.environmentSettings?.[env]?.rules || [])) {
+  environments.forEach((env) => {
+    if (
+      revision.rules[env] &&
+      !isEqual(
+        revision.rules[env],
+        feature.environmentSettings?.[env]?.rules || []
+      )
+    ) {
       changedEnvs.push(env);
       changes.rules = changes.rules || {};
-      changes.rules[env] = rules;
+      changes.rules[env] = revision.rules[env];
     }
   });
   if (changedEnvs.length > 0) {
