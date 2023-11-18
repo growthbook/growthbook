@@ -62,9 +62,22 @@ export default function TabButton({
         ""
       )}
       {showNotificationCount && notificationCount ? (
-        <span className={`badge badge-red ml-2 rounded-circle`}>
+        <div
+          className={`position-absolute badge d-flex justify-content-center align-self-center`}
+          style={{
+            zIndex: 1,
+            width: 18,
+            height: 18,
+            right: 0,
+            top: -1,
+            borderRadius: 50,
+            backgroundColor: "red",
+            color: "white",
+            lineHeight: 0.7,
+          }}
+        >
           {notificationCount}
-        </span>
+        </div>
       ) : (
         ""
       )}
