@@ -1608,8 +1608,10 @@ export async function getFeatureById(
           `Published revision defaultValue does not match feature ${org.id}.${feature.id}`
         );
       }
-      Object.entries(feature.environmentSettings).forEach(([env, settings]) => {
-        if (!isEqual(settings.rules, live.rules[env])) {
+      org.settings?.environments?.forEach(({ id: env }) => {
+        const settings = feature.environmentSettings?.[env];
+        if (!settings) return;
+        if (!isEqual(settings.rules || [], live.rules[env] || [])) {
           throw new Error(
             `Published revision rules.${env} does not match feature ${org.id}.${feature.id}`
           );
