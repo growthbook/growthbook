@@ -151,10 +151,24 @@ export default function HealthTab({ experiment, onDrawerNotify }: Props) {
     );
   }
 
-  if (
-    !snapshot?.health?.traffic.dimension?.dim_exposure_date ||
-    snapshot?.health?.traffic.error === "NO_ROWS_IN_UNIT_QUERY"
-  ) {
+  if (snapshot?.health?.traffic.error === "NO_ROWS_IN_UNIT_QUERY") {
+    return (
+      <div className="alert alert-info mt-3">
+        No data found. It is likely there are no units in your experiment yet.
+      </div>
+    );
+  }
+
+  if (snapshot?.health?.traffic.error) {
+    return (
+      <div className="alert alert-info mt-3">
+        There was an error running the query for health tab:{" "}
+        {snapshot?.health?.traffic.error}.
+      </div>
+    );
+  }
+
+  if (!snapshot?.health?.traffic.dimension?.dim_exposure_date) {
     return (
       <div className="alert alert-info mt-3">
         Please return to the results page and run a query to see health data.

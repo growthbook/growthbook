@@ -277,6 +277,7 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
     if (healthQuery) {
       const trafficHealth = analyzeExperimentTraffic({
         rows: healthQuery.result as ExperimentAggregateUnitsQueryResponseRows,
+        error: healthQuery.error,
         variations: this.model.settings.variations,
       });
       result.health = { traffic: trafficHealth };
