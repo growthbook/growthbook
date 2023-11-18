@@ -21,11 +21,10 @@ const CustomFieldInput: FC<{
     project
   );
   const [loadedDefaults, setLoadedDefaults] = useState(false);
-
   const customFieldStrings = form.watch("customFields");
   const currentCustomFields = useMemo(() => {
     try {
-      return customFieldStrings ? JSON.parse(customFieldStrings) : {};
+      return customFieldStrings ? customFieldStrings : {};
     } catch (e) {
       // this should never be reachable as we control the JSON that is being parsed
       return {};
@@ -44,12 +43,13 @@ const CustomFieldInput: FC<{
             } else {
               currentCustomFields[v.id] = v.defaultValue;
             }
-          }
-          if (v.type === "boolean") {
-            currentCustomFields[v.id] = "" + JSON.stringify(v.defaultValue);
+
+            if (v.type === "boolean") {
+              currentCustomFields[v.id] = "" + JSON.stringify(v.defaultValue);
+            }
           }
         });
-        form.setValue("customFields", JSON.stringify(currentCustomFields));
+        form.setValue("customFields", currentCustomFields);
         setLoadedDefaults(true);
       }
     }
@@ -57,7 +57,7 @@ const CustomFieldInput: FC<{
 
   const updateCustomField = (name, value) => {
     currentCustomFields[name] = value;
-    form.setValue("customFields", JSON.stringify(currentCustomFields));
+    form.setValue("customFields", currentCustomFields);
   };
 
   return (

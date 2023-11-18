@@ -19,12 +19,16 @@ const CustomFieldDisplay: FC<{
   label?: string;
   canEdit?: boolean;
   mutate?: () => void;
+  addBox?: boolean;
+  className?: string;
   section: CustomFieldSection;
   target: ExperimentInterfaceStringDates | FeatureInterface;
 }> = ({
   label = "Additional Fields",
   canEdit = true,
   mutate,
+  addBox = true,
+  className = "",
   section,
   target,
 }) => {
@@ -48,23 +52,22 @@ const CustomFieldDisplay: FC<{
     });
   }
 
-  let currentCustomFields = {};
-  try {
-    const customFieldStrings = target?.customFields ?? "{}";
-    currentCustomFields = customFieldStrings
-      ? JSON.parse(customFieldStrings)
-      : {};
-  } catch (e) {
-    console.error(e);
-  }
+  const currentCustomFields = target?.customFields || {};
+  // try {
+  //   const customFieldStrings = target?.customFields ?? "{}";
+  //   currentCustomFields = customFieldStrings
+  //     ? JSON.parse(customFieldStrings)
+  //     : {};
+  // } catch (e) {
+  //   console.error(e);
+  // }
   const { hasCommercialFeature } = useUser();
   const hasCustomFieldAccess = hasCommercialFeature("custom-exp-metadata");
   const form = useForm<
     Partial<ExperimentInterfaceStringDates | FeatureInterface>
   >({
     defaultValues: {
-      customFields:
-        JSON.stringify(currentCustomFields) || JSON.stringify(defaultFields),
+      customFields: target?.customFields || defaultFields,
     },
   });
   const { apiCall } = useAuth();
@@ -132,7 +135,7 @@ const CustomFieldDisplay: FC<{
         </HeaderWithEdit>
       )}
       {currentCustomFields && Object.keys(currentCustomFields).length > 0 && (
-        <div className="appbox p-3">
+        <div className={`${addBox ? "appbox p-3" : ""} ${className}`}>
           {Array.from(customFieldsMap.values()).map((v: CustomField) => {
             // these two loops are used to make sure the order is correct with the stored order of custom fields.
             return Object.keys(currentCustomFields ?? {}).map((fid, i) => {
@@ -143,7 +146,7 @@ const CustomFieldDisplay: FC<{
                 if (displayValue) {
                   return (
                     <div className="mb-3 row" key={i}>
-                      <div className="text-muted col-sm-2 col-md-2 col-lg-1 col-3">
+                      <div className="text-muted col-sm-2 col-md-2 col-lg-2 col-3">
                         {v.name}
                       </div>
                       <div className="col">

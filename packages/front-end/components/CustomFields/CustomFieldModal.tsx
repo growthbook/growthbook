@@ -220,7 +220,7 @@ export default function CustomFieldModal({
                 form.setValue("projects", v);
               }}
               className="label-overflow-ellipsis"
-              helpText="Restrict this field to only experiments in a specific project"
+              helpText="Restrict this field to specific project"
             />
           </div>
         )}

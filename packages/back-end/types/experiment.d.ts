@@ -1,5 +1,6 @@
 import { NamespaceValue } from "./feature";
 import { StatsEngine } from "./stats";
+import { CustomFieldValues } from "./custom-fields";
 
 export type ImplementationType = "visual" | "code" | "configuration" | "custom";
 
@@ -149,7 +150,7 @@ export interface ExperimentInterface {
   sequentialTestingEnabled?: boolean;
   sequentialTestingTuningParameter?: number;
   statsEngine?: StatsEngine;
-  customFields?: string;
+  customFields?: CustomFieldValues;
 }
 
 export type ExperimentInterfaceStringDates = Omit<

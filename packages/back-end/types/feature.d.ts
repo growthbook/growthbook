@@ -2,6 +2,7 @@
 
 import type { FeatureDefinition, FeatureResult } from "@growthbook/growthbook";
 import { UserRef } from "./user";
+import { CustomFieldValues } from "./custom-fields";
 
 export type FeatureValueType = "boolean" | "string" | "number" | "json";
 
@@ -53,7 +54,7 @@ export interface FeatureInterface {
     date: Date;
     enabled: boolean;
   };
-  customFields?: string;
+  customFields?: CustomFieldValues;
 }
 type ScheduleRule = {
   timestamp: string | null;

@@ -10,6 +10,8 @@ export type CustomFieldTypes =
   | "date"
   | "datetime";
 
+export type CustomFieldValues = Record<string, string>;
+
 export type CustomFieldSection = "experiment" | "feature";
 
 export type CustomField = {
