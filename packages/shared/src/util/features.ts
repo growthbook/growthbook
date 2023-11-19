@@ -283,7 +283,7 @@ export function autoMerge(
     environments.forEach((env) => {
       const rules = revision.rules?.[env];
       if (!rules) return;
-      if (isEqual(rules, base.rules[env])) {
+      if (isEqual(rules, base.rules[env] || [])) {
         return;
       }
       result.rules = result.rules || {};
@@ -345,7 +345,10 @@ export function autoMerge(
     if (!rules) return;
 
     // If the revision doesn't have changes in this environment, skip
-    if (isEqual(rules, base.rules[env]) || isEqual(rules, live.rules[env])) {
+    if (
+      isEqual(rules, base.rules[env] || []) ||
+      isEqual(rules, live.rules[env] || [])
+    ) {
       return;
     }
 
@@ -355,8 +358,8 @@ export function autoMerge(
     // TODO: be smarter about this - it's only really a conflict if the same rule is being changed in both
     if (
       env in live.rules &&
-      !isEqual(live.rules[env], base.rules[env]) &&
-      !isEqual(live.rules[env], rules)
+      !isEqual(live.rules[env] || [], base.rules[env] || []) &&
+      !isEqual(live.rules[env] || [], rules)
     ) {
       const conflictInfo = {
         name: `Rules - ${env}`,
