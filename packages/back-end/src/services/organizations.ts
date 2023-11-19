@@ -109,9 +109,13 @@ export function getOrgFromReq(req: AuthRequest) {
     org: req.organization,
     userId: req.userId,
     email: req.email,
-    environments: getEnvironments(req.organization),
+    environments: getEnvironmentIdsFromOrg(req.organization),
     userName: req.name || "",
   };
+}
+
+export function getEnvironmentIdsFromOrg(org: OrganizationInterface): string[] {
+  return getEnvironments(org).map((e) => e.id);
 }
 
 export function getEnvironments(org: OrganizationInterface) {

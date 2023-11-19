@@ -158,7 +158,7 @@ export const postDemoDatasourceProject = async (
   req.checkPermissions("createMetrics", "");
   req.checkPermissions("createAnalyses", "");
 
-  const { org } = getOrgFromReq(req);
+  const { org, environments } = getOrgFromReq(req);
 
   const demoProjId = getDemoDatasourceProjectIdForOrganization(org.id);
   const existingDemoProject: ProjectInterface | null = await findProjectById(
@@ -333,7 +333,6 @@ spacing and headings.`,
       environmentSettings: {},
     };
 
-    const environments = (org.settings?.environments || []).map((e) => e.id);
     environments.forEach((env) => {
       featureToCreate.environmentSettings[env] = {
         enabled: true,

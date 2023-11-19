@@ -167,11 +167,9 @@ export default function FeaturePage() {
     // If we can't find the revision, create a dummy revision just so the page can render
     // This is for old features that don't have any revision history saved
     const rules: Record<string, FeatureRule[]> = {};
-    Object.entries(data.feature.environmentSettings).forEach(
-      ([env, settings]) => {
-        rules[env] = settings.rules || [];
-      }
-    );
+    environments.forEach((env) => {
+      rules[env.id] = data.feature.environmentSettings?.[env.id]?.rules || [];
+    });
 
     return {
       baseVersion: data.feature.version,
@@ -188,14 +186,18 @@ export default function FeaturePage() {
       status: "published",
       version: data.feature.version,
     };
-  }, [data, version]);
+  }, [data, version, environments]);
 
   const feature = useMemo(() => {
     if (!revision || !data) return null;
     return revision.version !== data.feature.version
-      ? mergeRevision(data.feature, revision)
+      ? mergeRevision(
+          data.feature,
+          revision,
+          environments.map((e) => e.id)
+        )
       : data.feature;
-  }, [data, revision]);
+  }, [data, revision, environments]);
 
   const mergeResult = useMemo(() => {
     if (!data || !feature || !revision) return null;
@@ -206,8 +208,14 @@ export default function FeaturePage() {
       (r) => r.version === feature.version
     );
     if (!revision || !baseRevision || !liveRevision) return null;
-    return autoMerge(liveRevision, baseRevision, revision, {});
-  }, [data, revision, feature]);
+    return autoMerge(
+      liveRevision,
+      baseRevision,
+      revision,
+      environments.map((e) => e.id),
+      {}
+    );
+  }, [data, revision, feature, environments]);
 
   if (error) {
     return (
@@ -236,7 +244,7 @@ export default function FeaturePage() {
       Object.keys(mergeResult.result.rules || {}).length > 0 ||
       !!mergeResult.result.defaultValue);
 
-  const enabledEnvs = getEnabledEnvironments(feature);
+  const enabledEnvs = getEnabledEnvironments(feature, environments);
   const hasJsonValidator = hasCommercialFeature("json-validation");
 
   const projectId = feature.project;
@@ -266,7 +274,7 @@ export default function FeaturePage() {
     permissions.check(
       "publishFeatures",
       projectId,
-      getAffectedRevisionEnvs(data.feature, revision)
+      getAffectedRevisionEnvs(data.feature, revision, environments)
     );
 
   const drafts = data.revisions.filter((r) => r.status === "draft");

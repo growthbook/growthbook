@@ -20,6 +20,7 @@ import { addTagsDiff } from "../../models/TagModel";
 import { auditDetailsUpdate } from "../../services/audit";
 import { createRevision } from "../../models/FeatureRevisionModel";
 import { FeatureRevisionInterface } from "../../../types/feature-revision";
+import { getEnvironmentIdsFromOrg } from "../../services/organizations";
 import { parseJsonSchemaForEnterprise, validateEnvKeys } from "./postFeature";
 
 export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
@@ -31,6 +32,8 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
 
     const { owner, archived, description, project, tags } = req.body;
 
+    const orgEnvs = getEnvironmentIdsFromOrg(req.organization);
+
     // check permissions for previous project and new one
     req.checkPermissions("manageFeatures", [
       feature.project ?? "",
@@ -41,23 +44,18 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
       req.checkPermissions(
         "publishFeatures",
         feature.project,
-        getEnabledEnvironments(feature)
+        getEnabledEnvironments(feature, orgEnvs)
       );
       req.checkPermissions(
         "publishFeatures",
         project,
-        getEnabledEnvironments(feature)
+        getEnabledEnvironments(feature, orgEnvs)
       );
     }
 
-    const orgEnvs = req.organization.settings?.environments || [];
-
     // ensure environment keys are valid
     if (req.body.environments != null) {
-      validateEnvKeys(
-        orgEnvs.map((e) => e.id),
-        Object.keys(req.body.environments ?? {})
-      );
+      validateEnvKeys(orgEnvs, Object.keys(req.body.environments ?? {}));
     }
 
     // ensure default value matches value type
@@ -99,10 +97,13 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
       req.checkPermissions(
         "publishFeatures",
         updates.project,
-        getEnabledEnvironments({
-          ...feature,
-          ...updates,
-        })
+        getEnabledEnvironments(
+          {
+            ...feature,
+            ...updates,
+          },
+          orgEnvs
+        )
       );
       addIdsToRules(updates.environmentSettings, feature.id);
     }
@@ -142,6 +143,7 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
           user: req.eventAudit,
           baseVersion: feature.version,
           comment: "Created via REST API",
+          environments: orgEnvs,
           publish: true,
           changes: revisionChanges,
         });
