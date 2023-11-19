@@ -8,6 +8,7 @@ import { getAllFeatures } from "../models/FeatureModel";
 import { getAffectedSDKPayloadKeys } from "../util/features";
 import { SDKPayloadKey } from "../../types/sdk-payload";
 import { refreshSDKPayloadCache } from "./features";
+import { getEnvironmentIdsFromOrg } from "./organizations";
 
 export async function savedGroupUpdated(
   org: OrganizationInterface,
@@ -52,6 +53,7 @@ export async function savedGroupUpdated(
   addKeys(
     getAffectedSDKPayloadKeys(
       allFeatures,
+      getEnvironmentIdsFromOrg(org),
       (rule) =>
         (rule.type === "experiment-ref" && expIds.has(rule.experimentId)) ||
         (rule.condition && rule.condition.includes(id)) ||

@@ -9,7 +9,10 @@ import {
   FeatureTestResult,
 } from "../../types/feature";
 import { AuthRequest } from "../types/AuthRequest";
-import { getEnvironments, getOrgFromReq } from "../services/organizations";
+import {
+  getEnvironmentIdsFromOrg,
+  getOrgFromReq,
+} from "../services/organizations";
 import {
   addFeatureRule,
   createFeature,
@@ -936,7 +939,7 @@ async function getDraftRevision(
     const newRevision = await createRevision({
       feature,
       user,
-      environments: getEnvironments(org).map((e) => e.id),
+      environments: getEnvironmentIdsFromOrg(org),
     });
 
     await updateFeature(org, user, feature, {

@@ -20,7 +20,7 @@ import { addTagsDiff } from "../../models/TagModel";
 import { auditDetailsUpdate } from "../../services/audit";
 import { createRevision } from "../../models/FeatureRevisionModel";
 import { FeatureRevisionInterface } from "../../../types/feature-revision";
-import { getEnvironments } from "../../services/organizations";
+import { getEnvironmentIdsFromOrg } from "../../services/organizations";
 import { parseJsonSchemaForEnterprise, validateEnvKeys } from "./postFeature";
 
 export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
@@ -32,7 +32,7 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
 
     const { owner, archived, description, project, tags } = req.body;
 
-    const orgEnvs = getEnvironments(req.organization).map((e) => e.id);
+    const orgEnvs = getEnvironmentIdsFromOrg(req.organization);
 
     // check permissions for previous project and new one
     req.checkPermissions("manageFeatures", [

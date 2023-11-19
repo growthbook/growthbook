@@ -110,7 +110,7 @@ import { ExperimentRefRule, FeatureRule } from "../../types/feature";
 import { getReportVariations, getMetricForSnapshot } from "./reports";
 import { getIntegrationFromDatasourceId } from "./datasource";
 import { analyzeExperimentMetric, analyzeExperimentResults } from "./stats";
-import { getEnvironments } from "./organizations";
+import { getEnvironmentIdsFromOrg } from "./organizations";
 
 export const DEFAULT_METRIC_ANALYSIS_DAYS = 90;
 
@@ -1997,7 +1997,7 @@ export async function getLinkedFeatureInfo(
     linkedFeatures
   );
 
-  const environments = getEnvironments(org).map((e) => e.id);
+  const environments = getEnvironmentIdsFromOrg(org);
 
   const filter = (rule: FeatureRule) =>
     rule.type === "experiment-ref" && rule.experimentId === experiment.id;

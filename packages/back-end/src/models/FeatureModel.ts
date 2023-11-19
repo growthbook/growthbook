@@ -32,7 +32,7 @@ import {
 import { EventAuditUser } from "../events/event-types";
 import { FeatureRevisionInterface } from "../../types/feature-revision";
 import { logger } from "../util/logger";
-import { getEnvironments } from "../services/organizations";
+import { getEnvironmentIdsFromOrg } from "../services/organizations";
 import { createEvent } from "./EventModel";
 import {
   addLinkedFeatureToExperiment,
@@ -227,7 +227,7 @@ export async function createFeature(
 ) {
   const linkedExperiments = getLinkedExperiments(
     data,
-    getEnvironments(org).map((e) => e.id)
+    getEnvironmentIdsFromOrg(org)
   );
   const feature = await FeatureModel.create({
     ...data,
@@ -241,7 +241,7 @@ export async function createFeature(
   await createInitialRevision(
     toInterface(feature),
     user,
-    getEnvironments(org).map((e) => e.id)
+    getEnvironmentIdsFromOrg(org)
   );
 
   if (linkedExperiments.length > 0) {
@@ -428,10 +428,7 @@ async function onFeatureCreate(
 ) {
   await refreshSDKPayloadCache(
     organization,
-    getAffectedSDKPayloadKeys(
-      [feature],
-      getEnvironments(organization).map((e) => e.id)
-    )
+    getAffectedSDKPayloadKeys([feature], getEnvironmentIdsFromOrg(organization))
   );
 
   await logFeatureCreatedEvent(organization, user, feature);
@@ -444,10 +441,7 @@ async function onFeatureDelete(
 ) {
   await refreshSDKPayloadCache(
     organization,
-    getAffectedSDKPayloadKeys(
-      [feature],
-      getEnvironments(organization).map((e) => e.id)
-    )
+    getAffectedSDKPayloadKeys([feature], getEnvironmentIdsFromOrg(organization))
   );
 
   await logFeatureDeletedEvent(organization, user, feature);
@@ -465,7 +459,7 @@ export async function onFeatureUpdate(
     getSDKPayloadKeysByDiff(
       feature,
       updatedFeature,
-      getEnvironments(organization).map((e) => e.id)
+      getEnvironmentIdsFromOrg(organization)
     ),
     null,
     undefined,
@@ -494,7 +488,7 @@ export async function updateFeature(
   // Refresh linkedExperiments if needed
   const linkedExperiments = getLinkedExperiments(
     updatedFeature,
-    getEnvironments(org).map((e) => e.id)
+    getEnvironmentIdsFromOrg(org)
   );
   const experimentsAdded = new Set<string>();
   if (!isEqual(linkedExperiments, feature.linkedExperiments)) {
@@ -588,7 +582,7 @@ export async function toggleMultipleEnvironments(
   feature: FeatureInterface,
   toggles: Record<string, boolean>
 ) {
-  const validEnvs = new Set(getEnvironments(organization).map((e) => e.id));
+  const validEnvs = new Set(getEnvironmentIdsFromOrg(organization));
 
   let featureCopy = cloneDeep(feature);
   let hasChanges = false;
@@ -769,7 +763,7 @@ export async function applyRevisionChanges(
     hasChanges = true;
   }
 
-  const environments = getEnvironments(organization).map((e) => e.id);
+  const environments = getEnvironmentIdsFromOrg(organization);
 
   environments.forEach((env) => {
     const rules = result.rules?.[env];
