@@ -1,13 +1,10 @@
 import type { Response } from "express";
 import { AuthRequest } from "../../types/AuthRequest";
 import { PrivateApiErrorResponse } from "../../../types/api";
-import { getOrgFromReq } from "../../services/organizations";
+import { getEnvironments, getOrgFromReq } from "../../services/organizations";
 import { EventAuditUserForResponseLocals } from "../../events/event-types";
 import { Environment } from "../../../types/organization";
-import {
-  addEnvironmentToOrganizationEnvironments,
-  containsEnvironment,
-} from "../../util/environments";
+import { addEnvironmentToOrganizationEnvironments } from "../../util/environments";
 import { updateOrganization } from "../../models/OrganizationModel";
 
 // region POST /environment
@@ -38,11 +35,9 @@ export const postEnvironment = async (
 
   req.checkPermissions("manageEnvironments", "", [environment.id]);
 
-  const { org } = getOrgFromReq(req);
+  const { org, environments } = getOrgFromReq(req);
 
-  const existingEnvironments = org.settings?.environments || [];
-
-  if (containsEnvironment(existingEnvironments, environment)) {
+  if (environments.includes(environment.id)) {
     return res.status(400).json({
       status: 400,
       message: `Environment ${environment.id} already exists`,
@@ -51,7 +46,7 @@ export const postEnvironment = async (
 
   const updatedEnvironments = addEnvironmentToOrganizationEnvironments(
     environment,
-    existingEnvironments,
+    getEnvironments(org),
     false
   );
 

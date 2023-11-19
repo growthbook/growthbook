@@ -1,5 +1,6 @@
 import { useEffect, useMemo } from "react";
 import {
+  Environment,
   NamespaceUsage,
   SDKAttributeFormat,
   SDKAttributeSchema,
@@ -281,8 +282,12 @@ export function validateFeatureRule(
   return hasChanges ? ruleCopy : null;
 }
 
-export function getEnabledEnvironments(feature: FeatureInterface) {
+export function getEnabledEnvironments(
+  feature: FeatureInterface,
+  environments: Environment[]
+) {
   return Object.keys(feature.environmentSettings ?? {}).filter((env) => {
+    if (!environments.some((e) => e.id === env)) return false;
     return !!feature.environmentSettings?.[env]?.enabled;
   });
 }
@@ -315,9 +320,10 @@ export function getDefaultValue(valueType: FeatureValueType): string {
 
 export function getAffectedRevisionEnvs(
   liveFeature: FeatureInterface,
-  revision: FeatureRevisionInterface
+  revision: FeatureRevisionInterface,
+  environments: Environment[]
 ): string[] {
-  const enabledEnvs = getEnabledEnvironments(liveFeature);
+  const enabledEnvs = getEnabledEnvironments(liveFeature, environments);
   if (revision.defaultValue !== liveFeature.defaultValue) return enabledEnvs;
 
   return enabledEnvs.filter((env) => {

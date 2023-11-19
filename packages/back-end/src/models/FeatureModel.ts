@@ -32,6 +32,7 @@ import {
 import { EventAuditUser } from "../events/event-types";
 import { FeatureRevisionInterface } from "../../types/feature-revision";
 import { logger } from "../util/logger";
+import { getEnvironments } from "../services/organizations";
 import { createEvent } from "./EventModel";
 import {
   addLinkedFeatureToExperiment,
@@ -224,7 +225,10 @@ export async function createFeature(
   user: EventAuditUser,
   data: FeatureInterface
 ) {
-  const linkedExperiments = getLinkedExperiments(data);
+  const linkedExperiments = getLinkedExperiments(
+    data,
+    getEnvironments(org).map((e) => e.id)
+  );
   const feature = await FeatureModel.create({
     ...data,
     linkedExperiments,
@@ -234,7 +238,11 @@ export async function createFeature(
   // So, clean up any conflicting revisions first before creating a new one
   await deleteAllRevisionsForFeature(org.id, feature.id);
 
-  await createInitialRevision(toInterface(feature), user);
+  await createInitialRevision(
+    toInterface(feature),
+    user,
+    getEnvironments(org).map((e) => e.id)
+  );
 
   if (linkedExperiments.length > 0) {
     await Promise.all(
@@ -420,7 +428,10 @@ async function onFeatureCreate(
 ) {
   await refreshSDKPayloadCache(
     organization,
-    getAffectedSDKPayloadKeys([feature])
+    getAffectedSDKPayloadKeys(
+      [feature],
+      getEnvironments(organization).map((e) => e.id)
+    )
   );
 
   await logFeatureCreatedEvent(organization, user, feature);
@@ -433,7 +444,10 @@ async function onFeatureDelete(
 ) {
   await refreshSDKPayloadCache(
     organization,
-    getAffectedSDKPayloadKeys([feature])
+    getAffectedSDKPayloadKeys(
+      [feature],
+      getEnvironments(organization).map((e) => e.id)
+    )
   );
 
   await logFeatureDeletedEvent(organization, user, feature);
@@ -448,7 +462,11 @@ export async function onFeatureUpdate(
 ) {
   await refreshSDKPayloadCache(
     organization,
-    getSDKPayloadKeysByDiff(feature, updatedFeature),
+    getSDKPayloadKeysByDiff(
+      feature,
+      updatedFeature,
+      getEnvironments(organization).map((e) => e.id)
+    ),
     null,
     undefined,
     skipRefreshForProject
@@ -474,7 +492,10 @@ export async function updateFeature(
   };
 
   // Refresh linkedExperiments if needed
-  const linkedExperiments = getLinkedExperiments(updatedFeature);
+  const linkedExperiments = getLinkedExperiments(
+    updatedFeature,
+    getEnvironments(org).map((e) => e.id)
+  );
   const experimentsAdded = new Set<string>();
   if (!isEqual(linkedExperiments, feature.linkedExperiments)) {
     allUpdates.linkedExperiments = linkedExperiments;
@@ -567,9 +588,14 @@ export async function toggleMultipleEnvironments(
   feature: FeatureInterface,
   toggles: Record<string, boolean>
 ) {
+  const validEnvs = new Set(getEnvironments(organization).map((e) => e.id));
+
   let featureCopy = cloneDeep(feature);
   let hasChanges = false;
   Object.keys(toggles).forEach((env) => {
+    if (!validEnvs.has(env)) {
+      throw new Error("Invalid environment: " + env);
+    }
     const state = toggles[env];
     const currentState = feature.environmentSettings?.[env]?.enabled ?? false;
     if (currentState !== state) {
@@ -625,45 +651,6 @@ export async function addFeatureRule(
     subject: `to ${env}`,
     value: JSON.stringify(rule),
   });
-}
-
-export async function deleteExperimentRefRule(
-  org: OrganizationInterface,
-  revision: FeatureRevisionInterface,
-  experimentId: string,
-  user: EventAuditUser
-) {
-  const environments = org.settings?.environments || [];
-  const environmentIds = environments.map((e) => e.id);
-
-  if (!environmentIds.length) {
-    throw new Error(
-      "Must have at least one environment configured to use Feature Flags"
-    );
-  }
-
-  let hasChanges = false;
-  const changes = { rules: { ...revision.rules } };
-  environmentIds.forEach((env) => {
-    changes.rules[env] = changes.rules[env] || [];
-    const numRules = changes.rules[env].length;
-
-    changes.rules[env] = changes.rules[env].filter(
-      (r) => !(r.type === "experiment-ref" && r.experimentId === experimentId)
-    );
-    if (changes.rules[env].length < numRules) hasChanges = true;
-  });
-
-  if (hasChanges) {
-    await updateRevision(revision, changes, {
-      user,
-      action: "delete experiment rule",
-      subject: `from all environments`,
-      value: JSON.stringify({
-        id: experimentId,
-      }),
-    });
-  }
 }
 
 export async function editFeatureRule(
@@ -782,8 +769,7 @@ export async function applyRevisionChanges(
     hasChanges = true;
   }
 
-  const environments =
-    organization.settings?.environments?.map((e) => e.id) || [];
+  const environments = getEnvironments(organization).map((e) => e.id);
 
   environments.forEach((env) => {
     const rules = result.rules?.[env];
@@ -845,22 +831,25 @@ export async function publishRevision(
   return updatedFeature;
 }
 
-function getLinkedExperiments(feature: FeatureInterface) {
+function getLinkedExperiments(
+  feature: FeatureInterface,
+  environments: string[]
+) {
   // Always start from the list of existing linked experiments
   // Even if an experiment is removed from a feature, there should still be a link
   // Otherwise, viewing a past revision of a feature will be broken
   const expIds: Set<string> = new Set(feature.linkedExperiments || []);
 
   // Add any missing one from the published rules
-  if (feature.environmentSettings) {
-    Object.values(feature.environmentSettings).forEach((env) => {
-      env.rules?.forEach((rule) => {
-        if (rule.type === "experiment-ref") {
-          expIds.add(rule.experimentId);
-        }
-      });
+  environments.forEach((env) => {
+    const rules = feature.environmentSettings?.[env]?.rules;
+    if (!rules) return;
+    rules.forEach((rule) => {
+      if (rule.type === "experiment-ref") {
+        expIds.add(rule.experimentId);
+      }
     });
-  }
+  });
 
   return [...expIds];
 }

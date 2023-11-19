@@ -204,9 +204,7 @@ export async function refreshSDKPayloadCache(
   skipRefreshForProject?: string
 ) {
   // Ignore any old environments which don't exist anymore
-  const allowedEnvs = new Set(
-    organization.settings?.environments?.map((e) => e.id) || []
-  );
+  const allowedEnvs = new Set(getEnvironments(organization).map((e) => e.id));
   payloadKeys = payloadKeys.filter((k) => allowedEnvs.has(k.environment));
 
   // Remove any projects to skip

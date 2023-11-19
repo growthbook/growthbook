@@ -134,6 +134,13 @@ export function includeExperimentInPayload(
   return true;
 }
 
+export function isValidEnvironment(
+  env: string,
+  environments: string[]
+): boolean {
+  return environments.includes(env);
+}
+
 export const hasVisualChanges = (visualChanges: VisualChange[]) =>
   visualChanges.some((vc) => !!vc.css || !!vc.domMutations.length || !!vc.js);
 
@@ -155,7 +162,7 @@ export function getMatchingRules(
   if (feature.environmentSettings) {
     Object.entries(feature.environmentSettings).forEach(
       ([environmentId, settings]) => {
-        if (!environments.includes(environmentId)) return;
+        if (!isValidEnvironment(environmentId, environments)) return;
 
         const rules = revision ? revision.rules[environmentId] : settings.rules;
 

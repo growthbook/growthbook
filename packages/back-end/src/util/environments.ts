@@ -29,16 +29,3 @@ export const addEnvironmentToOrganizationEnvironments = (
 
   return orgEnvironments;
 };
-
-/**
- * Check if an environment exists
- * @param environments
- * @param env
- */
-export const containsEnvironment = (
-  environments: Environment[],
-  env: Environment
-): boolean => {
-  const existingEnvIndex = environments.findIndex((e) => e.id === env.id);
-  return existingEnvIndex >= 0;
-};

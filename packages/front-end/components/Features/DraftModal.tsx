@@ -131,7 +131,7 @@ export default function DraftModal({
   const hasPermission = permissions.check(
     "publishFeatures",
     feature.project,
-    getAffectedRevisionEnvs(feature, revision)
+    getAffectedRevisionEnvs(feature, revision, environments)
   );
 
   const hasChanges =

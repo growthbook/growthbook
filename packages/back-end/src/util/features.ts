@@ -127,6 +127,7 @@ export function isRuleEnabled(rule: FeatureRule): boolean {
 
 export function getEnabledEnvironments(
   features: FeatureInterface | FeatureInterface[],
+  allowedEnvs: string[],
   ruleFilter?: (rule: FeatureRule) => boolean | unknown
 ): Set<string> {
   if (!Array.isArray(features)) features = [features];
@@ -136,6 +137,7 @@ export function getEnabledEnvironments(
     const settings = feature.environmentSettings || {};
 
     Object.keys(settings)
+      .filter((e) => allowedEnvs.includes(e))
       .filter((e) => settings[e].enabled)
       .filter((e) => {
         if (!ruleFilter) return true;
@@ -169,7 +171,8 @@ export function getSDKPayloadKeys(
 
 export function getSDKPayloadKeysByDiff(
   originalFeature: FeatureInterface,
-  updatedFeature: FeatureInterface
+  updatedFeature: FeatureInterface,
+  allowedEnvs: string[]
 ): SDKPayloadKey[] {
   const environments = new Set<string>();
 
@@ -187,15 +190,13 @@ export function getSDKPayloadKeysByDiff(
     "nextScheduledUpdate",
   ];
   if (allEnvKeys.some((k) => !isEqual(originalFeature[k], updatedFeature[k]))) {
-    getEnabledEnvironments([originalFeature, updatedFeature]).forEach((e) =>
-      environments.add(e)
-    );
+    getEnabledEnvironments(
+      [originalFeature, updatedFeature],
+      allowedEnvs
+    ).forEach((e) => environments.add(e));
   }
 
-  const allEnvs = new Set([
-    ...Object.keys(originalFeature.environmentSettings),
-    ...Object.keys(updatedFeature.environmentSettings),
-  ]);
+  const allEnvs = new Set(allowedEnvs);
 
   // Add in environments if their specific settings changed
   allEnvs.forEach((e) => {
@@ -224,12 +225,17 @@ export function getSDKPayloadKeysByDiff(
 
 export function getAffectedSDKPayloadKeys(
   features: FeatureInterface[],
+  allowedEnvs: string[],
   ruleFilter?: (rule: FeatureRule) => boolean | unknown
 ): SDKPayloadKey[] {
   const keys: SDKPayloadKey[] = [];
 
   features.forEach((feature) => {
-    const environments = getEnabledEnvironments(feature, ruleFilter);
+    const environments = getEnabledEnvironments(
+      feature,
+      allowedEnvs,
+      ruleFilter
+    );
     const projects = new Set(["", feature.project || ""]);
     keys.push(...getSDKPayloadKeys(environments, projects));
   });
