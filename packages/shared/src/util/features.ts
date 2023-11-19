@@ -44,11 +44,10 @@ export function mergeRevision(
 
   const envSettings = newFeature.environmentSettings;
   environments.forEach((env) => {
-    const rules = revision.rules?.[env];
-    if (!rules) return;
     envSettings[env] = envSettings[env] || {};
     envSettings[env].enabled = envSettings[env].enabled || false;
-    envSettings[env].rules = rules;
+    envSettings[env].rules =
+      revision.rules?.[env] || envSettings[env].rules || [];
   });
 
   return newFeature;
