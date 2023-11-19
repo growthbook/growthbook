@@ -731,7 +731,8 @@ export function getApiFeatureObj({
 }
 
 export function getNextScheduledUpdate(
-  envSettings: Record<string, FeatureEnvironment>
+  envSettings: Record<string, FeatureEnvironment>,
+  environments: string[]
 ): Date | null {
   if (!envSettings) {
     return null;
@@ -739,10 +740,10 @@ export function getNextScheduledUpdate(
 
   const dates: string[] = [];
 
-  for (const env in envSettings) {
-    const rules = envSettings[env].rules;
+  environments.forEach((env) => {
+    const rules = envSettings[env]?.rules;
 
-    if (!rules) continue;
+    if (!rules) return;
 
     rules.forEach((rule: FeatureRule) => {
       if (rule?.scheduleRules) {
@@ -753,7 +754,7 @@ export function getNextScheduledUpdate(
         });
       }
     });
-  }
+  });
 
   const sortedFutureDates = dates
     .filter((date) => new Date(date) > new Date())

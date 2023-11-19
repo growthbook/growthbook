@@ -4,7 +4,7 @@ import { ago } from "shared/dates";
 import { FaAngleDown, FaAngleRight } from "react-icons/fa";
 import usePermissions from "@/hooks/usePermissions";
 import { useAuth } from "@/services/auth";
-import { useFeaturesList } from "@/services/features";
+import { useEnvironments, useFeaturesList } from "@/services/features";
 import { useSearch } from "@/services/search";
 import { getSavedGroupMessage } from "@/pages/saved-groups";
 import LoadingOverlay from "../LoadingOverlay";
@@ -30,6 +30,8 @@ export default function RuntimeGroupsList({ groups, mutate }: Props) {
   const permissions = usePermissions();
   const { apiCall } = useAuth();
 
+  const environments = useEnvironments();
+
   const runtimeGroups = useMemo(() => {
     return groups.filter((g) => g.source === "runtime");
   }, [groups]);
@@ -43,9 +45,9 @@ export default function RuntimeGroupsList({ groups, mutate }: Props) {
   const savedGroupFeatureIds = useMemo(() => {
     const map: Record<string, Set<string>> = {};
     features.forEach((feature) => {
-      for (const env in feature.environmentSettings) {
-        if (feature.environmentSettings[env]?.rules) {
-          feature.environmentSettings[env].rules.forEach((rule) => {
+      environments.forEach((env) => {
+        if (feature.environmentSettings[env.id]?.rules) {
+          feature.environmentSettings[env.id].rules.forEach((rule) => {
             runtimeGroups.forEach((group) => {
               if (
                 rule.condition?.includes(group.id) ||
@@ -57,10 +59,10 @@ export default function RuntimeGroupsList({ groups, mutate }: Props) {
             });
           });
         }
-      }
+      });
     });
     return map;
-  }, [runtimeGroups, features]);
+  }, [runtimeGroups, features, environments]);
 
   const { items, searchInputProps, isFiltered, SortableTH } = useSearch({
     items: runtimeGroups,

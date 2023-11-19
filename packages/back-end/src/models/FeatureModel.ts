@@ -785,7 +785,8 @@ export async function applyRevisionChanges(
 
   if (changes.environmentSettings) {
     changes.nextScheduledUpdate = getNextScheduledUpdate(
-      changes.environmentSettings
+      changes.environmentSettings,
+      environments
     );
   }
 
