@@ -58,7 +58,7 @@ import {
 } from "../api/features/postFeature";
 import { ArchetypeAttributeValues } from "../../types/archetype";
 import { FeatureRevisionInterface } from "../../types/feature-revision";
-import { getEnvironments, getOrganizationById } from "./organizations";
+import { getEnvironmentIdsFromOrg, getOrganizationById } from "./organizations";
 
 export type AttributeMap = Map<string, string>;
 
@@ -215,9 +215,7 @@ export async function refreshSDKPayloadCache(
   );
 
   // Ignore any old environments which don't exist anymore
-  const allowedEnvs = new Set(
-    organization.settings?.environments?.map((e) => e.id) || []
-  );
+  const allowedEnvs = new Set(getEnvironmentIdsFromOrg(organization));
   payloadKeys = payloadKeys.filter((k) => allowedEnvs.has(k.environment));
 
   // Remove any projects to skip
@@ -551,7 +549,7 @@ export async function evaluateFeature(
 ) {
   const groupMap = await getSavedGroupMap(org);
   const experimentMap = await getAllPayloadExperiments(org.id);
-  const environments = getEnvironments(org);
+  const environments = getEnvironmentIdsFromOrg(org);
 
   const results: FeatureTestResult[] = [];
 
@@ -565,19 +563,19 @@ export async function evaluateFeature(
   // the values in the feature will be wrong.
   environments.forEach((env) => {
     const thisEnvResult: FeatureTestResult = {
-      env: env.id,
+      env: env,
       result: null,
       enabled: false,
       defaultValue: revision.defaultValue,
     };
-    const settings = feature.environmentSettings[env.id] ?? null;
+    const settings = feature.environmentSettings[env] ?? null;
     if (settings) {
       thisEnvResult.enabled = settings.enabled;
       const definition = getFeatureDefinition({
         feature,
         groupMap,
         experimentMap,
-        environment: env.id,
+        environment: env,
         revision,
         returnRuleId: true,
       });
@@ -709,9 +707,9 @@ export function getApiFeatureObj({
 }): ApiFeature {
   const defaultValue = feature.defaultValue;
   const featureEnvironments: Record<string, ApiFeatureEnvironment> = {};
-  const environments = getEnvironments(organization);
+  const environments = getEnvironmentIdsFromOrg(organization);
   environments.forEach((env) => {
-    const envSettings = feature.environmentSettings?.[env.id];
+    const envSettings = feature.environmentSettings?.[env];
     const enabled = !!envSettings?.enabled;
     const rules = (envSettings?.rules || []).map((rule) => ({
       ...rule,
@@ -730,16 +728,16 @@ export function getApiFeatureObj({
       feature,
       groupMap,
       experimentMap,
-      environment: env.id,
+      environment: env,
     });
 
-    featureEnvironments[env.id] = {
+    featureEnvironments[env] = {
       enabled,
       defaultValue,
       rules,
     };
     if (definition) {
-      featureEnvironments[env.id].definition = JSON.stringify(definition);
+      featureEnvironments[env].definition = JSON.stringify(definition);
     }
   });
 
@@ -767,7 +765,8 @@ export function getApiFeatureObj({
 }
 
 export function getNextScheduledUpdate(
-  envSettings: Record<string, FeatureEnvironment>
+  envSettings: Record<string, FeatureEnvironment>,
+  environments: string[]
 ): Date | null {
   if (!envSettings) {
     return null;
@@ -775,10 +774,10 @@ export function getNextScheduledUpdate(
 
   const dates: string[] = [];
 
-  for (const env in envSettings) {
-    const rules = envSettings[env].rules;
+  environments.forEach((env) => {
+    const rules = envSettings[env]?.rules;
 
-    if (!rules) continue;
+    if (!rules) return;
 
     rules.forEach((rule: FeatureRule) => {
       if (rule?.scheduleRules) {
@@ -789,7 +788,7 @@ export function getNextScheduledUpdate(
         });
       }
     });
-  }
+  });
 
   const sortedFutureDates = dates
     .filter((date) => new Date(date) > new Date())

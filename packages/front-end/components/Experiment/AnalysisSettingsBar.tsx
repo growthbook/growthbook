@@ -545,6 +545,14 @@ function isDifferentStringArray(
   if (val1.length !== val2.length) return true;
   return val1.some((v) => !val2.includes(v));
 }
+function isStringArrayMissingElements(
+  strings: string[] = [],
+  elements: string[] = []
+) {
+  if (!elements.length) return false;
+  if (elements.length > strings.length) return true;
+  return elements.some((v) => !strings.includes(v));
+}
 function isDifferentDate(val1: Date, val2: Date, threshold: number = 86400000) {
   // 86400000 = 1 day
   return Math.abs(val1.getTime() - val2.getTime()) >= threshold;
@@ -607,9 +615,9 @@ export function isOutdated(
     reasons.push("Attribution model changed");
   }
   if (
-    isDifferentStringArray(
-      [...experiment.metrics, ...(experiment?.guardrails || [])],
-      [...snapshotSettings.goalMetrics, ...snapshotSettings.guardrailMetrics]
+    isStringArrayMissingElements(
+      [...snapshotSettings.goalMetrics, ...snapshotSettings.guardrailMetrics],
+      [...experiment.metrics, ...(experiment?.guardrails || [])]
     )
   ) {
     reasons.push("Metrics changed");

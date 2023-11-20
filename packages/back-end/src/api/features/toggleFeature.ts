@@ -6,7 +6,7 @@ import {
 } from "../../models/FeatureModel";
 import { auditDetailsUpdate } from "../../services/audit";
 import { getApiFeatureObj, getSavedGroupMap } from "../../services/features";
-import { getEnvironments } from "../../services/organizations";
+import { getEnvironmentIdsFromOrg } from "../../services/organizations";
 import { createApiRequestHandler } from "../../util/handler";
 import { toggleFeatureValidator } from "../../validators/openapi";
 
@@ -17,9 +17,7 @@ export const toggleFeature = createApiRequestHandler(toggleFeatureValidator)(
       throw new Error("Could not find a feature with that key");
     }
 
-    const environmentIds = new Set(
-      getEnvironments(req.organization).map((e) => e.id)
-    );
+    const environmentIds = getEnvironmentIdsFromOrg(req.organization);
 
     req.checkPermissions("manageFeatures", feature.project);
     req.checkPermissions(
@@ -30,7 +28,7 @@ export const toggleFeature = createApiRequestHandler(toggleFeatureValidator)(
 
     const toggles: Record<string, boolean> = {};
     Object.keys(req.body.environments).forEach((env) => {
-      if (!environmentIds.has(env)) {
+      if (!environmentIds.includes(env)) {
         throw new Error(`Unknown environment: '${env}'`);
       }
 

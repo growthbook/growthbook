@@ -4,6 +4,7 @@ import { useRouter } from "next/router";
 import { useFeature } from "@growthbook/growthbook-react";
 import { FeatureInterface, FeatureRule } from "back-end/types/feature";
 import { ago, datetime } from "shared/dates";
+import { isFeatureStale } from "shared/util";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import { FaTriangleExclamation } from "react-icons/fa6";
 import LoadingOverlay from "@/components/LoadingOverlay";
@@ -42,6 +43,8 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import Field from "@/components/Forms/Field";
 import { useUser } from "@/services/UserContext";
 import useSDKConnections from "@/hooks/useSDKConnections";
+import StaleFeatureIcon from "@/components/StaleFeatureIcon";
+import StaleDetectionModal from "@/components/Features/StaleDetectionModal";
 
 const NUM_PER_PAGE = 20;
 
@@ -56,6 +59,10 @@ export default function FeaturesPage() {
     featureToDuplicate,
     setFeatureToDuplicate,
   ] = useState<FeatureInterface | null>(null);
+  const [
+    featureToToggleStaleDetection,
+    setFeatureToToggleStaleDetection,
+  ] = useState<FeatureInterface | null>(null);
 
   const showGraphs = useFeature("feature-list-realtime-graphs").on;
 
@@ -65,7 +72,7 @@ export default function FeaturesPage() {
   const { project, getProjectById } = useDefinitions();
   const settings = useOrgSettings();
   const environments = useEnvironments();
-  const { features, loading, error, mutate } = useFeaturesList();
+  const { features, experiments, loading, error, mutate } = useFeaturesList();
 
   const { usage, usageDomain } = useRealtimeData(
     features,
@@ -161,9 +168,19 @@ export default function FeaturesPage() {
             router.push(url);
             mutate({
               features: [...features, feature],
+              // we don't care about updating linked experiments since its only
+              // used for stale feature detection
+              linkedExperiments: experiments,
             });
           }}
           featureToDuplicate={featureToDuplicate || undefined}
+        />
+      )}
+      {featureToToggleStaleDetection && (
+        <StaleDetectionModal
+          close={() => setFeatureToToggleStaleDetection(null)}
+          feature={featureToToggleStaleDetection}
+          mutate={mutate}
         />
       )}
       <div className="row mb-3">
@@ -280,6 +297,7 @@ export default function FeaturesPage() {
                     <Tooltip body="Client-side feature evaluations for the past 30 minutes. Blue means the feature was 'on', Gray means it was 'off'." />
                   </th>
                 )}
+                <th>Stale</th>
                 <th style={{ width: 30 }}></th>
               </tr>
             </thead>
@@ -307,6 +325,12 @@ export default function FeaturesPage() {
                   ? getProjectById(projectId)?.name || null
                   : null;
                 const projectIsDeReferenced = projectId && !projectName;
+                const { stale, reason: staleReason } = isFeatureStale(
+                  feature,
+                  experiments.filter((e) =>
+                    feature.linkedExperiments?.includes(e.id)
+                  )
+                );
 
                 return (
                   <tr
@@ -395,6 +419,17 @@ export default function FeaturesPage() {
                         />
                       </td>
                     )}
+                    <td style={{ textAlign: "center" }}>
+                      {stale && (
+                        <StaleFeatureIcon
+                          staleReason={staleReason}
+                          onClick={() => {
+                            if (permissions.check("manageFeatures", project))
+                              setFeatureToToggleStaleDetection(feature);
+                          }}
+                        />
+                      )}
+                    </td>
                     <td>
                       <MoreMenu>
                         <button

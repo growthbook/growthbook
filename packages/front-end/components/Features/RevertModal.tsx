@@ -62,7 +62,7 @@ export default function RevertModal({
   const hasPermission = permissions.check(
     "publishFeatures",
     feature.project,
-    getAffectedRevisionEnvs(feature, revision)
+    getAffectedRevisionEnvs(feature, revision, environments)
   );
 
   return (
