@@ -11,14 +11,13 @@ async function updateUserRole(
   userId: string,
   newRole: MemberRole
 ) {
-  const orgUser = org.members.find((member) => member.id === userId);
-
-  if (!orgUser) {
-    throw new Error("User does not exist in this organization");
-  }
   const updatedOrgMembers = cloneDeep(org.members);
 
   const userIndex = org.members.findIndex((member) => member.id === userId);
+
+  if (userIndex === -1) {
+    throw new Error("User not found in organization");
+  }
 
   updatedOrgMembers[userIndex].role = newRole;
 
