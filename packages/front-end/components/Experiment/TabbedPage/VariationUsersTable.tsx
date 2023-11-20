@@ -1,4 +1,5 @@
 import { ExperimentReportVariation } from "back-end/types/report";
+import clsx from "clsx";
 
 export interface Props {
   variations: ExperimentReportVariation[];
@@ -66,14 +67,6 @@ export default function VariationUsersTable({
             const diff =
               actual && expected ? (actual - expected) * 100 : undefined;
 
-            let diffColor;
-
-            if (diff && diff < 0) {
-              diffColor = "lightcoral";
-            } else if (diff && diff > 0) {
-              diffColor = "lightgreen";
-            }
-
             return (
               <tr key={i}>
                 <td className={`variation with-variation-label variation${i}`}>
@@ -107,7 +100,12 @@ export default function VariationUsersTable({
                     ? percentFormatter.format(v.weight / totalWeight)
                     : "-"}
                 </td>
-                <td style={diffColor ? { color: diffColor } : undefined}>
+                <td
+                  className={clsx({
+                    "text-success": diff && diff > 0,
+                    "text-danger": diff && diff < 0,
+                  })}
+                >
                   {diff ? (
                     <b>
                       {diffFormatter.format(diff)}
