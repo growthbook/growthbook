@@ -14,6 +14,7 @@ import Toggle from "@/components/Forms/Toggle";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import { useUser } from "@/services/UserContext";
+import { ReactSelectProps } from "@/components/Forms/SelectField";
 import Modal from "../../../Modal";
 import Field from "../../../Forms/Field";
 import EditSqlModal from "../../../SchemaBrowser/EditSqlModal";
@@ -221,6 +222,14 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
     }
   };
 
+  const dimensionsForTrafficStyles = {
+    ...ReactSelectProps.styles,
+    multiValueLabel: (styles) => ({
+      ...styles,
+      fontWeight: 400,
+    }),
+  };
+
   return (
     <>
       {sqlOpen && dataSource && (
@@ -359,7 +368,7 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
                         required
                         placeholder="Select dimensions..."
                         closeMenuOnSelect={true}
-                        style={{ fontWeight: 0 }}
+                        customStyles={dimensionsForTrafficStyles}
                       />
                     )}
                   </div>
