@@ -962,7 +962,7 @@ export default class MicrosoftAppInsights
   }
 
   async testConnection(): Promise<boolean> {
-    const result = await runApi(this.params, "?timespan=P1D");
+    await runApi(this.params, "?timespan=PT1M");
     return true;
   }
 
