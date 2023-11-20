@@ -1,5 +1,3 @@
-import https from "https";
-import fetch from "node-fetch";
 import cloneDeep from "lodash/cloneDeep";
 import { getValidDate } from "shared/dates";
 import { DimensionInterface } from "../../types/dimension";
@@ -19,7 +17,6 @@ import {
   MetricValueQueryResponseRows,
   ExperimentUnitsQueryResponse,
   ExperimentUnitsQueryParams,
-  QueryResponse,
 } from "../types/Integration";
 import { MicrosoftAppInsightsParams } from "../../types/integrations/microsoftappinsights";
 import { decryptDataSourceParams } from "../services/datasource";
@@ -42,12 +39,9 @@ import {
 } from "../util/kusto";
 import { MetricInterface } from "../../types/metric";
 import { ExperimentSnapshotSettings } from "../../types/experiment-snapshot";
+import { runApi } from "../services/microsoftappinsights";
 
-const httpsAgent = new https.Agent({
-  rejectUnauthorized: false,
-});
-
-export default abstract class MicrosoftAppInsights
+export default class MicrosoftAppInsights
   implements SourceIntegrationInterface {
   params: MicrosoftAppInsightsParams;
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
@@ -61,8 +55,6 @@ export default abstract class MicrosoftAppInsights
   // @ts-expect-error
   decryptionError: boolean;
   type!: DataSourceType;
-
-  abstract runQuery(sql: string): Promise<QueryResponse>;
 
   constructor(encryptedParams: string, settings: DataSourceSettings) {
     try {
@@ -82,6 +74,15 @@ export default abstract class MicrosoftAppInsights
     this.settings = {
       ...settings,
     };
+  }
+
+  async runQuery(query: string): Promise<any> {
+    const result = await runApi(
+      this.params,
+      query !== "" ? `?query=${encodeURIComponent(query)}` : ""
+    );
+
+    return result;
   }
 
   createUnitsTableOptions() {
@@ -416,11 +417,7 @@ export default abstract class MicrosoftAppInsights
     const dimensionCol = this.getDimensionColumn(baseIdType, dimension);
 
     const intialMetric =
-      activationMetric?.userIdTypes.length > 0
-        ? activationMetric?.userIdTypes[0]
-        : denominatorMetrics.length > 0
-        ? denominatorMetrics[0]
-        : metric;
+      denominatorMetrics.length > 0 ? denominatorMetrics[0] : metric;
 
     return format(
       `// ${metric.name} (${metric.type})
@@ -549,7 +546,7 @@ export default abstract class MicrosoftAppInsights
           conversion_start = min(${this.getMetricConversionBase(
             "conversion_start",
             denominatorMetrics.length > 0,
-            activationMetric && dimension?.type !== "activation"
+            Boolean(activationMetric && dimension?.type !== "activation")
           )})
           ${
             ignoreConversionEnd
@@ -557,7 +554,7 @@ export default abstract class MicrosoftAppInsights
               : `, conversion_end = min(${this.getMetricConversionBase(
                   "conversion_end",
                   denominatorMetrics.length > 0,
-                  activationMetric && dimension?.type !== "activation"
+                  Boolean(activationMetric && dimension?.type !== "activation")
                 )})`
           }
           by ${baseIdType}
@@ -701,7 +698,7 @@ export default abstract class MicrosoftAppInsights
   async runExperimentMetricQuery(
     query: string
   ): Promise<ExperimentMetricQueryResponse> {
-    const kustoResult = await this.queryAppInsights(query);
+    const kustoResult = await this.runQuery(query);
 
     return (
       (kustoResult?.tables?.[0]?.rows &&
@@ -917,7 +914,7 @@ export default abstract class MicrosoftAppInsights
   }
 
   async runMetricValueQuery(query: string): Promise<MetricValueQueryResponse> {
-    const kustoResult: any = await this.queryAppInsights(query);
+    const kustoResult: any = await this.runQuery(query);
 
     const result: MetricValueQueryResponseRows = [];
     const overall: MetricValueQueryResponseRow = {
@@ -965,7 +962,12 @@ export default abstract class MicrosoftAppInsights
   }
 
   async testConnection(): Promise<boolean> {
-    return true;
+    try {
+      await runApi(this.params, "?timespan=P1D");
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   getSensitiveParamKeys(): string[] {
@@ -978,25 +980,6 @@ export default abstract class MicrosoftAppInsights
 
   async getExperimentResults(): Promise<ExperimentQueryResponses> {
     throw new Error("Not implemented");
-  }
-
-  private async queryAppInsights(query: string): Promise<any> {
-    let data = null;
-
-    const res = await fetch(
-      `https://api.applicationinsights.io/v1/apps/${this.params.appId}/query${
-        query !== "" ? `?query=${encodeURIComponent(query)}` : ""
-      }`,
-      {
-        agent: httpsAgent,
-        headers: {
-          ["x-api-key"]: this.params.apiKey,
-        },
-      }
-    );
-    data = await res.json();
-
-    return data;
   }
 
   private getIdentitiesCTE(
@@ -1694,7 +1677,7 @@ export default abstract class MicrosoftAppInsights
 
   async runTestQuery(kql: string): Promise<TestQueryResult> {
     const queryStartTime = Date.now();
-    const kustoResult = await this.queryAppInsights(kql);
+    const kustoResult = await this.runQuery(kql);
     const queryEndTime = Date.now();
     const duration = queryEndTime - queryStartTime;
     const results = kustoResult?.tables[0].rows.map((row: any) => {
