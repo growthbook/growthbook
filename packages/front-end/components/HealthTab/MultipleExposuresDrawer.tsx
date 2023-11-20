@@ -85,7 +85,15 @@ export default function MultipleExposuresDrawer({
       <div className="row justify-content-start mb-2">
         <div className="ml-2 mt-4">
           {health === "healthy" ? (
-            <div className="alert alert-info">{HEALTHY_TOOLTIP_MESSAGE}</div>
+            <div className="alert alert-info">
+              {multipleExposures === 0
+                ? HEALTHY_TOOLTIP_MESSAGE
+                : `${numberFormatter.format(
+                    multipleExposures
+                  )} multiple exposures detected, but that is below your threshold of ${percentFormatter.format(
+                    MIN_PERCENT
+                  )}`}
+            </div>
           ) : (
             <div className="alert alert-warning">
               <strong>Multiple Exposures Warning</strong>.{" "}
