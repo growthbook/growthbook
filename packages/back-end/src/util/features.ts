@@ -189,7 +189,12 @@ export function getSDKPayloadKeysByDiff(
     "valueType",
     "nextScheduledUpdate",
   ];
-  if (allEnvKeys.some((k) => !isEqual(originalFeature[k], updatedFeature[k]))) {
+
+  if (
+    allEnvKeys.some(
+      (k) => !isEqual(originalFeature[k] ?? null, updatedFeature[k] ?? null)
+    )
+  ) {
     getEnabledEnvironments(
       [originalFeature, updatedFeature],
       allowedEnvs
