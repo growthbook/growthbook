@@ -863,7 +863,7 @@ export async function postFeatureExperimentRefRule(
     };
 
     // Revision changes
-    changes.rules[env] = feature.environmentSettings?.[env]?.rules || [];
+    changes.rules[env] = [...(feature.environmentSettings?.[env]?.rules || [])];
     changes.rules[env].push(envRule);
 
     // Feature updates
