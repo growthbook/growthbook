@@ -150,11 +150,7 @@ export default function HealthTab({
             </Button>
           </>
         ) : (
-          <>
-            ask someone with permission to manage organization settings to
-            enable <b>Run traffic query by default</b> under the Experiment
-            Health Settings section.
-          </>
+          "ask someone with permission to manage organization settings to enable Run traffic query by default under the Experiment Health Settings section."
         )}
       </div>
     );
