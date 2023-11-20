@@ -21,8 +21,10 @@ jobs:
           username: ${{ secrets.DOCKER_HUB_USERNAME }}
           password: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
 
-      - name: Build, tag, and push image to Docker Hub
+      - name: Install buildx
         uses: docker/setup-buildx-action@v3
+
+      - name: Tag image as latest
         run: |
           docker buildx imagetools create -t growthbook/growthbook:latest growthbook/growthbook:git-${{ inputs.sha }}
 
