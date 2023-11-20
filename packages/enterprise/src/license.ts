@@ -8,7 +8,7 @@ import { omit, sortBy } from "lodash";
 import { LicenseDocument, LicenseModel } from "./models/licenseModel";
 
 //TODO: Set this to the real prod license server
-const LICENSE_SERVER = "http://localhost:8080";
+export const LICENSE_SERVER = "http://localhost:8080";
 const logger = pino();
 
 export type AccountPlan = "oss" | "starter" | "pro" | "pro_sso" | "enterprise";
@@ -179,7 +179,7 @@ async function getPublicKey(): Promise<Buffer> {
       (err, data) => {
         if (err) {
           logger.error(
-            "Failed to find Growthbook public key files for license verification"
+            "Failed to find Growthbook public key file for license verification"
           );
           reject(err);
         } else {
@@ -271,10 +271,21 @@ export async function getVerifiedLicenseData(
   return convertedLicense;
 }
 
-let licenseData: Partial<LicenseInterface> | null = null;
-let cacheDate: Date | null = null;
-// in-memory cache to avoid hitting the license server on every request
-const keyToLicenseData: Record<string, Partial<LicenseInterface>> = {};
+function checkIfEnvVarSettingsAreAllowedByLicense(license: LicenseInterface) {
+  // Trying to use SSO, but the plan doesn't support it
+  if (process.env.SSO_CONFIG && !planHasPremiumFeature(license.plan, "sso")) {
+    throw new Error(`Your License Key does not support SSO.`);
+  }
+  // Trying to use IS_MULTI_ORG, but the plan doesn't support it
+  if (
+    process.env.IS_MULTI_ORG &&
+    !planHasPremiumFeature(license.plan, "multi-org")
+  ) {
+    throw new Error(
+      `Your License Key does not support multiple organizations.`
+    );
+  }
+}
 
 async function getLicenseDataFromMongoCache(
   cache: LicenseDocument | null
@@ -292,12 +303,12 @@ async function getLicenseDataFromMongoCache(
 
     // In order to verify the license key, we need to strip out the fields that are not part of the license data
     // and sort the fields alphabetically as we do on the license server itself.
-    const strippedLicense = omit(cache.toJSON(), [
+    const strippedLicense = omit(cache, [
       "__v",
       "_id",
       "dateUpdated",
       "signedChecksum",
-    ]) as LicenseInterface;
+    ]);
     const data = Object.fromEntries(sortBy(Object.entries(strippedLicense)));
     const dataBuffer = Buffer.from(JSON.stringify(data));
 
@@ -318,6 +329,7 @@ async function getLicenseDataFromMongoCache(
       throw new Error("Cached Invalid license key signature");
     }
 
+    checkIfEnvVarSettingsAreAllowedByLicense(cache);
     logger.info("Using cached license data");
     return cache;
   }
@@ -365,7 +377,7 @@ async function getLicenseDataFromServer(
     // Create a cached version of the license key in case the license server goes down.
     await LicenseModel.create({
       ...licenseData,
-      dateUpdated: new Date(),
+      dateUpdated: new Date().toISOString(),
     });
   } else {
     // Update the cached version of the license key in case the license server goes down.
@@ -373,6 +385,7 @@ async function getLicenseDataFromServer(
     await currentCache.save();
   }
 
+  checkIfEnvVarSettingsAreAllowedByLicense(licenseData);
   return licenseData;
 }
 
@@ -385,6 +398,11 @@ export interface LicenseMetaData {
   eventTrackers: string[];
   isCloud: boolean;
 }
+
+let licenseData: Partial<LicenseInterface> | null = null;
+let cacheDate: Date | null = null;
+// in-memory cache to avoid hitting the license server on every request
+const keyToLicenseData: Record<string, Partial<LicenseInterface>> = {};
 
 export async function licenseInit(
   userLicenseCodes: string[],
@@ -414,7 +432,7 @@ export async function licenseInit(
       userLicenseCodes,
       metaData
     );
-    cacheDate = new Date(Date.now());
+    cacheDate = new Date();
   } else {
     // Old style: the key itself has the encrypted license data in it.
     licenseData = await getVerifiedLicenseData(key);
@@ -429,4 +447,12 @@ export function getLicense() {
 export async function setLicense(l: Partial<LicenseInterface> | null) {
   // make sure we trust that l is already verified before setting:
   licenseData = l;
+}
+
+export function resetInMemoryLicenseCache(): void {
+  licenseData = null;
+  cacheDate = null;
+  Object.keys(keyToLicenseData).forEach((key) => {
+    delete keyToLicenseData[key];
+  });
 }
