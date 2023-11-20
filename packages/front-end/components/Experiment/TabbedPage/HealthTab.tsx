@@ -142,7 +142,7 @@ export default function HealthTab({
           <>
             click the enable button on the right.
             <Button
-              className="mt-2 mb-2"
+              className="mt-2 mb-2 ml-auto"
               style={{ width: "200px" }}
               onClick={async () => await enableRunHealthTrafficQueries()}
             >

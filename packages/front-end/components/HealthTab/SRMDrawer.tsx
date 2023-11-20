@@ -112,6 +112,10 @@ export default function SRMDrawer({
     }
   }, [overallHealth, onNotify]);
 
+  useEffect(() => {
+    setSelectedDimension("");
+  }, [traffic]);
+
   const availableDimensions: SingleValue[] = Object.keys(
     traffic.dimension
   ).reduce((filtered, dim) => {
