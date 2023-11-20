@@ -87,11 +87,20 @@ tags:
   - name: saved-groups
     x-displayName: Saved Groups
     description: Defined sets of attribute values which can be used with feature rules for targeting features at particular users.
+  - name: organizations
+    x-displayName: Organizations
+    description: Organizations are used for multi-org deployments where different teams can run their own isolated feature flags and experiments. These endpoints are only via a super-admin's Personal Access Token.
 paths:
   /features:
-    $ref: "./paths/listFeatures.yaml"
+    get:
+      $ref: "./paths/listFeatures.yaml"
+    post:
+      $ref: "./paths/postFeature.yaml"
   /features/{id}:
-    $ref: "./paths/getFeature.yaml"
+    get:
+      $ref: "./paths/getFeature.yaml"
+    post:
+      $ref: "./paths/updateFeature.yaml"
   /features/{id}/toggle:
     $ref: "./paths/toggleFeature.yaml"
   /projects:
@@ -161,6 +170,15 @@ paths:
       $ref: "./paths/updateSavedGroup.yaml"
     delete:
       $ref: "./paths/deleteSavedGroup.yaml"
+  /organizations:
+    get:
+      $ref: "./paths/listOrganizations.yaml"
+    post:
+      $ref: "./paths/postOrganization.yaml"
+  /organizations/{id}:
+    put:
+      $ref: "./paths/putOrganization.yaml"
+
   # PLOP_INSERT_PATHS_HERE
 components:
   parameters:

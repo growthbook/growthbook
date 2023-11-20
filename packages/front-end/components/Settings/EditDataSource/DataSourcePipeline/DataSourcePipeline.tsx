@@ -1,11 +1,19 @@
 import { useCallback, useState } from "react";
 import { FaPencilAlt } from "react-icons/fa";
+import { DataSourceType } from "back-end/types/datasource";
 import usePermissions from "@/hooks/usePermissions";
 import { checkDatasourceProjectPermissions } from "@/services/datasources";
 import { DataSourceQueryEditingModalBaseProps } from "../types";
 import { EditDataSourcePipeline } from "./EditDataSourcePipeline";
 
 type DataSourcePipelineProps = DataSourceQueryEditingModalBaseProps;
+
+export function dataSourceSchemaName(dataSourceType: DataSourceType) {
+  if (dataSourceType === "bigquery") {
+    return "dataset";
+  }
+  return "schema";
+}
 
 export default function DataSourcePipeline({
   dataSource,
@@ -61,7 +69,7 @@ export default function DataSourcePipeline({
         {pipelineSettings?.allowWriting && (
           <>
             <div className={`mb-2 ma-5`}>
-              {"Destination dataset: "}
+              {`Destination ${dataSourceSchemaName(dataSource.type)}: `}
               {pipelineSettings?.writeDataset ? (
                 <code>{pipelineSettings.writeDataset}</code>
               ) : (

@@ -1,10 +1,9 @@
 import {
-  ApiHost,
+  Attributes,
   CacheSettings,
-  ClientKey,
   FeatureApiResponse,
+  Helpers,
   Polyfills,
-  RepositoryKey,
 } from "./types/growthbook";
 import type { GrowthBook } from ".";
 
@@ -17,7 +16,11 @@ type CacheEntry = {
 type ScopedChannel = {
   src: EventSource | null;
   cb: (event: MessageEvent<string>) => void;
+  host: string;
+  clientKey: string;
+  headers?: Record<string, string>;
   errors: number;
+  state: "active" | "idle" | "disabled";
 };
 
 // Config settings
@@ -26,12 +29,66 @@ const cacheSettings: CacheSettings = {
   staleTTL: 1000 * 60,
   cacheKey: "gbFeaturesCache",
   backgroundSync: true,
+  maxEntries: 10,
+  disableIdleStreams: false,
+  idleStreamInterval: 20000,
 };
 const polyfills: Polyfills = {
   fetch: globalThis.fetch ? globalThis.fetch.bind(globalThis) : undefined,
   SubtleCrypto: globalThis.crypto ? globalThis.crypto.subtle : undefined,
   EventSource: globalThis.EventSource,
 };
+export const helpers: Helpers = {
+  fetchFeaturesCall: ({ host, clientKey, headers }) => {
+    return (polyfills.fetch as typeof globalThis.fetch)(
+      `${host}/api/features/${clientKey}`,
+      { headers }
+    );
+  },
+  fetchRemoteEvalCall: ({ host, clientKey, payload, headers }) => {
+    const options = {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...headers },
+      body: JSON.stringify(payload),
+    };
+    return (polyfills.fetch as typeof globalThis.fetch)(
+      `${host}/api/eval/${clientKey}`,
+      options
+    );
+  },
+  eventSourceCall: ({ host, clientKey, headers }) => {
+    if (headers) {
+      return new polyfills.EventSource(`${host}/sub/${clientKey}`, {
+        headers,
+      });
+    }
+    return new polyfills.EventSource(`${host}/sub/${clientKey}`);
+  },
+  startIdleListener: () => {
+    let idleTimeout: number | undefined;
+    const isBrowser =
+      typeof window !== "undefined" && typeof document !== "undefined";
+    if (!isBrowser) return;
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        window.clearTimeout(idleTimeout);
+        onVisible();
+      } else if (document.visibilityState === "hidden") {
+        idleTimeout = window.setTimeout(
+          onHidden,
+          cacheSettings.idleStreamInterval
+        );
+      }
+    };
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    return () =>
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+  },
+  stopIdleListener: () => {
+    // No-op, replaced by startIdleListener
+  },
+};
+
 try {
   if (globalThis.localStorage) {
     polyfills.localStorage = globalThis.localStorage;
@@ -41,15 +98,12 @@ try {
 }
 
 // Global state
-const subscribedInstances: Map<RepositoryKey, Set<GrowthBook>> = new Map();
+const subscribedInstances: Map<string, Set<GrowthBook>> = new Map();
 let cacheInitialized = false;
-const cache: Map<RepositoryKey, CacheEntry> = new Map();
-const activeFetches: Map<
-  RepositoryKey,
-  Promise<FeatureApiResponse>
-> = new Map();
-const streams: Map<RepositoryKey, ScopedChannel> = new Map();
-const supportsSSE: Set<RepositoryKey> = new Set();
+const cache: Map<string, CacheEntry> = new Map();
+const activeFetches: Map<string, Promise<FeatureApiResponse>> = new Map();
+const streams: Map<string, ScopedChannel> = new Map();
+const supportsSSE: Set<string> = new Set();
 
 // Public functions
 export function setPolyfills(overrides: Partial<Polyfills>): void {
@@ -93,7 +147,7 @@ export async function refreshFeatures(
 
 // Subscribe a GrowthBook instance to feature changes
 export function subscribe(instance: GrowthBook): void {
-  const [key] = getKey(instance);
+  const key = getKey(instance);
   const subs = subscribedInstances.get(key) || new Set();
   subs.add(instance);
   subscribedInstances.set(key, subs);
@@ -102,7 +156,24 @@ export function unsubscribe(instance: GrowthBook): void {
   subscribedInstances.forEach((s) => s.delete(instance));
 }
 
+export function onHidden() {
+  streams.forEach((channel) => {
+    if (!channel) return;
+    channel.state = "idle";
+    disableChannel(channel);
+  });
+}
+
+export function onVisible() {
+  streams.forEach((channel) => {
+    if (!channel) return;
+    if (channel.state !== "idle") return;
+    enableChannel(channel);
+  });
+}
+
 // Private functions
+
 async function updatePersistentCache() {
   try {
     if (!polyfills.localStorage) return;
@@ -121,15 +192,16 @@ async function fetchFeaturesWithCache(
   timeout?: number,
   skipCache?: boolean
 ): Promise<FeatureApiResponse | null> {
-  const [key] = getKey(instance);
+  const key = getKey(instance);
+  const cacheKey = getCacheKey(instance);
   const now = new Date();
   await initializeCache();
-  const existing = cache.get(key);
+  const existing = cache.get(cacheKey);
   if (existing && !skipCache && (allowStale || existing.staleAt > now)) {
-    // Restore from cache whether or not SSE is supported
+    // Restore from cache whether SSE is supported
     if (existing.sse) supportsSSE.add(key);
 
-    // Reload features in the backgroud if stale
+    // Reload features in the background if stale
     if (existing.staleAt < now) {
       fetchFeatures(instance);
     }
@@ -139,14 +211,35 @@ async function fetchFeaturesWithCache(
     }
     return existing.data;
   } else {
-    const data = await promiseTimeout(fetchFeatures(instance), timeout);
-    return data;
+    return await promiseTimeout(fetchFeatures(instance), timeout);
   }
 }
 
-function getKey(instance: GrowthBook): [RepositoryKey, ApiHost, ClientKey] {
+function getKey(instance: GrowthBook): string {
   const [apiHost, clientKey] = instance.getApiInfo();
-  return [`${apiHost}||${clientKey}`, apiHost, clientKey];
+  return `${apiHost}||${clientKey}`;
+}
+
+function getCacheKey(instance: GrowthBook): string {
+  const baseKey = getKey(instance);
+  if (!instance.isRemoteEval()) return baseKey;
+
+  const attributes = instance.getAttributes();
+  const cacheKeyAttributes =
+    instance.getCacheKeyAttributes() || Object.keys(instance.getAttributes());
+  const ca: Attributes = {};
+  cacheKeyAttributes.forEach((key) => {
+    ca[key] = attributes[key];
+  });
+
+  const fv = instance.getForcedVariations();
+  const url = instance.getUrl();
+
+  return `${baseKey}||${JSON.stringify({
+    ca,
+    fv,
+    url,
+  })}`;
 }
 
 // Guarantee the promise always resolves within {timeout} ms
@@ -184,7 +277,7 @@ async function initializeCache(): Promise<void> {
         cacheSettings.cacheKey
       );
       if (value) {
-        const parsed: [RepositoryKey, CacheEntry][] = JSON.parse(value);
+        const parsed: [string, CacheEntry][] = JSON.parse(value);
         if (parsed && Array.isArray(parsed)) {
           parsed.forEach(([key, data]) => {
             cache.set(key, {
@@ -193,19 +286,49 @@ async function initializeCache(): Promise<void> {
             });
           });
         }
+        cleanupCache();
       }
     }
   } catch (e) {
     // Ignore localStorage errors
   }
+  if (!cacheSettings.disableIdleStreams) {
+    const cleanupFn = helpers.startIdleListener();
+    if (cleanupFn) {
+      helpers.stopIdleListener = cleanupFn;
+    }
+  }
+}
+
+// Enforce the maxEntries limit
+function cleanupCache() {
+  const entriesWithTimestamps = Array.from(cache.entries())
+    .map(([key, value]) => ({
+      key,
+      staleAt: value.staleAt.getTime(),
+    }))
+    .sort((a, b) => a.staleAt - b.staleAt);
+
+  const entriesToRemoveCount = Math.min(
+    Math.max(0, cache.size - cacheSettings.maxEntries),
+    cache.size
+  );
+
+  for (let i = 0; i < entriesToRemoveCount; i++) {
+    cache.delete(entriesWithTimestamps[i].key);
+  }
 }
 
 // Called whenever new features are fetched from the API
-function onNewFeatureData(key: RepositoryKey, data: FeatureApiResponse): void {
+function onNewFeatureData(
+  key: string,
+  cacheKey: string,
+  data: FeatureApiResponse
+): void {
   // If contents haven't changed, ignore the update, extend the stale TTL
   const version = data.dateUpdated || "";
   const staleAt = new Date(Date.now() + cacheSettings.staleTTL);
-  const existing = cache.get(key);
+  const existing = cache.get(cacheKey);
   if (existing && version && existing.version === version) {
     existing.staleAt = staleAt;
     updatePersistentCache();
@@ -213,12 +336,13 @@ function onNewFeatureData(key: RepositoryKey, data: FeatureApiResponse): void {
   }
 
   // Update in-memory cache
-  cache.set(key, {
+  cache.set(cacheKey, {
     data,
     version,
     staleAt,
     sse: supportsSSE.has(key),
   });
+  cleanupCache();
   // Update local storage (don't await this, just update asynchronously)
   updatePersistentCache();
 
@@ -251,13 +375,34 @@ async function refreshInstance(
 async function fetchFeatures(
   instance: GrowthBook
 ): Promise<FeatureApiResponse> {
-  const [key, apiHost, clientKey] = getKey(instance);
-  const endpoint = apiHost + "/api/features/" + clientKey;
+  const { apiHost, apiRequestHeaders } = instance.getApiHosts();
+  const clientKey = instance.getClientKey();
+  const remoteEval = instance.isRemoteEval();
+  const key = getKey(instance);
+  const cacheKey = getCacheKey(instance);
 
-  let promise = activeFetches.get(key);
+  let promise = activeFetches.get(cacheKey);
   if (!promise) {
-    promise = (polyfills.fetch as typeof globalThis.fetch)(endpoint)
-      // TODO: auto-retry if status code indicates a temporary error
+    const fetcher: Promise<Response> = remoteEval
+      ? helpers.fetchRemoteEvalCall({
+          host: apiHost,
+          clientKey,
+          payload: {
+            attributes: instance.getAttributes(),
+            forcedVariations: instance.getForcedVariations(),
+            forcedFeatures: Array.from(instance.getForcedFeatures().entries()),
+            url: instance.getUrl(),
+          },
+          headers: apiRequestHeaders,
+        })
+      : helpers.fetchFeaturesCall({
+          host: apiHost,
+          clientKey,
+          headers: apiRequestHeaders,
+        });
+
+    // TODO: auto-retry if status code indicates a temporary error
+    promise = fetcher
       .then((res) => {
         if (res.headers.get("x-sse-support") === "enabled") {
           supportsSSE.add(key);
@@ -265,9 +410,9 @@ async function fetchFeatures(
         return res.json();
       })
       .then((data: FeatureApiResponse) => {
-        onNewFeatureData(key, data);
+        onNewFeatureData(key, cacheKey, data);
         startAutoRefresh(instance);
-        activeFetches.delete(key);
+        activeFetches.delete(cacheKey);
         return data;
       })
       .catch((e) => {
@@ -277,10 +422,10 @@ async function fetchFeatures(
             clientKey,
             error: e ? e.message : null,
           });
-        activeFetches.delete(key);
+        activeFetches.delete(cacheKey);
         return Promise.resolve({});
       });
-    activeFetches.set(key, promise);
+    activeFetches.set(cacheKey, promise);
   }
   return await promise;
 }
@@ -288,7 +433,10 @@ async function fetchFeatures(
 // Watch a feature endpoint for changes
 // Will prefer SSE if enabled, otherwise fall back to cron
 function startAutoRefresh(instance: GrowthBook): void {
-  const [key, apiHost, clientKey] = getKey(instance);
+  const key = getKey(instance);
+  const cacheKey = getCacheKey(instance);
+  const { streamingHost, streamingHostRequestHeaders } = instance.getApiHosts();
+  const clientKey = instance.getClientKey();
   if (
     cacheSettings.backgroundSync &&
     supportsSSE.has(key) &&
@@ -297,34 +445,43 @@ function startAutoRefresh(instance: GrowthBook): void {
     if (streams.has(key)) return;
     const channel: ScopedChannel = {
       src: null,
+      host: streamingHost,
+      clientKey,
+      headers: streamingHostRequestHeaders,
       cb: (event: MessageEvent<string>) => {
         try {
-          const json: FeatureApiResponse = JSON.parse(event.data);
-          onNewFeatureData(key, json);
+          if (event.type === "features-updated") {
+            const instances = subscribedInstances.get(key);
+            instances &&
+              instances.forEach((instance) => {
+                fetchFeatures(instance);
+              });
+          } else if (event.type === "features") {
+            const json: FeatureApiResponse = JSON.parse(event.data);
+            onNewFeatureData(key, cacheKey, json);
+          }
           // Reset error count on success
           channel.errors = 0;
         } catch (e) {
           process.env.NODE_ENV !== "production" &&
             instance.log("SSE Error", {
-              apiHost,
+              streamingHost,
               clientKey,
               error: e ? (e as Error).message : null,
             });
-          onSSEError(channel, apiHost, clientKey);
+          onSSEError(channel);
         }
       },
       errors: 0,
+      state: "active",
     };
     streams.set(key, channel);
-    enableChannel(channel, apiHost, clientKey);
+    enableChannel(channel);
   }
 }
 
-function onSSEError(
-  channel: ScopedChannel,
-  apiHost: string,
-  clientKey: string
-) {
+function onSSEError(channel: ScopedChannel) {
+  if (channel.state === "idle") return;
   channel.errors++;
   if (channel.errors > 3 || (channel.src && channel.src.readyState === 2)) {
     // exponential backoff after 4 errors, with jitter
@@ -332,7 +489,8 @@ function onSSEError(
       Math.pow(3, channel.errors - 3) * (1000 + Math.random() * 1000);
     disableChannel(channel);
     setTimeout(() => {
-      enableChannel(channel, apiHost, clientKey);
+      if (["idle", "active"].includes(channel.state)) return;
+      enableChannel(channel);
     }, Math.min(delay, 300000)); // 5 minutes max
   }
 }
@@ -343,26 +501,27 @@ function disableChannel(channel: ScopedChannel) {
   channel.src.onerror = null;
   channel.src.close();
   channel.src = null;
+  if (channel.state === "active") {
+    channel.state = "disabled";
+  }
 }
 
-function enableChannel(
-  channel: ScopedChannel,
-  apiHost: string,
-  clientKey: string
-) {
-  channel.src = new polyfills.EventSource(
-    `${apiHost}/sub/${clientKey}`
-  ) as EventSource;
+function enableChannel(channel: ScopedChannel) {
+  channel.src = helpers.eventSourceCall({
+    host: channel.host,
+    clientKey: channel.clientKey,
+    headers: channel.headers,
+  }) as EventSource;
+  channel.state = "active";
   channel.src.addEventListener("features", channel.cb);
-  channel.src.onerror = () => {
-    onSSEError(channel, apiHost, clientKey);
-  };
+  channel.src.addEventListener("features-updated", channel.cb);
+  channel.src.onerror = () => onSSEError(channel);
   channel.src.onopen = () => {
     channel.errors = 0;
   };
 }
 
-function destroyChannel(channel: ScopedChannel, key: RepositoryKey) {
+function destroyChannel(channel: ScopedChannel, key: string) {
   disableChannel(channel);
   streams.delete(key);
 }
@@ -376,4 +535,7 @@ function clearAutoRefresh() {
 
   // Remove all references to GrowthBook instances
   subscribedInstances.clear();
+
+  // Run the idle stream cleanup function
+  helpers.stopIdleListener();
 }

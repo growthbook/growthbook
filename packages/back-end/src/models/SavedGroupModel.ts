@@ -19,6 +19,7 @@ const savedGroupSchema = new mongoose.Schema({
   dateCreated: Date,
   dateUpdated: Date,
   values: [String],
+  source: String,
   attributeKey: String,
 });
 
@@ -34,16 +35,24 @@ type CreateSavedGroupProps = Omit<
   "dateCreated" | "dateUpdated" | "id"
 >;
 
-type UpdateSavedGroupProps = Omit<
-  SavedGroupInterface,
-  "dateCreated" | "dateUpdated" | "id" | "organization" | "attributeKey"
+export type UpdateSavedGroupProps = Partial<
+  Omit<
+    SavedGroupInterface,
+    "dateCreated" | "dateUpdated" | "id" | "organization" | "source"
+  >
 >;
 
-const toInterface = (doc: SavedGroupDocument): SavedGroupInterface =>
-  omit(
+const toInterface = (doc: SavedGroupDocument): SavedGroupInterface => {
+  const group = omit(
     doc.toJSON<SavedGroupDocument>({ flattenMaps: true }),
     ["__v", "_id"]
   );
+
+  // JIT migration - before we had a 'source' field all saved groups were defined inline
+  if (!group.source) group.source = "inline";
+
+  return group;
+};
 
 export function parseSavedGroupString(list: string) {
   const values = list
@@ -72,7 +81,7 @@ export async function getAllSavedGroups(
   const savedGroups: SavedGroupDocument[] = await SavedGroupModel.find({
     organization,
   });
-  return savedGroups.map((value) => value.toJSON()) || [];
+  return savedGroups.map(toInterface);
 }
 
 export async function getSavedGroupById(
@@ -81,6 +90,19 @@ export async function getSavedGroupById(
 ): Promise<SavedGroupInterface | null> {
   const savedGroup = await SavedGroupModel.findOne({
     id: savedGroupId,
+    organization: organization,
+  });
+
+  return savedGroup ? toInterface(savedGroup) : null;
+}
+
+export async function getRuntimeSavedGroup(
+  key: string,
+  organization: string
+): Promise<SavedGroupInterface | null> {
+  const savedGroup = await SavedGroupModel.findOne({
+    attributeKey: key,
+    source: "runtime",
     organization: organization,
   });
 
@@ -130,5 +152,6 @@ export function toSavedGroupApiInterface(
     dateCreated: savedGroup.dateCreated.toISOString(),
     dateUpdated: savedGroup.dateUpdated.toISOString(),
     owner: savedGroup.owner || "",
+    source: savedGroup.source,
   };
 }

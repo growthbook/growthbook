@@ -5,12 +5,12 @@ import {
   DEFAULT_STATS_ENGINE,
 } from "shared/constants";
 import { getSnapshotAnalysis } from "shared/util";
+import { isBinomialMetric } from "shared/experiments";
 import { APP_ORIGIN } from "../util/secrets";
 import { findSnapshotById } from "../models/ExperimentSnapshotModel";
 import { getExperimentById } from "../models/ExperimentModel";
-import { getMetricsByDatasource } from "../models/MetricModel";
+import { getMetricMap } from "../models/MetricModel";
 import { getDataSourceById } from "../models/DataSourceModel";
-import { MetricInterface } from "../../types/metric";
 import { ExperimentReportArgs } from "../../types/report";
 import { getReportById } from "../models/ReportModel";
 import { Queries } from "../../types/query";
@@ -114,11 +114,7 @@ export async function generateNotebook(
   }
 
   // Get metrics
-  const metrics = await getMetricsByDatasource(datasource.id, organization);
-  const metricMap: Map<string, MetricInterface> = new Map();
-  metrics.forEach((m: MetricInterface) => {
-    metricMap.set(m.id, m);
-  });
+  const metricMap = await getMetricMap(organization);
 
   // Get queries
   const queries = await getQueryData(queryPointers, organization);
@@ -139,8 +135,8 @@ export async function generateNotebook(
           name: metric.name,
           sql: q.query,
           inverse: !!metric.inverse,
-          ignore_nulls: !!metric.ignoreNulls,
-          type: metric.type,
+          ignore_nulls: "ignoreNulls" in metric && !!metric.ignoreNulls,
+          type: isBinomialMetric(metric) ? "binomial" : "count",
         };
       })
       .filter(Boolean),
@@ -155,13 +151,27 @@ export async function generateNotebook(
   }).replace(/\\/g, "\\\\");
 
   const statsEngine = args.statsEngine || DEFAULT_STATS_ENGINE;
-  const configString =
-    statsEngine === "frequentist" && (args.sequentialTestingEnabled ?? false)
-      ? `{'sequential': True, 'sequential_tuning_parameter': ${
-          args.sequentialTestingTuningParameter ??
+  const configStrings: string[] = [];
+
+  if (
+    statsEngine === "frequentist" &&
+    (args.sequentialTestingEnabled ?? false)
+  ) {
+    configStrings.push(`'sequential': True`);
+    configStrings.push(
+      `'sequential_tuning_parameter': ${Number(
+        args.sequentialTestingTuningParameter ??
           DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER
-        }}`
-      : "{}";
+      )}`
+    );
+  }
+  if (args.pValueThreshold !== undefined) {
+    configStrings.push(`'alpha': ${Number(args.pValueThreshold)}`);
+  }
+  const configString = `{${
+    configStrings.length ? configStrings.join(", ") : ""
+  }}`;
+
   const result = await promisify(PythonShell.runString)(
     `
 from gbstats.gen_notebook import create_notebook

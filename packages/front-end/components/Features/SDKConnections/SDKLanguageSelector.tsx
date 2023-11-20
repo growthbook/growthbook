@@ -61,11 +61,6 @@ export default function SDKLanguageSelector({
 }) {
   const selected = new Set(value);
 
-  // If no languages are selected, select "other"
-  if (!multiple && !selected.size) {
-    selected.add("other");
-  }
-
   // If the selected language(s) are not in the "limitLanguages" list, add them
   if (limitLanguages) {
     limitLanguages = Array.from(new Set([...limitLanguages, ...value]));

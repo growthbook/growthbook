@@ -57,7 +57,7 @@ export default function ReportPage() {
 
   const [editModalOpen, setEditModalOpen] = useState(false);
 
-  const { getMetricById, getDatasourceById } = useDefinitions();
+  const { getExperimentMetricById, getDatasourceById } = useDefinitions();
   const { data, error, mutate } = useApi<{ report: ReportInterface }>(
     `/report/${rid}`
   );
@@ -579,6 +579,7 @@ export default function ReportPage() {
                           report.args.metricRegressionAdjustmentStatuses
                         }
                         sequentialTestingEnabled={sequentialTestingEnabled}
+                        differenceType={"relative"}
                         isTabActive={true}
                       />
                     </div>
@@ -617,7 +618,7 @@ export default function ReportPage() {
                           <div className="row">
                             {/* @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'. */}
                             {report.args.guardrails.map((g) => {
-                              const metric = getMetricById(g);
+                              const metric = getExperimentMetricById(g);
                               if (!metric) return "";
 
                               const data =

@@ -16,10 +16,15 @@ export type CommercialFeature =
   | "pipeline-mode"
   | "audit-logging"
   | "visual-editor"
+  | "archetypes"
   | "cloud-proxy"
   | "hash-secure-attributes"
   | "livechat"
-  | "json-validation";
+  | "json-validation"
+  | "remote-evaluation"
+  | "multi-org"
+  | "custom-launch-checklist"
+  | "teams";
 export type CommercialFeaturesMap = Record<AccountPlan, Set<CommercialFeature>>;
 
 export type LicenseData = {
@@ -60,9 +65,11 @@ export const accountFeatures: CommercialFeaturesMap = {
     "regression-adjustment",
     "sequential-testing",
     "visual-editor",
+    "archetypes",
     "cloud-proxy",
     "hash-secure-attributes",
     "livechat",
+    "remote-evaluation",
   ]),
   pro_sso: new Set<CommercialFeature>([
     "sso",
@@ -73,9 +80,11 @@ export const accountFeatures: CommercialFeaturesMap = {
     "regression-adjustment",
     "sequential-testing",
     "visual-editor",
+    "archetypes",
     "cloud-proxy",
     "hash-secure-attributes",
     "livechat",
+    "remote-evaluation",
   ]),
   enterprise: new Set<CommercialFeature>([
     "sso",
@@ -88,10 +97,15 @@ export const accountFeatures: CommercialFeaturesMap = {
     "sequential-testing",
     "pipeline-mode",
     "visual-editor",
+    "archetypes",
     "cloud-proxy",
     "hash-secure-attributes",
     "json-validation",
     "livechat",
+    "remote-evaluation",
+    "multi-org",
+    "teams",
+    "custom-launch-checklist",
   ]),
 };
 
@@ -196,6 +210,15 @@ export async function getVerifiedLicenseData(key: string) {
   ) {
     throw new Error(`Your License Key does not support SSO.`);
   }
+  // Trying to use IS_MULTI_ORG, but the plan doesn't support it
+  if (
+    process.env.IS_MULTI_ORG &&
+    !planHasPremiumFeature(decodedLicense.plan, "multi-org")
+  ) {
+    throw new Error(
+      `Your License Key does not support multiple organizations.`
+    );
+  }
 
   // If the public key failed to load, just assume the license is valid
   const publicKey = await getPublicKey();
@@ -228,14 +251,21 @@ export async function getVerifiedLicenseData(key: string) {
 }
 
 let licenseData: LicenseData | null = null;
+// in-memory cache to avoid hitting the license server on every request
+const keyToLicenseData: Record<string, LicenseData> = {};
 
 export async function licenseInit(licenseKey?: string) {
   const key = licenseKey || LICENSE_KEY || null;
+
   if (!key) {
     licenseData = null;
     return;
   }
+
+  if (key && keyToLicenseData[key]) return keyToLicenseData[key];
+
   licenseData = await getVerifiedLicenseData(key);
+  keyToLicenseData[key] = licenseData;
 }
 
 export function getLicense() {

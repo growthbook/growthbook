@@ -255,12 +255,14 @@ export const createVisualChangeset = async ({
   organization,
   urlPatterns,
   editorUrl,
+  visualChanges,
   user,
 }: {
   experiment: ExperimentInterface;
   organization: OrganizationInterface;
   urlPatterns: VisualChangesetURLPattern[];
   editorUrl: VisualChangesetInterface["editorUrl"];
+  visualChanges?: VisualChange[];
   user: EventAuditUser;
 }): Promise<VisualChangesetInterface> => {
   const visualChangeset = toInterface(
@@ -270,7 +272,8 @@ export const createVisualChangeset = async ({
       organization: organization.id,
       urlPatterns,
       editorUrl,
-      visualChanges: experiment.variations.map(genNewVisualChange),
+      visualChanges:
+        visualChanges || experiment.variations.map(genNewVisualChange),
     })
   );
 

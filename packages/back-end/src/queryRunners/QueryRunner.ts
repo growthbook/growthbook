@@ -13,10 +13,12 @@ import {
   updateQuery,
 } from "../models/QueryModel";
 import {
+  ExternalIdCallback,
   QueryResponse,
   SourceIntegrationInterface,
 } from "../types/Integration";
 import { logger } from "../util/logger";
+import { promiseAllChunks } from "../util/promise";
 
 export type QueryMap = Map<string, QueryInterface>;
 
@@ -44,7 +46,10 @@ export type StartQueryParams<Rows, ProcessedRows> = {
   name: string;
   query: string;
   dependencies: string[];
-  run: (query: string) => Promise<QueryResponse<Rows>>;
+  run: (
+    query: string,
+    setExternalId: ExternalIdCallback
+  ) => Promise<QueryResponse<Rows>>;
   process: (rows: Rows) => ProcessedRows;
 };
 
@@ -84,7 +89,10 @@ export abstract class QueryRunner<
   public error = "";
   public runCallbacks: {
     [key: string]: {
-      run: (query: string) => Promise<QueryResponse<RowsType>>;
+      run: (
+        query: string,
+        setExternalId: ExternalIdCallback
+      ) => Promise<QueryResponse<RowsType>>;
       process: (rows: RowsType) => ProcessedRowsType;
     };
   } = {};
@@ -144,7 +152,7 @@ export abstract class QueryRunner<
     this.model.queries = queries;
 
     // If already finished (queries were cached)
-    let error: string | undefined = undefined;
+    let error = "";
     let result: Result | undefined = undefined;
 
     const queryStatus = this.getOverallQueryStatus();
@@ -359,6 +367,35 @@ export abstract class QueryRunner<
         (q) => q.status === "running" || q.status === "queued"
       )
     ) {
+      const runningIds = this.model.queries
+        .filter((q) => q.status === "running")
+        .map((q) => q.query);
+
+      if (runningIds.length) {
+        const queryDocs = await getQueriesByIds(
+          this.model.organization,
+          runningIds
+        );
+
+        const externalIds = queryDocs.map((q) => q.externalId).filter(Boolean);
+
+        if (externalIds.length) {
+          await promiseAllChunks(
+            externalIds.map((id) => {
+              return async () => {
+                if (!id || !this.integration.cancelQuery) return;
+                try {
+                  await this.integration.cancelQuery(id);
+                } catch (e) {
+                  logger.debug(`Failed to cancel query - ${e.message}`);
+                }
+              };
+            }),
+            5
+          );
+        }
+      }
+
       const newModel = await this.updateModel({
         queries: [],
         status: "failed",
@@ -375,7 +412,10 @@ export abstract class QueryRunner<
     ProcessedRows extends ProcessedRowsType
   >(
     doc: QueryInterface,
-    run: (query: string) => Promise<QueryResponse<Rows>>,
+    run: (
+      query: string,
+      setExternalId: ExternalIdCallback
+    ) => Promise<QueryResponse<Rows>>,
     process: (rows: Rows) => ProcessedRows
   ): Promise<void> {
     // Update heartbeat for the query once every 30 seconds
@@ -395,7 +435,13 @@ export abstract class QueryRunner<
       });
     }
 
-    run(doc.query)
+    const setExternalId = async (id: string) => {
+      await updateQuery(doc, {
+        externalId: id,
+      });
+    };
+
+    run(doc.query, setExternalId)
       .then(async ({ rows, statistics }) => {
         clearInterval(timer);
         logger.debug("Query succeeded");

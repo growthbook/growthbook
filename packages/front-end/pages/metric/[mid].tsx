@@ -23,10 +23,10 @@ import LoadingOverlay from "@/components/LoadingOverlay";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import { useAuth } from "@/services/auth";
 import {
-  formatConversionRate,
   defaultWinRiskThreshold,
   defaultLoseRiskThreshold,
   checkMetricProjectPermissions,
+  getMetricFormatter,
 } from "@/services/metrics";
 import MetricForm from "@/components/Metrics/MetricForm";
 import Tabs from "@/components/Tabs/Tabs";
@@ -684,10 +684,11 @@ const MetricPage: FC = () => {
                           {metric.type !== "binomial" && (
                             <div className="d-flex flex-row align-items-end">
                               <div style={{ fontSize: "2.5em" }}>
-                                {formatConversionRate(
-                                  metric.type,
+                                {getMetricFormatter(metric.type)(
                                   analysis.average,
-                                  displayCurrency
+                                  {
+                                    currency: displayCurrency,
+                                  }
                                 )}
                               </div>
                               <div className="pb-2 ml-1">average</div>

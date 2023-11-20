@@ -21,6 +21,7 @@ offset:
   schema:
     type: integer
     min: 0
+    default: 0
 projectId:
   name: projectId
   in: query

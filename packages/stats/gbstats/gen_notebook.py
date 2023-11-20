@@ -50,7 +50,6 @@ def create_notebook(
         "baseline_name",
         "baseline_users",
         "baseline_cr",
-        "baseline_risk",
     ]
     for i in range(1, len(var_names)):
         summary_cols.append(f"v{i}_name")
@@ -59,10 +58,8 @@ def create_notebook(
         summary_cols.append(f"v{i}_expected")
         summary_cols.append(f"v{i}_ci")
         if stats_engine == StatsEngine.BAYESIAN:
-            summary_cols.append(f"v{i}_risk")
             summary_cols.append(f"v{i}_prob_beat_baseline")
         elif stats_engine == StatsEngine.FREQUENTIST:
-
             summary_cols.append(f"v{i}_p_value")
 
     time_series: str = (
@@ -126,6 +123,10 @@ def create_notebook(
                 ),
             )
         )
+        if len(metric["rows"]) == 0:
+            cells.append(nbf.new_markdown_cell("No data for this metric"))
+            continue
+
         cells.append(nbf.new_markdown_cell("### Data Quality Checks / Preparation"))
 
         if dimension == "pre:datedaily":

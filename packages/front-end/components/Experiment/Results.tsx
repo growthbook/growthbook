@@ -1,10 +1,11 @@
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import React, { FC, useEffect } from "react";
 import dynamic from "next/dynamic";
-import { StatsEngine } from "back-end/types/stats";
+import { DifferenceType, StatsEngine } from "back-end/types/stats";
 import { MetricRegressionAdjustmentStatus } from "back-end/types/report";
 import { getValidDate, ago } from "shared/dates";
 import { DEFAULT_STATS_ENGINE } from "shared/constants";
+import { ExperimentMetricInterface } from "shared/experiments";
 import { ExperimentSnapshotInterface } from "@/../back-end/types/experiment-snapshot";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import usePermissions from "@/hooks/usePermissions";
@@ -46,6 +47,10 @@ const Results: FC<{
   setVariationFilter?: (variationFilter: number[]) => void;
   baselineRow?: number;
   setBaselineRow?: (baselineRow: number) => void;
+  differenceType?: DifferenceType;
+  setDifferenceType?: (differenceType: DifferenceType) => void;
+  metricFilter?: ResultsMetricFilters;
+  setMetricFilter?: (metricFilter: ResultsMetricFilters) => void;
   isTabActive?: boolean;
 }> = ({
   experiment,
@@ -66,12 +71,12 @@ const Results: FC<{
   setVariationFilter,
   baselineRow,
   setBaselineRow,
+  differenceType,
+  setDifferenceType,
+  metricFilter,
+  setMetricFilter,
   isTabActive = true,
 }) => {
-  // // todo: give these a proper home
-  // const [baselineRow, setBaselineRow] = React.useState<number>(0);
-  // const [variationFilter, setVariationFilter] = React.useState<number[]>([]);
-
   const { apiCall } = useAuth();
 
   // todo: move to snapshot property
@@ -185,6 +190,8 @@ const Results: FC<{
           setVariationFilter={(v: number[]) => setVariationFilter?.(v)}
           baselineRow={baselineRow}
           setBaselineRow={(b: number) => setBaselineRow?.(b)}
+          differenceType={differenceType}
+          setDifferenceType={setDifferenceType}
         />
       ) : (
         <StatusBanner
@@ -314,6 +321,9 @@ const Results: FC<{
             snapshotMetricRegressionAdjustmentStatuses
           }
           sequentialTestingEnabled={analysis?.settings?.sequentialTesting}
+          differenceType={analysis.settings?.differenceType}
+          metricFilter={metricFilter}
+          setMetricFilter={setMetricFilter}
         />
       ) : showCompactResults ? (
         <>
@@ -349,6 +359,9 @@ const Results: FC<{
               snapshotMetricRegressionAdjustmentStatuses
             }
             sequentialTestingEnabled={analysis.settings?.sequentialTesting}
+            differenceType={analysis.settings?.differenceType}
+            metricFilter={metricFilter}
+            setMetricFilter={setMetricFilter}
             isTabActive={isTabActive}
           />
         </>
@@ -412,3 +425,76 @@ const Results: FC<{
 };
 
 export default Results;
+
+// given an ordered list of tags, sort the metrics by their tags
+export type ResultsMetricFilters = {
+  tagOrder?: string[];
+  filterByTag?: boolean;
+  tagFilter?: string[] | null; // if null, use tagOrder
+};
+export function sortAndFilterMetricsByTags(
+  metrics: ExperimentMetricInterface[],
+  filters?: ResultsMetricFilters
+): string[] {
+  let { tagOrder, filterByTag, tagFilter } = filters || {};
+  // normalize input
+  if (!tagOrder) tagOrder = [];
+  if (!filterByTag) filterByTag = false;
+  if (!tagFilter) tagFilter = null;
+
+  if (filterByTag && !tagFilter) {
+    tagFilter = tagOrder;
+  }
+  const sortedMetrics: string[] = [];
+
+  const metricsByTag: Record<string, string[]> = {};
+  const metricDefs: Record<string, ExperimentMetricInterface> = {};
+
+  // get all possible tags from the metric definitions
+  const tagsInMetrics: Set<string> = new Set();
+  metrics.forEach((metric) => {
+    if (!metric) return;
+    metricDefs[metric.id] = metric;
+    metric.tags?.forEach((tag) => {
+      tagsInMetrics.add(tag);
+    });
+  });
+
+  // reduce tagOrder to only the tags that are in the metrics
+  tagOrder = tagOrder.filter((tag) => tagsInMetrics.has(tag));
+
+  // using tagOrder, build our initial set of sorted metrics
+  if (tagOrder?.length) {
+    tagOrder.forEach((tag) => {
+      metricsByTag[tag] = [];
+      for (const metricId in metricDefs) {
+        const metric = metricDefs[metricId];
+        if (metric.tags?.includes(tag)) {
+          if (filterByTag && !tagFilter?.includes(tag)) {
+            continue;
+          }
+          // pick out the metrics that match the tag
+          metricsByTag[tag].push(metricId);
+          delete metricDefs[metricId];
+        }
+      }
+    });
+    for (const tag in metricsByTag) {
+      sortedMetrics.push(...metricsByTag[tag]);
+    }
+  }
+
+  // add any remaining metrics to the end
+  for (const metricId in metricDefs) {
+    const metric = metricDefs[metricId];
+    if (filterByTag) {
+      if (metric.tags?.some((tag) => tagFilter?.includes(tag))) {
+        sortedMetrics.push(metricId);
+      }
+    } else {
+      sortedMetrics.push(metricId);
+    }
+  }
+
+  return sortedMetrics;
+}

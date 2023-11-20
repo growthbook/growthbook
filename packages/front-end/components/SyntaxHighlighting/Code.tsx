@@ -1,5 +1,5 @@
 import clsx from "clsx";
-import React, { Suspense, useState } from "react";
+import React, { ReactElement, Suspense, useState } from "react";
 import { FaCompressAlt, FaExpandAlt } from "react-icons/fa";
 import cloneDeep from "lodash/cloneDeep";
 import dynamic from "next/dynamic";
@@ -61,7 +61,7 @@ export default function Code({
   className?: string;
   expandable?: boolean;
   containerClassName?: string;
-  filename?: string;
+  filename?: string | ReactElement;
   errorLine?: number;
 }) {
   language = language || "none";

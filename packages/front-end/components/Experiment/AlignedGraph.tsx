@@ -41,6 +41,7 @@ interface Props
   className?: string;
   rowStatus?: string;
   isHovered?: boolean;
+  percent?: boolean;
   onMouseMove?: (e: React.MouseEvent<SVGPathElement>) => void;
   onMouseLeave?: (e: React.MouseEvent<SVGPathElement>) => void;
   onClick?: (e: React.MouseEvent<SVGPathElement, MouseEvent>) => void;
@@ -86,6 +87,7 @@ const AlignedGraph: FC<Props> = ({
   className,
   rowStatus,
   isHovered = false,
+  percent = true,
   onMouseMove,
   onMouseLeave,
   onClick,
@@ -138,8 +140,13 @@ const AlignedGraph: FC<Props> = ({
 
   const domainWidth = rightDomain - leftDomain;
 
+  const numberFormatter = Intl.NumberFormat(undefined, {
+    ...(domainWidth > 5000 ? { notation: "compact" } : {}),
+  });
   const tickFormat = (v: number) => {
-    return domainWidth < 0.05
+    return !percent
+      ? numberFormatter.format(v)
+      : domainWidth < 0.05
       ? smallPercentFormatter.format(v)
       : percentFormatter.format(v);
   };
@@ -204,6 +211,8 @@ const AlignedGraph: FC<Props> = ({
     }
   }
 
+  const maskId = "mask_" + id;
+
   return (
     <>
       <div
@@ -226,8 +235,8 @@ const AlignedGraph: FC<Props> = ({
                 });
                 return (
                   <svg width={graphWidth} height={height} className="d-block">
-                    {gradient.length > 0 && (
-                      <defs>
+                    <defs>
+                      {gradient.length > 0 && (
                         <linearGradient
                           id={gradientId}
                           x1="0%"
@@ -243,8 +252,33 @@ const AlignedGraph: FC<Props> = ({
                             />
                           ))}
                         </linearGradient>
-                      </defs>
-                    )}
+                      )}
+                      <mask id={maskId}>
+                        <linearGradient
+                          id={maskId + "_grad"}
+                          x1="0%"
+                          y1="0%"
+                          x2="100%"
+                          y2="0%"
+                        >
+                          {(ci?.[0] ?? 0) < domain[0] && (
+                            <stop offset="0%" stopColor="#222" />
+                          )}
+                          <stop offset="5%" stopColor="#fff" />
+                          <stop offset="95%" stopColor="#fff" />
+                          {(ci?.[1] ?? 0) > domain[1] && (
+                            <stop offset="100%" stopColor="#222" />
+                          )}
+                        </linearGradient>
+                        <rect
+                          x={0}
+                          y={0}
+                          width={graphWidth}
+                          height={height}
+                          fill={`url(#${maskId}_grad)`}
+                        />
+                      </mask>
+                    </defs>
                     {!showAxis && (
                       <>
                         <GridColumns
@@ -345,6 +379,7 @@ const AlignedGraph: FC<Props> = ({
                                 ? violinOpacitySignificant
                                 : violinOpacityNotSignificant
                             }
+                            mask={`url(#${maskId})`}
                           />
                         )}
                         {barType === "pill" && (
@@ -356,13 +391,17 @@ const AlignedGraph: FC<Props> = ({
                               hover: isHovered,
                             })}
                             style={{ transition: "100ms all" }}
-                            x={xScale(ci?.[0] ?? 0)}
+                            x={xScale(Math.max(ci?.[0] ?? 0, domain[0] - 0.1))}
                             y={barHeight}
-                            width={xScale(ci?.[1] ?? 0) - xScale(ci?.[0] ?? 0)}
+                            width={
+                              xScale(Math.min(ci?.[1] ?? 0, domain[1] + 0.1)) -
+                              xScale(Math.max(ci?.[0] ?? 0, domain[0] - 0.1))
+                            }
                             height={barThickness}
                             fill={barFill}
                             fillOpacity={0.8}
                             rx={newUi ? 10 : 8}
+                            mask={`url(#${maskId})`}
                           />
                         )}
                         <Line
@@ -391,7 +430,9 @@ const AlignedGraph: FC<Props> = ({
                 {(expected ?? 0) > 0 ? <FaArrowUp /> : <FaArrowDown />}
               </span>{" "}
               <span className="expected bold">
-                {parseFloat(((expected ?? 0) * 100).toFixed(1)) + "%"}{" "}
+                {parseFloat(
+                  ((expected ?? 0) * (percent ? 100 : 1)).toFixed(1)
+                ) + (percent ? "%" : "")}{" "}
               </span>
             </div>
           </>

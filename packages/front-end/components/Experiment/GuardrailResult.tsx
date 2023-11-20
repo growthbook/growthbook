@@ -7,9 +7,9 @@ import {
   FaExclamationTriangle,
   FaQuestionCircle,
 } from "react-icons/fa";
-import { MetricInterface } from "back-end/types/metric";
 import { ExperimentReportVariation } from "back-end/types/report";
 import Link from "next/link";
+import { ExperimentMetricInterface, getMetricLink } from "shared/experiments";
 import Tooltip from "../Tooltip/Tooltip";
 import MetricTooltipBody from "../Metrics/MetricTooltipBody";
 import MetricValueColumn from "./MetricValueColumn";
@@ -29,7 +29,7 @@ export function hasEnoughData(value1: number, value2: number): boolean {
 const GuardrailResults: FC<{
   data: SnapshotVariation[];
   variations: ExperimentReportVariation[];
-  metric: MetricInterface;
+  metric: ExperimentMetricInterface;
 }> = ({ data, variations, metric }) => {
   let status: "danger" | "success" | "warning" | "secondary" = "secondary";
 
@@ -73,7 +73,7 @@ const GuardrailResults: FC<{
           body={<MetricTooltipBody metric={metric} />}
           tipPosition="right"
         >
-          <Link href={`/metric/${metric.id}`}>
+          <Link href={getMetricLink(metric.id)}>
             <a className="text-black-50 font-weight-bold">{metric.name}</a>
           </Link>
         </Tooltip>

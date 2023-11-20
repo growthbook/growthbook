@@ -17,6 +17,9 @@ import SelectField from "../Forms/SelectField";
 import Toggle from "../Forms/Toggle";
 import Tooltip from "../Tooltip/Tooltip";
 import { DocLink } from "../DocLink";
+import SavedGroupTargetingField, {
+  validateSavedGroupTargeting,
+} from "../Features/SavedGroupTargetingField";
 import HashVersionSelector, {
   NewBucketingSDKList,
 } from "./HashVersionSelector";
@@ -40,6 +43,7 @@ export default function EditTargetingModal({
   const form = useForm<ExperimentTargetingData>({
     defaultValues: {
       condition: lastPhase?.condition ?? "",
+      savedGroups: lastPhase?.savedGroups ?? [],
       coverage: lastPhase?.coverage ?? 1,
       hashAttribute: experiment.hashAttribute || "id",
       hashVersion: experiment.hashVersion || 2,
@@ -68,6 +72,7 @@ export default function EditTargetingModal({
   const coverage = form.watch("coverage");
   const condition = form.watch("condition");
   const namespace = form.watch("namespace");
+  const savedGroups = form.watch("savedGroups");
   const encodedVariationWeights = JSON.stringify(variationWeights);
   const encodedNamespace = JSON.stringify(namespace);
   const isNamespaceEnabled = namespace.enabled;
@@ -89,6 +94,15 @@ export default function EditTargetingModal({
     // There are some edge cases with '$or' that are not handled correctly, but those are super rare
     const strippedCondition = condition.slice(1).slice(0, -1);
     if (!(lastPhase.condition || "").includes(strippedCondition)) {
+      return true;
+    }
+
+    // Changing saved groups
+    // TODO: certain changes should be safe, so make this logic smarter
+    if (
+      JSON.stringify(savedGroups || []) !==
+      JSON.stringify(lastPhase.savedGroups || [])
+    ) {
       return true;
     }
 
@@ -114,6 +128,7 @@ export default function EditTargetingModal({
     condition,
     isNamespaceEnabled,
     encodedNamespace,
+    savedGroups,
     safeToEdit,
   ]);
 
@@ -128,6 +143,8 @@ export default function EditTargetingModal({
       close={close}
       header={`Edit Targeting`}
       submit={form.handleSubmit(async (value) => {
+        validateSavedGroupTargeting(value.savedGroups);
+
         await apiCall(`/experiment/${experiment.id}/targeting`, {
           method: "POST",
           body: JSON.stringify(value),
@@ -176,6 +193,10 @@ export default function EditTargetingModal({
           Visual Editor changes immediately upon saving.
         </div>
       )}
+      <SavedGroupTargetingField
+        value={savedGroups || []}
+        setValue={(savedGroups) => form.setValue("savedGroups", savedGroups)}
+      />
       <ConditionInput
         defaultValue={form.watch("condition")}
         onChange={(condition) => form.setValue("condition", condition)}

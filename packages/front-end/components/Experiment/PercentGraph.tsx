@@ -1,6 +1,6 @@
 import { SnapshotMetric } from "back-end/types/experiment-snapshot";
-import { MetricInterface } from "back-end/types/metric";
 import React, { DetailedHTMLProps, HTMLAttributes } from "react";
+import { ExperimentMetricInterface } from "shared/experiments";
 import useConfidenceLevels from "@/hooks/useConfidenceLevels";
 import { hasEnoughData, isStatSig } from "@/services/experiments";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
@@ -9,7 +9,7 @@ import AlignedGraph from "./AlignedGraph";
 
 interface Props
   extends DetailedHTMLProps<HTMLAttributes<SVGPathElement>, SVGPathElement> {
-  metric: MetricInterface;
+  metric: ExperimentMetricInterface;
   baseline: SnapshotMetric;
   stats: SnapshotMetric;
   domain: [number, number];
@@ -22,6 +22,7 @@ interface Props
   newUi?: boolean;
   className?: string;
   isHovered?: boolean;
+  percent?: boolean;
   onMouseMove?: (e: React.MouseEvent<SVGPathElement>) => void;
   onMouseLeave?: (e: React.MouseEvent<SVGPathElement>) => void;
   onClick?: (e: React.MouseEvent<SVGPathElement, MouseEvent>) => void;
@@ -42,6 +43,7 @@ export default function PercentGraph({
   newUi = false,
   className,
   isHovered = false,
+  percent = true,
   onMouseMove,
   onMouseLeave,
   onClick,
@@ -71,7 +73,7 @@ export default function PercentGraph({
 
   return (
     <AlignedGraph
-      ci={showGraph ? stats.ci || [] : [0, 0]}
+      ci={showGraph ? stats?.ciAdjusted ?? stats.ci ?? [] : [0, 0]}
       id={id}
       domain={domain}
       uplift={showGraph ? stats.uplift : undefined}
@@ -87,6 +89,7 @@ export default function PercentGraph({
       newUi={newUi}
       className={className}
       isHovered={isHovered}
+      percent={percent}
       onMouseMove={onMouseMove}
       onMouseLeave={onMouseLeave}
       onClick={onClick}

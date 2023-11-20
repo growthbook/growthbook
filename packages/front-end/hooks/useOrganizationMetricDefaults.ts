@@ -1,6 +1,5 @@
 import { useCallback, useMemo } from "react";
 import { OrganizationSettings } from "back-end/types/organization";
-import { MetricInterface } from "back-end/types/metric";
 import useOrgSettings from "./useOrgSettings";
 
 const defaultMaxPercentChange = 0.5;
@@ -38,7 +37,9 @@ type OrganizationMetricDefaults = {
    * @param metric
    * @return number
    */
-  getMaxPercentageChangeForMetric: (metric: Partial<MetricInterface>) => number;
+  getMaxPercentageChangeForMetric: (metric: {
+    maxPercentChange?: number;
+  }) => number;
 
   /**
    * Returns the min percentage change for the provided metric,
@@ -48,7 +49,9 @@ type OrganizationMetricDefaults = {
    * @param metric
    * @return number
    */
-  getMinPercentageChangeForMetric: (metric: Partial<MetricInterface>) => number;
+  getMinPercentageChangeForMetric: (metric: {
+    minPercentChange?: number;
+  }) => number;
 
   /**
    * Returns the minimum sample size for the provided metric,
@@ -56,7 +59,7 @@ type OrganizationMetricDefaults = {
    * @param metric
    * @return number
    */
-  getMinSampleSizeForMetric: (metric: Partial<MetricInterface>) => number;
+  getMinSampleSizeForMetric: (metric: { minSampleSize?: number }) => number;
 };
 
 export type OrganizationSettingsWithMetricDefaults = Omit<
@@ -88,7 +91,7 @@ export const useOrganizationMetricDefaults = (): OrganizationMetricDefaults => {
    * @link OrganizationMetricDefaults#getMaxPercentageChangeForMetric
    */
   const getMaxPercentageChangeForMetric = useCallback(
-    (metric: Partial<MetricInterface>): number => {
+    (metric: { maxPercentChange?: number }): number => {
       const value = metric.maxPercentChange;
       if (typeof value === "number") return value;
 
@@ -101,7 +104,7 @@ export const useOrganizationMetricDefaults = (): OrganizationMetricDefaults => {
    * @link OrganizationMetricDefaults#getMinPercentageChangeForMetric
    */
   const getMinPercentageChangeForMetric = useCallback(
-    (metric: Partial<MetricInterface>): number => {
+    (metric: { minPercentChange?: number }): number => {
       const value = metric.minPercentChange;
       if (typeof value === "number") return value;
 
@@ -114,7 +117,7 @@ export const useOrganizationMetricDefaults = (): OrganizationMetricDefaults => {
    * @link OrganizationMetricDefaults#getMinSampleSizeForMetric
    */
   const getMinSampleSizeForMetric = useCallback(
-    (metric: Partial<MetricInterface>): number => {
+    (metric: { minSampleSize?: number }): number => {
       const value = metric.minSampleSize;
       if (typeof value === "number") return value;
 

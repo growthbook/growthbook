@@ -56,10 +56,21 @@ export const postSDKConnection = async (
     hashSecureAttributes = params.hashSecureAttributes;
   }
 
+  let remoteEvalEnabled = false;
+  if (orgHasPremiumFeature(org, "remote-evaluation")) {
+    remoteEvalEnabled = params.remoteEvalEnabled || false;
+  }
+
+  if (remoteEvalEnabled) {
+    encryptPayload = false;
+    hashSecureAttributes = false;
+  }
+
   const doc = await createSDKConnection({
     ...params,
     encryptPayload,
     hashSecureAttributes,
+    remoteEvalEnabled,
     organization: org.id,
   });
 
@@ -103,10 +114,21 @@ export const putSDKConnection = async (
     hashSecureAttributes = req.body.hashSecureAttributes || false;
   }
 
+  let remoteEvalEnabled = false;
+  if (orgHasPremiumFeature(org, "remote-evaluation")) {
+    remoteEvalEnabled = req.body.remoteEvalEnabled || false;
+  }
+
+  if (remoteEvalEnabled) {
+    encryptPayload = false;
+    hashSecureAttributes = false;
+  }
+
   await editSDKConnection(connection, {
     ...req.body,
     encryptPayload,
     hashSecureAttributes,
+    remoteEvalEnabled,
   });
 
   res.status(200).json({

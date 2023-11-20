@@ -6,22 +6,33 @@ import {
   MetricRegressionAdjustmentStatus,
 } from "back-end/types/report";
 import { ExperimentStatus, MetricOverride } from "back-end/types/experiment";
-import { PValueCorrection, StatsEngine } from "back-end/types/stats";
+import {
+  DifferenceType,
+  PValueCorrection,
+  StatsEngine,
+} from "back-end/types/stats";
 import Link from "next/link";
 import { FaAngleRight, FaTimes, FaUsers } from "react-icons/fa";
-import { MetricInterface } from "back-end/types/metric";
 import Collapsible from "react-collapsible";
+import { ExperimentMetricInterface, getMetricLink } from "shared/experiments";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import {
   applyMetricOverrides,
   setAdjustedPValuesOnResults,
   ExperimentTableRow,
   useRiskVariation,
+  setAdjustedCIs,
 } from "@/services/experiments";
 import { GBCuped } from "@/components/Icons";
 import { QueryStatusData } from "@/components/Queries/RunQueriesButton";
+import {
+  ResultsMetricFilters,
+  sortAndFilterMetricsByTags,
+} from "@/components/Experiment/Results";
+import usePValueThreshold from "@/hooks/usePValueThreshold";
 import Tooltip from "../Tooltip/Tooltip";
 import MetricTooltipBody from "../Metrics/MetricTooltipBody";
+import FactBadge from "../FactTables/FactBadge";
 import DataQualityWarning from "./DataQualityWarning";
 import ResultsTable from "./ResultsTable";
 import MultipleExposureWarning from "./MultipleExposureWarning";
@@ -50,6 +61,9 @@ const CompactResults: FC<{
   regressionAdjustmentEnabled?: boolean;
   metricRegressionAdjustmentStatuses?: MetricRegressionAdjustmentStatus[];
   sequentialTestingEnabled?: boolean;
+  differenceType: DifferenceType;
+  metricFilter?: ResultsMetricFilters;
+  setMetricFilter?: (filter: ResultsMetricFilters) => void;
   isTabActive: boolean;
 }> = ({
   editMetrics,
@@ -72,9 +86,13 @@ const CompactResults: FC<{
   regressionAdjustmentEnabled,
   metricRegressionAdjustmentStatuses,
   sequentialTestingEnabled,
+  differenceType,
+  metricFilter,
+  setMetricFilter,
   isTabActive,
 }) => {
-  const { getMetricById, ready } = useDefinitions();
+  const { getExperimentMetricById, ready } = useDefinitions();
+  const pValueThreshold = usePValueThreshold();
 
   const [totalUsers, variationUsers] = useMemo(() => {
     let totalUsers = 0;
@@ -87,9 +105,21 @@ const CompactResults: FC<{
     return [totalUsers, variationUsers];
   }, [results]);
 
+  const allMetricTags = useMemo(() => {
+    const allMetricTagsSet: Set<string> = new Set();
+    [...metrics, ...guardrails].forEach((metricId) => {
+      const metric = getExperimentMetricById(metricId);
+      metric?.tags?.forEach((tag) => {
+        allMetricTagsSet.add(tag);
+      });
+    });
+    return [...allMetricTagsSet];
+  }, [metrics, guardrails, getExperimentMetricById]);
+
   const rows = useMemo<ExperimentTableRow[]>(() => {
     function getRow(metricId: string, isGuardrail: boolean) {
-      const metric = getMetricById(metricId);
+      const metric = getExperimentMetricById(metricId);
+
       if (!metric) return null;
       const { newMetric, overrideFields } = applyMetricOverrides(
         metric,
@@ -119,11 +149,29 @@ const CompactResults: FC<{
     if (!results || !results.variations || !ready) return [];
     if (pValueCorrection && statsEngine === "frequentist") {
       setAdjustedPValuesOnResults([results], metrics, pValueCorrection);
+      setAdjustedCIs([results], pValueThreshold);
     }
-    const retMetrics = metrics
+
+    const metricDefs = metrics
+      .map((metricId) => getExperimentMetricById(metricId))
+      .filter(Boolean) as ExperimentMetricInterface[];
+    const sortedFilteredMetrics = sortAndFilterMetricsByTags(
+      metricDefs,
+      metricFilter
+    );
+
+    const guardrailDefs = guardrails
+      .map((metricId) => getExperimentMetricById(metricId))
+      .filter(Boolean) as ExperimentMetricInterface[];
+    const sortedFilteredGuardrails = sortAndFilterMetricsByTags(
+      guardrailDefs,
+      metricFilter
+    );
+
+    const retMetrics = sortedFilteredMetrics
       .map((metricId) => getRow(metricId, false))
       .filter((row) => row?.metric) as ExperimentTableRow[];
-    const retGuardrails = guardrails
+    const retGuardrails = sortedFilteredGuardrails
       .map((metricId) => getRow(metricId, true))
       .filter((row) => row?.metric) as ExperimentTableRow[];
     return [...retMetrics, ...retGuardrails];
@@ -135,9 +183,11 @@ const CompactResults: FC<{
     regressionAdjustmentEnabled,
     metricRegressionAdjustmentStatuses,
     pValueCorrection,
-    ready,
-    getMetricById,
+    pValueThreshold,
     statsEngine,
+    ready,
+    getExperimentMetricById,
+    metricFilter,
   ]);
 
   const users = useMemo(() => {
@@ -193,7 +243,11 @@ const CompactResults: FC<{
         statsEngine={statsEngine}
         sequentialTestingEnabled={sequentialTestingEnabled}
         pValueCorrection={pValueCorrection}
+        differenceType={differenceType}
         renderLabelColumn={getRenderLabelColumn(regressionAdjustmentEnabled)}
+        metricFilter={metricFilter}
+        setMetricFilter={setMetricFilter}
+        metricTags={allMetricTags}
         isTabActive={isTabActive}
       />
 
@@ -218,9 +272,13 @@ const CompactResults: FC<{
             statsEngine={statsEngine}
             sequentialTestingEnabled={sequentialTestingEnabled}
             pValueCorrection={pValueCorrection}
+            differenceType={differenceType}
             renderLabelColumn={getRenderLabelColumn(
               regressionAdjustmentEnabled
             )}
+            metricFilter={metricFilter}
+            setMetricFilter={setMetricFilter}
+            metricTags={allMetricTags}
             isTabActive={isTabActive}
           />
         </div>
@@ -235,7 +293,7 @@ export default CompactResults;
 export function getRenderLabelColumn(regressionAdjustmentEnabled) {
   return function renderLabelColumn(
     label: string,
-    metric: MetricInterface,
+    metric: ExperimentMetricInterface,
     row: ExperimentTableRow,
     maxRows?: number
   ) {
@@ -274,8 +332,11 @@ export function getRenderLabelColumn(regressionAdjustmentEnabled) {
                 }
           }
         >
-          <Link href={`/metric/${metric.id}`}>
-            <a className="metriclabel text-dark">{label}</a>
+          <Link href={getMetricLink(metric.id)}>
+            <a className="metriclabel text-dark">
+              {label}
+              <FactBadge metricId={metric.id} />
+            </a>
           </Link>
         </span>
       </Tooltip>

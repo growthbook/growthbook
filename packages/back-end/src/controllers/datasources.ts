@@ -231,6 +231,7 @@ Revenue did not reach 95% significance, but the risk is so low it doesn't seem w
         pValueCorrection: null,
         sequentialTesting: false,
         sequentialTestingTuningParameter: 0,
+        differenceType: "relative",
         regressionAdjusted: false,
       },
       metricMap
@@ -430,7 +431,7 @@ export async function putDataSource(
       name: string;
       description?: string;
       type: DataSourceType;
-      params: DataSourceParams;
+      params?: DataSourceParams;
       settings: DataSourceSettings;
       projects?: string[];
       metricsToCreate?: { name: string; type: MetricType; sql: string }[];
@@ -512,19 +513,20 @@ export async function putDataSource(
   }
 
   try {
-    const updates: Partial<DataSourceInterface> = {
-      dateUpdated: new Date(),
-    };
+    const updates: Partial<DataSourceInterface> = { dateUpdated: new Date() };
 
     if (name) {
       updates.name = name;
     }
-    if (description) {
+
+    if ("description" in req.body) {
       updates.description = description;
     }
+
     if (settings) {
       updates.settings = settings;
     }
+
     if (projects) {
       updates.projects = projects;
     }

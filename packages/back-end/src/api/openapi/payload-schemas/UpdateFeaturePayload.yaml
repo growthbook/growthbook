@@ -1,0 +1,26 @@
+type: object
+properties:
+  description:
+    type: string
+    description: Description of the feature
+  archived:
+    type: boolean
+  project:
+    type: string
+    description: An associated project ID
+  owner:
+    type: string
+  defaultValue:
+    type: string
+  tags:
+    type: array
+    items:
+      type: string
+    description: List of associated tags. Will override tags completely with submitted list
+  environments:
+    type: object
+    additionalProperties:
+      $ref: "./postFeature/FeatureEnvironment.yaml"
+  jsonSchema:
+    type: string
+    description: Use JSON schema to validate the payload of a JSON-type feature value (enterprise only).

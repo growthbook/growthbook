@@ -1,0 +1,45 @@
+type: object
+required:
+  - id
+  - owner
+  - valueType
+  - defaultValue
+properties:
+  id:
+    type: string
+    description: A unique key name for the feature. Feature keys can only include letters, numbers, hyphens, and underscores.
+  archived:
+    type: boolean
+  description:
+    type: string
+    description: Description of the feature
+  owner:
+    type: string
+    description: Email of the person who owns this experiment
+  project:
+    type: string
+    description: An associated project ID
+  valueType:
+    type: string
+    description: The data type of the feature payload. Boolean by default.
+    enum:
+      - boolean
+      - string
+      - number
+      - json
+  defaultValue:
+    description: Default value when feature is enabled. Type must match `valueType`.
+    type: string
+  tags:
+    type: array
+    items:
+      type: string
+    description: List of associated tags
+  environments:
+    type: object
+    description: A dictionary of environments that are enabled for this feature. Keys supply the names of environments. Environments belong to organization and are not specified will be disabled by default.
+    additionalProperties:
+      $ref: "./postFeature/FeatureEnvironment.yaml"
+  jsonSchema:
+    type: string
+    description: Use JSON schema to validate the payload of a JSON-type feature value (enterprise only).

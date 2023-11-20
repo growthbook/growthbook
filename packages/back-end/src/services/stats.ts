@@ -1,42 +1,56 @@
 import { promisify } from "util";
 import { PythonShell } from "python-shell";
 import {
+  DEFAULT_P_VALUE_THRESHOLD,
   DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
-  DEFAULT_STATS_ENGINE,
+  EXPOSURE_DATE_DIMENSION_NAME,
 } from "shared/constants";
 import { putBaselineVariationFirst } from "shared/util";
-import { MetricInterface } from "../../types/metric";
-import { ExperimentMetricAnalysis, StatsEngine } from "../../types/stats";
+import { ExperimentMetricInterface } from "shared/experiments";
+import { hoursBetween } from "shared/dates";
+import { ExperimentMetricAnalysis } from "../../types/stats";
 import {
+  ExperimentAggregateUnitsQueryResponseRows,
   ExperimentMetricQueryResponseRows,
   ExperimentResults,
 } from "../types/Integration";
 import {
   ExperimentReportResultDimension,
   ExperimentReportResults,
-  ExperimentReportVariation,
 } from "../../types/report";
 import { promiseAllChunks } from "../util/promise";
 import { checkSrm } from "../util/stats";
 import { logger } from "../util/logger";
 import {
+  ExperimentMetricAnalysisParams,
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotSettings,
+  ExperimentSnapshotTraffic,
+  ExperimentSnapshotTrafficDimension,
+  SnapshotSettingsVariation,
 } from "../../types/experiment-snapshot";
 import { QueryMap } from "../queryRunners/QueryRunner";
+import { MAX_ROWS_UNIT_AGGREGATE_QUERY } from "../integrations/SqlIntegration";
 
 export const MAX_DIMENSIONS = 20;
 
 export async function analyzeExperimentMetric(
-  variations: ExperimentReportVariation[],
-  metric: MetricInterface,
-  rows: ExperimentMetricQueryResponseRows,
-  dimension: string | null = null,
-  statsEngine: StatsEngine = DEFAULT_STATS_ENGINE,
-  sequentialTestingEnabled: boolean = false,
-  sequentialTestingTuningParameter: number = DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
-  baselineVariationIndex: number | null = null
+  params: ExperimentMetricAnalysisParams
 ): Promise<ExperimentMetricAnalysis> {
+  const {
+    variations,
+    metric,
+    rows,
+    dimension,
+    baselineVariationIndex,
+    differenceType,
+    phaseLengthHours,
+    coverage,
+    statsEngine,
+    sequentialTestingEnabled,
+    sequentialTestingTuningParameter,
+    pValueThreshold,
+  } = params;
   if (!rows || !rows.length) {
     return {
       unknownVariations: [],
@@ -52,6 +66,19 @@ export async function analyzeExperimentMetric(
   sortedVariations.map((v, i) => {
     variationIdMap[v.id] = i;
   });
+
+  const sequentialTestingTuningParameterNumber =
+    Number(sequentialTestingTuningParameter) ||
+    DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER;
+  const pValueThresholdNumber =
+    Number(pValueThreshold) || DEFAULT_P_VALUE_THRESHOLD;
+  let differenceTypeString = "DifferenceType.RELATIVE";
+  if (differenceType == "absolute") {
+    differenceTypeString = "DifferenceType.ABSOLUTE";
+  } else if (differenceType == "scaled") {
+    differenceTypeString = "DifferenceType.SCALED";
+  }
+  const phaseLengthDays = Number(phaseLengthHours / 24);
   const result = await promisify(PythonShell.runString)(
     `
 from gbstats.gbstats import (
@@ -62,16 +89,16 @@ from gbstats.gbstats import (
   reduce_dimensionality,
   format_results
 )
-from gbstats.shared.constants import StatsEngine
+from gbstats.shared.constants import DifferenceType, StatsEngine
 import pandas as pd
 import json
 
 data = json.loads("""${JSON.stringify({
       var_id_map: variationIdMap,
       var_names: sortedVariations.map((v) => v.name),
-      weights: sortedVariations.map((v) => v.weight),
+      weights: sortedVariations.map((v) => v.weight * coverage),
       baseline_index: baselineVariationIndex ?? 0,
-      ignore_nulls: !!metric.ignoreNulls,
+      ignore_nulls: "ignoreNulls" in metric && !!metric.ignoreNulls,
       inverse: !!metric.inverse,
       max_dimensions:
         dimension?.substring(0, 8) === "pre:date" ? 9999 : MAX_DIMENSIONS,
@@ -105,8 +132,21 @@ df = get_metric_df(
 
 reduced = reduce_dimensionality(
   df=df, 
-  max=max_dimensions
+  max=max_dimensions,
 )
+
+engine_config=${
+      statsEngine === "frequentist" && sequentialTestingEnabled
+        ? `{'sequential': True, 'sequential_tuning_parameter': ${sequentialTestingTuningParameterNumber}}`
+        : "{}"
+    }
+engine_config['difference_type'] = ${differenceTypeString}
+engine_config['phase_length_days'] = ${phaseLengthDays}
+${
+  statsEngine === "frequentist" && pValueThresholdNumber
+    ? `engine_config['alpha'] = ${pValueThresholdNumber}`
+    : ""
+}
 
 result = analyze_metric_df(
   df=reduced,
@@ -117,11 +157,7 @@ result = analyze_metric_df(
       ? "StatsEngine.FREQUENTIST"
       : "StatsEngine.BAYESIAN"
   },
-  engine_config=${
-    statsEngine === "frequentist" && sequentialTestingEnabled
-      ? `{'sequential': True, 'sequential_tuning_parameter': ${sequentialTestingTuningParameter}}`
-      : "{}"
-  }
+  engine_config=engine_config,
 )
 
 print(json.dumps({
@@ -157,7 +193,7 @@ export async function analyzeExperimentResults({
   analysisSettings: ExperimentSnapshotAnalysisSettings;
   snapshotSettings: ExperimentSnapshotSettings;
   variationNames: string[];
-  metricMap: Map<string, MetricInterface>;
+  metricMap: Map<string, ExperimentMetricInterface>;
 }): Promise<ExperimentReportResults> {
   const metricRows: {
     metric: string;
@@ -222,19 +258,29 @@ export async function analyzeExperimentResults({
       const metric = metricMap.get(data.metric);
       return async () => {
         if (!metric) return;
-        const result = await analyzeExperimentMetric(
-          snapshotSettings.variations.map((v, i) => ({
+        const result = await analyzeExperimentMetric({
+          variations: snapshotSettings.variations.map((v, i) => ({
             ...v,
             name: variationNames[i] || v.id,
           })),
-          metric,
-          data.rows,
-          analysisSettings.dimensions[0],
-          analysisSettings.statsEngine,
-          analysisSettings.sequentialTesting,
-          analysisSettings.sequentialTestingTuningParameter,
-          analysisSettings.baselineVariationIndex
-        );
+          metric: metric,
+          rows: data.rows,
+          dimension: analysisSettings.dimensions[0],
+          baselineVariationIndex: analysisSettings.baselineVariationIndex ?? 0,
+          differenceType: analysisSettings.differenceType,
+          coverage: snapshotSettings.coverage || 1,
+          phaseLengthHours: Math.max(
+            hoursBetween(snapshotSettings.startDate, snapshotSettings.endDate),
+            1
+          ),
+          statsEngine: analysisSettings.statsEngine,
+          sequentialTestingEnabled: analysisSettings.sequentialTesting ?? false,
+          sequentialTestingTuningParameter:
+            analysisSettings.sequentialTestingTuningParameter ??
+            DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
+          pValueThreshold:
+            analysisSettings.pValueThreshold ?? DEFAULT_P_VALUE_THRESHOLD,
+        });
         unknownVariations = unknownVariations.concat(result.unknownVariations);
         multipleExposures = Math.max(
           multipleExposures,
@@ -290,4 +336,95 @@ export async function analyzeExperimentResults({
     unknownVariations: Array.from(new Set(unknownVariations)),
     dimensions,
   };
+}
+
+export function analyzeExperimentTraffic({
+  rows,
+  variations,
+}: {
+  rows: ExperimentAggregateUnitsQueryResponseRows;
+  variations: SnapshotSettingsVariation[];
+}): ExperimentSnapshotTraffic {
+  const overallResults: ExperimentSnapshotTrafficDimension = {
+    name: "All",
+    srm: 0,
+    variationUnits: Array(variations.length).fill(0),
+  };
+  if (!rows || !rows.length) {
+    return {
+      overall: overallResults,
+      dimension: {},
+      error: "NO_ROWS_IN_UNIT_QUERY",
+    };
+  }
+  if (rows.length == MAX_ROWS_UNIT_AGGREGATE_QUERY) {
+    return {
+      overall: overallResults,
+      dimension: {},
+      error: "TOO_MANY_ROWS",
+    };
+  }
+
+  // build variation data to check traffic
+  const variationIdMap: { [key: string]: number } = {};
+  const variationWeights: number[] = [];
+  variations.forEach((v, i) => {
+    variationIdMap[v.id] = i;
+    variationWeights.push(v.weight);
+  });
+
+  // use nested objects to easily fill values as we iterate over
+  // query result
+  const dimTrafficResults: Map<
+    string,
+    Map<string, ExperimentSnapshotTrafficDimension>
+  > = new Map();
+
+  // instantiate return object here, as we can fill `overall`
+  // unit data on the first pass
+  const trafficResults: ExperimentSnapshotTraffic = {
+    overall: overallResults,
+    dimension: {},
+  };
+
+  rows.forEach((r) => {
+    const variationIndex = variationIdMap[r.variation];
+    const dimTraffic: Map<string, ExperimentSnapshotTrafficDimension> =
+      dimTrafficResults.get(r.dimension_name) ?? new Map();
+    const dimValueTraffic: ExperimentSnapshotTrafficDimension = dimTraffic.get(
+      r.dimension_value
+    ) || {
+      name: r.dimension_value,
+      srm: 0,
+      variationUnits: Array(variations.length).fill(0),
+    };
+    // assumes one row per dimension slice in the payload, use += if there will be multiple
+    dimValueTraffic.variationUnits[variationIndex] = r.units;
+
+    dimTraffic.set(r.dimension_value, dimValueTraffic);
+    dimTrafficResults.set(r.dimension_name, dimTraffic);
+
+    // aggregate over date unit counts for overall unit counts
+    if (r.dimension_name === EXPOSURE_DATE_DIMENSION_NAME) {
+      trafficResults.overall.variationUnits[variationIndex] += r.units;
+    }
+  });
+  trafficResults.overall.srm = checkSrm(
+    trafficResults.overall.variationUnits,
+    variationWeights
+  );
+  for (const [dimName, dimTraffic] of dimTrafficResults) {
+    for (const dimValueTraffic of dimTraffic.values()) {
+      dimValueTraffic.srm = checkSrm(
+        dimValueTraffic.variationUnits,
+        variationWeights
+      );
+      if (dimName in trafficResults.dimension) {
+        trafficResults.dimension[dimName].push(dimValueTraffic);
+      } else {
+        trafficResults.dimension[dimName] = [dimValueTraffic];
+      }
+    }
+  }
+  return trafficResults;
 }

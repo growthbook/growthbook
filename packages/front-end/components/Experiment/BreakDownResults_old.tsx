@@ -1,5 +1,4 @@
 import { FC, useMemo, useState } from "react";
-import { MetricInterface } from "back-end/types/metric";
 import {
   ExperimentReportResultDimension,
   ExperimentReportVariation,
@@ -7,21 +6,24 @@ import {
 } from "back-end/types/report";
 import { ExperimentStatus, MetricOverride } from "back-end/types/experiment";
 import { PValueCorrection, StatsEngine } from "back-end/types/stats";
+import { ExperimentMetricInterface } from "shared/experiments";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import {
   applyMetricOverrides,
   setAdjustedPValuesOnResults,
   ExperimentTableRow,
   useRiskVariation,
+  setAdjustedCIs,
 } from "@/services/experiments";
 import ResultsTable_old from "@/components/Experiment/ResultsTable_old";
+import usePValueThreshold from "@/hooks/usePValueThreshold";
 import Toggle from "../Forms/Toggle";
 import UsersTable from "./UsersTable";
 
 const FULL_STATS_LIMIT = 5;
 
 type TableDef = {
-  metric: MetricInterface;
+  metric: ExperimentMetricInterface;
   isGuardrail: boolean;
   rows: ExperimentTableRow[];
 };
@@ -61,7 +63,8 @@ const BreakDownResults_old: FC<{
   metricRegressionAdjustmentStatuses,
   sequentialTestingEnabled,
 }) => {
-  const { getDimensionById, getMetricById, ready } = useDefinitions();
+  const { getDimensionById, getExperimentMetricById, ready } = useDefinitions();
+  const pValueThreshold = usePValueThreshold();
 
   const dimension = useMemo(() => {
     return getDimensionById(dimensionId)?.name || "Dimension";
@@ -76,10 +79,11 @@ const BreakDownResults_old: FC<{
     if (!ready) return [];
     if (pValueCorrection && statsEngine === "frequentist") {
       setAdjustedPValuesOnResults(results, metrics, pValueCorrection);
+      setAdjustedCIs(results, pValueThreshold);
     }
     return Array.from(new Set(metrics.concat(guardrails || [])))
       .map((metricId) => {
-        const metric = getMetricById(metricId);
+        const metric = getExperimentMetricById(metricId);
         if (!metric) return;
         const { newMetric } = applyMetricOverrides(metric, metricOverrides);
         let regressionAdjustmentStatus:
@@ -112,10 +116,11 @@ const BreakDownResults_old: FC<{
     regressionAdjustmentEnabled,
     metricRegressionAdjustmentStatuses,
     pValueCorrection,
+    pValueThreshold,
     statsEngine,
     guardrails,
     ready,
-    getMetricById,
+    getExperimentMetricById,
   ]);
 
   const risk = useRiskVariation(
@@ -129,7 +134,7 @@ const BreakDownResults_old: FC<{
         {dimensionId === "pre:activation" && activationMetric && (
           <div className="alert alert-info mt-1">
             Your experiment has an Activation Metric (
-            <strong>{getMetricById(activationMetric)?.name}</strong>
+            <strong>{getExperimentMetricById(activationMetric)?.name}</strong>
             ). This report lets you compare activated users with those who
             entered into the experiment, but were not activated.
           </div>

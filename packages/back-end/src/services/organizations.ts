@@ -1,5 +1,6 @@
 import { randomBytes } from "crypto";
 import { freeEmailDomains } from "free-email-domains-typescript";
+import { cloneDeep } from "lodash";
 import {
   createOrganization,
   findAllOrganizations,
@@ -108,9 +109,13 @@ export function getOrgFromReq(req: AuthRequest) {
     org: req.organization,
     userId: req.userId,
     email: req.email,
-    environments: getEnvironments(req.organization),
+    environments: getEnvironmentIdsFromOrg(req.organization),
     userName: req.name || "",
   };
+}
+
+export function getEnvironmentIdsFromOrg(org: OrganizationInterface): string[] {
+  return getEnvironments(org).map((e) => e.id);
 }
 
 export function getEnvironments(org: OrganizationInterface) {
@@ -241,6 +246,8 @@ export async function addMemberToOrg({
   environments,
   limitAccessByEnvironment,
   projectRoles,
+  externalId,
+  managedByIdp,
 }: {
   organization: OrganizationInterface;
   userId: string;
@@ -248,6 +255,8 @@ export async function addMemberToOrg({
   limitAccessByEnvironment: boolean;
   environments: string[];
   projectRoles?: ProjectMemberRole[];
+  externalId?: string;
+  managedByIdp?: boolean;
 }) {
   // If member is already in the org, skip
   if (organization.members.find((m) => m.id === userId)) {
@@ -266,6 +275,8 @@ export async function addMemberToOrg({
       environments,
       projectRoles,
       dateCreated: new Date(),
+      externalId,
+      managedByIdp,
     },
   ];
 
@@ -275,57 +286,69 @@ export async function addMemberToOrg({
   });
 }
 
-export async function addMemberToTeam({
+export async function addMembersToTeam({
   organization,
-  userId,
+  userIds,
   teamId,
 }: {
   organization: OrganizationInterface;
-  userId: string;
+  userIds: string[];
   teamId: string;
 }): Promise<void> {
-  // If member is a pending member, skip
-  if (organization?.pendingMembers?.find((m) => m.id === userId)) {
-    return;
-  }
+  const updatedMembers = organization.members.map((member) => {
+    if (!userIds.includes(member.id) || member.teams?.includes(teamId)) {
+      return member;
+    }
 
-  const member = organization.members.find((m) => m.id === userId);
+    return { ...member, teams: [...(member.teams ?? []), teamId] };
+  });
 
-  // If member doesn't exist in the org or is already in the team, skip
-  if (!member || member.teams?.includes(teamId)) {
-    return;
-  }
-
-  // Create teams array for member if it does not exist
-  if (!member.teams) {
-    member.teams = [];
-  }
-  member.teams.push(teamId);
-
-  await updateOrganization(organization.id, { members: organization.members });
+  await updateOrganization(organization.id, { members: updatedMembers });
 }
 
-export async function removeMemberFromTeam({
+export async function convertMemberToManagedByIdp({
   organization,
   userId,
-  teamId,
+  externalId,
 }: {
   organization: OrganizationInterface;
   userId: string;
-  teamId: string;
-}): Promise<void> {
-  const member = organization.members.find((m) => m.id === userId);
+  externalId?: string;
+}) {
+  const newMembers = cloneDeep(organization.members);
 
-  // If member doesn't exist in the org or isn't in the team, skip
-  if (!member || !member.teams?.includes(teamId)) {
-    return;
+  const memberToUpdate = newMembers.find((member) => member.id === userId);
+
+  if (!memberToUpdate) {
+    throw new Error(
+      "Tried to update a member that does not exist in the organization"
+    );
   }
 
-  const indexToDelete = member.teams.indexOf(teamId);
+  memberToUpdate.externalId = externalId;
+  memberToUpdate.managedByIdp = true;
 
-  member.teams.splice(indexToDelete, 1);
+  return await updateOrganization(organization.id, { members: newMembers });
+}
 
-  await updateOrganization(organization.id, { members: organization.members });
+export async function removeMembersFromTeam({
+  organization,
+  userIds,
+  teamId,
+}: {
+  organization: OrganizationInterface;
+  userIds: string[];
+  teamId: string;
+}): Promise<void> {
+  const updatedMembers = organization.members.map((member) => {
+    if (!userIds.includes(member.id)) {
+      return member;
+    }
+
+    return { ...member, teams: member.teams?.filter((t) => t !== teamId) };
+  });
+
+  await updateOrganization(organization.id, { members: updatedMembers });
 }
 
 export async function addPendingMemberToOrg({

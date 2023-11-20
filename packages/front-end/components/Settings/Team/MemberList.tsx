@@ -2,6 +2,7 @@ import React, { FC, useState } from "react";
 import { FaCheck, FaTimes } from "react-icons/fa";
 import { ExpandedMember } from "back-end/types/organization";
 import { datetime } from "shared/dates";
+import { RxIdCard } from "react-icons/rx";
 import { roleHasAccessToEnv, useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
 import ProjectBadges from "@/components/ProjectBadges";
@@ -14,6 +15,7 @@ import AdminSetPasswordModal from "@/components/Settings/Team/AdminSetPasswordMo
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import ChangeRoleModal from "@/components/Settings/Team/ChangeRoleModal";
+import Tooltip from "@/components/Tooltip/Tooltip";
 
 const MemberList: FC<{
   mutate: () => void;
@@ -46,6 +48,10 @@ const MemberList: FC<{
   };
 
   const roleModalUser = users.get(roleModal);
+
+  const members = Array.from(users).sort((a, b) =>
+    a[1].name.localeCompare(b[1].name)
+  );
 
   return (
     <div className="my-4">
@@ -97,7 +103,7 @@ const MemberList: FC<{
             </tr>
           </thead>
           <tbody>
-            {Array.from(users).map(([id, member]) => {
+            {members.map(([id, member]) => {
               const roleInfo =
                 (project &&
                   member.projectRoles?.find((r) => r.project === project)) ||
@@ -105,13 +111,24 @@ const MemberList: FC<{
               return (
                 <tr key={id}>
                   <td>{member.name}</td>
-                  <td>{member.email}</td>
+                  <td>
+                    <div className="d-flex align-items-center">
+                      {member.managedByIdp ? (
+                        <Tooltip
+                          className="mr-2"
+                          body="This user is managed by an external identity provider."
+                        >
+                          <RxIdCard className="text-blue" />
+                        </Tooltip>
+                      ) : null}
+                      {member.email}
+                    </div>
+                  </td>
                   <td>{member.dateCreated && datetime(member.dateCreated)}</td>
                   <td>{roleInfo.role}</td>
                   {!project && (
                     <td className="col-3">
-                      {/* @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'. */}
-                      {member.projectRoles.map((pr) => {
+                      {member.projectRoles?.map((pr) => {
                         const p = projects.find((p) => p.id === pr.project);
                         if (p?.name) {
                           return (
@@ -119,7 +136,7 @@ const MemberList: FC<{
                               <ProjectBadges
                                 projectIds={[p.id]}
                                 className="badge-ellipsis align-middle font-weight-normal"
-                              />
+                              />{" "}
                               — {pr.role}
                             </div>
                           );
@@ -166,7 +183,7 @@ const MemberList: FC<{
                               Reset Password
                             </button>
                           )}
-                          {canDeleteMembers && (
+                          {canDeleteMembers && !member.managedByIdp && (
                             <DeleteButton
                               link={true}
                               text="Remove User"

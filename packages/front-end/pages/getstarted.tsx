@@ -64,7 +64,7 @@ const GetStartedPage = (): React.ReactElement => {
             {showVideo ? (
               <ReactPlayer
                 className={clsx("mb-4")}
-                url="https://www.youtube.com/watch?v=1ASe3K46BEw"
+                url="https://www.youtube.com/watch?v=b4xUnDGRKRQ"
                 playing={true}
                 controls={true}
                 width="100%"

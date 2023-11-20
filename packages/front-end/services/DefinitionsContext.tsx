@@ -3,9 +3,21 @@ import { DimensionInterface } from "back-end/types/dimension";
 import { MetricInterface } from "back-end/types/metric";
 import { SegmentInterface } from "back-end/types/segment";
 import { ProjectInterface } from "back-end/types/project";
-import { useContext, useMemo, createContext, FC, ReactNode } from "react";
+import {
+  useContext,
+  useMemo,
+  createContext,
+  FC,
+  ReactNode,
+  useCallback,
+} from "react";
 import { TagInterface } from "back-end/types/tag";
 import { SavedGroupInterface } from "back-end/types/saved-group";
+import {
+  FactMetricInterface,
+  FactTableInterface,
+} from "back-end/types/fact-table";
+import { ExperimentMetricInterface, isFactMetricId } from "shared/experiments";
 import useApi from "@/hooks/useApi";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 
@@ -17,6 +29,8 @@ type Definitions = {
   projects: ProjectInterface[];
   savedGroups: SavedGroupInterface[];
   tags: TagInterface[];
+  factTables: FactTableInterface[];
+  factMetrics: FactMetricInterface[];
 };
 
 type DefinitionContextValue = Definitions & {
@@ -33,6 +47,9 @@ type DefinitionContextValue = Definitions & {
   getProjectById: (id: string) => null | ProjectInterface;
   getSavedGroupById: (id: string) => null | SavedGroupInterface;
   getTagById: (id: string) => null | TagInterface;
+  getFactTableById: (id: string) => null | FactTableInterface;
+  getFactMetricById: (id: string) => null | FactMetricInterface;
+  getExperimentMetricById: (id: string) => null | ExperimentMetricInterface;
 };
 
 const defaultValue: DefinitionContextValue = {
@@ -54,6 +71,8 @@ const defaultValue: DefinitionContextValue = {
   tags: [],
   savedGroups: [],
   projects: [],
+  factTables: [],
+  factMetrics: [],
   getMetricById: () => null,
   getDatasourceById: () => null,
   getDimensionById: () => null,
@@ -61,6 +80,9 @@ const defaultValue: DefinitionContextValue = {
   getProjectById: () => null,
   getSavedGroupById: () => null,
   getTagById: () => null,
+  getFactTableById: () => null,
+  getFactMetricById: () => null,
+  getExperimentMetricById: () => null,
 };
 
 export const DefinitionsContext = createContext<DefinitionContextValue>(
@@ -116,6 +138,18 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
   const getProjectById = useGetById(data?.projects);
   const getSavedGroupById = useGetById(data?.savedGroups);
   const getTagById = useGetById(data?.tags);
+  const getFactTableById = useGetById(data?.factTables);
+  const getFactMetricById = useGetById(data?.factMetrics);
+
+  const getExperimentMetricById = useCallback(
+    (id: string) => {
+      if (isFactMetricId(id)) {
+        return getFactMetricById(id);
+      }
+      return getMetricById(id);
+    },
+    [getMetricById, getFactMetricById]
+  );
 
   let value: DefinitionContextValue;
   if (error) {
@@ -137,6 +171,8 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
       savedGroups: data.savedGroups,
       projects: data.projects,
       project: filteredProject,
+      factTables: data.factTables,
+      factMetrics: data.factMetrics,
       setProject,
       getMetricById,
       getDatasourceById,
@@ -145,6 +181,9 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
       getProjectById,
       getSavedGroupById,
       getTagById,
+      getFactTableById,
+      getFactMetricById,
+      getExperimentMetricById,
       refreshTags: async (tags) => {
         const existingTags = data.tags.map((t) => t.id);
         const newTags = tags.filter((t) => !existingTags.includes(t));
@@ -166,8 +205,7 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
         }
       },
       mutateDefinitions: async (changes) => {
-        // @ts-expect-error TS(2783) If you come across this, please fix it!: 'status' is specified more than once, so this usag... Remove this comment to see the full error message
-        await mutate(Object.assign({ status: 200, ...data }, changes), true);
+        await mutate(Object.assign({ ...data }, changes), true);
       },
     };
   }

@@ -1,5 +1,5 @@
 import { FC, useMemo, useRef, ReactNode, useState } from "react";
-import ReactSelect from "react-select";
+import ReactSelect, { FormatOptionLabelMeta } from "react-select";
 import cloneDeep from "lodash/cloneDeep";
 import clsx from "clsx";
 import CreatableSelect from "react-select/creatable";
@@ -7,6 +7,25 @@ import Field, { FieldProps } from "./Field";
 
 export type SingleValue = { label: string; value: string; tooltip?: string };
 export type GroupedValue = { label: string; options: SingleValue[] };
+
+export type SelectFieldProps = Omit<
+  FieldProps,
+  "value" | "onChange" | "options" | "multi" | "initialOption" | "placeholder"
+> & {
+  value: string;
+  placeholder?: string;
+  options: (SingleValue | GroupedValue)[];
+  initialOption?: string;
+  onChange: (value: string) => void;
+  sort?: boolean;
+  createable?: boolean;
+  formatOptionLabel?: (
+    value: SingleValue,
+    meta: FormatOptionLabelMeta<SingleValue>
+  ) => ReactNode;
+  isSearchable?: boolean;
+  isClearable?: boolean;
+};
 
 export function useSelectOptions(
   options: (SingleValue | GroupedValue)[],
@@ -62,28 +81,42 @@ export const ReactSelectProps = {
         color: "var(--form-multivalue-text-color)",
       };
     },
+    control: (styles) => {
+      return {
+        ...styles,
+        backgroundColor: "var(--surface-background-color)",
+      };
+    },
+    menu: (styles) => {
+      return {
+        ...styles,
+        backgroundColor: "var(--surface-background-color)",
+      };
+    },
+    option: (styles, { isFocused }) => {
+      return {
+        ...styles,
+        color: isFocused ? "var(--text-hover-color)" : "var(--text-color-main)",
+      };
+    },
+    input: (styles) => {
+      return {
+        ...styles,
+        color: "var(--text-color-main)",
+      };
+    },
+    singleValue: (styles) => {
+      return {
+        ...styles,
+        color: "var(--text-color-main)",
+      };
+    },
   },
   menuPosition: "fixed" as const,
   isSearchable: true,
 };
 
-const SelectField: FC<
-  Omit<
-    FieldProps,
-    "value" | "onChange" | "options" | "multi" | "initialOption" | "placeholder"
-  > & {
-    value: string;
-    placeholder?: string;
-    options: (SingleValue | GroupedValue)[];
-    initialOption?: string;
-    onChange: (value: string) => void;
-    sort?: boolean;
-    createable?: boolean;
-    formatOptionLabel?: (value: SingleValue) => ReactNode;
-    isSearchable?: boolean;
-    isClearable?: boolean;
-  }
-> = ({
+const SelectField: FC<SelectFieldProps> = ({
   value,
   options,
   onChange,

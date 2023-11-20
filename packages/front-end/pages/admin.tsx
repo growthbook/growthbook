@@ -1,7 +1,13 @@
 import { FC, useCallback, useEffect, useState } from "react";
 import { OrganizationInterface } from "back-end/types/organization";
 import clsx from "clsx";
-import { FaAngleDown, FaAngleRight, FaPlus, FaSearch } from "react-icons/fa";
+import {
+  FaAngleDown,
+  FaAngleRight,
+  FaPencilAlt,
+  FaPlus,
+  FaSearch,
+} from "react-icons/fa";
 import { date } from "shared/dates";
 import stringify from "json-stringify-pretty-compact";
 import Collapsible from "react-collapsible";
@@ -9,9 +15,12 @@ import Field from "@/components/Forms/Field";
 import Pagination from "@/components/Pagination";
 import { useUser } from "@/services/UserContext";
 import Code from "@/components/SyntaxHighlighting/Code";
-import LoadingOverlay from "../components/LoadingOverlay";
+import OrphanedUsersList from "@/components/Settings/Team/OrphanedUsersList";
+import { isCloud, isMultiOrg } from "@/services/env";
+import EditOrganization from "@/components/Admin/EditOrganization";
+import LoadingOverlay from "@/components/LoadingOverlay";
+import CreateOrganization from "@/components/Admin/CreateOrganization";
 import { useAuth } from "../services/auth";
-import CreateOrganization from "../components/CreateOrganization";
 
 const numberFormatter = new Intl.NumberFormat();
 
@@ -19,17 +28,32 @@ function OrganizationRow({
   organization,
   current,
   switchTo,
+  showExternalId,
+  onEdit,
 }: {
   organization: OrganizationInterface;
   switchTo: (organization: OrganizationInterface) => void;
   current: boolean;
+  showExternalId: boolean;
+  onEdit: () => void;
 }) {
   const [expanded, setExpanded] = useState(false);
+  const [editOrgModalOpen, setEditOrgModalOpen] = useState(false);
 
   const { settings, members, ...otherAttributes } = organization;
 
   return (
     <>
+      {editOrgModalOpen && (
+        <EditOrganization
+          id={organization.id}
+          currentName={organization.name}
+          currentExternalId={organization.externalId || ""}
+          showExternalId={!isCloud()}
+          onEdit={onEdit}
+          close={() => setEditOrgModalOpen(false)}
+        />
+      )}
       <tr
         className={clsx({
           "table-warning": current,
@@ -51,6 +75,24 @@ function OrganizationRow({
         <td>{date(organization.dateCreated)}</td>
         <td>
           <small>{organization.id}</small>
+        </td>
+        {showExternalId && (
+          <td>
+            <small>{organization.externalId}</small>
+          </td>
+        )}
+        <td className="p-0 text-center">
+          <a
+            href="#"
+            className="d-block w-100 h-100"
+            onClick={(e) => {
+              e.preventDefault();
+              setEditOrgModalOpen(true);
+            }}
+            style={{ lineHeight: "40px" }}
+          >
+            <FaPencilAlt />
+          </a>
         </td>
         <td style={{ width: 40 }} className="p-0 text-center">
           <a
@@ -130,6 +172,7 @@ const Admin: FC = () => {
         }>(`/admin/organizations?${params.toString()}`);
         setOrgs(res.organizations);
         setTotal(res.total);
+        setError("");
       } catch (e) {
         setError(e.message);
       }
@@ -160,7 +203,7 @@ const Admin: FC = () => {
     <div className="container-fluid p-3 pagecontents">
       {orgModalOpen && (
         <CreateOrganization
-          isAdmin={true}
+          showExternalId={!isCloud()}
           onCreate={() => {
             loadOrgs(page, search);
           }}
@@ -190,14 +233,14 @@ const Admin: FC = () => {
             }}
           >
             <Field
-              label="Org name / email"
+              label="Search:"
               labelClassName="mr-2"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               type="search"
             />
             <div>
-              <button type="submit" className="btn btn-primary">
+              <button type="submit" className="btn btn-primary ml-2">
                 <FaSearch />
               </button>
             </div>
@@ -222,6 +265,8 @@ const Admin: FC = () => {
               <th>Owner</th>
               <th>Created</th>
               <th>Id</th>
+              {!isCloud() && <th>External Id</th>}
+              <th></th>
               <th></th>
             </tr>
           </thead>
@@ -229,8 +274,12 @@ const Admin: FC = () => {
             {orgs.map((o) => (
               <OrganizationRow
                 organization={o}
+                showExternalId={!isCloud()}
                 key={o.id}
                 current={o.id === orgId}
+                onEdit={() => {
+                  loadOrgs(page, search);
+                }}
                 switchTo={(org) => {
                   if (setOrgId) {
                     setOrgId(org.id);
@@ -253,6 +302,18 @@ const Admin: FC = () => {
           }}
         />
       </div>
+
+      {!isCloud() && isMultiOrg() && (
+        <div>
+          <OrphanedUsersList
+            mutateUsers={() => {
+              loadOrgs(page, search);
+            }}
+            numUsersInAccount={0}
+            enableAdd={false}
+          />
+        </div>
+      )}
     </div>
   );
 };

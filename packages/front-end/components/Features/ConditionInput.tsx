@@ -22,6 +22,8 @@ interface Props {
   labelClassName?: string;
 }
 
+const title = "Target by Attribute";
+
 export default function ConditionInput(props: Props) {
   const { savedGroups } = useDefinitions();
 
@@ -69,7 +71,7 @@ export default function ConditionInput(props: Props) {
     return (
       <div className="mb-3">
         <CodeTextArea
-          label="Targeting Conditions"
+          label={title}
           labelClassName={props.labelClassName}
           language="json"
           value={value}
@@ -112,9 +114,7 @@ export default function ConditionInput(props: Props) {
   if (!conds.length) {
     return (
       <div className="form-group">
-        <label className={props.labelClassName || ""}>
-          Targeting Conditions
-        </label>
+        <label className={props.labelClassName || ""}>{title}</label>
         <div className={`mb-3 bg-light p-3 ${styles.conditionbox}`}>
           <em className="text-muted mr-3">Applied to everyone by default.</em>
           <a
@@ -131,7 +131,7 @@ export default function ConditionInput(props: Props) {
               ]);
             }}
           >
-            Add targeting condition
+            Add attribute targeting
           </a>
         </div>
       </div>
@@ -140,7 +140,7 @@ export default function ConditionInput(props: Props) {
 
   return (
     <div className="form-group">
-      <label className={props.labelClassName || ""}>Targeting Conditions</label>
+      <label className={props.labelClassName || ""}>{title}</label>
       <div className={`mb-3 bg-light px-3 pb-3 ${styles.conditionbox}`}>
         <ul className={styles.conditionslist}>
           {conds.map(({ field, operator, value }, i) => {
@@ -153,7 +153,7 @@ export default function ConditionInput(props: Props) {
 
             const savedGroupOptions = savedGroups
               // First, limit to groups with the correct attribute
-              .filter((g) => g.attributeKey === field)
+              .filter((g) => g.source !== "runtime" && g.attributeKey === field)
               // Then, transform into the select option format
               .map((g) => ({ label: g.groupName, value: g.id }));
 
@@ -295,13 +295,10 @@ export default function ConditionInput(props: Props) {
 
                         const newAttribute = attributes.get(value);
                         const hasAttrChanged =
-                          // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-                          newAttribute.datatype !== attribute.datatype ||
-                          // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-                          newAttribute.array !== attribute.array;
-                        if (hasAttrChanged) {
+                          newAttribute?.datatype !== attribute.datatype ||
+                          newAttribute?.array !== attribute.array;
+                        if (hasAttrChanged && newAttribute) {
                           newConds[i]["operator"] = getDefaultOperator(
-                            // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'AttributeData | undefined' is no... Remove this comment to see the full error message
                             newAttribute
                           );
                           newConds[i]["value"] = newConds[i]["value"] || "";

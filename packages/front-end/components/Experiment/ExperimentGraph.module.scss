@@ -2,12 +2,60 @@
   background-color: #050549;
   border-radius: 2px;
   position: absolute;
-  width: 35px;
+  width: 100px;
+  text-align: center;
   box-shadow: -1px 2px 4px rgba(0, 0, 0, 0.15);
   color: white;
   padding: 3px 4px;
   font-size: 12px;
 }
+.tooltiplg {
+  width: 200px;
+  background-color: #050549;
+  border-radius: 6px;
+  position: absolute;
+  box-shadow: -1px 2px 4px rgba(0, 0, 0, 0.15);
+  color: white;
+  padding: 6px 6px;
+  font-size: 12px;
+  opacity: 0.7;
+}
+.tooltipHeader {
+  font-weight: bold;
+  font-size: 14px;
+  margin-bottom: 5px;
+}
+.tooltipName {
+  font-weight: bold;
+  font-size: 12px;
+  display: inline;
+  margin-right: 10px;
+}
+.tooltipValue {
+  font-size: 12px;
+  display: inline;
+}
 .barHov:hover {
   fill: #31c0f0;
+}
+.barHovStacked:hover {
+  stroke: #646464;
+  stroke-width: 1px;
+  stroke-dasharray: 2, 2;
+  stroke-linejoin: round;
+}
+.legendRow {
+  display: flex;
+  align-items: center;
+  margin-bottom: 5px;
+}
+.legendColor {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  margin-right: 5px;
+}
+.legendName {
+  font-size: 12px;
+  margin-right: 10px;
 }

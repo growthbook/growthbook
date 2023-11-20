@@ -58,7 +58,7 @@ const Results_old: FC<{
   metricRegressionAdjustmentStatuses,
   onRegressionAdjustmentChange,
 }) => {
-  const { getMetricById } = useDefinitions();
+  const { getExperimentMetricById } = useDefinitions();
 
   const { apiCall } = useAuth();
 
@@ -303,7 +303,7 @@ const Results_old: FC<{
                 <h3 className="mb-3">Guardrails</h3>
                 <div className="row">
                   {experiment.guardrails?.map((g) => {
-                    const metric = getMetricById(g);
+                    const metric = getExperimentMetricById(g);
                     if (!metric) return "";
 
                     const data = analysis.results?.[0]?.variations;

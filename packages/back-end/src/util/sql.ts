@@ -1,6 +1,7 @@
 import { format as sqlFormat, FormatOptions } from "sql-formatter";
 import Handlebars from "handlebars";
 import { SQLVars } from "../../types/sql";
+import { FactTableColumnType } from "../../types/fact-table";
 import { helpers } from "./handlebarsHelpers";
 
 // Register all the helpers from handlebarsHelpers
@@ -197,4 +198,43 @@ export function expandDenominatorMetrics(
 // replace COUNT(*) with COUNT(${col}) to prevent counting null rows in some locations
 export function replaceCountStar(aggregation: string, col: string) {
   return aggregation.replace(/count\(\s*\*\s*\)/gi, `COUNT(${col})`);
+}
+
+export function determineColumnTypes(
+  rows: Record<string, unknown>[]
+): { column: string; datatype: FactTableColumnType }[] {
+  if (!rows || !rows[0]) return [];
+  const cols = Object.keys(rows[0]);
+
+  const columns: { column: string; datatype: FactTableColumnType }[] = [];
+  cols.forEach((col) => {
+    const testValue = rows
+      .map((row) => row[col])
+      .filter((val) => val !== null && val !== undefined)[0];
+
+    if (testValue !== undefined) {
+      columns.push({
+        column: col,
+        datatype:
+          typeof testValue === "string"
+            ? testValue.match(/^[0-9]{4}-[0-9]{2}-[0-9]{2}($|[ T])/)
+              ? "date"
+              : "string"
+            : typeof testValue === "number"
+            ? "number"
+            : typeof testValue === "boolean"
+            ? "boolean"
+            : testValue && testValue instanceof Date
+            ? "date"
+            : "other",
+      });
+    } else {
+      columns.push({
+        column: col,
+        datatype: "",
+      });
+    }
+  });
+
+  return columns;
 }

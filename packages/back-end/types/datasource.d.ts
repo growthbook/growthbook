@@ -144,6 +144,7 @@ export interface ExposureQuery {
   query: string;
   hasNameCol?: boolean;
   dimensions: string[];
+  dimensionsForTraffic?: string[];
   error?: string;
 }
 

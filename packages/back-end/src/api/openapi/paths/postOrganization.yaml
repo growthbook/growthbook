@@ -1,0 +1,28 @@
+parameters: []
+tags:
+  - organizations
+summary: Create a single organization (only for super admins on multi-org Enterprise Plan only)
+operationId: postOrganization
+x-codeSamples:
+  - lang: "cURL"
+    source: |
+      curl -X POST https://api.growthbook.io/api/v1/organizations \
+        -d '{ name: "My Subsidiary" }' \
+        -u secret_abc123DEF456:
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "../payload-schemas/PostOrganizationPayload.yaml"
+responses:
+  "200":
+    content:
+      application/json:
+        schema:
+          type: object
+          required:
+            - organization
+          properties:
+            organization:
+              $ref: "../schemas/Organization.yaml"

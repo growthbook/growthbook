@@ -4,6 +4,7 @@ required:
   - dateCreated
   - dateUpdated
   - name
+  - organization
   - languages
   - environment
   - project
@@ -23,6 +24,8 @@ properties:
     type: string
     format: date-time
   name:
+    type: string
+  organization:
     type: string
   languages:
     type: array
@@ -53,4 +56,6 @@ properties:
   sseEnabled:
     type: boolean
   hashSecureAttributes:
+    type: boolean
+  remoteEvalEnabled:
     type: boolean

@@ -4,6 +4,7 @@ import { FaArchive, FaChevronRight, FaPlus, FaRegCopy } from "react-icons/fa";
 import Link from "next/link";
 import { ago, datetime } from "@/../shared/dates";
 import clsx from "clsx";
+import { getMetricLink } from "shared/experiments";
 import { DocLink } from "@/components/DocLink";
 import { hasFileConfig } from "@/services/env";
 import { useAuth } from "@/services/auth";
@@ -139,7 +140,7 @@ export default function DataSourceMetrics({
               {metrics.map((metric) => {
                 return (
                   <div key={metric.id} className="card p-3 mb-3 bg-light">
-                    <Link href={`/metric/${metric.id}`}>
+                    <Link href={getMetricLink(metric.id)}>
                       <div
                         className="d-flex flex-row align-items-center justify-content-between"
                         role="button"

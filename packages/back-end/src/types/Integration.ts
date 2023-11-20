@@ -1,4 +1,5 @@
 import { BigQueryTimestamp } from "@google-cloud/bigquery";
+import { ExperimentMetricInterface } from "shared/experiments";
 import {
   DataSourceProperties,
   DataSourceSettings,
@@ -11,6 +12,9 @@ import { QueryStatistics } from "../../types/query";
 import { SegmentInterface } from "../../types/segment";
 import { FormatDialect } from "../util/sql";
 import { TemplateVariables } from "../../types/sql";
+import { FactTableMap } from "../models/FactTableModel";
+
+export type ExternalIdCallback = (id: string) => Promise<void>;
 
 export class MissingDatasourceParamsError extends Error {
   constructor(message: string) {
@@ -90,25 +94,35 @@ export type Dimension =
   | DateDailyDimension
   | ActivationDimension;
 
-export type ExperimentMetricQueryParams = {
-  settings: ExperimentSnapshotSettings;
-  metric: MetricInterface;
-  activationMetric: MetricInterface | null;
-  denominatorMetrics: MetricInterface[];
-  dimension: Dimension | null;
-  segment: SegmentInterface | null;
-  useUnitsTable: boolean;
-  unitsTableFullName?: string;
+export type ProcessedDimensions = {
+  unitDimensions: UserDimension[];
+  experimentDimensions: ExperimentDimension[];
+  activationDimension: ActivationDimension | null;
 };
 
-export type ExperimentUnitsQueryParams = {
+interface ExperimentBaseQueryParams {
   settings: ExperimentSnapshotSettings;
-  activationMetric: MetricInterface | null;
-  dimension: Dimension | null;
+  activationMetric: ExperimentMetricInterface | null;
+  factTableMap: FactTableMap;
+  dimensions: Dimension[];
   segment: SegmentInterface | null;
   unitsTableFullName?: string;
+}
+
+export interface ExperimentUnitsQueryParams extends ExperimentBaseQueryParams {
   includeIdJoins: boolean;
-};
+}
+
+export interface ExperimentMetricQueryParams extends ExperimentBaseQueryParams {
+  metric: ExperimentMetricInterface;
+  denominatorMetrics: ExperimentMetricInterface[];
+  useUnitsTable: boolean;
+}
+
+export interface ExperimentAggregateUnitsQueryParams
+  extends ExperimentBaseQueryParams {
+  useUnitsTable: boolean;
+}
 
 export type PastExperimentParams = {
   from: Date;
@@ -213,6 +227,13 @@ export type ExperimentMetricQueryResponseRows = {
   main_covariate_sum_product?: number;
 }[];
 
+export type ExperimentAggregateUnitsQueryResponseRows = {
+  variation: string;
+  dimension_value: string;
+  dimension_name: string;
+  units: number;
+}[];
+
 // eslint-disable-next-line
 export type QueryResponse<Rows = Record<string, any>[]> = {
   rows: Rows;
@@ -223,6 +244,7 @@ export type MetricValueQueryResponse = QueryResponse<MetricValueQueryResponseRow
 export type PastExperimentQueryResponse = QueryResponse<PastExperimentResponseRows>;
 export type ExperimentMetricQueryResponse = QueryResponse<ExperimentMetricQueryResponseRows>;
 export type ExperimentUnitsQueryResponse = QueryResponse;
+export type ExperimentAggregateUnitsQueryResponse = QueryResponse<ExperimentAggregateUnitsQueryResponseRows>;
 
 export interface SourceIntegrationConstructor {
   new (
@@ -320,15 +342,15 @@ export interface SourceIntegrationInterface {
   getSensitiveParamKeys(): string[];
   getExperimentResultsQuery(
     snapshotSettings: ExperimentSnapshotSettings,
-    metrics: MetricInterface[],
-    activationMetric: MetricInterface | null,
+    metrics: ExperimentMetricInterface[],
+    activationMetric: ExperimentMetricInterface | null,
     dimension: DimensionInterface | null
   ): string;
   getFormatDialect?(): FormatDialect;
   getExperimentResults(
     snapshotSettings: ExperimentSnapshotSettings,
-    metrics: MetricInterface[],
-    activationMetric: MetricInterface | null,
+    metrics: ExperimentMetricInterface[],
+    activationMetric: ExperimentMetricInterface | null,
     dimension: DimensionInterface | null
   ): Promise<ExperimentQueryResponses>;
   getSourceProperties(): DataSourceProperties;
@@ -344,17 +366,37 @@ export interface SourceIntegrationInterface {
     templateVariables?: TemplateVariables
   ): string;
   getTestQuery?(query: string, templateVariables?: TemplateVariables): string;
-  runTestQuery?(sql: string): Promise<TestQueryResult>;
+  runTestQuery?(
+    sql: string,
+    timestampCols?: string[]
+  ): Promise<TestQueryResult>;
   getMetricValueQuery(params: MetricValueParams): string;
   getExperimentMetricQuery(params: ExperimentMetricQueryParams): string;
+  getExperimentAggregateUnitsQuery(
+    params: ExperimentAggregateUnitsQueryParams
+  ): string;
   getExperimentUnitsTableQuery(params: ExperimentUnitsQueryParams): string;
   getPastExperimentQuery(params: PastExperimentParams): string;
-  runMetricValueQuery(query: string): Promise<MetricValueQueryResponse>;
+  runMetricValueQuery(
+    query: string,
+    setExternalId: ExternalIdCallback
+  ): Promise<MetricValueQueryResponse>;
   runExperimentMetricQuery(
-    query: string
+    query: string,
+    setExternalId: ExternalIdCallback
   ): Promise<ExperimentMetricQueryResponse>;
-  runExperimentUnitsQuery(query: string): Promise<ExperimentUnitsQueryResponse>;
-  runPastExperimentQuery(query: string): Promise<PastExperimentQueryResponse>;
+  runExperimentAggregateUnitsQuery(
+    query: string,
+    setExternalId: ExternalIdCallback
+  ): Promise<ExperimentAggregateUnitsQueryResponse>;
+  runExperimentUnitsQuery(
+    query: string,
+    setExternalId: ExternalIdCallback
+  ): Promise<ExperimentUnitsQueryResponse>;
+  runPastExperimentQuery(
+    query: string,
+    setExternalId: ExternalIdCallback
+  ): Promise<PastExperimentQueryResponse>;
   getEventsTrackedByDatasource?: (
     schemaFormat: SchemaFormat,
     existingMetrics: MetricInterface[],
@@ -372,4 +414,5 @@ export interface SourceIntegrationInterface {
     database?: string,
     requireSchema?: boolean
   ): string;
+  cancelQuery?(externalId: string): Promise<void>;
 }

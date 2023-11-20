@@ -6,6 +6,7 @@ required:
   - name
   - attributeKey
   - values
+  - source
 properties:
   id:
     type: string
@@ -17,6 +18,11 @@ properties:
     format: date-time
   name:
     type: string
+  source:
+    type: string
+    enum:
+      - inline
+      - runtime
   owner:
     type: string
   attributeKey:

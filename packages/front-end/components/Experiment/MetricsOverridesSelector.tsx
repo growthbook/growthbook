@@ -10,9 +10,9 @@ import Toggle from "@/components/Forms/Toggle";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { GBCuped } from "@/components/Icons";
-import SelectField from "../Forms/SelectField";
 import Field from "../Forms/Field";
 import { EditMetricsFormInterface } from "./EditMetricsForm";
+import MetricSelector from "./MetricSelector";
 
 export default function MetricsOverridesSelector({
   experiment,
@@ -33,8 +33,9 @@ export default function MetricsOverridesSelector({
   const metrics = new Set(
     form.watch("metrics").concat(form.watch("guardrails"))
   );
-  if (experiment.activationMetric) {
-    metrics.add(experiment.activationMetric);
+  const activationMetric = form.watch("activationMetric");
+  if (activationMetric) {
+    metrics.add(activationMetric);
   }
 
   const metricOverrides = useFieldArray({
@@ -446,20 +447,14 @@ export default function MetricsOverridesSelector({
       {unusedMetrics.length > 0 && (
         <div className="row">
           <div className="col">
-            <SelectField
-              value={
-                metricDefinitions.find((md) => md.id === selectedMetricId)
-                  ?.name || ""
-              }
+            <MetricSelector
+              datasource={experiment.datasource}
+              availableIds={unusedMetrics}
+              project={experiment.project}
+              includeFacts={true}
+              value={selectedMetricId}
               onChange={(m) => setSelectedMetricId(m)}
               initialOption="Choose Metric..."
-              options={unusedMetrics.map((m) => {
-                const metric = metricDefinitions.find((md) => md.id === m);
-                return {
-                  label: metric?.name || `Unknown metric (${m})`,
-                  value: m,
-                };
-              })}
               disabled={disabled}
             />
           </div>

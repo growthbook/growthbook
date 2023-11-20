@@ -1,6 +1,6 @@
 {
   "name": "@growthbook/growthbook",
-  "version": "0.28.0",
+  "version": "0.31.0",
   "license": "MIT",
   "main": "dist/cjs/index.js",
   "module": "dist/esm/index.js",
@@ -39,7 +39,7 @@
   },
   "author": "Jeremy Dorn",
   "dependencies": {
-    "dom-mutator": "^0.5.0"
+    "dom-mutator": "^0.6.0"
   },
   "devDependencies": {
     "@babel/cli": "^7.19.3",
@@ -50,6 +50,7 @@
     "@rollup/plugin-node-resolve": "^13.0.4",
     "@rollup/plugin-replace": "^3.0.0",
     "@types/jest": "^27.0.1",
+    "babel-plugin-minify-replace": "^0.5.0",
     "cross-env": "^7.0.3",
     "gzip-size-cli": "^5.0.0",
     "jest": "^27.1.1",

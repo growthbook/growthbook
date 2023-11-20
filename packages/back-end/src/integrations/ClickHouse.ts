@@ -55,7 +55,7 @@ export default class ClickHouse extends SqlIntegration {
     return `toDateTime('${date
       .toISOString()
       .substr(0, 19)
-      .replace("T", " ")}')`;
+      .replace("T", " ")}', 'UTC')`;
   }
   addTime(
     col: string,

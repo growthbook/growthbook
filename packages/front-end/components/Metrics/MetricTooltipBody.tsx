@@ -1,5 +1,9 @@
-import { MetricInterface } from "back-end/types/metric";
 import clsx from "clsx";
+import {
+  ExperimentMetricInterface,
+  isFactMetric,
+  getConversionWindowHours,
+} from "shared/experiments";
 import { isNullUndefinedOrEmpty } from "@/services/utils";
 import { ExperimentTableRow } from "@/services/experiments";
 import Markdown from "../Markdown/Markdown";
@@ -7,7 +11,7 @@ import SortedTags from "../Tags/SortedTags";
 import styles from "./MetricToolTipBody.module.scss";
 
 interface MetricToolTipCompProps {
-  metric: MetricInterface;
+  metric: ExperimentMetricInterface;
   row?: ExperimentTableRow;
   reportRegressionAdjustmentEnabled?: boolean;
   newUi?: boolean;
@@ -33,16 +37,24 @@ const MetricTooltipBody = ({
   }
   const metricOverrideFields = row?.metricOverrideFields ?? [];
 
+  const conversionWindowHours = getConversionWindowHours(metric);
+
   const metricInfo: MetricInfo[] = [
     {
       show: true,
       label: "Type",
-      body: metric.type,
+      body: isFactMetric(metric) ? metric.metricType : metric.type,
     },
     {
       show: (metric.tags?.length ?? 0) > 0,
       label: "Tags",
-      body: <SortedTags tags={metric.tags} skipFirstMargin={true} />,
+      body: (
+        <SortedTags
+          tags={metric.tags}
+          shouldShowEllipsis={false}
+          useFlex={true}
+        />
+      ),
     },
     {
       show:
@@ -65,11 +77,11 @@ const MetricTooltipBody = ({
       ),
     },
     {
-      show: !isNullUndefinedOrEmpty(metric.conversionWindowHours),
+      show: !isNullUndefinedOrEmpty(conversionWindowHours),
       label: "Conversion Window Hours",
       body: (
         <>
-          {metric.conversionWindowHours}
+          {conversionWindowHours}
           {metricOverrideFields.includes("conversionWindowHours") ? (
             <small className="text-purple ml-1">(override)</small>
           ) : null}

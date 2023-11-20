@@ -18,7 +18,8 @@
   "dependencies": {
     "@dnd-kit/core": "^4.0.3",
     "@dnd-kit/sortable": "^5.1.0",
-    "@growthbook/growthbook-react": "^0.18.0",
+    "@floating-ui/react": "^0.25.4",
+    "@growthbook/growthbook-react": "^0.21.0",
     "@jitsu/sdk-js": "^2.2.0",
     "@jukben/emoji-search": "^2.0.1",
     "@popperjs/core": "^2.11.5",
@@ -75,6 +76,7 @@
     "react-syntax-highlighter": "^15.5.0",
     "react-textarea-autosize": "^8.3.4",
     "react-transition-group": "^4.4.5",
+    "scim2-parse-filter": "^0.2.8",
     "shared": "0.0.1",
     "spectacle": "^8.3.0",
     "swr": "^0.5.4",

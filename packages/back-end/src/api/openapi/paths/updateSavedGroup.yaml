@@ -30,6 +30,9 @@ requestBody:
           owner:
             type: string
             description: "The person or team that owns this Saved Group. If no owner, you can pass an empty string."
+          attributeKey:
+            type: string
+            description: (Runtime groups only) The key used to reference the Saved Group in the SDK
 responses:
   "200":
     content:

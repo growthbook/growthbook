@@ -5,6 +5,16 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import SelectField from "@/components/Forms/SelectField";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import FactBadge from "../FactTables/FactBadge";
+
+type MetricOption = {
+  id: string;
+  name: string;
+  datasource: string;
+  tags: string[];
+  projects: string[];
+  factTables: string[];
+};
 
 const MetricsSelector: FC<{
   datasource?: string;
@@ -12,14 +22,42 @@ const MetricsSelector: FC<{
   selected: string[];
   onChange: (metrics: string[]) => void;
   autoFocus?: boolean;
-}> = ({ datasource, project, selected, onChange, autoFocus }) => {
-  const { metrics } = useDefinitions();
-  const filteredMetrics = metrics
+  includeFacts?: boolean;
+}> = ({ datasource, project, selected, onChange, autoFocus, includeFacts }) => {
+  const { metrics, factMetrics } = useDefinitions();
+
+  const options: MetricOption[] = [
+    ...metrics.map((m) => ({
+      id: m.id,
+      name: m.name,
+      datasource: m.datasource || "",
+      tags: m.tags || [],
+      projects: m.projects || [],
+      factTables: [],
+    })),
+    ...(includeFacts
+      ? factMetrics.map((m) => ({
+          id: m.id,
+          name: m.name,
+          datasource: m.datasource,
+          tags: m.tags || [],
+          projects: m.projects || [],
+          factTables: [
+            m.numerator.factTableId,
+            (m.metricType === "ratio" && m.denominator
+              ? m.denominator.factTableId
+              : "") || "",
+          ],
+        }))
+      : []),
+  ];
+
+  const filteredOptions = options
     .filter((m) => (datasource ? m.datasource === datasource : true))
     .filter((m) => isProjectListValidForProject(m.projects, project));
 
   const tagCounts: Record<string, number> = {};
-  filteredMetrics.forEach((m) => {
+  filteredOptions.forEach((m) => {
     if (!selected.includes(m.id) && m.tags) {
       m.tags.forEach((t) => {
         tagCounts[t] = tagCounts[t] || 0;
@@ -33,7 +71,7 @@ const MetricsSelector: FC<{
       <MultiSelectField
         value={selected}
         onChange={onChange}
-        options={filteredMetrics.map((m) => {
+        options={filteredOptions.map((m) => {
           return {
             value: m.id,
             label: m.name,
@@ -41,6 +79,14 @@ const MetricsSelector: FC<{
         })}
         placeholder="Select metrics..."
         autoFocus={autoFocus}
+        formatOptionLabel={({ label, value }) => {
+          return (
+            <>
+              {label}
+              <FactBadge metricId={value} />
+            </>
+          );
+        }}
       />
       {Object.keys(tagCounts).length > 0 && (
         <div className="metric-from-tag text-muted form-inline mt-2">
@@ -57,7 +103,7 @@ const MetricsSelector: FC<{
             onChange={(v) => {
               const newValue = new Set(selected);
               const tag = v;
-              filteredMetrics.forEach((m) => {
+              filteredOptions.forEach((m) => {
                 if (m.tags && m.tags.includes(tag)) {
                   newValue.add(m.id);
                 }

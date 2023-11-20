@@ -1,6 +1,9 @@
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import {
+  ExperimentInterfaceStringDates,
+  LinkedFeatureInfo,
+} from "back-end/types/experiment";
 import { getScopedSettings } from "shared/settings";
-import React, { useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import {
   MetricRegressionAdjustmentStatus,
   ReportInterface,
@@ -12,6 +15,7 @@ import { VisualChangesetInterface } from "back-end/types/visual-changeset";
 import { SDKConnectionInterface } from "back-end/types/sdk-connection";
 import Link from "next/link";
 import { useRouter } from "next/router";
+import { DifferenceType } from "back-end/types/stats";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import useOrgSettings from "@/hooks/useOrgSettings";
@@ -19,13 +23,14 @@ import { getRegressionAdjustmentsForMetric } from "@/services/experiments";
 import { useAuth } from "@/services/auth";
 import Button from "@/components/Button";
 import { GBAddCircle } from "@/components/Icons";
-import Results from "../Results";
+import { useLocalStorage } from "@/hooks/useLocalStorage";
+import Results, { ResultsMetricFilters } from "../Results";
 import { StartExperimentBanner } from "../StartExperimentBanner";
 import AnalysisForm from "../AnalysisForm";
 import ExperimentReportsList from "../ExperimentReportsList";
 import { useSnapshot } from "../SnapshotProvider";
 import AnalysisSettingsSummary from "./AnalysisSettingsSummary";
-import { ExperimentTab, LinkedFeature } from ".";
+import { ExperimentTab } from ".";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
@@ -36,7 +41,7 @@ export interface Props {
   editPhases?: (() => void) | null;
   visualChangesets: VisualChangesetInterface[];
   editTargeting?: (() => void) | null;
-  linkedFeatures: LinkedFeature[];
+  linkedFeatures: LinkedFeatureInfo[];
   setTab: (tab: ExperimentTab) => void;
   connections: SDKConnectionInterface[];
   isTabActive: boolean;
@@ -58,12 +63,22 @@ export default function ResultsTab({
   isTabActive,
   safeToEdit,
 }: Props) {
-  const [baselineRow, setBaselineRow] = React.useState<number>(0);
-  const [variationFilter, setVariationFilter] = React.useState<number[]>([]);
+  const [baselineRow, setBaselineRow] = useState<number>(0);
+  const [differenceType, setDifferenceType] = useState<DifferenceType>(
+    "relative"
+  );
+  const [variationFilter, setVariationFilter] = useState<number[]>([]);
+  const [metricFilter, setMetricFilter] = useLocalStorage<ResultsMetricFilters>(
+    `experiment-page__${experiment.id}__metric_filter`,
+    {
+      tagOrder: [],
+      filterByTag: false,
+    }
+  );
 
   const {
     getDatasourceById,
-    getMetricById,
+    getExperimentMetricById,
     getProjectById,
     metrics,
     datasources,
@@ -101,13 +116,15 @@ export default function ResultsTab({
     ...(experiment.guardrails ?? []),
   ]);
   const allExperimentMetrics = allExperimentMetricIds.map((m) =>
-    getMetricById(m)
+    getExperimentMetricById(m)
   );
   const denominatorMetricIds = uniq<string>(
-    allExperimentMetrics.map((m) => m?.denominator).filter(Boolean) as string[]
+    allExperimentMetrics
+      .map((m) => m?.denominator)
+      .filter((d) => d && typeof d === "string") as string[]
   );
   const denominatorMetrics = denominatorMetricIds
-    .map((m) => getMetricById(m as string))
+    .map((m) => getExperimentMetricById(m as string))
     .filter(Boolean) as MetricInterface[];
 
   const orgSettings = useOrgSettings();
@@ -214,6 +231,7 @@ export default function ResultsTab({
             setVariationFilter={(v: number[]) => setVariationFilter(v)}
             baselineRow={baselineRow}
             setBaselineRow={(b: number) => setBaselineRow(b)}
+            setDifferenceType={setDifferenceType}
           />
           {experiment.status === "draft" ? (
             <div className="mx-3">
@@ -309,6 +327,10 @@ export default function ResultsTab({
                   setVariationFilter={setVariationFilter}
                   baselineRow={baselineRow}
                   setBaselineRow={setBaselineRow}
+                  differenceType={differenceType}
+                  setDifferenceType={setDifferenceType}
+                  metricFilter={metricFilter}
+                  setMetricFilter={setMetricFilter}
                 />
               )}
             </>

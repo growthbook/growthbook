@@ -7,7 +7,7 @@ slug: build-your-own
 
 # Build Your Own SDK
 
-**Latest spec version: 0.5.0 [View Changelog](#changelog)**
+**Latest spec version: 0.5.2 [View Changelog](#changelog)**
 
 This guide is meant for library authors looking to build a GrowthBook SDK in a currently unsupported language.
 
@@ -1145,3 +1145,7 @@ Open a [GitHub issue](https://github.com/growthbook/growthbook/issues) with a li
 - **v0.5.0** 2023-05-17
   - Add support for new version string comparison operators (`$veq`, `$vne`, `$vgt`, `$vgte`, `$vlt`, `$vlte`) and new `paddedVersionString` helper function
   - New `isIn` helper function for conditions, plus new evalCondition test cases for `$in` and `$nin` operators when attribute is an array
+- **v0.5.1** 2023-10-19
+  - Add 2 new test cases for matching on a `$groups` array attribute
+- **v0.5.2** 2023-10-30
+  - Add 3 new test cases for comparison operators to handle more edge cases

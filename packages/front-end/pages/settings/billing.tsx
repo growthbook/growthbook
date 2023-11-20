@@ -5,6 +5,7 @@ import { isCloud } from "@/services/env";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import useStripeSubscription from "@/hooks/useStripeSubscription";
 import usePermissions from "@/hooks/usePermissions";
+import { useUser } from "@/services/UserContext";
 
 const BillingPage: FC = () => {
   const [upgradeModal, setUpgradeModal] = useState(false);
@@ -13,10 +14,23 @@ const BillingPage: FC = () => {
 
   const permissions = usePermissions();
 
+  const { accountPlan } = useUser();
+
   if (!isCloud()) {
     return (
       <div className="alert alert-info">
         This page is not available for self-hosted installations.
+      </div>
+    );
+  }
+
+  if (accountPlan === "enterprise") {
+    return (
+      <div className="container pagecontents">
+        <div className="alert alert-info">
+          This page is not available for enterprise customers. Please contact
+          your account rep for any billing questions or changes.
+        </div>
       </div>
     );
   }

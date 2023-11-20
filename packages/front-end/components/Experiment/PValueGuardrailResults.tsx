@@ -11,8 +11,8 @@ import {
   SnapshotMetric,
   SnapshotVariation,
 } from "back-end/types/experiment-snapshot";
-import { MetricInterface } from "back-end/types/metric";
 import { ExperimentReportVariation } from "back-end/types/report";
+import { ExperimentMetricInterface, getMetricLink } from "shared/experiments";
 import {
   isExpectedDirection,
   isStatSig,
@@ -34,7 +34,7 @@ type PValueGuardrailResult = {
 };
 
 const HeaderResult: FC<{
-  metric: MetricInterface;
+  metric: ExperimentMetricInterface;
   results: PValueGuardrailResult[];
 }> = ({ metric, results }) => {
   // remove control for determining header
@@ -72,7 +72,7 @@ const HeaderResult: FC<{
       {status === "danger" && <FaExclamation className="mr-1" />}
       {status === "secondary" && <FaQuestionCircle className="mr-1" />}
       <Tooltip body={<MetricTooltipBody metric={metric} />} tipPosition="right">
-        <Link href={`/metric/${metric.id}`}>
+        <Link href={getMetricLink(metric.id)}>
           <a className="text-black-50 font-weight-bold">{metric.name}</a>
         </Link>
       </Tooltip>
@@ -83,7 +83,7 @@ const HeaderResult: FC<{
 const PValueGuardrailResults: FC<{
   data: SnapshotVariation[];
   variations: ExperimentReportVariation[];
-  metric: MetricInterface;
+  metric: ExperimentMetricInterface;
 }> = ({ data, variations, metric }) => {
   const pValueThreshold = usePValueThreshold();
 

@@ -32,13 +32,12 @@ export default function Dashboard({ experiments }: Props) {
         </div>
         <div className="row">
           <div className="col-lg-12 col-md-12 col-xl-8 mb-3">
-            <div className="list-group activity-box fixed-height overflow-auto">
-              <h4 className="mb-3">Experiments by month</h4>
+            <div className="list-group activity-box fixed-height">
               <ExperimentGraph
                 resolution={"month"}
                 num={12}
-                status={"all"}
                 height={220}
+                initialShowBy={"all"}
               />
             </div>
           </div>

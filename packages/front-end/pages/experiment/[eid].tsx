@@ -1,5 +1,8 @@
 import { useRouter } from "next/router";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import {
+  ExperimentInterfaceStringDates,
+  LinkedFeatureInfo,
+} from "back-end/types/experiment";
 import { VisualChangesetInterface } from "back-end/types/visual-changeset";
 import React, { ReactElement, useState } from "react";
 import { IdeaInterface } from "back-end/types/idea";
@@ -28,7 +31,6 @@ import EditPhaseModal from "@/components/Experiment/EditPhaseModal";
 import EditTargetingModal from "@/components/Experiment/EditTargetingModal";
 import TabbedPage from "@/components/Experiment/TabbedPage";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
-import { useFeaturesList } from "@/services/features";
 import FeedbackModal from "@/components/FeedbackModal";
 import track from "@/services/track";
 import PageHead from "@/components/Layout/PageHead";
@@ -53,6 +55,7 @@ const ExperimentPage = (): ReactElement => {
     experiment: ExperimentInterfaceStringDates;
     idea?: IdeaInterface;
     visualChangesets: VisualChangesetInterface[];
+    linkedFeatures: LinkedFeatureInfo[];
   }>(`/experiment/${eid}`);
 
   useSwitchOrg(data?.experiment?.organization ?? null);
@@ -64,8 +67,6 @@ const ExperimentPage = (): ReactElement => {
   const [showFeedbackBanner, setShowFeedbackBanner] = useState<boolean>(true);
   const [showFeedbackModal, setShowFeedbackModal] = useState<boolean>(false);
 
-  const { features } = useFeaturesList(false);
-
   const { apiCall } = useAuth();
 
   if (error) {
@@ -75,7 +76,7 @@ const ExperimentPage = (): ReactElement => {
     return <LoadingOverlay />;
   }
 
-  const { experiment, idea, visualChangesets = [] } = data;
+  const { experiment, idea, visualChangesets = [], linkedFeatures = [] } = data;
 
   const canEditExperiment =
     permissions.check("createAnalyses", experiment.project) &&
@@ -114,7 +115,7 @@ const ExperimentPage = (): ReactElement => {
     experiment.status !== "running" ||
     !includeExperimentInPayload(
       experiment,
-      features.filter((f) => experiment.linkedFeatures?.includes(f.id))
+      linkedFeatures.map((f) => f.feature)
     );
 
   return (
@@ -273,6 +274,7 @@ const ExperimentPage = (): ReactElement => {
           {newUi ? (
             <TabbedPage
               experiment={experiment}
+              linkedFeatures={linkedFeatures}
               mutate={mutate}
               visualChangesets={visualChangesets}
               editMetrics={editMetrics}
@@ -289,6 +291,7 @@ const ExperimentPage = (): ReactElement => {
           ) : (
             <SinglePage
               experiment={experiment}
+              linkedFeatures={linkedFeatures}
               idea={idea}
               visualChangesets={visualChangesets}
               mutate={mutate}

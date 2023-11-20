@@ -9,14 +9,17 @@ import { ExperimentStatus, MetricOverride } from "back-end/types/experiment";
 import { PValueCorrection, StatsEngine } from "back-end/types/stats";
 import Link from "next/link";
 import { FaTimes } from "react-icons/fa";
+import { getMetricLink } from "shared/experiments";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import {
   applyMetricOverrides,
   setAdjustedPValuesOnResults,
   ExperimentTableRow,
   useRiskVariation,
+  setAdjustedCIs,
 } from "@/services/experiments";
 import { GBCuped } from "@/components/Icons";
+import usePValueThreshold from "@/hooks/usePValueThreshold";
 import Tooltip from "../Tooltip/Tooltip";
 import MetricTooltipBody from "../Metrics/MetricTooltipBody";
 import DataQualityWarning from "./DataQualityWarning";
@@ -58,16 +61,18 @@ const CompactResults_old: FC<{
   metricRegressionAdjustmentStatuses,
   sequentialTestingEnabled,
 }) => {
-  const { getMetricById, ready } = useDefinitions();
+  const { getExperimentMetricById, ready } = useDefinitions();
+  const pValueThreshold = usePValueThreshold();
 
   const rows = useMemo<ExperimentTableRow[]>(() => {
     if (!results || !results.variations || !ready) return [];
     if (pValueCorrection && statsEngine === "frequentist") {
       setAdjustedPValuesOnResults([results], metrics, pValueCorrection);
+      setAdjustedCIs([results], pValueThreshold);
     }
     return metrics
       .map((metricId) => {
-        const metric = getMetricById(metricId);
+        const metric = getExperimentMetricById(metricId);
         if (!metric) return null;
         const { newMetric } = applyMetricOverrides(metric, metricOverrides);
         let regressionAdjustmentStatus:
@@ -97,8 +102,9 @@ const CompactResults_old: FC<{
     regressionAdjustmentEnabled,
     metricRegressionAdjustmentStatuses,
     pValueCorrection,
+    pValueThreshold,
     ready,
-    getMetricById,
+    getExperimentMetricById,
     statsEngine,
   ]);
 
@@ -165,7 +171,7 @@ const CompactResults_old: FC<{
                 }
                 tipPosition="right"
               >
-                <Link href={`/metric/${metric.id}`}>
+                <Link href={getMetricLink(metric.id)}>
                   <a className="metriclabel text-dark">{label}</a>
                 </Link>
               </Tooltip>

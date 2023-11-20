@@ -30,7 +30,14 @@ export type {
 
 export type { ConditionInterface } from "./types/mongrule";
 
-export { setPolyfills, clearCache, configureCache } from "./feature-repository";
+export {
+  setPolyfills,
+  clearCache,
+  configureCache,
+  helpers,
+  onVisible,
+  onHidden,
+} from "./feature-repository";
 
 export { GrowthBook } from "./GrowthBook";
 

@@ -14,9 +14,9 @@ const PermissionZodObject = z.object({
   environments: z.string().array(),
 });
 
-router.get("/:id", teamController.getTeamById);
+router.post("/:id/members", teamController.addTeamMembers);
 
-router.get("/", teamController.getTeams);
+router.delete("/:id/member/:memberId", teamController.deleteTeamMember);
 
 router.post(
   "/",
@@ -41,14 +41,15 @@ router.put(
   validateRequestMiddleware({
     body: z
       .object({
-        name: z.string(),
-        description: z.string(),
+        name: z.string().optional(),
+        description: z.string().optional(),
         permissions: PermissionZodObject.extend({
           projectRoles: PermissionZodObject.extend({
             project: z.string(),
-          }).array(),
+          })
+            .array()
+            .optional(),
         }),
-        members: z.string().array().optional(),
       })
       .strict(),
   }),

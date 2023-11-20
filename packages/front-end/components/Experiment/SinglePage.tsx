@@ -1,6 +1,7 @@
 import {
   ExperimentInterfaceStringDates,
   ExperimentPhaseStringDates,
+  LinkedFeatureInfo,
 } from "back-end/types/experiment";
 import { VisualChangesetInterface } from "back-end/types/visual-changeset";
 import React, { useMemo, useState } from "react";
@@ -23,9 +24,7 @@ import {
 } from "back-end/types/report";
 import { DEFAULT_REGRESSION_ADJUSTMENT_ENABLED } from "shared/constants";
 import {
-  MatchingRule,
   getAffectedEnvsForExperiment,
-  getMatchingRules,
   includeExperimentInPayload,
 } from "shared/util";
 import { getScopedSettings } from "shared/settings";
@@ -34,14 +33,18 @@ import Collapsible from "react-collapsible";
 import { DiscussionInterface } from "back-end/types/discussion";
 import { BsFlag } from "react-icons/bs";
 import clsx from "clsx";
-import { FeatureInterface } from "back-end/types/feature";
 import { MdInfoOutline } from "react-icons/md";
+import {
+  ExperimentMetricInterface,
+  getConversionWindowHours,
+  getMetricLink,
+  isFactMetric,
+} from "shared/experiments";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import usePermissions from "@/hooks/usePermissions";
 import { useAuth } from "@/services/auth";
 import useApi from "@/hooks/useApi";
 import { useUser } from "@/services/UserContext";
-import { getDefaultConversionWindowHours } from "@/services/env";
 import {
   applyMetricOverrides,
   getRegressionAdjustmentsForMetric,
@@ -55,7 +58,6 @@ import { VisualChangesetTable } from "@/components/Experiment/VisualChangesetTab
 import ClickToCopy from "@/components/Settings/ClickToCopy";
 import ConditionDisplay from "@/components/Features/ConditionDisplay";
 import LinkedFeatureFlag from "@/components/Experiment/LinkedFeatureFlag";
-import { useEnvironments, useFeaturesList } from "@/services/features";
 import track from "@/services/track";
 import { formatTrafficSplit } from "@/services/utils";
 import Results_old from "@/components/Experiment/Results_old";
@@ -101,7 +103,7 @@ import { HashVersionTooltip } from "./HashVersionSelector";
 
 function drawMetricRow(
   m: string,
-  metric: MetricInterface | null,
+  metric: ExperimentMetricInterface | null,
   experiment: ExperimentInterfaceStringDates,
   ignoreConversionEnd: boolean
 ) {
@@ -114,14 +116,15 @@ function drawMetricRow(
 
   const conversionStart = newMetric.conversionDelayHours || 0;
   const conversionEnd =
-    (newMetric.conversionDelayHours || 0) +
-    (newMetric.conversionWindowHours || getDefaultConversionWindowHours());
+    (newMetric.conversionDelayHours || 0) + getConversionWindowHours(newMetric);
 
   const hasOverrides =
     overrideFields.includes("conversionDelayHours") ||
     (!ignoreConversionEnd && overrideFields.includes("conversionWindowHours"));
 
-  const isArchived = metric.status === "archived";
+  const isArchived = isFactMetric(metric)
+    ? false
+    : metric.status === "archived";
 
   return (
     <div className="row align-items-top" key={m}>
@@ -129,7 +132,7 @@ function drawMetricRow(
         <div className="row">
           <div className="col-auto pr-0">-</div>
           <div className="col">
-            <Link href={`/metric/${m}`}>
+            <Link href={getMetricLink(m)}>
               <a className="font-weight-bold">
                 {newMetric?.name}
                 {isArchived ? (
@@ -173,6 +176,7 @@ export interface Props {
   experiment: ExperimentInterfaceStringDates;
   idea?: IdeaInterface;
   visualChangesets: VisualChangesetInterface[];
+  linkedFeatures: LinkedFeatureInfo[];
   mutate: () => void;
   editMetrics?: (() => void) | null;
   editResult?: (() => void) | null;
@@ -192,6 +196,7 @@ export default function SinglePage({
   experiment,
   idea,
   visualChangesets,
+  linkedFeatures,
   mutate,
   editMetrics,
   editResult,
@@ -227,7 +232,7 @@ export default function SinglePage({
     getProjectById,
     getDatasourceById,
     getSegmentById,
-    getMetricById,
+    getExperimentMetricById,
     projects,
     datasources,
     metrics,
@@ -247,8 +252,6 @@ export default function SinglePage({
   const { data: discussionData } = useApi<{ discussion: DiscussionInterface }>(
     `/discussion/experiment/${experiment.id}`
   );
-
-  const { features, mutate: mutateFeatures } = useFeaturesList(false);
 
   const phases = experiment.phases || [];
   const lastPhaseIndex = phases.length - 1;
@@ -273,8 +276,6 @@ export default function SinglePage({
     style: "percent",
     maximumFractionDigits: 2,
   });
-
-  const environments = useEnvironments();
 
   const [reportSettingsOpen, setReportSettingsOpen] = useState(false);
   const [editNameOpen, setEditNameOpen] = useState(false);
@@ -315,7 +316,9 @@ export default function SinglePage({
 
   const datasource = getDatasourceById(experiment.datasource);
   const segment = getSegmentById(experiment.segment || "");
-  const activationMetric = getMetricById(experiment.activationMetric || "");
+  const activationMetric = getExperimentMetricById(
+    experiment.activationMetric || ""
+  );
 
   const exposureQueries = datasource?.settings?.queries?.exposure || [];
   const exposureQuery = exposureQueries.find(
@@ -333,13 +336,13 @@ export default function SinglePage({
     ...(experiment.guardrails ?? []),
   ]);
   const allExperimentMetrics = allExperimentMetricIds.map((m) =>
-    getMetricById(m)
+    getExperimentMetricById(m)
   );
   const denominatorMetricIds = uniq<string>(
     allExperimentMetrics.map((m) => m?.denominator).filter(Boolean) as string[]
   );
   const denominatorMetrics = denominatorMetricIds
-    .map((m) => getMetricById(m as string))
+    .map((m) => getExperimentMetricById(m as string))
     .filter(Boolean) as MetricInterface[];
 
   const [
@@ -439,31 +442,11 @@ export default function SinglePage({
   const ignoreConversionEnd =
     experiment.attributionModel === "experimentDuration";
 
-  const linkedFeatures: {
-    feature: FeatureInterface;
-    rules: MatchingRule[];
-  }[] = [];
-  const environmentIds = environments.map((e) => e.id);
-  features.forEach((feature) => {
-    const rules = getMatchingRules(
-      feature,
-      (rule) =>
-        (rule.type === "experiment" &&
-          experiment.trackingKey === (rule.trackingKey || feature.id)) ||
-        (rule.type === "experiment-ref" && rule.experimentId === experiment.id),
-      environmentIds
-    );
-
-    if (rules.length > 0) {
-      linkedFeatures.push({ feature, rules });
-    }
-  });
-
   const numLinkedChanges = visualChangesets.length + linkedFeatures.length;
 
   const hasLiveLinkedChanges = includeExperimentInPayload(
     experiment,
-    features.filter((f) => experiment.linkedFeatures?.includes(f.id))
+    linkedFeatures.map((f) => f.feature)
   );
 
   // Get name or email of all active users watching this experiment
@@ -561,12 +544,9 @@ export default function SinglePage({
       )}
       {featureModal && (
         <FeatureFromExperimentModal
-          features={features}
           experiment={experiment}
           close={() => setFeatureModal(false)}
-          onSuccess={async () => {
-            await mutateFeatures();
-          }}
+          mutate={mutate}
         />
       )}
       <div className="row align-items-center mb-1">
@@ -733,9 +713,7 @@ export default function SinglePage({
           <div className="col-auto pr-3 ml-2">
             Tags:{" "}
             {experiment.tags?.length > 0 ? (
-              <span className="d-inline-block" style={{ maxWidth: 250 }}>
-                <SortedTags tags={experiment.tags} skipFirstMargin={true} />
-              </span>
+              <SortedTags tags={experiment.tags} skipFirstMargin={true} />
             ) : (
               <em className="text-muted">None</em>
             )}{" "}
@@ -1108,13 +1086,11 @@ export default function SinglePage({
                         ({linkedFeatures.length})
                       </small>
                     </div>
-                    {linkedFeatures.map(({ feature, rules }, i) => (
+                    {linkedFeatures.map((info, i) => (
                       <LinkedFeatureFlag
-                        feature={feature}
-                        rules={rules}
+                        info={info}
                         experiment={experiment}
                         key={i}
-                        mutateFeatures={mutateFeatures}
                       />
                     ))}
                     {experiment.status === "draft" &&
@@ -1401,7 +1377,7 @@ export default function SinglePage({
                       <div className="col-sm-2">Behavior</div>
                     </div>
                     {experiment.metrics.map((m) => {
-                      const metric = getMetricById(m);
+                      const metric = getExperimentMetricById(m);
                       return drawMetricRow(
                         m,
                         metric,
@@ -1446,7 +1422,7 @@ export default function SinglePage({
                         <div className="col-sm-2">Behavior</div>
                       </div>
                       {experiment.guardrails?.map((m) => {
-                        const metric = getMetricById(m);
+                        const metric = getExperimentMetricById(m);
                         return drawMetricRow(
                           m,
                           metric,
@@ -1467,7 +1443,7 @@ export default function SinglePage({
                       </div>
                       {drawMetricRow(
                         experiment.activationMetric,
-                        getMetricById(experiment.activationMetric),
+                        getExperimentMetricById(experiment.activationMetric),
                         experiment,
                         ignoreConversionEnd
                       )}

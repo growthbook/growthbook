@@ -1,7 +1,8 @@
+import { ExperimentMetricInterface } from "shared/experiments";
 import { ExperimentSnapshotAnalysis } from "../../types/experiment-snapshot";
-import { MetricInterface } from "../../types/metric";
 import { Queries, QueryStatus } from "../../types/query";
 import { ExperimentReportResults, ReportInterface } from "../../types/report";
+import { FactTableMap } from "../models/FactTableModel";
 import { getReportById, updateReport } from "../models/ReportModel";
 import { getSnapshotSettingsFromReportArgs } from "../services/reports";
 import { analyzeExperimentResults } from "../services/stats";
@@ -18,7 +19,8 @@ export type SnapshotResult = {
 };
 
 export type ReportQueryParams = {
-  metricMap: Map<string, MetricInterface>;
+  metricMap: Map<string, ExperimentMetricInterface>;
+  factTableMap: FactTableMap;
 };
 
 export class ReportQueryRunner extends QueryRunner<
@@ -26,22 +28,22 @@ export class ReportQueryRunner extends QueryRunner<
   ReportQueryParams,
   ExperimentReportResults
 > {
-  private metricMap: Map<string, MetricInterface> = new Map();
+  private metricMap: Map<string, ExperimentMetricInterface> = new Map();
 
   async startQueries(params: ReportQueryParams): Promise<Queries> {
     this.metricMap = params.metricMap;
 
-    const {
-      analysisSettings,
-      snapshotSettings,
-    } = getSnapshotSettingsFromReportArgs(this.model.args, params.metricMap);
+    const { snapshotSettings } = getSnapshotSettingsFromReportArgs(
+      this.model.args,
+      params.metricMap
+    );
 
     const experimentParams: ExperimentResultsQueryParams = {
       metricMap: params.metricMap,
-      analysisSettings,
       snapshotSettings,
       variationNames: this.model.args.variations.map((v) => v.name),
       queryParentId: this.model.id,
+      factTableMap: params.factTableMap,
     };
 
     return startExperimentResultQueries(

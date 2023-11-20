@@ -21,22 +21,22 @@ properties:
   dateUpdated:
     type: string
     format: date-time
-  archived: 
+  archived:
     type: boolean
-  description: 
+  description:
     type: string
-  owner: 
+  owner:
     type: string
-  project: 
+  project:
     type: string
-  valueType: 
+  valueType:
     type: string
     enum:
       - boolean
       - string
       - number
       - json
-  defaultValue: 
+  defaultValue:
     type: string
   tags:
     type: array

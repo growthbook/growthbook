@@ -45,6 +45,7 @@ export interface ExperimentReportArgs {
   endDate?: Date;
   dimension?: string | null;
   variations: ExperimentReportVariation[];
+  coverage?: number;
   segment?: string;
   metrics: string[];
   metricOverrides?: MetricOverride[];
@@ -58,6 +59,7 @@ export interface ExperimentReportArgs {
   metricRegressionAdjustmentStatuses?: MetricRegressionAdjustmentStatus[];
   sequentialTestingEnabled?: boolean;
   sequentialTestingTuningParameter?: number;
+  pValueThreshold?: number;
 }
 export interface ExperimentReportResultDimension {
   name: string;

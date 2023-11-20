@@ -1,15 +1,15 @@
 import mongoose, { FilterQuery } from "mongoose";
 import cloneDeep from "lodash/cloneDeep";
 import omit from "lodash/omit";
-import { isEqual } from "lodash";
+import isEqual from "lodash/isEqual";
+import { MergeResultChanges } from "shared/util";
 import {
-  ExperimentRefRule,
-  FeatureDraftChanges,
   FeatureEnvironment,
   FeatureInterface,
   FeatureRule,
   LegacyFeatureInterface,
 } from "../../types/feature";
+import { ExperimentInterface } from "../../types/experiment";
 import {
   generateRuleId,
   getApiFeatureObj,
@@ -30,13 +30,24 @@ import {
   getSDKPayloadKeysByDiff,
 } from "../util/features";
 import { EventAuditUser } from "../events/event-types";
-import { saveRevision } from "./FeatureRevisionModel";
+import { FeatureRevisionInterface } from "../../types/feature-revision";
+import { logger } from "../util/logger";
+import { getEnvironmentIdsFromOrg } from "../services/organizations";
 import { createEvent } from "./EventModel";
 import {
   addLinkedFeatureToExperiment,
   getExperimentMapForFeature,
   removeLinkedFeatureFromExperiment,
+  getExperimentsByIds,
 } from "./ExperimentModel";
+import {
+  createInitialRevision,
+  createRevisionFromLegacyDraft,
+  deleteAllRevisionsForFeature,
+  hasDraft,
+  markRevisionAsPublished,
+  updateRevision,
+} from "./FeatureRevisionModel";
 
 const featureSchema = new mongoose.Schema({
   id: String,
@@ -48,6 +59,7 @@ const featureSchema = new mongoose.Schema({
   project: String,
   dateCreated: Date,
   dateUpdated: Date,
+  version: Number,
   valueType: String,
   defaultValue: String,
   environments: [String],
@@ -65,6 +77,13 @@ const featureSchema = new mongoose.Schema({
       hashAttribute: String,
       enabled: Boolean,
       condition: String,
+      savedGroups: [
+        {
+          _id: false,
+          ids: [String],
+          match: String,
+        },
+      ],
       description: String,
       experimentId: String,
       values: [
@@ -92,9 +111,12 @@ const featureSchema = new mongoose.Schema({
   ],
   environmentSettings: {},
   draft: {},
+  legacyDraftMigrated: Boolean,
+  hasDrafts: Boolean,
   revision: {},
   linkedExperiments: [String],
   jsonSchema: {},
+  neverStale: Boolean,
 });
 
 featureSchema.index({ id: 1, organization: 1 }, { unique: true });
@@ -127,12 +149,66 @@ export async function getAllFeatures(
   );
 }
 
+const _undefinedTypeGuard = (x: string[] | undefined): x is string[] =>
+  typeof x !== "undefined";
+
+export async function getAllFeaturesWithLinkedExperiments(
+  organization: string,
+  project?: string
+): Promise<{
+  features: FeatureInterface[];
+  experiments: ExperimentInterface[];
+}> {
+  const q: FilterQuery<FeatureDocument> = { organization };
+  if (project) {
+    q.project = project;
+  }
+
+  const features = await FeatureModel.find(q);
+  const expIds = new Set<string>(
+    features
+      .map((f) => f.linkedExperiments)
+      .filter(_undefinedTypeGuard)
+      .flat()
+  );
+  const experiments = await getExperimentsByIds(organization, [...expIds]);
+
+  return {
+    features: features.map((m) => upgradeFeatureInterface(toInterface(m))),
+    experiments,
+  };
+}
+
 export async function getFeature(
   organization: string,
   id: string
 ): Promise<FeatureInterface | null> {
   const feature = await FeatureModel.findOne({ organization, id });
   return feature ? upgradeFeatureInterface(toInterface(feature)) : null;
+}
+
+export async function migrateDraft(feature: FeatureInterface) {
+  if (!feature.legacyDraft || feature.legacyDraftMigrated) return null;
+
+  try {
+    const draft = await createRevisionFromLegacyDraft(feature);
+    await FeatureModel.updateOne(
+      {
+        organization: feature.organization,
+        id: feature.id,
+      },
+      {
+        $set: {
+          legacyDraftMigrated: true,
+          hasDrafts: true,
+        },
+      }
+    );
+    return draft;
+  } catch (e) {
+    logger.error(e, "Error migrating old feature draft");
+  }
+  return null;
 }
 
 export async function getFeaturesByIds(
@@ -149,12 +225,24 @@ export async function createFeature(
   user: EventAuditUser,
   data: FeatureInterface
 ) {
-  const linkedExperiments = getLinkedExperiments(data);
+  const linkedExperiments = getLinkedExperiments(
+    data,
+    getEnvironmentIdsFromOrg(org)
+  );
   const feature = await FeatureModel.create({
     ...data,
     linkedExperiments,
   });
-  await saveRevision(toInterface(feature));
+
+  // Historically, we haven't properly removed revisions when deleting a feature
+  // So, clean up any conflicting revisions first before creating a new one
+  await deleteAllRevisionsForFeature(org.id, feature.id);
+
+  await createInitialRevision(
+    toInterface(feature),
+    user,
+    getEnvironmentIdsFromOrg(org)
+  );
 
   if (linkedExperiments.length > 0) {
     await Promise.all(
@@ -173,6 +261,7 @@ export async function deleteFeature(
   feature: FeatureInterface
 ) {
   await FeatureModel.deleteOne({ organization: org.id, id: feature.id });
+  await deleteAllRevisionsForFeature(org.id, feature.id);
 
   if (feature.linkedExperiments) {
     await Promise.all(
@@ -339,7 +428,7 @@ async function onFeatureCreate(
 ) {
   await refreshSDKPayloadCache(
     organization,
-    getAffectedSDKPayloadKeys([feature])
+    getAffectedSDKPayloadKeys([feature], getEnvironmentIdsFromOrg(organization))
   );
 
   await logFeatureCreatedEvent(organization, user, feature);
@@ -352,7 +441,7 @@ async function onFeatureDelete(
 ) {
   await refreshSDKPayloadCache(
     organization,
-    getAffectedSDKPayloadKeys([feature])
+    getAffectedSDKPayloadKeys([feature], getEnvironmentIdsFromOrg(organization))
   );
 
   await logFeatureDeletedEvent(organization, user, feature);
@@ -367,8 +456,13 @@ export async function onFeatureUpdate(
 ) {
   await refreshSDKPayloadCache(
     organization,
-    getSDKPayloadKeysByDiff(feature, updatedFeature),
+    getSDKPayloadKeysByDiff(
+      feature,
+      updatedFeature,
+      getEnvironmentIdsFromOrg(organization)
+    ),
     null,
+    undefined,
     skipRefreshForProject
   );
 
@@ -392,9 +486,11 @@ export async function updateFeature(
   };
 
   // Refresh linkedExperiments if needed
-  const linkedExperiments = getLinkedExperiments(updatedFeature);
+  const linkedExperiments = getLinkedExperiments(
+    updatedFeature,
+    getEnvironmentIdsFromOrg(org)
+  );
   const experimentsAdded = new Set<string>();
-  const experimentsRemoved = new Set<string>();
   if (!isEqual(linkedExperiments, feature.linkedExperiments)) {
     allUpdates.linkedExperiments = linkedExperiments;
     updatedFeature.linkedExperiments = linkedExperiments;
@@ -403,12 +499,6 @@ export async function updateFeature(
     linkedExperiments.forEach((exp) => {
       if (!feature.linkedExperiments?.includes(exp)) {
         experimentsAdded.add(exp);
-      }
-    });
-    // Experiments this feature was removed from
-    feature.linkedExperiments?.forEach((exp) => {
-      if (!linkedExperiments.includes(exp)) {
-        experimentsRemoved.add(exp);
       }
     });
   }
@@ -427,16 +517,25 @@ export async function updateFeature(
       })
     );
   }
-  if (experimentsRemoved.size > 0) {
-    await Promise.all(
-      [...experimentsRemoved].map(async (exp) => {
-        await removeLinkedFeatureFromExperiment(org, user, exp, feature.id);
-      })
-    );
-  }
 
   onFeatureUpdate(org, user, feature, updatedFeature);
   return updatedFeature;
+}
+
+export async function addLinkedExperiment(
+  feature: FeatureInterface,
+  experimentId: string
+) {
+  if (feature.linkedExperiments?.includes(experimentId)) return;
+
+  await FeatureModel.updateOne(
+    { organization: feature.organization, id: feature.id },
+    {
+      $addToSet: {
+        linkedExperiments: experimentId,
+      },
+    }
+  );
 }
 
 export async function getScheduledFeaturesToUpdate() {
@@ -483,9 +582,14 @@ export async function toggleMultipleEnvironments(
   feature: FeatureInterface,
   toggles: Record<string, boolean>
 ) {
+  const validEnvs = new Set(getEnvironmentIdsFromOrg(organization));
+
   let featureCopy = cloneDeep(feature);
   let hasChanges = false;
   Object.keys(toggles).forEach((env) => {
+    if (!validEnvs.has(env)) {
+      throw new Error("Invalid environment: " + env);
+    }
     const state = toggles[env];
     const currentState = feature.environmentSettings?.[env]?.enabled ?? false;
     if (currentState !== state) {
@@ -519,128 +623,55 @@ export async function toggleFeatureEnvironment(
   });
 }
 
-export function getDraftRules(feature: FeatureInterface, environment: string) {
-  return (
-    feature?.draft?.rules?.[environment] ??
-    feature?.environmentSettings?.[environment]?.rules ??
-    []
-  );
-}
-
 export async function addFeatureRule(
-  org: OrganizationInterface,
-  user: EventAuditUser,
-  feature: FeatureInterface,
-  environment: string,
-  rule: FeatureRule
+  revision: FeatureRevisionInterface,
+  env: string,
+  rule: FeatureRule,
+  user: EventAuditUser
 ) {
   if (!rule.id) {
     rule.id = generateRuleId();
   }
 
-  await setFeatureDraftRules(org, user, feature, environment, [
-    ...getDraftRules(feature, environment),
-    rule,
-  ]);
-}
+  const changes = {
+    rules: revision.rules || {},
+  };
+  changes.rules[env] = changes.rules[env] || [];
+  changes.rules[env].push(rule);
 
-export async function deleteExperimentRefRule(
-  org: OrganizationInterface,
-  user: EventAuditUser,
-  feature: FeatureInterface,
-  experimentId: string
-) {
-  const environments = org.settings?.environments || [];
-  const environmentIds = environments.map((e) => e.id);
-
-  if (!environmentIds.length) {
-    throw new Error(
-      "Must have at least one environment configured to use Feature Flags"
-    );
-  }
-
-  const draft = getDraft(feature);
-
-  let hasChanges = false;
-  environmentIds.forEach((env) => {
-    const rules = getDraftRules(feature, env);
-
-    draft.rules = draft.rules || {};
-
-    const numRules = rules.length;
-    draft.rules[env] = rules.filter(
-      (r) => !(r.type === "experiment-ref" && r.experimentId === experimentId)
-    );
-    if (draft.rules[env].length < numRules) hasChanges = true;
+  await updateRevision(revision, changes, {
+    user,
+    action: "add rule",
+    subject: `to ${env}`,
+    value: JSON.stringify(rule),
   });
-
-  if (hasChanges) {
-    await updateDraft(org, user, feature, draft);
-  }
-}
-
-export async function addExperimentRefRule(
-  org: OrganizationInterface,
-  user: EventAuditUser,
-  feature: FeatureInterface,
-  rule: ExperimentRefRule
-) {
-  if (!rule.id) {
-    rule.id = generateRuleId();
-  }
-
-  const environments = org.settings?.environments || [];
-  const environmentIds = environments.map((e) => e.id);
-
-  if (!environmentIds.length) {
-    throw new Error(
-      "Must have at least one environment configured to use Feature Flags"
-    );
-  }
-
-  const draft = getDraft(feature);
-
-  environmentIds.forEach((env) => {
-    draft.rules = draft.rules || {};
-    draft.rules[env] = [...getDraftRules(feature, env), rule];
-  });
-
-  await updateDraft(org, user, feature, draft);
 }
 
 export async function editFeatureRule(
-  org: OrganizationInterface,
-  user: EventAuditUser,
-  feature: FeatureInterface,
+  revision: FeatureRevisionInterface,
   environment: string,
   i: number,
-  updates: Partial<FeatureRule>
+  updates: Partial<FeatureRule>,
+  user: EventAuditUser
 ) {
-  const rules = getDraftRules(feature, environment);
-  if (!rules[i]) {
+  const changes = { rules: revision.rules || {} };
+
+  changes.rules[environment] = changes.rules[environment] || [];
+  if (!changes.rules[environment][i]) {
     throw new Error("Unknown rule");
   }
 
-  rules[i] = {
-    ...rules[i],
+  changes.rules[environment][i] = {
+    ...changes.rules[environment][i],
     ...updates,
   } as FeatureRule;
 
-  await setFeatureDraftRules(org, user, feature, environment, rules);
-}
-
-export async function setFeatureDraftRules(
-  org: OrganizationInterface,
-  user: EventAuditUser,
-  feature: FeatureInterface,
-  environment: string,
-  rules: FeatureRule[]
-) {
-  const draft = getDraft(feature);
-  draft.rules = draft.rules || {};
-  draft.rules[environment] = rules;
-
-  await updateDraft(org, user, feature, draft);
+  await updateRevision(revision, changes, {
+    user,
+    action: "edit rule",
+    subject: `in ${environment} (position ${i + 1})`,
+    value: JSON.stringify(updates),
+  });
 }
 
 export async function removeTagInFeature(
@@ -690,15 +721,20 @@ export async function removeProjectFromFeatures(
 }
 
 export async function setDefaultValue(
-  org: OrganizationInterface,
-  user: EventAuditUser,
-  feature: FeatureInterface,
-  defaultValue: string
+  revision: FeatureRevisionInterface,
+  defaultValue: string,
+  user: EventAuditUser
 ) {
-  const draft = getDraft(feature);
-  draft.defaultValue = defaultValue;
-
-  return updateDraft(org, user, feature, draft);
+  await updateRevision(
+    revision,
+    { defaultValue },
+    {
+      user,
+      action: "edit default value",
+      subject: ``,
+      value: JSON.stringify({ defaultValue }),
+    }
+  );
 }
 
 export async function setJsonSchema(
@@ -713,124 +749,111 @@ export async function setJsonSchema(
   });
 }
 
-export async function updateDraft(
-  org: OrganizationInterface,
-  user: EventAuditUser,
-  feature: FeatureInterface,
-  draft: FeatureDraftChanges
-) {
-  return await updateFeature(org, user, feature, { draft });
-}
-
-function getDraft(feature: FeatureInterface) {
-  const draft: FeatureDraftChanges = cloneDeep(
-    feature.draft || { active: false }
-  );
-
-  if (!draft.active) {
-    draft.active = true;
-    draft.dateCreated = new Date();
-  }
-  draft.dateUpdated = new Date();
-
-  return draft;
-}
-
-export async function discardDraft(
-  org: OrganizationInterface,
-  user: EventAuditUser,
-  feature: FeatureInterface
-) {
-  if (!feature.draft?.active) {
-    throw new Error("There are no draft changes to discard.");
-  }
-
-  await updateFeature(org, user, feature, {
-    draft: {
-      active: false,
-    },
-  });
-}
-
-export async function publishDraft(
+export async function applyRevisionChanges(
   organization: OrganizationInterface,
   feature: FeatureInterface,
-  user: {
-    id: string;
-    email: string;
-    name: string;
-  },
+  revision: FeatureRevisionInterface,
+  result: MergeResultChanges,
+  user: EventAuditUser
+) {
+  let hasChanges = false;
+  const changes: Partial<FeatureInterface> = {};
+  if (result.defaultValue !== undefined) {
+    changes.defaultValue = result.defaultValue;
+    hasChanges = true;
+  }
+
+  const environments = getEnvironmentIdsFromOrg(organization);
+
+  environments.forEach((env) => {
+    const rules = result.rules?.[env];
+    if (!rules) return;
+
+    changes.environmentSettings =
+      changes.environmentSettings ||
+      cloneDeep(feature.environmentSettings || {});
+    changes.environmentSettings[env] = changes.environmentSettings[env] || {};
+    changes.environmentSettings[env].enabled =
+      changes.environmentSettings[env].enabled || false;
+    changes.environmentSettings[env].rules = rules;
+    hasChanges = true;
+  });
+
+  if (!hasChanges) {
+    throw new Error("No changes to publish");
+  }
+
+  if (changes.environmentSettings) {
+    changes.nextScheduledUpdate = getNextScheduledUpdate(
+      changes.environmentSettings,
+      environments
+    );
+  }
+
+  changes.version = revision.version;
+
+  // Update the `hasDrafts` field
+  changes.hasDrafts = await hasDraft(organization.id, feature, [
+    revision.version,
+  ]);
+
+  return await updateFeature(organization, user, feature, changes);
+}
+
+export async function publishRevision(
+  organization: OrganizationInterface,
+  feature: FeatureInterface,
+  revision: FeatureRevisionInterface,
+  result: MergeResultChanges,
+  user: EventAuditUser,
   comment?: string
 ) {
-  if (!feature.draft?.active) {
-    throw new Error("There are no draft changes to publish.");
+  if (revision.status !== "draft") {
+    throw new Error("Can only publish a draft revision");
   }
 
-  // Features created before revisions were introduced are missing their initial revision
-  // Create it now before publishing the draft and making a 2nd revision
-  if (!feature.revision) {
-    await saveRevision(feature);
-  }
-
-  const changes: Partial<FeatureInterface> = {};
-  if (
-    "defaultValue" in feature.draft &&
-    feature.draft.defaultValue !== feature.defaultValue
-  ) {
-    changes.defaultValue = feature.draft.defaultValue;
-  }
-  if (feature.draft.rules) {
-    changes.environmentSettings = cloneDeep(feature.environmentSettings || {});
-    const envSettings = changes.environmentSettings;
-    Object.keys(feature.draft.rules).forEach((key) => {
-      envSettings[key] = {
-        enabled: envSettings[key]?.enabled || false,
-        rules: feature?.draft?.rules?.[key] || [],
-      };
-    });
-    changes.nextScheduledUpdate = getNextScheduledUpdate(envSettings);
-  }
-
-  changes.draft = { active: false };
-  changes.revision = {
-    version: (feature.revision?.version || 1) + 1,
-    comment: comment || "",
-    date: new Date(),
-    publishedBy: user,
-  };
-  const updatedFeature = await updateFeature(
+  // TODO: wrap these 2 calls in a transaction
+  const updatedFeature = await applyRevisionChanges(
     organization,
-    { ...user, type: "dashboard" },
     feature,
-    changes
+    revision,
+    result,
+    user
   );
 
-  await saveRevision(updatedFeature);
+  await markRevisionAsPublished(revision, user, comment);
+
   return updatedFeature;
 }
 
-function getLinkedExperiments(feature: FeatureInterface) {
-  const expIds: Set<string> = new Set();
-  // Published rules
-  if (feature.environmentSettings) {
-    Object.values(feature.environmentSettings).forEach((env) => {
-      env.rules?.forEach((rule) => {
-        if (rule.type === "experiment-ref") {
-          expIds.add(rule.experimentId);
-        }
-      });
+function getLinkedExperiments(
+  feature: FeatureInterface,
+  environments: string[]
+) {
+  // Always start from the list of existing linked experiments
+  // Even if an experiment is removed from a feature, there should still be a link
+  // Otherwise, viewing a past revision of a feature will be broken
+  const expIds: Set<string> = new Set(feature.linkedExperiments || []);
+
+  // Add any missing one from the published rules
+  environments.forEach((env) => {
+    const rules = feature.environmentSettings?.[env]?.rules;
+    if (!rules) return;
+    rules.forEach((rule) => {
+      if (rule.type === "experiment-ref") {
+        expIds.add(rule.experimentId);
+      }
     });
-  }
-  // Draft rules
-  if (feature.draft && feature.draft.active && feature.draft.rules) {
-    Object.values(feature.draft.rules).forEach((rules) => {
-      rules.forEach((rule) => {
-        if (rule.type === "experiment-ref") {
-          expIds.add(rule.experimentId);
-        }
-      });
-    });
-  }
+  });
 
   return [...expIds];
+}
+
+export async function toggleNeverStale(
+  organization: OrganizationInterface,
+  feature: FeatureInterface,
+  user: EventAuditUser,
+  neverStale: boolean
+) {
+  return await updateFeature(organization, user, feature, { neverStale });
 }

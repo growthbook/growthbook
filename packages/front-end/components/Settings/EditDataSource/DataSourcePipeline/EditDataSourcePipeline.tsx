@@ -6,6 +6,7 @@ import Modal from "@/components/Modal";
 import Toggle from "@/components/Forms/Toggle";
 import Field from "@/components/Forms/Field";
 import { DataSourceQueryEditingModalBaseProps } from "../types";
+import { dataSourceSchemaName } from "./DataSourcePipeline";
 
 type EditDataSourcePipelineProps = DataSourceQueryEditingModalBaseProps;
 
@@ -56,7 +57,9 @@ export const EditDataSourcePipeline: FC<EditDataSourcePipelineProps> = ({
       {form.watch("allowWriting") ? (
         <div className="form-inline flex-column align-items-start mb-4 mt-4">
           <Field
-            label="Dataset with write permissions"
+            label={`Destination ${dataSourceSchemaName(
+              dataSource.type
+            )} with write permissions`}
             className="ml-2"
             containerClassName="mb-2"
             type="text"

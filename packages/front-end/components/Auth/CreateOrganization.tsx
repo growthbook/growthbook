@@ -5,7 +5,7 @@ import { FaCheck, FaPlus } from "react-icons/fa";
 import { useUser } from "@/services/UserContext";
 import track from "@/services/track";
 import { useAuth } from "@/services/auth";
-import { isCloud } from "@/services/env";
+import { allowSelfOrgCreation, isMultiOrg } from "@/services/env";
 import useApi from "@/hooks/useApi";
 import Field from "../Forms/Field";
 import LoadingOverlay from "../LoadingOverlay";
@@ -63,7 +63,7 @@ export default function CreateOrganization(): ReactElement {
   const leftside = (
     <>
       <h1 className="title h1">Welcome to GrowthBook</h1>
-      {isCloud() || !data.hasOrganizations ? (
+      {(isMultiOrg() && allowSelfOrgCreation()) || !data.hasOrganizations ? (
         <p>
           You aren&apos;t part of an organization yet. <br />
           {org ? `Create or join one here.` : `Create a new one here.`}
@@ -88,7 +88,7 @@ export default function CreateOrganization(): ReactElement {
         >
           <FiLogOut /> log out
         </a>
-        {isCloud() || !data.hasOrganizations ? (
+        {(isMultiOrg() && allowSelfOrgCreation()) || !data.hasOrganizations ? (
           <>
             {mode === "join" && org ? (
               <>

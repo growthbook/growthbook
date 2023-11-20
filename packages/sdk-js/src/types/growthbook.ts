@@ -158,6 +158,7 @@ export interface Context {
   onFeatureUsage?: (key: string, result: FeatureResult<any>) => void;
   realtimeKey?: string;
   realtimeInterval?: number;
+  cacheKeyAttributes?: (keyof Attributes)[];
   /* @deprecated */
   user?: {
     id?: string;
@@ -169,8 +170,12 @@ export interface Context {
   /* @deprecated */
   groups?: Record<string, boolean>;
   apiHost?: string;
+  streamingHost?: string;
+  apiHostRequestHeaders?: Record<string, string>;
+  streamingHostRequestHeaders?: Record<string, string>;
   clientKey?: string;
   decryptionKey?: string;
+  remoteEval?: boolean;
 }
 
 export type SubscriptionFunction = (
@@ -186,6 +191,7 @@ export type JSONValue =
   | string
   | boolean
   | Array<JSONValue>
+  | Record<string, unknown>
   | { [key: string]: JSONValue };
 
 export type WidenPrimitives<T> = T extends string
@@ -233,6 +239,41 @@ export type Polyfills = {
   localStorage?: LocalStorageCompat;
 };
 
+export type Helpers = {
+  fetchFeaturesCall: ({
+    host,
+    clientKey,
+    headers,
+  }: {
+    host: string;
+    clientKey: string;
+    headers?: Record<string, string>;
+  }) => Promise<Response>;
+  fetchRemoteEvalCall: ({
+    host,
+    clientKey,
+    payload,
+    headers,
+  }: {
+    host: string;
+    clientKey: string;
+    // eslint-disable-next-line
+    payload: any;
+    headers?: Record<string, string>;
+  }) => Promise<Response>;
+  eventSourceCall: ({
+    host,
+    clientKey,
+    headers,
+  }: {
+    host: string;
+    clientKey: string;
+    headers?: Record<string, string>;
+  }) => EventSource;
+  startIdleListener: () => (() => void) | void;
+  stopIdleListener: () => void;
+};
+
 export interface LocalStorageCompat {
   getItem(key: string): string | null | Promise<string | null>;
   setItem(key: string, value: string): void | Promise<void>;
@@ -242,11 +283,13 @@ export type CacheSettings = {
   backgroundSync: boolean;
   cacheKey: string;
   staleTTL: number;
+  maxEntries: number;
+  disableIdleStreams: boolean;
+  idleStreamInterval: number;
 };
 
 export type ApiHost = string;
 export type ClientKey = string;
-export type RepositoryKey = `${ApiHost}||${ClientKey}`;
 
 export type LoadFeaturesOptions = {
   /**

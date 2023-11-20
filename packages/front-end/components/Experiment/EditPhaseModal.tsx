@@ -9,6 +9,9 @@ import Modal from "../Modal";
 import FeatureVariationsInput from "../Features/FeatureVariationsInput";
 import ConditionInput from "../Features/ConditionInput";
 import NamespaceSelector from "../Features/NamespaceSelector";
+import SavedGroupTargetingField, {
+  validateSavedGroupTargeting,
+} from "../Features/SavedGroupTargetingField";
 
 export interface Props {
   close: () => void;
@@ -46,6 +49,8 @@ export default function EditPhaseModal({
       close={close}
       header={`Edit Analysis Phase #${i + 1}`}
       submit={form.handleSubmit(async (value) => {
+        validateSavedGroupTargeting(value.savedGroups);
+
         await apiCall(`/experiment/${experiment.id}/phase/${i}`, {
           method: "PUT",
           body: JSON.stringify(value),
@@ -97,6 +102,11 @@ export default function EditPhaseModal({
           )}
         </>
       ) : null}
+
+      <SavedGroupTargetingField
+        value={form.watch("savedGroups") || []}
+        setValue={(savedGroups) => form.setValue("savedGroups", savedGroups)}
+      />
 
       <ConditionInput
         defaultValue={form.watch("condition")}

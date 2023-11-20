@@ -4,6 +4,8 @@ import { EnvironmentInitValue } from "../pages/api/init";
 const env: EnvironmentInitValue = {
   telemetry: "enable",
   cloud: false,
+  isMultiOrg: false,
+  allowSelfOrgCreation: true,
   appOrigin: "",
   apiHost: "",
   cdnHost: "",
@@ -40,7 +42,13 @@ export function getApiHost(): string {
 export function isCloud(): boolean {
   return env.cloud;
 }
-export function isTelemetryEnabled() {
+export function isMultiOrg(): boolean {
+  return !!env.isMultiOrg;
+}
+export function allowSelfOrgCreation(): boolean {
+  return env.allowSelfOrgCreation;
+}
+export function isTelemetryEnabled(): boolean {
   return env.telemetry === "enable";
 }
 export function inTelemetryDebugMode(): boolean {

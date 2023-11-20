@@ -37,6 +37,7 @@ type ModalProps = {
   children: ReactNode;
   bodyClassName?: string;
   formRef?: React.RefObject<HTMLFormElement>;
+  customValidation?: () => Promise<boolean> | boolean;
 };
 const Modal: FC<ModalProps> = ({
   header = "logo",
@@ -63,6 +64,7 @@ const Modal: FC<ModalProps> = ({
   successMessage,
   bodyClassName = "",
   formRef,
+  customValidation,
 }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -205,9 +207,7 @@ const Modal: FC<ModalProps> = ({
             </button>
           )}
         </div>
-      ) : (
-        ""
-      )}
+      ) : null}
     </div>
   );
 
@@ -244,6 +244,13 @@ const Modal: FC<ModalProps> = ({
               if (loading) return;
               setError(null);
               setLoading(true);
+              if (customValidation) {
+                const resp = await customValidation();
+                if (resp === false) {
+                  setLoading(false);
+                  return;
+                }
+              }
               try {
                 await submit();
 

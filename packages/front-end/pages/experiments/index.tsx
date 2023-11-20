@@ -39,7 +39,12 @@ const NUM_PER_PAGE = 20;
 const ExperimentsPage = (): React.ReactElement => {
   const growthbook = useGrowthBook<AppFeatures>();
 
-  const { ready, project, getMetricById, getProjectById } = useDefinitions();
+  const {
+    ready,
+    project,
+    getExperimentMetricById,
+    getProjectById,
+  } = useDefinitions();
 
   const { orgId } = useAuth();
 
@@ -70,7 +75,7 @@ const ExperimentsPage = (): React.ReactElement => {
       return {
         ownerName: getUserDisplay(exp.owner, false) || "",
         metricNames: exp.metrics
-          .map((m) => getMetricById(m)?.name)
+          .map((m) => getExperimentMetricById(m)?.name)
           .filter(Boolean),
         projectId,
         projectName,
@@ -90,7 +95,7 @@ const ExperimentsPage = (): React.ReactElement => {
             : exp.dateCreated) ?? "",
       };
     },
-    [getMetricById, getProjectById]
+    [getExperimentMetricById, getProjectById]
   );
 
   const demoExperimentId = useMemo(() => {
@@ -405,8 +410,9 @@ const ExperimentsPage = (): React.ReactElement => {
                         )}
                       </td>
                     )}
-                    <td className="nowrap" data-title="Tags:">
-                      <SortedTags tags={Object.values(e.tags)} />
+
+                    <td data-title="Tags:" className="table-tags">
+                      <SortedTags tags={Object.values(e.tags)} useFlex={true} />
                     </td>
                     <td className="nowrap" data-title="Owner:">
                       {e.ownerName}

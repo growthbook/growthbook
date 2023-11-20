@@ -12,6 +12,9 @@ import Field from "../Forms/Field";
 import FeatureVariationsInput from "../Features/FeatureVariationsInput";
 import ConditionInput from "../Features/ConditionInput";
 import NamespaceSelector from "../Features/NamespaceSelector";
+import SavedGroupTargetingField, {
+  validateSavedGroupTargeting,
+} from "../Features/SavedGroupTargetingField";
 
 const NewPhaseForm: FC<{
   experiment: ExperimentInterfaceStringDates;
@@ -35,6 +38,7 @@ const NewPhaseForm: FC<{
       reason: "",
       dateStarted: new Date().toISOString().substr(0, 16),
       condition: prevPhase.condition || "",
+      savedGroups: prevPhase.savedGroups || [],
       seed: prevPhase.seed || "",
       namespace: {
         enabled: prevPhase.namespace?.enabled || false,
@@ -57,6 +61,8 @@ const NewPhaseForm: FC<{
 
   const submit = form.handleSubmit(async (value) => {
     if (!isValid) throw new Error("Variation weights must sum to 1");
+
+    validateSavedGroupTargeting(value.savedGroups);
 
     await apiCall<{ status: number; message?: string }>(
       `/experiment/${experiment.id}/phase`,
@@ -109,6 +115,13 @@ const NewPhaseForm: FC<{
           label="Start Time (UTC)"
           type="datetime-local"
           {...form.register("dateStarted")}
+        />
+      )}
+
+      {hasLinkedChanges && (
+        <SavedGroupTargetingField
+          value={form.watch("savedGroups") || []}
+          setValue={(savedGroups) => form.setValue("savedGroups", savedGroups)}
         />
       )}
 

@@ -1,5 +1,5 @@
 import { NextFunction, Request, Response } from "express";
-import { SSO_CONFIG } from "enterprise";
+import { licenseInit, SSO_CONFIG } from "enterprise";
 import { hasPermission } from "shared/permissions";
 import { IS_CLOUD } from "../../util/secrets";
 import { AuthRequest } from "../../types/AuthRequest";
@@ -22,6 +22,8 @@ import {
   EventAuditUserLoggedIn,
 } from "../../events/event-types";
 import { insertAudit } from "../../models/AuditModel";
+import { TeamInterface } from "../../../types/team";
+import { getTeamsForOrganization } from "../../models/TeamModel";
 import { AuthConnection } from "./AuthConnection";
 import { OpenIdAuthConnection } from "./OpenIdAuthConnection";
 import { LocalAuthConnection } from "./LocalAuthConnection";
@@ -83,8 +85,11 @@ export async function processJWT(
   req.name = name || "";
   req.verified = verified || false;
 
+  let teams: TeamInterface[] = [];
+
   const userHasPermission = (
     permission: Permission,
+    teams: TeamInterface[],
     project?: string,
     envs?: string[]
   ): boolean => {
@@ -92,8 +97,16 @@ export async function processJWT(
       return false;
     }
 
+    if (req.superAdmin) {
+      return true;
+    }
+
     // Generate full list of permissions for the user
-    const userPermissions = getUserPermissions(req.userId, req.organization);
+    const userPermissions = getUserPermissions(
+      req.userId,
+      req.organization,
+      teams
+    );
 
     // Check if the user has the permission
     return hasPermission(userPermissions, permission, project, envs);
@@ -112,7 +125,9 @@ export async function processJWT(
       checkProjects = [project];
     }
     for (const p of checkProjects) {
-      if (!userHasPermission(permission, p, envs ? [...envs] : undefined)) {
+      if (
+        !userHasPermission(permission, teams, p, envs ? [...envs] : undefined)
+      ) {
         throw new Error("You do not have permission to complete that action.");
       }
     }
@@ -148,7 +163,6 @@ export async function processJWT(
         undefined;
 
       if (req.organization) {
-        // Make sure member is part of the organization
         if (
           !req.superAdmin &&
           !req.organization.members.filter((m) => m.id === req.userId).length
@@ -160,6 +174,8 @@ export async function processJWT(
           return;
         }
 
+        teams = await getTeamsForOrganization(req.organization.id);
+
         // Make sure this is a valid login method for the organization
         try {
           validateLoginMethod(req.organization, req);
@@ -170,6 +186,9 @@ export async function processJWT(
           });
           return;
         }
+
+        // init license for org if it exists
+        await licenseInit(req.organization.licenseKey);
       } else {
         res.status(404).json({
           status: 404,

@@ -23,6 +23,7 @@ import { verifySlackRequestSignature } from "./services/slack";
 import { getAuthConnection, processJWT, usingOpenId } from "./services/auth";
 import { wrapController } from "./routers/wrapController";
 import apiRouter from "./api/api.router";
+import scimRouter from "./scim/scim.router";
 
 if (SENTRY_DSN) {
   Sentry.init({ dsn: SENTRY_DSN });
@@ -37,6 +38,11 @@ const datasourcesController = wrapController(datasourcesControllerRaw);
 
 import * as experimentsControllerRaw from "./controllers/experiments";
 const experimentsController = wrapController(experimentsControllerRaw);
+
+import * as experimentLaunchChecklistControllerRaw from "./controllers/experimentLaunchChecklist";
+const experimentLaunchChecklistController = wrapController(
+  experimentLaunchChecklistControllerRaw
+);
 
 import * as metricsControllerRaw from "./controllers/metrics";
 const metricsController = wrapController(metricsControllerRaw);
@@ -86,10 +92,12 @@ import { eventsRouter } from "./routers/events/events.router";
 import { eventWebHooksRouter } from "./routers/event-webhooks/event-webhooks.router";
 import { tagRouter } from "./routers/tag/tag.router";
 import { savedGroupRouter } from "./routers/saved-group/saved-group.router";
+import { ArchetypeRouter } from "./routers/archetype/archetype.router";
 import { segmentRouter } from "./routers/segment/segment.router";
 import { dimensionRouter } from "./routers/dimension/dimension.router";
 import { sdkConnectionRouter } from "./routers/sdk-connection/sdk-connection.router";
 import { projectRouter } from "./routers/project/project.router";
+import { factTableRouter } from "./routers/fact-table/fact-table.router";
 import verifyLicenseMiddleware from "./services/auth/verifyLicenseMiddleware";
 import { slackIntegrationRouter } from "./routers/slack-integration/slack-integration.router";
 import { dataExportRouter } from "./routers/data-export/data-export.router";
@@ -197,6 +205,8 @@ app.get(
   }),
   getExperimentConfig
 );
+
+// Public features for SDKs
 app.get(
   "/api/features/:key?",
   cors({
@@ -212,10 +222,30 @@ app.options(
     credentials: false,
     origin: "*",
   }),
-  function (req, res) {
-    res.send(200);
-  }
+  (req, res) => res.send(200)
 );
+
+if (!IS_CLOUD) {
+  // Public remoteEval for SDKs:
+  // note: Self-hosted only, recommended for debugging. Cloud orgs must use separate infrastructure.
+  app.post(
+    "/api/eval/:key?",
+    cors({
+      credentials: false,
+      origin: "*",
+    }),
+    featuresController.getEvaluatedFeaturesPublic
+  );
+  // For preflight requests
+  app.options(
+    "/api/eval/:key?",
+    cors({
+      credentials: false,
+      origin: "*",
+    }),
+    (req, res) => res.send(200)
+  );
+}
 
 // Secret API routes (no JWT or CORS)
 app.use(
@@ -225,6 +255,18 @@ app.use(
     origin: "*",
   }),
   apiRouter
+);
+
+// SCIM API routes (no JWT or CORS)
+app.use(
+  "/scim/v2",
+  bodyParser.json({
+    type: "application/scim+json",
+  }),
+  cors({
+    origin: "*",
+  }),
+  scimRouter
 );
 
 // Accept cross-origin requests from the frontend app
@@ -323,6 +365,8 @@ app.use("/tag", tagRouter);
 
 app.use("/saved-groups", savedGroupRouter);
 
+app.use("/archetype", ArchetypeRouter);
+
 // Ideas
 app.get("/ideas", ideasController.getIdeas);
 app.post("/ideas", ideasController.postIdeas);
@@ -355,7 +399,6 @@ app.get(
   "/experiments/frequency/month/:num",
   experimentsController.getExperimentsFrequencyMonth
 );
-app.get("/experiments/newfeatures/", experimentsController.getNewFeatures);
 app.get("/experiments/snapshots/", experimentsController.getSnapshots);
 app.get(
   "/experiments/tracking-key",
@@ -430,6 +473,22 @@ app.post(
   "/experiments/:id/visual-changeset",
   experimentsController.postVisualChangeset
 );
+app.post(
+  "/experiments/launch-checklist",
+  experimentLaunchChecklistController.postExperimentLaunchChecklist
+);
+app.put(
+  "/experiments/launch-checklist/:id",
+  experimentLaunchChecklistController.putExperimentLaunchChecklist
+);
+app.get(
+  "/experiments/launch-checklist",
+  experimentLaunchChecklistController.getExperimentCheckListByOrg
+);
+app.put(
+  "/experiment/:id/launch-checklist",
+  experimentLaunchChecklistController.putManualLaunchChecklist
+);
 
 // Visual Changesets
 app.put("/visual-changesets/:id", experimentsController.putVisualChangeset);
@@ -461,6 +520,8 @@ app.use("/sdk-connections", sdkConnectionRouter);
 
 app.use("/projects", projectRouter);
 
+app.use(factTableRouter);
+
 app.use("/demo-datasource-project", demoDatasourceProjectRouter);
 
 // Features
@@ -470,28 +531,42 @@ app.post("/feature", featuresController.postFeatures);
 app.put("/feature/:id", featuresController.putFeature);
 app.delete("/feature/:id", featuresController.deleteFeatureById);
 app.post(
-  "/feature/:id/defaultvalue",
+  "/feature/:id/:version/defaultvalue",
   featuresController.postFeatureDefaultValue
 );
 app.post("/feature/:id/schema", featuresController.postFeatureSchema);
-app.post("/feature/:id/discard", featuresController.postFeatureDiscard);
-app.post("/feature/:id/publish", featuresController.postFeaturePublish);
+app.post(
+  "/feature/:id/:version/discard",
+  featuresController.postFeatureDiscard
+);
+app.post(
+  "/feature/:id/:version/publish",
+  featuresController.postFeaturePublish
+);
+app.get("/feature/:id/:version/log", featuresController.getRevisionLog);
 app.post("/feature/:id/archive", featuresController.postFeatureArchive);
 app.post("/feature/:id/toggle", featuresController.postFeatureToggle);
-app.post("/feature/:id/draft", featuresController.postFeatureDraft);
-app.post("/feature/:id/rule", featuresController.postFeatureRule);
+app.post("/feature/:id/:version/fork", featuresController.postFeatureFork);
+app.post("/feature/:id/:version/rebase", featuresController.postFeatureRebase);
+app.post("/feature/:id/:version/revert", featuresController.postFeatureRevert);
+app.post("/feature/:id/:version/rule", featuresController.postFeatureRule);
 app.post(
-  "/feature/:id/experiment",
+  "/feature/:id/:version/experiment",
   featuresController.postFeatureExperimentRefRule
 );
-app.delete(
-  "/feature/:id/experiment",
-  featuresController.deleteFeatureExperimentRefRule
+app.put("/feature/:id/:version/comment", featuresController.putRevisionComment);
+app.put("/feature/:id/:version/rule", featuresController.putFeatureRule);
+app.delete("/feature/:id/:version/rule", featuresController.deleteFeatureRule);
+app.post(
+  "/feature/:id/:version/reorder",
+  featuresController.postFeatureMoveRule
 );
-app.put("/feature/:id/rule", featuresController.putFeatureRule);
-app.delete("/feature/:id/rule", featuresController.deleteFeatureRule);
-app.post("/feature/:id/reorder", featuresController.postFeatureMoveRule);
+app.post("/feature/:id/:version/eval", featuresController.postFeatureEvaluate);
 app.get("/usage/features", featuresController.getRealtimeUsage);
+app.post(
+  "/feature/:id/toggleStaleDetection",
+  featuresController.toggleStaleFFDetectionForFeature
+);
 
 // Data Sources
 app.get("/datasources", datasourcesController.getDataSources);

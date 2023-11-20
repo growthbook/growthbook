@@ -1,0 +1,28 @@
+summary: Create a single feature
+parameters: []
+tags:
+  - features
+operationId: postFeature
+x-codeSamples:
+  - lang: "cURL"
+    source: |
+      curl -X POST https://api.growthbook.io/api/v1/features \
+        -d '{ id: "test-01", description: "A cool feature", ... }'
+        -u secret_abc123DEF456:
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "../payload-schemas/PostFeaturePayload.yaml"
+responses:
+  "200":
+    content:
+      application/json:
+        schema:
+          type: object
+          required:
+            - feature
+          properties:
+            feature:
+              $ref: "../schemas/Feature.yaml"

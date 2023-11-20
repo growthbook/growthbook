@@ -10,7 +10,7 @@ import {
 } from "react-icons/fa";
 import { BsArrowRepeat, BsLightningFill } from "react-icons/bs";
 import LoadingOverlay from "@/components/LoadingOverlay";
-import { GBEdit, GBHashLock } from "@/components/Icons";
+import { GBEdit, GBHashLock, GBRemoteEvalIcon } from "@/components/Icons";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import { useAuth } from "@/services/auth";
@@ -183,7 +183,7 @@ export default function SDKConnectionPage() {
           <>
             <div className="col-auto ml-auto">
               <a
-                href="#"
+                role="button"
                 className="btn btn-outline-primary"
                 onClick={(e) => {
                   e.preventDefault();
@@ -257,6 +257,15 @@ export default function SDKConnectionPage() {
           </div>
         )}
 
+        {connection.remoteEvalEnabled && (
+          <div className="col-auto">
+            Remote Evaluation:{" "}
+            <strong>
+              <GBRemoteEvalIcon className="text-purple" /> yes
+            </strong>
+          </div>
+        )}
+
         {connection.hashSecureAttributes && (
           <div className="col-auto">
             Secure Attribute Hashing:{" "}
@@ -265,6 +274,7 @@ export default function SDKConnectionPage() {
             </strong>
           </div>
         )}
+
         {connection.encryptPayload && (
           <div className="col-auto">
             Encrypted:{" "}
