@@ -38,6 +38,7 @@ const sdkConnectionSchema = new mongoose.Schema({
   languages: [String],
   environment: String,
   project: String,
+  projects: [String],
   encryptPayload: Boolean,
   encryptionKey: String,
   hashSecureAttributes: Boolean,
@@ -83,6 +84,13 @@ function addEnvProxySettings(proxy: ProxyConnection): ProxyConnection {
 function toInterface(doc: SDKConnectionDocument): SDKConnectionInterface {
   const conn = doc.toJSON<SDKConnectionDocument>();
   conn.proxy = addEnvProxySettings(conn.proxy);
+
+  if (!conn.projects) {
+    const project = (conn as SDKConnectionDocument & { project?: string })
+      .project;
+    conn.projects = project ? [project] : [];
+  }
+
   return omit(conn, ["__v", "_id"]);
 }
 
@@ -116,7 +124,7 @@ export const createSDKConnectionValidator = z
     name: z.string(),
     languages: z.array(z.string()),
     environment: z.string(),
-    project: z.string(),
+    projects: z.array(z.string()),
     encryptPayload: z.boolean(),
     hashSecureAttributes: z.boolean().optional(),
     includeVisualExperiments: z.boolean().optional(),
@@ -183,7 +191,7 @@ export const editSDKConnectionValidator = z
     proxyEnabled: z.boolean().optional(),
     proxyHost: z.string().optional(),
     environment: z.string().optional(),
-    project: z.string().optional(),
+    projects: z.array(z.string()).optional(),
     encryptPayload: z.boolean(),
     hashSecureAttributes: z.boolean().optional(),
     includeVisualExperiments: z.boolean().optional(),
@@ -228,7 +236,7 @@ export async function editSDKConnection(
   // connected proxies to update their cache immediately instead of waiting for the TTL
   let needsProxyUpdate = false;
   const keysRequiringProxyUpdate = [
-    "project",
+    "projects",
     "environment",
     "encryptPayload",
     "hashSecureAttributes",
@@ -414,7 +422,8 @@ export function toApiSDKConnectionInterface(
     dateUpdated: connection.dateUpdated.toISOString(),
     languages: connection.languages,
     environment: connection.environment,
-    project: connection.project,
+    project: connection.projects[0] || "",
+    projects: connection.projects,
     encryptPayload: connection.encryptPayload,
     encryptionKey: connection.encryptionKey,
     hashSecureAttributes: connection.hashSecureAttributes,

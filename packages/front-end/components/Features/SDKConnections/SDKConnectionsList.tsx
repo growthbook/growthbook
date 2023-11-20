@@ -68,7 +68,7 @@ export default function SDKConnectionsList() {
             <tr>
               <th style={{ width: 25 }}></th>
               <th>Name</th>
-              {projects.length > 0 && <th>Project</th>}
+              {projects.length > 0 && <th>Projects</th>}
               <th>Environment</th>
               <th className="text-center">Features</th>
               <th>Language</th>
@@ -83,10 +83,6 @@ export default function SDKConnectionsList() {
                 connection.connected &&
                 (!hasProxy || connection.proxy.connected);
 
-              const projectId = connection.project;
-              const projectName = getProjectById(projectId)?.name || null;
-              const projectIsDeReferenced = projectId && !projectName;
-
               return (
                 <tr
                   key={connection.id}
@@ -97,25 +93,19 @@ export default function SDKConnectionsList() {
                   }}
                 >
                   <td style={{ verticalAlign: "middle", width: 20 }}>
-                    {projectIsDeReferenced ? (
-                      <Tooltip body='This SDK connection is scoped to a project that no longer exists. This connection will no longer work until either a valid project or "All Projects" is selected.'>
-                        <FaExclamationTriangle className="text-danger" />
-                      </Tooltip>
-                    ) : (
-                      <Tooltip
-                        body={
-                          connected
-                            ? "Connected successfully"
-                            : "Could not verify the connection"
-                        }
-                      >
-                        {connected ? (
-                          <StatusCircle className="bg-success" />
-                        ) : (
-                          <FaExclamationTriangle className="text-warning" />
-                        )}
-                      </Tooltip>
-                    )}
+                    <Tooltip
+                      body={
+                        connected
+                          ? "Connected successfully"
+                          : "Could not verify the connection"
+                      }
+                    >
+                      {connected ? (
+                        <StatusCircle className="bg-success" />
+                      ) : (
+                        <FaExclamationTriangle className="text-warning" />
+                      )}
+                    </Tooltip>
                   </td>
                   <td className="text-break">
                     <Link href={`/sdks/${connection.id}`}>
@@ -124,19 +114,32 @@ export default function SDKConnectionsList() {
                   </td>
                   {projects.length > 0 && (
                     <td>
-                      {projectIsDeReferenced ? (
-                        <Tooltip
-                          body={
-                            <>
-                              Project <code>{connection.project}</code> not
-                              found
-                            </>
-                          }
-                        >
-                          <span className="text-danger">Invalid project</span>
-                        </Tooltip>
-                      ) : (
-                        projectName ?? <em>All Projects</em>
+                      {connection.projects.map((p) => {
+                        const proj = getProjectById(p);
+                        if (!proj) {
+                          return (
+                            <Tooltip
+                              body={
+                                <>
+                                  Project <code>{p}</code> not found
+                                </>
+                              }
+                            >
+                              <span className="badge badge-danger mr-1">
+                                Invalid project
+                              </span>
+                            </Tooltip>
+                          );
+                        } else {
+                          return (
+                            <span className="badge badge-secondary mr-1">
+                              {proj.name}
+                            </span>
+                          );
+                        }
+                      })}
+                      {connection.projects.length === 0 && (
+                        <em>All Projects</em>
                       )}
                     </td>
                   )}

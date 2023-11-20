@@ -181,8 +181,8 @@ export function StartExperimentBanner({
   const projectConnections = connections.filter(
     (connection) =>
       !experiment.project ||
-      !connection.project ||
-      experiment.project === connection.project
+      !connection.projects.length ||
+      connection.projects.includes(experiment.project)
   );
   const matchingConnections = projectConnections.filter(
     (connection) =>
