@@ -439,6 +439,12 @@ const sidebars = {
           label: "SCIM",
           className: "pill-new",
         },
+        {
+          type: "doc",
+          id: "integrations/shopify",
+          label: "Shopify + GorwthBook",
+          className: "pill-new",
+        },
       ],
     },
     { type: "doc", id: "faq", label: "FAQ" },
