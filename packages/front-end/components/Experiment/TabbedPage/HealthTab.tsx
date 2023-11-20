@@ -1,5 +1,5 @@
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { getValidDate } from "shared/dates";
 import { ExperimentSnapshotTrafficDimension } from "back-end/types/experiment-snapshot";
 import Link from "next/link";
@@ -20,6 +20,7 @@ import ExperimentDateGraph, {
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
   onDrawerNotify: () => void;
+  onSnapshotUpdate: () => void;
 }
 
 const numberFormatter = new Intl.NumberFormat();
@@ -96,13 +97,24 @@ const UnitCountDateGraph = ({
   );
 };
 
-export default function HealthTab({ experiment, onDrawerNotify }: Props) {
+export default function HealthTab({
+  experiment,
+  onDrawerNotify,
+  onSnapshotUpdate,
+}: Props) {
   const { error, snapshot, phase } = useSnapshot();
   const { runHealthTrafficQuery } = useOrgSettings();
   const permissions = usePermissions();
   const hasPermissionToEditOrgSettings = permissions.check(
     "organizationSettings"
   );
+
+  // Clean up notification counter before unmounting
+  useEffect(() => {
+    return () => {
+      onSnapshotUpdate();
+    };
+  }, [snapshot, onSnapshotUpdate]);
 
   // If org has not updated settings since the health tab was introduced, prompt the user
   // to enable the traffic query setting

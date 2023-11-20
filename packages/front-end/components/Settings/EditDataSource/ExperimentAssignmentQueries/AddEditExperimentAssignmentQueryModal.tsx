@@ -359,6 +359,7 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
                         required
                         placeholder="Select dimensions..."
                         closeMenuOnSelect={true}
+                        style={{ fontWeight: 0 }}
                       />
                     )}
                   </div>

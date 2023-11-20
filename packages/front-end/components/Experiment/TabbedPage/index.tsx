@@ -119,6 +119,11 @@ export default function TabbedPage({
     setHealthNotificationCount((prev) => prev + 1);
   }, []);
 
+  const handleSnapshotChange = useCallback(() => {
+    // Reset notifications when snapshot changes and the health tab needs to re-render
+    setHealthNotificationCount(0);
+  }, []);
+
   const hasLiveLinkedChanges = includeExperimentInPayload(
     experiment,
     linkedFeatures.map((f) => f.feature)
@@ -334,6 +339,7 @@ export default function TabbedPage({
           <HealthTab
             experiment={experiment}
             onDrawerNotify={handleIncrementHealthNotifications}
+            onSnapshotUpdate={handleSnapshotChange}
           />
         </div>
       </div>
