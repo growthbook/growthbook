@@ -962,12 +962,8 @@ export default class MicrosoftAppInsights
   }
 
   async testConnection(): Promise<boolean> {
-    try {
-      await runApi(this.params, "?timespan=P1D");
-      return true;
-    } catch {
-      return false;
-    }
+    const result = await runApi(this.params, "?timespan=P1D");
+    return true;
   }
 
   getSensitiveParamKeys(): string[] {

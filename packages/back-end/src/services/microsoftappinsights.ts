@@ -24,5 +24,8 @@ export async function runApi(
   );
   data = await res.json();
 
+  if (data.error) {
+    throw new Error(data.error.message);
+  }
   return data;
 }
