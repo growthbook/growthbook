@@ -23,20 +23,13 @@ import { FeatureTestResult } from "../../../types/feature";
 import { evaluateFeature } from "../../services/features";
 import { getFeature } from "../../models/FeatureModel";
 import { promiseAllChunks } from "../../util/promise";
-
-// region GET /sample-users
+import { getRevision } from "../../models/FeatureRevisionModel";
 
 type GetArchetypeResponse = {
   status: 200;
   archetype: ArchetypeInterface[];
 };
 
-/**
- * GET /sample-users
- * Create a sample user
- * @param req
- * @param res
- */
 export const getArchetype = async (
   req: AuthRequest,
   res: Response<GetArchetypeResponse>
@@ -53,10 +46,6 @@ export const getArchetype = async (
   });
 };
 
-// endregion GET /sample-users
-
-// region GET /sample-users/eval/:id
-
 type GetArchetypeAndEvalResponse = {
   status: 200;
   archetype: ArchetypeInterface[];
@@ -65,18 +54,12 @@ type GetArchetypeAndEvalResponse = {
     | Record<string, never>;
 };
 
-/**
- * GET /sample-users/eval/:id
- * Get sample users and eval for a given feature
- * @param req
- * @param res
- */
 export const getArchetypeAndEval = async (
-  req: AuthRequest<null, { id: string }>,
+  req: AuthRequest<null, { id: string; version: string }>,
   res: Response<GetArchetypeAndEvalResponse | PrivateApiErrorResponse>
 ) => {
   const { org, userId } = getOrgFromReq(req);
-  const { id } = req.params;
+  const { id, version } = req.params;
   const feature = await getFeature(org.id, id);
 
   if (!feature) {
@@ -96,12 +79,17 @@ export const getArchetypeAndEval = async (
   const featureResults: { [key: string]: FeatureTestResult[] } = {};
 
   if (archetype.length) {
+    const revision = await getRevision(org.id, feature.id, parseInt(version));
+    if (!revision) {
+      throw new Error("Could not find feature revision");
+    }
+
     const promiseCallbacks: (() => Promise<unknown>)[] = [];
     archetype.forEach((arch) => {
       try {
         const attrs = JSON.parse(arch.attributes) as ArchetypeAttributeValues;
         promiseCallbacks.push(async () => {
-          const result = await evaluateFeature(feature, attrs, org);
+          const result = await evaluateFeature(feature, revision, attrs, org);
           if (!result) return;
           featureResults[arch.id] = result;
         });
@@ -118,9 +106,6 @@ export const getArchetypeAndEval = async (
     featureResults,
   });
 };
-// endregion GET /sample-users/eval/:id
-
-// region POST /sample-users
 
 type CreateArchetypeRequest = AuthRequest<{
   name: string;
@@ -135,12 +120,6 @@ type CreateArchetypeResponse = {
   archetype: ArchetypeInterface;
 };
 
-/**
- * POST /sample-users
- * Create a sample user
- * @param req
- * @param res
- */
 export const postArchetype = async (
   req: CreateArchetypeRequest,
   res: Response<CreateArchetypeResponse | PrivateApiErrorResponse>
@@ -182,10 +161,6 @@ export const postArchetype = async (
   });
 };
 
-// endregion POST /sample-users
-
-// region PUT /sample-users/:id
-
 type PutArchetypeRequest = AuthRequest<
   {
     name: string;
@@ -201,12 +176,6 @@ type PutArchetypeResponse = {
   status: 200;
 };
 
-/**
- * PUT /sample-users/:id
- * Update one sample user
- * @param req
- * @param res
- */
 export const putArchetype = async (
   req: PutArchetypeRequest,
   res: Response<
@@ -261,10 +230,6 @@ export const putArchetype = async (
   });
 };
 
-// endregion PUT /sample-users/:id
-
-// region DELETE /sample-users/:id
-
 type DeleteArchetypeRequest = AuthRequest<
   Record<string, never>,
   { id: string },
@@ -280,12 +245,6 @@ type DeleteArchetypeResponse =
       message: string;
     };
 
-/**
- * DELETE /sample-users/:id
- * Delete one sample-users resource by ID
- * @param req
- * @param res
- */
 export const deleteArchetype = async (
   req: DeleteArchetypeRequest,
   res: Response<DeleteArchetypeResponse>
@@ -329,5 +288,3 @@ export const deleteArchetype = async (
     status: 200,
   });
 };
-
-// endregion DELETE /sample-users/:id

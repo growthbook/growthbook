@@ -4,6 +4,8 @@ from typing import List, Union
 
 import numpy as np
 
+from gbstats.shared.constants import DifferenceType
+
 
 @dataclass
 class Statistic(ABC):
@@ -194,6 +196,14 @@ def create_joint_statistic(
     )
 
 
+# Data class for test config
+@dataclass
+class BaseConfig:
+    difference_type: DifferenceType = DifferenceType.RELATIVE
+    traffic_proportion_b: float = 1
+    phase_length_days: float = 1
+
+
 # Data classes for the results of tests
 @dataclass
 class Uplift:
@@ -213,7 +223,6 @@ class TestResult:
 class BayesianTestResult(TestResult):
     chance_to_win: float
     risk: List[float]
-    relative_risk: List[float]
 
 
 @dataclass

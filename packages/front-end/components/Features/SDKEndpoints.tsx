@@ -78,8 +78,7 @@ const SDKEndpoints: FC<{
                 <tr key={key.key}>
                   {projects.length > 0 && (
                     <td>
-                      {/* @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'string | undefined' is not assig... Remove this comment to see the full error message */}
-                      {getProjectById(key.project)?.name || (
+                      {getProjectById(key.project || "")?.name || (
                         <em>All Projects</em>
                       )}
                     </td>

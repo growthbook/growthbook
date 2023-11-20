@@ -53,7 +53,8 @@ import {
   ApiFeatureEnvSettingsRules,
 } from "../api/features/postFeature";
 import { ArchetypeAttributeValues } from "../../types/archetype";
-import { getEnvironments, getOrganizationById } from "./organizations";
+import { FeatureRevisionInterface } from "../../types/feature-revision";
+import { getEnvironmentIdsFromOrg, getOrganizationById } from "./organizations";
 
 export type AttributeMap = Map<string, string>;
 
@@ -203,9 +204,7 @@ export async function refreshSDKPayloadCache(
   skipRefreshForProject?: string
 ) {
   // Ignore any old environments which don't exist anymore
-  const allowedEnvs = new Set(
-    organization.settings?.environments?.map((e) => e.id) || []
-  );
+  const allowedEnvs = new Set(getEnvironmentIdsFromOrg(organization));
   payloadKeys = payloadKeys.filter((k) => allowedEnvs.has(k.environment));
 
   // Remove any projects to skip
@@ -236,8 +235,6 @@ export async function refreshSDKPayloadCache(
     const projectExperiments = key.project
       ? allVisualExperiments.filter((e) => e.experiment.project === key.project)
       : allVisualExperiments;
-
-    if (!projectFeatures.length && !projectExperiments.length) continue;
 
     const featureDefinitions = generatePayload({
       features: projectFeatures,
@@ -512,12 +509,13 @@ export async function getFeatureDefinitions({
 
 export async function evaluateFeature(
   feature: FeatureInterface,
+  revision: FeatureRevisionInterface,
   attributes: ArchetypeAttributeValues,
   org: OrganizationInterface
 ) {
   const groupMap = await getSavedGroupMap(org);
   const experimentMap = await getAllPayloadExperiments(org.id);
-  const environments = getEnvironments(org);
+  const environments = getEnvironmentIdsFromOrg(org);
 
   const results: FeatureTestResult[] = [];
 
@@ -531,20 +529,20 @@ export async function evaluateFeature(
   // the values in the feature will be wrong.
   environments.forEach((env) => {
     const thisEnvResult: FeatureTestResult = {
-      env: env.id,
+      env: env,
       result: null,
       enabled: false,
-      defaultValue: feature.defaultValue,
+      defaultValue: revision.defaultValue,
     };
-    const settings = feature.environmentSettings[env.id] ?? null;
+    const settings = feature.environmentSettings[env] ?? null;
     if (settings) {
       thisEnvResult.enabled = settings.enabled;
       const definition = getFeatureDefinition({
         feature,
         groupMap,
         experimentMap,
-        environment: env.id,
-        useDraft: true,
+        environment: env,
+        revision,
         returnRuleId: true,
       });
       if (definition) {
@@ -675,9 +673,9 @@ export function getApiFeatureObj({
 }): ApiFeature {
   const defaultValue = feature.defaultValue;
   const featureEnvironments: Record<string, ApiFeatureEnvironment> = {};
-  const environments = getEnvironments(organization);
+  const environments = getEnvironmentIdsFromOrg(organization);
   environments.forEach((env) => {
-    const envSettings = feature.environmentSettings?.[env.id];
+    const envSettings = feature.environmentSettings?.[env];
     const enabled = !!envSettings?.enabled;
     const rules = (envSettings?.rules || []).map((rule) => ({
       ...rule,
@@ -696,51 +694,16 @@ export function getApiFeatureObj({
       feature,
       groupMap,
       experimentMap,
-      environment: env.id,
+      environment: env,
     });
 
-    const draft: null | ApiFeatureEnvironment["draft"] = feature.draft?.active
-      ? {
-          enabled,
-          defaultValue: feature.draft?.defaultValue ?? defaultValue,
-          rules: (feature.draft?.rules?.[env.id] ?? rules).map((rule) => ({
-            ...rule,
-            coverage:
-              rule.type === "rollout" || rule.type === "experiment"
-                ? rule.coverage ?? 1
-                : 1,
-            condition: rule.condition || "",
-            savedGroupTargeting: (rule.savedGroups || []).map((s) => ({
-              matchType: s.match,
-              savedGroups: s.ids,
-            })),
-            enabled: !!rule.enabled,
-          })),
-        }
-      : null;
-    if (draft) {
-      const draftDefinition = getFeatureDefinition({
-        feature,
-        groupMap,
-        experimentMap,
-        environment: env.id,
-        useDraft: true,
-      });
-      if (draftDefinition) {
-        draft.definition = JSON.stringify(draftDefinition);
-      }
-    }
-
-    featureEnvironments[env.id] = {
+    featureEnvironments[env] = {
       enabled,
       defaultValue,
       rules,
     };
-    if (draft) {
-      featureEnvironments[env.id].draft = draft;
-    }
     if (definition) {
-      featureEnvironments[env.id].definition = JSON.stringify(definition);
+      featureEnvironments[env].definition = JSON.stringify(definition);
     }
   });
 
@@ -757,10 +720,10 @@ export function getApiFeatureObj({
     tags: feature.tags || [],
     valueType: feature.valueType,
     revision: {
-      comment: feature.revision?.comment || "",
-      date: (feature.revision?.date || feature.dateCreated).toISOString(),
-      publishedBy: feature.revision?.publishedBy?.email || "",
-      version: feature.revision?.version || 1,
+      comment: "",
+      date: feature.dateCreated.toISOString(),
+      publishedBy: "",
+      version: feature.version,
     },
   };
 
@@ -768,7 +731,8 @@ export function getApiFeatureObj({
 }
 
 export function getNextScheduledUpdate(
-  envSettings: Record<string, FeatureEnvironment>
+  envSettings: Record<string, FeatureEnvironment>,
+  environments: string[]
 ): Date | null {
   if (!envSettings) {
     return null;
@@ -776,10 +740,10 @@ export function getNextScheduledUpdate(
 
   const dates: string[] = [];
 
-  for (const env in envSettings) {
-    const rules = envSettings[env].rules;
+  environments.forEach((env) => {
+    const rules = envSettings[env]?.rules;
 
-    if (!rules) continue;
+    if (!rules) return;
 
     rules.forEach((rule: FeatureRule) => {
       if (rule?.scheduleRules) {
@@ -790,7 +754,7 @@ export function getNextScheduledUpdate(
         });
       }
     });
-  }
+  });
 
   const sortedFutureDates = dates
     .filter((date) => new Date(date) > new Date())

@@ -45,6 +45,7 @@ export interface ExperimentReportArgs {
   endDate?: Date;
   dimension?: string | null;
   variations: ExperimentReportVariation[];
+  coverage?: number;
   segment?: string;
   metrics: string[];
   metricOverrides?: MetricOverride[];

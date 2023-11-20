@@ -2,9 +2,9 @@ import { SnapshotMetric } from "back-end/types/experiment-snapshot";
 import { CSSProperties, DetailedHTMLProps, TdHTMLAttributes } from "react";
 import { ExperimentMetricInterface, isFactMetric } from "shared/experiments";
 import {
-  formatConversionRate,
-  formatMetricValue,
-  formatColumnRefValue,
+  getColumnRefFormatter,
+  getExperimentMetricFormatter,
+  getMetricFormatter,
 } from "@/services/metrics";
 import { useCurrency } from "@/hooks/useCurrency";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -41,13 +41,12 @@ export default function MetricValueColumn({
   ...otherProps
 }: Props) {
   const displayCurrency = useCurrency();
+  const formatterOptions = { currency: displayCurrency };
   const { getFactTableById } = useDefinitions();
 
-  const overall = formatMetricValue(
-    metric,
+  const overall = getExperimentMetricFormatter(metric, getFactTableById)(
     stats.cr,
-    getFactTableById,
-    displayCurrency
+    formatterOptions
   );
 
   const numeratorValue = stats.value;
@@ -55,30 +54,25 @@ export default function MetricValueColumn({
 
   let numerator: string;
   let denominator = numberFormatter.format(denominatorValue);
+
   if (isFactMetric(metric)) {
     const ratioMetric = metric.metricType === "ratio";
-    numerator = formatColumnRefValue(
+    numerator = getColumnRefFormatter(
       metric.numerator,
       getFactTableById,
-      numeratorValue,
-      displayCurrency,
       ratioMetric
-    );
+    )(numeratorValue, formatterOptions);
     if (ratioMetric && metric.denominator) {
-      denominator = formatColumnRefValue(
+      denominator = getColumnRefFormatter(
         metric.denominator,
         getFactTableById,
-        denominatorValue,
-        displayCurrency,
         ratioMetric
-      );
+      )(denominatorValue, formatterOptions);
     }
   } else {
-    numerator = formatConversionRate(
-      metric.type === "binomial" ? "count" : metric.type,
-      numeratorValue,
-      displayCurrency
-    );
+    numerator = getMetricFormatter(
+      metric.type === "binomial" ? "count" : metric.type
+    )(numeratorValue, formatterOptions);
   }
 
   return (

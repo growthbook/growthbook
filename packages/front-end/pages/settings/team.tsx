@@ -6,13 +6,10 @@ import TeamModal from "@/components/Teams/TeamModal";
 import { Team, useUser } from "@/services/UserContext";
 import Tabs from "@/components/Tabs/Tabs";
 import Tab from "@/components/Tabs/Tab";
-import UpgradeMessage from "@/components/Marketing/UpgradeMessage";
-import UpgradeModal from "@/components/Settings/UpgradeModal";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { MembersTabView } from "@/components/Settings/Team/MembersTabView";
 
 const TeamPage: FC = () => {
-  const [upgradeModal, setUpgradeModal] = useState(false);
   const { refreshOrganization, hasCommercialFeature } = useUser();
   const permissions = usePermissions();
   const [modalOpen, setModalOpen] = useState<Partial<Team> | null>(null);
@@ -25,16 +22,6 @@ const TeamPage: FC = () => {
           You do not have access to view this page.
         </div>
       </div>
-    );
-  }
-
-  if (upgradeModal) {
-    return (
-      <UpgradeModal
-        close={() => setUpgradeModal(false)}
-        reason="To manage user permissions through teams,"
-        source="teams"
-      />
     );
   }
 
@@ -71,16 +58,15 @@ const TeamPage: FC = () => {
                 <FaUsers /> <span> </span>Create Team
               </button>
             </div>
-            {!hasTeamsFeature && (
-              <UpgradeMessage
-                className="mt-2"
-                showUpgradeModal={() => setUpgradeModal(true)}
-                commercialFeature="teams"
-                upgradeMessage="manage user permissions through teams"
-              />
-            )}
           </div>
-          {hasTeamsFeature && <TeamsList />}
+          {hasTeamsFeature ? (
+            <TeamsList />
+          ) : (
+            <div className="alert alert-warning">
+              Teams are only available on the Enterprise plan. Email
+              sales@growthbook.io for more information and to set up a call.
+            </div>
+          )}
         </Tab>
       </Tabs>
     </div>

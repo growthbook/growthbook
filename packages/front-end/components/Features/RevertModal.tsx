@@ -1,0 +1,119 @@
+import { FeatureInterface } from "back-end/types/feature";
+import { useState, useMemo } from "react";
+import { FeatureRevisionInterface } from "back-end/types/feature-revision";
+import isEqual from "lodash/isEqual";
+import { getAffectedRevisionEnvs, useEnvironments } from "@/services/features";
+import { useAuth } from "@/services/auth";
+import usePermissions from "@/hooks/usePermissions";
+import Modal from "../Modal";
+import Field from "../Forms/Field";
+import { ExpandableDiff } from "./DraftModal";
+
+export interface Props {
+  feature: FeatureInterface;
+  revision: FeatureRevisionInterface;
+  close: () => void;
+  mutate: () => void;
+  setVersion: (version: number) => void;
+}
+
+export default function RevertModal({
+  feature,
+  revision,
+  close,
+  mutate,
+  setVersion,
+}: Props) {
+  const environments = useEnvironments();
+  const permissions = usePermissions();
+
+  const { apiCall } = useAuth();
+
+  const [comment, setComment] = useState(
+    revision.comment || `Revert from #${feature.version}`
+  );
+
+  const diffs = useMemo(() => {
+    const diffs: { a: string; b: string; title: string }[] = [];
+
+    if (revision.defaultValue !== feature.defaultValue) {
+      diffs.push({
+        title: "Default Value",
+        a: feature.defaultValue,
+        b: revision.defaultValue,
+      });
+    }
+    environments.forEach((env) => {
+      const liveRules = feature.environmentSettings?.[env.id]?.rules || [];
+      const draftRules = revision.rules?.[env.id] || [];
+
+      if (!isEqual(liveRules, draftRules)) {
+        diffs.push({
+          title: `Rules - ${env.id}`,
+          a: JSON.stringify(liveRules, null, 2),
+          b: JSON.stringify(draftRules, null, 2),
+        });
+      }
+    });
+
+    return diffs;
+  }, [feature, revision, environments]);
+
+  const hasPermission = permissions.check(
+    "publishFeatures",
+    feature.project,
+    getAffectedRevisionEnvs(feature, revision, environments)
+  );
+
+  return (
+    <Modal
+      open={true}
+      header={`Revert`}
+      submit={
+        hasPermission
+          ? async () => {
+              const res = await apiCall<{ version: number }>(
+                `/feature/${feature.id}/${revision.version}/revert`,
+                {
+                  method: "POST",
+                  body: JSON.stringify({
+                    comment,
+                  }),
+                }
+              );
+              await mutate();
+              res && res.version && setVersion(res.version);
+            }
+          : undefined
+      }
+      cta="Revert and Publish"
+      close={close}
+      closeCta="Cancel"
+      size="max"
+    >
+      <h3>Review Changes</h3>
+      <p>
+        Reverting to <strong>Revision {revision.version}</strong>.
+      </p>
+      <p>
+        The changes below will go live when you revert. Please review them
+        carefully.
+      </p>
+      <div className="list-group mb-4">
+        {diffs.map((diff) => (
+          <ExpandableDiff {...diff} key={diff.title} />
+        ))}
+      </div>
+      {hasPermission && (
+        <Field
+          label="Add a Comment (optional)"
+          textarea
+          value={comment}
+          onChange={(e) => {
+            setComment(e.target.value);
+          }}
+        />
+      )}
+    </Modal>
+  );
+}

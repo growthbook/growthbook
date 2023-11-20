@@ -133,6 +133,7 @@ export const updateTeam = async (
     description,
     projectRoles: [],
     ...permissions,
+    managedByIdp: team.managedByIdp,
   });
 
   await req.audit({
@@ -183,6 +184,14 @@ export const deleteTeamById = async (
       status: 400,
       message:
         "Cannot delete a team that has members. Please delete members before retrying.",
+    });
+  }
+
+  if (team?.managedByIdp) {
+    return res.status(400).json({
+      status: 400,
+      message:
+        "Cannot delete a team that is being managed by an idP. Please delete the team through your idP.",
     });
   }
 
