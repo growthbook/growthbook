@@ -12,6 +12,8 @@ import { useUser } from "@/services/UserContext";
 import usePermissions from "@/hooks/usePermissions";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { DEFAULT_SRM_THRESHOLD } from "@/pages/settings";
+import { useAuth } from "@/services/auth";
+import Button from "@/components/Button";
 import { useSnapshot } from "../SnapshotProvider";
 import ExperimentDateGraph, {
   ExperimentDateGraphDataPoint,
@@ -104,6 +106,8 @@ export default function HealthTab({
 }: Props) {
   const { error, snapshot, phase } = useSnapshot();
   const { runHealthTrafficQuery } = useOrgSettings();
+  const { apiCall } = useAuth();
+  const { refreshOrganization } = useUser();
   const permissions = usePermissions();
   const hasPermissionToEditOrgSettings = permissions.check(
     "organizationSettings"
@@ -116,19 +120,34 @@ export default function HealthTab({
     };
   }, [snapshot, onSnapshotUpdate]);
 
+  const enableRunHealthTrafficQueries = async () => {
+    await apiCall(`/organization`, {
+      method: "PUT",
+      body: JSON.stringify({
+        settings: { runHealthTrafficQuery: true },
+      }),
+    });
+    refreshOrganization();
+  };
+
   // If org has not updated settings since the health tab was introduced, prompt the user
   // to enable the traffic query setting
   if (!runHealthTrafficQuery) {
     return (
-      <div className="alert alert-info mt-3">
+      <div className="alert alert-info mt-3 d-flex">
         {runHealthTrafficQuery === undefined
           ? "Welcome to the new health tab! You can use this tab to view experiment traffic over time, perform balance checks, and check for multiple exposures. To get started, "
           : "Health queries are disabled in your Organization Settings. To enable them, "}
         {hasPermissionToEditOrgSettings ? (
           <>
-            visit your <Link href={"/settings"}>Organization Settings</Link> and
-            enable <b>Run traffic query by default</b> under the Experiment
-            Health Settings section.
+            click the enable button on the right.
+            <Button
+              className="mt-2 mb-2"
+              style={{ width: "200px" }}
+              onClick={async () => await enableRunHealthTrafficQueries()}
+            >
+              Enable Health Queries
+            </Button>
           </>
         ) : (
           <>
