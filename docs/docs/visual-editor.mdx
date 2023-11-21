@@ -210,20 +210,6 @@ And lastly, you can access the GrowthBook SDK instance at `window._growthbook` i
 
 If your website uses a Content Security Policy (CSP), there are some additional changes you'll need to make. This applies to both SDK and pre-build script tag integration.
 
-#### connect-src
-
-If you have the `connect-src` directive defined in your website's CSP, you'll need to include the URL of your GrowthBook API Host in order for your website to load experiments from GrowthBook's servers.
-
-```
-Content-Security-Policy: connect-src <GROWTHBOOK_API_HOST>;
-```
-
-If you use GrowthBook Cloud, use our global CDN: https://cdn.growthbook.io
-
-```
-Content-Security-Policy: connect-src https://cdn.growthbook.io;
-```
-
 #### script-src
 
 Changing the `script-src` directive in your CSP is only required if you are writing custom JavaScript in the Visual Editor. If you are only changing styles or copy using the point-and-click editor, this is not required and you can skip this section.
