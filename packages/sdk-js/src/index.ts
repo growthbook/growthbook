@@ -35,6 +35,8 @@ export {
   clearCache,
   configureCache,
   helpers,
+  onVisible,
+  onHidden,
 } from "./feature-repository";
 
 export { GrowthBook } from "./GrowthBook";

@@ -91,6 +91,7 @@ describe("REST API auth middleware", () => {
         organization,
         environments,
         project,
+        teams: [],
       });
     });
 
@@ -106,6 +107,7 @@ describe("REST API auth middleware", () => {
           organization,
           environments,
           project,
+          teams: [],
         });
       }).toThrowError();
     });
@@ -125,6 +127,7 @@ describe("REST API auth middleware", () => {
           organization,
           environments,
           project,
+          teams: [],
         });
       }).toThrowError();
     });
@@ -140,6 +143,7 @@ describe("REST API auth middleware", () => {
         organization,
         environments,
         project,
+        teams: [],
       });
     });
 
@@ -154,6 +158,7 @@ describe("REST API auth middleware", () => {
         organization,
         environments,
         project,
+        teams: [],
       });
     });
 
@@ -172,6 +177,7 @@ describe("REST API auth middleware", () => {
           organization,
           environments,
           project,
+          teams: [],
         });
       }).toThrowError();
     });
@@ -191,6 +197,7 @@ describe("REST API auth middleware", () => {
           organization,
           environments,
           project,
+          teams: [],
         });
       }).toThrowError();
     });

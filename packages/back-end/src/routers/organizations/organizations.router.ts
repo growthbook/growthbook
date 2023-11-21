@@ -47,6 +47,10 @@ router.put(
   organizationsController.putAdminResetUserPassword
 );
 router.put("/organization/license", organizationsController.putLicenseKey);
+router.put(
+  "/organization/default-role",
+  organizationsController.putDefaultRole
+);
 
 // API keys
 router.get("/keys", organizationsController.getApiKeys);

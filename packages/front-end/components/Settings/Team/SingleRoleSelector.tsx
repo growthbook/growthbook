@@ -1,12 +1,12 @@
 import { ReactNode, useMemo } from "react";
 import { MemberRole, MemberRoleInfo } from "back-end/types/organization";
 import uniqid from "uniqid";
+import { roleSupportsEnvLimit } from "@/services/auth";
 import { useUser } from "../../../services/UserContext";
 import { useEnvironments } from "../../../services/features";
 import MultiSelectField from "../../Forms/MultiSelectField";
 import Toggle from "../../Forms/Toggle";
 import SelectField from "../../Forms/SelectField";
-import { roleSupportsEnvLimit } from "../../../services/auth";
 import PremiumTooltip from "../../Marketing/PremiumTooltip";
 
 export default function SingleRoleSelector({

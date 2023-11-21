@@ -10,6 +10,24 @@ properties:
   condition:
     type: string
     description: Applied to everyone by default.
+  savedGroupTargeting:
+    type: array
+    items:
+      type: object
+      required:
+        - matchType
+        - savedGroups
+      properties:
+        matchType:
+          type: string
+          enum:
+            - "all"
+            - "any"
+            - "none"
+        savedGroups:
+          type: array
+          items:
+            type: string
   id:
     type: string
   enabled:

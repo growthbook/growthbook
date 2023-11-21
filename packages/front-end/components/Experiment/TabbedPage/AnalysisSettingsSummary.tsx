@@ -11,7 +11,7 @@ import React, { ReactElement, useState } from "react";
 import { GiPieChart } from "react-icons/gi";
 import { HiCursorClick } from "react-icons/hi";
 import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
-import { StatsEngine } from "back-end/types/stats";
+import { DifferenceType, StatsEngine } from "back-end/types/stats";
 import { MetricRegressionAdjustmentStatus } from "back-end/types/report";
 import { ago, datetime } from "shared/dates";
 import clsx from "clsx";
@@ -45,6 +45,7 @@ export interface Props {
   setVariationFilter?: (variationFilter: number[]) => void;
   baselineRow?: number;
   setBaselineRow?: (baselineRow: number) => void;
+  setDifferenceType: (differenceType: DifferenceType) => void;
 }
 
 export default function AnalysisSettingsSummary({
@@ -57,6 +58,7 @@ export default function AnalysisSettingsSummary({
   setVariationFilter,
   baselineRow,
   setBaselineRow,
+  setDifferenceType,
 }: Props) {
   const {
     getDatasourceById,
@@ -386,6 +388,7 @@ export default function AnalysisSettingsSummary({
                         setBaselineRow?.(0);
                         setVariationFilter?.([]);
                       }
+                      setDifferenceType("relative");
                     }}
                     newUi={true}
                   />
@@ -407,6 +410,7 @@ export default function AnalysisSettingsSummary({
                       setBaselineRow?.(0);
                       setVariationFilter?.([]);
                     }
+                    setDifferenceType("relative");
                   }}
                   newUi={true}
                 />

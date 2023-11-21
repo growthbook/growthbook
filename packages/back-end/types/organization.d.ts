@@ -170,6 +170,8 @@ export interface OrganizationSettings {
   pValueCorrection?: PValueCorrection;
   regressionAdjustmentEnabled?: boolean;
   regressionAdjustmentDays?: number;
+  runHealthTrafficQuery?: boolean;
+  srmThreshold?: number;
   /** @deprecated */
   implementationTypes?: ImplementationType[];
   attributionModel?: AttributionModel;
@@ -221,6 +223,7 @@ export interface OrganizationInterface {
   url: string;
   dateCreated: Date;
   verifiedDomain?: string;
+  externalId?: string;
   name: string;
   ownerEmail: string;
   stripeCustomerId?: string;

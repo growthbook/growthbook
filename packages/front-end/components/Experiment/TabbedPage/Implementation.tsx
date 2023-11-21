@@ -1,4 +1,7 @@
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import {
+  ExperimentInterfaceStringDates,
+  LinkedFeatureInfo,
+} from "back-end/types/experiment";
 import { VisualChangesetInterface } from "back-end/types/visual-changeset";
 import { FaPlusCircle } from "react-icons/fa";
 import { SDKConnectionInterface } from "back-end/types/sdk-connection";
@@ -9,7 +12,7 @@ import track from "@/services/track";
 import { StartExperimentBanner } from "../StartExperimentBanner";
 import AddLinkedChangesBanner from "../AddLinkedChangesBanner";
 import TargetingInfo from "./TargetingInfo";
-import { ExperimentTab, LinkedFeature } from ".";
+import { ExperimentTab } from ".";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
@@ -18,9 +21,7 @@ export interface Props {
   editTargeting?: (() => void) | null;
   setFeatureModal: (open: boolean) => void;
   setVisualEditorModal: (open: boolean) => void;
-  linkedFeatures: LinkedFeature[];
-  legacyFeatures: LinkedFeature[];
-  mutateFeatures: () => void;
+  linkedFeatures: LinkedFeatureInfo[];
   setTab: (tab: ExperimentTab) => void;
   connections: SDKConnectionInterface[];
 }
@@ -32,9 +33,7 @@ export default function Implementation({
   editTargeting,
   setFeatureModal,
   setVisualEditorModal,
-  mutateFeatures,
   linkedFeatures,
-  legacyFeatures,
   setTab,
   connections,
 }: Props) {
@@ -54,9 +53,8 @@ export default function Implementation({
 
   const hasLinkedChanges =
     visualChangesets.length > 0 || linkedFeatures.length > 0;
-  const hasAnyChanges = hasLinkedChanges || legacyFeatures.length > 0;
 
-  if (!hasAnyChanges) {
+  if (!hasLinkedChanges) {
     if (experiment.status === "draft") {
       return (
         <>
@@ -83,9 +81,9 @@ export default function Implementation({
     }
     return (
       <div className="alert alert-info mb-0">
-        This experiment has no feature flag or visual editor changes which are
-        managed within the GrowthBook app. Randomization and targeting is likely
-        managed manually or by an external service.
+        This experiment has no directly linked feature flag or visual editor
+        changes. Randomization, targeting, and implementation is either being
+        managed by an external system or via legacy Feature Flags in GrowthBook.
       </div>
     );
   }
@@ -106,13 +104,11 @@ export default function Implementation({
                     ({linkedFeatures.length})
                   </small>
                 </div>
-                {linkedFeatures.map(({ feature, rules }, i) => (
+                {linkedFeatures.map((info, i) => (
                   <LinkedFeatureFlag
-                    feature={feature}
-                    rules={rules}
+                    info={info}
                     experiment={experiment}
                     key={i}
-                    mutateFeatures={mutateFeatures}
                   />
                 ))}
                 {experiment.status === "draft" && hasVisualEditorPermission && (
@@ -148,32 +144,6 @@ export default function Implementation({
                   canEditVisualChangesets={hasVisualEditorPermission}
                   setVisualEditorModal={setVisualEditorModal}
                 />
-              </div>
-            )}
-            {legacyFeatures.length > 0 && (
-              <div className="mt-4">
-                <div className="h4 mb-2">
-                  Legacy Features{" "}
-                  <small className="text-muted">
-                    ({legacyFeatures.length})
-                  </small>
-                </div>
-                <div className="alert alert-info">
-                  These features have rules that reference this Experiment Key,
-                  but contain their own targeting settings. Changes you make to
-                  this experiment will have no effect on these features.
-                </div>
-
-                {legacyFeatures.map(({ feature, rules }, i) => (
-                  <LinkedFeatureFlag
-                    feature={feature}
-                    rules={rules}
-                    experiment={experiment}
-                    key={i}
-                    mutateFeatures={mutateFeatures}
-                    open={false}
-                  />
-                ))}
               </div>
             )}
           </div>

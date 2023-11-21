@@ -22,7 +22,7 @@ import { getDefaultConversionWindowHours } from "@/services/env";
 import {
   defaultLoseRiskThreshold,
   defaultWinRiskThreshold,
-  formatConversionRate,
+  getMetricFormatter,
 } from "@/services/metrics";
 import { useAuth } from "@/services/auth";
 import RadioSelector from "@/components/Forms/RadioSelector";
@@ -1362,8 +1362,7 @@ const MetricForm: FC<MetricFormProps> = ({
                   (default{" "}
                   {value.type === "binomial"
                     ? metricDefaults.minimumSampleSize
-                    : formatConversionRate(
-                        value.type,
+                    : getMetricFormatter(value.type)(
                         metricDefaults.minimumSampleSize
                       )}
                   )

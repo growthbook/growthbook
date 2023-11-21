@@ -1,5 +1,6 @@
 import {
   CreateSDKConnectionParams,
+  SDKConnectionInterface,
   SDKLanguage,
 } from "back-end/types/sdk-connection";
 import { useForm } from "react-hook-form";
@@ -36,10 +37,12 @@ export default function InitialSDKConnectionForm({
   const connections = data?.connections;
 
   const { apiCall } = useAuth();
-  const [currentConnection, setCurrentConnection] = useState(null);
+  const [
+    currentConnection,
+    setCurrentConnection,
+  ] = useState<SDKConnectionInterface | null>(null);
 
   useEffect(() => {
-    // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type '() => SDKConnectionInterface | n... Remove this comment to see the full error message
     setCurrentConnection(() => {
       if (connections && connections[0]) {
         return connections[0];
@@ -107,7 +110,7 @@ export default function InitialSDKConnectionForm({
           includeDraftExperiments: false,
           includeExperimentNames: false,
           environment: environments[0]?.id || "production",
-          project: "",
+          projects: [],
           proxyEnabled: false,
           proxyHost: "",
         };

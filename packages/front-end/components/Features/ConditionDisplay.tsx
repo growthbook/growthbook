@@ -1,9 +1,11 @@
 import { SavedGroupInterface } from "back-end/types/saved-group";
 import stringify from "json-stringify-pretty-compact";
 import { useMemo } from "react";
+import { SavedGroupTargeting } from "back-end/types/feature";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { jsonToConds, useAttributeMap } from "@/services/features";
 import InlineCode from "../SyntaxHighlighting/InlineCode";
+import SavedGroupTargetingDisplay from "./SavedGroupTargetingDisplay";
 
 function operatorToText(operator: string): string {
   switch (operator) {
@@ -77,7 +79,13 @@ function getValue(
   return value;
 }
 
-export default function ConditionDisplay({ condition }: { condition: string }) {
+export default function ConditionDisplay({
+  condition,
+  savedGroups: savedGroupTargeting,
+}: {
+  condition: string;
+  savedGroups?: SavedGroupTargeting[];
+}) {
   const { savedGroups } = useDefinitions();
 
   const jsonFormatted = useMemo(() => {
@@ -99,22 +107,31 @@ export default function ConditionDisplay({ condition }: { condition: string }) {
     return <InlineCode language="json" code={jsonFormatted} />;
   }
 
-  return (
-    <div className="row">
-      {conds.map(({ field, operator, value }, i) => (
-        <div key={i} className="col-auto d-flex flex-wrap">
-          {i > 0 && <span className="mr-1">AND</span>}
-          <span className="mr-1 border px-2 bg-light rounded">{field}</span>
-          <span className="mr-1">{operatorToText(operator)}</span>
-          {needsValue(operator) ? (
-            <span className="mr-1 border px-2 bg-light rounded">
-              {getValue(operator, value, savedGroups)}
-            </span>
-          ) : (
-            ""
-          )}
-        </div>
-      ))}
+  const parts = conds.map(({ field, operator, value }, i) => (
+    <div key={i} className="col-auto d-flex flex-wrap">
+      {i > 0 && <span className="mr-1">AND</span>}
+      <span className="mr-1 border px-2 bg-light rounded">{field}</span>
+      <span className="mr-1">{operatorToText(operator)}</span>
+      {needsValue(operator) ? (
+        <span className="mr-1 border px-2 bg-light rounded">
+          {getValue(operator, value, savedGroups)}
+        </span>
+      ) : (
+        ""
+      )}
     </div>
-  );
+  ));
+
+  if (savedGroupTargeting && savedGroupTargeting.length > 0) {
+    parts.push(
+      <SavedGroupTargetingDisplay
+        savedGroups={savedGroupTargeting}
+        groupClassName="col-auto"
+        initialAnd={parts.length > 0}
+        key="saved-group-targeting"
+      />
+    );
+  }
+
+  return <div className="row">{parts}</div>;
 }

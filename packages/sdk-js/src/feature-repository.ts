@@ -16,7 +16,11 @@ type CacheEntry = {
 type ScopedChannel = {
   src: EventSource | null;
   cb: (event: MessageEvent<string>) => void;
+  host: string;
+  clientKey: string;
+  headers?: Record<string, string>;
   errors: number;
+  state: "active" | "idle" | "disabled";
 };
 
 // Config settings
@@ -26,6 +30,8 @@ const cacheSettings: CacheSettings = {
   cacheKey: "gbFeaturesCache",
   backgroundSync: true,
   maxEntries: 10,
+  disableIdleStreams: false,
+  idleStreamInterval: 20000,
 };
 const polyfills: Polyfills = {
   fetch: globalThis.fetch ? globalThis.fetch.bind(globalThis) : undefined,
@@ -57,6 +63,29 @@ export const helpers: Helpers = {
       });
     }
     return new polyfills.EventSource(`${host}/sub/${clientKey}`);
+  },
+  startIdleListener: () => {
+    let idleTimeout: number | undefined;
+    const isBrowser =
+      typeof window !== "undefined" && typeof document !== "undefined";
+    if (!isBrowser) return;
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        window.clearTimeout(idleTimeout);
+        onVisible();
+      } else if (document.visibilityState === "hidden") {
+        idleTimeout = window.setTimeout(
+          onHidden,
+          cacheSettings.idleStreamInterval
+        );
+      }
+    };
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    return () =>
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+  },
+  stopIdleListener: () => {
+    // No-op, replaced by startIdleListener
   },
 };
 
@@ -127,7 +156,24 @@ export function unsubscribe(instance: GrowthBook): void {
   subscribedInstances.forEach((s) => s.delete(instance));
 }
 
+export function onHidden() {
+  streams.forEach((channel) => {
+    if (!channel) return;
+    channel.state = "idle";
+    disableChannel(channel);
+  });
+}
+
+export function onVisible() {
+  streams.forEach((channel) => {
+    if (!channel) return;
+    if (channel.state !== "idle") return;
+    enableChannel(channel);
+  });
+}
+
 // Private functions
+
 async function updatePersistentCache() {
   try {
     if (!polyfills.localStorage) return;
@@ -245,6 +291,12 @@ async function initializeCache(): Promise<void> {
     }
   } catch (e) {
     // Ignore localStorage errors
+  }
+  if (!cacheSettings.disableIdleStreams) {
+    const cleanupFn = helpers.startIdleListener();
+    if (cleanupFn) {
+      helpers.stopIdleListener = cleanupFn;
+    }
   }
 }
 
@@ -393,6 +445,9 @@ function startAutoRefresh(instance: GrowthBook): void {
     if (streams.has(key)) return;
     const channel: ScopedChannel = {
       src: null,
+      host: streamingHost,
+      clientKey,
+      headers: streamingHostRequestHeaders,
       cb: (event: MessageEvent<string>) => {
         try {
           if (event.type === "features-updated") {
@@ -414,32 +469,19 @@ function startAutoRefresh(instance: GrowthBook): void {
               clientKey,
               error: e ? (e as Error).message : null,
             });
-          onSSEError(
-            channel,
-            streamingHost,
-            clientKey,
-            streamingHostRequestHeaders
-          );
+          onSSEError(channel);
         }
       },
       errors: 0,
+      state: "active",
     };
     streams.set(key, channel);
-    enableChannel(
-      channel,
-      streamingHost,
-      clientKey,
-      streamingHostRequestHeaders
-    );
+    enableChannel(channel);
   }
 }
 
-function onSSEError(
-  channel: ScopedChannel,
-  host: string,
-  clientKey: string,
-  headers?: Record<string, string>
-) {
+function onSSEError(channel: ScopedChannel) {
+  if (channel.state === "idle") return;
   channel.errors++;
   if (channel.errors > 3 || (channel.src && channel.src.readyState === 2)) {
     // exponential backoff after 4 errors, with jitter
@@ -447,7 +489,8 @@ function onSSEError(
       Math.pow(3, channel.errors - 3) * (1000 + Math.random() * 1000);
     disableChannel(channel);
     setTimeout(() => {
-      enableChannel(channel, host, clientKey, headers);
+      if (["idle", "active"].includes(channel.state)) return;
+      enableChannel(channel);
     }, Math.min(delay, 300000)); // 5 minutes max
   }
 }
@@ -458,24 +501,21 @@ function disableChannel(channel: ScopedChannel) {
   channel.src.onerror = null;
   channel.src.close();
   channel.src = null;
+  if (channel.state === "active") {
+    channel.state = "disabled";
+  }
 }
 
-function enableChannel(
-  channel: ScopedChannel,
-  host: string,
-  clientKey: string,
-  headers?: Record<string, string>
-) {
+function enableChannel(channel: ScopedChannel) {
   channel.src = helpers.eventSourceCall({
-    host,
-    clientKey,
-    headers,
+    host: channel.host,
+    clientKey: channel.clientKey,
+    headers: channel.headers,
   }) as EventSource;
+  channel.state = "active";
   channel.src.addEventListener("features", channel.cb);
   channel.src.addEventListener("features-updated", channel.cb);
-  channel.src.onerror = () => {
-    onSSEError(channel, host, clientKey, headers);
-  };
+  channel.src.onerror = () => onSSEError(channel);
   channel.src.onopen = () => {
     channel.errors = 0;
   };
@@ -495,4 +535,7 @@ function clearAutoRefresh() {
 
   // Remove all references to GrowthBook instances
   subscribedInstances.clear();
+
+  // Run the idle stream cleanup function
+  helpers.stopIdleListener();
 }

@@ -74,6 +74,7 @@ export function reportArgsFromSnapshot(
     endDate: snapshot.settings.endDate,
     dimension: snapshot.dimension || undefined,
     variations: getReportVariations(experiment, phase),
+    coverage: snapshot.settings.coverage,
     segment: snapshot.settings.segment,
     metrics: experiment.metrics,
     metricOverrides: experiment.metricOverrides,
@@ -134,6 +135,7 @@ export function getSnapshotSettingsFromReportArgs(
       id: v.id,
       weight: v.weight,
     })),
+    coverage: args.coverage,
   };
   // TODO: add baselineVariation here
   const analysisSettings: ExperimentSnapshotAnalysisSettings = {
@@ -144,6 +146,7 @@ export function getSnapshotSettingsFromReportArgs(
     sequentialTesting: args.sequentialTestingEnabled,
     sequentialTestingTuningParameter: args.sequentialTestingTuningParameter,
     pValueThreshold: args.pValueThreshold,
+    differenceType: "relative",
   };
 
   return { snapshotSettings, analysisSettings };

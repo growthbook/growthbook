@@ -15,7 +15,7 @@ export const postOrganization = createApiRequestHandler(
   async (req): Promise<PostOrganizationResponse> => {
     const user = await validateIsSuperUserRequest(req);
 
-    const { name } = req.body;
+    const { name, externalId } = req.body;
 
     if (name.length < 3) {
       throw Error("Name length must be at least 3 characters");
@@ -24,7 +24,8 @@ export const postOrganization = createApiRequestHandler(
     const org = await createOrganization({
       email: user.email,
       userId: user.id,
-      name: name,
+      externalId,
+      name,
     });
 
     return {

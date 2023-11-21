@@ -1,13 +1,14 @@
 import { useState, FC } from "react";
-import { useAuth } from "../services/auth";
-import Modal from "./Modal";
+import { useAuth } from "../../services/auth";
+import Modal from "../Modal";
 
 const CreateOrganization: FC<{
   onCreate: () => void;
   close?: () => void;
-  isAdmin?: boolean;
-}> = ({ onCreate, close, isAdmin }) => {
+  showExternalId?: boolean;
+}> = ({ onCreate, close, showExternalId }) => {
   const [company, setCompany] = useState("");
+  const [externalId, setExternalId] = useState("");
 
   const { apiCall } = useAuth();
 
@@ -20,6 +21,7 @@ const CreateOrganization: FC<{
       method: "POST",
       body: JSON.stringify({
         company,
+        externalId,
       }),
     });
     onCreate();
@@ -29,27 +31,11 @@ const CreateOrganization: FC<{
     <Modal
       submit={handleSubmit}
       open={true}
-      header={
-        isAdmin ? (
-          "Create New Organization"
-        ) : (
-          <img
-            alt="GrowthBook"
-            src="/logo/growthbook-logo.png"
-            style={{ height: 40 }}
-          />
-        )
-      }
+      header={"Create New Organization"}
       cta={"Create"}
       close={close}
       inline={!close}
     >
-      {!isAdmin && (
-        <p className="text-muted">
-          It looks like you don&apos;t belong to an organization yet. Create one
-          below.
-        </p>
-      )}
       <div className="form-group">
         Company Name
         <input
@@ -60,6 +46,19 @@ const CreateOrganization: FC<{
           minLength={3}
           onChange={(e) => setCompany(e.target.value)}
         />
+        {showExternalId && (
+          <div className="mt-3">
+            External Id: Id used for the organization within your company
+            (optional)
+            <input
+              type="text"
+              className="form-control"
+              value={externalId}
+              minLength={3}
+              onChange={(e) => setExternalId(e.target.value)}
+            />
+          </div>
+        )}
       </div>
     </Modal>
   );

@@ -4,6 +4,7 @@ import HeaderWithEdit from "@/components/Layout/HeaderWithEdit";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import ConditionDisplay from "@/components/Features/ConditionDisplay";
 import { formatTrafficSplit } from "@/services/utils";
+import SavedGroupTargetingDisplay from "@/components/Features/SavedGroupTargetingDisplay";
 import { HashVersionTooltip } from "../HashVersionSelector";
 
 export interface Props {
@@ -67,13 +68,25 @@ export default function TargetingInfo({
             </div>
             <div className="mb-3">
               <div className="mb-1">
-                <strong>Targeting Conditions</strong>
+                <strong>Saved Group Targeting</strong>
+              </div>
+              <div>
+                {phase.savedGroups?.length ? (
+                  <SavedGroupTargetingDisplay savedGroups={phase.savedGroups} />
+                ) : (
+                  <em>None</em>
+                )}
+              </div>
+            </div>
+            <div className="mb-3">
+              <div className="mb-1">
+                <strong>Attribute Targeting</strong>
               </div>
               <div>
                 {phase.condition && phase.condition !== "{}" ? (
                   <ConditionDisplay condition={phase.condition} />
                 ) : (
-                  <em>No conditions</em>
+                  <em>None</em>
                 )}
               </div>
             </div>

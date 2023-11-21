@@ -10,6 +10,8 @@ if (fs.existsSync(".env.local")) {
   dotenv.config({ path: ".env.local" });
 }
 
+export const LOG_LEVEL = process.env.LOG_LEVEL;
+
 export const IS_CLOUD = stringToBoolean(process.env.IS_CLOUD);
 export const IS_MULTI_ORG = stringToBoolean(process.env.IS_MULTI_ORG);
 
@@ -36,11 +38,29 @@ export const UPLOAD_METHOD = (() => {
   return "local";
 })();
 
-export let MONGODB_URI =
-  process.env.MONGODB_URI ??
-  (prod ? "" : "mongodb://root:password@localhost:27017/test?authSource=admin");
+let MONGODB_URI = process.env.MONGODB_URI || "";
+
 if (!MONGODB_URI) {
-  throw new Error("Missing MONGODB_URI environment variable");
+  // Check for alternate mongo db environment variables
+  if (
+    process.env.MONGODB_USERNAME &&
+    process.env.MONGODB_PASSWORD &&
+    process.env.MONGODB_HOST
+  ) {
+    const port = process.env.MONGODB_PORT || "27017";
+    const dbname = process.env.MONGODB_DBNAME || "growthbook";
+    const extraArgs = process.env.MONGODB_EXTRA_ARGS || "?authSource=admin";
+    MONGODB_URI = `mongodb://${process.env.MONGODB_USERNAME}:${process.env.MONGODB_PASSWORD}@${process.env.MONGODB_HOST}:${port}/${dbname}${extraArgs}`;
+  }
+}
+
+if (!MONGODB_URI) {
+  if (prod) {
+    throw new Error(
+      "Missing MONGODB_URI or required alternate environment variables to generate it"
+    );
+  }
+  MONGODB_URI = "mongodb://root:password@localhost:27017/test?authSource=admin";
 }
 
 // For backwards compatibility, if no dbname is explicitly set, use "test" and add the authSource db.
@@ -48,6 +68,7 @@ if (!MONGODB_URI) {
 if (MONGODB_URI.match(/:27017(\/)?$/)) {
   MONGODB_URI = trimEnd(MONGODB_URI, "/") + "/test?authSource=admin";
 }
+export { MONGODB_URI };
 
 export const APP_ORIGIN = process.env.APP_ORIGIN || "http://localhost:3000";
 const isLocalhost = APP_ORIGIN.includes("localhost");
@@ -121,6 +142,16 @@ export const QUERY_CACHE_TTL_MINS =
 // When importing past experiments, limit to this number of days:
 export const IMPORT_LIMIT_DAYS =
   parseInt(process.env?.IMPORT_LIMIT_DAYS || "") || 365;
+
+// cache control currently feature only /api/features/*
+export const CACHE_CONTROL_MAX_AGE =
+  parseInt(process.env?.CACHE_CONTROL_MAX_AGE || "") || 30;
+export const CACHE_CONTROL_STALE_WHILE_REVALIDATE =
+  parseInt(process.env?.CACHE_CONTROL_STALE_WHILE_REVALIDATE || "") || 3600;
+export const CACHE_CONTROL_STALE_IF_ERROR =
+  parseInt(process.env?.CACHE_CONTROL_STALE_IF_ERROR || "") || 36000;
+
+// update Feature every
 
 export const CRON_ENABLED = !stringToBoolean(process.env.CRON_DISABLED);
 

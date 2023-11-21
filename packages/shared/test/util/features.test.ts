@@ -3,6 +3,9 @@ import {
   validateFeatureValue,
   getValidation,
   validateJSONFeatureValue,
+  autoMerge,
+  RulesAndValues,
+  MergeConflict,
 } from "../../src/util";
 
 const feature: FeatureInterface = {
@@ -14,6 +17,7 @@ const feature: FeatureInterface = {
   organization: "123",
   owner: "adnan",
   valueType: "boolean",
+  version: 1,
 };
 
 const exampleJsonSchema = {
@@ -24,6 +28,256 @@ const exampleJsonSchema = {
     },
   },
 };
+
+describe("autoMerge", () => {
+  it("Auto merges when there are no conflicts", () => {
+    const base: RulesAndValues = {
+      defaultValue: "base",
+      rules: {
+        dev: [],
+        prod: [],
+      },
+      version: 4,
+    };
+    const live: RulesAndValues = {
+      defaultValue: "base",
+      rules: {
+        dev: [],
+        prod: [
+          {
+            type: "force",
+            description: "",
+            id: "liveForce",
+            value: "force",
+          },
+        ],
+      },
+      version: 6,
+    };
+    const revision: RulesAndValues = {
+      defaultValue: "revision",
+      rules: {
+        dev: [
+          {
+            type: "force",
+            description: "",
+            id: "revisionForce",
+            value: "force",
+          },
+        ],
+        prod: [],
+      },
+      version: 5,
+    };
+
+    expect(autoMerge(live, base, revision, ["dev", "prod"], {})).toEqual({
+      success: true,
+      conflicts: [],
+      result: {
+        defaultValue: revision.defaultValue,
+        rules: {
+          dev: revision.rules["dev"],
+        },
+      },
+    });
+  });
+  it("Auto merges when live and base are the same revision", () => {
+    const base: RulesAndValues = {
+      defaultValue: "base",
+      rules: {
+        dev: [],
+        prod: [],
+      },
+      version: 4,
+    };
+    const revision: RulesAndValues = {
+      defaultValue: "revision",
+      rules: {
+        dev: [
+          {
+            type: "force",
+            description: "",
+            id: "revisionForce",
+            value: "force",
+          },
+        ],
+      },
+      version: 5,
+    };
+
+    expect(autoMerge(base, base, revision, ["dev", "prod"], {})).toEqual({
+      success: true,
+      conflicts: [],
+      result: {
+        defaultValue: revision.defaultValue,
+        rules: {
+          dev: revision.rules["dev"],
+        },
+      },
+    });
+  });
+  it("Handles merge conflicts", () => {
+    const base: RulesAndValues = {
+      defaultValue: "base",
+      rules: {
+        dev: [],
+        prod: [],
+      },
+      version: 4,
+    };
+    const live: RulesAndValues = {
+      defaultValue: "live",
+      rules: {
+        dev: [],
+        prod: [
+          {
+            type: "force",
+            description: "",
+            id: "liveForce",
+            value: "force",
+          },
+        ],
+      },
+      version: 6,
+    };
+    const revision: RulesAndValues = {
+      defaultValue: "revision",
+      rules: {
+        dev: [
+          {
+            type: "force",
+            description: "",
+            id: "revisionForce",
+            value: "force",
+          },
+        ],
+        prod: [
+          {
+            type: "force",
+            description: "",
+            id: "revisionForce",
+            value: "force",
+          },
+        ],
+      },
+      version: 5,
+    };
+
+    const defaultValueConflict: MergeConflict = {
+      key: "defaultValue",
+      name: "Default Value",
+      resolved: false,
+      base: "base",
+      live: "live",
+      revision: "revision",
+    };
+    const prodConflict: MergeConflict = {
+      key: "rules.prod",
+      name: "Rules - prod",
+      resolved: false,
+      base: JSON.stringify(base.rules["prod"], null, 2),
+      live: JSON.stringify(live.rules["prod"], null, 2),
+      revision: JSON.stringify(revision.rules["prod"], null, 2),
+    };
+
+    expect(autoMerge(live, base, revision, ["dev", "prod"], {})).toEqual({
+      success: false,
+      conflicts: [defaultValueConflict, prodConflict],
+    });
+
+    expect(
+      autoMerge(live, base, revision, ["dev", "prod"], {
+        "rules.prod": "discard",
+      })
+    ).toEqual({
+      success: false,
+      conflicts: [
+        {
+          ...defaultValueConflict,
+        },
+        {
+          ...prodConflict,
+          resolved: true,
+        },
+      ],
+    });
+
+    expect(
+      autoMerge(live, base, revision, ["dev", "prod"], {
+        "rules.prod": "discard",
+        defaultValue: "discard",
+      })
+    ).toEqual({
+      success: true,
+      conflicts: [
+        {
+          ...defaultValueConflict,
+          resolved: true,
+        },
+        {
+          ...prodConflict,
+          resolved: true,
+        },
+      ],
+      result: {
+        rules: {
+          dev: revision.rules["dev"],
+        },
+      },
+    });
+
+    expect(
+      autoMerge(live, base, revision, ["dev", "prod"], {
+        "rules.prod": "discard",
+        defaultValue: "overwrite",
+      })
+    ).toEqual({
+      success: true,
+      conflicts: [
+        {
+          ...defaultValueConflict,
+          resolved: true,
+        },
+        {
+          ...prodConflict,
+          resolved: true,
+        },
+      ],
+      result: {
+        defaultValue: revision.defaultValue,
+        rules: {
+          dev: revision.rules["dev"],
+        },
+      },
+    });
+
+    expect(
+      autoMerge(live, base, revision, ["dev", "prod"], {
+        "rules.prod": "overwrite",
+        defaultValue: "overwrite",
+      })
+    ).toEqual({
+      success: true,
+      conflicts: [
+        {
+          ...defaultValueConflict,
+          resolved: true,
+        },
+        {
+          ...prodConflict,
+          resolved: true,
+        },
+      ],
+      result: {
+        defaultValue: revision.defaultValue,
+        rules: {
+          dev: revision.rules["dev"],
+          prod: revision.rules["prod"],
+        },
+      },
+    });
+  });
+});
 
 describe("getValidation", () => {
   it("returns validationEnabled as true if jsonSchema is populated and enabled", () => {

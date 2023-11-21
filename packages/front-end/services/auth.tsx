@@ -248,7 +248,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
         init.headers["Content-Type"] = "application/json";
       }
 
-      if (orgId) {
+      if (orgId && !init.headers["X-Organization"]) {
         init.headers["X-Organization"] = orgId;
       }
 

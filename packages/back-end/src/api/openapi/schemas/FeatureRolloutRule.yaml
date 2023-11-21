@@ -13,6 +13,24 @@ properties:
     type: string
   condition:
     type: string
+  savedGroupTargeting:
+    type: array
+    items:
+      type: object
+      required:
+        - matchType
+        - savedGroups
+      properties:
+        matchType:
+          type: string
+          enum:
+            - "all"
+            - "any"
+            - "none"
+        savedGroups:
+          type: array
+          items:
+            type: string
   id:
     type: string
   enabled:

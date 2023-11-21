@@ -48,7 +48,13 @@ const MetricTooltipBody = ({
     {
       show: (metric.tags?.length ?? 0) > 0,
       label: "Tags",
-      body: <SortedTags tags={metric.tags} skipFirstMargin={true} />,
+      body: (
+        <SortedTags
+          tags={metric.tags}
+          shouldShowEllipsis={false}
+          useFlex={true}
+        />
+      ),
     },
     {
       show:

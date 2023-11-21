@@ -135,7 +135,6 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
               value: "time:seconds",
             },
           ]}
-          required
         />
       )}
 

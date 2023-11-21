@@ -10,6 +10,7 @@ from gbstats.frequentist.tests import (
     SequentialTwoSidedTTest,
     TwoSidedTTest,
 )
+from gbstats.shared.constants import DifferenceType
 from gbstats.shared.models import (
     FrequentistTestResult,
     ProportionStatistic,
@@ -45,6 +46,27 @@ class TestTwoSidedTTest(TestCase):
                 ci=[-0.03526, 1.44989],
                 uplift=Uplift("normal", 0.70732, 0.37879),
                 p_value=0.06191,
+            )
+        )
+
+        self.assertDictEqual(_round_result_dict(result_dict), expected_rounded_dict)
+
+    def test_two_sided_ttest_absolute(self):
+        stat_a = SampleMeanStatistic(sum=1396.87, sum_squares=52377.9767, n=3407)
+        stat_b = SampleMeanStatistic(sum=2422.7, sum_squares=134698.29, n=3461)
+        result_dict = asdict(
+            TwoSidedTTest(
+                stat_a,
+                stat_b,
+                FrequentistConfig(difference_type=DifferenceType.ABSOLUTE),
+            ).compute_result()
+        )
+        expected_rounded_dict = asdict(
+            FrequentistTestResult(
+                expected=0.7 - 0.41,
+                ci=[0.04538, 0.53462],
+                uplift=Uplift("normal", 0.29, 0.12478),
+                p_value=0.02016,
             )
         )
 

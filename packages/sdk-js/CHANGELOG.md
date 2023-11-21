@@ -1,5 +1,18 @@
 # Changelog
 
+## **0.31.0** - Nov 14, 2023
+
+- Fix bug with multi-page visual editor experiments
+- Add additional unit tests for comparison operators
+- Fix auto-generated types when using JSON feature flags
+
+## **0.30.0** - Oct 18, 2023
+
+- Pause and resume streaming connections when the browser tab is hidden or visible. Can be disabled by setting `disableIdleStreams: false` via `configureCache()`. A 20sec idle timeout is used by default before pausing the connection; this can be configured by setting `idleStreamInterval` via `configureCache()`.
+- Fix bug with `$exists` operator and undefined values
+- Improvements and bug fixes when moving elements via the visual editor
+- New `auto.js` pre-bundled script for simpler SDK integration on no/low code platforms
+
 ## **0.29.0** - Oct 4, 2023
 
 - Add optional `remoteEval` mode for client-side applications (plus `cacheKeyAttributes` option to control when to re-fetch from the server)

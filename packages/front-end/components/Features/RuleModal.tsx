@@ -44,10 +44,13 @@ import FeatureValueField from "./FeatureValueField";
 import NamespaceSelector from "./NamespaceSelector";
 import ScheduleInputs from "./ScheduleInputs";
 import FeatureVariationsInput from "./FeatureVariationsInput";
+import SavedGroupTargetingField from "./SavedGroupTargetingField";
 
 export interface Props {
   close: () => void;
   feature: FeatureInterface;
+  version: number;
+  setVersion: (version: number) => void;
   mutate: () => void;
   i: number;
   environment: string;
@@ -61,6 +64,8 @@ export default function RuleModal({
   mutate,
   environment,
   defaultType = "force",
+  version,
+  setVersion,
 }: Props) {
   const attributeSchema = useAttributeSchema();
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
@@ -171,6 +176,7 @@ export default function RuleModal({
 
   function changeRuleType(v: string) {
     const existingCondition = form.watch("condition");
+    const existingSavedGroups = form.watch("savedGroups");
     const newVal = {
       ...getDefaultRuleValue({
         defaultValue: getFeatureDefaultValue(feature),
@@ -181,6 +187,9 @@ export default function RuleModal({
     };
     if (existingCondition && existingCondition !== "{}") {
       newVal.condition = existingCondition;
+    }
+    if (existingSavedGroups) {
+      newVal.savedGroups = existingSavedGroups;
     }
     form.reset(newVal);
   }
@@ -315,6 +324,7 @@ export default function RuleModal({
               phases: [
                 {
                   condition: values.condition || "",
+                  savedGroups: values.savedGroups || [],
                   coverage: values.coverage ?? 1,
                   dateStarted: new Date().toISOString().substr(0, 16),
                   name: "Main",
@@ -357,6 +367,7 @@ export default function RuleModal({
               experimentId: res.experiment.id,
               id: values.id,
               condition: "",
+              savedGroups: [],
               enabled: values.enabled ?? true,
               variations: values.values.map((v, i) => ({
                 value: v.value,
@@ -384,6 +395,7 @@ export default function RuleModal({
             });
 
             delete (values as FeatureRule).condition;
+            delete (values as FeatureRule).savedGroups;
             // eslint-disable-next-line
             delete (values as any).value;
           }
@@ -410,18 +422,23 @@ export default function RuleModal({
             environment,
             type: values.type,
             hasCondition: values.condition && values.condition.length > 2,
+            hasSavedGroups: !!values.savedGroups?.length,
             hasDescription: values.description.length > 0,
           });
 
-          await apiCall(`/feature/${feature.id}/rule`, {
-            method: i === rules.length ? "POST" : "PUT",
-            body: JSON.stringify({
-              rule: values,
-              environment,
-              i,
-            }),
-          });
-          mutate();
+          const res = await apiCall<{ version: number }>(
+            `/feature/${feature.id}/${version}/rule`,
+            {
+              method: i === rules.length ? "POST" : "PUT",
+              body: JSON.stringify({
+                rule: values,
+                environment,
+                i,
+              }),
+            }
+          );
+          await mutate();
+          res.version && setVersion(res.version);
         } catch (e) {
           track("Feature Rule Error", {
             source: ruleAction,
@@ -429,6 +446,7 @@ export default function RuleModal({
             environment,
             type: values.type,
             hasCondition: values.condition && values.condition.length > 2,
+            hasSavedGroups: !!values.savedGroups?.length,
             hasDescription: values.description.length > 0,
             error: e.message,
           });
@@ -601,6 +619,12 @@ export default function RuleModal({
             minRows={1}
             {...form.register("description")}
             placeholder="Short human-readable description of the rule"
+          />
+          <SavedGroupTargetingField
+            value={form.watch("savedGroups") || []}
+            setValue={(savedGroups) =>
+              form.setValue("savedGroups", savedGroups)
+            }
           />
           <ConditionInput
             defaultValue={defaultValues.condition || ""}

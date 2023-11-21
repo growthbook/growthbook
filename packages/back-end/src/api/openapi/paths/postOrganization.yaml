@@ -1,7 +1,7 @@
 parameters: []
 tags:
   - organizations
-summary: Create a single organization
+summary: Create a single organization (only for super admins on multi-org Enterprise Plan only)
 operationId: postOrganization
 x-codeSamples:
   - lang: "cURL"

@@ -38,6 +38,8 @@ export async function runSnowflakeQuery<T>(
     warehouse: conn.warehouse,
     role: conn.role,
     ...getProxySettings(),
+    // @ts-expect-error connectionOptions will pass 'application' along to the driver
+    application: "GrowthBook_GrowthBook",
   });
 
   await snowflake.connect();

@@ -2,6 +2,7 @@
 
 import type { FeatureDefinition, FeatureResult } from "@growthbook/growthbook";
 import { UserRef } from "./user";
+import { FeatureRevisionInterface } from "./feature-revision";
 
 export type FeatureValueType = "boolean" | "string" | "number" | "json";
 
@@ -11,10 +12,15 @@ export interface FeatureEnvironment {
 }
 
 export type LegacyFeatureInterface = FeatureInterface & {
-  /** @deprecated */
   environments?: string[];
-  /** @deprecated */
   rules?: FeatureRule[];
+  revision?: {
+    version: number;
+    comment: string;
+    date: Date;
+    publishedBy: UserRef;
+  };
+  draft?: FeatureDraftChanges;
 };
 
 export interface FeatureDraftChanges {
@@ -38,32 +44,40 @@ export interface FeatureInterface {
   dateUpdated: Date;
   valueType: FeatureValueType;
   defaultValue: string;
+  version: number;
+  hasDrafts?: boolean;
   tags?: string[];
   environmentSettings: Record<string, FeatureEnvironment>;
-  draft?: FeatureDraftChanges;
-  revision?: {
-    version: number;
-    comment: string;
-    date: Date;
-    publishedBy: UserRef;
-  };
   linkedExperiments?: string[];
   jsonSchema?: {
     schema: string;
     date: Date;
     enabled: boolean;
   };
+
+  /** @deprecated */
+  legacyDraft?: FeatureRevisionInterface | null;
+  /** @deprecated */
+  legacyDraftMigrated?: boolean;
+  neverStale?: boolean;
 }
 type ScheduleRule = {
   timestamp: string | null;
   enabled: boolean;
 };
+
+export interface SavedGroupTargeting {
+  match: "all" | "none" | "any";
+  ids: string[];
+}
+
 export interface BaseRule {
   description: string;
   condition?: string;
   id: string;
   enabled?: boolean;
   scheduleRules?: ScheduleRule[];
+  savedGroups?: SavedGroupTargeting[];
 }
 
 export interface ForceRule extends BaseRule {

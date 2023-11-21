@@ -16,6 +16,7 @@ import {
 } from "../../services/features";
 import { auditDetailsCreate } from "../../services/audit";
 import { OrganizationInterface } from "../../../types/organization";
+import { getEnvironments } from "../../services/organizations";
 
 export type ApiFeatureEnvSettings = NonNullable<
   z.infer<typeof postFeatureValidator.bodySchema>["environments"]
@@ -71,7 +72,7 @@ export const postFeature = createApiRequestHandler(postFeatureValidator)(
       throw new Error(`Feature id '${req.body.id}' already exists.`);
     }
 
-    const orgEnvs = req.organization.settings?.environments || [];
+    const orgEnvs = getEnvironments(req.organization);
 
     // ensure environment keys are valid
     validateEnvKeys(
@@ -90,16 +91,7 @@ export const postFeature = createApiRequestHandler(postFeatureValidator)(
       organization: req.organization.id,
       id: req.body.id.toLowerCase(),
       archived: !!req.body.archived,
-      revision: {
-        version: 1,
-        comment: "New feature",
-        date: new Date(),
-        publishedBy: {
-          id: req.body.owner,
-          email: req.body.owner,
-          name: req.body.owner,
-        },
-      },
+      version: 1,
       environmentSettings: {},
     };
 
@@ -124,7 +116,10 @@ export const postFeature = createApiRequestHandler(postFeatureValidator)(
     req.checkPermissions(
       "publishFeatures",
       feature.project,
-      getEnabledEnvironments(feature)
+      getEnabledEnvironments(
+        feature,
+        orgEnvs.map((e) => e.id)
+      )
     );
 
     addIdsToRules(feature.environmentSettings, feature.id);

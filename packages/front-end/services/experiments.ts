@@ -1,6 +1,10 @@
 import { SnapshotMetric } from "back-end/types/experiment-snapshot";
 import { MetricInterface } from "back-end/types/metric";
-import { PValueCorrection, StatsEngine } from "back-end/types/stats";
+import {
+  DifferenceType,
+  PValueCorrection,
+  StatsEngine,
+} from "back-end/types/stats";
 import { useState } from "react";
 import { jStat } from "jstat";
 import {
@@ -27,7 +31,7 @@ import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefa
 import {
   defaultLoseRiskThreshold,
   defaultWinRiskThreshold,
-  formatMetricValue,
+  getExperimentMetricFormatter,
 } from "@/services/metrics";
 
 export type ExperimentTableRow = {
@@ -787,12 +791,10 @@ export function getRowResults({
 
   // TODO: support formatted risk for fact metrics
   if (!isBinomial) {
-    riskFormatted = `${formatMetricValue(
+    riskFormatted = `${getExperimentMetricFormatter(
       metric,
-      risk,
-      getFactTableById,
-      displayCurrency
-    )} / user`;
+      getFactTableById
+    )(risk, { currency: displayCurrency })} / user`;
   }
   const riskMeta: RiskMeta = {
     riskStatus,
@@ -883,4 +885,14 @@ export function getRowResults({
     riskMeta,
     guardrailWarning,
   };
+}
+
+export function getEffectLabel(differenceType: DifferenceType): string {
+  if (differenceType === "absolute") {
+    return "Absolute Change";
+  }
+  if (differenceType === "scaled") {
+    return "Scaled Impact";
+  }
+  return "% Change";
 }

@@ -2736,6 +2736,13 @@
     uuid "^8.0.0"
     xdg-basedir "^4.0.0"
 
+"@growthbook/growthbook@^0.29.0":
+  version "0.29.0"
+  resolved "https://registry.yarnpkg.com/@growthbook/growthbook/-/growthbook-0.29.0.tgz#357f005d9fc28b4b018358d1dd2839066fca807a"
+  integrity sha512-hRYtBw1cg3fqjBRKRfazkRfCJyFpIxjdEUjmwkFaSBorzVDiX35gcp8x83vytQdx5E9xfQo3x/m9Z1yEMDrN7A==
+  dependencies:
+    dom-mutator "^0.5.0"
+
 "@growthbook/proxy-eval@^1.0.0":
   version "1.0.0"
   resolved "https://registry.yarnpkg.com/@growthbook/proxy-eval/-/proxy-eval-1.0.0.tgz#fbe53876fb312b9147e5187242a6c6bfcb87569e"
@@ -7946,6 +7953,11 @@ babel-plugin-macros@^3.0.1, babel-plugin-macros@^3.1.0:
     cosmiconfig "^7.0.0"
     resolve "^1.19.0"
 
+babel-plugin-minify-replace@^0.5.0:
+  version "0.5.0"
+  resolved "https://registry.yarnpkg.com/babel-plugin-minify-replace/-/babel-plugin-minify-replace-0.5.0.tgz#d3e2c9946c9096c070efc96761ce288ec5c3f71c"
+  integrity sha512-aXZiaqWDNUbyNNNpWs/8NyST+oU7QTpK7J9zFEFSA0eOmtUNMU3fczlTTTlnCxHmq/jYNFEmkkSG3DDBtW3Y4Q==
+
 babel-plugin-named-exports-order@^0.0.2:
   version "0.0.2"
   resolved "https://registry.npmjs.org/babel-plugin-named-exports-order/-/babel-plugin-named-exports-order-0.0.2.tgz"
@@ -10217,6 +10229,11 @@ dom-mutator@^0.5.0:
   version "0.5.0"
   resolved "https://registry.npmjs.org/dom-mutator/-/dom-mutator-0.5.0.tgz"
   integrity sha512-bbeX8HWE8JGzraFgbVBX4ws2g3heZFuTtrleQBuN7huy+7n2n7etSuVnot3/1z3jdY2MiwuvoS4Ep1UT2rrGBw==
+
+dom-mutator@^0.6.0:
+  version "0.6.0"
+  resolved "https://registry.yarnpkg.com/dom-mutator/-/dom-mutator-0.6.0.tgz#079d7a4b3e8981a562cd777548b99baab51d65c5"
+  integrity sha512-iCt9o0aYfXMUkz/43ZOAUFQYotjGB+GNbYJiJdz4TgXkyToXbbRy5S6FbTp72lRBtfpUMwEc1KmpFEU4CZeoNg==
 
 dom-serializer@^1.0.1:
   version "1.4.1"

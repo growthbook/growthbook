@@ -1,19 +1,16 @@
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import {
+  ExperimentInterfaceStringDates,
+  LinkedFeatureInfo,
+} from "back-end/types/experiment";
 import { IdeaInterface } from "back-end/types/idea";
 import { VisualChangesetInterface } from "back-end/types/visual-changeset";
-import { FeatureInterface } from "back-end/types/feature";
-import {
-  MatchingRule,
-  getMatchingRules,
-  includeExperimentInPayload,
-} from "shared/util";
-import { useEffect, useMemo, useState } from "react";
+import { includeExperimentInPayload } from "shared/util";
+import { useEffect, useState } from "react";
 import { FaChartBar } from "react-icons/fa";
 import clsx from "clsx";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import { useRouter } from "next/router";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
-import { useEnvironments, useFeaturesList } from "@/services/features";
 import FeatureFromExperimentModal from "@/components/Features/FeatureModal/FeatureFromExperimentModal";
 import Modal from "@/components/Modal";
 import HistoryTable from "@/components/HistoryTable";
@@ -39,13 +36,9 @@ import StoppedExperimentBanner from "./StoppedExperimentBanner";
 const experimentTabs = ["overview", "results"] as const;
 export type ExperimentTab = typeof experimentTabs[number];
 
-export type LinkedFeature = {
-  feature: FeatureInterface;
-  rules: MatchingRule[];
-};
-
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
+  linkedFeatures: LinkedFeatureInfo[];
   mutate: () => void;
   duplicate?: (() => void) | null;
   editTags?: (() => void) | null;
@@ -63,6 +56,7 @@ export interface Props {
 
 export default function TabbedPage({
   experiment,
+  linkedFeatures,
   mutate,
   duplicate,
   editProject,
@@ -119,45 +113,9 @@ export default function TabbedPage({
     });
   };
 
-  const { features, mutate: mutateFeatures } = useFeaturesList(false);
-  const environments = useEnvironments();
-
-  const { linkedFeatures, legacyFeatures } = useMemo(() => {
-    const environmentIds = environments.map((e) => e.id);
-
-    const linkedFeatures: LinkedFeature[] = [];
-    const legacyFeatures: LinkedFeature[] = [];
-
-    features.forEach((feature) => {
-      const refRules = getMatchingRules(
-        feature,
-        (rule) =>
-          rule.type === "experiment-ref" && rule.experimentId === experiment.id,
-        environmentIds
-      );
-      if (refRules.length > 0) {
-        linkedFeatures.push({ feature, rules: refRules });
-        return;
-      }
-
-      const legacyRules = getMatchingRules(
-        feature,
-        (rule) =>
-          rule.type === "experiment" &&
-          (rule.trackingKey || feature.id) === experiment.trackingKey,
-        environmentIds
-      );
-      if (legacyRules.length > 0) {
-        legacyFeatures.push({ feature, rules: legacyRules });
-      }
-    });
-
-    return { linkedFeatures, legacyFeatures };
-  }, [features, environments, experiment.id, experiment.trackingKey]);
-
   const hasLiveLinkedChanges = includeExperimentInPayload(
     experiment,
-    features.filter((f) => experiment.linkedFeatures?.includes(f.id))
+    linkedFeatures.map((f) => f.feature)
   );
 
   const { data: sdkConnectionsData } = useSDKConnections();
@@ -232,12 +190,9 @@ export default function TabbedPage({
       )}
       {featureModal && (
         <FeatureFromExperimentModal
-          features={features}
           experiment={experiment}
           close={() => setFeatureModal(false)}
-          onSuccess={async () => {
-            await mutateFeatures();
-          }}
+          mutate={mutate}
         />
       )}
       <ExperimentHeader
@@ -334,8 +289,6 @@ export default function TabbedPage({
             visualChangesets={visualChangesets}
             editTargeting={!viewingOldPhase ? editTargeting : undefined}
             linkedFeatures={linkedFeatures}
-            legacyFeatures={legacyFeatures}
-            mutateFeatures={mutateFeatures}
             connections={connections}
             setTab={setTabAndScroll}
           />

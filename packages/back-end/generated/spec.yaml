@@ -269,6 +269,24 @@ paths:
                                 condition:
                                   type: string
                                   description: Applied to everyone by default.
+                                savedGroupTargeting:
+                                  type: array
+                                  items:
+                                    type: object
+                                    required:
+                                      - matchType
+                                      - savedGroups
+                                    properties:
+                                      matchType:
+                                        type: string
+                                        enum:
+                                          - all
+                                          - any
+                                          - none
+                                      savedGroups:
+                                        type: array
+                                        items:
+                                          type: string
                                 id:
                                   type: string
                                 enabled:
@@ -292,6 +310,24 @@ paths:
                                 condition:
                                   type: string
                                   description: Applied to everyone by default.
+                                savedGroupTargeting:
+                                  type: array
+                                  items:
+                                    type: object
+                                    required:
+                                      - matchType
+                                      - savedGroups
+                                    properties:
+                                      matchType:
+                                        type: string
+                                        enum:
+                                          - all
+                                          - any
+                                          - none
+                                      savedGroups:
+                                        type: array
+                                        items:
+                                          type: string
                                 id:
                                   type: string
                                 enabled:
@@ -676,6 +712,10 @@ paths:
           in: query
           schema:
             type: string
+        - name: multiOrg
+          in: query
+          schema:
+            type: string
       operationId: listSdkConnections
       x-codeSamples:
         - lang: cURL
@@ -981,6 +1021,24 @@ paths:
                         type: string
                       condition:
                         type: string
+                      savedGroupTargeting:
+                        type: array
+                        items:
+                          type: object
+                          required:
+                            - matchType
+                            - savedGroups
+                          properties:
+                            matchType:
+                              type: string
+                              enum:
+                                - all
+                                - any
+                                - none
+                            savedGroups:
+                              type: array
+                              items:
+                                type: string
                       variationWeights:
                         type: array
                         items:
@@ -1180,6 +1238,24 @@ paths:
                         type: string
                       condition:
                         type: string
+                      savedGroupTargeting:
+                        type: array
+                        items:
+                          type: object
+                          required:
+                            - matchType
+                            - savedGroups
+                          properties:
+                            matchType:
+                              type: string
+                              enum:
+                                - all
+                                - any
+                                - none
+                            savedGroups:
+                              type: array
+                              items:
+                                type: string
                       variationWeights:
                         type: array
                         items:
@@ -1889,20 +1965,24 @@ paths:
               type: object
               required:
                 - name
-                - values
                 - attributeKey
               properties:
                 name:
                   type: string
                   description: The display name of the Saved Group
+                source:
+                  type: string
+                  enum:
+                    - inline
+                    - runtime
                 values:
                   type: array
                   items:
                     type: string
-                  description: 'An array of values to target (Ex: a list of userIds).'
+                  description: 'An array of values to target (Ex: a list of userIds). Not applicable for runtime groups'
                 attributeKey:
                   type: string
-                  description: 'The parameter you want to target users with. Ex: userId, orgId, ...'
+                  description: 'For inline groups, the name of the attribute the values belong to (e.g. `user_id`). For runtime groups, the group name you reference in your code'
                 owner:
                   type: string
                   description: 'The person or team that owns this Saved Group. If no owner, you can pass an empty string.'
@@ -1974,6 +2054,9 @@ paths:
                 owner:
                   type: string
                   description: 'The person or team that owns this Saved Group. If no owner, you can pass an empty string.'
+                attributeKey:
+                  type: string
+                  description: (Runtime groups only) The key used to reference the Saved Group in the SDK
       responses:
         '200':
           content:
@@ -2010,13 +2093,13 @@ paths:
                     type: string
   /organizations:
     get:
-      summary: Get all organizations
+      summary: Get all organizations (only for super admins on multi-org Enterprise Plan only)
       tags:
         - organizations
       parameters:
         - name: search
           in: query
-          description: Search string to search organization names and owner emails by
+          description: 'Search string to search organization names, owner emails, and external ids by'
           schema:
             type: string
         - $ref: '#/components/parameters/limit'
@@ -2046,7 +2129,7 @@ paths:
       parameters: []
       tags:
         - organizations
-      summary: Create a single organization
+      summary: Create a single organization (only for super admins on multi-org Enterprise Plan only)
       operationId: postOrganization
       x-codeSamples:
         - lang: cURL
@@ -2066,6 +2149,48 @@ paths:
                 name:
                   type: string
                   description: The name of the organization
+                externalId:
+                  type: string
+                  description: An optional identifier that you use within your company for the organization
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - organization
+                properties:
+                  organization:
+                    $ref: '#/components/schemas/Organization'
+  '/organizations/{id}':
+    put:
+      parameters:
+        - $ref: '#/components/parameters/id'
+      tags:
+        - organizations
+      summary: Edit a single organization (only for super admins on multi-org Enterprise Plan only)
+      operationId: putOrganization
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -X PUT https://api.growthbook.io/api/v1/organizations/org_abc123 \
+              -d '{ name: "My Subsidiary" }' \
+              -d '{ externalId: "subsidiary-123" }'
+              -u secret_abc123DEF456:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  description: The name of the organization
+                externalId:
+                  type: string
+                  description: An optional identifier that you use within your company for the organization
       responses:
         '200':
           content:
@@ -2580,6 +2705,24 @@ components:
           type: string
         condition:
           type: string
+        savedGroupTargeting:
+          type: array
+          items:
+            type: object
+            required:
+              - matchType
+              - savedGroups
+            properties:
+              matchType:
+                type: string
+                enum:
+                  - all
+                  - any
+                  - none
+              savedGroups:
+                type: array
+                items:
+                  type: string
         id:
           type: string
         enabled:
@@ -2604,6 +2747,24 @@ components:
           type: string
         condition:
           type: string
+        savedGroupTargeting:
+          type: array
+          items:
+            type: object
+            required:
+              - matchType
+              - savedGroups
+            properties:
+              matchType:
+                type: string
+                enum:
+                  - all
+                  - any
+                  - none
+              savedGroups:
+                type: array
+                items:
+                  type: string
         id:
           type: string
         enabled:
@@ -2713,6 +2874,7 @@ components:
         - dateCreated
         - dateUpdated
         - name
+        - organization
         - languages
         - environment
         - project
@@ -2733,6 +2895,8 @@ components:
           format: date-time
         name:
           type: string
+        organization:
+          type: string
         languages:
           type: array
           items:
@@ -2740,7 +2904,12 @@ components:
         environment:
           type: string
         project:
+          description: Use 'projects' instead. This is only for backwards compatibility and contains the first project only.
           type: string
+        projects:
+          type: array
+          items:
+            type: string
         encryptPayload:
           type: boolean
         encryptionKey:
@@ -2857,6 +3026,7 @@ components:
               - coverage
               - trafficSplit
               - targetingCondition
+              - savedGroups
             properties:
               name:
                 type: string
@@ -2896,6 +3066,24 @@ components:
                     rangeEnd: number
               targetingCondition:
                 type: string
+              savedGroupTargeting:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - matchType
+                    - savedGroups
+                  properties:
+                    matchType:
+                      type: string
+                      enum:
+                        - all
+                        - any
+                        - none
+                    savedGroups:
+                      type: array
+                      items:
+                        type: string
         settings:
           $ref: '#/components/schemas/ExperimentAnalysisSettings'
         resultSummary:
@@ -3326,6 +3514,7 @@ components:
         - name
         - attributeKey
         - values
+        - source
       properties:
         id:
           type: string
@@ -3337,6 +3526,11 @@ components:
           format: date-time
         name:
           type: string
+        source:
+          type: string
+          enum:
+            - inline
+            - runtime
         owner:
           type: string
         attributeKey:
@@ -3350,7 +3544,10 @@ components:
       properties:
         id:
           type: string
-          description: The unique identifier for the organization
+          description: The Growthbook unique identifier for the organization
+        externalId:
+          type: string
+          description: An optional identifier that you use within your company for the organization
         dateCreated:
           type: string
           format: date-time
