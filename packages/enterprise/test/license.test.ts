@@ -59,7 +59,7 @@ describe("licenseInit", () => {
     expect.assertions(1);
 
     await expect(async () => {
-      await licenseInit(userLicenseCodes, metaData, licenseKey);
+      await licenseInit(licenseKey, userLicenseCodes, metaData);
     }).rejects.toThrowError("Your License Key does not support SSO.");
   }
 
@@ -69,7 +69,7 @@ describe("licenseInit", () => {
     expect.assertions(1);
 
     await expect(async () => {
-      await licenseInit(userLicenseCodes, metaData, licenseKey);
+      await licenseInit(licenseKey, userLicenseCodes, metaData);
     }).rejects.toThrowError(
       "Your License Key does not support multiple organizations."
     );
@@ -92,7 +92,7 @@ describe("licenseInit", () => {
   });
 
   it("should set licenseData to null if licenseKey is not provided", async () => {
-    const result = await licenseInit(userLicenseCodes, metaData);
+    const result = await licenseInit(undefined, userLicenseCodes, metaData);
 
     expect(result).toBeUndefined();
     expect(getLicense()).toBeNull;
@@ -115,7 +115,7 @@ describe("licenseInit", () => {
       });
 
       it("should call fetch once and the second time return in-memory cached license data if it exists and is not too old", async () => {
-        await licenseInit(userLicenseCodes, metaData, licenseKey);
+        await licenseInit(licenseKey, userLicenseCodes, metaData);
 
         expect(fetch).toHaveBeenCalledWith(
           `${LICENSE_SERVER}/api/v1/license/${licenseKey}/check`,
@@ -133,7 +133,7 @@ describe("licenseInit", () => {
 
         expect(getLicense()).toEqual(licenseData);
 
-        await licenseInit(userLicenseCodes, metaData, licenseKey);
+        await licenseInit(licenseKey, userLicenseCodes, metaData);
         expect(getLicense()).toEqual(licenseData);
         expect(fetch).toHaveBeenCalledTimes(1);
         expect(LicenseModel.create).toHaveBeenCalledTimes(1);
@@ -141,7 +141,7 @@ describe("licenseInit", () => {
       });
 
       it("should call fetch twice rather than use the in-memory cache if it has been over a day since the last fetch, and update the licenseData", async () => {
-        await licenseInit(userLicenseCodes, metaData, licenseKey);
+        await licenseInit(licenseKey, userLicenseCodes, metaData);
 
         expect(fetch).toHaveBeenCalledWith(
           `${LICENSE_SERVER}/api/v1/license/${licenseKey}/check`,
@@ -168,9 +168,15 @@ describe("licenseInit", () => {
 
         mockedFetch.mockResolvedValueOnce(Promise.resolve(mockedResponse2));
 
-        await licenseInit(userLicenseCodes, metaData, licenseKey);
+        await licenseInit(licenseKey, userLicenseCodes, metaData);
         expect(getLicense()).toEqual(licenseData2);
         expect(fetch).toHaveBeenCalledTimes(2);
+      });
+
+      it("should use the LICENSE_KEY env var if licenseKey is not provided", async () => {
+        process.env.LICENSE_KEY = licenseKey;
+        await licenseInit(undefined, userLicenseCodes, metaData);
+        expect(getLicense()).toEqual(licenseData);
       });
 
       it("should throw an error if the plan does not support sso but the env var says it is enabled", async () => {
@@ -199,7 +205,7 @@ describe("licenseInit", () => {
         it("should throw error if the license server is down and there is no cached data in LicenseModel", async () => {
           await expect(
             async () =>
-              await licenseInit(userLicenseCodes, metaData, licenseKey)
+              await licenseInit(licenseKey, userLicenseCodes, metaData)
           ).rejects.toThrowError(
             "License server is not working and no cached license data exists"
           );
@@ -219,7 +225,7 @@ describe("licenseInit", () => {
           } as unknown) as Response; // Create a mock Response object
 
           mockedFetch.mockResolvedValueOnce(Promise.resolve(mockedResponse));
-          await licenseInit(userLicenseCodes, metaData, licenseKey);
+          await licenseInit(licenseKey, userLicenseCodes, metaData);
 
           expect(getLicense()).toEqual(licenseData);
         });
@@ -229,7 +235,7 @@ describe("licenseInit", () => {
 
           await expect(
             async () =>
-              await licenseInit(userLicenseCodes, metaData, licenseKey)
+              await licenseInit(licenseKey, userLicenseCodes, metaData)
           ).rejects.toThrowError(
             "License server is not working and cached license data is too old"
           );
@@ -275,7 +281,7 @@ describe("licenseInit", () => {
     };
 
     it("should read license data from the key itself and use the in-memory cache if called a second time, even if a long time has passed", async () => {
-      await licenseInit(userLicenseCodes, metaData, oldLicenseKey);
+      await licenseInit(oldLicenseKey, userLicenseCodes, metaData);
 
       expect(getLicense()).toEqual(oldLicenseData);
 
@@ -290,9 +296,9 @@ describe("licenseInit", () => {
       await expect(
         async () =>
           await licenseInit(
+            oldLicenseKey + "extrasignature",
             userLicenseCodes,
-            metaData,
-            oldLicenseKey + "extrasignature"
+            metaData
           )
       ).rejects.toThrowError("Invalid license key signature");
     });
@@ -305,7 +311,7 @@ describe("licenseInit", () => {
       delete oldLicenseOriginalData2.exp;
       jest.spyOn(JSON, "parse").mockReturnValue(oldLicenseOriginalData2);
 
-      await licenseInit(userLicenseCodes, metaData, oldLicenseKey);
+      await licenseInit(oldLicenseKey, userLicenseCodes, metaData);
 
       expect(getLicense()).toEqual(oldLicenseData);
     });
@@ -317,14 +323,14 @@ describe("licenseInit", () => {
       jest.spyOn(JSON, "parse").mockReturnValue(oldLicenseOriginalData2);
 
       await expect(async () => {
-        await licenseInit(userLicenseCodes, metaData, oldLicenseKey);
+        await licenseInit(oldLicenseKey, userLicenseCodes, metaData);
       }).rejects.toThrowError("Invalid License Key - Missing expiration date");
     });
 
     it("should throw an error if the license has expired", async () => {
       jest.setSystemTime(now.getTime() + 8 * 24 * 60 * 60 * 1000);
       await expect(async () => {
-        await licenseInit(userLicenseCodes, metaData, oldLicenseKey);
+        await licenseInit(oldLicenseKey, userLicenseCodes, metaData);
       }).rejects.toThrowError("Your License Key trial expired on");
     });
 
@@ -334,7 +340,7 @@ describe("licenseInit", () => {
       delete oldLicenseOriginalData2.plan;
       jest.spyOn(JSON, "parse").mockReturnValue(oldLicenseOriginalData2);
 
-      await licenseInit(userLicenseCodes, metaData, oldLicenseKey);
+      await licenseInit(oldLicenseKey, userLicenseCodes, metaData);
 
       const expected = cloneDeep(oldLicenseData);
       expected.plan = "enterprise";

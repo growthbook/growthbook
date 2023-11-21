@@ -76,9 +76,6 @@ type LicenseData = {
   eat?: string;
 };
 
-// Self-hosted commercial license key
-const LICENSE_KEY = process.env.LICENSE_KEY || "";
-
 export const accountFeatures: CommercialFeaturesMap = {
   oss: new Set<CommercialFeature>([]),
   starter: new Set<CommercialFeature>([]),
@@ -402,11 +399,11 @@ let cacheDate: Date | null = null;
 const keyToLicenseData: Record<string, Partial<LicenseInterface>> = {};
 
 export async function licenseInit(
-  userLicenseCodes: string[],
-  metaData: LicenseMetaData,
-  licenseKey?: string
+  licenseKey?: string,
+  userLicenseCodes?: string[],
+  metaData?: LicenseMetaData
 ) {
-  const key = licenseKey || LICENSE_KEY || null;
+  const key = licenseKey || process.env.LICENSE_KEY || null;
 
   if (!key) {
     licenseData = null;
@@ -423,7 +420,7 @@ export async function licenseInit(
     return keyToLicenseData[key];
   }
 
-  if (key.startsWith("license_")) {
+  if (key.startsWith("license_") && userLicenseCodes && metaData) {
     licenseData = await getLicenseDataFromServer(
       key,
       userLicenseCodes,
