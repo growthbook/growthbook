@@ -651,11 +651,11 @@ export async function createSnapshotAnalysis({
     throw new Error("Analysis not allowed with this snapshot");
   }
 
-  if (
-    snapshot.queries.some(
-      (q) => q.status === "failed" || q.status === "running"
-    )
-  ) {
+  const totalQueries = snapshot.queries.length;
+  const failedQueries = snapshot.queries.filter((q) => q.status === "failed");
+  const runningQueries = snapshot.queries.filter((q) => q.status === "running");
+
+  if (runningQueries.length > 0 || failedQueries.length >= totalQueries / 2) {
     throw new Error("Snapshot queries not available for analysis");
   }
   const analysis: ExperimentSnapshotAnalysis = {
