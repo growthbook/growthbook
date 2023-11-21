@@ -19,7 +19,7 @@ export default function HealthDrawer({
   status,
   openByDefault = false,
   tooltipBody = "",
-  statusAlign = "left",
+  statusAlign = "right",
 }: Props) {
   const [open, setOpen] = useState(
     status === "unhealthy" ? true : openByDefault

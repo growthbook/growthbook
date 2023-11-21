@@ -34,26 +34,19 @@ export const srmHealthCheck = ({
 }): HealthStatus => {
   if (totalUsers && totalUsers < 8 * variations.length) {
     return "not enough data";
-  }
-
-  if (srm >= srmThreshold) {
+  } else if (srm >= srmThreshold) {
     return "healthy";
   }
-
   return "unhealthy";
 };
 
 const EXPERIMENT_DIMENSION_PREFIX = "dim_exp_";
-
 const HEALTHY_TOOLTIP_MESSAGE =
   "Unit counts per variation are as expected. No imbalances detected.";
-
 const UNHEALTHY_TOOLTIP_MESSAGE =
   "Sample Ratio Mismatch detected. Click into the drawer to investigate.";
-
 const NOT_ENOUGH_DATA_TOOLTIP_MESSAGE =
   "Not enough data to compute balance check.";
-
 const SRM_CHECK_SKIPPED_TOOLTIP_MESSAGE =
   "This experiment's variations have extremely uneven weights. The SRM check has been skipped to avoid false positives.";
 
@@ -170,8 +163,8 @@ export default function SRMDrawer({
           </div>
         </div>
         <hr />
-        <div className="row mt-4 mb-2">
-          <div className="col-2 ml-2 mr-2">
+        <div className="mt-4 mb-2">
+          <div className="mb-4" style={{ maxWidth: 300 }}>
             <div className="uppercase-title text-muted">Dimension</div>
             <SelectField
               containerClassName={"select-dropdown-underline"}
@@ -187,70 +180,68 @@ export default function SRMDrawer({
               disabled={!areDimensionsAvailable}
             />
           </div>
-          <div className="col-lg mr-5">
-            {!areDimensionsAvailable && (
-              <div className="alert alert-warning">
-                No dimensions have been selected for automatic traffic checks.
-                If you&apos;d like to be able to view traffic breakdown by
-                dimension, go to your{" "}
-                <Link href={`/datasources/${datasource}`}>datasource</Link> and
-                follow the documentation{" "}
-                <a href="https://docs.growthbook.io/app/experiment-results#adding-dimensions-to-health-tab">
-                  here
-                </a>
-                .
-              </div>
-            )}
-            {selectedDimension && (
-              <div className="ml-4">
-                {traffic.dimension[selectedDimension].map((d) => {
-                  const totalDimUsers = d.variationUnits.reduce(
-                    (acc, a) => acc + a,
-                    0
-                  );
-                  const dimensionHealth = srmHealthCheck({
-                    srm: d.srm,
-                    srmThreshold,
-                    variations,
-                    totalUsers: totalDimUsers,
-                  });
-                  return (
-                    <HealthDrawer
-                      title={d.name}
-                      helpText={`(${totalDimUsers} total units)`}
-                      status={dimensionHealth}
-                      statusAlign="right"
-                      key={d.name}
-                      tooltipBody={renderTooltipBody({
-                        srm: d.srm,
-                        health: dimensionHealth,
-                      })}
-                    >
-                      <div className="mt-4">
-                        <div className="row justify-content-start mb-2">
-                          <VariationUsersTable
-                            users={d.variationUnits}
-                            variations={variations}
-                            srm={pValueFormatter(d.srm)}
-                            isUnhealthy={dimensionHealth === "unhealthy"}
-                          />
-                          <div className="col-sm ml-4 mr-4">
-                            {overallHealth === "unhealthy" && (
-                              <SRMWarning
-                                srm={d.srm}
-                                expected={variations.map((v) => v.weight)}
-                                observed={d.variationUnits}
-                              />
-                            )}
-                          </div>
+          {!areDimensionsAvailable && (
+            <div className="alert alert-warning">
+              No dimensions have been selected for automatic traffic checks. If
+              you&apos;d like to be able to view traffic breakdown by dimension,
+              go to your{" "}
+              <Link href={`/datasources/${datasource}`}>datasource</Link> and
+              follow the documentation{" "}
+              <a href="https://docs.growthbook.io/app/experiment-results#adding-dimensions-to-health-tab">
+                here
+              </a>
+              .
+            </div>
+          )}
+          {selectedDimension && (
+            <>
+              {traffic.dimension[selectedDimension].map((d) => {
+                const totalDimUsers = d.variationUnits.reduce(
+                  (acc, a) => acc + a,
+                  0
+                );
+                const dimensionHealth = srmHealthCheck({
+                  srm: d.srm,
+                  srmThreshold,
+                  variations,
+                  totalUsers: totalDimUsers,
+                });
+                return (
+                  <HealthDrawer
+                    title={d.name}
+                    helpText={`(${totalDimUsers} total units)`}
+                    status={dimensionHealth}
+                    statusAlign="right"
+                    key={d.name}
+                    tooltipBody={renderTooltipBody({
+                      srm: d.srm,
+                      health: dimensionHealth,
+                    })}
+                  >
+                    <div className="mt-4">
+                      <div className="row justify-content-start mb-2">
+                        <VariationUsersTable
+                          users={d.variationUnits}
+                          variations={variations}
+                          srm={pValueFormatter(d.srm)}
+                          isUnhealthy={dimensionHealth === "unhealthy"}
+                        />
+                        <div className="col-sm ml-4 mr-4">
+                          {overallHealth === "unhealthy" && (
+                            <SRMWarning
+                              srm={d.srm}
+                              expected={variations.map((v) => v.weight)}
+                              observed={d.variationUnits}
+                            />
+                          )}
                         </div>
                       </div>
-                    </HealthDrawer>
-                  );
-                })}
-              </div>
-            )}
-          </div>
+                    </div>
+                  </HealthDrawer>
+                );
+              })}
+            </>
+          )}
         </div>
       </div>
     </HealthDrawer>
