@@ -57,7 +57,8 @@ async function getMetaData() {
 }
 
 export async function initializeLicense(licenseKey?: string) {
-  if (!licenseKey || licenseKey.startsWith("license_")) {
+  const key = licenseKey || process.env.LICENSE_KEY;
+  if (!key || key.startsWith("license_")) {
     const userLicenseCodes = IS_CLOUD ? [] : await getUserLicenseCodes();
     const metaData = await getMetaData();
     await licenseInit(licenseKey, userLicenseCodes, metaData);
