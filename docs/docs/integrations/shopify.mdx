@@ -4,7 +4,7 @@ Unleash the power of experimentation with GrowthBook to supercharge your Shopify
 
 :::info Note
 
-This guide walks you through creating experiments using the GrowthBook Visual Editor, which requires a `Pro` subscription [Learn More](https://www.growthbook.io/pricing).
+This guide walks you through creating experiments using the GrowthBook Visual Editor, which requires a `Pro` subscription. [Learn More](https://www.growthbook.io/pricing).
 
 :::
 
@@ -12,7 +12,7 @@ This guide walks you through creating experiments using the GrowthBook Visual Ed
 
 ### Step 1: Create a GrowthBook SDK Connection
 
-To connect your GrowthBook account to Shopify, you'll need to create a new SDK Connection and select `Javascript` as the language.
+To connect your GrowthBook account to Shopify, you'll need to create a new SDK Connection and select `Javascript` as the language. Before saving, confirm that you've enabled the toggles for `Include visual experiments in endpoint's response?` and `Include draft experiments`.
 
 ![](../../static/images/integrations/shopify/growthbook-shopify-sdk-connection.png)
 
@@ -24,17 +24,15 @@ Then, log into your Shopify account, navigate to your online store, and edit you
 
 ![](../../static/images/integrations/shopify/growthbook-shopify-edit-code.png)
 
-Once you're in the code editor, locate the `theme.liquid` file and add the following snippet to the bottom of the file, just before the closing `</body>` tag.
+Once you're in the code editor, locate the `theme.liquid` file and add the following snippet to the bottom of the file, just before the closing `</body>` tag. Be sure to replace the `data-client-key` with the `Client Key` you located above.
 
 ```js
     <script id="growthbook-sdk" src="https://cdn.jsdelivr.net/npm/@growthbook/growthbook/dist/bundles/index.min.js" defer></script>
-    <script>
 
     <script async
       data-client-key="ADD_YOUR_CLIENT_KEY_HERE"
       src="https://cdn.jsdelivr.net/npm/@growthbook/growthbook/dist/bundles/auto.min.js"
-    >
-    </script>
+    ></script>
 ```
 
 :::info Note
@@ -52,6 +50,8 @@ Now that GrowthBook is installed on your Shopify store, you can create a new exp
 First, navigate to "Experiments" on the left-hand navigation menu and then click "Create Experiment", before selecting "Design a New Experiment" and following the on-screen prompts.
 
 Once you've created your experiment, select "Visual Editor" as the editor type and enter the URL of your Shopify store.
+
+![](../../static/images/integrations/shopify/growthbook-shopify-open-visual-editor.png)
 
 You'll then be redirected to your store, where you can use the Visual Editor to update your store's content.
 
