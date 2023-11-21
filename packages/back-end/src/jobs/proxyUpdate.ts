@@ -146,8 +146,9 @@ export async function queueProxyUpdate(
     if (
       !payloadKeys.some(
         (key) =>
-          connection.projects.includes(key.project) &&
-          key.environment === connection.environment
+          key.environment === connection.environment &&
+          (!connection.projects.length ||
+            connection.projects.includes(key.project))
       )
     ) {
       continue;
