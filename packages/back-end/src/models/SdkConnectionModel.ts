@@ -85,7 +85,11 @@ function toInterface(doc: SDKConnectionDocument): SDKConnectionInterface {
   const conn = doc.toJSON<SDKConnectionDocument>();
   conn.proxy = addEnvProxySettings(conn.proxy);
 
-  if ((conn as SDKConnectionDocument & { project?: string }).project) {
+  // Migrate old project setting to projects
+  if (
+    !conn.projects?.length &&
+    (conn as SDKConnectionDocument & { project?: string }).project
+  ) {
     const project = (conn as SDKConnectionDocument & { project: string })
       .project;
     conn.projects = [project];
