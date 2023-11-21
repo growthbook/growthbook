@@ -445,6 +445,12 @@ const sidebars = {
           label: "Shopify + GrowthBook",
           className: "pill-new",
         },
+        {
+          type: "doc",
+          id: "integrations/webflow",
+          label: "Webflow + GrowthBook",
+          className: "pill-new",
+        },
       ],
     },
     { type: "doc", id: "faq", label: "FAQ" },
