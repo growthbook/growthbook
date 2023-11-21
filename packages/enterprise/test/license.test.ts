@@ -260,11 +260,11 @@ describe("licenseInit", () => {
         });
 
         it("should throw an error if the plan does not support sso but the env var says it is enabled", async () => {
-          // testSSOError(licenseKey);
+          await testSSOError(licenseKey);
         });
 
         it("should throw an error if the plan does not support multi-org but the env var says it is enabled", async () => {
-          //testMultiOrgError(licenseKey);
+          await testMultiOrgError(licenseKey);
         });
       });
     });
@@ -339,11 +339,11 @@ describe("licenseInit", () => {
     });
 
     it("should throw an error if the plan does not support sso but the env var says it is enabled", async () => {
-      // testSSOError(oldLicenseKey);
+      await testSSOError(oldLicenseKey);
     });
 
     it("should throw an error if the plan does not support multi-org but the env var says it is enabled", async () => {
-      //testMultiOrgError(oldLicenseKey);
+      await testMultiOrgError(oldLicenseKey);
     });
   });
 });
