@@ -1,15 +1,6 @@
 import mongoose from "mongoose";
 import uniqid from "uniqid";
 import { omit } from "lodash";
-import {
-  CreateFactFilterProps,
-  CreateFactTableProps,
-  FactFilterInterface,
-  FactTableInterface,
-  UpdateFactFilterProps,
-  UpdateColumnProps,
-  UpdateFactTableProps,
-} from "../../types/fact-table";
 import { ReliableDimensionInterface } from "../types/Integration";
 import { queriesSchema } from "./QueryModel";
 
@@ -26,7 +17,7 @@ const reliableDimensionSchema = new mongoose.Schema({
   datasource: String,
   exposureQueryId: String,
 
-  results: [], // TODO 
+  results: [], // TODO
   error: String,
 });
 
@@ -37,11 +28,12 @@ const ReliableDimensionModel = mongoose.model<ReliableDimensionInterface>(
   reliableDimensionSchema
 );
 
-function toInterface(doc: ReliableDimensionDocument): ReliableDimensionInterface {
+function toInterface(
+  doc: ReliableDimensionDocument
+): ReliableDimensionInterface {
   const ret = doc.toJSON<ReliableDimensionDocument>();
   return omit(ret, ["__v", "_id"]);
 }
-
 
 export async function updateReliableDimension(
   reliableDimension: ReliableDimensionInterface,
@@ -52,7 +44,7 @@ export async function updateReliableDimension(
   await ReliableDimensionModel.updateOne(
     {
       organization,
-      id
+      id,
     },
     {
       $set: updates,
@@ -60,16 +52,23 @@ export async function updateReliableDimension(
   );
   return {
     ...reliableDimension,
-    ...updates
-  }
+    ...updates,
+  };
 }
-export async function getReliableDimensionById(organization: string, id: string) {
+export async function getReliableDimensionById(
+  organization: string,
+  id: string
+) {
   const doc = await ReliableDimensionModel.findOne({ organization, id });
 
   return doc ? toInterface(doc) : null;
 }
 
-export async function getLatestReliableDimension(organization: string, datasource: string, exposureQueryId: string): Promise<ReliableDimensionInterface | null>{
+export async function getLatestReliableDimension(
+  organization: string,
+  datasource: string,
+  exposureQueryId: string
+): Promise<ReliableDimensionInterface | null> {
   // TODO get no error or status === good
   console.log(datasource);
   console.log(exposureQueryId);
@@ -77,7 +76,7 @@ export async function getLatestReliableDimension(organization: string, datasourc
     { organization, datasource, exposureQueryId },
     null,
     {
-      sort: { dateCreated: -1 },
+      sort: { runStarted: -1 },
       limit: 1,
     }
   ).exec();
@@ -104,7 +103,7 @@ export async function createReliableDimension({
     exposureQueryId: queryId,
     runStarted: now,
     error: "",
-    queries: []
+    queries: [],
   });
 
   return toInterface(doc);

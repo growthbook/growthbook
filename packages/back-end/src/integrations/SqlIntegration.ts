@@ -1246,7 +1246,11 @@ export default abstract class SqlIntegration
   }
 
   getDimensionInStatement(dimension: string, values: string[]): string {
-    return this.ifElse(`${dimension} IN ('${values.join("','")}')`, this.castToString(dimension), `"Other"`)
+    return this.ifElse(
+      `${dimension} IN ('${values.join("','")}')`,
+      this.castToString(dimension),
+      `"Other"`
+    );
   }
 
   getReliableDimensionQuery(params: ReliableDimensionQueryParams) {
@@ -1257,7 +1261,7 @@ export default abstract class SqlIntegration
     const { baseIdType } = getBaseIdTypeAndJoins([[exposureQuery.userIdType]]);
 
     const startDate = subDays(new Date(), 9999);
-    const timestampColumn = "e.timestamp"
+    const timestampColumn = "e.timestamp";
     // TODO consider not getting first dim
     return format(
       `-- Suggest Dimensions
@@ -1305,9 +1309,8 @@ export default abstract class SqlIntegration
         FROM
           __distinctUnits
           ) UNION ALL
-        ${params.dimensions.map((d) => 
-            this.getUnitCountCTE(`dim_exp_${d.id}`)
-          )
+        ${params.dimensions
+          .map((d) => this.getUnitCountCTE(`dim_exp_${d.id}`))
           .join("\nUNION ALL\n")}
       ),
       total_n AS (
@@ -1330,7 +1333,8 @@ export default abstract class SqlIntegration
       SELECT
         dim_values_sorted.dimension_name AS dimension_name,
         dim_values_sorted.dimension_value AS dimension_value,
-        dim_values_sorted.units AS units
+        dim_values_sorted.units AS units,
+        dim_values_sorted.units / n.N * 100 AS percent
       FROM
         dim_values_sorted
       CROSS JOIN total_n n
@@ -1355,6 +1359,7 @@ export default abstract class SqlIntegration
           dimension_value: row.dimension_value ?? "",
           dimension_name: row.dimension_name ?? "",
           units: parseInt(row.units) || 0,
+          percent: parseFloat(row.percent) || 0,
         };
       }),
       statistics: statistics,

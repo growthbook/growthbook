@@ -1,27 +1,18 @@
-import { getValidDate } from "shared/dates";
 import {
   ExperimentDimension,
-  PastExperimentParams,
-  PastExperimentResponseRows,
-  PastExperimentResult,
   ReliableDimensionInterface,
   ReliableDimensionQueryResponseRows,
   ReliableDimensionResult,
 } from "../types/Integration";
-import {
-  PastExperiment,
-  PastExperimentsInterface,
-} from "../../types/past-experiments";
 import { Queries, QueryStatus } from "../../types/query";
 import {
-  getPastExperimentsById,
-  updatePastExperiments,
-} from "../models/PastExperimentsModel";
+  getReliableDimensionById,
+  updateReliableDimension,
+} from "../models/ReliableDimensionModel";
 import { QueryRunner, QueryMap } from "./QueryRunner";
-import { getReliableDimensionById, updateReliableDimension } from "../models/ReliableDimensionModel";
 
 export type ReliableDimensionParams = {
-  exposureQueryId: string
+  exposureQueryId: string;
 };
 
 export class ReliableDimensionQueryRunner extends QueryRunner<
@@ -30,12 +21,13 @@ export class ReliableDimensionQueryRunner extends QueryRunner<
   ReliableDimensionResult[]
 > {
   async startQueries(params: ReliableDimensionParams): Promise<Queries> {
-    
-    const exposureQuery = (this.integration.settings?.queries?.exposure || []).find(
-      (q) => q.id === params.exposureQueryId
-    );
-  
-    const dimensions: ExperimentDimension[] = (exposureQuery?.dimensions || []).map((id) => ({
+    const exposureQuery = (
+      this.integration.settings?.queries?.exposure || []
+    ).find((q) => q.id === params.exposureQueryId);
+
+    const dimensions: ExperimentDimension[] = (
+      exposureQuery?.dimensions || []
+    ).map((id) => ({
       type: "experiment",
       id,
     }));
@@ -45,7 +37,7 @@ export class ReliableDimensionQueryRunner extends QueryRunner<
         name: "reliabledimensions",
         query: this.integration.getReliableDimensionQuery({
           exposureQueryId: params.exposureQueryId,
-          dimensions: dimensions
+          dimensions: dimensions,
         }),
         dependencies: [],
         run: (query, setExternalId) =>
@@ -55,28 +47,30 @@ export class ReliableDimensionQueryRunner extends QueryRunner<
     ];
   }
   async runAnalysis(queryMap: QueryMap): Promise<ReliableDimensionResult[]> {
-    const reliableDimension =
-      (queryMap.get("reliabledimensions")?.result as ReliableDimensionQueryResponseRows);
+    const reliableDimension = queryMap.get("reliabledimensions")
+      ?.result as ReliableDimensionQueryResponseRows;
 
     // Group by experiment and exposureQuery
-    const dimValueMap = new Map<string, string[]>();
+    const dimValueMap = new Map<string, { name: string; percent: number }[]>();
     reliableDimension.forEach((d) => {
-      const dimArray = dimValueMap.get(d.dimension_name);
+      const dimName = d.dimension_name.replace("dim_exp_", "");
+      const dimArray = dimValueMap.get(dimName);
       if (dimArray) {
-        dimArray.push(d.dimension_value);
+        dimArray.push({ name: d.dimension_value, percent: d.percent });
       } else {
-        dimValueMap.set(d.dimension_name, [d.dimension_value])
+        dimValueMap.set(dimName, [
+          { name: d.dimension_value, percent: d.percent },
+        ]);
       }
     });
-    
+
     const results: ReliableDimensionResult[] = [];
     dimValueMap.forEach((dimValues, dimName) => {
       results.push({
         dimension: dimName,
         dimensionValues: dimValues,
-        sql: this.integration.getDimensionInStatement(dimName, dimValues)
-      })
-    })
+      });
+    });
     return results;
   }
   async getLatestModel(): Promise<ReliableDimensionInterface> {

@@ -1,30 +1,19 @@
-import React, { FC, useCallback, useEffect, useMemo, useState } from "react";
+import React, { FC, Fragment, useCallback, useEffect, useState } from "react";
 import {
   DataSourceInterfaceWithParams,
   ExposureQuery,
 } from "back-end/types/datasource";
-import { UseFormReturn, useForm } from "react-hook-form";
+import { useForm } from "react-hook-form";
 import cloneDeep from "lodash/cloneDeep";
-import uniqId from "uniqid";
-import { FaExclamationTriangle, FaExternalLinkAlt, FaPlay } from "react-icons/fa";
-import { ReliableDimensionInterface, TestQueryRow } from "back-end/src/types/Integration";
-import { useFeatureIsOn } from "@growthbook/growthbook-react";
-import Code from "@/components/SyntaxHighlighting/Code";
-import StringArrayField from "@/components/Forms/StringArrayField";
-import Toggle from "@/components/Forms/Toggle";
-import Tooltip from "@/components/Tooltip/Tooltip";
-import MultiSelectField from "@/components/Forms/MultiSelectField";
-import { AppFeatures } from "@/types/app-features";
-import { useUser } from "@/services/UserContext";
-import Modal from "../../../Modal";
-import Field from "../../../Forms/Field";
-import EditSqlModal from "../../../SchemaBrowser/EditSqlModal";
+import { ReliableDimensionInterface } from "back-end/src/types/Integration";
+import { ago, datetime } from "shared/dates";
 import { useAuth } from "@/services/auth";
 import useApi from "@/hooks/useApi";
-import RunQueriesButton from "@/components/Queries/RunQueriesButton";
-import LoadingOverlay from "@/components/LoadingOverlay";
-import { set } from "lodash";
-import Button from "@/components/Button";
+import RunQueriesButton, {
+  getQueryStatus,
+} from "@/components/Queries/RunQueriesButton";
+import ViewAsyncQueriesButton from "@/components/Queries/ViewAsyncQueriesButton";
+import Modal from "../../../Modal";
 
 type UpdateReliableDimensionModalProps = {
   exposureQuery: ExposureQuery;
@@ -34,6 +23,10 @@ type UpdateReliableDimensionModalProps = {
   //id: string;
   //onCancel: () => void;
 };
+const smallPercentFormatter = new Intl.NumberFormat(undefined, {
+  style: "percent",
+  maximumFractionDigits: 0,
+});
 
 export const UpdateReliableDimensionsModal: FC<UpdateReliableDimensionModalProps> = ({
   exposureQuery,
@@ -42,148 +35,205 @@ export const UpdateReliableDimensionsModal: FC<UpdateReliableDimensionModalProps
   onSave,
   //onCancel,
 }) => {
-
   const { apiCall } = useAuth();
+
+  const form = useForm<ExposureQuery>({
+    defaultValues: cloneDeep<ExposureQuery>(exposureQuery),
+  });
   const [id, setId] = useState<string | null>(null);
 
-  const getDimensionId = async () => {
+  const { data, error, mutate } = useApi<{
+    reliableDimension: ReliableDimensionInterface;
+  }>(`/reliable-dimension/${id}`);
+
+  const handleSubmit = form.handleSubmit(async (value) => {
+    await onSave(value);
+
+    form.reset({
+      id: undefined,
+      query: "",
+      name: "",
+      dimensions: [],
+      dimensionsForTraffic: [],
+      description: "",
+      hasNameCol: false,
+      userIdType: undefined,
+    });
+  });
+
+  const getDimensionId = useCallback(async () => {
     try {
-      console.log(dataSource.id);
-      console.log(exposureQuery.id);
-      const res = await apiCall<{ reliableDimension: ReliableDimensionInterface }>(
-        `/reliable-dimension/datasource/${dataSource.id}/${exposureQuery.id}`);
-      console.log("getdimensionid res")
-      console.log(res)
+      const res = await apiCall<{
+        reliableDimension: ReliableDimensionInterface;
+      }>(`/reliable-dimension/datasource/${dataSource.id}/${exposureQuery.id}`);
       if (res?.reliableDimension?.id) {
         setId(res.reliableDimension.id);
+        await mutate();
       }
     } catch (e) {
       console.error(e);
     }
-  };
+  }, [dataSource, exposureQuery, apiCall, mutate, setId]);
   useEffect(() => {
     getDimensionId();
-  }, []);
-  console.log("id");
-  console.log(id);
-
-  const { data, error, mutate } = useApi<{ reliableDimension: ReliableDimensionInterface }>(
-    `/reliable-dimension/${id}`);
-
+  }, [getDimensionId]);
+  const { status } = getQueryStatus(
+    data?.reliableDimension?.queries || [],
+    data?.reliableDimension?.error
+  );
+  console.log(status);
+  console.log(data);
   const refreshDimension = useCallback(async () => {
-    const res = await apiCall<{ reliableDimension: ReliableDimensionInterface }>("/reliable-dimension", {
+    const res = await apiCall<{
+      reliableDimension: ReliableDimensionInterface;
+    }>("/reliable-dimension", {
       method: "POST",
       body: JSON.stringify({
         datasourceId: dataSource.id,
-        queryId: exposureQuery.id
+        queryId: exposureQuery.id,
       }),
     });
-    console.log("res")
-    console.log(res)
-    setId(res.reliableDimension.id)
     await mutate();
-}, [])
-  console.log("data"); 
-  console.log(data);
+    setId(res.reliableDimension.id);
+  }, [dataSource, exposureQuery, mutate, apiCall]);
 
   if (error) {
     return <div className="alert alert-error">{error?.message}</div>;
   }
-  if (data?.reliableDimension === null) {
 
-  }
   return (
-  <>
-    <Modal
-      open={true}
-      close={close}
-      size="lg"
-      header={"Processed Dimension"}
-    >
-      <div className="my-2 ml-3 mr-3">
-        <div className="row">
-          <div className="col-12">
-            {!data ? <LoadingOverlay></LoadingOverlay>:          data.reliableDimension && (
-          <form
-              onSubmit={async (e) => {
-                e.preventDefault();
-                try {
-                  refreshDimension()
-                  console.log(data);
-                } catch (e) {
-                  console.error(e);
-                }
-              }}
-            >
-    <RunQueriesButton
-      cta={"Refresh Automatic Dimensions"}
-      mutate={mutate}
-      model={data.reliableDimension}
-      cancelEndpoint={`/metric/1/analysis/cancel`}
-      color="outline-primary"
-    />
-    </form> )}
-  {data?.reliableDimension?.results && data?.reliableDimension.results.length && (
-            <UpdateReliableDimensions
-              reliableDimension={data.reliableDimension}
-              exposureQuery={exposureQuery}
-            />
+    <>
+      <Modal
+        open={true}
+        close={close}
+        submit={handleSubmit}
+        cta={"Save to Data Source"}
+        size="lg"
+        header={"Processed Dimension"}
+      >
+        <div className="my-2 ml-3 mr-3">
+          <div className="row">
+            {!data ? (
+              <></>
+            ) : (
+              <>
+                <div className="col-12">
+                  <div className="row align-items-center mb-4">
+                    <div className="col-auto ml-auto">
+                      {data.reliableDimension?.runStarted ? (
+                        <div
+                          className="text-muted"
+                          style={{ fontSize: "0.8em" }}
+                          title={datetime(data.reliableDimension.runStarted)}
+                        >
+                          last updated {ago(data.reliableDimension.runStarted)}
+                        </div>
+                      ) : null}
+                    </div>
+                    <form
+                      onSubmit={async (e) => {
+                        e.preventDefault();
+                        try {
+                          refreshDimension();
+                        } catch (e) {
+                          console.error(e);
+                        }
+                      }}
+                    >
+                      <RunQueriesButton
+                        cta={`${
+                          data.reliableDimension ? "Refresh" : "Load"
+                        } Automatic Dimensions`}
+                        mutate={mutate}
+                        model={data.reliableDimension ?? { queries: [] }}
+                        cancelEndpoint={`/metric/1/analysis/cancel` /*TODO*/}
+                        color="outline-primary"
+                      />
+                    </form>{" "}
+                  </div>
+                  {data?.reliableDimension?.results &&
+                  data?.reliableDimension.results.length ? (
+                    <UpdateReliableDimensions
+                      reliableDimension={data.reliableDimension}
+                    />
+                  ) : (
+                    <></>
+                  )}
+                  {data?.reliableDimension?.queries && (
+                    <div>
+                      <ViewAsyncQueriesButton
+                        queries={
+                          data.reliableDimension.queries?.length > 0
+                            ? data.reliableDimension.queries.map((q) => q.query)
+                            : []
+                        }
+                        error={data.reliableDimension.error}
+                        inline={true}
+                      />
+                    </div>
+                  )}
+                </div>
+              </>
             )}
-            </div>
+          </div>
         </div>
-      </div>
-    </Modal>
-  </>);
-}
-
+      </Modal>
+    </>
+  );
+};
 
 type UpdateReliableDimensionProps = {
-  reliableDimension: ReliableDimensionInterface
-  exposureQuery: ExposureQuery
-  //onCancel: () => void;
+  reliableDimension: ReliableDimensionInterface;
 };
 
 export const UpdateReliableDimensions: FC<UpdateReliableDimensionProps> = ({
   reliableDimension,
-  exposureQuery
 }) => {
-  const form = useForm<ExposureQuery>({
-    defaultValues: cloneDeep<ExposureQuery>(exposureQuery)
-  });
-  const selectedDimensions = form.getValues("processedDimensions") ?? [];
-  const setSelectedDimensions = useCallback((
-    dim: string, selected: boolean
-  ) => {
-    if (selectedDimensions.includes(dim) && !selected) {
-      form.setValue("processedDimensions", selectedDimensions.filter((d) => d !== dim))
-    } else if (!selectedDimensions.includes(dim) && selected) {
-      selectedDimensions.push(dim)
-      form.setValue("processedDimensions", selectedDimensions)
-    }
-  }, [
-    form,
-    selectedDimensions
-  ])
-
-  return (<>
-  <div>
-  {reliableDimension ? 
-    reliableDimension.results.map((r, i) => (
-      <div key={i}>
-        <label>
-        <input
-          type="checkbox"
-          className={`form-check-input`}
-          checked={selectedDimensions.includes(r.dimension)}
-          onChange={(e) => setSelectedDimensions(r.dimension, e.target.checked)}
-        />
-        <div>{r.dimension}</div>
-        <div>{r.dimensionValues.join(", ")}</div>
-        <div>{r.sql}</div>
-      </label>
-
+  return (
+    <>
+      <div>
+        {reliableDimension
+          ? reliableDimension.results.map((r, i) => {
+              let totalPercent = 0;
+              return (
+                <div key={i}>
+                  <label>
+                    <h4>{r.dimension}</h4>
+                    <div>
+                      {r.dimensionValues.map((d, i) => {
+                        totalPercent += d.percent;
+                        return (
+                          <>
+                            <Fragment key={`${r.dimension}-${i}`}>
+                              {i ? ", " : ""}
+                              <code key={`${r.dimension}-${d.name}`}>
+                                {d.name}
+                              </code>
+                            </Fragment>
+                            <span>{` (${smallPercentFormatter.format(
+                              d.percent / 100.0
+                            )})`}</span>
+                          </>
+                        );
+                      })}
+                    </div>
+                    <div>
+                      {" "}
+                      other values:
+                      <Fragment key={`${r.dimension}--1`}>
+                        {" "}
+                        <code key={`${r.dimension}-_other_`}>{"_other"}</code>
+                      </Fragment>
+                      <span>{` (${smallPercentFormatter.format(
+                        (100.0 - totalPercent) / 100.0
+                      )})`}</span>
+                    </div>
+                  </label>
+                </div>
+              );
+            })
+          : null}
       </div>
-    )): null}
-    </div>
-  </>);
-}
+    </>
+  );
+};

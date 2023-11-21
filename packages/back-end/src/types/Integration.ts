@@ -125,7 +125,7 @@ export interface ExperimentAggregateUnitsQueryParams
 }
 
 export type ReliableDimensionQueryParams = {
-  exposureQueryId: string,
+  exposureQueryId: string;
   dimensions: ExperimentDimension[];
 };
 
@@ -243,6 +243,7 @@ export type ReliableDimensionQueryResponseRows = {
   dimension_value: string;
   dimension_name: string;
   units: number;
+  percent: number;
 }[];
 
 // eslint-disable-next-line
@@ -345,8 +346,7 @@ export interface InformationSchemaTablesInterface {
 
 export interface ReliableDimensionResult {
   dimension: string;
-  dimensionValues: string[];
-  sql: string;
+  dimensionValues: { name: string; percent: number }[];
 }
 export interface ReliableDimensionInterface {
   id: string;
@@ -354,12 +354,12 @@ export interface ReliableDimensionInterface {
 
   runStarted: Date;
   queries: Queries;
-  error?: string,
+  error?: string;
 
-  datasource: string,
-  exposureQueryId: string,
+  datasource: string;
+  exposureQueryId: string;
 
-  results: ReliableDimensionResult[],
+  results: ReliableDimensionResult[];
 }
 
 export interface SourceIntegrationInterface {
