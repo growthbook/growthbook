@@ -442,7 +442,7 @@ const sidebars = {
         {
           type: "doc",
           id: "integrations/shopify",
-          label: "Shopify + GorwthBook",
+          label: "Shopify + GrowthBook",
           className: "pill-new",
         },
       ],
