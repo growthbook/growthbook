@@ -37,7 +37,7 @@ describe("licenseInit", () => {
     archived: false,
     dateCreated: "2023-11-10T17:15:11.274Z",
     dateExpires: "2024-10-23T00:00:00.000Z",
-    dateUpdated: "2023-11-17T19:45:04.713Z",
+    dateUpdated: "2023-11-21T12:08:12.610Z",
     seatsInUse: 1,
     installationUsers: {
       "installation-04ed35f0-806c-4ecb-b148-051bc42dd3e1": {
@@ -46,36 +46,12 @@ describe("licenseInit", () => {
       },
     },
     signedChecksum:
-      "F43WDJiuC6pdQR7SChJBKgHbGSFfwday5pOPjmdnB1MZcMZyrL2zXFrhmwu_nzONLUSVGGgkgYP3y8S0thoTD-MsA-GRzHzR3Bzm-QyuMVUFCuw8I2xsUPuaR36nRRnk0cgixFBEQDFVLkLf3LVwltKh6LS1IWwyCGY5gkOIZ1idFzl5IfTIqlDdbv8Ca1Sp-v58MrycVHz5zvBNz9H2DtsGLTF1XBxP-SydFSGvE7BD3B5qb1DKqW7WMiLvvitzbvBkECMnIjxZtx0KB0AHJfIyIB8zE9d1smW9kDoi58VtudIM3NO6oc0-09rA3MqYgBck53TluADOGLTmKdI5mZOFI7saFme5PJ1MkmeD5ExmJwormhIUt3Pc5PPzN8Z_XCcla_gZiyfx-OLuKdcZafbd-njIDuG_h2TPqvvyKGgcayBugNlvl-2MFQupwrARO3MWGfA-IV6dcU_zQ7uklkzjcKvpWwNZD5MRKEmdNOZANGkWWRMUoeJOjPk9Ot9jTsrFxJEdGr-r6uuZQGCDhv2MOu6MXDKe7Q7iKIa1DhZlvn_e4g2_k8b8X123m79-XLE6KJaJw74yUNkH-8zOPV9nArvfJ37Kf88pVW1vgVRdhZmGGF8DWzphbV4BlIz257YNZAaOkwNlf874QWbtXWFZwWdJqCDMagwe74cjBQ8",
+      "cz1WRb7-O1tVDGWObQFELdwQ0BsVFttkEJau_w7uJ-Rjn-W0jEK0HgGiNKKjPT5_exisacjiSef-w8BXOJB6oDa6urYkQSQ1m1VD62aNH3tcDXhpDzIZxRLcjOSVYvJ-Xtwl4eAVJD8NQ_CV3YaPXuvCnTORJR9nsa1-yCA-oTfbELMyqwI14BsvrQGhfbDaxDuMuOPrhO3g3QHVSV10FytUcNO7dKO-OSOAkNAgiaODnFqECZ-Z7E1E3KyzW1lAcGGNK4RXolWBf18a6d2BSLZ8fDObqHTYTKKiF-I2C2BtoOWddY4pJ4uww0UTpQtuWAh-2qZBvzzFXVCRZz0seOZJlD0DL-mgxzZJfPR6ImOkt1lMwY-MMS7YpApkjG_H8_-kmcLKPmyga2KMzfZWixSXE92l27u_wmbDBfomTrWDyzE5sivh-Uozrr8uOoqU4gi3_arEAq3SfMzFQPqjqbQjvMZVwiU3r-4zFvW7cNGn7GvfYkAPoPYEkRzmP31fH7C5kq6eluFqKie0zsWqeE3DIUt3wUFPVj_OcjWklq1zIB0m5b24GGjzB_0TYVaHReRfbo2sM1MEsL00DRb6zyv5oEpfDJd4bOWlDOrL8oS9QRk8XykFjKOoUC-Aun58hfQBEp1FDb50jnwR7M4U1YRb8lW7Kgh5tko_WmLqo5M",
   };
   const licenseData2 = cloneDeep(licenseData);
   licenseData2.seatsInUse = 2;
-  const oldLicenseKey =
-    "eyJyZWYiOiIyNDAzMjEiLCJzdWIiOiJBY21lIiwib3JnIjoib3JnXzEyMyIsInF0eSI6MywiaWF0IjoiMjAyMy0xMS0xOCIsImV4cCI6IjIwMjMtMTEtMTkiLCJ0cmlhbCI6dHJ1ZSwicGxhbiI6InBybyJ9.Wf_rdgs4Ice1aFImF9bFBVeyP3gfo1V9CyNh9U5kJguKvzpLJEDE7x1bU4zsenaY-sBBv_IeD5UrCf-7ktcW9AQBuQa_c8IK96Dq57gCDGJ5fmTpqL8jZJF9d0HJd-uDhbXqNXway7a3MLK7lwo9BxD4ZiANafrn9qKH0tB30gUChCm61h9trxDmcWIGYi9HFtICvqkKLXthgKgQYV7pHhnB3BzhUXu6p2iDURSIQhergUv3y833tjJ-I_rtMxpeKumJOHAqQDPF3hlNzL4y6WIVAp0RyDEYD3PyfQVsJpY5QRK2cZEwWJr_JRFOmou5O79oZjyAPsbjw2J-41BsNGnshA00MS6l74Aae1zFES10zwxo0En8TS5CqrwIW05hSs1pp-UKM56RFsPTjayGmiGdUSGf7vMo4e7RtE73T9RIntbfqTXYg2FTPiergiYr7gVBPi-JNiicwKOxGChoaIwVkha8Pp3B9yUfTyjWNEm0S9xTlv3l8dRmla2_62YAU3hlvQqZQvRXciOrMPyBQnPuQq9srRSFi2kFYMefgXCSTnFSi9pz9uOiJix7REYlEVOq_qujoRVYHY2h7zZwsIBiR_jCZTX8gJXxPDSDseiWzgXY11YZNWuNC551cRrBurNP1M_M_Z6-A7IXyfrhzBJizYw6a81R6NBBulCVDLc";
 
-  const oldLicenseOrginalData = {
-    ref: "240321",
-    sub: "Acme",
-    org: "org_123",
-    qty: 3,
-    trial: true,
-    iat: "2023-11-18",
-    exp: "2023-11-19",
-    plan: "pro",
-  };
-
-  const oldLicenseData = {
-    id: "240321",
-    companyName: "Acme",
-    organizationId: "org_123",
-    seats: 3,
-    isTrial: true,
-    dateCreated: "2023-11-18",
-    dateExpires: "2023-11-19",
-    plan: "pro",
-  };
-
-  const now = new Date(2023, 10, 18, 19, 45, 4, 713);
+  let now = new Date(2023, 10, 21, 19, 45, 4, 713);
 
   async function testSSOError(licenseKey) {
     process.env.SSO_CONFIG = "true";
@@ -123,6 +99,7 @@ describe("licenseInit", () => {
   });
 
   describe("new style licenses where licenseKey starts with 'license_'", () => {
+    const now = new Date(2023, 10, 21, 19, 45, 4, 713);
     describe("and when the license server is up", () => {
       beforeEach(() => {
         const mockedResponse: Response = ({
@@ -160,10 +137,7 @@ describe("licenseInit", () => {
         expect(getLicense()).toEqual(licenseData);
         expect(fetch).toHaveBeenCalledTimes(1);
         expect(LicenseModel.create).toHaveBeenCalledTimes(1);
-
-        const updatedLicenseData = cloneDeep(licenseData);
-        updatedLicenseData.dateUpdated = new Date(now).toISOString();
-        expect(LicenseModel.create).toHaveBeenCalledWith(updatedLicenseData);
+        expect(LicenseModel.create).toHaveBeenCalledWith(licenseData);
       });
 
       it("should call fetch twice rather than use the in-memory cache if it has been over a day since the last fetch, and update the licenseData", async () => {
@@ -234,7 +208,9 @@ describe("licenseInit", () => {
 
       describe("and when there is cached data in LicenseModel", () => {
         beforeEach(() => {
-          jest.spyOn(LicenseModel, "findOne").mockResolvedValue(licenseData);
+          jest
+            .spyOn(LicenseModel, "findOne")
+            .mockResolvedValue({ ...licenseData, toJSON: () => licenseData });
         });
 
         it("should return cache from LicenseModel if the license server is down and a cache exists in licenseModel", async () => {
@@ -271,6 +247,33 @@ describe("licenseInit", () => {
   });
 
   describe("old style licenses where licenseKey does NOT start with 'license_' but contains the license data encoded in itself", () => {
+    now = new Date(2023, 10, 18, 19, 45, 4, 713);
+
+    const oldLicenseKey =
+      "eyJyZWYiOiIyNDAzMjEiLCJzdWIiOiJBY21lIiwib3JnIjoib3JnXzEyMyIsInF0eSI6MywiaWF0IjoiMjAyMy0xMS0xOCIsImV4cCI6IjIwMjMtMTEtMTkiLCJ0cmlhbCI6dHJ1ZSwicGxhbiI6InBybyJ9.Wf_rdgs4Ice1aFImF9bFBVeyP3gfo1V9CyNh9U5kJguKvzpLJEDE7x1bU4zsenaY-sBBv_IeD5UrCf-7ktcW9AQBuQa_c8IK96Dq57gCDGJ5fmTpqL8jZJF9d0HJd-uDhbXqNXway7a3MLK7lwo9BxD4ZiANafrn9qKH0tB30gUChCm61h9trxDmcWIGYi9HFtICvqkKLXthgKgQYV7pHhnB3BzhUXu6p2iDURSIQhergUv3y833tjJ-I_rtMxpeKumJOHAqQDPF3hlNzL4y6WIVAp0RyDEYD3PyfQVsJpY5QRK2cZEwWJr_JRFOmou5O79oZjyAPsbjw2J-41BsNGnshA00MS6l74Aae1zFES10zwxo0En8TS5CqrwIW05hSs1pp-UKM56RFsPTjayGmiGdUSGf7vMo4e7RtE73T9RIntbfqTXYg2FTPiergiYr7gVBPi-JNiicwKOxGChoaIwVkha8Pp3B9yUfTyjWNEm0S9xTlv3l8dRmla2_62YAU3hlvQqZQvRXciOrMPyBQnPuQq9srRSFi2kFYMefgXCSTnFSi9pz9uOiJix7REYlEVOq_qujoRVYHY2h7zZwsIBiR_jCZTX8gJXxPDSDseiWzgXY11YZNWuNC551cRrBurNP1M_M_Z6-A7IXyfrhzBJizYw6a81R6NBBulCVDLc";
+
+    const oldLicenseOrginalData = {
+      ref: "240321",
+      sub: "Acme",
+      org: "org_123",
+      qty: 3,
+      trial: true,
+      iat: "2023-11-18",
+      exp: "2023-11-19",
+      plan: "pro",
+    };
+
+    const oldLicenseData = {
+      id: "240321",
+      companyName: "Acme",
+      organizationId: "org_123",
+      seats: 3,
+      isTrial: true,
+      dateCreated: "2023-11-18",
+      dateExpires: "2023-11-19",
+      plan: "pro",
+    };
+
     it("should read license data from the key itself and use the in-memory cache if called a second time, even if a long time has passed", async () => {
       await licenseInit(userLicenseCodes, metaData, oldLicenseKey);
 

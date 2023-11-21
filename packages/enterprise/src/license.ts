@@ -301,19 +301,17 @@ async function getLicenseDataFromMongoCache(
     // If the public key failed to load, just assume the license is valid
     const publicKey = await getPublicKey();
 
+    const licenseInterface = omit(cache.toJSON(), ["__v", "_id"]);
+
     // In order to verify the license key, we need to strip out the fields that are not part of the license data
     // and sort the fields alphabetically as we do on the license server itself.
-    const strippedLicense = omit(cache, [
-      "__v",
-      "_id",
-      "dateUpdated",
-      "signedChecksum",
-    ]);
+    const strippedLicense = omit(licenseInterface, ["signedChecksum"]);
     const data = Object.fromEntries(sortBy(Object.entries(strippedLicense)));
     const dataBuffer = Buffer.from(JSON.stringify(data));
 
     const signature = Buffer.from(cache.signedChecksum, "base64url");
 
+    logger.info("Verifying cached license data: " + JSON.stringify(data));
     const isVerified = crypto.verify(
       "sha256",
       dataBuffer,
@@ -331,7 +329,7 @@ async function getLicenseDataFromMongoCache(
 
     checkIfEnvVarSettingsAreAllowedByLicense(cache);
     logger.info("Using cached license data");
-    return cache;
+    return licenseInterface as LicenseInterface;
   }
   throw new Error(
     "License server is not working and cached license data is too old"
@@ -375,13 +373,12 @@ async function getLicenseDataFromServer(
 
   if (!currentCache) {
     // Create a cached version of the license key in case the license server goes down.
-    await LicenseModel.create({
-      ...licenseData,
-      dateUpdated: new Date().toISOString(),
-    });
+    logger.info("Creating new license cache");
+    await LicenseModel.create(licenseData);
   } else {
     // Update the cached version of the license key in case the license server goes down.
-    currentCache.set({ ...licenseData, dateUpdated: new Date() });
+    logger.info("Updating license cache");
+    currentCache.set(licenseData);
     await currentCache.save();
   }
 
