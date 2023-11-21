@@ -62,6 +62,11 @@ const sidebars = {
           id: "features/scheduling",
           label: "Scheduling",
         },
+        {
+          type: "doc",
+          id: "features/stale-detection",
+          label: "Stale Detection",
+        },
       ],
     },
     {
