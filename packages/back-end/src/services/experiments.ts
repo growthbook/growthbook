@@ -653,8 +653,9 @@ export async function createSnapshotAnalysis({
 
   const totalQueries = snapshot.queries.length;
   const failedQueries = snapshot.queries.filter((q) => q.status === "failed");
+  const runningQueries = snapshot.queries.filter((q) => q.status === "running");
 
-  if (failedQueries.length >= totalQueries / 2) {
+  if (runningQueries.length > 0 || failedQueries.length >= totalQueries / 2) {
     throw new Error("Snapshot queries not available for analysis");
   }
   const analysis: ExperimentSnapshotAnalysis = {
