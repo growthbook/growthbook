@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import cloneDeep from "lodash/cloneDeep";
 import { dateStringArrayBetweenDates, getValidDate } from "shared/dates";
 import {
