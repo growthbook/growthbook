@@ -65,7 +65,7 @@ const sidebars = {
         {
           type: "doc",
           id: "features/stale-detection",
-          label: "Stale Detection",
+          label: "Stale Feature Detection",
         },
       ],
     },
