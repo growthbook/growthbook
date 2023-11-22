@@ -343,7 +343,6 @@ export default function SinglePage({
   const {
     regressionAdjustmentAvailable,
     regressionAdjustmentEnabled,
-    metricRegressionAdjustmentStatuses,
     regressionAdjustmentHasValidMetrics,
   } = useMemo(() => {
     return getAllMetricRegressionAdjustmentStatuses({
@@ -1191,9 +1190,6 @@ export default function SinglePage({
                 regressionAdjustmentEnabled={regressionAdjustmentEnabled}
                 regressionAdjustmentHasValidMetrics={
                   regressionAdjustmentHasValidMetrics
-                }
-                metricRegressionAdjustmentStatuses={
-                  metricRegressionAdjustmentStatuses
                 }
                 onRegressionAdjustmentChange={onRegressionAdjustmentChange}
               />
