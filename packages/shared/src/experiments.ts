@@ -167,29 +167,28 @@ export function getRegressionAdjustmentsForMetric<
 
   // final gatekeeping
   if (regressionAdjustmentEnabled) {
-    if (isFactMetric(metric)) {
-      if (metric.metricType === "ratio") {
-        regressionAdjustmentEnabled = false;
-        reason = "ratio metrics not supported";
-      }
-    } else if (metric?.denominator) {
+    if (metric && isFactMetric(metric) && isRatioMetric(metric)) {
+      regressionAdjustmentEnabled = false;
+      reason = "ratio metrics not supported";
+    }
+    if (metric?.denominator) {
       const denominator = denominatorMetrics.find(
         (m) => m.id === metric?.denominator
       );
-      if (denominator?.type === "count") {
+      if (denominator && !isBinomialMetric(denominator)) {
         regressionAdjustmentEnabled = false;
         reason = "denominator is count";
       }
     }
-  }
-  if ("aggregation" in metric && metric?.aggregation) {
-    regressionAdjustmentEnabled = false;
-    reason = "custom aggregation";
+    if (metric && !isFactMetric(metric) && metric?.aggregation) {
+      regressionAdjustmentEnabled = false;
+      reason = "custom aggregation";
+    }
   }
 
-  if (!regressionAdjustmentEnabled) {
-    regressionAdjustmentDays = 0;
-  }
+  regressionAdjustmentDays = regressionAdjustmentEnabled
+    ? regressionAdjustmentDays
+    : 0;
 
   newMetric.regressionAdjustmentEnabled = regressionAdjustmentEnabled;
   newMetric.regressionAdjustmentDays = regressionAdjustmentDays;
