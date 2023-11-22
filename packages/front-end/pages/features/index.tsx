@@ -364,7 +364,7 @@ export default function FeaturesPage() {
                             <span className="text-danger">Invalid project</span>
                           </Tooltip>
                         ) : (
-                          projectName ?? <em>All Projects</em>
+                          projectName ?? <em>None</em>
                         )}
                       </td>
                     )}

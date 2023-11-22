@@ -74,8 +74,7 @@ import {
   CACHE_CONTROL_STALE_WHILE_REVALIDATE,
 } from "../util/secrets";
 import { upsertWatch } from "../models/WatchModel";
-import { getSurrogateKeysFromSDKPayloadKeys } from "../util/cdn.util";
-import { SDKPayloadKey } from "../../types/sdk-payload";
+import { getSurrogateKeysFromEnvironments } from "../util/cdn.util";
 import { FeatureRevisionInterface } from "../../types/feature-revision";
 import {
   addLinkedFeatureToExperiment,
@@ -98,7 +97,7 @@ export async function getPayloadParamsFromApiKey(
   req: Request
 ): Promise<{
   organization: string;
-  project: string;
+  projects: string[];
   environment: string;
   encrypted: boolean;
   encryptionKey?: string;
@@ -127,7 +126,7 @@ export async function getPayloadParamsFromApiKey(
     return {
       organization: connection.organization,
       environment: connection.environment,
-      project: connection.project,
+      projects: connection.projects,
       encrypted: connection.encryptPayload,
       encryptionKey: connection.encryptionKey,
       includeVisualExperiments: connection.includeVisualExperiments,
@@ -168,7 +167,7 @@ export async function getPayloadParamsFromApiKey(
     return {
       organization,
       environment: environment || "production",
-      project: projectFilter,
+      projects: projectFilter ? [projectFilter] : [],
       encrypted: !!encryptSDK,
       encryptionKey,
     };
@@ -187,7 +186,7 @@ export async function getFeaturesPublic(req: Request, res: Response) {
       organization,
       environment,
       encrypted,
-      project,
+      projects,
       encryptionKey,
       includeVisualExperiments,
       includeDraftExperiments,
@@ -205,7 +204,7 @@ export async function getFeaturesPublic(req: Request, res: Response) {
     const defs = await getFeatureDefinitions({
       organization,
       environment,
-      project,
+      projects,
       encryptionKey: encrypted ? encryptionKey : "",
       includeVisualExperiments,
       includeDraftExperiments,
@@ -222,11 +221,10 @@ export async function getFeaturesPublic(req: Request, res: Response) {
     // If using Fastly, add surrogate key header for cache purging
     if (FASTLY_SERVICE_ID) {
       // Purge by org, API Key, or payload contents
-      const payloadKey: SDKPayloadKey = { environment, project };
       const surrogateKeys = [
         organization,
         key,
-        ...getSurrogateKeysFromSDKPayloadKeys(organization, [payloadKey]),
+        ...getSurrogateKeysFromEnvironments(organization, [environment]),
       ];
       res.set("Surrogate-Key", surrogateKeys.join(" "));
     }
@@ -266,7 +264,7 @@ export async function getEvaluatedFeaturesPublic(req: Request, res: Response) {
       organization,
       environment,
       encrypted,
-      project,
+      projects,
       encryptionKey,
       includeVisualExperiments,
       includeDraftExperiments,
@@ -295,7 +293,7 @@ export async function getEvaluatedFeaturesPublic(req: Request, res: Response) {
     const defs = await getFeatureDefinitions({
       organization,
       environment,
-      project,
+      projects,
       encryptionKey: encrypted ? encryptionKey : "",
       includeVisualExperiments,
       includeDraftExperiments,
@@ -865,7 +863,7 @@ export async function postFeatureExperimentRefRule(
     };
 
     // Revision changes
-    changes.rules[env] = feature.environmentSettings?.[env]?.rules || [];
+    changes.rules[env] = [...(feature.environmentSettings?.[env]?.rules || [])];
     changes.rules[env].push(envRule);
 
     // Feature updates
