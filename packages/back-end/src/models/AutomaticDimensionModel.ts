@@ -1,10 +1,10 @@
 import mongoose from "mongoose";
 import uniqid from "uniqid";
 import { omit } from "lodash";
-import { ReliableDimensionInterface } from "../types/Integration";
+import { AutomaticDimensionInterface } from "../types/Integration";
 import { queriesSchema } from "./QueryModel";
 
-const reliableDimensionSchema = new mongoose.Schema({
+const automaticDimensionSchema = new mongoose.Schema({
   id: {
     type: String,
     unique: true,
@@ -21,27 +21,27 @@ const reliableDimensionSchema = new mongoose.Schema({
   error: String,
 });
 
-type ReliableDimensionDocument = mongoose.Document & ReliableDimensionInterface;
+type AutomaticDimensionDocument = mongoose.Document & AutomaticDimensionInterface;
 
-const ReliableDimensionModel = mongoose.model<ReliableDimensionInterface>(
-  "ReliableDimension",
-  reliableDimensionSchema
+const AutomaticDimensionModel = mongoose.model<AutomaticDimensionInterface>(
+  "AutomaticDimension",
+  automaticDimensionSchema
 );
 
 function toInterface(
-  doc: ReliableDimensionDocument
-): ReliableDimensionInterface {
-  const ret = doc.toJSON<ReliableDimensionDocument>();
+  doc: AutomaticDimensionDocument
+): AutomaticDimensionInterface {
+  const ret = doc.toJSON<AutomaticDimensionDocument>();
   return omit(ret, ["__v", "_id"]);
 }
 
-export async function updateReliableDimension(
-  reliableDimension: ReliableDimensionInterface,
-  updates: Partial<ReliableDimensionInterface>
-): Promise<ReliableDimensionInterface> {
-  const organization = reliableDimension.organization;
-  const id = reliableDimension.id;
-  await ReliableDimensionModel.updateOne(
+export async function updateAutomaticDimension(
+  automaticDimension: AutomaticDimensionInterface,
+  updates: Partial<AutomaticDimensionInterface>
+): Promise<AutomaticDimensionInterface> {
+  const organization = automaticDimension.organization;
+  const id = automaticDimension.id;
+  await AutomaticDimensionModel.updateOne(
     {
       organization,
       id,
@@ -51,28 +51,28 @@ export async function updateReliableDimension(
     }
   );
   return {
-    ...reliableDimension,
+    ...automaticDimension,
     ...updates,
   };
 }
-export async function getReliableDimensionById(
+export async function getAutomaticDimensionById(
   organization: string,
   id: string
 ) {
-  const doc = await ReliableDimensionModel.findOne({ organization, id });
+  const doc = await AutomaticDimensionModel.findOne({ organization, id });
 
   return doc ? toInterface(doc) : null;
 }
 
-export async function getLatestReliableDimension(
+export async function getLatestAutomaticDimension(
   organization: string,
   datasource: string,
   exposureQueryId: string
-): Promise<ReliableDimensionInterface | null> {
+): Promise<AutomaticDimensionInterface | null> {
   // TODO get no error or status === good
   console.log(datasource);
   console.log(exposureQueryId);
-  const doc = await ReliableDimensionModel.find(
+  const doc = await AutomaticDimensionModel.find(
     { organization, datasource, exposureQueryId },
     null,
     {
@@ -86,7 +86,7 @@ export async function getLatestReliableDimension(
   return null;
 }
 
-export async function createReliableDimension({
+export async function createAutomaticDimension({
   organization,
   datasourceId,
   queryId,
@@ -96,7 +96,7 @@ export async function createReliableDimension({
   queryId: string;
 }) {
   const now = new Date();
-  const doc = await ReliableDimensionModel.create({
+  const doc = await AutomaticDimensionModel.create({
     id: uniqid("reld_"),
     organization,
     datasource: datasourceId,

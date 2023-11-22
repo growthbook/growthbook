@@ -124,7 +124,7 @@ export interface ExperimentAggregateUnitsQueryParams
   useUnitsTable: boolean;
 }
 
-export type ReliableDimensionQueryParams = {
+export type AutomaticDimensionQueryParams = {
   exposureQueryId: string;
   dimensions: ExperimentDimension[];
 };
@@ -239,7 +239,7 @@ export type ExperimentAggregateUnitsQueryResponseRows = {
   units: number;
 }[];
 
-export type ReliableDimensionQueryResponseRows = {
+export type AutomaticDimensionQueryResponseRows = {
   dimension_value: string;
   dimension_name: string;
   units: number;
@@ -257,7 +257,7 @@ export type PastExperimentQueryResponse = QueryResponse<PastExperimentResponseRo
 export type ExperimentMetricQueryResponse = QueryResponse<ExperimentMetricQueryResponseRows>;
 export type ExperimentUnitsQueryResponse = QueryResponse;
 export type ExperimentAggregateUnitsQueryResponse = QueryResponse<ExperimentAggregateUnitsQueryResponseRows>;
-export type ReliableDimensionQueryResponse = QueryResponse<ReliableDimensionQueryResponseRows>;
+export type AutomaticDimensionQueryResponse = QueryResponse<AutomaticDimensionQueryResponseRows>;
 
 export interface SourceIntegrationConstructor {
   new (
@@ -344,11 +344,11 @@ export interface InformationSchemaTablesInterface {
   informationSchemaId: string;
 }
 
-export interface ReliableDimensionResult {
+export interface AutomaticDimensionResult {
   dimension: string;
   dimensionValues: { name: string; percent: number }[];
 }
-export interface ReliableDimensionInterface {
+export interface AutomaticDimensionInterface {
   id: string;
   organization: string;
 
@@ -359,7 +359,7 @@ export interface ReliableDimensionInterface {
   datasource: string;
   exposureQueryId: string;
 
-  results: ReliableDimensionResult[];
+  results: AutomaticDimensionResult[];
 }
 
 export interface SourceIntegrationInterface {
@@ -408,11 +408,11 @@ export interface SourceIntegrationInterface {
   ): string;
   getExperimentUnitsTableQuery(params: ExperimentUnitsQueryParams): string;
   getPastExperimentQuery(params: PastExperimentParams): string;
-  getReliableDimensionQuery(params: ReliableDimensionQueryParams): string;
-  runReliableDimensionQuery(
+  getAutomaticDimensionQuery(params: AutomaticDimensionQueryParams): string;
+  runAutomaticDimensionQuery(
     query: string,
     setExternalId: ExternalIdCallback
-  ): Promise<ReliableDimensionQueryResponse>;
+  ): Promise<AutomaticDimensionQueryResponse>;
   getDimensionInStatement(dimension: string, values: string[]): string;
   runMetricValueQuery(
     query: string,

@@ -48,11 +48,11 @@ import { TemplateVariables } from "../../types/sql";
 import { getUserById } from "../services/users";
 import { AuditUserLoggedIn } from "../../types/audit";
 import {
-  createReliableDimension,
-  getLatestReliableDimension,
-  getReliableDimensionById,
-} from "../models/ReliableDimensionModel";
-import { ReliableDimensionQueryRunner } from "../queryRunners/ReliableDimensionQueryRunner";
+  createAutomaticDimension,
+  getLatestAutomaticDimension,
+  getAutomaticDimensionById,
+} from "../models/AutomaticDimensionModel";
+import { AutomaticDimensionQueryRunner } from "../queryRunners/AutomaticDimensionQueryRunner";
 
 export async function postSampleData(
   req: AuthRequest,
@@ -669,22 +669,22 @@ export async function getDataSourceMetrics(
   });
 }
 
-export async function getReliableDimension(
+export async function getAutomaticDimension(
   req: AuthRequest<null, { id: string }>,
   res: Response
 ) {
   const { org } = getOrgFromReq(req);
   const { id } = req.params;
 
-  const reliableDimension = await getReliableDimensionById(org.id, id);
+  const automaticDimension = await getAutomaticDimensionById(org.id, id);
 
   res.status(200).json({
     status: 200,
-    reliableDimension,
+    automaticDimension,
   });
 }
 
-export async function getLatestReliableDimensionForDatasource(
+export async function getLatestAutomaticDimensionForDatasource(
   req: AuthRequest<null, { datasourceId: string; exposureQueryId: string }>,
   res: Response
 ) {
@@ -693,19 +693,19 @@ export async function getLatestReliableDimensionForDatasource(
   console.log("get latest");
   console.log(datasourceId);
   console.log(exposureQueryId);
-  const reliableDimension = await getLatestReliableDimension(
+  const automaticDimension = await getLatestAutomaticDimension(
     org.id,
     datasourceId,
     exposureQueryId
   );
-  console.log(reliableDimension);
+  console.log(automaticDimension);
   res.status(200).json({
     status: 200,
-    reliableDimension,
+    automaticDimension,
   });
 }
 
-export async function postReliableDimension(
+export async function postAutomaticDimension(
   req: AuthRequest<{ datasourceId: string; queryId: string }>,
   res: Response
 ) {
@@ -724,23 +724,58 @@ export async function postReliableDimension(
   const integration = getSourceIntegrationObject(datasourceObj, true);
 
   // todo caching?
-  const model = await createReliableDimension({
+  const model = await createAutomaticDimension({
     organization: org.id,
     datasourceId,
     queryId,
   });
-  const queryRunner = new ReliableDimensionQueryRunner(
+  const queryRunner = new AutomaticDimensionQueryRunner(
     model,
     integration,
-    false
   );
   const outputmodel = await queryRunner.startAnalysis({
     exposureQueryId: queryId,
   });
   res.status(200).json({
     status: 200,
-    reliableDimension: outputmodel,
+    automaticDimension: outputmodel,
   });
 
   // audit?
+}
+
+
+export async function cancelAutomaticDimension(
+  req: AuthRequest<null, { id: string }>,
+  res: Response
+) {
+  const { org } = getOrgFromReq(req);
+  const { id } = req.params;
+  const automaticDimension = await getAutomaticDimensionById(
+    org.id,
+    id
+  );
+  if (!automaticDimension) {
+    throw new Error("Could not cancel automatic dimension");
+  }
+  const datasource = await getDataSourceById(automaticDimension.datasource, org.id);
+  if (!datasource) {
+    throw new Error("Could not find datasource");
+  }
+
+  req.checkPermissions(
+    "runQueries",
+    datasource.projects ? datasource.projects : ""
+  );
+
+
+  const integration = getSourceIntegrationObject(datasource, true);
+
+
+  const queryRunner = new AutomaticDimensionQueryRunner(automaticDimension, integration);
+  await queryRunner.cancelQueries();
+
+  res.status(200).json({
+    status: 200,
+  });
 }

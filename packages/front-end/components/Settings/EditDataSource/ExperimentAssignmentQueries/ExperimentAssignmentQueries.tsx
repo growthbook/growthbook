@@ -15,9 +15,9 @@ import { AddEditExperimentAssignmentQueryModal } from "@/components/Settings/Edi
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import Button from "@/components/Button";
 import {
-  UpdateReliableDimensions,
-  UpdateReliableDimensionsModal,
-} from "../ReliableDimension/UpdateReliableDimensions";
+  UpdateAutomaticDimensions,
+  UpdateAutomaticDimensionsModal,
+} from "../AutomaticDimension/UpdateAutomaticDimensions";
 
 type ExperimentAssignmentQueriesProps = DataSourceQueryEditingModalBaseProps;
 type UIMode = "view" | "edit" | "add" | "dimension";
@@ -297,7 +297,7 @@ export const ExperimentAssignmentQueries: FC<ExperimentAssignmentQueriesProps> =
       ) : null}
 
       {uiMode === "dimension" ? (
-        <UpdateReliableDimensionsModal
+        <UpdateAutomaticDimensionsModal
           exposureQuery={experimentExposureQueries[editingIndex]}
           dataSource={dataSource}
           close={() => setUiMode("view")}

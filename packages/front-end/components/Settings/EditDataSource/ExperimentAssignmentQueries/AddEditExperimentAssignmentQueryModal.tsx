@@ -227,9 +227,9 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
   // TODO escape hatch if query fails
   // let rqb = <></>;
 
-  // const getReliableDimension = async () => {
+  // const getAutomaticDimension = async () => {
   //   if (exposureQuery) {
-  //     const data = await apiCall<{ reliableDimension: ReliableDimensionInterface }>("/reliable-dimension", {
+  //     const data = await apiCall<{ automaticDimension: AutomaticDimensionInterface }>("/automatic-dimension", {
   //       method: "POST",
   //       body: JSON.stringify({
   //         datasourceId: dataSource.id,
@@ -238,8 +238,8 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
   //     });
   //     console.dir(data, {depth:null})
   //   //   let { data, error, mutate } = useApi<{
-  //   //     reliableDimension: ReliableDimensionInterface;
-  //   //   }>(`/datasource/${dataSource.id}/${exposureQuery.id}/reliable-dimension`);
+  //   //     automaticDimension: AutomaticDimensionInterface;
+  //   //   }>(`/datasource/${dataSource.id}/${exposureQuery.id}/automatic-dimension`);
 
   //   //   if (!data) {
   //   //     const res = async() =>
@@ -247,7 +247,7 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
   //   //   rqb = <RunQueriesButton
   //   //     icon="refresh"
   //   //     cta={"Run Dim Query"}
-  //   //     model={data.reliableDimension}
+  //   //     model={data.automaticDimension}
   //   //     cancelEndpoint={`/metric/1/analysis/cancel`}
   //   //     color="outline-primary"
   //   //     position="left"
@@ -256,7 +256,7 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
   //   }
   // }
   // useEffect(() => {
-  //   getReliableDimension();
+  //   getAutomaticDimension();
   // }, [dataSource.id]);
 
   return (

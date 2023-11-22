@@ -46,8 +46,8 @@ import {
   UserDimension,
   ExperimentDimension,
   ExternalIdCallback,
-  ReliableDimensionQueryResponse,
-  ReliableDimensionQueryParams,
+  AutomaticDimensionQueryResponse,
+  AutomaticDimensionQueryParams,
 } from "../types/Integration";
 import { DimensionInterface } from "../../types/dimension";
 import { IMPORT_LIMIT_DAYS } from "../util/secrets";
@@ -1253,7 +1253,7 @@ export default abstract class SqlIntegration
     );
   }
 
-  getReliableDimensionQuery(params: ReliableDimensionQueryParams) {
+  getAutomaticDimensionQuery(params: AutomaticDimensionQueryParams) {
     // TODO only pass experiment dims that aren't in the "curated by GrowthBook" collection
 
     const exposureQuery = this.getExposureQuery(params.exposureQueryId || "");
@@ -1347,10 +1347,10 @@ export default abstract class SqlIntegration
     // TODO would you like to apply this change, would you like to auto-compute results and health for these dimensions?
   }
 
-  async runReliableDimensionQuery(
+  async runAutomaticDimensionQuery(
     query: string,
     setExternalId: ExternalIdCallback
-  ): Promise<ReliableDimensionQueryResponse> {
+  ): Promise<AutomaticDimensionQueryResponse> {
     console.log(query);
     const { rows, statistics } = await this.runQuery(query, setExternalId);
     return {

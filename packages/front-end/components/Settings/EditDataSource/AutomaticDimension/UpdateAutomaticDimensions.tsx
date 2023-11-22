@@ -5,7 +5,7 @@ import {
 } from "back-end/types/datasource";
 import { useForm } from "react-hook-form";
 import cloneDeep from "lodash/cloneDeep";
-import { ReliableDimensionInterface } from "back-end/src/types/Integration";
+import { AutomaticDimensionInterface } from "back-end/src/types/Integration";
 import { ago, datetime } from "shared/dates";
 import { useAuth } from "@/services/auth";
 import useApi from "@/hooks/useApi";
@@ -14,8 +14,9 @@ import RunQueriesButton, {
 } from "@/components/Queries/RunQueriesButton";
 import ViewAsyncQueriesButton from "@/components/Queries/ViewAsyncQueriesButton";
 import Modal from "../../../Modal";
+import Tooltip from "@/components/Tooltip/Tooltip";
 
-type UpdateReliableDimensionModalProps = {
+type UpdateAutomaticDimensionModalProps = {
   exposureQuery: ExposureQuery;
   dataSource: DataSourceInterfaceWithParams;
   close: () => void;
@@ -28,7 +29,7 @@ const smallPercentFormatter = new Intl.NumberFormat(undefined, {
   maximumFractionDigits: 0,
 });
 
-export const UpdateReliableDimensionsModal: FC<UpdateReliableDimensionModalProps> = ({
+export const UpdateAutomaticDimensionsModal: FC<UpdateAutomaticDimensionModalProps> = ({
   exposureQuery,
   dataSource,
   close,
@@ -36,80 +37,94 @@ export const UpdateReliableDimensionsModal: FC<UpdateReliableDimensionModalProps
   //onCancel,
 }) => {
   const { apiCall } = useAuth();
-
-  const form = useForm<ExposureQuery>({
-    defaultValues: cloneDeep<ExposureQuery>(exposureQuery),
-  });
   const [id, setId] = useState<string | null>(null);
-
   const { data, error, mutate } = useApi<{
-    reliableDimension: ReliableDimensionInterface;
-  }>(`/reliable-dimension/${id}`);
-
-  const handleSubmit = form.handleSubmit(async (value) => {
-    await onSave(value);
-
-    form.reset({
-      id: undefined,
-      query: "",
-      name: "",
-      dimensions: [],
-      dimensionsForTraffic: [],
-      description: "",
-      hasNameCol: false,
-      userIdType: undefined,
-    });
-  });
+    automaticDimension: AutomaticDimensionInterface;
+  }>(`/automatic-dimension/${id}`);
 
   const getDimensionId = useCallback(async () => {
-    try {
-      const res = await apiCall<{
-        reliableDimension: ReliableDimensionInterface;
-      }>(`/reliable-dimension/datasource/${dataSource.id}/${exposureQuery.id}`);
-      if (res?.reliableDimension?.id) {
-        setId(res.reliableDimension.id);
-        await mutate();
+    if (exposureQuery.processedDimensionsId) {
+      setId(exposureQuery.processedDimensionsId);
+      await mutate();
+    } else {
+      try {
+        const res = await apiCall<{
+          automaticDimension: AutomaticDimensionInterface;
+        }>(`/automatic-dimension/datasource/${dataSource.id}/${exposureQuery.id}`);
+        if (res?.automaticDimension?.id) {
+          setId(res.automaticDimension.id);
+          await mutate();
+        }
+      } catch (e) {
+        console.error(e);
       }
-    } catch (e) {
-      console.error(e);
     }
   }, [dataSource, exposureQuery, apiCall, mutate, setId]);
+
   useEffect(() => {
     getDimensionId();
   }, [getDimensionId]);
+
   const { status } = getQueryStatus(
-    data?.reliableDimension?.queries || [],
-    data?.reliableDimension?.error
+    data?.automaticDimension?.queries || [],
+    data?.automaticDimension?.error
   );
-  console.log(status);
-  console.log(data);
+
   const refreshDimension = useCallback(async () => {
-    const res = await apiCall<{
-      reliableDimension: ReliableDimensionInterface;
-    }>("/reliable-dimension", {
+    apiCall<{
+      automaticDimension: AutomaticDimensionInterface;
+    }>("/automatic-dimension", {
       method: "POST",
       body: JSON.stringify({
         datasourceId: dataSource.id,
         queryId: exposureQuery.id,
       }),
+    }).then((res) => {
+      setId(res.automaticDimension.id);
+      mutate();
+    })
+    .catch((e) => {
+      console.error(e.message);
     });
-    await mutate();
-    setId(res.reliableDimension.id);
   }, [dataSource, exposureQuery, mutate, apiCall]);
 
   if (error) {
     return <div className="alert alert-error">{error?.message}</div>;
   }
 
+  const saveEnabled = id && status === "succeeded";
+  const secondaryCTA = <>
+      <Tooltip
+        body={""}
+        shouldDisplay={true}
+        tipPosition="top"
+      >
+        <button
+          className={`btn btn-primary`}
+          type="submit"
+          disabled={!saveEnabled}
+          onClick={() => {
+            if (id) {
+              const value = cloneDeep<ExposureQuery>(exposureQuery);
+              value.processedDimensionsId = id;
+              onSave(value);
+              close();
+            }
+          }}
+        >
+          {"Save to Data Source"}
+        </button>
+      </Tooltip>
+  </>;
+
   return (
     <>
       <Modal
         open={true}
         close={close}
-        submit={handleSubmit}
-        cta={"Save to Data Source"}
+        secondaryCTA={secondaryCTA}
         size="lg"
-        header={"Processed Dimension"}
+        header={"Automatic Dimensions"}
       >
         <div className="my-2 ml-3 mr-3">
           <div className="row">
@@ -120,13 +135,13 @@ export const UpdateReliableDimensionsModal: FC<UpdateReliableDimensionModalProps
                 <div className="col-12">
                   <div className="row align-items-center mb-4">
                     <div className="col-auto ml-auto">
-                      {data.reliableDimension?.runStarted ? (
+                      {data.automaticDimension?.runStarted ? (
                         <div
                           className="text-muted"
                           style={{ fontSize: "0.8em" }}
-                          title={datetime(data.reliableDimension.runStarted)}
+                          title={datetime(data.automaticDimension.runStarted)}
                         >
-                          last updated {ago(data.reliableDimension.runStarted)}
+                          last updated {ago(data.automaticDimension.runStarted)}
                         </div>
                       ) : null}
                     </div>
@@ -142,33 +157,40 @@ export const UpdateReliableDimensionsModal: FC<UpdateReliableDimensionModalProps
                     >
                       <RunQueriesButton
                         cta={`${
-                          data.reliableDimension ? "Refresh" : "Load"
+                          data.automaticDimension ? "Refresh" : "Create"
                         } Automatic Dimensions`}
+                        icon={data.automaticDimension ? "refresh" :"run"}
                         mutate={mutate}
-                        model={data.reliableDimension ?? { queries: [] }}
-                        cancelEndpoint={`/metric/1/analysis/cancel` /*TODO*/}
+                        model={data.automaticDimension ?? { queries: [] }}
+                        cancelEndpoint={`/automatic-dimension/${id}/cancel`}
                         color="outline-primary"
                       />
                     </form>{" "}
+                    {status === "failed" && data.automaticDimension && (
+        <div className="alert alert-danger mt-2">
+          <strong>Error updating data, reverting to last valid dimension slices.</strong>
+        </div>
+      )}
                   </div>
-                  {data?.reliableDimension?.results &&
-                  data?.reliableDimension.results.length ? (
-                    <UpdateReliableDimensions
-                      reliableDimension={data.reliableDimension}
+                  {data?.automaticDimension?.results &&
+                  data?.automaticDimension.results.length ? (
+                    <UpdateAutomaticDimensions
+                      automaticDimension={data.automaticDimension}
                     />
                   ) : (
                     <></>
                   )}
-                  {data?.reliableDimension?.queries && (
+                  {data?.automaticDimension?.queries && (
                     <div>
                       <ViewAsyncQueriesButton
                         queries={
-                          data.reliableDimension.queries?.length > 0
-                            ? data.reliableDimension.queries.map((q) => q.query)
+                          data.automaticDimension.queries?.length > 0
+                            ? data.automaticDimension.queries.map((q) => q.query)
                             : []
                         }
-                        error={data.reliableDimension.error}
+                        error={data.automaticDimension.error}
                         inline={true}
+                        status={status}
                       />
                     </div>
                   )}
@@ -182,18 +204,18 @@ export const UpdateReliableDimensionsModal: FC<UpdateReliableDimensionModalProps
   );
 };
 
-type UpdateReliableDimensionProps = {
-  reliableDimension: ReliableDimensionInterface;
+type UpdateAutomaticDimensionProps = {
+  automaticDimension: AutomaticDimensionInterface;
 };
 
-export const UpdateReliableDimensions: FC<UpdateReliableDimensionProps> = ({
-  reliableDimension,
+export const UpdateAutomaticDimensions: FC<UpdateAutomaticDimensionProps> = ({
+  automaticDimension,
 }) => {
   return (
     <>
       <div>
-        {reliableDimension
-          ? reliableDimension.results.map((r, i) => {
+        {automaticDimension
+          ? automaticDimension.results.map((r, i) => {
               let totalPercent = 0;
               return (
                 <div key={i}>
