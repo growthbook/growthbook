@@ -4,22 +4,18 @@ import {
 } from "back-end/types/experiment";
 import { getScopedSettings } from "shared/settings";
 import { useMemo, useState } from "react";
-import {
-  MetricRegressionAdjustmentStatus,
-  ReportInterface,
-} from "back-end/types/report";
-import { DEFAULT_REGRESSION_ADJUSTMENT_ENABLED } from "shared/constants";
-import { MetricInterface } from "back-end/types/metric";
+import { ReportInterface } from "back-end/types/report";
 import uniq from "lodash/uniq";
 import { VisualChangesetInterface } from "back-end/types/visual-changeset";
 import { SDKConnectionInterface } from "back-end/types/sdk-connection";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { DifferenceType } from "back-end/types/stats";
+import { getAllMetricRegressionAdjustmentStatuses } from "shared/experiments";
+import { MetricInterface } from "back-end/types/metric";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import useOrgSettings from "@/hooks/useOrgSettings";
-import { getRegressionAdjustmentsForMetric } from "@/services/experiments";
 import { useAuth } from "@/services/auth";
 import Button from "@/components/Button";
 import { GBAddCircle } from "@/components/Icons";
@@ -79,6 +75,7 @@ export default function ResultsTab({
   const {
     getDatasourceById,
     getExperimentMetricById,
+    getMetricById,
     getProjectById,
     metrics,
     datasources,
@@ -124,65 +121,28 @@ export default function ResultsTab({
       .filter((d) => d && typeof d === "string") as string[]
   );
   const denominatorMetrics = denominatorMetricIds
-    .map((m) => getExperimentMetricById(m as string))
+    .map((m) => getMetricById(m as string))
     .filter(Boolean) as MetricInterface[];
 
   const orgSettings = useOrgSettings();
 
-  const [
+  const {
     regressionAdjustmentAvailable,
     regressionAdjustmentEnabled,
     metricRegressionAdjustmentStatuses,
     regressionAdjustmentHasValidMetrics,
-  ] = useMemo(() => {
-    const metricRegressionAdjustmentStatuses: MetricRegressionAdjustmentStatus[] = [];
-    let regressionAdjustmentAvailable = true;
-    let regressionAdjustmentEnabled = true;
-    let regressionAdjustmentHasValidMetrics = false;
-    for (const metric of allExperimentMetrics) {
-      if (!metric) continue;
-      const {
-        metricRegressionAdjustmentStatus,
-      } = getRegressionAdjustmentsForMetric({
-        metric: metric,
-        denominatorMetrics: denominatorMetrics,
-        experimentRegressionAdjustmentEnabled:
-          experiment.regressionAdjustmentEnabled ??
-          DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
-        organizationSettings: orgSettings,
-        metricOverrides: experiment.metricOverrides,
-      });
-      if (metricRegressionAdjustmentStatus.regressionAdjustmentEnabled) {
-        regressionAdjustmentEnabled = true;
-        regressionAdjustmentHasValidMetrics = true;
-      }
-      metricRegressionAdjustmentStatuses.push(metricRegressionAdjustmentStatus);
-    }
-    if (!experiment.regressionAdjustmentEnabled) {
-      regressionAdjustmentEnabled = false;
-    }
-    if (statsEngine === "bayesian") {
-      regressionAdjustmentAvailable = false;
-      regressionAdjustmentEnabled = false;
-    }
-    if (
-      !datasource?.type ||
-      datasource?.type === "google_analytics" ||
-      datasource?.type === "mixpanel"
-    ) {
-      // these do not implement getExperimentMetricQuery
-      regressionAdjustmentAvailable = false;
-      regressionAdjustmentEnabled = false;
-    }
-    if (!hasRegressionAdjustmentFeature) {
-      regressionAdjustmentEnabled = false;
-    }
-    return [
-      regressionAdjustmentAvailable,
-      regressionAdjustmentEnabled,
-      metricRegressionAdjustmentStatuses,
-      regressionAdjustmentHasValidMetrics,
-    ];
+  } = useMemo(() => {
+    return getAllMetricRegressionAdjustmentStatuses({
+      allExperimentMetrics,
+      denominatorMetrics,
+      orgSettings,
+      statsEngine,
+      experimentRegressionAdjustmentEnabled:
+        experiment.regressionAdjustmentEnabled,
+      experimentMetricOverrides: experiment.metricOverrides,
+      datasourceType: datasource?.type,
+      hasRegressionAdjustmentFeature,
+    });
   }, [
     allExperimentMetrics,
     denominatorMetrics,

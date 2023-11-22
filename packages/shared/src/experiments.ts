@@ -1,6 +1,15 @@
 import { MetricInterface } from "back-end/types/metric";
 import { FactMetricInterface, FactTableMap } from "back-end/types/fact-table";
 import { TemplateVariables } from "back-end/types/sql";
+import { OrganizationSettings } from "back-end/types/organization";
+import { MetricOverride } from "back-end/types/experiment";
+import { MetricRegressionAdjustmentStatus } from "back-end/types/report";
+import cloneDeep from "lodash/cloneDeep";
+import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
+import {
+  DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
+  DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
+} from "./constants";
 import { DEFAULT_CONVERSION_WINDOW_HOURS } from "./settings/resolvers/genDefaultSettings";
 
 export type ExperimentMetricInterface = MetricInterface | FactMetricInterface;
@@ -93,4 +102,174 @@ export function getUserIdTypes(
 export function getMetricLink(id: string): string {
   if (isFactMetricId(id)) return `/fact-metrics/${id}`;
   return `/metric/${id}`;
+}
+
+export function getRegressionAdjustmentsForMetric<
+  T extends ExperimentMetricInterface
+>({
+  metric,
+  denominatorMetrics,
+  experimentRegressionAdjustmentEnabled,
+  organizationSettings,
+  metricOverrides,
+}: {
+  metric: T;
+  denominatorMetrics: MetricInterface[];
+  experimentRegressionAdjustmentEnabled: boolean;
+  organizationSettings?: Partial<OrganizationSettings>; // can be RA fields from a snapshot of org settings
+  metricOverrides?: MetricOverride[];
+}): {
+  newMetric: T;
+  metricRegressionAdjustmentStatus: MetricRegressionAdjustmentStatus;
+} {
+  const newMetric = cloneDeep<T>(metric);
+
+  // start with default RA settings
+  let regressionAdjustmentEnabled = false;
+  let regressionAdjustmentDays = DEFAULT_REGRESSION_ADJUSTMENT_DAYS;
+  let reason = "";
+
+  // get RA settings from organization
+  if (organizationSettings?.regressionAdjustmentEnabled) {
+    regressionAdjustmentEnabled = true;
+    regressionAdjustmentDays =
+      organizationSettings?.regressionAdjustmentDays ??
+      regressionAdjustmentDays;
+  }
+  if (experimentRegressionAdjustmentEnabled) {
+    regressionAdjustmentEnabled = true;
+  }
+
+  // get RA settings from metric
+  if (metric?.regressionAdjustmentOverride) {
+    regressionAdjustmentEnabled = !!metric?.regressionAdjustmentEnabled;
+    regressionAdjustmentDays =
+      metric?.regressionAdjustmentDays ?? DEFAULT_REGRESSION_ADJUSTMENT_DAYS;
+    if (!regressionAdjustmentEnabled) {
+      reason = "disabled in metric settings";
+    }
+  }
+
+  // get RA settings from metric override
+  if (metricOverrides) {
+    const metricOverride = metricOverrides.find((mo) => mo.id === metric.id);
+    if (metricOverride?.regressionAdjustmentOverride) {
+      regressionAdjustmentEnabled = !!metricOverride?.regressionAdjustmentEnabled;
+      regressionAdjustmentDays =
+        metricOverride?.regressionAdjustmentDays ?? regressionAdjustmentDays;
+      if (!regressionAdjustmentEnabled) {
+        reason = "disabled by metric override";
+      } else {
+        reason = "";
+      }
+    }
+  }
+
+  // final gatekeeping
+  if (regressionAdjustmentEnabled) {
+    if (isFactMetric(metric)) {
+      if (metric.metricType === "ratio") {
+        regressionAdjustmentEnabled = false;
+        reason = "ratio metrics not supported";
+      }
+    } else if (metric?.denominator) {
+      const denominator = denominatorMetrics.find(
+        (m) => m.id === metric?.denominator
+      );
+      if (denominator?.type === "count") {
+        regressionAdjustmentEnabled = false;
+        reason = "denominator is count";
+      }
+    }
+  }
+  if ("aggregation" in metric && metric?.aggregation) {
+    regressionAdjustmentEnabled = false;
+    reason = "custom aggregation";
+  }
+
+  if (!regressionAdjustmentEnabled) {
+    regressionAdjustmentDays = 0;
+  }
+
+  newMetric.regressionAdjustmentEnabled = regressionAdjustmentEnabled;
+  newMetric.regressionAdjustmentDays = regressionAdjustmentDays;
+
+  return {
+    newMetric,
+    metricRegressionAdjustmentStatus: {
+      metric: newMetric.id,
+      regressionAdjustmentEnabled,
+      regressionAdjustmentDays,
+      reason,
+    },
+  };
+}
+
+export function getAllMetricRegressionAdjustmentStatuses({
+  allExperimentMetrics,
+  denominatorMetrics,
+  orgSettings,
+  statsEngine,
+  experimentRegressionAdjustmentEnabled,
+  experimentMetricOverrides = [],
+  datasourceType,
+  hasRegressionAdjustmentFeature,
+}: {
+  allExperimentMetrics: (ExperimentMetricInterface | null)[];
+  denominatorMetrics: MetricInterface[];
+  orgSettings: OrganizationSettings;
+  statsEngine: string;
+  experimentRegressionAdjustmentEnabled?: boolean;
+  experimentMetricOverrides?: MetricOverride[];
+  datasourceType?: DataSourceInterfaceWithParams["type"];
+  hasRegressionAdjustmentFeature: boolean;
+}) {
+  const metricRegressionAdjustmentStatuses: MetricRegressionAdjustmentStatus[] = [];
+  let regressionAdjustmentAvailable = true;
+  let regressionAdjustmentEnabled = true;
+  let regressionAdjustmentHasValidMetrics = false;
+  for (const metric of allExperimentMetrics) {
+    if (!metric) continue;
+    const {
+      metricRegressionAdjustmentStatus,
+    } = getRegressionAdjustmentsForMetric({
+      metric: metric,
+      denominatorMetrics: denominatorMetrics,
+      experimentRegressionAdjustmentEnabled:
+        experimentRegressionAdjustmentEnabled ??
+        DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
+      organizationSettings: orgSettings,
+      metricOverrides: experimentMetricOverrides,
+    });
+    if (metricRegressionAdjustmentStatus.regressionAdjustmentEnabled) {
+      regressionAdjustmentEnabled = true;
+      regressionAdjustmentHasValidMetrics = true;
+    }
+    metricRegressionAdjustmentStatuses.push(metricRegressionAdjustmentStatus);
+  }
+  if (!experimentRegressionAdjustmentEnabled) {
+    regressionAdjustmentEnabled = false;
+  }
+  if (statsEngine === "bayesian") {
+    regressionAdjustmentAvailable = false;
+    regressionAdjustmentEnabled = false;
+  }
+  if (
+    !datasourceType ||
+    datasourceType === "google_analytics" ||
+    datasourceType === "mixpanel"
+  ) {
+    // these do not implement getExperimentMetricQuery
+    regressionAdjustmentAvailable = false;
+    regressionAdjustmentEnabled = false;
+  }
+  if (!hasRegressionAdjustmentFeature) {
+    regressionAdjustmentEnabled = false;
+  }
+  return {
+    regressionAdjustmentAvailable,
+    regressionAdjustmentEnabled,
+    metricRegressionAdjustmentStatuses,
+    regressionAdjustmentHasValidMetrics,
+  };
 }
