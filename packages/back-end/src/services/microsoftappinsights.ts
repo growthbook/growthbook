@@ -13,15 +13,13 @@ export async function runApi(
 ) {
   let data = null;
 
-  const res = await fetch(
-    `https://api.applicationinsights.io/v1/apps/${conn.appId}/query${urlQuery}`,
-    {
-      agent: httpsAgent,
-      headers: {
-        ["x-api-key"]: conn.apiKey,
-      },
-    }
-  );
+  const url = `https://api.applicationinsights.io/v1/apps/${conn.appId}/query${urlQuery}`;
+  const res = await fetch(url, {
+    agent: httpsAgent,
+    headers: {
+      ["x-api-key"]: conn.apiKey,
+    },
+  });
   data = await res.json();
 
   if (data.error) {

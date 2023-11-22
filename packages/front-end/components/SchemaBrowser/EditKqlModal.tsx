@@ -12,7 +12,7 @@ import { CursorData } from "../Segments/SegmentForm";
 import DisplayTestQueryResults from "../Settings/DisplayTestQueryResults";
 import Button from "../Button";
 import SchemaBrowser from "./SchemaBrowser";
-import styles from "./EditSqlModal.module.scss";
+import styles from "./EditKqlModal.module.scss";
 
 export type TestQueryResults = {
   duration?: string;
@@ -35,7 +35,7 @@ export interface Props {
   };
 }
 
-export default function EditSqlModal({
+export default function EditKqlModal({
   value,
   save,
   close,

@@ -94,9 +94,13 @@ export default class MicrosoftAppInsights
   }
 
   async runQuery(query: string): Promise<any> {
+    const inlineQuery = query
+      .split("\n")
+      .map((string) => string.trim())
+      .join(" ");
     const result = await runApi(
       this.params,
-      query !== "" ? `?query=${encodeURIComponent(query)}` : ""
+      query !== "" ? `?query=${inlineQuery}` : ""
     );
 
     return result;
@@ -2094,13 +2098,16 @@ export default class MicrosoftAppInsights
         startDate,
       }
     );
-    const finalQuery = format(limitedQuery, this.getFormatDialect());
+
+    const finalQuery = limitedQuery;
+
     return finalQuery;
   }
 
   async runTestQuery(kql: string): Promise<TestQueryResult> {
     const queryStartTime = Date.now();
     const kustoResult = await this.runQuery(kql);
+
     const queryEndTime = Date.now();
     const duration = queryEndTime - queryStartTime;
     const results = kustoResult?.tables[0].rows.map((row: any) => {

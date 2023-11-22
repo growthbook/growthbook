@@ -79,7 +79,7 @@ const DimensionForm: FC<{
           close={() => setKqlOpen(false)}
           datasourceId={dsObj.id || ""}
           placeholder={`customEvents\n| project ${userIdType} = tostring(customDimensions["user_Id"]), customDimensions, timestamp`}
-          requiredColumns={requiredColumns}
+          requiredColumns={new Set()}
           value={sql}
           save={async (sql) => form.setValue("sql", sql)}
         />
@@ -158,7 +158,8 @@ const DimensionForm: FC<{
                 type="button"
                 onClick={(e) => {
                   e.preventDefault();
-                  setSqlOpen(true);
+                  supportsKQL && setKqlOpen(true);
+                  supportsSQL && setSqlOpen(true);
                 }}
               >
                 {`${sql ? "Edit" : "Add"} ${supportsKQL ? "kusto" : "sql"} `}
