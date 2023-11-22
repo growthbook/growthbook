@@ -129,7 +129,6 @@ export default function ResultsTab({
   const {
     regressionAdjustmentAvailable,
     regressionAdjustmentEnabled,
-    metricRegressionAdjustmentStatuses,
     regressionAdjustmentHasValidMetrics,
   } = useMemo(() => {
     return getAllMetricRegressionAdjustmentStatuses({
@@ -183,10 +182,6 @@ export default function ResultsTab({
             experiment={experiment}
             mutate={mutate}
             statsEngine={statsEngine}
-            regressionAdjustmentEnabled={regressionAdjustmentEnabled}
-            metricRegressionAdjustmentStatuses={
-              metricRegressionAdjustmentStatuses
-            }
             editMetrics={editMetrics ?? undefined}
             setVariationFilter={(v: number[]) => setVariationFilter(v)}
             baselineRow={baselineRow}
@@ -277,9 +272,6 @@ export default function ResultsTab({
                   regressionAdjustmentEnabled={regressionAdjustmentEnabled}
                   regressionAdjustmentHasValidMetrics={
                     regressionAdjustmentHasValidMetrics
-                  }
-                  metricRegressionAdjustmentStatuses={
-                    metricRegressionAdjustmentStatuses
                   }
                   onRegressionAdjustmentChange={onRegressionAdjustmentChange}
                   isTabActive={isTabActive}
