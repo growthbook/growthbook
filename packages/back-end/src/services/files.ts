@@ -5,8 +5,10 @@ import { Storage } from "@google-cloud/storage";
 import {
   S3_BUCKET,
   S3_REGION,
+  S3_DOMAIN,
   UPLOAD_METHOD,
   GCS_BUCKET_NAME,
+  GCS_DOMAIN,
 } from "../util/secrets";
 
 let s3: AWS.S3;
@@ -32,6 +34,8 @@ export async function uploadFile(
     throw new Error("Error: Filename must not contain null bytes");
   }
 
+  let fileURL = "";
+
   if (UPLOAD_METHOD === "s3") {
     const params = {
       Bucket: S3_BUCKET,
@@ -40,6 +44,7 @@ export async function uploadFile(
       ContentType: contentType,
     };
     await getS3().upload(params).promise();
+    fileURL = S3_DOMAIN + (S3_DOMAIN.endsWith("/") ? "" : "/") + filePath;
   } else if (UPLOAD_METHOD === "google-cloud") {
     const storage = new Storage();
 
@@ -47,6 +52,7 @@ export async function uploadFile(
       .bucket(GCS_BUCKET_NAME)
       .file(filePath)
       .save(contents, { contentType: contentType });
+    fileURL = GCS_DOMAIN + (GCS_DOMAIN.endsWith("/") ? "" : "/") + filePath;
   } else {
     const rootDirectory = getUploadsDir();
     const fullPath = path.join(rootDirectory, filePath);
@@ -61,8 +67,9 @@ export async function uploadFile(
     const dir = path.dirname(fullPath);
     await fs.promises.mkdir(dir, { recursive: true });
     await fs.promises.writeFile(fullPath, contents);
+    fileURL = `/upload/${filePath}`;
   }
-  return `/upload/${filePath}`;
+  return fileURL;
 }
 
 export async function getImageData(filePath: string) {

@@ -1,7 +1,12 @@
 import React, { useEffect, useState, FC } from "react";
 import { FaExclamationTriangle } from "react-icons/fa";
 import { useAuth } from "@/services/auth";
-import { getApiHost, getS3Domain } from "@/services/env";
+import {
+  getApiHost,
+  getGcsDomain,
+  getS3Domain,
+  usingFileProxy,
+} from "@/services/env";
 import LoadingSpinner from "./LoadingSpinner";
 
 interface AuthorizedImageProps extends React.HTMLProps<HTMLImageElement> {
@@ -38,8 +43,11 @@ const AuthorizedImage: FC<AuthorizedImageProps> = ({
     if (imageCache[src]) {
       // Images in the cache do not need to be fetched again
       setImageSrc(imageCache[src]);
-    } else if (src.startsWith("https://storage.googleapis.com/")) {
-      // For legacy GCS images which link directly to the bucket:
+    } else if (
+      usingFileProxy() &&
+      getGcsDomain() &&
+      src.startsWith(getGcsDomain())
+    ) {
       // We convert GCS images to the GB url that acts as a proxy using the correct credentials
       // This way they can lock their bucket down to only allow access from the proxy.
       const withoutDomain = src.replace("https://storage.googleapis.com/", "");
@@ -47,8 +55,11 @@ const AuthorizedImage: FC<AuthorizedImageProps> = ({
       parts.shift(); // remove bucket name
       const apiUrl = getApiHost() + "/upload/" + parts.join("/");
       fetchData(src, apiUrl);
-    } else if (getS3Domain() && src.startsWith(getS3Domain())) {
-      // For legacy s3 images which link directly to the bucket:
+    } else if (
+      usingFileProxy() &&
+      getS3Domain() &&
+      src.startsWith(getS3Domain())
+    ) {
       // We convert s3 images to the GB url that acts as a proxy using the correct credentials
       // This way they can lock their bucket down to only allow access from the proxy.
       const apiUrl =

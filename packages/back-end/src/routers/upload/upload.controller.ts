@@ -1,5 +1,5 @@
 import { Response } from "express";
-import uniqid from "uniqid";
+import { v4 as uuidv4 } from "uuid";
 import { getImageData, uploadFile } from "../../services/files";
 import { AuthRequest } from "../../types/AuthRequest";
 import { getOrgFromReq } from "../../services/organizations";
@@ -34,7 +34,7 @@ export async function putUpload(req: AuthRequest<Buffer>, res: Response) {
 
   const now = new Date();
   const pathPrefix = `${org.id}/${now.toISOString().substr(0, 7)}/`;
-  const fileName = uniqid("img_");
+  const fileName = "img_" + uuidv4();
   const filePath = `${pathPrefix}${fileName}.${ext}`;
   const fileURL = await uploadFile(filePath, contentType, req.body);
 
