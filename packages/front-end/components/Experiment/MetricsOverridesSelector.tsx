@@ -1,9 +1,14 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { useFieldArray, UseFormReturn } from "react-hook-form";
 import { FaTimes } from "react-icons/fa";
 import { DEFAULT_REGRESSION_ADJUSTMENT_DAYS } from "shared/constants";
 import { isUndefined } from "lodash";
+import {
+  isBinomialMetric,
+  isFactMetric,
+  isRatioMetric,
+} from "shared/experiments";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import Toggle from "@/components/Forms/Toggle";
@@ -26,9 +31,14 @@ export default function MetricsOverridesSelector({
   setHasMetricOverrideRiskError: (boolean) => void;
 }) {
   const [selectedMetricId, setSelectedMetricId] = useState<string>("");
-  const { metrics: metricDefinitions } = useDefinitions();
+  const { metrics: metricDefinitions, factMetrics } = useDefinitions();
   const settings = useOrgSettings();
   const { hasCommercialFeature } = useUser();
+
+  const allDefinitions = useMemo(() => [...metricDefinitions, ...factMetrics], [
+    metricDefinitions,
+    factMetrics,
+  ]);
 
   const metrics = new Set(
     form.watch("metrics").concat(form.watch("guardrails"))
@@ -51,9 +61,7 @@ export default function MetricsOverridesSelector({
     !disabled &&
       metricOverrides.fields.map((v, i) => {
         const mo = form.watch(`metricOverrides.${i}`);
-        const metricDefinition = metricDefinitions.find(
-          (md) => md.id === mo.id
-        );
+        const metricDefinition = allDefinitions.find((md) => md.id === mo.id);
 
         const loseRisk =
           isUndefined(mo.loseRisk) || isNaN(mo.loseRisk)
@@ -74,7 +82,7 @@ export default function MetricsOverridesSelector({
     setHasMetricOverrideRiskError(hasRiskError);
   }, [
     disabled,
-    metricDefinitions,
+    allDefinitions,
     metricOverrides,
     form,
     setHasMetricOverrideRiskError,
@@ -85,30 +93,42 @@ export default function MetricsOverridesSelector({
       {!disabled &&
         metricOverrides.fields.map((v, i) => {
           const mo = form.watch(`metricOverrides.${i}`);
-          const metricDefinition = metricDefinitions.find(
-            (md) => md.id === mo.id
-          );
+          const metricDefinition = allDefinitions.find((md) => md.id === mo.id);
 
           const hasRegressionAdjustmentFeature = hasCommercialFeature(
             "regression-adjustment"
           );
           let regressionAdjustmentAvailableForMetric = true;
           let regressionAdjustmentAvailableForMetricReason = <></>;
+          if (
+            metricDefinition &&
+            isFactMetric(metricDefinition) &&
+            isRatioMetric(metricDefinition)
+          ) {
+            regressionAdjustmentAvailableForMetric = false;
+            regressionAdjustmentAvailableForMetricReason = (
+              <>Not available for ratio metrics.</>
+            );
+          }
           if (metricDefinition?.denominator) {
-            const denominator = metricDefinitions.find(
+            const denominator = allDefinitions.find(
               (m) => m.id === metricDefinition.denominator
             );
-            if (denominator?.type === "count") {
+            if (denominator && !isBinomialMetric(denominator)) {
               regressionAdjustmentAvailableForMetric = false;
               regressionAdjustmentAvailableForMetricReason = (
                 <>
-                  Not available for ratio metrics with <em>count</em>{" "}
-                  denominators.
+                  Not available for metrics where the denominator is a{" "}
+                  <em>binomial</em> type.
                 </>
               );
             }
           }
-          if (metricDefinition?.aggregation) {
+          if (
+            metricDefinition &&
+            !isFactMetric(metricDefinition) &&
+            metricDefinition?.aggregation
+          ) {
             regressionAdjustmentAvailableForMetric = false;
             regressionAdjustmentAvailableForMetricReason = (
               <>Not available for metrics with custom aggregations.</>
@@ -206,9 +226,13 @@ export default function MetricsOverridesSelector({
                           label="Conversion Window (hours)"
                           placeholder="default"
                           helpText={
-                            <div className="text-right">
-                              default: {metricDefinition?.conversionWindowHours}{" "}
-                            </div>
+                            metricDefinition &&
+                            !isFactMetric(metricDefinition) ? (
+                              <div className="text-right">
+                                default:{" "}
+                                {metricDefinition?.conversionWindowHours}{" "}
+                              </div>
+                            ) : null
                           }
                           labelClassName="small mb-1"
                           type="number"

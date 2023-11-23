@@ -177,7 +177,7 @@ export function getRegressionAdjustmentsForMetric<
       );
       if (denominator && !isBinomialMetric(denominator)) {
         regressionAdjustmentEnabled = false;
-        reason = "denominator is count";
+        reason = "denominator is binomial";
       }
     }
     if (metric && !isFactMetric(metric) && metric?.aggregation) {
