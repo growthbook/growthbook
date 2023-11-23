@@ -15,6 +15,7 @@ import Toggle from "@/components/Forms/Toggle";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { GBCuped } from "@/components/Icons";
+import FactBadge from "@/components/FactTables/FactBadge";
 import Field from "../Forms/Field";
 import { EditMetricsFormInterface } from "./EditMetricsForm";
 import MetricSelector from "./MetricSelector";
@@ -31,14 +32,17 @@ export default function MetricsOverridesSelector({
   setHasMetricOverrideRiskError: (boolean) => void;
 }) {
   const [selectedMetricId, setSelectedMetricId] = useState<string>("");
-  const { metrics: metricDefinitions, factMetrics } = useDefinitions();
+  const {
+    metrics: metricDefinitions,
+    factMetrics: factMetricDefinitions,
+  } = useDefinitions();
   const settings = useOrgSettings();
   const { hasCommercialFeature } = useUser();
 
-  const allDefinitions = useMemo(() => [...metricDefinitions, ...factMetrics], [
-    metricDefinitions,
-    factMetrics,
-  ]);
+  const allMetricDefinitions = useMemo(
+    () => [...metricDefinitions, ...factMetricDefinitions],
+    [metricDefinitions, factMetricDefinitions]
+  );
 
   const metrics = new Set(
     form.watch("metrics").concat(form.watch("guardrails"))
@@ -61,7 +65,9 @@ export default function MetricsOverridesSelector({
     !disabled &&
       metricOverrides.fields.map((v, i) => {
         const mo = form.watch(`metricOverrides.${i}`);
-        const metricDefinition = allDefinitions.find((md) => md.id === mo.id);
+        const metricDefinition = allMetricDefinitions.find(
+          (md) => md.id === mo.id
+        );
 
         const loseRisk =
           isUndefined(mo.loseRisk) || isNaN(mo.loseRisk)
@@ -82,7 +88,7 @@ export default function MetricsOverridesSelector({
     setHasMetricOverrideRiskError(hasRiskError);
   }, [
     disabled,
-    allDefinitions,
+    allMetricDefinitions,
     metricOverrides,
     form,
     setHasMetricOverrideRiskError,
@@ -93,7 +99,9 @@ export default function MetricsOverridesSelector({
       {!disabled &&
         metricOverrides.fields.map((v, i) => {
           const mo = form.watch(`metricOverrides.${i}`);
-          const metricDefinition = allDefinitions.find((md) => md.id === mo.id);
+          const metricDefinition = allMetricDefinitions.find(
+            (md) => md.id === mo.id
+          );
 
           const hasRegressionAdjustmentFeature = hasCommercialFeature(
             "regression-adjustment"
@@ -111,7 +119,7 @@ export default function MetricsOverridesSelector({
             );
           }
           if (metricDefinition?.denominator) {
-            const denominator = allDefinitions.find(
+            const denominator = allMetricDefinitions.find(
               (m) => m.id === metricDefinition.denominator
             );
             if (denominator && !isBinomialMetric(denominator)) {
@@ -185,8 +193,11 @@ export default function MetricsOverridesSelector({
 
               <div>
                 <label className="mb-1">
-                  <strong className="text-purple">
+                  <strong className="text-body">
                     {metricDefinition?.name}
+                    {metricDefinition && isFactMetric(metricDefinition) ? (
+                      <FactBadge metricId={metricDefinition.id} />
+                    ) : null}
                   </strong>
                 </label>
 
@@ -226,18 +237,29 @@ export default function MetricsOverridesSelector({
                           label="Conversion Window (hours)"
                           placeholder="default"
                           helpText={
-                            metricDefinition &&
-                            !isFactMetric(metricDefinition) ? (
-                              <div className="text-right">
-                                default:{" "}
-                                {metricDefinition?.conversionWindowHours}{" "}
-                              </div>
-                            ) : null
+                            <div className="text-right">
+                              default:{" "}
+                              {metricDefinition &&
+                              isFactMetric(metricDefinition)
+                                ? metricDefinition.conversionWindowValue *
+                                  (metricDefinition.conversionWindowUnit ===
+                                  "days"
+                                    ? 24
+                                    : metricDefinition.conversionWindowUnit ===
+                                      "weeks"
+                                    ? 24 * 7
+                                    : 1)
+                                : metricDefinition?.conversionWindowHours}{" "}
+                            </div>
                           }
                           labelClassName="small mb-1"
                           type="number"
                           containerClassName="mb-0 metric-override"
-                          min={0.125}
+                          min={
+                            metricDefinition && isFactMetric(metricDefinition)
+                              ? 0
+                              : 0.125
+                          }
                           step="any"
                           {...form.register(
                             `metricOverrides.${i}.conversionWindowHours`,
