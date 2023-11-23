@@ -1373,19 +1373,16 @@ export default abstract class SqlIntegration
       settings.experimentId
     );
 
-    const initialMetric =
-      denominatorMetrics.length > 0 ? denominatorMetrics[0] : metric;
-
     // Get date range for experiment and analysis
-    const initialConversionWindowHours = getConversionWindowHours(
-      initialMetric
+    const maxDelayAndConversionWindowHours = Math.max(
+      ...orderedMetrics.map(
+        (m) => (m.conversionDelayHours || 0) + getConversionWindowHours(m)
+      )
     );
-    const initialConversionDelayHours = initialMetric.conversionDelayHours || 0;
-
     const startDate: Date = settings.startDate;
     const endDate: Date = this.getExperimentEndDate(
       settings,
-      initialConversionWindowHours + initialConversionDelayHours
+      maxDelayAndConversionWindowHours
     );
 
     if (params.dimensions.length > 1) {
