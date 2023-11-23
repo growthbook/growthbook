@@ -48,6 +48,7 @@ import { useCurrency } from "@/hooks/useCurrency";
 import ConfirmModal from "@/components/ConfirmModal";
 import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
 import FactMetricModal from "@/components/FactTables/FactMetricModal";
+import EditKqlModal from "@/components/SchemaBrowser/EditKqlModal";
 
 const weekAgo = new Date();
 weekAgo.setDate(weekAgo.getDate() - 7);
@@ -460,6 +461,7 @@ const MetricForm: FC<MetricFormProps> = ({
   const conversionWindowSupported = capSupported;
 
   const supportsSQL = selectedDataSource?.properties?.queryLanguage === "sql";
+  const supportsKQL = selectedDataSource?.properties?.queryLanguage === "kusto";
   const supportsJS =
     selectedDataSource?.properties?.queryLanguage === "javascript";
 
@@ -501,7 +503,11 @@ const MetricForm: FC<MetricFormProps> = ({
     : "";
 
   const resetSqlToDefault = (datasource, type) => {
-    if (datasource && datasource.properties?.queryLanguage === "sql") {
+    if (
+      datasource &&
+      (datasource.properties?.queryLanguage === "sql" ||
+        datasource.properties?.queryLanguage === "kusto")
+    ) {
       const [userTypes, sql] = getInitialMetricQuery(datasource, type);
       if (usingDefaultQueryFormat) {
         // The default queryFormat for new sql queries should be "sql", but we
@@ -509,6 +515,7 @@ const MetricForm: FC<MetricFormProps> = ({
         form.setValue("queryFormat", "sql");
         setUsingDefaultQueryFormat(false);
       }
+
       form.setValue("sql", sql);
       form.setValue("userIdTypes", userTypes);
 
@@ -588,12 +595,13 @@ const MetricForm: FC<MetricFormProps> = ({
     : "";
 
   const requiredColumns = useMemo(() => {
+    if (supportsKQL) return new Set([]);
     const set = new Set(["timestamp", ...value.userIdTypes]);
     if (type !== "binomial") {
       set.add("value");
     }
     return set;
-  }, [value.userIdTypes, type]);
+  }, [supportsKQL, value.userIdTypes, type]);
 
   useEffect(() => {
     if (type === "binomial") {
@@ -655,6 +663,16 @@ const MetricForm: FC<MetricFormProps> = ({
             eventName: form.watch("eventName"),
             valueColumn: form.watch("valueColumn"),
           }}
+        />
+      )}
+      {supportsKQL && sqlOpen && (
+        <EditKqlModal
+          close={() => setSqlOpen(false)}
+          datasourceId={value.datasource}
+          placeholder={"pageViews\n| project user_id = user_Id, url, timestamp"}
+          requiredColumns={requiredColumns}
+          value={value.sql}
+          save={async (sql) => form.setValue("sql", sql)}
         />
       )}
       <PagedModal
@@ -858,7 +876,60 @@ const MetricForm: FC<MetricFormProps> = ({
           )}
           <div className="row">
             <div className="col-lg">
-              {supportsSQL && value.queryFormat === "sql" ? (
+              {supportsKQL && (
+                <div>
+                  <MultiSelectField
+                    value={value.userIdTypes}
+                    onChange={(types) => {
+                      form.setValue("userIdTypes", types);
+                    }}
+                    options={(
+                      selectedDataSource.settings.userIdTypes || []
+                    ).map(({ userIdType }) => ({
+                      value: userIdType,
+                      label: userIdType,
+                    }))}
+                    label="Identifier Types Supported"
+                  />
+                  <div className="form-group">
+                    <label>Query</label>
+                    <Code language="kusto" code={value.sql} expandable={true} />
+                    <div>
+                      <button
+                        className="btn btn-outline-primary"
+                        type="button"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          setSqlOpen(true);
+                        }}
+                      >
+                        {value.sql ? "Edit" : "Add"} Kusto <FaExternalLinkAlt />
+                      </button>
+                    </div>
+                  </div>
+                  {value.type !== "binomial" && (
+                    <Field
+                      label="User Value Aggregation"
+                      placeholder="sum(value)"
+                      textarea
+                      minRows={1}
+                      {...form.register("aggregation")}
+                      helpText="When there are multiple metric rows for a user"
+                    />
+                  )}
+                  <SelectField
+                    label="Denominator"
+                    options={denominatorOptions}
+                    initialOption="All Experiment Users"
+                    value={value.denominator}
+                    onChange={(denominator) => {
+                      form.setValue("denominator", denominator);
+                    }}
+                    helpText="Use this to define ratio or funnel metrics"
+                  />
+                </div>
+              )}
+              {supportsSQL && value.queryFormat === "sql" && (
                 <div>
                   <MultiSelectField
                     value={value.userIdTypes}
@@ -971,201 +1042,206 @@ const MetricForm: FC<MetricFormProps> = ({
                     helpText="Use this to define ratio or funnel metrics"
                   />
                 </div>
-              ) : datasourceType === "google_analytics" ? (
+              )}
+              {datasourceType === "google_analytics" && (
                 <GoogleAnalyticsMetrics
                   inputProps={form.register("table")}
                   type={value.type}
                 />
-              ) : (
-                <>
-                  <SelectField
-                    label={`${table} Name`}
-                    createable
-                    placeholder={`${table} name...`}
-                    value={form.watch("table")}
-                    onChange={(value) => {
-                      form.setValue("table", value);
-                      setTableId(value);
-                    }}
-                    options={tableOptions}
-                    required
-                  />
-                  {value.type !== "binomial" && (
-                    <SelectField
-                      placeholder={column}
-                      label={supportsSQL ? "Column" : "Event Value"}
-                      options={columnOptions}
-                      createable
-                      value={form.watch("column")}
-                      onChange={(value) => form.setValue("column", value)}
-                      required={value.type !== "count"}
-                      helpText={
-                        !supportsSQL &&
-                        "Javascript expression to extract a value from each event."
-                      }
-                    />
-                  )}
-                  {value.type !== "binomial" && !supportsSQL && (
-                    <Field
-                      label="User Value Aggregation"
-                      placeholder="sum(values)"
-                      textarea
-                      minRows={1}
-                      {...form.register("aggregation")}
-                      helpText="Javascript expression to aggregate multiple event values for a user."
-                    />
-                  )}
-                  {conditionsSupported && (
-                    <div className="mb-3">
-                      {conditions.fields.length > 0 && <h6>Conditions</h6>}
-                      {conditions.fields.map((cond: Condition, i) => (
-                        <div
-                          className="form-row border py-2 mb-2 align-items-center"
-                          key={i}
-                        >
-                          {i > 0 && <div className="col-auto">AND</div>}
-                          <div className="col-auto mb-1">
-                            <SelectField
-                              createable
-                              placeholder={column}
-                              options={columnOptions}
-                              value={form.watch(`conditions.${i}.column`)}
-                              onChange={(value) =>
-                                form.setValue(`conditions.${i}.column`, value)
-                              }
-                              required
-                            />
-                          </div>
-                          <div className="col-auto mb-1">
-                            <SelectField
-                              value={form.watch(`conditions.${i}.operator`)}
-                              onChange={(v) =>
-                                form.setValue(
-                                  `conditions.${i}.operator`,
-                                  v as Operator
-                                )
-                              }
-                              options={(() => {
-                                const ret = [
-                                  { value: "=", label: "equals" },
-                                  { value: "!=", label: "does not equal" },
-                                  { value: "~", label: "matches the regex" },
-                                  {
-                                    value: "!~",
-                                    label: "does not match the regex",
-                                  },
-                                  { value: "<", label: "is less than" },
-                                  { value: ">", label: "is greater than" },
-                                  {
-                                    value: "<=",
-                                    label: "is less than or equal to",
-                                  },
-                                  {
-                                    value: ">=",
-                                    label: "is greater than or equal to",
-                                  },
-                                ];
-                                if (supportsJS)
-                                  ret.push({
-                                    value: "=>",
-                                    label: "custom javascript",
-                                  });
-                                return ret;
-                              })()}
-                              sort={false}
-                            />
-                          </div>
-                          <div className="col-auto mb-1">
-                            <Field
-                              required
-                              placeholder="Value"
-                              textarea={
-                                form.watch(`conditions.${i}.operator`) === "=>"
-                              }
-                              minRows={1}
-                              {...form.register(`conditions.${i}.value`)}
-                            />
-                          </div>
-                          <div className="col-auto mb-1">
-                            <button
-                              className="btn btn-danger"
-                              type="button"
-                              onClick={(e) => {
-                                e.preventDefault();
-                                conditions.remove(i);
-                              }}
-                            >
-                              &times;
-                            </button>
-                          </div>
-                        </div>
-                      ))}
-                      <button
-                        className="btn btn-outline-success"
-                        type="button"
-                        onClick={(e) => {
-                          e.preventDefault();
-
-                          conditions.append({
-                            column: "",
-                            operator: "=",
-                            value: "",
-                          });
-                        }}
-                      >
-                        Add Condition
-                      </button>
-                    </div>
-                  )}
-                  {customzeTimestamp && (
-                    <SelectField
-                      label="Timestamp Column"
-                      createable
-                      options={columnOptions}
-                      value={form.watch("timestampColumn")}
-                      onChange={(value) =>
-                        form.setValue("timestampColumn", value)
-                      }
-                      placeholder={"received_at"}
-                    />
-                  )}
-                  {customizeUserIds && (
-                    <MultiSelectField
-                      value={value.userIdTypes}
-                      onChange={(types) => {
-                        form.setValue("userIdTypes", types);
-                      }}
-                      options={(
-                        selectedDataSource.settings.userIdTypes || []
-                      ).map(({ userIdType }) => ({
-                        value: userIdType,
-                        label: userIdType,
-                      }))}
-                      label="Identifier Types Supported"
-                    />
-                  )}
-                  {customizeUserIds &&
-                    value.userIdTypes.map((type) => {
-                      return (
-                        <div key={type}>
-                          <SelectField
-                            label={type + " Column"}
-                            createable
-                            options={columnOptions}
-                            value={value.userIdColumns[type] || ""}
-                            placeholder={type}
-                            onChange={(columnName) => {
-                              form.setValue("userIdColumns", {
-                                ...value.userIdColumns,
-                                [type]: columnName,
-                              });
-                            }}
-                          />
-                        </div>
-                      );
-                    })}
-                </>
               )}
+              {datasourceType !== "google_analytics" &&
+                !supportsKQL &&
+                !(supportsSQL && value.queryFormat === "sql") && (
+                  <>
+                    <SelectField
+                      label={`${table} Name`}
+                      createable
+                      placeholder={`${table} name...`}
+                      value={form.watch("table")}
+                      onChange={(value) => {
+                        form.setValue("table", value);
+                        setTableId(value);
+                      }}
+                      options={tableOptions}
+                      required
+                    />
+                    {value.type !== "binomial" && (
+                      <SelectField
+                        placeholder={column}
+                        label={supportsSQL ? "Column" : "Event Value"}
+                        options={columnOptions}
+                        createable
+                        value={form.watch("column")}
+                        onChange={(value) => form.setValue("column", value)}
+                        required={value.type !== "count"}
+                        helpText={
+                          !supportsSQL &&
+                          "Javascript expression to extract a value from each event."
+                        }
+                      />
+                    )}
+                    {value.type !== "binomial" && !supportsSQL && (
+                      <Field
+                        label="User Value Aggregation"
+                        placeholder="sum(values)"
+                        textarea
+                        minRows={1}
+                        {...form.register("aggregation")}
+                        helpText="Javascript expression to aggregate multiple event values for a user."
+                      />
+                    )}
+                    {conditionsSupported && (
+                      <div className="mb-3">
+                        {conditions.fields.length > 0 && <h6>Conditions</h6>}
+                        {conditions.fields.map((cond: Condition, i) => (
+                          <div
+                            className="form-row border py-2 mb-2 align-items-center"
+                            key={i}
+                          >
+                            {i > 0 && <div className="col-auto">AND</div>}
+                            <div className="col-auto mb-1">
+                              <SelectField
+                                createable
+                                placeholder={column}
+                                options={columnOptions}
+                                value={form.watch(`conditions.${i}.column`)}
+                                onChange={(value) =>
+                                  form.setValue(`conditions.${i}.column`, value)
+                                }
+                                required
+                              />
+                            </div>
+                            <div className="col-auto mb-1">
+                              <SelectField
+                                value={form.watch(`conditions.${i}.operator`)}
+                                onChange={(v) =>
+                                  form.setValue(
+                                    `conditions.${i}.operator`,
+                                    v as Operator
+                                  )
+                                }
+                                options={(() => {
+                                  const ret = [
+                                    { value: "=", label: "equals" },
+                                    { value: "!=", label: "does not equal" },
+                                    { value: "~", label: "matches the regex" },
+                                    {
+                                      value: "!~",
+                                      label: "does not match the regex",
+                                    },
+                                    { value: "<", label: "is less than" },
+                                    { value: ">", label: "is greater than" },
+                                    {
+                                      value: "<=",
+                                      label: "is less than or equal to",
+                                    },
+                                    {
+                                      value: ">=",
+                                      label: "is greater than or equal to",
+                                    },
+                                  ];
+                                  if (supportsJS)
+                                    ret.push({
+                                      value: "=>",
+                                      label: "custom javascript",
+                                    });
+                                  return ret;
+                                })()}
+                                sort={false}
+                              />
+                            </div>
+                            <div className="col-auto mb-1">
+                              <Field
+                                required
+                                placeholder="Value"
+                                textarea={
+                                  form.watch(`conditions.${i}.operator`) ===
+                                  "=>"
+                                }
+                                minRows={1}
+                                {...form.register(`conditions.${i}.value`)}
+                              />
+                            </div>
+                            <div className="col-auto mb-1">
+                              <button
+                                className="btn btn-danger"
+                                type="button"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  conditions.remove(i);
+                                }}
+                              >
+                                &times;
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                        <button
+                          className="btn btn-outline-success"
+                          type="button"
+                          onClick={(e) => {
+                            e.preventDefault();
+
+                            conditions.append({
+                              column: "",
+                              operator: "=",
+                              value: "",
+                            });
+                          }}
+                        >
+                          Add Condition
+                        </button>
+                      </div>
+                    )}
+                    {customzeTimestamp && (
+                      <SelectField
+                        label="Timestamp Column"
+                        createable
+                        options={columnOptions}
+                        value={form.watch("timestampColumn")}
+                        onChange={(value) =>
+                          form.setValue("timestampColumn", value)
+                        }
+                        placeholder={"received_at"}
+                      />
+                    )}
+                    {customizeUserIds && (
+                      <MultiSelectField
+                        value={value.userIdTypes}
+                        onChange={(types) => {
+                          form.setValue("userIdTypes", types);
+                        }}
+                        options={(
+                          selectedDataSource.settings.userIdTypes || []
+                        ).map(({ userIdType }) => ({
+                          value: userIdType,
+                          label: userIdType,
+                        }))}
+                        label="Identifier Types Supported"
+                      />
+                    )}
+                    {customizeUserIds &&
+                      value.userIdTypes.map((type) => {
+                        return (
+                          <div key={type}>
+                            <SelectField
+                              label={type + " Column"}
+                              createable
+                              options={columnOptions}
+                              value={value.userIdColumns[type] || ""}
+                              placeholder={type}
+                              onChange={(columnName) => {
+                                form.setValue("userIdColumns", {
+                                  ...value.userIdColumns,
+                                  [type]: columnName,
+                                });
+                              }}
+                            />
+                          </div>
+                        );
+                      })}
+                  </>
+                )}
             </div>
             {supportsSQL && value.queryFormat !== "sql" && (
               <div className="col-lg pt-2">

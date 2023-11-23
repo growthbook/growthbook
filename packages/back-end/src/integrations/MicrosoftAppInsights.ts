@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import cloneDeep from "lodash/cloneDeep";
-import { dateStringArrayBetweenDates, getValidDate } from "shared/dates";
+import { getValidDate } from "shared/dates";
 import {
   ExperimentMetricInterface,
   getConversionWindowHours,
@@ -40,10 +40,7 @@ import {
   DataSourceType,
   ExposureQuery,
 } from "../../types/datasource";
-import {
-  DEFAULT_CONVERSION_WINDOW_HOURS,
-  IMPORT_LIMIT_DAYS,
-} from "../util/secrets";
+import { IMPORT_LIMIT_DAYS } from "../util/secrets";
 import { SegmentInterface } from "../../types/segment";
 import {
   getBaseIdTypeAndJoins,
@@ -57,7 +54,6 @@ import { DimensionInterface } from "../../types/dimension";
 
 import { runApi } from "../services/microsoftappinsights";
 import { FactTableMap } from "../models/FactTableModel";
-import { replaceCountStar } from "../util/sql";
 
 export const MAX_ROWS_UNIT_AGGREGATE_QUERY = 3000;
 
@@ -112,7 +108,6 @@ export default class MicrosoftAppInsights
   createUnitsTableOptions() {
     return "";
   }
-
 
   processDimensions(
     dimensions: Dimension[],
@@ -335,10 +330,17 @@ export default class MicrosoftAppInsights
                 )},`
               : ""
           }
-          conversion_start = ${this.addHours(timestampColumn, conversionDelayHours)}
+          conversion_start = ${this.addHours(
+            timestampColumn,
+            conversionDelayHours
+          )}
           ${experimentDimensions.map(
-            exprimentDimension => 
-            `, dimension_${exprimentDimension.id} = ${this.getDimensionColumn(baseIdType, exprimentDimension)}`)}
+            (exprimentDimension) =>
+              `, dimension_${exprimentDimension.id} = ${this.getDimensionColumn(
+                baseIdType,
+                exprimentDimension
+              )}`
+          )}
           ${
             ignoreConversionEnd
               ? ""
@@ -349,11 +351,13 @@ export default class MicrosoftAppInsights
           }
         | where experiment_id == '${settings.experimentId}'
             and ${timestampColumn} >= datetime(${this.toTimestamp(
-          settings.startDate
-        )})
+        settings.startDate
+      )})
             ${
               endDate
-                ? `and ${timestampColumn} <= datetime(${this.toTimestamp(endDate)})`
+                ? `and ${timestampColumn} <= datetime(${this.toTimestamp(
+                    endDate
+                  )})`
                 : ""
             }
             ${settings.queryFilter ? `and (\n${settings.queryFilter}\n)` : ""}
@@ -378,15 +382,18 @@ export default class MicrosoftAppInsights
               )});`
             : ""
         }
-        ${
-          unitDimensions.map(dimension => 
-            `let __dim_unit_${dimension.dimension.id} = (${this.getDimensionCTE(
+        ${unitDimensions
+          .map(
+            (dimension) =>
+              `let __dim_unit_${
+                dimension.dimension.id
+              } = (${this.getDimensionCTE(
                 dimension.dimension,
                 baseIdType,
                 idJoinMap
               )});`
-          ).join("\n")
-        }
+          )
+          .join("\n")}
         
         ${denominatorMetrics
           .map((m, i) => {
@@ -426,11 +433,12 @@ export default class MicrosoftAppInsights
                 ? `| join kind=fullouter (segment) on ($left.${baseIdType} == $right.${baseIdType})`
                 : ""
             }
-            ${
-              unitDimensions.map(d => 
-                `| join kind=leftouter (__dim_unit_${d.dimension.id}) on ($left.${baseIdType} == $right.${baseIdType})`
-              ).join("\n")
-            }
+            ${unitDimensions
+              .map(
+                (d) =>
+                  `| join kind=leftouter (__dim_unit_${d.dimension.id}) on ($left.${baseIdType} == $right.${baseIdType})`
+              )
+              .join("\n")}
             ${
               activationMetric
                 ? `
@@ -566,7 +574,9 @@ export default class MicrosoftAppInsights
             }
             by variation, dimension
           ${
-            isRegressionAdjusted && "ignoreNulls" in metric && metric.ignoreNulls
+            isRegressionAdjusted &&
+            "ignoreNulls" in metric &&
+            metric.ignoreNulls
               ? `| where value != 0`
               : ""
           }
@@ -583,18 +593,26 @@ export default class MicrosoftAppInsights
         | project
           variation,
           dimension,
-          users = ${"ignoreNulls" in metric && metric.ignoreNulls ? "coalesce(count, 0)" : "users"},
+          users = ${
+            "ignoreNulls" in metric && metric.ignoreNulls
+              ? "coalesce(count, 0)"
+              : "users"
+          },
           statistic_type = '${this.getStatisticType(
             ratioMetric,
             isRegressionAdjusted
           )}',
-          main_metric_type = '${isBinomialMetric(metric) ? "binomial" : "count"}',
+          main_metric_type = '${
+            isBinomialMetric(metric) ? "binomial" : "count"
+          }',
           main_sum = coalesce(main_sum, 0),
           main_sum_squares = coalesce(main_sum_squares, 0.0)
           ${
             ratioMetric
               ? `,
-              denominator_metric_type = '${isBinomialMetric(denominator) ? "binomial" : "count"}',
+              denominator_metric_type = '${
+                isBinomialMetric(denominator) ? "binomial" : "count"
+              }',
               denominator_sum = coalesce(denominator_sum, 0),
               denominator_sum_squares = coalesce(denominator_sum_squares, 0.0),
               main_denominator_sum_product = coalesce(main_denominator_sum_product, 0.0)
@@ -604,7 +622,9 @@ export default class MicrosoftAppInsights
           ${
             isRegressionAdjusted
               ? `,
-              covariate_metric_type = '${isBinomialMetric(metric) ? "binomial" : "count"}',
+              covariate_metric_type = '${
+                isBinomialMetric(metric) ? "binomial" : "count"
+              }',
               covariate_sum = coalesce(covariate_sum, 0),
               covariate_sum_squares = coalesce(covariate_sum_squares, 0.0),
               main_covariate_sum_product = coalesce(main_covariate_sum_product, 0.0)
@@ -613,7 +633,7 @@ export default class MicrosoftAppInsights
           }
       `,
       this.getFormatDialect()
-        );
+    );
   }
 
   async runExperimentMetricQuery(
@@ -917,10 +937,6 @@ export default class MicrosoftAppInsights
     return [];
   }
 
-
-
-
-
   getExperimentResultsQuery(): string {
     throw new Error("Not implemented");
   }
@@ -1165,7 +1181,6 @@ export default class MicrosoftAppInsights
     metricTimeWindow: MetricAggregationType = "post",
     useDenominator?: boolean
   ) {
-
     if (isFactMetric(metric)) {
       const columnRef = useDenominator ? metric.denominator : metric.numerator;
       if (
@@ -1176,7 +1191,7 @@ export default class MicrosoftAppInsights
       } else if (columnRef?.column === "$$count") {
         return `count(value)`;
       } else {
-        return `sum(${this.addPrePostTimeFilter("value", metricTimeWindow)})`
+        return `sum(${this.addPrePostTimeFilter("value", metricTimeWindow)})`;
       }
     }
 
@@ -1208,8 +1223,6 @@ export default class MicrosoftAppInsights
       );
     }
   }
-
-
 
   private getMetricCTE({
     metric,
@@ -1506,7 +1519,6 @@ export default class MicrosoftAppInsights
     throw new Error("Unknown dimension type: " + (dimension as Dimension).type);
   }
 
-
   // Only include users who entered the experiment before this timestamp
   private getExperimentEndDate(
     settings: ExperimentSnapshotSettings,
@@ -1610,21 +1622,17 @@ export default class MicrosoftAppInsights
 
   private getMetricWindowWhereClause(
     isRegressionAdjusted: boolean,
-    ignoreConversionEnd: boolean,
+    ignoreConversionEnd: boolean
   ): string {
     const conversionWindowFilter = `
       timestamp >= conversion_start
-      ${
-        ignoreConversionEnd
-          ? ""
-          : `and timestamp <= conversion_end`
-      }`;
+      ${ignoreConversionEnd ? "" : `and timestamp <= conversion_end`}`;
     if (isRegressionAdjusted) {
       return `(${conversionWindowFilter}) or (timestamp >= preexposure_start and timestamp < preexposure_end)`;
     }
     return conversionWindowFilter;
   }
-  
+
   private getStatisticType(
     ratioMetric: boolean,
     isRegressionAdjusted: boolean
@@ -1687,10 +1695,12 @@ export default class MicrosoftAppInsights
   }
 
   getExperimentUnitsTableQuery(params: ExperimentUnitsQueryParams) {
-    return ""
+    return "";
   }
-  
-  getExperimentAggregateUnitsQuery(params: ExperimentAggregateUnitsQueryParams) {
-    return ""
+
+  getExperimentAggregateUnitsQuery(
+    params: ExperimentAggregateUnitsQueryParams
+  ) {
+    return "";
   }
 }

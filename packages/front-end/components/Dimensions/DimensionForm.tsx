@@ -59,8 +59,9 @@ const DimensionForm: FC<{
   const sql = form.watch("sql");
 
   const requiredColumns = useMemo(() => {
+    if (supportsKQL) return new Set([]);
     return new Set([userIdType, "value"]);
-  }, [userIdType]);
+  }, [supportsKQL, userIdType]);
 
   return (
     <>

@@ -119,7 +119,7 @@ export default function EditKqlModal({
   return (
     <Modal
       open
-      header="Edit SQL"
+      header="Edit KQL"
       submit={form.handleSubmit(async (value) => {
         if (testQueryBeforeSaving) {
           let res: TestQueryResults;

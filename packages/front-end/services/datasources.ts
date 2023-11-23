@@ -516,6 +516,36 @@ WHERE
   },
 };
 
+const AppInsightsSchema: SchemaInterface = {
+  experimentDimensions: [],
+  getExperimentSQL: (_, userId) => {
+    return `customEvents
+    | where name == "GrowthbookExperimentViewed"
+    | project
+      ${userId} = tostring(customDimensions["user_Id"]),
+      timestamp = timestamp,
+      experiment_id = tostring(customDimensions["experiment_Id"]),
+      variation_id = tostring(customDimensions["variation_Id"])
+    `;
+  },
+  getIdentitySQL: () => {
+    return [];
+  },
+  userIdTypes: ["user_id"],
+  getMetricSQL: (type, tablePrefix) => {
+    return `${tablePrefix}{{snakecase eventName}}
+    | project
+      user_id = user_id,
+      timestamp = timestamp${
+        type === "revenue"
+          ? ",\n  revenue = value"
+          : type === "binomial"
+          ? ""
+          : `,\n  value = {{valueColumn}}`
+      }`;
+  },
+};
+
 function getSchemaObject(type?: SchemaFormat) {
   if (type === "ga4" || type === "firebase") {
     return GA4Schema;
@@ -543,6 +573,10 @@ function getSchemaObject(type?: SchemaFormat) {
   }
   if (type === "fullstory") {
     return FullStorySchema;
+  }
+
+  if (type === "mappinsights") {
+    return AppInsightsSchema;
   }
 
   return CustomSchema;
