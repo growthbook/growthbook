@@ -66,6 +66,7 @@ export default function EditKqlModal({
     if (!result) return;
 
     const requiredColumnsArray = Array.from(requiredColumns);
+
     const missingColumns = requiredColumnsArray.filter(
       (col) => !((col as string) in result)
     );
@@ -78,7 +79,7 @@ export default function EditKqlModal({
   };
 
   const runTestQuery = async (sql: string) => {
-    validateKQL(sql, []);
+    validateKQL(sql);
     setTestQueryResults(null);
     const res: TestQueryResults = await apiCall("/query/test", {
       method: "POST",
@@ -218,6 +219,7 @@ export default function EditKqlModal({
                   sql={testQueryResults.sql || ""}
                   error={testQueryResults.error || ""}
                   close={() => setTestQueryResults(null)}
+                  language="kusto"
                 />
               </div>
             )}

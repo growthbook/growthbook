@@ -59,9 +59,8 @@ const DimensionForm: FC<{
   const sql = form.watch("sql");
 
   const requiredColumns = useMemo(() => {
-    if (supportsKQL) return new Set([]);
     return new Set([userIdType, "value"]);
-  }, [supportsKQL, userIdType]);
+  }, [userIdType]);
 
   return (
     <>
@@ -80,7 +79,7 @@ const DimensionForm: FC<{
           close={() => setKqlOpen(false)}
           datasourceId={dsObj.id || ""}
           placeholder={`customEvents\n| project ${userIdType} = tostring(customDimensions["user_Id"]), customDimensions, timestamp`}
-          requiredColumns={new Set()}
+          requiredColumns={requiredColumns}
           value={sql}
           save={async (sql) => form.setValue("sql", sql)}
         />
@@ -96,7 +95,7 @@ const DimensionForm: FC<{
           }
 
           if (supportsKQL) {
-            validateKQL(value.sql, [value.userIdType, "value"]);
+            validateKQL(value.sql);
           }
 
           await apiCall(

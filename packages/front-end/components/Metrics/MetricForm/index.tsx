@@ -15,7 +15,11 @@ import {
 import { isDemoDatasourceProject } from "shared/demo-datasource";
 import { isProjectListValidForProject } from "shared/util";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
-import { getInitialMetricQuery, validateSQL } from "@/services/datasources";
+import {
+  getInitialMetricQuery,
+  validateKQL,
+  validateSQL,
+} from "@/services/datasources";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import track from "@/services/track";
 import { getDefaultConversionWindowHours } from "@/services/env";
@@ -100,15 +104,34 @@ function validateMetricSQL(
   validateSQL(sql, requiredCols);
 }
 
+function validateMetricKQL(
+  kql: string,
+  type: MetricType,
+  userIdTypes: string[],
+  templateVariables?: {
+    valueColumn?: string;
+    eventName?: string;
+  }
+) {
+  // Require specific columns to be selected
+  validateKQL(kql);
+}
+
 function validateBasicInfo(value: { name: string }) {
   if (value.name.length < 1) {
     throw new Error("Metric name cannot be empty");
   }
 }
 
-function validateQuerySettings(
-  datasourceSettingsSupport: boolean,
-  sqlInput: boolean,
+function validateQuerySettings({
+  datasourceSettingsSupport,
+  sqlInput,
+  kustoInput,
+  value,
+}: {
+  datasourceSettingsSupport: boolean;
+  sqlInput: boolean;
+  kustoInput: boolean;
   value: {
     sql: string;
     type: MetricType;
@@ -118,8 +141,8 @@ function validateQuerySettings(
       valueColumn?: string;
       eventName?: string;
     };
-  }
-) {
+  };
+}) {
   if (!datasourceSettingsSupport) {
     return;
   }
@@ -130,12 +153,18 @@ function validateQuerySettings(
       value.userIdTypes,
       value.templateVariables
     );
-  } else {
-    if (value.table.length < 1) {
-      throw new Error("Table name cannot be empty");
-    }
+  } else if (kustoInput) {
+    validateMetricKQL(
+      value.sql,
+      value.type,
+      value.userIdTypes,
+      value.templateVariables
+    );
+  } else if (value.table.length < 1) {
+    throw new Error("Table name cannot be empty");
   }
 }
+
 function getRawSQLPreview({
   userIdTypes,
   userIdColumns,
@@ -595,13 +624,12 @@ const MetricForm: FC<MetricFormProps> = ({
     : "";
 
   const requiredColumns = useMemo(() => {
-    if (supportsKQL) return new Set([]);
     const set = new Set(["timestamp", ...value.userIdTypes]);
     if (type !== "binomial") {
       set.add("value");
     }
     return set;
-  }, [supportsKQL, value.userIdTypes, type]);
+  }, [value.userIdTypes, type]);
 
   useEffect(() => {
     if (type === "binomial") {
@@ -822,11 +850,12 @@ const MetricForm: FC<MetricFormProps> = ({
         <Page
           display="Query Settings"
           validate={async () => {
-            validateQuerySettings(
+            validateQuerySettings({
               datasourceSettingsSupport,
-              supportsSQL && value.queryFormat === "sql",
-              value
-            );
+              sqlInput: supportsSQL && value.queryFormat === "sql",
+              kustoInput: supportsKQL,
+              value,
+            });
           }}
         >
           {supportsSQL && (

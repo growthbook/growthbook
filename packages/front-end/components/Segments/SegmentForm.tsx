@@ -64,9 +64,8 @@ const SegmentForm: FC<{
   const sql = form.watch("sql");
 
   const requiredColumns = useMemo(() => {
-    if (supportsKQL) return new Set([]);
     return new Set([userIdType, "date"]);
-  }, [supportsKQL, userIdType]);
+  }, [userIdType]);
 
   return (
     <>
@@ -97,7 +96,7 @@ const SegmentForm: FC<{
         header={current.id ? "Edit Segment" : "New Segment"}
         submit={form.handleSubmit(async (value) => {
           if (supportsKQL) {
-            validateKQL(value.sql, [value.userIdType, "date"]);
+            validateKQL(value.sql);
           }
           if (supportsSQL) {
             validateSQL(value.sql, [value.userIdType, "date"]);
@@ -161,10 +160,14 @@ const SegmentForm: FC<{
                 type="button"
                 onClick={(e) => {
                   e.preventDefault();
-                  setSqlOpen(true);
+                  supportsKQL && setKqlOpen(true);
+                  supportsSQL && setSqlOpen(true);
                 }}
               >
-                {sql ? "Edit" : "Add"} SQL <FaExternalLinkAlt />
+                {`${sql ? "Edit" : "Add"} ${
+                  supportsKQL ? "KQL" : supportsSQL ? "SQL" : ""
+                } `}
+                <FaExternalLinkAlt />
               </button>
             </div>
           </div>

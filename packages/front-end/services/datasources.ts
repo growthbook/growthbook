@@ -531,7 +531,7 @@ const AppInsightsSchema: SchemaInterface = {
   getIdentitySQL: () => {
     return [];
   },
-  userIdTypes: ["user_id"],
+  userIdTypes: ["user_Id"],
   getMetricSQL: (type, tablePrefix) => {
     return `${tablePrefix}{{snakecase eventName}}
     | project
@@ -707,7 +707,7 @@ export function validateSQL(sql: string, requiredColumns: string[]): void {
   }
 }
 
-export function validateKQL(kql: string, requiredColumns: string[]): void {
+export function validateKQL(kql: string): void {
   if (!kql) throw new Error("KQL cannot be empty");
 
   // VALIDATE KQL
@@ -715,18 +715,6 @@ export function validateKQL(kql: string, requiredColumns: string[]): void {
   if (kql.match(/;(\s|\n)*$/)) {
     throw new Error(
       "Don't end your KQL statements with semicolons since it will break our generated queries"
-    );
-  }
-
-  const missingCols = requiredColumns.filter(
-    (col) => !kql.toLowerCase().includes(col.toLowerCase())
-  );
-
-  if (missingCols.length > 0) {
-    throw new Error(
-      `Missing the following required columns: ${missingCols
-        .map((col) => '"' + col + '"')
-        .join(", ")}`
     );
   }
 }

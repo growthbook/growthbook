@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { FaCheck, FaExclamationTriangle } from "react-icons/fa";
 import clsx from "clsx";
-import Code from "../SyntaxHighlighting/Code";
+import Code, { Language } from "../SyntaxHighlighting/Code";
 import ControlledTabs from "../Tabs/ControlledTabs";
 import Tab from "../Tabs/Tab";
 
@@ -11,6 +11,7 @@ export type Props = {
   sql: string;
   error: string;
   close: () => void;
+  language?: Language;
 };
 
 export default function DisplayTestQueryResults({
@@ -19,6 +20,7 @@ export default function DisplayTestQueryResults({
   sql,
   error,
   close,
+  language = "sql",
 }: Props) {
   const cols = Object.keys(results?.[0] || {});
 
@@ -102,7 +104,17 @@ export default function DisplayTestQueryResults({
             </table>
           </div>
         </Tab>
-        <Tab id="sql" display="Rendered SQL" padding={false}>
+        <Tab
+          id="sql"
+          display={
+            language === "sql"
+              ? "Rendered SQL"
+              : language === "kusto"
+              ? "Rendered KQL"
+              : "Rendered code"
+          }
+          padding={false}
+        >
           <div style={{ overflowY: "auto", height: "100%" }}>
             {error ? (
               <div className="alert alert-danger mr-auto">{error}</div>
@@ -114,7 +126,7 @@ export default function DisplayTestQueryResults({
                 </div>
               )
             )}
-            <Code code={sql} language="sql" errorLine={errorLine} />
+            <Code code={sql} language={language} errorLine={errorLine} />
           </div>
         </Tab>
       </ControlledTabs>
