@@ -668,6 +668,15 @@ const MetricForm: FC<MetricFormProps> = ({
     );
   }
 
+  const onSaveQuery = async (sql: string) => {
+    form.setValue("sql", sql);
+    // If they manually edit the sql back to the default, we'll allow it to be
+    // automatically updated again upon datasource/type/name change.  If they
+    // have editted it to something else, we'll make sure not to overwrite any
+    // of their changes automatically.
+    setAllowAutomaticSqlReset(sql == defaultSqlTemplate);
+  };
+
   return (
     <>
       {supportsSQL && sqlOpen && (
@@ -679,14 +688,7 @@ const MetricForm: FC<MetricFormProps> = ({
           }
           requiredColumns={requiredColumns}
           value={value.sql}
-          save={async (sql) => {
-            form.setValue("sql", sql);
-            // If they manually edit the sql back to the default, we'll allow it to be
-            // automatically updated again upon datasource/type/name change.  If they
-            // have editted it to something else, we'll make sure not to overwrite any
-            // of their changes automatically.
-            setAllowAutomaticSqlReset(sql == defaultSqlTemplate);
-          }}
+          save={onSaveQuery}
           templateVariables={{
             eventName: form.watch("eventName"),
             valueColumn: form.watch("valueColumn"),
@@ -700,7 +702,7 @@ const MetricForm: FC<MetricFormProps> = ({
           placeholder={"pageViews\n| project user_id = user_Id, url, timestamp"}
           requiredColumns={requiredColumns}
           value={value.sql}
-          save={async (sql) => form.setValue("sql", sql)}
+          save={onSaveQuery}
         />
       )}
       <PagedModal
