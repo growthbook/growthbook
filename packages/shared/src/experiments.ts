@@ -159,7 +159,7 @@ export function getRegressionAdjustmentsForMetric<
         metricOverride?.regressionAdjustmentDays ?? regressionAdjustmentDays;
       if (!regressionAdjustmentEnabled) {
         if (!metric.regressionAdjustmentEnabled) {
-          reason = "disabled in metric settings";
+          reason = "disabled in metric settings and metric override";
         } else {
           reason = "disabled by metric override";
         }
@@ -172,16 +172,18 @@ export function getRegressionAdjustmentsForMetric<
   // final gatekeeping
   if (regressionAdjustmentEnabled) {
     if (metric && isFactMetric(metric) && isRatioMetric(metric)) {
+      // is this a fact ratio metric?
       regressionAdjustmentEnabled = false;
       reason = "ratio metrics not supported";
     }
     if (metric?.denominator) {
+      // is this a classic "ratio" metric (denominator unsupported type)?
       const denominator = denominatorMetrics.find(
         (m) => m.id === metric?.denominator
       );
       if (denominator && !isBinomialMetric(denominator)) {
         regressionAdjustmentEnabled = false;
-        reason = "denominator is binomial";
+        reason = `denominator is ${denominator.type}`;
       }
     }
     if (metric && !isFactMetric(metric) && metric?.aggregation) {
