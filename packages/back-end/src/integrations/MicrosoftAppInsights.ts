@@ -47,6 +47,7 @@ import {
   replaceKustoVars,
   format,
   FormatDialect,
+  removeComments,
 } from "../util/kusto";
 import { MetricInterface } from "../../types/metric";
 import { ExperimentSnapshotSettings } from "../../types/experiment-snapshot";
@@ -93,10 +94,11 @@ export default class MicrosoftAppInsights
   }
 
   async runQuery(query: string): Promise<any> {
-    const inlineQuery = query
+    const inlineQuery = removeComments(query)
       .split("\n")
       .map((string) => string.trim())
       .join(" ");
+
     const result = await runApi(
       this.params,
       query !== "" ? `?query=${inlineQuery}` : ""
@@ -793,7 +795,7 @@ export default class MicrosoftAppInsights
     );
     const metricEnd = this.getMetricEnd([params.metric], params.to);
 
-    const aggregate = this.getAggregateMetricColumn(params.metric);
+    const aggregate = this.getAggregateMetricColumn(params.metric, "noWindow");
 
     const query = format(
       `// ${params.name} - ${params.metric.name} Metric
@@ -806,8 +808,7 @@ export default class MicrosoftAppInsights
               idJoinMap
             )}),`
           : ""
-      }
-      let metric = (${this.getMetricCTE({
+      }let metric = (${this.getMetricCTE({
         metric: params.metric,
         baseIdType,
         idJoinMap,
@@ -820,7 +821,7 @@ export default class MicrosoftAppInsights
         // Add in the aggregate metric value for each user
         metric
         | project
-          user_id = ${baseIdType},
+          ${baseIdType} = ${baseIdType},
           value = value
         | summarize value = ${aggregate} by ${baseIdType}
       );
@@ -828,13 +829,12 @@ export default class MicrosoftAppInsights
         userMetric
         | summarize
           count = count(),
-          main_sum = coalesce(sum(value), 0),
-          main_sum_squares = coalesce(sum(pow(value, 2)), 0.0)
+          main_sum = coalesce(sum(value), 0.0),
+          main_sum_squares = coalesce(sum(pow(value, 2.0)), 0.0)
       );
       ${
         params.includeByDate
-          ? `
-        let userMetricDates = (
+          ? `let userMetricDates = (
           // Add in the aggregate metric value for each user
           metric
           | summarize
@@ -846,8 +846,8 @@ export default class MicrosoftAppInsights
           userMetricDates
           | summarize
             count = count(),
-            main_sum = coalesce(sum(value), 0),
-            main_sum_squares = coalesce(sum(pow(value, 2)), 0.0)
+            main_sum = coalesce(sum(value), 0.0),
+            main_sum_squares = coalesce(sum(pow(value, 2.0)), 0.0)
             by ['date']
           | sort by ['date']
         );`
@@ -855,11 +855,9 @@ export default class MicrosoftAppInsights
       }
       ${
         params.includeByDate
-          ? `
-          overall;
+          ? `overall;
           byDateOverall;`
-          : `
-          overall;`
+          : `overall;`
       }
       `,
       this.getFormatDialect()
@@ -1249,12 +1247,7 @@ export default class MicrosoftAppInsights
     factTableMap: FactTableMap;
     useDenominator?: boolean;
   }) {
-    const cols = this.getMetricColumns(
-      metric,
-      factTableMap,
-      "m",
-      useDenominator
-    );
+    const cols = this.getMetricColumns(metric, factTableMap, useDenominator);
 
     // Determine the identifier column to select from
     let userIdCol = cols.userIds[baseIdType] || "user_id";
@@ -1344,16 +1337,14 @@ export default class MicrosoftAppInsights
         conversion_start = ${this.addHours(
           timestampDateTimeColumn,
           conversionDelayHours
-        )}
-        ${
-          ignoreConversionEnd
-            ? ""
-            : `, conversion_end = ${this.addHours(
-                timestampDateTimeColumn,
-                conversionDelayHours + conversionWindowHours
-              )}`
-        }
-        ${join}
+        )}${
+      ignoreConversionEnd
+        ? ""
+        : `,\nconversion_end = ${this.addHours(
+            timestampDateTimeColumn,
+            conversionDelayHours + conversionWindowHours
+          )}`
+    }${join}
         ${where.length ? `| where ${where.join(" and ")}` : ""}
     `;
   }
@@ -1361,14 +1352,13 @@ export default class MicrosoftAppInsights
   private getMetricColumns(
     metric: ExperimentMetricInterface,
     factTableMap: FactTableMap,
-    alias = "m",
     useDenominator?: boolean
   ) {
     if (isFactMetric(metric)) {
       const userIds: Record<string, string> = {};
       getUserIdTypes(metric, factTableMap, useDenominator).forEach(
         (userIdType) => {
-          userIds[userIdType] = `${alias}.${userIdType}`;
+          userIds[userIdType] = `${userIdType}`;
         }
       );
 
@@ -1380,11 +1370,11 @@ export default class MicrosoftAppInsights
         columnRef.column === "$$distinctUsers" ||
         columnRef.column === "$$count"
           ? "1"
-          : `${alias}.${columnRef.column}`;
+          : `${columnRef.column}`;
 
       return {
         userIds,
-        timestamp: `${alias}.timestamp`,
+        timestamp: `timestamp`,
         value,
       };
     }
@@ -1392,12 +1382,12 @@ export default class MicrosoftAppInsights
     // Directly inputting SQL (preferred)
     const userIds: Record<string, string> = {};
     metric.userIdTypes?.forEach((userIdType) => {
-      userIds[userIdType] = `${alias}.${userIdType}`;
+      userIds[userIdType] = `${userIdType}`;
     });
     return {
       userIds: userIds,
-      timestamp: `${alias}.timestamp`,
-      value: metric.type === "binomial" ? "1" : `${alias}.value`,
+      timestamp: `timestamp`,
+      value: metric.type === "binomial" ? "1" : `value`,
     };
   }
 
@@ -1589,8 +1579,9 @@ export default class MicrosoftAppInsights
           preexposure_end,`
             : ""
         }
-        conversion_start = conversion_start
-        ${ignoreConversionEnd ? "" : `, conversion_end = conversion_end`}
+        conversion_start = conversion_start${
+          ignoreConversionEnd ? "" : `,\n conversion_end = conversion_end`
+        }
         ${metrics
           .map((m, i) => {
             return `| join kind=fullouter (${tablePrefix}${i}) on ($left.${baseIdType} == $right.${baseIdType})`;

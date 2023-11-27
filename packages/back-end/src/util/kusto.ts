@@ -133,3 +133,8 @@ export function expandDenominatorMetrics(
   if (!m.denominator) return [metric];
   return [...expandDenominatorMetrics(m.denominator, map, visited), metric];
 }
+
+export function removeComments(kql: string): string {
+  //Takes a string of code, not an actual function.
+  return kql.replace(/\/\*[\s\S]*?\*\/|(?<=[^:])\/\/.*|^\/\/.*/g, "").trim(); //Strip comments
+}
