@@ -5,8 +5,10 @@ import cloneDeep from "lodash/cloneDeep";
 import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
 import { getValidDate } from "shared/dates";
 import { getAffectedEnvsForExperiment } from "shared/util";
+import { getAllMetricRegressionAdjustmentStatuses } from "shared/experiments";
 import { getScopedSettings } from "shared/settings";
 import { v4 as uuidv4 } from "uuid";
+import uniq from "lodash/uniq";
 import { AuthRequest, ResponseWithStatusAndError } from "../types/AuthRequest";
 import {
   createManualSnapshot,
@@ -18,7 +20,7 @@ import {
   getLinkedFeatureInfo,
   getManualSnapshotData,
 } from "../services/experiments";
-import { MetricStats } from "../../types/metric";
+import { MetricInterface, MetricStats } from "../../types/metric";
 import {
   createExperiment,
   deleteExperimentByIdForOrganization,
@@ -65,7 +67,7 @@ import {
   ExperimentTargetingData,
   Variation,
 } from "../../types/experiment";
-import { getMetricMap } from "../models/MetricModel";
+import { getMetricById, getMetricMap } from "../models/MetricModel";
 import { IdeaModel } from "../models/IdeasModel";
 import { IdeaInterface } from "../../types/idea";
 import { getDataSourceById } from "../models/DataSourceModel";
@@ -80,8 +82,6 @@ import {
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotInterface,
 } from "../../types/experiment-snapshot";
-import { StatsEngine } from "../../types/stats";
-import { MetricRegressionAdjustmentStatus } from "../../types/report";
 import { VisualChangesetInterface } from "../../types/visual-changeset";
 import { PrivateApiErrorResponse } from "../../types/api";
 import { EventAuditUserForResponseLocals } from "../events/event-types";
@@ -97,6 +97,7 @@ import {
 } from "../models/ApiKeyModel";
 import { getExperimentWatchers, upsertWatch } from "../models/WatchModel";
 import { getFactTableMap } from "../models/FactTableModel";
+import { OrganizationSettings } from "../../types/organization";
 
 export async function getExperiments(
   req: AuthRequest<
@@ -1684,9 +1685,6 @@ export async function postSnapshot(
       dimension?: string;
       users?: number[];
       metrics?: { [key: string]: MetricStats[] };
-      statsEngine?: StatsEngine;
-      regressionAdjustmentEnabled?: boolean;
-      metricRegressionAdjustmentStatuses?: MetricRegressionAdjustmentStatus[];
     },
     { id: string },
     { force?: string }
@@ -1707,12 +1705,50 @@ export async function postSnapshot(
 
   req.checkPermissions("runQueries", experiment.project || "");
 
-  let { statsEngine } = req.body;
+  let project = null;
+  if (experiment.project) {
+    project = await findProjectById(experiment.project, org.id);
+  }
+  const orgSettings: OrganizationSettings = org.settings as OrganizationSettings;
+  const { settings } = getScopedSettings({
+    organization: org,
+    project: project ?? undefined,
+    experiment,
+  });
+  const statsEngine = settings.statsEngine.value;
+  const { phase, dimension } = req.body;
+
+  const allExperimentMetricIds = uniq([
+    ...experiment.metrics,
+    ...(experiment.guardrails ?? []),
+  ]);
+  const allExperimentMetrics = await Promise.all(
+    allExperimentMetricIds.map((m) => getExperimentMetricById(m, org.id))
+  );
+  const denominatorMetricIds = uniq<string>(
+    allExperimentMetrics
+      .map((m) => m?.denominator)
+      .filter((d) => d && typeof d === "string") as string[]
+  );
+  const denominatorMetrics = (
+    await Promise.all(denominatorMetricIds.map((m) => getMetricById(m, org.id)))
+  ).filter(Boolean) as MetricInterface[];
+  const datasource = await getDataSourceById(experiment.datasource, org.id);
+
   const {
     metricRegressionAdjustmentStatuses,
     regressionAdjustmentEnabled,
-  } = req.body;
-  const { phase, dimension } = req.body;
+  } = getAllMetricRegressionAdjustmentStatuses({
+    allExperimentMetrics,
+    denominatorMetrics,
+    orgSettings,
+    statsEngine,
+    experimentRegressionAdjustmentEnabled:
+      experiment.regressionAdjustmentEnabled,
+    experimentMetricOverrides: experiment.metricOverrides,
+    datasourceType: datasource?.type,
+    hasRegressionAdjustmentFeature: true,
+  });
 
   if (!experiment.phases[phase]) {
     res.status(404).json({
@@ -1722,18 +1758,6 @@ export async function postSnapshot(
     return;
   }
 
-  let project = null;
-  if (experiment.project) {
-    project = await findProjectById(experiment.project, org.id);
-  }
-  const { settings: scopedSettings } = getScopedSettings({
-    organization: org,
-    project: project ?? undefined,
-  });
-
-  statsEngine = ["bayesian", "frequentist"].includes(statsEngine + "")
-    ? statsEngine
-    : scopedSettings.statsEngine.value;
   const useCache = !req.query["force"];
 
   // This is doing an expensive analytics SQL query, so may take a long time
@@ -1741,7 +1765,7 @@ export async function postSnapshot(
   req.setTimeout(30 * 60 * 1000);
 
   const analysisSettings = getDefaultExperimentAnalysisSettings(
-    statsEngine as StatsEngine,
+    statsEngine,
     experiment,
     org,
     regressionAdjustmentEnabled,

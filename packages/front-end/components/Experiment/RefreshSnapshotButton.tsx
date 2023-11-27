@@ -5,8 +5,6 @@ import {
   ExperimentSnapshotInterface,
   ExperimentSnapshotAnalysis,
 } from "back-end/types/experiment-snapshot";
-import { StatsEngine } from "back-end/types/stats";
-import { MetricRegressionAdjustmentStatus } from "back-end/types/report";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { trackSnapshot } from "@/services/track";
@@ -19,9 +17,6 @@ const RefreshSnapshotButton: FC<{
   lastAnalysis?: ExperimentSnapshotAnalysis;
   phase: number;
   dimension?: string;
-  statsEngine?: StatsEngine;
-  regressionAdjustmentEnabled?: boolean;
-  metricRegressionAdjustmentStatuses?: MetricRegressionAdjustmentStatus[];
   onSubmit?: () => void;
   newUi?: boolean;
 }> = ({
@@ -30,9 +25,6 @@ const RefreshSnapshotButton: FC<{
   lastAnalysis,
   phase,
   dimension,
-  statsEngine,
-  regressionAdjustmentEnabled,
-  metricRegressionAdjustmentStatuses,
   onSubmit,
   newUi = false,
 }) => {
@@ -60,9 +52,6 @@ const RefreshSnapshotButton: FC<{
       body: JSON.stringify({
         phase,
         dimension,
-        statsEngine,
-        regressionAdjustmentEnabled,
-        metricRegressionAdjustmentStatuses,
       }),
     });
     trackSnapshot(

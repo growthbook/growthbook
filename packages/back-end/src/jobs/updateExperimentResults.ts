@@ -149,7 +149,7 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
     } = await getRegressionAdjustmentInfo(experiment, organization);
 
     const analysisSettings = getDefaultExperimentAnalysisSettings(
-      experiment.statsEngine ?? scopedSettings.statsEngine.value,
+      experiment.statsEngine || scopedSettings.statsEngine.value,
       experiment,
       organization,
       regressionAdjustmentEnabled
