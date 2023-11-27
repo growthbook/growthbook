@@ -139,8 +139,14 @@ export default function FixConflictsModal({
 
   const mergeResult = useMemo(() => {
     if (!revision || !baseRevision || !liveRevision) return null;
-    return autoMerge(liveRevision, baseRevision, revision, strategies);
-  }, [revision, baseRevision, liveRevision, strategies]);
+    return autoMerge(
+      liveRevision,
+      baseRevision,
+      revision,
+      environments.map((e) => e.id),
+      strategies
+    );
+  }, [revision, baseRevision, liveRevision, environments, strategies]);
 
   const resultDiffs = useMemo(() => {
     const diffs: { a: string; b: string; title: string }[] = [];

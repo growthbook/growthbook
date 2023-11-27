@@ -71,8 +71,6 @@ import { IdeaInterface } from "../../types/idea";
 import { getDataSourceById } from "../models/DataSourceModel";
 import { generateExperimentNotebook } from "../services/notebook";
 import { IMPORT_LIMIT_DAYS } from "../util/secrets";
-import { getAllFeatures } from "../models/FeatureModel";
-import { ExperimentRule, FeatureInterface } from "../../types/feature";
 import {
   auditDetailsCreate,
   auditDetailsDelete,
@@ -395,106 +393,6 @@ export async function getSnapshots(
   });
   return;
 }
-
-export async function getNewFeatures(
-  req: AuthRequest<unknown, unknown, { project?: string }>,
-  res: Response
-) {
-  const { org } = getOrgFromReq(req);
-  let project = "";
-  if (typeof req.query?.project === "string") {
-    project = req.query.project;
-  }
-
-  const allExperiments = await getAllExperiments(org.id);
-  const projectFeatures = await getAllFeatures(org.id, project);
-
-  const expMap = new Map();
-  allExperiments.forEach((exp) => {
-    const key = exp.trackingKey || exp.id;
-    expMap.set(key, exp);
-  });
-  const newFeatures = new Map();
-  // a feature can have multiple experiments.
-  projectFeatures.forEach((f) => {
-    Object.values(f.environmentSettings || {}).forEach((e) => {
-      (e.rules || []).forEach((r) => {
-        if (r.type === "experiment") {
-          const tKey = r.trackingKey || f.id;
-          if (!expMap.get(tKey)) {
-            // this feature experiment has no report:
-            newFeatures.set(tKey, {
-              feature: f,
-              rule: r,
-              trackingKey: tKey,
-              partialExperiment: getExperimentDefinitionFromFeatureAndRule(
-                f,
-                r
-              ),
-            });
-          }
-        }
-      });
-    });
-  });
-
-  res.status(200).json({
-    status: 200,
-    features: Array.from(newFeatures.values()).sort(
-      (a, b) => b.feature.dateCreated - a.feature.dateCreated
-    ),
-  });
-  return;
-}
-
-const getExperimentDefinitionFromFeatureAndRule = (
-  feature: FeatureInterface,
-  expRule: ExperimentRule
-) => {
-  const totalPercent = expRule.values.reduce((sum, w) => sum + w.weight, 0);
-
-  const expDefinition: Partial<ExperimentInterfaceStringDates> = {
-    trackingKey: expRule.trackingKey || feature.id,
-    name: (expRule.trackingKey || feature.id) + " experiment",
-    hypothesis: expRule.description || "",
-    hashAttribute: expRule.hashAttribute,
-    hashVersion: 1,
-    description: `Experiment analysis for the feature [**${feature.id}**](/features/${feature.id})`,
-    variations: expRule.values.map((v, i) => {
-      let name = i ? `Variation ${i}` : "Control";
-      if (feature.valueType === "boolean") {
-        name = v.value === "true" ? "On" : "Off";
-      }
-      return {
-        id: uniqid("var_"),
-        key: i + "",
-        name,
-        screenshots: [],
-        description: v.value,
-      };
-    }),
-    phases: [
-      {
-        name: "Main",
-        seed: expRule.trackingKey || feature.id,
-        coverage: totalPercent,
-        variationWeights: expRule.values.map((v) =>
-          totalPercent > 0 ? v.weight / totalPercent : 1 / expRule.values.length
-        ),
-        reason: "",
-        dateStarted: new Date().toISOString(),
-        condition: expRule.condition || "",
-        savedGroups: expRule.savedGroups || [],
-        namespace: expRule.namespace || {
-          enabled: false,
-          name: "",
-          range: [0, 1],
-        },
-      },
-    ],
-  };
-  return expDefinition;
-};
 
 const validateVariationIds = (variations: Variation[]) => {
   variations.forEach((variation, i) => {

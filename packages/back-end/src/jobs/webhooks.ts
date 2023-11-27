@@ -33,7 +33,7 @@ export default function (ag: Agenda) {
       organization: webhook.organization,
       environment:
         webhook.environment === undefined ? "production" : webhook.environment,
-      project: webhook.project || "",
+      projects: webhook.project ? [webhook.project] : [],
     });
 
     // eslint-disable-next-line

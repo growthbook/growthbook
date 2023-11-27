@@ -31,7 +31,7 @@ export const listSdkConnections = createApiRequestHandler(
         .filter(
           (c) =>
             (!req.query.withProxy || c.proxy?.enabled) &&
-            applyFilter(req.query.projectId, c.project)
+            applyFilter(req.query.projectId, c.projects, true)
         )
         .filter((c) => {
           if (!req.query.withProxy) return true;
