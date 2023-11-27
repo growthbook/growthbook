@@ -126,12 +126,6 @@ export type ExperimentOverride = {
   url?: RegExp | string;
 };
 
-export interface ExperimentEvaluationContext {
-  foundStickyBucket?: boolean;
-  stickyBucketAssigned?: number;
-  stickyBucketBlocked?: boolean;
-}
-
 export interface Result<T> {
   value: T;
   variationId: number;
