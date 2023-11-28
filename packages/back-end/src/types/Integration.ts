@@ -127,6 +127,7 @@ export interface ExperimentAggregateUnitsQueryParams
 export type AutomaticDimensionQueryParams = {
   exposureQueryId: string;
   dimensions: ExperimentDimension[];
+  lookbackDays: number;
 };
 
 export type PastExperimentParams = {
@@ -413,7 +414,6 @@ export interface SourceIntegrationInterface {
     query: string,
     setExternalId: ExternalIdCallback
   ): Promise<AutomaticDimensionQueryResponse>;
-  getDimensionInStatement(dimension: string, values: string[]): string;
   runMetricValueQuery(
     query: string,
     setExternalId: ExternalIdCallback

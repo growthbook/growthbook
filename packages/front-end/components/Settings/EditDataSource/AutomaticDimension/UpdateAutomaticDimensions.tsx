@@ -3,18 +3,18 @@ import {
   DataSourceInterfaceWithParams,
   ExposureQuery,
 } from "back-end/types/datasource";
-import { useForm } from "react-hook-form";
 import cloneDeep from "lodash/cloneDeep";
 import { AutomaticDimensionInterface } from "back-end/src/types/Integration";
 import { ago, datetime } from "shared/dates";
+import { QueryStatus } from "back-end/types/query";
 import { useAuth } from "@/services/auth";
 import useApi from "@/hooks/useApi";
 import RunQueriesButton, {
   getQueryStatus,
 } from "@/components/Queries/RunQueriesButton";
 import ViewAsyncQueriesButton from "@/components/Queries/ViewAsyncQueriesButton";
-import Modal from "../../../Modal";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import Modal from "../../../Modal";
 
 type UpdateAutomaticDimensionModalProps = {
   exposureQuery: ExposureQuery;
@@ -50,7 +50,9 @@ export const UpdateAutomaticDimensionsModal: FC<UpdateAutomaticDimensionModalPro
       try {
         const res = await apiCall<{
           automaticDimension: AutomaticDimensionInterface;
-        }>(`/automatic-dimension/datasource/${dataSource.id}/${exposureQuery.id}`);
+        }>(
+          `/automatic-dimension/datasource/${dataSource.id}/${exposureQuery.id}`
+        );
         if (res?.automaticDimension?.id) {
           setId(res.automaticDimension.id);
           await mutate();
@@ -65,40 +67,18 @@ export const UpdateAutomaticDimensionsModal: FC<UpdateAutomaticDimensionModalPro
     getDimensionId();
   }, [getDimensionId]);
 
+  if (error) {
+    return <div className="alert alert-error">{error?.message}</div>;
+  }
   const { status } = getQueryStatus(
     data?.automaticDimension?.queries || [],
     data?.automaticDimension?.error
   );
 
-  const refreshDimension = useCallback(async () => {
-    apiCall<{
-      automaticDimension: AutomaticDimensionInterface;
-    }>("/automatic-dimension", {
-      method: "POST",
-      body: JSON.stringify({
-        datasourceId: dataSource.id,
-        queryId: exposureQuery.id,
-      }),
-    }).then((res) => {
-      setId(res.automaticDimension.id);
-      mutate();
-    })
-    .catch((e) => {
-      console.error(e.message);
-    });
-  }, [dataSource, exposureQuery, mutate, apiCall]);
-
-  if (error) {
-    return <div className="alert alert-error">{error?.message}</div>;
-  }
-
   const saveEnabled = id && status === "succeeded";
-  const secondaryCTA = <>
-      <Tooltip
-        body={""}
-        shouldDisplay={true}
-        tipPosition="top"
-      >
+  const secondaryCTA = (
+    <>
+      <Tooltip body={""} shouldDisplay={true} tipPosition="top">
         <button
           className={`btn btn-primary`}
           type="submit"
@@ -115,7 +95,8 @@ export const UpdateAutomaticDimensionsModal: FC<UpdateAutomaticDimensionModalPro
           {"Save to Data Source"}
         </button>
       </Tooltip>
-  </>;
+    </>
+  );
 
   return (
     <>
@@ -128,75 +109,15 @@ export const UpdateAutomaticDimensionsModal: FC<UpdateAutomaticDimensionModalPro
       >
         <div className="my-2 ml-3 mr-3">
           <div className="row">
-            {!data ? (
-              <></>
-            ) : (
-              <>
-                <div className="col-12">
-                  <div className="row align-items-center mb-4">
-                    <div className="col-auto ml-auto">
-                      {data.automaticDimension?.runStarted ? (
-                        <div
-                          className="text-muted"
-                          style={{ fontSize: "0.8em" }}
-                          title={datetime(data.automaticDimension.runStarted)}
-                        >
-                          last updated {ago(data.automaticDimension.runStarted)}
-                        </div>
-                      ) : null}
-                    </div>
-                    <form
-                      onSubmit={async (e) => {
-                        e.preventDefault();
-                        try {
-                          refreshDimension();
-                        } catch (e) {
-                          console.error(e);
-                        }
-                      }}
-                    >
-                      <RunQueriesButton
-                        cta={`${
-                          data.automaticDimension ? "Refresh" : "Create"
-                        } Automatic Dimensions`}
-                        icon={data.automaticDimension ? "refresh" :"run"}
-                        mutate={mutate}
-                        model={data.automaticDimension ?? { queries: [] }}
-                        cancelEndpoint={`/automatic-dimension/${id}/cancel`}
-                        color="outline-primary"
-                      />
-                    </form>{" "}
-                    {status === "failed" && data.automaticDimension && (
-        <div className="alert alert-danger mt-2">
-          <strong>Error updating data, reverting to last valid dimension slices.</strong>
-        </div>
-      )}
-                  </div>
-                  {data?.automaticDimension?.results &&
-                  data?.automaticDimension.results.length ? (
-                    <UpdateAutomaticDimensions
-                      automaticDimension={data.automaticDimension}
-                    />
-                  ) : (
-                    <></>
-                  )}
-                  {data?.automaticDimension?.queries && (
-                    <div>
-                      <ViewAsyncQueriesButton
-                        queries={
-                          data.automaticDimension.queries?.length > 0
-                            ? data.automaticDimension.queries.map((q) => q.query)
-                            : []
-                        }
-                        error={data.automaticDimension.error}
-                        inline={true}
-                        status={status}
-                      />
-                    </div>
-                  )}
-                </div>
-              </>
-            )}
+            <AutomaticDimensionRunner
+              automaticDimension={data?.automaticDimension}
+              status={status}
+              id={id}
+              setId={setId}
+              mutate={mutate}
+              dataSourceId={dataSource.id}
+              exposureQueryId={exposureQuery.id}
+            />
           </div>
         </div>
       </Modal>
@@ -204,11 +125,121 @@ export const UpdateAutomaticDimensionsModal: FC<UpdateAutomaticDimensionModalPro
   );
 };
 
-type UpdateAutomaticDimensionProps = {
+type AutomaticDimensionRunnerProps = {
+  automaticDimension?: AutomaticDimensionInterface;
+  status: QueryStatus;
+  id: string | null;
+  setId: (id: string) => void;
+  mutate: () => void;
+  dataSourceId: string;
+  exposureQueryId: string;
+};
+
+export const AutomaticDimensionRunner: FC<AutomaticDimensionRunnerProps> = ({
+  automaticDimension,
+  status,
+  id,
+  setId,
+  mutate,
+  dataSourceId,
+  exposureQueryId,
+}) => {
+  const { apiCall } = useAuth();
+  const refreshDimension = useCallback(async () => {
+    apiCall<{
+      automaticDimension: AutomaticDimensionInterface;
+    }>("/automatic-dimension", {
+      method: "POST",
+      body: JSON.stringify({
+        dataSourceId: dataSourceId,
+        queryId: exposureQueryId,
+        lookbackDays: 30, // TODO configure
+      }),
+    })
+      .then((res) => {
+        setId(res.automaticDimension.id);
+        mutate();
+      })
+      .catch((e) => {
+        console.error(e.message);
+      });
+  }, [dataSourceId, exposureQueryId, mutate, apiCall, setId]);
+
+  return (
+    <>
+      <div className="col-12">
+        <div className="row align-items-center mb-4">
+          <div className="col-auto ml-auto">
+            {automaticDimension?.runStarted ? (
+              <div
+                className="text-muted"
+                style={{ fontSize: "0.8em" }}
+                title={datetime(automaticDimension.runStarted)}
+              >
+                last updated {ago(automaticDimension.runStarted)}
+              </div>
+            ) : null}
+          </div>
+          <form
+            onSubmit={async (e) => {
+              e.preventDefault();
+              try {
+                refreshDimension();
+              } catch (e) {
+                console.error(e);
+              }
+            }}
+          >
+            <RunQueriesButton
+              cta={`${
+                automaticDimension ? "Refresh" : "Create"
+              } Automatic Dimensions`}
+              icon={automaticDimension ? "refresh" : "run"}
+              mutate={mutate}
+              model={
+                automaticDimension ?? { queries: [], runStarted: undefined }
+              }
+              cancelEndpoint={`/automatic-dimension/${id}/cancel`}
+              color="outline-primary"
+            />
+          </form>{" "}
+          {status === "failed" && automaticDimension && (
+            <div className="alert alert-danger mt-2">
+              <strong>
+                Error updating data, reverting to last valid dimension slices.
+              </strong>
+            </div>
+          )}
+        </div>
+        {automaticDimension?.results && automaticDimension.results.length ? (
+          <AutomaticDimensionResults automaticDimension={automaticDimension} />
+        ) : (
+          <></>
+        )}
+        {automaticDimension?.queries && (
+          <div>
+            <ViewAsyncQueriesButton
+              queries={
+                automaticDimension.queries?.length > 0
+                  ? automaticDimension.queries.map((q) => q.query)
+                  : []
+              }
+              error={automaticDimension.error}
+              inline={true}
+              status={status}
+            />
+          </div>
+        )}
+      </div>
+    </>
+  );
+};
+
+type AutomaticDimensionResultsProps = {
   automaticDimension: AutomaticDimensionInterface;
 };
 
-export const UpdateAutomaticDimensions: FC<UpdateAutomaticDimensionProps> = ({
+export const AutomaticDimensionResults: FC<AutomaticDimensionResultsProps> = ({
   automaticDimension,
 }) => {
   return (

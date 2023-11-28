@@ -353,8 +353,14 @@ app.post("/subscription/success", stripeController.postSubscriptionSuccess);
 app.get("/queries/:ids", datasourcesController.getQueries);
 app.post("/query/test", datasourcesController.testLimitedQuery);
 app.post("/automatic-dimension", datasourcesController.postAutomaticDimension);
-app.get("/automatic-dimension/:id", datasourcesController.getAutomaticDimension);
-app.post("/automatic-dimension/:id/cancel", datasourcesController.cancelAutomaticDimension);
+app.get(
+  "/automatic-dimension/:id",
+  datasourcesController.getAutomaticDimension
+);
+app.post(
+  "/automatic-dimension/:id/cancel",
+  datasourcesController.cancelAutomaticDimension
+);
 
 app.get(
   "/automatic-dimension/datasource/:datasourceId/:exposureQueryId",

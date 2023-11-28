@@ -690,15 +690,13 @@ export async function getLatestAutomaticDimensionForDatasource(
 ) {
   const { org } = getOrgFromReq(req);
   const { datasourceId, exposureQueryId } = req.params;
-  console.log("get latest");
-  console.log(datasourceId);
-  console.log(exposureQueryId);
+
   const automaticDimension = await getLatestAutomaticDimension(
     org.id,
     datasourceId,
     exposureQueryId
   );
-  console.log(automaticDimension);
+
   res.status(200).json({
     status: 200,
     automaticDimension,
@@ -706,13 +704,17 @@ export async function getLatestAutomaticDimensionForDatasource(
 }
 
 export async function postAutomaticDimension(
-  req: AuthRequest<{ datasourceId: string; queryId: string }>,
+  req: AuthRequest<{
+    dataSourceId: string;
+    queryId: string;
+    lookbackDays: number;
+  }>,
   res: Response
 ) {
   const { org } = getOrgFromReq(req);
-  const { datasourceId, queryId } = req.body;
+  const { dataSourceId, queryId, lookbackDays } = req.body;
 
-  const datasourceObj = await getDataSourceById(datasourceId, org.id);
+  const datasourceObj = await getDataSourceById(dataSourceId, org.id);
   if (!datasourceObj) {
     throw new Error("Could not find datasource");
   }
@@ -726,15 +728,13 @@ export async function postAutomaticDimension(
   // todo caching?
   const model = await createAutomaticDimension({
     organization: org.id,
-    datasourceId,
+    dataSourceId,
     queryId,
   });
-  const queryRunner = new AutomaticDimensionQueryRunner(
-    model,
-    integration,
-  );
+  const queryRunner = new AutomaticDimensionQueryRunner(model, integration);
   const outputmodel = await queryRunner.startAnalysis({
     exposureQueryId: queryId,
+    lookbackDays: Number(lookbackDays) ?? 30,
   });
   res.status(200).json({
     status: 200,
@@ -744,21 +744,20 @@ export async function postAutomaticDimension(
   // audit?
 }
 
-
 export async function cancelAutomaticDimension(
   req: AuthRequest<null, { id: string }>,
   res: Response
 ) {
   const { org } = getOrgFromReq(req);
   const { id } = req.params;
-  const automaticDimension = await getAutomaticDimensionById(
-    org.id,
-    id
-  );
+  const automaticDimension = await getAutomaticDimensionById(org.id, id);
   if (!automaticDimension) {
     throw new Error("Could not cancel automatic dimension");
   }
-  const datasource = await getDataSourceById(automaticDimension.datasource, org.id);
+  const datasource = await getDataSourceById(
+    automaticDimension.datasource,
+    org.id
+  );
   if (!datasource) {
     throw new Error("Could not find datasource");
   }
@@ -768,11 +767,12 @@ export async function cancelAutomaticDimension(
     datasource.projects ? datasource.projects : ""
   );
 
-
   const integration = getSourceIntegrationObject(datasource, true);
 
-
-  const queryRunner = new AutomaticDimensionQueryRunner(automaticDimension, integration);
+  const queryRunner = new AutomaticDimensionQueryRunner(
+    automaticDimension,
+    integration
+  );
   await queryRunner.cancelQueries();
 
   res.status(200).json({

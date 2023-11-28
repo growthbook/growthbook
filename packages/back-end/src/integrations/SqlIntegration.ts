@@ -1245,17 +1245,7 @@ export default abstract class SqlIntegration
       , ${dimensionColumn})`;
   }
 
-  getDimensionInStatement(dimension: string, values: string[]): string {
-    return this.ifElse(
-      `${dimension} IN ('${values.join("','")}')`,
-      this.castToString(dimension),
-      `"Other"`
-    );
-  }
-
-  getAutomaticDimensionQuery(params: AutomaticDimensionQueryParams) {
-    // TODO only pass experiment dims that aren't in the "curated by GrowthBook" collection
-
+  getAutomaticDimensionQuery(params: AutomaticDimensionQueryParams): string {
     const exposureQuery = this.getExposureQuery(params.exposureQueryId || "");
 
     const { baseIdType } = getBaseIdTypeAndJoins([[exposureQuery.userIdType]]);
@@ -1339,19 +1329,16 @@ export default abstract class SqlIntegration
         dim_values_sorted
       CROSS JOIN total_n n
       WHERE 
-        units / n.N > 0.01
-        AND rn <= 20
+        rn <= 20
     `,
       this.getFormatDialect()
     );
-    // TODO would you like to apply this change, would you like to auto-compute results and health for these dimensions?
   }
 
   async runAutomaticDimensionQuery(
     query: string,
     setExternalId: ExternalIdCallback
   ): Promise<AutomaticDimensionQueryResponse> {
-    console.log(query);
     const { rows, statistics } = await this.runQuery(query, setExternalId);
     return {
       rows: rows.map((row) => {

@@ -14,10 +14,7 @@ import Code from "@/components/SyntaxHighlighting/Code";
 import { AddEditExperimentAssignmentQueryModal } from "@/components/Settings/EditDataSource/ExperimentAssignmentQueries/AddEditExperimentAssignmentQueryModal";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import Button from "@/components/Button";
-import {
-  UpdateAutomaticDimensions,
-  UpdateAutomaticDimensionsModal,
-} from "../AutomaticDimension/UpdateAutomaticDimensions";
+import { UpdateAutomaticDimensionsModal } from "../AutomaticDimension/UpdateAutomaticDimensions";
 
 type ExperimentAssignmentQueriesProps = DataSourceQueryEditingModalBaseProps;
 type UIMode = "view" | "edit" | "add" | "dimension";

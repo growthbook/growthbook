@@ -13,6 +13,7 @@ import { QueryRunner, QueryMap } from "./QueryRunner";
 
 export type AutomaticDimensionParams = {
   exposureQueryId: string;
+  lookbackDays: number;
 };
 
 export class AutomaticDimensionQueryRunner extends QueryRunner<
@@ -38,6 +39,7 @@ export class AutomaticDimensionQueryRunner extends QueryRunner<
         query: this.integration.getAutomaticDimensionQuery({
           exposureQueryId: params.exposureQueryId,
           dimensions: dimensions,
+          lookbackDays: params.lookbackDays,
         }),
         dependencies: [],
         run: (query, setExternalId) =>

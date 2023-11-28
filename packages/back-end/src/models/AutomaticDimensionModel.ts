@@ -21,7 +21,8 @@ const automaticDimensionSchema = new mongoose.Schema({
   error: String,
 });
 
-type AutomaticDimensionDocument = mongoose.Document & AutomaticDimensionInterface;
+type AutomaticDimensionDocument = mongoose.Document &
+  AutomaticDimensionInterface;
 
 const AutomaticDimensionModel = mongoose.model<AutomaticDimensionInterface>(
   "AutomaticDimension",
@@ -70,8 +71,6 @@ export async function getLatestAutomaticDimension(
   exposureQueryId: string
 ): Promise<AutomaticDimensionInterface | null> {
   // TODO get no error or status === good
-  console.log(datasource);
-  console.log(exposureQueryId);
   const doc = await AutomaticDimensionModel.find(
     { organization, datasource, exposureQueryId },
     null,
@@ -88,18 +87,18 @@ export async function getLatestAutomaticDimension(
 
 export async function createAutomaticDimension({
   organization,
-  datasourceId,
+  dataSourceId,
   queryId,
 }: {
   organization: string;
-  datasourceId: string;
+  dataSourceId: string;
   queryId: string;
 }) {
   const now = new Date();
   const doc = await AutomaticDimensionModel.create({
     id: uniqid("reld_"),
     organization,
-    datasource: datasourceId,
+    datasource: dataSourceId,
     exposureQueryId: queryId,
     runStarted: now,
     error: "",
