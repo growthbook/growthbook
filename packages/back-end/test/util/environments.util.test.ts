@@ -1,9 +1,6 @@
 import { Environment } from "../../types/organization";
 import { deepFreeze } from "../test-helpers";
-import {
-  addEnvironmentToOrganizationEnvironments,
-  containsEnvironment,
-} from "../../src/util/environments";
+import { addEnvironmentToOrganizationEnvironments } from "../../src/util/environments";
 
 describe("environment utils", () => {
   describe("addEnvironmentToOrganizationEnvironments", () => {
@@ -141,45 +138,6 @@ describe("environment utils", () => {
           ]);
         });
       });
-    });
-  });
-
-  describe("containsEnvironment", () => {
-    const existingEnvironments: Environment[] = [
-      {
-        id: "production",
-        description: "My old production",
-      },
-      {
-        id: "development",
-        description: "My existing development environment",
-      },
-    ];
-
-    beforeEach(() => {
-      deepFreeze(existingEnvironments);
-    });
-
-    it("should return true when the environment by key already exists", () => {
-      const input: Environment = {
-        id: "production",
-        description: "My new production",
-      };
-
-      const result = containsEnvironment(existingEnvironments, input);
-
-      expect(result).toBe(true);
-    });
-
-    it("should return false when the environment does not exist", () => {
-      const input: Environment = {
-        id: "staging",
-        description: "My staging environment",
-      };
-
-      const result = containsEnvironment(existingEnvironments, input);
-
-      expect(result).toBe(false);
     });
   });
 });

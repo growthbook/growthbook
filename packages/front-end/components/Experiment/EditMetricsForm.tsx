@@ -1,4 +1,4 @@
-import React, { FC, useState } from "react";
+import { FC, useState } from "react";
 import { useForm } from "react-hook-form";
 import {
   ExperimentInterfaceStringDates,
@@ -9,10 +9,10 @@ import { DEFAULT_REGRESSION_ADJUSTMENT_DAYS } from "shared/constants";
 import { OrganizationSettings } from "back-end/types/organization";
 import { ExperimentMetricInterface } from "shared/experiments";
 import useOrgSettings from "@/hooks/useOrgSettings";
-import { useAuth } from "../../services/auth";
+import { useAuth } from "@/services/auth";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import { useUser } from "@/services/UserContext";
 import Modal from "../Modal";
-import { useDefinitions } from "../../services/DefinitionsContext";
-import { useUser } from "../../services/UserContext";
 import PremiumTooltip from "../Marketing/PremiumTooltip";
 import UpgradeMessage from "../Marketing/UpgradeMessage";
 import UpgradeModal from "../Settings/UpgradeModal";
@@ -78,6 +78,7 @@ export function fixMetricOverridesBeforeSaving(overrides: MetricOverride[]) {
     for (const key in overrides[i]) {
       if (key === "id") continue;
       const v = overrides[i][key];
+      // remove nullish values from payload
       if (v === undefined || v === null || isNaN(v)) {
         delete overrides[i][key];
         continue;

@@ -406,7 +406,7 @@ const ExperimentsPage = (): React.ReactElement => {
                             <span className="text-danger">Invalid project</span>
                           </Tooltip>
                         ) : (
-                          e.projectName ?? <em>All Projects</em>
+                          e.projectName ?? <em>None</em>
                         )}
                       </td>
                     )}

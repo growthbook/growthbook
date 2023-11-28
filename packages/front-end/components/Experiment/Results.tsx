@@ -2,7 +2,6 @@ import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import React, { FC, useEffect } from "react";
 import dynamic from "next/dynamic";
 import { DifferenceType, StatsEngine } from "back-end/types/stats";
-import { MetricRegressionAdjustmentStatus } from "back-end/types/report";
 import { getValidDate, ago } from "shared/dates";
 import { DEFAULT_STATS_ENGINE } from "shared/constants";
 import { ExperimentMetricInterface } from "shared/experiments";
@@ -42,7 +41,6 @@ const Results: FC<{
   regressionAdjustmentAvailable?: boolean;
   regressionAdjustmentEnabled?: boolean;
   regressionAdjustmentHasValidMetrics?: boolean;
-  metricRegressionAdjustmentStatuses?: MetricRegressionAdjustmentStatus[];
   onRegressionAdjustmentChange?: (enabled: boolean) => void;
   variationFilter?: number[];
   setVariationFilter?: (variationFilter: number[]) => void;
@@ -67,7 +65,6 @@ const Results: FC<{
   regressionAdjustmentAvailable = false,
   regressionAdjustmentEnabled = false,
   regressionAdjustmentHasValidMetrics = false,
-  metricRegressionAdjustmentStatuses,
   onRegressionAdjustmentChange,
   variationFilter,
   setVariationFilter,
@@ -182,9 +179,6 @@ const Results: FC<{
           regressionAdjustmentEnabled={regressionAdjustmentEnabled}
           regressionAdjustmentHasValidMetrics={
             regressionAdjustmentHasValidMetrics
-          }
-          metricRegressionAdjustmentStatuses={
-            metricRegressionAdjustmentStatuses
           }
           onRegressionAdjustmentChange={onRegressionAdjustmentChange}
           newUi={true}
