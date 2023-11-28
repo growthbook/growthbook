@@ -19,12 +19,15 @@ GrowthBook's SCIM integration currently offers the following features:
 
 - User provisioning
 - User deprovisioning
+- Group Push
 
 When a user is provisioned, they are added to your GrowthBook organization with your organization's default role. After provisioning, admin users can adjust their roles and permissions via the GrowthBook application as needed. It's important to note that if a user is provisioned through SCIM, they can only be deprovisioned through your identity provider.
 
+When a group is added to "Push Groups" in your Okta SCIM application, groups and their members will be synced with GrowthBook via a corresponding Team (learn more). Please note that only members that have been added to GrowthBook will be added to the corresponding Team in GrowthBook. Similarly to user provisioning, new Teams will be created with your organization's default role and permissions for the Team will need to be adjusted within GrowthBook. Group removal or membership changes will need to be done through your identity provider.
+
 :::note
 
-We are actively working to expand functionality to include group provisioning and deprovisioning, as well as adding support for additional identity providers.
+We are actively working on adding support for additional identity providers.
 
 :::
 
@@ -58,13 +61,13 @@ We are actively working to expand functionality to include group provisioning an
 
 ![](../../static/images/integrations/scim/GrowthBook-SCIM-Configure-Options.png)
 
-9. Congratulations! Your application is now set up. You can navigate to the "Assignments" tab and assign people to GrowthBook.
+9. Congratulations! Your application is now set up. You can navigate to the "Assignments" tab and assign people to GrowthBook and to the "Push Groups" tab to sync groups with GrowthBook Teams.
 
 ## Frequently Asked Questions
 
 **What features are supported with SCIM?**
 
-Currently, GrowthBook supports user provisioning and deprovisioning.
+Currently, GrowthBook supports user provisioning and deprovisioning and group pushing.
 
 **What identity providers are supported?**
 
@@ -74,13 +77,13 @@ At present, GrowthBook only supports Okta, but we are actively working on adding
 
 If a user is deprovisioned in your identity provider, they will be removed from GrowthBook. If they are re-provisioned, they will be added back to GrowthBook, and their role will reset to the organization's default role.
 
+**All the users from my group aren't being synced with my GrowthBook team. What's happening?**
+
+If you notice that some users that you expect to be in your GrowthBook team from your identity provider are not being added in GrowthBook, double check that those users are assigned to the GrowthBook SCIM application in your identity provider. Only users that are both assigned and withing the group will be synced to the corresponding team.
+
 **What if I already have users in GrowthBook?**
 
 Existing users in GrowthBook will not be affected by SCIM. You can continue to manage them through the GrowthBook application as usual. If you wish to transition them to be managed by your identity provider, you can provision them through your identity provider. As long as the email matches, the existing GrowthBook user will be converted to be managed by your identity provider.
-
-**Do you support groups?**
-
-Currently, we do not support groups, but we are actively working on adding group support in the future.
 
 **Does GrowthBook follow SCIM 1.1 or 2.0 Protocol?**
 
