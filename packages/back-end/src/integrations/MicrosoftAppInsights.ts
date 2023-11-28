@@ -284,6 +284,10 @@ export default class MicrosoftAppInsights
       settings.experimentId
     );
 
+    const dimension = params.dimensions[0];
+
+    const dimensionCol = this.getDimensionColumn(baseIdType, dimension);
+
     const initialMetric =
       denominatorMetrics.length > 0 ? denominatorMetrics[0] : metric;
 
@@ -331,26 +335,23 @@ export default class MicrosoftAppInsights
                   minMetricDelay - regressionAdjustmentHours
                 )},`
               : ""
-          }
-          conversion_start = ${this.addHours(
-            timestampColumn,
-            conversionDelayHours
-          )}
-          ${experimentDimensions.map(
-            (exprimentDimension) =>
-              `, dimension_${exprimentDimension.id} = ${this.getDimensionColumn(
-                baseIdType,
-                exprimentDimension
-              )}`
-          )}
-          ${
-            ignoreConversionEnd
-              ? ""
-              : `, conversion_end = ${this.addHours(
-                  timestampColumn,
-                  conversionDelayHours + initialConversionWindowHours
-                )}`
-          }
+          }conversion_start = ${this.addHours(
+        timestampColumn,
+        conversionDelayHours
+      )}${experimentDimensions.map(
+        (experimentDimension) =>
+          `, dimension_${experimentDimension.id} = ${this.getDimensionColumn(
+            baseIdType,
+            experimentDimension
+          )}`
+      )}${
+        ignoreConversionEnd
+          ? ""
+          : `,\nconversion_end = ${this.addHours(
+              timestampColumn,
+              conversionDelayHours + initialConversionWindowHours
+            )}`
+      }
         | where experiment_id == '${settings.experimentId}'
             and ${timestampColumn} >= datetime(${this.toTimestamp(
         settings.startDate
@@ -362,8 +363,7 @@ export default class MicrosoftAppInsights
                   )})`
                 : ""
             }
-            ${settings.queryFilter ? `and (\n${settings.queryFilter}\n)` : ""}
-        );
+            ${settings.queryFilter ? `and (\n${settings.queryFilter}\n)` : ""});
         let metric = (${this.getMetricCTE({
           metric,
           baseIdType,
@@ -395,26 +395,24 @@ export default class MicrosoftAppInsights
                 idJoinMap
               )});`
           )
-          .join("\n")}
-        
-        ${denominatorMetrics
-          .map((m, i) => {
-            const nextMetric = denominatorMetrics[i + 1] || metric;
-            return `let denominator${i} = (${this.getMetricCTE({
-              metric: m,
-              conversionWindowHours: getConversionWindowHours(nextMetric),
-              conversionDelayHours: nextMetric.conversionDelayHours,
-              ignoreConversionEnd: ignoreConversionEnd,
-              baseIdType,
-              idJoinMap,
-              startDate: metricStart,
-              endDate: metricEnd,
-              experimentId: settings.experimentId,
-              factTableMap,
-              useDenominator: true,
-            })});`;
-          })
-          .join("\n")}
+          .join("\n")}${denominatorMetrics
+        .map((m, i) => {
+          const nextMetric = denominatorMetrics[i + 1] || metric;
+          return `let denominator${i} = (${this.getMetricCTE({
+            metric: m,
+            conversionWindowHours: getConversionWindowHours(nextMetric),
+            conversionDelayHours: nextMetric.conversionDelayHours,
+            ignoreConversionEnd: ignoreConversionEnd,
+            baseIdType,
+            idJoinMap,
+            startDate: metricStart,
+            endDate: metricEnd,
+            experimentId: settings.experimentId,
+            factTableMap,
+            useDenominator: true,
+          })});`;
+        })
+        .join("\n")}
         ${
           funnelMetric
             ? `let denominatorUsers = (${this.getFunnelUsersCTE(
@@ -458,18 +456,18 @@ export default class MicrosoftAppInsights
             }
           ${segment ? `| where ['date'] <= timestamp` : ""}
           | summarize
-            dimension
-            ${
-              isRegressionAdjusted
-                ? `preexposure_start = min(preexposure_start),
+          dimension = ${dimensionCol},
+          ${
+            isRegressionAdjusted
+              ? `preexposure_start = min(preexposure_start),
                 preexposure_end = min(preexposure_end),`
-                : ""
-            }
-            variation = ${this.ifElse(
-              "dcount(variation) > 1",
-              "'__multiple__'",
-              "max(variation)"
-            )},
+              : ""
+          }
+          variation = ${this.ifElse(
+            "dcount(variation) > 1",
+            "'__multiple__'",
+            "max(variation)"
+          )},
             conversion_start = min(${this.getMetricConversionBase(
               "conversion_start",
               denominatorMetrics.length > 0,
@@ -493,7 +491,7 @@ export default class MicrosoftAppInsights
               variation = variation,
               dimension = dimension,
               ${baseIdType} = ${baseIdType}
-          | join kind=fullouter (metric) on $left.user_id == $right.user_id
+          | join kind=fullouter (metric) on $left.${baseIdType} == $right.${baseIdType}
           | where
             ${this.getMetricWindowWhereClause(
               isRegressionAdjusted,
@@ -554,23 +552,23 @@ export default class MicrosoftAppInsights
           }
           | summarize 
             count = count(),
-            main_sum = sum(coalesce(value, 0)),
-            main_sum_squares = sum(pow(coalesce(value, 0), 2))
+            main_sum = sum(coalesce(value, 0.0)),
+            main_sum_squares = sum(pow(coalesce(value, 0.0), 2))
             ${
               ratioMetric
                 ? `,
-              denominator_sum = sum(coalesce(value, 0)),
-              denominator_sum_squares = sum(pow(coalesce(value, 0), 2)),
-              main_denominator_sum_product = sum(coalesce(value, 0) * coalesce(value, 0))
+              denominator_sum = sum(coalesce(value, 0.0)),
+              denominator_sum_squares = sum(pow(coalesce(value, 0.0), 2)),
+              main_denominator_sum_product = sum(coalesce(value, 0.0) * coalesce(value, 0.0))
             `
                 : ""
             }
             ${
               isRegressionAdjusted
                 ? `,
-                covariate_sum = sum(coalesce(covariate_value, 0)),
-                covariate_sum_squares = sum(pow(coalesce(covariate_value, 0), 2)),
-                main_covariate_sum_product = sum(coalesce(value, 0) * coalesce(covariate_value, 0))
+                covariate_sum = sum(coalesce(covariate_value, 0.0)),
+                covariate_sum_squares = sum(pow(coalesce(covariate_value, 0.0), 2)),
+                main_covariate_sum_product = sum(coalesce(value, 0.0) * coalesce(covariate_value, 0.0))
                 `
                 : ""
             }
@@ -597,7 +595,7 @@ export default class MicrosoftAppInsights
           dimension,
           users = ${
             "ignoreNulls" in metric && metric.ignoreNulls
-              ? "coalesce(count, 0)"
+              ? "coalesce(count, 0.0)"
               : "users"
           },
           statistic_type = '${this.getStatisticType(
@@ -607,7 +605,7 @@ export default class MicrosoftAppInsights
           main_metric_type = '${
             isBinomialMetric(metric) ? "binomial" : "count"
           }',
-          main_sum = coalesce(main_sum, 0),
+          main_sum = coalesce(main_sum, 0.0),
           main_sum_squares = coalesce(main_sum_squares, 0.0)
           ${
             ratioMetric
@@ -615,7 +613,7 @@ export default class MicrosoftAppInsights
               denominator_metric_type = '${
                 isBinomialMetric(denominator) ? "binomial" : "count"
               }',
-              denominator_sum = coalesce(denominator_sum, 0),
+              denominator_sum = coalesce(denominator_sum, 0.0),
               denominator_sum_squares = coalesce(denominator_sum_squares, 0.0),
               main_denominator_sum_product = coalesce(main_denominator_sum_product, 0.0)
           `
@@ -627,7 +625,7 @@ export default class MicrosoftAppInsights
               covariate_metric_type = '${
                 isBinomialMetric(metric) ? "binomial" : "count"
               }',
-              covariate_sum = coalesce(covariate_sum, 0),
+              covariate_sum = coalesce(covariate_sum, 0.0),
               covariate_sum_squares = coalesce(covariate_sum_squares, 0.0),
               main_covariate_sum_product = coalesce(main_covariate_sum_product, 0.0)
               `
@@ -867,7 +865,7 @@ export default class MicrosoftAppInsights
   }
 
   getFormatDialect(): FormatDialect {
-    return "mysql";
+    return "";
   }
 
   async runMetricValueQuery(query: string): Promise<MetricValueQueryResponse> {
@@ -1481,24 +1479,29 @@ export default class MicrosoftAppInsights
     return match;
   }
 
-  private getDimensionColumn(
-    baseIdType: string,
-    dimension: UserDimension | ExperimentDimension | null
-  ) {
+  private getDimensionColumn(baseIdType: string, dimension: Dimension | null) {
     const missingDimString = "__NULL_DIMENSION";
     if (!dimension) {
       return this.castToString("'All'");
+    } else if (dimension.type === "activation") {
+      return `max(${this.ifElse(
+        `isnull(${baseIdType})`,
+        "'Not Activated'",
+        "'Activated'"
+      )})`;
     } else if (dimension.type === "user") {
-      return `COALESCE(MAX(${this.castToString(
-        `__dim_unit_${dimension.dimension.id}.value`
+      return `coalesce(max(${this.castToString(
+        "value"
       )}),'${missingDimString}')`;
+    } else if (dimension.type === "date") {
+      return `min(${this.formatDate(this.dateTrunc("timestamp"))})`;
     } else if (dimension.type === "experiment") {
-      return `SUBSTRING(
-        MIN(
-          CONCAT(SUBSTRING(${this.formatDateTimeString("e.timestamp")}, 1, 19), 
-            coalesce(${this.castToString(
-              `e.dim_${dimension.id}`
-            )}, ${this.castToString(`'${missingDimString}'`)})
+      return `substring(
+        min(
+          CONCAT(substring(${this.formatDateTimeString("timestamp")}, 1, 19), 
+            coalesce(${this.castToString("dimension")}, ${this.castToString(
+        `'${missingDimString}'`
+      )})
           )
         ),
         20, 
