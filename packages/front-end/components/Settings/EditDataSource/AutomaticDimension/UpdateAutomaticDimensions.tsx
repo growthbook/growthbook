@@ -159,7 +159,7 @@ export const AutomaticDimensionRunner: FC<AutomaticDimensionRunnerProps> = ({
       body: JSON.stringify({
         dataSourceId: dataSourceId,
         queryId: exposureQueryId,
-        lookbackDays: 30, // TODO configure
+        lookbackDays: 9999, // TODO configure
       }),
     })
       .then((res) => {

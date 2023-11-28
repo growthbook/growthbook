@@ -950,7 +950,7 @@ export default abstract class SqlIntegration
     return this.ifElse(
       `${dimension} IN ('${values.join("','")}')`,
       this.castToString(dimension),
-      AUTOMATIC_DIMENSION_OTHER_NAME
+      this.castToString(`'${AUTOMATIC_DIMENSION_OTHER_NAME}'`)
     );
   }
 
@@ -1025,7 +1025,7 @@ export default abstract class SqlIntegration
         ${experimentDimensions
           .map((d) => {
             if (d.allowedValues?.length) {
-              return `${this.getDimensionInStatement(
+              return `, ${this.getDimensionInStatement(
                 d.id,
                 d.allowedValues
               )} AS dim_${d.id}`;
@@ -1268,7 +1268,6 @@ export default abstract class SqlIntegration
 
     const startDate = subDays(new Date(), params.lookbackDays);
     const timestampColumn = "e.timestamp";
-    // TODO consider not getting first dim
     return format(
       `-- Suggest Dimensions
     WITH
