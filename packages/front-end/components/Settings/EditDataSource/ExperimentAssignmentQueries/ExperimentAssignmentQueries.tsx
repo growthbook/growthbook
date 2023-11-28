@@ -6,6 +6,7 @@ import {
 import cloneDeep from "lodash/cloneDeep";
 import { FaChevronRight, FaPencilAlt, FaPlus } from "react-icons/fa";
 import { useRouter } from "next/router";
+import { useFeatureIsOn } from "@growthbook/growthbook-react";
 import { checkDatasourceProjectPermissions } from "@/services/datasources";
 import { DataSourceQueryEditingModalBaseProps } from "@/components/Settings/EditDataSource/types";
 import usePermissions from "@/hooks/usePermissions";
@@ -14,6 +15,7 @@ import Code from "@/components/SyntaxHighlighting/Code";
 import { AddEditExperimentAssignmentQueryModal } from "@/components/Settings/EditDataSource/ExperimentAssignmentQueries/AddEditExperimentAssignmentQueryModal";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import Button from "@/components/Button";
+import { AppFeatures } from "@/types/app-features";
 import { UpdateAutomaticDimensionsModal } from "../AutomaticDimension/UpdateAutomaticDimensions";
 
 type ExperimentAssignmentQueriesProps = DataSourceQueryEditingModalBaseProps;
@@ -46,6 +48,7 @@ export const ExperimentAssignmentQueries: FC<ExperimentAssignmentQueriesProps> =
       permissions,
       "editDatasourceSettings"
     );
+  const healthTabSettingsEnabled = useFeatureIsOn<AppFeatures>("health-tab");
 
   const handleExpandCollapseForIndex = useCallback(
     (index) => () => {
@@ -190,7 +193,7 @@ export const ExperimentAssignmentQueries: FC<ExperimentAssignmentQueriesProps> =
                   </div>
                   <div className="col-auto">
                     <Button onClick={handleActionClicked(idx, "dimension")}>
-                      Update Dimension Slices
+                      Update Automatic Dimensions
                     </Button>
                   </div>
                 </div>
@@ -293,7 +296,7 @@ export const ExperimentAssignmentQueries: FC<ExperimentAssignmentQueriesProps> =
         />
       ) : null}
 
-      {uiMode === "dimension" ? (
+      {uiMode === "dimension" && healthTabSettingsEnabled ? (
         <UpdateAutomaticDimensionsModal
           exposureQuery={experimentExposureQueries[editingIndex]}
           dataSource={dataSource}

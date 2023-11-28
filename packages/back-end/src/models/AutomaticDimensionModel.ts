@@ -17,7 +17,20 @@ const automaticDimensionSchema = new mongoose.Schema({
   datasource: String,
   exposureQueryId: String,
 
-  results: [], // TODO
+  results: [
+    {
+      _id: false,
+      dimension: String,
+      dimensionValues: [
+        {
+          _id: false,
+          name: String,
+          percent: Number,
+        },
+      ],
+    },
+  ],
+
   error: String,
 });
 
@@ -96,7 +109,7 @@ export async function createAutomaticDimension({
 }) {
   const now = new Date();
   const doc = await AutomaticDimensionModel.create({
-    id: uniqid("reld_"),
+    id: uniqid("autodim_"),
     organization,
     datasource: dataSourceId,
     exposureQueryId: queryId,

@@ -725,7 +725,6 @@ export async function postAutomaticDimension(
 
   const integration = getSourceIntegrationObject(datasourceObj, true);
 
-  // todo caching?
   const model = await createAutomaticDimension({
     organization: org.id,
     dataSourceId,
@@ -740,8 +739,6 @@ export async function postAutomaticDimension(
     status: 200,
     automaticDimension: outputmodel,
   });
-
-  // audit?
 }
 
 export async function cancelAutomaticDimension(

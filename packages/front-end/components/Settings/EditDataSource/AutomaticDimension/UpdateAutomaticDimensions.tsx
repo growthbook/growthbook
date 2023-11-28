@@ -4,7 +4,10 @@ import {
   ExposureQuery,
 } from "back-end/types/datasource";
 import cloneDeep from "lodash/cloneDeep";
-import { AutomaticDimensionInterface } from "back-end/src/types/Integration";
+import {
+  AutomaticDimensionInterface,
+  AutomaticDimensionResult,
+} from "back-end/src/types/Integration";
 import { ago, datetime } from "shared/dates";
 import { QueryStatus } from "back-end/types/query";
 import { AUTOMATIC_DIMENSION_OTHER_NAME } from "shared/constants";
@@ -209,13 +212,16 @@ export const AutomaticDimensionRunner: FC<AutomaticDimensionRunnerProps> = ({
           {status === "failed" && automaticDimension && (
             <div className="alert alert-danger mt-2">
               <strong>
-                Error updating data, reverting to last valid dimension slices.
+                Error updating data, reverting to last valid automatic
+                dimensions.
               </strong>
             </div>
           )}
         </div>
         {automaticDimension?.results && automaticDimension.results.length ? (
-          <AutomaticDimensionResults automaticDimension={automaticDimension} />
+          <AutomaticDimensionResults
+            automaticDimensionResult={automaticDimension.results}
+          />
         ) : (
           <></>
         )}
@@ -239,58 +245,54 @@ export const AutomaticDimensionRunner: FC<AutomaticDimensionRunnerProps> = ({
 };
 
 type AutomaticDimensionResultsProps = {
-  automaticDimension: AutomaticDimensionInterface;
+  automaticDimensionResult: AutomaticDimensionResult[];
 };
 
 export const AutomaticDimensionResults: FC<AutomaticDimensionResultsProps> = ({
-  automaticDimension,
+  automaticDimensionResult,
 }) => {
   return (
     <>
       <div>
-        {automaticDimension
-          ? automaticDimension.results.map((r, i) => {
-              let totalPercent = 0;
-              return (
-                <div key={i}>
-                  <label>
-                    <h4>{r.dimension}</h4>
-                    <div>
-                      {r.dimensionValues.map((d, i) => {
-                        totalPercent += d.percent;
-                        return (
-                          <>
-                            <Fragment key={`${r.dimension}-${i}`}>
-                              {i ? ", " : ""}
-                              <code key={`${r.dimension}-${d.name}`}>
-                                {d.name}
-                              </code>
-                            </Fragment>
-                            <span>{` (${smallPercentFormatter.format(
-                              d.percent / 100.0
-                            )})`}</span>
-                          </>
-                        );
-                      })}
-                    </div>
-                    <div>
-                      {" "}
-                      other values:
-                      <Fragment key={`${r.dimension}--1`}>
-                        {" "}
-                        <code key={`${r.dimension}-_other_`}>
-                          {AUTOMATIC_DIMENSION_OTHER_NAME}
-                        </code>
-                      </Fragment>
-                      <span>{` (${smallPercentFormatter.format(
-                        (100.0 - totalPercent) / 100.0
-                      )})`}</span>
-                    </div>
-                  </label>
+        {automaticDimensionResult.map((r, i) => {
+          let totalPercent = 0;
+          return (
+            <div key={i}>
+              <label>
+                <h4>{r.dimension}</h4>
+                <div>
+                  {r.dimensionValues.map((d, i) => {
+                    totalPercent += d.percent;
+                    return (
+                      <>
+                        <Fragment key={`${r.dimension}-${i}`}>
+                          {i ? ", " : ""}
+                          <code key={`${r.dimension}-${d.name}`}>{d.name}</code>
+                        </Fragment>
+                        <span>{` (${smallPercentFormatter.format(
+                          d.percent / 100.0
+                        )})`}</span>
+                      </>
+                    );
+                  })}
                 </div>
-              );
-            })
-          : null}
+                <div>
+                  {" "}
+                  other values:
+                  <Fragment key={`${r.dimension}--1`}>
+                    {" "}
+                    <code key={`${r.dimension}-_other_`}>
+                      {AUTOMATIC_DIMENSION_OTHER_NAME}
+                    </code>
+                  </Fragment>
+                  <span>{` (${smallPercentFormatter.format(
+                    (100.0 - totalPercent) / 100.0
+                  )})`}</span>
+                </div>
+              </label>
+            </div>
+          );
+        })}
       </div>
     </>
   );

@@ -92,7 +92,7 @@ const DataSourcePage: FC = () => {
             force: true,
           }),
         });
-        // TODO: redo processed dimensions
+        // TODO update automatic dimensions
       }
       await mutateDefinitions({});
     },

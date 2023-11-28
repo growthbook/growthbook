@@ -346,28 +346,28 @@ export function analyzeExperimentTraffic({
   error?: string;
   variations: SnapshotSettingsVariation[];
 }): ExperimentSnapshotTraffic {
-  const overallResults: ExperimentSnapshotTrafficDimension = {
+  const overallResult: ExperimentSnapshotTrafficDimension = {
     name: "All",
     srm: 1,
     variationUnits: Array(variations.length).fill(0),
   };
   if (error) {
     return {
-      overall: overallResults,
+      overall: overallResult,
       dimension: {},
       error: error,
     };
   }
   if (!rows || !rows.length) {
     return {
-      overall: overallResults,
+      overall: overallResult,
       dimension: {},
       error: "NO_ROWS_IN_UNIT_QUERY",
     };
   }
   if (rows.length == MAX_ROWS_UNIT_AGGREGATE_QUERY) {
     return {
-      overall: overallResults,
+      overall: overallResult,
       dimension: {},
       error: "TOO_MANY_ROWS",
     };
@@ -391,7 +391,7 @@ export function analyzeExperimentTraffic({
   // instantiate return object here, as we can fill `overall`
   // unit data on the first pass
   const trafficResults: ExperimentSnapshotTraffic = {
-    overall: overallResults,
+    overall: overallResult,
     dimension: {},
   };
 

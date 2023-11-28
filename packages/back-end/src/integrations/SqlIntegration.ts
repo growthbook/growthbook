@@ -1266,7 +1266,7 @@ export default abstract class SqlIntegration
 
     const { baseIdType } = getBaseIdTypeAndJoins([[exposureQuery.userIdType]]);
 
-    const startDate = subDays(new Date(), 9999);
+    const startDate = subDays(new Date(), params.lookbackDays);
     const timestampColumn = "e.timestamp";
     // TODO consider not getting first dim
     return format(
