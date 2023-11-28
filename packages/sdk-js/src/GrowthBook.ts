@@ -37,7 +37,8 @@ import {
   inRange,
   isIncluded,
   isURLTargeted,
-  loadSDKVersion, rerouteVariation,
+  loadSDKVersion,
+  rerouteVariation,
   toString,
 } from "./util";
 import { evalCondition } from "./mongrule";
@@ -1037,8 +1038,7 @@ export class GrowthBook<
         getBucketRanges(
           numVariations,
           experiment.coverage === undefined ? 1 : experiment.coverage,
-          experiment.weights,
-          experiment.blockedVariations
+          experiment.weights
         );
       assigned = chooseVariation(n, ranges);
     }
@@ -1047,7 +1047,13 @@ export class GrowthBook<
     if ((experiment.blockedVariations ?? []).includes(assigned)) {
       if (!foundStickyBucket) {
         // For normal (non-sticky) assignments, reroute to other variations
-        assigned = rerouteVariation(assigned, n, ranges, experiment.weights, experiment.blockedVariations);
+        assigned = rerouteVariation(
+          assigned,
+          n,
+          ranges,
+          experiment.weights,
+          experiment.blockedVariations
+        );
         if (assigned < 0) {
           process.env.NODE_ENV !== "production" &&
             this.log("Skip because unable to reassign blocked variation", {
@@ -1058,10 +1064,17 @@ export class GrowthBook<
       } else {
         // Unenroll sticky buckets from the experiment
         process.env.NODE_ENV !== "production" &&
-        this.log("Skip because sticky bucket is a blocked variation", {
-          id: key,
-        });
-        return this._getResult(experiment, -1, false, featureId, undefined, true);
+          this.log("Skip because sticky bucket is a blocked variation", {
+            id: key,
+          });
+        return this._getResult(
+          experiment,
+          -1,
+          false,
+          featureId,
+          undefined,
+          true
+        );
       }
     }
     // 9.6 Unenroll if any prior sticky buckets are blocked by version
