@@ -78,7 +78,7 @@
     "react-transition-group": "^4.4.5",
     "scim2-parse-filter": "^0.2.8",
     "shared": "0.0.1",
-    "spectacle": "^8.3.0",
+    "spectacle": "^9.0.0",
     "swr": "^0.5.4",
     "uniqid": "^5.3.0",
     "uuid": "^9.0.0",
