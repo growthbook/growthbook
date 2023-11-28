@@ -83,16 +83,16 @@ export async function getImageData(filePath: string) {
       Bucket: S3_BUCKET,
       Key: filePath,
     };
-    const data = await getS3().getObject(params).promise();
-    return data.Body;
+    const s3Stream = getS3().getObject(params).createReadStream();
+    return s3Stream;
   } else if (UPLOAD_METHOD === "google-cloud") {
     const storage = new Storage();
     const bucket = storage.bucket(GCS_BUCKET_NAME);
     const file = bucket.file(filePath);
-    const data = await file.download();
-    return data[0];
+    const readableStream = file.createReadStream();
+    return readableStream;
   } else {
-    //local image
+    // local image
     const rootDirectory = getUploadsDir();
     const fullPath = path.join(rootDirectory, filePath);
 
@@ -103,6 +103,11 @@ export async function getImageData(filePath: string) {
       );
     }
 
-    return fs.promises.readFile(fullPath);
+    if (!fs.existsSync(fullPath)) {
+      throw new Error("File not found");
+    }
+
+    const readableStream = fs.createReadStream(fullPath);
+    return readableStream;
   }
 }

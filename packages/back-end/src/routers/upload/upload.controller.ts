@@ -57,7 +57,6 @@ export async function getImage(
     throw new Error("Invalid organization");
   }
 
-  const data = await getImageData(path);
   const ext = path.split(".").pop() || "";
   const contentType = extensionsToMimetype[ext];
 
@@ -65,5 +64,8 @@ export async function getImage(
     throw new Error(`Invalid file extension: ${ext}`);
   }
 
-  res.status(200).contentType(contentType).send(data);
+  res.status(200).contentType(contentType);
+
+  const stream = await getImageData(path);
+  stream.pipe(res);
 }
