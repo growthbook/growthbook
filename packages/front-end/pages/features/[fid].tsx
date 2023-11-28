@@ -240,7 +240,8 @@ export default function FeaturePage() {
   const isLive = revision?.version === feature.version;
   const isArchived = feature.archived;
 
-  const revisionHasChanges = mergeResult && mergeResultHasChanges(mergeResult);
+  const revisionHasChanges =
+    !!mergeResult && mergeResultHasChanges(mergeResult);
 
   const enabledEnvs = getEnabledEnvironments(feature, environments);
   const hasJsonValidator = hasCommercialFeature("json-validation");
