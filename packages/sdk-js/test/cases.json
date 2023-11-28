@@ -1,5 +1,5 @@
 {
-  "specVersion": "0.5.2",
+  "specVersion": "0.5.3",
   "evalCondition": [
     [
       "$not - pass",
@@ -2721,7 +2721,8 @@
           "namespace": ["pricing", 0, 1],
           "key": "hello",
           "variations": [true, false],
-          "weights": [0.1, 0.9]
+          "weights": [0.1, 0.9],
+          "condition": { "premium": true }
         },
         "experimentResult": {
           "featureId": "feature",

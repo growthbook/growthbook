@@ -682,32 +682,6 @@ export class GrowthBook<
     // Loop through the rules
     if (feature.rules) {
       for (const rule of feature.rules) {
-        // const ctx: ExperimentEvaluationContext = {};
-        // // Pre-check if we have an experiment-based sticky bucket, since that supersedes feature rules:
-        // if (
-        //   this._ctx.stickyBucketService &&
-        //   !("force" in rule) &&
-        //   rule.variations
-        // ) {
-        //   const { variation, blocked } = this._getStickyBucketVariation(
-        //     rule.key || id,
-        //     rule.bucketVersion,
-        //     rule.minBucketVersion
-        //   );
-        //   ctx.foundStickyBucket = variation >= 0;
-        //   ctx.stickyBucketAssigned = variation;
-        //   ctx.stickyBucketBlocked = blocked;
-        // }
-
-        // // If it's a conditional rule, skip if the condition doesn't pass
-        if (rule.condition && !this._conditionPasses(rule.condition)) {
-          process.env.NODE_ENV !== "production" &&
-            this.log("Skip rule because of condition ff", {
-              id,
-              rule,
-            });
-          continue;
-        }
         // If there are filters for who is included (e.g. namespaces)
         if (rule.filters && this._isFilteredOut(rule.filters)) {
           process.env.NODE_ENV !== "production" &&
@@ -720,6 +694,16 @@ export class GrowthBook<
 
         // Feature value is being forced
         if ("force" in rule) {
+          // If it's a conditional rule, skip if the condition doesn't pass
+          if (rule.condition && !this._conditionPasses(rule.condition)) {
+            process.env.NODE_ENV !== "production" &&
+              this.log("Skip rule because of condition ff", {
+                id,
+                rule,
+              });
+            continue;
+          }
+
           // If this is a percentage rollout, skip if not included
           if (
             !this._isIncludedInRollout(
@@ -754,12 +738,7 @@ export class GrowthBook<
             });
           }
 
-          return this._getFeatureResult(
-            id,
-            rule.force as V,
-            "force",
-            rule.id
-          );
+          return this._getFeatureResult(id, rule.force as V, "force", rule.id);
         }
         if (!rule.variations) {
           process.env.NODE_ENV !== "production" &&
@@ -869,7 +848,7 @@ export class GrowthBook<
 
   private _run<T>(
     experiment: Experiment<T>,
-    featureId: string | null,
+    featureId: string | null
   ): Result<T> {
     const key = experiment.key;
     const numVariations = experiment.variations.length;
@@ -959,9 +938,9 @@ export class GrowthBook<
       if (experiment.filters) {
         if (this._isFilteredOut(experiment.filters)) {
           process.env.NODE_ENV !== "production" &&
-          this.log("Skip because of filters", {
-            id: key,
-          });
+            this.log("Skip because of filters", {
+              id: key,
+            });
           return this._getResult(experiment, -1, false, featureId);
         }
       } else if (
@@ -969,18 +948,18 @@ export class GrowthBook<
         !inNamespace(hashValue, experiment.namespace)
       ) {
         process.env.NODE_ENV !== "production" &&
-        this.log("Skip because of namespace", {
-          id: key,
-        });
+          this.log("Skip because of namespace", {
+            id: key,
+          });
         return this._getResult(experiment, -1, false, featureId);
       }
 
       // 7.5. Exclude if experiment.include returns false or throws
       if (experiment.include && !isIncluded(experiment.include)) {
         process.env.NODE_ENV !== "production" &&
-        this.log("Skip because of include function", {
-          id: key,
-        });
+          this.log("Skip because of include function", {
+            id: key,
+          });
         return this._getResult(experiment, -1, false, featureId);
       }
 
@@ -990,9 +969,9 @@ export class GrowthBook<
         !this._conditionPasses(experiment.condition)
       ) {
         process.env.NODE_ENV !== "production" &&
-        this.log("Skip because of condition exp", {
-          id: key,
-        });
+          this.log("Skip because of condition exp", {
+            id: key,
+          });
         return this._getResult(experiment, -1, false, featureId);
       }
 
@@ -1002,9 +981,9 @@ export class GrowthBook<
         !this._hasGroupOverlap(experiment.groups as string[])
       ) {
         process.env.NODE_ENV !== "production" &&
-        this.log("Skip because of groups", {
-          id: key,
-        });
+          this.log("Skip because of groups", {
+            id: key,
+          });
         return this._getResult(experiment, -1, false, featureId);
       }
     }
