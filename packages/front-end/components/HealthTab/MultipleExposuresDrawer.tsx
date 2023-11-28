@@ -55,7 +55,11 @@ export default function MultipleExposuresDrawer({
   }, [health, onNotify]);
 
   return (
-    <HealthCard title="Multiple Exposures Check" status={health}>
+    <HealthCard
+      title="Multiple Exposures Check"
+      helpText="Detects whether units have been exposed to multiple variations"
+      status={health}
+    >
       <div className="row justify-content-start mb-2">
         <div className="ml-2 mt-4">
           {health === "healthy" ? (

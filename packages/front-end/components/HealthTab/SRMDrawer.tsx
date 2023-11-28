@@ -33,47 +33,18 @@ export const srmHealthCheck = ({
   totalUsers: number;
 }): HealthStatus => {
   if (totalUsers && totalUsers < 8 * variations.length) {
-    return "not enough data";
+    return "Not enough traffic";
   } else if (srm >= srmThreshold) {
     return "healthy";
   }
-  return "unhealthy";
+  return "Issues detected";
 };
 
 const EXPERIMENT_DIMENSION_PREFIX = "dim_exp_";
 const HEALTHY_TOOLTIP_MESSAGE =
   "Unit counts per variation are as expected. No imbalances detected.";
-const UNHEALTHY_TOOLTIP_MESSAGE =
-  "Sample Ratio Mismatch detected. Click into the drawer to investigate.";
 const NOT_ENOUGH_DATA_TOOLTIP_MESSAGE =
   "Not enough data to compute balance check.";
-const SRM_CHECK_SKIPPED_TOOLTIP_MESSAGE =
-  "This experiment's variations have extremely uneven weights. The SRM check has been skipped to avoid false positives.";
-
-const renderTooltipBody = ({
-  srm,
-  health,
-  wasSrmCheckSkipped = false,
-}: {
-  srm: number;
-  health: HealthStatus;
-  wasSrmCheckSkipped?: boolean;
-}) => {
-  return (
-    <div>
-      <b>P-Value:</b> {pValueFormatter(srm)}
-      {health === "healthy" && <div>{HEALTHY_TOOLTIP_MESSAGE}</div>}
-      {health === "unhealthy" && <div>{UNHEALTHY_TOOLTIP_MESSAGE}</div>}
-      {health === "not enough data" && (
-        <div>
-          {wasSrmCheckSkipped
-            ? SRM_CHECK_SKIPPED_TOOLTIP_MESSAGE
-            : NOT_ENOUGH_DATA_TOOLTIP_MESSAGE}
-        </div>
-      )}
-    </div>
-  );
-};
 
 export default function SRMDrawer({
   traffic,
@@ -87,20 +58,15 @@ export default function SRMDrawer({
 
   const srmThreshold = settings.srmThreshold ?? DEFAULT_SRM_THRESHOLD;
 
-  // Skip checks if experiment phase has extremely uneven weights
-  // This causes too many false positives with the current data quality checks
-  const skipSrmCheck = variations.filter((x) => x.weight < 0.02).length > 0;
-  const overallHealth = skipSrmCheck
-    ? "not enough data"
-    : srmHealthCheck({
-        srm: traffic.overall.srm,
-        srmThreshold,
-        variations,
-        totalUsers,
-      });
+  const overallHealth: HealthStatus = srmHealthCheck({
+    srm: traffic.overall.srm,
+    srmThreshold,
+    variations,
+    totalUsers,
+  });
 
   useEffect(() => {
-    if (overallHealth === "unhealthy") {
+    if (overallHealth === "Issues detected") {
       onNotify();
     }
   }, [overallHealth, onNotify]);
@@ -126,12 +92,8 @@ export default function SRMDrawer({
   return (
     <HealthCard
       title="Experiment Balance Check"
+      helpText="Shows actual unit split compared to percent selected for the experiment"
       status={overallHealth}
-      tooltipBody={renderTooltipBody({
-        srm: traffic.overall.srm,
-        health: overallHealth,
-        wasSrmCheckSkipped: skipSrmCheck,
-      })}
     >
       <div className="mt-4">
         <div className="row justify-content-start mb-2">
@@ -139,30 +101,27 @@ export default function SRMDrawer({
             users={traffic.overall.variationUnits}
             variations={variations}
             srm={pValueFormatter(traffic.overall.srm)}
-            isUnhealthy={overallHealth === "unhealthy"}
+            isUnhealthy={overallHealth === "Issues detected"}
           />
-
-          <div className="col-4 ml-4 mr-2">
-            {overallHealth === "healthy" && (
-              <div className="alert alert-info">{HEALTHY_TOOLTIP_MESSAGE}</div>
-            )}
-            {overallHealth === "unhealthy" && (
-              <SRMWarning
-                srm={traffic.overall.srm}
-                expected={variations.map((v) => v.weight)}
-                observed={traffic.overall.variationUnits}
-              />
-            )}
-            {overallHealth === "not enough data" && (
-              <div className="alert alert-info">
-                {skipSrmCheck
-                  ? SRM_CHECK_SKIPPED_TOOLTIP_MESSAGE
-                  : NOT_ENOUGH_DATA_TOOLTIP_MESSAGE}
-              </div>
-            )}
-          </div>
         </div>
-        <hr />
+        <div>
+          {overallHealth === "healthy" && (
+            <div className="alert alert-info">{HEALTHY_TOOLTIP_MESSAGE}</div>
+          )}
+          {overallHealth === "Issues detected" && (
+            <SRMWarning
+              srm={traffic.overall.srm}
+              expected={variations.map((v) => v.weight)}
+              observed={traffic.overall.variationUnits}
+            />
+          )}
+          {overallHealth === "Not enough traffic" && (
+            <div className="alert alert-info">
+              {NOT_ENOUGH_DATA_TOOLTIP_MESSAGE}
+            </div>
+          )}
+        </div>
+        {/* <hr />
         <div className="mt-4 mb-2">
           <div className="mb-4" style={{ maxWidth: 300 }}>
             <div className="uppercase-title text-muted">Dimension</div>
@@ -211,12 +170,7 @@ export default function SRMDrawer({
                     title={d.name}
                     helpText={`(${totalDimUsers} total units)`}
                     status={dimensionHealth}
-                    statusAlign="right"
                     key={d.name}
-                    tooltipBody={renderTooltipBody({
-                      srm: d.srm,
-                      health: dimensionHealth,
-                    })}
                   >
                     <div className="mt-4">
                       <div className="row justify-content-start mb-2">
@@ -224,10 +178,10 @@ export default function SRMDrawer({
                           users={d.variationUnits}
                           variations={variations}
                           srm={pValueFormatter(d.srm)}
-                          isUnhealthy={dimensionHealth === "unhealthy"}
+                          isUnhealthy={dimensionHealth === "Issues detected"}
                         />
                         <div className="col-sm ml-4 mr-4">
-                          {overallHealth === "unhealthy" && (
+                          {overallHealth === "Issues detected" && (
                             <SRMWarning
                               srm={d.srm}
                               expected={variations.map((v) => v.weight)}
@@ -242,7 +196,7 @@ export default function SRMDrawer({
               })}
             </>
           )}
-        </div>
+        </div> */}
       </div>
     </HealthCard>
   );

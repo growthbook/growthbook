@@ -1,5 +1,4 @@
 import { ExperimentReportVariation } from "back-end/types/report";
-import clsx from "clsx";
 
 export interface Props {
   variations: ExperimentReportVariation[];
@@ -18,17 +17,7 @@ const percentFormatter = Intl.NumberFormat(undefined, {
   maximumFractionDigits: 2,
 });
 
-const diffFormatter = Intl.NumberFormat(undefined, {
-  signDisplay: "exceptZero",
-  maximumFractionDigits: 2,
-});
-
-export default function VariationUsersTable({
-  variations,
-  users,
-  srm,
-  isUnhealthy,
-}: Props) {
+export default function VariationUsersTable({ variations, users, srm }: Props) {
   const totalUsers = users.reduce((sum, n) => sum + n, 0);
   const totalWeight = variations
     .map((v) => v.weight)
@@ -39,34 +28,16 @@ export default function VariationUsersTable({
       <table className="table mx-2 mt-0 mb-3" style={{ width: "auto" }}>
         <thead>
           <tr>
-            <th className="border-top-0 border-bottom-0" colSpan={1}></th>
-            <th className="border-top-0 text-center" colSpan={2}>
-              Units
-            </th>
-            <th className="border-top-0 border-bottom-0" colSpan={0}></th>
-            <th className="border-top-0 text-center" colSpan={3}>
-              %
-            </th>
-          </tr>
-          <tr>
             <th className="border-top-0">Variation</th>
-            <th className="border-top-0">Actual</th>
-            <th className="border-top-0">Expected</th>
+            <th className="border-top-0">Actual Units</th>
+            <th className="border-top-0">Expected Units</th>
             <th className="border-top-0"></th>
-            <th className="border-top-0">Actual</th>
-            <th className="border-top-0">Expected</th>
-            <th className="border-top-0">∆</th>
+            <th className="border-top-0">Actual %</th>
+            <th className="border-top-0">Expected %</th>
           </tr>
         </thead>
         <tbody>
           {variations.map((v, i) => {
-            const expected =
-              totalWeight > 0 ? v.weight / totalWeight : undefined;
-            const actual = totalUsers > 0 ? users[i] / totalUsers : undefined;
-
-            const diff =
-              actual && expected ? (actual - expected) * 100 : undefined;
-
             return (
               <tr key={i}>
                 <td className={`variation with-variation-label variation${i}`}>
@@ -100,39 +71,15 @@ export default function VariationUsersTable({
                     ? percentFormatter.format(v.weight / totalWeight)
                     : "-"}
                 </td>
-                <td
-                  className={clsx({
-                    "text-success": diff && diff > 0,
-                    "text-danger": diff && diff < 0,
-                  })}
-                >
-                  {diff ? (
-                    <b>
-                      {diffFormatter.format(diff)}
-                      <sub>pp</sub>
-                    </b>
-                  ) : (
-                    "-"
-                  )}
-                </td>
               </tr>
             );
           })}
           {srm && (
-            <tr className="text-right">
+            <tr className="text-left">
+              <td colSpan={3} className="text-nowrap text-muted">
+                p-value = {srm}
+              </td>
               <td colSpan={3}></td>
-              <td colSpan={3} className="text-nowrap">
-                <b>SRM p-value</b>
-              </td>
-              <td
-                className={
-                  isUnhealthy
-                    ? "text-left text-danger font-weight-bold"
-                    : "text-left"
-                }
-              >
-                {srm}
-              </td>
             </tr>
           )}
         </tbody>

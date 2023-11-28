@@ -71,7 +71,7 @@ const UnitCountDateGraph = ({
   return (
     <>
       <div className="mt-3 mb-3 d-flex align-items-center">
-        <div className="mr-3">
+        {/* <div className="mr-3">
           <strong>Graph Controls: </strong>
         </div>
         <div>
@@ -82,7 +82,8 @@ const UnitCountDateGraph = ({
             setValue={setCumulative}
           />
           Cumulative
-        </div>
+        </div> */}
+        <h3>Experiment Traffic by Variation</h3>
       </div>
 
       <div className="mt-2 mb-2">
@@ -225,7 +226,7 @@ export default function HealthTab({
 
   return (
     <div className="mt-4">
-      <HealthCard title="Experiment Traffic" openByDefault>
+      <HealthCard title="Traffic">
         <UnitCountDateGraph
           trafficByDate={trafficByDate}
           variations={variations}
@@ -238,11 +239,15 @@ export default function HealthTab({
         datasource={experiment.datasource}
         onNotify={onDrawerNotify}
       />
-      <MultipleExposuresDrawer
-        multipleExposures={snapshot.multipleExposures}
-        totalUsers={totalUsers}
-        onNotify={onDrawerNotify}
-      />
+      <div className="row">
+        <div className="col-9">
+          <MultipleExposuresDrawer
+            multipleExposures={snapshot.multipleExposures}
+            totalUsers={totalUsers}
+            onNotify={onDrawerNotify}
+          />
+        </div>
+      </div>
     </div>
   );
 }

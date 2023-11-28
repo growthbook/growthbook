@@ -17,8 +17,10 @@ export default function HealthCard({
   return (
     <div className="appbox my-2 p-3">
       <h2 className="d-inline">{title}</h2>{" "}
-      <p className="d-inline text-muted">{helpText}</p>
-      {status && <StatusBadge hasTooltip tooltipBody={""} status={status} />}
+      {/* <p className="d-inline text-muted">{helpText}</p> */}
+      {status && status !== "healthy" && <StatusBadge status={status} />}
+      <p className="mt-1">{helpText}</p>
+      <hr></hr>
       <div>{children}</div>
     </div>
   );
