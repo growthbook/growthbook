@@ -1,19 +1,23 @@
 ---
-title: User Permissions
-description: GrowthBook's User Permissions
-sidebar_label: User Permissions
+title: User & Team Permissions
+description: GrowthBook's User & Team Permissions
+sidebar_label: User & Team Permissions
 slug: user-permissions
 ---
 
-GrowthBook provides user roles and permissions at both the global and project level. This feature enables you to manage who can access GrowthBook and their level of access.
+Fine-tuning user permissions in an application like GrowthBook ensures a tailored experience, empowering organizations to grant precisely defined access levels. This granular control not only enhances security but also enables teams to collaborate efficiently while safeguarding sensitive features or data.
 
-When inviting a new user to your organization, you can assign a global role, which defines their permissions across all projects. If you have a Pro or Enterprise account, you can also assign project-level roles to users.
+Organizations using GrowthBook have a number of different ways of defining a user's permission level, depending on the organizations plan.
+
+Regardless of the plan, all organizations can assign a global role when inviting a user which defines their permissions across all projects. If you have a Pro or Enterprise account, you can also assign project-level roles for each user.
 
 :::note
 
 For example, you can assign a user the global role of `Collaborator`, allowing them to view features and experiments, add comments, and contribute ideas. You can then assign them an `Experimenter` role for a specific project, which allows them to create and run experiments, but only for that project.
 
 :::
+
+And, for our Enterprise organizations, we offer the ability to create `Teams`, which are groups of users, all of which inherit the roles and permissions of the Team they're on.
 
 The table below lists the roles available in GrowthBook and their associated permissions.
 
@@ -52,6 +56,12 @@ For organizations without a Pro or Enterprise account, user permissions are eval
 
 :::note
 
-If your organization has enabled the setting to allow verified users to automatically join your organization, they will receive the `collaborator` role by default when they join.
+If your organization has enabled the setting to allow verified users to automatically join your organization, they will receive the `collaborator` role by default when they join. However, you can change your organizations' default role at the bottom of the Team page.
 
 :::
+
+### Teams
+
+Enterprise organizations using GrowthBook can create Teams with distinct capabilities. When setting up a Team, you have the option to define both a global role and project-level roles, much like how you do for individual users. Once a Team is established, multiple users can be added to it. Any user added to a Team will automatically inherit all permissions assigned to that Team. This feature becomes particularly useful when combined with GrowthBook's SCIM integration, enabling automated user provisioning and de-provisioning.
+
+To create a Team, you can go to `Settings` > `Team` via the Sidebar and then select the `Teams` tab at the top of the page. Here, you can create and configure various Teams, before adding members to a Team. When evaluating whether or not a user has permission to perform a certain action, we will merge the user's permissions with the permissions inherited from all the Teams the user is on. So if the user's global role is `collaborator` but they're on a Team that grants them `engineer` permissions, that user's permission will then be a merger of the 'collaborator' and 'engineer' roles.
