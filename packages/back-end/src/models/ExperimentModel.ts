@@ -29,6 +29,7 @@ import { SDKPayloadKey } from "../../types/sdk-payload";
 import { EventAuditUser } from "../events/event-types";
 import { FeatureInterface } from "../../types/feature";
 import { getAffectedSDKPayloadKeys } from "../util/features";
+import { getEnvironmentIdsFromOrg } from "../services/organizations";
 import { IdeaDocument } from "./IdeasModel";
 import { addTags } from "./TagModel";
 import { createEvent } from "./EventModel";
@@ -1140,8 +1141,7 @@ export function getPayloadKeysForAllEnvs(
 ) {
   const uniqueProjects = new Set(projects);
 
-  const environments: string[] =
-    organization.settings?.environments?.map((e) => e.id) ?? [];
+  const environments = getEnvironmentIdsFromOrg(organization);
 
   const keys: SDKPayloadKey[] = [];
   uniqueProjects.forEach((p) => {
@@ -1165,8 +1165,7 @@ export const getPayloadKeys = (
     return [];
   }
 
-  const environments: string[] =
-    organization.settings?.environments?.map((e) => e.id) ?? [];
+  const environments: string[] = getEnvironmentIdsFromOrg(organization);
   const project = experiment.project ?? "";
 
   // Visual editor experiments always affect all environments
@@ -1187,6 +1186,7 @@ export const getPayloadKeys = (
   if (linkedFeatures && linkedFeatures.length > 0) {
     return getAffectedSDKPayloadKeys(
       linkedFeatures,
+      environments,
       (rule) =>
         rule.type === "experiment-ref" &&
         rule.experimentId === experiment.id &&

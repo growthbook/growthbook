@@ -413,7 +413,6 @@ app.get(
   "/experiments/frequency/month/:num",
   experimentsController.getExperimentsFrequencyMonth
 );
-app.get("/experiments/newfeatures/", experimentsController.getNewFeatures);
 app.get("/experiments/snapshots/", experimentsController.getSnapshots);
 app.get(
   "/experiments/tracking-key",
@@ -568,10 +567,6 @@ app.post("/feature/:id/:version/rule", featuresController.postFeatureRule);
 app.post(
   "/feature/:id/:version/experiment",
   featuresController.postFeatureExperimentRefRule
-);
-app.delete(
-  "/feature/:id/:version/experiment",
-  featuresController.deleteFeatureExperimentRefRule
 );
 app.put("/feature/:id/:version/comment", featuresController.putRevisionComment);
 app.put("/feature/:id/:version/rule", featuresController.putFeatureRule);
