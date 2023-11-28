@@ -37,7 +37,7 @@ import {
   inRange,
   isIncluded,
   isURLTargeted,
-  loadSDKVersion,
+  loadSDKVersion, rerouteVariation,
   toString,
 } from "./util";
 import { evalCondition } from "./mongrule";
@@ -1015,6 +1015,7 @@ export class GrowthBook<
 
     // 9. Get the variation from the sticky bucket or get bucket ranges and choose variation
     let assigned = -1;
+    let ranges: VariationRange[] = [];
     const n = hash(
       experiment.seed || key,
       hashValue,
@@ -1031,7 +1032,7 @@ export class GrowthBook<
     if (foundStickyBucket) {
       assigned = stickyBucketAssigned;
     } else {
-      const ranges =
+      ranges =
         experiment.ranges ||
         getBucketRanges(
           numVariations,
@@ -1039,20 +1040,29 @@ export class GrowthBook<
           experiment.weights,
           experiment.blockedVariations
         );
-
       assigned = chooseVariation(n, ranges);
     }
 
-    // 9.5 Unenroll if sticky bucket is in a blocked variation
-    if (
-      foundStickyBucket &&
-      (experiment.blockedVariations ?? []).includes(assigned)
-    ) {
-      process.env.NODE_ENV !== "production" &&
+    // 9.5 Reroute any blocked variations
+    if ((experiment.blockedVariations ?? []).includes(assigned)) {
+      if (!foundStickyBucket) {
+        // For normal (non-sticky) assignments, reroute to other variations
+        assigned = rerouteVariation(assigned, n, ranges, experiment.weights, experiment.blockedVariations);
+        if (assigned < 0) {
+          process.env.NODE_ENV !== "production" &&
+            this.log("Skip because unable to reassign blocked variation", {
+              id: key,
+            });
+          return this._getResult(experiment, -1, false, featureId);
+        }
+      } else {
+        // Unenroll sticky buckets from the experiment
+        process.env.NODE_ENV !== "production" &&
         this.log("Skip because sticky bucket is a blocked variation", {
           id: key,
         });
-      return this._getResult(experiment, -1, false, featureId, undefined, true);
+        return this._getResult(experiment, -1, false, featureId, undefined, true);
+      }
     }
     // 9.6 Unenroll if any prior sticky buckets are blocked by version
     if (stickyBucketBlocked) {
