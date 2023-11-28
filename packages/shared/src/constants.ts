@@ -11,7 +11,7 @@ export const DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER = 5000;
 
 // Dimension name constants:
 export const EXPOSURE_DATE_DIMENSION_NAME = "dim_exposure_date";
-
+export const AUTOMATIC_DIMENSION_OTHER_NAME = "__Other__";
 // Colors:
 export const variant_null = "#999";
 export const variant_0 = "#4f69ff";

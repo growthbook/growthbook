@@ -7,34 +7,62 @@ import cloneDeep from "lodash/cloneDeep";
 import { AutomaticDimensionInterface } from "back-end/src/types/Integration";
 import { ago, datetime } from "shared/dates";
 import { QueryStatus } from "back-end/types/query";
+import { AUTOMATIC_DIMENSION_OTHER_NAME } from "shared/constants";
 import { useAuth } from "@/services/auth";
 import useApi from "@/hooks/useApi";
 import RunQueriesButton, {
   getQueryStatus,
 } from "@/components/Queries/RunQueriesButton";
 import ViewAsyncQueriesButton from "@/components/Queries/ViewAsyncQueriesButton";
-import Tooltip from "@/components/Tooltip/Tooltip";
-import Modal from "../../../Modal";
+import Modal from "@/components/Modal";
+
+const smallPercentFormatter = new Intl.NumberFormat(undefined, {
+  style: "percent",
+  maximumFractionDigits: 0,
+});
+
+export async function setExposureId(
+  exposureQuery: ExposureQuery,
+  dataSource: DataSourceInterfaceWithParams,
+  apiCall: <T>(
+    url: string | null,
+    options?: RequestInit | undefined
+  ) => Promise<T>,
+  setId: (id: string) => void,
+  mutate: () => void
+): Promise<void> {
+  if (exposureQuery.automaticDimensionId) {
+    setId(exposureQuery.automaticDimensionId);
+    await mutate();
+  } else {
+    try {
+      const res = await apiCall<{
+        automaticDimension: AutomaticDimensionInterface;
+      }>(
+        `/automatic-dimension/datasource/${dataSource.id}/${exposureQuery.id}`
+      );
+      if (res?.automaticDimension?.id) {
+        setId(res.automaticDimension.id);
+        await mutate();
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  }
+}
 
 type UpdateAutomaticDimensionModalProps = {
   exposureQuery: ExposureQuery;
   dataSource: DataSourceInterfaceWithParams;
   close: () => void;
   onSave: (exposureQuery: ExposureQuery) => void;
-  //id: string;
-  //onCancel: () => void;
 };
-const smallPercentFormatter = new Intl.NumberFormat(undefined, {
-  style: "percent",
-  maximumFractionDigits: 0,
-});
 
 export const UpdateAutomaticDimensionsModal: FC<UpdateAutomaticDimensionModalProps> = ({
   exposureQuery,
   dataSource,
   close,
   onSave,
-  //onCancel,
 }) => {
   const { apiCall } = useAuth();
   const [id, setId] = useState<string | null>(null);
@@ -42,30 +70,9 @@ export const UpdateAutomaticDimensionsModal: FC<UpdateAutomaticDimensionModalPro
     automaticDimension: AutomaticDimensionInterface;
   }>(`/automatic-dimension/${id}`);
 
-  const getDimensionId = useCallback(async () => {
-    if (exposureQuery.processedDimensionsId) {
-      setId(exposureQuery.processedDimensionsId);
-      await mutate();
-    } else {
-      try {
-        const res = await apiCall<{
-          automaticDimension: AutomaticDimensionInterface;
-        }>(
-          `/automatic-dimension/datasource/${dataSource.id}/${exposureQuery.id}`
-        );
-        if (res?.automaticDimension?.id) {
-          setId(res.automaticDimension.id);
-          await mutate();
-        }
-      } catch (e) {
-        console.error(e);
-      }
-    }
-  }, [dataSource, exposureQuery, apiCall, mutate, setId]);
-
   useEffect(() => {
-    getDimensionId();
-  }, [getDimensionId]);
+    setExposureId(exposureQuery, dataSource, apiCall, setId, mutate);
+  }, [dataSource, exposureQuery, apiCall, mutate, setId]);
 
   if (error) {
     return <div className="alert alert-error">{error?.message}</div>;
@@ -77,25 +84,21 @@ export const UpdateAutomaticDimensionsModal: FC<UpdateAutomaticDimensionModalPro
 
   const saveEnabled = id && status === "succeeded";
   const secondaryCTA = (
-    <>
-      <Tooltip body={""} shouldDisplay={true} tipPosition="top">
-        <button
-          className={`btn btn-primary`}
-          type="submit"
-          disabled={!saveEnabled}
-          onClick={() => {
-            if (id) {
-              const value = cloneDeep<ExposureQuery>(exposureQuery);
-              value.processedDimensionsId = id;
-              onSave(value);
-              close();
-            }
-          }}
-        >
-          {"Save to Data Source"}
-        </button>
-      </Tooltip>
-    </>
+    <button
+      className={`btn btn-primary`}
+      type="submit"
+      disabled={!saveEnabled}
+      onClick={() => {
+        if (id) {
+          const value = cloneDeep<ExposureQuery>(exposureQuery);
+          value.automaticDimensionId = id;
+          onSave(value);
+          close();
+        }
+      }}
+    >
+      {"Save to Data Source"}
+    </button>
   );
 
   return (
@@ -275,7 +278,9 @@ export const AutomaticDimensionResults: FC<AutomaticDimensionResultsProps> = ({
                       other values:
                       <Fragment key={`${r.dimension}--1`}>
                         {" "}
-                        <code key={`${r.dimension}-_other_`}>{"_other"}</code>
+                        <code key={`${r.dimension}-_other_`}>
+                          {AUTOMATIC_DIMENSION_OTHER_NAME}
+                        </code>
                       </Fragment>
                       <span>{` (${smallPercentFormatter.format(
                         (100.0 - totalPercent) / 100.0

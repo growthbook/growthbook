@@ -32,6 +32,7 @@ import {
 import { expandDenominatorMetrics } from "../util/sql";
 import { getOrganizationById } from "../services/organizations";
 import { FactTableMap } from "../models/FactTableModel";
+import { getAutomaticDimensionById } from "../models/AutomaticDimensionModel";
 import {
   QueryRunner,
   QueryMap,
@@ -126,12 +127,23 @@ export const startExperimentResultQueries = async (
 
   // Settings for health query
   const runTrafficQuery = !dimensionObj && org?.settings?.runHealthTrafficQuery;
-  const dimensionsForTraffic: ExperimentDimension[] = runTrafficQuery
-    ? (exposureQuery?.dimensionsForTraffic || []).map((id) => ({
-        type: "experiment",
-        id,
-      }))
-    : [];
+  let dimensionsForTraffic: ExperimentDimension[] = [];
+  if (runTrafficQuery && exposureQuery?.automaticDimensionId) {
+    // get experiment dimensions for which we have automatic dimensions
+    const autoDimensions = await getAutomaticDimensionById(
+      org.id,
+      exposureQuery.automaticDimensionId
+    );
+    if (autoDimensions) {
+      dimensionsForTraffic = autoDimensions.results
+        .filter((ad) => exposureQuery.dimensions.includes(ad.dimension))
+        .map((ad) => ({
+          type: "experiment",
+          id: ad.dimension,
+          allowedValues: ad.dimensionValues.map((dv) => dv.name),
+        }));
+    }
+  }
 
   const unitQueryParams: ExperimentUnitsQueryParams = {
     activationMetric: activationMetric,
@@ -277,6 +289,7 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
     if (healthQuery) {
       const trafficHealth = analyzeExperimentTraffic({
         rows: healthQuery.result as ExperimentAggregateUnitsQueryResponseRows,
+        error: healthQuery.error,
         variations: this.model.settings.variations,
       });
       result.health = { traffic: trafficHealth };

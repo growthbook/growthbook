@@ -337,19 +337,27 @@ export async function analyzeExperimentResults({
     dimensions,
   };
 }
-
 export function analyzeExperimentTraffic({
   rows,
+  error,
   variations,
 }: {
   rows: ExperimentAggregateUnitsQueryResponseRows;
+  error?: string;
   variations: SnapshotSettingsVariation[];
 }): ExperimentSnapshotTraffic {
   const overallResults: ExperimentSnapshotTrafficDimension = {
     name: "All",
-    srm: 0,
+    srm: 1,
     variationUnits: Array(variations.length).fill(0),
   };
+  if (error) {
+    return {
+      overall: overallResults,
+      dimension: {},
+      error: error,
+    };
+  }
   if (!rows || !rows.length) {
     return {
       overall: overallResults,

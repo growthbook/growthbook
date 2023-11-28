@@ -72,6 +72,7 @@ export type UserDimension = {
 export type ExperimentDimension = {
   type: "experiment";
   id: string;
+  allowedValues?: string[];
 };
 export type DateDimension = {
   type: "date";

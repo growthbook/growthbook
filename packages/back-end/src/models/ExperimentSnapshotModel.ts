@@ -88,7 +88,7 @@ const experimentSnapshotSchema = new mongoose.Schema({
     _id: false,
     traffic: {
       _id: false,
-      overall: [experimentSnapshotTrafficObject],
+      overall: experimentSnapshotTrafficObject,
       dimension: {
         type: Map,
         of: [experimentSnapshotTrafficObject],

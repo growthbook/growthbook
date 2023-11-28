@@ -59,7 +59,7 @@ export async function updateAutomaticDimension(
 export async function getAutomaticDimensionById(
   organization: string,
   id: string
-) {
+): Promise<AutomaticDimensionInterface | null> {
   const doc = await AutomaticDimensionModel.findOne({ organization, id });
 
   return doc ? toInterface(doc) : null;

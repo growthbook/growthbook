@@ -11,6 +11,7 @@ import {
   ExperimentMetricInterface,
   getMetricTemplateVariables,
 } from "shared/experiments";
+import { AUTOMATIC_DIMENSION_OTHER_NAME } from "shared/constants";
 import { MetricInterface, MetricType } from "../../types/metric";
 import {
   DataSourceSettings,
@@ -945,6 +946,14 @@ export default abstract class SqlIntegration
     return activationMetric;
   }
 
+  getDimensionInStatement(dimension: string, values: string[]): string {
+    return this.ifElse(
+      `${dimension} IN ('${values.join("','")}')`,
+      this.castToString(dimension),
+      AUTOMATIC_DIMENSION_OTHER_NAME
+    );
+  }
+
   getExperimentUnitsQuery(params: ExperimentUnitsQueryParams): string {
     const {
       settings,
@@ -1014,7 +1023,15 @@ export default abstract class SqlIntegration
         , ${this.castToString("e.variation_id")} as variation
         , ${timestampDateTimeColumn} as timestamp
         ${experimentDimensions
-          .map((d) => `, e.${d.id} AS dim_${d.id}`)
+          .map((d) => {
+            if (d.allowedValues?.length) {
+              return `${this.getDimensionInStatement(
+                d.id,
+                d.allowedValues
+              )} AS dim_${d.id}`;
+            }
+            return `, e.${d.id} AS dim_${d.id}`;
+          })
           .join("\n")}
       FROM
           __rawExperiment e
@@ -1094,7 +1111,6 @@ export default abstract class SqlIntegration
           , ${this.getDimensionColumn(baseIdType, d)} AS dim_exp_${d.id}`
           )
           .join("\n")}
-        
         ${
           activationMetric
             ? `, MIN(${this.ifElse(
