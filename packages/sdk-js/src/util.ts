@@ -248,7 +248,7 @@ export function rerouteVariation(
   if (newTotalWeight <= 0) {
     return -1;
   }
-  newWeights = newWeights.map((w) => (w * newTotalWeight) / newTotalWeight);
+  newWeights = newWeights.map((w) => w / newTotalWeight);
 
   const newRanges = getBucketRanges(ranges.length, 1, newWeights);
   const newAssigned = chooseVariation(newN, newRanges);
