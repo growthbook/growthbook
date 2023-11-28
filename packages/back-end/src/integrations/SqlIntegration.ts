@@ -1235,7 +1235,7 @@ export default abstract class SqlIntegration
     (SELECT
       variation AS variation
       , ${dimensionColumn} AS dimension_value
-      , MAX('${dimensionColumn}') AS dimension_name
+      , MAX(${this.castToString(`'${dimensionColumn}'`)}) AS dimension_name
       , COUNT(*) AS units
     FROM
       __distinctUnits
