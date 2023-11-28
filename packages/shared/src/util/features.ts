@@ -261,6 +261,16 @@ export type RulesAndValues = Pick<
   "defaultValue" | "rules" | "version"
 >;
 
+export function mergeResultHasChanges(mergeResult: AutoMergeResult): boolean {
+  if (!mergeResult.success) return true;
+
+  if (Object.keys(mergeResult.result.rules || {}).length > 0) return true;
+
+  if (mergeResult.result.defaultValue !== undefined) return true;
+
+  return false;
+}
+
 export function autoMerge(
   live: RulesAndValues,
   base: RulesAndValues,
