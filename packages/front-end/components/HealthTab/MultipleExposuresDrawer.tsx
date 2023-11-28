@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { MINIMUM_MULTIPLE_EXPOSURES } from "../Experiment/MultipleExposureWarning";
-import HealthDrawer from "./HealthDrawer";
+import HealthCard from "./HealthCard";
 import { HealthStatus } from "./StatusBadge";
 
 interface Props {
@@ -18,8 +18,6 @@ const numberFormatter = new Intl.NumberFormat();
 
 const HEALTHY_TOOLTIP_MESSAGE = "Multiple exposures were not detected.";
 
-const UNHEALTHY_TOOLTIP_MESSAGE = " multiple exposures detected!";
-
 const multiExposureCheck = ({
   multipleExposures,
   minMultipleExposures,
@@ -34,27 +32,7 @@ const multiExposureCheck = ({
     return "healthy";
   }
 
-  return "unhealthy";
-};
-
-const renderTooltipBody = ({
-  multipleExposures,
-  health,
-}: {
-  multipleExposures: number;
-  health: HealthStatus;
-}) => {
-  return (
-    <div>
-      {health === "healthy" && <div>{HEALTHY_TOOLTIP_MESSAGE}</div>}
-      {health === "unhealthy" && (
-        <div>
-          <b>{multipleExposures}</b>
-          {UNHEALTHY_TOOLTIP_MESSAGE}
-        </div>
-      )}
-    </div>
-  );
+  return "Issues detected";
 };
 
 export default function MultipleExposuresDrawer({
@@ -71,17 +49,13 @@ export default function MultipleExposuresDrawer({
     minPercent: MIN_PERCENT,
   });
   useEffect(() => {
-    if (health === "unhealthy") {
+    if (health === "Issues detected") {
       onNotify();
     }
   }, [health, onNotify]);
 
   return (
-    <HealthDrawer
-      title="Multiple Exposures Check"
-      status={health}
-      tooltipBody={renderTooltipBody({ multipleExposures, health })}
-    >
+    <HealthCard title="Multiple Exposures Check" status={health}>
       <div className="row justify-content-start mb-2">
         <div className="ml-2 mt-4">
           {health === "healthy" ? (
@@ -108,6 +82,6 @@ export default function MultipleExposuresDrawer({
           )}
         </div>
       </div>
-    </HealthDrawer>
+    </HealthCard>
   );
 }

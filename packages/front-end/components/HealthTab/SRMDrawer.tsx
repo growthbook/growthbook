@@ -10,7 +10,7 @@ import VariationUsersTable from "../Experiment/TabbedPage/VariationUsersTable";
 import SRMWarning from "../Experiment/SRMWarning";
 import SelectField, { SingleValue } from "../Forms/SelectField";
 import { DataPointVariation } from "../Experiment/ExperimentDateGraph";
-import HealthDrawer from "./HealthDrawer";
+import HealthCard from "./HealthCard";
 import { HealthStatus } from "./StatusBadge";
 
 interface Props {
@@ -124,7 +124,7 @@ export default function SRMDrawer({
   const areDimensionsAvailable = !!availableDimensions.length;
 
   return (
-    <HealthDrawer
+    <HealthCard
       title="Experiment Balance Check"
       status={overallHealth}
       tooltipBody={renderTooltipBody({
@@ -207,7 +207,7 @@ export default function SRMDrawer({
                   totalUsers: totalDimUsers,
                 });
                 return (
-                  <HealthDrawer
+                  <HealthCard
                     title={d.name}
                     helpText={`(${totalDimUsers} total units)`}
                     status={dimensionHealth}
@@ -237,13 +237,13 @@ export default function SRMDrawer({
                         </div>
                       </div>
                     </div>
-                  </HealthDrawer>
+                  </HealthCard>
                 );
               })}
             </>
           )}
         </div>
       </div>
-    </HealthDrawer>
+    </HealthCard>
   );
 }

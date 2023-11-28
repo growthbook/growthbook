@@ -5,7 +5,7 @@ import { ExperimentSnapshotTrafficDimension } from "back-end/types/experiment-sn
 import Link from "next/link";
 import { ExperimentReportVariation } from "back-end/types/report";
 import Toggle from "@/components/Forms/Toggle";
-import HealthDrawer from "@/components/HealthTab/HealthDrawer";
+import HealthCard from "@/components/HealthTab/HealthCard";
 import SRMDrawer from "@/components/HealthTab/SRMDrawer";
 import MultipleExposuresDrawer from "@/components/HealthTab/MultipleExposuresDrawer";
 import { useUser } from "@/services/UserContext";
@@ -225,12 +225,12 @@ export default function HealthTab({
 
   return (
     <div className="mt-4">
-      <HealthDrawer title="Experiment Traffic" openByDefault>
+      <HealthCard title="Experiment Traffic" openByDefault>
         <UnitCountDateGraph
           trafficByDate={trafficByDate}
           variations={variations}
         />
-      </HealthDrawer>
+      </HealthCard>
       <SRMDrawer
         traffic={traffic}
         variations={variations}
