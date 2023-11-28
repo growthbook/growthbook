@@ -603,7 +603,6 @@ describe("sticky-buckets", () => {
               hashAttribute: "id",
               fallbackAttribute: "deviceId",
               hashVersion: 2,
-              stickyBucketing: true,
               blockedVariations: [1], // <---------------- changed
               bucketVersion: 1,
               condition: { country: "USA" },
@@ -676,7 +675,6 @@ describe("sticky-buckets", () => {
               hashAttribute: "id",
               fallbackAttribute: "deviceId",
               hashVersion: 2,
-              stickyBucketing: true,
               bucketVersion: 2, // <---------------- changed
               condition: { country: "USA" },
               variations: ["control", "red", "blue"],
@@ -751,7 +749,6 @@ describe("sticky-buckets", () => {
               hashAttribute: "id",
               fallbackAttribute: "deviceId",
               hashVersion: 2,
-              stickyBucketing: true,
               bucketVersion: 2, // <---------------- changed
               minBucketVersion: 1, // <---------------- changed
               condition: { country: "USA" },
@@ -799,6 +796,114 @@ describe("sticky-buckets", () => {
     expect(result2.value).toBe("control");
 
     growthbook1.destroy();
+    cleanup();
+    event.clear();
+
+    localStorage.clear();
+  });
+
+  it("disables sticky bucketing when disabled by experiment", async () => {
+    await clearCache();
+
+    const [, cleanup] = mockApi(sdkPayload, true);
+
+    // SSE update will increment the bucketVersion and block the previous versions
+    const newPayload = {
+      ...sdkPayload,
+      features: {
+        exp1: {
+          ...sdkPayload?.features?.exp1,
+          rules: [
+            {
+              key: "feature-exp",
+              seed: "feature-exp",
+              hashAttribute: "id",
+              fallbackAttribute: "deviceId",
+              hashVersion: 2,
+              bucketVersion: 1,
+              disableStickyBucketing: true, // <---------------- changed
+              condition: { country: "USA" },
+              variations: ["control", "red", "blue"],
+              coverage: 1,
+              weights: [0.3334, 0.3333, 0.3333],
+              phase: "0",
+            },
+          ],
+        },
+      },
+    };
+    const event = new MockEvent({
+      url: "https://fakeapi.sample.io/sub/qwerty1234",
+      setInterval: 200,
+      responses: [
+        {
+          type: "features",
+          data: JSON.stringify(newPayload),
+        },
+      ],
+    });
+
+    // evaluate based on fallbackAttribute "deviceId"
+    const growthbook1 = new GrowthBook({
+      apiHost: "https://fakeapi.sample.io",
+      clientKey: "qwerty1234",
+      stickyBucketService: new LocalStorageStickyBucketService(),
+      attributes: {
+        deviceId: "d123",
+        foo: "bar",
+        country: "USA",
+      },
+      subscribeToChanges: true,
+    });
+    await growthbook1.loadFeatures();
+    await sleep(10);
+    const result1 = growthbook1.evalFeature("exp1");
+    expect(result1.value).toBe("red");
+
+    growthbook1.destroy();
+
+    const growthbook2 = new GrowthBook({
+      apiHost: "https://fakeapi.sample.io",
+      clientKey: "qwerty1234",
+      stickyBucketService: new LocalStorageStickyBucketService(),
+      attributes: {
+        deviceId: "d123",
+        foo: "bar",
+        country: "USA",
+        id: "12345",
+      },
+      subscribeToChanges: true,
+    });
+    await growthbook2.loadFeatures();
+    await sleep(10);
+    const result2 = growthbook2.evalFeature("exp1");
+    expect(result2.value).toBe("red");
+
+    growthbook2.destroy();
+
+    const growthbook3 = new GrowthBook({
+      apiHost: "https://fakeapi.sample.io",
+      clientKey: "qwerty1234",
+      stickyBucketService: new LocalStorageStickyBucketService(),
+      attributes: {
+        foo: "bar",
+        country: "USA",
+        id: "12345",
+      },
+      subscribeToChanges: true,
+    });
+    await growthbook3.loadFeatures();
+    await sleep(10);
+    const result3 = growthbook3.evalFeature("exp1");
+    expect(result3.value).toBe("red");
+
+    await sleep(800);
+
+    const result4 = growthbook3.evalFeature("exp1");
+    // no more sticky bucketing, new hash attribute (id) should evaluate to "blue"
+    expect(result4.value).toBe("blue");
+
+    growthbook3.destroy();
     cleanup();
     event.clear();
 

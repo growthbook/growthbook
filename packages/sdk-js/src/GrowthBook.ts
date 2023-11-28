@@ -709,7 +709,7 @@ export class GrowthBook<
             !this._isIncludedInRollout(
               rule.seed || id,
               rule.hashAttribute,
-              this._ctx.stickyBucketService
+              this._ctx.stickyBucketService && !rule.disableStickyBucketing
                 ? rule.fallbackAttribute
                 : undefined,
               rule.range,
@@ -760,6 +760,8 @@ export class GrowthBook<
         if (rule.hashAttribute) exp.hashAttribute = rule.hashAttribute;
         if (rule.fallbackAttribute)
           exp.fallbackAttribute = rule.fallbackAttribute;
+        if (rule.disableStickyBucketing)
+          exp.disableStickyBucketing = rule.disableStickyBucketing;
         if (rule.bucketVersion) exp.bucketVersion = rule.bucketVersion;
         if (rule.minBucketVersion) exp.minBucketVersion = rule.minBucketVersion;
         if (rule.blockedVariations)
@@ -908,7 +910,9 @@ export class GrowthBook<
     // 6. Get the hash attribute and return if empty
     const { hashAttribute, hashValue } = this._getHashAttribute(
       experiment.hashAttribute,
-      this._ctx.stickyBucketService ? experiment.fallbackAttribute : undefined
+      this._ctx.stickyBucketService && !experiment.disableStickyBucketing
+        ? experiment.fallbackAttribute
+        : undefined
     );
     if (!hashValue) {
       process.env.NODE_ENV !== "production" &&
@@ -921,7 +925,7 @@ export class GrowthBook<
     let foundStickyBucket = false;
     let stickyBucketAssigned = -1;
     let stickyBucketBlocked = false;
-    if (this._ctx.stickyBucketService) {
+    if (this._ctx.stickyBucketService && !experiment.disableStickyBucketing) {
       const { variation, blocked } = this._getStickyBucketVariation(
         experiment.key,
         experiment.bucketVersion,
@@ -1112,7 +1116,7 @@ export class GrowthBook<
     );
 
     // 13.5. Persist sticky bucket
-    if (this._ctx.stickyBucketService) {
+    if (this._ctx.stickyBucketService && !experiment.disableStickyBucketing) {
       const {
         changed,
         key: attrKey,
@@ -1236,7 +1240,9 @@ export class GrowthBook<
 
     const { hashAttribute, hashValue } = this._getHashAttribute(
       experiment.hashAttribute,
-      this._ctx.stickyBucketService ? experiment.fallbackAttribute : undefined
+      this._ctx.stickyBucketService && !experiment.disableStickyBucketing
+        ? experiment.fallbackAttribute
+        : undefined
     );
 
     const meta: Partial<VariationMeta> = experiment.meta
