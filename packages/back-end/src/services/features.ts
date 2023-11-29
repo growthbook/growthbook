@@ -58,6 +58,7 @@ import {
 } from "../api/features/postFeature";
 import { ArchetypeAttributeValues } from "../../types/archetype";
 import { FeatureRevisionInterface } from "../../types/feature-revision";
+import { purgeEdgeRemoteEvalPayloadKeys } from "../util/edge-worker.util";
 import { getEnvironmentIdsFromOrg, getOrganizationById } from "./organizations";
 
 export type AttributeMap = Map<string, string>;
@@ -287,6 +288,10 @@ export async function refreshSDKPayloadCache(
   ]);
 
   await purgeCDNCache(organization.id, surrogateKeys);
+  await purgeEdgeRemoteEvalPayloadKeys({
+    organization,
+    payloadKeys,
+  });
 
   // After the SDK payloads are updated, fire any webhooks on the organization
   await queueWebhook(organization.id, payloadKeys, true);

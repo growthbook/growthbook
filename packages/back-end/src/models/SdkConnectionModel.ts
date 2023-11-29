@@ -21,6 +21,7 @@ import {
 } from "../util/secrets";
 import { errorStringFromZodResult } from "../util/validation";
 import { purgeCDNCache } from "../util/cdn.util";
+import { purgeEdgeRemoteEval } from "../util/edge-worker.util";
 import { generateEncryptionKey, generateSigningKey } from "./ApiKeyModel";
 
 const sdkConnectionSchema = new mongoose.Schema({
@@ -275,7 +276,7 @@ export async function editSDKConnection(
   if (needsProxyUpdate) {
     // Purge CDN if used
     await purgeCDNCache(connection.organization, [connection.key]);
-
+    await purgeEdgeRemoteEval(connection.organization, [connection.key]);
     const newConnection = {
       ...connection,
       ...otherChanges,

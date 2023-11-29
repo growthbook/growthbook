@@ -151,6 +151,9 @@ export const CACHE_CONTROL_STALE_WHILE_REVALIDATE =
 export const CACHE_CONTROL_STALE_IF_ERROR =
   parseInt(process.env?.CACHE_CONTROL_STALE_IF_ERROR || "") || 36000;
 
+// remote Eval Edge
+export const REMOTE_EVAL_EDGE_HOST = process.env.REMOTE_EVAL_EDGE_HOST;
+
 // update Feature every
 
 export const CRON_ENABLED = !stringToBoolean(process.env.CRON_DISABLED);
