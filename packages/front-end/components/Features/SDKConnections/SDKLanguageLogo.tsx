@@ -9,6 +9,7 @@ import {
   SiNodedotjs,
   SiPhp,
 } from "react-icons/si";
+import { ReactElement } from "react";
 import { DocSection } from "@/components/DocLink";
 
 export type LanguageEnvironment = "frontend" | "backend" | "mobile" | "hybrid";
@@ -176,14 +177,24 @@ export default function SDKLanguageLogo({
   showLabel = false,
   size = 25,
   titlePrefix = "",
+  version,
 }: {
   language: SDKLanguage;
   showLabel?: boolean;
   size?: number;
   titlePrefix?: string;
+  version?: string;
 }) {
   const { Icon, color, label } =
     languageMapping[language] || languageMapping["other"];
+
+  const labelText = label;
+  let versionText: ReactElement | null = null;
+  if (version !== undefined) {
+    versionText = (
+      <span className="text-info small ml-2">ver. {version || "0"}</span>
+    );
+  }
 
   return (
     <span className="d-inline-flex align-items-center">
@@ -192,7 +203,12 @@ export default function SDKLanguageLogo({
         className="m-0"
         title={titlePrefix + label}
       />
-      {showLabel && <span className="ml-1">{label}</span>}
+      {showLabel && (
+        <span className="ml-1">
+          {labelText}
+          {versionText}
+        </span>
+      )}
     </span>
   );
 }

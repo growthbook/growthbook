@@ -85,6 +85,7 @@ export default function SDKConnectionForm({
     defaultValues: {
       name: initialValue.name ?? "",
       languages: initialValue.languages ?? [],
+      sdkVersion: initialValue.sdkVersion ?? "",
       environment: initialValue.environment ?? environments[0]?.id ?? "",
       projects:
         "projects" in initialValue
@@ -283,13 +284,30 @@ export default function SDKConnectionForm({
         <Field label="Name" {...form.register("name")} required />
 
         <div className="form-group">
-          <div className="d-flex align-items-center mb-1">
+          <div className="d-flex align-items-center mt-4 mb-2">
             <label className="mb-0">SDK Language</label>
             {languageError ? (
               <span className="ml-3 alert px-1 py-0 mb-0 alert-danger">
                 {languageError}
               </span>
             ) : null}
+            <div className="flex-1" />
+            <div className="position-relative text-right" style={{ top: 5 }}>
+              <Field
+                className="text-right"
+                style={{ width: 80 }}
+                placeholder="0.0.0"
+                prepend={<span className="small">SDK ver.</span>}
+                {...form.register("sdkVersion")}
+              />
+              <a
+                role="button"
+                className="small position-absolute"
+                style={{ zIndex: 1, right: 3 }}
+              >
+                Use latest
+              </a>
+            </div>
           </div>
           <SDKLanguageSelector
             value={form.watch("languages")}

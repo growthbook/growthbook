@@ -36,6 +36,7 @@ const sdkConnectionSchema = new mongoose.Schema({
   dateCreated: Date,
   dateUpdated: Date,
   languages: [String],
+  sdkVersion: String,
   environment: String,
   project: String,
   projects: [String],
@@ -128,6 +129,7 @@ export const createSDKConnectionValidator = z
     organization: z.string(),
     name: z.string(),
     languages: z.array(z.string()),
+    sdkVersion: z.string().optional(),
     environment: z.string(),
     projects: z.array(z.string()),
     encryptPayload: z.boolean(),
@@ -159,6 +161,7 @@ export async function createSDKConnection(params: CreateSDKConnectionParams) {
   const connection: SDKConnectionInterface = {
     ...otherParams,
     languages: languages as SDKLanguage[],
+    sdkVersion: "",
     id: uniqid("sdk_"),
     dateCreated: new Date(),
     dateUpdated: new Date(),
@@ -193,6 +196,7 @@ export const editSDKConnectionValidator = z
   .object({
     name: z.string().optional(),
     languages: z.array(z.string()).optional(),
+    sdkVersion: z.string().optional(),
     proxyEnabled: z.boolean().optional(),
     proxyHost: z.string().optional(),
     environment: z.string().optional(),
@@ -241,6 +245,7 @@ export async function editSDKConnection(
   // connected proxies to update their cache immediately instead of waiting for the TTL
   let needsProxyUpdate = false;
   const keysRequiringProxyUpdate = [
+    "sdkVersion",
     "projects",
     "environment",
     "encryptPayload",
