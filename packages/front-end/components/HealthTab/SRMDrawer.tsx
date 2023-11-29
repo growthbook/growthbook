@@ -1,6 +1,6 @@
 import { ExperimentSnapshotTraffic } from "back-end/types/experiment-snapshot";
 import { ExperimentReportVariation } from "back-end/types/report";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useUser } from "@/services/UserContext";
 import { pValueFormatter } from "@/services/experiments";
@@ -11,7 +11,8 @@ import SRMWarning from "../Experiment/SRMWarning";
 import SelectField, { SingleValue } from "../Forms/SelectField";
 import { DataPointVariation } from "../Experiment/ExperimentDateGraph";
 import HealthCard from "./HealthCard";
-import { HealthStatus } from "./StatusBadge";
+import { HealthStatus, StatusBadge } from "./StatusBadge";
+import { DimensionIssues } from "./DimensionIssues";
 
 interface Props {
   traffic: ExperimentSnapshotTraffic;
@@ -40,7 +41,7 @@ export const srmHealthCheck = ({
   return "Issues detected";
 };
 
-const EXPERIMENT_DIMENSION_PREFIX = "dim_exp_";
+export const EXPERIMENT_DIMENSION_PREFIX = "dim_exp_";
 const HEALTHY_TOOLTIP_MESSAGE =
   "Unit counts per variation are as expected. No imbalances detected.";
 const NOT_ENOUGH_DATA_TOOLTIP_MESSAGE =
@@ -55,6 +56,21 @@ export default function SRMDrawer({
 }: Props) {
   const [selectedDimension, setSelectedDimension] = useState<string>("");
   const { settings } = useUser();
+  const balanceCheckTableRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    // Set the height of the parent based on the height of the specific child
+    if (balanceCheckTableRef.current) {
+      const childHeight = balanceCheckTableRef.current.clientHeight;
+
+      const parentElement = document.getElementById("parent-container");
+      if (parentElement) {
+        // Perform a null check before accessing properties or methods on the result
+        const newParentHeight = childHeight; // 20px padding, adjust as needed
+        parentElement.style.height = `${newParentHeight}px`;
+      }
+    }
+  }, []);
 
   const srmThreshold = settings.srmThreshold ?? DEFAULT_SRM_THRESHOLD;
 
@@ -75,53 +91,67 @@ export default function SRMDrawer({
     setSelectedDimension("");
   }, [traffic]);
 
-  const availableDimensions: SingleValue[] = Object.keys(
-    traffic.dimension
-  ).reduce((filtered, dim) => {
-    if (dim === "dim_exposure_date") {
-      return filtered;
-    }
-    return [
-      ...filtered,
-      { label: dim.replace(EXPERIMENT_DIMENSION_PREFIX, ""), value: dim },
-    ];
-  }, []);
-
-  const areDimensionsAvailable = !!availableDimensions.length;
-
   return (
-    <HealthCard
-      title="Experiment Balance Check"
-      helpText="Shows actual unit split compared to percent selected for the experiment"
-      status={overallHealth}
-    >
-      <div className="mt-4">
-        <div className="row justify-content-start mb-2">
-          <VariationUsersTable
-            users={traffic.overall.variationUnits}
+    <div className="appbox my-2 p-3">
+      <div className="row overflow-hidden" id="parent-container">
+        <div className="col-8 border-right pr-4">
+          <div ref={balanceCheckTableRef}>
+            <h2 className="d-inline">Experiment Balance Check</h2>{" "}
+            {/* <p className="d-inline text-muted">{helpText}</p> */}
+            {overallHealth && overallHealth !== "healthy" && (
+              <StatusBadge status={overallHealth} />
+            )}
+            <p className="mt-1">
+              Shows actual unit split compared to percent selected for the
+              experiment
+            </p>
+            <hr></hr>
+            <div>
+              <div className="row justify-content-start w-100">
+                <VariationUsersTable
+                  users={traffic.overall.variationUnits}
+                  variations={variations}
+                  srm={pValueFormatter(traffic.overall.srm)}
+                  isUnhealthy={overallHealth === "Issues detected"}
+                />
+              </div>
+              <div>
+                {overallHealth === "healthy" && (
+                  <div className="alert alert-info">
+                    <b>
+                      No Sample Ratio Mismatch (SRM) detected. p-value above{" "}
+                      {srmThreshold}
+                    </b>
+                    <div>
+                      <a href="#">Learn More {">"}</a>
+                    </div>
+                  </div>
+                )}
+                {overallHealth === "Issues detected" && (
+                  <SRMWarning
+                    srm={traffic.overall.srm}
+                    expected={variations.map((v) => v.weight)}
+                    observed={traffic.overall.variationUnits}
+                  />
+                )}
+                {overallHealth === "Not enough traffic" && (
+                  <div className="alert alert-info">
+                    {NOT_ENOUGH_DATA_TOOLTIP_MESSAGE}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+        <div className="col h-100">
+          <DimensionIssues
+            dimensionData={traffic.dimension}
             variations={variations}
-            srm={pValueFormatter(traffic.overall.srm)}
-            isUnhealthy={overallHealth === "Issues detected"}
           />
         </div>
-        <div>
-          {overallHealth === "healthy" && (
-            <div className="alert alert-info">{HEALTHY_TOOLTIP_MESSAGE}</div>
-          )}
-          {overallHealth === "Issues detected" && (
-            <SRMWarning
-              srm={traffic.overall.srm}
-              expected={variations.map((v) => v.weight)}
-              observed={traffic.overall.variationUnits}
-            />
-          )}
-          {overallHealth === "Not enough traffic" && (
-            <div className="alert alert-info">
-              {NOT_ENOUGH_DATA_TOOLTIP_MESSAGE}
-            </div>
-          )}
-        </div>
-        {/* <hr />
+      </div>
+
+      {/* <hr />
         <div className="mt-4 mb-2">
           <div className="mb-4" style={{ maxWidth: 300 }}>
             <div className="uppercase-title text-muted">Dimension</div>
@@ -197,7 +227,6 @@ export default function SRMDrawer({
             </>
           )}
         </div> */}
-      </div>
-    </HealthCard>
+    </div>
   );
 }

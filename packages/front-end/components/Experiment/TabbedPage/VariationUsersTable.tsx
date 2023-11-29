@@ -25,13 +25,12 @@ export default function VariationUsersTable({ variations, users, srm }: Props) {
 
   return (
     <>
-      <table className="table mx-2 mt-0 mb-3" style={{ width: "auto" }}>
+      <table className="table mx-2 mt-0 mb-2">
         <thead>
           <tr>
             <th className="border-top-0">Variation</th>
             <th className="border-top-0">Actual Units</th>
             <th className="border-top-0">Expected Units</th>
-            <th className="border-top-0"></th>
             <th className="border-top-0">Actual %</th>
             <th className="border-top-0">Expected %</th>
           </tr>
@@ -40,7 +39,9 @@ export default function VariationUsersTable({ variations, users, srm }: Props) {
           {variations.map((v, i) => {
             return (
               <tr key={i}>
-                <td className={`variation with-variation-label variation${i}`}>
+                <td
+                  className={`border-right variation with-variation-label variation${i}`}
+                >
                   <div className="d-flex align-items-center">
                     <span
                       className="label"
@@ -54,17 +55,20 @@ export default function VariationUsersTable({ variations, users, srm }: Props) {
                     {v.name}
                   </div>
                 </td>
-                <td>{numberFormatter.format(users[i] || 0)}</td>
                 <td>
+                  <b>{numberFormatter.format(users[i] || 0)}</b>
+                </td>
+                <td className="border-right">
                   {numberFormatter.format(
                     totalUsers * (v.weight / totalWeight) || 0
                   )}
                 </td>
-                <td></td>
                 <td>
-                  {totalUsers > 0
-                    ? percentFormatter.format(users[i] / totalUsers)
-                    : "-"}
+                  <b>
+                    {totalUsers > 0
+                      ? percentFormatter.format(users[i] / totalUsers)
+                      : "-"}
+                  </b>
                 </td>
                 <td>
                   {totalWeight > 0
@@ -79,7 +83,7 @@ export default function VariationUsersTable({ variations, users, srm }: Props) {
               <td colSpan={3} className="text-nowrap text-muted">
                 p-value = {srm}
               </td>
-              <td colSpan={3}></td>
+              <td colSpan={2}></td>
             </tr>
           )}
         </tbody>

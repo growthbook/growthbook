@@ -16,8 +16,6 @@ const percentFormatter = new Intl.NumberFormat(undefined, {
 });
 const numberFormatter = new Intl.NumberFormat();
 
-const HEALTHY_TOOLTIP_MESSAGE = "Multiple exposures were not detected.";
-
 const multiExposureCheck = ({
   multipleExposures,
   minMultipleExposures,
@@ -60,17 +58,19 @@ export default function MultipleExposuresDrawer({
       helpText="Detects whether units have been exposed to multiple variations"
       status={health}
     >
-      <div className="row justify-content-start mb-2">
-        <div className="ml-2 mt-4">
+      <div className="row justify-content-start">
+        <div className="ml-2 mr-2 mt-1 w-100">
           {health === "healthy" ? (
             <div className="alert alert-info">
-              {multipleExposures === 0
-                ? HEALTHY_TOOLTIP_MESSAGE
-                : `${numberFormatter.format(
-                    multipleExposures
-                  )} multiple exposures detected, but that is below your threshold of ${percentFormatter.format(
-                    MIN_PERCENT
-                  )}`}
+              {multipleExposures === 0 ? (
+                <b>Multiple exposures were not detected.</b>
+              ) : (
+                `${numberFormatter.format(
+                  multipleExposures
+                )} multiple exposures detected, but that is below your threshold of ${percentFormatter.format(
+                  MIN_PERCENT
+                )}`
+              )}
             </div>
           ) : (
             <div className="alert alert-warning">

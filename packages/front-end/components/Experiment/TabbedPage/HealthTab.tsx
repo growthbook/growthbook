@@ -226,21 +226,26 @@ export default function HealthTab({
 
   return (
     <div className="mt-4">
+      {/* <a href="#multipleExposures">TESTING SCROLL</a> */}
+      <h4 className="mt-2 mb-4">No issues found. 🎉</h4>
       <HealthCard title="Traffic">
         <UnitCountDateGraph
           trafficByDate={trafficByDate}
           variations={variations}
         />
       </HealthCard>
-      <SRMDrawer
-        traffic={traffic}
-        variations={variations}
-        totalUsers={totalUsers}
-        datasource={experiment.datasource}
-        onNotify={onDrawerNotify}
-      />
+      <div id="balanceCheck">
+        <SRMDrawer
+          traffic={traffic}
+          variations={variations}
+          totalUsers={totalUsers}
+          datasource={experiment.datasource}
+          onNotify={onDrawerNotify}
+        />
+      </div>
+
       <div className="row">
-        <div className="col-9">
+        <div className="col-8" id="multipleExposures">
           <MultipleExposuresDrawer
             multipleExposures={snapshot.multipleExposures}
             totalUsers={totalUsers}
