@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import { evaluateFeatures } from "@growthbook/proxy-eval";
 import { isEqual } from "lodash";
 import { MergeResultChanges, MergeStrategy, autoMerge } from "shared/util";
+import { hasPermission } from "shared/permissions";
 import {
   ExperimentRefRule,
   FeatureInterface,
@@ -84,6 +85,8 @@ import {
 } from "../models/ExperimentModel";
 import { OrganizationInterface } from "../../types/organization";
 import { ExperimentInterface } from "../../types/experiment";
+import { getTeamsForOrganization } from "../models/TeamModel";
+import { getUserPermissions } from "../util/organization.util";
 
 class UnrecoverableApiError extends Error {
   constructor(message: string) {
@@ -1460,7 +1463,14 @@ export async function getFeatures(
   req: AuthRequest<unknown, unknown, { project?: string }>,
   res: Response
 ) {
-  const { org } = getOrgFromReq(req);
+  const { org, userId } = getOrgFromReq(req);
+
+  const teams = await getTeamsForOrganization(org.id);
+
+  const currentUserPermissions = getUserPermissions(userId, org, teams || []);
+  console.log("currentUserPermissions", currentUserPermissions);
+
+  //TODO: Build the user's permissions
 
   let project = "";
   if (typeof req.query?.project === "string") {
@@ -1472,10 +1482,27 @@ export async function getFeatures(
     project
   );
 
+  console.log("experiments", experiments);
+
+  const filteredFeatures = features.filter((feature) =>
+    hasPermission(currentUserPermissions, "readData", feature.project)
+  );
+
+  const filteredExperiments = experiments.filter((experiment) =>
+    hasPermission(currentUserPermissions, "readData", experiment.project)
+  );
+
+  // console.log("filteredFeatures", filteredFeatures);
+  //TODO: Filter features to only those the user has access to
+  // This means only return features if
+  // 1. The user has global `readData` access
+  // 2. If the feature is in a project, the user has `readData` access to that project
+  // console.log("experiments", experiments);
+
   res.status(200).json({
     status: 200,
-    features,
-    linkedExperiments: experiments,
+    features: filteredFeatures,
+    linkedExperiments: filteredExperiments,
   });
 }
 

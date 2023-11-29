@@ -9,6 +9,7 @@ import { getAllMetricRegressionAdjustmentStatuses } from "shared/experiments";
 import { getScopedSettings } from "shared/settings";
 import { v4 as uuidv4 } from "uuid";
 import uniq from "lodash/uniq";
+import { hasPermission } from "shared/permissions";
 import { AuthRequest, ResponseWithStatusAndError } from "../types/AuthRequest";
 import {
   createManualSnapshot,
@@ -98,6 +99,8 @@ import {
 import { getExperimentWatchers, upsertWatch } from "../models/WatchModel";
 import { getFactTableMap } from "../models/FactTableModel";
 import { OrganizationSettings } from "../../types/organization";
+import { getTeamsForOrganization } from "../models/TeamModel";
+import { getUserPermissions } from "../util/organization.util";
 
 export async function getExperiments(
   req: AuthRequest<
@@ -109,7 +112,12 @@ export async function getExperiments(
   >,
   res: Response
 ) {
-  const { org } = getOrgFromReq(req);
+  const { org, userId } = getOrgFromReq(req);
+
+  const teams = await getTeamsForOrganization(org.id);
+
+  const currentUserPermissions = getUserPermissions(userId, org, teams || []);
+
   let project = "";
   if (typeof req.query?.project === "string") {
     project = req.query.project;
@@ -117,9 +125,13 @@ export async function getExperiments(
 
   const experiments = await getAllExperiments(org.id, project);
 
+  const filteredExperiments = experiments.filter((experiment) =>
+    hasPermission(currentUserPermissions, "readData", experiment.project)
+  );
+
   res.status(200).json({
     status: 200,
-    experiments,
+    experiments: filteredExperiments,
   });
 }
 

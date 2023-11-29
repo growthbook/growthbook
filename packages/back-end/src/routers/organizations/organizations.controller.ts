@@ -114,9 +114,15 @@ import { getTeamsForOrganization } from "../../models/TeamModel";
 import { getAllFactTablesForOrganization } from "../../models/FactTableModel";
 import { getAllFactMetricsForOrganization } from "../../models/FactMetricModel";
 import { TeamInterface } from "../../../types/team";
+import { ProjectInterface } from "../../../types/project";
 
 export async function getDefinitions(req: AuthRequest, res: Response) {
-  const { org } = getOrgFromReq(req);
+  const { org, userId } = getOrgFromReq(req);
+
+  const teams = await getTeamsForOrganization(org.id);
+
+  const currentUserPermissions = getUserPermissions(userId, org, teams || []);
+
   const orgId = org?.id;
   if (!orgId) {
     throw new Error("Must be part of an organization");
@@ -144,6 +150,40 @@ export async function getDefinitions(req: AuthRequest, res: Response) {
     getAllFactMetricsForOrganization(orgId),
   ]);
 
+  console.log("projectList", projects);
+
+  const filteredProjects: ProjectInterface[] = [];
+
+  //TODO: This logic is messy and redundant - refactor so it doesn't require looping through projects twice
+
+  if (currentUserPermissions.global.permissions.readData) {
+    filteredProjects.concat(projects);
+    // const projectsTheUserHasAccessTo: ProjectInterface[] = [];
+
+    projects.forEach((p) => {
+      if (
+        currentUserPermissions.projects[p.id] &&
+        !currentUserPermissions.projects[p.id].permissions.readData
+      ) {
+        // We need to remove this project from the list
+        const indexToRemove = filteredProjects.findIndex(
+          (filteredProject) => filteredProject.id === p.id
+        );
+        filteredProjects.splice(indexToRemove, 1);
+      }
+    });
+  } else {
+    projects.forEach((p) => {
+      if (
+        currentUserPermissions.projects[p.id] &&
+        currentUserPermissions.projects[p.id].permissions.readData
+      ) {
+        filteredProjects.push(p);
+      }
+      // 2. The user DOESN'T have global access, but DOES have read access for this, we need to add this project to the filteredProjects array
+    });
+  }
+
   return res.status(200).json({
     status: 200,
     metrics,
@@ -167,7 +207,7 @@ export async function getDefinitions(req: AuthRequest, res: Response) {
     segments,
     tags,
     savedGroups,
-    projects,
+    projects: filteredProjects,
     factTables,
     factMetrics,
   });

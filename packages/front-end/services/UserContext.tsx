@@ -83,6 +83,7 @@ export const DEFAULT_PERMISSIONS: Record<GlobalPermission, boolean> = {
   organizationSettings: false,
   superDelete: false,
   viewEvents: false,
+  readData: false,
 };
 
 export interface UserContextValue {
@@ -241,6 +242,8 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
       currentOrg?.currentUserPermissions?.global.permissions[permission] ||
       false;
   }
+
+  console.log("permissionsObj", permissionsObj);
 
   // Update current user data for telemetry data
   useEffect(() => {
