@@ -1,15 +1,21 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { useFieldArray, UseFormReturn } from "react-hook-form";
 import { FaTimes } from "react-icons/fa";
 import { DEFAULT_REGRESSION_ADJUSTMENT_DAYS } from "shared/constants";
 import { isUndefined } from "lodash";
+import {
+  isBinomialMetric,
+  isFactMetric,
+  isRatioMetric,
+} from "shared/experiments";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import Toggle from "@/components/Forms/Toggle";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { GBCuped } from "@/components/Icons";
+import FactBadge from "@/components/FactTables/FactBadge";
 import Field from "../Forms/Field";
 import { EditMetricsFormInterface } from "./EditMetricsForm";
 import MetricSelector from "./MetricSelector";
@@ -26,9 +32,17 @@ export default function MetricsOverridesSelector({
   setHasMetricOverrideRiskError: (boolean) => void;
 }) {
   const [selectedMetricId, setSelectedMetricId] = useState<string>("");
-  const { metrics: metricDefinitions } = useDefinitions();
+  const {
+    metrics: metricDefinitions,
+    factMetrics: factMetricDefinitions,
+  } = useDefinitions();
   const settings = useOrgSettings();
   const { hasCommercialFeature } = useUser();
+
+  const allMetricDefinitions = useMemo(
+    () => [...metricDefinitions, ...factMetricDefinitions],
+    [metricDefinitions, factMetricDefinitions]
+  );
 
   const metrics = new Set(
     form.watch("metrics").concat(form.watch("guardrails"))
@@ -51,7 +65,7 @@ export default function MetricsOverridesSelector({
     !disabled &&
       metricOverrides.fields.map((v, i) => {
         const mo = form.watch(`metricOverrides.${i}`);
-        const metricDefinition = metricDefinitions.find(
+        const metricDefinition = allMetricDefinitions.find(
           (md) => md.id === mo.id
         );
 
@@ -74,7 +88,7 @@ export default function MetricsOverridesSelector({
     setHasMetricOverrideRiskError(hasRiskError);
   }, [
     disabled,
-    metricDefinitions,
+    allMetricDefinitions,
     metricOverrides,
     form,
     setHasMetricOverrideRiskError,
@@ -85,7 +99,7 @@ export default function MetricsOverridesSelector({
       {!disabled &&
         metricOverrides.fields.map((v, i) => {
           const mo = form.watch(`metricOverrides.${i}`);
-          const metricDefinition = metricDefinitions.find(
+          const metricDefinition = allMetricDefinitions.find(
             (md) => md.id === mo.id
           );
 
@@ -94,21 +108,35 @@ export default function MetricsOverridesSelector({
           );
           let regressionAdjustmentAvailableForMetric = true;
           let regressionAdjustmentAvailableForMetricReason = <></>;
+          if (
+            metricDefinition &&
+            isFactMetric(metricDefinition) &&
+            isRatioMetric(metricDefinition)
+          ) {
+            regressionAdjustmentAvailableForMetric = false;
+            regressionAdjustmentAvailableForMetricReason = (
+              <>Not available for ratio metrics.</>
+            );
+          }
           if (metricDefinition?.denominator) {
-            const denominator = metricDefinitions.find(
+            const denominator = allMetricDefinitions.find(
               (m) => m.id === metricDefinition.denominator
             );
-            if (denominator?.type === "count") {
+            if (denominator && !isBinomialMetric(denominator)) {
               regressionAdjustmentAvailableForMetric = false;
               regressionAdjustmentAvailableForMetricReason = (
                 <>
-                  Not available for ratio metrics with <em>count</em>{" "}
-                  denominators.
+                  Not available for metrics where the denominator is a{" "}
+                  <em>binomial</em> type.
                 </>
               );
             }
           }
-          if (metricDefinition?.aggregation) {
+          if (
+            metricDefinition &&
+            !isFactMetric(metricDefinition) &&
+            metricDefinition?.aggregation
+          ) {
             regressionAdjustmentAvailableForMetric = false;
             regressionAdjustmentAvailableForMetricReason = (
               <>Not available for metrics with custom aggregations.</>
@@ -165,8 +193,11 @@ export default function MetricsOverridesSelector({
 
               <div>
                 <label className="mb-1">
-                  <strong className="text-purple">
+                  <strong className="text-body">
                     {metricDefinition?.name}
+                    {metricDefinition && isFactMetric(metricDefinition) ? (
+                      <FactBadge metricId={metricDefinition.id} />
+                    ) : null}
                   </strong>
                 </label>
 
@@ -207,13 +238,28 @@ export default function MetricsOverridesSelector({
                           placeholder="default"
                           helpText={
                             <div className="text-right">
-                              default: {metricDefinition?.conversionWindowHours}{" "}
+                              default:{" "}
+                              {metricDefinition &&
+                              isFactMetric(metricDefinition)
+                                ? metricDefinition.conversionWindowValue *
+                                  (metricDefinition.conversionWindowUnit ===
+                                  "days"
+                                    ? 24
+                                    : metricDefinition.conversionWindowUnit ===
+                                      "weeks"
+                                    ? 24 * 7
+                                    : 1)
+                                : metricDefinition?.conversionWindowHours}{" "}
                             </div>
                           }
                           labelClassName="small mb-1"
                           type="number"
                           containerClassName="mb-0 metric-override"
-                          min={0.125}
+                          min={
+                            metricDefinition && isFactMetric(metricDefinition)
+                              ? 0
+                              : 0.125
+                          }
                           step="any"
                           {...form.register(
                             `metricOverrides.${i}.conversionWindowHours`,

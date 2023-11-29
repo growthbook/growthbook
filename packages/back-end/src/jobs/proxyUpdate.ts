@@ -48,7 +48,7 @@ export default function addProxyUpdateJob(ag: Agenda) {
     const defs = await getFeatureDefinitions({
       organization: connection.organization,
       environment: connection.environment,
-      project: connection.project,
+      projects: connection.projects,
       encryptionKey: connection.encryptPayload
         ? connection.encryptionKey
         : undefined,
@@ -146,8 +146,9 @@ export async function queueProxyUpdate(
     if (
       !payloadKeys.some(
         (key) =>
-          key.project === connection.project &&
-          key.environment === connection.environment
+          key.environment === connection.environment &&
+          (!connection.projects.length ||
+            connection.projects.includes(key.project))
       )
     ) {
       continue;

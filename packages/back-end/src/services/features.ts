@@ -10,7 +10,11 @@ import {
   GrowthBook,
 } from "@growthbook/growthbook";
 import { validateFeatureValue } from "shared/util";
-import { FeatureDefinition } from "../../types/api";
+import {
+  AutoExperimentWithProject,
+  FeatureDefinition,
+  FeatureDefinitionWithProject,
+} from "../../types/api";
 import {
   FeatureDraftChanges,
   FeatureEnvironment,
@@ -45,7 +49,7 @@ import { ApiFeature, ApiFeatureEnvironment } from "../../types/openapi";
 import { ExperimentInterface, ExperimentPhase } from "../../types/experiment";
 import { VisualChangesetInterface } from "../../types/visual-changeset";
 import {
-  getSurrogateKeysFromSDKPayloadKeys,
+  getSurrogateKeysFromEnvironments,
   purgeCDNCache,
 } from "../util/cdn.util";
 import {
@@ -54,7 +58,7 @@ import {
 } from "../api/features/postFeature";
 import { ArchetypeAttributeValues } from "../../types/archetype";
 import { FeatureRevisionInterface } from "../../types/feature-revision";
-import { getEnvironments, getOrganizationById } from "./organizations";
+import { getEnvironmentIdsFromOrg, getOrganizationById } from "./organizations";
 
 export type AttributeMap = Map<string, string>;
 
@@ -98,11 +102,11 @@ function generateVisualExperimentsPayload({
   visualExperiments: Array<VisualExperiment>;
   // environment: string,
   groupMap: GroupMap;
-}): AutoExperiment[] {
+}): AutoExperimentWithProject[] {
   const isValidSDKExperiment = (
-    e: AutoExperiment | null
-  ): e is AutoExperiment => !!e;
-  const sdkExperiments: Array<AutoExperiment | null> = visualExperiments.map(
+    e: AutoExperimentWithProject | null
+  ): e is AutoExperimentWithProject => !!e;
+  const sdkExperiments: Array<AutoExperimentWithProject | null> = visualExperiments.map(
     ({ experiment: e, visualChangeset: v }) => {
       if (e.status === "stopped" && e.excludeFromPayload) return null;
 
@@ -120,14 +124,15 @@ function generateVisualExperimentsPayload({
 
       if (!phase) return null;
 
-      const exp: AutoExperiment = {
+      const exp: AutoExperimentWithProject = {
         key: e.trackingKey,
         status: e.status,
+        project: e.project,
         variations: v.visualChanges.map((vc) => ({
           css: vc.css,
           js: vc.js || "",
           domMutations: vc.domMutations,
-        })) as AutoExperiment["variations"],
+        })) as AutoExperimentWithProject["variations"],
         hashVersion: e.hashVersion,
         hashAttribute: e.hashAttribute,
         fallbackAttribute: e.fallbackAttribute,
@@ -207,10 +212,14 @@ export async function refreshSDKPayloadCache(
   experimentMap?: Map<string, ExperimentInterface>,
   skipRefreshForProject?: string
 ) {
-  // Ignore any old environments which don't exist anymore
-  const allowedEnvs = new Set(
-    organization.settings?.environments?.map((e) => e.id) || []
+  logger.debug(
+    `Refreshing SDK Payloads for ${organization.id}: ${JSON.stringify(
+      payloadKeys
+    )}`
   );
+
+  // Ignore any old environments which don't exist anymore
+  const allowedEnvs = new Set(getEnvironmentIdsFromOrg(organization));
   payloadKeys = payloadKeys.filter((k) => allowedEnvs.has(k.environment));
 
   // Remove any projects to skip
@@ -221,7 +230,10 @@ export async function refreshSDKPayloadCache(
   }
 
   // If no environments are affected, we don't need to update anything
-  if (!payloadKeys.length) return;
+  if (!payloadKeys.length) {
+    logger.debug("Skipping SDK Payload refresh - no environments affected");
+    return;
+  }
 
   experimentMap =
     experimentMap || (await getAllPayloadExperiments(organization.id));
@@ -232,34 +244,31 @@ export async function refreshSDKPayloadCache(
     experimentMap
   );
 
-  // For each affected project/environment pair, generate a new SDK payload and update the cache
-  const promises: (() => Promise<void>)[] = [];
-  for (const key of payloadKeys) {
-    const projectFeatures = key.project
-      ? allFeatures.filter((f) => f.project === key.project)
-      : allFeatures;
-    const projectExperiments = key.project
-      ? allVisualExperiments.filter((e) => e.experiment.project === key.project)
-      : allVisualExperiments;
+  // For each affected environment, generate a new SDK payload and update the cache
+  const environments = Array.from(
+    new Set(payloadKeys.map((k) => k.environment))
+  );
 
+  const promises: (() => Promise<void>)[] = [];
+  for (const env of environments) {
     const featureDefinitions = generatePayload({
-      features: projectFeatures,
-      environment: key.environment,
+      features: allFeatures,
+      environment: env,
       groupMap,
       experimentMap,
     });
 
     const experimentsDefinitions = generateVisualExperimentsPayload({
-      visualExperiments: projectExperiments,
+      visualExperiments: allVisualExperiments,
       // environment: key.environment,
       groupMap,
     });
 
     promises.push(async () => {
+      logger.debug(`Updating SDK Payload for ${organization.id} ${env}`);
       await updateSDKPayload({
         organization: organization.id,
-        project: key.project,
-        environment: key.environment,
+        environment: env,
         featureDefinitions,
         experimentsDefinitions,
       });
@@ -277,10 +286,9 @@ export async function refreshSDKPayloadCache(
   // Purge CDN if used
   // Do this before firing webhooks in case a webhook tries fetching the latest payload from the CDN
   // Only purge the specific payloads that are affected
-  const surrogateKeys = getSurrogateKeysFromSDKPayloadKeys(
-    organization.id,
-    payloadKeys
-  );
+  const surrogateKeys = getSurrogateKeysFromEnvironments(organization.id, [
+    ...environments,
+  ]);
 
   await purgeCDNCache(organization.id, surrogateKeys);
 
@@ -292,8 +300,8 @@ export async function refreshSDKPayloadCache(
 }
 
 export type FeatureDefinitionsResponseArgs = {
-  features: Record<string, FeatureDefinition>;
-  experiments: AutoExperiment[];
+  features: Record<string, FeatureDefinitionWithProject>;
+  experiments: AutoExperimentWithProject[];
   dateUpdated: Date | null;
   encryptionKey?: string;
   includeVisualExperiments?: boolean;
@@ -301,6 +309,7 @@ export type FeatureDefinitionsResponseArgs = {
   includeExperimentNames?: boolean;
   attributes?: SDKAttributeSchema;
   secureAttributeSalt?: string;
+  projects: string[];
 };
 async function getFeatureDefinitionsResponse({
   features,
@@ -312,6 +321,7 @@ async function getFeatureDefinitionsResponse({
   includeExperimentNames,
   attributes,
   secureAttributeSalt,
+  projects,
 }: FeatureDefinitionsResponseArgs) {
   if (!includeDraftExperiments) {
     experiments = experiments?.filter((e) => e.status !== "draft") || [];
@@ -330,17 +340,38 @@ async function getFeatureDefinitionsResponse({
     // Remove names from every feature rule
     for (const k in features) {
       if (features[k]?.rules) {
-        features[k]?.rules?.forEach((rule) => {
-          if (rule.meta) {
-            rule.meta = rule.meta.map((m) => omit(m, ["name"]));
-          }
-          if (rule.name) {
-            delete rule.name;
-          }
+        features[k].rules = features[k].rules?.map((rule) => {
+          return {
+            ...omit(rule, ["name", "meta"]),
+            meta: rule.meta
+              ? rule.meta.map((m) => omit(m, ["name"]))
+              : undefined,
+          };
         });
       }
     }
   }
+
+  // Filter list of features/experiments to the selected projects
+  if (projects && projects.length > 0) {
+    experiments = experiments.filter((exp) =>
+      projects.includes(exp.project || "")
+    );
+    features = Object.fromEntries(
+      Object.entries(features).filter(([_, feature]) =>
+        projects.includes(feature.project || "")
+      )
+    );
+  }
+
+  // Remove `project` from all features/experiments
+  features = Object.fromEntries(
+    Object.entries(features).map(([key, feature]) => [
+      key,
+      omit(feature, ["project"]),
+    ])
+  );
+  experiments = experiments.map((exp) => omit(exp, ["project"]));
 
   const hasSecureAttributes = attributes?.some((a) =>
     ["secureString", "secureString[]"].includes(a.datatype)
@@ -385,7 +416,7 @@ async function getFeatureDefinitionsResponse({
 export type FeatureDefinitionArgs = {
   organization: string;
   environment?: string;
-  project?: string;
+  projects?: string[];
   encryptionKey?: string;
   includeVisualExperiments?: boolean;
   includeDraftExperiments?: boolean;
@@ -403,7 +434,7 @@ export type FeatureDefinitionSDKPayload = {
 export async function getFeatureDefinitions({
   organization,
   environment = "production",
-  project,
+  projects,
   encryptionKey,
   includeVisualExperiments,
   includeDraftExperiments,
@@ -415,7 +446,6 @@ export async function getFeatureDefinitions({
     const cached = await getSDKPayload({
       organization,
       environment,
-      project: project || "",
     });
     if (cached) {
       let attributes: SDKAttributeSchema | undefined = undefined;
@@ -438,6 +468,7 @@ export async function getFeatureDefinitions({
         includeExperimentNames,
         attributes,
         secureAttributeSalt,
+        projects: projects || [],
       });
     }
   } catch (e) {
@@ -464,13 +495,14 @@ export async function getFeatureDefinitions({
       includeExperimentNames,
       attributes,
       secureAttributeSalt,
+      projects: projects || [],
     });
   }
 
   // Generate the feature definitions
-  const features = await getAllFeatures(organization, project);
+  const features = await getAllFeatures(organization);
   const groupMap = await getSavedGroupMap(org);
-  const experimentMap = await getAllPayloadExperiments(organization, project);
+  const experimentMap = await getAllPayloadExperiments(organization);
 
   const featureDefinitions = generatePayload({
     features,
@@ -494,7 +526,6 @@ export async function getFeatureDefinitions({
   // Cache in Mongo
   await updateSDKPayload({
     organization,
-    project: project || "",
     environment,
     featureDefinitions,
     experimentsDefinitions,
@@ -510,6 +541,7 @@ export async function getFeatureDefinitions({
     includeExperimentNames,
     attributes,
     secureAttributeSalt,
+    projects: projects || [],
   });
 }
 
@@ -521,7 +553,7 @@ export async function evaluateFeature(
 ) {
   const groupMap = await getSavedGroupMap(org);
   const experimentMap = await getAllPayloadExperiments(org.id);
-  const environments = getEnvironments(org);
+  const environments = getEnvironmentIdsFromOrg(org);
 
   const results: FeatureTestResult[] = [];
 
@@ -535,19 +567,19 @@ export async function evaluateFeature(
   // the values in the feature will be wrong.
   environments.forEach((env) => {
     const thisEnvResult: FeatureTestResult = {
-      env: env.id,
+      env: env,
       result: null,
       enabled: false,
       defaultValue: revision.defaultValue,
     };
-    const settings = feature.environmentSettings[env.id] ?? null;
+    const settings = feature.environmentSettings[env] ?? null;
     if (settings) {
       thisEnvResult.enabled = settings.enabled;
       const definition = getFeatureDefinition({
         feature,
         groupMap,
         experimentMap,
-        environment: env.id,
+        environment: env,
         revision,
         returnRuleId: true,
       });
@@ -679,9 +711,9 @@ export function getApiFeatureObj({
 }): ApiFeature {
   const defaultValue = feature.defaultValue;
   const featureEnvironments: Record<string, ApiFeatureEnvironment> = {};
-  const environments = getEnvironments(organization);
+  const environments = getEnvironmentIdsFromOrg(organization);
   environments.forEach((env) => {
-    const envSettings = feature.environmentSettings?.[env.id];
+    const envSettings = feature.environmentSettings?.[env];
     const enabled = !!envSettings?.enabled;
     const rules = (envSettings?.rules || []).map((rule) => ({
       ...rule,
@@ -700,16 +732,16 @@ export function getApiFeatureObj({
       feature,
       groupMap,
       experimentMap,
-      environment: env.id,
+      environment: env,
     });
 
-    featureEnvironments[env.id] = {
+    featureEnvironments[env] = {
       enabled,
       defaultValue,
       rules,
     };
     if (definition) {
-      featureEnvironments[env.id].definition = JSON.stringify(definition);
+      featureEnvironments[env].definition = JSON.stringify(definition);
     }
   });
 
@@ -737,7 +769,8 @@ export function getApiFeatureObj({
 }
 
 export function getNextScheduledUpdate(
-  envSettings: Record<string, FeatureEnvironment>
+  envSettings: Record<string, FeatureEnvironment>,
+  environments: string[]
 ): Date | null {
   if (!envSettings) {
     return null;
@@ -745,10 +778,10 @@ export function getNextScheduledUpdate(
 
   const dates: string[] = [];
 
-  for (const env in envSettings) {
-    const rules = envSettings[env].rules;
+  environments.forEach((env) => {
+    const rules = envSettings[env]?.rules;
 
-    if (!rules) continue;
+    if (!rules) return;
 
     rules.forEach((rule: FeatureRule) => {
       if (rule?.scheduleRules) {
@@ -759,7 +792,7 @@ export function getNextScheduledUpdate(
         });
       }
     });
-  }
+  });
 
   const sortedFutureDates = dates
     .filter((date) => new Date(date) > new Date())

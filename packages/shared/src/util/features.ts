@@ -35,17 +35,19 @@ export function getValidation(feature: FeatureInterface) {
 
 export function mergeRevision(
   feature: FeatureInterface,
-  revision: FeatureRevisionInterface
+  revision: FeatureRevisionInterface,
+  environments: string[]
 ) {
   const newFeature = cloneDeep(feature);
 
   newFeature.defaultValue = revision.defaultValue;
 
   const envSettings = newFeature.environmentSettings;
-  Object.entries(revision.rules).forEach(([env, rules]) => {
+  environments.forEach((env) => {
     envSettings[env] = envSettings[env] || {};
     envSettings[env].enabled = envSettings[env].enabled || false;
-    envSettings[env].rules = rules;
+    envSettings[env].rules =
+      revision.rules?.[env] || envSettings[env].rules || [];
   });
 
   return newFeature;
@@ -259,10 +261,21 @@ export type RulesAndValues = Pick<
   "defaultValue" | "rules" | "version"
 >;
 
+export function mergeResultHasChanges(mergeResult: AutoMergeResult): boolean {
+  if (!mergeResult.success) return true;
+
+  if (Object.keys(mergeResult.result.rules || {}).length > 0) return true;
+
+  if (mergeResult.result.defaultValue !== undefined) return true;
+
+  return false;
+}
+
 export function autoMerge(
   live: RulesAndValues,
   base: RulesAndValues,
   revision: RulesAndValues,
+  environments: string[],
   strategies: Record<string, MergeStrategy>
 ): AutoMergeResult {
   const result: {
@@ -277,8 +290,10 @@ export function autoMerge(
       result.defaultValue = revision.defaultValue;
     }
 
-    Object.entries(revision.rules).forEach(([env, rules]) => {
-      if (isEqual(rules, base.rules[env])) {
+    environments.forEach((env) => {
+      const rules = revision.rules?.[env];
+      if (!rules) return;
+      if (isEqual(rules, base.rules[env] || [])) {
         return;
       }
       result.rules = result.rules || {};
@@ -335,9 +350,15 @@ export function autoMerge(
   }
 
   // Check for conflicts in rules
-  Object.entries(revision.rules).forEach(([env, rules]) => {
+  environments.forEach((env) => {
+    const rules = revision.rules?.[env];
+    if (!rules) return;
+
     // If the revision doesn't have changes in this environment, skip
-    if (isEqual(rules, base.rules[env]) || isEqual(rules, live.rules[env])) {
+    if (
+      isEqual(rules, base.rules[env] || []) ||
+      isEqual(rules, live.rules[env] || [])
+    ) {
       return;
     }
 
@@ -347,8 +368,8 @@ export function autoMerge(
     // TODO: be smarter about this - it's only really a conflict if the same rule is being changed in both
     if (
       env in live.rules &&
-      !isEqual(live.rules[env], base.rules[env]) &&
-      !isEqual(live.rules[env], rules)
+      !isEqual(live.rules[env] || [], base.rules[env] || []) &&
+      !isEqual(live.rules[env] || [], rules)
     ) {
       const conflictInfo = {
         name: `Rules - ${env}`,
