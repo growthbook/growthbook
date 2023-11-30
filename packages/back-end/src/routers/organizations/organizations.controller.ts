@@ -150,15 +150,12 @@ export async function getDefinitions(req: AuthRequest, res: Response) {
     getAllFactMetricsForOrganization(orgId),
   ]);
 
-  console.log("projectList", projects);
-
   const filteredProjects: ProjectInterface[] = [];
 
-  //TODO: This logic is messy and redundant - refactor so it doesn't require looping through projects twice
+  //TODO: Refactor this so we don't have to loop through the project list twice
 
   if (currentUserPermissions.global.permissions.readData) {
-    filteredProjects.concat(projects);
-    // const projectsTheUserHasAccessTo: ProjectInterface[] = [];
+    filteredProjects.push(...projects);
 
     projects.forEach((p) => {
       if (
@@ -180,7 +177,6 @@ export async function getDefinitions(req: AuthRequest, res: Response) {
       ) {
         filteredProjects.push(p);
       }
-      // 2. The user DOESN'T have global access, but DOES have read access for this, we need to add this project to the filteredProjects array
     });
   }
 
@@ -686,6 +682,13 @@ export async function getOrganization(req: AuthRequest, res: Response) {
 
   const currentUserPermissions = getUserPermissions(userId, org, teams || []);
 
+  const roles = getRoles(org);
+
+  //TODO: Is this the right way to do this?
+  if (getAccountPlan(org) !== "enterprise") {
+    roles.shift();
+  }
+
   return res.status(200).json({
     status: 200,
     apiKeys,
@@ -694,7 +697,7 @@ export async function getOrganization(req: AuthRequest, res: Response) {
     commercialFeatures: res.locals.licenseError
       ? []
       : [...accountFeatures[getAccountPlan(org)]],
-    roles: getRoles(org),
+    roles,
     members: expandedMembers,
     currentUserPermissions,
     teams: teamsWithMembers,
