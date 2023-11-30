@@ -27,7 +27,7 @@
     "generate-api-types": "yarn generate-api-models && swagger-cli bundle -t yaml src/api/openapi/openapi.tmp.yaml -o generated/spec.yaml && node src/scripts/generate-openapi.mjs"
   },
   "dependencies": {
-    "@databricks/sql": "^1.1.0",
+    "@databricks/sql": "^1.6.0",
     "@dqbd/tiktoken": "^1.0.7",
     "@google-cloud/bigquery": "5",
     "@google-cloud/storage": "^5.20.5",
