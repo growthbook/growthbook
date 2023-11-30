@@ -206,16 +206,6 @@ export async function getVerifiedLicenseData(
   }
   delete decodedLicense.eat;
 
-  // The `trial` field used to be optional, force it to always be defined
-  decodedLicense.trial = !!decodedLicense.trial;
-
-  // If it's a trial license key, make sure it's not expired yet
-  // For real license keys, we show an "expired" banner in the app instead of throwing an error
-  // We want to be strict for trial keys, but lenient for real Enterprise customers
-  if (decodedLicense.trial && decodedLicense.exp < new Date().toISOString()) {
-    throw new Error(`Your License Key trial expired on ${decodedLicense.exp}.`);
-  }
-
   // We used to only offer license keys for Enterprise plans (not pro)
   if (!decodedLicense.plan) {
     decodedLicense.plan = "enterprise";
