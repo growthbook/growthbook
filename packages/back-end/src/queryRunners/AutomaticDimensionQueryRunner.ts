@@ -4,7 +4,7 @@ import {
   AutomaticDimensionQueryResponseRows,
   AutomaticDimensionResult,
 } from "../types/Integration";
-import { Queries, QueryStatus } from "../../types/query";
+import { Queries } from "../../types/query";
 import {
   getAutomaticDimensionById,
   updateAutomaticDimension,
@@ -33,6 +33,10 @@ export class AutomaticDimensionQueryRunner extends QueryRunner<
       id,
     }));
 
+    if (!dimensions.length) {
+      throw new Error("Exposure query must have at least 1 dimension.");
+    }
+
     return [
       await this.startQuery({
         name: "automaticdimensions",
@@ -55,13 +59,19 @@ export class AutomaticDimensionQueryRunner extends QueryRunner<
     // Group by experiment and exposureQuery
     const dimValueMap = new Map<string, { name: string; percent: number }[]>();
     automaticDimension.forEach((d) => {
-      const dimName = d.dimension_name.replace("dim_exp_", "");
+      const dimName = d.dimension_name.replace(/^dim_exp_/g, "");
       const dimArray = dimValueMap.get(dimName);
       if (dimArray) {
-        dimArray.push({ name: d.dimension_value, percent: d.percent });
+        dimArray.push({
+          name: d.dimension_value,
+          percent: 100.0 * (d.units / d.total_units),
+        });
       } else {
         dimValueMap.set(dimName, [
-          { name: d.dimension_value, percent: d.percent },
+          {
+            name: d.dimension_value,
+            percent: 100.0 * (d.units / d.total_units),
+          },
         ]);
       }
     });
@@ -89,7 +99,6 @@ export class AutomaticDimensionQueryRunner extends QueryRunner<
     result: results,
     error,
   }: {
-    status: QueryStatus;
     queries: Queries;
     runStarted?: Date | undefined;
     result?: AutomaticDimensionResult[] | undefined;

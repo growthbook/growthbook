@@ -8,17 +8,16 @@ import cloneDeep from "lodash/cloneDeep";
 import uniqId from "uniqid";
 import { FaExclamationTriangle, FaExternalLinkAlt } from "react-icons/fa";
 import { TestQueryRow } from "back-end/src/types/Integration";
+import { useFeatureIsOn } from "@growthbook/growthbook-react";
 import Code from "@/components/SyntaxHighlighting/Code";
 import StringArrayField from "@/components/Forms/StringArrayField";
 import Toggle from "@/components/Forms/Toggle";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import { AppFeatures } from "@/types/app-features";
 import Modal from "../../../Modal";
 import Field from "../../../Forms/Field";
 import EditSqlModal from "../../../SchemaBrowser/EditSqlModal";
 import { UpdateAutomaticDimensionsModal } from "../AutomaticDimension/UpdateAutomaticDimensions";
-import { useFeatureIsOn } from "@growthbook/growthbook-react";
-import { AppFeatures } from "@/types/app-features";
-import Button from "@/components/Button";
 
 type EditExperimentAssignmentQueryProps = {
   exposureQuery?: ExposureQuery;
@@ -316,50 +315,33 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
                 </a>
                 {showAdvancedMode && (
                   <div>
-                  <div>
-                    <div className="py-2">
-                      <Toggle
-                        id="userEnteredNameCol"
-                        value={form.watch("hasNameCol") || false}
-                        setValue={(value) => {
-                          form.setValue("hasNameCol", value);
+                    <div>
+                      <div className="py-2">
+                        <Toggle
+                          id="userEnteredNameCol"
+                          value={form.watch("hasNameCol") || false}
+                          setValue={(value) => {
+                            form.setValue("hasNameCol", value);
+                          }}
+                        />
+                        <label
+                          className="mr-2 mb-0"
+                          htmlFor="exposure-query-toggle"
+                        >
+                          Use Name Columns
+                        </label>
+                        <Tooltip body="Enable this if you store experiment/variation names as well as ids in your table" />
+                      </div>
+                      <StringArrayField
+                        label="Dimension Columns"
+                        value={userEnteredDimensions}
+                        onChange={(dimensions) => {
+                          form.setValue("dimensions", dimensions);
+                          // TODO update automatic dimensions
                         }}
                       />
-                      <label
-                        className="mr-2 mb-0"
-                        htmlFor="exposure-query-toggle"
-                      >
-                        Use Name Columns
-                      </label>
-                      <Tooltip body="Enable this if you store experiment/variation names as well as ids in your table" />
                     </div>
-                    <StringArrayField
-                      label="Dimension Columns"
-                      value={userEnteredDimensions}
-                      onChange={(dimensions) => {
-                        form.setValue("dimensions", dimensions);
-                        // TODO update automatic dimensions
-                      }}
-                    />        
                   </div>
-                  {healthTabSettingsEnabled ? (
-                  <div>
-                  <button
-                        className="btn btn-primary"
-                        type="button"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          setUiMode("dimension");
-                        }}
-                      >
-                        <div className="d-flex align-items-center">
-                        Update Automatic Dimensions
-                          <FaExternalLinkAlt className="ml-2" />
-                    </div>
-                          </button>
-                          </div>
-                          ): null}
-                          </div>
                 )}
               </div>
             </div>

@@ -19,7 +19,7 @@ import { AppFeatures } from "@/types/app-features";
 import { UpdateAutomaticDimensionsModal } from "../AutomaticDimension/UpdateAutomaticDimensions";
 
 type ExperimentAssignmentQueriesProps = DataSourceQueryEditingModalBaseProps;
-
+type UIMode = "view" | "edit" | "add" | "dimension";
 export const ExperimentAssignmentQueries: FC<ExperimentAssignmentQueriesProps> = ({
   dataSource,
   onSave,
@@ -34,7 +34,7 @@ export const ExperimentAssignmentQueries: FC<ExperimentAssignmentQueriesProps> =
     ).fill(true);
   }
 
-  const [uiMode, setUiMode] = useState<"view" | "edit" | "add">("view");
+  const [uiMode, setUiMode] = useState<UIMode>("view");
   const [editingIndex, setEditingIndex] = useState<number>(-1);
   const [openIndexes, setOpenIndexes] = useState<boolean[]>(
     intitialOpenIndexes
@@ -48,6 +48,7 @@ export const ExperimentAssignmentQueries: FC<ExperimentAssignmentQueriesProps> =
       permissions,
       "editDatasourceSettings"
     );
+  const healthTabSettingsEnabled = useFeatureIsOn<AppFeatures>("health-tab");
 
   const handleExpandCollapseForIndex = useCallback(
     (index) => () => {
@@ -78,10 +79,10 @@ export const ExperimentAssignmentQueries: FC<ExperimentAssignmentQueriesProps> =
     setEditingIndex(experimentExposureQueries.length);
   }, [experimentExposureQueries]);
 
-  const handleEditActionClicked = useCallback(
-    (idx: number) => async () => {
+  const handleActionClicked = useCallback(
+    (idx: number, uiMode: UIMode) => async () => {
       setEditingIndex(idx);
-      setUiMode("edit");
+      setUiMode(uiMode);
     },
     []
   );
@@ -207,7 +208,7 @@ export const ExperimentAssignmentQueries: FC<ExperimentAssignmentQueriesProps> =
                       </Button>
                       {canEdit && (
                         <Button
-                          onClick={handleEditActionClicked(idx)}
+                          onClick={handleActionClicked(idx, "edit")}
                           style={{ marginLeft: "1rem" }}
                         >
                           Edit it now.
@@ -230,9 +231,15 @@ export const ExperimentAssignmentQueries: FC<ExperimentAssignmentQueriesProps> =
                   <MoreMenu>
                     <button
                       className="dropdown-item py-2"
-                      onClick={handleEditActionClicked(idx)}
+                      onClick={handleActionClicked(idx, "edit")}
                     >
-                      <FaPencilAlt className="mr-2" /> Edit
+                      <FaPencilAlt className="mr-2" /> Edit Query
+                    </button>
+                    <button
+                      className="dropdown-item py-2"
+                      onClick={handleActionClicked(idx, "dimension")}
+                    >
+                      <FaPencilAlt className="mr-2" /> Edit Dimension Metadata
                     </button>
 
                     <DeleteButton
@@ -287,6 +294,15 @@ export const ExperimentAssignmentQueries: FC<ExperimentAssignmentQueriesProps> =
           mode={uiMode}
           onSave={handleSave(editingIndex)}
           onCancel={handleCancel}
+        />
+      ) : null}
+
+      {uiMode === "dimension" && healthTabSettingsEnabled ? (
+        <UpdateAutomaticDimensionsModal
+          exposureQuery={experimentExposureQueries[editingIndex]}
+          dataSource={dataSource}
+          close={() => setUiMode("view")}
+          onSave={handleSave(editingIndex)}
         />
       ) : null}
 

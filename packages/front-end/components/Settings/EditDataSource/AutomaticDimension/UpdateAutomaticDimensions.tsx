@@ -100,7 +100,7 @@ export const UpdateAutomaticDimensionsModal: FC<UpdateAutomaticDimensionModalPro
         }
       }}
     >
-      {"Save to Data Source"}
+      {"Save Dimension Slices"}
     </button>
   );
 
@@ -110,11 +110,29 @@ export const UpdateAutomaticDimensionsModal: FC<UpdateAutomaticDimensionModalPro
         open={true}
         close={close}
         secondaryCTA={secondaryCTA}
-        size="max"
-        sizeY="max"
-        header={"Automatic Dimensions"}
+        size="lg"
+        header={"Experiment Dimension Metadata"}
       >
         <div className="my-2 ml-3 mr-3">
+          <div className="row mb-1">
+            Experiment Dimensions can be configured to have up to 20 pre-defined
+            slices per dimension.
+          </div>
+          <div className="row mb-1">
+            <strong>Why?</strong>
+            Pre-defining dimension slices allows us to run traffic and health
+            checks on your experiment for all bins whenever you update
+            experiment results, rather than requiring you to re-run queries for
+            each dimension just to check traffic by dimension.
+          </div>
+          <div className="row mb-2">
+            <strong>How?</strong>
+            Running the query on this page will scan 30 days of data from your
+            experiment assignment query to determine the 20 most popular
+            dimension values and will save them for future use. It may be useful
+            to update this periodically if you suspect the underlying numbers of
+            users in each bucket are changing over time.
+          </div>
           <div className="row">
             <AutomaticDimensionRunner
               automaticDimension={data?.automaticDimension}
@@ -122,8 +140,8 @@ export const UpdateAutomaticDimensionsModal: FC<UpdateAutomaticDimensionModalPro
               id={id}
               setId={setId}
               mutate={mutate}
-              dataSourceId={dataSource.id}
-              exposureQueryId={exposureQuery.id}
+              dataSource={dataSource}
+              exposureQuery={exposureQuery}
             />
           </div>
         </div>
@@ -138,8 +156,8 @@ type AutomaticDimensionRunnerProps = {
   id: string | null;
   setId: (id: string) => void;
   mutate: () => void;
-  dataSourceId: string;
-  exposureQueryId: string;
+  dataSource: DataSourceInterfaceWithParams;
+  exposureQuery: ExposureQuery;
 };
 
 export const AutomaticDimensionRunner: FC<AutomaticDimensionRunnerProps> = ({
@@ -148,18 +166,19 @@ export const AutomaticDimensionRunner: FC<AutomaticDimensionRunnerProps> = ({
   id,
   setId,
   mutate,
-  dataSourceId,
-  exposureQueryId,
+  dataSource,
+  exposureQuery,
 }) => {
   const { apiCall } = useAuth();
+  const [error, setError] = useState<string>("");
   const refreshDimension = useCallback(async () => {
     apiCall<{
       automaticDimension: AutomaticDimensionInterface;
     }>("/automatic-dimension", {
       method: "POST",
       body: JSON.stringify({
-        dataSourceId: dataSourceId,
-        queryId: exposureQueryId,
+        dataSourceId: dataSource.id,
+        queryId: exposureQuery.id,
         lookbackDays: 9999, // TODO configure
       }),
     })
@@ -168,57 +187,81 @@ export const AutomaticDimensionRunner: FC<AutomaticDimensionRunnerProps> = ({
         mutate();
       })
       .catch((e) => {
+        setError(e.message);
         console.error(e.message);
       });
-  }, [dataSourceId, exposureQueryId, mutate, apiCall, setId]);
+  }, [dataSource.id, exposureQuery.id, mutate, apiCall, setId]);
 
   return (
     <>
       <div className="col-12">
-        <div className="row align-items-center mb-4">
-          <div className="col-auto ml-auto">
-            {automaticDimension?.runStarted ? (
-              <div
-                className="text-muted"
-                style={{ fontSize: "0.8em" }}
-                title={datetime(automaticDimension.runStarted)}
-              >
-                last updated {ago(automaticDimension.runStarted)}
+        <div className="col-auto ml-auto">
+          <div className="row align-items-center mb-3">
+            <div className="col-auto ml-auto">
+              <div>
+                <strong>Experiment Assignment Query:</strong>{" "}
+                {exposureQuery.name}
               </div>
-            ) : null}
-          </div>
-          <form
-            onSubmit={async (e) => {
-              e.preventDefault();
-              try {
-                refreshDimension();
-              } catch (e) {
-                console.error(e);
-              }
-            }}
-          >
-            <RunQueriesButton
-              cta={`${
-                automaticDimension ? "Refresh" : "Create"
-              } Automatic Dimensions`}
-              icon={automaticDimension ? "refresh" : "run"}
-              mutate={mutate}
-              model={
-                automaticDimension ?? { queries: [], runStarted: undefined }
-              }
-              cancelEndpoint={`/automatic-dimension/${id}/cancel`}
-              color="outline-primary"
-            />
-          </form>{" "}
-          {status === "failed" && automaticDimension && (
-            <div className="alert alert-danger mt-2">
-              <strong>
-                Error updating data, reverting to last valid automatic
-                dimensions.
-              </strong>
+              <div>
+                <strong>Dimension Columns: </strong>
+                {exposureQuery.dimensions.map((d, i) => (
+                  <Fragment key={i}>
+                    {i ? ", " : ""}
+                    {d}
+                  </Fragment>
+                ))}
+                {!exposureQuery.dimensions.length && (
+                  <em className="text-muted">none</em>
+                )}
+              </div>
             </div>
-          )}
+            <div className="flex-1" />
+
+            <div className="col-auto ml-auto">
+              <form
+                onSubmit={async (e) => {
+                  e.preventDefault();
+                  try {
+                    setError("");
+                    refreshDimension();
+                  } catch (e) {
+                    setError(e.message);
+                    console.error(e);
+                  }
+                }}
+              >
+                <RunQueriesButton
+                  cta={`${
+                    automaticDimension ? "Refresh" : "Load"
+                  } Dimension Slices`}
+                  icon={automaticDimension ? "refresh" : "run"}
+                  position={"left"}
+                  mutate={mutate}
+                  model={
+                    automaticDimension ?? { queries: [], runStarted: undefined }
+                  }
+                  cancelEndpoint={`/automatic-dimension/${id}/cancel`}
+                  color="outline-primary"
+                />
+              </form>
+              {automaticDimension?.runStarted ? (
+                <div
+                  className="text-right text-muted"
+                  style={{ fontSize: "0.7em" }}
+                  title={datetime(automaticDimension.runStarted)}
+                >
+                  last updated {ago(automaticDimension.runStarted)}
+                </div>
+              ) : null}
+            </div>
+          </div>
         </div>
+        {(status === "failed" || error !== "") && automaticDimension ? (
+          <div className="alert alert-danger mt-2">
+            <strong>Error updating data</strong>
+            {error ? `: ${error}` : null}
+          </div>
+        ) : null}
         {automaticDimension?.results && automaticDimension.results.length ? (
           <AutomaticDimensionResults
             automaticDimensionResult={automaticDimension.results}
@@ -260,8 +303,9 @@ export const AutomaticDimensionResults: FC<AutomaticDimensionResultsProps> = ({
           return (
             <div key={i}>
               <label>
-                <h4>{r.dimension}</h4>
+                <h3>{r.dimension}</h3>
                 <div>
+                  Top dimension slices:{"  "}
                   {r.dimensionValues.map((d, i) => {
                     totalPercent += d.percent;
                     return (
@@ -279,7 +323,7 @@ export const AutomaticDimensionResults: FC<AutomaticDimensionResultsProps> = ({
                 </div>
                 <div>
                   {" "}
-                  other values:
+                  All other values:
                   <Fragment key={`${r.dimension}--1`}>
                     {" "}
                     <code key={`${r.dimension}-_other_`}>

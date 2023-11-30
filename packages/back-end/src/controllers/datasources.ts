@@ -730,6 +730,7 @@ export async function postAutomaticDimension(
     dataSourceId,
     queryId,
   });
+
   const queryRunner = new AutomaticDimensionQueryRunner(model, integration);
   const outputmodel = await queryRunner.startAnalysis({
     exposureQueryId: queryId,

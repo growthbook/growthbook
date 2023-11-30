@@ -1339,7 +1339,7 @@ export default abstract class SqlIntegration
         dim_values_sorted.dimension_name AS dimension_name,
         dim_values_sorted.dimension_value AS dimension_value,
         dim_values_sorted.units AS units,
-        dim_values_sorted.units / n.N * 100 AS percent
+        n.N AS total_units
       FROM
         dim_values_sorted
       CROSS JOIN total_n n
@@ -1361,7 +1361,7 @@ export default abstract class SqlIntegration
           dimension_value: row.dimension_value ?? "",
           dimension_name: row.dimension_name ?? "",
           units: parseInt(row.units) || 0,
-          percent: parseFloat(row.percent) || 0,
+          total_units: parseInt(row.total_units) || 0,
         };
       }),
       statistics: statistics,

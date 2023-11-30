@@ -245,7 +245,7 @@ export type AutomaticDimensionQueryResponseRows = {
   dimension_value: string;
   dimension_name: string;
   units: number;
-  percent: number;
+  total_units: number;
 }[];
 
 // eslint-disable-next-line
