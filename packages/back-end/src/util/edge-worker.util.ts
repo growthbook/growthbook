@@ -48,7 +48,10 @@ const filterByPayload = async (
   const projects = payloadKeys.map((keys) => keys.project);
   return (await findSDKConnectionsByOrganization(organizationId))
     .filter((sdkConnection) => {
-      return projects.includes(sdkConnection.project);
+      sdkConnection.projects.forEach((project) => {
+        return projects.includes(project);
+      });
+      return false;
     })
     .map((sdkConnection) => sdkConnection.key);
 };
