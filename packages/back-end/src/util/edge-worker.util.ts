@@ -13,14 +13,14 @@ export const purgeEdgeRemoteEvalSDKKeys = (
   organizationId: string,
   sdkConnectionKeys: string[]
 ) => {
-  const bodyData = { sdkKeys: sdkConnectionKeys };
+  const bodyData = { clientKeys: sdkConnectionKeys };
   fetch(`${REMOTE_EVAL_EDGE_HOST}${REMOTE_EVAL_ADDRESS}`, {
     method: "DELETE",
     body: JSON.stringify(bodyData),
   }).catch((error) => {
     logger.warn("failed to purge edge remote eval", {
       organizationId: organizationId,
-      sdkKeys: sdkConnectionKeys,
+      clientKeys: sdkConnectionKeys,
       error,
     });
   });
