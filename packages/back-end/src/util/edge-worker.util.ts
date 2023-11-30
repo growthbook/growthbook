@@ -1,6 +1,7 @@
 import { findSDKConnectionsByOrganization } from "../models/SdkConnectionModel";
 import { SDKPayloadKey } from "../../types/sdk-payload";
 import type { OrganizationInterface } from "../../types/organization";
+import { SDKConnectionInterface } from "../../types/sdk-connection";
 import { REMOTE_EVAL_EDGE_HOST } from "./secrets";
 import { logger } from "./logger";
 
@@ -49,13 +50,32 @@ const filterByPayload = async (
   return (await findSDKConnectionsByOrganization(organizationId))
     .filter((sdkConnection) => {
       if (sdkConnection.projects.length === 0 && projects.includes("")) {
-        return true;
+        return checkProjectAndEnviromentMatch("", sdkConnection, payloadKeys);
       }
       for (const project of sdkConnection.projects) {
-        return projects.includes(project);
+        return checkProjectAndEnviromentMatch(
+          project,
+          sdkConnection,
+          payloadKeys
+        );
       }
     })
     .map((sdkConnection) => sdkConnection.key);
+};
+
+const checkProjectAndEnviromentMatch = (
+  project: string,
+  sdkConnection: SDKConnectionInterface,
+  payloadKeys: SDKPayloadKey[]
+) => {
+  for (const payloadKey of payloadKeys) {
+    if (
+      project === payloadKey.project &&
+      payloadKey.environment === sdkConnection.environment
+    ) {
+      return true;
+    }
+  }
 };
 
 const filterEnviroment = (
