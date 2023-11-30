@@ -12,7 +12,7 @@ on:
       - "packages/back-end/generated/spec.yaml"
 jobs:
   vercel:
-    runs-on: buildjet-4vcpu-ubuntu-2204
+    runs-on: buildjet-32vcpu-ubuntu-2204
     steps:
       - name: Checkout Code
         uses: actions/checkout@v2
@@ -40,7 +40,7 @@ jobs:
 
   # Linting, type-checking, and tests
   ci:
-    runs-on: buildjet-4vcpu-ubuntu-2204
+    runs-on: buildjet-32vcpu-ubuntu-2204
     steps:
       - name: Checkout code
         uses: actions/checkout@v2

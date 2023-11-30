@@ -9,7 +9,7 @@ on:
 jobs:
   # Tag the latest docker release with the tag
   docker:
-    runs-on: buildjet-4vcpu-ubuntu-2204
+    runs-on: buildjet-32vcpu-ubuntu-2204
     if: ${{ github.repository == 'growthbook/growthbook' }}
     steps:
       - name: Login to Docker Hub

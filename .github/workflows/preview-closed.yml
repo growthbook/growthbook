@@ -14,7 +14,7 @@ on:
 
 jobs:
   closed:
-    runs-on: buildjet-4vcpu-ubuntu-2204
+    runs-on: buildjet-32vcpu-ubuntu-2204
     steps:
     - name: Context
       uses: okteto/context@latest

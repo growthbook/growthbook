@@ -14,7 +14,7 @@ on:
 jobs:
   # Build and publish the commit to docker
   docker:
-    runs-on: buildjet-4vcpu-ubuntu-2204
+    runs-on: buildjet-32vcpu-ubuntu-2204
     if: ${{ github.repository == 'growthbook/growthbook' }}
     permissions:
       contents: read
@@ -54,7 +54,7 @@ jobs:
 
   # Deploy the back-end for GrowthBook Cloud
   prod:
-    runs-on: buildjet-4vcpu-ubuntu-2204
+    runs-on: buildjet-32vcpu-ubuntu-2204
     needs: [docker]
     if: ${{ github.repository == 'growthbook/growthbook' }}
     steps:
