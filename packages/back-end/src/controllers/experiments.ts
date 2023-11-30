@@ -254,8 +254,12 @@ export async function getExperiment(
   req: AuthRequest<null, { id: string }>,
   res: Response
 ) {
-  const { org } = getOrgFromReq(req);
+  const { org, userId } = getOrgFromReq(req);
   const { id } = req.params;
+
+  const teams = await getTeamsForOrganization(org.id);
+
+  const currentUserPermissions = getUserPermissions(userId, org, teams || []);
 
   const experiment = await getExperimentById(org.id, id);
 
@@ -267,7 +271,10 @@ export async function getExperiment(
     return;
   }
 
-  if (!(await userHasAccess(req, experiment.organization))) {
+  if (
+    !(await userHasAccess(req, experiment.organization)) ||
+    !hasPermission(currentUserPermissions, "readData", experiment.project)
+  ) {
     res.status(403).json({
       status: 403,
       message: "You do not have access to view this experiment",

@@ -1468,9 +1468,6 @@ export async function getFeatures(
   const teams = await getTeamsForOrganization(org.id);
 
   const currentUserPermissions = getUserPermissions(userId, org, teams || []);
-  console.log("currentUserPermissions", currentUserPermissions);
-
-  //TODO: Build the user's permissions
 
   let project = "";
   if (typeof req.query?.project === "string") {
@@ -1482,8 +1479,6 @@ export async function getFeatures(
     project
   );
 
-  console.log("experiments", experiments);
-
   const filteredFeatures = features.filter((feature) =>
     hasPermission(currentUserPermissions, "readData", feature.project)
   );
@@ -1491,13 +1486,6 @@ export async function getFeatures(
   const filteredExperiments = experiments.filter((experiment) =>
     hasPermission(currentUserPermissions, "readData", experiment.project)
   );
-
-  // console.log("filteredFeatures", filteredFeatures);
-  //TODO: Filter features to only those the user has access to
-  // This means only return features if
-  // 1. The user has global `readData` access
-  // 2. If the feature is in a project, the user has `readData` access to that project
-  // console.log("experiments", experiments);
 
   res.status(200).json({
     status: 200,
@@ -1533,12 +1521,20 @@ export async function getFeatureById(
   req: AuthRequest<null, { id: string }>,
   res: Response
 ) {
-  const { org, environments } = getOrgFromReq(req);
+  const { org, environments, userId } = getOrgFromReq(req);
   const { id } = req.params;
+
+  const teams = await getTeamsForOrganization(org.id);
+
+  const currentUserPermissions = getUserPermissions(userId, org, teams || []);
 
   const feature = await getFeature(org.id, id);
   if (!feature) {
     throw new Error("Could not find feature");
+  }
+
+  if (!hasPermission(currentUserPermissions, "readData", feature.project)) {
+    throw new Error("You do not have access to view this feature.");
   }
 
   let revisions = await getRevisions(org.id, id);
