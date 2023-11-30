@@ -92,7 +92,7 @@ export default function SRMDrawer({
   }, [traffic]);
 
   return (
-    <div className="appbox my-2 p-3">
+    <div className="appbox my-4 p-3">
       <div className="row overflow-hidden" id="parent-container">
         <div className="col-8 border-right pr-4">
           <div ref={balanceCheckTableRef}>
