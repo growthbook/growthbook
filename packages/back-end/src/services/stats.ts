@@ -178,7 +178,6 @@ print(json.dumps({
     logger.error(e, "Failed to run stats model: " + result);
     throw e;
   }
-
   return parsed;
 }
 
