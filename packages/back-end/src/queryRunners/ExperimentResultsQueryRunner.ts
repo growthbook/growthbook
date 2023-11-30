@@ -32,7 +32,7 @@ import {
 import { expandDenominatorMetrics } from "../util/sql";
 import { getOrganizationById } from "../services/organizations";
 import { FactTableMap } from "../models/FactTableModel";
-import { getAutomaticDimensionById } from "../models/AutomaticDimensionModel";
+import { getDimensionMetadataById } from "../models/DimensionMetadataModel";
 import {
   QueryRunner,
   QueryMap,
@@ -128,11 +128,11 @@ export const startExperimentResultQueries = async (
   // Settings for health query
   const runTrafficQuery = !dimensionObj && org?.settings?.runHealthTrafficQuery;
   let dimensionsForTraffic: ExperimentDimension[] = [];
-  if (runTrafficQuery && exposureQuery?.automaticDimensionId) {
+  if (runTrafficQuery && exposureQuery?.dimensionMetadataId) {
     // get experiment dimensions for which we have automatic dimensions
-    const autoDimensions = await getAutomaticDimensionById(
+    const autoDimensions = await getDimensionMetadataById(
       org.id,
-      exposureQuery.automaticDimensionId
+      exposureQuery.dimensionMetadataId
     );
     if (autoDimensions) {
       dimensionsForTraffic = autoDimensions.results

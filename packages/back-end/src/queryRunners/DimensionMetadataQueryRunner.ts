@@ -1,27 +1,27 @@
 import {
   ExperimentDimension,
-  AutomaticDimensionInterface,
-  AutomaticDimensionQueryResponseRows,
-  AutomaticDimensionResult,
+  DimensionMetadataInterface,
+  DimensionMetadataQueryResponseRows,
+  DimensionMetadataResult,
 } from "../types/Integration";
 import { Queries } from "../../types/query";
 import {
-  getAutomaticDimensionById,
-  updateAutomaticDimension,
-} from "../models/AutomaticDimensionModel";
+  getDimensionMetadataById,
+  updateDimensionMetadata,
+} from "../models/DimensionMetadataModel";
 import { QueryRunner, QueryMap } from "./QueryRunner";
 
-export type AutomaticDimensionParams = {
+export type DimensionMetadataParams = {
   exposureQueryId: string;
   lookbackDays: number;
 };
 
-export class AutomaticDimensionQueryRunner extends QueryRunner<
-  AutomaticDimensionInterface,
-  AutomaticDimensionParams,
-  AutomaticDimensionResult[]
+export class DimensionMetadataQueryRunner extends QueryRunner<
+  DimensionMetadataInterface,
+  DimensionMetadataParams,
+  DimensionMetadataResult[]
 > {
-  async startQueries(params: AutomaticDimensionParams): Promise<Queries> {
+  async startQueries(params: DimensionMetadataParams): Promise<Queries> {
     const exposureQuery = (
       this.integration.settings?.queries?.exposure || []
     ).find((q) => q.id === params.exposureQueryId);
@@ -39,26 +39,26 @@ export class AutomaticDimensionQueryRunner extends QueryRunner<
 
     return [
       await this.startQuery({
-        name: "automaticdimensions",
-        query: this.integration.getAutomaticDimensionQuery({
+        name: "dimensionMetadata",
+        query: this.integration.getDimensionMetadataQuery({
           exposureQueryId: params.exposureQueryId,
           dimensions: dimensions,
           lookbackDays: params.lookbackDays,
         }),
         dependencies: [],
         run: (query, setExternalId) =>
-          this.integration.runAutomaticDimensionQuery(query, setExternalId),
+          this.integration.runDimensionMetadataQuery(query, setExternalId),
         process: (rows) => rows,
       }),
     ];
   }
-  async runAnalysis(queryMap: QueryMap): Promise<AutomaticDimensionResult[]> {
-    const automaticDimension = queryMap.get("automaticdimensions")
-      ?.result as AutomaticDimensionQueryResponseRows;
+  async runAnalysis(queryMap: QueryMap): Promise<DimensionMetadataResult[]> {
+    const dimensionMetadata = queryMap.get("dimensionMetadata")
+      ?.result as DimensionMetadataQueryResponseRows;
 
     // Group by experiment and exposureQuery
     const dimValueMap = new Map<string, { name: string; percent: number }[]>();
-    automaticDimension.forEach((d) => {
+    dimensionMetadata.forEach((d) => {
       const dimName = d.dimension_name.replace(/^dim_exp_/g, "");
       const dimArray = dimValueMap.get(dimName);
       if (dimArray) {
@@ -76,7 +76,7 @@ export class AutomaticDimensionQueryRunner extends QueryRunner<
       }
     });
 
-    const results: AutomaticDimensionResult[] = [];
+    const results: DimensionMetadataResult[] = [];
     dimValueMap.forEach((dimValues, dimName) => {
       results.push({
         dimension: dimName,
@@ -85,8 +85,8 @@ export class AutomaticDimensionQueryRunner extends QueryRunner<
     });
     return results;
   }
-  async getLatestModel(): Promise<AutomaticDimensionInterface> {
-    const model = await getAutomaticDimensionById(
+  async getLatestModel(): Promise<DimensionMetadataInterface> {
+    const model = await getDimensionMetadataById(
       this.model.organization,
       this.model.id
     );
@@ -101,10 +101,10 @@ export class AutomaticDimensionQueryRunner extends QueryRunner<
   }: {
     queries: Queries;
     runStarted?: Date | undefined;
-    result?: AutomaticDimensionResult[] | undefined;
+    result?: DimensionMetadataResult[] | undefined;
     error?: string | undefined;
-  }): Promise<AutomaticDimensionInterface> {
-    return updateAutomaticDimension(this.model, {
+  }): Promise<DimensionMetadataInterface> {
+    return updateDimensionMetadata(this.model, {
       queries,
       runStarted,
       results,

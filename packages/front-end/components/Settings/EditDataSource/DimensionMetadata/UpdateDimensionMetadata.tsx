@@ -5,8 +5,8 @@ import {
 } from "back-end/types/datasource";
 import cloneDeep from "lodash/cloneDeep";
 import {
-  AutomaticDimensionInterface,
-  AutomaticDimensionResult,
+  DimensionMetadataInterface,
+  DimensionMetadataResult,
 } from "back-end/src/types/Integration";
 import { ago, datetime } from "shared/dates";
 import { QueryStatus } from "back-end/types/query";
@@ -34,18 +34,18 @@ export async function setExposureId(
   setId: (id: string) => void,
   mutate: () => void
 ): Promise<void> {
-  if (exposureQuery.automaticDimensionId) {
-    setId(exposureQuery.automaticDimensionId);
+  if (exposureQuery.dimensionMetadataId) {
+    setId(exposureQuery.dimensionMetadataId);
     await mutate();
   } else {
     try {
       const res = await apiCall<{
-        automaticDimension: AutomaticDimensionInterface;
+        dimensionMetadata: DimensionMetadataInterface;
       }>(
         `/automatic-dimension/datasource/${dataSource.id}/${exposureQuery.id}`
       );
-      if (res?.automaticDimension?.id) {
-        setId(res.automaticDimension.id);
+      if (res?.dimensionMetadata?.id) {
+        setId(res.dimensionMetadata.id);
         await mutate();
       }
     } catch (e) {
@@ -54,14 +54,14 @@ export async function setExposureId(
   }
 }
 
-type UpdateAutomaticDimensionModalProps = {
+type UpdateDimensionMetadataModalProps = {
   exposureQuery: ExposureQuery;
   dataSource: DataSourceInterfaceWithParams;
   close: () => void;
   onSave: (exposureQuery: ExposureQuery) => void;
 };
 
-export const UpdateAutomaticDimensionsModal: FC<UpdateAutomaticDimensionModalProps> = ({
+export const UpdateDimensionMetadataModal: FC<UpdateDimensionMetadataModalProps> = ({
   exposureQuery,
   dataSource,
   close,
@@ -70,7 +70,7 @@ export const UpdateAutomaticDimensionsModal: FC<UpdateAutomaticDimensionModalPro
   const { apiCall } = useAuth();
   const [id, setId] = useState<string | null>(null);
   const { data, error, mutate } = useApi<{
-    automaticDimension: AutomaticDimensionInterface;
+    dimensionMetadata: DimensionMetadataInterface;
   }>(`/automatic-dimension/${id}`);
 
   useEffect(() => {
@@ -81,8 +81,8 @@ export const UpdateAutomaticDimensionsModal: FC<UpdateAutomaticDimensionModalPro
     return <div className="alert alert-error">{error?.message}</div>;
   }
   const { status } = getQueryStatus(
-    data?.automaticDimension?.queries || [],
-    data?.automaticDimension?.error
+    data?.dimensionMetadata?.queries || [],
+    data?.dimensionMetadata?.error
   );
 
   const saveEnabled = id && status === "succeeded";
@@ -94,7 +94,7 @@ export const UpdateAutomaticDimensionsModal: FC<UpdateAutomaticDimensionModalPro
       onClick={() => {
         if (id) {
           const value = cloneDeep<ExposureQuery>(exposureQuery);
-          value.automaticDimensionId = id;
+          value.dimensionMetadataId = id;
           onSave(value);
           close();
         }
@@ -134,8 +134,8 @@ export const UpdateAutomaticDimensionsModal: FC<UpdateAutomaticDimensionModalPro
             users in each bucket are changing over time.
           </div>
           <div className="row">
-            <AutomaticDimensionRunner
-              automaticDimension={data?.automaticDimension}
+            <DimensionMetadataRunner
+              dimensionMetadata={data?.dimensionMetadata}
               status={status}
               id={id}
               setId={setId}
@@ -150,8 +150,8 @@ export const UpdateAutomaticDimensionsModal: FC<UpdateAutomaticDimensionModalPro
   );
 };
 
-type AutomaticDimensionRunnerProps = {
-  automaticDimension?: AutomaticDimensionInterface;
+type DimensionMetadataRunnerProps = {
+  dimensionMetadata?: DimensionMetadataInterface;
   status: QueryStatus;
   id: string | null;
   setId: (id: string) => void;
@@ -160,8 +160,8 @@ type AutomaticDimensionRunnerProps = {
   exposureQuery: ExposureQuery;
 };
 
-export const AutomaticDimensionRunner: FC<AutomaticDimensionRunnerProps> = ({
-  automaticDimension,
+export const DimensionMetadataRunner: FC<DimensionMetadataRunnerProps> = ({
+  dimensionMetadata,
   status,
   id,
   setId,
@@ -173,7 +173,7 @@ export const AutomaticDimensionRunner: FC<AutomaticDimensionRunnerProps> = ({
   const [error, setError] = useState<string>("");
   const refreshDimension = useCallback(async () => {
     apiCall<{
-      automaticDimension: AutomaticDimensionInterface;
+      dimensionMetadata: DimensionMetadataInterface;
     }>("/automatic-dimension", {
       method: "POST",
       body: JSON.stringify({
@@ -183,7 +183,7 @@ export const AutomaticDimensionRunner: FC<AutomaticDimensionRunnerProps> = ({
       }),
     })
       .then((res) => {
-        setId(res.automaticDimension.id);
+        setId(res.dimensionMetadata.id);
         mutate();
       })
       .catch((e) => {
@@ -232,52 +232,52 @@ export const AutomaticDimensionRunner: FC<AutomaticDimensionRunnerProps> = ({
               >
                 <RunQueriesButton
                   cta={`${
-                    automaticDimension ? "Refresh" : "Load"
+                    dimensionMetadata ? "Refresh" : "Load"
                   } Dimension Slices`}
-                  icon={automaticDimension ? "refresh" : "run"}
+                  icon={dimensionMetadata ? "refresh" : "run"}
                   position={"left"}
                   mutate={mutate}
                   model={
-                    automaticDimension ?? { queries: [], runStarted: undefined }
+                    dimensionMetadata ?? { queries: [], runStarted: undefined }
                   }
                   cancelEndpoint={`/automatic-dimension/${id}/cancel`}
                   color="outline-primary"
                 />
               </form>
-              {automaticDimension?.runStarted ? (
+              {dimensionMetadata?.runStarted ? (
                 <div
                   className="text-right text-muted"
                   style={{ fontSize: "0.7em" }}
-                  title={datetime(automaticDimension.runStarted)}
+                  title={datetime(dimensionMetadata.runStarted)}
                 >
-                  last updated {ago(automaticDimension.runStarted)}
+                  last updated {ago(dimensionMetadata.runStarted)}
                 </div>
               ) : null}
             </div>
           </div>
         </div>
-        {(status === "failed" || error !== "") && automaticDimension ? (
+        {(status === "failed" || error !== "") && dimensionMetadata ? (
           <div className="alert alert-danger mt-2">
             <strong>Error updating data</strong>
             {error ? `: ${error}` : null}
           </div>
         ) : null}
-        {automaticDimension?.results && automaticDimension.results.length ? (
-          <AutomaticDimensionResults
-            automaticDimensionResult={automaticDimension.results}
+        {dimensionMetadata?.results && dimensionMetadata.results.length ? (
+          <DimensionMetadataResults
+            dimensionMetadataResult={dimensionMetadata.results}
           />
         ) : (
           <></>
         )}
-        {automaticDimension?.queries && (
+        {dimensionMetadata?.queries && (
           <div>
             <ViewAsyncQueriesButton
               queries={
-                automaticDimension.queries?.length > 0
-                  ? automaticDimension.queries.map((q) => q.query)
+                dimensionMetadata.queries?.length > 0
+                  ? dimensionMetadata.queries.map((q) => q.query)
                   : []
               }
-              error={automaticDimension.error}
+              error={dimensionMetadata.error}
               inline={true}
               status={status}
             />
@@ -288,17 +288,17 @@ export const AutomaticDimensionRunner: FC<AutomaticDimensionRunnerProps> = ({
   );
 };
 
-type AutomaticDimensionResultsProps = {
-  automaticDimensionResult: AutomaticDimensionResult[];
+type DimensionMetadataResultsProps = {
+  dimensionMetadataResult: DimensionMetadataResult[];
 };
 
-export const AutomaticDimensionResults: FC<AutomaticDimensionResultsProps> = ({
-  automaticDimensionResult,
+export const DimensionMetadataResults: FC<DimensionMetadataResultsProps> = ({
+  dimensionMetadataResult,
 }) => {
   return (
     <>
       <div>
-        {automaticDimensionResult.map((r, i) => {
+        {dimensionMetadataResult.map((r, i) => {
           let totalPercent = 0;
           return (
             <div key={i}>

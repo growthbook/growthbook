@@ -1,10 +1,10 @@
 import mongoose from "mongoose";
 import uniqid from "uniqid";
 import { omit } from "lodash";
-import { AutomaticDimensionInterface } from "../types/Integration";
+import { DimensionMetadataInterface } from "../types/Integration";
 import { queriesSchema } from "./QueryModel";
 
-const automaticDimensionSchema = new mongoose.Schema({
+const dimensionMetadatachema = new mongoose.Schema({
   id: {
     type: String,
     unique: true,
@@ -34,28 +34,27 @@ const automaticDimensionSchema = new mongoose.Schema({
   error: String,
 });
 
-type AutomaticDimensionDocument = mongoose.Document &
-  AutomaticDimensionInterface;
+type DimensionMetadataDocument = mongoose.Document & DimensionMetadataInterface;
 
-const AutomaticDimensionModel = mongoose.model<AutomaticDimensionInterface>(
-  "AutomaticDimension",
-  automaticDimensionSchema
+const DimensionMetadataModel = mongoose.model<DimensionMetadataInterface>(
+  "DimensionMetadata",
+  dimensionMetadatachema
 );
 
 function toInterface(
-  doc: AutomaticDimensionDocument
-): AutomaticDimensionInterface {
-  const ret = doc.toJSON<AutomaticDimensionDocument>();
+  doc: DimensionMetadataDocument
+): DimensionMetadataInterface {
+  const ret = doc.toJSON<DimensionMetadataDocument>();
   return omit(ret, ["__v", "_id"]);
 }
 
-export async function updateAutomaticDimension(
-  automaticDimension: AutomaticDimensionInterface,
-  updates: Partial<AutomaticDimensionInterface>
-): Promise<AutomaticDimensionInterface> {
-  const organization = automaticDimension.organization;
-  const id = automaticDimension.id;
-  await AutomaticDimensionModel.updateOne(
+export async function updateDimensionMetadata(
+  dimensionMetadata: DimensionMetadataInterface,
+  updates: Partial<DimensionMetadataInterface>
+): Promise<DimensionMetadataInterface> {
+  const organization = dimensionMetadata.organization;
+  const id = dimensionMetadata.id;
+  await DimensionMetadataModel.updateOne(
     {
       organization,
       id,
@@ -65,26 +64,26 @@ export async function updateAutomaticDimension(
     }
   );
   return {
-    ...automaticDimension,
+    ...dimensionMetadata,
     ...updates,
   };
 }
-export async function getAutomaticDimensionById(
+export async function getDimensionMetadataById(
   organization: string,
   id: string
-): Promise<AutomaticDimensionInterface | null> {
-  const doc = await AutomaticDimensionModel.findOne({ organization, id });
+): Promise<DimensionMetadataInterface | null> {
+  const doc = await DimensionMetadataModel.findOne({ organization, id });
 
   return doc ? toInterface(doc) : null;
 }
 
-export async function getLatestAutomaticDimension(
+export async function getLatestDimensionMetadata(
   organization: string,
   datasource: string,
   exposureQueryId: string
-): Promise<AutomaticDimensionInterface | null> {
+): Promise<DimensionMetadataInterface | null> {
   // TODO get no error or status === good
-  const doc = await AutomaticDimensionModel.find(
+  const doc = await DimensionMetadataModel.find(
     { organization, datasource, exposureQueryId },
     null,
     {
@@ -98,7 +97,7 @@ export async function getLatestAutomaticDimension(
   return null;
 }
 
-export async function createAutomaticDimension({
+export async function createDimensionMetadata({
   organization,
   dataSourceId,
   queryId,
@@ -108,7 +107,7 @@ export async function createAutomaticDimension({
   queryId: string;
 }) {
   const now = new Date();
-  const doc = await AutomaticDimensionModel.create({
+  const doc = await DimensionMetadataModel.create({
     id: uniqid("autodim_"),
     organization,
     datasource: dataSourceId,

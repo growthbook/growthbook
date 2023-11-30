@@ -140,7 +140,7 @@ export interface ExposureQuery {
   query: string;
   hasNameCol?: boolean;
   dimensions: string[];
-  automaticDimensionId?: string;
+  dimensionMetadataId?: string;
   error?: string;
 }
 

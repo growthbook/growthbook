@@ -125,7 +125,7 @@ export interface ExperimentAggregateUnitsQueryParams
   useUnitsTable: boolean;
 }
 
-export type AutomaticDimensionQueryParams = {
+export type DimensionMetadataQueryParams = {
   exposureQueryId: string;
   dimensions: ExperimentDimension[];
   lookbackDays: number;
@@ -241,7 +241,7 @@ export type ExperimentAggregateUnitsQueryResponseRows = {
   units: number;
 }[];
 
-export type AutomaticDimensionQueryResponseRows = {
+export type DimensionMetadataQueryResponseRows = {
   dimension_value: string;
   dimension_name: string;
   units: number;
@@ -259,7 +259,7 @@ export type PastExperimentQueryResponse = QueryResponse<PastExperimentResponseRo
 export type ExperimentMetricQueryResponse = QueryResponse<ExperimentMetricQueryResponseRows>;
 export type ExperimentUnitsQueryResponse = QueryResponse;
 export type ExperimentAggregateUnitsQueryResponse = QueryResponse<ExperimentAggregateUnitsQueryResponseRows>;
-export type AutomaticDimensionQueryResponse = QueryResponse<AutomaticDimensionQueryResponseRows>;
+export type DimensionMetadataQueryResponse = QueryResponse<DimensionMetadataQueryResponseRows>;
 
 export interface SourceIntegrationConstructor {
   new (
@@ -346,11 +346,11 @@ export interface InformationSchemaTablesInterface {
   informationSchemaId: string;
 }
 
-export interface AutomaticDimensionResult {
+export interface DimensionMetadataResult {
   dimension: string;
   dimensionValues: { name: string; percent: number }[];
 }
-export interface AutomaticDimensionInterface {
+export interface DimensionMetadataInterface {
   id: string;
   organization: string;
 
@@ -361,7 +361,7 @@ export interface AutomaticDimensionInterface {
   datasource: string;
   exposureQueryId: string;
 
-  results: AutomaticDimensionResult[];
+  results: DimensionMetadataResult[];
 }
 
 export interface SourceIntegrationInterface {
@@ -410,11 +410,11 @@ export interface SourceIntegrationInterface {
   ): string;
   getExperimentUnitsTableQuery(params: ExperimentUnitsQueryParams): string;
   getPastExperimentQuery(params: PastExperimentParams): string;
-  getAutomaticDimensionQuery(params: AutomaticDimensionQueryParams): string;
-  runAutomaticDimensionQuery(
+  getDimensionMetadataQuery(params: DimensionMetadataQueryParams): string;
+  runDimensionMetadataQuery(
     query: string,
     setExternalId: ExternalIdCallback
-  ): Promise<AutomaticDimensionQueryResponse>;
+  ): Promise<DimensionMetadataQueryResponse>;
   runMetricValueQuery(
     query: string,
     setExternalId: ExternalIdCallback

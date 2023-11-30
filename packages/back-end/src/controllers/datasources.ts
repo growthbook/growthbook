@@ -48,11 +48,11 @@ import { TemplateVariables } from "../../types/sql";
 import { getUserById } from "../services/users";
 import { AuditUserLoggedIn } from "../../types/audit";
 import {
-  createAutomaticDimension,
-  getLatestAutomaticDimension,
-  getAutomaticDimensionById,
-} from "../models/AutomaticDimensionModel";
-import { AutomaticDimensionQueryRunner } from "../queryRunners/AutomaticDimensionQueryRunner";
+  createDimensionMetadata,
+  getLatestDimensionMetadata,
+  getDimensionMetadataById,
+} from "../models/DimensionMetadataModel";
+import { DimensionMetadataQueryRunner } from "../queryRunners/DimensionMetadataQueryRunner";
 
 export async function postSampleData(
   req: AuthRequest,
@@ -669,29 +669,29 @@ export async function getDataSourceMetrics(
   });
 }
 
-export async function getAutomaticDimension(
+export async function getDimensionMetadata(
   req: AuthRequest<null, { id: string }>,
   res: Response
 ) {
   const { org } = getOrgFromReq(req);
   const { id } = req.params;
 
-  const automaticDimension = await getAutomaticDimensionById(org.id, id);
+  const dimensionMetadata = await getDimensionMetadataById(org.id, id);
 
   res.status(200).json({
     status: 200,
-    automaticDimension,
+    dimensionMetadata,
   });
 }
 
-export async function getLatestAutomaticDimensionForDatasource(
+export async function getLatestDimensionMetadataForDatasource(
   req: AuthRequest<null, { datasourceId: string; exposureQueryId: string }>,
   res: Response
 ) {
   const { org } = getOrgFromReq(req);
   const { datasourceId, exposureQueryId } = req.params;
 
-  const automaticDimension = await getLatestAutomaticDimension(
+  const dimensionMetadata = await getLatestDimensionMetadata(
     org.id,
     datasourceId,
     exposureQueryId
@@ -699,11 +699,11 @@ export async function getLatestAutomaticDimensionForDatasource(
 
   res.status(200).json({
     status: 200,
-    automaticDimension,
+    dimensionMetadata,
   });
 }
 
-export async function postAutomaticDimension(
+export async function postDimensionMetadata(
   req: AuthRequest<{
     dataSourceId: string;
     queryId: string;
@@ -725,35 +725,35 @@ export async function postAutomaticDimension(
 
   const integration = getSourceIntegrationObject(datasourceObj, true);
 
-  const model = await createAutomaticDimension({
+  const model = await createDimensionMetadata({
     organization: org.id,
     dataSourceId,
     queryId,
   });
 
-  const queryRunner = new AutomaticDimensionQueryRunner(model, integration);
+  const queryRunner = new DimensionMetadataQueryRunner(model, integration);
   const outputmodel = await queryRunner.startAnalysis({
     exposureQueryId: queryId,
     lookbackDays: Number(lookbackDays) ?? 30,
   });
   res.status(200).json({
     status: 200,
-    automaticDimension: outputmodel,
+    dimensionMetadata: outputmodel,
   });
 }
 
-export async function cancelAutomaticDimension(
+export async function cancelDimensionMetadata(
   req: AuthRequest<null, { id: string }>,
   res: Response
 ) {
   const { org } = getOrgFromReq(req);
   const { id } = req.params;
-  const automaticDimension = await getAutomaticDimensionById(org.id, id);
-  if (!automaticDimension) {
+  const dimensionMetadata = await getDimensionMetadataById(org.id, id);
+  if (!dimensionMetadata) {
     throw new Error("Could not cancel automatic dimension");
   }
   const datasource = await getDataSourceById(
-    automaticDimension.datasource,
+    dimensionMetadata.datasource,
     org.id
   );
   if (!datasource) {
@@ -767,8 +767,8 @@ export async function cancelAutomaticDimension(
 
   const integration = getSourceIntegrationObject(datasource, true);
 
-  const queryRunner = new AutomaticDimensionQueryRunner(
-    automaticDimension,
+  const queryRunner = new DimensionMetadataQueryRunner(
+    dimensionMetadata,
     integration
   );
   await queryRunner.cancelQueries();

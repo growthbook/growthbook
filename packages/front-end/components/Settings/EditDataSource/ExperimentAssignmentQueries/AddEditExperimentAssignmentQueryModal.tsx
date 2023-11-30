@@ -8,16 +8,14 @@ import cloneDeep from "lodash/cloneDeep";
 import uniqId from "uniqid";
 import { FaExclamationTriangle, FaExternalLinkAlt } from "react-icons/fa";
 import { TestQueryRow } from "back-end/src/types/Integration";
-import { useFeatureIsOn } from "@growthbook/growthbook-react";
 import Code from "@/components/SyntaxHighlighting/Code";
 import StringArrayField from "@/components/Forms/StringArrayField";
 import Toggle from "@/components/Forms/Toggle";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import { AppFeatures } from "@/types/app-features";
 import Modal from "../../../Modal";
 import Field from "../../../Forms/Field";
 import EditSqlModal from "../../../SchemaBrowser/EditSqlModal";
-import { UpdateAutomaticDimensionsModal } from "../AutomaticDimension/UpdateAutomaticDimensions";
+import { UpdateDimensionMetadataModal } from "../DimensionMetadata/UpdateDimensionMetadata";
 
 type EditExperimentAssignmentQueryProps = {
   exposureQuery?: ExposureQuery;
@@ -34,8 +32,6 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
   onSave,
   onCancel,
 }) => {
-  const healthTabSettingsEnabled = useFeatureIsOn<AppFeatures>("health-tab");
-
   const [showAdvancedMode, setShowAdvancedMode] = useState(false);
   const [uiMode, setUiMode] = useState<"view" | "sql" | "dimension">("view");
   const modalTitle =
@@ -233,8 +229,8 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
         />
       )}
 
-      {uiMode === "dimension" && healthTabSettingsEnabled && exposureQuery ? (
-        <UpdateAutomaticDimensionsModal
+      {uiMode === "dimension" && exposureQuery ? (
+        <UpdateDimensionMetadataModal
           exposureQuery={exposureQuery}
           dataSource={dataSource}
           close={() => setUiMode("view")}

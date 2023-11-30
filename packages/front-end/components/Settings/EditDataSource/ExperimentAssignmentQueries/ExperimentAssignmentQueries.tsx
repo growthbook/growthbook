@@ -16,7 +16,7 @@ import { AddEditExperimentAssignmentQueryModal } from "@/components/Settings/Edi
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import Button from "@/components/Button";
 import { AppFeatures } from "@/types/app-features";
-import { UpdateAutomaticDimensionsModal } from "../AutomaticDimension/UpdateAutomaticDimensions";
+import { UpdateDimensionMetadataModal } from "../DimensionMetadata/UpdateDimensionMetadata";
 
 type ExperimentAssignmentQueriesProps = DataSourceQueryEditingModalBaseProps;
 type UIMode = "view" | "edit" | "add" | "dimension";
@@ -298,7 +298,7 @@ export const ExperimentAssignmentQueries: FC<ExperimentAssignmentQueriesProps> =
       ) : null}
 
       {uiMode === "dimension" && healthTabSettingsEnabled ? (
-        <UpdateAutomaticDimensionsModal
+        <UpdateDimensionMetadataModal
           exposureQuery={experimentExposureQueries[editingIndex]}
           dataSource={dataSource}
           close={() => setUiMode("view")}

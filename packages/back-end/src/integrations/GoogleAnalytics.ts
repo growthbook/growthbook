@@ -11,7 +11,7 @@ import {
   PastExperimentQueryResponse,
   ExperimentUnitsQueryResponse,
   ExperimentAggregateUnitsQueryResponse,
-  AutomaticDimensionQueryResponse,
+  DimensionMetadataQueryResponse,
 } from "../types/Integration";
 import { GoogleAnalyticsParams } from "../../types/integrations/googleanalytics";
 import { decryptDataSourceParams } from "../services/datasource";
@@ -96,10 +96,10 @@ const GoogleAnalytics: SourceIntegrationConstructor = class
   runPastExperimentQuery(): Promise<PastExperimentQueryResponse> {
     throw new Error("Method not implemented.");
   }
-  getAutomaticDimensionQuery(): string {
+  getDimensionMetadataQuery(): string {
     throw new Error("Method not implemented.");
   }
-  async runAutomaticDimensionQuery(): Promise<AutomaticDimensionQueryResponse> {
+  async runDimensionMetadataQuery(): Promise<DimensionMetadataQueryResponse> {
     throw new Error("Method not implemented.");
   }
   getMetricValueQuery(params: MetricValueParams): string {
