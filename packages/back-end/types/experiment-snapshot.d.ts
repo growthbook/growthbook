@@ -34,6 +34,7 @@ export interface SnapshotMetric {
     y: number;
   }[];
   chanceToWin?: number;
+  errorMessage?: string;
 }
 
 export interface SnapshotVariation {
