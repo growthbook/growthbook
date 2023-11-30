@@ -15,6 +15,10 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import Modal from "../../../Modal";
 import Field from "../../../Forms/Field";
 import EditSqlModal from "../../../SchemaBrowser/EditSqlModal";
+import { UpdateAutomaticDimensionsModal } from "../AutomaticDimension/UpdateAutomaticDimensions";
+import { useFeatureIsOn } from "@growthbook/growthbook-react";
+import { AppFeatures } from "@/types/app-features";
+import Button from "@/components/Button";
 
 type EditExperimentAssignmentQueryProps = {
   exposureQuery?: ExposureQuery;
@@ -31,8 +35,10 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
   onSave,
   onCancel,
 }) => {
+  const healthTabSettingsEnabled = useFeatureIsOn<AppFeatures>("health-tab");
+
   const [showAdvancedMode, setShowAdvancedMode] = useState(false);
-  const [sqlOpen, setSqlOpen] = useState(false);
+  const [uiMode, setUiMode] = useState<"view" | "sql" | "dimension">("view");
   const modalTitle =
     mode === "add"
       ? "Add an Experiment Assignment query"
@@ -215,9 +221,9 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
 
   return (
     <>
-      {sqlOpen && dataSource && (
+      {uiMode === "sql" && dataSource && (
         <EditSqlModal
-          close={() => setSqlOpen(false)}
+          close={() => setUiMode("view")}
           datasourceId={dataSource.id || ""}
           requiredColumns={requiredColumns}
           value={userEnteredQuery}
@@ -227,6 +233,16 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
           validateResponseOverride={validateResponse}
         />
       )}
+
+      {uiMode === "dimension" && healthTabSettingsEnabled && exposureQuery ? (
+        <UpdateAutomaticDimensionsModal
+          exposureQuery={exposureQuery}
+          dataSource={dataSource}
+          close={() => setUiMode("view")}
+          onSave={onSave}
+        />
+      ) : null}
+
       <Modal
         open={true}
         submit={handleSubmit}
@@ -275,7 +291,7 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
                     type="button"
                     onClick={(e) => {
                       e.preventDefault();
-                      setSqlOpen(true);
+                      setUiMode("sql");
                     }}
                   >
                     <div className="d-flex align-items-center">
@@ -285,6 +301,7 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
                   </button>
                 </div>
               </div>
+
               <div className="form-group">
                 <a
                   href="#"
@@ -298,6 +315,7 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
                   {showAdvancedMode ? "Hide" : "Show"} Advanced Options
                 </a>
                 {showAdvancedMode && (
+                  <div>
                   <div>
                     <div className="py-2">
                       <Toggle
@@ -322,8 +340,26 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
                         form.setValue("dimensions", dimensions);
                         // TODO update automatic dimensions
                       }}
-                    />
+                    />        
                   </div>
+                  {healthTabSettingsEnabled ? (
+                  <div>
+                  <button
+                        className="btn btn-primary"
+                        type="button"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          setUiMode("dimension");
+                        }}
+                      >
+                        <div className="d-flex align-items-center">
+                        Update Automatic Dimensions
+                          <FaExternalLinkAlt className="ml-2" />
+                    </div>
+                          </button>
+                          </div>
+                          ): null}
+                          </div>
                 )}
               </div>
             </div>

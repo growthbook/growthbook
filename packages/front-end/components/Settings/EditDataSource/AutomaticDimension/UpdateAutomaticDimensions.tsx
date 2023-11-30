@@ -110,7 +110,8 @@ export const UpdateAutomaticDimensionsModal: FC<UpdateAutomaticDimensionModalPro
         open={true}
         close={close}
         secondaryCTA={secondaryCTA}
-        size="lg"
+        size="max"
+        sizeY="max"
         header={"Automatic Dimensions"}
       >
         <div className="my-2 ml-3 mr-3">
