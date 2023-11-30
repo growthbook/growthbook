@@ -37,7 +37,7 @@ const EnvironmentsPage: FC = () => {
       )}
       <div className="row align-items-center mb-1">
         <div className="col-auto">
-          <h1 className="mb-0">Environments (test)</h1>
+          <h1 className="mb-0">Environments (6 minutes?)</h1>
         </div>
         {canCreate && (
           <div className="col-auto ml-auto">
