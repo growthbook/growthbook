@@ -8,7 +8,7 @@ import { useRouter } from "next/router";
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import { FaCheck, FaExclamationCircle, FaInfoCircle } from "react-icons/fa";
 import clsx from "clsx";
-import { getCurrentVersion } from "shared/sdk-versioning";
+import { getCapabilities, getCurrentVersion } from "shared/sdk-versioning";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useEnvironments } from "@/services/features";
 import Modal from "@/components/Modal";
@@ -86,7 +86,13 @@ export default function SDKConnectionForm({
     defaultValues: {
       name: initialValue.name ?? "",
       languages: initialValue.languages ?? [],
-      sdkVersion: initialValue.sdkVersion ?? "",
+      sdkVersion:
+        initialValue.sdkVersion ??
+        getCurrentVersion(
+          initialValue?.languages?.length === 1
+            ? initialValue.languages[0]
+            : "other"
+        ),
       environment: initialValue.environment ?? environments[0]?.id ?? "",
       projects:
         "projects" in initialValue
@@ -128,6 +134,12 @@ export default function SDKConnectionForm({
       : languageEnvironments.has("backend")
       ? "backend"
       : "hybrid";
+
+  const languageCapabilities = getCapabilities(
+    form.watch("languages")?.[0] || "other",
+    form.watch("sdkVersion")
+  );
+  console.log(languageCapabilities);
 
   const selectedLanguagesWithoutRemoteEvalSupport = languages.filter(
     (l) => !languageMapping[l].supportsRemoteEval
@@ -321,7 +333,12 @@ export default function SDKConnectionForm({
           </div>
           <SDKLanguageSelector
             value={form.watch("languages")}
-            setValue={(languages) => form.setValue("languages", languages)}
+            setValue={(languages) => {
+              form.setValue("languages", languages);
+              if (languages?.length === 1) {
+                form.setValue("sdkVersion", getCurrentVersion(languages[0]));
+              }
+            }}
             multiple={false}
             includeOther={true}
           />
