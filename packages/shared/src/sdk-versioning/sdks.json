@@ -1,18 +1,29 @@
 {
-  "javascript": [
-    {
-      "version": "0.31.0"
-    },
-    {
-      "version": "0.0.0",
-      "capabilities": ["loose unmarshalling"]
-    }
-  ],
-  "nodejs": "@javascript",
-  "other": [
-    {
-      "version": "0.0.0",
-      "capabilities": ["loose unmarshalling"]
-    }
-  ]
+  "javascript": {
+    "versions": [
+      {
+        "version": "0.31.0",
+        "capabilities": ["remote-evaluation"]
+      },
+      {
+        "version": "0.0.0",
+        "capabilities": ["loose-unmarshalling"]
+      }
+    ]
+  },
+  "react": {
+    "alias": "javascript"
+  },
+  "nodejs": {
+    "alias": "javascript",
+    "removeCapabilities": ["remote-evaluation"]
+  },
+  "other": {
+    "versions": [
+      {
+        "version": "0.0.0",
+        "capabilities": ["loose-unmarshalling"]
+      }
+    ]
+  }
 }

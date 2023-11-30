@@ -8,7 +8,7 @@ import { useRouter } from "next/router";
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import { FaCheck, FaExclamationCircle, FaInfoCircle } from "react-icons/fa";
 import clsx from "clsx";
-import { getCapabilities, getCurrentVersion } from "shared/sdk-versioning";
+import { getCurrentVersion } from "shared/sdk-versioning";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useEnvironments } from "@/services/features";
 import Modal from "@/components/Modal";
@@ -134,12 +134,6 @@ export default function SDKConnectionForm({
       : languageEnvironments.has("backend")
       ? "backend"
       : "hybrid";
-
-  const languageCapabilities = getCapabilities(
-    form.watch("languages")?.[0] || "other",
-    form.watch("sdkVersion")
-  );
-  console.log(languageCapabilities);
 
   const selectedLanguagesWithoutRemoteEvalSupport = languages.filter(
     (l) => !languageMapping[l].supportsRemoteEval

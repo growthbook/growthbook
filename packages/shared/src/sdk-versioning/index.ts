@@ -1,44 +1,59 @@
 import { SDKLanguage } from "back-end/types/sdk-connection";
+import uniq from "lodash/uniq";
 import * as sdksJson from "./sdks.json";
 
-type SDKRecords = Record<SDKLanguage, SDKVersionData[] | string>;
+export type SDKCapability = "loose-unmarshalling" | "remote-evaluation";
+
+type SDKRecords = Record<SDKLanguage, SDKData>;
+type SDKData = {
+  versions?: SDKVersionData[];
+  alias?: string;
+  capabilities?: string[];
+  removeCapabilities?: string[];
+};
 type SDKVersionData = {
   version: string;
   capabilities?: string[];
 };
 const sdks: SDKRecords = sdksJson as SDKRecords;
 
-const getSdkData = (language: SDKLanguage = "other"): SDKVersionData[] => {
-  let sdkData = sdks[language];
-  if (typeof sdkData === "string" && sdkData.charAt(0) === "@") {
-    language = sdkData.slice(1) as SDKLanguage;
-    sdkData = sdks[language];
+const getSdkData = (language: SDKLanguage = "other"): SDKData => {
+  let sdkData: SDKData = { ...sdks[language] };
+  if (sdkData?.alias && sdks?.[sdkData.alias as SDKLanguage]) {
+    sdkData = { ...sdks[sdkData.alias as SDKLanguage], ...sdkData };
   }
   if (!sdkData) {
     sdkData = sdks["other"];
   }
-  return sdkData as SDKVersionData[];
+  return sdkData;
 };
 
-export const getCurrentVersion = (language: SDKLanguage = "other") => {
+export const getCurrentVersion = (language: SDKLanguage = "other"): string => {
   const sdkData = getSdkData(language);
-  const current = (sdkData as SDKVersionData[])?.[0];
+  const versions = sdkData?.versions || [];
+  const current = versions?.[0];
   return current?.version || "0.0.0";
 };
 
 export const getCapabilities = (
   language: SDKLanguage = "other",
   version: string = "0.0.0"
-) => {
+): SDKCapability[] => {
   version = version || "0.0.0";
   const sdkData = getSdkData(language);
-  const matches = sdkData.filter(
+  const versions = sdkData?.versions || [];
+  const matches = versions.filter(
     (data) => paddedVersionString(data.version) <= paddedVersionString(version)
   );
-  return matches.reduce(
+  let capabilities = matches.reduce(
     (acc, data) => [...acc, ...(data?.capabilities ?? [])],
     []
   );
+  capabilities = [...capabilities, ...(sdkData?.capabilities ?? [])];
+  capabilities = capabilities.filter(
+    (c) => !(sdkData?.removeCapabilities ?? []).includes(c)
+  );
+  return uniq(capabilities) as SDKCapability[];
 };
 
 // Copied from the JS SDK's mongrule.ts
@@ -68,3 +83,5 @@ function paddedVersionString(input: any): string {
     .map((v) => (v.match(/^[0-9]+$/) ? v.padStart(5, " ") : v))
     .join("-");
 }
+
+export * from "./sdk-payload";
