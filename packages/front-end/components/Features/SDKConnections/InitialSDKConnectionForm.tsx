@@ -110,7 +110,7 @@ export default function InitialSDKConnectionForm({
           includeDraftExperiments: false,
           includeExperimentNames: false,
           environment: environments[0]?.id || "production",
-          project: "",
+          projects: [],
           proxyEnabled: false,
           proxyHost: "",
         };

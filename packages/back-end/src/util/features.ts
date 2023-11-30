@@ -7,7 +7,7 @@ import {
   FeatureValueType,
   SavedGroupTargeting,
 } from "../../types/feature";
-import { FeatureDefinition } from "../../types/api";
+import { FeatureDefinitionWithProject } from "../../types/api";
 import { GroupMap } from "../../types/saved-group";
 import { SDKPayloadKey } from "../../types/sdk-payload";
 import { ExperimentInterface } from "../../types/experiment";
@@ -189,7 +189,12 @@ export function getSDKPayloadKeysByDiff(
     "valueType",
     "nextScheduledUpdate",
   ];
-  if (allEnvKeys.some((k) => !isEqual(originalFeature[k], updatedFeature[k]))) {
+
+  if (
+    allEnvKeys.some(
+      (k) => !isEqual(originalFeature[k] ?? null, updatedFeature[k] ?? null)
+    )
+  ) {
     getEnabledEnvironments(
       [originalFeature, updatedFeature],
       allowedEnvs
@@ -284,7 +289,7 @@ export function getFeatureDefinition({
   experimentMap: Map<string, ExperimentInterface>;
   revision?: FeatureRevisionInterface;
   returnRuleId?: boolean;
-}): FeatureDefinition | null {
+}): FeatureDefinitionWithProject | null {
   const settings = feature.environmentSettings?.[environment];
 
   // Don't include features which are disabled for this environment
@@ -304,8 +309,9 @@ export function getFeatureDefinition({
     rule: FeatureDefinitionRule | null
   ): rule is FeatureDefinitionRule => !!rule;
 
-  const def: FeatureDefinition = {
+  const def: FeatureDefinitionWithProject = {
     defaultValue: getJSONValue(feature.valueType, defaultValue),
+    project: feature.project,
     rules:
       rules
         ?.filter(isRuleEnabled)

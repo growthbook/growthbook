@@ -1,11 +1,9 @@
 import uniqid from "uniqid";
 import cronParser from "cron-parser";
 import uniq from "lodash/uniq";
-import cloneDeep from "lodash/cloneDeep";
 import { z } from "zod";
 import { isEqual } from "lodash";
 import {
-  DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
   DEFAULT_STATS_ENGINE,
   DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
   DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
@@ -21,10 +19,10 @@ import {
 } from "shared/util";
 import {
   ExperimentMetricInterface,
+  getRegressionAdjustmentsForMetric,
   isBinomialMetric,
   isFactMetric,
   isFactMetricId,
-  isRatioMetric,
 } from "shared/experiments";
 import { orgHasPremiumFeature } from "enterprise";
 import { hoursBetween } from "shared/dates";
@@ -66,7 +64,6 @@ import {
   LinkedFeatureEnvState,
   LinkedFeatureInfo,
   LinkedFeatureState,
-  MetricOverride,
 } from "../../types/experiment";
 import { promiseAllChunks } from "../util/promise";
 import { findDimensionById } from "../models/DimensionModel";
@@ -78,7 +75,6 @@ import {
 import {
   ExperimentUpdateSchedule,
   OrganizationInterface,
-  OrganizationSettings,
 } from "../../types/organization";
 import { logger } from "../util/logger";
 import { DataSourceInterface } from "../../types/datasource";
@@ -651,11 +647,11 @@ export async function createSnapshotAnalysis({
     throw new Error("Analysis not allowed with this snapshot");
   }
 
-  if (
-    snapshot.queries.some(
-      (q) => q.status === "failed" || q.status === "running"
-    )
-  ) {
+  const totalQueries = snapshot.queries.length;
+  const failedQueries = snapshot.queries.filter((q) => q.status === "failed");
+  const runningQueries = snapshot.queries.filter((q) => q.status === "running");
+
+  if (runningQueries.length > 0 || failedQueries.length >= totalQueries / 2) {
     throw new Error("Snapshot queries not available for analysis");
   }
   const analysis: ExperimentSnapshotAnalysis = {
@@ -1825,7 +1821,7 @@ export async function getRegressionAdjustmentInfo(
     .map((m: ExperimentMetricInterface) =>
       metricMap.get(m.denominator as string)
     )
-    .filter(Boolean) as ExperimentMetricInterface[];
+    .filter(Boolean) as MetricInterface[];
 
   for (const metric of allExperimentMetrics) {
     if (!metric) continue;
@@ -1849,109 +1845,6 @@ export async function getRegressionAdjustmentInfo(
     regressionAdjustmentEnabled = false;
   }
   return { regressionAdjustmentEnabled, metricRegressionAdjustmentStatuses };
-}
-
-export function getRegressionAdjustmentsForMetric({
-  metric,
-  denominatorMetrics,
-  experimentRegressionAdjustmentEnabled,
-  organizationSettings,
-  metricOverrides,
-}: {
-  metric: ExperimentMetricInterface;
-  denominatorMetrics: ExperimentMetricInterface[];
-  experimentRegressionAdjustmentEnabled: boolean;
-  organizationSettings?: Partial<OrganizationSettings>; // can be RA fields from a snapshot of org settings
-  metricOverrides?: MetricOverride[];
-}): {
-  newMetric: ExperimentMetricInterface;
-  metricRegressionAdjustmentStatus: MetricRegressionAdjustmentStatus;
-} {
-  const newMetric = cloneDeep<ExperimentMetricInterface>(metric);
-
-  // start with default RA settings
-  let regressionAdjustmentEnabled = true;
-  let regressionAdjustmentDays = DEFAULT_REGRESSION_ADJUSTMENT_DAYS;
-  let reason = "";
-
-  // get RA settings from organization
-  if (organizationSettings?.regressionAdjustmentEnabled) {
-    regressionAdjustmentEnabled = true;
-    regressionAdjustmentDays =
-      organizationSettings?.regressionAdjustmentDays ??
-      regressionAdjustmentDays;
-  }
-  if (experimentRegressionAdjustmentEnabled) {
-    regressionAdjustmentEnabled = true;
-  }
-
-  // get RA settings from metric
-  if (metric && !isFactMetric(metric) && metric?.regressionAdjustmentOverride) {
-    regressionAdjustmentEnabled = !!metric?.regressionAdjustmentEnabled;
-    regressionAdjustmentDays =
-      metric?.regressionAdjustmentDays ?? DEFAULT_REGRESSION_ADJUSTMENT_DAYS;
-    if (!regressionAdjustmentEnabled) {
-      reason = "disabled in metric settings";
-    }
-  }
-
-  // get RA settings from metric override
-  if (metricOverrides) {
-    const metricOverride = metricOverrides.find((mo) => mo.id === metric.id);
-    if (metricOverride?.regressionAdjustmentOverride) {
-      regressionAdjustmentEnabled = !!metricOverride?.regressionAdjustmentEnabled;
-      regressionAdjustmentDays =
-        metricOverride?.regressionAdjustmentDays ?? regressionAdjustmentDays;
-      if (!regressionAdjustmentEnabled) {
-        reason = "disabled by metric override";
-      } else {
-        reason = "";
-      }
-    }
-  }
-
-  // final gatekeeping
-  if (regressionAdjustmentEnabled) {
-    if (metric && !isFactMetric(metric) && metric?.denominator) {
-      const denominator = denominatorMetrics.find(
-        (m) => m.id === metric?.denominator
-      );
-      if (denominator && !isBinomialMetric(denominator)) {
-        regressionAdjustmentEnabled = false;
-        reason = "denominator is count";
-      }
-    }
-  } else if (metric && isFactMetric(metric) && isRatioMetric(metric)) {
-    regressionAdjustmentEnabled = false;
-    reason = "ratio metrics not supported";
-  }
-
-  if (
-    metric &&
-    !isFactMetric(metric) &&
-    metric?.type === "binomial" &&
-    metric?.aggregation
-  ) {
-    regressionAdjustmentEnabled = false;
-    reason = "custom aggregation";
-  }
-
-  if (!regressionAdjustmentEnabled) {
-    regressionAdjustmentDays = 0;
-  }
-
-  newMetric.regressionAdjustmentEnabled = regressionAdjustmentEnabled;
-  newMetric.regressionAdjustmentDays = regressionAdjustmentDays;
-
-  return {
-    newMetric,
-    metricRegressionAdjustmentStatus: {
-      metric: newMetric.id,
-      regressionAdjustmentEnabled,
-      regressionAdjustmentDays,
-      reason,
-    },
-  };
 }
 
 export function visualChangesetsHaveChanges({
