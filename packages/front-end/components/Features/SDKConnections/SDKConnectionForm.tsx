@@ -8,6 +8,7 @@ import { useRouter } from "next/router";
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import { FaCheck, FaExclamationCircle, FaInfoCircle } from "react-icons/fa";
 import clsx from "clsx";
+import { getCurrentVersion } from "shared/sdk-versioning";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useEnvironments } from "@/services/features";
 import Modal from "@/components/Modal";
@@ -104,6 +105,12 @@ export default function SDKConnectionForm({
       remoteEvalEnabled: initialValue.remoteEvalEnabled ?? false,
     },
   });
+
+  const useLatestSdkVersion = () => {
+    const language = form.watch("languages")?.[0] || "other";
+    const latest = getCurrentVersion(language);
+    form.setValue("sdkVersion", latest);
+  };
 
   const languages = form.watch("languages");
   const languageEnvironments: Set<LanguageEnvironment> = new Set(
@@ -292,22 +299,25 @@ export default function SDKConnectionForm({
               </span>
             ) : null}
             <div className="flex-1" />
-            <div className="position-relative text-right" style={{ top: 5 }}>
-              <Field
-                className="text-right"
-                style={{ width: 80 }}
-                placeholder="0.0.0"
-                prepend={<span className="small">SDK ver.</span>}
-                {...form.register("sdkVersion")}
-              />
-              <a
-                role="button"
-                className="small position-absolute"
-                style={{ zIndex: 1, right: 3 }}
-              >
-                Use latest
-              </a>
-            </div>
+            {form.watch("languages")?.length === 1 && (
+              <div className="position-relative text-right" style={{ top: 5 }}>
+                <Field
+                  className="text-right"
+                  style={{ width: 80 }}
+                  placeholder="0.0.0"
+                  prepend={<span className="small">SDK ver.</span>}
+                  {...form.register("sdkVersion")}
+                />
+                <a
+                  role="button"
+                  className="small position-absolute"
+                  style={{ zIndex: 1, right: 3 }}
+                  onClick={useLatestSdkVersion}
+                >
+                  Use latest
+                </a>
+              </div>
+            )}
           </div>
           <SDKLanguageSelector
             value={form.watch("languages")}

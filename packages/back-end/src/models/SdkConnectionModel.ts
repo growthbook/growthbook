@@ -432,6 +432,7 @@ export function toApiSDKConnectionInterface(
     dateCreated: connection.dateCreated.toISOString(),
     dateUpdated: connection.dateUpdated.toISOString(),
     languages: connection.languages,
+    sdkVersion: connection.sdkVersion,
     environment: connection.environment,
     project: connection.projects[0] || "",
     projects: connection.projects,

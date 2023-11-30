@@ -1,0 +1,18 @@
+{
+  "javascript": [
+    {
+      "version": "0.31.0"
+    },
+    {
+      "version": "0.0.0",
+      "capabilities": ["loose unmarshalling"]
+    }
+  ],
+  "nodejs": "@javascript",
+  "other": [
+    {
+      "version": "0.0.0",
+      "capabilities": ["loose unmarshalling"]
+    }
+  ]
+}
