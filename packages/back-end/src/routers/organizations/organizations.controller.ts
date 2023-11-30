@@ -8,6 +8,7 @@ import {
   getLicense,
   setLicense,
 } from "enterprise";
+import { getProjectsUserCanAccess } from "shared/permissions";
 import {
   AuthRequest,
   ResponseWithStatusAndError,
@@ -114,7 +115,6 @@ import { getTeamsForOrganization } from "../../models/TeamModel";
 import { getAllFactTablesForOrganization } from "../../models/FactTableModel";
 import { getAllFactMetricsForOrganization } from "../../models/FactMetricModel";
 import { TeamInterface } from "../../../types/team";
-import { ProjectInterface } from "../../../types/project";
 
 export async function getDefinitions(req: AuthRequest, res: Response) {
   const { org, userId } = getOrgFromReq(req);
@@ -150,36 +150,6 @@ export async function getDefinitions(req: AuthRequest, res: Response) {
     getAllFactMetricsForOrganization(orgId),
   ]);
 
-  const filteredProjects: ProjectInterface[] = [];
-
-  //TODO: Refactor this so we don't have to loop through the project list twice
-
-  if (currentUserPermissions.global.permissions.readData) {
-    filteredProjects.push(...projects);
-
-    projects.forEach((p) => {
-      if (
-        currentUserPermissions.projects[p.id] &&
-        !currentUserPermissions.projects[p.id].permissions.readData
-      ) {
-        // We need to remove this project from the list
-        const indexToRemove = filteredProjects.findIndex(
-          (filteredProject) => filteredProject.id === p.id
-        );
-        filteredProjects.splice(indexToRemove, 1);
-      }
-    });
-  } else {
-    projects.forEach((p) => {
-      if (
-        currentUserPermissions.projects[p.id] &&
-        currentUserPermissions.projects[p.id].permissions.readData
-      ) {
-        filteredProjects.push(p);
-      }
-    });
-  }
-
   return res.status(200).json({
     status: 200,
     metrics,
@@ -203,7 +173,7 @@ export async function getDefinitions(req: AuthRequest, res: Response) {
     segments,
     tags,
     savedGroups,
-    projects: filteredProjects,
+    projects: getProjectsUserCanAccess(currentUserPermissions, projects),
     factTables,
     factMetrics,
   });
@@ -684,9 +654,10 @@ export async function getOrganization(req: AuthRequest, res: Response) {
 
   const roles = getRoles(org);
 
-  //TODO: Is this the right way to do this?
-  if (getAccountPlan(org) !== "enterprise") {
-    roles.shift();
+  // Remove noaccess role if org doesn't have the feature
+  const commercialFeatures = [...accountFeatures[getAccountPlan(org)]];
+  if (!commercialFeatures.includes("no_access_role")) {
+    roles.filter((r) => r.id !== "noaccess");
   }
 
   return res.status(200).json({

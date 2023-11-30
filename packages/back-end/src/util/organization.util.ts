@@ -34,7 +34,6 @@ export const PROJECT_SCOPED_PERMISSIONS = [
 ] as const;
 
 export const GLOBAL_PERMISSIONS = [
-  //TODO: Should I add a new global permission here for "viewContent" - that readonly and up roles get?
   "readData",
   "createPresentations",
   "createDimensions",
