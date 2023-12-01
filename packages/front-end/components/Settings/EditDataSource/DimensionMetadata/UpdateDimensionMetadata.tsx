@@ -35,11 +35,13 @@ export const UpdateDimensionMetadataModal: FC<UpdateDimensionMetadataModalProps>
   onSave,
 }) => {
   const { apiCall } = useAuth();
-  const [id, setId] = useState<string | null>(exposureQuery.dimensionMetadataId || null);
+  const [id, setId] = useState<string | null>(
+    exposureQuery.dimensionMetadataId || null
+  );
   const { data, error, mutate } = useApi<{
     dimensionMetadata: DimensionMetadataInterface;
   }>(`/automatic-dimension/${id}`);
-  console.log({data, id})
+  console.log({ data, id });
 
   const dataSourceId = dataSource.id;
   const exposureQueryId = exposureQuery.id;
@@ -54,14 +56,16 @@ export const UpdateDimensionMetadataModal: FC<UpdateDimensionMetadataModalProps>
     } else {
       apiCall<{ dimensionMetadata: DimensionMetadataInterface }>(
         `/automatic-dimension/datasource/${dataSourceId}/${exposureQueryId}`
-      ).then((res) => {
-        if (res?.dimensionMetadata?.id) {
-          setId(res.dimensionMetadata.id);
-          mutate();
-        }
-      }).catch((e) => {
-        console.error(e);
-      });
+      )
+        .then((res) => {
+          if (res?.dimensionMetadata?.id) {
+            setId(res.dimensionMetadata.id);
+            mutate();
+          }
+        })
+        .catch((e) => {
+          console.error(e);
+        });
     }
   }, [dataSourceId, exposureQueryId, metadataId, setId, apiCall, mutate]);
 
@@ -229,7 +233,7 @@ export const DimensionMetadataRunner: FC<DimensionMetadataRunnerProps> = ({
                     dimensionMetadata ?? { queries: [], runStarted: undefined }
                   }
                   cancelEndpoint={`/automatic-dimension/${id}/cancel`}
-                  color="outline-primary"
+                  color={`${dimensionMetadata ? "outline-" : ""}primary`}
                 />
               </form>
               {dimensionMetadata?.runStarted ? (
@@ -251,6 +255,7 @@ export const DimensionMetadataRunner: FC<DimensionMetadataRunnerProps> = ({
           </div>
         ) : null}
         <DimensionMetadataResults
+          status={status}
           dimensions={exposureQuery.dimensions}
           dimensionMetadata={dimensionMetadata}
         />
@@ -275,6 +280,7 @@ export const DimensionMetadataRunner: FC<DimensionMetadataRunnerProps> = ({
 };
 
 type DimensionMetadataProps = {
+  status: string;
   dimensions: string[];
   dimensionMetadata?: DimensionMetadataInterface;
 };
@@ -282,6 +288,7 @@ type DimensionMetadataProps = {
 export const DimensionMetadataResults: FC<DimensionMetadataProps> = ({
   dimensions,
   dimensionMetadata,
+  status,
 }) => {
   return (
     <>
@@ -334,10 +341,12 @@ export const DimensionMetadataResults: FC<DimensionMetadataProps> = ({
                         )})`}</span>
                       </div>
                     </>
-                  ) : (
+                  ) : status !== "running" ? (
                     <div className="text-muted">
                       Run dimension slices query to populate...
                     </div>
+                  ) : (
+                    <div className="text-muted">Updating data...</div>
                   )}
                 </td>
               </tr>

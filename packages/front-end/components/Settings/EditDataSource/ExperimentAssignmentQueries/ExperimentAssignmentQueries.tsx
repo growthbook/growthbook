@@ -6,6 +6,7 @@ import {
 import cloneDeep from "lodash/cloneDeep";
 import { FaChevronRight, FaPencilAlt, FaPlus } from "react-icons/fa";
 import { useRouter } from "next/router";
+import { BsGear } from "react-icons/bs";
 import { checkDatasourceProjectPermissions } from "@/services/datasources";
 import { DataSourceQueryEditingModalBaseProps } from "@/components/Settings/EditDataSource/types";
 import usePermissions from "@/hooks/usePermissions";
@@ -15,7 +16,6 @@ import { AddEditExperimentAssignmentQueryModal } from "@/components/Settings/Edi
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import Button from "@/components/Button";
 import { UpdateDimensionMetadataModal } from "../DimensionMetadata/UpdateDimensionMetadata";
-import {BsGear} from "react-icons/bs";
 
 type ExperimentAssignmentQueriesProps = DataSourceQueryEditingModalBaseProps;
 type UIMode = "view" | "edit" | "add" | "dimension";
