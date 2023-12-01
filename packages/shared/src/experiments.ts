@@ -125,6 +125,7 @@ export function getRegressionAdjustmentsForMetric<
   const newMetric = cloneDeep<T>(metric);
 
   // start with default RA settings
+  let regressionAdjustmentAvailable = true;
   let regressionAdjustmentEnabled = false;
   let regressionAdjustmentDays = DEFAULT_REGRESSION_ADJUSTMENT_DAYS;
   let reason = "";
@@ -146,6 +147,7 @@ export function getRegressionAdjustmentsForMetric<
     regressionAdjustmentDays =
       metric?.regressionAdjustmentDays ?? DEFAULT_REGRESSION_ADJUSTMENT_DAYS;
     if (!regressionAdjustmentEnabled) {
+      regressionAdjustmentAvailable = false;
       reason = "disabled in metric settings";
     }
   }
@@ -158,12 +160,14 @@ export function getRegressionAdjustmentsForMetric<
       regressionAdjustmentDays =
         metricOverride?.regressionAdjustmentDays ?? regressionAdjustmentDays;
       if (!regressionAdjustmentEnabled) {
+        regressionAdjustmentAvailable = false;
         if (!metric.regressionAdjustmentEnabled) {
           reason = "disabled in metric settings and metric override";
         } else {
           reason = "disabled by metric override";
         }
       } else {
+        regressionAdjustmentAvailable = true;
         reason = "";
       }
     }
@@ -174,6 +178,7 @@ export function getRegressionAdjustmentsForMetric<
     if (metric && isFactMetric(metric) && isRatioMetric(metric)) {
       // is this a fact ratio metric?
       regressionAdjustmentEnabled = false;
+      regressionAdjustmentAvailable = false;
       reason = "ratio metrics not supported";
     }
     if (metric?.denominator) {
@@ -183,11 +188,13 @@ export function getRegressionAdjustmentsForMetric<
       );
       if (denominator && !isBinomialMetric(denominator)) {
         regressionAdjustmentEnabled = false;
+        regressionAdjustmentAvailable = false;
         reason = `denominator is ${denominator.type}`;
       }
     }
     if (metric && !isFactMetric(metric) && metric?.aggregation) {
       regressionAdjustmentEnabled = false;
+      regressionAdjustmentAvailable = false;
       reason = "custom aggregation";
     }
   }
@@ -204,6 +211,7 @@ export function getRegressionAdjustmentsForMetric<
     metricRegressionAdjustmentStatus: {
       metric: newMetric.id,
       regressionAdjustmentEnabled,
+      regressionAdjustmentAvailable,
       regressionAdjustmentDays,
       reason,
     },
@@ -233,6 +241,9 @@ export function getAllMetricRegressionAdjustmentStatuses({
   let regressionAdjustmentAvailable = true;
   let regressionAdjustmentEnabled = true;
   let regressionAdjustmentHasValidMetrics = false;
+  if (allExperimentMetrics.length === 0) {
+    regressionAdjustmentHasValidMetrics = true; // avoid awkward UI warning
+  }
   for (const metric of allExperimentMetrics) {
     if (!metric) continue;
     const {
@@ -248,6 +259,8 @@ export function getAllMetricRegressionAdjustmentStatuses({
     });
     if (metricRegressionAdjustmentStatus.regressionAdjustmentEnabled) {
       regressionAdjustmentEnabled = true;
+    }
+    if (metricRegressionAdjustmentStatus.regressionAdjustmentAvailable) {
       regressionAdjustmentHasValidMetrics = true;
     }
     metricRegressionAdjustmentStatuses.push(metricRegressionAdjustmentStatus);
