@@ -30,8 +30,15 @@ const dimensionMetadatachema = new mongoose.Schema({
       ],
     },
   ],
-
   error: String,
+
+  metadata: [
+    {
+      _id: false,
+      dimension: String,
+      dimensionValues: [String],
+    },
+  ],
 });
 
 type DimensionMetadataDocument = mongoose.Document & DimensionMetadataInterface;

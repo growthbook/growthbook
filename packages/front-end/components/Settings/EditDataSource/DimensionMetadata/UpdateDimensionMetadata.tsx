@@ -4,10 +4,7 @@ import {
   ExposureQuery,
 } from "back-end/types/datasource";
 import cloneDeep from "lodash/cloneDeep";
-import {
-  DimensionMetadataInterface,
-  DimensionMetadataResult,
-} from "back-end/src/types/Integration";
+import { DimensionMetadataInterface } from "back-end/src/types/Integration";
 import { ago, datetime } from "shared/dates";
 import { QueryStatus } from "back-end/types/query";
 import { AUTOMATIC_DIMENSION_OTHER_NAME } from "shared/constants";
@@ -111,7 +108,7 @@ export const UpdateDimensionMetadataModal: FC<UpdateDimensionMetadataModalProps>
         close={close}
         secondaryCTA={secondaryCTA}
         size="lg"
-        header={"Experiment Dimension Metadata"}
+        header={"Configure Experiment Dimensions"}
       >
         <div className="my-2 ml-3 mr-3">
           <div className="row mb-1">
@@ -262,13 +259,11 @@ export const DimensionMetadataRunner: FC<DimensionMetadataRunnerProps> = ({
             {error ? `: ${error}` : null}
           </div>
         ) : null}
-        {dimensionMetadata?.results && dimensionMetadata.results.length ? (
-          <DimensionMetadataResults
-            dimensionMetadataResult={dimensionMetadata.results}
-          />
-        ) : (
-          <></>
-        )}
+        <DimensionMetadataResults
+          dimensions={exposureQuery.dimensions}
+          dimensionMetadata={dimensionMetadata}
+        />
+
         {dimensionMetadata?.queries && (
           <div>
             <ViewAsyncQueriesButton
@@ -288,57 +283,77 @@ export const DimensionMetadataRunner: FC<DimensionMetadataRunnerProps> = ({
   );
 };
 
-type DimensionMetadataResultsProps = {
-  dimensionMetadataResult: DimensionMetadataResult[];
+type DimensionMetadataProps = {
+  dimensions: string[];
+  dimensionMetadata?: DimensionMetadataInterface;
 };
 
-export const DimensionMetadataResults: FC<DimensionMetadataResultsProps> = ({
-  dimensionMetadataResult,
+export const DimensionMetadataResults: FC<DimensionMetadataProps> = ({
+  dimensions,
+  dimensionMetadata,
 }) => {
   return (
     <>
-      <div>
-        {dimensionMetadataResult.map((r, i) => {
-          let totalPercent = 0;
-          return (
-            <div key={i}>
-              <label>
-                <h3>{r.dimension}</h3>
-                <div>
-                  Top dimension slices:{"  "}
-                  {r.dimensionValues.map((d, i) => {
-                    totalPercent += d.percent;
-                    return (
-                      <>
-                        <Fragment key={`${r.dimension}-${i}`}>
-                          {i ? ", " : ""}
-                          <code key={`${r.dimension}-${d.name}`}>{d.name}</code>
+      <table className="table appbox gbtable mt-2 mb-0">
+        <thead>
+          <tr>
+            <th>Dimension</th>
+            <th>Pre-defined Slices (% of Units)</th>
+          </tr>
+        </thead>
+        <tbody>
+          {dimensions.map((r) => {
+            const dimensionValueResult = dimensionMetadata?.results.find(
+              (d) => d.dimension === r
+            );
+            let totalPercent = 0;
+            return (
+              <tr key={r}>
+                <td>{r}</td>
+                <td>
+                  {dimensionValueResult ? (
+                    <>
+                      <div>
+                        {dimensionValueResult.dimensionValues.map((d, i) => {
+                          totalPercent += d.percent;
+                          return (
+                            <>
+                              <Fragment key={`${r}-${i}`}>
+                                {i ? ", " : ""}
+                                <code key={`${r}-${d.name}`}>{d.name}</code>
+                              </Fragment>
+                              <span>{` (${smallPercentFormatter.format(
+                                d.percent / 100.0
+                              )})`}</span>
+                            </>
+                          );
+                        })}
+                      </div>
+                      <div>
+                        {" "}
+                        All other values:
+                        <Fragment key={`${r}--1`}>
+                          {" "}
+                          <code key={`${r}-_other_`}>
+                            {AUTOMATIC_DIMENSION_OTHER_NAME}
+                          </code>
                         </Fragment>
                         <span>{` (${smallPercentFormatter.format(
-                          d.percent / 100.0
+                          (100.0 - totalPercent) / 100.0
                         )})`}</span>
-                      </>
-                    );
-                  })}
-                </div>
-                <div>
-                  {" "}
-                  All other values:
-                  <Fragment key={`${r.dimension}--1`}>
-                    {" "}
-                    <code key={`${r.dimension}-_other_`}>
-                      {AUTOMATIC_DIMENSION_OTHER_NAME}
-                    </code>
-                  </Fragment>
-                  <span>{` (${smallPercentFormatter.format(
-                    (100.0 - totalPercent) / 100.0
-                  )})`}</span>
-                </div>
-              </label>
-            </div>
-          );
-        })}
-      </div>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="text-muted">
+                      Run dimension slices query to populate...
+                    </div>
+                  )}
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
     </>
   );
 };

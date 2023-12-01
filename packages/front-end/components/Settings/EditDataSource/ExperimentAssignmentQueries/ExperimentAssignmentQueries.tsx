@@ -236,7 +236,7 @@ export const ExperimentAssignmentQueries: FC<ExperimentAssignmentQueriesProps> =
                       className="dropdown-item py-2"
                       onClick={handleActionClicked(idx, "dimension")}
                     >
-                      <FaPencilAlt className="mr-2" /> Edit Dimension Metadata
+                      <FaPencilAlt className="mr-2" /> Configure Dimensions
                     </button>
 
                     <DeleteButton
