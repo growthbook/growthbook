@@ -1,5 +1,6 @@
 import { Request } from "express";
 import { ApiRequestLocals } from "./api";
+import { MemberRole } from "./organization";
 
 export type BaseScimRequest = Request & ApiRequestLocals;
 
@@ -32,6 +33,7 @@ export interface ScimGroup {
   meta: {
     resourceType: "Group";
   };
+  growthbookRole?: MemberRole;
 }
 
 export interface ScimListResponse {
