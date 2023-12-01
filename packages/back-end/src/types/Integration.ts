@@ -72,7 +72,7 @@ export type UserDimension = {
 export type ExperimentDimension = {
   type: "experiment";
   id: string;
-  allowedValues?: string[];
+  specifiedValues?: string[];
 };
 export type DateDimension = {
   type: "date";
@@ -350,6 +350,12 @@ export interface DimensionMetadataResult {
   dimension: string;
   dimensionValues: { name: string; percent: number }[];
 }
+
+export interface ExperimentDimensionMetadata {
+  dimension: string,
+  specifiedValues: string[]
+}
+
 export interface DimensionMetadataInterface {
   id: string;
   organization: string;

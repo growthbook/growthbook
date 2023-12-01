@@ -83,9 +83,13 @@ export const UpdateDimensionMetadataModal: FC<UpdateDimensionMetadataModalProps>
       type="submit"
       disabled={!saveEnabled}
       onClick={async () => {
-        if (id) {
+        if (id && data?.dimensionMetadata.results && data.dimensionMetadata.results.length > 0) {
           const value = cloneDeep<ExposureQuery>(exposureQuery);
           value.dimensionMetadataId = id;
+          value.dimensionMetadata = data.dimensionMetadata.results.map((r) => ({
+            dimension: r.dimension,
+            specifiedValues: r.dimensionValues.map((dv) => dv.name)
+          }));
           await onSave(value);
           close();
         }

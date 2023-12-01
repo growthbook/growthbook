@@ -32,7 +32,6 @@ import {
 import { expandDenominatorMetrics } from "../util/sql";
 import { getOrganizationById } from "../services/organizations";
 import { FactTableMap } from "../models/FactTableModel";
-import { getDimensionMetadataById } from "../models/DimensionMetadataModel";
 import {
   QueryRunner,
   QueryMap,
@@ -128,21 +127,14 @@ export const startExperimentResultQueries = async (
   // Settings for health query
   const runTrafficQuery = !dimensionObj && org?.settings?.runHealthTrafficQuery;
   let dimensionsForTraffic: ExperimentDimension[] = [];
-  if (runTrafficQuery && exposureQuery?.dimensionMetadataId) {
-    // get experiment dimensions for which we have automatic dimensions
-    const dimensionMetadata = await getDimensionMetadataById(
-      org.id,
-      exposureQuery.dimensionMetadataId
-    );
-    if (dimensionMetadata) {
-      dimensionsForTraffic = dimensionMetadata.results
-        .filter((dm) => exposureQuery.dimensions.includes(dm.dimension))
-        .map((dm) => ({
-          type: "experiment",
-          id: dm.dimension,
-          allowedValues: dm.dimensionValues.map((dv) => dv.name),
-        }));
-    }
+  if (runTrafficQuery && exposureQuery?.dimensionMetadata) {
+    dimensionsForTraffic = exposureQuery.dimensionMetadata
+      .filter((dm) => exposureQuery.dimensions.includes(dm.dimension))
+      .map((dm) => ({
+        type: "experiment",
+        id: dm.dimension,
+        specifiedValues: dm.specifiedValues,
+      }));
   }
 
   const unitQueryParams: ExperimentUnitsQueryParams = {
