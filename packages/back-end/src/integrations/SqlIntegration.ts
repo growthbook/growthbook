@@ -1861,9 +1861,8 @@ export default abstract class SqlIntegration
     switch (schemaFormat) {
       case "amplitude": {
         return {
-          trackedEventTableName: `EVENTS_${
-            this.settings.schemaOptions?.projectId || `*`
-          }`,
+          getTrackedEventTableName: () =>
+            `EVENTS_${this.settings.schemaOptions?.projectId || `*`}`,
           eventColumn: "event_type",
           timestampColumn: "event_time",
           userIdColumn: "user_id",
@@ -1885,7 +1884,7 @@ export default abstract class SqlIntegration
       }
       case "ga4": {
         return {
-          trackedEventTableName: "events_*",
+          getTrackedEventTableName: () => "events_*",
           eventColumn: "event_name",
           timestampColumn: "TIMESTAMP_MICROS(event_timestamp)",
           userIdColumn: "user_id",
@@ -1913,7 +1912,10 @@ AND event_name = '${eventName}'`,
       case "rudderstack":
       case "segment":
         return {
-          trackedEventTableName: "tracks",
+          getTrackedEventTableName: (schema) =>
+            this.getFormatDialect() === "postgresql"
+              ? `${schema}.tracks`
+              : "tracks",
           eventColumn: "event",
           timestampColumn: "received_at",
           userIdColumn: "user_id",
@@ -1926,14 +1928,20 @@ AND event_name = '${eventName}'`,
               start,
               "yyyy-MM-dd"
             )}' AND'${formatDate(end, "yyyy-MM-dd")}'`,
-          getAdditionalEvents: () => [
+          getAdditionalEvents: (schema) => [
             {
-              eventName: "pages",
+              eventName:
+                this.getFormatDialect() === "postgresql"
+                  ? `${schema}.pages`
+                  : "pages",
               displayName: "Page Viewed",
               groupBy: "event",
             },
             {
-              eventName: "screens",
+              eventName:
+                this.getFormatDialect() === "postgresql"
+                  ? `${schema}.screens`
+                  : "screens",
               displayName: "Screen Viewed",
               groupBy: "event",
             },
@@ -2048,17 +2056,17 @@ AND event_name = '${eventName}'`,
     const start = subDays(new Date(), 7);
 
     return `
-      SELECT
-        ${eventColumn} as event,
-        MAX(${displayNameColumn}) as displayName,
-        (CASE WHEN COUNT(${userIdColumn}) > 0 THEN 1 ELSE 0 END) as hasUserId,
-        COUNT (*) as count,
-        MAX(${timestampColumn}) as lastTrackedAt
-      FROM
-        ${this.generateTablePath(trackedEventTableName, schema)}
-      WHERE ${getDateLimitClause(start, end)}
-      AND ${eventColumn} NOT IN ('experiment_viewed', 'experiment_started')
-      GROUP BY ${groupByColumn || eventColumn}
+    SELECT
+    ${eventColumn} as event,
+    MAX(${displayNameColumn}) as displayName,
+    (CASE WHEN COUNT(${userIdColumn}) > 0 THEN 1 ELSE 0 END) as hasUserId,
+    COUNT (*) as count,
+    MAX(${timestampColumn}) as lastTrackedAt
+  FROM
+    ${this.generateTablePath(trackedEventTableName, schema)}
+  WHERE ${getDateLimitClause(start, end)}
+  AND ${eventColumn} NOT IN ('experiment_viewed', 'experiment_started')
+  GROUP BY ${groupByColumn || eventColumn}
     `;
   }
   async getEventsTrackedByDatasource(
@@ -2067,7 +2075,7 @@ AND event_name = '${eventName}'`,
     schema?: string
   ): Promise<TrackedEventData[]> {
     const {
-      trackedEventTableName,
+      getTrackedEventTableName,
       userIdColumn,
       eventColumn,
       timestampColumn,
@@ -2081,7 +2089,7 @@ AND event_name = '${eventName}'`,
       displayNameColumn || eventColumn,
       userIdColumn,
       timestampColumn,
-      trackedEventTableName,
+      getTrackedEventTableName(schema),
       getDateLimitClause,
       schema || ""
     );
@@ -2090,7 +2098,7 @@ AND event_name = '${eventName}'`,
       format(sql, this.getFormatDialect())
     );
 
-    const additionalEvents = getAdditionalEvents();
+    const additionalEvents = getAdditionalEvents(schema);
 
     for (const additionalEvent of additionalEvents) {
       const sql = this.getTrackedEventSql(

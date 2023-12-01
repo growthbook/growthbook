@@ -86,10 +86,12 @@ export interface SchemaInterface {
 export interface SchemaFormatConfig {
   userIdColumn: string;
   anonymousIdColumn: string;
-  trackedEventTableName: string;
+  getTrackedEventTableName: (schema?: string) => string;
   eventColumn: string;
   timestampColumn: string;
-  getAdditionalEvents: () => {
+  getAdditionalEvents: (
+    schema?: string
+  ) => {
     eventName: string;
     displayName: string;
     groupBy: string;
