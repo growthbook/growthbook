@@ -21,36 +21,6 @@ const smallPercentFormatter = new Intl.NumberFormat(undefined, {
   maximumFractionDigits: 0,
 });
 
-export async function setExposureId(
-  exposureQuery: ExposureQuery,
-  dataSource: DataSourceInterfaceWithParams,
-  apiCall: <T>(
-    url: string | null,
-    options?: RequestInit | undefined
-  ) => Promise<T>,
-  setId: (id: string) => void,
-  mutate: () => void
-): Promise<void> {
-  if (exposureQuery.dimensionMetadataId) {
-    setId(exposureQuery.dimensionMetadataId);
-    await mutate();
-  } else {
-    try {
-      const res = await apiCall<{
-        dimensionMetadata: DimensionMetadataInterface;
-      }>(
-        `/automatic-dimension/datasource/${dataSource.id}/${exposureQuery.id}`
-      );
-      if (res?.dimensionMetadata?.id) {
-        setId(res.dimensionMetadata.id);
-        await mutate();
-      }
-    } catch (e) {
-      console.error(e);
-    }
-  }
-}
-
 type UpdateDimensionMetadataModalProps = {
   exposureQuery: ExposureQuery;
   dataSource: DataSourceInterfaceWithParams;
@@ -65,14 +35,35 @@ export const UpdateDimensionMetadataModal: FC<UpdateDimensionMetadataModalProps>
   onSave,
 }) => {
   const { apiCall } = useAuth();
-  const [id, setId] = useState<string | null>(null);
+  const [id, setId] = useState<string | null>(exposureQuery.dimensionMetadataId || null);
   const { data, error, mutate } = useApi<{
     dimensionMetadata: DimensionMetadataInterface;
   }>(`/automatic-dimension/${id}`);
+  console.log({data, id})
+
+  const dataSourceId = dataSource.id;
+  const exposureQueryId = exposureQuery.id;
+  const metadataId = exposureQuery.dimensionMetadataId;
 
   useEffect(() => {
-    setExposureId(exposureQuery, dataSource, apiCall, setId, mutate);
-  }, [dataSource, exposureQuery, apiCall, mutate, setId]);
+    if (!dataSourceId || !exposureQueryId) return;
+    if (metadataId) {
+      setId(metadataId);
+      mutate();
+      return;
+    } else {
+      apiCall<{ dimensionMetadata: DimensionMetadataInterface }>(
+        `/automatic-dimension/datasource/${dataSourceId}/${exposureQueryId}`
+      ).then((res) => {
+        if (res?.dimensionMetadata?.id) {
+          setId(res.dimensionMetadata.id);
+          mutate();
+        }
+      }).catch((e) => {
+        console.error(e);
+      });
+    }
+  }, [dataSourceId, exposureQueryId, metadataId, setId, apiCall, mutate]);
 
   if (error) {
     return <div className="alert alert-error">{error?.message}</div>;
@@ -88,16 +79,16 @@ export const UpdateDimensionMetadataModal: FC<UpdateDimensionMetadataModalProps>
       className={`btn btn-primary`}
       type="submit"
       disabled={!saveEnabled}
-      onClick={() => {
+      onClick={async () => {
         if (id) {
           const value = cloneDeep<ExposureQuery>(exposureQuery);
           value.dimensionMetadataId = id;
-          onSave(value);
+          await onSave(value);
           close();
         }
       }}
     >
-      {"Save Dimension Slices"}
+      Save Dimension Slices
     </button>
   );
 

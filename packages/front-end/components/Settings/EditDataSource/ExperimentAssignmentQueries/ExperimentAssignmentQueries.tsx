@@ -15,6 +15,7 @@ import { AddEditExperimentAssignmentQueryModal } from "@/components/Settings/Edi
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import Button from "@/components/Button";
 import { UpdateDimensionMetadataModal } from "../DimensionMetadata/UpdateDimensionMetadata";
+import {BsGear} from "react-icons/bs";
 
 type ExperimentAssignmentQueriesProps = DataSourceQueryEditingModalBaseProps;
 type UIMode = "view" | "edit" | "add" | "dimension";
@@ -236,7 +237,7 @@ export const ExperimentAssignmentQueries: FC<ExperimentAssignmentQueriesProps> =
                       className="dropdown-item py-2"
                       onClick={handleActionClicked(idx, "dimension")}
                     >
-                      <FaPencilAlt className="mr-2" /> Configure Dimensions
+                      <BsGear className="mr-2" /> Configure Dimensions
                     </button>
 
                     <DeleteButton

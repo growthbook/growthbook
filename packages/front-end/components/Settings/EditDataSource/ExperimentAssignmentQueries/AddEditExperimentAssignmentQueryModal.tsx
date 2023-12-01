@@ -15,7 +15,6 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import Modal from "../../../Modal";
 import Field from "../../../Forms/Field";
 import EditSqlModal from "../../../SchemaBrowser/EditSqlModal";
-import { UpdateDimensionMetadataModal } from "../DimensionMetadata/UpdateDimensionMetadata";
 
 type EditExperimentAssignmentQueryProps = {
   exposureQuery?: ExposureQuery;
@@ -229,15 +228,6 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
         />
       )}
 
-      {uiMode === "dimension" && exposureQuery ? (
-        <UpdateDimensionMetadataModal
-          exposureQuery={exposureQuery}
-          dataSource={dataSource}
-          close={() => setUiMode("view")}
-          onSave={onSave}
-        />
-      ) : null}
-
       <Modal
         open={true}
         submit={handleSubmit}
@@ -312,7 +302,7 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
                 {showAdvancedMode && (
                   <div>
                     <div>
-                      <div className="py-2">
+                      <div className="mt-3 mb-3">
                         <Toggle
                           id="userEnteredNameCol"
                           value={form.watch("hasNameCol") || false}
