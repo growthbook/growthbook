@@ -233,12 +233,14 @@ export const ExperimentAssignmentQueries: FC<ExperimentAssignmentQueriesProps> =
                     >
                       <FaPencilAlt className="mr-2" /> Edit Query
                     </button>
-                    <button
-                      className="dropdown-item py-2"
-                      onClick={handleActionClicked(idx, "dimension")}
-                    >
-                      <BsGear className="mr-2" /> Configure Dimensions
-                    </button>
+                    {query.dimensions.length > 0 ? (
+                      <button
+                        className="dropdown-item py-2"
+                        onClick={handleActionClicked(idx, "dimension")}
+                      >
+                        <BsGear className="mr-2" /> Configure Dimensions
+                      </button>
+                    ) : null}
 
                     <DeleteButton
                       onClick={handleActionDeleteClicked(idx)}
