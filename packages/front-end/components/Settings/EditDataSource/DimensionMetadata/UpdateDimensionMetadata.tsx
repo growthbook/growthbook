@@ -41,7 +41,6 @@ export const UpdateDimensionMetadataModal: FC<UpdateDimensionMetadataModalProps>
   const { data, error, mutate } = useApi<{
     dimensionMetadata: DimensionMetadataInterface;
   }>(`/automatic-dimension/${id}`);
-  console.log({ data, id });
 
   const dataSourceId = dataSource.id;
   const exposureQueryId = exposureQuery.id;
