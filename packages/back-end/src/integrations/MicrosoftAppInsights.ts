@@ -1463,7 +1463,7 @@ export default class MicrosoftAppInsights
     userIdType?: "anonymous" | "user"
   ): ExposureQuery {
     if (!exposureQueryId) {
-      exposureQueryId = userIdType === "user" ? "user_id" : "anonymous_id";
+      exposureQueryId = userIdType === "user" ? "user_Id" : "anonymous_id";
     }
 
     const queries = this.settings?.queries?.exposure || [];
