@@ -6,10 +6,7 @@ export type SDKCapability = "loose-unmarshalling" | "remote-evaluation";
 
 type SDKRecords = Record<SDKLanguage, SDKData>;
 type SDKData = {
-  versions?: SDKVersionData[];
-  alias?: string;
-  capabilities?: string[];
-  removeCapabilities?: string[];
+  versions: SDKVersionData[];
 };
 type SDKVersionData = {
   version: string;
@@ -18,10 +15,7 @@ type SDKVersionData = {
 const sdks: SDKRecords = sdksJson as SDKRecords;
 
 const getSdkData = (language: SDKLanguage = "other"): SDKData => {
-  let sdkData: SDKData = { ...sdks[language] };
-  if (sdkData?.alias && sdks?.[sdkData.alias as SDKLanguage]) {
-    sdkData = { ...sdks[sdkData.alias as SDKLanguage], ...sdkData };
-  }
+  let sdkData: SDKData = sdks[language];
   if (!sdkData) {
     sdkData = sdks["other"];
   }
@@ -45,13 +39,9 @@ export const getCapabilities = (
   const matches = versions.filter(
     (data) => paddedVersionString(data.version) <= paddedVersionString(version)
   );
-  let capabilities = matches.reduce(
+  const capabilities = matches.reduce(
     (acc, data) => [...acc, ...(data?.capabilities ?? [])],
     []
-  );
-  capabilities = [...capabilities, ...(sdkData?.capabilities ?? [])];
-  capabilities = capabilities.filter(
-    (c) => !(sdkData?.removeCapabilities ?? []).includes(c)
   );
   return uniq(capabilities) as SDKCapability[];
 };
