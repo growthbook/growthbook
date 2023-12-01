@@ -512,9 +512,8 @@ organization:
     # experiment before we start warning you (between 0 and 1, defaults to `0.01`)
     multipleExposureMinPercent: 0.01
     # (frequentist analysis only)
-    # Whether Regression Adjustment (CUPED) should be on or off for this metric and
-    # how many days of data to use.
-    # Leave either setting out of your config file to accept your organization level settings.
+    # Whether Regression Adjustment (CUPED) should be on or off by default how many
+    # days to use. Can be overridden in your metric definitions if you wish.
     regressionAdjustmentEnabled: true
     regressionAdjustmentDays: 14
     # When we should auto-update experiment results
