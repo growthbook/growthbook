@@ -130,17 +130,17 @@ export const startExperimentResultQueries = async (
   let dimensionsForTraffic: ExperimentDimension[] = [];
   if (runTrafficQuery && exposureQuery?.dimensionMetadataId) {
     // get experiment dimensions for which we have automatic dimensions
-    const autoDimensions = await getDimensionMetadataById(
+    const dimensionMetadata = await getDimensionMetadataById(
       org.id,
       exposureQuery.dimensionMetadataId
     );
-    if (autoDimensions) {
-      dimensionsForTraffic = autoDimensions.results
-        .filter((ad) => exposureQuery.dimensions.includes(ad.dimension))
-        .map((ad) => ({
+    if (dimensionMetadata) {
+      dimensionsForTraffic = dimensionMetadata.results
+        .filter((dm) => exposureQuery.dimensions.includes(dm.dimension))
+        .map((dm) => ({
           type: "experiment",
-          id: ad.dimension,
-          allowedValues: ad.dimensionValues.map((dv) => dv.name),
+          id: dm.dimension,
+          allowedValues: dm.dimensionValues.map((dv) => dv.name),
         }));
     }
   }
