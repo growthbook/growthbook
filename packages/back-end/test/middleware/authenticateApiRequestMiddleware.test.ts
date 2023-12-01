@@ -48,6 +48,9 @@ describe("REST API auth middleware", () => {
           projectRoles: [],
         },
       ],
+      settings: {
+        environments: [{ id: "staging" }, { id: "production" }],
+      },
     };
 
     // API keys
