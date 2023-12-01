@@ -1,10 +1,8 @@
 import { FC, useMemo, useState } from "react";
 import { FaExclamationTriangle, FaQuestionCircle } from "react-icons/fa";
-import {
-  ExperimentReportResultDimension,
-  ExperimentReportVariation,
-} from "back-end/types/report";
+import { ExperimentReportVariation } from "back-end/types/report";
 import { ImTable2 } from "react-icons/im";
+import { ExperimentSnapshotTrafficDimension } from "back-end/types/experiment-snapshot";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { formatTrafficSplit } from "@/services/utils";
 import { useUser } from "@/services/UserContext";
@@ -14,7 +12,7 @@ import Tooltip from "../Tooltip/Tooltip";
 const numberFormatter = new Intl.NumberFormat();
 
 const UsersTable: FC<{
-  results: ExperimentReportResultDimension[];
+  results: ExperimentSnapshotTrafficDimension[];
   variations: ExperimentReportVariation[];
   dimensionId: string;
 }> = ({ dimensionId, results, variations }) => {
@@ -97,7 +95,7 @@ const UsersTable: FC<{
               </td>
               {variations.map((v, i) => (
                 <td key={i}>
-                  {numberFormatter.format(r.variations[i]?.users || 0)}
+                  {numberFormatter.format(r.variationUnits[i] || 0)}
                 </td>
               ))}
               <td className="border-left">
@@ -109,7 +107,7 @@ const UsersTable: FC<{
               <td>
                 <b>
                   {formatTrafficSplit(
-                    variations.map((v, i) => r.variations[i]?.users || 0),
+                    variations.map((v, i) => r.variationUnits[i] || 0),
                     1
                   )}
                 </b>

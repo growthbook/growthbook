@@ -5,6 +5,7 @@ import { getValidDate } from "shared/dates";
 import { useUser } from "@/services/UserContext";
 import { DEFAULT_SRM_THRESHOLD } from "@/pages/settings";
 import track from "@/services/track";
+import { formatTrafficSplit } from "@/services/utils";
 import ExperimentDateGraph, {
   ExperimentDateGraphDataPoint,
 } from "../Experiment/ExperimentDateGraph";
@@ -33,7 +34,7 @@ export default function TrafficCard({
     variations,
     srmThreshold
   );
-  const [selectedDimension, setSelectedDimension] = useState("");
+  const [selectedDimension, setSelectedDimension] = useState<string>("");
 
   // Get data for users graph
   const usersPerDate = useMemo<ExperimentDateGraphDataPoint[]>(() => {
@@ -87,28 +88,80 @@ export default function TrafficCard({
         </div>
 
         <div className="mt-3 mb-3 d-flex align-items-center">
-          <h3>Experiment Traffic by Variation</h3>
-          <div className="ml-auto">
-            Cumulative{" "}
-            <Toggle
-              label="Cumulative"
-              id="cumulative"
-              value={cumulative}
-              setValue={setCumulative}
-            />
-          </div>
+          <h3>
+            Experiment Traffic by{" "}
+            {selectedDimension
+              ? availableDimensions.find((d) => d.value === selectedDimension)
+                  ?.label
+              : "Variation"}
+          </h3>
+          {!selectedDimension && (
+            <div className="ml-auto">
+              Cumulative{" "}
+              <Toggle
+                label="Cumulative"
+                id="cumulative"
+                value={cumulative}
+                setValue={setCumulative}
+              />
+            </div>
+          )}
         </div>
       </div>
-      <div className="mt-2 mb-2">
-        <ExperimentDateGraph
-          yaxis="users"
-          variationNames={variations.map((v) => v.name)}
-          label="Users"
-          datapoints={usersPerDate}
-          tickFormat={(v) => numberFormatter.format(v)}
-          srmThreshold={cumulative ? undefined : srmThreshold}
-        />
-      </div>
+      {selectedDimension ? (
+        <table className="table w-100">
+          <thead>
+            <tr>
+              <th className="border-top-0">Dimension</th>
+              {variations.map((v, i) => (
+                <th className="border-top-0" key={i}>
+                  {v.name}
+                </th>
+              ))}
+              <th className="border-top-0">Expected %</th>
+              <th className="border-top-0">Actual %</th>
+            </tr>
+          </thead>
+          <tbody>
+            {(traffic.dimension[selectedDimension] || []).map((r, i) => (
+              <tr key={i}>
+                <td>
+                  <b>{r.name || <em>unknown</em>}</b>
+                </td>
+                {variations.map((v, i) => (
+                  <td key={i}>
+                    {numberFormatter.format(r.variationUnits[i] || 0)}
+                  </td>
+                ))}
+                <td className="border-left">
+                  {formatTrafficSplit(
+                    variations.map((v) => v.weight),
+                    1
+                  )}
+                </td>
+                <td>
+                  <b>
+                    {formatTrafficSplit(
+                      variations.map((v, i) => r.variationUnits[i] || 0),
+                      1
+                    )}
+                  </b>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      ) : (
+        <div className="mt-2 mb-2">
+          <ExperimentDateGraph
+            yaxis="users"
+            variationNames={variations.map((v) => v.name)}
+            label="Users"
+            datapoints={usersPerDate}
+            tickFormat={(v) => numberFormatter.format(v)}
+          />
+        </div>
+      )}
     </div>
   );
 }

@@ -16,8 +16,6 @@ import { date } from "shared/dates";
 import { variant_0, variant_1, variant_2, variant_3 } from "shared/constants";
 import { StatsEngine } from "back-end/types/stats";
 import { pValueFormatter } from "@/services/experiments";
-import { srmHealthCheck } from "../HealthTab/SRMDrawer";
-import { HealthStatus, StatusBadge } from "../HealthTab/StatusBadge";
 import styles from "./ExperimentDateGraph.module.scss";
 
 export interface DataPointVariation {
@@ -43,7 +41,6 @@ export interface ExperimentDateGraphProps {
   tickFormat: (v: number) => string;
   statsEngine?: StatsEngine;
   hasStats?: boolean;
-  srmThreshold?: number;
 }
 
 const percentFormatter = new Intl.NumberFormat(undefined, {
@@ -68,28 +65,12 @@ const getTooltipContents = (
   data: TooltipData,
   variationNames: string[],
   statsEngine: StatsEngine,
-  hasStats: boolean = true,
-  srmThreshold?: number
+  hasStats: boolean = true
 ) => {
   const { d, yaxis } = data;
-  const totalUsers = d.variations.reduce((acc, a) => acc + a.v, 0);
-  const health: HealthStatus | undefined =
-    d.srm && srmThreshold
-      ? srmHealthCheck({
-          srm: d.srm,
-          variations: d.variations,
-          srmThreshold,
-          totalUsers,
-        })
-      : undefined;
 
   return (
     <>
-      {health && (
-        <div className="d-flex justify-content-center">
-          <StatusBadge status={health} />
-        </div>
-      )}
       <table
         className={`table-condensed ${styles.table} ${
           yaxis !== "uplift" && "mt-1"
@@ -223,7 +204,6 @@ const ExperimentDateGraph: FC<ExperimentDateGraphProps> = ({
   tickFormat,
   statsEngine = "bayesian",
   hasStats = true,
-  srmThreshold,
 }) => {
   // yaxis = "users";
   const { containerRef, containerBounds } = useTooltipInPortal({
@@ -347,8 +327,7 @@ const ExperimentDateGraph: FC<ExperimentDateGraphProps> = ({
                   tooltipData,
                   variationNames,
                   statsEngine,
-                  hasStats,
-                  srmThreshold
+                  hasStats
                 )}
               </TooltipWithBounds>
             )}
