@@ -19,7 +19,7 @@ export const ENV_SCOPED_PERMISSIONS = [
 ] as const;
 
 export const PROJECT_SCOPED_PERMISSIONS = [
-  "readData", //TODO: I currently have this in both PROJECT_SCOPED & GLOBAL - this is the only one that lives in both - is that weird?
+  // "readData", //TODO: I currently have this in both PROJECT_SCOPED & GLOBAL - this is the only one that lives in both - is that weird?
   "addComments",
   "createFeatureDrafts",
   "manageFeatures",
