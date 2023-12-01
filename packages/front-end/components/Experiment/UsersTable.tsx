@@ -77,46 +77,55 @@ const UsersTable: FC<{
           </Tooltip>
         </div>
       )}
-      <table className="table w-auto table-bordered mb-5">
+      <table className="table w-auto mb-5">
         <thead>
           <tr>
             <th>{dimension}</th>
             {variations.map((v, i) => (
               <th key={i}>{v.name}</th>
             ))}
-            <th>Expected</th>
-            <th>Actual</th>
+            <th>Expected %</th>
+            <th>Actual %</th>
             <th>SRM P-Value</th>
           </tr>
         </thead>
         <tbody>
           {(results || []).map((r, i) => (
             <tr key={i}>
-              <td>{r.name || <em>unknown</em>}</td>
+              <td>
+                <b>{r.name || <em>unknown</em>}</b>
+              </td>
               {variations.map((v, i) => (
                 <td key={i}>
                   {numberFormatter.format(r.variations[i]?.users || 0)}
                 </td>
               ))}
-              <td>
+              <td className="border-left">
                 {formatTrafficSplit(
                   variations.map((v) => v.weight),
                   1
                 )}
               </td>
               <td>
-                {formatTrafficSplit(
-                  variations.map((v, i) => r.variations[i]?.users || 0),
-                  1
-                )}
+                <b>
+                  {formatTrafficSplit(
+                    variations.map((v, i) => r.variations[i]?.users || 0),
+                    1
+                  )}
+                </b>
               </td>
               {r.srm < srmThreshold ? (
                 <td className="bg-danger text-light">
-                  <FaExclamationTriangle className="mr-1" />
-                  {(r.srm || 0).toFixed(6)}
+                  <b>
+                    {" "}
+                    <FaExclamationTriangle className="mr-1" />
+                    {(r.srm || 0).toFixed(6)}
+                  </b>
                 </td>
               ) : (
-                <td>{(r.srm || 0).toFixed(6)}</td>
+                <td>
+                  <b>{(r.srm || 0).toFixed(6)}</b>
+                </td>
               )}
             </tr>
           ))}

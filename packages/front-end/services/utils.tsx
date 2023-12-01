@@ -10,7 +10,7 @@ export function trafficSplitPercentages(weights: number[]): number[] {
 export function formatTrafficSplit(weights: number[], decimals = 0): string {
   return trafficSplitPercentages(weights)
     .map((w) => w.toFixed(decimals))
-    .join("/");
+    .join(" / ");
 }
 
 // Get the number of decimals +1 needed to differentiate between

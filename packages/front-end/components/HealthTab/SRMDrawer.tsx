@@ -1,16 +1,13 @@
 import { ExperimentSnapshotTraffic } from "back-end/types/experiment-snapshot";
 import { ExperimentReportVariation } from "back-end/types/report";
 import { useEffect, useRef, useState } from "react";
-import Link from "next/link";
 import { useUser } from "@/services/UserContext";
 import { pValueFormatter } from "@/services/experiments";
 import { DEFAULT_SRM_THRESHOLD } from "@/pages/settings";
 import track from "@/services/track";
 import VariationUsersTable from "../Experiment/TabbedPage/VariationUsersTable";
 import SRMWarning from "../Experiment/SRMWarning";
-import SelectField, { SingleValue } from "../Forms/SelectField";
 import { DataPointVariation } from "../Experiment/ExperimentDateGraph";
-import HealthCard from "./HealthCard";
 import { HealthStatus, StatusBadge } from "./StatusBadge";
 import { DimensionIssues } from "./DimensionIssues";
 
@@ -42,8 +39,6 @@ export const srmHealthCheck = ({
 };
 
 export const EXPERIMENT_DIMENSION_PREFIX = "dim_exp_";
-const HEALTHY_TOOLTIP_MESSAGE =
-  "Unit counts per variation are as expected. No imbalances detected.";
 const NOT_ENOUGH_DATA_TOOLTIP_MESSAGE =
   "Not enough data to compute balance check.";
 

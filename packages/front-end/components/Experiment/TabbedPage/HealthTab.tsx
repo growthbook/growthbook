@@ -1,104 +1,21 @@
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import { useEffect, useMemo, useState } from "react";
-import { getValidDate } from "shared/dates";
-import { ExperimentSnapshotTrafficDimension } from "back-end/types/experiment-snapshot";
+import { useEffect } from "react";
 import Link from "next/link";
-import { ExperimentReportVariation } from "back-end/types/report";
-import Toggle from "@/components/Forms/Toggle";
-import HealthCard from "@/components/HealthTab/HealthCard";
 import SRMDrawer from "@/components/HealthTab/SRMDrawer";
 import MultipleExposuresDrawer from "@/components/HealthTab/MultipleExposuresDrawer";
 import { useUser } from "@/services/UserContext";
 import usePermissions from "@/hooks/usePermissions";
 import useOrgSettings from "@/hooks/useOrgSettings";
-import { DEFAULT_SRM_THRESHOLD } from "@/pages/settings";
 import { useAuth } from "@/services/auth";
 import Button from "@/components/Button";
+import TrafficCard from "@/components/HealthTab/TrafficCard";
 import { useSnapshot } from "../SnapshotProvider";
-import ExperimentDateGraph, {
-  ExperimentDateGraphDataPoint,
-} from "../ExperimentDateGraph";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
   onDrawerNotify: () => void;
   onSnapshotUpdate: () => void;
 }
-
-const numberFormatter = new Intl.NumberFormat();
-
-const UnitCountDateGraph = ({
-  trafficByDate,
-  variations,
-}: {
-  trafficByDate: ExperimentSnapshotTrafficDimension[];
-  variations: ExperimentReportVariation[];
-}) => {
-  const [cumulative, setCumulative] = useState(false);
-  const { settings } = useUser();
-
-  const srmThreshold = settings.srmThreshold ?? DEFAULT_SRM_THRESHOLD;
-
-  // Get data for users graph
-  const usersPerDate = useMemo<ExperimentDateGraphDataPoint[]>(() => {
-    // Keep track of total users per variation for when cumulative is true
-    const total: number[] = [];
-    const sortedTraffic = [...trafficByDate];
-    sortedTraffic.sort((a, b) => {
-      return getValidDate(a.name).getTime() - getValidDate(b.name).getTime();
-    });
-
-    return sortedTraffic.map((d) => {
-      return {
-        d: getValidDate(d.name),
-        variations: variations.map((variation, i) => {
-          const users = d.variationUnits[i] || 0;
-          total[i] = total[i] || 0;
-          total[i] += users;
-          const v = cumulative ? total[i] : users;
-          const v_formatted = v + "";
-          return {
-            v,
-            v_formatted,
-            label: numberFormatter.format(v),
-          };
-        }),
-        srm: d.srm,
-      };
-    });
-  }, [trafficByDate, variations, cumulative]);
-
-  return (
-    <>
-      <div className="mt-3 mb-3 d-flex align-items-center">
-        {/* <div className="mr-3">
-          <strong>Graph Controls: </strong>
-        </div>
-        <div>
-          <Toggle
-            label="Cumulative"
-            id="cumulative"
-            value={cumulative}
-            setValue={setCumulative}
-          />
-          Cumulative
-        </div> */}
-        <h3>Experiment Traffic by Variation</h3>
-      </div>
-
-      <div className="mt-2 mb-2">
-        <ExperimentDateGraph
-          yaxis="users"
-          variationNames={variations.map((v) => v.name)}
-          label="Users"
-          datapoints={usersPerDate}
-          tickFormat={(v) => numberFormatter.format(v)}
-          srmThreshold={cumulative ? undefined : srmThreshold}
-        />
-      </div>
-    </>
-  );
-};
 
 export default function HealthTab({
   experiment,
@@ -210,9 +127,6 @@ export default function HealthTab({
   );
 
   const traffic = snapshot.health.traffic;
-  const dimensions = snapshot.health.traffic.dimension;
-
-  const trafficByDate = dimensions?.dim_exposure_date;
 
   const phaseObj = experiment.phases?.[phase];
 
@@ -228,12 +142,7 @@ export default function HealthTab({
     <div className="mt-4">
       {/* <a href="#multipleExposures">TESTING SCROLL</a> */}
       <h4 className="mt-2 mb-4">No issues found. 🎉</h4>
-      <HealthCard title="Traffic">
-        <UnitCountDateGraph
-          trafficByDate={trafficByDate}
-          variations={variations}
-        />
-      </HealthCard>
+      <TrafficCard traffic={traffic} variations={variations} />
       <div id="balanceCheck">
         <SRMDrawer
           traffic={traffic}

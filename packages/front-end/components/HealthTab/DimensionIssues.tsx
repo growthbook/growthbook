@@ -1,22 +1,21 @@
 import { ExperimentSnapshotTrafficDimension } from "back-end/types/experiment-snapshot";
 import { ExperimentReportVariation } from "back-end/types/report";
+import { useState } from "react";
 import { useUser } from "@/services/UserContext";
 import { DEFAULT_SRM_THRESHOLD } from "@/pages/settings";
-import { DataPointVariation } from "../Experiment/ExperimentDateGraph";
-import { EXPERIMENT_DIMENSION_PREFIX, srmHealthCheck } from "./SRMDrawer";
-import { useState } from "react";
+import track from "@/services/track";
+import { pValueFormatter } from "@/services/experiments";
+import VariationUsersTable from "../Experiment/TabbedPage/VariationUsersTable";
 import Modal from "../Modal";
 import SelectField from "../Forms/SelectField";
-import track from "@/services/track";
+import { EXPERIMENT_DIMENSION_PREFIX, srmHealthCheck } from "./SRMDrawer";
 import HealthCard from "./HealthCard";
-import VariationUsersTable from "../Experiment/TabbedPage/VariationUsersTable";
-import { pValueFormatter } from "@/services/experiments";
 
 interface Props {
   dimensionData: {
     [dimension: string]: ExperimentSnapshotTrafficDimension[];
   };
-  variations: ExperimentReportVariation[] | DataPointVariation[];
+  variations: ExperimentReportVariation[];
 }
 
 type NewObjectArray = {
@@ -25,11 +24,11 @@ type NewObjectArray = {
   issues: string[];
 };
 
-function transformDimensionData(
+export function transformDimensionData(
   dimensionData: {
     [dimension: string]: ExperimentSnapshotTrafficDimension[];
   },
-  variations: ExperimentReportVariation[] | DataPointVariation[],
+  variations: ExperimentReportVariation[],
   srmThreshold: number
 ): NewObjectArray[] {
   return Object.entries(dimensionData).flatMap(
