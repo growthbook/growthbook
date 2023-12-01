@@ -157,6 +157,14 @@ describe("Build base user permissions", () => {
             role: "admin",
             limitAccessByEnvironment: true,
             environments: ["development"],
+            projectRoles: [
+              {
+                project: "prj_exl5jr5dl4rbw856",
+                role: "collaborator",
+                limitAccessByEnvironment: true,
+                environments: ["staging"],
+              },
+            ],
           },
         ],
       },
@@ -168,7 +176,13 @@ describe("Build base user permissions", () => {
         limitAccessByEnvironment: false,
         permissions: roleToPermissionMap("admin", testOrg),
       },
-      projects: {},
+      projects: {
+        prj_exl5jr5dl4rbw856: {
+          environments: ["staging"],
+          limitAccessByEnvironment: false,
+          permissions: roleToPermissionMap("collaborator", testOrg),
+        },
+      },
     });
   });
 
@@ -650,6 +664,80 @@ describe("Build base user permissions", () => {
         prj_exl5jr5dl4rbw856: {
           environments: [],
           limitAccessByEnvironment: false,
+          permissions: roleToPermissionMap("engineer", testOrg),
+        },
+      },
+    });
+  });
+
+  it("should ignore limitAccessByEnvironment in teams with roles that don't support that", async () => {
+    const teams: TeamInterface[] = [
+      {
+        id: "team_123",
+        name: "Test Team",
+        organization: "org_id_1234",
+        description: "",
+        dateCreated: new Date(),
+        dateUpdated: new Date(),
+        createdBy: "Demo User",
+        role: "admin",
+        limitAccessByEnvironment: true,
+        environments: ["development"],
+        projectRoles: [
+          {
+            project: "prj_test",
+            role: "collaborator",
+            limitAccessByEnvironment: true,
+            environments: ["staging"],
+          },
+          {
+            project: "prj_exl5jr5dl4rbw856",
+            role: "collaborator",
+            limitAccessByEnvironment: true,
+            environments: ["staging"],
+          },
+        ],
+        managedByIdp: false,
+      },
+    ];
+
+    const userPermissions = getUserPermissions(
+      "base_user_123",
+      {
+        ...testOrg,
+        members: [
+          {
+            ...testOrg.members[0],
+            projectRoles: [
+              {
+                project: "prj_exl5jr5dl4rbw856",
+                role: "engineer",
+                limitAccessByEnvironment: true,
+                environments: ["production"],
+              },
+            ],
+            teams: ["team_123"],
+          },
+        ],
+      },
+      teams
+    );
+
+    expect(userPermissions).toEqual({
+      global: {
+        environments: ["development"],
+        limitAccessByEnvironment: false,
+        permissions: roleToPermissionMap("admin", testOrg),
+      },
+      projects: {
+        prj_test: {
+          environments: [],
+          limitAccessByEnvironment: false,
+          permissions: roleToPermissionMap("collaborator", testOrg),
+        },
+        prj_exl5jr5dl4rbw856: {
+          environments: ["production"],
+          limitAccessByEnvironment: true,
           permissions: roleToPermissionMap("engineer", testOrg),
         },
       },
