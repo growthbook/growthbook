@@ -241,6 +241,9 @@ export function getAllMetricRegressionAdjustmentStatuses({
   let regressionAdjustmentAvailable = true;
   let regressionAdjustmentEnabled = true;
   let regressionAdjustmentHasValidMetrics = false;
+  if (allExperimentMetrics.length === 0) {
+    regressionAdjustmentHasValidMetrics = true; // avoid awkward UI warning
+  }
   for (const metric of allExperimentMetrics) {
     if (!metric) continue;
     const {
