@@ -6,11 +6,11 @@ import MultipleExposuresDrawer from "@/components/HealthTab/MultipleExposuresDra
 import { useUser } from "@/services/UserContext";
 import usePermissions from "@/hooks/usePermissions";
 import useOrgSettings from "@/hooks/useOrgSettings";
-import { useAuth } from "@/services/auth";
 import Button from "@/components/Button";
 import TrafficCard from "@/components/HealthTab/TrafficCard";
 import { IssueTags, IssueValue } from "@/components/HealthTab/IssueTags";
 import { useSnapshot } from "../SnapshotProvider";
+import { HealthTabOnboardingModal } from "./HealthTabOnboardingModal";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
@@ -23,9 +23,14 @@ export default function HealthTab({
   onDrawerNotify,
   onSnapshotUpdate,
 }: Props) {
-  const { error, snapshot, phase } = useSnapshot();
+  const {
+    error,
+    snapshot,
+    phase,
+    mutateSnapshot,
+    setAnalysisSettings,
+  } = useSnapshot();
   const { runHealthTrafficQuery } = useOrgSettings();
-  const { apiCall } = useAuth();
   const { refreshOrganization } = useUser();
   const permissions = usePermissions();
   const hasPermissionToEditOrgSettings = permissions.check(
@@ -33,22 +38,17 @@ export default function HealthTab({
   );
   const [healthIssues, setHealthIssues] = useState<IssueValue[]>([]);
   // Clean up notification counter & health issues before unmounting
+
+  const [uiMode, setUiMode] = useState<"open" | "setup" | "adddimension">(
+    "open"
+  );
+
   useEffect(() => {
     return () => {
       onSnapshotUpdate();
       setHealthIssues([]);
     };
   }, [snapshot, onSnapshotUpdate]);
-
-  const enableRunHealthTrafficQueries = async () => {
-    await apiCall(`/organization`, {
-      method: "PUT",
-      body: JSON.stringify({
-        settings: { runHealthTrafficQuery: true },
-      }),
-    });
-    refreshOrganization();
-  };
 
   const handleDrawerNotify = useCallback(
     (issue: IssueValue) => {
@@ -75,10 +75,20 @@ export default function HealthTab({
             <Button
               className="mt-2 mb-2 ml-auto"
               style={{ width: "200px" }}
-              onClick={async () => await enableRunHealthTrafficQueries()}
+              onClick={async () => setUiMode("setup")}
             >
               Enable Health Queries
             </Button>
+            {uiMode === "setup" ? (
+              <HealthTabOnboardingModal
+                experiment={experiment}
+                phase={phase}
+                close={() => setUiMode("open")}
+                refreshOrganization={refreshOrganization}
+                mutateSnapshot={mutateSnapshot}
+                setAnalysisSettings={setAnalysisSettings}
+              />
+            ) : null}
           </>
         ) : (
           "ask someone with permission to manage organization settings to enable Run traffic query by default under the Experiment Health Settings section."

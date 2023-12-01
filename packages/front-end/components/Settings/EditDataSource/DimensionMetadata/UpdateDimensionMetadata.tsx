@@ -25,6 +25,38 @@ const smallPercentFormatter = new Intl.NumberFormat(undefined, {
   maximumFractionDigits: 0,
 });
 
+export function getLatestDimensionMetadata(
+  dataSourceId: string,
+  exposureQueryId: string,
+  metadataId: string | undefined,
+  apiCall: <T>(
+    url: string | null,
+    options?: RequestInit | undefined
+  ) => Promise<T>,
+  setId: (id: string) => void,
+  mutate: () => void
+): void {
+  if (!dataSourceId || !exposureQueryId) return;
+  if (metadataId) {
+    setId(metadataId);
+    mutate();
+    return;
+  } else {
+    apiCall<{ dimensionMetadata: DimensionSlicesInterface }>(
+      `/automatic-dimension/datasource/${dataSourceId}/${exposureQueryId}`
+    )
+      .then((res) => {
+        if (res?.dimensionMetadata?.id) {
+          setId(res.dimensionMetadata.id);
+          mutate();
+        }
+      })
+      .catch((e) => {
+        console.error(e);
+      });
+  }
+}
+
 type UpdateDimensionMetadataModalProps = {
   exposureQuery: ExposureQuery;
   dataSource: DataSourceInterfaceWithParams;
@@ -51,27 +83,18 @@ export const UpdateDimensionMetadataModal: FC<UpdateDimensionMetadataModalProps>
   const metadataId = exposureQuery.dimensionSlicesId;
   const source = "datasource-modal";
 
-  useEffect(() => {
-    if (!dataSourceId || !exposureQueryId) return;
-    if (metadataId) {
-      setId(metadataId);
-      mutate();
-      return;
-    } else {
-      apiCall<{ dimensionSlices: DimensionSlicesInterface }>(
-        `/dimension-slices/datasource/${dataSourceId}/${exposureQueryId}`
-      )
-        .then((res) => {
-          if (res?.dimensionSlices?.id) {
-            setId(res.dimensionSlices.id);
-            mutate();
-          }
-        })
-        .catch((e) => {
-          console.error(e);
-        });
-    }
-  }, [dataSourceId, exposureQueryId, metadataId, setId, apiCall, mutate]);
+  useEffect(
+    () =>
+      getLatestDimensionMetadata(
+        dataSourceId,
+        exposureQueryId,
+        metadataId,
+        apiCall,
+        setId,
+        mutate
+      ),
+    [dataSourceId, exposureQueryId, metadataId, setId, apiCall, mutate]
+  );
 
   if (error) {
     return <div className="alert alert-error">{error?.message}</div>;

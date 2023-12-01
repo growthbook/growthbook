@@ -19,6 +19,7 @@ type ModalProps = {
   submitColor?: string;
   cta?: string | ReactElement;
   closeCta?: string | ReactElement;
+  includeCloseCta?: boolean;
   ctaEnabled?: boolean;
   disabledMessage?: string;
   docSection?: DocSection;
@@ -49,6 +50,7 @@ const Modal: FC<ModalProps> = ({
   cta = "Submit",
   ctaEnabled = true,
   closeCta = "Cancel",
+  includeCloseCta = true,
   disabledMessage,
   inline = false,
   size = "md",
@@ -123,7 +125,7 @@ const Modal: FC<ModalProps> = ({
               <Tooltip body="View Documentation" className="ml-1 w-4 h-4" />
             </DocLink>
           )}
-          {close && (
+          {close && includeCloseCta && (
             <button
               type="button"
               className="close"
