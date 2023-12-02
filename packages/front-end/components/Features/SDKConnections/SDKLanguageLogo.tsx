@@ -10,7 +10,10 @@ import {
   SiPhp,
 } from "react-icons/si";
 import { ReactElement } from "react";
+import { isOutdated } from "shared/sdk-versioning";
+import { HiOutlineExclamationCircle } from "react-icons/hi";
 import { DocSection } from "@/components/DocLink";
+import Tooltip from "@/components/Tooltip/Tooltip";
 
 export type LanguageEnvironment = "frontend" | "backend" | "mobile" | "hybrid";
 export const languageMapping: Record<
@@ -188,11 +191,23 @@ export default function SDKLanguageLogo({
   const { Icon, color, label } =
     languageMapping[language] || languageMapping["other"];
 
+  const versionOutdated = isOutdated(language, version);
+
   const labelText = label;
   let versionText: ReactElement | null = null;
   if (version !== undefined) {
     versionText = (
-      <span className="text-info small ml-2">ver. {version || "0"}</span>
+      <>
+        <span className="text-info small ml-2">ver. {version || "0"}</span>
+        {versionOutdated && (
+          <Tooltip body={<>A new SDK version may be available</>}>
+            <HiOutlineExclamationCircle
+              className="text-warning-orange position-relative"
+              style={{ top: -2, left: 2 }}
+            />
+          </Tooltip>
+        )}
+      </>
     );
   }
 

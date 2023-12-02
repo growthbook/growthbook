@@ -8,7 +8,7 @@ import { useRouter } from "next/router";
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import { FaCheck, FaExclamationCircle, FaInfoCircle } from "react-icons/fa";
 import clsx from "clsx";
-import { getCurrentVersion } from "shared/sdk-versioning";
+import { getCurrentVersion, isOutdated } from "shared/sdk-versioning";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useEnvironments } from "@/services/features";
 import Modal from "@/components/Modal";
@@ -111,6 +111,11 @@ export default function SDKConnectionForm({
       remoteEvalEnabled: initialValue.remoteEvalEnabled ?? false,
     },
   });
+
+  const usingLatestVersion = !isOutdated(
+    form.watch("languages")?.[0] || "other",
+    form.watch("sdkVersion")
+  );
 
   const useLatestSdkVersion = () => {
     const language = form.watch("languages")?.[0] || "other";
@@ -314,14 +319,23 @@ export default function SDKConnectionForm({
                   prepend={<span className="small">SDK ver.</span>}
                   {...form.register("sdkVersion")}
                 />
-                <a
-                  role="button"
-                  className="small position-absolute"
-                  style={{ zIndex: 1, right: 3 }}
-                  onClick={useLatestSdkVersion}
-                >
-                  Use latest
-                </a>
+                {usingLatestVersion ? (
+                  <span
+                    className="small position-absolute text-muted"
+                    style={{ zIndex: 1, right: 3 }}
+                  >
+                    Using latest
+                  </span>
+                ) : (
+                  <a
+                    role="button"
+                    className="small position-absolute"
+                    style={{ zIndex: 1, right: 3 }}
+                    onClick={useLatestSdkVersion}
+                  >
+                    Use latest
+                  </a>
+                )}
               </div>
             )}
           </div>

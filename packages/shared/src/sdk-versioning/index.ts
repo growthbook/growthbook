@@ -39,6 +39,14 @@ export const getCurrentVersion = (language: SDKLanguage = "other"): string => {
   return current?.version || "0.0.0";
 };
 
+export const isOutdated = (
+  language: SDKLanguage = "other",
+  version: string = "0.0.0"
+): boolean => {
+  const current = getCurrentVersion(language);
+  return paddedVersionString(version) < paddedVersionString(current);
+};
+
 export const getCapabilities = (
   language: SDKLanguage = "other",
   version: string = "0.0.0"
