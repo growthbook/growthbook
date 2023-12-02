@@ -1,12 +1,20 @@
 import { SDKLanguage } from "back-end/types/sdk-connection";
 import uniq from "lodash/uniq";
+import { SDKCapability } from "./types";
 
 import * as javascript_json from "./sdk-versions/javascript.json";
 import * as nodejs_json from "./sdk-versions/nodejs.json";
 import * as react_json from "./sdk-versions/react.json";
+import * as php_json from "./sdk-versions/php.json";
+import * as python_json from "./sdk-versions/python.json";
+import * as ruby_json from "./sdk-versions/ruby.json";
+import * as java_json from "./sdk-versions/java.json";
+import * as kotlin_json from "./sdk-versions/kotlin.json";
+import * as swift_json from "./sdk-versions/swift.json";
+import * as go_json from "./sdk-versions/go.json";
+import * as flutter_json from "./sdk-versions/flutter.json";
+import * as csharp_json from "./sdk-versions/csharp.json";
 import * as other_json from "./sdk-versions/other.json";
-
-export type SDKCapability = "loose-unmarshalling" | "remote-evaluation";
 
 type SDKRecords = Record<SDKLanguage, SDKData>;
 type SDKData = {
@@ -21,8 +29,17 @@ const sdks: SDKRecords = {
   javascript: javascript_json,
   nodejs: nodejs_json,
   react: react_json,
+  php: php_json,
+  python: python_json,
+  ruby: ruby_json,
+  java: java_json,
+  android: kotlin_json,
+  ios: swift_json,
+  go: go_json,
+  flutter: flutter_json,
+  csharp: csharp_json,
   other: other_json,
-} as SDKRecords;
+};
 
 const getSdkData = (language: SDKLanguage = "other"): SDKData => {
   let sdkData: SDKData = sdks[language];
@@ -92,4 +109,5 @@ function paddedVersionString(input: any): string {
     .join("-");
 }
 
+export * from "./types";
 export * from "./sdk-payload";

@@ -1,22 +1,19 @@
 {
   "versions": [
     {
-      "version": "0.31.0"
-    },
-    {
-      "version": "0.27.0",
-      "capabilities": ["semverTargeting"]
-    },
-    {
-      "version": "0.23.0",
-      "capabilities": ["bucketingV2"]
-    },
-    {
-      "version": "0.21.0",
+      "version": "0.9.0",
       "capabilities": ["streaming"]
     },
     {
-      "version": "0.20.0",
+      "version": "0.7.0",
+      "capabilities": ["semverTargeting"]
+    },
+    {
+      "version": "0.6.0",
+      "capabilities": ["bucketingV2"]
+    },
+    {
+      "version": "0.3.0",
       "capabilities": ["encryption"]
     },
     {

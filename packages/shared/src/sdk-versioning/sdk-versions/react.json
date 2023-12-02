@@ -1,12 +1,39 @@
 {
   "versions": [
     {
-      "version": "0.21.0",
-      "capabilities": ["remote-evaluation"]
+      "version": "0.21.0"
+    },
+    {
+      "version": "0.20.0",
+      "capabilities": ["visualEditorDragDrop"]
+    },
+    {
+      "version": "0.19.0",
+      "capabilities": ["remoteEvaluation"]
+    },
+    {
+      "version": "0.17.0",
+      "capabilities": ["semverTargeting", "visualEditorJS"]
+    },
+    {
+      "version": "0.14.0",
+      "capabilities": ["visualEditor"]
+    },
+    {
+      "version": "0.13.0",
+      "capabilities": ["bucketingV2"]
+    },
+    {
+      "version": "0.11.0",
+      "capabilities": ["streaming"]
+    },
+    {
+      "version": "0.10.1",
+      "capabilities": ["encryption"]
     },
     {
       "version": "0.0.0",
-      "capabilities": ["loose-unmarshalling"]
+      "capabilities": ["looseUnmarshalling"]
     }
   ]
 }

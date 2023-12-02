@@ -55,7 +55,7 @@ export const scrubFeatures = (
   capabilities: SDKCapability[]
 ): Record<string, FeatureDefinitionWithProject> => {
   for (const k in features) {
-    if (!capabilities.includes("loose-unmarshalling")) {
+    if (!capabilities.includes("looseUnmarshalling")) {
       features[k] = pick(
         features[k],
         strictFeatureKeys
@@ -63,7 +63,7 @@ export const scrubFeatures = (
     }
     if (features[k]?.rules) {
       features[k].rules = features[k].rules?.map((rule) => {
-        if (!capabilities.includes("loose-unmarshalling")) {
+        if (!capabilities.includes("looseUnmarshalling")) {
           rule = {
             ...pick(rule, strictFeatureRuleKeys),
           };
@@ -81,7 +81,7 @@ export const scrubExperiments = (
   capabilities: SDKCapability[]
 ): AutoExperimentWithProject[] => {
   for (let i = 0; i < experiments.length; i++) {
-    if (!capabilities.includes("loose-unmarshalling")) {
+    if (!capabilities.includes("looseUnmarshalling")) {
       experiments[i] = pick(
         experiments[i],
         strictExperimentKeys
