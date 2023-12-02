@@ -1,0 +1,12 @@
+{
+  "versions": [
+    {
+      "version": "0.21.0",
+      "capabilities": ["remote-evaluation"]
+    },
+    {
+      "version": "0.0.0",
+      "capabilities": ["loose-unmarshalling"]
+    }
+  ]
+}

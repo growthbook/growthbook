@@ -1,6 +1,10 @@
 import { SDKLanguage } from "back-end/types/sdk-connection";
 import uniq from "lodash/uniq";
-import * as sdksJson from "./sdks.json";
+
+import * as javascript_json from "./sdk-versions/javascript.json";
+import * as nodejs_json from "./sdk-versions/nodejs.json";
+import * as react_json from "./sdk-versions/react.json";
+import * as other_json from "./sdk-versions/other.json";
 
 export type SDKCapability = "loose-unmarshalling" | "remote-evaluation";
 
@@ -12,7 +16,13 @@ type SDKVersionData = {
   version: string;
   capabilities?: string[];
 };
-const sdks: SDKRecords = sdksJson as SDKRecords;
+
+const sdks: SDKRecords = {
+  javascript: javascript_json,
+  nodejs: nodejs_json,
+  react: react_json,
+  other: other_json,
+} as SDKRecords;
 
 const getSdkData = (language: SDKLanguage = "other"): SDKData => {
   let sdkData: SDKData = sdks[language];
