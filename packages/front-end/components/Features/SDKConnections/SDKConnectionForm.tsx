@@ -310,34 +310,38 @@ export default function SDKConnectionForm({
               </span>
             ) : null}
             <div className="flex-1" />
-            {form.watch("languages")?.length === 1 && (
-              <div className="position-relative text-right" style={{ top: 5 }}>
-                <Field
-                  className="text-right"
-                  style={{ width: 80 }}
-                  placeholder="0.0.0"
-                  prepend={<span className="small">SDK ver.</span>}
-                  {...form.register("sdkVersion")}
-                />
-                {usingLatestVersion ? (
-                  <span
-                    className="small position-absolute text-muted"
-                    style={{ zIndex: 1, right: 3 }}
-                  >
-                    Using latest
-                  </span>
-                ) : (
-                  <a
-                    role="button"
-                    className="small position-absolute"
-                    style={{ zIndex: 1, right: 3 }}
-                    onClick={useLatestSdkVersion}
-                  >
-                    Use latest
-                  </a>
-                )}
-              </div>
-            )}
+            {form.watch("languages")?.length === 1 &&
+              form.watch("languages")[0] !== "other" && (
+                <div className="text-right position-relative">
+                  <div className="d-inline-flex align-items-center">
+                    <label className="mb-0 mr-2">SDK ver.</label>
+                    <Field
+                      className="text-right"
+                      style={{ width: 80 }}
+                      placeholder="0.0.0"
+                      autoComplete="off"
+                      {...form.register("sdkVersion")}
+                    />
+                  </div>
+                  {usingLatestVersion ? (
+                    <div
+                      className="small position-absolute text-muted"
+                      style={{ zIndex: 1, right: 3 }}
+                    >
+                      Using latest
+                    </div>
+                  ) : (
+                    <a
+                      role="button"
+                      className="d-block small position-absolute"
+                      style={{ zIndex: 1, right: 3 }}
+                      onClick={useLatestSdkVersion}
+                    >
+                      Use latest
+                    </a>
+                  )}
+                </div>
+              )}
           </div>
           <SDKLanguageSelector
             value={form.watch("languages")}

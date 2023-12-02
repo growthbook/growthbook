@@ -195,7 +195,7 @@ export default function SDKLanguageLogo({
 
   const labelText = label;
   let versionText: ReactElement | null = null;
-  if (version !== undefined) {
+  if (version !== undefined && language !== "other") {
     versionText = (
       <>
         <span className="text-info small ml-2">ver. {version || "0"}</span>
