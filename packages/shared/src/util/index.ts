@@ -209,3 +209,42 @@ export function stringToBoolean(
     return false;
   return defaultValue;
 }
+
+export function isLegacySavedGroup(condition: string, attributeKey: string) {
+  if (condition && condition !== "{}") {
+    try {
+      const parsed = JSON.parse(condition);
+      if (parsed && Object.keys(parsed).length === 1 && parsed[attributeKey]) {
+        const cond = parsed[attributeKey];
+        if (cond && Object.keys(cond).length === 1 && cond["$in"]) {
+          return true;
+        }
+      }
+    } catch (e) {
+      // Ignore parse errors
+    }
+  }
+
+  return false;
+}
+
+export function getLegacySavedGroupValues(
+  condition: string,
+  attributeKey: string
+): string[] | number[] {
+  if (condition && condition !== "{}") {
+    try {
+      const parsed = JSON.parse(condition);
+      if (parsed && Object.keys(parsed).length === 1 && parsed[attributeKey]) {
+        const cond = parsed[attributeKey];
+        if (cond && Object.keys(cond).length === 1 && cond["$in"]) {
+          return cond["$in"];
+        }
+      }
+    } catch (e) {
+      // Ignore parse errors
+    }
+  }
+
+  return [];
+}

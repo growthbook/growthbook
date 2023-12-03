@@ -1,6 +1,8 @@
-import { FC } from "react";
+import { FC, useMemo } from "react";
 import { SavedGroupInterface } from "back-end/types/saved-group";
 import { useForm } from "react-hook-form";
+import { isLegacySavedGroup } from "shared/util";
+import { FaQuestionCircle } from "react-icons/fa";
 import { useAttributeSchema } from "@/services/features";
 import { useAuth } from "../../services/auth";
 import useMembers from "../../hooks/useMembers";
@@ -9,6 +11,7 @@ import Modal from "../Modal";
 import Field from "../Forms/Field";
 import SelectField from "../Forms/SelectField";
 import ConditionInput from "../Features/ConditionInput";
+import Tooltip from "../Tooltip/Tooltip";
 
 function getKeyFromName(name: string) {
   return name.toLowerCase().split(/\s+/g).join("_").replace(/__*/g, "_");
@@ -44,6 +47,26 @@ const SavedGroupForm: FC<{
           : ""),
     },
   });
+
+  const condition = form.watch("condition");
+  const isNoLongerLegacy = useMemo(() => {
+    // Only relevant for existing inline groups
+    if (
+      !current.id ||
+      !current.attributeKey ||
+      !current.condition ||
+      current.source !== "inline"
+    ) {
+      return false;
+    }
+
+    // Only a problem if we're going from containing legacy values to not containing any values
+    if (!isLegacySavedGroup(current.condition, current.attributeKey)) {
+      return false;
+    }
+
+    return !isLegacySavedGroup(condition, current.attributeKey);
+  }, [condition, current]);
 
   return (
     <Modal
@@ -115,12 +138,41 @@ const SavedGroupForm: FC<{
           require
         />
       )}
-      {current.id && (
-        <div className="alert alert-warning mt-2">
-          <b>Warning:</b> Updating this group will automatically update any
-          feature or experiment that references it.
+      {isNoLongerLegacy ? (
+        <div className="alert alert-danger mt-2">
+          <Tooltip
+            body={
+              <>
+                <p>
+                  If this Saved Group is referenced in a{" "}
+                  <strong>Target by Attribute</strong> field in any
+                  feature/experiment, it will stop working immediately. You must
+                  use the newer and more flexible{" "}
+                  <strong>Target by Saved Group</strong> field instead.
+                </p>
+
+                <p>
+                  If you prefer to remain backwards compatible, you must select
+                  the <code>{current.attributeKey || ""}</code> attribute and{" "}
+                  <code>is in the list</code> operator without any extra
+                  conditions applied. This warning will disappear when all
+                  backwards incompatible changes are removed.
+                </p>
+              </>
+            }
+          >
+            <b>
+              Warning: Backwards Incompatible Change <FaQuestionCircle />
+            </b>
+          </Tooltip>
+          . Saving may break existing feature/experiment targeting rules.
         </div>
-      )}
+      ) : current.id ? (
+        <div className="alert alert-info mt-2">
+          <b>Notice:</b> Saving this form will immediately update any live
+          feature or experiment that references this Saved Group.
+        </div>
+      ) : null}
     </Modal>
   );
 };

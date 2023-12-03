@@ -1,10 +1,13 @@
 import { SavedGroupInterface } from "back-end/types/saved-group";
 import stringify from "json-stringify-pretty-compact";
-import { useMemo } from "react";
+import { ReactElement, useMemo } from "react";
 import { SavedGroupTargeting } from "back-end/types/feature";
+import { isLegacySavedGroup } from "shared/util";
+import { FaTriangleExclamation } from "react-icons/fa6";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { jsonToConds, useAttributeMap } from "@/services/features";
 import InlineCode from "../SyntaxHighlighting/InlineCode";
+import Tooltip from "../Tooltip/Tooltip";
 import SavedGroupTargetingDisplay from "./SavedGroupTargetingDisplay";
 
 function operatorToText(operator: string): string {
@@ -62,21 +65,95 @@ function operatorToText(operator: string): string {
 function needsValue(operator: string) {
   return !["$exists", "$notExists", "$empty", "$notEmpty"].includes(operator);
 }
+function hasMultiValues(operator: string) {
+  return ["$in", "$nin"].includes(operator);
+}
+
 function getValue(
   operator: string,
   value: string,
   savedGroups?: SavedGroupInterface[]
-): string {
+): string | ReactElement {
   if (operator === "$true") return "TRUE";
   if (operator === "$false") return "FALSE";
 
   // Get the groupName from the associated group.id to display a human readable name.
-  if (operator === ("$inGroup" || "$notInGroup") && savedGroups) {
-    const index = savedGroups.find((i) => i.id === value);
+  if ((operator === "$inGroup" || operator === "$notInGroup") && savedGroups) {
+    const group = savedGroups.find((i) => i.id === value);
 
-    return index?.groupName || "Group was Deleted";
+    if (!group) return <em>Deleted Group</em>;
+
+    if (!isLegacySavedGroup(group.condition, group.attributeKey)) {
+      return (
+        <span>
+          {group.groupName}{" "}
+          <Tooltip
+            body={
+              <>
+                This Saved Group cannot be used with{" "}
+                <strong>Attribute Targeting</strong> and this condition will
+                always be evaluated as{" "}
+                <code>{operator === "$inGroup" ? "false" : "true"}</code>.
+                Switch to the newer <strong>Saved Group Targeting</strong> field
+                instead.
+              </>
+            }
+          >
+            <FaTriangleExclamation className="text-danger" />
+          </Tooltip>
+        </span>
+      );
+    }
+
+    return group.groupName;
   }
   return value;
+}
+
+const MULTI_VALUE_LIMIT = 3;
+
+function MultiValueDisplay({ value }: { value: string }) {
+  const parts = value
+    .split(",")
+    .map((v) => v.trim())
+    .filter(Boolean);
+
+  if (!parts.length) {
+    return (
+      <span className="mr-1">
+        <em>empty list</em>
+      </span>
+    );
+  }
+
+  return (
+    <>
+      <span className="mr-1">(</span>
+      {parts.slice(0, MULTI_VALUE_LIMIT).map((v, i) => (
+        <span key={i} className="mr-1 border px-2 bg-light rounded">
+          {v}
+        </span>
+      ))}
+      {parts.length > MULTI_VALUE_LIMIT && (
+        <Tooltip
+          body={
+            <div>
+              {parts.slice(MULTI_VALUE_LIMIT).map((v, i) => (
+                <span key={i} className="mr-1 border px-2 bg-light rounded">
+                  {v}
+                </span>
+              ))}
+            </div>
+          }
+        >
+          <span className="mr-1">
+            <em>+ {parts.length - MULTI_VALUE_LIMIT} more</em>
+          </span>
+        </Tooltip>
+      )}
+      )
+    </>
+  );
 }
 
 export default function ConditionDisplay({
@@ -112,7 +189,9 @@ export default function ConditionDisplay({
       {i > 0 && <span className="mr-1">AND</span>}
       <span className="mr-1 border px-2 bg-light rounded">{field}</span>
       <span className="mr-1">{operatorToText(operator)}</span>
-      {needsValue(operator) ? (
+      {hasMultiValues(operator) ? (
+        <MultiValueDisplay value={value} />
+      ) : needsValue(operator) ? (
         <span className="mr-1 border px-2 bg-light rounded">
           {getValue(operator, value, savedGroups)}
         </span>

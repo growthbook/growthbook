@@ -1,6 +1,9 @@
 import isEqual from "lodash/isEqual";
 import { FeatureRule as FeatureDefinitionRule } from "@growthbook/growthbook";
-import { includeExperimentInPayload } from "shared/util";
+import {
+  includeExperimentInPayload,
+  getLegacySavedGroupValues,
+} from "shared/util";
 import {
   FeatureInterface,
   FeatureRule,
@@ -12,7 +15,6 @@ import { GroupMap } from "../../types/saved-group";
 import { SDKPayloadKey } from "../../types/sdk-payload";
 import { ExperimentInterface } from "../../types/experiment";
 import { FeatureRevisionInterface } from "../../types/feature-revision";
-import { getLegacySavedGroupValues } from "../models/SavedGroupModel";
 import { getCurrentEnabledState } from "./scheduleRules";
 
 // eslint-disable-next-line

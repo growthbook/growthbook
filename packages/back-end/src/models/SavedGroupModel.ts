@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 import uniqid from "uniqid";
 import { omit } from "lodash";
+import { getLegacySavedGroupValues } from "shared/util";
 import { ApiSavedGroup } from "../../types/openapi";
 import { SavedGroupInterface } from "../../types/saved-group";
 import {
@@ -169,27 +170,6 @@ export async function deleteSavedGroupById(id: string, organization: string) {
     id,
     organization,
   });
-}
-
-export function getLegacySavedGroupValues(
-  condition: string,
-  attributeKey: string
-): string[] | number[] {
-  if (condition && condition !== "{}") {
-    try {
-      const parsed = JSON.parse(condition);
-      if (parsed && Object.keys(parsed).length === 1 && parsed[attributeKey]) {
-        const cond = parsed[attributeKey];
-        if (cond && Object.keys(cond).length === 1 && cond["$in"]) {
-          return cond["$in"];
-        }
-      }
-    } catch (e) {
-      // Ignore parse errors
-    }
-  }
-
-  return [];
 }
 
 export function toSavedGroupApiInterface(
