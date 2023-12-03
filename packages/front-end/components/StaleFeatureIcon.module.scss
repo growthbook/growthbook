@@ -1,0 +1,9 @@
+.staleIcon {
+  color: #ffc107;
+  cursor: pointer;
+
+  &:hover {
+    // slightly darker yellow
+    color: #e0a800;
+  }
+}

@@ -90,7 +90,7 @@ export type MetricOverride = {
 export interface LegacyExperimentInterface
   extends Omit<
     ExperimentInterface,
-    "phases" | "variations" | "attributionModel"
+    "phases" | "variations" | "attributionModel" | "releasedVariationId"
   > {
   /**
    * @deprecated
@@ -99,6 +99,7 @@ export interface LegacyExperimentInterface
   attributionModel: ExperimentInterface["attributionModel"] | "allExposures";
   variations: LegacyVariation[];
   phases: LegacyExperimentPhase[];
+  releasedVariationId?: string;
 }
 
 export interface ExperimentInterface {
@@ -155,6 +156,7 @@ export interface ExperimentInterface {
   sequentialTestingEnabled?: boolean;
   sequentialTestingTuningParameter?: number;
   statsEngine?: StatsEngine;
+  manualLaunchChecklist?: { key: string; status: "complete" | "incomplete" }[];
 }
 
 export type ExperimentInterfaceStringDates = Omit<

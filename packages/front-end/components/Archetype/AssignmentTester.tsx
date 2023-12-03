@@ -3,6 +3,7 @@ import { FeatureInterface, FeatureTestResult } from "back-end/types/feature";
 import { FaChevronRight } from "react-icons/fa";
 import { useForm } from "react-hook-form";
 import { ArchetypeInterface } from "back-end/types/archetype";
+import { FiAlertTriangle } from "react-icons/fi";
 import { useAuth } from "@/services/auth";
 import { useAttributeSchema } from "@/services/features";
 import ValueDisplay from "@/components/Features/ValueDisplay";
@@ -15,6 +16,7 @@ import AttributeForm from "@/components/Archetype/AttributeForm";
 import Modal from "@/components/Modal";
 import { useUser } from "@/services/UserContext";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
+import { NewBucketingSDKList } from "@/components/Experiment/HashVersionSelector";
 import styles from "./AssignmentTester.module.scss";
 
 export interface Props {
@@ -27,9 +29,6 @@ export default function AssignmentTester({ feature, version }: Props) {
   const [formValues, setFormValues] = useState({});
   const [results, setResults] = useState<null | FeatureTestResult[]>(null);
   const [expandResults, setExpandResults] = useState<number[]>([]);
-  const [showSimulateForm, setShowSimulateForm] = useState<boolean | null>(
-    null
-  );
   const [
     openArchetypeModal,
     setOpenArchetypeModal,
@@ -266,121 +265,98 @@ export default function AssignmentTester({ feature, version }: Props) {
 
   return (
     <>
-      {!open ? (
-        <div className="appbox mb-4 p-3">
+      <>
+        <div>
+          {data && data?.archetype.length > 0 && (
+            <ArchetypeResults
+              feature={feature}
+              archetype={data.archetype}
+              featureResults={data.featureResults}
+              onChange={async () => {
+                await mutate();
+              }}
+            />
+          )}
+        </div>
+
+        <div className="appbox p-3">
           <div
             className="d-flex flex-row align-items-center justify-content-between cursor-pointer"
-            onClick={() => setOpen(!open)}
+            onClick={() => {
+              setOpen(!open);
+            }}
           >
             <div>
               Simulate how your rules will apply to users.{" "}
-              <Tooltip body="Enter attributes, like are set by your app via the SDK, and see how Growthbook would evaluate this feature for the different environments. Will use draft rules."></Tooltip>
+              <Tooltip body="Enter attributes and see how Growthbook would evaluate this feature for the different environments. Will use draft rules."></Tooltip>
             </div>
-            <div className="cursor-pointer" onClick={() => setOpen(!open)}>
-              <FaChevronRight
-                style={{
-                  transform: `rotate(${open ? "90deg" : "0deg"})`,
-                }}
-              />
-            </div>
-          </div>
-        </div>
-      ) : (
-        <>
-          <div style={{ position: "relative" }}>
-            <div
-              className="cursor-pointer"
-              onClick={() => setOpen(!open)}
-              style={{ position: "absolute", top: "-26px", right: "10px" }}
-            >
-              <FaChevronRight
-                style={{
-                  transform: `rotate(${open ? "90deg" : "0deg"})`,
-                }}
-              />
-            </div>
-          </div>
-          <div>
-            {data && data?.archetype.length > 0 && (
-              <ArchetypeResults
-                feature={feature}
-                archetype={data.archetype}
-                featureResults={data.featureResults}
-                onChange={async () => {
-                  await mutate();
-                }}
-              />
-            )}
-          </div>
 
-          <div className="appbox p-3">
-            <div
-              className="d-flex flex-row align-items-center justify-content-between cursor-pointer"
-              onClick={() => {
-                if (data && data?.archetype.length > 0) {
-                  setShowSimulateForm(!showSimulateForm);
-                }
-              }}
-            >
-              <div>
-                Simulate how your rules will apply to users.{" "}
-                <Tooltip body="Enter attributes, like are set by your app via the SDK, and see how Growthbook would evaluate this feature for the different environments. Will use draft rules."></Tooltip>
-              </div>
-              {data && data?.archetype.length > 0 && (
-                <div className="cursor-pointer">
-                  <FaChevronRight
-                    style={{
-                      transform: `rotate(${
-                        (showSimulateForm === null &&
-                          !data?.archetype.length) ||
-                        showSimulateForm === true
-                          ? "90deg"
-                          : "0deg"
-                      })`,
+            <div className="cursor-pointer">
+              <FaChevronRight
+                style={{
+                  transform: `rotate(${open ? "90deg" : "0deg"})`,
+                }}
+              />
+            </div>
+          </div>
+          {open && (
+            <div>
+              {" "}
+              <hr />
+              <div className="row">
+                <div className="col-6">
+                  <AttributeForm
+                    onChange={(attrs) => {
+                      setFormValues(attrs);
                     }}
                   />
+                  <div className="mt-2">
+                    <PremiumTooltip commercialFeature="archetypes">
+                      <a
+                        onClick={(e) => {
+                          e.preventDefault();
+                          setOpenArchetypeModal({
+                            attributes: JSON.stringify(formValues),
+                          });
+                        }}
+                        href="#"
+                        className="btn btn-outline-primary"
+                      >
+                        Save Archetype
+                      </a>
+                    </PremiumTooltip>
+                  </div>
                 </div>
-              )}
-            </div>
-            {((showSimulateForm === null && !data?.archetype.length) ||
-              showSimulateForm === true) && (
-              <div>
-                {" "}
-                <hr />
-                <div className="row">
-                  <div className="col-6">
-                    <AttributeForm
-                      onChange={(attrs) => {
-                        setFormValues(attrs);
-                      }}
-                    />
-                    <div className="mt-2">
-                      <PremiumTooltip commercialFeature="archetypes">
-                        <a
-                          onClick={(e) => {
-                            e.preventDefault();
-                            setOpenArchetypeModal({
-                              attributes: JSON.stringify(formValues),
-                            });
-                          }}
-                          href="#"
-                          className="btn btn-outline-primary"
-                        >
-                          Save Archetype
-                        </a>
-                      </PremiumTooltip>
+                <div className="mb-2 col-6" style={{ paddingTop: "32px" }}>
+                  <h4>
+                    Results{" "}
+                    <div className="text-warning float-right">
+                      <Tooltip
+                        body={
+                          <>
+                            These results use the JS SDK, which supports the V2
+                            hashing algorithm. If you use one of the older or
+                            unsupported SDKs, you may want to change the hashing
+                            algorithm of the experiment to v1 to ensure accurate
+                            results.
+                            <br />
+                            <br />
+                            The following SDK versions support V2 hashing:
+                            <NewBucketingSDKList />
+                          </>
+                        }
+                      >
+                        <FiAlertTriangle />
+                      </Tooltip>
                     </div>
-                  </div>
-                  <div className="mb-2 col-6" style={{ paddingTop: "32px" }}>
-                    <h4>Results</h4>
-                    {showResults()}
-                  </div>
+                  </h4>
+                  {showResults()}
                 </div>
               </div>
-            )}
-          </div>
-        </>
-      )}
+            </div>
+          )}
+        </div>
+      </>
       {openArchetypeModal && (
         <>
           {hasArchetypeAccess ? (

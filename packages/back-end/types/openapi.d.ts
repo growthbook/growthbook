@@ -718,7 +718,9 @@ export interface components {
       organization: string;
       languages: (string)[];
       environment: string;
+      /** @description Use 'projects' instead. This is only for backwards compatibility and contains the first project only. */
       project: string;
+      projects?: (string)[];
       encryptPayload: boolean;
       encryptionKey: string;
       includeVisualExperiments?: boolean;
@@ -2397,7 +2399,9 @@ export interface operations {
                 organization: string;
                 languages: (string)[];
                 environment: string;
+                /** @description Use 'projects' instead. This is only for backwards compatibility and contains the first project only. */
                 project: string;
+                projects?: (string)[];
                 encryptPayload: boolean;
                 encryptionKey: string;
                 includeVisualExperiments?: boolean;
@@ -2439,7 +2443,9 @@ export interface operations {
               organization: string;
               languages: (string)[];
               environment: string;
+              /** @description Use 'projects' instead. This is only for backwards compatibility and contains the first project only. */
               project: string;
+              projects?: (string)[];
               encryptPayload: boolean;
               encryptionKey: string;
               includeVisualExperiments?: boolean;

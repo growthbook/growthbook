@@ -170,6 +170,8 @@ export interface OrganizationSettings {
   pValueCorrection?: PValueCorrection;
   regressionAdjustmentEnabled?: boolean;
   regressionAdjustmentDays?: number;
+  runHealthTrafficQuery?: boolean;
+  srmThreshold?: number;
   /** @deprecated */
   implementationTypes?: ImplementationType[];
   attributionModel?: AttributionModel;

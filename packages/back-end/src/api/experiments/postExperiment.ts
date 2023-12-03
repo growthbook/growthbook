@@ -10,12 +10,14 @@ import {
 } from "../../services/experiments";
 import { createApiRequestHandler } from "../../util/handler";
 import { postExperimentValidator } from "../../validators/openapi";
+import { getUserByEmail } from "../../services/users";
+import { upsertWatch } from "../../models/WatchModel";
 
 export const postExperiment = createApiRequestHandler(postExperimentValidator)(
   async (req): Promise<PostExperimentResponse> => {
     req.checkPermissions("createAnalyses", req.body.project);
 
-    const { datasourceId } = req.body;
+    const { datasourceId, owner } = req.body;
 
     const datasource = await getDataSourceById(
       datasourceId,
@@ -48,9 +50,20 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
       );
     }
 
+    const user = await getUserByEmail(owner);
+
+    // check if the user is a member of the organization
+    const isMember = req.organization.members.some(
+      (member) => member.id === user?.id
+    );
+
+    if (!isMember || !user) {
+      throw new Error(`Unable to find user: ${owner}.`);
+    }
+
     // transform into exp interface; set sane defaults
     const newExperiment = postExperimentApiPayloadToInterface(
-      req.body,
+      { ...req.body, owner: user.id },
       req.organization,
       datasource
     );
@@ -59,6 +72,14 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
       data: newExperiment,
       organization: req.organization,
       user: req.eventAudit,
+    });
+
+    // add owner as watcher
+    await upsertWatch({
+      userId: user.id,
+      organization: req.organization.id,
+      item: experiment.id,
+      type: "experiments",
     });
 
     const apiExperiment = await toExperimentApiInterface(

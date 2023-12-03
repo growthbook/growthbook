@@ -81,6 +81,36 @@ export const ReactSelectProps = {
         color: "var(--form-multivalue-text-color)",
       };
     },
+    control: (styles) => {
+      return {
+        ...styles,
+        backgroundColor: "var(--surface-background-color)",
+      };
+    },
+    menu: (styles) => {
+      return {
+        ...styles,
+        backgroundColor: "var(--surface-background-color)",
+      };
+    },
+    option: (styles, { isFocused }) => {
+      return {
+        ...styles,
+        color: isFocused ? "var(--text-hover-color)" : "var(--text-color-main)",
+      };
+    },
+    input: (styles) => {
+      return {
+        ...styles,
+        color: "var(--text-color-main)",
+      };
+    },
+    singleValue: (styles) => {
+      return {
+        ...styles,
+        color: "var(--text-color-main)",
+      };
+    },
   },
   menuPosition: "fixed" as const,
   isSearchable: true,

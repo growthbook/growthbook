@@ -3,7 +3,12 @@ import ReactDiffViewer, { DiffMethod } from "react-diff-viewer";
 import { useState, useMemo } from "react";
 import { FaAngleDown, FaAngleRight, FaCheck } from "react-icons/fa";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
-import { MergeConflict, MergeStrategy, autoMerge } from "shared/util";
+import {
+  MergeConflict,
+  MergeStrategy,
+  autoMerge,
+  mergeResultHasChanges,
+} from "shared/util";
 import clsx from "clsx";
 import { useEnvironments } from "@/services/features";
 import { useAuth } from "@/services/auth";
@@ -139,8 +144,14 @@ export default function FixConflictsModal({
 
   const mergeResult = useMemo(() => {
     if (!revision || !baseRevision || !liveRevision) return null;
-    return autoMerge(liveRevision, baseRevision, revision, strategies);
-  }, [revision, baseRevision, liveRevision, strategies]);
+    return autoMerge(
+      liveRevision,
+      baseRevision,
+      revision,
+      environments.map((e) => e.id),
+      strategies
+    );
+  }, [revision, baseRevision, liveRevision, environments, strategies]);
 
   const resultDiffs = useMemo(() => {
     const diffs: { a: string; b: string; title: string }[] = [];
@@ -175,10 +186,7 @@ export default function FixConflictsModal({
 
   if (!revision || !mergeResult || !mergeResult.conflicts.length) return null;
 
-  const hasChanges =
-    !mergeResult.success ||
-    Object.keys(mergeResult.result.rules || {}).length > 0 ||
-    !!mergeResult.result.defaultValue;
+  const hasChanges = mergeResultHasChanges(mergeResult);
 
   return (
     <PagedModal
