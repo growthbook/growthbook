@@ -8,7 +8,7 @@ import { useRouter } from "next/router";
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import { FaCheck, FaExclamationCircle, FaInfoCircle } from "react-icons/fa";
 import clsx from "clsx";
-import { getCurrentVersion, isOutdated } from "shared/sdk-versioning";
+import { getCurrentSDKVersion, isSDKOutdated } from "shared/sdk-versioning";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useEnvironments } from "@/services/features";
 import Modal from "@/components/Modal";
@@ -88,7 +88,7 @@ export default function SDKConnectionForm({
       languages: initialValue.languages ?? [],
       sdkVersion:
         initialValue.sdkVersion ??
-        getCurrentVersion(
+        getCurrentSDKVersion(
           initialValue?.languages?.length === 1
             ? initialValue.languages[0]
             : "other"
@@ -112,14 +112,14 @@ export default function SDKConnectionForm({
     },
   });
 
-  const usingLatestVersion = !isOutdated(
+  const usingLatestVersion = !isSDKOutdated(
     form.watch("languages")?.[0] || "other",
     form.watch("sdkVersion")
   );
 
   const useLatestSdkVersion = () => {
     const language = form.watch("languages")?.[0] || "other";
-    const latest = getCurrentVersion(language);
+    const latest = getCurrentSDKVersion(language);
     form.setValue("sdkVersion", latest);
   };
 
@@ -348,7 +348,7 @@ export default function SDKConnectionForm({
             setValue={(languages) => {
               form.setValue("languages", languages);
               if (languages?.length === 1) {
-                form.setValue("sdkVersion", getCurrentVersion(languages[0]));
+                form.setValue("sdkVersion", getCurrentSDKVersion(languages[0]));
               }
             }}
             multiple={false}

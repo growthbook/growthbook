@@ -1,6 +1,6 @@
 import { createHmac } from "crypto";
 import Agenda, { Job } from "agenda";
-import { getCapabilities } from "shared/sdk-versioning";
+import { getConnectionSDKCapabilities } from "shared/sdk-versioning";
 import { getFeatureDefinitions } from "../services/features";
 import { CRON_ENABLED, IS_CLOUD } from "../util/secrets";
 import { SDKPayloadKey } from "../../types/sdk-payload";
@@ -45,19 +45,14 @@ export default function addProxyUpdateJob(ag: Agenda) {
       return;
     }
 
-    // TODO This probably needs to renamed
     const defs = await getFeatureDefinitions({
       organization: connection.organization,
-      capabilities: getCapabilities(
-        connection?.languages?.length === 1 ? connection.languages[0] : "other",
-        connection.sdkVersion
-      ),
+      capabilities: getConnectionSDKCapabilities(connection),
       environment: connection.environment,
       projects: connection.projects,
       encryptionKey: connection.encryptPayload
         ? connection.encryptionKey
         : undefined,
-
       includeVisualExperiments: connection.includeVisualExperiments,
       includeDraftExperiments: connection.includeDraftExperiments,
       includeExperimentNames: connection.includeExperimentNames,

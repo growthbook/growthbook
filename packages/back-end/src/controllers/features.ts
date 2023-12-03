@@ -2,7 +2,10 @@ import { Request, Response } from "express";
 import { evaluateFeatures } from "@growthbook/proxy-eval";
 import { isEqual } from "lodash";
 import { MergeResultChanges, MergeStrategy, autoMerge } from "shared/util";
-import { getCapabilities, SDKCapability } from "shared/sdk-versioning";
+import {
+  getConnectionSDKCapabilities,
+  SDKCapability,
+} from "shared/sdk-versioning";
 import {
   ExperimentRefRule,
   FeatureInterface,
@@ -127,10 +130,7 @@ export async function getPayloadParamsFromApiKey(
 
     return {
       organization: connection.organization,
-      capabilities: getCapabilities(
-        connection?.languages?.length === 1 ? connection.languages[0] : "other",
-        connection.sdkVersion
-      ),
+      capabilities: getConnectionSDKCapabilities(connection),
       environment: connection.environment,
       projects: connection.projects,
       encrypted: connection.encryptPayload,

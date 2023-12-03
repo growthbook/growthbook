@@ -1,4 +1,4 @@
-import { SDKLanguage } from "back-end/types/sdk-connection";
+import {SDKConnectionInterface, SDKLanguage} from "back-end/types/sdk-connection";
 import uniq from "lodash/uniq";
 import { SDKCapability } from "./types";
 
@@ -49,25 +49,26 @@ const getSdkData = (language: SDKLanguage = "other"): SDKData => {
   return sdkData;
 };
 
-export const getCurrentVersion = (language: SDKLanguage = "other"): string => {
+export const getCurrentSDKVersion = (language: SDKLanguage = "other"): string => {
   const sdkData = getSdkData(language);
   const versions = sdkData?.versions || [];
   const current = versions?.[0];
   return current?.version || "0.0.0";
 };
 
-export const isOutdated = (
+export const isSDKOutdated = (
   language: SDKLanguage = "other",
   version: string = "0.0.0"
 ): boolean => {
-  const current = getCurrentVersion(language);
+  const current = getCurrentSDKVersion(language);
   return paddedVersionString(version) < paddedVersionString(current);
 };
 
-export const getCapabilities = (
+export const getSDKCapabilities = (
   language: SDKLanguage = "other",
   version: string = "0.0.0"
 ): SDKCapability[] => {
+  language = language || "other";
   version = version || "0.0.0";
   const sdkData = getSdkData(language);
   const versions = sdkData?.versions || [];
@@ -75,10 +76,29 @@ export const getCapabilities = (
     (data) => paddedVersionString(data.version) <= paddedVersionString(version)
   );
   const capabilities = matches.reduce(
-    (acc, data) => [...acc, ...(data?.capabilities ?? [])],
-    []
+    (acc, data) => [...acc, ...(data?.capabilities ?? [])], []
   );
   return uniq(capabilities) as SDKCapability[];
+};
+
+// Typically works the same as getCapabilities. However, if the connection has multiple languages, assume the
+// minimal-allowed SDK Version (0.0.0), and return the intersection of capabilities between all languages.
+export const getConnectionSDKCapabilities = (connection: SDKConnectionInterface) => {
+  if ((connection?.languages?.length || 0) <= 1) {
+    return getSDKCapabilities(connection.languages?.[0], connection.sdkVersion);
+  }
+  let capabilities: SDKCapability[] = [];
+  let i = 0;
+  for (const language of connection.languages) {
+    const languageCapabilities = getSDKCapabilities(language);
+    if (i === 0) {
+      capabilities = languageCapabilities;
+    } else {
+      capabilities = capabilities.filter((c) => languageCapabilities.includes(c));
+    }
+    i++;
+  }
+  return uniq(capabilities);
 };
 
 // Copied from the JS SDK's mongrule.ts

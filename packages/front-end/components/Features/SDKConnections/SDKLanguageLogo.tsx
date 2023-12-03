@@ -10,7 +10,7 @@ import {
   SiPhp,
 } from "react-icons/si";
 import { ReactElement } from "react";
-import { isOutdated } from "shared/sdk-versioning";
+import { isSDKOutdated } from "shared/sdk-versioning";
 import { HiOutlineExclamationCircle } from "react-icons/hi";
 import { DocSection } from "@/components/DocLink";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -191,7 +191,7 @@ export default function SDKLanguageLogo({
   const { Icon, color, label } =
     languageMapping[language] || languageMapping["other"];
 
-  const versionOutdated = isOutdated(language, version);
+  const versionOutdated = isSDKOutdated(language, version);
 
   const labelText = label;
   let versionText: ReactElement | null = null;

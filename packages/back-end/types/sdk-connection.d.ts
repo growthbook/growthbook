@@ -67,7 +67,7 @@ export interface SDKConnectionInterface {
   // The SDK languages being used (e.g. `javascript`). Ideally it should only have 1 language (previously we encouraged multiple)
   languages: SDKLanguage[];
   // The SDK version being used (e.g. `1.0.0`). Assumes a single language, otherwise should default to "0".
-  sdkVersion: string; // todo: semver?
+  sdkVersion: string;
 
   // SDK payload settings
   environment: string;
