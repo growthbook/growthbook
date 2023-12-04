@@ -153,6 +153,8 @@ export const CACHE_CONTROL_STALE_IF_ERROR =
 
 // remote Eval Edge
 export const REMOTE_EVAL_EDGE_HOST = process.env.REMOTE_EVAL_EDGE_HOST;
+export const REMOTE_EVAL_EDGE_API_TOKEN =
+  process.env.REMOTE_EVAL_EDGE_API_TOKEN;
 
 // update Feature every
 

@@ -2,7 +2,7 @@ import { findSDKConnectionsByOrganization } from "../models/SdkConnectionModel";
 import { SDKPayloadKey } from "../../types/sdk-payload";
 import type { OrganizationInterface } from "../../types/organization";
 import { SDKConnectionInterface } from "../../types/sdk-connection";
-import { REMOTE_EVAL_EDGE_HOST } from "./secrets";
+import { REMOTE_EVAL_EDGE_API_TOKEN, REMOTE_EVAL_EDGE_HOST } from "./secrets";
 import { logger } from "./logger";
 
 const REMOTE_EVAL_ADDRESS = "/purge-kv-store";
@@ -17,6 +17,9 @@ export const purgeEdgeRemoteEvalSDKKeys = (
   const bodyData = { clientKeys: sdkConnectionKeys };
   fetch(`${REMOTE_EVAL_EDGE_HOST}${REMOTE_EVAL_ADDRESS}`, {
     method: "DELETE",
+    headers: {
+      Authorization: `Bearer ${REMOTE_EVAL_EDGE_API_TOKEN}`,
+    },
     body: JSON.stringify(bodyData),
   }).catch((error) => {
     logger.warn("failed to purge edge remote eval", {
