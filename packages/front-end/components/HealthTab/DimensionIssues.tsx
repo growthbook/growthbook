@@ -1,6 +1,6 @@
 import { ExperimentSnapshotTrafficDimension } from "back-end/types/experiment-snapshot";
 import { ExperimentReportVariation } from "back-end/types/report";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { useUser } from "@/services/UserContext";
 import { DEFAULT_SRM_THRESHOLD } from "@/pages/settings";
 import track from "@/services/track";
@@ -165,7 +165,7 @@ export const DimensionIssues = ({ dimensionData, variations }: Props) => {
               disabled={!areDimensionsAvailable}
             />
           </div>
-          <IssueTags issues={["Chrome"]} />
+          <IssueTags issues={[{ label: "Chrome", value: "Chrome" }]} />
           {selectedDimension && (
             <>
               {dimensionData[selectedDimension].map((d) => {

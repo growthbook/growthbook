@@ -1,22 +1,22 @@
 import { ExperimentSnapshotTraffic } from "back-end/types/experiment-snapshot";
 import { ExperimentReportVariation } from "back-end/types/report";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import { useUser } from "@/services/UserContext";
 import { pValueFormatter } from "@/services/experiments";
 import { DEFAULT_SRM_THRESHOLD } from "@/pages/settings";
-import track from "@/services/track";
 import VariationUsersTable from "../Experiment/TabbedPage/VariationUsersTable";
 import SRMWarning from "../Experiment/SRMWarning";
 import { DataPointVariation } from "../Experiment/ExperimentDateGraph";
 import { HealthStatus, StatusBadge } from "./StatusBadge";
 import { DimensionIssues } from "./DimensionIssues";
+import { IssueValue } from "./IssueTags";
 
 interface Props {
   traffic: ExperimentSnapshotTraffic;
   variations: ExperimentReportVariation[];
   totalUsers: number;
   datasource: string;
-  onNotify: () => void;
+  onNotify: (issue: IssueValue) => void;
 }
 
 export const srmHealthCheck = ({
@@ -49,7 +49,8 @@ export default function SRMDrawer({
   datasource,
   onNotify,
 }: Props) {
-  const [selectedDimension, setSelectedDimension] = useState<string>("");
+  // const [selectedDimension, setSelectedDimension] = useState<string>("");
+  console.log(datasource);
   const { settings } = useUser();
   const balanceCheckTableRef = useRef<HTMLDivElement | null>(null);
 
@@ -78,13 +79,13 @@ export default function SRMDrawer({
 
   useEffect(() => {
     if (overallHealth === "Issues detected") {
-      onNotify();
+      onNotify({ label: "Experiment Balance", value: "balanceCheck" });
     }
   }, [overallHealth, onNotify]);
 
-  useEffect(() => {
-    setSelectedDimension("");
-  }, [traffic]);
+  // useEffect(() => {
+  //   setSelectedDimension("");
+  // }, [traffic]);
 
   return (
     <div className="appbox my-4 p-3">

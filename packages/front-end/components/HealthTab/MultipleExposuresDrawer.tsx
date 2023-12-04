@@ -1,13 +1,13 @@
 import { useEffect } from "react";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { MINIMUM_MULTIPLE_EXPOSURES } from "../Experiment/MultipleExposureWarning";
-import HealthCard from "./HealthCard";
 import { HealthStatus, StatusBadge } from "./StatusBadge";
+import { IssueValue } from "./IssueTags";
 
 interface Props {
   totalUsers: number;
   multipleExposures: number;
-  onNotify: () => void;
+  onNotify: (issue: IssueValue) => void;
 }
 
 const percentFormatter = new Intl.NumberFormat(undefined, {
@@ -48,7 +48,7 @@ export default function MultipleExposuresDrawer({
   });
   useEffect(() => {
     if (health === "Issues detected") {
-      onNotify();
+      onNotify({ label: "Multiple Exposures", value: "multipleExposures" });
     }
   }, [health, onNotify]);
 

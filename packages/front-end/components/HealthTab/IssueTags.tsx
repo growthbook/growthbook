@@ -1,5 +1,10 @@
+export type IssueValue = {
+  label: string;
+  value: string;
+};
+
 interface Props {
-  issues: string[];
+  issues: IssueValue[];
 }
 
 export const IssueTags = ({ issues }: Props) => {
@@ -14,10 +19,10 @@ export const IssueTags = ({ issues }: Props) => {
         return (
           <a
             className={"badge badge-pill border ml-2 mr-2 badge-warning"}
-            key={issue}
-            href={`#${issue}`}
+            key={issue.value}
+            href={`#${issue.value}`}
           >
-            {issue}
+            {issue.label}
           </a>
         );
       })}

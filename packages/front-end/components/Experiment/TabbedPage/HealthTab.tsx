@@ -1,5 +1,5 @@
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import { useEffect } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import SRMDrawer from "@/components/HealthTab/SRMDrawer";
 import MultipleExposuresDrawer from "@/components/HealthTab/MultipleExposuresDrawer";
@@ -9,7 +9,7 @@ import useOrgSettings from "@/hooks/useOrgSettings";
 import { useAuth } from "@/services/auth";
 import Button from "@/components/Button";
 import TrafficCard from "@/components/HealthTab/TrafficCard";
-import { IssueTags } from "@/components/HealthTab/IssueTags";
+import { IssueTags, IssueValue } from "@/components/HealthTab/IssueTags";
 import { useSnapshot } from "../SnapshotProvider";
 
 export interface Props {
@@ -31,11 +31,12 @@ export default function HealthTab({
   const hasPermissionToEditOrgSettings = permissions.check(
     "organizationSettings"
   );
-
+  const [healthIssues, setHealthIssues] = useState<IssueValue[]>([]);
   // Clean up notification counter before unmounting
   useEffect(() => {
     return () => {
       onSnapshotUpdate();
+      setHealthIssues([]);
     };
   }, [snapshot, onSnapshotUpdate]);
 
@@ -48,6 +49,14 @@ export default function HealthTab({
     });
     refreshOrganization();
   };
+
+  const handleDrawerNotify = useCallback(
+    (issue: IssueValue) => {
+      setHealthIssues((prev) => [...prev, issue]);
+      onDrawerNotify();
+    },
+    [onDrawerNotify]
+  );
 
   // If org has not updated settings since the health tab was introduced, prompt the user
   // to enable the traffic query setting
@@ -143,7 +152,7 @@ export default function HealthTab({
     <div className="mt-4">
       {/* <a href="#multipleExposures">TESTING SCROLL</a> */}
       {/* <h4 className="mt-2 mb-4">No issues found. 🎉</h4> */}
-      <IssueTags issues={["balanceCheck", "multipleExposures"]} />
+      <IssueTags issues={healthIssues} />
       <TrafficCard traffic={traffic} variations={variations} />
       <div id="balanceCheck">
         <SRMDrawer
@@ -151,7 +160,7 @@ export default function HealthTab({
           variations={variations}
           totalUsers={totalUsers}
           datasource={experiment.datasource}
-          onNotify={onDrawerNotify}
+          onNotify={handleDrawerNotify}
         />
       </div>
       <div className="row">
@@ -159,7 +168,7 @@ export default function HealthTab({
           <MultipleExposuresDrawer
             multipleExposures={snapshot.multipleExposures}
             totalUsers={totalUsers}
-            onNotify={onDrawerNotify}
+            onNotify={handleDrawerNotify}
           />
         </div>
       </div>
