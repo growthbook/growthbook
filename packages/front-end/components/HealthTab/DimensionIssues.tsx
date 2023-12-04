@@ -1,6 +1,6 @@
 import { ExperimentSnapshotTrafficDimension } from "back-end/types/experiment-snapshot";
 import { ExperimentReportVariation } from "back-end/types/report";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useUser } from "@/services/UserContext";
 import { DEFAULT_SRM_THRESHOLD } from "@/pages/settings";
 import track from "@/services/track";
@@ -10,6 +10,7 @@ import Modal from "../Modal";
 import SelectField from "../Forms/SelectField";
 import { EXPERIMENT_DIMENSION_PREFIX, srmHealthCheck } from "./SRMDrawer";
 import HealthCard from "./HealthCard";
+import { IssueTags } from "./IssueTags";
 
 interface Props {
   dimensionData: {
@@ -81,6 +82,23 @@ export const DimensionIssues = ({ dimensionData, variations }: Props) => {
     availableDimensions[0].value
   );
 
+  //   const dimensionSliceHealth = useMemo(() => {
+  //     return dimensionData[selectedDimension].map((d) => {
+  //       const totalDimUsers = d.variationUnits.reduce((acc, a) => acc + a, 0);
+  //       return {
+  //         [d.name]: {
+  //           health: srmHealthCheck({
+  //             srm: d.srm,
+  //             srmThreshold,
+  //             variations,
+  //             totalUsers: totalDimUsers,
+  //           }),
+  //           totalUsers: totalDimUsers,
+  //         },
+  //       };
+  //     });
+  //   }, [dimensionData, selectedDimension, srmThreshold, variations]);
+
   //   const availableDimensions = [
   //     {
   //       key: "dim_browser",
@@ -147,6 +165,7 @@ export const DimensionIssues = ({ dimensionData, variations }: Props) => {
               disabled={!areDimensionsAvailable}
             />
           </div>
+          <IssueTags issues={["Chrome"]} />
           {selectedDimension && (
             <>
               {dimensionData[selectedDimension].map((d) => {
@@ -162,6 +181,7 @@ export const DimensionIssues = ({ dimensionData, variations }: Props) => {
                 });
                 return (
                   <HealthCard
+                    id={d.name}
                     title={d.name}
                     helpText={`(${totalDimUsers} total units)`}
                     status={dimensionHealth}
@@ -190,7 +210,7 @@ export const DimensionIssues = ({ dimensionData, variations }: Props) => {
         </div>
       </Modal>
 
-      <div className="my-2 mx-4 h-100">
+      <div className="my-2 h-100">
         <h3>Dimensions</h3>
         <p className="mb-4" style={{ boxShadow: "0 4 2px -2px gray" }}>
           Highlights perceived issues across dimensions

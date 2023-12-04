@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { MINIMUM_MULTIPLE_EXPOSURES } from "../Experiment/MultipleExposureWarning";
 import HealthCard from "./HealthCard";
-import { HealthStatus } from "./StatusBadge";
+import { HealthStatus, StatusBadge } from "./StatusBadge";
 
 interface Props {
   totalUsers: number;
@@ -53,11 +53,14 @@ export default function MultipleExposuresDrawer({
   }, [health, onNotify]);
 
   return (
-    <HealthCard
-      title="Multiple Exposures Check"
-      helpText="Detects whether units have been exposed to multiple variations"
-      status={health}
-    >
+    <div className="appbox my-2 p-3">
+      <h2 className="d-inline">Multiple Exposures Check</h2>{" "}
+      {/* <p className="d-inline text-muted">{helpText}</p> */}
+      {health && health !== "healthy" && <StatusBadge status={health} />}
+      <p className="mt-1">
+        Detects whether units have been exposed to multiple variations
+      </p>
+      <hr></hr>
       <div className="row justify-content-start">
         <div className="ml-2 mr-2 mt-1 w-100">
           {health === "healthy" ? (
@@ -86,6 +89,6 @@ export default function MultipleExposuresDrawer({
           )}
         </div>
       </div>
-    </HealthCard>
+    </div>
   );
 }

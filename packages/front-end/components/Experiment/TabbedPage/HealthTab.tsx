@@ -9,6 +9,7 @@ import useOrgSettings from "@/hooks/useOrgSettings";
 import { useAuth } from "@/services/auth";
 import Button from "@/components/Button";
 import TrafficCard from "@/components/HealthTab/TrafficCard";
+import { IssueTags } from "@/components/HealthTab/IssueTags";
 import { useSnapshot } from "../SnapshotProvider";
 
 export interface Props {
@@ -141,7 +142,8 @@ export default function HealthTab({
   return (
     <div className="mt-4">
       {/* <a href="#multipleExposures">TESTING SCROLL</a> */}
-      <h4 className="mt-2 mb-4">No issues found. 🎉</h4>
+      {/* <h4 className="mt-2 mb-4">No issues found. 🎉</h4> */}
+      <IssueTags issues={["balanceCheck", "multipleExposures"]} />
       <TrafficCard traffic={traffic} variations={variations} />
       <div id="balanceCheck">
         <SRMDrawer
@@ -152,7 +154,6 @@ export default function HealthTab({
           onNotify={onDrawerNotify}
         />
       </div>
-
       <div className="row">
         <div className="col-8" id="multipleExposures">
           <MultipleExposuresDrawer

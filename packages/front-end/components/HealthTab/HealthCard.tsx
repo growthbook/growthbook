@@ -2,6 +2,7 @@ import { ReactNode } from "react";
 import { HealthStatus, StatusBadge } from "./StatusBadge";
 
 export interface Props {
+  id?: string;
   title: string;
   helpText?: string;
   children: ReactNode;
@@ -9,18 +10,22 @@ export interface Props {
 }
 
 export default function HealthCard({
+  id,
   title,
   helpText,
   children,
   status,
 }: Props) {
   return (
-    <div className="appbox my-2 p-3">
-      <h2 className="d-inline">{title}</h2>{" "}
-      {/* <p className="d-inline text-muted">{helpText}</p> */}
-      {status && status !== "healthy" && <StatusBadge status={status} />}
-      <p className="mt-1">{helpText}</p>
-      <hr></hr>
+    <div className="appbox my-3 p-3" id={id}>
+      <div className="d-flex flex-row mb-0">
+        <div>
+          <h2>{title}</h2>{" "}
+          {status && status !== "healthy" && <StatusBadge status={status} />}
+        </div>
+        <p className="text-muted ml-auto">{helpText}</p>
+      </div>
+      <hr className="mt-0"></hr>
       <div>{children}</div>
     </div>
   );
