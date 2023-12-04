@@ -622,34 +622,35 @@ let experiment = ( // Viewed Experiment
   ): Promise<ExperimentMetricQueryResponse> {
     const kustoResult = await this.runQuery(query);
 
-    return (
-      (kustoResult?.tables?.[0]?.rows &&
-        kustoResult?.tables?.[0]?.rows.map((row: any) => {
-          return {
-            variation: row[0] ?? "",
-            dimension: row[1] || "",
-            users: parseInt(row[2]) || 0,
-            count: parseInt(row[2]) || 0,
-            statistic_type: row[3] ?? "",
-            main_metric_type: row[4] ?? "",
-            main_sum: parseFloat(row[5]) || 0,
-            main_sum_squares: parseFloat(row[6]) || 0,
-            ...(row.denominator_metric_type && {
-              denominator_metric_type: row[7] ?? "",
-              denominator_sum: parseFloat(row[8]) || 0,
-              denominator_sum_squares: parseFloat(row[9]) || 0,
-              main_denominator_sum_product: parseFloat(row[10]) || 0,
-            }),
-            ...(row.covariate_metric_type && {
-              covariate_metric_type: row[11] ?? "",
-              covariate_sum: parseFloat(row[12]) || 0,
-              covariate_sum_squares: parseFloat(row[13]) || 0,
-              main_covariate_sum_product: parseFloat(row[14]) || 0,
-            }),
-          };
-        })) ||
-      []
-    );
+    return {
+      rows:
+        (kustoResult?.tables?.[0]?.rows &&
+          kustoResult?.tables?.[0]?.rows.map((row: any) => {
+            return {
+              variation: row[0] ?? "",
+              dimension: row[1] || "",
+              users: parseInt(row[2]) || 0,
+              count: parseInt(row[2]) || 0,
+              statistic_type: row[3] ?? "",
+              main_metric_type: row[4] ?? "",
+              main_sum: parseFloat(row[5]) || 0,
+              main_sum_squares: parseFloat(row[6]) || 0,
+              ...(row.denominator_metric_type && {
+                denominator_metric_type: row[7] ?? "",
+                denominator_sum: parseFloat(row[8]) || 0,
+                denominator_sum_squares: parseFloat(row[9]) || 0,
+                main_denominator_sum_product: parseFloat(row[10]) || 0,
+              }),
+              ...(row.covariate_metric_type && {
+                covariate_metric_type: row[11] ?? "",
+                covariate_sum: parseFloat(row[12]) || 0,
+                covariate_sum_squares: parseFloat(row[13]) || 0,
+                main_covariate_sum_product: parseFloat(row[14]) || 0,
+              }),
+            };
+          })) ||
+        [],
+    };
   }
 
   async runExperimentAggregateUnitsQuery(
