@@ -65,3 +65,9 @@ export function getValidDate(
   }
   return d;
 }
+export function getValidDateUTC(
+  ...params: Parameters<typeof getValidDate>
+): Date {
+  const date = getValidDate(...params);
+  return new Date(date.getTime() + date.getTimezoneOffset() * 60000);
+}

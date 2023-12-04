@@ -3,7 +3,7 @@ import {
   ExperimentReportResultDimension,
   ExperimentReportVariation,
 } from "back-end/types/report";
-import { getValidDate } from "shared/dates";
+import { getValidDateUTC } from "shared/dates";
 import { StatsEngine } from "back-end/types/stats";
 import { ExperimentMetricInterface } from "shared/experiments";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -67,12 +67,14 @@ const DateResults: FC<{
     const total: number[] = [];
     const sortedResults = [...results];
     sortedResults.sort((a, b) => {
-      return getValidDate(a.name).getTime() - getValidDate(b.name).getTime();
+      return (
+        getValidDateUTC(a.name).getTime() - getValidDateUTC(b.name).getTime()
+      );
     });
 
     return sortedResults.map((d) => {
       return {
-        d: getValidDate(d.name),
+        d: getValidDateUTC(d.name),
         variations: variations.map((variation, i) => {
           const users = d.variations[i]?.users || 0;
           total[i] = total[i] || 0;
@@ -95,7 +97,9 @@ const DateResults: FC<{
 
     const sortedResults = [...results];
     sortedResults.sort((a, b) => {
-      return getValidDate(a.name).getTime() - getValidDate(b.name).getTime();
+      return (
+        getValidDateUTC(a.name).getTime() - getValidDateUTC(b.name).getTime()
+      );
     });
 
     // Merge goal and guardrail metrics
@@ -112,7 +116,7 @@ const DateResults: FC<{
             (d) => {
               const baseline = d.variations[0]?.metrics?.[metricId];
               return {
-                d: getValidDate(d.name),
+                d: getValidDateUTC(d.name),
                 variations: variations.map((variation, i) => {
                   const stats = d.variations[i]?.metrics?.[metricId];
                   const value = stats?.value;
