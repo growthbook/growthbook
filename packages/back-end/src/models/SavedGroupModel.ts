@@ -8,7 +8,7 @@ import {
   OrganizationInterface,
   SDKAttributeSchema,
 } from "../../types/organization";
-import { AttributeMap } from "../services/features";
+import { migrateSavedGroup } from "../util/migrations";
 
 const savedGroupSchema = new mongoose.Schema({
   id: {
@@ -35,10 +35,6 @@ const SavedGroupModel = mongoose.model<SavedGroupInterface>(
   savedGroupSchema
 );
 
-type LegacySavedGroup = SavedGroupInterface & {
-  values?: string[];
-};
-
 type CreateSavedGroupProps = Omit<
   SavedGroupInterface,
   "dateCreated" | "dateUpdated" | "id"
@@ -51,13 +47,6 @@ export type UpdateSavedGroupProps = Partial<
   >
 >;
 
-function getGroupValues(values: string[], type?: string): string[] | number[] {
-  if (type === "number") {
-    return values.map((v) => parseFloat(v));
-  }
-  return values;
-}
-
 const toInterface = (
   doc: SavedGroupDocument,
   attributes?: SDKAttributeSchema | undefined
@@ -67,31 +56,7 @@ const toInterface = (
     ["__v", "_id"]
   );
 
-  const attributeMap: AttributeMap = new Map();
-  attributes?.forEach((attribute) => {
-    attributeMap.set(attribute.property, attribute.datatype);
-  });
-
-  // JIT migration for old documents
-  if (!group.source) group.source = "inline";
-  if (
-    group.source === "inline" &&
-    !group.condition &&
-    (group as LegacySavedGroup).values &&
-    group.attributeKey
-  ) {
-    group.condition = JSON.stringify({
-      [group.attributeKey]: {
-        $in: getGroupValues(
-          (group as LegacySavedGroup).values || [],
-          attributeMap.get(group.attributeKey)
-        ),
-      },
-    });
-  }
-  group.condition = group.condition || "";
-
-  return group;
+  return migrateSavedGroup(group, attributes);
 };
 
 export async function createSavedGroup(

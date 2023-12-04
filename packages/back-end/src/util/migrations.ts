@@ -18,7 +18,11 @@ import {
   FeatureRule,
   LegacyFeatureInterface,
 } from "../../types/feature";
-import { MemberRole, OrganizationInterface } from "../../types/organization";
+import {
+  MemberRole,
+  OrganizationInterface,
+  SDKAttributeSchema,
+} from "../../types/organization";
 import { getConfigOrganizationSettings } from "../init/config";
 import {
   ExperimentInterface,
@@ -30,6 +34,8 @@ import {
   MetricForSnapshot,
 } from "../../types/experiment-snapshot";
 import { getEnvironments } from "../services/organizations";
+import { SavedGroupInterface, SavedGroupSource } from "../../types/saved-group";
+import { AttributeMap } from "../services/features";
 import { DEFAULT_CONVERSION_WINDOW_HOURS } from "./secrets";
 
 function roundVariationWeight(num: number): number {
@@ -632,4 +638,54 @@ export function migrateSnapshot(
   }
 
   return snapshot;
+}
+
+export type LegacySavedGroup = Omit<
+  SavedGroupInterface,
+  "source" | "condition"
+> & {
+  values?: string[];
+  source?: SavedGroupSource;
+  condition?: string;
+};
+function getGroupValues(values: string[], type?: string): string[] | number[] {
+  if (type === "number") {
+    return values.map((v) => parseFloat(v));
+  }
+  return values;
+}
+export function migrateSavedGroup(
+  doc: LegacySavedGroup,
+  attributes?: SDKAttributeSchema | undefined
+): SavedGroupInterface {
+  const attributeMap: AttributeMap = new Map();
+  attributes?.forEach((attribute) => {
+    attributeMap.set(attribute.property, attribute.datatype);
+  });
+
+  // Migrate missing fields - source and condition
+  const group: SavedGroupInterface = {
+    source: "inline",
+    condition: "",
+    ...doc,
+  };
+
+  // Migrate legacy values to new condition format
+  if (
+    group.source === "inline" &&
+    !group.condition &&
+    (group as LegacySavedGroup).values &&
+    group.attributeKey
+  ) {
+    group.condition = JSON.stringify({
+      [group.attributeKey]: {
+        $in: getGroupValues(
+          (group as LegacySavedGroup).values || [],
+          attributeMap.get(group.attributeKey)
+        ),
+      },
+    });
+  }
+
+  return group;
 }
