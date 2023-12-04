@@ -531,7 +531,7 @@ const AppInsightsSchema: SchemaInterface = {
   getIdentitySQL: () => {
     return [];
   },
-  userIdTypes: ["user_Id"],
+  userIdTypes: ["user_id"],
   getMetricSQL: (type, tablePrefix) => {
     return `${tablePrefix}{{snakecase eventName}}
     | project
