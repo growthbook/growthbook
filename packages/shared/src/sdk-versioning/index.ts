@@ -52,7 +52,7 @@ const getSdkData = (language: SDKLanguage = "other"): SDKData => {
   return sdkData;
 };
 
-export const getCurrentSDKVersion = (
+export const getLatestSDKVersion = (
   language: SDKLanguage = "other"
 ): string => {
   const sdkData = getSdkData(language);
@@ -65,7 +65,7 @@ export const isSDKOutdated = (
   language: SDKLanguage = "other",
   version: string = "0.0.0"
 ): boolean => {
-  const current = getCurrentSDKVersion(language);
+  const current = getLatestSDKVersion(language);
   return paddedVersionString(version) < paddedVersionString(current);
 };
 
@@ -100,7 +100,7 @@ export const getConnectionSDKCapabilities = (
       connection.languages?.[0],
       strategy === "min-ver-intersection"
         ? connection.sdkVersion
-        : getCurrentSDKVersion(connection.languages?.[0])
+        : getLatestSDKVersion(connection.languages?.[0])
     );
   }
   let capabilities: SDKCapability[] = [];
@@ -110,7 +110,7 @@ export const getConnectionSDKCapabilities = (
       language,
       strategy === "min-ver-intersection"
         ? undefined
-        : getCurrentSDKVersion(language)
+        : getLatestSDKVersion(language)
     );
     if (i === 0) {
       capabilities = languageCapabilities;

@@ -137,7 +137,6 @@ export default function SDKLanguageLogo({
 
   const versionOutdated = isSDKOutdated(language, version);
 
-  const labelText = label;
   let versionText: ReactElement | null = null;
   if (version !== undefined && language !== "other") {
     versionText = (
@@ -164,7 +163,7 @@ export default function SDKLanguageLogo({
       />
       {showLabel && (
         <span className="ml-1">
-          {labelText}
+          {label}
           {versionText}
         </span>
       )}

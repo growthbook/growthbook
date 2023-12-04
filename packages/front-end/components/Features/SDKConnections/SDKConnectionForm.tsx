@@ -10,7 +10,7 @@ import { FaCheck, FaExclamationCircle, FaInfoCircle } from "react-icons/fa";
 import clsx from "clsx";
 import {
   getConnectionSDKCapabilities,
-  getCurrentSDKVersion,
+  getLatestSDKVersion,
   getSDKCapabilityVersion,
   isSDKOutdated,
 } from "shared/sdk-versioning";
@@ -89,7 +89,7 @@ export default function SDKConnectionForm({
       languages: initialValue.languages ?? [],
       sdkVersion:
         initialValue.sdkVersion ??
-        getCurrentSDKVersion(
+        getLatestSDKVersion(
           initialValue?.languages?.length === 1
             ? initialValue.languages[0]
             : "other"
@@ -120,7 +120,7 @@ export default function SDKConnectionForm({
 
   const useLatestSdkVersion = () => {
     const language = form.watch("languages")?.[0] || "other";
-    const latest = getCurrentSDKVersion(language);
+    const latest = getLatestSDKVersion(language);
     form.setValue("sdkVersion", latest);
   };
 
@@ -141,7 +141,7 @@ export default function SDKConnectionForm({
       ? "backend"
       : "hybrid";
 
-  const maxSdkCapabilities = getConnectionSDKCapabilities(
+  const latestSdkCapabilities = getConnectionSDKCapabilities(
     form.getValues(),
     "max-ver-intersection"
   );
@@ -150,9 +150,11 @@ export default function SDKConnectionForm({
   const enableRemoteEval =
     hasRemoteEvaluationFeature &&
     !!gb?.isOn("remote-evaluation") &&
-    maxSdkCapabilities.includes("remoteEval");
+    latestSdkCapabilities.includes("remoteEval");
 
-  const showVisualEditorSettings = maxSdkCapabilities.includes("visualEditor");
+  const showVisualEditorSettings = latestSdkCapabilities.includes(
+    "visualEditor"
+  );
 
   const projectsOptions = projects.map((p) => ({
     label: p.name,
@@ -236,7 +238,7 @@ export default function SDKConnectionForm({
       error={form.formState.errors.languages?.message}
       submit={form.handleSubmit(async (value) => {
         // filter for visual experiments
-        if (!maxSdkCapabilities.includes("visualEditor")) {
+        if (!latestSdkCapabilities.includes("visualEditor")) {
           value.includeVisualExperiments = false;
         }
         if (!value.includeVisualExperiments) {
@@ -244,7 +246,7 @@ export default function SDKConnectionForm({
         }
 
         // filter for remote eval
-        if (!maxSdkCapabilities.includes("remoteEval")) {
+        if (!latestSdkCapabilities.includes("remoteEval")) {
           value.remoteEvalEnabled = false;
         }
 
@@ -343,7 +345,7 @@ export default function SDKConnectionForm({
             setValue={(languages) => {
               form.setValue("languages", languages);
               if (languages?.length === 1) {
-                form.setValue("sdkVersion", getCurrentSDKVersion(languages[0]));
+                form.setValue("sdkVersion", getLatestSDKVersion(languages[0]));
               }
             }}
             multiple={false}
@@ -738,7 +740,9 @@ export default function SDKConnectionForm({
                                   value={form.watch("remoteEvalEnabled")}
                                   setValue={(val) => {
                                     if (
-                                      maxSdkCapabilities.includes("remoteEval")
+                                      latestSdkCapabilities.includes(
+                                        "remoteEval"
+                                      )
                                     ) {
                                       form.setValue("remoteEvalEnabled", false);
                                     } else {
@@ -747,7 +751,9 @@ export default function SDKConnectionForm({
                                   }}
                                   disabled={
                                     !hasRemoteEvaluationFeature ||
-                                    !maxSdkCapabilities.includes("remoteEval")
+                                    !latestSdkCapabilities.includes(
+                                      "remoteEval"
+                                    )
                                   }
                                 />
                                 {isCloud() ? (
