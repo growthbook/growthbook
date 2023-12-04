@@ -23,10 +23,6 @@ export const languageMapping: Record<
     color: string;
     label: string;
     docs: DocSection;
-    supportsEncryption: boolean;
-    supportsVisualExperiments: boolean;
-    supportsSSE: boolean;
-    supportsRemoteEval: boolean;
     environment: LanguageEnvironment;
   }
 > = {
@@ -35,10 +31,6 @@ export const languageMapping: Record<
     color: "#f7df1e",
     label: "Javascript",
     docs: "javascript",
-    supportsEncryption: true,
-    supportsVisualExperiments: true,
-    supportsSSE: true,
-    supportsRemoteEval: true,
     environment: "frontend",
   },
   react: {
@@ -46,10 +38,6 @@ export const languageMapping: Record<
     color: "#61DBFB",
     label: "React",
     docs: "tsx",
-    supportsEncryption: true,
-    supportsVisualExperiments: true,
-    supportsSSE: true,
-    supportsRemoteEval: true,
     environment: "frontend",
   },
   nodejs: {
@@ -57,10 +45,6 @@ export const languageMapping: Record<
     color: "#339933",
     label: "Node.js",
     docs: "javascript",
-    supportsEncryption: true,
-    supportsVisualExperiments: false,
-    supportsSSE: true,
-    supportsRemoteEval: false,
     environment: "backend",
   },
   php: {
@@ -68,10 +52,6 @@ export const languageMapping: Record<
     color: "#8993be",
     label: "PHP",
     docs: "php",
-    supportsEncryption: true,
-    supportsVisualExperiments: false,
-    supportsSSE: false,
-    supportsRemoteEval: false,
     environment: "backend",
   },
   ruby: {
@@ -79,10 +59,6 @@ export const languageMapping: Record<
     color: "#A91401",
     label: "Ruby",
     docs: "ruby",
-    supportsEncryption: true,
-    supportsVisualExperiments: false,
-    supportsSSE: false,
-    supportsRemoteEval: false,
     environment: "backend",
   },
   python: {
@@ -90,10 +66,6 @@ export const languageMapping: Record<
     color: "#306998",
     label: "Python",
     docs: "python",
-    supportsEncryption: true,
-    supportsVisualExperiments: false,
-    supportsSSE: false,
-    supportsRemoteEval: false,
     environment: "backend",
   },
   java: {
@@ -101,10 +73,6 @@ export const languageMapping: Record<
     color: "#f89820",
     label: "Java",
     docs: "java",
-    supportsEncryption: true,
-    supportsVisualExperiments: false,
-    supportsSSE: true,
-    supportsRemoteEval: false,
     environment: "backend",
   },
   csharp: {
@@ -112,10 +80,6 @@ export const languageMapping: Record<
     color: "#684D95",
     label: "C Sharp",
     docs: "csharp",
-    supportsEncryption: false,
-    supportsVisualExperiments: false,
-    supportsSSE: false,
-    supportsRemoteEval: false,
     environment: "backend",
   },
   go: {
@@ -123,10 +87,6 @@ export const languageMapping: Record<
     color: "#29BEB0",
     label: "Golang",
     docs: "go",
-    supportsEncryption: true,
-    supportsVisualExperiments: false,
-    supportsSSE: true,
-    supportsRemoteEval: false,
     environment: "backend",
   },
   ios: {
@@ -134,10 +94,6 @@ export const languageMapping: Record<
     color: "#000000",
     label: "Swift",
     docs: "swift",
-    supportsEncryption: true,
-    supportsVisualExperiments: false,
-    supportsSSE: false,
-    supportsRemoteEval: false,
     environment: "mobile",
   },
   android: {
@@ -145,10 +101,6 @@ export const languageMapping: Record<
     color: "#78C257",
     label: "Kotlin",
     docs: "kotlin",
-    supportsEncryption: true,
-    supportsVisualExperiments: false,
-    supportsSSE: false,
-    supportsRemoteEval: false,
     environment: "mobile",
   },
   flutter: {
@@ -156,10 +108,6 @@ export const languageMapping: Record<
     color: "#02569B",
     label: "Flutter",
     docs: "flutter",
-    supportsEncryption: false,
-    supportsVisualExperiments: false,
-    supportsSSE: false,
-    supportsRemoteEval: false,
     environment: "mobile",
   },
   other: {
@@ -167,10 +115,6 @@ export const languageMapping: Record<
     color: "#777",
     label: "Other",
     docs: "sdks",
-    supportsEncryption: true,
-    supportsVisualExperiments: true,
-    supportsSSE: true,
-    supportsRemoteEval: true,
     environment: "hybrid",
   },
 };

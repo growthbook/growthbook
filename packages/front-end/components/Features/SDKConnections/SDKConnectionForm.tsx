@@ -152,9 +152,7 @@ export default function SDKConnectionForm({
     !!gb?.isOn("remote-evaluation") &&
     maxSdkCapabilities.includes("remoteEval");
 
-  const showVisualEditorSettings = languages.some(
-    (l) => languageMapping[l].supportsVisualExperiments
-  );
+  const showVisualEditorSettings = maxSdkCapabilities.includes("visualEditor");
 
   const projectsOptions = projects.map((p) => ({
     label: p.name,
