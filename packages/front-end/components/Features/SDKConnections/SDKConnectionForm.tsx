@@ -238,9 +238,7 @@ export default function SDKConnectionForm({
       error={form.formState.errors.languages?.message}
       submit={form.handleSubmit(async (value) => {
         // filter for visual experiments
-        if (
-          languages.every((l) => !languageMapping[l].supportsVisualExperiments)
-        ) {
+        if (!maxSdkCapabilities.includes("visualEditor")) {
           value.includeVisualExperiments = false;
         }
         if (!value.includeVisualExperiments) {
@@ -248,7 +246,7 @@ export default function SDKConnectionForm({
         }
 
         // filter for remote eval
-        if (languages.every((l) => !languageMapping[l].supportsRemoteEval)) {
+        if (!maxSdkCapabilities.includes("remoteEval")) {
           value.remoteEvalEnabled = false;
         }
 
