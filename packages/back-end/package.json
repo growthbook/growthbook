@@ -78,6 +78,7 @@
     "pg": "^8.6.0",
     "pino-http": "^8.2.1",
     "presto-client": "^0.11.2",
+    "proxy-agent": "^6.3.1",
     "python-shell": "^3.0.0",
     "saslprep": "^1.0.0",
     "shared": "0.0.1",

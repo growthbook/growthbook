@@ -1,5 +1,7 @@
 import fetch, { RequestInfo, RequestInit, Response } from "node-fetch";
+import { ProxyAgent } from "proxy-agent";
 import { logger } from "./logger";
+import { USE_PROXY } from "./secrets";
 
 export type CancellableFetchCriteria = {
   maxContentSize: number;
@@ -11,6 +13,13 @@ export type CancellableFetchReturn = {
   responseWithoutBody: Response;
   stringBody: string;
 };
+
+export function getHttpOptions() {
+  if (USE_PROXY) {
+    return { agent: new ProxyAgent() };
+  }
+  return {};
+}
 
 /**
  * Performs a request with the optionally provided {@link AbortController}.
@@ -54,6 +63,7 @@ export const cancellableFetch = async (
   try {
     response = await fetch(url, {
       signal: abortController.signal,
+      ...getHttpOptions(),
       ...fetchOptions,
     });
 
