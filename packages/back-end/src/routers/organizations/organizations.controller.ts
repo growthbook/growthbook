@@ -8,7 +8,10 @@ import {
   getLicense,
   setLicense,
 } from "enterprise";
-import { getProjectsUserCanAccess } from "shared/permissions";
+import {
+  getMetricsUserCanAccess,
+  getProjectsUserCanAccess,
+} from "shared/permissions";
 import {
   AuthRequest,
   ResponseWithStatusAndError,
@@ -152,7 +155,7 @@ export async function getDefinitions(req: AuthRequest, res: Response) {
 
   return res.status(200).json({
     status: 200,
-    metrics,
+    metrics: getMetricsUserCanAccess(currentUserPermissions, metrics),
     datasources: datasources.map((d) => {
       const integration = getSourceIntegrationObject(d);
       return {
