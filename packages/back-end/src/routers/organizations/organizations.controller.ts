@@ -9,6 +9,7 @@ import {
   setLicense,
 } from "enterprise";
 import {
+  getDataSourcesUserCanAccess,
   getMetricsUserCanAccess,
   getProjectsUserCanAccess,
 } from "shared/permissions";
@@ -153,10 +154,15 @@ export async function getDefinitions(req: AuthRequest, res: Response) {
     getAllFactMetricsForOrganization(orgId),
   ]);
 
+  const filteredDatasource = getDataSourcesUserCanAccess(
+    currentUserPermissions,
+    datasources
+  );
+
   return res.status(200).json({
     status: 200,
     metrics: getMetricsUserCanAccess(currentUserPermissions, metrics),
-    datasources: datasources.map((d) => {
+    datasources: filteredDatasource.map((d) => {
       const integration = getSourceIntegrationObject(d);
       return {
         id: d.id,
