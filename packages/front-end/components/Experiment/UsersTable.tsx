@@ -1,8 +1,10 @@
 import { FC, useMemo, useState } from "react";
 import { FaExclamationTriangle, FaQuestionCircle } from "react-icons/fa";
-import { ExperimentReportVariation } from "back-end/types/report";
+import {
+  ExperimentReportResultDimension,
+  ExperimentReportVariation,
+} from "back-end/types/report";
 import { ImTable2 } from "react-icons/im";
-import { ExperimentSnapshotTrafficDimension } from "back-end/types/experiment-snapshot";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { formatTrafficSplit } from "@/services/utils";
 import { useUser } from "@/services/UserContext";
@@ -12,7 +14,7 @@ import Tooltip from "../Tooltip/Tooltip";
 const numberFormatter = new Intl.NumberFormat();
 
 const UsersTable: FC<{
-  results: ExperimentSnapshotTrafficDimension[];
+  results: ExperimentReportResultDimension[];
   variations: ExperimentReportVariation[];
   dimensionId: string;
 }> = ({ dimensionId, results, variations }) => {
@@ -75,55 +77,46 @@ const UsersTable: FC<{
           </Tooltip>
         </div>
       )}
-      <table className="table w-auto mb-5">
+      <table className="table w-auto table-bordered mb-5">
         <thead>
           <tr>
             <th>{dimension}</th>
             {variations.map((v, i) => (
               <th key={i}>{v.name}</th>
             ))}
-            <th>Expected %</th>
-            <th>Actual %</th>
+            <th>Expected</th>
+            <th>Actual</th>
             <th>SRM P-Value</th>
           </tr>
         </thead>
         <tbody>
           {(results || []).map((r, i) => (
             <tr key={i}>
-              <td>
-                <b>{r.name || <em>unknown</em>}</b>
-              </td>
+              <td>{r.name || <em>unknown</em>}</td>
               {variations.map((v, i) => (
                 <td key={i}>
-                  {numberFormatter.format(r.variationUnits[i] || 0)}
+                  {numberFormatter.format(r.variations[i]?.users || 0)}
                 </td>
               ))}
-              <td className="border-left">
+              <td>
                 {formatTrafficSplit(
                   variations.map((v) => v.weight),
                   1
                 )}
               </td>
               <td>
-                <b>
-                  {formatTrafficSplit(
-                    variations.map((v, i) => r.variationUnits[i] || 0),
-                    1
-                  )}
-                </b>
+                {formatTrafficSplit(
+                  variations.map((v, i) => r.variations[i]?.users || 0),
+                  1
+                )}
               </td>
               {r.srm < srmThreshold ? (
                 <td className="bg-danger text-light">
-                  <b>
-                    {" "}
-                    <FaExclamationTriangle className="mr-1" />
-                    {(r.srm || 0).toFixed(6)}
-                  </b>
+                  <FaExclamationTriangle className="mr-1" />
+                  {(r.srm || 0).toFixed(6)}
                 </td>
               ) : (
-                <td>
-                  <b>{(r.srm || 0).toFixed(6)}</b>
-                </td>
+                <td>{(r.srm || 0).toFixed(6)}</td>
               )}
             </tr>
           ))}
