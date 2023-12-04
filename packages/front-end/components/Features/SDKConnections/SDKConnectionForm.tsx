@@ -8,7 +8,12 @@ import { useRouter } from "next/router";
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import { FaCheck, FaExclamationCircle, FaInfoCircle } from "react-icons/fa";
 import clsx from "clsx";
-import { getCurrentSDKVersion, isSDKOutdated } from "shared/sdk-versioning";
+import {
+  getConnectionSDKCapabilities,
+  getCurrentSDKVersion,
+  getSDKCapabilityVersion,
+  isSDKOutdated,
+} from "shared/sdk-versioning";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useEnvironments } from "@/services/features";
 import Modal from "@/components/Modal";
@@ -25,10 +30,7 @@ import ControlledTabs from "@/components/Tabs/ControlledTabs";
 import Tab from "@/components/Tabs/Tab";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import SDKLanguageSelector from "./SDKLanguageSelector";
-import SDKLanguageLogo, {
-  LanguageEnvironment,
-  languageMapping,
-} from "./SDKLanguageLogo";
+import { LanguageEnvironment, languageMapping } from "./SDKLanguageLogo";
 
 function getSecurityTabState(
   value: Partial<SDKConnectionInterface>
@@ -60,7 +62,6 @@ export default function SDKConnectionForm({
   const router = useRouter();
 
   const { hasCommercialFeature } = useUser();
-
   const hasEncryptionFeature = hasCommercialFeature(
     "encrypt-features-endpoint"
   );
@@ -140,18 +141,16 @@ export default function SDKConnectionForm({
       ? "backend"
       : "hybrid";
 
-  const selectedLanguagesWithoutRemoteEvalSupport = languages.filter(
-    (l) => !languageMapping[l].supportsRemoteEval
+  const maxSdkCapabilities = getConnectionSDKCapabilities(
+    form.getValues(),
+    "max-ver-intersection"
   );
-
-  const selectedLanguagesWithoutEncryptionSupport = languages.filter(
-    (l) => !languageMapping[l].supportsEncryption
-  );
+  const currentSdkCapabilities = getConnectionSDKCapabilities(form.getValues());
 
   const enableRemoteEval =
     hasRemoteEvaluationFeature &&
     !!gb?.isOn("remote-evaluation") &&
-    selectedLanguagesWithoutRemoteEvalSupport.length === 0;
+    maxSdkCapabilities.includes("remoteEval");
 
   const showVisualEditorSettings = languages.some(
     (l) => languageMapping[l].supportsVisualExperiments
@@ -593,36 +592,33 @@ export default function SDKConnectionForm({
                     </div>
 
                     {form.watch("encryptPayload") &&
-                      selectedLanguagesWithoutEncryptionSupport.length > 0 && (
+                      !currentSdkCapabilities.includes("encryption") && (
                         <div
-                          className="ml-2 mt-3 text-warning-orange small"
+                          className="ml-2 mt-3 text-warning-orange"
                           style={{ marginBottom: -5 }}
                         >
-                          <FaExclamationCircle /> Payload decryption is not
-                          natively supported in the selected SDK
-                          {selectedLanguagesWithoutEncryptionSupport.length ===
-                          1
-                            ? ""
-                            : "s"}
-                          :
-                          <div className="ml-2 mt-1">
-                            {selectedLanguagesWithoutEncryptionSupport.map(
-                              (id, i) => (
-                                <span className="nowrap" key={id}>
-                                  <SDKLanguageLogo language={id} size={14} />
-                                  <span
-                                    className="text-muted font-weight-bold"
-                                    style={{ marginLeft: 2, verticalAlign: 3 }}
-                                  >
-                                    {languageMapping[id].label}
-                                  </span>
-                                  {i <
-                                    selectedLanguagesWithoutEncryptionSupport.length -
-                                      1 && ", "}
-                                </span>
-                              )
-                            )}
-                          </div>
+                          <FaExclamationCircle /> Payload decryption may not be
+                          available in your current SDK.
+                          {languages.length === 1 && (
+                            <div className="mt-1 text-gray">
+                              {getSDKCapabilityVersion(
+                                languages[0],
+                                "encryption"
+                              ) ? (
+                                <>
+                                  It was introduced in SDK version{" "}
+                                  <code>
+                                    {getSDKCapabilityVersion(
+                                      languages[0],
+                                      "encryption"
+                                    )}
+                                  </code>
+                                  . The SDK version specified in this connection
+                                  is <code>{form.watch("sdkVersion")}</code>.
+                                </>
+                              ) : null}
+                            </div>
+                          )}
                         </div>
                       )}
                   </Tab>
@@ -746,8 +742,7 @@ export default function SDKConnectionForm({
                                   value={form.watch("remoteEvalEnabled")}
                                   setValue={(val) => {
                                     if (
-                                      selectedLanguagesWithoutRemoteEvalSupport.length >
-                                      0
+                                      maxSdkCapabilities.includes("remoteEval")
                                     ) {
                                       form.setValue("remoteEvalEnabled", false);
                                     } else {
@@ -756,8 +751,7 @@ export default function SDKConnectionForm({
                                   }}
                                   disabled={
                                     !hasRemoteEvaluationFeature ||
-                                    selectedLanguagesWithoutRemoteEvalSupport.length >
-                                      0
+                                    !maxSdkCapabilities.includes("remoteEval")
                                   }
                                 />
                                 {isCloud() ? (
@@ -796,36 +790,33 @@ export default function SDKConnectionForm({
                       </div>
                     </div>
                     {gb?.isOn("remote-evaluation") &&
-                    selectedLanguagesWithoutRemoteEvalSupport.length > 0 ? (
+                    !currentSdkCapabilities.includes("remoteEval") ? (
                       <div
-                        className="ml-2 mt-3 text-warning-orange small"
+                        className="ml-2 mt-3 text-warning-orange"
                         style={{ marginBottom: -5 }}
                       >
-                        <FaExclamationCircle /> Remote evaluation is currently
-                        only supported in a subset of front-end SDKs. It is not
-                        supported in the selected SDK
-                        {selectedLanguagesWithoutRemoteEvalSupport.length === 1
-                          ? ""
-                          : "s"}
-                        :
-                        <div className="ml-2 mt-1">
-                          {selectedLanguagesWithoutRemoteEvalSupport.map(
-                            (id, i) => (
-                              <span className="nowrap" key={id}>
-                                <SDKLanguageLogo language={id} size={14} />
-                                <span
-                                  className="text-muted font-weight-bold"
-                                  style={{ marginLeft: 2, verticalAlign: 3 }}
-                                >
-                                  {languageMapping[id].label}
-                                </span>
-                                {i <
-                                  selectedLanguagesWithoutRemoteEvalSupport.length -
-                                    1 && ", "}
-                              </span>
-                            )
-                          )}
-                        </div>
+                        <FaExclamationCircle /> Remote evaluation may not be
+                        available in your current SDK.
+                        {languages.length === 1 && (
+                          <div className="mt-1 text-gray">
+                            {getSDKCapabilityVersion(
+                              languages[0],
+                              "remoteEval"
+                            ) ? (
+                              <>
+                                It was introduced in SDK version{" "}
+                                <code>
+                                  {getSDKCapabilityVersion(
+                                    languages[0],
+                                    "remoteEval"
+                                  )}
+                                </code>
+                                . The SDK version specified in this connection
+                                is <code>{form.watch("sdkVersion")}</code>.
+                              </>
+                            ) : null}
+                          </div>
+                        )}
                       </div>
                     ) : null}
                   </Tab>

@@ -9,7 +9,7 @@
     },
     {
       "version": "0.29.0",
-      "capabilities": ["remoteEvaluation"]
+      "capabilities": ["remoteEval"]
     },
     {
       "version": "0.27.0",

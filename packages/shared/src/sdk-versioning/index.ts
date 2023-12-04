@@ -1,4 +1,7 @@
-import {SDKConnectionInterface, SDKLanguage} from "back-end/types/sdk-connection";
+import {
+  SDKConnectionInterface,
+  SDKLanguage,
+} from "back-end/types/sdk-connection";
 import uniq from "lodash/uniq";
 import { SDKCapability } from "./types";
 
@@ -49,7 +52,9 @@ const getSdkData = (language: SDKLanguage = "other"): SDKData => {
   return sdkData;
 };
 
-export const getCurrentSDKVersion = (language: SDKLanguage = "other"): string => {
+export const getCurrentSDKVersion = (
+  language: SDKLanguage = "other"
+): string => {
   const sdkData = getSdkData(language);
   const versions = sdkData?.versions || [];
   const current = versions?.[0];
@@ -69,36 +74,69 @@ export const getSDKCapabilities = (
   version: string = "0.0.0"
 ): SDKCapability[] => {
   language = language || "other";
-  version = version || "0.0.0";
+  version = version && version !== "0" ? version : "0.0.0";
   const sdkData = getSdkData(language);
   const versions = sdkData?.versions || [];
   const matches = versions.filter(
     (data) => paddedVersionString(data.version) <= paddedVersionString(version)
   );
   const capabilities = matches.reduce(
-    (acc, data) => [...acc, ...(data?.capabilities ?? [])], []
+    (acc, data) => [...acc, ...(data?.capabilities ?? [])],
+    []
   );
   return uniq(capabilities) as SDKCapability[];
 };
 
 // Typically works the same as getCapabilities. However, if the connection has multiple languages, assume the
 // minimal-allowed SDK Version (0.0.0), and return the intersection of capabilities between all languages.
-export const getConnectionSDKCapabilities = (connection: SDKConnectionInterface) => {
+export const getConnectionSDKCapabilities = (
+  connection: Partial<SDKConnectionInterface>,
+  strategy:
+    | "min-ver-intersection"
+    | "max-ver-intersection" = "min-ver-intersection"
+) => {
   if ((connection?.languages?.length || 0) <= 1) {
-    return getSDKCapabilities(connection.languages?.[0], connection.sdkVersion);
+    return getSDKCapabilities(
+      connection.languages?.[0],
+      strategy === "min-ver-intersection"
+        ? connection.sdkVersion
+        : getCurrentSDKVersion(connection.languages?.[0])
+    );
   }
   let capabilities: SDKCapability[] = [];
   let i = 0;
-  for (const language of connection.languages) {
-    const languageCapabilities = getSDKCapabilities(language);
+  for (const language of connection.languages || []) {
+    const languageCapabilities = getSDKCapabilities(
+      language,
+      strategy === "min-ver-intersection"
+        ? undefined
+        : getCurrentSDKVersion(language)
+    );
     if (i === 0) {
       capabilities = languageCapabilities;
     } else {
-      capabilities = capabilities.filter((c) => languageCapabilities.includes(c));
+      capabilities = capabilities.filter((c) =>
+        languageCapabilities.includes(c)
+      );
     }
     i++;
   }
   return uniq(capabilities);
+};
+
+export const getSDKCapabilityVersion = (
+  language: SDKLanguage = "other",
+  capability: SDKCapability
+): string | null => {
+  const sdkData = getSdkData(language);
+  const versions = sdkData?.versions || [];
+  for (let i = versions.length - 1; i >= 0; i--) {
+    const data = versions[i];
+    if (data.capabilities?.includes(capability)) {
+      return data.version;
+    }
+  }
+  return null;
 };
 
 // Copied from the JS SDK's mongrule.ts
