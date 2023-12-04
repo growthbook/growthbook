@@ -39,6 +39,25 @@ describe("Build base user permissions", () => {
     ).rejects.toThrow("User is not a member of this organization");
   });
 
+  it("should build permissions for a basic noaccess user with no project-level permissions or teams correctly", async () => {
+    const userPermissions = getUserPermissions(
+      "base_user_123",
+      {
+        ...testOrg,
+        members: [{ ...testOrg.members[0], role: "noaccess" }],
+      },
+      []
+    );
+    expect(userPermissions).toEqual({
+      global: {
+        environments: [],
+        limitAccessByEnvironment: false,
+        permissions: roleToPermissionMap("noaccess", testOrg),
+      },
+      projects: {},
+    });
+  });
+
   it("should build permissions for a basic readonly user with no project-level permissions or teams correctly", async () => {
     const userPermissions = getUserPermissions("base_user_123", testOrg, []);
     expect(userPermissions).toEqual({
