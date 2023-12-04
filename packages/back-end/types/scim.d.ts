@@ -84,6 +84,7 @@ type ScimOperation = {
 export interface BasicScimGroup {
   id: string;
   displayName: string;
+  growthbookRole?: MemberRole;
 }
 
 type ScimGroupOperation = {
