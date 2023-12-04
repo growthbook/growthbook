@@ -1,4 +1,8 @@
-import { Permission, UserPermissions } from "back-end/types/organization";
+import {
+  Permission,
+  UserPermissions,
+  MemberRole,
+} from "back-end/types/organization";
 import { ProjectInterface } from "back-end/types/project";
 
 export function hasPermission(
@@ -56,4 +60,8 @@ export function getProjectsUserCanAccess(
   });
 
   return accessibleProjects;
+}
+
+export function roleSupportsEnvLimit(role: MemberRole): boolean {
+  return ["engineer", "experimenter"].includes(role);
 }

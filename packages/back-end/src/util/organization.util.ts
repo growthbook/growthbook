@@ -1,4 +1,5 @@
 import { cloneDeep } from "lodash";
+import { roleSupportsEnvLimit } from "shared/permissions";
 import {
   MemberRole,
   MemberRoleInfo,
@@ -109,7 +110,8 @@ function mergePermissions(
 
 function mergeEnvironmentLimits(
   existingPermissions: UserPermission,
-  newPermissions: UserPermission
+  newPermissions: UserPermission,
+  org: OrganizationInterface
 ): UserPermission {
   const existingRoleSupportsEnvLimits = hasEnvScopedPermissions(
     existingPermissions.permissions
@@ -140,6 +142,11 @@ function mergeEnvironmentLimits(
           updatedPermissions.environments.concat(newPermissions.environments)
         ),
       ];
+      updatedPermissions.limitAccessByEnvironment = getLimitAccessByEnvironment(
+        updatedPermissions.environments,
+        updatedPermissions.limitAccessByEnvironment,
+        org
+      );
     } else {
       // otherwise, 1 role doesn't have limited access by environment, so it overrides the other
       updatedPermissions.limitAccessByEnvironment = false;
@@ -148,8 +155,11 @@ function mergeEnvironmentLimits(
   } else {
     // Only override existing role's env limits if the existing role doesn't support env limits, and the newRole does
     if (!existingRoleSupportsEnvLimits && newRoleSupportsEnvLimits) {
-      updatedPermissions.limitAccessByEnvironment =
-        newPermissions.limitAccessByEnvironment;
+      updatedPermissions.limitAccessByEnvironment = getLimitAccessByEnvironment(
+        newPermissions.environments,
+        newPermissions.limitAccessByEnvironment,
+        org
+      );
 
       updatedPermissions.environments = newPermissions.environments;
     }
@@ -159,13 +169,15 @@ function mergeEnvironmentLimits(
 
 function mergeUserPermissionObj(
   userPermission1: UserPermission,
-  userPermission2: UserPermission
+  userPermission2: UserPermission,
+  org: OrganizationInterface
 ): UserPermission {
   let updatedUserPermissionObj = userPermission1;
 
   updatedUserPermissionObj = mergeEnvironmentLimits(
     updatedUserPermissionObj,
-    userPermission2
+    userPermission2,
+    org
   );
   updatedUserPermissionObj.permissions = mergePermissions(
     updatedUserPermissionObj.permissions,
@@ -177,7 +189,8 @@ function mergeUserPermissionObj(
 
 function mergeUserAndTeamPermissions(
   userPermissions: UserPermissions,
-  teamPermissions: UserPermissions
+  teamPermissions: UserPermissions,
+  org: OrganizationInterface
 ) {
   // Build a list of all projects
   const allProjects = new Set([
@@ -199,15 +212,61 @@ function mergeUserAndTeamPermissions(
           teamPermissions.global.limitAccessByEnvironment,
         environments: teamPermissions.global.environments,
         permissions: teamPermissions.global.permissions,
-      }
+      },
+      org
     );
   });
 
   // Merge the global permissions
   userPermissions.global = mergeUserPermissionObj(
     userPermissions.global,
-    teamPermissions.global
+    teamPermissions.global,
+    org
   );
+}
+
+function getLimitAccessByEnvironment(
+  environments: string[],
+  limitAccessByEnvironment: boolean,
+  org: OrganizationInterface
+): boolean {
+  // If all environments are selected, treat that the same as not limiting by environment
+  const validEnvs = org.settings?.environments?.map((e) => e.id) || [];
+  if (
+    limitAccessByEnvironment &&
+    validEnvs.every((e) => environments?.includes(e))
+  ) {
+    return false;
+  }
+
+  return limitAccessByEnvironment;
+}
+
+function getUserPermission(
+  info: {
+    environments?: string[];
+    limitAccessByEnvironment?: boolean;
+    role: MemberRole;
+  },
+  org: OrganizationInterface
+): UserPermission {
+  let limitAccessByEnvironment = !!info.limitAccessByEnvironment;
+
+  // Only some roles can be limited by environment
+  // TODO: This will have to change when we support custom roles
+  if (limitAccessByEnvironment && !roleSupportsEnvLimit(info.role)) {
+    limitAccessByEnvironment = false;
+  }
+
+  return {
+    environments: info.environments || [],
+    limitAccessByEnvironment: getLimitAccessByEnvironment(
+      info.environments || [],
+      limitAccessByEnvironment,
+      org
+    ),
+    permissions: roleToPermissionMap(info.role, org),
+  };
 }
 
 export function getUserPermissions(
@@ -220,22 +279,18 @@ export function getUserPermissions(
   if (!memberInfo) {
     throw new Error("User is not a member of this organization");
   }
+
   const userPermissions: UserPermissions = {
-    global: {
-      environments: memberInfo.environments,
-      limitAccessByEnvironment: memberInfo.limitAccessByEnvironment,
-      permissions: roleToPermissionMap(memberInfo.role, org),
-    },
+    global: getUserPermission(memberInfo, org),
     projects: {},
   };
 
   // Build the user-level project permissions
   memberInfo.projectRoles?.forEach((projectRole: ProjectMemberRole) => {
-    userPermissions.projects[projectRole.project] = {
-      limitAccessByEnvironment: projectRole.limitAccessByEnvironment,
-      environments: projectRole.environments,
-      permissions: roleToPermissionMap(projectRole.role, org),
-    };
+    userPermissions.projects[projectRole.project] = getUserPermission(
+      projectRole,
+      org
+    );
   });
 
   // If the user is on a team, merge the team permissions into the user permissions
@@ -244,23 +299,18 @@ export function getUserPermissions(
       const teamData = teams.find((t) => t.id === team);
       if (teamData) {
         const teamPermissions: UserPermissions = {
-          global: {
-            environments: teamData.environments,
-            limitAccessByEnvironment: teamData.limitAccessByEnvironment,
-            permissions: roleToPermissionMap(teamData.role, org),
-          },
+          global: getUserPermission(teamData, org),
           projects: {},
         };
         if (teamData.projectRoles) {
           for (const teamProject of teamData.projectRoles) {
-            teamPermissions.projects[teamProject.project] = {
-              limitAccessByEnvironment: teamProject.limitAccessByEnvironment,
-              environments: teamProject.environments,
-              permissions: roleToPermissionMap(teamProject.role, org),
-            };
+            teamPermissions.projects[teamProject.project] = getUserPermission(
+              teamProject,
+              org
+            );
           }
         }
-        mergeUserAndTeamPermissions(userPermissions, teamPermissions);
+        mergeUserAndTeamPermissions(userPermissions, teamPermissions, org);
       }
     }
   }
@@ -323,6 +373,7 @@ export function getRoles(_organization: OrganizationInterface): Role[] {
         "createAnalyses",
         "createDimensions",
         "createMetrics",
+        "createSegments",
         "manageFactTables",
         "manageTags",
         "runQueries",

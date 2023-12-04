@@ -579,6 +579,7 @@ export function migrateSnapshot(
             regressionAdjustmentEnabled &&
             regressionSettings?.regressionAdjustmentEnabled
           ),
+          regressionAdjustmentAvailable: !!regressionSettings?.regressionAdjustmentAvailable,
           regressionAdjustmentReason: regressionSettings?.reason || "",
         },
       };
