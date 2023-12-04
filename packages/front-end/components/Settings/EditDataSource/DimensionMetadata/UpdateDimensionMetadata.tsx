@@ -124,7 +124,7 @@ export const UpdateDimensionMetadataModal: FC<UpdateDimensionMetadataModalProps>
             experiment results, rather than requiring you to re-run queries for
             each dimension just to check traffic by dimension.
           </div>
-          <div className="row mb-2">
+          <div className="row mb-3">
             <strong>How?</strong>
             Running the query on this page will scan 30 days of data from your
             experiment assignment query to determine the 20 most popular
@@ -191,6 +191,7 @@ export const DimensionMetadataRunner: FC<DimensionMetadataRunnerProps> = ({
       });
   }, [dataSource.id, exposureQuery.id, mutate, apiCall, setId]);
 
+  dimensionMetadata?.results;
   return (
     <>
       <div className="col-12">
@@ -215,7 +216,6 @@ export const DimensionMetadataRunner: FC<DimensionMetadataRunnerProps> = ({
               </div>
             </div>
             <div className="flex-1" />
-
             <div className="col-auto ml-auto">
               <form
                 onSubmit={async (e) => {
@@ -231,7 +231,7 @@ export const DimensionMetadataRunner: FC<DimensionMetadataRunnerProps> = ({
               >
                 <RunQueriesButton
                   cta={`${
-                    dimensionMetadata ? "Refresh" : "Load"
+                    dimensionMetadata ? "Refresh" : "Query"
                   } Dimension Slices`}
                   icon={dimensionMetadata ? "refresh" : "run"}
                   position={"left"}
@@ -259,6 +259,11 @@ export const DimensionMetadataRunner: FC<DimensionMetadataRunnerProps> = ({
           <div className="alert alert-danger mt-2">
             <strong>Error updating data</strong>
             {error ? `: ${error}` : null}
+          </div>
+        ) : null}
+        {status === "succeeded" && dimensionMetadata?.results.length === 0 ? (
+          <div className="alert alert-warning mt-2">
+            <strong>No experiment assignment rows found in data source.</strong>
           </div>
         ) : null}
         <DimensionMetadataResults

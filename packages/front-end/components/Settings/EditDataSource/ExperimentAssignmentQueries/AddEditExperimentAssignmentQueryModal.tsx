@@ -323,7 +323,6 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
                         value={userEnteredDimensions}
                         onChange={(dimensions) => {
                           form.setValue("dimensions", dimensions);
-                          // TODO update automatic dimensions
                         }}
                       />
                     </div>

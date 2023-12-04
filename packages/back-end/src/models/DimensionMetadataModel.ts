@@ -81,7 +81,6 @@ export async function getLatestDimensionMetadata(
   datasource: string,
   exposureQueryId: string
 ): Promise<DimensionMetadataInterface | null> {
-  // TODO get no error or status === good
   const doc = await DimensionMetadataModel.find(
     { organization, datasource, exposureQueryId },
     null,
