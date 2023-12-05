@@ -352,16 +352,16 @@ app.post("/subscription/manage", stripeController.postCreateBillingSession);
 app.post("/subscription/success", stripeController.postSubscriptionSuccess);
 app.get("/queries/:ids", datasourcesController.getQueries);
 app.post("/query/test", datasourcesController.testLimitedQuery);
-app.post("/automatic-dimension", datasourcesController.postDimensionMetadata);
-app.get("/automatic-dimension/:id", datasourcesController.getDimensionMetadata);
+app.post("/dimension-slices", datasourcesController.postDimensionSlices);
+app.get("/dimension-slices/:id", datasourcesController.getDimensionSlices);
 app.post(
-  "/automatic-dimension/:id/cancel",
-  datasourcesController.cancelDimensionMetadata
+  "/dimension-slices/:id/cancel",
+  datasourcesController.cancelDimensionSlices
 );
 
 app.get(
-  "/automatic-dimension/datasource/:datasourceId/:exposureQueryId",
-  datasourcesController.getLatestDimensionMetadataForDatasource
+  "/dimension-slices/datasource/:datasourceId/:exposureQueryId",
+  datasourcesController.getLatestDimensionSlicesForDatasource
 );
 app.post("/organization/sample-data", datasourcesController.postSampleData);
 

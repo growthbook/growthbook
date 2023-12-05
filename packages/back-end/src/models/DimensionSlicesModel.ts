@@ -1,10 +1,10 @@
 import mongoose from "mongoose";
 import uniqid from "uniqid";
 import { omit } from "lodash";
-import { DimensionMetadataInterface } from "../types/Integration";
+import { DimensionSlicesInterface } from "../../types/dimension";
 import { queriesSchema } from "./QueryModel";
 
-const dimensionMetadatachema = new mongoose.Schema({
+const dimensionSlicesSchema = new mongoose.Schema({
   id: {
     type: String,
     unique: true,
@@ -21,7 +21,7 @@ const dimensionMetadatachema = new mongoose.Schema({
     {
       _id: false,
       dimension: String,
-      dimensionValues: [
+      dimensionSlices: [
         {
           _id: false,
           name: String,
@@ -33,27 +33,25 @@ const dimensionMetadatachema = new mongoose.Schema({
   error: String,
 });
 
-type DimensionMetadataDocument = mongoose.Document & DimensionMetadataInterface;
+type DimensionSlicesDocument = mongoose.Document & DimensionSlicesInterface;
 
-const DimensionMetadataModel = mongoose.model<DimensionMetadataInterface>(
-  "DimensionMetadata",
-  dimensionMetadatachema
+const DimensionSlicesModel = mongoose.model<DimensionSlicesInterface>(
+  "DimensionSlices",
+  dimensionSlicesSchema
 );
 
-function toInterface(
-  doc: DimensionMetadataDocument
-): DimensionMetadataInterface {
-  const ret = doc.toJSON<DimensionMetadataDocument>();
+function toInterface(doc: DimensionSlicesDocument): DimensionSlicesInterface {
+  const ret = doc.toJSON<DimensionSlicesDocument>();
   return omit(ret, ["__v", "_id"]);
 }
 
-export async function updateDimensionMetadata(
-  dimensionMetadata: DimensionMetadataInterface,
-  updates: Partial<DimensionMetadataInterface>
-): Promise<DimensionMetadataInterface> {
-  const organization = dimensionMetadata.organization;
-  const id = dimensionMetadata.id;
-  await DimensionMetadataModel.updateOne(
+export async function updateDimensionSlices(
+  dimensionSlices: DimensionSlicesInterface,
+  updates: Partial<DimensionSlicesInterface>
+): Promise<DimensionSlicesInterface> {
+  const organization = dimensionSlices.organization;
+  const id = dimensionSlices.id;
+  await DimensionSlicesModel.updateOne(
     {
       organization,
       id,
@@ -63,25 +61,25 @@ export async function updateDimensionMetadata(
     }
   );
   return {
-    ...dimensionMetadata,
+    ...dimensionSlices,
     ...updates,
   };
 }
-export async function getDimensionMetadataById(
+export async function getDimensionSlicesById(
   organization: string,
   id: string
-): Promise<DimensionMetadataInterface | null> {
-  const doc = await DimensionMetadataModel.findOne({ organization, id });
+): Promise<DimensionSlicesInterface | null> {
+  const doc = await DimensionSlicesModel.findOne({ organization, id });
 
   return doc ? toInterface(doc) : null;
 }
 
-export async function getLatestDimensionMetadata(
+export async function getLatestDimensionSlices(
   organization: string,
   datasource: string,
   exposureQueryId: string
-): Promise<DimensionMetadataInterface | null> {
-  const doc = await DimensionMetadataModel.find(
+): Promise<DimensionSlicesInterface | null> {
+  const doc = await DimensionSlicesModel.find(
     { organization, datasource, exposureQueryId },
     null,
     {
@@ -95,7 +93,7 @@ export async function getLatestDimensionMetadata(
   return null;
 }
 
-export async function createDimensionMetadata({
+export async function createDimensionSlices({
   organization,
   dataSourceId,
   queryId,
@@ -105,8 +103,8 @@ export async function createDimensionMetadata({
   queryId: string;
 }) {
   const now = new Date();
-  const doc = await DimensionMetadataModel.create({
-    id: uniqid("autodim_"),
+  const doc = await DimensionSlicesModel.create({
+    id: uniqid("dimslice_"),
     organization,
     datasource: dataSourceId,
     exposureQueryId: queryId,

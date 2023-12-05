@@ -4,10 +4,12 @@ import {
   ExposureQuery,
 } from "back-end/types/datasource";
 import cloneDeep from "lodash/cloneDeep";
-import { DimensionMetadataInterface } from "back-end/src/types/Integration";
 import { ago, datetime } from "shared/dates";
 import { QueryStatus } from "back-end/types/query";
 import { AUTOMATIC_DIMENSION_OTHER_NAME } from "shared/constants";
+import { DimensionSlicesInterface } from "back-end/types/dimension";
+import { BsGear } from "react-icons/bs";
+import { useForm } from "react-hook-form";
 import { useAuth } from "@/services/auth";
 import useApi from "@/hooks/useApi";
 import RunQueriesButton, {
@@ -15,6 +17,7 @@ import RunQueriesButton, {
 } from "@/components/Queries/RunQueriesButton";
 import ViewAsyncQueriesButton from "@/components/Queries/ViewAsyncQueriesButton";
 import Modal from "@/components/Modal";
+import Field from "@/components/Forms/Field";
 
 const smallPercentFormatter = new Intl.NumberFormat(undefined, {
   style: "percent",
@@ -36,15 +39,15 @@ export const UpdateDimensionMetadataModal: FC<UpdateDimensionMetadataModalProps>
 }) => {
   const { apiCall } = useAuth();
   const [id, setId] = useState<string | null>(
-    exposureQuery.dimensionMetadataId || null
+    exposureQuery.dimensionSlicesId || null
   );
   const { data, error, mutate } = useApi<{
-    dimensionMetadata: DimensionMetadataInterface;
-  }>(`/automatic-dimension/${id}`);
+    dimensionSlices: DimensionSlicesInterface;
+  }>(`/dimension-slices/${id}`);
 
   const dataSourceId = dataSource.id;
   const exposureQueryId = exposureQuery.id;
-  const metadataId = exposureQuery.dimensionMetadataId;
+  const metadataId = exposureQuery.dimensionSlicesId;
 
   useEffect(() => {
     if (!dataSourceId || !exposureQueryId) return;
@@ -53,12 +56,12 @@ export const UpdateDimensionMetadataModal: FC<UpdateDimensionMetadataModalProps>
       mutate();
       return;
     } else {
-      apiCall<{ dimensionMetadata: DimensionMetadataInterface }>(
-        `/automatic-dimension/datasource/${dataSourceId}/${exposureQueryId}`
+      apiCall<{ dimensionSlices: DimensionSlicesInterface }>(
+        `/dimension-slices/datasource/${dataSourceId}/${exposureQueryId}`
       )
         .then((res) => {
-          if (res?.dimensionMetadata?.id) {
-            setId(res.dimensionMetadata.id);
+          if (res?.dimensionSlices?.id) {
+            setId(res.dimensionSlices.id);
             mutate();
           }
         })
@@ -72,8 +75,8 @@ export const UpdateDimensionMetadataModal: FC<UpdateDimensionMetadataModalProps>
     return <div className="alert alert-error">{error?.message}</div>;
   }
   const { status } = getQueryStatus(
-    data?.dimensionMetadata?.queries || [],
-    data?.dimensionMetadata?.error
+    data?.dimensionSlices?.queries || [],
+    data?.dimensionSlices?.error
   );
 
   const saveEnabled = id && status === "succeeded";
@@ -85,14 +88,14 @@ export const UpdateDimensionMetadataModal: FC<UpdateDimensionMetadataModalProps>
       onClick={async () => {
         if (
           id &&
-          data?.dimensionMetadata?.results &&
-          data.dimensionMetadata.results.length > 0
+          data?.dimensionSlices?.results &&
+          data.dimensionSlices.results.length > 0
         ) {
           const value = cloneDeep<ExposureQuery>(exposureQuery);
-          value.dimensionMetadataId = id;
-          value.dimensionMetadata = data.dimensionMetadata.results.map((r) => ({
+          value.dimensionSlicesId = id;
+          value.dimensionMetadata = data.dimensionSlices.results.map((r) => ({
             dimension: r.dimension,
-            specifiedValues: r.dimensionValues.map((dv) => dv.name),
+            specifiedSlices: r.dimensionSlices.map((dv) => dv.name),
           }));
           await onSave(value);
           close();
@@ -119,22 +122,18 @@ export const UpdateDimensionMetadataModal: FC<UpdateDimensionMetadataModalProps>
           </div>
           <div className="row mb-1">
             <strong>Why?</strong>
-            Pre-defining dimension slices allows us to run traffic and health
-            checks on your experiment for all bins whenever you update
-            experiment results, rather than requiring you to re-run queries for
-            each dimension just to check traffic by dimension.
+            Pre-defining dimension slices allows us to automatically run traffic
+            and health checks on your experiment for all bins whenever you
+            update experiment results.
           </div>
           <div className="row mb-3">
             <strong>How?</strong>
-            Running the query on this page will scan 30 days of data from your
-            experiment assignment query to determine the 20 most popular
-            dimension values and will save them for future use. It may be useful
-            to update this periodically if you suspect the underlying numbers of
-            users in each bucket are changing over time.
+            Running the query on this page will load data using your experiment
+            assignment query to determine the 20 most popular dimension slices.
           </div>
           <div className="row">
-            <DimensionMetadataRunner
-              dimensionMetadata={data?.dimensionMetadata}
+            <DimensionSlicesRunner
+              dimensionSlices={data?.dimensionSlices}
               status={status}
               id={id}
               setId={setId}
@@ -149,8 +148,8 @@ export const UpdateDimensionMetadataModal: FC<UpdateDimensionMetadataModalProps>
   );
 };
 
-type DimensionMetadataRunnerProps = {
-  dimensionMetadata?: DimensionMetadataInterface;
+type DimensionSlicesRunnerProps = {
+  dimensionSlices?: DimensionSlicesInterface;
   status: QueryStatus;
   id: string | null;
   setId: (id: string) => void;
@@ -159,8 +158,8 @@ type DimensionMetadataRunnerProps = {
   exposureQuery: ExposureQuery;
 };
 
-export const DimensionMetadataRunner: FC<DimensionMetadataRunnerProps> = ({
-  dimensionMetadata,
+export const DimensionSlicesRunner: FC<DimensionSlicesRunnerProps> = ({
+  dimensionSlices,
   status,
   id,
   setId,
@@ -170,52 +169,40 @@ export const DimensionMetadataRunner: FC<DimensionMetadataRunnerProps> = ({
 }) => {
   const { apiCall } = useAuth();
   const [error, setError] = useState<string>("");
+  const [openLookbackField, setOpenLookbackField] = useState<boolean>(false);
+  const form = useForm({
+    defaultValues: {
+      lookbackDays: 30,
+    },
+  });
+
   const refreshDimension = useCallback(async () => {
     apiCall<{
-      dimensionMetadata: DimensionMetadataInterface;
-    }>("/automatic-dimension", {
+      dimensionSlices: DimensionSlicesInterface;
+    }>("/dimension-slices", {
       method: "POST",
       body: JSON.stringify({
         dataSourceId: dataSource.id,
         queryId: exposureQuery.id,
-        lookbackDays: 9999, // TODO configure
+        lookbackDays: form.getValues("lookbackDays"),
       }),
     })
       .then((res) => {
-        setId(res.dimensionMetadata.id);
+        setId(res.dimensionSlices.id);
         mutate();
       })
       .catch((e) => {
         setError(e.message);
         console.error(e.message);
       });
-  }, [dataSource.id, exposureQuery.id, mutate, apiCall, setId]);
+  }, [dataSource.id, exposureQuery.id, form, mutate, apiCall, setId]);
 
-  dimensionMetadata?.results;
+  dimensionSlices?.results;
   return (
     <>
       <div className="col-12">
         <div className="col-auto ml-auto">
           <div className="row align-items-center mb-3">
-            <div className="col-auto ml-auto">
-              <div>
-                <strong>Experiment Assignment Query:</strong>{" "}
-                {exposureQuery.name}
-              </div>
-              <div>
-                <strong>Dimension Columns: </strong>
-                {exposureQuery.dimensions.map((d, i) => (
-                  <Fragment key={i}>
-                    {i ? ", " : ""}
-                    {d}
-                  </Fragment>
-                ))}
-                {!exposureQuery.dimensions.length && (
-                  <em className="text-muted">none</em>
-                )}
-              </div>
-            </div>
-            <div className="flex-1" />
             <div className="col-auto ml-auto">
               <form
                 onSubmit={async (e) => {
@@ -231,56 +218,85 @@ export const DimensionMetadataRunner: FC<DimensionMetadataRunnerProps> = ({
               >
                 <RunQueriesButton
                   cta={`${
-                    dimensionMetadata ? "Refresh" : "Query"
+                    dimensionSlices ? "Refresh" : "Query"
                   } Dimension Slices`}
-                  icon={dimensionMetadata ? "refresh" : "run"}
+                  icon={dimensionSlices ? "refresh" : "run"}
                   position={"left"}
                   mutate={mutate}
                   model={
-                    dimensionMetadata ?? { queries: [], runStarted: undefined }
+                    dimensionSlices ?? { queries: [], runStarted: undefined }
                   }
-                  cancelEndpoint={`/automatic-dimension/${id}/cancel`}
-                  color={`${dimensionMetadata ? "outline-" : ""}primary`}
+                  cancelEndpoint={`/dimension-slices/${id}/cancel`}
+                  color={`${dimensionSlices ? "outline-" : ""}primary`}
                 />
               </form>
-              {dimensionMetadata?.runStarted ? (
+              {dimensionSlices?.runStarted ? (
                 <div
                   className="text-right text-muted"
                   style={{ fontSize: "0.7em" }}
-                  title={datetime(dimensionMetadata.runStarted)}
+                  title={datetime(dimensionSlices.runStarted)}
                 >
-                  last updated {ago(dimensionMetadata.runStarted)}
+                  last updated {ago(dimensionSlices.runStarted)}
                 </div>
               ) : null}
+              <div
+                className="text-right text-muted"
+                style={{ fontSize: "0.7em" }}
+              >
+                {openLookbackField ? (
+                  <div className="form-inline">
+                    <Field
+                      type="number"
+                      className=""
+                      label="Days to look back"
+                      {...form.register("lookbackDays", {
+                        valueAsNumber: true,
+                        min: 1,
+                      })}
+                    />
+                  </div>
+                ) : (
+                  <span>{form.getValues("lookbackDays")} day lookback </span>
+                )}
+                <a
+                  href="#"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setOpenLookbackField(!openLookbackField);
+                  }}
+                >
+                  <BsGear />
+                </a>
+              </div>
             </div>
           </div>
         </div>
-        {(status === "failed" || error !== "") && dimensionMetadata ? (
+        {(status === "failed" || error !== "") && dimensionSlices ? (
           <div className="alert alert-danger mt-2">
             <strong>Error updating data</strong>
-            {error ? `: ${error}` : null}
+            {`: ${error || "See View Queries below"}`}
           </div>
         ) : null}
-        {status === "succeeded" && dimensionMetadata?.results.length === 0 ? (
+        {status === "succeeded" && dimensionSlices?.results.length === 0 ? (
           <div className="alert alert-warning mt-2">
             <strong>No experiment assignment rows found in data source.</strong>
           </div>
         ) : null}
-        <DimensionMetadataResults
+        <DimensionSlicesResults
           status={status}
           dimensions={exposureQuery.dimensions}
-          dimensionMetadata={dimensionMetadata}
+          dimensionSlices={dimensionSlices}
         />
 
-        {dimensionMetadata?.queries && (
+        {dimensionSlices?.queries && (
           <div>
             <ViewAsyncQueriesButton
               queries={
-                dimensionMetadata.queries?.length > 0
-                  ? dimensionMetadata.queries.map((q) => q.query)
+                dimensionSlices.queries?.length > 0
+                  ? dimensionSlices.queries.map((q) => q.query)
                   : []
               }
-              error={dimensionMetadata.error}
+              error={dimensionSlices.error}
               inline={true}
               status={status}
             />
@@ -291,15 +307,15 @@ export const DimensionMetadataRunner: FC<DimensionMetadataRunnerProps> = ({
   );
 };
 
-type DimensionMetadataProps = {
+type DimensionSlicesProps = {
   status: string;
   dimensions: string[];
-  dimensionMetadata?: DimensionMetadataInterface;
+  dimensionSlices?: DimensionSlicesInterface;
 };
 
-export const DimensionMetadataResults: FC<DimensionMetadataProps> = ({
+export const DimensionSlicesResults: FC<DimensionSlicesProps> = ({
   dimensions,
-  dimensionMetadata,
+  dimensionSlices,
   status,
 }) => {
   return (
@@ -313,7 +329,7 @@ export const DimensionMetadataResults: FC<DimensionMetadataProps> = ({
         </thead>
         <tbody>
           {dimensions.map((r) => {
-            const dimensionValueResult = dimensionMetadata?.results.find(
+            const dimensionValueResult = dimensionSlices?.results.find(
               (d) => d.dimension === r
             );
             let totalPercent = 0;
@@ -324,7 +340,7 @@ export const DimensionMetadataResults: FC<DimensionMetadataProps> = ({
                   {dimensionValueResult ? (
                     <>
                       <div>
-                        {dimensionValueResult.dimensionValues.map((d, i) => {
+                        {dimensionValueResult.dimensionSlices.map((d, i) => {
                           totalPercent += d.percent;
                           return (
                             <>

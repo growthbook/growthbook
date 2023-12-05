@@ -1,27 +1,27 @@
 import {
   ExperimentDimension,
-  DimensionMetadataInterface,
-  DimensionMetadataQueryResponseRows,
-  DimensionMetadataResult,
+  DimensionSlicesInterface,
+  DimensionSlicesQueryResponseRows,
+  DimensionSlicesResult,
 } from "../types/Integration";
 import { Queries } from "../../types/query";
 import {
-  getDimensionMetadataById,
-  updateDimensionMetadata,
-} from "../models/DimensionMetadataModel";
+  getDimensionSlicesById,
+  updateDimensionSlices,
+} from "../models/DimensionSlicesModel";
 import { QueryRunner, QueryMap } from "./QueryRunner";
 
-export type DimensionMetadataParams = {
+export type DimensionSlicesParams = {
   exposureQueryId: string;
   lookbackDays: number;
 };
 
-export class DimensionMetadataQueryRunner extends QueryRunner<
-  DimensionMetadataInterface,
-  DimensionMetadataParams,
-  DimensionMetadataResult[]
+export class DimensionSlicesQueryRunner extends QueryRunner<
+  DimensionSlicesInterface,
+  DimensionSlicesParams,
+  DimensionSlicesResult[]
 > {
-  async startQueries(params: DimensionMetadataParams): Promise<Queries> {
+  async startQueries(params: DimensionSlicesParams): Promise<Queries> {
     const exposureQuery = (
       this.integration.settings?.queries?.exposure || []
     ).find((q) => q.id === params.exposureQueryId);
@@ -39,26 +39,26 @@ export class DimensionMetadataQueryRunner extends QueryRunner<
 
     return [
       await this.startQuery({
-        name: "dimensionMetadata",
-        query: this.integration.getDimensionMetadataQuery({
+        name: "dimensionSlices",
+        query: this.integration.getDimensionSlicesQuery({
           exposureQueryId: params.exposureQueryId,
           dimensions: dimensions,
           lookbackDays: params.lookbackDays,
         }),
         dependencies: [],
         run: (query, setExternalId) =>
-          this.integration.runDimensionMetadataQuery(query, setExternalId),
+          this.integration.runDimensionSlicesQuery(query, setExternalId),
         process: (rows) => rows,
       }),
     ];
   }
-  async runAnalysis(queryMap: QueryMap): Promise<DimensionMetadataResult[]> {
-    const dimensionMetadata = queryMap.get("dimensionMetadata")
-      ?.result as DimensionMetadataQueryResponseRows;
+  async runAnalysis(queryMap: QueryMap): Promise<DimensionSlicesResult[]> {
+    const dimensionSlices = queryMap.get("dimensionSlices")
+      ?.result as DimensionSlicesQueryResponseRows;
 
     // Group by experiment and exposureQuery
     const dimValueMap = new Map<string, { name: string; percent: number }[]>();
-    dimensionMetadata.forEach((d) => {
+    dimensionSlices.forEach((d) => {
       const dimName = d.dimension_name.replace(/^dim_exp_/g, "");
       const dimArray = dimValueMap.get(dimName);
       if (dimArray) {
@@ -76,17 +76,17 @@ export class DimensionMetadataQueryRunner extends QueryRunner<
       }
     });
 
-    const results: DimensionMetadataResult[] = [];
+    const results: DimensionSlicesResult[] = [];
     dimValueMap.forEach((dimValues, dimName) => {
       results.push({
         dimension: dimName,
-        dimensionValues: dimValues,
+        dimensionSlices: dimValues,
       });
     });
     return results;
   }
-  async getLatestModel(): Promise<DimensionMetadataInterface> {
-    const model = await getDimensionMetadataById(
+  async getLatestModel(): Promise<DimensionSlicesInterface> {
+    const model = await getDimensionSlicesById(
       this.model.organization,
       this.model.id
     );
@@ -101,10 +101,10 @@ export class DimensionMetadataQueryRunner extends QueryRunner<
   }: {
     queries: Queries;
     runStarted?: Date | undefined;
-    result?: DimensionMetadataResult[] | undefined;
+    result?: DimensionSlicesResult[] | undefined;
     error?: string | undefined;
-  }): Promise<DimensionMetadataInterface> {
-    return updateDimensionMetadata(this.model, {
+  }): Promise<DimensionSlicesInterface> {
+    return updateDimensionSlices(this.model, {
       queries,
       runStarted,
       results,

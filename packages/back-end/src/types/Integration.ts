@@ -8,7 +8,7 @@ import {
 import { DimensionInterface } from "../../types/dimension";
 import { ExperimentSnapshotSettings } from "../../types/experiment-snapshot";
 import { MetricInterface, MetricType } from "../../types/metric";
-import { Queries, QueryStatistics } from "../../types/query";
+import { QueryStatistics } from "../../types/query";
 import { SegmentInterface } from "../../types/segment";
 import { FormatDialect } from "../util/sql";
 import { TemplateVariables } from "../../types/sql";
@@ -125,7 +125,7 @@ export interface ExperimentAggregateUnitsQueryParams
   useUnitsTable: boolean;
 }
 
-export type DimensionMetadataQueryParams = {
+export type DimensionSlicesQueryParams = {
   exposureQueryId: string;
   dimensions: ExperimentDimension[];
   lookbackDays: number;
@@ -241,7 +241,7 @@ export type ExperimentAggregateUnitsQueryResponseRows = {
   units: number;
 }[];
 
-export type DimensionMetadataQueryResponseRows = {
+export type DimensionSlicesQueryResponseRows = {
   dimension_value: string;
   dimension_name: string;
   units: number;
@@ -259,7 +259,7 @@ export type PastExperimentQueryResponse = QueryResponse<PastExperimentResponseRo
 export type ExperimentMetricQueryResponse = QueryResponse<ExperimentMetricQueryResponseRows>;
 export type ExperimentUnitsQueryResponse = QueryResponse;
 export type ExperimentAggregateUnitsQueryResponse = QueryResponse<ExperimentAggregateUnitsQueryResponseRows>;
-export type DimensionMetadataQueryResponse = QueryResponse<DimensionMetadataQueryResponseRows>;
+export type DimensionSlicesQueryResponse = QueryResponse<DimensionSlicesQueryResponseRows>;
 
 export interface SourceIntegrationConstructor {
   new (
@@ -346,25 +346,6 @@ export interface InformationSchemaTablesInterface {
   informationSchemaId: string;
 }
 
-export interface DimensionMetadataResult {
-  dimension: string;
-  dimensionValues: { name: string; percent: number }[];
-}
-
-export interface DimensionMetadataInterface {
-  id: string;
-  organization: string;
-
-  runStarted: Date;
-  queries: Queries;
-  error?: string;
-
-  datasource: string;
-  exposureQueryId: string;
-
-  results: DimensionMetadataResult[];
-}
-
 export interface SourceIntegrationInterface {
   datasource: string;
   organization: string;
@@ -411,11 +392,11 @@ export interface SourceIntegrationInterface {
   ): string;
   getExperimentUnitsTableQuery(params: ExperimentUnitsQueryParams): string;
   getPastExperimentQuery(params: PastExperimentParams): string;
-  getDimensionMetadataQuery(params: DimensionMetadataQueryParams): string;
-  runDimensionMetadataQuery(
+  getDimensionSlicesQuery(params: DimensionSlicesQueryParams): string;
+  runDimensionSlicesQuery(
     query: string,
     setExternalId: ExternalIdCallback
-  ): Promise<DimensionMetadataQueryResponse>;
+  ): Promise<DimensionSlicesQueryResponse>;
   runMetricValueQuery(
     query: string,
     setExternalId: ExternalIdCallback

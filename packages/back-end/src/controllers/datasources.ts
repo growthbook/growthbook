@@ -48,11 +48,11 @@ import { TemplateVariables } from "../../types/sql";
 import { getUserById } from "../services/users";
 import { AuditUserLoggedIn } from "../../types/audit";
 import {
-  createDimensionMetadata,
-  getLatestDimensionMetadata,
-  getDimensionMetadataById,
-} from "../models/DimensionMetadataModel";
-import { DimensionMetadataQueryRunner } from "../queryRunners/DimensionMetadataQueryRunner";
+  createDimensionSlices,
+  getLatestDimensionSlices,
+  getDimensionSlicesById,
+} from "../models/DimensionSlicesModel";
+import { DimensionSlicesQueryRunner } from "../queryRunners/DimensionSlicesQueryRunner";
 
 export async function postSampleData(
   req: AuthRequest,
@@ -669,29 +669,29 @@ export async function getDataSourceMetrics(
   });
 }
 
-export async function getDimensionMetadata(
+export async function getDimensionSlices(
   req: AuthRequest<null, { id: string }>,
   res: Response
 ) {
   const { org } = getOrgFromReq(req);
   const { id } = req.params;
 
-  const dimensionMetadata = await getDimensionMetadataById(org.id, id);
+  const dimensionSlices = await getDimensionSlicesById(org.id, id);
 
   res.status(200).json({
     status: 200,
-    dimensionMetadata,
+    dimensionSlices,
   });
 }
 
-export async function getLatestDimensionMetadataForDatasource(
+export async function getLatestDimensionSlicesForDatasource(
   req: AuthRequest<null, { datasourceId: string; exposureQueryId: string }>,
   res: Response
 ) {
   const { org } = getOrgFromReq(req);
   const { datasourceId, exposureQueryId } = req.params;
 
-  const dimensionMetadata = await getLatestDimensionMetadata(
+  const dimensionSlices = await getLatestDimensionSlices(
     org.id,
     datasourceId,
     exposureQueryId
@@ -699,11 +699,11 @@ export async function getLatestDimensionMetadataForDatasource(
 
   res.status(200).json({
     status: 200,
-    dimensionMetadata,
+    dimensionSlices,
   });
 }
 
-export async function postDimensionMetadata(
+export async function postDimensionSlices(
   req: AuthRequest<{
     dataSourceId: string;
     queryId: string;
@@ -725,35 +725,35 @@ export async function postDimensionMetadata(
 
   const integration = getSourceIntegrationObject(datasourceObj, true);
 
-  const model = await createDimensionMetadata({
+  const model = await createDimensionSlices({
     organization: org.id,
     dataSourceId,
     queryId,
   });
 
-  const queryRunner = new DimensionMetadataQueryRunner(model, integration);
+  const queryRunner = new DimensionSlicesQueryRunner(model, integration);
   const outputmodel = await queryRunner.startAnalysis({
     exposureQueryId: queryId,
     lookbackDays: Number(lookbackDays) ?? 30,
   });
   res.status(200).json({
     status: 200,
-    dimensionMetadata: outputmodel,
+    dimensionSlices: outputmodel,
   });
 }
 
-export async function cancelDimensionMetadata(
+export async function cancelDimensionSlices(
   req: AuthRequest<null, { id: string }>,
   res: Response
 ) {
   const { org } = getOrgFromReq(req);
   const { id } = req.params;
-  const dimensionMetadata = await getDimensionMetadataById(org.id, id);
-  if (!dimensionMetadata) {
+  const dimensionSlices = await getDimensionSlicesById(org.id, id);
+  if (!dimensionSlices) {
     throw new Error("Could not cancel automatic dimension");
   }
   const datasource = await getDataSourceById(
-    dimensionMetadata.datasource,
+    dimensionSlices.datasource,
     org.id
   );
   if (!datasource) {
@@ -767,8 +767,8 @@ export async function cancelDimensionMetadata(
 
   const integration = getSourceIntegrationObject(datasource, true);
 
-  const queryRunner = new DimensionMetadataQueryRunner(
-    dimensionMetadata,
+  const queryRunner = new DimensionSlicesQueryRunner(
+    dimensionSlices,
     integration
   );
   await queryRunner.cancelQueries();

@@ -47,8 +47,8 @@ import {
   UserDimension,
   ExperimentDimension,
   ExternalIdCallback,
-  DimensionMetadataQueryResponse,
-  DimensionMetadataQueryParams,
+  DimensionSlicesQueryResponse,
+  DimensionSlicesQueryParams,
 } from "../types/Integration";
 import { DimensionInterface } from "../../types/dimension";
 import { IMPORT_LIMIT_DAYS } from "../util/secrets";
@@ -1261,7 +1261,7 @@ export default abstract class SqlIntegration
       , ${dimensionColumn})`;
   }
 
-  getDimensionMetadataQuery(params: DimensionMetadataQueryParams): string {
+  getDimensionSlicesQuery(params: DimensionSlicesQueryParams): string {
     const exposureQuery = this.getExposureQuery(params.exposureQueryId || "");
 
     const { baseIdType } = getBaseIdTypeAndJoins([[exposureQuery.userIdType]]);
@@ -1350,10 +1350,10 @@ export default abstract class SqlIntegration
     );
   }
 
-  async runDimensionMetadataQuery(
+  async runDimensionSlicesQuery(
     query: string,
     setExternalId: ExternalIdCallback
-  ): Promise<DimensionMetadataQueryResponse> {
+  ): Promise<DimensionSlicesQueryResponse> {
     const { rows, statistics } = await this.runQuery(query, setExternalId);
     return {
       rows: rows.map((row) => {

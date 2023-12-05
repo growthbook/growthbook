@@ -9,7 +9,7 @@ import { MetricInterface, MetricType } from "../../types/metric";
 import { decryptDataSourceParams } from "../services/datasource";
 import { formatQuery, runQuery } from "../services/mixpanel";
 import {
-  DimensionMetadataQueryResponse,
+  DimensionSlicesQueryResponse,
   ExperimentAggregateUnitsQueryResponse,
   ExperimentMetricQueryResponse,
   ExperimentQueryResponses,
@@ -552,10 +552,10 @@ export default class Mixpanel implements SourceIntegrationInterface {
   async runPastExperimentQuery(): Promise<PastExperimentQueryResponse> {
     throw new Error("Method not implemented.");
   }
-  getDimensionMetadataQuery(): string {
+  getDimensionSlicesQuery(): string {
     throw new Error("Method not implemented.");
   }
-  async runDimensionMetadataQuery(): Promise<DimensionMetadataQueryResponse> {
+  async runDimensionSlicesQuery(): Promise<DimensionSlicesQueryResponse> {
     throw new Error("Method not implemented.");
   }
   getSensitiveParamKeys(): string[] {
