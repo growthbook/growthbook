@@ -485,16 +485,10 @@ let experiment = ( // Viewed Experiment
         ignoreConversionEnd
       )}
     | summarize 
-      value = ${this.getAggregateMetricColumn(
-        metric,
-        isRegressionAdjusted ? "post" : "noWindow"
-      )}
+      value = ${this.getAggregateMetricColumn(metric)}
       ${
         isRegressionAdjusted
-          ? `, covariate_value = ${this.getAggregateMetricColumn(
-              metric,
-              "pre"
-            )}`
+          ? `, covariate_value = ${this.getAggregateMetricColumn(metric)}`
           : ""
       } by
       variation,
@@ -515,10 +509,7 @@ let experiment = ( // Viewed Experiment
             timestamp >= conversion_start
             ${ignoreConversionEnd ? "" : "and timestamp <= conversion_end"}
           | summarize
-            value = ${this.getAggregateMetricColumn(
-              denominator,
-              "noWindow"
-            )} by 
+            value = ${this.getAggregateMetricColumn(denominator)} by 
             variation,
             dimension,
             ${baseIdType}
@@ -623,33 +614,30 @@ let experiment = ( // Viewed Experiment
     const kustoResult = await this.runQuery(query);
 
     return {
-      rows:
-        (kustoResult?.tables?.[0]?.rows &&
-          kustoResult?.tables?.[0]?.rows.map((row: any) => {
-            return {
-              variation: row[0] ?? "",
-              dimension: row[1] || "",
-              users: parseInt(row[2]) || 0,
-              count: parseInt(row[2]) || 0,
-              statistic_type: row[3] ?? "",
-              main_metric_type: row[4] ?? "",
-              main_sum: parseFloat(row[5]) || 0,
-              main_sum_squares: parseFloat(row[6]) || 0,
-              ...(row.denominator_metric_type && {
-                denominator_metric_type: row[7] ?? "",
-                denominator_sum: parseFloat(row[8]) || 0,
-                denominator_sum_squares: parseFloat(row[9]) || 0,
-                main_denominator_sum_product: parseFloat(row[10]) || 0,
-              }),
-              ...(row.covariate_metric_type && {
-                covariate_metric_type: row[11] ?? "",
-                covariate_sum: parseFloat(row[12]) || 0,
-                covariate_sum_squares: parseFloat(row[13]) || 0,
-                main_covariate_sum_product: parseFloat(row[14]) || 0,
-              }),
-            };
-          })) ||
-        [],
+      rows: (kustoResult?.tables?.[0]?.rows || []).map((row: any) => {
+        return {
+          variation: row[0] ?? "",
+          dimension: row[1] || "",
+          users: parseInt(row[2]) || 0,
+          count: parseInt(row[2]) || 0,
+          statistic_type: row[3] ?? "",
+          main_metric_type: row[4] ?? "",
+          main_sum: parseFloat(row[5]) || 0,
+          main_sum_squares: parseFloat(row[6]) || 0,
+          ...(row.denominator_metric_type && {
+            denominator_metric_type: row[7] ?? "",
+            denominator_sum: parseFloat(row[8]) || 0,
+            denominator_sum_squares: parseFloat(row[9]) || 0,
+            main_denominator_sum_product: parseFloat(row[10]) || 0,
+          }),
+          ...(row.covariate_metric_type && {
+            covariate_metric_type: row[11] ?? "",
+            covariate_sum: parseFloat(row[12]) || 0,
+            covariate_sum_squares: parseFloat(row[13]) || 0,
+            main_covariate_sum_product: parseFloat(row[14]) || 0,
+          }),
+        };
+      }),
     };
   }
 
@@ -775,7 +763,7 @@ let experiment = ( // Viewed Experiment
     );
     const metricEnd = this.getMetricEnd([params.metric], params.to);
 
-    const aggregate = this.getAggregateMetricColumn(params.metric, "noWindow");
+    const aggregate = this.getAggregateMetricColumn(params.metric);
 
     const query = format(
       `// ${params.name} - ${params.metric.name} Metric
@@ -1094,24 +1082,6 @@ let experiment = ( // Viewed Experiment
     return `'${date.toISOString().substr(0, 19).replace("T", " ")}'`;
   }
 
-  private addPrePostTimeFilter(
-    col: string,
-    timePeriod: MetricAggregationType
-  ): string {
-    const mcol = `m.timestamp`;
-    if (timePeriod === "pre") {
-      return `${this.ifElse(`${mcol} < d.preexposure_end`, `${col}`, `NULL`)}`;
-    }
-    if (timePeriod === "post") {
-      return `${this.ifElse(
-        `${mcol} >= d.conversion_start`,
-        `${col}`,
-        `NULL`
-      )}`;
-    }
-    return `${col}`;
-  }
-
   private capValue(cap: number | undefined, value: string) {
     if (!cap) {
       return value;
@@ -1156,7 +1126,6 @@ let experiment = ( // Viewed Experiment
 
   private getAggregateMetricColumn(
     metric: ExperimentMetricInterface,
-    metricTimeWindow: MetricAggregationType = "post",
     useDenominator?: boolean
   ) {
     if (isFactMetric(metric)) {
@@ -1165,11 +1134,11 @@ let experiment = ( // Viewed Experiment
         metric.metricType === "proportion" ||
         columnRef?.column === "$$distinctUsers"
       ) {
-        return `max(${this.addPrePostTimeFilter("1", metricTimeWindow)})`;
+        return `max(coalesce(value, 0.0))`;
       } else if (columnRef?.column === "$$count") {
         return `count(value)`;
       } else {
-        return `sum(${this.addPrePostTimeFilter("value", metricTimeWindow)})`;
+        return `sum(coalesce(value, 0.0))`;
       }
     }
 
@@ -1177,15 +1146,14 @@ let experiment = ( // Viewed Experiment
 
     // Binomial metrics don't have a value, so use hard-coded "1" as the value
     if (metric.type === "binomial") {
-      return `max(${this.addPrePostTimeFilter("1", metricTimeWindow)})`;
+      return `max(coalesce(value, 0.0))`;
     }
 
     // Custom aggregation that's a hardcoded number (e.g. "1")
     if (metric.aggregation && Number(metric.aggregation)) {
-      return `max(${this.addPrePostTimeFilter(
-        metric.aggregation,
-        metricTimeWindow
-      )})`;
+      // Note that if user has conversion row but value IS NULL, this will
+      // return 0 for that user rather than `metric.aggregation`
+      return this.ifElse("isnotnull(value)", metric.aggregation, "0.0");
     }
     // Other custom aggregation
     else if (metric.aggregation) {
@@ -1195,10 +1163,7 @@ let experiment = ( // Viewed Experiment
     }
     // Standard aggregation (SUM)
     else {
-      return this.capValue(
-        metric.capValue,
-        `sum(${this.addPrePostTimeFilter("value", metricTimeWindow)})`
-      );
+      return this.capValue(metric.capValue, `sum(coalesce(value, 0.0))`);
     }
   }
 
