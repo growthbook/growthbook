@@ -72,7 +72,7 @@ export function getValidDate(
  * even if the user is in pacific time
  *
  */
-export function getValidDateToShowOrignalTime(
+export function getValidDateOffsetByUTC(
   ...params: Parameters<typeof getValidDate>
 ): Date {
   const date = getValidDate(...params);
