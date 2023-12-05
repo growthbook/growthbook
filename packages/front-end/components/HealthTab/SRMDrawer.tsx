@@ -39,8 +39,6 @@ export const srmHealthCheck = ({
 };
 
 export const EXPERIMENT_DIMENSION_PREFIX = "dim_exp_";
-const NOT_ENOUGH_DATA_TOOLTIP_MESSAGE =
-  "Not enough data to compute balance check.";
 
 export default function SRMDrawer({
   traffic,
@@ -66,7 +64,7 @@ export default function SRMDrawer({
         parentElement.style.height = `${newParentHeight}px`;
       }
     }
-  }, []);
+  }, [balanceCheckTableRef]);
 
   const srmThreshold = settings.srmThreshold ?? DEFAULT_SRM_THRESHOLD;
 
@@ -86,6 +84,12 @@ export default function SRMDrawer({
   // useEffect(() => {
   //   setSelectedDimension("");
   // }, [traffic]);
+
+  if (!traffic.overall.variationUnits.length) {
+    <div className="appbox my-4 p-3">
+      <div className="alert alert-danger">Traffic data is missing</div>
+    </div>;
+  }
 
   return (
     <div className="appbox my-4 p-3">
@@ -107,28 +111,25 @@ export default function SRMDrawer({
                 <VariationUsersTable
                   users={traffic.overall.variationUnits}
                   variations={variations}
-                  srm={pValueFormatter(traffic.overall.srm)}
-                  isUnhealthy={overallHealth === "Issues detected"}
+                  srm={traffic.overall.srm}
                 />
               </div>
               <div>
-                {overallHealth === "healthy" && (
+                {(overallHealth === "healthy" ||
+                  overallHealth === "Issues detected") && (
                   <SRMWarning
                     srm={traffic.overall.srm}
                     variations={variations}
                     users={traffic.overall.variationUnits}
-                  />
-                )}
-                {overallHealth === "Issues detected" && (
-                  <SRMWarning
-                    srm={traffic.overall.srm}
-                    variations={variations}
-                    users={traffic.overall.variationUnits}
+                    showWhenHealthy
                   />
                 )}
                 {overallHealth === "Not enough traffic" && (
                   <div className="alert alert-info">
-                    {NOT_ENOUGH_DATA_TOOLTIP_MESSAGE}
+                    <b>
+                      More traffic is required to detect a Sample Ratio Mismatch
+                      (SRM).
+                    </b>
                   </div>
                 )}
               </div>

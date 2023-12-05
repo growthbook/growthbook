@@ -1,13 +1,13 @@
 import { ExperimentSnapshotTrafficDimension } from "back-end/types/experiment-snapshot";
 import { ExperimentReportVariation } from "back-end/types/report";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { useUser } from "@/services/UserContext";
 import { DEFAULT_SRM_THRESHOLD } from "@/pages/settings";
 import track from "@/services/track";
-import { pValueFormatter } from "@/services/experiments";
 import VariationUsersTable from "../Experiment/TabbedPage/VariationUsersTable";
 import Modal from "../Modal";
 import SelectField from "../Forms/SelectField";
+import SRMWarning from "../Experiment/SRMWarning";
 import { EXPERIMENT_DIMENSION_PREFIX, srmHealthCheck } from "./SRMDrawer";
 import HealthCard from "./HealthCard";
 import { IssueTags } from "./IssueTags";
@@ -79,7 +79,7 @@ export const DimensionIssues = ({ dimensionData, variations }: Props) => {
   );
 
   const [selectedDimension, setSelectedDimension] = useState(
-    availableDimensions[0].value
+    availableDimensions[0]?.value || ""
   );
 
   //   const dimensionSliceHealth = useMemo(() => {
@@ -192,14 +192,25 @@ export const DimensionIssues = ({ dimensionData, variations }: Props) => {
                         <VariationUsersTable
                           users={d.variationUnits}
                           variations={variations}
-                          srm={pValueFormatter(d.srm)}
-                          isUnhealthy={dimensionHealth === "Issues detected"}
+                          srm={d.srm}
                         />
-                        <div className="col-sm ml-4 mr-4">
-                          {dimensionHealth === "Issues detected" && (
-                            <p>replace me with new warning</p>
-                          )}
-                        </div>
+                        {(dimensionHealth === "healthy" ||
+                          dimensionHealth === "Issues detected") && (
+                          <SRMWarning
+                            srm={d.srm}
+                            variations={variations}
+                            users={d.variationUnits}
+                            showWhenHealthy
+                          />
+                        )}
+                        {dimensionHealth === "Not enough traffic" && (
+                          <div className="alert alert-info">
+                            <b>
+                              More traffic is required to detect a Sample Ratio
+                              Mismatch (SRM).
+                            </b>
+                          </div>
+                        )}
                       </div>
                     </div>
                   </HealthCard>

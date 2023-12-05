@@ -217,7 +217,7 @@ const CompactResults: FC<{
             <VariationUsersTable
               variations={variations}
               users={variationUsers}
-              srm={pValueFormatter(results.srm)}
+              srm={results.srm}
             />
           </Collapsible>
         </div>

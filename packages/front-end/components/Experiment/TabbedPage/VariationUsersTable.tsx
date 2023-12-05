@@ -1,10 +1,10 @@
 import { ExperimentReportVariation } from "back-end/types/report";
+import { pValueFormatter } from "@/services/experiments";
 
 export interface Props {
   variations: ExperimentReportVariation[];
   users: number[];
-  srm?: string;
-  isUnhealthy?: boolean;
+  srm?: number;
 }
 
 const numberFormatter = Intl.NumberFormat(undefined, {
@@ -81,7 +81,7 @@ export default function VariationUsersTable({ variations, users, srm }: Props) {
           {srm && (
             <tr className="text-left">
               <td colSpan={3} className="text-nowrap text-muted">
-                p-value = {srm}
+                p-value = {pValueFormatter(srm)}
               </td>
               <td colSpan={2}></td>
             </tr>

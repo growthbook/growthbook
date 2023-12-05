@@ -21,21 +21,12 @@ const DataQualityWarning: FC<{
     return null;
   }
 
-  // Minimum number of users required to do data quality checks
-  let totalUsers = 0;
-  variationResults.forEach((v) => {
-    totalUsers += v.users;
-  });
-  if (totalUsers < 8 * variations.length) {
-    return null;
-  }
-
   // SRM check
   return (
     <SRMWarning
       srm={results.srm}
-      expected={variations.map((v) => v.weight)}
-      observed={results.variations.map((v) => v.users)}
+      variations={variations}
+      users={variationResults.map((r) => r.users)}
       linkToHealthTab={linkToHealthTab}
       setTab={setTab}
     />
