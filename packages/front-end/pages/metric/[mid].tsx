@@ -102,6 +102,9 @@ const MetricPage: FC = () => {
 
   const { organization } = useUser();
 
+  //TODO: Is there a way to refactor this so it behaves more like the [did] page where instead of calling this endpoint, it uses the useDefinitions getMetricById entirely?
+  // Going that route means we don't have to have crazy logic on the getMetrics method on the metrics controller
+  // But, maybe we do want the logic in both places to prevent leaks?
   const { data, error, mutate } = useApi<{
     metric: MetricInterface;
     experiments: Partial<ExperimentInterfaceStringDates>[];

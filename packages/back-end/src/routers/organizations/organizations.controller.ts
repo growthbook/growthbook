@@ -10,6 +10,7 @@ import {
 } from "enterprise";
 import {
   getDataSourcesUserCanAccess,
+  getFactTablesUserCanAccess,
   getMetricsUserCanAccess,
   getProjectsUserCanAccess,
 } from "shared/permissions";
@@ -183,7 +184,7 @@ export async function getDefinitions(req: AuthRequest, res: Response) {
     tags,
     savedGroups,
     projects: getProjectsUserCanAccess(currentUserPermissions, projects),
-    factTables,
+    factTables: getFactTablesUserCanAccess(currentUserPermissions, factTables),
     factMetrics,
   });
 }

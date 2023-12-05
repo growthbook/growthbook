@@ -1,5 +1,6 @@
 import type { Response } from "express";
 import { orgHasPremiumFeature } from "enterprise";
+import { getSDKConnectionsUserCanAccess } from "shared/permissions";
 import { AuthRequest } from "../../types/AuthRequest";
 import { getOrgFromReq } from "../../services/organizations";
 import {
@@ -16,6 +17,8 @@ import {
   findSDKConnectionsByOrganization,
   testProxyConnection,
 } from "../../models/SdkConnectionModel";
+import { getTeamsForOrganization } from "../../models/TeamModel";
+import { getUserPermissions } from "../../util/organization.util";
 
 export const getSDKConnections = async (
   req: AuthRequest,
@@ -24,11 +27,25 @@ export const getSDKConnections = async (
     connections: SDKConnectionInterface[];
   }>
 ) => {
-  const { org } = getOrgFromReq(req);
+  const { org, userId } = getOrgFromReq(req);
+
+  const teams = await getTeamsForOrganization(org.id);
+
+  const currentUserPermissions = getUserPermissions(userId, org, teams || []);
+
   const connections = await findSDKConnectionsByOrganization(org.id);
+
+  if (!connections) {
+    return res.status(200).json({ status: 200, connections: [] });
+  }
+
+  //TODO: Add filtering to the SDK connecions to filter based on projects
   res.status(200).json({
     status: 200,
-    connections,
+    connections: getSDKConnectionsUserCanAccess(
+      currentUserPermissions,
+      connections
+    ),
   });
 };
 

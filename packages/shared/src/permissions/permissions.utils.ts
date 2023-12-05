@@ -1,4 +1,6 @@
 import { DataSourceInterface } from "back-end/types/datasource";
+import { FactTableInterface } from "back-end/types/fact-table";
+import { SDKConnectionInterface } from "back-end/types/sdk-connection";
 import { MetricInterface } from "back-end/types/metric";
 import {
   Permission,
@@ -187,6 +189,131 @@ export function getDataSourcesUserCanAccess(
   }
 
   return accessibleDataSources;
+}
+
+export function getFactTablesUserCanAccess(
+  currentUserPermissions: UserPermissions,
+  factTables: FactTableInterface[]
+): FactTableInterface[] {
+  const usersGlobalRoleHasReadPermissions =
+    currentUserPermissions.global.permissions.readData;
+
+  const accessibleFactTables: FactTableInterface[] = usersGlobalRoleHasReadPermissions
+    ? cloneDeep(factTables)
+    : [];
+
+  const userHasProjectSpecificPermissions = !!Object.keys(
+    currentUserPermissions.projects
+  ).length;
+
+  if (userHasProjectSpecificPermissions) {
+    factTables.forEach((factTable) => {
+      const factTableProjects = factTable.projects || [];
+
+      if (factTableProjects.length === 0) {
+        return;
+      }
+
+      if (usersGlobalRoleHasReadPermissions) {
+        // // global role gives them readAccess permissions, checking project-specific permissions to see if it revokes their readAccess
+        let userHasReadAccessToAtleastOneProject = true;
+        factTableProjects.forEach((factTableProject) => {
+          // I think I need to check to see if the dataSourceProject is in currentUserPermissions.projects
+          if (
+            factTableProject in currentUserPermissions.projects &&
+            currentUserPermissions.projects[factTableProject]?.permissions
+              .readData === false
+          ) {
+            userHasReadAccessToAtleastOneProject = false;
+          }
+        });
+        if (!userHasReadAccessToAtleastOneProject) {
+          const factTableIndex = accessibleFactTables.findIndex(
+            (accessibleFactTable) => accessibleFactTable.id === factTable.id
+          );
+          if (factTableIndex !== -1) {
+            accessibleFactTables.splice(factTableIndex, 1);
+          }
+        }
+      } else {
+        // global role doesn't give them permissions, checking project-level permissions to see if it grants them readAccess
+        if (
+          factTableProjects.some(
+            (factTableProject) =>
+              currentUserPermissions.projects[factTableProject]?.permissions
+                .readData === true
+          )
+        ) {
+          accessibleFactTables.push(factTable);
+        }
+      }
+    });
+  }
+
+  return accessibleFactTables;
+}
+
+export function getSDKConnectionsUserCanAccess(
+  currentUserPermissions: UserPermissions,
+  connections: SDKConnectionInterface[]
+): SDKConnectionInterface[] {
+  const usersGlobalRoleHasReadPermissions =
+    currentUserPermissions.global.permissions.readData;
+
+  const accessibleSDKConnections: SDKConnectionInterface[] = usersGlobalRoleHasReadPermissions
+    ? cloneDeep(connections)
+    : [];
+
+  const userHasProjectSpecificPermissions = !!Object.keys(
+    currentUserPermissions.projects
+  ).length;
+
+  if (userHasProjectSpecificPermissions) {
+    connections.forEach((connection) => {
+      const connectionProjects = connection.projects || [];
+
+      if (connectionProjects.length === 0) {
+        return;
+      }
+
+      if (usersGlobalRoleHasReadPermissions) {
+        // // global role gives them readAccess permissions, checking project-specific permissions to see if it revokes their readAccess
+        let userHasReadAccessToAtleastOneProject = true;
+        connectionProjects.forEach((connection) => {
+          // I think I need to check to see if the dataSourceProject is in currentUserPermissions.projects
+          if (
+            connection in currentUserPermissions.projects &&
+            currentUserPermissions.projects[connection]?.permissions
+              .readData === false
+          ) {
+            userHasReadAccessToAtleastOneProject = false;
+          }
+        });
+        if (!userHasReadAccessToAtleastOneProject) {
+          const connectionIndex = accessibleSDKConnections.findIndex(
+            (accessibleSDKConnection) =>
+              accessibleSDKConnection.id === connection.id
+          );
+          if (connectionIndex !== -1) {
+            accessibleSDKConnections.splice(connectionIndex, 1);
+          }
+        }
+      } else {
+        // global role doesn't give them permissions, checking project-level permissions to see if it grants them readAccess
+        if (
+          connectionProjects.some(
+            (connectionProject) =>
+              currentUserPermissions.projects[connectionProject]?.permissions
+                .readData === true
+          )
+        ) {
+          accessibleSDKConnections.push(connection);
+        }
+      }
+    });
+  }
+
+  return accessibleSDKConnections;
 }
 
 export function roleSupportsEnvLimit(role: MemberRole): boolean {

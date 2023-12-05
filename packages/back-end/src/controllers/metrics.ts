@@ -34,6 +34,8 @@ import { TrackedEventData } from "../types/Integration";
 import { MetricAnalysisQueryRunner } from "../queryRunners/MetricAnalysisQueryRunner";
 import { getUserById } from "../services/users";
 import { AuditUserLoggedIn } from "../../types/audit";
+import { getTeamsForOrganization } from "../models/TeamModel";
+import { getUserPermissions } from "../util/organization.util";
 
 /**
  * Fields on a metric that we allow users to update. Excluded fields are
@@ -252,8 +254,12 @@ export async function getMetric(
   req: AuthRequest<null, { id: string }>,
   res: Response
 ) {
-  const { org } = getOrgFromReq(req);
+  const { org, userId } = getOrgFromReq(req);
   const { id } = req.params;
+
+  const teams = await getTeamsForOrganization(org.id);
+
+  const currentUserPermissions = getUserPermissions(userId, org, teams || []);
 
   const metric = await getMetricById(id, org.id, true);
 
@@ -262,6 +268,56 @@ export async function getMetric(
       status: 404,
       message: "Metric not found",
     });
+  }
+
+  //TODO: Can I abstract this logic?
+  //TODO: Can I use the existing getMetricsUserCanAccess function? - I think I'll just need to either create an array and add the metric to it, or update the method
+  if (
+    !metric.projects?.length &&
+    !currentUserPermissions.global.permissions.readData
+  ) {
+    return res.status(403).json({
+      status: 403,
+      message: "You do not have access to view this metric.",
+    });
+  }
+
+  if (metric.projects?.length) {
+    if (!currentUserPermissions.global.permissions.readData) {
+      // the user's global role doesn't give them access, so we need to see if they have permission for atleast 1 project
+      let userHasAccessToAtleastOneProject = false;
+
+      metric.projects.forEach((project) => {
+        if (
+          project in currentUserPermissions.projects &&
+          currentUserPermissions.projects[project]?.permissions.readData
+        ) {
+          userHasAccessToAtleastOneProject = true;
+        }
+      });
+
+      if (!userHasAccessToAtleastOneProject) {
+        return res.status(403).json({
+          status: 403,
+          message: "You do not have access to view this metric.",
+        });
+      }
+    } else {
+      // the user's global role gives them access, but if their access is restricted for every project, we need to restrict it
+      if (
+        metric.projects.every(
+          (project) =>
+            project in currentUserPermissions.projects &&
+            currentUserPermissions.projects[project]?.permissions.readData ===
+              false
+        )
+      ) {
+        return res.status(403).json({
+          status: 403,
+          message: "You do not have access to view this metric.",
+        });
+      }
+    }
   }
 
   const experiments = await getRecentExperimentsUsingMetric(org.id, metric.id);
