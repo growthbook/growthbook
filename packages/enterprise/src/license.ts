@@ -207,6 +207,8 @@ export async function getVerifiedLicenseData(
     throw new Error("Invalid License Key - Missing expiration date");
   }
   delete decodedLicense.eat;
+  // The `trial` field used to be optional, force it to always be defined
+  decodedLicense.trial = !!decodedLicense.trial;
 
   // We used to only offer license keys for Enterprise plans (not pro)
   if (!decodedLicense.plan) {
