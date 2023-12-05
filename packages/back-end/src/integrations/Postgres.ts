@@ -8,7 +8,7 @@ import SqlIntegration from "./SqlIntegration";
 export default class Postgres extends SqlIntegration {
   params!: PostgresConnectionParams;
   requiresDatabase = false;
-  requiresSchema = false;
+  requiresSchema = true;
   setParams(encryptedParams: string) {
     this.params = decryptDataSourceParams<PostgresConnectionParams>(
       encryptedParams
@@ -40,5 +40,8 @@ export default class Postgres extends SqlIntegration {
   }
   getInformationSchemaWhereClause(): string {
     return "table_schema NOT IN ('pg_catalog', 'information_schema', 'pg_toast')";
+  }
+  getInformationSchemaTable(): string {
+    return "information_schema.columns";
   }
 }
