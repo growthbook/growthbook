@@ -64,7 +64,7 @@ describe("getConnectionSDKCapabilities", () => {
       languages: ["javascript", "python"],
     };
     const capabilities = getConnectionSDKCapabilities(connection); // should be empty due to Python 0.0.0 having nothing
-    expect(capabilities).toStrictEqual(["bucketingV2"]);
+    expect(capabilities).toStrictEqual(["bucketingV2", "encryption"]);
   });
 });
 
