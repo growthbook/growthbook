@@ -445,3 +445,29 @@ export function resetInMemoryLicenseCache(): void {
     delete keyToLicenseData[key];
   });
 }
+
+/**
+ * Checks if the license is expired.
+ * @returns {boolean} True if the license is expired, false otherwise.
+ */
+export function licenseIsExpired(): boolean {
+  // If licenseData is not available, consider it as not expired
+  if (!licenseData) {
+    return false;
+  }
+
+  // If expiration date is provided in the license data
+  if (licenseData.isTrial && licenseData.dateExpires) {
+    // Create a date object for the expiration date
+    const expirationDate = new Date(licenseData.dateExpires);
+
+    // Check if the adjusted expiration date is in the past
+    if (expirationDate < new Date()) {
+      // The license is expired
+      return true;
+    }
+  }
+
+  // The license is not expired
+  return false;
+}
