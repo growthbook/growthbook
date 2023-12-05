@@ -351,11 +351,6 @@ export interface DimensionMetadataResult {
   dimensionValues: { name: string; percent: number }[];
 }
 
-export interface ExperimentDimensionMetadata {
-  dimension: string,
-  specifiedValues: string[]
-}
-
 export interface DimensionMetadataInterface {
   id: string;
   organization: string;

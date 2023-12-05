@@ -10,7 +10,6 @@ import { SnowflakeConnectionParams } from "./integrations/snowflake";
 import { DatabricksConnectionParams } from "./integrations/databricks";
 import { MetricType } from "./metric";
 import { MssqlConnectionParams } from "./integrations/mssql";
-import { ExperimentDimensionMetadata } from "../src/types/Integration";
 
 export type DataSourceType =
   | "redshift"
@@ -132,6 +131,11 @@ export type IdentityJoinQuery = {
   ids: string[];
   query: string;
 };
+
+export interface ExperimentDimensionMetadata {
+  dimension: string;
+  specifiedValues: string[];
+}
 
 export interface ExposureQuery {
   id: string;
