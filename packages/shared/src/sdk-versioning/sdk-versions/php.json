@@ -2,7 +2,7 @@
   "versions": [
     {
       "version": "1.2.0",
-      "capabilities": ["bucketingV2"]
+      "capabilities": ["bucketingV2", "encryption"]
     }
   ]
 }
