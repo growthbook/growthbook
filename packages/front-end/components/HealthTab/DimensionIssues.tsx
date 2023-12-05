@@ -1,6 +1,6 @@
 import { ExperimentSnapshotTrafficDimension } from "back-end/types/experiment-snapshot";
 import { ExperimentReportVariation } from "back-end/types/report";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useUser } from "@/services/UserContext";
 import { DEFAULT_SRM_THRESHOLD } from "@/pages/settings";
 import track from "@/services/track";

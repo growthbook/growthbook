@@ -113,21 +113,17 @@ export default function SRMDrawer({
               </div>
               <div>
                 {overallHealth === "healthy" && (
-                  <div className="alert alert-info">
-                    <b>
-                      No Sample Ratio Mismatch (SRM) detected. p-value above{" "}
-                      {srmThreshold}
-                    </b>
-                    <div>
-                      <a href="#">Learn More {">"}</a>
-                    </div>
-                  </div>
+                  <SRMWarning
+                    srm={traffic.overall.srm}
+                    variations={variations}
+                    users={traffic.overall.variationUnits}
+                  />
                 )}
                 {overallHealth === "Issues detected" && (
                   <SRMWarning
                     srm={traffic.overall.srm}
-                    expected={variations.map((v) => v.weight)}
-                    observed={traffic.overall.variationUnits}
+                    variations={variations}
+                    users={traffic.overall.variationUnits}
                   />
                 )}
                 {overallHealth === "Not enough traffic" && (
