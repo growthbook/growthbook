@@ -52,6 +52,14 @@ const getSdkData = (language: SDKLanguage = "other"): SDKData => {
   return sdkData;
 };
 
+export const getSDKVersions = (
+  language: SDKLanguage = "other"
+): string[] => {
+  const sdkData = getSdkData(language);
+  const versions = sdkData?.versions || [];
+  return versions.map((v) => v.version);
+};
+
 export const getLatestSDKVersion = (
   language: SDKLanguage = "other"
 ): string => {

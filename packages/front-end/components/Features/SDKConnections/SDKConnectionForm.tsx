@@ -12,6 +12,7 @@ import {
   getConnectionSDKCapabilities,
   getLatestSDKVersion,
   getSDKCapabilityVersion,
+  getSDKVersions,
   isSDKOutdated,
 } from "shared/sdk-versioning";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -148,9 +149,7 @@ export default function SDKConnectionForm({
   const currentSdkCapabilities = getConnectionSDKCapabilities(form.getValues());
 
   const enableRemoteEval =
-    hasRemoteEvaluationFeature &&
-    !!gb?.isOn("remote-evaluation") &&
-    latestSdkCapabilities.includes("remoteEval");
+    hasRemoteEvaluationFeature && !!gb?.isOn("remote-evaluation");
 
   const showVisualEditorSettings = latestSdkCapabilities.includes(
     "visualEditor"
@@ -312,12 +311,19 @@ export default function SDKConnectionForm({
                 <div className="text-right position-relative">
                   <div className="d-inline-flex align-items-center">
                     <label className="mb-0 mr-2">SDK ver.</label>
-                    <Field
-                      className="text-right"
-                      style={{ width: 80 }}
+                    <SelectField
+                      className="text-left"
+                      style={{ width: 120 }}
                       placeholder="0.0.0"
                       autoComplete="off"
-                      {...form.register("sdkVersion")}
+                      sort={false}
+                      options={getSDKVersions(
+                        form.watch("languages")[0]
+                      ).map((ver) => ({ label: ver, value: ver }))}
+                      createable={true}
+                      isClearable={false}
+                      value={form.watch("sdkVersion")}
+                      onChange={(v) => form.setValue("sdkVersion", v)}
                     />
                   </div>
                   {usingLatestVersion ? (
@@ -738,17 +744,9 @@ export default function SDKConnectionForm({
                                 <Toggle
                                   id="remote-evaluation"
                                   value={form.watch("remoteEvalEnabled")}
-                                  setValue={(val) => {
-                                    if (
-                                      latestSdkCapabilities.includes(
-                                        "remoteEval"
-                                      )
-                                    ) {
-                                      form.setValue("remoteEvalEnabled", false);
-                                    } else {
-                                      form.setValue("remoteEvalEnabled", val);
-                                    }
-                                  }}
+                                  setValue={(val) =>
+                                    form.setValue("remoteEvalEnabled", val)
+                                  }
                                   disabled={
                                     !hasRemoteEvaluationFeature ||
                                     !latestSdkCapabilities.includes(
