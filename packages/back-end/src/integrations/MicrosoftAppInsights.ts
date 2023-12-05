@@ -478,6 +478,12 @@ let experiment = ( // Viewed Experiment
         variation = variation,
         dimension = dimension,
         ${baseIdType} = ${baseIdType}
+        ${
+          isRegressionAdjusted
+            ? `preexposure_start = preexposure_start,
+            preexposure_end = preexposure_end`
+            : ""
+        }
     | join kind=fullouter (metric) on $left.${baseIdType} == $right.${baseIdType}
     | where
       ${this.getMetricWindowWhereClause(
