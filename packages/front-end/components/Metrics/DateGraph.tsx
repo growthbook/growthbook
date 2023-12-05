@@ -16,7 +16,7 @@ import {
 } from "@visx/tooltip";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { ScaleLinear } from "d3-scale";
-import { date, getValidDateUTC } from "shared/dates";
+import { date, getValidDate } from "shared/dates";
 import { getMetricFormatter } from "@/services/metrics";
 import { useCurrency } from "@/hooks/useCurrency";
 import styles from "./DateGraph.module.scss";
@@ -33,12 +33,12 @@ interface Datapoint {
 function getDatapointFromDate(date: number, data: Datapoint[]) {
   // find the closest datapoint to the date
   const datapoint = data.reduce((acc, cur) => {
-    const curDate = getValidDateUTC(cur.d).getTime();
-    const accDate = getValidDateUTC(acc.d).getTime();
+    const curDate = getValidDate(cur.d).getTime();
+    const accDate = getValidDate(acc.d).getTime();
     return Math.abs(curDate - date) < Math.abs(accDate - date) ? cur : acc;
   });
   // if it's within 1 day, return it
-  if (Math.abs(getValidDateUTC(datapoint.d).getTime() - date) < 86400000) {
+  if (Math.abs(getValidDate(datapoint.d).getTime() - date) < 86400000) {
     return datapoint;
   }
   return null;
@@ -73,7 +73,7 @@ function getDateFromX(
     0
   );
   const datapoint = data[index];
-  return getValidDateUTC(datapoint.d).getTime();
+  return getValidDate(datapoint.d).getTime();
 }
 
 function getTooltipContents(
@@ -187,7 +187,7 @@ const DateGraph: FC<DateGraphProps> = ({
   const data = useMemo(
     () =>
       dates.map((row, i) => {
-        const key = getValidDateUTC(row.d).getTime();
+        const key = getValidDate(row.d).getTime();
         // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
         let value = method === "avg" ? row.v : row.v * row.c;
         let stddev = method === "avg" ? row.s : 0;
@@ -326,7 +326,7 @@ const DateGraph: FC<DateGraphProps> = ({
   });
 
   const width = (containerBounds?.width || 0) + marginRight + marginLeft;
-  const dateNums = data.map((d) => getValidDateUTC(d.d).getTime());
+  const dateNums = data.map((d) => getValidDate(d.d).getTime());
   const min = Math.min(...dateNums);
   const max = Math.max(...dateNums);
   const yMax = height - marginTop - marginBottom;

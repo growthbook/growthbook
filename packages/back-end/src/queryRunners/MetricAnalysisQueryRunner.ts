@@ -1,4 +1,4 @@
-import { getValidDateUTC } from "shared/dates";
+import { getValidDateToShowOrignalTime } from "shared/dates";
 import { MetricAnalysis, MetricInterface } from "../../types/metric";
 import { Queries, QueryStatus } from "../../types/query";
 import { getMetricById, updateMetric } from "../models/MetricModel";
@@ -53,7 +53,7 @@ export class MetricAnalysisQueryRunner extends QueryRunner<
         total += dateTotal;
         count += d.count || 0;
         dates.push({
-          d: getValidDateUTC(d.date),
+          d: getValidDateToShowOrignalTime(d.date),
           v: mean,
           c: d.count || 0,
           s: stddev,
