@@ -34,13 +34,23 @@ describe("getConnectionSDKCapabilities", () => {
     expect(capabilities).not.toContainEqual("remoteEvaluation");
   });
 
-  it("Gets capabilities for the minimal version when no SDKVersion is provided", () => {
+  it("Gets capabilities for the default version when no SDKVersion is provided", () => {
     const connection: SDKConnectionInterface = {
       ...baseConnection,
       sdkVersion: undefined,
     };
     const capabilities = getConnectionSDKCapabilities(connection);
-    expect(capabilities).toStrictEqual(["looseUnmarshalling"]);
+    expect(capabilities).toStrictEqual([
+      "visualEditorDragDrop",
+      "remoteEval",
+      "semverTargeting",
+      "visualEditorJS",
+      "visualEditor",
+      "bucketingV2",
+      "streaming",
+      "encryption",
+      "looseUnmarshalling",
+    ]);
   });
 
   it("Gets a minimal intersection of capabilities for a multi-language connection", () => {
@@ -49,6 +59,6 @@ describe("getConnectionSDKCapabilities", () => {
       languages: ["javascript", "python"],
     };
     const capabilities = getConnectionSDKCapabilities(connection); // should be empty due to Python 0.0.0 having nothing
-    expect(capabilities).toStrictEqual([]);
+    expect(capabilities).toStrictEqual(["bucketingV2"]);
   });
 });

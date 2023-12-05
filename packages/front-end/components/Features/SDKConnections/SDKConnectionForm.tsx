@@ -10,6 +10,7 @@ import { FaCheck, FaExclamationCircle, FaInfoCircle } from "react-icons/fa";
 import clsx from "clsx";
 import {
   getConnectionSDKCapabilities,
+  getDefaultSDKVersion,
   getLatestSDKVersion,
   getSDKCapabilityVersion,
   getSDKVersions,
@@ -90,7 +91,7 @@ export default function SDKConnectionForm({
       languages: initialValue.languages ?? [],
       sdkVersion:
         initialValue.sdkVersion ??
-        getLatestSDKVersion(
+        getDefaultSDKVersion(
           initialValue?.languages?.length === 1
             ? initialValue.languages[0]
             : "other"

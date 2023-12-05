@@ -44,6 +44,23 @@ const sdks: SDKRecords = {
   other: other_json,
 };
 
+// Default SDK versions as of 12/5/2023
+const defaultSdkVersions: Record<SDKLanguage, string> = {
+  javascript: "0.31.0",
+  nodejs: "0.31.0",
+  react: "0.21.0",
+  php: "1.2.0",
+  python: "1.0.0",
+  ruby: "1.2.2",
+  java: "0.9.0",
+  android: "1.1.43",
+  ios: "1.0.44",
+  go: "0.1.4",
+  flutter: "1.1.2",
+  csharp: "0.2.0",
+  other: "0.0.0",
+};
+
 const getSdkData = (language: SDKLanguage = "other"): SDKData => {
   let sdkData: SDKData = sdks[language];
   if (!sdkData) {
@@ -67,20 +84,27 @@ export const getLatestSDKVersion = (
   return current?.version || "0.0.0";
 };
 
+export const getDefaultSDKVersion = (
+  language: SDKLanguage = "other"
+): string => {
+  return defaultSdkVersions[language] || "0.0.0";
+};
+
 export const isSDKOutdated = (
   language: SDKLanguage = "other",
-  version: string = "0.0.0"
+  version: string
 ): boolean => {
+  version = version || getDefaultSDKVersion(language);
   const current = getLatestSDKVersion(language);
   return paddedVersionString(version) < paddedVersionString(current);
 };
 
 export const getSDKCapabilities = (
   language: SDKLanguage = "other",
-  version: string = "0.0.0"
+  version?: string
 ): SDKCapability[] => {
   language = language || "other";
-  version = version && version !== "0" ? version : "0.0.0";
+  version = version || getDefaultSDKVersion(language);
   const sdkData = getSdkData(language);
   const versions = sdkData?.versions || [];
   const matches = versions.filter(
