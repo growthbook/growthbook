@@ -2876,7 +2876,6 @@ components:
         - name
         - organization
         - languages
-        - sdkVersion
         - environment
         - project
         - encryptPayload

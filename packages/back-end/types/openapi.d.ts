@@ -717,7 +717,7 @@ export interface components {
       name: string;
       organization: string;
       languages: (string)[];
-      sdkVersion: string;
+      sdkVersion?: string;
       environment: string;
       /** @description Use 'projects' instead. This is only for backwards compatibility and contains the first project only. */
       project: string;
@@ -2398,7 +2398,7 @@ export interface operations {
                 name: string;
                 organization: string;
                 languages: (string)[];
-                sdkVersion: string;
+                sdkVersion?: string;
                 environment: string;
                 /** @description Use 'projects' instead. This is only for backwards compatibility and contains the first project only. */
                 project: string;
@@ -2443,7 +2443,7 @@ export interface operations {
               name: string;
               organization: string;
               languages: (string)[];
-              sdkVersion: string;
+              sdkVersion?: string;
               environment: string;
               /** @description Use 'projects' instead. This is only for backwards compatibility and contains the first project only. */
               project: string;
