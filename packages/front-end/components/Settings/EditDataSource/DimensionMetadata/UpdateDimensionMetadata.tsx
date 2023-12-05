@@ -202,10 +202,10 @@ export const DimensionSlicesRunner: FC<DimensionSlicesRunnerProps> = ({
     <>
       <div className="col-12">
         <div className="col-auto ml-auto">
-          <div className="row align-items-center mb-3">
+          <div className="row align-items-start mb-3">
             <div className="flex-1" />
             {dimensionSlices?.runStarted ? (
-              <div className="align-top">
+              <div className="pt-2 mr-2">
                 <div
                   className="text-right text-muted"
                   style={{ fontSize: "0.7em" }}
@@ -241,35 +241,38 @@ export const DimensionSlicesRunner: FC<DimensionSlicesRunnerProps> = ({
                   cancelEndpoint={`/dimension-slices/${id}/cancel`}
                   color={`${dimensionSlices ? "outline-" : ""}primary`}
                 />
+                <div className="text-right text-muted">
+                  {openLookbackField ? (
+                    <div className="d-inline-flex align-items-center mt-1">
+                      <label className="mb-0 mr-2 small">
+                        Days to look back
+                      </label>
+                      <Field
+                        type="number"
+                        style={{ width: 70 }}
+                        {...form.register("lookbackDays", {
+                          valueAsNumber: true,
+                          min: 1,
+                        })}
+                      />
+                    </div>
+                  ) : (
+                    <span className="mt-1 small">
+                      <a
+                        role="button"
+                        className="a"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          setOpenLookbackField(!openLookbackField);
+                        }}
+                      >
+                        <BsGear />
+                      </a>{" "}
+                      {form.getValues("lookbackDays")} day lookback
+                    </span>
+                  )}
+                </div>
               </form>
-              <div
-                className="text-right text-muted"
-                style={{ fontSize: "0.7em" }}
-              >
-                <a
-                  href="#"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    setOpenLookbackField(!openLookbackField);
-                  }}
-                >
-                  <BsGear />
-                </a>{" "}
-                {openLookbackField ? (
-                  <div className="form-inline">
-                    <Field
-                      type="number"
-                      label="Days to look back"
-                      {...form.register("lookbackDays", {
-                        valueAsNumber: true,
-                        min: 1,
-                      })}
-                    />
-                  </div>
-                ) : (
-                  <span>{form.getValues("lookbackDays")} day lookback </span>
-                )}
-              </div>
             </div>
           </div>
         </div>
