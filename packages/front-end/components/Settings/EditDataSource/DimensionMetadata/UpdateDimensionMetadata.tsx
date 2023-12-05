@@ -203,7 +203,19 @@ export const DimensionSlicesRunner: FC<DimensionSlicesRunnerProps> = ({
       <div className="col-12">
         <div className="col-auto ml-auto">
           <div className="row align-items-center mb-3">
-            <div className="col-auto ml-auto">
+            <div className="flex-1" />
+            {dimensionSlices?.runStarted ? (
+              <div className="align-top">
+                <div
+                  className="text-right text-muted"
+                  style={{ fontSize: "0.7em" }}
+                  title={datetime(dimensionSlices.runStarted)}
+                >
+                  last updated {ago(dimensionSlices.runStarted)}
+                </div>
+              </div>
+            ) : null}
+            <div>
               <form
                 onSubmit={async (e) => {
                   e.preventDefault();
@@ -230,24 +242,23 @@ export const DimensionSlicesRunner: FC<DimensionSlicesRunnerProps> = ({
                   color={`${dimensionSlices ? "outline-" : ""}primary`}
                 />
               </form>
-              {dimensionSlices?.runStarted ? (
-                <div
-                  className="text-right text-muted"
-                  style={{ fontSize: "0.7em" }}
-                  title={datetime(dimensionSlices.runStarted)}
-                >
-                  last updated {ago(dimensionSlices.runStarted)}
-                </div>
-              ) : null}
               <div
                 className="text-right text-muted"
                 style={{ fontSize: "0.7em" }}
               >
+                <a
+                  href="#"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setOpenLookbackField(!openLookbackField);
+                  }}
+                >
+                  <BsGear />
+                </a>{" "}
                 {openLookbackField ? (
                   <div className="form-inline">
                     <Field
                       type="number"
-                      className=""
                       label="Days to look back"
                       {...form.register("lookbackDays", {
                         valueAsNumber: true,
@@ -258,15 +269,6 @@ export const DimensionSlicesRunner: FC<DimensionSlicesRunnerProps> = ({
                 ) : (
                   <span>{form.getValues("lookbackDays")} day lookback </span>
                 )}
-                <a
-                  href="#"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    setOpenLookbackField(!openLookbackField);
-                  }}
-                >
-                  <BsGear />
-                </a>
               </div>
             </div>
           </div>
@@ -274,7 +276,7 @@ export const DimensionSlicesRunner: FC<DimensionSlicesRunnerProps> = ({
         {(status === "failed" || error !== "") && dimensionSlices ? (
           <div className="alert alert-danger mt-2">
             <strong>Error updating data</strong>
-            {`: ${error || "See View Queries below"}`}
+            {error ? `: ${error}` : null}
           </div>
         ) : null}
         {status === "succeeded" && dimensionSlices?.results.length === 0 ? (

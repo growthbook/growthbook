@@ -1024,10 +1024,10 @@ export default abstract class SqlIntegration
         , ${timestampDateTimeColumn} as timestamp
         ${experimentDimensions
           .map((d) => {
-            if (d.specifiedValues?.length) {
+            if (d.specifiedSlices?.length) {
               return `, ${this.getDimensionInStatement(
                 d.id,
-                d.specifiedValues
+                d.specifiedSlices
               )} AS dim_${d.id}`;
             }
             return `, e.${d.id} AS dim_${d.id}`;

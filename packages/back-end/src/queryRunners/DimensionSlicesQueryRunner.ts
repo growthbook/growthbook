@@ -1,16 +1,17 @@
 import {
   ExperimentDimension,
-  DimensionSlicesInterface,
   DimensionSlicesQueryResponseRows,
-  DimensionSlicesResult,
 } from "../types/Integration";
+import {
+  DimensionSlicesInterface,
+  DimensionSlicesResult,
+} from "../../types/dimension";
 import { Queries } from "../../types/query";
 import {
   getDimensionSlicesById,
   updateDimensionSlices,
 } from "../models/DimensionSlicesModel";
 import { QueryRunner, QueryMap } from "./QueryRunner";
-
 export type DimensionSlicesParams = {
   exposureQueryId: string;
   lookbackDays: number;

@@ -133,7 +133,7 @@ export const startExperimentResultQueries = async (
       .map((dm) => ({
         type: "experiment",
         id: dm.dimension,
-        specifiedValues: dm.specifiedValues,
+        specifiedSlices: dm.specifiedSlices,
       }));
   }
 

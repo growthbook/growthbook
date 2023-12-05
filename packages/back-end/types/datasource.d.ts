@@ -132,25 +132,6 @@ export type IdentityJoinQuery = {
   query: string;
 };
 
-export interface DimensionSlicesResult {
-  dimension: string;
-  dimensionValues: { name: string; percent: number }[];
-}
-
-export interface DimensionSlicesInterface {
-  id: string;
-  organization: string;
-
-  runStarted: Date;
-  queries: Queries;
-  error?: string;
-
-  datasource: string;
-  exposureQueryId: string;
-
-  results: DimensionSlicesResult[];
-}
-
 export interface ExperimentDimensionMetadata {
   dimension: string;
   specifiedSlices: string[];
