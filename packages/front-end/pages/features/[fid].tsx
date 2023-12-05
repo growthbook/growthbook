@@ -17,12 +17,14 @@ import {
   autoMerge,
   getValidation,
   isFeatureStale,
+  mergeResultHasChanges,
   mergeRevision,
 } from "shared/util";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import { MdHistory, MdRocketLaunch } from "react-icons/md";
 import { FaPlusMinus } from "react-icons/fa6";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import clsx from "clsx";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import { GBAddCircle, GBEdit } from "@/components/Icons";
 import LoadingOverlay from "@/components/LoadingOverlay";
@@ -239,10 +241,7 @@ export default function FeaturePage() {
   const isArchived = feature.archived;
 
   const revisionHasChanges =
-    !!mergeResult &&
-    (!mergeResult.success ||
-      Object.keys(mergeResult.result.rules || {}).length > 0 ||
-      !!mergeResult.result.defaultValue);
+    !!mergeResult && mergeResultHasChanges(mergeResult);
 
   const enabledEnvs = getEnabledEnvironments(feature, environments);
   const hasJsonValidator = hasCommercialFeature("json-validation");
@@ -1026,13 +1025,25 @@ export default function FeaturePage() {
                   Make changes below and publish when you are ready
                 </div>
                 <div className="ml-auto"></div>
-                {hasDraftPublishPermission &&
-                  mergeResult?.success &&
-                  revisionHasChanges && (
-                    <div>
+                {mergeResult?.success && (
+                  <div>
+                    <Tooltip
+                      body={
+                        !revisionHasChanges
+                          ? "Draft is identical to the live version. Make changes first before publishing"
+                          : !hasDraftPublishPermission
+                          ? "You do not have permission to publish this draft."
+                          : ""
+                      }
+                    >
                       <a
                         href="#"
-                        className="font-weight-bold text-purple"
+                        className={clsx(
+                          "font-weight-bold",
+                          !hasDraftPublishPermission || !revisionHasChanges
+                            ? "text-muted"
+                            : "text-purple"
+                        )}
                         onClick={(e) => {
                           e.preventDefault();
                           setDraftModal(true);
@@ -1040,11 +1051,12 @@ export default function FeaturePage() {
                       >
                         <MdRocketLaunch /> Review and Publish
                       </a>
-                    </div>
-                  )}
+                    </Tooltip>
+                  </div>
+                )}
                 {canEditDrafts && mergeResult && !mergeResult.success && (
                   <div>
-                    <Tooltip body="There have been new conflicting changes published since you created your draft that must be resolved before you can publish">
+                    <Tooltip body="There have been new conflicting changes published since this draft was created that must be resolved before you can publish">
                       <a
                         href="#"
                         className="font-weight-bold text-purple"
