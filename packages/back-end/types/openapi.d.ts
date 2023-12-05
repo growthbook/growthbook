@@ -353,6 +353,7 @@ export interface components {
               trackingKey?: string;
               hashAttribute?: string;
               fallbackAttribute?: string;
+              disableStickyBucketing?: any;
               bucketVersion?: number;
               minBucketVersion?: number;
               blockedVariations?: (number)[];
@@ -419,6 +420,7 @@ export interface components {
                 trackingKey?: string;
                 hashAttribute?: string;
                 fallbackAttribute?: string;
+                disableStickyBucketing?: any;
                 bucketVersion?: number;
                 minBucketVersion?: number;
                 blockedVariations?: (number)[];
@@ -496,6 +498,7 @@ export interface components {
           trackingKey?: string;
           hashAttribute?: string;
           fallbackAttribute?: string;
+          disableStickyBucketing?: any;
           bucketVersion?: number;
           minBucketVersion?: number;
           blockedVariations?: (number)[];
@@ -562,6 +565,7 @@ export interface components {
             trackingKey?: string;
             hashAttribute?: string;
             fallbackAttribute?: string;
+            disableStickyBucketing?: any;
             bucketVersion?: number;
             minBucketVersion?: number;
             blockedVariations?: (number)[];
@@ -627,6 +631,7 @@ export interface components {
       trackingKey?: string;
       hashAttribute?: string;
       fallbackAttribute?: string;
+      disableStickyBucketing?: any;
       bucketVersion?: number;
       minBucketVersion?: number;
       blockedVariations?: (number)[];
@@ -705,6 +710,7 @@ export interface components {
       trackingKey?: string;
       hashAttribute?: string;
       fallbackAttribute?: string;
+      disableStickyBucketing?: any;
       bucketVersion?: number;
       minBucketVersion?: number;
       blockedVariations?: (number)[];
@@ -777,6 +783,7 @@ export interface components {
       fallbackAttribute?: string;
       /** @enum {number} */
       hashVersion: 1 | 2;
+      disableStickyBucketing?: any;
       bucketVersion?: number;
       minBucketVersion?: number;
       blockedVariations?: (number)[];
@@ -1186,6 +1193,7 @@ export interface operations {
                         trackingKey?: string;
                         hashAttribute?: string;
                         fallbackAttribute?: string;
+                        disableStickyBucketing?: any;
                         bucketVersion?: number;
                         minBucketVersion?: number;
                         blockedVariations?: (number)[];
@@ -1252,6 +1260,7 @@ export interface operations {
                           trackingKey?: string;
                           hashAttribute?: string;
                           fallbackAttribute?: string;
+                          disableStickyBucketing?: any;
                           bucketVersion?: number;
                           minBucketVersion?: number;
                           blockedVariations?: (number)[];
@@ -1496,6 +1505,7 @@ export interface operations {
                       trackingKey?: string;
                       hashAttribute?: string;
                       fallbackAttribute?: string;
+                      disableStickyBucketing?: any;
                       bucketVersion?: number;
                       minBucketVersion?: number;
                       blockedVariations?: (number)[];
@@ -1562,6 +1572,7 @@ export interface operations {
                         trackingKey?: string;
                         hashAttribute?: string;
                         fallbackAttribute?: string;
+                        disableStickyBucketing?: any;
                         bucketVersion?: number;
                         minBucketVersion?: number;
                         blockedVariations?: (number)[];
@@ -1671,6 +1682,7 @@ export interface operations {
                       trackingKey?: string;
                       hashAttribute?: string;
                       fallbackAttribute?: string;
+                      disableStickyBucketing?: any;
                       bucketVersion?: number;
                       minBucketVersion?: number;
                       blockedVariations?: (number)[];
@@ -1737,6 +1749,7 @@ export interface operations {
                         trackingKey?: string;
                         hashAttribute?: string;
                         fallbackAttribute?: string;
+                        disableStickyBucketing?: any;
                         bucketVersion?: number;
                         minBucketVersion?: number;
                         blockedVariations?: (number)[];
@@ -1970,6 +1983,7 @@ export interface operations {
                       trackingKey?: string;
                       hashAttribute?: string;
                       fallbackAttribute?: string;
+                      disableStickyBucketing?: any;
                       bucketVersion?: number;
                       minBucketVersion?: number;
                       blockedVariations?: (number)[];
@@ -2036,6 +2050,7 @@ export interface operations {
                         trackingKey?: string;
                         hashAttribute?: string;
                         fallbackAttribute?: string;
+                        disableStickyBucketing?: any;
                         bucketVersion?: number;
                         minBucketVersion?: number;
                         blockedVariations?: (number)[];
@@ -2149,6 +2164,7 @@ export interface operations {
                       trackingKey?: string;
                       hashAttribute?: string;
                       fallbackAttribute?: string;
+                      disableStickyBucketing?: any;
                       bucketVersion?: number;
                       minBucketVersion?: number;
                       blockedVariations?: (number)[];
@@ -2215,6 +2231,7 @@ export interface operations {
                         trackingKey?: string;
                         hashAttribute?: string;
                         fallbackAttribute?: string;
+                        disableStickyBucketing?: any;
                         bucketVersion?: number;
                         minBucketVersion?: number;
                         blockedVariations?: (number)[];
@@ -2679,6 +2696,7 @@ export interface operations {
                 fallbackAttribute?: string;
                 /** @enum {number} */
                 hashVersion: 1 | 2;
+                disableStickyBucketing?: any;
                 bucketVersion?: number;
                 minBucketVersion?: number;
                 blockedVariations?: (number)[];
@@ -2802,6 +2820,7 @@ export interface operations {
           fallbackAttribute?: string;
           /** @enum {number} */
           hashVersion?: 1 | 2;
+          disableStickyBucketing?: any;
           bucketVersion?: number;
           minBucketVersion?: number;
           blockedVariations?: (number)[];
@@ -2873,6 +2892,7 @@ export interface operations {
               fallbackAttribute?: string;
               /** @enum {number} */
               hashVersion: 1 | 2;
+              disableStickyBucketing?: any;
               bucketVersion?: number;
               minBucketVersion?: number;
               blockedVariations?: (number)[];
@@ -2989,6 +3009,7 @@ export interface operations {
               fallbackAttribute?: string;
               /** @enum {number} */
               hashVersion: 1 | 2;
+              disableStickyBucketing?: any;
               bucketVersion?: number;
               minBucketVersion?: number;
               blockedVariations?: (number)[];
@@ -3108,6 +3129,7 @@ export interface operations {
           fallbackAttribute?: string;
           /** @enum {number} */
           hashVersion?: 1 | 2;
+          disableStickyBucketing?: any;
           bucketVersion?: number;
           minBucketVersion?: number;
           blockedVariations?: (number)[];
@@ -3179,6 +3201,7 @@ export interface operations {
               fallbackAttribute?: string;
               /** @enum {number} */
               hashVersion: 1 | 2;
+              disableStickyBucketing?: any;
               bucketVersion?: number;
               minBucketVersion?: number;
               blockedVariations?: (number)[];
@@ -3905,6 +3928,7 @@ export interface operations {
               fallbackAttribute?: string;
               /** @enum {number} */
               hashVersion: 1 | 2;
+              disableStickyBucketing?: any;
               bucketVersion?: number;
               minBucketVersion?: number;
               blockedVariations?: (number)[];

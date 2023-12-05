@@ -44,6 +44,7 @@ export default function EditTargetingModal({
       hashAttribute: experiment.hashAttribute || "id",
       fallbackAttribute: experiment.fallbackAttribute || "",
       hashVersion: experiment.hashVersion || 2,
+      disableStickyBucketing: experiment.disableStickyBucketing ?? false,
       bucketVersion: experiment.bucketVersion || 1,
       minBucketVersion: experiment.minBucketVersion || 0,
       blockedVariations: experiment.blockedVariations || [],

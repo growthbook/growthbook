@@ -121,6 +121,7 @@ export interface ExperimentInterface {
   hashAttribute: string;
   fallbackAttribute?: string;
   hashVersion: 1 | 2;
+  disableStickyBucketing?: boolean;
   bucketVersion?: number;
   minBucketVersion?: number;
   blockedVariations?: number[];
@@ -188,6 +189,7 @@ export type ExperimentTargetingData = Pick<
     | "hashAttribute"
     | "fallbackAttribute"
     | "hashVersion"
+    | "disableStickyBucketing"
     | "bucketVersion"
     | "minBucketVersion"
     | "blockedVariations"

@@ -349,6 +349,9 @@ export function getFeatureDefinition({
             if (exp.fallbackAttribute) {
               rule.fallbackAttribute = exp.fallbackAttribute;
             }
+            if (exp.disableStickyBucketing) {
+              rule.disableStickyBucketing = exp.disableStickyBucketing;
+            }
             if (exp.bucketVersion) {
               rule.bucketVersion = exp.bucketVersion;
             }
@@ -446,6 +449,9 @@ export function getFeatureDefinition({
             }
             if (r.fallbackAttribute) {
               rule.fallbackAttribute = r.fallbackAttribute;
+            }
+            if (r.disableStickyBucketing) {
+              rule.disableStickyBucketing = r.disableStickyBucketing;
             }
             if (r.bucketVersion) {
               rule.bucketVersion = r.bucketVersion;

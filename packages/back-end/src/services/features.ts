@@ -136,6 +136,7 @@ function generateVisualExperimentsPayload({
         hashVersion: e.hashVersion,
         hashAttribute: e.hashAttribute,
         fallbackAttribute: e.fallbackAttribute,
+        disableStickyBucketing: e.disableStickyBucketing,
         bucketVersion: e.bucketVersion,
         minBucketVersion: e.minBucketVersion,
         blockedVariations: e.blockedVariations,

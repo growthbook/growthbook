@@ -1320,6 +1320,7 @@ export async function postExperimentTargeting(
     hashAttribute,
     fallbackAttribute,
     hashVersion,
+    disableStickyBucketing,
     bucketVersion,
     minBucketVersion,
     blockedVariations,
@@ -1387,6 +1388,7 @@ export async function postExperimentTargeting(
   changes.hashAttribute = hashAttribute;
   changes.fallbackAttribute = fallbackAttribute;
   changes.hashVersion = hashVersion;
+  changes.disableStickyBucketing = disableStickyBucketing;
   changes.bucketVersion = bucketVersion;
   changes.minBucketVersion = minBucketVersion;
   changes.blockedVariations = blockedVariations;

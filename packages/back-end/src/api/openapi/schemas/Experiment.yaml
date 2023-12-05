@@ -53,6 +53,8 @@ properties:
   hashVersion:
     type: number
     enum: [1, 2]
+  disableStickyBucketing:
+    type: boolean;
   bucketVersion:
     type: number
   minBucketVersion:

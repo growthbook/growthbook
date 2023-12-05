@@ -112,6 +112,7 @@ export interface ExperimentRule extends BaseRule {
   trackingKey: string;
   hashAttribute: string;
   fallbackAttribute?: string;
+  disableStickyBucketing?: boolean;
   bucketVersion?: number;
   minBucketVersion?: number;
   blockedVariations?: number[];

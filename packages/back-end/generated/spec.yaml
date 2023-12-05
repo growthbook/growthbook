@@ -931,6 +931,8 @@ paths:
                   enum:
                     - 1
                     - 2
+                disableStickyBucketing:
+                  type: boolean;
                 bucketVersion:
                   type: number
                 minBucketVersion:
@@ -1158,6 +1160,8 @@ paths:
                   enum:
                     - 1
                     - 2
+                disableStickyBucketing:
+                  type: boolean;
                 bucketVersion:
                   type: number
                 minBucketVersion:
@@ -2822,6 +2826,8 @@ components:
           type: string
         fallbackAttribute:
           type: string
+        disableStickyBucketing:
+          type: boolean;
         bucketVersion:
           type: number
         minBucketVersion:
@@ -3022,6 +3028,8 @@ components:
           enum:
             - 1
             - 2
+        disableStickyBucketing:
+          type: boolean;
         bucketVersion:
           type: number
         minBucketVersion:

@@ -65,6 +65,7 @@ const experimentSchema = new mongoose.Schema({
   hashAttribute: String,
   fallbackAttribute: String,
   hashVersion: Number,
+  disableStickyBucketing: Boolean,
   bucketVersion: Number,
   minBucketVersion: Number,
   blockedVariations: [Number],
