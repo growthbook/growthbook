@@ -79,6 +79,7 @@ export interface MetricForSnapshot {
   // Computed settings that take into account overrides
   computedSettings?: {
     regressionAdjustmentEnabled: boolean;
+    regressionAdjustmentAvailable: boolean;
     regressionAdjustmentDays: number;
     regressionAdjustmentReason: string;
     conversionWindowHours: number;
