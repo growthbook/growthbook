@@ -109,12 +109,30 @@ export default function TrafficCard({
         </div>
       </div>
       {selectedDimension ? (
-        <table className="table w-100">
+        <table className="table w-75">
           <thead>
             <tr>
-              <th className="border-top-0">Dimension</th>
+              <th className="border-top-0">
+                {
+                  availableDimensions.find((d) => d.value === selectedDimension)
+                    ?.label
+                }
+              </th>
               {variations.map((v, i) => (
-                <th className="border-top-0" key={i}>
+                <th
+                  className={`border-top-0 variation with-variation-label variation${i}`}
+                  key={i}
+                >
+                  <span
+                    className="label"
+                    style={{
+                      width: 20,
+                      height: 20,
+                    }}
+                  >
+                    {" "}
+                    {i}
+                  </span>
                   {v.name}
                 </th>
               ))}
@@ -125,9 +143,7 @@ export default function TrafficCard({
           <tbody>
             {(traffic.dimension[selectedDimension] || []).map((r, i) => (
               <tr key={i}>
-                <td>
-                  <b>{r.name || <em>unknown</em>}</b>
-                </td>
+                <td className="border-right">{r.name || <em>unknown</em>}</td>
                 {variations.map((v, i) => (
                   <td key={i}>
                     {numberFormatter.format(r.variationUnits[i] || 0)}
