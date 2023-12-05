@@ -82,6 +82,31 @@ export function getConversionWindowHours(
   return DEFAULT_CONVERSION_WINDOW_HOURS || 72;
 }
 
+export function getMaxHoursToConvert(
+  funnelMetric: boolean,
+  metricAndDenominatorMetrics: ExperimentMetricInterface[],
+  activationMetric: ExperimentMetricInterface | null
+): number {
+  let neededHoursForConversion = 0;
+  metricAndDenominatorMetrics.forEach((m) => {
+    const metricHours =
+      (m.conversionDelayHours || 0) + getConversionWindowHours(m);
+    if (funnelMetric) {
+      // funnel metric windows cab cascade, so sum each metric hours to get max
+      neededHoursForConversion += metricHours;
+    } else if (metricHours > neededHoursForConversion) {
+      neededHoursForConversion = metricHours;
+    }
+  });
+  // activation metrics windows always cascade
+  if (activationMetric) {
+    neededHoursForConversion +=
+      (activationMetric.conversionDelayHours || 0) +
+      getConversionWindowHours(activationMetric);
+  }
+  return neededHoursForConversion;
+}
+
 export function getUserIdTypes(
   metric: ExperimentMetricInterface,
   factTableMap: FactTableMap,

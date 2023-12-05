@@ -10,6 +10,7 @@ import {
   isRatioMetric,
   ExperimentMetricInterface,
   getMetricTemplateVariables,
+  getMaxHoursToConvert,
 } from "shared/experiments";
 import { MetricInterface, MetricType } from "../../types/metric";
 import {
@@ -1373,19 +1374,15 @@ export default abstract class SqlIntegration
       settings.experimentId
     );
 
-    const initialMetric =
-      denominatorMetrics.length > 0 ? denominatorMetrics[0] : metric;
-
     // Get date range for experiment and analysis
-    const initialConversionWindowHours = getConversionWindowHours(
-      initialMetric
-    );
-    const initialConversionDelayHours = initialMetric.conversionDelayHours || 0;
-
     const startDate: Date = settings.startDate;
     const endDate: Date = this.getExperimentEndDate(
       settings,
-      initialConversionWindowHours + initialConversionDelayHours
+      getMaxHoursToConvert(
+        funnelMetric,
+        [metric].concat(denominatorMetrics),
+        activationMetric
+      )
     );
 
     if (params.dimensions.length > 1) {
