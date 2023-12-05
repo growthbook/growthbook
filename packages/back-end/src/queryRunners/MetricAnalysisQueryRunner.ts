@@ -1,4 +1,4 @@
-import { getValidDate } from "shared/dates";
+import { getValidDateUTC } from "shared/dates";
 import { MetricAnalysis, MetricInterface } from "../../types/metric";
 import { Queries, QueryStatus } from "../../types/query";
 import { getMetricById, updateMetric } from "../models/MetricModel";
@@ -53,7 +53,7 @@ export class MetricAnalysisQueryRunner extends QueryRunner<
         total += dateTotal;
         count += d.count || 0;
         dates.push({
-          d: getValidDate(d.date),
+          d: getValidDateUTC(d.date),
           v: mean,
           c: d.count || 0,
           s: stddev,

@@ -3,7 +3,7 @@ import {
   ExperimentReportResultDimension,
   ExperimentReportVariation,
 } from "back-end/types/report";
-import { getValidDateUTC } from "shared/dates";
+import { getValidDate, getValidDateUTC } from "shared/dates";
 import { StatsEngine } from "back-end/types/stats";
 import { ExperimentMetricInterface } from "shared/experiments";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -67,9 +67,7 @@ const DateResults: FC<{
     const total: number[] = [];
     const sortedResults = [...results];
     sortedResults.sort((a, b) => {
-      return (
-        getValidDateUTC(a.name).getTime() - getValidDateUTC(b.name).getTime()
-      );
+      return getValidDate(a.name).getTime() - getValidDate(b.name).getTime();
     });
 
     return sortedResults.map((d) => {
@@ -97,9 +95,7 @@ const DateResults: FC<{
 
     const sortedResults = [...results];
     sortedResults.sort((a, b) => {
-      return (
-        getValidDateUTC(a.name).getTime() - getValidDateUTC(b.name).getTime()
-      );
+      return getValidDate(a.name).getTime() - getValidDate(b.name).getTime();
     });
 
     // Merge goal and guardrail metrics
