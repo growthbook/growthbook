@@ -92,7 +92,7 @@ export const getDefaultSDKVersion = (
 
 export const isSDKOutdated = (
   language: SDKLanguage = "other",
-  version: string
+  version?: string
 ): boolean => {
   version = version || getDefaultSDKVersion(language);
   const current = getLatestSDKVersion(language);

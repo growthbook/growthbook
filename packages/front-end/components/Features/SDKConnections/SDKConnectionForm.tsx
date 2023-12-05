@@ -619,7 +619,12 @@ export default function SDKConnectionForm({
                                     )}
                                   </code>
                                   . The SDK version specified in this connection
-                                  is <code>{form.watch("sdkVersion")}</code>.
+                                  is{" "}
+                                  <code>
+                                    {form.watch("sdkVersion") ||
+                                      getDefaultSDKVersion(languages[0])}
+                                  </code>
+                                  .
                                 </>
                               ) : null}
                             </div>
@@ -813,7 +818,12 @@ export default function SDKConnectionForm({
                                   )}
                                 </code>
                                 . The SDK version specified in this connection
-                                is <code>{form.watch("sdkVersion")}</code>.
+                                is{" "}
+                                <code>
+                                  {form.watch("sdkVersion") ||
+                                    getDefaultSDKVersion(languages[0])}
+                                </code>
+                                .
                               </>
                             ) : null}
                           </div>
