@@ -169,7 +169,9 @@ export function orgHasPremiumFeature(
   org: MinimalOrganization,
   feature: CommercialFeature
 ): boolean {
-  return planHasPremiumFeature(getAccountPlan(org), feature);
+  return (
+    !licenseIsExpired() && planHasPremiumFeature(getAccountPlan(org), feature)
+  );
 }
 
 async function getPublicKey(): Promise<Buffer> {
