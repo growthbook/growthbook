@@ -161,7 +161,6 @@ export async function createSDKConnection(params: CreateSDKConnectionParams) {
   const connection: SDKConnectionInterface = {
     ...otherParams,
     languages: languages as SDKLanguage[],
-    sdkVersion: "",
     id: uniqid("sdk_"),
     dateCreated: new Date(),
     dateUpdated: new Date(),

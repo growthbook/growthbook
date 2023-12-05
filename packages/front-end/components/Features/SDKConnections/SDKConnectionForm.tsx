@@ -323,7 +323,10 @@ export default function SDKConnectionForm({
                       ).map((ver) => ({ label: ver, value: ver }))}
                       createable={true}
                       isClearable={false}
-                      value={form.watch("sdkVersion")}
+                      value={
+                        form.watch("sdkVersion") ||
+                        getDefaultSDKVersion(languages[0])
+                      }
                       onChange={(v) => form.setValue("sdkVersion", v)}
                     />
                   </div>
