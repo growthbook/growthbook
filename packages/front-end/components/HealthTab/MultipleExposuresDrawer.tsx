@@ -58,7 +58,7 @@ export default function MultipleExposuresDrawer({
   const { multipleExposures } = snapshot;
 
   return (
-    <div className="appbox my-2 p-3">
+    <div className="appbox p-3">
       <h2 className="d-inline">Multiple Exposures Check</h2>{" "}
       {/* <p className="d-inline text-muted">{helpText}</p> */}
       {health && health !== "healthy" && <StatusBadge status={health} />}
