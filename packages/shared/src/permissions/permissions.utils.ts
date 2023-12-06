@@ -1,7 +1,10 @@
 import { DataSourceInterface } from "back-end/types/datasource";
 import { FactTableInterface } from "back-end/types/fact-table";
 import { SDKConnectionInterface } from "back-end/types/sdk-connection";
-import { MetricInterface } from "back-end/types/metric";
+import {
+  FilterableResourceInterface,
+  MetricInterface,
+} from "back-end/types/metric";
 import {
   Permission,
   UserPermissions,
@@ -32,6 +35,75 @@ export function hasPermission(
   return envs.every((env) =>
     usersPermissionsToCheck.environments.includes(env)
   );
+}
+
+type FilterableResource =
+  | FilterableResourceInterface
+  | FilterableResourceInterface[];
+
+export function filterResourceByAccessPermission(
+  currentUserPermissions: UserPermissions,
+  resources: FilterableResource
+): FilterableResource[] {
+  const usersGlobalRoleHasReadPermissions =
+    currentUserPermissions.global.permissions.readData;
+
+  const resourceArr = Array.isArray(resources) ? resources : [resources];
+
+  const accessibleResources: FilterableResource = usersGlobalRoleHasReadPermissions
+    ? cloneDeep(resourceArr)
+    : [];
+
+  const userHasProjectSpecificPermissions = !!Object.keys(
+    currentUserPermissions.projects
+  ).length;
+
+  if (userHasProjectSpecificPermissions) {
+    resourceArr.forEach((filterableResource) => {
+      const resourceProjects = filterableResource.projects || [];
+
+      if (resourceProjects.length === 0) {
+        return;
+      }
+
+      if (usersGlobalRoleHasReadPermissions) {
+        // // global role gives them readAccess permissions, checking project-specific permissions to see if it revokes their readAccess
+        let userHasReadAccessToAtleastOneProject = true;
+        resourceProjects.forEach((resourceProject) => {
+          // I think I need to check to see if the dataSourceProject is in currentUserPermissions.projects
+          if (
+            resourceProject in currentUserPermissions.projects &&
+            currentUserPermissions.projects[resourceProject]?.permissions
+              .readData === false
+          ) {
+            userHasReadAccessToAtleastOneProject = false;
+          }
+        });
+        if (!userHasReadAccessToAtleastOneProject) {
+          const resourceIndex = accessibleResources.findIndex(
+            (accessibleResource) =>
+              accessibleResource.id === filterableResource.id
+          );
+          if (resourceIndex !== -1) {
+            accessibleResources.splice(resourceIndex, 1);
+          }
+        }
+      } else {
+        // global role doesn't give them permissions, checking project-level permissions to see if it grants them readAccess
+        if (
+          resourceProjects.some(
+            (resourceProject) =>
+              currentUserPermissions.projects[resourceProject]?.permissions
+                .readData === true
+          )
+        ) {
+          accessibleResources.push(filterableResource);
+        }
+      }
+    });
+  }
+
+  return accessibleResources;
 }
 
 export function getProjectsUserCanAccess(
@@ -279,11 +351,11 @@ export function getSDKConnectionsUserCanAccess(
       if (usersGlobalRoleHasReadPermissions) {
         // // global role gives them readAccess permissions, checking project-specific permissions to see if it revokes their readAccess
         let userHasReadAccessToAtleastOneProject = true;
-        connectionProjects.forEach((connection) => {
+        connectionProjects.forEach((connectionProject) => {
           // I think I need to check to see if the dataSourceProject is in currentUserPermissions.projects
           if (
-            connection in currentUserPermissions.projects &&
-            currentUserPermissions.projects[connection]?.permissions
+            connectionProject in currentUserPermissions.projects &&
+            currentUserPermissions.projects[connectionProject]?.permissions
               .readData === false
           ) {
             userHasReadAccessToAtleastOneProject = false;
