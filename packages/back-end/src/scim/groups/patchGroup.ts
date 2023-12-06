@@ -15,6 +15,7 @@ import {
   removeMembersFromTeam,
 } from "../../services/organizations";
 import { Member } from "../../../types/organization";
+import { isRoleValid } from "../users/createUser";
 
 export async function patchGroup(
   req: ScimGroupPatchRequest,
