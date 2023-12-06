@@ -32,7 +32,7 @@ export default function HealthTab({
     "organizationSettings"
   );
   const [healthIssues, setHealthIssues] = useState<IssueValue[]>([]);
-  // Clean up notification counter before unmounting
+  // Clean up notification counter & health issues before unmounting
   useEffect(() => {
     return () => {
       onSnapshotUpdate();
@@ -52,7 +52,10 @@ export default function HealthTab({
 
   const handleDrawerNotify = useCallback(
     (issue: IssueValue) => {
-      setHealthIssues((prev) => [...prev, issue]);
+      setHealthIssues((prev) => {
+        const issueSet: Set<IssueValue> = new Set([...prev, issue]);
+        return [...issueSet];
+      });
       onDrawerNotify();
     },
     [onDrawerNotify]
@@ -150,8 +153,6 @@ export default function HealthTab({
 
   return (
     <div className="mt-4">
-      {/* <a href="#multipleExposures">TESTING SCROLL</a> */}
-      {/* <h4 className="mt-2 mb-4">No issues found. 🎉</h4> */}
       <IssueTags issues={healthIssues} />
       <TrafficCard traffic={traffic} variations={variations} />
       <div id="balanceCheck">
@@ -166,7 +167,6 @@ export default function HealthTab({
       <div className="row">
         <div className="col-8" id="multipleExposures">
           <MultipleExposuresDrawer
-            multipleExposures={snapshot.multipleExposures}
             totalUsers={totalUsers}
             onNotify={handleDrawerNotify}
           />

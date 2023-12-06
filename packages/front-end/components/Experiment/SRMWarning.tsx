@@ -1,5 +1,6 @@
 import { FC, useState } from "react";
 import { ExperimentReportVariation } from "back-end/types/report";
+import { FaExternalLinkAlt } from "react-icons/fa";
 import { useUser } from "@/services/UserContext";
 import { DEFAULT_SRM_THRESHOLD } from "@/pages/settings";
 import track from "@/services/track";
@@ -126,7 +127,7 @@ const SRMWarning: FC<{
                   rel="noreferrer"
                   href="https://exp-platform.com/Documents/2019_KDDFabijanGupchupFuptaOmhoverVermeerDmitriev.pdf"
                 >
-                  Read about SRM issues (PDF)
+                  Read about SRM issues (PDF) <FaExternalLinkAlt />
                 </a>
               </p>
             </>
@@ -161,7 +162,7 @@ const SRMWarning: FC<{
           {linkToHealthTab &&
           setTab &&
           snapshot?.health?.traffic.dimension?.dim_exposure_date ? (
-            <>
+            <p className="mb-0">
               Results are likely untrustworthy. See the{" "}
               <a
                 href="#"
@@ -174,7 +175,7 @@ const SRMWarning: FC<{
                 health tab
               </a>{" "}
               for more details.
-            </>
+            </p>
           ) : (
             <p className="mb-0">
               There is likely a bug in the implementation.{" "}

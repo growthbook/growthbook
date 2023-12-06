@@ -46,7 +46,6 @@ export default function SRMDrawer({
   datasource,
   onNotify,
 }: Props) {
-  // const [selectedDimension, setSelectedDimension] = useState<string>("");
   console.log(datasource);
   const { settings } = useUser();
 
@@ -63,11 +62,7 @@ export default function SRMDrawer({
     if (overallHealth === "Issues detected") {
       onNotify({ label: "Experiment Balance", value: "balanceCheck" });
     }
-  }, [overallHealth, onNotify]);
-
-  // useEffect(() => {
-  //   setSelectedDimension("");
-  // }, [traffic]);
+  }, [traffic, overallHealth, onNotify]);
 
   if (!traffic.overall.variationUnits.length) {
     <div className="appbox my-4 p-3">

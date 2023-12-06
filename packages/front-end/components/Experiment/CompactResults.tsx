@@ -213,11 +213,13 @@ const CompactResults: FC<{
             }
             transitionTime={100}
           >
-            <VariationUsersTable
-              variations={variations}
-              users={variationUsers}
-              srm={results.srm}
-            />
+            <div style={{ maxWidth: "800px" }}>
+              <VariationUsersTable
+                variations={variations}
+                users={variationUsers}
+                srm={results.srm}
+              />
+            </div>
           </Collapsible>
         </div>
       )}

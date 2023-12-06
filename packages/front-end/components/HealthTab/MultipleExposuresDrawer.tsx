@@ -1,12 +1,12 @@
 import { useEffect } from "react";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { MINIMUM_MULTIPLE_EXPOSURES } from "../Experiment/MultipleExposureWarning";
+import { useSnapshot } from "../Experiment/SnapshotProvider";
 import { HealthStatus, StatusBadge } from "./StatusBadge";
 import { IssueValue } from "./IssueTags";
 
 interface Props {
   totalUsers: number;
-  multipleExposures: number;
   onNotify: (issue: IssueValue) => void;
 }
 
@@ -35,13 +35,14 @@ const multiExposureCheck = ({
 
 export default function MultipleExposuresDrawer({
   totalUsers,
-  multipleExposures,
   onNotify,
 }: Props) {
   const settings = useOrgSettings();
+  const { snapshot } = useSnapshot();
+
   const MIN_PERCENT = settings?.multipleExposureMinPercent ?? 0.01;
   const health = multiExposureCheck({
-    multipleExposures,
+    multipleExposures: snapshot?.multipleExposures,
     minMultipleExposures: MINIMUM_MULTIPLE_EXPOSURES,
     totalUsers,
     minPercent: MIN_PERCENT,
@@ -50,7 +51,11 @@ export default function MultipleExposuresDrawer({
     if (health === "Issues detected") {
       onNotify({ label: "Multiple Exposures", value: "multipleExposures" });
     }
-  }, [health, onNotify]);
+  }, [snapshot, health, onNotify]);
+
+  if (!snapshot) return null;
+
+  const { multipleExposures } = snapshot;
 
   return (
     <div className="appbox my-2 p-3">
