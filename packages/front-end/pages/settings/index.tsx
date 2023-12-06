@@ -1002,7 +1002,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
                         commercialFeature={"sticky-bucketing"}
                         body={
                           <>
-                            <p>
+                            <div className="mb-2">
                               Sticky bucketing allows you to persist a
                               user&apos;s assigned variation if any of the
                               following change:
@@ -1012,8 +1012,8 @@ const GeneralSettingsPage = (): React.ReactElement => {
                                 <li>experiment coverage changes</li>
                                 <li>variation weights change</li>
                               </ol>
-                            </p>
-                            <p>
+                            </div>
+                            <div>
                               Enabling sticky bucketing also allows you to set
                               fine controls over bucketing behavior, such as:
                               <ul className="mt-1 mb-2">
@@ -1023,10 +1023,9 @@ const GeneralSettingsPage = (): React.ReactElement => {
                                   <code>anonymous_id</code>
                                 </li>
                                 <li>invalidating existing buckets</li>
-                                <li>blocking specific variants</li>
                                 <li>and more</li>
                               </ul>
-                            </p>
+                            </div>
                             <p className="mb-0">
                               You must enable this feature in your SDK
                               integration code for it to take effect.

@@ -132,7 +132,7 @@ export const VariationRow = forwardRef<HTMLTableRowElement, VariationProps>(
             {customSplit ? (
               <div className="col d-flex flex-row">
                 <input
-                  value={decimalToPercent(weights[i])}
+                  value={decimalToPercent(weights[i] ?? 0)}
                   onChange={(e) => {
                     rebalanceAndUpdate(i, percentToDecimal(e.target.value));
                   }}
@@ -144,7 +144,7 @@ export const VariationRow = forwardRef<HTMLTableRowElement, VariationProps>(
                 />
                 <div className={`position-relative ${styles.percentInputWrap}`}>
                   <Field
-                    value={decimalToPercent(weights[i])}
+                    value={decimalToPercent(weights[i] ?? 0)}
                     onChange={(e) => {
                       // the split now should add to 100% if there are two variations.
                       rebalanceAndUpdate(

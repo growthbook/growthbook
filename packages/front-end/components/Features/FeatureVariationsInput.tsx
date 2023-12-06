@@ -159,6 +159,7 @@ export default function FeatureVariationsInput({
                 <th className="text-center">
                   <Tooltip
                     popperClassName="text-left"
+                    usePortal={true}
                     body={
                       <>
                         <p>

@@ -4,13 +4,17 @@ import {
   ExperimentPhaseStringDates,
   ExperimentTargetingData,
 } from "back-end/types/experiment";
-import React, { useEffect, useMemo } from "react";
+import React, {useEffect, useMemo, useState} from "react";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import SelectField from "../Forms/SelectField";
 import Toggle from "../Forms/Toggle";
 import Tooltip from "../Tooltip/Tooltip";
 import { DocLink } from "../DocLink";
 import { NewBucketingSDKList } from "./HashVersionSelector";
+import {TbTargetArrow} from "react-icons/tb";
+import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
+import {FaQuestionCircle} from "react-icons/fa";
+import {useUser} from "@/services/UserContext";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
@@ -32,11 +36,13 @@ function getRecommendedRolloutData({
     experiment.phases[experiment.phases.length - 1];
 
   // Returned recommendations:
+  let promptExistingUserOptions = true;
   const newPhase = false;
   const newBucketVersion = false;
   const newSeed = false;
   const blockPreviouslyBucketed = false;
   // Returned meta:
+  let reason = "";
   const messages: string[] = [];
   const warnings: string[] = [];
 
@@ -114,9 +120,18 @@ function getRecommendedRolloutData({
     disableVariation = true;
   }
 
-  if (!stickyBucketing) {
-    // no sticky bucketing means no issues to control for
-  } else if (
+  console.log({
+    moreRestrictiveTargeting,
+    otherTargetingChanges,
+    decreaseCoverage,
+    addToNamespace,
+    decreaseNamespaceRange,
+    otherNamespaceChanges,
+    changeVariationWeights,
+    disableVariation,
+  })
+
+  if (
     !moreRestrictiveTargeting &&
     !otherTargetingChanges &&
     !decreaseCoverage &&
@@ -127,26 +142,36 @@ function getRecommendedRolloutData({
     !disableVariation
   ) {
     // recommend no release changes
-    messages.push("No risky changes detected");
+    promptExistingUserOptions = false;
+    reason = "no risky changes detected";
   }
 
   return {
+    promptExistingUserOptions,
     newPhase,
     newBucketVersion,
     newSeed,
     blockPreviouslyBucketed,
+    reason,
     messages,
     warnings,
   };
 }
 
+type ExistingUsersOption = "keep" | "exclude";
+
 export default function ReleaseChangesForm({ experiment, form }: Props) {
   const settings = useOrgSettings();
+  const { hasCommercialFeature } = useUser();
 
   const stickyBucketing = !!settings.useStickyBucketing;
+  const hasStickyBucketFeature = hasCommercialFeature("sticky-bucketing");
+  const [stickyBucketingCTAOpen, setStickyBucketingCTAOpen] = useState(false);
 
   const lastPhase: ExperimentPhaseStringDates | undefined =
     experiment.phases[experiment.phases.length - 1];
+
+  const [existingUsersOption, setExistingUsersOption] = useState<ExistingUsersOption>("keep");
 
   const newPhase = form.watch("newPhase");
   const variationWeights = form.watch("variationWeights");
@@ -228,12 +253,117 @@ export default function ReleaseChangesForm({ experiment, form }: Props) {
   return (
     <div className="mb-2">
       <hr />
-      <div className="alert alert-info">
-        We have defaulted you to the recommended release settings below based on
-        the changes you made above. These recommendations will prevent bias and
-        data quality issues in your results.{" "}
-        <DocLink docSection="targetingChanges">Learn more</DocLink>
+      {/*<div className="alert alert-info">*/}
+      {/*  We have defaulted you to the recommended release settings below based on*/}
+      {/*  the changes you made above. These recommendations will prevent bias and*/}
+      {/*  data quality issues in your results.{" "}*/}
+      {/*  <DocLink docSection="targetingChanges">Learn more</DocLink>*/}
+      {/*</div>*/}
+
+
+
+      <div className="mb-4 d-flex">
+        {!stickyBucketingCTAOpen ? (<div className="d-inline-block">
+          <div>
+            Sticky bucketing is currently {stickyBucketing ? "enabled" : "disabled"} for your organization.
+          </div>
+          <a
+            role="button"
+            className="a"
+            onClick={(e) => {
+              e.preventDefault();
+              setStickyBucketingCTAOpen(true);
+            }}
+          >
+            Change
+          </a>
+        </div>) : (
+          <>
+        <label className="mr-2" htmlFor="toggle-useStickyBucketing">
+          <PremiumTooltip
+            commercialFeature={"sticky-bucketing"}
+            body={
+              <>
+                <div className="mb-2">
+                  Sticky bucketing allows you to persist a
+                  user&apos;s assigned variation if any of the
+                  following change:
+                  <ol className="mt-1 mb-2" type="a">
+                    <li>the user logs in or logs out</li>
+                    <li>experiment targeting conditions change</li>
+                    <li>experiment coverage changes</li>
+                    <li>variation weights change</li>
+                  </ol>
+                </div>
+                <div>
+                  Enabling sticky bucketing also allows you to set
+                  fine controls over bucketing behavior, such as:
+                  <ul className="mt-1 mb-2">
+                    <li>
+                      assigning variations based on both a{" "}
+                      <code>user_id</code> and{" "}
+                      <code>anonymous_id</code>
+                    </li>
+                    <li>invalidating existing buckets</li>
+                    <li>and more</li>
+                  </ul>
+                </div>
+                <p className="mb-0">
+                  You must enable this feature in your SDK
+                  integration code for it to take effect.
+                </p>
+              </>
+            }
+          >
+            Enable sticky bucketing for organization <FaQuestionCircle />
+          </PremiumTooltip>
+        </label>
+        <Toggle
+          id={"toggle-useStickyBucketing"}
+          value={stickyBucketing}
+          setValue={(value) => {
+            console.log('change...', value);
+          }}
+          disabled={!hasStickyBucketFeature}
+        />
+      </>
+      )}
       </div>
+
+
+
+      { recommendedRolloutData.promptExistingUserOptions ? (<>
+        <div className="alert alert-warning">
+          <div>
+            <TbTargetArrow size={16} className="mr-1" />
+            Warning: These targeting changes will affect existing users.
+          </div>
+          <hr className="my-2" />
+          <div>
+            With experiment sticky bucketing, you can customize how existing users are handled.
+          </div>
+          {/*todo: org level SB setting warning (and double check it does anything)*/}
+          {/*todo: experiment level SB setting*/}
+        </div>
+        <SelectField
+          label="What should happen to existing users after making these changes?"
+          value={existingUsersOption}
+          options={[
+            {
+              label: "Keep their assigned variation",
+              value: "keep",
+            },
+            {
+              label: "Exclude them from the experiment",
+              value: "exclude",
+            }
+          ]}
+          onChange={(v)=> setExistingUsersOption(v as ExistingUsersOption)}
+        />
+      </>) : (
+        <div>skip...</div>
+      )}
+
       <SelectField
         label="How to release changes"
         options={[
