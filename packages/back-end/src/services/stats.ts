@@ -3,12 +3,14 @@ import { PythonShell } from "python-shell";
 import {
   DEFAULT_P_VALUE_THRESHOLD,
   DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
+  EXPOSURE_DATE_DIMENSION_NAME,
 } from "shared/constants";
 import { putBaselineVariationFirst } from "shared/util";
 import { ExperimentMetricInterface } from "shared/experiments";
 import { hoursBetween } from "shared/dates";
 import { ExperimentMetricAnalysis } from "../../types/stats";
 import {
+  ExperimentAggregateUnitsQueryResponseRows,
   ExperimentMetricQueryResponseRows,
   ExperimentResults,
 } from "../types/Integration";
@@ -23,8 +25,12 @@ import {
   ExperimentMetricAnalysisParams,
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotSettings,
+  ExperimentSnapshotTraffic,
+  ExperimentSnapshotTrafficDimension,
+  SnapshotSettingsVariation,
 } from "../../types/experiment-snapshot";
 import { QueryMap } from "../queryRunners/QueryRunner";
+import { MAX_ROWS_UNIT_AGGREGATE_QUERY } from "../integrations/SqlIntegration";
 
 export const MAX_DIMENSIONS = 20;
 
@@ -172,7 +178,6 @@ print(json.dumps({
     logger.error(e, "Failed to run stats model: " + result);
     throw e;
   }
-
   return parsed;
 }
 
@@ -262,7 +267,7 @@ export async function analyzeExperimentResults({
           dimension: analysisSettings.dimensions[0],
           baselineVariationIndex: analysisSettings.baselineVariationIndex ?? 0,
           differenceType: analysisSettings.differenceType,
-          coverage: snapshotSettings.coverage ?? 1,
+          coverage: snapshotSettings.coverage || 1,
           phaseLengthHours: Math.max(
             hoursBetween(snapshotSettings.startDate, snapshotSettings.endDate),
             1
@@ -330,4 +335,95 @@ export async function analyzeExperimentResults({
     unknownVariations: Array.from(new Set(unknownVariations)),
     dimensions,
   };
+}
+
+export function analyzeExperimentTraffic({
+  rows,
+  variations,
+}: {
+  rows: ExperimentAggregateUnitsQueryResponseRows;
+  variations: SnapshotSettingsVariation[];
+}): ExperimentSnapshotTraffic {
+  const overallResults: ExperimentSnapshotTrafficDimension = {
+    name: "All",
+    srm: 0,
+    variationUnits: Array(variations.length).fill(0),
+  };
+  if (!rows || !rows.length) {
+    return {
+      overall: overallResults,
+      dimension: {},
+      error: "NO_ROWS_IN_UNIT_QUERY",
+    };
+  }
+  if (rows.length == MAX_ROWS_UNIT_AGGREGATE_QUERY) {
+    return {
+      overall: overallResults,
+      dimension: {},
+      error: "TOO_MANY_ROWS",
+    };
+  }
+
+  // build variation data to check traffic
+  const variationIdMap: { [key: string]: number } = {};
+  const variationWeights: number[] = [];
+  variations.forEach((v, i) => {
+    variationIdMap[v.id] = i;
+    variationWeights.push(v.weight);
+  });
+
+  // use nested objects to easily fill values as we iterate over
+  // query result
+  const dimTrafficResults: Map<
+    string,
+    Map<string, ExperimentSnapshotTrafficDimension>
+  > = new Map();
+
+  // instantiate return object here, as we can fill `overall`
+  // unit data on the first pass
+  const trafficResults: ExperimentSnapshotTraffic = {
+    overall: overallResults,
+    dimension: {},
+  };
+
+  rows.forEach((r) => {
+    const variationIndex = variationIdMap[r.variation];
+    const dimTraffic: Map<string, ExperimentSnapshotTrafficDimension> =
+      dimTrafficResults.get(r.dimension_name) ?? new Map();
+    const dimValueTraffic: ExperimentSnapshotTrafficDimension = dimTraffic.get(
+      r.dimension_value
+    ) || {
+      name: r.dimension_value,
+      srm: 0,
+      variationUnits: Array(variations.length).fill(0),
+    };
+    // assumes one row per dimension slice in the payload, use += if there will be multiple
+    dimValueTraffic.variationUnits[variationIndex] = r.units;
+
+    dimTraffic.set(r.dimension_value, dimValueTraffic);
+    dimTrafficResults.set(r.dimension_name, dimTraffic);
+
+    // aggregate over date unit counts for overall unit counts
+    if (r.dimension_name === EXPOSURE_DATE_DIMENSION_NAME) {
+      trafficResults.overall.variationUnits[variationIndex] += r.units;
+    }
+  });
+  trafficResults.overall.srm = checkSrm(
+    trafficResults.overall.variationUnits,
+    variationWeights
+  );
+  for (const [dimName, dimTraffic] of dimTrafficResults) {
+    for (const dimValueTraffic of dimTraffic.values()) {
+      dimValueTraffic.srm = checkSrm(
+        dimValueTraffic.variationUnits,
+        variationWeights
+      );
+      if (dimName in trafficResults.dimension) {
+        trafficResults.dimension[dimName].push(dimValueTraffic);
+      } else {
+        trafficResults.dimension[dimName] = [dimValueTraffic];
+      }
+    }
+  }
+  return trafficResults;
 }

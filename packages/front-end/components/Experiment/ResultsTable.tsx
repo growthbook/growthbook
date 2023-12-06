@@ -30,6 +30,7 @@ import { FaExclamationTriangle } from "react-icons/fa";
 import { ExperimentMetricInterface } from "shared/experiments";
 import {
   ExperimentTableRow,
+  getEffectLabel,
   getRowResults,
   RowResults,
   useDomain,
@@ -422,12 +423,7 @@ export default function ResultsTable({
     };
   }, [hoverTimeout]);
 
-  let changeTitle = "% Change";
-  if (differenceType === "absolute") {
-    changeTitle = "Absolute Change";
-  } else if (differenceType === "scaled") {
-    changeTitle = "Scaled Impact";
-  }
+  const changeTitle = getEffectLabel(differenceType);
 
   return (
     <div className="position-relative" ref={containerRef}>
@@ -451,7 +447,7 @@ export default function ResultsTable({
           data={tooltipData}
           tooltipOpen={tooltipOpen}
           close={closeTooltip}
-          percent={differenceType === "relative"}
+          differenceType={differenceType}
           onPointerMove={resetTimeout}
           onClick={resetTimeout}
           onPointerLeave={leaveRow}

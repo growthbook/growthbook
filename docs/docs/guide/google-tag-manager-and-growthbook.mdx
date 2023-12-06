@@ -224,9 +224,15 @@ attributes: {
 
 ### Tracking callback
 
-We may be interested in defining an analytics tracking event in order to track AB test impressions. This is not required for GrowthBook to function correctly, but is often of interest for 3rd party analytics purposes.
+Tracking callbacks are fired when a user is placed into an experiment.
 
-If you already have tracking events set up, insert them into our code snippet. Here's a contrived example:
+:::note
+
+If you want to use the experimentation features of GrowthBook, you need to define an analytics tracking event in order to track AB test impressions. If you intend to use GrowthBook only for feature flagging, this is not required.
+
+:::
+
+If you already have an event tracker set up, insert them into our code snippet. Here's a contrived sample example:
 
 ```js
 trackingCallback: function(experiment, result) {
@@ -248,6 +254,19 @@ trackingCallback: function(experiment, result) {
     variation_id: result.variationId,
   });
 }
+```
+
+Or if you're using the dataLayer in GA4:
+
+```js
+trackingCallback: function (experiment, result) {
+  dataLayer.push({
+    'event': 'experiment_viewed',
+    'event_category': 'experiment',
+    'experiment_id': experiment.key,
+    'variation_id': result.variationId
+  })
+})
 ```
 
 Note the omission of `client_id`, as this is typically included by default in GA events.

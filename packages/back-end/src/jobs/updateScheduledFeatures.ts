@@ -5,7 +5,10 @@ import {
   updateFeature,
 } from "../models/FeatureModel";
 import { getNextScheduledUpdate } from "../services/features";
-import { getOrganizationById } from "../services/organizations";
+import {
+  getEnvironmentIdsFromOrg,
+  getOrganizationById,
+} from "../services/organizations";
 import { logger } from "../util/logger";
 
 type UpdateSingleFeatureJob = Job<{
@@ -75,7 +78,8 @@ async function updateSingleFeature(job: UpdateSingleFeatureJob) {
   try {
     // Recalculate the feature's new nextScheduledUpdate
     const nextScheduledUpdate = getNextScheduledUpdate(
-      feature.environmentSettings || {}
+      feature.environmentSettings || {},
+      getEnvironmentIdsFromOrg(org)
     );
 
     // Update the feature in Mongo

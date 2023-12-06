@@ -5,10 +5,7 @@ import {
 } from "back-end/types/experiment-snapshot";
 import clsx from "clsx";
 import React, { useState } from "react";
-import {
-  ExperimentReportVariation,
-  MetricRegressionAdjustmentStatus,
-} from "back-end/types/report";
+import { ExperimentReportVariation } from "back-end/types/report";
 import { DifferenceType, StatsEngine } from "back-end/types/stats";
 import {
   FaExclamationCircle,
@@ -56,7 +53,6 @@ export default function AnalysisSettingsBar({
   regressionAdjustmentAvailable,
   regressionAdjustmentEnabled,
   regressionAdjustmentHasValidMetrics,
-  metricRegressionAdjustmentStatuses,
   onRegressionAdjustmentChange,
   newUi = false,
   showMoreMenu = true,
@@ -79,7 +75,6 @@ export default function AnalysisSettingsBar({
   regressionAdjustmentAvailable?: boolean;
   regressionAdjustmentEnabled?: boolean;
   regressionAdjustmentHasValidMetrics?: boolean;
-  metricRegressionAdjustmentStatuses?: MetricRegressionAdjustmentStatus[];
   onRegressionAdjustmentChange?: (enabled: boolean) => void;
   newUi?: boolean;
   showMoreMenu?: boolean;
@@ -372,9 +367,6 @@ export default function AnalysisSettingsBar({
                           body: JSON.stringify({
                             phase,
                             dimension,
-                            statsEngine,
-                            regressionAdjustmentEnabled,
-                            metricRegressionAdjustmentStatuses,
                           }),
                         }
                       )
@@ -419,11 +411,6 @@ export default function AnalysisSettingsBar({
                     experiment={experiment}
                     lastAnalysis={analysis}
                     dimension={dimension}
-                    statsEngine={statsEngine}
-                    regressionAdjustmentEnabled={regressionAdjustmentEnabled}
-                    metricRegressionAdjustmentStatuses={
-                      metricRegressionAdjustmentStatuses
-                    }
                     onSubmit={() => {
                       if (baselineRow !== 0) {
                         setBaselineRow?.(0);
@@ -447,9 +434,6 @@ export default function AnalysisSettingsBar({
                       body: JSON.stringify({
                         phase,
                         dimension,
-                        statsEngine,
-                        regressionAdjustmentEnabled,
-                        metricRegressionAdjustmentStatuses,
                       }),
                     }
                   )
@@ -545,6 +529,14 @@ function isDifferentStringArray(
   if (val1.length !== val2.length) return true;
   return val1.some((v) => !val2.includes(v));
 }
+function isStringArrayMissingElements(
+  strings: string[] = [],
+  elements: string[] = []
+) {
+  if (!elements.length) return false;
+  if (elements.length > strings.length) return true;
+  return elements.some((v) => !strings.includes(v));
+}
 function isDifferentDate(val1: Date, val2: Date, threshold: number = 86400000) {
   // 86400000 = 1 day
   return Math.abs(val1.getTime() - val2.getTime()) >= threshold;
@@ -607,9 +599,9 @@ export function isOutdated(
     reasons.push("Attribution model changed");
   }
   if (
-    isDifferentStringArray(
-      [...experiment.metrics, ...(experiment?.guardrails || [])],
-      [...snapshotSettings.goalMetrics, ...snapshotSettings.guardrailMetrics]
+    isStringArrayMissingElements(
+      [...snapshotSettings.goalMetrics, ...snapshotSettings.guardrailMetrics],
+      [...experiment.metrics, ...(experiment?.guardrails || [])]
     )
   ) {
     reasons.push("Metrics changed");

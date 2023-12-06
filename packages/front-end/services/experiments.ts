@@ -1,6 +1,9 @@
 import { SnapshotMetric } from "back-end/types/experiment-snapshot";
-import { MetricInterface } from "back-end/types/metric";
-import { PValueCorrection, StatsEngine } from "back-end/types/stats";
+import {
+  DifferenceType,
+  PValueCorrection,
+  StatsEngine,
+} from "back-end/types/stats";
 import { useState } from "react";
 import { jStat } from "jstat";
 import {
@@ -8,20 +11,15 @@ import {
   ExperimentReportVariationWithIndex,
   MetricRegressionAdjustmentStatus,
 } from "back-end/types/report";
-import {
-  MetricDefaults,
-  OrganizationSettings,
-} from "back-end/types/organization";
+import { MetricDefaults } from "back-end/types/organization";
 import { ExperimentStatus, MetricOverride } from "back-end/types/experiment";
 import cloneDeep from "lodash/cloneDeep";
-import { DEFAULT_REGRESSION_ADJUSTMENT_DAYS } from "shared/constants";
 import { getValidDate } from "shared/dates";
 import { isNil } from "lodash";
 import { FactTableInterface } from "back-end/types/fact-table";
 import {
   ExperimentMetricInterface,
   isBinomialMetric,
-  isFactMetric,
 } from "shared/experiments";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import {
@@ -323,107 +321,6 @@ export function applyMetricOverrides<T extends ExperimentMetricInterface>(
     }
   }
   return { newMetric, overrideFields };
-}
-
-export function getRegressionAdjustmentsForMetric<
-  T extends ExperimentMetricInterface
->({
-  metric,
-  denominatorMetrics,
-  experimentRegressionAdjustmentEnabled,
-  organizationSettings,
-  metricOverrides,
-}: {
-  metric: T;
-  denominatorMetrics: MetricInterface[];
-  experimentRegressionAdjustmentEnabled: boolean;
-  organizationSettings?: Partial<OrganizationSettings>; // can be RA fields from a snapshot of org settings
-  metricOverrides?: MetricOverride[];
-}): {
-  newMetric: T;
-  metricRegressionAdjustmentStatus: MetricRegressionAdjustmentStatus;
-} {
-  const newMetric = cloneDeep<T>(metric);
-
-  // start with default RA settings
-  let regressionAdjustmentEnabled = false;
-  let regressionAdjustmentDays = DEFAULT_REGRESSION_ADJUSTMENT_DAYS;
-  let reason = "";
-
-  // get RA settings from organization
-  if (organizationSettings?.regressionAdjustmentEnabled) {
-    regressionAdjustmentEnabled = true;
-    regressionAdjustmentDays =
-      organizationSettings?.regressionAdjustmentDays ??
-      regressionAdjustmentDays;
-  }
-  if (experimentRegressionAdjustmentEnabled) {
-    regressionAdjustmentEnabled = true;
-  }
-
-  // get RA settings from metric
-  if (metric?.regressionAdjustmentOverride) {
-    regressionAdjustmentEnabled = !!metric?.regressionAdjustmentEnabled;
-    regressionAdjustmentDays =
-      metric?.regressionAdjustmentDays ?? DEFAULT_REGRESSION_ADJUSTMENT_DAYS;
-    if (!regressionAdjustmentEnabled) {
-      reason = "disabled in metric settings";
-    }
-  }
-
-  // get RA settings from metric override
-  if (metricOverrides) {
-    const metricOverride = metricOverrides.find((mo) => mo.id === metric.id);
-    if (metricOverride?.regressionAdjustmentOverride) {
-      regressionAdjustmentEnabled = !!metricOverride?.regressionAdjustmentEnabled;
-      regressionAdjustmentDays =
-        metricOverride?.regressionAdjustmentDays ?? regressionAdjustmentDays;
-      if (!regressionAdjustmentEnabled) {
-        reason = "disabled by metric override";
-      } else {
-        reason = "";
-      }
-    }
-  }
-
-  // final gatekeeping
-  if (regressionAdjustmentEnabled) {
-    if (isFactMetric(metric)) {
-      if (metric.metricType === "ratio") {
-        regressionAdjustmentEnabled = false;
-        reason = "ratio metrics not supported";
-      }
-    } else if (metric?.denominator) {
-      const denominator = denominatorMetrics.find(
-        (m) => m.id === metric?.denominator
-      );
-      if (denominator?.type === "count") {
-        regressionAdjustmentEnabled = false;
-        reason = "denominator is count";
-      }
-    }
-  }
-  if ("aggregation" in metric && metric?.aggregation) {
-    regressionAdjustmentEnabled = false;
-    reason = "custom aggregation";
-  }
-
-  if (!regressionAdjustmentEnabled) {
-    regressionAdjustmentDays = 0;
-  }
-
-  newMetric.regressionAdjustmentEnabled = regressionAdjustmentEnabled;
-  newMetric.regressionAdjustmentDays = regressionAdjustmentDays;
-
-  return {
-    newMetric,
-    metricRegressionAdjustmentStatus: {
-      metric: newMetric.id,
-      regressionAdjustmentEnabled,
-      regressionAdjustmentDays,
-      reason,
-    },
-  };
 }
 
 export function isExpectedDirection(
@@ -881,4 +778,14 @@ export function getRowResults({
     riskMeta,
     guardrailWarning,
   };
+}
+
+export function getEffectLabel(differenceType: DifferenceType): string {
+  if (differenceType === "absolute") {
+    return "Absolute Change";
+  }
+  if (differenceType === "scaled") {
+    return "Scaled Impact";
+  }
+  return "% Change";
 }

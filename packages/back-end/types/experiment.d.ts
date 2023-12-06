@@ -1,4 +1,9 @@
-import { NamespaceValue, SavedGroupTargeting } from "./feature";
+import {
+  ExperimentRefVariation,
+  FeatureInterface,
+  NamespaceValue,
+  SavedGroupTargeting,
+} from "./feature";
 import { StatsEngine } from "./stats";
 
 export type ImplementationType = "visual" | "code" | "configuration" | "custom";
@@ -85,7 +90,7 @@ export type MetricOverride = {
 export interface LegacyExperimentInterface
   extends Omit<
     ExperimentInterface,
-    "phases" | "variations" | "attributionModel"
+    "phases" | "variations" | "attributionModel" | "releasedVariationId"
   > {
   /**
    * @deprecated
@@ -94,6 +99,7 @@ export interface LegacyExperimentInterface
   attributionModel: ExperimentInterface["attributionModel"] | "allExposures";
   variations: LegacyVariation[];
   phases: LegacyExperimentPhase[];
+  releasedVariationId?: string;
 }
 
 export interface ExperimentInterface {
@@ -150,6 +156,7 @@ export interface ExperimentInterface {
   sequentialTestingEnabled?: boolean;
   sequentialTestingTuningParameter?: number;
   statsEngine?: StatsEngine;
+  manualLaunchChecklist?: { key: string; status: "complete" | "incomplete" }[];
 }
 
 export type ExperimentInterfaceStringDates = Omit<
@@ -179,3 +186,21 @@ export type ExperimentTargetingData = Pick<
     newPhase: boolean;
     reseed: boolean;
   };
+
+export type LinkedFeatureState = "locked" | "live" | "draft" | "discarded";
+
+export type LinkedFeatureEnvState =
+  | "missing"
+  | "disabled-env"
+  | "disabled-rule"
+  | "active";
+
+export interface LinkedFeatureInfo {
+  feature: FeatureInterface;
+  state: LinkedFeatureState;
+  values: ExperimentRefVariation[];
+  valuesFrom: string;
+  inconsistentValues: boolean;
+  rulesAbove: boolean;
+  environmentStates: Record<string, LinkedFeatureEnvState>;
+}

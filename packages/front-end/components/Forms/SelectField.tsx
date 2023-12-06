@@ -1,5 +1,5 @@
 import { FC, useMemo, useRef, ReactNode, useState } from "react";
-import ReactSelect from "react-select";
+import ReactSelect, { FormatOptionLabelMeta } from "react-select";
 import cloneDeep from "lodash/cloneDeep";
 import clsx from "clsx";
 import CreatableSelect from "react-select/creatable";
@@ -19,7 +19,10 @@ export type SelectFieldProps = Omit<
   onChange: (value: string) => void;
   sort?: boolean;
   createable?: boolean;
-  formatOptionLabel?: (value: SingleValue) => ReactNode;
+  formatOptionLabel?: (
+    value: SingleValue,
+    meta: FormatOptionLabelMeta<SingleValue>
+  ) => ReactNode;
   isSearchable?: boolean;
   isClearable?: boolean;
 };
@@ -76,6 +79,36 @@ export const ReactSelectProps = {
       return {
         ...styles,
         color: "var(--form-multivalue-text-color)",
+      };
+    },
+    control: (styles) => {
+      return {
+        ...styles,
+        backgroundColor: "var(--surface-background-color)",
+      };
+    },
+    menu: (styles) => {
+      return {
+        ...styles,
+        backgroundColor: "var(--surface-background-color)",
+      };
+    },
+    option: (styles, { isFocused }) => {
+      return {
+        ...styles,
+        color: isFocused ? "var(--text-hover-color)" : "var(--text-color-main)",
+      };
+    },
+    input: (styles) => {
+      return {
+        ...styles,
+        color: "var(--text-color-main)",
+      };
+    },
+    singleValue: (styles) => {
+      return {
+        ...styles,
+        color: "var(--text-color-main)",
       };
     },
   },
