@@ -25,7 +25,7 @@ When a user is provisioned, they are added to your GrowthBook organization with 
 
 GrowthBook does support the ability to optionally [define a role when provioning a user](#how-to-define-user-role-when-provisioning). Project-level permissions are not supported when provisioning a user via SCIM. That must be done via the GrowthBook application.
 
-When a group is added to "Push Groups" in your Okta SCIM application, groups and their members will be synced with GrowthBook via a corresponding [Team](https://docs.growthbook.io/account/user-permissions). Please note that only members that have been provisioned into the GrowthBook app will be added to the Team in GrowthBook. For example, if you have a push group with members A, B, and C and only A and B are assigned to GrowthBook on the "Assignments" tab, the corresponding team on GrowthBook will only include members A and B. Similarly to user provisioning, new Teams will be created with your organization's default role and permissions for the Team will need to be adjusted within GrowthBook. Group removal or membership changes will need to be done through your identity provider.
+When a group is added to "Push Groups" in your Okta SCIM application, groups and their members will be synced with GrowthBook via a corresponding [Team](https://docs.growthbook.io/account/user-permissions). Please note that only members that have been provisioned into the GrowthBook app will be added to the Team in GrowthBook. For example, if you have a push group with members A, B, and C and only A and B are assigned to GrowthBook on the "Assignments" tab, the corresponding team on GrowthBook will only include members A and B. Just like how user provisioning works, new Teams will be set up with your organization's default role. You'll need to adjust the permissions for the Team in GrowthBook. Group removal or membership changes will need to be done through your identity provider.
 
 :::note
 
@@ -146,3 +146,7 @@ Yes, you can change a user's global role through the GrowthBook application or v
 **I'm changing the user's role in Okta, but it's not changing in GrowthBook**
 
 In order for the user's role to be updated in GrowthBook, you must update your Application provisioning to support "updates". Please note that the only property GrowthBook supports updating is the `growthBookRole`.
+
+**Can I define a Groups role when I push the group to GrowthBook?**
+
+While Okta does support the ability define custom attributes for a Group like it does for a User, Okta doesn't pass these custom attributes to GrowthBook when creating or updating a group. As some other identity providers might support this, GrowthBook will honor the `growthBookRole` attribute if it is passed in the SCIM payload when creating or updating a group.
