@@ -131,7 +131,7 @@ describe("payload scrubbing", () => {
   };
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const scrubbedPayload: any = {
+  const lightlyScrubbedPayload: any = {
     features: {
       exp1: {
         defaultValue: "control",
@@ -191,6 +191,67 @@ describe("payload scrubbing", () => {
     ],
   };
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const fullyScrubbedPayload: any = {
+    features: {
+      exp1: {
+        defaultValue: "control",
+        rules: [
+          {
+            key: "feature-exp",
+            seed: "feature-exp",
+            hashAttribute: "id",
+            // fallbackAttribute: "deviceId",
+            // hashVersion: 2,
+            // bucketVersion: 1,
+            condition: { country: "USA" },
+            variations: ["control", "red", "blue"],
+            coverage: 1,
+            weights: [0.3334, 0.3333, 0.3333],
+            phase: "0",
+          },
+        ],
+      },
+    },
+    experiments: [
+      {
+        key: "my-experiment",
+        seed: "s1",
+        hashAttribute: "id",
+        // fallbackAttribute: "anonymousId",
+        // hashVersion: 2,
+        // bucketVersion: 1,
+        // stickyBucketing: true,
+        // manual: true,
+        variations: [
+          {},
+          {
+            domMutations: [
+              {
+                selector: "h1",
+                action: "set",
+                attribute: "html",
+                value: "red",
+              },
+            ],
+          },
+          {
+            domMutations: [
+              {
+                selector: "h1",
+                action: "set",
+                attribute: "html",
+                value: "blue",
+              },
+            ],
+          },
+        ],
+        weights: [0.3334, 0.3333, 0.3333],
+        coverage: 1,
+      },
+    ],
+  };
+
   it("does not scrub the payload for a safe language version", () => {
     const connection: SDKConnectionInterface = {
       ...baseConnection,
@@ -217,6 +278,7 @@ describe("payload scrubbing", () => {
       sdkVersion: "0.0.0",
     };
     const capabilities = getConnectionSDKCapabilities(connection);
+    expect(capabilities).toStrictEqual([]);
 
     const scrubbed = cloneDeep(sdkPayload);
     const scrubbedFeatures = scrubFeatures(scrubbed.features, capabilities);
@@ -228,7 +290,7 @@ describe("payload scrubbing", () => {
     scrubbed.experiments = scrubbedExperiments;
 
     // no change to payload for default connection (javascript, 0.27.0)
-    expect(scrubbed).toStrictEqual(scrubbedPayload);
+    expect(scrubbed).toStrictEqual(fullyScrubbedPayload);
   });
 
   it("scrubs as necessary for multi-language SDKs", () => {
@@ -238,6 +300,7 @@ describe("payload scrubbing", () => {
       sdkVersion: undefined,
     };
     const capabilities = getConnectionSDKCapabilities(connection);
+    expect(capabilities).toStrictEqual(["bucketingV2", "encryption"]);
 
     const scrubbed = cloneDeep(sdkPayload);
     const scrubbedFeatures = scrubFeatures(scrubbed.features, capabilities);
@@ -249,6 +312,6 @@ describe("payload scrubbing", () => {
     scrubbed.experiments = scrubbedExperiments;
 
     // no change to payload for default connection (javascript, 0.27.0)
-    expect(scrubbed).toStrictEqual(scrubbedPayload);
+    expect(scrubbed).toStrictEqual(lightlyScrubbedPayload);
   });
 });

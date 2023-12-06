@@ -172,7 +172,7 @@ export async function getPayloadParamsFromApiKey(
 
     return {
       organization,
-      capabilities: [],
+      capabilities: ["bucketingV2"],
       environment: environment || "production",
       projects: projectFilter ? [projectFilter] : [],
       encrypted: !!encryptSDK,
