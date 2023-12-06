@@ -13,8 +13,8 @@ export const IssueTags = ({ issues }: Props) => {
   }
 
   return (
-    <div className="d-flex align-items-sm-center">
-      <h4>Jump to issues found: </h4>
+    <div className="d-flex flex-row flex-wrap">
+      <h4 className="col-auto pl-0 mb-0">Jump to issues found: </h4>
       {issues.map((issue) => {
         return (
           <a

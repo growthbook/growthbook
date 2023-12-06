@@ -180,7 +180,15 @@ export const DimensionIssues = ({ dimensionData, variations }: Props) => {
               disabled={!areDimensionsAvailable}
             />
           </div>
-          <IssueTags issues={issues} />
+
+          <div className="d-flex justify-content-between">
+            <IssueTags issues={issues} />
+
+            <span className="col-auto ml-auto text-muted">
+              Sorted by unit counts
+            </span>
+          </div>
+
           {selectedDimension && (
             <>
               {dimensionSlicesWithHealth.map((d) => {
