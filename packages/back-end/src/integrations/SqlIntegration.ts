@@ -948,7 +948,7 @@ export default abstract class SqlIntegration
 
   getDimensionInStatement(dimension: string, values: string[]): string {
     return this.ifElse(
-      `${dimension} IN ('${values.join("','")}')`,
+      `${this.castToString(dimension)} IN ('${values.join("','")}')`,
       this.castToString(dimension),
       this.castToString(`'${AUTOMATIC_DIMENSION_OTHER_NAME}'`)
     );
