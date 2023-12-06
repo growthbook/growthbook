@@ -62,6 +62,7 @@ import { ExperimentSnapshotSettings } from "../../types/experiment-snapshot";
 import { SQLVars, TemplateVariables } from "../../types/sql";
 import { FactTableMap } from "../models/FactTableModel";
 import { logger } from "../util/logger";
+import { FactMetricInterface } from "../../types/fact-table";
 
 export const MAX_ROWS_UNIT_AGGREGATE_QUERY = 3000;
 
@@ -2158,6 +2159,124 @@ AND event_name = '${eventName}'`,
      `;
   }
 
+  // Get a Fact Table CTE for multiple fact metrics that all share the same fact table
+  private getFactTableCTE({
+    metrics,
+    factTableMap,
+    baseIdType,
+    idJoinMap,
+    startDate,
+    endDate,
+    experimentId,
+  }: {
+    metrics: FactMetricInterface[];
+    factTableMap: FactTableMap;
+    baseIdType: string;
+    idJoinMap: Record<string, string>;
+    startDate: Date;
+    endDate: Date | null;
+    experimentId?: string;
+  }) {
+    const factTable = factTableMap.get(
+      metrics[0]?.numerator?.factTableId || ""
+    );
+    if (!factTable) {
+      throw new Error("Unknown fact table");
+    }
+
+    // Determine if a join is required to match up id types
+    let join = "";
+    let userIdCol = "";
+    const userIdTypes = factTable.userIdTypes;
+    if (userIdTypes.includes(baseIdType)) {
+      userIdCol = baseIdType;
+    } else if (userIdTypes.length > 0) {
+      for (let i = 0; i < userIdTypes.length; i++) {
+        const userIdType: string = userIdTypes[i];
+        if (userIdType in idJoinMap) {
+          const metricUserIdCol = `m.${userIdType}`;
+          join = `JOIN ${idJoinMap[userIdType]} i ON (i.${userIdType} = ${metricUserIdCol})`;
+          userIdCol = `i.${baseIdType}`;
+          break;
+        }
+      }
+    }
+
+    // BQ datetime cast for SELECT statements (do not use for where)
+    const timestampDateTimeColumn = this.castUserDateCol("m.timestamp");
+
+    const sql = factTable.sql;
+    const where: string[] = [];
+
+    // Add a rough date filter to improve query performance
+    if (startDate) {
+      where.push(`m.timestamp >= ${this.toTimestamp(startDate)}`);
+    }
+    // endDate is now meaningful if ignoreConversionEnd
+    if (endDate) {
+      where.push(`m.timestamp <= ${this.toTimestamp(endDate)}`);
+    }
+
+    const metricCols: string[] = [];
+    metrics.forEach((m) => {
+      if (m.numerator.factTableId !== factTable.id) {
+        throw new Error(
+          "Can only combine metrics that are in the same fact table"
+        );
+      }
+
+      // Numerator column
+      const value = this.getMetricColumns(m, factTableMap, "m", false).value;
+      const filters = m.numerator.filters;
+      const column =
+        filters.length > 0
+          ? `CASE WHEN (${filters.join(" AND ")}) THEN ${value} ELSE NULL END`
+          : value;
+
+      metricCols.push(`-- ${m.name}
+      ${column} as ${m.id}`);
+
+      // Add denominator column if there is one
+      if (m.denominator) {
+        if (m.denominator.factTableId !== factTable.id) {
+          throw new Error(
+            "Only supports ratio metrics where the denominator is in the same fact table as the numerator"
+          );
+        }
+
+        const value = this.getMetricColumns(m, factTableMap, "m", true).value;
+        const filters = m.numerator.filters;
+        const column =
+          filters.length > 0
+            ? `CASE WHEN (${filters.join(" AND ")}) THEN ${value} ELSE NULL END`
+            : value;
+        metricCols.push(`-- ${m.name} (denominator)
+        ${column} as ${m.id}_denominator`);
+      }
+    });
+
+    return `-- Fact Table (${factTable.name})
+      SELECT
+        ${userIdCol} as ${baseIdType},
+        ${timestampDateTimeColumn} as timestamp,
+        ${metricCols.join(",\n")}
+      FROM(
+          ${compileSqlTemplate(sql, {
+            startDate,
+            endDate: endDate || undefined,
+            experimentId,
+            templateVariables: getMetricTemplateVariables(
+              metrics[0],
+              factTableMap,
+              false
+            ),
+          })}
+        ) m
+        ${join}
+        ${where.length ? `WHERE ${where.join(" AND ")}` : ""}
+    `;
+  }
+
   private getMetricCTE({
     metric,
     baseIdType,
@@ -2415,6 +2534,26 @@ AND event_name = '${eventName}'`,
       `${col}`,
       `NULL`
     )}`;
+  }
+
+  private getAggregateFactMetricColumn(
+    metric: FactMetricInterface,
+    useDenominator?: boolean
+  ) {
+    const columnRef = useDenominator ? metric.denominator : metric.numerator;
+
+    const valueCol = metric.id + (useDenominator ? "_denominator" : "");
+
+    if (
+      metric.metricType === "proportion" ||
+      columnRef?.column === "$$distinctUsers"
+    ) {
+      return `MAX(COALESCE(${valueCol}, 0))`;
+    } else if (columnRef?.column === "$$count") {
+      return `COUNT(${valueCol})`;
+    } else {
+      return `SUM(COALESCE(${valueCol}, 0))`;
+    }
   }
 
   private getAggregateMetricColumn(
