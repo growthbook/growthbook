@@ -863,6 +863,31 @@ export default abstract class SqlIntegration
     return metricEnd;
   }
 
+  private getMaxHoursToConvert(
+    funnelMetric: boolean,
+    metricAndDenominatorMetrics: ExperimentMetricInterface[],
+    activationMetric: ExperimentMetricInterface | null
+  ): number {
+    let neededHoursForConversion = 0;
+    metricAndDenominatorMetrics.forEach((m) => {
+      const metricHours =
+        (m.conversionDelayHours || 0) + getConversionWindowHours(m);
+      if (funnelMetric) {
+        // funnel metric windows cab cascade, so sum each metric hours to get max
+        neededHoursForConversion += metricHours;
+      } else if (metricHours > neededHoursForConversion) {
+        neededHoursForConversion = metricHours;
+      }
+    });
+    // activation metrics windows always cascade
+    if (activationMetric) {
+      neededHoursForConversion +=
+        (activationMetric.conversionDelayHours || 0) +
+        getConversionWindowHours(activationMetric);
+    }
+    return neededHoursForConversion;
+  }
+
   private getStatisticType(
     isRatio: boolean,
     isRegressionAdjusted: boolean
@@ -1373,19 +1398,15 @@ export default abstract class SqlIntegration
       settings.experimentId
     );
 
-    const initialMetric =
-      denominatorMetrics.length > 0 ? denominatorMetrics[0] : metric;
-
     // Get date range for experiment and analysis
-    const initialConversionWindowHours = getConversionWindowHours(
-      initialMetric
-    );
-    const initialConversionDelayHours = initialMetric.conversionDelayHours || 0;
-
     const startDate: Date = settings.startDate;
     const endDate: Date = this.getExperimentEndDate(
       settings,
-      initialConversionWindowHours + initialConversionDelayHours
+      this.getMaxHoursToConvert(
+        funnelMetric,
+        [metric].concat(denominatorMetrics),
+        activationMetric
+      )
     );
 
     if (params.dimensions.length > 1) {
