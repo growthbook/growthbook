@@ -12,7 +12,6 @@ import { GiPieChart } from "react-icons/gi";
 import { HiCursorClick } from "react-icons/hi";
 import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
 import { DifferenceType, StatsEngine } from "back-end/types/stats";
-import { MetricRegressionAdjustmentStatus } from "back-end/types/report";
 import { ago, datetime } from "shared/dates";
 import clsx from "clsx";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -39,8 +38,6 @@ export interface Props {
   experiment: ExperimentInterfaceStringDates;
   mutate: () => void;
   statsEngine: StatsEngine;
-  regressionAdjustmentEnabled?: boolean;
-  metricRegressionAdjustmentStatuses?: MetricRegressionAdjustmentStatus[];
   editMetrics?: () => void;
   setVariationFilter?: (variationFilter: number[]) => void;
   baselineRow?: number;
@@ -52,8 +49,6 @@ export default function AnalysisSettingsSummary({
   experiment,
   mutate,
   statsEngine,
-  regressionAdjustmentEnabled,
-  metricRegressionAdjustmentStatuses,
   editMetrics,
   setVariationFilter,
   baselineRow,
@@ -352,9 +347,6 @@ export default function AnalysisSettingsSummary({
                         body: JSON.stringify({
                           phase,
                           dimension,
-                          statsEngine,
-                          regressionAdjustmentEnabled,
-                          metricRegressionAdjustmentStatuses,
                         }),
                       }
                     )
@@ -400,11 +392,6 @@ export default function AnalysisSettingsSummary({
                   experiment={experiment}
                   lastAnalysis={analysis}
                   dimension={dimension}
-                  statsEngine={statsEngine}
-                  regressionAdjustmentEnabled={regressionAdjustmentEnabled}
-                  metricRegressionAdjustmentStatuses={
-                    metricRegressionAdjustmentStatuses
-                  }
                   onSubmit={() => {
                     if (baselineRow !== 0) {
                       setBaselineRow?.(0);
@@ -468,9 +455,6 @@ export default function AnalysisSettingsSummary({
                         body: JSON.stringify({
                           phase,
                           dimension,
-                          statsEngine,
-                          regressionAdjustmentEnabled,
-                          metricRegressionAdjustmentStatuses,
                         }),
                       }
                     )

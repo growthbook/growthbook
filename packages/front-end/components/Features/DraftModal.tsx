@@ -3,7 +3,7 @@ import ReactDiffViewer, { DiffMethod } from "react-diff-viewer";
 import { useState, useMemo } from "react";
 import { FaAngleDown, FaAngleRight } from "react-icons/fa";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
-import { autoMerge } from "shared/util";
+import { autoMerge, mergeResultHasChanges } from "shared/util";
 import { getAffectedRevisionEnvs, useEnvironments } from "@/services/features";
 import { useAuth } from "@/services/auth";
 import usePermissions from "@/hooks/usePermissions";
@@ -134,10 +134,7 @@ export default function DraftModal({
     getAffectedRevisionEnvs(feature, revision, environments)
   );
 
-  const hasChanges =
-    !mergeResult.success ||
-    Object.keys(mergeResult.result.rules || {}).length > 0 ||
-    !!mergeResult.result.defaultValue;
+  const hasChanges = mergeResultHasChanges(mergeResult);
 
   return (
     <Modal
@@ -223,7 +220,7 @@ export default function DraftModal({
               <ExpandableDiff {...diff} key={diff.title} />
             ))}
           </div>
-          {hasPermission && (
+          {hasPermission ? (
             <Field
               label="Add a Comment (optional)"
               textarea
@@ -233,6 +230,10 @@ export default function DraftModal({
                 setComment(e.target.value);
               }}
             />
+          ) : (
+            <div className="alert alert-info">
+              You do not have permission to publish this draft.
+            </div>
           )}
         </div>
       )}
