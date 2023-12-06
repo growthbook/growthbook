@@ -146,7 +146,3 @@ Yes, you can change a user's global role through the GrowthBook application or v
 **I'm changing the user's role in Okta, but it's not changing in GrowthBook**
 
 In order for the user's role to be updated in GrowthBook, you must update your Application provisioning to support "updates". Please note that the only property GrowthBook supports updating is the `growthBookRole`.
-
-**Can I define a Groups role when I push the group to GrowthBook?**
-
-While Okta does support the ability define custom attributes for a Group like it does for a User, Okta doesn't pass these custom attributes to GrowthBook when creating or updating a group. As some other identity providers might support this, GrowthBook will honor the `growthBookRole` attribute if it is passed in the SCIM payload when creating or updating a group.
