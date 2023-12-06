@@ -136,7 +136,7 @@ const SRMWarning: FC<{
       {srm >= srmThreshold ? (
         <div className="alert alert-info">
           <b>
-            No Sample Ratio Mismatch (SRM) detected. p-value above{" "}
+            No Sample Ratio Mismatch (SRM) detected. P-value above{" "}
             {srmThreshold}
           </b>
           <div>
@@ -154,7 +154,7 @@ const SRMWarning: FC<{
       ) : (
         <div className="alert alert-warning">
           <strong>
-            Sample Ratio Mismatch (SRM) detected. Expected p-value ={" "}
+            Sample Ratio Mismatch (SRM) detected. P-value below{" "}
             {pValueFormatter(srmThreshold)}
           </strong>
           .{" "}

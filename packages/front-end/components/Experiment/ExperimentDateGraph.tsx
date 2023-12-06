@@ -31,7 +31,6 @@ export interface DataPointVariation {
 export interface ExperimentDateGraphDataPoint {
   d: Date;
   variations: DataPointVariation[];
-  srm?: number;
 }
 export interface ExperimentDateGraphProps {
   yaxis: "users" | "uplift";
