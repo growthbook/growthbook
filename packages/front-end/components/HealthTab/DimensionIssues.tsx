@@ -1,6 +1,6 @@
 import { ExperimentSnapshotTrafficDimension } from "back-end/types/experiment-snapshot";
 import { ExperimentReportVariation } from "back-end/types/report";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useUser } from "@/services/UserContext";
 import { DEFAULT_SRM_THRESHOLD } from "@/pages/settings";
 import track from "@/services/track";
@@ -10,7 +10,8 @@ import SelectField from "../Forms/SelectField";
 import SRMWarning from "../Experiment/SRMWarning";
 import { EXPERIMENT_DIMENSION_PREFIX, srmHealthCheck } from "./SRMDrawer";
 import HealthCard from "./HealthCard";
-import { IssueTags } from "./IssueTags";
+import { IssueTags, IssueValue } from "./IssueTags";
+import { HealthStatus } from "./StatusBadge";
 
 interface Props {
   dimensionData: {
@@ -82,22 +83,35 @@ export const DimensionIssues = ({ dimensionData, variations }: Props) => {
     availableDimensions[0]?.value || ""
   );
 
-  //   const dimensionSliceHealth = useMemo(() => {
-  //     return dimensionData[selectedDimension].map((d) => {
-  //       const totalDimUsers = d.variationUnits.reduce((acc, a) => acc + a, 0);
-  //       return {
-  //         [d.name]: {
-  //           health: srmHealthCheck({
-  //             srm: d.srm,
-  //             srmThreshold,
-  //             variations,
-  //             totalUsers: totalDimUsers,
-  //           }),
-  //           totalUsers: totalDimUsers,
-  //         },
-  //       };
-  //     });
-  //   }, [dimensionData, selectedDimension, srmThreshold, variations]);
+  const [issues, dimensionSlicesWithHealth] = useMemo(() => {
+    const dimensionSlicesWithIssues: IssueValue[] = [];
+    const dimensionSlicesWithHealth: (ExperimentSnapshotTrafficDimension & {
+      totalUsers: number;
+      health: HealthStatus;
+    })[] = [];
+    dimensionData[selectedDimension].forEach((d) => {
+      const totalDimUsers = d.variationUnits.reduce((acc, a) => acc + a, 0);
+      const health = srmHealthCheck({
+        srm: d.srm,
+        srmThreshold,
+        variations,
+        totalUsers: totalDimUsers,
+      });
+
+      if (health === "Issues detected") {
+        dimensionSlicesWithIssues.push({ label: d.name, value: d.name });
+      }
+
+      dimensionSlicesWithHealth.push({
+        ...d,
+        health,
+        totalUsers: totalDimUsers,
+      });
+    });
+    dimensionSlicesWithHealth.sort((a, b) => b.totalUsers - a.totalUsers);
+
+    return [dimensionSlicesWithIssues, dimensionSlicesWithHealth];
+  }, [dimensionData, selectedDimension, srmThreshold, variations]);
 
   //   const availableDimensions = [
   //     {
@@ -139,6 +153,7 @@ export const DimensionIssues = ({ dimensionData, variations }: Props) => {
       <Modal
         close={() => setModalOpen(false)}
         open={modalOpen}
+        closeCta={"Okay"}
         header={
           <div>
             <h2>Explore Dimensions</h2>
@@ -165,37 +180,27 @@ export const DimensionIssues = ({ dimensionData, variations }: Props) => {
               disabled={!areDimensionsAvailable}
             />
           </div>
-          <IssueTags issues={[{ label: "Chrome", value: "Chrome" }]} />
+          <IssueTags issues={issues} />
           {selectedDimension && (
             <>
-              {dimensionData[selectedDimension].map((d) => {
-                const totalDimUsers = d.variationUnits.reduce(
-                  (acc, a) => acc + a,
-                  0
-                );
-                const dimensionHealth = srmHealthCheck({
-                  srm: d.srm,
-                  srmThreshold,
-                  variations,
-                  totalUsers: totalDimUsers,
-                });
+              {dimensionSlicesWithHealth.map((d) => {
                 return (
                   <HealthCard
                     id={d.name}
                     title={d.name}
-                    helpText={`(${totalDimUsers} total units)`}
-                    status={dimensionHealth}
+                    helpText={`(${d.totalUsers} total units)`}
+                    status={d.health}
                     key={d.name}
                   >
                     <div className="mt-4">
-                      <div className="row justify-content-start mb-2">
+                      <div className="mb-2">
                         <VariationUsersTable
                           users={d.variationUnits}
                           variations={variations}
                           srm={d.srm}
                         />
-                        {(dimensionHealth === "healthy" ||
-                          dimensionHealth === "Issues detected") && (
+                        {(d.health === "healthy" ||
+                          d.health === "Issues detected") && (
                           <SRMWarning
                             srm={d.srm}
                             variations={variations}
@@ -203,7 +208,7 @@ export const DimensionIssues = ({ dimensionData, variations }: Props) => {
                             showWhenHealthy
                           />
                         )}
-                        {dimensionHealth === "Not enough traffic" && (
+                        {d.health === "Not enough traffic" && (
                           <div className="alert alert-info">
                             <b>
                               More traffic is required to detect a Sample Ratio

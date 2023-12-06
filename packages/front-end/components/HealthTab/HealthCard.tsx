@@ -18,12 +18,10 @@ export default function HealthCard({
 }: Props) {
   return (
     <div className="appbox my-3 p-3" id={id}>
-      <div className="d-flex flex-row mb-0">
-        <div>
-          <h2>{title}</h2>{" "}
-          {status && status !== "healthy" && <StatusBadge status={status} />}
-        </div>
-        <p className="text-muted ml-auto">{helpText}</p>
+      <div className="mb-2">
+        <h2 className="d-inline">{title}</h2>{" "}
+        {status && status !== "healthy" && <StatusBadge status={status} />}
+        <span className="text-muted float-right">{helpText}</span>
       </div>
       <hr className="mt-0"></hr>
       <div>{children}</div>

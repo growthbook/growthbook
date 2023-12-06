@@ -176,7 +176,7 @@ const SRMWarning: FC<{
               for more details.
             </>
           ) : (
-            <p>
+            <p className="mb-0">
               There is likely a bug in the implementation.{" "}
               <a
                 href="#"
