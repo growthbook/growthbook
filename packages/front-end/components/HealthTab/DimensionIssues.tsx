@@ -20,7 +20,7 @@ interface Props {
   variations: ExperimentReportVariation[];
 }
 
-type NewObjectArray = {
+type DimensionWithIssues = {
   value: string;
   label: string;
   issues: string[];
@@ -34,7 +34,7 @@ export function transformDimensionData(
   },
   variations: ExperimentReportVariation[],
   srmThreshold: number
-): NewObjectArray[] {
+): DimensionWithIssues[] {
   return Object.entries(dimensionData).flatMap(
     ([dimensionName, dimensionSlices]) => {
       // Skip for date dimension
@@ -119,12 +119,10 @@ export const DimensionIssues = ({ dimensionData, variations }: Props) => {
   );
 
   const [issues, dimensionSlicesWithHealth] = useMemo(() => {
-    const dimensionSlicesWithIssues: IssueValue[] = [];
     const dimensionSlicesWithHealth: (ExperimentSnapshotTrafficDimension & {
       totalUsers: number;
       health: HealthStatus;
-    })[] = [];
-    dimensionData[selectedDimension]?.forEach((d) => {
+    })[] = dimensionData[selectedDimension]?.map((d) => {
       const totalDimUsers = d.variationUnits.reduce((acc, a) => acc + a, 0);
       const health = srmHealthCheck({
         srm: d.srm,
@@ -133,17 +131,24 @@ export const DimensionIssues = ({ dimensionData, variations }: Props) => {
         totalUsers: totalDimUsers,
       });
 
-      if (health === "Issues detected") {
-        dimensionSlicesWithIssues.push({ label: d.name, value: d.name });
-      }
-
-      dimensionSlicesWithHealth.push({
+      return {
         ...d,
         health,
         totalUsers: totalDimUsers,
-      });
+      };
     });
     dimensionSlicesWithHealth.sort((a, b) => b.totalUsers - a.totalUsers);
+
+    const dimensionSlicesWithIssues = dimensionSlicesWithHealth.reduce(
+      (acc, cur) => {
+        if (cur.health === "Issues detected") {
+          acc.push({ label: cur.name, value: cur.name });
+        }
+
+        return acc;
+      },
+      [] as IssueValue[]
+    );
 
     return [dimensionSlicesWithIssues, dimensionSlicesWithHealth];
   }, [dimensionData, selectedDimension, srmThreshold, variations]);
