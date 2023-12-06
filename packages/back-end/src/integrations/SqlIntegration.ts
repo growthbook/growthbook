@@ -1062,7 +1062,11 @@ export default abstract class SqlIntegration
               activationMetric.conversionDelayHours || 0,
               0
             ),
-            endDate: this.getMetricEnd([activationMetric], settings.endDate),
+            endDate: this.getMetricEnd(
+              [activationMetric],
+              settings.endDate,
+              ignoreConversionEnd
+            ),
             experimentId: settings.experimentId,
             factTableMap,
           })})

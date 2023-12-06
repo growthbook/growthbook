@@ -116,6 +116,9 @@ function drawMetricRow(
     overrideFields.includes("conversionDelayHours") ||
     (!ignoreConversionEnd && overrideFields.includes("conversionWindowHours"));
 
+  const metricHasNoConversionWindow =
+    isFactMetric(newMetric) && !newMetric.hasConversionWindow;
+
   const isArchived = isFactMetric(metric)
     ? false
     : metric.status === "archived";
@@ -140,9 +143,12 @@ function drawMetricRow(
       <div className="col-sm-5 ml-2">
         {newMetric && (
           <div className="small">
-            {conversionStart}{" "}
-            {ignoreConversionEnd ? "" : "to " + conversionEnd + " "}
-            hours{" "}
+            <>
+              {conversionStart}{" "}
+              {ignoreConversionEnd || metricHasNoConversionWindow
+                ? " hours to experiment end "
+                : "to " + conversionEnd + " hours "}
+            </>
             {hasOverrides && (
               <span className="font-italic text-purple">(override)</span>
             )}
