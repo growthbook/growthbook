@@ -13,19 +13,22 @@ export const IssueTags = ({ issues }: Props) => {
   }
 
   return (
-    <div className="d-flex flex-row flex-wrap">
+    <div className="d-flex flex-row">
       <h4 className="col-auto pl-0 mb-0">Jump to issues found: </h4>
-      {issues.map((issue) => {
-        return (
-          <a
-            className={"badge badge-pill border ml-2 mr-2 badge-warning"}
-            key={issue.value}
-            href={`#${issue.value}`}
-          >
-            {issue.label}
-          </a>
-        );
-      })}
+      <div className="flex-wrap">
+        {issues.map((issue) => {
+          return (
+            <a
+              className={"badge badge-pill border mx-2 badge-warning"}
+              key={issue.value}
+              href={`#${issue.value}`}
+              style={{ marginBottom: "12px" }}
+            >
+              {issue.label}
+            </a>
+          );
+        })}
+      </div>
     </div>
   );
 };

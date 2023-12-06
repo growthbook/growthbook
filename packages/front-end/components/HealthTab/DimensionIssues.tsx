@@ -26,6 +26,8 @@ type NewObjectArray = {
   issues: string[];
 };
 
+const numberFormatter = new Intl.NumberFormat();
+
 export function transformDimensionData(
   dimensionData: {
     [dimension: string]: ExperimentSnapshotTrafficDimension[];
@@ -195,7 +197,9 @@ export const DimensionIssues = ({ dimensionData, variations }: Props) => {
                   <HealthCard
                     id={d.name}
                     title={d.name}
-                    helpText={`(${d.totalUsers} total units)`}
+                    helpText={`${numberFormatter.format(
+                      d.totalUsers
+                    )} total units`}
                     status={d.health}
                     key={d.name}
                   >
