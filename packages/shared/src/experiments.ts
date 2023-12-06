@@ -73,6 +73,7 @@ export function getConversionWindowHours(
   }
 
   if ("conversionWindowValue" in metric) {
+    if (!metric.hasConversionWindow) return 0;
     const value = metric.conversionWindowValue;
     if (metric.conversionWindowUnit === "hours") return value;
     if (metric.conversionWindowUnit === "days") return value * 24;
