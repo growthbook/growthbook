@@ -6,6 +6,7 @@ import {
 import cloneDeep from "lodash/cloneDeep";
 import { FaChevronRight, FaPencilAlt, FaPlus } from "react-icons/fa";
 import { useRouter } from "next/router";
+import { BsGear } from "react-icons/bs";
 import { checkDatasourceProjectPermissions } from "@/services/datasources";
 import { DataSourceQueryEditingModalBaseProps } from "@/components/Settings/EditDataSource/types";
 import usePermissions from "@/hooks/usePermissions";
@@ -14,9 +15,10 @@ import Code from "@/components/SyntaxHighlighting/Code";
 import { AddEditExperimentAssignmentQueryModal } from "@/components/Settings/EditDataSource/ExperimentAssignmentQueries/AddEditExperimentAssignmentQueryModal";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import Button from "@/components/Button";
+import { UpdateDimensionMetadataModal } from "../DimensionMetadata/UpdateDimensionMetadata";
 
 type ExperimentAssignmentQueriesProps = DataSourceQueryEditingModalBaseProps;
-
+type UIMode = "view" | "edit" | "add" | "dimension";
 export const ExperimentAssignmentQueries: FC<ExperimentAssignmentQueriesProps> = ({
   dataSource,
   onSave,
@@ -31,7 +33,7 @@ export const ExperimentAssignmentQueries: FC<ExperimentAssignmentQueriesProps> =
     ).fill(true);
   }
 
-  const [uiMode, setUiMode] = useState<"view" | "edit" | "add">("view");
+  const [uiMode, setUiMode] = useState<UIMode>("view");
   const [editingIndex, setEditingIndex] = useState<number>(-1);
   const [openIndexes, setOpenIndexes] = useState<boolean[]>(
     intitialOpenIndexes
@@ -75,10 +77,10 @@ export const ExperimentAssignmentQueries: FC<ExperimentAssignmentQueriesProps> =
     setEditingIndex(experimentExposureQueries.length);
   }, [experimentExposureQueries]);
 
-  const handleActionEditClicked = useCallback(
-    (idx: number) => async () => {
+  const handleActionClicked = useCallback(
+    (idx: number, uiMode: UIMode) => async () => {
       setEditingIndex(idx);
-      setUiMode("edit");
+      setUiMode(uiMode);
     },
     []
   );
@@ -204,7 +206,7 @@ export const ExperimentAssignmentQueries: FC<ExperimentAssignmentQueriesProps> =
                       </Button>
                       {canEdit && (
                         <Button
-                          onClick={handleActionEditClicked(idx)}
+                          onClick={handleActionClicked(idx, "edit")}
                           style={{ marginLeft: "1rem" }}
                         >
                           Edit it now.
@@ -227,10 +229,18 @@ export const ExperimentAssignmentQueries: FC<ExperimentAssignmentQueriesProps> =
                   <MoreMenu>
                     <button
                       className="dropdown-item py-2"
-                      onClick={handleActionEditClicked(idx)}
+                      onClick={handleActionClicked(idx, "edit")}
                     >
-                      <FaPencilAlt className="mr-2" /> Edit
+                      <FaPencilAlt className="mr-2" /> Edit Query
                     </button>
+                    {query.dimensions.length > 0 ? (
+                      <button
+                        className="dropdown-item py-2"
+                        onClick={handleActionClicked(idx, "dimension")}
+                      >
+                        <BsGear className="mr-2" /> Configure Dimensions
+                      </button>
+                    ) : null}
 
                     <DeleteButton
                       onClick={handleActionDeleteClicked(idx)}
@@ -284,6 +294,15 @@ export const ExperimentAssignmentQueries: FC<ExperimentAssignmentQueriesProps> =
           mode={uiMode}
           onSave={handleSave(editingIndex)}
           onCancel={handleCancel}
+        />
+      ) : null}
+
+      {uiMode === "dimension" ? (
+        <UpdateDimensionMetadataModal
+          exposureQuery={experimentExposureQueries[editingIndex]}
+          dataSource={dataSource}
+          close={() => setUiMode("view")}
+          onSave={handleSave(editingIndex)}
         />
       ) : null}
 
