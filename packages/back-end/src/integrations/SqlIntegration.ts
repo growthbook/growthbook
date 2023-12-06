@@ -2536,29 +2536,10 @@ AND event_name = '${eventName}'`,
     )}`;
   }
 
-  private getAggregateFactMetricColumn(
-    metric: FactMetricInterface,
-    useDenominator?: boolean
-  ) {
-    const columnRef = useDenominator ? metric.denominator : metric.numerator;
-
-    const valueCol = metric.id + (useDenominator ? "_denominator" : "");
-
-    if (
-      metric.metricType === "proportion" ||
-      columnRef?.column === "$$distinctUsers"
-    ) {
-      return `MAX(COALESCE(${valueCol}, 0))`;
-    } else if (columnRef?.column === "$$count") {
-      return `COUNT(${valueCol})`;
-    } else {
-      return `SUM(COALESCE(${valueCol}, 0))`;
-    }
-  }
-
   private getAggregateMetricColumn(
     metric: ExperimentMetricInterface,
-    useDenominator?: boolean
+    useDenominator?: boolean,
+    valueColumn: string = "value"
   ) {
     // Fact Metrics
     if (isFactMetric(metric)) {
@@ -2567,11 +2548,11 @@ AND event_name = '${eventName}'`,
         metric.metricType === "proportion" ||
         columnRef?.column === "$$distinctUsers"
       ) {
-        return `MAX(COALESCE(value, 0))`;
+        return `MAX(COALESCE(${valueColumn}, 0))`;
       } else if (columnRef?.column === "$$count") {
-        return `COUNT(value)`;
+        return `COUNT(${valueColumn})`;
       } else {
-        return `SUM(COALESCE(value, 0))`;
+        return `SUM(COALESCE(${valueColumn}, 0))`;
       }
     }
 

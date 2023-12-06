@@ -1,5 +1,10 @@
 import { orgHasPremiumFeature } from "enterprise";
-import { ExperimentMetricInterface, isFactMetric } from "shared/experiments";
+import {
+  ExperimentMetricInterface,
+  isFactMetric,
+  isRatioMetric,
+} from "shared/experiments";
+import chunk from "lodash/chunk";
 import {
   ExperimentSnapshotAnalysis,
   ExperimentSnapshotHealth,
@@ -56,6 +61,56 @@ export type ExperimentResultsQueryParams = {
 };
 
 export const TRAFFIC_QUERY_NAME = "traffic";
+
+export const MAX_METRICS_PER_QUERY = 20;
+
+function getFactMetricGroup(metric: ExperimentMetricInterface) {
+  if (!isFactMetric(metric)) {
+    return "";
+  }
+  // Ratio metrics must have the same numerator and denominator fact table to be grouped
+  if (isRatioMetric(metric)) {
+    if (metric.numerator.factTableId !== metric.denominator?.factTableId) {
+      return "";
+    }
+  }
+  return metric.numerator.factTableId || "";
+}
+
+export function getFactMetricGroups(metrics: ExperimentMetricInterface[]) {
+  // Group metrics by fact table id
+  const groups: Record<string, ExperimentMetricInterface[]> = {};
+  metrics.forEach((m) => {
+    const group = getFactMetricGroup(m);
+    if (group) {
+      groups[group] = groups[group] || [];
+      groups[group].push(m);
+    }
+  });
+
+  const groupArrays: ExperimentMetricInterface[][] = [];
+  Object.values(groups).forEach((group) => {
+    // Split groups into chunks of MAX_METRICS_PER_QUERY
+    // Remove any single-item groups
+    const chunks = chunk(group, MAX_METRICS_PER_QUERY).filter(
+      (c) => c.length > 1
+    );
+    groupArrays.push(...chunks);
+  });
+
+  // Add any metrics that aren't in groupArrays to the singles array
+  const singles: ExperimentMetricInterface[] = [];
+  metrics.forEach((m) => {
+    if (!groupArrays.some((group) => group.includes(m))) {
+      singles.push(m);
+    }
+  });
+
+  return {
+    groups: groupArrays,
+    singles,
+  };
+}
 
 export const startExperimentResultQueries = async (
   params: ExperimentResultsQueryParams,
