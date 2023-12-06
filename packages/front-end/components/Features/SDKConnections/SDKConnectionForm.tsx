@@ -6,12 +6,7 @@ import { useForm } from "react-hook-form";
 import React, { useEffect, useState } from "react";
 import { useRouter } from "next/router";
 import { useGrowthBook } from "@growthbook/growthbook-react";
-import {
-  FaCheck,
-  FaExclamationCircle,
-  FaExclamationTriangle,
-  FaInfoCircle,
-} from "react-icons/fa";
+import { FaCheck, FaExclamationCircle, FaInfoCircle } from "react-icons/fa";
 import clsx from "clsx";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useEnvironments } from "@/services/features";
@@ -27,6 +22,7 @@ import { useUser } from "@/services/UserContext";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import ControlledTabs from "@/components/Tabs/ControlledTabs";
 import Tab from "@/components/Tabs/Tab";
+import MultiSelectField from "@/components/Forms/MultiSelectField";
 import SDKLanguageSelector from "./SDKLanguageSelector";
 import SDKLanguageLogo, {
   LanguageEnvironment,
@@ -90,7 +86,12 @@ export default function SDKConnectionForm({
       name: initialValue.name ?? "",
       languages: initialValue.languages ?? [],
       environment: initialValue.environment ?? environments[0]?.id ?? "",
-      project: "project" in initialValue ? initialValue.project : project ?? "",
+      projects:
+        "projects" in initialValue
+          ? initialValue.projects
+          : project
+          ? [project]
+          : [],
       encryptPayload: initialValue.encryptPayload ?? false,
       hashSecureAttributes:
         initialValue.hashSecureAttributes ?? hasSecureAttributesFeature,
@@ -141,15 +142,16 @@ export default function SDKConnectionForm({
     label: p.name,
     value: p.id,
   }));
-  const projectId = initialValue.project;
-  const projectName = projectId
-    ? getProjectById(projectId)?.name || null
-    : null;
-  const projectIsDeReferenced = projectId && !projectName;
-  if (projectIsDeReferenced) {
-    projectsOptions.push({
-      label: "Invalid project",
-      value: projectId,
+
+  if (initialValue.projects) {
+    initialValue.projects.forEach((p) => {
+      const name = getProjectById(p);
+      if (!name) {
+        projectsOptions.push({
+          label: "Invalid project",
+          value: p,
+        });
+      }
     });
   }
 
@@ -176,9 +178,17 @@ export default function SDKConnectionForm({
       const enableEncryption = hasEncryptionFeature;
       const enableSecureAttributes = hasSecureAttributesFeature;
       form.setValue("remoteEvalEnabled", false);
-      form.setValue("encryptPayload", enableEncryption);
-      form.setValue("hashSecureAttributes", enableSecureAttributes);
-      form.setValue("includeExperimentNames", false);
+      if (
+        !(
+          form.watch("encryptPayload") ||
+          form.watch("hashSecureAttributes") ||
+          !form.watch("includeExperimentNames")
+        )
+      ) {
+        form.setValue("encryptPayload", enableEncryption);
+        form.setValue("hashSecureAttributes", enableSecureAttributes);
+        form.setValue("includeExperimentNames", false);
+      }
     } else if (selectedSecurityTab === "remote") {
       if (!enableRemoteEval) {
         form.setValue("remoteEvalEnabled", false);
@@ -187,7 +197,7 @@ export default function SDKConnectionForm({
       form.setValue("remoteEvalEnabled", true);
       form.setValue("encryptPayload", false);
       form.setValue("hashSecureAttributes", false);
-      form.setValue("includeExperimentNames", false);
+      form.setValue("includeExperimentNames", true);
     }
   }, [
     selectedSecurityTab,
@@ -226,7 +236,7 @@ export default function SDKConnectionForm({
 
         const body: Omit<CreateSDKConnectionParams, "organization"> = {
           ...value,
-          project: value.project || "",
+          projects: value.projects || [],
         };
 
         if (edit) {
@@ -290,36 +300,16 @@ export default function SDKConnectionForm({
         </div>
 
         <div className="row">
-          {(projects.length > 0 || projectIsDeReferenced) && (
+          {projectsOptions.length > 0 && (
             <div className="col">
-              <SelectField
-                label="Project"
-                initialOption="All Projects"
-                value={form.watch("project") || ""}
-                onChange={(project) => form.setValue("project", project)}
+              <MultiSelectField
+                label="Filter by Project"
+                placeholder="All Projects"
+                value={form.watch("projects") || []}
+                onChange={(projects) => form.setValue("projects", projects)}
                 options={projectsOptions}
                 sort={false}
-                formatOptionLabel={({ value, label }) => {
-                  if (value === "") {
-                    return <em>{label}</em>;
-                  }
-                  if (value === projectId && projectIsDeReferenced) {
-                    return (
-                      <Tooltip
-                        body={
-                          <>
-                            Project <code>{value}</code> not found
-                          </>
-                        }
-                      >
-                        <span className="text-danger">
-                          <FaExclamationTriangle /> <code>{value}</code>
-                        </span>
-                      </Tooltip>
-                    );
-                  }
-                  return label;
-                }}
+                closeMenuOnSelect={true}
               />
             </div>
           )}

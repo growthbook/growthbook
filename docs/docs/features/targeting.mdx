@@ -54,17 +54,56 @@ GrowthBook supports the following attribute data types:
 - Array of Numbers - useful anytime you have multiple numeric values
 - Array of Secure Strings - an array of secure strings useful for passing multiple values that you want to keep secure
 
+#### Semantic Version Targeting
+
+In version 2.2, we introduced support for semantic version targeting. Using the string data type and defining a format, you can leverage semantic versioning comparisons in your targeting definitions.
+
+To leverage this feature, you first need to create a version string attribute. Navigate to **SDK Configurations > Attributes** and create or edit a String attribute. In the format dropdown, select: **Version string.**
+
+![Version string attribute](/images/targeting-semantic-versions.png)
+
+When defining the semantic version targeting condition for a feature flag, just select the string attribute and the appropriate comparison operator.
+
+![Setting semantic version target](/images/setting-semantic-version-target.png)
+
 ## Saved Groups
 
-Available via API or under _SDK Configuration -> Saved Groups_, **Saved Groups** allows you to define a list of attribute
-values that can be referenced from feature targeting rules. Saved Group values are passed by reference, so updates will
-affect all references of this group used in your feature flag targeting rules. Each saved group specifies an attribute for
-which these are possible values. When targeting to attributes that have a Saved Group defined, you will have options
-_'Is in the Saved Group'_ and _'Is not in the Saved Group'_, and then you can select the Saved Group name. Saved groups
-are useful to avoid having to copy and paste lists of user attribute values between feature targeting conditions.
+In addition to targeting by attributes, GrowthBook also the concept of **Saved Groups**, which make it easy to target the same group of users across multiple features/experiments.
 
-![Saved Groups](/images/features/feature-saved-groups.png)
+There are two types of Saved Groups:
 
-For example, you could make a Saved Group called _“Enterprise Customer Ids”_ that is an array of secure strings, and use
-it to release all of your new enterprise features. If you later add or remove a customer from the group, it will
-automatically update all the features.
+- **Inline Saved Groups** - Pick an attribute and define a list of values directly within the GrowthBook UI. For example, you can make an `Admin` group and add the `userId` of all of your admins.
+- **Runtime Saved Groups** - Determine group membership in your application at runtime. For example, you can have a `Premium User` group and your application can pass into the SDK whether or not the current user is premium.
+
+![Saved Groups](/images/saved-groups.png)
+
+### Runtime Saved Groups
+
+Runtime groups require some changes to your SDK integration.
+
+Every runtime group has a unique **Group Identifier**. You need to include a special attribute in your integration named `$groups` that contains an array of these identifiers as strings.
+
+Here's an example using our Javascript SDK:
+
+```ts
+// Build an array of groups
+const groups = [];
+
+// Use whatever custom logic you need to determine group membership
+if (isPro()) {
+  groups.push("premium"); // "premium" is the Group Identifier
+}
+
+// Include it as a special `$groups` attribute:
+const attributes = {
+  id: "123",
+  loggedIn: true,
+  "$groups": groups,
+}
+
+// Create your GrowthBook instance and include the special `$groups` attribute
+const gb = new GrowthBook({
+  attributes: attributes,
+  // ... other options
+});
+```

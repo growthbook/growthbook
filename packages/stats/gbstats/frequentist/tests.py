@@ -1,11 +1,19 @@
 from abc import abstractmethod
-from dataclasses import dataclass
-from typing import List
+from dataclasses import asdict, dataclass
+from typing import List, Optional
 
 import numpy as np
 from scipy.stats import t  # type: ignore
 
+from gbstats.messages import (
+    BASELINE_VARIATION_ZERO_MESSAGE,
+    ZERO_NEGATIVE_VARIANCE_MESSAGE,
+    ZERO_SCALED_VARIATION_MESSAGE,
+)
+
+from gbstats.shared.constants import DifferenceType
 from gbstats.shared.models import (
+    BaseConfig,
     FrequentistTestResult,
     Statistic,
     Uplift,
@@ -14,7 +22,7 @@ from gbstats.shared.tests import BaseABTest
 
 
 @dataclass
-class FrequentistConfig:
+class FrequentistConfig(BaseConfig):
     alpha: float = 0.05
     test_value: float = 0
 
@@ -43,18 +51,30 @@ class TTest(BaseABTest):
         super().__init__(stat_a, stat_b)
         self.alpha = config.alpha
         self.test_value = config.test_value
+        self.relative = config.difference_type == DifferenceType.RELATIVE
+        self.scaled = config.difference_type == DifferenceType.SCALED
+        self.traffic_proportion_b = config.traffic_proportion_b
+        self.phase_length_days = config.phase_length_days
 
     @property
     def variance(self) -> float:
-        return self.stat_b.variance / (
-            pow(self.stat_a.unadjusted_mean, 2) * self.stat_b.n
-        ) + self.stat_a.variance * pow(self.stat_b.unadjusted_mean, 2) / (
-            pow(self.stat_a.unadjusted_mean, 4) * self.stat_a.n
+        if self.relative:
+            return self.stat_b.variance / (
+                pow(self.stat_a.unadjusted_mean, 2) * self.stat_b.n
+            ) + self.stat_a.variance * pow(self.stat_b.unadjusted_mean, 2) / (
+                pow(self.stat_a.unadjusted_mean, 4) * self.stat_a.n
+            )
+        return (
+            self.stat_b.variance / self.stat_b.n + self.stat_a.variance / self.stat_a.n
         )
 
     @property
     def point_estimate(self) -> float:
-        return (self.stat_b.mean - self.stat_a.mean) / self.stat_a.unadjusted_mean
+        absolute_diff = self.stat_b.mean - self.stat_a.mean
+        if self.relative:
+            return absolute_diff / self.stat_a.unadjusted_mean
+        else:
+            return absolute_diff
 
     @property
     def critical_value(self) -> float:
@@ -82,7 +102,9 @@ class TTest(BaseABTest):
     def confidence_interval(self) -> List[float]:
         pass
 
-    def _default_output(self) -> FrequentistTestResult:
+    def _default_output(
+        self, error_message: Optional[str] = None
+    ) -> FrequentistTestResult:
         """Return uninformative output when AB test analysis can't be performed
         adequately
         """
@@ -95,6 +117,7 @@ class TTest(BaseABTest):
                 mean=0,
                 stddev=0,
             ),
+            error_message=error_message,
         )
 
     def compute_result(self) -> FrequentistTestResult:
@@ -107,12 +130,12 @@ class TTest(BaseABTest):
                 not absolute differences
         """
         if self.stat_a.mean == 0:
-            return self._default_output()
+            return self._default_output(BASELINE_VARIATION_ZERO_MESSAGE)
         if self.stat_a.unadjusted_mean == 0:
-            return self._default_output()
+            return self._default_output(BASELINE_VARIATION_ZERO_MESSAGE)
         if self._has_zero_variance():
-            return self._default_output()
-        return FrequentistTestResult(
+            return self._default_output(ZERO_NEGATIVE_VARIANCE_MESSAGE)
+        result = FrequentistTestResult(
             expected=self.point_estimate,
             ci=self.confidence_interval,
             p_value=self.p_value,
@@ -120,6 +143,28 @@ class TTest(BaseABTest):
                 dist="normal",
                 mean=self.point_estimate,
                 stddev=np.sqrt(self.variance),
+            ),
+        )
+        if self.scaled:
+            result = self.scale_result(
+                result, self.traffic_proportion_b, self.phase_length_days
+            )
+        return result
+
+    def scale_result(
+        self, result: FrequentistTestResult, p: float, d: float
+    ) -> FrequentistTestResult:
+        if p == 0:
+            return self._default_output(ZERO_SCALED_VARIATION_MESSAGE)
+        adjustment = self.stat_b.n / p / d
+        return FrequentistTestResult(
+            expected=result.expected * adjustment,
+            ci=[result.ci[0] * adjustment, result.ci[1] * adjustment],
+            p_value=result.p_value,
+            uplift=Uplift(
+                dist=result.uplift.dist,
+                mean=result.uplift.mean * adjustment,
+                stddev=result.uplift.stddev * adjustment,
             ),
         )
 
@@ -164,12 +209,11 @@ class SequentialTwoSidedTTest(TTest):
         stat_b: Statistic,
         config: SequentialConfig = SequentialConfig(),
     ):
-        super().__init__(
-            stat_a,
-            stat_b,
-            FrequentistConfig(alpha=config.alpha, test_value=config.test_value),
+        config_dict = asdict(config)
+        self.sequential_tuning_parameter = config_dict.pop(
+            "sequential_tuning_parameter"
         )
-        self.sequential_tuning_parameter = config.sequential_tuning_parameter
+        super().__init__(stat_a, stat_b, FrequentistConfig(**config_dict)),
 
     @property
     def confidence_interval(self) -> List[float]:

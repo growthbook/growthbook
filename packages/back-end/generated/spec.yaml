@@ -712,6 +712,10 @@ paths:
           in: query
           schema:
             type: string
+        - name: multiOrg
+          in: query
+          schema:
+            type: string
       operationId: listSdkConnections
       x-codeSamples:
         - lang: cURL
@@ -2870,6 +2874,7 @@ components:
         - dateCreated
         - dateUpdated
         - name
+        - organization
         - languages
         - environment
         - project
@@ -2890,6 +2895,8 @@ components:
           format: date-time
         name:
           type: string
+        organization:
+          type: string
         languages:
           type: array
           items:
@@ -2897,7 +2904,12 @@ components:
         environment:
           type: string
         project:
+          description: Use 'projects' instead. This is only for backwards compatibility and contains the first project only.
           type: string
+        projects:
+          type: array
+          items:
+            type: string
         encryptPayload:
           type: boolean
         encryptionKey:

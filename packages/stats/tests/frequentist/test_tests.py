@@ -4,12 +4,14 @@ from unittest import TestCase, main as unittest_main
 
 import numpy as np
 
+from gbstats.messages import ZERO_NEGATIVE_VARIANCE_MESSAGE
 from gbstats.frequentist.tests import (
     FrequentistConfig,
     SequentialConfig,
     SequentialTwoSidedTTest,
     TwoSidedTTest,
 )
+from gbstats.shared.constants import DifferenceType
 from gbstats.shared.models import (
     FrequentistTestResult,
     ProportionStatistic,
@@ -24,7 +26,9 @@ round_ = partial(np.round, decimals=DECIMALS)
 
 def _round_result_dict(result_dict):
     for k, v in result_dict.items():
-        if k == "uplift":
+        if k == "error_message":
+            pass
+        elif k == "uplift":
             v = {
                 kk: round_(vv) if isinstance(vv, float) else vv for kk, vv in v.items()
             }
@@ -50,6 +54,27 @@ class TestTwoSidedTTest(TestCase):
 
         self.assertDictEqual(_round_result_dict(result_dict), expected_rounded_dict)
 
+    def test_two_sided_ttest_absolute(self):
+        stat_a = SampleMeanStatistic(sum=1396.87, sum_squares=52377.9767, n=3407)
+        stat_b = SampleMeanStatistic(sum=2422.7, sum_squares=134698.29, n=3461)
+        result_dict = asdict(
+            TwoSidedTTest(
+                stat_a,
+                stat_b,
+                FrequentistConfig(difference_type=DifferenceType.ABSOLUTE),
+            ).compute_result()
+        )
+        expected_rounded_dict = asdict(
+            FrequentistTestResult(
+                expected=0.7 - 0.41,
+                ci=[0.04538, 0.53462],
+                uplift=Uplift("normal", 0.29, 0.12478),
+                p_value=0.02016,
+            )
+        )
+
+        self.assertDictEqual(_round_result_dict(result_dict), expected_rounded_dict)
+
     def test_two_sided_ttest_binom(self):
         stat_a = ProportionStatistic(sum=14, n=28)
         stat_b = ProportionStatistic(sum=16, n=30)
@@ -68,7 +93,9 @@ class TestTwoSidedTTest(TestCase):
     def test_two_sided_ttest_missing_variance(self):
         stat_a = SampleMeanStatistic(sum=1396.87, sum_squares=52377.9767, n=2)
         stat_b = SampleMeanStatistic(sum=2422.7, sum_squares=134698.29, n=3461)
-        default_output = TwoSidedTTest(stat_a, stat_b)._default_output()
+        default_output = TwoSidedTTest(stat_a, stat_b)._default_output(
+            ZERO_NEGATIVE_VARIANCE_MESSAGE
+        )
         result_output = TwoSidedTTest(stat_a, stat_b).compute_result()
 
         self.assertEqual(default_output, result_output)

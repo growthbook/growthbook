@@ -4,6 +4,7 @@ required:
   - dateCreated
   - dateUpdated
   - name
+  - organization
   - languages
   - environment
   - project
@@ -24,6 +25,8 @@ properties:
     format: date-time
   name:
     type: string
+  organization:
+    type: string
   languages:
     type: array
     items:
@@ -31,7 +34,12 @@ properties:
   environment:
     type: string
   project:
+    description: Use 'projects' instead. This is only for backwards compatibility and contains the first project only.
     type: string
+  projects:
+    type: array
+    items:
+      type: string
   encryptPayload:
     type: boolean
   encryptionKey:

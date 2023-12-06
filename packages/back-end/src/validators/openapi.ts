@@ -74,7 +74,7 @@ export const getSegmentValidator = {
 
 export const listSdkConnectionsValidator = {
   bodySchema: z.never(),
-  querySchema: z.object({"limit":z.coerce.number().int().default(10),"offset":z.coerce.number().int().default(0),"projectId":z.string().optional(),"withProxy":z.string().optional()}).strict(),
+  querySchema: z.object({"limit":z.coerce.number().int().default(10),"offset":z.coerce.number().int().default(0),"projectId":z.string().optional(),"withProxy":z.string().optional(),"multiOrg":z.string().optional()}).strict(),
   paramsSchema: z.never(),
 };
 

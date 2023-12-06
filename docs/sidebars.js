@@ -62,6 +62,11 @@ const sidebars = {
           id: "features/scheduling",
           label: "Scheduling",
         },
+        {
+          type: "doc",
+          id: "features/stale-detection",
+          label: "Stale Feature Detection",
+        },
       ],
     },
     {
@@ -266,8 +271,13 @@ const sidebars = {
         },
         {
           type: "doc",
-          id: "experimentation-analysis/experiments",
-          label: "Experiments",
+          id: "experimentation-analysis/experiment-configuration",
+          label: "Experiments (Adding and Configuring)",
+        },
+        {
+          type: "doc",
+          id: "experimentation-analysis/experiment-results",
+          label: "Experiments (Results)",
         },
         {
           type: "doc",
@@ -432,6 +442,18 @@ const sidebars = {
           type: "doc",
           id: "integrations/scim",
           label: "SCIM",
+          className: "pill-new",
+        },
+        {
+          type: "doc",
+          id: "integrations/shopify",
+          label: "Shopify + GrowthBook",
+          className: "pill-new",
+        },
+        {
+          type: "doc",
+          id: "integrations/webflow",
+          label: "Webflow + GrowthBook",
           className: "pill-new",
         },
       ],

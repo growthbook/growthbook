@@ -8,6 +8,13 @@ import {
 import { migrateSnapshot } from "../util/migrations";
 import { queriesSchema } from "./QueryModel";
 
+const experimentSnapshotTrafficObject = {
+  _id: false,
+  name: String,
+  srm: Number,
+  variationUnits: [Number],
+};
+
 const experimentSnapshotSchema = new mongoose.Schema({
   id: {
     type: String,
@@ -77,6 +84,18 @@ const experimentSnapshotSchema = new mongoose.Schema({
       ],
     },
   ],
+  health: {
+    _id: false,
+    traffic: {
+      _id: false,
+      overall: [experimentSnapshotTrafficObject],
+      dimension: {
+        type: Map,
+        of: [experimentSnapshotTrafficObject],
+      },
+      error: String,
+    },
+  },
   hasRawQueries: Boolean,
   queryFilter: String,
   segment: String,

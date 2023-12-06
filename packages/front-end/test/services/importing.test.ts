@@ -324,7 +324,7 @@ describe("importing utils", () => {
       };
       const expected: Omit<
         FeatureInterface,
-        "dateCreated" | "dateUpdated" | "revision" | "organization"
+        "dateCreated" | "dateUpdated" | "version" | "organization"
       >[] = [
         {
           id: "some_feature",
@@ -529,7 +529,7 @@ describe("importing utils", () => {
       };
       const expected: Omit<
         FeatureInterface,
-        "dateCreated" | "dateUpdated" | "revision" | "organization"
+        "dateCreated" | "dateUpdated" | "version" | "organization"
       >[] = [
         {
           id: "custom_banner_html",

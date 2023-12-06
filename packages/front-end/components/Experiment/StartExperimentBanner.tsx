@@ -1,17 +1,48 @@
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import {
+  ExperimentInterfaceStringDates,
+  LinkedFeatureInfo,
+} from "back-end/types/experiment";
 import { SDKConnectionInterface } from "back-end/types/sdk-connection";
 import { VisualChangesetInterface } from "back-end/types/visual-changeset";
 import Link from "next/link";
 import { MdRocketLaunch } from "react-icons/md";
-import { ReactElement } from "react";
+import { ReactElement, useState } from "react";
 import { FaCheckSquare, FaExternalLinkAlt, FaTimes } from "react-icons/fa";
 import { hasVisualChanges } from "shared/util";
+import {
+  ChecklistTask,
+  ExperimentLaunchChecklistInterface,
+} from "back-end/types/experimentLaunchChecklist";
 import track from "@/services/track";
 import { useAuth } from "@/services/auth";
+import useApi from "@/hooks/useApi";
 import Button from "../Button";
 import Tooltip from "../Tooltip/Tooltip";
 import ConfirmButton from "../Modal/ConfirmButton";
-import { LinkedFeature } from "./TabbedPage";
+
+type ManualChecklist = {
+  key: string;
+  content: string | ReactElement;
+};
+
+function isChecklistItemComplete(
+  checklistTask: ChecklistTask,
+  experiment: ExperimentInterfaceStringDates
+): boolean {
+  if (!checklistTask.propertyKey) return false;
+  switch (checklistTask.propertyKey) {
+    case "hypothesis":
+      return !!experiment.hypothesis;
+    case "screenshots":
+      return experiment.variations.every((v) => !!v.screenshots.length);
+    case "description":
+      return !!experiment.description;
+    case "project":
+      return !!experiment.project;
+    case "tag":
+      return experiment.tags?.length > 0;
+  }
+}
 
 export function StartExperimentBanner({
   experiment,
@@ -27,7 +58,7 @@ export function StartExperimentBanner({
   noConfirm,
 }: {
   experiment: ExperimentInterfaceStringDates;
-  linkedFeatures: LinkedFeature[];
+  linkedFeatures: LinkedFeatureInfo[];
   visualChangesets: VisualChangesetInterface[];
   connections: SDKConnectionInterface[];
   mutateExperiment: () => unknown | Promise<unknown>;
@@ -39,8 +70,34 @@ export function StartExperimentBanner({
   noConfirm?: boolean;
 }) {
   const { apiCall } = useAuth();
+  const [manualChecklistStatus, setManualChecklistStatus] = useState(
+    experiment.manualLaunchChecklist || []
+  );
+  const [updatingChecklist, setUpdatingChecklist] = useState(false);
+  const manualChecklist: ManualChecklist[] = [];
 
-  if (experiment.status !== "draft") return null;
+  manualChecklist.push({
+    key: "sdk-connection",
+    content: (
+      <>
+        Verify your app is passing both <code>attributes</code> and a{" "}
+        <code>trackingCallback</code> into the GrowthBook SDK
+      </>
+    ),
+  });
+  manualChecklist.push({
+    key: "metrics-tracked",
+    content: (
+      <>
+        Verify your app is tracking events for all of the metrics that you plan
+        to include in the analysis
+      </>
+    ),
+  });
+
+  const { data } = useApi<{ checklist: ExperimentLaunchChecklistInterface }>(
+    "/experiments/launch-checklist"
+  );
 
   type CheckListItem = {
     display: string | ReactElement;
@@ -50,9 +107,12 @@ export function StartExperimentBanner({
   };
   const checklist: CheckListItem[] = [];
 
+  if (experiment.status !== "draft") return null;
+
   // At least one linked change
   const hasLinkedChanges =
-    linkedFeatures.length > 0 || visualChangesets.length > 0;
+    linkedFeatures.some((f) => f.state === "live" || f.state === "draft") ||
+    visualChangesets.length > 0;
   checklist.push({
     display: "Add at least one Linked Feature or Visual Editor change.",
     status: hasLinkedChanges ? "success" : "error",
@@ -74,9 +134,9 @@ export function StartExperimentBanner({
   if (linkedFeatures.length > 0) {
     const hasFeatureFlagsErrors = linkedFeatures.some(
       (f) =>
-        !f.rules.some(
-          (r) => !r.draft && r.environmentEnabled && r.rule.enabled !== false
-        )
+        f.state === "draft" ||
+        (f.state === "live" &&
+          !Object.values(f.environmentStates || {}).some((s) => s === "active"))
     );
     checklist.push({
       display: "Publish and enable all Linked Feature rules.",
@@ -120,9 +180,8 @@ export function StartExperimentBanner({
   // SDK Connection set up
   const projectConnections = connections.filter(
     (connection) =>
-      !experiment.project ||
-      !connection.project ||
-      experiment.project === connection.project
+      !connection.projects.length ||
+      connection.projects.includes(experiment.project || "")
   );
   const matchingConnections = projectConnections.filter(
     (connection) =>
@@ -175,21 +234,31 @@ export function StartExperimentBanner({
     status: hasPhases ? "success" : "error",
   });
 
-  const manualChecklist: (string | ReactElement)[] = [];
+  if (data && data.checklist?.tasks?.length > 0) {
+    data?.checklist.tasks.forEach((item) => {
+      if (item.completionType === "manual") {
+        manualChecklist.push({
+          key: item.task,
+          content: item.url ? (
+            <a href={item.url} target="_blank" rel="noreferrer">
+              {item.task}
+            </a>
+          ) : (
+            <>{item.task}</>
+          ),
+        });
+      }
 
-  // TODO: Do we have a way to validate this or at least give a way for users to dismiss this?
-  manualChecklist.push(
-    <>
-      Verify your app is passing both <code>attributes</code> and a{" "}
-      <code>trackingCallback</code> into the GrowthBook SDK
-    </>
-  );
-  manualChecklist.push(
-    <>
-      Verify your app is tracking events for all of the metrics that you plan to
-      include in the analysis
-    </>
-  );
+      if (item.completionType === "auto" && item.propertyKey) {
+        checklist.push({
+          display: item.task,
+          status: isChecklistItemComplete(item, experiment)
+            ? "success"
+            : "error",
+        });
+      }
+    });
+  }
 
   async function startExperiment() {
     if (!experiment.phases?.length) {
@@ -215,9 +284,57 @@ export function StartExperimentBanner({
     onStart && onStart();
   }
 
-  const allPassed = !checklist.some((c) => c.status === "error");
+  const isTaskCompleted = (currentTask: string) => {
+    const index = manualChecklistStatus.findIndex(
+      (task) => task.key === currentTask
+    );
 
-  // Prompt them to start with an option to edit the targeting first
+    if (index === -1 || !manualChecklistStatus[index]) {
+      return false;
+    }
+
+    return manualChecklistStatus[index].status === "complete";
+  };
+
+  const allPassed =
+    !checklist.some((c) => c.status === "error") &&
+    manualChecklist.every((task) => isTaskCompleted(task.key));
+
+  async function updateTaskStatus(checked: boolean, item: ManualChecklist) {
+    setUpdatingChecklist(true);
+    const updatedManualChecklistStatus = Array.isArray(manualChecklistStatus)
+      ? [...manualChecklistStatus]
+      : [];
+
+    const index = updatedManualChecklistStatus.findIndex(
+      (task) => task.key === item.key
+    );
+    if (index === -1) {
+      updatedManualChecklistStatus.push({
+        key: item.key,
+        status: checked ? "complete" : "incomplete",
+      });
+    } else {
+      updatedManualChecklistStatus[index] = {
+        key: item.key,
+        status: checked ? "complete" : "incomplete",
+      };
+    }
+    setManualChecklistStatus(updatedManualChecklistStatus);
+    try {
+      await apiCall(`/experiment/${experiment.id}/launch-checklist`, {
+        method: "PUT",
+        body: JSON.stringify({
+          checklist: updatedManualChecklistStatus,
+        }),
+      });
+    } catch (e) {
+      setUpdatingChecklist(false);
+    }
+    setUpdatingChecklist(false);
+    mutateExperiment();
+  }
+
   return (
     <div className={className ?? `appbox p-4 my-4`}>
       <div className="row">
@@ -249,17 +366,35 @@ export function StartExperimentBanner({
               </li>
             ))}
           </ul>
-          <small className="text-uppercase">
-            <strong>Manual Checks</strong>
-          </small>{" "}
-          <Tooltip body={"We're not able to verify these automatically"} />
-          <ul style={{ fontSize: "1.1em" }} className="ml-0 pl-0 mb-0 pb-0">
-            {manualChecklist.map((item, i) => (
-              <li key={i} style={{ listStyleType: "none", marginLeft: 0 }}>
-                &bull; {item}
-              </li>
-            ))}
-          </ul>
+          <div className={updatingChecklist ? "text-muted" : ""}>
+            <small className="text-uppercase">
+              <strong>Manual Checks</strong>
+            </small>{" "}
+            <Tooltip body={"We're not able to verify these automatically"} />
+            <ul style={{ fontSize: "1.1em" }} className="ml-0 pl-0 mb-0 pb-0">
+              {manualChecklist.map((item, i) => (
+                <li
+                  key={i}
+                  style={{
+                    listStyleType: "none",
+                    marginLeft: 0,
+                    marginBottom: 3,
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    disabled={updatingChecklist}
+                    className="ml-0 pl-0"
+                    checked={isTaskCompleted(item.key)}
+                    onChange={async (e) =>
+                      updateTaskStatus(e.target.checked, item)
+                    }
+                  />{" "}
+                  {item.content}
+                </li>
+              ))}
+            </ul>
+          </div>
         </div>
 
         <div className="col pt-3 text-center">

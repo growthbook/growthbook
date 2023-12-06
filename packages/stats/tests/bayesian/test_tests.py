@@ -24,9 +24,10 @@ round_ = partial(np.round, decimals=DECIMALS)
 
 
 def round_results_dict(result_dict):
-    # round result
     for k, v in result_dict.items():
-        if k == "uplift":
+        if k == "error_message":
+            pass
+        elif k == "uplift":
             v = {
                 kk: round_(vv) if isinstance(vv, float) else vv for kk, vv in v.items()
             }
@@ -41,7 +42,6 @@ class TestBinom(TestCase):
         stat_a = ProportionStatistic(sum=49, n=100)
         stat_b = ProportionStatistic(sum=51, n=100)
         result = BinomialBayesianABTest(stat_a, stat_b).compute_result()
-
         expected_rounded_dict = asdict(
             BayesianTestResult(
                 expected=0.0404,
@@ -49,7 +49,6 @@ class TestBinom(TestCase):
                 uplift=Uplift(dist="lognormal", mean=0.03961, stddev=0.14112),
                 chance_to_win=0.61052,
                 risk=[0.03872, 0.01912],
-                relative_risk=[0.07593, 0.03748],
             )
         )
 
@@ -74,7 +73,6 @@ class TestBinom(TestCase):
                 uplift=Uplift(dist="lognormal", mean=0.03043, stddev=0.11778),
                 chance_to_win=0.60193,
                 risk=[0.03025, 0.01692],
-                relative_risk=[0.05931, 0.03317],
             )
         )
 
@@ -103,7 +101,6 @@ class TestNorm(TestCase):
                 uplift=Uplift(dist="lognormal", mean=0.04879, stddev=0.03402),
                 chance_to_win=0.92427,
                 risk=[0.51256, 0.01256],
-                relative_risk=[0.04882, 0.0012],
             )
         )
 
@@ -119,7 +116,6 @@ class TestNorm(TestCase):
             ),
         ).compute_result()
 
-        # TODO: final testing on these values
         expected_rounded_dict = asdict(
             BayesianTestResult(
                 expected=0.04974,
@@ -127,7 +123,6 @@ class TestNorm(TestCase):
                 uplift=Uplift(dist="lognormal", mean=0.04854, stddev=0.03402),
                 chance_to_win=0.9232,
                 risk=[0.51017, 0.01277],
-                relative_risk=[0.04859, 0.00122],
             )
         )
         result_rounded_dict = round_results_dict(asdict(result))

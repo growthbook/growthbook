@@ -90,9 +90,8 @@ export default class ClickHouse extends SqlIntegration {
     capPercentile: number,
     metricTable: string
   ): string {
-    const seed = 1234;
     return `
-      SELECT quantileDeterministic(${capPercentile})(value, ${seed}) AS cap_value
+      SELECT quantile(${capPercentile})(value) AS cap_value
       FROM ${metricTable}
       WHERE value IS NOT NULL
     `;

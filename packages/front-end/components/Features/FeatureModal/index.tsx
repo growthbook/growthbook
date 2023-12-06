@@ -95,7 +95,16 @@ const genFormDefaultValues = ({
   permissions: ReturnType<typeof usePermissions>;
   featureToDuplicate?: FeatureInterface;
   project: string;
-}) => {
+}): Pick<
+  FeatureInterface,
+  | "valueType"
+  | "defaultValue"
+  | "description"
+  | "tags"
+  | "project"
+  | "id"
+  | "environmentSettings"
+> => {
   const environmentSettings = genEnvironmentSettings({
     environments,
     featureToDuplicate,
@@ -143,16 +152,11 @@ export default function FeatureModal({
     project,
   });
 
-  // @ts-expect-error TS(2322) If you come across this, please fix it!: Type '{ valueType: FeatureValueType; defaultValue:... Remove this comment to see the full error message
   const form = useForm({ defaultValues });
 
-  const [showTags, setShowTags] = useState(
-    // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-    featureToDuplicate?.tags?.length > 0
-  );
+  const [showTags, setShowTags] = useState(!!featureToDuplicate?.tags?.length);
   const [showDescription, setShowDescription] = useState(
-    // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-    featureToDuplicate?.description?.length > 0
+    !!featureToDuplicate?.description?.length
   );
 
   const { apiCall } = useAuth();
@@ -220,12 +224,10 @@ export default function FeatureModal({
 
         track("Feature Created", {
           valueType: values.valueType,
-          // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-          hasDescription: values.description.length > 0,
+          hasDescription: !!values.description?.length,
           initialRule: "none",
         });
-        // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'string[] | undefined' is not ass... Remove this comment to see the full error message
-        refreshTags(values.tags);
+        values.tags && refreshTags(values.tags);
         refreshWatching();
 
         await onSuccess(res.feature);
@@ -241,8 +243,7 @@ export default function FeatureModal({
 
       {showTags ? (
         <TagsField
-          // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'string[] | undefined' is not assignable to t... Remove this comment to see the full error message
-          value={form.watch("tags")}
+          value={form.watch("tags") || []}
           onChange={(tags) => form.setValue("tags", tags)}
         />
       ) : (
@@ -262,8 +263,7 @@ export default function FeatureModal({
         <div className="form-group">
           <label>Description</label>
           <MarkdownInput
-            // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'string | undefined' is not assignable to typ... Remove this comment to see the full error message
-            value={form.watch("description")}
+            value={form.watch("description") || ""}
             setValue={(value) => form.setValue("description", value)}
             autofocus={!featureToDuplicate?.description?.length}
           />

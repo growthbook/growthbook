@@ -715,9 +715,12 @@ export interface components {
       /** Format: date-time */
       dateUpdated: string;
       name: string;
+      organization: string;
       languages: (string)[];
       environment: string;
+      /** @description Use 'projects' instead. This is only for backwards compatibility and contains the first project only. */
       project: string;
+      projects?: (string)[];
       encryptPayload: boolean;
       encryptionKey: string;
       includeVisualExperiments?: boolean;
@@ -2378,6 +2381,7 @@ export interface operations {
         offset?: number;
         projectId?: string;
         withProxy?: string;
+        multiOrg?: string;
       };
     };
     responses: {
@@ -2391,9 +2395,12 @@ export interface operations {
                 /** Format: date-time */
                 dateUpdated: string;
                 name: string;
+                organization: string;
                 languages: (string)[];
                 environment: string;
+                /** @description Use 'projects' instead. This is only for backwards compatibility and contains the first project only. */
                 project: string;
+                projects?: (string)[];
                 encryptPayload: boolean;
                 encryptionKey: string;
                 includeVisualExperiments?: boolean;
@@ -2432,9 +2439,12 @@ export interface operations {
               /** Format: date-time */
               dateUpdated: string;
               name: string;
+              organization: string;
               languages: (string)[];
               environment: string;
+              /** @description Use 'projects' instead. This is only for backwards compatibility and contains the first project only. */
               project: string;
+              projects?: (string)[];
               encryptPayload: boolean;
               encryptionKey: string;
               includeVisualExperiments?: boolean;

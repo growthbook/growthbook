@@ -231,6 +231,7 @@ Revenue did not reach 95% significance, but the risk is so low it doesn't seem w
         pValueCorrection: null,
         sequentialTesting: false,
         sequentialTestingTuningParameter: 0,
+        differenceType: "relative",
         regressionAdjusted: false,
       },
       metricMap

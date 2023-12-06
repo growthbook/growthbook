@@ -1,0 +1,49 @@
+# Stale Feature Flag Detection
+
+## Overview
+
+Feature flags are a crucial part of software development, allowing for controlled rollouts and A/B testing. However, managing these flags, especially in large systems, can be challenging. Over time, some flags may become "stale" - no longer actively used or relevant.
+
+Stale flags can clutter your system, lead to confusion, and obscure the status of your features. GrowthBook introduces the Stale Feature Flag Detection feature to address this issue, ensuring your feature flag ecosystem remains clean and efficient.
+
+## Why Stale Feature Flag Detection?
+
+- Reduce Clutter: Identifies and flags feature flags that are no longer active, helping to declutter your dashboard.
+
+- Improve Clarity: Enhances visibility into which feature flags are currently significant and in use.
+
+- Streamline Management: Makes it easier to manage a large number of feature flags, improving operational efficiency.
+
+## Accessing and Using the Feature
+
+### Viewing Stale Flags
+
+To view features that have been marked stale, navigate to the main feature flag table in GrowthBook.
+Look for the 'Stale' column which indicates whether a flag is considered stale.
+
+![Stale Flag Column](/images/stale-ff-01.png)
+
+You can also navigate to a particular feature and see the stale indicator marked next to the feature name.
+
+![Stale Flag Indicator](/images/stale-ff-02.png)
+
+### Understanding Stale Status
+
+Hover over the Warning icon next to a flagged item.
+
+A tooltip will provide the reason for its staleness, based on the set heuristics.
+
+#### Heuristics Used:
+
+A flag is stale if not updated in two weeks and meets certain criteria (e.g., no active environments, or one-sided rules).
+
+### Toggling Stale Detection:
+
+You can enable or disable stale detection from the feature details page.
+From the features table, stale detection can only be disabled.
+
+![Stale Flag Toggle](/images/stale-ff-03.gif)
+
+You can also re-enable stale feature flag detection by navigating to the menu in the top right of the feature details page.
+
+![Stale Flag Toggle](/images/stale-ff-04.gif)

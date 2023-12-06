@@ -3,11 +3,11 @@ import {
   ExperimentReportResultDimension,
   ExperimentReportVariation,
 } from "back-end/types/report";
-import { getValidDate } from "shared/dates";
+import { getValidDate, getValidDateOffsetByUTC } from "shared/dates";
 import { StatsEngine } from "back-end/types/stats";
 import { ExperimentMetricInterface } from "shared/experiments";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import { formatMetricValue } from "@/services/metrics";
+import { getExperimentMetricFormatter } from "@/services/metrics";
 import {
   isExpectedDirection,
   isStatSig,
@@ -72,7 +72,7 @@ const DateResults: FC<{
 
     return sortedResults.map((d) => {
       return {
-        d: getValidDate(d.name),
+        d: getValidDateOffsetByUTC(d.name),
         variations: variations.map((variation, i) => {
           const users = d.variations[i]?.users || 0;
           total[i] = total[i] || 0;
@@ -112,7 +112,7 @@ const DateResults: FC<{
             (d) => {
               const baseline = d.variations[0]?.metrics?.[metricId];
               return {
-                d: getValidDate(d.name),
+                d: getValidDateOffsetByUTC(d.name),
                 variations: variations.map((variation, i) => {
                   const stats = d.variations[i]?.metrics?.[metricId];
                   const value = stats?.value;
@@ -151,15 +151,16 @@ const DateResults: FC<{
                     up = crA ? (crB - crA) / crA : 0;
                   }
 
-                  const v_formatted = formatMetricValue(
+                  const v_formatted = getExperimentMetricFormatter(
                     metric,
+                    getFactTableById
+                  )(
                     cumulative
                       ? totalUsers[i]
                         ? totalValue[i] / totalUsers[i]
                         : 0
                       : stats?.cr || 0,
-                    getFactTableById,
-                    displayCurrency
+                    { currency: displayCurrency }
                   );
 
                   const p = stats?.pValueAdjusted ?? stats?.pValue ?? 1;

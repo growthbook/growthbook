@@ -1,11 +1,9 @@
 import uniqid from "uniqid";
 import cronParser from "cron-parser";
 import uniq from "lodash/uniq";
-import cloneDeep from "lodash/cloneDeep";
 import { z } from "zod";
 import { isEqual } from "lodash";
 import {
-  DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
   DEFAULT_STATS_ENGINE,
   DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
   DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
@@ -16,15 +14,18 @@ import {
   getSnapshotAnalysis,
   generateVariationId,
   isAnalysisAllowed,
+  getMatchingRules,
+  MatchingRule,
 } from "shared/util";
 import {
   ExperimentMetricInterface,
+  getRegressionAdjustmentsForMetric,
   isBinomialMetric,
   isFactMetric,
   isFactMetricId,
-  isRatioMetric,
 } from "shared/experiments";
 import { orgHasPremiumFeature } from "enterprise";
+import { hoursBetween } from "shared/dates";
 import { updateExperiment } from "../models/ExperimentModel";
 import {
   ExperimentSnapshotAnalysis,
@@ -60,7 +61,9 @@ import { SegmentInterface } from "../../types/segment";
 import {
   ExperimentInterface,
   ExperimentPhase,
-  MetricOverride,
+  LinkedFeatureEnvState,
+  LinkedFeatureInfo,
+  LinkedFeatureState,
 } from "../../types/experiment";
 import { promiseAllChunks } from "../util/promise";
 import { findDimensionById } from "../models/DimensionModel";
@@ -72,7 +75,6 @@ import {
 import {
   ExperimentUpdateSchedule,
   OrganizationInterface,
-  OrganizationSettings,
 } from "../../types/organization";
 import { logger } from "../util/logger";
 import { DataSourceInterface } from "../../types/datasource";
@@ -98,9 +100,13 @@ import { QueryMap, getQueryMap } from "../queryRunners/QueryRunner";
 import { getFactMetric } from "../models/FactMetricModel";
 import { FactTableMap } from "../models/FactTableModel";
 import { StatsEngine } from "../../types/stats";
+import { getFeaturesByIds } from "../models/FeatureModel";
+import { getFeatureRevisionsByFeatureIds } from "../models/FeatureRevisionModel";
+import { ExperimentRefRule, FeatureRule } from "../../types/feature";
 import { getReportVariations, getMetricForSnapshot } from "./reports";
 import { getIntegrationFromDatasourceId } from "./datasource";
 import { analyzeExperimentMetric, analyzeExperimentResults } from "./stats";
+import { getEnvironmentIdsFromOrg } from "./organizations";
 
 export const DEFAULT_METRIC_ANALYSIS_DAYS = 90;
 
@@ -238,11 +244,23 @@ export async function getManualSnapshotData(
           };
         });
 
-        const res = await analyzeExperimentMetric(
-          getReportVariations(experiment, phase),
-          metric,
-          rows
-        );
+        const res = await analyzeExperimentMetric({
+          variations: getReportVariations(experiment, phase),
+          metric: metric,
+          rows: rows,
+          phaseLengthHours: Math.max(
+            hoursBetween(phase.dateStarted, phase.dateEnded ?? new Date()),
+            1
+          ),
+          coverage: 1,
+          dimension: null,
+          statsEngine: DEFAULT_STATS_ENGINE,
+          sequentialTestingEnabled: false,
+          sequentialTestingTuningParameter: DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
+          baselineVariationIndex: 0,
+          pValueThreshold: DEFAULT_P_VALUE_THRESHOLD,
+          differenceType: "relative",
+        });
         const data = res.dimensions[0];
         if (!data) return;
         data.variations.map((v, i) => {
@@ -293,6 +311,7 @@ export function getDefaultExperimentAnalysisSettings(
       organization.settings?.sequentialTestingTuningParameter ??
       DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
     baselineVariationIndex: 0,
+    differenceType: "relative",
     pValueThreshold:
       organization.settings?.pValueThreshold ?? DEFAULT_P_VALUE_THRESHOLD,
   };
@@ -312,7 +331,19 @@ export function getAdditionalExperimentAnalysisSettings(
       });
     }
   });
-  return additionalAnalyses;
+  // for default baseline, get difference types
+  additionalAnalyses.push({
+    ...defaultAnalysisSettings,
+    differenceType: "absolute",
+  });
+  additionalAnalyses.push({
+    ...defaultAnalysisSettings,
+    differenceType: "scaled",
+  });
+
+  // Skip all of these additional analyses until we fix the performance issues
+  //return additionalAnalyses;
+  return [];
 }
 
 export function getSnapshotSettings({
@@ -373,6 +404,7 @@ export function getSnapshotSettings({
       id: v.key || i + "",
       weight: phase.variationWeights[i] || 0,
     })),
+    coverage: phase.coverage ?? 1,
   };
 }
 
@@ -615,11 +647,11 @@ export async function createSnapshotAnalysis({
     throw new Error("Analysis not allowed with this snapshot");
   }
 
-  if (
-    snapshot.queries.some(
-      (q) => q.status === "failed" || q.status === "running"
-    )
-  ) {
+  const totalQueries = snapshot.queries.length;
+  const failedQueries = snapshot.queries.filter((q) => q.status === "failed");
+  const runningQueries = snapshot.queries.filter((q) => q.status === "running");
+
+  if (runningQueries.length > 0 || failedQueries.length >= totalQueries / 2) {
     throw new Error("Snapshot queries not available for analysis");
   }
   const analysis: ExperimentSnapshotAnalysis = {
@@ -1789,7 +1821,7 @@ export async function getRegressionAdjustmentInfo(
     .map((m: ExperimentMetricInterface) =>
       metricMap.get(m.denominator as string)
     )
-    .filter(Boolean) as ExperimentMetricInterface[];
+    .filter(Boolean) as MetricInterface[];
 
   for (const metric of allExperimentMetrics) {
     if (!metric) continue;
@@ -1813,109 +1845,6 @@ export async function getRegressionAdjustmentInfo(
     regressionAdjustmentEnabled = false;
   }
   return { regressionAdjustmentEnabled, metricRegressionAdjustmentStatuses };
-}
-
-export function getRegressionAdjustmentsForMetric({
-  metric,
-  denominatorMetrics,
-  experimentRegressionAdjustmentEnabled,
-  organizationSettings,
-  metricOverrides,
-}: {
-  metric: ExperimentMetricInterface;
-  denominatorMetrics: ExperimentMetricInterface[];
-  experimentRegressionAdjustmentEnabled: boolean;
-  organizationSettings?: Partial<OrganizationSettings>; // can be RA fields from a snapshot of org settings
-  metricOverrides?: MetricOverride[];
-}): {
-  newMetric: ExperimentMetricInterface;
-  metricRegressionAdjustmentStatus: MetricRegressionAdjustmentStatus;
-} {
-  const newMetric = cloneDeep<ExperimentMetricInterface>(metric);
-
-  // start with default RA settings
-  let regressionAdjustmentEnabled = true;
-  let regressionAdjustmentDays = DEFAULT_REGRESSION_ADJUSTMENT_DAYS;
-  let reason = "";
-
-  // get RA settings from organization
-  if (organizationSettings?.regressionAdjustmentEnabled) {
-    regressionAdjustmentEnabled = true;
-    regressionAdjustmentDays =
-      organizationSettings?.regressionAdjustmentDays ??
-      regressionAdjustmentDays;
-  }
-  if (experimentRegressionAdjustmentEnabled) {
-    regressionAdjustmentEnabled = true;
-  }
-
-  // get RA settings from metric
-  if (metric && !isFactMetric(metric) && metric?.regressionAdjustmentOverride) {
-    regressionAdjustmentEnabled = !!metric?.regressionAdjustmentEnabled;
-    regressionAdjustmentDays =
-      metric?.regressionAdjustmentDays ?? DEFAULT_REGRESSION_ADJUSTMENT_DAYS;
-    if (!regressionAdjustmentEnabled) {
-      reason = "disabled in metric settings";
-    }
-  }
-
-  // get RA settings from metric override
-  if (metricOverrides) {
-    const metricOverride = metricOverrides.find((mo) => mo.id === metric.id);
-    if (metricOverride?.regressionAdjustmentOverride) {
-      regressionAdjustmentEnabled = !!metricOverride?.regressionAdjustmentEnabled;
-      regressionAdjustmentDays =
-        metricOverride?.regressionAdjustmentDays ?? regressionAdjustmentDays;
-      if (!regressionAdjustmentEnabled) {
-        reason = "disabled by metric override";
-      } else {
-        reason = "";
-      }
-    }
-  }
-
-  // final gatekeeping
-  if (regressionAdjustmentEnabled) {
-    if (metric && !isFactMetric(metric) && metric?.denominator) {
-      const denominator = denominatorMetrics.find(
-        (m) => m.id === metric?.denominator
-      );
-      if (denominator && !isBinomialMetric(denominator)) {
-        regressionAdjustmentEnabled = false;
-        reason = "denominator is count";
-      }
-    }
-  } else if (metric && isFactMetric(metric) && isRatioMetric(metric)) {
-    regressionAdjustmentEnabled = false;
-    reason = "ratio metrics not supported";
-  }
-
-  if (
-    metric &&
-    !isFactMetric(metric) &&
-    metric?.type === "binomial" &&
-    metric?.aggregation
-  ) {
-    regressionAdjustmentEnabled = false;
-    reason = "custom aggregation";
-  }
-
-  if (!regressionAdjustmentEnabled) {
-    regressionAdjustmentDays = 0;
-  }
-
-  newMetric.regressionAdjustmentEnabled = regressionAdjustmentEnabled;
-  newMetric.regressionAdjustmentDays = regressionAdjustmentDays;
-
-  return {
-    newMetric,
-    metricRegressionAdjustmentStatus: {
-      metric: newMetric.id,
-      regressionAdjustmentEnabled,
-      regressionAdjustmentDays,
-      reason,
-    },
-  };
 }
 
 export function visualChangesetsHaveChanges({
@@ -1945,4 +1874,98 @@ export function visualChangesetsHaveChanges({
 
   // Otherwise, there are no meaningful changes
   return false;
+}
+
+export async function getLinkedFeatureInfo(
+  org: OrganizationInterface,
+  experiment: ExperimentInterface
+) {
+  const linkedFeatures = experiment.linkedFeatures || [];
+  if (!linkedFeatures.length) return [];
+
+  const features = await getFeaturesByIds(org.id, linkedFeatures);
+
+  const revisionsByFeatureId = await getFeatureRevisionsByFeatureIds(
+    org.id,
+    linkedFeatures
+  );
+
+  const environments = getEnvironmentIdsFromOrg(org);
+
+  const filter = (rule: FeatureRule) =>
+    rule.type === "experiment-ref" && rule.experimentId === experiment.id;
+
+  const linkedFeatureInfo = features.map((feature) => {
+    const revisions = revisionsByFeatureId[feature.id] || [];
+
+    // Get all published revisions from most recent to oldest
+    const liveMatches = getMatchingRules(feature, filter, environments);
+
+    const draftMatches =
+      revisions
+        .filter((r) => r.status === "draft")
+        .map((r) => getMatchingRules(feature, filter, environments, r))
+        .filter((matches) => matches.length > 0)[0] || [];
+
+    const lockedMatches =
+      revisions
+        .filter(
+          (r) => r.status === "published" && r.version !== feature.version
+        )
+        .sort((a, b) => b.version - a.version)
+        .map((r) => getMatchingRules(feature, filter, environments, r))
+        .filter((matches) => matches.length > 0)[0] || [];
+
+    let state: LinkedFeatureState = "discarded";
+    let matches: MatchingRule[] = [];
+    if (liveMatches.length > 0) {
+      state = "live";
+      matches = liveMatches;
+    } else if (draftMatches.length > 0) {
+      state = "draft";
+      matches = draftMatches;
+    } else if (lockedMatches.length > 0) {
+      state = "locked";
+      matches = lockedMatches;
+    }
+
+    const uniqueValues: Set<string> = new Set(
+      matches.map((m) =>
+        JSON.stringify(
+          (m.rule as ExperimentRefRule).variations.sort((a, b) =>
+            b.variationId.localeCompare(a.variationId)
+          )
+        )
+      )
+    );
+
+    const environmentStates: Record<string, LinkedFeatureEnvState> = {};
+    environments.forEach((env) => (environmentStates[env] = "missing"));
+    matches.forEach((match) => {
+      if (!match.environmentEnabled) {
+        environmentStates[match.environmentId] = "disabled-env";
+      } else if (
+        match.rule.enabled === false &&
+        environmentStates[match.environmentId] !== "active"
+      ) {
+        environmentStates[match.environmentId] = "disabled-rule";
+      } else if (match.rule.enabled !== false) {
+        environmentStates[match.environmentId] = "active";
+      }
+    });
+
+    const info: LinkedFeatureInfo = {
+      feature,
+      state,
+      environmentStates,
+      values: (matches[0]?.rule as ExperimentRefRule)?.variations || [],
+      valuesFrom: matches[0]?.environmentId || "",
+      rulesAbove: matches.some((m) => m.i > 0),
+      inconsistentValues: uniqueValues.size > 1,
+    };
+
+    return info;
+  });
+
+  return linkedFeatureInfo.filter((info) => info.state !== "discarded");
 }

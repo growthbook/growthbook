@@ -18,6 +18,7 @@ import {
   addPendingMemberToOrg,
   expandOrgMembers,
   findVerifiedOrgForNewUser,
+  getEnvironments,
   getInviteUrl,
   getOrgFromReq,
   importConfig,
@@ -112,6 +113,7 @@ import { EntityType } from "../../types/Audit";
 import { getTeamsForOrganization } from "../../models/TeamModel";
 import { getAllFactTablesForOrganization } from "../../models/FactTableModel";
 import { getAllFactMetricsForOrganization } from "../../models/FactMetricModel";
+import { TeamInterface } from "../../../types/team";
 
 export async function getDefinitions(req: AuthRequest, res: Response) {
   const { org } = getOrgFromReq(req);
@@ -648,6 +650,16 @@ export async function getOrganization(req: AuthRequest, res: Response) {
 
   const teams = await getTeamsForOrganization(org.id);
 
+  const teamsWithMembers: TeamInterface[] = teams.map((team) => {
+    const memberIds = org.members
+      .filter((member) => member.teams?.includes(team.id))
+      .map((m) => m.id);
+    return {
+      ...team,
+      members: memberIds,
+    };
+  });
+
   const currentUserPermissions = getUserPermissions(userId, org, teams || []);
 
   return res.status(200).json({
@@ -661,6 +673,7 @@ export async function getOrganization(req: AuthRequest, res: Response) {
     roles: getRoles(org),
     members: expandedMembers,
     currentUserPermissions,
+    teams: teamsWithMembers,
     organization: {
       invites,
       ownerEmail,
@@ -691,14 +704,14 @@ export async function getNamespaces(req: AuthRequest, res: Response) {
       organization: null,
     });
   }
-  const { org } = getOrgFromReq(req);
+  const { org, environments } = getOrgFromReq(req);
 
   const namespaces: NamespaceUsage = {};
 
   // Get all of the active experiments that are tied to a namespace
   const allFeatures = await getAllFeatures(org.id);
   allFeatures.forEach((f) => {
-    Object.keys(f.environmentSettings || {}).forEach((env) => {
+    environments.forEach((env) => {
       if (!f.environmentSettings?.[env]?.enabled) return;
       const rules = f.environmentSettings?.[env]?.rules || [];
       rules
@@ -1143,9 +1156,11 @@ export async function putOrganization(
   if (settings) {
     Object.keys(settings).forEach((k: keyof OrganizationSettings) => {
       if (k === "environments") {
+        const existing = getEnvironments(org);
+
         // Require permissions for any old environments that changed
         const affectedEnvs: Set<string> = new Set();
-        org.settings?.environments?.forEach((env) => {
+        existing.forEach((env) => {
           const oldHash = JSON.stringify(env);
           const newHash = JSON.stringify(
             settings[k]?.find((e) => e.id === env.id)
@@ -1159,9 +1174,7 @@ export async function putOrganization(
         });
 
         // Require permissions for any new environments that have been added
-        const oldIds = new Set(
-          org.settings?.environments?.map((env) => env.id) || []
-        );
+        const oldIds = new Set(existing.map((env) => env.id) || []);
         settings[k]?.forEach((env) => {
           if (!oldIds.has(env.id)) {
             affectedEnvs.add(env.id);
@@ -1753,6 +1766,13 @@ export async function putLicenseKey(
   if (IS_CLOUD) {
     throw new Error("License keys are only applicable to self-hosted accounts");
   }
+
+  if (IS_MULTI_ORG) {
+    throw new Error(
+      "You must use the LICENSE_KEY environmental variable on multi org sites."
+    );
+  }
+
   const { licenseKey } = req.body;
   if (!licenseKey) {
     throw new Error("missing license key");
