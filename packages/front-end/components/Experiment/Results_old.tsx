@@ -114,6 +114,8 @@ const Results_old: FC<{
         m.computedSettings?.regressionAdjustmentDays || 0,
       regressionAdjustmentEnabled: !!m.computedSettings
         ?.regressionAdjustmentEnabled,
+      regressionAdjustmentAvailable: !!m.computedSettings
+        ?.regressionAdjustmentAvailable,
     })) || [];
 
   return (
