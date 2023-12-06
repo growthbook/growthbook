@@ -14,7 +14,6 @@ export interface Props {
   showActiveCount?: boolean;
   activeClassName?: string;
   notificationCount?: number;
-  showNotificationCount?: boolean;
 }
 
 export default function TabButton({
@@ -29,7 +28,6 @@ export default function TabButton({
   className,
   showActiveCount = false,
   activeClassName,
-  showNotificationCount,
   notificationCount,
 }: Props) {
   return (
@@ -61,9 +59,9 @@ export default function TabButton({
       ) : (
         ""
       )}
-      {showNotificationCount && notificationCount ? (
+      {notificationCount ? (
         <div
-          className={`position-absolute badge d-flex justify-content-center align-self-center`}
+          className={`position-absolute badge d-flex justify-content-center align-self-center mr-1`}
           style={{
             zIndex: 1,
             width: 18,

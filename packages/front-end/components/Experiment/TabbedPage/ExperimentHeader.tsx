@@ -443,7 +443,6 @@ export default function ExperimentHeader({
                     activeClassName="active-tab"
                     last={true}
                     notificationCount={healthNotificationCount}
-                    showNotificationCount
                   />
                 )}
               </TabButtons>
