@@ -81,7 +81,11 @@ export const UpdateDimensionMetadataModal: FC<UpdateDimensionMetadataModalProps>
     data?.dimensionSlices?.error
   );
 
-  const saveEnabled = id && status === "succeeded";
+  const saveEnabled =
+    id &&
+    status === "succeeded" &&
+    data?.dimensionSlices?.results &&
+    data.dimensionSlices.results.length > 0;
   const secondaryCTA = (
     <button
       className={`btn btn-primary`}
