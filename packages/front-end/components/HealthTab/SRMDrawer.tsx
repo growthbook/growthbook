@@ -1,8 +1,7 @@
 import { ExperimentSnapshotTraffic } from "back-end/types/experiment-snapshot";
 import { ExperimentReportVariation } from "back-end/types/report";
-import { useEffect, useRef } from "react";
+import { useEffect } from "react";
 import { useUser } from "@/services/UserContext";
-import { pValueFormatter } from "@/services/experiments";
 import { DEFAULT_SRM_THRESHOLD } from "@/pages/settings";
 import VariationUsersTable from "../Experiment/TabbedPage/VariationUsersTable";
 import SRMWarning from "../Experiment/SRMWarning";
@@ -50,21 +49,6 @@ export default function SRMDrawer({
   // const [selectedDimension, setSelectedDimension] = useState<string>("");
   console.log(datasource);
   const { settings } = useUser();
-  const balanceCheckTableRef = useRef<HTMLDivElement | null>(null);
-
-  useEffect(() => {
-    // Set the height of the parent based on the height of the specific child
-    if (balanceCheckTableRef.current) {
-      const childHeight = balanceCheckTableRef.current.clientHeight;
-
-      const parentElement = document.getElementById("parent-container");
-      if (parentElement) {
-        // Perform a null check before accessing properties or methods on the result
-        const newParentHeight = childHeight; // 20px padding, adjust as needed
-        parentElement.style.height = `${newParentHeight}px`;
-      }
-    }
-  }, [balanceCheckTableRef]);
 
   const srmThreshold = settings.srmThreshold ?? DEFAULT_SRM_THRESHOLD;
 
@@ -95,7 +79,19 @@ export default function SRMDrawer({
     <div className="appbox my-4 pl-3 py-3">
       <div className="row overflow-hidden" id="parent-container">
         <div className="col-8 border-right pr-4">
-          <div ref={balanceCheckTableRef}>
+          <div
+            ref={(node) => {
+              if (node) {
+                const childHeight = node.clientHeight;
+                const parentElement = document.getElementById(
+                  "parent-container"
+                );
+
+                parentElement &&
+                  (parentElement.style.height = `${childHeight}px`);
+              }
+            }}
+          >
             <h2 className="d-inline">Experiment Balance Check</h2>{" "}
             {/* <p className="d-inline text-muted">{helpText}</p> */}
             {overallHealth && overallHealth !== "healthy" && (

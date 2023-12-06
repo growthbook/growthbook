@@ -22,7 +22,6 @@ import {
   ExperimentTableRow,
   useRiskVariation,
   setAdjustedCIs,
-  pValueFormatter,
 } from "@/services/experiments";
 import { GBCuped } from "@/components/Icons";
 import { QueryStatusData } from "@/components/Queries/RunQueriesButton";

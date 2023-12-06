@@ -235,7 +235,7 @@ export const DimensionIssues = ({ dimensionData, variations }: Props) => {
         <hr className="mb-0" />
         {areDimensionsAvailable ? (
           <div className="h-75">
-            <div className="h-75 overflow-auto pt-4 pl-4">
+            <div className="h-75 overflow-auto pt-4 px-4">
               {availableDimensions.map((d) => {
                 return (
                   <div key={d.value}>
@@ -278,7 +278,11 @@ export const DimensionIssues = ({ dimensionData, variations }: Props) => {
             </div>
           </div>
         ) : (
-          <i className="text-muted">No dimensions have been added</i>
+          <div className="pt-4 px-4">
+            <i className="text-muted">
+              No experiment dimensions with pre-defined slices available
+            </i>
+          </div>
         )}
       </div>
     </>
