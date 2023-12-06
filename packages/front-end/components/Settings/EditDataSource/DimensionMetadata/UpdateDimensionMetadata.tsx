@@ -18,6 +18,7 @@ import RunQueriesButton, {
 import ViewAsyncQueriesButton from "@/components/Queries/ViewAsyncQueriesButton";
 import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
+import track from "@/services/track";
 
 const smallPercentFormatter = new Intl.NumberFormat(undefined, {
   style: "percent",
@@ -48,6 +49,7 @@ export const UpdateDimensionMetadataModal: FC<UpdateDimensionMetadataModalProps>
   const dataSourceId = dataSource.id;
   const exposureQueryId = exposureQuery.id;
   const metadataId = exposureQuery.dimensionSlicesId;
+  const source = "datasource-modal";
 
   useEffect(() => {
     if (!dataSourceId || !exposureQueryId) return;
@@ -91,6 +93,7 @@ export const UpdateDimensionMetadataModal: FC<UpdateDimensionMetadataModalProps>
           data?.dimensionSlices?.results &&
           data.dimensionSlices.results.length > 0
         ) {
+          track("Save Dimension Metadata", { source });
           const value = cloneDeep<ExposureQuery>(exposureQuery);
           value.dimensionSlicesId = id;
           value.dimensionMetadata = data.dimensionSlices.results.map((r) => ({
@@ -124,7 +127,7 @@ export const UpdateDimensionMetadataModal: FC<UpdateDimensionMetadataModalProps>
             <strong>Why?</strong>
             Pre-defining dimension slices allows us to automatically run traffic
             and health checks on your experiment for all bins whenever you
-            update experiment results.
+            update experiment results (coming soon!).
           </div>
           <div className="row mb-3">
             <strong>How?</strong>
@@ -140,6 +143,7 @@ export const UpdateDimensionMetadataModal: FC<UpdateDimensionMetadataModalProps>
               mutate={mutate}
               dataSource={dataSource}
               exposureQuery={exposureQuery}
+              source={source}
             />
           </div>
         </div>
@@ -156,6 +160,7 @@ type DimensionSlicesRunnerProps = {
   mutate: () => void;
   dataSource: DataSourceInterfaceWithParams;
   exposureQuery: ExposureQuery;
+  source: string;
 };
 
 export const DimensionSlicesRunner: FC<DimensionSlicesRunnerProps> = ({
@@ -166,6 +171,7 @@ export const DimensionSlicesRunner: FC<DimensionSlicesRunnerProps> = ({
   mutate,
   dataSource,
   exposureQuery,
+  source,
 }) => {
   const { apiCall } = useAuth();
   const [error, setError] = useState<string>("");
@@ -177,6 +183,7 @@ export const DimensionSlicesRunner: FC<DimensionSlicesRunnerProps> = ({
   });
 
   const refreshDimension = useCallback(async () => {
+    track("Refresh Dimension Slices - click", { source });
     apiCall<{
       dimensionSlices: DimensionSlicesInterface;
     }>("/dimension-slices", {
@@ -188,14 +195,19 @@ export const DimensionSlicesRunner: FC<DimensionSlicesRunnerProps> = ({
       }),
     })
       .then((res) => {
+        track("Refresh Dimension Slices - success", { source });
         setId(res.dimensionSlices.id);
         mutate();
       })
       .catch((e) => {
+        track("Refresh Dimension Slices - error", {
+          source,
+          error: e.message.substr(0, 32) + "...",
+        });
         setError(e.message);
         console.error(e.message);
       });
-  }, [dataSource.id, exposureQuery.id, form, mutate, apiCall, setId]);
+  }, [dataSource.id, exposureQuery.id, form, source, mutate, apiCall, setId]);
 
   dimensionSlices?.results;
   return (
