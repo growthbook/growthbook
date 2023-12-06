@@ -92,7 +92,7 @@ export default function SRMDrawer({
   }
 
   return (
-    <div className="appbox my-4 p-3">
+    <div className="appbox my-4 pl-3 py-3">
       <div className="row overflow-hidden" id="parent-container">
         <div className="col-8 border-right pr-4">
           <div ref={balanceCheckTableRef}>
@@ -136,7 +136,7 @@ export default function SRMDrawer({
             </div>
           </div>
         </div>
-        <div className="col h-100 w-100">
+        <div className="col h-100 w-100 p-0">
           <DimensionIssues
             dimensionData={traffic.dimension}
             variations={variations}

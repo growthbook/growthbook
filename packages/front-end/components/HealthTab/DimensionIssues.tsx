@@ -73,11 +73,44 @@ export const DimensionIssues = ({ dimensionData, variations }: Props) => {
 
   const srmThreshold = settings.srmThreshold ?? DEFAULT_SRM_THRESHOLD;
 
-  const availableDimensions = transformDimensionData(
-    dimensionData,
-    variations,
-    srmThreshold
-  );
+  //   const availableDimensions = transformDimensionData(
+  //     dimensionData,
+  //     variations,
+  //     srmThreshold
+  //   ).sort((a, b) => b.issues.length - a.issues.length);
+
+  const availableDimensions = [
+    {
+      value: "dim_browser",
+      label: "browser",
+      issues: ["ie", "chrome", "opera", "arc", "testing"],
+    },
+    {
+      value: "dim_browser1",
+      label: "browser",
+      issues: ["ie", "chrome", "opera"],
+    },
+    {
+      value: "dim_browser2",
+      label: "browser",
+      issues: ["ie", "chrome", "opera", "arc", "testing", "extra"],
+    },
+    {
+      value: "dim_browser3",
+      label: "browser",
+      issues: [],
+    },
+    {
+      value: "dim_browser4",
+      label: "browser",
+      issues: ["ie", "chrome", "opera"],
+    },
+    {
+      value: "dim_browser4",
+      label: "browser",
+      issues: ["ie", "chrome", "opera"],
+    },
+  ].sort((a, b) => b.issues.length - a.issues.length);
 
   const [selectedDimension, setSelectedDimension] = useState(
     availableDimensions[0]?.value || ""
@@ -89,7 +122,7 @@ export const DimensionIssues = ({ dimensionData, variations }: Props) => {
       totalUsers: number;
       health: HealthStatus;
     })[] = [];
-    dimensionData[selectedDimension].forEach((d) => {
+    dimensionData[selectedDimension]?.forEach((d) => {
       const totalDimUsers = d.variationUnits.reduce((acc, a) => acc + a, 0);
       const health = srmHealthCheck({
         srm: d.srm,
@@ -112,39 +145,6 @@ export const DimensionIssues = ({ dimensionData, variations }: Props) => {
 
     return [dimensionSlicesWithIssues, dimensionSlicesWithHealth];
   }, [dimensionData, selectedDimension, srmThreshold, variations]);
-
-  //   const availableDimensions = [
-  //     {
-  //       key: "dim_browser",
-  //       label: "browser",
-  //       issues: ["ie", "chrome", "opera"],
-  //     },
-  //     {
-  //       key: "dim_browser1",
-  //       label: "browser",
-  //       issues: ["ie", "chrome", "opera"],
-  //     },
-  //     {
-  //       key: "dim_browser2",
-  //       label: "browser",
-  //       issues: ["ie", "chrome", "opera"],
-  //     },
-  //     {
-  //       key: "dim_browser3",
-  //       label: "browser",
-  //       issues: ["ie", "chrome", "opera"],
-  //     },
-  //     {
-  //       key: "dim_browser4",
-  //       label: "browser",
-  //       issues: ["ie", "chrome", "opera"],
-  //     },
-  //     {
-  //       key: "dim_browser4",
-  //       label: "browser",
-  //       issues: ["ie", "chrome", "opera"],
-  //     },
-  //   ];
 
   const areDimensionsAvailable = !!availableDimensions.length;
 
@@ -227,14 +227,15 @@ export const DimensionIssues = ({ dimensionData, variations }: Props) => {
       </Modal>
 
       <div className="my-2 h-100">
-        <h3>Dimensions</h3>
-        <p className="mb-4" style={{ boxShadow: "0 4 2px -2px gray" }}>
-          Highlights perceived issues across dimensions
-        </p>
+        <div className="pl-4">
+          <h3>Dimensions</h3>
+          <p className="mb-4">Highlights perceived issues across dimensions</p>
+        </div>
 
+        <hr className="mb-0" />
         {areDimensionsAvailable ? (
           <div className="h-75">
-            <div className="h-75 overflow-auto">
+            <div className="h-75 overflow-auto pt-4 pl-4">
               {availableDimensions.map((d) => {
                 return (
                   <div key={d.value}>
@@ -248,17 +249,22 @@ export const DimensionIssues = ({ dimensionData, variations }: Props) => {
                     >
                       <h4>{d.label}</h4>
                     </a>
-                    {d.issues.length ? (
-                      <p>{d.issues.join(", ")}</p>
-                    ) : (
-                      <i className="text-muted">No issues detected</i>
-                    )}
+                    <p>
+                      {" "}
+                      {d.issues.length ? (
+                        <>{d.issues.join(", ")}</>
+                      ) : (
+                        <i className="text-muted">No issues detected</i>
+                      )}
+                    </p>
                   </div>
                 );
               })}
             </div>
-            <div className="mt-auto">
-              <hr></hr>
+            <div
+              className="mt-4 py-3 px-4"
+              style={{ boxShadow: "0px -5px 10px rgba(0, 0, 0, 0.1)" }}
+            >
               <a
                 className="text-lg"
                 href="#"
