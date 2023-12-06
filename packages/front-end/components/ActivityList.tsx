@@ -69,25 +69,6 @@ const ActivityList: FC<{
                   >
                     {date(event.dateCreated)}
                   </div>
-                  {/*{details &&*/}
-                  {/*  (event.event === "experiment.start" ||*/}
-                  {/*    event.event === "experiment.phase") && (*/}
-                  {/*    <small>{phaseSummary(details)}</small>*/}
-                  {/*  )}*/}
-                  {/*{event.event === "experiment.stop" && (*/}
-                  {/*  <small>*/}
-                  {/*    {details && details.reason && (*/}
-                  {/*      <span className="mr-3">*/}
-                  {/*        <strong>Reason: </strong> {details.reason}*/}
-                  {/*      </span>*/}
-                  {/*    )}*/}
-                  {/*    {details && details.results && (*/}
-                  {/*      <>*/}
-                  {/*        <strong>Result: </strong> {details.results}*/}
-                  {/*      </>*/}
-                  {/*    )}*/}
-                  {/*  </small>*/}
-                  {/*)}*/}
                 </div>
               </Link>
             </li>
