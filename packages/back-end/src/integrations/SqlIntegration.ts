@@ -220,6 +220,19 @@ export default abstract class SqlIntegration
     return `SELECT * FROM ${table} LIMIT ${limit}`;
   }
 
+  supportsUnnesting(): boolean {
+    return false;
+  }
+
+  // eslint-disable-next-line
+  unnest(objects: Record<string, string>[]): string {
+    throw new Error("Not implemented");
+  }
+  // eslint-disable-next-line
+  extractUnnestedData(key: string): string {
+    throw new Error("Not implemented");
+  }
+
   applyMetricOverrides(
     metric: ExperimentMetricInterface,
     settings: ExperimentSnapshotSettings
@@ -2157,6 +2170,37 @@ AND event_name = '${eventName}'`,
           ${dateString}
         ) t
      `;
+  }
+
+  private metricColsToRows(
+    metrics: {
+      id: string;
+      name: string;
+      hasDenominator: boolean;
+    }[]
+  ) {
+    const numeratorColumns = ["numerator_sum", "numerator_sum_squares"];
+    const denominatorColumns = ["denominator_sum", "denominator_sum_squares"];
+
+    const objs = metrics.map((m) => {
+      const obj: Record<string, string> = {
+        metric: JSON.stringify(m.id),
+      };
+      numeratorColumns.forEach((c) => {
+        obj[c] = `${m.id}_${c}`;
+      });
+      denominatorColumns.forEach((c) => {
+        obj[c] = m.hasDenominator ? `${m.id}_${c}` : "0";
+      });
+      return obj;
+    });
+
+    return {
+      unnest: this.unnest(objs),
+      columns: ["metric", ...numeratorColumns, ...denominatorColumns].map(
+        (c) => this.extractUnnestedData(c) + ` as ${c}`
+      ),
+    };
   }
 
   // Get a Fact Table CTE for multiple fact metrics that all share the same fact table
