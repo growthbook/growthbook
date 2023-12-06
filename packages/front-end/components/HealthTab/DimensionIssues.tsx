@@ -183,7 +183,6 @@ export const DimensionIssues = ({ dimensionData, variations }: Props) => {
 
           <div className="d-flex justify-content-between">
             <IssueTags issues={issues} />
-
             <span className="col-auto ml-auto text-muted">
               Sorted by unit counts
             </span>
