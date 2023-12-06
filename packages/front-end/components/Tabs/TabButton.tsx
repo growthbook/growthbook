@@ -69,11 +69,12 @@ export default function TabButton({
             width: 18,
             height: 18,
             right: 0,
-            top: -1,
+            top: 3,
             borderRadius: 50,
             backgroundColor: "red",
             color: "white",
             lineHeight: 0.7,
+            boxShadow: "0 0 5px #000",
           }}
         >
           {notificationCount}
