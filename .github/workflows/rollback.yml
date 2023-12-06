@@ -26,7 +26,7 @@ jobs:
 
       - name: Tag image as latest
         run: |
-          docker buildx imagetools create -t growthbook/growthbook:latest growthbook/growthbook:git-${{ inputs.sha }}
+          docker buildx imagetools create -t growthbook/growthbook:test growthbook/growthbook:git-${{ inputs.sha }}
 
   # Deploy the back-end for GrowthBook Cloud
   prod:
