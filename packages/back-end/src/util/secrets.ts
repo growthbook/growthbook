@@ -214,3 +214,9 @@ const getTrustProxyConfig = (): boolean | string | number => {
 };
 
 export const EXPRESS_TRUST_PROXY_OPTS = getTrustProxyConfig();
+
+// If a request proxy is configured using environment variables
+export const USE_PROXY =
+  !!process.env.http_proxy ||
+  !!process.env.https_proxy ||
+  !!process.env.HTTPS_PROXY;

@@ -18,6 +18,7 @@ export interface ScimUser {
   userName: string;
   active: boolean;
   externalId?: string;
+  growthbookRole?: MemberRole;
 }
 
 export interface ScimGroupMember {
@@ -57,8 +58,14 @@ export type ScimGetRequest = BaseScimRequest & {
   };
 };
 
-export interface ScimUserPutOrPostRequest extends BaseScimRequest {
+export interface ScimUserPostRequest extends BaseScimRequest {
   body: ScimUser;
+}
+
+export interface ScimUserPutRequest extends ScimUserPostRequest {
+  params: {
+    id: string;
+  };
 }
 
 export interface ScimGroupPostRequest extends BaseScimRequest {

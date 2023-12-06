@@ -53,6 +53,8 @@ function getMetricRegressionAdjustmentStatusesFromSnapshot(
         (analysisSettings.regressionAdjusted &&
           m.computedSettings?.regressionAdjustmentEnabled) ||
         false,
+      regressionAdjustmentAvailable:
+        m.computedSettings?.regressionAdjustmentAvailable ?? true,
     };
   });
 }
@@ -187,6 +189,8 @@ export function getMetricForSnapshot(
         DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
       regressionAdjustmentEnabled:
         regressionAdjustmentStatus?.regressionAdjustmentEnabled ?? false,
+      regressionAdjustmentAvailable:
+        regressionAdjustmentStatus?.regressionAdjustmentAvailable ?? true,
       regressionAdjustmentReason: regressionAdjustmentStatus?.reason ?? "",
     },
   };
