@@ -137,9 +137,9 @@ export const DimensionIssues = ({ dimensionData, variations }: Props) => {
         totalUsers: totalDimUsers,
       };
     });
-    dimensionSlicesWithHealth.sort((a, b) => b.totalUsers - a.totalUsers);
+    dimensionSlicesWithHealth?.sort((a, b) => b.totalUsers - a.totalUsers);
 
-    const dimensionSlicesWithIssues = dimensionSlicesWithHealth.reduce(
+    const dimensionSlicesWithIssues = dimensionSlicesWithHealth?.reduce(
       (acc, cur) => {
         if (cur.health === "Issues detected") {
           acc.push({ label: cur.name, value: cur.name });
@@ -147,7 +147,7 @@ export const DimensionIssues = ({ dimensionData, variations }: Props) => {
 
         return acc;
       },
-      [] as IssueValue[]
+      ([] as IssueValue[]) ?? []
     );
 
     return [dimensionSlicesWithIssues, dimensionSlicesWithHealth];
@@ -190,14 +190,16 @@ export const DimensionIssues = ({ dimensionData, variations }: Props) => {
 
           <div className="d-flex justify-content-between">
             <IssueTags issues={issues} />
-            <span className="col-auto ml-auto text-muted">
-              Sorted by unit counts
-            </span>
+            {issues?.length && (
+              <span className="col-auto ml-auto text-muted">
+                Sorted by unit counts
+              </span>
+            )}
           </div>
 
           {selectedDimension && (
             <>
-              {dimensionSlicesWithHealth.map((d) => {
+              {dimensionSlicesWithHealth?.map((d) => {
                 return (
                   <HealthCard
                     id={d.name}

@@ -8,7 +8,7 @@ interface Props {
 }
 
 export const IssueTags = ({ issues }: Props) => {
-  if (!issues.length) {
+  if (!issues?.length) {
     return <h4 className="mt-2 mb-4">No issues found. 🎉</h4>;
   }
 
