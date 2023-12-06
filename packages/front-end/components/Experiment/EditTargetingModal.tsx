@@ -19,6 +19,9 @@ import SavedGroupTargetingField, {
   validateSavedGroupTargeting,
 } from "../Features/SavedGroupTargetingField";
 import HashVersionSelector from "./HashVersionSelector";
+import useOrgSettings from "@/hooks/useOrgSettings";
+import {FaTriangleExclamation} from "react-icons/fa6";
+import {FaInfoCircle} from "react-icons/fa";
 
 export interface Props {
   close: () => void;
@@ -33,6 +36,9 @@ export default function EditTargetingModal({
   mutate,
   safeToEdit,
 }: Props) {
+  const settings = useOrgSettings();
+  const orgStickyBucketing = settings.useStickyBucketing;
+
   const lastPhase: ExperimentPhaseStringDates | undefined =
     experiment.phases[experiment.phases.length - 1];
 
@@ -196,13 +202,20 @@ export default function EditTargetingModal({
                 return label;
               }}
               sort={false}
-              value={form.watch("fallbackAttribute") || ""}
+              value={orgStickyBucketing ? form.watch("fallbackAttribute") || "" : ""}
               onChange={(v) => {
                 form.setValue("fallbackAttribute", v);
               }}
-              helpText={
-                "If the user's assignment attribute is not available the fallback attribute may be used instead"
-              }
+              helpText={<>
+                <div>
+                  If the user&apos;s assignment attribute is not available the fallback attribute may be used instead.
+                </div>
+                {!orgStickyBucketing && (<div className="text-warning-orange mt-1">
+                  <FaInfoCircle />{" "}
+                  Sticky bucketing is currently disabled for your organization.
+                </div>)}
+              </>}
+              disabled={!orgStickyBucketing}
             />
           </div>
           <HashVersionSelector
