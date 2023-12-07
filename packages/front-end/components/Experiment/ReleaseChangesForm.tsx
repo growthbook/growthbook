@@ -156,13 +156,23 @@ function getRecommendedRolloutData({
     newBucketVersion,
     newSeed,
     blockPreviouslyBucketed,
+    reasons: {
+      moreRestrictiveTargeting,
+      otherTargetingChanges,
+      decreaseCoverage,
+      addToNamespace,
+      decreaseNamespaceRange,
+      otherNamespaceChanges,
+      changeVariationWeights,
+      disableVariation,
+    },
     reason,
     messages,
     warnings,
   };
 }
 
-type ExistingUsersOption = "keep" | "exclude";
+type ExistingUsersOption = "keep" | "exclude" | "reassign";
 
 export default function ReleaseChangesForm({ experiment, form }: Props) {
   const { apiCall } = useAuth();
@@ -181,6 +191,29 @@ export default function ReleaseChangesForm({ experiment, form }: Props) {
     existingUsersOption,
     setExistingUsersOption,
   ] = useState<ExistingUsersOption>("keep");
+
+  useEffect(() => {
+    if (existingUsersOption === "keep") {
+      // same phase, same seed, same bucket version
+      form.setValue("newPhase", false);
+      form.setValue("reseed", false);
+      form.setValue("bucketVersion", experiment.bucketVersion);
+      form.setValue("minBucketVersion", experiment.minBucketVersion);
+    } else if (existingUsersOption === "exclude") {
+      // new phase, new seed, new bucket version (block prior buckets)
+      // todo: why new seed (and phase)?
+      form.setValue("newPhase", true);
+      form.setValue("reseed", true);
+      form.setValue("bucketVersion", (experiment.bucketVersion ?? 1) + 1);
+      form.setValue("minBucketVersion", (experiment.bucketVersion ?? 1));
+    } else if (existingUsersOption === "reassign") {
+      // new phase, new seed, new bucket version (reassign prior buckets)
+      form.setValue("newPhase", true);
+      form.setValue("reseed", true);
+      form.setValue("bucketVersion", (experiment.bucketVersion ?? 1) + 1);
+      form.setValue("minBucketVersion", experiment.minBucketVersion);
+    }
+  }, [existingUsersOption]);
 
   const newPhase = form.watch("newPhase");
   const variationWeights = form.watch("variationWeights");
@@ -263,7 +296,7 @@ export default function ReleaseChangesForm({ experiment, form }: Props) {
       className="bg-light px-4 py-4 mt-4 border-top"
       style={{ boxShadow: "rgba(0, 0, 0, 0.06) 0px 2px 4px 0px inset" }}
     >
-      <div className="d-flex mb-2">
+      <div className="d-flex mb-3">
         <div className="h4 mb-0">Release changes</div>
         {/*<div className="alert alert-info">*/}
         {/*  We have defaulted you to the recommended release settings below based on*/}
@@ -374,7 +407,34 @@ export default function ReleaseChangesForm({ experiment, form }: Props) {
           >
             <div>
               <FaExclamationCircle /> The changes you have made may impact
-              existing bucketed users
+              existing bucketed users.
+              <Tooltip body={<>
+                <div className="font-weight-bold mb-2">
+                  Existing users may be impacted by the following changes you have made:
+                </div>
+                <ul className="mb-1">
+                  {recommendedRolloutData.reasons.moreRestrictiveTargeting && (
+                    <li>More restrictive targeting</li>
+                  )}
+                  {recommendedRolloutData.reasons.decreaseCoverage && (
+                    <li>Decreased coverage</li>
+                  )}
+                  {recommendedRolloutData.reasons.addToNamespace && (
+                    <li>Added to namespace</li>
+                  )}
+                  {recommendedRolloutData.reasons.decreaseNamespaceRange && (
+                    <li>Decreased namespace range</li>
+                  )}
+                  {recommendedRolloutData.reasons.changeVariationWeights && (
+                    <li>Changed variation weights</li>
+                  )}
+                  {recommendedRolloutData.reasons.disableVariation && (
+                    <li>Disabled a variation</li>
+                  )}
+                </ul>
+              </>}>
+                <a role="button" className="ml-2 a">Why?</a>
+              </Tooltip>
             </div>
             {/*todo: experiment level SB setting*/}
           </div>
