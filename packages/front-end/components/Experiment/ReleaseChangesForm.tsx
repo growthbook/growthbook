@@ -31,9 +31,11 @@ export interface Props {
 function getRecommendedRolloutData({
   experiment,
   data,
+  stickyBucketing,
 }: {
   experiment: ExperimentInterfaceStringDates;
   data: ExperimentTargetingData;
+  stickyBucketing: boolean;
   // | (ExperimentPhaseStringDates & { reseed: boolean, blockedVariations: number[], minBucketVersion: number });
 }) {
   const lastPhase: ExperimentPhaseStringDates | undefined =
@@ -41,6 +43,9 @@ function getRecommendedRolloutData({
 
   // Returned recommendations:
   let promptExistingUserOptions = true;
+  let existingUsersOption: ExistingUsersOption = "reassign";
+  let disableKeepOption = false;
+
   const newPhase = false;
   const newBucketVersion = false;
   const newSeed = false;
@@ -124,17 +129,6 @@ function getRecommendedRolloutData({
     disableVariation = true;
   }
 
-  console.log({
-    moreRestrictiveTargeting,
-    otherTargetingChanges,
-    decreaseCoverage,
-    addToNamespace,
-    decreaseNamespaceRange,
-    otherNamespaceChanges,
-    changeVariationWeights,
-    disableVariation,
-  });
-
   if (
     !moreRestrictiveTargeting &&
     !otherTargetingChanges &&
@@ -147,11 +141,40 @@ function getRecommendedRolloutData({
   ) {
     // recommend no release changes
     promptExistingUserOptions = false;
-    reason = "no risky changes detected";
+    // reason = "no risky changes detected";
+  }
+
+  if (stickyBucketing) {
+    if (otherTargetingChanges) {
+      // warning
+      promptExistingUserOptions = true;
+      existingUsersOption = "exclude";
+    }
+    if (addToNamespace || decreaseNamespaceRange || otherNamespaceChanges || changeVariationWeights) {
+      // danger
+      promptExistingUserOptions = true;
+      existingUsersOption = "exclude";
+      disableKeepOption = true;
+    }
+
+  } else {
+    if (moreRestrictiveTargeting || decreaseCoverage || addToNamespace || decreaseNamespaceRange) {
+      // warning
+      promptExistingUserOptions = true;
+      existingUsersOption = "exclude";
+    }
+    if (otherTargetingChanges || otherNamespaceChanges || changeVariationWeights || disableVariation) {
+      // danger
+      promptExistingUserOptions = true;
+      existingUsersOption = "exclude";
+      disableKeepOption = true;
+    }
   }
 
   return {
     promptExistingUserOptions,
+    existingUsersOption,
+    disableKeepOption,
     newPhase,
     newBucketVersion,
     newSeed,
@@ -281,6 +304,7 @@ export default function ReleaseChangesForm({ experiment, form }: Props) {
   const recommendedRolloutData = getRecommendedRolloutData({
     experiment,
     data: form.getValues(),
+    stickyBucketing: orgStickyBucketing && !experiment.disableStickyBucketing,
   });
   console.log(recommendedRolloutData);
 
