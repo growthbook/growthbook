@@ -190,7 +190,7 @@ export default function ReleaseChangesForm({ experiment, form }: Props) {
   const [
     existingUsersOption,
     setExistingUsersOption,
-  ] = useState<ExistingUsersOption>("keep");
+  ] = useState<ExistingUsersOption>("reassign");
 
   useEffect(() => {
     if (existingUsersOption === "keep") {
@@ -216,67 +216,67 @@ export default function ReleaseChangesForm({ experiment, form }: Props) {
   }, [existingUsersOption]);
 
   const newPhase = form.watch("newPhase");
-  const variationWeights = form.watch("variationWeights");
-  const coverage = form.watch("coverage");
-  const condition = form.watch("condition");
-  const namespace = form.watch("namespace");
-  const savedGroups = form.watch("savedGroups");
-  const encodedVariationWeights = JSON.stringify(variationWeights);
-  const encodedNamespace = JSON.stringify(namespace);
-  const isNamespaceEnabled = namespace.enabled;
-  const shouldCreateNewPhase = useMemo<boolean>(() => {
-    // If no previous phase, we don't need to ask about creating a new phase
-    if (!lastPhase) return false;
-
-    // Changing variation weights will almost certainly cause an SRM error
-    if (
-      encodedVariationWeights !== JSON.stringify(lastPhase.variationWeights)
-    ) {
-      return true;
-    }
-
-    // Remove outer curly braces from condition so we can use it to look for substrings
-    // e.g. If they have 3 conditions ANDed together and delete one, that is a safe change
-    // But if they add new conditions or modify an existing one, that is not
-    // There are some edge cases with '$or' that are not handled correctly, but those are super rare
-    const strippedCondition = condition.slice(1).slice(0, -1);
-    if (!(lastPhase.condition || "").includes(strippedCondition)) {
-      return true;
-    }
-
-    // Changing saved groups
-    // TODO: certain changes should be safe, so make this logic smarter
-    if (
-      JSON.stringify(savedGroups || []) !==
-      JSON.stringify(lastPhase.savedGroups || [])
-    ) {
-      return true;
-    }
-
-    // If adding or changing a namespace
-    if (
-      isNamespaceEnabled &&
-      encodedNamespace !== JSON.stringify(lastPhase.namespace)
-    ) {
-      return true;
-    }
-
-    // If reducing coverage
-    if (coverage < (lastPhase.coverage ?? 1)) {
-      return true;
-    }
-
-    // If not changing any of the above, no reason to create a new phase
-    return false;
-  }, [
-    coverage,
-    lastPhase,
-    encodedVariationWeights,
-    condition,
-    isNamespaceEnabled,
-    encodedNamespace,
-    savedGroups,
-  ]);
+  // const variationWeights = form.watch("variationWeights");
+  // const coverage = form.watch("coverage");
+  // const condition = form.watch("condition");
+  // const namespace = form.watch("namespace");
+  // const savedGroups = form.watch("savedGroups");
+  // const encodedVariationWeights = JSON.stringify(variationWeights);
+  // const encodedNamespace = JSON.stringify(namespace);
+  // const isNamespaceEnabled = namespace.enabled;
+  // const shouldCreateNewPhase = useMemo<boolean>(() => {
+  //   // If no previous phase, we don't need to ask about creating a new phase
+  //   if (!lastPhase) return false;
+  //
+  //   // Changing variation weights will almost certainly cause an SRM error
+  //   if (
+  //     encodedVariationWeights !== JSON.stringify(lastPhase.variationWeights)
+  //   ) {
+  //     return true;
+  //   }
+  //
+  //   // Remove outer curly braces from condition so we can use it to look for substrings
+  //   // e.g. If they have 3 conditions ANDed together and delete one, that is a safe change
+  //   // But if they add new conditions or modify an existing one, that is not
+  //   // There are some edge cases with '$or' that are not handled correctly, but those are super rare
+  //   const strippedCondition = condition.slice(1).slice(0, -1);
+  //   if (!(lastPhase.condition || "").includes(strippedCondition)) {
+  //     return true;
+  //   }
+  //
+  //   // Changing saved groups
+  //   // TODO: certain changes should be safe, so make this logic smarter
+  //   if (
+  //     JSON.stringify(savedGroups || []) !==
+  //     JSON.stringify(lastPhase.savedGroups || [])
+  //   ) {
+  //     return true;
+  //   }
+  //
+  //   // If adding or changing a namespace
+  //   if (
+  //     isNamespaceEnabled &&
+  //     encodedNamespace !== JSON.stringify(lastPhase.namespace)
+  //   ) {
+  //     return true;
+  //   }
+  //
+  //   // If reducing coverage
+  //   if (coverage < (lastPhase.coverage ?? 1)) {
+  //     return true;
+  //   }
+  //
+  //   // If not changing any of the above, no reason to create a new phase
+  //   return false;
+  // }, [
+  //   coverage,
+  //   lastPhase,
+  //   encodedVariationWeights,
+  //   condition,
+  //   isNamespaceEnabled,
+  //   encodedNamespace,
+  //   savedGroups,
+  // ]);
 
   const recommendedRolloutData = getRecommendedRolloutData({
     experiment,
@@ -285,9 +285,21 @@ export default function ReleaseChangesForm({ experiment, form }: Props) {
   console.log(recommendedRolloutData);
 
   useEffect(() => {
-    form.setValue("newPhase", shouldCreateNewPhase);
-    form.setValue("reseed", true);
-  }, [form, shouldCreateNewPhase]);
+    if (!recommendedRolloutData.promptExistingUserOptions) {
+      setExistingUsersOption("reassign");
+    }
+    form.setValue("newPhase", recommendedRolloutData.newPhase);
+    form.setValue("reseed", recommendedRolloutData.newSeed);
+  }, [
+    recommendedRolloutData.promptExistingUserOptions,
+    recommendedRolloutData.newPhase,
+    recommendedRolloutData.newSeed,
+  ]);
+
+  // useEffect(() => {
+  //   form.setValue("newPhase", shouldCreateNewPhase);
+  //   form.setValue("reseed", true);
+  // }, [form, shouldCreateNewPhase]);
 
   if (!lastPhase) return null;
 
@@ -526,6 +538,7 @@ export default function ReleaseChangesForm({ experiment, form }: Props) {
         </div>
       )}
 
+      {existingUsersOption === "reassign" && (<>
       <SelectField
         label="How to release changes"
         options={[
@@ -540,8 +553,8 @@ export default function ReleaseChangesForm({ experiment, form }: Props) {
         ]}
         formatOptionLabel={(value) => {
           const recommended =
-            (value.value === "new" && shouldCreateNewPhase) ||
-            (value.value === "existing" && !shouldCreateNewPhase);
+            (value.value === "new" && recommendedRolloutData.newPhase) ||
+            (value.value === "existing" && !recommendedRolloutData.newPhase);
 
           return (
             <>
@@ -568,9 +581,11 @@ export default function ReleaseChangesForm({ experiment, form }: Props) {
           <label htmlFor="reseed-traffic" className="text-dark">
             Re-randomize Traffic
           </label>{" "}
-          <span className="badge badge-purple badge-pill ml-2">
-            recommended
-          </span>
+          {recommendedRolloutData.newSeed && (
+            <span className="badge badge-purple badge-pill ml-2">
+              recommended
+            </span>
+          )}
           <small className="form-text text-muted">
             Removes carryover bias. Returning visitors will be re-bucketed and
             may start seeing a different variation from before. Only supported
@@ -589,6 +604,8 @@ export default function ReleaseChangesForm({ experiment, form }: Props) {
             </Tooltip>
           </small>
         </div>
+      )}
+        </>
       )}
     </div>
   );
