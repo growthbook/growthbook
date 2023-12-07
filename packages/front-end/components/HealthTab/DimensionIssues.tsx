@@ -224,6 +224,7 @@ export const DimensionIssues = ({ dimensionData, variations }: Props) => {
                             variations={variations}
                             users={d.variationUnits}
                             showWhenHealthy
+                            type="simple"
                           />
                         )}
                         {d.health === "Not enough traffic" && (
