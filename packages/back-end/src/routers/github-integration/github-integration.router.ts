@@ -10,6 +10,7 @@ const githubIntegrationController = wrapController(
   _githubIntegrationController
 );
 
-router.get("/", githubIntegrationController.getGitHubUserToken);
+router.get("/", githubIntegrationController.getGithubIntegration);
+router.post("/", githubIntegrationController.postGithubIntegration);
 
 export { router as githubIntegrationRouter };

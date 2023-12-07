@@ -2,16 +2,14 @@ import { omit } from "lodash";
 import uniqid from "uniqid";
 import mongoose from "mongoose";
 import {
-  GitHubUserTokenInterface,
+  GithubUserTokenInterface,
   CreateGithubUserTokenInput,
 } from "../../types/github";
-import { OrganizationInterface } from "../../types/organization";
 
-type GitHubUserTokenDocument = mongoose.Document & GitHubUserTokenInterface;
+type GithubUserTokenDocument = mongoose.Document & GithubUserTokenInterface;
 
 const githubUserTokenSchema = new mongoose.Schema({
   id: String,
-  organization: String,
   token: String,
   expiresAt: Date,
   refreshToken: String,
@@ -20,39 +18,26 @@ const githubUserTokenSchema = new mongoose.Schema({
   updatedAt: Date,
 });
 
-// TODO figure out how to do unique if not null in mongoose
-// githubUserTokenSchema.index(
-//   { organization: 1 },
-//   {
-//     unique: true,
-//   }
-// );
-
-const GitHubUserTokenModel = mongoose.model<GitHubUserTokenDocument>(
-  "GitHubUserToken",
+const GithubUserTokenModel = mongoose.model<GithubUserTokenDocument>(
+  "GithubUserToken",
   githubUserTokenSchema
 );
 
-const toInterface = (doc: GitHubUserTokenDocument): GitHubUserTokenInterface =>
-  omit(doc.toJSON<GitHubUserTokenDocument>(), ["__v", "_id"]);
+const toInterface = (doc: GithubUserTokenDocument): GithubUserTokenInterface =>
+  omit(doc.toJSON<GithubUserTokenDocument>(), ["__v", "_id"]);
 
-export const getGitHubUserTokenByOrg = async (org: OrganizationInterface) => {
-  const doc = await GitHubUserTokenModel.findOne({ organization: org.id });
-  return doc ? toInterface(doc) : null;
-};
-
-export const createGitHubUserToken = async (
+export const createGithubUserToken = async (
   token: CreateGithubUserTokenInput
 ) => {
-  const doc = await GitHubUserTokenModel.create({
+  const doc = await GithubUserTokenModel.create({
     ...token,
-    id: uniqid("github_"),
+    id: uniqid("ghut_"),
     createdAt: new Date(),
     updatedAt: new Date(),
   });
   return toInterface(doc);
 };
 
-export const removeGitHubUserToken = async (org: OrganizationInterface) => {
-  await GitHubUserTokenModel.deleteOne({ organization: org.id });
+export const doesTokenExist = async (tokenId: string) => {
+  return await GithubUserTokenModel.exists({ id: tokenId });
 };

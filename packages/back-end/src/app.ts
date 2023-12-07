@@ -119,7 +119,7 @@ import { demoDatasourceProjectRouter } from "./routers/demo-datasource-project/d
 import { environmentRouter } from "./routers/environment/environment.router";
 import { teamRouter } from "./routers/teams/teams.router";
 import { staticFilesRouter } from "./routers/upload/static-files.router";
-import { createGitHubUserToken } from "./models/GitHubUserTokenModel";
+import { createGithubUserToken } from "./models/GithubUserTokenModel";
 import { githubIntegrationRouter } from "./routers/github-integration/github-integration.router";
 
 const app = express();
@@ -349,14 +349,14 @@ app.use("/integrations/github/oauth", async (req, res, next) => {
     refreshTokenExpiresAt: string;
   } = await userAuth();
 
-  const createdToken = await createGitHubUserToken({
+  const createdToken = await createGithubUserToken({
     token: authentication.token,
     refreshToken: authentication.refreshToken,
     expiresAt: new Date(authentication.expiresAt),
     refreshTokenExpiresAt: new Date(authentication.refreshTokenExpiresAt),
   });
 
-  res.redirect(APP_ORIGIN + "/integrations/github?id=" + createdToken.id);
+  res.redirect(APP_ORIGIN + "/integrations/github?t_id=" + createdToken.id);
 });
 
 // All other routes require a valid JWT

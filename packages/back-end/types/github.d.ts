@@ -1,6 +1,5 @@
-export interface GitHubUserTokenInterface {
+export interface GithubUserTokenInterface {
   id: string;
-  organization: string;
   token: string;
   expiresAt: Date;
   refreshToken: string;
@@ -8,7 +7,21 @@ export interface GitHubUserTokenInterface {
   createdAt: Date;
   updatedAt: Date;
 }
+
 export type CreateGithubUserTokenInput = Omit<
-  GitHubUserTokenInterface,
-  "id" | "organization" | "createdAt" | "updatedAt"
+  GithubUserTokenInterface,
+  "id" | "createdAt" | "updatedAt"
+>;
+
+export interface GithubIntegrationInterface {
+  id: string;
+  organization: string;
+  tokenId: string;
+  createdBy: string;
+  createdAt: Date;
+}
+
+export type CreateGithubIntegrationInput = Omit<
+  GithubIntegrationInterface,
+  "id" | "createdAt"
 >;
