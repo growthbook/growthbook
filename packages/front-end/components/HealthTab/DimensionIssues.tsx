@@ -263,6 +263,7 @@ export const DimensionIssues = ({ dimensionData, variations }: Props) => {
                       onClick={(e) => {
                         e.preventDefault();
                         setSelectedDimension(d.value);
+                        track("Open health tab dimension modal");
                         setModalOpen(true);
                       }}
                     >
@@ -289,6 +290,7 @@ export const DimensionIssues = ({ dimensionData, variations }: Props) => {
                 href="#"
                 onClick={(e) => {
                   e.preventDefault();
+                  track("Open health tab dimension modal");
                   setModalOpen(true);
                 }}
               >

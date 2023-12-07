@@ -79,7 +79,7 @@ export default function TrafficCard({
               value={selectedDimension}
               onChange={(v) => {
                 if (v === selectedDimension) return;
-                track("Select health tab dimension");
+                track("Select health tab traffic card dimension");
                 setSelectedDimension(v);
               }}
               disabled={!availableDimensions.length}
