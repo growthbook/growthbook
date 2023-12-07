@@ -165,14 +165,16 @@ export const HealthTabOnboardingModal: FC<HealthTabOnboardingModalProps> = ({
         >
           <div className="my-2 ml-3 mr-3">
             <div className="row mb-2">
-            <strong>Pre-define dimension slices</strong>
-              Pre-defining experiment dimension slices will allow GrowthBook to automatically
-              run traffic and health checks on your experiment for all of your experiment dimensions (e.g. browser, country)
+              <strong>Pre-define dimension slices</strong>
+              Pre-defining experiment dimension slices will allow GrowthBook to
+              automatically run traffic and health checks on your experiment for
+              all of your experiment dimensions (e.g. browser, country)
             </div>
             <div className="row mb-2">
-                          <strong>How?</strong>
-              Running the query on this page will load data using your experiment
-              assignment query to determine the 20 most popular dimension slices.
+              <strong>How?</strong>
+              Running the query on this page will load data using your
+              experiment assignment query to determine the 20 most popular
+              dimension slices.
             </div>
             <div className="row">
               <DimensionSlicesRunner
@@ -262,8 +264,8 @@ export const HealthTabOnboardingModal: FC<HealthTabOnboardingModalProps> = ({
       >
         <div>
           By enabling the health tab, one additional query will be run per
-          experiment analysis to automatically provide data about traffic over time and
-          dimension breakdowns.
+          experiment analysis to automatically provide data about traffic over
+          time and dimension breakdowns.
         </div>
       </Modal>
     </>

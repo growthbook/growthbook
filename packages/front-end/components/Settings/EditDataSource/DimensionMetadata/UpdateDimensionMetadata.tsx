@@ -256,65 +256,66 @@ export const DimensionSlicesRunner: FC<DimensionSlicesRunnerProps> = ({
               </div>
             ) : null}
             {permissions.check("runQueries", dataSource.projects || "") ? (
-            <div>
-              <form
-                onSubmit={async (e) => {
-                  e.preventDefault();
-                  try {
-                    setError("");
-                    refreshDimension();
-                  } catch (e) {
-                    setError(e.message);
-                    console.error(e);
-                  }
-                }}
-              >
-                <RunQueriesButton
-                  cta={`${
-                    dimensionSlices ? "Refresh" : "Query"
-                  } Dimension Slices`}
-                  icon={dimensionSlices ? "refresh" : "run"}
-                  position={"left"}
-                  mutate={mutate}
-                  model={
-                    dimensionSlices ?? { queries: [], runStarted: undefined }
-                  }
-                  cancelEndpoint={`/dimension-slices/${id}/cancel`}
-                  color={`${dimensionSlices ? "outline-" : ""}primary`}
-                />
-                <div className="text-right text-muted">
-                  {openLookbackField ? (
-                    <div className="d-inline-flex align-items-center mt-1">
-                      <label className="mb-0 mr-2 small">
-                        Days to look back
-                      </label>
-                      <Field
-                        type="number"
-                        style={{ width: 70 }}
-                        {...form.register("lookbackDays", {
-                          valueAsNumber: true,
-                          min: 1,
-                        })}
-                      />
-                    </div>
-                  ) : (
-                    <span className="mt-1 small">
-                      <a
-                        role="button"
-                        className="a"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          setOpenLookbackField(!openLookbackField);
-                        }}
-                      >
-                        <BsGear />
-                      </a>{" "}
-                      {form.getValues("lookbackDays")} day lookback
-                    </span>
-                  )}
-                </div>
-              </form>
-            </div>) : null}
+              <div>
+                <form
+                  onSubmit={async (e) => {
+                    e.preventDefault();
+                    try {
+                      setError("");
+                      refreshDimension();
+                    } catch (e) {
+                      setError(e.message);
+                      console.error(e);
+                    }
+                  }}
+                >
+                  <RunQueriesButton
+                    cta={`${
+                      dimensionSlices ? "Refresh" : "Query"
+                    } Dimension Slices`}
+                    icon={dimensionSlices ? "refresh" : "run"}
+                    position={"left"}
+                    mutate={mutate}
+                    model={
+                      dimensionSlices ?? { queries: [], runStarted: undefined }
+                    }
+                    cancelEndpoint={`/dimension-slices/${id}/cancel`}
+                    color={`${dimensionSlices ? "outline-" : ""}primary`}
+                  />
+                  <div className="text-right text-muted">
+                    {openLookbackField ? (
+                      <div className="d-inline-flex align-items-center mt-1">
+                        <label className="mb-0 mr-2 small">
+                          Days to look back
+                        </label>
+                        <Field
+                          type="number"
+                          style={{ width: 70 }}
+                          {...form.register("lookbackDays", {
+                            valueAsNumber: true,
+                            min: 1,
+                          })}
+                        />
+                      </div>
+                    ) : (
+                      <span className="mt-1 small">
+                        <a
+                          role="button"
+                          className="a"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            setOpenLookbackField(!openLookbackField);
+                          }}
+                        >
+                          <BsGear />
+                        </a>{" "}
+                        {form.getValues("lookbackDays")} day lookback
+                      </span>
+                    )}
+                  </div>
+                </form>
+              </div>
+            ) : null}
           </div>
         </div>
         {(status === "failed" || error !== "") && dimensionSlices ? (
