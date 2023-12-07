@@ -731,7 +731,7 @@ export async function postDimensionSlices(
     queryId,
   });
 
-  const queryRunner = new DimensionSlicesQueryRunner(model, integration);
+  const queryRunner = new DimensionSlicesQueryRunner(model, integration, org);
   const outputmodel = await queryRunner.startAnalysis({
     exposureQueryId: queryId,
     lookbackDays: Number(lookbackDays) ?? 30,
@@ -769,7 +769,8 @@ export async function cancelDimensionSlices(
 
   const queryRunner = new DimensionSlicesQueryRunner(
     dimensionSlices,
-    integration
+    integration,
+    org
   );
   await queryRunner.cancelQueries();
 
