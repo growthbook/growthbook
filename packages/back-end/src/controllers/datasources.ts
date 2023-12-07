@@ -1,5 +1,6 @@
 import { Response } from "express";
 import uniqid from "uniqid";
+import cloneDeep from "lodash/cloneDeep";
 import { DEFAULT_STATS_ENGINE } from "shared/constants";
 import { AuthRequest } from "../types/AuthRequest";
 import { getOrgFromReq } from "../services/organizations";
@@ -8,6 +9,7 @@ import {
   DataSourceType,
   DataSourceSettings,
   DataSourceInterface,
+  ExposureQuery,
 } from "../../types/datasource";
 import {
   getSourceIntegrationObject,
@@ -570,6 +572,68 @@ export async function putDataSource(
     });
   } catch (e) {
     req.log.error(e, "Failed to update data source");
+    res.status(400).json({
+      status: 400,
+      message: e.message || "An error occurred",
+    });
+  }
+}
+
+export async function updateExposureQuery(
+  req: AuthRequest<
+    {
+      updates: Partial<ExposureQuery>;
+    },
+    { datasourceId: string; exposureQueryId: string }
+  >,
+  res: Response
+) {
+  const { org } = getOrgFromReq(req);
+  const { datasourceId, exposureQueryId } = req.params;
+  const { updates } = req.body;
+
+  const dataSource = await getDataSourceById(datasourceId, org.id);
+  if (!dataSource) {
+    res.status(404).json({
+      status: 404,
+      message: "Cannot find data source",
+    });
+    return;
+  }
+
+  req.checkPermissions(
+    "editDatasourceSettings",
+    dataSource?.projects?.length ? dataSource.projects : ""
+  );
+
+  const copy = cloneDeep<DataSourceInterface>(dataSource);
+  let exposureQuery = copy.settings.queries?.exposure?.find(
+    (e) => e.id === exposureQueryId
+  );
+  if (!exposureQuery) {
+    res.status(404).json({
+      status: 404,
+      message: "Cannot find exposure query",
+    });
+    return;
+  }
+
+  // TODO validation
+  exposureQuery = { ...exposureQuery, ...updates };
+
+  try {
+    const updates: Partial<DataSourceInterface> = {
+      dateUpdated: new Date(),
+      settings: copy.settings,
+    };
+
+    await updateDataSource(dataSource, org.id, updates);
+
+    res.status(200).json({
+      status: 200,
+    });
+  } catch (e) {
+    req.log.error(e, "Failed to update exposure query");
     res.status(400).json({
       status: 400,
       message: e.message || "An error occurred",

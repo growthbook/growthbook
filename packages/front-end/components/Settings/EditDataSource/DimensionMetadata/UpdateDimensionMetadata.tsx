@@ -19,6 +19,7 @@ import ViewAsyncQueriesButton from "@/components/Queries/ViewAsyncQueriesButton"
 import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
 import track from "@/services/track";
+import usePermissions from "@/hooks/usePermissions";
 
 const smallPercentFormatter = new Intl.NumberFormat(undefined, {
   style: "percent",
@@ -154,7 +155,7 @@ export const UpdateDimensionMetadataModal: FC<UpdateDimensionMetadataModalProps>
             <strong>Why?</strong>
             Pre-defining dimension slices allows us to automatically run traffic
             and health checks on your experiment for all bins whenever you
-            update experiment results (coming soon!).
+            update experiment results.
           </div>
           <div className="row mb-3">
             <strong>How?</strong>
@@ -202,6 +203,7 @@ export const DimensionSlicesRunner: FC<DimensionSlicesRunnerProps> = ({
 }) => {
   const { apiCall } = useAuth();
   const [error, setError] = useState<string>("");
+  const permissions = usePermissions();
   const [openLookbackField, setOpenLookbackField] = useState<boolean>(false);
   const form = useForm({
     defaultValues: {
@@ -236,7 +238,6 @@ export const DimensionSlicesRunner: FC<DimensionSlicesRunnerProps> = ({
       });
   }, [dataSource.id, exposureQuery.id, form, source, mutate, apiCall, setId]);
 
-  dimensionSlices?.results;
   return (
     <>
       <div className="col-12">
@@ -254,6 +255,7 @@ export const DimensionSlicesRunner: FC<DimensionSlicesRunnerProps> = ({
                 </div>
               </div>
             ) : null}
+            {permissions.check("runQueries", dataSource.projects || "") ? (
             <div>
               <form
                 onSubmit={async (e) => {
@@ -312,7 +314,7 @@ export const DimensionSlicesRunner: FC<DimensionSlicesRunnerProps> = ({
                   )}
                 </div>
               </form>
-            </div>
+            </div>) : null}
           </div>
         </div>
         {(status === "failed" || error !== "") && dimensionSlices ? (
