@@ -81,7 +81,7 @@ export default function MultipleExposuresDrawer({
               )}
             </div>
           ) : (
-            <div className="alert alert-warning">
+            <div className="alert alert-warning mb-0">
               <strong>Multiple Exposures Warning</strong>.{" "}
               {numberFormatter.format(multipleExposures)} users (
               {percentFormatter.format(

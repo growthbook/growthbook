@@ -75,6 +75,7 @@ export default function SRMDrawer({
       <div className="row overflow-hidden" id="parent-container">
         <div className="col-8 border-right pr-4">
           <div
+            className="overflow-auto"
             ref={(node) => {
               if (node) {
                 const childHeight = node.clientHeight;
@@ -127,7 +128,7 @@ export default function SRMDrawer({
             </div>
           </div>
         </div>
-        <div className="col h-100 w-100 p-0">
+        <div className="col h-100 w-100 p-0 overflow-hidden">
           <DimensionIssues
             dimensionData={traffic.dimension}
             variations={variations}
