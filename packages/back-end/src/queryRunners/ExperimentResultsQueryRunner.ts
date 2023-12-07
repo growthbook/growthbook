@@ -37,6 +37,7 @@ import {
 import { expandDenominatorMetrics } from "../util/sql";
 import { getOrganizationById } from "../services/organizations";
 import { FactTableMap } from "../models/FactTableModel";
+import { OrganizationInterface } from "../../types/organization";
 import {
   QueryRunner,
   QueryMap,
@@ -77,7 +78,37 @@ function getFactMetricGroup(metric: ExperimentMetricInterface) {
   return metric.numerator.factTableId || "";
 }
 
-export function getFactMetricGroups(metrics: ExperimentMetricInterface[]) {
+export interface GroupedMetrics {
+  groups: ExperimentMetricInterface[][];
+  singles: ExperimentMetricInterface[];
+}
+
+export function getFactMetricGroups(
+  metrics: ExperimentMetricInterface[],
+  settings: ExperimentSnapshotSettings,
+  integration: SourceIntegrationInterface,
+  organization: OrganizationInterface
+): GroupedMetrics {
+  const defaultReturn: GroupedMetrics = {
+    groups: [],
+    singles: metrics,
+  };
+
+  // Metrics might have different conversion windows which makes the query super complicated
+  if (settings.skipPartialData) {
+    return defaultReturn;
+  }
+  // Only some data sources support multi-metric queries due to complicated unnesting SQL
+  if (!integration.getSourceProperties().supportsMultiMetricQueries) {
+    return defaultReturn;
+  }
+  // Combining metrics in a single query is an Enterprise-only feature
+  if (!orgHasPremiumFeature(organization, "multi-metric-queries")) {
+    return defaultReturn;
+  }
+
+  // TODO: org-level setting to disable multi-metric queries
+
   // Group metrics by fact table id
   const groups: Record<string, ExperimentMetricInterface[]> = {};
   metrics.forEach((m) => {

@@ -24,6 +24,7 @@ export type CommercialFeature =
   | "remote-evaluation"
   | "multi-org"
   | "custom-launch-checklist"
+  | "multi-metric-queries"
   | "teams";
 export type CommercialFeaturesMap = Record<AccountPlan, Set<CommercialFeature>>;
 
@@ -96,6 +97,7 @@ export const accountFeatures: CommercialFeaturesMap = {
     "regression-adjustment",
     "sequential-testing",
     "pipeline-mode",
+    "multi-metric-queries",
     "visual-editor",
     "archetypes",
     "cloud-proxy",

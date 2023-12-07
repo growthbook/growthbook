@@ -137,7 +137,7 @@ export async function getExperimentMetricById(
 
 export async function refreshMetric(
   metric: MetricInterface,
-  orgId: string,
+  org: OrganizationInterface,
   metricAnalysisDays: number = DEFAULT_METRIC_ANALYSIS_DAYS
 ) {
   if (metric.datasource) {
@@ -149,7 +149,7 @@ export async function refreshMetric(
 
     let segment: SegmentInterface | undefined = undefined;
     if (metric.segment) {
-      segment = (await findSegmentById(metric.segment, orgId)) || undefined;
+      segment = (await findSegmentById(metric.segment, org.id)) || undefined;
       if (!segment || segment.datasource !== metric.datasource) {
         throw new Error("Invalid user segment chosen");
       }
@@ -165,7 +165,7 @@ export async function refreshMetric(
     const to = new Date();
     to.setDate(to.getDate() + 1);
 
-    const queryRunner = new MetricAnalysisQueryRunner(metric, integration);
+    const queryRunner = new MetricAnalysisQueryRunner(metric, integration, org);
     await queryRunner.startAnalysis({
       from,
       to,
@@ -616,6 +616,7 @@ export async function createSnapshot({
   const queryRunner = new ExperimentResultsQueryRunner(
     snapshot,
     integration,
+    organization,
     useCache
   );
   await queryRunner.startAnalysis({

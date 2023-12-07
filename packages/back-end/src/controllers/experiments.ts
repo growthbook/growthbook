@@ -1672,7 +1672,11 @@ export async function cancelSnapshot(
     snapshot.organization,
     snapshot.settings.datasourceId
   );
-  const queryRunner = new ExperimentResultsQueryRunner(snapshot, integration);
+  const queryRunner = new ExperimentResultsQueryRunner(
+    snapshot,
+    integration,
+    org
+  );
   await queryRunner.cancelQueries();
   await deleteSnapshotById(org.id, snapshot.id);
 
@@ -2109,7 +2113,8 @@ export async function cancelPastExperiments(
   );
   const queryRunner = new PastExperimentsQueryRunner(
     pastExperiments,
-    integration
+    integration,
+    org
   );
   await queryRunner.cancelQueries();
 
@@ -2205,7 +2210,8 @@ export async function postPastExperiments(
   if (needsRun) {
     const queryRunner = new PastExperimentsQueryRunner(
       pastExperiments,
-      integration
+      integration,
+      org
     );
     pastExperiments = await queryRunner.startAnalysis({
       from: start,

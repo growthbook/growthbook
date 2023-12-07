@@ -194,7 +194,7 @@ export async function cancelMetricAnalysis(
     org.id,
     metric.datasource
   );
-  const queryRunner = new MetricAnalysisQueryRunner(metric, integration);
+  const queryRunner = new MetricAnalysisQueryRunner(metric, integration, org);
   await queryRunner.cancelQueries();
 
   res.status(200).json({
@@ -226,7 +226,7 @@ export async function postMetricAnalysis(
   try {
     await refreshMetric(
       metric,
-      org.id,
+      org,
       req.organization?.settings?.metricAnalysisDays
     );
 

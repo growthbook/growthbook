@@ -19,6 +19,7 @@ import {
 } from "../types/Integration";
 import { logger } from "../util/logger";
 import { promiseAllChunks } from "../util/promise";
+import { OrganizationInterface } from "../../types/organization";
 
 export type QueryMap = Map<string, QueryInterface>;
 
@@ -82,6 +83,7 @@ export abstract class QueryRunner<
 > {
   public model: Model;
   public integration: SourceIntegrationInterface;
+  public organization: OrganizationInterface;
   private timer: null | NodeJS.Timeout = null;
   private emitter: EventEmitter;
   public status: RunnerStatus = "pending";
@@ -101,11 +103,13 @@ export abstract class QueryRunner<
   public constructor(
     model: Model,
     integration: SourceIntegrationInterface,
+    organization: OrganizationInterface,
     useCache = true
   ) {
     this.model = model;
     this.integration = integration;
     this.useCache = useCache;
+    this.organization = organization;
     this.emitter = new EventEmitter();
   }
 
