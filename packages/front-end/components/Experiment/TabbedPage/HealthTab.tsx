@@ -155,7 +155,7 @@ export default function HealthTab({
     <div className="mt-4">
       <IssueTags issues={healthIssues} />
       <TrafficCard traffic={traffic} variations={variations} />
-      <div id="balanceCheck">
+      <div id={"balanceCheck"} style={{ scrollMarginTop: "100px" }}>
         <SRMDrawer
           traffic={traffic}
           variations={variations}
@@ -164,8 +164,13 @@ export default function HealthTab({
           onNotify={handleDrawerNotify}
         />
       </div>
+
       <div className="row">
-        <div className="col-8" id="multipleExposures">
+        <div
+          className="col-8"
+          id="multipleExposures"
+          style={{ scrollMarginTop: "100px" }}
+        >
           <MultipleExposuresDrawer
             totalUsers={totalUsers}
             onNotify={handleDrawerNotify}

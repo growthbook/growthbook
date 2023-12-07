@@ -96,8 +96,8 @@ export default function SRMDrawer({
               Shows actual unit split compared to percent selected for the
               experiment
             </p>
-            <hr></hr>
-            <div>
+            <hr className="mb-0"></hr>
+            <div style={{ paddingTop: "10px" }}>
               <div className="row justify-content-start w-100">
                 <VariationUsersTable
                   users={traffic.overall.variationUnits}

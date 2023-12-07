@@ -160,7 +160,7 @@ export const DimensionIssues = ({ dimensionData, variations }: Props) => {
       <Modal
         close={() => setModalOpen(false)}
         open={modalOpen}
-        closeCta={"Okay"}
+        closeCta={"Close"}
         header={
           <div>
             <h2>Explore Dimensions</h2>
@@ -245,16 +245,19 @@ export const DimensionIssues = ({ dimensionData, variations }: Props) => {
         </div>
       </Modal>
 
-      <div className="my-2 h-100">
+      <div className="h-100">
         <div className="pl-4">
           <h3>Dimensions</h3>
-          <p className="mb-4">Highlights perceived issues across dimensions</p>
+          <p className="mt-1">Highlights perceived issues across dimensions</p>
         </div>
 
         <hr className="mb-0" />
         {areDimensionsAvailable ? (
           <div className="h-75">
-            <div className="h-75 overflow-auto pt-4 px-4">
+            <div
+              className="h-75 overflow-auto px-4"
+              style={{ paddingTop: "12px" }}
+            >
               {availableDimensions.map((d) => {
                 return (
                   <div key={d.value}>
@@ -267,12 +270,16 @@ export const DimensionIssues = ({ dimensionData, variations }: Props) => {
                         setModalOpen(true);
                       }}
                     >
-                      <h4>{d.label}</h4>
+                      <p style={{ marginBottom: "2px" }}>
+                        <b>{d.label}</b>
+                      </p>
                     </a>
                     <p>
-                      {" "}
                       {d.issues.length ? (
-                        <>{d.issues.join(", ")}</>
+                        <>
+                          <b>Issues: </b>
+                          {d.issues.join(", ")}
+                        </>
                       ) : (
                         <i className="text-muted">No issues detected</i>
                       )}

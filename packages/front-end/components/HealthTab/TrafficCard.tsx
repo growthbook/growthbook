@@ -22,7 +22,7 @@ export default function TrafficCard({
   traffic: ExperimentSnapshotTraffic;
   variations: ExperimentReportVariation[];
 }) {
-  const [cumulative, setCumulative] = useState(false);
+  const [cumulative, setCumulative] = useState(true);
   const { settings } = useUser();
 
   const srmThreshold = settings.srmThreshold ?? DEFAULT_SRM_THRESHOLD;
@@ -89,11 +89,12 @@ export default function TrafficCard({
 
         <div className="mt-3 mb-3 d-flex align-items-center">
           <h3>
-            Experiment Traffic by{" "}
             {selectedDimension
-              ? availableDimensions.find((d) => d.value === selectedDimension)
-                  ?.label
-              : "Variation"}
+              ? `Experiment Traffic by ${
+                  availableDimensions.find((d) => d.value === selectedDimension)
+                    ?.label ?? "Dimension"
+                }`
+              : "Experiment Traffic Over Time"}
           </h3>
           {!selectedDimension && (
             <div className="ml-auto">
