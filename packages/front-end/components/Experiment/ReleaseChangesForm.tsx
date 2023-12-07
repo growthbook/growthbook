@@ -4,17 +4,23 @@ import {
   ExperimentPhaseStringDates,
   ExperimentTargetingData,
 } from "back-end/types/experiment";
-import React, {useEffect, useMemo, useState} from "react";
+import React, { useEffect, useMemo, useState } from "react";
+import {
+  FaCheck,
+  FaExclamationCircle,
+  FaQuestionCircle,
+} from "react-icons/fa";
+import { HiOutlineExclamationCircle } from "react-icons/hi";
+import clsx from "clsx";
 import useOrgSettings from "@/hooks/useOrgSettings";
+import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
+import { useUser } from "@/services/UserContext";
+import { useAuth } from "@/services/auth";
+import usePermissions from "@/hooks/usePermissions";
 import SelectField from "../Forms/SelectField";
 import Toggle from "../Forms/Toggle";
 import Tooltip from "../Tooltip/Tooltip";
-import { DocLink } from "../DocLink";
 import { NewBucketingSDKList } from "./HashVersionSelector";
-import {TbTargetArrow} from "react-icons/tb";
-import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
-import {FaQuestionCircle} from "react-icons/fa";
-import {useUser} from "@/services/UserContext";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
@@ -25,12 +31,10 @@ export interface Props {
 function getRecommendedRolloutData({
   experiment,
   data,
-  stickyBucketing,
 }: {
   experiment: ExperimentInterfaceStringDates;
   data: ExperimentTargetingData;
   // | (ExperimentPhaseStringDates & { reseed: boolean, blockedVariations: number[], minBucketVersion: number });
-  stickyBucketing: boolean;
 }) {
   const lastPhase: ExperimentPhaseStringDates | undefined =
     experiment.phases[experiment.phases.length - 1];
@@ -129,7 +133,7 @@ function getRecommendedRolloutData({
     otherNamespaceChanges,
     changeVariationWeights,
     disableVariation,
-  })
+  });
 
   if (
     !moreRestrictiveTargeting &&
@@ -161,17 +165,22 @@ function getRecommendedRolloutData({
 type ExistingUsersOption = "keep" | "exclude";
 
 export default function ReleaseChangesForm({ experiment, form }: Props) {
+  const { apiCall } = useAuth();
+  const { hasCommercialFeature, refreshOrganization } = useUser();
+  const permissions = usePermissions();
   const settings = useOrgSettings();
-  const { hasCommercialFeature } = useUser();
 
-  const stickyBucketing = !!settings.useStickyBucketing;
+  const orgStickyBucketing = !!settings.useStickyBucketing;
   const hasStickyBucketFeature = hasCommercialFeature("sticky-bucketing");
   const [stickyBucketingCTAOpen, setStickyBucketingCTAOpen] = useState(false);
 
   const lastPhase: ExperimentPhaseStringDates | undefined =
     experiment.phases[experiment.phases.length - 1];
 
-  const [existingUsersOption, setExistingUsersOption] = useState<ExistingUsersOption>("keep");
+  const [
+    existingUsersOption,
+    setExistingUsersOption,
+  ] = useState<ExistingUsersOption>("keep");
 
   const newPhase = form.watch("newPhase");
   const variationWeights = form.watch("variationWeights");
@@ -239,7 +248,6 @@ export default function ReleaseChangesForm({ experiment, form }: Props) {
   const recommendedRolloutData = getRecommendedRolloutData({
     experiment,
     data: form.getValues(),
-    stickyBucketing,
   });
   console.log(recommendedRolloutData);
 
@@ -251,117 +259,211 @@ export default function ReleaseChangesForm({ experiment, form }: Props) {
   if (!lastPhase) return null;
 
   return (
-    <div className="mb-2">
-      <hr />
-      {/*<div className="alert alert-info">*/}
-      {/*  We have defaulted you to the recommended release settings below based on*/}
-      {/*  the changes you made above. These recommendations will prevent bias and*/}
-      {/*  data quality issues in your results.{" "}*/}
-      {/*  <DocLink docSection="targetingChanges">Learn more</DocLink>*/}
-      {/*</div>*/}
+    <div
+      className="bg-light px-4 py-4 mt-4 border-top"
+      style={{ boxShadow: "rgba(0, 0, 0, 0.06) 0px 2px 4px 0px inset" }}
+    >
+      <div className="d-flex mb-2">
+        <div className="h4 mb-0">Release changes</div>
+        {/*<div className="alert alert-info">*/}
+        {/*  We have defaulted you to the recommended release settings below based on*/}
+        {/*  the changes you made above. These recommendations will prevent bias and*/}
+        {/*  data quality issues in your results.{" "}*/}
+        {/*  <DocLink docSection="targetingChanges">Learn more</DocLink>*/}
+        {/*</div>*/}
+        <div className="flex-1" />
 
-
-
-      <div className="mb-4 d-flex">
-        {!stickyBucketingCTAOpen ? (<div className="d-inline-block">
+        <div
+          className="text-muted mb-0 pt-1 pb-0 px-2"
+          style={{ marginTop: -5 }}
+        >
           <div>
-            Sticky bucketing is currently {stickyBucketing ? "enabled" : "disabled"} for your organization.
+            {!orgStickyBucketing ? (
+              <HiOutlineExclamationCircle className="mr-1" />
+            ) : (
+              <FaCheck className="mr-1" />
+            )}
+            Sticky Bucketing is {orgStickyBucketing ? "enabled" : "disabled"}{" "}
+            for your organization
           </div>
-          <a
-            role="button"
-            className="a"
-            onClick={(e) => {
-              e.preventDefault();
-              setStickyBucketingCTAOpen(true);
-            }}
-          >
-            Change
-          </a>
-        </div>) : (
-          <>
-        <label className="mr-2" htmlFor="toggle-useStickyBucketing">
-          <PremiumTooltip
-            commercialFeature={"sticky-bucketing"}
-            body={
-              <>
-                <div className="mb-2">
-                  Sticky bucketing allows you to persist a
-                  user&apos;s assigned variation if any of the
-                  following change:
-                  <ol className="mt-1 mb-2" type="a">
-                    <li>the user logs in or logs out</li>
-                    <li>experiment targeting conditions change</li>
-                    <li>experiment coverage changes</li>
-                    <li>variation weights change</li>
-                  </ol>
-                </div>
-                <div>
-                  Enabling sticky bucketing also allows you to set
-                  fine controls over bucketing behavior, such as:
-                  <ul className="mt-1 mb-2">
-                    <li>
-                      assigning variations based on both a{" "}
-                      <code>user_id</code> and{" "}
-                      <code>anonymous_id</code>
-                    </li>
-                    <li>invalidating existing buckets</li>
-                    <li>and more</li>
-                  </ul>
-                </div>
-                <p className="mb-0">
-                  You must enable this feature in your SDK
-                  integration code for it to take effect.
-                </p>
-              </>
-            }
-          >
-            Enable sticky bucketing for organization <FaQuestionCircle />
-          </PremiumTooltip>
-        </label>
-        <Toggle
-          id={"toggle-useStickyBucketing"}
-          value={stickyBucketing}
-          setValue={(value) => {
-            console.log('change...', value);
-          }}
-          disabled={!hasStickyBucketFeature}
-        />
-      </>
-      )}
+          {!stickyBucketingCTAOpen &&
+          !orgStickyBucketing &&
+          permissions.organizationSettings ? (
+            <div className="text-right">
+              <a
+                role="button"
+                className="a ml-3"
+                onClick={(e) => {
+                  e.preventDefault();
+                  setStickyBucketingCTAOpen(true);
+                }}
+              >
+                Enable?
+              </a>
+            </div>
+          ) : null}
+          {stickyBucketingCTAOpen && permissions.organizationSettings ? (
+            <div className="d-flex justify-content-end mt-2">
+              <label className="mr-2" htmlFor="toggle-useStickyBucketing">
+                <PremiumTooltip
+                  commercialFeature={"sticky-bucketing"}
+                  body={
+                    <>
+                      <div className="font-weight-bold mb-2">
+                        This is an organization-level change.
+                      </div>
+                      <div className="mb-2">
+                        Sticky Bucketing allows you to persist a user&apos;s
+                        assigned variation if any of the following change:
+                        <ol className="mt-1 mb-2" type="a">
+                          <li>the user logs in or logs out</li>
+                          <li>experiment targeting conditions change</li>
+                          <li>experiment coverage changes</li>
+                          <li>variation weights change</li>
+                        </ol>
+                      </div>
+                      <div>
+                        Enabling Sticky Bucketing also allows you to set fine
+                        controls over bucketing behavior, such as:
+                        <ul className="mt-1 mb-2">
+                          <li>
+                            assigning variations based on both a{" "}
+                            <code>user_id</code> and <code>anonymous_id</code>
+                          </li>
+                          <li>invalidating existing buckets</li>
+                          <li>and more</li>
+                        </ul>
+                      </div>
+                      <p className="mb-0 text-warning-orange">
+                        <FaExclamationCircle /> You must enable this feature in
+                        your SDK integration code for it to take effect.
+                      </p>
+                    </>
+                  }
+                >
+                  Enable Sticky Bucketing <FaQuestionCircle />
+                </PremiumTooltip>
+              </label>
+              <Toggle
+                id={"toggle-useStickyBucketing"}
+                innerStyle={{ boxShadow: "0px 0 1px rgba(0, 0, 0, 0.75)" }}
+                value={orgStickyBucketing}
+                setValue={async (value) => {
+                  await apiCall(`/organization`, {
+                    method: "PUT",
+                    body: JSON.stringify({
+                      settings: {
+                        useStickyBucketing: value,
+                      },
+                    }),
+                  });
+                  await refreshOrganization();
+                }}
+                disabled={!hasStickyBucketFeature}
+              />
+            </div>
+          ) : null}
+        </div>
       </div>
 
-
-
-      { recommendedRolloutData.promptExistingUserOptions ? (<>
-        <div className="alert alert-warning">
-          <div>
-            <TbTargetArrow size={16} className="mr-1" />
-            Warning: These targeting changes will affect existing users.
+      {recommendedRolloutData.promptExistingUserOptions ? (
+        <>
+          <div
+            className="alert alert-warning mb-0"
+            style={{ borderBottomLeftRadius: 0, borderBottomRightRadius: 0 }}
+          >
+            <div>
+              <FaExclamationCircle /> The changes you have made may impact
+              existing bucketed users
+            </div>
+            {/*todo: experiment level SB setting*/}
           </div>
-          <hr className="my-2" />
-          <div>
-            With experiment sticky bucketing, you can customize how existing users are handled.
+          <div
+            className="appbox mt-0 px-4 pt-3 pb-2"
+            style={{ borderTopLeftRadius: 0, borderTopRightRadius: 0 }}
+          >
+            <SelectField
+              label={
+                <>
+                  <div>What should happen to existing bucketed users?</div>
+                  <small>
+                    Choose an option and we&apos;ll recommend how to release
+                    these changes
+                  </small>
+                </>
+              }
+              value={existingUsersOption}
+              options={[
+                {
+                  label: "Keep their assigned variation",
+                  value: "keep",
+                },
+                {
+                  label: "Exclude them from the experiment",
+                  value: "exclude",
+                },
+                {
+                  label: "Reassign them to a new variation",
+                  value: "reassign",
+                },
+              ]}
+              formatOptionLabel={(value) => {
+                const requiresStickyBucketing =
+                  value.value === "keep" || value.value === "exclude";
+                return (
+                  <div
+                    className={clsx({
+                      "cursor-disabled":
+                        requiresStickyBucketing && !orgStickyBucketing,
+                    })}
+                  >
+                    <span
+                      style={{
+                        opacity:
+                          requiresStickyBucketing && !orgStickyBucketing
+                            ? 0.5
+                            : 1,
+                      }}
+                    >
+                      {value.label}{" "}
+                    </span>
+                    {requiresStickyBucketing && (
+                      <Tooltip
+                        body={`${
+                          orgStickyBucketing ? "Uses" : "Requires"
+                        } Sticky Bucketing`}
+                        className="mr-2"
+                      >
+                        <span
+                          className="badge badge-muted-info badge-pill ml-2 position-relative"
+                          style={{ zIndex: 1, fontSize: "10px" }}
+                        >
+                          SB
+                        </span>
+                      </Tooltip>
+                    )}
+                  </div>
+                );
+              }}
+              onChange={(v) => {
+                const requiresStickyBucketing = v === "keep" || v === "exclude";
+                if (requiresStickyBucketing && !orgStickyBucketing) return;
+                setExistingUsersOption(v as ExistingUsersOption);
+              }}
+            />
           </div>
-          {/*todo: org level SB setting warning (and double check it does anything)*/}
-          {/*todo: experiment level SB setting*/}
+        </>
+      ) : (
+        <div className="alert alert-success">
+          <div className="mb-1">
+            <FaCheck /> The changes you have made do not impact existing
+            bucketed users
+          </div>
+          <div className="mb-0 small">
+            You may safely update the existing experiment phase, if desired,
+            without additional considerations.
+          </div>
         </div>
-        <SelectField
-          label="What should happen to existing users after making these changes?"
-          value={existingUsersOption}
-          options={[
-            {
-              label: "Keep their assigned variation",
-              value: "keep",
-            },
-            {
-              label: "Exclude them from the experiment",
-              value: "exclude",
-            }
-          ]}
-          onChange={(v)=> setExistingUsersOption(v as ExistingUsersOption)}
-        />
-      </>) : (
-        <div>skip...</div>
       )}
 
       <SelectField
