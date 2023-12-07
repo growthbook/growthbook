@@ -117,7 +117,6 @@ const MultiSelectField: FC<
     );
   };
   const mergeStyles = customStyles ? { styles: customStyles } : {};
-  console.log({ ...{ ...ReactSelectProps, ...mergeStyles } });
   return (
     <Field
       {...fieldProps}

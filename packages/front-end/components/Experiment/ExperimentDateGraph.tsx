@@ -67,7 +67,6 @@ const getTooltipContents = (
   hasStats: boolean = true
 ) => {
   const { d, yaxis } = data;
-
   return (
     <>
       <table
