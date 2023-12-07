@@ -3,6 +3,10 @@
     {
       "version": "1.2.0",
       "capabilities": ["bucketingV2", "encryption"]
+    },
+    {
+      "version": "1.0.0",
+      "capabilities": ["looseUnmarshalling"]
     }
   ]
 }
