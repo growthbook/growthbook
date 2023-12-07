@@ -9,6 +9,7 @@ import useOrgSettings from "@/hooks/useOrgSettings";
 import Button from "@/components/Button";
 import TrafficCard from "@/components/HealthTab/TrafficCard";
 import { IssueTags, IssueValue } from "@/components/HealthTab/IssueTags";
+import LoadingSpinner from "@/components/LoadingSpinner";
 import { useSnapshot } from "../SnapshotProvider";
 import { HealthTabOnboardingModal } from "./HealthTabOnboardingModal";
 
@@ -42,6 +43,7 @@ export default function HealthTab({
   const [uiMode, setUiMode] = useState<"open" | "setup" | "adddimension">(
     "open"
   );
+  const [loading, setLoading] = useState<boolean>(false);
 
   useEffect(() => {
     return () => {
@@ -87,6 +89,7 @@ export default function HealthTab({
                 refreshOrganization={refreshOrganization}
                 mutateSnapshot={mutateSnapshot}
                 setAnalysisSettings={setAnalysisSettings}
+                setLoading={setLoading}
               />
             ) : null}
           </>
@@ -137,6 +140,13 @@ export default function HealthTab({
   }
 
   if (!snapshot?.health?.traffic.dimension?.dim_exposure_date) {
+    if (loading) {
+      return (
+        <div className="alert alert-info mt-3">
+          <LoadingSpinner /> Snapshot refreshing, health data loading...
+        </div>
+      );
+    }
     return (
       <div className="alert alert-info mt-3">
         Please return to the results page and run a query to see health data.

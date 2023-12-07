@@ -243,20 +243,8 @@ export const DimensionSlicesRunner: FC<DimensionSlicesRunnerProps> = ({
       <div className="col-12">
         <div className="col-auto ml-auto">
           <div className="row align-items-start mb-3">
-            <div className="flex-1" />
-            {dimensionSlices?.runStarted ? (
-              <div className="pt-2 mr-2">
-                <div
-                  className="text-right text-muted"
-                  style={{ fontSize: "0.7em" }}
-                  title={datetime(dimensionSlices.runStarted)}
-                >
-                  last updated {ago(dimensionSlices.runStarted)}
-                </div>
-              </div>
-            ) : null}
             {permissions.check("runQueries", dataSource.projects || "") ? (
-              <div>
+              <div className="mr-2">
                 <form
                   onSubmit={async (e) => {
                     e.preventDefault();
@@ -282,40 +270,52 @@ export const DimensionSlicesRunner: FC<DimensionSlicesRunnerProps> = ({
                     cancelEndpoint={`/dimension-slices/${id}/cancel`}
                     color={`${dimensionSlices ? "outline-" : ""}primary`}
                   />
-                  <div className="text-right text-muted">
-                    {openLookbackField ? (
-                      <div className="d-inline-flex align-items-center mt-1">
-                        <label className="mb-0 mr-2 small">
-                          Days to look back
-                        </label>
-                        <Field
-                          type="number"
-                          style={{ width: 70 }}
-                          {...form.register("lookbackDays", {
-                            valueAsNumber: true,
-                            min: 1,
-                          })}
-                        />
-                      </div>
-                    ) : (
-                      <span className="mt-1 small">
-                        <a
-                          role="button"
-                          className="a"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            setOpenLookbackField(!openLookbackField);
-                          }}
-                        >
-                          <BsGear />
-                        </a>{" "}
-                        {form.getValues("lookbackDays")} day lookback
-                      </span>
-                    )}
-                  </div>
                 </form>
               </div>
             ) : null}
+            {dimensionSlices?.runStarted ? (
+              <div className="pt-2 mr-2">
+                <div
+                  className="text-right text-muted"
+                  style={{ fontSize: "0.7em" }}
+                  title={datetime(dimensionSlices.runStarted)}
+                >
+                  last updated {ago(dimensionSlices.runStarted)}
+                </div>
+              </div>
+            ) : null}
+            <div className="flex-1" />
+            <div>
+              <div className="text-right text-muted">
+                {openLookbackField ? (
+                  <div className="d-inline-flex align-items-center mt-1">
+                    <label className="mb-0 mr-2 small">Days to look back</label>
+                    <Field
+                      type="number"
+                      style={{ width: 70 }}
+                      {...form.register("lookbackDays", {
+                        valueAsNumber: true,
+                        min: 1,
+                      })}
+                    />
+                  </div>
+                ) : (
+                  <span className="mt-1 small">
+                    <a
+                      role="button"
+                      className="a"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        setOpenLookbackField(!openLookbackField);
+                      }}
+                    >
+                      <BsGear />
+                    </a>{" "}
+                    {form.getValues("lookbackDays")} day lookback
+                  </span>
+                )}
+              </div>
+            </div>
           </div>
         </div>
         {(status === "failed" || error !== "") && dimensionSlices ? (
@@ -326,7 +326,11 @@ export const DimensionSlicesRunner: FC<DimensionSlicesRunnerProps> = ({
         ) : null}
         {status === "succeeded" && dimensionSlices?.results.length === 0 ? (
           <div className="alert alert-warning mt-2">
-            <strong>No experiment assignment rows found in data source.</strong>
+            <strong>
+              No experiment assignment rows found in data source. Increase
+              number of days to look back or ensure that your Experiment
+              Assignment Query is correctly specified.
+            </strong>
           </div>
         ) : null}
         <DimensionSlicesResults
@@ -416,12 +420,17 @@ export const DimensionSlicesResults: FC<DimensionSlicesProps> = ({
                         )})`}</span>
                       </div>
                     </>
-                  ) : status !== "running" ? (
-                    <div className="text-muted">
-                      Run dimension slices query to populate...
-                    </div>
                   ) : (
-                    <div className="text-muted">Updating data...</div>
+                    <div className="text-muted">
+                      {status !== "running" && !dimensionSlices
+                        ? "Run dimension slices query to populate"
+                        : status === "succeeded" &&
+                          dimensionSlices?.results?.length === 0
+                        ? "No data found"
+                        : status === "running"
+                        ? "Updating data"
+                        : ""}
+                    </div>
                   )}
                 </td>
               </tr>

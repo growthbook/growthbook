@@ -125,7 +125,7 @@ const Modal: FC<ModalProps> = ({
               <Tooltip body="View Documentation" className="ml-1 w-4 h-4" />
             </DocLink>
           )}
-          {close && includeCloseCta && (
+          {close && (
             <button
               type="button"
               className="close"
@@ -197,7 +197,7 @@ const Modal: FC<ModalProps> = ({
           ) : (
             ""
           )}
-          {close && (
+          {close && includeCloseCta ? (
             <button
               className="btn btn-link"
               onClick={(e) => {
@@ -207,7 +207,7 @@ const Modal: FC<ModalProps> = ({
             >
               {isSuccess && successMessage ? "Close" : closeCta}
             </button>
-          )}
+          ) : null}
         </div>
       ) : null}
     </div>

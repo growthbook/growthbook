@@ -1,7 +1,16 @@
-import React, { FC, useEffect, useState } from "react";
+import React, {
+  Dispatch,
+  FC,
+  SetStateAction,
+  useEffect,
+  useState,
+} from "react";
 import { DimensionSlicesInterface } from "back-end/types/dimension";
 import { ExposureQuery } from "back-end/types/datasource";
-import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
+import {
+  ExperimentSnapshotAnalysisSettings,
+  ExperimentSnapshotInterface,
+} from "back-end/types/experiment-snapshot";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { useAuth } from "@/services/auth";
 import useApi from "@/hooks/useApi";
@@ -20,9 +29,14 @@ type HealthTabOnboardingModalProps = {
   phase: number;
   close: () => void;
   refreshOrganization: () => void;
-  mutateSnapshot;
-  setAnalysisSettings;
+  mutateSnapshot: () => void;
+  setAnalysisSettings: (
+    analysisSettings: ExperimentSnapshotAnalysisSettings | null
+  ) => void;
+  setLoading: Dispatch<SetStateAction<boolean>>;
 };
+
+type RefreshTypes = "refresh" | "norefresh";
 
 export const HealthTabOnboardingModal: FC<HealthTabOnboardingModalProps> = ({
   experiment,
@@ -31,9 +45,10 @@ export const HealthTabOnboardingModal: FC<HealthTabOnboardingModalProps> = ({
   refreshOrganization,
   mutateSnapshot,
   setAnalysisSettings,
+  setLoading,
 }) => {
   const { apiCall } = useAuth();
-  const [setupChoice, setSetupChoice] = useState("refresh");
+  const [setupChoice, setSetupChoice] = useState<RefreshTypes>("refresh");
   const [step, setStep] = useState(0);
   const { getDatasourceById } = useDefinitions();
   const dataSource = getDatasourceById(experiment.datasource);
@@ -86,31 +101,35 @@ export const HealthTabOnboardingModal: FC<HealthTabOnboardingModalProps> = ({
         body: JSON.stringify(updates),
       });
     }
-    apiCall<{ snapshot: ExperimentSnapshotInterface }>(
-      `/experiment/${experiment.id}/snapshot`,
-      {
-        method: "POST",
-        body: JSON.stringify({
-          phase,
-        }),
-      }
-    )
-      .then((res) => {
-        trackSnapshot(
-          "create",
-          "RunQueriesButton",
-          dataSource?.type || null,
-          res.snapshot
-        );
+    if (setupChoice === "refresh") {
+      setLoading(true);
+      apiCall<{ snapshot: ExperimentSnapshotInterface }>(
+        `/experiment/${experiment.id}/snapshot`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            phase,
+          }),
+        }
+      )
+        .then((res) => {
+          trackSnapshot(
+            "create",
+            "HealthTabOnboarding",
+            dataSource?.type || null,
+            res.snapshot
+          );
 
-        setAnalysisSettings(null);
-        mutateSnapshot();
-        //setRefreshError("");
-      })
-      .catch((e) => {
-        console.error(e);
-        // TODO setRefreshError(e.message);
-      });
+          setAnalysisSettings(null);
+          // TODO set state on results tab to show refreshing
+          // TODO reset analysis settings like baseline row, difference type, etc.
+          mutateSnapshot();
+        })
+        .catch((e) => {
+          console.error(e);
+        });
+    }
+    close();
     refreshOrganization();
   };
 
@@ -128,7 +147,6 @@ export const HealthTabOnboardingModal: FC<HealthTabOnboardingModalProps> = ({
   );
 
   if (error) {
-    // TODO different handling
     return <div className="alert alert-error">{error?.message}</div>;
   }
   const { status } = getQueryStatus(
@@ -137,7 +155,11 @@ export const HealthTabOnboardingModal: FC<HealthTabOnboardingModalProps> = ({
   );
 
   if (step === 1) {
-    const saveEnabled = id && status === "succeeded";
+    const saveEnabled =
+      id &&
+      status === "succeeded" &&
+      data?.dimensionSlices?.results &&
+      data.dimensionSlices.results.length > 0;
     return (
       <>
         <Modal
@@ -155,26 +177,19 @@ export const HealthTabOnboardingModal: FC<HealthTabOnboardingModalProps> = ({
                 disabled={!saveEnabled}
                 onClick={() => setStep(2)}
               >
-                {"Next"}
+                {"Next >"}
               </button>
             </>
           }
-          cta={"Next"}
+          cta={"Next >"}
           size="lg"
-          header={"Configure Health Tab"}
+          header={"Configure Experiment Dimensions for Health Tab"}
         >
           <div className="my-2 ml-3 mr-3">
-            <div className="row mb-2">
-              <strong>Pre-define dimension slices</strong>
-              Pre-defining experiment dimension slices will allow GrowthBook to
-              automatically run traffic and health checks on your experiment for
-              all of your experiment dimensions (e.g. browser, country)
-            </div>
-            <div className="row mb-2">
-              <strong>How?</strong>
-              Running the query on this page will load data using your
-              experiment assignment query to determine the 20 most popular
-              dimension slices.
+            <div className="row mb-3">
+              Configure Experiment Dimension slices to pre-bin dimensions in the
+              most common values. These dimensions will then display on your
+              Health Tab for traffic and experiment balance checks.
             </div>
             <div className="row">
               <DimensionSlicesRunner
@@ -200,15 +215,21 @@ export const HealthTabOnboardingModal: FC<HealthTabOnboardingModalProps> = ({
           close={close}
           includeCloseCta={false}
           secondaryCTA={
-            <button
-              className={`btn btn-primary`}
-              type="submit"
-              onClick={setUpHealthTab}
-            >
-              {"Complete Setup"}
-            </button>
+            <>
+              <button className={`btn btn-link`} onClick={() => setStep(1)}>
+                {"< Back"}
+              </button>
+              <div className="flex-1" />
+              <button
+                className={`btn btn-primary`}
+                type="submit"
+                onClick={setUpHealthTab}
+              >
+                {"Complete Setup"}
+              </button>
+            </>
           }
-          cta={"Next"}
+          cta={"Next >"}
           size="lg"
           header={"Configure Health Tab"}
         >
@@ -221,7 +242,7 @@ export const HealthTabOnboardingModal: FC<HealthTabOnboardingModalProps> = ({
                 <RadioSelector
                   name="type"
                   value={setupChoice}
-                  setValue={(val: string) => setSetupChoice(val)}
+                  setValue={(val: RefreshTypes) => setSetupChoice(val)}
                   labelWidth={"100%"}
                   options={[
                     {
@@ -256,7 +277,7 @@ export const HealthTabOnboardingModal: FC<HealthTabOnboardingModalProps> = ({
             type="submit"
             onClick={() => setStep(1)}
           >
-            {"Next"}
+            {"Next >"}
           </button>
         }
         size="lg"
