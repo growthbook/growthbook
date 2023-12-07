@@ -8,18 +8,13 @@ import cloneDeep from "lodash/cloneDeep";
 import uniqId from "uniqid";
 import { FaExclamationTriangle, FaExternalLinkAlt } from "react-icons/fa";
 import { TestQueryRow } from "back-end/src/types/Integration";
-import { useFeatureIsOn } from "@growthbook/growthbook-react";
 import Code from "@/components/SyntaxHighlighting/Code";
 import StringArrayField from "@/components/Forms/StringArrayField";
 import Toggle from "@/components/Forms/Toggle";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import MultiSelectField from "@/components/Forms/MultiSelectField";
-import { AppFeatures } from "@/types/app-features";
-import { useUser } from "@/services/UserContext";
 import Modal from "../../../Modal";
 import Field from "../../../Forms/Field";
 import EditSqlModal from "../../../SchemaBrowser/EditSqlModal";
-import { TrafficDimensionsTooltip } from "./TrafficDimensionsTooltip";
 
 type EditExperimentAssignmentQueryProps = {
   exposureQuery?: ExposureQuery;
@@ -37,11 +32,7 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
   onCancel,
 }) => {
   const [showAdvancedMode, setShowAdvancedMode] = useState(false);
-  const [sqlOpen, setSqlOpen] = useState(false);
-  const healthTabSettingsEnabled = useFeatureIsOn<AppFeatures>("health-tab");
-  const { settings } = useUser();
-  const showDimensionsForTraffic =
-    healthTabSettingsEnabled && settings.runHealthTrafficQuery;
+  const [uiMode, setUiMode] = useState<"view" | "sql" | "dimension">("view");
   const modalTitle =
     mode === "add"
       ? "Add an Experiment Assignment query"
@@ -70,7 +61,6 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
             id: uniqId("tbl_"),
             name: "",
             dimensions: [],
-            dimensionsForTraffic: [],
             query: defaultQuery,
             userIdType: userIdTypeOptions ? userIdTypeOptions[0]?.value : "",
           },
@@ -81,7 +71,6 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
   const userEnteredQuery = form.watch("query");
   const userEnteredDimensions = form.watch("dimensions");
   const userEnteredHasNameCol = form.watch("hasNameCol");
-  const userEnteredDimsForTraffic = form.watch("dimensionsForTraffic");
 
   const handleSubmit = form.handleSubmit(async (value) => {
     await onSave(value);
@@ -91,7 +80,6 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
       query: "",
       name: "",
       dimensions: [],
-      dimensionsForTraffic: [],
       description: "",
       hasNameCol: false,
       userIdType: undefined,
@@ -227,9 +215,9 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
 
   return (
     <>
-      {sqlOpen && dataSource && (
+      {uiMode === "sql" && dataSource && (
         <EditSqlModal
-          close={() => setSqlOpen(false)}
+          close={() => setUiMode("view")}
           datasourceId={dataSource.id || ""}
           requiredColumns={requiredColumns}
           value={userEnteredQuery}
@@ -239,6 +227,7 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
           validateResponseOverride={validateResponse}
         />
       )}
+
       <Modal
         open={true}
         submit={handleSubmit}
@@ -287,7 +276,7 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
                     type="button"
                     onClick={(e) => {
                       e.preventDefault();
-                      setSqlOpen(true);
+                      setUiMode("sql");
                     }}
                   >
                     <div className="d-flex align-items-center">
@@ -297,6 +286,7 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
                   </button>
                 </div>
               </div>
+
               <div className="form-group">
                 <a
                   href="#"
@@ -311,60 +301,31 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
                 </a>
                 {showAdvancedMode && (
                   <div>
-                    <div className="py-2">
-                      <Toggle
-                        id="userEnteredNameCol"
-                        value={form.watch("hasNameCol") || false}
-                        setValue={(value) => {
-                          form.setValue("hasNameCol", value);
-                        }}
-                      />
-                      <label
-                        className="mr-2 mb-0"
-                        htmlFor="exposure-query-toggle"
-                      >
-                        Use Name Columns
-                      </label>
-                      <Tooltip body="Enable this if you store experiment/variation names as well as ids in your table" />
-                    </div>
-                    <StringArrayField
-                      label="Dimension Columns"
-                      value={userEnteredDimensions}
-                      onChange={(dimensions) => {
-                        form.setValue("dimensions", dimensions);
-                        if (userEnteredDimsForTraffic?.length) {
-                          form.setValue(
-                            "dimensionsForTraffic",
-                            userEnteredDimsForTraffic.filter((d) =>
-                              userEnteredDimensions.includes(d)
-                            )
-                          );
-                        }
-                      }}
-                    />
-                    {showDimensionsForTraffic && (
-                      <MultiSelectField
-                        label={
-                          <>
-                            <span className="mr-2">
-                              Dimensions to use in traffic breakdowns
-                            </span>
-                            <TrafficDimensionsTooltip />
-                          </>
-                        }
-                        value={userEnteredDimsForTraffic || []}
+                    <div>
+                      <div className="mt-3 mb-3">
+                        <Toggle
+                          id="userEnteredNameCol"
+                          value={form.watch("hasNameCol") || false}
+                          setValue={(value) => {
+                            form.setValue("hasNameCol", value);
+                          }}
+                        />
+                        <label
+                          className="mr-2 mb-0"
+                          htmlFor="exposure-query-toggle"
+                        >
+                          Use Name Columns
+                        </label>
+                        <Tooltip body="Enable this if you store experiment/variation names as well as ids in your table" />
+                      </div>
+                      <StringArrayField
+                        label="Dimension Columns"
+                        value={userEnteredDimensions}
                         onChange={(dimensions) => {
-                          form.setValue("dimensionsForTraffic", dimensions);
+                          form.setValue("dimensions", dimensions);
                         }}
-                        options={form.watch("dimensions").map((s) => ({
-                          value: s,
-                          label: s,
-                        }))}
-                        required
-                        placeholder="Select dimensions..."
-                        closeMenuOnSelect={true}
                       />
-                    )}
+                    </div>
                   </div>
                 )}
               </div>

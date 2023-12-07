@@ -212,12 +212,16 @@ export const startExperimentResultQueries = async (
 
   // Settings for health query
   const runTrafficQuery = !dimensionObj && org?.settings?.runHealthTrafficQuery;
-  const dimensionsForTraffic: ExperimentDimension[] = runTrafficQuery
-    ? (exposureQuery?.dimensionsForTraffic || []).map((id) => ({
+  let dimensionsForTraffic: ExperimentDimension[] = [];
+  if (runTrafficQuery && exposureQuery?.dimensionMetadata) {
+    dimensionsForTraffic = exposureQuery.dimensionMetadata
+      .filter((dm) => exposureQuery.dimensions.includes(dm.dimension))
+      .map((dm) => ({
         type: "experiment",
-        id,
-      }))
-    : [];
+        id: dm.dimension,
+        specifiedSlices: dm.specifiedSlices,
+      }));
+  }
 
   const unitQueryParams: ExperimentUnitsQueryParams = {
     activationMetric: activationMetric,
@@ -363,6 +367,7 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
     if (healthQuery) {
       const trafficHealth = analyzeExperimentTraffic({
         rows: healthQuery.result as ExperimentAggregateUnitsQueryResponseRows,
+        error: healthQuery.error,
         variations: this.model.settings.variations,
       });
       result.health = { traffic: trafficHealth };

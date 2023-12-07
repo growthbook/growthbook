@@ -91,4 +91,89 @@ describe("bigquery integration", () => {
       "SUM(COALESCE(value, 0))"
     );
   });
+  it("correctly picks date windows", () => {
+    const bqIntegration = new BigQuery("", {});
+    const baseMetric: MetricInterface = {
+      datasource: "",
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
+      description: "",
+      id: "",
+      ignoreNulls: false,
+      inverse: false,
+      name: "",
+      organization: "",
+      owner: "",
+      queries: [],
+      runStarted: null,
+      type: "binomial",
+      userIdColumns: {
+        user_id: "user_id",
+        anonymous_id: "anonymous_id",
+      },
+      userIdTypes: ["anonymous_id", "user_id"],
+    };
+
+    const numeratorMetric: MetricInterface = {
+      ...baseMetric,
+      ...{
+        conversionDelayHours: -4,
+        conversionWindowHours: 24,
+      },
+    };
+    const denominatorCountMetric: MetricInterface = {
+      ...baseMetric,
+      ...{
+        type: "count",
+        conversionDelayHours: 0,
+        conversionWindowHours: 1,
+      },
+    };
+    const denominatorBinomialMetric: MetricInterface = {
+      ...baseMetric,
+      ...{
+        conversionDelayHours: 0,
+        conversionWindowHours: 1,
+      },
+    };
+    const activationMetric: MetricInterface = {
+      ...baseMetric,
+      ...{
+        conversionDelayHours: 0,
+        conversionWindowHours: 72,
+      },
+    };
+
+    // standard metric
+    expect(
+      bqIntegration["getMaxHoursToConvert"](false, [numeratorMetric], null)
+    ).toEqual(20);
+
+    // funnel metric
+    expect(
+      bqIntegration["getMaxHoursToConvert"](
+        true,
+        [denominatorBinomialMetric].concat([numeratorMetric]),
+        null
+      )
+    ).toEqual(21);
+
+    // ratio metric
+    expect(
+      bqIntegration["getMaxHoursToConvert"](
+        false,
+        [denominatorCountMetric].concat([numeratorMetric]),
+        null
+      )
+    ).toEqual(20);
+
+    // ratio metric activated
+    expect(
+      bqIntegration["getMaxHoursToConvert"](
+        false,
+        [denominatorCountMetric].concat([numeratorMetric]),
+        activationMetric
+      )
+    ).toEqual(92);
+  });
 });
