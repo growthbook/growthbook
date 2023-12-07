@@ -120,6 +120,7 @@ import { environmentRouter } from "./routers/environment/environment.router";
 import { teamRouter } from "./routers/teams/teams.router";
 import { staticFilesRouter } from "./routers/upload/static-files.router";
 import { createGitHubUserToken } from "./models/GitHubUserTokenModel";
+import { githubIntegrationRouter } from "./routers/github-integration/github-integration.router";
 
 const app = express();
 
@@ -320,8 +321,9 @@ app.get("/auth/hasorgs", authController.getHasOrganizations);
 
 app.use("/upload", staticFilesRouter);
 
-// Github integration installation endpoint
+// Github integration installation endpoint (pre-auth)
 app.use("/integrations/github/oauth", async (req, res, next) => {
+  // TODO move this to a controller
   const code = req.query.code;
 
   if (!code || typeof code !== "string") {
@@ -667,6 +669,7 @@ app.use(eventWebHooksRouter);
 
 // Slack integration
 app.use("/integrations/slack", slackIntegrationRouter);
+app.use("/integrations/github", githubIntegrationRouter);
 
 // Data Export
 app.use("/data-export", dataExportRouter);
