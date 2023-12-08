@@ -400,15 +400,16 @@ async function getFeatureDefinitionsResponse({
   const scrubbedFeatures = scrubFeatures(features, capabilities);
   const scrubbedExperiments = scrubExperiments(experiments, capabilities);
   if (JSON.stringify(scrubbedFeatures) !== JSON.stringify(features)) {
-    // eslint-disable-next-line no-console
-    console.error("scrubbedFeatures delta", { scrubbedFeatures, features });
+    logger.error({ scrubbedFeatures, features }, "scrubbedFeatures delta");
   }
   if (JSON.stringify(scrubbedExperiments) !== JSON.stringify(experiments)) {
-    // eslint-disable-next-line no-console
-    console.error("scrubbedExperiments delta", {
-      scrubbedExperiments,
-      experiments,
-    });
+    logger.error(
+      {
+        scrubbedExperiments,
+        experiments,
+      },
+      "scrubbedExperiments delta"
+    );
   }
   // end remove
 
