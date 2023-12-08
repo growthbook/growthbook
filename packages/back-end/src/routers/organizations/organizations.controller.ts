@@ -8,6 +8,7 @@ import {
   getLicense,
   setLicense,
 } from "enterprise";
+import { isValidApiKeyRole, isValidUserRole } from "shared/permissions";
 import {
   AuthRequest,
   ResponseWithStatusAndError,
@@ -301,8 +302,11 @@ export async function putMemberRole(
     projectRoles,
   } = req.body;
 
-  if (role === "scim") {
-    throw new Error("The SCIM role type can only be applied to API keys.");
+  if (!isValidUserRole(role)) {
+    return res.status(400).json({
+      status: 400,
+      message: `${role} is not a valid user role.`,
+    });
   }
   const { id } = req.params;
 
@@ -473,8 +477,11 @@ export async function postMemberApproval(
     });
   }
 
-  if (pendingMember.role === "scim") {
-    throw new Error("The SCIM role type can only be applied to API keys.");
+  if (!isValidUserRole(pendingMember.role)) {
+    return res.status(400).json({
+      status: 400,
+      message: `${pendingMember.role} is not a valid user role.`,
+    });
   }
 
   try {
@@ -549,8 +556,11 @@ export async function putInviteRole(
     projectRoles,
   } = req.body;
 
-  if (role === "scim") {
-    throw new Error("The SCIM role type can only be applied to API keys.");
+  if (!isValidUserRole(role)) {
+    return res.status(400).json({
+      status: 400,
+      message: `${role} is not a valid user role.`,
+    });
   }
 
   const { key } = req.params;
@@ -987,8 +997,11 @@ export async function postInvite(
     projectRoles,
   } = req.body;
 
-  if (role === "scim") {
-    throw new Error("Cannot invite a user with SCIM role");
+  if (!isValidUserRole(role)) {
+    return res.status(400).json({
+      status: 400,
+      message: `${role} is not a valid user role.`,
+    });
   }
 
   const { emailSent, inviteUrl } = await inviteUser({
@@ -1273,7 +1286,7 @@ export async function postApiKey(
     description?: string;
     environment: string;
     project: string;
-    type: string;
+    type: MemberRole | "user";
     secret: boolean;
     encryptSDK: boolean;
   }>,
@@ -1288,6 +1301,8 @@ export async function postApiKey(
     encryptSDK,
     type,
   } = req.body;
+
+  console.log("type", type);
 
   const { preferExisting } = req.query as { preferExisting?: string };
   if (preferExisting) {
@@ -1335,7 +1350,7 @@ export async function postApiKey(
 
   // Handle organization secret tokens
   if (secret) {
-    if (type && !["readonly", "admin", "scim"].includes(type)) {
+    if (!isValidApiKeyRole(type)) {
       throw new Error("can only assign readonly, scim or admin roles");
     }
 
@@ -1630,8 +1645,11 @@ export async function addOrphanedUser(
     projectRoles,
   } = req.body;
 
-  if (role === "scim") {
-    throw new Error("The SCIM role type can only be applied to API keys.");
+  if (!isValidUserRole(role)) {
+    return res.status(400).json({
+      status: 400,
+      message: `${role} is not a valid user role.`,
+    });
   }
 
   // Make sure user exists

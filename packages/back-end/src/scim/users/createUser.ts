@@ -1,5 +1,6 @@
 import { Response } from "express";
 import { cloneDeep } from "lodash";
+import { isValidUserRole } from "shared/permissions";
 import {
   addMemberToOrg,
   convertMemberToManagedByIdp,
@@ -12,21 +13,6 @@ import {
   getUserByEmail,
 } from "../../services/users";
 
-export function isRoleValid(role: MemberRole) {
-  const validRoles: Record<MemberRole, boolean> = {
-    readonly: true,
-    collaborator: true,
-    designer: true,
-    analyst: true,
-    developer: true,
-    engineer: true,
-    experimenter: true,
-    admin: true,
-    scim: false, // SCIM role is only a valid role for API Keys
-  };
-  return validRoles[role] || false;
-}
-
 export async function createUser(
   req: ScimUserPostRequest,
   res: Response<ScimUser | ScimError>
@@ -37,7 +23,7 @@ export async function createUser(
 
   let role: MemberRole = org.settings?.defaultRole?.role || "readonly";
 
-  if (growthbookRole && isRoleValid(growthbookRole)) {
+  if (growthbookRole && isValidUserRole(growthbookRole)) {
     // If a growthbookRole is provided, and it's a MemberRole, use that
     role = growthbookRole;
   }

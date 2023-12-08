@@ -16,7 +16,7 @@ const ApiKeysModal: FC<{
   onCreate: () => void;
   defaultDescription?: string;
   secret?: boolean;
-  type?: "admin" | "readonly" | "user" | "scim";
+  type?: "admin" | "user";
 }> = ({ close, type, onCreate, defaultDescription = "", secret = false }) => {
   const { apiCall } = useAuth();
   const environments = useEnvironments();

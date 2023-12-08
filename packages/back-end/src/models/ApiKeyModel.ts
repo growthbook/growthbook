@@ -14,6 +14,7 @@ import {
   SECRET_API_KEY_ROLE,
 } from "../util/secrets";
 import { roleForApiKey } from "../util/api-key.util";
+import { ApiKeyRole } from "../../types/organization";
 import { findAllOrganizations } from "./OrganizationModel";
 
 const apiKeySchema = new mongoose.Schema({
@@ -96,7 +97,7 @@ export async function createOrganizationApiKey({
 }: {
   organizationId: string;
   description: string;
-  role: "admin" | "readonly" | "scim";
+  role: ApiKeyRole;
 }): Promise<ApiKeyInterface> {
   return await createApiKey({
     organization: organizationId,
