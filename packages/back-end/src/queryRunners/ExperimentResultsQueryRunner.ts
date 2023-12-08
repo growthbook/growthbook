@@ -27,6 +27,7 @@ import {
 import {
   ExperimentAggregateUnitsQueryResponseRows,
   ExperimentDimension,
+  ExperimentFactMetricsQueryParams,
   ExperimentMetricQueryParams,
   ExperimentMetricStats,
   ExperimentQueryResponses,
@@ -38,6 +39,8 @@ import { expandDenominatorMetrics } from "../util/sql";
 import { getOrganizationById } from "../services/organizations";
 import { FactTableMap } from "../models/FactTableModel";
 import { OrganizationInterface } from "../../types/organization";
+import { FactMetricInterface } from "../../types/fact-table";
+import SqlIntegration from "../integrations/SqlIntegration";
 import {
   QueryRunner,
   QueryMap,
@@ -65,10 +68,7 @@ export const TRAFFIC_QUERY_NAME = "traffic";
 
 export const MAX_METRICS_PER_QUERY = 20;
 
-function getFactMetricGroup(metric: ExperimentMetricInterface) {
-  if (!isFactMetric(metric)) {
-    return "";
-  }
+function getFactMetricGroup(metric: FactMetricInterface) {
   // Ratio metrics must have the same numerator and denominator fact table to be grouped
   if (isRatioMetric(metric)) {
     if (metric.numerator.factTableId !== metric.denominator?.factTableId) {
@@ -79,7 +79,7 @@ function getFactMetricGroup(metric: ExperimentMetricInterface) {
 }
 
 export interface GroupedMetrics {
-  groups: ExperimentMetricInterface[][];
+  groups: FactMetricInterface[][];
   singles: ExperimentMetricInterface[];
 }
 
@@ -98,10 +98,6 @@ export function getFactMetricGroups(
   if (settings.skipPartialData) {
     return defaultReturn;
   }
-  // Only some data sources support multi-metric queries due to complicated unnesting SQL
-  if (!integration.getSourceProperties().supportsMultiMetricQueries) {
-    return defaultReturn;
-  }
   // Combining metrics in a single query is an Enterprise-only feature
   if (!orgHasPremiumFeature(organization, "multi-metric-queries")) {
     return defaultReturn;
@@ -110,8 +106,19 @@ export function getFactMetricGroups(
   // TODO: org-level setting to disable multi-metric queries
 
   // Group metrics by fact table id
-  const groups: Record<string, ExperimentMetricInterface[]> = {};
+  const groups: Record<string, FactMetricInterface[]> = {};
   metrics.forEach((m) => {
+    // Only fact metrics
+    if (!isFactMetric(m)) return;
+
+    // Skip grouping metrics with percentile caps if there's not an efficient implementation
+    if (
+      m.capping === "percentile" &&
+      !integration.getSourceProperties().hasEfficientPercentiles
+    ) {
+      return;
+    }
+
     const group = getFactMetricGroup(m);
     if (group) {
       groups[group] = groups[group] || [];
@@ -119,7 +126,7 @@ export function getFactMetricGroups(
     }
   });
 
-  const groupArrays: ExperimentMetricInterface[][] = [];
+  const groupArrays: FactMetricInterface[][] = [];
   Object.values(groups).forEach((group) => {
     // Split groups into chunks of MAX_METRICS_PER_QUERY
     // Remove any single-item groups
@@ -132,7 +139,7 @@ export function getFactMetricGroups(
   // Add any metrics that aren't in groupArrays to the singles array
   const singles: ExperimentMetricInterface[] = [];
   metrics.forEach((m) => {
-    if (!groupArrays.some((group) => group.includes(m))) {
+    if (!isFactMetric(m) || !groupArrays.some((group) => group.includes(m))) {
       singles.push(m);
     }
   });
@@ -146,7 +153,7 @@ export function getFactMetricGroups(
 export const startExperimentResultQueries = async (
   params: ExperimentResultsQueryParams,
   integration: SourceIntegrationInterface,
-  organization: string,
+  organization: OrganizationInterface,
   startQuery: (
     params: StartQueryParams<RowsType, ProcessedRowsType>
   ) => Promise<QueryPointer>
@@ -155,7 +162,7 @@ export const startExperimentResultQueries = async (
   const queryParentId = params.queryParentId;
   const metricMap = params.metricMap;
 
-  const org = await getOrganizationById(organization);
+  const org = await getOrganizationById(organization.id);
   const hasPipelineModeFeature = org
     ? orgHasPremiumFeature(org, "pipeline-mode")
     : false;
@@ -178,7 +185,10 @@ export const startExperimentResultQueries = async (
 
   let segmentObj: SegmentInterface | null = null;
   if (snapshotSettings.segment) {
-    segmentObj = await findSegmentById(snapshotSettings.segment, organization);
+    segmentObj = await findSegmentById(
+      snapshotSettings.segment,
+      organization.id
+    );
   }
 
   const exposureQuery = (integration.settings?.queries?.exposure || []).find(
@@ -187,7 +197,7 @@ export const startExperimentResultQueries = async (
 
   const dimensionObj = await parseDimensionId(
     snapshotSettings.dimensions[0]?.id,
-    organization
+    organization.id
   );
 
   const queries: Queries = [];
@@ -250,7 +260,15 @@ export const startExperimentResultQueries = async (
     });
     queries.push(unitQuery);
   }
-  const promises = selectedMetrics.map(async (m) => {
+
+  const { groups, singles } = getFactMetricGroups(
+    selectedMetrics,
+    params.snapshotSettings,
+    integration,
+    organization
+  );
+
+  const singlePromises = singles.map(async (m) => {
     const denominatorMetrics: MetricInterface[] = [];
     if (!isFactMetric(m) && m.denominator) {
       denominatorMetrics.push(
@@ -285,7 +303,41 @@ export const startExperimentResultQueries = async (
     );
   });
 
-  await Promise.all(promises);
+  const groupPromises = groups.map(async (m, i) => {
+    const queryParams: ExperimentFactMetricsQueryParams = {
+      activationMetric,
+      dimensions: dimensionObj ? [dimensionObj] : [],
+      metrics: m,
+      segment: segmentObj,
+      settings: snapshotSettings,
+      useUnitsTable: !!unitQuery,
+      unitsTableFullName: unitsTableFullName,
+      factTableMap: params.factTableMap,
+    };
+
+    if (
+      !integration.getExperimentFactMetricsQuery ||
+      !integration.runExperimentFactMetricsQuery
+    ) {
+      throw new Error("Integration does not support multi-metric queries");
+    }
+
+    queries.push(
+      await startQuery({
+        name: `group_${i}`,
+        query: integration.getExperimentFactMetricsQuery(queryParams),
+        dependencies: unitQuery ? [unitQuery.query] : [],
+        run: (query, setExternalId) =>
+          (integration as SqlIntegration).runExperimentFactMetricsQuery(
+            query,
+            setExternalId
+          ),
+        process: (rows) => rows,
+      })
+    );
+  });
+
+  await Promise.all([...singlePromises, ...groupPromises]);
 
   if (runTrafficQuery) {
     const trafficQuery = await startQuery({
@@ -323,7 +375,7 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
       return startExperimentResultQueries(
         params,
         this.integration,
-        this.model.organization,
+        this.organization,
         this.startQuery.bind(this)
       );
     } else {

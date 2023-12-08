@@ -13,6 +13,7 @@ import { SegmentInterface } from "../../types/segment";
 import { FormatDialect } from "../util/sql";
 import { TemplateVariables } from "../../types/sql";
 import { FactTableMap } from "../models/FactTableModel";
+import { FactMetricInterface } from "../../types/fact-table";
 
 export type ExternalIdCallback = (id: string) => Promise<void>;
 
@@ -117,6 +118,12 @@ export interface ExperimentUnitsQueryParams extends ExperimentBaseQueryParams {
 export interface ExperimentMetricQueryParams extends ExperimentBaseQueryParams {
   metric: ExperimentMetricInterface;
   denominatorMetrics: ExperimentMetricInterface[];
+  useUnitsTable: boolean;
+}
+
+export interface ExperimentFactMetricsQueryParams
+  extends ExperimentBaseQueryParams {
+  metrics: FactMetricInterface[];
   useUnitsTable: boolean;
 }
 
@@ -234,6 +241,32 @@ export type ExperimentMetricQueryResponseRows = {
   main_covariate_sum_product?: number;
 }[];
 
+export type FactMetricResponseRowJSONData = {
+  id: string;
+  statistic_type: "ratio" | "mean" | "mean_ra";
+  main_metric_type: MetricType;
+  main_cap_value?: number;
+  main_sum: number;
+  main_sum_squares: number;
+  denominator_metric_type?: MetricType;
+  denominator_cap_value?: number;
+  denominator_sum?: number;
+  denominator_sum_squares?: number;
+  main_denominator_sum_product?: number;
+  covariate_metric_type?: MetricType;
+  covariate_sum?: number;
+  covariate_sum_squares?: number;
+  main_covariate_sum_product?: number;
+};
+
+export type ExperimentFactMetricsQueryResponseRows = {
+  dimension: string;
+  variation: string;
+  users: number;
+  count: number;
+  [key: `m${number}`]: FactMetricResponseRowJSONData;
+}[];
+
 export type ExperimentAggregateUnitsQueryResponseRows = {
   variation: string;
   dimension_value: string;
@@ -257,6 +290,7 @@ export type QueryResponse<Rows = Record<string, any>[]> = {
 export type MetricValueQueryResponse = QueryResponse<MetricValueQueryResponseRows>;
 export type PastExperimentQueryResponse = QueryResponse<PastExperimentResponseRows>;
 export type ExperimentMetricQueryResponse = QueryResponse<ExperimentMetricQueryResponseRows>;
+export type ExperimentFactMetricsQueryResponse = QueryResponse<ExperimentFactMetricsQueryResponseRows>;
 export type ExperimentUnitsQueryResponse = QueryResponse;
 export type ExperimentAggregateUnitsQueryResponse = QueryResponse<ExperimentAggregateUnitsQueryResponseRows>;
 export type DimensionSlicesQueryResponse = QueryResponse<DimensionSlicesQueryResponseRows>;
@@ -386,6 +420,9 @@ export interface SourceIntegrationInterface {
     timestampCols?: string[]
   ): Promise<TestQueryResult>;
   getMetricValueQuery(params: MetricValueParams): string;
+  getExperimentFactMetricsQuery?(
+    params: ExperimentFactMetricsQueryParams
+  ): string;
   getExperimentMetricQuery(params: ExperimentMetricQueryParams): string;
   getExperimentAggregateUnitsQuery(
     params: ExperimentAggregateUnitsQueryParams
@@ -405,6 +442,10 @@ export interface SourceIntegrationInterface {
     query: string,
     setExternalId: ExternalIdCallback
   ): Promise<ExperimentMetricQueryResponse>;
+  runExperimentFactMetricsQuery?(
+    query: string,
+    setExternalId: ExternalIdCallback
+  ): Promise<ExperimentFactMetricsQueryResponse>;
   runExperimentAggregateUnitsQuery(
     query: string,
     setExternalId: ExternalIdCallback
