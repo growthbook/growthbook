@@ -19,6 +19,9 @@ const webhookSchema = new mongoose.Schema({
   lastSuccess: Date,
   error: String,
   created: Date,
+  useSDKMode: Boolean,
+  SDKs: [String],
+  sendPayload: Boolean,
 });
 
 export type WebhookDocument = mongoose.Document & WebhookInterface;

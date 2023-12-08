@@ -27,6 +27,7 @@ import useSDKConnections from "@/hooks/useSDKConnections";
 import { isCloud } from "@/services/env";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import PageHead from "@/components/Layout/PageHead";
+import Webhooks from "./webhooks";
 
 function ConnectionDot({ left }: { left: boolean }) {
   return (
@@ -419,7 +420,7 @@ export default function SDKConnectionPage() {
           </Tooltip>
         </div>
       </div>
-
+      <Webhooks />
       <div className="mt-4">
         <CodeSnippetModal
           connections={data.connections}

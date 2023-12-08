@@ -8,6 +8,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import { useEnvironments } from "@/services/features";
 import Field from "../Forms/Field";
 import Modal from "../Modal";
+import Toggle from "../Forms/Toggle";
 
 const WebhooksModal: FC<{
   close: () => void;
@@ -28,6 +29,7 @@ const WebhooksModal: FC<{
       project: current.project || (current.id ? "" : project),
       environment:
         current.environment === undefined ? "production" : current.environment,
+      useSDKMode: current?.useSDKMode || false,
     },
   });
 
@@ -106,6 +108,14 @@ const WebhooksModal: FC<{
         </div>
       )}
       <h4>Webhook Filter</h4>
+      <Toggle
+        id="useSDKMode"
+        label="Use SDK Mode"
+        value={form.watch("useSDKMode")}
+        setValue={(useSDKMode) => {
+          form.setValue("useSDKMode", useSDKMode);
+        }}
+      />
       <Field
         label="Environment"
         options={envOptions}

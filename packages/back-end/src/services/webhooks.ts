@@ -7,8 +7,11 @@ export async function createWebhook(
   organization: string,
   name: string,
   endpoint: string,
-  project: string,
-  environment: string
+  useSDKMode: boolean,
+  SDKs: string[],
+  sendPayload?: boolean,
+  project?: string,
+  environment?: string
 ): Promise<string> {
   const id = uniqid("wh_");
   const signingKey = "wk_" + md5(uniqid()).substr(0, 16);
@@ -25,6 +28,9 @@ export async function createWebhook(
     created: new Date(),
     error: "",
     lastSuccess: null,
+    useSDKMode,
+    SDKs: SDKs || []
+    sendPayload: sendPayload || true,
   };
 
   await WebhookModel.create(doc);
