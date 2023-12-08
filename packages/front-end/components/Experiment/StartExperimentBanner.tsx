@@ -15,8 +15,7 @@ import {
 } from "back-end/types/experimentLaunchChecklist";
 import track from "@/services/track";
 import { useAuth } from "@/services/auth";
-import { startCelebration } from "@/services/celebration";
-import { useLocalStorage } from "@/hooks/useLocalStorage";
+import { useCelebration } from "@/hooks/useCelebration";
 import useApi from "@/hooks/useApi";
 import Button from "../Button";
 import Tooltip from "../Tooltip/Tooltip";
@@ -72,15 +71,12 @@ export function StartExperimentBanner({
   noConfirm?: boolean;
 }) {
   const { apiCall } = useAuth();
-  const [enableCelebrations] = useLocalStorage<boolean>(
-    `enable_growthbook_celebrations`,
-    true
-  );
   const [manualChecklistStatus, setManualChecklistStatus] = useState(
     experiment.manualLaunchChecklist || []
   );
   const [updatingChecklist, setUpdatingChecklist] = useState(false);
   const manualChecklist: ManualChecklist[] = [];
+  const startCelebration = useCelebration();
 
   manualChecklist.push({
     key: "sdk-connection",
@@ -267,7 +263,7 @@ export function StartExperimentBanner({
   }
 
   async function startExperiment() {
-    startCelebration(enableCelebrations);
+    startCelebration();
     if (!experiment.phases?.length) {
       if (newPhase) {
         newPhase();

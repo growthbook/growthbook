@@ -1,4 +1,4 @@
-import { FC, Fragment, useState } from "react";
+import { FC, useState } from "react";
 import { useForm } from "react-hook-form";
 import { FaAngleRight, FaBars, FaBell, FaBuilding } from "react-icons/fa";
 import Link from "next/link";
@@ -10,7 +10,7 @@ import { useUser } from "@/services/UserContext";
 import { useAuth } from "@/services/auth";
 import { usingSSO } from "@/services/env";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import { useLocalStorage } from "@/hooks/useLocalStorage";
+import { useCelebrationLocalStorage } from "@/hooks/useCelebration";
 import Modal from "../Modal";
 import Avatar from "../Avatar/Avatar";
 import ChangePasswordModal from "../Auth/ChangePasswordModal";
@@ -36,10 +36,10 @@ const TopNav: FC<{
   const [changePasswordOpen, setChangePasswordOpen] = useState(false);
   useGlobalMenu(".top-nav-user-menu", () => setUserDropdownOpen(false));
   useGlobalMenu(".top-nav-org-menu", () => setOrgDropdownOpen(false));
-  const [enableCelebrations, setEnableCelebrations] = useLocalStorage<boolean>(
-    `enable_growthbook_celebrations`,
-    true
-  );
+  const [
+    enableCelebrations,
+    setEnableCelebrations,
+  ] = useCelebrationLocalStorage();
 
   const { breadcrumb } = usePageHead();
 
@@ -54,17 +54,15 @@ const TopNav: FC<{
   });
 
   const onSubmitEditProfile = form.handleSubmit(async (value) => {
-    // Update name if it changed
     if (value.name !== name) {
       await apiCall(`/user/name`, {
         method: "PUT",
-        body: JSON.stringify(value),
+        body: JSON.stringify({ name: value.name }),
       });
       updateUser();
       setUserDropdownOpen(false);
     }
 
-    // Update enableCelebrations value if it changed
     if (value.enableCelebrations !== enableCelebrations) {
       setEnableCelebrations(value.enableCelebrations);
     }
