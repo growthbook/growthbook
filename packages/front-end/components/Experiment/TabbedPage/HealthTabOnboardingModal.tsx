@@ -306,16 +306,16 @@ export const HealthTabOnboardingModal: FC<HealthTabOnboardingModalProps> = ({
       ),
     },
   ];
-  const modalClose = (currentStep: number) => {
-    setLastStep(currentStep);
-    setStep(-1);
-  };
+
   const { header, children, secondaryCTA } = pages[step];
 
   return (
     <Modal
       open={open}
-      close={() => modalClose(step)}
+      close={() => {
+        setLastStep(step);
+        setStep(-1);
+      }}
       includeCloseCta={false}
       secondaryCTA={secondaryCTA}
       size="lg"
