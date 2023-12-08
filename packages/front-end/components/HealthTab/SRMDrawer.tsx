@@ -1,6 +1,6 @@
 import { ExperimentSnapshotTraffic } from "back-end/types/experiment-snapshot";
 import { ExperimentReportVariation } from "back-end/types/report";
-import { useEffect } from "react";
+import { useEffect, useLayoutEffect } from "react";
 import { useUser } from "@/services/UserContext";
 import { DEFAULT_SRM_THRESHOLD } from "@/pages/settings";
 import VariationUsersTable from "../Experiment/TabbedPage/VariationUsersTable";
@@ -58,6 +58,20 @@ export default function SRMDrawer({
     totalUsers,
   });
 
+  function onResize() {
+    const childHeight = document.getElementById("child-container")
+      ?.clientHeight;
+    const parentElement = document.getElementById("parent-container");
+
+    parentElement && (parentElement.style.height = `${childHeight}px`);
+  }
+
+  useEffect(() => {
+    window.addEventListener("resize", onResize, false);
+    return () => window.removeEventListener("resize", onResize, false);
+  }, []);
+  useLayoutEffect(onResize, []);
+
   useEffect(() => {
     if (overallHealth === "Issues detected") {
       onNotify({ label: "Experiment Balance", value: "balanceCheck" });
@@ -76,6 +90,7 @@ export default function SRMDrawer({
         <div className="col-8 border-right pr-4">
           <div
             className="overflow-auto"
+            id="child-container"
             ref={(node) => {
               if (node) {
                 const childHeight = node.clientHeight;
