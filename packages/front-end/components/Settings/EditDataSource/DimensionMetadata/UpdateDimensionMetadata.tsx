@@ -242,7 +242,7 @@ export const DimensionSlicesRunner: FC<DimensionSlicesRunnerProps> = ({
     <>
       <div className="col-12">
         <div className="col-auto ml-auto">
-          <div className="row align-items-start mb-3">
+          <div className="row align-items-center mb-3">
             {permissions.check("runQueries", dataSource.projects || "") ? (
               <div className="mr-2">
                 <form
@@ -311,7 +311,7 @@ export const DimensionSlicesRunner: FC<DimensionSlicesRunnerProps> = ({
                     >
                       <BsGear />
                     </a>{" "}
-                    {form.getValues("lookbackDays")} day lookback
+                    {form.getValues("lookbackDays")} days to look back
                   </span>
                 )}
               </div>
@@ -326,11 +326,15 @@ export const DimensionSlicesRunner: FC<DimensionSlicesRunnerProps> = ({
         ) : null}
         {status === "succeeded" && dimensionSlices?.results.length === 0 ? (
           <div className="alert alert-warning mt-2">
-            <strong>
-              No experiment assignment rows found in data source. Increase
-              number of days to look back or ensure that your Experiment
-              Assignment Query is correctly specified.
-            </strong>
+            <p className="mb-0">
+              <strong>
+                No experiment assignment rows found in data source.
+              </strong>{" "}
+            </p>{" "}
+            <p className="mb-0">
+              Either increase the number of days to look back or ensure that
+              your Experiment Assignment Query is correctly specified.
+            </p>
           </div>
         ) : null}
         <DimensionSlicesResults

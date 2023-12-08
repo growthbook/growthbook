@@ -40,9 +40,7 @@ export default function HealthTab({
   const [healthIssues, setHealthIssues] = useState<IssueValue[]>([]);
   // Clean up notification counter & health issues before unmounting
 
-  const [uiMode, setUiMode] = useState<"open" | "setup" | "adddimension">(
-    "open"
-  );
+  const [uiMode, setUiMode] = useState<"open" | "setup">("open");
   const [loading, setLoading] = useState<boolean>(false);
 
   useEffect(() => {

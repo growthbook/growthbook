@@ -50,6 +50,7 @@ export const HealthTabOnboardingModal: FC<HealthTabOnboardingModalProps> = ({
   const { apiCall } = useAuth();
   const [setupChoice, setSetupChoice] = useState<RefreshTypes>("refresh");
   const [step, setStep] = useState(0);
+  const [lastStep, setLastStep] = useState(0);
   const { getDatasourceById } = useDefinitions();
   const dataSource = getDatasourceById(experiment.datasource);
 
@@ -121,7 +122,6 @@ export const HealthTabOnboardingModal: FC<HealthTabOnboardingModalProps> = ({
           );
 
           setAnalysisSettings(null);
-          // TODO set state on results tab to show refreshing
           // TODO reset analysis settings like baseline row, difference type, etc.
           mutateSnapshot();
         })
@@ -164,7 +164,10 @@ export const HealthTabOnboardingModal: FC<HealthTabOnboardingModalProps> = ({
       <>
         <Modal
           open={true}
-          close={close}
+          close={() => {
+            setLastStep(step);
+            setStep(-1);
+          }}
           includeCloseCta={false}
           secondaryCTA={
             <>
@@ -212,7 +215,10 @@ export const HealthTabOnboardingModal: FC<HealthTabOnboardingModalProps> = ({
       <>
         <Modal
           open={true}
-          close={close}
+          close={() => {
+            setLastStep(step);
+            setStep(-1);
+          }}
           includeCloseCta={false}
           secondaryCTA={
             <>
@@ -263,13 +269,40 @@ export const HealthTabOnboardingModal: FC<HealthTabOnboardingModalProps> = ({
         </Modal>
       </>
     );
+  } else if (step === -1) {
+    return (
+      <>
+        <Modal
+          open={true}
+          submit={close}
+          includeCloseCta={false}
+          secondaryCTA={
+            <button
+              className={`btn btn-link`}
+              onClick={() => setStep(lastStep)}
+            >
+              {"Back"}
+            </button>
+          }
+          cta={"Confirm"}
+          size="lg"
+          header={"Exit without Enabling Health Tab"}
+        >
+          <div className="my-2 ml-3 mr-3">
+            <div className="row mb-2">
+              The Health Tab will not be enabled until you complete setup.
+            </div>
+          </div>
+        </Modal>
+      </>
+    );
   }
 
   return (
     <>
       <Modal
         open={true}
-        close={close}
+        close={() => setStep(-1)}
         includeCloseCta={false}
         secondaryCTA={
           <button
