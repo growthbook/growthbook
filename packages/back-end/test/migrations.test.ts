@@ -160,14 +160,12 @@ describe("Metric Migration", () => {
       ...baseMetric,
     });
 
-    const capZeroMetric: LegacyMetricInterface = {
-      ...baseMetric,
-      cap: 0,
-    };
-
-    expect(upgradeMetricDoc(capZeroMetric)).toEqual({
-      ...baseMetric,
-    });
+    expect(upgradeMetricDoc({ ...baseMetric, capping: null, cap: 35 })).toEqual(
+      {
+        ...baseMetric,
+        capping: null,
+      }
+    );
   });
 
   it("updates old metric objects - userIdType", () => {
