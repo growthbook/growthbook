@@ -85,7 +85,7 @@ export const DimensionIssues = ({ dimensionData, variations }: Props) => {
   //     {
   //       value: "dim_browser",
   //       label: "browser",
-  //       issues: ["ie", "chrome", "opera", "arc", "testing"],
+  //       issues: ["ie", "chrome", "example,with,comma", "arc", "testing"],
   //     },
   //     {
   //       value: "dim_browser1",

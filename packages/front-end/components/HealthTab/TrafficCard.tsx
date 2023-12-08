@@ -115,7 +115,7 @@ export default function TrafficCard({
         </div>
       </div>
       {selectedDimension ? (
-        <table className="table w-auto">
+        <table className="table w-auto" style={{ minWidth: "70%" }}>
           <thead>
             <tr>
               <th className="border-top-0" style={{ paddingLeft: "32px" }}>
