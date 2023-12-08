@@ -2,6 +2,7 @@ import { ExperimentSnapshotTraffic } from "back-end/types/experiment-snapshot";
 import { ExperimentReportVariation } from "back-end/types/report";
 import { useMemo, useState } from "react";
 import { getValidDate } from "shared/dates";
+import { FaCircle } from "react-icons/fa6";
 import { useUser } from "@/services/UserContext";
 import { DEFAULT_SRM_THRESHOLD } from "@/pages/settings";
 import track from "@/services/track";
@@ -34,7 +35,12 @@ export default function TrafficCard({
     variations,
     srmThreshold
   );
+
   const [selectedDimension, setSelectedDimension] = useState<string>("");
+
+  const dimensionWithIssues = availableDimensions.find(
+    (d) => d.value === selectedDimension
+  );
 
   // Get data for users graph
   const usersPerDate = useMemo<ExperimentDateGraphDataPoint[]>(() => {
@@ -91,8 +97,7 @@ export default function TrafficCard({
           <h3>
             {selectedDimension
               ? `Experiment Traffic by ${
-                  availableDimensions.find((d) => d.value === selectedDimension)
-                    ?.label ?? "Dimension"
+                  dimensionWithIssues?.label ?? "Dimension"
                 }`
               : "Experiment Traffic Over Time"}
           </h3>
@@ -110,14 +115,11 @@ export default function TrafficCard({
         </div>
       </div>
       {selectedDimension ? (
-        <table className="table w-75">
+        <table className="table w-auto">
           <thead>
             <tr>
-              <th className="border-top-0">
-                {
-                  availableDimensions.find((d) => d.value === selectedDimension)
-                    ?.label
-                }
+              <th className="border-top-0" style={{ paddingLeft: "32px" }}>
+                {dimensionWithIssues?.label}
               </th>
               {variations.map((v, i) => (
                 <th
@@ -131,7 +133,6 @@ export default function TrafficCard({
                       height: 20,
                     }}
                   >
-                    {" "}
                     {i}
                   </span>
                   {v.name}
@@ -142,30 +143,54 @@ export default function TrafficCard({
             </tr>
           </thead>
           <tbody>
-            {(traffic.dimension[selectedDimension] || []).map((r, i) => (
-              <tr key={i}>
-                <td className="border-right">{r.name || <em>unknown</em>}</td>
-                {variations.map((v, i) => (
-                  <td key={i}>
-                    {numberFormatter.format(r.variationUnits[i] || 0)}
+            {(traffic.dimension[selectedDimension] || []).map((r, i) => {
+              const showWarning = !!dimensionWithIssues?.issues.find(
+                (i) => i === r.name
+              );
+              return (
+                <tr key={i}>
+                  <td className="border-right">
+                    {(
+                      <>
+                        <FaCircle
+                          style={{
+                            width: "6px",
+                            height: "6px",
+                            margin: "7px",
+                            color: showWarning ? "#FFC107" : "#E8EBEF",
+                          }}
+                        />
+                        <a
+                          href="#balanceCheck"
+                          onClick={(e) => e.preventDefault}
+                        >
+                          {r.name}
+                        </a>
+                      </>
+                    ) || <em>unknown</em>}
                   </td>
-                ))}
-                <td className="border-left">
-                  {formatTrafficSplit(
-                    variations.map((v) => v.weight),
-                    1
-                  )}
-                </td>
-                <td>
-                  <b>
+                  {variations.map((_v, i) => (
+                    <td style={{ paddingLeft: "35px" }} key={i}>
+                      {numberFormatter.format(r.variationUnits[i] || 0)}
+                    </td>
+                  ))}
+                  <td className="border-left">
                     {formatTrafficSplit(
-                      variations.map((v, i) => r.variationUnits[i] || 0),
+                      variations.map((v) => v.weight),
                       1
                     )}
-                  </b>
-                </td>
-              </tr>
-            ))}
+                  </td>
+                  <td>
+                    <b>
+                      {formatTrafficSplit(
+                        variations.map((v, i) => r.variationUnits[i] || 0),
+                        1
+                      )}
+                    </b>
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       ) : (

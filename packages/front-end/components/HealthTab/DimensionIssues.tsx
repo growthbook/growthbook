@@ -246,7 +246,7 @@ export const DimensionIssues = ({ dimensionData, variations }: Props) => {
       </Modal>
 
       <div className="d-flex flex-column h-100">
-        <div className="pl-4">
+        <div className="px-4">
           <h3>Dimensions</h3>
           <p className="mt-1">Highlights perceived issues across dimensions</p>
         </div>

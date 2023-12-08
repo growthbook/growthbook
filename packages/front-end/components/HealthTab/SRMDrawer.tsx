@@ -99,7 +99,7 @@ export default function SRMDrawer({
             </p>
             <hr className="mb-0"></hr>
             <div style={{ paddingTop: "10px" }}>
-              <div className="row justify-content-start w-100">
+              <div className="row justify-content-start w-100 overflow-auto">
                 <VariationUsersTable
                   users={traffic.overall.variationUnits}
                   variations={variations}
