@@ -1302,8 +1302,6 @@ export async function postApiKey(
     type,
   } = req.body;
 
-  console.log("type", type);
-
   const { preferExisting } = req.query as { preferExisting?: string };
   if (preferExisting) {
     if (secret) {
