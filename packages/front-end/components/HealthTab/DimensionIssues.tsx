@@ -183,7 +183,6 @@ export const DimensionIssues = ({ dimensionData, variations }: Props) => {
                 track("Select health tab dimension");
                 setSelectedDimension(v);
               }}
-              helpText={"Break down traffic by dimension"}
               disabled={!areDimensionsAvailable}
             />
           </div>
