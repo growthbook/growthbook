@@ -4,7 +4,7 @@ import { licenseInit } from "enterprise";
 import { findAllSDKConnections } from "../models/SdkConnectionModel";
 import { getInstallationId } from "../models/InstallationModel";
 import { IS_CLOUD } from "../util/secrets";
-import { getAllDataSources } from "../models/DataSourceModel";
+import { getInstallationDatasources } from "../models/DataSourceModel";
 import { getUserLicenseCodes } from "./users";
 
 async function getMetaData() {
@@ -37,7 +37,7 @@ async function getMetaData() {
       )
     );
 
-    const dataSources = await getAllDataSources();
+    const dataSources = await getInstallationDatasources();
     dataSourceTypes = Array.from(new Set(dataSources.map((ds) => ds.type)));
 
     eventTrackers = Array.from(
@@ -58,10 +58,10 @@ async function getMetaData() {
 
 export async function initializeLicense(licenseKey?: string) {
   const key = licenseKey || process.env.LICENSE_KEY;
-  if (!key || key.startsWith("license_")) {
-    const userLicenseCodes = IS_CLOUD ? [] : await getUserLicenseCodes();
+  if (!IS_CLOUD && (!key || key.startsWith("license_"))) {
+    const userLicenseCodes = await getUserLicenseCodes();
     const metaData = await getMetaData();
-    await licenseInit(licenseKey, userLicenseCodes, metaData);
+    return await licenseInit(licenseKey, userLicenseCodes, metaData);
   }
-  await licenseInit(licenseKey);
+  return await licenseInit(licenseKey);
 }

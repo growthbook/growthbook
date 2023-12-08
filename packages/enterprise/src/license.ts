@@ -7,8 +7,9 @@ import pino from "pino";
 import { omit, sortBy } from "lodash";
 import { LicenseDocument, LicenseModel } from "./models/licenseModel";
 
-//TODO: Set this to the real prod license server
-export const LICENSE_SERVER = "http://localhost:8080";
+export const LICENSE_SERVER =
+  "https://central_license_server.growthbook.io/api/v1/";
+
 const logger = pino();
 
 export type AccountPlan = "oss" | "starter" | "pro" | "pro_sso" | "enterprise";
@@ -338,7 +339,7 @@ async function getLicenseDataFromServer(
   userLicenseCodes: string[],
   metaData: LicenseMetaData
 ): Promise<LicenseInterface> {
-  const url = `${LICENSE_SERVER}/api/v1/license/${licenseId}/check`;
+  const url = `${LICENSE_SERVER}license/${licenseId}/check`;
   const options = {
     method: "PUT",
     headers: {
@@ -362,7 +363,9 @@ async function getLicenseDataFromServer(
   }
 
   if (!serverResult.ok) {
-    logger.warn("License server threw an error. Falling back to cache.");
+    logger.warn(
+      ` Falling back to LicenseModel cache because the license server threw a ${serverResult.status} error: ${serverResult.statusText}.`
+    );
     return getLicenseDataFromMongoCache(currentCache);
   }
 

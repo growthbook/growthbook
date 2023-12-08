@@ -1,7 +1,7 @@
 /***
  * This file is used to store the installation ID of the app.
  * Each installation (dev, prod, etc.) has a unique ID.
- * This is used to identify the installation when registering licenses.
+ * This is used as a singleton to identify the installation when registering licenses.
  */
 import { randomUUID } from "crypto";
 import mongoose from "mongoose";

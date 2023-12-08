@@ -52,9 +52,11 @@ function toInterface(doc: DataSourceDocument): DataSourceInterface {
   return upgradeDatasourceObject(doc.toJSON());
 }
 
-export async function getAllDataSources(): Promise<DataSourceInterface[]> {
+export async function getInstallationDatasources(): Promise<
+  DataSourceInterface[]
+> {
   if (IS_CLOUD) {
-    throw new Error("Cannot get all data sources in cloud mode");
+    throw new Error("Cannot get all installation data sources in cloud mode");
   }
   if (usingFileConfig()) {
     const organizationId = (await findAllOrganizations(0, "", 1))
