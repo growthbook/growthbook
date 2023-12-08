@@ -13,7 +13,7 @@ const SecretApiKeys: FC<{ keys: ApiKeyInterface[]; mutate: () => void }> = ({
   const { apiCall } = useAuth();
   const [open, setOpen] = useState(false);
   const [modalApiKeyType, setModalApiKeyType] = useState<
-    "user" | "admin" | undefined
+    "user" | "admin" | "readonly" | "scim" | undefined
   >();
 
   const permissions = usePermissions();

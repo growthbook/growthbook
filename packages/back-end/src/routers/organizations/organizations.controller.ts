@@ -1286,7 +1286,7 @@ export async function postApiKey(
     description?: string;
     environment: string;
     project: string;
-    type: MemberRole | "user";
+    type: "admin" | "readonly" | "scim" | "user";
     secret: boolean;
     encryptSDK: boolean;
   }>,
