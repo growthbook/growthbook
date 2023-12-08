@@ -1,4 +1,3 @@
-import fs from "fs";
 import bodyParser from "body-parser";
 import cookieParser from "cookie-parser";
 import express, { ErrorRequestHandler, Request, Response } from "express";
@@ -6,7 +5,6 @@ import cors from "cors";
 import asyncHandler from "express-async-handler";
 import compression from "compression";
 import * as Sentry from "@sentry/node";
-import { createAppAuth, createOAuthUserAuth } from "@octokit/auth-app";
 import { usingFileConfig } from "./init/config";
 import { AuthRequest } from "./types/AuthRequest";
 import {
@@ -30,18 +28,6 @@ import scimRouter from "./scim/scim.router";
 if (SENTRY_DSN) {
   Sentry.init({ dsn: SENTRY_DSN });
 }
-
-const githubPrivateKey = fs.readFileSync(
-  process.env.GITHUB_PRIVATE_KEY_PATH || "",
-  "utf8"
-);
-
-const githubAuth = createAppAuth({
-  appId: process.env.GITHUB_APP_ID || "",
-  privateKey: githubPrivateKey,
-  clientId: process.env.GITHUB_CLIENT_ID || "",
-  clientSecret: process.env.GITHUB_CLIENT_SECRET || "",
-});
 
 // Begin Controllers
 import * as authControllerRaw from "./controllers/auth";
@@ -93,6 +79,8 @@ const informationSchemasController = wrapController(
   informationSchemasControllerRaw
 );
 
+import * as githubIntegrationController from "./routers/github-integration/github-integration.controller";
+
 // End Controllers
 
 import { isEmailEnabled } from "./services/email";
@@ -119,7 +107,6 @@ import { demoDatasourceProjectRouter } from "./routers/demo-datasource-project/d
 import { environmentRouter } from "./routers/environment/environment.router";
 import { teamRouter } from "./routers/teams/teams.router";
 import { staticFilesRouter } from "./routers/upload/static-files.router";
-import { createGithubUserToken } from "./models/GithubUserTokenModel";
 import { githubIntegrationRouter } from "./routers/github-integration/github-integration.router";
 
 const app = express();
@@ -322,42 +309,10 @@ app.get("/auth/hasorgs", authController.getHasOrganizations);
 app.use("/upload", staticFilesRouter);
 
 // Github integration installation endpoint (pre-auth)
-app.use("/integrations/github/oauth", async (req, res, next) => {
-  // TODO move this to a controller
-  const code = req.query.code;
-
-  if (!code || typeof code !== "string") {
-    return next();
-  }
-
-  const userAuth = await githubAuth({
-    type: "oauth-user",
-    code,
-    factory: createOAuthUserAuth,
-  });
-
-  // @ts-expect-error octokit types are out of date
-  const authentication: {
-    type: "token";
-    tokenType: "oauth";
-    clientType: "github-app";
-    clientId: string;
-    clientSecret: string;
-    token: string;
-    refreshToken: string;
-    expiresAt: string;
-    refreshTokenExpiresAt: string;
-  } = await userAuth();
-
-  const createdToken = await createGithubUserToken({
-    token: authentication.token,
-    refreshToken: authentication.refreshToken,
-    expiresAt: new Date(authentication.expiresAt),
-    refreshTokenExpiresAt: new Date(authentication.refreshTokenExpiresAt),
-  });
-
-  res.redirect(APP_ORIGIN + "/integrations/github?t_id=" + createdToken.id);
-});
+app.use(
+  "/integrations/github/oauth",
+  githubIntegrationController.completeOAuthFlow
+);
 
 // All other routes require a valid JWT
 const auth = getAuthConnection();

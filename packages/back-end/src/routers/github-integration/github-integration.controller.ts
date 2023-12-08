@@ -1,10 +1,26 @@
-import { Response } from "express";
+import fs from "fs";
+import { Request, NextFunction, Response } from "express";
+import { createAppAuth, createOAuthUserAuth } from "@octokit/auth-app";
 import { getOrgFromReq } from "../../services/organizations";
 import { AuthRequest } from "../../types/AuthRequest";
 import {
   getGithubIntegrationByOrg,
   createGithubIntegration,
 } from "../../models/GithubIntegration";
+import { createGithubUserToken } from "../../models/GithubUserTokenModel";
+import { APP_ORIGIN } from "../../util/secrets";
+
+const githubPrivateKey = fs.readFileSync(
+  process.env.GITHUB_PRIVATE_KEY_PATH || "",
+  "utf8"
+);
+
+const githubAuth = createAppAuth({
+  appId: process.env.GITHUB_APP_ID || "",
+  privateKey: githubPrivateKey,
+  clientId: process.env.GITHUB_CLIENT_ID || "",
+  clientSecret: process.env.GITHUB_CLIENT_SECRET || "",
+});
 
 export const getGithubIntegration = async (req: AuthRequest, res: Response) => {
   req.checkPermissions("manageIntegrations");
@@ -39,4 +55,44 @@ export const postGithubIntegration = async (
     status: 201,
     githubIntegration: created,
   });
+};
+
+export const completeOAuthFlow = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  const code = req.query.code;
+
+  if (!code || typeof code !== "string") {
+    return next();
+  }
+
+  const userAuth = await githubAuth({
+    type: "oauth-user",
+    code,
+    factory: createOAuthUserAuth,
+  });
+
+  // @ts-expect-error octokit types are out of date
+  const authentication: {
+    type: "token";
+    tokenType: "oauth";
+    clientType: "github-app";
+    clientId: string;
+    clientSecret: string;
+    token: string;
+    refreshToken: string;
+    expiresAt: string;
+    refreshTokenExpiresAt: string;
+  } = await userAuth();
+
+  const createdToken = await createGithubUserToken({
+    token: authentication.token,
+    refreshToken: authentication.refreshToken,
+    expiresAt: new Date(authentication.expiresAt),
+    refreshTokenExpiresAt: new Date(authentication.refreshTokenExpiresAt),
+  });
+
+  res.redirect(APP_ORIGIN + "/integrations/github?t_id=" + createdToken.id);
 };
