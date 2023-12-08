@@ -17,12 +17,14 @@ export interface Props {
   experiment: ExperimentInterfaceStringDates;
   onDrawerNotify: () => void;
   onSnapshotUpdate: () => void;
+  resetResultsSettings: () => void;
 }
 
 export default function HealthTab({
   experiment,
   onDrawerNotify,
   onSnapshotUpdate,
+  resetResultsSettings,
 }: Props) {
   const {
     error,
@@ -40,7 +42,7 @@ export default function HealthTab({
   const [healthIssues, setHealthIssues] = useState<IssueValue[]>([]);
   // Clean up notification counter & health issues before unmounting
 
-  const [uiMode, setUiMode] = useState<"open" | "setup">("open");
+  const [setupModalOpen, setSetupModalOpen] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(false);
 
   useEffect(() => {
@@ -68,26 +70,28 @@ export default function HealthTab({
       <div className="alert alert-info mt-3 d-flex">
         {runHealthTrafficQuery === undefined
           ? "Welcome to the new health tab! You can use this tab to view experiment traffic over time, perform balance checks, and check for multiple exposures. To get started, "
-          : "Health queries are disabled in your Organization Settings. To enable them, "}
+          : "Health queries are disabled in your Organization Settings. To enable them and set up the health tab, "}
         {hasPermissionToEditOrgSettings ? (
           <>
-            click the enable button on the right.
+            click the button on the right.
             <Button
               className="mt-2 mb-2 ml-auto"
               style={{ width: "200px" }}
-              onClick={async () => setUiMode("setup")}
+              onClick={async () => setSetupModalOpen(true)}
             >
-              Enable Health Queries
+              Set up Health Tab
             </Button>
-            {uiMode === "setup" ? (
+            {setupModalOpen ? (
               <HealthTabOnboardingModal
                 experiment={experiment}
                 phase={phase}
-                close={() => setUiMode("open")}
+                open={setupModalOpen}
+                close={() => setSetupModalOpen(false)}
                 refreshOrganization={refreshOrganization}
                 mutateSnapshot={mutateSnapshot}
                 setAnalysisSettings={setAnalysisSettings}
                 setLoading={setLoading}
+                resetResultsSettings={resetResultsSettings}
               />
             ) : null}
           </>

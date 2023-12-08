@@ -1,10 +1,4 @@
-import React, {
-  Dispatch,
-  FC,
-  SetStateAction,
-  useEffect,
-  useState,
-} from "react";
+import React, { FC, ReactElement, useEffect, useState } from "react";
 import { DimensionSlicesInterface } from "back-end/types/dimension";
 import { ExposureQuery } from "back-end/types/datasource";
 import {
@@ -25,6 +19,7 @@ import {
 import track, { trackSnapshot } from "@/services/track";
 
 type HealthTabOnboardingModalProps = {
+  open: boolean;
   experiment: ExperimentInterfaceStringDates;
   phase: number;
   close: () => void;
@@ -33,12 +28,14 @@ type HealthTabOnboardingModalProps = {
   setAnalysisSettings: (
     analysisSettings: ExperimentSnapshotAnalysisSettings | null
   ) => void;
-  setLoading: Dispatch<SetStateAction<boolean>>;
+  setLoading: (loading: boolean) => void;
+  resetResultsSettings: () => void;
 };
 
 type RefreshTypes = "refresh" | "norefresh";
 
 export const HealthTabOnboardingModal: FC<HealthTabOnboardingModalProps> = ({
+  open,
   experiment,
   phase,
   close,
@@ -46,6 +43,7 @@ export const HealthTabOnboardingModal: FC<HealthTabOnboardingModalProps> = ({
   mutateSnapshot,
   setAnalysisSettings,
   setLoading,
+  resetResultsSettings,
 }) => {
   const { apiCall } = useAuth();
   const [setupChoice, setSetupChoice] = useState<RefreshTypes>("refresh");
@@ -122,7 +120,7 @@ export const HealthTabOnboardingModal: FC<HealthTabOnboardingModalProps> = ({
           );
 
           setAnalysisSettings(null);
-          // TODO reset analysis settings like baseline row, difference type, etc.
+          resetResultsSettings();
           mutateSnapshot();
         })
         .catch((e) => {
@@ -154,40 +152,72 @@ export const HealthTabOnboardingModal: FC<HealthTabOnboardingModalProps> = ({
     data?.dimensionSlices?.error
   );
 
-  if (step === 1) {
-    const saveEnabled =
-      id &&
-      status === "succeeded" &&
-      data?.dimensionSlices?.results &&
-      data.dimensionSlices.results.length > 0;
+  // exit modal
+  if (step === -1) {
     return (
-      <>
-        <Modal
-          open={true}
-          close={() => {
-            setLastStep(step);
-            setStep(-1);
-          }}
-          includeCloseCta={false}
-          secondaryCTA={
-            <>
-              <button className={`btn btn-link`} onClick={() => setStep(2)}>
-                {"Skip"}
-              </button>
-              <button
-                className={`btn btn-primary`}
-                type="submit"
-                disabled={!saveEnabled}
-                onClick={() => setStep(2)}
-              >
-                {"Next >"}
-              </button>
-            </>
-          }
-          cta={"Next >"}
-          size="lg"
-          header={"Configure Experiment Dimensions for Health Tab"}
+      <Modal
+        open={open}
+        submit={close}
+        cta={"Confirm"}
+        includeCloseCta={false}
+        size={"md"}
+        header={"Exit without Enabling Health Tab"}
+        secondaryCTA={
+          <>
+            <button
+              className={`btn btn-link`}
+              onClick={() => setStep(lastStep)}
+            >
+              {"Back"}
+            </button>
+          </>
+        }
+      >
+        <div className="my-2 ml-3 mr-3">
+          <div className="row mb-2">
+            The Health Tab will not be enabled until you complete setup.
+          </div>
+        </div>
+      </Modal>
+    );
+  }
+
+  const saveDimensionsEnabled =
+    id &&
+    status === "succeeded" &&
+    data?.dimensionSlices?.results &&
+    data.dimensionSlices.results.length > 0;
+
+  const pages: {
+    header: string;
+    children: ReactElement;
+    secondaryCTA: ReactElement;
+  }[] = [
+    // step 0
+    {
+      header: "Set up Health Tab",
+      children: (
+        <div>
+          By enabling the health tab, one additional query will be run per
+          experiment analysis to automatically provide data about traffic over
+          time and dimension breakdowns.
+        </div>
+      ),
+      secondaryCTA: (
+        <button
+          className={`btn btn-primary`}
+          type="submit"
+          onClick={() => setStep(1)}
         >
+          {"Next >"}
+        </button>
+      ),
+    },
+    // step 1
+    {
+      header: "Configure Experiment Dimensions for Health Tab",
+      children: (
+        <>
           <div className="my-2 ml-3 mr-3">
             <div className="row mb-3">
               Configure Experiment Dimension slices to pre-bin dimensions in the
@@ -207,38 +237,29 @@ export const HealthTabOnboardingModal: FC<HealthTabOnboardingModalProps> = ({
               />
             </div>
           </div>
-        </Modal>
-      </>
-    );
-  } else if (step === 2) {
-    return (
-      <>
-        <Modal
-          open={true}
-          close={() => {
-            setLastStep(step);
-            setStep(-1);
-          }}
-          includeCloseCta={false}
-          secondaryCTA={
-            <>
-              <button className={`btn btn-link`} onClick={() => setStep(1)}>
-                {"< Back"}
-              </button>
-              <div className="flex-1" />
-              <button
-                className={`btn btn-primary`}
-                type="submit"
-                onClick={setUpHealthTab}
-              >
-                {"Complete Setup"}
-              </button>
-            </>
-          }
-          cta={"Next >"}
-          size="lg"
-          header={"Configure Health Tab"}
-        >
+        </>
+      ),
+      secondaryCTA: (
+        <>
+          <button className={`btn btn-link`} onClick={() => setStep(2)}>
+            {"Skip"}
+          </button>
+          <button
+            className={`btn btn-primary`}
+            type="submit"
+            disabled={!saveDimensionsEnabled}
+            onClick={() => setStep(2)}
+          >
+            {"Next >"}
+          </button>
+        </>
+      ),
+    },
+    // step 2
+    {
+      header: "Configure Experiment Dimensions for Health Tab",
+      children: (
+        <>
           <div className="my-2 ml-3 mr-3">
             <div className="row mb-2">
               Your Health Tab will display results when your data refreshes.
@@ -266,62 +287,41 @@ export const HealthTabOnboardingModal: FC<HealthTabOnboardingModalProps> = ({
               </div>
             </div>
           </div>
-        </Modal>
-      </>
-    );
-  } else if (step === -1) {
-    return (
-      <>
-        <Modal
-          open={true}
-          submit={close}
-          includeCloseCta={false}
-          secondaryCTA={
-            <button
-              className={`btn btn-link`}
-              onClick={() => setStep(lastStep)}
-            >
-              {"Back"}
-            </button>
-          }
-          cta={"Confirm"}
-          size="lg"
-          header={"Exit without Enabling Health Tab"}
-        >
-          <div className="my-2 ml-3 mr-3">
-            <div className="row mb-2">
-              The Health Tab will not be enabled until you complete setup.
-            </div>
-          </div>
-        </Modal>
-      </>
-    );
-  }
-
-  return (
-    <>
-      <Modal
-        open={true}
-        close={() => setStep(-1)}
-        includeCloseCta={false}
-        secondaryCTA={
+        </>
+      ),
+      secondaryCTA: (
+        <>
+          <button className={`btn btn-link`} onClick={() => setStep(1)}>
+            {"< Back"}
+          </button>
+          <div className="flex-1" />
           <button
             className={`btn btn-primary`}
             type="submit"
-            onClick={() => setStep(1)}
+            onClick={setUpHealthTab}
           >
-            {"Next >"}
+            {"Complete Setup"}
           </button>
-        }
-        size="lg"
-        header={"Configure Health Tab"}
-      >
-        <div>
-          By enabling the health tab, one additional query will be run per
-          experiment analysis to automatically provide data about traffic over
-          time and dimension breakdowns.
-        </div>
-      </Modal>
-    </>
+        </>
+      ),
+    },
+  ];
+  const modalClose = (currentStep: number) => {
+    setLastStep(currentStep);
+    setStep(-1);
+  };
+  const { header, children, secondaryCTA } = pages[step];
+
+  return (
+    <Modal
+      open={open}
+      close={() => modalClose(step)}
+      includeCloseCta={false}
+      secondaryCTA={secondaryCTA}
+      size="lg"
+      header={header}
+    >
+      {children}
+    </Modal>
   );
 };

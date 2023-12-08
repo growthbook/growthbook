@@ -337,6 +337,10 @@ export const DimensionSlicesRunner: FC<DimensionSlicesRunnerProps> = ({
             </p>
           </div>
         ) : null}
+
+        <div className="row align-items-center mb-2">
+          <strong>Dimension Slices to Display on Health Tab:</strong>
+        </div>
         <DimensionSlicesResults
           status={status}
           dimensions={exposureQuery.dimensions}
