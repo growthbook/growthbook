@@ -23,6 +23,8 @@ GrowthBook's SCIM integration currently offers the following features:
 
 When a user is provisioned, they are added to your GrowthBook organization with your organization's default role. After provisioning, admin users can adjust their roles and permissions via the GrowthBook application as needed. It's important to note that if a user is provisioned through SCIM, they can only be deprovisioned through your identity provider.
 
+GrowthBook does support the ability to optionally [define a role when provioning a user](#how-to-define-user-role-when-provisioning). Project-level permissions are not supported when provisioning a user via SCIM. That must be done via the GrowthBook application.
+
 When a group is added to "Push Groups" in your Okta SCIM application, groups and their members will be synced with GrowthBook via a corresponding [Team](https://docs.growthbook.io/account/user-permissions). Please note that only members that have been provisioned into the GrowthBook app will be added to the Team in GrowthBook. For example, if you have a push group with members A, B, and C and only A and B are assigned to GrowthBook on the "Assignments" tab, the corresponding team on GrowthBook will only include members A and B. Similarly to user provisioning, new Teams will be created with your organization's default role and permissions for the Team will need to be adjusted within GrowthBook. Group removal or membership changes will need to be done through your identity provider.
 
 :::note
@@ -63,6 +65,46 @@ We are actively working on adding support for additional identity providers.
 
 9. Congratulations! Your application is now set up. You can navigate to the "Assignments" tab and assign people to GrowthBook and to the "Push Groups" tab to sync groups with GrowthBook Teams.
 
+### How to define user role when provisioning
+
+1. First, ensure that you've followed the general setup instructions above.
+
+2. In Okta, navigate to the Application you created for GrowthBook SCIM, and click on the "Provisioning" tab, and scroll to the "Attribute Mappings" section, before clicking "Go to Profile Editor".
+
+3. Then, you'll click "Add Attribute" to create a new attribute. with the following details.
+
+- Data type: string
+- Display name: GrowthBook Role
+- Variable name: growthbookRole
+- External name: growthbookRole
+- External namespace: urn:ietf:params:scim:schemas:core:2.0:User
+- Check the box to define an enumerated list of values
+- Here, you need to add the following enum Options
+  - Display name: Read only
+  - Value: readonly
+  - Display name: Collaborator
+  - Value: collaborator
+  - Display name: Engineer
+  - Value: engineer
+  - Display name: Analyst
+  - Value: analyst
+  - Display name: Experimenter
+  - Value: experimenter
+  - Display name: Admin
+  - Value: admin
+
+![](../../static/images/integrations/scim/GrowthBook-SCIM-Define-Role-Attribute.png)
+
+:::note
+
+It's important each of these values are entered exactly as shown above, including capitalization. If there is a descrepancy, the user's role will fall back to your organizations default role.
+
+:::
+
+4. Once complete, when you provision a user, you can select their role from the dropdown, and that will be applied to the user in GrowthBook. If you're not sure which role a user should have, you can view GrowthBook role permissions [here](https://docs.growthbook.io/account/user-permissions).
+
+![](../../static/images/integrations/scim/GrowthBook-SCIM-Define-User-Role.png)
+
 ## Frequently Asked Questions
 
 **What features are supported with SCIM?**
@@ -88,3 +130,19 @@ Existing users in GrowthBook will not be affected by SCIM. You can continue to m
 **Does GrowthBook follow SCIM 1.1 or 2.0 Protocol?**
 
 GrowthBook follows the SCIM 2.0 protocol.
+
+**What happens if I provision a user with a role that doesn't exist?**
+
+GrowthBook will fallback to your organization's default role.
+
+**Can I provision a user with project-specific permissions?**
+
+No, at this time, you can only provision a user's global role. Project-specific permissions must be managed through the GrowthBook application.
+
+**Can I change a user's global role after they've been provisioned?**
+
+Yes, you can change a user's global role through the GrowthBook application or via Okta. Please note that if you change a user's global role through the GrowthBook Application, it will then be out-of-date in Okta. If you then update the user in Okta, it will update the user's global role.
+
+**I'm changing the user's role in Okta, but it's not changing in GrowthBook**
+
+In order for the user's role to be updated in GrowthBook, you must update your Application provisioning to support "updates". Please note that the only property GrowthBook supports updating is the `growthBookRole`.

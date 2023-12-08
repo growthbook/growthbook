@@ -40,6 +40,9 @@ const MetricTooltipBody = ({
   const metricOverrideFields = row?.metricOverrideFields ?? [];
 
   const conversionWindowHours = getConversionWindowHours(metric);
+  const metricHasNoConversionWindow =
+    isFactMetric(metric) && !metric.hasConversionWindow;
+
   const metricInfo: MetricInfo[] = [
     {
       show: true,
@@ -79,7 +82,9 @@ const MetricTooltipBody = ({
       ),
     },
     {
-      show: !isNullUndefinedOrEmpty(conversionWindowHours),
+      show:
+        !isNullUndefinedOrEmpty(conversionWindowHours) &&
+        !metricHasNoConversionWindow,
       label: "Conversion Window Hours",
       body: (
         <>
