@@ -132,6 +132,44 @@ describe("Metric Migration", () => {
     });
   });
 
+  it("doesn't overwrite new capping settings", () => {
+    const baseMetric: LegacyMetricInterface = {
+      datasource: "",
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
+      description: "",
+      id: "",
+      ignoreNulls: false,
+      inverse: false,
+      name: "",
+      organization: "",
+      owner: "",
+      queries: [],
+      runStarted: null,
+      capping: "percentile",
+      capValue: 0.99,
+      type: "binomial",
+      userIdColumns: {
+        user_id: "user_id",
+        anonymous_id: "anonymous_id",
+      },
+      userIdTypes: ["anonymous_id", "user_id"],
+    };
+
+    expect(upgradeMetricDoc({ ...baseMetric, cap: 35 })).toEqual({
+      ...baseMetric,
+    });
+
+    const capZeroMetric: LegacyMetricInterface = {
+      ...baseMetric,
+      cap: 0,
+    };
+
+    expect(upgradeMetricDoc(capZeroMetric)).toEqual({
+      ...baseMetric,
+    });
+  });
+
   it("updates old metric objects - userIdType", () => {
     const baseMetric: LegacyMetricInterface = {
       datasource: "",
