@@ -1,10 +1,10 @@
 import { cloneDeep } from "lodash";
 import { Response } from "express";
+import { isValidUserRole } from "shared/permissions";
 import { ScimError, ScimUser, ScimUserPutRequest } from "../../../types/scim";
 import { expandOrgMembers } from "../../services/organizations";
 import { updateOrganization } from "../../models/OrganizationModel";
 import { MemberRole, OrganizationInterface } from "../../../types/organization";
-import { isRoleValid } from "./createUser";
 
 async function updateUserRole(
   org: OrganizationInterface,
@@ -80,7 +80,7 @@ export async function putUser(
   const responseObj = cloneDeep(req.body);
 
   if (growthbookRole && growthbookRole !== currentMemberRole) {
-    if (!isRoleValid(growthbookRole)) {
+    if (!isValidUserRole(growthbookRole)) {
       return res.status(400).json({
         schemas: ["urn:ietf:params:scim:api:messages:2.0:Error"],
         status: "400",
