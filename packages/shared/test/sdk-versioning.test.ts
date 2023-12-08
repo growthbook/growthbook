@@ -199,7 +199,7 @@ describe("payload scrubbing", () => {
         rules: [
           {
             key: "feature-exp",
-            seed: "feature-exp",
+            // seed: "feature-exp",
             hashAttribute: "id",
             // fallbackAttribute: "deviceId",
             // hashVersion: 2,
@@ -208,7 +208,7 @@ describe("payload scrubbing", () => {
             variations: ["control", "red", "blue"],
             coverage: 1,
             weights: [0.3334, 0.3333, 0.3333],
-            phase: "0",
+            // phase: "0",
           },
         ],
       },
@@ -216,7 +216,7 @@ describe("payload scrubbing", () => {
     experiments: [
       {
         key: "my-experiment",
-        seed: "s1",
+        // seed: "s1",
         hashAttribute: "id",
         // fallbackAttribute: "anonymousId",
         // hashVersion: 2,

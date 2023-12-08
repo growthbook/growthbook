@@ -15,13 +15,6 @@ const strictFeatureRuleKeys = [
   "namespace",
   "force",
   "hashAttribute",
-  "range",
-  "ranges",
-  "meta",
-  "filters",
-  "seed",
-  "name",
-  "phase",
 ];
 const strictExperimentKeys = [
   "key",
@@ -37,6 +30,10 @@ const strictExperimentKeys = [
   "groups",
   "force",
   "hashAttribute",
+];
+const bucketingV2Keys = [
+  "hashVersion",
+  "range",
   "ranges",
   "meta",
   "filters",
@@ -44,7 +41,6 @@ const strictExperimentKeys = [
   "name",
   "phase",
 ];
-const bucketingV2Keys = ["hashVersion"];
 
 export const scrubFeatures = (
   features: Record<string, FeatureDefinitionWithProject>,
@@ -54,6 +50,7 @@ export const scrubFeatures = (
     return features;
   }
 
+  features = { ...features };
   const allowedFeatureKeys = [...strictFeatureKeys];
   const allowedFeatureRuleKeys = [...strictFeatureRuleKeys];
   if (capabilities.includes("bucketingV2")) {
@@ -61,19 +58,15 @@ export const scrubFeatures = (
   }
 
   for (const k in features) {
-    if (!capabilities.includes("looseUnmarshalling")) {
-      features[k] = pick(
-        features[k],
-        allowedFeatureKeys
-      ) as FeatureDefinitionWithProject;
-    }
+    features[k] = pick(
+      features[k],
+      allowedFeatureKeys
+    ) as FeatureDefinitionWithProject;
     if (features[k]?.rules) {
       features[k].rules = features[k].rules?.map((rule) => {
-        if (!capabilities.includes("looseUnmarshalling")) {
-          rule = {
-            ...pick(rule, allowedFeatureRuleKeys),
-          };
-        }
+        rule = {
+          ...pick(rule, allowedFeatureRuleKeys),
+        };
         return rule;
       });
     }
@@ -90,18 +83,17 @@ export const scrubExperiments = (
     return experiments;
   }
 
+  experiments = [...experiments];
   const allowedExperimentKeys = [...strictExperimentKeys];
   if (capabilities.includes("bucketingV2")) {
     allowedExperimentKeys.push(...bucketingV2Keys);
   }
 
   for (let i = 0; i < experiments.length; i++) {
-    if (!capabilities.includes("looseUnmarshalling")) {
-      experiments[i] = pick(
-        experiments[i],
-        allowedExperimentKeys
-      ) as AutoExperimentWithProject;
-    }
+    experiments[i] = pick(
+      experiments[i],
+      allowedExperimentKeys
+    ) as AutoExperimentWithProject;
   }
 
   return experiments;
