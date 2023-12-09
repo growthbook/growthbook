@@ -75,11 +75,44 @@ export const DimensionIssues = ({ dimensionData, variations }: Props) => {
 
   const srmThreshold = settings.srmThreshold ?? DEFAULT_SRM_THRESHOLD;
 
-  const availableDimensions = transformDimensionData(
-    dimensionData,
-    variations,
-    srmThreshold
-  ).sort((a, b) => b.issues.length - a.issues.length);
+  // const availableDimensions = transformDimensionData(
+  //   dimensionData,
+  //   variations,
+  //   srmThreshold
+  // ).sort((a, b) => b.issues.length - a.issues.length);
+
+  const availableDimensions = [
+    {
+      value: "dim_browser",
+      label: "browser",
+      issues: ["ie", "chrome", "opera", "arc", "testing"],
+    },
+    {
+      value: "dim_browser1",
+      label: "browser",
+      issues: ["ie", "chrome", "opera"],
+    },
+    {
+      value: "dim_browser2",
+      label: "browser",
+      issues: ["ie", "chrome", "opera", "arc", "testing", "extra"],
+    },
+    {
+      value: "dim_browser3",
+      label: "browser",
+      issues: [],
+    },
+    {
+      value: "dim_browser4",
+      label: "browser",
+      issues: ["ie", "chrome", "opera"],
+    },
+    {
+      value: "dim_browser4",
+      label: "browser",
+      issues: ["ie", "chrome", "opera"],
+    },
+  ].sort((a, b) => b.issues.length - a.issues.length);
 
   const [selectedDimension, setSelectedDimension] = useState(
     availableDimensions[0]?.value || ""

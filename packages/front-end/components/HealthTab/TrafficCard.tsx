@@ -1,6 +1,6 @@
 import { ExperimentSnapshotTraffic } from "back-end/types/experiment-snapshot";
 import { ExperimentReportVariation } from "back-end/types/report";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { getValidDate } from "shared/dates";
 import { FaCircle } from "react-icons/fa6";
 import { useUser } from "@/services/UserContext";
@@ -12,6 +12,7 @@ import ExperimentDateGraph, {
 } from "../Experiment/ExperimentDateGraph";
 import Toggle from "../Forms/Toggle";
 import SelectField from "../Forms/SelectField";
+import Tooltip from "../Tooltip/Tooltip";
 import { transformDimensionData } from "./DimensionIssues";
 
 const numberFormatter = new Intl.NumberFormat();
@@ -41,6 +42,12 @@ export default function TrafficCard({
   const dimensionWithIssues = availableDimensions.find(
     (d) => d.value === selectedDimension
   );
+
+  useEffect(() => {
+    // Reset selected dimension if traffic changes and dimension is no longer available
+    if (!availableDimensions.find((d) => d.value === selectedDimension))
+      setSelectedDimension("");
+  }, [availableDimensions, selectedDimension, traffic]);
 
   // Get data for users graph
   const usersPerDate = useMemo<ExperimentDateGraphDataPoint[]>(() => {
@@ -152,14 +159,23 @@ export default function TrafficCard({
                   <td className="border-right">
                     {(
                       <>
-                        <FaCircle
-                          style={{
-                            width: "6px",
-                            height: "6px",
-                            margin: "7px",
-                            color: showWarning ? "#FFC107" : "#E8EBEF",
-                          }}
-                        />
+                        <Tooltip
+                          body={
+                            showWarning
+                              ? "Issues detected"
+                              : "No issues detected"
+                          }
+                          tipPosition="top"
+                        >
+                          <FaCircle
+                            style={{
+                              width: "6px",
+                              height: "6px",
+                              margin: "7px",
+                              color: showWarning ? "#FFC107" : "#E8EBEF",
+                            }}
+                          />{" "}
+                        </Tooltip>
                         <a
                           href="#balanceCheck"
                           onClick={(e) => e.preventDefault}

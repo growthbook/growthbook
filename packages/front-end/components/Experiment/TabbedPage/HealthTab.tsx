@@ -160,7 +160,6 @@ export default function HealthTab({
           traffic={traffic}
           variations={variations}
           totalUsers={totalUsers}
-          datasource={experiment.datasource}
           onNotify={handleDrawerNotify}
         />
       </div>

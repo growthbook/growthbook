@@ -14,7 +14,6 @@ interface Props {
   traffic: ExperimentSnapshotTraffic;
   variations: ExperimentReportVariation[];
   totalUsers: number;
-  datasource: string;
   onNotify: (issue: IssueValue) => void;
 }
 
@@ -43,10 +42,8 @@ export default function SRMDrawer({
   traffic,
   variations,
   totalUsers,
-  datasource,
   onNotify,
 }: Props) {
-  console.log(datasource);
   const { settings } = useUser();
 
   const srmThreshold = settings.srmThreshold ?? DEFAULT_SRM_THRESHOLD;
@@ -85,7 +82,7 @@ export default function SRMDrawer({
   }
 
   return (
-    <div className="appbox my-4 pl-3 py-3">
+    <div className="appbox container-fluid my-4 pl-3 py-3">
       <div className="row overflow-hidden" id="parent-container">
         <div className="col-8 border-right pr-4">
           <div
@@ -143,7 +140,7 @@ export default function SRMDrawer({
             </div>
           </div>
         </div>
-        <div className="col h-100 w-100 p-0 overflow-hidden">
+        <div className="col h-100 p-0 overflow-hidden">
           <DimensionIssues
             dimensionData={traffic.dimension}
             variations={variations}
