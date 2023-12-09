@@ -241,30 +241,12 @@ export type ExperimentMetricQueryResponseRows = {
   main_covariate_sum_product?: number;
 }[];
 
-export type FactMetricResponseRowJSONData = {
-  id: string;
-  statistic_type: "ratio" | "mean" | "mean_ra";
-  main_metric_type: MetricType;
-  main_cap_value?: number;
-  main_sum: number;
-  main_sum_squares: number;
-  denominator_metric_type?: MetricType;
-  denominator_cap_value?: number;
-  denominator_sum?: number;
-  denominator_sum_squares?: number;
-  main_denominator_sum_product?: number;
-  covariate_metric_type?: MetricType;
-  covariate_sum?: number;
-  covariate_sum_squares?: number;
-  main_covariate_sum_product?: number;
-};
-
 export type ExperimentFactMetricsQueryResponseRows = {
   dimension: string;
   variation: string;
   users: number;
   count: number;
-  [key: `m${number}`]: FactMetricResponseRowJSONData;
+  [key: string]: number | string;
 }[];
 
 export type ExperimentAggregateUnitsQueryResponseRows = {

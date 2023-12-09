@@ -9,6 +9,8 @@ import {
 } from "react-icons/fa";
 import clsx from "clsx";
 import { getValidDate } from "shared/dates";
+import { isFactMetricId } from "shared/experiments";
+import { useDefinitions } from "@/services/DefinitionsContext";
 import Code from "../SyntaxHighlighting/Code";
 
 const ExpandableQuery: FC<{
@@ -23,6 +25,8 @@ const ExpandableQuery: FC<{
       title = comments[2];
     }
   }
+
+  const { getFactMetricById } = useDefinitions();
 
   return (
     <div className="mb-4">
@@ -76,6 +80,23 @@ const ExpandableQuery: FC<{
                         <th>{i}</th>
                         {/* @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'. */}
                         {Object.keys(query.rawResult[0]).map((k) => {
+                          const val = row[k];
+                          if (typeof val === "string" && isFactMetricId(val)) {
+                            const factMetric = getFactMetricById(val);
+                            if (factMetric) {
+                              return (
+                                <td key={k}>
+                                  <span
+                                    className="badge badge-secondary"
+                                    title={val}
+                                  >
+                                    {factMetric?.name || val}
+                                  </span>
+                                </td>
+                              );
+                            }
+                          }
+
                           return (
                             <td key={k}>
                               {JSON.stringify(row[k]) ?? (

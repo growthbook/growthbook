@@ -51,7 +51,6 @@ import {
   DimensionSlicesQueryParams,
   ExperimentFactMetricsQueryParams,
   ExperimentFactMetricsQueryResponse,
-  FactMetricResponseRowJSONData,
 } from "../types/Integration";
 import { DimensionInterface } from "../../types/dimension";
 import { IMPORT_LIMIT_DAYS } from "../util/secrets";
@@ -228,28 +227,6 @@ export default abstract class SqlIntegration
   }
   hasEfficientPercentile(): boolean {
     return true;
-  }
-
-  createJSONString(obj: Record<string, string>, stringCols: Set<string>) {
-    const parts: string[] = ["'{'"];
-    let first = true;
-    Object.entries(obj).forEach(([k, v]) => {
-      parts.push(`'${!first ? "," : ""}"${k}":'`);
-
-      if (stringCols.has(k)) {
-        parts.push(`'"'`, v, `'"'`);
-      } else {
-        parts.push(v);
-      }
-
-      first = false;
-    });
-    parts.push("'}'");
-    return this.concat(parts);
-  }
-
-  concat(cols: string[]): string {
-    return `CONCAT(${cols.join(",")})`;
   }
 
   applyMetricOverrides(
@@ -565,27 +542,36 @@ export default abstract class SqlIntegration
     setExternalId: ExternalIdCallback
   ): Promise<ExperimentFactMetricsQueryResponse> {
     const { rows, statistics } = await this.runQuery(query, setExternalId);
+
+    const floatCols = [
+      "main_sum",
+      "main_sum_squares",
+      "main_cap_value",
+      "denominator_sum",
+      "denominator_sum_squares",
+      "main_denominator_sum_product",
+      "denominator_cap_value",
+      "covariate_sum",
+      "covariate_sum_squares",
+      "main_covariate_sum_product",
+    ];
+
     return {
       rows: rows.map((row) => {
         const metricData: {
-          [key: `m${number}`]: FactMetricResponseRowJSONData;
+          [key: string]: number | string;
         } = {};
         for (let i = 0; i < 100; i++) {
-          const col = `m${i}` as const;
-          if (row[col]) {
-            try {
-              const parsed = JSON.parse(row[col]);
-              metricData[col] = parsed;
-            } catch (e) {
-              logger.error(
-                e,
-                `Could not parse metric data as JSON: ${row[col]}`
-              );
+          const prefix = `m${i}_`;
+          // Reached the end
+          if (!row[prefix + "id"]) break;
+
+          metricData[prefix + "id"] = row[prefix + "id"];
+          floatCols.forEach((col) => {
+            if (row[prefix + col] !== undefined) {
+              metricData[prefix + col] = parseFloat(row[prefix + col]) || 0;
             }
-          } else {
-            // Ran out of columns, exit early
-            break;
-          }
+          });
         }
 
         return {
@@ -1470,7 +1456,8 @@ export default abstract class SqlIntegration
   private getMetricData(
     metric: ExperimentMetricInterface,
     settings: ExperimentSnapshotSettings,
-    activationMetric: ExperimentMetricInterface | null
+    activationMetric: ExperimentMetricInterface | null,
+    alias: string
   ) {
     const ratioMetric = isRatioMetric(metric);
     const funnelMetric = isFunnelMetric(metric);
@@ -1499,17 +1486,17 @@ export default abstract class SqlIntegration
     const isPercentileCapped =
       metric.capping === "percentile" && metric.capValue && metric.capValue < 1;
     const capCoalesceMetric = this.capCoalesceValue(
-      `m.${metric.id}`,
+      `m.${alias}_value`,
       metric,
       "cap"
     );
     const capCoalesceDenominator = this.capCoalesceValue(
-      `m.${metric.id}_denominator`,
+      `m.${alias}_denominator`,
       metric,
       "cap"
     );
     const capCoalesceCovariate = this.capCoalesceValue(
-      `c.${metric.id}`,
+      `c.${alias}_value`,
       metric,
       "cap"
     );
@@ -1531,9 +1518,9 @@ export default abstract class SqlIntegration
     );
 
     const raMetricSettings = {
-      id: metric.id,
       hours: regressionAdjustmentHours,
       minDelay: minMetricDelay,
+      alias,
     };
 
     const maxHoursToConvert = this.getMaxHoursToConvert(
@@ -1543,6 +1530,7 @@ export default abstract class SqlIntegration
     );
 
     return {
+      alias,
       id: metric.id,
       metric,
       ratioMetric,
@@ -1593,8 +1581,8 @@ export default abstract class SqlIntegration
 
     const exposureQuery = this.getExposureQuery(settings.exposureQueryId || "");
 
-    const metricData = metrics.map((metric) =>
-      this.getMetricData(metric, settings, activationMetric)
+    const metricData = metrics.map((metric, i) =>
+      this.getMetricData(metric, settings, activationMetric, `m${i}`)
     );
 
     const raMetricSettings = metricData
@@ -1691,22 +1679,22 @@ export default abstract class SqlIntegration
       .filter((m) => m.isPercentileCapped)
       .forEach((m) => {
         percentileData.push({
-          valueCol: m.id,
-          outputCol: `cap_${m.id}`,
+          valueCol: `${m.alias}_value`,
+          outputCol: `${m.alias}_value_cap`,
           percentile: m.metric.capValue ?? 1,
         });
         if (m.ratioMetric) {
           percentileData.push({
-            valueCol: `${m.id}_denominator`,
-            outputCol: `cap_${m.id}_denominator`,
+            valueCol: `${m.alias}_denominator`,
+            outputCol: `${m.alias}_denominator_cap`,
             percentile: m.metric.capValue ?? 1,
           });
         }
       });
 
-    const regressionAdjustedMetrics = metricData
-      .filter((m) => m.isRegressionAdjusted)
-      .map((m) => m.metric);
+    const regressionAdjustedMetrics = metricData.filter(
+      (m) => m.isRegressionAdjusted
+    );
 
     return format(
       `-- Fact Table: ${factTable.name}
@@ -1726,30 +1714,38 @@ export default abstract class SqlIntegration
           ${dimensionCol} AS dimension,
           variation,
           ${timestampColumn} AS timestamp,
-          ${this.dateTrunc("first_exposure_timestamp")} AS first_exposure_date,
-          ${this.addHours(
-            "first_exposure_timestamp",
-            raMetricSettings.length
-              ? Math.min(...raMetricSettings.map((s) => s.minDelay - s.hours))
-              : 0
-          )} as min_preexposure_start,
-          ${this.addHours(
-            "first_exposure_timestamp",
-            raMetricSettings.length
-              ? Math.max(...raMetricSettings.map((s) => s.minDelay))
-              : 0
-          )} as max_preexposure_end
+          ${this.dateTrunc("first_exposure_timestamp")} AS first_exposure_date
+          ${
+            raMetricSettings.length > 0
+              ? `
+              , ${this.addHours(
+                "first_exposure_timestamp",
+                raMetricSettings.length
+                  ? Math.min(
+                      ...raMetricSettings.map((s) => s.minDelay - s.hours)
+                    )
+                  : 0
+              )} as min_preexposure_start
+              , ${this.addHours(
+                "first_exposure_timestamp",
+                raMetricSettings.length
+                  ? Math.max(...raMetricSettings.map((s) => s.minDelay))
+                  : 0
+              )} as max_preexposure_end
+            `
+              : ""
+          }
           ${raMetricSettings
             .map(
-              ({ id, hours, minDelay }) => `
+              ({ alias, hours, minDelay }) => `
               , ${this.addHours(
                 "first_exposure_timestamp",
                 minDelay
-              )} AS ${id}_preexposure_end
+              )} AS ${alias}_preexposure_end
               , ${this.addHours(
                 "first_exposure_timestamp",
                 minDelay - hours
-              )} AS ${id}_preexposure_start`
+              )} AS ${alias}_preexposure_start`
             )
             .join("\n")}
         FROM ${
@@ -1791,19 +1787,19 @@ export default abstract class SqlIntegration
             .map(
               (data) =>
                 `${this.addCaseWhenTimeFilter(
-                  `m.${data.id}`,
+                  `m.${data.alias}_value`,
                   data.metric,
                   data.ignoreConversionEnd,
                   cumulativeDate
-                )} as ${data.id}
+                )} as ${data.alias}_value
                 ${
                   data.ratioMetric
                     ? `, ${this.addCaseWhenTimeFilter(
-                        `m.${data.id}_denominator`,
+                        `m.${data.alias}_denominator`,
                         data.metric,
                         data.ignoreConversionEnd,
                         cumulativeDate
-                      )} as ${data.id}_denominator`
+                      )} as ${data.alias}_denominator`
                     : ""
                 }
                 `
@@ -1837,15 +1833,15 @@ export default abstract class SqlIntegration
                 `${this.getAggregateMetricColumn(
                   data.metric,
                   false,
-                  data.id
-                )} as ${data.id}
+                  `${data.alias}_value`
+                )} as ${data.alias}_value
                 ${
                   data.ratioMetric
                     ? `, ${this.getAggregateMetricColumn(
                         data.metric,
                         true,
-                        `${data.id}_denominator`
-                      )} as ${data.id}_denominator`
+                        `${data.alias}_denominator`
+                      )} as ${data.alias}_denominator`
                     : ""
                 }`
             )
@@ -1879,14 +1875,14 @@ export default abstract class SqlIntegration
               .map(
                 (metric) =>
                   `${this.getAggregateMetricColumn(
-                    metric,
+                    metric.metric,
                     false,
                     this.ifElse(
-                      `m.timestamp >= d.${metric.id}_preexposure_start AND m.timestamp < d.${metric.id}_preexposure_end`,
+                      `m.timestamp >= d.${metric.alias}_preexposure_start AND m.timestamp < d.${metric.alias}_preexposure_end`,
                       `${metric.id}`,
                       "NULL"
                     )
-                  )} as ${metric.id}`
+                  )} as ${metric.alias}_value`
               )
               .join(",\n")}
           FROM
@@ -1906,7 +1902,7 @@ export default abstract class SqlIntegration
           : ""
       }
       -- One row per variation/dimension with aggregations
-      , __aggregates as (SELECT
+      SELECT
         m.variation AS variation,
         ${
           cumulativeDate ? `${this.formatDate("m.day")}` : "m.dimension"
@@ -1914,56 +1910,42 @@ export default abstract class SqlIntegration
         COUNT(*) AS users,
         ${metricData.map((data) => {
           return `
-            '${this.getStatisticType(
-              data.ratioMetric,
-              data.isRegressionAdjusted
-            )}' as ${data.id}_statistic_type,
-            '${isBinomialMetric(data.metric) ? "binomial" : "count"}' as ${
-            data.id
-          }_main_metric_type,
+           '${data.id}' as ${data.alias}_id,
             ${
               data.isPercentileCapped
-                ? "MAX(COALESCE(cap.cap_value, 0)) as ${data.id}_main_cap_value,"
+                ? `MAX(COALESCE(cap.${data.alias}_value_cap, 0)) as ${data.alias}_main_cap_value,`
                 : ""
             }
-            SUM(${data.capCoalesceMetric}) AS ${data.id}_main_sum,
+            SUM(${data.capCoalesceMetric}) AS ${data.alias}_main_sum,
             SUM(POWER(${data.capCoalesceMetric}, 2)) AS ${
-            data.id
+            data.alias
           }_main_sum_squares
             ${
               data.ratioMetric
                 ? `,
-              '${isBinomialMetric(data.metric) ? "binomial" : "count"}' as ${
-                    data.id
-                  }_denominator_metric_type,
               ${
                 data.isPercentileCapped
-                  ? "MAX(COALESCE(capd.cap_value, 0)) as ${data.id}_denominator_cap_value,"
+                  ? `MAX(COALESCE(cap.${data.alias}_denominator_cap, 0)) as ${data.alias}_denominator_cap_value,`
                   : ""
               }
-              SUM(${data.capCoalesceDenominator}) AS ${data.id}_denominator_sum,
+              SUM(${data.capCoalesceDenominator}) AS ${
+                    data.alias
+                  }_denominator_sum,
               SUM(POWER(${data.capCoalesceDenominator}, 2)) AS ${
-                    data.id
+                    data.alias
                   }_denominator_sum_squares,
               SUM(${data.capCoalesceDenominator} * ${
                     data.capCoalesceMetric
-                  }) AS ${data.id}_main_denominator_sum_product
+                  }) AS ${data.alias}_main_denominator_sum_product
             `
                 : ""
             }
             ${
               data.isRegressionAdjusted
                 ? `,
-              '${isBinomialMetric(data.metric) ? "binomial" : "count"}' as ${
-                    data.id
-                  }_covariate_metric_type,
-              SUM(${data.capCoalesceCovariate}) AS ${data.id}_covariate_sum,
-              SUM(POWER(${data.capCoalesceCovariate}, 2)) AS ${
-                    data.id
-                  }_covariate_sum_squares,
-              SUM(${data.capCoalesceMetric} * ${
-                    data.capCoalesceCovariate
-                  }) AS ${data.id}_main_covariate_sum_product
+              SUM(${data.capCoalesceCovariate}) AS ${data.alias}_covariate_sum,
+              SUM(POWER(${data.capCoalesceCovariate}, 2)) AS ${data.alias}_covariate_sum_squares,
+              SUM(${data.capCoalesceMetric} * ${data.capCoalesceCovariate}) AS ${data.alias}_main_covariate_sum_product
               `
                 : ""
             }
@@ -1983,27 +1965,6 @@ export default abstract class SqlIntegration
       GROUP BY
         m.variation,
         ${cumulativeDate ? `${this.formatDate("m.day")}` : "m.dimension"}
-    )
-    SELECT
-      variation,
-      dimension,
-      users,
-      ${metricData
-        .map(
-          (m, i) =>
-            `-- ${m.metric.name}
-            ${this.getMetricJSONColumn(
-              m.id,
-              this.getExperimentMetricColumns(
-                m.ratioMetric,
-                !!m.isPercentileCapped,
-                m.isRegressionAdjusted
-              ),
-              this.getExperimentMetricStringColumns()
-            )} as m${i}`
-        )
-        .join(",\n")}
-    FROM __aggregates
     `,
       this.getFormatDialect()
     );
@@ -2948,71 +2909,6 @@ AND event_name = '${eventName}'`,
      `;
   }
 
-  private getExperimentMetricStringColumns(): Set<string> {
-    return new Set([
-      "statistic_type",
-      "main_metric_type",
-      "denominator_metric_type",
-      "covariate_metric_type",
-    ]);
-  }
-
-  private getExperimentMetricColumns(
-    isRatio: boolean,
-    isPercentileCapped: boolean,
-    isRegressionAdjusted: boolean
-  ): string[] {
-    const cols = [
-      "statistic_type",
-      "main_metric_type",
-      "main_sum",
-      "main_sum_squares",
-    ];
-
-    if (isPercentileCapped) {
-      cols.push("main_cap_value");
-    }
-
-    if (isRatio) {
-      cols.push(
-        "denominator_metric_type",
-        "denominator_sum",
-        "denominator_sum_squares",
-        "main_denominator_sum_product"
-      );
-      if (isPercentileCapped) {
-        cols.push("denominator_cap_value");
-      }
-    }
-
-    if (isRegressionAdjusted) {
-      cols.push(
-        "covariate_metric_type",
-        "covariate_sum",
-        "covariate_sum_squares",
-        "main_covariate_sum_product"
-      );
-    }
-
-    return cols;
-  }
-
-  private getMetricJSONColumn(
-    id: string,
-    columns: string[],
-    stringCols: Set<string>
-  ): string {
-    const obj = {
-      id: `'${JSON.stringify(id)}'`,
-      ...columns.reduce((acc, col) => {
-        acc[col] = `${id}_${col}`;
-        return acc;
-      }, {} as Record<string, string>),
-    };
-
-    return this.createJSONString(obj, stringCols);
-  }
-
   // Get a Fact Table CTE for multiple fact metrics that all share the same fact table
   private getFactTableCTE({
     metrics,
@@ -3072,7 +2968,7 @@ AND event_name = '${eventName}'`,
     }
 
     const metricCols: string[] = [];
-    metrics.forEach((m) => {
+    metrics.forEach((m, i) => {
       if (m.numerator.factTableId !== factTable.id) {
         throw new Error(
           "Can only combine metrics that are in the same fact table"
@@ -3088,7 +2984,7 @@ AND event_name = '${eventName}'`,
           : value;
 
       metricCols.push(`-- ${m.name}
-      ${column} as ${m.id}`);
+      ${column} as m${i}_value`);
 
       // Add denominator column if there is one
       if (isRatioMetric(m) && m.denominator) {
@@ -3105,7 +3001,7 @@ AND event_name = '${eventName}'`,
             ? `CASE WHEN (${filters.join(" AND ")}) THEN ${value} ELSE NULL END`
             : value;
         metricCols.push(`-- ${m.name} (denominator)
-        ${column} as ${m.id}_denominator`);
+        ${column} as m${i}_denominator`);
       }
     });
 

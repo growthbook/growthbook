@@ -62,7 +62,7 @@ const AsyncQueriesModal: FC<{
       close={close}
       header="Queries"
       open={true}
-      size="lg"
+      size="max"
       closeCta="Close"
     >
       {!data && !apiError && <LoadingOverlay />}

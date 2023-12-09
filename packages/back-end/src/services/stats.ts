@@ -6,11 +6,15 @@ import {
   EXPOSURE_DATE_DIMENSION_NAME,
 } from "shared/constants";
 import { putBaselineVariationFirst } from "shared/util";
-import { ExperimentMetricInterface } from "shared/experiments";
+import {
+  ExperimentMetricInterface,
+  isBinomialMetric,
+} from "shared/experiments";
 import { hoursBetween } from "shared/dates";
 import { ExperimentMetricAnalysis } from "../../types/stats";
 import {
   ExperimentAggregateUnitsQueryResponseRows,
+  ExperimentFactMetricsQueryResponseRows,
   ExperimentMetricQueryResponseRows,
   ExperimentResults,
 } from "../types/Integration";
@@ -238,9 +242,65 @@ export async function analyzeExperimentResults({
       });
     });
   }
-  // One query for each metric, can just use the rows directly from the query
+  // One query for each metric (or group of metrics)
   else {
     queryData.forEach((query, key) => {
+      // Multi-metric query
+      if (key.match(/group_/)) {
+        const rows = query.result as ExperimentFactMetricsQueryResponseRows;
+        for (let i = 0; i < 100; i++) {
+          const prefix = `m${i}_`;
+          if (!rows[0]?.[prefix + "id"]) break;
+
+          const metric = metricMap.get(rows[0][prefix + "id"] as string);
+          if (!metric) continue;
+
+          // Figure out statistic/metric type based on columns
+          const typeFields: {
+            statistic_type: "mean" | "ratio" | "mean_ra";
+            main_metric_type: "count" | "binomial";
+            denominator_metric_type?: "count" | "binomial";
+            covariate_metric_type?: "count" | "binomial";
+          } = {
+            statistic_type: "mean",
+            main_metric_type: isBinomialMetric(metric) ? "binomial" : "count",
+          };
+          if (rows[0]?.[prefix + "denominator_sum"] !== undefined) {
+            typeFields.statistic_type = "ratio";
+            typeFields.denominator_metric_type = isBinomialMetric(metric)
+              ? "binomial"
+              : "count";
+          } else if (rows[0]?.[prefix + "covariate_sum"] !== undefined) {
+            typeFields.statistic_type = "mean_ra";
+            typeFields.covariate_metric_type = isBinomialMetric(metric)
+              ? "binomial"
+              : "count";
+          }
+
+          metricRows.push({
+            metric: metric.id,
+            rows: rows.map((r) => {
+              const prefixedFields = Object.fromEntries(
+                Object.entries(r)
+                  .filter(([key]) => key.startsWith(prefix))
+                  .map(([key, value]) => [key.replace(prefix, ""), value])
+              );
+
+              return {
+                dimension: r.dimension,
+                variation: r.variation,
+                users: r.users,
+                count: r.count,
+                ...typeFields,
+                ...prefixedFields,
+              };
+            }) as ExperimentMetricQueryResponseRows,
+          });
+        }
+        return;
+      }
+
+      // Single metric query, just return rows as-is
       const metric = metricMap.get(key);
       if (!metric) return;
 
