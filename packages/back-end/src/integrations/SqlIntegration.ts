@@ -1723,17 +1723,11 @@ export default abstract class SqlIntegration
               ? `
               , ${this.addHours(
                 "first_exposure_timestamp",
-                raMetricSettings.length
-                  ? Math.min(
-                      ...raMetricSettings.map((s) => s.minDelay - s.hours)
-                    )
-                  : 0
+                Math.min(...raMetricSettings.map((s) => s.minDelay - s.hours))
               )} as min_preexposure_start
               , ${this.addHours(
                 "first_exposure_timestamp",
-                raMetricSettings.length
-                  ? Math.max(...raMetricSettings.map((s) => s.minDelay))
-                  : 0
+                Math.max(...raMetricSettings.map((s) => s.minDelay))
               )} as max_preexposure_end
             `
               : ""

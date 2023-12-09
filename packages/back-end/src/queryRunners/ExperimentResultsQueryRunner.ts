@@ -129,10 +129,7 @@ export function getFactMetricGroups(
   const groupArrays: FactMetricInterface[][] = [];
   Object.values(groups).forEach((group) => {
     // Split groups into chunks of MAX_METRICS_PER_QUERY
-    // Remove any single-item groups
-    const chunks = chunk(group, MAX_METRICS_PER_QUERY).filter(
-      (c) => c.length > 1
-    );
+    const chunks = chunk(group, MAX_METRICS_PER_QUERY);
     groupArrays.push(...chunks);
   });
 
