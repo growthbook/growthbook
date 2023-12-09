@@ -47,6 +47,12 @@ import { MetricType } from "../../types/metric";
 import { TemplateVariables } from "../../types/sql";
 import { getUserById } from "../services/users";
 import { AuditUserLoggedIn } from "../../types/audit";
+import {
+  createDimensionSlices,
+  getLatestDimensionSlices,
+  getDimensionSlicesById,
+} from "../models/DimensionSlicesModel";
+import { DimensionSlicesQueryRunner } from "../queryRunners/DimensionSlicesQueryRunner";
 
 export async function postSampleData(
   req: AuthRequest,
@@ -660,5 +666,114 @@ export async function getDataSourceMetrics(
   res.status(200).json({
     status: 200,
     metrics,
+  });
+}
+
+export async function getDimensionSlices(
+  req: AuthRequest<null, { id: string }>,
+  res: Response
+) {
+  const { org } = getOrgFromReq(req);
+  const { id } = req.params;
+
+  const dimensionSlices = await getDimensionSlicesById(org.id, id);
+
+  res.status(200).json({
+    status: 200,
+    dimensionSlices,
+  });
+}
+
+export async function getLatestDimensionSlicesForDatasource(
+  req: AuthRequest<null, { datasourceId: string; exposureQueryId: string }>,
+  res: Response
+) {
+  const { org } = getOrgFromReq(req);
+  const { datasourceId, exposureQueryId } = req.params;
+
+  const dimensionSlices = await getLatestDimensionSlices(
+    org.id,
+    datasourceId,
+    exposureQueryId
+  );
+
+  res.status(200).json({
+    status: 200,
+    dimensionSlices,
+  });
+}
+
+export async function postDimensionSlices(
+  req: AuthRequest<{
+    dataSourceId: string;
+    queryId: string;
+    lookbackDays: number;
+  }>,
+  res: Response
+) {
+  const { org } = getOrgFromReq(req);
+  const { dataSourceId, queryId, lookbackDays } = req.body;
+
+  const datasourceObj = await getDataSourceById(dataSourceId, org.id);
+  if (!datasourceObj) {
+    throw new Error("Could not find datasource");
+  }
+  req.checkPermissions(
+    "runQueries",
+    datasourceObj?.projects?.length ? datasourceObj.projects : ""
+  );
+
+  const integration = getSourceIntegrationObject(datasourceObj, true);
+
+  const model = await createDimensionSlices({
+    organization: org.id,
+    dataSourceId,
+    queryId,
+  });
+
+  const queryRunner = new DimensionSlicesQueryRunner(model, integration);
+  const outputmodel = await queryRunner.startAnalysis({
+    exposureQueryId: queryId,
+    lookbackDays: Number(lookbackDays) ?? 30,
+  });
+  res.status(200).json({
+    status: 200,
+    dimensionSlices: outputmodel,
+  });
+}
+
+export async function cancelDimensionSlices(
+  req: AuthRequest<null, { id: string }>,
+  res: Response
+) {
+  const { org } = getOrgFromReq(req);
+  const { id } = req.params;
+  const dimensionSlices = await getDimensionSlicesById(org.id, id);
+  if (!dimensionSlices) {
+    throw new Error("Could not cancel automatic dimension");
+  }
+  const datasource = await getDataSourceById(
+    dimensionSlices.datasource,
+    org.id
+  );
+  if (!datasource) {
+    throw new Error("Could not find datasource");
+  }
+
+  req.checkPermissions(
+    "runQueries",
+    datasource.projects ? datasource.projects : ""
+  );
+
+  const integration = getSourceIntegrationObject(datasource, true);
+
+  const queryRunner = new DimensionSlicesQueryRunner(
+    dimensionSlices,
+    integration
+  );
+  await queryRunner.cancelQueries();
+
+  res.status(200).json({
+    status: 200,
   });
 }

@@ -72,6 +72,7 @@ export type UserDimension = {
 export type ExperimentDimension = {
   type: "experiment";
   id: string;
+  specifiedSlices?: string[];
 };
 export type DateDimension = {
   type: "date";
@@ -123,6 +124,12 @@ export interface ExperimentAggregateUnitsQueryParams
   extends ExperimentBaseQueryParams {
   useUnitsTable: boolean;
 }
+
+export type DimensionSlicesQueryParams = {
+  exposureQueryId: string;
+  dimensions: ExperimentDimension[];
+  lookbackDays: number;
+};
 
 export type PastExperimentParams = {
   from: Date;
@@ -234,6 +241,13 @@ export type ExperimentAggregateUnitsQueryResponseRows = {
   units: number;
 }[];
 
+export type DimensionSlicesQueryResponseRows = {
+  dimension_value: string;
+  dimension_name: string;
+  units: number;
+  total_units: number;
+}[];
+
 // eslint-disable-next-line
 export type QueryResponse<Rows = Record<string, any>[]> = {
   rows: Rows;
@@ -245,6 +259,7 @@ export type PastExperimentQueryResponse = QueryResponse<PastExperimentResponseRo
 export type ExperimentMetricQueryResponse = QueryResponse<ExperimentMetricQueryResponseRows>;
 export type ExperimentUnitsQueryResponse = QueryResponse;
 export type ExperimentAggregateUnitsQueryResponse = QueryResponse<ExperimentAggregateUnitsQueryResponseRows>;
+export type DimensionSlicesQueryResponse = QueryResponse<DimensionSlicesQueryResponseRows>;
 
 export interface SourceIntegrationConstructor {
   new (
@@ -377,6 +392,11 @@ export interface SourceIntegrationInterface {
   ): string;
   getExperimentUnitsTableQuery(params: ExperimentUnitsQueryParams): string;
   getPastExperimentQuery(params: PastExperimentParams): string;
+  getDimensionSlicesQuery(params: DimensionSlicesQueryParams): string;
+  runDimensionSlicesQuery(
+    query: string,
+    setExternalId: ExternalIdCallback
+  ): Promise<DimensionSlicesQueryResponse>;
   runMetricValueQuery(
     query: string,
     setExternalId: ExternalIdCallback

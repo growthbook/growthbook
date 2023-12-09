@@ -132,6 +132,11 @@ export type IdentityJoinQuery = {
   query: string;
 };
 
+export interface ExperimentDimensionMetadata {
+  dimension: string;
+  specifiedSlices: string[];
+}
+
 export interface ExposureQuery {
   id: string;
   name: string;
@@ -140,7 +145,8 @@ export interface ExposureQuery {
   query: string;
   hasNameCol?: boolean;
   dimensions: string[];
-  dimensionsForTraffic?: string[];
+  dimensionSlicesId?: string;
+  dimensionMetadata?: ExperimentDimensionMetadata[];
   error?: string;
 }
 
