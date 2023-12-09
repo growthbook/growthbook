@@ -1,3 +1,4 @@
+import { Badge, Flex } from "@radix-ui/themes";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Tooltip from "../Tooltip/Tooltip";
 import Tag from "./Tag";
@@ -37,21 +38,21 @@ export default function SortedTags({
         body={<>{renderFlexContainer(tagElements, true)}</>}
         usePortal={true}
       >
-        <Tag
-          tag={tagCopy}
-          key="tag-ellipsis"
-          skipMargin={useFlex}
-          color="#ffffff"
-        />
+        <Badge key="tag-ellipsis">{tagCopy}</Badge>
       </Tooltip>
     );
   };
 
   const renderTags = (tags: string[]) => {
-    return tags.map((tag, i) => {
-      const skipMargin = useFlex || (skipFirstMargin && i === 0);
-      return <Tag tag={tag} key={tag} skipMargin={skipMargin} />;
-    });
+    return (
+      <Flex gap="2">
+        {" "}
+        {tags.map((tag, i) => {
+          const skipMargin = useFlex || (skipFirstMargin && i === 0);
+          return <Badge key={tag}>{tag}</Badge>;
+        })}{" "}
+      </Flex>
+    );
   };
   const renderFlexContainer = (
     child: JSX.Element | JSX.Element[],

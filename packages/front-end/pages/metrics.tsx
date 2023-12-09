@@ -6,6 +6,7 @@ import Link from "next/link";
 import { ago, datetime } from "shared/dates";
 import { isProjectListValidForProject } from "shared/util";
 import { getMetricLink } from "shared/experiments";
+import { Table } from "@radix-ui/themes";
 import SortedTags from "@/components/Tags/SortedTags";
 import { GBAddCircle } from "@/components/Icons";
 import ProjectBadges from "@/components/ProjectBadges";
@@ -30,6 +31,7 @@ import { useAuth } from "@/services/auth";
 import AutoGenerateMetricsModal from "@/components/AutoGenerateMetricsModal";
 import AutoGenerateMetricsButton from "@/components/AutoGenerateMetricsButton";
 import FactBadge from "@/components/FactTables/FactBadge";
+
 interface MetricTableItem {
   id: string;
   name: string;
@@ -346,39 +348,26 @@ const MetricsPage = (): React.ReactElement => {
           <TagsFilter filter={tagsFilter} items={items} />
         </div>
       </div>
-      <table className="table appbox gbtable table-hover">
-        <thead>
-          <tr>
-            <SortableTH field="name" className="col-3">
-              Name
-            </SortableTH>
-            <SortableTH field="type" className="col-1">
-              Type
-            </SortableTH>
-            <th className="col-2">Tags</th>
-            <th>Projects</th>
-            <th className="col-1">Owner</th>
-            <SortableTH
-              field="datasourceName"
-              className="d-none d-lg-table-cell col-auto"
-            >
-              Data Source
-            </SortableTH>
+
+      <Table.Root variant="surface" size="1">
+        <Table.Header>
+          <Table.Row>
+            <Table.ColumnHeaderCell>Name</Table.ColumnHeaderCell>
+            <Table.ColumnHeaderCell>Type</Table.ColumnHeaderCell>
+            <Table.ColumnHeaderCell>Tags</Table.ColumnHeaderCell>
+            <Table.ColumnHeaderCell>Projects</Table.ColumnHeaderCell>
+            <Table.ColumnHeaderCell>Owner</Table.ColumnHeaderCell>
+            <Table.ColumnHeaderCell>Data Source</Table.ColumnHeaderCell>
             {!hasFileConfig() && (
-              <SortableTH
-                field="dateUpdated"
-                className="d-none d-md-table-cell col-1"
-              >
-                Last Updated
-              </SortableTH>
+              <Table.ColumnHeaderCell>Last Updated</Table.ColumnHeaderCell>
             )}
-            <th></th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody>
+            <Table.ColumnHeaderCell></Table.ColumnHeaderCell>
+            <Table.ColumnHeaderCell></Table.ColumnHeaderCell>
+          </Table.Row>
+        </Table.Header>
+        <Table.Body>
           {items.map((metric) => (
-            <tr
+            <Table.Row
               key={metric.id}
               onClick={(e) => {
                 e.preventDefault();
@@ -387,7 +376,7 @@ const MetricsPage = (): React.ReactElement => {
               style={{ cursor: "pointer" }}
               className={metric.archived ? "text-muted" : ""}
             >
-              <td>
+              <Table.Cell>
                 <Link href={getMetricLink(metric.id)}>
                   <a
                     className={`${
@@ -398,16 +387,16 @@ const MetricsPage = (): React.ReactElement => {
                   </a>
                 </Link>
                 <FactBadge metricId={metric.id} />
-              </td>
-              <td>{metric.type}</td>
+              </Table.Cell>
+              <Table.Cell>{metric.type}</Table.Cell>
 
-              <td className="col-4">
+              <Table.Cell>
                 <SortedTags
                   tags={metric.tags ? Object.values(metric.tags) : []}
                   shouldShowEllipsis={true}
                 />
-              </td>
-              <td className="col-2">
+              </Table.Cell>
+              <Table.Cell className="col-2">
                 {metric && (metric.projects || []).length > 0 ? (
                   <ProjectBadges
                     projectIds={metric.projects}
@@ -416,9 +405,9 @@ const MetricsPage = (): React.ReactElement => {
                 ) : (
                   <ProjectBadges className="badge-ellipsis short align-middle" />
                 )}
-              </td>
-              <td>{metric.owner}</td>
-              <td className="d-none d-lg-table-cell">
+              </Table.Cell>
+              <Table.Cell>{metric.owner}</Table.Cell>
+              <Table.Cell className="d-none d-lg-table-cell">
                 {metric.datasourceName}
                 {metric.datasourceDescription && (
                   <div
@@ -428,16 +417,16 @@ const MetricsPage = (): React.ReactElement => {
                     {metric.datasourceDescription}
                   </div>
                 )}
-              </td>
+              </Table.Cell>
               {!hasFileConfig() && (
-                <td
+                <Table.Cell
                   title={datetime(metric.dateUpdated || "")}
                   className="d-none d-md-table-cell"
                 >
                   {ago(metric.dateUpdated || "")}
-                </td>
+                </Table.Cell>
               )}
-              <td className="text-muted">
+              <Table.Cell className="text-muted">
                 {metric.archived && (
                   <Tooltip
                     body={"Archived"}
@@ -447,8 +436,8 @@ const MetricsPage = (): React.ReactElement => {
                     <FaArchive />
                   </Tooltip>
                 )}
-              </td>
-              <td
+              </Table.Cell>
+              <Table.Cell
                 style={{ cursor: "initial" }}
                 onClick={(e) => {
                   e.stopPropagation();
@@ -487,19 +476,19 @@ const MetricsPage = (): React.ReactElement => {
                       </button>
                     )}
                 </MoreMenu>
-              </td>
-            </tr>
+              </Table.Cell>
+            </Table.Row>
           ))}
 
           {!items.length && (isFiltered || tagsFilter.tags.length > 0) && (
-            <tr>
-              <td colSpan={!hasFileConfig() ? 5 : 4} align={"center"}>
+            <Table.Row>
+              <Table.Cell colSpan={!hasFileConfig() ? 5 : 4} align={"center"}>
                 No matching metrics
-              </td>
-            </tr>
+              </Table.Cell>
+            </Table.Row>
           )}
-        </tbody>
-      </table>
+        </Table.Body>
+      </Table.Root>
     </div>
   );
 };
