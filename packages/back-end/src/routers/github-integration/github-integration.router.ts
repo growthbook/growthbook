@@ -22,5 +22,16 @@ router.post(
   }),
   githubIntegrationController.postGithubIntegration
 );
+router.post(
+  "/toggle-repo",
+  validateRequestMiddleware({
+    body: z
+      .object({
+        repoId: z.string(),
+      })
+      .strict(),
+  }),
+  githubIntegrationController.postRepoWatch
+);
 
 export { router as githubIntegrationRouter };

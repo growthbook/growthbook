@@ -6,6 +6,7 @@ import {
   CreateGithubIntegrationInput,
 } from "../../types/github";
 import { OrganizationInterface } from "../../types/organization";
+import { fetchRepositories } from "../services/github";
 import { doesTokenExist } from "./GithubUserTokenModel";
 
 type GithubIntegrationDocument = mongoose.Document & GithubIntegrationInterface;
@@ -16,6 +17,13 @@ const githubIntegrationSchema = new mongoose.Schema({
   tokenId: String,
   createdBy: String,
   createdAt: Date,
+  repositories: [
+    {
+      id: String,
+      name: String,
+      watching: Boolean,
+    },
+  ],
 });
 
 githubIntegrationSchema.index({ organization: 1 }, { unique: true });
@@ -44,11 +52,38 @@ export const createGithubIntegration = async (
   if (!(await doesTokenExist(input.tokenId)))
     throw new Error("Token does not exist");
 
+  const repositories = await fetchRepositories(input.tokenId);
+
   const doc = await GithubIntegrationModel.create({
     ...input,
+    repositories: repositories.map((repo) => ({
+      id: repo.id,
+      name: repo.full_name,
+      watching: false,
+    })),
     id: uniqid("ghi_"),
     createdAt: new Date(),
   });
 
   return toInterface(doc);
+};
+
+export const toggleWatchingForRepo = async ({
+  orgId,
+  repoId,
+}: {
+  orgId: OrganizationInterface["id"];
+  repoId: string;
+}) => {
+  const doc = await GithubIntegrationModel.findOne({ organization: orgId });
+  if (!doc) throw new Error("Github integration does not exist");
+
+  const repo = doc.repositories.find((repo) => repo.id === repoId);
+  if (!repo) throw new Error("Repository does not exist");
+
+  repo.watching = !repo.watching;
+
+  await doc.save();
+
+  return repo.watching;
 };

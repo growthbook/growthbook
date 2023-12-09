@@ -6,6 +6,7 @@ import { AuthRequest } from "../../types/AuthRequest";
 import {
   getGithubIntegrationByOrg,
   createGithubIntegration,
+  toggleWatchingForRepo,
 } from "../../models/GithubIntegration";
 import { createGithubUserToken } from "../../models/GithubUserTokenModel";
 import { APP_ORIGIN } from "../../util/secrets";
@@ -95,4 +96,23 @@ export const completeOAuthFlow = async (
   });
 
   res.redirect(APP_ORIGIN + "/integrations/github?t_id=" + createdToken.id);
+};
+
+export const postRepoWatch = async (
+  req: AuthRequest<{ repoId: string }>,
+  res: Response
+) => {
+  req.checkPermissions("manageIntegrations");
+
+  const { org } = getOrgFromReq(req);
+
+  const watching = await toggleWatchingForRepo({
+    orgId: org.id,
+    repoId: req.body.repoId,
+  });
+
+  return res.status(200).json({
+    status: 200,
+    watching,
+  });
 };

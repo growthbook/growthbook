@@ -41,3 +41,15 @@ export const createGithubUserToken = async (
 export const doesTokenExist = async (tokenId: string) => {
   return await GithubUserTokenModel.exists({ id: tokenId });
 };
+
+const refreshGithubUserToken = async <T>(token: T): Promise<T> => {
+  // TODO implement
+  return token;
+};
+
+export const getGithubUserToken = async (tokenId: string) => {
+  let token = await GithubUserTokenModel.findOne({ id: tokenId });
+  if (!token) throw new Error("Token not found");
+  if (token.expiresAt < new Date()) token = await refreshGithubUserToken(token);
+  return token.token;
+};

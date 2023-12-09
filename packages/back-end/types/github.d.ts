@@ -13,15 +13,22 @@ export type CreateGithubUserTokenInput = Omit<
   "id" | "createdAt" | "updatedAt"
 >;
 
+interface GithubIntegrationRepository {
+  id: string;
+  name: string;
+  watching: boolean;
+}
+
 export interface GithubIntegrationInterface {
   id: string;
   organization: string;
   tokenId: string;
   createdBy: string;
   createdAt: Date;
+  repositories: GithubIntegrationRepository[];
 }
 
 export type CreateGithubIntegrationInput = Omit<
   GithubIntegrationInterface,
-  "id" | "createdAt"
+  "id" | "createdAt" | "repositories"
 >;

@@ -48,7 +48,10 @@ const GitHubIntegrationPage: NextPage = () => {
         </p>
         <div className="my-4">
           {githubIntegration ? (
-            <GithubIntegrationConfig />
+            <GithubIntegrationConfig
+              githubIntegration={githubIntegration}
+              refresh={mutate}
+            />
           ) : (
             <GithubIntegrationConnect tokenId={tokenId} refresh={mutate} />
           )}
