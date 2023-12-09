@@ -228,6 +228,8 @@ export function isLegacySavedGroup(condition: string, attributeKey: string) {
   return false;
 }
 
+// For inline saved groups with simple conditions, extract the values array
+// This makes the migration backwards compatible with how we used to store saved group values
 export function getLegacySavedGroupValues(
   condition: string,
   attributeKey: string
