@@ -1488,17 +1488,20 @@ export default abstract class SqlIntegration
     const capCoalesceMetric = this.capCoalesceValue(
       `m.${alias}_value`,
       metric,
-      "cap"
+      "cap",
+      `${alias}_value_cap`
     );
     const capCoalesceDenominator = this.capCoalesceValue(
       `m.${alias}_denominator`,
       metric,
-      "cap"
+      "cap",
+      `${alias}_denominator_cap`
     );
     const capCoalesceCovariate = this.capCoalesceValue(
       `c.${alias}_value`,
       metric,
-      "cap"
+      "cap",
+      `${alias}_value_cap`
     );
 
     // Get rough date filter for metrics to improve performance
@@ -1879,7 +1882,7 @@ export default abstract class SqlIntegration
                     false,
                     this.ifElse(
                       `m.timestamp >= d.${metric.alias}_preexposure_start AND m.timestamp < d.${metric.alias}_preexposure_end`,
-                      `${metric.id}`,
+                      `${metric.alias}_value`,
                       "NULL"
                     )
                   )} as ${metric.alias}_value`
@@ -2490,7 +2493,8 @@ export default abstract class SqlIntegration
   private capCoalesceValue(
     valueCol: string,
     metric: ExperimentMetricInterface,
-    capTablePrefix: string = "c"
+    capTablePrefix: string = "c",
+    capValueCol: string = "cap_value"
   ): string {
     if (metric?.capping === "absolute" && metric.capValue) {
       return `LEAST(
@@ -2505,7 +2509,7 @@ export default abstract class SqlIntegration
     ) {
       return `LEAST(
         ${this.ensureFloat(`COALESCE(${valueCol}, 0)`)},
-        ${capTablePrefix}.cap_value
+        ${capTablePrefix}.${capValueCol}
       )`;
     }
     return `COALESCE(${valueCol}, 0)`;
