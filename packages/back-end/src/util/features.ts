@@ -130,7 +130,6 @@ export function replaceSavedGroupsInCondition(
       const ids = group
         ? getLegacySavedGroupValues(group.condition, group.key)
         : [];
-      // TODO: fix numeric attributes
       return `"${newOperator}": ${JSON.stringify(ids)}`;
     }
   );
