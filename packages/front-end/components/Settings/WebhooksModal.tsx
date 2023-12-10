@@ -15,13 +15,15 @@ const WebhooksModal: FC<{
   onSave: () => void;
   defaultDescription?: string;
   current: Partial<WebhookInterface>;
-}> = ({ close, onSave, current }) => {
+  showSDKMode?: boolean;
+  sdk?: string;
+  sendPayload?: boolean;
+}> = ({ close, onSave, current, showSDKMode, sdk, sendPayload }) => {
   const { apiCall } = useAuth();
-
+  showSDKMode = showSDKMode || false;
   const { projects, project } = useDefinitions();
 
   const environments = useEnvironments();
-
   const form = useForm({
     defaultValues: {
       name: current.name || "My Webhook",
@@ -29,7 +31,9 @@ const WebhooksModal: FC<{
       project: current.project || (current.id ? "" : project),
       environment:
         current.environment === undefined ? "production" : current.environment,
-      useSDKMode: current?.useSDKMode || false,
+      useSDKMode: current?.useSDKMode || showSDKMode,
+      sdk,
+      sendPayload,
     },
   });
 
@@ -58,6 +62,39 @@ const WebhooksModal: FC<{
       value: "",
     });
   }
+  const SDKFilterFields = () => (
+    <>
+      <Toggle
+        id="sendPayload"
+        value={!!form.watch("sendPayload")}
+        setValue={(sendPayload) => {
+          form.setValue("sendPayload", sendPayload);
+        }}
+      />
+      <label htmlFor="sendPayload">Send Payload</label>
+    </>
+  );
+  const nonSDKFilterFields = () => (
+    <>
+      <Field
+        label="Environment"
+        options={envOptions}
+        {...form.register("environment")}
+      />
+      {projects.length > 0 && (
+        <Field
+          label="Project"
+          options={projects.map((p) => ({
+            display: p.name,
+            value: p.id,
+          }))}
+          initialOption="All Projects"
+          {...form.register("project")}
+        />
+      )}
+    </>
+  );
+  const filterFields = showSDKMode ? SDKFilterFields() : nonSDKFilterFields();
 
   return (
     <Modal
@@ -108,30 +145,7 @@ const WebhooksModal: FC<{
         </div>
       )}
       <h4>Webhook Filter</h4>
-      <Toggle
-        id="useSDKMode"
-        label="Use SDK Mode"
-        value={form.watch("useSDKMode")}
-        setValue={(useSDKMode) => {
-          form.setValue("useSDKMode", useSDKMode);
-        }}
-      />
-      <Field
-        label="Environment"
-        options={envOptions}
-        {...form.register("environment")}
-      />
-      {projects.length > 0 && (
-        <Field
-          label="Project"
-          options={projects.map((p) => ({
-            display: p.name,
-            value: p.id,
-          }))}
-          initialOption="All Projects"
-          {...form.register("project")}
-        />
-      )}
+      {filterFields}
     </Modal>
   );
 };
