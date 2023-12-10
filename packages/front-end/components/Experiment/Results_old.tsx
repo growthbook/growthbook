@@ -2,7 +2,6 @@ import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import React, { FC, useEffect } from "react";
 import dynamic from "next/dynamic";
 import { StatsEngine } from "back-end/types/stats";
-import { MetricRegressionAdjustmentStatus } from "back-end/types/report";
 import { getValidDate, ago } from "shared/dates";
 import { DEFAULT_STATS_ENGINE } from "shared/constants";
 import { ExperimentSnapshotInterface } from "@/../back-end/types/experiment-snapshot";
@@ -41,7 +40,6 @@ const Results_old: FC<{
   regressionAdjustmentAvailable?: boolean;
   regressionAdjustmentEnabled?: boolean;
   regressionAdjustmentHasValidMetrics?: boolean;
-  metricRegressionAdjustmentStatuses?: MetricRegressionAdjustmentStatus[];
   onRegressionAdjustmentChange?: (enabled: boolean) => void;
 }> = ({
   experiment,
@@ -55,7 +53,6 @@ const Results_old: FC<{
   regressionAdjustmentAvailable = false,
   regressionAdjustmentEnabled = false,
   regressionAdjustmentHasValidMetrics = false,
-  metricRegressionAdjustmentStatuses,
   onRegressionAdjustmentChange,
 }) => {
   const { getExperimentMetricById } = useDefinitions();
@@ -117,6 +114,8 @@ const Results_old: FC<{
         m.computedSettings?.regressionAdjustmentDays || 0,
       regressionAdjustmentEnabled: !!m.computedSettings
         ?.regressionAdjustmentEnabled,
+      regressionAdjustmentAvailable: !!m.computedSettings
+        ?.regressionAdjustmentAvailable,
     })) || [];
 
   return (
@@ -138,7 +137,6 @@ const Results_old: FC<{
         regressionAdjustmentHasValidMetrics={
           regressionAdjustmentHasValidMetrics
         }
-        metricRegressionAdjustmentStatuses={metricRegressionAdjustmentStatuses}
         onRegressionAdjustmentChange={onRegressionAdjustmentChange}
       />
       {experiment.metrics.length === 0 && (

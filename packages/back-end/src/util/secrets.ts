@@ -6,11 +6,11 @@ import { stringToBoolean } from "shared/util";
 export const ENVIRONMENT = process.env.NODE_ENV;
 const prod = ENVIRONMENT === "production";
 
-export const LOG_LEVEL = process.env.LOG_LEVEL;
-
 if (fs.existsSync(".env.local")) {
   dotenv.config({ path: ".env.local" });
 }
+
+export const LOG_LEVEL = process.env.LOG_LEVEL;
 
 export const IS_CLOUD = stringToBoolean(process.env.IS_CLOUD);
 export const IS_MULTI_ORG = stringToBoolean(process.env.IS_MULTI_ORG);
@@ -214,3 +214,9 @@ const getTrustProxyConfig = (): boolean | string | number => {
 };
 
 export const EXPRESS_TRUST_PROXY_OPTS = getTrustProxyConfig();
+
+// If a request proxy is configured using environment variables
+export const USE_PROXY =
+  !!process.env.http_proxy ||
+  !!process.env.https_proxy ||
+  !!process.env.HTTPS_PROXY;

@@ -21,6 +21,7 @@ import {
   useEnvironments,
   getDefaultVariationValue,
   validateFeatureRule,
+  useFeaturesList,
 } from "@/services/features";
 import { useWatching } from "@/services/WatchProvider";
 import usePermissions from "@/hooks/usePermissions";
@@ -34,12 +35,11 @@ import ValueTypeField from "./ValueTypeField";
 
 export type Props = {
   close?: () => void;
-  onSuccess: () => Promise<void>;
   inline?: boolean;
   cta?: string;
   secondaryCTA?: ReactElement;
-  features: FeatureInterface[];
   experiment: ExperimentInterfaceStringDates;
+  mutate: () => void;
 };
 
 function parseDefaultValue(
@@ -109,6 +109,7 @@ const genFormDefaultValues = ({
     existing: "",
     valueType: type,
     defaultValue,
+    version: 1,
     description: experiment.description || "",
     id: "",
     owner: "",
@@ -129,9 +130,8 @@ export default function FeatureFromExperimentModal({
   inline,
   cta = "Create",
   secondaryCTA,
-  onSuccess,
-  features,
   experiment,
+  mutate,
 }: Props) {
   const { project, refreshTags } = useDefinitions();
   const environments = useEnvironments();
@@ -145,7 +145,10 @@ export default function FeatureFromExperimentModal({
     project,
   });
 
+  const { features, mutate: mutateFeatures } = useFeaturesList(false);
+
   // Skip features that already have this experiment
+  // TODO: include features where the only reference to this experiment is an old revision
   const validFeatures = features.filter((f) => {
     if (f.archived) return false;
     if (experiment.linkedFeatures?.includes(f.id)) return false;
@@ -271,12 +274,15 @@ export default function FeatureFromExperimentModal({
         }
 
         if (existing) {
-          await apiCall(`/feature/${featureToCreate.id}/experiment`, {
-            method: "POST",
-            body: JSON.stringify({
-              rule: rule,
-            }),
-          });
+          await apiCall(
+            `/feature/${featureToCreate.id}/${featureToCreate.version}/experiment`,
+            {
+              method: "POST",
+              body: JSON.stringify({
+                rule: rule,
+              }),
+            }
+          );
         } else {
           featureToCreate.defaultValue = parseDefaultValue(
             values.defaultValue,
@@ -306,7 +312,8 @@ export default function FeatureFromExperimentModal({
           refreshWatching();
         }
 
-        await onSuccess();
+        await mutate();
+        await mutateFeatures();
       })}
     >
       <SelectField

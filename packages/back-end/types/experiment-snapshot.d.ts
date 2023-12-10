@@ -34,6 +34,7 @@ export interface SnapshotMetric {
     y: number;
   }[];
   chanceToWin?: number;
+  errorMessage?: string;
 }
 
 export interface SnapshotVariation {
@@ -78,6 +79,7 @@ export interface MetricForSnapshot {
   // Computed settings that take into account overrides
   computedSettings?: {
     regressionAdjustmentEnabled: boolean;
+    regressionAdjustmentAvailable: boolean;
     regressionAdjustmentDays: number;
     regressionAdjustmentReason: string;
     conversionWindowHours: number;
@@ -115,6 +117,11 @@ export interface ExperimentSnapshotAnalysis {
   results: ExperimentReportResultDimension[];
 }
 
+export interface SnapshotSettingsVariation {
+  id: string;
+  weight: number;
+}
+
 // Settings that control which queries are run
 // Used to determine which types of analyses are possible
 // Also used to determine when to show "out-of-date" in the UI
@@ -135,10 +142,7 @@ export interface ExperimentSnapshotSettings {
   exposureQueryId: string;
   startDate: Date;
   endDate: Date;
-  variations: {
-    id: string;
-    weight: number;
-  }[];
+  variations: SnapshotSettingsVariation[];
   coverage?: number;
 }
 
@@ -164,6 +168,25 @@ export interface ExperimentSnapshotInterface {
   unknownVariations: string[];
   multipleExposures: number;
   analyses: ExperimentSnapshotAnalysis[];
+
+  health?: ExperimentSnapshotHealth;
+}
+
+export interface ExperimentSnapshotHealth {
+  traffic: ExperimentSnapshotTraffic;
+}
+
+export interface ExperimentSnapshotTraffic {
+  overall: ExperimentSnapshotTrafficDimension;
+  dimension: {
+    [dimension: string]: ExperimentSnapshotTrafficDimension[];
+  };
+  error?: "NO_ROWS_IN_UNIT_QUERY" | "TOO_MANY_ROWS" | string;
+}
+export interface ExperimentSnapshotTrafficDimension {
+  name: string;
+  srm: number;
+  variationUnits: number[];
 }
 
 // Params for gbstats

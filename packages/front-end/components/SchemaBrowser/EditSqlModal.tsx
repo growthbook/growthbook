@@ -168,17 +168,17 @@ export default function EditSqlModal({
       size="max"
       overflowAuto={false}
       bodyClassName="p-0"
-      cta="Save"
+      cta="Confirm Changes"
       closeCta="Back"
       secondaryCTA={
-        <label>
+        <label className="mr-4">
           <input
             type="checkbox"
             className="form-check-input"
             checked={testQueryBeforeSaving}
             onChange={(e) => setTestQueryBeforeSaving(e.target.checked)}
           />
-          Test Query Before Saving
+          Test query before confirming
         </label>
       }
     >

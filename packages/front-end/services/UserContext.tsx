@@ -147,7 +147,7 @@ export function useUser() {
 let currentUser: null | {
   id: string;
   org: string;
-  role: MemberRole;
+  role: MemberRole | "";
 } = null;
 export function getCurrentUser() {
   return currentUser;
@@ -179,8 +179,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
         method: "GET",
       });
       setData(res);
-      if (res.organizations) {
-        // @ts-expect-error TS(2722) If you come across this, please fix it!: Cannot invoke an object which is possibly 'undefin... Remove this comment to see the full error message
+      if (res.organizations && setOrganizations) {
         setOrganizations(res.organizations);
       }
     } catch (e) {
@@ -214,8 +213,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
     });
   }, [currentOrg?.teams, users]);
 
-  // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'string | undefined' is not assig... Remove this comment to see the full error message
-  let user = users.get(data?.userId);
+  let user = users.get(data?.userId || "");
   if (!user && data) {
     user = {
       email: data.email,
@@ -249,8 +247,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
     currentUser = {
       org: orgId || "",
       id: data?.userId || "",
-      // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'MemberRole | undefined' is not assignable to... Remove this comment to see the full error message
-      role: role,
+      role: role || "",
     };
   }, [orgId, data?.userId, role]);
 
@@ -289,8 +286,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
   // Update growthbook tarageting attributes
   const growthbook = useGrowthBook<AppFeatures>();
   useEffect(() => {
-    // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-    growthbook.setAttributes({
+    growthbook?.setAttributes({
       id: data?.userId || "",
       name: data?.userName || "",
       superAdmin: data?.superAdmin || false,
@@ -359,11 +355,10 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
         updateUser,
         user,
         users,
-        // @ts-expect-error TS(2322) If you come across this, please fix it!: Type '(id: string, fallback?: boolean | undefined)... Remove this comment to see the full error message
         getUserDisplay: (id, fallback = true) => {
           const u = users.get(id);
           if (!u && fallback) return id;
-          return u?.name || u?.email;
+          return u?.name || u?.email || "";
         },
         refreshOrganization: async () => {
           await refreshOrganization();

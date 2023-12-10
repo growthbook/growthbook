@@ -1,6 +1,7 @@
 import {
   ExperimentInterfaceStringDates,
   ExperimentPhaseStringDates,
+  LinkedFeatureInfo,
 } from "back-end/types/experiment";
 import { FaHome } from "react-icons/fa";
 import { PiChartBarHorizontalFill } from "react-icons/pi";
@@ -27,7 +28,7 @@ import ResultsIndicator from "../ResultsIndicator";
 import { StartExperimentBanner } from "../StartExperimentBanner";
 import ExperimentStatusIndicator from "./ExperimentStatusIndicator";
 import StopExperimentButton from "./StopExperimentButton";
-import { ExperimentTab, LinkedFeature } from ".";
+import { ExperimentTab } from ".";
 
 export interface Props {
   tab: ExperimentTab;
@@ -42,7 +43,7 @@ export interface Props {
   editResult?: () => void;
   safeToEdit: boolean;
   usersWatching: (string | undefined)[];
-  linkedFeatures: LinkedFeature[];
+  linkedFeatures: LinkedFeatureInfo[];
   visualChangesets: VisualChangesetInterface[];
   connections: SDKConnectionInterface[];
   newPhase?: (() => void) | null;

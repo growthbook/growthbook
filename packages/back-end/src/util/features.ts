@@ -7,10 +7,11 @@ import {
   FeatureValueType,
   SavedGroupTargeting,
 } from "../../types/feature";
-import { FeatureDefinition } from "../../types/api";
+import { FeatureDefinitionWithProject } from "../../types/api";
 import { GroupMap } from "../../types/saved-group";
 import { SDKPayloadKey } from "../../types/sdk-payload";
 import { ExperimentInterface } from "../../types/experiment";
+import { FeatureRevisionInterface } from "../../types/feature-revision";
 import { getCurrentEnabledState } from "./scheduleRules";
 
 // eslint-disable-next-line
@@ -126,6 +127,7 @@ export function isRuleEnabled(rule: FeatureRule): boolean {
 
 export function getEnabledEnvironments(
   features: FeatureInterface | FeatureInterface[],
+  allowedEnvs: string[],
   ruleFilter?: (rule: FeatureRule) => boolean | unknown
 ): Set<string> {
   if (!Array.isArray(features)) features = [features];
@@ -135,6 +137,7 @@ export function getEnabledEnvironments(
     const settings = feature.environmentSettings || {};
 
     Object.keys(settings)
+      .filter((e) => allowedEnvs.includes(e))
       .filter((e) => settings[e].enabled)
       .filter((e) => {
         if (!ruleFilter) return true;
@@ -168,7 +171,8 @@ export function getSDKPayloadKeys(
 
 export function getSDKPayloadKeysByDiff(
   originalFeature: FeatureInterface,
-  updatedFeature: FeatureInterface
+  updatedFeature: FeatureInterface,
+  allowedEnvs: string[]
 ): SDKPayloadKey[] {
   const environments = new Set<string>();
 
@@ -185,16 +189,19 @@ export function getSDKPayloadKeysByDiff(
     "valueType",
     "nextScheduledUpdate",
   ];
-  if (allEnvKeys.some((k) => !isEqual(originalFeature[k], updatedFeature[k]))) {
-    getEnabledEnvironments([originalFeature, updatedFeature]).forEach((e) =>
-      environments.add(e)
-    );
+
+  if (
+    allEnvKeys.some(
+      (k) => !isEqual(originalFeature[k] ?? null, updatedFeature[k] ?? null)
+    )
+  ) {
+    getEnabledEnvironments(
+      [originalFeature, updatedFeature],
+      allowedEnvs
+    ).forEach((e) => environments.add(e));
   }
 
-  const allEnvs = new Set([
-    ...Object.keys(originalFeature.environmentSettings),
-    ...Object.keys(updatedFeature.environmentSettings),
-  ]);
+  const allEnvs = new Set(allowedEnvs);
 
   // Add in environments if their specific settings changed
   allEnvs.forEach((e) => {
@@ -223,12 +230,17 @@ export function getSDKPayloadKeysByDiff(
 
 export function getAffectedSDKPayloadKeys(
   features: FeatureInterface[],
+  allowedEnvs: string[],
   ruleFilter?: (rule: FeatureRule) => boolean | unknown
 ): SDKPayloadKey[] {
   const keys: SDKPayloadKey[] = [];
 
   features.forEach((feature) => {
-    const environments = getEnabledEnvironments(feature, ruleFilter);
+    const environments = getEnabledEnvironments(
+      feature,
+      allowedEnvs,
+      ruleFilter
+    );
     const projects = new Set(["", feature.project || ""]);
     keys.push(...getSDKPayloadKeys(environments, projects));
   });
@@ -268,16 +280,16 @@ export function getFeatureDefinition({
   environment,
   groupMap,
   experimentMap,
-  useDraft = false,
+  revision,
   returnRuleId = false,
 }: {
   feature: FeatureInterface;
   environment: string;
   groupMap: GroupMap;
   experimentMap: Map<string, ExperimentInterface>;
-  useDraft?: boolean;
+  revision?: FeatureRevisionInterface;
   returnRuleId?: boolean;
-}): FeatureDefinition | null {
+}): FeatureDefinitionWithProject | null {
   const settings = feature.environmentSettings?.[environment];
 
   // Don't include features which are disabled for this environment
@@ -285,25 +297,21 @@ export function getFeatureDefinition({
     return null;
   }
 
-  const draft = feature.draft;
-  if (!draft?.active) {
-    useDraft = false;
-  }
-
-  const defaultValue = useDraft
-    ? draft?.defaultValue ?? feature.defaultValue
+  const defaultValue = revision
+    ? revision.defaultValue ?? feature.defaultValue
     : feature.defaultValue;
 
-  const rules = useDraft
-    ? draft?.rules?.[environment] ?? settings.rules
+  const rules = revision
+    ? revision.rules?.[environment] ?? settings.rules
     : settings.rules;
 
   const isRule = (
     rule: FeatureDefinitionRule | null
   ): rule is FeatureDefinitionRule => !!rule;
 
-  const def: FeatureDefinition = {
+  const def: FeatureDefinitionWithProject = {
     defaultValue: getJSONValue(feature.valueType, defaultValue),
+    project: feature.project,
     rules:
       rules
         ?.filter(isRuleEnabled)
