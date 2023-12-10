@@ -1,12 +1,10 @@
 import { SavedGroupInterface } from "back-end/types/saved-group";
 import { useMemo, useState } from "react";
 import { ago } from "shared/dates";
-import { getMatchingRules } from "shared/util";
 import usePermissions from "@/hooks/usePermissions";
 import { useAuth } from "@/services/auth";
-import { useEnvironments, useFeaturesList } from "@/services/features";
 import { useSearch } from "@/services/search";
-import { getSavedGroupMessage } from "@/pages/saved-groups";
+import { SavedGroupUsageMap, getSavedGroupMessage } from "@/pages/saved-groups";
 import LoadingOverlay from "../LoadingOverlay";
 import Button from "../Button";
 import { GBAddCircle } from "../Icons";
@@ -19,9 +17,10 @@ import SavedGroupForm from "./SavedGroupForm";
 export interface Props {
   groups: SavedGroupInterface[];
   mutate: () => void;
+  usage: SavedGroupUsageMap;
 }
 
-export default function InlineGroupsList({ groups, mutate }: Props) {
+export default function InlineGroupsList({ groups, mutate, usage }: Props) {
   const [
     savedGroupForm,
     setSavedGroupForm,
@@ -32,35 +31,6 @@ export default function InlineGroupsList({ groups, mutate }: Props) {
   const inlineGroups = useMemo(() => {
     return groups.filter((g) => g.source === "inline");
   }, [groups]);
-
-  const { features } = useFeaturesList();
-
-  const environments = useEnvironments();
-
-  // Get a list of feature ids for every saved group
-  // TODO: also get experiments
-  const savedGroupFeatureIds = useMemo(() => {
-    const map: Record<string, Set<string>> = {};
-
-    features.forEach((feature) => {
-      inlineGroups.forEach((group) => {
-        const matches = getMatchingRules(
-          feature,
-          (rule) =>
-            rule.condition?.includes(group.id) ||
-            rule.savedGroups?.some((g) => g.ids.includes(group.id)) ||
-            false,
-          environments.map((e) => e.id)
-        );
-
-        if (matches.length > 0) {
-          map[group.id] = map[group.id] || new Set();
-          map[group.id].add(feature.id);
-        }
-      });
-    });
-    return map;
-  }, [inlineGroups, environments, features]);
 
   const { items, searchInputProps, isFiltered, SortableTH } = useSearch({
     items: inlineGroups,
@@ -79,6 +49,9 @@ export default function InlineGroupsList({ groups, mutate }: Props) {
           close={() => setSavedGroupForm(null)}
           current={savedGroupForm}
           runtime={false}
+          legacyTargetingUsage={
+            usage.get(savedGroupForm.id || "")?.legacy || []
+          }
         />
       )}
       <div className="row align-items-center mb-1">
@@ -166,11 +139,9 @@ export default function InlineGroupsList({ groups, mutate }: Props) {
                                   mutate();
                                 }}
                                 getConfirmationContent={getSavedGroupMessage(
-                                  savedGroupFeatureIds[s.id]
+                                  usage.get(s.id)?.all || []
                                 )}
-                                canDelete={
-                                  (savedGroupFeatureIds[s.id]?.size || 0) === 0
-                                }
+                                canDelete={!usage.get(s.id)?.all?.length}
                               />
                             </MoreMenu>
                           </td>

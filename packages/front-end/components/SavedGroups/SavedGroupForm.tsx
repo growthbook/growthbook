@@ -4,6 +4,7 @@ import { useForm } from "react-hook-form";
 import { isLegacySavedGroup } from "shared/util";
 import { FaQuestionCircle } from "react-icons/fa";
 import { useAttributeSchema } from "@/services/features";
+import { SavedGroupUsageList, SavedGroupUsageRef } from "@/pages/saved-groups";
 import { useAuth } from "../../services/auth";
 import useMembers from "../../hooks/useMembers";
 import { useDefinitions } from "../../services/DefinitionsContext";
@@ -21,7 +22,8 @@ const SavedGroupForm: FC<{
   close: () => void;
   current: Partial<SavedGroupInterface>;
   runtime: boolean;
-}> = ({ close, current, runtime }) => {
+  legacyTargetingUsage: SavedGroupUsageRef[];
+}> = ({ close, current, runtime, legacyTargetingUsage }) => {
   const { apiCall } = useAuth();
   const { memberUsernameOptions } = useMembers();
 
@@ -76,6 +78,7 @@ const SavedGroupForm: FC<{
       header={`${current.id ? "Edit" : "New"} ${
         runtime ? "Runtime Group" : "Inline Group"
       }`}
+      ctaEnabled={!(isNoLongerLegacy && legacyTargetingUsage.length > 0)}
       submit={form.handleSubmit(async (value) => {
         if (runtime) {
           value.source = "runtime";
@@ -138,16 +141,16 @@ const SavedGroupForm: FC<{
           require
         />
       )}
-      {isNoLongerLegacy ? (
+      {isNoLongerLegacy && legacyTargetingUsage.length > 0 ? (
         <div className="alert alert-danger mt-2">
           <Tooltip
             body={
               <>
                 <p>
-                  If this Saved Group is referenced in a{" "}
-                  <strong>Target by Attribute</strong> field in any
-                  feature/experiment, it will stop working immediately. You must
-                  use the newer and more flexible{" "}
+                  This Saved Group is referenced in a{" "}
+                  <strong>Target by Attribute</strong> field, which only
+                  supports simple lists of values. To use more complex targeting
+                  conditions, you must switch to the newer and more flexible{" "}
                   <strong>Target by Saved Group</strong> field instead.
                 </p>
 
@@ -155,8 +158,7 @@ const SavedGroupForm: FC<{
                   If you prefer to remain backwards compatible, you must select
                   the <code>{current.attributeKey || ""}</code> attribute and{" "}
                   <code>is in the list</code> operator without any extra
-                  conditions applied. This warning will disappear when all
-                  backwards incompatible changes are removed.
+                  conditions applied.
                 </p>
               </>
             }
@@ -165,7 +167,10 @@ const SavedGroupForm: FC<{
               Warning: Backwards Incompatible Change <FaQuestionCircle />
             </b>
           </Tooltip>
-          . Saving may break existing feature/experiment targeting rules.
+          . Must update the following features and experiments before saving:
+          <div className="mt-1">
+            <SavedGroupUsageList usage={legacyTargetingUsage} />
+          </div>
         </div>
       ) : current.id ? (
         <div className="alert alert-info mt-2">

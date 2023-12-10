@@ -1,41 +1,60 @@
 import React, { useState } from "react";
 import Link from "next/link";
+import { FeatureInterface } from "back-end/types/feature";
+import { SavedGroupInterface } from "back-end/types/saved-group";
+import { getMatchingRules } from "shared/util";
+import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import InlineGroupsList from "@/components/SavedGroups/InlineGroupsList";
 import RuntimeGroupsList from "@/components/SavedGroups/RuntimeGroupsList";
+import { useEnvironments, useFeaturesList } from "@/services/features";
+import { useExperiments } from "@/hooks/useExperiments";
 import LoadingOverlay from "../components/LoadingOverlay";
 import { useDefinitions } from "../services/DefinitionsContext";
 import Modal from "../components/Modal";
 import HistoryTable from "../components/HistoryTable";
 
-export const getSavedGroupMessage = (
-  featuresUsingSavedGroups: Set<string> | undefined
-) => {
+export function SavedGroupUsageList({
+  usage,
+}: {
+  usage: SavedGroupUsageRef[];
+}) {
+  return (
+    <ul
+      className="border rounded bg-light pt-3 pb-3 overflow-auto"
+      style={{ maxHeight: "200px" }}
+    >
+      {usage.map((ref, i) => {
+        return (
+          <li key={i}>
+            <strong>{ref.type}</strong>:{" "}
+            <Link
+              href={
+                ref.type === "feature"
+                  ? `/features/${ref.id}`
+                  : `/experiments/${ref.id}`
+              }
+            >
+              {ref.name}
+            </Link>
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
+export const getSavedGroupMessage = (usage: SavedGroupUsageRef[]) => {
   return async () => {
-    if (featuresUsingSavedGroups && featuresUsingSavedGroups?.size > 0) {
+    if (usage.length > 0) {
       return (
         <div>
           <p className="alert alert-danger">
-            <strong>Whoops!</strong> Before you can delete this saved group, you
-            will need to update the feature
-            {featuresUsingSavedGroups.size > 1 && "s"} listed below by removing
-            any targeting conditions that rely on this saved group.
+            <strong>Whoops!</strong> The following features and experiments
+            reference this saved group. You must update the targeting conditions
+            and remove references from all of them before you delete this saved
+            group.
           </p>
-          <ul
-            className="border rounded bg-light pt-3 pb-3 overflow-auto"
-            style={{ maxHeight: "200px" }}
-          >
-            {[...featuresUsingSavedGroups].map((feature) => {
-              return (
-                <li key={feature}>
-                  <div className="d-flex">
-                    <Link href={`/features/${feature}`}>
-                      <a className="btn btn-link pt-1 pb-1">{feature}</a>
-                    </Link>
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
+          <SavedGroupUsageList usage={usage} />
         </div>
       );
     }
@@ -43,12 +62,129 @@ export const getSavedGroupMessage = (
   };
 };
 
+// TODO: support experiments
+export type SavedGroupUsageRef = {
+  type: "feature" | "experiment";
+  name: string;
+  id: string;
+};
+export type SavedGroupUsageMap = Map<
+  string,
+  {
+    all: SavedGroupUsageRef[];
+    legacy: SavedGroupUsageRef[];
+  }
+>;
+
+export function getSavedGroupUsageMap(
+  features: FeatureInterface[],
+  experiments: ExperimentInterfaceStringDates[],
+  savedGroups: SavedGroupInterface[],
+  environments: string[]
+): SavedGroupUsageMap {
+  const map: SavedGroupUsageMap = new Map();
+
+  features.forEach((feature) => {
+    const ref: SavedGroupUsageRef = {
+      type: "feature",
+      name: feature.id,
+      id: feature.id,
+    };
+
+    savedGroups.forEach((group) => {
+      map.set(
+        group.id,
+        map.get(group.id) || {
+          all: [],
+          legacy: [],
+        }
+      );
+      const entry = map.get(group.id);
+      if (!entry) return;
+
+      // First add newer savedGroup Targeting references
+      const savedGroupTageting = getMatchingRules(
+        feature,
+        (rule) => {
+          return (
+            rule.savedGroups?.some((g) => g.ids.includes(group.id)) || false
+          );
+        },
+        environments
+      );
+      if (savedGroupTageting.length > 0) {
+        entry.all.push(ref);
+      }
+
+      // Next add legacy attributeTargeting references
+      const conditionTargeting = getMatchingRules(
+        feature,
+        (rule) => {
+          return rule.condition?.includes(group.id) || false;
+        },
+        environments
+      );
+      if (conditionTargeting.length > 0) {
+        entry.all.push(ref);
+        entry.legacy.push(ref);
+      }
+    });
+  });
+
+  experiments
+    .filter((exp) => !exp.archived)
+    .forEach((experiment) => {
+      const ref: SavedGroupUsageRef = {
+        type: "experiment",
+        name: experiment.name,
+        id: experiment.id,
+      };
+
+      const phase = experiment.phases[experiment.phases.length - 1];
+      if (!phase) return;
+
+      savedGroups.forEach((group) => {
+        map.set(
+          group.id,
+          map.get(group.id) || {
+            all: [],
+            legacy: [],
+          }
+        );
+        const entry = map.get(group.id);
+        if (!entry) return;
+
+        if (phase.savedGroups?.some((g) => g.ids.includes(group.id))) {
+          entry.all.push(ref);
+        }
+
+        if (phase.condition?.includes(group.id)) {
+          entry.all.push(ref);
+          entry.legacy.push(ref);
+        }
+      });
+    });
+
+  return map;
+}
+
 export default function SavedGroupsPage() {
   const { mutateDefinitions, savedGroups, error } = useDefinitions();
 
   const [auditModal, setAuditModal] = useState(false);
 
+  const { features } = useFeaturesList();
+  const { experiments } = useExperiments();
+  const environments = useEnvironments();
+
   if (!savedGroups) return <LoadingOverlay />;
+
+  const savedGroupUsage = getSavedGroupUsageMap(
+    features,
+    experiments,
+    savedGroups,
+    environments.map((e) => e.id)
+  );
 
   return (
     <div className="p-3 container-fluid pagecontents">
@@ -80,8 +216,16 @@ export default function SavedGroupsPage() {
         </div>
       ) : (
         <>
-          <InlineGroupsList groups={savedGroups} mutate={mutateDefinitions} />
-          <RuntimeGroupsList groups={savedGroups} mutate={mutateDefinitions} />
+          <InlineGroupsList
+            groups={savedGroups}
+            mutate={mutateDefinitions}
+            usage={savedGroupUsage}
+          />
+          <RuntimeGroupsList
+            groups={savedGroups}
+            mutate={mutateDefinitions}
+            usage={savedGroupUsage}
+          />
         </>
       )}
 

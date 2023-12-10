@@ -4,9 +4,8 @@ import { ago } from "shared/dates";
 import { FaAngleDown, FaAngleRight } from "react-icons/fa";
 import usePermissions from "@/hooks/usePermissions";
 import { useAuth } from "@/services/auth";
-import { useEnvironments, useFeaturesList } from "@/services/features";
 import { useSearch } from "@/services/search";
-import { getSavedGroupMessage } from "@/pages/saved-groups";
+import { SavedGroupUsageMap, getSavedGroupMessage } from "@/pages/saved-groups";
 import LoadingOverlay from "../LoadingOverlay";
 import Button from "../Button";
 import { GBAddCircle } from "../Icons";
@@ -20,9 +19,10 @@ import SavedGroupForm from "./SavedGroupForm";
 export interface Props {
   groups: SavedGroupInterface[];
   mutate: () => void;
+  usage: SavedGroupUsageMap;
 }
 
-export default function RuntimeGroupsList({ groups, mutate }: Props) {
+export default function RuntimeGroupsList({ groups, mutate, usage }: Props) {
   const [
     savedGroupForm,
     setSavedGroupForm,
@@ -30,39 +30,11 @@ export default function RuntimeGroupsList({ groups, mutate }: Props) {
   const permissions = usePermissions();
   const { apiCall } = useAuth();
 
-  const environments = useEnvironments();
-
   const runtimeGroups = useMemo(() => {
     return groups.filter((g) => g.source === "runtime");
   }, [groups]);
 
-  const { features } = useFeaturesList();
-
   const [runtimeInstructions, setRuntimeInstructions] = useState(false);
-
-  // Get a list of feature ids for every saved group
-  // TODO: also get experiments
-  const savedGroupFeatureIds = useMemo(() => {
-    const map: Record<string, Set<string>> = {};
-    features.forEach((feature) => {
-      environments.forEach((env) => {
-        if (feature.environmentSettings[env.id]?.rules) {
-          feature.environmentSettings[env.id].rules.forEach((rule) => {
-            runtimeGroups.forEach((group) => {
-              if (
-                rule.condition?.includes(group.id) ||
-                rule.savedGroups?.some((g) => g.ids.includes(group.id))
-              ) {
-                map[group.id] = map[group.id] || new Set();
-                map[group.id].add(feature.id);
-              }
-            });
-          });
-        }
-      });
-    });
-    return map;
-  }, [runtimeGroups, features, environments]);
 
   const { items, searchInputProps, isFiltered, SortableTH } = useSearch({
     items: runtimeGroups,
@@ -81,6 +53,9 @@ export default function RuntimeGroupsList({ groups, mutate }: Props) {
           close={() => setSavedGroupForm(null)}
           current={savedGroupForm}
           runtime={true}
+          legacyTargetingUsage={
+            usage.get(savedGroupForm.id || "")?.legacy || []
+          }
         />
       )}
       <div className="row align-items-center mb-1">
@@ -170,11 +145,9 @@ export default function RuntimeGroupsList({ groups, mutate }: Props) {
                                   mutate();
                                 }}
                                 getConfirmationContent={getSavedGroupMessage(
-                                  savedGroupFeatureIds[s.id]
+                                  usage.get(s.id)?.all || []
                                 )}
-                                canDelete={
-                                  (savedGroupFeatureIds[s.id]?.size || 0) === 0
-                                }
+                                canDelete={!usage.get(s.id)?.all?.length}
                               />
                             </MoreMenu>
                           </td>
