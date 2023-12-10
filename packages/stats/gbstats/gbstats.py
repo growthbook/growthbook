@@ -16,7 +16,7 @@ from gbstats.frequentist.tests import (
     SequentialTwoSidedTTest,
     TwoSidedTTest,
 )
-from gbstats.shared.constants import StatsEngine
+from gbstats.shared.constants import DifferenceType, StatsEngine
 from gbstats.shared.models import (
     compute_theta,
     BayesianTestResult,
@@ -385,3 +385,100 @@ def check_srm(users, weights):
         x = x + ((o - e) ** 2) / e
 
     return chi2.sf(x, len(users) - 1)
+
+
+# Run a specific analysis given data and configuration settings
+def process_analysis(rows, var_id_map, phase_length_days, multiple_exposures, analysis):
+    var_names = analysis["var_names"]
+    inverse = analysis["inverse"]
+    weights = analysis["weights"]
+    max_dimensions = analysis["max_dimensions"]
+    baseline_index = analysis["baseline_index"]
+    stats_engine = (
+        StatsEngine.FREQUENTIST
+        if analysis["stats_engine"] == "frequentist"
+        else StatsEngine.BAYESIAN
+    )
+
+    unknown_var_ids = detect_unknown_variations(rows=rows, var_id_map=var_id_map)
+
+    if analysis["dimension"] == "pre:datedaily":
+        rows = diff_for_daily_time_series(rows)
+
+    df = get_metric_df(
+        rows=rows,
+        var_id_map=var_id_map,
+        var_names=var_names,
+    )
+
+    reduced = reduce_dimensionality(
+        df=df,
+        max=max_dimensions,
+    )
+
+    engine_config = {"phase_length_days": phase_length_days}
+
+    if analysis["difference_type"] == "absolute":
+        engine_config["difference_type"] = DifferenceType.ABSOLUTE
+    elif analysis["difference_type"] == "scaled":
+        engine_config["difference_type"] = DifferenceType.SCALED
+    else:
+        engine_config["difference_type"] = DifferenceType.RELATIVE
+
+    if (
+        stats_engine == StatsEngine.FREQUENTIST
+        and analysis["sequential_testing_enabled"]
+    ):
+        engine_config["sequential"] = True
+        engine_config["sequential_tuning_parameter"] = analysis[
+            "sequential_tuning_parameter"
+        ]
+
+    if stats_engine == StatsEngine.FREQUENTIST and analysis["alpha"]:
+        engine_config["alpha"] = analysis["alpha"]
+
+    result = analyze_metric_df(
+        df=reduced,
+        weights=weights,
+        inverse=inverse,
+        engine=stats_engine,
+        engine_config=engine_config,
+    )
+
+    return {
+        "unknownVariations": list(unknown_var_ids),
+        "dimensions": format_results(result, baseline_index),
+        "multipleExposures": multiple_exposures,
+    }
+
+
+def process_single_metric(mdata, var_id_map, phase_length_days):
+    rows = pd.DataFrame(mdata["rows"])
+    multiple_exposures = mdata["multiple_exposures"]
+
+    metric_result = {"metric": mdata["metric"], "analyses": []}
+
+    for analysis in mdata["analyses"]:
+        metric_result["analyses"].append(
+            process_analysis(
+                rows=rows,
+                var_id_map=var_id_map,
+                phase_length_days=phase_length_days,
+                multiple_exposures=multiple_exposures,
+                analysis=analysis,
+            )
+        )
+    return metric_result
+
+
+def process_experiment_results(data):
+    var_id_map = data["var_id_map"]
+    phase_length_days = data["phase_length_days"]
+    metrics = data["metrics"]
+
+    results = []
+
+    for mdata in metrics:
+        results.append(process_single_metric(mdata, var_id_map, phase_length_days))
+
+    return results

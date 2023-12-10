@@ -32,6 +32,34 @@ import {
 import { QueryMap } from "../queryRunners/QueryRunner";
 import { MAX_ROWS_UNIT_AGGREGATE_QUERY } from "../integrations/SqlIntegration";
 
+// These same type definitions can be created in gbstats.py
+// and used to validate the data passed to the stats engine
+export interface AnalysisSettingsForStatsEngine {
+  var_names: string[];
+  weights: number[];
+  baseline_index: number;
+  inverse: boolean;
+  dimension: string;
+  stats_engine: string;
+  sequential_testing_enabled: boolean;
+  sequential_tuning_parameter: number;
+  difference_type: string;
+  phase_length_days: number;
+  alpha: number;
+  max_dimensions: number;
+}
+export interface MetricDataForStatsEngine {
+  metric: string;
+  rows: ExperimentMetricQueryResponseRows;
+  multiple_exposures: number;
+  analyses: AnalysisSettingsForStatsEngine[];
+}
+export interface DataForStatsEngine {
+  var_id_map: { [key: string]: number };
+  phase_length_days: number;
+  metrics: MetricDataForStatsEngine[];
+}
+
 export const MAX_DIMENSIONS = 20;
 
 export function getAvgCPU(pre: os.CpuInfo[], post: os.CpuInfo[]) {
@@ -64,13 +92,19 @@ export async function analyzeExperimentMetric(
     variationIdMap[v.id] = i;
   });
 
-  const metricData = metrics
-    .map((data) => {
-      if (!data) return null;
+  function isMetricData(
+    data: MetricDataForStatsEngine | null
+  ): data is MetricDataForStatsEngine {
+    return !!data;
+  }
 
-      const { metric, rows, analyses } = data;
+  const metricData: MetricDataForStatsEngine[] = metrics
+    .map((m): MetricDataForStatsEngine | null => {
+      if (!m) return null;
 
-      return {
+      const { metric, rows, analyses } = m;
+
+      const data: MetricDataForStatsEngine = {
         metric: metric.id,
         rows,
         multiple_exposures:
@@ -96,11 +130,10 @@ export async function analyzeExperimentMetric(
             const pValueThresholdNumber =
               Number(pValueThreshold) || DEFAULT_P_VALUE_THRESHOLD;
 
-            return {
+            const analysisData: AnalysisSettingsForStatsEngine = {
               var_names: sortedVariations.map((v) => v.name),
               weights: sortedVariations.map((v) => v.weight * coverage),
               baseline_index: baselineVariationIndex ?? 0,
-              ignore_nulls: "ignoreNulls" in metric && !!metric.ignoreNulls,
               inverse: !!metric.inverse,
               dimension: dimension || "",
               stats_engine: statsEngine,
@@ -114,123 +147,35 @@ export async function analyzeExperimentMetric(
                   ? 9999
                   : MAX_DIMENSIONS,
             };
+            return analysisData;
           }
         ),
       };
+      return data;
     })
-    .filter(Boolean);
+    .filter(isMetricData);
 
-  /*
-  if (!rows || !rows.length) {
-    return {
-      unknownVariations: [],
-      multipleExposures: 0,
-      dimensions: [],
-    };
-  }
-  */
+  const statsData: DataForStatsEngine = {
+    var_id_map: variationIdMap,
+    phase_length_days: phaseLengthDays,
+    metrics: metricData,
+  };
+
+  const escapedStatsData = JSON.stringify(statsData).replace(/\\/g, "\\\\");
 
   const start = Date.now();
   const cpus = os.cpus();
   const result = await promisify(PythonShell.runString)(
     `
-from gbstats.gbstats import (
-  diff_for_daily_time_series,
-  detect_unknown_variations,
-  analyze_metric_df,
-  get_metric_df,
-  reduce_dimensionality,
-  format_results
-)
-from gbstats.shared.constants import DifferenceType, StatsEngine
-import pandas as pd
+from gbstats.gbstats import process_experiment_results
 import json
 import time
 
 start = time.time()
 
-data = json.loads("""${JSON.stringify({
-      var_id_map: variationIdMap,
-      phase_length_days: phaseLengthDays,
-      metrics: metricData,
-    }).replace(/\\/g, "\\\\")}""", strict=False)
+data = json.loads("""${escapedStatsData}""", strict=False)
 
-var_id_map = data['var_id_map']
-phase_length_days = data['phase_length_days']
-metrics = data['metrics']
-
-results = []
-
-for mdata in metrics:
-  rows = pd.DataFrame(mdata['rows'])
-  multiple_exposures = mdata['multiple_exposures']
-
-  metric_result = {
-    'metric': mdata['metric'],
-    'analyses': []
-  }
-
-  for analysis in mdata['analyses']:
-    var_names = analysis['var_names']
-    ignore_nulls = analysis['ignore_nulls']
-    inverse = analysis['inverse']
-    weights = analysis['weights']
-    max_dimensions = analysis['max_dimensions']
-    baseline_index = analysis['baseline_index']
-    stats_engine = StatsEngine.FREQUENTIST if analysis['stats_engine'] == 'frequentist' else StatsEngine.BAYESIAN
-
-    unknown_var_ids = detect_unknown_variations(
-      rows=rows,
-      var_id_map=var_id_map
-    )
-
-    if analysis['dimension'] == "pre:datedaily":
-      rows = diff_for_daily_time_series(rows)
-
-    df = get_metric_df(
-      rows=rows,
-      var_id_map=var_id_map,
-      var_names=var_names,
-    )
-
-    reduced = reduce_dimensionality(
-      df=df, 
-      max=max_dimensions,
-    )
-
-    engine_config = {
-      'phase_length_days': phase_length_days
-    }
-
-    if analysis['difference_type'] == "absolute":
-      engine_config['difference_type'] = DifferenceType.ABSOLUTE
-    elif analysis['difference_type'] == "scaled":
-      engine_config['difference_type'] = DifferenceType.SCALED
-    else:
-      engine_config['difference_type'] = DifferenceType.RELATIVE
-
-    if stats_engine == StatsEngine.FREQUENTIST and analysis['sequential_testing_enabled']:
-      engine_config['sequential'] = True
-      engine_config['sequential_tuning_parameter'] = analysis['sequential_tuning_parameter']
-
-    if stats_engine == StatsEngine.FREQUENTIST and analysis['alpha']:
-      engine_config['alpha'] = analysis['alpha']
-
-    result = analyze_metric_df(
-      df=reduced,
-      weights=weights,
-      inverse=inverse,
-      engine=stats_engine,
-      engine_config=engine_config,
-    )
-
-    metric_result['analyses'].append({
-      'unknownVariations': list(unknown_var_ids),
-      'dimensions': format_results(result, baseline_index),
-      'multipleExposures': multiple_exposures
-    })
-  
-  results.append(metric_result)
+results = process_experiment_results(data)
 
 print(json.dumps({
   'results': results,
