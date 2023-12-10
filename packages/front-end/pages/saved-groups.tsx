@@ -26,16 +26,7 @@ export function SavedGroupUsageList({
       {usage.map((ref, i) => {
         return (
           <li key={i}>
-            <strong>{ref.type}</strong>:{" "}
-            <Link
-              href={
-                ref.type === "feature"
-                  ? `/features/${ref.id}`
-                  : `/experiments/${ref.id}`
-              }
-            >
-              {ref.name}
-            </Link>
+            <strong>{ref.type}</strong>: <Link href={ref.url}>{ref.name}</Link>
           </li>
         );
       })}
@@ -66,7 +57,7 @@ export const getSavedGroupMessage = (usage: SavedGroupUsageRef[]) => {
 export type SavedGroupUsageRef = {
   type: "feature" | "experiment";
   name: string;
-  id: string;
+  url: string;
 };
 export type SavedGroupUsageMap = Map<
   string,
@@ -88,7 +79,7 @@ export function getSavedGroupUsageMap(
     const ref: SavedGroupUsageRef = {
       type: "feature",
       name: feature.id,
-      id: feature.id,
+      url: `/features/${feature.id}`,
     };
 
     savedGroups.forEach((group) => {
@@ -102,21 +93,7 @@ export function getSavedGroupUsageMap(
       const entry = map.get(group.id);
       if (!entry) return;
 
-      // First add newer savedGroup Targeting references
-      const savedGroupTageting = getMatchingRules(
-        feature,
-        (rule) => {
-          return (
-            rule.savedGroups?.some((g) => g.ids.includes(group.id)) || false
-          );
-        },
-        environments
-      );
-      if (savedGroupTageting.length > 0) {
-        entry.all.push(ref);
-      }
-
-      // Next add legacy attributeTargeting references
+      // If there are legacy references using attribute targeting
       const conditionTargeting = getMatchingRules(
         feature,
         (rule) => {
@@ -128,6 +105,22 @@ export function getSavedGroupUsageMap(
         entry.all.push(ref);
         entry.legacy.push(ref);
       }
+      // If there are newer references using saved group targeting
+      else {
+        // First add newer savedGroup Targeting references
+        const savedGroupTageting = getMatchingRules(
+          feature,
+          (rule) => {
+            return (
+              rule.savedGroups?.some((g) => g.ids.includes(group.id)) || false
+            );
+          },
+          environments
+        );
+        if (savedGroupTageting.length > 0) {
+          entry.all.push(ref);
+        }
+      }
     });
   });
 
@@ -137,7 +130,7 @@ export function getSavedGroupUsageMap(
       const ref: SavedGroupUsageRef = {
         type: "experiment",
         name: experiment.name,
-        id: experiment.id,
+        url: `/experiment/${experiment.id}`,
       };
 
       const phase = experiment.phases[experiment.phases.length - 1];
@@ -154,13 +147,14 @@ export function getSavedGroupUsageMap(
         const entry = map.get(group.id);
         if (!entry) return;
 
-        if (phase.savedGroups?.some((g) => g.ids.includes(group.id))) {
-          entry.all.push(ref);
-        }
-
+        // Legacy attribute targeting rules
         if (phase.condition?.includes(group.id)) {
           entry.all.push(ref);
           entry.legacy.push(ref);
+        }
+        // Newer saved group targeting rules
+        else if (phase.savedGroups?.some((g) => g.ids.includes(group.id))) {
+          entry.all.push(ref);
         }
       });
     });
