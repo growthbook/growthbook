@@ -79,10 +79,12 @@ def get_metric_df(
     var_id_map,
     var_names,
 ):
+    dfc = rows.copy()
+
     dimensions = {}
     # Each row in the raw SQL result is a dimension/variation combo
     # We want to end up with one row per dimension
-    for row in rows.itertuples(index=False):
+    for row in dfc.itertuples(index=False):
         dim = row.dimension
 
         # If this is the first time we're seeing this dimension, create an empty dict
@@ -388,7 +390,7 @@ def check_srm(users, weights):
 
 
 # Run a specific analysis given data and configuration settings
-def process_analysis(rows, var_id_map, phase_length_days, multiple_exposures, analysis):
+def process_analysis(rows, var_id_map, phase_length_days, analysis):
     var_names = analysis["var_names"]
     inverse = analysis["inverse"]
     weights = analysis["weights"]
@@ -400,22 +402,24 @@ def process_analysis(rows, var_id_map, phase_length_days, multiple_exposures, an
         else StatsEngine.BAYESIAN
     )
 
-    unknown_var_ids = detect_unknown_variations(rows=rows, var_id_map=var_id_map)
-
+    # If we're doing a daily time series, we need to diff the data
     if analysis["dimension"] == "pre:datedaily":
         rows = diff_for_daily_time_series(rows)
 
+    # Convert raw SQL result into a dataframe of dimensions
     df = get_metric_df(
         rows=rows,
         var_id_map=var_id_map,
         var_names=var_names,
     )
 
+    # Limit to the top X dimensions with the most users
     reduced = reduce_dimensionality(
         df=df,
         max=max_dimensions,
     )
 
+    # Get the stats engine configuration for this analysis
     engine_config = {"phase_length_days": phase_length_days}
 
     if analysis["difference_type"] == "absolute":
@@ -437,6 +441,7 @@ def process_analysis(rows, var_id_map, phase_length_days, multiple_exposures, an
     if stats_engine == StatsEngine.FREQUENTIST and analysis["alpha"]:
         engine_config["alpha"] = analysis["alpha"]
 
+    # Run the analysis for each variation and dimension
     result = analyze_metric_df(
         df=reduced,
         weights=weights,
@@ -445,30 +450,37 @@ def process_analysis(rows, var_id_map, phase_length_days, multiple_exposures, an
         engine_config=engine_config,
     )
 
-    return {
-        "unknownVariations": list(unknown_var_ids),
-        "dimensions": format_results(result, baseline_index),
-        "multipleExposures": multiple_exposures,
-    }
+    return format_results(result, baseline_index)
 
 
 def process_single_metric(mdata, var_id_map, phase_length_days):
     rows = pd.DataFrame(mdata["rows"])
     multiple_exposures = mdata["multiple_exposures"]
 
-    metric_result = {"metric": mdata["metric"], "analyses": []}
+    # Detect any variations that are not in the returned metric rows
+    unknown_var_ids = detect_unknown_variations(rows=rows, var_id_map=var_id_map)
 
-    for analysis in mdata["analyses"]:
-        metric_result["analyses"].append(
-            process_analysis(
-                rows=rows,
-                var_id_map=var_id_map,
-                phase_length_days=phase_length_days,
-                multiple_exposures=multiple_exposures,
-                analysis=analysis,
-            )
+    analyses = [
+        process_analysis(
+            rows=rows,
+            var_id_map=var_id_map,
+            phase_length_days=phase_length_days,
+            analysis=a,
         )
-    return metric_result
+        for a in mdata["analyses"]
+    ]
+
+    return {
+        "metric": mdata["metric"],
+        "analyses": [
+            {
+                "unknownVariations": list(unknown_var_ids),
+                "dimensions": a,
+                "multipleExposures": multiple_exposures,
+            }
+            for a in analyses
+        ],
+    }
 
 
 def process_experiment_results(data):
@@ -476,9 +488,6 @@ def process_experiment_results(data):
     phase_length_days = data["phase_length_days"]
     metrics = data["metrics"]
 
-    results = []
-
-    for mdata in metrics:
-        results.append(process_single_metric(mdata, var_id_map, phase_length_days))
-
-    return results
+    return [
+        process_single_metric(mdata, var_id_map, phase_length_days) for mdata in metrics
+    ]
