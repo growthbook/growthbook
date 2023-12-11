@@ -1,7 +1,4 @@
-import {
-  AutoExperimentWithProject,
-  FeatureDefinitionWithProject,
-} from "back-end/types/api";
+import { FeatureDefinitionWithProject } from "back-end/types/api";
 import pick from "lodash/pick";
 import { SDKCapability } from "./index";
 
@@ -13,21 +10,6 @@ const strictFeatureRuleKeys = [
   "coverage",
   "condition",
   "namespace",
-  "force",
-  "hashAttribute",
-];
-const strictExperimentKeys = [
-  "key",
-  "variations",
-  "weights",
-  "active",
-  "status",
-  "coverage",
-  "condition",
-  "namespace",
-  "url",
-  "include",
-  "groups",
   "force",
   "hashAttribute",
 ];
@@ -73,28 +55,4 @@ export const scrubFeatures = (
   }
 
   return features;
-};
-
-export const scrubExperiments = (
-  experiments: AutoExperimentWithProject[],
-  capabilities: SDKCapability[]
-): AutoExperimentWithProject[] => {
-  if (capabilities.includes("looseUnmarshalling")) {
-    return experiments;
-  }
-
-  experiments = [...experiments];
-  const allowedExperimentKeys = [...strictExperimentKeys];
-  if (capabilities.includes("bucketingV2")) {
-    allowedExperimentKeys.push(...bucketingV2Keys);
-  }
-
-  for (let i = 0; i < experiments.length; i++) {
-    experiments[i] = pick(
-      experiments[i],
-      allowedExperimentKeys
-    ) as AutoExperimentWithProject;
-  }
-
-  return experiments;
 };
