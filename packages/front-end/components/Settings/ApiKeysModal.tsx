@@ -24,14 +24,17 @@ const ApiKeysModal: FC<{
   const { projects, project } = useDefinitions();
   const { hasCommercialFeature } = useUser();
 
-  const roleOptions = [
+  const roleOptions: { label: string; value: string; description: string }[] = [
     {
       label: "Admin",
       value: "admin",
+      description:
+        "All access + manage team and configure organization settings",
     },
     {
       label: "Read-only",
       value: "readonly",
+      description: "View all features and experiment results",
     },
   ];
 
@@ -39,6 +42,7 @@ const ApiKeysModal: FC<{
     roleOptions.push({
       label: "SCIM",
       value: "scim",
+      description: "Manage teams and groups via SCIM API",
     });
   }
 
@@ -137,7 +141,22 @@ const ApiKeysModal: FC<{
           label="Role"
           value={form.watch("type")}
           onChange={(v) => form.setValue("type", v)}
-          options={roleOptions}
+          options={roleOptions.map((r) => ({
+            label: r.label,
+            value: r.value,
+          }))}
+          formatOptionLabel={(value) => {
+            const r = roleOptions.find((r) => r.label === value.label);
+            if (!r) return null;
+            return (
+              <div className="d-flex align-items-center">
+                <strong style={{ width: 110 }}>{r.label}</strong>
+                <small className="ml-2">
+                  <em>{r.description}</em>
+                </small>
+              </div>
+            );
+          }}
         />
       )}
     </Modal>
