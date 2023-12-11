@@ -1,4 +1,5 @@
 import { Response } from "express";
+import { isValidUserRole } from "shared/permissions";
 import { createTeam } from "../../models/TeamModel";
 import {
   ScimError,
@@ -7,7 +8,6 @@ import {
 } from "../../../types/scim";
 import { addMembersToTeam } from "../../services/organizations";
 import { MemberRole } from "../../../types/organization";
-import { isRoleValid } from "../users/createUser";
 
 export async function createGroup(
   req: ScimGroupPostRequest,
@@ -19,7 +19,7 @@ export async function createGroup(
 
   let role: MemberRole = org.settings?.defaultRole?.role || "collaborator";
 
-  if (growthbookRole && isRoleValid(growthbookRole)) {
+  if (growthbookRole && isValidUserRole(growthbookRole)) {
     role = growthbookRole;
   }
 
