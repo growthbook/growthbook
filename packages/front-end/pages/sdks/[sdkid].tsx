@@ -324,7 +324,15 @@ export default function SDKConnectionPage() {
           >
             {connection.languages.map((language) => (
               <div className="mx-1" key={language}>
-                <SDKLanguageLogo showLabel={true} language={language} />
+                <SDKLanguageLogo
+                  showLabel={true}
+                  language={language}
+                  version={
+                    connection.languages?.length === 1
+                      ? connection.sdkVersion
+                      : undefined
+                  }
+                />
               </div>
             ))}
           </div>

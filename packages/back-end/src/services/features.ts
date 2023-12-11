@@ -11,6 +11,11 @@ import {
 } from "@growthbook/growthbook";
 import { validateFeatureValue } from "shared/util";
 import {
+  scrubExperiments,
+  scrubFeatures,
+  SDKCapability,
+} from "shared/sdk-versioning";
+import {
   AutoExperimentWithProject,
   FeatureDefinition,
   FeatureDefinitionWithProject,
@@ -311,6 +316,7 @@ export type FeatureDefinitionsResponseArgs = {
   attributes?: SDKAttributeSchema;
   secureAttributeSalt?: string;
   projects: string[];
+  capabilities: SDKCapability[];
 };
 async function getFeatureDefinitionsResponse({
   features,
@@ -323,6 +329,7 @@ async function getFeatureDefinitionsResponse({
   attributes,
   secureAttributeSalt,
   projects,
+  capabilities,
 }: FeatureDefinitionsResponseArgs) {
   if (!includeDraftExperiments) {
     experiments = experiments?.filter((e) => e.status !== "draft") || [];
@@ -389,6 +396,28 @@ async function getFeatureDefinitionsResponse({
     }
   }
 
+  // todo: enable once done monitoring deltas:
+  // =========================================
+  // features = scrubFeatures(features, capabilities);
+  // experiments = scrubExperiments(experiments, capabilities);
+
+  // todo: remove:
+  const scrubbedFeatures = scrubFeatures(features, capabilities);
+  const scrubbedExperiments = scrubExperiments(experiments, capabilities);
+  if (JSON.stringify(scrubbedFeatures) !== JSON.stringify(features)) {
+    logger.error(
+      { scrubbedFeatures, features, capabilities },
+      "scrubbedFeatures delta"
+    );
+  }
+  if (JSON.stringify(scrubbedExperiments) !== JSON.stringify(experiments)) {
+    logger.error(
+      { scrubbedExperiments, experiments, capabilities },
+      "scrubbedExperiments delta"
+    );
+  }
+  // end remove
+
   if (!encryptionKey) {
     return {
       features,
@@ -416,6 +445,7 @@ async function getFeatureDefinitionsResponse({
 
 export type FeatureDefinitionArgs = {
   organization: string;
+  capabilities: SDKCapability[];
   environment?: string;
   projects?: string[];
   encryptionKey?: string;
@@ -434,6 +464,7 @@ export type FeatureDefinitionSDKPayload = {
 
 export async function getFeatureDefinitions({
   organization,
+  capabilities,
   environment = "production",
   projects,
   encryptionKey,
@@ -470,6 +501,7 @@ export async function getFeatureDefinitions({
         attributes,
         secureAttributeSalt,
         projects: projects || [],
+        capabilities,
       });
     }
   } catch (e) {
@@ -497,6 +529,7 @@ export async function getFeatureDefinitions({
       attributes,
       secureAttributeSalt,
       projects: projects || [],
+      capabilities,
     });
   }
 
@@ -543,6 +576,7 @@ export async function getFeatureDefinitions({
     attributes,
     secureAttributeSalt,
     projects: projects || [],
+    capabilities,
   });
 }
 
