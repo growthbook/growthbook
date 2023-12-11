@@ -10,6 +10,7 @@ import { FaChartBar } from "react-icons/fa";
 import clsx from "clsx";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import { useRouter } from "next/router";
+import { DifferenceType } from "back-end/types/stats";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import FeatureFromExperimentModal from "@/components/Features/FeatureModal/FeatureFromExperimentModal";
 import Modal from "@/components/Modal";
@@ -26,6 +27,7 @@ import EditStatusModal from "../EditStatusModal";
 import VisualChangesetModal from "../VisualChangesetModal";
 import EditExperimentNameForm from "../EditExperimentNameForm";
 import { useSnapshot } from "../SnapshotProvider";
+import { ResultsMetricFilters } from "../Results";
 import ExperimentHeader from "./ExperimentHeader";
 import ProjectTagBar from "./ProjectTagBar";
 import SetupTabOverview from "./SetupTabOverview";
@@ -87,6 +89,20 @@ export default function TabbedPage({
   const [visualEditorModal, setVisualEditorModal] = useState(false);
   const [featureModal, setFeatureModal] = useState(false);
   const [healthNotificationCount, setHealthNotificationCount] = useState(0);
+
+  // Results tab filters
+  const [baselineRow, setBaselineRow] = useState<number>(0);
+  const [differenceType, setDifferenceType] = useState<DifferenceType>(
+    "relative"
+  );
+  const [variationFilter, setVariationFilter] = useState<number[]>([]);
+  const [metricFilter, setMetricFilter] = useLocalStorage<ResultsMetricFilters>(
+    `experiment-page__${experiment.id}__metric_filter`,
+    {
+      tagOrder: [],
+      filterByTag: false,
+    }
+  );
 
   useEffect(() => {
     const handler = () => {
@@ -333,6 +349,14 @@ export default function TabbedPage({
             editTargeting={editTargeting}
             isTabActive={tab === "results"}
             safeToEdit={safeToEdit}
+            baselineRow={baselineRow}
+            setBaselineRow={setBaselineRow}
+            differenceType={differenceType}
+            setDifferenceType={setDifferenceType}
+            variationFilter={variationFilter}
+            setVariationFilter={setVariationFilter}
+            metricFilter={metricFilter}
+            setMetricFilter={setMetricFilter}
           />
         </div>
         <div className={tab === "health" ? "d-block" : "d-none d-print-block"}>
@@ -340,6 +364,11 @@ export default function TabbedPage({
             experiment={experiment}
             onDrawerNotify={handleIncrementHealthNotifications}
             onSnapshotUpdate={handleSnapshotChange}
+            resetResultsSettings={() => {
+              setBaselineRow(0);
+              setDifferenceType("relative");
+              setVariationFilter([]);
+            }}
           />
         </div>
       </div>

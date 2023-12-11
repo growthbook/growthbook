@@ -6,7 +6,6 @@ import {
 import cloneDeep from "lodash/cloneDeep";
 import { ago, datetime } from "shared/dates";
 import { QueryStatus } from "back-end/types/query";
-import { AUTOMATIC_DIMENSION_OTHER_NAME } from "shared/constants";
 import { DimensionSlicesInterface } from "back-end/types/dimension";
 import { BsGear } from "react-icons/bs";
 import { useForm } from "react-hook-form";
@@ -19,11 +18,44 @@ import ViewAsyncQueriesButton from "@/components/Queries/ViewAsyncQueriesButton"
 import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
 import track from "@/services/track";
+import usePermissions from "@/hooks/usePermissions";
 
 const smallPercentFormatter = new Intl.NumberFormat(undefined, {
   style: "percent",
   maximumFractionDigits: 0,
 });
+
+export function getLatestDimensionSlices(
+  dataSourceId: string,
+  exposureQueryId: string,
+  metadataId: string | undefined,
+  apiCall: <T>(
+    url: string | null,
+    options?: RequestInit | undefined
+  ) => Promise<T>,
+  setId: (id: string) => void,
+  mutate: () => void
+): void {
+  if (!dataSourceId || !exposureQueryId) return;
+  if (metadataId) {
+    setId(metadataId);
+    mutate();
+    return;
+  } else {
+    apiCall<{ dimensionSlices: DimensionSlicesInterface }>(
+      `/dimension-slices/datasource/${dataSourceId}/${exposureQueryId}`
+    )
+      .then((res) => {
+        if (res?.dimensionSlices?.id) {
+          setId(res.dimensionSlices.id);
+          mutate();
+        }
+      })
+      .catch((e) => {
+        console.error(e);
+      });
+  }
+}
 
 type UpdateDimensionMetadataModalProps = {
   exposureQuery: ExposureQuery;
@@ -51,27 +83,18 @@ export const UpdateDimensionMetadataModal: FC<UpdateDimensionMetadataModalProps>
   const metadataId = exposureQuery.dimensionSlicesId;
   const source = "datasource-modal";
 
-  useEffect(() => {
-    if (!dataSourceId || !exposureQueryId) return;
-    if (metadataId) {
-      setId(metadataId);
-      mutate();
-      return;
-    } else {
-      apiCall<{ dimensionSlices: DimensionSlicesInterface }>(
-        `/dimension-slices/datasource/${dataSourceId}/${exposureQueryId}`
-      )
-        .then((res) => {
-          if (res?.dimensionSlices?.id) {
-            setId(res.dimensionSlices.id);
-            mutate();
-          }
-        })
-        .catch((e) => {
-          console.error(e);
-        });
-    }
-  }, [dataSourceId, exposureQueryId, metadataId, setId, apiCall, mutate]);
+  useEffect(
+    () =>
+      getLatestDimensionSlices(
+        dataSourceId,
+        exposureQueryId,
+        metadataId,
+        apiCall,
+        setId,
+        mutate
+      ),
+    [dataSourceId, exposureQueryId, metadataId, setId, apiCall, mutate]
+  );
 
   if (error) {
     return <div className="alert alert-error">{error?.message}</div>;
@@ -131,7 +154,7 @@ export const UpdateDimensionMetadataModal: FC<UpdateDimensionMetadataModalProps>
             <strong>Why?</strong>
             Pre-defining dimension slices allows us to automatically run traffic
             and health checks on your experiment for all bins whenever you
-            update experiment results (coming soon!).
+            update experiment results.
           </div>
           <div className="row mb-3">
             <strong>How?</strong>
@@ -179,6 +202,7 @@ export const DimensionSlicesRunner: FC<DimensionSlicesRunnerProps> = ({
 }) => {
   const { apiCall } = useAuth();
   const [error, setError] = useState<string>("");
+  const permissions = usePermissions();
   const [openLookbackField, setOpenLookbackField] = useState<boolean>(false);
   const form = useForm({
     defaultValues: {
@@ -213,13 +237,41 @@ export const DimensionSlicesRunner: FC<DimensionSlicesRunnerProps> = ({
       });
   }, [dataSource.id, exposureQuery.id, form, source, mutate, apiCall, setId]);
 
-  dimensionSlices?.results;
   return (
     <>
       <div className="col-12">
         <div className="col-auto ml-auto">
-          <div className="row align-items-start mb-3">
-            <div className="flex-1" />
+          <div className="row align-items-center mb-3">
+            {permissions.check("runQueries", dataSource.projects || "") ? (
+              <div className="mr-2">
+                <form
+                  onSubmit={async (e) => {
+                    e.preventDefault();
+                    try {
+                      setError("");
+                      refreshDimension();
+                    } catch (e) {
+                      setError(e.message);
+                      console.error(e);
+                    }
+                  }}
+                >
+                  <RunQueriesButton
+                    cta={`${
+                      dimensionSlices ? "Refresh" : "Query"
+                    } Dimension Slices`}
+                    icon={dimensionSlices ? "refresh" : "run"}
+                    position={"left"}
+                    mutate={mutate}
+                    model={
+                      dimensionSlices ?? { queries: [], runStarted: undefined }
+                    }
+                    cancelEndpoint={`/dimension-slices/${id}/cancel`}
+                    color={`${dimensionSlices ? "outline-" : ""}primary`}
+                  />
+                </form>
+              </div>
+            ) : null}
             {dimensionSlices?.runStarted ? (
               <div className="pt-2 mr-2">
                 <div
@@ -231,64 +283,37 @@ export const DimensionSlicesRunner: FC<DimensionSlicesRunnerProps> = ({
                 </div>
               </div>
             ) : null}
+            <div className="flex-1" />
             <div>
-              <form
-                onSubmit={async (e) => {
-                  e.preventDefault();
-                  try {
-                    setError("");
-                    refreshDimension();
-                  } catch (e) {
-                    setError(e.message);
-                    console.error(e);
-                  }
-                }}
-              >
-                <RunQueriesButton
-                  cta={`${
-                    dimensionSlices ? "Refresh" : "Query"
-                  } Dimension Slices`}
-                  icon={dimensionSlices ? "refresh" : "run"}
-                  position={"left"}
-                  mutate={mutate}
-                  model={
-                    dimensionSlices ?? { queries: [], runStarted: undefined }
-                  }
-                  cancelEndpoint={`/dimension-slices/${id}/cancel`}
-                  color={`${dimensionSlices ? "outline-" : ""}primary`}
-                />
-                <div className="text-right text-muted">
-                  {openLookbackField ? (
-                    <div className="d-inline-flex align-items-center mt-1">
-                      <label className="mb-0 mr-2 small">
-                        Days to look back
-                      </label>
-                      <Field
-                        type="number"
-                        style={{ width: 70 }}
-                        {...form.register("lookbackDays", {
-                          valueAsNumber: true,
-                          min: 1,
-                        })}
-                      />
-                    </div>
-                  ) : (
-                    <span className="mt-1 small">
-                      <a
-                        role="button"
-                        className="a"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          setOpenLookbackField(!openLookbackField);
-                        }}
-                      >
-                        <BsGear />
-                      </a>{" "}
-                      {form.getValues("lookbackDays")} day lookback
-                    </span>
-                  )}
-                </div>
-              </form>
+              <div className="text-right text-muted">
+                {openLookbackField ? (
+                  <div className="d-inline-flex align-items-center mt-1">
+                    <label className="mb-0 mr-2 small">Days to look back</label>
+                    <Field
+                      type="number"
+                      style={{ width: 70 }}
+                      {...form.register("lookbackDays", {
+                        valueAsNumber: true,
+                        min: 1,
+                      })}
+                    />
+                  </div>
+                ) : (
+                  <span className="mt-1 small">
+                    <a
+                      role="button"
+                      className="a"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        setOpenLookbackField(!openLookbackField);
+                      }}
+                    >
+                      <BsGear />
+                    </a>{" "}
+                    {form.getValues("lookbackDays")} days to look back
+                  </span>
+                )}
+              </div>
             </div>
           </div>
         </div>
@@ -300,9 +325,21 @@ export const DimensionSlicesRunner: FC<DimensionSlicesRunnerProps> = ({
         ) : null}
         {status === "succeeded" && dimensionSlices?.results.length === 0 ? (
           <div className="alert alert-warning mt-2">
-            <strong>No experiment assignment rows found in data source.</strong>
+            <p className="mb-0">
+              <strong>
+                No experiment assignment rows found in data source.
+              </strong>{" "}
+            </p>{" "}
+            <p className="mb-0">
+              Either increase the number of days to look back or ensure that
+              your Experiment Assignment Query is correctly specified.
+            </p>
           </div>
         ) : null}
+
+        <div className="row align-items-center mb-2">
+          <strong>Dimension Slices to Display on Health Tab:</strong>
+        </div>
         <DimensionSlicesResults
           status={status}
           dimensions={exposureQuery.dimensions}
@@ -367,7 +404,9 @@ export const DimensionSlicesResults: FC<DimensionSlicesProps> = ({
                             <>
                               <Fragment key={`${r}-${i}`}>
                                 {i ? ", " : ""}
-                                <code key={`${r}-${d.name}`}>{d.name}</code>
+                                <code key={`${r}-code-${d.name}`}>
+                                  {d.name}
+                                </code>
                               </Fragment>
                               <span>{` (${smallPercentFormatter.format(
                                 d.percent / 100.0
@@ -381,21 +420,24 @@ export const DimensionSlicesResults: FC<DimensionSlicesProps> = ({
                         All other values:
                         <Fragment key={`${r}--1`}>
                           {" "}
-                          <code key={`${r}-_other_`}>
-                            {AUTOMATIC_DIMENSION_OTHER_NAME}
-                          </code>
+                          <code key={`${r}-code-_other_`}>__Other__</code>
                         </Fragment>
                         <span>{` (${smallPercentFormatter.format(
                           (100.0 - totalPercent) / 100.0
                         )})`}</span>
                       </div>
                     </>
-                  ) : status !== "running" ? (
-                    <div className="text-muted">
-                      Run dimension slices query to populate...
-                    </div>
                   ) : (
-                    <div className="text-muted">Updating data...</div>
+                    <div className="text-muted">
+                      {status !== "running" && !dimensionSlices
+                        ? "Run dimension slices query to populate"
+                        : status === "succeeded" &&
+                          dimensionSlices?.results?.length === 0
+                        ? "No data found"
+                        : status === "running"
+                        ? "Updating data"
+                        : ""}
+                    </div>
                   )}
                 </td>
               </tr>

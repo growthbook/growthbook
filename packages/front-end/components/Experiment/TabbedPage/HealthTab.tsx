@@ -6,49 +6,55 @@ import MultipleExposuresDrawer from "@/components/HealthTab/MultipleExposuresDra
 import { useUser } from "@/services/UserContext";
 import usePermissions from "@/hooks/usePermissions";
 import useOrgSettings from "@/hooks/useOrgSettings";
-import { useAuth } from "@/services/auth";
 import Button from "@/components/Button";
 import TrafficCard from "@/components/HealthTab/TrafficCard";
 import { IssueTags, IssueValue } from "@/components/HealthTab/IssueTags";
+import LoadingSpinner from "@/components/LoadingSpinner";
+import { useDefinitions } from "@/services/DefinitionsContext";
 import { useSnapshot } from "../SnapshotProvider";
+import { HealthTabOnboardingModal } from "./HealthTabOnboardingModal";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
   onDrawerNotify: () => void;
   onSnapshotUpdate: () => void;
+  resetResultsSettings: () => void;
 }
 
 export default function HealthTab({
   experiment,
   onDrawerNotify,
   onSnapshotUpdate,
+  resetResultsSettings,
 }: Props) {
-  const { error, snapshot, phase } = useSnapshot();
+  const {
+    error,
+    snapshot,
+    phase,
+    mutateSnapshot,
+    setAnalysisSettings,
+  } = useSnapshot();
   const { runHealthTrafficQuery } = useOrgSettings();
-  const { apiCall } = useAuth();
   const { refreshOrganization } = useUser();
   const permissions = usePermissions();
-  const hasPermissionToEditOrgSettings = permissions.check(
-    "organizationSettings"
-  );
+  const { getDatasourceById } = useDefinitions();
+  const datasource = getDatasourceById(experiment.datasource);
+  const hasPermissionToConfigHealthTag =
+    permissions.check("organizationSettings") &&
+    permissions.check("runQueries", datasource?.projects || []) &&
+    permissions.check("editDatasourceSettings", datasource?.projects || []);
   const [healthIssues, setHealthIssues] = useState<IssueValue[]>([]);
   // Clean up notification counter & health issues before unmounting
+
+  const [setupModalOpen, setSetupModalOpen] = useState<boolean>(false);
+  const [loading, setLoading] = useState<boolean>(false);
+
   useEffect(() => {
     return () => {
       onSnapshotUpdate();
       setHealthIssues([]);
     };
   }, [snapshot, onSnapshotUpdate]);
-
-  const enableRunHealthTrafficQueries = async () => {
-    await apiCall(`/organization`, {
-      method: "PUT",
-      body: JSON.stringify({
-        settings: { runHealthTrafficQuery: true },
-      }),
-    });
-    refreshOrganization();
-  };
 
   const handleDrawerNotify = useCallback(
     (issue: IssueValue) => {
@@ -68,20 +74,33 @@ export default function HealthTab({
       <div className="alert alert-info mt-3 d-flex">
         {runHealthTrafficQuery === undefined
           ? "Welcome to the new health tab! You can use this tab to view experiment traffic over time, perform balance checks, and check for multiple exposures. To get started, "
-          : "Health queries are disabled in your Organization Settings. To enable them, "}
-        {hasPermissionToEditOrgSettings ? (
+          : "Health queries are disabled in your Organization Settings. To enable them and set up the health tab, "}
+        {hasPermissionToConfigHealthTag ? (
           <>
-            click the enable button on the right.
+            click the button on the right.
             <Button
               className="mt-2 mb-2 ml-auto"
               style={{ width: "200px" }}
-              onClick={async () => await enableRunHealthTrafficQueries()}
+              onClick={async () => setSetupModalOpen(true)}
             >
-              Enable Health Queries
+              Set up Health Tab
             </Button>
+            {setupModalOpen ? (
+              <HealthTabOnboardingModal
+                experiment={experiment}
+                phase={phase}
+                open={setupModalOpen}
+                close={() => setSetupModalOpen(false)}
+                refreshOrganization={refreshOrganization}
+                mutateSnapshot={mutateSnapshot}
+                setAnalysisSettings={setAnalysisSettings}
+                setLoading={setLoading}
+                resetResultsSettings={resetResultsSettings}
+              />
+            ) : null}
           </>
         ) : (
-          "ask someone with permission to manage organization settings to enable Run traffic query by default under the Experiment Health Settings section."
+          "ask an admin in your organization to navigate to any experiment health tab and follow the onboarding process."
         )}
       </div>
     );
@@ -127,6 +146,13 @@ export default function HealthTab({
   }
 
   if (!snapshot?.health?.traffic.dimension?.dim_exposure_date) {
+    if (loading) {
+      return (
+        <div className="alert alert-info mt-3">
+          <LoadingSpinner /> Snapshot refreshing, health data loading...
+        </div>
+      );
+    }
     return (
       <div className="alert alert-info mt-3">
         Please return to the results page and run a query to see health data.
