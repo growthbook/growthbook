@@ -3,6 +3,10 @@ import { evaluateFeatures } from "@growthbook/proxy-eval";
 import { isEqual } from "lodash";
 import { MergeResultChanges, MergeStrategy, autoMerge } from "shared/util";
 import {
+  getConnectionSDKCapabilities,
+  SDKCapability,
+} from "shared/sdk-versioning";
+import {
   ExperimentRefRule,
   FeatureInterface,
   FeatureRule,
@@ -97,6 +101,7 @@ export async function getPayloadParamsFromApiKey(
   req: Request
 ): Promise<{
   organization: string;
+  capabilities: SDKCapability[];
   projects: string[];
   environment: string;
   encrypted: boolean;
@@ -125,6 +130,7 @@ export async function getPayloadParamsFromApiKey(
 
     return {
       organization: connection.organization,
+      capabilities: getConnectionSDKCapabilities(connection),
       environment: connection.environment,
       projects: connection.projects,
       encrypted: connection.encryptPayload,
@@ -166,6 +172,7 @@ export async function getPayloadParamsFromApiKey(
 
     return {
       organization,
+      capabilities: ["bucketingV2"],
       environment: environment || "production",
       projects: projectFilter ? [projectFilter] : [],
       encrypted: !!encryptSDK,
@@ -184,6 +191,7 @@ export async function getFeaturesPublic(req: Request, res: Response) {
 
     const {
       organization,
+      capabilities,
       environment,
       encrypted,
       projects,
@@ -203,6 +211,7 @@ export async function getFeaturesPublic(req: Request, res: Response) {
 
     const defs = await getFeatureDefinitions({
       organization,
+      capabilities,
       environment,
       projects,
       encryptionKey: encrypted ? encryptionKey : "",
@@ -262,6 +271,7 @@ export async function getEvaluatedFeaturesPublic(req: Request, res: Response) {
 
     const {
       organization,
+      capabilities,
       environment,
       encrypted,
       projects,
@@ -292,6 +302,7 @@ export async function getEvaluatedFeaturesPublic(req: Request, res: Response) {
 
     const defs = await getFeatureDefinitions({
       organization,
+      capabilities,
       environment,
       projects,
       encryptionKey: encrypted ? encryptionKey : "",
