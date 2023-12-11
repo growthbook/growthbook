@@ -26,7 +26,7 @@ const smallPercentFormatter = new Intl.NumberFormat(undefined, {
   maximumFractionDigits: 0,
 });
 
-export function getLatestDimensionMetadata(
+export function getLatestDimensionSlices(
   dataSourceId: string,
   exposureQueryId: string,
   metadataId: string | undefined,
@@ -43,12 +43,13 @@ export function getLatestDimensionMetadata(
     mutate();
     return;
   } else {
-    apiCall<{ dimensionMetadata: DimensionSlicesInterface }>(
-      `/automatic-dimension/datasource/${dataSourceId}/${exposureQueryId}`
+    apiCall<{ dimensionSlices: DimensionSlicesInterface }>(
+      `/dimension-slices/datasource/${dataSourceId}/${exposureQueryId}`
     )
       .then((res) => {
-        if (res?.dimensionMetadata?.id) {
-          setId(res.dimensionMetadata.id);
+        console.log(res);
+        if (res?.dimensionSlices?.id) {
+          setId(res.dimensionSlices.id);
           mutate();
         }
       })
@@ -86,7 +87,7 @@ export const UpdateDimensionMetadataModal: FC<UpdateDimensionMetadataModalProps>
 
   useEffect(
     () =>
-      getLatestDimensionMetadata(
+      getLatestDimensionSlices(
         dataSourceId,
         exposureQueryId,
         metadataId,

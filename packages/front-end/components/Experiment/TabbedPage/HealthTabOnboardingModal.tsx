@@ -14,7 +14,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import RadioSelector from "@/components/Forms/RadioSelector";
 import {
   DimensionSlicesRunner,
-  getLatestDimensionMetadata,
+  getLatestDimensionSlices,
 } from "@/components/Settings/EditDataSource/DimensionMetadata/UpdateDimensionMetadata";
 import track, { trackSnapshot } from "@/services/track";
 
@@ -133,7 +133,7 @@ export const HealthTabOnboardingModal: FC<HealthTabOnboardingModalProps> = ({
 
   useEffect(
     () =>
-      getLatestDimensionMetadata(
+      getLatestDimensionSlices(
         dataSourceId,
         exposureQueryId,
         metadataId,
