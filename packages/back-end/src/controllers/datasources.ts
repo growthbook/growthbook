@@ -618,7 +618,6 @@ export async function updateExposureQuery(
     return;
   }
 
-  // TODO validation
   exposureQuery = { ...exposureQuery, ...updates };
 
   try {
