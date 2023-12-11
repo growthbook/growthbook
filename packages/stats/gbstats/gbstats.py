@@ -1,4 +1,4 @@
-from dataclasses import asdict
+from dataclasses import asdict, dataclass
 from typing import Any, Dict, List, Union
 
 import pandas as pd
@@ -25,9 +25,38 @@ from gbstats.shared.models import (
     SampleMeanStatistic,
     RatioStatistic,
     RegressionAdjustedStatistic,
-    Statistic,
 )
 from gbstats.messages import raise_error_if_bayesian_ra
+
+
+@dataclass
+class AnalysisSettingsForStatsEngine:
+    var_names: List[str]
+    weights: List[float]
+    baseline_index: int
+    dimension: str
+    stats_engine: str
+    sequential_testing_enabled: bool
+    sequential_tuning_parameter: float
+    difference_type: str
+    phase_length_days: int
+    alpha: float
+    max_dimensions: int
+
+
+@dataclass
+class MetricDataForStatsEngine:
+    metric: str
+    rows: List[Dict[str, Union[str, int, float]]]
+    multiple_exposures: bool
+    inverse: bool
+
+
+@dataclass
+class DataForStatsEngine:
+    var_id_map: Dict[str, int]
+    metrics: List[MetricDataForStatsEngine]
+    analyses: List[AnalysisSettingsForStatsEngine]
 
 
 SUM_COLS = [
@@ -190,7 +219,7 @@ def analyze_metric_df(
     def analyze_row(s):
         s = s.copy()
         # Baseline values
-        stat_a: Statistic = variation_statistic_from_metric_row(s, "baseline")
+        stat_a = variation_statistic_from_metric_row(s, "baseline")
         raise_error_if_bayesian_ra(stat_a, engine)
 
         s["baseline_cr"] = stat_a.unadjusted_mean
@@ -203,7 +232,7 @@ def analyze_metric_df(
 
         # Loop through each non-baseline variation and run an analysis
         for i in range(1, num_variations):
-            stat_b: Statistic = variation_statistic_from_metric_row(s, f"v{i}")
+            stat_b = variation_statistic_from_metric_row(s, f"v{i}")
             raise_error_if_bayesian_ra(stat_b, engine)
 
             if isinstance(stat_b, RegressionAdjustedStatistic) and isinstance(
@@ -272,47 +301,58 @@ def format_results(df, baseline_index=0):
     rows = df.to_dict("records")
     for row in rows:
         dim = {"dimension": row["dimension"], "srm": row["srm_p"], "variations": []}
-        variation_data = []
-        for v in range(num_variations):
-            prefix = f"v{v}" if v > 0 else "baseline"
-            stats = {
-                "users": row[f"{prefix}_users"],
-                "count": row[f"{prefix}_count"],
-                "stddev": row[f"{prefix}_stddev"],
-                "mean": row[f"{prefix}_mean"],
-            }
-            if v == 0:
-                baseline_data = {
-                    "cr": row[f"{prefix}_cr"],
-                    "value": row[f"{prefix}_main_sum"],
-                    "users": row[f"{prefix}_users"],
-                    "denominator": row[f"{prefix}_denominator_sum"],
-                    "stats": stats,
-                }
-            else:
-                variation_data.append(
-                    {
-                        "cr": row[f"{prefix}_cr"],
-                        "value": row[f"{prefix}_main_sum"],
-                        "users": row[f"{prefix}_users"],
-                        "denominator": row[f"{prefix}_denominator_sum"],
-                        "expected": row[f"{prefix}_expected"],
-                        "chanceToWin": row[f"{prefix}_prob_beat_baseline"],
-                        "pValue": row[f"{prefix}_p_value"],
-                        "uplift": row[f"{prefix}_uplift"],
-                        "ci": row[f"{prefix}_ci"],
-                        "risk": row[f"{prefix}_rawrisk"],
-                        "stats": stats,
-                        "errorMessage": row[f"{prefix}_error_message"],
-                    }
-                )
+        baseline_data = format_variation_result(row, 0)
+        variation_data = [
+            format_variation_result(row, v) for v in range(1, num_variations)
+        ]
         variation_data.insert(baseline_index, baseline_data)
         dim["variations"] = variation_data
         results.append(dim)
     return results
 
 
-def variation_statistic_from_metric_row(row: pd.Series, prefix: str) -> Statistic:
+def format_variation_result(row: pd.Series, v: int):
+    prefix = f"v{v}" if v > 0 else "baseline"
+    stats = {
+        "users": row[f"{prefix}_users"],
+        "count": row[f"{prefix}_count"],
+        "stddev": row[f"{prefix}_stddev"],
+        "mean": row[f"{prefix}_mean"],
+    }
+    result = {
+        "cr": row[f"{prefix}_cr"],
+        "value": row[f"{prefix}_main_sum"],
+        "users": row[f"{prefix}_users"],
+        "denominator": row[f"{prefix}_denominator_sum"],
+        "stats": stats,
+    }
+    if v == 0:
+        # baseline variation
+        return result
+    else:
+        # non-baseline variation
+        return {
+            **result,
+            **{
+                "expected": row[f"{prefix}_expected"],
+                "chanceToWin": row[f"{prefix}_prob_beat_baseline"],
+                "pValue": row[f"{prefix}_p_value"],
+                "uplift": row[f"{prefix}_uplift"],
+                "ci": row[f"{prefix}_ci"],
+                "risk": row[f"{prefix}_rawrisk"],
+                "errorMessage": row[f"{prefix}_error_message"],
+            },
+        }
+
+
+def variation_statistic_from_metric_row(
+    row: pd.Series, prefix: str
+) -> Union[
+    ProportionStatistic,
+    SampleMeanStatistic,
+    RegressionAdjustedStatistic,
+    RatioStatistic,
+]:
     statistic_type = row["statistic_type"]
     if statistic_type == "ratio":
         return RatioStatistic(
@@ -390,20 +430,24 @@ def check_srm(users, weights):
 
 
 # Run a specific analysis given data and configuration settings
-def process_analysis(rows, var_id_map, phase_length_days, analysis):
-    var_names = analysis["var_names"]
-    inverse = analysis["inverse"]
-    weights = analysis["weights"]
-    max_dimensions = analysis["max_dimensions"]
-    baseline_index = analysis["baseline_index"]
+def process_analysis(
+    rows: pd.DataFrame,
+    inverse: bool,
+    var_id_map: Dict[str, int],
+    analysis: AnalysisSettingsForStatsEngine,
+):
+    var_names = analysis.var_names
+    weights = analysis.weights
+    max_dimensions = analysis.max_dimensions
+    baseline_index = analysis.baseline_index
     stats_engine = (
         StatsEngine.FREQUENTIST
-        if analysis["stats_engine"] == "frequentist"
+        if analysis.stats_engine == "frequentist"
         else StatsEngine.BAYESIAN
     )
 
     # If we're doing a daily time series, we need to diff the data
-    if analysis["dimension"] == "pre:datedaily":
+    if analysis.dimension == "pre:datedaily":
         rows = diff_for_daily_time_series(rows)
 
     # Convert raw SQL result into a dataframe of dimensions
@@ -420,26 +464,25 @@ def process_analysis(rows, var_id_map, phase_length_days, analysis):
     )
 
     # Get the stats engine configuration for this analysis
-    engine_config = {"phase_length_days": phase_length_days}
+    engine_config: Dict[str, Union[int, float, DifferenceType]] = {
+        "phase_length_days": analysis.phase_length_days
+    }
 
-    if analysis["difference_type"] == "absolute":
+    if analysis.difference_type == "absolute":
         engine_config["difference_type"] = DifferenceType.ABSOLUTE
-    elif analysis["difference_type"] == "scaled":
+    elif analysis.difference_type == "scaled":
         engine_config["difference_type"] = DifferenceType.SCALED
     else:
         engine_config["difference_type"] = DifferenceType.RELATIVE
 
-    if (
-        stats_engine == StatsEngine.FREQUENTIST
-        and analysis["sequential_testing_enabled"]
-    ):
+    if stats_engine == StatsEngine.FREQUENTIST and analysis.sequential_testing_enabled:
         engine_config["sequential"] = True
-        engine_config["sequential_tuning_parameter"] = analysis[
+        engine_config[
             "sequential_tuning_parameter"
-        ]
+        ] = analysis.sequential_tuning_parameter
 
-    if stats_engine == StatsEngine.FREQUENTIST and analysis["alpha"]:
-        engine_config["alpha"] = analysis["alpha"]
+    if stats_engine == StatsEngine.FREQUENTIST and analysis.alpha:
+        engine_config["alpha"] = analysis.alpha
 
     # Run the analysis for each variation and dimension
     result = analyze_metric_df(
@@ -453,41 +496,48 @@ def process_analysis(rows, var_id_map, phase_length_days, analysis):
     return format_results(result, baseline_index)
 
 
-def process_single_metric(mdata, var_id_map, phase_length_days):
-    rows = pd.DataFrame(mdata["rows"])
-    multiple_exposures = mdata["multiple_exposures"]
+def process_single_metric(
+    mdata: MetricDataForStatsEngine,
+    analyses: List[AnalysisSettingsForStatsEngine],
+    var_id_map: Dict[str, int],
+):
+    rows = pd.DataFrame(mdata.rows)
+    inverse = mdata.inverse
+    multiple_exposures = mdata.multiple_exposures
 
     # Detect any variations that are not in the returned metric rows
     unknown_var_ids = detect_unknown_variations(rows=rows, var_id_map=var_id_map)
 
-    analyses = [
+    results = [
         process_analysis(
             rows=rows,
+            inverse=inverse,
             var_id_map=var_id_map,
-            phase_length_days=phase_length_days,
             analysis=a,
         )
-        for a in mdata["analyses"]
+        for a in analyses
     ]
 
     return {
-        "metric": mdata["metric"],
+        "metric": mdata.metric,
         "analyses": [
             {
                 "unknownVariations": list(unknown_var_ids),
-                "dimensions": a,
+                "dimensions": r,
                 "multipleExposures": multiple_exposures,
             }
-            for a in analyses
+            for r in results
         ],
     }
 
 
-def process_experiment_results(data):
-    var_id_map = data["var_id_map"]
-    phase_length_days = data["phase_length_days"]
-    metrics = data["metrics"]
+def process_experiment_results(data: Dict[str, Any]):
+    d = DataForStatsEngine(
+        var_id_map=data["var_id_map"],
+        metrics=[MetricDataForStatsEngine(**m) for m in data["metrics"]],
+        analyses=[AnalysisSettingsForStatsEngine(**a) for a in data["analyses"]],
+    )
 
     return [
-        process_single_metric(mdata, var_id_map, phase_length_days) for mdata in metrics
+        process_single_metric(mdata, d.analyses, d.var_id_map) for mdata in d.metrics
     ]

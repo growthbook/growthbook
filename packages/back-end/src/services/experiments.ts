@@ -227,6 +227,17 @@ export async function getManualSnapshotData(
       1
     ),
     coverage: 1,
+    analyses: [
+      {
+        dimension: null,
+        statsEngine: DEFAULT_STATS_ENGINE,
+        sequentialTestingEnabled: false,
+        sequentialTestingTuningParameter: DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
+        baselineVariationIndex: 0,
+        pValueThreshold: DEFAULT_P_VALUE_THRESHOLD,
+        differenceType: "relative",
+      },
+    ],
     metrics: Object.keys(metrics).map((m) => {
       const stats = metrics[m];
       const metric = metricMap.get(m);
@@ -251,17 +262,6 @@ export async function getManualSnapshotData(
       return {
         metric,
         rows,
-        analyses: [
-          {
-            dimension: null,
-            statsEngine: DEFAULT_STATS_ENGINE,
-            sequentialTestingEnabled: false,
-            sequentialTestingTuningParameter: DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
-            baselineVariationIndex: 0,
-            pValueThreshold: DEFAULT_P_VALUE_THRESHOLD,
-            differenceType: "relative",
-          },
-        ],
       };
     }),
   });

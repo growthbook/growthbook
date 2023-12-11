@@ -195,17 +195,18 @@ export interface ExperimentMetricAnalysisParams {
   phaseLengthHours: number;
   coverage: number;
 
+  analyses: {
+    dimension: string | null;
+    baselineVariationIndex: number;
+    differenceType: DifferenceType;
+    statsEngine: StatsEngine;
+    sequentialTestingEnabled: boolean;
+    sequentialTestingTuningParameter: number;
+    pValueThreshold: number;
+  }[];
+
   metrics: ({
     metric: ExperimentMetricInterface;
     rows: ExperimentMetricQueryResponseRows;
-    analyses: {
-      dimension: string | null;
-      baselineVariationIndex: number;
-      differenceType: DifferenceType;
-      statsEngine: StatsEngine;
-      sequentialTestingEnabled: boolean;
-      sequentialTestingTuningParameter: number;
-      pValueThreshold: number;
-    }[];
   } | null)[];
 }

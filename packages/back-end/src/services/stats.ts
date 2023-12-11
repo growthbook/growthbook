@@ -38,7 +38,6 @@ export interface AnalysisSettingsForStatsEngine {
   var_names: string[];
   weights: number[];
   baseline_index: number;
-  inverse: boolean;
   dimension: string;
   stats_engine: string;
   sequential_testing_enabled: boolean;
@@ -52,11 +51,11 @@ export interface MetricDataForStatsEngine {
   metric: string;
   rows: ExperimentMetricQueryResponseRows;
   multiple_exposures: number;
-  analyses: AnalysisSettingsForStatsEngine[];
+  inverse: boolean;
 }
 export interface DataForStatsEngine {
   var_id_map: { [key: string]: number };
-  phase_length_days: number;
+  analyses: AnalysisSettingsForStatsEngine[];
   metrics: MetricDataForStatsEngine[];
 }
 
@@ -84,7 +83,7 @@ export function getAvgCPU(pre: os.CpuInfo[], post: os.CpuInfo[]) {
 export async function analyzeExperimentMetric(
   params: ExperimentMetricAnalysisParams
 ): Promise<ExperimentMetricAnalysis> {
-  const { variations, metrics, phaseLengthHours, coverage } = params;
+  const { variations, metrics, phaseLengthHours, coverage, analyses } = params;
 
   const phaseLengthDays = Number(phaseLengthHours / 24);
   const variationIdMap: { [key: string]: number } = {};
@@ -102,54 +101,14 @@ export async function analyzeExperimentMetric(
     .map((m): MetricDataForStatsEngine | null => {
       if (!m) return null;
 
-      const { metric, rows, analyses } = m;
+      const { metric, rows } = m;
 
       const data: MetricDataForStatsEngine = {
         metric: metric.id,
         rows,
         multiple_exposures:
           rows.filter((r) => r.variation === "__multiple__")?.[0]?.users || 0,
-        analyses: analyses.map(
-          ({
-            dimension,
-            baselineVariationIndex,
-            differenceType,
-            statsEngine,
-            sequentialTestingEnabled,
-            sequentialTestingTuningParameter,
-            pValueThreshold,
-          }) => {
-            const sortedVariations = putBaselineVariationFirst(
-              variations,
-              baselineVariationIndex
-            );
-
-            const sequentialTestingTuningParameterNumber =
-              Number(sequentialTestingTuningParameter) ||
-              DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER;
-            const pValueThresholdNumber =
-              Number(pValueThreshold) || DEFAULT_P_VALUE_THRESHOLD;
-
-            const analysisData: AnalysisSettingsForStatsEngine = {
-              var_names: sortedVariations.map((v) => v.name),
-              weights: sortedVariations.map((v) => v.weight * coverage),
-              baseline_index: baselineVariationIndex ?? 0,
-              inverse: !!metric.inverse,
-              dimension: dimension || "",
-              stats_engine: statsEngine,
-              sequential_testing_enabled: sequentialTestingEnabled,
-              sequential_tuning_parameter: sequentialTestingTuningParameterNumber,
-              difference_type: differenceType,
-              phase_length_days: phaseLengthDays,
-              alpha: pValueThresholdNumber,
-              max_dimensions:
-                dimension?.substring(0, 8) === "pre:date"
-                  ? 9999
-                  : MAX_DIMENSIONS,
-            };
-            return analysisData;
-          }
-        ),
+        inverse: !!metric.inverse,
       };
       return data;
     })
@@ -157,8 +116,45 @@ export async function analyzeExperimentMetric(
 
   const statsData: DataForStatsEngine = {
     var_id_map: variationIdMap,
-    phase_length_days: phaseLengthDays,
     metrics: metricData,
+    analyses: analyses.map(
+      ({
+        dimension,
+        baselineVariationIndex,
+        differenceType,
+        statsEngine,
+        sequentialTestingEnabled,
+        sequentialTestingTuningParameter,
+        pValueThreshold,
+      }) => {
+        const sortedVariations = putBaselineVariationFirst(
+          variations,
+          baselineVariationIndex
+        );
+
+        const sequentialTestingTuningParameterNumber =
+          Number(sequentialTestingTuningParameter) ||
+          DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER;
+        const pValueThresholdNumber =
+          Number(pValueThreshold) || DEFAULT_P_VALUE_THRESHOLD;
+
+        const analysisData: AnalysisSettingsForStatsEngine = {
+          var_names: sortedVariations.map((v) => v.name),
+          weights: sortedVariations.map((v) => v.weight * coverage),
+          baseline_index: baselineVariationIndex ?? 0,
+          dimension: dimension || "",
+          stats_engine: statsEngine,
+          sequential_testing_enabled: sequentialTestingEnabled,
+          sequential_tuning_parameter: sequentialTestingTuningParameterNumber,
+          difference_type: differenceType,
+          phase_length_days: phaseLengthDays,
+          alpha: pValueThresholdNumber,
+          max_dimensions:
+            dimension?.substring(0, 8) === "pre:date" ? 9999 : MAX_DIMENSIONS,
+        };
+        return analysisData;
+      }
+    ),
   };
 
   const escapedStatsData = JSON.stringify(statsData).replace(/\\/g, "\\\\");
@@ -285,29 +281,27 @@ export async function analyzeExperimentResults({
       ...v,
       name: variationNames[i] || v.id,
     })),
+    analyses: analysisSettings.map((analysisSettings) => {
+      return {
+        dimension: analysisSettings.dimensions[0],
+        baselineVariationIndex: analysisSettings.baselineVariationIndex ?? 0,
+        differenceType: analysisSettings.differenceType,
+        coverage: snapshotSettings.coverage ?? 1,
+        statsEngine: analysisSettings.statsEngine,
+        sequentialTestingEnabled: analysisSettings.sequentialTesting ?? false,
+        sequentialTestingTuningParameter:
+          analysisSettings.sequentialTestingTuningParameter ??
+          DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
+        pValueThreshold:
+          analysisSettings.pValueThreshold ?? DEFAULT_P_VALUE_THRESHOLD,
+      };
+    }),
     metrics: metricRows.map((data) => {
       const metric = metricMap.get(data.metric);
       if (!metric) return null;
       return {
         metric,
         rows: data.rows,
-        analyses: analysisSettings.map((analysisSettings) => {
-          return {
-            dimension: analysisSettings.dimensions[0],
-            baselineVariationIndex:
-              analysisSettings.baselineVariationIndex ?? 0,
-            differenceType: analysisSettings.differenceType,
-            coverage: snapshotSettings.coverage ?? 1,
-            statsEngine: analysisSettings.statsEngine,
-            sequentialTestingEnabled:
-              analysisSettings.sequentialTesting ?? false,
-            sequentialTestingTuningParameter:
-              analysisSettings.sequentialTestingTuningParameter ??
-              DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
-            pValueThreshold:
-              analysisSettings.pValueThreshold ?? DEFAULT_P_VALUE_THRESHOLD,
-          };
-        }),
       };
     }),
   });
