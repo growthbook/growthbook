@@ -46,6 +46,33 @@ FROM
 
 The first 4 columns are standard, but `browser` is a custom one that can be used as an Experiment Dimension.
 
+#### Configuring Experiment Dimensions
+
+To power the health tab and future automatic dimension results analysis (coming in 2024), you need to configure your Experiment Dimensions. You can do this by clicking the "Configure Dimensions" button in the kebab menu next to the exposure query where the Experiment Dimensions are defined:
+
+<img
+  src="/images/configure-dimensions.png"
+  alt="Configure Dimensions Option"
+  style={{ width: 600, margin: "0 auto" }}
+/>
+
+In the modal that pops up, you can run a query to find the top 20 dimension slices for your Experiment Dimensions and save them for use on the health tab.
+
+If you want to have more control over the pre-defined slices, the best way to do so is to modify the Exposure Query SQL to include a `CASE` statement that defines the dimension slices. For example, if you wanted to have a `browser` dimension with slices for `Chrome`, `Safari`, and `Other`, you could do something like this:
+
+```sql
+SELECT
+  user_id,
+  received_at as timestamp,
+  experiment_id,
+  variation_id,
+  CASE WHEN browser LIKE '%Chrome%' THEN 'Chrome'
+    WHEN browser LIKE '%Safari%' THEN 'Safari'
+  ELSE 'Other' END as browser
+FROM
+  experiment_viewed
+```
+
 ### User Dimensions
 
 These are attributes of your users that are relatively stable over time, and ideally, do not change over the course of an experiment. For example, `cohort`, `initial age group`, or `first client used`.
@@ -63,7 +90,7 @@ FROM
   subscriptions
 ```
 
-It's best to keep the number of unique values for a dimension small if possible to avoid the False Positive issues discussed above. We automatically cap the number at 20, but you can do it youself if you want more control. Here's an example for a "country" dimension:
+It's best to keep the number of unique values for a dimension small if possible to avoid the False Positive issues discussed above. We automatically cap the number at 20, but you can do it yourself if you want more control. Here's an example for a "country" dimension:
 
 ```sql
 SELECT
