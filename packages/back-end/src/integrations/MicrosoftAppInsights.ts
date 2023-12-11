@@ -20,7 +20,6 @@ import {
   MetricValueQueryResponseRow,
   ExperimentQueryResponses,
   Dimension,
-  MetricAggregationType,
   TestQueryResult,
   PastExperimentQueryResponse,
   MetricValueQueryResponseRows,
@@ -142,21 +141,6 @@ export default class MicrosoftAppInsights
       }
     });
     return processedDimensions;
-  }
-
-  getUnitCountCTE(dimensionColumn: string, whereClause: string): string {
-    return ` -- ${dimensionColumn}
-    (SELECT
-      d.variation AS variation
-      , d.${dimensionColumn} as dimension_value
-      , MAX('${dimensionColumn}') as dimension_name
-      , COUNT(*) AS units
-    FROM
-      __distinctUnits d
-    ${whereClause}
-    GROUP BY
-      d.variation
-      , d.${dimensionColumn})`;
   }
 
   processActivationMetric(
@@ -477,13 +461,11 @@ let experiment = ( // Viewed Experiment
     | project
         variation = variation,
         dimension = dimension,
-        ${baseIdType} = ${baseIdType}
-        ${
-          isRegressionAdjusted
-            ? `preexposure_start = preexposure_start,
-            preexposure_end = preexposure_end`
-            : ""
-        }
+        ${baseIdType} = ${baseIdType}${
+        isRegressionAdjusted
+          ? `,\npreexposure_start = preexposure_start,\npreexposure_end = preexposure_end`
+          : ""
+      }
     | join kind=fullouter (metric) on $left.${baseIdType} == $right.${baseIdType}
     | where
       ${this.getMetricWindowWhereClause(
@@ -895,10 +877,6 @@ let experiment = ( // Viewed Experiment
   async testConnection(): Promise<boolean> {
     await runApi(this.params, "?timespan=PT1M");
     return true;
-  }
-
-  castToDate(col: string): string {
-    return `CAST(${col} AS DATE)`;
   }
 
   ensureFloat(col: string): string {
