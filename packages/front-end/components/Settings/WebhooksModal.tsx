@@ -16,13 +16,11 @@ const WebhooksModal: FC<{
   defaultDescription?: string;
   current: Partial<WebhookInterface>;
   showSDKMode?: boolean;
-  sdk?: string;
-  sendPayload?: boolean;
-}> = ({ close, onSave, current, showSDKMode, sdk, sendPayload }) => {
+  sdkid?: string;
+}> = ({ close, onSave, current, showSDKMode, sdkid }) => {
   const { apiCall } = useAuth();
   showSDKMode = showSDKMode || false;
   const { projects, project } = useDefinitions();
-
   const environments = useEnvironments();
   const form = useForm({
     defaultValues: {
@@ -32,19 +30,32 @@ const WebhooksModal: FC<{
       environment:
         current.environment === undefined ? "production" : current.environment,
       useSDKMode: current?.useSDKMode || showSDKMode,
-      sdk,
-      sendPayload,
+      sdkid,
+      sendPayload: current?.sendPayload,
     },
   });
+  const handleApiCall = async (value) => {
+    if (showSDKMode) {
+      await apiCall(
+        current.id ? `/webhook/sdk/${current.id}` : "/webhooks/sdk",
+        {
+          method: current.id ? "PUT" : "POST",
+          body: JSON.stringify(value),
+        }
+      );
+    } else {
+      await apiCall(current.id ? `/webhook/${current.id}` : "/webhooks", {
+        method: current.id ? "PUT" : "POST",
+        body: JSON.stringify(value),
+      });
+    }
+  };
 
   const onSubmit = form.handleSubmit(async (value) => {
     if (value.endpoint.match(/localhost/g)) {
       throw new Error("Invalid endpoint");
     }
-    await apiCall(current.id ? `/webhook/${current.id}` : "/webhooks", {
-      method: current.id ? "PUT" : "POST",
-      body: JSON.stringify(value),
-    });
+    await handleApiCall(value);
     track(current.id ? "Edit Webhook" : "Create Webhook");
     onSave();
   });
@@ -66,7 +77,7 @@ const WebhooksModal: FC<{
     <>
       <Toggle
         id="sendPayload"
-        value={!!form.watch("sendPayload")}
+        value={form.watch("sendPayload")}
         setValue={(sendPayload) => {
           form.setValue("sendPayload", sendPayload);
         }}

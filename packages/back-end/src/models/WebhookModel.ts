@@ -20,7 +20,10 @@ const webhookSchema = new mongoose.Schema({
   error: String,
   created: Date,
   useSDKMode: Boolean,
-  SDKs: [String],
+  sdks: {
+    type: [String],
+    index: true,
+  },
   sendPayload: Boolean,
 });
 

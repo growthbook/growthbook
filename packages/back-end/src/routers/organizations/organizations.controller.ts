@@ -66,7 +66,7 @@ import { getDataSourcesByOrganization } from "../../models/DataSourceModel";
 import { getAllSavedGroups } from "../../models/SavedGroupModel";
 import { getMetricsByOrganization } from "../../models/MetricModel";
 import { WebhookModel } from "../../models/WebhookModel";
-import { createWebhook } from "../../services/webhooks";
+import { createWebhook, createWebhookSDK } from "../../services/webhooks";
 import {
   createOrganization,
   findOrganizationByInviteKey,
@@ -1433,6 +1433,22 @@ export async function getWebhooks(req: AuthRequest, res: Response) {
     webhooks,
   });
 }
+export async function getWebhooksSDK(
+  req: AuthRequest<Record<string, unknown>, { sdkid: string }>,
+  res: Response
+) {
+  const { org } = getOrgFromReq(req);
+  const { sdkid } = req.params;
+  const webhooks = await WebhookModel.find({
+    organization: org.id,
+    useSDKMode: true,
+    sdks: { $in: sdkid },
+  });
+  res.status(200).json({
+    status: 200,
+    webhooks,
+  });
+}
 
 export async function postWebhook(
   req: AuthRequest<{
@@ -1448,13 +1464,40 @@ export async function postWebhook(
   const { org } = getOrgFromReq(req);
   const { name, endpoint, project, environment } = req.body;
 
-  const webhook = await createWebhook(
-    org.id,
+  const webhook = await createWebhook({
+    organization: org.id,
     name,
     endpoint,
     project,
-    environment
-  );
+    environment,
+  });
+
+  res.status(200).json({
+    status: 200,
+    webhook,
+  });
+}
+export async function postWebhookSDK(
+  req: AuthRequest<{
+    name: string;
+    endpoint: string;
+    sdkid: string;
+    sendPayload: boolean;
+  }>,
+  res: Response
+) {
+  req.checkPermissions("manageWebhooks");
+
+  const { org } = getOrgFromReq(req);
+  const { name, endpoint, sdkid, sendPayload } = req.body;
+  console.log(sendPayload, "sendPayload", sdkid);
+  const webhook = await createWebhookSDK({
+    organization: org.id,
+    name,
+    endpoint,
+    sdkid,
+    sendPayload,
+  });
 
   res.status(200).json({
     status: 200,

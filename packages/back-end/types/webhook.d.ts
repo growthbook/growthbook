@@ -12,5 +12,5 @@ export interface WebhookInterface {
   created: Date;
   useSDKMode: boolean;
   sendPayload: boolean;
-  SDKs: string[];
+  sdks: string[];
 }
