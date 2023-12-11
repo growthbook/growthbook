@@ -108,7 +108,7 @@ const SRMWarning: FC<{
               </p>
             </div>
           }
-          closeCta="Okay"
+          closeCta="Close"
           size="lg"
         >
           <div className="mx-2">
@@ -188,15 +188,13 @@ const SRMWarning: FC<{
         <div className="alert alert-info">
           <b>
             No Sample Ratio Mismatch (SRM) detected. P-value above{" "}
-            {srmThreshold}
-          </b>
-          <div>
+            {srmThreshold}.{" "}
             <LearnMore
               type={type}
               setOpen={setOpen}
               body={NOT_ENOUGH_EVIDENCE_MESSAGE}
             />
-          </div>
+          </b>
         </div>
       ) : (
         <div className="alert alert-warning">

@@ -1,7 +1,8 @@
 import { ExperimentSnapshotTraffic } from "back-end/types/experiment-snapshot";
 import { ExperimentReportVariation } from "back-end/types/report";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { getValidDate } from "shared/dates";
+import { FaCircle } from "react-icons/fa6";
 import { useUser } from "@/services/UserContext";
 import { DEFAULT_SRM_THRESHOLD } from "@/pages/settings";
 import track from "@/services/track";
@@ -11,6 +12,7 @@ import ExperimentDateGraph, {
 } from "../Experiment/ExperimentDateGraph";
 import Toggle from "../Forms/Toggle";
 import SelectField from "../Forms/SelectField";
+import Tooltip from "../Tooltip/Tooltip";
 import { transformDimensionData } from "./DimensionIssues";
 
 const numberFormatter = new Intl.NumberFormat();
@@ -22,7 +24,7 @@ export default function TrafficCard({
   traffic: ExperimentSnapshotTraffic;
   variations: ExperimentReportVariation[];
 }) {
-  const [cumulative, setCumulative] = useState(false);
+  const [cumulative, setCumulative] = useState(true);
   const { settings } = useUser();
 
   const srmThreshold = settings.srmThreshold ?? DEFAULT_SRM_THRESHOLD;
@@ -34,7 +36,18 @@ export default function TrafficCard({
     variations,
     srmThreshold
   );
+
   const [selectedDimension, setSelectedDimension] = useState<string>("");
+
+  const dimensionWithIssues = availableDimensions.find(
+    (d) => d.value === selectedDimension
+  );
+
+  useEffect(() => {
+    // Reset selected dimension if traffic changes and dimension is no longer available
+    if (!availableDimensions.find((d) => d.value === selectedDimension))
+      setSelectedDimension("");
+  }, [availableDimensions, selectedDimension, traffic]);
 
   // Get data for users graph
   const usersPerDate = useMemo<ExperimentDateGraphDataPoint[]>(() => {
@@ -89,11 +102,11 @@ export default function TrafficCard({
 
         <div className="mt-3 mb-3 d-flex align-items-center">
           <h3>
-            Experiment Traffic by{" "}
             {selectedDimension
-              ? availableDimensions.find((d) => d.value === selectedDimension)
-                  ?.label
-              : "Variation"}
+              ? `Experiment Traffic by ${
+                  dimensionWithIssues?.label ?? "Dimension"
+                }`
+              : "Experiment Traffic Over Time"}
           </h3>
           {!selectedDimension && (
             <div className="ml-auto">
@@ -109,14 +122,11 @@ export default function TrafficCard({
         </div>
       </div>
       {selectedDimension ? (
-        <table className="table w-75">
+        <table className="table w-auto" style={{ minWidth: "70%" }}>
           <thead>
             <tr>
-              <th className="border-top-0">
-                {
-                  availableDimensions.find((d) => d.value === selectedDimension)
-                    ?.label
-                }
+              <th className="border-top-0" style={{ paddingLeft: "32px" }}>
+                {dimensionWithIssues?.label}
               </th>
               {variations.map((v, i) => (
                 <th
@@ -130,7 +140,6 @@ export default function TrafficCard({
                       height: 20,
                     }}
                   >
-                    {" "}
                     {i}
                   </span>
                   {v.name}
@@ -141,30 +150,63 @@ export default function TrafficCard({
             </tr>
           </thead>
           <tbody>
-            {(traffic.dimension[selectedDimension] || []).map((r, i) => (
-              <tr key={i}>
-                <td className="border-right">{r.name || <em>unknown</em>}</td>
-                {variations.map((v, i) => (
-                  <td key={i}>
-                    {numberFormatter.format(r.variationUnits[i] || 0)}
+            {(traffic.dimension[selectedDimension] || []).map((r, i) => {
+              const showWarning = !!dimensionWithIssues?.issues.find(
+                (i) => i === r.name
+              );
+              return (
+                <tr key={i}>
+                  <td className="border-right">
+                    {(
+                      <>
+                        <Tooltip
+                          body={
+                            showWarning
+                              ? "Issues detected"
+                              : "No issues detected"
+                          }
+                          tipPosition="top"
+                        >
+                          <FaCircle
+                            style={{
+                              width: "6px",
+                              height: "6px",
+                              margin: "7px",
+                              color: showWarning ? "#FFC107" : "#E8EBEF",
+                            }}
+                          />{" "}
+                        </Tooltip>
+                        <a
+                          href="#balanceCheck"
+                          onClick={(e) => e.preventDefault}
+                        >
+                          {r.name}
+                        </a>
+                      </>
+                    ) || <em>unknown</em>}
                   </td>
-                ))}
-                <td className="border-left">
-                  {formatTrafficSplit(
-                    variations.map((v) => v.weight),
-                    1
-                  )}
-                </td>
-                <td>
-                  <b>
+                  {variations.map((_v, i) => (
+                    <td style={{ paddingLeft: "35px" }} key={i}>
+                      {numberFormatter.format(r.variationUnits[i] || 0)}
+                    </td>
+                  ))}
+                  <td className="border-left">
                     {formatTrafficSplit(
-                      variations.map((v, i) => r.variationUnits[i] || 0),
+                      variations.map((v) => v.weight),
                       1
                     )}
-                  </b>
-                </td>
-              </tr>
-            ))}
+                  </td>
+                  <td>
+                    <b>
+                      {formatTrafficSplit(
+                        variations.map((v, i) => r.variationUnits[i] || 0),
+                        1
+                      )}
+                    </b>
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       ) : (

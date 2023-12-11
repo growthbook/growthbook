@@ -128,7 +128,7 @@ export const DimensionIssues = ({ dimensionData, variations }: Props) => {
       <Modal
         close={() => setModalOpen(false)}
         open={modalOpen}
-        closeCta={"Okay"}
+        closeCta={"Close"}
         header={
           <div>
             <h2>Explore Dimensions</h2>
@@ -151,14 +151,13 @@ export const DimensionIssues = ({ dimensionData, variations }: Props) => {
                 track("Select health tab dimension");
                 setSelectedDimension(v);
               }}
-              helpText={"Break down traffic by dimension"}
               disabled={!areDimensionsAvailable}
             />
           </div>
 
           <div className="d-flex justify-content-between">
             <IssueTags issues={issues} />
-            {issues?.length && (
+            {!!issues?.length && (
               <span className="col-auto ml-auto text-muted">
                 Sorted by unit counts
               </span>
@@ -213,16 +212,19 @@ export const DimensionIssues = ({ dimensionData, variations }: Props) => {
         </div>
       </Modal>
 
-      <div className="my-2 h-100">
-        <div className="pl-4">
+      <div className="d-flex flex-column h-100">
+        <div className="px-4">
           <h3>Dimensions</h3>
-          <p className="mb-4">Highlights perceived issues across dimensions</p>
+          <p className="mt-1">Highlights perceived issues across dimensions</p>
         </div>
 
-        <hr className="mb-0" />
+        <hr className="my-0 w-100" />
         {areDimensionsAvailable ? (
-          <div className="h-75">
-            <div className="h-75 overflow-auto pt-4 px-4">
+          <>
+            <div
+              className="flex-fill flex-shrink-1 overflow-auto px-4"
+              style={{ paddingTop: "12px" }}
+            >
               {availableDimensions.map((d) => {
                 return (
                   <div key={d.value}>
@@ -235,12 +237,16 @@ export const DimensionIssues = ({ dimensionData, variations }: Props) => {
                         setModalOpen(true);
                       }}
                     >
-                      <h4>{d.label}</h4>
+                      <p style={{ marginBottom: "2px" }}>
+                        <b>{d.label}</b>
+                      </p>
                     </a>
                     <p>
-                      {" "}
                       {d.issues.length ? (
-                        <>{d.issues.join(", ")}</>
+                        <>
+                          <b>Issues: </b>
+                          {d.issues.join(", ")}
+                        </>
                       ) : (
                         <i className="text-muted">No issues detected</i>
                       )}
@@ -249,9 +255,12 @@ export const DimensionIssues = ({ dimensionData, variations }: Props) => {
                 );
               })}
             </div>
+            {/*TODO: if size of dimension list area is greater than header + footer add boxShadow. Hide otherwise.*/}
             <div
-              className="mt-4 py-3 px-4"
-              style={{ boxShadow: "0px -5px 10px rgba(0, 0, 0, 0.1)" }}
+              className="py-3 px-4 w-100"
+              style={{
+                boxShadow: "0px -5px 10px rgba(0, 0, 0, 0.1)",
+              }}
             >
               <a
                 className="text-lg"
@@ -265,7 +274,7 @@ export const DimensionIssues = ({ dimensionData, variations }: Props) => {
                 <h3>Explore dimensions {">"}</h3>
               </a>
             </div>
-          </div>
+          </>
         ) : (
           <div className="pt-4 px-4">
             <i className="text-muted">

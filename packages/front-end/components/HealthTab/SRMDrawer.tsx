@@ -1,6 +1,6 @@
 import { ExperimentSnapshotTraffic } from "back-end/types/experiment-snapshot";
 import { ExperimentReportVariation } from "back-end/types/report";
-import { useEffect } from "react";
+import { useEffect, useLayoutEffect } from "react";
 import { useUser } from "@/services/UserContext";
 import { DEFAULT_SRM_THRESHOLD } from "@/pages/settings";
 import VariationUsersTable from "../Experiment/TabbedPage/VariationUsersTable";
@@ -14,7 +14,6 @@ interface Props {
   traffic: ExperimentSnapshotTraffic;
   variations: ExperimentReportVariation[];
   totalUsers: number;
-  datasource: string;
   onNotify: (issue: IssueValue) => void;
 }
 
@@ -43,10 +42,8 @@ export default function SRMDrawer({
   traffic,
   variations,
   totalUsers,
-  datasource,
   onNotify,
 }: Props) {
-  console.log(datasource);
   const { settings } = useUser();
 
   const srmThreshold = settings.srmThreshold ?? DEFAULT_SRM_THRESHOLD;
@@ -57,6 +54,20 @@ export default function SRMDrawer({
     variations,
     totalUsers,
   });
+
+  function onResize() {
+    const childHeight = document.getElementById("child-container")
+      ?.clientHeight;
+    const parentElement = document.getElementById("parent-container");
+
+    parentElement && (parentElement.style.height = `${childHeight}px`);
+  }
+
+  useEffect(() => {
+    window.addEventListener("resize", onResize, false);
+    return () => window.removeEventListener("resize", onResize, false);
+  }, []);
+  useLayoutEffect(onResize, []);
 
   useEffect(() => {
     if (overallHealth === "Issues detected") {
@@ -71,10 +82,12 @@ export default function SRMDrawer({
   }
 
   return (
-    <div className="appbox my-4 pl-3 py-3">
+    <div className="appbox container-fluid my-4 pl-3 py-3">
       <div className="row overflow-hidden" id="parent-container">
         <div className="col-8 border-right pr-4">
           <div
+            className="overflow-auto"
+            id="child-container"
             ref={(node) => {
               if (node) {
                 const childHeight = node.clientHeight;
@@ -96,9 +109,9 @@ export default function SRMDrawer({
               Shows actual unit split compared to percent selected for the
               experiment
             </p>
-            <hr></hr>
-            <div>
-              <div className="row justify-content-start w-100">
+            <hr className="mb-0"></hr>
+            <div style={{ paddingTop: "10px" }}>
+              <div className="row justify-content-start w-100 overflow-auto">
                 <VariationUsersTable
                   users={traffic.overall.variationUnits}
                   variations={variations}
@@ -127,7 +140,7 @@ export default function SRMDrawer({
             </div>
           </div>
         </div>
-        <div className="col h-100 w-100 p-0">
+        <div className="col h-100 p-0 overflow-hidden">
           <DimensionIssues
             dimensionData={traffic.dimension}
             variations={variations}

@@ -78,7 +78,7 @@ export default function VariationUsersTable({ variations, users, srm }: Props) {
               </tr>
             );
           })}
-          {srm && (
+          {!!srm && (
             <tr className="text-left">
               <td colSpan={3} className="text-nowrap text-muted">
                 p-value = {pValueFormatter(srm)}

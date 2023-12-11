@@ -159,7 +159,9 @@ const Modal: FC<ModalProps> = ({
       <div
         className={`modal-body ${bodyClassName}`}
         ref={bodyRef}
-        style={overflowAuto ? { overflowY: "auto" } : {}}
+        style={
+          overflowAuto ? { overflowY: "auto", scrollBehavior: "smooth" } : {}
+        }
       >
         {isSuccess ? (
           <div className="alert alert-success">{successMessage}</div>
