@@ -6,7 +6,6 @@ import {
 import cloneDeep from "lodash/cloneDeep";
 import { ago, datetime } from "shared/dates";
 import { QueryStatus } from "back-end/types/query";
-import { AUTOMATIC_DIMENSION_OTHER_NAME } from "shared/constants";
 import { DimensionSlicesInterface } from "back-end/types/dimension";
 import { BsGear } from "react-icons/bs";
 import { useForm } from "react-hook-form";
@@ -47,7 +46,6 @@ export function getLatestDimensionSlices(
       `/dimension-slices/datasource/${dataSourceId}/${exposureQueryId}`
     )
       .then((res) => {
-        console.log(res);
         if (res?.dimensionSlices?.id) {
           setId(res.dimensionSlices.id);
           mutate();
@@ -406,7 +404,9 @@ export const DimensionSlicesResults: FC<DimensionSlicesProps> = ({
                             <>
                               <Fragment key={`${r}-${i}`}>
                                 {i ? ", " : ""}
-                                <code key={`${r}-${d.name}`}>{d.name}</code>
+                                <code key={`${r}-code-${d.name}`}>
+                                  {d.name}
+                                </code>
                               </Fragment>
                               <span>{` (${smallPercentFormatter.format(
                                 d.percent / 100.0
@@ -420,9 +420,7 @@ export const DimensionSlicesResults: FC<DimensionSlicesProps> = ({
                         All other values:
                         <Fragment key={`${r}--1`}>
                           {" "}
-                          <code key={`${r}-_other_`}>
-                            {AUTOMATIC_DIMENSION_OTHER_NAME}
-                          </code>
+                          <code key={`${r}-code-_other_`}>__Other__</code>
                         </Fragment>
                         <span>{` (${smallPercentFormatter.format(
                           (100.0 - totalPercent) / 100.0

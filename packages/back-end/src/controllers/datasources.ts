@@ -607,10 +607,13 @@ export async function updateExposureQuery(
   );
 
   const copy = cloneDeep<DataSourceInterface>(dataSource);
-  let exposureQuery = copy.settings.queries?.exposure?.find(
+  const exposureQueryIndex = copy.settings.queries?.exposure?.findIndex(
     (e) => e.id === exposureQueryId
   );
-  if (!exposureQuery) {
+  if (
+    exposureQueryIndex === undefined ||
+    !copy.settings.queries?.exposure?.[exposureQueryIndex]
+  ) {
     res.status(404).json({
       status: 404,
       message: "Cannot find exposure query",
@@ -618,7 +621,11 @@ export async function updateExposureQuery(
     return;
   }
 
-  exposureQuery = { ...exposureQuery, ...updates };
+  const exposureQuery = copy.settings.queries.exposure[exposureQueryIndex];
+  copy.settings.queries.exposure[exposureQueryIndex] = {
+    ...exposureQuery,
+    ...updates,
+  };
 
   try {
     const updates: Partial<DataSourceInterface> = {

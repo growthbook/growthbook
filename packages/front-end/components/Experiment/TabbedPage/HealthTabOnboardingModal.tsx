@@ -97,7 +97,7 @@ export const HealthTabOnboardingModal: FC<HealthTabOnboardingModalProps> = ({
       };
       await apiCall(`/datasource/${dataSource.id}/${exposureQuery.id}`, {
         method: "PUT",
-        body: JSON.stringify(updates),
+        body: JSON.stringify({ updates }),
       });
     }
     if (setupChoice === "refresh") {
