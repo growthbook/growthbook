@@ -31,6 +31,7 @@ export type CommercialFeature =
   | "json-validation"
   | "remote-evaluation"
   | "multi-org"
+  | "custom-launch-checklist"
   | "teams";
 export type CommercialFeaturesMap = Record<AccountPlan, Set<CommercialFeature>>;
 
@@ -128,6 +129,7 @@ export const accountFeatures: CommercialFeaturesMap = {
     "remote-evaluation",
     "multi-org",
     "teams",
+    "custom-launch-checklist",
   ]),
 };
 

@@ -118,10 +118,11 @@ export async function getRevision(
 export async function createInitialRevision(
   feature: FeatureInterface,
   user: EventAuditUser | null,
+  environments: string[],
   date?: Date
 ) {
   const rules: Record<string, FeatureRule[]> = {};
-  Object.keys(feature.environmentSettings || {}).forEach((env) => {
+  environments.forEach((env) => {
     rules[env] = feature.environmentSettings?.[env]?.rules || [];
   });
 
@@ -155,6 +156,7 @@ export async function createRevisionFromLegacyDraft(feature: FeatureInterface) {
 export async function createRevision({
   feature,
   user,
+  environments,
   baseVersion,
   changes,
   publish,
@@ -162,6 +164,7 @@ export async function createRevision({
 }: {
   feature: FeatureInterface;
   user: EventAuditUser;
+  environments: string[];
   baseVersion?: number;
   changes?: Partial<FeatureRevisionInterface>;
   publish?: boolean;
@@ -184,13 +187,13 @@ export async function createRevision({
       : feature.defaultValue;
 
   const rules: Record<string, FeatureRule[]> = {};
-  if (changes && changes.rules) {
-    Object.entries(changes.rules).forEach(([env, r]) => (rules[env] = r));
-  } else {
-    Object.keys(feature.environmentSettings || {}).forEach((env) => {
+  environments.forEach((env) => {
+    if (changes && changes.rules) {
+      rules[env] = changes.rules[env] || [];
+    } else {
       rules[env] = feature.environmentSettings?.[env]?.rules || [];
-    });
-  }
+    }
+  });
 
   const log: RevisionLog = {
     action: "new revision",
