@@ -66,9 +66,11 @@ SELECT
   received_at as timestamp,
   experiment_id,
   variation_id,
-  CASE WHEN browser LIKE '%Chrome%' THEN 'Chrome'
+  CASE
+    WHEN browser LIKE '%Chrome%' THEN 'Chrome'
     WHEN browser LIKE '%Safari%' THEN 'Safari'
-  ELSE 'Other' END as browser
+    ELSE 'Other'
+  END as browser
 FROM
   experiment_viewed
 ```

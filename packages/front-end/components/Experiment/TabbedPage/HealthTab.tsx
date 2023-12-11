@@ -10,6 +10,7 @@ import Button from "@/components/Button";
 import TrafficCard from "@/components/HealthTab/TrafficCard";
 import { IssueTags, IssueValue } from "@/components/HealthTab/IssueTags";
 import LoadingSpinner from "@/components/LoadingSpinner";
+import { useDefinitions } from "@/services/DefinitionsContext";
 import { useSnapshot } from "../SnapshotProvider";
 import { HealthTabOnboardingModal } from "./HealthTabOnboardingModal";
 
@@ -36,9 +37,12 @@ export default function HealthTab({
   const { runHealthTrafficQuery } = useOrgSettings();
   const { refreshOrganization } = useUser();
   const permissions = usePermissions();
-  const hasPermissionToEditOrgSettings = permissions.check(
-    "organizationSettings"
-  );
+  const { getDatasourceById } = useDefinitions();
+  const datasource = getDatasourceById(experiment.datasource);
+  const hasPermissionToConfigHealthTag =
+    permissions.check("organizationSettings") &&
+    permissions.check("runQueries", datasource?.projects || []) &&
+    permissions.check("editDatasourceSettings", datasource?.projects || []);
   const [healthIssues, setHealthIssues] = useState<IssueValue[]>([]);
   // Clean up notification counter & health issues before unmounting
 
@@ -71,7 +75,7 @@ export default function HealthTab({
         {runHealthTrafficQuery === undefined
           ? "Welcome to the new health tab! You can use this tab to view experiment traffic over time, perform balance checks, and check for multiple exposures. To get started, "
           : "Health queries are disabled in your Organization Settings. To enable them and set up the health tab, "}
-        {hasPermissionToEditOrgSettings ? (
+        {hasPermissionToConfigHealthTag ? (
           <>
             click the button on the right.
             <Button
@@ -96,7 +100,7 @@ export default function HealthTab({
             ) : null}
           </>
         ) : (
-          "ask someone with permission to manage organization settings to enable Run traffic query by default under the Experiment Health Settings section."
+          "ask an admin in your organization to navigate to any experiment health tab and follow the onboarding process."
         )}
       </div>
     );
