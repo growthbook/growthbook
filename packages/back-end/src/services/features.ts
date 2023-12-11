@@ -404,13 +404,13 @@ async function getFeatureDefinitionsResponse({
   // todo: remove:
   const scrubbedFeatures = scrubFeatures(features, capabilities);
   const scrubbedExperiments = scrubExperiments(experiments, capabilities);
-  if (JSON.stringify(scrubbedFeatures) !== JSON.stringify(features)) {
+  if (!isEqual(scrubbedFeatures, features)) {
     logger.error(
       { scrubbedFeatures, features, capabilities },
       "scrubbedFeatures delta"
     );
   }
-  if (JSON.stringify(scrubbedExperiments) !== JSON.stringify(experiments)) {
+  if (!isEqual(scrubbedExperiments, experiments)) {
     logger.error(
       { scrubbedExperiments, experiments, capabilities },
       "scrubbedExperiments delta"
