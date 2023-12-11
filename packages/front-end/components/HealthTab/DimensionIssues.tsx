@@ -12,7 +12,6 @@ import { EXPERIMENT_DIMENSION_PREFIX, srmHealthCheck } from "./SRMDrawer";
 import HealthCard from "./HealthCard";
 import { IssueTags, IssueValue } from "./IssueTags";
 import { HealthStatus } from "./StatusBadge";
-import usePermissions from "@/hooks/usePermissions";
 
 interface Props {
   dimensionData: {
