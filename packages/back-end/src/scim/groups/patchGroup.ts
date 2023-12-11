@@ -1,6 +1,5 @@
 import { Response } from "express";
 import { parse, filter } from "scim2-parse-filter";
-import { cloneDeep } from "lodash";
 import {
   BasicScimGroup,
   ScimError,
@@ -94,27 +93,23 @@ export async function patchGroup(
           });
         }
       } else if (op === "replace" && !path) {
-        // Update Group object
-        const updatedTeam = cloneDeep(team);
+        const role = (value as BasicScimGroup).growthbookRole;
 
-        updatedTeam.name = (value as BasicScimGroup).displayName;
-        updatedTeam.managedByIdp = true;
-
-        const growthbookRole = (value as BasicScimGroup).growthbookRole;
-
-        if (growthbookRole && growthbookRole !== team.role) {
-          if (!isRoleValid(growthbookRole)) {
+        if (role && role !== team.role) {
+          if (!isRoleValid(role)) {
             return res.status(400).json({
               schemas: ["urn:ietf:params:scim:api:messages:2.0:Error"],
               status: "400",
-              detail: `"${growthbookRole}" is not a valid GrowthBook role.`,
+              detail: `"${role}" is not a valid GrowthBook role.`,
             });
           }
-
-          updatedTeam.role = growthbookRole;
         }
-
-        await updateTeamMetadata(team.id, org.id, updatedTeam);
+        await updateTeamMetadata(team.id, org.id, {
+          ...team,
+          name: (value as BasicScimGroup).displayName,
+          managedByIdp: true,
+          role,
+        });
       } else {
         return res.status(400).json({
           schemas: ["urn:ietf:params:scim:api:messages:2.0:Error"],
