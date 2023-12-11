@@ -228,12 +228,13 @@ export function isLegacySavedGroup(condition: string, attributeKey: string) {
   return false;
 }
 
-// For inline saved groups with simple conditions, extract the values array
+// For saved groups with simple conditions, extract the values array
 // This makes the migration backwards compatible with how we used to store saved group values
 export function getLegacySavedGroupValues(
   condition: string,
   attributeKey: string
 ): string[] | number[] {
+  if (!attributeKey) return [];
   if (condition && condition !== "{}") {
     try {
       const parsed = JSON.parse(condition);

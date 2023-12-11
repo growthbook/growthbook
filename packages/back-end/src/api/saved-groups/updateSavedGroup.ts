@@ -1,8 +1,6 @@
-import { isEqual, pick } from "lodash";
 import { UpdateSavedGroupResponse } from "../../../types/openapi";
 import {
   UpdateSavedGroupProps,
-  getRuntimeSavedGroup,
   getSavedGroupById,
   toSavedGroupApiInterface,
   updateSavedGroupById,
@@ -10,13 +8,12 @@ import {
 import { createApiRequestHandler } from "../../util/handler";
 import { updateSavedGroupValidator } from "../../validators/openapi";
 import { savedGroupUpdated } from "../../services/savedGroups";
-import { SavedGroupInterface } from "../../../types/saved-group";
 
 export const updateSavedGroup = createApiRequestHandler(
   updateSavedGroupValidator
 )(
   async (req): Promise<UpdateSavedGroupResponse> => {
-    const { name, attributeKey, values, condition } = req.body;
+    const { name, values, condition } = req.body;
     let { owner } = req.body;
 
     const { id } = req.params;
@@ -38,47 +35,20 @@ export const updateSavedGroup = createApiRequestHandler(
       owner,
     };
 
-    if (savedGroup.source === "inline") {
-      if (values && condition) {
-        throw new Error("Cannot update both values and condition");
-      }
-
-      if (values) {
-        if (!savedGroup.attributeKey) {
-          throw new Error(
-            "Must specify 'condition' instead of 'values' for this saved group"
-          );
-        }
-
-        fieldsToUpdate.condition = JSON.stringify({
-          [savedGroup.attributeKey]: { $in: values },
-        });
-      } else if (condition) {
-        fieldsToUpdate.condition = condition;
-      }
-
-      if (attributeKey && attributeKey !== savedGroup.attributeKey) {
+    if (condition) {
+      fieldsToUpdate.condition = condition;
+    }
+    // Backwards-compatible support for providing a list of values instead of a full condition
+    else if (values) {
+      if (!savedGroup.attributeKey) {
         throw new Error(
-          "Cannot update the attributeKey for an inline Saved Group"
-        );
-      }
-    } else if (savedGroup.source === "runtime") {
-      if (condition || values) {
-        throw new Error(
-          "Cannot update values or condition for a runtime saved group"
+          "Must specify 'condition' instead of 'values' for this saved group"
         );
       }
 
-      if (attributeKey && attributeKey !== savedGroup.attributeKey) {
-        const existing = await getRuntimeSavedGroup(
-          attributeKey,
-          req.organization.id
-        );
-        if (existing) {
-          throw new Error("A runtime saved group with that key already exists");
-        }
-        fieldsToUpdate.attributeKey = attributeKey;
-      }
+      fieldsToUpdate.condition = JSON.stringify({
+        [savedGroup.attributeKey]: { $in: values },
+      });
     }
 
     const updatedSavedGroup = await updateSavedGroupById(
@@ -88,14 +58,7 @@ export const updateSavedGroup = createApiRequestHandler(
     );
 
     // If anything important changes, we need to regenerate the SDK Payload
-    const importantKeys: (keyof SavedGroupInterface)[] = [
-      "attributeKey",
-      "condition",
-    ];
-    const pre = pick(savedGroup, importantKeys);
-    const post = pick(updatedSavedGroup, importantKeys);
-
-    if (!isEqual(pre, post)) {
+    if (savedGroup.condition !== updatedSavedGroup.condition) {
       savedGroupUpdated(req.organization, savedGroup.id);
     }
 

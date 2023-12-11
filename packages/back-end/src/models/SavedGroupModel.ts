@@ -24,7 +24,6 @@ const savedGroupSchema = new mongoose.Schema({
   dateCreated: Date,
   dateUpdated: Date,
   condition: String,
-  source: String,
   attributeKey: String,
 });
 
@@ -43,7 +42,7 @@ type CreateSavedGroupProps = Omit<
 export type UpdateSavedGroupProps = Partial<
   Omit<
     SavedGroupInterface,
-    "dateCreated" | "dateUpdated" | "id" | "organization" | "source"
+    "dateCreated" | "dateUpdated" | "id" | "organization"
   >
 >;
 
@@ -96,19 +95,6 @@ export async function getSavedGroupById(
     : null;
 }
 
-export async function getRuntimeSavedGroup(
-  key: string,
-  organization: string
-): Promise<SavedGroupInterface | null> {
-  const savedGroup = await SavedGroupModel.findOne({
-    attributeKey: key,
-    source: "runtime",
-    organization: organization,
-  });
-
-  return savedGroup ? toInterface(savedGroup) : null;
-}
-
 export async function updateSavedGroupById(
   savedGroupId: string,
   organization: string,
@@ -140,22 +126,20 @@ export async function deleteSavedGroupById(id: string, organization: string) {
 export function toSavedGroupApiInterface(
   savedGroup: SavedGroupInterface
 ): ApiSavedGroup {
-  const values =
-    savedGroup.source === "inline"
-      ? getLegacySavedGroupValues(savedGroup.condition, savedGroup.attributeKey)
-      : [];
-
   // Populate the `values` field from legacy saved groups with a really simple condition
+  const values = getLegacySavedGroupValues(
+    savedGroup.condition,
+    savedGroup.attributeKey || ""
+  );
 
   return {
     id: savedGroup.id,
     values: values.map((v) => v + ""),
     name: savedGroup.groupName,
-    attributeKey: savedGroup.attributeKey,
+    attributeKey: savedGroup.attributeKey || "",
     dateCreated: savedGroup.dateCreated.toISOString(),
     dateUpdated: savedGroup.dateUpdated.toISOString(),
     owner: savedGroup.owner || "",
-    source: savedGroup.source,
     condition: savedGroup.condition || "",
   };
 }

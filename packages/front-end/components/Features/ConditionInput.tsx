@@ -159,7 +159,7 @@ export default function ConditionInput(props: Props) {
             // This is for legacy support only
             const savedGroupOptions = savedGroups
               // Only include currently selected groups
-              .filter((g) => g.source !== "runtime" && g.id === value)
+              .filter((g) => g.id === value)
               // Then, transform into the select option format
               .map((g) => ({ label: g.groupName, value: g.id }));
 

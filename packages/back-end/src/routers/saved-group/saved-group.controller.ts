@@ -1,17 +1,12 @@
 import type { Response } from "express";
-import { isEqual, pick } from "lodash";
 import { AuthRequest } from "../../types/AuthRequest";
 import { ApiErrorResponse } from "../../../types/api";
 import { getOrgFromReq } from "../../services/organizations";
-import {
-  SavedGroupInterface,
-  SavedGroupSource,
-} from "../../../types/saved-group";
+import { SavedGroupInterface } from "../../../types/saved-group";
 import {
   UpdateSavedGroupProps,
   createSavedGroup,
   deleteSavedGroupById,
-  getRuntimeSavedGroup,
   getSavedGroupById,
   updateSavedGroupById,
 } from "../../models/SavedGroupModel";
@@ -22,13 +17,9 @@ import {
 } from "../../services/audit";
 import { savedGroupUpdated } from "../../services/savedGroups";
 
-// region POST /saved-groups
-
 type CreateSavedGroupRequest = AuthRequest<{
   groupName: string;
   owner: string;
-  attributeKey: string;
-  source: SavedGroupSource;
   condition: string;
 }>;
 
@@ -48,23 +39,13 @@ export const postSavedGroup = async (
   res: Response<CreateSavedGroupResponse>
 ) => {
   const { org, userName } = getOrgFromReq(req);
-  const { groupName, owner, attributeKey, source, condition } = req.body;
+  const { groupName, owner, condition } = req.body;
 
   req.checkPermissions("manageSavedGroups");
 
-  // If this is a runtime saved group, make sure the attributeKey is unique
-  if (source === "runtime") {
-    const existing = await getRuntimeSavedGroup(attributeKey, org.id);
-    if (existing) {
-      throw new Error("A runtime saved group with that key already exists");
-    }
-  }
-
   const savedGroup = await createSavedGroup({
-    source: source || "inline",
     groupName,
     owner: owner || userName,
-    attributeKey,
     organization: org.id,
     condition,
   });
@@ -85,15 +66,10 @@ export const postSavedGroup = async (
   });
 };
 
-// endregion POST /saved-groups
-
-// region PUT /saved-groups/:id
-
 type PutSavedGroupRequest = AuthRequest<
   {
     groupName: string;
     owner: string;
-    attributeKey: string;
     condition: string;
   },
   { id: string }
@@ -114,7 +90,7 @@ export const putSavedGroup = async (
   res: Response<PutSavedGroupResponse | ApiErrorResponse>
 ) => {
   const { org } = getOrgFromReq(req);
-  const { groupName, owner, attributeKey, condition } = req.body;
+  const { groupName, owner, condition } = req.body;
   const { id } = req.params;
 
   if (!id) {
@@ -135,18 +111,6 @@ export const putSavedGroup = async (
     condition,
   };
 
-  if (
-    savedGroup.source === "runtime" &&
-    attributeKey !== savedGroup.attributeKey
-  ) {
-    const existing = await getRuntimeSavedGroup(attributeKey, org.id);
-    if (existing) {
-      throw new Error("A runtime saved group with that key already exists");
-    }
-
-    fieldsToUpdate.attributeKey = attributeKey;
-  }
-
   const changes = await updateSavedGroupById(id, org.id, fieldsToUpdate);
 
   const updatedSavedGroup = { ...savedGroup, ...changes };
@@ -161,15 +125,8 @@ export const putSavedGroup = async (
     details: auditDetailsUpdate(savedGroup, updatedSavedGroup),
   });
 
-  // If anything important changes, we need to regenerate the SDK Payload
-  const importantKeys: (keyof SavedGroupInterface)[] = [
-    "attributeKey",
-    "condition",
-  ];
-  const pre = pick(savedGroup, importantKeys);
-  const post = pick(updatedSavedGroup, importantKeys);
-
-  if (!isEqual(pre, post)) {
+  // If condition changes, we need to regenerate the SDK Payload
+  if (savedGroup.condition !== updatedSavedGroup.condition) {
     savedGroupUpdated(org, savedGroup.id);
   }
 
@@ -177,10 +134,6 @@ export const putSavedGroup = async (
     status: 200,
   });
 };
-
-// endregion PUT /saved-groups/:id
-
-// region DELETE /saved-groups/:id
 
 type DeleteSavedGroupRequest = AuthRequest<
   Record<string, never>,
@@ -246,5 +199,3 @@ export const deleteSavedGroup = async (
     status: 200,
   });
 };
-
-// endregion DELETE /saved-groups/:id

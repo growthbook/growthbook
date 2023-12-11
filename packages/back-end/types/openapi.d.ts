@@ -1041,10 +1041,10 @@ export interface components {
       /** Format: date-time */
       dateUpdated: string;
       name: string;
-      /** @enum {string} */
-      source: "inline" | "runtime";
       owner?: string;
+      /** @deprecated */
       attributeKey: string;
+      /** @deprecated */
       values: (string)[];
       condition?: string;
     };
@@ -3976,7 +3976,7 @@ export interface operations {
     responses: {
       200: {
         content: {
-          "application/json": ({
+          "application/json": {
             savedGroups: ({
                 id: string;
                 /** Format: date-time */
@@ -3984,14 +3984,14 @@ export interface operations {
                 /** Format: date-time */
                 dateUpdated: string;
                 name: string;
-                /** @enum {string} */
-                source: "inline" | "runtime";
                 owner?: string;
+                /** @deprecated */
                 attributeKey: string;
+                /** @deprecated */
                 values: (string)[];
                 condition?: string;
               })[];
-          }) & {
+          } & {
             limit: number;
             offset: number;
             count: number;
@@ -4010,14 +4010,8 @@ export interface operations {
         "application/json": {
           /** @description The display name of the Saved Group */
           name: string;
-          /** @description (Inline groups only) A JSON-encoded targeting condition that defines the group. This is an alternative to including attributeKey/value. */
-          condition?: string;
-          /** @enum {string} */
-          source?: "inline" | "runtime";
-          /** @description An array of values to target (Ex: a list of userIds). This is an alternative to providing a condition. Not applicable for runtime groups. */
-          values?: (string)[];
-          /** @description For inline groups, the name of the attribute the values belong to (e.g. `user_id`). This is an alternative to providing a condition.  For runtime groups, the group name you reference in your code */
-          attributeKey?: string;
+          /** @description A JSON-encoded targeting condition that defines the group. */
+          condition: string;
           /** @description The person or team that owns this Saved Group. If no owner, you can pass an empty string. */
           owner?: string;
         };
@@ -4034,10 +4028,10 @@ export interface operations {
               /** Format: date-time */
               dateUpdated: string;
               name: string;
-              /** @enum {string} */
-              source: "inline" | "runtime";
               owner?: string;
+              /** @deprecated */
               attributeKey: string;
+              /** @deprecated */
               values: (string)[];
               condition?: string;
             };
@@ -4065,10 +4059,10 @@ export interface operations {
               /** Format: date-time */
               dateUpdated: string;
               name: string;
-              /** @enum {string} */
-              source: "inline" | "runtime";
               owner?: string;
+              /** @deprecated */
               attributeKey: string;
+              /** @deprecated */
               values: (string)[];
               condition?: string;
             };
@@ -4090,14 +4084,15 @@ export interface operations {
         "application/json": {
           /** @description The display name of the Saved Group */
           name?: string;
-          /** @description (Inline groups only) A JSON-encoded targeting condition that defines the group.  Alternative to providing values. */
+          /** @description A JSON-encoded targeting condition that defines the group. */
           condition?: string;
-          /** @description (Inline groups only) An array of values to target (Ex: a list of userIds). Alternative to providing a condition. */
-          values?: (string)[];
           /** @description The person or team that owns this Saved Group. If no owner, you can pass an empty string. */
           owner?: string;
-          /** @description (Runtime groups only) The key used to reference the Saved Group in the SDK */
-          attributeKey?: string;
+          /**
+           * @deprecated 
+           * @description Replaced by `condition`
+           */
+          values?: (string)[];
         };
       };
     };
@@ -4112,10 +4107,10 @@ export interface operations {
               /** Format: date-time */
               dateUpdated: string;
               name: string;
-              /** @enum {string} */
-              source: "inline" | "runtime";
               owner?: string;
+              /** @deprecated */
               attributeKey: string;
+              /** @deprecated */
               values: (string)[];
               condition?: string;
             };

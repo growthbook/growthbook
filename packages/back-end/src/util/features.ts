@@ -24,14 +24,7 @@ function getSavedGroupCondition(
   group: GroupMapValue,
   include: boolean
 ): Record<string, unknown> | undefined {
-  if (group.source === "runtime") {
-    const cond = {
-      $groups: {
-        $elemMatch: { $eq: group.key },
-      },
-    };
-    return include ? cond : { $not: cond };
-  } else if (group.condition) {
+  if (group.condition) {
     const cond = getParsedCondition(new Map(), group.condition);
     if (!cond) return undefined;
 
@@ -69,9 +62,8 @@ export function getParsedCondition(
     savedGroups.forEach(({ ids, match }) => {
       const groups = ids
         .map((id) => groupMap.get(id))
-        // Must either be a runtime group or have a condition defined
+        // Must have a condition defined
         .filter((group) => {
-          if (group?.source === "runtime") return true;
           if (group?.condition && group.condition !== "{}") {
             return true;
           }

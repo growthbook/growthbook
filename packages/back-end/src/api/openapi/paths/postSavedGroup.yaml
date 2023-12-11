@@ -6,10 +6,10 @@ operationId: postSavedGroup
 x-codeSamples:
   - lang: "cURL"
     source: |
-      curl -X POST https://api.growthbook.io/api/v1/saved-groups/grp_123abc \
+      curl -X POST https://api.growthbook.io/api/v1/saved-groups \
         -H "Content-Type: application/json" \
         -u secret_abc123DEF456: \
-        -d '{"name": "interal-users", "values": ["userId-123", "userId-345", "userId-678"], "attributeKey": "userId", "owner": ""}'
+        -d '{"name": "interal-users", "condition": "{\"user_id\": {\"$in\": [1,2,3]}}", "owner": ""}'
 requestBody:
   required: true
   content:
@@ -18,26 +18,14 @@ requestBody:
         type: object
         required:
           - name
+          - condition
         properties:
           name:
             type: string
             description: The display name of the Saved Group
           condition:
             type: string
-            description: (Inline groups only) A JSON-encoded targeting condition that defines the group. This is an alternative to including attributeKey/value.
-          source:
-            type: string
-            enum:
-              - inline
-              - runtime
-          values:
-            type: array
-            items:
-              type: string
-            description: "An array of values to target (Ex: a list of userIds). This is an alternative to providing a condition. Not applicable for runtime groups."
-          attributeKey:
-            type: string
-            description: "For inline groups, the name of the attribute the values belong to (e.g. `user_id`). This is an alternative to providing a condition.  For runtime groups, the group name you reference in your code"
+            description: A JSON-encoded targeting condition that defines the group.
           owner:
             type: string
             description: "The person or team that owns this Saved Group. If no owner, you can pass an empty string."

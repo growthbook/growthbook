@@ -14,16 +14,11 @@ import SelectField from "../Forms/SelectField";
 import ConditionInput from "../Features/ConditionInput";
 import Tooltip from "../Tooltip/Tooltip";
 
-function getKeyFromName(name: string) {
-  return name.toLowerCase().split(/\s+/g).join("_").replace(/__*/g, "_");
-}
-
 const SavedGroupForm: FC<{
   close: () => void;
   current: Partial<SavedGroupInterface>;
-  runtime: boolean;
   legacyTargetingUsage: SavedGroupUsageRef[];
-}> = ({ close, current, runtime, legacyTargetingUsage }) => {
+}> = ({ close, current, legacyTargetingUsage }) => {
   const { apiCall } = useAuth();
   const { memberUsernameOptions } = useMembers();
 
@@ -35,9 +30,7 @@ const SavedGroupForm: FC<{
     defaultValues: {
       groupName: current.groupName || "",
       owner: current.owner || "",
-      attributeKey: current.attributeKey || "",
       id: current.id || "",
-      source: runtime ? "runtime" : "inline",
       condition:
         current.condition ||
         (attributes[0]
@@ -52,22 +45,14 @@ const SavedGroupForm: FC<{
 
   const condition = form.watch("condition");
   const isNoLongerLegacy = useMemo(() => {
-    // Only relevant for existing inline groups
+    // Only a problem if we're going from containing legacy values to not containing any values
     if (
-      !current.id ||
-      !current.attributeKey ||
-      !current.condition ||
-      current.source !== "inline"
+      !isLegacySavedGroup(current.condition || "", current.attributeKey || "")
     ) {
       return false;
     }
 
-    // Only a problem if we're going from containing legacy values to not containing any values
-    if (!isLegacySavedGroup(current.condition, current.attributeKey)) {
-      return false;
-    }
-
-    return !isLegacySavedGroup(condition, current.attributeKey);
+    return !isLegacySavedGroup(condition, current.attributeKey || "");
   }, [condition, current]);
 
   return (
@@ -75,24 +60,11 @@ const SavedGroupForm: FC<{
       close={close}
       open={true}
       size="lg"
-      header={`${current.id ? "Edit" : "New"} ${
-        runtime ? "Runtime Group" : "Inline Group"
-      }`}
+      header={`${current.id ? "Edit" : "New"} Saved Group`}
       ctaEnabled={!(isNoLongerLegacy && legacyTargetingUsage.length > 0)}
       submit={form.handleSubmit(async (value) => {
-        if (runtime) {
-          value.source = "runtime";
-          value.condition = "";
-
-          if (!value.attributeKey) {
-            value.attributeKey = getKeyFromName(value.groupName);
-          }
-        } else {
-          value.source = "inline";
-          value.attributeKey = "";
-          if (!value.condition || value.condition === "{}") {
-            throw new Error("Please add at least one condition");
-          }
+        if (!value.condition || value.condition === "{}") {
+          throw new Error("Please add at least one condition");
         }
 
         await apiCall(
@@ -123,24 +95,15 @@ const SavedGroupForm: FC<{
           }))}
         />
       )}
-      {runtime ? (
-        <Field
-          {...form.register("attributeKey")}
-          label="Group Identifier"
-          placeholder={getKeyFromName(form.watch("groupName"))}
-          helpText="This is the unique group identifier you will reference in your code."
-        />
-      ) : (
-        <ConditionInput
-          defaultValue={form.watch("condition") || ""}
-          onChange={(condition) => {
-            form.setValue("condition", condition);
-          }}
-          emptyText="No conditions specified."
-          title="Include all users who match the following"
-          require
-        />
-      )}
+      <ConditionInput
+        defaultValue={form.watch("condition") || ""}
+        onChange={(condition) => {
+          form.setValue("condition", condition);
+        }}
+        emptyText="No conditions specified."
+        title="Include all users who match the following"
+        require
+      />
       {isNoLongerLegacy && legacyTargetingUsage.length > 0 ? (
         <div className="alert alert-danger mt-2">
           <Tooltip

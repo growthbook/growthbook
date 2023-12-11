@@ -1,3 +1,6 @@
+/**
+ * @deprecated
+ */
 export type SavedGroupSource = "inline" | "runtime";
 
 export interface SavedGroupInterface {
@@ -6,8 +9,10 @@ export interface SavedGroupInterface {
   condition: string;
   groupName: string;
   owner: string;
-  attributeKey: string;
-  source: SavedGroupSource;
+  /**
+   * @deprecated
+   */
+  attributeKey?: string;
   dateUpdated: Date;
   dateCreated: Date;
 }
@@ -17,6 +22,5 @@ export type GroupMap = Map<
   {
     condition: string;
     key: string;
-    source: SavedGroupSource;
   }
 >;

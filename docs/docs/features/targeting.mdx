@@ -68,42 +68,6 @@ When defining the semantic version targeting condition for a feature flag, just 
 
 ## Saved Groups
 
-In addition to targeting by attributes, GrowthBook also the concept of **Saved Groups**, which make it easy to target the same group of users across multiple features/experiments.
-
-There are two types of Saved Groups:
-
-- **Inline Saved Groups** - Define targeting rules and values directly in the GrowthBook UI. For example, you can make an `Admin` group and add the `userId` of all of your admins.
-- **Runtime Saved Groups** - Determine group membership in your application at runtime. For example, you can have a `Premium User` group and your application can pass into the SDK whether or not the current user is premium.
+GrowthBook lets you save frequently used targeting conditions as **Saved Groups**. When you update a Saved Group, every feature and experiment that references it will automatically sync to the latest value.
 
 ![Saved Groups](/images/saved-groups.png)
-
-### Runtime Saved Groups
-
-Runtime groups require some changes to your SDK integration.
-
-Every runtime group has a unique **Group Identifier**. You need to include a special attribute in your integration named `$groups` that contains an array of these identifiers as strings.
-
-Here's an example using our Javascript SDK:
-
-```ts
-// Build an array of groups
-const groups = [];
-
-// Use whatever custom logic you need to determine group membership
-if (isPro()) {
-  groups.push("premium"); // "premium" is the Group Identifier
-}
-
-// Include it as a special `$groups` attribute:
-const attributes = {
-  id: "123",
-  loggedIn: true,
-  "$groups": groups,
-}
-
-// Create your GrowthBook instance and include the special `$groups` attribute
-const gb = new GrowthBook({
-  attributes: attributes,
-  // ... other options
-});
-```

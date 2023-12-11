@@ -14,7 +14,6 @@ router.post(
     body: z.object({
       groupName: z.string(),
       owner: z.string(),
-      attributeKey: z.string(),
       condition: z.string(),
     }),
   }),
@@ -32,7 +31,6 @@ router.put(
     body: z.object({
       groupName: z.string(),
       owner: z.string(),
-      attributeKey: z.string(),
       condition: z.string(),
     }),
   }),

@@ -1,5 +1,6 @@
 import isEqual from "lodash/isEqual";
 import cloneDeep from "lodash/cloneDeep";
+import omit from "lodash/omit";
 import {
   DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
   DEFAULT_STATS_ENGINE,
@@ -665,26 +666,34 @@ export function migrateSavedGroup(
 
   // Migrate missing fields - source and condition
   const group: SavedGroupInterface = {
-    source: "inline",
     condition: "",
-    ...doc,
+    ...omit(doc, ["values", "source"]),
   };
 
-  // Migrate legacy values to new condition format
-  if (
-    group.source === "inline" &&
-    !group.condition &&
-    (group as LegacySavedGroup).values &&
-    group.attributeKey
-  ) {
-    group.condition = JSON.stringify({
-      [group.attributeKey]: {
-        $in: getGroupValues(
-          (group as LegacySavedGroup).values || [],
-          attributeMap.get(group.attributeKey)
-        ),
-      },
-    });
+  // Migrate legacy group definitions to new condition format
+  if (!doc.condition) {
+    if (doc.source === "runtime") {
+      if (doc.attributeKey) {
+        group.condition = JSON.stringify({
+          $groups: {
+            $elemMatch: {
+              $eq: doc.attributeKey || "",
+            },
+          },
+        });
+      }
+    } else {
+      if (doc.values && doc.attributeKey) {
+        group.condition = JSON.stringify({
+          [doc.attributeKey]: {
+            $in: getGroupValues(
+              doc.values || [],
+              attributeMap.get(doc.attributeKey)
+            ),
+          },
+        });
+      }
+    }
   }
 
   return group;

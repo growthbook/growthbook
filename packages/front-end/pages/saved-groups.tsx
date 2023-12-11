@@ -5,7 +5,6 @@ import { SavedGroupInterface } from "back-end/types/saved-group";
 import { getMatchingRules } from "shared/util";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import InlineGroupsList from "@/components/SavedGroups/InlineGroupsList";
-import RuntimeGroupsList from "@/components/SavedGroups/RuntimeGroupsList";
 import { useEnvironments, useFeaturesList } from "@/services/features";
 import { useExperiments } from "@/hooks/useExperiments";
 import LoadingOverlay from "../components/LoadingOverlay";
@@ -199,9 +198,8 @@ export default function SavedGroupsPage() {
         </div>
       </div>
       <p>
-        Reusable groups of users you can target from any feature flag rule or
-        experiment. There are two ways to define Saved Groups -{" "}
-        <strong>Inline</strong> or at <strong>Runtime</strong>.
+        Reusable groups of users (based on targeting conditions) you can
+        reference from any feature flag rule or experiment.
       </p>
 
       {error ? (
@@ -209,18 +207,11 @@ export default function SavedGroupsPage() {
           There was an error loading the list of groups.
         </div>
       ) : (
-        <>
-          <InlineGroupsList
-            groups={savedGroups}
-            mutate={mutateDefinitions}
-            usage={savedGroupUsage}
-          />
-          <RuntimeGroupsList
-            groups={savedGroups}
-            mutate={mutateDefinitions}
-            usage={savedGroupUsage}
-          />
-        </>
+        <InlineGroupsList
+          groups={savedGroups}
+          mutate={mutateDefinitions}
+          usage={savedGroupUsage}
+        />
       )}
 
       {auditModal && (

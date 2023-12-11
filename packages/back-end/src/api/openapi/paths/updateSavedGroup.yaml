@@ -10,7 +10,7 @@ x-codeSamples:
       curl -X POST https://api.growthbook.io/api/v1/saved-groups/grp_123abc \
         -H "Content-Type: application/json" \
         -u secret_abc123DEF456: \
-        -d '{"values": [ "userId-123", "userId-345" ]}'
+        -d '{"condition": "{\"user_id\": {\"$in\": [4,5,6]}}"}'
 requestBody:
   required: true
   content:
@@ -24,18 +24,16 @@ requestBody:
             description: The display name of the Saved Group
           condition:
             type: string
-            description: "(Inline groups only) A JSON-encoded targeting condition that defines the group.  Alternative to providing values."
-          values:
-            type: array
-            items:
-              type: string
-            description: "(Inline groups only) An array of values to target (Ex: a list of userIds). Alternative to providing a condition."
+            description: "A JSON-encoded targeting condition that defines the group."
           owner:
             type: string
             description: "The person or team that owns this Saved Group. If no owner, you can pass an empty string."
-          attributeKey:
-            type: string
-            description: (Runtime groups only) The key used to reference the Saved Group in the SDK
+          values:
+            type: array
+            deprecated: true
+            items:
+              type: string
+            description: Replaced by `condition`
 responses:
   "200":
     content:

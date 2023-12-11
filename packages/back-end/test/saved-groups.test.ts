@@ -1,9 +1,10 @@
 import omit from "lodash/omit";
 import { LegacySavedGroup, migrateSavedGroup } from "../src/util/migrations";
 import { SDKAttributeSchema } from "../types/organization";
+import { SavedGroupInterface } from "../types/saved-group";
 
 describe("Saved Group Migration", () => {
-  const baseGroup: LegacySavedGroup = {
+  const withValues: LegacySavedGroup = {
     attributeKey: "str",
     dateCreated: new Date(),
     dateUpdated: new Date(),
@@ -13,6 +14,26 @@ describe("Saved Group Migration", () => {
     owner: "",
     values: ["1", "2", "3"],
   };
+  const runtimeGroup: LegacySavedGroup = {
+    attributeKey: "admin",
+    dateCreated: new Date(),
+    dateUpdated: new Date(),
+    groupName: "Admins",
+    id: "grp_abc456",
+    organization: "org_abc123",
+    owner: "",
+    source: "runtime",
+  };
+  const withCondition: SavedGroupInterface = {
+    condition: JSON.stringify({ str: { $nin: ["1", "2", "3"] } }),
+    dateCreated: new Date(),
+    dateUpdated: new Date(),
+    groupName: "My Group",
+    id: "grp_abc789",
+    organization: "org_abc123",
+    owner: "",
+  };
+
   const attributes: SDKAttributeSchema = [
     {
       property: "str",
@@ -28,27 +49,32 @@ describe("Saved Group Migration", () => {
     },
   ];
 
-  it("adds missing source/condition for legacy saved groups", () => {
-    expect(migrateSavedGroup(baseGroup, attributes)).toEqual({
-      ...baseGroup,
-      source: "inline",
+  it("adds missing condition for saved groups with values", () => {
+    expect(migrateSavedGroup(withValues, attributes)).toEqual({
+      ...omit(withValues, ["values"]),
+      condition: JSON.stringify({ str: { $in: ["1", "2", "3"] } }),
+    });
+
+    // Still migrates when source = "inline"
+    expect(
+      migrateSavedGroup({ ...withValues, source: "inline" }, attributes)
+    ).toEqual({
+      ...omit(withValues, ["values"]),
       condition: JSON.stringify({ str: { $in: ["1", "2", "3"] } }),
     });
   });
 
-  it("adds missing source/condition for legacy saved groups with a numeric attribute", () => {
+  it("adds missing condition for saved groups with a numeric attribute", () => {
     expect(
       migrateSavedGroup(
         {
-          ...baseGroup,
+          ...withValues,
           attributeKey: "num",
         },
         attributes
       )
     ).toEqual({
-      ...baseGroup,
-      attributeKey: "num",
-      source: "inline",
+      ...omit(withValues, ["values"]),
       condition: JSON.stringify({ num: { $in: [1, 2, 3] } }),
     });
   });
@@ -57,15 +83,13 @@ describe("Saved Group Migration", () => {
     expect(
       migrateSavedGroup(
         {
-          ...baseGroup,
+          ...withValues,
           attributeKey: "foo",
         },
         attributes
       )
     ).toEqual({
-      ...baseGroup,
-      attributeKey: "foo",
-      source: "inline",
+      ...omit(withValues, ["values"]),
       condition: JSON.stringify({ foo: { $in: ["1", "2", "3"] } }),
     });
   });
@@ -73,47 +97,19 @@ describe("Saved Group Migration", () => {
   it("assumes string when attribute is not a number or string", () => {
     expect(
       migrateSavedGroup({
-        ...baseGroup,
+        ...withValues,
         attributeKey: "str_arr",
       })
     ).toEqual({
-      ...baseGroup,
-      attributeKey: "str_arr",
-      source: "inline",
+      ...omit(withValues, ["values"]),
       condition: JSON.stringify({ str_arr: { $in: ["1", "2", "3"] } }),
     });
   });
 
-  it("does not add a condition for a runtime group", () => {
-    expect(
-      migrateSavedGroup({
-        ...omit(baseGroup, ["values"]),
-        attributeKey: "admin",
-        source: "runtime",
-      })
-    ).toEqual({
-      ...omit(baseGroup, ["values"]),
-      attributeKey: "admin",
-      source: "runtime",
-      condition: "",
-    });
-  });
-
-  it("migrates condition when source is already inline", () => {
-    expect(
-      migrateSavedGroup(
-        {
-          ...baseGroup,
-          attributeKey: "num",
-          source: "inline",
-        },
-        attributes
-      )
-    ).toEqual({
-      ...baseGroup,
-      attributeKey: "num",
-      source: "inline",
-      condition: JSON.stringify({ num: { $in: [1, 2, 3] } }),
+  it("migrates runtime groups", () => {
+    expect(migrateSavedGroup(runtimeGroup, attributes)).toEqual({
+      ...omit(runtimeGroup, ["attributeKey", "source"]),
+      condition: JSON.stringify({ $groups: { $elemMatch: { $eq: "admin" } } }),
     });
   });
 
@@ -121,37 +117,18 @@ describe("Saved Group Migration", () => {
     expect(
       migrateSavedGroup(
         {
-          ...baseGroup,
-          attributeKey: "num",
-          source: "inline",
+          ...withValues,
           condition: JSON.stringify({ foo: "bar" }),
         },
         attributes
       )
     ).toEqual({
-      ...baseGroup,
-      attributeKey: "num",
-      source: "inline",
+      ...omit(withValues, ["values", "attributeKey"]),
       condition: JSON.stringify({ foo: "bar" }),
     });
   });
 
   it("does nothing for saved groups already in the new format (no values)", () => {
-    expect(
-      migrateSavedGroup(
-        {
-          ...omit(baseGroup, ["values"]),
-          attributeKey: "",
-          source: "inline",
-          condition: JSON.stringify({ str: { $in: ["1", "2", "3"] } }),
-        },
-        attributes
-      )
-    ).toEqual({
-      ...omit(baseGroup, ["values"]),
-      attributeKey: "",
-      source: "inline",
-      condition: JSON.stringify({ str: { $in: ["1", "2", "3"] } }),
-    });
+    expect(migrateSavedGroup(withCondition, attributes)).toEqual(withCondition);
   });
 });

@@ -193,7 +193,7 @@ export const listSavedGroupsValidator = {
 };
 
 export const postSavedGroupValidator = {
-  bodySchema: z.object({"name":z.string().describe("The display name of the Saved Group"),"condition":z.string().describe("(Inline groups only) A JSON-encoded targeting condition that defines the group. This is an alternative to including attributeKey/value.").optional(),"source":z.enum(["inline","runtime"]).optional(),"values":z.array(z.string()).describe("An array of values to target (Ex: a list of userIds). This is an alternative to providing a condition. Not applicable for runtime groups.").optional(),"attributeKey":z.string().describe("For inline groups, the name of the attribute the values belong to (e.g. `user_id`). This is an alternative to providing a condition.  For runtime groups, the group name you reference in your code").optional(),"owner":z.string().describe("The person or team that owns this Saved Group. If no owner, you can pass an empty string.").optional()}).strict(),
+  bodySchema: z.object({"name":z.string().describe("The display name of the Saved Group"),"condition":z.string().describe("A JSON-encoded targeting condition that defines the group."),"owner":z.string().describe("The person or team that owns this Saved Group. If no owner, you can pass an empty string.").optional()}).strict(),
   querySchema: z.never(),
   paramsSchema: z.never(),
 };
@@ -205,7 +205,7 @@ export const getSavedGroupValidator = {
 };
 
 export const updateSavedGroupValidator = {
-  bodySchema: z.object({"name":z.string().describe("The display name of the Saved Group").optional(),"condition":z.string().describe("(Inline groups only) A JSON-encoded targeting condition that defines the group.  Alternative to providing values.").optional(),"values":z.array(z.string()).describe("(Inline groups only) An array of values to target (Ex: a list of userIds). Alternative to providing a condition.").optional(),"owner":z.string().describe("The person or team that owns this Saved Group. If no owner, you can pass an empty string.").optional(),"attributeKey":z.string().describe("(Runtime groups only) The key used to reference the Saved Group in the SDK").optional()}).strict(),
+  bodySchema: z.object({"name":z.string().describe("The display name of the Saved Group").optional(),"condition":z.string().describe("A JSON-encoded targeting condition that defines the group.").optional(),"owner":z.string().describe("The person or team that owns this Saved Group. If no owner, you can pass an empty string.").optional(),"values":z.array(z.string()).describe("Replaced by `condition`").optional()}).strict(),
   querySchema: z.never(),
   paramsSchema: z.object({"id":z.string()}).strict(),
 };
