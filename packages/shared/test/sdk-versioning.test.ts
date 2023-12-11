@@ -2,7 +2,6 @@ import { SDKConnectionInterface } from "back-end/types/sdk-connection";
 import cloneDeep from "lodash/cloneDeep";
 import {
   getConnectionSDKCapabilities,
-  scrubExperiments,
   scrubFeatures,
 } from "../src/sdk-versioning";
 
@@ -157,11 +156,11 @@ describe("payload scrubbing", () => {
         key: "my-experiment",
         seed: "s1",
         hashAttribute: "id",
-        // fallbackAttribute: "anonymousId",
+        fallbackAttribute: "anonymousId",
         hashVersion: 2,
-        // bucketVersion: 1,
-        // stickyBucketing: true,
-        // manual: true,
+        bucketVersion: 1,
+        stickyBucketing: true,
+        manual: true,
         variations: [
           {},
           {
@@ -216,13 +215,13 @@ describe("payload scrubbing", () => {
     experiments: [
       {
         key: "my-experiment",
-        // seed: "s1",
+        seed: "s1",
         hashAttribute: "id",
-        // fallbackAttribute: "anonymousId",
-        // hashVersion: 2,
-        // bucketVersion: 1,
-        // stickyBucketing: true,
-        // manual: true,
+        fallbackAttribute: "anonymousId",
+        hashVersion: 2,
+        bucketVersion: 1,
+        stickyBucketing: true,
+        manual: true,
         variations: [
           {},
           {
@@ -260,12 +259,7 @@ describe("payload scrubbing", () => {
 
     const scrubbed = cloneDeep(sdkPayload);
     const scrubbedFeatures = scrubFeatures(scrubbed.features, capabilities);
-    const scrubbedExperiments = scrubExperiments(
-      scrubbed.experiments,
-      capabilities
-    );
     scrubbed.features = scrubbedFeatures;
-    scrubbed.experiments = scrubbedExperiments;
 
     // no change to payload for default connection (javascript, 0.27.0)
     expect(scrubbed).toStrictEqual(sdkPayload);
@@ -282,12 +276,7 @@ describe("payload scrubbing", () => {
 
     const scrubbed = cloneDeep(sdkPayload);
     const scrubbedFeatures = scrubFeatures(scrubbed.features, capabilities);
-    const scrubbedExperiments = scrubExperiments(
-      scrubbed.experiments,
-      capabilities
-    );
     scrubbed.features = scrubbedFeatures;
-    scrubbed.experiments = scrubbedExperiments;
 
     // no change to payload for default connection (javascript, 0.27.0)
     expect(scrubbed).toStrictEqual(fullyScrubbedPayload);
@@ -304,12 +293,7 @@ describe("payload scrubbing", () => {
 
     const scrubbed = cloneDeep(sdkPayload);
     const scrubbedFeatures = scrubFeatures(scrubbed.features, capabilities);
-    const scrubbedExperiments = scrubExperiments(
-      scrubbed.experiments,
-      capabilities
-    );
     scrubbed.features = scrubbedFeatures;
-    scrubbed.experiments = scrubbedExperiments;
 
     // no change to payload for default connection (javascript, 0.27.0)
     expect(scrubbed).toStrictEqual(lightlyScrubbedPayload);
