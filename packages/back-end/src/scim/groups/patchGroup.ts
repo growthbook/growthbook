@@ -14,6 +14,7 @@ import {
   removeMembersFromTeam,
 } from "../../services/organizations";
 import { Member } from "../../../types/organization";
+import { isRoleValid } from "../users/createUser";
 
 export async function patchGroup(
   req: ScimGroupPatchRequest,
@@ -92,11 +93,22 @@ export async function patchGroup(
           });
         }
       } else if (op === "replace" && !path) {
-        // Update Group object
+        const role = (value as BasicScimGroup).growthbookRole;
+
+        if (role && role !== team.role) {
+          if (!isRoleValid(role)) {
+            return res.status(400).json({
+              schemas: ["urn:ietf:params:scim:api:messages:2.0:Error"],
+              status: "400",
+              detail: `"${role}" is not a valid GrowthBook role.`,
+            });
+          }
+        }
         await updateTeamMetadata(team.id, org.id, {
           ...team,
           name: (value as BasicScimGroup).displayName,
           managedByIdp: true,
+          role,
         });
       } else {
         return res.status(400).json({
