@@ -82,7 +82,7 @@ export const DimensionIssues = ({ dimensionData, variations }: Props) => {
   ).sort((a, b) => b.issues.length - a.issues.length);
 
   const [selectedDimension, setSelectedDimension] = useState(
-    availableDimensions[0]?.value || ""
+    availableDimensions[0]?.value
   );
 
   const [issues, dimensionSlicesWithHealth] = useMemo(() => {
@@ -262,10 +262,9 @@ export const DimensionIssues = ({ dimensionData, variations }: Props) => {
               }}
             >
               <a
-                className="text-lg"
-                href="#"
-                onClick={(e) => {
-                  e.preventDefault();
+                className="a text-lg"
+                role="button"
+                onClick={() => {
                   track("Open health tab dimension modal");
                   setModalOpen(true);
                 }}

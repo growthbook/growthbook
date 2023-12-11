@@ -27,9 +27,9 @@ const LearnMore = ({
   if (type === "with_modal") {
     return (
       <a
-        href="#"
-        onClick={(e) => {
-          e.preventDefault();
+        className="a"
+        role="button"
+        onClick={() => {
           setOpen(true);
         }}
       >
@@ -40,14 +40,9 @@ const LearnMore = ({
     return (
       <span>
         <Tooltip body={body}>
-          <a
-            href="#"
-            onClick={(e) => {
-              e.preventDefault();
-            }}
-          >
+          <span className="a">
             Learn More <MdInfoOutline style={{ color: "#029dd1" }} />
-          </a>
+          </span>
         </Tooltip>
       </span>
     );
@@ -209,9 +204,9 @@ const SRMWarning: FC<{
             <p className="mb-0">
               Results are likely untrustworthy. See the{" "}
               <a
-                href="#"
-                onClick={(e) => {
-                  e.preventDefault();
+                className="a"
+                role="button"
+                onClick={() => {
                   track("Open health tab");
                   setTab("health");
                 }}

@@ -64,15 +64,16 @@ export default function TabButton({
           className={`position-absolute badge d-flex justify-content-center align-self-center mr-1`}
           style={{
             zIndex: 1,
-            width: 18,
-            height: 18,
+            width: 20,
+            height: 20,
             right: 0,
             top: 3,
             borderRadius: 50,
-            backgroundColor: "red",
-            color: "white",
+            backgroundColor: "#f00",
+            color: "#fff",
             lineHeight: 0.7,
-            boxShadow: "0 0 5px #000",
+            boxShadow: "0 1px 2px #00000036",
+            border: "1px solid #fff",
           }}
         >
           {notificationCount}
