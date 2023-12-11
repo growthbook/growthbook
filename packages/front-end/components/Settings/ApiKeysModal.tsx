@@ -42,7 +42,7 @@ const ApiKeysModal: FC<{
     roleOptions.push({
       label: "SCIM",
       value: "scim",
-      description: "Manage teams and groups via SCIM API",
+      description: "Manage users and teams via SCIM API",
     });
   }
 
