@@ -118,7 +118,7 @@ describe("licenseInit", () => {
         await licenseInit(licenseKey, userLicenseCodes, metaData);
 
         expect(fetch).toHaveBeenCalledWith(
-          `${LICENSE_SERVER}/api/v1/license/${licenseKey}/check`,
+          `${LICENSE_SERVER}license/${licenseKey}/check`,
           expect.objectContaining({
             method: "PUT",
             headers: {
@@ -144,7 +144,7 @@ describe("licenseInit", () => {
         await licenseInit(licenseKey, userLicenseCodes, metaData);
 
         expect(fetch).toHaveBeenCalledWith(
-          `${LICENSE_SERVER}/api/v1/license/${licenseKey}/check`,
+          `${LICENSE_SERVER}license/${licenseKey}/check`,
           expect.objectContaining({
             method: "PUT",
             headers: {
