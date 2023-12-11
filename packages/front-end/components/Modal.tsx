@@ -19,6 +19,7 @@ type ModalProps = {
   submitColor?: string;
   cta?: string | ReactElement;
   closeCta?: string | ReactElement;
+  includeCloseCta?: boolean;
   ctaEnabled?: boolean;
   disabledMessage?: string;
   docSection?: DocSection;
@@ -49,6 +50,7 @@ const Modal: FC<ModalProps> = ({
   cta = "Submit",
   ctaEnabled = true,
   closeCta = "Cancel",
+  includeCloseCta = true,
   disabledMessage,
   inline = false,
   size = "md",
@@ -197,7 +199,7 @@ const Modal: FC<ModalProps> = ({
           ) : (
             ""
           )}
-          {close && (
+          {close && includeCloseCta ? (
             <button
               className="btn btn-link"
               onClick={(e) => {
@@ -207,7 +209,7 @@ const Modal: FC<ModalProps> = ({
             >
               {isSuccess && successMessage ? "Close" : closeCta}
             </button>
-          )}
+          ) : null}
         </div>
       ) : null}
     </div>
