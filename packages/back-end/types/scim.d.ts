@@ -34,6 +34,7 @@ export interface ScimGroup {
   meta: {
     resourceType: "Group";
   };
+  growthbookRole?: MemberRole;
 }
 
 export interface ScimListResponse {
@@ -90,6 +91,7 @@ type ScimOperation = {
 export interface BasicScimGroup {
   id: string;
   displayName: string;
+  growthbookRole?: MemberRole;
 }
 
 type ScimGroupOperation = {
