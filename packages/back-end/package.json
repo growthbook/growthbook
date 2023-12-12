@@ -34,6 +34,8 @@
     "@growthbook/growthbook": "^0.31.0",
     "@growthbook/proxy-eval": "^1.0.0",
     "@octokit/auth-app": "^6.0.1",
+    "@octokit/core": "^5.0.2",
+    "@octokit/oauth-methods": "^4.0.1",
     "@octokit/rest": "^20.0.2",
     "@opentelemetry/api": "^1.4.1",
     "@opentelemetry/auto-instrumentations-node": "^0.37.1",

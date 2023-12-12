@@ -3478,7 +3478,7 @@
   resolved "https://registry.yarnpkg.com/@octokit/auth-token/-/auth-token-4.0.0.tgz#40d203ea827b9f17f42a29c6afb93b7745ef80c7"
   integrity sha512-tY/msAuJo6ARbK6SPIxZrPBms3xPbfwBrulZe0Wtr/DIY9lje2HeV1uoebShn6mx7SjCHif6EjMvoREj+gZ+SA==
 
-"@octokit/core@^5.0.0":
+"@octokit/core@^5.0.0", "@octokit/core@^5.0.2":
   version "5.0.2"
   resolved "https://registry.yarnpkg.com/@octokit/core/-/core-5.0.2.tgz#ae7c5d61fdd98ba348a27c3cc510879a130b1234"
   integrity sha512-cZUy1gUvd4vttMic7C0lwPed8IYXWYp8kHIMatyhY8t8n3Cpw2ILczkV5pGMPqef7v0bLo0pOHrEHarsau2Ydg==
@@ -3513,7 +3513,7 @@
   resolved "https://registry.yarnpkg.com/@octokit/oauth-authorization-url/-/oauth-authorization-url-6.0.2.tgz#cc82ca29cc5e339c9921672f39f2b3f5c8eb6ef2"
   integrity sha512-CdoJukjXXxqLNK4y/VOiVzQVjibqoj/xHgInekviUJV73y/BSIcwvJ/4aNHPBPKcPWFnd4/lO9uqRV65jXhcLA==
 
-"@octokit/oauth-methods@^4.0.0":
+"@octokit/oauth-methods@^4.0.0", "@octokit/oauth-methods@^4.0.1":
   version "4.0.1"
   resolved "https://registry.yarnpkg.com/@octokit/oauth-methods/-/oauth-methods-4.0.1.tgz#90d22c662387056307778d7e5c4763ff559636c4"
   integrity sha512-1NdTGCoBHyD6J0n2WGXg9+yDLZrRNZ0moTEex/LSPr49m530WNKcCfXDghofYptr3st3eTii+EHoG5k/o+vbtw==

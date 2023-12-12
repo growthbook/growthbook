@@ -1,6 +1,7 @@
 import { omit } from "lodash";
 import uniqid from "uniqid";
 import mongoose from "mongoose";
+import { refreshToken } from "@octokit/oauth-methods";
 import {
   GithubUserTokenInterface,
   CreateGithubUserTokenInput,
@@ -42,9 +43,28 @@ export const doesTokenExist = async (tokenId: string) => {
   return await GithubUserTokenModel.exists({ id: tokenId });
 };
 
-const refreshGithubUserToken = async <T>(token: T): Promise<T> => {
-  // TODO implement
-  return token;
+const refreshGithubUserToken = async (token: GithubUserTokenDocument) => {
+  const { authentication } = await refreshToken({
+    clientType: "github-app",
+    clientId: process.env.GITHUB_CLIENT_ID || "",
+    clientSecret: process.env.GITHUB_CLIENT_SECRET || "",
+    refreshToken: token.refreshToken,
+  });
+  if (!authentication)
+    throw new Error("Github integration - Token refresh failed");
+  await GithubUserTokenModel.updateOne<GithubUserTokenDocument>(
+    { id: token.id },
+    {
+      token: authentication.token,
+      expiresAt: authentication.expiresAt,
+      refreshToken: authentication.refreshToken,
+      refreshTokenExpiresAt: authentication.refreshTokenExpiresAt,
+      updatedAt: new Date(),
+    }
+  );
+  const updated = await GithubUserTokenModel.findOne({ id: token.id });
+  if (!updated) throw new Error("Github integration - Token refresh failed");
+  return updated;
 };
 
 export const getGithubUserToken = async (tokenId: string) => {
