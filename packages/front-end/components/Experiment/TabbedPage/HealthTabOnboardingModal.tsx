@@ -20,9 +20,15 @@ import track, { trackSnapshot } from "@/services/track";
 
 type HealthTabOnboardingModalProps = {
   open: boolean;
+  close: () => void;
+  healthTabOnboardingPurpose: HealthTabOnboardingPurpose;
+  healthTabConfigParams: HealthTabConfigParams;
+};
+
+export type HealthTabConfigParams = {
   experiment: ExperimentInterfaceStringDates;
   phase: number;
-  close: () => void;
+  exposureQueryDimensions: string[];
   refreshOrganization: () => void;
   mutateSnapshot: () => void;
   setAnalysisSettings: (
@@ -32,23 +38,31 @@ type HealthTabOnboardingModalProps = {
   resetResultsSettings: () => void;
 };
 
+export type HealthTabOnboardingPurpose = "setup" | "dimensions";
 type RefreshTypes = "refresh" | "norefresh";
 
 export const HealthTabOnboardingModal: FC<HealthTabOnboardingModalProps> = ({
   open,
-  experiment,
-  phase,
   close,
-  refreshOrganization,
-  mutateSnapshot,
-  setAnalysisSettings,
-  setLoading,
-  resetResultsSettings,
+  healthTabOnboardingPurpose,
+  healthTabConfigParams,
 }) => {
+  const {
+    experiment,
+    phase,
+    exposureQueryDimensions,
+    refreshOrganization,
+    mutateSnapshot,
+    setAnalysisSettings,
+    setLoading,
+    resetResultsSettings,
+  } = healthTabConfigParams;
+
   const { apiCall } = useAuth();
+  const startingStep = healthTabOnboardingPurpose === "setup" ? 0 : 1;
   const [setupChoice, setSetupChoice] = useState<RefreshTypes>("refresh");
-  const [step, setStep] = useState(0);
-  const [lastStep, setLastStep] = useState(0);
+  const [step, setStep] = useState(startingStep);
+  const [lastStep, setLastStep] = useState(startingStep);
   const { getDatasourceById } = useDefinitions();
   const dataSource = getDatasourceById(experiment.datasource);
 
@@ -161,7 +175,11 @@ export const HealthTabOnboardingModal: FC<HealthTabOnboardingModalProps> = ({
         cta={"Confirm"}
         includeCloseCta={false}
         size={"md"}
-        header={"Exit without Enabling Health Tab"}
+        header={`Exit without ${
+          healthTabOnboardingPurpose === "setup"
+            ? "Enabling Health Tab"
+            : "Configuring Experiment Dimensions"
+        }`}
         secondaryCTA={
           <>
             <button
@@ -175,7 +193,11 @@ export const HealthTabOnboardingModal: FC<HealthTabOnboardingModalProps> = ({
       >
         <div className="my-2 ml-3 mr-3">
           <div className="row mb-2">
-            The Health Tab will not be enabled until you complete setup.
+            {`${
+              healthTabOnboardingPurpose === "setup"
+                ? "The Health Tab will not be enabled"
+                : "Experiment Dimensions will not be configured for the health tab"
+            } until you complete setup.`}
           </div>
         </div>
       </Modal>
@@ -207,7 +229,7 @@ export const HealthTabOnboardingModal: FC<HealthTabOnboardingModalProps> = ({
         <button
           className={`btn btn-primary`}
           type="submit"
-          onClick={() => setStep(1)}
+          onClick={() => setStep(exposureQueryDimensions.length ? 1 : 2)}
         >
           {"Next >"}
         </button>
@@ -241,9 +263,11 @@ export const HealthTabOnboardingModal: FC<HealthTabOnboardingModalProps> = ({
       ),
       secondaryCTA: (
         <>
-          <button className={`btn btn-link`} onClick={() => setStep(2)}>
-            {"Skip"}
-          </button>
+          {healthTabOnboardingPurpose === "setup" ? (
+            <button className={`btn btn-link`} onClick={() => setStep(2)}>
+              {"Skip"}
+            </button>
+          ) : null}
           <button
             className={`btn btn-primary`}
             type="submit"
@@ -257,7 +281,7 @@ export const HealthTabOnboardingModal: FC<HealthTabOnboardingModalProps> = ({
     },
     // step 2
     {
-      header: "Configure Experiment Dimensions for Health Tab",
+      header: "Set up Health Tab",
       children: (
         <>
           <div className="my-2 ml-3 mr-3">

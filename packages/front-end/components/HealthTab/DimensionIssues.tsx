@@ -8,6 +8,10 @@ import VariationUsersTable from "../Experiment/TabbedPage/VariationUsersTable";
 import Modal from "../Modal";
 import SelectField from "../Forms/SelectField";
 import SRMWarning from "../Experiment/SRMWarning";
+import {
+  HealthTabConfigParams,
+  HealthTabOnboardingModal,
+} from "../Experiment/TabbedPage/HealthTabOnboardingModal";
 import { EXPERIMENT_DIMENSION_PREFIX, srmHealthCheck } from "./SRMDrawer";
 import HealthCard from "./HealthCard";
 import { IssueTags, IssueValue } from "./IssueTags";
@@ -18,6 +22,7 @@ interface Props {
     [dimension: string]: ExperimentSnapshotTrafficDimension[];
   };
   variations: ExperimentReportVariation[];
+  healthTabConfigParams: HealthTabConfigParams;
 }
 
 type DimensionWithIssues = {
@@ -69,9 +74,14 @@ export function transformDimensionData(
   );
 }
 
-export const DimensionIssues = ({ dimensionData, variations }: Props) => {
+export const DimensionIssues = ({
+  dimensionData,
+  variations,
+  healthTabConfigParams,
+}: Props) => {
   const { settings } = useUser();
   const [modalOpen, setModalOpen] = useState(false);
+  const [setupModalOpen, setSetupModalOpen] = useState(false);
 
   const srmThreshold = settings.srmThreshold ?? DEFAULT_SRM_THRESHOLD;
 
@@ -274,11 +284,43 @@ export const DimensionIssues = ({ dimensionData, variations }: Props) => {
             </div>
           </>
         ) : (
-          <div className="pt-4 px-4">
-            <i className="text-muted">
-              No experiment dimensions with pre-defined slices available
-            </i>
-          </div>
+          <>
+            <div className="pt-4 px-4">
+              <i className="text-muted">
+                {`No experiment dimensions ${
+                  healthTabConfigParams.exposureQueryDimensions.length > 0
+                    ? "with pre-defined slices available"
+                    : "available"
+                }`}
+              </i>
+            </div>
+            {healthTabConfigParams.exposureQueryDimensions.length ? (
+              <div className="pt-4 d-flex justify-content-center">
+                <div>
+                  <a
+                    href="#"
+                    className="btn btn-outline-primary"
+                    onClick={() => {
+                      track("Health Tab Onboarding Opened", {
+                        source: "dimension-issues",
+                      });
+                      setSetupModalOpen(true);
+                    }}
+                  >
+                    Configure experiment dimension slices
+                  </a>
+                </div>
+                {setupModalOpen ? (
+                  <HealthTabOnboardingModal
+                    open={setupModalOpen}
+                    close={() => setSetupModalOpen(false)}
+                    healthTabConfigParams={healthTabConfigParams}
+                    healthTabOnboardingPurpose={"dimensions"}
+                  />
+                ) : null}
+              </div>
+            ) : null}
+          </>
         )}
       </div>
     </>
