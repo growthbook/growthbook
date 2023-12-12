@@ -289,17 +289,22 @@ function getRecommendedRolloutData({
   };
 }
 
-function SafeToReleaseBanner(
-  { className, style, lowRiskWithStickyBucketing = false }: { className?: string, style?: React.CSSProperties, lowRiskWithStickyBucketing?: boolean }
-) {
+function SafeToReleaseBanner({
+  className,
+  style,
+  lowRiskWithStickyBucketing = false,
+}: {
+  className?: string;
+  style?: React.CSSProperties;
+  lowRiskWithStickyBucketing?: boolean;
+}) {
   return (
     <div className={clsx("alert alert-success", className)} style={style}>
       <div className="mb-1">
-        <FaCheck/>{" "}
+        <FaCheck />{" "}
         {lowRiskWithStickyBucketing
           ? "The changes you have made do not impact existing bucketed users because Sticky Bucketing is enabled."
-          : "The changes you have made do not impact existing bucketed users."
-        }
+          : "The changes you have made do not impact existing bucketed users."}
       </div>
       <div className="mb-0 small">
         You may safely update the existing experiment phase, if desired, without
@@ -337,6 +342,7 @@ export default function ReleaseChangesForm({ experiment, form }: Props) {
     stickyBucketing: usingStickyBucketing,
   });
 
+  // set the default values for each of the user prompt options
   useEffect(() => {
     if (existingUsersOption === "keep") {
       // same phase, same seed, same bucket version
@@ -359,11 +365,20 @@ export default function ReleaseChangesForm({ experiment, form }: Props) {
       // todo: this is a problem because the recommended "newPhase" and "reseed" values in
       // the users prompt may not match the recommended values when choosing "reassign"
     }
-  }, [existingUsersOption]);
+  }, [
+    existingUsersOption,
+    form,
+    experiment.bucketVersion,
+    experiment.minBucketVersion,
+    recommendedRolloutData.reassign_newPhase,
+    recommendedRolloutData.reassign_newSeed,
+  ]);
 
+  // set the default values for the "reassign" form
+  const form_newPhase = form.watch("newPhase");
   useEffect(() => {
     if (existingUsersOption !== "reassign") return;
-    if (!form.watch("newPhase")) {
+    if (!form_newPhase) {
       // existing
       form.setValue("reseed", false);
       form.setValue("bucketVersion", experiment.bucketVersion);
@@ -373,13 +388,20 @@ export default function ReleaseChangesForm({ experiment, form }: Props) {
       form.setValue("bucketVersion", (experiment.bucketVersion ?? 0) + 1);
       form.setValue("minBucketVersion", experiment.minBucketVersion);
     }
-  }, [existingUsersOption, form.watch("newPhase"), form.watch("reseed")]);
+  }, [
+    existingUsersOption,
+    form,
+    form_newPhase,
+    experiment.bucketVersion,
+    experiment.minBucketVersion,
+  ]);
 
   useEffect(() => {
     setExistingUsersOption(recommendedRolloutData.existingUsersOption);
     form.setValue("newPhase", recommendedRolloutData.newPhase);
     form.setValue("reseed", recommendedRolloutData.newSeed);
   }, [
+    form,
     recommendedRolloutData.existingUsersOption,
     recommendedRolloutData.newPhase,
     recommendedRolloutData.newSeed,
@@ -684,7 +706,8 @@ export default function ReleaseChangesForm({ experiment, form }: Props) {
             ]}
             formatOptionLabel={(value) => {
               const recommended =
-                (value.value === "new" && recommendedRolloutData.reassign_newPhase) ||
+                (value.value === "new" &&
+                  recommendedRolloutData.reassign_newPhase) ||
                 (value.value === "existing" &&
                   !recommendedRolloutData.reassign_newPhase);
 
@@ -757,34 +780,41 @@ export default function ReleaseChangesForm({ experiment, form }: Props) {
 
       <div className="mt-4">
         <div className="d-flex justify-content-end">
-          <div style={{width: 300}}>
-          <div className="h4 text-muted">Release plan</div>
-        <table className="table table-tiny">
-          <tbody>
-            <tr>
-              <td>New phase?</td>
-              <td>{form.watch("newPhase") ? "Yes" : "No"}</td>
-            </tr>
-            <tr>
-              <td>Re-randomize traffic?</td>
-              <td>{form.watch("reseed") ? "Yes" : "No"}</td>
-            </tr>
-            <tr>
-              <td>Bucket version?</td>
-              <td>{form.watch("bucketVersion") !== experiment.bucketVersion
-                ? `Changed: ${(experiment.bucketVersion ?? 0)} → ${form.watch("bucketVersion")}`
-                : `No change: ${form.watch("bucketVersion")}`
-              }</td>
-            </tr>
-            <tr>
-              <td>Block previous bucket?</td>
-              <td>{form.watch("minBucketVersion") !== experiment.minBucketVersion
-                ? `Changed: ${(experiment.minBucketVersion ?? 0)} → ${form.watch("minBucketVersion")}`
-                : `No change: ${form.watch("minBucketVersion")}`
-              }</td>
-            </tr>
-          </tbody>
-        </table>
+          <div style={{ width: 300 }}>
+            <div className="h4 text-muted">Release plan</div>
+            <table className="table table-tiny">
+              <tbody>
+                <tr>
+                  <td>New phase?</td>
+                  <td>{form.watch("newPhase") ? "Yes" : "No"}</td>
+                </tr>
+                <tr>
+                  <td>Re-randomize traffic?</td>
+                  <td>{form.watch("reseed") ? "Yes" : "No"}</td>
+                </tr>
+                <tr>
+                  <td>Bucket version?</td>
+                  <td>
+                    {form.watch("bucketVersion") !== experiment.bucketVersion
+                      ? `Changed: ${
+                          experiment.bucketVersion ?? 0
+                        } → ${form.watch("bucketVersion")}`
+                      : `No change: ${form.watch("bucketVersion")}`}
+                  </td>
+                </tr>
+                <tr>
+                  <td>Block previous bucket?</td>
+                  <td>
+                    {form.watch("minBucketVersion") !==
+                    experiment.minBucketVersion
+                      ? `Changed: ${
+                          experiment.minBucketVersion ?? 0
+                        } → ${form.watch("minBucketVersion")}`
+                      : `No change: ${form.watch("minBucketVersion")}`}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
           </div>
         </div>
       </div>
