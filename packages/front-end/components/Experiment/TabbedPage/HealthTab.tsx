@@ -59,14 +59,14 @@ export default function HealthTab({
   const [loading, setLoading] = useState<boolean>(false);
 
   const healthTabConfigParams: HealthTabConfigParams = {
-    experiment: experiment,
-    phase: phase,
+    experiment,
+    phase,
     exposureQueryDimensions: exposureQuery?.dimensions || [],
-    refreshOrganization: refreshOrganization,
-    mutateSnapshot: mutateSnapshot,
-    setAnalysisSettings: setAnalysisSettings,
-    setLoading: setLoading,
-    resetResultsSettings: resetResultsSettings,
+    refreshOrganization,
+    mutateSnapshot,
+    setAnalysisSettings,
+    setLoading,
+    resetResultsSettings,
   };
 
   useEffect(() => {
