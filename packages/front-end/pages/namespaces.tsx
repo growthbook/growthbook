@@ -1,5 +1,6 @@
 import { useState, FC } from "react";
 import { Namespaces, NamespaceUsage } from "back-end/types/organization";
+import { useDefinitions } from "@/services/DefinitionsContext";
 import useApi from "../hooks/useApi";
 import { GBAddCircle } from "../components/Icons";
 import LoadingOverlay from "../components/LoadingOverlay";
@@ -15,6 +16,7 @@ export type NamespaceApiResponse = {
 };
 
 const NamespacesPage: FC = () => {
+  const { project, ready } = useDefinitions();
   const { data, error } = useApi<NamespaceApiResponse>(
     `/organization/namespaces`
   );
@@ -38,7 +40,7 @@ const NamespacesPage: FC = () => {
       </div>
     );
   }
-  if (!data) {
+  if (!data || !ready) {
     return <LoadingOverlay />;
   }
 
@@ -57,79 +59,89 @@ const NamespacesPage: FC = () => {
           }}
         />
       )}
-      <div className="row align-items-center mb-1">
-        <div className="col-auto">
-          <h1 className="mb-0">Experiment Namespaces</h1>
-        </div>
-        {canEdit && (
-          <div className="col-auto ml-auto">
-            <button
-              className="btn btn-primary"
-              onClick={(e) => {
-                e.preventDefault();
-                setModalOpen(true);
-              }}
-            >
-              <GBAddCircle /> Add Namespace
-            </button>
-          </div>
-        )}
-      </div>
-      <p className="text-gray mb-3">
-        Namespaces allow you to run mutually exclusive experiments.{" "}
-        {namespaces.length > 0 &&
-          "Click a namespace below to see more details about its current usage."}
-      </p>
-      {namespaces.length > 0 && (
-        <table className="table appbox gbtable table-hover">
-          <thead>
-            <tr>
-              <th>Namespace</th>
-              <th>Description</th>
-              <th>Active experiments</th>
-              <th>Percent available</th>
-              {canEdit && <th style={{ width: 30 }}></th>}
-            </tr>
-          </thead>
-          <tbody>
-            {namespaces.map((ns, i) => {
-              const experiments = data?.namespaces[ns.name] ?? [];
-              return (
-                <NamespaceTableRow
-                  i={i}
-                  key={ns.name}
-                  usage={data.namespaces}
-                  namespace={ns}
-                  onEdit={() => {
-                    setEditNamespace({
-                      namespace: ns,
-                      experiments: experiments.length,
-                    });
+      {permissions.check("readData", project) ? (
+        <>
+          <div className="row align-items-center mb-1">
+            <div className="col-auto">
+              <h1 className="mb-0">Experiment Namespaces</h1>
+            </div>
+            {canEdit && (
+              <div className="col-auto ml-auto">
+                <button
+                  className="btn btn-primary"
+                  onClick={(e) => {
+                    e.preventDefault();
                     setModalOpen(true);
                   }}
-                  onDelete={async () => {
-                    await apiCall(`/organization/namespaces/${ns.name}`, {
-                      method: "DELETE",
-                    });
-                    await refreshOrganization();
-                  }}
-                  onArchive={async () => {
-                    const newNamespace = {
-                      name: ns.name,
-                      description: ns.description,
-                      status: ns?.status === "inactive" ? "active" : "inactive",
-                    };
-                    await apiCall(`/organization/namespaces/${ns.name}`, {
-                      method: "PUT",
-                      body: JSON.stringify(newNamespace),
-                    });
-                    await refreshOrganization();
-                  }}
-                />
-              );
-            })}
-          </tbody>
-        </table>
+                >
+                  <GBAddCircle /> Add Namespace
+                </button>
+              </div>
+            )}
+          </div>
+          <p className="text-gray mb-3">
+            Namespaces allow you to run mutually exclusive experiments.{" "}
+            {namespaces.length > 0 &&
+              "Click a namespace below to see more details about its current usage."}
+          </p>
+          {namespaces.length > 0 && (
+            <table className="table appbox gbtable table-hover">
+              <thead>
+                <tr>
+                  <th>Namespace</th>
+                  <th>Description</th>
+                  <th>Active experiments</th>
+                  <th>Percent available</th>
+                  {canEdit && <th style={{ width: 30 }}></th>}
+                </tr>
+              </thead>
+              <tbody>
+                {namespaces.map((ns, i) => {
+                  const experiments = data?.namespaces[ns.name] ?? [];
+                  return (
+                    <NamespaceTableRow
+                      i={i}
+                      key={ns.name}
+                      usage={data.namespaces}
+                      namespace={ns}
+                      onEdit={() => {
+                        setEditNamespace({
+                          namespace: ns,
+                          experiments: experiments.length,
+                        });
+                        setModalOpen(true);
+                      }}
+                      onDelete={async () => {
+                        await apiCall(`/organization/namespaces/${ns.name}`, {
+                          method: "DELETE",
+                        });
+                        await refreshOrganization();
+                      }}
+                      onArchive={async () => {
+                        const newNamespace = {
+                          name: ns.name,
+                          description: ns.description,
+                          status:
+                            ns?.status === "inactive" ? "active" : "inactive",
+                        };
+                        await apiCall(`/organization/namespaces/${ns.name}`, {
+                          method: "PUT",
+                          body: JSON.stringify(newNamespace),
+                        });
+                        await refreshOrganization();
+                      }}
+                    />
+                  );
+                })}
+              </tbody>
+            </table>
+          )}
+        </>
+      ) : (
+        // Shouldn't happen, but adding as a protection.
+        <div className="w-100 alert alert-danger">
+          You don&apos;t have permission to view this page.
+        </div>
       )}
     </div>
   );

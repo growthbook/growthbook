@@ -3,7 +3,7 @@ import Link from "next/link";
 import { PresentationInterface } from "back-end/types/presentation";
 import { FaPlus } from "react-icons/fa";
 import { date } from "shared/dates";
-import { useDefinitions } from "@/services/DefinitionsContext";
+import { useDefinitions } from "../services/DefinitionsContext";
 import useApi from "../hooks/useApi";
 import LoadingOverlay from "../components/LoadingOverlay";
 import ShareModal from "../components/Share/ShareModal";
@@ -52,6 +52,7 @@ const PresentationPage = (): React.ReactElement => {
     return <LoadingOverlay />;
   }
 
+  // Shouldn't happen, but adding as a protection.
   if (!permissions.check("readData", project)) {
     return (
       <div className="alert alert-danger">
@@ -94,14 +95,12 @@ const PresentationPage = (): React.ReactElement => {
   }
 
   const deleteConfirm = (id: string) => {
-    //console.log(id);
     setDeleteId(id);
     setDeleteConfirmModal(true);
   };
 
   const confirmDelete = async () => {
     if (deleteLoading) return;
-    //console.log("lets delete ", deleteId);
 
     setDeleteLoading(true);
     setDeleteError(null);

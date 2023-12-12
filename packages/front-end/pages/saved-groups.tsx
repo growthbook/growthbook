@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import Link from "next/link";
 import InlineGroupsList from "@/components/SavedGroups/InlineGroupsList";
 import RuntimeGroupsList from "@/components/SavedGroups/RuntimeGroupsList";
+import usePermissions from "@/hooks/usePermissions";
 import LoadingOverlay from "../components/LoadingOverlay";
 import { useDefinitions } from "../services/DefinitionsContext";
 import Modal from "../components/Modal";
@@ -44,57 +45,82 @@ export const getSavedGroupMessage = (
 };
 
 export default function SavedGroupsPage() {
-  const { mutateDefinitions, savedGroups, error } = useDefinitions();
+  const {
+    mutateDefinitions,
+    savedGroups,
+    error,
+    project,
+    ready,
+  } = useDefinitions();
+  const permissions = usePermissions();
 
   const [auditModal, setAuditModal] = useState(false);
 
-  if (!savedGroups) return <LoadingOverlay />;
+  if (!savedGroups || !ready) return <LoadingOverlay />;
 
   return (
     <div className="p-3 container-fluid pagecontents">
-      <div className="row">
-        <div className="col">
-          <h1>Saved Groups</h1>
-        </div>
-        <div className="col-auto">
-          <a
-            href="#"
-            onClick={(e) => {
-              e.preventDefault();
-              setAuditModal(true);
-            }}
-          >
-            View Audit Logs
-          </a>
-        </div>
-      </div>
-      <p>
-        Reusable groups of users you can target from any feature flag rule or
-        experiment. There are two ways to define Saved Groups -{" "}
-        <strong>Inline</strong> or at <strong>Runtime</strong>.
-      </p>
-
-      {error ? (
-        <div className="alert alert-danger">
-          There was an error loading the list of groups.
-        </div>
-      ) : (
+      {permissions.check("readData", project) ? (
         <>
-          <InlineGroupsList groups={savedGroups} mutate={mutateDefinitions} />
-          <RuntimeGroupsList groups={savedGroups} mutate={mutateDefinitions} />
-        </>
-      )}
+          <div className="row">
+            <div className="col">
+              <h1>Saved Groups</h1>
+            </div>
+            <div className="col-auto">
+              <a
+                href="#"
+                onClick={(e) => {
+                  e.preventDefault();
+                  setAuditModal(true);
+                }}
+              >
+                View Audit Logs
+              </a>
+            </div>
+          </div>
+          <p>
+            Reusable groups of users you can target from any feature flag rule
+            or experiment. There are two ways to define Saved Groups -{" "}
+            <strong>Inline</strong> or at <strong>Runtime</strong>.
+          </p>
+          {error ? (
+            <div className="alert alert-danger">
+              There was an error loading the list of groups.
+            </div>
+          ) : (
+            <>
+              <InlineGroupsList
+                groups={savedGroups}
+                mutate={mutateDefinitions}
+              />
+              <RuntimeGroupsList
+                groups={savedGroups}
+                mutate={mutateDefinitions}
+              />
+            </>
+          )}
 
-      {auditModal && (
-        <Modal
-          open={true}
-          header="Audit Log"
-          close={() => setAuditModal(false)}
-          size="max"
-          closeCta="Close"
-        >
-          <HistoryTable type="savedGroup" showName={true} showType={false} />
-        </Modal>
+          {auditModal && (
+            <Modal
+              open={true}
+              header="Audit Log"
+              close={() => setAuditModal(false)}
+              size="max"
+              closeCta="Close"
+            >
+              <HistoryTable
+                type="savedGroup"
+                showName={true}
+                showType={false}
+              />
+            </Modal>
+          )}
+        </>
+      ) : (
+        // Shouldn't happen, but adding as a protection.
+        <div className="alert alert-danger">
+          You don&apos;t have permission to view this page.
+        </div>
       )}
     </div>
   );
