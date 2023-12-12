@@ -436,7 +436,7 @@ export default function ExperimentHeader({
                     }
                     anchor="health"
                     onClick={() => {
-                      track("Open health tab");
+                      track("Open health tab", { source: "tab-click" });
                       setTab("health");
                     }}
                     newStyle={false}

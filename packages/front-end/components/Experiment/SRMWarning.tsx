@@ -207,7 +207,9 @@ const SRMWarning: FC<{
                 className="a"
                 role="button"
                 onClick={() => {
-                  track("Open health tab");
+                  track("Open health tab", {
+                    source: "results-tab-srm-warning",
+                  });
                   setTab("health");
                 }}
               >
