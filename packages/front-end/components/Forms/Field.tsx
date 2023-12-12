@@ -38,8 +38,8 @@ export type BaseFieldProps = {
   minRows?: number;
   maxRows?: number;
   textarea?: boolean;
-  prepend?: string;
-  append?: string;
+  prepend?: ReactElement | string;
+  append?: ReactElement | string;
   comboBox?: boolean;
 };
 

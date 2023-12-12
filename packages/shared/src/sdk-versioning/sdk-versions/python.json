@@ -1,0 +1,8 @@
+{
+  "versions": [
+    {
+      "version": "1.0.0",
+      "capabilities": ["bucketingV2", "encryption"]
+    }
+  ]
+}

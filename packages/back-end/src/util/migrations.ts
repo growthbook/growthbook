@@ -84,7 +84,7 @@ export function upgradeMetricDoc(doc: LegacyMetricInterface): MetricInterface {
     });
   }
 
-  if (doc.cap) {
+  if (doc.capping === undefined && doc.cap) {
     newDoc.capValue = doc.cap;
     newDoc.capping = "absolute";
   }

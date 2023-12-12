@@ -4,11 +4,14 @@ import {
   ExperimentReportVariation,
 } from "back-end/types/report";
 import SRMWarning from "./SRMWarning";
+import { ExperimentTab } from "./TabbedPage";
 
 const DataQualityWarning: FC<{
   results: ExperimentReportResultDimension;
   variations: ExperimentReportVariation[];
-}> = ({ results, variations }) => {
+  linkToHealthTab?: boolean;
+  setTab?: (tab: ExperimentTab) => void;
+}> = ({ results, variations, linkToHealthTab = false, setTab }) => {
   if (!results) return null;
   const variationResults = results?.variations || [];
 
@@ -18,21 +21,14 @@ const DataQualityWarning: FC<{
     return null;
   }
 
-  // Minimum number of users required to do data quality checks
-  let totalUsers = 0;
-  variationResults.forEach((v) => {
-    totalUsers += v.users;
-  });
-  if (totalUsers < 8 * variations.length) {
-    return null;
-  }
-
   // SRM check
   return (
     <SRMWarning
       srm={results.srm}
-      expected={variations.map((v) => v.weight)}
-      observed={results.variations.map((v) => v.users)}
+      variations={variations}
+      users={variationResults.map((r) => r.users)}
+      linkToHealthTab={linkToHealthTab}
+      setTab={setTab}
     />
   );
 };
