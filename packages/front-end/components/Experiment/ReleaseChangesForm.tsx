@@ -18,6 +18,7 @@ import SelectField from "../Forms/SelectField";
 import Toggle from "../Forms/Toggle";
 import Tooltip from "../Tooltip/Tooltip";
 import { NewBucketingSDKList } from "./HashVersionSelector";
+import {DocLink} from "@/components/DocLink";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
@@ -39,17 +40,13 @@ function getRecommendedRolloutData({
     experiment.phases[experiment.phases.length - 1];
 
   // Returned recommendations:
-  let newPhase = false;
-  let newSeed = false;
-  // Secondary recommendations for when the user chooses "reassign"
-  let reassign_newPhase = false;
-  let reassign_newSeed = false;
-
-  // UI related:
   let promptExistingUserOptions = true;
   let existingUsersOption: ExistingUsersOption = "reassign";
   let disableKeepOption = false;
   let disableSamePhase = false;
+  // Secondary recommendations for when the user chooses "reassign"
+  let reassign_newPhase = false;
+  let reassign_newSeed = false;
 
   // for messaging about the benefits of sticky bucketing
   let samePhaseSafeWithStickyBucketing = false;
@@ -221,8 +218,6 @@ function getRecommendedRolloutData({
       // reset
       promptExistingUserOptions = true;
       existingUsersOption = "keep";
-      newPhase = false;
-      newSeed = false;
       riskLevel = "safe";
       reasons = {};
 
@@ -236,8 +231,6 @@ function getRecommendedRolloutData({
         promptExistingUserOptions = true;
         existingUsersOption = "reassign";
         disableSamePhase = true;
-        newPhase = true;
-        newSeed = true;
         riskLevel = "warning";
         reasons = {
           ...reasons,
@@ -258,8 +251,6 @@ function getRecommendedRolloutData({
         existingUsersOption = "reassign";
         disableKeepOption = true;
         disableSamePhase = true;
-        newPhase = true;
-        newSeed = true;
         riskLevel = "danger";
         reasons = {
           ...reasons,
@@ -277,10 +268,6 @@ function getRecommendedRolloutData({
     existingUsersOption,
     disableKeepOption,
     disableSamePhase,
-    newPhase,
-    // newBucketVersion,
-    newSeed,
-    // blockPreviouslyBucketed,
     reassign_newPhase,
     reassign_newSeed,
     samePhaseSafeWithStickyBucketing,
@@ -299,16 +286,19 @@ function SafeToReleaseBanner({
   lowRiskWithStickyBucketing?: boolean;
 }) {
   return (
-    <div className={clsx("alert alert-success", className)} style={style}>
+    <div className={clsx("alert alert-success pb-2", className)} style={style}>
       <div className="mb-1">
         <FaCheck />{" "}
         {lowRiskWithStickyBucketing
           ? "The changes you have made do not impact existing bucketed users because Sticky Bucketing is enabled."
           : "The changes you have made do not impact existing bucketed users."}
       </div>
-      <div className="mb-0 small">
+      <div className="mb-1">
         You may safely update the existing experiment phase, if desired, without
         additional considerations.
+      </div>
+      <div className="text-right">
+        <DocLink docSection="targetingChanges">View Documentation</DocLink>
       </div>
     </div>
   );
@@ -342,6 +332,10 @@ export default function ReleaseChangesForm({ experiment, form }: Props) {
     stickyBucketing: usingStickyBucketing,
   });
 
+  useEffect(() => {
+    setExistingUsersOption(recommendedRolloutData.existingUsersOption);
+  }, [setExistingUsersOption, recommendedRolloutData.existingUsersOption]);
+
   // set the default values for each of the user prompt options
   useEffect(() => {
     if (existingUsersOption === "keep") {
@@ -362,8 +356,6 @@ export default function ReleaseChangesForm({ experiment, form }: Props) {
       form.setValue("reseed", recommendedRolloutData.reassign_newSeed);
       form.setValue("bucketVersion", (experiment.bucketVersion ?? 0) + 1);
       form.setValue("minBucketVersion", experiment.minBucketVersion ?? 0);
-      // todo: this is a problem because the recommended "newPhase" and "reseed" values in
-      // the users prompt may not match the recommended values when choosing "reassign"
     }
   }, [
     existingUsersOption,
@@ -374,7 +366,7 @@ export default function ReleaseChangesForm({ experiment, form }: Props) {
     recommendedRolloutData.reassign_newSeed,
   ]);
 
-  // set the default values for the "reassign" form
+  // set the default values for the "reassign" form (may differ from top-level recommendations)
   const form_newPhase = form.watch("newPhase");
   useEffect(() => {
     if (existingUsersOption !== "reassign") return;
@@ -385,6 +377,7 @@ export default function ReleaseChangesForm({ experiment, form }: Props) {
       form.setValue("minBucketVersion", experiment.minBucketVersion);
     } else {
       // new
+      form.setValue("reseed", recommendedRolloutData.reassign_newSeed);
       form.setValue("bucketVersion", (experiment.bucketVersion ?? 0) + 1);
       form.setValue("minBucketVersion", experiment.minBucketVersion);
     }
@@ -392,19 +385,9 @@ export default function ReleaseChangesForm({ experiment, form }: Props) {
     existingUsersOption,
     form,
     form_newPhase,
+    recommendedRolloutData.reassign_newSeed,
     experiment.bucketVersion,
     experiment.minBucketVersion,
-  ]);
-
-  useEffect(() => {
-    setExistingUsersOption(recommendedRolloutData.existingUsersOption);
-    form.setValue("newPhase", recommendedRolloutData.newPhase);
-    form.setValue("reseed", recommendedRolloutData.newSeed);
-  }, [
-    form,
-    recommendedRolloutData.existingUsersOption,
-    recommendedRolloutData.newPhase,
-    recommendedRolloutData.newSeed,
   ]);
 
   if (!lastPhase) return null;
@@ -527,7 +510,7 @@ export default function ReleaseChangesForm({ experiment, form }: Props) {
             />
           ) : (
             <div
-              className={`alert alert-${recommendedRolloutData.riskLevel} mb-0`}
+              className={`alert alert-${recommendedRolloutData.riskLevel} mb-0 pb-2`}
               style={{ borderBottomLeftRadius: 0, borderBottomRightRadius: 0 }}
             >
               <div>
@@ -593,10 +576,12 @@ export default function ReleaseChangesForm({ experiment, form }: Props) {
                     Learn more <RxInfoCircled />
                   </a>
                 </Tooltip>
-
                 <div className="mt-2">
                   We have recommended a release strategy to mitigate risk to
                   your experiment.
+                </div>
+                <div className="text-right">
+                  <DocLink docSection="targetingChanges">View Documentation</DocLink>
                 </div>
               </div>
               {/*todo: experiment level SB setting*/}
