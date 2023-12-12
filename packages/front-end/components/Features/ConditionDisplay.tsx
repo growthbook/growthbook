@@ -83,7 +83,7 @@ function getValue(
 
     if (!group) return <em>Deleted Group</em>;
 
-    if (!isLegacySavedGroup(group.condition, group.attributeKey)) {
+    if (!isLegacySavedGroup(group.condition, group.attributeKey || "")) {
       return (
         <span>
           {group.groupName}{" "}

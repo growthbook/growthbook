@@ -175,8 +175,7 @@ export async function getSavedGroupMap(
         group.id,
         {
           condition: group.condition || "",
-          key: group.attributeKey,
-          source: group.source,
+          key: group.attributeKey || "",
         },
       ];
     })
