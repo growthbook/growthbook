@@ -78,13 +78,13 @@ export default function EditKqlModal({
     }
   };
 
-  const runTestQuery = async (sql: string) => {
-    validateKQL(sql);
+  const runTestQuery = async (kql: string) => {
+    validateKQL(kql, []);
     setTestQueryResults(null);
     const res: TestQueryResults = await apiCall("/query/test", {
       method: "POST",
       body: JSON.stringify({
-        query: sql,
+        query: kql,
         datasourceId: datasourceId,
         templateVariables: templateVariables,
       }),

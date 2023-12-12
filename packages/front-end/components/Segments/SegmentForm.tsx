@@ -96,7 +96,7 @@ const SegmentForm: FC<{
         header={current.id ? "Edit Segment" : "New Segment"}
         submit={form.handleSubmit(async (value) => {
           if (supportsKQL) {
-            validateKQL(value.sql);
+            validateKQL(value.sql, [value.userIdType, "date"]);
           }
           if (supportsSQL) {
             validateSQL(value.sql, [value.userIdType, "date"]);

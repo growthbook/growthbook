@@ -24,10 +24,8 @@ import {
   PastExperimentQueryResponse,
   MetricValueQueryResponseRows,
   ExperimentUnitsQueryResponse,
-  ExperimentUnitsQueryParams,
   ProcessedDimensions,
   UserDimension,
-  ExperimentAggregateUnitsQueryParams,
   ExperimentAggregateUnitsQueryResponse,
   DimensionSlicesQueryResponse,
 } from "../types/Integration";
@@ -1524,7 +1522,7 @@ let experiment = ( // Viewed Experiment
           .join("\n")}
       | where
         ${metrics
-          .map((m, i) => {
+          .map(() => {
             return `
               timestamp >= conversion_start
               ${ignoreConversionEnd ? "" : `and timestamp <= conversion_end`}`;
@@ -1620,13 +1618,11 @@ let experiment = ( // Viewed Experiment
     return `| take ${limit}`;
   }
 
-  getExperimentUnitsTableQuery(params: ExperimentUnitsQueryParams) {
+  getExperimentUnitsTableQuery() {
     return "";
   }
 
-  getExperimentAggregateUnitsQuery(
-    params: ExperimentAggregateUnitsQueryParams
-  ) {
+  getExperimentAggregateUnitsQuery() {
     return "";
   }
 

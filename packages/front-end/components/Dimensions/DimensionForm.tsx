@@ -95,7 +95,7 @@ const DimensionForm: FC<{
           }
 
           if (supportsKQL) {
-            validateKQL(value.sql);
+            validateKQL(value.sql, [value.userIdType, "value"]);
           }
 
           await apiCall(

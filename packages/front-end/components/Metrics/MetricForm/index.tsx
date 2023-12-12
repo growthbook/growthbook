@@ -114,7 +114,17 @@ function validateMetricKQL(
   }
 ) {
   // Require specific columns to be selected
-  validateKQL(kql);
+  const requiredCols = ["timestamp", ...userIdTypes];
+  if (type !== "binomial") {
+    requiredCols.push("value");
+    if (usesValueColumn(kql) && !templateVariables?.valueColumn) {
+      throw new Error("Value column is required");
+    }
+  }
+  if (usesEventName(kql) && !templateVariables?.eventName) {
+    throw new Error("Event name is required");
+  }
+  validateKQL(kql, requiredCols);
 }
 
 function validateBasicInfo(value: { name: string }) {
