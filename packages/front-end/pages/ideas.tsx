@@ -90,121 +90,131 @@ const IdeasPage = (): React.ReactElement => {
         />
       )}
       <div className="contents ideas container-fluid pagecontents">
-        <div className="row mb-3 align-items-center">
-          <div className="col-auto">
-            <Field
-              placeholder="Search..."
-              type="search"
-              {...searchInputProps}
-            />
-          </div>
-          {hasArchivedIdeas && (
-            <div className="col-auto" style={{ verticalAlign: "middle" }}>
-              <small
-                className="text-muted text-secondary"
-                style={{ cursor: "pointer" }}
-                onClick={(e) => {
-                  e.preventDefault();
-                  setIncludeArchived(!includeArchived);
-                }}
-              >
-                {includeArchived ? <FaRegCheckSquare /> : <FaRegSquare />}{" "}
-                Include Archived
-              </small>
+        {permissions.check("readData", project) ? (
+          <>
+            <div className="row mb-3 align-items-center">
+              <div className="col-auto">
+                <Field
+                  placeholder="Search..."
+                  type="search"
+                  {...searchInputProps}
+                />
+              </div>
+              {hasArchivedIdeas && (
+                <div className="col-auto" style={{ verticalAlign: "middle" }}>
+                  <small
+                    className="text-muted text-secondary"
+                    style={{ cursor: "pointer" }}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setIncludeArchived(!includeArchived);
+                    }}
+                  >
+                    {includeArchived ? <FaRegCheckSquare /> : <FaRegSquare />}{" "}
+                    Include Archived
+                  </small>
+                </div>
+              )}
+              <div style={{ flex: 1 }} />
+              {permissions.check("createIdeas", project) && (
+                <div className="col-auto">
+                  <button
+                    className="btn btn-primary float-left"
+                    onClick={() => {
+                      setCurrent({});
+                    }}
+                  >
+                    New Idea
+                  </button>
+                </div>
+              )}
             </div>
-          )}
-          <div style={{ flex: 1 }} />
-          {permissions.check("createIdeas", project) && (
-            <div className="col-auto">
-              <button
-                className="btn btn-primary float-left"
-                onClick={() => {
-                  setCurrent({});
-                }}
-              >
-                New Idea
-              </button>
-            </div>
-          )}
-        </div>
-        <div className="row">
-          {displayedIdeas
-            .filter((idea) => includeArchived || !idea.archived)
-            .map((idea, i) => (
-              <div className="col-lg-4 col-md-6 col-sm-12 mb-3" key={i}>
-                <div
-                  className={clsx("card h-100", {
-                    "bg-light": idea.archived,
-                  })}
-                  style={{
-                    wordBreak: "break-word",
-                    opacity: idea.archived ? 0.7 : 1,
-                  }}
-                >
-                  <div className="card-body">
-                    <div className="d-flex align-items-start h-100">
-                      <div
-                        style={{ flex: 1 }}
-                        className="d-flex flex-column h-100"
-                      >
-                        <div>
-                          {idea.archived && (
+            <div className="row">
+              {displayedIdeas
+                .filter((idea) => includeArchived || !idea.archived)
+                .map((idea, i) => (
+                  <div className="col-lg-4 col-md-6 col-sm-12 mb-3" key={i}>
+                    <div
+                      className={clsx("card h-100", {
+                        "bg-light": idea.archived,
+                      })}
+                      style={{
+                        wordBreak: "break-word",
+                        opacity: idea.archived ? 0.7 : 1,
+                      }}
+                    >
+                      <div className="card-body">
+                        <div className="d-flex align-items-start h-100">
+                          <div
+                            style={{ flex: 1 }}
+                            className="d-flex flex-column h-100"
+                          >
+                            <div>
+                              {idea.archived && (
+                                <div
+                                  className="text-muted"
+                                  style={{
+                                    marginTop: "-10px",
+                                    marginBottom: 5,
+                                    fontStyle: "italic",
+                                  }}
+                                >
+                                  <small>archived</small>
+                                </div>
+                              )}
+                              <h5 className="card-title">
+                                <Link href={`/idea/${idea.id}`}>
+                                  <a>{idea.text}</a>
+                                </Link>
+                              </h5>
+                            </div>
+                            <div style={{ flex: 1 }}></div>
+                            <div className="lower-card-details text-muted">
+                              <div className="date mb-1">
+                                By{" "}
+                                <strong className="mr-1">
+                                  {idea.userId
+                                    ? getUserDisplay(idea.userId)
+                                    : idea.userName}
+                                </strong>
+                                on <strong>{date(idea.dateCreated)}</strong>
+                              </div>
+                              {idea.tags?.length > 0 && (
+                                <div className="tags">
+                                  Tags:{" "}
+                                  <SortedTags tags={Object.values(idea.tags)} />
+                                </div>
+                              )}
+                            </div>
+                          </div>
+
+                          {"impactScore" in idea && idea.impactScore !== null && (
                             <div
-                              className="text-muted"
+                              className="bg-impact text-light py-1 px-2 float-right ml-2 mb-2 text-center h-auto"
                               style={{
-                                marginTop: "-10px",
-                                marginBottom: 5,
-                                fontStyle: "italic",
+                                opacity: (idea.impactScore / 100) * 0.7 + 0.3,
                               }}
                             >
-                              <small>archived</small>
-                            </div>
-                          )}
-                          <h5 className="card-title">
-                            <Link href={`/idea/${idea.id}`}>
-                              <a>{idea.text}</a>
-                            </Link>
-                          </h5>
-                        </div>
-                        <div style={{ flex: 1 }}></div>
-                        <div className="lower-card-details text-muted">
-                          <div className="date mb-1">
-                            By{" "}
-                            <strong className="mr-1">
-                              {idea.userId
-                                ? getUserDisplay(idea.userId)
-                                : idea.userName}
-                            </strong>
-                            on <strong>{date(idea.dateCreated)}</strong>
-                          </div>
-                          {idea.tags?.length > 0 && (
-                            <div className="tags">
-                              Tags:{" "}
-                              <SortedTags tags={Object.values(idea.tags)} />
+                              <small>impact</small>
+                              <div
+                                style={{ fontSize: "2.1em", lineHeight: "1em" }}
+                              >
+                                {idea.impactScore}
+                              </div>
                             </div>
                           )}
                         </div>
                       </div>
-
-                      {"impactScore" in idea && idea.impactScore !== null && (
-                        <div
-                          className="bg-impact text-light py-1 px-2 float-right ml-2 mb-2 text-center h-auto"
-                          style={{
-                            opacity: (idea.impactScore / 100) * 0.7 + 0.3,
-                          }}
-                        >
-                          <small>impact</small>
-                          <div style={{ fontSize: "2.1em", lineHeight: "1em" }}>
-                            {idea.impactScore}
-                          </div>
-                        </div>
-                      )}
                     </div>
                   </div>
-                </div>
-              </div>
-            ))}
-        </div>
+                ))}
+            </div>
+          </>
+        ) : (
+          <div className="alert alert-danger">
+            You don&apos;t have permission to view this page.
+          </div>
+        )}
       </div>
     </>
   );

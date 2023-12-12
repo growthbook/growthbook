@@ -161,21 +161,6 @@ export async function getDefinitions(req: AuthRequest, res: Response) {
     datasources
   );
 
-  console.log(
-    "filteredDatasource length with getDataSourcesUserCanAccess",
-    filteredDatasource.length
-  );
-
-  const filteredDatasource2 = filterResourceByAccessPermission(
-    currentUserPermissions,
-    datasources
-  );
-
-  console.log(
-    "filteredDatasoure length with filterResourceByAccessPermission",
-    filteredDatasource2.length
-  );
-
   return res.status(200).json({
     status: 200,
     metrics: getMetricsUserCanAccess(currentUserPermissions, metrics),
