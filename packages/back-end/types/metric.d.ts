@@ -30,6 +30,7 @@ export interface Condition {
 
 export type FilterableResourceInterface = {
   id: string;
+  project?: string;
   projects?: string[];
 };
 export interface MetricInterface {

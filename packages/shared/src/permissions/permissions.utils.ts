@@ -62,6 +62,11 @@ export function filterResourceByAccessPermission(
     resourceArr.forEach((filterableResource) => {
       const resourceProjects = filterableResource.projects || [];
 
+      // Edge case to handle legacy SDK Endpoints that only have a single project, rather than an array of projects
+      if (!resourceProjects.length && filterableResource.project) {
+        resourceProjects.push(filterableResource.project);
+      }
+
       if (resourceProjects.length === 0) {
         return;
       }

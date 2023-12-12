@@ -243,8 +243,6 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
       false;
   }
 
-  console.log("permissionsObj", permissionsObj);
-
   // Update current user data for telemetry data
   useEffect(() => {
     currentUser = {

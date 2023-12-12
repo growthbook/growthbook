@@ -12,10 +12,10 @@ import { DocLink } from "../DocLink";
 import WebhooksModal from "./WebhooksModal";
 
 const Webhooks: FC = () => {
+  const { getProjectById, projects, project } = useDefinitions();
   const { data, error, mutate } = useApi<{ webhooks: WebhookInterface[] }>(
-    "/webhooks"
+    `/webhooks?project=${project}`
   );
-  const { getProjectById, projects } = useDefinitions();
   const { apiCall } = useAuth();
   const [open, setOpen] = useState<null | Partial<WebhookInterface>>(null);
 
@@ -25,6 +25,10 @@ const Webhooks: FC = () => {
   if (!data) {
     return <LoadingOverlay />;
   }
+
+  const filteredWebhooks = data.webhooks.filter(
+    (hook) => !project || hook.project === project
+  );
 
   return (
     <div>
@@ -42,7 +46,7 @@ const Webhooks: FC = () => {
         <DocLink docSection="webhooks">View Documentation</DocLink>
       </p>
 
-      {data.webhooks.length > 0 && (
+      {filteredWebhooks.length > 0 && (
         <table className="table mb-3 appbox gbtable">
           <thead>
             <tr>
@@ -56,7 +60,7 @@ const Webhooks: FC = () => {
             </tr>
           </thead>
           <tbody>
-            {data.webhooks.map((webhook) => (
+            {filteredWebhooks.map((webhook) => (
               <Fragment key={webhook.id}>
                 <tr>
                   <td>

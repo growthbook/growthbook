@@ -9,7 +9,7 @@ import {
   setLicense,
 } from "enterprise";
 import {
-  filterResourceByAccessPermission,
+  filterResourceByAccessPermission, //TODO: Switch to using this for everything
   getDataSourcesUserCanAccess,
   getFactTablesUserCanAccess,
   getMetricsUserCanAccess,
@@ -121,6 +121,12 @@ import { getTeamsForOrganization } from "../../models/TeamModel";
 import { getAllFactTablesForOrganization } from "../../models/FactTableModel";
 import { getAllFactMetricsForOrganization } from "../../models/FactMetricModel";
 import { TeamInterface } from "../../../types/team";
+import { FilterableResourceInterface } from "../../../types/metric";
+import { ApiKeyInterface } from "../../../types/apikey";
+
+interface ApiKeyInterfaceWithRequiredId extends Omit<ApiKeyInterface, "id"> {
+  id: string;
+}
 
 export async function getDefinitions(req: AuthRequest, res: Response) {
   const { org, userId } = getOrgFromReq(req);
@@ -1263,13 +1269,30 @@ export async function putOrganization(
 }
 
 export async function getApiKeys(req: AuthRequest, res: Response) {
-  const { org } = getOrgFromReq(req);
+  const { org, userId } = getOrgFromReq(req);
+
+  const teams = await getTeamsForOrganization(org.id);
+
+  const currentUserPermissions = getUserPermissions(userId, org, teams || []);
   const keys = await getAllApiKeysByOrganization(org.id);
   const filteredKeys = keys.filter((k) => !k.userId || k.userId === req.userId);
 
+  const updatedFilteredKeys: ApiKeyInterfaceWithRequiredId[] = filteredKeys.map(
+    (key) => {
+      if (!key.id) {
+        // The filterResourceByAccessPermission requires the id field to be set
+        key.id = key.key;
+      }
+      return key as ApiKeyInterfaceWithRequiredId;
+    }
+  );
+
   res.status(200).json({
     status: 200,
-    keys: filteredKeys,
+    keys: filterResourceByAccessPermission(
+      currentUserPermissions,
+      updatedFilteredKeys
+    ),
   });
 }
 
@@ -1449,13 +1472,21 @@ export async function postApiKeyReveal(
 }
 
 export async function getWebhooks(req: AuthRequest, res: Response) {
-  const { org } = getOrgFromReq(req);
+  const { org, userId } = getOrgFromReq(req);
+
+  const teams = await getTeamsForOrganization(org.id);
+
+  const currentUserPermissions = getUserPermissions(userId, org, teams || []);
+
   const webhooks = await WebhookModel.find({
     organization: org.id,
   });
   res.status(200).json({
     status: 200,
-    webhooks,
+    webhooks: filterResourceByAccessPermission(
+      currentUserPermissions,
+      webhooks
+    ),
   });
 }
 
