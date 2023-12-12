@@ -90,6 +90,7 @@ export const HealthTabOnboardingModal: FC<HealthTabOnboardingModalProps> = ({
   }>(`/dimension-slices/${id}`);
 
   const setUpHealthTab = async () => {
+    track("Set Up Health Tab", { source });
     await apiCall(`/organization`, {
       method: "PUT",
       body: JSON.stringify({
