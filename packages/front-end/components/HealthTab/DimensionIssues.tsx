@@ -264,7 +264,7 @@ export const DimensionIssues = ({
                 );
               })}
             </div>
-            {/*TODO: if size of dimension list area is greater than header + footer add boxShadow. Hide otherwise.*/}
+            {/*TODO: if size of dimension list area is greater than DimensionIssues - (header + footer) add boxShadow. Hide otherwise.*/}
             <div
               className="py-3 px-4 w-100"
               style={{

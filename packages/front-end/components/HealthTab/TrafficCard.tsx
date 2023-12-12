@@ -1,4 +1,7 @@
-import { ExperimentSnapshotTraffic } from "back-end/types/experiment-snapshot";
+import {
+  ExperimentSnapshotTraffic,
+  ExperimentSnapshotTrafficDimension,
+} from "back-end/types/experiment-snapshot";
 import { ExperimentReportVariation } from "back-end/types/report";
 import { useEffect, useMemo, useState } from "react";
 import { getValidDate } from "shared/dates";
@@ -16,6 +19,17 @@ import Tooltip from "../Tooltip/Tooltip";
 import { transformDimensionData } from "./DimensionIssues";
 
 const numberFormatter = new Intl.NumberFormat();
+
+function compareDimsByTotalUsers(
+  dim1: ExperimentSnapshotTrafficDimension,
+  dim2: ExperimentSnapshotTrafficDimension
+) {
+  const sum1 = dim1.variationUnits.reduce((acc, num) => acc + num, 0);
+  const sum2 = dim2.variationUnits.reduce((acc, num) => acc + num, 0);
+
+  // Compare the sums
+  return sum2 - sum1;
+}
 
 export default function TrafficCard({
   traffic,
@@ -77,6 +91,10 @@ export default function TrafficCard({
       };
     });
   }, [trafficByDate, variations, cumulative]);
+
+  const sortedDimensionSlices = useMemo(() => {
+    return traffic.dimension[selectedDimension]?.sort(compareDimsByTotalUsers);
+  }, [selectedDimension, traffic.dimension]);
 
   return (
     <div className="appbox my-4 p-3">
@@ -150,7 +168,7 @@ export default function TrafficCard({
             </tr>
           </thead>
           <tbody>
-            {(traffic.dimension[selectedDimension] || []).map((r, i) => {
+            {(sortedDimensionSlices || []).map((r, i) => {
               const showWarning = !!dimensionWithIssues?.issues.find(
                 (i) => i === r.name
               );

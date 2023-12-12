@@ -53,8 +53,6 @@ export default function HealthTab({
     permissions.check("runQueries", datasource?.projects || []) &&
     permissions.check("editDatasourceSettings", datasource?.projects || []);
   const [healthIssues, setHealthIssues] = useState<IssueValue[]>([]);
-  // Clean up notification counter & health issues before unmounting
-
   const [setupModalOpen, setSetupModalOpen] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(false);
 
@@ -69,6 +67,7 @@ export default function HealthTab({
     resetResultsSettings,
   };
 
+  // Clean up notification counter & health issues before unmounting
   useEffect(() => {
     return () => {
       onSnapshotUpdate();
@@ -89,7 +88,10 @@ export default function HealthTab({
 
   // If org has not updated settings since the health tab was introduced, prompt the user
   // to enable the traffic query setting
-  if (!runHealthTrafficQuery) {
+  if (
+    !runHealthTrafficQuery &&
+    !snapshot?.health?.traffic.dimension?.dim_exposure_date
+  ) {
     return (
       <div className="alert alert-info mt-3 d-flex">
         {runHealthTrafficQuery === undefined
