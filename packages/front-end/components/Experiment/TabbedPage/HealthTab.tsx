@@ -11,8 +11,12 @@ import TrafficCard from "@/components/HealthTab/TrafficCard";
 import { IssueTags, IssueValue } from "@/components/HealthTab/IssueTags";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import track from "@/services/track";
 import { useSnapshot } from "../SnapshotProvider";
-import { HealthTabOnboardingModal } from "./HealthTabOnboardingModal";
+import {
+  HealthTabConfigParams,
+  HealthTabOnboardingModal,
+} from "./HealthTabOnboardingModal";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
@@ -39,6 +43,11 @@ export default function HealthTab({
   const permissions = usePermissions();
   const { getDatasourceById } = useDefinitions();
   const datasource = getDatasourceById(experiment.datasource);
+
+  const exposureQuery = datasource?.settings.queries?.exposure?.find(
+    (e) => e.id === experiment.exposureQueryId
+  );
+
   const hasPermissionToConfigHealthTag =
     permissions.check("organizationSettings") &&
     permissions.check("runQueries", datasource?.projects || []) &&
@@ -46,6 +55,17 @@ export default function HealthTab({
   const [healthIssues, setHealthIssues] = useState<IssueValue[]>([]);
   const [setupModalOpen, setSetupModalOpen] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(false);
+
+  const healthTabConfigParams: HealthTabConfigParams = {
+    experiment,
+    phase,
+    exposureQueryDimensions: exposureQuery?.dimensions || [],
+    refreshOrganization,
+    mutateSnapshot,
+    setAnalysisSettings,
+    setLoading,
+    resetResultsSettings,
+  };
 
   // Clean up notification counter & health issues before unmounting
   useEffect(() => {
@@ -83,21 +103,19 @@ export default function HealthTab({
             <Button
               className="mt-2 mb-2 ml-auto"
               style={{ width: "200px" }}
-              onClick={async () => setSetupModalOpen(true)}
+              onClick={async () => {
+                track("Health Tab Onboarding Opened", { source: "health-tab" });
+                setSetupModalOpen(true);
+              }}
             >
               Set up Health Tab
             </Button>
             {setupModalOpen ? (
               <HealthTabOnboardingModal
-                experiment={experiment}
-                phase={phase}
                 open={setupModalOpen}
                 close={() => setSetupModalOpen(false)}
-                refreshOrganization={refreshOrganization}
-                mutateSnapshot={mutateSnapshot}
-                setAnalysisSettings={setAnalysisSettings}
-                setLoading={setLoading}
-                resetResultsSettings={resetResultsSettings}
+                healthTabOnboardingPurpose={"setup"}
+                healthTabConfigParams={healthTabConfigParams}
               />
             ) : null}
           </>
@@ -189,6 +207,7 @@ export default function HealthTab({
           variations={variations}
           totalUsers={totalUsers}
           onNotify={handleDrawerNotify}
+          healthTabConfigParams={healthTabConfigParams}
         />
       </div>
 

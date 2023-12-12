@@ -6,6 +6,7 @@ import { DEFAULT_SRM_THRESHOLD } from "@/pages/settings";
 import VariationUsersTable from "../Experiment/TabbedPage/VariationUsersTable";
 import SRMWarning from "../Experiment/SRMWarning";
 import { DataPointVariation } from "../Experiment/ExperimentDateGraph";
+import { HealthTabConfigParams } from "../Experiment/TabbedPage/HealthTabOnboardingModal";
 import { HealthStatus, StatusBadge } from "./StatusBadge";
 import { DimensionIssues } from "./DimensionIssues";
 import { IssueValue } from "./IssueTags";
@@ -15,6 +16,7 @@ interface Props {
   variations: ExperimentReportVariation[];
   totalUsers: number;
   onNotify: (issue: IssueValue) => void;
+  healthTabConfigParams: HealthTabConfigParams;
 }
 
 export const srmHealthCheck = ({
@@ -43,6 +45,7 @@ export default function SRMDrawer({
   variations,
   totalUsers,
   onNotify,
+  healthTabConfigParams,
 }: Props) {
   const { settings } = useUser();
 
@@ -144,6 +147,7 @@ export default function SRMDrawer({
           <DimensionIssues
             dimensionData={traffic.dimension}
             variations={variations}
+            healthTabConfigParams={healthTabConfigParams}
           />
         </div>
       </div>
