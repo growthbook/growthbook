@@ -755,10 +755,11 @@ export default function ReleaseChangesForm({ experiment, form }: Props) {
         </>
       )}
 
-      <hr className="mt-4" />
       <div className="mt-4">
-        <div className="h5 text-muted">Release plan</div>
-        <table className="table table-sm">
+        <div className="d-flex justify-content-end">
+          <div style={{width: 300}}>
+          <div className="h4 text-muted">Release plan</div>
+        <table className="table table-tiny">
           <tbody>
             <tr>
               <td>New phase?</td>
@@ -771,19 +772,21 @@ export default function ReleaseChangesForm({ experiment, form }: Props) {
             <tr>
               <td>Bucket version?</td>
               <td>{form.watch("bucketVersion") !== experiment.bucketVersion
-                ? `Changed: ${(experiment.bucketVersion ?? 0)} -> ${form.watch("bucketVersion")}`
+                ? `Changed: ${(experiment.bucketVersion ?? 0)} → ${form.watch("bucketVersion")}`
                 : `No change: ${form.watch("bucketVersion")}`
               }</td>
             </tr>
             <tr>
               <td>Block previous bucket?</td>
               <td>{form.watch("minBucketVersion") !== experiment.minBucketVersion
-                ? `Changed: ${(experiment.minBucketVersion ?? 0)} -> ${form.watch("minBucketVersion")}`
+                ? `Changed: ${(experiment.minBucketVersion ?? 0)} → ${form.watch("minBucketVersion")}`
                 : `No change: ${form.watch("minBucketVersion")}`
               }</td>
             </tr>
           </tbody>
         </table>
+          </div>
+        </div>
       </div>
     </div>
   );
