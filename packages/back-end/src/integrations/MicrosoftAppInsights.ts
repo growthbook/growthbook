@@ -29,6 +29,7 @@ import {
   UserDimension,
   ExperimentAggregateUnitsQueryParams,
   ExperimentAggregateUnitsQueryResponse,
+  DimensionSlicesQueryResponse,
 } from "../types/Integration";
 import { MicrosoftAppInsightsParams } from "../../types/integrations/microsoftappinsights";
 import { decryptDataSourceParams } from "../services/datasource";
@@ -1627,5 +1628,12 @@ let experiment = ( // Viewed Experiment
     params: ExperimentAggregateUnitsQueryParams
   ) {
     return "";
+  }
+
+  getDimensionSlicesQuery(): string {
+    throw new Error("Method not implemented.");
+  }
+  async runDimensionSlicesQuery(): Promise<DimensionSlicesQueryResponse> {
+    throw new Error("Method not implemented.");
   }
 }
