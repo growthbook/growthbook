@@ -210,6 +210,8 @@ export const HealthTabOnboardingModal: FC<HealthTabOnboardingModalProps> = ({
     data?.dimensionSlices?.results &&
     data.dimensionSlices.results.length > 0;
 
+  const showDimensionsPage = exposureQueryDimensions.length > 0;
+
   const pages: {
     header: string;
     children: ReactElement;
@@ -229,7 +231,7 @@ export const HealthTabOnboardingModal: FC<HealthTabOnboardingModalProps> = ({
         <button
           className={`btn btn-primary`}
           type="submit"
-          onClick={() => setStep(exposureQueryDimensions.length ? 1 : 2)}
+          onClick={() => setStep(showDimensionsPage ? 1 : 2)}
         >
           {"Next >"}
         </button>
@@ -264,7 +266,12 @@ export const HealthTabOnboardingModal: FC<HealthTabOnboardingModalProps> = ({
       secondaryCTA: (
         <>
           {healthTabOnboardingPurpose === "setup" ? (
-            <button className={`btn btn-link`} onClick={() => setStep(2)}>
+            <button
+              className={`btn btn-link`}
+              onClick={() => {
+                setStep(2);
+              }}
+            >
               {"Skip"}
             </button>
           ) : null}
@@ -315,7 +322,10 @@ export const HealthTabOnboardingModal: FC<HealthTabOnboardingModalProps> = ({
       ),
       secondaryCTA: (
         <>
-          <button className={`btn btn-link`} onClick={() => setStep(1)}>
+          <button
+            className={`btn btn-link`}
+            onClick={() => setStep(showDimensionsPage ? 1 : 0)}
+          >
             {"< Back"}
           </button>
           <div className="flex-1" />

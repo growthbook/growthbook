@@ -429,7 +429,8 @@ export const DimensionSlicesResults: FC<DimensionSlicesProps> = ({
                     </>
                   ) : (
                     <div className="text-muted">
-                      {status !== "running" && !dimensionSlices
+                      {status !== "running" &&
+                      (!dimensionSlices || !dimensionValueResult)
                         ? "Run dimension slices query to populate"
                         : status === "succeeded" &&
                           dimensionSlices?.results?.length === 0
