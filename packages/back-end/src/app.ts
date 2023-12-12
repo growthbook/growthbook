@@ -352,6 +352,17 @@ app.post("/subscription/manage", stripeController.postCreateBillingSession);
 app.post("/subscription/success", stripeController.postSubscriptionSuccess);
 app.get("/queries/:ids", datasourcesController.getQueries);
 app.post("/query/test", datasourcesController.testLimitedQuery);
+app.post("/dimension-slices", datasourcesController.postDimensionSlices);
+app.get("/dimension-slices/:id", datasourcesController.getDimensionSlices);
+app.post(
+  "/dimension-slices/:id/cancel",
+  datasourcesController.cancelDimensionSlices
+);
+
+app.get(
+  "/dimension-slices/datasource/:datasourceId/:exposureQueryId",
+  datasourcesController.getLatestDimensionSlicesForDatasource
+);
 app.post("/organization/sample-data", datasourcesController.postSampleData);
 
 if (IS_CLOUD) {
@@ -575,6 +586,10 @@ app.post("/datasources", datasourcesController.postDataSources);
 app.put("/datasource/:id", datasourcesController.putDataSource);
 app.delete("/datasource/:id", datasourcesController.deleteDataSource);
 app.get("/datasource/:id/metrics", datasourcesController.getDataSourceMetrics);
+app.put(
+  "/datasource/:datasourceId/:exposureQueryId",
+  datasourcesController.updateExposureQuery
+);
 
 // Information Schemas
 app.get(

@@ -1,6 +1,6 @@
 import useOrgSettings from "@/hooks/useOrgSettings";
 
-const MINIMUM_MULTIPLE_EXPOSURES = 10;
+export const MINIMUM_MULTIPLE_EXPOSURES = 10;
 
 const percentFormatter = new Intl.NumberFormat(undefined, {
   style: "percent",

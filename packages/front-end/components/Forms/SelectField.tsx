@@ -187,7 +187,7 @@ const SelectField: FC<SelectFieldProps> = ({
                 id={id}
                 ref={ref}
                 classNamePrefix="gb-select"
-                isClearable
+                isClearable={isClearable}
                 isDisabled={disabled || false}
                 placeholder={placeholder}
                 inputValue={inputValue}
