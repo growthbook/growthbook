@@ -4,11 +4,10 @@ import {
   ExperimentPhaseStringDates,
   ExperimentTargetingData,
 } from "back-end/types/experiment";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { FaCheck, FaExclamationCircle, FaQuestionCircle } from "react-icons/fa";
 import { HiOutlineExclamationCircle } from "react-icons/hi";
 import clsx from "clsx";
-import { AiOutlineInfoCircle } from "react-icons/ai";
 import { RxInfoCircled } from "react-icons/rx";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
@@ -40,6 +39,13 @@ function getRecommendedRolloutData({
     experiment.phases[experiment.phases.length - 1];
 
   // Returned recommendations:
+  let newPhase = false;
+  let newSeed = false;
+  // Secondary recommendations for when the user chooses "reassign"
+  let reassign_newPhase = false;
+  let reassign_newSeed = false;
+
+  // UI related:
   let promptExistingUserOptions = true;
   let existingUsersOption: ExistingUsersOption = "reassign";
   let disableKeepOption = false;
@@ -50,10 +56,6 @@ function getRecommendedRolloutData({
   // for displaying the level of risk imposed by the changes
   let riskLevel = "safe";
 
-  let newPhase = false;
-  const newBucketVersion = false;
-  let newSeed = false;
-  const blockPreviouslyBucketed = false;
   // Returned meta:
   let reasons: {
     moreRestrictiveTargeting?: boolean;
@@ -199,12 +201,28 @@ function getRecommendedRolloutData({
         changeVariationWeights,
       };
     }
+    // secondary recommendations for when the user chooses "reassign"
+    if (
+      moreRestrictiveTargeting ||
+      decreaseCoverage ||
+      addToNamespace ||
+      decreaseNamespaceRange ||
+      otherTargetingChanges ||
+      otherNamespaceChanges ||
+      changeVariationWeights ||
+      disableVariation
+    ) {
+      reassign_newPhase = true;
+      reassign_newSeed = true;
+    }
 
     // C. Calculate recommendations when sticky bucketing is disabled
     if (!stickyBucketing) {
       // reset
       promptExistingUserOptions = true;
       existingUsersOption = "keep";
+      newPhase = false;
+      newSeed = false;
       riskLevel = "safe";
       reasons = {};
 
@@ -260,9 +278,11 @@ function getRecommendedRolloutData({
     disableKeepOption,
     disableSamePhase,
     newPhase,
-    newBucketVersion,
+    // newBucketVersion,
     newSeed,
-    blockPreviouslyBucketed,
+    // blockPreviouslyBucketed,
+    reassign_newPhase,
+    reassign_newSeed,
     samePhaseSafeWithStickyBucketing,
     riskLevel,
     reasons,
@@ -311,6 +331,12 @@ export default function ReleaseChangesForm({ experiment, form }: Props) {
     setExistingUsersOption,
   ] = useState<ExistingUsersOption>("reassign");
 
+  const recommendedRolloutData = getRecommendedRolloutData({
+    experiment,
+    data: form.getValues(),
+    stickyBucketing: usingStickyBucketing,
+  });
+
   useEffect(() => {
     if (existingUsersOption === "keep") {
       // same phase, same seed, same bucket version
@@ -322,88 +348,32 @@ export default function ReleaseChangesForm({ experiment, form }: Props) {
       // new phase, new seed, new bucket version (block prior buckets)
       form.setValue("newPhase", true);
       form.setValue("reseed", true);
-      form.setValue("bucketVersion", (experiment.bucketVersion ?? 1) + 1);
-      form.setValue("minBucketVersion", experiment.bucketVersion ?? 1);
+      form.setValue("bucketVersion", (experiment.bucketVersion ?? 0) + 1);
+      form.setValue("minBucketVersion", (experiment.bucketVersion ?? 0) + 1);
     } else if (existingUsersOption === "reassign") {
       // new phase, new seed, new bucket version (reassign prior buckets)
-      form.setValue("newPhase", true);
-      form.setValue("reseed", true);
-      form.setValue("bucketVersion", (experiment.bucketVersion ?? 1) + 1);
-      form.setValue("minBucketVersion", experiment.minBucketVersion);
+      form.setValue("newPhase", recommendedRolloutData.reassign_newPhase);
+      form.setValue("reseed", recommendedRolloutData.reassign_newSeed);
+      form.setValue("bucketVersion", (experiment.bucketVersion ?? 0) + 1);
+      form.setValue("minBucketVersion", experiment.minBucketVersion ?? 0);
       // todo: this is a problem because the recommended "newPhase" and "reseed" values in
       // the users prompt may not match the recommended values when choosing "reassign"
     }
   }, [existingUsersOption]);
 
-  const newPhase = form.watch("newPhase");
-  // const variationWeights = form.watch("variationWeights");
-  // const coverage = form.watch("coverage");
-  // const condition = form.watch("condition");
-  // const namespace = form.watch("namespace");
-  // const savedGroups = form.watch("savedGroups");
-  // const encodedVariationWeights = JSON.stringify(variationWeights);
-  // const encodedNamespace = JSON.stringify(namespace);
-  // const isNamespaceEnabled = namespace.enabled;
-  // const shouldCreateNewPhase = useMemo<boolean>(() => {
-  //   // If no previous phase, we don't need to ask about creating a new phase
-  //   if (!lastPhase) return false;
-  //
-  //   // Changing variation weights will almost certainly cause an SRM error
-  //   if (
-  //     encodedVariationWeights !== JSON.stringify(lastPhase.variationWeights)
-  //   ) {
-  //     return true;
-  //   }
-  //
-  //   // Remove outer curly braces from condition so we can use it to look for substrings
-  //   // e.g. If they have 3 conditions ANDed together and delete one, that is a safe change
-  //   // But if they add new conditions or modify an existing one, that is not
-  //   // There are some edge cases with '$or' that are not handled correctly, but those are super rare
-  //   const strippedCondition = condition.slice(1).slice(0, -1);
-  //   if (!(lastPhase.condition || "").includes(strippedCondition)) {
-  //     return true;
-  //   }
-  //
-  //   // Changing saved groups
-  //   // TODO: certain changes should be safe, so make this logic smarter
-  //   if (
-  //     JSON.stringify(savedGroups || []) !==
-  //     JSON.stringify(lastPhase.savedGroups || [])
-  //   ) {
-  //     return true;
-  //   }
-  //
-  //   // If adding or changing a namespace
-  //   if (
-  //     isNamespaceEnabled &&
-  //     encodedNamespace !== JSON.stringify(lastPhase.namespace)
-  //   ) {
-  //     return true;
-  //   }
-  //
-  //   // If reducing coverage
-  //   if (coverage < (lastPhase.coverage ?? 1)) {
-  //     return true;
-  //   }
-  //
-  //   // If not changing any of the above, no reason to create a new phase
-  //   return false;
-  // }, [
-  //   coverage,
-  //   lastPhase,
-  //   encodedVariationWeights,
-  //   condition,
-  //   isNamespaceEnabled,
-  //   encodedNamespace,
-  //   savedGroups,
-  // ]);
-
-  const recommendedRolloutData = getRecommendedRolloutData({
-    experiment,
-    data: form.getValues(),
-    stickyBucketing: usingStickyBucketing,
-  });
-  console.log(recommendedRolloutData);
+  useEffect(() => {
+    if (existingUsersOption !== "reassign") return;
+    if (!form.watch("newPhase")) {
+      // existing
+      form.setValue("reseed", false);
+      form.setValue("bucketVersion", experiment.bucketVersion);
+      form.setValue("minBucketVersion", experiment.minBucketVersion);
+    } else {
+      // new
+      form.setValue("bucketVersion", (experiment.bucketVersion ?? 0) + 1);
+      form.setValue("minBucketVersion", experiment.minBucketVersion);
+    }
+  }, [existingUsersOption, form.watch("newPhase"), form.watch("reseed")]);
 
   useEffect(() => {
     setExistingUsersOption(recommendedRolloutData.existingUsersOption);
@@ -414,11 +384,6 @@ export default function ReleaseChangesForm({ experiment, form }: Props) {
     recommendedRolloutData.newPhase,
     recommendedRolloutData.newSeed,
   ]);
-
-  // useEffect(() => {
-  //   form.setValue("newPhase", shouldCreateNewPhase);
-  //   form.setValue("reseed", true);
-  // }, [form, shouldCreateNewPhase]);
 
   if (!lastPhase) return null;
 
@@ -719,9 +684,9 @@ export default function ReleaseChangesForm({ experiment, form }: Props) {
             ]}
             formatOptionLabel={(value) => {
               const recommended =
-                (value.value === "new" && recommendedRolloutData.newPhase) ||
+                (value.value === "new" && recommendedRolloutData.reassign_newPhase) ||
                 (value.value === "existing" &&
-                  !recommendedRolloutData.newPhase);
+                  !recommendedRolloutData.reassign_newPhase);
 
               const disabled =
                 value.value === "existing" &&
@@ -744,7 +709,7 @@ export default function ReleaseChangesForm({ experiment, form }: Props) {
                 </div>
               );
             }}
-            value={newPhase ? "new" : "existing"}
+            value={form.watch("newPhase") ? "new" : "existing"}
             onChange={(value) => {
               const disabled =
                 value === "existing" && recommendedRolloutData.disableSamePhase;
@@ -753,7 +718,7 @@ export default function ReleaseChangesForm({ experiment, form }: Props) {
             }}
           />
 
-          {newPhase && (
+          {form.watch("newPhase") && (
             <div className="form-group">
               <Toggle
                 id="reseed-traffic"
@@ -763,7 +728,7 @@ export default function ReleaseChangesForm({ experiment, form }: Props) {
               <label htmlFor="reseed-traffic" className="text-dark">
                 Re-randomize traffic
               </label>{" "}
-              {recommendedRolloutData.newSeed && (
+              {recommendedRolloutData.reassign_newSeed && (
                 <span className="badge badge-purple badge-pill ml-2">
                   recommended
                 </span>
@@ -789,6 +754,37 @@ export default function ReleaseChangesForm({ experiment, form }: Props) {
           )}
         </>
       )}
+
+      <hr className="mt-4" />
+      <div className="mt-4">
+        <div className="h5 text-muted">Release plan</div>
+        <table className="table table-sm">
+          <tbody>
+            <tr>
+              <td>New phase?</td>
+              <td>{form.watch("newPhase") ? "Yes" : "No"}</td>
+            </tr>
+            <tr>
+              <td>Re-randomize traffic?</td>
+              <td>{form.watch("reseed") ? "Yes" : "No"}</td>
+            </tr>
+            <tr>
+              <td>Bucket version?</td>
+              <td>{form.watch("bucketVersion") !== experiment.bucketVersion
+                ? `Changed: ${(experiment.bucketVersion ?? 0)} -> ${form.watch("bucketVersion")}`
+                : `No change: ${form.watch("bucketVersion")}`
+              }</td>
+            </tr>
+            <tr>
+              <td>Block previous bucket?</td>
+              <td>{form.watch("minBucketVersion") !== experiment.minBucketVersion
+                ? `Changed: ${(experiment.minBucketVersion ?? 0)} -> ${form.watch("minBucketVersion")}`
+                : `No change: ${form.watch("minBucketVersion")}`
+              }</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
