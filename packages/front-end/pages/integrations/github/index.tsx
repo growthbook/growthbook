@@ -1,8 +1,10 @@
 import { NextPage } from "next";
 import { useRouter } from "next/router";
 import { GithubIntegrationInterface } from "back-end/types/github";
+import { useGrowthBook } from "@growthbook/growthbook-react";
 import useApi from "@/hooks/useApi";
 import usePermissions from "@/hooks/usePermissions";
+import { AppFeatures } from "@/types/app-features";
 import GithubIntegrationConfig from "./GithubIntegrationConfig";
 import GithubIntegrationConnect from "./GithubIntegrationConnect";
 
@@ -10,18 +12,18 @@ const GitHubIntegrationPage: NextPage = () => {
   const permissions = usePermissions();
   const router = useRouter();
   const tokenId = router.query.t_id as string;
+  const growthbook = useGrowthBook<AppFeatures>();
+
+  if (growthbook && growthbook.isOff("github-integration")) {
+    router.replace("/404");
+  }
 
   // TODO
   // - display faqs for quick troubleshooting
 
-  const { data, mutate, error } = useApi<{
+  const { data, mutate } = useApi<{
     githubIntegration: GithubIntegrationInterface;
   }>("/integrations/github");
-
-  console.log("Fetching github integration", {
-    data,
-    error,
-  });
 
   const githubIntegration = data?.githubIntegration;
 
