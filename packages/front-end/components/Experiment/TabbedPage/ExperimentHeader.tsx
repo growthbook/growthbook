@@ -27,6 +27,7 @@ import Modal from "@/components/Modal";
 import { useScrollPosition } from "@/hooks/useScrollPosition";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import track from "@/services/track";
+import { useDefinitions } from "@/services/DefinitionsContext";
 import ResultsIndicator from "../ResultsIndicator";
 import { StartExperimentBanner } from "../StartExperimentBanner";
 import { useSnapshot } from "../SnapshotProvider";
@@ -102,6 +103,8 @@ export default function ExperimentHeader({
   const { apiCall } = useAuth();
   const router = useRouter();
   const permissions = usePermissions();
+  const { getDatasourceById } = useDefinitions();
+  const dataSource = getDatasourceById(experiment.datasource);
   const { scrollY } = useScrollPosition();
   const { dimension } = useSnapshot();
   const headerPinned = scrollY > 45;
@@ -141,9 +144,8 @@ export default function ExperimentHeader({
   const hasLinkedChanges =
     linkedFeatures.length > 0 || visualChangesets.length > 0;
 
-  const isUsingHealthUnsupportDatasource = datasourcesWithoutHealthData.has(
-    experiment.datasource
-  );
+  const isUsingHealthUnsupportDatasource =
+    !dataSource || datasourcesWithoutHealthData.has(dataSource.type);
   const disableHealthTab = isUsingHealthUnsupportDatasource || !!dimension;
 
   return (
