@@ -286,7 +286,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
       ? "Pro"
       : accountPlan === "pro_sso"
       ? "Pro + SSO"
-      : "Starter") + (license && license.trial ? " (trial)" : "");
+      : "Starter") + (license && license.isTrial ? " (trial)" : "");
 
   const form = useForm<OrganizationSettingsWithMetricDefaults>({
     defaultValues: {
@@ -671,15 +671,21 @@ const GeneralSettingsPage = (): React.ReactElement => {
                           <>
                             <div className="col-sm-2">
                               <div>Issued:</div>
-                              <span className="text-muted">{license.iat}</span>
+                              <span className="text-muted">
+                                {license.dateCreated}
+                              </span>
                             </div>
                             <div className="col-sm-2">
                               <div>Expires:</div>
-                              <span className="text-muted">{license.exp}</span>
+                              <span className="text-muted">
+                                {license.dateExpires}
+                              </span>
                             </div>
                             <div className="col-sm-2">
                               <div>Seats:</div>
-                              <span className="text-muted">{license.qty}</span>
+                              <span className="text-muted">
+                                {license.seats}
+                              </span>
                             </div>
                           </>
                         )}
