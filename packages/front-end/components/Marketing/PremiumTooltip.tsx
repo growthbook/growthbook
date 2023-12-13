@@ -9,6 +9,7 @@ interface Props extends HTMLAttributes<HTMLDivElement> {
   commercialFeature: CommercialFeature;
   children: ReactNode;
   body?: string | JSX.Element;
+  premiumText?: string | JSX.Element;
   tipMinWidth?: string;
   tipPosition?: "bottom" | "top" | "left" | "right";
   className?: string;
@@ -20,6 +21,7 @@ export default function PremiumTooltip({
   children,
   // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'null' is not assignable to type 'string | El... Remove this comment to see the full error message
   body = null,
+  premiumText = "This is a premium feature",
   tipMinWidth,
   tipPosition = "top",
   className = "",
@@ -41,7 +43,8 @@ export default function PremiumTooltip({
                 !hasFeature ? "premium" : ""
               )}
             >
-              <GBPremiumBadge /> This is a premium feature
+              <GBPremiumBadge className="mr-1" />
+              {premiumText}
             </p>
           )}
           {body}

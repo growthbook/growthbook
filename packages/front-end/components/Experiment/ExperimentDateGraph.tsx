@@ -18,7 +18,7 @@ import { StatsEngine } from "back-end/types/stats";
 import { pValueFormatter } from "@/services/experiments";
 import styles from "./ExperimentDateGraph.module.scss";
 
-interface DataPointVariation {
+export interface DataPointVariation {
   v: number;
   v_formatted: string;
   users?: number; // used for uplift plot tooltips
