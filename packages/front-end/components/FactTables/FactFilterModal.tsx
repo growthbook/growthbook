@@ -234,6 +234,7 @@ export default function FactFilterModal({ existing, factTable, close }: Props) {
             sql={testResult.sql || ""}
             error={testResult.error || ""}
             close={() => setTestResult(null)}
+            expandable={true}
           />
         </div>
       ) : null}
