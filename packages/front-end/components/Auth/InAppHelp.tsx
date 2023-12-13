@@ -8,36 +8,35 @@ import { GBPremiumBadge } from "../Icons";
 import UpgradeModal from "../Settings/UpgradeModal";
 
 export default function InAppHelp() {
-  const config = useFeature("papercups-config").value;
+  const config = useFeature("pylon-config").value;
   const [showFreeHelpWidget, setShowFreeHelpWidget] = useState(false);
   const [upgradeModal, setUpgradeModal] = useState(false);
-  const { name, email, userId, hasCommercialFeature } = useUser();
+  const { name, email, hasCommercialFeature } = useUser();
   const showUpgradeModal =
     config && !hasCommercialFeature("livechat") && isCloud();
 
   useEffect(() => {
-    if (window["Papercups"] || !config) return;
+    if (window["pylon"] || !config) return;
 
     if (hasCommercialFeature("livechat") && isCloud()) {
-      window["Papercups"] = {
-        config: {
-          ...config,
-          customer: {
-            name,
-            email,
-            external_id: userId,
-          },
+      const scriptElement = document.createElement("script");
+      scriptElement.type = "text/javascript";
+      const scriptContent = `(function(){var e=window;var t=document;var n=function(){n.e(arguments)};n.q=[];n.e=function(e){n.q.push(e)};e.Pylon=n;var r=function(){var e=t.createElement("script");e.setAttribute("type","text/javascript");e.setAttribute("async","true");e.setAttribute("src","https://widget.usepylon.com/widget/${config.APP_ID}");var n=t.getElementsByTagName("script")[0];n.parentNode.insertBefore(e,n)};if(t.readyState==="complete"){r()}else if(e.addEventListener){e.addEventListener("load",r,false)}})();`;
+      scriptElement.innerHTML = scriptContent;
+
+      document.body.appendChild(scriptElement);
+      window["pylon"] = {
+        chat_settings: {
+          app_id: config.APP_ID,
+          email,
+          name,
         },
       };
-      const s = document.createElement("script");
-      s.async = true;
-      s.src = config.baseUrl + "/widget.js";
-      document.head.appendChild(s);
     }
   }, [config]);
 
-  // If the Papercup key exists on the window, we're showing the Papercups widget, so don't show the freeHelpModal
-  if (window["Papercups"]) return null;
+  // If the Pylon key exists on the window, we're showing the Pylon widget, so don't show the freeHelpModal
+  if (window["pylon"]) return null;
 
   return (
     <>
