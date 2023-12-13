@@ -810,6 +810,18 @@ export class GrowthBook<
     // 2.5. Merge in experiment overrides from the context
     experiment = this._mergeOverrides(experiment);
 
+    // 2.6 New, more powerful URL targeting
+    if (
+      experiment.urlPatterns &&
+      !isURLTargeted(this._getContextUrl(), experiment.urlPatterns)
+    ) {
+      process.env.NODE_ENV !== "production" &&
+        this.log("Skip because of url targeting", {
+          id: key,
+        });
+      return this._getResult(experiment, -1, false, featureId);
+    }
+
     // 3. If a variation is forced from a querystring, return the forced variation
     const qsOverride = getQueryStringOverride(
       key,
@@ -909,18 +921,6 @@ export class GrowthBook<
     if (experiment.url && !this._urlIsValid(experiment.url as RegExp)) {
       process.env.NODE_ENV !== "production" &&
         this.log("Skip because of url", {
-          id: key,
-        });
-      return this._getResult(experiment, -1, false, featureId);
-    }
-
-    // 8.3. New, more powerful URL targeting
-    if (
-      experiment.urlPatterns &&
-      !isURLTargeted(this._getContextUrl(), experiment.urlPatterns)
-    ) {
-      process.env.NODE_ENV !== "production" &&
-        this.log("Skip because of url targeting", {
           id: key,
         });
       return this._getResult(experiment, -1, false, featureId);
