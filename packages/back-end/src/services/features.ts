@@ -59,6 +59,7 @@ import {
 import { ArchetypeAttributeValues } from "../../types/archetype";
 import { FeatureRevisionInterface } from "../../types/feature-revision";
 import { purgeEdgeRemoteEvalPayloadKeys } from "../util/edge-worker.util";
+import { fireSdkWebhooksWithPayloadKeys } from "../util/fire-sdk-webhooks.util";
 import { getEnvironmentIdsFromOrg, getOrganizationById } from "./organizations";
 
 export type AttributeMap = Map<string, string>;
@@ -288,7 +289,8 @@ export async function refreshSDKPayloadCache(
   ]);
 
   await purgeCDNCache(organization.id, surrogateKeys);
-  await purgeEdgeRemoteEvalPayloadKeys({
+
+  await fireSdkWebhooksWithPayloadKeys({
     organization,
     payloadKeys,
   });

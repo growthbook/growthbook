@@ -1427,6 +1427,7 @@ export async function getWebhooks(req: AuthRequest, res: Response) {
   const { org } = getOrgFromReq(req);
   const webhooks = await WebhookModel.find({
     organization: org.id,
+    useSDKMode: { $ne: true },
   });
   res.status(200).json({
     status: 200,
@@ -1489,6 +1490,7 @@ export async function postWebhookSDK(
   req.checkPermissions("manageWebhooks");
 
   const { org } = getOrgFromReq(req);
+  console.log(req.body);
   const { name, endpoint, sdkid, sendPayload } = req.body;
   console.log(sendPayload, "sendPayload", sdkid);
   const webhook = await createWebhookSDK({

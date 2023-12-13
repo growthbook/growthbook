@@ -20,6 +20,7 @@ const WebhooksModal: FC<{
 }> = ({ close, onSave, current, showSDKMode, sdkid }) => {
   const { apiCall } = useAuth();
   showSDKMode = showSDKMode || false;
+
   const { projects, project } = useDefinitions();
   const environments = useEnvironments();
   const form = useForm({
@@ -30,11 +31,16 @@ const WebhooksModal: FC<{
       environment:
         current.environment === undefined ? "production" : current.environment,
       useSDKMode: current?.useSDKMode || showSDKMode,
-      sdkid,
       sendPayload: current?.sendPayload,
+      sdkid,
     },
   });
+  // if (showSDKMode && form.getValues("sendPayload") === undefined) {
+  //   console.log("testing");
+  //   form.setValue("sendPayload", false);
+  // }
   const handleApiCall = async (value) => {
+    console.log(JSON.stringify(value));
     if (showSDKMode) {
       await apiCall(
         current.id ? `/webhook/sdk/${current.id}` : "/webhooks/sdk",
@@ -77,9 +83,11 @@ const WebhooksModal: FC<{
     <>
       <Toggle
         id="sendPayload"
-        value={form.watch("sendPayload")}
-        setValue={(sendPayload) => {
-          form.setValue("sendPayload", sendPayload);
+        value={!!form.watch("sendPayload")}
+        setValue={(value) => {
+          console.log(value);
+          console.log(!!form.watch("sendPayload"));
+          form.setValue("sendPayload", value);
         }}
       />
       <label htmlFor="sendPayload">Send Payload</label>
