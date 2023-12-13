@@ -75,6 +75,7 @@ describe("Saved Group Migration", () => {
       )
     ).toEqual({
       ...omit(withValues, ["values"]),
+      attributeKey: "num",
       condition: JSON.stringify({ num: { $in: [1, 2, 3] } }),
     });
   });
@@ -90,6 +91,7 @@ describe("Saved Group Migration", () => {
       )
     ).toEqual({
       ...omit(withValues, ["values"]),
+      attributeKey: "foo",
       condition: JSON.stringify({ foo: { $in: ["1", "2", "3"] } }),
     });
   });
@@ -102,13 +104,14 @@ describe("Saved Group Migration", () => {
       })
     ).toEqual({
       ...omit(withValues, ["values"]),
+      attributeKey: "str_arr",
       condition: JSON.stringify({ str_arr: { $in: ["1", "2", "3"] } }),
     });
   });
 
   it("migrates runtime groups", () => {
     expect(migrateSavedGroup(runtimeGroup, attributes)).toEqual({
-      ...omit(runtimeGroup, ["attributeKey", "source"]),
+      ...omit(runtimeGroup, ["source"]),
       condition: JSON.stringify({ $groups: { $elemMatch: { $eq: "admin" } } }),
     });
   });
@@ -123,7 +126,7 @@ describe("Saved Group Migration", () => {
         attributes
       )
     ).toEqual({
-      ...omit(withValues, ["values", "attributeKey"]),
+      ...omit(withValues, ["values"]),
       condition: JSON.stringify({ foo: "bar" }),
     });
   });
