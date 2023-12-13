@@ -8,13 +8,7 @@ import {
   getLicense,
   setLicense,
 } from "enterprise";
-import {
-  filterResourceByAccessPermission, //TODO: Switch to using this for everything
-  getDataSourcesUserCanAccess,
-  getFactTablesUserCanAccess,
-  getMetricsUserCanAccess,
-  getProjectsUserCanAccess,
-} from "shared/permissions";
+import { hasReadAccess } from "shared/permissions";
 import {
   AuthRequest,
   ResponseWithStatusAndError,
@@ -121,12 +115,6 @@ import { getTeamsForOrganization } from "../../models/TeamModel";
 import { getAllFactTablesForOrganization } from "../../models/FactTableModel";
 import { getAllFactMetricsForOrganization } from "../../models/FactMetricModel";
 import { TeamInterface } from "../../../types/team";
-import { FilterableResourceInterface } from "../../../types/metric";
-import { ApiKeyInterface } from "../../../types/apikey";
-
-interface ApiKeyInterfaceWithRequiredId extends Omit<ApiKeyInterface, "id"> {
-  id: string;
-}
 
 export async function getDefinitions(req: AuthRequest, res: Response) {
   const { org, userId } = getOrgFromReq(req);
@@ -159,39 +147,42 @@ export async function getDefinitions(req: AuthRequest, res: Response) {
     getAllSavedGroups(orgId),
     findAllProjectsByOrganization(orgId),
     getAllFactTablesForOrganization(orgId),
-    getAllFactMetricsForOrganization(orgId),
+    getAllFactMetricsForOrganization(orgId), //TODO: Check if these have projects
   ]);
-
-  const filteredDatasource = getDataSourcesUserCanAccess(
-    currentUserPermissions,
-    datasources
-  );
 
   return res.status(200).json({
     status: 200,
-    metrics: getMetricsUserCanAccess(currentUserPermissions, metrics),
-    datasources: filteredDatasource.map((d) => {
-      const integration = getSourceIntegrationObject(d);
-      return {
-        id: d.id,
-        name: d.name,
-        description: d.description,
-        type: d.type,
-        settings: d.settings,
-        params: getNonSensitiveParams(integration),
-        projects: d.projects || [],
-        properties: integration.getSourceProperties(),
-        decryptionError: integration.decryptionError || false,
-        dateCreated: d.dateCreated,
-        dateUpdated: d.dateUpdated,
-      };
-    }),
+    metrics: metrics.filter((m) =>
+      hasReadAccess(currentUserPermissions, m.projects || [])
+    ),
+    datasources: datasources
+      .filter((d) => hasReadAccess(currentUserPermissions, d.projects || []))
+      .map((d) => {
+        const integration = getSourceIntegrationObject(d);
+        return {
+          id: d.id,
+          name: d.name,
+          description: d.description,
+          type: d.type,
+          settings: d.settings,
+          params: getNonSensitiveParams(integration),
+          projects: d.projects || [],
+          properties: integration.getSourceProperties(),
+          decryptionError: integration.decryptionError || false,
+          dateCreated: d.dateCreated,
+          dateUpdated: d.dateUpdated,
+        };
+      }),
     dimensions,
     segments,
     tags,
     savedGroups,
-    projects: getProjectsUserCanAccess(currentUserPermissions, projects),
-    factTables: getFactTablesUserCanAccess(currentUserPermissions, factTables),
+    projects: projects.filter((p) =>
+      hasReadAccess(currentUserPermissions, [p.id])
+    ),
+    factTables: factTables.filter((ft) =>
+      hasReadAccess(currentUserPermissions, ft.projects || [])
+    ),
     factMetrics,
   });
 }
@@ -1274,24 +1265,14 @@ export async function getApiKeys(req: AuthRequest, res: Response) {
   const teams = await getTeamsForOrganization(org.id);
 
   const currentUserPermissions = getUserPermissions(userId, org, teams || []);
+
   const keys = await getAllApiKeysByOrganization(org.id);
   const filteredKeys = keys.filter((k) => !k.userId || k.userId === req.userId);
 
-  const updatedFilteredKeys: ApiKeyInterfaceWithRequiredId[] = filteredKeys.map(
-    (key) => {
-      if (!key.id) {
-        // The filterResourceByAccessPermission requires the id field to be set
-        key.id = key.key;
-      }
-      return key as ApiKeyInterfaceWithRequiredId;
-    }
-  );
-
   res.status(200).json({
     status: 200,
-    keys: filterResourceByAccessPermission(
-      currentUserPermissions,
-      updatedFilteredKeys
+    keys: filteredKeys.filter((k) =>
+      hasReadAccess(currentUserPermissions, k.project ? [k.project] : [])
     ),
   });
 }
@@ -1483,9 +1464,8 @@ export async function getWebhooks(req: AuthRequest, res: Response) {
   });
   res.status(200).json({
     status: 200,
-    webhooks: filterResourceByAccessPermission(
-      currentUserPermissions,
-      webhooks
+    webhooks: webhooks.filter((w) =>
+      hasReadAccess(currentUserPermissions, w.project ? [w.project] : [])
     ),
   });
 }

@@ -1,6 +1,6 @@
 import type { Response } from "express";
 import { orgHasPremiumFeature } from "enterprise";
-import { getSDKConnectionsUserCanAccess } from "shared/permissions";
+import { hasReadAccess } from "shared/permissions";
 import { AuthRequest } from "../../types/AuthRequest";
 import { getOrgFromReq } from "../../services/organizations";
 import {
@@ -42,9 +42,8 @@ export const getSDKConnections = async (
   //TODO: Add filtering to the SDK connecions to filter based on projects
   res.status(200).json({
     status: 200,
-    connections: getSDKConnectionsUserCanAccess(
-      currentUserPermissions,
-      connections
+    connections: connections.filter((connection) =>
+      hasReadAccess(currentUserPermissions, connection.projects || [])
     ),
   });
 };
