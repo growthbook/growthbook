@@ -436,7 +436,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
       },
       confidenceLevel: (value.confidenceLevel ?? 0.95) / 100,
       multipleExposureMinPercent:
-        (value.multipleExposureMinPercent ?? 0.95) / 100,
+        (value.multipleExposureMinPercent ?? 0.01) / 100,
     };
 
     await apiCall(`/organization`, {
