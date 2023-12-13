@@ -94,7 +94,7 @@ const GetStartedPage = (): React.ReactElement => {
         <hr />
         <div className="mt-4">
           <h2 style={{ fontSize: "2em" }} className="mb-3">
-            Choose your destiny:
+            Choose your destiny
           </h2>
           <div className="text-center">
             <Tooltip
