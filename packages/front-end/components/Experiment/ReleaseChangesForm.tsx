@@ -14,11 +14,11 @@ import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { useUser } from "@/services/UserContext";
 import { useAuth } from "@/services/auth";
 import usePermissions from "@/hooks/usePermissions";
+import { DocLink } from "@/components/DocLink";
 import SelectField from "../Forms/SelectField";
 import Toggle from "../Forms/Toggle";
 import Tooltip from "../Tooltip/Tooltip";
 import { NewBucketingSDKList } from "./HashVersionSelector";
-import {DocLink} from "@/components/DocLink";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
@@ -420,6 +420,28 @@ export default function ReleaseChangesForm({ experiment, form }: Props) {
             Sticky Bucketing is {orgStickyBucketing ? "enabled" : "disabled"}{" "}
             for your organization
           </div>
+          <div className="small text-right">
+            Only supported in{" "}
+            <Tooltip
+              popperClassName="text-left"
+              body={
+                <>
+                  Sticky Bucketing is only supported in the following SDKs and
+                  versions:
+                  <ul>
+                    <li>Javascript &gt;= 0.32.0</li>
+                    <li>React &gt;= 0.22.0</li>
+                  </ul>
+                  Unsupported SDKs will fall back to standard hash-based
+                  bucketing.
+                </>
+              }
+            >
+              <span className="text-primary">
+                some SDK versions <FaQuestionCircle />
+              </span>
+            </Tooltip>
+          </div>
           {!stickyBucketingCTAOpen &&
           !orgStickyBucketing &&
           permissions.organizationSettings ? (
@@ -581,7 +603,9 @@ export default function ReleaseChangesForm({ experiment, form }: Props) {
                   your experiment.
                 </div>
                 <div className="text-right">
-                  <DocLink docSection="targetingChanges">View Documentation</DocLink>
+                  <DocLink docSection="targetingChanges">
+                    View Documentation
+                  </DocLink>
                 </div>
               </div>
               {/*todo: experiment level SB setting*/}

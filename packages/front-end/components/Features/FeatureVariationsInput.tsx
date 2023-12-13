@@ -165,10 +165,19 @@ export default function FeatureVariationsInput({
                         <p>
                           Prevent users from being bucketed into this variation.
                         </p>
-                        <p className="mb-0">
+                        <p>
                           Any users with sticky buckets who were already
                           bucketed in this variation will be excluded from the
                           experiment.
+                        </p>
+                        <p className="mb-0">
+                          <span
+                            className="badge badge-muted-info badge-pill mr-2 position-relative"
+                            style={{ zIndex: 1, fontSize: "10px" }}
+                          >
+                            SB
+                          </span>
+                          Requires Sticky Bucketing
                         </p>
                       </>
                     }
