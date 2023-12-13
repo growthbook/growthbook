@@ -13,6 +13,8 @@ import {
   UpdateColumnProps,
   UpdateFactTableProps,
   FactTableColumnType,
+  TestFactFilterProps,
+  FactFilterTestResults,
 } from "../../../types/fact-table";
 import {
   createFactTable,
@@ -56,7 +58,7 @@ async function testFilterQuery(
   datasource: DataSourceInterface,
   factTable: FactTableInterface,
   filter: string
-) {
+): Promise<FactFilterTestResults> {
   const integration = getSourceIntegrationObject(datasource, true);
 
   if (!integration.getTestQuery || !integration.runTestQuery) {
@@ -64,13 +66,24 @@ async function testFilterQuery(
   }
 
   const sql = integration.getTestQuery(
-    `SELECT timestamp FROM (${factTable.sql}) f WHERE ${filter}`,
+    `SELECT * FROM (${factTable.sql}) f WHERE ${filter}`,
     {
       eventName: factTable.eventName,
     }
   );
 
-  await integration.runTestQuery(sql);
+  try {
+    const results = await integration.runTestQuery(sql);
+    return {
+      sql,
+      ...results,
+    };
+  } catch (e) {
+    return {
+      sql,
+      error: e.message,
+    };
+  }
 }
 
 async function updateColumns(
@@ -259,6 +272,37 @@ export const putColumn = async (
   });
 };
 
+export const postFactFilterTest = async (
+  req: AuthRequest<TestFactFilterProps, { id: string }>,
+  res: Response<{
+    status: 200;
+    result: FactFilterTestResults;
+  }>
+) => {
+  const data = req.body;
+  const { org } = getOrgFromReq(req);
+
+  const factTable = await getFactTable(org.id, req.params.id);
+  if (!factTable) {
+    throw new Error("Could not find fact table with that id");
+  }
+
+  req.checkPermissions("manageFactTables", factTable.projects);
+
+  const datasource = await getDataSourceById(factTable.datasource, org.id);
+  if (!datasource) {
+    throw new Error("Could not find datasource");
+  }
+  req.checkPermissions("runQueries", datasource.projects || "");
+
+  const result = await testFilterQuery(datasource, factTable, data.value);
+
+  res.status(200).json({
+    status: 200,
+    result,
+  });
+};
+
 export const postFactFilter = async (
   req: AuthRequest<CreateFactFilterProps, { id: string }>,
   res: Response<{ status: 200; filterId: string }>
@@ -278,8 +322,6 @@ export const postFactFilter = async (
     throw new Error("Could not find datasource");
   }
   req.checkPermissions("runQueries", datasource.projects || "");
-
-  await testFilterQuery(datasource, factTable, data.value);
 
   const filter = await createFactFilter(factTable, data);
 
@@ -313,8 +355,6 @@ export const putFactFilter = async (
       throw new Error("Could not find datasource");
     }
     req.checkPermissions("runQueries", datasource.projects || "");
-
-    await testFilterQuery(datasource, factTable, data.value);
   }
 
   await updateFactFilter(factTable, req.params.filterId, data);
