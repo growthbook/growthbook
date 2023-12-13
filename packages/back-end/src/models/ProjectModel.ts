@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 import uniqid from "uniqid";
 import { DEFAULT_STATS_ENGINE } from "shared/constants";
 import { omit } from "lodash";
+import { ProjectAccessObject, hasProjectAccess } from "shared/permissions";
 import { ApiProject } from "../../types/openapi";
 import { ProjectInterface, ProjectSettings } from "../../types/project";
 
@@ -51,15 +52,39 @@ export async function createProject(
   });
   return toInterface(doc);
 }
-export async function findAllProjectsByOrganization(organization: string) {
+export async function findAllProjectsByOrganization(
+  organization: string,
+  projectFilter?: ProjectAccessObject // Change to readAccessFilter
+) {
   const docs = await ProjectModel.find({
     organization,
   });
-  return docs.map(toInterface);
+
+  const projects = docs.map(toInterface);
+
+  if (projectFilter) {
+    return projects.filter((p) => hasProjectAccess(projectFilter, [p.id]));
+  }
+
+  return projects;
 }
-export async function findProjectById(id: string, organization: string) {
+export async function findProjectById(
+  id: string,
+  organization: string,
+  projectFilter?: ProjectAccessObject
+) {
   const doc = await ProjectModel.findOne({ id, organization });
-  return doc ? toInterface(doc) : null;
+
+  if (!doc) {
+    return null;
+  }
+
+  const project = toInterface(doc);
+
+  if (project && projectFilter) {
+    return hasProjectAccess(projectFilter, [project.id]) ? project : null;
+  }
+  return project;
 }
 export async function deleteProjectById(id: string, organization: string) {
   await ProjectModel.deleteOne({

@@ -8,7 +8,7 @@ import {
   getLicense,
   setLicense,
 } from "enterprise";
-import { getProjectAccess, hasReadAccess } from "shared/permissions";
+import { getProjectAccess } from "shared/permissions";
 import {
   AuthRequest,
   ResponseWithStatusAndError,
@@ -149,45 +149,36 @@ export async function getDefinitions(req: AuthRequest, res: Response) {
     findSegmentsByOrganization(orgId),
     getAllTags(orgId),
     getAllSavedGroups(orgId),
-    findAllProjectsByOrganization(orgId),
+    findAllProjectsByOrganization(orgId, projectAccess),
     getAllFactTablesForOrganization(orgId),
     getAllFactMetricsForOrganization(orgId), //TODO: Check if these have projects
   ]);
 
   return res.status(200).json({
     status: 200,
-    // metrics: metrics.filter((m) =>
-    //   hasReadAccess(currentUserPermissions, m.projects || [])
-    // ),
     metrics,
-    datasources: datasources
-      .filter((d) => hasReadAccess(currentUserPermissions, d.projects || []))
-      .map((d) => {
-        const integration = getSourceIntegrationObject(d);
-        return {
-          id: d.id,
-          name: d.name,
-          description: d.description,
-          type: d.type,
-          settings: d.settings,
-          params: getNonSensitiveParams(integration),
-          projects: d.projects || [],
-          properties: integration.getSourceProperties(),
-          decryptionError: integration.decryptionError || false,
-          dateCreated: d.dateCreated,
-          dateUpdated: d.dateUpdated,
-        };
-      }),
+    datasources: datasources.map((d) => {
+      const integration = getSourceIntegrationObject(d);
+      return {
+        id: d.id,
+        name: d.name,
+        description: d.description,
+        type: d.type,
+        settings: d.settings,
+        params: getNonSensitiveParams(integration),
+        projects: d.projects || [],
+        properties: integration.getSourceProperties(),
+        decryptionError: integration.decryptionError || false,
+        dateCreated: d.dateCreated,
+        dateUpdated: d.dateUpdated,
+      };
+    }),
     dimensions,
     segments,
     tags,
     savedGroups,
-    projects: projects.filter((p) =>
-      hasReadAccess(currentUserPermissions, [p.id])
-    ),
-    factTables: factTables.filter((ft) =>
-      hasReadAccess(currentUserPermissions, ft.projects || [])
-    ),
+    projects,
+    factTables,
     factMetrics,
   });
 }
@@ -1267,18 +1258,18 @@ export async function putOrganization(
 export async function getApiKeys(req: AuthRequest, res: Response) {
   const { org, userId } = getOrgFromReq(req);
 
-  const teams = await getTeamsForOrganization(org.id);
+  // const teams = await getTeamsForOrganization(org.id);
 
-  const currentUserPermissions = getUserPermissions(userId, org, teams || []);
+  // const currentUserPermissions = getUserPermissions(userId, org, teams || []);
+
+  // const projectAccess = getProjectAccess(currentUserPermissions);
 
   const keys = await getAllApiKeysByOrganization(org.id);
   const filteredKeys = keys.filter((k) => !k.userId || k.userId === req.userId);
 
   res.status(200).json({
     status: 200,
-    keys: filteredKeys.filter((k) =>
-      hasReadAccess(currentUserPermissions, k.project ? [k.project] : [])
-    ),
+    keys: filteredKeys,
   });
 }
 
@@ -1469,9 +1460,7 @@ export async function getWebhooks(req: AuthRequest, res: Response) {
   });
   res.status(200).json({
     status: 200,
-    webhooks: webhooks.filter((w) =>
-      hasReadAccess(currentUserPermissions, w.project ? [w.project] : [])
-    ),
+    webhooks,
   });
 }
 

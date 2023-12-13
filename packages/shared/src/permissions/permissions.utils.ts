@@ -28,34 +28,6 @@ export function hasPermission(
   );
 }
 
-export function hasReadAccess(
-  currentUserPermissions: UserPermissions,
-  resourceProjects: string[]
-): boolean {
-  const usersGlobalRoleHasReadPermissions =
-    currentUserPermissions.global.permissions.readData || false;
-  const userHasProjectSpecificPermissions = !!Object.keys(
-    currentUserPermissions.projects
-  ).length;
-
-  if (!userHasProjectSpecificPermissions || !resourceProjects.length) {
-    return usersGlobalRoleHasReadPermissions;
-  }
-
-  // if the user's global permissions allow them to read data AND the user has read access to atleast 1 project the resource is connected to, return true
-  if (usersGlobalRoleHasReadPermissions) {
-    return resourceProjects.every(
-      (project) =>
-        currentUserPermissions.projects[project]?.permissions.readData === true
-    );
-  } else {
-    return resourceProjects.some(
-      (project) =>
-        currentUserPermissions.projects[project]?.permissions.readData === true
-    );
-  }
-}
-
 export function roleSupportsEnvLimit(role: MemberRole): boolean {
   return ["engineer", "experimenter"].includes(role);
 }
@@ -82,6 +54,7 @@ export function getProjectAccess(userPermissions: UserPermissions) {
   return projectAccess;
 }
 
+// Change to hasReadAccess?
 export function hasProjectAccess(
   projectAccess: ProjectAccessObject,
   resourceProjects: string[]
@@ -91,44 +64,24 @@ export function hasProjectAccess(
   }
 
   if (projectAccess.globalReadAccess) {
-    let hasAccess = false;
-    //TODO: Figure out this logic below
-    // The user has global read access - now. Return true unless every project in the resourceProjects array
-    resourceProjects.forEach((project) => {
+    return resourceProjects.every((project) => {
       const projectAccessIndex = projectAccess.projects.findIndex(
         (projectAccess) => projectAccess.id === project
       );
-
-      if (
-        projectAccessIndex !== -1 &&
-        projectAccess.projects[projectAccessIndex].readAccess === true
-      ) {
-        hasAccess = true;
+      if (projectAccessIndex === -1) {
+        return true;
       }
+      return projectAccess.projects[projectAccessIndex].readAccess || false;
     });
-    return hasAccess;
   } else {
-    let hasAccess = false;
-
-    resourceProjects.forEach((project) => {
+    return resourceProjects.some((project) => {
       const projectAccessIndex = projectAccess.projects.findIndex(
         (projectAccess) => projectAccess.id === project
       );
-
-      if (
-        projectAccessIndex !== -1 &&
-        projectAccess.projects[projectAccessIndex].readAccess === true
-      ) {
-        hasAccess = true;
+      if (projectAccessIndex === -1) {
+        return false;
       }
+      return projectAccess.projects[projectAccessIndex].readAccess === true;
     });
-    return hasAccess;
   }
-
-  // The user's global role DOES NOT have read access
-  // Return true IF the user has read access to atleast 1 project in the resourceProjects array
-
-  // The user does not have global read access, check if the user has access to any of the resource's projects
-  // If the user has access to atleast 1 project, return true
-  // If the user does not have access to any of the resource's projects, return false
 }
