@@ -156,38 +156,22 @@ export default function FactFilterModal({ existing, factTable, close }: Props) {
             minRows={1}
             helpText={
               <>
-                Will be inserted into a WHERE clause to limit rows included in a
-                fact or metric
+                When this filter is added to a metric, this will be inserted
+                into the WHERE clause.{" "}
+                <a
+                  href="#"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setShowExamples(!showExamples);
+                  }}
+                >
+                  {showExamples ? "Hide" : "Show"} examples{" "}
+                  {showExamples ? <FaAngleDown /> : <FaAngleRight />}
+                </a>
               </>
             }
             {...form.register("value")}
           />
-
-          <div className="d-flex align-items-center">
-            <Button
-              color="primary"
-              className="btn-sm mr-4"
-              onClick={async () => {
-                await testQuery(form.watch("value"));
-              }}
-            >
-              <span className="pr-2">
-                <FaPlay />
-              </span>
-              Test Query
-            </Button>
-
-            <a
-              href="#"
-              onClick={(e) => {
-                e.preventDefault();
-                setShowExamples(!showExamples);
-              }}
-            >
-              {showExamples ? "Hide" : "Show"} examples{" "}
-              {showExamples ? <FaAngleDown /> : <FaAngleRight />}
-            </a>
-          </div>
 
           {showExamples && (
             <div className="alert alert-info">
@@ -219,6 +203,19 @@ export default function FactFilterModal({ existing, factTable, close }: Props) {
               </table>
             </div>
           )}
+
+          <Button
+            color="primary"
+            className="btn-sm mr-4"
+            onClick={async () => {
+              await testQuery(form.watch("value"));
+            }}
+          >
+            <span className="pr-2">
+              <FaPlay />
+            </span>
+            Test Query
+          </Button>
         </div>
         {factTable.columns?.some((col) => !col.deleted) ? (
           <div className="col-auto border-left">
