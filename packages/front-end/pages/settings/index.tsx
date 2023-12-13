@@ -20,7 +20,7 @@ import {
 } from "shared/constants";
 import { OrganizationSettings } from "@/../back-end/types/organization";
 import Link from "next/link";
-import { useFeatureIsOn, useGrowthBook } from "@growthbook/growthbook-react";
+import { useGrowthBook } from "@growthbook/growthbook-react";
 import { useAuth } from "@/services/auth";
 import EditOrganizationModal from "@/components/Settings/EditOrganizationModal";
 import BackupConfigYamlButton from "@/components/Settings/BackupConfigYamlButton";
@@ -254,7 +254,6 @@ const GeneralSettingsPage = (): React.ReactElement => {
   const displayCurrency = useCurrency();
   const growthbook = useGrowthBook<AppFeatures>();
   const { datasources } = useDefinitions();
-  const healthTabSettingsEnabled = useFeatureIsOn<AppFeatures>("health-tab");
 
   const currencyOptions = Object.entries(
     supportedCurrencies
@@ -287,7 +286,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
       ? "Pro"
       : accountPlan === "pro_sso"
       ? "Pro + SSO"
-      : "Starter") + (license && license.trial ? " (trial)" : "");
+      : "Starter") + (license && license.isTrial ? " (trial)" : "");
 
   const form = useForm<OrganizationSettingsWithMetricDefaults>({
     defaultValues: {
@@ -318,7 +317,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
         hours: 6,
         cron: "0 */6 * * *",
       },
-      runHealthTrafficQuery: true,
+      runHealthTrafficQuery: false,
       srmThreshold: DEFAULT_SRM_THRESHOLD,
       multipleExposureMinPercent: 0.01,
       confidenceLevel: 0.95,
@@ -672,15 +671,21 @@ const GeneralSettingsPage = (): React.ReactElement => {
                           <>
                             <div className="col-sm-2">
                               <div>Issued:</div>
-                              <span className="text-muted">{license.iat}</span>
+                              <span className="text-muted">
+                                {license.dateCreated}
+                              </span>
                             </div>
                             <div className="col-sm-2">
                               <div>Expires:</div>
-                              <span className="text-muted">{license.exp}</span>
+                              <span className="text-muted">
+                                {license.dateExpires}
+                              </span>
                             </div>
                             <div className="col-sm-2">
                               <div>Seats:</div>
-                              <span className="text-muted">{license.qty}</span>
+                              <span className="text-muted">
+                                {license.seats}
+                              </span>
                             </div>
                           </>
                         )}
@@ -926,64 +931,6 @@ const GeneralSettingsPage = (): React.ReactElement => {
                       </div>
                     )}
                   </div>
-                  {healthTabSettingsEnabled && (
-                    <>
-                      <div>
-                        <label
-                          className="mr-1"
-                          htmlFor="toggle-runHealthTrafficQuery"
-                        >
-                          Run traffic query by default
-                        </label>
-                      </div>
-                      <div>
-                        <Toggle
-                          id={"toggle-runHealthTrafficQuery"}
-                          value={!!form.watch("runHealthTrafficQuery")}
-                          setValue={(value) => {
-                            form.setValue("runHealthTrafficQuery", value);
-                          }}
-                        />
-                      </div>
-
-                      <Field
-                        label="SRM threshold"
-                        type="number"
-                        step="0.001"
-                        style={{
-                          borderColor: srmHighlightColor,
-                          backgroundColor: srmHighlightColor
-                            ? srmHighlightColor + "15"
-                            : "",
-                        }}
-                        max="0.1"
-                        min="0.00001"
-                        className={`ml-2`}
-                        containerClassName="mb-3"
-                        append=""
-                        disabled={hasFileConfig()}
-                        helpText={
-                          <>
-                            <span className="ml-2">(0.001 is default)</span>
-                            <div
-                              className="ml-2"
-                              style={{
-                                color: srmHighlightColor,
-                                flexBasis: "100%",
-                              }}
-                            >
-                              {srmWarningMsg}
-                            </div>
-                          </>
-                        }
-                        {...form.register("srmThreshold", {
-                          valueAsNumber: true,
-                          min: 0,
-                          max: 1,
-                        })}
-                      />
-                    </>
-                  )}
 
                   <StatsEngineSelect
                     label="Default Statistics Engine"
@@ -1300,15 +1247,72 @@ const GeneralSettingsPage = (): React.ReactElement => {
                     </Tab>
                   </ControlledTabs>
                 </div>
+                <h4 className="mt-4 mb-2">Experiment Health Settings</h4>
+                <div className="tab-content border mb-3 p-3">
+                  <Tab display="health">
+                    <div className="form-group mb-2 mt-2 mr-2 form-inline">
+                      <label
+                        className="mr-1"
+                        htmlFor="toggle-runHealthTrafficQuery"
+                      >
+                        Run traffic query by default
+                      </label>
+                      <Toggle
+                        id={"toggle-runHealthTrafficQuery"}
+                        value={!!form.watch("runHealthTrafficQuery")}
+                        setValue={(value) => {
+                          form.setValue("runHealthTrafficQuery", value);
+                        }}
+                      />
+                    </div>
+
+                    <div className="mt-3 form-inline flex-column align-items-start">
+                      <Field
+                        label="SRM p-value threshold"
+                        type="number"
+                        step="0.001"
+                        style={{
+                          borderColor: srmHighlightColor,
+                          backgroundColor: srmHighlightColor
+                            ? srmHighlightColor + "15"
+                            : "",
+                        }}
+                        max="0.1"
+                        min="0.00001"
+                        className={`ml-2`}
+                        containerClassName="mb-3"
+                        append=""
+                        disabled={hasFileConfig()}
+                        helpText={
+                          <>
+                            <span className="ml-2">(0.001 is default)</span>
+                            <div
+                              className="ml-2"
+                              style={{
+                                color: srmHighlightColor,
+                                flexBasis: "100%",
+                              }}
+                            >
+                              {srmWarningMsg}
+                            </div>
+                          </>
+                        }
+                        {...form.register("srmThreshold", {
+                          valueAsNumber: true,
+                          min: 0,
+                          max: 1,
+                        })}
+                      />
+                    </div>
+                  </Tab>
+                </div>
                 <div className="mb-3 form-group flex-column align-items-start">
                   <PremiumTooltip
                     className="d-flex align-items-center"
                     commercialFeature="custom-launch-checklist"
                     body="Custom pre-launch checklists are available to Enterprise customers"
                   >
-                    <h4 className="mb-0 pl-1">
-                      Experiment Pre-Launch Checklist
-                    </h4>
+                    <h4 className="mb-0">Experiment Pre-Launch Checklist</h4>
                   </PremiumTooltip>
                   <p className="pt-2">
                     Configure required steps that need to be completed before an

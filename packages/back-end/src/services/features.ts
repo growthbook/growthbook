@@ -10,11 +10,7 @@ import {
   GrowthBook,
 } from "@growthbook/growthbook";
 import { validateFeatureValue } from "shared/util";
-import {
-  scrubExperiments,
-  scrubFeatures,
-  SDKCapability,
-} from "shared/sdk-versioning";
+import { scrubFeatures, SDKCapability } from "shared/sdk-versioning";
 import {
   AutoExperimentWithProject,
   FeatureDefinition,
@@ -394,21 +390,13 @@ async function getFeatureDefinitionsResponse({
   // todo: enable once done monitoring deltas:
   // =========================================
   // features = scrubFeatures(features, capabilities);
-  // experiments = scrubExperiments(experiments, capabilities);
 
   // todo: remove:
   const scrubbedFeatures = scrubFeatures(features, capabilities);
-  const scrubbedExperiments = scrubExperiments(experiments, capabilities);
-  if (JSON.stringify(scrubbedFeatures) !== JSON.stringify(features)) {
+  if (!isEqual(scrubbedFeatures, features)) {
     logger.error(
       { scrubbedFeatures, features, capabilities },
       "scrubbedFeatures delta"
-    );
-  }
-  if (JSON.stringify(scrubbedExperiments) !== JSON.stringify(experiments)) {
-    logger.error(
-      { scrubbedExperiments, experiments, capabilities },
-      "scrubbedExperiments delta"
     );
   }
   // end remove
