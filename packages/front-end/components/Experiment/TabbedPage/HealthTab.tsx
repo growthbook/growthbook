@@ -59,7 +59,6 @@ export default function HealthTab({
   const healthTabConfigParams: HealthTabConfigParams = {
     experiment,
     phase,
-    exposureQueryDimensions: exposureQuery?.dimensions || [],
     refreshOrganization,
     mutateSnapshot,
     setAnalysisSettings,
@@ -86,12 +85,24 @@ export default function HealthTab({
     [onDrawerNotify]
   );
 
-  // If org has not updated settings since the health tab was introduced, prompt the user
-  // to enable the traffic query setting
+  // If org has the health tab turned to off and has no data, prompt set up if the
+  // datasource and exposure query are present
   if (
     !runHealthTrafficQuery &&
     !snapshot?.health?.traffic.dimension?.dim_exposure_date
   ) {
+    // If for some reason the datasource and exposure query are missing, then we should
+    // not show the onboarding flow as there are other problems with this experiment
+    if (!datasource || !exposureQuery) {
+      return (
+        <div className="alert alert-info mt-3 d-flex">
+          We cannot set up your health tab because either your datasource or
+          experiment assignment query is missing. Ensure in your experiment
+          analysis settings on the results tab that you have selected an
+          Experiment Assignment Table.
+        </div>
+      );
+    }
     return (
       <div className="alert alert-info mt-3 d-flex">
         {runHealthTrafficQuery === undefined
@@ -114,6 +125,8 @@ export default function HealthTab({
               <HealthTabOnboardingModal
                 open={setupModalOpen}
                 close={() => setSetupModalOpen(false)}
+                dataSource={datasource}
+                exposureQuery={exposureQuery}
                 healthTabOnboardingPurpose={"setup"}
                 healthTabConfigParams={healthTabConfigParams}
               />
@@ -207,6 +220,8 @@ export default function HealthTab({
           variations={variations}
           totalUsers={totalUsers}
           onNotify={handleDrawerNotify}
+          dataSource={datasource}
+          exposureQuery={exposureQuery}
           healthTabConfigParams={healthTabConfigParams}
         />
       </div>
