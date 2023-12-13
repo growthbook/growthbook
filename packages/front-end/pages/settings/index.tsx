@@ -822,19 +822,24 @@ const GeneralSettingsPage = (): React.ReactElement => {
                   />
 
                   <Field
-                    label="Warn when this percent of experiment users are in multiple variations"
+                    label="Warn when this proportion of experiment users are in multiple variations"
                     type="number"
                     step="any"
                     min="0"
                     max="1"
                     className="ml-2"
                     containerClassName="mb-3"
-                    append="%"
+                    append=""
                     style={{
                       width: "80px",
                     }}
                     disabled={hasFileConfig()}
-                    helpText={<span className="ml-2">from 0 to 1</span>}
+                    helpText={
+                      <span className="ml-2">{`(${
+                        (form.getValues("multipleExposureMinPercent") ?? 0.01) *
+                        100
+                      }% of users)`}</span>
+                    }
                     {...form.register("multipleExposureMinPercent", {
                       valueAsNumber: true,
                       min: 0,
