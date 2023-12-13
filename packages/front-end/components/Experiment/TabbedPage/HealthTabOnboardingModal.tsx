@@ -74,17 +74,12 @@ export const HealthTabOnboardingModal: FC<HealthTabOnboardingModalProps> = ({
   const exposureQuery = dataSource.settings.queries?.exposure?.find(
     (e) => e.id === experiment.exposureQueryId
   );
-  if (!exposureQuery) {
-    throw new Error("Exposure Query Not Found");
-  }
 
-  const metadataId = exposureQuery.dimensionSlicesId;
+  const metadataId = exposureQuery?.dimensionSlicesId;
   const dataSourceId = dataSource.id;
-  const exposureQueryId = exposureQuery.id;
+  const exposureQueryId = exposureQuery?.id;
 
-  const [id, setId] = useState<string | null>(
-    exposureQuery.dimensionSlicesId || null
-  );
+  const [id, setId] = useState<string | null>(metadataId || null);
   const { data, error, mutate } = useApi<{
     dimensionSlices: DimensionSlicesInterface;
   }>(`/dimension-slices/${id}`);
@@ -110,7 +105,7 @@ export const HealthTabOnboardingModal: FC<HealthTabOnboardingModalProps> = ({
           specifiedSlices: r.dimensionSlices.map((dv) => dv.name),
         })),
       };
-      await apiCall(`/datasource/${dataSource.id}/${exposureQuery.id}`, {
+      await apiCall(`/datasource/${dataSource.id}/${exposureQueryId}`, {
         method: "PUT",
         body: JSON.stringify({ updates }),
       });
@@ -150,7 +145,7 @@ export const HealthTabOnboardingModal: FC<HealthTabOnboardingModalProps> = ({
     () =>
       getLatestDimensionSlices(
         dataSourceId,
-        exposureQueryId,
+        exposureQueryId ?? "",
         metadataId,
         apiCall,
         setId,
@@ -232,7 +227,7 @@ export const HealthTabOnboardingModal: FC<HealthTabOnboardingModalProps> = ({
         <button
           className={`btn btn-primary`}
           type="submit"
-          onClick={() => setStep(showDimensionsPage ? 1 : 2)}
+          onClick={() => setStep(showDimensionsPage && exposureQuery ? 1 : 2)}
         >
           {"Next >"}
         </button>
@@ -250,16 +245,20 @@ export const HealthTabOnboardingModal: FC<HealthTabOnboardingModalProps> = ({
               Health Tab for traffic and experiment balance checks.
             </div>
             <div className="row">
-              <DimensionSlicesRunner
-                dimensionSlices={data?.dimensionSlices}
-                status={status}
-                id={id}
-                setId={setId}
-                mutate={mutate}
-                dataSource={dataSource}
-                exposureQuery={exposureQuery}
-                source={source}
-              />
+              {exposureQuery ? (
+                <DimensionSlicesRunner
+                  dimensionSlices={data?.dimensionSlices}
+                  status={status}
+                  id={id}
+                  setId={setId}
+                  mutate={mutate}
+                  dataSource={dataSource}
+                  exposureQuery={exposureQuery}
+                  source={source}
+                />
+              ) : (
+                "No Experiment Assignment Query found for this experiment. Please 'skip' this step."
+              )}
             </div>
           </div>
         </>
