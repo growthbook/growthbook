@@ -6,7 +6,11 @@ import {
   MetricRegressionAdjustmentStatus,
 } from "back-end/types/report";
 import { ExperimentStatus, MetricOverride } from "back-end/types/experiment";
-import { PValueCorrection, StatsEngine } from "back-end/types/stats";
+import {
+  DifferenceType,
+  PValueCorrection,
+  StatsEngine,
+} from "back-end/types/stats";
 import Link from "next/link";
 import { FaAngleRight, FaTimes, FaUsers } from "react-icons/fa";
 import Collapsible from "react-collapsible";
@@ -33,6 +37,7 @@ import DataQualityWarning from "./DataQualityWarning";
 import ResultsTable from "./ResultsTable";
 import MultipleExposureWarning from "./MultipleExposureWarning";
 import VariationUsersTable from "./TabbedPage/VariationUsersTable";
+import { ExperimentTab } from "./TabbedPage";
 
 const numberFormatter = Intl.NumberFormat();
 
@@ -57,9 +62,11 @@ const CompactResults: FC<{
   regressionAdjustmentEnabled?: boolean;
   metricRegressionAdjustmentStatuses?: MetricRegressionAdjustmentStatus[];
   sequentialTestingEnabled?: boolean;
+  differenceType: DifferenceType;
   metricFilter?: ResultsMetricFilters;
   setMetricFilter?: (filter: ResultsMetricFilters) => void;
   isTabActive: boolean;
+  setTab?: (tab: ExperimentTab) => void;
 }> = ({
   editMetrics,
   variations,
@@ -81,9 +88,11 @@ const CompactResults: FC<{
   regressionAdjustmentEnabled,
   metricRegressionAdjustmentStatuses,
   sequentialTestingEnabled,
+  differenceType,
   metricFilter,
   setMetricFilter,
   isTabActive,
+  setTab,
 }) => {
   const { getExperimentMetricById, ready } = useDefinitions();
   const pValueThreshold = usePValueThreshold();
@@ -204,16 +213,24 @@ const CompactResults: FC<{
             }
             transitionTime={100}
           >
-            <VariationUsersTable
-              variations={variations}
-              users={variationUsers}
-            />
+            <div style={{ maxWidth: "800px" }}>
+              <VariationUsersTable
+                variations={variations}
+                users={variationUsers}
+                srm={results.srm}
+              />
+            </div>
           </Collapsible>
         </div>
       )}
 
       <div className="mx-3">
-        <DataQualityWarning results={results} variations={variations} />
+        <DataQualityWarning
+          results={results}
+          variations={variations}
+          linkToHealthTab
+          setTab={setTab}
+        />
         <MultipleExposureWarning
           users={users}
           multipleExposures={multipleExposures}
@@ -237,6 +254,7 @@ const CompactResults: FC<{
         statsEngine={statsEngine}
         sequentialTestingEnabled={sequentialTestingEnabled}
         pValueCorrection={pValueCorrection}
+        differenceType={differenceType}
         renderLabelColumn={getRenderLabelColumn(regressionAdjustmentEnabled)}
         metricFilter={metricFilter}
         setMetricFilter={setMetricFilter}
@@ -265,6 +283,7 @@ const CompactResults: FC<{
             statsEngine={statsEngine}
             sequentialTestingEnabled={sequentialTestingEnabled}
             pValueCorrection={pValueCorrection}
+            differenceType={differenceType}
             renderLabelColumn={getRenderLabelColumn(
               regressionAdjustmentEnabled
             )}

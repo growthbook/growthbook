@@ -11,6 +11,7 @@ export type Props = {
   sql: string;
   error: string;
   close: () => void;
+  expandable?: boolean;
 };
 
 export default function DisplayTestQueryResults({
@@ -19,6 +20,7 @@ export default function DisplayTestQueryResults({
   sql,
   error,
   close,
+  expandable,
 }: Props) {
   const cols = Object.keys(results?.[0] || {});
 
@@ -114,7 +116,12 @@ export default function DisplayTestQueryResults({
                 </div>
               )
             )}
-            <Code code={sql} language="sql" errorLine={errorLine} />
+            <Code
+              code={sql}
+              language="sql"
+              errorLine={errorLine}
+              expandable={expandable}
+            />
           </div>
         </Tab>
       </ControlledTabs>

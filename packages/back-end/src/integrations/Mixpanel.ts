@@ -9,6 +9,8 @@ import { MetricInterface, MetricType } from "../../types/metric";
 import { decryptDataSourceParams } from "../services/datasource";
 import { formatQuery, runQuery } from "../services/mixpanel";
 import {
+  DimensionSlicesQueryResponse,
+  ExperimentAggregateUnitsQueryResponse,
   ExperimentMetricQueryResponse,
   ExperimentQueryResponses,
   ExperimentUnitsQueryResponse,
@@ -54,6 +56,12 @@ export default class Mixpanel implements SourceIntegrationInterface {
     };
   }
   getExperimentMetricQuery(): string {
+    throw new Error("Method not implemented.");
+  }
+  getExperimentAggregateUnitsQuery(): string {
+    throw new Error("Method not implemented.");
+  }
+  runExperimentAggregateUnitsQuery(): Promise<ExperimentAggregateUnitsQueryResponse> {
     throw new Error("Method not implemented.");
   }
   runExperimentMetricQuery(): Promise<ExperimentMetricQueryResponse> {
@@ -542,6 +550,12 @@ export default class Mixpanel implements SourceIntegrationInterface {
     throw new Error("Method not implemented.");
   }
   async runPastExperimentQuery(): Promise<PastExperimentQueryResponse> {
+    throw new Error("Method not implemented.");
+  }
+  getDimensionSlicesQuery(): string {
+    throw new Error("Method not implemented.");
+  }
+  async runDimensionSlicesQuery(): Promise<DimensionSlicesQueryResponse> {
     throw new Error("Method not implemented.");
   }
   getSensitiveParamKeys(): string[] {

@@ -4,7 +4,7 @@ import { ExperimentTableRow, getRiskByVariation } from "@/services/experiments";
 import {
   defaultLoseRiskThreshold,
   defaultWinRiskThreshold,
-  formatMetricValue,
+  getExperimentMetricFormatter,
 } from "@/services/metrics";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import { useCurrency } from "@/hooks/useCurrency";
@@ -58,11 +58,9 @@ export default function RiskColumn({
         <div>
           <small className="text-muted">
             <em>
-              {formatMetricValue(
-                row.metric,
+              {getExperimentMetricFormatter(row.metric, getFactTableById)(
                 risk,
-                getFactTableById,
-                displayCurrency
+                { currency: displayCurrency }
               )}
               &nbsp;/&nbsp;user
             </em>

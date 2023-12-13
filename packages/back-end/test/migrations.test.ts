@@ -5,6 +5,7 @@ import {
   DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
   DEFAULT_STATS_ENGINE,
 } from "shared/constants";
+import omit from "lodash/omit";
 import { LegacyMetricInterface, MetricInterface } from "../types/metric";
 import {
   migrateSnapshot,
@@ -129,6 +130,42 @@ describe("Metric Migration", () => {
     expect(upgradeMetricDoc(capZeroMetric)).toEqual({
       ...baseMetric,
     });
+  });
+
+  it("doesn't overwrite new capping settings", () => {
+    const baseMetric: LegacyMetricInterface = {
+      datasource: "",
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
+      description: "",
+      id: "",
+      ignoreNulls: false,
+      inverse: false,
+      name: "",
+      organization: "",
+      owner: "",
+      queries: [],
+      runStarted: null,
+      capping: "percentile",
+      capValue: 0.99,
+      type: "binomial",
+      userIdColumns: {
+        user_id: "user_id",
+        anonymous_id: "anonymous_id",
+      },
+      userIdTypes: ["anonymous_id", "user_id"],
+    };
+
+    expect(upgradeMetricDoc({ ...baseMetric, cap: 35 })).toEqual({
+      ...baseMetric,
+    });
+
+    expect(upgradeMetricDoc({ ...baseMetric, capping: null, cap: 35 })).toEqual(
+      {
+        ...baseMetric,
+        capping: null,
+      }
+    );
   });
 
   it("updates old metric objects - userIdType", () => {
@@ -444,21 +481,45 @@ describe("Feature Migration", () => {
     const origFeature: LegacyFeatureInterface = {
       dateCreated: new Date(),
       dateUpdated: new Date(),
-      organization: "",
+      organization: "org_123",
       owner: "",
       defaultValue: "true",
       valueType: "boolean",
-      id: "",
+      id: "test",
+      revision: {
+        comment: "",
+        date: new Date(),
+        publishedBy: { email: "", id: "", name: "" },
+        version: 8,
+      },
+      draft: {
+        active: true,
+        defaultValue: "false",
+      },
     } as any;
 
-    expect(
-      upgradeFeatureInterface({
-        ...origFeature,
-        environments: ["dev"],
-        rules: [rule],
-      })
-    ).toEqual({
-      ...origFeature,
+    const expected: FeatureInterface = {
+      ...omit(origFeature, ["draft", "revision"]),
+      version: 8,
+      legacyDraft: {
+        baseVersion: 8,
+        comment: "",
+        dateCreated: origFeature.dateCreated,
+        datePublished: null,
+        dateUpdated: origFeature.dateUpdated,
+        defaultValue: "false",
+        featureId: "test",
+        organization: "org_123",
+        createdBy: null,
+        publishedBy: null,
+        rules: {
+          dev: [rule],
+          production: [rule],
+        },
+        status: "draft",
+        version: 9,
+      },
+      hasDrafts: true,
       environmentSettings: {
         dev: {
           enabled: true,
@@ -469,7 +530,15 @@ describe("Feature Migration", () => {
           rules: [rule],
         },
       },
-    });
+    };
+
+    expect(
+      upgradeFeatureInterface({
+        ...origFeature,
+        environments: ["dev"],
+        rules: [rule],
+      })
+    ).toEqual(expected);
   });
 
   it("doesn't overwrite new feature objects", () => {
@@ -477,6 +546,7 @@ describe("Feature Migration", () => {
       dateCreated: new Date(),
       dateUpdated: new Date(),
       organization: "",
+      version: 1,
       owner: "",
       defaultValue: "true",
       valueType: "boolean",
@@ -516,104 +586,6 @@ describe("Feature Migration", () => {
     ).toEqual(origFeature);
   });
 
-  it("keeps drafts when default value changed", () => {
-    const origFeature: LegacyFeatureInterface = {
-      dateCreated: new Date(),
-      dateUpdated: new Date(),
-      organization: "",
-      owner: "",
-      defaultValue: "true",
-      valueType: "boolean",
-      id: "",
-      environmentSettings: {
-        dev: {
-          enabled: false,
-          rules: [],
-        },
-        production: {
-          enabled: true,
-          rules: [
-            {
-              id: "fr_1234",
-              type: "force",
-              value: "true",
-              description: "",
-            },
-          ],
-        },
-      },
-      draft: {
-        active: true,
-        defaultValue: "false",
-        dateCreated: new Date(),
-        dateUpdated: new Date(),
-        rules: {
-          production: [
-            {
-              id: "fr_1234",
-              type: "force",
-              value: "true",
-              description: "",
-            },
-          ],
-        },
-      },
-    };
-
-    expect(upgradeFeatureInterface(cloneDeep(origFeature))).toEqual(
-      origFeature
-    );
-  });
-
-  it("keeps drafts when rules changed", () => {
-    const origFeature: LegacyFeatureInterface = {
-      dateCreated: new Date(),
-      dateUpdated: new Date(),
-      organization: "",
-      owner: "",
-      defaultValue: "true",
-      valueType: "boolean",
-      id: "",
-      environmentSettings: {
-        dev: {
-          enabled: false,
-          rules: [],
-        },
-        production: {
-          enabled: true,
-          rules: [
-            {
-              id: "fr_1234",
-              type: "force",
-              value: "true",
-              description: "",
-            },
-          ],
-        },
-      },
-      draft: {
-        active: true,
-        defaultValue: "true",
-        dateCreated: new Date(),
-        dateUpdated: new Date(),
-        rules: {
-          production: [
-            {
-              id: "fr_1234",
-              type: "force",
-              value: "false",
-              description: "",
-            },
-          ],
-        },
-      },
-    };
-
-    expect(upgradeFeatureInterface(cloneDeep(origFeature))).toEqual(
-      origFeature
-    );
-  });
-
   it("discards drafts when nothing is changed", () => {
     const origFeature: LegacyFeatureInterface = {
       dateCreated: new Date(),
@@ -623,6 +595,7 @@ describe("Feature Migration", () => {
       defaultValue: "true",
       valueType: "boolean",
       id: "",
+      version: 1,
       environmentSettings: {
         dev: {
           enabled: false,
@@ -660,9 +633,7 @@ describe("Feature Migration", () => {
 
     expect(upgradeFeatureInterface(cloneDeep(origFeature))).toEqual({
       ...origFeature,
-      draft: {
-        active: false,
-      },
+      draft: undefined,
     });
   });
 
@@ -800,6 +771,7 @@ describe("Feature Migration", () => {
       defaultValue: "true",
       valueType: "boolean",
       id: "",
+      version: 1,
       environmentSettings: {
         prod: {
           enabled: true,
@@ -810,25 +782,14 @@ describe("Feature Migration", () => {
           rules: [origRule],
         },
       },
-      draft: {
-        active: true,
-        rules: {
-          dev: [origRule],
-        },
-      },
     };
 
     const newFeature = upgradeFeatureInterface(cloneDeep(origFeature));
 
     if (!newFeature.environmentSettings)
       throw new Error("newFeature.environmentSettings is undefined");
-    if (!newFeature.draft) throw new Error("newFeature.draft is undefined");
-    if (!newFeature.draft.rules)
-      throw new Error("newFeature.draft.rules is undefined");
-
     expect(newFeature.environmentSettings["prod"].rules[0]).toEqual(newRule);
     expect(newFeature.environmentSettings["test"].rules[0]).toEqual(newRule);
-    expect(newFeature.draft.rules["dev"][0]).toEqual(newRule);
   });
 });
 
@@ -1119,6 +1080,7 @@ describe("Snapshot Migration", () => {
           results: results,
           status: "success",
           settings: {
+            differenceType: "relative",
             dimensions: ["pre:date"],
             statsEngine: "bayesian",
             pValueCorrection: null,
@@ -1152,6 +1114,7 @@ describe("Snapshot Migration", () => {
               conversionWindowHours: 72,
               regressionAdjustmentDays: 0,
               regressionAdjustmentEnabled: false,
+              regressionAdjustmentAvailable: false,
               regressionAdjustmentReason: "",
             },
           },
@@ -1162,6 +1125,7 @@ describe("Snapshot Migration", () => {
               conversionWindowHours: 72,
               regressionAdjustmentDays: 0,
               regressionAdjustmentEnabled: false,
+              regressionAdjustmentAvailable: false,
               regressionAdjustmentReason: "",
             },
           },
@@ -1304,6 +1268,7 @@ describe("Snapshot Migration", () => {
           dateCreated: now,
           results,
           settings: {
+            differenceType: "relative",
             dimensions: [],
             statsEngine: "bayesian",
             pValueCorrection: null,
@@ -1334,6 +1299,7 @@ describe("Snapshot Migration", () => {
               conversionWindowHours: 72,
               regressionAdjustmentDays: 0,
               regressionAdjustmentEnabled: false,
+              regressionAdjustmentAvailable: false,
               regressionAdjustmentReason: "",
             },
           },

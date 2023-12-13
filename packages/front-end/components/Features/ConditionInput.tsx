@@ -295,13 +295,10 @@ export default function ConditionInput(props: Props) {
 
                         const newAttribute = attributes.get(value);
                         const hasAttrChanged =
-                          // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-                          newAttribute.datatype !== attribute.datatype ||
-                          // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-                          newAttribute.array !== attribute.array;
-                        if (hasAttrChanged) {
+                          newAttribute?.datatype !== attribute.datatype ||
+                          newAttribute?.array !== attribute.array;
+                        if (hasAttrChanged && newAttribute) {
                           newConds[i]["operator"] = getDefaultOperator(
-                            // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'AttributeData | undefined' is no... Remove this comment to see the full error message
                             newAttribute
                           );
                           newConds[i]["value"] = newConds[i]["value"] || "";

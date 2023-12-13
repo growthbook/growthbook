@@ -29,6 +29,7 @@ const baseFeature: FeatureInterface = {
   valueType: "boolean" as const,
   archived: false,
   description: "",
+  version: 1,
   environmentSettings: {
     dev: {
       enabled: true,
@@ -716,13 +717,18 @@ describe("Detecting Feature Changes", () => {
       },
     ];
 
-    expect(getEnabledEnvironments(feature)).toEqual(
-      new Set(["dev", "production"])
+    expect(
+      getEnabledEnvironments(feature, ["dev", "production", "test"])
+    ).toEqual(new Set(["dev", "production"]));
+
+    expect(getEnabledEnvironments(feature, ["dev", "test"])).toEqual(
+      new Set(["dev"])
     );
 
     expect(
       getEnabledEnvironments(
         feature,
+        ["dev", "production", "test"],
         (rule) => rule.type === "force" && rule.value === "true"
       )
     ).toEqual(new Set(["dev"]));
@@ -730,16 +736,20 @@ describe("Detecting Feature Changes", () => {
     expect(
       getEnabledEnvironments(
         feature,
+        ["dev", "production", "test"],
         (rule) => rule.type === "force" && rule.value === "false"
       )
     ).toEqual(new Set(["production"]));
 
     feature.environmentSettings.dev.enabled = false;
-    expect(getEnabledEnvironments(feature)).toEqual(new Set(["production"]));
+    expect(
+      getEnabledEnvironments(feature, ["dev", "production", "test"])
+    ).toEqual(new Set(["production"]));
 
     expect(
       getEnabledEnvironments(
         feature,
+        ["dev", "production", "test"],
         (rule) => rule.type === "force" && rule.value === "true"
       )
     ).toEqual(new Set([]));
@@ -750,7 +760,9 @@ describe("Detecting Feature Changes", () => {
     const feature2 = cloneDeep(baseFeature);
     const changedFeatures = [feature1, feature2];
 
-    expect(getAffectedSDKPayloadKeys(changedFeatures)).toEqual([
+    expect(
+      getAffectedSDKPayloadKeys(changedFeatures, ["dev", "production", "test"])
+    ).toEqual([
       {
         project: "",
         environment: "dev",
@@ -768,7 +780,9 @@ describe("Detecting Feature Changes", () => {
     feature2.project = "p2";
     feature2.environmentSettings.production.enabled = false;
 
-    expect(getAffectedSDKPayloadKeys(changedFeatures)).toEqual([
+    expect(
+      getAffectedSDKPayloadKeys(changedFeatures, ["dev", "production", "test"])
+    ).toEqual([
       {
         project: "",
         environment: "production",
@@ -792,33 +806,36 @@ describe("Detecting Feature Changes", () => {
     const feature = cloneDeep(baseFeature);
     const updatedFeature = cloneDeep(baseFeature);
 
-    expect(getSDKPayloadKeysByDiff(feature, updatedFeature)).toEqual([]);
+    expect(
+      getSDKPayloadKeysByDiff(feature, updatedFeature, [
+        "dev",
+        "production",
+        "test",
+      ])
+    ).toEqual([]);
 
     updatedFeature.description = "New description";
-    updatedFeature.draft = {
-      active: true,
-    };
     updatedFeature.owner = "new owner";
     updatedFeature.tags = ["a"];
-    updatedFeature.revision = {
-      comment: "",
-      date: new Date(),
-      publishedBy: {
-        email: "",
-        id: "",
-        name: "",
-      },
-      version: 1,
-    };
     updatedFeature.dateUpdated = new Date();
 
-    expect(getSDKPayloadKeysByDiff(feature, updatedFeature)).toEqual([]);
+    expect(
+      getSDKPayloadKeysByDiff(feature, updatedFeature, [
+        "dev",
+        "production",
+        "test",
+      ])
+    ).toEqual([]);
 
     expect(
-      getSDKPayloadKeysByDiff(feature, {
-        ...updatedFeature,
-        defaultValue: "false",
-      })
+      getSDKPayloadKeysByDiff(
+        feature,
+        {
+          ...updatedFeature,
+          defaultValue: "false",
+        },
+        ["dev", "production", "test"]
+      )
     ).toEqual([
       {
         project: "",
@@ -830,10 +847,14 @@ describe("Detecting Feature Changes", () => {
       },
     ]);
     expect(
-      getSDKPayloadKeysByDiff(feature, {
-        ...updatedFeature,
-        archived: true,
-      })
+      getSDKPayloadKeysByDiff(
+        feature,
+        {
+          ...updatedFeature,
+          archived: true,
+        },
+        ["dev", "production", "test"]
+      )
     ).toEqual([
       {
         project: "",
@@ -845,10 +866,14 @@ describe("Detecting Feature Changes", () => {
       },
     ]);
     expect(
-      getSDKPayloadKeysByDiff(feature, {
-        ...updatedFeature,
-        nextScheduledUpdate: new Date(),
-      })
+      getSDKPayloadKeysByDiff(
+        feature,
+        {
+          ...updatedFeature,
+          nextScheduledUpdate: new Date(),
+        },
+        ["dev", "production", "test"]
+      )
     ).toEqual([
       {
         project: "",
@@ -860,10 +885,14 @@ describe("Detecting Feature Changes", () => {
       },
     ]);
     expect(
-      getSDKPayloadKeysByDiff(feature, {
-        ...updatedFeature,
-        project: "p2",
-      })
+      getSDKPayloadKeysByDiff(
+        feature,
+        {
+          ...updatedFeature,
+          project: "p2",
+        },
+        ["dev", "production", "test"]
+      )
     ).toEqual([
       {
         project: "",
@@ -884,7 +913,13 @@ describe("Detecting Feature Changes", () => {
     ]);
 
     updatedFeature.environmentSettings.dev.enabled = false;
-    expect(getSDKPayloadKeysByDiff(feature, updatedFeature)).toEqual([
+    expect(
+      getSDKPayloadKeysByDiff(feature, updatedFeature, [
+        "dev",
+        "production",
+        "test",
+      ])
+    ).toEqual([
       {
         project: "",
         environment: "dev",
@@ -908,7 +943,8 @@ describe("Changes are ignored when archived or disabled", () => {
         ...updatedFeature,
         archived: true,
         project: "43280943fjdskalfja",
-      }
+      },
+      ["dev", "production", "test"]
     )
   ).toEqual([]);
 
@@ -923,7 +959,13 @@ describe("Changes are ignored when archived or disabled", () => {
       value: "true",
     },
   ];
-  expect(getSDKPayloadKeysByDiff(feature, updatedFeature)).toEqual([]);
+  expect(
+    getSDKPayloadKeysByDiff(feature, updatedFeature, [
+      "dev",
+      "production",
+      "test",
+    ])
+  ).toEqual([]);
 });
 
 describe("SDK Payloads", () => {
@@ -1032,7 +1074,6 @@ describe("SDK Payloads", () => {
         environment: "production",
         groupMap: groupMap,
         experimentMap: experimentMap,
-        useDraft: false,
       })
     ).toEqual({
       defaultValue: true,
@@ -1073,7 +1114,6 @@ describe("SDK Payloads", () => {
         environment: "production",
         groupMap: groupMap,
         experimentMap: experimentMap,
-        useDraft: false,
       })
     ).toEqual({
       defaultValue: true,
@@ -1088,7 +1128,6 @@ describe("SDK Payloads", () => {
         environment: "production",
         groupMap: groupMap,
         experimentMap: experimentMap,
-        useDraft: false,
       })
     ).toEqual({
       defaultValue: true,
@@ -1102,7 +1141,6 @@ describe("SDK Payloads", () => {
         environment: "production",
         groupMap: groupMap,
         experimentMap: experimentMap,
-        useDraft: false,
       })
     ).toEqual({
       defaultValue: true,
@@ -1129,7 +1167,6 @@ describe("SDK Payloads", () => {
         environment: "production",
         groupMap: groupMap,
         experimentMap: experimentMap,
-        useDraft: false,
       })
     ).toEqual({
       defaultValue: true,
@@ -1145,7 +1182,6 @@ describe("SDK Payloads", () => {
         environment: "production",
         groupMap: groupMap,
         experimentMap: experimentMap,
-        useDraft: false,
       })
     ).toEqual({
       defaultValue: true,
@@ -1159,7 +1195,6 @@ describe("SDK Payloads", () => {
         environment: "production",
         groupMap: groupMap,
         experimentMap: experimentMap,
-        useDraft: false,
       })
     ).toEqual(null);
 
@@ -1169,7 +1204,6 @@ describe("SDK Payloads", () => {
         environment: "unknown",
         groupMap: groupMap,
         experimentMap: experimentMap,
-        useDraft: false,
       })
     ).toEqual(null);
 
@@ -1244,7 +1278,6 @@ describe("SDK Payloads", () => {
         environment: "dev",
         groupMap: groupMap,
         experimentMap: experimentMap,
-        useDraft: false,
       })
     ).toEqual({
       defaultValue: true,

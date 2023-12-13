@@ -30,6 +30,7 @@ export interface ExperimentReportVariationWithIndex
 export interface MetricRegressionAdjustmentStatus {
   metric: string;
   regressionAdjustmentEnabled: boolean;
+  regressionAdjustmentAvailable: boolean;
   regressionAdjustmentDays: number;
   reason: string;
 }
@@ -45,6 +46,7 @@ export interface ExperimentReportArgs {
   endDate?: Date;
   dimension?: string | null;
   variations: ExperimentReportVariation[];
+  coverage?: number;
   segment?: string;
   metrics: string[];
   metricOverrides?: MetricOverride[];

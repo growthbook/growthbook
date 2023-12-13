@@ -4,8 +4,10 @@ import {
   isFactMetric,
   getConversionWindowHours,
 } from "shared/experiments";
+import React from "react";
 import { isNullUndefinedOrEmpty } from "@/services/utils";
 import { ExperimentTableRow } from "@/services/experiments";
+import FactBadge from "@/components/FactTables/FactBadge";
 import Markdown from "../Markdown/Markdown";
 import SortedTags from "../Tags/SortedTags";
 import styles from "./MetricToolTipBody.module.scss";
@@ -38,6 +40,8 @@ const MetricTooltipBody = ({
   const metricOverrideFields = row?.metricOverrideFields ?? [];
 
   const conversionWindowHours = getConversionWindowHours(metric);
+  const metricHasNoConversionWindow =
+    isFactMetric(metric) && !metric.hasConversionWindow;
 
   const metricInfo: MetricInfo[] = [
     {
@@ -48,7 +52,13 @@ const MetricTooltipBody = ({
     {
       show: (metric.tags?.length ?? 0) > 0,
       label: "Tags",
-      body: <SortedTags tags={metric.tags} skipFirstMargin={true} />,
+      body: (
+        <SortedTags
+          tags={metric.tags}
+          shouldShowEllipsis={false}
+          useFlex={true}
+        />
+      ),
     },
     {
       show:
@@ -59,7 +69,8 @@ const MetricTooltipBody = ({
     {
       show:
         !isNullUndefinedOrEmpty(metric.conversionDelayHours) &&
-        metric.conversionDelayHours !== 0,
+        (metric.conversionDelayHours !== 0 ||
+          metricOverrideFields.includes("conversionDelayHours")),
       label: "Conversion Delay Hours",
       body: (
         <>
@@ -71,7 +82,9 @@ const MetricTooltipBody = ({
       ),
     },
     {
-      show: !isNullUndefinedOrEmpty(conversionWindowHours),
+      show:
+        !isNullUndefinedOrEmpty(conversionWindowHours) &&
+        !metricHasNoConversionWindow,
       label: "Conversion Window Hours",
       body: (
         <>
@@ -125,7 +138,9 @@ const MetricTooltipBody = ({
   if (newUi) {
     return (
       <div>
-        <h3>{metric.name}</h3>
+        <h4>
+          {metric.name} <FactBadge metricId={metric.id} />
+        </h4>
         <table className="table table-sm table-bordered text-left mb-0">
           <tbody>
             {metricInfo

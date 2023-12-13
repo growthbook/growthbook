@@ -82,7 +82,7 @@ const TagsPage: FC = () => {
                     </td>
                     <td>{t.description}</td>
                     <td>
-                      <Tag tag={t.id} />
+                      <Tag tag={t.id} skipMargin={true} />
                     </td>
                     <td>
                       <button

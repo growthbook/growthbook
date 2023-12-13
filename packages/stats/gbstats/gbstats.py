@@ -174,7 +174,6 @@ def analyze_metric_df(
             df["baseline_cr"] = 0
             df["baseline_mean"] = None
             df["baseline_stddev"] = None
-            df["baseline_risk"] = None
         else:
             df[f"v{i}_cr"] = 0
             df[f"v{i}_mean"] = None
@@ -182,9 +181,9 @@ def analyze_metric_df(
             df[f"v{i}_expected"] = 0
             df[f"v{i}_p_value"] = None
             df[f"v{i}_rawrisk"] = None
-            df[f"v{i}_risk"] = None
             df[f"v{i}_prob_beat_baseline"] = None
             df[f"v{i}_uplift"] = None
+            df[f"v{i}_error_message"] = None
 
     def analyze_row(s):
         s = s.copy()
@@ -201,7 +200,6 @@ def analyze_metric_df(
         users[0] = stat_a.n
 
         # Loop through each non-baseline variation and run an analysis
-        baseline_risk: float = 0
         for i in range(1, num_variations):
             stat_b: Statistic = variation_statistic_from_metric_row(s, f"v{i}")
             raise_error_if_bayesian_ra(stat_b, engine)
@@ -232,21 +230,17 @@ def analyze_metric_df(
                 engine, sequential, binomial_test
             )
             # Run the A/B test analysis of baseline vs variation
-            test = ABTestClass(stat_a, stat_b, ABTestConfig(**test_config))
+            test_config_copy = test_config.copy()
+            test_config_copy["traffic_proportion_b"] = weights[i]
+            test = ABTestClass(stat_a, stat_b, ABTestConfig(**test_config_copy))
             res = test.compute_result()
 
             # Unpack result in Pandas row
             if isinstance(res, BayesianTestResult):
                 s.at[f"v{i}_rawrisk"] = res.risk
-                s[f"v{i}_risk"] = res.relative_risk[1]
                 s[f"v{i}_prob_beat_baseline"] = res.chance_to_win
-                # The baseline risk is the max risk of any of the variation A/B tests
-                if res.relative_risk[0] > baseline_risk:
-                    baseline_risk = res.relative_risk[0]
             elif isinstance(res, FrequentistTestResult):
                 s[f"v{i}_p_value"] = res.p_value
-                baseline_risk = None  # type: ignore
-
             if stat_a.unadjusted_mean <= 0:
                 # negative or missing control mean
                 s[f"v{i}_expected"] = 0
@@ -260,8 +254,8 @@ def analyze_metric_df(
                 s[f"v{i}_expected"] = res.expected
             s.at[f"v{i}_ci"] = res.ci
             s.at[f"v{i}_uplift"] = asdict(res.uplift)
+            s[f"v{i}_error_message"] = res.error_message
 
-        s["baseline_risk"] = baseline_risk
         s["srm_p"] = check_srm(users, weights)
         return s
 
@@ -307,6 +301,7 @@ def format_results(df, baseline_index=0):
                         "ci": row[f"{prefix}_ci"],
                         "risk": row[f"{prefix}_rawrisk"],
                         "stats": stats,
+                        "errorMessage": row[f"{prefix}_error_message"],
                     }
                 )
         variation_data.insert(baseline_index, baseline_data)
@@ -381,11 +376,12 @@ def check_srm(users, weights):
     if not total_observed:
         return 1
 
+    total_weight = sum(weights)
     x = 0
     for i, o in enumerate(users):
         if weights[i] <= 0:
             continue
-        e = weights[i] * total_observed
+        e = weights[i] / total_weight * total_observed
         x = x + ((o - e) ** 2) / e
 
     return chi2.sf(x, len(users) - 1)

@@ -1,12 +1,14 @@
 import {
   ExperimentInterfaceStringDates,
   ExperimentPhaseStringDates,
+  LinkedFeatureInfo,
 } from "back-end/types/experiment";
 import { FaHome } from "react-icons/fa";
 import { PiChartBarHorizontalFill } from "react-icons/pi";
+import { FaHeartPulse } from "react-icons/fa6";
 import { useRouter } from "next/router";
 import { getAffectedEnvsForExperiment } from "shared/util";
-import React, { useState } from "react";
+import React, { ReactNode, useState } from "react";
 import { date, daysBetween } from "shared/dates";
 import { MdRocketLaunch } from "react-icons/md";
 import { SDKConnectionInterface } from "back-end/types/sdk-connection";
@@ -23,11 +25,15 @@ import usePermissions from "@/hooks/usePermissions";
 import HeaderWithEdit from "@/components/Layout/HeaderWithEdit";
 import Modal from "@/components/Modal";
 import { useScrollPosition } from "@/hooks/useScrollPosition";
+import Tooltip from "@/components/Tooltip/Tooltip";
+import track from "@/services/track";
+import { useDefinitions } from "@/services/DefinitionsContext";
 import ResultsIndicator from "../ResultsIndicator";
 import { StartExperimentBanner } from "../StartExperimentBanner";
+import { useSnapshot } from "../SnapshotProvider";
 import ExperimentStatusIndicator from "./ExperimentStatusIndicator";
 import StopExperimentButton from "./StopExperimentButton";
-import { ExperimentTab, LinkedFeature } from ".";
+import { ExperimentTab } from ".";
 
 export interface Props {
   tab: ExperimentTab;
@@ -42,13 +48,36 @@ export interface Props {
   editResult?: () => void;
   safeToEdit: boolean;
   usersWatching: (string | undefined)[];
-  linkedFeatures: LinkedFeature[];
+  linkedFeatures: LinkedFeatureInfo[];
   visualChangesets: VisualChangesetInterface[];
   connections: SDKConnectionInterface[];
   newPhase?: (() => void) | null;
   editTargeting?: (() => void) | null;
   editPhases?: (() => void) | null;
+  healthNotificationCount: number;
 }
+
+const datasourcesWithoutHealthData = new Set(["mixpanel", "google_analytics"]);
+
+const DisabledHealthTabTooltip = ({
+  reason,
+  children,
+}: {
+  reason: "UNSUPPORTED_DATASOURCE" | "DIMENSION_SELECTED";
+  children: ReactNode;
+}) => {
+  return (
+    <Tooltip
+      body={
+        reason === "UNSUPPORTED_DATASOURCE"
+          ? "Experiment Health is not available for Mixpanel or (legacy) Google Analytics data sources"
+          : "Set the Dimension to None to see Experiment Health"
+      }
+    >
+      {children}
+    </Tooltip>
+  );
+};
 
 export default function ExperimentHeader({
   tab,
@@ -69,11 +98,15 @@ export default function ExperimentHeader({
   editTargeting,
   newPhase,
   editPhases,
+  healthNotificationCount,
 }: Props) {
   const { apiCall } = useAuth();
   const router = useRouter();
   const permissions = usePermissions();
+  const { getDatasourceById } = useDefinitions();
+  const dataSource = getDatasourceById(experiment.datasource);
   const { scrollY } = useScrollPosition();
+  const { dimension } = useSnapshot();
   const headerPinned = scrollY > 45;
 
   const phases = experiment.phases || [];
@@ -110,6 +143,10 @@ export default function ExperimentHeader({
 
   const hasLinkedChanges =
     linkedFeatures.length > 0 || visualChangesets.length > 0;
+
+  const isUsingHealthUnsupportDatasource =
+    !dataSource || datasourcesWithoutHealthData.has(dataSource.type);
+  const disableHealthTab = isUsingHealthUnsupportDatasource || !!dimension;
 
   return (
     <>
@@ -379,6 +416,37 @@ export default function ExperimentHeader({
                   activeClassName="active-tab"
                   last={false}
                 />
+                {disableHealthTab ? (
+                  <DisabledHealthTabTooltip
+                    reason={
+                      isUsingHealthUnsupportDatasource
+                        ? "UNSUPPORTED_DATASOURCE"
+                        : "DIMENSION_SELECTED"
+                    }
+                  >
+                    <span className="nav-item nav-link text-muted">
+                      <FaHeartPulse /> Health
+                    </span>
+                  </DisabledHealthTabTooltip>
+                ) : (
+                  <TabButton
+                    active={tab === "health"}
+                    display={
+                      <>
+                        <FaHeartPulse /> Health
+                      </>
+                    }
+                    anchor="health"
+                    onClick={() => {
+                      track("Open health tab", { source: "tab-click" });
+                      setTab("health");
+                    }}
+                    newStyle={false}
+                    activeClassName="active-tab"
+                    last={true}
+                    notificationCount={healthNotificationCount}
+                  />
+                )}
               </TabButtons>
             </div>
 

@@ -2,10 +2,11 @@ import Link from "next/link";
 import React, { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/router";
 import { useFeature } from "@growthbook/growthbook-react";
-import { FaExclamationTriangle } from "react-icons/fa";
 import { FeatureInterface, FeatureRule } from "back-end/types/feature";
 import { ago, datetime } from "shared/dates";
+import { isFeatureStale } from "shared/util";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
+import { FaTriangleExclamation } from "react-icons/fa6";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { GBAddCircle } from "@/components/Icons";
 import FeatureModal from "@/components/Features/FeatureModal";
@@ -42,6 +43,8 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import Field from "@/components/Forms/Field";
 import { useUser } from "@/services/UserContext";
 import useSDKConnections from "@/hooks/useSDKConnections";
+import StaleFeatureIcon from "@/components/StaleFeatureIcon";
+import StaleDetectionModal from "@/components/Features/StaleDetectionModal";
 
 const NUM_PER_PAGE = 20;
 
@@ -56,6 +59,10 @@ export default function FeaturesPage() {
     featureToDuplicate,
     setFeatureToDuplicate,
   ] = useState<FeatureInterface | null>(null);
+  const [
+    featureToToggleStaleDetection,
+    setFeatureToToggleStaleDetection,
+  ] = useState<FeatureInterface | null>(null);
 
   const showGraphs = useFeature("feature-list-realtime-graphs").on;
 
@@ -65,7 +72,7 @@ export default function FeaturesPage() {
   const { project, getProjectById } = useDefinitions();
   const settings = useOrgSettings();
   const environments = useEnvironments();
-  const { features, loading, error, mutate } = useFeaturesList();
+  const { features, experiments, loading, error, mutate } = useFeaturesList();
 
   const { usage, usageDomain } = useRealtimeData(
     features,
@@ -161,9 +168,19 @@ export default function FeaturesPage() {
             router.push(url);
             mutate({
               features: [...features, feature],
+              // we don't care about updating linked experiments since its only
+              // used for stale feature detection
+              linkedExperiments: experiments,
             });
           }}
           featureToDuplicate={featureToDuplicate || undefined}
+        />
+      )}
+      {featureToToggleStaleDetection && (
+        <StaleDetectionModal
+          close={() => setFeatureToToggleStaleDetection(null)}
+          feature={featureToToggleStaleDetection}
+          mutate={mutate}
         />
       )}
       <div className="row mb-3">
@@ -280,6 +297,7 @@ export default function FeaturesPage() {
                     <Tooltip body="Client-side feature evaluations for the past 30 minutes. Blue means the feature was 'on', Gray means it was 'off'." />
                   </th>
                 )}
+                <th>Stale</th>
                 <th style={{ width: 30 }}></th>
               </tr>
             </thead>
@@ -300,15 +318,19 @@ export default function FeaturesPage() {
                 const firstRule = orderedRules[0];
                 const totalRules = rules.length || 0;
 
-                const isDraft = !!feature.draft?.active;
-                let version = feature.revision?.version || 1;
-                if (isDraft) version++;
+                const version = feature.version;
 
                 const projectId = feature.project;
                 const projectName = projectId
                   ? getProjectById(projectId)?.name || null
                   : null;
                 const projectIsDeReferenced = projectId && !projectName;
+                const { stale, reason: staleReason } = isFeatureStale(
+                  feature,
+                  experiments.filter((e) =>
+                    feature.linkedExperiments?.includes(e.id)
+                  )
+                );
 
                 return (
                   <tr
@@ -342,7 +364,7 @@ export default function FeaturesPage() {
                             <span className="text-danger">Invalid project</span>
                           </Tooltip>
                         ) : (
-                          projectName ?? <em>All Projects</em>
+                          projectName ?? <em>None</em>
                         )}
                       </td>
                     )}
@@ -376,12 +398,15 @@ export default function FeaturesPage() {
                       )}
                     </td>
                     <td style={{ textAlign: "center" }}>
-                      {version}{" "}
-                      {isDraft && (
-                        <Tooltip body="This is a draft version and is not visible to users">
-                          <FaExclamationTriangle className="text-warning" />
+                      {version}
+                      {feature?.hasDrafts ? (
+                        <Tooltip body="This feature has an active draft that has not been published yet">
+                          <FaTriangleExclamation
+                            className="text-warning ml-1"
+                            style={{ marginTop: -3 }}
+                          />
                         </Tooltip>
-                      )}
+                      ) : null}
                     </td>
                     <td title={datetime(feature.dateUpdated)}>
                       {ago(feature.dateUpdated)}
@@ -394,6 +419,17 @@ export default function FeaturesPage() {
                         />
                       </td>
                     )}
+                    <td style={{ textAlign: "center" }}>
+                      {stale && (
+                        <StaleFeatureIcon
+                          staleReason={staleReason}
+                          onClick={() => {
+                            if (permissions.check("manageFeatures", project))
+                              setFeatureToToggleStaleDetection(feature);
+                          }}
+                        />
+                      )}
+                    </td>
                     <td>
                       <MoreMenu>
                         <button

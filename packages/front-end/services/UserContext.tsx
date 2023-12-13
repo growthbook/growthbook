@@ -1,5 +1,6 @@
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import { ApiKeyInterface } from "back-end/types/apikey";
+import { TeamInterface } from "back-end/types/team";
 import {
   EnvScopedPermission,
   GlobalPermission,
@@ -12,7 +13,11 @@ import {
   ProjectScopedPermission,
   UserPermissions,
 } from "back-end/types/organization";
-import type { AccountPlan, CommercialFeature, LicenseData } from "enterprise";
+import type {
+  AccountPlan,
+  CommercialFeature,
+  LicenseInterface,
+} from "enterprise";
 import { SSOConnectionInterface } from "back-end/types/sso-connection";
 import { useRouter } from "next/router";
 import {
@@ -44,6 +49,7 @@ type OrgSettingsResponse = {
   commercialFeatures: CommercialFeature[];
   licenseKey?: string;
   currentUserPermissions: UserPermissions;
+  teams: TeamInterface[];
 };
 
 export interface PermissionFunctions {
@@ -58,6 +64,10 @@ export interface PermissionFunctions {
     project: string[] | string | undefined
   ): boolean;
 }
+
+export type Team = Omit<TeamInterface, "members"> & {
+  members?: ExpandedMember[];
+};
 
 export const DEFAULT_PERMISSIONS: Record<GlobalPermission, boolean> = {
   createDimensions: false,
@@ -84,7 +94,7 @@ export interface UserContextValue {
   name?: string;
   email?: string;
   superAdmin?: boolean;
-  license?: LicenseData;
+  license?: LicenseInterface;
   user?: ExpandedMember;
   users: Map<string, ExpandedMember>;
   getUserDisplay: (id: string, fallback?: boolean) => string;
@@ -98,6 +108,7 @@ export interface UserContextValue {
   apiKeys: ApiKeyInterface[];
   organization: Partial<OrganizationInterface>;
   roles: Role[];
+  teams?: Team[];
   error?: string;
   hasCommercialFeature: (feature: CommercialFeature) => boolean;
 }
@@ -110,7 +121,7 @@ interface UserResponse {
   verified: boolean;
   superAdmin: boolean;
   organizations?: UserOrganizations;
-  license?: LicenseData;
+  license?: LicenseInterface;
   currentUserPermissions: UserPermissions;
 }
 
@@ -129,6 +140,7 @@ export const UserContext = createContext<UserContextValue>({
   },
   apiKeys: [],
   organization: {},
+  teams: [],
   hasCommercialFeature: () => false,
 });
 
@@ -139,7 +151,7 @@ export function useUser() {
 let currentUser: null | {
   id: string;
   org: string;
-  role: MemberRole;
+  role: MemberRole | "";
 } = null;
 export function getCurrentUser() {
   return currentUser;
@@ -171,8 +183,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
         method: "GET",
       });
       setData(res);
-      if (res.organizations) {
-        // @ts-expect-error TS(2722) If you come across this, please fix it!: Cannot invoke an object which is possibly 'undefin... Remove this comment to see the full error message
+      if (res.organizations && setOrganizations) {
         setOrganizations(res.organizations);
       }
     } catch (e) {
@@ -190,8 +201,23 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
     return userMap;
   }, [currentOrg?.members]);
 
-  // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'string | undefined' is not assig... Remove this comment to see the full error message
-  let user = users.get(data?.userId);
+  const teams = useMemo(() => {
+    return currentOrg?.teams.map((team) => {
+      const hydratedMembers = team.members?.reduce<ExpandedMember[]>(
+        (res, member) => {
+          const user = users.get(member);
+          if (user) {
+            res.push(user);
+          }
+          return res;
+        },
+        []
+      );
+      return { ...team, members: hydratedMembers };
+    });
+  }, [currentOrg?.teams, users]);
+
+  let user = users.get(data?.userId || "");
   if (!user && data) {
     user = {
       email: data.email,
@@ -225,8 +251,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
     currentUser = {
       org: orgId || "",
       id: data?.userId || "",
-      // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'MemberRole | undefined' is not assignable to... Remove this comment to see the full error message
-      role: role,
+      role: role || "",
     };
   }, [orgId, data?.userId, role]);
 
@@ -265,8 +290,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
   // Update growthbook tarageting attributes
   const growthbook = useGrowthBook<AppFeatures>();
   useEffect(() => {
-    // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-    growthbook.setAttributes({
+    growthbook?.setAttributes({
       id: data?.userId || "",
       name: data?.userName || "",
       superAdmin: data?.superAdmin || false,
@@ -335,11 +359,10 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
         updateUser,
         user,
         users,
-        // @ts-expect-error TS(2322) If you come across this, please fix it!: Type '(id: string, fallback?: boolean | undefined)... Remove this comment to see the full error message
         getUserDisplay: (id, fallback = true) => {
           const u = users.get(id);
           if (!u && fallback) return id;
-          return u?.name || u?.email;
+          return u?.name || u?.email || "";
         },
         refreshOrganization: async () => {
           await refreshOrganization();
@@ -351,13 +374,13 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
         },
         settings: currentOrg?.organization?.settings || {},
         license: data?.license,
-        // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'SSOConnectionInterface | null | undefined' i... Remove this comment to see the full error message
-        enterpriseSSO: currentOrg?.enterpriseSSO,
+        enterpriseSSO: currentOrg?.enterpriseSSO || undefined,
         accountPlan: currentOrg?.accountPlan,
         commercialFeatures: currentOrg?.commercialFeatures || [],
         apiKeys: currentOrg?.apiKeys || [],
         // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'OrganizationInterface | undefined' is not as... Remove this comment to see the full error message
         organization: currentOrg?.organization,
+        teams,
         error,
         hasCommercialFeature: (feature) => commercialFeatures.has(feature),
       }}

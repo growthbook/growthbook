@@ -406,12 +406,13 @@ const ExperimentsPage = (): React.ReactElement => {
                             <span className="text-danger">Invalid project</span>
                           </Tooltip>
                         ) : (
-                          e.projectName ?? <em>All Projects</em>
+                          e.projectName ?? <em>None</em>
                         )}
                       </td>
                     )}
-                    <td className="nowrap" data-title="Tags:">
-                      <SortedTags tags={Object.values(e.tags)} />
+
+                    <td data-title="Tags:" className="table-tags">
+                      <SortedTags tags={Object.values(e.tags)} useFlex={true} />
                     </td>
                     <td className="nowrap" data-title="Owner:">
                       {e.ownerName}

@@ -158,7 +158,7 @@ export const postDemoDatasourceProject = async (
   req.checkPermissions("createMetrics", "");
   req.checkPermissions("createAnalyses", "");
 
-  const { org } = getOrgFromReq(req);
+  const { org, environments } = getOrgFromReq(req);
 
   const demoProjId = getDemoDatasourceProjectIdForOrganization(org.id);
   const existingDemoProject: ProjectInterface | null = await findProjectById(
@@ -319,6 +319,7 @@ spacing and headings.`,
     // Create feature
     const featureToCreate: FeatureInterface = {
       id: getDemoDataSourceFeatureId(),
+      version: 1,
       project: project.id,
       organization: org.id,
       dateCreated: new Date(),
@@ -332,7 +333,6 @@ spacing and headings.`,
       environmentSettings: {},
     };
 
-    const environments = (org.settings?.environments || []).map((e) => e.id);
     environments.forEach((env) => {
       featureToCreate.environmentSettings[env] = {
         enabled: true,
@@ -380,6 +380,7 @@ spacing and headings.`,
 
     const analysisSettings: ExperimentSnapshotAnalysisSettings = {
       statsEngine: org.settings?.statsEngine || DEFAULT_STATS_ENGINE,
+      differenceType: "relative",
       dimensions: [],
       pValueThreshold:
         org.settings?.pValueThreshold ?? DEFAULT_P_VALUE_THRESHOLD,

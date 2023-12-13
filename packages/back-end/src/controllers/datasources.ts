@@ -1,5 +1,6 @@
 import { Response } from "express";
 import uniqid from "uniqid";
+import cloneDeep from "lodash/cloneDeep";
 import { DEFAULT_STATS_ENGINE } from "shared/constants";
 import { AuthRequest } from "../types/AuthRequest";
 import { getOrgFromReq } from "../services/organizations";
@@ -8,6 +9,7 @@ import {
   DataSourceType,
   DataSourceSettings,
   DataSourceInterface,
+  ExposureQuery,
 } from "../../types/datasource";
 import {
   getSourceIntegrationObject,
@@ -47,6 +49,12 @@ import { MetricType } from "../../types/metric";
 import { TemplateVariables } from "../../types/sql";
 import { getUserById } from "../services/users";
 import { AuditUserLoggedIn } from "../../types/audit";
+import {
+  createDimensionSlices,
+  getLatestDimensionSlices,
+  getDimensionSlicesById,
+} from "../models/DimensionSlicesModel";
+import { DimensionSlicesQueryRunner } from "../queryRunners/DimensionSlicesQueryRunner";
 
 export async function postSampleData(
   req: AuthRequest,
@@ -231,6 +239,7 @@ Revenue did not reach 95% significance, but the risk is so low it doesn't seem w
         pValueCorrection: null,
         sequentialTesting: false,
         sequentialTestingTuningParameter: 0,
+        differenceType: "relative",
         regressionAdjusted: false,
       },
       metricMap
@@ -570,6 +579,74 @@ export async function putDataSource(
   }
 }
 
+export async function updateExposureQuery(
+  req: AuthRequest<
+    {
+      updates: Partial<ExposureQuery>;
+    },
+    { datasourceId: string; exposureQueryId: string }
+  >,
+  res: Response
+) {
+  const { org } = getOrgFromReq(req);
+  const { datasourceId, exposureQueryId } = req.params;
+  const { updates } = req.body;
+
+  const dataSource = await getDataSourceById(datasourceId, org.id);
+  if (!dataSource) {
+    res.status(404).json({
+      status: 404,
+      message: "Cannot find data source",
+    });
+    return;
+  }
+
+  req.checkPermissions(
+    "editDatasourceSettings",
+    dataSource?.projects?.length ? dataSource.projects : ""
+  );
+
+  const copy = cloneDeep<DataSourceInterface>(dataSource);
+  const exposureQueryIndex = copy.settings.queries?.exposure?.findIndex(
+    (e) => e.id === exposureQueryId
+  );
+  if (
+    exposureQueryIndex === undefined ||
+    !copy.settings.queries?.exposure?.[exposureQueryIndex]
+  ) {
+    res.status(404).json({
+      status: 404,
+      message: "Cannot find exposure query",
+    });
+    return;
+  }
+
+  const exposureQuery = copy.settings.queries.exposure[exposureQueryIndex];
+  copy.settings.queries.exposure[exposureQueryIndex] = {
+    ...exposureQuery,
+    ...updates,
+  };
+
+  try {
+    const updates: Partial<DataSourceInterface> = {
+      dateUpdated: new Date(),
+      settings: copy.settings,
+    };
+
+    await updateDataSource(dataSource, org.id, updates);
+
+    res.status(200).json({
+      status: 200,
+    });
+  } catch (e) {
+    req.log.error(e, "Failed to update exposure query");
+    res.status(400).json({
+      status: 400,
+      message: e.message || "An error occurred",
+    });
+  }
+}
+
 export async function postGoogleOauthRedirect(req: AuthRequest, res: Response) {
   req.checkPermissions("createDatasources", "");
 
@@ -659,5 +736,114 @@ export async function getDataSourceMetrics(
   res.status(200).json({
     status: 200,
     metrics,
+  });
+}
+
+export async function getDimensionSlices(
+  req: AuthRequest<null, { id: string }>,
+  res: Response
+) {
+  const { org } = getOrgFromReq(req);
+  const { id } = req.params;
+
+  const dimensionSlices = await getDimensionSlicesById(org.id, id);
+
+  res.status(200).json({
+    status: 200,
+    dimensionSlices,
+  });
+}
+
+export async function getLatestDimensionSlicesForDatasource(
+  req: AuthRequest<null, { datasourceId: string; exposureQueryId: string }>,
+  res: Response
+) {
+  const { org } = getOrgFromReq(req);
+  const { datasourceId, exposureQueryId } = req.params;
+
+  const dimensionSlices = await getLatestDimensionSlices(
+    org.id,
+    datasourceId,
+    exposureQueryId
+  );
+
+  res.status(200).json({
+    status: 200,
+    dimensionSlices,
+  });
+}
+
+export async function postDimensionSlices(
+  req: AuthRequest<{
+    dataSourceId: string;
+    queryId: string;
+    lookbackDays: number;
+  }>,
+  res: Response
+) {
+  const { org } = getOrgFromReq(req);
+  const { dataSourceId, queryId, lookbackDays } = req.body;
+
+  const datasourceObj = await getDataSourceById(dataSourceId, org.id);
+  if (!datasourceObj) {
+    throw new Error("Could not find datasource");
+  }
+  req.checkPermissions(
+    "runQueries",
+    datasourceObj?.projects?.length ? datasourceObj.projects : ""
+  );
+
+  const integration = getSourceIntegrationObject(datasourceObj, true);
+
+  const model = await createDimensionSlices({
+    organization: org.id,
+    dataSourceId,
+    queryId,
+  });
+
+  const queryRunner = new DimensionSlicesQueryRunner(model, integration);
+  const outputmodel = await queryRunner.startAnalysis({
+    exposureQueryId: queryId,
+    lookbackDays: Number(lookbackDays) ?? 30,
+  });
+  res.status(200).json({
+    status: 200,
+    dimensionSlices: outputmodel,
+  });
+}
+
+export async function cancelDimensionSlices(
+  req: AuthRequest<null, { id: string }>,
+  res: Response
+) {
+  const { org } = getOrgFromReq(req);
+  const { id } = req.params;
+  const dimensionSlices = await getDimensionSlicesById(org.id, id);
+  if (!dimensionSlices) {
+    throw new Error("Could not cancel automatic dimension");
+  }
+  const datasource = await getDataSourceById(
+    dimensionSlices.datasource,
+    org.id
+  );
+  if (!datasource) {
+    throw new Error("Could not find datasource");
+  }
+
+  req.checkPermissions(
+    "runQueries",
+    datasource.projects ? datasource.projects : ""
+  );
+
+  const integration = getSourceIntegrationObject(datasource, true);
+
+  const queryRunner = new DimensionSlicesQueryRunner(
+    dimensionSlices,
+    integration
+  );
+  await queryRunner.cancelQueries();
+
+  res.status(200).json({
+    status: 200,
   });
 }

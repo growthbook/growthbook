@@ -10,7 +10,7 @@ export default function RoleSelector({
 }: {
   value: MemberRoleWithProjects;
   setValue: (value: MemberRoleWithProjects) => void;
-  showUpgradeModal: () => void;
+  showUpgradeModal?: () => void;
 }) {
   return (
     <div>
@@ -38,12 +38,14 @@ export default function RoleSelector({
           });
         }}
       />
-      <UpgradeMessage
-        className="mt-3"
-        showUpgradeModal={showUpgradeModal}
-        commercialFeature="advanced-permissions"
-        upgradeMessage="enable per-environment and per-project permissions"
-      />
+      {!!showUpgradeModal && (
+        <UpgradeMessage
+          className="mt-3"
+          showUpgradeModal={showUpgradeModal}
+          commercialFeature="advanced-permissions"
+          upgradeMessage="enable per-environment and per-project permissions"
+        />
+      )}
     </div>
   );
 }

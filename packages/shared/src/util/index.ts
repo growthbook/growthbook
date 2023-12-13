@@ -13,6 +13,7 @@ import {
 import { FeatureInterface, FeatureRule } from "back-end/types/feature";
 import { ExperimentReportVariation } from "back-end/types/report";
 import { VisualChange } from "back-end/types/visual-changeset";
+import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 
 export * from "./features";
 
@@ -119,7 +120,6 @@ export function includeExperimentInPayload(
         Object.keys(feature.environmentSettings)
       );
       return rules.some((r) => {
-        if (r.draft) return false;
         if (!r.environmentEnabled) return false;
         if (r.rule.enabled === false) return false;
         return true;
@@ -134,34 +134,44 @@ export function includeExperimentInPayload(
   return true;
 }
 
+export function isValidEnvironment(
+  env: string,
+  environments: string[]
+): boolean {
+  return environments.includes(env);
+}
+
 export const hasVisualChanges = (visualChanges: VisualChange[]) =>
   visualChanges.some((vc) => !!vc.css || !!vc.domMutations.length || !!vc.js);
 
 export type MatchingRule = {
   environmentId: string;
   i: number;
-  draft: boolean;
   environmentEnabled: boolean;
   rule: FeatureRule;
 };
+
 export function getMatchingRules(
   feature: FeatureInterface,
   filter: (rule: FeatureRule) => boolean,
-  environments: string[]
+  environments: string[],
+  revision?: FeatureRevisionInterface
 ): MatchingRule[] {
   const matches: MatchingRule[] = [];
 
   if (feature.environmentSettings) {
     Object.entries(feature.environmentSettings).forEach(
       ([environmentId, settings]) => {
-        if (!environments.includes(environmentId)) return;
-        if (settings.rules) {
-          settings.rules.forEach((rule, i) => {
+        if (!isValidEnvironment(environmentId, environments)) return;
+
+        const rules = revision ? revision.rules[environmentId] : settings.rules;
+
+        if (rules) {
+          rules.forEach((rule, i) => {
             if (filter(rule)) {
               matches.push({
                 rule,
                 i,
-                draft: false,
                 environmentEnabled: settings.enabled,
                 environmentId,
               });
@@ -170,23 +180,6 @@ export function getMatchingRules(
         }
       }
     );
-  }
-
-  if (feature.draft && feature.draft.active && feature.draft.rules) {
-    Object.entries(feature.draft.rules).forEach(([environmentId, rules]) => {
-      rules.forEach((rule, i) => {
-        if (filter(rule)) {
-          matches.push({
-            rule,
-            i,
-            draft: true,
-            environmentEnabled: !!feature.environmentSettings[environmentId]
-              ?.enabled,
-            environmentId,
-          });
-        }
-      });
-    });
   }
 
   return matches;

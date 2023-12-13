@@ -109,9 +109,13 @@ export function getOrgFromReq(req: AuthRequest) {
     org: req.organization,
     userId: req.userId,
     email: req.email,
-    environments: getEnvironments(req.organization),
+    environments: getEnvironmentIdsFromOrg(req.organization),
     userName: req.name || "",
   };
+}
+
+export function getEnvironmentIdsFromOrg(org: OrganizationInterface): string[] {
+  return getEnvironments(org).map((e) => e.id);
 }
 
 export function getEnvironments(org: OrganizationInterface) {
@@ -282,34 +286,24 @@ export async function addMemberToOrg({
   });
 }
 
-export async function addMemberToTeam({
+export async function addMembersToTeam({
   organization,
-  userId,
+  userIds,
   teamId,
 }: {
   organization: OrganizationInterface;
-  userId: string;
+  userIds: string[];
   teamId: string;
 }): Promise<void> {
-  // If member is a pending member, skip
-  if (organization?.pendingMembers?.find((m) => m.id === userId)) {
-    return;
-  }
+  const updatedMembers = organization.members.map((member) => {
+    if (!userIds.includes(member.id) || member.teams?.includes(teamId)) {
+      return member;
+    }
 
-  const member = organization.members.find((m) => m.id === userId);
+    return { ...member, teams: [...(member.teams ?? []), teamId] };
+  });
 
-  // If member doesn't exist in the org or is already in the team, skip
-  if (!member || member.teams?.includes(teamId)) {
-    return;
-  }
-
-  // Create teams array for member if it does not exist
-  if (!member.teams) {
-    member.teams = [];
-  }
-  member.teams.push(teamId);
-
-  await updateOrganization(organization.id, { members: organization.members });
+  await updateOrganization(organization.id, { members: updatedMembers });
 }
 
 export async function convertMemberToManagedByIdp({
@@ -337,27 +331,24 @@ export async function convertMemberToManagedByIdp({
   return await updateOrganization(organization.id, { members: newMembers });
 }
 
-export async function removeMemberFromTeam({
+export async function removeMembersFromTeam({
   organization,
-  userId,
+  userIds,
   teamId,
 }: {
   organization: OrganizationInterface;
-  userId: string;
+  userIds: string[];
   teamId: string;
 }): Promise<void> {
-  const member = organization.members.find((m) => m.id === userId);
+  const updatedMembers = organization.members.map((member) => {
+    if (!userIds.includes(member.id)) {
+      return member;
+    }
 
-  // If member doesn't exist in the org or isn't in the team, skip
-  if (!member || !member.teams?.includes(teamId)) {
-    return;
-  }
+    return { ...member, teams: member.teams?.filter((t) => t !== teamId) };
+  });
 
-  const indexToDelete = member.teams.indexOf(teamId);
-
-  member.teams.splice(indexToDelete, 1);
-
-  await updateOrganization(organization.id, { members: organization.members });
+  await updateOrganization(organization.id, { members: updatedMembers });
 }
 
 export async function addPendingMemberToOrg({

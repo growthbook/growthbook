@@ -8,14 +8,18 @@ import FeatureValueField from "./FeatureValueField";
 
 export interface Props {
   feature: FeatureInterface;
+  version: number;
   close: () => void;
   mutate: () => void;
+  setVersion: (version: number) => void;
 }
 
 export default function EditDefaultValueModal({
   feature,
+  version,
   close,
   mutate,
+  setVersion,
 }: Props) {
   const form = useForm({
     defaultValues: {
@@ -40,11 +44,15 @@ export default function EditDefaultValueModal({
           );
         }
 
-        await apiCall(`/feature/${feature.id}/defaultvalue`, {
-          method: "POST",
-          body: JSON.stringify(value),
-        });
-        mutate();
+        const res = await apiCall<{ version: number }>(
+          `/feature/${feature.id}/${version}/defaultvalue`,
+          {
+            method: "POST",
+            body: JSON.stringify(value),
+          }
+        );
+        await mutate();
+        res.version && setVersion(res.version);
       })}
       close={close}
       open={true}

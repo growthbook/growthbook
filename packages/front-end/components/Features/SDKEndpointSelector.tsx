@@ -64,8 +64,7 @@ export default function SDKEndpointSelector({ apiKey, setApiKey }: Props) {
 
   const envsWithEndpoints = new Set<string>();
   keys.forEach((k) => {
-    // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'string | undefined' is not assig... Remove this comment to see the full error message
-    envsWithEndpoints.add(k.environment);
+    if (k.environment) envsWithEndpoints.add(k.environment);
   });
   async function createMissingEndpoints() {
     for (let i = 0; i < environments.length; i++) {
@@ -121,8 +120,7 @@ export default function SDKEndpointSelector({ apiKey, setApiKey }: Props) {
               const env = key?.environment || "production";
               return (
                 <div>
-                  {/* @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'string | undefined' is not assig... Remove this comment to see the full error message */}
-                  {getProjectById(key?.project)?.name || "All Projects"}{" "}
+                  {getProjectById(key?.project || "")?.name || "All Projects"}{" "}
                   <FaAngleRight /> {env}
                   {key?.description && key.description !== env && (
                     <small className="text-muted d-block">

@@ -86,9 +86,7 @@ export default function ProjectTagBar({
       <div className="col-auto">
         Tags:{" "}
         {experiment.tags?.length > 0 ? (
-          <span className="d-inline-block" style={{ maxWidth: 250 }}>
-            <SortedTags tags={experiment.tags} skipFirstMargin={true} />
-          </span>
+          <SortedTags tags={experiment.tags} skipFirstMargin={true} />
         ) : (
           <em className="text-muted">None</em>
         )}{" "}

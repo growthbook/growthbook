@@ -1,8 +1,7 @@
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import React, { FC, useEffect } from "react";
 import dynamic from "next/dynamic";
-import { StatsEngine } from "back-end/types/stats";
-import { MetricRegressionAdjustmentStatus } from "back-end/types/report";
+import { DifferenceType, StatsEngine } from "back-end/types/stats";
 import { getValidDate, ago } from "shared/dates";
 import { DEFAULT_STATS_ENGINE } from "shared/constants";
 import { ExperimentMetricInterface } from "shared/experiments";
@@ -20,6 +19,7 @@ import StatusBanner from "@/components/Experiment/StatusBanner";
 import { GBCuped, GBSequential } from "@/components/Icons";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { trackSnapshot } from "@/services/track";
+import { ExperimentTab } from "./TabbedPage";
 
 const BreakDownResults = dynamic(
   () => import("@/components/Experiment/BreakDownResults")
@@ -41,15 +41,17 @@ const Results: FC<{
   regressionAdjustmentAvailable?: boolean;
   regressionAdjustmentEnabled?: boolean;
   regressionAdjustmentHasValidMetrics?: boolean;
-  metricRegressionAdjustmentStatuses?: MetricRegressionAdjustmentStatus[];
   onRegressionAdjustmentChange?: (enabled: boolean) => void;
   variationFilter?: number[];
   setVariationFilter?: (variationFilter: number[]) => void;
   baselineRow?: number;
   setBaselineRow?: (baselineRow: number) => void;
+  differenceType?: DifferenceType;
+  setDifferenceType?: (differenceType: DifferenceType) => void;
   metricFilter?: ResultsMetricFilters;
   setMetricFilter?: (metricFilter: ResultsMetricFilters) => void;
   isTabActive?: boolean;
+  setTab?: (tab: ExperimentTab) => void;
 }> = ({
   experiment,
   mutateExperiment,
@@ -63,15 +65,17 @@ const Results: FC<{
   regressionAdjustmentAvailable = false,
   regressionAdjustmentEnabled = false,
   regressionAdjustmentHasValidMetrics = false,
-  metricRegressionAdjustmentStatuses,
   onRegressionAdjustmentChange,
   variationFilter,
   setVariationFilter,
   baselineRow,
   setBaselineRow,
+  differenceType,
+  setDifferenceType,
   metricFilter,
   setMetricFilter,
   isTabActive = true,
+  setTab,
 }) => {
   const { apiCall } = useAuth();
 
@@ -128,6 +132,8 @@ const Results: FC<{
         m.computedSettings?.regressionAdjustmentDays || 0,
       regressionAdjustmentEnabled: !!m.computedSettings
         ?.regressionAdjustmentEnabled,
+      regressionAdjustmentAvailable: !!m.computedSettings
+        ?.regressionAdjustmentAvailable,
     })) || [];
 
   const showCompactResults =
@@ -176,9 +182,6 @@ const Results: FC<{
           regressionAdjustmentHasValidMetrics={
             regressionAdjustmentHasValidMetrics
           }
-          metricRegressionAdjustmentStatuses={
-            metricRegressionAdjustmentStatuses
-          }
           onRegressionAdjustmentChange={onRegressionAdjustmentChange}
           newUi={true}
           showMoreMenu={false}
@@ -186,6 +189,8 @@ const Results: FC<{
           setVariationFilter={(v: number[]) => setVariationFilter?.(v)}
           baselineRow={baselineRow}
           setBaselineRow={(b: number) => setBaselineRow?.(b)}
+          differenceType={differenceType}
+          setDifferenceType={setDifferenceType}
         />
       ) : (
         <StatusBanner
@@ -315,6 +320,7 @@ const Results: FC<{
             snapshotMetricRegressionAdjustmentStatuses
           }
           sequentialTestingEnabled={analysis?.settings?.sequentialTesting}
+          differenceType={analysis.settings?.differenceType}
           metricFilter={metricFilter}
           setMetricFilter={setMetricFilter}
         />
@@ -352,9 +358,11 @@ const Results: FC<{
               snapshotMetricRegressionAdjustmentStatuses
             }
             sequentialTestingEnabled={analysis.settings?.sequentialTesting}
+            differenceType={analysis.settings?.differenceType}
             metricFilter={metricFilter}
             setMetricFilter={setMetricFilter}
             isTabActive={isTabActive}
+            setTab={setTab}
           />
         </>
       ) : null}

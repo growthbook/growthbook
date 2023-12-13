@@ -17,13 +17,13 @@ import {
 import { getValidDate } from "shared/dates";
 import { getScopedSettings } from "shared/settings";
 import { MetricInterface } from "back-end/types/metric";
+import { getRegressionAdjustmentsForMetric } from "shared/experiments";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { getExposureQuery } from "@/services/datasources";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useUser } from "@/services/UserContext";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
-import { getRegressionAdjustmentsForMetric } from "@/services/experiments";
 import { hasFileConfig } from "@/services/env";
 import { GBCuped, GBSequential } from "@/components/Icons";
 import useApi from "@/hooks/useApi";
@@ -92,18 +92,9 @@ export default function ConfigureReport({
       .filter((m) => m && typeof m === "string") as string[]
   );
   const denominatorMetrics: MetricInterface[] = useMemo(() => {
-    const metrics: MetricInterface[] = [];
-
-    denominatorMetricIds.forEach((id) => {
-      if (id) {
-        const metric = getMetricById(id);
-        if (metric) {
-          metrics.push(metric);
-        }
-      }
-    });
-
-    return metrics;
+    return denominatorMetricIds
+      .map((m) => getMetricById(m as string))
+      .filter(Boolean) as MetricInterface[];
   }, [denominatorMetricIds, getMetricById]);
 
   // todo: type this form

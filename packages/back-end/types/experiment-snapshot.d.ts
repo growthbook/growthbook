@@ -1,9 +1,12 @@
+import { ExperimentMetricInterface } from "shared/experiments";
+import { ExperimentMetricQueryResponseRows } from "../src/types/Integration";
 import { QueryLanguage } from "./datasource";
 import { MetricInterface, MetricStats } from "./metric";
-import { StatsEngine } from "./stats";
+import { DifferenceType, StatsEngine } from "./stats";
 import { Queries } from "./query";
 import {
   ExperimentReportResultDimension,
+  ExperimentReportVariation,
   MetricRegressionAdjustmentStatus,
 } from "./report";
 import { DimensionInterface } from "./dimension";
@@ -31,6 +34,7 @@ export interface SnapshotMetric {
     y: number;
   }[];
   chanceToWin?: number;
+  errorMessage?: string;
 }
 
 export interface SnapshotVariation {
@@ -75,6 +79,7 @@ export interface MetricForSnapshot {
   // Computed settings that take into account overrides
   computedSettings?: {
     regressionAdjustmentEnabled: boolean;
+    regressionAdjustmentAvailable: boolean;
     regressionAdjustmentDays: number;
     regressionAdjustmentReason: string;
     conversionWindowHours: number;
@@ -97,6 +102,7 @@ export interface ExperimentSnapshotAnalysisSettings {
   regressionAdjusted?: boolean;
   sequentialTesting?: boolean;
   sequentialTestingTuningParameter?: number;
+  differenceType: DifferenceType;
   pValueCorrection?: null | "holm-bonferroni" | "benjamini-hochberg";
   pValueThreshold?: number;
   baselineVariationIndex?: number;
@@ -109,6 +115,11 @@ export interface ExperimentSnapshotAnalysis {
   status: "running" | "success" | "error";
   error?: string;
   results: ExperimentReportResultDimension[];
+}
+
+export interface SnapshotSettingsVariation {
+  id: string;
+  weight: number;
 }
 
 // Settings that control which queries are run
@@ -131,10 +142,8 @@ export interface ExperimentSnapshotSettings {
   exposureQueryId: string;
   startDate: Date;
   endDate: Date;
-  variations: {
-    id: string;
-    weight: number;
-  }[];
+  variations: SnapshotSettingsVariation[];
+  coverage?: number;
 }
 
 export interface ExperimentSnapshotInterface {
@@ -159,4 +168,39 @@ export interface ExperimentSnapshotInterface {
   unknownVariations: string[];
   multipleExposures: number;
   analyses: ExperimentSnapshotAnalysis[];
+
+  health?: ExperimentSnapshotHealth;
+}
+
+export interface ExperimentSnapshotHealth {
+  traffic: ExperimentSnapshotTraffic;
+}
+
+export interface ExperimentSnapshotTraffic {
+  overall: ExperimentSnapshotTrafficDimension;
+  dimension: {
+    [dimension: string]: ExperimentSnapshotTrafficDimension[];
+  };
+  error?: "NO_ROWS_IN_UNIT_QUERY" | "TOO_MANY_ROWS" | string;
+}
+export interface ExperimentSnapshotTrafficDimension {
+  name: string;
+  srm: number;
+  variationUnits: number[];
+}
+
+// Params for gbstats
+export interface ExperimentMetricAnalysisParams {
+  variations: ExperimentReportVariation[];
+  metric: ExperimentMetricInterface;
+  rows: ExperimentMetricQueryResponseRows;
+  dimension: string | null;
+  baselineVariationIndex: number;
+  differenceType: DifferenceType;
+  phaseLengthHours: number;
+  coverage: number;
+  statsEngine: StatsEngine;
+  sequentialTestingEnabled: boolean;
+  sequentialTestingTuningParameter: number;
+  pValueThreshold: number;
 }

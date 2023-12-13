@@ -3,7 +3,7 @@ import { ResultSet } from "aws-sdk/clients/athena";
 import { AthenaConnectionParams } from "../../types/integrations/athena";
 import { logger } from "../util/logger";
 import { IS_CLOUD } from "../util/secrets";
-import { QueryResponse } from "../types/Integration";
+import { ExternalIdCallback, QueryResponse } from "../types/Integration";
 
 function getAthenaInstance(params: AthenaConnectionParams) {
   if (!IS_CLOUD && params.authType === "auto") {
@@ -19,9 +19,22 @@ function getAthenaInstance(params: AthenaConnectionParams) {
   });
 }
 
+export async function cancelAthenaQuery(
+  conn: AthenaConnectionParams,
+  id: string
+) {
+  const athena = getAthenaInstance(conn);
+  await athena
+    .stopQueryExecution({
+      QueryExecutionId: id,
+    })
+    .promise();
+}
+
 export async function runAthenaQuery(
   conn: AthenaConnectionParams,
-  sql: string
+  sql: string,
+  setExternalId: ExternalIdCallback
 ): Promise<QueryResponse> {
   const athena = getAthenaInstance(conn);
 
@@ -46,6 +59,10 @@ export async function runAthenaQuery(
 
   if (!QueryExecutionId) {
     throw new Error("Failed to start query");
+  }
+
+  if (setExternalId) {
+    await setExternalId(QueryExecutionId);
   }
 
   const waitAndCheck = (delay: number) => {
@@ -99,7 +116,7 @@ export async function runAthenaQuery(
       return {
         rows: result.Rows.slice(1).map((row) => {
           // eslint-disable-next-line
-        const obj: any = {};
+          const obj: any = {};
           if (row.Data) {
             row.Data.forEach((value, i) => {
               obj[keys[i]] = value.VarCharValue || null;
@@ -113,5 +130,5 @@ export async function runAthenaQuery(
 
   // Cancel the query if it reaches this point
   await athena.stopQueryExecution({ QueryExecutionId }).promise();
-  throw new Error("Query timed out after 5 minutes");
+  throw new Error("Query timed out after 30 minutes");
 }

@@ -33,8 +33,8 @@ export default function ScheduleInputs(props: Props) {
     return date instanceof Date && !isNaN(date.valueOf());
   }
 
-  const onChange = (value: string, property: string, i: number) => {
-    if (!dateIsValid(new Date(value))) {
+  const onChange = (value: string | null, property: string, i: number) => {
+    if (value && !dateIsValid(new Date(value))) {
       return;
     }
     const newRules = [...rules];
@@ -102,7 +102,6 @@ export default function ScheduleInputs(props: Props) {
                           0
                         );
                       } else {
-                        // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'null' is not assignable to param... Remove this comment to see the full error message
                         onChange(null, "timestamp", 0);
                       }
                     }}
@@ -155,7 +154,6 @@ export default function ScheduleInputs(props: Props) {
                           1
                         );
                       } else {
-                        // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'null' is not assignable to param... Remove this comment to see the full error message
                         onChange(null, "timestamp", 1);
                       }
                     }}
@@ -177,9 +175,9 @@ export default function ScheduleInputs(props: Props) {
                         onChange={(e) => {
                           setDateErrors("");
                           if (
+                            rules[0].timestamp &&
                             new Date(e.target.value) <
-                            // @ts-expect-error TS(2769) If you come across this, please fix it!: No overload matches this call.
-                            new Date(rules[0].timestamp)
+                              new Date(rules[0].timestamp)
                           ) {
                             setDateErrors(
                               "End date must be greater than the previous rule date."

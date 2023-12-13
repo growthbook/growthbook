@@ -1,6 +1,6 @@
 import { SDKConnectionInterface } from "back-end/types/sdk-connection";
 import { useRouter } from "next/router";
-import { ReactElement, ReactNode, useState } from "react";
+import React, { ReactElement, ReactNode, useState } from "react";
 import {
   FaCheckCircle,
   FaExclamationTriangle,
@@ -149,15 +149,11 @@ export default function SDKConnectionPage() {
 
   const hasPermission = permissions.check(
     "manageEnvironments",
-    connection.project,
+    connection.projects,
     [connection.environment]
   );
 
   const hasProxy = connection.proxy.enabled && !!connection.proxy.host;
-
-  const projectId = connection.project;
-  const projectName = getProjectById(projectId)?.name || null;
-  const projectIsDeReferenced = projectId && !projectName;
 
   return (
     <div className="contents container pagecontents">
@@ -234,25 +230,39 @@ export default function SDKConnectionPage() {
           Environment: <strong>{connection.environment}</strong>
         </div>
 
-        {(projects.length > 0 || projectIsDeReferenced) && (
+        {(projects.length > 0 || connection.projects.length > 0) && (
           <div className="col-auto">
-            Project:{" "}
-            {projectIsDeReferenced ? (
-              <Tooltip
-                body={
-                  <>
-                    Project <code>{projectId}</code> not found
-                  </>
-                }
-              >
-                <span className="text-danger">
-                  <FaExclamationTriangle /> Invalid project
-                </span>
-              </Tooltip>
-            ) : projectId ? (
-              <strong>{projectName}</strong>
+            Projects:{" "}
+            {connection.projects.length > 0 ? (
+              <>
+                {connection.projects.map((p) => {
+                  const proj = getProjectById(p);
+                  if (proj) {
+                    return (
+                      <span className="badge badge-secondary mr-1" key={p}>
+                        {proj.name}
+                      </span>
+                    );
+                  } else {
+                    return (
+                      <Tooltip
+                        body={
+                          <>
+                            Project <code>{p}</code> not found
+                          </>
+                        }
+                        key={p}
+                      >
+                        <span className="badge badge-danger mr-1">
+                          <FaExclamationTriangle /> Invalid project
+                        </span>
+                      </Tooltip>
+                    );
+                  }
+                })}
+              </>
             ) : (
-              <em className="text-muted">All Projects</em>
+              <em>All Projects</em>
             )}
           </div>
         )}
@@ -285,14 +295,6 @@ export default function SDKConnectionPage() {
         )}
       </div>
 
-      {projectIsDeReferenced && (
-        <div className="alert alert-danger">
-          This SDK connection is scoped to a project that no longer exists. This
-          connection will no longer work until either a valid project or
-          &quot;All Projects&quot; is selected.
-        </div>
-      )}
-
       <div className="row mb-2 align-items-center">
         <div className="col-auto">
           <h2 className="mb-0">Connection</h2>
@@ -322,7 +324,15 @@ export default function SDKConnectionPage() {
           >
             {connection.languages.map((language) => (
               <div className="mx-1" key={language}>
-                <SDKLanguageLogo showLabel={true} language={language} />
+                <SDKLanguageLogo
+                  showLabel={true}
+                  language={language}
+                  version={
+                    connection.languages?.length === 1
+                      ? connection.sdkVersion
+                      : undefined
+                  }
+                />
               </div>
             ))}
           </div>

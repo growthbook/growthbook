@@ -139,8 +139,8 @@ const ProjectsPage: FC = () => {
                             mutateDefinitions();
                           }}
                           additionalMessage={
-                            sdkConnectionsData?.connections?.find(
-                              (c) => c.project === p.id
+                            sdkConnectionsData?.connections?.find((c) =>
+                              c.projects.includes(p.id)
                             ) ? (
                               <div className="alert alert-danger px-2 py-1">
                                 <FaExclamationTriangle /> This project is in use
@@ -159,7 +159,7 @@ const ProjectsPage: FC = () => {
           </tbody>
         </table>
       ) : (
-        <p>Click the button below to create your first project!</p>
+        <p>Click the button in the top right to create your first project!</p>
       )}
     </div>
   );

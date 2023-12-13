@@ -238,7 +238,7 @@ const ArchetypeResults: FC<{
   };
 
   return (
-    <div className={`my-3`}>
+    <div className={`mb-3`}>
       <table className="table gbtable appbox ">
         <thead>
           <tr>
