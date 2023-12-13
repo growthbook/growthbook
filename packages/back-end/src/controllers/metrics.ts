@@ -1,5 +1,4 @@
 import { Response } from "express";
-import { filterResourceByAccessPermission } from "shared/permissions";
 import { AuthRequest } from "../types/AuthRequest";
 import { createMetric, refreshMetric } from "../services/experiments";
 import { MetricInterface, MetricType } from "../../types/metric";
@@ -272,17 +271,17 @@ export async function getMetric(
     });
   }
 
-  const filteredMetric = filterResourceByAccessPermission(
-    currentUserPermissions,
-    metric
-  );
+  // const filteredMetric = filterResourceByAccessPermission(
+  //   currentUserPermissions,
+  //   metric
+  // );
 
-  if (!filteredMetric.length) {
-    return res.status(403).json({
-      status: 403,
-      message: "You do not have access to view this metric.",
-    });
-  }
+  // if (!filteredMetric.length) {
+  //   return res.status(403).json({
+  //     status: 403,
+  //     message: "You do not have access to view this metric.",
+  //   });
+  // }
 
   const experiments = await getRecentExperimentsUsingMetric(org.id, metric.id);
 

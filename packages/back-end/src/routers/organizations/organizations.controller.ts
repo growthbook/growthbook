@@ -8,7 +8,7 @@ import {
   getLicense,
   setLicense,
 } from "enterprise";
-import { hasReadAccess } from "shared/permissions";
+import { getProjectAccess, hasReadAccess } from "shared/permissions";
 import {
   AuthRequest,
   ResponseWithStatusAndError,
@@ -123,6 +123,10 @@ export async function getDefinitions(req: AuthRequest, res: Response) {
 
   const currentUserPermissions = getUserPermissions(userId, org, teams || []);
 
+  const projectAccess = getProjectAccess(currentUserPermissions);
+
+  console.log("projectAccess", projectAccess);
+
   const orgId = org?.id;
   if (!orgId) {
     throw new Error("Must be part of an organization");
@@ -139,7 +143,7 @@ export async function getDefinitions(req: AuthRequest, res: Response) {
     factTables,
     factMetrics,
   ] = await Promise.all([
-    getMetricsByOrganization(orgId),
+    getMetricsByOrganization(orgId, projectAccess),
     getDataSourcesByOrganization(orgId),
     findDimensionsByOrganization(orgId),
     findSegmentsByOrganization(orgId),
@@ -152,9 +156,10 @@ export async function getDefinitions(req: AuthRequest, res: Response) {
 
   return res.status(200).json({
     status: 200,
-    metrics: metrics.filter((m) =>
-      hasReadAccess(currentUserPermissions, m.projects || [])
-    ),
+    // metrics: metrics.filter((m) =>
+    //   hasReadAccess(currentUserPermissions, m.projects || [])
+    // ),
+    metrics,
     datasources: datasources
       .filter((d) => hasReadAccess(currentUserPermissions, d.projects || []))
       .map((d) => {

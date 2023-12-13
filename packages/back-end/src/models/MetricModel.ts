@@ -1,5 +1,9 @@
 import mongoose, { FilterQuery } from "mongoose";
 import { ExperimentMetricInterface } from "shared/experiments";
+import {
+  ProjectAccessObject,
+  hasProjectAccess,
+} from "shared/src/permissions/permissions.utils";
 import { LegacyMetricInterface, MetricInterface } from "../../types/metric";
 import { getConfigMetrics, usingFileConfig } from "../init/config";
 import { upgradeMetricDoc } from "../util/migrations";
@@ -207,7 +211,10 @@ export async function getMetricMap(organization: string) {
   return metricMap;
 }
 
-export async function getMetricsByOrganization(organization: string) {
+export async function getMetricsByOrganization(
+  organization: string,
+  projectFilter?: ProjectAccessObject
+) {
   // If using config.yml, immediately return the list from there
   if (usingFileConfig()) {
     return getConfigMetrics(organization);
@@ -217,7 +224,17 @@ export async function getMetricsByOrganization(organization: string) {
     organization,
   });
 
-  return docs.map(toInterface);
+  const metrics = docs.map(toInterface);
+
+  if (projectFilter) {
+    return metrics.filter((m) =>
+      hasProjectAccess(projectFilter, m.projects || [])
+    );
+  }
+
+  return metrics;
+
+  // return docs.map(toInterface);
 }
 
 export async function getMetricsByDatasource(
