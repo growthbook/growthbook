@@ -21,6 +21,8 @@ import SavedGroupTargetingField, {
   validateSavedGroupTargeting,
 } from "../Features/SavedGroupTargetingField";
 import HashVersionSelector from "./HashVersionSelector";
+import omit from "lodash/omit";
+import isEqual from "lodash/isEqual";
 
 export interface Props {
   close: () => void;
@@ -41,31 +43,33 @@ export default function EditTargetingModal({
   const lastPhase: ExperimentPhaseStringDates | undefined =
     experiment.phases[experiment.phases.length - 1];
 
-  const form = useForm<ExperimentTargetingData>({
-    defaultValues: {
-      condition: lastPhase?.condition ?? "",
-      savedGroups: lastPhase?.savedGroups ?? [],
-      coverage: lastPhase?.coverage ?? 1,
-      hashAttribute: experiment.hashAttribute || "id",
-      fallbackAttribute: experiment.fallbackAttribute || "",
-      hashVersion: experiment.hashVersion || 2,
-      disableStickyBucketing: experiment.disableStickyBucketing ?? false,
-      bucketVersion: experiment.bucketVersion || 1,
-      minBucketVersion: experiment.minBucketVersion || 0,
-      blockedVariations: experiment.blockedVariations || [],
-      namespace: lastPhase?.namespace || {
-        enabled: false,
-        name: "",
-        range: [0, 1],
-      },
-      seed: lastPhase?.seed ?? "",
-      trackingKey: experiment.trackingKey || "",
-      variationWeights:
-        lastPhase?.variationWeights ??
-        getEqualWeights(experiment.variations.length, 4),
-      newPhase: false,
-      reseed: true,
+  const defaultValues = {
+    condition: lastPhase?.condition ?? "",
+    savedGroups: lastPhase?.savedGroups ?? [],
+    coverage: lastPhase?.coverage ?? 1,
+    hashAttribute: experiment.hashAttribute || "id",
+    fallbackAttribute: experiment.fallbackAttribute || "",
+    hashVersion: experiment.hashVersion || 2,
+    disableStickyBucketing: experiment.disableStickyBucketing ?? false,
+    bucketVersion: experiment.bucketVersion || 1,
+    minBucketVersion: experiment.minBucketVersion || 0,
+    blockedVariations: experiment.blockedVariations || [],
+    namespace: lastPhase?.namespace || {
+      enabled: false,
+      name: "",
+      range: [0, 1],
     },
+    seed: lastPhase?.seed ?? "",
+    trackingKey: experiment.trackingKey || "",
+    variationWeights:
+      lastPhase?.variationWeights ??
+      getEqualWeights(experiment.variations.length, 4),
+    newPhase: false,
+    reseed: true,
+  };
+
+  const form = useForm<ExperimentTargetingData>({
+    defaultValues,
   });
   const { apiCall } = useAuth();
 
@@ -73,74 +77,9 @@ export default function EditTargetingModal({
   const hasHashAttributes =
     attributeSchema.filter((x) => x.hashAttribute).length > 0;
 
-  const variationWeights = form.watch("variationWeights");
-  const coverage = form.watch("coverage");
-  const condition = form.watch("condition");
-  const namespace = form.watch("namespace");
-  const savedGroups = form.watch("savedGroups");
-  const encodedVariationWeights = JSON.stringify(variationWeights);
-  const encodedNamespace = JSON.stringify(namespace);
-  const isNamespaceEnabled = namespace.enabled;
-  const shouldCreateNewPhase = useMemo<boolean>(() => {
-    // If it's safe to edit (or there is no previous phase), we don't need to ask about creating a new phase
-    if (safeToEdit) return false;
-    if (!lastPhase) return false;
-
-    // Changing variation weights will almost certainly cause an SRM error
-    if (
-      encodedVariationWeights !== JSON.stringify(lastPhase.variationWeights)
-    ) {
-      return true;
-    }
-
-    // Remove outer curly braces from condition so we can use it to look for substrings
-    // e.g. If they have 3 conditions ANDed together and delete one, that is a safe change
-    // But if they add new conditions or modify an existing one, that is not
-    // There are some edge cases with '$or' that are not handled correctly, but those are super rare
-    const strippedCondition = condition.slice(1).slice(0, -1);
-    if (!(lastPhase.condition || "").includes(strippedCondition)) {
-      return true;
-    }
-
-    // Changing saved groups
-    // TODO: certain changes should be safe, so make this logic smarter
-    if (
-      JSON.stringify(savedGroups || []) !==
-      JSON.stringify(lastPhase.savedGroups || [])
-    ) {
-      return true;
-    }
-
-    // If adding or changing a namespace
-    if (
-      isNamespaceEnabled &&
-      encodedNamespace !== JSON.stringify(lastPhase.namespace)
-    ) {
-      return true;
-    }
-
-    // If reducing coverage
-    if (coverage < (lastPhase.coverage ?? 1)) {
-      return true;
-    }
-
-    // If not changing any of the above, no reason to create a new phase
-    return false;
-  }, [
-    coverage,
-    lastPhase,
-    encodedVariationWeights,
-    condition,
-    isNamespaceEnabled,
-    encodedNamespace,
-    savedGroups,
-    safeToEdit,
-  ]);
-
-  useEffect(() => {
-    form.setValue("newPhase", shouldCreateNewPhase);
-    form.setValue("reseed", true);
-  }, [form, shouldCreateNewPhase]);
+  const _formValues = omit(form.getValues(), ["newPhase", "reseed", "bucketVersion", "minBucketVersion"]);
+  const _defaultValues = omit(defaultValues, ["newPhase", "reseed", "bucketVersion", "minBucketVersion"]);
+  const hasChanges = !isEqual(_formValues, _defaultValues);
 
   return (
     <Modal
@@ -156,7 +95,8 @@ export default function EditTargetingModal({
         });
         mutate();
       })}
-      cta={safeToEdit ? "Save" : "Save and Publish"}
+      cta={hasChanges ? (safeToEdit ? "Save" : "Save and Publish") : "No changes"}
+      ctaEnabled={hasChanges}
       size="lg"
       bodyClassName="p-0"
     >
@@ -246,8 +186,8 @@ export default function EditTargetingModal({
           </div>
         )}
         <SavedGroupTargetingField
-          value={savedGroups || []}
-          setValue={(savedGroups) => form.setValue("savedGroups", savedGroups)}
+          value={form.watch("savedGroups") || []}
+          setValue={(v) => form.setValue("savedGroups", v)}
         />
         <ConditionInput
           defaultValue={form.watch("condition")}
@@ -282,7 +222,7 @@ export default function EditTargetingModal({
         />
       </div>
 
-      {!safeToEdit && lastPhase && (
+      {!safeToEdit && lastPhase && hasChanges && (
         <ReleaseChangesForm experiment={experiment} form={form} />
       )}
     </Modal>
