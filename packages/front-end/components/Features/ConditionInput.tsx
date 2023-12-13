@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { some } from "lodash";
 import { FaExclamationCircle } from "react-icons/fa";
+import { isLegacySavedGroup } from "shared/util";
 import {
   condToJson,
   jsonToConds,
@@ -158,8 +159,12 @@ export default function ConditionInput(props: Props) {
 
             // This is for legacy support only
             const savedGroupOptions = savedGroups
-              // Only include currently selected groups
-              .filter((g) => g.id === value)
+              // Only include currently selected groups (or ones with legacy values)
+              .filter(
+                (g) =>
+                  g.id === value ||
+                  isLegacySavedGroup(g.condition, g.attributeKey || "")
+              )
               // Then, transform into the select option format
               .map((g) => ({ label: g.groupName, value: g.id }));
 
