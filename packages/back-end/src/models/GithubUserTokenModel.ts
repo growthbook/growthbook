@@ -43,7 +43,7 @@ export const doesTokenExist = async (tokenId: string) => {
   return await GithubUserTokenModel.exists({
     id: tokenId,
     createdAt: {
-      $gte: new Date(new Date().getTime() - 1 * 60 * 60 * 1000), // 1 hour
+      $gte: new Date(new Date().getTime() - 1 * 60 * 1000), // 1 minute
     },
   });
 };
