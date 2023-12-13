@@ -85,5 +85,57 @@ describe("preview links", () => {
         }).variationId
       ).toEqual(3);
     });
+
+    describe("when the experiment has multiple visual changesets", () => {
+      it("should select the experiment with the url pattern that matches", () => {
+        window.location.href = "http://app.customer.com?exp-01=1";
+        const context: Context = { user: { id: "1" } };
+        const growthbook = new GrowthBook(context);
+        expect(
+          growthbook.run({
+            key: "exp-01",
+            active: false,
+            variations: [0, 1],
+            urlPatterns: [
+              {
+                include: true,
+                pattern: "http://app.customer.com/path/1",
+                type: "simple",
+              },
+            ],
+          }).inExperiment
+        ).toEqual(false);
+
+        expect(
+          growthbook.run({
+            key: "exp-01",
+            active: false,
+            variations: [0, 1],
+            urlPatterns: [
+              {
+                include: true,
+                pattern: "http://app.customer.com/path/2",
+                type: "simple",
+              },
+            ],
+          }).inExperiment
+        ).toEqual(false);
+
+        expect(
+          growthbook.run({
+            key: "exp-01",
+            active: false,
+            variations: [0, 1],
+            urlPatterns: [
+              {
+                include: true,
+                pattern: "http://app.customer.com",
+                type: "simple",
+              },
+            ],
+          }).inExperiment
+        ).toEqual(true);
+      });
+    });
   });
 });
