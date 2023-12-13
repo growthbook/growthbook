@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 import uniqid from "uniqid";
 import { omit } from "lodash";
+import { ReadAccessFilter, hasReadAccess } from "shared/permissions";
 import {
   CreateFactFilterProps,
   CreateFactTableProps,
@@ -65,9 +66,20 @@ function toInterface(doc: FactTableDocument): FactTableInterface {
   return omit(ret, ["__v", "_id"]);
 }
 
-export async function getAllFactTablesForOrganization(organization: string) {
+export async function getAllFactTablesForOrganization(
+  organization: string,
+  readAccessFilter?: ReadAccessFilter
+) {
   const docs = await FactTableModel.find({ organization });
-  return docs.map((doc) => toInterface(doc));
+
+  const factTables = docs.map(toInterface);
+
+  if (readAccessFilter) {
+    return factTables.filter((ft) =>
+      hasReadAccess(readAccessFilter, ft.projects)
+    );
+  }
+  return factTables;
 }
 
 export type FactTableMap = Map<string, FactTableInterface>;

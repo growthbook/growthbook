@@ -8,7 +8,7 @@ import {
   getLicense,
   setLicense,
 } from "enterprise";
-import { getProjectAccess } from "shared/permissions";
+import { getReadAccessFilter } from "shared/permissions";
 import {
   AuthRequest,
   ResponseWithStatusAndError,
@@ -123,9 +123,7 @@ export async function getDefinitions(req: AuthRequest, res: Response) {
 
   const currentUserPermissions = getUserPermissions(userId, org, teams || []);
 
-  const projectAccess = getProjectAccess(currentUserPermissions);
-
-  console.log("projectAccess", projectAccess);
+  const readAccessFilter = getReadAccessFilter(currentUserPermissions);
 
   const orgId = org?.id;
   if (!orgId) {
@@ -143,14 +141,14 @@ export async function getDefinitions(req: AuthRequest, res: Response) {
     factTables,
     factMetrics,
   ] = await Promise.all([
-    getMetricsByOrganization(orgId, projectAccess),
-    getDataSourcesByOrganization(orgId),
+    getMetricsByOrganization(orgId, readAccessFilter),
+    getDataSourcesByOrganization(orgId, readAccessFilter),
     findDimensionsByOrganization(orgId),
     findSegmentsByOrganization(orgId),
     getAllTags(orgId),
     getAllSavedGroups(orgId),
-    findAllProjectsByOrganization(orgId, projectAccess),
-    getAllFactTablesForOrganization(orgId),
+    findAllProjectsByOrganization(orgId, readAccessFilter),
+    getAllFactTablesForOrganization(orgId, readAccessFilter),
     getAllFactMetricsForOrganization(orgId), //TODO: Check if these have projects
   ]);
 

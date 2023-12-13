@@ -1,6 +1,6 @@
 import mongoose, { FilterQuery } from "mongoose";
 import { ExperimentMetricInterface } from "shared/experiments";
-import { ProjectAccessObject, hasProjectAccess } from "shared/permissions";
+import { ReadAccessFilter, hasReadAccess } from "shared/permissions";
 import { LegacyMetricInterface, MetricInterface } from "../../types/metric";
 import { getConfigMetrics, usingFileConfig } from "../init/config";
 import { upgradeMetricDoc } from "../util/migrations";
@@ -210,23 +210,23 @@ export async function getMetricMap(organization: string) {
 
 export async function getMetricsByOrganization(
   organization: string,
-  projectFilter?: ProjectAccessObject
+  readAccessFilter?: ReadAccessFilter
 ) {
   let metrics: MetricInterface[] = [];
   // If using config.yml, immediately return the list from there
   if (usingFileConfig()) {
     metrics = getConfigMetrics(organization);
+  } else {
+    const docs = await MetricModel.find({
+      organization,
+    });
+
+    metrics = docs.map(toInterface);
   }
 
-  const docs = await MetricModel.find({
-    organization,
-  });
-
-  metrics = docs.map(toInterface);
-
-  if (projectFilter) {
+  if (readAccessFilter) {
     return metrics.filter((m) => {
-      return hasProjectAccess(projectFilter, m.projects || []);
+      return hasReadAccess(readAccessFilter, m.projects || []);
     });
   }
 

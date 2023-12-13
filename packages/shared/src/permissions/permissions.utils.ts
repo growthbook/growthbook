@@ -32,31 +32,30 @@ export function roleSupportsEnvLimit(role: MemberRole): boolean {
   return ["engineer", "experimenter"].includes(role);
 }
 
-export type ProjectAccessObject = {
+export type ReadAccessFilter = {
   globalReadAccess: boolean;
   projects: { id: string; readAccess: boolean }[];
 };
 
-export function getProjectAccess(userPermissions: UserPermissions) {
-  const projectAccess: ProjectAccessObject = {
+export function getReadAccessFilter(userPermissions: UserPermissions) {
+  const readAccess: ReadAccessFilter = {
     globalReadAccess: userPermissions.global.permissions.readData || false,
     projects: [],
   };
 
   Object.keys(userPermissions.projects).forEach((project) => {
-    projectAccess.projects.push({
+    readAccess.projects.push({
       id: project,
       readAccess:
         userPermissions.projects[project].permissions.readData || false,
     });
   });
 
-  return projectAccess;
+  return readAccess;
 }
 
-// Change to hasReadAccess?
-export function hasProjectAccess(
-  projectAccess: ProjectAccessObject,
+export function hasReadAccess(
+  projectAccess: ReadAccessFilter,
   resourceProjects: string[]
 ): boolean {
   if (projectAccess.projects.length === 0 || resourceProjects.length === 0) {

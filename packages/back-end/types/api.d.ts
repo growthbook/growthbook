@@ -2,6 +2,7 @@ import {
   AutoExperiment,
   FeatureRule as FeatureDefinitionRule,
 } from "@growthbook/growthbook";
+import { ReadAccessFilter } from "shared/permissions";
 import { EventAuditUser } from "../src/events/event-types";
 import { PermissionFunctions } from "../src/types/AuthRequest";
 import { AuditInterface } from "./audit";
@@ -49,6 +50,7 @@ export type ApiRequestLocals = PermissionFunctions & {
   organization: OrganizationInterface;
   eventAudit: EventAuditUser;
   audit: (data: Partial<AuditInterface>) => Promise<void>;
+  readAccessFilter?: ReadAccessFilter;
 };
 
 export interface ApiErrorResponse {

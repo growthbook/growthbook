@@ -14,7 +14,10 @@ export const listDataSources = createApiRequestHandler(
   listDataSourcesValidator
 )(
   async (req): Promise<ListDataSourcesResponse> => {
-    const dataSources = await getDataSourcesByOrganization(req.organization.id);
+    const dataSources = await getDataSourcesByOrganization(
+      req.organization.id,
+      req.readAccessFilter
+    );
 
     // TODO: Move sorting/limiting to the database query for better performance
     const { filtered, returnFields } = applyPagination(

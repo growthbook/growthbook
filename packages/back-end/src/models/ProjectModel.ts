@@ -2,7 +2,7 @@ import mongoose from "mongoose";
 import uniqid from "uniqid";
 import { DEFAULT_STATS_ENGINE } from "shared/constants";
 import { omit } from "lodash";
-import { ProjectAccessObject, hasProjectAccess } from "shared/permissions";
+import { ReadAccessFilter, hasReadAccess } from "shared/permissions";
 import { ApiProject } from "../../types/openapi";
 import { ProjectInterface, ProjectSettings } from "../../types/project";
 
@@ -54,7 +54,7 @@ export async function createProject(
 }
 export async function findAllProjectsByOrganization(
   organization: string,
-  projectFilter?: ProjectAccessObject // Change to readAccessFilter
+  readAccessFilter?: ReadAccessFilter
 ) {
   const docs = await ProjectModel.find({
     organization,
@@ -62,8 +62,8 @@ export async function findAllProjectsByOrganization(
 
   const projects = docs.map(toInterface);
 
-  if (projectFilter) {
-    return projects.filter((p) => hasProjectAccess(projectFilter, [p.id]));
+  if (readAccessFilter) {
+    return projects.filter((p) => hasReadAccess(readAccessFilter, [p.id]));
   }
 
   return projects;
@@ -71,7 +71,7 @@ export async function findAllProjectsByOrganization(
 export async function findProjectById(
   id: string,
   organization: string,
-  projectFilter?: ProjectAccessObject
+  readAccessFilter?: ReadAccessFilter
 ) {
   const doc = await ProjectModel.findOne({ id, organization });
 
@@ -81,8 +81,8 @@ export async function findProjectById(
 
   const project = toInterface(doc);
 
-  if (project && projectFilter) {
-    return hasProjectAccess(projectFilter, [project.id]) ? project : null;
+  if (project && readAccessFilter) {
+    return hasReadAccess(readAccessFilter, [project.id]) ? project : null;
   }
   return project;
 }

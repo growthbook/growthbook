@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 import uniqid from "uniqid";
 import { cloneDeep, isEqual } from "lodash";
+import { ReadAccessFilter, hasReadAccess } from "shared/permissions";
 import {
   DataSourceInterface,
   DataSourceParams,
@@ -51,18 +52,28 @@ function toInterface(doc: DataSourceDocument): DataSourceInterface {
 }
 
 export async function getDataSourcesByOrganization(
-  organization: string
+  organization: string,
+  readAccessFilter?: ReadAccessFilter
 ): Promise<DataSourceInterface[]> {
+  let datasources: DataSourceInterface[] = [];
   // If using config.yml, immediately return the list from there
   if (usingFileConfig()) {
-    return getConfigDatasources(organization);
+    datasources = getConfigDatasources(organization);
+  } else {
+    const docs: DataSourceDocument[] = await DataSourceModel.find({
+      organization,
+    });
+
+    datasources = docs.map(toInterface);
   }
 
-  const docs: DataSourceDocument[] = await DataSourceModel.find({
-    organization,
-  });
+  if (readAccessFilter) {
+    return datasources.filter((ds) =>
+      hasReadAccess(readAccessFilter, ds.projects || [])
+    );
+  }
 
-  return docs.map(toInterface);
+  return datasources;
 }
 
 export async function getDataSourceById(id: string, organization: string) {

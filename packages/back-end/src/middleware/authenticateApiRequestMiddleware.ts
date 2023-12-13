@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import { licenseInit } from "enterprise";
-import { hasPermission } from "shared/permissions";
+import { getReadAccessFilter, hasPermission } from "shared/permissions";
 import { ApiRequestLocals } from "../../types/api";
 import { lookupOrganizationByApiKey } from "../models/ApiKeyModel";
 import { getOrganizationById } from "../services/organizations";
@@ -144,6 +144,15 @@ export default function authenticateApiRequestMiddleware(
           });
         }
       };
+
+      //TODO: Build the readAccessFilter here?
+      if (userId && teams) {
+        console.log("this is a personal access token, building permissions");
+        const userPermissions = getUserPermissions(userId, org, teams);
+        req.readAccessFilter = getReadAccessFilter(userPermissions);
+      } else {
+        req.readAccessFilter = { globalReadAccess: true, projects: [] };
+      }
 
       // Add user info to logger
       res.log = req.log = req.log.child(getCustomLogProps(req as Request));
