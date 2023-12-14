@@ -1,5 +1,5 @@
 import fs from "fs";
-import { Request, NextFunction, Response } from "express";
+import { NextFunction, Response } from "express";
 import { createAppAuth, createOAuthUserAuth } from "@octokit/auth-app";
 import { getOrgFromReq } from "../../services/organizations";
 import { AuthRequest } from "../../types/AuthRequest";
@@ -9,7 +9,6 @@ import {
   toggleWatchingForRepo,
 } from "../../models/GithubIntegration";
 import { createGithubUserToken } from "../../models/GithubUserTokenModel";
-import { APP_ORIGIN } from "../../util/secrets";
 
 const githubPrivateKey = fs.readFileSync(
   process.env.GITHUB_PRIVATE_KEY_PATH || "",
@@ -33,37 +32,13 @@ export const getGithubIntegration = async (req: AuthRequest, res: Response) => {
 };
 
 export const postGithubIntegration = async (
-  req: AuthRequest<{ tokenId: string }>,
-  res: Response
-) => {
-  req.checkPermissions("manageIntegrations");
-
-  const { org, userId } = getOrgFromReq(req);
-
-  if (!req.body.tokenId)
-    return res.status(400).json({
-      status: 400,
-      message: "tokenId is required",
-    });
-
-  const created = await createGithubIntegration({
-    organization: org.id,
-    tokenId: req.body.tokenId,
-    createdBy: userId,
-  });
-
-  return res.status(201).json({
-    status: 201,
-    githubIntegration: created,
-  });
-};
-
-export const completeOAuthFlow = async (
-  req: Request,
+  req: AuthRequest<{ code: string }>,
   res: Response,
   next: NextFunction
 ) => {
-  const code = req.query.code;
+  req.checkPermissions("manageIntegrations");
+
+  const code = req.body.code;
 
   if (!code || typeof code !== "string") {
     return next();
@@ -95,7 +70,18 @@ export const completeOAuthFlow = async (
     refreshTokenExpiresAt: new Date(authentication.refreshTokenExpiresAt),
   });
 
-  res.redirect(APP_ORIGIN + "/integrations/github?t_id=" + createdToken.id);
+  const { org, userId } = getOrgFromReq(req);
+
+  const created = await createGithubIntegration({
+    organization: org.id,
+    tokenId: createdToken.id,
+    createdBy: userId,
+  });
+
+  return res.status(201).json({
+    status: 201,
+    githubIntegration: created,
+  });
 };
 
 export const postRepoWatch = async (

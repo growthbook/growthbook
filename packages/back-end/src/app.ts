@@ -79,8 +79,6 @@ const informationSchemasController = wrapController(
   informationSchemasControllerRaw
 );
 
-import * as githubIntegrationController from "./routers/github-integration/github-integration.controller";
-
 // End Controllers
 
 import { isEmailEnabled } from "./services/email";
@@ -307,12 +305,6 @@ app.post("/auth/logout", authController.postLogout);
 app.get("/auth/hasorgs", authController.getHasOrganizations);
 
 app.use("/upload", staticFilesRouter);
-
-// Github integration installation endpoint (pre-auth)
-app.use(
-  "/integrations/github/oauth",
-  githubIntegrationController.completeOAuthFlow
-);
 
 // All other routes require a valid JWT
 const auth = getAuthConnection();

@@ -3,23 +3,23 @@ import { GithubIntegrationInterface } from "back-end/types/github";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { useAuth } from "@/services/auth";
 export default function GithubIntegrationConnect({
-  tokenId,
+  code,
   refresh,
 }: {
-  tokenId: string;
+  code: string;
   refresh: () => void;
 }) {
   const { apiCall } = useAuth();
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!tokenId) return;
+    if (!code) return;
     apiCall<{ githubIntegration: GithubIntegrationInterface }>(
       "/integrations/github",
       {
         method: "POST",
         body: JSON.stringify({
-          tokenId,
+          code,
         }),
       }
     )
@@ -27,9 +27,9 @@ export default function GithubIntegrationConnect({
       .catch((e) => {
         setError(e.message);
       });
-  }, [apiCall, tokenId, refresh]);
+  }, [apiCall, code, refresh]);
 
-  if (!tokenId) {
+  if (!code) {
     return (
       <div>
         <p>

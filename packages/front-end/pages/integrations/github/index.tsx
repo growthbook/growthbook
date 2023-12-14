@@ -11,10 +11,10 @@ import GithubIntegrationConnect from "./GithubIntegrationConnect";
 const GitHubIntegrationPage: NextPage = () => {
   const permissions = usePermissions();
   const router = useRouter();
-  const tokenId = router.query.t_id as string;
+  const code = router.query.code as string;
   const growthbook = useGrowthBook<AppFeatures>();
 
-  if (growthbook && growthbook.isOff("github-integration")) {
+  if (!growthbook || growthbook.isOff("github-integration")) {
     router.replace("/404");
   }
 
@@ -55,7 +55,7 @@ const GitHubIntegrationPage: NextPage = () => {
               refresh={mutate}
             />
           ) : (
-            <GithubIntegrationConnect tokenId={tokenId} refresh={mutate} />
+            <GithubIntegrationConnect code={code} refresh={mutate} />
           )}
         </div>
       </div>

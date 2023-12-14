@@ -16,7 +16,7 @@ router.post(
   validateRequestMiddleware({
     body: z
       .object({
-        tokenId: z.string(),
+        code: z.string(),
       })
       .strict(),
   }),
