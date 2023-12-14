@@ -54,7 +54,7 @@ export async function createProject(
 }
 export async function findAllProjectsByOrganization(
   organization: string,
-  readAccessFilter?: ReadAccessFilter
+  readAccessFilter: ReadAccessFilter
 ) {
   const docs = await ProjectModel.find({
     organization,
@@ -71,7 +71,7 @@ export async function findAllProjectsByOrganization(
 export async function findProjectById(
   id: string,
   organization: string,
-  readAccessFilter?: ReadAccessFilter
+  readAccessFilter: ReadAccessFilter
 ) {
   const doc = await ProjectModel.findOne({ id, organization });
 

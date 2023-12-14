@@ -327,8 +327,11 @@ export async function deleteDataSource(
 }
 
 export async function getDataSources(req: AuthRequest, res: Response) {
-  const { org } = getOrgFromReq(req);
-  const datasources = await getDataSourcesByOrganization(org.id);
+  const { org, readAccessFilter } = getOrgFromReq(req);
+  const datasources = await getDataSourcesByOrganization(
+    org.id,
+    readAccessFilter
+  );
 
   if (!datasources || !datasources.length) {
     res.status(200).json({

@@ -193,9 +193,15 @@ export async function deleteAllMetricsForAProject({
   }
 }
 
-export async function getMetricMap(organization: string) {
+export async function getMetricMap(
+  organization: string,
+  readAccessFilter: ReadAccessFilter
+) {
   const metricMap = new Map<string, ExperimentMetricInterface>();
-  const allMetrics = await getMetricsByOrganization(organization);
+  const allMetrics = await getMetricsByOrganization(
+    organization,
+    readAccessFilter
+  );
   allMetrics.forEach((m) => {
     metricMap.set(m.id, m);
   });
@@ -210,7 +216,7 @@ export async function getMetricMap(organization: string) {
 
 export async function getMetricsByOrganization(
   organization: string,
-  readAccessFilter?: ReadAccessFilter
+  readAccessFilter: ReadAccessFilter
 ) {
   let metrics: MetricInterface[] = [];
   // If using config.yml, immediately return the list from there

@@ -34,8 +34,6 @@ import { TrackedEventData } from "../types/Integration";
 import { MetricAnalysisQueryRunner } from "../queryRunners/MetricAnalysisQueryRunner";
 import { getUserById } from "../services/users";
 import { AuditUserLoggedIn } from "../../types/audit";
-import { getTeamsForOrganization } from "../models/TeamModel";
-import { getUserPermissions } from "../util/organization.util";
 
 /**
  * Fields on a metric that we allow users to update. Excluded fields are
@@ -120,9 +118,8 @@ export async function deleteMetric(
 }
 
 export async function getMetrics(req: AuthRequest, res: Response) {
-  const { org } = getOrgFromReq(req);
-  const metrics = await getMetricsByOrganization(org.id);
-  //TODO: Need to filter here
+  const { org, readAccessFilter } = getOrgFromReq(req);
+  const metrics = await getMetricsByOrganization(org.id, readAccessFilter);
   res.status(200).json({
     status: 200,
     metrics,
@@ -134,7 +131,7 @@ export async function getMetricUsage(
   res: Response
 ) {
   const { id } = req.params;
-  const { org } = getOrgFromReq(req);
+  const { org, readAccessFilter } = getOrgFromReq(req);
   const metric = await getMetricById(id, org.id);
 
   if (!metric) {
@@ -168,7 +165,11 @@ export async function getMetricUsage(
   }
 
   // Experiments
-  const experiments = await getExperimentsByMetric(org.id, metric.id);
+  const experiments = await getExperimentsByMetric(
+    org.id,
+    metric.id,
+    readAccessFilter
+  );
 
   res.status(200).json({
     ideas,
@@ -255,12 +256,8 @@ export async function getMetric(
   req: AuthRequest<null, { id: string }>,
   res: Response
 ) {
-  const { org, userId } = getOrgFromReq(req);
+  const { org, readAccessFilter } = getOrgFromReq(req);
   const { id } = req.params;
-
-  const teams = await getTeamsForOrganization(org.id);
-
-  const currentUserPermissions = getUserPermissions(userId, org, teams || []);
 
   const metric = await getMetricById(id, org.id, true);
 
@@ -271,19 +268,11 @@ export async function getMetric(
     });
   }
 
-  // const filteredMetric = filterResourceByAccessPermission(
-  //   currentUserPermissions,
-  //   metric
-  // );
-
-  // if (!filteredMetric.length) {
-  //   return res.status(403).json({
-  //     status: 403,
-  //     message: "You do not have access to view this metric.",
-  //   });
-  // }
-
-  const experiments = await getRecentExperimentsUsingMetric(org.id, metric.id);
+  const experiments = await getRecentExperimentsUsingMetric(
+    org.id,
+    metric.id,
+    readAccessFilter
+  );
 
   res.status(200).json({
     status: 200,

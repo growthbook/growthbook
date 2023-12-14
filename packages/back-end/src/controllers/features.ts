@@ -778,7 +778,7 @@ export async function postFeatureRule(
     EventAuditUserForResponseLocals
   >
 ) {
-  const { org, environments } = getOrgFromReq(req);
+  const { org, environments, readAccessFilter } = getOrgFromReq(req);
   const { id, version } = req.params;
   const { environment, rule } = req.body;
 
@@ -812,7 +812,8 @@ export async function postFeatureRule(
       org,
       res.locals.eventAudit,
       rule.experimentId,
-      feature.id
+      feature.id,
+      readAccessFilter
     );
     await addLinkedExperiment(feature, rule.experimentId);
   }
@@ -830,7 +831,7 @@ export async function postFeatureExperimentRefRule(
     EventAuditUserForResponseLocals
   >
 ) {
-  const { org, environments } = getOrgFromReq(req);
+  const { org, environments, readAccessFilter } = getOrgFromReq(req);
   const { id } = req.params;
   const { rule } = req.body;
 
@@ -862,7 +863,11 @@ export async function postFeatureExperimentRefRule(
     getEnabledEnvironments(feature, environments)
   );
 
-  const experiment = await getExperimentById(org.id, rule.experimentId);
+  const experiment = await getExperimentById(
+    org.id,
+    rule.experimentId,
+    readAccessFilter
+  );
   if (!experiment) {
     throw new Error("Invalid experiment selected");
   }
@@ -923,6 +928,7 @@ export async function postFeatureExperimentRefRule(
     res.locals.eventAudit,
     rule.experimentId,
     feature.id,
+    readAccessFilter,
     experiment
   );
 
@@ -1545,7 +1551,7 @@ export async function getFeatureById(
   req: AuthRequest<null, { id: string }>,
   res: Response
 ) {
-  const { org, environments, userId } = getOrgFromReq(req);
+  const { org, environments, userId, readAccessFilter } = getOrgFromReq(req);
   const { id } = req.params;
 
   const teams = await getTeamsForOrganization(org.id);
@@ -1619,14 +1625,22 @@ export async function getFeatureById(
   });
   const experimentsMap: Map<string, ExperimentInterface> = new Map();
   if (trackingKeys.size) {
-    const exps = await getExperimentsByTrackingKeys(org.id, [...trackingKeys]);
+    const exps = await getExperimentsByTrackingKeys(
+      org.id,
+      [...trackingKeys],
+      readAccessFilter
+    );
     exps.forEach((exp) => {
       experimentsMap.set(exp.id, exp);
       experimentIds.delete(exp.id);
     });
   }
   if (experimentIds.size) {
-    const exps = await getExperimentsByIds(org.id, [...experimentIds]);
+    const exps = await getExperimentsByIds(
+      org.id,
+      [...experimentIds],
+      readAccessFilter
+    );
     exps.forEach((exp) => {
       experimentsMap.set(exp.id, exp);
     });

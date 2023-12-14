@@ -68,7 +68,7 @@ function toInterface(doc: FactTableDocument): FactTableInterface {
 
 export async function getAllFactTablesForOrganization(
   organization: string,
-  readAccessFilter?: ReadAccessFilter
+  readAccessFilter: ReadAccessFilter
 ) {
   const docs = await FactTableModel.find({ organization });
 
@@ -85,9 +85,13 @@ export async function getAllFactTablesForOrganization(
 export type FactTableMap = Map<string, FactTableInterface>;
 
 export async function getFactTableMap(
-  organization: string
+  organization: string,
+  readAccessFilter: ReadAccessFilter
 ): Promise<FactTableMap> {
-  const factTables = await getAllFactTablesForOrganization(organization);
+  const factTables = await getAllFactTablesForOrganization(
+    organization,
+    readAccessFilter
+  );
 
   return new Map(factTables.map((f) => [f.id, f]));
 }

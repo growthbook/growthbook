@@ -3,6 +3,7 @@ import mongoose, { FilterQuery } from "mongoose";
 import uniqid from "uniqid";
 import cloneDeep from "lodash/cloneDeep";
 import { includeExperimentInPayload, hasVisualChanges } from "shared/util";
+import { ReadAccessFilter, hasReadAccess } from "shared/permissions";
 import {
   Changeset,
   ExperimentInterface,
@@ -42,6 +43,7 @@ import { getFeaturesByIds } from "./FeatureModel";
 type FindOrganizationOptions = {
   experimentId: string;
   organizationId: string;
+  readAccessFilter: ReadAccessFilter;
 };
 
 type FilterKeys = ExperimentInterface & { _id: string };
@@ -199,6 +201,7 @@ const toInterface = (doc: ExperimentDocument): ExperimentInterface => {
 
 async function findExperiments(
   query: FilterQuery<ExperimentDocument>,
+  readAccessFilter?: ReadAccessFilter,
   limit?: number,
   sortBy?: SortFilter
 ): Promise<ExperimentInterface[]> {
@@ -209,21 +212,38 @@ async function findExperiments(
   if (sortBy) {
     cursor = cursor.sort(sortBy);
   }
-  const experiments = await cursor;
+  const docs = await cursor;
 
-  return experiments.map(toInterface);
+  const experiments = docs.map(toInterface);
+
+  if (readAccessFilter) {
+    return experiments.filter((exp) =>
+      hasReadAccess(readAccessFilter, [exp.project || ""])
+    );
+  }
+
+  return experiments;
 }
 
 export async function getExperimentById(
   organization: string,
-  id: string
+  id: string,
+  readAccessFilter: ReadAccessFilter
 ): Promise<ExperimentInterface | null> {
-  const experiment = await ExperimentModel.findOne({ organization, id });
-  return experiment ? toInterface(experiment) : null;
+  const doc = await ExperimentModel.findOne({ organization, id });
+
+  if (!doc) return null;
+
+  const experiment = toInterface(doc);
+
+  return hasReadAccess(readAccessFilter, [experiment.project || ""])
+    ? experiment
+    : null;
 }
 
 export async function getAllExperiments(
   organization: string,
+  readAccessFilter: ReadAccessFilter,
   project?: string
 ): Promise<ExperimentInterface[]> {
   const query: FilterQuery<ExperimentDocument> = {
@@ -234,40 +254,55 @@ export async function getAllExperiments(
     query.project = project;
   }
 
-  return await findExperiments(query);
+  return await findExperiments(query, readAccessFilter);
 }
 
 export async function getExperimentByTrackingKey(
   organization: string,
-  trackingKey: string
+  trackingKey: string,
+  readAccessFilter: ReadAccessFilter
 ): Promise<ExperimentInterface | null> {
-  const experiment = await ExperimentModel.findOne({
+  const doc = await ExperimentModel.findOne({
     organization,
     trackingKey,
   });
 
-  return experiment ? toInterface(experiment) : null;
+  if (!doc) return null;
+
+  const experiment = toInterface(doc);
+
+  return hasReadAccess(readAccessFilter, [experiment.project || ""])
+    ? experiment
+    : null;
 }
 
 export async function getExperimentsByIds(
   organization: string,
-  ids: string[]
+  ids: string[],
+  readAccessFilter: ReadAccessFilter
 ): Promise<ExperimentInterface[]> {
   if (!ids.length) return [];
-  return await findExperiments({
-    id: { $in: ids },
-    organization,
-  });
+  return await findExperiments(
+    {
+      id: { $in: ids },
+      organization,
+    },
+    readAccessFilter
+  );
 }
 
 export async function getExperimentsByTrackingKeys(
   organization: string,
-  trackingKeys: string[]
+  trackingKeys: string[],
+  readAccessFilter: ReadAccessFilter
 ): Promise<ExperimentInterface[]> {
-  return await findExperiments({
-    trackingKey: { $in: trackingKeys },
-    organization,
-  });
+  return await findExperiments(
+    {
+      trackingKey: { $in: trackingKeys },
+      organization,
+    },
+    readAccessFilter
+  );
 }
 
 export async function getSampleExperiment(
@@ -285,10 +320,12 @@ export async function createExperiment({
   data,
   organization,
   user,
+  readAccessFilter,
 }: {
   data: Partial<ExperimentInterface>;
   organization: OrganizationInterface;
   user: EventAuditUser;
+  readAccessFilter: ReadAccessFilter;
 }): Promise<ExperimentInterface> {
   data.organization = organization.id;
 
@@ -298,7 +335,13 @@ export async function createExperiment({
     let found = null;
     while (n < 10 && !found) {
       const key = generateTrackingKey(data.name || data.id || "", n);
-      if (!(await getExperimentByTrackingKey(data.organization, key))) {
+      if (
+        !(await getExperimentByTrackingKey(
+          data.organization,
+          key,
+          readAccessFilter
+        ))
+      ) {
         found = key;
       }
       n++;
@@ -374,14 +417,16 @@ export async function updateExperiment({
 
 export async function getExperimentsByMetric(
   organization: string,
-  metricId: string
+  metricId: string,
+  readAccessFilter: ReadAccessFilter
 ): Promise<{ id: string; name: string }[]> {
-  const experiments: { id: string; name: string }[] = [];
+  const experiments: { id: string; name: string; project?: string }[] = [];
 
   const cols = {
     _id: false,
     id: true,
     name: true,
+    project: true,
   };
 
   // Using as a goal metric
@@ -396,6 +441,7 @@ export async function getExperimentsByMetric(
     experiments.push({
       id: exp.id,
       name: exp.name,
+      project: exp.project,
     });
   });
 
@@ -411,6 +457,7 @@ export async function getExperimentsByMetric(
     experiments.push({
       id: exp.id,
       name: exp.name,
+      project: exp.project,
     });
   });
 
@@ -426,22 +473,34 @@ export async function getExperimentsByMetric(
     experiments.push({
       id: exp.id,
       name: exp.name,
+      project: exp.project,
     });
   });
 
-  return uniqBy(experiments, "id");
+  const filteredExperiments = experiments.filter((experiment) =>
+    hasReadAccess(readAccessFilter, [experiment.project || ""])
+  );
+
+  return uniqBy(filteredExperiments, "id");
 }
 
 export async function getExperimentByIdea(
   organization: string,
-  idea: IdeaDocument
+  idea: IdeaDocument,
+  readAccessFilter: ReadAccessFilter
 ): Promise<ExperimentInterface | null> {
-  const experiment = await ExperimentModel.findOne({
+  const docs = await ExperimentModel.findOne({
     organization,
     ideaSource: idea.id,
   });
 
-  return experiment ? toInterface(experiment) : null;
+  if (!docs) return null;
+
+  const experiment = toInterface(docs);
+
+  return hasReadAccess(readAccessFilter, [experiment.project || ""])
+    ? experiment
+    : null;
 }
 
 export async function getExperimentsToUpdate(
@@ -515,7 +574,8 @@ export async function getExperimentsToUpdateLegacy(
 
 export async function getPastExperimentsByDatasource(
   organization: string,
-  datasource: string
+  datasource: string,
+  readAccessFilter: ReadAccessFilter
 ): Promise<Pick<ExperimentInterface, "id" | "trackingKey">[]> {
   const experiments = await ExperimentModel.find(
     {
@@ -529,7 +589,11 @@ export async function getPastExperimentsByDatasource(
     }
   );
 
-  return experiments.map((exp) => ({
+  const filteredExperiments = experiments.filter((experiment) =>
+    hasReadAccess(readAccessFilter, [experiment.project || ""])
+  );
+
+  return filteredExperiments.map((exp) => ({
     id: exp.id,
     trackingKey: exp.trackingKey,
   }));
@@ -537,7 +601,8 @@ export async function getPastExperimentsByDatasource(
 
 export async function getRecentExperimentsUsingMetric(
   organization: string,
-  metricId: string
+  metricId: string,
+  readAccessFilter: ReadAccessFilter
 ): Promise<
   Pick<
     ExperimentInterface,
@@ -559,6 +624,7 @@ export async function getRecentExperimentsUsingMetric(
         $ne: true,
       },
     },
+    readAccessFilter,
     10,
     { _id: -1 }
   );
@@ -605,7 +671,8 @@ export async function deleteExperimentSegment(
 
 export async function getExperimentsForActivityFeed(
   org: string,
-  ids: string[]
+  ids: string[],
+  readAccessFilter: ReadAccessFilter
 ): Promise<Pick<ExperimentInterface, "id" | "name">[]> {
   const experiments = await ExperimentModel.find(
     {
@@ -621,7 +688,11 @@ export async function getExperimentsForActivityFeed(
     }
   );
 
-  return experiments.map((exp) => ({
+  const filteredExperiments = experiments.filter((experiment) =>
+    hasReadAccess(readAccessFilter, [experiment.project || ""])
+  );
+
+  return filteredExperiments.map((exp) => ({
     id: exp.id,
     name: exp.name,
   }));
@@ -635,12 +706,20 @@ export async function getExperimentsForActivityFeed(
 export const findExperiment = async ({
   experimentId,
   organizationId,
+  readAccessFilter,
 }: FindOrganizationOptions): Promise<ExperimentInterface | null> => {
   const doc = await ExperimentModel.findOne({
     id: experimentId,
     organization: organizationId,
   });
-  return doc ? toInterface(doc) : null;
+
+  if (!doc) return null;
+
+  const experiment = toInterface(doc);
+
+  return hasReadAccess(readAccessFilter, [experiment.project || ""])
+    ? experiment
+    : null;
 };
 
 // region Events
@@ -791,6 +870,7 @@ export const removeTagFromExperiments = async ({
   tag: string;
 }): Promise<void> => {
   const query = { organization: organization.id, tags: tag };
+  // Filter those based on whether or not the user has
   const previousExperiments = await findExperiments(query);
 
   await ExperimentModel.updateMany(query, {
@@ -905,12 +985,14 @@ export async function addLinkedFeatureToExperiment(
   user: EventAuditUser,
   experimentId: string,
   featureId: string,
+  readAccessFilter: ReadAccessFilter,
   experiment?: ExperimentInterface | null
 ) {
   if (!experiment) {
     experiment = await findExperiment({
       experimentId,
       organizationId: organization.id,
+      readAccessFilter,
     });
   }
 
@@ -945,11 +1027,13 @@ export async function removeLinkedFeatureFromExperiment(
   organization: OrganizationInterface,
   user: EventAuditUser,
   experimentId: string,
-  featureId: string
+  featureId: string,
+  readAccessFilter: ReadAccessFilter
 ) {
   const experiment = await findExperiment({
     experimentId,
     organizationId: organization.id,
+    readAccessFilter,
   });
 
   if (!experiment) return;

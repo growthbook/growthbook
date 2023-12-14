@@ -70,7 +70,7 @@ export async function getInstallationDatasources(): Promise<
 
 export async function getDataSourcesByOrganization(
   organization: string,
-  readAccessFilter?: ReadAccessFilter
+  readAccessFilter: ReadAccessFilter
 ): Promise<DataSourceInterface[]> {
   let datasources: DataSourceInterface[] = [];
   // If using config.yml, immediately return the list from there
