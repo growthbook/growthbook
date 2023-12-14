@@ -170,7 +170,8 @@ export function orgHasPremiumFeature(
   feature: CommercialFeature
 ): boolean {
   return (
-    !licenseIsExpired() && planHasPremiumFeature(getAccountPlan(org), feature)
+    !shouldLimitAccessDueToExpiredLicense() &&
+    planHasPremiumFeature(getAccountPlan(org), feature)
   );
 }
 
@@ -454,13 +455,13 @@ export function resetInMemoryLicenseCache(): void {
  * Checks if the license is expired.
  * @returns {boolean} True if the license is expired, false otherwise.
  */
-export function licenseIsExpired(): boolean {
+export function shouldLimitAccessDueToExpiredLicense(): boolean {
   // If licenseData is not available, consider it as not expired
   if (!licenseData) {
     return false;
   }
 
-  // If expiration date is provided in the license data
+  // Check if the license is in trial and has an expiration date
   if (licenseData.isTrial && licenseData.dateExpires) {
     // Create a date object for the expiration date
     const expirationDate = new Date(licenseData.dateExpires);

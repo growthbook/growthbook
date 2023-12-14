@@ -1,5 +1,5 @@
 import { Response, NextFunction } from "express";
-import { getLicense, licenseIsExpired } from "enterprise";
+import { getLicense, shouldLimitAccessDueToExpiredLicense } from "enterprise";
 import { IS_CLOUD } from "../../util/secrets";
 import { AuthRequest } from "../../types/AuthRequest";
 
@@ -16,7 +16,7 @@ export default function verifyLicenseMiddleware(
   if (!license) {
     return next();
   }
-  if (licenseIsExpired()) {
+  if (shouldLimitAccessDueToExpiredLicense()) {
     res.locals.licenseError = "License expired";
     res.setHeader("X-License-Error", "License expired");
   }
