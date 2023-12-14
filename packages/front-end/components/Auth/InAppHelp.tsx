@@ -8,32 +8,30 @@ import { GBPremiumBadge } from "../Icons";
 import UpgradeModal from "../Settings/UpgradeModal";
 
 export default function InAppHelp() {
-  const config = useFeature("pylon-config").value;
+  const { app_id, script_content } = useFeature("pylon-config").value;
   const [showFreeHelpWidget, setShowFreeHelpWidget] = useState(false);
   const [upgradeModal, setUpgradeModal] = useState(false);
   const { name, email, hasCommercialFeature } = useUser();
   const showUpgradeModal =
-    config && !hasCommercialFeature("livechat") && isCloud();
+    app_id && script_content && !hasCommercialFeature("livechat") && isCloud();
 
   useEffect(() => {
-    if (window["pylon"] || !config) return;
+    if (window["pylon"] || !app_id || !script_content) return;
 
     if (hasCommercialFeature("livechat") && isCloud()) {
       const scriptElement = document.createElement("script");
-      scriptElement.type = "text/javascript";
-      const scriptContent = `(function(){var e=window;var t=document;var n=function(){n.e(arguments)};n.q=[];n.e=function(e){n.q.push(e)};e.Pylon=n;var r=function(){var e=t.createElement("script");e.setAttribute("type","text/javascript");e.setAttribute("async","true");e.setAttribute("src","https://widget.usepylon.com/widget/${config.APP_ID}");var n=t.getElementsByTagName("script")[0];n.parentNode.insertBefore(e,n)};if(t.readyState==="complete"){r()}else if(e.addEventListener){e.addEventListener("load",r,false)}})();`;
-      scriptElement.innerHTML = scriptContent;
+      scriptElement.innerHTML = script_content;
 
       document.body.appendChild(scriptElement);
       window["pylon"] = {
         chat_settings: {
-          app_id: config.APP_ID,
+          app_id: app_id,
           email,
           name,
         },
       };
     }
-  }, [config]);
+  }, [app_id, script_content]);
 
   // If the Pylon key exists on the window, we're showing the Pylon widget, so don't show the freeHelpModal
   if (window["pylon"]) return null;
