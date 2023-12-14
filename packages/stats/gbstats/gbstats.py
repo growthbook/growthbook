@@ -39,7 +39,7 @@ class AnalysisSettingsForStatsEngine:
     sequential_testing_enabled: bool
     sequential_tuning_parameter: float
     difference_type: str
-    phase_length_days: int
+    phase_length_days: float
     alpha: float
     max_dimensions: int
 
@@ -48,8 +48,8 @@ class AnalysisSettingsForStatsEngine:
 class MetricDataForStatsEngine:
     metric: str
     rows: List[Dict[str, Union[str, int, float]]]
-    multiple_exposures: bool
     inverse: bool
+    multiple_exposures: int
 
 
 @dataclass

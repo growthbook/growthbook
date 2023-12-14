@@ -32,8 +32,7 @@ import {
 import { QueryMap } from "../queryRunners/QueryRunner";
 import { MAX_ROWS_UNIT_AGGREGATE_QUERY } from "../integrations/SqlIntegration";
 
-// These same type definitions can be created in gbstats.py
-// and used to validate the data passed to the stats engine
+// These same type definitions exist in gbstats.py
 export interface AnalysisSettingsForStatsEngine {
   var_names: string[];
   weights: number[];
@@ -50,8 +49,8 @@ export interface AnalysisSettingsForStatsEngine {
 export interface MetricDataForStatsEngine {
   metric: string;
   rows: ExperimentMetricQueryResponseRows;
-  multiple_exposures: number;
   inverse: boolean;
+  multiple_exposures: number;
 }
 export interface DataForStatsEngine {
   var_id_map: { [key: string]: number };
@@ -106,9 +105,9 @@ export async function analyzeExperimentMetric(
       const data: MetricDataForStatsEngine = {
         metric: metric.id,
         rows,
+        inverse: !!metric.inverse,
         multiple_exposures:
           rows.filter((r) => r.variation === "__multiple__")?.[0]?.users || 0,
-        inverse: !!metric.inverse,
       };
       return data;
     })
@@ -119,17 +118,17 @@ export async function analyzeExperimentMetric(
     metrics: metricData,
     analyses: analyses.map(
       ({
-        dimension,
+        dimensions,
         baselineVariationIndex,
         differenceType,
         statsEngine,
-        sequentialTestingEnabled,
+        sequentialTesting,
         sequentialTestingTuningParameter,
         pValueThreshold,
       }) => {
         const sortedVariations = putBaselineVariationFirst(
           variations,
-          baselineVariationIndex
+          baselineVariationIndex ?? 0
         );
 
         const sequentialTestingTuningParameterNumber =
@@ -142,15 +141,17 @@ export async function analyzeExperimentMetric(
           var_names: sortedVariations.map((v) => v.name),
           weights: sortedVariations.map((v) => v.weight * coverage),
           baseline_index: baselineVariationIndex ?? 0,
-          dimension: dimension || "",
+          dimension: dimensions[0] || "",
           stats_engine: statsEngine,
-          sequential_testing_enabled: sequentialTestingEnabled,
+          sequential_testing_enabled: sequentialTesting ?? false,
           sequential_tuning_parameter: sequentialTestingTuningParameterNumber,
           difference_type: differenceType,
           phase_length_days: phaseLengthDays,
           alpha: pValueThresholdNumber,
           max_dimensions:
-            dimension?.substring(0, 8) === "pre:date" ? 9999 : MAX_DIMENSIONS,
+            dimensions[0]?.substring(0, 8) === "pre:date"
+              ? 9999
+              : MAX_DIMENSIONS,
         };
         return analysisData;
       }
@@ -281,21 +282,7 @@ export async function analyzeExperimentResults({
       ...v,
       name: variationNames[i] || v.id,
     })),
-    analyses: analysisSettings.map((analysisSettings) => {
-      return {
-        dimension: analysisSettings.dimensions[0],
-        baselineVariationIndex: analysisSettings.baselineVariationIndex ?? 0,
-        differenceType: analysisSettings.differenceType,
-        coverage: snapshotSettings.coverage ?? 1,
-        statsEngine: analysisSettings.statsEngine,
-        sequentialTestingEnabled: analysisSettings.sequentialTesting ?? false,
-        sequentialTestingTuningParameter:
-          analysisSettings.sequentialTestingTuningParameter ??
-          DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
-        pValueThreshold:
-          analysisSettings.pValueThreshold ?? DEFAULT_P_VALUE_THRESHOLD,
-      };
-    }),
+    analyses: analysisSettings,
     metrics: metricRows.map((data) => {
       const metric = metricMap.get(data.metric);
       if (!metric) return null;

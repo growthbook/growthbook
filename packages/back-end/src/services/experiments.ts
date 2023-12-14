@@ -229,9 +229,9 @@ export async function getManualSnapshotData(
     coverage: 1,
     analyses: [
       {
-        dimension: null,
+        dimensions: [],
         statsEngine: DEFAULT_STATS_ENGINE,
-        sequentialTestingEnabled: false,
+        sequentialTesting: false,
         sequentialTestingTuningParameter: DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
         baselineVariationIndex: 0,
         pValueThreshold: DEFAULT_P_VALUE_THRESHOLD,
