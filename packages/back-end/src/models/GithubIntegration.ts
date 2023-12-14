@@ -52,6 +52,13 @@ export const createGithubIntegration = async (
   if (!(await doesTokenExist(input.tokenId)))
     throw new Error("Token does not exist");
 
+  if (
+    await GithubIntegrationModel.exists({
+      $or: [{ tokenId: input.tokenId }, { organization: input.organization }],
+    })
+  )
+    throw new Error("Github integration already exists");
+
   const repositories = await fetchRepositories(input.tokenId);
 
   const doc = await GithubIntegrationModel.create({
