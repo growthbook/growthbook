@@ -41,7 +41,7 @@ async function getMetaData() {
     dataSourceTypes = Array.from(new Set(dataSources.map((ds) => ds.type)));
 
     eventTrackers = Array.from(
-      new Set(dataSources.map((ds) => ds.settings.schemaFormat ?? "custom"))
+      new Set(dataSources.map((ds) => ds.settings?.schemaFormat ?? "custom"))
     );
   }
 
