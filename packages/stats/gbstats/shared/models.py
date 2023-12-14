@@ -13,7 +13,7 @@ class Statistic(ABC):
 
     @property
     @abstractmethod
-    def variance(self) -> float | int:
+    def variance(self) -> float:
         pass
 
     @property
