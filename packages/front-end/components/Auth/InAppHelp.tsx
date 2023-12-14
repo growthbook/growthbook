@@ -8,30 +8,29 @@ import { GBPremiumBadge } from "../Icons";
 import UpgradeModal from "../Settings/UpgradeModal";
 
 export default function InAppHelp() {
-  const { app_id, script_content } = useFeature("pylon-config").value;
+  const config = useFeature("pylon-config").value;
   const [showFreeHelpWidget, setShowFreeHelpWidget] = useState(false);
   const [upgradeModal, setUpgradeModal] = useState(false);
   const { name, email, hasCommercialFeature } = useUser();
-  const showUpgradeModal =
-    app_id && script_content && !hasCommercialFeature("livechat") && isCloud();
+  const showUpgradeModal = !hasCommercialFeature("livechat") && isCloud();
 
   useEffect(() => {
-    if (window["pylon"] || !app_id || !script_content) return;
+    if (window["pylon"] || !config) return;
 
     if (hasCommercialFeature("livechat") && isCloud()) {
       const scriptElement = document.createElement("script");
-      scriptElement.innerHTML = script_content;
+      scriptElement.innerHTML = config.script_content;
 
       document.body.appendChild(scriptElement);
       window["pylon"] = {
         chat_settings: {
-          app_id: app_id,
+          app_id: config.app_id,
           email,
           name,
         },
       };
     }
-  }, [app_id, script_content]);
+  }, [config]);
 
   // If the Pylon key exists on the window, we're showing the Pylon widget, so don't show the freeHelpModal
   if (window["pylon"]) return null;
