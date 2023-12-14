@@ -58,9 +58,9 @@ export const getArchetypeAndEval = async (
   req: AuthRequest<null, { id: string; version: string }>,
   res: Response<GetArchetypeAndEvalResponse | PrivateApiErrorResponse>
 ) => {
-  const { org, userId } = getOrgFromReq(req);
+  const { org, userId, readAccessFilter } = getOrgFromReq(req);
   const { id, version } = req.params;
-  const feature = await getFeature(org.id, id);
+  const feature = await getFeature(org.id, id, readAccessFilter);
 
   if (!orgHasPremiumFeature(org, "archetypes")) {
     return res.status(403).json({

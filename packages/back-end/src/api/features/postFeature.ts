@@ -67,7 +67,11 @@ export const postFeature = createApiRequestHandler(postFeatureValidator)(
   async (req): Promise<PostFeatureResponse> => {
     req.checkPermissions("manageFeatures", req.body.project);
 
-    const existing = await getFeature(req.organization.id, req.body.id);
+    const existing = await getFeature(
+      req.organization.id,
+      req.body.id,
+      req.readAccessFilter
+    );
     if (existing) {
       throw new Error(`Feature id '${req.body.id}' already exists.`);
     }
@@ -124,7 +128,12 @@ export const postFeature = createApiRequestHandler(postFeatureValidator)(
 
     addIdsToRules(feature.environmentSettings, feature.id);
 
-    await createFeature(req.organization, req.eventAudit, feature);
+    await createFeature(
+      req.organization,
+      req.eventAudit,
+      feature,
+      req.readAccessFilter
+    );
 
     await req.audit({
       event: "feature.create",

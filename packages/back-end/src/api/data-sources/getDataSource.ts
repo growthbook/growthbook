@@ -10,7 +10,8 @@ export const getDataSource = createApiRequestHandler(getDataSourceValidator)(
   async (req): Promise<GetDataSourceResponse> => {
     const dataSource = await getDataSourceById(
       req.params.id,
-      req.organization.id
+      req.organization.id,
+      req.readAccessFilter
     );
     if (!dataSource) {
       throw new Error("Could not find dataSource with that id");

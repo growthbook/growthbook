@@ -44,9 +44,12 @@ export const getFactTables = async (
   req: AuthRequest,
   res: Response<{ status: 200; factTables: FactTableInterface[] }>
 ) => {
-  const { org } = getOrgFromReq(req);
+  const { org, readAccessFilter } = getOrgFromReq(req);
 
-  const factTables = await getAllFactTablesForOrganization(org.id);
+  const factTables = await getAllFactTablesForOrganization(
+    org.id,
+    readAccessFilter
+  );
 
   res.status(200).json({
     status: 200,
@@ -157,14 +160,18 @@ export const postFactTable = async (
   res: Response<{ status: 200; factTable: FactTableInterface }>
 ) => {
   const data = req.body;
-  const { org } = getOrgFromReq(req);
+  const { org, readAccessFilter } = getOrgFromReq(req);
 
   req.checkPermissions("manageFactTables", data.projects || "");
 
   if (!data.datasource) {
     throw new Error("Must specify a data source for this fact table");
   }
-  const datasource = await getDataSourceById(data.datasource, org.id);
+  const datasource = await getDataSourceById(
+    data.datasource,
+    org.id,
+    readAccessFilter
+  );
   if (!datasource) {
     throw new Error("Could not find datasource");
   }
@@ -194,9 +201,9 @@ export const putFactTable = async (
   res: Response<{ status: 200 }>
 ) => {
   const data = req.body;
-  const { org } = getOrgFromReq(req);
+  const { org, readAccessFilter } = getOrgFromReq(req);
 
-  const factTable = await getFactTable(org.id, req.params.id);
+  const factTable = await getFactTable(org.id, req.params.id, readAccessFilter);
   if (!factTable) {
     throw new Error("Could not find fact table with that id");
   }
@@ -207,7 +214,11 @@ export const putFactTable = async (
     req.checkPermissions("manageFactTables", data.projects || "");
   }
 
-  const datasource = await getDataSourceById(factTable.datasource, org.id);
+  const datasource = await getDataSourceById(
+    factTable.datasource,
+    org.id,
+    readAccessFilter
+  );
   if (!datasource) {
     throw new Error("Could not find datasource");
   }
@@ -236,9 +247,9 @@ export const deleteFactTable = async (
   req: AuthRequest<null, { id: string }>,
   res: Response<{ status: 200 }>
 ) => {
-  const { org } = getOrgFromReq(req);
+  const { org, readAccessFilter } = getOrgFromReq(req);
 
-  const factTable = await getFactTable(org.id, req.params.id);
+  const factTable = await getFactTable(org.id, req.params.id, readAccessFilter);
   if (!factTable) {
     throw new Error("Could not find fact table with that id");
   }
@@ -256,9 +267,9 @@ export const putColumn = async (
   res: Response<{ status: 200 }>
 ) => {
   const data = req.body;
-  const { org } = getOrgFromReq(req);
+  const { org, readAccessFilter } = getOrgFromReq(req);
 
-  const factTable = await getFactTable(org.id, req.params.id);
+  const factTable = await getFactTable(org.id, req.params.id, readAccessFilter);
   if (!factTable) {
     throw new Error("Could not find fact table with that id");
   }
@@ -280,16 +291,20 @@ export const postFactFilterTest = async (
   }>
 ) => {
   const data = req.body;
-  const { org } = getOrgFromReq(req);
+  const { org, readAccessFilter } = getOrgFromReq(req);
 
-  const factTable = await getFactTable(org.id, req.params.id);
+  const factTable = await getFactTable(org.id, req.params.id, readAccessFilter);
   if (!factTable) {
     throw new Error("Could not find fact table with that id");
   }
 
   req.checkPermissions("manageFactTables", factTable.projects);
 
-  const datasource = await getDataSourceById(factTable.datasource, org.id);
+  const datasource = await getDataSourceById(
+    factTable.datasource,
+    org.id,
+    readAccessFilter
+  );
   if (!datasource) {
     throw new Error("Could not find datasource");
   }
@@ -308,16 +323,20 @@ export const postFactFilter = async (
   res: Response<{ status: 200; filterId: string }>
 ) => {
   const data = req.body;
-  const { org } = getOrgFromReq(req);
+  const { org, readAccessFilter } = getOrgFromReq(req);
 
-  const factTable = await getFactTable(org.id, req.params.id);
+  const factTable = await getFactTable(org.id, req.params.id, readAccessFilter);
   if (!factTable) {
     throw new Error("Could not find fact table with that id");
   }
 
   req.checkPermissions("manageFactTables", factTable.projects);
 
-  const datasource = await getDataSourceById(factTable.datasource, org.id);
+  const datasource = await getDataSourceById(
+    factTable.datasource,
+    org.id,
+    readAccessFilter
+  );
   if (!datasource) {
     throw new Error("Could not find datasource");
   }
@@ -336,9 +355,9 @@ export const putFactFilter = async (
   res: Response<{ status: 200 }>
 ) => {
   const data = req.body;
-  const { org } = getOrgFromReq(req);
+  const { org, readAccessFilter } = getOrgFromReq(req);
 
-  const factTable = await getFactTable(org.id, req.params.id);
+  const factTable = await getFactTable(org.id, req.params.id, readAccessFilter);
   if (!factTable) {
     throw new Error("Could not find fact table with that id");
   }
@@ -350,7 +369,11 @@ export const putFactFilter = async (
     (f) => f.id === req.params.filterId
   );
   if (existingFilter && existingFilter.value !== data.value) {
-    const datasource = await getDataSourceById(factTable.datasource, org.id);
+    const datasource = await getDataSourceById(
+      factTable.datasource,
+      org.id,
+      readAccessFilter
+    );
     if (!datasource) {
       throw new Error("Could not find datasource");
     }
@@ -368,9 +391,9 @@ export const deleteFactFilter = async (
   req: AuthRequest<null, { id: string; filterId: string }>,
   res: Response<{ status: 200 }>
 ) => {
-  const { org } = getOrgFromReq(req);
+  const { org, readAccessFilter } = getOrgFromReq(req);
 
-  const factTable = await getFactTable(org.id, req.params.id);
+  const factTable = await getFactTable(org.id, req.params.id, readAccessFilter);
   if (!factTable) {
     throw new Error("Could not find filter table with that id");
   }

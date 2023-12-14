@@ -11,9 +11,15 @@ import { listMetricsValidator } from "../../validators/openapi";
 
 export const listMetrics = createApiRequestHandler(listMetricsValidator)(
   async (req): Promise<ListMetricsResponse> => {
-    const metrics = await getMetricsByOrganization(req.organization.id);
+    const metrics = await getMetricsByOrganization(
+      req.organization.id,
+      req.readAccessFilter
+    );
 
-    const datasources = await getDataSourcesByOrganization(req.organization.id);
+    const datasources = await getDataSourcesByOrganization(
+      req.organization.id,
+      req.readAccessFilter
+    );
 
     // TODO: Move sorting/limiting to the database query for better performance
     const { filtered, returnFields } = applyPagination(

@@ -136,7 +136,7 @@ export async function postWatchItem(
   req: AuthRequest<null, { type: string; id: string }>,
   res: Response
 ) {
-  const { org, userId } = getOrgFromReq(req);
+  const { org, userId, readAccessFilter } = getOrgFromReq(req);
   const { type, id } = req.params;
   let item;
 
@@ -149,9 +149,9 @@ export async function postWatchItem(
   }
 
   if (type === "feature") {
-    item = await getFeature(org.id, id);
+    item = await getFeature(org.id, id, readAccessFilter);
   } else if (type === "experiment") {
-    item = await getExperimentById(org.id, id);
+    item = await getExperimentById(org.id, id, readAccessFilter);
     if (item && item.organization !== org.id) {
       res.status(403).json({
         status: 403,

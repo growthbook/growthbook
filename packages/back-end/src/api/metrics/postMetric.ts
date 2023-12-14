@@ -15,7 +15,8 @@ export const postMetric = createApiRequestHandler(postMetricValidator)(
 
     const datasource = await getDataSourceById(
       datasourceId,
-      req.organization.id
+      req.organization.id,
+      req.readAccessFilter
     );
     if (!datasource) {
       throw new Error(`Invalid data source: ${datasourceId}`);

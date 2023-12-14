@@ -10,7 +10,10 @@ export const getSdkConnection = createApiRequestHandler(
   getSdkConnectionValidator
 )(
   async (req): Promise<GetSdkConnectionResponse> => {
-    const sdkConnection = await findSDKConnectionById(req.params.id);
+    const sdkConnection = await findSDKConnectionById(
+      req.params.id,
+      req.readAccessFilter
+    );
     if (!sdkConnection) {
       throw new Error("Could not find sdkConnection with that id");
     }

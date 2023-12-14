@@ -158,17 +158,19 @@ export const postDemoDatasourceProject = async (
   req.checkPermissions("createMetrics", "");
   req.checkPermissions("createAnalyses", "");
 
-  const { org, environments } = getOrgFromReq(req);
+  const { org, environments, readAccessFilter } = getOrgFromReq(req);
 
   const demoProjId = getDemoDatasourceProjectIdForOrganization(org.id);
   const existingDemoProject: ProjectInterface | null = await findProjectById(
     demoProjId,
-    org.id
+    org.id,
+    readAccessFilter
   );
 
   if (existingDemoProject) {
     const existingExperiments = await getAllExperiments(
       org.id,
+      readAccessFilter,
       existingDemoProject.id
     );
 
@@ -314,6 +316,7 @@ spacing and headings.`,
       data: experimentToCreate,
       organization: org,
       user: res.locals.eventAudit,
+      readAccessFilter,
     });
 
     // Create feature
@@ -376,7 +379,12 @@ spacing and headings.`,
       });
     });
 
-    await createFeature(org, res.locals.eventAudit, featureToCreate);
+    await createFeature(
+      org,
+      res.locals.eventAudit,
+      featureToCreate,
+      readAccessFilter
+    );
 
     const analysisSettings: ExperimentSnapshotAnalysisSettings = {
       statsEngine: org.settings?.statsEngine || DEFAULT_STATS_ENGINE,
@@ -386,8 +394,8 @@ spacing and headings.`,
         org.settings?.pValueThreshold ?? DEFAULT_P_VALUE_THRESHOLD,
     };
 
-    const metricMap = await getMetricMap(org.id);
-    const factTableMap = await getFactTableMap(org.id);
+    const metricMap = await getMetricMap(org.id, readAccessFilter);
+    const factTableMap = await getFactTableMap(org.id, readAccessFilter);
 
     await createSnapshot({
       experiment: createdExperiment,

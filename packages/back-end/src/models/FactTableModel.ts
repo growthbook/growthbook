@@ -96,9 +96,18 @@ export async function getFactTableMap(
   return new Map(factTables.map((f) => [f.id, f]));
 }
 
-export async function getFactTable(organization: string, id: string) {
+export async function getFactTable(
+  organization: string,
+  id: string,
+  readAccessFilter: ReadAccessFilter
+) {
   const doc = await FactTableModel.findOne({ organization, id });
-  return doc ? toInterface(doc) : null;
+
+  if (!doc) return null;
+
+  const factTable = toInterface(doc);
+
+  return hasReadAccess(readAccessFilter, factTable.projects) ? factTable : null;
 }
 
 export async function createFactTable(

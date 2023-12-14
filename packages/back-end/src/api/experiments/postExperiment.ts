@@ -21,7 +21,8 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
 
     const datasource = await getDataSourceById(
       datasourceId,
-      req.organization.id
+      req.organization.id,
+      req.readAccessFilter
     );
 
     if (!datasource) {
@@ -42,7 +43,8 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
     // check if tracking key is unique
     const existingByTrackingKey = await getExperimentByTrackingKey(
       req.organization.id,
-      req.body.trackingKey
+      req.body.trackingKey,
+      req.readAccessFilter
     );
     if (existingByTrackingKey) {
       throw new Error(
@@ -72,6 +74,7 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
       data: newExperiment,
       organization: req.organization,
       user: req.eventAudit,
+      readAccessFilter: req.readAccessFilter,
     });
 
     // add owner as watcher

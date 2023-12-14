@@ -11,7 +11,8 @@ export const getExperimentResults = createApiRequestHandler(
   async (req): Promise<GetExperimentResultsResponse> => {
     const experiment = await getExperimentById(
       req.organization.id,
-      req.params.id
+      req.params.id,
+      req.readAccessFilter
     );
     if (!experiment) {
       throw new Error("Could not find experiment with that id");

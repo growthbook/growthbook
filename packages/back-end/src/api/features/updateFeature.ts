@@ -25,7 +25,11 @@ import { parseJsonSchemaForEnterprise, validateEnvKeys } from "./postFeature";
 
 export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
   async (req): Promise<UpdateFeatureResponse> => {
-    const feature = await getFeature(req.organization.id, req.params.id);
+    const feature = await getFeature(
+      req.organization.id,
+      req.params.id,
+      req.readAccessFilter
+    );
     if (!feature) {
       throw new Error(`Feature id '${req.params.id}' not found.`);
     }
@@ -155,7 +159,8 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
       req.organization,
       req.eventAudit,
       feature,
-      updates
+      updates,
+      req.readAccessFilter
     );
 
     await addTagsDiff(
