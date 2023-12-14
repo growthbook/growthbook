@@ -25,6 +25,7 @@ from gbstats.shared.models import (
     SampleMeanStatistic,
     RatioStatistic,
     RegressionAdjustedStatistic,
+    TestStatistic,
 )
 from gbstats.messages import raise_error_if_bayesian_ra
 
@@ -345,14 +346,7 @@ def format_variation_result(row: pd.Series, v: int):
         }
 
 
-def variation_statistic_from_metric_row(
-    row: pd.Series, prefix: str
-) -> Union[
-    ProportionStatistic,
-    SampleMeanStatistic,
-    RegressionAdjustedStatistic,
-    RatioStatistic,
-]:
+def variation_statistic_from_metric_row(row: pd.Series, prefix: str) -> TestStatistic:
     statistic_type = row["statistic_type"]
     if statistic_type == "ratio":
         return RatioStatistic(

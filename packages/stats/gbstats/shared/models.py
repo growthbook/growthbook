@@ -13,7 +13,7 @@ class Statistic(ABC):
 
     @property
     @abstractmethod
-    def variance(self):
+    def variance(self) -> float | int:
         pass
 
     @property
@@ -22,11 +22,11 @@ class Statistic(ABC):
 
     @property
     @abstractmethod
-    def mean(self):
+    def mean(self) -> float:
         pass
 
     @property
-    def unadjusted_mean(self):
+    def unadjusted_mean(self) -> float:
         """
         Return the mean that has no regression adjustments.
         Must be over-ridden if regular `mean` function is adjusted,
@@ -194,6 +194,14 @@ def create_joint_statistic(
     raise ValueError(
         "Statistic types for a metric must not be different types across variations."
     )
+
+
+TestStatistic = Union[
+    ProportionStatistic,
+    SampleMeanStatistic,
+    RegressionAdjustedStatistic,
+    RatioStatistic,
+]
 
 
 # Data class for test config
