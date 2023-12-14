@@ -2,7 +2,7 @@ import { Request, Response } from "express";
 import { evaluateFeatures } from "@growthbook/proxy-eval";
 import { isEqual } from "lodash";
 import { MergeResultChanges, MergeStrategy, autoMerge } from "shared/util";
-import { hasPermission } from "shared/permissions";
+import { ReadAccessFilter, hasPermission } from "shared/permissions";
 import {
   getConnectionSDKCapabilities,
   SDKCapability,
@@ -350,7 +350,13 @@ export async function postFeatures(
   >
 ) {
   const { id, environmentSettings, ...otherProps } = req.body;
-  const { org, userId, userName, environments } = getOrgFromReq(req);
+  const {
+    org,
+    userId,
+    userName,
+    environments,
+    readAccessFilter,
+  } = getOrgFromReq(req);
 
   req.checkPermissions("manageFeatures", otherProps.project);
   req.checkPermissions("createFeatureDrafts", otherProps.project);
@@ -368,7 +374,7 @@ export async function postFeatures(
       "Feature keys can only include letters, numbers, hyphens, and underscores."
     );
   }
-  const existing = await getFeature(org.id, id);
+  const existing = await getFeature(org.id, id, readAccessFilter);
   if (existing) {
     throw new Error(
       "This feature key already exists. Feature keys must be unique."
@@ -410,7 +416,7 @@ export async function postFeatures(
 
   addIdsToRules(feature.environmentSettings, feature.id);
 
-  await createFeature(org, res.locals.eventAudit, feature);
+  await createFeature(org, res.locals.eventAudit, feature, readAccessFilter);
   await upsertWatch({
     userId,
     organization: org.id,
@@ -443,10 +449,10 @@ export async function postFeatureRebase(
   >,
   res: Response
 ) {
-  const { org, environments } = getOrgFromReq(req);
+  const { org, environments, readAccessFilter } = getOrgFromReq(req);
   const { strategies, mergeResultSerialized } = req.body;
   const { id, version } = req.params;
-  const feature = await getFeature(org.id, id);
+  const feature = await getFeature(org.id, id, readAccessFilter);
 
   if (!feature) {
     throw new Error("Could not find feature");
@@ -523,10 +529,10 @@ export async function postFeaturePublish(
   >,
   res: Response
 ) {
-  const { org, environments } = getOrgFromReq(req);
+  const { org, environments, readAccessFilter } = getOrgFromReq(req);
   const { comment, mergeResultSerialized } = req.body;
   const { id, version } = req.params;
-  const feature = await getFeature(org.id, id);
+  const feature = await getFeature(org.id, id, readAccessFilter);
 
   if (!feature) {
     throw new Error("Could not find feature");
@@ -583,6 +589,7 @@ export async function postFeaturePublish(
     revision,
     mergeResult.result,
     res.locals.eventAudit,
+    readAccessFilter,
     comment
   );
 
@@ -610,11 +617,11 @@ export async function postFeatureRevert(
     EventAuditUserForResponseLocals
   >
 ) {
-  const { org, environments } = getOrgFromReq(req);
+  const { org, environments, readAccessFilter } = getOrgFromReq(req);
   const { id, version } = req.params;
   const { comment } = req.body;
 
-  const feature = await getFeature(org.id, id);
+  const feature = await getFeature(org.id, id, readAccessFilter);
 
   if (!feature) {
     throw new Error("Could not find feature");
@@ -666,7 +673,8 @@ export async function postFeatureRevert(
     feature,
     revision,
     changes,
-    res.locals.eventAudit
+    res.locals.eventAudit,
+    readAccessFilter
   );
 
   await markRevisionAsPublished(revision, res.locals.eventAudit, comment);
@@ -695,10 +703,10 @@ export async function postFeatureFork(
     EventAuditUserForResponseLocals
   >
 ) {
-  const { org, environments } = getOrgFromReq(req);
+  const { org, environments, readAccessFilter } = getOrgFromReq(req);
   const { id, version } = req.params;
 
-  const feature = await getFeature(org.id, id);
+  const feature = await getFeature(org.id, id, readAccessFilter);
 
   if (!feature) {
     throw new Error("Could not find feature");
@@ -719,9 +727,15 @@ export async function postFeatureFork(
     changes: revision,
     environments,
   });
-  await updateFeature(org, res.locals.eventAudit, feature, {
-    hasDrafts: true,
-  });
+  await updateFeature(
+    org,
+    res.locals.eventAudit,
+    feature,
+    {
+      hasDrafts: true,
+    },
+    readAccessFilter
+  );
 
   res.status(200).json({
     status: 200,
@@ -733,10 +747,10 @@ export async function postFeatureDiscard(
   req: AuthRequest<never, { id: string; version: string }>,
   res: Response<{ status: 200 }, EventAuditUserForResponseLocals>
 ) {
-  const { org } = getOrgFromReq(req);
+  const { org, readAccessFilter } = getOrgFromReq(req);
   const { id, version } = req.params;
 
-  const feature = await getFeature(org.id, id);
+  const feature = await getFeature(org.id, id, readAccessFilter);
 
   if (!feature) {
     throw new Error("Could not find feature");
@@ -758,9 +772,15 @@ export async function postFeatureDiscard(
 
   const hasDrafts = await hasDraft(org.id, feature, [revision.version]);
   if (!hasDrafts) {
-    await updateFeature(org, res.locals.eventAudit, feature, {
-      hasDrafts: false,
-    });
+    await updateFeature(
+      org,
+      res.locals.eventAudit,
+      feature,
+      {
+        hasDrafts: false,
+      },
+      readAccessFilter
+    );
   }
 
   res.status(200).json({
@@ -782,7 +802,7 @@ export async function postFeatureRule(
   const { id, version } = req.params;
   const { environment, rule } = req.body;
 
-  const feature = await getFeature(org.id, id);
+  const feature = await getFeature(org.id, id, readAccessFilter);
   if (!feature) {
     throw new Error("Could not find feature");
   }
@@ -798,7 +818,8 @@ export async function postFeatureRule(
     org,
     feature,
     parseInt(version),
-    res.locals.eventAudit
+    res.locals.eventAudit,
+    readAccessFilter
   );
 
   await addFeatureRule(revision, environment, rule, res.locals.eventAudit);
@@ -850,7 +871,7 @@ export async function postFeatureExperimentRefRule(
     );
   }
 
-  const feature = await getFeature(org.id, id);
+  const feature = await getFeature(org.id, id, readAccessFilter);
   if (!feature) {
     throw new Error("Could not find feature");
   }
@@ -920,7 +941,8 @@ export async function postFeatureExperimentRefRule(
     org,
     res.locals.eventAudit,
     feature,
-    updates
+    updates,
+    readAccessFilter
   );
 
   await addLinkedFeatureToExperiment(
@@ -953,7 +975,8 @@ async function getDraftRevision(
   org: OrganizationInterface,
   feature: FeatureInterface,
   version: number,
-  user: EventAuditUser
+  user: EventAuditUser,
+  readAccessFilter: ReadAccessFilter
 ): Promise<FeatureRevisionInterface> {
   // This is the published version, create a new draft revision
   if (version === feature.version) {
@@ -963,9 +986,15 @@ async function getDraftRevision(
       environments: getEnvironmentIdsFromOrg(org),
     });
 
-    await updateFeature(org, user, feature, {
-      hasDrafts: true,
-    });
+    await updateFeature(
+      org,
+      user,
+      feature,
+      {
+        hasDrafts: true,
+      },
+      readAccessFilter
+    );
 
     return newRevision;
   }
@@ -986,11 +1015,11 @@ export async function putRevisionComment(
   req: AuthRequest<{ comment: string }, { id: string; version: string }>,
   res: Response<{ status: 200 }, EventAuditUserForResponseLocals>
 ) {
-  const { org } = getOrgFromReq(req);
+  const { org, readAccessFilter } = getOrgFromReq(req);
   const { id, version } = req.params;
   const { comment } = req.body;
 
-  const feature = await getFeature(org.id, id);
+  const feature = await getFeature(org.id, id, readAccessFilter);
   if (!feature) {
     throw new Error("Could not find feature");
   }
@@ -1026,11 +1055,11 @@ export async function postFeatureDefaultValue(
     EventAuditUserForResponseLocals
   >
 ) {
-  const { org } = getOrgFromReq(req);
+  const { org, readAccessFilter } = getOrgFromReq(req);
   const { id, version } = req.params;
   const { defaultValue } = req.body;
 
-  const feature = await getFeature(org.id, id);
+  const feature = await getFeature(org.id, id, readAccessFilter);
   if (!feature) {
     throw new Error("Could not find feature");
   }
@@ -1042,7 +1071,8 @@ export async function postFeatureDefaultValue(
     org,
     feature,
     parseInt(version),
-    res.locals.eventAudit
+    res.locals.eventAudit,
+    readAccessFilter
   );
 
   await setDefaultValue(revision, defaultValue, res.locals.eventAudit);
@@ -1057,10 +1087,10 @@ export async function postFeatureSchema(
   req: AuthRequest<{ schema: string; enabled: boolean }, { id: string }>,
   res: Response<{ status: 200 }, EventAuditUserForResponseLocals>
 ) {
-  const { org } = getOrgFromReq(req);
+  const { org, readAccessFilter } = getOrgFromReq(req);
   const { id } = req.params;
   const { schema, enabled } = req.body;
-  const feature = await getFeature(org.id, id);
+  const feature = await getFeature(org.id, id, readAccessFilter);
 
   if (!feature) {
     throw new Error("Could not find feature");
@@ -1074,6 +1104,7 @@ export async function postFeatureSchema(
     res.locals.eventAudit,
     feature,
     schema,
+    readAccessFilter,
     enabled
   );
 
@@ -1101,11 +1132,11 @@ export async function putFeatureRule(
     EventAuditUserForResponseLocals
   >
 ) {
-  const { org, environments } = getOrgFromReq(req);
+  const { org, environments, readAccessFilter } = getOrgFromReq(req);
   const { id, version } = req.params;
   const { environment, rule, i } = req.body;
 
-  const feature = await getFeature(org.id, id);
+  const feature = await getFeature(org.id, id, readAccessFilter);
   if (!feature) {
     throw new Error("Could not find feature");
   }
@@ -1121,7 +1152,8 @@ export async function putFeatureRule(
     org,
     feature,
     parseInt(version),
-    res.locals.eventAudit
+    res.locals.eventAudit,
+    readAccessFilter
   );
 
   await editFeatureRule(revision, environment, i, rule, res.locals.eventAudit);
@@ -1136,10 +1168,10 @@ export async function postFeatureToggle(
   req: AuthRequest<{ environment: string; state: boolean }, { id: string }>,
   res: Response<{ status: 200 }, EventAuditUserForResponseLocals>
 ) {
-  const { org, environments } = getOrgFromReq(req);
+  const { org, environments, readAccessFilter } = getOrgFromReq(req);
   const { id } = req.params;
   const { environment, state } = req.body;
-  const feature = await getFeature(org.id, id);
+  const feature = await getFeature(org.id, id, readAccessFilter);
 
   if (!feature) {
     throw new Error("Could not find feature");
@@ -1168,7 +1200,8 @@ export async function postFeatureToggle(
     res.locals.eventAudit,
     feature,
     environment,
-    state
+    state,
+    readAccessFilter
   );
 
   await req.audit({
@@ -1199,10 +1232,10 @@ export async function postFeatureMoveRule(
     EventAuditUserForResponseLocals
   >
 ) {
-  const { org, environments } = getOrgFromReq(req);
+  const { org, environments, readAccessFilter } = getOrgFromReq(req);
   const { id, version } = req.params;
   const { environment, from, to } = req.body;
-  const feature = await getFeature(org.id, id);
+  const feature = await getFeature(org.id, id, readAccessFilter);
 
   if (!feature) {
     throw new Error("Could not find feature");
@@ -1218,7 +1251,8 @@ export async function postFeatureMoveRule(
     org,
     feature,
     parseInt(version),
-    res.locals.eventAudit
+    res.locals.eventAudit,
+    readAccessFilter
   );
 
   const changes = { rules: revision.rules || {} };
@@ -1252,11 +1286,11 @@ export async function deleteFeatureRule(
     EventAuditUserForResponseLocals
   >
 ) {
-  const { org, environments } = getOrgFromReq(req);
+  const { org, environments, readAccessFilter } = getOrgFromReq(req);
   const { id, version } = req.params;
   const { environment, i } = req.body;
 
-  const feature = await getFeature(org.id, id);
+  const feature = await getFeature(org.id, id, readAccessFilter);
   if (!feature) {
     throw new Error("Could not find feature");
   }
@@ -1271,7 +1305,8 @@ export async function deleteFeatureRule(
     org,
     feature,
     parseInt(version),
-    res.locals.eventAudit
+    res.locals.eventAudit,
+    readAccessFilter
   );
 
   const changes = { rules: revision.rules || {} };
@@ -1305,9 +1340,9 @@ export async function putFeature(
     EventAuditUserForResponseLocals
   >
 ) {
-  const { org, environments } = getOrgFromReq(req);
+  const { org, environments, readAccessFilter } = getOrgFromReq(req);
   const { id } = req.params;
-  const feature = await getFeature(org.id, id);
+  const feature = await getFeature(org.id, id, readAccessFilter);
 
   if (!feature) {
     throw new Error("Could not find feature");
@@ -1352,7 +1387,8 @@ export async function putFeature(
     org,
     res.locals.eventAudit,
     feature,
-    updates
+    updates,
+    readAccessFilter
   );
 
   // If there are new tags to add
@@ -1378,9 +1414,9 @@ export async function deleteFeatureById(
   res: Response<{ status: 200 }, EventAuditUserForResponseLocals>
 ) {
   const { id } = req.params;
-  const { org, environments } = getOrgFromReq(req);
+  const { org, environments, readAccessFilter } = getOrgFromReq(req);
 
-  const feature = await getFeature(org.id, id);
+  const feature = await getFeature(org.id, id, readAccessFilter);
 
   if (feature) {
     req.checkPermissions("manageFeatures", feature.project);
@@ -1390,7 +1426,7 @@ export async function deleteFeatureById(
       feature.project,
       getEnabledEnvironments(feature, environments)
     );
-    await deleteFeature(org, res.locals.eventAudit, feature);
+    await deleteFeature(org, res.locals.eventAudit, feature, readAccessFilter);
     await req.audit({
       event: "feature.delete",
       entity: {
@@ -1417,10 +1453,10 @@ export async function postFeatureEvaluate(
   >
 ) {
   const { id, version } = req.params;
-  const { org } = getOrgFromReq(req);
+  const { org, readAccessFilter } = getOrgFromReq(req);
   const { attributes } = req.body;
 
-  const feature = await getFeature(org.id, id);
+  const feature = await getFeature(org.id, id, readAccessFilter);
   if (!feature) {
     throw new Error("Could not find feature");
   }
@@ -1453,8 +1489,8 @@ export async function postFeatureArchive(
   res: Response<{ status: 200 }, EventAuditUserForResponseLocals>
 ) {
   const { id } = req.params;
-  const { org, environments } = getOrgFromReq(req);
-  const feature = await getFeature(org.id, id);
+  const { org, environments, readAccessFilter } = getOrgFromReq(req);
+  const feature = await getFeature(org.id, id, readAccessFilter);
 
   if (!feature) {
     throw new Error("Could not find feature");
@@ -1469,7 +1505,8 @@ export async function postFeatureArchive(
     org,
     res.locals.eventAudit,
     feature,
-    !feature.archived
+    !feature.archived,
+    readAccessFilter
   );
 
   await req.audit({
@@ -1493,7 +1530,7 @@ export async function getFeatures(
   req: AuthRequest<unknown, unknown, { project?: string }>,
   res: Response
 ) {
-  const { org, userId } = getOrgFromReq(req);
+  const { org, userId, readAccessFilter } = getOrgFromReq(req);
 
   const teams = await getTeamsForOrganization(org.id);
 
@@ -1506,6 +1543,7 @@ export async function getFeatures(
 
   const { features, experiments } = await getAllFeaturesWithLinkedExperiments(
     org.id,
+    readAccessFilter,
     project
   );
 
@@ -1528,10 +1566,10 @@ export async function getRevisionLog(
   req: AuthRequest<null, { id: string; version: string }>,
   res: Response
 ) {
-  const { org } = getOrgFromReq(req);
+  const { org, readAccessFilter } = getOrgFromReq(req);
   const { id, version } = req.params;
 
-  const feature = await getFeature(org.id, id);
+  const feature = await getFeature(org.id, id, readAccessFilter);
   if (!feature) {
     throw new Error("Could not find feature");
   }
@@ -1558,7 +1596,7 @@ export async function getFeatureById(
 
   const currentUserPermissions = getUserPermissions(userId, org, teams || []);
 
-  const feature = await getFeature(org.id, id);
+  const feature = await getFeature(org.id, id, readAccessFilter);
   if (!feature) {
     throw new Error("Could not find feature");
   }
@@ -1758,8 +1796,8 @@ export async function toggleStaleFFDetectionForFeature(
   res: Response<{ status: 200 }, EventAuditUserForResponseLocals>
 ) {
   const { id } = req.params;
-  const { org } = getOrgFromReq(req);
-  const feature = await getFeature(org.id, id);
+  const { org, readAccessFilter } = getOrgFromReq(req);
+  const feature = await getFeature(org.id, id, readAccessFilter);
 
   if (!feature) {
     throw new Error("Could not find feature");
@@ -1767,9 +1805,15 @@ export async function toggleStaleFFDetectionForFeature(
 
   req.checkPermissions("manageFeatures", feature.project);
 
-  await updateFeature(org, res.locals.eventAudit, feature, {
-    neverStale: !feature.neverStale,
-  });
+  await updateFeature(
+    org,
+    res.locals.eventAudit,
+    feature,
+    {
+      neverStale: !feature.neverStale,
+    },
+    readAccessFilter
+  );
 
   res.status(200).json({
     status: 200,

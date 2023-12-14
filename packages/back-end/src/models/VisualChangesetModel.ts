@@ -3,6 +3,7 @@ import omit from "lodash/omit";
 import mongoose from "mongoose";
 import uniqid from "uniqid";
 import { hasVisualChanges } from "shared/util";
+import { ReadAccessFilter } from "shared/permissions";
 import { ExperimentInterface, Variation } from "../../types/experiment";
 import { ApiVisualChangeset } from "../../types/openapi";
 import { OrganizationInterface } from "../../types/organization";
@@ -312,6 +313,7 @@ export const updateVisualChangeset = async ({
   updates,
   bypassWebhooks,
   user,
+  readAccessFilter,
 }: {
   visualChangeset: VisualChangesetInterface;
   experiment: ExperimentInterface | null;
@@ -319,6 +321,7 @@ export const updateVisualChangeset = async ({
   updates: Partial<VisualChangesetInterface>;
   bypassWebhooks?: boolean;
   user: EventAuditUser;
+  readAccessFilter: ReadAccessFilter;
 }) => {
   const isUpdatingVisualChanges = _isUpdatingVisualChanges(updates);
 
@@ -362,6 +365,7 @@ export const updateVisualChangeset = async ({
       ...(isUpdatingVisualChanges ? { visualChanges } : {}),
     },
     organization,
+    readAccessFilter,
     bypassWebhooks,
   });
 
@@ -388,11 +392,13 @@ const onVisualChangesetUpdate = async ({
   organization,
   oldVisualChangeset,
   newVisualChangeset,
+  readAccessFilter,
   bypassWebhooks = false,
 }: {
   organization: OrganizationInterface;
   oldVisualChangeset: VisualChangesetInterface;
   newVisualChangeset: VisualChangesetInterface;
+  readAccessFilter: ReadAccessFilter;
   bypassWebhooks?: boolean;
 }) => {
   if (bypassWebhooks) return;
@@ -402,7 +408,8 @@ const onVisualChangesetUpdate = async ({
 
   const experiment = await getExperimentById(
     organization.id,
-    newVisualChangeset.experiment
+    newVisualChangeset.experiment,
+    readAccessFilter
   );
 
   if (!experiment) return;
@@ -415,9 +422,11 @@ const onVisualChangesetUpdate = async ({
 const onVisualChangesetDelete = async ({
   organization,
   visualChangeset,
+  readAccessFilter,
 }: {
   organization: OrganizationInterface;
   visualChangeset: VisualChangesetInterface;
+  readAccessFilter: ReadAccessFilter;
 }) => {
   // if there were no visual changes before deleting, return early
   if (!hasVisualChanges(visualChangeset.visualChanges)) return;
@@ -425,7 +434,8 @@ const onVisualChangesetDelete = async ({
   // get payload keys
   const experiment = await getExperimentById(
     organization.id,
-    visualChangeset.experiment
+    visualChangeset.experiment,
+    readAccessFilter
   );
 
   if (!experiment) return;
@@ -442,11 +452,13 @@ export const syncVisualChangesWithVariations = async ({
   organization,
   visualChangeset,
   user,
+  readAccessFilter,
 }: {
   experiment: ExperimentInterface;
   organization: OrganizationInterface;
   visualChangeset: VisualChangesetInterface;
   user: EventAuditUser;
+  readAccessFilter: ReadAccessFilter;
 }) => {
   const { variations } = experiment;
   const { visualChanges } = visualChangeset;
@@ -464,6 +476,7 @@ export const syncVisualChangesWithVariations = async ({
     // bypass webhooks since we are only creating new (empty) visual changes
     bypassWebhooks: true,
     user,
+    readAccessFilter,
   });
 };
 
@@ -472,11 +485,13 @@ export const deleteVisualChangesetById = async ({
   experiment,
   organization,
   user,
+  readAccessFilter,
 }: {
   visualChangeset: VisualChangesetInterface;
   experiment: ExperimentInterface | null;
   organization: OrganizationInterface;
   user: EventAuditUser;
+  readAccessFilter: ReadAccessFilter;
 }) => {
   await VisualChangesetModel.deleteOne({
     id: visualChangeset.id,
@@ -503,5 +518,6 @@ export const deleteVisualChangesetById = async ({
   await onVisualChangesetDelete({
     organization,
     visualChangeset,
+    readAccessFilter,
   });
 };

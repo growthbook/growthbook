@@ -270,13 +270,15 @@ export async function getSampleMetrics(organization: string) {
 export async function getMetricById(
   id: string,
   organization: string,
+  readAccessFilter: ReadAccessFilter,
   includeAnalysis: boolean = false
 ) {
   // If using config.yml, immediately return the from there
   if (usingFileConfig()) {
     const doc =
       getConfigMetrics(organization).filter((m) => m.id === id)[0] || null;
-    if (!doc) return null;
+    if (!doc || !hasReadAccess(readAccessFilter, doc.projects || []))
+      return null;
 
     if (includeAnalysis) {
       const metric = await MetricModel.findOne({ id, organization });
@@ -294,27 +296,42 @@ export async function getMetricById(
     organization,
   });
 
-  return res ? toInterface(res) : null;
+  if (!res) return null;
+
+  const metric = toInterface(res);
+
+  return hasReadAccess(readAccessFilter, metric.projects || []) ? metric : null;
 }
 
-export async function getMetricsByIds(ids: string[], organization: string) {
+export async function getMetricsByIds(
+  ids: string[],
+  organization: string,
+  readAccessFilter: ReadAccessFilter
+) {
+  let metrics: MetricInterface[] = [];
   // If using config.yml, immediately return the list from there
   if (usingFileConfig()) {
-    return getConfigMetrics(organization).filter(
+    metrics = getConfigMetrics(organization).filter(
       (m) => ids.includes(m.id) || []
     );
+  } else {
+    const docs = await MetricModel.find({
+      id: { $in: ids },
+      organization,
+    });
+
+    metrics = docs ? docs.map(toInterface) : [];
   }
 
-  const docs = await MetricModel.find({
-    id: { $in: ids },
-    organization,
-  });
-  return docs.map(toInterface);
+  return metrics.filter((m) =>
+    hasReadAccess(readAccessFilter, m.projects || [])
+  );
 }
 
 export async function findRunningMetricsByQueryId(
   orgIds: string[],
-  queryIds: string[]
+  queryIds: string[],
+  readAccessFilter: ReadAccessFilter
 ) {
   const docs = await MetricModel.find({
     // Query ids are globally unique, this filter is just for index performance
@@ -324,7 +341,11 @@ export async function findRunningMetricsByQueryId(
     },
   });
 
-  return docs.map((doc) => toInterface(doc));
+  const metrics = docs ? docs.map(toInterface) : [];
+
+  return metrics.filter((m) =>
+    hasReadAccess(readAccessFilter, m.projects || [])
+  );
 }
 
 export async function removeProjectFromMetrics(
@@ -342,20 +363,30 @@ export async function removeProjectFromMetrics(
 
 export async function getMetricsUsingSegment(
   segment: string,
-  organization: string
+  organization: string,
+  readAccessFilter: ReadAccessFilter
 ) {
+  let metrics: MetricInterface[] = [];
   // If using config.yml, immediately return the from there
   if (usingFileConfig()) {
-    return (
-      getConfigMetrics(organization).filter((m) => m.segment === segment) || []
-    );
+    metrics =
+      getConfigMetrics(organization).filter((m) => m.segment === segment) || [];
+
+    if (!metrics) return [];
+  } else {
+    const docs = await MetricModel.find({
+      segment,
+      organization,
+    });
+
+    if (!docs) return [];
+
+    metrics = docs.map(toInterface);
   }
 
-  const docs = await MetricModel.find({
-    organization,
-    segment,
-  });
-  return docs.map(toInterface);
+  return metrics.filter((m) =>
+    hasReadAccess(readAccessFilter, m.projects || [])
+  );
 }
 
 const FILE_CONFIG_UPDATEABLE_FIELDS: (keyof MetricInterface)[] = [
@@ -392,7 +423,8 @@ function addDateUpdatedToUpdates(
 export async function updateMetric(
   id: string,
   updates: Partial<MetricInterface>,
-  organization: string
+  organization: string,
+  readAccessFilter: ReadAccessFilter
 ) {
   updates = addDateUpdatedToUpdates(updates);
 
@@ -416,7 +448,7 @@ export async function updateMetric(
     return;
   }
 
-  const metric = await getMetricById(id, organization);
+  const metric = await getMetricById(id, organization, readAccessFilter);
   if (!metric) {
     throw new Error("Could not find metric");
   }

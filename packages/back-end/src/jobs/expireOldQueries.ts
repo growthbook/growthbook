@@ -64,7 +64,8 @@ export default async function (agenda: Agenda) {
     // Look for matching metrics and update the status
     const metrics = await findRunningMetricsByQueryId(
       [...orgIds],
-      [...queryIds]
+      [...queryIds],
+      { globalReadAccess: true, projects: [] } // This agenda job shouldn't have any read access restrictions
     );
     for (let i = 0; i < metrics.length; i++) {
       const metric = metrics[i];
@@ -77,7 +78,8 @@ export default async function (agenda: Agenda) {
           analysisError:
             "Queries were interupted. Please try re-running the analysis.",
         },
-        metric.organization
+        metric.organization,
+        { globalReadAccess: true, projects: [] } // This agenda job shouldn't have any read access restrictions
       );
     }
 

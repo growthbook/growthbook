@@ -94,7 +94,7 @@ export async function getIdea(
   res: Response
 ) {
   const { id } = req.params;
-  const { org } = getOrgFromReq(req);
+  const { org, readAccessFilter } = getOrgFromReq(req);
 
   const idea = await getIdeaById(id);
 
@@ -132,7 +132,7 @@ export async function getIdea(
     }
   }
 
-  const experiment = await getExperimentByIdea(org.id, idea);
+  const experiment = await getExperimentByIdea(org.id, idea, readAccessFilter);
 
   res.status(200).json({
     status: 200,

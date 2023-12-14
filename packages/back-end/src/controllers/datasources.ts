@@ -56,6 +56,7 @@ import {
 } from "../models/DimensionSlicesModel";
 import { DimensionSlicesQueryRunner } from "../queryRunners/DimensionSlicesQueryRunner";
 
+//TODO: Can we remove this? It doesn't look like the endpoint that calls this is being called from within the app.
 export async function postSampleData(
   req: AuthRequest,
   res: Response<
@@ -66,7 +67,7 @@ export async function postSampleData(
   req.checkPermissions("createMetrics", "");
   req.checkPermissions("createAnalyses", "");
 
-  const { org, userId } = getOrgFromReq(req);
+  const { org, userId, readAccessFilter } = getOrgFromReq(req);
   const orgId = org.id;
   const statsEngine = org.settings?.statsEngine || DEFAULT_STATS_ENGINE;
 
@@ -195,9 +196,10 @@ Revenue did not reach 95% significance, but the risk is so low it doesn't seem w
       data: experiment,
       organization: org,
       user: res.locals.eventAudit,
+      readAccessFilter,
     });
 
-    const metricMap = await getMetricMap(org.id);
+    const metricMap = await getMetricMap(org.id, readAccessFilter);
 
     await createManualSnapshot(
       experiment,
@@ -256,10 +258,10 @@ export async function deleteDataSource(
   req: AuthRequest<null, { id: string }>,
   res: Response
 ) {
-  const { org } = getOrgFromReq(req);
+  const { org, readAccessFilter } = getOrgFromReq(req);
   const { id } = req.params;
 
-  const datasource = await getDataSourceById(id, org.id);
+  const datasource = await getDataSourceById(id, org.id, readAccessFilter);
   if (!datasource) {
     throw new Error("Cannot find datasource");
   }
@@ -362,10 +364,10 @@ export async function getDataSource(
   req: AuthRequest<null, { id: string }>,
   res: Response
 ) {
-  const { org } = getOrgFromReq(req);
+  const { org, readAccessFilter } = getOrgFromReq(req);
   const { id } = req.params;
 
-  const datasource = await getDataSourceById(id, org.id);
+  const datasource = await getDataSourceById(id, org.id, readAccessFilter);
   if (!datasource) {
     res.status(404).json({
       status: 404,
@@ -476,7 +478,7 @@ export async function putDataSource(
     email: user.email,
     name: user.name || "",
   };
-  const { org } = getOrgFromReq(req);
+  const { org, readAccessFilter } = getOrgFromReq(req);
   const { id } = req.params;
   const {
     name,
@@ -488,7 +490,7 @@ export async function putDataSource(
     metricsToCreate,
   } = req.body;
 
-  const datasource = await getDataSourceById(id, org.id);
+  const datasource = await getDataSourceById(id, org.id, readAccessFilter);
   if (!datasource) {
     res.status(404).json({
       status: 404,
@@ -591,11 +593,15 @@ export async function updateExposureQuery(
   >,
   res: Response
 ) {
-  const { org } = getOrgFromReq(req);
+  const { org, readAccessFilter } = getOrgFromReq(req);
   const { datasourceId, exposureQueryId } = req.params;
   const { updates } = req.body;
 
-  const dataSource = await getDataSourceById(datasourceId, org.id);
+  const dataSource = await getDataSourceById(
+    datasourceId,
+    org.id,
+    readAccessFilter
+  );
   if (!dataSource) {
     res.status(404).json({
       status: 404,
@@ -696,11 +702,15 @@ export async function testLimitedQuery(
   }>,
   res: Response
 ) {
-  const { org } = getOrgFromReq(req);
+  const { org, readAccessFilter } = getOrgFromReq(req);
 
   const { query, datasourceId, templateVariables } = req.body;
 
-  const datasource = await getDataSourceById(datasourceId, org.id);
+  const datasource = await getDataSourceById(
+    datasourceId,
+    org.id,
+    readAccessFilter
+  );
   if (!datasource) {
     return res.status(404).json({
       status: 404,
@@ -784,10 +794,14 @@ export async function postDimensionSlices(
   }>,
   res: Response
 ) {
-  const { org } = getOrgFromReq(req);
+  const { org, readAccessFilter } = getOrgFromReq(req);
   const { dataSourceId, queryId, lookbackDays } = req.body;
 
-  const datasourceObj = await getDataSourceById(dataSourceId, org.id);
+  const datasourceObj = await getDataSourceById(
+    dataSourceId,
+    org.id,
+    readAccessFilter
+  );
   if (!datasourceObj) {
     throw new Error("Could not find datasource");
   }
@@ -819,7 +833,7 @@ export async function cancelDimensionSlices(
   req: AuthRequest<null, { id: string }>,
   res: Response
 ) {
-  const { org } = getOrgFromReq(req);
+  const { org, readAccessFilter } = getOrgFromReq(req);
   const { id } = req.params;
   const dimensionSlices = await getDimensionSlicesById(org.id, id);
   if (!dimensionSlices) {
@@ -827,7 +841,8 @@ export async function cancelDimensionSlices(
   }
   const datasource = await getDataSourceById(
     dimensionSlices.datasource,
-    org.id
+    org.id,
+    readAccessFilter
   );
   if (!datasource) {
     throw new Error("Could not find datasource");

@@ -18,10 +18,7 @@ import {
   deleteAllMetricsForAProject,
   removeProjectFromMetrics,
 } from "../../models/MetricModel";
-import {
-  deleteAllFeaturesForAProject,
-  removeProjectFromFeatures,
-} from "../../models/FeatureModel";
+
 import { removeProjectFromProjectRoles } from "../../models/OrganizationModel";
 import {
   deleteAllExperimentsForAProject,
@@ -32,6 +29,10 @@ import {
   removeProjectFromSlackIntegration,
 } from "../../models/SlackIntegrationModel";
 import { EventAuditUserForResponseLocals } from "../../events/event-types";
+import {
+  deleteAllFeaturesForAProject,
+  removeProjectFromFeatures,
+} from "../../models/FeatureModel";
 
 // region POST /projects
 
@@ -101,9 +102,9 @@ export const putProject = async (
   const { id } = req.params;
   req.checkPermissions("manageProjects", id);
 
-  const { org } = getOrgFromReq(req);
+  const { org, readAccessFilter } = getOrgFromReq(req);
 
-  const project = await findProjectById(id, org.id);
+  const project = await findProjectById(id, org.id, readAccessFilter);
 
   if (!project) {
     res.status(404).json({
@@ -169,7 +170,7 @@ export const deleteProject = async (
 
   req.checkPermissions("manageProjects", id);
 
-  const { org } = getOrgFromReq(req);
+  const { org, readAccessFilter } = getOrgFromReq(req);
 
   await deleteProjectById(id, org.id);
 
@@ -222,6 +223,7 @@ export const deleteProject = async (
         projectId: id,
         organization: org,
         user: res.locals.eventAudit,
+        readAccessFilter,
       });
     } catch (e) {
       return res.json({
@@ -304,9 +306,9 @@ export const putProjectSettings = async (
   const { id } = req.params;
   req.checkPermissions("manageProjects", id);
 
-  const { org } = getOrgFromReq(req);
+  const { org, readAccessFilter } = getOrgFromReq(req);
 
-  const project = await findProjectById(id, org.id);
+  const project = await findProjectById(id, org.id, readAccessFilter);
 
   if (!project) {
     res.status(404).json({

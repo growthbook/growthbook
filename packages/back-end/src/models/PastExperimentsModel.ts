@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 import omit from "lodash/omit";
 import uniqid from "uniqid";
+import { ReadAccessFilter, hasReadAccess } from "shared/permissions";
 import {
   PastExperiment,
   PastExperimentsInterface,
@@ -53,10 +54,18 @@ function toInterface(doc: PastExperimentsDocument): PastExperimentsInterface {
   return omit(ret, ["__v", "_id"]);
 }
 
-export async function getPastExperimentsById(organization: string, id: string) {
+export async function getPastExperimentsById(
+  organization: string,
+  id: string,
+  readAccessFilter: ReadAccessFilter
+) {
   const doc = await PastExperimentsModel.findOne({ organization, id });
 
-  return doc ? toInterface(doc) : null;
+  if (!doc) return null;
+
+  const pastExperiments = toInterface(doc);
+
+  return hasReadAccess(readAccessFilter, []) ? pastExperiments : null;
 }
 
 export async function getPastExperimentsModelByDatasource(

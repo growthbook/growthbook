@@ -10,6 +10,7 @@ export const getMetric = createApiRequestHandler(getMetricValidator)(
     const metric = await getMetricById(
       req.params.id,
       req.organization.id,
+      req.readAccessFilter,
       false
     );
     if (!metric) {
@@ -17,7 +18,11 @@ export const getMetric = createApiRequestHandler(getMetricValidator)(
     }
 
     const datasource = metric.datasource
-      ? await getDataSourceById(metric.datasource, req.organization.id)
+      ? await getDataSourceById(
+          metric.datasource,
+          req.organization.id,
+          req.readAccessFilter
+        )
       : null;
 
     return {

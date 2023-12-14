@@ -7,7 +7,6 @@ import {
   getLicense,
   setLicense,
 } from "enterprise";
-import { getReadAccessFilter } from "shared/permissions";
 import {
   AuthRequest,
   ResponseWithStatusAndError,
@@ -176,7 +175,7 @@ export async function getDefinitions(req: AuthRequest, res: Response) {
 }
 
 export async function getActivityFeed(req: AuthRequest, res: Response) {
-  const { org, userId } = getOrgFromReq(req);
+  const { org, userId, readAccessFilter } = getOrgFromReq(req);
   try {
     const docs = await getRecentWatchedAudits(userId, org.id);
 
@@ -192,7 +191,8 @@ export async function getActivityFeed(req: AuthRequest, res: Response) {
     const experimentIds = Array.from(new Set(docs.map((d) => d.entity.id)));
     const experiments = await getExperimentsForActivityFeed(
       org.id,
-      experimentIds
+      experimentIds,
+      readAccessFilter
     );
 
     res.status(200).json({
@@ -701,12 +701,12 @@ export async function getNamespaces(req: AuthRequest, res: Response) {
       organization: null,
     });
   }
-  const { org, environments } = getOrgFromReq(req);
+  const { org, environments, readAccessFilter } = getOrgFromReq(req);
 
   const namespaces: NamespaceUsage = {};
 
   // Get all of the active experiments that are tied to a namespace
-  const allFeatures = await getAllFeatures(org.id);
+  const allFeatures = await getAllFeatures(org.id, readAccessFilter);
   allFeatures.forEach((f) => {
     environments.forEach((env) => {
       if (!f.environmentSettings?.[env]?.enabled) return;
@@ -735,7 +735,7 @@ export async function getNamespaces(req: AuthRequest, res: Response) {
     });
   });
 
-  const allExperiments = await getAllExperiments(org.id);
+  const allExperiments = await getAllExperiments(org.id, readAccessFilter);
   allExperiments.forEach((e) => {
     if (!e.phases) return;
     const phase = e.phases[e.phases.length - 1];

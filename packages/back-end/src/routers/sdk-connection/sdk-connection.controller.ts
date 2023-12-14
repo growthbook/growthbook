@@ -1,6 +1,5 @@
 import type { Response } from "express";
 import { orgHasPremiumFeature } from "enterprise";
-import { hasReadAccess } from "shared/permissions";
 import { AuthRequest } from "../../types/AuthRequest";
 import { getOrgFromReq } from "../../services/organizations";
 import {
@@ -17,8 +16,6 @@ import {
   findSDKConnectionsByOrganization,
   testProxyConnection,
 } from "../../models/SdkConnectionModel";
-import { getTeamsForOrganization } from "../../models/TeamModel";
-import { getUserPermissions } from "../../util/organization.util";
 
 export const getSDKConnections = async (
   req: AuthRequest,
@@ -27,24 +24,16 @@ export const getSDKConnections = async (
     connections: SDKConnectionInterface[];
   }>
 ) => {
-  const { org, userId } = getOrgFromReq(req);
+  const { org, readAccessFilter } = getOrgFromReq(req);
 
-  const teams = await getTeamsForOrganization(org.id);
+  const connections = await findSDKConnectionsByOrganization(
+    org.id,
+    readAccessFilter
+  );
 
-  const currentUserPermissions = getUserPermissions(userId, org, teams || []);
-
-  const connections = await findSDKConnectionsByOrganization(org.id);
-
-  if (!connections) {
-    return res.status(200).json({ status: 200, connections: [] });
-  }
-
-  //TODO: Add filtering to the SDK connecions to filter based on projects
   res.status(200).json({
     status: 200,
-    connections: connections.filter((connection) =>
-      hasReadAccess(currentUserPermissions, connection.projects || [])
-    ),
+    connections,
   });
 };
 
@@ -100,9 +89,9 @@ export const putSDKConnection = async (
   req: AuthRequest<EditSDKConnectionParams, { id: string }>,
   res: Response<{ status: 200 }>
 ) => {
-  const { org } = getOrgFromReq(req);
+  const { org, readAccessFilter } = getOrgFromReq(req);
   const { id } = req.params;
-  const connection = await findSDKConnectionById(id);
+  const connection = await findSDKConnectionById(id, readAccessFilter);
 
   if (!connection || connection.organization !== org.id) {
     throw new Error("Could not find SDK Connection");
@@ -157,8 +146,8 @@ export const deleteSDKConnection = async (
   res: Response<{ status: 200 }>
 ) => {
   const { id } = req.params;
-  const { org } = getOrgFromReq(req);
-  const connection = await findSDKConnectionById(id);
+  const { org, readAccessFilter } = getOrgFromReq(req);
+  const connection = await findSDKConnectionById(id, readAccessFilter);
 
   if (!connection || connection.organization !== org.id) {
     throw new Error("Could not find SDK Connection");
@@ -183,8 +172,8 @@ export const checkSDKConnectionProxyStatus = async (
   }>
 ) => {
   const { id } = req.params;
-  const { org } = getOrgFromReq(req);
-  const connection = await findSDKConnectionById(id);
+  const { org, readAccessFilter } = getOrgFromReq(req);
+  const connection = await findSDKConnectionById(id, readAccessFilter);
 
   if (!connection || connection.organization !== org.id) {
     throw new Error("Could not find SDK Connection");

@@ -113,7 +113,11 @@ export async function getExperimentsScript(
           "Must use a Publishable API key to load the visual editor script",
       });
     }
-    const experiments = await getAllExperiments(organization);
+    //TODO: Is this endpoint being hit via the Chrome Extension, and not a user?
+    const experiments = await getAllExperiments(organization, {
+      globalReadAccess: true,
+      projects: [],
+    });
 
     const experimentData: ExperimentData[] = [];
 

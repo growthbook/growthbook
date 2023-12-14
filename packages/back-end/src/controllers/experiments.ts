@@ -475,7 +475,11 @@ export async function postExperiments(
   req.checkPermissions("createAnalyses", data.project);
 
   if (data.datasource) {
-    const datasource = await getDataSourceById(data.datasource, org.id);
+    const datasource = await getDataSourceById(
+      data.datasource,
+      org.id,
+      readAccessFilter
+    );
     if (!datasource) {
       res.status(403).json({
         status: 403,
@@ -688,7 +692,11 @@ export async function postExperiment(
   req.checkPermissions("createAnalyses", experiment.project);
 
   if (data.datasource) {
-    const datasource = await getDataSourceById(data.datasource, org.id);
+    const datasource = await getDataSourceById(
+      data.datasource,
+      org.id,
+      readAccessFilter
+    );
     if (!datasource) {
       res.status(403).json({
         status: 403,
@@ -861,6 +869,7 @@ export async function postExperiment(
             experiment: updated,
             organization: org,
             user: res.locals.eventAudit,
+            readAccessFilter,
           })
         )
       );
@@ -1659,7 +1668,7 @@ export async function previewManualSnapshot(
   }
 
   try {
-    const metricMap = await getMetricMap(org.id);
+    const metricMap = await getMetricMap(org.id, readAccessFilter);
 
     const data = await getManualSnapshotData(
       experiment,
@@ -1776,9 +1785,17 @@ export async function postSnapshot(
       .filter((d) => d && typeof d === "string") as string[]
   );
   const denominatorMetrics = (
-    await Promise.all(denominatorMetricIds.map((m) => getMetricById(m, org.id)))
+    await Promise.all(
+      denominatorMetricIds.map((m) =>
+        getMetricById(m, org.id, readAccessFilter)
+      )
+    )
   ).filter(Boolean) as MetricInterface[];
-  const datasource = await getDataSourceById(experiment.datasource, org.id);
+  const datasource = await getDataSourceById(
+    experiment.datasource,
+    org.id,
+    readAccessFilter
+  );
 
   const {
     metricRegressionAdjustmentStatuses,
@@ -1817,8 +1834,8 @@ export async function postSnapshot(
     dimension
   );
 
-  const metricMap = await getMetricMap(org.id);
-  const factTableMap = await getFactTableMap(org.id);
+  const metricMap = await getMetricMap(org.id, readAccessFilter);
+  const factTableMap = await getFactTableMap(org.id, readAccessFilter);
 
   // Manual snapshot
   if (!experiment.datasource) {
@@ -1962,7 +1979,7 @@ export async function postSnapshotAnalysis(
     await updateSnapshot(org.id, id, { settings: snapshot.settings });
   }
 
-  const metricMap = await getMetricMap(org.id);
+  const metricMap = await getMetricMap(org.id, readAccessFilter);
 
   try {
     await createSnapshotAnalysis({
@@ -2145,9 +2162,13 @@ export async function cancelPastExperiments(
   // Passing in an empty string for "project" since pastExperiments don't have projects
   req.checkPermissions("runQueries", "");
 
-  const { org } = getOrgFromReq(req);
+  const { org, readAccessFilter } = getOrgFromReq(req);
   const { id } = req.params;
-  const pastExperiments = await getPastExperimentsById(org.id, id);
+  const pastExperiments = await getPastExperimentsById(
+    org.id,
+    id,
+    readAccessFilter
+  );
   if (!pastExperiments) {
     throw new Error("Could not cancel query");
   }
@@ -2171,7 +2192,11 @@ export async function getPastExperimentsList(
 ) {
   const { org, readAccessFilter } = getOrgFromReq(req);
   const { id } = req.params;
-  const pastExperiments = await getPastExperimentsById(org.id, id);
+  const pastExperiments = await getPastExperimentsById(
+    org.id,
+    id,
+    readAccessFilter
+  );
 
   if (!pastExperiments) {
     throw new Error("Invalid import id");
@@ -2208,10 +2233,14 @@ export async function postPastExperiments(
   req: AuthRequest<{ datasource: string; force: boolean }>,
   res: Response
 ) {
-  const { org } = getOrgFromReq(req);
+  const { org, readAccessFilter } = getOrgFromReq(req);
   const { datasource, force } = req.body;
 
-  const datasourceObj = await getDataSourceById(datasource, org.id);
+  const datasourceObj = await getDataSourceById(
+    datasource,
+    org.id,
+    readAccessFilter
+  );
   if (!datasourceObj) {
     throw new Error("Could not find datasource");
   }
@@ -2348,6 +2377,7 @@ export async function putVisualChangeset(
     organization: org,
     updates: req.body,
     user: res.locals.eventAudit,
+    readAccessFilter,
   });
 
   res.status(200).json({
@@ -2385,6 +2415,7 @@ export async function deleteVisualChangeset(
     experiment,
     organization: org,
     user: res.locals.eventAudit,
+    readAccessFilter,
   });
 
   res.status(200).json({

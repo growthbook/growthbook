@@ -62,11 +62,7 @@ export async function findAllProjectsByOrganization(
 
   const projects = docs.map(toInterface);
 
-  if (readAccessFilter) {
-    return projects.filter((p) => hasReadAccess(readAccessFilter, [p.id]));
-  }
-
-  return projects;
+  return projects.filter((p) => hasReadAccess(readAccessFilter, [p.id]));
 }
 export async function findProjectById(
   id: string,
@@ -75,16 +71,11 @@ export async function findProjectById(
 ) {
   const doc = await ProjectModel.findOne({ id, organization });
 
-  if (!doc) {
-    return null;
-  }
+  if (!doc) return null;
 
   const project = toInterface(doc);
 
-  if (project && readAccessFilter) {
-    return hasReadAccess(readAccessFilter, [project.id]) ? project : null;
-  }
-  return project;
+  return hasReadAccess(readAccessFilter, [project.id]) ? project : null;
 }
 export async function deleteProjectById(id: string, organization: string) {
   await ProjectModel.deleteOne({

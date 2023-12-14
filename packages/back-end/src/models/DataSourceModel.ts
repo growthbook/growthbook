@@ -84,44 +84,61 @@ export async function getDataSourcesByOrganization(
     datasources = docs.map(toInterface);
   }
 
-  if (readAccessFilter) {
-    return datasources.filter((ds) =>
-      hasReadAccess(readAccessFilter, ds.projects || [])
-    );
-  }
-
-  return datasources;
+  return datasources.filter((ds) =>
+    hasReadAccess(readAccessFilter, ds.projects || [])
+  );
 }
 
-export async function getDataSourceById(id: string, organization: string) {
+export async function getDataSourceById(
+  id: string,
+  organization: string,
+  readAccessFilter: ReadAccessFilter
+) {
+  let datasource: DataSourceInterface | null = null;
   // If using config.yml, immediately return the from there
   if (usingFileConfig()) {
-    return (
-      getConfigDatasources(organization).filter((d) => d.id === id)[0] || null
-    );
+    datasource =
+      getConfigDatasources(organization).filter((d) => d.id === id)[0] || null;
+  } else {
+    const doc: DataSourceDocument | null = await DataSourceModel.findOne({
+      id,
+      organization,
+    });
+
+    if (!doc) return null;
+
+    datasource = toInterface(doc);
   }
 
-  const doc: DataSourceDocument | null = await DataSourceModel.findOne({
-    id,
-    organization,
-  });
-
-  return doc ? toInterface(doc) : null;
+  return hasReadAccess(readAccessFilter, datasource.projects || [])
+    ? datasource
+    : null;
 }
-export async function getDataSourcesByIds(ids: string[], organization: string) {
+export async function getDataSourcesByIds(
+  ids: string[],
+  organization: string,
+  readAccessFilter: ReadAccessFilter
+) {
+  let datasources: DataSourceInterface[] = [];
   // If using config.yml, immediately return the list from there
   if (usingFileConfig()) {
-    return (
-      getConfigDatasources(organization).filter((d) => ids.includes(d.id)) || []
-    );
+    datasources =
+      getConfigDatasources(organization).filter((d) => ids.includes(d.id)) ||
+      [];
+  } else {
+    const docs: DataSourceDocument[] = await DataSourceModel.find({
+      id: { $in: ids },
+      organization,
+    });
+
+    if (!docs) return [];
+
+    datasources = docs.map(toInterface);
   }
 
-  const docs: DataSourceDocument[] = await DataSourceModel.find({
-    id: { $in: ids },
-    organization,
-  });
-
-  return docs.map(toInterface);
+  return datasources.filter((d) =>
+    hasReadAccess(readAccessFilter, d.projects || [])
+  );
 }
 
 export async function removeProjectFromDatasources(
@@ -134,6 +151,7 @@ export async function removeProjectFromDatasources(
   );
 }
 
+//TODO: This doesn't look like it's used anywhere in the application today - can we remove?
 export async function getOrganizationsWithDatasources(): Promise<string[]> {
   if (usingFileConfig()) {
     return [];

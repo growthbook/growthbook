@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 import uniqid from "uniqid";
 import { z } from "zod";
 import { omit } from "lodash";
+import { ReadAccessFilter, hasReadAccess } from "shared/permissions";
 import { ApiSdkConnection } from "../../types/openapi";
 import {
   CreateSDKConnectionParams,
@@ -100,18 +101,37 @@ function toInterface(doc: SDKConnectionDocument): SDKConnectionInterface {
   return omit(conn, ["__v", "_id"]);
 }
 
-export async function findSDKConnectionById(id: string) {
+export async function findSDKConnectionById(
+  id: string,
+  readAccessFilter: ReadAccessFilter
+) {
   const doc = await SDKConnectionModel.findOne({
     id,
   });
-  return doc ? toInterface(doc) : null;
+
+  if (!doc) return null;
+
+  const connection = toInterface(doc);
+
+  return hasReadAccess(readAccessFilter, connection.projects || [])
+    ? connection
+    : null;
 }
 
-export async function findSDKConnectionsByOrganization(organization: string) {
+export async function findSDKConnectionsByOrganization(
+  organization: string,
+  readAccessFilter: ReadAccessFilter
+) {
   const docs = await SDKConnectionModel.find({
     organization,
   });
-  return docs.map(toInterface);
+
+  if (!docs) return [];
+
+  const connections = docs.map(toInterface);
+  return connections.filter((connection) =>
+    hasReadAccess(readAccessFilter, connection.projects || [])
+  );
 }
 
 export async function findAllSDKConnections() {

@@ -8,6 +8,7 @@ export const deleteMetricHandler = createApiRequestHandler(getMetricValidator)(
     const metric = await getMetricById(
       req.params.id,
       req.organization.id,
+      req.readAccessFilter,
       false
     );
 

@@ -18,9 +18,13 @@ export async function getInformationSchema(
   req: AuthRequest<null, { datasourceId: string }>,
   res: Response
 ) {
-  const { org } = getOrgFromReq(req);
+  const { org, readAccessFilter } = getOrgFromReq(req);
 
-  const datasource = await getDataSourceById(req.params.datasourceId, org.id);
+  const datasource = await getDataSourceById(
+    req.params.datasourceId,
+    org.id,
+    readAccessFilter
+  );
 
   if (!datasource) {
     res.status(404).json({
@@ -51,7 +55,7 @@ export async function getTableData(
   >,
   res: Response
 ) {
-  const { org } = getOrgFromReq(req);
+  const { org, readAccessFilter } = getOrgFromReq(req);
 
   const { datasourceId, tableId } = req.params;
 
@@ -69,7 +73,8 @@ export async function getTableData(
 
   const datasource = await getDataSourceById(
     informationSchema.datasourceId,
-    org.id
+    org.id,
+    readAccessFilter
   );
 
   if (!datasource) {
@@ -180,9 +185,13 @@ export async function postInformationSchema(
   req: AuthRequest<null, { datasourceId: string }>,
   res: Response
 ) {
-  const { org } = getOrgFromReq(req);
+  const { org, readAccessFilter } = getOrgFromReq(req);
 
-  const datasource = await getDataSourceById(req.params.datasourceId, org.id);
+  const datasource = await getDataSourceById(
+    req.params.datasourceId,
+    org.id,
+    readAccessFilter
+  );
 
   if (!datasource) {
     res.status(404).json({
@@ -206,10 +215,14 @@ export async function putInformationSchema(
   req: AuthRequest<{ informationSchemaId: string }, { datasourceId: string }>,
   res: Response
 ) {
-  const { org } = getOrgFromReq(req);
+  const { org, readAccessFilter } = getOrgFromReq(req);
   const { informationSchemaId } = req.body;
 
-  const datasource = await getDataSourceById(req.params.datasourceId, org.id);
+  const datasource = await getDataSourceById(
+    req.params.datasourceId,
+    org.id,
+    readAccessFilter
+  );
 
   if (!datasource) {
     res.status(404).json({

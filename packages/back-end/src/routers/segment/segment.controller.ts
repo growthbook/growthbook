@@ -83,7 +83,7 @@ export const getSegmentUsage = async (
   res: Response<GetSegmentUsageResponse, EventAuditUserForResponseLocals>
 ) => {
   const { id } = req.params;
-  const { org } = getOrgFromReq(req);
+  const { org, readAccessFilter } = getOrgFromReq(req);
 
   const segment = await findSegmentById(id, org.id);
 
@@ -100,7 +100,7 @@ export const getSegmentUsage = async (
   const ideas = await getIdeasByQuery(query);
 
   // metricSchema
-  const metrics = await getMetricsUsingSegment(id, org.id);
+  const metrics = await getMetricsUsingSegment(id, org.id, readAccessFilter);
 
   // experiments:
   const experiments = await getExperimentsUsingSegment(id, org.id);
@@ -148,9 +148,13 @@ export const postSegment = async (
 
   const { datasource, name, sql, userIdType, description } = req.body;
 
-  const { org, userName } = getOrgFromReq(req);
+  const { org, userName, readAccessFilter } = getOrgFromReq(req);
 
-  const datasourceDoc = await getDataSourceById(datasource, org.id);
+  const datasourceDoc = await getDataSourceById(
+    datasource,
+    org.id,
+    readAccessFilter
+  );
   if (!datasourceDoc) {
     throw new Error("Invalid data source");
   }
@@ -210,7 +214,7 @@ export const putSegment = async (
   req.checkPermissions("createSegments");
 
   const { id } = req.params;
-  const { org } = getOrgFromReq(req);
+  const { org, readAccessFilter } = getOrgFromReq(req);
 
   const segment = await findSegmentById(id, org.id);
 
@@ -223,7 +227,11 @@ export const putSegment = async (
 
   const { datasource, name, sql, userIdType, owner, description } = req.body;
 
-  const datasourceDoc = await getDataSourceById(datasource, org.id);
+  const datasourceDoc = await getDataSourceById(
+    datasource,
+    org.id,
+    readAccessFilter
+  );
   if (!datasourceDoc) {
     throw new Error("Invalid data source");
   }
@@ -266,7 +274,7 @@ export const deleteSegment = async (
   req.checkPermissions("createSegments");
 
   const { id } = req.params;
-  const { org } = getOrgFromReq(req);
+  const { org, readAccessFilter } = getOrgFromReq(req);
   const segment = await findSegmentById(id, org.id);
 
   if (!segment) {
@@ -291,7 +299,7 @@ export const deleteSegment = async (
   }
 
   // metrics
-  const metrics = await getMetricsUsingSegment(id, org.id);
+  const metrics = await getMetricsUsingSegment(id, org.id, readAccessFilter);
   if (metrics.length > 0) {
     // as update metric query will fail if they are using a config file,
     // we want to allow for deleting if there are no metrics with this segment.
