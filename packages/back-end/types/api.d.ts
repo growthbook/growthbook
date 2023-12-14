@@ -50,7 +50,7 @@ export type ApiRequestLocals = PermissionFunctions & {
   organization: OrganizationInterface;
   eventAudit: EventAuditUser;
   audit: (data: Partial<AuditInterface>) => Promise<void>;
-  readAccessFilter?: ReadAccessFilter;
+  readAccessFilter: ReadAccessFilter;
 };
 
 export interface ApiErrorResponse {

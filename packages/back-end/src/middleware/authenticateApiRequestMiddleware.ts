@@ -145,14 +145,10 @@ export default function authenticateApiRequestMiddleware(
         }
       };
 
-      //TODO: Build the readAccessFilter here?
-      if (userId && teams) {
-        console.log("this is a personal access token, building permissions");
-        const userPermissions = getUserPermissions(userId, org, teams);
-        req.readAccessFilter = getReadAccessFilter(userPermissions);
-      } else {
-        req.readAccessFilter = { globalReadAccess: true, projects: [] };
-      }
+      req.readAccessFilter = userId
+        ? getReadAccessFilter(getUserPermissions(userId, org, teams))
+        : // This is an API key, so it has global read access
+          { globalReadAccess: true, projects: [] };
 
       // Add user info to logger
       res.log = req.log = req.log.child(getCustomLogProps(req as Request));

@@ -117,13 +117,7 @@ import { getAllFactMetricsForOrganization } from "../../models/FactMetricModel";
 import { TeamInterface } from "../../../types/team";
 
 export async function getDefinitions(req: AuthRequest, res: Response) {
-  const { org, userId } = getOrgFromReq(req);
-
-  const teams = await getTeamsForOrganization(org.id);
-
-  const currentUserPermissions = getUserPermissions(userId, org, teams || []);
-
-  const readAccessFilter = getReadAccessFilter(currentUserPermissions);
+  const { org, readAccessFilter } = getOrgFromReq(req);
 
   const orgId = org?.id;
   if (!orgId) {
@@ -1254,13 +1248,7 @@ export async function putOrganization(
 }
 
 export async function getApiKeys(req: AuthRequest, res: Response) {
-  const { org, userId } = getOrgFromReq(req);
-
-  // const teams = await getTeamsForOrganization(org.id);
-
-  // const currentUserPermissions = getUserPermissions(userId, org, teams || []);
-
-  // const projectAccess = getProjectAccess(currentUserPermissions);
+  const { org, readAccessFilter } = getOrgFromReq(req);
 
   const keys = await getAllApiKeysByOrganization(org.id);
   const filteredKeys = keys.filter((k) => !k.userId || k.userId === req.userId);
@@ -1447,11 +1435,7 @@ export async function postApiKeyReveal(
 }
 
 export async function getWebhooks(req: AuthRequest, res: Response) {
-  const { org, userId } = getOrgFromReq(req);
-
-  const teams = await getTeamsForOrganization(org.id);
-
-  const currentUserPermissions = getUserPermissions(userId, org, teams || []);
+  const { org, readAccessFilter } = getOrgFromReq(req);
 
   const webhooks = await WebhookModel.find({
     organization: org.id,

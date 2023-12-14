@@ -111,6 +111,7 @@ export function getOrgFromReq(req: AuthRequest) {
     email: req.email,
     environments: getEnvironmentIdsFromOrg(req.organization),
     userName: req.name || "",
+    readAccessFilter: req.readAccessFilter,
   };
 }
 
