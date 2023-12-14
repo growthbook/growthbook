@@ -13,7 +13,7 @@ const RadioSelector: FC<{
     enabled?: boolean;
   }[];
   value: string;
-  labelWidth?: number;
+  labelWidth?: number | string;
   setValue: (value: string) => void;
 }> = ({ name, options, value, labelWidth = 70, setValue }) => {
   return (
