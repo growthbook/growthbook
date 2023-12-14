@@ -20,6 +20,8 @@ import { usingFileConfig, getConfigDatasources } from "../init/config";
 import { upgradeDatasourceObject } from "../util/migrations";
 import { ApiDataSource } from "../../types/openapi";
 import { queueCreateInformationSchema } from "../jobs/createInformationSchema";
+import { IS_CLOUD } from "../util/secrets";
+import { findAllOrganizations } from "./OrganizationModel";
 
 const dataSourceSchema = new mongoose.Schema<DataSourceDocument>({
   id: String,
@@ -49,6 +51,21 @@ const DataSourceModel = mongoose.model<DataSourceInterface>(
 
 function toInterface(doc: DataSourceDocument): DataSourceInterface {
   return upgradeDatasourceObject(doc.toJSON());
+}
+
+export async function getInstallationDatasources(): Promise<
+  DataSourceInterface[]
+> {
+  if (IS_CLOUD) {
+    throw new Error("Cannot get all installation data sources in cloud mode");
+  }
+  if (usingFileConfig()) {
+    const organizationId = (await findAllOrganizations(0, "", 1))
+      .organizations[0].id;
+    return getConfigDatasources(organizationId);
+  }
+  const docs: DataSourceDocument[] = await DataSourceModel.find();
+  return docs.map(toInterface);
 }
 
 export async function getDataSourcesByOrganization(

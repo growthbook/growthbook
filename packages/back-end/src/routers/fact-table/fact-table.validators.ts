@@ -153,3 +153,9 @@ export const updateFactFilterPropsValidator = z
     value: z.string(),
   })
   .strict();
+
+export const testFactFilterPropsValidator = z
+  .object({
+    value: z.string(),
+  })
+  .strict();

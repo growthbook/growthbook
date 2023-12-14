@@ -286,7 +286,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
       ? "Pro"
       : accountPlan === "pro_sso"
       ? "Pro + SSO"
-      : "Starter") + (license && license.trial ? " (trial)" : "");
+      : "Starter") + (license && license.isTrial ? " (trial)" : "");
 
   const form = useForm<OrganizationSettingsWithMetricDefaults>({
     defaultValues: {
@@ -319,7 +319,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
       },
       runHealthTrafficQuery: false,
       srmThreshold: DEFAULT_SRM_THRESHOLD,
-      multipleExposureMinPercent: 0.01,
+      multipleExposureMinPercent: 0.01 * 100,
       confidenceLevel: 0.95,
       pValueThreshold: DEFAULT_P_VALUE_THRESHOLD,
       pValueCorrection: null,
@@ -407,10 +407,15 @@ const GeneralSettingsPage = (): React.ReactElement => {
               newVal.metricDefaults.minPercentageChange * 100,
           };
         }
-        // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-        if (k === "confidenceLevel" && newVal?.confidenceLevel <= 1) {
-          // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-          newVal.confidenceLevel = newVal.confidenceLevel * 100;
+        if (k === "confidenceLevel" && (newVal?.confidenceLevel ?? 0.95) <= 1) {
+          newVal.confidenceLevel = (newVal.confidenceLevel ?? 0.95) * 100;
+        }
+        if (
+          k === "multipleExposureMinPercent" &&
+          (newVal?.multipleExposureMinPercent ?? 0.01) <= 1
+        ) {
+          newVal.multipleExposureMinPercent =
+            (newVal.multipleExposureMinPercent ?? 0.01) * 100;
         }
       });
       form.reset(newVal);
@@ -429,8 +434,9 @@ const GeneralSettingsPage = (): React.ReactElement => {
         maxPercentageChange: value.metricDefaults.maxPercentageChange / 100,
         minPercentageChange: value.metricDefaults.minPercentageChange / 100,
       },
-      // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-      confidenceLevel: value.confidenceLevel / 100,
+      confidenceLevel: (value.confidenceLevel ?? 0.95) / 100,
+      multipleExposureMinPercent:
+        (value.multipleExposureMinPercent ?? 0.01) / 100,
     };
 
     await apiCall(`/organization`, {
@@ -671,15 +677,21 @@ const GeneralSettingsPage = (): React.ReactElement => {
                           <>
                             <div className="col-sm-2">
                               <div>Issued:</div>
-                              <span className="text-muted">{license.iat}</span>
+                              <span className="text-muted">
+                                {license.dateCreated}
+                              </span>
                             </div>
                             <div className="col-sm-2">
                               <div>Expires:</div>
-                              <span className="text-muted">{license.exp}</span>
+                              <span className="text-muted">
+                                {license.dateExpires}
+                              </span>
                             </div>
                             <div className="col-sm-2">
                               <div>Seats:</div>
-                              <span className="text-muted">{license.qty}</span>
+                              <span className="text-muted">
+                                {license.seats}
+                              </span>
                             </div>
                           </>
                         )}
@@ -818,9 +830,9 @@ const GeneralSettingsPage = (): React.ReactElement => {
                   <Field
                     label="Warn when this percent of experiment users are in multiple variations"
                     type="number"
-                    step="any"
+                    step="1"
                     min="0"
-                    max="1"
+                    max="100"
                     className="ml-2"
                     containerClassName="mb-3"
                     append="%"
@@ -828,11 +840,10 @@ const GeneralSettingsPage = (): React.ReactElement => {
                       width: "80px",
                     }}
                     disabled={hasFileConfig()}
-                    helpText={<span className="ml-2">from 0 to 1</span>}
                     {...form.register("multipleExposureMinPercent", {
                       valueAsNumber: true,
                       min: 0,
-                      max: 1,
+                      max: 100,
                     })}
                   />
 
