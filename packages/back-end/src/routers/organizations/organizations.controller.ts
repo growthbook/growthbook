@@ -7,6 +7,7 @@ import {
   getLicense,
   setLicense,
 } from "enterprise";
+import { hasReadAccess } from "shared/permissions";
 import {
   AuthRequest,
   ResponseWithStatusAndError,
@@ -595,7 +596,7 @@ export async function getOrganization(req: AuthRequest, res: Response) {
     });
   }
 
-  const { org, userId } = getOrgFromReq(req);
+  const { org, userId, readAccessFilter } = getOrgFromReq(req);
   const {
     invites,
     members,
@@ -630,7 +631,7 @@ export async function getOrganization(req: AuthRequest, res: Response) {
   }
 
   // Some other global org data needed by the front-end
-  const apiKeys = await getAllApiKeysByOrganization(org.id);
+  const apiKeys = await getAllApiKeysByOrganization(org.id, readAccessFilter);
   const enterpriseSSO = isEnterpriseSSO(req.loginMethod)
     ? getSSOConnectionSummary(req.loginMethod)
     : null;
@@ -1253,7 +1254,7 @@ export async function putOrganization(
 export async function getApiKeys(req: AuthRequest, res: Response) {
   const { org, readAccessFilter } = getOrgFromReq(req);
 
-  const keys = await getAllApiKeysByOrganization(org.id);
+  const keys = await getAllApiKeysByOrganization(org.id, readAccessFilter);
   const filteredKeys = keys.filter((k) => !k.userId || k.userId === req.userId);
 
   res.status(200).json({
@@ -1364,7 +1365,7 @@ export async function deleteApiKey(
   req: AuthRequest<{ key?: string; id?: string }>,
   res: Response
 ) {
-  const { org, userId } = getOrgFromReq(req);
+  const { org, userId, readAccessFilter } = getOrgFromReq(req);
   // Old API keys did not have an id, so we need to delete by the key value itself
   const { key, id } = req.body;
   if (!key && !id) {
@@ -1373,6 +1374,7 @@ export async function deleteApiKey(
 
   const keyObj = await getApiKeyByIdOrKey(
     org.id,
+    readAccessFilter,
     id || undefined,
     key || undefined
   );
@@ -1443,9 +1445,12 @@ export async function getWebhooks(req: AuthRequest, res: Response) {
   const webhooks = await WebhookModel.find({
     organization: org.id,
   });
+
   res.status(200).json({
     status: 200,
-    webhooks,
+    webhooks: webhooks.filter((webhook) =>
+      hasReadAccess(readAccessFilter, [webhook.project || ""])
+    ),
   });
 }
 
