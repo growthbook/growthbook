@@ -411,6 +411,7 @@ export default function AnalysisSettingsBar({
                     experiment={experiment}
                     lastAnalysis={analysis}
                     dimension={dimension}
+                    setAnalysisSettings={setAnalysisSettings}
                     onSubmit={() => {
                       if (baselineRow !== 0) {
                         setBaselineRow?.(0);
