@@ -1547,7 +1547,7 @@ export async function postImportConfig(
 ) {
   req.checkPermissions("organizationSettings");
 
-  const { org } = getOrgFromReq(req);
+  const { org, readAccessFilter } = getOrgFromReq(req);
   const { contents } = req.body;
 
   const config: ConfigFile = JSON.parse(contents);
@@ -1555,7 +1555,7 @@ export async function postImportConfig(
     throw new Error("Failed to parse config.yml file contents.");
   }
 
-  await importConfig(config, org);
+  await importConfig(config, org, readAccessFilter);
 
   res.status(200).json({
     status: 200,

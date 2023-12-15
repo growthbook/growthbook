@@ -1,6 +1,7 @@
 import Agenda, { Job } from "agenda";
 import { getScopedSettings } from "shared/settings";
 import { getSnapshotAnalysis } from "shared/util";
+import { ReadAccessFilter } from "shared/permissions";
 import {
   getExperimentById,
   getExperimentsToUpdate,
@@ -37,6 +38,7 @@ const UPDATE_SINGLE_EXP = "updateSingleExperiment";
 type UpdateSingleExpJob = Job<{
   organization: string;
   experimentId: string;
+  readAccessFilter: ReadAccessFilter;
 }>;
 
 export default async function (agenda: Agenda) {
@@ -51,7 +53,8 @@ export default async function (agenda: Agenda) {
     for (let i = 0; i < experiments.length; i++) {
       await queueExperimentUpdate(
         experiments[i].organization,
-        experiments[i].id
+        experiments[i].id,
+        { globalReadAccess: true, projects: [] } // This isn't a user job, so don't filter by readAccess
       );
     }
   });
@@ -75,7 +78,8 @@ export default async function (agenda: Agenda) {
     for (let i = 0; i < experiments.length; i++) {
       await queueExperimentUpdate(
         experiments[i].organization,
-        experiments[i].id
+        experiments[i].id,
+        { globalReadAccess: true, projects: [] } // This isn't a user job, so don't filter by readAccess
       );
     }
 
@@ -91,11 +95,13 @@ export default async function (agenda: Agenda) {
 
   async function queueExperimentUpdate(
     organization: string,
-    experimentId: string
+    experimentId: string,
+    readAccessFilter: ReadAccessFilter
   ) {
     const job = agenda.create(UPDATE_SINGLE_EXP, {
       organization,
       experimentId,
+      readAccessFilter,
     }) as UpdateSingleExpJob;
 
     job.unique({
@@ -110,9 +116,14 @@ export default async function (agenda: Agenda) {
 async function updateSingleExperiment(job: UpdateSingleExpJob) {
   const experimentId = job.attrs.data?.experimentId;
   const orgId = job.attrs.data?.organization;
-  if (!experimentId || !orgId) return;
+  const readAccessFilter = job.attrs.data?.readAccessFilter;
+  if (!experimentId || !orgId || !readAccessFilter) return;
 
-  const experiment = await getExperimentById(orgId, experimentId);
+  const experiment = await getExperimentById(
+    orgId,
+    experimentId,
+    readAccessFilter
+  );
   if (!experiment) return;
 
   const organization = await findOrganizationById(experiment.organization);
@@ -120,7 +131,11 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
 
   let project = null;
   if (experiment.project) {
-    project = await findProjectById(experiment.project, organization.id);
+    project = await findProjectById(
+      experiment.project,
+      organization.id,
+      readAccessFilter
+    );
   }
   const { settings: scopedSettings } = getScopedSettings({
     organization,
@@ -133,7 +148,8 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
     logger.info("Start Refreshing Results for experiment " + experimentId);
     const datasource = await getDataSourceById(
       experiment.datasource || "",
-      experiment.organization
+      experiment.organization,
+      readAccessFilter
     );
     if (!datasource) {
       throw new Error("Error refreshing experiment, could not find datasource");
@@ -155,8 +171,11 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
       regressionAdjustmentEnabled
     );
 
-    const metricMap = await getMetricMap(organization.id);
-    const factTableMap = await getFactTableMap(organization.id);
+    const metricMap = await getMetricMap(organization.id, readAccessFilter);
+    const factTableMap = await getFactTableMap(
+      organization.id,
+      readAccessFilter
+    );
 
     const queryRunner = await createSnapshot({
       experiment,
@@ -194,6 +213,7 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
         changes: {
           autoSnapshots: false,
         },
+        readAccessFilter,
       });
       // TODO: email user and let them know it failed
     } catch (e) {

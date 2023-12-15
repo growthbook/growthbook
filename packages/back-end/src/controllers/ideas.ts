@@ -50,11 +50,12 @@ export async function getEstimatedImpact(
 
   req.checkPermissions("runQueries", idea?.project || "");
 
-  const { org } = getOrgFromReq(req);
+  const { org, readAccessFilter } = getOrgFromReq(req);
   const estimate = await getImpactEstimate(
     org.id,
     metric,
     org.settings?.metricAnalysisDays || 30,
+    readAccessFilter,
     segment
   );
 

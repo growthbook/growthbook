@@ -6,6 +6,7 @@ import {
 } from "shared/constants";
 import { getSnapshotAnalysis } from "shared/util";
 import { isBinomialMetric } from "shared/experiments";
+import { ReadAccessFilter } from "shared/permissions";
 import { APP_ORIGIN } from "../util/secrets";
 import { findSnapshotById } from "../models/ExperimentSnapshotModel";
 import { getExperimentById } from "../models/ExperimentModel";
@@ -40,7 +41,8 @@ async function getQueryData(
 
 export async function generateReportNotebook(
   reportId: string,
-  organization: string
+  organization: string,
+  readAccessFilter: ReadAccessFilter
 ): Promise<string> {
   const report = await getReportById(organization, reportId);
   if (!report) {
@@ -53,13 +55,15 @@ export async function generateReportNotebook(
     report.args,
     `/report/${report.id}`,
     report.title,
-    ""
+    "",
+    readAccessFilter
   );
 }
 
 export async function generateExperimentNotebook(
   snapshotId: string,
-  organization: string
+  organization: string,
+  readAccessFilter: ReadAccessFilter
 ): Promise<string> {
   // Get snapshot
   const snapshot = await findSnapshotById(organization, snapshotId);
@@ -76,7 +80,11 @@ export async function generateExperimentNotebook(
   }
 
   // Get experiment
-  const experiment = await getExperimentById(organization, snapshot.experiment);
+  const experiment = await getExperimentById(
+    organization,
+    snapshot.experiment,
+    readAccessFilter
+  );
   if (!experiment) {
     throw new Error("Cannot find snapshot");
   }
@@ -90,7 +98,8 @@ export async function generateExperimentNotebook(
     reportArgsFromSnapshot(experiment, snapshot, analysis.settings),
     `/experiment/${experiment.id}`,
     experiment.name,
-    experiment.hypothesis || ""
+    experiment.hypothesis || "",
+    readAccessFilter
   );
 }
 
@@ -100,10 +109,15 @@ export async function generateNotebook(
   args: ExperimentReportArgs,
   url: string,
   name: string,
-  description: string
+  description: string,
+  readAccessFilter: ReadAccessFilter
 ) {
   // Get datasource
-  const datasource = await getDataSourceById(args.datasource, organization);
+  const datasource = await getDataSourceById(
+    args.datasource,
+    organization,
+    readAccessFilter
+  );
   if (!datasource) {
     throw new Error("Cannot find datasource");
   }
@@ -114,7 +128,7 @@ export async function generateNotebook(
   }
 
   // Get metrics
-  const metricMap = await getMetricMap(organization);
+  const metricMap = await getMetricMap(organization, readAccessFilter);
 
   // Get queries
   const queries = await getQueryData(queryPointers, organization);

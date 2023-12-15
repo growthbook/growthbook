@@ -1,6 +1,7 @@
 import { randomBytes } from "crypto";
 import { freeEmailDomains } from "free-email-domains-typescript";
 import { cloneDeep } from "lodash";
+import { ReadAccessFilter } from "shared/permissions";
 import {
   createOrganization,
   findAllOrganizations,
@@ -600,7 +601,8 @@ function validateConfig(config: ConfigFile, organizationId: string) {
 
 export async function importConfig(
   config: ConfigFile,
-  organization: OrganizationInterface
+  organization: OrganizationInterface,
+  readAccessFilter: ReadAccessFilter
 ) {
   const errors = validateConfig(config, organization.id);
   if (errors.length > 0) {
@@ -626,7 +628,11 @@ export async function importConfig(
             // Fix newlines in the private keys:
             ds.params.privateKey = ds.params?.privateKey?.replace(/\\n/g, "\n");
           }
-          const existing = await getDataSourceById(k, organization.id);
+          const existing = await getDataSourceById(
+            k,
+            organization.id,
+            readAccessFilter
+          );
           if (existing) {
             let params = existing.params;
             // If params are changing, merge them with existing and test the connection
@@ -663,6 +669,7 @@ export async function importConfig(
               ds.type,
               ds.params,
               ds.settings || {},
+              readAccessFilter,
               k,
               ds.description
             );
@@ -685,14 +692,18 @@ export async function importConfig(
         }
 
         try {
-          const existing = await getMetricById(k, organization.id);
+          const existing = await getMetricById(
+            k,
+            organization.id,
+            readAccessFilter
+          );
           if (existing) {
             const updates: Partial<MetricInterface> = {
               ...m,
             };
             delete updates.organization;
 
-            await updateMetric(k, updates, organization.id);
+            await updateMetric(k, updates, organization.id, readAccessFilter);
           } else {
             await createMetric({
               ...m,
@@ -790,9 +801,14 @@ export async function getEmailFromUserId(userId: string) {
 
 export async function getExperimentOverrides(
   organization: string,
+  readAccessFilter: ReadAccessFilter,
   project?: string
 ) {
-  const experiments = await getAllExperiments(organization, project);
+  const experiments = await getAllExperiments(
+    organization,
+    readAccessFilter,
+    project
+  );
   const overrides: Record<string, ExperimentOverride> = {};
   const expIdMapping: Record<string, { trackingKey: string }> = {};
 

@@ -196,6 +196,7 @@ export async function createDataSource(
   type: DataSourceType,
   params: DataSourceParams,
   settings: DataSourceSettings,
+  readAccessFilter: ReadAccessFilter,
   id?: string,
   description: string = "",
   projects?: string[]
@@ -246,7 +247,11 @@ export async function createDataSource(
     integration.getInformationSchema &&
     integration.getSourceProperties().supportsInformationSchema
   ) {
-    await queueCreateInformationSchema(datasource.id, organization);
+    await queueCreateInformationSchema(
+      datasource.id,
+      organization,
+      readAccessFilter
+    );
   }
 
   return toInterface(model);

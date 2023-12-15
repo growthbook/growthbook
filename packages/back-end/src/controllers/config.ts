@@ -47,7 +47,11 @@ export async function getExperimentConfig(
     }
 
     const { overrides, expIdMapping } = await getExperimentOverrides(
-      organization
+      organization,
+      {
+        globalReadAccess: true,
+        projects: [],
+      }
     );
 
     // TODO: add cache headers?

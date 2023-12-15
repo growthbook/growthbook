@@ -1,4 +1,5 @@
 import Agenda, { Job } from "agenda";
+import { ReadAccessFilter } from "shared/permissions";
 import { fetchTableData } from "../services/informationSchema";
 import { logger } from "../util/logger";
 import { getDataSourceById } from "../models/DataSourceModel";
@@ -15,6 +16,7 @@ const UPDATE_STALE_INFORMATION_SCHEMA_TABLE_JOB_NAME =
 type UpdateStaleInformationSchemaTableJob = Job<{
   organization: string;
   informationSchemaTableId: string;
+  readAccessFilter: ReadAccessFilter;
 }>;
 
 let agenda: Agenda;
@@ -25,7 +27,11 @@ export default function (ag: Agenda) {
     UPDATE_STALE_INFORMATION_SCHEMA_TABLE_JOB_NAME,
     async (job: UpdateStaleInformationSchemaTableJob) => {
       // console.log("starting the job!");
-      const { organization, informationSchemaTableId } = job.attrs.data;
+      const {
+        organization,
+        informationSchemaTableId,
+        readAccessFilter,
+      } = job.attrs.data;
 
       if (!informationSchemaTableId || !organization) return;
 
@@ -44,7 +50,8 @@ export default function (ag: Agenda) {
 
       const datasource = await getDataSourceById(
         informationSchemaTable.datasourceId,
-        organization
+        organization,
+        readAccessFilter
       );
 
       const informationSchema = await getInformationSchemaById(
@@ -114,13 +121,15 @@ export default function (ag: Agenda) {
 
 export async function queueUpdateStaleInformationSchemaTable(
   organization: string,
-  informationSchemaTableId: string
+  informationSchemaTableId: string,
+  readAccessFilter: ReadAccessFilter
 ) {
   if (!informationSchemaTableId || !organization) return;
 
   const job = agenda.create(UPDATE_STALE_INFORMATION_SCHEMA_TABLE_JOB_NAME, {
     organization,
     informationSchemaTableId,
+    readAccessFilter,
   }) as UpdateStaleInformationSchemaTableJob;
   job.unique({ informationSchemaTableId, organization });
   job.schedule(new Date());

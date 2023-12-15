@@ -400,7 +400,7 @@ export async function postDataSources(
   }>,
   res: Response
 ) {
-  const { org } = getOrgFromReq(req);
+  const { org, readAccessFilter } = getOrgFromReq(req);
   const { name, description, type, params, projects } = req.body;
   const settings = req.body.settings || {};
 
@@ -421,6 +421,7 @@ export async function postDataSources(
       type,
       params,
       settings,
+      readAccessFilter,
       undefined,
       description,
       projects
@@ -521,7 +522,8 @@ export async function putDataSource(
       datasource.id,
       org.id,
       metricsToCreate,
-      userObj
+      userObj,
+      readAccessFilter
     );
   }
 

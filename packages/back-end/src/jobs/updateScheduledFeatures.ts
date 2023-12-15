@@ -72,7 +72,10 @@ async function updateSingleFeature(job: UpdateSingleFeatureJob) {
   const org = await getOrganizationById(organization);
   if (!org) return;
 
-  const feature = await getFeature(organization, featureId);
+  const feature = await getFeature(organization, featureId, {
+    globalReadAccess: true,
+    projects: [],
+  });
   if (!feature) return;
 
   try {
@@ -83,9 +86,18 @@ async function updateSingleFeature(job: UpdateSingleFeatureJob) {
     );
 
     // Update the feature in Mongo
-    await updateFeature(org, null, feature, {
-      nextScheduledUpdate: nextScheduledUpdate,
-    });
+    await updateFeature(
+      org,
+      null,
+      feature,
+      {
+        nextScheduledUpdate: nextScheduledUpdate,
+      },
+      {
+        globalReadAccess: true,
+        projects: [],
+      }
+    );
   } catch (e) {
     logger.error(e, "Failed updating feature " + featureId);
   }

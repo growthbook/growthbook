@@ -143,7 +143,8 @@ export async function insertMetrics(
 export async function deleteMetricById(
   id: string,
   org: OrganizationInterface,
-  user: EventAuditUser
+  user: EventAuditUser,
+  readAccessFilter: ReadAccessFilter
 ) {
   if (usingFileConfig()) {
     throw new Error("Cannot delete. Metrics managed by config.yml");
@@ -160,7 +161,7 @@ export async function deleteMetricById(
   );
 
   // Experiments
-  await removeMetricFromExperiments(id, org, user);
+  await removeMetricFromExperiments(id, org, user, readAccessFilter);
 
   await MetricModel.deleteOne({
     id,
@@ -178,10 +179,12 @@ export async function deleteAllMetricsForAProject({
   projectId,
   organization,
   user,
+  readAccessFilter,
 }: {
   projectId: string;
   organization: OrganizationInterface;
   user: EventAuditUser;
+  readAccessFilter: ReadAccessFilter;
 }) {
   const metricsToDelete = await MetricModel.find({
     organization: organization.id,
@@ -189,7 +192,7 @@ export async function deleteAllMetricsForAProject({
   });
 
   for (const metric of metricsToDelete) {
-    await deleteMetricById(metric.id, organization, user);
+    await deleteMetricById(metric.id, organization, user, readAccessFilter);
   }
 }
 

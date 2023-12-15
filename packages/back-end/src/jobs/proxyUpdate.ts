@@ -1,6 +1,7 @@
 import { createHmac } from "crypto";
 import Agenda, { Job } from "agenda";
 import { getConnectionSDKCapabilities } from "shared/sdk-versioning";
+import { ReadAccessFilter } from "shared/permissions";
 import { getFeatureDefinitions } from "../services/features";
 import { CRON_ENABLED, IS_CLOUD } from "../util/secrets";
 import { SDKPayloadKey } from "../../types/sdk-payload";
@@ -18,6 +19,7 @@ type ProxyUpdateJob = Job<{
   connectionId: string;
   useCloudProxy: boolean;
   retryCount: number;
+  readAccessFilter: ReadAccessFilter;
 }>;
 
 let agenda: Agenda;
@@ -28,6 +30,7 @@ export default function addProxyUpdateJob(ag: Agenda) {
   agenda.define(PROXY_UPDATE_JOB_NAME, async (job: ProxyUpdateJob) => {
     const connectionId = job.attrs.data?.connectionId;
     const useCloudProxy = job.attrs.data?.useCloudProxy;
+    const readAccessFilter = job.attrs.data?.readAccessFilter;
     if (!connectionId) {
       logger.error(
         "proxyUpdate: No connectionId provided for proxy update job",
@@ -36,7 +39,10 @@ export default function addProxyUpdateJob(ag: Agenda) {
       return;
     }
 
-    const connection = await findSDKConnectionById(connectionId);
+    const connection = await findSDKConnectionById(
+      connectionId,
+      readAccessFilter
+    );
     if (!connection) {
       logger.error("proxyUpdate: Could not find sdk connection", {
         connectionId,
@@ -130,12 +136,16 @@ export async function queueSingleProxyUpdate(
 
 export async function queueProxyUpdate(
   orgId: string,
-  payloadKeys: SDKPayloadKey[]
+  payloadKeys: SDKPayloadKey[],
+  readAccessFilter: ReadAccessFilter
 ) {
   if (!CRON_ENABLED) return;
   if (!payloadKeys.length) return;
 
-  const connections = await findSDKConnectionsByOrganization(orgId);
+  const connections = await findSDKConnectionsByOrganization(
+    orgId,
+    readAccessFilter
+  );
 
   if (!connections) return;
 

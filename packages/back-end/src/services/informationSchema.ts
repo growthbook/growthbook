@@ -1,3 +1,4 @@
+import { ReadAccessFilter } from "shared/permissions";
 import { DataSourceInterface } from "../../types/datasource";
 import {
   createInformationSchema,
@@ -61,7 +62,8 @@ export function getRecentlyDeletedTables(
 export async function mergeStaleInformationSchemaWithUpdate(
   staleInformationSchema: InformationSchema[],
   updatedInformationSchema: InformationSchema[],
-  organization: string
+  organization: string,
+  readAccessFilter: ReadAccessFilter
 ): Promise<InformationSchema[]> {
   // If there is no stale information schema, then return the updated information schema
   // This could happen if there was an error when initially creating the informationSchema
@@ -121,7 +123,11 @@ export async function mergeStaleInformationSchemaWithUpdate(
             if (table.id) {
               // If numOfColumns has changed & the table has an id, then it needs to be updated.
               promises.push(() =>
-                queueUpdateStaleInformationSchemaTable(organization, table.id)
+                queueUpdateStaleInformationSchemaTable(
+                  organization,
+                  table.id,
+                  readAccessFilter
+                )
               );
             }
           }
@@ -244,7 +250,8 @@ export async function initializeDatasourceInformationSchema(
 export async function updateDatasourceInformationSchema(
   datasource: DataSourceInterface,
   organization: string,
-  informationSchema: InformationSchemaInterface
+  informationSchema: InformationSchemaInterface,
+  readAccessFilter: ReadAccessFilter
 ): Promise<void> {
   // Reset the informationSchema to remove any errors and change status to "PENDING"
   await updateInformationSchemaById(organization, informationSchema.id, {
@@ -260,7 +267,8 @@ export async function updateDatasourceInformationSchema(
   const mergedInformationSchema = await mergeStaleInformationSchemaWithUpdate(
     informationSchema.databases,
     updatedInformationSchema,
-    organization
+    organization,
+    readAccessFilter
   );
 
   const tablesToDelete = await getRecentlyDeletedTables(

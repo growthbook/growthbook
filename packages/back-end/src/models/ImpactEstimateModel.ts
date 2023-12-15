@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 import uniqid from "uniqid";
+import { ReadAccessFilter } from "shared/permissions";
 import { ImpactEstimateInterface } from "../../types/impact-estimate";
 import { getMetricById } from "../models/MetricModel";
 import { getSourceIntegrationObject } from "../services/datasource";
@@ -45,9 +46,10 @@ export async function getImpactEstimate(
   organization: string,
   metric: string,
   numDays: number,
+  readAccessFilter: ReadAccessFilter,
   segment?: string
 ): Promise<ImpactEstimateDocument | null> {
-  const metricObj = await getMetricById(metric, organization);
+  const metricObj = await getMetricById(metric, organization, readAccessFilter);
   if (!metricObj) {
     throw new Error("Metric not found");
   }
@@ -58,7 +60,8 @@ export async function getImpactEstimate(
 
   const datasource = await getDataSourceById(
     metricObj.datasource,
-    organization
+    organization,
+    readAccessFilter
   );
   if (!datasource) {
     throw new Error("Datasource not found");

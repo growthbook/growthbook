@@ -203,6 +203,7 @@ export const deleteProject = async (
         projectId: id,
         organization: org,
         user: res.locals.eventAudit,
+        readAccessFilter,
       });
     } catch (e) {
       return res.json({
@@ -244,6 +245,7 @@ export const deleteProject = async (
         projectId: id,
         organization: org,
         user: res.locals.eventAudit,
+        readAccessFilter,
       });
     } catch (e) {
       return res.json({
@@ -252,7 +254,12 @@ export const deleteProject = async (
       });
     }
   } else {
-    await removeProjectFromExperiments(id, org, res.locals.eventAudit);
+    await removeProjectFromExperiments(
+      id,
+      org,
+      res.locals.eventAudit,
+      readAccessFilter
+    );
   }
 
   // Clean up Slack integrations

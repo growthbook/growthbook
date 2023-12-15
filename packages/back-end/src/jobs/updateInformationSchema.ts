@@ -1,4 +1,5 @@
 import Agenda, { Job } from "agenda";
+import { ReadAccessFilter } from "shared/permissions";
 import { updateDatasourceInformationSchema } from "../services/informationSchema";
 import { getDataSourceById } from "../models/DataSourceModel";
 import {
@@ -17,6 +18,7 @@ type UpdateInformationSchemaJob = Job<{
   datasourceId: string;
   organization: string;
   informationSchemaId: string;
+  readAccessFilter: ReadAccessFilter;
 }>;
 
 let agenda: Agenda;
@@ -30,11 +32,16 @@ export default function (ag: Agenda) {
         datasourceId,
         organization,
         informationSchemaId,
+        readAccessFilter,
       } = job.attrs.data;
 
       if (!datasourceId || !organization) return;
 
-      const datasource = await getDataSourceById(datasourceId, organization);
+      const datasource = await getDataSourceById(
+        datasourceId,
+        organization,
+        readAccessFilter
+      );
 
       const informationSchema = await getInformationSchemaById(
         organization,
@@ -47,7 +54,8 @@ export default function (ag: Agenda) {
         await updateDatasourceInformationSchema(
           datasource,
           organization,
-          informationSchema
+          informationSchema,
+          readAccessFilter
         );
       } catch (e) {
         const error: InformationSchemaError = {
@@ -83,14 +91,16 @@ export default function (ag: Agenda) {
 export async function queueUpdateInformationSchema(
   datasourceId: string,
   organization: string,
-  informationSchemaId: string
+  informationSchemaId: string,
+  readAccessFilter: ReadAccessFilter
 ) {
-  if (!datasourceId || !organization) return;
+  if (!datasourceId || !organization || !readAccessFilter) return;
 
   const job = agenda.create(UPDATE_INFORMATION_SCHEMA_JOB_NAME, {
     datasourceId,
     organization,
     informationSchemaId,
+    readAccessFilter,
   }) as UpdateInformationSchemaJob;
   job.unique({ datasource: datasourceId, organization });
   job.schedule(new Date());

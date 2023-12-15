@@ -1,4 +1,5 @@
 import { includeExperimentInPayload } from "shared/util";
+import { ReadAccessFilter } from "shared/permissions";
 import { OrganizationInterface } from "../../types/organization";
 import {
   getAllPayloadExperiments,
@@ -12,7 +13,8 @@ import { getEnvironmentIdsFromOrg } from "./organizations";
 
 export async function savedGroupUpdated(
   org: OrganizationInterface,
-  id: string
+  id: string,
+  readAccessFilter: ReadAccessFilter
 ) {
   // Use a map to build a list of unique SDK payload keys
   const payloadKeys: Map<string, SDKPayloadKey> = new Map();
@@ -49,7 +51,7 @@ export async function savedGroupUpdated(
   );
 
   // Then, add in any feature flags using this saved group
-  const allFeatures = await getAllFeatures(org.id);
+  const allFeatures = await getAllFeatures(org.id, readAccessFilter);
   addKeys(
     getAffectedSDKPayloadKeys(
       allFeatures,

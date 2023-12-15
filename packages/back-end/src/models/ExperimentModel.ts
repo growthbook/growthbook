@@ -384,12 +384,14 @@ export async function updateExperiment({
   experiment,
   user,
   changes,
+  readAccessFilter,
   bypassWebhooks = false,
 }: {
   organization: OrganizationInterface;
   experiment: ExperimentInterface;
   user: EventAuditUser;
   changes: Changeset;
+  readAccessFilter: ReadAccessFilter;
   bypassWebhooks?: boolean;
 }): Promise<ExperimentInterface | null> {
   await ExperimentModel.updateOne(
@@ -410,6 +412,7 @@ export async function updateExperiment({
     newExperiment: updated,
     user,
     bypassWebhooks,
+    readAccessFilter,
   });
 
   return updated;
@@ -642,7 +645,8 @@ export async function getRecentExperimentsUsingMetric(
 export async function deleteExperimentSegment(
   organization: OrganizationInterface,
   user: EventAuditUser,
-  segment: string
+  segment: string,
+  readAccessFilter: ReadAccessFilter
 ): Promise<void> {
   const exps = await getExperimentsUsingSegment(segment, organization.id);
 
@@ -665,6 +669,7 @@ export async function deleteExperimentSegment(
       newExperiment: current,
       bypassWebhooks: true,
       user,
+      readAccessFilter,
     });
   });
 }
@@ -810,7 +815,8 @@ const logExperimentUpdated = async ({
 export async function deleteExperimentByIdForOrganization(
   experiment: ExperimentInterface,
   organization: OrganizationInterface,
-  user: EventAuditUser
+  user: EventAuditUser,
+  readAccessFilter: ReadAccessFilter
 ) {
   try {
     await ExperimentModel.deleteOne({
@@ -820,7 +826,7 @@ export async function deleteExperimentByIdForOrganization(
 
     await VisualChangesetModel.deleteMany({ experiment: experiment.id });
 
-    await onExperimentDelete(organization, user, experiment);
+    await onExperimentDelete(organization, user, experiment, readAccessFilter);
   } catch (e) {
     logger.error(e);
   }
@@ -836,10 +842,12 @@ export async function deleteAllExperimentsForAProject({
   projectId,
   organization,
   user,
+  readAccessFilter,
 }: {
   projectId: string;
   organization: OrganizationInterface;
   user: EventAuditUser;
+  readAccessFilter: ReadAccessFilter;
 }) {
   const experimentsToDelete = await ExperimentModel.find({
     organization: organization.id,
@@ -849,7 +857,7 @@ export async function deleteAllExperimentsForAProject({
   for (const experiment of experimentsToDelete) {
     await experiment.delete();
     VisualChangesetModel.deleteMany({ experiment: experiment.id });
-    await onExperimentDelete(organization, user, experiment);
+    await onExperimentDelete(organization, user, experiment, readAccessFilter);
   }
 }
 
@@ -864,10 +872,12 @@ export const removeTagFromExperiments = async ({
   organization,
   user,
   tag,
+  readAccessFilter,
 }: {
   organization: OrganizationInterface;
   user: EventAuditUser;
   tag: string;
+  readAccessFilter: ReadAccessFilter;
 }): Promise<void> => {
   const query = { organization: organization.id, tags: tag };
   // Filter those based on whether or not the user has
@@ -877,16 +887,23 @@ export const removeTagFromExperiments = async ({
     $pull: { tags: tag },
   });
 
-  logAllChanges(organization, user, previousExperiments, (exp) => ({
-    ...exp,
-    tags: exp.tags.filter((t) => t !== tag),
-  }));
+  logAllChanges(
+    organization,
+    user,
+    previousExperiments,
+    readAccessFilter,
+    (exp) => ({
+      ...exp,
+      tags: exp.tags.filter((t) => t !== tag),
+    })
+  );
 };
 
 export async function removeMetricFromExperiments(
   metricId: string,
   organization: OrganizationInterface,
-  user: EventAuditUser
+  user: EventAuditUser,
+  readAccessFilter: ReadAccessFilter
 ) {
   const oldExperiments: Record<
     string,
@@ -959,6 +976,7 @@ export async function removeMetricFromExperiments(
         newExperiment: current,
         bypassWebhooks: true,
         user,
+        readAccessFilter,
       });
     }
   });
@@ -967,17 +985,24 @@ export async function removeMetricFromExperiments(
 export async function removeProjectFromExperiments(
   project: string,
   organization: OrganizationInterface,
-  user: EventAuditUser
+  user: EventAuditUser,
+  readAccessFilter: ReadAccessFilter
 ) {
   const query = { organization: organization.id, project };
   const previousExperiments = await findExperiments(query);
 
   await ExperimentModel.updateMany(query, { $set: { project: "" } });
 
-  logAllChanges(organization, user, previousExperiments, (exp) => ({
-    ...exp,
-    project: "",
-  }));
+  logAllChanges(
+    organization,
+    user,
+    previousExperiments,
+    readAccessFilter,
+    (exp) => ({
+      ...exp,
+      project: "",
+    })
+  );
 }
 
 export async function addLinkedFeatureToExperiment(
@@ -1020,6 +1045,7 @@ export async function addLinkedFeatureToExperiment(
       linkedFeatures: [...(experiment.linkedFeatures || []), featureId],
     },
     user,
+    readAccessFilter,
   });
 }
 
@@ -1062,6 +1088,7 @@ export async function removeLinkedFeatureFromExperiment(
       ),
     },
     user,
+    readAccessFilter,
   });
 }
 
@@ -1069,6 +1096,7 @@ function logAllChanges(
   organization: OrganizationInterface,
   user: EventAuditUser,
   previousExperiments: ExperimentInterface[],
+  readAccessFilter: ReadAccessFilter,
   applyChanges: (exp: ExperimentInterface) => ExperimentInterface | null
 ) {
   previousExperiments.forEach((previous) => {
@@ -1079,6 +1107,7 @@ function logAllChanges(
       oldExperiment: previous,
       newExperiment: current,
       user,
+      readAccessFilter,
     });
   });
 }
@@ -1346,12 +1375,14 @@ const onExperimentUpdate = async ({
   newExperiment,
   bypassWebhooks = false,
   user,
+  readAccessFilter,
 }: {
   organization: OrganizationInterface;
   oldExperiment: ExperimentInterface;
   newExperiment: ExperimentInterface;
   bypassWebhooks?: boolean;
   user: EventAuditUser;
+  readAccessFilter: ReadAccessFilter;
 }) => {
   await logExperimentUpdated({
     organization,
@@ -1371,7 +1402,11 @@ const onExperimentUpdate = async ({
     ]);
     let linkedFeatures: FeatureInterface[] = [];
     if (featureIds.size > 0) {
-      linkedFeatures = await getFeaturesByIds(organization.id, [...featureIds]);
+      linkedFeatures = await getFeaturesByIds(
+        organization.id,
+        [...featureIds],
+        readAccessFilter
+      );
     }
 
     const oldPayloadKeys = oldExperiment
@@ -1394,14 +1429,19 @@ const onExperimentUpdate = async ({
 const onExperimentDelete = async (
   organization: OrganizationInterface,
   user: EventAuditUser,
-  experiment: ExperimentInterface
+  experiment: ExperimentInterface,
+  readAccessFilter: ReadAccessFilter
 ) => {
   await logExperimentDeleted(organization, user, experiment);
 
   const featureIds = [...(experiment.linkedFeatures || [])];
   let linkedFeatures: FeatureInterface[] = [];
   if (featureIds.length > 0) {
-    linkedFeatures = await getFeaturesByIds(organization.id, featureIds);
+    linkedFeatures = await getFeaturesByIds(
+      organization.id,
+      featureIds,
+      readAccessFilter
+    );
   }
 
   const payloadKeys = getPayloadKeys(organization, experiment, linkedFeatures);

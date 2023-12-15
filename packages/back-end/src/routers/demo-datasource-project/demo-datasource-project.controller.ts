@@ -193,6 +193,7 @@ export const postDemoDatasourceProject = async (
       DATASOURCE_TYPE,
       DEMO_DATASOURCE_PARAMS,
       DEMO_DATASOURCE_SETTINGS,
+      readAccessFilter,
       undefined,
       "",
       [project.id]

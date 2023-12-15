@@ -72,7 +72,7 @@ export const updateSavedGroup = createApiRequestHandler(
       !isEqual(savedGroup.values, fieldsToUpdate.values) ||
       fieldsToUpdate.attributeKey
     ) {
-      savedGroupUpdated(req.organization, savedGroup.id);
+      savedGroupUpdated(req.organization, savedGroup.id, req.readAccessFilter);
     }
 
     return {

@@ -852,6 +852,7 @@ export async function postExperiment(
     experiment,
     user: res.locals.eventAudit,
     changes,
+    readAccessFilter,
   });
 
   // if variations have changed, update the experiment's visualchangesets if they exist
@@ -944,6 +945,7 @@ export async function postExperimentArchive(
       experiment,
       user: res.locals.eventAudit,
       changes,
+      readAccessFilter,
     });
 
     // TODO: audit
@@ -1002,6 +1004,7 @@ export async function postExperimentUnarchive(
       experiment,
       user: res.locals.eventAudit,
       changes,
+      readAccessFilter,
     });
 
     // TODO: audit
@@ -1102,6 +1105,7 @@ export async function postExperimentStatus(
     experiment,
     user: res.locals.eventAudit,
     changes,
+    readAccessFilter,
   });
 
   await req.audit({
@@ -1194,6 +1198,7 @@ export async function postExperimentStop(
       experiment,
       user: res.locals.eventAudit,
       changes,
+      readAccessFilter,
     });
 
     await req.audit({
@@ -1266,6 +1271,7 @@ export async function deleteExperimentPhase(
     experiment,
     user: res.locals.eventAudit,
     changes,
+    readAccessFilter,
   });
 
   await updateSnapshotsOnPhaseDelete(org.id, id, phaseIndex);
@@ -1336,6 +1342,7 @@ export async function putExperimentPhase(
     experiment,
     user: res.locals.eventAudit,
     changes,
+    readAccessFilter,
   });
 
   await req.audit({
@@ -1437,6 +1444,7 @@ export async function postExperimentTargeting(
       experiment,
       user: res.locals.eventAudit,
       changes,
+      readAccessFilter,
     });
 
     await req.audit({
@@ -1535,6 +1543,7 @@ export async function postExperimentPhase(
       experiment,
       user: res.locals.eventAudit,
       changes,
+      readAccessFilter,
     });
 
     await req.audit({
@@ -1617,7 +1626,12 @@ export async function deleteExperiment(
   await Promise.all([
     // note: we might want to change this to change the status to
     // 'deleted' instead of actually deleting the document.
-    deleteExperimentByIdForOrganization(experiment, org, res.locals.eventAudit),
+    deleteExperimentByIdForOrganization(
+      experiment,
+      org,
+      res.locals.eventAudit,
+      readAccessFilter
+    ),
     removeExperimentFromPresentations(experiment.id),
   ]);
 
@@ -2049,6 +2063,7 @@ export async function deleteScreenshot(
     experiment,
     user: res.locals.eventAudit,
     changes,
+    readAccessFilter,
   });
 
   await req.audit({
@@ -2124,6 +2139,7 @@ export async function addScreenshot(
     experiment,
     user: res.locals.eventAudit,
     changes,
+    readAccessFilter,
   });
 
   await req.audit({

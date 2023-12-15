@@ -97,7 +97,11 @@ export async function getTableData(
     const diffInDays = Math.floor(diffInMilliseconds / (1000 * 3600 * 24));
 
     if (diffInDays > 30) {
-      await queueUpdateStaleInformationSchemaTable(org.id, table.id);
+      await queueUpdateStaleInformationSchemaTable(
+        org.id,
+        table.id,
+        readAccessFilter
+      );
     }
     res.status(200).json({
       status: 200,
@@ -163,7 +167,7 @@ export async function putTableData(
   >,
   res: Response
 ) {
-  const { org } = getOrgFromReq(req);
+  const { org, readAccessFilter } = getOrgFromReq(req);
   const { tableId } = req.params;
 
   const table = await getInformationSchemaTableById(org.id, tableId);
@@ -176,7 +180,11 @@ export async function putTableData(
     return;
   }
 
-  await queueUpdateStaleInformationSchemaTable(org.id, table.id);
+  await queueUpdateStaleInformationSchemaTable(
+    org.id,
+    table.id,
+    readAccessFilter
+  );
 
   res.status(200).json({ message: "Job scheduled successfully" });
 }
@@ -206,7 +214,7 @@ export async function postInformationSchema(
     datasource?.projects?.length ? datasource.projects : ""
   );
 
-  await queueCreateInformationSchema(datasource.id, org.id);
+  await queueCreateInformationSchema(datasource.id, org.id, readAccessFilter);
 
   res.status(200).json({ message: "Job scheduled successfully" });
 }
@@ -240,7 +248,8 @@ export async function putInformationSchema(
   await queueUpdateInformationSchema(
     datasource.id,
     org.id,
-    informationSchemaId
+    informationSchemaId,
+    readAccessFilter
   );
 
   res.status(200).json({ message: "Job scheduled successfully" });

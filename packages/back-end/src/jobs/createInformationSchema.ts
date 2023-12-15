@@ -1,4 +1,5 @@
 import Agenda, { Job } from "agenda";
+import { ReadAccessFilter } from "shared/permissions";
 import { getDataSourceById } from "../models/DataSourceModel";
 import {
   getInformationSchemaByDatasourceId,
@@ -15,6 +16,7 @@ const CREATE_INFORMATION_SCHEMA_JOB_NAME = "createInformationSchema";
 type CreateInformationSchemaJob = Job<{
   datasourceId: string;
   organization: string;
+  readAccessFilter: ReadAccessFilter;
 }>;
 
 let agenda: Agenda;
@@ -24,11 +26,15 @@ export default function (ag: Agenda) {
   agenda.define(
     CREATE_INFORMATION_SCHEMA_JOB_NAME,
     async (job: CreateInformationSchemaJob) => {
-      const { datasourceId, organization } = job.attrs.data;
+      const { datasourceId, organization, readAccessFilter } = job.attrs.data;
 
       if (!datasourceId || !organization) return;
 
-      const datasource = await getDataSourceById(datasourceId, organization);
+      const datasource = await getDataSourceById(
+        datasourceId,
+        organization,
+        readAccessFilter
+      );
 
       if (!datasource) return;
 
@@ -67,13 +73,15 @@ export default function (ag: Agenda) {
 
 export async function queueCreateInformationSchema(
   datasourceId: string,
-  organization: string
+  organization: string,
+  readAccessFilter: ReadAccessFilter
 ) {
   if (!datasourceId || !organization) return;
 
   const job = agenda.create(CREATE_INFORMATION_SCHEMA_JOB_NAME, {
     datasourceId,
     organization,
+    readAccessFilter,
   }) as CreateInformationSchemaJob;
   job.unique({ datasource: datasourceId, organization });
   job.schedule(new Date());
