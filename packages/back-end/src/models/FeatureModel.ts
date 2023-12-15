@@ -288,7 +288,7 @@ export async function createFeature(
     );
   }
 
-  onFeatureCreate(org, user, feature);
+  onFeatureCreate(org, user, feature, readAccessFilter);
 }
 
 export async function deleteFeature(
@@ -314,7 +314,7 @@ export async function deleteFeature(
     );
   }
 
-  onFeatureDelete(org, user, feature);
+  onFeatureDelete(org, user, feature, readAccessFilter);
 }
 
 /**
@@ -469,11 +469,17 @@ async function logFeatureDeletedEvent(
 async function onFeatureCreate(
   organization: OrganizationInterface,
   user: EventAuditUser,
-  feature: FeatureInterface
+  feature: FeatureInterface,
+  readAccessFilter: ReadAccessFilter
 ) {
   await refreshSDKPayloadCache(
     organization,
-    getAffectedSDKPayloadKeys([feature], getEnvironmentIdsFromOrg(organization))
+    getAffectedSDKPayloadKeys(
+      [feature],
+      getEnvironmentIdsFromOrg(organization)
+    ),
+    null,
+    readAccessFilter
   );
 
   await logFeatureCreatedEvent(organization, user, feature);
@@ -482,11 +488,17 @@ async function onFeatureCreate(
 async function onFeatureDelete(
   organization: OrganizationInterface,
   user: EventAuditUser,
-  feature: FeatureInterface
+  feature: FeatureInterface,
+  readAccessFilter: ReadAccessFilter
 ) {
   await refreshSDKPayloadCache(
     organization,
-    getAffectedSDKPayloadKeys([feature], getEnvironmentIdsFromOrg(organization))
+    getAffectedSDKPayloadKeys(
+      [feature],
+      getEnvironmentIdsFromOrg(organization)
+    ),
+    null,
+    readAccessFilter
   );
 
   await logFeatureDeletedEvent(organization, user, feature);
@@ -497,6 +509,7 @@ export async function onFeatureUpdate(
   user: EventAuditUser,
   feature: FeatureInterface,
   updatedFeature: FeatureInterface,
+  readAccessFilter: ReadAccessFilter,
   skipRefreshForProject?: string
 ) {
   await refreshSDKPayloadCache(
@@ -507,6 +520,7 @@ export async function onFeatureUpdate(
       getEnvironmentIdsFromOrg(organization)
     ),
     null,
+    readAccessFilter,
     undefined,
     skipRefreshForProject
   );
@@ -570,7 +584,7 @@ export async function updateFeature(
     );
   }
 
-  onFeatureUpdate(org, user, feature, updatedFeature);
+  onFeatureUpdate(org, user, feature, updatedFeature, readAccessFilter);
   return updatedFeature;
 }
 
@@ -750,7 +764,8 @@ export async function editFeatureRule(
 export async function removeTagInFeature(
   organization: OrganizationInterface,
   user: EventAuditUser,
-  tag: string
+  tag: string,
+  readAccessFilter: ReadAccessFilter
 ) {
   const query = { organization: organization.id, tags: tag };
 
@@ -767,14 +782,21 @@ export async function removeTagInFeature(
       tags: (feature.tags || []).filter((t) => t !== tag),
     };
 
-    onFeatureUpdate(organization, user, feature, updatedFeature);
+    onFeatureUpdate(
+      organization,
+      user,
+      feature,
+      updatedFeature,
+      readAccessFilter
+    );
   });
 }
 
 export async function removeProjectFromFeatures(
   project: string,
   organization: OrganizationInterface,
-  user: EventAuditUser
+  user: EventAuditUser,
+  readAccessFilter: ReadAccessFilter
 ) {
   const query = { organization: organization.id, project };
 
@@ -789,7 +811,14 @@ export async function removeProjectFromFeatures(
       project: "",
     };
 
-    onFeatureUpdate(organization, user, feature, updatedFeature, project);
+    onFeatureUpdate(
+      organization,
+      user,
+      feature,
+      updatedFeature,
+      readAccessFilter,
+      project
+    );
   });
 }
 

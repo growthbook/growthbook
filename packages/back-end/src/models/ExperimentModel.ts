@@ -370,6 +370,7 @@ export async function createExperiment({
     organization,
     experiment: exp,
     user,
+    readAccessFilter,
   });
 
   if (data.tags) {
@@ -738,11 +739,13 @@ export const findExperiment = async ({
 const logExperimentCreated = async (
   organization: OrganizationInterface,
   user: EventAuditUser,
-  experiment: ExperimentInterface
+  experiment: ExperimentInterface,
+  readAccessFilter: ReadAccessFilter
 ): Promise<string | undefined> => {
   const apiExperiment = await toExperimentApiInterface(
     organization,
-    experiment
+    experiment,
+    readAccessFilter
   );
   const payload: ExperimentCreatedNotificationEvent = {
     object: "experiment",
@@ -770,19 +773,23 @@ const logExperimentUpdated = async ({
   user,
   current,
   previous,
+  readAccessFilter,
 }: {
   organization: OrganizationInterface;
   user: EventAuditUser;
   current: ExperimentInterface;
   previous: ExperimentInterface;
+  readAccessFilter: ReadAccessFilter;
 }): Promise<string | undefined> => {
   const previousApiExperimentPromise = toExperimentApiInterface(
     organization,
-    previous
+    previous,
+    readAccessFilter
   );
   const currentApiExperimentPromise = toExperimentApiInterface(
     organization,
-    current
+    current,
+    readAccessFilter
   );
   const [previousApiExperiment, currentApiExperiment] = await Promise.all([
     previousApiExperimentPromise,
@@ -1128,11 +1135,13 @@ export async function getExperimentsUsingSegment(id: string, orgId: string) {
 export const logExperimentDeleted = async (
   organization: OrganizationInterface,
   user: EventAuditUser,
-  experiment: ExperimentInterface
+  experiment: ExperimentInterface,
+  readAccessFilter: ReadAccessFilter
 ): Promise<string | undefined> => {
   const apiExperiment = await toExperimentApiInterface(
     organization,
-    experiment
+    experiment,
+    readAccessFilter
   );
   const payload: ExperimentDeletedNotificationEvent = {
     object: "experiment",
@@ -1361,12 +1370,14 @@ const onExperimentCreate = async ({
   organization,
   experiment,
   user,
+  readAccessFilter,
 }: {
   organization: OrganizationInterface;
   experiment: ExperimentInterface;
   user: EventAuditUser;
+  readAccessFilter: ReadAccessFilter;
 }) => {
-  await logExperimentCreated(organization, user, experiment);
+  await logExperimentCreated(organization, user, experiment, readAccessFilter);
 };
 
 const onExperimentUpdate = async ({
@@ -1386,9 +1397,10 @@ const onExperimentUpdate = async ({
 }) => {
   await logExperimentUpdated({
     organization,
+    user,
     current: newExperiment,
     previous: oldExperiment,
-    user,
+    readAccessFilter,
   });
 
   if (
@@ -1422,7 +1434,7 @@ const onExperimentUpdate = async ({
       isEqual
     );
 
-    refreshSDKPayloadCache(organization, payloadKeys);
+    refreshSDKPayloadCache(organization, payloadKeys, null, readAccessFilter);
   }
 };
 
@@ -1432,7 +1444,7 @@ const onExperimentDelete = async (
   experiment: ExperimentInterface,
   readAccessFilter: ReadAccessFilter
 ) => {
-  await logExperimentDeleted(organization, user, experiment);
+  await logExperimentDeleted(organization, user, experiment, readAccessFilter);
 
   const featureIds = [...(experiment.linkedFeatures || [])];
   let linkedFeatures: FeatureInterface[] = [];
@@ -1445,5 +1457,5 @@ const onExperimentDelete = async (
   }
 
   const payloadKeys = getPayloadKeys(organization, experiment, linkedFeatures);
-  refreshSDKPayloadCache(organization, payloadKeys);
+  refreshSDKPayloadCache(organization, payloadKeys, null, readAccessFilter);
 };

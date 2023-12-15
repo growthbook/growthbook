@@ -29,6 +29,7 @@ export const getSdkPayload = createApiRequestHandler()(
     const defs = await getFeatureDefinitions({
       organization,
       capabilities,
+      readAccessFilter: req.readAccessFilter,
       environment,
       projects,
       encryptionKey: encrypted ? encryptionKey : "",

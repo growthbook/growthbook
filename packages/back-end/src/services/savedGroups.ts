@@ -67,6 +67,7 @@ export async function savedGroupUpdated(
     org,
     Array.from(payloadKeys.values()),
     allFeatures,
+    readAccessFilter,
     experiments
   );
 }

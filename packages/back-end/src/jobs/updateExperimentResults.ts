@@ -162,7 +162,11 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
     const {
       regressionAdjustmentEnabled,
       metricRegressionAdjustmentStatuses,
-    } = await getRegressionAdjustmentInfo(experiment, organization);
+    } = await getRegressionAdjustmentInfo(
+      experiment,
+      organization,
+      readAccessFilter
+    );
 
     const analysisSettings = getDefaultExperimentAnalysisSettings(
       experiment.statsEngine || scopedSettings.statsEngine.value,
@@ -180,6 +184,7 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
     const queryRunner = await createSnapshot({
       experiment,
       organization,
+      readAccessFilter,
       phaseIndex: experiment.phases.length - 1,
       defaultAnalysisSettings: analysisSettings,
       additionalAnalysisSettings: getAdditionalExperimentAnalysisSettings(
@@ -200,7 +205,12 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
     );
 
     if (lastSnapshot) {
-      await sendSignificanceEmail(experiment, lastSnapshot, currentSnapshot);
+      await sendSignificanceEmail(
+        experiment,
+        lastSnapshot,
+        currentSnapshot,
+        readAccessFilter
+      );
     }
   } catch (e) {
     logger.error(e, "Failed to update experiment: " + experimentId);
@@ -225,7 +235,8 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
 async function sendSignificanceEmail(
   experiment: ExperimentInterface,
   lastSnapshot: ExperimentSnapshotInterface,
-  currentSnapshot: ExperimentSnapshotInterface
+  currentSnapshot: ExperimentSnapshotInterface,
+  readAccessFilter: ReadAccessFilter
 ) {
   // If email is not configured, there's nothing else to do
   if (!isEmailEnabled()) {
@@ -271,8 +282,13 @@ async function sendSignificanceEmail(
             // this test variation has gone significant, and won
             experimentChanges.push(
               "The metric " +
-                (await getExperimentMetricById(m, experiment.organization))
-                  ?.name +
+                (
+                  await getExperimentMetricById(
+                    m,
+                    experiment.organization,
+                    readAccessFilter
+                  )
+                )?.name +
                 " for variation " +
                 experiment.variations[i].name +
                 " has reached a " +
@@ -286,8 +302,13 @@ async function sendSignificanceEmail(
             // this test variation has gone significant, and lost
             experimentChanges.push(
               "The metric " +
-                (await getExperimentMetricById(m, experiment.organization))
-                  ?.name +
+                (
+                  await getExperimentMetricById(
+                    m,
+                    experiment.organization,
+                    readAccessFilter
+                  )
+                )?.name +
                 " for variation " +
                 experiment.variations[i].name +
                 " has dropped to a " +

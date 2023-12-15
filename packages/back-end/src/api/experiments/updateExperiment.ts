@@ -78,7 +78,8 @@ export const updateExperiment = createApiRequestHandler(
     }
     const apiExperiment = await toExperimentApiInterface(
       req.organization,
-      updatedExperiment
+      updatedExperiment,
+      req.readAccessFilter
     );
     return {
       experiment: apiExperiment,

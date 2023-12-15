@@ -218,6 +218,7 @@ export async function getFeaturesPublic(req: Request, res: Response) {
     const defs = await getFeatureDefinitions({
       organization,
       capabilities,
+      readAccessFilter: { globalReadAccess: true, projects: [] }, //TODO: Is this correct?
       environment,
       projects,
       encryptionKey: encrypted ? encryptionKey : "",
@@ -309,6 +310,7 @@ export async function getEvaluatedFeaturesPublic(req: Request, res: Response) {
     const defs = await getFeatureDefinitions({
       organization,
       capabilities,
+      readAccessFilter: { globalReadAccess: true, projects: [] }, //TODO: Is this correct?
       environment,
       projects,
       encryptionKey: encrypted ? encryptionKey : "",

@@ -408,6 +408,7 @@ spacing and headings.`,
       metricMap: metricMap,
       factTableMap,
       useCache: true,
+      readAccessFilter,
     });
 
     res.status(200).json({

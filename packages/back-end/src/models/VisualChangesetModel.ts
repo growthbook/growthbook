@@ -296,6 +296,7 @@ export const createVisualChangeset = async ({
     organization,
     visualChangeset,
     experiment,
+    readAccessFilter,
   });
 
   return visualChangeset;
@@ -380,16 +381,23 @@ const onVisualChangesetCreate = async ({
   organization,
   visualChangeset,
   experiment,
+  readAccessFilter,
 }: {
   organization: OrganizationInterface;
   visualChangeset: VisualChangesetInterface;
   experiment: ExperimentInterface;
+  readAccessFilter: ReadAccessFilter;
 }) => {
   if (!hasVisualChanges(visualChangeset.visualChanges)) return;
 
   const payloadKeys = getPayloadKeys(organization, experiment);
 
-  await refreshSDKPayloadCache(organization, payloadKeys);
+  await refreshSDKPayloadCache(
+    organization,
+    payloadKeys,
+    null,
+    readAccessFilter
+  );
 };
 
 const onVisualChangesetUpdate = async ({
@@ -420,7 +428,12 @@ const onVisualChangesetUpdate = async ({
 
   const payloadKeys = getPayloadKeys(organization, experiment);
 
-  await refreshSDKPayloadCache(organization, payloadKeys);
+  await refreshSDKPayloadCache(
+    organization,
+    payloadKeys,
+    null,
+    readAccessFilter
+  );
 };
 
 const onVisualChangesetDelete = async ({
@@ -446,7 +459,12 @@ const onVisualChangesetDelete = async ({
 
   const payloadKeys = getPayloadKeys(organization, experiment);
 
-  await refreshSDKPayloadCache(organization, payloadKeys);
+  await refreshSDKPayloadCache(
+    organization,
+    payloadKeys,
+    null,
+    readAccessFilter
+  );
 };
 
 // when an experiment adds/removes variations, we need to update the analogous

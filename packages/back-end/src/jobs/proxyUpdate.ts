@@ -54,6 +54,7 @@ export default function addProxyUpdateJob(ag: Agenda) {
     const defs = await getFeatureDefinitions({
       organization: connection.organization,
       capabilities: getConnectionSDKCapabilities(connection),
+      readAccessFilter,
       environment: connection.environment,
       projects: connection.projects,
       encryptionKey: connection.encryptPayload
