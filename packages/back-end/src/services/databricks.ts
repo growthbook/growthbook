@@ -74,6 +74,6 @@ export async function runDatabricksQuery<T>(
     if (e.response?.displayMessage) {
       throw new Error(e.response.displayMessage);
     }
-    throw e;
+    throw new Error(e.message);
   }
 }
