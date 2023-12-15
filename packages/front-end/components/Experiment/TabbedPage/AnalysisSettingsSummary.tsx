@@ -392,6 +392,7 @@ export default function AnalysisSettingsSummary({
                   experiment={experiment}
                   lastAnalysis={analysis}
                   dimension={dimension}
+                  setAnalysisSettings={setAnalysisSettings}
                   onSubmit={() => {
                     if (baselineRow !== 0) {
                       setBaselineRow?.(0);
@@ -459,6 +460,12 @@ export default function AnalysisSettingsSummary({
                       }
                     )
                       .then((res) => {
+                        setAnalysisSettings(null);
+                        if (baselineRow !== 0) {
+                          setBaselineRow?.(0);
+                          setVariationFilter?.([]);
+                        }
+                        setDifferenceType("relative");
                         trackSnapshot(
                           "create",
                           "ForceRerunQueriesButton",
