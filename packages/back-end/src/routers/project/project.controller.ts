@@ -233,7 +233,12 @@ export const deleteProject = async (
       });
     }
   } else {
-    await removeProjectFromFeatures(id, org, res.locals.eventAudit);
+    await removeProjectFromFeatures(
+      id,
+      org,
+      res.locals.eventAudit,
+      readAccessFilter
+    );
   }
 
   // Clean up experiments
