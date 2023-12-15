@@ -113,7 +113,7 @@ export const putSavedGroup = async (
   req: PutSavedGroupRequest,
   res: Response<PutSavedGroupResponse | ApiErrorResponse>
 ) => {
-  const { org } = getOrgFromReq(req);
+  const { org, readAccessFilter } = getOrgFromReq(req);
   const { groupName, owner, groupList, attributeKey } = req.body;
   const { id } = req.params;
 
@@ -163,7 +163,7 @@ export const putSavedGroup = async (
 
   // If the values or key change, we need to invalidate cached feature rules
   if (!isEqual(savedGroup.values, groupList) || fieldsToUpdate.attributeKey) {
-    savedGroupUpdated(org, savedGroup.id);
+    savedGroupUpdated(org, savedGroup.id, readAccessFilter);
   }
 
   return res.status(200).json({

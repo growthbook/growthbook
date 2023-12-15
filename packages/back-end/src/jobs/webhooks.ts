@@ -1,6 +1,7 @@
 import { createHmac } from "crypto";
 import Agenda, { Job } from "agenda";
 import fetch from "node-fetch";
+import { ReadAccessFilter } from "shared/permissions";
 import { WebhookModel } from "../models/WebhookModel";
 import { getExperimentOverrides } from "../services/organizations";
 import { getFeatureDefinitions } from "../services/features";
@@ -12,6 +13,7 @@ const WEBHOOK_JOB_NAME = "fireWebhook";
 type WebhookJob = Job<{
   webhookId: string;
   retryCount: number;
+  readAccessFilter: ReadAccessFilter;
 }>;
 
 let agenda: Agenda;
@@ -21,7 +23,8 @@ export default function (ag: Agenda) {
   // Fire webhooks
   agenda.define(WEBHOOK_JOB_NAME, async (job: WebhookJob) => {
     const webhookId = job.attrs.data?.webhookId;
-    if (!webhookId) return;
+    const readAccessFilter = job.attrs.data?.readAccessFilter;
+    if (!webhookId || !readAccessFilter) return;
 
     const webhook = await WebhookModel.findOne({
       id: webhookId,
@@ -31,6 +34,7 @@ export default function (ag: Agenda) {
 
     const { features, dateUpdated } = await getFeatureDefinitions({
       organization: webhook.organization,
+      readAccessFilter,
       capabilities: [],
       environment:
         webhook.environment === undefined ? "production" : webhook.environment,
@@ -47,6 +51,7 @@ export default function (ag: Agenda) {
     if (!webhook.featuresOnly) {
       const { overrides, expIdMapping } = await getExperimentOverrides(
         webhook.organization,
+        readAccessFilter,
         webhook.project
       );
       body.overrides = overrides;
@@ -123,6 +128,7 @@ export default function (ag: Agenda) {
 export async function queueWebhook(
   orgId: string,
   payloadKeys: SDKPayloadKey[],
+  readAccessFilter: ReadAccessFilter,
   isFeature?: boolean
 ) {
   if (!CRON_ENABLED) return;
@@ -156,6 +162,7 @@ export async function queueWebhook(
     const job = agenda.create(WEBHOOK_JOB_NAME, {
       webhookId: webhook.id,
       retryCount: 0,
+      readAccessFilter,
     }) as WebhookJob;
     job.unique({ webhookId: webhook.id });
     job.schedule(new Date());

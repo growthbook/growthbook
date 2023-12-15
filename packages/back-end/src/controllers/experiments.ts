@@ -286,7 +286,11 @@ export async function getExperiment(
     org.id
   );
 
-  const linkedFeatures = await getLinkedFeatureInfo(org, experiment);
+  const linkedFeatures = await getLinkedFeatureInfo(
+    org,
+    experiment,
+    readAccessFilter
+  );
 
   res.status(200).json({
     status: 200,
@@ -390,10 +394,14 @@ export async function postSnapshotNotebook(
   req: AuthRequest<null, { id: string }>,
   res: Response
 ) {
-  const { org } = getOrgFromReq(req);
+  const { org, readAccessFilter } = getOrgFromReq(req);
   const { id } = req.params;
 
-  const notebook = await generateExperimentNotebook(id, org.id);
+  const notebook = await generateExperimentNotebook(
+    id,
+    org.id,
+    readAccessFilter
+  );
 
   res.status(200).json({
     status: 200,
@@ -494,7 +502,8 @@ export async function postExperiments(
     for (let i = 0; i < data.metrics.length; i++) {
       const metric = await getExperimentMetricById(
         data.metrics[i],
-        data.organization
+        data.organization,
+        readAccessFilter
       );
 
       if (metric) {
@@ -615,6 +624,7 @@ export async function postExperiments(
           organization: org,
           visualChanges: visualChangeset.visualChanges,
           user: res.locals.eventAudit,
+          readAccessFilter,
         });
       }
     }
@@ -708,7 +718,11 @@ export async function postExperiment(
 
   if (data.metrics && data.metrics.length) {
     for (let i = 0; i < data.metrics.length; i++) {
-      const metric = await getExperimentMetricById(data.metrics[i], org.id);
+      const metric = await getExperimentMetricById(
+        data.metrics[i],
+        org.id,
+        readAccessFilter
+      );
 
       if (metric) {
         // Make sure it is tied to the same datasource as the experiment
@@ -1734,7 +1748,8 @@ export async function cancelSnapshot(
 
   const integration = await getIntegrationFromDatasourceId(
     snapshot.organization,
-    snapshot.settings.datasourceId
+    snapshot.settings.datasourceId,
+    readAccessFilter
   );
   const queryRunner = new ExperimentResultsQueryRunner(snapshot, integration);
   await queryRunner.cancelQueries();
@@ -1791,7 +1806,9 @@ export async function postSnapshot(
     ...(experiment.guardrails ?? []),
   ]);
   const allExperimentMetrics = await Promise.all(
-    allExperimentMetricIds.map((m) => getExperimentMetricById(m, org.id))
+    allExperimentMetricIds.map((m) =>
+      getExperimentMetricById(m, org.id, readAccessFilter)
+    )
   );
   const denominatorMetricIds = uniq<string>(
     allExperimentMetrics
@@ -1920,6 +1937,7 @@ export async function postSnapshot(
         metricRegressionAdjustmentStatuses || [],
       metricMap,
       factTableMap,
+      readAccessFilter,
     });
     const snapshot = queryRunner.model;
 
@@ -2191,7 +2209,8 @@ export async function cancelPastExperiments(
 
   const integration = await getIntegrationFromDatasourceId(
     pastExperiments.organization,
-    pastExperiments.datasource
+    pastExperiments.datasource,
+    readAccessFilter
   );
   const queryRunner = new PastExperimentsQueryRunner(
     pastExperiments,
@@ -2359,6 +2378,7 @@ export async function postVisualChangeset(
     editorUrl: req.body.editorUrl,
     organization: org,
     user: res.locals.eventAudit,
+    readAccessFilter,
   });
 
   res.status(200).json({

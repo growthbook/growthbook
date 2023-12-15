@@ -70,6 +70,7 @@ export const updateExperiment = createApiRequestHandler(
       experiment: experiment,
       user: req.eventAudit,
       changes: updateExperimentApiPayloadToInterface(req.body, experiment),
+      readAccessFilter: req.readAccessFilter,
     });
 
     if (updatedExperiment === null) {

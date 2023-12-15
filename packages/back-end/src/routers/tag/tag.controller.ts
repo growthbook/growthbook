@@ -65,7 +65,7 @@ export const deleteTag = async (
 ) => {
   req.checkPermissions("manageTags");
 
-  const { org } = getOrgFromReq(req);
+  const { org, readAccessFilter } = getOrgFromReq(req);
   const { id } = req.body;
 
   // experiments
@@ -73,6 +73,7 @@ export const deleteTag = async (
     organization: org,
     user: res.locals.eventAudit,
     tag: id,
+    readAccessFilter,
   });
 
   // metrics

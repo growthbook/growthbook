@@ -196,7 +196,8 @@ export async function cancelMetricAnalysis(
 
   const integration = await getIntegrationFromDatasourceId(
     org.id,
-    metric.datasource
+    metric.datasource,
+    readAccessFilter
   );
   const queryRunner = new MetricAnalysisQueryRunner(metric, integration);
   await queryRunner.cancelQueries();
@@ -231,6 +232,7 @@ export async function postMetricAnalysis(
     await refreshMetric(
       metric,
       org.id,
+      readAccessFilter,
       req.organization?.settings?.metricAnalysisDays
     );
 

@@ -258,6 +258,7 @@ export const createVisualChangeset = async ({
   editorUrl,
   visualChanges,
   user,
+  readAccessFilter,
 }: {
   experiment: ExperimentInterface;
   organization: OrganizationInterface;
@@ -265,6 +266,7 @@ export const createVisualChangeset = async ({
   editorUrl: VisualChangesetInterface["editorUrl"];
   visualChanges?: VisualChange[];
   user: EventAuditUser;
+  readAccessFilter: ReadAccessFilter;
 }): Promise<VisualChangesetInterface> => {
   const visualChangeset = toInterface(
     await VisualChangesetModel.create({
@@ -286,6 +288,7 @@ export const createVisualChangeset = async ({
       changes: { hasVisualChangesets: true },
       user,
       bypassWebhooks: true,
+      readAccessFilter,
     });
   }
 
@@ -354,6 +357,7 @@ export const updateVisualChangeset = async ({
       user,
       changes: { hasVisualChangesets: true },
       bypassWebhooks: true,
+      readAccessFilter,
     });
   }
 
@@ -511,6 +515,7 @@ export const deleteVisualChangesetById = async ({
         changes: { hasVisualChangesets: false },
         bypassWebhooks: true,
         user,
+        readAccessFilter,
       });
     }
   }

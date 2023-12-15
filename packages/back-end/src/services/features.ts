@@ -11,6 +11,7 @@ import {
 } from "@growthbook/growthbook";
 import { validateFeatureValue } from "shared/util";
 import { scrubFeatures, SDKCapability } from "shared/sdk-versioning";
+import { ReadAccessFilter } from "shared/permissions";
 import {
   AutoExperimentWithProject,
   FeatureDefinition,
@@ -206,6 +207,7 @@ export async function refreshSDKPayloadCache(
   organization: OrganizationInterface,
   payloadKeys: SDKPayloadKey[],
   allFeatures: FeatureInterface[] | null = null,
+  readAccessFilter: ReadAccessFilter,
   experimentMap?: Map<string, ExperimentInterface>,
   skipRefreshForProject?: string
 ) {
@@ -235,7 +237,8 @@ export async function refreshSDKPayloadCache(
   experimentMap =
     experimentMap || (await getAllPayloadExperiments(organization.id));
   const groupMap = await getSavedGroupMap(organization);
-  allFeatures = allFeatures || (await getAllFeatures(organization.id));
+  allFeatures =
+    allFeatures || (await getAllFeatures(organization.id, readAccessFilter));
   const allVisualExperiments = await getAllVisualExperiments(
     organization.id,
     experimentMap
@@ -290,10 +293,10 @@ export async function refreshSDKPayloadCache(
   await purgeCDNCache(organization.id, surrogateKeys);
 
   // After the SDK payloads are updated, fire any webhooks on the organization
-  await queueWebhook(organization.id, payloadKeys, true);
+  await queueWebhook(organization.id, payloadKeys, readAccessFilter, true);
 
   // Update any Proxy servers that are affected by this change
-  await queueProxyUpdate(organization.id, payloadKeys);
+  await queueProxyUpdate(organization.id, payloadKeys, readAccessFilter);
 }
 
 export type FeatureDefinitionsResponseArgs = {
@@ -429,6 +432,7 @@ async function getFeatureDefinitionsResponse({
 export type FeatureDefinitionArgs = {
   organization: string;
   capabilities: SDKCapability[];
+  readAccessFilter: ReadAccessFilter;
   environment?: string;
   projects?: string[];
   encryptionKey?: string;
@@ -448,6 +452,7 @@ export type FeatureDefinitionSDKPayload = {
 export async function getFeatureDefinitions({
   organization,
   capabilities,
+  readAccessFilter,
   environment = "production",
   projects,
   encryptionKey,
@@ -517,7 +522,7 @@ export async function getFeatureDefinitions({
   }
 
   // Generate the feature definitions
-  const features = await getAllFeatures(organization);
+  const features = await getAllFeatures(organization, readAccessFilter);
   const groupMap = await getSavedGroupMap(org);
   const experimentMap = await getAllPayloadExperiments(organization);
 

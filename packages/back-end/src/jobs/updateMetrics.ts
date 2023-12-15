@@ -1,4 +1,5 @@
 import Agenda, { Job } from "agenda";
+import { ReadAccessFilter } from "shared/permissions";
 import { getOrganizationsWithNorthStars } from "../models/OrganizationModel";
 import {
   DEFAULT_METRIC_ANALYSIS_DAYS,
@@ -17,6 +18,7 @@ type UpdateSingleMetricJob = Job<{
   metricId: string;
   orgId: string;
   daysToInclude: number;
+  readAccessFilter: ReadAccessFilter;
 }>;
 
 // currently only updating northstar metrics
@@ -48,7 +50,12 @@ export default async function (agenda: Agenda) {
     const promiseCallbacks: (() => Promise<unknown>)[] = [];
     metrics.forEach(({ organization, id, daysToInclude }) => {
       promiseCallbacks.push(async () => {
-        const metric = await getMetricById(id, organization, true);
+        const metric = await getMetricById(
+          id,
+          organization,
+          { globalReadAccess: true, projects: [] }, // I think this isn't a user initiated job, so provide global readAccess
+          true
+        );
         if (!metric) return;
         // Skip if metric was already refreshed recently
         if (
@@ -105,21 +112,22 @@ export default async function (agenda: Agenda) {
 async function updateSingleMetric(job: UpdateSingleMetricJob) {
   const metricId = job.attrs.data?.metricId;
   const orgId = job.attrs.data?.orgId;
+  const readAccessFilter = job.attrs.data?.readAccessFilter;
   const daysToInclude =
     job.attrs.data?.daysToInclude || DEFAULT_METRIC_ANALYSIS_DAYS;
 
   try {
-    if (!metricId || !orgId) {
+    if (!metricId || !orgId || !readAccessFilter) {
       throw new Error("Error getting metricId or orgId from job");
     }
-    const metric = await getMetricById(metricId, orgId, true);
+    const metric = await getMetricById(metricId, orgId, readAccessFilter, true);
 
     if (!metric) {
       throw new Error("Error getting metric to refresh: " + metricId);
     }
 
     logger.info("Start Refreshing Metric: " + metricId);
-    await refreshMetric(metric, orgId, daysToInclude);
+    await refreshMetric(metric, orgId, readAccessFilter, daysToInclude);
     logger.info("Successfully Refreshed Metric: " + metricId);
   } catch (e) {
     logger.error(e, "Error refreshing metric: " + metricId);

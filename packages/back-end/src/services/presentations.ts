@@ -30,7 +30,11 @@ export async function getPresentationSnapshots(
   expIds: string[],
   req: AuthRequest
 ) {
-  const experiments = await getExperimentsByIds(organization, expIds);
+  const experiments = await getExperimentsByIds(
+    organization,
+    expIds,
+    req.readAccessFilter
+  );
 
   const withSnapshots: {
     experiment: ExperimentInterface;

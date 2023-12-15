@@ -1,4 +1,5 @@
 import { AES, enc } from "crypto-js";
+import { ReadAccessFilter } from "shared/permissions";
 import { ENCRYPTION_KEY } from "../util/secrets";
 import GoogleAnalytics from "../integrations/GoogleAnalytics";
 import Athena from "../integrations/Athena";
@@ -91,9 +92,14 @@ function getIntegrationObj(
 export async function getIntegrationFromDatasourceId(
   organization: string,
   id: string,
+  readAccessFilter: ReadAccessFilter,
   throwOnDecryptionError: boolean = false
 ) {
-  const datasource = await getDataSourceById(id, organization);
+  const datasource = await getDataSourceById(
+    id,
+    organization,
+    readAccessFilter
+  );
   if (!datasource) {
     throw new Error("Could not load data source");
   }

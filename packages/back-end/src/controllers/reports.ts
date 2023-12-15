@@ -230,6 +230,7 @@ export async function refreshReport(
   const integration = await getIntegrationFromDatasourceId(
     org.id,
     report.args.datasource,
+    readAccessFilter,
     true
   );
   const queryRunner = new ReportQueryRunner(report, integration, useCache);
@@ -310,6 +311,7 @@ export async function putReport(
     const integration = await getIntegrationFromDatasourceId(
       org.id,
       updatedReport.args.datasource,
+      readAccessFilter,
       true
     );
     const queryRunner = new ReportQueryRunner(updatedReport, integration);
@@ -347,7 +349,8 @@ export async function cancelReport(
 
   const integration = await getIntegrationFromDatasourceId(
     org.id,
-    report.args.datasource
+    report.args.datasource,
+    readAccessFilter
   );
   const queryRunner = new ReportQueryRunner(report, integration);
   await queryRunner.cancelQueries();
@@ -359,10 +362,10 @@ export async function postNotebook(
   req: AuthRequest<null, { id: string }>,
   res: Response
 ) {
-  const { org } = getOrgFromReq(req);
+  const { org, readAccessFilter } = getOrgFromReq(req);
   const { id } = req.params;
 
-  const notebook = await generateReportNotebook(id, org.id);
+  const notebook = await generateReportNotebook(id, org.id, readAccessFilter);
 
   res.status(200).json({
     status: 200,
