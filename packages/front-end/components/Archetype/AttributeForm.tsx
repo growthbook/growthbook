@@ -152,7 +152,12 @@ export default function AttributeForm({
                 className=""
                 {...attributeForm.register(attribute.property)}
                 onChange={(e) => {
-                  attributeForm.setValue(attribute.property, e.target.value);
+                  attributeForm.setValue(
+                    attribute.property,
+                    attribute.datatype === "number"
+                      ? Number(e.target.value)
+                      : e.target.value
+                  );
                   updateFormValues();
                 }}
               />
