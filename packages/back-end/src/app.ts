@@ -587,7 +587,7 @@ app.put("/datasource/:id", datasourcesController.putDataSource);
 app.delete("/datasource/:id", datasourcesController.deleteDataSource);
 app.get("/datasource/:id/metrics", datasourcesController.getDataSourceMetrics);
 app.put(
-  "/datasource/:datasourceId/:exposureQueryId",
+  "/datasource/:datasourceId/exposureQuery/:exposureQueryId",
   datasourcesController.updateExposureQuery
 );
 
