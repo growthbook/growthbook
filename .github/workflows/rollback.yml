@@ -3,7 +3,7 @@ on:
   workflow_dispatch:
     inputs:
       sha:
-        description: 'SHA of git commit to be rolled back to'
+        description: 'The first 7 characters of the commit SHA to be rolled back to'
         required: true
         type: string
 jobs:
@@ -26,7 +26,7 @@ jobs:
 
       - name: Tag image as latest
         run: |
-          docker buildx imagetools create -t growthbook/growthbook:test growthbook/growthbook:git-${{ inputs.sha }}
+          docker buildx imagetools create -t growthbook/growthbook:latest growthbook/growthbook:git-${{ inputs.sha }}
 
   # Deploy the back-end for GrowthBook Cloud
   prod:

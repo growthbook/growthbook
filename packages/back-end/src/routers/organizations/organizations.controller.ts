@@ -2,7 +2,6 @@ import { Response } from "express";
 import { cloneDeep } from "lodash";
 import { freeEmailDomains } from "free-email-domains-typescript";
 import {
-  licenseInit,
   accountFeatures,
   getAccountPlan,
   getLicense,
@@ -114,6 +113,7 @@ import { getTeamsForOrganization } from "../../models/TeamModel";
 import { getAllFactTablesForOrganization } from "../../models/FactTableModel";
 import { getAllFactMetricsForOrganization } from "../../models/FactMetricModel";
 import { TeamInterface } from "../../../types/team";
+import { initializeLicense } from "../../services/licenseData";
 
 export async function getDefinitions(req: AuthRequest, res: Response) {
   const { org } = getOrgFromReq(req);
@@ -614,9 +614,12 @@ export async function getOrganization(req: AuthRequest, res: Response) {
   if (!IS_CLOUD && licenseKey) {
     // automatically set the license data based on org license key
     const licenseData = getLicense();
-    if (!licenseData || (licenseData.org && licenseData.org !== id)) {
+    if (
+      !licenseData ||
+      (licenseData.organizationId && licenseData.organizationId !== id)
+    ) {
       try {
-        await licenseInit(licenseKey);
+        await initializeLicense(licenseKey);
       } catch (e) {
         // eslint-disable-next-line no-console
         console.error("setting license failed", e);
@@ -1753,7 +1756,7 @@ export async function putLicenseKey(
   let licenseData = null;
   try {
     // set new license
-    await licenseInit(licenseKey);
+    await initializeLicense(licenseKey);
     licenseData = getLicense();
   } catch (e) {
     // eslint-disable-next-line no-console
