@@ -56,15 +56,19 @@ GrowthBook supports the following attribute data types:
 
 #### Semantic Version Targeting
 
-In version 2.2, we introduced support for semantic version targeting. Using the string data type and defining a format, you can leverage semantic versioning comparisons in your targeting definitions.
+In version 2.2, we introduced support for semantic version string comparisons. Without this, the string `1.0.9` will be seen as "greater" than `1.0.10`.
 
 To leverage this feature, you first need to create a version string attribute. Navigate to **SDK Configurations > Attributes** and create or edit a String attribute. In the format dropdown, select: **Version string.**
 
 ![Version string attribute](/images/targeting-semantic-versions.png)
 
-When defining the semantic version targeting condition for a feature flag, just select the string attribute and the appropriate comparison operator.
+After saving, the targeting operators (e.g. `is greater than`) will automatically start using a version-safe comparison function.
 
-![Setting semantic version target](/images/setting-semantic-version-target.png)
+:::note
+
+This is only supported in some of our SDKs. Check the release notes for the specific SDK you are using to make sure you have a compatible version installed.
+
+:::
 
 ## Targeting Conditions
 
@@ -72,11 +76,13 @@ GrowthBook provides a nice UI for defining simple targeting conditions using you
 
 ![Simple targeting conditions](/images/targeting-simple.png)
 
-If you need support for something more advanced (e.g. nested ANDs, ORs, and NOTs), you can enter targeting conditions with JSON instead.
+### Advanced Mode
+
+If you need support for something more advanced (e.g. nested `AND`s, `OR`s, and `NOT`s), you can enter targeting conditions with JSON instead.
 
 ![Advanced JSON targeting conditions](/images/targeting-advanced.png)
 
-GrowthBook uses the MongoDB Query syntax for advanced mode. It supports the following types of operators:
+The JSON structure is based on the MongoDB Query syntax. The following operators are supported:
 
 - Key/value pairs for simple equality (all must exactly match to be true)
   ```json
@@ -127,7 +133,7 @@ GrowthBook uses the MongoDB Query syntax for advanced mode. It supports the foll
   ```
 - Array operators (works for array attributes)
   - `$elemMatch` (at least one element must match the nested condition)
-  - `$all` (all of the nested conditions must have a match in the array)
+  - `$all` (all of the specified values must exist in the array)
   - `$size` (array length must match the nested condition)
   ```json
   {
@@ -141,7 +147,7 @@ GrowthBook uses the MongoDB Query syntax for advanced mode. It supports the foll
     },
     "tags": {
       "$size": {
-        "$gt": 10
+        "$gt": 5
       }
     }
   }
@@ -191,4 +197,4 @@ Once you define your Saved Groups, you can easily reference them from any Featur
 
 ![Saved Group Targeting](/images/saved-groups-targeting.png)
 
-If you add both Saved Group targeting and Attribute targeting to a Feature rule or Experiment, they will be combined together with `AND`.
+If you add both Saved Group targeting and Attribute targeting to a Feature rule or Experiment, they both must match (i.e. it combines them with `AND`).
