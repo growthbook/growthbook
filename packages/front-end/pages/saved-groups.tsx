@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { FeatureInterface } from "back-end/types/feature";
 import { SavedGroupInterface } from "back-end/types/saved-group";
@@ -7,6 +7,9 @@ import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import InlineGroupsList from "@/components/SavedGroups/InlineGroupsList";
 import { useEnvironments, useFeaturesList } from "@/services/features";
 import { useExperiments } from "@/hooks/useExperiments";
+import usePermissions from "@/hooks/usePermissions";
+import { useAuth } from "@/services/auth";
+import { useUser } from "@/services/UserContext";
 import LoadingOverlay from "../components/LoadingOverlay";
 import { useDefinitions } from "../services/DefinitionsContext";
 import Modal from "../components/Modal";
@@ -169,6 +172,27 @@ export default function SavedGroupsPage() {
   const { features } = useFeaturesList();
   const { experiments } = useExperiments();
   const environments = useEnvironments();
+
+  const { refreshOrganization } = useUser();
+
+  const permissions = usePermissions();
+  const { apiCall } = useAuth();
+
+  useEffect(() => {
+    if (permissions.manageTargetingAttributes) {
+      apiCall<{ added: boolean }>("/organization/auto-groups-attribute", {
+        method: "POST",
+      })
+        .then((res) => {
+          if (res.added) {
+            refreshOrganization();
+          }
+        })
+        .catch(() => {
+          // Ignore errors
+        });
+    }
+  }, [permissions.manageTargetingAttributes, apiCall, refreshOrganization]);
 
   if (!savedGroups) return <LoadingOverlay />;
 

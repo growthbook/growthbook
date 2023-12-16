@@ -1,3 +1,4 @@
+import { isLegacySavedGroup } from "shared/util";
 import { UpdateSavedGroupResponse } from "../../../types/openapi";
 import {
   UpdateSavedGroupProps,
@@ -40,14 +41,16 @@ export const updateSavedGroup = createApiRequestHandler(
     }
     // Backwards-compatible support for providing a list of values instead of a full condition
     else if (values) {
-      if (!savedGroup.attributeKey) {
+      if (
+        !isLegacySavedGroup(savedGroup.condition, savedGroup.attributeKey || "")
+      ) {
         throw new Error(
           "Must specify 'condition' instead of 'values' for this saved group"
         );
       }
 
       fieldsToUpdate.condition = JSON.stringify({
-        [savedGroup.attributeKey]: { $in: values },
+        [savedGroup.attributeKey || ""]: { $in: values },
       });
     }
 
