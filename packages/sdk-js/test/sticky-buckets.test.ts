@@ -141,6 +141,7 @@ const sdkPayload: FeatureApiResponse = {
           bucketVersion: 1,
           condition: { country: "USA" },
           variations: ["control", "red", "blue"],
+          meta: [{ key: "0" }, { key: "1" }, { key: "2" }],
           coverage: 1,
           weights: [0.3334, 0.3333, 0.3333],
           phase: "0",
@@ -180,6 +181,7 @@ const sdkPayload: FeatureApiResponse = {
           ],
         },
       ],
+      meta: [{ key: "0" }, { key: "1" }, { key: "2" }],
       weights: [0.3334, 0.3333, 0.3333],
       coverage: 1,
     },
@@ -585,78 +587,6 @@ describe("sticky-buckets", () => {
     remoteEvalRedis.flushall();
   });
 
-  it("stops test enrollment when blockedVariations includes the sticky bucket variation", async () => {
-    await clearCache();
-
-    const [, cleanup] = mockApi(sdkPayload, true);
-
-    // SSE update will block variation 1 "red"
-    const newPayload = {
-      ...sdkPayload,
-      features: {
-        exp1: {
-          ...sdkPayload?.features?.exp1,
-          rules: [
-            {
-              key: "feature-exp",
-              seed: "feature-exp",
-              hashAttribute: "id",
-              fallbackAttribute: "deviceId",
-              hashVersion: 2,
-              blockedVariations: [1], // <---------------- changed
-              bucketVersion: 1,
-              condition: { country: "USA" },
-              variations: ["control", "red", "blue"],
-              coverage: 1,
-              weights: [0.3334, 0.3333, 0.3333],
-              phase: "0",
-            },
-          ],
-        },
-      },
-    };
-    const event = new MockEvent({
-      url: "https://fakeapi.sample.io/sub/qwerty1234",
-      setInterval: 200,
-      responses: [
-        {
-          type: "features",
-          data: JSON.stringify(newPayload),
-        },
-      ],
-    });
-
-    // evaluate based on fallbackAttribute "deviceId"
-    const growthbook1 = new GrowthBook({
-      apiHost: "https://fakeapi.sample.io",
-      clientKey: "qwerty1234",
-      stickyBucketService: new LocalStorageStickyBucketService(),
-      attributes: {
-        deviceId: "d123",
-        foo: "bar",
-        country: "USA",
-      },
-      subscribeToChanges: true,
-    });
-
-    await growthbook1.loadFeatures();
-    await sleep(10);
-
-    const result1 = growthbook1.evalFeature("exp1");
-    expect(result1.value).toBe("red");
-    await sleep(800);
-
-    const result2 = growthbook1.evalFeature("exp1");
-    expect(result2.value).toBe("control");
-    // console.log({result2})
-
-    growthbook1.destroy();
-    cleanup();
-    event.clear();
-
-    localStorage.clear();
-  });
-
   it("resets sticky bucketing when the bucketVersion changes", async () => {
     await clearCache();
 
@@ -678,6 +608,7 @@ describe("sticky-buckets", () => {
               bucketVersion: 2, // <---------------- changed
               condition: { country: "USA" },
               variations: ["control", "red", "blue"],
+              meta: [{ key: "0" }, { key: "1" }, { key: "2" }],
               coverage: 1,
               weights: [0.3334, 0.3333, 0.3333],
               phase: "0",
@@ -753,6 +684,7 @@ describe("sticky-buckets", () => {
               minBucketVersion: 1, // <---------------- changed
               condition: { country: "USA" },
               variations: ["control", "red", "blue"],
+              meta: [{ key: "0" }, { key: "1" }, { key: "2" }],
               coverage: 1,
               weights: [0.3334, 0.3333, 0.3333],
               phase: "0",
@@ -824,6 +756,7 @@ describe("sticky-buckets", () => {
               disableStickyBucketing: true, // <---------------- changed
               condition: { country: "USA" },
               variations: ["control", "red", "blue"],
+              meta: [{ key: "0" }, { key: "1" }, { key: "2" }],
               coverage: 1,
               weights: [0.3334, 0.3333, 0.3333],
               phase: "0",

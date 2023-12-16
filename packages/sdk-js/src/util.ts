@@ -215,52 +215,6 @@ export function getBucketRanges(
   }) as VariationRange[];
 }
 
-export function rerouteVariation(
-  assigned: number,
-  n: number,
-  ranges: VariationRange[],
-  weights?: number[],
-  blockedVariations: number[] = []
-) {
-  const equal = getEqualWeights(ranges.length);
-  weights = weights || equal;
-  if (blockedVariations.length >= ranges.length) {
-    return -1;
-  }
-  if (!ranges?.[assigned]) {
-    return -1;
-  }
-  // rebalance n from ranges[assigned] to [0~1]
-  const offset = ranges[assigned][0];
-  const width = ranges[assigned][1] - offset;
-  if (width <= 0) {
-    return -1;
-  }
-  const newN = (n - offset) / width;
-
-  // rebalance weights
-  let newTotalWeight = 0;
-  let newWeights = weights.map((w, i) => {
-    const newW = blockedVariations.includes(i) ? 0 : w;
-    newTotalWeight += newW;
-    return newW;
-  });
-  if (newTotalWeight <= 0) {
-    return -1;
-  }
-  newWeights = newWeights.map((w) => w / newTotalWeight);
-
-  const newRanges = getBucketRanges(ranges.length, 1, newWeights);
-  const newAssigned = chooseVariation(newN, newRanges);
-  if (newAssigned < 0 || newAssigned >= ranges.length) {
-    return -1;
-  }
-  if (blockedVariations.includes(newAssigned)) {
-    return -1;
-  }
-  return newAssigned;
-}
-
 export function getQueryStringOverride(
   id: string,
   url: string,

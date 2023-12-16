@@ -38,7 +38,6 @@ import {
   isIncluded,
   isURLTargeted,
   loadSDKVersion,
-  rerouteVariation,
   toString,
 } from "./util";
 import { evalCondition } from "./mongrule";
@@ -765,8 +764,8 @@ export class GrowthBook<
           exp.disableStickyBucketing = rule.disableStickyBucketing;
         if (rule.bucketVersion) exp.bucketVersion = rule.bucketVersion;
         if (rule.minBucketVersion) exp.minBucketVersion = rule.minBucketVersion;
-        if (rule.blockedVariations)
-          exp.blockedVariations = rule.blockedVariations;
+        if (rule.excludeBlockedBucketUsers)
+          exp.excludeBlockedBucketUsers = rule.excludeBlockedBucketUsers;
         if (rule.namespace) exp.namespace = rule.namespace;
         if (rule.meta) exp.meta = rule.meta;
         if (rule.ranges) exp.ranges = rule.ranges;
@@ -923,18 +922,28 @@ export class GrowthBook<
       return this._getResult(experiment, -1, false, featureId);
     }
 
+    let assigned = -1;
+
     let foundStickyBucket = false;
-    let stickyBucketAssigned = -1;
-    let stickyBucketBlocked = false;
+    let stickyBucketVersionIsBlocked = false;
+    let stickyBucketVariationIsBlocked = false;
     if (this._ctx.stickyBucketService && !experiment.disableStickyBucketing) {
-      const { variation, blocked } = this._getStickyBucketVariation(
+      const {
+        variation,
+        versionIsBlocked,
+        variationIsBlocked,
+      } = this._getStickyBucketVariation(
         experiment.key,
         experiment.bucketVersion,
-        experiment.minBucketVersion
+        experiment.minBucketVersion,
+        experiment.meta
       );
       foundStickyBucket = variation >= 0;
-      stickyBucketAssigned = variation;
-      stickyBucketBlocked = blocked;
+      assigned = variation;
+      stickyBucketVersionIsBlocked = versionIsBlocked;
+      if (variationIsBlocked && experiment.excludeBlockedBucketUsers) {
+        stickyBucketVariationIsBlocked = true;
+      }
     }
 
     // Some checks are not needed if we already have a sticky bucket
@@ -1015,7 +1024,6 @@ export class GrowthBook<
     }
 
     // 9. Get the variation from the sticky bucket or get bucket ranges and choose variation
-    let assigned = -1;
     let ranges: VariationRange[] = [];
     const n = hash(
       experiment.seed || key,
@@ -1030,9 +1038,7 @@ export class GrowthBook<
       return this._getResult(experiment, -1, false, featureId);
     }
 
-    if (foundStickyBucket) {
-      assigned = stickyBucketAssigned;
-    } else {
+    if (!foundStickyBucket) {
       ranges =
         experiment.ranges ||
         getBucketRanges(
@@ -1043,44 +1049,19 @@ export class GrowthBook<
       assigned = chooseVariation(n, ranges);
     }
 
-    // 9.5 Reroute any blocked variations
-    if ((experiment.blockedVariations ?? []).includes(assigned)) {
-      if (!foundStickyBucket) {
-        // For normal (non-sticky) assignments, reroute to other variations
-        assigned = rerouteVariation(
-          assigned,
-          n,
-          ranges,
-          experiment.weights,
-          experiment.blockedVariations
-        );
-        if (assigned < 0) {
-          process.env.NODE_ENV !== "production" &&
-            this.log("Skip because unable to reassign blocked variation", {
-              id: key,
-            });
-          return this._getResult(experiment, -1, false, featureId);
-        }
-      } else {
-        // Unenroll sticky buckets from the experiment
-        process.env.NODE_ENV !== "production" &&
-          this.log("Skip because sticky bucket is a blocked variation", {
-            id: key,
-          });
-        return this._getResult(
-          experiment,
-          -1,
-          false,
-          featureId,
-          undefined,
-          true
-        );
-      }
-    }
-    // 9.6 Unenroll if any prior sticky buckets are blocked by version
-    if (stickyBucketBlocked) {
+    // 9.5 Unenroll if any prior sticky buckets are blocked by version
+    if (stickyBucketVersionIsBlocked) {
       process.env.NODE_ENV !== "production" &&
         this.log("Skip because sticky bucket version is blocked", {
+          id: key,
+        });
+      return this._getResult(experiment, -1, false, featureId, undefined, true);
+    }
+
+    // 9.6 Unenroll if a sticky bucket was in a blocked variation AND "exclude" is set
+    if (stickyBucketVariationIsBlocked) {
+      process.env.NODE_ENV !== "production" &&
+        this.log("Skip because sticky bucket variation is blocked", {
           id: key,
         });
       return this._getResult(experiment, -1, false, featureId, undefined, true);
@@ -1135,7 +1116,7 @@ export class GrowthBook<
       true,
       featureId,
       n,
-      !!foundStickyBucket
+      foundStickyBucket
     );
 
     // 13.5. Persist sticky bucket
@@ -1151,7 +1132,7 @@ export class GrowthBook<
           [this._getStickyBucketExperimentKey(
             experiment.key,
             experiment.bucketVersion
-          )]: result.variationId,
+          )]: result.key,
         }
       );
       if (changed) {
@@ -1391,25 +1372,50 @@ export class GrowthBook<
   private _getStickyBucketVariation(
     experimentKey: string,
     experimentBucketVersion: number = 1,
-    minExperimentBucketVersion: number = 0
-  ): { variation: number; blocked: boolean } {
+    minExperimentBucketVersion: number = 0,
+    meta: VariationMeta[] = []
+  ): {
+    variation: number;
+    versionIsBlocked: boolean;
+    variationIsBlocked: boolean;
+  } {
     const id = this._getStickyBucketExperimentKey(
       experimentKey,
       experimentBucketVersion
     );
     const assignments = this._getStickyBucketAssignments();
-    // get blocked keys from 1 to minExperimentBucketVersion:
+
+    // users with any blocked bucket version (0 to minExperimentBucketVersion) are excluded from the test
     if (minExperimentBucketVersion > 0) {
-      for (let i = 1; i <= minExperimentBucketVersion; i++) {
-        const blockedId = this._getStickyBucketExperimentKey(experimentKey, i);
-        if (assignments[blockedId] !== undefined) {
-          return { variation: -1, blocked: true };
+      for (let i = 0; i <= minExperimentBucketVersion; i++) {
+        const blockedKey = this._getStickyBucketExperimentKey(experimentKey, i);
+        if (assignments[blockedKey] !== undefined) {
+          return {
+            variation: -1,
+            versionIsBlocked: true,
+            variationIsBlocked: false,
+          };
         }
       }
     }
-    const variation = assignments[id];
-    if (variation === undefined) return { variation: -1, blocked: false };
-    return { variation, blocked: false };
+    const variationKey = assignments[id];
+    if (variationKey === undefined)
+      return {
+        variation: -1,
+        versionIsBlocked: false,
+        variationIsBlocked: false,
+      };
+
+    // if the bucket variation is not in the exp meta, the variation has been blocked
+    const variation = meta.findIndex((m) => m.key === variationKey);
+    if (variation < 0)
+      return {
+        variation: -1,
+        versionIsBlocked: false,
+        variationIsBlocked: true,
+      };
+
+    return { variation, versionIsBlocked: false, variationIsBlocked: false };
   }
 
   private _getStickyBucketExperimentKey(

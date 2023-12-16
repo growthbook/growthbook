@@ -28,7 +28,7 @@ export type FeatureRule<T = any> = {
   disableStickyBucketing?: boolean;
   bucketVersion?: number;
   minBucketVersion?: number;
-  blockedVariations?: number[];
+  excludeBlockedBucketUsers?: boolean;
   range?: VariationRange;
   coverage?: number;
   /** @deprecated */
@@ -101,7 +101,7 @@ export type Experiment<T> = {
   disableStickyBucketing?: boolean;
   bucketVersion?: number;
   minBucketVersion?: number;
-  blockedVariations?: number[];
+  excludeBlockedBucketUsers?: boolean;
   active?: boolean;
   /** @deprecated */
   status?: ExperimentStatus;
@@ -336,7 +336,7 @@ export interface Filter {
 
 export type StickyAttributeKey = string; // `${attributeName}||${attributeValue}`
 export type StickyExperimentKey = string; // `${experimentId}__{version}`
-export type StickyAssignments = Record<StickyExperimentKey, number>;
+export type StickyAssignments = Record<StickyExperimentKey, string>;
 export interface StickyAssignmentsDocument {
   attributeName: string;
   attributeValue: string;
