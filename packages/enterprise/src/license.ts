@@ -1,7 +1,15 @@
 import crypto from "crypto";
+import fs from "fs";
+import path from "path";
 import fetch from "node-fetch";
 import type Stripe from "stripe";
 import pino from "pino";
+import { omit, sortBy } from "lodash";
+import { LicenseDocument, LicenseModel } from "./models/licenseModel";
+
+export const LICENSE_SERVER =
+  "https://central_license_server.growthbook.io/api/v1/";
+
 const logger = pino();
 
 export type AccountPlan = "oss" | "starter" | "pro" | "pro_sso" | "enterprise";
@@ -27,7 +35,26 @@ export type CommercialFeature =
   | "teams";
 export type CommercialFeaturesMap = Record<AccountPlan, Set<CommercialFeature>>;
 
-export type LicenseData = {
+export interface LicenseInterface {
+  id: string; // Unique ID for the license key
+  companyName: string; // Name of the organization on the license
+  organizationId?: string; // OrganizationId (keys prior to 12/2022 do not contain this field)
+  seats: number; // Maximum number of seats on the license
+  dateCreated: string; // Date the license was issued
+  dateExpires: string; // Date the license expires
+  isTrial: boolean; // True if this is a trial license
+  plan: AccountPlan; // The plan (pro, enterprise, etc.) for this license
+  seatsInUse: number; // Number of seats currently in use
+  installationUsers: {
+    [installationId: string]: { date: string; userHashes: string[] };
+  }; // Map of first 7 chars of user email shas to the last time they were in a usage request
+  archived: boolean; // True if this license has been deleted/archived
+  dateUpdated: string; // Date the license was last updated
+  signedChecksum: string; // Checksum of the license data signed with the private key
+}
+
+// Old style license keys where the license data is encrypted in the key itself
+type LicenseData = {
   // Unique id for the license key
   ref: string;
   // Name of organization on the license
@@ -50,9 +77,6 @@ export type LicenseData = {
    */
   eat?: string;
 };
-
-// Self-hosted commercial license key
-const LICENSE_KEY = process.env.LICENSE_KEY || "";
 
 export const accountFeatures: CommercialFeaturesMap = {
   oss: new Set<CommercialFeature>([]),
@@ -148,34 +172,27 @@ export function orgHasPremiumFeature(
   return planHasPremiumFeature(getAccountPlan(org), feature);
 }
 
-async function getPublicKey() {
-  // Timeout after 3 seconds of waiting for the public key to load
-  const controller = new AbortController();
-  const timeout = setTimeout(() => {
-    controller.abort();
-  }, 3000);
-
-  let publicKey: Buffer | null = null;
-  try {
-    const res = await fetch(
-      "https://cdn.growthbook.io/license_public_key.pem",
-      {
-        signal: controller.signal,
+async function getPublicKey(): Promise<Buffer> {
+  return new Promise((resolve, reject) => {
+    fs.readFile(
+      path.join(__dirname, "..", "license_public_key.pem"),
+      (err, data) => {
+        if (err) {
+          logger.error(
+            "Failed to find Growthbook public key file for license verification"
+          );
+          reject(err);
+        } else {
+          resolve(data);
+        }
       }
     );
-    publicKey = Buffer.from(await res.arrayBuffer());
-  } catch (e) {
-    logger.error(
-      e,
-      "Failed to load GrowthBook public key for license verification"
-    );
-  }
-
-  clearTimeout(timeout);
-  return publicKey;
+  });
 }
 
-export async function getVerifiedLicenseData(key: string) {
+export async function getVerifiedLicenseData(
+  key: string
+): Promise<Partial<LicenseInterface>> {
   const [license, signature] = key
     .split(".")
     .map((s) => Buffer.from(s, "base64url"));
@@ -220,15 +237,19 @@ export async function getVerifiedLicenseData(key: string) {
     );
   }
 
+  const convertedLicense: Partial<LicenseInterface> = {
+    id: decodedLicense.ref,
+    companyName: decodedLicense.sub,
+    organizationId: decodedLicense.org,
+    seats: decodedLicense.qty,
+    dateCreated: decodedLicense.iat,
+    dateExpires: decodedLicense.exp,
+    isTrial: decodedLicense.trial,
+    plan: decodedLicense.plan,
+  };
+
   // If the public key failed to load, just assume the license is valid
   const publicKey = await getPublicKey();
-  if (!publicKey) {
-    logger.warn(
-      decodedLicense,
-      "Could not contact license verification server"
-    );
-    return decodedLicense;
-  }
 
   const isVerified = crypto.verify(
     "sha256",
@@ -247,31 +268,190 @@ export async function getVerifiedLicenseData(key: string) {
 
   logger.info(decodedLicense, "Using verified license key");
 
-  return decodedLicense;
+  return convertedLicense;
 }
 
-let licenseData: LicenseData | null = null;
-// in-memory cache to avoid hitting the license server on every request
-const keyToLicenseData: Record<string, LicenseData> = {};
+function checkIfEnvVarSettingsAreAllowedByLicense(license: LicenseInterface) {
+  // Trying to use SSO, but the plan doesn't support it
+  if (process.env.SSO_CONFIG && !planHasPremiumFeature(license.plan, "sso")) {
+    throw new Error(`Your License Key does not support SSO.`);
+  }
+  // Trying to use IS_MULTI_ORG, but the plan doesn't support it
+  if (
+    process.env.IS_MULTI_ORG &&
+    !planHasPremiumFeature(license.plan, "multi-org")
+  ) {
+    throw new Error(
+      `Your License Key does not support multiple organizations.`
+    );
+  }
+}
 
-export async function licenseInit(licenseKey?: string) {
-  const key = licenseKey || LICENSE_KEY || null;
+async function getLicenseDataFromMongoCache(
+  cache: LicenseDocument | null
+): Promise<LicenseInterface> {
+  if (!cache) {
+    throw new Error(
+      "License server is not working and no cached license data exists"
+    );
+  }
+  if (
+    new Date(cache.dateUpdated) > new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) // 7 days
+  ) {
+    // If the public key failed to load, just assume the license is valid
+    const publicKey = await getPublicKey();
+
+    const licenseInterface = omit(cache.toJSON(), ["__v", "_id"]);
+
+    // In order to verify the license key, we need to strip out the fields that are not part of the license data
+    // and sort the fields alphabetically as we do on the license server itself.
+    const strippedLicense = omit(licenseInterface, ["signedChecksum"]);
+    const data = Object.fromEntries(sortBy(Object.entries(strippedLicense)));
+    const dataBuffer = Buffer.from(JSON.stringify(data));
+
+    const signature = Buffer.from(cache.signedChecksum, "base64url");
+
+    logger.info("Verifying cached license data: " + JSON.stringify(data));
+    const isVerified = crypto.verify(
+      "sha256",
+      dataBuffer,
+      {
+        key: publicKey,
+        padding: crypto.constants.RSA_PKCS1_PSS_PADDING,
+      },
+      signature
+    );
+
+    // License key signature is invalid, don't use it
+    if (!isVerified) {
+      throw new Error("Cached Invalid license key signature");
+    }
+
+    checkIfEnvVarSettingsAreAllowedByLicense(cache);
+    logger.info("Using cached license data");
+    return licenseInterface as LicenseInterface;
+  }
+  throw new Error(
+    "License server is not working and cached license data is too old"
+  );
+}
+
+async function getLicenseDataFromServer(
+  licenseId: string,
+  userLicenseCodes: string[],
+  metaData: LicenseMetaData
+): Promise<LicenseInterface> {
+  const url = `${LICENSE_SERVER}license/${licenseId}/check`;
+  const options = {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      userHashes: userLicenseCodes,
+      metaData,
+    }),
+  };
+
+  let serverResult;
+
+  const currentCache = await LicenseModel.findOne({ id: licenseId });
+
+  try {
+    serverResult = await fetch(url, options);
+  } catch (e) {
+    logger.warn("Could not connect to license server. Falling back to cache.");
+    return getLicenseDataFromMongoCache(currentCache);
+  }
+
+  if (!serverResult.ok) {
+    logger.warn(
+      ` Falling back to LicenseModel cache because the license server threw a ${serverResult.status} error: ${serverResult.statusText}.`
+    );
+    return getLicenseDataFromMongoCache(currentCache);
+  }
+
+  const licenseData = await serverResult.json();
+
+  if (!currentCache) {
+    // Create a cached version of the license key in case the license server goes down.
+    logger.info("Creating new license cache");
+    await LicenseModel.create(licenseData);
+  } else {
+    // Update the cached version of the license key in case the license server goes down.
+    logger.info("Updating license cache");
+    currentCache.set(licenseData);
+    await currentCache.save();
+  }
+
+  checkIfEnvVarSettingsAreAllowedByLicense(licenseData);
+  return licenseData;
+}
+
+export interface LicenseMetaData {
+  installationId: string;
+  gitSha: string;
+  gitCommitDate: string;
+  sdkLanguages: string[];
+  dataSourceTypes: string[];
+  eventTrackers: string[];
+  isCloud: boolean;
+}
+
+let licenseData: Partial<LicenseInterface> | null = null;
+let cacheDate: Date | null = null;
+// in-memory cache to avoid hitting the license server on every request
+const keyToLicenseData: Record<string, Partial<LicenseInterface>> = {};
+
+export async function licenseInit(
+  licenseKey?: string,
+  userLicenseCodes?: string[],
+  metaData?: LicenseMetaData
+) {
+  const key = licenseKey || process.env.LICENSE_KEY || null;
 
   if (!key) {
     licenseData = null;
     return;
   }
 
-  if (key && keyToLicenseData[key]) return keyToLicenseData[key];
+  const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
 
-  licenseData = await getVerifiedLicenseData(key);
+  if (
+    key &&
+    keyToLicenseData[key] &&
+    (cacheDate === null || cacheDate > oneDayAgo)
+  ) {
+    return keyToLicenseData[key];
+  }
+
+  if (key.startsWith("license_") && userLicenseCodes && metaData) {
+    licenseData = await getLicenseDataFromServer(
+      key,
+      userLicenseCodes,
+      metaData
+    );
+    cacheDate = new Date();
+  } else {
+    // Old style: the key itself has the encrypted license data in it.
+    licenseData = await getVerifiedLicenseData(key);
+  }
+
   keyToLicenseData[key] = licenseData;
 }
 
 export function getLicense() {
   return licenseData;
 }
-export async function setLicense(l: LicenseData | null) {
+export async function setLicense(l: Partial<LicenseInterface> | null) {
   // make sure we trust that l is already verified before setting:
   licenseData = l;
+}
+
+export function resetInMemoryLicenseCache(): void {
+  licenseData = null;
+  cacheDate = null;
+  Object.keys(keyToLicenseData).forEach((key) => {
+    delete keyToLicenseData[key];
+  });
 }

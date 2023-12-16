@@ -10,16 +10,15 @@ import { VisualChangesetInterface } from "back-end/types/visual-changeset";
 import { SDKConnectionInterface } from "back-end/types/sdk-connection";
 import Link from "next/link";
 import { useRouter } from "next/router";
-import { DifferenceType } from "back-end/types/stats";
 import { getAllMetricRegressionAdjustmentStatuses } from "shared/experiments";
 import { MetricInterface } from "back-end/types/metric";
+import { DifferenceType } from "back-end/types/stats";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useAuth } from "@/services/auth";
 import Button from "@/components/Button";
 import { GBAddCircle } from "@/components/Icons";
-import { useLocalStorage } from "@/hooks/useLocalStorage";
 import Results, { ResultsMetricFilters } from "../Results";
 import { StartExperimentBanner } from "../StartExperimentBanner";
 import AnalysisForm from "../AnalysisForm";
@@ -42,6 +41,14 @@ export interface Props {
   connections: SDKConnectionInterface[];
   isTabActive: boolean;
   safeToEdit: boolean;
+  baselineRow: number;
+  setBaselineRow: (b: number) => void;
+  differenceType: DifferenceType;
+  setDifferenceType: (d: DifferenceType) => void;
+  variationFilter: number[];
+  setVariationFilter: (v: number[]) => void;
+  metricFilter: ResultsMetricFilters;
+  setMetricFilter: (m: ResultsMetricFilters) => void;
 }
 
 export default function ResultsTab({
@@ -58,20 +65,15 @@ export default function ResultsTab({
   editTargeting,
   isTabActive,
   safeToEdit,
+  baselineRow,
+  setBaselineRow,
+  differenceType,
+  setDifferenceType,
+  variationFilter,
+  setVariationFilter,
+  metricFilter,
+  setMetricFilter,
 }: Props) {
-  const [baselineRow, setBaselineRow] = useState<number>(0);
-  const [differenceType, setDifferenceType] = useState<DifferenceType>(
-    "relative"
-  );
-  const [variationFilter, setVariationFilter] = useState<number[]>([]);
-  const [metricFilter, setMetricFilter] = useLocalStorage<ResultsMetricFilters>(
-    `experiment-page__${experiment.id}__metric_filter`,
-    {
-      tagOrder: [],
-      filterByTag: false,
-    }
-  );
-
   const {
     getDatasourceById,
     getExperimentMetricById,
@@ -283,6 +285,7 @@ export default function ResultsTab({
                   setDifferenceType={setDifferenceType}
                   metricFilter={metricFilter}
                   setMetricFilter={setMetricFilter}
+                  setTab={setTab}
                 />
               )}
             </>

@@ -3,6 +3,10 @@ import { evaluateFeatures } from "@growthbook/proxy-eval";
 import { isEqual } from "lodash";
 import { MergeResultChanges, MergeStrategy, autoMerge } from "shared/util";
 import {
+  getConnectionSDKCapabilities,
+  SDKCapability,
+} from "shared/sdk-versioning";
+import {
   ExperimentRefRule,
   FeatureInterface,
   FeatureRule,
@@ -10,6 +14,7 @@ import {
 } from "../../types/feature";
 import { AuthRequest } from "../types/AuthRequest";
 import {
+  getEnvironments,
   getEnvironmentIdsFromOrg,
   getOrgFromReq,
 } from "../services/organizations";
@@ -38,6 +43,7 @@ import {
   evaluateFeature,
   generateRuleId,
   getFeatureDefinitions,
+  getSavedGroupMap,
 } from "../services/features";
 import { FeatureUsageRecords } from "../../types/realtime";
 import {
@@ -81,6 +87,7 @@ import {
   getExperimentById,
   getExperimentsByIds,
   getExperimentsByTrackingKeys,
+  getAllPayloadExperiments,
 } from "../models/ExperimentModel";
 import { OrganizationInterface } from "../../types/organization";
 import { ExperimentInterface } from "../../types/experiment";
@@ -97,6 +104,7 @@ export async function getPayloadParamsFromApiKey(
   req: Request
 ): Promise<{
   organization: string;
+  capabilities: SDKCapability[];
   projects: string[];
   environment: string;
   encrypted: boolean;
@@ -125,6 +133,7 @@ export async function getPayloadParamsFromApiKey(
 
     return {
       organization: connection.organization,
+      capabilities: getConnectionSDKCapabilities(connection),
       environment: connection.environment,
       projects: connection.projects,
       encrypted: connection.encryptPayload,
@@ -166,6 +175,7 @@ export async function getPayloadParamsFromApiKey(
 
     return {
       organization,
+      capabilities: ["bucketingV2"],
       environment: environment || "production",
       projects: projectFilter ? [projectFilter] : [],
       encrypted: !!encryptSDK,
@@ -184,6 +194,7 @@ export async function getFeaturesPublic(req: Request, res: Response) {
 
     const {
       organization,
+      capabilities,
       environment,
       encrypted,
       projects,
@@ -203,6 +214,7 @@ export async function getFeaturesPublic(req: Request, res: Response) {
 
     const defs = await getFeatureDefinitions({
       organization,
+      capabilities,
       environment,
       projects,
       encryptionKey: encrypted ? encryptionKey : "",
@@ -262,6 +274,7 @@ export async function getEvaluatedFeaturesPublic(req: Request, res: Response) {
 
     const {
       organization,
+      capabilities,
       environment,
       encrypted,
       projects,
@@ -292,6 +305,7 @@ export async function getEvaluatedFeaturesPublic(req: Request, res: Response) {
 
     const defs = await getFeatureDefinitions({
       organization,
+      capabilities,
       environment,
       projects,
       encryptionKey: encrypted ? encryptionKey : "",
@@ -1407,7 +1421,17 @@ export async function postFeatureEvaluate(
     throw new Error("Could not find feature revision");
   }
 
-  const results = await evaluateFeature(feature, revision, attributes, org);
+  const groupMap = await getSavedGroupMap(org);
+  const experimentMap = await getAllPayloadExperiments(org.id);
+  const environments = getEnvironments(org);
+  const results = evaluateFeature({
+    feature,
+    revision,
+    attributes,
+    groupMap,
+    experimentMap,
+    environments,
+  });
 
   res.status(200).json({
     status: 200,
