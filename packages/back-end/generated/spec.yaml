@@ -2901,6 +2901,8 @@ components:
           type: array
           items:
             type: string
+        sdkVersion:
+          type: string
         environment:
           type: string
         project:
