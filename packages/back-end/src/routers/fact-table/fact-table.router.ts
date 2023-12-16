@@ -10,6 +10,7 @@ import {
   updateFactMetricPropsValidator,
   updateColumnPropsValidator,
   updateFactTablePropsValidator,
+  testFactFilterPropsValidator,
 } from "./fact-table.validators";
 import * as rawFactTableController from "./fact-table.controller";
 
@@ -74,6 +75,15 @@ router.put(
     body: updateFactFilterPropsValidator,
   }),
   factTableController.putFactFilter
+);
+
+router.post(
+  "/fact-tables/:id/test-filter",
+  validateRequestMiddleware({
+    params: factTableParams,
+    body: testFactFilterPropsValidator,
+  }),
+  factTableController.postFactFilterTest
 );
 
 router.delete(

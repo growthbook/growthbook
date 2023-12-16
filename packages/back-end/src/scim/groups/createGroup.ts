@@ -6,17 +6,25 @@ import {
   ScimGroupPostRequest,
 } from "../../../types/scim";
 import { addMembersToTeam } from "../../services/organizations";
+import { MemberRole } from "../../../types/organization";
+import { isRoleValid } from "../users/createUser";
 
 export async function createGroup(
   req: ScimGroupPostRequest,
   res: Response
 ): Promise<Response<ScimGroup | ScimError>> {
-  const { displayName, members } = req.body;
+  const { displayName, members, growthbookRole } = req.body;
 
   const org = req.organization;
 
+  let role: MemberRole = org.settings?.defaultRole?.role || "collaborator";
+
+  if (growthbookRole && isRoleValid(growthbookRole)) {
+    role = growthbookRole;
+  }
+
   const DEFAULT_TEAM_PERMISSIONS = {
-    role: org.settings?.defaultRole?.role || "collaborator",
+    role,
     limitAccessByEnvironment: false,
     environments: [],
   };

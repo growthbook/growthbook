@@ -15,6 +15,7 @@ export const getSdkPayload = createApiRequestHandler()(
 
     const {
       organization,
+      capabilities,
       environment,
       encrypted,
       projects,
@@ -27,6 +28,7 @@ export const getSdkPayload = createApiRequestHandler()(
 
     const defs = await getFeatureDefinitions({
       organization,
+      capabilities,
       environment,
       projects,
       encryptionKey: encrypted ? encryptionKey : "",

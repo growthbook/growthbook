@@ -11,6 +11,7 @@ import {
   ExperimentMetricInterface,
   getMetricTemplateVariables,
 } from "shared/experiments";
+import { AUTOMATIC_DIMENSION_OTHER_NAME } from "shared/constants";
 import { MetricInterface, MetricType } from "../../types/metric";
 import {
   DataSourceSettings,
@@ -46,6 +47,8 @@ import {
   UserDimension,
   ExperimentDimension,
   ExternalIdCallback,
+  DimensionSlicesQueryResponse,
+  DimensionSlicesQueryParams,
 } from "../types/Integration";
 import { DimensionInterface } from "../../types/dimension";
 import { IMPORT_LIMIT_DAYS } from "../util/secrets";
@@ -863,6 +866,31 @@ export default abstract class SqlIntegration
     return metricEnd;
   }
 
+  private getMaxHoursToConvert(
+    funnelMetric: boolean,
+    metricAndDenominatorMetrics: ExperimentMetricInterface[],
+    activationMetric: ExperimentMetricInterface | null
+  ): number {
+    let neededHoursForConversion = 0;
+    metricAndDenominatorMetrics.forEach((m) => {
+      const metricHours =
+        (m.conversionDelayHours || 0) + getConversionWindowHours(m);
+      if (funnelMetric) {
+        // funnel metric windows cab cascade, so sum each metric hours to get max
+        neededHoursForConversion += metricHours;
+      } else if (metricHours > neededHoursForConversion) {
+        neededHoursForConversion = metricHours;
+      }
+    });
+    // activation metrics windows always cascade
+    if (activationMetric) {
+      neededHoursForConversion +=
+        (activationMetric.conversionDelayHours || 0) +
+        getConversionWindowHours(activationMetric);
+    }
+    return neededHoursForConversion;
+  }
+
   private getStatisticType(
     isRatio: boolean,
     isRegressionAdjusted: boolean
@@ -943,6 +971,14 @@ export default abstract class SqlIntegration
     return activationMetric;
   }
 
+  getDimensionInStatement(dimension: string, values: string[]): string {
+    return this.ifElse(
+      `${this.castToString(dimension)} IN ('${values.join("','")}')`,
+      this.castToString(dimension),
+      this.castToString(`'${AUTOMATIC_DIMENSION_OTHER_NAME}'`)
+    );
+  }
+
   getExperimentUnitsQuery(params: ExperimentUnitsQueryParams): string {
     const {
       settings,
@@ -1012,7 +1048,15 @@ export default abstract class SqlIntegration
         , ${this.castToString("e.variation_id")} as variation
         , ${timestampDateTimeColumn} as timestamp
         ${experimentDimensions
-          .map((d) => `, e.${d.id} AS dim_${d.id}`)
+          .map((d) => {
+            if (d.specifiedSlices?.length) {
+              return `, ${this.getDimensionInStatement(
+                d.id,
+                d.specifiedSlices
+              )} AS dim_${d.id}`;
+            }
+            return `, e.${d.id} AS dim_${d.id}`;
+          })
           .join("\n")}
       FROM
           __rawExperiment e
@@ -1037,7 +1081,11 @@ export default abstract class SqlIntegration
               activationMetric.conversionDelayHours || 0,
               0
             ),
-            endDate: this.getMetricEnd([activationMetric], settings.endDate),
+            endDate: this.getMetricEnd(
+              [activationMetric],
+              settings.endDate,
+              ignoreConversionEnd
+            ),
             experimentId: settings.experimentId,
             factTableMap,
           })})
@@ -1092,7 +1140,6 @@ export default abstract class SqlIntegration
           , ${this.getDimensionColumn(baseIdType, d)} AS dim_exp_${d.id}`
           )
           .join("\n")}
-        
         ${
           activationMetric
             ? `, MIN(${this.ifElse(
@@ -1228,19 +1275,126 @@ export default abstract class SqlIntegration
     );
   }
 
-  getUnitCountCTE(dimensionColumn: string, whereClause: string): string {
+  getUnitCountCTE(dimensionColumn: string, whereClause?: string): string {
     return ` -- ${dimensionColumn}
     (SELECT
-      d.variation AS variation
-      , d.${dimensionColumn} as dimension_value
-      , MAX('${dimensionColumn}') as dimension_name
+      variation AS variation
+      , ${dimensionColumn} AS dimension_value
+      , MAX(${this.castToString(`'${dimensionColumn}'`)}) AS dimension_name
       , COUNT(*) AS units
     FROM
-      __distinctUnits d
-    ${whereClause}
+      __distinctUnits
+    ${whereClause ?? ""}
     GROUP BY
-      d.variation
-      , d.${dimensionColumn})`;
+      variation
+      , ${dimensionColumn})`;
+  }
+
+  getDimensionSlicesQuery(params: DimensionSlicesQueryParams): string {
+    const exposureQuery = this.getExposureQuery(params.exposureQueryId || "");
+
+    const { baseIdType } = getBaseIdTypeAndJoins([[exposureQuery.userIdType]]);
+
+    const startDate = subDays(new Date(), params.lookbackDays);
+    const timestampColumn = "e.timestamp";
+    return format(
+      `-- Suggest Dimension Slices
+    WITH
+      __rawExperiment AS (
+        ${compileSqlTemplate(exposureQuery.query, {
+          startDate: startDate,
+        })}
+      ),
+      __experimentExposures AS (
+        -- Viewed Experiment
+        SELECT
+          e.${baseIdType} as ${baseIdType}
+          , e.timestamp
+          ${params.dimensions
+            .map((d) => `, e.${d.id} AS dim_${d.id}`)
+            .join("\n")}
+        FROM
+          __rawExperiment e
+        WHERE
+          ${timestampColumn} >= ${this.toTimestamp(startDate)}
+      ),
+      __distinctUnits AS (
+        SELECT
+          ${baseIdType}
+          ${params.dimensions
+            .map(
+              (d) => `
+            , ${this.getDimensionColumn(baseIdType, d)} AS dim_exp_${d.id}`
+            )
+            .join("\n")}
+          , 1 AS variation
+        FROM
+          __experimentExposures e
+        GROUP BY
+          e.${baseIdType}
+      ),
+      -- One row per dimension slice
+      dim_values AS (
+        (SELECT
+          1 AS variation
+          , ${this.castToString("'All'")} AS dimension_value
+          , ${this.castToString("'All'")} AS dimension_name
+          , COUNT(*) AS units
+        FROM
+          __distinctUnits
+          ) UNION ALL
+        ${params.dimensions
+          .map((d) => this.getUnitCountCTE(`dim_exp_${d.id}`))
+          .join("\nUNION ALL\n")}
+      ),
+      total_n AS (
+        SELECT
+          SUM(units) AS N
+        FROM dim_values
+        WHERE dimension_name = 'All'
+      ),
+      dim_values_sorted AS (
+        SELECT
+          dimension_name
+          , dimension_value
+          , units
+          , ROW_NUMBER() OVER (PARTITION BY dimension_name ORDER BY units DESC) as rn
+        FROM
+          dim_values
+        WHERE
+          dimension_name != 'All'
+      )
+      SELECT
+        dim_values_sorted.dimension_name AS dimension_name,
+        dim_values_sorted.dimension_value AS dimension_value,
+        dim_values_sorted.units AS units,
+        n.N AS total_units
+      FROM
+        dim_values_sorted
+      CROSS JOIN total_n n
+      WHERE 
+        rn <= 20
+    `,
+      this.getFormatDialect()
+    );
+  }
+
+  async runDimensionSlicesQuery(
+    query: string,
+    setExternalId: ExternalIdCallback
+  ): Promise<DimensionSlicesQueryResponse> {
+    const { rows, statistics } = await this.runQuery(query, setExternalId);
+    return {
+      rows: rows.map((row) => {
+        return {
+          dimension_value: row.dimension_value ?? "",
+          dimension_name: row.dimension_name ?? "",
+          units: parseInt(row.units) || 0,
+          total_units: parseInt(row.total_units) || 0,
+        };
+      }),
+      statistics: statistics,
+    };
   }
 
   getExperimentMetricQuery(params: ExperimentMetricQueryParams): string {
@@ -1373,19 +1527,15 @@ export default abstract class SqlIntegration
       settings.experimentId
     );
 
-    const initialMetric =
-      denominatorMetrics.length > 0 ? denominatorMetrics[0] : metric;
-
     // Get date range for experiment and analysis
-    const initialConversionWindowHours = getConversionWindowHours(
-      initialMetric
-    );
-    const initialConversionDelayHours = initialMetric.conversionDelayHours || 0;
-
     const startDate: Date = settings.startDate;
     const endDate: Date = this.getExperimentEndDate(
       settings,
-      initialConversionWindowHours + initialConversionDelayHours
+      this.getMaxHoursToConvert(
+        funnelMetric,
+        [metric].concat(denominatorMetrics),
+        activationMetric
+      )
     );
 
     if (params.dimensions.length > 1) {

@@ -183,6 +183,7 @@ def analyze_metric_df(
             df[f"v{i}_rawrisk"] = None
             df[f"v{i}_prob_beat_baseline"] = None
             df[f"v{i}_uplift"] = None
+            df[f"v{i}_error_message"] = None
 
     def analyze_row(s):
         s = s.copy()
@@ -253,6 +254,7 @@ def analyze_metric_df(
                 s[f"v{i}_expected"] = res.expected
             s.at[f"v{i}_ci"] = res.ci
             s.at[f"v{i}_uplift"] = asdict(res.uplift)
+            s[f"v{i}_error_message"] = res.error_message
 
         s["srm_p"] = check_srm(users, weights)
         return s
@@ -299,6 +301,7 @@ def format_results(df, baseline_index=0):
                         "ci": row[f"{prefix}_ci"],
                         "risk": row[f"{prefix}_rawrisk"],
                         "stats": stats,
+                        "errorMessage": row[f"{prefix}_error_message"],
                     }
                 )
         variation_data.insert(baseline_index, baseline_data)
