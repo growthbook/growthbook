@@ -78,11 +78,9 @@ GrowthBook provides a nice UI for defining simple targeting conditions using you
 
 ### Advanced Mode
 
-If you need support for something more advanced (e.g. nested `AND`s, `OR`s, and `NOT`s), you can enter targeting conditions with JSON instead.
+If you need support for something more advanced you can enter targeting conditions with JSON instead by clicking the "Advanced Mode" link.
 
-![Advanced JSON targeting conditions](/images/targeting-advanced.png)
-
-The JSON structure is based on the MongoDB Query syntax. The following operators are supported:
+The JSON structure is based on the MongoDB Query syntax. Below are all of the supported operators with examples:
 
 - Key/value pairs for simple equality (all must exactly match to be true)
   ```json
@@ -181,7 +179,10 @@ The JSON structure is based on the MongoDB Query syntax. The following operators
         }
       },
       {
-        "baz": 123
+        "$and": [
+          {"bar": true},
+          {"baz": 123}
+        ]
       }
     ]
   }
