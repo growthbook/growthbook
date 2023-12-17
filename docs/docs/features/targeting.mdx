@@ -80,9 +80,9 @@ GrowthBook provides a nice UI for defining simple targeting conditions using you
 
 If you need support for something more advanced you can enter targeting conditions with JSON instead by clicking the "Advanced Mode" link.
 
-The JSON structure is based on the MongoDB Query syntax. Below are all of the supported operators with examples:
+The JSON structure is inspired bt the MongoDB Query syntax. Multiple conditions are always joined with `AND` (except when explicitly using `$or`/`$nor`). Below are all of the supported operators with examples.
 
-- Key/value pairs for simple equality (all must exactly match to be true)
+- Key/value pairs for simple equality
   ```json
   {
     "attribute1": "value1",
@@ -90,14 +90,14 @@ The JSON structure is based on the MongoDB Query syntax. Below are all of the su
     "attribute3": false
   }
   ```
-- Primitive operators (works for string and number attributes)
+- Basic comparison operators for string/number attributes
   - `$eq` (equals)
   - `$ne` (not equals)
   - `$lt` (less than)
   - `$lte` (less than or equal to)
   - `$gt` (greater than)
   - `$gte` (greater than or equal to)
-  - `$regex` (regular expression match)
+  - `$regex` (regular expression match, string attributes only)
   - `$in` (in array)
   - `$nin` (not in array)
   ```json
@@ -114,7 +114,7 @@ The JSON structure is based on the MongoDB Query syntax. Below are all of the su
     }
   }
   ```
-- Version string operators (properly compares semantic version strings)
+- Comparison operators for semantic version strings (semver):
   - `$veq` (equals)
   - `$vne` (not equals)
   - `$vlt` (less than)
@@ -129,10 +129,10 @@ The JSON structure is based on the MongoDB Query syntax. Below are all of the su
     }
   }
   ```
-- Array operators (works for array attributes)
-  - `$elemMatch` (at least one element must match the nested condition)
+- Operators for array attributes
+  - `$elemMatch` (at least one element must match the specified condition)
   - `$all` (all of the specified values must exist in the array)
-  - `$size` (array length must match the nested condition)
+  - `$size` (array length must match the specified condition)
   ```json
   {
     "emails": {
@@ -150,7 +150,7 @@ The JSON structure is based on the MongoDB Query syntax. Below are all of the su
     }
   }
   ```
-- Misc operators (works for any attribute type)
+- Misc operators
   - `$exists` (tests if the attribute value is null or not)
   - `$type` (tests if the attribute's type matches the type specified)
   - `$not` (inverts a nested condition)
@@ -169,13 +169,17 @@ The JSON structure is based on the MongoDB Query syntax. Below are all of the su
     }
   }
   ```
-- Top-level operators `$and`, `$or`, `$not`, and `$nor` with arbitrary nesting levels
+- Logical operators with arbitrary nesting levels
+  - `$or`
+  - `$nor`
+  - `$and`
+  - `$not`
   ```json
   {
     "$or": [
       {
         "$not": {
-          "foo": "bar"
+          "foo": "abc"
         }
       },
       {
