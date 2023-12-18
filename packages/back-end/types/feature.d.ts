@@ -115,7 +115,7 @@ export interface ExperimentRule extends BaseRule {
   disableStickyBucketing?: boolean;
   bucketVersion?: number;
   minBucketVersion?: number;
-  blockedVariations?: number[];
+  excludeBlockedBucketUsers?: boolean;
   namespace?: NamespaceValue;
   coverage?: number;
   values: ExperimentValue[];

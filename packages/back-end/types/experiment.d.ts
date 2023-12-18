@@ -36,6 +36,7 @@ export interface Variation {
   name: string;
   description?: string;
   key: string;
+  blocked?: boolean;
   screenshots: Screenshot[];
 }
 export interface VariationWithIndex extends Variation {
@@ -124,7 +125,7 @@ export interface ExperimentInterface {
   disableStickyBucketing?: boolean;
   bucketVersion?: number;
   minBucketVersion?: number;
-  blockedVariations?: number[];
+  excludeBlockedBucketUsers?: boolean;
   name: string;
   dateCreated: Date;
   dateUpdated: Date;
@@ -192,7 +193,7 @@ export type ExperimentTargetingData = Pick<
     | "disableStickyBucketing"
     | "bucketVersion"
     | "minBucketVersion"
-    | "blockedVariations"
+    | "excludeBlockedBucketUsers"
     | "trackingKey"
   > & {
     newPhase: boolean;

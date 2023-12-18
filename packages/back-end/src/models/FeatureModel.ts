@@ -79,7 +79,7 @@ const featureSchema = new mongoose.Schema({
       disableStickyBucketing: Boolean,
       bucketVersion: Number,
       minBucketVersion: Number,
-      blockedVariations: [Number],
+      excludeBlockedBucketUsers: Boolean,
       enabled: Boolean,
       condition: String,
       savedGroups: [

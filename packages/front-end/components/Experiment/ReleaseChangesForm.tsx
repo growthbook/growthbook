@@ -23,7 +23,6 @@ import { NewBucketingSDKList } from "./HashVersionSelector";
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
   form: UseFormReturn<ExperimentTargetingData>;
-  // | ExperimentPhaseStringDates & { reseed: boolean, blockedVariations: number[], minBucketVersion: number }
 }
 
 function getRecommendedRolloutData({
@@ -34,7 +33,6 @@ function getRecommendedRolloutData({
   experiment: ExperimentInterfaceStringDates;
   data: ExperimentTargetingData;
   stickyBucketing: boolean;
-  // | (ExperimentPhaseStringDates & { reseed: boolean, blockedVariations: number[], minBucketVersion: number });
 }) {
   const lastPhase: ExperimentPhaseStringDates | undefined =
     experiment.phases[experiment.phases.length - 1];
@@ -73,7 +71,7 @@ function getRecommendedRolloutData({
   let decreaseNamespaceRange = false;
   const otherNamespaceChanges = false;
   let changeVariationWeights = false;
-  let disableVariation = false;
+  const disableVariation = false;
 
   // Assign decision variables (1-8)
   // ===============================
@@ -135,12 +133,8 @@ function getRecommendedRolloutData({
     changeVariationWeights = true;
   }
 
-  // 8. Disable variation?
-  const blockedVariations: number[] = data.blockedVariations ?? [];
-  const lastBlockedVariations: number[] = experiment.blockedVariations ?? [];
-  if (blockedVariations.some((v) => !lastBlockedVariations.includes(v))) {
-    disableVariation = true;
-  }
+  // // 8. Disable variation?
+  // todo: blocked variations not implemented yet
 
   // Make recommendations, control available options
   // --> based on decision variables (1-8) and sticky bucketing support

@@ -140,7 +140,7 @@ function generateVisualExperimentsPayload({
         disableStickyBucketing: e.disableStickyBucketing,
         bucketVersion: e.bucketVersion,
         minBucketVersion: e.minBucketVersion,
-        blockedVariations: e.blockedVariations,
+        excludeBlockedBucketUsers: e.excludeBlockedBucketUsers,
         urlPatterns: v.urlPatterns,
         weights: phase.variationWeights,
         meta: e.variations.map((v) => ({ key: v.key, name: v.name })),

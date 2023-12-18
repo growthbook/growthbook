@@ -358,8 +358,8 @@ export function getFeatureDefinition({
             if (exp.minBucketVersion) {
               rule.minBucketVersion = exp.minBucketVersion;
             }
-            if (exp.blockedVariations) {
-              rule.blockedVariations = exp.blockedVariations;
+            if (exp.excludeBlockedBucketUsers) {
+              rule.excludeBlockedBucketUsers = exp.excludeBlockedBucketUsers;
             }
             if (
               phase.namespace &&
@@ -459,8 +459,8 @@ export function getFeatureDefinition({
             if (r.minBucketVersion) {
               rule.minBucketVersion = r.minBucketVersion;
             }
-            if (r.blockedVariations) {
-              rule.blockedVariations = r.blockedVariations;
+            if (r.excludeBlockedBucketUsers) {
+              rule.excludeBlockedBucketUsers = r.excludeBlockedBucketUsers;
             }
             if (r?.namespace && r.namespace.enabled && r.namespace.name) {
               rule.namespace = [

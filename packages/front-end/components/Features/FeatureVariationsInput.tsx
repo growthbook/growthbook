@@ -25,10 +25,8 @@ export interface Props {
   valueType: FeatureValueType;
   defaultValue?: string;
   variations: SortableVariation[];
-  blockedVariations?: number[];
   setWeight: (i: number, weight: number) => void;
   setVariations?: (variations: SortableVariation[]) => void;
-  setBlockedVariations?: (variations: number[]) => void;
   coverage: number;
   setCoverage: (coverage: number) => void;
   coverageTooltip?: string;
@@ -40,8 +38,6 @@ export interface Props {
 export default function FeatureVariationsInput({
   variations,
   setVariations,
-  blockedVariations = [],
-  setBlockedVariations,
   setWeight,
   coverage,
   setCoverage,
@@ -155,46 +151,12 @@ export default function FeatureVariationsInput({
                   </label>
                 </div>
               </th>
-              {setBlockedVariations && (
-                <th className="text-center">
-                  <Tooltip
-                    popperClassName="text-left"
-                    usePortal={true}
-                    body={
-                      <>
-                        <p>
-                          Prevent users from being bucketed into this variation.
-                        </p>
-                        <p>
-                          Any users with sticky buckets who were already
-                          bucketed in this variation will be excluded from the
-                          experiment.
-                        </p>
-                        <p className="mb-0">
-                          <span
-                            className="badge badge-muted-info badge-pill mr-2 position-relative"
-                            style={{ zIndex: 1, fontSize: "10px" }}
-                          >
-                            SB
-                          </span>
-                          Requires Sticky Bucketing
-                        </p>
-                      </>
-                    }
-                    tipPosition="top"
-                  >
-                    Block? <FaInfoCircle />
-                  </Tooltip>
-                </th>
-              )}
             </tr>
           </thead>
           <tbody>
             <SortableVariationsList
               variations={variations}
               setVariations={setVariations}
-              blockedVariations={blockedVariations}
-              setBlockedVariations={setBlockedVariations}
             >
               {variations.map((variation, i) => (
                 <SortableFeatureVariationRow
@@ -203,8 +165,6 @@ export default function FeatureVariationsInput({
                   variation={variation}
                   variations={variations}
                   setVariations={setVariations}
-                  blockedVariations={blockedVariations}
-                  setBlockedVariations={setBlockedVariations}
                   setWeight={setWeight}
                   customSplit={customSplit}
                   valueType={valueType}
@@ -213,7 +173,7 @@ export default function FeatureVariationsInput({
               ))}
             </SortableVariationsList>
             <tr>
-              <td colSpan={setBlockedVariations ? 5 : 4}>
+              <td colSpan={4}>
                 <div className="row">
                   <div className="col">
                     {valueType !== "boolean" && setVariations && (

@@ -54,10 +54,8 @@ properties:
     type: number
   minBucketVersion:
     type: number
-  blockedVariations:
-    type: array
-    items:
-      type: number
+  excludeBlockedBucketUsers:
+    type: boolean
   releasedVariationId:
     type: string
   excludeFromPayload:

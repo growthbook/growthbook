@@ -59,10 +59,8 @@ properties:
     type: number
   minBucketVersion:
     type: number
-  blockedVariations:
-    type: array
-    items:
-      type: number
+  excludeBlockedBucketUsers:
+    type: boolean
   variations:
     type: array
     items:
@@ -82,6 +80,8 @@ properties:
           type: string
         description:
           type: string
+        blocked:
+          type: boolean
         screenshots:
           type: array
           items:

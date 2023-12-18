@@ -68,7 +68,7 @@ const experimentSchema = new mongoose.Schema({
   disableStickyBucketing: Boolean,
   bucketVersion: Number,
   minBucketVersion: Number,
-  blockedVariations: [Number],
+  excludeBlockedBucketUsers: Boolean,
   name: String,
   dateCreated: Date,
   dateUpdated: Date,
@@ -118,6 +118,7 @@ const experimentSchema = new mongoose.Schema({
       description: String,
       key: String,
       value: String,
+      blocked: Boolean,
       screenshots: [
         {
           _id: false,

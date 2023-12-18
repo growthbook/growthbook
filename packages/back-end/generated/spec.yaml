@@ -937,10 +937,8 @@ paths:
                   type: number
                 minBucketVersion:
                   type: number
-                blockedVariations:
-                  type: array
-                  items:
-                    type: number
+                excludeBlockedBucketUsers:
+                  type: boolean
                 releasedVariationId:
                   type: string
                 excludeFromPayload:
@@ -1166,10 +1164,8 @@ paths:
                   type: number
                 minBucketVersion:
                   type: number
-                blockedVariations:
-                  type: array
-                  items:
-                    type: number
+                excludeBlockedBucketUsers:
+                  type: boolean
                 releasedVariationId:
                   type: string
                 excludeFromPayload:
@@ -2832,10 +2828,8 @@ components:
           type: number
         minBucketVersion:
           type: number
-        blockedVariations:
-          type: array
-          items:
-            type: number
+        excludeBlockedBucketUsers:
+          type: boolean
         namespace:
           type: obect
           required:
@@ -3036,10 +3030,8 @@ components:
           type: number
         minBucketVersion:
           type: number
-        blockedVariations:
-          type: array
-          items:
-            type: number
+        excludeBlockedBucketUsers:
+          type: boolean
         variations:
           type: array
           items:
@@ -3059,6 +3051,8 @@ components:
                 type: string
               description:
                 type: string
+              blocked:
+                type: boolean
               screenshots:
                 type: array
                 items:

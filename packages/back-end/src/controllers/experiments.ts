@@ -1323,7 +1323,7 @@ export async function postExperimentTargeting(
     disableStickyBucketing,
     bucketVersion,
     minBucketVersion,
-    blockedVariations,
+    excludeBlockedBucketUsers,
     namespace,
     trackingKey,
     variationWeights,
@@ -1391,7 +1391,7 @@ export async function postExperimentTargeting(
   changes.disableStickyBucketing = disableStickyBucketing;
   changes.bucketVersion = bucketVersion;
   changes.minBucketVersion = minBucketVersion;
-  changes.blockedVariations = blockedVariations;
+  changes.excludeBlockedBucketUsers = excludeBlockedBucketUsers;
   if (trackingKey) changes.trackingKey = trackingKey;
 
   // TODO: validation

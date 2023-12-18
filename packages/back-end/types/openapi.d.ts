@@ -356,7 +356,7 @@ export interface components {
               disableStickyBucketing?: any;
               bucketVersion?: number;
               minBucketVersion?: number;
-              blockedVariations?: (number)[];
+              excludeBlockedBucketUsers?: boolean;
               namespace?: {
                 enabled: boolean;
                 name: string;
@@ -423,7 +423,7 @@ export interface components {
                 disableStickyBucketing?: any;
                 bucketVersion?: number;
                 minBucketVersion?: number;
-                blockedVariations?: (number)[];
+                excludeBlockedBucketUsers?: boolean;
                 namespace?: {
                   enabled: boolean;
                   name: string;
@@ -501,7 +501,7 @@ export interface components {
           disableStickyBucketing?: any;
           bucketVersion?: number;
           minBucketVersion?: number;
-          blockedVariations?: (number)[];
+          excludeBlockedBucketUsers?: boolean;
           namespace?: {
             enabled: boolean;
             name: string;
@@ -568,7 +568,7 @@ export interface components {
             disableStickyBucketing?: any;
             bucketVersion?: number;
             minBucketVersion?: number;
-            blockedVariations?: (number)[];
+            excludeBlockedBucketUsers?: boolean;
             namespace?: {
               enabled: boolean;
               name: string;
@@ -634,7 +634,7 @@ export interface components {
       disableStickyBucketing?: any;
       bucketVersion?: number;
       minBucketVersion?: number;
-      blockedVariations?: (number)[];
+      excludeBlockedBucketUsers?: boolean;
       namespace?: {
         enabled: boolean;
         name: string;
@@ -713,7 +713,7 @@ export interface components {
       disableStickyBucketing?: any;
       bucketVersion?: number;
       minBucketVersion?: number;
-      blockedVariations?: (number)[];
+      excludeBlockedBucketUsers?: boolean;
       namespace?: {
         enabled: boolean;
         name: string;
@@ -787,12 +787,13 @@ export interface components {
       disableStickyBucketing?: any;
       bucketVersion?: number;
       minBucketVersion?: number;
-      blockedVariations?: (number)[];
+      excludeBlockedBucketUsers?: boolean;
       variations: ({
           variationId: string;
           key: string;
           name: string;
           description: string;
+          blocked?: boolean;
           screenshots: (string)[];
         })[];
       phases: ({
@@ -1197,7 +1198,7 @@ export interface operations {
                         disableStickyBucketing?: any;
                         bucketVersion?: number;
                         minBucketVersion?: number;
-                        blockedVariations?: (number)[];
+                        excludeBlockedBucketUsers?: boolean;
                         namespace?: {
                           enabled: boolean;
                           name: string;
@@ -1264,7 +1265,7 @@ export interface operations {
                           disableStickyBucketing?: any;
                           bucketVersion?: number;
                           minBucketVersion?: number;
-                          blockedVariations?: (number)[];
+                          excludeBlockedBucketUsers?: boolean;
                           namespace?: {
                             enabled: boolean;
                             name: string;
@@ -1509,7 +1510,7 @@ export interface operations {
                       disableStickyBucketing?: any;
                       bucketVersion?: number;
                       minBucketVersion?: number;
-                      blockedVariations?: (number)[];
+                      excludeBlockedBucketUsers?: boolean;
                       namespace?: {
                         enabled: boolean;
                         name: string;
@@ -1576,7 +1577,7 @@ export interface operations {
                         disableStickyBucketing?: any;
                         bucketVersion?: number;
                         minBucketVersion?: number;
-                        blockedVariations?: (number)[];
+                        excludeBlockedBucketUsers?: boolean;
                         namespace?: {
                           enabled: boolean;
                           name: string;
@@ -1686,7 +1687,7 @@ export interface operations {
                       disableStickyBucketing?: any;
                       bucketVersion?: number;
                       minBucketVersion?: number;
-                      blockedVariations?: (number)[];
+                      excludeBlockedBucketUsers?: boolean;
                       namespace?: {
                         enabled: boolean;
                         name: string;
@@ -1753,7 +1754,7 @@ export interface operations {
                         disableStickyBucketing?: any;
                         bucketVersion?: number;
                         minBucketVersion?: number;
-                        blockedVariations?: (number)[];
+                        excludeBlockedBucketUsers?: boolean;
                         namespace?: {
                           enabled: boolean;
                           name: string;
@@ -1987,7 +1988,7 @@ export interface operations {
                       disableStickyBucketing?: any;
                       bucketVersion?: number;
                       minBucketVersion?: number;
-                      blockedVariations?: (number)[];
+                      excludeBlockedBucketUsers?: boolean;
                       namespace?: {
                         enabled: boolean;
                         name: string;
@@ -2054,7 +2055,7 @@ export interface operations {
                         disableStickyBucketing?: any;
                         bucketVersion?: number;
                         minBucketVersion?: number;
-                        blockedVariations?: (number)[];
+                        excludeBlockedBucketUsers?: boolean;
                         namespace?: {
                           enabled: boolean;
                           name: string;
@@ -2168,7 +2169,7 @@ export interface operations {
                       disableStickyBucketing?: any;
                       bucketVersion?: number;
                       minBucketVersion?: number;
-                      blockedVariations?: (number)[];
+                      excludeBlockedBucketUsers?: boolean;
                       namespace?: {
                         enabled: boolean;
                         name: string;
@@ -2235,7 +2236,7 @@ export interface operations {
                         disableStickyBucketing?: any;
                         bucketVersion?: number;
                         minBucketVersion?: number;
-                        blockedVariations?: (number)[];
+                        excludeBlockedBucketUsers?: boolean;
                         namespace?: {
                           enabled: boolean;
                           name: string;
@@ -2702,12 +2703,13 @@ export interface operations {
                 disableStickyBucketing?: any;
                 bucketVersion?: number;
                 minBucketVersion?: number;
-                blockedVariations?: (number)[];
+                excludeBlockedBucketUsers?: boolean;
                 variations: ({
                     variationId: string;
                     key: string;
                     name: string;
                     description: string;
+                    blocked?: boolean;
                     screenshots: (string)[];
                   })[];
                 phases: ({
@@ -2826,7 +2828,7 @@ export interface operations {
           disableStickyBucketing?: any;
           bucketVersion?: number;
           minBucketVersion?: number;
-          blockedVariations?: (number)[];
+          excludeBlockedBucketUsers?: boolean;
           releasedVariationId?: string;
           excludeFromPayload?: boolean;
           variations: ({
@@ -2898,12 +2900,13 @@ export interface operations {
               disableStickyBucketing?: any;
               bucketVersion?: number;
               minBucketVersion?: number;
-              blockedVariations?: (number)[];
+              excludeBlockedBucketUsers?: boolean;
               variations: ({
                   variationId: string;
                   key: string;
                   name: string;
                   description: string;
+                  blocked?: boolean;
                   screenshots: (string)[];
                 })[];
               phases: ({
@@ -3015,12 +3018,13 @@ export interface operations {
               disableStickyBucketing?: any;
               bucketVersion?: number;
               minBucketVersion?: number;
-              blockedVariations?: (number)[];
+              excludeBlockedBucketUsers?: boolean;
               variations: ({
                   variationId: string;
                   key: string;
                   name: string;
                   description: string;
+                  blocked?: boolean;
                   screenshots: (string)[];
                 })[];
               phases: ({
@@ -3135,7 +3139,7 @@ export interface operations {
           disableStickyBucketing?: any;
           bucketVersion?: number;
           minBucketVersion?: number;
-          blockedVariations?: (number)[];
+          excludeBlockedBucketUsers?: boolean;
           releasedVariationId?: string;
           excludeFromPayload?: boolean;
           variations?: ({
@@ -3207,12 +3211,13 @@ export interface operations {
               disableStickyBucketing?: any;
               bucketVersion?: number;
               minBucketVersion?: number;
-              blockedVariations?: (number)[];
+              excludeBlockedBucketUsers?: boolean;
               variations: ({
                   variationId: string;
                   key: string;
                   name: string;
                   description: string;
+                  blocked?: boolean;
                   screenshots: (string)[];
                 })[];
               phases: ({
@@ -3934,12 +3939,13 @@ export interface operations {
               disableStickyBucketing?: any;
               bucketVersion?: number;
               minBucketVersion?: number;
-              blockedVariations?: (number)[];
+              excludeBlockedBucketUsers?: boolean;
               variations: ({
                   variationId: string;
                   key: string;
                   name: string;
                   description: string;
+                  blocked?: boolean;
                   screenshots: (string)[];
                 })[];
               phases: ({

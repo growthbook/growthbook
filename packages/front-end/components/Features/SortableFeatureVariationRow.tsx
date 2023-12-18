@@ -32,8 +32,6 @@ interface SortableProps {
   setWeight: (i: number, weight: number) => void;
   customSplit: boolean;
   valueAsId: boolean;
-  blockedVariations?: number[];
-  setBlockedVariations?: (variations: number[]) => void;
 }
 
 type VariationProps = SortableProps &
@@ -53,8 +51,6 @@ export const VariationRow = forwardRef<HTMLTableRowElement, VariationProps>(
       valueType,
       customSplit,
       setWeight,
-      blockedVariations = [],
-      setBlockedVariations,
       ...props
     },
     ref
@@ -214,24 +210,6 @@ export const VariationRow = forwardRef<HTMLTableRowElement, VariationProps>(
             )}
           </div>
         </td>
-        {setBlockedVariations && (
-          <td className="text-center">
-            <input
-              type="checkbox"
-              checked={blockedVariations.indexOf(i) !== -1}
-              onChange={(e) => {
-                const newBlockedVariations = [...blockedVariations];
-                if (e.target.checked) {
-                  newBlockedVariations.push(i);
-                } else {
-                  const index = newBlockedVariations.indexOf(i);
-                  if (index !== -1) newBlockedVariations.splice(index, 1);
-                }
-                setBlockedVariations(newBlockedVariations);
-              }}
-            />
-          </td>
-        )}
       </tr>
     );
   }

@@ -4,8 +4,9 @@ import {
   ExperimentPhaseStringDates,
   ExperimentTargetingData,
 } from "back-end/types/experiment";
-import React, { useEffect, useMemo } from "react";
 import { FaInfoCircle } from "react-icons/fa";
+import omit from "lodash/omit";
+import isEqual from "lodash/isEqual";
 import { useAuth } from "@/services/auth";
 import { getEqualWeights } from "@/services/utils";
 import { useAttributeSchema } from "@/services/features";
@@ -21,8 +22,6 @@ import SavedGroupTargetingField, {
   validateSavedGroupTargeting,
 } from "../Features/SavedGroupTargetingField";
 import HashVersionSelector from "./HashVersionSelector";
-import omit from "lodash/omit";
-import isEqual from "lodash/isEqual";
 
 export interface Props {
   close: () => void;
@@ -53,7 +52,6 @@ export default function EditTargetingModal({
     disableStickyBucketing: experiment.disableStickyBucketing ?? false,
     bucketVersion: experiment.bucketVersion || 1,
     minBucketVersion: experiment.minBucketVersion || 0,
-    blockedVariations: experiment.blockedVariations || [],
     namespace: lastPhase?.namespace || {
       enabled: false,
       name: "",
@@ -77,8 +75,18 @@ export default function EditTargetingModal({
   const hasHashAttributes =
     attributeSchema.filter((x) => x.hashAttribute).length > 0;
 
-  const _formValues = omit(form.getValues(), ["newPhase", "reseed", "bucketVersion", "minBucketVersion"]);
-  const _defaultValues = omit(defaultValues, ["newPhase", "reseed", "bucketVersion", "minBucketVersion"]);
+  const _formValues = omit(form.getValues(), [
+    "newPhase",
+    "reseed",
+    "bucketVersion",
+    "minBucketVersion",
+  ]);
+  const _defaultValues = omit(defaultValues, [
+    "newPhase",
+    "reseed",
+    "bucketVersion",
+    "minBucketVersion",
+  ]);
   const hasChanges = !isEqual(_formValues, _defaultValues);
 
   return (
@@ -95,7 +103,9 @@ export default function EditTargetingModal({
         });
         mutate();
       })}
-      cta={hasChanges ? (safeToEdit ? "Save" : "Save and Publish") : "No changes"}
+      cta={
+        hasChanges ? (safeToEdit ? "Save" : "Save and Publish") : "No changes"
+      }
       ctaEnabled={hasChanges}
       size="lg"
       bodyClassName="p-0"
@@ -200,7 +210,6 @@ export default function EditTargetingModal({
           setWeight={(i, weight) =>
             form.setValue(`variationWeights.${i}`, weight)
           }
-          setBlockedVariations={(bv) => form.setValue("blockedVariations", bv)}
           valueAsId={true}
           variations={
             experiment.variations.map((v, i) => {
@@ -212,7 +221,6 @@ export default function EditTargetingModal({
               };
             }) || []
           }
-          blockedVariations={form.watch("blockedVariations") || []}
           showPreview={false}
         />
         <NamespaceSelector
