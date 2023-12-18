@@ -630,7 +630,11 @@ export function getExposureQuery(
   const queries = settings?.queries?.exposure || [];
 
   if (!exposureQueryId) {
-    exposureQueryId = userIdType === "user" ? "user_id" : "anonymous_id";
+    if (settings?.defaultQueryId) {
+      exposureQueryId = settings?.defaultQueryId;
+    } else {
+      exposureQueryId = userIdType === "user" ? "user_id" : "anonymous_id";
+    }
   }
   return queries.find((q) => q.id === exposureQueryId) ?? null;
 }

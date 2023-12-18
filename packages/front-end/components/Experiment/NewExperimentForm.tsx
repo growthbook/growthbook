@@ -92,13 +92,11 @@ export function getNewExperimentDatasourceDefaults(
   return {
     datasource: initialDatasource.id,
     exposureQueryId:
-      initialDatasource.settings.defaultQueryId ??
-      (getExposureQuery(
+      getExposureQuery(
         initialDatasource.settings,
         initialValue?.exposureQueryId,
         initialValue?.userIdType
-      )?.id ||
-        ""),
+      )?.id || "",
   };
 }
 
