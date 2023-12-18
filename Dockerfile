@@ -1,5 +1,5 @@
 # Build the python gbstats package
-FROM python:3.9-slim AS pybuild
+FROM python:3.11.7-slim AS pybuild
 WORKDIR /usr/local/src/app
 COPY ./packages/stats .
 RUN \
@@ -9,7 +9,7 @@ RUN \
 
 
 # Build the nodejs app
-FROM node:16-slim AS nodebuild
+FROM node:18-slim AS nodebuild
 WORKDIR /usr/local/src/app
 # Copy over minimum files to install dependencies
 COPY package.json ./package.json
@@ -38,7 +38,7 @@ RUN \
 
 
 # Package the full app together
-FROM python:3.9-slim
+FROM python:3.11.7-slim
 WORKDIR /usr/local/src/app
 RUN apt-get update && \
   apt-get install -y wget gnupg2 && \
