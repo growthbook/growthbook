@@ -14,6 +14,7 @@ import {
 } from "../../types/feature";
 import { AuthRequest } from "../types/AuthRequest";
 import {
+  getEnvironments,
   getEnvironmentIdsFromOrg,
   getOrgFromReq,
 } from "../services/organizations";
@@ -42,6 +43,7 @@ import {
   evaluateFeature,
   generateRuleId,
   getFeatureDefinitions,
+  getSavedGroupMap,
 } from "../services/features";
 import { FeatureUsageRecords } from "../../types/realtime";
 import {
@@ -85,6 +87,7 @@ import {
   getExperimentById,
   getExperimentsByIds,
   getExperimentsByTrackingKeys,
+  getAllPayloadExperiments,
 } from "../models/ExperimentModel";
 import { OrganizationInterface } from "../../types/organization";
 import { ExperimentInterface } from "../../types/experiment";
@@ -1418,7 +1421,17 @@ export async function postFeatureEvaluate(
     throw new Error("Could not find feature revision");
   }
 
-  const results = await evaluateFeature(feature, revision, attributes, org);
+  const groupMap = await getSavedGroupMap(org);
+  const experimentMap = await getAllPayloadExperiments(org.id);
+  const environments = getEnvironments(org);
+  const results = evaluateFeature({
+    feature,
+    revision,
+    attributes,
+    groupMap,
+    experimentMap,
+    environments,
+  });
 
   res.status(200).json({
     status: 200,
