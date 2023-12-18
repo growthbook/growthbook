@@ -53,9 +53,11 @@ const EnvironmentsPage: FC = () => {
           </div>
         )}
       </div>
+
       <p className="text-gray mb-3">
         Manage which environments are available for your feature flags.
       </p>
+
       {environments.length > 0 ? (
         <table className="table mb-3 appbox gbtable table-hover">
           <thead>

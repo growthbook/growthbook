@@ -44,11 +44,11 @@ export const getSavedGroupMessage = (
 };
 
 export default function SavedGroupsPage() {
-  const { mutateDefinitions, savedGroups, error, ready } = useDefinitions();
+  const { mutateDefinitions, savedGroups, error } = useDefinitions();
 
   const [auditModal, setAuditModal] = useState(false);
 
-  if (!savedGroups || !ready) return <LoadingOverlay />;
+  if (!savedGroups) return <LoadingOverlay />;
 
   return (
     <div className="p-3 container-fluid pagecontents">
@@ -73,6 +73,7 @@ export default function SavedGroupsPage() {
         experiment. There are two ways to define Saved Groups -{" "}
         <strong>Inline</strong> or at <strong>Runtime</strong>.
       </p>
+
       {error ? (
         <div className="alert alert-danger">
           There was an error loading the list of groups.

@@ -123,7 +123,6 @@ const FeatureAttributesPage = (): React.ReactElement => {
   return (
     <>
       <div className="contents container-fluid pagecontents">
-        {/* {permissions.check("readData", project) ? ( */}
         <div className="mb-5">
           <div className="row mb-3 align-items-center">
             <div className="col">

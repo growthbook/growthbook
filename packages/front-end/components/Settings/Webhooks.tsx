@@ -18,8 +18,6 @@ const Webhooks: FC = () => {
   const { data, error, mutate } = useApi<{ webhooks: WebhookInterface[] }>(
     "/webhooks"
   );
-
-  console.log("data", data);
   const { apiCall } = useAuth();
   const [open, setOpen] = useState<null | Partial<WebhookInterface>>(null);
 

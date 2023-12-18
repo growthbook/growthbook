@@ -1,6 +1,5 @@
 import { useState, FC } from "react";
 import { Namespaces, NamespaceUsage } from "back-end/types/organization";
-import { useDefinitions } from "@/services/DefinitionsContext";
 import useApi from "../hooks/useApi";
 import { GBAddCircle } from "../components/Icons";
 import LoadingOverlay from "../components/LoadingOverlay";
@@ -16,7 +15,6 @@ export type NamespaceApiResponse = {
 };
 
 const NamespacesPage: FC = () => {
-  const { ready } = useDefinitions();
   const { data, error } = useApi<NamespaceApiResponse>(
     `/organization/namespaces`
   );
@@ -40,7 +38,7 @@ const NamespacesPage: FC = () => {
       </div>
     );
   }
-  if (!data || !ready) {
+  if (!data) {
     return <LoadingOverlay />;
   }
 
