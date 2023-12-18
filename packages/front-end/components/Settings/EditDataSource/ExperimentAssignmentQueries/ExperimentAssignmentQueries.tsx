@@ -189,7 +189,9 @@ export const ExperimentAssignmentQueries: FC<ExperimentAssignmentQueriesProps> =
                 <div className="d-flex">
                   <h4>{query.name}</h4>
                   {dataSource.settings.defaultQueryId == query.id ? (
-                    <span className="ml-2 badge badge-info">Default</span>
+                    <span className="ml-2 badge badge-info my-auto">
+                      Default
+                    </span>
                   ) : (
                     <></>
                   )}
