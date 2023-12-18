@@ -97,9 +97,8 @@ export default function HealthTab({
       return (
         <div className="alert alert-info mt-3 d-flex">
           The health tab only works when your experiment has an Exposure
-          Assignment Table. On the Results tab, click the edit icon next to
-          Analysis Settings and ensure you have selected the correct Exposure
-          Assignment Table.
+          Assignment Table. On the Results tab, click Analysis Settings and
+          ensure you have selected the correct Exposure Assignment Table.
         </div>
       );
     }
