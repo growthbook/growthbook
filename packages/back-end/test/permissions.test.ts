@@ -6,7 +6,6 @@ import {
 import { OrganizationInterface } from "../types/organization";
 import { TeamInterface } from "../types/team";
 import { FeatureInterface } from "../types/feature";
-import { ExperimentInterface } from "../types/experiment";
 import { MetricInterface } from "../types/metric";
 
 describe("Build base user permissions", () => {
