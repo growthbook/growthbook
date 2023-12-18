@@ -18,6 +18,9 @@ import {
   HealthTabOnboardingModal,
 } from "./HealthTabOnboardingModal";
 
+const noExposureQueryMessage =
+  "The health tab only works when your experiment has an Exposure Assignment Table. On the Results tab, click Analysis Settings and ensure you have selected the correct Exposure Assignment Table.";
+
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
   onDrawerNotify: () => void;
@@ -85,9 +88,6 @@ export default function HealthTab({
     [onDrawerNotify]
   );
 
-  const noExposureQueryMessage = `The health tab only works when your experiment has an Exposure
-  Assignment Table. On the Results tab, click Analysis Settings and
-  ensure you have selected the correct Exposure Assignment Table.`;
   // If org has the health tab turned to off and has no data, prompt set up if the
   // datasource and exposure query are present
   if (
