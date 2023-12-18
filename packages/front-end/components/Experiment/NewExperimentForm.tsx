@@ -92,11 +92,13 @@ export function getNewExperimentDatasourceDefaults(
   return {
     datasource: initialDatasource.id,
     exposureQueryId:
-      getExposureQuery(
+      initialDatasource.settings.defaultQueryId ??
+      (getExposureQuery(
         initialDatasource.settings,
         initialValue?.exposureQueryId,
         initialValue?.userIdType
-      )?.id || "",
+      )?.id ||
+        ""),
   };
 }
 
@@ -304,7 +306,6 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
     >
       <Page display="Basic Info">
         {msg && <div className="alert alert-info">{msg}</div>}
-
         {currentProjectIsDemo && (
           <div className="alert alert-warning">
             You are creating an experiment under the demo datasource project.
@@ -312,7 +313,6 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
             deleted.
           </div>
         )}
-
         <Field label="Name" required minLength={2} {...form.register("name")} />
         {!isImport && !fromFeature && datasource && !isNewExperiment && (
           <Field
@@ -330,7 +330,6 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
             }
           />
         )}
-
         <div className="form-group">
           <label>Tags</label>
           <TagsInput
