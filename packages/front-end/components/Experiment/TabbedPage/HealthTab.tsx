@@ -85,6 +85,9 @@ export default function HealthTab({
     [onDrawerNotify]
   );
 
+  const noExposureQueryMessage = `The health tab only works when your experiment has an Exposure
+  Assignment Table. On the Results tab, click Analysis Settings and
+  ensure you have selected the correct Exposure Assignment Table.`;
   // If org has the health tab turned to off and has no data, prompt set up if the
   // datasource and exposure query are present
   if (
@@ -96,9 +99,7 @@ export default function HealthTab({
     if (!datasource || !exposureQuery) {
       return (
         <div className="alert alert-info mt-3 d-flex">
-          The health tab only works when your experiment has an Exposure
-          Assignment Table. On the Results tab, click Analysis Settings and
-          ensure you have selected the correct Exposure Assignment Table.
+          {noExposureQueryMessage}
         </div>
       );
     }
@@ -182,6 +183,16 @@ export default function HealthTab({
       return (
         <div className="alert alert-info mt-3">
           <LoadingSpinner /> Snapshot refreshing, health data loading...
+        </div>
+      );
+    }
+    if (!datasource || !exposureQuery) {
+      return (
+        <div className="alert alert-info mt-3">
+          {noExposureQueryMessage}
+          {
+            " Then, next time you update results, the health tab will be available."
+          }
         </div>
       );
     }
