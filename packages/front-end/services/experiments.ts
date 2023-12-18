@@ -338,11 +338,13 @@ export function isStatSig(pValue: number, pValueThreshold: number): boolean {
   return pValue < pValueThreshold;
 }
 
-export function pValueFormatter(pValue: number): string {
+export function pValueFormatter(pValue: number, digits: number = 3): string {
   if (typeof pValue !== "number") {
     return "";
   }
-  return pValue < 0.001 ? "<0.001" : pValue.toFixed(3);
+  return pValue < Math.pow(10, -digits)
+    ? `<0.${"0".repeat(digits - 1)}1`
+    : pValue.toFixed(digits);
 }
 
 export type IndexedPValue = {

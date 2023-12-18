@@ -1,6 +1,10 @@
 import { ExperimentSnapshotTraffic } from "back-end/types/experiment-snapshot";
 import { ExperimentReportVariation } from "back-end/types/report";
 import { useEffect, useLayoutEffect } from "react";
+import {
+  DataSourceInterfaceWithParams,
+  ExposureQuery,
+} from "back-end/types/datasource";
 import { useUser } from "@/services/UserContext";
 import { DEFAULT_SRM_THRESHOLD } from "@/pages/settings";
 import VariationUsersTable from "../Experiment/TabbedPage/VariationUsersTable";
@@ -16,6 +20,8 @@ interface Props {
   variations: ExperimentReportVariation[];
   totalUsers: number;
   onNotify: (issue: IssueValue) => void;
+  dataSource: DataSourceInterfaceWithParams | null;
+  exposureQuery?: ExposureQuery;
   healthTabConfigParams: HealthTabConfigParams;
 }
 
@@ -45,6 +51,8 @@ export default function SRMDrawer({
   variations,
   totalUsers,
   onNotify,
+  dataSource,
+  exposureQuery,
   healthTabConfigParams,
 }: Props) {
   const { settings } = useUser();
@@ -147,6 +155,8 @@ export default function SRMDrawer({
           <DimensionIssues
             dimensionData={traffic.dimension}
             variations={variations}
+            dataSource={dataSource}
+            exposureQuery={exposureQuery}
             healthTabConfigParams={healthTabConfigParams}
           />
         </div>
