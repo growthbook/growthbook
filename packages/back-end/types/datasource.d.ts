@@ -176,6 +176,7 @@ export type DataSourceSettings = {
   schemaFormat?: SchemaFormat;
   schemaOptions?: Record<string, string | number>;
   userIdTypes?: UserIdType[];
+  defaultQueryId?: string;
   queries?: {
     // @deprecated
     experimentsQuery?: string;
