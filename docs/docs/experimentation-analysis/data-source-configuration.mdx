@@ -154,6 +154,24 @@ The inserted values do not have surrounding quotes, so you must add those yourse
 
 :::
 
+#### Default Assignment Queries
+
+Default data sources can have one of their assignment queries be set as default. If set, this enables new experiments to use this datasource along with the specified assignment query by default. These settings can later be changed in the experiment settings.
+
+To set an assignment query as default:
+
+1.  Expand the "Metrics and Data" on the left nav panel and click "Data Sources".
+2.  Select a data source.
+3.  Scroll down to "Experiment Assignment Queries". Click the three dot menu for the assignment query you want to set as default, and click "Set as Default".
+
+![Setting Default Experiment Query](/images/datasource-configuration/set-default-experiment-query.png)
+
+:::note
+
+This will only take effect when if data source is set to default as well.
+
+:::
+
 ### Jupyter Notebook Query Runner
 
 This setting is only required if you want to export experiment results as a Jupyter Notebook.
