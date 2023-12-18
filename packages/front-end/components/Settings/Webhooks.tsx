@@ -5,6 +5,7 @@ import { ago } from "shared/dates";
 import useApi from "@/hooks/useApi";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import usePermissions from "@/hooks/usePermissions";
 import DeleteButton from "../DeleteButton/DeleteButton";
 import LoadingOverlay from "../LoadingOverlay";
 import Tooltip from "../Tooltip/Tooltip";
@@ -12,10 +13,13 @@ import { DocLink } from "../DocLink";
 import WebhooksModal from "./WebhooksModal";
 
 const Webhooks: FC = () => {
+  const permissions = usePermissions();
   const { getProjectById, projects, project } = useDefinitions();
   const { data, error, mutate } = useApi<{ webhooks: WebhookInterface[] }>(
-    `/webhooks?project=${project}`
+    "/webhooks"
   );
+
+  console.log("data", data);
   const { apiCall } = useAuth();
   const [open, setOpen] = useState<null | Partial<WebhookInterface>>(null);
 
@@ -46,7 +50,11 @@ const Webhooks: FC = () => {
         <DocLink docSection="webhooks">View Documentation</DocLink>
       </p>
 
-      {filteredWebhooks.length > 0 && (
+      {filteredWebhooks.length === 0 ? (
+        <div className="alert alert-info">
+          <span>No webhooks found</span>
+        </div>
+      ) : (
         <table className="table mb-3 appbox gbtable">
           <thead>
             <tr>
@@ -150,16 +158,17 @@ const Webhooks: FC = () => {
           </tbody>
         </table>
       )}
-
-      <button
-        className="btn btn-primary"
-        onClick={(e) => {
-          e.preventDefault();
-          setOpen({});
-        }}
-      >
-        <FaBolt /> Create New SDK Webhook
-      </button>
+      {permissions.manageWebhooks ? (
+        <button
+          className="btn btn-primary"
+          onClick={(e) => {
+            e.preventDefault();
+            setOpen({});
+          }}
+        >
+          <FaBolt /> Create New SDK Webhook
+        </button>
+      ) : null}
     </div>
   );
 };

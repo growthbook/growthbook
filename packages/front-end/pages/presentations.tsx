@@ -3,7 +3,6 @@ import Link from "next/link";
 import { PresentationInterface } from "back-end/types/presentation";
 import { FaPlus } from "react-icons/fa";
 import { date } from "shared/dates";
-import { useDefinitions } from "../services/DefinitionsContext";
 import useApi from "../hooks/useApi";
 import LoadingOverlay from "../components/LoadingOverlay";
 import ShareModal from "../components/Share/ShareModal";
@@ -32,7 +31,6 @@ const PresentationPage = (): React.ReactElement => {
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const { getUserDisplay, permissions } = useUser();
   const { apiCall } = useAuth();
-  const { project } = useDefinitions();
 
   const { data: p, error: error, mutate } = useApi<{
     presentations: PresentationInterface[];
@@ -52,14 +50,6 @@ const PresentationPage = (): React.ReactElement => {
     return <LoadingOverlay />;
   }
 
-  // Shouldn't happen, but adding as a protection.
-  if (!permissions.check("readData", project)) {
-    return (
-      <div className="alert alert-danger">
-        You don&apos;t have permission to view this page.
-      </div>
-    );
-  }
   if (!p.presentations.length) {
     return (
       <div className="container p-4">

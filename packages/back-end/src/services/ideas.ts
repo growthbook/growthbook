@@ -1,10 +1,15 @@
 import uniqid from "uniqid";
 import { FilterQuery } from "mongoose";
+import { ReadAccessFilter, hasReadAccess } from "shared/permissions";
 import { IdeaDocument, IdeaModel } from "../models/IdeasModel";
 import { addTags } from "../models/TagModel";
 import { IdeaInterface } from "../../types/idea";
 
-export function getIdeasByOrganization(organization: string, project?: string) {
+export async function getIdeasByOrganization(
+  organization: string,
+  readAccessFilter: ReadAccessFilter,
+  project?: string
+) {
   const query: FilterQuery<IdeaDocument> = {
     organization,
   };
@@ -13,11 +18,22 @@ export function getIdeasByOrganization(organization: string, project?: string) {
     query.project = project;
   }
 
-  return IdeaModel.find(query);
+  const ideas = await IdeaModel.find(query);
+
+  return ideas.filter((idea) =>
+    hasReadAccess(readAccessFilter, [idea.project || ""])
+  );
 }
 
-export function getIdeasByQuery(query: FilterQuery<IdeaDocument>) {
-  return IdeaModel.find(query);
+export async function getIdeasByQuery(
+  query: FilterQuery<IdeaDocument>,
+  readAccessFilter: ReadAccessFilter
+) {
+  const ideas = await IdeaModel.find(query);
+
+  return ideas.filter((idea) =>
+    hasReadAccess(readAccessFilter, [idea.project || ""])
+  );
 }
 
 export async function createIdea(data: Partial<IdeaInterface>) {
@@ -39,26 +55,17 @@ export async function createIdea(data: Partial<IdeaInterface>) {
   return idea;
 }
 
-export function getIdeaById(id: string) {
-  return IdeaModel.findOne({
+export async function getIdeaById(
+  id: string,
+  readAccessFilter: ReadAccessFilter
+) {
+  const idea = await IdeaModel.findOne({
     id,
   });
-}
 
-export function getIdeasByIds(ids: string[]) {
-  return IdeaModel.find({
-    id: { $in: ids },
-  });
-}
-
-export function getIdeasByExperimentIds(ids: string[]) {
-  const tmp: { experimentId: string }[] = [];
-  ids.map((id) => {
-    tmp.push({ experimentId: id });
-  });
-  return IdeaModel.find({
-    evidence: { $in: tmp },
-  });
+  return idea && hasReadAccess(readAccessFilter, [idea.project || ""])
+    ? idea
+    : null;
 }
 
 export function deleteIdeaById(id: string) {

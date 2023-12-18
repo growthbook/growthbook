@@ -153,10 +153,13 @@ export async function getMetricUsage(
   if (estimates && estimates.length > 0) {
     await Promise.all(
       estimates.map(async (es) => {
-        const idea = await getIdeasByQuery({
-          organization: org.id,
-          "estimateParams.estimate": es.id,
-        });
+        const idea = await getIdeasByQuery(
+          {
+            organization: org.id,
+            "estimateParams.estimate": es.id,
+          },
+          readAccessFilter
+        );
         if (idea && idea[0]) {
           ideas.push(idea[0]);
         }

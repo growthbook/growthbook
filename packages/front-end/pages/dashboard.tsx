@@ -1,7 +1,6 @@
 import React from "react";
 import Head from "next/head";
 import { useExperiments } from "@/hooks/useExperiments";
-import { useUser } from "@/services/UserContext";
 import Dashboard from "../components/HomePage/Dashboard";
 import LoadingOverlay from "../components/LoadingOverlay";
 import { useDefinitions } from "../services/DefinitionsContext";
@@ -9,7 +8,6 @@ import ExperimentsGetStarted from "../components/HomePage/ExperimentsGetStarted"
 
 export default function Analysis(): React.ReactElement {
   const { ready, error: definitionsError, project } = useDefinitions();
-  const { permissions } = useUser();
 
   const {
     experiments,
@@ -40,19 +38,11 @@ export default function Analysis(): React.ReactElement {
       </Head>
 
       <div className="container pagecontents position-relative">
-        {permissions.check("readData", project) ? (
-          <>
-            {hasExperiments ? (
-              <Dashboard experiments={experiments} />
-            ) : (
-              <div className="getstarted">
-                <ExperimentsGetStarted />
-              </div>
-            )}
-          </>
+        {hasExperiments ? (
+          <Dashboard experiments={experiments} />
         ) : (
-          <div className="alert alert-danger">
-            You don&apos;t have permission to view this page.
+          <div className="getstarted">
+            <ExperimentsGetStarted />
           </div>
         )}
       </div>

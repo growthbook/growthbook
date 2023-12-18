@@ -24,13 +24,13 @@ export async function getIdeas(
   req: AuthRequest<any, any, { project?: string }>,
   res: Response
 ) {
-  const { org } = getOrgFromReq(req);
+  const { org, readAccessFilter } = getOrgFromReq(req);
   let project = "";
   if (typeof req.query.project === "string") {
     project = req.query.project;
   }
 
-  const ideas = await getIdeasByOrganization(org.id, project);
+  const ideas = await getIdeasByOrganization(org.id, readAccessFilter, project);
 
   res.status(200).json({
     status: 200,
@@ -45,12 +45,12 @@ export async function getEstimatedImpact(
   req.checkPermissions("createIdeas", "");
 
   const { metric, segment, ideaId } = req.body;
+  const { org, readAccessFilter } = getOrgFromReq(req);
 
-  const idea = await getIdeaById(ideaId || "");
+  const idea = await getIdeaById(ideaId || "", readAccessFilter);
 
   req.checkPermissions("runQueries", idea?.project || "");
 
-  const { org, readAccessFilter } = getOrgFromReq(req);
   const estimate = await getImpactEstimate(
     org.id,
     metric,
@@ -97,7 +97,7 @@ export async function getIdea(
   const { id } = req.params;
   const { org, readAccessFilter } = getOrgFromReq(req);
 
-  const idea = await getIdeaById(id);
+  const idea = await getIdeaById(id, readAccessFilter);
 
   if (!idea) {
     res.status(403).json({
@@ -160,9 +160,9 @@ export async function postIdea(
   res: Response
 ) {
   const { id } = req.params;
-  const idea = await getIdeaById(id);
+  const { org, readAccessFilter } = getOrgFromReq(req);
+  const idea = await getIdeaById(id, readAccessFilter);
   const data = req.body;
-  const { org } = getOrgFromReq(req);
 
   if (!idea) {
     res.status(403).json({
@@ -211,8 +211,8 @@ export async function deleteIdea(
   res: Response
 ) {
   const { id } = req.params;
-  const idea = await getIdeaById(id);
-  const { org } = getOrgFromReq(req);
+  const { org, readAccessFilter } = getOrgFromReq(req);
+  const idea = await getIdeaById(id, readAccessFilter);
 
   if (!idea) {
     res.status(403).json({
@@ -248,9 +248,8 @@ export async function postVote(
 ) {
   const { id } = req.params;
   const data = req.body;
-  const idea = await getIdeaById(id);
-
-  const { org, userId } = getOrgFromReq(req);
+  const { org, userId, readAccessFilter } = getOrgFromReq(req);
+  const idea = await getIdeaById(id, readAccessFilter);
 
   if (!idea) {
     res.status(403).json({
@@ -313,7 +312,7 @@ export async function getRecentIdeas(
   req: AuthRequest<unknown, { num: string }, { project?: string }>,
   res: Response
 ) {
-  const { org } = getOrgFromReq(req);
+  const { org, readAccessFilter } = getOrgFromReq(req);
   const { num } = req.params;
   let intNum = parseInt(num);
   if (intNum > 100) intNum = 100;
@@ -327,9 +326,7 @@ export async function getRecentIdeas(
     }
 
     // since deletes can update the dateUpdated, we want to give ourselves a bit of buffer.
-    const ideas = await getIdeasByQuery(query)
-      .sort({ dateUpdated: -1 })
-      .limit(intNum + 5);
+    const ideas = await getIdeasByQuery(query, readAccessFilter);
 
     const recentIdeas = ideas.sort(
       (a, b) => b.dateCreated.getTime() - a.dateCreated.getTime()

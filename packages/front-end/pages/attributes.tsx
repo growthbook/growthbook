@@ -10,13 +10,11 @@ import { useAttributeSchema } from "@/services/features";
 import { useUser } from "@/services/UserContext";
 import AttributeModal from "@/components/Features/AttributeModal";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
-import { useDefinitions } from "@/services/DefinitionsContext";
 
 const FeatureAttributesPage = (): React.ReactElement => {
   const permissions = usePermissions();
   const { apiCall } = useAuth();
   let attributeSchema = useAttributeSchema(true);
-  const { project } = useDefinitions();
 
   // null = modal closed, "" = new attribute, "my-attribute-name" = existing attribute
   const [modalData, setModalData] = useState<null | string>(null);
@@ -125,70 +123,64 @@ const FeatureAttributesPage = (): React.ReactElement => {
   return (
     <>
       <div className="contents container-fluid pagecontents">
-        {permissions.check("readData", project) ? (
-          <div className="mb-5">
-            <div className="row mb-3 align-items-center">
-              <div className="col">
-                <div className="d-flex">
-                  <h1>Targeting Attributes</h1>
-                  {permissions.manageTargetingAttributes && (
-                    <div className="ml-auto">
-                      <button
-                        className="btn btn-primary"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          setModalData("");
-                        }}
-                      >
-                        <GBAddCircle /> Add Attribute
-                      </button>
-                    </div>
-                  )}
-                </div>
-                <p className="text-gray">
-                  These attributes can be used when targeting feature flags and
-                  experiments. Attributes set here must also be passed in
-                  through the SDK.
-                </p>
-              </div>
-            </div>
-            <table className="table gbtable appbox table-hover">
-              <thead>
-                <tr>
-                  <th>Attribute</th>
-                  <th>Data Type</th>
-                  <th>
-                    Identifier{" "}
-                    <Tooltip body="Any attribute that uniquely identifies a user, account, device, or similar.">
-                      <FaQuestionCircle
-                        style={{ position: "relative", top: "-1px" }}
-                      />
-                    </Tooltip>
-                  </th>
-                  <th style={{ width: 30 }}></th>
-                </tr>
-              </thead>
-              <tbody>
-                {attributesForView?.length > 0 ? (
-                  <>{attributesForView.map((v, i) => drawRow(v, i))}</>
-                ) : (
-                  <>
-                    <tr>
-                      <td colSpan={3} className="text-center text-gray">
-                        <em>No attributes defined.</em>
-                      </td>
-                    </tr>
-                  </>
+        {/* {permissions.check("readData", project) ? ( */}
+        <div className="mb-5">
+          <div className="row mb-3 align-items-center">
+            <div className="col">
+              <div className="d-flex">
+                <h1>Targeting Attributes</h1>
+                {permissions.manageTargetingAttributes && (
+                  <div className="ml-auto">
+                    <button
+                      className="btn btn-primary"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        setModalData("");
+                      }}
+                    >
+                      <GBAddCircle /> Add Attribute
+                    </button>
+                  </div>
                 )}
-              </tbody>
-            </table>
+              </div>
+              <p className="text-gray">
+                These attributes can be used when targeting feature flags and
+                experiments. Attributes set here must also be passed in through
+                the SDK.
+              </p>
+            </div>
           </div>
-        ) : (
-          // Shouldn't happen, but adding as a protection.
-          <div className="alert alert-danger">
-            You don&apos;t have permission to view this page.
-          </div>
-        )}
+          <table className="table gbtable appbox table-hover">
+            <thead>
+              <tr>
+                <th>Attribute</th>
+                <th>Data Type</th>
+                <th>
+                  Identifier{" "}
+                  <Tooltip body="Any attribute that uniquely identifies a user, account, device, or similar.">
+                    <FaQuestionCircle
+                      style={{ position: "relative", top: "-1px" }}
+                    />
+                  </Tooltip>
+                </th>
+                <th style={{ width: 30 }}></th>
+              </tr>
+            </thead>
+            <tbody>
+              {attributesForView?.length > 0 ? (
+                <>{attributesForView.map((v, i) => drawRow(v, i))}</>
+              ) : (
+                <>
+                  <tr>
+                    <td colSpan={3} className="text-center text-gray">
+                      <em>No attributes defined.</em>
+                    </td>
+                  </tr>
+                </>
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
       {modalData !== null && (
         <AttributeModal

@@ -97,7 +97,7 @@ export const getSegmentUsage = async (
     organization: org.id,
     "estimateParams.segment": id,
   };
-  const ideas = await getIdeasByQuery(query);
+  const ideas = await getIdeasByQuery(query, readAccessFilter);
 
   // metricSchema
   const metrics = await getMetricsUsingSegment(id, org.id, readAccessFilter);
@@ -285,10 +285,13 @@ export const deleteSegment = async (
 
   // delete references:
   // ideas:
-  const ideas = await getIdeasByQuery({
-    organization: org.id,
-    "estimateParams.segment": id,
-  });
+  const ideas = await getIdeasByQuery(
+    {
+      organization: org.id,
+      "estimateParams.segment": id,
+    },
+    readAccessFilter
+  );
   if (ideas.length > 0) {
     await IdeaModel.updateMany(
       { organization: org.id, "estimateParams.segment": id },
