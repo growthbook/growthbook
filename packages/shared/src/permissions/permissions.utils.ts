@@ -55,32 +55,50 @@ export function getReadAccessFilter(userPermissions: UserPermissions) {
 }
 
 export function hasReadAccess(
-  projectAccess: ReadAccessFilter,
+  readAccessFilter: ReadAccessFilter,
   resourceProjects: string[]
 ): boolean {
-  if (projectAccess.projects.length === 0 || resourceProjects.length === 0) {
-    return projectAccess.globalReadAccess;
+  if (readAccessFilter.projects.length === 0 || resourceProjects.length === 0) {
+    return readAccessFilter.globalReadAccess;
   }
 
-  if (projectAccess.globalReadAccess) {
-    return resourceProjects.every((project) => {
-      const projectAccessIndex = projectAccess.projects.findIndex(
-        (projectAccess) => projectAccess.id === project
+  if (readAccessFilter.globalReadAccess) {
+    let userHasProjectSpecificAccessForEachResourceProject = true;
+
+    // Check if user has project specific access for each resource project
+    for (let i = 0; i < resourceProjects.length; i++) {
+      const projectAccessIndex = readAccessFilter.projects.findIndex(
+        (projectAccess) => projectAccess.id === resourceProjects[i]
       );
       if (projectAccessIndex === -1) {
-        return true;
+        userHasProjectSpecificAccessForEachResourceProject = false;
+        break;
       }
-      return projectAccess.projects[projectAccessIndex].readAccess || false;
-    });
+    }
+
+    // If user doesn't project specific access for each resource project, they should have access to this, given their global role gives them access
+    if (!userHasProjectSpecificAccessForEachResourceProject) {
+      return true;
+    } else {
+      // otherwise, if they do have project specific access for each resource project, only allow readaccess if they have read access for every project the resource is in.
+      return resourceProjects.every((project) => {
+        const projectAccessIndex = readAccessFilter.projects.findIndex(
+          (projectAccess) => projectAccess.id === project
+        );
+        return (
+          readAccessFilter.projects[projectAccessIndex].readAccess || false
+        );
+      });
+    }
   } else {
     return resourceProjects.some((project) => {
-      const projectAccessIndex = projectAccess.projects.findIndex(
+      const projectAccessIndex = readAccessFilter.projects.findIndex(
         (projectAccess) => projectAccess.id === project
       );
       if (projectAccessIndex === -1) {
         return false;
       }
-      return projectAccess.projects[projectAccessIndex].readAccess === true;
+      return readAccessFilter.projects[projectAccessIndex].readAccess === true;
     });
   }
 }
