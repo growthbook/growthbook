@@ -164,10 +164,8 @@ const DataSourcePage: FC = () => {
             {d.type.charAt(0).toUpperCase() + d.type.slice(1)}
           </span>{" "}
           <span className="badge badge-success">Connected</span>{" "}
-          {organization.settings?.defaultDataSource == d.id ? (
+          {organization.settings?.defaultDataSource == d.id && (
             <span className="badge badge-info">Default</span>
-          ) : (
-            <></>
           )}
         </div>
       </div>
