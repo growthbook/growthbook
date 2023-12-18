@@ -96,10 +96,10 @@ export default function HealthTab({
     if (!datasource || !exposureQuery) {
       return (
         <div className="alert alert-info mt-3 d-flex">
-          We cannot set up your health tab because either your datasource or
-          experiment assignment query is missing. Ensure in your experiment
-          analysis settings on the results tab that you have selected an
-          Experiment Assignment Table.
+          The health tab only works when your experiment has an Exposure
+          Assignment Table. On the Results tab, click the edit icon next to
+          Analysis Settings and ensure you have selected the correct Exposure
+          Assignment Table.
         </div>
       );
     }
