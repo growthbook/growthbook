@@ -161,7 +161,12 @@ const DataSourcePage: FC = () => {
         </div>
         <div className="col-auto">
           <span className="badge badge-secondary">{d.type}</span>{" "}
-          <span className="badge badge-success">connected</span>
+          <span className="badge badge-success">connected</span>{" "}
+          {organization.settings?.defaultDataSource == d.id ? (
+            <span className="badge badge-info">default</span>
+          ) : (
+            <></>
+          )}
         </div>
       </div>
       <div className="row mt-1 mb-3 align-items-center">
