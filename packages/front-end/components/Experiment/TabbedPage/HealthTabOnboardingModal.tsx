@@ -110,10 +110,13 @@ export const HealthTabOnboardingModal: FC<HealthTabOnboardingModalProps> = ({
           specifiedSlices: r.dimensionSlices.map((dv) => dv.name),
         })),
       };
-      await apiCall(`/datasource/${dataSource.id}/${exposureQuery.id}`, {
-        method: "PUT",
-        body: JSON.stringify({ updates }),
-      });
+      await apiCall(
+        `/datasource/${dataSource.id}/exposureQuery/${exposureQuery.id}`,
+        {
+          method: "PUT",
+          body: JSON.stringify({ updates }),
+        }
+      );
     }
     if (setupChoice === "refresh") {
       setLoading(true);
