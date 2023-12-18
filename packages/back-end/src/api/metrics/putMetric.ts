@@ -12,8 +12,7 @@ export const putMetric = createApiRequestHandler(putMetricValidator)(
     const metric = await getMetricById(
       req.params.id,
       req.organization.id,
-      req.readAccessFilter,
-      undefined
+      req.readAccessFilter
     );
 
     if (!metric) {

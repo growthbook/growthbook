@@ -27,12 +27,6 @@ export interface Condition {
   operator: Operator;
   value: string;
 }
-
-export type FilterableResourceInterface = {
-  id: string;
-  project?: string;
-  projects?: string[];
-};
 export interface MetricInterface {
   id: string;
   organization: string;

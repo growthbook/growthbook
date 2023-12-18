@@ -654,21 +654,19 @@ export async function getOrganization(req: AuthRequest, res: Response) {
 
   const roles = getRoles(org);
 
-  // Remove noaccess role if org doesn't have the feature
-  const commercialFeatures = [...accountFeatures[getAccountPlan(org)]];
-  if (!commercialFeatures.includes("no_access_role")) {
-    roles.filter((r) => r.id !== "noaccess");
-  }
+  const commercialFeatures = res.locals.licenseError
+    ? []
+    : [...accountFeatures[getAccountPlan(org)]];
 
   return res.status(200).json({
     status: 200,
     apiKeys,
     enterpriseSSO,
     accountPlan: getAccountPlan(org),
-    commercialFeatures: res.locals.licenseError
-      ? []
-      : [...accountFeatures[getAccountPlan(org)]],
-    roles,
+    commercialFeatures,
+    roles: !commercialFeatures.includes("no_access_role")
+      ? roles.filter((r) => r.id !== "noaccess")
+      : roles,
     members: expandedMembers,
     currentUserPermissions,
     teams: teamsWithMembers,
