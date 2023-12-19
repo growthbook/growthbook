@@ -1,4 +1,3 @@
-import fs from "fs";
 import { NextFunction, Response } from "express";
 import { createAppAuth, createOAuthUserAuth } from "@octokit/auth-app";
 import { getOrgFromReq } from "../../services/organizations";
@@ -10,14 +9,9 @@ import {
 } from "../../models/GithubIntegration";
 import { createGithubUserToken } from "../../models/GithubUserTokenModel";
 
-const githubPrivateKey = fs.readFileSync(
-  process.env.GITHUB_PRIVATE_KEY_PATH || "",
-  "utf8"
-);
-
 const githubAuth = createAppAuth({
   appId: process.env.GITHUB_APP_ID || "",
-  privateKey: githubPrivateKey,
+  privateKey: process.env.GITHUB_PRIVATE_KEY || "",
   clientId: process.env.GITHUB_CLIENT_ID || "",
   clientSecret: process.env.GITHUB_CLIENT_SECRET || "",
 });
