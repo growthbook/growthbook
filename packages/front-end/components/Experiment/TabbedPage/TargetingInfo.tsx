@@ -11,6 +11,8 @@ export interface Props {
   phaseIndex?: number | null;
   experiment: ExperimentInterfaceStringDates;
   editTargeting?: (() => void) | null;
+  noHeader?: boolean;
+  targetingFieldsOnly?: boolean;
 }
 
 const percentFormatter = new Intl.NumberFormat(undefined, {
@@ -22,6 +24,8 @@ export default function TargetingInfo({
   phaseIndex = null,
   experiment,
   editTargeting,
+  noHeader,
+  targetingFieldsOnly,
 }: Props) {
   const phase = experiment.phases[phaseIndex ?? experiment.phases.length - 1];
   const hasNamespace = phase?.namespace && phase.namespace.enabled;
@@ -31,48 +35,55 @@ export default function TargetingInfo({
 
   return (
     <div>
-      <HeaderWithEdit
-        edit={editTargeting || undefined}
-        className="h3"
-        containerClassName="mb-3"
-      >
-        Targeting
-      </HeaderWithEdit>
+      {!noHeader && (
+        <HeaderWithEdit
+          edit={editTargeting || undefined}
+          className="h3"
+          containerClassName="mb-3"
+        >
+          Targeting
+        </HeaderWithEdit>
+      )}
       {phase ? (
         <div className="row">
           <div className="col">
-            <div className="mb-3">
-              <div className="mb-1">
-                <strong>Experiment Key</strong>{" "}
-                <Tooltip body="This is hashed together with the assignment attribute (below) to deterministically assign users to a variation." />
-              </div>
-              <div>{experiment.trackingKey}</div>
-            </div>
-            <div className="mb-3">
-              <div className="mb-1">
-                <strong>
-                  Assignment Attribute{experiment.fallbackAttribute ? "s" : ""}
-                </strong>{" "}
-                <Tooltip body="This user attribute will be used to assign variations. This is typically either a logged-in user id or an anonymous id stored in a long-lived cookie.">
-                  <MdInfoOutline className="text-info" />
-                </Tooltip>
-              </div>
-              <div>
-                {experiment.hashAttribute || "id"}
-                {experiment.fallbackAttribute ? (
-                  <>, {experiment.fallbackAttribute} </>
-                ) : (
-                  " "
-                )}
-                {
-                  <HashVersionTooltip>
-                    <small className="text-muted ml-1">
-                      (V{experiment.hashVersion || 2} hashing)
-                    </small>
-                  </HashVersionTooltip>
-                }
-              </div>
-            </div>
+            {!targetingFieldsOnly && (
+              <>
+                <div className="mb-3">
+                  <div className="mb-1">
+                    <strong>Experiment Key</strong>{" "}
+                    <Tooltip body="This is hashed together with the assignment attribute (below) to deterministically assign users to a variation." />
+                  </div>
+                  <div>{experiment.trackingKey}</div>
+                </div>
+                <div className="mb-3">
+                  <div className="mb-1">
+                    <strong>
+                      Assignment Attribute
+                      {experiment.fallbackAttribute ? "s" : ""}
+                    </strong>{" "}
+                    <Tooltip body="This user attribute will be used to assign variations. This is typically either a logged-in user id or an anonymous id stored in a long-lived cookie.">
+                      <MdInfoOutline className="text-info" />
+                    </Tooltip>
+                  </div>
+                  <div>
+                    {experiment.hashAttribute || "id"}
+                    {experiment.fallbackAttribute ? (
+                      <>, {experiment.fallbackAttribute} </>
+                    ) : (
+                      " "
+                    )}
+                    {
+                      <HashVersionTooltip>
+                        <small className="text-muted ml-1">
+                          (V{experiment.hashVersion || 2} hashing)
+                        </small>
+                      </HashVersionTooltip>
+                    }
+                  </div>
+                </div>
+              </>
+            )}
             <div className="mb-3">
               <div className="mb-1">
                 <strong>Saved Group Targeting</strong>

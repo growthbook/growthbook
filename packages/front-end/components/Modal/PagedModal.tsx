@@ -30,6 +30,8 @@ type Props = {
   step: number;
   setStep: (step: number) => void;
   secondaryCTA?: ReactElement;
+  className?: string;
+  bodyClassName?: string;
 };
 
 const PagedModal: FC<Props> = (props) => {
@@ -47,6 +49,8 @@ const PagedModal: FC<Props> = (props) => {
     secondaryCTA,
     size,
     // size = "md",
+    className,
+    bodyClassName,
     ...passThrough
   } = props;
 
@@ -104,6 +108,8 @@ const PagedModal: FC<Props> = (props) => {
       size={size}
       disabledMessage={disabledMessage}
       open={true}
+      className={className}
+      bodyClassName={bodyClassName}
       {...passThrough}
       submit={async () => {
         await validateSteps(nextStep);

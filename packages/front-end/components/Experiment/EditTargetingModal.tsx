@@ -1,4 +1,4 @@
-import { useForm } from "react-hook-form";
+import { useForm, UseFormReturn } from "react-hook-form";
 import {
   ExperimentInterfaceStringDates,
   ExperimentPhaseStringDates,
@@ -7,11 +7,16 @@ import {
 import { FaInfoCircle } from "react-icons/fa";
 import omit from "lodash/omit";
 import isEqual from "lodash/isEqual";
+import React, { useEffect, useState } from "react";
+import { BsToggles } from "react-icons/bs";
 import { useAuth } from "@/services/auth";
 import { getEqualWeights } from "@/services/utils";
 import { useAttributeSchema } from "@/services/features";
 import ReleaseChangesForm from "@/components/Experiment/ReleaseChangesForm";
 import useOrgSettings from "@/hooks/useOrgSettings";
+import PagedModal from "@/components/Modal/PagedModal";
+import Page from "@/components/Modal/Page";
+import TargetingInfo from "@/components/Experiment/TabbedPage/TargetingInfo";
 import Field from "../Forms/Field";
 import Modal from "../Modal";
 import FeatureVariationsInput from "../Features/FeatureVariationsInput";
@@ -22,6 +27,14 @@ import SavedGroupTargetingField, {
   validateSavedGroupTargeting,
 } from "../Features/SavedGroupTargetingField";
 import HashVersionSelector from "./HashVersionSelector";
+
+type ChangeType =
+  | "targeting"
+  | "traffic"
+  | "weights"
+  | "namespace"
+  | "advanced"
+  | "phase";
 
 export interface Props {
   close: () => void;
@@ -36,8 +49,10 @@ export default function EditTargetingModal({
   mutate,
   safeToEdit,
 }: Props) {
-  const settings = useOrgSettings();
-  const orgStickyBucketing = settings.useStickyBucketing;
+  const { apiCall } = useAuth();
+
+  const [step, setStep] = useState(0);
+  const [changeType, setChangeType] = useState<ChangeType>("targeting");
 
   const lastPhase: ExperimentPhaseStringDates | undefined =
     experiment.phases[experiment.phases.length - 1];
@@ -69,11 +84,6 @@ export default function EditTargetingModal({
   const form = useForm<ExperimentTargetingData>({
     defaultValues,
   });
-  const { apiCall } = useAuth();
-
-  const attributeSchema = useAttributeSchema();
-  const hasHashAttributes =
-    attributeSchema.filter((x) => x.hashAttribute).length > 0;
 
   const _formValues = omit(form.getValues(), [
     "newPhase",
@@ -89,120 +99,236 @@ export default function EditTargetingModal({
   ]);
   const hasChanges = !isEqual(_formValues, _defaultValues);
 
-  return (
-    <Modal
-      open={true}
-      close={close}
-      header={`Edit Targeting`}
-      submit={form.handleSubmit(async (value) => {
-        validateSavedGroupTargeting(value.savedGroups);
+  useEffect(() => {
+    if (changeType !== "advanced") {
+      form.reset();
+    }
+  }, [changeType, form]);
 
-        await apiCall(`/experiment/${experiment.id}/targeting`, {
-          method: "POST",
-          body: JSON.stringify(value),
-        });
-        mutate();
-      })}
-      cta={
-        hasChanges ? (safeToEdit ? "Save" : "Save and Publish") : "No changes"
-      }
-      ctaEnabled={hasChanges}
+  const onSubmit = form.handleSubmit(async (value) => {
+    validateSavedGroupTargeting(value.savedGroups);
+
+    await apiCall(`/experiment/${experiment.id}/targeting`, {
+      method: "POST",
+      body: JSON.stringify(value),
+    });
+    mutate();
+  });
+
+  if (safeToEdit) {
+    return (
+      <Modal
+        open={true}
+        close={close}
+        header={`Edit Targeting`}
+        submit={onSubmit}
+        cta="Save"
+        size="lg"
+      >
+        <TargetingForm experiment={experiment} form={form} safeToEdit={true} />
+      </Modal>
+    );
+  }
+
+  return (
+    <PagedModal
+      close={close}
+      header="Make Experiment Changes"
+      submit={onSubmit}
+      cta={hasChanges ? "Publish changes" : "No changes"}
       size="lg"
-      bodyClassName="p-0"
+      step={step}
+      setStep={setStep}
     >
-      <div className="px-4 pt-4">
-        {safeToEdit ? (
-          <>
-            <Field
-              label="Tracking Key"
-              labelClassName="font-weight-bold"
-              {...form.register("trackingKey")}
-              helpText="Unique identifier for this experiment, used to track impressions and analyze results"
-            />
-            <div className="d-flex" style={{ gap: "2rem" }}>
-              <SelectField
-                containerClassName="flex-1"
-                label="Assign variation based on attribute"
-                labelClassName="font-weight-bold"
-                options={attributeSchema
-                  .filter((s) => !hasHashAttributes || s.hashAttribute)
-                  .map((s) => ({ label: s.property, value: s.property }))}
-                sort={false}
-                value={form.watch("hashAttribute")}
-                onChange={(v) => {
-                  form.setValue("hashAttribute", v);
-                }}
-                helpText={
-                  "Will be hashed together with the Tracking Key to determine which variation to assign"
-                }
-              />
-              <SelectField
-                containerClassName="flex-1"
-                label="Fallback attribute"
-                labelClassName="font-weight-bold"
-                options={[
-                  { label: "none", value: "" },
-                  ...attributeSchema
-                    .filter((s) => !hasHashAttributes || s.hashAttribute)
-                    .map((s) => ({ label: s.property, value: s.property })),
-                ]}
-                formatOptionLabel={({ value, label }) => {
-                  if (!value) {
-                    return <em className="text-muted">{label}</em>;
-                  }
-                  return label;
-                }}
-                sort={false}
-                value={
-                  orgStickyBucketing
-                    ? form.watch("fallbackAttribute") || ""
-                    : ""
-                }
-                onChange={(v) => {
-                  form.setValue("fallbackAttribute", v);
-                }}
-                helpText={
+      <Page display="Type of Changes">
+        <div className="p-3">
+          <SelectField
+            label="What changes do you want to make?"
+            value={changeType}
+            options={[
+              {
+                label: "Targeting & Traffic",
+                options: [
+                  { label: "Saved Groups & Attributes", value: "targeting" },
+                  { label: "Traffic Exposure", value: "traffic" },
+                  { label: "Variation Weights", value: "weights" },
+                  { label: "Namespace", value: "namespace" },
+                  { label: "Advanced", value: "advanced" },
+                ],
+              },
+              {
+                label: "Phase",
+                options: [{ label: "Start a new phase...", value: "phase" }],
+              },
+            ]}
+            onChange={(v) => setChangeType(v as ChangeType)}
+            sort={false}
+            isSearchable={false}
+            formatOptionLabel={({ value, label }) => {
+              if (value === "advanced") {
+                return (
                   <>
-                    <div>
-                      If the user&apos;s assignment attribute is not available
-                      the fallback attribute may be used instead.
-                    </div>
-                    {!orgStickyBucketing && (
-                      <div className="text-warning-orange mt-1">
-                        <FaInfoCircle /> Sticky bucketing is currently disabled
-                        for your organization.
-                      </div>
-                    )}
+                    <span className="ml-2 font-italic">
+                      <BsToggles
+                        className="position-relative"
+                        style={{ top: -1 }}
+                      />{" "}
+                      {label}
+                    </span>
+                    <span className="ml-2 text-muted">
+                      &mdash; Make multiple targeting changes at the same time
+                    </span>
                   </>
-                }
-                disabled={!orgStickyBucketing}
+                );
+              }
+              return <span className="ml-2">{label}</span>;
+            }}
+          />
+
+          <div className="mt-4">
+            <label>Current targeting</label>
+            <div className="appbox bg-light px-3 pt-3 pb-1 mb-0">
+              <TargetingInfo
+                experiment={experiment}
+                noHeader={true}
+                targetingFieldsOnly={true}
               />
             </div>
-            <HashVersionSelector
-              value={form.watch("hashVersion")}
-              onChange={(v) => form.setValue("hashVersion", v)}
-            />
-          </>
-        ) : (
-          <div className="alert alert-warning">
-            <div>
-              <strong>
-                Warning: Experiment is still{" "}
-                {experiment.status === "running" ? "running" : "live"}
-              </strong>
-            </div>
-            Changes you make here will apply to all linked Feature Flags and
-            Visual Editor changes immediately upon saving.
           </div>
-        )}
-        <SavedGroupTargetingField
-          value={form.watch("savedGroups") || []}
-          setValue={(v) => form.setValue("savedGroups", v)}
+        </div>
+      </Page>
+
+      <Page display="Edit Targeting">
+        <TargetingForm
+          experiment={experiment}
+          form={form}
+          safeToEdit={false}
+          changeType={changeType}
         />
-        <ConditionInput
-          defaultValue={form.watch("condition")}
-          onChange={(condition) => form.setValue("condition", condition)}
-        />
+      </Page>
+
+      <Page display="Deploy Changes">
+        <ReleaseChangesForm experiment={experiment} form={form} />
+      </Page>
+    </PagedModal>
+  );
+}
+
+function TargetingForm({
+  experiment,
+  form,
+  safeToEdit = false,
+  changeType = "advanced",
+}: {
+  experiment: ExperimentInterfaceStringDates;
+  form: UseFormReturn<ExperimentTargetingData>;
+  safeToEdit?: boolean;
+  changeType?: ChangeType;
+}) {
+  const attributeSchema = useAttributeSchema();
+  const hasHashAttributes =
+    attributeSchema.filter((x) => x.hashAttribute).length > 0;
+
+  const settings = useOrgSettings();
+  const orgStickyBucketing = settings.useStickyBucketing;
+
+  return (
+    <div className="px-2 pt-2">
+      {safeToEdit ? (
+        <>
+          <Field
+            label="Tracking Key"
+            labelClassName="font-weight-bold"
+            {...form.register("trackingKey")}
+            helpText="Unique identifier for this experiment, used to track impressions and analyze results"
+          />
+          <div className="d-flex" style={{ gap: "2rem" }}>
+            <SelectField
+              containerClassName="flex-1"
+              label="Assign variation based on attribute"
+              labelClassName="font-weight-bold"
+              options={attributeSchema
+                .filter((s) => !hasHashAttributes || s.hashAttribute)
+                .map((s) => ({ label: s.property, value: s.property }))}
+              sort={false}
+              value={form.watch("hashAttribute")}
+              onChange={(v) => {
+                form.setValue("hashAttribute", v);
+              }}
+              helpText={
+                "Will be hashed together with the Tracking Key to determine which variation to assign"
+              }
+            />
+            <SelectField
+              containerClassName="flex-1"
+              label="Fallback attribute"
+              labelClassName="font-weight-bold"
+              options={[
+                { label: "none", value: "" },
+                ...attributeSchema
+                  .filter((s) => !hasHashAttributes || s.hashAttribute)
+                  .map((s) => ({ label: s.property, value: s.property })),
+              ]}
+              formatOptionLabel={({ value, label }) => {
+                if (!value) {
+                  return <em className="text-muted">{label}</em>;
+                }
+                return label;
+              }}
+              sort={false}
+              value={
+                orgStickyBucketing ? form.watch("fallbackAttribute") || "" : ""
+              }
+              onChange={(v) => {
+                form.setValue("fallbackAttribute", v);
+              }}
+              helpText={
+                <>
+                  <div>
+                    If the user&apos;s assignment attribute is not available the
+                    fallback attribute may be used instead.
+                  </div>
+                  {!orgStickyBucketing && (
+                    <div className="text-warning-orange mt-1">
+                      <FaInfoCircle /> Sticky bucketing is currently disabled
+                      for your organization.
+                    </div>
+                  )}
+                </>
+              }
+              disabled={!orgStickyBucketing}
+            />
+          </div>
+          <HashVersionSelector
+            value={form.watch("hashVersion")}
+            onChange={(v) => form.setValue("hashVersion", v)}
+          />
+        </>
+      ) : (
+        <div className="alert alert-warning">
+          <div>
+            <strong>
+              Warning: Experiment is still{" "}
+              {experiment.status === "running" ? "running" : "live"}
+            </strong>
+          </div>
+          Changes you make here will apply to all linked Feature Flags and
+          Visual Editor changes immediately upon saving.
+        </div>
+      )}
+      {["targeting", "advanced"].includes(changeType) && (
+        <>
+          <SavedGroupTargetingField
+            value={form.watch("savedGroups") || []}
+            setValue={(v) => form.setValue("savedGroups", v)}
+          />
+          <ConditionInput
+            defaultValue={form.watch("condition")}
+            onChange={(condition) => form.setValue("condition", condition)}
+          />
+        </>
+      )}
+      {["traffic", "weights", "advanced"].includes(changeType) && (
         <FeatureVariationsInput
           valueType={"string"}
           coverage={form.watch("coverage")}
@@ -222,17 +348,17 @@ export default function EditTargetingModal({
             }) || []
           }
           showPreview={false}
+          hideCoverage={changeType === "weights"}
+          hideVariations={changeType === "traffic"}
         />
+      )}
+      {["namespace", "advanced"].includes(changeType) && (
         <NamespaceSelector
           form={form}
           featureId={experiment.trackingKey}
           trackingKey={experiment.trackingKey}
         />
-      </div>
-
-      {!safeToEdit && lastPhase && hasChanges && (
-        <ReleaseChangesForm experiment={experiment} form={form} />
       )}
-    </Modal>
+    </div>
   );
 }
