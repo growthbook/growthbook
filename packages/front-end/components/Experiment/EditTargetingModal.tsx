@@ -150,7 +150,7 @@ export default function EditTargetingModal({
                 label: "Targeting & Traffic",
                 options: [
                   { label: "Saved Groups & Attributes", value: "targeting" },
-                  { label: "Traffic Exposure", value: "traffic" },
+                  { label: "Traffic Percent", value: "traffic" },
                   { label: "Variation Weights", value: "weights" },
                   { label: "Namespace", value: "namespace" },
                   { label: "Advanced", value: "advanced" },
@@ -198,14 +198,16 @@ export default function EditTargetingModal({
         </div>
       </Page>
 
-      <Page display="Edit Targeting">
-        <TargetingForm
-          experiment={experiment}
-          form={form}
-          safeToEdit={false}
-          changeType={changeType}
-        />
-      </Page>
+      {changeType !== "phase" && (
+        <Page display="Edit Targeting">
+          <TargetingForm
+            experiment={experiment}
+            form={form}
+            safeToEdit={false}
+            changeType={changeType}
+          />
+        </Page>
+      )}
 
       <Page display="Deploy Changes">
         <ReleaseChangesForm experiment={experiment} form={form} />
@@ -350,6 +352,13 @@ function TargetingForm({
           showPreview={false}
           hideCoverage={changeType === "weights"}
           hideVariations={changeType === "traffic"}
+          label={
+            changeType === "traffic"
+              ? "Traffic Percentage"
+              : changeType === "weights"
+              ? "Variation Weights"
+              : "Traffic Percentage & Variation Weights"
+          }
         />
       )}
       {["namespace", "advanced"].includes(changeType) && (

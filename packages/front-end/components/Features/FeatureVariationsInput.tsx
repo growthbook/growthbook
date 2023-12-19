@@ -34,6 +34,7 @@ export interface Props {
   showPreview?: boolean;
   hideCoverage?: boolean;
   hideVariations?: boolean;
+  label?: string;
 }
 
 export default function FeatureVariationsInput({
@@ -49,6 +50,7 @@ export default function FeatureVariationsInput({
   showPreview = true,
   hideCoverage = false,
   hideVariations = false,
+  label,
 }: Props) {
   const weights = variations.map((v) => v.weight);
   const isEqualWeights = weights.every((w) => w === weights[0]);
@@ -62,7 +64,9 @@ export default function FeatureVariationsInput({
 
   return (
     <div className="form-group">
-      {setVariations ? (
+      {label ? (
+        <label>{label}</label>
+      ) : setVariations ? (
         <label>Exposure, Variations and Weights</label>
       ) : hideCoverage ? (
         <label>Traffic Split</label>
