@@ -11,6 +11,7 @@ type GithubUserTokenDocument = mongoose.Document & GithubUserTokenInterface;
 
 const githubUserTokenSchema = new mongoose.Schema({
   id: String,
+  organization: String,
   token: String,
   expiresAt: Date,
   refreshToken: String,

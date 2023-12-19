@@ -1,5 +1,6 @@
 export interface GithubUserTokenInterface {
   id: string;
+  organization: string;
   token: string;
   expiresAt: Date;
   refreshToken: string;

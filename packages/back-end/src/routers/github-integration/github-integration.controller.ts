@@ -57,14 +57,15 @@ export const postGithubIntegration = async (
     refreshTokenExpiresAt: string;
   } = await userAuth();
 
+  const { org, userId } = getOrgFromReq(req);
+
   const createdToken = await createGithubUserToken({
     token: authentication.token,
+    organization: org.id,
     refreshToken: authentication.refreshToken,
     expiresAt: new Date(authentication.expiresAt),
     refreshTokenExpiresAt: new Date(authentication.refreshTokenExpiresAt),
   });
-
-  const { org, userId } = getOrgFromReq(req);
 
   const created = await createGithubIntegration({
     organization: org.id,
