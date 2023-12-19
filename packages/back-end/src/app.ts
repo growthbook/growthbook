@@ -105,6 +105,7 @@ import { demoDatasourceProjectRouter } from "./routers/demo-datasource-project/d
 import { environmentRouter } from "./routers/environment/environment.router";
 import { teamRouter } from "./routers/teams/teams.router";
 import { staticFilesRouter } from "./routers/upload/static-files.router";
+import { githubIntegrationRouter } from "./routers/github-integration/github-integration.router";
 
 const app = express();
 
@@ -619,6 +620,7 @@ app.use(eventWebHooksRouter);
 
 // Slack integration
 app.use("/integrations/slack", slackIntegrationRouter);
+app.use("/integrations/github", githubIntegrationRouter);
 
 // Data Export
 app.use("/data-export", dataExportRouter);
