@@ -356,12 +356,14 @@ async function logFeatureUpdatedEvent(
   organization: OrganizationInterface,
   user: EventAuditUser,
   previous: FeatureInterface,
-  current: FeatureInterface
+  current: FeatureInterface,
+  readAccessFilter: ReadAccessFilter
 ): Promise<string | undefined> {
   const groupMap = await getSavedGroupMap(organization);
   const experimentMap = await getExperimentMapForFeature(
     organization.id,
-    current.id
+    current.id,
+    readAccessFilter
   );
 
   const payload: FeatureUpdatedNotificationEvent = {
@@ -400,12 +402,14 @@ async function logFeatureUpdatedEvent(
 async function logFeatureCreatedEvent(
   organization: OrganizationInterface,
   user: EventAuditUser,
-  feature: FeatureInterface
+  feature: FeatureInterface,
+  readAccessFilter: ReadAccessFilter
 ): Promise<string | undefined> {
   const groupMap = await getSavedGroupMap(organization);
   const experimentMap = await getExperimentMapForFeature(
     organization.id,
-    feature.id
+    feature.id,
+    readAccessFilter
   );
 
   const payload: FeatureCreatedNotificationEvent = {
@@ -437,12 +441,14 @@ async function logFeatureCreatedEvent(
 async function logFeatureDeletedEvent(
   organization: OrganizationInterface,
   user: EventAuditUser,
-  previousFeature: FeatureInterface
+  previousFeature: FeatureInterface,
+  readAccessFilter: ReadAccessFilter
 ): Promise<string | undefined> {
   const groupMap = await getSavedGroupMap(organization);
   const experimentMap = await getExperimentMapForFeature(
     organization.id,
-    previousFeature.id
+    previousFeature.id,
+    readAccessFilter
   );
 
   const payload: FeatureDeletedNotificationEvent = {
@@ -482,7 +488,7 @@ async function onFeatureCreate(
     readAccessFilter
   );
 
-  await logFeatureCreatedEvent(organization, user, feature);
+  await logFeatureCreatedEvent(organization, user, feature, readAccessFilter);
 }
 
 async function onFeatureDelete(
@@ -501,7 +507,7 @@ async function onFeatureDelete(
     readAccessFilter
   );
 
-  await logFeatureDeletedEvent(organization, user, feature);
+  await logFeatureDeletedEvent(organization, user, feature, readAccessFilter);
 }
 
 export async function onFeatureUpdate(
@@ -526,7 +532,13 @@ export async function onFeatureUpdate(
   );
 
   // New event-based webhooks
-  await logFeatureUpdatedEvent(organization, user, feature, updatedFeature);
+  await logFeatureUpdatedEvent(
+    organization,
+    user,
+    feature,
+    updatedFeature,
+    readAccessFilter
+  );
 }
 
 export async function updateFeature(

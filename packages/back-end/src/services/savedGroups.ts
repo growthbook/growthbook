@@ -24,7 +24,7 @@ export async function savedGroupUpdated(
     );
 
   // Get all experiments using this saved group
-  const experiments = await getAllPayloadExperiments(org.id);
+  const experiments = await getAllPayloadExperiments(org.id, readAccessFilter);
   const savedGroupExperiments = Array.from(experiments.values()).filter(
     (exp) => {
       const phase = exp.phases[exp.phases.length - 1];

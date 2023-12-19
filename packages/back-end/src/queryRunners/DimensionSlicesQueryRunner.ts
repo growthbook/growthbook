@@ -91,7 +91,8 @@ export class DimensionSlicesQueryRunner extends QueryRunner<
   async getLatestModel(): Promise<DimensionSlicesInterface> {
     const model = await getDimensionSlicesById(
       this.model.organization,
-      this.model.id
+      this.model.id,
+      { globalReadAccess: true, projects: [] }
     );
     if (!model) throw new Error("Could not find automatic dimension model");
     return model;

@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 import uniqid from "uniqid";
 import { omit } from "lodash";
+import { ReadAccessFilter, hasReadAccess } from "shared/permissions";
 import { DimensionSlicesInterface } from "../../types/dimension";
 import { queriesSchema } from "./QueryModel";
 
@@ -67,17 +68,23 @@ export async function updateDimensionSlices(
 }
 export async function getDimensionSlicesById(
   organization: string,
-  id: string
+  id: string,
+  readAccessFilter: ReadAccessFilter
 ): Promise<DimensionSlicesInterface | null> {
   const doc = await DimensionSlicesModel.findOne({ organization, id });
 
-  return doc ? toInterface(doc) : null;
+  if (!doc) return null;
+
+  const dimensionSlice = toInterface(doc);
+
+  return hasReadAccess(readAccessFilter, []) ? dimensionSlice : null;
 }
 
 export async function getLatestDimensionSlices(
   organization: string,
   datasource: string,
-  exposureQueryId: string
+  exposureQueryId: string,
+  readAccessFilter: ReadAccessFilter
 ): Promise<DimensionSlicesInterface | null> {
   const doc = await DimensionSlicesModel.find(
     { organization, datasource, exposureQueryId },
@@ -88,7 +95,9 @@ export async function getLatestDimensionSlices(
     }
   ).exec();
   if (doc[0]) {
-    return toInterface(doc[0]);
+    const dimensionSlice = toInterface(doc[0]);
+
+    return hasReadAccess(readAccessFilter, []) ? dimensionSlice : null;
   }
   return null;
 }

@@ -235,7 +235,8 @@ export async function refreshSDKPayloadCache(
   }
 
   experimentMap =
-    experimentMap || (await getAllPayloadExperiments(organization.id));
+    experimentMap ||
+    (await getAllPayloadExperiments(organization.id, readAccessFilter));
   const groupMap = await getSavedGroupMap(organization);
   allFeatures =
     allFeatures || (await getAllFeatures(organization.id, readAccessFilter));
@@ -524,7 +525,10 @@ export async function getFeatureDefinitions({
   // Generate the feature definitions
   const features = await getAllFeatures(organization, readAccessFilter);
   const groupMap = await getSavedGroupMap(org);
-  const experimentMap = await getAllPayloadExperiments(organization);
+  const experimentMap = await getAllPayloadExperiments(
+    organization,
+    readAccessFilter
+  );
 
   const featureDefinitions = generatePayload({
     features,

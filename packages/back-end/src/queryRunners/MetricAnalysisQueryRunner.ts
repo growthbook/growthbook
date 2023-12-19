@@ -75,7 +75,7 @@ export class MetricAnalysisQueryRunner extends QueryRunner<
     const model = await getMetricById(
       this.model.id,
       this.model.organization,
-      { globalReadAccess: true, projects: [] }, //TODO: Does a user initiate this job or does the system? If the user, we need to pass in the user's readAccessFilter;
+      { globalReadAccess: true, projects: [] },
       true
     );
     if (!model) throw new Error("Could not find metric");
@@ -103,7 +103,7 @@ export class MetricAnalysisQueryRunner extends QueryRunner<
     await updateMetric(this.model.id, updates, this.model.organization, {
       globalReadAccess: true,
       projects: [],
-    }); //TODO: Does a user initiate this job or does the system? If the user, we need to pass in the user's readAccessFilter;
+    });
 
     return {
       ...this.model,

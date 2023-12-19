@@ -19,7 +19,8 @@ export const getFeature = createApiRequestHandler(getFeatureValidator)(
     const groupMap = await getSavedGroupMap(req.organization);
     const experimentMap = await getExperimentMapForFeature(
       req.organization.id,
-      feature.id
+      feature.id,
+      req.readAccessFilter
     );
     return {
       feature: getApiFeatureObj({

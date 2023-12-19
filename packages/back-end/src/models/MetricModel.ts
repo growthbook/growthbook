@@ -233,13 +233,9 @@ export async function getMetricsByOrganization(
     metrics = docs.map(toInterface);
   }
 
-  if (readAccessFilter) {
-    return metrics.filter((m) => {
-      return hasReadAccess(readAccessFilter, m.projects || []);
-    });
-  }
-
-  return metrics;
+  return metrics.filter((m) =>
+    hasReadAccess(readAccessFilter, m.projects || [])
+  );
 }
 
 export async function getMetricsByDatasource(

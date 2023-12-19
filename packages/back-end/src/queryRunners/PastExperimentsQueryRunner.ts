@@ -132,7 +132,7 @@ export class PastExperimentsQueryRunner extends QueryRunner<
     const model = await getPastExperimentsById(
       this.model.organization,
       this.model.id,
-      { globalReadAccess: true, projects: [] } //TODO: Does a user initiate this job or does the system? If the user, we need to pass in the user's readAccessFilter
+      { globalReadAccess: true, projects: [] }
     );
     if (!model) throw new Error("Could not find past experiments model");
     return model;

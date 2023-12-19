@@ -85,7 +85,10 @@ export const getArchetypeAndEval = async (
 
   if (archetype.length) {
     const groupMap = await getSavedGroupMap(org);
-    const experimentMap = await getAllPayloadExperiments(org.id);
+    const experimentMap = await getAllPayloadExperiments(
+      org.id,
+      readAccessFilter
+    );
     const environments = getEnvironments(org);
 
     archetype.forEach((arch) => {

@@ -201,7 +201,7 @@ const toInterface = (doc: ExperimentDocument): ExperimentInterface => {
 
 async function findExperiments(
   query: FilterQuery<ExperimentDocument>,
-  readAccessFilter?: ReadAccessFilter,
+  readAccessFilter: ReadAccessFilter,
   limit?: number,
   sortBy?: SortFilter
 ): Promise<ExperimentInterface[]> {
@@ -216,13 +216,9 @@ async function findExperiments(
 
   const experiments = docs.map(toInterface);
 
-  if (readAccessFilter) {
-    return experiments.filter((exp) =>
-      hasReadAccess(readAccessFilter, [exp.project || ""])
-    );
-  }
-
-  return experiments;
+  return experiments.filter((exp) =>
+    hasReadAccess(readAccessFilter, [exp.project || ""])
+  );
 }
 
 export async function getExperimentById(
@@ -649,7 +645,11 @@ export async function deleteExperimentSegment(
   segment: string,
   readAccessFilter: ReadAccessFilter
 ): Promise<void> {
-  const exps = await getExperimentsUsingSegment(segment, organization.id);
+  const exps = await getExperimentsUsingSegment(
+    segment,
+    organization.id,
+    readAccessFilter
+  );
 
   if (!exps.length) return;
 
@@ -888,7 +888,7 @@ export const removeTagFromExperiments = async ({
 }): Promise<void> => {
   const query = { organization: organization.id, tags: tag };
   // Filter those based on whether or not the user has
-  const previousExperiments = await findExperiments(query);
+  const previousExperiments = await findExperiments(query, readAccessFilter);
 
   await ExperimentModel.updateMany(query, {
     $pull: { tags: tag },
@@ -928,9 +928,12 @@ export async function removeMetricFromExperiments(
     organization: orgId,
     activationMetric: metricId,
   };
-  const docsToTrackChanges = await findExperiments({
-    $or: [metricQuery, guardRailsQuery, activationMetricQuery],
-  });
+  const docsToTrackChanges = await findExperiments(
+    {
+      $or: [metricQuery, guardRailsQuery, activationMetricQuery],
+    },
+    readAccessFilter
+  );
 
   docsToTrackChanges.forEach((experiment: ExperimentInterface) => {
     if (!oldExperiments[experiment.id]) {
@@ -958,12 +961,15 @@ export async function removeMetricFromExperiments(
 
   const ids = Object.keys(oldExperiments);
 
-  const updatedExperiments = await findExperiments({
-    organization: organization.id,
-    id: {
-      $in: ids,
+  const updatedExperiments = await findExperiments(
+    {
+      organization: organization.id,
+      id: {
+        $in: ids,
+      },
     },
-  });
+    readAccessFilter
+  );
 
   // Populate updated experiments
   updatedExperiments.forEach((experiment) => {
@@ -996,7 +1002,7 @@ export async function removeProjectFromExperiments(
   readAccessFilter: ReadAccessFilter
 ) {
   const query = { organization: organization.id, project };
-  const previousExperiments = await findExperiments(query);
+  const previousExperiments = await findExperiments(query, readAccessFilter);
 
   await ExperimentModel.updateMany(query, { $set: { project: "" } });
 
@@ -1119,11 +1125,18 @@ function logAllChanges(
   });
 }
 
-export async function getExperimentsUsingSegment(id: string, orgId: string) {
-  return await findExperiments({
-    organization: orgId,
-    segment: id,
-  });
+export async function getExperimentsUsingSegment(
+  id: string,
+  orgId: string,
+  readAccessFilter: ReadAccessFilter
+) {
+  return await findExperiments(
+    {
+      organization: orgId,
+      segment: id,
+    },
+    readAccessFilter
+  );
 }
 
 /**
@@ -1166,13 +1179,17 @@ const _isValidVisualExperiment = (
 
 export async function getExperimentMapForFeature(
   organization: string,
-  featureId: string
+  featureId: string,
+  readAccessFilter: ReadAccessFilter
 ): Promise<Map<string, ExperimentInterface>> {
-  const experiments = await findExperiments({
-    organization,
-    archived: { $ne: true },
-    linkedFeatures: featureId,
-  });
+  const experiments = await findExperiments(
+    {
+      organization,
+      archived: { $ne: true },
+      linkedFeatures: featureId,
+    },
+    readAccessFilter
+  );
 
   return new Map(
     experiments
@@ -1183,21 +1200,25 @@ export async function getExperimentMapForFeature(
 
 export async function getAllPayloadExperiments(
   organization: string,
+  readAccessFilter: ReadAccessFilter,
   project?: string
 ): Promise<Map<string, ExperimentInterface>> {
-  const experiments = await findExperiments({
-    organization,
-    ...(project ? { project } : {}),
-    archived: { $ne: true },
-    $or: [
-      {
-        linkedFeatures: { $exists: true, $ne: [] },
-      },
-      {
-        hasVisualChangesets: true,
-      },
-    ],
-  });
+  const experiments = await findExperiments(
+    {
+      organization,
+      ...(project ? { project } : {}),
+      archived: { $ne: true },
+      $or: [
+        {
+          linkedFeatures: { $exists: true, $ne: [] },
+        },
+        {
+          hasVisualChangesets: true,
+        },
+      ],
+    },
+    readAccessFilter
+  );
 
   return new Map(
     experiments

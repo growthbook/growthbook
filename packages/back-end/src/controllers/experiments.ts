@@ -301,7 +301,6 @@ export async function getExperiment(
   });
 }
 
-//TODO: Look into what this is doing more
 async function _getSnapshot(
   organization: string,
   id: string,

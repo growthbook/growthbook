@@ -103,7 +103,11 @@ export const getSegmentUsage = async (
   const metrics = await getMetricsUsingSegment(id, org.id, readAccessFilter);
 
   // experiments:
-  const experiments = await getExperimentsUsingSegment(id, org.id);
+  const experiments = await getExperimentsUsingSegment(
+    id,
+    org.id,
+    readAccessFilter
+  );
 
   res.status(200).json({
     ideas,

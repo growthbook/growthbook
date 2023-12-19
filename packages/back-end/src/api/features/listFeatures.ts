@@ -15,6 +15,7 @@ export const listFeatures = createApiRequestHandler(listFeaturesValidator)(
     const groupMap = await getSavedGroupMap(req.organization);
     const experimentMap = await getAllPayloadExperiments(
       req.organization.id,
+      req.readAccessFilter,
       req.query.projectId
     );
 

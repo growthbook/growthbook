@@ -151,13 +151,6 @@ export async function removeProjectFromDatasources(
   );
 }
 
-//TODO: This doesn't look like it's used anywhere in the application today - can we remove?
-export async function getOrganizationsWithDatasources(): Promise<string[]> {
-  if (usingFileConfig()) {
-    return [];
-  }
-  return await DataSourceModel.distinct("organization");
-}
 export async function deleteDatasourceById(id: string, organization: string) {
   if (usingFileConfig()) {
     throw new Error("Cannot delete. Data sources managed by config.yml");

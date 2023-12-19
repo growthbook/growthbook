@@ -26,7 +26,6 @@ export default function (ag: Agenda) {
   agenda.define(
     UPDATE_STALE_INFORMATION_SCHEMA_TABLE_JOB_NAME,
     async (job: UpdateStaleInformationSchemaTableJob) => {
-      // console.log("starting the job!");
       const {
         organization,
         informationSchemaTableId,

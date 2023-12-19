@@ -18,7 +18,10 @@ import {
   deleteAllMetricsForAProject,
   removeProjectFromMetrics,
 } from "../../models/MetricModel";
-
+import {
+  deleteAllFeaturesForAProject,
+  removeProjectFromFeatures,
+} from "../../models/FeatureModel";
 import { removeProjectFromProjectRoles } from "../../models/OrganizationModel";
 import {
   deleteAllExperimentsForAProject,
@@ -29,10 +32,6 @@ import {
   removeProjectFromSlackIntegration,
 } from "../../models/SlackIntegrationModel";
 import { EventAuditUserForResponseLocals } from "../../events/event-types";
-import {
-  deleteAllFeaturesForAProject,
-  removeProjectFromFeatures,
-} from "../../models/FeatureModel";
 
 // region POST /projects
 

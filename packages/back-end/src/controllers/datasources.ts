@@ -56,7 +56,6 @@ import {
 } from "../models/DimensionSlicesModel";
 import { DimensionSlicesQueryRunner } from "../queryRunners/DimensionSlicesQueryRunner";
 
-//TODO: Can we remove this? It doesn't look like the endpoint that calls this is being called from within the app.
 export async function postSampleData(
   req: AuthRequest,
   res: Response<
@@ -758,10 +757,14 @@ export async function getDimensionSlices(
   req: AuthRequest<null, { id: string }>,
   res: Response
 ) {
-  const { org } = getOrgFromReq(req);
+  const { org, readAccessFilter } = getOrgFromReq(req);
   const { id } = req.params;
 
-  const dimensionSlices = await getDimensionSlicesById(org.id, id);
+  const dimensionSlices = await getDimensionSlicesById(
+    org.id,
+    id,
+    readAccessFilter
+  );
 
   res.status(200).json({
     status: 200,
@@ -773,13 +776,14 @@ export async function getLatestDimensionSlicesForDatasource(
   req: AuthRequest<null, { datasourceId: string; exposureQueryId: string }>,
   res: Response
 ) {
-  const { org } = getOrgFromReq(req);
+  const { org, readAccessFilter } = getOrgFromReq(req);
   const { datasourceId, exposureQueryId } = req.params;
 
   const dimensionSlices = await getLatestDimensionSlices(
     org.id,
     datasourceId,
-    exposureQueryId
+    exposureQueryId,
+    readAccessFilter
   );
 
   res.status(200).json({
@@ -837,7 +841,11 @@ export async function cancelDimensionSlices(
 ) {
   const { org, readAccessFilter } = getOrgFromReq(req);
   const { id } = req.params;
-  const dimensionSlices = await getDimensionSlicesById(org.id, id);
+  const dimensionSlices = await getDimensionSlicesById(
+    org.id,
+    id,
+    readAccessFilter
+  );
   if (!dimensionSlices) {
     throw new Error("Could not cancel automatic dimension");
   }

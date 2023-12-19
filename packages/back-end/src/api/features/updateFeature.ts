@@ -182,7 +182,8 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
 
     const experimentMap = await getExperimentMapForFeature(
       req.organization.id,
-      feature.id
+      feature.id,
+      req.readAccessFilter
     );
 
     return {

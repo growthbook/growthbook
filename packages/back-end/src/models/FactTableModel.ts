@@ -74,12 +74,9 @@ export async function getAllFactTablesForOrganization(
 
   const factTables = docs.map(toInterface);
 
-  if (readAccessFilter) {
-    return factTables.filter((ft) =>
-      hasReadAccess(readAccessFilter, ft.projects)
-    );
-  }
-  return factTables;
+  return factTables.filter((ft) =>
+    hasReadAccess(readAccessFilter, ft.projects)
+  );
 }
 
 export type FactTableMap = Map<string, FactTableInterface>;

@@ -218,7 +218,7 @@ export async function getFeaturesPublic(req: Request, res: Response) {
     const defs = await getFeatureDefinitions({
       organization,
       capabilities,
-      readAccessFilter: { globalReadAccess: true, projects: [] }, //TODO: Is this correct?
+      readAccessFilter: { globalReadAccess: true, projects: [] },
       environment,
       projects,
       encryptionKey: encrypted ? encryptionKey : "",
@@ -310,7 +310,7 @@ export async function getEvaluatedFeaturesPublic(req: Request, res: Response) {
     const defs = await getFeatureDefinitions({
       organization,
       capabilities,
-      readAccessFilter: { globalReadAccess: true, projects: [] }, //TODO: Is this correct?
+      readAccessFilter: { globalReadAccess: true, projects: [] },
       environment,
       projects,
       encryptionKey: encrypted ? encryptionKey : "",
@@ -1469,7 +1469,10 @@ export async function postFeatureEvaluate(
   }
 
   const groupMap = await getSavedGroupMap(org);
-  const experimentMap = await getAllPayloadExperiments(org.id);
+  const experimentMap = await getAllPayloadExperiments(
+    org.id,
+    readAccessFilter
+  );
   const environments = getEnvironments(org);
   const results = evaluateFeature({
     feature,
