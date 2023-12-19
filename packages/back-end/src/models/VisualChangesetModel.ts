@@ -25,7 +25,7 @@ const visualChangesetURLPatternSchema = new mongoose.Schema<VisualChangesetURLPa
     include: Boolean,
     type: {
       type: String,
-      enum: ["simple", "regex"],
+      enum: ["simple", "regex", "exact"],
       required: true,
     },
     pattern: {
@@ -103,6 +103,33 @@ const visualChangesetSchema = new mongoose.Schema<VisualChangesetInterface>({
     ],
     required: true,
   },
+  urlRedirects: [
+    {
+      _id: false,
+      id: {
+        type: String,
+        required: true,
+      },
+      description: String,
+      originUrl: String,
+      urlPatterns: {
+        type: [visualChangesetURLPatternSchema],
+        required: true,
+      },
+      destinationUrls: [
+        {
+          url: String,
+          description: String,
+          variation: {
+            type: String,
+            index: true,
+            required: true,
+          },
+        },
+      ],
+      persistQueryString: Boolean,
+    },
+  ],
 });
 
 export type VisualChangesetDocument = mongoose.Document &
@@ -134,6 +161,14 @@ export function toVisualChangesetApiInterface(
       js: c.js,
       variation: c.variation,
       domMutations: c.domMutations,
+    })),
+    urlRedirects: visualChangeset.urlRedirects.map((r) => ({
+      id: r.id,
+      description: r.description,
+      originUrl: r.originUrl,
+      urlPatterns: r.urlPatterns,
+      destinationUrls: r.destinationUrls,
+      persistQueryString: r.persistQueryString,
     })),
   };
 }

@@ -999,7 +999,7 @@ export interface components {
       urlPatterns: ({
           include?: boolean;
           /** @enum {string} */
-          type: "simple" | "regex";
+          type: "simple" | "regex" | "exact";
           pattern: string;
         })[];
       editorUrl: string;
@@ -1018,6 +1018,23 @@ export interface components {
               parentSelector?: string;
               insertBeforeSelector?: string;
             })[];
+        })[];
+      urlRedirects: ({
+          id?: string;
+          description?: string;
+          originUrl?: string;
+          urlPatterns?: ({
+              include?: boolean;
+              /** @enum {string} */
+              type: "simple" | "regex" | "exact";
+              pattern: string;
+            })[];
+          destinationUrls?: ({
+              description?: string;
+              url?: string;
+              variation?: string;
+            })[];
+          persistQueryString?: boolean;
         })[];
     };
     VisualChange: {
@@ -3729,7 +3746,7 @@ export interface operations {
                 urlPatterns: ({
                     include?: boolean;
                     /** @enum {string} */
-                    type: "simple" | "regex";
+                    type: "simple" | "regex" | "exact";
                     pattern: string;
                   })[];
                 editorUrl: string;
@@ -3748,6 +3765,23 @@ export interface operations {
                         parentSelector?: string;
                         insertBeforeSelector?: string;
                       })[];
+                  })[];
+                urlRedirects: ({
+                    id?: string;
+                    description?: string;
+                    originUrl?: string;
+                    urlPatterns?: ({
+                        include?: boolean;
+                        /** @enum {string} */
+                        type: "simple" | "regex" | "exact";
+                        pattern: string;
+                      })[];
+                    destinationUrls?: ({
+                        description?: string;
+                        url?: string;
+                        variation?: string;
+                      })[];
+                    persistQueryString?: boolean;
                   })[];
               })[];
           };
@@ -3776,7 +3810,7 @@ export interface operations {
               urlPatterns: ({
                   include?: boolean;
                   /** @enum {string} */
-                  type: "simple" | "regex";
+                  type: "simple" | "regex" | "exact";
                   pattern: string;
                 })[];
               editorUrl: string;
@@ -3795,6 +3829,23 @@ export interface operations {
                       parentSelector?: string;
                       insertBeforeSelector?: string;
                     })[];
+                })[];
+              urlRedirects: ({
+                  id?: string;
+                  description?: string;
+                  originUrl?: string;
+                  urlPatterns?: ({
+                      include?: boolean;
+                      /** @enum {string} */
+                      type: "simple" | "regex" | "exact";
+                      pattern: string;
+                    })[];
+                  destinationUrls?: ({
+                      description?: string;
+                      url?: string;
+                      variation?: string;
+                    })[];
+                  persistQueryString?: boolean;
                 })[];
             };
             experiment?: {
@@ -3915,7 +3966,7 @@ export interface operations {
               urlPatterns: ({
                   include?: boolean;
                   /** @enum {string} */
-                  type: "simple" | "regex";
+                  type: "simple" | "regex" | "exact";
                   pattern: string;
                 })[];
               editorUrl: string;
@@ -3934,6 +3985,23 @@ export interface operations {
                       parentSelector?: string;
                       insertBeforeSelector?: string;
                     })[];
+                })[];
+              urlRedirects: ({
+                  id?: string;
+                  description?: string;
+                  originUrl?: string;
+                  urlPatterns?: ({
+                      include?: boolean;
+                      /** @enum {string} */
+                      type: "simple" | "regex" | "exact";
+                      pattern: string;
+                    })[];
+                  destinationUrls?: ({
+                      description?: string;
+                      url?: string;
+                      variation?: string;
+                    })[];
+                  persistQueryString?: boolean;
                 })[];
             };
           };
