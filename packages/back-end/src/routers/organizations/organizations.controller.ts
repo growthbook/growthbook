@@ -1490,9 +1490,7 @@ export async function postWebhookSDK(
   req.checkPermissions("manageWebhooks");
 
   const { org } = getOrgFromReq(req);
-  console.log(req.body);
   const { name, endpoint, sdkid, sendPayload } = req.body;
-  console.log(sendPayload, "sendPayload", sdkid);
   const webhook = await createWebhookSDK({
     organization: org.id,
     name,

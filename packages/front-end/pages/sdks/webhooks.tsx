@@ -1,6 +1,5 @@
 import React, { useState } from "react";
 import { WebhookInterface } from "back-end/types/webhook";
-import { tr } from "date-fns/locale";
 import useApi from "@/hooks/useApi";
 import WebhooksModal from "@/components/Settings/WebhooksModal";
 
@@ -55,7 +54,7 @@ export default function SDKWebhooks({ sdkid }) {
         className="btn btn-primary"
         onClick={(e) => {
           e.preventDefault();
-          setCreateModalOpen(true);
+          setCreateModalOpen(null);
         }}
       >
         Add webhook
