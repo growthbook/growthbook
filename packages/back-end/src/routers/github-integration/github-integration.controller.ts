@@ -9,12 +9,22 @@ import {
 } from "../../models/GithubIntegration";
 import { createGithubUserToken } from "../../models/GithubUserTokenModel";
 
-const githubAuth = createAppAuth({
-  appId: process.env.GITHUB_APP_ID || "",
-  privateKey: process.env.GITHUB_PRIVATE_KEY || "",
-  clientId: process.env.GITHUB_CLIENT_ID || "",
-  clientSecret: process.env.GITHUB_CLIENT_SECRET || "",
-});
+const hasGithubEnvVars = () => {
+  return (
+    process.env.GITHUB_APP_ID &&
+    process.env.GITHUB_PRIVATE_KEY &&
+    process.env.GITHUB_CLIENT_ID &&
+    process.env.GITHUB_CLIENT_SECRET
+  );
+};
+const githubAuth = hasGithubEnvVars()
+  ? createAppAuth({
+      appId: process.env.GITHUB_APP_ID || "",
+      privateKey: process.env.GITHUB_PRIVATE_KEY || "",
+      clientId: process.env.GITHUB_CLIENT_ID || "",
+      clientSecret: process.env.GITHUB_CLIENT_SECRET || "",
+    })
+  : null;
 
 export const getGithubIntegration = async (req: AuthRequest, res: Response) => {
   req.checkPermissions("manageIntegrations");
@@ -32,11 +42,11 @@ export const postGithubIntegration = async (
 ) => {
   req.checkPermissions("manageIntegrations");
 
+  if (!githubAuth) return next();
+
   const code = req.body.code;
 
-  if (!code || typeof code !== "string") {
-    return next();
-  }
+  if (!code || typeof code !== "string") return next();
 
   const userAuth = await githubAuth({
     type: "oauth-user",
