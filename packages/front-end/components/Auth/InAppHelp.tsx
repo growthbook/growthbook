@@ -8,36 +8,32 @@ import { GBPremiumBadge } from "../Icons";
 import UpgradeModal from "../Settings/UpgradeModal";
 
 export default function InAppHelp() {
-  const config = useFeature("papercups-config").value;
+  const config = useFeature("pylon-config").value;
   const [showFreeHelpWidget, setShowFreeHelpWidget] = useState(false);
   const [upgradeModal, setUpgradeModal] = useState(false);
-  const { name, email, userId, hasCommercialFeature } = useUser();
-  const showUpgradeModal =
-    config && !hasCommercialFeature("livechat") && isCloud();
+  const { name, email, hasCommercialFeature } = useUser();
+  const showUpgradeModal = !hasCommercialFeature("livechat") && isCloud();
 
   useEffect(() => {
-    if (window["Papercups"] || !config) return;
+    if (window["pylon"] || !config) return;
 
     if (hasCommercialFeature("livechat") && isCloud()) {
-      window["Papercups"] = {
-        config: {
-          ...config,
-          customer: {
-            name,
-            email,
-            external_id: userId,
-          },
+      const scriptElement = document.createElement("script");
+      scriptElement.innerHTML = config.script_content;
+
+      document.body.appendChild(scriptElement);
+      window["pylon"] = {
+        chat_settings: {
+          app_id: config.app_id,
+          email,
+          name,
         },
       };
-      const s = document.createElement("script");
-      s.async = true;
-      s.src = config.baseUrl + "/widget.js";
-      document.head.appendChild(s);
     }
   }, [config]);
 
-  // If the Papercup key exists on the window, we're showing the Papercups widget, so don't show the freeHelpModal
-  if (window["Papercups"]) return null;
+  // If the Pylon key exists on the window, we're showing the Pylon widget, so don't show the freeHelpModal
+  if (window["pylon"]) return null;
 
   return (
     <>
