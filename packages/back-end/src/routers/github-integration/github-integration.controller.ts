@@ -86,6 +86,16 @@ export const postGithubIntegration = async (
       message: "Could not find installation",
     });
 
+  // get repositories
+  const installationAuth = await githubAuth({
+    type: "installation",
+    installationId: installation.id,
+  });
+  const installationOctokit = new Octokit({ auth: installationAuth.token });
+  const { data: reposRes } = await installationOctokit.request(
+    "GET /installation/repositories"
+  );
+
   const createdToken = await createGithubUserToken({
     token: authentication.token,
     organization: org.id,
@@ -99,6 +109,11 @@ export const postGithubIntegration = async (
     tokenId: createdToken.id,
     installationId: `${installation.id}`,
     createdBy: userId,
+    repositories: reposRes.repositories.map((repo) => ({
+      id: repo.id.toString(),
+      name: repo.name,
+      watching: false,
+    })),
   });
 
   return res.status(201).json({

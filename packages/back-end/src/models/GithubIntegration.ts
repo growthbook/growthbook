@@ -6,7 +6,6 @@ import {
   CreateGithubIntegrationInput,
 } from "../../types/github";
 import { OrganizationInterface } from "../../types/organization";
-import { fetchRepositories } from "../services/github";
 import { deleteGithubUserToken, doesTokenExist } from "./GithubUserTokenModel";
 
 type GithubIntegrationDocument = mongoose.Document & GithubIntegrationInterface;
@@ -60,15 +59,8 @@ export const createGithubIntegration = async (
   )
     throw new Error("Github integration already exists");
 
-  const repositories = await fetchRepositories(input.tokenId);
-
   const doc = await GithubIntegrationModel.create({
     ...input,
-    repositories: repositories.map((repo) => ({
-      id: repo.id,
-      name: repo.full_name,
-      watching: false,
-    })),
     id: uniqid("ghi_"),
     createdAt: new Date(),
   });

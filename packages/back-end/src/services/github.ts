@@ -1,7 +1,4 @@
-import { Octokit } from "@octokit/rest";
 import { EmitterWebhookEvent, Webhooks } from "@octokit/webhooks";
-import { GithubUserTokenInterface } from "../../types/github";
-import { getGithubUserToken } from "../models/GithubUserTokenModel";
 import {
   deleteGithubIntegration,
   getGithubIntegrationByInstallationId,
@@ -61,13 +58,3 @@ webhooks.on(
     console.log("push event", id, name, payload);
   }
 );
-
-export const fetchRepositories = async (
-  tokenId: GithubUserTokenInterface["id"]
-) => {
-  const octokit = new Octokit({
-    auth: await getGithubUserToken(tokenId),
-  });
-  const { data } = await octokit.repos.listForAuthenticatedUser();
-  return data;
-};

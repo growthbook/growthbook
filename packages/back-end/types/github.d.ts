@@ -32,5 +32,5 @@ export interface GithubIntegrationInterface {
 
 export type CreateGithubIntegrationInput = Omit<
   GithubIntegrationInterface,
-  "id" | "createdAt" | "repositories"
+  "id" | "createdAt"
 >;
