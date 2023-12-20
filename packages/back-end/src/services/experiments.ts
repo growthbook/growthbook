@@ -65,7 +65,6 @@ import {
   LinkedFeatureInfo,
   LinkedFeatureState,
 } from "../../types/experiment";
-import { promiseAllChunks } from "../util/promise";
 import { findDimensionById } from "../models/DimensionModel";
 import { findSegmentById } from "../models/SegmentModel";
 import {
@@ -221,55 +220,60 @@ export async function getManualSnapshotData(
     metrics: {},
   }));
 
-  await promiseAllChunks(
-    Object.keys(metrics).map((m) => {
+  const result = await analyzeExperimentMetric({
+    variations: getReportVariations(experiment, phase),
+    phaseLengthHours: Math.max(
+      hoursBetween(phase.dateStarted, phase.dateEnded ?? new Date()),
+      1
+    ),
+    coverage: 1,
+    analyses: [
+      {
+        dimensions: [],
+        statsEngine: DEFAULT_STATS_ENGINE,
+        sequentialTesting: false,
+        sequentialTestingTuningParameter: DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
+        baselineVariationIndex: 0,
+        pValueThreshold: DEFAULT_P_VALUE_THRESHOLD,
+        differenceType: "relative",
+      },
+    ],
+    metrics: Object.keys(metrics).map((m) => {
       const stats = metrics[m];
       const metric = metricMap.get(m);
-      return async () => {
-        if (!metric) return;
-        const rows: ExperimentMetricQueryResponseRows = stats.map((s, i) => {
-          return {
-            dimension: "All",
-            variation: experiment.variations[i].key || i + "",
-            users: s.count,
-            count: s.count,
-            statistic_type: "mean", // ratio not supported for now
-            main_metric_type: isBinomialMetric(metric) ? "binomial" : "count",
-            main_sum: s.mean * s.count,
-            main_sum_squares: sumSquaresFromStats(
-              s.mean * s.count,
-              Math.pow(s.stddev, 2),
-              s.count
-            ),
-          };
-        });
+      if (!metric) return null;
 
-        const res = await analyzeExperimentMetric({
-          variations: getReportVariations(experiment, phase),
-          metric: metric,
-          rows: rows,
-          phaseLengthHours: Math.max(
-            hoursBetween(phase.dateStarted, phase.dateEnded ?? new Date()),
-            1
+      const rows: ExperimentMetricQueryResponseRows = stats.map((s, i) => {
+        return {
+          dimension: "All",
+          variation: experiment.variations[i].key || i + "",
+          users: s.count,
+          count: s.count,
+          statistic_type: "mean", // ratio not supported for now
+          main_metric_type: isBinomialMetric(metric) ? "binomial" : "count",
+          main_sum: s.mean * s.count,
+          main_sum_squares: sumSquaresFromStats(
+            s.mean * s.count,
+            Math.pow(s.stddev, 2),
+            s.count
           ),
-          coverage: 1,
-          dimension: null,
-          statsEngine: DEFAULT_STATS_ENGINE,
-          sequentialTestingEnabled: false,
-          sequentialTestingTuningParameter: DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
-          baselineVariationIndex: 0,
-          pValueThreshold: DEFAULT_P_VALUE_THRESHOLD,
-          differenceType: "relative",
-        });
-        const data = res.dimensions[0];
-        if (!data) return;
-        data.variations.map((v, i) => {
-          variations[i].metrics[m] = v;
-        });
+        };
+      });
+      return {
+        metric,
+        rows,
       };
     }),
-    3
-  );
+  });
+
+  result.forEach(({ metric, analyses }) => {
+    const res = analyses[0];
+    const data = res.dimensions[0];
+    if (!data) return;
+    data.variations.map((v, i) => {
+      variations[i].metrics[metric] = v;
+    });
+  });
 
   const srm = checkSrm(users, phase.variationWeights);
 
@@ -674,11 +678,11 @@ export async function createSnapshotAnalysis({
   const results = await analyzeExperimentResults({
     queryData: queryMap,
     snapshotSettings: snapshot.settings,
-    analysisSettings: analysisSettings,
+    analysisSettings: [analysisSettings],
     variationNames: experiment.variations.map((v) => v.name),
     metricMap: metricMap,
   });
-  analysis.results = results.dimensions || [];
+  analysis.results = results[0]?.dimensions || [];
   analysis.status = "success";
   analysis.error = undefined;
 

@@ -4,6 +4,7 @@ import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import {
   ExperimentSnapshotInterface,
   ExperimentSnapshotAnalysis,
+  ExperimentSnapshotAnalysisSettings,
 } from "back-end/types/experiment-snapshot";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -17,6 +18,9 @@ const RefreshSnapshotButton: FC<{
   lastAnalysis?: ExperimentSnapshotAnalysis;
   phase: number;
   dimension?: string;
+  setAnalysisSettings: (
+    settings: ExperimentSnapshotAnalysisSettings | null
+  ) => void;
   onSubmit?: () => void;
   newUi?: boolean;
 }> = ({
@@ -25,6 +29,7 @@ const RefreshSnapshotButton: FC<{
   lastAnalysis,
   phase,
   dimension,
+  setAnalysisSettings,
   onSubmit,
   newUi = false,
 }) => {
@@ -54,6 +59,7 @@ const RefreshSnapshotButton: FC<{
         dimension,
       }),
     });
+    setAnalysisSettings(null);
     trackSnapshot(
       "create",
       "RefreshSnapshotButton",

@@ -13,7 +13,11 @@ import {
   ProjectScopedPermission,
   UserPermissions,
 } from "back-end/types/organization";
-import type { AccountPlan, CommercialFeature, LicenseData } from "enterprise";
+import type {
+  AccountPlan,
+  CommercialFeature,
+  LicenseInterface,
+} from "enterprise";
 import { SSOConnectionInterface } from "back-end/types/sso-connection";
 import { useRouter } from "next/router";
 import {
@@ -90,7 +94,7 @@ export interface UserContextValue {
   name?: string;
   email?: string;
   superAdmin?: boolean;
-  license?: LicenseData;
+  license?: LicenseInterface;
   user?: ExpandedMember;
   users: Map<string, ExpandedMember>;
   getUserDisplay: (id: string, fallback?: boolean) => string;
@@ -117,7 +121,7 @@ interface UserResponse {
   verified: boolean;
   superAdmin: boolean;
   organizations?: UserOrganizations;
-  license?: LicenseData;
+  license?: LicenseInterface;
   currentUserPermissions: UserPermissions;
 }
 

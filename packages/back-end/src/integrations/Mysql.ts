@@ -71,9 +71,6 @@ export default class Mysql extends SqlIntegration {
   ensureFloat(col: string): string {
     return `CAST(${col} AS DOUBLE)`;
   }
-  // From https://rpbouman.blogspot.com/2008/07/calculating-nth-percentile-in-mysql.html
-  // One pass, but builds a long string of all values and then cuts it at the right
-  // percentile
   percentileCapSelectClause(
     values: {
       valueCol: string;

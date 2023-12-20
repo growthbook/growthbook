@@ -35,7 +35,9 @@ export class DimensionSlicesQueryRunner extends QueryRunner<
     }));
 
     if (!dimensions.length) {
-      throw new Error("Exposure query must have at least 1 dimension.");
+      throw new Error(
+        "Exposure query must have at least 1 dimension to get dimension slices."
+      );
     }
 
     return [

@@ -40,6 +40,9 @@ export async function runAthenaQuery(
 
   const { database, bucketUri, workGroup, catalog } = conn;
 
+  const retryWaitTime =
+    (parseInt(process.env.ATHENA_RETRY_WAIT_TIME || "60") || 60) * 1000;
+
   const { QueryExecutionId } = await athena
     .startQueryExecution({
       QueryString: sql,
@@ -65,6 +68,7 @@ export async function runAthenaQuery(
     await setExternalId(QueryExecutionId);
   }
 
+  let timeWaitingForFailure = 0;
   const waitAndCheck = (delay: number) => {
     return new Promise<false | ResultSet>((resolve, reject) => {
       setTimeout(() => {
@@ -77,9 +81,38 @@ export async function runAthenaQuery(
               resp.QueryExecution?.Status?.StateChangeReason;
 
             if (State === "RUNNING" || State === "QUEUED") {
+              if (timeWaitingForFailure > 0) {
+                logger.debug(
+                  `Athena query (${QueryExecutionId}) recovered from SlowDown error in ${
+                    timeWaitingForFailure + delay
+                  }ms`
+                );
+              }
+              timeWaitingForFailure = 0;
               resolve(false);
             } else if (State === "FAILED") {
-              reject(new Error(StateChangeReason || "Query failed"));
+              // If the query failed because of throttling, continue waiting for a bit
+              // Sometimes the query will transition back to a running state
+              if (StateChangeReason?.includes("SlowDown")) {
+                if (timeWaitingForFailure === 0) {
+                  logger.debug(
+                    `Athena query (${QueryExecutionId}) received SlowDown error, waiting up to ${retryWaitTime}ms for transition back to running`
+                  );
+                }
+
+                timeWaitingForFailure += delay;
+
+                if (timeWaitingForFailure >= retryWaitTime) {
+                  logger.debug(
+                    `Athena query (${QueryExecutionId}) received SlowDown error, has not recovered within ${timeWaitingForFailure}ms, failing query`
+                  );
+                  reject(new Error(StateChangeReason));
+                } else {
+                  resolve(false);
+                }
+              } else {
+                reject(new Error(StateChangeReason || "Query failed"));
+              }
             } else if (State === "CANCELLED") {
               reject(new Error("Query was cancelled"));
             } else {

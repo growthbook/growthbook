@@ -1,13 +1,13 @@
 from abc import ABC, abstractmethod
 
-from gbstats.shared.models import Statistic, TestResult
+from gbstats.shared.models import TestStatistic, TestResult
 
 
 class BaseABTest(ABC):
     def __init__(
         self,
-        stat_a: Statistic,
-        stat_b: Statistic,
+        stat_a: TestStatistic,
+        stat_b: TestStatistic,
     ):
         self.stat_a = stat_a
         self.stat_b = stat_b
