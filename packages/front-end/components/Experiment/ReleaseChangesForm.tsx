@@ -9,21 +9,19 @@ import { FaCheck, FaExclamationCircle, FaQuestionCircle } from "react-icons/fa";
 import { HiOutlineExclamationCircle } from "react-icons/hi";
 import clsx from "clsx";
 import { RxInfoCircled } from "react-icons/rx";
+import { BsToggles } from "react-icons/bs";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { useUser } from "@/services/UserContext";
 import { useAuth } from "@/services/auth";
 import usePermissions from "@/hooks/usePermissions";
 import { DocLink } from "@/components/DocLink";
+import { ReleasePlan } from "@/components/Experiment/EditTargetingModal";
+import TargetingInfo from "@/components/Experiment/TabbedPage/TargetingInfo";
 import SelectField from "../Forms/SelectField";
 import Toggle from "../Forms/Toggle";
 import Tooltip from "../Tooltip/Tooltip";
 import { NewBucketingSDKList } from "./HashVersionSelector";
-
-export interface Props {
-  experiment: ExperimentInterfaceStringDates;
-  form: UseFormReturn<ExperimentTargetingData>;
-}
 
 function getRecommendedRolloutData({
   experiment,
@@ -300,7 +298,19 @@ function SafeToReleaseBanner({
 
 type ExistingUsersOption = "keep" | "exclude" | "reassign";
 
-export default function ReleaseChangesForm({ experiment, form }: Props) {
+export interface Props {
+  experiment: ExperimentInterfaceStringDates;
+  form: UseFormReturn<ExperimentTargetingData>;
+  releasePlan?: ReleasePlan;
+  setReleasePlan: (releasePlan: ReleasePlan) => void;
+}
+
+export default function ReleaseChangesForm({
+  experiment,
+  form,
+  releasePlan,
+  setReleasePlan,
+}: Props) {
   const { apiCall } = useAuth();
   const { hasCommercialFeature, refreshOrganization } = useUser();
   const permissions = usePermissions();
@@ -387,18 +397,164 @@ export default function ReleaseChangesForm({ experiment, form }: Props) {
   if (!lastPhase) return null;
 
   return (
-    <div
-      className="bg-light px-4 py-4 mt-4 border-top"
-      style={{ boxShadow: "rgba(0, 0, 0, 0.06) 0px 2px 4px 0px inset" }}
-    >
+    <div className="mt-4">
+      <SelectField
+        label="Release plan"
+        value={releasePlan || ""}
+        options={[
+          { label: "New Phase, re-randomize traffic", value: "new-phase" },
+          {
+            label: "Same Phase, apply changes to new traffic only",
+            value: "same-phase-sticky",
+          },
+          {
+            label: "Same Phase, apply changes to everyone",
+            value: "same-phase-everyone",
+          },
+          { label: "Advanced", value: "advanced" },
+        ]}
+        onChange={(v) => setReleasePlan(v as ReleasePlan)}
+        sort={false}
+        isSearchable={false}
+        formatOptionLabel={({ value, label }) => {
+          if (value === "advanced") {
+            return (
+              <>
+                <span className="ml-2 font-italic">
+                  <BsToggles
+                    className="position-relative"
+                    style={{ top: -1 }}
+                  />{" "}
+                  {label}
+                </span>
+                <span className="ml-2 text-muted">
+                  &mdash; Fine tune your release plan
+                </span>
+              </>
+            );
+          }
+          const requiresStickyBucketing = value === "same-phase-sticky";
+          const recommended =
+            value === recommendedRolloutData.existingUsersOption;
+          const disabled = requiresStickyBucketing && !usingStickyBucketing;
+          return (
+            <>
+              <span className="ml-2" style={{ opacity: disabled ? 0.5 : 1 }}>
+                {label}{" "}
+              </span>
+              {requiresStickyBucketing && (
+                <Tooltip
+                  body={`${
+                    usingStickyBucketing ? "Uses" : "Requires"
+                  } Sticky Bucketing`}
+                  className="mr-2"
+                >
+                  <span
+                    className="badge badge-muted-info badge-pill ml-2 position-relative"
+                    style={{ zIndex: 1, fontSize: "10px" }}
+                  >
+                    SB
+                  </span>
+                </Tooltip>
+              )}
+              {recommended && (
+                <span className="badge badge-purple badge-pill ml-2">
+                  recommended
+                </span>
+              )}
+            </>
+          );
+        }}
+      />
+
+      <div className="mt-4">
+        <label>Release details</label>
+        {releasePlan !== "advanced" ? (
+          <>
+            <div className="appbox bg-light px-3 py-2 mb-0">
+              <div className="row small">
+                <div className="col">
+                  <label className="mb-0">New phase?</label>
+                  <div>{form.watch("newPhase") ? "Yes" : "No"}</div>
+                </div>
+                <div className="col">
+                  <label className="mb-0">Re-randomize traffic?</label>
+                  <div>{form.watch("reseed") ? "Yes" : "No"}</div>
+                </div>
+                <div className="col">
+                  <label className="mb-0">New bucket version?</label>
+                  <div>
+                    {form.watch("bucketVersion") !==
+                    experiment.bucketVersion ? (
+                      <>
+                        Yes{" "}
+                        <span className="text-muted">
+                          (ver.{experiment.bucketVersion ?? 0} → ver.
+                          {form.watch("bucketVersion")})
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        No{" "}
+                        <span className="text-muted">
+                          (ver.{form.watch("bucketVersion")})
+                        </span>
+                      </>
+                    )}
+                  </div>
+                </div>
+                <div className="col">
+                  <label className="mb-0">Block previous buckets?</label>
+                  <div>
+                    {form.watch("minBucketVersion") !==
+                    experiment.minBucketVersion ? (
+                      <>
+                        Yes{" "}
+                        <span className="text-muted">
+                          (ver.{experiment.minBucketVersion ?? 0} → ver.
+                          {form.watch("minBucketVersion")})
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        No{" "}
+                        <span className="text-muted">
+                          ({form.watch("minBucketVersion")})
+                        </span>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </>
+        ) : (
+          <></>
+        )}
+      </div>
+
+      <div className="mt-4">
+        <label>Targeting changes to be made</label>
+        <div className="appbox bg-light px-3 pt-3 pb-1 mb-0">
+          <TargetingInfo
+            experiment={experiment}
+            noHeader={true}
+            targetingFieldsOnly={true}
+            separateTrafficSplitDisplay={true}
+            showDecimals={true}
+            showNamespaceRanges={true}
+            showChanges={true}
+            changes={form.getValues()}
+          />
+        </div>
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="mt-4">
       <div className="d-flex mb-3">
         <div className="h4 mb-0">Release changes</div>
-        {/*<div className="alert alert-info">*/}
-        {/*  We have defaulted you to the recommended release settings below based on*/}
-        {/*  the changes you made above. These recommendations will prevent bias and*/}
-        {/*  data quality issues in your results.{" "}*/}
-        {/*  <DocLink docSection="targetingChanges">Learn more</DocLink>*/}
-        {/*</div>*/}
         <div className="flex-1" />
 
         <div

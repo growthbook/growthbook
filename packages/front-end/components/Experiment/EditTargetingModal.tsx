@@ -36,6 +36,12 @@ type ChangeType =
   | "advanced"
   | "phase";
 
+export type ReleasePlan =
+  | "new-phase"
+  | "same-phase-sticky"
+  | "same-phase-everyone"
+  | "advanced";
+
 export interface Props {
   close: () => void;
   experiment: ExperimentInterfaceStringDates;
@@ -52,7 +58,8 @@ export default function EditTargetingModal({
   const { apiCall } = useAuth();
 
   const [step, setStep] = useState(0);
-  const [changeType, setChangeType] = useState<ChangeType>("targeting");
+  const [changeType, setChangeType] = useState<ChangeType | undefined>();
+  const [releasePlan, setReleasePlan] = useState<ReleasePlan | undefined>();
 
   const lastPhase: ExperimentPhaseStringDates | undefined =
     experiment.phases[experiment.phases.length - 1];
@@ -130,60 +137,61 @@ export default function EditTargetingModal({
     );
   }
 
+  const lastStepNumber = changeType !== "phase" ? 2 : 1;
+
+  let cta = "Publish changes";
+  let ctaEnabled = true;
+  let blockSteps: number[] = [];
+  if (!changeType) {
+    cta = "Select a change type";
+    ctaEnabled = false;
+    blockSteps = [1, 2];
+  }
+  if (changeType !== "phase" && !hasChanges) {
+    if (step === 1) {
+      cta = "No changes";
+      ctaEnabled = false;
+    }
+    blockSteps = [lastStepNumber];
+  }
+  if (!releasePlan && step === lastStepNumber) {
+    cta = "Select a release plan";
+    ctaEnabled = false;
+  }
+
   return (
     <PagedModal
       close={close}
       header="Make Experiment Changes"
       submit={onSubmit}
-      cta={hasChanges ? "Publish changes" : "No changes"}
+      cta={cta}
+      ctaEnabled={ctaEnabled}
+      forceCtaText={!ctaEnabled}
       size="lg"
       step={step}
-      setStep={setStep}
+      setStep={(i) => {
+        if (!blockSteps.includes(i)) {
+          setStep(i);
+        }
+      }}
     >
       <Page display="Type of Changes">
-        <div className="p-3">
-          <SelectField
-            label="What changes do you want to make?"
-            value={changeType}
-            options={[
-              {
-                label: "Targeting & Traffic",
-                options: [
-                  { label: "Saved Groups & Attributes", value: "targeting" },
-                  { label: "Traffic Percent", value: "traffic" },
-                  { label: "Variation Weights", value: "weights" },
-                  { label: "Namespace", value: "namespace" },
-                  { label: "Advanced", value: "advanced" },
-                ],
-              },
-              {
-                label: "Phase",
-                options: [{ label: "Start a new phase...", value: "phase" }],
-              },
-            ]}
-            onChange={(v) => setChangeType(v as ChangeType)}
-            sort={false}
-            isSearchable={false}
-            formatOptionLabel={({ value, label }) => {
-              if (value === "advanced") {
-                return (
-                  <>
-                    <span className="ml-2 font-italic">
-                      <BsToggles
-                        className="position-relative"
-                        style={{ top: -1 }}
-                      />{" "}
-                      {label}
-                    </span>
-                    <span className="ml-2 text-muted">
-                      &mdash; Make multiple targeting changes at the same time
-                    </span>
-                  </>
-                );
-              }
-              return <span className="ml-2">{label}</span>;
-            }}
+        <div className="px-3 py-2">
+          <ChangeTypeSelector
+            changeType={changeType}
+            setChangeType={setChangeType}
           />
+
+          <div className="alert alert-warning">
+            <div>
+              <strong>
+                Warning: Experiment is still{" "}
+                {experiment.status === "running" ? "running" : "live"}
+              </strong>
+            </div>
+            Changes made will apply to all linked Feature Flags and Visual
+            Editor changes immediately upon saving.
+          </div>
 
           <div className="mt-4">
             <label>Current targeting</label>
@@ -192,6 +200,9 @@ export default function EditTargetingModal({
                 experiment={experiment}
                 noHeader={true}
                 targetingFieldsOnly={true}
+                separateTrafficSplitDisplay={true}
+                showDecimals={true}
+                showNamespaceRanges={true}
               />
             </div>
           </div>
@@ -200,19 +211,78 @@ export default function EditTargetingModal({
 
       {changeType !== "phase" && (
         <Page display="Edit Targeting">
-          <TargetingForm
-            experiment={experiment}
-            form={form}
-            safeToEdit={false}
-            changeType={changeType}
-          />
+          <div className="px-2">
+            <TargetingForm
+              experiment={experiment}
+              form={form}
+              safeToEdit={false}
+              changeType={changeType}
+            />
+          </div>
         </Page>
       )}
 
-      <Page display="Deploy Changes">
-        <ReleaseChangesForm experiment={experiment} form={form} />
+      <Page display="Review & Deploy">
+        <div className="px-2 mt-2">
+          <ReleaseChangesForm
+            experiment={experiment}
+            form={form}
+            releasePlan={releasePlan}
+            setReleasePlan={setReleasePlan}
+          />
+        </div>
       </Page>
     </PagedModal>
+  );
+}
+
+function ChangeTypeSelector({
+  changeType,
+  setChangeType,
+}: {
+  changeType?: ChangeType;
+  setChangeType: (changeType: ChangeType) => void;
+}) {
+  return (
+    <SelectField
+      label="What changes do you want to make?"
+      value={changeType || ""}
+      options={[
+        {
+          label: "Targeting & Traffic",
+          options: [
+            { label: "Saved Groups & Attributes", value: "targeting" },
+            { label: "Traffic Percent", value: "traffic" },
+            { label: "Variation Weights", value: "weights" },
+            { label: "Namespace", value: "namespace" },
+            { label: "Advanced", value: "advanced" },
+          ],
+        },
+        {
+          label: "Phase",
+          options: [{ label: "Start a new phase...", value: "phase" }],
+        },
+      ]}
+      onChange={(v) => setChangeType(v as ChangeType)}
+      sort={false}
+      isSearchable={false}
+      formatOptionLabel={({ value, label }) => {
+        if (value === "advanced") {
+          return (
+            <>
+              <span className="ml-2 font-italic">
+                <BsToggles className="position-relative" style={{ top: -1 }} />{" "}
+                {label}
+              </span>
+              <span className="ml-2 text-muted">
+                &mdash; Make multiple targeting changes at the same time
+              </span>
+            </>
+          );
+        }
+        return <span className="ml-2">{label}</span>;
+      }}
+    />
   );
 }
 
@@ -236,7 +306,7 @@ function TargetingForm({
 
   return (
     <div className="px-2 pt-2">
-      {safeToEdit ? (
+      {safeToEdit && (
         <>
           <Field
             label="Tracking Key"
@@ -306,17 +376,6 @@ function TargetingForm({
             onChange={(v) => form.setValue("hashVersion", v)}
           />
         </>
-      ) : (
-        <div className="alert alert-warning">
-          <div>
-            <strong>
-              Warning: Experiment is still{" "}
-              {experiment.status === "running" ? "running" : "live"}
-            </strong>
-          </div>
-          Changes you make here will apply to all linked Feature Flags and
-          Visual Editor changes immediately upon saving.
-        </div>
       )}
       {["targeting", "advanced"].includes(changeType) && (
         <>

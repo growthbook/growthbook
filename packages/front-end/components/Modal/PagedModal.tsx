@@ -15,9 +15,10 @@ type Props = {
   header: string;
   submitColor?: string;
   cta?: string;
+  ctaEnabled?: boolean;
+  forceCtaText?: boolean;
   closeCta?: string;
   disabledMessage?: string;
-  ctaEnabled?: boolean;
   size?: "md" | "lg" | "max" | "fill";
   docSection?: DocSection;
   navStyle?: "pills" | "underlined" | "tabs" | "default";
@@ -45,6 +46,8 @@ const PagedModal: FC<Props> = (props) => {
     navFill,
     backButton = false,
     cta,
+    ctaEnabled = true,
+    forceCtaText,
     inline,
     secondaryCTA,
     size,
@@ -140,7 +143,8 @@ const PagedModal: FC<Props> = (props) => {
       }
       error={error}
       autoCloseOnSubmit={false}
-      cta={!nextStep ? cta : "Next"}
+      cta={forceCtaText || !nextStep ? cta : "Next"}
+      ctaEnabled={ctaEnabled}
     >
       <nav
         className={`nav mb-4 justify-content-start ${navStyleClass} ${navFillClass} ${
@@ -156,14 +160,14 @@ const PagedModal: FC<Props> = (props) => {
                   {
                     active: step === i,
                     completed: i < step,
-                    disabled: enabled === false,
+                    disabled: !enabled,
                   }
                 )}
                 key={i}
               >
                 <a
                   key={i}
-                  href="#"
+                  role="button"
                   className={clsx("nav-link")}
                   onClick={async (e) => {
                     e.preventDefault();
@@ -187,10 +191,10 @@ const PagedModal: FC<Props> = (props) => {
             return (
               <a
                 key={i}
-                href="#"
+                role="button"
                 className={clsx("w-md-100 nav-item nav-link", {
                   active: step === i,
-                  disabled: enabled === false,
+                  disabled: !enabled,
                 })}
                 onClick={async (e) => {
                   e.preventDefault();
