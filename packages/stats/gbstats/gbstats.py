@@ -495,6 +495,19 @@ def process_single_metric(
     analyses: List[AnalysisSettingsForStatsEngine],
     var_id_map: Dict[str, int],
 ):
+    # If no data return blank results
+    if len(mdata.rows) == 0:
+        return {
+            "metric": mdata.metric,
+            "analyses": [
+                {
+                    "unknownVariations": [],
+                    "dimensions": [],
+                    "multipleExposures": 0,
+                }
+                for _ in analyses
+            ],
+        }
     rows = pd.DataFrame(mdata.rows)
     inverse = mdata.inverse
     multiple_exposures = mdata.multiple_exposures
