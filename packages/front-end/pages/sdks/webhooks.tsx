@@ -1,24 +1,53 @@
 import React, { useState } from "react";
 import { WebhookInterface } from "back-end/types/webhook";
+import { FaPencilAlt } from "react-icons/fa";
 import useApi from "@/hooks/useApi";
 import WebhooksModal from "@/components/Settings/WebhooksModal";
+import DeleteButton from "@/components/DeleteButton/DeleteButton";
+import { useAuth } from "@/services/auth";
 
 export default function SDKWebhooks({ sdkid }) {
-  console.log(sdkid, "sdkid", `/webhooks/sdk/${sdkid}`);
   const { data, mutate } = useApi(`/webhooks/sdk/${sdkid}`);
   const [
     createModalOpen,
     setCreateModalOpen,
   ] = useState<null | Partial<WebhookInterface>>(null);
+  const { apiCall } = useAuth();
+
   const renderTableRows = () => {
-    return data?.webhooks.map((webhook) => (
+    const webhooks = data?.webhooks as WebhookInterface[];
+    return webhooks?.map((webhook) => (
       <tr key={webhook.name}>
         <td>{webhook.name}</td>
         <td>{webhook.endpoint}</td>
         <td>{webhook.sendPayload === true ? "yes" : "no"}</td>
         <td>{webhook.signingKey}</td>
         <td>{webhook.sdks}</td>
-        <td>{webhook.status}</td>
+        <td>
+          <a
+            href="#"
+            className="tr-hover text-primary mr-3"
+            title="Edit this webhook"
+            onClick={(e) => {
+              e.preventDefault();
+              setCreateModalOpen(webhook);
+            }}
+          >
+            <FaPencilAlt />
+          </a>
+          <DeleteButton
+            link={true}
+            className={"tr-hover text-primary"}
+            displayName="Webhook"
+            title="Delete this webhook"
+            onClick={async () => {
+              await apiCall(`/webhook/${webhook.id}`, {
+                method: "DELETE",
+              });
+              mutate();
+            }}
+          />
+        </td>
       </tr>
     ));
   };
@@ -32,7 +61,7 @@ export default function SDKWebhooks({ sdkid }) {
           <td>SEND PAYLOAD</td>
           <td>SHARED SECRET</td>
           <td>SDKS</td>
-          <td>STATUS</td>
+          <td>EDIT</td>
         </tr>
       </thead>
       <tbody>{renderTableRows()}</tbody>
@@ -54,7 +83,7 @@ export default function SDKWebhooks({ sdkid }) {
         className="btn btn-primary"
         onClick={(e) => {
           e.preventDefault();
-          setCreateModalOpen(null);
+          setCreateModalOpen({});
         }}
       >
         Add webhook

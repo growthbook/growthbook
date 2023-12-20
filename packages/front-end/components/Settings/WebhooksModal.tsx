@@ -42,13 +42,11 @@ const WebhooksModal: FC<{
   const handleApiCall = async (value) => {
     console.log(JSON.stringify(value));
     if (showSDKMode) {
-      await apiCall(
-        current.id ? `/webhook/sdk/${current.id}` : "/webhooks/sdk",
-        {
-          method: current.id ? "PUT" : "POST",
-          body: JSON.stringify(value),
-        }
-      );
+      console.log(current, "current");
+      await apiCall(current.id ? `/webhook/${current.id}` : "/webhooks/sdk", {
+        method: current.id ? "PUT" : "POST",
+        body: JSON.stringify(value),
+      });
     } else {
       await apiCall(current.id ? `/webhook/${current.id}` : "/webhooks", {
         method: current.id ? "PUT" : "POST",

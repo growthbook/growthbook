@@ -1513,7 +1513,6 @@ export async function putWebhook(
 
   const { org } = getOrgFromReq(req);
   const { id } = req.params;
-
   const webhook = await WebhookModel.findOne({
     id,
   });
@@ -1544,6 +1543,25 @@ export async function putWebhook(
 }
 
 export async function deleteWebhook(
+  req: AuthRequest<null, { id: string }>,
+  res: Response
+) {
+  req.checkPermissions("manageWebhooks");
+
+  const { org } = getOrgFromReq(req);
+  const { id } = req.params;
+
+  await WebhookModel.deleteOne({
+    organization: org.id,
+    id,
+  });
+
+  res.status(200).json({
+    status: 200,
+  });
+}
+
+export async function deleteWebhookSDK(
   req: AuthRequest<null, { id: string }>,
   res: Response
 ) {
