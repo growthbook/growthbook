@@ -4,11 +4,13 @@ import {
   getGithubIntegrationByInstallationId,
 } from "../models/GithubIntegration";
 
-export const webhooks = new Webhooks({
-  secret: process.env.GITHUB_WEBHOOK_SECRET || "secret",
-});
+export const webhooks = process.env.GITHUB_WEBHOOK_SECRET
+  ? new Webhooks({
+      secret: process.env.GITHUB_WEBHOOK_SECRET,
+    })
+  : null;
 
-webhooks.on(
+webhooks?.on(
   "installation",
   async ({
     payload,
@@ -35,12 +37,12 @@ webhooks.on(
   }
 );
 
-webhooks.on("installation_repositories", async ({ id, name, payload }) => {
+webhooks?.on("installation_repositories", async ({ id, name, payload }) => {
   // eslint-disable-next-line no-console
   console.log("installation_repositories event", id, name, payload);
 });
 
-webhooks.on(
+webhooks?.on(
   "push",
   async ({
     id,

@@ -142,7 +142,13 @@ export const postRepoWatch = async (
 };
 
 // individual webhook event handlers are defined in services/github.ts
-export const webhookHandler = async (req: Request, res: Response) => {
+export const webhookHandler = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  if (!webhooks) return next();
+
   const githubSignature = req.headers["x-hub-signature-256"];
   const signature = await webhooks.sign(JSON.stringify(req.body));
 
