@@ -103,7 +103,7 @@ export interface UserContextValue {
   permissions: Record<GlobalPermission, boolean> & PermissionFunctions;
   settings: OrganizationSettings;
   enterpriseSSO?: SSOConnectionInterface;
-  accountPlan?: AccountPlan;
+  accountPlan: AccountPlan;
   commercialFeatures: CommercialFeature[];
   apiKeys: ApiKeyInterface[];
   organization: Partial<OrganizationInterface>;
@@ -125,6 +125,8 @@ interface UserResponse {
   currentUserPermissions: UserPermissions;
 }
 
+const defaultAccountPlan: AccountPlan = isCloud() ? "starter" : "oss";
+
 export const UserContext = createContext<UserContextValue>({
   permissions: { ...DEFAULT_PERMISSIONS, check: () => false },
   settings: {},
@@ -142,6 +144,7 @@ export const UserContext = createContext<UserContextValue>({
   organization: {},
   teams: [],
   hasCommercialFeature: () => false,
+  accountPlan: defaultAccountPlan,
 });
 
 export function useUser() {
@@ -375,7 +378,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
         settings: currentOrg?.organization?.settings || {},
         license: data?.license,
         enterpriseSSO: currentOrg?.enterpriseSSO || undefined,
-        accountPlan: currentOrg?.accountPlan,
+        accountPlan: currentOrg?.accountPlan || defaultAccountPlan,
         commercialFeatures: currentOrg?.commercialFeatures || [],
         apiKeys: currentOrg?.apiKeys || [],
         // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'OrganizationInterface | undefined' is not as... Remove this comment to see the full error message
