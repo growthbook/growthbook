@@ -7,7 +7,7 @@ import {
 } from "../../types/github";
 import { OrganizationInterface } from "../../types/organization";
 import { fetchRepositories } from "../services/github";
-import { doesTokenExist } from "./GithubUserTokenModel";
+import { deleteGithubUserToken, doesTokenExist } from "./GithubUserTokenModel";
 
 type GithubIntegrationDocument = mongoose.Document & GithubIntegrationInterface;
 
@@ -15,6 +15,7 @@ const githubIntegrationSchema = new mongoose.Schema({
   id: String,
   organization: String,
   tokenId: String,
+  installationId: String,
   createdBy: String,
   createdAt: Date,
   repositories: [
@@ -93,4 +94,25 @@ export const toggleWatchingForRepo = async ({
   await doc.save();
 
   return repo.watching;
+};
+
+export const deleteGithubIntegration = async (
+  integration: GithubIntegrationInterface
+) => {
+  const doc = await GithubIntegrationModel.findOne({
+    id: integration.id,
+  });
+  if (!doc) throw new Error("Github integration does not exist");
+  await deleteGithubUserToken(doc.tokenId);
+  await doc.delete();
+};
+
+export const getGithubIntegrationByInstallationId = async (
+  installationId: string
+) => {
+  const doc = await GithubIntegrationModel.findOne({
+    installationId,
+  });
+
+  return doc ? toInterface(doc) : null;
 };

@@ -24,6 +24,7 @@ export interface GithubIntegrationInterface {
   id: string;
   organization: string;
   tokenId: string;
+  installationId: string;
   createdBy: string;
   createdAt: Date;
   repositories: GithubIntegrationRepository[];

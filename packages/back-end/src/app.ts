@@ -106,6 +106,7 @@ import { environmentRouter } from "./routers/environment/environment.router";
 import { teamRouter } from "./routers/teams/teams.router";
 import { staticFilesRouter } from "./routers/upload/static-files.router";
 import { githubIntegrationRouter } from "./routers/github-integration/github-integration.router";
+import { webhookHandler as githubWebhookHandler } from "./routers/github-integration/github-integration.controller";
 
 const app = express();
 
@@ -196,6 +197,9 @@ app.post(
 
 // increase max payload json size to 1mb
 app.use(bodyParser.json({ limit: "1mb" }));
+
+// github webhook handler - open to the public but payloads are signed and verified
+app.post("/integrations/github/webhooks", githubWebhookHandler);
 
 // Public API routes (does not require JWT, does require cors with origin = *)
 app.get(

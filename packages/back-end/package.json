@@ -37,6 +37,7 @@
     "@octokit/core": "^5.0.2",
     "@octokit/oauth-methods": "^4.0.1",
     "@octokit/rest": "^20.0.2",
+    "@octokit/webhooks": "^12.0.10",
     "@opentelemetry/api": "^1.4.1",
     "@opentelemetry/auto-instrumentations-node": "^0.37.1",
     "@sentry/node": "^7.14.2",

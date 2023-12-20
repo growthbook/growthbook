@@ -1,6 +1,8 @@
-import { NextFunction, Response } from "express";
+import { NextFunction, Request, Response } from "express";
+import { Octokit } from "@octokit/rest";
 import { createAppAuth, createOAuthUserAuth } from "@octokit/auth-app";
 import { getOrgFromReq } from "../../services/organizations";
+import { webhooks } from "../../services/github";
 import { AuthRequest } from "../../types/AuthRequest";
 import {
   getGithubIntegrationByOrg,
@@ -69,6 +71,21 @@ export const postGithubIntegration = async (
 
   const { org, userId } = getOrgFromReq(req);
 
+  // get installation id
+  const octokit = new Octokit({ auth: authentication.token });
+  const { data: installationsRes } = await octokit.request(
+    "GET /user/installations"
+  );
+  const installation = installationsRes.installations.find(
+    (installation) => `${installation.app_id}` === process.env.GITHUB_APP_ID
+  );
+
+  if (!installation)
+    return res.status(400).json({
+      status: 400,
+      message: "Could not find installation",
+    });
+
   const createdToken = await createGithubUserToken({
     token: authentication.token,
     organization: org.id,
@@ -80,6 +97,7 @@ export const postGithubIntegration = async (
   const created = await createGithubIntegration({
     organization: org.id,
     tokenId: createdToken.id,
+    installationId: `${installation.id}`,
     createdBy: userId,
   });
 
@@ -105,5 +123,27 @@ export const postRepoWatch = async (
   return res.status(200).json({
     status: 200,
     watching,
+  });
+};
+
+// individual webhook event handlers are defined in services/github.ts
+export const webhookHandler = async (req: Request, res: Response) => {
+  const githubSignature = req.headers["x-hub-signature-256"];
+  const signature = await webhooks.sign(JSON.stringify(req.body));
+
+  if (githubSignature !== signature)
+    return res.status(401).json({
+      status: 401,
+      message: "Invalid signature",
+    });
+
+  await webhooks.receive({
+    id: req.headers["x-github-delivery"] as string,
+    name: req.headers["x-github-event"] as string,
+    payload: req.body,
+  });
+
+  res.status(200).json({
+    status: 200,
   });
 };

@@ -76,3 +76,7 @@ export const getGithubUserToken = async (tokenId: string) => {
   if (token.expiresAt < new Date()) token = await refreshGithubUserToken(token);
   return token.token;
 };
+
+export const deleteGithubUserToken = async (tokenId: string) => {
+  await GithubUserTokenModel.deleteOne({ id: tokenId });
+};
