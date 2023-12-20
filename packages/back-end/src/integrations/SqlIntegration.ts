@@ -67,7 +67,10 @@ import { ExperimentSnapshotSettings } from "../../types/experiment-snapshot";
 import { SQLVars, TemplateVariables } from "../../types/sql";
 import { FactTableMap } from "../models/FactTableModel";
 import { logger } from "../util/logger";
-import { FactMetricInterface } from "../../types/fact-table";
+import {
+  FactFilterInterface,
+  FactMetricInterface,
+} from "../../types/fact-table";
 
 export const MAX_ROWS_UNIT_AGGREGATE_QUERY = 3000;
 
@@ -2907,6 +2910,19 @@ AND event_name = '${eventName}'`,
      `;
   }
 
+  getFilterValues(
+    filterIds: string[],
+    filters: FactFilterInterface[]
+  ): string[] {
+    const filterValues: string[] = [];
+    filterIds.forEach((filterId) => {
+      const filter = filters.find((f) => f.id === filterId);
+      if (filter) {
+        filterValues.push(filter.value);
+      }
+    });
+    return filterValues;
+  }
   // Get a Fact Table CTE for multiple fact metrics that all share the same fact table
   private getFactTableCTE({
     metrics,
@@ -2975,7 +2991,11 @@ AND event_name = '${eventName}'`,
 
       // Numerator column
       const value = this.getMetricColumns(m, factTableMap, "m", false).value;
-      const filters = m.numerator.filters;
+      const filters = this.getFilterValues(
+        m.numerator.filters,
+        factTable.filters
+      );
+
       const column =
         filters.length > 0
           ? `CASE WHEN (${filters.join(" AND ")}) THEN ${value} ELSE NULL END`
@@ -2993,7 +3013,10 @@ AND event_name = '${eventName}'`,
         }
 
         const value = this.getMetricColumns(m, factTableMap, "m", true).value;
-        const filters = m.numerator.filters;
+        const filters = this.getFilterValues(
+          m.denominator.filters,
+          factTable.filters
+        );
         const column =
           filters.length > 0
             ? `CASE WHEN (${filters.join(" AND ")}) THEN ${value} ELSE NULL END`
