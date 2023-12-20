@@ -33,7 +33,7 @@ const config = {
       "data-project-color": "#7817d3",
       "data-modal-example-questions":"How do I run an experiment?",
       "data-project-logo":
-        "https://raw.githubusercontent.com/growthbook/growthbook/main/docs/static/images/white-growthbook-icon-purple-bg-256.png",
+        "https://docs.growthbook.io/images/chatbot-icon-white.png",
       async: true,
     },
   ],
