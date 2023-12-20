@@ -1,5 +1,6 @@
 import { NextPage } from "next";
 import { useRouter } from "next/router";
+import { useEffect } from "react";
 import { GithubIntegrationInterface } from "back-end/types/github";
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import useApi from "@/hooks/useApi";
@@ -26,6 +27,13 @@ const GitHubIntegrationPage: NextPage = () => {
   }>("/integrations/github");
 
   const githubIntegration = data?.githubIntegration;
+
+  // clean up query params once authenticated
+  useEffect(() => {
+    // blow away all query params indiscrimnately. update this if we ever
+    // have other query params we want to keep
+    if (code && githubIntegration) router.replace("/integrations/github");
+  }, [code, githubIntegration, router]);
 
   if (!permissions.manageIntegrations) {
     return (
