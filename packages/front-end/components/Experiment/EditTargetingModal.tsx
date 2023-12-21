@@ -4,7 +4,7 @@ import {
   ExperimentPhaseStringDates,
   ExperimentTargetingData,
 } from "back-end/types/experiment";
-import { FaInfoCircle } from "react-icons/fa";
+import {FaExclamationCircle, FaInfoCircle} from "react-icons/fa";
 import omit from "lodash/omit";
 import isEqual from "lodash/isEqual";
 import React, { useEffect, useState } from "react";
@@ -181,6 +181,14 @@ export default function EditTargetingModal({
             changeType={changeType}
             setChangeType={setChangeType}
           />
+
+          {changeType === "advanced" && (
+            <div className="alert alert-warning px-3 py-2 small">
+              <FaExclamationCircle />{" "}
+              When making multiple types of changes, it can be difficult
+              to control for the impact of each change. Proceed with caution.
+            </div>
+          )}
 
           <div className="alert alert-warning">
             <div>

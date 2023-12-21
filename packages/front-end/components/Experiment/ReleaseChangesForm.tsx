@@ -4,7 +4,7 @@ import {
   ExperimentPhaseStringDates,
   ExperimentTargetingData,
 } from "back-end/types/experiment";
-import React, { useEffect, useState } from "react";
+import { useEffect } from "react";
 import {
   FaCheck,
   FaExclamationCircle,
@@ -19,7 +19,6 @@ import { MdInfoOutline } from "react-icons/md";
 import { ImBlocked } from "react-icons/im";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
-import { useUser } from "@/services/UserContext";
 import { useAuth } from "@/services/auth";
 import usePermissions from "@/hooks/usePermissions";
 import { DocLink } from "@/components/DocLink";
@@ -45,19 +44,11 @@ function getRecommendedRolloutData({
   const lastPhase: ExperimentPhaseStringDates | undefined =
     experiment.phases[experiment.phases.length - 1];
 
-  // Returned recommendations:
-  let promptExistingUserOptions = true;
-  let existingUsersOption: ExistingUsersOption = "reassign";
-  let disableKeepOption = false;
-  let disableSamePhase = false;
-  // Secondary recommendations for when the user chooses "reassign"
-  let reassign_newPhase = false;
-  let reassign_newSeed = false;
-
-  // for messaging about the benefits of sticky bucketing
-  let samePhaseSafeWithStickyBucketing = false;
-  // for displaying the level of risk imposed by the changes
+  let recommendedReleasePlan: ReleasePlan | undefined = undefined;
+  let actualReleasePlan: ReleasePlan | undefined = undefined;
   let riskLevel = "safe";
+  let disableSamePhase = false;
+  let samePhaseSafeWithStickyBucketing = true;
 
   // Returned meta:
   let reasons: {
@@ -160,23 +151,26 @@ function getRecommendedRolloutData({
     !disableVariation
   ) {
     // recommend no release changes
-    promptExistingUserOptions = false;
+    recommendedReleasePlan = "same-phase-sticky";
+    actualReleasePlan = stickyBucketing
+      ? recommendedReleasePlan
+      : "same-phase-everyone";
   } else {
     // B. Calculate recommendations as if sticky bucketing is enabled
     // (We will override these later if it is not. Calculating this allows us to
     // show the user the benefits of enabling sticky bucketing)
     if (moreRestrictiveTargeting || decreaseCoverage || disableVariation) {
       // safe
-      promptExistingUserOptions = true;
-      existingUsersOption = "keep";
+      recommendedReleasePlan = "same-phase-sticky";
+      actualReleasePlan = recommendedReleasePlan;
       samePhaseSafeWithStickyBucketing = true;
       riskLevel = "safe";
     }
     if (otherTargetingChanges) {
       // warning
-      promptExistingUserOptions = true;
-      existingUsersOption = "exclude";
-      samePhaseSafeWithStickyBucketing = true;
+      recommendedReleasePlan = "new-phase";
+      actualReleasePlan = recommendedReleasePlan;
+      samePhaseSafeWithStickyBucketing = false;
       riskLevel = "warning";
       reasons = { ...reasons, otherTargetingChanges };
     }
@@ -187,9 +181,9 @@ function getRecommendedRolloutData({
       changeVariationWeights
     ) {
       // danger
-      promptExistingUserOptions = true;
-      existingUsersOption = "exclude";
-      disableKeepOption = true;
+      recommendedReleasePlan = "new-phase";
+      actualReleasePlan = recommendedReleasePlan;
+      disableSamePhase = true;
       samePhaseSafeWithStickyBucketing = false;
       riskLevel = "danger";
       reasons = {
@@ -200,27 +194,13 @@ function getRecommendedRolloutData({
         changeVariationWeights,
       };
     }
-    // secondary recommendations for when the user chooses "reassign"
-    if (
-      moreRestrictiveTargeting ||
-      decreaseCoverage ||
-      addToNamespace ||
-      decreaseNamespaceRange ||
-      otherTargetingChanges ||
-      otherNamespaceChanges ||
-      changeVariationWeights ||
-      disableVariation
-    ) {
-      reassign_newPhase = true;
-      reassign_newSeed = true;
-    }
 
     // C. Calculate recommendations when sticky bucketing is disabled
     if (!stickyBucketing) {
       // reset
-      promptExistingUserOptions = true;
-      existingUsersOption = "keep";
+      actualReleasePlan = "same-phase-everyone";
       riskLevel = "safe";
+      disableSamePhase = false;
       reasons = {};
 
       if (
@@ -230,9 +210,7 @@ function getRecommendedRolloutData({
         decreaseNamespaceRange
       ) {
         // warning
-        promptExistingUserOptions = true;
-        existingUsersOption = "reassign";
-        disableSamePhase = true;
+        actualReleasePlan = "new-phase";
         riskLevel = "warning";
         reasons = {
           ...reasons,
@@ -249,9 +227,7 @@ function getRecommendedRolloutData({
         disableVariation
       ) {
         // danger
-        promptExistingUserOptions = true;
-        existingUsersOption = "reassign";
-        disableKeepOption = true;
+        actualReleasePlan = "new-phase";
         disableSamePhase = true;
         riskLevel = "danger";
         reasons = {
@@ -266,14 +242,11 @@ function getRecommendedRolloutData({
   }
 
   return {
-    promptExistingUserOptions,
-    existingUsersOption,
-    disableKeepOption,
-    disableSamePhase,
-    reassign_newPhase,
-    reassign_newSeed,
-    samePhaseSafeWithStickyBucketing,
+    recommendedReleasePlan,
+    actualReleasePlan,
     riskLevel,
+    disableSamePhase,
+    samePhaseSafeWithStickyBucketing,
     reasons,
   };
 }
@@ -306,8 +279,6 @@ function SafeToReleaseBanner({
   );
 }
 
-type ExistingUsersOption = "keep" | "exclude" | "reassign";
-
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
   form: UseFormReturn<ExperimentTargetingData>;
@@ -324,23 +295,15 @@ export default function ReleaseChangesForm({
   setReleasePlan,
 }: Props) {
   const { apiCall } = useAuth();
-  const { hasCommercialFeature, refreshOrganization } = useUser();
   const permissions = usePermissions();
   const settings = useOrgSettings();
 
   const orgStickyBucketing = !!settings.useStickyBucketing;
   const usingStickyBucketing =
     orgStickyBucketing && !experiment.disableStickyBucketing;
-  const hasStickyBucketFeature = hasCommercialFeature("sticky-bucketing");
-  const [stickyBucketingCTAOpen, setStickyBucketingCTAOpen] = useState(false);
 
   const lastPhase: ExperimentPhaseStringDates | undefined =
     experiment.phases[experiment.phases.length - 1];
-
-  const [
-    existingUsersOption,
-    setExistingUsersOption,
-  ] = useState<ExistingUsersOption>("reassign");
 
   const recommendedRolloutData = getRecommendedRolloutData({
     experiment,
@@ -348,60 +311,41 @@ export default function ReleaseChangesForm({
     stickyBucketing: usingStickyBucketing,
   });
 
+  // set the release plan selector to the recommended value
   useEffect(() => {
-    setExistingUsersOption(recommendedRolloutData.existingUsersOption);
-  }, [setExistingUsersOption, recommendedRolloutData.existingUsersOption]);
+    if (changeType === "new-plase") return;
+    if (releasePlan === "advanced") return;
+    if (recommendedRolloutData.recommendedReleasePlan) {
+      setReleasePlan(recommendedRolloutData.recommendedReleasePlan);
+    }
+  }, [
+    recommendedRolloutData.recommendedReleasePlan,
+    releasePlan,
+    setReleasePlan,
+    changeType,
+  ]);
 
   // set the default values for each of the user prompt options
   useEffect(() => {
-    if (existingUsersOption === "keep") {
-      // same phase, same seed, same bucket version
+    if (releasePlan === "same-phase-sticky") {
       form.setValue("newPhase", false);
       form.setValue("reseed", false);
       form.setValue("bucketVersion", experiment.bucketVersion);
       form.setValue("minBucketVersion", experiment.minBucketVersion);
-    } else if (existingUsersOption === "exclude") {
-      // new phase, new seed, new bucket version (block prior buckets)
+    } else if (releasePlan === "same-phase-everyone") {
       form.setValue("newPhase", true);
       form.setValue("reseed", true);
       form.setValue("bucketVersion", (experiment.bucketVersion ?? 0) + 1);
       form.setValue("minBucketVersion", (experiment.bucketVersion ?? 0) + 1);
-    } else if (existingUsersOption === "reassign") {
-      // new phase, new seed, new bucket version (reassign prior buckets)
-      form.setValue("newPhase", recommendedRolloutData.reassign_newPhase);
-      form.setValue("reseed", recommendedRolloutData.reassign_newSeed);
+    } else if (releasePlan === "new-phase") {
+      form.setValue("newPhase", true);
+      form.setValue("reseed", true);
       form.setValue("bucketVersion", (experiment.bucketVersion ?? 0) + 1);
       form.setValue("minBucketVersion", experiment.minBucketVersion ?? 0);
     }
   }, [
-    existingUsersOption,
+    releasePlan,
     form,
-    experiment.bucketVersion,
-    experiment.minBucketVersion,
-    recommendedRolloutData.reassign_newPhase,
-    recommendedRolloutData.reassign_newSeed,
-  ]);
-
-  // set the default values for the "reassign" form (may differ from top-level recommendations)
-  const form_newPhase = form.watch("newPhase");
-  useEffect(() => {
-    if (existingUsersOption !== "reassign") return;
-    if (!form_newPhase) {
-      // existing
-      form.setValue("reseed", false);
-      form.setValue("bucketVersion", experiment.bucketVersion);
-      form.setValue("minBucketVersion", experiment.minBucketVersion);
-    } else {
-      // new
-      form.setValue("reseed", recommendedRolloutData.reassign_newSeed);
-      form.setValue("bucketVersion", (experiment.bucketVersion ?? 0) + 1);
-      form.setValue("minBucketVersion", experiment.minBucketVersion);
-    }
-  }, [
-    existingUsersOption,
-    form,
-    form_newPhase,
-    recommendedRolloutData.reassign_newSeed,
     experiment.bucketVersion,
     experiment.minBucketVersion,
   ]);
@@ -415,7 +359,7 @@ export default function ReleaseChangesForm({
         value={releasePlan || ""}
         options={[
           { label: "New Phase, re-randomize traffic", value: "new-phase" },
-          ...(changeType !== "phase"
+          ...(changeType !== "phase" && !recommendedRolloutData.disableSamePhase
             ? [
                 {
                   label: "Same Phase, apply changes to new traffic only",
@@ -456,7 +400,7 @@ export default function ReleaseChangesForm({
           }
           const requiresStickyBucketing = value === "same-phase-sticky";
           const recommended =
-            value === recommendedRolloutData.existingUsersOption;
+            value === recommendedRolloutData.recommendedReleasePlan;
           const disabled = requiresStickyBucketing && !usingStickyBucketing;
           return (
             <div
@@ -489,6 +433,13 @@ export default function ReleaseChangesForm({
           );
         }}
       />
+      {releasePlan === "advanced" && (
+        <div className="alert alert-warning px-3 py-2 small">
+          <FaExclamationCircle /> When customizing your release plan, there may
+          be an increased risk of introducing bias into your experiment or
+          affecting bucketed users in unintended ways. Proceed with caution.
+        </div>
+      )}
 
       <div className="mt-4">
         <label>Release plan details</label>
