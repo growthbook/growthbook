@@ -77,10 +77,12 @@ export const UPDATEABLE_FIELDS: (keyof MetricInterface)[] = [
 ];
 
 export async function deleteMetric(
-  req: AuthRequest<null, { id: string }>,
+  req: AuthRequest<null, { id: string }, { project: string }>,
   res: Response<unknown, EventAuditUserForResponseLocals>
 ) {
-  req.checkPermissions("createAnalyses", "");
+  const project = req.query.project || "";
+
+  req.checkPermissions("createAnalyses", project);
 
   const { org, readAccessFilter } = getOrgFromReq(req);
   const { id } = req.params;

@@ -76,6 +76,7 @@ const MetricPage: FC = () => {
     getMetricById,
     metrics,
     segments,
+    project,
   } = useDefinitions();
   const settings = useOrgSettings();
   const [editModalOpen, setEditModalOpen] = useState<boolean | number>(false);
@@ -426,9 +427,14 @@ const MetricPage: FC = () => {
                 // @ts-expect-error TS(2322) If you come across this, please fix it!: Type '() => Promise<JSX.Element | undefined>' is n... Remove this comment to see the full error message
                 getConfirmationContent={getMetricUsage(metric)}
                 onClick={async () => {
-                  await apiCall(`/metric/${metric.id}`, {
-                    method: "DELETE",
-                  });
+                  await apiCall(
+                    project
+                      ? `/metric/${metric.id}?project=${project}`
+                      : `/metric/${metric.id}`,
+                    {
+                      method: "DELETE",
+                    }
+                  );
                   mutateDefinitions({});
                   router.push("/metrics");
                 }}
