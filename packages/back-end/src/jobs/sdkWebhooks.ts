@@ -11,7 +11,7 @@ import { SDKConnectionInterface } from "../../types/sdk-connection";
 import { cancellableFetch } from "../util/http.util";
 import { logger } from "../util/logger";
 import { findWebhookById, findWebhooksBySDks } from "../models/WebhookModel";
-import { WebhookInterface } from "../../types/webhook";
+import { WebhookInterface, WebhookMethod } from "../../types/webhook";
 
 const SDK_WEBHOOKS_JOB_NAME = "fireWebhooks";
 type SDKWebhookJob = Job<{
@@ -72,6 +72,8 @@ export default function addWebhooksJob(ag: Agenda) {
         signature: webhook.signingKey,
         key: connection.key,
         payload,
+        headers: webhook.headers || "",
+        method: webhook.method || "POST",
       });
 
       if (!res.ok) {
@@ -161,11 +163,15 @@ async function fireWebhook({
   signature,
   key,
   payload,
+  method,
+  headers,
 }: {
   url: string;
   signature: string;
   key: string;
   payload: string;
+  method: WebhookMethod;
+  headers: string;
 }) {
   const { responseWithoutBody: res } = await cancellableFetch(
     url,
@@ -174,8 +180,9 @@ async function fireWebhook({
         "Content-Type": "application/json",
         "X-GrowthBook-Signature": signature,
         "X-GrowthBook-Api-Key": key,
+        ...JSON.parse(headers),
       },
-      method: "POST",
+      method,
       body: payload,
     },
     {

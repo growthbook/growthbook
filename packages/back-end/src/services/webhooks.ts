@@ -1,7 +1,7 @@
 import uniqid from "uniqid";
 import md5 from "md5";
 import { WebhookModel } from "../models/WebhookModel";
-import { WebhookInterface } from "../../types/webhook";
+import { WebhookInterface, WebhookMethod } from "../../types/webhook";
 
 type CreateWebhook = {
   organization: string;
@@ -12,6 +12,8 @@ type CreateWebhook = {
   useSDKMode?: boolean;
   sdks?: string[];
   sendPayload?: boolean;
+  method?: WebhookMethod;
+  headers?: string;
 };
 type CreateWebhookSDK = {
   organization: string;
@@ -19,6 +21,8 @@ type CreateWebhookSDK = {
   endpoint: string;
   sdkid: string;
   sendPayload: boolean;
+  method: WebhookMethod;
+  headers: string;
 };
 export async function createWebhookSDK({
   organization,
@@ -26,6 +30,8 @@ export async function createWebhookSDK({
   endpoint,
   sdkid,
   sendPayload,
+  headers,
+  method,
 }: CreateWebhookSDK): Promise<string> {
   const sdks = [sdkid];
   return createWebhook({
@@ -35,6 +41,8 @@ export async function createWebhookSDK({
     useSDKMode: true,
     sdks,
     sendPayload,
+    headers,
+    method,
   });
 }
 
@@ -47,6 +55,8 @@ export async function createWebhook({
   useSDKMode,
   sdks,
   sendPayload,
+  headers,
+  method,
 }: CreateWebhook): Promise<string> {
   const id = uniqid("wh_");
   const signingKey = "wk_" + md5(uniqid()).substr(0, 16);
@@ -66,6 +76,8 @@ export async function createWebhook({
     useSDKMode: useSDKMode || false,
     sdks: sdks || [],
     sendPayload: sendPayload || true,
+    headers: JSON.stringify(headers) || "",
+    method: method || "POST",
   };
   await WebhookModel.create(doc);
 

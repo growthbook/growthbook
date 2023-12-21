@@ -25,6 +25,7 @@ const webhookSchema = new mongoose.Schema({
     index: true,
   },
   sendPayload: Boolean,
+  headers: String,
 });
 
 export type WebhookDocument = mongoose.Document & WebhookInterface;

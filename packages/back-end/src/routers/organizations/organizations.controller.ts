@@ -77,7 +77,7 @@ import {
 } from "../../models/OrganizationModel";
 import { findAllProjectsByOrganization } from "../../models/ProjectModel";
 import { ConfigFile } from "../../init/config";
-import { WebhookInterface } from "../../../types/webhook";
+import { WebhookInterface, WebhookMethod } from "../../../types/webhook";
 import { ExperimentRule, NamespaceValue } from "../../../types/feature";
 import { usingOpenId } from "../../services/auth";
 import { getSSOConnectionSummary } from "../../models/SSOConnectionModel";
@@ -1484,19 +1484,23 @@ export async function postWebhookSDK(
     endpoint: string;
     sdkid: string;
     sendPayload: boolean;
+    headers?: Record<string, unknown>;
+    method: WebhookMethod;
   }>,
   res: Response
 ) {
   req.checkPermissions("manageWebhooks");
 
   const { org } = getOrgFromReq(req);
-  const { name, endpoint, sdkid, sendPayload } = req.body;
+  const { name, endpoint, sdkid, sendPayload, headers, method } = req.body;
   const webhook = await createWebhookSDK({
     organization: org.id,
     name,
     endpoint,
     sdkid,
     sendPayload,
+    headers: JSON.stringify(headers),
+    method,
   });
 
   res.status(200).json({
