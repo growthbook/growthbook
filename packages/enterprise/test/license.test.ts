@@ -173,6 +173,23 @@ describe("licenseInit", () => {
         expect(fetch).toHaveBeenCalledTimes(2);
       });
 
+      it("should call fetch twice rather than use the in-memory cache if forceRefresh flag is true", async () => {
+        await licenseInit(licenseKey, userLicenseCodes, metaData);
+
+        expect(getLicense()).toEqual(licenseData);
+
+        const mockedResponse2: Response = ({
+          ok: true,
+          json: jest.fn().mockResolvedValueOnce(licenseData2),
+        } as unknown) as Response; // Create a mock Response object
+
+        mockedFetch.mockResolvedValueOnce(Promise.resolve(mockedResponse2));
+
+        await licenseInit(licenseKey, userLicenseCodes, metaData, true);
+        expect(getLicense()).toEqual(licenseData2);
+        expect(fetch).toHaveBeenCalledTimes(2);
+      });
+
       it("should use the LICENSE_KEY env var if licenseKey is not provided", async () => {
         process.env.LICENSE_KEY = licenseKey;
         await licenseInit(undefined, userLicenseCodes, metaData);
