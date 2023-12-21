@@ -422,6 +422,7 @@ export async function licenseInit(
     keyToLicenseData[key] &&
     (cacheDate === null || cacheDate > oneDayAgo)
   ) {
+    licenseData = keyToLicenseData[key];
     return keyToLicenseData[key];
   }
 
@@ -438,6 +439,7 @@ export async function licenseInit(
   }
 
   keyToLicenseData[key] = licenseData;
+  return licenseData;
 }
 
 export function getLicense() {
