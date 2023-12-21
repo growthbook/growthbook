@@ -4,7 +4,7 @@ import {
   ExperimentPhaseStringDates,
   ExperimentTargetingData,
 } from "back-end/types/experiment";
-import {FaExclamationCircle, FaInfoCircle} from "react-icons/fa";
+import { FaExclamationCircle, FaInfoCircle } from "react-icons/fa";
 import omit from "lodash/omit";
 import isEqual from "lodash/isEqual";
 import React, { useEffect, useState } from "react";
@@ -40,7 +40,8 @@ export type ReleasePlan =
   | "new-phase"
   | "same-phase-sticky"
   | "same-phase-everyone"
-  | "advanced";
+  | "advanced"
+  | "";
 
 export interface Props {
   close: () => void;
@@ -63,6 +64,8 @@ export default function EditTargetingModal({
 
   const lastPhase: ExperimentPhaseStringDates | undefined =
     experiment.phases[experiment.phases.length - 1];
+
+  const lastStepNumber = changeType !== "phase" ? 2 : 1;
 
   const defaultValues = {
     condition: lastPhase?.condition ?? "",
@@ -112,6 +115,12 @@ export default function EditTargetingModal({
     }
   }, [changeType, form]);
 
+  useEffect(() => {
+    if (step !== lastStepNumber) {
+      setReleasePlan("");
+    }
+  }, [step, lastStepNumber, setReleasePlan]);
+
   const onSubmit = form.handleSubmit(async (value) => {
     validateSavedGroupTargeting(value.savedGroups);
 
@@ -136,8 +145,6 @@ export default function EditTargetingModal({
       </Modal>
     );
   }
-
-  const lastStepNumber = changeType !== "phase" ? 2 : 1;
 
   let cta = "Publish changes";
   let ctaEnabled = true;
@@ -184,9 +191,9 @@ export default function EditTargetingModal({
 
           {changeType === "advanced" && (
             <div className="alert alert-warning px-3 py-2 small">
-              <FaExclamationCircle />{" "}
-              When making multiple types of changes, it can be difficult
-              to control for the impact of each change. Proceed with caution.
+              <FaExclamationCircle /> When making multiple types of changes, it
+              can be difficult to control for the impact of each change. Proceed
+              with caution.
             </div>
           )}
 

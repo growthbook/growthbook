@@ -4,7 +4,7 @@ import {
   ExperimentPhaseStringDates,
   ExperimentTargetingData,
 } from "back-end/types/experiment";
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import {
   FaCheck,
   FaExclamationCircle,
@@ -305,21 +305,27 @@ export default function ReleaseChangesForm({
   const lastPhase: ExperimentPhaseStringDates | undefined =
     experiment.phases[experiment.phases.length - 1];
 
-  const recommendedRolloutData = getRecommendedRolloutData({
-    experiment,
-    data: form.getValues(),
-    stickyBucketing: usingStickyBucketing,
-  });
+  const formValues = form.getValues();
+
+  const recommendedRolloutData = useMemo(
+    () =>
+      getRecommendedRolloutData({
+        experiment,
+        data: formValues,
+        stickyBucketing: usingStickyBucketing,
+      }),
+    [experiment, formValues, usingStickyBucketing]
+  );
 
   // set the release plan selector to the recommended value
   useEffect(() => {
-    if (changeType === "new-plase") return;
-    if (releasePlan === "advanced") return;
-    if (recommendedRolloutData.recommendedReleasePlan) {
-      setReleasePlan(recommendedRolloutData.recommendedReleasePlan);
+    if (releasePlan) return; // only set if use hasn't interacted
+    if (changeType === "phase") return;
+    if (recommendedRolloutData.actualReleasePlan) {
+      setReleasePlan(recommendedRolloutData.actualReleasePlan);
     }
   }, [
-    recommendedRolloutData.recommendedReleasePlan,
+    recommendedRolloutData.actualReleasePlan,
     releasePlan,
     setReleasePlan,
     changeType,
