@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import Link from "next/link";
-import InlineGroupsList from "@/components/SavedGroups/InlineGroupsList";
-import RuntimeGroupsList from "@/components/SavedGroups/RuntimeGroupsList";
+import IdLists from "@/components/SavedGroups/IdLists";
+import ConditionGroups from "@/components/SavedGroups/ConditionGroups";
 import LoadingOverlay from "../components/LoadingOverlay";
 import { useDefinitions } from "../services/DefinitionsContext";
 import Modal from "../components/Modal";
@@ -70,8 +70,8 @@ export default function SavedGroupsPage() {
       </div>
       <p>
         Reusable groups of users you can target from any feature flag rule or
-        experiment. There are two ways to define Saved Groups -{" "}
-        <strong>Inline</strong> or at <strong>Runtime</strong>.
+        experiment. There are two ways to define Saved Groups - as an{" "}
+        <strong>ID List</strong> or <strong>Targeting Condition</strong>.
       </p>
 
       {error ? (
@@ -80,8 +80,8 @@ export default function SavedGroupsPage() {
         </div>
       ) : (
         <>
-          <InlineGroupsList groups={savedGroups} mutate={mutateDefinitions} />
-          <RuntimeGroupsList groups={savedGroups} mutate={mutateDefinitions} />
+          <IdLists groups={savedGroups} mutate={mutateDefinitions} />
+          <ConditionGroups groups={savedGroups} mutate={mutateDefinitions} />
         </>
       )}
 

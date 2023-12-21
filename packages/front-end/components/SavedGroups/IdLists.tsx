@@ -22,7 +22,7 @@ export interface Props {
 
 const LIMIT = 3;
 
-export default function InlineGroupsList({ groups, mutate }: Props) {
+export default function IdLists({ groups, mutate }: Props) {
   const [
     savedGroupForm,
     setSavedGroupForm,
@@ -30,8 +30,8 @@ export default function InlineGroupsList({ groups, mutate }: Props) {
   const permissions = usePermissions();
   const { apiCall } = useAuth();
 
-  const inlineGroups = useMemo(() => {
-    return groups.filter((g) => g.source === "inline");
+  const idLists = useMemo(() => {
+    return groups.filter((g) => g.type === "list");
   }, [groups]);
 
   const { features } = useFeaturesList();
@@ -44,7 +44,7 @@ export default function InlineGroupsList({ groups, mutate }: Props) {
     const map: Record<string, Set<string>> = {};
 
     features.forEach((feature) => {
-      inlineGroups.forEach((group) => {
+      idLists.forEach((group) => {
         const matches = getMatchingRules(
           feature,
           (rule) =>
@@ -61,17 +61,17 @@ export default function InlineGroupsList({ groups, mutate }: Props) {
       });
     });
     return map;
-  }, [inlineGroups, environments, features]);
+  }, [idLists, environments, features]);
 
   const { items, searchInputProps, isFiltered, SortableTH } = useSearch({
-    items: inlineGroups,
+    items: idLists,
     localStorageKey: "savedGroups",
     defaultSortField: "dateCreated",
     defaultSortDir: -1,
     searchFields: ["groupName^3", "attributeKey^2", "owner", "values"],
   });
 
-  if (!inlineGroups) return <LoadingOverlay />;
+  if (!idLists) return <LoadingOverlay />;
 
   return (
     <div className="mb-5 appbox p-3 bg-white">
@@ -79,12 +79,12 @@ export default function InlineGroupsList({ groups, mutate }: Props) {
         <SavedGroupForm
           close={() => setSavedGroupForm(null)}
           current={savedGroupForm}
-          runtime={false}
+          type="list"
         />
       )}
       <div className="row align-items-center mb-1">
         <div className="col-auto">
-          <h2 className="mb-0">Inline Groups</h2>
+          <h2 className="mb-0">ID Lists</h2>
         </div>
         <div className="flex-1"></div>
         {permissions.manageSavedGroups && (
@@ -95,20 +95,20 @@ export default function InlineGroupsList({ groups, mutate }: Props) {
                 setSavedGroupForm({});
               }}
             >
-              <GBAddCircle /> Add Inline Group
+              <GBAddCircle /> Add ID List
             </Button>
           </div>
         )}
       </div>
       <p className="text-gray mb-1">
-        With <strong>Inline Groups</strong>, you pick an attribute and add a
-        list of included values directly within the GrowthBook UI.
+        With <strong>ID Lists</strong>, you pick an attribute and add a list of
+        included values directly within the GrowthBook UI.
       </p>
       <p className="text-gray">
         For example, a &quot;Beta Testers&quot; group containing a specific set
         of <code>device_id</code> values.
       </p>
-      {inlineGroups.length > 0 && (
+      {idLists.length > 0 && (
         <>
           <div className="row mb-2 align-items-center">
             <div className="col-auto">
@@ -139,7 +139,7 @@ export default function InlineGroupsList({ groups, mutate }: Props) {
                         <td>{s.groupName}</td>
                         <td>{s.attributeKey}</td>
                         <td>
-                          {s.values.slice(0, LIMIT).map((v) => (
+                          {s.values?.slice(0, LIMIT).map((v) => (
                             <span
                               className="badge badge-secondary mr-2"
                               key={v}
@@ -147,9 +147,9 @@ export default function InlineGroupsList({ groups, mutate }: Props) {
                               {v}
                             </span>
                           ))}
-                          {s.values.length > LIMIT && (
+                          {(s.values || []).length > LIMIT && (
                             <em className="text-muted">
-                              +{s.values.length - LIMIT} more
+                              +{(s.values || []).length - LIMIT} more
                             </em>
                           )}
                         </td>

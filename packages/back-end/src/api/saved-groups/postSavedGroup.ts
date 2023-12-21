@@ -1,7 +1,6 @@
 import { PostSavedGroupResponse } from "../../../types/openapi";
 import {
   createSavedGroup,
-  getRuntimeSavedGroup,
   toSavedGroupApiInterface,
 } from "../../models/SavedGroupModel";
 import { createApiRequestHandler } from "../../util/handler";
@@ -9,29 +8,29 @@ import { postSavedGroupValidator } from "../../validators/openapi";
 
 export const postSavedGroup = createApiRequestHandler(postSavedGroupValidator)(
   async (req): Promise<PostSavedGroupResponse> => {
-    const { name, attributeKey, values, source } = req.body;
-    let { owner } = req.body;
+    const { name, attributeKey, values, condition, owner, type } = req.body;
 
-    if (!owner) {
-      owner = "";
+    // If this is a condition group, make sure the condition is valid and not empty
+    if (type === "condition") {
+      if (!condition) {
+        throw new Error("Must specify a condition");
+      }
+      // Try parsing the condition to make sure it's valid
+      JSON.parse(condition);
     }
-
-    // If this is a runtime saved group, make sure the attributeKey is unique
-    if (source === "runtime") {
-      const existing = await getRuntimeSavedGroup(
-        attributeKey,
-        req.organization.id
-      );
-      if (existing) {
-        throw new Error("A runtime saved group with that key already exists");
+    // If this is a list group, make sure the attributeKey is specified
+    else {
+      if (!attributeKey) {
+        throw new Error("Must specify an attributeKey");
       }
     }
 
     const savedGroup = await createSavedGroup({
-      source: source || "inline",
+      type: type || "list",
       values: values || [],
       groupName: name,
-      owner,
+      owner: owner || "",
+      condition: condition || "",
       attributeKey,
       organization: req.organization.id,
     });

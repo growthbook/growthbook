@@ -2,7 +2,10 @@ import mongoose from "mongoose";
 import uniqid from "uniqid";
 import { omit } from "lodash";
 import { ApiSavedGroup } from "../../types/openapi";
-import { SavedGroupInterface } from "../../types/saved-group";
+import {
+  LegacySavedGroupInterface,
+  SavedGroupInterface,
+} from "../../types/saved-group";
 import { usingFileConfig } from "../init/config";
 
 const savedGroupSchema = new mongoose.Schema({
@@ -20,12 +23,16 @@ const savedGroupSchema = new mongoose.Schema({
   dateUpdated: Date,
   values: [String],
   source: String,
+  condition: String,
+  type: {
+    type: String,
+  },
   attributeKey: String,
 });
 
-type SavedGroupDocument = mongoose.Document & SavedGroupInterface;
+type SavedGroupDocument = mongoose.Document & LegacySavedGroupInterface;
 
-const SavedGroupModel = mongoose.model<SavedGroupInterface>(
+const SavedGroupModel = mongoose.model<LegacySavedGroupInterface>(
   "savedGroup",
   savedGroupSchema
 );
@@ -38,18 +45,38 @@ type CreateSavedGroupProps = Omit<
 export type UpdateSavedGroupProps = Partial<
   Omit<
     SavedGroupInterface,
-    "dateCreated" | "dateUpdated" | "id" | "organization" | "source"
+    "dateCreated" | "dateUpdated" | "id" | "organization" | "type"
   >
 >;
 
 const toInterface = (doc: SavedGroupDocument): SavedGroupInterface => {
-  const group = omit(
+  const legacy = omit(
     doc.toJSON<SavedGroupDocument>({ flattenMaps: true }),
     ["__v", "_id"]
   );
 
-  // JIT migration - before we had a 'source' field all saved groups were defined inline
-  if (!group.source) group.source = "inline";
+  // Add `type` field to legacy groups
+  const { source, type, ...otherFields } = legacy;
+  const group: SavedGroupInterface = {
+    ...otherFields,
+    type: type || (source === "runtime" ? "condition" : "list"),
+  };
+
+  // Migrate legacy runtime groups to use a condition
+  if (
+    group.type === "condition" &&
+    !group.condition &&
+    source === "runtime" &&
+    group.attributeKey
+  ) {
+    group.condition = JSON.stringify({
+      $groups: {
+        $elemMatch: {
+          $eq: group.attributeKey,
+        },
+      },
+    });
+  }
 
   return group;
 };
@@ -96,19 +123,6 @@ export async function getSavedGroupById(
   return savedGroup ? toInterface(savedGroup) : null;
 }
 
-export async function getRuntimeSavedGroup(
-  key: string,
-  organization: string
-): Promise<SavedGroupInterface | null> {
-  const savedGroup = await SavedGroupModel.findOne({
-    attributeKey: key,
-    source: "runtime",
-    organization: organization,
-  });
-
-  return savedGroup ? toInterface(savedGroup) : null;
-}
-
 export async function updateSavedGroupById(
   savedGroupId: string,
   organization: string,
@@ -146,12 +160,13 @@ export function toSavedGroupApiInterface(
 ): ApiSavedGroup {
   return {
     id: savedGroup.id,
-    values: savedGroup.values,
+    type: savedGroup.type,
+    values: savedGroup.values || [],
+    condition: savedGroup.condition || "",
     name: savedGroup.groupName,
-    attributeKey: savedGroup.attributeKey,
+    attributeKey: savedGroup.attributeKey || "",
     dateCreated: savedGroup.dateCreated.toISOString(),
     dateUpdated: savedGroup.dateUpdated.toISOString(),
     owner: savedGroup.owner || "",
-    source: savedGroup.source,
   };
 }

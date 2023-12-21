@@ -2,7 +2,6 @@ import { isEqual } from "lodash";
 import { UpdateSavedGroupResponse } from "../../../types/openapi";
 import {
   UpdateSavedGroupProps,
-  getRuntimeSavedGroup,
   getSavedGroupById,
   toSavedGroupApiInterface,
   updateSavedGroupById,
@@ -15,8 +14,7 @@ export const updateSavedGroup = createApiRequestHandler(
   updateSavedGroupValidator
 )(
   async (req): Promise<UpdateSavedGroupResponse> => {
-    const { name, values, attributeKey } = req.body;
-    let { owner } = req.body;
+    const { name, values, condition, owner } = req.body;
 
     const { id } = req.params;
 
@@ -26,39 +24,34 @@ export const updateSavedGroup = createApiRequestHandler(
       throw new Error(`Unable to locate the saved-group: ${id}`);
     }
 
-    if (!values && !name && typeof owner === "undefined") {
-      throw new Error(
-        'You must pass in at least one of the following: "values", "name", "owner".'
-      );
+    const fieldsToUpdate: UpdateSavedGroupProps = {};
+
+    if (typeof name !== "undefined" && name !== savedGroup.groupName) {
+      fieldsToUpdate.groupName = name;
+    }
+    if (typeof owner !== "undefined" && owner !== savedGroup.owner) {
+      fieldsToUpdate.owner = owner;
+    }
+    if (
+      savedGroup.type === "list" &&
+      values &&
+      !isEqual(values, savedGroup.values)
+    ) {
+      fieldsToUpdate.values = values;
+    }
+    if (
+      savedGroup.type === "condition" &&
+      condition &&
+      condition !== savedGroup.condition
+    ) {
+      fieldsToUpdate.condition = condition;
     }
 
-    if (typeof owner === "string") {
-      owner = owner ? owner : "";
-    } else {
-      owner = savedGroup.owner;
-    }
-
-    const fieldsToUpdate: UpdateSavedGroupProps = {
-      values: values ? values : savedGroup.values,
-      groupName: name ? name : savedGroup.groupName,
-      owner,
-    };
-
-    if (attributeKey && attributeKey !== savedGroup.attributeKey) {
-      if (savedGroup.source === "runtime") {
-        const existing = await getRuntimeSavedGroup(
-          attributeKey,
-          req.organization.id
-        );
-        if (existing) {
-          throw new Error("A runtime saved group with that key already exists");
-        }
-        fieldsToUpdate.attributeKey = attributeKey;
-      } else {
-        throw new Error(
-          "Cannot update the attributeKey for an inline Saved Group"
-        );
-      }
+    // If there are no changes, return early
+    if (Object.keys(fieldsToUpdate).length === 0) {
+      return {
+        savedGroup: toSavedGroupApiInterface(savedGroup),
+      };
     }
 
     const updatedSavedGroup = await updateSavedGroupById(

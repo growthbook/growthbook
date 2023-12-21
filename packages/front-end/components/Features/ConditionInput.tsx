@@ -153,7 +153,7 @@ export default function ConditionInput(props: Props) {
 
             const savedGroupOptions = savedGroups
               // First, limit to groups with the correct attribute
-              .filter((g) => g.source !== "runtime" && g.attributeKey === field)
+              .filter((g) => g.type === "list" && g.attributeKey === field)
               // Then, transform into the select option format
               .map((g) => ({ label: g.groupName, value: g.id }));
 
@@ -328,7 +328,7 @@ export default function ConditionInput(props: Props) {
                   ].includes(operator) ? (
                     ""
                   ) : ["$inGroup", "$notInGroup"].includes(operator) &&
-                    savedGroups ? (
+                    savedGroupOptions.length > 0 ? (
                     <SelectField
                       options={savedGroupOptions}
                       value={value}

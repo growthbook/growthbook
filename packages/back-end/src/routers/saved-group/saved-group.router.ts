@@ -8,18 +8,29 @@ const router = express.Router();
 
 const savedGroupController = wrapController(rawSavedGroupController);
 
+export const postSavedGroupBodyValidator = z.object({
+  groupName: z.string(),
+  owner: z.string(),
+  type: z.enum(["condition", "list"]),
+  condition: z.string().optional(),
+  attributeKey: z.string().optional(),
+  values: z.string().array().optional(),
+});
+
 router.post(
   "/",
   validateRequestMiddleware({
-    body: z.object({
-      groupName: z.string(),
-      owner: z.string(),
-      attributeKey: z.string(),
-      groupList: z.string().array(),
-    }),
+    body: postSavedGroupBodyValidator,
   }),
   savedGroupController.postSavedGroup
 );
+
+export const putSavedGroupBodyValidator = z.object({
+  groupName: z.string().optional(),
+  owner: z.string().optional(),
+  values: z.string().array().optional(),
+  condition: z.string().optional(),
+});
 
 router.put(
   "/:id",
@@ -29,12 +40,7 @@ router.put(
         id: z.string(),
       })
       .strict(),
-    body: z.object({
-      groupName: z.string(),
-      owner: z.string(),
-      attributeKey: z.string(),
-      groupList: z.string().array(),
-    }),
+    body: putSavedGroupBodyValidator,
   }),
   savedGroupController.putSavedGroup
 );

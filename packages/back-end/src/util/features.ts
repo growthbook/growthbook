@@ -21,17 +21,19 @@ function getSavedGroupCondition(
   group: GroupMapValue,
   include: boolean
 ): Record<string, unknown> {
-  if (group.source === "runtime") {
-    const cond = {
-      $groups: {
-        $elemMatch: { $eq: group.key },
-      },
-    };
-    return include ? cond : { $not: cond };
+  if (group.type === "condition") {
+    try {
+      const cond = JSON.parse(group.condition || "{}");
+      return include ? cond : { $not: cond };
+    } catch (e) {
+      return {};
+    }
   }
 
+  if (!group.attributeKey) return {};
+
   return {
-    [group.key]: { [include ? "$in" : "$nin"]: group.values },
+    [group.attributeKey]: { [include ? "$in" : "$nin"]: group.values || [] },
   };
 }
 
@@ -55,10 +57,16 @@ export function getParsedCondition(
     savedGroups.forEach(({ ids, match }) => {
       const groups = ids
         .map((id) => groupMap.get(id))
-        // Must either have at least 1 value or be defined at runtime
-        .filter(
-          (group) => group?.source === "runtime" || !!group?.values?.length
-        ) as GroupMapValue[];
+        // Must either have at least 1 value or be a non-empty condition
+        .filter((group) => {
+          if (!group) return false;
+          if (group.type === "condition") {
+            if (!group.condition || group.condition === "{}") return false;
+          } else {
+            if (!group.values?.length) return false;
+          }
+          return true;
+        }) as GroupMapValue[];
       if (!groups.length) return;
 
       // Add each group as a separate top-level AND
@@ -105,7 +113,7 @@ export function replaceSavedGroupsInCondition(
     /[\s|\n]*"\$(inGroup|notInGroup)"[\s|\n]*:[\s|\n]*"([^"]*)"[\s|\n]*/g,
     (match: string, operator: string, groupId: string) => {
       const newOperator = operator === "inGroup" ? "$in" : "$nin";
-      const ids: string[] | number[] = groupMap.get(groupId)?.values ?? [];
+      const ids: (string | number)[] = groupMap.get(groupId)?.values ?? [];
       return `"${newOperator}": ${JSON.stringify(ids)}`;
     }
   );
