@@ -125,7 +125,9 @@ const ShowLicenseInfo: FC<{
                       <span className="text-muted">{license.seats}</span>
                     </div>
                     <div className="col-sm-2">
-                      {license && <RefreshLicenseButton />}
+                      {license && license.id.startsWith("license") && (
+                        <RefreshLicenseButton />
+                      )}
                     </div>
                   </>
                 )}
