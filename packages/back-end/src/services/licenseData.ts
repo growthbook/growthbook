@@ -56,12 +56,20 @@ async function getMetaData() {
   };
 }
 
-export async function initializeLicense(licenseKey?: string) {
+export async function initializeLicense(
+  licenseKey?: string,
+  forceRefresh = false
+) {
   const key = licenseKey || process.env.LICENSE_KEY;
   if (!IS_CLOUD && (!key || key.startsWith("license_"))) {
     const userLicenseCodes = await getUserLicenseCodes();
     const metaData = await getMetaData();
-    return await licenseInit(licenseKey, userLicenseCodes, metaData);
+    return await licenseInit(
+      licenseKey,
+      userLicenseCodes,
+      metaData,
+      forceRefresh
+    );
   }
   return await licenseInit(licenseKey);
 }
