@@ -17,6 +17,7 @@ import { Queries } from "../../types/query";
 import { QueryMap } from "../queryRunners/QueryRunner";
 import { getQueriesByIds } from "../models/QueryModel";
 import { reportArgsFromSnapshot } from "./reports";
+import { ExperimentFactMetricsQueryResponseRows } from "../types/Integration";
 
 async function getQueryData(
   queries: Queries,
@@ -124,6 +125,36 @@ export async function generateNotebook(
     var_id_map[v.id] = i;
   });
 
+  const groupData = [];
+  queries.forEach((query, key) => {
+    if (key.match(/group_/)) {
+      // Multi-metric query
+      const metrics = [];
+      const rows = query.result as ExperimentFactMetricsQueryResponseRows;
+
+      for (let i = 0; i < 100; i++) {
+        const prefix = `m${i}_`;
+        if (!rows[0]?.[prefix + "id"]) break;
+
+        const metric = metricMap.get(rows[0][prefix + "id"] as string);
+        if (!metric) continue;
+        metrics.push({
+          name: metric.name,
+          inverse: !!metric.inverse,
+          ignore_nulls: "ignoreNulls" in metric && !!metric.ignoreNulls,
+          type: isBinomialMetric(metric) ? "binomial" : "count"
+        });
+      };
+      groupData.push({
+        rows: query.rawResult,
+        name: key,
+        sql: query.query,
+        metrics: metrics
+      });
+    }
+  });
+
+  console.dir(groupData, {depth:null});
   const data = JSON.stringify({
     metrics: args.metrics
       .map((m) => {
@@ -140,6 +171,7 @@ export async function generateNotebook(
         };
       })
       .filter(Boolean),
+    groups: groupData,
     url: `${APP_ORIGIN}${url}`,
     hypothesis: description,
     dimension: args.dimension ?? "",
@@ -171,10 +203,9 @@ export async function generateNotebook(
   const configString = `{${
     configStrings.length ? configStrings.join(", ") : ""
   }}`;
-
   const result = await promisify(PythonShell.runString)(
     `
-from gbstats.gen_notebook import create_notebook
+from gbstats.gen_notebook import create_notebook, NotebookParams
 from gbstats.shared.constants import StatsEngine
 import pandas as pd
 import json
@@ -182,6 +213,7 @@ import json
 data = json.loads("""${data}""", strict=False)
 
 metrics=[]
+groups=[]
 for metric in data['metrics']:
     metrics.append({
         'rows': pd.DataFrame(metric['rows']),
@@ -191,23 +223,33 @@ for metric in data['metrics']:
         'ignore_nulls': metric['ignore_nulls'],
         'type': metric['type']
     })
+for group in data['groups']:
+    groups.append({
+      'rows': pd.DataFrame(group['rows']),
+      'name': group['name'],
+      'sql': group['sql'],
+      'metrics': group['metrics']
+    })
 
 print(create_notebook(
+    params=NotebookParams(
+      url=data['url'],
+      hypothesis=data['hypothesis'],
+      dimension=data['dimension'],
+      name=data['name'],
+      var_id_map=data['var_id_map'],
+      var_names=data['var_names'],
+      weights=data['weights'],
+      run_query=data['run_query'],
+      stats_engine=${
+        statsEngine === "frequentist"
+          ? "StatsEngine.FREQUENTIST"
+          : "StatsEngine.BAYESIAN"
+      },
+      engine_config=${configString}
+    ),
     metrics=metrics,
-    url=data['url'],
-    hypothesis=data['hypothesis'],
-    dimension=data['dimension'],
-    name=data['name'],
-    var_id_map=data['var_id_map'],
-    var_names=data['var_names'],
-    weights=data['weights'],
-    run_query=data['run_query'],
-    stats_engine=${
-      statsEngine === "frequentist"
-        ? "StatsEngine.FREQUENTIST"
-        : "StatsEngine.BAYESIAN"
-    },
-    engine_config=${configString}
+    groups=groups,
 ))`,
     {}
   );
