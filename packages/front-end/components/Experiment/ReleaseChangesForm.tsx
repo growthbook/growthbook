@@ -5,18 +5,28 @@ import {
   ExperimentTargetingData,
 } from "back-end/types/experiment";
 import React, { useEffect, useState } from "react";
-import { FaCheck, FaExclamationCircle, FaQuestionCircle } from "react-icons/fa";
+import {
+  FaCheck,
+  FaExclamationCircle,
+  FaExternalLinkAlt,
+  FaQuestionCircle,
+} from "react-icons/fa";
 import { HiOutlineExclamationCircle } from "react-icons/hi";
 import clsx from "clsx";
 import { RxInfoCircled } from "react-icons/rx";
 import { BsToggles } from "react-icons/bs";
+import { MdInfoOutline } from "react-icons/md";
+import { ImBlocked } from "react-icons/im";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { useUser } from "@/services/UserContext";
 import { useAuth } from "@/services/auth";
 import usePermissions from "@/hooks/usePermissions";
 import { DocLink } from "@/components/DocLink";
-import { ReleasePlan } from "@/components/Experiment/EditTargetingModal";
+import {
+  ChangeType,
+  ReleasePlan,
+} from "@/components/Experiment/EditTargetingModal";
 import TargetingInfo from "@/components/Experiment/TabbedPage/TargetingInfo";
 import SelectField from "../Forms/SelectField";
 import Toggle from "../Forms/Toggle";
@@ -301,6 +311,7 @@ type ExistingUsersOption = "keep" | "exclude" | "reassign";
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
   form: UseFormReturn<ExperimentTargetingData>;
+  changeType?: ChangeType;
   releasePlan?: ReleasePlan;
   setReleasePlan: (releasePlan: ReleasePlan) => void;
 }
@@ -308,6 +319,7 @@ export interface Props {
 export default function ReleaseChangesForm({
   experiment,
   form,
+  changeType,
   releasePlan,
   setReleasePlan,
 }: Props) {
@@ -403,31 +415,40 @@ export default function ReleaseChangesForm({
         value={releasePlan || ""}
         options={[
           { label: "New Phase, re-randomize traffic", value: "new-phase" },
-          {
-            label: "Same Phase, apply changes to new traffic only",
-            value: "same-phase-sticky",
-          },
-          {
-            label: "Same Phase, apply changes to everyone",
-            value: "same-phase-everyone",
-          },
+          ...(changeType !== "phase"
+            ? [
+                {
+                  label: "Same Phase, apply changes to new traffic only",
+                  value: "same-phase-sticky",
+                },
+                {
+                  label: "Same Phase, apply changes to everyone",
+                  value: "same-phase-everyone",
+                },
+              ]
+            : []),
           { label: "Advanced", value: "advanced" },
         ]}
-        onChange={(v) => setReleasePlan(v as ReleasePlan)}
+        onChange={(v) => {
+          const requiresStickyBucketing = v === "same-phase-sticky";
+          const disabled = requiresStickyBucketing && !usingStickyBucketing;
+          if (disabled) return;
+          setReleasePlan(v as ReleasePlan);
+        }}
         sort={false}
         isSearchable={false}
         formatOptionLabel={({ value, label }) => {
           if (value === "advanced") {
             return (
               <>
-                <span className="ml-2 font-italic">
+                <span className="font-italic">
                   <BsToggles
                     className="position-relative"
                     style={{ top: -1 }}
                   />{" "}
                   {label}
                 </span>
-                <span className="ml-2 text-muted">
+                <span className="ml-2">
                   &mdash; Fine tune your release plan
                 </span>
               </>
@@ -438,10 +459,12 @@ export default function ReleaseChangesForm({
             value === recommendedRolloutData.existingUsersOption;
           const disabled = requiresStickyBucketing && !usingStickyBucketing;
           return (
-            <>
-              <span className="ml-2" style={{ opacity: disabled ? 0.5 : 1 }}>
-                {label}{" "}
-              </span>
+            <div
+              className={clsx({
+                "cursor-disabled": disabled,
+              })}
+            >
+              <span style={{ opacity: disabled ? 0.5 : 1 }}>{label} </span>
               {requiresStickyBucketing && (
                 <Tooltip
                   body={`${
@@ -462,92 +485,232 @@ export default function ReleaseChangesForm({
                   recommended
                 </span>
               )}
-            </>
+            </div>
           );
         }}
       />
 
       <div className="mt-4">
-        <label>Release details</label>
-        {releasePlan !== "advanced" ? (
-          <>
-            <div className="appbox bg-light px-3 py-2 mb-0">
-              <div className="row small">
-                <div className="col">
-                  <label className="mb-0">New phase?</label>
-                  <div>{form.watch("newPhase") ? "Yes" : "No"}</div>
-                </div>
-                <div className="col">
-                  <label className="mb-0">Re-randomize traffic?</label>
-                  <div>{form.watch("reseed") ? "Yes" : "No"}</div>
-                </div>
-                <div className="col">
-                  <label className="mb-0">New bucket version?</label>
+        <label>Release plan details</label>
+        <div className="d-flex" style={{ gap: 30 }}>
+          <div className="appbox col bg-light px-3 py-2 mb-0">
+            <div className="row">
+              <div className="col">
+                <label className="mb-0">New phase?</label>
+                {releasePlan !== "advanced" ? (
                   <div>
-                    {form.watch("bucketVersion") !==
-                    experiment.bucketVersion ? (
-                      <>
-                        Yes{" "}
-                        <span className="text-muted">
-                          (ver.{experiment.bucketVersion ?? 0} → ver.
-                          {form.watch("bucketVersion")})
-                        </span>
-                      </>
+                    {form.watch("newPhase") ? (
+                      <span className="font-weight-bold text-success">Yes</span>
                     ) : (
-                      <>
-                        No{" "}
-                        <span className="text-muted">
-                          (ver.{form.watch("bucketVersion")})
-                        </span>
-                      </>
+                      "No"
                     )}
                   </div>
-                </div>
-                <div className="col">
-                  <label className="mb-0">Block previous buckets?</label>
+                ) : (
+                  <Toggle
+                    id="newPhase"
+                    className="my-2"
+                    style={{ width: 100 }}
+                    value={!!form.watch("newPhase")}
+                    setValue={(v) => form.setValue("newPhase", v)}
+                  />
+                )}
+              </div>
+              <div className="col">
+                <label className="mb-0">Re-randomize traffic?</label>
+                {releasePlan !== "advanced" ? (
                   <div>
-                    {form.watch("minBucketVersion") !==
-                    experiment.minBucketVersion ? (
-                      <>
-                        Yes{" "}
-                        <span className="text-muted">
-                          (ver.{experiment.minBucketVersion ?? 0} → ver.
-                          {form.watch("minBucketVersion")})
-                        </span>
-                      </>
+                    {form.watch("reseed") ? (
+                      <span className="font-weight-bold text-success">Yes</span>
                     ) : (
-                      <>
-                        No{" "}
-                        <span className="text-muted">
-                          ({form.watch("minBucketVersion")})
-                        </span>
-                      </>
+                      "No"
                     )}
                   </div>
-                </div>
+                ) : (
+                  <Toggle
+                    id="reseed"
+                    className="my-2"
+                    style={{ width: 100 }}
+                    value={!!form.watch("reseed")}
+                    setValue={(v) => form.setValue("reseed", v)}
+                  />
+                )}
               </div>
             </div>
-          </>
-        ) : (
-          <></>
-        )}
-      </div>
-
-      <div className="mt-4">
-        <label>Targeting changes to be made</label>
-        <div className="appbox bg-light px-3 pt-3 pb-1 mb-0">
-          <TargetingInfo
-            experiment={experiment}
-            noHeader={true}
-            targetingFieldsOnly={true}
-            separateTrafficSplitDisplay={true}
-            showDecimals={true}
-            showNamespaceRanges={true}
-            showChanges={true}
-            changes={form.getValues()}
-          />
+          </div>
+          <div className="appbox col bg-light px-3 py-2 mb-0">
+            <div className="row px-2 align-items-end mb-2">
+              <label className="mb-0 mr-3">
+                <PremiumTooltip
+                  commercialFeature="sticky-bucketing"
+                  popperStyle={{ maxWidth: 530 }}
+                  body={
+                    <>
+                      <div className="mb-3">
+                        Sticky Bucketing is{" "}
+                        <span className="font-weight-bold">
+                          {orgStickyBucketing ? "enabled" : "disabled"}
+                        </span>{" "}
+                        for your organization.
+                      </div>
+                      <div className="mb-2">
+                        Sticky Bucketing allows you to persist a user&apos;s
+                        assigned variation if any of the following change:
+                        <ol className="mt-1 mb-2" type="a">
+                          <li>the user logs in or logs out</li>
+                          <li>experiment targeting conditions change</li>
+                          <li>experiment traffic rules change</li>
+                        </ol>
+                      </div>
+                      <div className="mb-4">
+                        Enabling Sticky Bucketing also allows you to set fine
+                        controls over bucketing behavior, such as:
+                        <ul className="mt-1 mb-2">
+                          <li>
+                            assigning variations based on both a{" "}
+                            <code>user_id</code> and <code>anonymous_id</code>
+                          </li>
+                          <li>invalidating existing buckets</li>
+                        </ul>
+                      </div>
+                      <div className="mb-2">
+                        Sticky Bucketing is only supported in the following SDKs
+                        and versions:
+                        <ul className="mb-1">
+                          <li>Javascript &gt;= 0.32.0</li>
+                          <li>React &gt;= 0.22.0</li>
+                        </ul>
+                        Unsupported SDKs will fall back to standard hash-based
+                        bucketing.
+                      </div>
+                      <div className="text-warning-orange">
+                        <FaExclamationCircle /> You must enable this feature in
+                        your SDK integration code for it to take effect.
+                      </div>
+                    </>
+                  }
+                >
+                  <span
+                    className="badge badge-muted-info badge-pill mr-1"
+                    style={{ fontSize: "10px" }}
+                  >
+                    SB
+                  </span>
+                  Sticky bucketing <MdInfoOutline className="text-info" />
+                </PremiumTooltip>
+              </label>
+              <div className="flex-1" />
+              <div className="small position-relative" style={{ top: -3 }}>
+                {orgStickyBucketing ? (
+                  <span className="text-success">
+                    <FaCheck className="mr-1" />
+                    enabled
+                  </span>
+                ) : (
+                  <span className="text-danger">
+                    <ImBlocked className="mr-1" />
+                    disabled
+                    {permissions.organizationSettings && (
+                      <a className="ml-2" href="/settings" target="_blank">
+                        <FaExternalLinkAlt /> enable
+                      </a>
+                    )}
+                  </span>
+                )}
+              </div>
+            </div>
+            <div className="row">
+              <div className="col">
+                {releasePlan !== "advanced" ? (
+                  <div>
+                    <label className="mb-0 mr-2">Bucketed users should:</label>
+                    <div className="font-weight-bold">
+                      {(form.watch("bucketVersion") ?? 0) <=
+                      (experiment.bucketVersion ?? 0)
+                        ? "Keep their assigned bucket"
+                        : (form.watch("minBucketVersion") ?? 0) <=
+                          (experiment.minBucketVersion ?? 0)
+                        ? "Be reassigned"
+                        : "Be excluded from the experiment"}
+                    </div>
+                  </div>
+                ) : (
+                  <div>
+                    <label className="mb-0 mr-2">Bucketed users should:</label>
+                    <SelectField
+                      value={
+                        (form.watch("bucketVersion") ?? 0) <=
+                        (experiment.bucketVersion ?? 0)
+                          ? "keep"
+                          : (form.watch("minBucketVersion") ?? 0) <=
+                            (experiment.minBucketVersion ?? 0)
+                          ? "reassign"
+                          : "exclude"
+                      }
+                      options={[
+                        { label: "Keep their assigned bucket", value: "keep" },
+                        { label: "Be reassigned", value: "reassign" },
+                        {
+                          label: "Be excluded from the experiment",
+                          value: "exclude",
+                        },
+                      ]}
+                      onChange={(v) => {
+                        if (v === "keep") {
+                          form.setValue(
+                            "bucketVersion",
+                            experiment.bucketVersion
+                          );
+                          form.setValue(
+                            "minBucketVersion",
+                            experiment.minBucketVersion
+                          );
+                        } else if (v === "reassign") {
+                          form.setValue(
+                            "bucketVersion",
+                            (experiment.bucketVersion ?? 0) + 1
+                          );
+                          form.setValue(
+                            "minBucketVersion",
+                            experiment.minBucketVersion
+                          );
+                        } else if (v === "exclude") {
+                          form.setValue(
+                            "bucketVersion",
+                            (experiment.bucketVersion ?? 0) + 1
+                          );
+                          form.setValue(
+                            "minBucketVersion",
+                            experiment.bucketVersion ?? 0
+                          );
+                        }
+                      }}
+                      sort={false}
+                    />
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
         </div>
       </div>
+
+      {changeType !== "phase" && (
+        <div className="mt-4 mb-1">
+          <label>Targeting changes</label>
+          <div className="appbox bg-light px-3 pt-3 pb-0 mb-0">
+            <TargetingInfo
+              experiment={experiment}
+              noHeader={true}
+              targetingFieldsOnly={true}
+              separateTrafficSplitDisplay={true}
+              showDecimals={true}
+              showNamespaceRanges={true}
+              showChanges={true}
+              changes={form.getValues()}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 

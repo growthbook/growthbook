@@ -28,7 +28,7 @@ import SavedGroupTargetingField, {
 } from "../Features/SavedGroupTargetingField";
 import HashVersionSelector from "./HashVersionSelector";
 
-type ChangeType =
+export type ChangeType =
   | "targeting"
   | "traffic"
   | "weights"
@@ -223,10 +223,11 @@ export default function EditTargetingModal({
       )}
 
       <Page display="Review & Deploy">
-        <div className="px-2 mt-2">
+        <div className="px-3 mt-2">
           <ReleaseChangesForm
             experiment={experiment}
             form={form}
+            changeType={changeType}
             releasePlan={releasePlan}
             setReleasePlan={setReleasePlan}
           />
@@ -274,7 +275,7 @@ function ChangeTypeSelector({
                 <BsToggles className="position-relative" style={{ top: -1 }} />{" "}
                 {label}
               </span>
-              <span className="ml-2 text-muted">
+              <span className="ml-2">
                 &mdash; Make multiple targeting changes at the same time
               </span>
             </>

@@ -1,5 +1,5 @@
 import { CommercialFeature } from "enterprise";
-import { HTMLAttributes, ReactNode } from "react";
+import { CSSProperties, HTMLAttributes, ReactNode } from "react";
 import clsx from "clsx";
 import { useUser } from "@/services/UserContext";
 import Tooltip from "../Tooltip/Tooltip";
@@ -14,6 +14,7 @@ interface Props extends HTMLAttributes<HTMLDivElement> {
   tipPosition?: "bottom" | "top" | "left" | "right";
   className?: string;
   innerClassName?: string;
+  popperStyle?: CSSProperties;
 }
 
 export default function PremiumTooltip({
@@ -26,6 +27,7 @@ export default function PremiumTooltip({
   tipPosition = "top",
   className = "",
   innerClassName = "",
+  popperStyle,
   ...otherProps
 }: Props) {
   const { hasCommercialFeature } = useUser();
@@ -54,6 +56,7 @@ export default function PremiumTooltip({
       tipPosition={tipPosition}
       className={className || ""}
       innerClassName={innerClassName || ""}
+      popperStyle={popperStyle}
       {...otherProps}
     >
       {!hasFeature && (
