@@ -160,7 +160,6 @@ const SidebarLink: FC<SidebarLinkProps> = (props) => {
               if (l.selfHostedOnly && isCloud()) {
                 return null;
               }
-              // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'AccountPlan | undefined' is not ... Remove this comment to see the full error message
               if (l.accountPlans && !l.accountPlans.includes(accountPlan)) {
                 return null;
               }

@@ -281,7 +281,6 @@ const Layout = (): React.ReactElement => {
   const { breadcrumb } = usePageHead();
 
   const [upgradeModal, setUpgradeModal] = useState(false);
-  // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'string | undefined' is not assig... Remove this comment to see the full error message
   const showUpgradeButton = ["oss", "starter"].includes(accountPlan);
 
   // hacky:
