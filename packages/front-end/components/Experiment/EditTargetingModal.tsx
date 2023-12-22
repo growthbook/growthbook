@@ -4,15 +4,18 @@ import {
   ExperimentPhaseStringDates,
   ExperimentTargetingData,
 } from "back-end/types/experiment";
-import { FaExclamationCircle, FaInfoCircle } from "react-icons/fa";
+import { FaCheck, FaExclamationCircle, FaInfoCircle } from "react-icons/fa";
 import omit from "lodash/omit";
 import isEqual from "lodash/isEqual";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { BsToggles } from "react-icons/bs";
+import clsx from "clsx";
 import { useAuth } from "@/services/auth";
 import { getEqualWeights } from "@/services/utils";
 import { useAttributeSchema } from "@/services/features";
-import ReleaseChangesForm from "@/components/Experiment/ReleaseChangesForm";
+import ReleaseChangesForm, {
+  getRecommendedRolloutData,
+} from "@/components/Experiment/ReleaseChangesForm";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import PagedModal from "@/components/Modal/PagedModal";
 import Page from "@/components/Modal/Page";
@@ -258,6 +261,8 @@ export default function EditTargetingModal({
               form={form}
               safeToEdit={false}
               changeType={changeType}
+              showTooltips={true}
+              hasChanges={hasChanges}
             />
           </div>
         </Page>
@@ -333,11 +338,15 @@ function TargetingForm({
   form,
   safeToEdit = false,
   changeType = "advanced",
+  showTooltips,
+  hasChanges,
 }: {
   experiment: ExperimentInterfaceStringDates;
   form: UseFormReturn<ExperimentTargetingData>;
   safeToEdit?: boolean;
   changeType?: ChangeType;
+  showTooltips?: boolean;
+  hasChanges?: boolean;
 }) {
   const attributeSchema = useAttributeSchema();
   const hasHashAttributes =
@@ -348,6 +357,10 @@ function TargetingForm({
 
   return (
     <div className="px-2 pt-2">
+      {showTooltips && hasChanges && (
+        <TargetigChangeTooltips form={form} experiment={experiment} />
+      )}
+
       {safeToEdit && (
         <>
           <Field
@@ -468,6 +481,90 @@ function TargetingForm({
           featureId={experiment.trackingKey}
           trackingKey={experiment.trackingKey}
         />
+      )}
+    </div>
+  );
+}
+
+function TargetigChangeTooltips({
+  experiment,
+  form,
+}: {
+  experiment: ExperimentInterfaceStringDates;
+  form: UseFormReturn<ExperimentTargetingData>;
+}) {
+  const formValues = form.getValues();
+  const recommendedRolloutData = useMemo(
+    () =>
+      getRecommendedRolloutData({
+        experiment,
+        data: formValues,
+        stickyBucketing: false,
+      }),
+    [experiment, formValues]
+  );
+
+  return (
+    <div
+      className={clsx("alert", {
+        "alert-success": recommendedRolloutData.riskLevel === "safe",
+        "alert-warning": ["warning", "danger"].includes(
+          recommendedRolloutData.riskLevel
+        ),
+      })}
+    >
+      {recommendedRolloutData.riskLevel === "safe" && (
+        <>
+          <FaCheck className="mr-1" /> The changes you have made do not impact
+          existing bucketed users.
+        </>
+      )}
+      {recommendedRolloutData.riskLevel === "warning" && (
+        <>
+          <FaExclamationCircle className="mr-1" /> The changes you have made may
+          impact existing bucketed users.
+        </>
+      )}
+      {recommendedRolloutData.riskLevel === "danger" && (
+        <>
+          <FaExclamationCircle className="mr-1" /> The changes you have made
+          have a high risk of impacting existing bucketed users.
+        </>
+      )}
+      {recommendedRolloutData.riskLevel !== "safe" && (
+        <ul className="mt-1 mb-0 pl-3">
+          {(recommendedRolloutData.reasons.moreRestrictiveTargeting ||
+            recommendedRolloutData.reasons.otherTargetingChanges) && (
+            <li>
+              <strong>More restrictive targeting conditions</strong> may lead to
+              carryover bias. Use Sticky Bucketing or re-randomize traffic to
+              help mitigate.
+            </li>
+          )}
+          {recommendedRolloutData.reasons.decreaseCoverage && (
+            <li>
+              <strong>Decreased traffic coverage</strong> may lead to carryover
+              bias. Use Sticky Bucketing or re-randomize traffic to help
+              mitigate.
+            </li>
+          )}
+          {(recommendedRolloutData.reasons.addToNamespace ||
+            recommendedRolloutData.reasons.decreaseNamespaceRange ||
+            recommendedRolloutData.reasons.otherNamespaceChanges) && (
+            <li>
+              <strong>More restrictive namespace targeting</strong> may lead to
+              carryover bias. Use Sticky Bucketing or re-randomize traffic to
+              help mitigate.
+            </li>
+          )}
+          {recommendedRolloutData.reasons.changeVariationWeights && (
+            <li>
+              <strong>Changing variation weights</strong> could lead to
+              statistical bias and/or multiple exposures. Re-randomizing traffic
+              can help mitigate.
+            </li>
+          )}
+        </ul>
       )}
     </div>
   );

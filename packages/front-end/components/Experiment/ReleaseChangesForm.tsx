@@ -33,7 +33,7 @@ import Toggle from "../Forms/Toggle";
 import Tooltip from "../Tooltip/Tooltip";
 import { NewBucketingSDKList } from "./HashVersionSelector";
 
-function getRecommendedRolloutData({
+export function getRecommendedRolloutData({
   experiment,
   data,
   stickyBucketing,
@@ -47,7 +47,7 @@ function getRecommendedRolloutData({
 
   let recommendedReleasePlan: ReleasePlan | undefined = undefined;
   let actualReleasePlan: ReleasePlan | undefined = undefined;
-  let riskLevel = "safe";
+  let riskLevel: "safe" | "warning" | "danger" = "safe";
   let disableSamePhase = false;
   let samePhaseSafeWithStickyBucketing = true;
 
@@ -298,7 +298,6 @@ export default function ReleaseChangesForm({
   const { apiCall } = useAuth();
   const permissions = usePermissions();
   const settings = useOrgSettings();
-
   const orgStickyBucketing = !!settings.useStickyBucketing;
   const usingStickyBucketing =
     orgStickyBucketing && !experiment.disableStickyBucketing;
@@ -388,7 +387,7 @@ export default function ReleaseChangesForm({
           { label: "Advanced", value: "advanced" },
         ]}
         onChange={(v) => {
-          const requiresStickyBucketing = v === "same-phase-sticky";
+          const requiresStickyBucketing = v === "same-phase-sticky" || v === "same-phase-everyone";
           const disabled = requiresStickyBucketing && !usingStickyBucketing;
           if (disabled) return;
           setReleasePlan(v as ReleasePlan);
@@ -412,7 +411,7 @@ export default function ReleaseChangesForm({
               </>
             );
           }
-          const requiresStickyBucketing = value === "same-phase-sticky";
+          const requiresStickyBucketing = value === "same-phase-sticky" || value === "same-phase-everyone";
           const recommended =
             value === recommendedRolloutData.recommendedReleasePlan;
           const disabled = requiresStickyBucketing && !usingStickyBucketing;
