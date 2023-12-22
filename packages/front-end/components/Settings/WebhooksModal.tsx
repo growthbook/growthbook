@@ -1,6 +1,6 @@
-import { FC } from "react";
+import { FC, useState } from "react";
 import { useForm } from "react-hook-form";
-import { WebhookInterface } from "back-end/types/webhook";
+import { WebhookInterface, WebhookMethod } from "back-end/types/webhook";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import { isCloud } from "@/services/env";
@@ -9,6 +9,8 @@ import { useEnvironments } from "@/services/features";
 import Field from "../Forms/Field";
 import Modal from "../Modal";
 import Toggle from "../Forms/Toggle";
+import SelectField from "../Forms/SelectField";
+import CodeTextArea from "../Forms/CodeTextArea";
 
 const WebhooksModal: FC<{
   close: () => void;
@@ -19,8 +21,15 @@ const WebhooksModal: FC<{
   sdkid?: string;
 }> = ({ close, onSave, current, showSDKMode, sdkid }) => {
   const { apiCall } = useAuth();
+  const [validHeaders, setValidHeaders] = useState(true);
   showSDKMode = showSDKMode || false;
-
+  const methodTypes: WebhookMethod[] = [
+    "POST",
+    "GET",
+    "PUT",
+    "DELETE",
+    "PURGE",
+  ];
   const { projects, project } = useDefinitions();
   const environments = useEnvironments();
   const form = useForm({
@@ -32,6 +41,8 @@ const WebhooksModal: FC<{
         current.environment === undefined ? "production" : current.environment,
       useSDKMode: current?.useSDKMode || showSDKMode,
       sendPayload: current?.sendPayload,
+      method: current?.method || "POST",
+      headers: current?.headers || "{}",
       sdkid,
     },
   });
@@ -89,7 +100,44 @@ const WebhooksModal: FC<{
         }}
       />
       <label htmlFor="sendPayload">Send Payload</label>
+      <SelectField
+        label="Method"
+        required
+        placeholder="POST"
+        value={form.watch("method")}
+        onChange={(method: WebhookMethod) => form.setValue("method", method)}
+        options={methodTypes.map((e) => ({ label: e, value: e }))}
+      />
+      {headerJsonEditor()}
     </>
+  );
+  const validateHeaders = (headers: string) => {
+    try {
+      JSON.parse(headers);
+      setValidHeaders(true);
+    } catch (error) {
+      setValidHeaders(false);
+    }
+  };
+  const headerJsonEditor = () => (
+    <CodeTextArea
+      label="Headers"
+      language="json"
+      value={form.watch("headers")}
+      setValue={(headers) => {
+        validateHeaders(headers);
+        form.setValue("headers", headers);
+      }}
+      helpText={
+        <>
+          {!validHeaders ? (
+            <div className="alert alert-danger mr-auto">Invalid JSON</div>
+          ) : (
+            <div>JSON format for headers.</div>
+          )}
+        </>
+      }
+    />
   );
   const nonSDKFilterFields = () => (
     <>
@@ -119,6 +167,7 @@ const WebhooksModal: FC<{
       header={current.id ? "Update Webhook" : "Create New Webhook"}
       open={true}
       submit={onSubmit}
+      ctaEnabled={validHeaders}
       cta={current.id ? "Update" : "Create"}
     >
       <Field label="Display Name" required {...form.register("name")} />

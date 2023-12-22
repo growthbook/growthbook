@@ -17,4 +17,4 @@ export interface WebhookInterface {
   method?: WebhookMethod;
 }
 
-export type WebhookMethod = "GET" | "PUT" | "POST" | "DELETE";
+export type WebhookMethod = "GET" | "PUT" | "POST" | "DELETE" | "PURGE";
