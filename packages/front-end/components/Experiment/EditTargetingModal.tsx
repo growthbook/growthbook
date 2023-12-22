@@ -532,7 +532,7 @@ function TargetigChangeTooltips({
         </>
       )}
       {recommendedRolloutData.riskLevel !== "safe" && (
-        <ul className="mt-1 mb-0 pl-3">
+        <ul className="mt-1 mb-0 pl-4">
           {(recommendedRolloutData.reasons.moreRestrictiveTargeting ||
             recommendedRolloutData.reasons.otherTargetingChanges) && (
             <li>
@@ -548,6 +548,19 @@ function TargetigChangeTooltips({
               mitigate.
             </li>
           )}
+          {recommendedRolloutData.reasons.changeVariationWeights && (
+            <li>
+              <strong>Changing variation weights</strong> could lead to
+              statistical bias and/or multiple exposures. Re-randomizing traffic
+              can help mitigate.
+            </li>
+          )}
+          {recommendedRolloutData.reasons.disableVariation && (
+            <li>
+              <strong>Disabling or re-enableing a variation</strong> could lead
+              to statistical bias and/or multiple exposures.
+            </li>
+          )}
           {(recommendedRolloutData.reasons.addToNamespace ||
             recommendedRolloutData.reasons.decreaseNamespaceRange ||
             recommendedRolloutData.reasons.otherNamespaceChanges) && (
@@ -555,13 +568,6 @@ function TargetigChangeTooltips({
               <strong>More restrictive namespace targeting</strong> may lead to
               carryover bias. Use Sticky Bucketing or re-randomize traffic to
               help mitigate.
-            </li>
-          )}
-          {recommendedRolloutData.reasons.changeVariationWeights && (
-            <li>
-              <strong>Changing variation weights</strong> could lead to
-              statistical bias and/or multiple exposures. Re-randomizing traffic
-              can help mitigate.
             </li>
           )}
         </ul>
