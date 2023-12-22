@@ -751,7 +751,6 @@ export async function toExperimentApiInterface(
       key: v.key,
       name: v.name || "",
       description: v.description || "",
-      blocked: v.blocked,
       screenshots: v.screenshots.map((s) => s.path),
     })),
     phases: experiment.phases.map((p) => ({

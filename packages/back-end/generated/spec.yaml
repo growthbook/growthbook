@@ -3051,8 +3051,6 @@ components:
                 type: string
               description:
                 type: string
-              blocked:
-                type: boolean
               screenshots:
                 type: array
                 items:

@@ -36,7 +36,6 @@ export interface Variation {
   name: string;
   description?: string;
   key: string;
-  blocked?: boolean;
   screenshots: Screenshot[];
 }
 export interface VariationWithIndex extends Variation {

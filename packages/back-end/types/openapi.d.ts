@@ -793,7 +793,6 @@ export interface components {
           key: string;
           name: string;
           description: string;
-          blocked?: boolean;
           screenshots: (string)[];
         })[];
       phases: ({
@@ -2709,7 +2708,6 @@ export interface operations {
                     key: string;
                     name: string;
                     description: string;
-                    blocked?: boolean;
                     screenshots: (string)[];
                   })[];
                 phases: ({
@@ -2906,7 +2904,6 @@ export interface operations {
                   key: string;
                   name: string;
                   description: string;
-                  blocked?: boolean;
                   screenshots: (string)[];
                 })[];
               phases: ({
@@ -3024,7 +3021,6 @@ export interface operations {
                   key: string;
                   name: string;
                   description: string;
-                  blocked?: boolean;
                   screenshots: (string)[];
                 })[];
               phases: ({
@@ -3217,7 +3213,6 @@ export interface operations {
                   key: string;
                   name: string;
                   description: string;
-                  blocked?: boolean;
                   screenshots: (string)[];
                 })[];
               phases: ({
@@ -3945,7 +3940,6 @@ export interface operations {
                   key: string;
                   name: string;
                   description: string;
-                  blocked?: boolean;
                   screenshots: (string)[];
                 })[];
               phases: ({

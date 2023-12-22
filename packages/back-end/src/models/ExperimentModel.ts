@@ -118,7 +118,6 @@ const experimentSchema = new mongoose.Schema({
       description: String,
       key: String,
       value: String,
-      blocked: Boolean,
       screenshots: [
         {
           _id: false,
