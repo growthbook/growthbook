@@ -81,7 +81,7 @@ export default function ConditionGroups({ groups, mutate }: Props) {
       )}
       <div className="row align-items-center mb-1">
         <div className="col-auto">
-          <h2 className="mb-0">Conditions</h2>
+          <h2 className="mb-0">Condition Groups</h2>
         </div>
         <div className="flex-1"></div>
         {permissions.manageSavedGroups && (
@@ -92,7 +92,7 @@ export default function ConditionGroups({ groups, mutate }: Props) {
                 setSavedGroupForm({});
               }}
             >
-              <GBAddCircle /> Add Condition
+              <GBAddCircle /> Add Condition Group
             </Button>
           </div>
         )}
