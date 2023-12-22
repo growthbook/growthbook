@@ -241,14 +241,14 @@ export default function ExperimentHeader({
 
             <div className="ml-2">
               <MoreMenu>
-                {editTargeting && (
+                {experiment.status !== "running" && editTargeting && (
                   <button
                     className="dropdown-item"
                     onClick={() => {
                       editTargeting();
                     }}
                   >
-                    Edit targeting / rollout
+                    Edit targeting & traffic
                   </button>
                 )}
                 {canRunExperiment && (
@@ -259,12 +259,6 @@ export default function ExperimentHeader({
                     Edit status
                   </button>
                 )}
-                <button
-                  className="dropdown-item"
-                  onClick={() => setAuditModal(true)}
-                >
-                  Audit log
-                </button>
                 {editPhases && (
                   <button
                     className="dropdown-item"
@@ -286,6 +280,12 @@ export default function ExperimentHeader({
                   <span className="badge badge-pill badge-info">
                     {usersWatching.length}
                   </span>
+                </button>
+                <button
+                  className="dropdown-item"
+                  onClick={() => setAuditModal(true)}
+                >
+                  Audit log
                 </button>
                 {duplicate && (
                   <button className="dropdown-item" onClick={duplicate}>

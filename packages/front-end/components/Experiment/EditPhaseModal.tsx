@@ -6,12 +6,7 @@ import {
 import { useAuth } from "@/services/auth";
 import Field from "../Forms/Field";
 import Modal from "../Modal";
-import FeatureVariationsInput from "../Features/FeatureVariationsInput";
-import ConditionInput from "../Features/ConditionInput";
-import NamespaceSelector from "../Features/NamespaceSelector";
-import SavedGroupTargetingField, {
-  validateSavedGroupTargeting,
-} from "../Features/SavedGroupTargetingField";
+import { validateSavedGroupTargeting } from "../Features/SavedGroupTargetingField";
 
 export interface Props {
   close: () => void;
@@ -38,6 +33,7 @@ export default function EditPhaseModal({
   const { apiCall } = useAuth();
 
   const isDraft = experiment.status === "draft";
+  const isRunning = experiment.status === "running";
   const isMultiPhase = experiment.phases.length > 1;
 
   const hasLinkedChanges =
@@ -58,6 +54,7 @@ export default function EditPhaseModal({
         mutate();
       })}
       size="lg"
+      bodyClassName="px-4 pt-4"
     >
       {!isDraft && hasLinkedChanges && (
         <div className="alert alert-danger">
@@ -103,49 +100,15 @@ export default function EditPhaseModal({
         </>
       ) : null}
 
-      <SavedGroupTargetingField
-        value={form.watch("savedGroups") || []}
-        setValue={(savedGroups) => form.setValue("savedGroups", savedGroups)}
-      />
-
-      <ConditionInput
-        defaultValue={form.watch("condition")}
-        onChange={(condition) => form.setValue("condition", condition)}
-      />
-
-      <FeatureVariationsInput
-        valueType={"string"}
-        coverage={form.watch("coverage")}
-        setCoverage={(coverage) => form.setValue("coverage", coverage)}
-        setWeight={(i, weight) =>
-          form.setValue(`variationWeights.${i}`, weight)
-        }
-        valueAsId={true}
-        variations={
-          experiment.variations.map((v, i) => {
-            return {
-              value: v.key || i + "",
-              name: v.name,
-              weight: form.watch(`variationWeights.${i}`),
-              id: v.id,
-            };
-          }) || []
-        }
-        showPreview={false}
-      />
-
-      <Field
-        {...form.register("seed")}
-        label="Hash Seed"
-        placeholder={experiment.trackingKey}
-        helpText="Used to determine which variation is assigned to users"
-      />
-
-      <NamespaceSelector
-        form={form}
-        featureId={experiment.trackingKey}
-        trackingKey={experiment.trackingKey}
-      />
+      {!isRunning && (
+        <Field
+          {...form.register("seed")}
+          label="Hash Seed"
+          placeholder={experiment.trackingKey}
+          helpText="Used to determine which variation is assigned to users"
+          containerClassName="mt-4"
+        />
+      )}
     </Modal>
   );
 }

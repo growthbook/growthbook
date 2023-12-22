@@ -142,15 +142,17 @@ export default function EditPhasesModal({
           ))}
         </tbody>
       </table>
-      <button
-        className="btn btn-primary"
-        onClick={(e) => {
-          e.preventDefault();
-          setEditPhase(-1);
-        }}
-      >
-        <GBAddCircle /> New Phase
-      </button>
+      {experiment.status !== "running" && (
+        <button
+          className="btn btn-primary"
+          onClick={(e) => {
+            e.preventDefault();
+            setEditPhase(-1);
+          }}
+        >
+          <GBAddCircle /> New Phase
+        </button>
+      )}
     </Modal>
   );
 }

@@ -150,6 +150,13 @@ export default function EditTargetingModal({
         cta="Save"
         size="lg"
       >
+        {experiment.status !== "draft" && (
+          <div className="alert alert-warning mx-2 mt-2">
+            <strong>Warning:</strong>{" "}
+            Changes made will apply to all linked Feature Flags and Visual
+            Editor changes immediately upon publishing.
+          </div>
+        )}
         <TargetingForm experiment={experiment} form={form} safeToEdit={true} />
       </Modal>
     );
@@ -196,18 +203,15 @@ export default function EditTargetingModal({
       secondaryCTA={
         step === lastStepNumber ? (
           <div className="col">
-            <div className="d-flex m-0 px-3 py-1 alert alert-warning small">
+            <div className="d-flex m-0 px-3 py-1 alert alert-warning">
               <div>
-                <strong>
-                  Warning: Experiment is{" "}
-                  {experiment.status === "running" ? "running" : "live"}.
-                </strong>{" "}
+                <strong>Warning:</strong>{" "}
                 Changes made will apply to all linked Feature Flags and Visual
                 Editor changes immediately upon publishing.
               </div>
               <label
                 htmlFor="confirm-changes"
-                className="border-left d-flex py-1 m-0 pl-3 ml-1 cursor-pointer d-flex align-items-center justify-content-md-center"
+                className="border-left d-flex py-1 m-0 pl-2 ml-1 cursor-pointer d-flex align-items-center justify-content-md-center hover-underline"
               >
                 <strong className="mr-2 user-select-none">Confirm</strong>
                 <input
@@ -309,6 +313,7 @@ function ChangeTypeSelector({
           label: "Phase",
           options: [{ label: "Start a new phase...", value: "phase" }],
         },
+        // todo: pause, resume, stop
       ]}
       onChange={(v) => setChangeType(v as ChangeType)}
       sort={false}
@@ -432,6 +437,7 @@ function TargetingForm({
           />
         </>
       )}
+
       {["targeting", "advanced"].includes(changeType) && (
         <>
           <SavedGroupTargetingField
@@ -444,6 +450,7 @@ function TargetingForm({
           />
         </>
       )}
+
       {["traffic", "weights", "advanced"].includes(changeType) && (
         <FeatureVariationsInput
           valueType={"string"}
@@ -475,6 +482,7 @@ function TargetingForm({
           }
         />
       )}
+
       {["namespace", "advanced"].includes(changeType) && (
         <NamespaceSelector
           form={form}
