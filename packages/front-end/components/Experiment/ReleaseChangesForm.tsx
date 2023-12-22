@@ -9,20 +9,15 @@ import {
   FaCheck,
   FaExclamationCircle,
   FaExternalLinkAlt,
-  FaQuestionCircle,
 } from "react-icons/fa";
-import { HiOutlineExclamationCircle } from "react-icons/hi";
 import clsx from "clsx";
-import { RxInfoCircled } from "react-icons/rx";
 import { BsToggles } from "react-icons/bs";
 import { MdInfoOutline } from "react-icons/md";
 import { ImBlocked } from "react-icons/im";
 import { BiHide, BiShow } from "react-icons/bi";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
-import { useAuth } from "@/services/auth";
 import usePermissions from "@/hooks/usePermissions";
-import { DocLink } from "@/components/DocLink";
 import {
   ChangeType,
   ReleasePlan,
@@ -31,7 +26,6 @@ import TargetingInfo from "@/components/Experiment/TabbedPage/TargetingInfo";
 import SelectField from "../Forms/SelectField";
 import Toggle from "../Forms/Toggle";
 import Tooltip from "../Tooltip/Tooltip";
-import { NewBucketingSDKList } from "./HashVersionSelector";
 
 export function getRecommendedRolloutData({
   experiment,
@@ -49,7 +43,6 @@ export function getRecommendedRolloutData({
   let actualReleasePlan: ReleasePlan | undefined = undefined;
   let riskLevel: "safe" | "warning" | "danger" = "safe";
   let disableSamePhase = false;
-  let samePhaseSafeWithStickyBucketing = true;
 
   // Returned meta:
   let reasons: {
@@ -164,14 +157,12 @@ export function getRecommendedRolloutData({
       // safe
       recommendedReleasePlan = "same-phase-sticky";
       actualReleasePlan = recommendedReleasePlan;
-      samePhaseSafeWithStickyBucketing = true;
       riskLevel = "safe";
     }
     if (otherTargetingChanges) {
       // warning
       recommendedReleasePlan = "new-phase";
       actualReleasePlan = recommendedReleasePlan;
-      samePhaseSafeWithStickyBucketing = false;
       riskLevel = "warning";
       reasons = { ...reasons, otherTargetingChanges };
     }
@@ -185,7 +176,6 @@ export function getRecommendedRolloutData({
       recommendedReleasePlan = "new-phase";
       actualReleasePlan = recommendedReleasePlan;
       disableSamePhase = true;
-      samePhaseSafeWithStickyBucketing = false;
       riskLevel = "danger";
       reasons = {
         ...reasons,
@@ -247,37 +237,8 @@ export function getRecommendedRolloutData({
     actualReleasePlan,
     riskLevel,
     disableSamePhase,
-    samePhaseSafeWithStickyBucketing,
     reasons,
   };
-}
-
-function SafeToReleaseBanner({
-  className,
-  style,
-  lowRiskWithStickyBucketing = false,
-}: {
-  className?: string;
-  style?: React.CSSProperties;
-  lowRiskWithStickyBucketing?: boolean;
-}) {
-  return (
-    <div className={clsx("alert alert-success pb-2", className)} style={style}>
-      <div className="mb-1">
-        <FaCheck />{" "}
-        {lowRiskWithStickyBucketing
-          ? "The changes you have made do not impact existing bucketed users because Sticky Bucketing is enabled."
-          : "The changes you have made do not impact existing bucketed users."}
-      </div>
-      <div className="mb-1">
-        You may safely update the existing experiment phase, if desired, without
-        additional considerations.
-      </div>
-      <div className="text-right">
-        <DocLink docSection="targetingChanges">View Documentation</DocLink>
-      </div>
-    </div>
-  );
 }
 
 export interface Props {
@@ -295,7 +256,6 @@ export default function ReleaseChangesForm({
   releasePlan,
   setReleasePlan,
 }: Props) {
-  const { apiCall } = useAuth();
   const permissions = usePermissions();
   const settings = useOrgSettings();
   const orgStickyBucketing = !!settings.useStickyBucketing;
@@ -387,7 +347,8 @@ export default function ReleaseChangesForm({
           { label: "Advanced", value: "advanced" },
         ]}
         onChange={(v) => {
-          const requiresStickyBucketing = v === "same-phase-sticky" || v === "same-phase-everyone";
+          const requiresStickyBucketing =
+            v === "same-phase-sticky" || v === "same-phase-everyone";
           const disabled = requiresStickyBucketing && !usingStickyBucketing;
           if (disabled) return;
           setReleasePlan(v as ReleasePlan);
@@ -411,7 +372,8 @@ export default function ReleaseChangesForm({
               </>
             );
           }
-          const requiresStickyBucketing = value === "same-phase-sticky" || value === "same-phase-everyone";
+          const requiresStickyBucketing =
+            value === "same-phase-sticky" || value === "same-phase-everyone";
           const recommended =
             value === recommendedRolloutData.recommendedReleasePlan;
           const disabled = requiresStickyBucketing && !usingStickyBucketing;
@@ -726,435 +688,6 @@ export default function ReleaseChangesForm({
           </div>
         </div>
       )}
-    </div>
-  );
-
-  return (
-    <div className="mt-4">
-      <div className="d-flex mb-3">
-        <div className="h4 mb-0">Release changes</div>
-        <div className="flex-1" />
-
-        <div
-          className="text-muted mb-0 pt-1 pb-0 px-2"
-          style={{ marginTop: -5 }}
-        >
-          <div>
-            {!orgStickyBucketing ? (
-              <HiOutlineExclamationCircle className="mr-1" />
-            ) : (
-              <FaCheck className="mr-1" />
-            )}
-            Sticky Bucketing is {orgStickyBucketing ? "enabled" : "disabled"}{" "}
-            for your organization
-          </div>
-          <div className="small text-right">
-            Only supported in{" "}
-            <Tooltip
-              popperClassName="text-left"
-              body={
-                <>
-                  Sticky Bucketing is only supported in the following SDKs and
-                  versions:
-                  <ul>
-                    <li>Javascript &gt;= 0.32.0</li>
-                    <li>React &gt;= 0.22.0</li>
-                  </ul>
-                  Unsupported SDKs will fall back to standard hash-based
-                  bucketing.
-                </>
-              }
-            >
-              <span className="text-primary">
-                some SDK versions <FaQuestionCircle />
-              </span>
-            </Tooltip>
-          </div>
-          {!stickyBucketingCTAOpen &&
-          !orgStickyBucketing &&
-          permissions.organizationSettings ? (
-            <div className="text-right">
-              <a
-                role="button"
-                className="a"
-                onClick={(e) => {
-                  e.preventDefault();
-                  setStickyBucketingCTAOpen(true);
-                }}
-              >
-                Enable?
-              </a>
-            </div>
-          ) : null}
-          {stickyBucketingCTAOpen && permissions.organizationSettings ? (
-            <div className="d-flex justify-content-end mt-2">
-              <label className="mr-2" htmlFor="toggle-useStickyBucketing">
-                <PremiumTooltip
-                  commercialFeature={"sticky-bucketing"}
-                  body={
-                    <>
-                      <div className="font-weight-bold mb-2">
-                        This is an organization-level change.
-                      </div>
-                      <div className="mb-2">
-                        Sticky Bucketing allows you to persist a user&apos;s
-                        assigned variation if any of the following change:
-                        <ol className="mt-1 mb-2" type="a">
-                          <li>the user logs in or logs out</li>
-                          <li>experiment targeting conditions change</li>
-                          <li>experiment coverage changes</li>
-                          <li>variation weights change</li>
-                        </ol>
-                      </div>
-                      <div>
-                        Enabling Sticky Bucketing also allows you to set fine
-                        controls over bucketing behavior, such as:
-                        <ul className="mt-1 mb-2">
-                          <li>
-                            assigning variations based on both a{" "}
-                            <code>user_id</code> and <code>anonymous_id</code>
-                          </li>
-                          <li>invalidating existing buckets</li>
-                          <li>and more</li>
-                        </ul>
-                      </div>
-                      <p className="mb-0 text-warning-orange">
-                        <FaExclamationCircle /> You must enable this feature in
-                        your SDK integration code for it to take effect.
-                      </p>
-                    </>
-                  }
-                >
-                  Enable Sticky Bucketing <FaQuestionCircle />
-                </PremiumTooltip>
-              </label>
-              <Toggle
-                id={"toggle-useStickyBucketing"}
-                innerStyle={{ boxShadow: "0px 0 1px rgba(0, 0, 0, 0.75)" }}
-                value={orgStickyBucketing}
-                setValue={async (value) => {
-                  await apiCall(`/organization`, {
-                    method: "PUT",
-                    body: JSON.stringify({
-                      settings: {
-                        useStickyBucketing: value,
-                      },
-                    }),
-                  });
-                  await refreshOrganization();
-                }}
-                disabled={!hasStickyBucketFeature}
-              />
-            </div>
-          ) : null}
-        </div>
-      </div>
-
-      {recommendedRolloutData.promptExistingUserOptions ? (
-        <>
-          {recommendedRolloutData.riskLevel === "safe" ? (
-            <SafeToReleaseBanner
-              className="mb-0"
-              style={{ borderBottomLeftRadius: 0, borderBottomRightRadius: 0 }}
-              lowRiskWithStickyBucketing={true}
-            />
-          ) : (
-            <div
-              className={`alert alert-${recommendedRolloutData.riskLevel} mb-0 pb-2`}
-              style={{ borderBottomLeftRadius: 0, borderBottomRightRadius: 0 }}
-            >
-              <div>
-                {recommendedRolloutData.riskLevel === "warning" ? (
-                  <>
-                    <FaExclamationCircle /> The changes you have made may impact
-                    existing bucketed users.
-                  </>
-                ) : (
-                  <>
-                    <FaExclamationCircle /> The changes you have made have a
-                    high risk of impacting existing bucketed users.
-                  </>
-                )}
-
-                <Tooltip
-                  body={
-                    <>
-                      <div className="font-weight-bold mb-2">
-                        Existing users may be impacted by the following changes
-                        you have made:
-                      </div>
-                      <ul className="mb-1">
-                        {recommendedRolloutData.reasons
-                          .moreRestrictiveTargeting && (
-                          <li>More restrictive targeting</li>
-                        )}
-                        {recommendedRolloutData.reasons.decreaseCoverage && (
-                          <li>Decreased coverage</li>
-                        )}
-                        {recommendedRolloutData.reasons.addToNamespace && (
-                          <li>Added to namespace</li>
-                        )}
-                        {recommendedRolloutData.reasons
-                          .decreaseNamespaceRange && (
-                          <li>Decreased namespace range</li>
-                        )}
-                        {recommendedRolloutData.reasons
-                          .changeVariationWeights && (
-                          <li>Changed variation weights</li>
-                        )}
-                        {recommendedRolloutData.reasons.disableVariation && (
-                          <li>Disabled a variation</li>
-                        )}
-                      </ul>
-                      {recommendedRolloutData.samePhaseSafeWithStickyBucketing && (
-                        <div className="mt-3">
-                          <span
-                            className="badge badge-muted-info badge-pill mr-2"
-                            style={{ fontSize: "10px" }}
-                          >
-                            SB
-                          </span>
-                          If you would like to release these changes while
-                          maintaining the same phase, you can mitigate the risk
-                          by enabling Sticky Bucketing.
-                        </div>
-                      )}
-                    </>
-                  }
-                >
-                  <a role="button" className="a ml-2">
-                    Learn more <RxInfoCircled />
-                  </a>
-                </Tooltip>
-                <div className="mt-2">
-                  We have recommended a release strategy to mitigate risk to
-                  your experiment.
-                </div>
-                <div className="text-right">
-                  <DocLink docSection="targetingChanges">
-                    View Documentation
-                  </DocLink>
-                </div>
-              </div>
-              {/*todo: experiment level SB setting*/}
-            </div>
-          )}
-          <div
-            className="appbox mt-0 px-4 pt-3 pb-2"
-            style={{ borderTopLeftRadius: 0, borderTopRightRadius: 0 }}
-          >
-            <SelectField
-              label={
-                <>
-                  <div>What should happen to existing bucketed users?</div>
-                  <small>
-                    Choose an option and we&apos;ll recommend how to release
-                    these changes
-                  </small>
-                </>
-              }
-              value={existingUsersOption}
-              options={[
-                {
-                  label: "Keep their assigned variation",
-                  value: "keep",
-                },
-                {
-                  label: "Exclude them from the experiment",
-                  value: "exclude",
-                },
-                {
-                  label: "Reassign them to a new variation",
-                  value: "reassign",
-                },
-              ]}
-              formatOptionLabel={(value) => {
-                const requiresStickyBucketing =
-                  value.value === "keep" || value.value === "exclude";
-
-                const recommended =
-                  value.value === recommendedRolloutData.existingUsersOption;
-
-                const disabled =
-                  (requiresStickyBucketing && !usingStickyBucketing) ||
-                  (value.value === "keep" &&
-                    recommendedRolloutData.disableKeepOption);
-
-                return (
-                  <div
-                    className={clsx({
-                      "cursor-disabled": disabled,
-                    })}
-                  >
-                    <span style={{ opacity: disabled ? 0.5 : 1 }}>
-                      {value.label}{" "}
-                    </span>
-                    {requiresStickyBucketing && (
-                      <Tooltip
-                        body={`${
-                          usingStickyBucketing ? "Uses" : "Requires"
-                        } Sticky Bucketing`}
-                        className="mr-2"
-                      >
-                        <span
-                          className="badge badge-muted-info badge-pill ml-2 position-relative"
-                          style={{ zIndex: 1, fontSize: "10px" }}
-                        >
-                          SB
-                        </span>
-                      </Tooltip>
-                    )}
-                    {recommended && (
-                      <span className="badge badge-purple badge-pill ml-2">
-                        recommended
-                      </span>
-                    )}
-                  </div>
-                );
-              }}
-              onChange={(v) => {
-                const requiresStickyBucketing = v === "keep" || v === "exclude";
-                const disabled =
-                  (requiresStickyBucketing && !usingStickyBucketing) ||
-                  (v === "keep" && recommendedRolloutData.disableKeepOption);
-                if (disabled) return;
-                setExistingUsersOption(v as ExistingUsersOption);
-              }}
-            />
-          </div>
-        </>
-      ) : (
-        <SafeToReleaseBanner />
-      )}
-
-      {existingUsersOption === "reassign" && (
-        <>
-          <SelectField
-            label="How to release changes"
-            options={[
-              {
-                label: "Start a new phase",
-                value: "new",
-              },
-              {
-                label: "Update the existing phase",
-                value: "existing",
-              },
-            ]}
-            formatOptionLabel={(value) => {
-              const recommended =
-                (value.value === "new" &&
-                  recommendedRolloutData.reassign_newPhase) ||
-                (value.value === "existing" &&
-                  !recommendedRolloutData.reassign_newPhase);
-
-              const disabled =
-                value.value === "existing" &&
-                recommendedRolloutData.disableSamePhase;
-
-              return (
-                <div
-                  className={clsx({
-                    "cursor-disabled": disabled,
-                  })}
-                >
-                  <span style={{ opacity: disabled ? 0.5 : 1 }}>
-                    {value.label}
-                  </span>
-                  {recommended && (
-                    <span className="badge badge-purple badge-pill ml-2">
-                      recommended
-                    </span>
-                  )}
-                </div>
-              );
-            }}
-            value={form.watch("newPhase") ? "new" : "existing"}
-            onChange={(value) => {
-              const disabled =
-                value === "existing" && recommendedRolloutData.disableSamePhase;
-              if (disabled) return;
-              form.setValue("newPhase", value === "new");
-            }}
-          />
-
-          {form.watch("newPhase") && (
-            <div className="form-group">
-              <Toggle
-                id="reseed-traffic"
-                value={form.watch("reseed")}
-                setValue={(reseed) => form.setValue("reseed", reseed)}
-              />{" "}
-              <label htmlFor="reseed-traffic" className="text-dark">
-                Re-randomize traffic
-              </label>{" "}
-              {recommendedRolloutData.reassign_newSeed && (
-                <span className="badge badge-purple badge-pill ml-2">
-                  recommended
-                </span>
-              )}
-              <small className="form-text text-muted">
-                Removes carryover bias. Returning visitors will be re-bucketed
-                and may start seeing a different variation from before. Only
-                supported in{" "}
-                <Tooltip
-                  body={
-                    <>
-                      Only supported in the following SDKs:
-                      <NewBucketingSDKList />
-                      Unsupported SDKs and versions will simply ignore this
-                      setting and continue with the previous randomization.
-                    </>
-                  }
-                >
-                  <span className="text-primary">some SDKs</span>
-                </Tooltip>
-              </small>
-            </div>
-          )}
-        </>
-      )}
-
-      <div className="mt-4">
-        <div className="d-flex justify-content-end">
-          <div style={{ width: 300 }}>
-            <div className="h4 text-muted">Release plan</div>
-            <table className="table table-tiny">
-              <tbody>
-                <tr>
-                  <td>New phase?</td>
-                  <td>{form.watch("newPhase") ? "Yes" : "No"}</td>
-                </tr>
-                <tr>
-                  <td>Re-randomize traffic?</td>
-                  <td>{form.watch("reseed") ? "Yes" : "No"}</td>
-                </tr>
-                <tr>
-                  <td>Bucket version?</td>
-                  <td>
-                    {form.watch("bucketVersion") !== experiment.bucketVersion
-                      ? `Changed: ${
-                          experiment.bucketVersion ?? 0
-                        } → ${form.watch("bucketVersion")}`
-                      : `No change: ${form.watch("bucketVersion")}`}
-                  </td>
-                </tr>
-                <tr>
-                  <td>Block previous bucket?</td>
-                  <td>
-                    {form.watch("minBucketVersion") !==
-                    experiment.minBucketVersion
-                      ? `Changed: ${
-                          experiment.minBucketVersion ?? 0
-                        } → ${form.watch("minBucketVersion")}`
-                      : `No change: ${form.watch("minBucketVersion")}`}
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
     </div>
   );
 }
