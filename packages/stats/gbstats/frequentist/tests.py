@@ -1,16 +1,21 @@
 from abc import abstractmethod
 from dataclasses import asdict, dataclass
-from typing import List
+from typing import List, Optional
 
 import numpy as np
 from scipy.stats import t  # type: ignore
 
+from gbstats.messages import (
+    BASELINE_VARIATION_ZERO_MESSAGE,
+    ZERO_NEGATIVE_VARIANCE_MESSAGE,
+    ZERO_SCALED_VARIATION_MESSAGE,
+)
 
 from gbstats.shared.constants import DifferenceType
 from gbstats.shared.models import (
     BaseConfig,
     FrequentistTestResult,
-    Statistic,
+    TestStatistic,
     Uplift,
 )
 from gbstats.shared.tests import BaseABTest
@@ -30,8 +35,8 @@ class SequentialConfig(FrequentistConfig):
 class TTest(BaseABTest):
     def __init__(
         self,
-        stat_a: Statistic,
-        stat_b: Statistic,
+        stat_a: TestStatistic,
+        stat_b: TestStatistic,
         config: FrequentistConfig = FrequentistConfig(),
     ):
         """Base class for one- and two-sided T-Tests with unequal variance.
@@ -97,7 +102,9 @@ class TTest(BaseABTest):
     def confidence_interval(self) -> List[float]:
         pass
 
-    def _default_output(self) -> FrequentistTestResult:
+    def _default_output(
+        self, error_message: Optional[str] = None
+    ) -> FrequentistTestResult:
         """Return uninformative output when AB test analysis can't be performed
         adequately
         """
@@ -110,6 +117,7 @@ class TTest(BaseABTest):
                 mean=0,
                 stddev=0,
             ),
+            error_message=error_message,
         )
 
     def compute_result(self) -> FrequentistTestResult:
@@ -122,11 +130,11 @@ class TTest(BaseABTest):
                 not absolute differences
         """
         if self.stat_a.mean == 0:
-            return self._default_output()
+            return self._default_output(BASELINE_VARIATION_ZERO_MESSAGE)
         if self.stat_a.unadjusted_mean == 0:
-            return self._default_output()
+            return self._default_output(BASELINE_VARIATION_ZERO_MESSAGE)
         if self._has_zero_variance():
-            return self._default_output()
+            return self._default_output(ZERO_NEGATIVE_VARIANCE_MESSAGE)
         result = FrequentistTestResult(
             expected=self.point_estimate,
             ci=self.confidence_interval,
@@ -146,6 +154,8 @@ class TTest(BaseABTest):
     def scale_result(
         self, result: FrequentistTestResult, p: float, d: float
     ) -> FrequentistTestResult:
+        if p == 0:
+            return self._default_output(ZERO_SCALED_VARIATION_MESSAGE)
         adjustment = self.stat_b.n / p / d
         return FrequentistTestResult(
             expected=result.expected * adjustment,
@@ -195,15 +205,15 @@ class OneSidedTreatmentLesserTTest(TTest):
 class SequentialTwoSidedTTest(TTest):
     def __init__(
         self,
-        stat_a: Statistic,
-        stat_b: Statistic,
+        stat_a: TestStatistic,
+        stat_b: TestStatistic,
         config: SequentialConfig = SequentialConfig(),
     ):
         config_dict = asdict(config)
         self.sequential_tuning_parameter = config_dict.pop(
             "sequential_tuning_parameter"
         )
-        super().__init__(stat_a, stat_b, FrequentistConfig(**config_dict)),
+        super().__init__(stat_a, stat_b, FrequentistConfig(**config_dict))
 
     @property
     def confidence_interval(self) -> List[float]:

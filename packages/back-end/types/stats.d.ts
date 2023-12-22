@@ -19,6 +19,7 @@ interface BaseVariationResponse {
     stddev?: number;
   };
   ci?: [number, number];
+  errorMessage?: string;
 }
 
 interface BayesianVariationResponse extends BaseVariationResponse {
@@ -47,8 +48,11 @@ type StatsEngineDimensionResponse =
   | BayesianDimensionResponse
   | FrequentistVariationResponse;
 
-export interface ExperimentMetricAnalysis {
-  unknownVariations: string[];
-  multipleExposures: number;
-  dimensions: StatsEngineDimensionResponse[];
-}
+export type ExperimentMetricAnalysis = {
+  metric: string;
+  analyses: {
+    unknownVariations: string[];
+    multipleExposures: number;
+    dimensions: StatsEngineDimensionResponse[];
+  }[];
+}[];

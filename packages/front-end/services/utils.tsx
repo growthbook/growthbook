@@ -10,7 +10,7 @@ export function trafficSplitPercentages(weights: number[]): number[] {
 export function formatTrafficSplit(weights: number[], decimals = 0): string {
   return trafficSplitPercentages(weights)
     .map((w) => w.toFixed(decimals))
-    .join("/");
+    .join(" / ");
 }
 
 // Get the number of decimals +1 needed to differentiate between
@@ -167,10 +167,16 @@ export function appendQueryParamsToURL(
   url: string,
   params: Record<string, string | number | undefined>
 ): string {
-  const [root, query] = url.split("?");
+  const [_root, hash] = url.split("#");
+  const [root, query] = _root.split("?");
   const parsed = qs.parse(query ?? "");
-  const queryParams = qs.stringify({ ...parsed, ...params });
-  return `${root}?${queryParams}`;
+  const queryParams = qs.stringify(
+    { ...parsed, ...params },
+    {
+      sort: false,
+    }
+  );
+  return `${root}?${queryParams}${hash ? `#${hash}` : ""}`;
 }
 
 export function capitalizeFirstLetter(string): string {

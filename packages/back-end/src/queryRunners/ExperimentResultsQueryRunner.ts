@@ -126,12 +126,16 @@ export const startExperimentResultQueries = async (
 
   // Settings for health query
   const runTrafficQuery = !dimensionObj && org?.settings?.runHealthTrafficQuery;
-  const dimensionsForTraffic: ExperimentDimension[] = runTrafficQuery
-    ? (exposureQuery?.dimensionsForTraffic || []).map((id) => ({
+  let dimensionsForTraffic: ExperimentDimension[] = [];
+  if (runTrafficQuery && exposureQuery?.dimensionMetadata) {
+    dimensionsForTraffic = exposureQuery.dimensionMetadata
+      .filter((dm) => exposureQuery.dimensions.includes(dm.dimension))
+      .map((dm) => ({
         type: "experiment",
-        id,
-      }))
-    : [];
+        id: dm.dimension,
+        specifiedSlices: dm.specifiedSlices,
+      }));
+  }
 
   const unitQueryParams: ExperimentUnitsQueryParams = {
     activationMetric: activationMetric,
@@ -248,28 +252,25 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
       unknownVariations: [],
     };
 
-    // Run each analysis
-    const analysisPromises: Promise<void>[] = [];
-    this.model.analyses.forEach((analysis) => {
-      analysisPromises.push(
-        (async () => {
-          const results = await analyzeExperimentResults({
-            queryData: queryMap,
-            snapshotSettings: this.model.settings,
-            analysisSettings: analysis.settings,
-            variationNames: this.variationNames,
-            metricMap: this.metricMap,
-          });
+    const analysesResults = await analyzeExperimentResults({
+      queryData: queryMap,
+      snapshotSettings: this.model.settings,
+      analysisSettings: this.model.analyses.map((a) => a.settings),
+      variationNames: this.variationNames,
+      metricMap: this.metricMap,
+    });
 
-          analysis.results = results.dimensions || [];
-          analysis.status = "success";
-          analysis.error = "";
+    analysesResults.forEach((results, i) => {
+      const analysis = this.model.analyses[i];
+      if (!analysis) return;
 
-          // TODO: do this once, not per analysis
-          result.unknownVariations = results.unknownVariations || [];
-          result.multipleExposures = results.multipleExposures ?? 0;
-        })()
-      );
+      analysis.results = results.dimensions || [];
+      analysis.status = "success";
+      analysis.error = "";
+
+      // TODO: do this once, not per analysis
+      result.unknownVariations = results.unknownVariations || [];
+      result.multipleExposures = results.multipleExposures ?? 0;
     });
 
     // Run health checks
@@ -277,13 +278,10 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
     if (healthQuery) {
       const trafficHealth = analyzeExperimentTraffic({
         rows: healthQuery.result as ExperimentAggregateUnitsQueryResponseRows,
+        error: healthQuery.error,
         variations: this.model.settings.variations,
       });
       result.health = { traffic: trafficHealth };
-    }
-
-    if (analysisPromises.length > 0) {
-      await Promise.all(analysisPromises);
     }
 
     return result;

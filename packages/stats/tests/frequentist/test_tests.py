@@ -4,6 +4,7 @@ from unittest import TestCase, main as unittest_main
 
 import numpy as np
 
+from gbstats.messages import ZERO_NEGATIVE_VARIANCE_MESSAGE
 from gbstats.frequentist.tests import (
     FrequentistConfig,
     SequentialConfig,
@@ -25,7 +26,9 @@ round_ = partial(np.round, decimals=DECIMALS)
 
 def _round_result_dict(result_dict):
     for k, v in result_dict.items():
-        if k == "uplift":
+        if k == "error_message":
+            pass
+        elif k == "uplift":
             v = {
                 kk: round_(vv) if isinstance(vv, float) else vv for kk, vv in v.items()
             }
@@ -90,7 +93,9 @@ class TestTwoSidedTTest(TestCase):
     def test_two_sided_ttest_missing_variance(self):
         stat_a = SampleMeanStatistic(sum=1396.87, sum_squares=52377.9767, n=2)
         stat_b = SampleMeanStatistic(sum=2422.7, sum_squares=134698.29, n=3461)
-        default_output = TwoSidedTTest(stat_a, stat_b)._default_output()
+        default_output = TwoSidedTTest(stat_a, stat_b)._default_output(
+            ZERO_NEGATIVE_VARIANCE_MESSAGE
+        )
         result_output = TwoSidedTTest(stat_a, stat_b).compute_result()
 
         self.assertEqual(default_output, result_output)

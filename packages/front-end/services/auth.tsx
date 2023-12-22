@@ -8,7 +8,6 @@ import React, {
 } from "react";
 import { useRouter } from "next/router";
 import {
-  MemberRole,
   MemberRoleInfo,
   OrganizationInterface,
 } from "back-end/types/organization";
@@ -17,6 +16,7 @@ import {
   UnauthenticatedResponse,
 } from "back-end/types/sso-connection";
 import * as Sentry from "@sentry/react";
+import { roleSupportsEnvLimit } from "shared/permissions";
 import Modal from "../components/Modal";
 import { DocLink } from "../components/DocLink";
 import Welcome from "../components/Auth/Welcome";
@@ -440,10 +440,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
     </AuthContext.Provider>
   );
 };
-
-export function roleSupportsEnvLimit(role: MemberRole): boolean {
-  return ["engineer", "experimenter"].includes(role);
-}
 
 export function roleHasAccessToEnv(
   role: MemberRoleInfo,

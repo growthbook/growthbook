@@ -2,7 +2,7 @@ import type { Response } from "express";
 import { orgHasPremiumFeature } from "enterprise";
 import { AuthRequest } from "../../types/AuthRequest";
 import { ApiErrorResponse, PrivateApiErrorResponse } from "../../../types/api";
-import { getOrgFromReq } from "../../services/organizations";
+import { getEnvironments, getOrgFromReq } from "../../services/organizations";
 import {
   ArchetypeAttributeValues,
   ArchetypeInterface,
@@ -20,9 +20,9 @@ import {
   auditDetailsUpdate,
 } from "../../services/audit";
 import { FeatureTestResult } from "../../../types/feature";
-import { evaluateFeature } from "../../services/features";
+import { evaluateFeature, getSavedGroupMap } from "../../services/features";
 import { getFeature } from "../../models/FeatureModel";
-import { promiseAllChunks } from "../../util/promise";
+import { getAllPayloadExperiments } from "../../models/ExperimentModel";
 import { getRevision } from "../../models/FeatureRevisionModel";
 
 type GetArchetypeResponse = {
@@ -62,15 +62,20 @@ export const getArchetypeAndEval = async (
   const { id, version } = req.params;
   const feature = await getFeature(org.id, id);
 
-  if (!feature) {
-    throw new Error("Feature not found");
-  }
-
   if (!orgHasPremiumFeature(org, "archetypes")) {
     return res.status(403).json({
       status: 403,
       message: "Organization does not have premium feature: sample users",
     });
+  }
+
+  if (!feature) {
+    throw new Error("Feature not found");
+  }
+
+  const revision = await getRevision(org.id, feature.id, parseInt(version));
+  if (!revision) {
+    throw new Error("Could not find feature revision");
   }
 
   req.checkPermissions("manageArchetype");
@@ -79,25 +84,30 @@ export const getArchetypeAndEval = async (
   const featureResults: { [key: string]: FeatureTestResult[] } = {};
 
   if (archetype.length) {
-    const revision = await getRevision(org.id, feature.id, parseInt(version));
-    if (!revision) {
-      throw new Error("Could not find feature revision");
-    }
+    const groupMap = await getSavedGroupMap(org);
+    const experimentMap = await getAllPayloadExperiments(org.id);
+    const environments = getEnvironments(org);
 
-    const promiseCallbacks: (() => Promise<unknown>)[] = [];
     archetype.forEach((arch) => {
       try {
-        const attrs = JSON.parse(arch.attributes) as ArchetypeAttributeValues;
-        promiseCallbacks.push(async () => {
-          const result = await evaluateFeature(feature, revision, attrs, org);
-          if (!result) return;
-          featureResults[arch.id] = result;
+        const attributes = JSON.parse(
+          arch.attributes
+        ) as ArchetypeAttributeValues;
+        const result = evaluateFeature({
+          feature,
+          attributes,
+          environments,
+          experimentMap,
+          groupMap,
+          revision,
         });
+
+        if (!result) return;
+        featureResults[arch.id] = result;
       } catch (e) {
         // not sure what we should do with a json error - should be impossible to get here.
       }
     });
-    await promiseAllChunks(promiseCallbacks, 5);
   }
 
   return res.status(200).json({

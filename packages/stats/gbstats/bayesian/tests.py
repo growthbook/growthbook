@@ -1,10 +1,18 @@
 from abc import abstractmethod
 from dataclasses import dataclass, field
-from typing import List, Tuple, Union
+from typing import List, Optional, Tuple, Union
 
 import numpy as np
 from scipy.stats import norm  # type: ignore
 
+
+from gbstats.messages import (
+    BASELINE_VARIATION_ZERO_MESSAGE,
+    LOG_APPROXIMATION_INEXACT_MESSAGE,
+    ZERO_NEGATIVE_VARIANCE_MESSAGE,
+    ZERO_SCALED_VARIATION_MESSAGE,
+    NO_UNITS_IN_VARIATION_MESSAGE,
+)
 from gbstats.bayesian.dists import Beta, Norm
 from gbstats.shared.models import (
     BaseConfig,
@@ -12,7 +20,7 @@ from gbstats.shared.models import (
     ProportionStatistic,
     RatioStatistic,
     SampleMeanStatistic,
-    Statistic,
+    TestStatistic,
     Uplift,
 )
 from gbstats.shared.tests import BaseABTest
@@ -63,8 +71,8 @@ Original code:
 class BayesianABTest(BaseABTest):
     def __init__(
         self,
-        stat_a: Statistic,
-        stat_b: Statistic,
+        stat_a: TestStatistic,
+        stat_b: TestStatistic,
         inverse: bool = False,
         ccr: float = 0.05,
     ):
@@ -76,7 +84,9 @@ class BayesianABTest(BaseABTest):
     def compute_result(self) -> BayesianTestResult:
         pass
 
-    def _default_output(self) -> BayesianTestResult:
+    def _default_output(
+        self, error_message: Optional[str] = None
+    ) -> BayesianTestResult:
         """Return uninformative output when AB test analysis can't be performed
         adequately
         """
@@ -86,6 +96,7 @@ class BayesianABTest(BaseABTest):
             ci=[0, 0],
             uplift=Uplift(dist="lognormal", mean=0, stddev=0),
             risk=[0, 0],
+            error_message=error_message,
         )
 
     def has_empty_input(self):
@@ -111,6 +122,8 @@ class BayesianABTest(BaseABTest):
     ) -> BayesianTestResult:
         if result.uplift.dist != "normal":
             raise ValueError("Cannot scale relative results.")
+        if p == 0:
+            return self._default_output(ZERO_SCALED_VARIATION_MESSAGE)
         adjustment = self.stat_b.n / p / d
         return BayesianTestResult(
             chance_to_win=result.chance_to_win,
@@ -141,9 +154,10 @@ class BinomialBayesianABTest(BayesianABTest):
         self.phase_length_days = config.phase_length_days
 
     def compute_result(self) -> BayesianTestResult:
-        # TODO refactor validation to base test
+        if self.stat_a.mean == 0:
+            return self._default_output(BASELINE_VARIATION_ZERO_MESSAGE)
         if self.has_empty_input():
-            return self._default_output()
+            return self._default_output(NO_UNITS_IN_VARIATION_MESSAGE)
 
         alpha_a, beta_a = Beta.posterior(
             [self.prior_a.alpha, self.prior_a.beta], [self.stat_a.sum, self.stat_a.n]  # type: ignore
@@ -220,11 +234,12 @@ class GaussianBayesianABTest(BayesianABTest):
         )
 
     def compute_result(self) -> BayesianTestResult:
+        if self.stat_a.mean == 0:
+            return self._default_output(BASELINE_VARIATION_ZERO_MESSAGE)
         if self.has_empty_input():
-            return self._default_output()
-
+            return self._default_output(NO_UNITS_IN_VARIATION_MESSAGE)
         if self._has_zero_variance():
-            return self._default_output()
+            return self._default_output(ZERO_NEGATIVE_VARIANCE_MESSAGE)
 
         mu_a, sd_a = Norm.posterior(
             [
@@ -254,7 +269,7 @@ class GaussianBayesianABTest(BayesianABTest):
         if self.relative & self._is_log_approximation_inexact(
             ((mu_a, sd_a), (mu_b, sd_b))
         ):
-            return self._default_output()
+            return self._default_output(LOG_APPROXIMATION_INEXACT_MESSAGE)
 
         mean_a, var_a = Norm.moments(
             mu_a, sd_a, log=self.relative, epsilon=self.epsilon

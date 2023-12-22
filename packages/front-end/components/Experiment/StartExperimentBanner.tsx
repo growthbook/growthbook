@@ -15,6 +15,7 @@ import {
 } from "back-end/types/experimentLaunchChecklist";
 import track from "@/services/track";
 import { useAuth } from "@/services/auth";
+import { useCelebration } from "@/hooks/useCelebration";
 import useApi from "@/hooks/useApi";
 import Button from "../Button";
 import Tooltip from "../Tooltip/Tooltip";
@@ -75,6 +76,7 @@ export function StartExperimentBanner({
   );
   const [updatingChecklist, setUpdatingChecklist] = useState(false);
   const manualChecklist: ManualChecklist[] = [];
+  const startCelebration = useCelebration();
 
   manualChecklist.push({
     key: "sdk-connection",
@@ -180,9 +182,8 @@ export function StartExperimentBanner({
   // SDK Connection set up
   const projectConnections = connections.filter(
     (connection) =>
-      !experiment.project ||
       !connection.projects.length ||
-      connection.projects.includes(experiment.project)
+      connection.projects.includes(experiment.project || "")
   );
   const matchingConnections = projectConnections.filter(
     (connection) =>
@@ -262,6 +263,7 @@ export function StartExperimentBanner({
   }
 
   async function startExperiment() {
+    startCelebration();
     if (!experiment.phases?.length) {
       if (newPhase) {
         newPhase();

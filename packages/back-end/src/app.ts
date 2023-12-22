@@ -104,6 +104,7 @@ import { dataExportRouter } from "./routers/data-export/data-export.router";
 import { demoDatasourceProjectRouter } from "./routers/demo-datasource-project/demo-datasource-project.router";
 import { environmentRouter } from "./routers/environment/environment.router";
 import { teamRouter } from "./routers/teams/teams.router";
+import { githubIntegrationRouter } from "./routers/github-integration/github-integration.router";
 
 const app = express();
 
@@ -349,6 +350,17 @@ app.post("/subscription/manage", stripeController.postCreateBillingSession);
 app.post("/subscription/success", stripeController.postSubscriptionSuccess);
 app.get("/queries/:ids", datasourcesController.getQueries);
 app.post("/query/test", datasourcesController.testLimitedQuery);
+app.post("/dimension-slices", datasourcesController.postDimensionSlices);
+app.get("/dimension-slices/:id", datasourcesController.getDimensionSlices);
+app.post(
+  "/dimension-slices/:id/cancel",
+  datasourcesController.cancelDimensionSlices
+);
+
+app.get(
+  "/dimension-slices/datasource/:datasourceId/:exposureQueryId",
+  datasourcesController.getLatestDimensionSlicesForDatasource
+);
 app.post("/organization/sample-data", datasourcesController.postSampleData);
 
 if (IS_CLOUD) {
@@ -572,6 +584,10 @@ app.post("/datasources", datasourcesController.postDataSources);
 app.put("/datasource/:id", datasourcesController.putDataSource);
 app.delete("/datasource/:id", datasourcesController.deleteDataSource);
 app.get("/datasource/:id/metrics", datasourcesController.getDataSourceMetrics);
+app.put(
+  "/datasource/:datasourceId/exposureQuery/:exposureQueryId",
+  datasourcesController.updateExposureQuery
+);
 
 // Information Schemas
 app.get(
@@ -601,6 +617,7 @@ app.use(eventWebHooksRouter);
 
 // Slack integration
 app.use("/integrations/slack", slackIntegrationRouter);
+app.use("/integrations/github", githubIntegrationRouter);
 
 // Data Export
 app.use("/data-export", dataExportRouter);
@@ -638,6 +655,7 @@ app.use("/teams", teamRouter);
 
 // Admin
 app.get("/admin/organizations", adminController.getOrganizations);
+app.get("/admin/license", adminController.getLicenseData);
 
 // Meta info
 app.get("/meta/ai", (req, res) => {

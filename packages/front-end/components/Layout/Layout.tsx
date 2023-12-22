@@ -201,6 +201,13 @@ const navlinks: SidebarLinkProps[] = [
         permissions: ["manageIntegrations"],
       },
       {
+        name: "GitHub",
+        href: "/integrations/github",
+        path: /^integrations\/github/,
+        feature: "github-integration",
+        permissions: ["manageIntegrations"],
+      },
+      {
         name: "Import your data",
         href: "/importing",
         path: /^importing/,

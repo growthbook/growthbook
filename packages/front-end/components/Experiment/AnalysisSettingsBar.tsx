@@ -5,10 +5,7 @@ import {
 } from "back-end/types/experiment-snapshot";
 import clsx from "clsx";
 import React, { useState } from "react";
-import {
-  ExperimentReportVariation,
-  MetricRegressionAdjustmentStatus,
-} from "back-end/types/report";
+import { ExperimentReportVariation } from "back-end/types/report";
 import { DifferenceType, StatsEngine } from "back-end/types/stats";
 import {
   FaExclamationCircle,
@@ -56,7 +53,6 @@ export default function AnalysisSettingsBar({
   regressionAdjustmentAvailable,
   regressionAdjustmentEnabled,
   regressionAdjustmentHasValidMetrics,
-  metricRegressionAdjustmentStatuses,
   onRegressionAdjustmentChange,
   newUi = false,
   showMoreMenu = true,
@@ -79,7 +75,6 @@ export default function AnalysisSettingsBar({
   regressionAdjustmentAvailable?: boolean;
   regressionAdjustmentEnabled?: boolean;
   regressionAdjustmentHasValidMetrics?: boolean;
-  metricRegressionAdjustmentStatuses?: MetricRegressionAdjustmentStatus[];
   onRegressionAdjustmentChange?: (enabled: boolean) => void;
   newUi?: boolean;
   showMoreMenu?: boolean;
@@ -372,9 +367,6 @@ export default function AnalysisSettingsBar({
                           body: JSON.stringify({
                             phase,
                             dimension,
-                            statsEngine,
-                            regressionAdjustmentEnabled,
-                            metricRegressionAdjustmentStatuses,
                           }),
                         }
                       )
@@ -419,11 +411,7 @@ export default function AnalysisSettingsBar({
                     experiment={experiment}
                     lastAnalysis={analysis}
                     dimension={dimension}
-                    statsEngine={statsEngine}
-                    regressionAdjustmentEnabled={regressionAdjustmentEnabled}
-                    metricRegressionAdjustmentStatuses={
-                      metricRegressionAdjustmentStatuses
-                    }
+                    setAnalysisSettings={setAnalysisSettings}
                     onSubmit={() => {
                       if (baselineRow !== 0) {
                         setBaselineRow?.(0);
@@ -447,9 +435,6 @@ export default function AnalysisSettingsBar({
                       body: JSON.stringify({
                         phase,
                         dimension,
-                        statsEngine,
-                        regressionAdjustmentEnabled,
-                        metricRegressionAdjustmentStatuses,
                       }),
                     }
                   )

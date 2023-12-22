@@ -1,4 +1,8 @@
-import { Permission, UserPermissions } from "back-end/types/organization";
+import {
+  MemberRole,
+  Permission,
+  UserPermissions,
+} from "back-end/types/organization";
 
 export function hasPermission(
   userPermissions: UserPermissions | undefined,
@@ -22,4 +26,8 @@ export function hasPermission(
   return envs.every((env) =>
     usersPermissionsToCheck.environments.includes(env)
   );
+}
+
+export function roleSupportsEnvLimit(role: MemberRole): boolean {
+  return ["engineer", "experimenter"].includes(role);
 }
