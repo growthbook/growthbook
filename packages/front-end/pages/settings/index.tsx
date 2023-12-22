@@ -960,8 +960,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
                               <ol className="mt-1 mb-2" type="a">
                                 <li>the user logs in or logs out</li>
                                 <li>experiment targeting conditions change</li>
-                                <li>experiment coverage changes</li>
-                                <li>variation weights change</li>
+                                <li>experiment traffic rules change</li>
                               </ol>
                             </div>
                             <div>
@@ -974,13 +973,23 @@ const GeneralSettingsPage = (): React.ReactElement => {
                                   <code>anonymous_id</code>
                                 </li>
                                 <li>invalidating existing buckets</li>
-                                <li>and more</li>
                               </ul>
                             </div>
-                            <p className="mb-0">
-                              You must enable this feature in your SDK
-                              integration code for it to take effect.
-                            </p>
+                            <div className="mb-2">
+                              Sticky Bucketing is only supported in the
+                              following SDKs and versions:
+                              <ul className="mb-1">
+                                <li>Javascript &gt;= 0.32.0</li>
+                                <li>React &gt;= 0.22.0</li>
+                              </ul>
+                              Unsupported SDKs will fall back to standard
+                              hash-based bucketing.
+                            </div>
+                            <div className="text-warning-orange">
+                              <FaExclamationCircle /> You must enable this
+                              feature in your SDK integration code for it to
+                              take effect.
+                            </div>
                           </>
                         }
                       >

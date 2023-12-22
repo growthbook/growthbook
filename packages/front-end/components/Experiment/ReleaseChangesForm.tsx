@@ -4,7 +4,7 @@ import {
   ExperimentPhaseStringDates,
   ExperimentTargetingData,
 } from "back-end/types/experiment";
-import {useEffect, useMemo, useState} from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   FaCheck,
   FaExclamationCircle,
@@ -17,6 +17,7 @@ import { RxInfoCircled } from "react-icons/rx";
 import { BsToggles } from "react-icons/bs";
 import { MdInfoOutline } from "react-icons/md";
 import { ImBlocked } from "react-icons/im";
+import { BiHide, BiShow } from "react-icons/bi";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { useAuth } from "@/services/auth";
@@ -31,7 +32,6 @@ import SelectField from "../Forms/SelectField";
 import Toggle from "../Forms/Toggle";
 import Tooltip from "../Tooltip/Tooltip";
 import { NewBucketingSDKList } from "./HashVersionSelector";
-import {BiHide, BiShow} from "react-icons/bi";
 
 function getRecommendedRolloutData({
   experiment,
@@ -352,8 +352,13 @@ export default function ReleaseChangesForm({
       form.setValue("bucketVersion", (experiment.bucketVersion ?? 0) + 1);
       form.setValue("minBucketVersion", experiment.minBucketVersion ?? 0);
     }
+    if (!usingStickyBucketing) {
+      form.setValue("bucketVersion", experiment.bucketVersion);
+      form.setValue("minBucketVersion", experiment.minBucketVersion);
+    }
   }, [
     releasePlan,
+    usingStickyBucketing,
     form,
     experiment.bucketVersion,
     experiment.minBucketVersion,
@@ -506,11 +511,19 @@ export default function ReleaseChangesForm({
                   body={
                     <>
                       <div className="mb-3">
-                        Sticky Bucketing is{" "}
-                        <span className="font-weight-bold">
-                          {orgStickyBucketing ? "enabled" : "disabled"}
-                        </span>{" "}
-                        for your organization.
+                        <div className="mb-1">
+                          Sticky Bucketing is{" "}
+                          <strong>
+                            {orgStickyBucketing ? "enabled" : "disabled"}
+                          </strong>{" "}
+                          for your organization.
+                        </div>
+                        {experiment.disableStickyBucketing && (
+                          <div>
+                            Sticky Bucketing is <strong>disabled</strong> in
+                            this experiment.
+                          </div>
+                        )}
                       </div>
                       <div className="mb-2">
                         Sticky Bucketing allows you to persist a user&apos;s
@@ -549,18 +562,12 @@ export default function ReleaseChangesForm({
                     </>
                   }
                 >
-                  <span
-                    className="badge badge-muted-info badge-pill mr-1"
-                    style={{ fontSize: "10px" }}
-                  >
-                    SB
-                  </span>
                   Sticky bucketing <MdInfoOutline className="text-info" />
                 </PremiumTooltip>
               </label>
               <div className="flex-1" />
               <div className="small position-relative" style={{ top: -3 }}>
-                {orgStickyBucketing ? (
+                {usingStickyBucketing ? (
                   <span className="text-success">
                     <FaCheck className="mr-1" />
                     enabled
@@ -568,13 +575,26 @@ export default function ReleaseChangesForm({
                 ) : (
                   <span className="text-danger">
                     <ImBlocked className="mr-1" />
-                    disabled
-                    {permissions.organizationSettings && (
-                      <Tooltip className="ml-2" body="Enable for your organization">
-                        <a className="pl-1" href="/settings" target="_blank">
-                          <FaExternalLinkAlt />
-                        </a>
-                      </Tooltip>
+                    {!orgStickyBucketing ? (
+                      <>
+                        disabled by org
+                        {permissions.organizationSettings && (
+                          <Tooltip
+                            className="ml-2"
+                            body="Enable for your organization"
+                          >
+                            <a
+                              className="pl-1"
+                              href="/settings"
+                              target="_blank"
+                            >
+                              <FaExternalLinkAlt />
+                            </a>
+                          </Tooltip>
+                        )}
+                      </>
+                    ) : (
+                      <>disabled by experiment</>
                     )}
                   </span>
                 )}
@@ -582,73 +602,86 @@ export default function ReleaseChangesForm({
             </div>
             <div className="row">
               <div className="col">
-                {releasePlan !== "advanced" ? (
-                  <div>
-                    <label className="mb-0 mr-2">Bucketed users should:</label>
-                    <span className="font-weight-bold">
-                      {(form.watch("bucketVersion") ?? 0) <=
-                      (experiment.bucketVersion ?? 0)
-                        ? "Keep their assigned bucket"
-                        : (form.watch("minBucketVersion") ?? 0) <=
-                          (experiment.minBucketVersion ?? 0)
-                        ? "Be reassigned"
-                        : "Be excluded from the experiment"}
-                    </span>
-                  </div>
+                {!usingStickyBucketing ? (
+                  <></>
                 ) : (
-                  <div>
-                    <label className="mb-0 mr-2">Bucketed users should:</label>
-                    <SelectField
-                      value={
-                        (form.watch("bucketVersion") ?? 0) <=
-                        (experiment.bucketVersion ?? 0)
-                          ? "keep"
-                          : (form.watch("minBucketVersion") ?? 0) <=
-                            (experiment.minBucketVersion ?? 0)
-                          ? "reassign"
-                          : "exclude"
-                      }
-                      options={[
-                        { label: "Keep their assigned bucket", value: "keep" },
-                        { label: "Be reassigned", value: "reassign" },
-                        {
-                          label: "Be excluded from the experiment",
-                          value: "exclude",
-                        },
-                      ]}
-                      onChange={(v) => {
-                        if (v === "keep") {
-                          form.setValue(
-                            "bucketVersion",
-                            experiment.bucketVersion
-                          );
-                          form.setValue(
-                            "minBucketVersion",
-                            experiment.minBucketVersion
-                          );
-                        } else if (v === "reassign") {
-                          form.setValue(
-                            "bucketVersion",
-                            (experiment.bucketVersion ?? 0) + 1
-                          );
-                          form.setValue(
-                            "minBucketVersion",
-                            experiment.minBucketVersion
-                          );
-                        } else if (v === "exclude") {
-                          form.setValue(
-                            "bucketVersion",
-                            (experiment.bucketVersion ?? 0) + 1
-                          );
-                          form.setValue(
-                            "minBucketVersion",
-                            experiment.bucketVersion ?? 0
-                          );
-                        }
-                      }}
-                      sort={false}
-                    />
-                  </div>
+                  <>
+                    {releasePlan !== "advanced" ? (
+                      <div>
+                        <label className="mb-0 mr-2">
+                          Bucketed users will:
+                        </label>
+                        <span className="font-weight-bold">
+                          {(form.watch("bucketVersion") ?? 0) <=
+                          (experiment.bucketVersion ?? 0)
+                            ? "Keep their assigned bucket"
+                            : (form.watch("minBucketVersion") ?? 0) <=
+                              (experiment.minBucketVersion ?? 0)
+                            ? "Be reassigned"
+                            : "Be excluded from the experiment"}
+                        </span>
+                      </div>
+                    ) : (
+                      <div>
+                        <label className="mb-0 mr-2">
+                          Bucketed users will:
+                        </label>
+                        <SelectField
+                          value={
+                            (form.watch("bucketVersion") ?? 0) <=
+                            (experiment.bucketVersion ?? 0)
+                              ? "keep"
+                              : (form.watch("minBucketVersion") ?? 0) <=
+                                (experiment.minBucketVersion ?? 0)
+                              ? "reassign"
+                              : "exclude"
+                          }
+                          options={[
+                            {
+                              label: "Keep their assigned bucket",
+                              value: "keep",
+                            },
+                            { label: "Be reassigned", value: "reassign" },
+                            {
+                              label: "Be excluded from the experiment",
+                              value: "exclude",
+                            },
+                          ]}
+                          onChange={(v) => {
+                            if (v === "keep") {
+                              form.setValue(
+                                "bucketVersion",
+                                experiment.bucketVersion
+                              );
+                              form.setValue(
+                                "minBucketVersion",
+                                experiment.minBucketVersion
+                              );
+                            } else if (v === "reassign") {
+                              form.setValue(
+                                "bucketVersion",
+                                (experiment.bucketVersion ?? 0) + 1
+                              );
+                              form.setValue(
+                                "minBucketVersion",
+                                experiment.minBucketVersion
+                              );
+                            } else if (v === "exclude") {
+                              form.setValue(
+                                "bucketVersion",
+                                (experiment.bucketVersion ?? 0) + 1
+                              );
+                              form.setValue(
+                                "minBucketVersion",
+                                experiment.bucketVersion ?? 0
+                              );
+                            }
+                          }}
+                          sort={false}
+                        />
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
             </div>
@@ -662,22 +695,26 @@ export default function ReleaseChangesForm({
             <label>Targeting changes</label>
             <div className="flex-1" />
             <div className="position-relative small" style={{ bottom: -6 }}>
-            {showFullTargetingInfo ? (
-              <span>Showing full targeting</span>
-            ): (
-              <span>Showing changes only</span>
-            )}
-            <a
-              role="button"
-              className="a ml-3"
-              onClick={() => setShowFullTargetingInfo(!showFullTargetingInfo)}
-            >
               {showFullTargetingInfo ? (
-                <><BiHide /> Changes only</>
+                <span>Showing full targeting</span>
               ) : (
-                <><BiShow /> Full targeting</>
+                <span>Showing changes only</span>
               )}
-            </a>
+              <a
+                role="button"
+                className="a ml-3"
+                onClick={() => setShowFullTargetingInfo(!showFullTargetingInfo)}
+              >
+                {showFullTargetingInfo ? (
+                  <>
+                    <BiHide /> Changes only
+                  </>
+                ) : (
+                  <>
+                    <BiShow /> Full targeting
+                  </>
+                )}
+              </a>
             </div>
           </div>
           <div className="appbox bg-light px-3 pt-3 pb-0 mb-0">
