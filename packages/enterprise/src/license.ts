@@ -5,6 +5,7 @@ import fetch from "node-fetch";
 import type Stripe from "stripe";
 import pino from "pino";
 import { omit, sortBy } from "lodash";
+import AsyncLock from "async-lock";
 import { LicenseDocument, LicenseModel } from "./models/licenseModel";
 
 export const LICENSE_SERVER =
@@ -341,6 +342,7 @@ async function getLicenseDataFromServer(
   userLicenseCodes: string[],
   metaData: LicenseMetaData
 ): Promise<LicenseInterface> {
+  logger.info("Getting license data from server for " + licenseId);
   const url = `${LICENSE_SERVER}license/${licenseId}/check`;
   const options = {
     method: "PUT",
@@ -398,6 +400,7 @@ export interface LicenseMetaData {
   isCloud: boolean;
 }
 
+const lock = new AsyncLock();
 let licenseData: Partial<LicenseInterface> | null = null;
 let cacheDate: Date | null = null;
 // in-memory cache to avoid hitting the license server on every request
@@ -418,30 +421,33 @@ export async function licenseInit(
 
   const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
 
-  if (
-    !forceRefresh &&
-    key &&
-    keyToLicenseData[key] &&
-    (cacheDate === null || cacheDate > oneDayAgo)
-  ) {
-    licenseData = keyToLicenseData[key];
-    return keyToLicenseData[key];
-  }
+  // When hitting a page for a new license we often make many simulataneous requests
+  // By acquiring a lock we make sure to only call the license server once, the remaining
+  // calls will be able to read from the cache.
+  await lock.acquire(key, async () => {
+    if (
+      !forceRefresh &&
+      key &&
+      keyToLicenseData[key] &&
+      (cacheDate === null || cacheDate > oneDayAgo)
+    ) {
+      licenseData = keyToLicenseData[key];
+    } else if (key.startsWith("license_") && userLicenseCodes && metaData) {
+      licenseData = await getLicenseDataFromServer(
+        key,
+        userLicenseCodes,
+        metaData
+      );
+      cacheDate = new Date();
+    } else {
+      // Old style: the key itself has the encrypted license data in it.
+      licenseData = await getVerifiedLicenseData(key);
+    }
 
-  if (key.startsWith("license_") && userLicenseCodes && metaData) {
-    licenseData = await getLicenseDataFromServer(
-      key,
-      userLicenseCodes,
-      metaData
-    );
-    cacheDate = new Date();
-  } else {
-    // Old style: the key itself has the encrypted license data in it.
-    licenseData = await getVerifiedLicenseData(key);
-  }
+    keyToLicenseData[key] = licenseData;
+  });
 
-  keyToLicenseData[key] = licenseData;
-  return licenseData;
+  return keyToLicenseData[key];
 }
 
 export function getLicense() {
