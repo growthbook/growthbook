@@ -40,39 +40,44 @@ const AuthorizedImage: FC<AuthorizedImageProps> = ({
       }
     };
 
-    if (imageCache[src]) {
-      // Images in the cache do not need to be fetched again
-      setImageSrc(imageCache[src]);
-    } else if (
-      usingFileProxy() &&
-      getGcsDomain() &&
-      src.startsWith(getGcsDomain())
-    ) {
-      // We convert GCS images to the GB url that acts as a proxy using the correct credentials
-      // This way they can lock their bucket down to only allow access from the proxy.
-      const withoutDomain = src.replace("https://storage.googleapis.com/", "");
-      const parts = withoutDomain.split("/");
-      parts.shift(); // remove bucket name
-      const apiUrl = getApiHost() + "/upload/" + parts.join("/");
-      fetchData(src, apiUrl);
-    } else if (
-      usingFileProxy() &&
-      getS3Domain() &&
-      src.startsWith(getS3Domain())
-    ) {
-      // We convert s3 images to the GB url that acts as a proxy using the correct credentials
-      // This way they can lock their bucket down to only allow access from the proxy.
-      const apiUrl =
-        getApiHost() + "/upload/" + src.substring(getS3Domain().length);
-      fetchData(src, apiUrl);
-    } else if (!src.startsWith(getApiHost())) {
-      // Images in markdown that are not from our host we will treat as a normal image
-      setImageSrc(src);
-    } else {
-      // Images to the proxy we will fetch from the backend
-      const apiUrl = src;
-      fetchData(src, apiUrl);
-    }
+    navigator.locks.request(src, async () => {
+      if (imageCache[src]) {
+        // Images in the cache do not need to be fetched again
+        setImageSrc(imageCache[src]);
+      } else if (
+        usingFileProxy() &&
+        getGcsDomain() &&
+        src.startsWith(getGcsDomain())
+      ) {
+        // We convert GCS images to the GB url that acts as a proxy using the correct credentials
+        // This way they can lock their bucket down to only allow access from the proxy.
+        const withoutDomain = src.replace(
+          "https://storage.googleapis.com/",
+          ""
+        );
+        const parts = withoutDomain.split("/");
+        parts.shift(); // remove bucket name
+        const apiUrl = getApiHost() + "/upload/" + parts.join("/");
+        await fetchData(src, apiUrl);
+      } else if (
+        usingFileProxy() &&
+        getS3Domain() &&
+        src.startsWith(getS3Domain())
+      ) {
+        // We convert s3 images to the GB url that acts as a proxy using the correct credentials
+        // This way they can lock their bucket down to only allow access from the proxy.
+        const apiUrl =
+          getApiHost() + "/upload/" + src.substring(getS3Domain().length);
+        await fetchData(src, apiUrl);
+      } else if (!src.startsWith(getApiHost())) {
+        // Images in markdown that are not from our host we will treat as a normal image
+        setImageSrc(src);
+      } else {
+        // Images to the proxy we will fetch from the backend
+        const apiUrl = src;
+        await fetchData(src, apiUrl);
+      }
+    });
   }, [src, imageCache, apiCall]);
 
   if (error) {

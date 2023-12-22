@@ -44,10 +44,7 @@ export async function putUpload(req: AuthRequest<Buffer>, res: Response) {
   });
 }
 
-export async function getImage(
-  req: AuthRequest<{ path: string }>,
-  res: Response
-) {
+export function getImage(req: AuthRequest<{ path: string }>, res: Response) {
   const { org } = getOrgFromReq(req);
 
   const path = req.path[0] === "/" ? req.path.substr(1) : req.path;
@@ -66,6 +63,6 @@ export async function getImage(
 
   res.status(200).contentType(contentType);
 
-  const stream = await getImageData(path);
+  const stream = getImageData(path);
   stream.pipe(res);
 }
