@@ -117,9 +117,13 @@ export default function EditTargetingModal({
 
   useEffect(() => {
     if (step !== lastStepNumber) {
-      setReleasePlan("");
+      if (changeType === "phase") {
+        setReleasePlan("new-phase");
+      } else {
+        setReleasePlan("");
+      }
     }
-  }, [step, lastStepNumber, setReleasePlan]);
+  }, [changeType, step, lastStepNumber, setReleasePlan]);
 
   const onSubmit = form.handleSubmit(async (value) => {
     validateSavedGroupTargeting(value.savedGroups);
@@ -425,8 +429,8 @@ function TargetingForm({
             }) || []
           }
           showPreview={false}
-          hideCoverage={changeType === "weights"}
-          hideVariations={changeType === "traffic"}
+          disableCoverage={changeType === "weights"}
+          disableVariations={changeType === "traffic"}
           label={
             changeType === "traffic"
               ? "Traffic Percentage"

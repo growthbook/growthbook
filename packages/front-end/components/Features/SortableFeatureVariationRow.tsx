@@ -29,7 +29,7 @@ interface SortableProps {
   variations: SortableVariation[];
   valueType: FeatureValueType;
   setVariations?: (value: ExperimentValue[]) => void;
-  setWeight: (i: number, weight: number) => void;
+  setWeight?: (i: number, weight: number) => void;
   customSplit: boolean;
   valueAsId: boolean;
 }
@@ -62,6 +62,7 @@ export const VariationRow = forwardRef<HTMLTableRowElement, VariationProps>(
       newValue: number,
       precision: number = 4
     ) => {
+      if (!setWeight) return;
       rebalance(weights, i, newValue, precision).forEach((w, j) => {
         // The weight needs updating
         if (w !== weights[j]) {
@@ -137,6 +138,7 @@ export const VariationRow = forwardRef<HTMLTableRowElement, VariationProps>(
                   step="0.01"
                   type="range"
                   className="w-100 mr-3"
+                  disabled={!setWeight}
                 />
                 <div className={`position-relative ${styles.percentInputWrap}`}>
                   <Field
@@ -162,6 +164,7 @@ export const VariationRow = forwardRef<HTMLTableRowElement, VariationProps>(
                     max={100}
                     step="any"
                     className={styles.percentInput}
+                    disabled={!setWeight}
                   />
                   <span>%</span>
                 </div>

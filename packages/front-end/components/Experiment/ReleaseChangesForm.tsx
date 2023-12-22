@@ -4,7 +4,7 @@ import {
   ExperimentPhaseStringDates,
   ExperimentTargetingData,
 } from "back-end/types/experiment";
-import { useEffect, useMemo } from "react";
+import {useEffect, useMemo, useState} from "react";
 import {
   FaCheck,
   FaExclamationCircle,
@@ -31,6 +31,7 @@ import SelectField from "../Forms/SelectField";
 import Toggle from "../Forms/Toggle";
 import Tooltip from "../Tooltip/Tooltip";
 import { NewBucketingSDKList } from "./HashVersionSelector";
+import {BiHide, BiShow} from "react-icons/bi";
 
 function getRecommendedRolloutData({
   experiment,
@@ -302,6 +303,8 @@ export default function ReleaseChangesForm({
   const usingStickyBucketing =
     orgStickyBucketing && !experiment.disableStickyBucketing;
 
+  const [showFullTargetingInfo, setShowFullTargetingInfo] = useState(false);
+
   const lastPhase: ExperimentPhaseStringDates | undefined =
     experiment.phases[experiment.phases.length - 1];
 
@@ -339,8 +342,8 @@ export default function ReleaseChangesForm({
       form.setValue("bucketVersion", experiment.bucketVersion);
       form.setValue("minBucketVersion", experiment.minBucketVersion);
     } else if (releasePlan === "same-phase-everyone") {
-      form.setValue("newPhase", true);
-      form.setValue("reseed", true);
+      form.setValue("newPhase", false);
+      form.setValue("reseed", false);
       form.setValue("bucketVersion", (experiment.bucketVersion ?? 0) + 1);
       form.setValue("minBucketVersion", (experiment.bucketVersion ?? 0) + 1);
     } else if (releasePlan === "new-phase") {
@@ -359,7 +362,7 @@ export default function ReleaseChangesForm({
   if (!lastPhase) return null;
 
   return (
-    <div className="mt-4">
+    <div className="mt-4 mb-2">
       <SelectField
         label="Release plan"
         value={releasePlan || ""}
@@ -455,7 +458,7 @@ export default function ReleaseChangesForm({
               <div className="col">
                 <label className="mb-0">New phase?</label>
                 {releasePlan !== "advanced" ? (
-                  <div>
+                  <div className="mt-1">
                     {form.watch("newPhase") ? (
                       <span className="font-weight-bold text-success">Yes</span>
                     ) : (
@@ -475,7 +478,7 @@ export default function ReleaseChangesForm({
               <div className="col">
                 <label className="mb-0">Re-randomize traffic?</label>
                 {releasePlan !== "advanced" ? (
-                  <div>
+                  <div className="mt-1">
                     {form.watch("reseed") ? (
                       <span className="font-weight-bold text-success">Yes</span>
                     ) : (
@@ -567,9 +570,11 @@ export default function ReleaseChangesForm({
                     <ImBlocked className="mr-1" />
                     disabled
                     {permissions.organizationSettings && (
-                      <a className="ml-2" href="/settings" target="_blank">
-                        <FaExternalLinkAlt /> enable
-                      </a>
+                      <Tooltip className="ml-2" body="Enable for your organization">
+                        <a className="pl-1" href="/settings" target="_blank">
+                          <FaExternalLinkAlt />
+                        </a>
+                      </Tooltip>
                     )}
                   </span>
                 )}
@@ -580,7 +585,7 @@ export default function ReleaseChangesForm({
                 {releasePlan !== "advanced" ? (
                   <div>
                     <label className="mb-0 mr-2">Bucketed users should:</label>
-                    <div className="font-weight-bold">
+                    <span className="font-weight-bold">
                       {(form.watch("bucketVersion") ?? 0) <=
                       (experiment.bucketVersion ?? 0)
                         ? "Keep their assigned bucket"
@@ -588,7 +593,7 @@ export default function ReleaseChangesForm({
                           (experiment.minBucketVersion ?? 0)
                         ? "Be reassigned"
                         : "Be excluded from the experiment"}
-                    </div>
+                    </span>
                   </div>
                 ) : (
                   <div>
@@ -653,7 +658,28 @@ export default function ReleaseChangesForm({
 
       {changeType !== "phase" && (
         <div className="mt-4 mb-1">
-          <label>Targeting changes</label>
+          <div className="d-flex">
+            <label>Targeting changes</label>
+            <div className="flex-1" />
+            <div className="position-relative small" style={{ bottom: -6 }}>
+            {showFullTargetingInfo ? (
+              <span>Showing full targeting</span>
+            ): (
+              <span>Showing changes only</span>
+            )}
+            <a
+              role="button"
+              className="a ml-3"
+              onClick={() => setShowFullTargetingInfo(!showFullTargetingInfo)}
+            >
+              {showFullTargetingInfo ? (
+                <><BiHide /> Changes only</>
+              ) : (
+                <><BiShow /> Full targeting</>
+              )}
+            </a>
+            </div>
+          </div>
           <div className="appbox bg-light px-3 pt-3 pb-0 mb-0">
             <TargetingInfo
               experiment={experiment}
@@ -663,6 +689,7 @@ export default function ReleaseChangesForm({
               showDecimals={true}
               showNamespaceRanges={true}
               showChanges={true}
+              showFullTargetingInfo={showFullTargetingInfo}
               changes={form.getValues()}
             />
           </div>

@@ -21,6 +21,7 @@ export interface Props {
   showNamespaceRanges?: boolean;
   showChanges?: boolean;
   changes?: ExperimentTargetingData;
+  showFullTargetingInfo?: boolean;
 }
 
 const percentFormatter = new Intl.NumberFormat(undefined, {
@@ -39,6 +40,7 @@ export default function TargetingInfo({
   showNamespaceRanges,
   showChanges,
   changes,
+  showFullTargetingInfo = true,
 }: Props) {
   const phase = experiment.phases[phaseIndex ?? experiment.phases.length - 1];
   const hasNamespace = phase?.namespace && phase.namespace.enabled;
@@ -125,7 +127,7 @@ export default function TargetingInfo({
                 </div>
               </>
             )}
-            {(!showChanges || hasSavedGroupsChanges || hasConditionChanges) && (
+            {(!showChanges || showFullTargetingInfo || hasSavedGroupsChanges || hasConditionChanges) && (
               <>
                 <div className="mb-3">
                   <div className="mb-1">
@@ -214,6 +216,7 @@ export default function TargetingInfo({
 
             {!separateTrafficSplitDisplay ? (
               (!showChanges ||
+                showFullTargetingInfo ||
                 hasCoverageChanges ||
                 hasVariationWeightsChanges) && (
                 <div className="mb-3">
@@ -257,7 +260,7 @@ export default function TargetingInfo({
               )
             ) : (
               <>
-                {(!showChanges || hasCoverageChanges) && (
+                {(!showChanges || showFullTargetingInfo || (hasCoverageChanges || hasVariationWeightsChanges)) && (
                   <div className="mb-3">
                     <div>
                       <strong>Traffic percent</strong>
@@ -287,7 +290,7 @@ export default function TargetingInfo({
                     </div>
                   </div>
                 )}
-                {(!showChanges || hasVariationWeightsChanges) && (
+                {(!showChanges || showFullTargetingInfo || (hasCoverageChanges || hasVariationWeightsChanges)) && (
                   <div className="mb-3">
                     <div>
                       <strong>Variation weights</strong>
@@ -327,7 +330,7 @@ export default function TargetingInfo({
                 )}
               </>
             )}
-            {(!showChanges || hasNamespaceChanges) && (
+            {(!showChanges || showFullTargetingInfo || hasNamespaceChanges) && (
               <div className="mb-3">
                 <div className="mb-1">
                   <strong>Namespace</strong>{" "}

@@ -33,7 +33,8 @@ export interface Props {
   valueAsId?: boolean;
   showPreview?: boolean;
   hideCoverage?: boolean;
-  hideVariations?: boolean;
+  disableCoverage?: boolean;
+  disableVariations?: boolean;
   label?: string;
 }
 
@@ -49,7 +50,8 @@ export default function FeatureVariationsInput({
   valueAsId = false,
   showPreview = true,
   hideCoverage = false,
-  hideVariations = false,
+  disableCoverage = false,
+  disableVariations = false,
   label,
 }: Props) {
   const weights = variations.map((v) => v.weight);
@@ -95,6 +97,7 @@ export default function FeatureVariationsInput({
                   step="1"
                   type="range"
                   className="w-100"
+                  disabled={!!disableCoverage}
                 />
               </div>
               <div
@@ -115,6 +118,7 @@ export default function FeatureVariationsInput({
                     min={0}
                     max={100}
                     step="1"
+                    disabled={!!disableCoverage}
                   />
                   <span>%</span>
                 </div>
@@ -122,7 +126,6 @@ export default function FeatureVariationsInput({
             </div>
           </div>
         )}
-        {!hideVariations && (
           <table className="table bg-light mb-0">
             <thead className={`${styles.variationSplitHeader}`}>
               <tr>
@@ -138,6 +141,7 @@ export default function FeatureVariationsInput({
                 </th>
                 <th>
                   Split
+                  {!disableVariations && (
                   <div className="d-inline-block float-right form-check form-check-inline">
                     <label className="mb-0">
                       <input
@@ -157,13 +161,14 @@ export default function FeatureVariationsInput({
                       Customize split
                     </label>
                   </div>
+                  )}
                 </th>
               </tr>
             </thead>
             <tbody>
               <SortableVariationsList
                 variations={variations}
-                setVariations={setVariations}
+                setVariations={!disableVariations ? setVariations : undefined}
               >
                 {variations.map((variation, i) => (
                   <SortableFeatureVariationRow
@@ -171,14 +176,15 @@ export default function FeatureVariationsInput({
                     key={variation.id}
                     variation={variation}
                     variations={variations}
-                    setVariations={setVariations}
-                    setWeight={setWeight}
+                    setVariations={!disableVariations ? setVariations : undefined}
+                    setWeight={!disableVariations ? setWeight : undefined}
                     customSplit={customSplit}
                     valueType={valueType}
                     valueAsId={valueAsId}
                   />
                 ))}
               </SortableVariationsList>
+              {!disableVariations && (
               <tr>
                 <td colSpan={4}>
                   <div className="row">
@@ -250,6 +256,7 @@ export default function FeatureVariationsInput({
                   </div>
                 </td>
               </tr>
+              )}
 
               {showPreview && (
                 <tr>
@@ -264,7 +271,6 @@ export default function FeatureVariationsInput({
               )}
             </tbody>
           </table>
-        )}
       </div>
     </div>
   );
