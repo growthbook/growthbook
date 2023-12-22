@@ -67,6 +67,13 @@ export default function TargetingInfo({
     showChanges &&
     JSON.stringify(changes?.namespace || {}) !==
       JSON.stringify(phase.namespace || {});
+  const noChanges = !(
+    hasSavedGroupsChanges ||
+    hasConditionChanges ||
+    hasCoverageChanges ||
+    hasVariationWeightsChanges ||
+    hasNamespaceChanges
+  );
 
   const changesHasNamespace = changes?.namespace && changes.namespace.enabled;
   const changesNamespaceRange = changes?.namespace
@@ -127,7 +134,10 @@ export default function TargetingInfo({
                 </div>
               </>
             )}
-            {(!showChanges || showFullTargetingInfo || hasSavedGroupsChanges || hasConditionChanges) && (
+            {(!showChanges ||
+              showFullTargetingInfo ||
+              hasSavedGroupsChanges ||
+              hasConditionChanges) && (
               <>
                 <div className="mb-3">
                   <div className="mb-1">
@@ -260,7 +270,10 @@ export default function TargetingInfo({
               )
             ) : (
               <>
-                {(!showChanges || showFullTargetingInfo || (hasCoverageChanges || hasVariationWeightsChanges)) && (
+                {(!showChanges ||
+                  showFullTargetingInfo ||
+                  hasCoverageChanges ||
+                  hasVariationWeightsChanges) && (
                   <div className="mb-3">
                     <div>
                       <strong>Traffic percent</strong>
@@ -290,7 +303,10 @@ export default function TargetingInfo({
                     </div>
                   </div>
                 )}
-                {(!showChanges || showFullTargetingInfo || (hasCoverageChanges || hasVariationWeightsChanges)) && (
+                {(!showChanges ||
+                  showFullTargetingInfo ||
+                  hasCoverageChanges ||
+                  hasVariationWeightsChanges) && (
                   <div className="mb-3">
                     <div>
                       <strong>Variation weights</strong>
@@ -399,6 +415,11 @@ export default function TargetingInfo({
       ) : (
         <div className="mb-3">
           <em>No targeting configured yet</em>
+        </div>
+      )}
+      {showChanges && !showFullTargetingInfo && noChanges && (
+        <div className="mb-3">
+          <em>No changes</em>
         </div>
       )}
     </div>

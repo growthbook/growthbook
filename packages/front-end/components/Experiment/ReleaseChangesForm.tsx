@@ -695,11 +695,6 @@ export default function ReleaseChangesForm({
             <label>Targeting changes</label>
             <div className="flex-1" />
             <div className="position-relative small" style={{ bottom: -6 }}>
-              {showFullTargetingInfo ? (
-                <span>Showing full targeting</span>
-              ) : (
-                <span>Showing changes only</span>
-              )}
               <a
                 role="button"
                 className="a ml-3"
@@ -707,11 +702,11 @@ export default function ReleaseChangesForm({
               >
                 {showFullTargetingInfo ? (
                   <>
-                    <BiHide /> Changes only
+                    <BiHide /> Show changes only
                   </>
                 ) : (
                   <>
-                    <BiShow /> Full targeting
+                    <BiShow /> Show full targeting
                   </>
                 )}
               </a>

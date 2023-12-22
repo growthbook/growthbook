@@ -61,6 +61,7 @@ export default function EditTargetingModal({
   const [step, setStep] = useState(0);
   const [changeType, setChangeType] = useState<ChangeType | undefined>();
   const [releasePlan, setReleasePlan] = useState<ReleasePlan | undefined>();
+  const [changesConfirmed, setChangesConfirmed] = useState(false);
 
   const lastPhase: ExperimentPhaseStringDates | undefined =
     experiment.phases[experiment.phases.length - 1];
@@ -122,6 +123,7 @@ export default function EditTargetingModal({
       } else {
         setReleasePlan("");
       }
+      setChangesConfirmed(false);
     }
   }, [changeType, step, lastStepNumber, setReleasePlan]);
 
@@ -169,6 +171,9 @@ export default function EditTargetingModal({
     cta = "Select a release plan";
     ctaEnabled = false;
   }
+  if (step == lastStepNumber && !changesConfirmed) {
+    ctaEnabled = false;
+  }
 
   return (
     <PagedModal
@@ -185,6 +190,34 @@ export default function EditTargetingModal({
           setStep(i);
         }
       }}
+      secondaryCTA={
+        step === lastStepNumber ? (
+          <div className="col">
+            <div className="d-flex m-0 px-3 py-1 alert alert-warning small">
+              <div>
+                <strong>
+                  Warning: Experiment is{" "}
+                  {experiment.status === "running" ? "running" : "live"}.
+                </strong>{" "}
+                Changes made will apply to all linked Feature Flags and Visual
+                Editor changes immediately upon publishing.
+              </div>
+              <label
+                htmlFor="confirm-changes"
+                className="border-left d-flex py-1 m-0 pl-3 ml-1 cursor-pointer d-flex align-items-center justify-content-md-center"
+              >
+                <strong className="mr-2 user-select-none">Confirm</strong>
+                <input
+                  id="confirm-changes"
+                  type="checkbox"
+                  checked={changesConfirmed}
+                  onChange={(e) => setChangesConfirmed(e.target.checked)}
+                />
+              </label>
+            </div>
+          </div>
+        ) : undefined
+      }
     >
       <Page display="Type of Changes">
         <div className="px-3 py-2">
@@ -200,17 +233,6 @@ export default function EditTargetingModal({
               with caution.
             </div>
           )}
-
-          <div className="alert alert-warning">
-            <div>
-              <strong>
-                Warning: Experiment is still{" "}
-                {experiment.status === "running" ? "running" : "live"}
-              </strong>
-            </div>
-            Changes made will apply to all linked Feature Flags and Visual
-            Editor changes immediately upon saving.
-          </div>
 
           <div className="mt-4">
             <label>Current targeting</label>
