@@ -1,5 +1,8 @@
 import isEqual from "lodash/isEqual";
-import { FeatureRule as FeatureDefinitionRule } from "@growthbook/growthbook";
+import {
+  ConditionInterface,
+  FeatureRule as FeatureDefinitionRule,
+} from "@growthbook/growthbook";
 import { includeExperimentInPayload } from "shared/util";
 import {
   FeatureInterface,
@@ -20,17 +23,17 @@ type GroupMapValue = GroupMap extends Map<any, infer I> ? I : never;
 function getSavedGroupCondition(
   group: GroupMapValue,
   include: boolean
-): Record<string, unknown> {
+): null | ConditionInterface {
   if (group.type === "condition") {
     try {
       const cond = JSON.parse(group.condition || "{}");
       return include ? cond : { $not: cond };
     } catch (e) {
-      return {};
+      return null;
     }
   }
 
-  if (!group.attributeKey) return {};
+  if (!group.attributeKey) return null;
 
   return {
     [group.attributeKey]: { [include ? "$in" : "$nin"]: group.values || [] },
@@ -42,12 +45,13 @@ export function getParsedCondition(
   condition?: string,
   savedGroups?: SavedGroupTargeting[]
 ) {
-  const conditions = [];
+  const conditions: ConditionInterface[] = [];
   if (condition && condition !== "{}") {
     try {
-      conditions.push(
-        JSON.parse(replaceSavedGroupsInCondition(condition, groupMap))
+      const cond = JSON.parse(
+        replaceSavedGroupsInCondition(condition, groupMap)
       );
+      cond && conditions.push(cond);
     } catch (e) {
       // ignore condition parse errors here
     }
@@ -72,21 +76,25 @@ export function getParsedCondition(
       // Add each group as a separate top-level AND
       if (match === "all") {
         groups.forEach((group) => {
-          conditions.push(getSavedGroupCondition(group, true));
+          const cond = getSavedGroupCondition(group, true);
+          cond && conditions.push(cond);
         });
       }
       // Add one top-level AND with nested OR conditions
       else if (match === "any") {
-        const ors: Record<string, unknown>[] = [];
+        const ors: ConditionInterface[] = [];
         groups.forEach((group) => {
-          ors.push(getSavedGroupCondition(group, true));
+          const cond = getSavedGroupCondition(group, true);
+          cond && ors.push(cond);
         });
-        conditions.push(ors.length > 1 ? { $or: ors } : ors[0]);
+        ors.length > 0 &&
+          conditions.push(ors.length > 1 ? { $or: ors } : ors[0]);
       }
       // Add each group as a separate top-level AND with a NOT condition
       else if (match === "none") {
         groups.forEach((group) => {
-          conditions.push(getSavedGroupCondition(group, false));
+          const cond = getSavedGroupCondition(group, false);
+          cond && conditions.push(cond);
         });
       }
     });

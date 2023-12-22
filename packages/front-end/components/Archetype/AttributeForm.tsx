@@ -36,24 +36,27 @@ export default function AttributeForm({
 
   const attributeSchema = useAttributeSchema(true);
 
+  const hasGroupsAttribute = attributeSchema.some(
+    (a) => a.property === "$groups"
+  );
+  const usingGroupsAttribute = savedGroups.some(
+    (s) => s.type === "condition" && s.condition?.includes("$groups")
+  );
+
   const orderedAttributes = useMemo<SDKAttributeSchema>(
     () => [
       ...attributeSchema.filter((o) => !o.archived),
-      ...(savedGroups.some((s) => s.source === "runtime")
+      ...(!hasGroupsAttribute && usingGroupsAttribute
         ? [
             {
               datatype: "string[]",
               property: "$groups",
-              enum: savedGroups
-                .filter((s) => s.source === "runtime")
-                .map((s) => s.attributeKey)
-                .join(","),
             } as const,
           ]
         : []),
       ...attributeSchema.filter((o) => o.archived),
     ],
-    [attributeSchema, savedGroups]
+    [attributeSchema, hasGroupsAttribute, usingGroupsAttribute]
   );
 
   const attributesMap = new Map();

@@ -7,6 +7,7 @@ import {
   SavedGroupInterface,
 } from "../../types/saved-group";
 import { usingFileConfig } from "../init/config";
+import { migrateSavedGroup } from "../util/migrations";
 
 const savedGroupSchema = new mongoose.Schema({
   id: {
@@ -55,30 +56,7 @@ const toInterface = (doc: SavedGroupDocument): SavedGroupInterface => {
     ["__v", "_id"]
   );
 
-  // Add `type` field to legacy groups
-  const { source, type, ...otherFields } = legacy;
-  const group: SavedGroupInterface = {
-    ...otherFields,
-    type: type || (source === "runtime" ? "condition" : "list"),
-  };
-
-  // Migrate legacy runtime groups to use a condition
-  if (
-    group.type === "condition" &&
-    !group.condition &&
-    source === "runtime" &&
-    group.attributeKey
-  ) {
-    group.condition = JSON.stringify({
-      $groups: {
-        $elemMatch: {
-          $eq: group.attributeKey,
-        },
-      },
-    });
-  }
-
-  return group;
+  return migrateSavedGroup(legacy);
 };
 
 export function parseSavedGroupString(list: string) {
