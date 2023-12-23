@@ -4,7 +4,12 @@ import {
   ExperimentPhaseStringDates,
   ExperimentTargetingData,
 } from "back-end/types/experiment";
-import { FaCheck, FaExclamationCircle, FaInfoCircle } from "react-icons/fa";
+import {
+  FaCheck,
+  FaExclamationCircle,
+  FaExternalLinkAlt,
+  FaInfoCircle,
+} from "react-icons/fa";
 import omit from "lodash/omit";
 import isEqual from "lodash/isEqual";
 import React, { useEffect, useMemo, useState } from "react";
@@ -20,6 +25,8 @@ import useOrgSettings from "@/hooks/useOrgSettings";
 import PagedModal from "@/components/Modal/PagedModal";
 import Page from "@/components/Modal/Page";
 import TargetingInfo from "@/components/Experiment/TabbedPage/TargetingInfo";
+import Tooltip from "@/components/Tooltip/Tooltip";
+import usePermissions from "@/hooks/usePermissions";
 import Field from "../Forms/Field";
 import Modal from "../Modal";
 import FeatureVariationsInput from "../Features/FeatureVariationsInput";
@@ -152,9 +159,8 @@ export default function EditTargetingModal({
       >
         {experiment.status !== "draft" && (
           <div className="alert alert-warning mx-2 mt-2">
-            <strong>Warning:</strong>{" "}
-            Changes made will apply to all linked Feature Flags and Visual
-            Editor changes immediately upon publishing.
+            <strong>Warning:</strong> Changes made will apply to all linked
+            Feature Flags and Visual Editor changes immediately upon publishing.
           </div>
         )}
         <TargetingForm experiment={experiment} form={form} safeToEdit={true} />
@@ -203,15 +209,15 @@ export default function EditTargetingModal({
       secondaryCTA={
         step === lastStepNumber ? (
           <div className="col">
-            <div className="d-flex m-0 px-3 py-1 alert alert-warning">
+            <div className="d-flex m-0 pl-3 pr-2 py-1 alert alert-warning">
               <div>
-                <strong>Warning:</strong>{" "}
-                Changes made will apply to all linked Feature Flags and Visual
-                Editor changes immediately upon publishing.
+                <strong>Warning:</strong> Changes made will apply to all linked
+                Feature Flags and Visual Editor changes immediately upon
+                publishing.
               </div>
               <label
                 htmlFor="confirm-changes"
-                className="border-left d-flex py-1 m-0 pl-2 ml-1 cursor-pointer d-flex align-items-center justify-content-md-center hover-underline"
+                className="btn btn-sm btn-warning d-flex my-1 ml-1 px-2 d-flex align-items-center justify-content-md-center"
               >
                 <strong className="mr-2 user-select-none">Confirm</strong>
                 <input
@@ -357,6 +363,7 @@ function TargetingForm({
   const hasHashAttributes =
     attributeSchema.filter((x) => x.hashAttribute).length > 0;
 
+  const permissions = usePermissions();
   const settings = useOrgSettings();
   const orgStickyBucketing = settings.useStickyBucketing;
 
@@ -422,8 +429,18 @@ function TargetingForm({
                   </div>
                   {!orgStickyBucketing && (
                     <div className="text-warning-orange mt-1">
-                      <FaInfoCircle /> Sticky bucketing is currently disabled
-                      for your organization.
+                      <FaInfoCircle /> Requires Sticky Bucketing (disabled by
+                      org)
+                      {permissions.organizationSettings && (
+                        <Tooltip
+                          className="ml-1"
+                          body="Enable for your organization"
+                        >
+                          <a className="pl-1" href="/settings" target="_blank">
+                            <FaExternalLinkAlt />
+                          </a>
+                        </Tooltip>
+                      )}
                     </div>
                   )}
                 </>
