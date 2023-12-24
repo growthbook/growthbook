@@ -1,7 +1,9 @@
 import { FC, useState } from "react";
 import {
+  CreateSavedGroupProps,
   SavedGroupInterface,
   SavedGroupType,
+  UpdateSavedGroupProps,
 } from "back-end/types/saved-group";
 import { useForm } from "react-hook-form";
 import { useAuth } from "../../services/auth";
@@ -29,12 +31,11 @@ const SavedGroupForm: FC<{
   const [rawTextMode, setRawTextMode] = useState(false);
   const [rawText, setRawText] = useState(current.values?.join(", ") || "");
 
-  const form = useForm<Partial<SavedGroupInterface>>({
+  const form = useForm<CreateSavedGroupProps>({
     defaultValues: {
       groupName: current.groupName || "",
       owner: current.owner || "",
       attributeKey: current.attributeKey || "",
-      id: current.id || "",
       condition: current.condition || "",
       type,
       values: current.values || [],
@@ -50,13 +51,33 @@ const SavedGroupForm: FC<{
         type === "condition" ? "Condition" : "ID List"
       }`}
       submit={form.handleSubmit(async (value) => {
-        await apiCall(
-          current.id ? `/saved-groups/${current.id}` : `/saved-groups`,
-          {
-            method: current.id ? "PUT" : "POST",
+        if (
+          type === "condition" &&
+          (!value.condition || value.condition === "{}")
+        ) {
+          throw new Error("Must add at least 1 targeting condition");
+        }
+
+        // Update existing saved group
+        if (current.id) {
+          await apiCall(`/saved-groups/${current.id}`, {
+            method: "PUT",
             body: JSON.stringify(value),
-          }
-        );
+          });
+        }
+        // Create new saved group
+        else {
+          const payload: UpdateSavedGroupProps = {
+            condition: value.condition,
+            groupName: value.groupName,
+            owner: value.owner,
+            values: value.values,
+          };
+          await apiCall(`/saved-groups`, {
+            method: "POST",
+            body: JSON.stringify(payload),
+          });
+        }
         mutateDefinitions({});
       })}
     >

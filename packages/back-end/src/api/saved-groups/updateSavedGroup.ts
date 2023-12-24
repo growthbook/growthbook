@@ -24,6 +24,14 @@ export const updateSavedGroup = createApiRequestHandler(
       throw new Error(`Unable to locate the saved-group: ${id}`);
     }
 
+    // Sanity check to make sure arguments match the saved group type
+    if (savedGroup.type === "condition" && values && values.length > 0) {
+      throw new Error("Cannot specify values for condition groups");
+    }
+    if (savedGroup.type === "list" && condition && condition !== "{}") {
+      throw new Error("Cannot specify a condition for list groups");
+    }
+
     const fieldsToUpdate: UpdateSavedGroupProps = {};
 
     if (typeof name !== "undefined" && name !== savedGroup.groupName) {

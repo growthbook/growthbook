@@ -1,10 +1,12 @@
 import type { Response } from "express";
 import { isEqual } from "lodash";
-import z from "zod";
 import { AuthRequest } from "../../types/AuthRequest";
 import { ApiErrorResponse } from "../../../types/api";
 import { getOrgFromReq } from "../../services/organizations";
-import { SavedGroupInterface } from "../../../types/saved-group";
+import {
+  CreateSavedGroupProps,
+  SavedGroupInterface,
+} from "../../../types/saved-group";
 import {
   UpdateSavedGroupProps,
   createSavedGroup,
@@ -18,16 +20,10 @@ import {
   auditDetailsUpdate,
 } from "../../services/audit";
 import { savedGroupUpdated } from "../../services/savedGroups";
-import {
-  postSavedGroupBodyValidator,
-  putSavedGroupBodyValidator,
-} from "./saved-group.router";
 
 // region POST /saved-groups
 
-type CreateSavedGroupRequest = AuthRequest<
-  z.infer<typeof postSavedGroupBodyValidator>
->;
+type CreateSavedGroupRequest = AuthRequest<CreateSavedGroupProps>;
 
 type CreateSavedGroupResponse = {
   status: 200;
@@ -94,10 +90,7 @@ export const postSavedGroup = async (
 
 // region PUT /saved-groups/:id
 
-type PutSavedGroupRequest = AuthRequest<
-  z.infer<typeof putSavedGroupBodyValidator>,
-  { id: string }
->;
+type PutSavedGroupRequest = AuthRequest<UpdateSavedGroupProps, { id: string }>;
 
 type PutSavedGroupResponse = {
   status: 200;

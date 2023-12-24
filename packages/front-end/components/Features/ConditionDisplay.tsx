@@ -71,7 +71,7 @@ function getValue(
   if (operator === "$false") return "FALSE";
 
   // Get the groupName from the associated group.id to display a human readable name.
-  if (operator === ("$inGroup" || "$notInGroup") && savedGroups) {
+  if ((operator === "$inGroup" || operator === "$notInGroup") && savedGroups) {
     const index = savedGroups.find((i) => i.id === value);
 
     return index?.groupName || "Group was Deleted";

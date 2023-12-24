@@ -1,3 +1,9 @@
+import z from "zod";
+import {
+  postSavedGroupBodyValidator,
+  putSavedGroupBodyValidator,
+} from "../src/routers/saved-group/saved-group.router";
+
 /**
  * @deprecated
  */
@@ -29,3 +35,6 @@ export type GroupMap = Map<
     values?: (string | number)[];
   }
 >;
+
+export type CreateSavedGroupProps = z.infer<typeof postSavedGroupBodyValidator>;
+export type UpdateSavedGroupProps = z.infer<typeof putSavedGroupBodyValidator>;

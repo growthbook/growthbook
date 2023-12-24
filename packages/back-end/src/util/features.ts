@@ -51,7 +51,7 @@ export function getParsedCondition(
       const cond = JSON.parse(
         replaceSavedGroupsInCondition(condition, groupMap)
       );
-      cond && conditions.push(cond);
+      if (cond) conditions.push(cond);
     } catch (e) {
       // ignore condition parse errors here
     }
@@ -77,7 +77,7 @@ export function getParsedCondition(
       if (match === "all") {
         groups.forEach((group) => {
           const cond = getSavedGroupCondition(group, true);
-          cond && conditions.push(cond);
+          if (cond) conditions.push(cond);
         });
       }
       // Add one top-level AND with nested OR conditions
@@ -85,16 +85,23 @@ export function getParsedCondition(
         const ors: ConditionInterface[] = [];
         groups.forEach((group) => {
           const cond = getSavedGroupCondition(group, true);
-          cond && ors.push(cond);
+          if (cond) ors.push(cond);
         });
-        ors.length > 0 &&
-          conditions.push(ors.length > 1 ? { $or: ors } : ors[0]);
+
+        // Multiple OR conditions, add them as a nested OR
+        if (ors.length > 1) {
+          conditions.push({ $or: ors });
+        }
+        // Single OR condition, not really doing anything, just add it to top-level
+        else if (ors.length === 1) {
+          conditions.push(ors[0]);
+        }
       }
       // Add each group as a separate top-level AND with a NOT condition
       else if (match === "none") {
         groups.forEach((group) => {
           const cond = getSavedGroupCondition(group, false);
-          cond && conditions.push(cond);
+          if (cond) conditions.push(cond);
         });
       }
     });
