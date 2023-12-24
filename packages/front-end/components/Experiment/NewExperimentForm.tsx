@@ -9,7 +9,7 @@ import { useRouter } from "next/router";
 import { getValidDate } from "shared/dates";
 import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
 import { OrganizationSettings } from "back-end/types/organization";
-import { isProjectListValidForProject } from "shared/util";
+import { isProjectListValidForProject, validateCondition } from "shared/util";
 import { useWatching } from "@/services/WatchProvider";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
@@ -235,6 +235,19 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
       }
 
       validateSavedGroupTargeting(data.phases[0].savedGroups);
+
+      const conditionResult = validateCondition(data.phases[0].condition);
+      if (!conditionResult.success) {
+        if (conditionResult.suggestedValue) {
+          form.setValue("phases.0.condition", conditionResult.suggestedValue);
+          throw new Error(
+            "We fixed some syntax errors in your targeting condition JSON. Please verify the changes and save again."
+          );
+        }
+        throw new Error(
+          "Invalid targeting condition JSON: " + conditionResult.error
+        );
+      }
     }
 
     const body = JSON.stringify(data);

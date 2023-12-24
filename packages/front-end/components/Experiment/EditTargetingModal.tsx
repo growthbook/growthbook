@@ -5,6 +5,7 @@ import {
   ExperimentTargetingData,
 } from "back-end/types/experiment";
 import { useEffect, useMemo } from "react";
+import { validateCondition } from "shared/util";
 import { useAuth } from "@/services/auth";
 import { getEqualWeights } from "@/services/utils";
 import { useAttributeSchema } from "@/services/features";
@@ -144,6 +145,19 @@ export default function EditTargetingModal({
       header={`Edit Targeting`}
       submit={form.handleSubmit(async (value) => {
         validateSavedGroupTargeting(value.savedGroups);
+
+        const conditionResult = validateCondition(value.condition);
+        if (!conditionResult.success) {
+          if (conditionResult.suggestedValue) {
+            form.setValue("condition", conditionResult.suggestedValue);
+            throw new Error(
+              "We fixed some syntax errors in your targeting condition JSON. Please verify the changes and save again."
+            );
+          }
+          throw new Error(
+            "Invalid targeting condition JSON: " + conditionResult.error
+          );
+        }
 
         await apiCall(`/experiment/${experiment.id}/targeting`, {
           method: "POST",

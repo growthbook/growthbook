@@ -20,11 +20,16 @@ import stringify from "json-stringify-pretty-compact";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { FeatureUsageRecords } from "back-end/types/realtime";
 import cloneDeep from "lodash/cloneDeep";
-import { generateVariationId, validateFeatureValue } from "shared/util";
+import {
+  generateVariationId,
+  validateCondition,
+  validateFeatureValue,
+} from "shared/util";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import isEqual from "lodash/isEqual";
 import { getUpcomingScheduleRule } from "@/services/scheduleRules";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
+import { validateSavedGroupTargeting } from "@/components/Features/SavedGroupTargetingField";
 import useOrgSettings from "../hooks/useOrgSettings";
 import useApi from "../hooks/useApi";
 import { useDefinitions } from "./DefinitionsContext";
@@ -203,14 +208,20 @@ export function validateFeatureRule(
 ): null | FeatureRule {
   let hasChanges = false;
   const ruleCopy = cloneDeep(rule);
+
+  validateSavedGroupTargeting(rule.savedGroups);
+
   if (rule.condition) {
-    try {
-      const res = JSON.parse(rule.condition);
-      if (!res || typeof res !== "object") {
-        throw new Error("Condition is invalid");
+    const conditionResult = validateCondition(rule.condition);
+    if (!conditionResult.success) {
+      if (conditionResult.suggestedValue) {
+        hasChanges = true;
+        ruleCopy.condition = conditionResult.suggestedValue;
+      } else {
+        throw new Error(
+          "Invalid targeting condition JSON: " + conditionResult.error
+        );
       }
-    } catch (e) {
-      throw new Error("Condition is invalid: " + e.message);
     }
   }
   if (rule.type === "force") {
