@@ -22,7 +22,7 @@ import { FeatureUsageRecords } from "back-end/types/realtime";
 import cloneDeep from "lodash/cloneDeep";
 import {
   generateVariationId,
-  validateCondition,
+  validateAndFixCondition,
   validateFeatureValue,
 } from "shared/util";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
@@ -212,17 +212,16 @@ export function validateFeatureRule(
   validateSavedGroupTargeting(rule.savedGroups);
 
   if (rule.condition) {
-    const conditionResult = validateCondition(rule.condition);
-    if (!conditionResult.success) {
-      if (conditionResult.suggestedValue) {
+    console.log("Validating condition", rule.condition);
+    validateAndFixCondition(
+      rule.condition,
+      (condition) => {
+        console.log("has suggestion", condition);
         hasChanges = true;
-        ruleCopy.condition = conditionResult.suggestedValue;
-      } else {
-        throw new Error(
-          "Invalid targeting condition JSON: " + conditionResult.error
-        );
-      }
-    }
+        ruleCopy.condition = condition;
+      },
+      false
+    );
   }
   if (rule.type === "force") {
     const newValue = validateFeatureValue(

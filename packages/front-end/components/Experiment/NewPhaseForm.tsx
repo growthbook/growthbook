@@ -4,10 +4,11 @@ import {
   ExperimentPhaseStringDates,
 } from "back-end/types/experiment";
 import { useForm } from "react-hook-form";
-import { validateCondition } from "shared/util";
+import { validateAndFixCondition } from "shared/util";
 import { useAuth } from "@/services/auth";
 import { useWatching } from "@/services/WatchProvider";
 import { getEqualWeights } from "@/services/utils";
+import useIncrementer from "@/hooks/useIncrementer";
 import Modal from "../Modal";
 import Field from "../Forms/Field";
 import FeatureVariationsInput from "../Features/FeatureVariationsInput";
@@ -60,23 +61,17 @@ const NewPhaseForm: FC<{
   );
   const isValid = totalWeights > 0.99 && totalWeights < 1.01;
 
+  const [conditionKey, forceConditionRender] = useIncrementer();
+
   const submit = form.handleSubmit(async (value) => {
     if (!isValid) throw new Error("Variation weights must sum to 1");
 
     validateSavedGroupTargeting(value.savedGroups);
 
-    const conditionResult = validateCondition(value.condition);
-    if (!conditionResult.success) {
-      if (conditionResult.suggestedValue) {
-        form.setValue("condition", conditionResult.suggestedValue);
-        throw new Error(
-          "We fixed some syntax errors in your targeting condition JSON. Please verify the changes and save again."
-        );
-      }
-      throw new Error(
-        "Invalid targeting condition JSON: " + conditionResult.error
-      );
-    }
+    validateAndFixCondition(value.condition, (condition) => {
+      form.setValue("condition", condition);
+      forceConditionRender();
+    });
 
     await apiCall<{ status: number; message?: string }>(
       `/experiment/${experiment.id}/phase`,
@@ -143,6 +138,7 @@ const NewPhaseForm: FC<{
         <ConditionInput
           defaultValue={form.watch("condition")}
           onChange={(condition) => form.setValue("condition", condition)}
+          key={conditionKey}
         />
       )}
 

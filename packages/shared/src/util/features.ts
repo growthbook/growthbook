@@ -452,3 +452,19 @@ export function validateCondition(condition?: string) {
     }
   }
 }
+export function validateAndFixCondition(
+  condition: string | undefined,
+  applySuggestion: (suggestion: string) => void,
+  throwOnSuggestion: boolean = true
+) {
+  const res = validateCondition(condition);
+  if (res.success) return;
+  if (res.suggestedValue) {
+    applySuggestion(res.suggestedValue);
+    if (!throwOnSuggestion) return;
+    throw new Error(
+      "We fixed some syntax errors in your targeting condition JSON. Please verify the changes and save again."
+    );
+  }
+  throw new Error("Invalid targeting condition JSON: " + res.error);
+}
