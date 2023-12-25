@@ -447,7 +447,7 @@ export function validateCondition(condition?: string) {
         suggestedValue: JSON.stringify(fixed),
         error: e.message,
       };
-    } catch (e) {
+    } catch (e2) {
       return { success: false, empty: false, error: e.message };
     }
   }
