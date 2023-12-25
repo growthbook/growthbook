@@ -448,7 +448,7 @@ describe("validateCondition", () => {
     expect(validateCondition("{(+")).toEqual({
       success: false,
       empty: false,
-      error: "Found } that I can't handle at line -1:-1",
+      error: "Unexpected token ( in JSON at position 1",
     });
   });
   it("returns error when condition is not an object", () => {
