@@ -212,11 +212,9 @@ export function validateFeatureRule(
   validateSavedGroupTargeting(rule.savedGroups);
 
   if (rule.condition) {
-    console.log("Validating condition", rule.condition);
     validateAndFixCondition(
       rule.condition,
       (condition) => {
-        console.log("has suggestion", condition);
         hasChanges = true;
         ruleCopy.condition = condition;
       },
