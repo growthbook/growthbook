@@ -1250,56 +1250,46 @@ export const autoAddGroupsAttribute = async (
 
   req.checkPermissions("manageTargetingAttributes");
 
-  const savedGroups = await getAllSavedGroups(org.id);
-
-  const usesGroupsAttribute = savedGroups.some(
-    (savedGroup) =>
-      savedGroup.type === "condition" &&
-      savedGroup.condition?.includes("$groups")
-  );
-
   let added = false;
 
-  if (usesGroupsAttribute) {
-    const attributeSchema = org.settings?.attributeSchema;
-    if (
-      attributeSchema &&
-      !attributeSchema.some((attribute) => attribute.property === "$groups")
-    ) {
-      const newAttributeSchema: SDKAttribute[] = [
-        ...attributeSchema,
-        {
-          property: "$groups",
-          datatype: "string[]",
-        },
-      ];
+  const attributeSchema = org.settings?.attributeSchema;
+  if (
+    attributeSchema &&
+    !attributeSchema.some((attribute) => attribute.property === "$groups")
+  ) {
+    const newAttributeSchema: SDKAttribute[] = [
+      ...attributeSchema,
+      {
+        property: "$groups",
+        datatype: "string[]",
+      },
+    ];
 
-      const orig = {
-        settings: {
-          ...org.settings,
-        },
-      };
+    const orig = {
+      settings: {
+        ...org.settings,
+      },
+    };
 
-      const updates = {
-        settings: {
-          ...org.settings,
-          attributeSchema: newAttributeSchema,
-        },
-      };
+    const updates = {
+      settings: {
+        ...org.settings,
+        attributeSchema: newAttributeSchema,
+      },
+    };
 
-      added = true;
+    added = true;
 
-      await updateOrganization(org.id, updates);
+    await updateOrganization(org.id, updates);
 
-      await req.audit({
-        event: "organization.update",
-        entity: {
-          object: "organization",
-          id: org.id,
-        },
-        details: auditDetailsUpdate(orig, updates),
-      });
-    }
+    await req.audit({
+      event: "organization.update",
+      entity: {
+        object: "organization",
+        id: org.id,
+      },
+      details: auditDetailsUpdate(orig, updates),
+    });
   }
 
   return res.status(200).json({
