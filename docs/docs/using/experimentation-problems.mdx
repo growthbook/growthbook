@@ -8,7 +8,7 @@ your A/B tests are valid and reliable. It is by no means an exhaustive list.
 
 The multiple testing problem refers to the issue that arises when statistical hypothesis testing is
 performed on multiple variables simultaneously, leading to an increased likelihood of incorrectly
-rejecting a true null hypothesis (Type I error).
+rejecting a true null hypothesis ([Type I error](/using/fundamentals#false-positives-type-i-errors-and-false-negatives-type-ii-errors)).
 
 For example, if you test the same hypothesis at a 5% level of significance for 20 different metrics, the
 probability of finding at least one statistically significant result by chance alone is around 64%. This
@@ -26,6 +26,33 @@ It's essential to be aware of this issue and select an appropriate correction me
 multiple statistical tests to avoid false discoveries and improve the accuracy and reliability of research
 findings. If you are using a high number of metrics, draw conclusions from the test thoughtfully and if
 you may consider running a follow up test just to test that one result or metric.
+
+### Texas Sharpshooter Fallacy
+
+The Texas sharpshooter problem is a cognitive bias that involves cherry-picking data clusters to suit a particular
+argument, hypothesis, or bias. The name comes from the idea of a Texan marksman shooting at a barn and then painting a
+target around the cluster of bullet holes to create the appearance of accuracy. As the story goes, he then showed his
+neighbors and convinced them he was a great shot. It is closely related to the Multiple Testing Problem/Multiple Comparison Problem.
+
+In the context of data analysis and statistics, the Texas sharpshooter problem refers to the danger of finding
+apparent patterns or correlations in data purely by chance and then using those patterns as if they were meaningful.
+This can lead to false conclusions and misguided decision-making. Texas sharpshooter problem is relevant in the
+sense that if you analyze the results of a test without a clear hypothesis or before setting up the experiment, you
+may be susceptible to finding patterns that are purely due to random variation. If you analyze the data in multiple
+ways or look at various subgroups without adjusting for multiple comparisons, you might identify spurious patterns
+that do not actually represent a true effect.
+
+### P-Hacking
+
+P-hacking, or data dredging, is a statistical fallacy that involves manipulating or analyzing data in various ways
+until a statistically significant result is achieved. It occurs when researchers or analysts repeatedly test
+their data using different methodologies or subsets of the data until they find a statistically significant result,
+even if the observed effect is due to chance.
+
+In the context of A/B testing, p-hacking can be a significant concern. A/B testing involves comparing at least two versions
+(A and B) to determine which performs better. The danger of p-hacking arises when analysts, either consciously or
+unconsciously, explore different metrics, time periods, or subgroups until they find a statistically significant
+difference between the A and B groups.
 
 ### Peeking
 
@@ -153,7 +180,7 @@ that decisions are based on objective data, rather than personal biases or belie
 
 ### HiPPOs
 
-HiPPO is an acronym for the "highest paid person's opinion" or the "highest paid person in the office."
+HiPPO is an acronym for the "highest paid person's opinion."
 In less data-driven companies, decisions about what product to build or which products to ship are made
 by HiPPOs. The problem with HiPPOs is that it turns out their opinions are no more likely to be right
 than anyone else's opinions, and are therefore often wrong. But due to their status they may resist
@@ -169,7 +196,7 @@ results of the experiment. Running A/A tests can help build trust that the platf
 Trust in an experimentation platform is built over time, and care must be taken to not just dismiss
 results that are counterintuitive.
 
-### Twyman’s Law
+### Twyman's Law
 
 Twyman's law is a principle in statistics that states that any data that is measured and collected will
 contain some degree of error, and that this error is an inherent part of the data. It is named after the
@@ -185,7 +212,7 @@ If you notice a particularly large or unusual change in the results of an experi
 the result of a problem with the data or an implementation than an actual result. Before you share the
 results, make sure that the effects are not the result of an error.
 
-### Goodhart’s Law
+### Goodhart's Law
 
 Goodhart's law is a concept in economics that states that when a measure becomes a target, it ceases
 to be a good measure. In other words, once a metric becomes the sole focus of attention and effort, it
@@ -201,12 +228,12 @@ user engagement or increasing revenue.
 To avoid the negative effects of Goodhart's law in A/B testing, it is important to choose the right metrics
 to track and analyze, and to use a variety of metrics to evaluate the effectiveness of the test. It is also
 important to keep in mind the broader goals of the test and to avoid tunnel vision on any one metric.
-Goodhart’s law is more likely to happen when you are using proxy metrics, instead of the real KPIs
+Goodhart's law is more likely to happen when you are using proxy metrics, instead of the real KPIs
 you’re trying to improve - an example of this might be items added to a cart being used as a proxy for
 purchases. Also If the proxy metric is not strongly causally linked to the target metric, pressing hard on
 the proxy may have no effect on the goal metric, or might actually cause the correlation to break.
 
-### Simpon’s Paradox
+### Simpson's Paradox
 
 Simpson's paradox is a statistical phenomenon where a trend or pattern appears in different groups of
 data but disappears or reverses when the groups are combined. In other words, the overall result may
