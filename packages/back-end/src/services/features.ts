@@ -9,7 +9,7 @@ import {
   AutoExperiment,
   GrowthBook,
 } from "@growthbook/growthbook";
-import { validateFeatureValue } from "shared/util";
+import { validateCondition, validateFeatureValue } from "shared/util";
 import { scrubFeatures, SDKCapability } from "shared/sdk-versioning";
 import {
   AutoExperimentWithProject,
@@ -969,6 +969,13 @@ const fromApiEnvSettingsRulesToFeatureEnvSettingsRules = (
   rules: ApiFeatureEnvSettingsRules
 ): FeatureInterface["environmentSettings"][string]["rules"] =>
   rules.map((r) => {
+    const conditionRes = validateCondition(r.condition);
+    if (!conditionRes.success) {
+      throw new Error(
+        "Invalid targeting condition JSON: " + conditionRes.error
+      );
+    }
+
     if (r.type === "experiment-ref") {
       const experimentRule: ExperimentRefRule = {
         // missing id will be filled in by addIdsToRules

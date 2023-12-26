@@ -3,7 +3,9 @@ import {
   ExperimentInterfaceStringDates,
   ExperimentPhaseStringDates,
 } from "back-end/types/experiment";
+import { validateAndFixCondition } from "shared/util";
 import { useAuth } from "@/services/auth";
+import useIncrementer from "@/hooks/useIncrementer";
 import Field from "../Forms/Field";
 import Modal from "../Modal";
 import FeatureVariationsInput from "../Features/FeatureVariationsInput";
@@ -37,6 +39,8 @@ export default function EditPhaseModal({
   });
   const { apiCall } = useAuth();
 
+  const [conditionKey, forceConditionRender] = useIncrementer();
+
   const isDraft = experiment.status === "draft";
   const isMultiPhase = experiment.phases.length > 1;
 
@@ -50,6 +54,11 @@ export default function EditPhaseModal({
       header={`Edit Analysis Phase #${i + 1}`}
       submit={form.handleSubmit(async (value) => {
         validateSavedGroupTargeting(value.savedGroups);
+
+        validateAndFixCondition(value.condition, (condition) => {
+          form.setValue("condition", condition);
+          forceConditionRender();
+        });
 
         await apiCall(`/experiment/${experiment.id}/phase/${i}`, {
           method: "PUT",
@@ -111,6 +120,7 @@ export default function EditPhaseModal({
       <ConditionInput
         defaultValue={form.watch("condition")}
         onChange={(condition) => form.setValue("condition", condition)}
+        key={conditionKey}
       />
 
       <FeatureVariationsInput
