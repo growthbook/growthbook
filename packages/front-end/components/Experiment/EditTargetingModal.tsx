@@ -5,9 +5,11 @@ import {
   ExperimentTargetingData,
 } from "back-end/types/experiment";
 import { useEffect, useMemo } from "react";
+import { validateAndFixCondition } from "shared/util";
 import { useAuth } from "@/services/auth";
 import { getEqualWeights } from "@/services/utils";
 import { useAttributeSchema } from "@/services/features";
+import useIncrementer from "@/hooks/useIncrementer";
 import Field from "../Forms/Field";
 import Modal from "../Modal";
 import FeatureVariationsInput from "../Features/FeatureVariationsInput";
@@ -62,6 +64,8 @@ export default function EditTargetingModal({
     },
   });
   const { apiCall } = useAuth();
+
+  const [conditionKey, forceConditionRender] = useIncrementer();
 
   const attributeSchema = useAttributeSchema();
   const hasHashAttributes =
@@ -145,6 +149,11 @@ export default function EditTargetingModal({
       submit={form.handleSubmit(async (value) => {
         validateSavedGroupTargeting(value.savedGroups);
 
+        validateAndFixCondition(value.condition, (condition) => {
+          form.setValue("condition", condition);
+          forceConditionRender();
+        });
+
         await apiCall(`/experiment/${experiment.id}/targeting`, {
           method: "POST",
           body: JSON.stringify(value),
@@ -200,6 +209,7 @@ export default function EditTargetingModal({
       <ConditionInput
         defaultValue={form.watch("condition")}
         onChange={(condition) => form.setValue("condition", condition)}
+        key={conditionKey}
       />
       <FeatureVariationsInput
         valueType={"string"}

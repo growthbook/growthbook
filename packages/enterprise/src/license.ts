@@ -366,7 +366,7 @@ async function getLicenseDataFromServer(
 
   if (!serverResult.ok) {
     logger.warn(
-      ` Falling back to LicenseModel cache because the license server threw a ${serverResult.status} error: ${serverResult.statusText}.`
+      `Falling back to LicenseModel cache because the license server threw a ${serverResult.status} error: ${serverResult.statusText}.`
     );
     return getLicenseDataFromMongoCache(currentCache);
   }
@@ -406,7 +406,8 @@ const keyToLicenseData: Record<string, Partial<LicenseInterface>> = {};
 export async function licenseInit(
   licenseKey?: string,
   userLicenseCodes?: string[],
-  metaData?: LicenseMetaData
+  metaData?: LicenseMetaData,
+  forceRefresh = false
 ) {
   const key = licenseKey || process.env.LICENSE_KEY || null;
 
@@ -418,10 +419,12 @@ export async function licenseInit(
   const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
 
   if (
+    !forceRefresh &&
     key &&
     keyToLicenseData[key] &&
     (cacheDate === null || cacheDate > oneDayAgo)
   ) {
+    licenseData = keyToLicenseData[key];
     return keyToLicenseData[key];
   }
 
@@ -438,6 +441,7 @@ export async function licenseInit(
   }
 
   keyToLicenseData[key] = licenseData;
+  return licenseData;
 }
 
 export function getLicense() {
