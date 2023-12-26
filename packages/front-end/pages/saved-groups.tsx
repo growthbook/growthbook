@@ -1,7 +1,10 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import IdLists from "@/components/SavedGroups/IdLists";
 import ConditionGroups from "@/components/SavedGroups/ConditionGroups";
+import { useUser } from "@/services/UserContext";
+import usePermissions from "@/hooks/usePermissions";
+import { useAuth } from "@/services/auth";
 import LoadingOverlay from "../components/LoadingOverlay";
 import { useDefinitions } from "../services/DefinitionsContext";
 import Modal from "../components/Modal";
@@ -47,6 +50,27 @@ export default function SavedGroupsPage() {
   const { mutateDefinitions, savedGroups, error } = useDefinitions();
 
   const [auditModal, setAuditModal] = useState(false);
+
+  const { refreshOrganization } = useUser();
+
+  const permissions = usePermissions();
+  const { apiCall } = useAuth();
+
+  useEffect(() => {
+    if (permissions.manageTargetingAttributes) {
+      apiCall<{ added: boolean }>("/organization/auto-groups-attribute", {
+        method: "POST",
+      })
+        .then((res) => {
+          if (res.added) {
+            refreshOrganization();
+          }
+        })
+        .catch(() => {
+          // Ignore errors
+        });
+    }
+  }, [permissions.manageTargetingAttributes, apiCall, refreshOrganization]);
 
   if (!savedGroups) return <LoadingOverlay />;
 
