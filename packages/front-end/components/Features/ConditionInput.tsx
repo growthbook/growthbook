@@ -20,14 +20,18 @@ interface Props {
   defaultValue: string;
   onChange: (value: string) => void;
   labelClassName?: string;
+  emptyText?: string;
+  title?: string;
+  require?: boolean;
 }
-
-const title = "Target by Attribute";
 
 export default function ConditionInput(props: Props) {
   const { savedGroups } = useDefinitions();
 
   const attributes = useAttributeMap();
+
+  const title = props.title || "Target by Attribute";
+  const emptyText = props.emptyText || "Applied to everyone by default.";
 
   const [advanced, setAdvanced] = useState(
     () => jsonToConds(props.defaultValue, attributes) === null
@@ -116,7 +120,7 @@ export default function ConditionInput(props: Props) {
       <div className="form-group">
         <label className={props.labelClassName || ""}>{title}</label>
         <div className={`mb-3 bg-light p-3 ${styles.conditionbox}`}>
-          <em className="text-muted mr-3">Applied to everyone by default.</em>
+          <em className="text-muted mr-3">{emptyText}</em>
           <a
             href="#"
             onClick={(e) => {
@@ -365,7 +369,7 @@ export default function ConditionInput(props: Props) {
                       )}
                       <a
                         href="#"
-                        style={{ fontSize: "0.5em" }}
+                        style={{ fontSize: "0.8em" }}
                         onClick={(e) => {
                           e.preventDefault();
                           setRawTextMode((prev) => !prev);
@@ -414,20 +418,22 @@ export default function ConditionInput(props: Props) {
                   ) : (
                     ""
                   )}
-                  <div className="col-md-auto col-sm-12">
-                    <button
-                      className="btn btn-link text-danger float-right"
-                      type="button"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        const newConds = [...conds];
-                        newConds.splice(i, 1);
-                        setConds(newConds);
-                      }}
-                    >
-                      remove
-                    </button>
-                  </div>
+                  {(conds.length > 1 || !props.require) && (
+                    <div className="col-md-auto col-sm-12">
+                      <button
+                        className="btn btn-link text-danger float-right"
+                        type="button"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          const newConds = [...conds];
+                          newConds.splice(i, 1);
+                          setConds(newConds);
+                        }}
+                      >
+                        remove
+                      </button>
+                    </div>
+                  )}
                 </div>
               </li>
             );

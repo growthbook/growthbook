@@ -5,6 +5,7 @@ import { SavedGroupTargeting } from "back-end/types/feature";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { jsonToConds, useAttributeMap } from "@/services/features";
 import InlineCode from "../SyntaxHighlighting/InlineCode";
+import Tooltip from "../Tooltip/Tooltip";
 import SavedGroupTargetingDisplay from "./SavedGroupTargetingDisplay";
 
 function operatorToText(operator: string): string {
@@ -62,6 +63,9 @@ function operatorToText(operator: string): string {
 function needsValue(operator: string) {
   return !["$exists", "$notExists", "$empty", "$notEmpty"].includes(operator);
 }
+function hasMultiValues(operator: string) {
+  return ["$in", "$nin"].includes(operator);
+}
 function getValue(
   operator: string,
   value: string,
@@ -77,6 +81,52 @@ function getValue(
     return index?.groupName || "Group was Deleted";
   }
   return value;
+}
+
+const MULTI_VALUE_LIMIT = 3;
+
+function MultiValueDisplay({ value }: { value: string }) {
+  const parts = value
+    .split(",")
+    .map((v) => v.trim())
+    .filter(Boolean);
+
+  if (!parts.length) {
+    return (
+      <span className="mr-1">
+        <em>empty list</em>
+      </span>
+    );
+  }
+
+  return (
+    <>
+      <span className="mr-1">(</span>
+      {parts.slice(0, MULTI_VALUE_LIMIT).map((v, i) => (
+        <span key={i} className="mr-1 border px-2 bg-light rounded">
+          {v}
+        </span>
+      ))}
+      {parts.length > MULTI_VALUE_LIMIT && (
+        <Tooltip
+          body={
+            <div>
+              {parts.slice(MULTI_VALUE_LIMIT).map((v, i) => (
+                <span key={i} className="mr-1 border px-2 bg-light rounded">
+                  {v}
+                </span>
+              ))}
+            </div>
+          }
+        >
+          <span className="mr-1">
+            <em>+ {parts.length - MULTI_VALUE_LIMIT} more</em>
+          </span>
+        </Tooltip>
+      )}
+      )
+    </>
+  );
 }
 
 export default function ConditionDisplay({
@@ -112,7 +162,9 @@ export default function ConditionDisplay({
       {i > 0 && <span className="mr-1">AND</span>}
       <span className="mr-1 border px-2 bg-light rounded">{field}</span>
       <span className="mr-1">{operatorToText(operator)}</span>
-      {needsValue(operator) ? (
+      {hasMultiValues(operator) ? (
+        <MultiValueDisplay value={value} />
+      ) : needsValue(operator) ? (
         <span className="mr-1 border px-2 bg-light rounded">
           {getValue(operator, value, savedGroups)}
         </span>

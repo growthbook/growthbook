@@ -111,6 +111,9 @@ const SavedGroupForm: FC<{
           defaultValue={form.watch("condition") || ""}
           onChange={(v) => form.setValue("condition", v)}
           key={conditionKey}
+          emptyText="No conditions specified."
+          title="Include all users who match the following"
+          require
         />
       ) : (
         <>
