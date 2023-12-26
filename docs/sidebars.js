@@ -399,7 +399,7 @@ const sidebars = {
         },
         {
           type: "doc",
-          id: "using/",
+          id: "using/index",
           label: "Guide to A/B Testing",
         },
         {
