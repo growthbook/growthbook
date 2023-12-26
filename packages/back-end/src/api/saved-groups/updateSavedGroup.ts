@@ -1,4 +1,5 @@
 import { isEqual } from "lodash";
+import { validateCondition } from "shared/util";
 import { UpdateSavedGroupResponse } from "../../../types/openapi";
 import {
   UpdateSavedGroupProps,
@@ -52,6 +53,14 @@ export const updateSavedGroup = createApiRequestHandler(
       condition &&
       condition !== savedGroup.condition
     ) {
+      const conditionRes = validateCondition(condition);
+      if (!conditionRes.success) {
+        throw new Error(conditionRes.error);
+      }
+      if (conditionRes.empty) {
+        throw new Error("Condition cannot be empty");
+      }
+
       fieldsToUpdate.condition = condition;
     }
 

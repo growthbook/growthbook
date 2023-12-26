@@ -6,6 +6,8 @@ import {
   UpdateSavedGroupProps,
 } from "back-end/types/saved-group";
 import { useForm } from "react-hook-form";
+import { validateAndFixCondition } from "shared/util";
+import useIncrementer from "@/hooks/useIncrementer";
 import { useAuth } from "../../services/auth";
 import useMembers from "../../hooks/useMembers";
 import { useAttributeSchema } from "../../services/features";
@@ -23,6 +25,8 @@ const SavedGroupForm: FC<{
 }> = ({ close, current, type }) => {
   const { apiCall } = useAuth();
   const { memberUsernameOptions } = useMembers();
+
+  const [conditionKey, forceConditionRender] = useIncrementer();
 
   const attributeSchema = useAttributeSchema();
 
@@ -51,11 +55,14 @@ const SavedGroupForm: FC<{
         type === "condition" ? "Condition" : "ID List"
       }`}
       submit={form.handleSubmit(async (value) => {
-        if (
-          type === "condition" &&
-          (!value.condition || value.condition === "{}")
-        ) {
-          throw new Error("Must add at least 1 targeting condition");
+        if (type === "condition") {
+          const conditionRes = validateAndFixCondition(value.condition, (c) => {
+            form.setValue("condition", c);
+            forceConditionRender();
+          });
+          if (conditionRes.empty) {
+            throw new Error("Condition cannot be empty");
+          }
         }
 
         // Update existing saved group
@@ -103,6 +110,7 @@ const SavedGroupForm: FC<{
         <ConditionInput
           defaultValue={form.watch("condition") || ""}
           onChange={(v) => form.setValue("condition", v)}
+          key={conditionKey}
         />
       ) : (
         <>

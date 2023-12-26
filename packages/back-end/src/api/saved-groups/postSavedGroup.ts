@@ -1,3 +1,4 @@
+import { validateCondition } from "shared/util";
 import { PostSavedGroupResponse } from "../../../types/openapi";
 import {
   createSavedGroup,
@@ -22,17 +23,19 @@ export const postSavedGroup = createApiRequestHandler(postSavedGroupValidator)(
 
     // If this is a condition group, make sure the condition is valid and not empty
     if (type === "condition") {
-      if (!condition) {
-        throw new Error("Must specify a condition");
-      }
       if (attributeKey || values) {
         throw new Error(
           "Cannot specify attributeKey or values for condition groups"
         );
       }
 
-      // Try parsing the condition to make sure it's valid
-      JSON.parse(condition);
+      const conditionRes = validateCondition(condition);
+      if (!conditionRes.success) {
+        throw new Error(conditionRes.error);
+      }
+      if (conditionRes.empty) {
+        throw new Error("Condition cannot be empty");
+      }
     }
     // If this is a list group, make sure the attributeKey is specified
     else if (type === "list") {
