@@ -532,4 +532,62 @@ describe("features", () => {
 
     growthbook.destroy();
   });
+
+  it("gates flag rule evaluation on prerequisite flags", async () => {
+    const growthbook = new GrowthBook({
+      attributes: {
+        id: "123",
+        memberType: "basic",
+        country: "USA",
+      },
+      features: {
+        parentFlag: {
+          defaultValue: "silver",
+          rules: [
+            {
+              condition: { country: "Canada" },
+              force: "red",
+            },
+            {
+              condition: { country: { $in: ["USA", "Mexico"] } },
+              force: "green",
+            },
+          ],
+        },
+        childFlag: {
+          defaultValue: "default",
+          rules: [
+            {
+              condition: { memberType: "premium" },
+              force: "success",
+            },
+            {
+              // Bailout (fail) if the parent flag value is not "green"
+              parent: "parentFlag",
+              parentCondition: { "@parent": "green" },
+              force: "bailout",
+            },
+            {
+              condition: { memberType: "basic" },
+              force: "success",
+            },
+          ],
+        },
+      },
+    });
+
+    const result1 = growthbook.evalFeature("childFlag");
+    expect(result1.value).toEqual("success");
+
+    growthbook.setAttributes({
+      id: "123",
+      memberType: "basic",
+      country: "Canada",
+    });
+
+    const result2 = growthbook.evalFeature("childFlag");
+    expect(result2.value).toEqual("bailout");
+
+    growthbook.destroy();
+  });
 });

@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 import type { GrowthBook } from "..";
-import { ConditionInterface } from "./mongrule";
+import { ConditionInterface, ConditionValue } from "./mongrule";
 
 declare global {
   interface Window {
@@ -15,10 +15,16 @@ export type VariationMeta = {
   name?: string;
 };
 
+export type ParentConditionInterface = {
+  "@parent": ConditionValue;
+};
+
 export type FeatureRule<T = any> = {
   id?: string;
   condition?: ConditionInterface;
   force?: T;
+  parent?: string;
+  parentCondition?: ParentConditionInterface;
   variations?: T[];
   weights?: number[];
   key?: string;
@@ -50,7 +56,8 @@ export type FeatureResultSource =
   | "defaultValue"
   | "force"
   | "override"
-  | "experiment";
+  | "experiment"
+  | "prerequisite";
 
 export interface FeatureResult<T = any> {
   value: T | null;
