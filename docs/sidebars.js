@@ -399,11 +399,6 @@ const sidebars = {
         },
         {
           type: "doc",
-          id: "using/index",
-          label: "Guide to A/B Testing",
-        },
-        {
-          type: "doc",
           id: "guide/importing",
           label: "Importing data into GrowthBook",
         },
