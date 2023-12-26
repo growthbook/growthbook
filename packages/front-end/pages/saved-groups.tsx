@@ -5,6 +5,7 @@ import ConditionGroups from "@/components/SavedGroups/ConditionGroups";
 import { useUser } from "@/services/UserContext";
 import usePermissions from "@/hooks/usePermissions";
 import { useAuth } from "@/services/auth";
+import { useAttributeSchema } from "@/services/features";
 import LoadingOverlay from "../components/LoadingOverlay";
 import { useDefinitions } from "../services/DefinitionsContext";
 import Modal from "../components/Modal";
@@ -55,8 +56,22 @@ export default function SavedGroupsPage() {
 
   const permissions = usePermissions();
   const { apiCall } = useAuth();
+  const attributeSchema = useAttributeSchema();
 
   useEffect(() => {
+    // Not using $groups attribute in a any saved groups
+    if (
+      !savedGroups?.some(
+        (g) => g.type === "condition" && g.condition?.includes("$groups")
+      )
+    ) {
+      return;
+    }
+
+    // Already has $groups attribute
+    if (attributeSchema.some((a) => a.property === "$groups")) return;
+
+    // If user has permissions to manage attributes, auto-add $groups attribute
     if (permissions.manageTargetingAttributes) {
       apiCall<{ added: boolean }>("/organization/auto-groups-attribute", {
         method: "POST",
@@ -70,7 +85,13 @@ export default function SavedGroupsPage() {
           // Ignore errors
         });
     }
-  }, [permissions.manageTargetingAttributes, apiCall, refreshOrganization]);
+  }, [
+    permissions.manageTargetingAttributes,
+    apiCall,
+    refreshOrganization,
+    attributeSchema,
+    savedGroups,
+  ]);
 
   if (!savedGroups) return <LoadingOverlay />;
 
