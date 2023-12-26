@@ -565,7 +565,6 @@ describe("features", () => {
               // Bailout (fail) if the parent flag value is not "green"
               parent: "parentFlag",
               parentCondition: { "@parent": "green" },
-              force: "bailout",
             },
             {
               condition: { memberType: "basic" },
@@ -586,7 +585,7 @@ describe("features", () => {
     });
 
     const result2 = growthbook.evalFeature("childFlag");
-    expect(result2.value).toEqual("bailout");
+    expect(result2.value).toEqual("default");
 
     growthbook.destroy();
   });

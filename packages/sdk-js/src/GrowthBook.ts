@@ -656,11 +656,7 @@ export class GrowthBook<
           if (!pass) {
             return this._getFeatureResult(
               id,
-              rule.force !== undefined
-                ? (rule.force as V)
-                : feature.defaultValue !== undefined
-                ? feature.defaultValue
-                : null,
+              feature.defaultValue !== undefined ? feature.defaultValue : null,
               "prerequisite",
               rule.id
             );
