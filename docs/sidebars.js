@@ -357,7 +357,7 @@ const sidebars = {
     { type: "doc", id: "webhooks", label: "Webhooks" },
     {
       type: "category",
-      label: "How to Guides",
+      label: "Installation Guides",
       collapsed: true,
       link: {
         type: "doc",
@@ -379,6 +379,18 @@ const sidebars = {
           type: "doc",
           id: "guide/google-tag-manager-and-growthbook",
           label: "Google Tag Manager (GTM)",
+        },
+        {
+          type: "doc",
+          id: "integrations/shopify",
+          label: "Shopify + GrowthBook",
+          className: "pill-new",
+        },
+        {
+          type: "doc",
+          id: "integrations/webflow",
+          label: "Webflow + GrowthBook",
+          className: "pill-new",
         },
         {
           type: "doc",
@@ -444,18 +456,6 @@ const sidebars = {
           label: "SCIM",
           className: "pill-new",
         },
-        {
-          type: "doc",
-          id: "integrations/shopify",
-          label: "Shopify + GrowthBook",
-          className: "pill-new",
-        },
-        {
-          type: "doc",
-          id: "integrations/webflow",
-          label: "Webflow + GrowthBook",
-          className: "pill-new",
-        },
       ],
     },
     { type: "doc", id: "faq", label: "FAQ" },
@@ -468,6 +468,53 @@ const sidebars = {
           type: "doc",
           id: "account/user-permissions",
           label: "Roles & Permissions",
+        },
+      ],
+    },
+    {
+      type: "category",
+      label: "Experimentation Guide",
+      collapsed: true,
+      className: "top-divider",
+      link: {
+        type: "doc",
+        id: "using/index",
+      },
+      items: [
+        {
+          type: "doc",
+          id: "using/fundamentals",
+          label: "Fundamentals of AB testing",
+        },
+        {
+          type: "doc",
+          id: "using/experimentation-best-practices",
+          label: "Best Practices",
+        },
+        {
+          type: "doc",
+          id: "using/experimentation-problems",
+          label: "Common Problems",
+        },
+        {
+          type: "doc",
+          id: "using/product-development",
+          label: "Experimentation in Product Development",
+        },
+        {
+          type: "doc",
+          id: "using/experimenting",
+          label: "Experimenting in GrowthBook",
+        },
+        {
+          type: "doc",
+          id: "using/growthbook-best-practices",
+          label: "Organizing GrowthBook",
+        },
+        {
+          type: "doc",
+          id: "using/programs",
+          label: "Experimentation Programs",
         },
       ],
     },
