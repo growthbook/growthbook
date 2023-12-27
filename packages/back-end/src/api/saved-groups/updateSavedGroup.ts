@@ -2,7 +2,6 @@ import { isEqual } from "lodash";
 import { validateCondition } from "shared/util";
 import { UpdateSavedGroupResponse } from "../../../types/openapi";
 import {
-  UpdateSavedGroupProps,
   getSavedGroupById,
   toSavedGroupApiInterface,
   updateSavedGroupById,
@@ -10,6 +9,7 @@ import {
 import { createApiRequestHandler } from "../../util/handler";
 import { updateSavedGroupValidator } from "../../validators/openapi";
 import { savedGroupUpdated } from "../../services/savedGroups";
+import { UpdateSavedGroupProps } from "../../../types/saved-group";
 
 export const updateSavedGroup = createApiRequestHandler(
   updateSavedGroupValidator
@@ -78,10 +78,7 @@ export const updateSavedGroup = createApiRequestHandler(
     );
 
     // If the values or key change, we need to invalidate cached feature rules
-    if (
-      !isEqual(savedGroup.values, fieldsToUpdate.values) ||
-      fieldsToUpdate.attributeKey
-    ) {
+    if (fieldsToUpdate.values || fieldsToUpdate.condition) {
       savedGroupUpdated(req.organization, savedGroup.id);
     }
 

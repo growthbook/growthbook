@@ -51,14 +51,13 @@ export const postSavedGroup = createApiRequestHandler(postSavedGroupValidator)(
       throw new Error("Must specify a saved group type");
     }
 
-    const savedGroup = await createSavedGroup({
+    const savedGroup = await createSavedGroup(req.organization.id, {
       type: type,
       values: values || [],
       groupName: name,
       owner: owner || "",
       condition: condition || "",
       attributeKey,
-      organization: req.organization.id,
     });
 
     return {

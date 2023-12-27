@@ -22,11 +22,14 @@ type GroupMapValue = GroupMap extends Map<any, infer I> ? I : never;
 
 function getSavedGroupCondition(
   group: GroupMapValue,
+  groupMap: GroupMap,
   include: boolean
 ): null | ConditionInterface {
   if (group.type === "condition") {
     try {
-      const cond = JSON.parse(group.condition || "{}");
+      const cond = JSON.parse(
+        replaceSavedGroupsInCondition(group.condition || "{}", groupMap)
+      );
       return include ? cond : { $not: cond };
     } catch (e) {
       return null;
@@ -76,7 +79,7 @@ export function getParsedCondition(
       // Add each group as a separate top-level AND
       if (match === "all") {
         groups.forEach((group) => {
-          const cond = getSavedGroupCondition(group, true);
+          const cond = getSavedGroupCondition(group, groupMap, true);
           if (cond) conditions.push(cond);
         });
       }
@@ -84,7 +87,7 @@ export function getParsedCondition(
       else if (match === "any") {
         const ors: ConditionInterface[] = [];
         groups.forEach((group) => {
-          const cond = getSavedGroupCondition(group, true);
+          const cond = getSavedGroupCondition(group, groupMap, true);
           if (cond) ors.push(cond);
         });
 
@@ -100,7 +103,7 @@ export function getParsedCondition(
       // Add each group as a separate top-level AND with a NOT condition
       else if (match === "none") {
         groups.forEach((group) => {
-          const cond = getSavedGroupCondition(group, false);
+          const cond = getSavedGroupCondition(group, groupMap, false);
           if (cond) conditions.push(cond);
         });
       }

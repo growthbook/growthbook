@@ -67,18 +67,21 @@ const SavedGroupForm: FC<{
 
         // Update existing saved group
         if (current.id) {
-          await apiCall(`/saved-groups/${current.id}`, {
-            method: "PUT",
-            body: JSON.stringify(value),
-          });
-        }
-        // Create new saved group
-        else {
           const payload: UpdateSavedGroupProps = {
             condition: value.condition,
             groupName: value.groupName,
             owner: value.owner,
             values: value.values,
+          };
+          await apiCall(`/saved-groups/${current.id}`, {
+            method: "PUT",
+            body: JSON.stringify(payload),
+          });
+        }
+        // Create new saved group
+        else {
+          const payload: CreateSavedGroupProps = {
+            ...value,
           };
           await apiCall(`/saved-groups`, {
             method: "POST",

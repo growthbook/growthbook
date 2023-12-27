@@ -5,10 +5,10 @@ import { ApiErrorResponse } from "../../../types/api";
 import { getOrgFromReq } from "../../services/organizations";
 import {
   CreateSavedGroupProps,
+  UpdateSavedGroupProps,
   SavedGroupInterface,
 } from "../../../types/saved-group";
 import {
-  UpdateSavedGroupProps,
   createSavedGroup,
   deleteSavedGroupById,
   getSavedGroupById,
@@ -60,14 +60,13 @@ export const postSavedGroup = async (
     }
   }
 
-  const savedGroup = await createSavedGroup({
+  const savedGroup = await createSavedGroup(org.id, {
     values,
     type,
     condition,
     groupName,
     owner: owner || userName,
     attributeKey,
-    organization: org.id,
   });
 
   await req.audit({

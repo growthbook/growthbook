@@ -3,8 +3,10 @@ import uniqid from "uniqid";
 import { omit } from "lodash";
 import { ApiSavedGroup } from "../../types/openapi";
 import {
+  CreateSavedGroupProps,
   LegacySavedGroupInterface,
   SavedGroupInterface,
+  UpdateSavedGroupProps,
 } from "../../types/saved-group";
 import { usingFileConfig } from "../init/config";
 import { migrateSavedGroup } from "../util/migrations";
@@ -38,18 +40,6 @@ const SavedGroupModel = mongoose.model<LegacySavedGroupInterface>(
   savedGroupSchema
 );
 
-type CreateSavedGroupProps = Omit<
-  SavedGroupInterface,
-  "dateCreated" | "dateUpdated" | "id"
->;
-
-export type UpdateSavedGroupProps = Partial<
-  Omit<
-    SavedGroupInterface,
-    "dateCreated" | "dateUpdated" | "id" | "organization" | "type"
-  >
->;
-
 const toInterface = (doc: SavedGroupDocument): SavedGroupInterface => {
   const legacy = omit(
     doc.toJSON<SavedGroupDocument>({ flattenMaps: true }),
@@ -69,11 +59,13 @@ export function parseSavedGroupString(list: string) {
 }
 
 export async function createSavedGroup(
+  organization: string,
   group: CreateSavedGroupProps
 ): Promise<SavedGroupInterface> {
   const newGroup = await SavedGroupModel.create({
     ...group,
     id: uniqid("grp_"),
+    organization,
     dateCreated: new Date(),
     dateUpdated: new Date(),
   });

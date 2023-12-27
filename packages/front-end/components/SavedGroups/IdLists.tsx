@@ -13,14 +13,13 @@ import { GBAddCircle } from "../Icons";
 import Field from "../Forms/Field";
 import MoreMenu from "../Dropdown/MoreMenu";
 import DeleteButton from "../DeleteButton/DeleteButton";
+import { MultiValuesDisplay } from "../Features/ConditionDisplay";
 import SavedGroupForm from "./SavedGroupForm";
 
 export interface Props {
   groups: SavedGroupInterface[];
   mutate: () => void;
 }
-
-const LIMIT = 3;
 
 export default function IdLists({ groups, mutate }: Props) {
   const [
@@ -139,19 +138,9 @@ export default function IdLists({ groups, mutate }: Props) {
                         <td>{s.groupName}</td>
                         <td>{s.attributeKey}</td>
                         <td>
-                          {s.values?.slice(0, LIMIT).map((v) => (
-                            <span
-                              className="badge badge-secondary mr-2"
-                              key={v}
-                            >
-                              {v}
-                            </span>
-                          ))}
-                          {(s.values || []).length > LIMIT && (
-                            <em className="text-muted">
-                              +{(s.values || []).length - LIMIT} more
-                            </em>
-                          )}
+                          <div className="d-flex flex-wrap">
+                            <MultiValuesDisplay values={s.values || []} />
+                          </div>
                         </td>
                         <td>{s.owner}</td>
                         <td>{ago(s.dateUpdated)}</td>

@@ -85,6 +85,35 @@ function getValue(
 
 const MULTI_VALUE_LIMIT = 3;
 
+export function MultiValuesDisplay({ values }: { values: string[] }) {
+  return (
+    <>
+      {values.slice(0, MULTI_VALUE_LIMIT).map((v, i) => (
+        <span key={i} className="mr-1 border px-2 bg-light rounded">
+          {v}
+        </span>
+      ))}
+      {values.length > MULTI_VALUE_LIMIT && (
+        <Tooltip
+          body={
+            <div>
+              {values.slice(MULTI_VALUE_LIMIT).map((v, i) => (
+                <span key={i} className="mr-1 border px-2 bg-light rounded">
+                  {v}
+                </span>
+              ))}
+            </div>
+          }
+        >
+          <span className="mr-1">
+            <em>+ {values.length - MULTI_VALUE_LIMIT} more</em>
+          </span>
+        </Tooltip>
+      )}
+    </>
+  );
+}
+
 function MultiValueDisplay({ value }: { value: string }) {
   const parts = value
     .split(",")
@@ -98,33 +127,10 @@ function MultiValueDisplay({ value }: { value: string }) {
       </span>
     );
   }
-
   return (
     <>
       <span className="mr-1">(</span>
-      {parts.slice(0, MULTI_VALUE_LIMIT).map((v, i) => (
-        <span key={i} className="mr-1 border px-2 bg-light rounded">
-          {v}
-        </span>
-      ))}
-      {parts.length > MULTI_VALUE_LIMIT && (
-        <Tooltip
-          body={
-            <div>
-              {parts.slice(MULTI_VALUE_LIMIT).map((v, i) => (
-                <span key={i} className="mr-1 border px-2 bg-light rounded">
-                  {v}
-                </span>
-              ))}
-            </div>
-          }
-        >
-          <span className="mr-1">
-            <em>+ {parts.length - MULTI_VALUE_LIMIT} more</em>
-          </span>
-        </Tooltip>
-      )}
-      )
+      <MultiValuesDisplay values={parts} />)
     </>
   );
 }
