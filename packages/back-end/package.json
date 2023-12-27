@@ -40,7 +40,7 @@
     "@opentelemetry/api": "^1.4.1",
     "@opentelemetry/auto-instrumentations-node": "^0.37.1",
     "@sentry/node": "^7.14.2",
-    "@slack/web-api": "^5.14.0",
+    "@slack/web-api": "^6.9.1",
     "@types/handlebars": "^4.1.0",
     "@types/snowflake-sdk": "^1.6.20",
     "agenda": "^5.0.0",
