@@ -533,7 +533,7 @@ describe("features", () => {
     growthbook.destroy();
   });
 
-  it("gates flag rule evaluation on prerequisite flags", async () => {
+  it("gates flag rule evaluation on prerequisite flag", async () => {
     const growthbook = new GrowthBook({
       attributes: {
         id: "123",
@@ -559,12 +559,71 @@ describe("features", () => {
           rules: [
             {
               condition: { memberType: "premium" },
-              force: "success",
+              force: "success1",
             },
             {
               // Bailout (fail) if the parent flag value is not "green"
               parent: "parentFlag",
               parentCondition: { "@parent": "green" },
+            },
+            {
+              condition: { memberType: "basic" },
+              force: "success2",
+            },
+          ],
+        },
+      },
+    });
+
+    const result1 = growthbook.evalFeature("childFlag");
+    expect(result1.value).toEqual("success2");
+
+    growthbook.setAttributes({
+      id: "123",
+      memberType: "basic",
+      country: "Canada",
+    });
+
+    const result2 = growthbook.evalFeature("childFlag");
+    expect(result2.value).toEqual("default");
+
+    growthbook.destroy();
+  });
+
+  it("gates flag rule evaluation on prerequisite experiment flag", async () => {
+    const growthbook = new GrowthBook({
+      attributes: {
+        id: "1234",
+        memberType: "basic",
+        country: "USA",
+      },
+      features: {
+        parentExperimentFlag: {
+          defaultValue: 0,
+          rules: [
+            {
+              key: "experiment",
+              variations: [0, 1],
+              hashAttribute: "id",
+              hashVersion: 2,
+              ranges: [
+                [0, 0.5],
+                [0.5, 1.0],
+              ],
+            },
+          ],
+        },
+        childFlag: {
+          defaultValue: "default",
+          rules: [
+            {
+              condition: { memberType: "premium" },
+              force: "success",
+            },
+            {
+              // Bailout (fail) if the parent flag value is not "green"
+              parent: "parentExperimentFlag",
+              parentCondition: { "@parent": 1 },
             },
             {
               condition: { memberType: "basic" },
@@ -577,15 +636,6 @@ describe("features", () => {
 
     const result1 = growthbook.evalFeature("childFlag");
     expect(result1.value).toEqual("success");
-
-    growthbook.setAttributes({
-      id: "123",
-      memberType: "basic",
-      country: "Canada",
-    });
-
-    const result2 = growthbook.evalFeature("childFlag");
-    expect(result2.value).toEqual("default");
 
     growthbook.destroy();
   });

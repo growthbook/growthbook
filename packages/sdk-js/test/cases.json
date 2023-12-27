@@ -3274,6 +3274,279 @@
           "bucket": 0.8043
         }
       }
+    ],
+    [
+      "Prerequisite flag off, block dependent flag",
+      {
+        "attributes": {
+          "id": "123",
+          "memberType": "basic",
+          "country": "Canada"
+        },
+        "features": {
+          "parentFlag": {
+            "defaultValue": "silver",
+            "rules": [
+              {
+                "condition": { "country": "Canada" },
+                "force": "red"
+              },
+              {
+                "condition": { "country": { "$in": ["USA", "Mexico"] } },
+                "force": "green"
+              }
+            ]
+          },
+          "childFlag": {
+            "defaultValue": "default",
+            "rules": [
+              {
+                "condition": { "memberType": "premium" },
+                "force": "success1"
+              },
+              {
+                "parent": "parentFlag",
+                "parentCondition": { "@parent": "green" }
+              },
+              {
+                "condition": { "memberType": "basic" },
+                "force": "success2"
+              }
+            ]
+          }
+        }
+      },
+      "childFlag",
+      {
+        "value": "default",
+        "on": true,
+        "off": false,
+        "source": "prerequisite"
+      }
+    ],
+    [
+      "Prerequisite flag on, evaluate dependent flag",
+      {
+        "attributes": {
+          "id": "123",
+          "memberType": "basic",
+          "country": "USA"
+        },
+        "features": {
+          "parentFlag": {
+            "defaultValue": "silver",
+            "rules": [
+              {
+                "condition": { "country": "Canada" },
+                "force": "red"
+              },
+              {
+                "condition": { "country": { "$in": ["USA", "Mexico"] } },
+                "force": "green"
+              }
+            ]
+          },
+          "childFlag": {
+            "defaultValue": "default",
+            "rules": [
+              {
+                "condition": { "memberType": "premium" },
+                "force": "success1"
+              },
+              {
+                "parent": "parentFlag",
+                "parentCondition": { "@parent": "green" }
+              },
+              {
+                "condition": { "memberType": "basic" },
+                "force": "success2"
+              }
+            ]
+          }
+        }
+      },
+      "childFlag",
+      {
+        "value": "success2",
+        "on": true,
+        "off": false,
+        "source": "force"
+      }
+    ],
+    [
+      "Multiple parallel prerequisite flags on, evaluate dependent flag",
+      {
+        "attributes": {
+          "id": "123",
+          "memberType": "basic",
+          "country": "USA"
+        },
+        "features": {
+          "parentFlag1": {
+            "defaultValue": "silver",
+            "rules": [
+              {
+                "condition": { "country": "Canada" },
+                "force": "red"
+              },
+              {
+                "condition": { "country": { "$in": ["USA", "Mexico"] } },
+                "force": "green"
+              }
+            ]
+          },
+          "parentFlag2": {
+            "defaultValue": 0,
+            "rules": [
+              {
+                "condition": { "id": "123" },
+                "force": 2
+              }
+            ]
+          },
+          "childFlag": {
+            "defaultValue": "default",
+            "rules": [
+              {
+                "condition": { "memberType": "premium" },
+                "force": "success1"
+              },
+              {
+                "parent": "parentFlag1",
+                "parentCondition": { "@parent": "green" }
+              },
+              {
+                "parent": "parentFlag2",
+                "parentCondition": { "@parent": { "$gt": 1 } }
+              },
+              {
+                "condition": { "memberType": "basic" },
+                "force": "success2"
+              }
+            ]
+          }
+        }
+      },
+      "childFlag",
+      {
+        "value": "success2",
+        "on": true,
+        "off": false,
+        "source": "force"
+      }
+    ],
+    [
+      "Multiple nested prerequisite flags on, evaluate dependent flag",
+      {
+        "attributes": {
+          "id": "123",
+          "memberType": "basic",
+          "country": "USA"
+        },
+        "features": {
+          "parentFlag1": {
+            "defaultValue": "silver",
+            "rules": [
+              {
+                "parent": "parentFlag2",
+                "parentCondition": { "@parent": { "$gt": 1 } }
+              },
+              {
+                "condition": { "country": "Canada" },
+                "force": "red"
+              },
+              {
+                "condition": { "country": { "$in": ["USA", "Mexico"] } },
+                "force": "green"
+              }
+            ]
+          },
+          "parentFlag2": {
+            "defaultValue": 0,
+            "rules": [
+              {
+                "condition": { "id": "123" },
+                "force": 2
+              }
+            ]
+          },
+          "childFlag": {
+            "defaultValue": "default",
+            "rules": [
+              {
+                "condition": { "memberType": "premium" },
+                "force": "success1"
+              },
+              {
+                "parent": "parentFlag1",
+                "parentCondition": { "@parent": "green" }
+              },
+              {
+                "condition": { "memberType": "basic" },
+                "force": "success2"
+              }
+            ]
+          }
+        }
+      },
+      "childFlag",
+      {
+        "value": "success2",
+        "on": true,
+        "off": false,
+        "source": "force"
+      }
+    ],
+    [
+      "Prerequisite experiment flag in target bucket, evaluate dependent flag",
+      {
+        "attributes": {
+          "id": "1234",
+          "memberType": "basic",
+          "country": "USA"
+        },
+        "features": {
+          "parentExperimentFlag": {
+            "defaultValue": 0,
+            "rules": [
+              {
+                "key": "experiment",
+                "variations": [0, 1],
+                "hashAttribute": "id",
+                "hashVersion": 2,
+                "ranges": [
+                  [0, 0.5],
+                  [0.5, 1.0]
+                ]
+              }
+            ]
+          },
+          "childFlag": {
+            "defaultValue": "default",
+            "rules": [
+              {
+                "condition": { "memberType": "premium" },
+                "force": "success1"
+              },
+              {
+                "parent": "parentExperimentFlag",
+                "parentCondition": { "@parent": 1 }
+              },
+              {
+                "condition": { "memberType": "basic" },
+                "force": "success2"
+              }
+            ]
+          }
+        }
+      },
+      "childFlag",
+      {
+        "value": "success2",
+        "on": true,
+        "off": false,
+        "source": "force"
+      }
     ]
   ],
   "run": [
