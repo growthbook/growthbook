@@ -638,22 +638,15 @@ export class GrowthBook<
     // Loop through the rules
     if (feature.rules) {
       for (const rule of feature.rules) {
-        // If it's a parent reference, evaluate the parent and apply the results to the condition
+        // If it's prerequisite flag, check if the parent flag evaluates to the rule's condition
         if (rule.parent) {
           const parentResult = this.evalFeature(rule.parent);
-          if (parentResult === null || parentResult.value === null) {
-            process.env.NODE_ENV !== "production" &&
-              this.log("Skip rule because prerequisite flag was not found", {
-                id,
-                rule,
-              });
-            continue;
-          }
-          const pass = evalCondition(
-            { "@parent": parentResult.value },
-            rule.parentCondition || {}
-          );
-          if (!pass) {
+          if (
+            !evalCondition(
+              { "@parent": parentResult.value },
+              rule.parentCondition || {}
+            )
+          ) {
             return this._getFeatureResult(
               id,
               feature.defaultValue !== undefined ? feature.defaultValue : null,

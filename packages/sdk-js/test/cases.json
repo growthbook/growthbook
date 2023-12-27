@@ -3325,6 +3325,42 @@
       }
     ],
     [
+      "Prerequisite flag missing, block dependent flag",
+      {
+        "attributes": {
+          "id": "123",
+          "memberType": "basic",
+          "country": "Canada"
+        },
+        "features": {
+          "childFlag": {
+            "defaultValue": "default",
+            "rules": [
+              {
+                "condition": { "memberType": "premium" },
+                "force": "success1"
+              },
+              {
+                "parent": "parentFlag",
+                "parentCondition": { "@parent": "green" }
+              },
+              {
+                "condition": { "memberType": "basic" },
+                "force": "success2"
+              }
+            ]
+          }
+        }
+      },
+      "childFlag",
+      {
+        "value": "default",
+        "on": true,
+        "off": false,
+        "source": "prerequisite"
+      }
+    ],
+    [
       "Prerequisite flag on, evaluate dependent flag",
       {
         "attributes": {
