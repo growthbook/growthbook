@@ -16,7 +16,7 @@ If you just want to contribute a client library in a new language and not make c
   - [pandas](https://pandas.pydata.org/docs/getting_started/install.html)
 - [Docker](https://docs.docker.com/engine/install/) (for running MongoDB locally)
 
-## Windows users
+### Windows users
 
 One sure shot way to run GrowthBook on Windows is through installing [Windows Subsystem for Linux (WSL)](https://docs.microsoft.com/en-us/windows/wsl/setup/environment#set-up-your-linux-user-info). These are some of the steps to follow, also outlined in the link above:
 

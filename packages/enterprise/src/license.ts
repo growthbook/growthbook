@@ -5,6 +5,7 @@ import fetch from "node-fetch";
 import type Stripe from "stripe";
 import pino from "pino";
 import { omit, sortBy } from "lodash";
+import AsyncLock from "async-lock";
 import { LicenseDocument, LicenseModel } from "./models/licenseModel";
 
 export const LICENSE_SERVER =
@@ -169,7 +170,10 @@ export function orgHasPremiumFeature(
   org: MinimalOrganization,
   feature: CommercialFeature
 ): boolean {
-  return planHasPremiumFeature(getAccountPlan(org), feature);
+  return (
+    !shouldLimitAccessDueToExpiredLicense() &&
+    planHasPremiumFeature(getAccountPlan(org), feature)
+  );
 }
 
 async function getPublicKey(): Promise<Buffer> {
@@ -205,16 +209,8 @@ export async function getVerifiedLicenseData(
     throw new Error("Invalid License Key - Missing expiration date");
   }
   delete decodedLicense.eat;
-
   // The `trial` field used to be optional, force it to always be defined
   decodedLicense.trial = !!decodedLicense.trial;
-
-  // If it's a trial license key, make sure it's not expired yet
-  // For real license keys, we show an "expired" banner in the app instead of throwing an error
-  // We want to be strict for trial keys, but lenient for real Enterprise customers
-  if (decodedLicense.trial && decodedLicense.exp < new Date().toISOString()) {
-    throw new Error(`Your License Key trial expired on ${decodedLicense.exp}.`);
-  }
 
   // We used to only offer license keys for Enterprise plans (not pro)
   if (!decodedLicense.plan) {
@@ -341,6 +337,7 @@ async function getLicenseDataFromServer(
   userLicenseCodes: string[],
   metaData: LicenseMetaData
 ): Promise<LicenseInterface> {
+  logger.info("Getting license data from server for " + licenseId);
   const url = `${LICENSE_SERVER}license/${licenseId}/check`;
   const options = {
     method: "PUT",
@@ -398,6 +395,7 @@ export interface LicenseMetaData {
   isCloud: boolean;
 }
 
+const lock = new AsyncLock();
 let licenseData: Partial<LicenseInterface> | null = null;
 let cacheDate: Date | null = null;
 // in-memory cache to avoid hitting the license server on every request
@@ -418,30 +416,33 @@ export async function licenseInit(
 
   const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
 
-  if (
-    !forceRefresh &&
-    key &&
-    keyToLicenseData[key] &&
-    (cacheDate === null || cacheDate > oneDayAgo)
-  ) {
-    licenseData = keyToLicenseData[key];
-    return keyToLicenseData[key];
-  }
+  // When hitting a page for a new license we often make many simulataneous requests
+  // By acquiring a lock we make sure to only call the license server once, the remaining
+  // calls will be able to read from the cache.
+  await lock.acquire(key, async () => {
+    if (
+      !forceRefresh &&
+      key &&
+      keyToLicenseData[key] &&
+      (cacheDate === null || cacheDate > oneDayAgo)
+    ) {
+      licenseData = keyToLicenseData[key];
+    } else if (key.startsWith("license_") && userLicenseCodes && metaData) {
+      licenseData = await getLicenseDataFromServer(
+        key,
+        userLicenseCodes,
+        metaData
+      );
+      cacheDate = new Date();
+    } else {
+      // Old style: the key itself has the encrypted license data in it.
+      licenseData = await getVerifiedLicenseData(key);
+    }
 
-  if (key.startsWith("license_") && userLicenseCodes && metaData) {
-    licenseData = await getLicenseDataFromServer(
-      key,
-      userLicenseCodes,
-      metaData
-    );
-    cacheDate = new Date();
-  } else {
-    // Old style: the key itself has the encrypted license data in it.
-    licenseData = await getVerifiedLicenseData(key);
-  }
+    keyToLicenseData[key] = licenseData;
+  });
 
-  keyToLicenseData[key] = licenseData;
-  return licenseData;
+  return keyToLicenseData[key];
 }
 
 export function getLicense() {
@@ -458,4 +459,30 @@ export function resetInMemoryLicenseCache(): void {
   Object.keys(keyToLicenseData).forEach((key) => {
     delete keyToLicenseData[key];
   });
+}
+
+/**
+ * Checks if the license is expired.
+ * @returns {boolean} True if the license is expired, false otherwise.
+ */
+export function shouldLimitAccessDueToExpiredLicense(): boolean {
+  // If licenseData is not available, consider it as not expired
+  if (!licenseData) {
+    return false;
+  }
+
+  // Check if the license is in trial and has an expiration date
+  if (licenseData.isTrial && licenseData.dateExpires) {
+    // Create a date object for the expiration date
+    const expirationDate = new Date(licenseData.dateExpires);
+
+    // Check if the adjusted expiration date is in the past
+    if (expirationDate < new Date()) {
+      // The license is expired
+      return true;
+    }
+  }
+
+  // The license is not expired
+  return false;
 }
