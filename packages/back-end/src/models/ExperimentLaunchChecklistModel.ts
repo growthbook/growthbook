@@ -17,9 +17,17 @@ const experimentLaunchChecklistSchema = new mongoose.Schema({
     {
       task: String,
       completionType: { type: String, enum: ["manual", "auto"] },
+      customFieldId: String,
       propertyKey: {
         type: String,
-        enum: ["description", "hypothesis", "project", "tag", "screenshots"],
+        enum: [
+          "description",
+          "hypothesis",
+          "project",
+          "tag",
+          "screenshots",
+          "customField",
+        ],
       },
       url: String,
     },

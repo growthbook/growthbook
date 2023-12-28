@@ -11,6 +11,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import track from "@/services/track";
 import { useCustomFields } from "@/hooks/useCustomFields";
+import Tooltip from "@/components/Tooltip/Tooltip";
 import Modal from "../Modal";
 import Field from "../Forms/Field";
 import Toggle from "../Forms/Toggle";
@@ -209,7 +210,7 @@ export default function CustomFieldModal({
         </>
       )}
       <div className="form-group mb-3 mt-3">
-        {projects?.length && (
+        {projects?.length > 0 && (
           <div className="form-group">
             <label>Projects (optional)</label>
             <MultiSelectField
@@ -234,7 +235,14 @@ export default function CustomFieldModal({
             form.setValue("required", value);
           }}
         />{" "}
-        <label htmlFor="required">Field is required</label>
+        <label htmlFor="required">
+          Field is required on new experiments{" "}
+          <Tooltip
+            body={
+              "This will make the custom field required when creating or editing experiments. You can also make this field required before starting an experiment from launch checklists."
+            }
+          ></Tooltip>
+        </label>
       </div>
       <Toggle
         id={"index"}

@@ -213,7 +213,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
       ],
       status: !isImport ? "draft" : initialValue?.status || "running",
       ideaSource: idea || "",
-      customFields: initialValue?.customFields || "",
+      customFields: initialValue?.customFields,
     },
   });
   const [selectedProject, setSelectedProject] = useState(form.watch("project"));

@@ -42,6 +42,13 @@ function isChecklistItemComplete(
       return !!experiment.project;
     case "tag":
       return experiment.tags?.length > 0;
+    case "customField":
+      if (checklistTask.customFieldId) {
+        const expField =
+          experiment?.customFields?.[checklistTask.customFieldId];
+        return !!expField;
+      }
+      return false;
   }
 }
 
