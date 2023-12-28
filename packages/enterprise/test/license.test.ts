@@ -385,13 +385,6 @@ describe("licenseInit", () => {
       }).rejects.toThrowError("Invalid License Key - Missing expiration date");
     });
 
-    it("should throw an error if the license has expired", async () => {
-      jest.setSystemTime(now.getTime() + 8 * 24 * 60 * 60 * 1000);
-      await expect(async () => {
-        await licenseInit(oldLicenseKey, userLicenseCodes, metaData);
-      }).rejects.toThrowError("Your License Key trial expired on");
-    });
-
     it("should automatically assume enterprise plan if no plan is specified", async () => {
       const oldLicenseOriginalData2 = cloneDeep(oldLicenseOrginalData);
       // @ts-expect-error Ignoring TypeScript error here because we intentionally passed malformed data for testing purposes

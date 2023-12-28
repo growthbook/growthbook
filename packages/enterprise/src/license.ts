@@ -170,7 +170,10 @@ export function orgHasPremiumFeature(
   org: MinimalOrganization,
   feature: CommercialFeature
 ): boolean {
-  return planHasPremiumFeature(getAccountPlan(org), feature);
+  return (
+    !shouldLimitAccessDueToExpiredLicense() &&
+    planHasPremiumFeature(getAccountPlan(org), feature)
+  );
 }
 
 async function getPublicKey(): Promise<Buffer> {
@@ -206,16 +209,8 @@ export async function getVerifiedLicenseData(
     throw new Error("Invalid License Key - Missing expiration date");
   }
   delete decodedLicense.eat;
-
   // The `trial` field used to be optional, force it to always be defined
   decodedLicense.trial = !!decodedLicense.trial;
-
-  // If it's a trial license key, make sure it's not expired yet
-  // For real license keys, we show an "expired" banner in the app instead of throwing an error
-  // We want to be strict for trial keys, but lenient for real Enterprise customers
-  if (decodedLicense.trial && decodedLicense.exp < new Date().toISOString()) {
-    throw new Error(`Your License Key trial expired on ${decodedLicense.exp}.`);
-  }
 
   // We used to only offer license keys for Enterprise plans (not pro)
   if (!decodedLicense.plan) {
@@ -464,4 +459,30 @@ export function resetInMemoryLicenseCache(): void {
   Object.keys(keyToLicenseData).forEach((key) => {
     delete keyToLicenseData[key];
   });
+}
+
+/**
+ * Checks if the license is expired.
+ * @returns {boolean} True if the license is expired, false otherwise.
+ */
+export function shouldLimitAccessDueToExpiredLicense(): boolean {
+  // If licenseData is not available, consider it as not expired
+  if (!licenseData) {
+    return false;
+  }
+
+  // Check if the license is in trial and has an expiration date
+  if (licenseData.isTrial && licenseData.dateExpires) {
+    // Create a date object for the expiration date
+    const expirationDate = new Date(licenseData.dateExpires);
+
+    // Check if the adjusted expiration date is in the past
+    if (expirationDate < new Date()) {
+      // The license is expired
+      return true;
+    }
+  }
+
+  // The license is not expired
+  return false;
 }
