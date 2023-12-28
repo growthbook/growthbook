@@ -6,13 +6,16 @@ import { useForm } from "react-hook-form";
 import React, { useEffect, useState } from "react";
 import { useRouter } from "next/router";
 import { useGrowthBook } from "@growthbook/growthbook-react";
-import {
-  FaCheck,
-  FaExclamationCircle,
-  FaExclamationTriangle,
-  FaInfoCircle,
-} from "react-icons/fa";
+import { FaCheck, FaExclamationCircle, FaInfoCircle } from "react-icons/fa";
 import clsx from "clsx";
+import {
+  getConnectionSDKCapabilities,
+  getDefaultSDKVersion,
+  getLatestSDKVersion,
+  getSDKCapabilityVersion,
+  getSDKVersions,
+  isSDKOutdated,
+} from "shared/sdk-versioning";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useEnvironments } from "@/services/features";
 import Modal from "@/components/Modal";
@@ -27,11 +30,9 @@ import { useUser } from "@/services/UserContext";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import ControlledTabs from "@/components/Tabs/ControlledTabs";
 import Tab from "@/components/Tabs/Tab";
+import MultiSelectField from "@/components/Forms/MultiSelectField";
 import SDKLanguageSelector from "./SDKLanguageSelector";
-import SDKLanguageLogo, {
-  LanguageEnvironment,
-  languageMapping,
-} from "./SDKLanguageLogo";
+import { LanguageEnvironment, languageMapping } from "./SDKLanguageLogo";
 
 function getSecurityTabState(
   value: Partial<SDKConnectionInterface>
@@ -63,7 +64,6 @@ export default function SDKConnectionForm({
   const router = useRouter();
 
   const { hasCommercialFeature } = useUser();
-
   const hasEncryptionFeature = hasCommercialFeature(
     "encrypt-features-endpoint"
   );
@@ -89,8 +89,20 @@ export default function SDKConnectionForm({
     defaultValues: {
       name: initialValue.name ?? "",
       languages: initialValue.languages ?? [],
+      sdkVersion:
+        initialValue.sdkVersion ??
+        getDefaultSDKVersion(
+          initialValue?.languages?.length === 1
+            ? initialValue.languages[0]
+            : "other"
+        ),
       environment: initialValue.environment ?? environments[0]?.id ?? "",
-      project: "project" in initialValue ? initialValue.project : project ?? "",
+      projects:
+        "projects" in initialValue
+          ? initialValue.projects
+          : project
+          ? [project]
+          : [],
       encryptPayload: initialValue.encryptPayload ?? false,
       hashSecureAttributes:
         initialValue.hashSecureAttributes ?? hasSecureAttributesFeature,
@@ -102,6 +114,17 @@ export default function SDKConnectionForm({
       remoteEvalEnabled: initialValue.remoteEvalEnabled ?? false,
     },
   });
+
+  const usingLatestVersion = !isSDKOutdated(
+    form.watch("languages")?.[0] || "other",
+    form.watch("sdkVersion")
+  );
+
+  const useLatestSdkVersion = () => {
+    const language = form.watch("languages")?.[0] || "other";
+    const latest = getLatestSDKVersion(language);
+    form.setValue("sdkVersion", latest);
+  };
 
   const languages = form.watch("languages");
   const languageEnvironments: Set<LanguageEnvironment> = new Set(
@@ -120,36 +143,33 @@ export default function SDKConnectionForm({
       ? "backend"
       : "hybrid";
 
-  const selectedLanguagesWithoutRemoteEvalSupport = languages.filter(
-    (l) => !languageMapping[l].supportsRemoteEval
+  const latestSdkCapabilities = getConnectionSDKCapabilities(
+    form.getValues(),
+    "max-ver-intersection"
   );
-
-  const selectedLanguagesWithoutEncryptionSupport = languages.filter(
-    (l) => !languageMapping[l].supportsEncryption
-  );
+  const currentSdkCapabilities = getConnectionSDKCapabilities(form.getValues());
 
   const enableRemoteEval =
-    hasRemoteEvaluationFeature &&
-    !!gb?.isOn("remote-evaluation") &&
-    selectedLanguagesWithoutRemoteEvalSupport.length === 0;
+    hasRemoteEvaluationFeature && !!gb?.isOn("remote-evaluation");
 
-  const showVisualEditorSettings = languages.some(
-    (l) => languageMapping[l].supportsVisualExperiments
+  const showVisualEditorSettings = latestSdkCapabilities.includes(
+    "visualEditor"
   );
 
   const projectsOptions = projects.map((p) => ({
     label: p.name,
     value: p.id,
   }));
-  const projectId = initialValue.project;
-  const projectName = projectId
-    ? getProjectById(projectId)?.name || null
-    : null;
-  const projectIsDeReferenced = projectId && !projectName;
-  if (projectIsDeReferenced) {
-    projectsOptions.push({
-      label: "Invalid project",
-      value: projectId,
+
+  if (initialValue.projects) {
+    initialValue.projects.forEach((p) => {
+      const name = getProjectById(p);
+      if (!name) {
+        projectsOptions.push({
+          label: "Invalid project",
+          value: p,
+        });
+      }
     });
   }
 
@@ -218,9 +238,7 @@ export default function SDKConnectionForm({
       error={form.formState.errors.languages?.message}
       submit={form.handleSubmit(async (value) => {
         // filter for visual experiments
-        if (
-          languages.every((l) => !languageMapping[l].supportsVisualExperiments)
-        ) {
+        if (!latestSdkCapabilities.includes("visualEditor")) {
           value.includeVisualExperiments = false;
         }
         if (!value.includeVisualExperiments) {
@@ -228,13 +246,13 @@ export default function SDKConnectionForm({
         }
 
         // filter for remote eval
-        if (languages.every((l) => !languageMapping[l].supportsRemoteEval)) {
+        if (!latestSdkCapabilities.includes("remoteEval")) {
           value.remoteEvalEnabled = false;
         }
 
         const body: Omit<CreateSDKConnectionParams, "organization"> = {
           ...value,
-          project: value.project || "",
+          projects: value.projects || [],
         };
 
         if (edit) {
@@ -281,53 +299,81 @@ export default function SDKConnectionForm({
         <Field label="Name" {...form.register("name")} required />
 
         <div className="form-group">
-          <div className="d-flex align-items-center mb-1">
+          <div className="d-flex align-items-center mt-4 mb-2">
             <label className="mb-0">SDK Language</label>
             {languageError ? (
               <span className="ml-3 alert px-1 py-0 mb-0 alert-danger">
                 {languageError}
               </span>
             ) : null}
+            <div className="flex-1" />
+            {form.watch("languages")?.length === 1 &&
+              form.watch("languages")[0] !== "other" && (
+                <div className="text-right position-relative">
+                  <div className="d-inline-flex align-items-center">
+                    <label className="mb-0 mr-2">SDK ver.</label>
+                    <SelectField
+                      className="text-left"
+                      style={{ width: 120 }}
+                      placeholder="0.0.0"
+                      autoComplete="off"
+                      sort={false}
+                      options={getSDKVersions(
+                        form.watch("languages")[0]
+                      ).map((ver) => ({ label: ver, value: ver }))}
+                      createable={true}
+                      isClearable={false}
+                      value={
+                        form.watch("sdkVersion") ||
+                        getDefaultSDKVersion(languages[0])
+                      }
+                      onChange={(v) => form.setValue("sdkVersion", v)}
+                    />
+                  </div>
+                  {usingLatestVersion ? (
+                    <div
+                      className="small position-absolute text-muted"
+                      style={{ zIndex: 1, right: 3 }}
+                    >
+                      Using latest
+                    </div>
+                  ) : (
+                    <a
+                      role="button"
+                      className="d-block small position-absolute"
+                      style={{ zIndex: 1, right: 3 }}
+                      onClick={useLatestSdkVersion}
+                    >
+                      Use latest
+                    </a>
+                  )}
+                </div>
+              )}
           </div>
           <SDKLanguageSelector
             value={form.watch("languages")}
-            setValue={(languages) => form.setValue("languages", languages)}
+            setValue={(languages) => {
+              form.setValue("languages", languages);
+              if (languages?.length === 1) {
+                form.setValue("sdkVersion", getLatestSDKVersion(languages[0]));
+              }
+            }}
             multiple={false}
             includeOther={true}
           />
         </div>
 
         <div className="row">
-          {(projects.length > 0 || projectIsDeReferenced) && (
+          {projectsOptions.length > 0 && (
             <div className="col">
-              <SelectField
-                label="Project"
-                initialOption="All Projects"
-                value={form.watch("project") || ""}
-                onChange={(project) => form.setValue("project", project)}
+              <MultiSelectField
+                label="Filter by Project"
+                placeholder="All Projects"
+                value={form.watch("projects") || []}
+                onChange={(projects) => form.setValue("projects", projects)}
                 options={projectsOptions}
                 sort={false}
-                formatOptionLabel={({ value, label }) => {
-                  if (value === "") {
-                    return <em>{label}</em>;
-                  }
-                  if (value === projectId && projectIsDeReferenced) {
-                    return (
-                      <Tooltip
-                        body={
-                          <>
-                            Project <code>{value}</code> not found
-                          </>
-                        }
-                      >
-                        <span className="text-danger">
-                          <FaExclamationTriangle /> <code>{value}</code>
-                        </span>
-                      </Tooltip>
-                    );
-                  }
-                  return label;
-                }}
+                closeMenuOnSelect={true}
               />
             </div>
           )}
@@ -554,36 +600,38 @@ export default function SDKConnectionForm({
                     </div>
 
                     {form.watch("encryptPayload") &&
-                      selectedLanguagesWithoutEncryptionSupport.length > 0 && (
+                      !currentSdkCapabilities.includes("encryption") && (
                         <div
-                          className="ml-2 mt-3 text-warning-orange small"
+                          className="ml-2 mt-3 text-warning-orange"
                           style={{ marginBottom: -5 }}
                         >
-                          <FaExclamationCircle /> Payload decryption is not
-                          natively supported in the selected SDK
-                          {selectedLanguagesWithoutEncryptionSupport.length ===
-                          1
-                            ? ""
-                            : "s"}
-                          :
-                          <div className="ml-2 mt-1">
-                            {selectedLanguagesWithoutEncryptionSupport.map(
-                              (id, i) => (
-                                <span className="nowrap" key={id}>
-                                  <SDKLanguageLogo language={id} size={14} />
-                                  <span
-                                    className="text-muted font-weight-bold"
-                                    style={{ marginLeft: 2, verticalAlign: 3 }}
-                                  >
-                                    {languageMapping[id].label}
-                                  </span>
-                                  {i <
-                                    selectedLanguagesWithoutEncryptionSupport.length -
-                                      1 && ", "}
-                                </span>
-                              )
-                            )}
-                          </div>
+                          <FaExclamationCircle /> Payload decryption may not be
+                          available in your current SDK.
+                          {languages.length === 1 && (
+                            <div className="mt-1 text-gray">
+                              {getSDKCapabilityVersion(
+                                languages[0],
+                                "encryption"
+                              ) ? (
+                                <>
+                                  It was introduced in SDK version{" "}
+                                  <code>
+                                    {getSDKCapabilityVersion(
+                                      languages[0],
+                                      "encryption"
+                                    )}
+                                  </code>
+                                  . The SDK version specified in this connection
+                                  is{" "}
+                                  <code>
+                                    {form.watch("sdkVersion") ||
+                                      getDefaultSDKVersion(languages[0])}
+                                  </code>
+                                  .
+                                </>
+                              ) : null}
+                            </div>
+                          )}
                         </div>
                       )}
                   </Tab>
@@ -705,20 +753,14 @@ export default function SDKConnectionForm({
                                 <Toggle
                                   id="remote-evaluation"
                                   value={form.watch("remoteEvalEnabled")}
-                                  setValue={(val) => {
-                                    if (
-                                      selectedLanguagesWithoutRemoteEvalSupport.length >
-                                      0
-                                    ) {
-                                      form.setValue("remoteEvalEnabled", false);
-                                    } else {
-                                      form.setValue("remoteEvalEnabled", val);
-                                    }
-                                  }}
+                                  setValue={(val) =>
+                                    form.setValue("remoteEvalEnabled", val)
+                                  }
                                   disabled={
                                     !hasRemoteEvaluationFeature ||
-                                    selectedLanguagesWithoutRemoteEvalSupport.length >
-                                      0
+                                    !latestSdkCapabilities.includes(
+                                      "remoteEval"
+                                    )
                                   }
                                 />
                                 {isCloud() ? (
@@ -757,36 +799,38 @@ export default function SDKConnectionForm({
                       </div>
                     </div>
                     {gb?.isOn("remote-evaluation") &&
-                    selectedLanguagesWithoutRemoteEvalSupport.length > 0 ? (
+                    !currentSdkCapabilities.includes("remoteEval") ? (
                       <div
-                        className="ml-2 mt-3 text-warning-orange small"
+                        className="ml-2 mt-3 text-warning-orange"
                         style={{ marginBottom: -5 }}
                       >
-                        <FaExclamationCircle /> Remote evaluation is currently
-                        only supported in a subset of front-end SDKs. It is not
-                        supported in the selected SDK
-                        {selectedLanguagesWithoutRemoteEvalSupport.length === 1
-                          ? ""
-                          : "s"}
-                        :
-                        <div className="ml-2 mt-1">
-                          {selectedLanguagesWithoutRemoteEvalSupport.map(
-                            (id, i) => (
-                              <span className="nowrap" key={id}>
-                                <SDKLanguageLogo language={id} size={14} />
-                                <span
-                                  className="text-muted font-weight-bold"
-                                  style={{ marginLeft: 2, verticalAlign: 3 }}
-                                >
-                                  {languageMapping[id].label}
-                                </span>
-                                {i <
-                                  selectedLanguagesWithoutRemoteEvalSupport.length -
-                                    1 && ", "}
-                              </span>
-                            )
-                          )}
-                        </div>
+                        <FaExclamationCircle /> Remote evaluation may not be
+                        available in your current SDK.
+                        {languages.length === 1 && (
+                          <div className="mt-1 text-gray">
+                            {getSDKCapabilityVersion(
+                              languages[0],
+                              "remoteEval"
+                            ) ? (
+                              <>
+                                It was introduced in SDK version{" "}
+                                <code>
+                                  {getSDKCapabilityVersion(
+                                    languages[0],
+                                    "remoteEval"
+                                  )}
+                                </code>
+                                . The SDK version specified in this connection
+                                is{" "}
+                                <code>
+                                  {form.watch("sdkVersion") ||
+                                    getDefaultSDKVersion(languages[0])}
+                                </code>
+                                .
+                              </>
+                            ) : null}
+                          </div>
+                        )}
                       </div>
                     ) : null}
                   </Tab>

@@ -1,6 +1,8 @@
-import { AutoExperiment } from "@growthbook/growthbook";
 import mongoose from "mongoose";
-import { FeatureDefinition } from "../../types/api";
+import {
+  AutoExperimentWithProject,
+  FeatureDefinitionWithProject,
+} from "../../types/api";
 import {
   SDKPayloadContents,
   SDKPayloadInterface,
@@ -12,7 +14,6 @@ export const LATEST_SDK_PAYLOAD_SCHEMA_VERSION = 1;
 
 const sdkPayloadSchema = new mongoose.Schema({
   organization: String,
-  project: String,
   environment: String,
   dateUpdated: Date,
   deployed: Boolean,
@@ -20,13 +21,13 @@ const sdkPayloadSchema = new mongoose.Schema({
   contents: String,
 });
 sdkPayloadSchema.index(
-  { organization: 1, project: 1, environment: 1 },
+  { organization: 1, environment: 1, schemaVersion: 1 },
   { unique: true }
 );
 type SDKPayloadDocument = mongoose.Document & SDKStringifiedPayloadInterface;
 
 const SDKPayloadModel = mongoose.model<SDKStringifiedPayloadInterface>(
-  "SdkPayload",
+  "SdkPayloadCache",
   sdkPayloadSchema
 );
 
@@ -49,34 +50,30 @@ function toInterface(doc: SDKPayloadDocument): SDKPayloadInterface | null {
 
 export async function getSDKPayload({
   organization,
-  project,
   environment,
 }: {
   organization: string;
-  project: string;
   environment: string;
 }): Promise<SDKPayloadInterface | null> {
   const doc = await SDKPayloadModel.findOne({
     organization,
-    project,
     environment,
     schemaVersion: LATEST_SDK_PAYLOAD_SCHEMA_VERSION,
   });
+
   return doc ? toInterface(doc) : null;
 }
 
 export async function updateSDKPayload({
   organization,
-  project,
   environment,
   featureDefinitions,
   experimentsDefinitions,
 }: {
   organization: string;
-  project: string;
   environment: string;
-  featureDefinitions: Record<string, FeatureDefinition>;
-  experimentsDefinitions: AutoExperiment[];
+  featureDefinitions: Record<string, FeatureDefinitionWithProject>;
+  experimentsDefinitions: AutoExperimentWithProject[];
 }) {
   const contents: SDKPayloadContents = {
     features: featureDefinitions,
@@ -86,14 +83,13 @@ export async function updateSDKPayload({
   await SDKPayloadModel.updateOne(
     {
       organization,
-      project,
       environment,
+      schemaVersion: LATEST_SDK_PAYLOAD_SCHEMA_VERSION,
     },
     {
       $set: {
         dateUpdated: new Date(),
         deployed: false,
-        schemaVersion: LATEST_SDK_PAYLOAD_SCHEMA_VERSION,
         // Contents need to be serialized since they may contain invalid Mongo field keys
         contents: JSON.stringify(contents),
       },

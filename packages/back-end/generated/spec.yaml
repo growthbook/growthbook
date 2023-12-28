@@ -2901,10 +2901,17 @@ components:
           type: array
           items:
             type: string
+        sdkVersion:
+          type: string
         environment:
           type: string
         project:
+          description: Use 'projects' instead. This is only for backwards compatibility and contains the first project only.
           type: string
+        projects:
+          type: array
+          items:
+            type: string
         encryptPayload:
           type: boolean
         encryptionKey:

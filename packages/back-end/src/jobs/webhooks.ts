@@ -31,9 +31,10 @@ export default function (ag: Agenda) {
 
     const { features, dateUpdated } = await getFeatureDefinitions({
       organization: webhook.organization,
+      capabilities: [],
       environment:
         webhook.environment === undefined ? "production" : webhook.environment,
-      project: webhook.project || "",
+      projects: webhook.project ? [webhook.project] : [],
     });
 
     // eslint-disable-next-line

@@ -52,8 +52,7 @@ const SidebarLink: FC<SidebarLinkProps> = (props) => {
     }
   }, [selected]);
 
-  // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-  if (props.feature && !growthbook.isOn(props.feature)) {
+  if (props.feature && growthbook && !growthbook.isOn(props.feature)) {
     return null;
   }
 

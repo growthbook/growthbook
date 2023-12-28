@@ -6,6 +6,7 @@ import {
   autoMerge,
   RulesAndValues,
   MergeConflict,
+  validateCondition,
 } from "../../src/util";
 
 const feature: FeatureInterface = {
@@ -70,7 +71,7 @@ describe("autoMerge", () => {
       version: 5,
     };
 
-    expect(autoMerge(live, base, revision, {})).toEqual({
+    expect(autoMerge(live, base, revision, ["dev", "prod"], {})).toEqual({
       success: true,
       conflicts: [],
       result: {
@@ -105,7 +106,7 @@ describe("autoMerge", () => {
       version: 5,
     };
 
-    expect(autoMerge(base, base, revision, {})).toEqual({
+    expect(autoMerge(base, base, revision, ["dev", "prod"], {})).toEqual({
       success: true,
       conflicts: [],
       result: {
@@ -180,13 +181,15 @@ describe("autoMerge", () => {
       revision: JSON.stringify(revision.rules["prod"], null, 2),
     };
 
-    expect(autoMerge(live, base, revision, {})).toEqual({
+    expect(autoMerge(live, base, revision, ["dev", "prod"], {})).toEqual({
       success: false,
       conflicts: [defaultValueConflict, prodConflict],
     });
 
     expect(
-      autoMerge(live, base, revision, { "rules.prod": "discard" })
+      autoMerge(live, base, revision, ["dev", "prod"], {
+        "rules.prod": "discard",
+      })
     ).toEqual({
       success: false,
       conflicts: [
@@ -201,7 +204,7 @@ describe("autoMerge", () => {
     });
 
     expect(
-      autoMerge(live, base, revision, {
+      autoMerge(live, base, revision, ["dev", "prod"], {
         "rules.prod": "discard",
         defaultValue: "discard",
       })
@@ -225,7 +228,7 @@ describe("autoMerge", () => {
     });
 
     expect(
-      autoMerge(live, base, revision, {
+      autoMerge(live, base, revision, ["dev", "prod"], {
         "rules.prod": "discard",
         defaultValue: "overwrite",
       })
@@ -250,7 +253,7 @@ describe("autoMerge", () => {
     });
 
     expect(
-      autoMerge(live, base, revision, {
+      autoMerge(live, base, revision, ["dev", "prod"], {
         "rules.prod": "overwrite",
         defaultValue: "overwrite",
       })
@@ -418,6 +421,55 @@ describe("validateFeatureValue", () => {
       expect(() =>
         validateFeatureValue(feature, value, "testVal")
       ).toThrowError();
+    });
+  });
+});
+
+describe("validateCondition", () => {
+  it("returns success when condition is undefined", () => {
+    expect(validateCondition(undefined)).toEqual({
+      success: true,
+      empty: true,
+    });
+  });
+  it("returns success when condition is empty", () => {
+    expect(validateCondition("")).toEqual({
+      success: true,
+      empty: true,
+    });
+  });
+  it("returns success when condition is empty object", () => {
+    expect(validateCondition("{}")).toEqual({
+      success: true,
+      empty: true,
+    });
+  });
+  it("returns error when condition is completely invalid", () => {
+    expect(validateCondition("{(+")).toEqual({
+      success: false,
+      empty: false,
+      error: "Unexpected token ( in JSON at position 1",
+    });
+  });
+  it("returns error when condition is not an object", () => {
+    expect(validateCondition("123")).toEqual({
+      success: false,
+      empty: false,
+      error: "Must be object",
+    });
+  });
+  it("returns suggested value when condition is invalid, but able to be fixed automatically", () => {
+    expect(validateCondition("{test: true}")).toEqual({
+      success: false,
+      empty: false,
+      error: "Unexpected token t in JSON at position 1",
+      suggestedValue: '{"test":true}',
+    });
+  });
+  it("returns success when condition is valid", () => {
+    expect(validateCondition('{"test": true}')).toEqual({
+      success: true,
+      empty: false,
     });
   });
 });

@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import List, Union
+from typing import List, Optional, Union
 
 import numpy as np
 
@@ -13,7 +13,7 @@ class Statistic(ABC):
 
     @property
     @abstractmethod
-    def variance(self):
+    def variance(self) -> float:
         pass
 
     @property
@@ -22,11 +22,11 @@ class Statistic(ABC):
 
     @property
     @abstractmethod
-    def mean(self):
+    def mean(self) -> float:
         pass
 
     @property
-    def unadjusted_mean(self):
+    def unadjusted_mean(self) -> float:
         """
         Return the mean that has no regression adjustments.
         Must be over-ridden if regular `mean` function is adjusted,
@@ -196,6 +196,14 @@ def create_joint_statistic(
     )
 
 
+TestStatistic = Union[
+    ProportionStatistic,
+    SampleMeanStatistic,
+    RegressionAdjustedStatistic,
+    RatioStatistic,
+]
+
+
 # Data class for test config
 @dataclass
 class BaseConfig:
@@ -223,8 +231,10 @@ class TestResult:
 class BayesianTestResult(TestResult):
     chance_to_win: float
     risk: List[float]
+    error_message: Optional[str] = None
 
 
 @dataclass
 class FrequentistTestResult(TestResult):
     p_value: float
+    error_message: Optional[str] = None

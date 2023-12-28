@@ -717,8 +717,11 @@ export interface components {
       name: string;
       organization: string;
       languages: (string)[];
+      sdkVersion?: string;
       environment: string;
+      /** @description Use 'projects' instead. This is only for backwards compatibility and contains the first project only. */
       project: string;
+      projects?: (string)[];
       encryptPayload: boolean;
       encryptionKey: string;
       includeVisualExperiments?: boolean;
@@ -2395,8 +2398,11 @@ export interface operations {
                 name: string;
                 organization: string;
                 languages: (string)[];
+                sdkVersion?: string;
                 environment: string;
+                /** @description Use 'projects' instead. This is only for backwards compatibility and contains the first project only. */
                 project: string;
+                projects?: (string)[];
                 encryptPayload: boolean;
                 encryptionKey: string;
                 includeVisualExperiments?: boolean;
@@ -2437,8 +2443,11 @@ export interface operations {
               name: string;
               organization: string;
               languages: (string)[];
+              sdkVersion?: string;
               environment: string;
+              /** @description Use 'projects' instead. This is only for backwards compatibility and contains the first project only. */
               project: string;
+              projects?: (string)[];
               encryptPayload: boolean;
               encryptionKey: string;
               includeVisualExperiments?: boolean;

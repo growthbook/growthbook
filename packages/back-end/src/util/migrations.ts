@@ -29,6 +29,7 @@ import {
   ExperimentSnapshotInterface,
   MetricForSnapshot,
 } from "../../types/experiment-snapshot";
+import { getEnvironments } from "../services/organizations";
 import { DEFAULT_CONVERSION_WINDOW_HOURS } from "./secrets";
 
 function roundVariationWeight(num: number): number {
@@ -83,7 +84,7 @@ export function upgradeMetricDoc(doc: LegacyMetricInterface): MetricInterface {
     });
   }
 
-  if (doc.cap) {
+  if (doc.capping === undefined && doc.cap) {
     newDoc.capValue = doc.cap;
     newDoc.capping = "absolute";
   }
@@ -342,21 +343,8 @@ export function upgradeOrganizationDoc(
   const configSettings = getConfigOrganizationSettings();
   org.settings = Object.assign({}, org.settings || {}, configSettings);
 
-  // Add dev/prod environments if there are none yet
-  if (!org.settings?.environments?.length) {
-    org.settings.environments = [
-      {
-        id: "dev",
-        description: "",
-        toggleOnList: true,
-      },
-      {
-        id: "production",
-        description: "",
-        toggleOnList: true,
-      },
-    ];
-  }
+  // Add default environments if there are none yet
+  org.settings.environments = getEnvironments(org);
 
   // Change old `implementationTypes` field to new `visualEditorEnabled` field
   if (org.settings.implementationTypes) {
@@ -444,6 +432,15 @@ export function upgradeExperimentDoc(
         name: "",
         range: [0, 1],
       };
+      // Some experiments have a namespace with only `enabled` set, no idea why
+      // This breaks namespaces, so add default values if missing
+      if (!phase.namespace.range) {
+        phase.namespace = {
+          enabled: false,
+          name: "",
+          range: [0, 1],
+        };
+      }
     });
   }
 
@@ -591,6 +588,7 @@ export function migrateSnapshot(
             regressionAdjustmentEnabled &&
             regressionSettings?.regressionAdjustmentEnabled
           ),
+          regressionAdjustmentAvailable: !!regressionSettings?.regressionAdjustmentAvailable,
           regressionAdjustmentReason: regressionSettings?.reason || "",
         },
       };

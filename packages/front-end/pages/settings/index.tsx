@@ -20,7 +20,7 @@ import {
 } from "shared/constants";
 import { OrganizationSettings } from "@/../back-end/types/organization";
 import Link from "next/link";
-import { useFeatureIsOn, useGrowthBook } from "@growthbook/growthbook-react";
+import { useGrowthBook } from "@growthbook/growthbook-react";
 import { useAuth } from "@/services/auth";
 import EditOrganizationModal from "@/components/Settings/EditOrganizationModal";
 import BackupConfigYamlButton from "@/components/Settings/BackupConfigYamlButton";
@@ -37,9 +37,7 @@ import {
 } from "@/hooks/useOrganizationMetricDefaults";
 import { useUser } from "@/services/UserContext";
 import usePermissions from "@/hooks/usePermissions";
-import { GBCuped, GBPremiumBadge, GBSequential } from "@/components/Icons";
-import UpgradeModal from "@/components/Settings/UpgradeModal";
-import EditLicenseModal from "@/components/Settings/EditLicenseModal";
+import { GBCuped, GBSequential } from "@/components/Icons";
 import Toggle from "@/components/Forms/Toggle";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import SelectField from "@/components/Forms/SelectField";
@@ -51,6 +49,7 @@ import { useCurrency } from "@/hooks/useCurrency";
 import { AppFeatures } from "@/types/app-features";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import ExperimentCheckListModal from "@/components/Settings/ExperimentCheckListModal";
+import ShowLicenseInfo from "@/components/License/ShowLicenseInfo";
 
 export const supportedCurrencies = {
   AED: "UAE Dirham (AED)",
@@ -240,12 +239,9 @@ const GeneralSettingsPage = (): React.ReactElement => {
     refreshOrganization,
     settings,
     organization,
-    accountPlan,
-    license,
     hasCommercialFeature,
   } = useUser();
   const [editOpen, setEditOpen] = useState(false);
-  const [editLicenseOpen, setEditLicenseOpen] = useState(false);
   const [saveMsg, setSaveMsg] = useState(false);
   const [originalValue, setOriginalValue] = useState<OrganizationSettings>({});
   const [statsEngineTab, setStatsEngineTab] = useState<string>(
@@ -254,7 +250,6 @@ const GeneralSettingsPage = (): React.ReactElement => {
   const displayCurrency = useCurrency();
   const growthbook = useGrowthBook<AppFeatures>();
   const { datasources } = useDefinitions();
-  const healthTabSettingsEnabled = useFeatureIsOn<AppFeatures>("health-tab");
 
   const currencyOptions = Object.entries(
     supportedCurrencies
@@ -277,17 +272,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
 
   const { metricDefaults } = useOrganizationMetricDefaults();
 
-  const [upgradeModal, setUpgradeModal] = useState(false);
   const [editChecklistOpen, setEditChecklistOpen] = useState(false);
-  const showUpgradeButton = ["oss", "starter"].includes(accountPlan || "");
-  const licensePlanText =
-    (accountPlan === "enterprise"
-      ? "Enterprise"
-      : accountPlan === "pro"
-      ? "Pro"
-      : accountPlan === "pro_sso"
-      ? "Pro + SSO"
-      : "Starter") + (license && license.trial ? " (trial)" : "");
 
   const form = useForm<OrganizationSettingsWithMetricDefaults>({
     defaultValues: {
@@ -318,9 +303,9 @@ const GeneralSettingsPage = (): React.ReactElement => {
         hours: 6,
         cron: "0 */6 * * *",
       },
-      runHealthTrafficQuery: true,
+      runHealthTrafficQuery: false,
       srmThreshold: DEFAULT_SRM_THRESHOLD,
-      multipleExposureMinPercent: 0.01,
+      multipleExposureMinPercent: 0.01 * 100,
       confidenceLevel: 0.95,
       pValueThreshold: DEFAULT_P_VALUE_THRESHOLD,
       pValueCorrection: null,
@@ -408,10 +393,15 @@ const GeneralSettingsPage = (): React.ReactElement => {
               newVal.metricDefaults.minPercentageChange * 100,
           };
         }
-        // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-        if (k === "confidenceLevel" && newVal?.confidenceLevel <= 1) {
-          // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-          newVal.confidenceLevel = newVal.confidenceLevel * 100;
+        if (k === "confidenceLevel" && (newVal?.confidenceLevel ?? 0.95) <= 1) {
+          newVal.confidenceLevel = (newVal.confidenceLevel ?? 0.95) * 100;
+        }
+        if (
+          k === "multipleExposureMinPercent" &&
+          (newVal?.multipleExposureMinPercent ?? 0.01) <= 1
+        ) {
+          newVal.multipleExposureMinPercent =
+            (newVal.multipleExposureMinPercent ?? 0.01) * 100;
         }
       });
       form.reset(newVal);
@@ -430,8 +420,9 @@ const GeneralSettingsPage = (): React.ReactElement => {
         maxPercentageChange: value.metricDefaults.maxPercentageChange / 100,
         minPercentageChange: value.metricDefaults.minPercentageChange / 100,
       },
-      // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-      confidenceLevel: value.confidenceLevel / 100,
+      confidenceLevel: (value.confidenceLevel ?? 0.95) / 100,
+      multipleExposureMinPercent:
+        (value.multipleExposureMinPercent ?? 0.01) / 100,
     };
 
     await apiCall(`/organization`, {
@@ -549,14 +540,6 @@ const GeneralSettingsPage = (): React.ReactElement => {
 
   return (
     <>
-      {upgradeModal && (
-        <UpgradeModal
-          close={() => setUpgradeModal(false)}
-          reason=""
-          source="settings"
-        />
-      )}
-
       {editChecklistOpen ? (
         <ExperimentCheckListModal close={() => setEditChecklistOpen(false)} />
       ) : null}
@@ -566,12 +549,6 @@ const GeneralSettingsPage = (): React.ReactElement => {
           <EditOrganizationModal
             name={organization.name || ""}
             close={() => setEditOpen(false)}
-            mutate={refreshOrganization}
-          />
-        )}
-        {editLicenseOpen && (
-          <EditLicenseModal
-            close={() => setEditLicenseOpen(false)}
             mutate={refreshOrganization}
           />
         )}
@@ -606,90 +583,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
                 </div>
               </div>
             </div>
-            {(isCloud() || !isMultiOrg()) && (
-              <div>
-                <div className="divider border-bottom mb-3 mt-3" />
-                <div className="row">
-                  <div className="col-sm-3">
-                    <h4>License</h4>
-                  </div>
-                  <div className="col-sm-9">
-                    <div className="form-group row mb-2">
-                      <div className="col-sm-12">
-                        <strong>Plan type: </strong> {licensePlanText}{" "}
-                      </div>
-                    </div>
-                    {showUpgradeButton && (
-                      <div className="form-group row mb-1">
-                        <div className="col-sm-12">
-                          <button
-                            className="btn btn-premium font-weight-normal"
-                            onClick={() => setUpgradeModal(true)}
-                          >
-                            {accountPlan === "oss" ? (
-                              <>
-                                Try Enterprise <GBPremiumBadge />
-                              </>
-                            ) : (
-                              <>
-                                Try Pro <GBPremiumBadge />
-                              </>
-                            )}
-                          </button>
-                        </div>
-                      </div>
-                    )}
-                    {!isCloud() && permissions.manageBilling && (
-                      <div className="form-group row mt-3 mb-0">
-                        <div className="col-sm-4">
-                          <div>
-                            <strong>License Key: </strong>
-                          </div>
-                          <div
-                            className="d-inline-block mt-1 mb-2 text-center text-muted"
-                            style={{
-                              width: 100,
-                              borderBottom: "1px solid #cccccc",
-                              pointerEvents: "none",
-                              overflow: "hidden",
-                              verticalAlign: "top",
-                            }}
-                          >
-                            {license ? "***************" : "(none)"}
-                          </div>{" "}
-                          <a
-                            href="#"
-                            className="pl-1"
-                            onClick={(e) => {
-                              e.preventDefault();
-                              setEditLicenseOpen(true);
-                            }}
-                          >
-                            <FaPencilAlt />
-                          </a>
-                        </div>
-                        {license && (
-                          <>
-                            <div className="col-sm-2">
-                              <div>Issued:</div>
-                              <span className="text-muted">{license.iat}</span>
-                            </div>
-                            <div className="col-sm-2">
-                              <div>Expires:</div>
-                              <span className="text-muted">{license.exp}</span>
-                            </div>
-                            <div className="col-sm-2">
-                              <div>Seats:</div>
-                              <span className="text-muted">{license.qty}</span>
-                            </div>
-                          </>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            )}
+            {(isCloud() || !isMultiOrg()) && <ShowLicenseInfo />}
           </div>
 
           <div className="my-3 bg-white p-3 border">
@@ -819,9 +713,9 @@ const GeneralSettingsPage = (): React.ReactElement => {
                   <Field
                     label="Warn when this percent of experiment users are in multiple variations"
                     type="number"
-                    step="any"
+                    step="1"
                     min="0"
-                    max="1"
+                    max="100"
                     className="ml-2"
                     containerClassName="mb-3"
                     append="%"
@@ -829,11 +723,10 @@ const GeneralSettingsPage = (): React.ReactElement => {
                       width: "80px",
                     }}
                     disabled={hasFileConfig()}
-                    helpText={<span className="ml-2">from 0 to 1</span>}
                     {...form.register("multipleExposureMinPercent", {
                       valueAsNumber: true,
                       min: 0,
-                      max: 1,
+                      max: 100,
                     })}
                   />
 
@@ -926,64 +819,6 @@ const GeneralSettingsPage = (): React.ReactElement => {
                       </div>
                     )}
                   </div>
-                  {healthTabSettingsEnabled && (
-                    <>
-                      <div>
-                        <label
-                          className="mr-1"
-                          htmlFor="toggle-runHealthTrafficQuery"
-                        >
-                          Run traffic query by default
-                        </label>
-                      </div>
-                      <div>
-                        <Toggle
-                          id={"toggle-runHealthTrafficQuery"}
-                          value={!!form.watch("runHealthTrafficQuery")}
-                          setValue={(value) => {
-                            form.setValue("runHealthTrafficQuery", value);
-                          }}
-                        />
-                      </div>
-
-                      <Field
-                        label="SRM threshold"
-                        type="number"
-                        step="0.001"
-                        style={{
-                          borderColor: srmHighlightColor,
-                          backgroundColor: srmHighlightColor
-                            ? srmHighlightColor + "15"
-                            : "",
-                        }}
-                        max="0.1"
-                        min="0.00001"
-                        className={`ml-2`}
-                        containerClassName="mb-3"
-                        append=""
-                        disabled={hasFileConfig()}
-                        helpText={
-                          <>
-                            <span className="ml-2">(0.001 is default)</span>
-                            <div
-                              className="ml-2"
-                              style={{
-                                color: srmHighlightColor,
-                                flexBasis: "100%",
-                              }}
-                            >
-                              {srmWarningMsg}
-                            </div>
-                          </>
-                        }
-                        {...form.register("srmThreshold", {
-                          valueAsNumber: true,
-                          min: 0,
-                          max: 1,
-                        })}
-                      />
-                    </>
-                  )}
 
                   <StatsEngineSelect
                     label="Default Statistics Engine"
@@ -1300,15 +1135,72 @@ const GeneralSettingsPage = (): React.ReactElement => {
                     </Tab>
                   </ControlledTabs>
                 </div>
+                <h4 className="mt-4 mb-2">Experiment Health Settings</h4>
+                <div className="tab-content border mb-3 p-3">
+                  <Tab display="health">
+                    <div className="form-group mb-2 mt-2 mr-2 form-inline">
+                      <label
+                        className="mr-1"
+                        htmlFor="toggle-runHealthTrafficQuery"
+                      >
+                        Run traffic query by default
+                      </label>
+                      <Toggle
+                        id={"toggle-runHealthTrafficQuery"}
+                        value={!!form.watch("runHealthTrafficQuery")}
+                        setValue={(value) => {
+                          form.setValue("runHealthTrafficQuery", value);
+                        }}
+                      />
+                    </div>
+
+                    <div className="mt-3 form-inline flex-column align-items-start">
+                      <Field
+                        label="SRM p-value threshold"
+                        type="number"
+                        step="0.001"
+                        style={{
+                          borderColor: srmHighlightColor,
+                          backgroundColor: srmHighlightColor
+                            ? srmHighlightColor + "15"
+                            : "",
+                        }}
+                        max="0.1"
+                        min="0.00001"
+                        className={`ml-2`}
+                        containerClassName="mb-3"
+                        append=""
+                        disabled={hasFileConfig()}
+                        helpText={
+                          <>
+                            <span className="ml-2">(0.001 is default)</span>
+                            <div
+                              className="ml-2"
+                              style={{
+                                color: srmHighlightColor,
+                                flexBasis: "100%",
+                              }}
+                            >
+                              {srmWarningMsg}
+                            </div>
+                          </>
+                        }
+                        {...form.register("srmThreshold", {
+                          valueAsNumber: true,
+                          min: 0,
+                          max: 1,
+                        })}
+                      />
+                    </div>
+                  </Tab>
+                </div>
                 <div className="mb-3 form-group flex-column align-items-start">
                   <PremiumTooltip
                     className="d-flex align-items-center"
                     commercialFeature="custom-launch-checklist"
                     body="Custom pre-launch checklists are available to Enterprise customers"
                   >
-                    <h4 className="mb-0 pl-1">
-                      Experiment Pre-Launch Checklist
-                    </h4>
+                    <h4 className="mb-0">Experiment Pre-Launch Checklist</h4>
                   </PremiumTooltip>
                   <p className="pt-2">
                     Configure required steps that need to be completed before an

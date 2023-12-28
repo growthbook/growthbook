@@ -39,4 +39,5 @@ export type AppFeatures = {
   "datasource-pipeline-mode": boolean;
   "fact-tables": boolean;
   "health-tab": boolean;
+  "github-integration": boolean;
 };

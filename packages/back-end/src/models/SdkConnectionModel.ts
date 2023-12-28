@@ -36,8 +36,10 @@ const sdkConnectionSchema = new mongoose.Schema({
   dateCreated: Date,
   dateUpdated: Date,
   languages: [String],
+  sdkVersion: String,
   environment: String,
   project: String,
+  projects: [String],
   encryptPayload: Boolean,
   encryptionKey: String,
   hashSecureAttributes: Boolean,
@@ -83,6 +85,18 @@ function addEnvProxySettings(proxy: ProxyConnection): ProxyConnection {
 function toInterface(doc: SDKConnectionDocument): SDKConnectionInterface {
   const conn = doc.toJSON<SDKConnectionDocument>();
   conn.proxy = addEnvProxySettings(conn.proxy);
+
+  // Migrate old project setting to projects
+  if (
+    !conn.projects?.length &&
+    (conn as SDKConnectionDocument & { project?: string }).project
+  ) {
+    const project = (conn as SDKConnectionDocument & { project: string })
+      .project;
+    conn.projects = [project];
+    (conn as SDKConnectionDocument & { project?: string }).project = "";
+  }
+
   return omit(conn, ["__v", "_id"]);
 }
 
@@ -115,8 +129,9 @@ export const createSDKConnectionValidator = z
     organization: z.string(),
     name: z.string(),
     languages: z.array(z.string()),
+    sdkVersion: z.string().optional(),
     environment: z.string(),
-    project: z.string(),
+    projects: z.array(z.string()),
     encryptPayload: z.boolean(),
     hashSecureAttributes: z.boolean().optional(),
     includeVisualExperiments: z.boolean().optional(),
@@ -180,10 +195,11 @@ export const editSDKConnectionValidator = z
   .object({
     name: z.string().optional(),
     languages: z.array(z.string()).optional(),
+    sdkVersion: z.string().optional(),
     proxyEnabled: z.boolean().optional(),
     proxyHost: z.string().optional(),
     environment: z.string().optional(),
-    project: z.string().optional(),
+    projects: z.array(z.string()).optional(),
     encryptPayload: z.boolean(),
     hashSecureAttributes: z.boolean().optional(),
     includeVisualExperiments: z.boolean().optional(),
@@ -228,7 +244,8 @@ export async function editSDKConnection(
   // connected proxies to update their cache immediately instead of waiting for the TTL
   let needsProxyUpdate = false;
   const keysRequiringProxyUpdate = [
-    "project",
+    "sdkVersion",
+    "projects",
     "environment",
     "encryptPayload",
     "hashSecureAttributes",
@@ -253,6 +270,7 @@ export async function editSDKConnection(
       $set: {
         ...otherChanges,
         proxy: newProxy,
+        project: "",
         dateUpdated: new Date(),
       },
     }
@@ -413,8 +431,10 @@ export function toApiSDKConnectionInterface(
     dateCreated: connection.dateCreated.toISOString(),
     dateUpdated: connection.dateUpdated.toISOString(),
     languages: connection.languages,
+    sdkVersion: connection.sdkVersion,
     environment: connection.environment,
-    project: connection.project,
+    project: connection.projects[0] || "",
+    projects: connection.projects,
     encryptPayload: connection.encryptPayload,
     encryptionKey: connection.encryptionKey,
     hashSecureAttributes: connection.hashSecureAttributes,

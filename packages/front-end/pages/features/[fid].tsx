@@ -17,12 +17,14 @@ import {
   autoMerge,
   getValidation,
   isFeatureStale,
+  mergeResultHasChanges,
   mergeRevision,
 } from "shared/util";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import { MdHistory, MdRocketLaunch } from "react-icons/md";
 import { FaPlusMinus } from "react-icons/fa6";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import clsx from "clsx";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import { GBAddCircle, GBEdit } from "@/components/Icons";
 import LoadingOverlay from "@/components/LoadingOverlay";
@@ -168,11 +170,9 @@ export default function FeaturePage() {
     // If we can't find the revision, create a dummy revision just so the page can render
     // This is for old features that don't have any revision history saved
     const rules: Record<string, FeatureRule[]> = {};
-    Object.entries(data.feature.environmentSettings).forEach(
-      ([env, settings]) => {
-        rules[env] = settings.rules || [];
-      }
-    );
+    environments.forEach((env) => {
+      rules[env.id] = data.feature.environmentSettings?.[env.id]?.rules || [];
+    });
 
     return {
       baseVersion: data.feature.version,
@@ -189,14 +189,18 @@ export default function FeaturePage() {
       status: "published",
       version: data.feature.version,
     };
-  }, [data, version]);
+  }, [data, version, environments]);
 
   const feature = useMemo(() => {
     if (!revision || !data) return null;
     return revision.version !== data.feature.version
-      ? mergeRevision(data.feature, revision)
+      ? mergeRevision(
+          data.feature,
+          revision,
+          environments.map((e) => e.id)
+        )
       : data.feature;
-  }, [data, revision]);
+  }, [data, revision, environments]);
 
   const mergeResult = useMemo(() => {
     if (!data || !feature || !revision) return null;
@@ -207,8 +211,14 @@ export default function FeaturePage() {
       (r) => r.version === feature.version
     );
     if (!revision || !baseRevision || !liveRevision) return null;
-    return autoMerge(liveRevision, baseRevision, revision, {});
-  }, [data, revision, feature]);
+    return autoMerge(
+      liveRevision,
+      baseRevision,
+      revision,
+      environments.map((e) => e.id),
+      {}
+    );
+  }, [data, revision, feature, environments]);
 
   if (error) {
     return (
@@ -232,12 +242,9 @@ export default function FeaturePage() {
   const isArchived = feature.archived;
 
   const revisionHasChanges =
-    !!mergeResult &&
-    (!mergeResult.success ||
-      Object.keys(mergeResult.result.rules || {}).length > 0 ||
-      !!mergeResult.result.defaultValue);
+    !!mergeResult && mergeResultHasChanges(mergeResult);
 
-  const enabledEnvs = getEnabledEnvironments(feature);
+  const enabledEnvs = getEnabledEnvironments(feature, environments);
   const hasJsonValidator = hasCommercialFeature("json-validation");
 
   const projectId = feature.project;
@@ -267,7 +274,7 @@ export default function FeaturePage() {
     permissions.check(
       "publishFeatures",
       projectId,
-      getAffectedRevisionEnvs(data.feature, revision)
+      getAffectedRevisionEnvs(data.feature, revision, environments)
     );
 
   const drafts = data.revisions.filter((r) => r.status === "draft");
@@ -1027,13 +1034,25 @@ export default function FeaturePage() {
                   Make changes below and publish when you are ready
                 </div>
                 <div className="ml-auto"></div>
-                {hasDraftPublishPermission &&
-                  mergeResult?.success &&
-                  revisionHasChanges && (
-                    <div>
+                {mergeResult?.success && (
+                  <div>
+                    <Tooltip
+                      body={
+                        !revisionHasChanges
+                          ? "Draft is identical to the live version. Make changes first before publishing"
+                          : !hasDraftPublishPermission
+                          ? "You do not have permission to publish this draft."
+                          : ""
+                      }
+                    >
                       <a
                         href="#"
-                        className="font-weight-bold text-purple"
+                        className={clsx(
+                          "font-weight-bold",
+                          !hasDraftPublishPermission || !revisionHasChanges
+                            ? "text-muted"
+                            : "text-purple"
+                        )}
                         onClick={(e) => {
                           e.preventDefault();
                           setDraftModal(true);
@@ -1041,11 +1060,12 @@ export default function FeaturePage() {
                       >
                         <MdRocketLaunch /> Review and Publish
                       </a>
-                    </div>
-                  )}
+                    </Tooltip>
+                  </div>
+                )}
                 {canEditDrafts && mergeResult && !mergeResult.success && (
                   <div>
-                    <Tooltip body="There have been new conflicting changes published since you created your draft that must be resolved before you can publish">
+                    <Tooltip body="There have been new conflicting changes published since this draft was created that must be resolved before you can publish">
                       <a
                         href="#"
                         className="font-weight-bold text-purple"

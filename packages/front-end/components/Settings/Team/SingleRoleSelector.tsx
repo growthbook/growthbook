@@ -1,7 +1,7 @@
 import { ReactNode, useMemo } from "react";
 import { MemberRole, MemberRoleInfo } from "back-end/types/organization";
 import uniqid from "uniqid";
-import { roleSupportsEnvLimit } from "@/services/auth";
+import { roleSupportsEnvLimit } from "shared/permissions";
 import { useUser } from "../../../services/UserContext";
 import { useEnvironments } from "../../../services/features";
 import MultiSelectField from "../../Forms/MultiSelectField";

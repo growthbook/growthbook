@@ -5,8 +5,10 @@ import cloneDeep from "lodash/cloneDeep";
 import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
 import { getValidDate } from "shared/dates";
 import { getAffectedEnvsForExperiment } from "shared/util";
+import { getAllMetricRegressionAdjustmentStatuses } from "shared/experiments";
 import { getScopedSettings } from "shared/settings";
 import { v4 as uuidv4 } from "uuid";
+import uniq from "lodash/uniq";
 import { AuthRequest, ResponseWithStatusAndError } from "../types/AuthRequest";
 import {
   createManualSnapshot,
@@ -18,7 +20,7 @@ import {
   getLinkedFeatureInfo,
   getManualSnapshotData,
 } from "../services/experiments";
-import { MetricStats } from "../../types/metric";
+import { MetricInterface, MetricStats } from "../../types/metric";
 import {
   createExperiment,
   deleteExperimentByIdForOrganization,
@@ -65,14 +67,12 @@ import {
   ExperimentTargetingData,
   Variation,
 } from "../../types/experiment";
-import { getMetricMap } from "../models/MetricModel";
+import { getMetricById, getMetricMap } from "../models/MetricModel";
 import { IdeaModel } from "../models/IdeasModel";
 import { IdeaInterface } from "../../types/idea";
 import { getDataSourceById } from "../models/DataSourceModel";
 import { generateExperimentNotebook } from "../services/notebook";
 import { IMPORT_LIMIT_DAYS } from "../util/secrets";
-import { getAllFeatures } from "../models/FeatureModel";
-import { ExperimentRule, FeatureInterface } from "../../types/feature";
 import {
   auditDetailsCreate,
   auditDetailsDelete,
@@ -82,8 +82,6 @@ import {
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotInterface,
 } from "../../types/experiment-snapshot";
-import { StatsEngine } from "../../types/stats";
-import { MetricRegressionAdjustmentStatus } from "../../types/report";
 import { VisualChangesetInterface } from "../../types/visual-changeset";
 import { PrivateApiErrorResponse } from "../../types/api";
 import { EventAuditUserForResponseLocals } from "../events/event-types";
@@ -99,6 +97,7 @@ import {
 } from "../models/ApiKeyModel";
 import { getExperimentWatchers, upsertWatch } from "../models/WatchModel";
 import { getFactTableMap } from "../models/FactTableModel";
+import { OrganizationSettings } from "../../types/organization";
 
 export async function getExperiments(
   req: AuthRequest<
@@ -395,106 +394,6 @@ export async function getSnapshots(
   });
   return;
 }
-
-export async function getNewFeatures(
-  req: AuthRequest<unknown, unknown, { project?: string }>,
-  res: Response
-) {
-  const { org } = getOrgFromReq(req);
-  let project = "";
-  if (typeof req.query?.project === "string") {
-    project = req.query.project;
-  }
-
-  const allExperiments = await getAllExperiments(org.id);
-  const projectFeatures = await getAllFeatures(org.id, project);
-
-  const expMap = new Map();
-  allExperiments.forEach((exp) => {
-    const key = exp.trackingKey || exp.id;
-    expMap.set(key, exp);
-  });
-  const newFeatures = new Map();
-  // a feature can have multiple experiments.
-  projectFeatures.forEach((f) => {
-    Object.values(f.environmentSettings || {}).forEach((e) => {
-      (e.rules || []).forEach((r) => {
-        if (r.type === "experiment") {
-          const tKey = r.trackingKey || f.id;
-          if (!expMap.get(tKey)) {
-            // this feature experiment has no report:
-            newFeatures.set(tKey, {
-              feature: f,
-              rule: r,
-              trackingKey: tKey,
-              partialExperiment: getExperimentDefinitionFromFeatureAndRule(
-                f,
-                r
-              ),
-            });
-          }
-        }
-      });
-    });
-  });
-
-  res.status(200).json({
-    status: 200,
-    features: Array.from(newFeatures.values()).sort(
-      (a, b) => b.feature.dateCreated - a.feature.dateCreated
-    ),
-  });
-  return;
-}
-
-const getExperimentDefinitionFromFeatureAndRule = (
-  feature: FeatureInterface,
-  expRule: ExperimentRule
-) => {
-  const totalPercent = expRule.values.reduce((sum, w) => sum + w.weight, 0);
-
-  const expDefinition: Partial<ExperimentInterfaceStringDates> = {
-    trackingKey: expRule.trackingKey || feature.id,
-    name: (expRule.trackingKey || feature.id) + " experiment",
-    hypothesis: expRule.description || "",
-    hashAttribute: expRule.hashAttribute,
-    hashVersion: 1,
-    description: `Experiment analysis for the feature [**${feature.id}**](/features/${feature.id})`,
-    variations: expRule.values.map((v, i) => {
-      let name = i ? `Variation ${i}` : "Control";
-      if (feature.valueType === "boolean") {
-        name = v.value === "true" ? "On" : "Off";
-      }
-      return {
-        id: uniqid("var_"),
-        key: i + "",
-        name,
-        screenshots: [],
-        description: v.value,
-      };
-    }),
-    phases: [
-      {
-        name: "Main",
-        seed: expRule.trackingKey || feature.id,
-        coverage: totalPercent,
-        variationWeights: expRule.values.map((v) =>
-          totalPercent > 0 ? v.weight / totalPercent : 1 / expRule.values.length
-        ),
-        reason: "",
-        dateStarted: new Date().toISOString(),
-        condition: expRule.condition || "",
-        savedGroups: expRule.savedGroups || [],
-        namespace: expRule.namespace || {
-          enabled: false,
-          name: "",
-          range: [0, 1],
-        },
-      },
-    ],
-  };
-  return expDefinition;
-};
 
 const validateVariationIds = (variations: Variation[]) => {
   variations.forEach((variation, i) => {
@@ -1789,9 +1688,6 @@ export async function postSnapshot(
       dimension?: string;
       users?: number[];
       metrics?: { [key: string]: MetricStats[] };
-      statsEngine?: StatsEngine;
-      regressionAdjustmentEnabled?: boolean;
-      metricRegressionAdjustmentStatuses?: MetricRegressionAdjustmentStatus[];
     },
     { id: string },
     { force?: string }
@@ -1812,12 +1708,50 @@ export async function postSnapshot(
 
   req.checkPermissions("runQueries", experiment.project || "");
 
-  let { statsEngine } = req.body;
+  let project = null;
+  if (experiment.project) {
+    project = await findProjectById(experiment.project, org.id);
+  }
+  const orgSettings: OrganizationSettings = org.settings as OrganizationSettings;
+  const { settings } = getScopedSettings({
+    organization: org,
+    project: project ?? undefined,
+    experiment,
+  });
+  const statsEngine = settings.statsEngine.value;
+  const { phase, dimension } = req.body;
+
+  const allExperimentMetricIds = uniq([
+    ...experiment.metrics,
+    ...(experiment.guardrails ?? []),
+  ]);
+  const allExperimentMetrics = await Promise.all(
+    allExperimentMetricIds.map((m) => getExperimentMetricById(m, org.id))
+  );
+  const denominatorMetricIds = uniq<string>(
+    allExperimentMetrics
+      .map((m) => m?.denominator)
+      .filter((d) => d && typeof d === "string") as string[]
+  );
+  const denominatorMetrics = (
+    await Promise.all(denominatorMetricIds.map((m) => getMetricById(m, org.id)))
+  ).filter(Boolean) as MetricInterface[];
+  const datasource = await getDataSourceById(experiment.datasource, org.id);
+
   const {
     metricRegressionAdjustmentStatuses,
     regressionAdjustmentEnabled,
-  } = req.body;
-  const { phase, dimension } = req.body;
+  } = getAllMetricRegressionAdjustmentStatuses({
+    allExperimentMetrics,
+    denominatorMetrics,
+    orgSettings,
+    statsEngine,
+    experimentRegressionAdjustmentEnabled:
+      experiment.regressionAdjustmentEnabled,
+    experimentMetricOverrides: experiment.metricOverrides,
+    datasourceType: datasource?.type,
+    hasRegressionAdjustmentFeature: true,
+  });
 
   if (!experiment.phases[phase]) {
     res.status(404).json({
@@ -1827,18 +1761,6 @@ export async function postSnapshot(
     return;
   }
 
-  let project = null;
-  if (experiment.project) {
-    project = await findProjectById(experiment.project, org.id);
-  }
-  const { settings: scopedSettings } = getScopedSettings({
-    organization: org,
-    project: project ?? undefined,
-  });
-
-  statsEngine = ["bayesian", "frequentist"].includes(statsEngine + "")
-    ? statsEngine
-    : scopedSettings.statsEngine.value;
   const useCache = !req.query["force"];
 
   // This is doing an expensive analytics SQL query, so may take a long time
@@ -1846,7 +1768,7 @@ export async function postSnapshot(
   req.setTimeout(30 * 60 * 1000);
 
   const analysisSettings = getDefaultExperimentAnalysisSettings(
-    statsEngine as StatsEngine,
+    statsEngine,
     experiment,
     org,
     regressionAdjustmentEnabled,

@@ -34,6 +34,7 @@ export interface SnapshotMetric {
     y: number;
   }[];
   chanceToWin?: number;
+  errorMessage?: string;
 }
 
 export interface SnapshotVariation {
@@ -78,6 +79,7 @@ export interface MetricForSnapshot {
   // Computed settings that take into account overrides
   computedSettings?: {
     regressionAdjustmentEnabled: boolean;
+    regressionAdjustmentAvailable: boolean;
     regressionAdjustmentDays: number;
     regressionAdjustmentReason: string;
     conversionWindowHours: number;
@@ -179,7 +181,7 @@ export interface ExperimentSnapshotTraffic {
   dimension: {
     [dimension: string]: ExperimentSnapshotTrafficDimension[];
   };
-  error?: "NO_ROWS_IN_UNIT_QUERY" | "TOO_MANY_ROWS";
+  error?: "NO_ROWS_IN_UNIT_QUERY" | "TOO_MANY_ROWS" | string;
 }
 export interface ExperimentSnapshotTrafficDimension {
   name: string;
@@ -190,15 +192,13 @@ export interface ExperimentSnapshotTrafficDimension {
 // Params for gbstats
 export interface ExperimentMetricAnalysisParams {
   variations: ExperimentReportVariation[];
-  metric: ExperimentMetricInterface;
-  rows: ExperimentMetricQueryResponseRows;
-  dimension: string | null;
-  baselineVariationIndex: number;
-  differenceType: DifferenceType;
   phaseLengthHours: number;
   coverage: number;
-  statsEngine: StatsEngine;
-  sequentialTestingEnabled: boolean;
-  sequentialTestingTuningParameter: number;
-  pValueThreshold: number;
+
+  analyses: ExperimentSnapshotAnalysisSettings[];
+
+  metrics: ({
+    metric: ExperimentMetricInterface;
+    rows: ExperimentMetricQueryResponseRows;
+  } | null)[];
 }
