@@ -137,11 +137,13 @@ export default function AttributeForm({
             ) : attribute.datatype === "string[]" ? (
               <MultiSelectField
                 options={
-                  attribute.enum
+                  (attribute.enum
                     ? attribute.enum
                         .split(",")
                         .map((v) => ({ value: v.trim(), label: v.trim() }))
-                    : []
+                    : attributeForm
+                        .watch(attribute.property)
+                        ?.map((v: string) => ({ value: v, label: v }))) || []
                 }
                 value={attributeForm.watch(attribute.property) || []}
                 onChange={(value) => {
