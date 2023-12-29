@@ -138,14 +138,13 @@ export function getColumnFormatter(
 
 export function getColumnRefFormatter(
   columnRef: ColumnRef,
-  getFactTableById: (id: string) => FactTableInterface | null,
-  ratio?: boolean
+  getFactTableById: (id: string) => FactTableInterface | null
 ): (value: number, options?: Intl.NumberFormatOptions) => string {
-  if (columnRef.column === "$$count") {
+  if (
+    columnRef.column === "$$count" ||
+    columnRef.column === "$$distinctUsers"
+  ) {
     return formatNumber;
-  }
-  if (columnRef.column === "$$distinctUsers" && !ratio) {
-    return formatPercent;
   }
 
   const fact = getFactTableById(columnRef.factTableId)?.columns?.find(
@@ -198,11 +197,11 @@ export function getExperimentMetricFormatter(
         }
 
         // Otherwise, just use the numerator to figure out the value type
-        return getColumnRefFormatter(metric.numerator, getFactTableById, true);
+        return getColumnRefFormatter(metric.numerator, getFactTableById);
       })();
 
     case "mean":
-      return getColumnRefFormatter(metric.numerator, getFactTableById, true);
+      return getColumnRefFormatter(metric.numerator, getFactTableById);
   }
 }
 

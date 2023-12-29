@@ -33,7 +33,6 @@ export default function EditPhaseModal({
   const { apiCall } = useAuth();
 
   const isDraft = experiment.status === "draft";
-  const isRunning = experiment.status === "running";
   const isMultiPhase = experiment.phases.length > 1;
 
   const hasLinkedChanges =
@@ -99,16 +98,6 @@ export default function EditPhaseModal({
           )}
         </>
       ) : null}
-
-      {!isRunning && (
-        <Field
-          {...form.register("seed")}
-          label="Hash Seed"
-          placeholder={experiment.trackingKey}
-          helpText="Used to determine which variation is assigned to users"
-          containerClassName="mt-4"
-        />
-      )}
     </Modal>
   );
 }

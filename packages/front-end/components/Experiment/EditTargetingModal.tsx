@@ -13,6 +13,8 @@ import {
 import omit from "lodash/omit";
 import isEqual from "lodash/isEqual";
 import React, { useEffect, useMemo, useState } from "react";
+import { validateAndFixCondition } from "shared/util";
+import useIncrementer from "@/hooks/useIncrementer";
 import { BsToggles } from "react-icons/bs";
 import clsx from "clsx";
 import { useAuth } from "@/services/auth";
@@ -67,6 +69,7 @@ export default function EditTargetingModal({
   safeToEdit,
 }: Props) {
   const { apiCall } = useAuth();
+  const [conditionKey, forceConditionRender] = useIncrementer();
 
   const [step, setStep] = useState(0);
   const [changeType, setChangeType] = useState<ChangeType | undefined>();
@@ -140,6 +143,11 @@ export default function EditTargetingModal({
   const onSubmit = form.handleSubmit(async (value) => {
     validateSavedGroupTargeting(value.savedGroups);
 
+    validateAndFixCondition(value.condition, (condition) => {
+      form.setValue("condition", condition);
+      forceConditionRender();
+    });
+
     await apiCall(`/experiment/${experiment.id}/targeting`, {
       method: "POST",
       body: JSON.stringify(value),
@@ -163,7 +171,7 @@ export default function EditTargetingModal({
             Feature Flags and Visual Editor changes immediately upon publishing.
           </div>
         )}
-        <TargetingForm experiment={experiment} form={form} safeToEdit={true} />
+        <TargetingForm experiment={experiment} form={form} safeToEdit={true} conditionKey={conditionKey} />
       </Modal>
     );
   }
@@ -273,6 +281,7 @@ export default function EditTargetingModal({
               changeType={changeType}
               showTooltips={true}
               hasChanges={hasChanges}
+              conditionKey={conditionKey}
             />
           </div>
         </Page>
@@ -351,6 +360,7 @@ function TargetingForm({
   changeType = "advanced",
   showTooltips,
   hasChanges,
+  conditionKey,
 }: {
   experiment: ExperimentInterfaceStringDates;
   form: UseFormReturn<ExperimentTargetingData>;
@@ -358,6 +368,7 @@ function TargetingForm({
   changeType?: ChangeType;
   showTooltips?: boolean;
   hasChanges?: boolean;
+  conditionKey?: any;
 }) {
   const attributeSchema = useAttributeSchema();
   const hasHashAttributes =
@@ -464,6 +475,7 @@ function TargetingForm({
           <ConditionInput
             defaultValue={form.watch("condition")}
             onChange={(condition) => form.setValue("condition", condition)}
+            key={conditionKey}
           />
         </>
       )}

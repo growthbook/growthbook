@@ -1,6 +1,10 @@
 import { ExperimentSnapshotTrafficDimension } from "back-end/types/experiment-snapshot";
 import { ExperimentReportVariation } from "back-end/types/report";
 import { useMemo, useState } from "react";
+import {
+  DataSourceInterfaceWithParams,
+  ExposureQuery,
+} from "back-end/types/datasource";
 import { useUser } from "@/services/UserContext";
 import { DEFAULT_SRM_THRESHOLD } from "@/pages/settings";
 import track from "@/services/track";
@@ -21,6 +25,8 @@ interface Props {
   dimensionData: {
     [dimension: string]: ExperimentSnapshotTrafficDimension[];
   };
+  dataSource: DataSourceInterfaceWithParams | null;
+  exposureQuery?: ExposureQuery;
   variations: ExperimentReportVariation[];
   healthTabConfigParams: HealthTabConfigParams;
 }
@@ -77,6 +83,8 @@ export function transformDimensionData(
 export const DimensionIssues = ({
   dimensionData,
   variations,
+  dataSource,
+  exposureQuery,
   healthTabConfigParams,
 }: Props) => {
   const { settings } = useUser();
@@ -288,13 +296,15 @@ export const DimensionIssues = ({
             <div className="pt-4 px-4">
               <i className="text-muted">
                 {`No experiment dimensions ${
-                  healthTabConfigParams.exposureQueryDimensions.length > 0
+                  (exposureQuery?.dimensions ?? []).length > 0
                     ? "with pre-defined slices available"
                     : "available"
                 }`}
               </i>
             </div>
-            {healthTabConfigParams.exposureQueryDimensions.length ? (
+            {exposureQuery &&
+            dataSource &&
+            exposureQuery.dimensions.length > 0 ? (
               <div className="pt-4 d-flex justify-content-center">
                 <div>
                   <a
@@ -314,6 +324,8 @@ export const DimensionIssues = ({
                   <HealthTabOnboardingModal
                     open={setupModalOpen}
                     close={() => setSetupModalOpen(false)}
+                    dataSource={dataSource}
+                    exposureQuery={exposureQuery}
                     healthTabConfigParams={healthTabConfigParams}
                     healthTabOnboardingPurpose={"dimensions"}
                   />
