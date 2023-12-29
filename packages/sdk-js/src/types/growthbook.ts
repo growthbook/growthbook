@@ -314,10 +314,6 @@ export type LoadFeaturesOptions = {
   skipCache?: boolean;
 };
 
-export type InitOptions = {
-  loadFeaturesOptions?: LoadFeaturesOptions;
-};
-
 export type RefreshFeaturesOptions = {
   timeout?: number;
   skipCache?: boolean;
