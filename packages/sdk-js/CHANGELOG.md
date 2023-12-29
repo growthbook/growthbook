@@ -1,9 +1,5 @@
 # Changelog
 
-## **0.32.0** - Nov 29, 2023
-
-- Sticky bucketing support for experiments. Provide an instance of a `StickyBucketService` into the context to enable sticky bucketing. Either use one of our prebuilt services or build your own.
-
 ## **0.31.0** - Nov 14, 2023
 
 - Fix bug with multi-page visual editor experiments

@@ -43,6 +43,7 @@ export { GrowthBook } from "./GrowthBook";
 export {
   StickyBucketService,
   LocalStorageStickyBucketService,
+  ExpressCookieStickyBucketService,
   BrowserCookieStickyBucketService,
   RedisStickyBucketService,
 } from "./sticky-bucket-service";
