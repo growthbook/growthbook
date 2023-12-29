@@ -31,7 +31,7 @@
     "@dqbd/tiktoken": "^1.0.7",
     "@google-cloud/bigquery": "5",
     "@google-cloud/storage": "^5.20.5",
-    "@growthbook/growthbook": "^0.32.0",
+    "@growthbook/growthbook": "^0.31.0",
     "@growthbook/proxy-eval": "^1.0.0",
     "@opentelemetry/api": "^1.4.1",
     "@opentelemetry/auto-instrumentations-node": "^0.37.1",
