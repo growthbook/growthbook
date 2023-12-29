@@ -558,17 +558,13 @@ describe("features", () => {
           defaultValue: "default",
           rules: [
             {
-              condition: { memberType: "premium" },
-              force: "success1",
-            },
-            {
               // Bailout (fail) if the parent flag value is not "green"
               parent: "parentFlag",
               parentCondition: { "@parent": "green" },
             },
             {
               condition: { memberType: "basic" },
-              force: "success2",
+              force: "success",
             },
           ],
         },
@@ -576,7 +572,7 @@ describe("features", () => {
     });
 
     const result1 = growthbook.evalFeature("childFlag");
-    expect(result1.value).toEqual("success2");
+    expect(result1.value).toEqual("success");
 
     growthbook.setAttributes({
       id: "123",
@@ -616,10 +612,6 @@ describe("features", () => {
         childFlag: {
           defaultValue: "default",
           rules: [
-            {
-              condition: { memberType: "premium" },
-              force: "success",
-            },
             {
               // Bailout (fail) if the parent flag value is not "green"
               parent: "parentExperimentFlag",

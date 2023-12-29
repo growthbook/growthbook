@@ -3301,16 +3301,12 @@
             "defaultValue": "default",
             "rules": [
               {
-                "condition": { "memberType": "premium" },
-                "force": "success1"
-              },
-              {
                 "parent": "parentFlag",
                 "parentCondition": { "@parent": "green" }
               },
               {
                 "condition": { "memberType": "basic" },
-                "force": "success2"
+                "force": "success"
               }
             ]
           }
@@ -3337,16 +3333,12 @@
             "defaultValue": "default",
             "rules": [
               {
-                "condition": { "memberType": "premium" },
-                "force": "success1"
-              },
-              {
                 "parent": "parentFlag",
                 "parentCondition": { "@parent": "green" }
               },
               {
                 "condition": { "memberType": "basic" },
-                "force": "success2"
+                "force": "success"
               }
             ]
           }
@@ -3354,9 +3346,9 @@
       },
       "childFlag",
       {
-        "value": "default",
-        "on": true,
-        "off": false,
+        "value": null,
+        "on": false,
+        "off": true,
         "source": "prerequisite"
       }
     ],
@@ -3386,16 +3378,12 @@
             "defaultValue": "default",
             "rules": [
               {
-                "condition": { "memberType": "premium" },
-                "force": "success1"
-              },
-              {
                 "parent": "parentFlag",
                 "parentCondition": { "@parent": "green" }
               },
               {
                 "condition": { "memberType": "basic" },
-                "force": "success2"
+                "force": "success"
               }
             ]
           }
@@ -3403,7 +3391,7 @@
       },
       "childFlag",
       {
-        "value": "success2",
+        "value": "success",
         "on": true,
         "off": false,
         "source": "force"
@@ -3444,10 +3432,6 @@
             "defaultValue": "default",
             "rules": [
               {
-                "condition": { "memberType": "premium" },
-                "force": "success1"
-              },
-              {
                 "parent": "parentFlag1",
                 "parentCondition": { "@parent": "green" }
               },
@@ -3457,7 +3441,7 @@
               },
               {
                 "condition": { "memberType": "basic" },
-                "force": "success2"
+                "force": "success"
               }
             ]
           }
@@ -3465,7 +3449,7 @@
       },
       "childFlag",
       {
-        "value": "success2",
+        "value": "success",
         "on": true,
         "off": false,
         "source": "force"
@@ -3510,16 +3494,12 @@
             "defaultValue": "default",
             "rules": [
               {
-                "condition": { "memberType": "premium" },
-                "force": "success1"
-              },
-              {
                 "parent": "parentFlag1",
                 "parentCondition": { "@parent": "green" }
               },
               {
                 "condition": { "memberType": "basic" },
-                "force": "success2"
+                "force": "success"
               }
             ]
           }
@@ -3527,7 +3507,7 @@
       },
       "childFlag",
       {
-        "value": "success2",
+        "value": "success",
         "on": true,
         "off": false,
         "source": "force"
@@ -3561,16 +3541,12 @@
             "defaultValue": "default",
             "rules": [
               {
-                "condition": { "memberType": "premium" },
-                "force": "success1"
-              },
-              {
                 "parent": "parentExperimentFlag",
                 "parentCondition": { "@parent": 1 }
               },
               {
                 "condition": { "memberType": "basic" },
-                "force": "success2"
+                "force": "success"
               }
             ]
           }
@@ -3578,7 +3554,7 @@
       },
       "childFlag",
       {
-        "value": "success2",
+        "value": "success",
         "on": true,
         "off": false,
         "source": "force"

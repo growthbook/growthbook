@@ -209,6 +209,11 @@ export type WidenPrimitives<T> = T extends string
   ? boolean
   : T;
 
+export type FeatureEvalContext = {
+  id?: string;
+  evaluatedFeatures: Set<string>;
+};
+
 export type DOMMutation = {
   selector: string;
   action: string;

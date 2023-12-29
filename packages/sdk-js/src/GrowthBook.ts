@@ -36,6 +36,7 @@ import {
 } from "./util";
 import { evalCondition } from "./mongrule";
 import { refreshFeatures, subscribe, unsubscribe } from "./feature-repository";
+import { FeatureEvalContext } from "./types/growthbook";
 
 const isBrowser =
   typeof window !== "undefined" && typeof document !== "undefined";
@@ -610,7 +611,20 @@ export class GrowthBook<
   public evalFeature<
     V extends AppFeatures[K],
     K extends string & keyof AppFeatures = string
-  >(id: K): FeatureResult<V | null> {
+  >(
+    id: K,
+    evalCtx: FeatureEvalContext = {
+      evaluatedFeatures: new Set(),
+    }
+  ): FeatureResult<V | null> {
+    if (evalCtx.evaluatedFeatures.has(id)) {
+      throw new Error(
+        `evalFeature: circular dependency detected: ${evalCtx.id} -> ${id}`
+      );
+    }
+    evalCtx.evaluatedFeatures.add(id);
+    evalCtx.id = id;
+
     // Global override
     if (this._forcedFeatureValues.has(id)) {
       process.env.NODE_ENV !== "production" &&
@@ -640,7 +654,10 @@ export class GrowthBook<
       for (const rule of feature.rules) {
         // If it's prerequisite flag, check if the parent flag evaluates to the rule's condition
         if (rule.parent) {
-          const parentResult = this.evalFeature(rule.parent);
+          const parentResult = this.evalFeature(rule.parent, evalCtx);
+          if (parentResult.off) {
+            return this._getFeatureResult(id, null, "prerequisite", rule.id);
+          }
           if (
             !evalCondition(
               { "@parent": parentResult.value },
