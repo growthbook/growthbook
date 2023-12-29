@@ -7,7 +7,6 @@ import Field from "@/components/Forms/Field";
 import TabButton from "@/components/Tabs/TabButton";
 import TabButtons from "@/components/Tabs/TabButtons";
 import SelectField from "@/components/Forms/SelectField";
-import { useDefinitions } from "@/services/DefinitionsContext";
 import Toggle from "../Forms/Toggle";
 import MultiSelectField from "../Forms/MultiSelectField";
 import styles from "./AttributeForm.module.scss";
@@ -32,31 +31,14 @@ export default function AttributeForm({
   const [jsonErrors, setJsonErrors] = useState<string | null>();
   const [tab, setTab] = useState<"simple" | "adv">("simple");
 
-  const { savedGroups } = useDefinitions();
-
   const attributeSchema = useAttributeSchema(true);
-
-  const hasGroupsAttribute = attributeSchema.some(
-    (a) => a.property === "$groups"
-  );
-  const usingGroupsAttribute = savedGroups.some(
-    (s) => s.type === "condition" && s.condition?.includes("$groups")
-  );
 
   const orderedAttributes = useMemo<SDKAttributeSchema>(
     () => [
       ...attributeSchema.filter((o) => !o.archived),
-      ...(!hasGroupsAttribute && usingGroupsAttribute
-        ? [
-            {
-              datatype: "string[]",
-              property: "$groups",
-            } as const,
-          ]
-        : []),
       ...attributeSchema.filter((o) => o.archived),
     ],
-    [attributeSchema, hasGroupsAttribute, usingGroupsAttribute]
+    [attributeSchema]
   );
 
   const attributesMap = new Map();
