@@ -1,6 +1,12 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-import { Context, Experiment, FeatureResult, GrowthBook } from "../src";
+import {
+  Context,
+  Experiment,
+  FeatureResult,
+  GrowthBook,
+  LocalStorageStickyBucketService,
+} from "../src";
 import { evalCondition } from "../src/mongrule";
 import { VariationRange } from "../src/types/growthbook";
 import {
@@ -64,6 +70,9 @@ describe("json test suite", () => {
   it.each((cases as Cases).feature)(
     "feature[%#] %s",
     (name, ctx, key, expected) => {
+      if (ctx.stickyBucketService) {
+        ctx.stickyBucketService = new LocalStorageStickyBucketService();
+      }
       const growthbook = new GrowthBook(ctx);
       expect(growthbook.feature(key)).toEqual({
         ruleId: "",

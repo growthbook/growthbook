@@ -3283,6 +3283,53 @@
           "stickyBucketUsed": false
         }
       }
+    ],
+    [
+      "use fallbackAttribute when missing hashAttribute",
+      {
+        "stickyBucketService": true,
+        "attributes": { "anonymousId": "123" },
+        "features": {
+          "feature": {
+            "defaultValue": 0,
+            "rules": [
+              {
+                "variations": [0, 1, 2, 3],
+                "hashAttribute": "id",
+                "fallbackAttribute": "anonymousId"
+              },
+              {
+                "force": 1
+              }
+            ]
+          }
+        }
+      },
+      "feature",
+      {
+        "experiment": {
+          "fallbackAttribute": "anonymousId",
+          "hashAttribute": "id",
+          "key": "feature",
+          "variations": [0, 1, 2, 3]
+        },
+        "experimentResult": {
+          "bucket": 0.863,
+          "featureId": "feature",
+          "hashAttribute": "anonymousId",
+          "hashUsed": true,
+          "hashValue": "123",
+          "inExperiment": true,
+          "key": "3",
+          "stickyBucketUsed": false,
+          "value": 3,
+          "variationId": 3
+        },
+        "value": 3,
+        "on": true,
+        "off": false,
+        "source": "experiment"
+      }
     ]
   ],
   "run": [
