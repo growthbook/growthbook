@@ -1,30 +1,36 @@
 ---
 title: Feature Flag Targeting
 description: Learn about how to target with GrowthBook
-sidebar_label: Targeting Attributes
+sidebar_label: Targeting
 slug: /features/targeting
 ---
 
-## Targeting Attributes
+# Targeting
 
-Feature values can be targeted to specific users or groups of users. In order for this to work, you must pass targeting
+GrowthBook lets you target a specific feature value or experiment to a subset of your users. This is accomplished with **Attributes**, **Conditions**, and **Saved Groups**.
+
+## Attributes
+
+In order for targeting to work, you must pass
 attributes into the GrowthBook SDK and also list them in the GrowthBook App.
 
-This is an example of specifying the targeting attributes in the SDK:
+Attributes are passed into your SDKs as key-value pairs. They keys you use are completely custom and there are no requirements or restrictions. Use whatever makes sense for your application.
+
+Here's an example from our JavaScript SDK:
 
 ```ts
 growthbook.setAttributes({
-  id: user.id,
-  email: user.email,
-  country: user.country,
+  id: "123",
+  email: "hello@growthbook.io",
+  country: "US",
   url: window.location.href,
   userAgent: navigator.userAgent,
-  admin: user.isAdmin,
-  age: user.age,
+  admin: true,
+  age: 50,
 });
 ```
 
-You can update the attributes in the GrowthBook App under **SDK Connections** > **Attributes**:
+In addition to passing attributes into the SDK, you also must update the GrowthBook App with these same attribute keys. You can do this under **SDK Connections** > **Attributes**:
 
 ![List of targeting attributes](/images/edit-targeting-attributes.png)
 
@@ -192,11 +198,17 @@ The JSON structure is inspired by the MongoDB Query syntax. Multiple conditions 
   }
   ```
 
+:::note
+
+We use the MongoDB query syntax because it is easy to read and write and is well documented. The conditions are never actually executed against a database. Instead, our SDKs include a light-weight interpreter for this syntax that runs entirely locally.
+
+:::
+
 ## Saved Groups
 
 In addition to targeting by attributes, GrowthBook also the concept of **Saved Groups**, which make it easy to target the same group of users across multiple features/experiments.
 
-Once you define your Saved Groups, you can easily reference them from any Feature rule or Experiment.
+Once you define your Saved Groups, you can easily reference them from any Feature rule or Experiment. Updates to saved groups apply immediately and will be instantly propagated to all matching Features and Experiments.
 
 ![Saved Group Targeting](/images/saved-groups-targeting.png)
 
