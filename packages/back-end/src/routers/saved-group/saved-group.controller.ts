@@ -1,5 +1,6 @@
 import type { Response } from "express";
 import { isEqual } from "lodash";
+import { validateCondition } from "shared/util";
 import { AuthRequest } from "../../types/AuthRequest";
 import { ApiErrorResponse } from "../../../types/api";
 import { getOrgFromReq } from "../../services/organizations";
@@ -47,11 +48,13 @@ export const postSavedGroup = async (
 
   // If this is a condition group, make sure the condition is valid and not empty
   if (type === "condition") {
-    if (!condition) {
-      throw new Error("Must specify a condition");
+    const conditionRes = validateCondition(condition);
+    if (!conditionRes.success) {
+      throw new Error(conditionRes.error);
     }
-    // Try parsing the condition to make sure it's valid
-    JSON.parse(condition);
+    if (conditionRes.empty) {
+      throw new Error("Condition cannot be empty");
+    }
   }
   // If this is a list group, make sure the attributeKey is specified
   else if (type === "list") {
@@ -141,6 +144,15 @@ export const putSavedGroup = async (
     condition &&
     condition !== savedGroup.condition
   ) {
+    // Validate condition to make sure it's valid
+    const conditionRes = validateCondition(condition);
+    if (!conditionRes.success) {
+      throw new Error(conditionRes.error);
+    }
+    if (conditionRes.empty) {
+      throw new Error("Condition cannot be empty");
+    }
+
     fieldsToUpdate.condition = condition;
   }
 

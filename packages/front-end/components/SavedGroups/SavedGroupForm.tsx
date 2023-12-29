@@ -52,7 +52,7 @@ const SavedGroupForm: FC<{
       open={true}
       size="lg"
       header={`${current.id ? "Edit" : "New"} ${
-        type === "condition" ? "Condition" : "ID List"
+        type === "condition" ? "Condition Group" : "ID List"
       }`}
       submit={form.handleSubmit(async (value) => {
         if (type === "condition") {
