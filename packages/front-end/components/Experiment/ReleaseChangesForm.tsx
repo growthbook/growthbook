@@ -58,7 +58,7 @@ export function getRecommendedRolloutData({
 
   // Decision variables (1-8):
   let moreRestrictiveTargeting = false;
-  const otherTargetingChanges = false;
+  let otherTargetingChanges = false;
   let decreaseCoverage = false;
   let addToNamespace = false;
   let decreaseNamespaceRange = false;
@@ -69,19 +69,26 @@ export function getRecommendedRolloutData({
   // Assign decision variables (1-8)
   // ===============================
 
-  // 1. More restrictive targeting?
+  // 1. More restrictive targeting (conditions)?
   // Remove outer curly braces from condition so we can use it to look for substrings
   // e.g. If they have 3 conditions ANDed together and delete one, that is a safe change
   // But if they add new conditions or modify an existing one, that is not
   // There are some edge cases with '$or' that are not handled correctly, but those are super rare
-  // todo: is this correct?
   const strippedCondition = data.condition.slice(1).slice(0, -1);
   if (!(lastPhase.condition || "").includes(strippedCondition)) {
     moreRestrictiveTargeting = true;
   }
-
-  // 2. Other targeting changes?
-  // todo: assess?
+  // todo: find a cleaner way of comparing saved groups
+  const savedGroupJson = JSON.stringify(data.savedGroups || []);
+  const lastPhaseSavedGroupJson = JSON.stringify(lastPhase.savedGroups || []);
+  // 1. More restrictive targeting (saved groups)?
+  if (savedGroupJson.length > lastPhaseSavedGroupJson.length) {
+    moreRestrictiveTargeting = true;
+  }
+  // 2. Other targeting changes (saved groups)?
+  if (savedGroupJson.length < lastPhaseSavedGroupJson.length) {
+    otherTargetingChanges = true;
+  }
 
   // 3. Decrease coverage?
   if (data.coverage < (lastPhase.coverage ?? 1)) {
@@ -98,7 +105,6 @@ export function getRecommendedRolloutData({
   }
 
   // 5. Decrease namespace range?
-  // todo: is this reasonable?
   if (
     data.namespace.enabled &&
     lastPhase.namespace.enabled &&
@@ -115,7 +121,7 @@ export function getRecommendedRolloutData({
   }
 
   // 6. Other namespace changes?
-  // todo: assess?
+  // nothing here yet
 
   // 7.
   // Changing variation weights will almost certainly cause an SRM error

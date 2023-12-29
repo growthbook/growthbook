@@ -575,12 +575,18 @@ function TargetigChangeTooltips({
       )}
       {recommendedRolloutData.riskLevel !== "safe" && (
         <ul className="mt-1 mb-0 pl-4">
-          {(recommendedRolloutData.reasons.moreRestrictiveTargeting ||
-            recommendedRolloutData.reasons.otherTargetingChanges) && (
+          {recommendedRolloutData.reasons.moreRestrictiveTargeting && (
             <li>
               <strong>More restrictive targeting conditions</strong> may lead to
               carryover bias. Use Sticky Bucketing or re-randomize traffic to
               help mitigate.
+            </li>
+          )}
+          {recommendedRolloutData.reasons.otherTargetingChanges && (
+            <li>
+              <strong>Ambiguous changes to targeting conditions</strong> may
+              lead to carryover bias. Use Sticky Bucketing or re-randomize
+              traffic to help mitigate.
             </li>
           )}
           {recommendedRolloutData.reasons.decreaseCoverage && (
