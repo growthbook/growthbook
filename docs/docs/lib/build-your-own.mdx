@@ -886,7 +886,6 @@ There are a bunch of ordered steps to run an experiment:
 9.  Choose a variation
     1.  If a sticky bucket value exists, use it.
         1. If the found sticky bucket version is blocked (doesn't exceed `experiment.minBucketVersion`), then skip enrollment
-        2. If the found sticky bucket variation is blocked (key doesn't exist in `experiment.meta`) and `experiment.excludeBlockedBucketUsers` is set, then skip enrollment
     2.  Else, Calculate bucket ranges for the variations and choose one
         ```ts
         ranges = experiment.ranges || getBucketRanges(
@@ -1155,6 +1154,6 @@ Open a [GitHub issue](https://github.com/growthbook/growthbook/issues) with a li
   - Add 3 new test cases for comparison operators to handle more edge cases
 - **v0.5.3** 2024-01-02
   - Experiment conditions are now evaluated within the experiment object
-  - New `fallbackAttribute`, `disableStickyBucketing`, `bucketVersion`, `minBucketVersion`, `excludeBlockedBucketUsers` properties of FeatureRules
-  - New `fallbackAttribute`, `disableStickyBucketing`, `bucketVersion`, `minBucketVersion`, `excludeBlockedBucketUsers` properties of Experiments
+  - New `fallbackAttribute`, `disableStickyBucketing`, `bucketVersion`, `minBucketVersion`, properties of FeatureRules
+  - New `fallbackAttribute`, `disableStickyBucketing`, `bucketVersion`, `minBucketVersion`, properties of Experiments
   - Add `stickyBucketUsed` to ExperimentResult object

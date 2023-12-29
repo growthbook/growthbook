@@ -28,7 +28,6 @@ export type FeatureRule<T = any> = {
   disableStickyBucketing?: boolean;
   bucketVersion?: number;
   minBucketVersion?: number;
-  excludeBlockedBucketUsers?: boolean;
   range?: VariationRange;
   coverage?: number;
   /** @deprecated */
@@ -101,7 +100,6 @@ export type Experiment<T> = {
   disableStickyBucketing?: boolean;
   bucketVersion?: number;
   minBucketVersion?: number;
-  excludeBlockedBucketUsers?: boolean;
   active?: boolean;
   /** @deprecated */
   status?: ExperimentStatus;
