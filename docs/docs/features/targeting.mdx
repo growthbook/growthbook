@@ -217,6 +217,12 @@ There are two types of Saved Groups:
 - **ID Lists** - Pick an attribute and define a list of values directly within the GrowthBook UI. For example, you can make an `Admin` group and add the `userId` of all of your admins.
 - **Condition Groups** - Configure advanced targeting rules based on a user's attributes. For example, "all users located in the US on a mobile device".
 
+:::note
+
+ID Lists are currently limited to a maximum of **100 values**. These values are included directly in the payload sent to your SDKs and large payloads can slow down your application. Support for largers lists is coming soon!
+
+:::
+
 ![Saved Groups UI](/images/saved-groups.png)
 
 :::note
