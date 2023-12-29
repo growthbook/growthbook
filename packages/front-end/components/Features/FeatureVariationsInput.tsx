@@ -126,22 +126,22 @@ export default function FeatureVariationsInput({
             </div>
           </div>
         )}
-          <table className="table bg-light mb-0">
-            <thead className={`${styles.variationSplitHeader}`}>
-              <tr>
-                <th className="pl-3">Id</th>
-                {!valueAsId && <th>Variation</th>}
-                <th>
-                  <Tooltip
-                    body="Optional way to identify the variations within GrowthBook."
-                    tipPosition="top"
-                  >
-                    Name <FaInfoCircle />
-                  </Tooltip>
-                </th>
-                <th>
-                  Split
-                  {!disableVariations && (
+        <table className="table bg-light mb-0">
+          <thead className={`${styles.variationSplitHeader}`}>
+            <tr>
+              <th className="pl-3">Id</th>
+              {!valueAsId && <th>Variation</th>}
+              <th>
+                <Tooltip
+                  body="Optional way to identify the variations within GrowthBook."
+                  tipPosition="top"
+                >
+                  Name <FaInfoCircle />
+                </Tooltip>
+              </th>
+              <th>
+                Split
+                {!disableVariations && (
                   <div className="d-inline-block float-right form-check form-check-inline">
                     <label className="mb-0">
                       <input
@@ -161,30 +161,30 @@ export default function FeatureVariationsInput({
                       Customize split
                     </label>
                   </div>
-                  )}
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              <SortableVariationsList
-                variations={variations}
-                setVariations={!disableVariations ? setVariations : undefined}
-              >
-                {variations.map((variation, i) => (
-                  <SortableFeatureVariationRow
-                    i={i}
-                    key={variation.id}
-                    variation={variation}
-                    variations={variations}
-                    setVariations={!disableVariations ? setVariations : undefined}
-                    setWeight={!disableVariations ? setWeight : undefined}
-                    customSplit={customSplit}
-                    valueType={valueType}
-                    valueAsId={valueAsId}
-                  />
-                ))}
-              </SortableVariationsList>
-              {!disableVariations && (
+                )}
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            <SortableVariationsList
+              variations={variations}
+              setVariations={!disableVariations ? setVariations : undefined}
+            >
+              {variations.map((variation, i) => (
+                <SortableFeatureVariationRow
+                  i={i}
+                  key={variation.id}
+                  variation={variation}
+                  variations={variations}
+                  setVariations={!disableVariations ? setVariations : undefined}
+                  setWeight={!disableVariations ? setWeight : undefined}
+                  customSplit={customSplit}
+                  valueType={valueType}
+                  valueAsId={valueAsId}
+                />
+              ))}
+            </SortableVariationsList>
+            {!disableVariations && (
               <tr>
                 <td colSpan={4}>
                   <div className="row">
@@ -256,21 +256,21 @@ export default function FeatureVariationsInput({
                   </div>
                 </td>
               </tr>
-              )}
+            )}
 
-              {showPreview && (
-                <tr>
-                  <td colSpan={4} className="pb-2">
-                    <ExperimentSplitVisual
-                      coverage={coverage}
-                      values={variations}
-                      type={valueType}
-                    />
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+            {showPreview && (
+              <tr>
+                <td colSpan={4} className="pb-2">
+                  <ExperimentSplitVisual
+                    coverage={coverage}
+                    values={variations}
+                    type={valueType}
+                  />
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
       </div>
     </div>
   );
