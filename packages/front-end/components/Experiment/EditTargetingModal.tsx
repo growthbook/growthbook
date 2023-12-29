@@ -14,9 +14,9 @@ import omit from "lodash/omit";
 import isEqual from "lodash/isEqual";
 import React, { useEffect, useMemo, useState } from "react";
 import { validateAndFixCondition } from "shared/util";
-import useIncrementer from "@/hooks/useIncrementer";
 import { BsToggles } from "react-icons/bs";
 import clsx from "clsx";
+import useIncrementer from "@/hooks/useIncrementer";
 import { useAuth } from "@/services/auth";
 import { getEqualWeights } from "@/services/utils";
 import { useAttributeSchema } from "@/services/features";
@@ -171,7 +171,12 @@ export default function EditTargetingModal({
             Feature Flags and Visual Editor changes immediately upon publishing.
           </div>
         )}
-        <TargetingForm experiment={experiment} form={form} safeToEdit={true} conditionKey={conditionKey} />
+        <TargetingForm
+          experiment={experiment}
+          form={form}
+          safeToEdit={true}
+          conditionKey={conditionKey}
+        />
       </Modal>
     );
   }
@@ -356,7 +361,7 @@ function ChangeTypeSelector({
 function TargetingForm({
   experiment,
   form,
-  safeToEdit = false,
+  safeToEdit,
   changeType = "advanced",
   showTooltips,
   hasChanges,
@@ -364,11 +369,11 @@ function TargetingForm({
 }: {
   experiment: ExperimentInterfaceStringDates;
   form: UseFormReturn<ExperimentTargetingData>;
-  safeToEdit?: boolean;
+  safeToEdit: boolean;
   changeType?: ChangeType;
   showTooltips?: boolean;
   hasChanges?: boolean;
-  conditionKey?: any;
+  conditionKey: number;
 }) {
   const attributeSchema = useAttributeSchema();
   const hasHashAttributes =

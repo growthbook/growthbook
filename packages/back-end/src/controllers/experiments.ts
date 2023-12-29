@@ -1431,12 +1431,12 @@ export async function postExperimentTargeting(
 }
 
 export async function postExperimentPhase(
-  req: AuthRequest<ExperimentPhase & { reseed: boolean }, { id: string }>,
+  req: AuthRequest<ExperimentPhase, { id: string }>,
   res: Response
 ) {
   const { org, userId } = getOrgFromReq(req);
   const { id } = req.params;
-  const { reason, dateStarted, reseed, ...data } = req.body;
+  const { reason, dateStarted, ...data } = req.body;
 
   const changes: Changeset = {};
 
@@ -1489,7 +1489,6 @@ export async function postExperimentPhase(
     dateStarted: date,
     dateEnded: undefined,
     reason: "",
-    seed: phases.length && reseed ? uuidv4() : data.seed,
   });
 
   // TODO: validation
