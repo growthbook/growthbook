@@ -22,7 +22,7 @@ interface Props {
   labelClassName?: string;
 }
 
-const title = "Target by Attribute";
+const title = "Target by Attributes";
 
 export default function ConditionInput(props: Props) {
   const { savedGroups } = useDefinitions();

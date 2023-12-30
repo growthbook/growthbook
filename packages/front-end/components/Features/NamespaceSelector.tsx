@@ -38,8 +38,8 @@ export default function NamespaceSelector({
   ];
 
   return (
-    <div className="form-group">
-      <label>Namespace Targeting</label>
+    <div className="form-group mb-4">
+      <label>Target by Namespace</label>
 
       <div>
         <div className="mt-1 mb-2 d-flex align-items-center mx-1">

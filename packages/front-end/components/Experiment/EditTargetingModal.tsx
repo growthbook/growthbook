@@ -217,7 +217,7 @@ export default function EditTargetingModal({
       }}
       secondaryCTA={
         step === lastStepNumber ? (
-          <div className="col">
+          <div className="col ml-1 pl-0" style={{ minWidth: 500 }}>
             <div className="d-flex m-0 pl-3 pr-2 py-1 alert alert-warning">
               <div>
                 <strong>Warning:</strong> Changes made will apply to all linked
@@ -257,7 +257,7 @@ export default function EditTargetingModal({
           )}
 
           <div className="mt-4">
-            <label>Current targeting</label>
+            <label>Current experiment targeting and traffic</label>
             <div className="appbox bg-light px-3 pt-3 pb-1 mb-0">
               <TargetingInfo
                 experiment={experiment}
@@ -316,10 +316,13 @@ function ChangeTypeSelector({
         {
           label: "Targeting & Traffic",
           options: [
-            { label: "Saved Groups & Attributes", value: "targeting" },
+            {
+              label: "Targeting by Saved Groups & Attributes",
+              value: "targeting",
+            },
+            { label: "Targeting by Namespace", value: "namespace" },
             { label: "Traffic Percent", value: "traffic" },
             { label: "Variation Weights", value: "weights" },
-            { label: "Namespace", value: "namespace" },
             { label: "Advanced", value: "advanced" },
           ],
         },
@@ -471,6 +474,14 @@ function TargetingForm({
         </>
       )}
 
+      {["namespace", "advanced"].includes(changeType) && (
+        <NamespaceSelector
+          form={form}
+          featureId={experiment.trackingKey}
+          trackingKey={experiment.trackingKey}
+        />
+      )}
+
       {["traffic", "weights", "advanced"].includes(changeType) && (
         <FeatureVariationsInput
           valueType={"string"}
@@ -500,14 +511,6 @@ function TargetingForm({
               ? "Variation Weights"
               : "Traffic Percentage & Variation Weights"
           }
-        />
-      )}
-
-      {["namespace", "advanced"].includes(changeType) && (
-        <NamespaceSelector
-          form={form}
-          featureId={experiment.trackingKey}
-          trackingKey={experiment.trackingKey}
         />
       )}
     </div>

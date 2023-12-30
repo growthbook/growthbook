@@ -23,7 +23,7 @@ export default function SavedGroupTargetingField({ value, setValue }: Props) {
 
   return (
     <div className="form-group">
-      <label>Target by Saved Group</label>
+      <label>Target by Saved Groups</label>
       <div className="border bg-light p-3 mb-1">
         {value.length > 0 ? (
           <div>

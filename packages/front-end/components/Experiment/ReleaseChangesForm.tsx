@@ -556,7 +556,7 @@ export default function ReleaseChangesForm({
       {changeType !== "phase" && (
         <div className="mt-4 mb-1">
           <div className="d-flex">
-            <label>Targeting changes</label>
+            <label>Targeting and traffic changes</label>
             <div className="flex-1" />
             <div className="position-relative small" style={{ bottom: -6 }}>
               <a

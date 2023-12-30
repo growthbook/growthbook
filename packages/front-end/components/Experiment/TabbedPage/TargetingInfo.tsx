@@ -91,7 +91,7 @@ export default function TargetingInfo({
           className="h3"
           containerClassName="mb-3"
         >
-          Targeting
+          Targeting and Traffic
         </HeaderWithEdit>
       )}
       {phase ? (
@@ -134,6 +134,7 @@ export default function TargetingInfo({
                 </div>
               </>
             )}
+
             {(!showChanges ||
               showFullTargetingInfo ||
               hasSavedGroupsChanges ||
@@ -141,7 +142,7 @@ export default function TargetingInfo({
               <>
                 <div className="mb-3">
                   <div className="mb-1">
-                    <strong>Saved Group Targeting</strong>
+                    <strong>Saved Group targeting</strong>
                   </div>
                   <div className="d-flex">
                     {hasSavedGroupsChanges && (
@@ -184,7 +185,7 @@ export default function TargetingInfo({
                 </div>
                 <div className="mb-3">
                   <div className="mb-1">
-                    <strong>Attribute Targeting</strong>
+                    <strong>Attribute targeting</strong>
                   </div>
                   <div className="d-flex">
                     {hasConditionChanges && (
@@ -222,6 +223,71 @@ export default function TargetingInfo({
                   )}
                 </div>
               </>
+            )}
+
+            {(!showChanges || showFullTargetingInfo || hasNamespaceChanges) && (
+              <div className="mb-3">
+                <div className="mb-1">
+                  <strong>Namespace targeting</strong>{" "}
+                  <Tooltip body="Use namespaces to run mutually exclusive experiments. Manage namespaces under SDK Configuration → Namespaces">
+                    <MdInfoOutline className="text-info" />
+                  </Tooltip>
+                </div>
+                <div>
+                  <div className="d-flex">
+                    {hasNamespaceChanges && (
+                      <div
+                        className="text-danger font-weight-bold text-center"
+                        style={{ width: 20 }}
+                      >
+                        Δ
+                      </div>
+                    )}
+                    <div>
+                      {hasNamespace ? (
+                        <>
+                          {phase.namespace.name}{" "}
+                          <span className="text-muted">
+                            ({percentFormatter.format(namespaceRange)})
+                          </span>
+                          {showNamespaceRanges && (
+                            <span className="text-muted small ml-1">
+                              [{namespaceRanges[0]} - {namespaceRanges[1]}]
+                            </span>
+                          )}
+                        </>
+                      ) : (
+                        <em>Global (all users)</em>
+                      )}
+                    </div>
+                  </div>
+                </div>
+                {hasNamespaceChanges && (
+                  <div className="font-weight-bold text-success d-flex">
+                    <div className="text-center" style={{ width: 20 }}>
+                      →
+                    </div>
+                    <div>
+                      {changesHasNamespace ? (
+                        <>
+                          {changes?.namespace.name}{" "}
+                          <span className="text-muted">
+                            ({percentFormatter.format(changesNamespaceRange)})
+                          </span>
+                          {showNamespaceRanges && (
+                            <span className="text-muted small ml-1">
+                              [{changesNamespaceRanges[0]} -{" "}
+                              {changesNamespaceRanges[1]}]
+                            </span>
+                          )}
+                        </>
+                      ) : (
+                        <em>Global (all users)</em>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
             )}
 
             {!separateTrafficSplitDisplay ? (
@@ -345,70 +411,6 @@ export default function TargetingInfo({
                   </div>
                 )}
               </>
-            )}
-            {(!showChanges || showFullTargetingInfo || hasNamespaceChanges) && (
-              <div className="mb-3">
-                <div className="mb-1">
-                  <strong>Namespace</strong>{" "}
-                  <Tooltip body="Use namespaces to run mutually exclusive experiments. Manage namespaces under SDK Configuration → Namespaces">
-                    <MdInfoOutline className="text-info" />
-                  </Tooltip>
-                </div>
-                <div>
-                  <div className="d-flex">
-                    {hasNamespaceChanges && (
-                      <div
-                        className="text-danger font-weight-bold text-center"
-                        style={{ width: 20 }}
-                      >
-                        Δ
-                      </div>
-                    )}
-                    <div>
-                      {hasNamespace ? (
-                        <>
-                          {phase.namespace.name}{" "}
-                          <span className="text-muted">
-                            ({percentFormatter.format(namespaceRange)})
-                          </span>
-                          {showNamespaceRanges && (
-                            <span className="text-muted small ml-1">
-                              [{namespaceRanges[0]} - {namespaceRanges[1]}]
-                            </span>
-                          )}
-                        </>
-                      ) : (
-                        <em>Global (all users)</em>
-                      )}
-                    </div>
-                  </div>
-                </div>
-                {hasNamespaceChanges && (
-                  <div className="font-weight-bold text-success d-flex">
-                    <div className="text-center" style={{ width: 20 }}>
-                      →
-                    </div>
-                    <div>
-                      {changesHasNamespace ? (
-                        <>
-                          {changes?.namespace.name}{" "}
-                          <span className="text-muted">
-                            ({percentFormatter.format(changesNamespaceRange)})
-                          </span>
-                          {showNamespaceRanges && (
-                            <span className="text-muted small ml-1">
-                              [{changesNamespaceRanges[0]} -{" "}
-                              {changesNamespaceRanges[1]}]
-                            </span>
-                          )}
-                        </>
-                      ) : (
-                        <em>Global (all users)</em>
-                      )}
-                    </div>
-                  </div>
-                )}
-              </div>
             )}
           </div>
         </div>
