@@ -15,6 +15,7 @@ interface Props extends HTMLAttributes<HTMLDivElement> {
   className?: string;
   innerClassName?: string;
   popperStyle?: CSSProperties;
+  usePortal?: boolean;
 }
 
 export default function PremiumTooltip({
@@ -28,6 +29,7 @@ export default function PremiumTooltip({
   className = "",
   innerClassName = "",
   popperStyle,
+  usePortal,
   ...otherProps
 }: Props) {
   const { hasCommercialFeature } = useUser();
@@ -57,6 +59,7 @@ export default function PremiumTooltip({
       className={className || ""}
       innerClassName={innerClassName || ""}
       popperStyle={popperStyle}
+      usePortal={usePortal}
       {...otherProps}
     >
       {!hasFeature && (

@@ -69,11 +69,11 @@ export default function FeatureVariationsInput({
       {label ? (
         <label>{label}</label>
       ) : setVariations ? (
-        <label>Exposure, Variations and Weights</label>
+        <label>Traffic Percentage, Variations, and Weights</label>
       ) : hideCoverage ? (
-        <label>Traffic Split</label>
+        <label>Traffic Percentage</label>
       ) : (
-        <label>Exposure and Weights</label>
+        <label>Traffic Percentage &amp; Variation Weights</label>
       )}
       <div className="gbtable bg-light">
         {!hideCoverage && (

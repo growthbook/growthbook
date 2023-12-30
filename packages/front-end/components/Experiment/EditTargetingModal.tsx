@@ -273,7 +273,7 @@ export default function EditTargetingModal({
       </Page>
 
       {changeType !== "phase" && (
-        <Page display="Edit Targeting">
+        <Page display="Make Changes">
           <div className="px-2">
             <TargetingForm
               experiment={experiment}
