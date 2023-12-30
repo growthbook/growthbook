@@ -5,24 +5,20 @@ import {
   ExperimentTargetingData,
 } from "back-end/types/experiment";
 import {
-  FaCheck,
   FaExclamationCircle,
   FaExternalLinkAlt,
   FaInfoCircle,
 } from "react-icons/fa";
 import omit from "lodash/omit";
 import isEqual from "lodash/isEqual";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { validateAndFixCondition } from "shared/util";
 import { BsToggles } from "react-icons/bs";
-import clsx from "clsx";
 import useIncrementer from "@/hooks/useIncrementer";
 import { useAuth } from "@/services/auth";
 import { getEqualWeights } from "@/services/utils";
 import { useAttributeSchema } from "@/services/features";
-import ReleaseChangesForm, {
-  getRecommendedRolloutData,
-} from "@/components/Experiment/ReleaseChangesForm";
+import ReleaseChangesForm from "@/components/Experiment/ReleaseChangesForm";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import PagedModal from "@/components/Modal/PagedModal";
 import Page from "@/components/Modal/Page";
@@ -52,7 +48,6 @@ export type ReleasePlan =
   | "new-phase"
   | "same-phase-sticky"
   | "same-phase-everyone"
-  | "advanced"
   | "";
 
 export interface Props {
@@ -188,20 +183,21 @@ export default function EditTargetingModal({
     cta = "Select a change type";
     ctaEnabled = false;
     blockSteps = [1, 2];
-  }
-  if (changeType !== "phase" && !hasChanges) {
-    if (step === 1) {
-      cta = "No changes";
+  } else {
+    if (changeType !== "phase" && !hasChanges) {
+      if (step === 1) {
+        cta = "No changes";
+        ctaEnabled = false;
+      }
+      blockSteps = [lastStepNumber];
+    }
+    if (!releasePlan && step === lastStepNumber) {
+      cta = "Select a release plan";
       ctaEnabled = false;
     }
-    blockSteps = [lastStepNumber];
-  }
-  if (!releasePlan && step === lastStepNumber) {
-    cta = "Select a release plan";
-    ctaEnabled = false;
-  }
-  if (step == lastStepNumber && !changesConfirmed) {
-    ctaEnabled = false;
+    if (step == lastStepNumber && !changesConfirmed) {
+      ctaEnabled = false;
+    }
   }
 
   return (
@@ -284,8 +280,6 @@ export default function EditTargetingModal({
               form={form}
               safeToEdit={false}
               changeType={changeType}
-              showTooltips={true}
-              hasChanges={hasChanges}
               conditionKey={conditionKey}
             />
           </div>
@@ -363,16 +357,12 @@ function TargetingForm({
   form,
   safeToEdit,
   changeType = "advanced",
-  showTooltips,
-  hasChanges,
   conditionKey,
 }: {
   experiment: ExperimentInterfaceStringDates;
   form: UseFormReturn<ExperimentTargetingData>;
   safeToEdit: boolean;
   changeType?: ChangeType;
-  showTooltips?: boolean;
-  hasChanges?: boolean;
   conditionKey: number;
 }) {
   const attributeSchema = useAttributeSchema();
@@ -385,10 +375,6 @@ function TargetingForm({
 
   return (
     <div className="px-2 pt-2">
-      {showTooltips && hasChanges && (
-        <TargetigChangeTooltips form={form} experiment={experiment} />
-      )}
-
       {safeToEdit && (
         <>
           <Field
@@ -523,102 +509,6 @@ function TargetingForm({
           featureId={experiment.trackingKey}
           trackingKey={experiment.trackingKey}
         />
-      )}
-    </div>
-  );
-}
-
-function TargetigChangeTooltips({
-  experiment,
-  form,
-}: {
-  experiment: ExperimentInterfaceStringDates;
-  form: UseFormReturn<ExperimentTargetingData>;
-}) {
-  const formValues = form.getValues();
-  const recommendedRolloutData = useMemo(
-    () =>
-      getRecommendedRolloutData({
-        experiment,
-        data: formValues,
-        stickyBucketing: false,
-      }),
-    [experiment, formValues]
-  );
-
-  return (
-    <div
-      className={clsx("alert", {
-        "alert-success": recommendedRolloutData.riskLevel === "safe",
-        "alert-warning": ["warning", "danger"].includes(
-          recommendedRolloutData.riskLevel
-        ),
-      })}
-    >
-      {recommendedRolloutData.riskLevel === "safe" && (
-        <>
-          <FaCheck className="mr-1" /> The changes you have made do not impact
-          existing bucketed users.
-        </>
-      )}
-      {recommendedRolloutData.riskLevel === "warning" && (
-        <>
-          <FaExclamationCircle className="mr-1" /> The changes you have made may
-          impact existing bucketed users.
-        </>
-      )}
-      {recommendedRolloutData.riskLevel === "danger" && (
-        <>
-          <FaExclamationCircle className="mr-1" /> The changes you have made
-          have a high risk of impacting existing bucketed users.
-        </>
-      )}
-      {recommendedRolloutData.riskLevel !== "safe" && (
-        <ul className="mt-1 mb-0 pl-4">
-          {recommendedRolloutData.reasons.moreRestrictiveTargeting && (
-            <li>
-              <strong>More restrictive targeting conditions</strong> may lead to
-              carryover bias. Use Sticky Bucketing or re-randomize traffic to
-              help mitigate.
-            </li>
-          )}
-          {recommendedRolloutData.reasons.otherTargetingChanges && (
-            <li>
-              <strong>Ambiguous changes to targeting conditions</strong> may
-              lead to carryover bias. Use Sticky Bucketing or re-randomize
-              traffic to help mitigate.
-            </li>
-          )}
-          {recommendedRolloutData.reasons.decreaseCoverage && (
-            <li>
-              <strong>Decreased traffic coverage</strong> may lead to carryover
-              bias. Use Sticky Bucketing or re-randomize traffic to help
-              mitigate.
-            </li>
-          )}
-          {recommendedRolloutData.reasons.changeVariationWeights && (
-            <li>
-              <strong>Changing variation weights</strong> could lead to
-              statistical bias and/or multiple exposures. Re-randomizing traffic
-              can help mitigate.
-            </li>
-          )}
-          {recommendedRolloutData.reasons.disableVariation && (
-            <li>
-              <strong>Disabling or re-enableing a variation</strong> could lead
-              to statistical bias and/or multiple exposures.
-            </li>
-          )}
-          {(recommendedRolloutData.reasons.addToNamespace ||
-            recommendedRolloutData.reasons.decreaseNamespaceRange ||
-            recommendedRolloutData.reasons.otherNamespaceChanges) && (
-            <li>
-              <strong>More restrictive namespace targeting</strong> may lead to
-              carryover bias. Use Sticky Bucketing or re-randomize traffic to
-              help mitigate.
-            </li>
-          )}
-        </ul>
       )}
     </div>
   );

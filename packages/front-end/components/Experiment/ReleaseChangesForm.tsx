@@ -4,14 +4,13 @@ import {
   ExperimentPhaseStringDates,
   ExperimentTargetingData,
 } from "back-end/types/experiment";
-import { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   FaCheck,
   FaExclamationCircle,
   FaExternalLinkAlt,
 } from "react-icons/fa";
 import clsx from "clsx";
-import { BsToggles } from "react-icons/bs";
 import { MdInfoOutline } from "react-icons/md";
 import { ImBlocked } from "react-icons/im";
 import { BiHide, BiShow } from "react-icons/bi";
@@ -24,10 +23,25 @@ import {
 } from "@/components/Experiment/EditTargetingModal";
 import TargetingInfo from "@/components/Experiment/TabbedPage/TargetingInfo";
 import SelectField from "../Forms/SelectField";
-import Toggle from "../Forms/Toggle";
 import Tooltip from "../Tooltip/Tooltip";
 
-export function getRecommendedRolloutData({
+interface RecommendedRolloutData {
+  recommendedReleasePlan: ReleasePlan | undefined;
+  actualReleasePlan: ReleasePlan | undefined;
+  riskLevel: "safe" | "warning" | "danger";
+  disableSamePhase: boolean;
+  reasons: {
+    moreRestrictiveTargeting?: boolean;
+    otherTargetingChanges?: boolean;
+    decreaseCoverage?: boolean;
+    addToNamespace?: boolean;
+    decreaseNamespaceRange?: boolean;
+    otherNamespaceChanges?: boolean;
+    changeVariationWeights?: boolean;
+    disableVariation?: boolean;
+  };
+}
+function getRecommendedRolloutData({
   experiment,
   data,
   stickyBucketing,
@@ -45,16 +59,7 @@ export function getRecommendedRolloutData({
   let disableSamePhase = false;
 
   // Returned meta:
-  let reasons: {
-    moreRestrictiveTargeting?: boolean;
-    otherTargetingChanges?: boolean;
-    decreaseCoverage?: boolean;
-    addToNamespace?: boolean;
-    decreaseNamespaceRange?: boolean;
-    otherNamespaceChanges?: boolean;
-    changeVariationWeights?: boolean;
-    disableVariation?: boolean;
-  } = {};
+  let reasons: RecommendedRolloutData["reasons"] = {};
 
   // Decision variables (1-8):
   let moreRestrictiveTargeting = false;
@@ -350,7 +355,6 @@ export default function ReleaseChangesForm({
                 },
               ]
             : []),
-          { label: "Advanced", value: "advanced" },
         ]}
         onChange={(v) => {
           const requiresStickyBucketing =
@@ -362,22 +366,6 @@ export default function ReleaseChangesForm({
         sort={false}
         isSearchable={false}
         formatOptionLabel={({ value, label }) => {
-          if (value === "advanced") {
-            return (
-              <>
-                <span className="font-italic">
-                  <BsToggles
-                    className="position-relative"
-                    style={{ top: -1 }}
-                  />{" "}
-                  {label}
-                </span>
-                <span className="ml-2">
-                  &mdash; Fine tune your release plan
-                </span>
-              </>
-            );
-          }
           const requiresStickyBucketing =
             value === "same-phase-sticky" || value === "same-phase-everyone";
           const recommended =
@@ -414,63 +402,37 @@ export default function ReleaseChangesForm({
           );
         }}
       />
-      {releasePlan === "advanced" && (
-        <div className="alert alert-warning px-3 py-2 small">
-          <FaExclamationCircle /> When customizing your release plan, there may
-          be an increased risk of introducing bias into your experiment or
-          affecting bucketed users in unintended ways. Proceed with caution.
-        </div>
+      {recommendedRolloutData && changeType !== "phase" && (
+        <TargetingChangeTooltips
+          recommendedRolloutData={recommendedRolloutData}
+          releasePlan={releasePlan}
+          usingStickyBucketingOption={[
+            "same-phase-sticky",
+            "same-phase-everyone",
+          ].includes(releasePlan ?? "")}
+          hasStickyBucketing={usingStickyBucketing}
+        />
       )}
 
       <div className="mt-4">
         <label>Release plan details</label>
-        <div className="d-flex" style={{ gap: 30 }}>
-          <div className="appbox col bg-light px-3 py-2 mb-0">
+        <div className="d-flex appbox bg-light px-2 py-2">
+          <div className="col-6">
             <div className="row">
               <div className="col">
-                <label className="mb-0">New phase?</label>
-                {releasePlan !== "advanced" ? (
-                  <div className="mt-1">
-                    {form.watch("newPhase") ? (
-                      <span className="font-weight-bold text-success">Yes</span>
-                    ) : (
-                      "No"
-                    )}
-                  </div>
-                ) : (
-                  <Toggle
-                    id="newPhase"
-                    className="my-2"
-                    style={{ width: 100 }}
-                    value={!!form.watch("newPhase")}
-                    setValue={(v) => form.setValue("newPhase", v)}
-                  />
-                )}
-              </div>
-              <div className="col">
-                <label className="mb-0">Re-randomize traffic?</label>
-                {releasePlan !== "advanced" ? (
-                  <div className="mt-1">
-                    {form.watch("reseed") ? (
-                      <span className="font-weight-bold text-success">Yes</span>
-                    ) : (
-                      "No"
-                    )}
-                  </div>
-                ) : (
-                  <Toggle
-                    id="reseed"
-                    className="my-2"
-                    style={{ width: 100 }}
-                    value={!!form.watch("reseed")}
-                    setValue={(v) => form.setValue("reseed", v)}
-                  />
-                )}
+                <label className="mb-1">New phase?</label>
+                <div className="mt-1 font-weight-bold">
+                  {!form.watch("newPhase")
+                    ? "No"
+                    : form.watch("reseed")
+                    ? "Yes, new random seed"
+                    : "Yes, same random seed"}
+                </div>
               </div>
             </div>
           </div>
-          <div className="appbox col bg-light px-3 py-2 mb-0">
-            <div className="row px-2 align-items-end mb-2">
+          <div className="col-6">
+            <div className="d-flex align-items-end mb-2">
               <label className="mb-0 mr-3">
                 <PremiumTooltip
                   commercialFeature="sticky-bucketing"
@@ -572,83 +534,18 @@ export default function ReleaseChangesForm({
                 {!usingStickyBucketing ? (
                   <></>
                 ) : (
-                  <>
-                    {releasePlan !== "advanced" ? (
-                      <div>
-                        <label className="mb-0 mr-2">
-                          Bucketed users will:
-                        </label>
-                        <span className="font-weight-bold">
-                          {(form.watch("bucketVersion") ?? 0) <=
-                          (experiment.bucketVersion ?? 0)
-                            ? "Keep their assigned bucket"
-                            : (form.watch("minBucketVersion") ?? 0) <=
-                              (experiment.minBucketVersion ?? 0)
-                            ? "Be reassigned"
-                            : "Be excluded from the experiment"}
-                        </span>
-                      </div>
-                    ) : (
-                      <div>
-                        <label className="mb-0 mr-2">
-                          Bucketed users will:
-                        </label>
-                        <SelectField
-                          value={
-                            (form.watch("bucketVersion") ?? 0) <=
-                            (experiment.bucketVersion ?? 0)
-                              ? "keep"
-                              : (form.watch("minBucketVersion") ?? 0) <=
-                                (experiment.minBucketVersion ?? 0)
-                              ? "reassign"
-                              : "exclude"
-                          }
-                          options={[
-                            {
-                              label: "Keep their assigned bucket",
-                              value: "keep",
-                            },
-                            { label: "Be reassigned", value: "reassign" },
-                            {
-                              label: "Be excluded from the experiment",
-                              value: "exclude",
-                            },
-                          ]}
-                          onChange={(v) => {
-                            if (v === "keep") {
-                              form.setValue(
-                                "bucketVersion",
-                                experiment.bucketVersion
-                              );
-                              form.setValue(
-                                "minBucketVersion",
-                                experiment.minBucketVersion
-                              );
-                            } else if (v === "reassign") {
-                              form.setValue(
-                                "bucketVersion",
-                                (experiment.bucketVersion ?? 0) + 1
-                              );
-                              form.setValue(
-                                "minBucketVersion",
-                                experiment.minBucketVersion
-                              );
-                            } else if (v === "exclude") {
-                              form.setValue(
-                                "bucketVersion",
-                                (experiment.bucketVersion ?? 0) + 1
-                              );
-                              form.setValue(
-                                "minBucketVersion",
-                                experiment.bucketVersion ?? 0
-                              );
-                            }
-                          }}
-                          sort={false}
-                        />
-                      </div>
-                    )}
-                  </>
+                  <div>
+                    <label className="mb-0 mr-2">Bucketed users will:</label>
+                    <span className="font-weight-bold">
+                      {(form.watch("bucketVersion") ?? 0) <=
+                      (experiment.bucketVersion ?? 0)
+                        ? "Keep their assigned bucket"
+                        : (form.watch("minBucketVersion") ?? 0) <=
+                          (experiment.minBucketVersion ?? 0)
+                        ? "Be reassigned"
+                        : "Be excluded from the experiment"}
+                    </span>
+                  </div>
                 )}
               </div>
             </div>
@@ -693,6 +590,100 @@ export default function ReleaseChangesForm({
             />
           </div>
         </div>
+      )}
+    </div>
+  );
+}
+
+function TargetingChangeTooltips({
+  recommendedRolloutData,
+  releasePlan = "",
+  usingStickyBucketingOption = false,
+  hasStickyBucketing = false,
+}: {
+  recommendedRolloutData: RecommendedRolloutData;
+  releasePlan?: ReleasePlan;
+  usingStickyBucketingOption?: boolean;
+  hasStickyBucketing: boolean;
+}) {
+  const switchToSB = !usingStickyBucketingOption && hasStickyBucketing;
+  let riskLevel = recommendedRolloutData.riskLevel;
+  if (releasePlan === recommendedRolloutData.actualReleasePlan) {
+    riskLevel = "safe";
+  }
+  return (
+    <div
+      className={clsx("alert", {
+        "alert-success": riskLevel === "safe",
+        "alert-warning": ["warning", "danger"].includes(riskLevel),
+      })}
+    >
+      {riskLevel === "safe" && (
+        <>
+          <FaCheck className="mr-1" /> The changes you have made do not impact
+          existing bucketed users.
+        </>
+      )}
+      {riskLevel === "warning" && (
+        <>
+          <FaExclamationCircle className="mr-1" /> The changes you have made may
+          impact existing bucketed users.
+        </>
+      )}
+      {riskLevel === "danger" && (
+        <>
+          <FaExclamationCircle className="mr-1" /> The changes you have made
+          have a high risk of impacting existing bucketed users.
+        </>
+      )}
+      {riskLevel !== "safe" && (
+        <ul className="mt-1 mb-0 pl-4">
+          {recommendedRolloutData.reasons.moreRestrictiveTargeting && (
+            <li>
+              <strong>More restrictive targeting conditions</strong> may lead to
+              carryover bias. Re-randomize traffic
+              {switchToSB ? " or use Sticky Bucketing" : ""} to help mitigate.
+            </li>
+          )}
+          {recommendedRolloutData.reasons.otherTargetingChanges && (
+            <li>
+              <strong>Ambiguous changes to targeting conditions</strong> may
+              lead to carryover bias. Re-randomize traffic
+              {switchToSB ? " or use Sticky Bucketing" : ""} to help mitigate.
+            </li>
+          )}
+          {recommendedRolloutData.reasons.decreaseCoverage && (
+            <li>
+              <strong>Decreased traffic coverage</strong> may lead to carryover
+              bias. Re-randomize traffic
+              {switchToSB ? " or use Sticky Bucketing" : ""} to help mitigate.
+            </li>
+          )}
+          {recommendedRolloutData.reasons.changeVariationWeights && (
+            <li>
+              <strong>Changing variation weights</strong> could lead to
+              statistical bias and/or multiple exposures. Re-randomize traffic
+              to help mitigate.
+            </li>
+          )}
+          {recommendedRolloutData.reasons.disableVariation && (
+            <li>
+              <strong>Disabling or re-enableing a variation</strong> could lead
+              to statistical bias and/or multiple exposures. Re-randomize
+              traffic to help mitigate.
+            </li>
+          )}
+          {(recommendedRolloutData.reasons.addToNamespace ||
+            recommendedRolloutData.reasons.decreaseNamespaceRange ||
+            recommendedRolloutData.reasons.otherNamespaceChanges) && (
+            <li>
+              <strong>More restrictive namespace targeting</strong> may lead to
+              carryover bias. Re-randomize traffic
+              {switchToSB ? " or enable Sticky Bucketing" : ""} to help
+              mitigate.
+            </li>
+          )}
+        </ul>
       )}
     </div>
   );
