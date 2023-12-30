@@ -14,6 +14,7 @@ import clsx from "clsx";
 import { MdInfoOutline } from "react-icons/md";
 import { ImBlocked } from "react-icons/im";
 import { BiHide, BiShow } from "react-icons/bi";
+import { SavedGroupTargeting } from "back-end/types/feature";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import usePermissions from "@/hooks/usePermissions";
@@ -24,233 +25,6 @@ import {
 import TargetingInfo from "@/components/Experiment/TabbedPage/TargetingInfo";
 import SelectField from "../Forms/SelectField";
 import Tooltip from "../Tooltip/Tooltip";
-
-interface RecommendedRolloutData {
-  recommendedReleasePlan: ReleasePlan | undefined;
-  actualReleasePlan: ReleasePlan | undefined;
-  riskLevel: "safe" | "warning" | "danger";
-  disableSamePhase: boolean;
-  reasons: {
-    moreRestrictiveTargeting?: boolean;
-    otherTargetingChanges?: boolean;
-    decreaseCoverage?: boolean;
-    addToNamespace?: boolean;
-    decreaseNamespaceRange?: boolean;
-    otherNamespaceChanges?: boolean;
-    changeVariationWeights?: boolean;
-    disableVariation?: boolean;
-  };
-}
-function getRecommendedRolloutData({
-  experiment,
-  data,
-  stickyBucketing,
-}: {
-  experiment: ExperimentInterfaceStringDates;
-  data: ExperimentTargetingData;
-  stickyBucketing: boolean;
-}) {
-  const lastPhase: ExperimentPhaseStringDates | undefined =
-    experiment.phases[experiment.phases.length - 1];
-
-  let recommendedReleasePlan: ReleasePlan | undefined = undefined;
-  let actualReleasePlan: ReleasePlan | undefined = undefined;
-  let riskLevel: "safe" | "warning" | "danger" = "safe";
-  let disableSamePhase = false;
-
-  // Returned meta:
-  let reasons: RecommendedRolloutData["reasons"] = {};
-
-  // Decision variables (1-8):
-  let moreRestrictiveTargeting = false;
-  let otherTargetingChanges = false;
-  let decreaseCoverage = false;
-  let addToNamespace = false;
-  let decreaseNamespaceRange = false;
-  const otherNamespaceChanges = false;
-  let changeVariationWeights = false;
-  const disableVariation = false;
-
-  // Assign decision variables (1-8)
-  // ===============================
-
-  // 1. More restrictive targeting (conditions)?
-  // Remove outer curly braces from condition so we can use it to look for substrings
-  // e.g. If they have 3 conditions ANDed together and delete one, that is a safe change
-  // But if they add new conditions or modify an existing one, that is not
-  // There are some edge cases with '$or' that are not handled correctly, but those are super rare
-  const strippedCondition = data.condition.slice(1).slice(0, -1);
-  if (!(lastPhase.condition || "").includes(strippedCondition)) {
-    moreRestrictiveTargeting = true;
-  }
-  // todo: find a cleaner way of comparing saved groups
-  const savedGroupJson = JSON.stringify(data.savedGroups || []);
-  const lastPhaseSavedGroupJson = JSON.stringify(lastPhase.savedGroups || []);
-  // 1. More restrictive targeting (saved groups)?
-  if (savedGroupJson.length > lastPhaseSavedGroupJson.length) {
-    moreRestrictiveTargeting = true;
-  }
-  // 2. Other targeting changes (saved groups)?
-  if (savedGroupJson.length < lastPhaseSavedGroupJson.length) {
-    otherTargetingChanges = true;
-  }
-
-  // 3. Decrease coverage?
-  if (data.coverage < (lastPhase.coverage ?? 1)) {
-    decreaseCoverage = true;
-  }
-
-  // 4. Add to namespace?
-  if (
-    data.namespace.enabled &&
-    (!lastPhase.namespace.enabled ||
-      data.namespace.name !== lastPhase.namespace?.name)
-  ) {
-    addToNamespace = true;
-  }
-
-  // 5. Decrease namespace range?
-  if (
-    data.namespace.enabled &&
-    lastPhase.namespace.enabled &&
-    data.namespace.name === lastPhase.namespace.name
-  ) {
-    const namespaceRange = data.namespace.range ?? [0, 1];
-    const lastNamespaceRange = lastPhase.namespace.range ?? [0, 1];
-    if (
-      namespaceRange[0] > lastNamespaceRange[0] ||
-      namespaceRange[1] < lastNamespaceRange[1]
-    ) {
-      decreaseNamespaceRange = true;
-    }
-  }
-
-  // 6. Other namespace changes?
-  // nothing here yet
-
-  // 7.
-  // Changing variation weights will almost certainly cause an SRM error
-  if (
-    JSON.stringify(data.variationWeights) !==
-    JSON.stringify(lastPhase.variationWeights)
-  ) {
-    changeVariationWeights = true;
-  }
-
-  // // 8. Disable variation?
-  // todo: blocked variations not implemented yet
-
-  // Make recommendations, control available options
-  // --> based on decision variables (1-8) and sticky bucketing support
-  // ===============================
-
-  // A. Nothing risky has changed
-  if (
-    !moreRestrictiveTargeting &&
-    !otherTargetingChanges &&
-    !decreaseCoverage &&
-    !addToNamespace &&
-    !decreaseNamespaceRange &&
-    !otherNamespaceChanges &&
-    !changeVariationWeights &&
-    !disableVariation
-  ) {
-    // recommend no release changes
-    recommendedReleasePlan = "same-phase-sticky";
-    actualReleasePlan = stickyBucketing
-      ? recommendedReleasePlan
-      : "same-phase-everyone";
-  } else {
-    // B. Calculate recommendations as if sticky bucketing is enabled
-    // (We will override these later if it is not. Calculating this allows us to
-    // show the user the benefits of enabling sticky bucketing)
-    if (moreRestrictiveTargeting || decreaseCoverage || disableVariation) {
-      // safe
-      recommendedReleasePlan = "same-phase-sticky";
-      actualReleasePlan = recommendedReleasePlan;
-      riskLevel = "safe";
-    }
-    if (otherTargetingChanges) {
-      // warning
-      recommendedReleasePlan = "new-phase";
-      actualReleasePlan = recommendedReleasePlan;
-      riskLevel = "warning";
-      reasons = { ...reasons, otherTargetingChanges };
-    }
-    if (
-      addToNamespace ||
-      decreaseNamespaceRange ||
-      otherNamespaceChanges ||
-      changeVariationWeights
-    ) {
-      // danger
-      recommendedReleasePlan = "new-phase";
-      actualReleasePlan = recommendedReleasePlan;
-      disableSamePhase = true;
-      riskLevel = "danger";
-      reasons = {
-        ...reasons,
-        addToNamespace,
-        decreaseNamespaceRange,
-        otherNamespaceChanges,
-        changeVariationWeights,
-      };
-    }
-
-    // C. Calculate recommendations when sticky bucketing is disabled
-    if (!stickyBucketing) {
-      // reset
-      actualReleasePlan = "same-phase-everyone";
-      riskLevel = "safe";
-      disableSamePhase = false;
-      reasons = {};
-
-      if (
-        moreRestrictiveTargeting ||
-        decreaseCoverage ||
-        addToNamespace ||
-        decreaseNamespaceRange
-      ) {
-        // warning
-        actualReleasePlan = "new-phase";
-        riskLevel = "warning";
-        reasons = {
-          ...reasons,
-          moreRestrictiveTargeting,
-          decreaseCoverage,
-          addToNamespace,
-          decreaseNamespaceRange,
-        };
-      }
-      if (
-        otherTargetingChanges ||
-        otherNamespaceChanges ||
-        changeVariationWeights ||
-        disableVariation
-      ) {
-        // danger
-        actualReleasePlan = "new-phase";
-        disableSamePhase = true;
-        riskLevel = "danger";
-        reasons = {
-          ...reasons,
-          otherTargetingChanges,
-          otherNamespaceChanges,
-          changeVariationWeights,
-          disableVariation,
-        };
-      }
-    }
-  }
-
-  return {
-    recommendedReleasePlan,
-    actualReleasePlan,
-    riskLevel,
-    disableSamePhase,
-    reasons,
-  };
-}
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
@@ -357,8 +131,7 @@ export default function ReleaseChangesForm({
             : []),
         ]}
         onChange={(v) => {
-          const requiresStickyBucketing =
-            v === "same-phase-sticky" || v === "same-phase-everyone";
+          const requiresStickyBucketing = v === "same-phase-sticky";
           const disabled = requiresStickyBucketing && !usingStickyBucketing;
           if (disabled) return;
           setReleasePlan(v as ReleasePlan);
@@ -366,8 +139,7 @@ export default function ReleaseChangesForm({
         sort={false}
         isSearchable={false}
         formatOptionLabel={({ value, label }) => {
-          const requiresStickyBucketing =
-            value === "same-phase-sticky" || value === "same-phase-everyone";
+          const requiresStickyBucketing = value === "same-phase-sticky";
           const recommended =
             value === recommendedRolloutData.recommendedReleasePlan;
           const disabled = requiresStickyBucketing && !usingStickyBucketing;
@@ -406,11 +178,7 @@ export default function ReleaseChangesForm({
         <TargetingChangeTooltips
           recommendedRolloutData={recommendedRolloutData}
           releasePlan={releasePlan}
-          usingStickyBucketingOption={[
-            "same-phase-sticky",
-            "same-phase-everyone",
-          ].includes(releasePlan ?? "")}
-          hasStickyBucketing={usingStickyBucketing}
+          usingStickyBucketing={usingStickyBucketing}
         />
       )}
 
@@ -598,15 +366,13 @@ export default function ReleaseChangesForm({
 function TargetingChangeTooltips({
   recommendedRolloutData,
   releasePlan = "",
-  usingStickyBucketingOption = false,
-  hasStickyBucketing = false,
+  usingStickyBucketing = false,
 }: {
   recommendedRolloutData: RecommendedRolloutData;
   releasePlan?: ReleasePlan;
-  usingStickyBucketingOption?: boolean;
-  hasStickyBucketing: boolean;
+  usingStickyBucketing?: boolean;
 }) {
-  const switchToSB = !usingStickyBucketingOption && hasStickyBucketing;
+  const switchToSB = !usingStickyBucketing;
   let riskLevel = recommendedRolloutData.riskLevel;
   if (releasePlan === recommendedRolloutData.actualReleasePlan) {
     riskLevel = "safe";
@@ -687,4 +453,299 @@ function TargetingChangeTooltips({
       )}
     </div>
   );
+}
+
+interface RecommendedRolloutData {
+  recommendedReleasePlan: ReleasePlan | undefined;
+  actualReleasePlan: ReleasePlan | undefined;
+  riskLevel: "safe" | "warning" | "danger";
+  disableSamePhase: boolean;
+  reasons: {
+    moreRestrictiveTargeting?: boolean;
+    otherTargetingChanges?: boolean;
+    decreaseCoverage?: boolean;
+    addToNamespace?: boolean;
+    decreaseNamespaceRange?: boolean;
+    otherNamespaceChanges?: boolean;
+    changeVariationWeights?: boolean;
+    disableVariation?: boolean;
+  };
+}
+function getRecommendedRolloutData({
+  experiment,
+  data,
+  stickyBucketing,
+}: {
+  experiment: ExperimentInterfaceStringDates;
+  data: ExperimentTargetingData;
+  stickyBucketing: boolean;
+}) {
+  const lastPhase: ExperimentPhaseStringDates | undefined =
+    experiment.phases[experiment.phases.length - 1];
+
+  let recommendedReleasePlan: ReleasePlan | undefined = undefined;
+  let actualReleasePlan: ReleasePlan | undefined = undefined;
+  let riskLevel: "safe" | "warning" | "danger" = "safe";
+  let disableSamePhase = false;
+
+  // Returned meta:
+  let reasons: RecommendedRolloutData["reasons"] = {};
+
+  // Decision variables (1-8):
+  let moreRestrictiveTargeting = false;
+  let otherTargetingChanges = false;
+  let decreaseCoverage = false;
+  let addToNamespace = false;
+  let decreaseNamespaceRange = false;
+  const otherNamespaceChanges = false;
+  let changeVariationWeights = false;
+  const disableVariation = false;
+
+  // Assign decision variables (1-8)
+  // ===============================
+
+  // 1. More restrictive targeting (conditions)?
+  // Remove outer curly braces from condition so we can use it to look for substrings
+  // e.g. If they have 3 conditions ANDed together and delete one, that is a safe change
+  // But if they add new conditions or modify an existing one, that is not
+  // There are some edge cases with '$or' that are not handled correctly, but those are super rare
+  const strippedCondition = data.condition.slice(1).slice(0, -1);
+  if (!(lastPhase.condition || "").includes(strippedCondition)) {
+    moreRestrictiveTargeting = true;
+  }
+  const savedGroupsRestrictiveness = compareSavedGroups(
+    data.savedGroups || [],
+    lastPhase.savedGroups || []
+  );
+  // 1. More restrictive targeting (saved groups)?
+  if (savedGroupsRestrictiveness === "more") {
+    moreRestrictiveTargeting = true;
+  }
+  // 2. Other targeting changes (saved groups)?
+  if (savedGroupsRestrictiveness === "other") {
+    otherTargetingChanges = true;
+  }
+
+  // 3. Decrease coverage?
+  if (data.coverage < (lastPhase.coverage ?? 1)) {
+    decreaseCoverage = true;
+  }
+
+  // 4. Add to namespace?
+  if (
+    data.namespace.enabled &&
+    (!lastPhase.namespace.enabled ||
+      data.namespace.name !== lastPhase.namespace?.name)
+  ) {
+    addToNamespace = true;
+  }
+
+  // 5. Decrease namespace range?
+  if (
+    data.namespace.enabled &&
+    lastPhase.namespace.enabled &&
+    data.namespace.name === lastPhase.namespace.name
+  ) {
+    const namespaceRange = data.namespace.range ?? [0, 1];
+    const lastNamespaceRange = lastPhase.namespace.range ?? [0, 1];
+    if (
+      namespaceRange[0] > lastNamespaceRange[0] ||
+      namespaceRange[1] < lastNamespaceRange[1]
+    ) {
+      decreaseNamespaceRange = true;
+    }
+  }
+
+  // 6. Other namespace changes?
+  // nothing here yet
+
+  // 7.
+  // Changing variation weights will almost certainly cause an SRM error
+  if (
+    JSON.stringify(data.variationWeights) !==
+    JSON.stringify(lastPhase.variationWeights)
+  ) {
+    changeVariationWeights = true;
+  }
+
+  // // 8. Disable variation?
+  // todo: blocked variations not implemented yet
+
+  // Make recommendations, control available options
+  // --> based on decision variables (1-8) and sticky bucketing support
+  // ===============================
+
+  // A. Nothing risky has changed
+  if (
+    !moreRestrictiveTargeting &&
+    !otherTargetingChanges &&
+    !decreaseCoverage &&
+    !addToNamespace &&
+    !decreaseNamespaceRange &&
+    !otherNamespaceChanges &&
+    !changeVariationWeights &&
+    !disableVariation
+  ) {
+    // recommend no release changes
+    recommendedReleasePlan = "same-phase-sticky";
+    actualReleasePlan = stickyBucketing
+      ? recommendedReleasePlan
+      : "same-phase-everyone";
+  } else {
+    // B. Calculate recommendations as if sticky bucketing is enabled
+    // (We will override these later if it is not. Calculating this allows us to
+    // show the user the benefits of enabling sticky bucketing)
+    if (moreRestrictiveTargeting || decreaseCoverage || disableVariation) {
+      // safe
+      recommendedReleasePlan = "same-phase-sticky";
+      actualReleasePlan = recommendedReleasePlan;
+      riskLevel = "safe";
+    }
+    if (otherTargetingChanges) {
+      // warning
+      recommendedReleasePlan = "new-phase";
+      actualReleasePlan = recommendedReleasePlan;
+      riskLevel = "warning";
+      reasons = { ...reasons, otherTargetingChanges };
+    }
+    if (
+      addToNamespace ||
+      decreaseNamespaceRange ||
+      otherNamespaceChanges ||
+      changeVariationWeights
+    ) {
+      // danger
+      recommendedReleasePlan = "new-phase";
+      actualReleasePlan = recommendedReleasePlan;
+      disableSamePhase = true;
+      riskLevel = "danger";
+      reasons = {
+        ...reasons,
+        addToNamespace,
+        decreaseNamespaceRange,
+        otherNamespaceChanges,
+        changeVariationWeights,
+      };
+    }
+
+    // C. Calculate recommendations when sticky bucketing is disabled
+    if (!stickyBucketing) {
+      // reset
+      actualReleasePlan = "same-phase-everyone";
+      riskLevel = "safe";
+      disableSamePhase = false;
+      reasons = {};
+
+      if (
+        moreRestrictiveTargeting ||
+        decreaseCoverage ||
+        addToNamespace ||
+        decreaseNamespaceRange
+      ) {
+        // warning
+        actualReleasePlan = "new-phase";
+        riskLevel = "warning";
+        reasons = {
+          ...reasons,
+          moreRestrictiveTargeting,
+          decreaseCoverage,
+          addToNamespace,
+          decreaseNamespaceRange,
+        };
+      }
+      if (
+        otherTargetingChanges ||
+        otherNamespaceChanges ||
+        changeVariationWeights ||
+        disableVariation
+      ) {
+        // danger
+        actualReleasePlan = "new-phase";
+        disableSamePhase = true;
+        riskLevel = "danger";
+        reasons = {
+          ...reasons,
+          otherTargetingChanges,
+          otherNamespaceChanges,
+          changeVariationWeights,
+          disableVariation,
+        };
+      }
+    }
+  }
+
+  return {
+    recommendedReleasePlan,
+    actualReleasePlan,
+    riskLevel,
+    disableSamePhase,
+    reasons,
+  };
+}
+
+function compareSavedGroups(
+  current: SavedGroupTargeting[],
+  last: SavedGroupTargeting[]
+): "more" | "less" | "other" | null {
+  const mergedDataIds: Record<"all" | "none" | "any", Set<string>> = {
+    all: new Set(),
+    none: new Set(),
+    any: new Set(),
+  };
+  const mergedLastPhaseIds: Record<"all" | "none" | "any", Set<string>> = {
+    all: new Set(),
+    none: new Set(),
+    any: new Set(),
+  };
+
+  // Merge data.savedGroups
+  for (const group of current) {
+    for (const id of group.ids) {
+      mergedDataIds[group.match].add(id);
+    }
+  }
+  // Merge lastPhase.savedGroups
+  for (const group of last) {
+    for (const id of group.ids) {
+      mergedLastPhaseIds[group.match].add(id);
+    }
+  }
+
+  let moreRestrictive = false;
+  let lessRestrictive = false;
+
+  // Compare merged groups
+  for (const matchType of ["all", "none", "any"] as (
+    | "all"
+    | "none"
+    | "any"
+  )[]) {
+    const currentIds = mergedDataIds[matchType];
+    const lastIds = mergedLastPhaseIds[matchType];
+
+    const addedIds = new Set([...currentIds].filter((id) => !lastIds.has(id)));
+    const removedIds = new Set(
+      [...lastIds].filter((id) => !currentIds.has(id))
+    );
+
+    if (addedIds.size > 0) {
+      if (["all", "none"].includes(matchType)) {
+        moreRestrictive = true;
+      } else {
+        lessRestrictive = true;
+      }
+    }
+    if (removedIds.size > 0) {
+      if (["all", "none"].includes(matchType)) {
+        lessRestrictive = true;
+      } else {
+        moreRestrictive = true;
+      }
+    }
+  }
+
+  if (moreRestrictive && lessRestrictive) return "other";
+  if (moreRestrictive) return "more";
+  if (lessRestrictive) return "less";
+  return null;
 }
