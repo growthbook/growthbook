@@ -154,6 +154,21 @@ export const getConnectionSDKCapabilities = (
   return uniq(capabilities);
 };
 
+export const getConnectionsSDKCapabilities = (
+  connections: Partial<SDKConnectionInterface>[],
+  strategy:
+    | "min-ver-intersection"
+    | "max-ver-intersection" = "min-ver-intersection"
+) => {
+  let capabilities: SDKCapability[] = [];
+  for (const connection of connections) {
+    capabilities = capabilities.concat(
+      getConnectionSDKCapabilities(connection, strategy)
+    );
+  }
+  return uniq(capabilities);
+};
+
 export const getSDKCapabilityVersion = (
   language: SDKLanguage = "other",
   capability: SDKCapability

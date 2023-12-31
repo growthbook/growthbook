@@ -4,11 +4,7 @@ import {
   ExperimentPhaseStringDates,
   ExperimentTargetingData,
 } from "back-end/types/experiment";
-import {
-  FaExclamationCircle,
-  FaExternalLinkAlt,
-  FaInfoCircle,
-} from "react-icons/fa";
+import { FaExclamationCircle } from "react-icons/fa";
 import omit from "lodash/omit";
 import isEqual from "lodash/isEqual";
 import React, { useEffect, useState } from "react";
@@ -19,12 +15,10 @@ import { useAuth } from "@/services/auth";
 import { getEqualWeights } from "@/services/utils";
 import { useAttributeSchema } from "@/services/features";
 import ReleaseChangesForm from "@/components/Experiment/ReleaseChangesForm";
-import useOrgSettings from "@/hooks/useOrgSettings";
 import PagedModal from "@/components/Modal/PagedModal";
 import Page from "@/components/Modal/Page";
 import TargetingInfo from "@/components/Experiment/TabbedPage/TargetingInfo";
-import Tooltip from "@/components/Tooltip/Tooltip";
-import usePermissions from "@/hooks/usePermissions";
+import FallbackAttributeSelector from "@/components/Features/FallbackAttributeSelector";
 import Field from "../Forms/Field";
 import Modal from "../Modal";
 import FeatureVariationsInput from "../Features/FeatureVariationsInput";
@@ -372,10 +366,6 @@ function TargetingForm({
   const hasHashAttributes =
     attributeSchema.filter((x) => x.hashAttribute).length > 0;
 
-  const permissions = usePermissions();
-  const settings = useOrgSettings();
-  const orgStickyBucketing = settings.useStickyBucketing;
-
   return (
     <div className="px-2 pt-2">
       {safeToEdit && (
@@ -403,55 +393,7 @@ function TargetingForm({
                 "Will be hashed together with the Tracking Key to determine which variation to assign"
               }
             />
-            <SelectField
-              containerClassName="flex-1"
-              label="Fallback attribute"
-              labelClassName="font-weight-bold"
-              options={[
-                { label: "none", value: "" },
-                ...attributeSchema
-                  .filter((s) => !hasHashAttributes || s.hashAttribute)
-                  .map((s) => ({ label: s.property, value: s.property })),
-              ]}
-              formatOptionLabel={({ value, label }) => {
-                if (!value) {
-                  return <em className="text-muted">{label}</em>;
-                }
-                return label;
-              }}
-              sort={false}
-              value={
-                orgStickyBucketing ? form.watch("fallbackAttribute") || "" : ""
-              }
-              onChange={(v) => {
-                form.setValue("fallbackAttribute", v);
-              }}
-              helpText={
-                <>
-                  <div>
-                    If the user&apos;s assignment attribute is not available the
-                    fallback attribute may be used instead.
-                  </div>
-                  {!orgStickyBucketing && (
-                    <div className="text-warning-orange mt-1">
-                      <FaInfoCircle /> Requires Sticky Bucketing (disabled by
-                      org)
-                      {permissions.organizationSettings && (
-                        <Tooltip
-                          className="ml-1"
-                          body="Enable for your organization"
-                        >
-                          <a className="pl-1" href="/settings" target="_blank">
-                            <FaExternalLinkAlt />
-                          </a>
-                        </Tooltip>
-                      )}
-                    </div>
-                  )}
-                </>
-              }
-              disabled={!orgStickyBucketing}
-            />
+            <FallbackAttributeSelector form={form} />
           </div>
           <HashVersionSelector
             value={form.watch("hashVersion")}

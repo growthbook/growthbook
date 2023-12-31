@@ -1,4 +1,4 @@
-import React, { FC, useEffect, useState } from "react";
+import { FC, useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import {
   ExperimentInterfaceStringDates,
@@ -13,12 +13,6 @@ import {
   isProjectListValidForProject,
   validateAndFixCondition,
 } from "shared/util";
-import {
-  FaExclamationCircle,
-  FaInfoCircle,
-  FaQuestionCircle,
-} from "react-icons/fa";
-import { FaGear } from "react-icons/fa6";
 import { useWatching } from "@/services/WatchProvider";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
@@ -29,10 +23,7 @@ import { generateVariationId, useAttributeSchema } from "@/services/features";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
 import useIncrementer from "@/hooks/useIncrementer";
-import usePermissions from "@/hooks/usePermissions";
-import Toggle from "@/components/Forms/Toggle";
-import { useUser } from "@/services/UserContext";
-import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
+import FallbackAttributeSelector from "@/components/Features/FallbackAttributeSelector";
 import MarkdownInput from "../Markdown/MarkdownInput";
 import TagsInput from "../Tags/TagsInput";
 import Page from "../Modal/Page";
@@ -134,9 +125,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
   const [allowDuplicateTrackingKey, setAllowDuplicateTrackingKey] = useState(
     false
   );
-  const [showSBToggle, setShowSBToggle] = useState(false);
 
-  const { refreshOrganization, hasCommercialFeature } = useUser();
   const {
     datasources,
     getDatasourceById,
@@ -144,11 +133,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
     project,
   } = useDefinitions();
 
-  const permissions = usePermissions();
   const settings = useOrgSettings();
-  const orgStickyBucketing = settings.useStickyBucketing;
-  const hasStickyBucketFeature = hasCommercialFeature("sticky-bucketing");
-
   const { refreshWatching } = useWatching();
 
   useEffect(() => {
@@ -305,18 +290,6 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
     }
   });
 
-  const setOrgStickyBucketingToggle = async (v: boolean) => {
-    await apiCall(`/organization`, {
-      method: "PUT",
-      body: JSON.stringify({
-        settings: {
-          useStickyBucketing: v,
-        },
-      }),
-    });
-    await refreshOrganization();
-  };
-
   const exposureQueries = datasource?.settings?.queries?.exposure || [];
   const status = form.watch("status");
 
@@ -459,133 +432,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                     "Will be hashed together with the Tracking Key to determine which variation to assign"
                   }
                 />
-                <SelectField
-                  containerClassName="flex-1"
-                  label="Fallback attribute"
-                  labelClassName="font-weight-bold"
-                  options={[
-                    { label: "none", value: "" },
-                    ...attributeSchema
-                      .filter((s) => !hasHashAttributes || s.hashAttribute)
-                      .map((s) => ({ label: s.property, value: s.property })),
-                  ]}
-                  formatOptionLabel={({ value, label }) => {
-                    if (!value) {
-                      return <em className="text-muted">{label}</em>;
-                    }
-                    return label;
-                  }}
-                  sort={false}
-                  value={
-                    orgStickyBucketing
-                      ? form.watch("fallbackAttribute") || ""
-                      : ""
-                  }
-                  onChange={(v) => {
-                    form.setValue("fallbackAttribute", v);
-                  }}
-                  helpText={
-                    <>
-                      <div>
-                        If the user&apos;s assignment attribute is not available
-                        the fallback attribute may be used instead.
-                      </div>
-                      {(!orgStickyBucketing || showSBToggle) && (
-                        <div className="d-flex mt-1">
-                          <div className="text-warning-orange">
-                            <FaInfoCircle /> Requires Sticky Bucketing
-                          </div>
-                          {!showSBToggle ? (
-                            <>
-                              {!orgStickyBucketing && (
-                                <span className="ml-3">(disabled by org)</span>
-                              )}
-                              {permissions.organizationSettings && (
-                                <a
-                                  role="button"
-                                  className="a ml-2"
-                                  onClick={() => setShowSBToggle(true)}
-                                >
-                                  <FaGear />
-                                </a>
-                              )}
-                            </>
-                          ) : (
-                            <>
-                              <div className="flex-1" />
-                              <div
-                                className="position-relative"
-                                style={{ top: -2 }}
-                              >
-                                <PremiumTooltip
-                                  commercialFeature={"sticky-bucketing"}
-                                  usePortal={true}
-                                  body={
-                                    <>
-                                      <div className="mb-2">
-                                        Sticky bucketing allows you to persist a
-                                        user&apos;s assigned variation if any of
-                                        the following change:
-                                        <ol className="mt-1 mb-2" type="a">
-                                          <li>the user logs in or logs out</li>
-                                          <li>
-                                            experiment targeting conditions
-                                            change
-                                          </li>
-                                          <li>
-                                            experiment traffic rules change
-                                          </li>
-                                        </ol>
-                                      </div>
-                                      <div>
-                                        Enabling sticky bucketing also allows
-                                        you to set fine controls over bucketing
-                                        behavior, such as:
-                                        <ul className="mt-1 mb-2">
-                                          <li>
-                                            assigning variations based on both a{" "}
-                                            <code>user_id</code> and{" "}
-                                            <code>anonymous_id</code>
-                                          </li>
-                                          <li>invalidating existing buckets</li>
-                                        </ul>
-                                      </div>
-                                      <div className="mb-2">
-                                        Sticky Bucketing is only supported in
-                                        the following SDKs and versions:
-                                        <ul className="mb-1">
-                                          <li>Javascript &gt;= 0.32.0</li>
-                                          <li>React &gt;= 0.22.0</li>
-                                        </ul>
-                                        Unsupported SDKs will fall back to
-                                        standard hash-based bucketing.
-                                      </div>
-                                      <div className="text-warning-orange">
-                                        <FaExclamationCircle /> You must enable
-                                        this feature in your SDK integration
-                                        code for it to take effect.
-                                      </div>
-                                    </>
-                                  }
-                                >
-                                  Enable for org <FaQuestionCircle />
-                                </PremiumTooltip>
-                                <Toggle
-                                  id="orgStickyBucketingToggle"
-                                  value={!!orgStickyBucketing}
-                                  setValue={setOrgStickyBucketingToggle}
-                                  disabled={!hasStickyBucketFeature}
-                                  className="ml-2"
-                                />
-                              </div>
-                            </>
-                          )}
-                        </div>
-                      )}
-                    </>
-                  }
-                  disabled={!orgStickyBucketing}
-                />
+                <FallbackAttributeSelector form={form} />
               </div>
 
               <SavedGroupTargetingField

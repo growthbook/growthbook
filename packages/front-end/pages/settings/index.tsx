@@ -21,6 +21,7 @@ import {
 import { OrganizationSettings } from "@/../back-end/types/organization";
 import Link from "next/link";
 import { useGrowthBook } from "@growthbook/growthbook-react";
+import { getConnectionsSDKCapabilities } from "shared/sdk-versioning";
 import { useAuth } from "@/services/auth";
 import EditOrganizationModal from "@/components/Settings/EditOrganizationModal";
 import BackupConfigYamlButton from "@/components/Settings/BackupConfigYamlButton";
@@ -50,6 +51,11 @@ import { AppFeatures } from "@/types/app-features";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import ExperimentCheckListModal from "@/components/Settings/ExperimentCheckListModal";
 import ShowLicenseInfo from "@/components/License/ShowLicenseInfo";
+import {
+  StickyBucketingToggleWarning,
+  StickyBucketingTooltip,
+} from "@/components/Features/FallbackAttributeSelector";
+import useSDKConnections from "@/hooks/useSDKConnections";
 
 export const supportedCurrencies = {
   AED: "UAE Dirham (AED)",
@@ -270,6 +276,11 @@ const GeneralSettingsPage = (): React.ReactElement => {
   const hasCustomChecklistFeature = hasCommercialFeature(
     "custom-launch-checklist"
   );
+
+  const { data: sdkConnectionsData } = useSDKConnections();
+  const hasSDKWithStickyBucketing = getConnectionsSDKCapabilities(
+    sdkConnectionsData?.connections || []
+  ).includes("stickyBucketing");
 
   const { metricDefaults } = useOrganizationMetricDefaults();
 
@@ -830,66 +841,41 @@ const GeneralSettingsPage = (): React.ReactElement => {
                     )}
                   </div>
 
-                  <div className="mb-4 d-flex">
-                    <label className="mr-2" htmlFor="toggle-useStickyBucketing">
-                      <PremiumTooltip
-                        commercialFeature={"sticky-bucketing"}
-                        body={
-                          <>
-                            <div className="mb-2">
-                              Sticky bucketing allows you to persist a
-                              user&apos;s assigned variation if any of the
-                              following change:
-                              <ol className="mt-1 mb-2" type="a">
-                                <li>the user logs in or logs out</li>
-                                <li>experiment targeting conditions change</li>
-                                <li>experiment traffic rules change</li>
-                              </ol>
-                            </div>
-                            <div>
-                              Enabling sticky bucketing also allows you to set
-                              fine controls over bucketing behavior, such as:
-                              <ul className="mt-1 mb-2">
-                                <li>
-                                  assigning variations based on both a{" "}
-                                  <code>user_id</code> and{" "}
-                                  <code>anonymous_id</code>
-                                </li>
-                                <li>invalidating existing buckets</li>
-                              </ul>
-                            </div>
-                            <div className="mb-2">
-                              Sticky Bucketing is only supported in the
-                              following SDKs and versions:
-                              <ul className="mb-1">
-                                <li>Javascript &gt;= 0.32.0</li>
-                                <li>React &gt;= 0.22.0</li>
-                              </ul>
-                              Unsupported SDKs will fall back to standard
-                              hash-based bucketing.
-                            </div>
-                            <div className="text-warning-orange">
-                              <FaExclamationCircle /> You must enable this
-                              feature in your SDK integration code for it to
-                              take effect.
-                            </div>
-                          </>
-                        }
+                  <div className="mb-4 w-100">
+                    <div className="d-flex">
+                      <label
+                        className="mr-2"
+                        htmlFor="toggle-useStickyBucketing"
                       >
-                        Enable Sticky Bucketing <FaQuestionCircle />
-                      </PremiumTooltip>
-                    </label>
-                    <Toggle
-                      id={"toggle-useStickyBucketing"}
-                      value={!!form.watch("useStickyBucketing")}
-                      setValue={(value) => {
-                        form.setValue(
-                          "useStickyBucketing",
-                          hasStickyBucketFeature ? value : false
-                        );
-                      }}
-                      disabled={!hasStickyBucketFeature}
-                    />
+                        <PremiumTooltip
+                          commercialFeature={"sticky-bucketing"}
+                          body={<StickyBucketingTooltip />}
+                        >
+                          Enable Sticky Bucketing <FaQuestionCircle />
+                        </PremiumTooltip>
+                      </label>
+                      <Toggle
+                        id={"toggle-useStickyBucketing"}
+                        value={!!form.watch("useStickyBucketing")}
+                        setValue={(value) => {
+                          form.setValue(
+                            "useStickyBucketing",
+                            hasStickyBucketFeature ? value : false
+                          );
+                        }}
+                        disabled={
+                          !hasStickyBucketFeature || !hasSDKWithStickyBucketing
+                        }
+                      />
+                    </div>
+                    {!form.watch("useStickyBucketing") && (
+                      <div className="small">
+                        <StickyBucketingToggleWarning
+                          hasSDKWithStickyBucketing={hasSDKWithStickyBucketing}
+                          iconSize={16}
+                        />
+                      </div>
+                    )}
                   </div>
 
                   <StatsEngineSelect
