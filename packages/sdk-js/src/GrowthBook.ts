@@ -295,34 +295,32 @@ export class GrowthBook<
     return data;
   }
 
-  public setAttributes(attributes: Attributes) {
+  public async setAttributes(attributes: Attributes) {
     this._ctx.attributes = attributes;
-    this.refreshStickyBuckets().then(() => {
-      if (this._ctx.remoteEval) {
-        this._refreshForRemoteEval();
-        return;
-      }
-      this._render();
-      this._updateAllAutoExperiments();
-    });
+    await this.refreshStickyBuckets();
+    if (this._ctx.remoteEval) {
+      await this._refreshForRemoteEval();
+      return;
+    }
+    this._render();
+    this._updateAllAutoExperiments();
   }
 
-  public setAttributeOverrides(overrides: Attributes) {
+  public async setAttributeOverrides(overrides: Attributes) {
     this._attributeOverrides = overrides;
-    this.refreshStickyBuckets().then(() => {
-      if (this._ctx.remoteEval) {
-        this._refreshForRemoteEval();
-        return;
-      }
-      this._render();
-      this._updateAllAutoExperiments();
-    });
+    await this.refreshStickyBuckets();
+    if (this._ctx.remoteEval) {
+      await this._refreshForRemoteEval();
+      return;
+    }
+    this._render();
+    this._updateAllAutoExperiments();
   }
 
-  public setForcedVariations(vars: Record<string, number>) {
+  public async setForcedVariations(vars: Record<string, number>) {
     this._ctx.forcedVariations = vars || {};
     if (this._ctx.remoteEval) {
-      this._refreshForRemoteEval();
+      await this._refreshForRemoteEval();
       return;
     }
     this._render();
@@ -335,12 +333,11 @@ export class GrowthBook<
     this._render();
   }
 
-  public setURL(url: string) {
+  public async setURL(url: string) {
     this._ctx.url = url;
     if (this._ctx.remoteEval) {
-      this._refreshForRemoteEval().then(() =>
-        this._updateAllAutoExperiments(true)
-      );
+      await this._refreshForRemoteEval();
+      this._updateAllAutoExperiments(true);
       return;
     }
     this._updateAllAutoExperiments(true);
