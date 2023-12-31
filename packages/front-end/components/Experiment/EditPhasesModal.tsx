@@ -13,12 +13,14 @@ export interface Props {
   close: () => void;
   experiment: ExperimentInterfaceStringDates;
   mutateExperiment: () => void;
+  editTargeting: (() => void) | null;
 }
 
 export default function EditPhasesModal({
   close,
   experiment,
   mutateExperiment,
+  editTargeting,
 }: Props) {
   const isDraft = experiment.status === "draft";
   const isMultiPhase = experiment.phases.length > 1;
@@ -60,6 +62,10 @@ export default function EditPhasesModal({
         experiment={experiment}
         i={editPhase}
         mutate={mutateExperiment}
+        editTargeting={() => {
+          editTargeting?.();
+          close();
+        }}
       />
     );
   }

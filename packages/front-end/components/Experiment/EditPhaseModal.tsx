@@ -13,6 +13,7 @@ export interface Props {
   i: number;
   experiment: ExperimentInterfaceStringDates;
   mutate: () => void;
+  editTargeting: (() => void) | null;
 }
 
 export default function EditPhaseModal({
@@ -20,6 +21,7 @@ export default function EditPhaseModal({
   i,
   experiment,
   mutate,
+  editTargeting,
 }: Props) {
   const form = useForm<ExperimentPhaseStringDates>({
     defaultValues: {
@@ -98,6 +100,23 @@ export default function EditPhaseModal({
           )}
         </>
       ) : null}
+
+      {!isDraft && (
+        <div className="alert alert-info mt-4">
+          Trying to change targeting rules or traffic allocation? Use the{" "}
+          <a
+            role="button"
+            className="a"
+            onClick={() => {
+              editTargeting?.();
+              close();
+            }}
+          >
+            Make Changes
+          </a>{" "}
+          button instead.
+        </div>
+      )}
     </Modal>
   );
 }
