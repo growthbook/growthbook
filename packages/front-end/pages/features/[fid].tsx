@@ -80,6 +80,7 @@ import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import { SimpleTooltip } from "@/components/SimpleTooltip/SimpleTooltip";
 import StaleFeatureIcon from "@/components/StaleFeatureIcon";
 import StaleDetectionModal from "@/components/Features/StaleDetectionModal";
+import CompareRulesModal from "@/components/Features/CompareRulesModal";
 
 export default function FeaturePage() {
   const router = useRouter();
@@ -88,6 +89,7 @@ export default function FeaturePage() {
   const [edit, setEdit] = useState(false);
   const [editValidator, setEditValidator] = useState(false);
   const [showSchema, setShowSchema] = useState(false);
+  const [showCompareView, setShowCompareView] = useState(false);
   const [auditModal, setAuditModal] = useState(false);
   const [draftModal, setDraftModal] = useState(false);
   const [conflictModal, setConflictModal] = useState(false);
@@ -299,6 +301,17 @@ export default function FeaturePage() {
           mutate={mutate}
           version={currentVersion}
           setVersion={setVersion}
+        />
+      )}
+      {showCompareView && (
+        <CompareRulesModal
+          close={() => setShowCompareView(false)}
+          feature={feature}
+          mutate={mutate}
+          version={currentVersion}
+          setVersion={setVersion}
+          setRuleModal={setRuleModal}
+          experimentsMap={experimentsMap}
         />
       )}
       {editOwnerModal && (
@@ -1162,7 +1175,15 @@ export default function FeaturePage() {
           />
         </div>
 
-        <h3>Override Rules</h3>
+        <div className="d-flex w-100 justify-content-between align-items-center">
+          <h3>Override Rules</h3>
+          <button
+            className="btn btn-link"
+            onClick={() => setShowCompareView(true)}
+          >
+            Compare Environments
+          </button>
+        </div>
         <p>
           Add powerful logic on top of your feature. The first matching rule
           applies and overrides the default value.
@@ -1179,6 +1200,7 @@ export default function FeaturePage() {
             buttonsClassName="px-3 py-2 h4"
           >
             {environments.map((e) => {
+              console.log("e", e);
               const rules = getRules(feature, e.id);
               return (
                 <Tab
