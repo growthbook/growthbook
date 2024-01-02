@@ -95,7 +95,7 @@ describe("licenseInit", () => {
     const result = await licenseInit(undefined, userLicenseCodes, metaData);
 
     expect(result).toBeUndefined();
-    expect(getLicense()).toBeNull;
+    expect(getLicense()).toBeNull();
   });
 
   describe("new style licenses where licenseKey starts with 'license_'", () => {
