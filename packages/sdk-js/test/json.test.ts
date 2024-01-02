@@ -1,14 +1,20 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 import {
+  clearCache,
   Context,
   Experiment,
   FeatureResult,
   GrowthBook,
   LocalStorageStickyBucketService,
+  Result,
 } from "../src";
 import { evalCondition } from "../src/mongrule";
-import { VariationRange } from "../src/types/growthbook";
+import {
+  StickyAssignmentsDocument,
+  StickyAttributeKey,
+  VariationRange,
+} from "../src/types/growthbook";
 import {
   chooseVariation,
   decrypt,
@@ -47,6 +53,14 @@ type Cases = {
   getEqualWeights: [number, number[]][];
   // name, encryptedString, key, result
   decrypt: [string, string, string, string | null][];
+  // name, context, feature key, result
+  stickyBucket: [
+    string,
+    Context,
+    string,
+    Result<any>,
+    Record<StickyAttributeKey, StickyAssignmentsDocument>
+  ][];
   versionCompare: {
     // version, version, meets condition
     lt: [string, string, boolean][];
@@ -70,9 +84,6 @@ describe("json test suite", () => {
   it.each((cases as Cases).feature)(
     "feature[%#] %s",
     (name, ctx, key, expected) => {
-      if (ctx.stickyBucketService) {
-        ctx.stickyBucketService = new LocalStorageStickyBucketService();
-      }
       const growthbook = new GrowthBook(ctx);
       expect(growthbook.feature(key)).toEqual({
         ruleId: "",
@@ -171,6 +182,32 @@ describe("json test suite", () => {
         }
       }
       expect(result).toEqual(expected);
+    }
+  );
+
+  it.each((cases as Cases).stickyBucket)(
+    "stickyBucket[%#] %s",
+    async (
+      name,
+      ctx,
+      key,
+      expectedExperimentResult,
+      expectedStickyBucketAssignmentDocs
+    ) => {
+      await clearCache();
+      ctx = {
+        ...ctx,
+        stickyBucketService: new LocalStorageStickyBucketService(),
+      };
+      const growthbook = new GrowthBook(ctx);
+      expect(growthbook.evalFeature(key).experimentResult ?? null).toEqual(
+        expectedExperimentResult
+      );
+      expect(growthbook.getStickyBucketAssignmentDocs()).toEqual(
+        expectedStickyBucketAssignmentDocs
+      );
+      growthbook.destroy();
+      localStorage.clear();
     }
   );
 
