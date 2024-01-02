@@ -1,0 +1,390 @@
+# Experimentation Programs
+
+“Experimentation”, or being more “data driven” can mean a lot of different things for different
+companies. It can be anything from running 1 test a quarter, to running 10s of thousands of experiments
+simultaneously. This difference of experimentation sophistication can be thought of with the crawl,
+walk, run, fly framework (From “Trustworthy Online Controlled Experiments: A Practical Guide to A/B Testing”, Ron Kohavi, Diane Tang, Ya Xu).
+
+**CRAWL - Basic Analytics**
+Companies at this stage have added some basic event tracking and are starting to get some visibility
+into their users behavior. They are not running experiments, but the data is used to come up with
+insights and potential project ideas.
+
+**WALK - Optimizations**
+After implementing comprehensive event tracking, focus now turns to starting to optimize the user
+experience on some parts of the product. At this stage, A/B tests may be run manually, limiting the
+number of possible experiments that can be run. Typically at this stage, depending on the amount of
+traffic you have, you may be running 1 to 4 tests per month.
+
+**RUN - Common Experimentation**
+As a company realizes that experimentation is really the only way to causally determine the impact of
+the work they are doing, they will start to ramp up their ability to run A/B tests. This means adopting or
+building an experimentation platform. With this, all larger changes made to their product are tested, as
+well they may have a Growth Team that is focused on optimizing parts of their product. At this stage, a
+company will be running 5 - 100 A/B Tests/Month. This may also include hiring a data team to help with
+setting up and interpreting the results.
+
+**FLY - Ubiquitous Experimentation**
+For companies that make it to the flying stage, A/B testing becomes the default for every feature.
+Product teams develop success metrics for all new features, and then they are run as an A/B test
+to determine if they were successful. At this point, A/B tests are able to be run by anyone in the
+product and engineering organization. Companies at this stage of ubiquitous experimentation can run
+anywhere from 100 to 10,000+ A/B Tests/Month.
+
+## Making the case for experimentation
+
+If your organization doesn't yet experiment often, you may need to make the case for why you should.
+The best way, when you are working on a project, is to ask your team "what does success look like for
+this project?" and "How would we measure that success?" In this case, two things will happen, either
+they'll give an answer that is not statistically rigorous, like looking at the metrics before and
+after, or they will say some variation of "We don't know". Once you're team realizes that A/B testing
+is a controlled way to determine causal impact, they'll wonder how they ever built products without it.
+
+The next pushback you may get is that A/B testing is too hard, or that it will slow down development.
+This is where you can make the case for GrowthBook. GrowthBook is designed to make A/B testing easy,
+and to make it so that you can run experiments without slowing down development. We are warehouse
+native, so we use whatever data you already are tracking, and our SDKs are extremely light weight
+and developer friendly. The goal at GrowthBook is to make it so easy and cost efficient to run
+experiments you'll test far more often.
+
+You can watch a video of making the case for AB testing here:
+
+<div style={{"max-width": "500px", "margin": "auto"}}>
+  <div style={{ "position": "relative", "padding-bottom": "56.25%", "height": 0, "max-height": "300px"}} >
+    <iframe style={{"position": "absolute", "top": 0, "left": 0, width: "100%", "height": "100%"}} src="https://www.youtube.com/embed/8rvprlnFpbg?si=6Duk_dyqB78UC6rn" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>
+  </div>
+</div>
+
+### Why AB test?
+
+- **Quantify Impact** You can determine the impact of any product change you make. There is a big
+  difference between "we launched feature X on time" and "we launched feature X on time and it raised
+  revenue by Y".
+- **De-risking** You can de-risk any product change you make with A/B testing. You can test any
+  change you make to your product, and if it doesn't work, you can roll it back. Typically new projects,
+  if they are going to fail, will fail in 3 ways: The project has errors, the project has bugs that
+  unexpectedly effect your metrics/business, or the project has no bugs or errors, but still negatively
+  effects your business. A/B testing will catch all of these issues, and allows you to roll out to a
+  small set of users to limit the impact of a bad feature.
+- **Limiting investment on bad ideas** As we discussed in our HAMM section - When you focus on
+  building the smallest testable MVP (or MTP) of a product, you can save a lot of time and effort put
+  into a bad idea. You build the MVP and get real users testing it, and if it turns out that you cannot
+  validate the hypothesis behind the idea, then you can move on to other projects, and limit the time
+  spent on ideas that don't work or that will have a negative impact on your business.
+- **Learning** If you have a well-designed experiment, you can determine causality. If you limit
+  the number of variables that your test has, you can know the exact change drove that change in
+  behavior, and apply these learnings to future projects.
+
+### Why A/B testing programs fail
+
+- **Lack of buy-in** If you don't have buy-in from the top, it can be hard to get the resources you
+  need to run a successful experimentation program. You'll need to make the case for why you should
+  experiment, and why you need the resources to do so.
+- **High cost** Many experimentation systems, especially legacy ones, can be expensive to run or maintain. When the costs are high, you can end up running fewer experiments, and with fewer experiments, the impact is lower. Eventually, a program in this state can atrophy and die.
+- **Cognitive Dissonance** As you're often getting counter-intuitive results with A/B testing, team members can start to question the platform itself, and may prefer to listen to their gut over the data. This is why building trust in your platform is so important.
+- **No visibility into the program's impact** Without some measure of the impact of your experimentation program, it can be hard to justify the expense of running it. You'll want to make sure you have a way to measure the impact of your experimentation program.
+
+## Measuring Experiment Program Success
+
+Once you have added an experimentation program, teams often look for a way to measure the success
+of that program. There are a few ways you can use to measure the success of your experimentation
+program, such as universal holdouts, win rate, experimentation frequency and learning rate. Each of
+these has their own advantages and disadvantages.
+
+### Universal Holdouts
+
+Universal holdouts is a method for keeping a certain percentage of your total traffic from seeing any
+new features or experiments. Users in a universal holdout will continue to get the control version of
+every test for an extended period of time, even after an experiment is declared, and then those users are compared to users who are getting all the new features and changes. This effectively gives you
+a cohort of users that are getting your product as it was, say 6 months ago, and comparing it to all
+the work you’ve done since. This is the gold standard for determining the cumulative impact of every
+change and experiment, however, it has a number of issues.
+
+To make universal holdouts work, you need to keep the code that delivers the old versions running and
+working on your app. This is often very hard to do. Some changes can have a non zero maintenance
+cost, block larger migrations, or limit other features until the holdout ends. Also, any bugs that arise
+that only affect one side of the holdouts (either control or in the variations), can bias the results. Finally,
+due to the typically smaller size of the universal holdout group, it can take longer for these holdout
+experiments to reach significant values, unless you have a lot of traffic.
+
+Given the complexity of running universal holdouts, many companies and teams look for other proxy
+metrics or KPIs to use for measuring experimentation program success.
+
+### Win Rate
+
+It can be very tempting to want to measure the experimentation win rate, the number of A/B tests
+that win over the total number of tests, and optimize your program for the highest win rate possible.
+However, using this as the KPI for your experiment program will encourage users to not run high risk
+experiments and creates a perverse incentive for more potentially impactful results (see Goodhart’s
+Law). Win rate can also hide the benefits of not launching a “losing” test, which is also a “win”.
+
+### Experimentation Frequency
+
+A more useful measure than win rate is optimizing for the number of experiments that are run. This
+encourages your team to run a lot of tests which increases the chances of any one test producing
+meaningful results. It may, however, encourage you to run smaller experiments over larger ones, which
+may not be optimal for producing the best outcomes.
+
+### Learning Rate
+
+Some teams try to optimize for a “learning rate” which is the rate at which you learn something about
+your product or users through A/B testing. This does not have the frequency or win rate biases, but
+also is nebulously defined. How do you define learning? Are there different qualities of what you learn?
+
+### KPI Effect
+
+If you can pick a few KPIs for your experimentation program, you should be able see the effects
+of the experiments you run against this. You may not be able to see causality precisely due to the
+natural variability in the data, and typically small improvements from an A/B test, but by aligning by the
+graph of this metric to experiments that are run, you may start to see cumulative effects. This is what
+GrowthBook shows with our North Star metric feature.
+
+## Prioritization
+
+Given the typical success rates of experiments, all prioritization frameworks should be taken with a
+grain of salt. Our preference at GrowthBook is to add as little process as possible and to maximize for a
+good mix of iterative and innovative ideas.
+
+### Iteration vs Innovation
+
+It is useful to think of experiment ideas on a graph with one axis being the effort required and the
+potential impact on the other. If you divide the ideas into two for high effort/impact and low effort/
+impact, you’ll end up with the following quadrant.
+
+<table>
+    <thead>
+        <tr>
+            <th></th>
+            <th>Low impact</th>
+            <th>High impact</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td><strong>High effort</strong></td>
+            <td style={{"backgroundColor":"#70080830"}}>Danger</td>
+            <td style={{"backgroundColor":"rgba(2,125,161,0.19)"}}>Prioritize</td>
+        </tr>
+        <tr>
+            <td><strong>Low effort</strong></td>
+            <td style={{"backgroundColor":"rgba(2,125,161,0.19)"}}>Prioritize</td>
+            <td style={{"backgroundColor":"rgba(1,186,118,0.19)"}}>Run now</td>
+        </tr>
+    </tbody>
+</table>
+
+The low effort, high impact ideas you should be running immediately, and similarly the high effort, low
+impact ideas you may not want to run at all. But this leaves the other two, low effort but low impact
+(smaller tests), and high effort high impact ideas (big bets). If you over index for smaller test ideas, you
+can increase your experimentation frequency, but risk not getting larger gains. If you over index for
+bigger bets, you decrease your experimentation frequency at the hope of larger returns, at the risk of
+not achieving the smaller wins which can stack up. You can also consider the smaller tests as being
+“iterative” and the bigger bets as “innovative”.
+
+Finding a good mix of small, iterative tests and bigger bets/innovative tests is the best strategy. What
+constitutes “good” is up to the team. Some companies will bucket their ideas into these two groups,
+and then ensure that they are pulling some percentage of ideas from both lists. A healthy mix of large
+and small ideas are important to a successful experimentation program.
+
+### Prioritization frameworks
+
+In the world of A/B testing, figuring out what to test can be particularly challenging. Often prioritization
+requires a degree of gut instinct which is often incorrect (see success rates). To solve this, some
+recommend prioritization frameworks, such as ICE and PIE.
+
+:::note
+Note: Please keep in mind that while these frameworks may be helpful, they can work to give the
+appearance of objectivity to subjective opinions.
+:::
+
+#### ICE
+
+The ICE prioritization framework is a simple and popular method for prioritizing A/B testing ideas based
+on their potential impact, confidence, and ease of implementation. Each idea is evaluated on each of
+these factors and scored on a scale of 1 to 10 and then averaged to determine the overall score for that
+idea. Here's a brief explanation of the factors:
+
+- **Impact**: This measures the potential impact of the testing idea on the key metrics or goals of the
+  business. The impact score should reflect the expected magnitude of the effect, as well as the
+  relevance of the metric to the business objectives.
+- **Confidence**: This measures the level of confidence that the testing idea will have the expected impact.
+  The confidence score should reflect the quality and quantity of the available evidence, as well as any
+  potential risks or uncertainties.
+- **Ease**: This measures the ease or difficulty of implementing the testing idea. The ease score should
+  reflect the expected effort, time, and resources required to implement the idea.
+  To calculate the ICE score for each testing idea, simply add up the scores for Impact, Confidence, and
+  Ease, and divide by 3:
+
+> ICE score = (Impact + Confidence + Ease) / 3
+
+Once all testing ideas have been scored using the ICE framework, they can be ranked in descending
+order based on their ICE score. The highest-ranked ideas are typically considered the most promising
+and prioritized for implementation.
+
+#### PIE
+
+Like the ICE Framework, the PIE framework is a method for prioritizing A/B testing ideas based on their
+potential impact, importance to the business, and ease of implementation. Each score is ranked on a 10
+point scale.
+
+- **Potential**: This measures the potential impact of the testing idea on the key metrics or goals of the
+  business. The potential score should reflect the expected magnitude of the effect, as well as the
+  relevance of the metric to the business objectives.
+- **Importance**: This measures the importance of the testing idea to the business. The importance score
+  should reflect the degree to which the testing idea aligns with the business goals and objectives, and
+  how critical the metric is to achieving those goals.
+- **Ease**: This measures the ease or difficulty of implementing the testing idea. The ease score should
+  reflect the expected effort, time, and resources required to implement the idea.
+  To calculate the PIE score for each testing idea, simply multiply the scores for Potential, Importance,
+  and Ease together:
+
+> PIE score = Potential x Importance x Ease
+
+Once all testing ideas have been scored using the PIE framework, they can be ranked in descending
+order based on their PIE score. The highest-ranked ideas are typically considered the most promising
+and prioritized for implementation.
+
+### Bias in prioritization
+
+Regardless of what prioritization method you choose, it's quite common to develop a bias for a
+particular types of ideas within a team. Make sure you're open to ideas
+that may not fit your preconceived notions of what will work (see [Semmelweis Effect](/using/experimentation-problems#semmelweis-effect)).
+Be mindful of when you're saying "no" to an idea if it's based on data or opinion. The goal, in the
+end, is to improve your business by producing the best product.
+
+## Experimentation Culture
+
+Adopting experimentation as a key part of being a more data-driven organization has numerous
+benefits to culture. Specifically around areas of alignment, speed, humility, and collaboration.
+
+### Alignment
+
+Adopting a north star metric or KPI that would drive our business success removes a lot of ambiguity
+about projects because we had clear success metrics. By making sure you have defined success
+metrics at the start of your planning cycle, you achieve alignment around your goals. This helps
+reduce the invariable scope creep and pet features from inserting themselves — or at least gives you
+a framework to say “yes, but not now.” Knowing what success means also allows developers to start
+integrating the tracking needed to know if the project would be successful from the beginning, which
+can often be forgotten or only done as an afterthought.
+
+### Speed
+
+When adopting an experimentation mindset, the default answer to a difference of opinion becomes
+“let’s test it” instead of long drawn out ego bruising meetings. This helps reduce personal opinions
+or bias affecting decisions. Quite often decisions in companies without this mindset are made by
+whomever is the loudest, or the HiPPOs (Highest Paid Person’s Opinion). By focusing on which metrics
+defined success, and defaulting to running an experiment, you can remove the ego from the decision
+process, and move quickly.
+
+Experimentation can also help increase your product velocity by minimizing the time it takes to
+determine if your new product or feature has product market fit. Most big ideas can be broken down
+into a small set of assumptions that, if true, would mean your larger idea may be successful. If you can
+prove or disprove these ideas, you can move more quickly and not waste time on failing ideas (loss
+avoidance).
+
+### Intellectual humility
+
+AB testing shows us that, in most of the cases, people are bad at predicting user behaviors. When you
+realize that your opinions may not be correct, you can start to channel your inner Semmelweis and be
+open to new ideas that challenge any deeply held entrenched norms or beliefs. Having an open mind
+and intellectual humility for new ideas can make your workplace a more collaborative environment, and
+produce better products.
+
+### Team collaboration
+
+When you are open to new ideas, you can remove the silos that prevent teams from collaborating well.
+The goal is to produce the best product as measured by a specific set of metrics. With this alignment,
+and the openness to new ideas, you can dramatically increase collaboration as good ideas come from
+anywhere.
+
+## Driving Experimentation Culture
+
+Developing a culture of experimentation can be hard, especially in a company where it has never existed.
+It requires a lot of buy-in from the top down, and/or a lot of evangelism from the bottom up.
+
+### Top down
+
+This is often the easiest way to drive experimentation culture. If the CEO or CTO or CPO says that they
+want more experimentation, they can make it happen. In these situations, picking the right platform and
+educating your team becomes the hardest part. You'll want to pick a platform that the developers like
+to use, that doesn't add unnecessary effort per experiment, and that brings the incremental cost per
+experiment close to zero. These are some of the reasons we built GrowthBook. If you do decide on
+GrowthBook, we can also help with educating your team.
+
+### Bottom up
+
+If you don't have buy-in from the top, you can still drive experimentation culture from the bottom up.
+Typically this starts with one team that wants to start experimenting. They may start with a simple test.
+Experimentation like this can be contagious, and other teams may start to see the benefits of running
+experiments. It's important with this approach to make sure that you are sharing your results, both
+good and bad, and that you are evangelizing the benefits of experimentation.
+
+### Sharing
+
+One great way to get fresh ideas and to help experimentation culture is to share your experiment
+ideas and results. Our preferred way to present your results is with an experiment review meeting. The
+premise behind these is to talk about the experiment without revealing the results, and to have people
+guess about the outcome. Specifically, you talk about the hypothesis and observations as to what and
+why you are testing, and then talk about the metrics you’re testing against, and then show screen shots
+of the variations (if applicable). You can have people vote simply by raising their hand. Once you’ve had
+people guess, you reveal the actual results. This is a great way to help build intellectual humility and
+also collect new ideas.
+
+GrowthBook has built experiment review meetings directly into the platform. You can create presentation
+from the management left navigation. You can then share the presentation with your team, and they can
+vote on the results.
+
+## Organizational Structures
+
+As you start to scale your experimentation program, you’ll want to think about how you want to organize
+your teams to ensure high frequency and high quality. There are a number of different ways to organize
+your teams, and we’ll go through some of the most common ones we’ve seen.
+
+### Isolated teams,
+
+When companies first start experimenting with experimenting, they often start with isolated teams. This
+can even be one individual on a team.
+
+One of the problems with this approach is that as an individual, it is hard to have good ideas to test
+continually, and you may suffer from idea bias, where your experiences and expertise limit the number
+and type of ideas you test. Another issue is that successes and failures are not shared. As is typical
+of experiment programs, if you present ideas that are failing at a 60%+ rate, people may think that
+the team is doing something wrong.
+
+These isolated teams can be critical in helping grow awareness of experimentation-driven development.
+However, the isolated team does not scale well, and running the frequency of experiments to see large
+impacts will be hard. If the team and leadership like the results, you’ll want to expand to one of the
+other structures.
+
+### Decentralized Teams
+
+As awareness of the ease of and insights gained through experimentation, more teams may start
+experimenting. This is great and increases the frequency of experimentation that you can run. Each team
+is empowered to design and start their own experiments- this is sometimes referred to as experimentation
+democratization.
+
+There can be some downsides with this approach. It can end up like the Wild West, where best practices,
+data, metrics, and tooling may not be shared from team to team. This can make it hard for teams to
+ensure consistent quality and trustworthiness of the results.
+
+### Center of Excellence
+
+To compensate for the problems of decentralized experimentation programs, many companies will switch
+to a center-of-excellence approach. With this structure, a central experimentation team ensures that
+experiments follow best practices, have a testable hypothesis, and have selected the right metrics
+before launching. This team can also ensure that the data looks right as it comes in and that the
+results are interpreted correctly.
+
+One of the issues with the center-of-excellence approach is that it can easily become a bottleneck of
+excellence and limit the number of experiments that are run.
+
+### Hybrid
+
+Combining the best of the decentralized teams and center-of-excellence is one of the best ways we’ve
+seen to run experimentation programs. The Hybrid approach involves an experimentation team that
+oversees the experiments that are run but don’t directly gatekeep the launching of experiments.
+In this role, the experimentation team serves as advisors to the teams that are running experiments,
+helps them improve the quality of experiments, and can also help look into any issues that appear.
+They can also ensure that the platform, metrics, and data are following their standards. This approach
+aims to have the experimentation team help educate the product teams on best practices and common
+pitfalls with running experiments.
