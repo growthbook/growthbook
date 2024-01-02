@@ -352,12 +352,24 @@ const sidebars = {
       },
       items: ["self-host/environment-variables", "self-host/config-yml"],
     },
+    /*
+        {
+      type: "category",
+      label: "Advanced",
+      collapsed: true,
+      items: [
+        { type: "doc", id: "api-overview", label: "API" },
+        { type: "doc", id: "self-host/proxy", label: "Proxy" },
+        { type: "doc", id: "webhooks", label: "Webhooks" },
+      ],
+    },
+     */
     { type: "doc", id: "self-host/proxy", label: "Proxy" },
     { type: "doc", id: "api-overview", label: "API" },
     { type: "doc", id: "webhooks", label: "Webhooks" },
     {
       type: "category",
-      label: "Installation Guides",
+      label: "Installation Tutorials",
       collapsed: true,
       link: {
         type: "doc",
@@ -468,7 +480,7 @@ const sidebars = {
     },
     {
       type: "category",
-      label: "Experimentation Guide",
+      label: "GrowthBook Guide",
       collapsed: true,
       className: "top-divider",
       link: {
@@ -505,6 +517,11 @@ const sidebars = {
           type: "doc",
           id: "using/growthbook-best-practices",
           label: "Organizing GrowthBook",
+        },
+        {
+          type: "doc",
+          id: "using/security",
+          label: "Securing GrowthBook",
         },
         {
           type: "doc",
