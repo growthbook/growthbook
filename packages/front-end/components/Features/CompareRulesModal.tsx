@@ -51,6 +51,10 @@ export default function CompareRulesModal({
       open={true}
       size="max"
     >
+      <p>
+        Select two environments to compare to the override rules. The first
+        matching rule applies, so the order of the rules does matter.
+      </p>
       <div className="d-flex">
         <div className="w-50">
           <SelectField
