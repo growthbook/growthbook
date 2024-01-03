@@ -353,51 +353,72 @@ function TargetingChangeTooltips({
       )}
       {riskLevel !== "safe" && (
         <ul className="mt-1 mb-0 pl-4">
-          {recommendedRolloutData.reasons.moreRestrictiveTargeting && (
+          {releasePlan != "new-phase" ? (
+            <>
+              {recommendedRolloutData.reasons.moreRestrictiveTargeting && (
+                <li>
+                  <strong>More restrictive targeting conditions</strong> without
+                  starting a new phase may bias results as users in your
+                  experiment analysis may fall back to the default feature
+                  value. Re-randomize traffic{" "}
+                  {switchToSB ? " or use Sticky Bucketing" : ""} to help
+                  mitigate.
+                </li>
+              )}
+              {recommendedRolloutData.reasons.otherTargetingChanges && (
+                <li>
+                  <strong>Ambiguous changes to targeting conditions</strong>{" "}
+                  without starting a new phase may bias results as users in your
+                  experiment analysis may fall back to the default feature
+                  value. Re-randomize traffic{" "}
+                  {switchToSB ? " or use Sticky Bucketing" : ""} to help
+                  mitigate.
+                </li>
+              )}
+              {recommendedRolloutData.reasons.decreaseCoverage && (
+                <li>
+                  <strong>Decreased traffic coverage</strong> without starting a
+                  new phase may bias results as users in your experiment
+                  analysis may fall back to the default feature value.
+                  Re-randomize traffic{" "}
+                  {switchToSB ? " or use Sticky Bucketing" : ""} to help
+                  mitigate.
+                </li>
+              )}
+              {recommendedRolloutData.reasons.changeVariationWeights && (
+                <li>
+                  <strong>Changing variation weights</strong> could lead to
+                  statistical bias and/or multiple exposures. Re-randomize
+                  traffic to help mitigate.
+                </li>
+              )}
+              {recommendedRolloutData.reasons.disableVariation && (
+                <li>
+                  <strong>Disabling or re-enableing a variation</strong> could
+                  lead to statistical bias and/or multiple exposures.
+                  Re-randomize traffic to help mitigate.
+                </li>
+              )}
+              {(recommendedRolloutData.reasons.addToNamespace ||
+                recommendedRolloutData.reasons.decreaseNamespaceRange ||
+                recommendedRolloutData.reasons.otherNamespaceChanges) && (
+                <li>
+                  <strong>More restrictive namespace targeting</strong> without
+                  starting a new phase may bias results as users in your
+                  experiment analysis may fall back to the default feature
+                  value.
+                  {switchToSB ? " or enable Sticky Bucketing" : ""} to help
+                  mitigate.
+                </li>
+              )}
+            </>
+          ) : null}
+          {releasePlan === "new-phase-no-rerandomization" ? (
             <li>
-              <strong>More restrictive targeting conditions</strong> may lead to
-              carryover bias. Re-randomize traffic
-              {switchToSB ? " or use Sticky Bucketing" : ""} to help mitigate.
+              <strong>Starting a new phase without re-randomization</strong> can
+              lead to carryover bias. Consider re-randomizing to mitigate.
             </li>
-          )}
-          {recommendedRolloutData.reasons.otherTargetingChanges && (
-            <li>
-              <strong>Ambiguous changes to targeting conditions</strong> may
-              lead to carryover bias. Re-randomize traffic
-              {switchToSB ? " or use Sticky Bucketing" : ""} to help mitigate.
-            </li>
-          )}
-          {recommendedRolloutData.reasons.decreaseCoverage && (
-            <li>
-              <strong>Decreased traffic coverage</strong> may lead to carryover
-              bias. Re-randomize traffic
-              {switchToSB ? " or use Sticky Bucketing" : ""} to help mitigate.
-            </li>
-          )}
-          {recommendedRolloutData.reasons.changeVariationWeights && (
-            <li>
-              <strong>Changing variation weights</strong> could lead to
-              statistical bias and/or multiple exposures. Re-randomize traffic
-              to help mitigate.
-            </li>
-          )}
-          {recommendedRolloutData.reasons.disableVariation && (
-            <li>
-              <strong>Disabling or re-enableing a variation</strong> could lead
-              to statistical bias and/or multiple exposures. Re-randomize
-              traffic to help mitigate.
-            </li>
-          )}
-          {(recommendedRolloutData.reasons.addToNamespace ||
-            recommendedRolloutData.reasons.decreaseNamespaceRange ||
-            recommendedRolloutData.reasons.otherNamespaceChanges) && (
-            <li>
-              <strong>More restrictive namespace targeting</strong> may lead to
-              carryover bias. Re-randomize traffic
-              {switchToSB ? " or enable Sticky Bucketing" : ""} to help
-              mitigate.
-            </li>
-          )}
+          ) : null}
         </ul>
       )}
     </div>
