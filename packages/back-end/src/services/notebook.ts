@@ -179,7 +179,7 @@ export async function generateNotebook(
       )}`
     );
   }
-  if (args.pValueThreshold !== undefined) {
+  if (statsEngine === "frequentist" && args.pValueThreshold !== undefined) {
     configStrings.push(`'alpha': ${Number(args.pValueThreshold)}`);
   }
   const configString = `{${

@@ -28,6 +28,7 @@ import track from "@/services/track";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useExperiments } from "@/hooks/useExperiments";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import useIncrementer from "@/hooks/useIncrementer";
 import Field from "../Forms/Field";
 import Modal from "../Modal";
 import { useAuth } from "../../services/auth";
@@ -92,6 +93,8 @@ export default function RuleModal({
     ruleType: defaultType,
     attributeSchema,
   });
+
+  const [conditionKey, forceConditionRender] = useIncrementer();
 
   const { features } = useFeaturesList();
   const environments = useEnvironments();
@@ -451,6 +454,8 @@ export default function RuleModal({
             error: e.message,
           });
 
+          forceConditionRender();
+
           throw e;
         }
       })}
@@ -627,8 +632,9 @@ export default function RuleModal({
             }
           />
           <ConditionInput
-            defaultValue={defaultValues.condition || ""}
+            defaultValue={form.watch("condition") || ""}
             onChange={(value) => form.setValue("condition", value)}
+            key={conditionKey}
           />
         </>
       )}

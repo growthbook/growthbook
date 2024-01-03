@@ -1771,8 +1771,7 @@ export async function putLicenseKey(
   let licenseData = null;
   try {
     // set new license
-    await initializeLicense(licenseKey);
-    licenseData = getLicense();
+    licenseData = await initializeLicense(licenseKey);
   } catch (e) {
     // eslint-disable-next-line no-console
     console.error("setting new license failed", e);

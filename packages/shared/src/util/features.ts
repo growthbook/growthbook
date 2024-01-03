@@ -417,3 +417,54 @@ export function autoMerge(
     result,
   };
 }
+
+export type ValidateConditionReturn = {
+  success: boolean;
+  empty: boolean;
+  suggestedValue?: string;
+  error?: string;
+};
+export function validateCondition(condition?: string) {
+  if (!condition || condition === "{}") {
+    return { success: true, empty: true };
+  }
+
+  try {
+    const res = JSON.parse(condition);
+    if (!res || typeof res !== "object") {
+      return { success: false, empty: false, error: "Must be object" };
+    }
+
+    // TODO: validate beyond just making sure it's valid JSON
+    return { success: true, empty: false };
+  } catch (e) {
+    // Try parsing with dJSON and see if it can be fixed automatically
+    try {
+      const fixed = dJSON.parse(condition);
+      return {
+        success: false,
+        empty: false,
+        suggestedValue: JSON.stringify(fixed),
+        error: e.message,
+      };
+    } catch (e2) {
+      return { success: false, empty: false, error: e.message };
+    }
+  }
+}
+export function validateAndFixCondition(
+  condition: string | undefined,
+  applySuggestion: (suggestion: string) => void,
+  throwOnSuggestion: boolean = true
+) {
+  const res = validateCondition(condition);
+  if (res.success) return;
+  if (res.suggestedValue) {
+    applySuggestion(res.suggestedValue);
+    if (!throwOnSuggestion) return;
+    throw new Error(
+      "We fixed some syntax errors in your targeting condition JSON. Please verify the changes and save again."
+    );
+  }
+  throw new Error("Invalid targeting condition JSON: " + res.error);
+}

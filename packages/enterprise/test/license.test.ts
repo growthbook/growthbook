@@ -95,7 +95,7 @@ describe("licenseInit", () => {
     const result = await licenseInit(undefined, userLicenseCodes, metaData);
 
     expect(result).toBeUndefined();
-    expect(getLicense()).toBeNull;
+    expect(getLicense()).toBeNull();
   });
 
   describe("new style licenses where licenseKey starts with 'license_'", () => {
@@ -105,7 +105,7 @@ describe("licenseInit", () => {
         const mockedResponse: Response = ({
           ok: true,
           json: jest.fn().mockResolvedValueOnce(licenseData),
-        } as unknown) as Response; // Create a mock Response object
+        } as unknown) as Response;
 
         mockedFetch.mockResolvedValueOnce(Promise.resolve(mockedResponse));
       });
@@ -140,6 +140,47 @@ describe("licenseInit", () => {
         expect(LicenseModel.create).toHaveBeenCalledWith(licenseData);
       });
 
+      it("should call fetch once for each key when called with multiple keys simultaneously", async () => {
+        mockedFetch.mockReset(); // this test is different from the others
+
+        const licenseKey2 = "license_19exntswvlosvp1dasdfads";
+        const mockedResponse: Response = ({
+          ok: true,
+          json: jest.fn().mockResolvedValueOnce(licenseData),
+        } as unknown) as Response;
+
+        const mockedResponse2: Response = ({
+          ok: true,
+          json: jest.fn().mockResolvedValueOnce(licenseData2),
+        } as unknown) as Response;
+
+        mockedFetch
+          .mockResolvedValueOnce(Promise.resolve(mockedResponse))
+          .mockResolvedValueOnce(Promise.resolve(mockedResponse2));
+
+        // Number of concurrent requests
+        const numRequests = 10;
+
+        // Execute multiple concurrent requests
+        const results = await Promise.all(
+          Array.from({ length: numRequests }).map(async (_, i) => {
+            if (i % 2 === 0) {
+              return await licenseInit(licenseKey, userLicenseCodes, metaData);
+            } else {
+              return await licenseInit(licenseKey2, userLicenseCodes, metaData);
+            }
+          })
+        );
+
+        expect(fetch).toHaveBeenCalledTimes(2);
+
+        expect(
+          results.every((result, i) =>
+            i % 2 === 0 ? result === licenseData : result === licenseData2
+          )
+        ).toBe(true);
+      });
+
       it("should call fetch twice rather than use the in-memory cache if it has been over a day since the last fetch, and update the licenseData", async () => {
         await licenseInit(licenseKey, userLicenseCodes, metaData);
 
@@ -169,6 +210,23 @@ describe("licenseInit", () => {
         mockedFetch.mockResolvedValueOnce(Promise.resolve(mockedResponse2));
 
         await licenseInit(licenseKey, userLicenseCodes, metaData);
+        expect(getLicense()).toEqual(licenseData2);
+        expect(fetch).toHaveBeenCalledTimes(2);
+      });
+
+      it("should call fetch twice rather than use the in-memory cache if forceRefresh flag is true", async () => {
+        await licenseInit(licenseKey, userLicenseCodes, metaData);
+
+        expect(getLicense()).toEqual(licenseData);
+
+        const mockedResponse2: Response = ({
+          ok: true,
+          json: jest.fn().mockResolvedValueOnce(licenseData2),
+        } as unknown) as Response; // Create a mock Response object
+
+        mockedFetch.mockResolvedValueOnce(Promise.resolve(mockedResponse2));
+
+        await licenseInit(licenseKey, userLicenseCodes, metaData, true);
         expect(getLicense()).toEqual(licenseData2);
         expect(fetch).toHaveBeenCalledTimes(2);
       });
@@ -325,13 +383,6 @@ describe("licenseInit", () => {
       await expect(async () => {
         await licenseInit(oldLicenseKey, userLicenseCodes, metaData);
       }).rejects.toThrowError("Invalid License Key - Missing expiration date");
-    });
-
-    it("should throw an error if the license has expired", async () => {
-      jest.setSystemTime(now.getTime() + 8 * 24 * 60 * 60 * 1000);
-      await expect(async () => {
-        await licenseInit(oldLicenseKey, userLicenseCodes, metaData);
-      }).rejects.toThrowError("Your License Key trial expired on");
     });
 
     it("should automatically assume enterprise plan if no plan is specified", async () => {

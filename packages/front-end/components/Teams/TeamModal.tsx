@@ -49,7 +49,7 @@ export default function TeamModal({
             permissions: { ...value.roleInfo },
           }),
         });
-        onSuccess ? await onSuccess() : null;
+        onSuccess && (await onSuccess());
       })}
     >
       <Field
