@@ -1,55 +1,58 @@
 # Security
 
-GrowthBook is built with security in mind, and have made architectural decisions to ensure that your GrowthBook
-instance can be as secure as possible.
+GrowthBook is built with security in mind, and we have made architectural decisions to ensure that your
+GrowthBook instance can be as secure as possible. You can read about some of our internal security practices
+[here](https://www.growthbook.io/security) and on out [GitHub](https://github.com/growthbook/growthbook/blob/main/SECURITY.md).
+This document covers some of the security considerations for administrators when setting up and using GrowthBook.
 
 ## Data Security
 
-GrowthBook only stores account information for your users with GrowthBook accounts (email, and name).
-For feature flagging, evaluations typically happen within the SDK, and so none of your users information
+GrowthBook only stores account information for your users with GrowthBook accounts (email and name).
+For feature flagging, evaluations typically happen within the SDK, so none of your user’s information
 is sent to GrowthBook. For experiment reporting, we connect to your data warehouse to pull the
-assignment/exposure and metric information. This data remains in your data warehouse, GrowthBook only
-stores the aggregate results, such as the total number of users exposed to each variation, and other
+assignment/exposure and metric information. This data remains in your data warehouse; GrowthBook only
+stores the aggregate results, such as the total number of users exposed to each variation and other
 statistical information. No PII is stored or transferred to GrowthBook with the experimentation reports.
 
 There are some ways where personal information may be stored or exposed with GrowthBook. If you are using
-GrowthBook on the client side of your application, the rules about how each feature will be exposed
-to your users is publicly accessible by inspecting network requests. Normally these rules contain no personal information, but if
-you are targeting to a specific user or set of users, than this information may be visible to malicious
-users. If you are using GrowthBook on the server side, this information is not exposed to the client.
+GrowthBook on the client side of your application, the rules about how each feature will be exposed to your
+users are publicly accessible by inspecting network requests. Usually, these rules contain no personal
+information, but if you are targeting a specific user or set of users, then this information may be visible
+to malicious users. If you use GrowthBook on the server side, this information is not exposed to the client.
 For these reasons, targeting based on PII when using GrowthBook client side is not recommended.
 
 If you have to target based on PII on the client side, GrowthBook has some ways to make this secure. You
-can use hashed attributes, where the values are hashed before sending, or you can use encrypted
-attributes, where the payload is encrypted before sending to the client. Keep in mind that encrypted SDK
-endpoints will have to payload decrypted before use, and that means if you are using it client side, that
-it is possible for a malicious actor to see the decrypted payload. You can enable encryption when setting
-up the SDK, and you can select an attribute as 'hashed' when creating the attribute.
+can use hashed attributes, where the values are hashed before sending, or you can use encrypted attributes,
+where the payload is encrypted before sending to the client. Keep in mind that encrypted SDK endpoints will
+have to decrypt the payload before use, and that means if you are using GrowthBook client side, a malicious
+actor can see the decrypted payload. You can enable encryption when setting up the SDK, and you can select
+an attribute as 'hashed' when creating the attribute.
 
-Finally, to avoid these issues, you can also use 'remote evaluations' to evaluate
-flags based on sensitive information without exposing it, even on client side. With remote evaluations, the SDK will send the
-user attribute to your server (or ours), and then that attribute is matched against the rules, and then
-the state of the feature is returned, without revealing the targeting rules to the client. The downside
-of this approach is that each users requires a network request to evaluate the feature, which can slow
-down your application.
+Finally, to avoid these issues, you can also use 'remote evaluations' to evaluate flags based on sensitive
+information without exposing it, even on the client side. With remote evaluations, the SDK will send the
+user attribute to your server (or ours), and then that attribute is matched against the rules, and then the
+state of the feature is returned without revealing the targeting rules to the client. The downside of this
+approach is that each evaluation requires a network request to evaluate the feature, which can slow down
+your application.
 
 ## Data Access
 
-GrowthBook requires read only access to your data warehouse. This connection information is kept encrypted.
-To help protect access to your data warehouse through the GrowthBook UI, you can use permissions. You can
-assign users who can edit the connection info, or who can edit SQL queries for the assignment or metric queries.
+GrowthBook requires read-only access to your data warehouse. This connection information is kept encrypted.
+You can use permissions to help protect access to your data warehouse through the GrowthBook UI. You can
+assign users who can edit the connection info, SQL queries for the assignment, or metric queries.
 
-Data sources can also be scoped to projects. This means that only users who have access to the project and have
-the right permission levels can edit those queries. If you require more separation of your data, you can create
-separate cloud organizations, or run GrowthBook in multi-tenant mode when you self-host (available as part of
-GrowthBook Enterprise). With this, you can have separate GrowthBook organization running from one central
-GrowthBook instance. Each organization will have its own data source, metrics, and users.
-There is a super-admin account type that can manage users across organizations.
+Data sources can also be scoped to projects to help isolate access to your data warehouse. You can adjust
+the permissions so that only users who have access to the project and have the proper permission levels
+can edit those queries. If you require more separation of your data and metrics within GrowthBook, you
+can create separate cloud organizations, or run GrowthBook in multi-tenant mode (available when self-hosting
+as part of GrowthBook Enterprise). With this, you can have separate GrowthBook organizations running from
+one GrowthBook instance. Each organization will have its own data source, metrics, and users. There is a
+super-admin account type that can manage users across organizations.
 
 ## Infrastructure Security
 
-GrowthBook Cloud is hosted on AWS, in a multi-tenant environment. We use industry standard security
-to ensure that your data is secure. If you require additional security, we also offer self-hosted options.
+GrowthBook Cloud is hosted on AWS, in a multi-tenant environment. We use industry-standard security to
+ensure that your data is secure. If you require additional security, we also offer self-hosted options.
 When you self-host, no data leaves your infrastructure. We do have anonymous usage tracking enabled by
 default, but this can be disabled (see [self-hosted](/self-host)).
 
@@ -58,7 +61,7 @@ default, but this can be disabled (see [self-hosted](/self-host)).
 GrowthBook can be self-hosted on your own infrastructure. If self-hosting, we recommend that you keep GrowthBook behind a
 firewall, and accessible via a VPN. See [self-hosting](/self-host) for more information. GrowthBook should
 also be regularly updated to ensure that you are running the latest version with the latest security patches.
-GrowthBook updates are backwards compatible, and can be easily applied with a single command. See
+GrowthBook updates are backward compatible and can be easily applied with a single command. See
 [updating GrowthBook](/self-host#updating-to-latest)
 
 Before deploying GrowthBook in production, we recommend that you make sure you've configured GrowthBook correctly:
@@ -66,3 +69,9 @@ Before deploying GrowthBook in production, we recommend that you make sure you'v
 - Change the `JWT_SECRET` environment variable. This is used to sign the JWT tokens used for authentication, and needs to be changed from the default.
 - Change the `ENCRYPTION_KEY` environment variable. This is used to encrypt sensitive data, and should be set to a long random string.
 - Set the `NODE_ENV` environment variable to `production`. This will enable add additional optimizations and disable some debugging features.
+
+## Audit logs
+
+GrowthBook keeps an audit log of all actions taken on the platform. The audit logs is useful if you need to
+determine what actions as user has done. You can access this page from the Settings -> Log in the left navigation.
+You can read more about audit logs [here](/account/audit-logs).

@@ -476,6 +476,11 @@ const sidebars = {
           id: "account/user-permissions",
           label: "Roles & Permissions",
         },
+        {
+          type: "doc",
+          id: "account/audit-logs",
+          label: "Audit Logs",
+        },
       ],
     },
     {
