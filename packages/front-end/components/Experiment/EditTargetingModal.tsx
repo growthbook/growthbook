@@ -42,6 +42,7 @@ export type ReleasePlan =
   | "new-phase"
   | "same-phase-sticky"
   | "same-phase-everyone"
+  | "new-phase-same-seed" // available from "new phase" only
   | "";
 
 export interface Props {

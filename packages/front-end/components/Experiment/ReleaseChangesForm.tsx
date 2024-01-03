@@ -96,6 +96,11 @@ export default function ReleaseChangesForm({
       form.setValue("reseed", true);
       form.setValue("bucketVersion", (experiment.bucketVersion ?? 0) + 1);
       form.setValue("minBucketVersion", experiment.minBucketVersion ?? 0);
+    } else if (releasePlan === "new-phase-same-seed") {
+      form.setValue("newPhase", true);
+      form.setValue("reseed", false);
+      form.setValue("bucketVersion", experiment.bucketVersion);
+      form.setValue("minBucketVersion", experiment.minBucketVersion);
     }
     if (!usingStickyBucketing) {
       form.setValue("bucketVersion", experiment.bucketVersion);
@@ -118,7 +123,17 @@ export default function ReleaseChangesForm({
         value={releasePlan || ""}
         options={[
           { label: "New Phase, re-randomize traffic", value: "new-phase" },
-          ...(changeType !== "phase" && !recommendedRolloutData.disableSamePhase
+          ...(changeType === "phase"
+            ? [
+                {
+                  label: "New Phase, do not re-randomize",
+                  value: "new-phase-same-seed",
+                },
+              ]
+            : []), //todo: make for "new phase" only
+          ...(changeType !== "phase" &&
+          (!recommendedRolloutData.disableSamePhase ||
+            changeType === "advanced")
             ? [
                 {
                   label: "Same Phase, apply changes to new traffic only",
@@ -182,6 +197,13 @@ export default function ReleaseChangesForm({
           usingStickyBucketing={usingStickyBucketing}
         />
       )}
+      {changeType === "phase" && releasePlan === "new-phase-same-seed" && (
+        <div className="alert alert-warning">
+          <FaExclamationCircle className="mr-1" /> Starting a new phase without
+          re-randomizing can lead to carryover bias. Consider re-randomizing to
+          mitigate.
+        </div>
+      )}
 
       <div className="mt-4">
         <label>Release plan details</label>
@@ -191,11 +213,13 @@ export default function ReleaseChangesForm({
               <div className="col">
                 <label className="mb-1">New phase?</label>
                 <div className="mt-1 font-weight-bold">
-                  {!form.watch("newPhase")
-                    ? "No"
+                  {form.watch("newPhase")
+                    ? form.watch("reseed")
+                      ? "Yes, new randomization seed"
+                      : "Yes, same randomization seed"
                     : form.watch("reseed")
-                    ? "Yes, new random seed"
-                    : "Yes, same random seed"}
+                    ? "No, new randomization seed"
+                    : "No, same randomization seed"}
                 </div>
               </div>
             </div>
@@ -251,18 +275,15 @@ export default function ReleaseChangesForm({
                 {!usingStickyBucketing ? (
                   <></>
                 ) : (
-                  <div>
-                    <label className="mb-0 mr-2">Bucketed users will:</label>
-                    <span className="font-weight-bold">
-                      {(form.watch("bucketVersion") ?? 0) <=
-                      (experiment.bucketVersion ?? 0)
-                        ? "Keep their assigned bucket"
-                        : (form.watch("minBucketVersion") ?? 0) <=
-                          (experiment.minBucketVersion ?? 0)
-                        ? "Be reassigned"
-                        : "Be excluded from the experiment"}
-                    </span>
-                  </div>
+                  <span className="font-weight-bold">
+                    {(form.watch("bucketVersion") ?? 0) <=
+                    (experiment.bucketVersion ?? 0)
+                      ? "Bucketed users will keep their assigned bucket"
+                      : (form.watch("minBucketVersion") ?? 0) <=
+                        (experiment.minBucketVersion ?? 0)
+                      ? "Bucketed users will be reassigned"
+                      : "Bucketed users will be excluded from the experiment"}
+                  </span>
                 )}
               </div>
             </div>
@@ -335,8 +356,8 @@ function TargetingChangeTooltips({
     >
       {riskLevel === "safe" && (
         <>
-          <FaCheck className="mr-1" /> The changes you have made do not impact
-          existing bucketed users.
+          <FaCheck className="mr-1" /> You are using a safe release plan for
+          these changes.
         </>
       )}
       {riskLevel === "warning" && (

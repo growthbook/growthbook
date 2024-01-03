@@ -32,7 +32,7 @@ import ResultsIndicator from "../ResultsIndicator";
 import { StartExperimentBanner } from "../StartExperimentBanner";
 import { useSnapshot } from "../SnapshotProvider";
 import ExperimentStatusIndicator from "./ExperimentStatusIndicator";
-import StopExperimentButton from "./StopExperimentButton";
+import ExperimentActionButtons from "./ExperimentActionButtons";
 import { ExperimentTab } from ".";
 
 export interface Props {
@@ -141,9 +141,6 @@ export default function ExperimentHeader({
   }
   const canRunExperiment = canEditExperiment && hasRunExperimentsPermission;
 
-  const hasLinkedChanges =
-    linkedFeatures.length > 0 || visualChangesets.length > 0;
-
   const isUsingHealthUnsupportDatasource =
     !dataSource || datasourcesWithoutHealthData.has(dataSource.type);
   const disableHealthTab = isUsingHealthUnsupportDatasource || !!dimension;
@@ -211,11 +208,9 @@ export default function ExperimentHeader({
 
             <div className="ml-2">
               {experiment.status === "running" ? (
-                <StopExperimentButton
+                <ExperimentActionButtons
                   editResult={editResult}
                   editTargeting={editTargeting}
-                  coverage={lastPhase?.coverage}
-                  hasLinkedChanges={hasLinkedChanges}
                 />
               ) : experiment.status === "stopped" && experiment.results ? (
                 <div className="experiment-status-widget border d-flex">
