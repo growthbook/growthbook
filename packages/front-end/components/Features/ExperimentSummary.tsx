@@ -22,10 +22,12 @@ export default function ExperimentSummary({
   rule,
   experiment,
   feature,
+  hideTrackingKey,
 }: {
   feature: FeatureInterface;
   experiment?: ExperimentInterfaceStringDates;
   rule: ExperimentRule;
+  hideTrackingKey?: boolean;
 }) {
   const { namespace, coverage, values, hashAttribute, trackingKey } = rule;
   const type = feature.valueType;
@@ -192,48 +194,50 @@ export default function ExperimentSummary({
           </tr>
         </tbody>
       </table>
-      <div className="row align-items-center">
-        <div className="col-auto">
-          <strong>TRACK</strong>
+      {hideTrackingKey ? null : (
+        <div className="row align-items-center">
+          <div className="col-auto">
+            <strong>TRACK</strong>
+          </div>
+          <div className="col">
+            {" "}
+            the result using the key{" "}
+            <span className="mr-1 border px-2 py-1 bg-light rounded">
+              {trackingKey || feature.id}
+            </span>{" "}
+          </div>
+          <div className="col-auto">
+            {experiment ? (
+              <Link href={`/experiment/${experiment.id}#results`}>
+                <a className="btn btn-outline-primary">View results</a>
+              </Link>
+            ) : datasources.length > 0 && metrics.length > 0 ? (
+              <a
+                className="btn btn-outline-primary"
+                href="#"
+                onClick={(e) => {
+                  e.preventDefault();
+                  setNewExpModal(true);
+                }}
+                title="Create an experiment report from this rule"
+              >
+                View results
+              </a>
+            ) : (
+              <a
+                className="btn btn-outline-primary"
+                title="Setup experiments to view results"
+                onClick={(e) => {
+                  e.preventDefault();
+                  setExperimentInstructions(true);
+                }}
+              >
+                View results
+              </a>
+            )}
+          </div>
         </div>
-        <div className="col">
-          {" "}
-          the result using the key{" "}
-          <span className="mr-1 border px-2 py-1 bg-light rounded">
-            {trackingKey || feature.id}
-          </span>{" "}
-        </div>
-        <div className="col-auto">
-          {experiment ? (
-            <Link href={`/experiment/${experiment.id}#results`}>
-              <a className="btn btn-outline-primary">View results</a>
-            </Link>
-          ) : datasources.length > 0 && metrics.length > 0 ? (
-            <a
-              className="btn btn-outline-primary"
-              href="#"
-              onClick={(e) => {
-                e.preventDefault();
-                setNewExpModal(true);
-              }}
-              title="Create an experiment report from this rule"
-            >
-              View results
-            </a>
-          ) : (
-            <a
-              className="btn btn-outline-primary"
-              title="Setup experiments to view results"
-              onClick={(e) => {
-                e.preventDefault();
-                setExperimentInstructions(true);
-              }}
-            >
-              View results
-            </a>
-          )}
-        </div>
-      </div>
+      )}
     </div>
   );
 }

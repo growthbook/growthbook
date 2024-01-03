@@ -39,6 +39,7 @@ interface SortableProps {
   setVersion: (version: number) => void;
   locked: boolean;
   experimentsMap: Map<string, ExperimentInterfaceStringDates>;
+  hideTrackingKey?: boolean;
 }
 
 type RuleProps = SortableProps &
@@ -62,6 +63,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
       setVersion,
       locked,
       experimentsMap,
+      hideTrackingKey,
       ...props
     },
     ref
@@ -320,6 +322,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                   (exp) => exp.trackingKey === (rule.trackingKey || feature.id)
                 )}
                 rule={rule}
+                hideTrackingKey={hideTrackingKey}
               />
             )}
             {rule.type === "experiment-ref" && (
@@ -327,6 +330,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                 feature={feature}
                 experiment={experimentsMap.get(rule.experimentId)}
                 rule={rule}
+                hideTrackingKey={hideTrackingKey}
               />
             )}
           </div>

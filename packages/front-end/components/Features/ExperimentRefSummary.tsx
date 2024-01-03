@@ -55,10 +55,12 @@ export default function ExperimentRefSummary({
   rule,
   experiment,
   feature,
+  hideTrackingKey,
 }: {
   feature: FeatureInterface;
   experiment?: ExperimentInterfaceStringDates;
   rule: ExperimentRefRule;
+  hideTrackingKey?: boolean;
 }) {
   const { variations } = rule;
   const type = feature.valueType;
@@ -286,25 +288,27 @@ export default function ExperimentRefSummary({
               </tr>
             </tbody>
           </table>
-          <div className="row align-items-center">
-            <div className="col-auto">
-              <strong>TRACK</strong>
+          {hideTrackingKey ? null : (
+            <div className="row align-items-center">
+              <div className="col-auto">
+                <strong>TRACK</strong>
+              </div>
+              <div className="col">
+                {" "}
+                the result using the key{" "}
+                <span className="mr-1 border px-2 py-1 bg-light rounded">
+                  {experiment.trackingKey}
+                </span>{" "}
+              </div>
+              <div className="col-auto">
+                <Link href={`/experiment/${experiment.id}`}>
+                  <a className="btn btn-outline-primary">
+                    View details and results
+                  </a>
+                </Link>
+              </div>
             </div>
-            <div className="col">
-              {" "}
-              the result using the key{" "}
-              <span className="mr-1 border px-2 py-1 bg-light rounded">
-                {experiment.trackingKey}
-              </span>{" "}
-            </div>
-            <div className="col-auto">
-              <Link href={`/experiment/${experiment.id}`}>
-                <a className="btn btn-outline-primary">
-                  View details and results
-                </a>
-              </Link>
-            </div>
-          </div>
+          )}
         </>
       )}
     </div>
