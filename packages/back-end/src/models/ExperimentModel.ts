@@ -335,7 +335,7 @@ export async function createExperiment({
         !(await getExperimentByTrackingKey(
           data.organization,
           key,
-          readAccessFilter
+          { globalReadAccess: true, projects: [] } // Provide global read access to idenfity if this key already exists
         ))
       ) {
         found = key;

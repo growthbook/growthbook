@@ -76,7 +76,7 @@ export function hasReadAccess(
       }
     }
 
-    // If user doesn't project specific access for each resource project, they should have access to this, given their global role gives them access
+    // If user doesn't have project specific access for each resource project, they should have access to this, given their global role gives them access
     if (!userHasProjectSpecificAccessForEachResourceProject) {
       return true;
     } else {

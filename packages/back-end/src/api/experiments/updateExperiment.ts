@@ -56,7 +56,7 @@ export const updateExperiment = createApiRequestHandler(
       const existingByTrackingKey = await getExperimentByTrackingKey(
         req.organization.id,
         req.body.trackingKey,
-        req.readAccessFilter
+        { globalReadAccess: true, projects: [] } // Pass in global read access to check for uniqueness
       );
       if (existingByTrackingKey) {
         throw new Error(
