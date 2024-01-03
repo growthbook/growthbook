@@ -310,7 +310,7 @@ export default function ConditionInput(props: Props) {
 
             return (
               <li key={i} className={styles.listitem}>
-                <div className={`row ${styles.listrow}`}>
+                <div className={`row ${styles.listrow} d-flex align-items-center`}>
                   {i > 0 ? (
                     <span className={`${styles.and} mr-2`}>AND</span>
                   ) : (

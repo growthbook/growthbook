@@ -6,12 +6,12 @@ import {
   FeatureRule,
   ScheduleRule,
 } from "back-end/types/feature";
-import React, {useEffect, useState} from "react";
+import React, {useEffect, useMemo, useState} from "react";
 import { date } from "shared/dates";
 import uniqId from "uniqid";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import { getMatchingRules, includeExperimentInPayload } from "shared/util";
-import { FaBell, FaExternalLinkAlt } from "react-icons/fa";
+import {getMatchingRules, includeExperimentInPayload, isFeatureCyclic} from "shared/util";
+import {FaBell, FaExclamationTriangle, FaExternalLinkAlt} from "react-icons/fa";
 import Link from "next/link";
 import {
   NewExperimentRefRule,
@@ -51,6 +51,7 @@ import SavedGroupTargetingField from "./SavedGroupTargetingField";
 import ForceSummary from "@/components/Features/ForceSummary";
 import clsx from "clsx";
 import ValueDisplay from "@/components/Features/ValueDisplay";
+import cloneDeep from "lodash/cloneDeep";
 
 export interface Props {
   close: () => void;
@@ -69,18 +70,12 @@ export default function PrerequisiteModal({
   version,
   setVersion,
 }: Props) {
-  const environments = useEnvironments();
-
+  const { features } = useFeaturesList();
   const prerequisites = getPrerequisites(feature);
   const prerequisite = prerequisites[i] ?? {};
-
-  const [showTargetingModal, setShowTargetingModal] = useState(false);
-
-  const settings = useOrgSettings();
+  const environments = useEnvironments();
 
   const [conditionKey, forceConditionRender] = useIncrementer();
-
-  const { features } = useFeaturesList();
 
   const defaultValues = {
     parentId: "",
@@ -107,29 +102,19 @@ export default function PrerequisiteModal({
 
   const parentFeature = features.find((f) => f.id === form.watch("parentId"));
 
+  const isCyclic = useMemo(() => {
+    if (!parentFeature) return false;
+    const newFeature = cloneDeep(feature);
+    newFeature.prerequisites = [...prerequisites];
+    newFeature.prerequisites[i] = form.getValues();
+    return isFeatureCyclic(newFeature, features);
+  }, [parentFeature?.id, features, i]);
+
+  const canSubmit = !isCyclic && !!parentFeature && !!form.watch("parentId") && !!form.watch("parentCondition");
+
   useEffect(() => {
     if (parentFeature) forceConditionRender();
   }, [parentFeature]);
-  
-  // function changeRuleType(v: string) {
-  //   const existingCondition = form.watch("condition");
-  //   const existingSavedGroups = form.watch("savedGroups");
-  //   const newVal = {
-  //     ...getDefaultRuleValue({
-  //       defaultValue: getFeatureDefaultValue(feature),
-  //       ruleType: v,
-  //       attributeSchema,
-  //     }),
-  //     description: form.watch("description"),
-  //   };
-  //   if (existingCondition && existingCondition !== "{}") {
-  //     newVal.condition = existingCondition;
-  //   }
-  //   if (existingSavedGroups) {
-  //     newVal.savedGroups = existingSavedGroups;
-  //   }
-  //   form.reset(newVal);
-  // }
 
   return (
     <Modal
@@ -137,49 +122,30 @@ export default function PrerequisiteModal({
       close={close}
       size="lg"
       cta="Save"
+      ctaEnabled={canSubmit}
       header={prerequisite ? "Edit Prerequisite" : "New Prerequisite"}
       submit={form.handleSubmit(async (values) => {
-        const prerequisiteAction = i === prerequisites.length ? "add" : "edit";
+        const action = i === prerequisites.length ? "add" : "edit";
 
-        try {
-          // const correctedRule = validateFeatureRule(values, feature);
-          // const correctedParentCondition = validateParentCondition(values, features);
-          // if (correctedRule) {
-          //   form.reset(correctedRule);
-          //   throw new Error(
-          //     "We fixed some errors in the rule. If it looks correct, submit again."
-          //   );
-          // }
+        track("Save Prerequisite", {
+          source: action,
+          prerequisiteIndex: i,
+          hasDescription: values.description.length > 0,
+        });
 
-          track("Save Prerequisite", {
-            source: prerequisiteAction,
-            prerequisiteIndex: i,
-            hasDescription: values.description.length > 0,
-          });
-
-          const res = await apiCall<{ version: number }>(
-            `/feature/${feature.id}/${version}/prerequisite`,
-            {
-              method: i === prerequisites.length ? "POST" : "PUT",
-              body: JSON.stringify({
-                prerequisite: values,
-                i,
-              }),
-            }
-          );
-          await mutate();
-          res.version && setVersion(res.version);
-        } catch (e) {
-          track("Prerequisite Error", {
-            source: prerequisiteAction,
-            prerequisiteIndex: i,
-            hasDescription: values.description.length > 0,
-            error: e.message,
-          });
-          // forceConditionRender();
-
-          throw e;
-        }
+        // todo: don't use version?
+        const res = await apiCall<{ version: number }>(
+          `/feature/${feature.id}/${version}/prerequisite`,
+          {
+            method: action === "add" ? "POST" : "PUT",
+            body: JSON.stringify({
+              prerequisite: values,
+              i,
+            }),
+          }
+        );
+        mutate();
+        res.version && setVersion(res.version);
       })}
     >
       <div className="alert alert-info">
@@ -257,6 +223,13 @@ export default function PrerequisiteModal({
           </tbody>
         </table>
       ) : null}
+
+      {isCyclic && (
+        <div className="alert alert-danger">
+          <FaExclamationTriangle />{" "}
+          This prerequisite (<code>{form.watch("parentId")}</code>) creates a circular dependency. Either remove this prerequisite or change the parent feature(s).
+        </div>
+      )}
 
       {parentFeature ? (
         <ConditionInput

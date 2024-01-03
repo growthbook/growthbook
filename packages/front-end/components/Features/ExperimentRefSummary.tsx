@@ -152,7 +152,7 @@ export default function ExperimentRefSummary({
       )}
       {hasCondition && (
         <div className="row mb-3 align-items-top">
-          <div className="col-auto">
+          <div className="col-auto d-flex align-items-center">
             <strong>IF</strong>
           </div>
           <div className="col">

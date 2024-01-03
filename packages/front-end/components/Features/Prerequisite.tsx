@@ -197,9 +197,9 @@ export default function Prerequisite({
           }}
           className="pt-1 flex-1 position-relative"
         >
-          <div className="row mb-3 align-items-top">
-            <div className="col-auto">
-              <strong>IF</strong>
+          <div className="row mb-1 align-items-top">
+            <div className="col-auto d-flex align-items-center">
+              <strong>ENABLED IF</strong>
             </div>
             <div className="col">
               <ConditionDisplay

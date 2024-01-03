@@ -468,3 +468,29 @@ export function validateAndFixCondition(
   }
   throw new Error("Invalid targeting condition JSON: " + res.error);
 }
+
+export function isFeatureCyclic(
+  feature: FeatureInterface,
+  features: FeatureInterface[]
+) {
+  const visited = new Set<string>();
+  const stack = new Set<string>();
+
+  const visit = (feature: FeatureInterface) => {
+    if (stack.has(feature.id)) return true;
+    if (visited.has(feature.id)) return false;
+
+    stack.add(feature.id);
+    visited.add(feature.id);
+
+    for (const prerequisite of feature.prerequisites || []) {
+      const parentFeature = features.find((f) => f.id === prerequisite.parentId);
+      if (parentFeature && visit(parentFeature)) return true;
+    }
+
+    stack.delete(feature.id);
+    return false;
+  };
+
+  return visit(feature);
+}
