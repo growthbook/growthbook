@@ -863,7 +863,20 @@ There are a bunch of ordered steps to run an experiment:
     ```
 5.  If `experiment.active` is set to false, return `getExperimentResult(experiment)`
 6.  Get the user hash value and return if empty
-    `ts hashAttribute = experiment.hashAttribute || "id"; hashValue = context.attributes[hashAttribute] || ""; if (hashValue == "") { if (experiment.fallbackAttribute && context.attributes[experiment.fallbackAttribute]) { // check if a fallbackAttribute exists (sticky bucketing) hashAttribute = experiment.fallbackAttribute hashValue = context.attributes[hashAttribute]; } else { // no hashAttribute or fallbackAttribute, return return getExperimentResult(experiment); } } `
+    ```ts
+    hashAttribute = experiment.hashAttribute || "id";
+    hashValue = context.attributes[hashAttribute] || "";
+    if (hashValue == "") {
+      if (experiment.fallbackAttribute && context.attributes[experiment.fallbackAttribute]) {
+        // check if a fallbackAttribute exists (sticky bucketing)
+        hashAttribute = experiment.fallbackAttribute;
+        hashValue = context.attributes[hashAttribute];
+      } else {
+        // no hashAttribute or fallbackAttribute, return
+        return getExperimentResult(experiment);
+      }
+    }
+    ```
     6.5 If sticky bucketing is permitted, check to see if a sticky bucket value exists.
     If so, skip steps 7-8.
 7.  Apply filters and namespace
@@ -879,9 +892,12 @@ There are a bunch of ordered steps to run an experiment:
          return getExperimentResult(experiment);
         }
         ```
-    3.  Else if `experiment.include` is set, return if evaluates to false
 8.  If `experiment.condition` is set, return if it evaluates to false
-    `ts if (!evalCondition(context.attributes, experiment.condition)) { return getExperimentResult(experiment); } `
+    ```ts
+    if (!evalCondition(context.attributes, experiment.condition)) {
+      return getExperimentResult(experiment);
+    }
+    ```
     8.1 Apply any url targeting based on experiment.urlPatterns, return if no match
 9.  Choose a variation
     1.  If a sticky bucket value exists, use it.
@@ -909,8 +925,11 @@ There are a bunch of ordered steps to run an experiment:
     ```
 12. If `context.qaMode`, return `getExperimentResult(experiment)`
 13. Build the result object
-    `ts result = getExperimentResult(experiment, assigned, true, n); `
+    ```ts
+    result = getExperimentResult(experiment, assigned, true, n);
+    ``
     13.5 If sticky bucketing is permitted, store the sticky bucket value
+    ```
 14. Fire `context.trackingCallback` if set and the combination of hashAttribute, hashValue, experiment.key, and variationId has not been tracked before
 15. Return `result`
 
