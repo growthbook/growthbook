@@ -902,7 +902,7 @@ There are a bunch of ordered steps to run an experiment:
 9.  Choose a variation
     1.  If a sticky bucket value exists, use it.
         1. If the found sticky bucket version is blocked (doesn't exceed `experiment.minBucketVersion`), then skip enrollment
-    2.  Else, Calculate bucket ranges for the variations and choose one
+    2.  Else, calculate bucket ranges for the variations and choose one
         ```ts
         ranges = experiment.ranges || getBucketRanges(
           experiment.variations.length,
