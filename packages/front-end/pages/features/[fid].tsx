@@ -49,7 +49,9 @@ import {
   useEnvironmentState,
   useEnvironments,
   getEnabledEnvironments,
-  getAffectedRevisionEnvs, useFeaturesList, getPrerequisites,
+  getAffectedRevisionEnvs,
+  useFeaturesList,
+  getPrerequisites,
 } from "@/services/features";
 import AssignmentTester from "@/components/Archetype/AssignmentTester";
 import Tab from "@/components/Tabs/Tab";
@@ -1182,7 +1184,10 @@ export default function FeaturePage() {
         </div>
 
         <h3>Prerequisite Features</h3>
-        <p>Add parent features that must be enabled in order for this feature to work.</p>
+        <p>
+          Add parent features that must be enabled in order for this feature to
+          work.
+        </p>
         <div className="mb-4">
           <div className="border mb-3">
             {prerequisites.length > 0 ? (

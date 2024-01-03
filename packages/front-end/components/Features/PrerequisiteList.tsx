@@ -40,23 +40,25 @@ export default function PrerequisiteList({
     permissions.check("manageFeatures", feature.project) &&
     permissions.check("createFeatureDrafts", feature.project);
 
-  return (<>
-    {items.map(({...item}, i) => {
-      const parentFeature = features.find(f => f.id === item.parentId);
-      return (
-        <Prerequisite
-          key={i}
-          i={i}
-          feature={feature}
-          parentFeature={parentFeature}
-          prerequisite={item}
-          mutate={mutate}
-          setPrerequisiteModal={setPrerequisiteModal}
-          version={version}
-          setVersion={setVersion}
-          locked={locked}
-        />
-      );
-    })}
-  </>);
+  return (
+    <>
+      {items.map(({ ...item }, i) => {
+        const parentFeature = features.find((f) => f.id === item.parentId);
+        return (
+          <Prerequisite
+            key={i}
+            i={i}
+            feature={feature}
+            parentFeature={parentFeature}
+            prerequisite={item}
+            mutate={mutate}
+            setPrerequisiteModal={setPrerequisiteModal}
+            version={version}
+            setVersion={setVersion}
+            locked={locked}
+          />
+        );
+      })}
+    </>
+  );
 }

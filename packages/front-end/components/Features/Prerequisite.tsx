@@ -1,4 +1,8 @@
-import {FeatureInterface, FeaturePrerequisite, FeatureRule} from "back-end/types/feature";
+import {
+  FeatureInterface,
+  FeaturePrerequisite,
+  FeatureRule,
+} from "back-end/types/feature";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import React, { forwardRef } from "react";
@@ -11,10 +15,15 @@ import Link from "next/link";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
-import {getPrerequisites, getRules, useEnvironments} from "@/services/features";
+import {
+  getPrerequisites,
+  getRules,
+  useEnvironments,
+} from "@/services/features";
 import usePermissions from "@/hooks/usePermissions";
 import { getUpcomingScheduleRule } from "@/services/scheduleRules";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import ValidateValue from "@/components/Features/ValidateValue";
 import Button from "../Button";
 import DeleteButton from "../DeleteButton/DeleteButton";
 import MoreMenu from "../Dropdown/MoreMenu";
@@ -26,7 +35,6 @@ import RuleStatusPill from "./RuleStatusPill";
 import ExperimentRefSummary, {
   isExperimentRefRuleSkipped,
 } from "./ExperimentRefSummary";
-import ValidateValue from "@/components/Features/ValidateValue";
 
 interface Props {
   i: number;
@@ -44,14 +52,14 @@ export default function Prerequisite({
   i,
   prerequisite,
   feature,
-  parentFeature,  // todo: check for invalid parents
+  parentFeature, // todo: check for invalid parents
   mutate,
   setPrerequisiteModal,
   version,
   setVersion,
   locked,
 }: Props) {
-  const {apiCall} = useAuth();
+  const { apiCall } = useAuth();
 
   const prerequisites = getPrerequisites(feature);
   const permissions = usePermissions();
@@ -71,7 +79,11 @@ export default function Prerequisite({
     >
       <div className="d-flex mb-2 align-items-center">
         <div>
-          <Tooltip body={prerequisiteDisabled ? "This prerequisite will be skipped" : ""}>
+          <Tooltip
+            body={
+              prerequisiteDisabled ? "This prerequisite will be skipped" : ""
+            }
+          >
             <div
               className={`text-light border rounded-circle text-center font-weight-bold ${
                 prerequisiteDisabled ? "bg-secondary" : "bg-purple"
@@ -91,7 +103,10 @@ export default function Prerequisite({
             <>
               <div className="font-weight-bold">
                 <span className="uppercase-title mr-2">Feature</span>
-                <a href={`/features/${parentFeature.id}`} target="_blank">
+                <a
+                  href={`/features/${parentFeature.id}`}
+                  target="_blank"
+                >
                   {parentFeature.id}
                   <FaExternalLinkAlt className="ml-1" />
                 </a>
@@ -163,7 +178,7 @@ export default function Prerequisite({
                     `/feature/${feature.id}/${version}/prerequisite`,
                     {
                       method: "DELETE",
-                      body: JSON.stringify({i}),
+                      body: JSON.stringify({ i }),
                     }
                   );
                   await mutate();
@@ -187,9 +202,9 @@ export default function Prerequisite({
               <strong>IF</strong>
             </div>
             <div className="col">
-            <ConditionDisplay
-              condition={prerequisite?.parentCondition ?? ""}
-            />
+              <ConditionDisplay
+                condition={prerequisite?.parentCondition ?? ""}
+              />
             </div>
           </div>
         </div>

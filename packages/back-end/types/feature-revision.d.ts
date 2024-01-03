@@ -1,5 +1,5 @@
 import { EventAuditUser } from "../src/events/event-types";
-import {FeaturePrerequisite, FeatureRule} from "./feature";
+import { FeaturePrerequisite, FeatureRule } from "./feature";
 
 export interface RevisionLog {
   user: EventAuditUser;

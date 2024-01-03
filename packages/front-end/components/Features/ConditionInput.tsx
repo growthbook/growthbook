@@ -1,4 +1,4 @@
-import React, {useState, useEffect, useMemo} from "react";
+import {useState, useEffect, useMemo} from "react";
 import { some } from "lodash";
 import { FaExclamationCircle } from "react-icons/fa";
 import {
@@ -6,7 +6,7 @@ import {
   jsonToConds,
   useAttributeMap,
   useAttributeSchema,
-  getDefaultOperator,
+  getDefaultOperator, getDefaultPrerequisiteParentCondition,
 } from "@/services/features";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Field from "../Forms/Field";
@@ -16,30 +16,41 @@ import CodeTextArea from "../Forms/CodeTextArea";
 import StringArrayField from "../Forms/StringArrayField";
 import styles from "./ConditionInput.module.scss";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import {FeatureInterface} from "back-end/types/feature";
 
 interface Props {
   defaultValue: string;
   onChange: (value: string) => void;
   labelClassName?: string;
   isPrerequisite?: boolean;
+  parentFeature?: FeatureInterface;
 }
 
 export default function ConditionInput(props: Props) {
   const isPrerequisite = !!props.isPrerequisite;
+  const parentFeature = props.parentFeature;
+  const parentFeatureValueType = parentFeature?.valueType;
   const title = !isPrerequisite ? "Target by Attribute" : "Target by parent value";
 
   const { savedGroups } = useDefinitions();
 
-  const attributes = !isPrerequisite
-    ? useAttributeMap()
-    : useMemo(() => ((new Map()).set("@parent", {
-      attribute: "@parent",
-      datatype: "string", // todo: infer from parent
-      array: false, // todo: infer
-      identifier: false,
-      enum: [],
-      archived: false,
-    })), []);
+  const attributeMap = useAttributeMap();
+  const parentValueMap = useMemo(() => {
+    const map = new Map();
+    if (isPrerequisite && parentFeatureValueType) {
+      map.set("@parent", {
+        attribute: "@parent",
+        datatype: parentFeatureValueType,
+        array: false,
+        identifier: false,
+        enum: [],
+        archived: false,
+      });
+    }
+    return map;
+  }, [isPrerequisite, parentFeatureValueType]);
+
+  const attributes = !isPrerequisite ? attributeMap : parentValueMap;
 
   const [advanced, setAdvanced] = useState(
     () => !isPrerequisite && jsonToConds(props.defaultValue, attributes) === null
@@ -62,6 +73,15 @@ export default function ConditionInput(props: Props) {
     props.onChange(value);
     setSimpleAllowed(jsonToConds(value, attributes) !== null);
   }, [value, attributes]);
+
+  useEffect(() => {
+    if (isPrerequisite && parentFeature) {
+      const condStr = getDefaultPrerequisiteParentCondition(parentFeature);
+      const newConds = jsonToConds(condStr);
+      if (newConds === null) return;
+      setConds(newConds);
+    }
+  }, [isPrerequisite, parentFeature, setConds]);
 
   const savedGroupOperators = [
     {
@@ -281,6 +301,11 @@ export default function ConditionInput(props: Props) {
                       ? savedGroupOperators
                       : []),
                   ]
+                  : attribute.datatype === "json"
+                    ? [
+                      { label: "exists", value: "$exists" },
+                      { label: "does not exist", value: "$notExists" },
+                    ]
                 : [];
 
             return (

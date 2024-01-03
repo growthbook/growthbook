@@ -1,11 +1,12 @@
 import { useForm } from "react-hook-form";
 import {
   ExperimentValue,
-  FeatureInterface, FeaturePrerequisite,
+  FeatureInterface,
+  FeaturePrerequisite,
   FeatureRule,
   ScheduleRule,
 } from "back-end/types/feature";
-import { useState } from "react";
+import React, {useEffect, useState} from "react";
 import { date } from "shared/dates";
 import uniqId from "uniqid";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
@@ -22,7 +23,8 @@ import {
   useAttributeSchema,
   useEnvironments,
   useFeaturesList,
-  validateFeatureRule, getPrerequisites,
+  validateFeatureRule,
+  getPrerequisites, getDefaultPrerequisiteParentCondition,
 } from "@/services/features";
 import track from "@/services/track";
 import useOrgSettings from "@/hooks/useOrgSettings";
@@ -46,6 +48,9 @@ import NamespaceSelector from "./NamespaceSelector";
 import ScheduleInputs from "./ScheduleInputs";
 import FeatureVariationsInput from "./FeatureVariationsInput";
 import SavedGroupTargetingField from "./SavedGroupTargetingField";
+import ForceSummary from "@/components/Features/ForceSummary";
+import clsx from "clsx";
+import ValueDisplay from "@/components/Features/ValueDisplay";
 
 export interface Props {
   close: () => void;
@@ -64,7 +69,7 @@ export default function PrerequisiteModal({
   version,
   setVersion,
 }: Props) {
-  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const environments = useEnvironments();
 
   const prerequisites = getPrerequisites(feature);
   const prerequisite = prerequisites[i] ?? {};
@@ -73,12 +78,14 @@ export default function PrerequisiteModal({
 
   const settings = useOrgSettings();
 
+  const [conditionKey, forceConditionRender] = useIncrementer();
+
   const { features } = useFeaturesList();
 
   const defaultValues = {
     parentId: "",
     description: "",
-    parentCondition: "[]",
+    parentCondition: getDefaultPrerequisiteParentCondition(),
     enabled: true,
   };
 
@@ -86,17 +93,24 @@ export default function PrerequisiteModal({
     defaultValues: {
       parentId: prerequisite.parentId ?? defaultValues.parentId,
       description: prerequisite.description ?? defaultValues.description,
-      parentCondition: prerequisite.parentCondition ?? defaultValues.parentCondition,
+      parentCondition:
+        prerequisite.parentCondition ?? defaultValues.parentCondition,
       enabled: prerequisite.enabled ?? defaultValues.enabled,
-    }
+    },
   });
   const { apiCall } = useAuth();
 
   const featureOptions = features
-    .filter(f => f.id !== feature.id)
-    .filter(f => (f.project || "") === (feature.project || ""))
-    .map(f => ({ label: f.id, value: f.id }));
+    .filter((f) => f.id !== feature.id)
+    .filter((f) => (f.project || "") === (feature.project || ""))
+    .map((f) => ({ label: f.id, value: f.id }));
 
+  const parentFeature = features.find((f) => f.id === form.watch("parentId"));
+
+  useEffect(() => {
+    if (parentFeature) forceConditionRender();
+  }, [parentFeature]);
+  
   // function changeRuleType(v: string) {
   //   const existingCondition = form.watch("condition");
   //   const existingSavedGroups = form.watch("savedGroups");
@@ -169,9 +183,9 @@ export default function PrerequisiteModal({
       })}
     >
       <div className="alert alert-info">
-        {prerequisites[i] ? "Changes here" : "New prerequisites"} will be added to a draft
-        revision. You will have a chance to review them first before making them
-        live.
+        {prerequisites[i] ? "Changes here" : "New prerequisites"} will be added
+        to a draft revision. You will have a chance to review them first before
+        making them live.
       </div>
 
       <Field
@@ -190,11 +204,69 @@ export default function PrerequisiteModal({
         sort={false}
       />
 
-      <ConditionInput
-        defaultValue={form.watch("parentCondition") || "[]"}
-        onChange={(value) => form.setValue("parentCondition", value)}
-        isPrerequisite={true}
-      />
+      {parentFeature ? (
+        <table className="table table-sm border mb-3 bg-light">
+          <thead className="uppercase-title">
+            <tr>
+              <th>Feature Key</th>
+              <th>Type</th>
+              <th>Default value</th>
+              <th>Environments</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>
+                <a
+                  href={`/features/${form.watch("parentId")}`}
+                  target="_blank"
+                >
+                  {form.watch("parentId")}
+                  <FaExternalLinkAlt className="ml-1" />
+                </a>
+              </td>
+              <td>
+                {parentFeature.valueType}
+              </td>
+              <td>
+                <div
+                  className={clsx({small: parentFeature.valueType === "json"})}
+                >
+                  <ValueDisplay
+                    value={getFeatureDefaultValue(parentFeature)}
+                    type={parentFeature.valueType}
+                    full={false}
+                  />
+                </div>
+              </td>
+              <td>
+                <div className="d-flex small">
+                  {environments.map((env) => (
+                    <div key={env.id} className="mr-3">
+                      <div className="font-weight-bold">{env.id}</div>
+                      <div>{parentFeature?.environmentSettings?.[env.id]?.enabled ? (
+                        <span className="text-success font-weight-bold uppercase-title">ON</span>
+                      ) : (
+                        <span className="text-danger font-weight-bold uppercase-title">OFF</span>
+                      )}</div>
+                    </div>
+                  ))}
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      ) : null}
+
+      {parentFeature ? (
+        <ConditionInput
+          defaultValue={form.watch("parentCondition")}
+          onChange={(value) => form.setValue("parentCondition", value)}
+          isPrerequisite={true}
+          parentFeature={parentFeature}
+          key={conditionKey}
+        />
+      ) : null}
     </Modal>
   );
 }
