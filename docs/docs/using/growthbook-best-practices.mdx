@@ -3,12 +3,12 @@
 ## Organization
 
 As you scale up your usage of GrowthBook and start running many experiments, keeping everything
-organized and easy to find is important. GrowthBook includes a number of organizational structures
+organized and easy to find is essential. GrowthBook includes a number of organizational structures
 to help you scale.
 
 ### Organizations
 
-The organization is the highest level structure within GrowthBook. In an organization contains
+The organization is the highest level structure within GrowthBook. An organization contains
 everything within your GrowthBook instance: users, data sources, metrics, features, etc. For both
 cloud and self-hosted users, it is possible for users to join multiple organizations. Users can
 belong to multiple organizations, but each organization is otherwise entirely independent of the
@@ -21,9 +21,9 @@ super-admin account type that can manage users across organizations.
 
 ### Environments
 
-In GrowthBook, you can create as many Environments as you need for the feature flags and override rules.
+In GrowthBook, you can create as many environments as you need for the feature flags and override rules.
 Environments are meant to separate how your feature flags and override rules are deployed. Each environment
-can have one or more SDK API endpoints, specified when you create the SDK, allowing you to differentiate
+can have one or more SDK API endpoints specified when you create the SDK, allowing you to differentiate
 the override rules. For example, you might have environments for “Staging”, “QA”, and “Production”. While
 testing the feature, you can set specific rules to on the "development" or "QA" environment, and when
 you're ready, you can move applicable rules to the "production" environment.
@@ -39,7 +39,6 @@ just the sections that apply for that GrowthBook user. Projects are a great way 
 separate features, metrics, experiments, and even data sources by team or product feature. For example,
 you could have a project “front-end” and one for “back-end”, or by team like “Growth” and “API”. Unlike
 separate organizations, projects can share data. Projects are managed from the Settings → Projects page.
-between them.
 
 ![Projects Page](/images/using/projects-page.png)
 
@@ -54,7 +53,7 @@ available for users in the 'marketing' project.
 
 To help keep feature payloads smaller, the SDK endpoint where the feature definitions are returned
 can be scoped to each project. If using Projects based on features or area of your product, you can
-use this feature to only return features which pertain to that area. For example, with our “mobile”
+use this feature to only return features that pertain to that area. For example, with our “mobile”
 and “website” example, you can add the project scope to only return features for the project as these
 are likely to use different code than the other, and you don’t want to expose features unnecessarily.
 
@@ -91,12 +90,12 @@ effective way to organize your project.
 
 We’ve seen several strategies be successful here, but as a general rule, you’ll want to be as specific as possible
 with naming features and experiments. For example, you can use &lt;project scope>\_&lt;project name> or the year,
-quarter, or section plus the name of the experiment, eg: “23-Q4 New user registration modal“ or “23-Team3 Simplified checkout flow”.
+quarter, or section plus the name of the experiment, e.g.: “23-Q4 New user registration modal“ or “23-Team3 Simplified checkout flow”.
 This lets you quickly see when the experiment was run or which team worked on it.
 
 ### Hygiene & Archiving
 
-As the number of features and experiments grow, you will want to remove past items that are no longer
+As the number of features and experiments grows, you will want to remove past items that are no longer
 relevant. Within GrowthBook you can archive and delete. **Deleting** something will permanently remove
 items from GrowthBook. **Archived** items in GrowthBook won’t be deleted, but they are removed from
 the main part of the UI and not available for adding to new experiments (for archived metrics). Archived
@@ -123,14 +122,14 @@ new members join your team, so they don’t just suggest ideas you’ve run many
 
 For experiments, you should capture the original idea, any screenshots of similar products, and, most
 importantly, capture images/screenshots of the control and variants for the experiment. Quite often,
-someone will suggest an idea you’ve run previously. In these cases, it is important to be able to find
+someone will suggest an idea you’ve run previously. In these cases, it is vital to be able to find
 out what exactly you tested previously - it's possible that the new idea is slightly different, or you
 may decide that it is the same and try testing another idea, or you could decide that your product is
 substantially different, and the same idea may be worth testing again. To make this decision, it is
-important to capture not just the experiment results but the broader context of what your product
+essential to capture not just the experiment results but the broader context of what your product
 looked like at the time and the test variants.
 
-Getting your team to document is always a challenge. To help with this, GrowthBook takes two approaches.
-The first is to make is super easy to add documentation directly in the platform you’re already using
+Getting your team to document is always a challenge. GrowthBook takes two approaches to help with this.
+The first is to make it super easy to add documentation directly in the platform you’re already using
 for the experiment. Secondly, we added launch checklists, which can require that certain files be filled
 before your team is able to start an experiment.
