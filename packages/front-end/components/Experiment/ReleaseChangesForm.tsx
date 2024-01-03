@@ -720,11 +720,7 @@ function compareSavedGroups(
   }
 
   // Compare merged groups
-  for (const matchType of ["all", "none", "any"] as (
-    | "all"
-    | "none"
-    | "any"
-  )[]) {
+  for (const matchType of ["all", "none"] as ("all" | "none")[]) {
     const currentIds = mergedDataIds[matchType];
     const lastIds = mergedLastPhaseIds[matchType];
 
@@ -734,18 +730,10 @@ function compareSavedGroups(
     );
 
     if (addedIds.size > 0) {
-      if (["all", "none"].includes(matchType)) {
-        moreRestrictive = true;
-      } else {
-        lessRestrictive = true;
-      }
+      moreRestrictive = true;
     }
     if (removedIds.size > 0) {
-      if (["all", "none"].includes(matchType)) {
-        lessRestrictive = true;
-      } else {
-        moreRestrictive = true;
-      }
+      lessRestrictive = true;
     }
   }
 
