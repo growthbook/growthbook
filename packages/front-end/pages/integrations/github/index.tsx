@@ -50,7 +50,17 @@ const GitHubIntegrationPage: NextPage = () => {
       <div className="mb-4">
         <div className="d-flex justify-space-between align-items-center">
           <span className="badge badge-purple text-uppercase mr-2">Alpha</span>
-          <h1>GitHub Integration</h1>
+          <h1 className="mx-2">GitHub Integration</h1>
+          {githubIntegration && (
+            <a
+              className="small"
+              href={`https://github.com/settings/installations/${githubIntegration.installationId}`}
+              target="_blank"
+              rel="noreferrer"
+            >
+              Configure in GitHub
+            </a>
+          )}
         </div>
         <p>
           This page is used to manage the GitHub integration. This integration
