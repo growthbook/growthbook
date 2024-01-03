@@ -4398,7 +4398,7 @@
       },
       {
         "anonymousId||123": {
-          "assignments": { "feature__1": "3" },
+          "assignments": { "feature__0": "3" },
           "attributeName": "anonymousId",
           "attributeValue": "123"
         }
@@ -4423,7 +4423,7 @@
                 "hashAttribute": "id",
                 "fallbackAttribute": "deviceId",
                 "hashVersion": 2,
-                "bucketVersion": 1,
+                "bucketVersion": 0,
                 "condition": { "country": "USA" },
                 "variations": ["control", "red", "blue"],
                 "meta": [{ "key": "0" }, { "key": "1" }, { "key": "2" }],
@@ -4451,7 +4451,7 @@
       },
       {
         "deviceId||d123": {
-          "assignments": { "feature-exp__1": "1" },
+          "assignments": { "feature-exp__0": "1" },
           "attributeName": "deviceId",
           "attributeValue": "d123"
         }
@@ -4476,7 +4476,7 @@
                 "hashAttribute": "id",
                 "fallbackAttribute": "deviceId",
                 "hashVersion": 2,
-                "bucketVersion": 1,
+                "bucketVersion": 0,
                 "condition": { "country": "USA" },
                 "variations": ["control", "red", "blue"],
                 "meta": [{ "key": "0" }, { "key": "1" }, { "key": "2" }],
@@ -4492,7 +4492,7 @@
             "attributeName": "deviceId",
             "attributeValue": "d123",
             "assignments": {
-              "feature-exp__1": "2"
+              "feature-exp__0": "2"
             }
           }
         }
@@ -4512,7 +4512,7 @@
       },
       {
         "deviceId||d123": {
-          "assignments": { "feature-exp__1": "2" },
+          "assignments": { "feature-exp__0": "2" },
           "attributeName": "deviceId",
           "attributeValue": "d123"
         }
@@ -4537,7 +4537,7 @@
                 "hashAttribute": "id",
                 "fallbackAttribute": "deviceId",
                 "hashVersion": 2,
-                "bucketVersion": 1,
+                "bucketVersion": 0,
                 "condition": { "country": "USA" },
                 "variations": ["control", "red", "blue"],
                 "meta": [{ "key": "0" }, { "key": "1" }, { "key": "2" }],
@@ -4553,7 +4553,7 @@
             "attributeName": "anonymousId",
             "attributeValue": "123",
             "assignments": {
-              "feature-exp__1": "2"
+              "feature-exp__0": "2"
             }
           }
         }
@@ -4573,12 +4573,12 @@
       },
       {
         "anonymousId||123": {
-          "assignments": { "feature-exp__1": "2" },
+          "assignments": { "feature-exp__0": "2" },
           "attributeName": "anonymousId",
           "attributeValue": "123"
         },
         "id||i123": {
-          "assignments": { "feature-exp__1": "2" },
+          "assignments": { "feature-exp__0": "2" },
           "attributeName": "id",
           "attributeValue": "i123"
         }
@@ -4603,7 +4603,7 @@
                 "hashAttribute": "id",
                 "fallbackAttribute": "deviceId",
                 "hashVersion": 2,
-                "bucketVersion": 1,
+                "bucketVersion": 0,
                 "condition": { "country": "USA" },
                 "variations": ["control", "red", "blue"],
                 "meta": [{ "key": "0" }, { "key": "1" }, { "key": "2" }],
@@ -4619,14 +4619,14 @@
             "attributeName": "anonymousId",
             "attributeValue": "123",
             "assignments": {
-              "feature-exp__1": "2"
+              "feature-exp__0": "2"
             }
           },
           "id||i123": {
             "attributeName": "id",
             "attributeValue": "i123",
             "assignments": {
-              "feature-exp__1": "1"
+              "feature-exp__0": "1"
             }
           }
         }
@@ -4646,12 +4646,12 @@
       },
       {
         "anonymousId||123": {
-          "assignments": { "feature-exp__1": "2" },
+          "assignments": { "feature-exp__0": "2" },
           "attributeName": "anonymousId",
           "attributeValue": "123"
         },
         "id||i123": {
-          "assignments": { "feature-exp__1": "1" },
+          "assignments": { "feature-exp__0": "1" },
           "attributeName": "id",
           "attributeValue": "i123"
         }
@@ -4688,7 +4688,7 @@
         },
         "stickyBucketAssignmentDocs": {
           "id||i123": {
-            "assignments": { "feature-exp__1": "1" },
+            "assignments": { "feature-exp__0": "1" },
             "attributeName": "id",
             "attributeValue": "i123"
           }
@@ -4710,7 +4710,7 @@
       {
         "id||i123": {
           "assignments": {
-            "feature-exp__1": "1",
+            "feature-exp__0": "1",
             "feature-exp__3": "2"
           },
           "attributeName": "id",
@@ -4750,7 +4750,7 @@
         },
         "stickyBucketAssignmentDocs": {
           "id||i123": {
-            "assignments": { "feature-exp__1": "1" },
+            "assignments": { "feature-exp__0": "1" },
             "attributeName": "id",
             "attributeValue": "i123"
           }
@@ -4761,7 +4761,7 @@
       {
         "id||i123": {
           "assignments": {
-            "feature-exp__1": "1"
+            "feature-exp__0": "1"
           },
           "attributeName": "id",
           "attributeValue": "i123"
@@ -4802,7 +4802,7 @@
           "id||i123": {
             "attributeName": "id",
             "attributeValue": "i123",
-            "assignments": { "feature-exp__1": "1" }
+            "assignments": { "feature-exp__0": "1" }
           }
         }
       },
@@ -4823,7 +4823,7 @@
         "id||i123": {
           "attributeName": "id",
           "attributeValue": "i123",
-          "assignments": { "feature-exp__1": "1" }
+          "assignments": { "feature-exp__0": "1" }
         }
       }
     ]

@@ -138,7 +138,7 @@ const sdkPayload: FeatureApiResponse = {
           hashAttribute: "id",
           fallbackAttribute: "deviceId",
           hashVersion: 2,
-          bucketVersion: 1,
+          bucketVersion: 0,
           condition: { country: "USA" },
           variations: ["control", "red", "blue"],
           meta: [{ key: "0" }, { key: "1" }, { key: "2" }],
@@ -156,7 +156,7 @@ const sdkPayload: FeatureApiResponse = {
       hashAttribute: "id",
       fallbackAttribute: "anonymousId",
       hashVersion: 2,
-      bucketVersion: 1,
+      bucketVersion: 0,
       manual: true,
       variations: [
         {},
@@ -605,7 +605,7 @@ describe("sticky-buckets", () => {
               hashAttribute: "id",
               fallbackAttribute: "deviceId",
               hashVersion: 2,
-              bucketVersion: 2, // <---------------- changed
+              bucketVersion: 1, // <---------------- changed
               condition: { country: "USA" },
               variations: ["control", "red", "blue"],
               meta: [{ key: "0" }, { key: "1" }, { key: "2" }],
@@ -680,7 +680,7 @@ describe("sticky-buckets", () => {
               hashAttribute: "id",
               fallbackAttribute: "deviceId",
               hashVersion: 2,
-              bucketVersion: 2, // <---------------- changed
+              bucketVersion: 1, // <---------------- changed
               minBucketVersion: 1, // <---------------- changed
               condition: { country: "USA" },
               variations: ["control", "red", "blue"],
@@ -739,7 +739,7 @@ describe("sticky-buckets", () => {
 
     const [, cleanup] = mockApi(sdkPayload, true);
 
-    // SSE update will increment the bucketVersion and block the previous versions
+    // SSE update will disable sticky bucketing
     const newPayload = {
       ...sdkPayload,
       features: {
@@ -752,7 +752,7 @@ describe("sticky-buckets", () => {
               hashAttribute: "id",
               fallbackAttribute: "deviceId",
               hashVersion: 2,
-              bucketVersion: 1,
+              bucketVersion: 0,
               disableStickyBucketing: true, // <---------------- changed
               condition: { country: "USA" },
               variations: ["control", "red", "blue"],

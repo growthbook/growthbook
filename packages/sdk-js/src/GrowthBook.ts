@@ -297,7 +297,9 @@ export class GrowthBook<
 
   public async setAttributes(attributes: Attributes) {
     this._ctx.attributes = attributes;
-    await this.refreshStickyBuckets();
+    if (this._ctx.stickyBucketService) {
+      await this.refreshStickyBuckets();
+    }
     if (this._ctx.remoteEval) {
       await this._refreshForRemoteEval();
       return;
@@ -308,7 +310,9 @@ export class GrowthBook<
 
   public async setAttributeOverrides(overrides: Attributes) {
     this._attributeOverrides = overrides;
-    await this.refreshStickyBuckets();
+    if (this._ctx.stickyBucketService) {
+      await this.refreshStickyBuckets();
+    }
     if (this._ctx.remoteEval) {
       await this._refreshForRemoteEval();
       return;
@@ -759,8 +763,10 @@ export class GrowthBook<
           exp.fallbackAttribute = rule.fallbackAttribute;
         if (rule.disableStickyBucketing)
           exp.disableStickyBucketing = rule.disableStickyBucketing;
-        if (rule.bucketVersion) exp.bucketVersion = rule.bucketVersion;
-        if (rule.minBucketVersion) exp.minBucketVersion = rule.minBucketVersion;
+        if (rule.bucketVersion !== undefined)
+          exp.bucketVersion = rule.bucketVersion;
+        if (rule.minBucketVersion !== undefined)
+          exp.minBucketVersion = rule.minBucketVersion;
         if (rule.namespace) exp.namespace = rule.namespace;
         if (rule.meta) exp.meta = rule.meta;
         if (rule.ranges) exp.ranges = rule.ranges;
@@ -930,7 +936,7 @@ export class GrowthBook<
       );
       foundStickyBucket = variation >= 0;
       assigned = variation;
-      stickyBucketVersionIsBlocked = versionIsBlocked;
+      stickyBucketVersionIsBlocked = !!versionIsBlocked;
     }
 
     // Some checks are not needed if we already have a sticky bucket
@@ -1011,7 +1017,6 @@ export class GrowthBook<
     }
 
     // 9. Get the variation from the sticky bucket or get bucket ranges and choose variation
-    let ranges: VariationRange[] = [];
     const n = hash(
       experiment.seed || key,
       hashValue,
@@ -1026,7 +1031,7 @@ export class GrowthBook<
     }
 
     if (!foundStickyBucket) {
-      ranges =
+      const ranges =
         experiment.ranges ||
         getBucketRanges(
           numVariations,
@@ -1339,8 +1344,8 @@ export class GrowthBook<
 
   private _getStickyBucketAssignments(): StickyAssignments {
     const mergedAssignments: StickyAssignments = {};
-    Object.entries(this.context.stickyBucketAssignmentDocs ?? {}).forEach(
-      ([, doc]) => {
+    Object.values(this.context.stickyBucketAssignmentDocs ?? {}).forEach(
+      (doc) => {
         if (doc.assignments) Object.assign(mergedAssignments, doc.assignments);
       }
     );
@@ -1349,13 +1354,16 @@ export class GrowthBook<
 
   private _getStickyBucketVariation(
     experimentKey: string,
-    experimentBucketVersion: number = 1,
-    minExperimentBucketVersion: number = 0,
-    meta: VariationMeta[] = []
+    experimentBucketVersion?: number,
+    minExperimentBucketVersion?: number,
+    meta?: VariationMeta[]
   ): {
     variation: number;
-    versionIsBlocked: boolean;
+    versionIsBlocked?: boolean;
   } {
+    experimentBucketVersion = experimentBucketVersion ?? 0;
+    minExperimentBucketVersion = minExperimentBucketVersion ?? 0;
+    meta = meta ?? [];
     const id = this._getStickyBucketExperimentKey(
       experimentKey,
       experimentBucketVersion
@@ -1377,25 +1385,20 @@ export class GrowthBook<
     const variationKey = assignments[id];
     if (variationKey === undefined)
       // no assignment found
-      return {
-        variation: -1,
-        versionIsBlocked: false,
-      };
+      return { variation: -1 };
     const variation = meta.findIndex((m) => m.key === variationKey);
     if (variation < 0)
       // invalid assignment, treat as "no assignment found"
-      return {
-        variation: -1,
-        versionIsBlocked: false,
-      };
+      return { variation: -1 };
 
-    return { variation, versionIsBlocked: false };
+    return { variation };
   }
 
   private _getStickyBucketExperimentKey(
     experimentKey: string,
-    experimentBucketVersion: number = 1
+    experimentBucketVersion?: number
   ): StickyExperimentKey {
+    experimentBucketVersion = experimentBucketVersion ?? 0;
     return `${experimentKey}__${experimentBucketVersion}`;
   }
 
@@ -1403,9 +1406,8 @@ export class GrowthBook<
     data?: FeatureApiResponse
   ): Record<string, string> {
     const attributes: Record<string, string> = {};
-    const shouldDeriveIdentifierAttributes =
-      data || this.context.stickyBucketIdentifierAttributes === undefined;
-    this.context.stickyBucketIdentifierAttributes = shouldDeriveIdentifierAttributes
+    this.context.stickyBucketIdentifierAttributes = !this.context
+      .stickyBucketIdentifierAttributes
       ? this._deriveStickyBucketIdentifierAttributes(data)
       : this.context.stickyBucketIdentifierAttributes ?? [];
     this.context.stickyBucketIdentifierAttributes.forEach((attr) => {
