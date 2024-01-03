@@ -111,27 +111,20 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
           <div>
             <Tooltip body={ruleDisabled ? "This rule will be skipped" : ""}>
               <div
-                className={`text-light border rounded-circle ${
+                className={`text-light border rounded-circle text-center font-weight-bold ${
                   ruleDisabled ? "bg-secondary" : "bg-purple"
                 }`}
                 style={{
                   width: 28,
                   height: 28,
                   lineHeight: "28px",
-                  textAlign: "center",
-                  fontWeight: "bold",
                 }}
               >
                 {i + 1}
               </div>
             </Tooltip>
           </div>
-          <div
-            style={{
-              flex: 1,
-            }}
-            className="mx-2"
-          >
+          <div className="flex-1 mx-2">
             {linkedExperiment ? (
               <div>
                 Experiment:{" "}
@@ -283,11 +276,10 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
         <div className="d-flex">
           <div
             style={{
-              flex: 1,
               maxWidth: "100%",
               opacity: ruleDisabled ? 0.4 : 1,
             }}
-            className="pt-1 position-relative"
+            className="flex-1 pt-1 position-relative"
           >
             {hasCondition && rule.type !== "experiment-ref" && (
               <div className="row mb-3 align-items-top">

@@ -96,6 +96,9 @@ export function getRules(feature: FeatureInterface, environment: string) {
 export function getFeatureDefaultValue(feature: FeatureInterface) {
   return feature.defaultValue ?? "";
 }
+export function getPrerequisites(feature: FeatureInterface) {
+  return feature.prerequisites ?? [];
+}
 
 export function roundVariationWeight(num: number): number {
   return Math.round(num * 1000) / 1000;

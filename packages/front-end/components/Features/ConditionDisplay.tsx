@@ -6,6 +6,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import { jsonToConds, useAttributeMap } from "@/services/features";
 import InlineCode from "../SyntaxHighlighting/InlineCode";
 import SavedGroupTargetingDisplay from "./SavedGroupTargetingDisplay";
+import Tooltip from "@/components/Tooltip/Tooltip";
 
 function operatorToText(operator: string): string {
   switch (operator) {
@@ -107,20 +108,27 @@ export default function ConditionDisplay({
     return <InlineCode language="json" code={jsonFormatted} />;
   }
 
-  const parts = conds.map(({ field, operator, value }, i) => (
-    <div key={i} className="col-auto d-flex flex-wrap">
-      {i > 0 && <span className="mr-1">AND</span>}
-      <span className="mr-1 border px-2 bg-light rounded">{field}</span>
-      <span className="mr-1">{operatorToText(operator)}</span>
-      {needsValue(operator) ? (
+  const parts = conds.map(({ field, operator, value }, i) => {
+    return(
+      <div key={i} className="col-auto d-flex flex-wrap">
+        {i > 0 && <span className="mr-1">AND</span>}
         <span className="mr-1 border px-2 bg-light rounded">
-          {getValue(operator, value, savedGroups)}
+          {field}
+          {field === "@parent" && (
+            <Tooltip className="ml-1" body="The evaluated value of the prerequisite feature" />
+          )}
         </span>
-      ) : (
-        ""
-      )}
-    </div>
-  ));
+        <span className="mr-1">{operatorToText(operator)}</span>
+        {needsValue(operator) ? (
+          <span className="mr-1 border px-2 bg-light rounded">
+            {getValue(operator, value, savedGroups)}
+          </span>
+        ) : (
+          ""
+        )}
+      </div>
+    );
+  });
 
   if (savedGroupTargeting && savedGroupTargeting.length > 0) {
     parts.push(

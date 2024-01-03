@@ -109,6 +109,15 @@ const featureSchema = new mongoose.Schema({
       ],
     },
   ],
+  prerequisites: [
+    {
+      _id: false,
+      parentId: String,
+      description: String,
+      parentCondition: String,
+      enabled: Boolean,
+    },
+  ],
   environmentSettings: {},
   draft: {},
   legacyDraftMigrated: Boolean,

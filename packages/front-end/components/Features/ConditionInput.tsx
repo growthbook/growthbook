@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, {useState, useEffect, useMemo} from "react";
 import { some } from "lodash";
 import { FaExclamationCircle } from "react-icons/fa";
 import {
@@ -15,22 +15,34 @@ import SelectField from "../Forms/SelectField";
 import CodeTextArea from "../Forms/CodeTextArea";
 import StringArrayField from "../Forms/StringArrayField";
 import styles from "./ConditionInput.module.scss";
+import Tooltip from "@/components/Tooltip/Tooltip";
 
 interface Props {
   defaultValue: string;
   onChange: (value: string) => void;
   labelClassName?: string;
+  isPrerequisite?: boolean;
 }
 
-const title = "Target by Attribute";
-
 export default function ConditionInput(props: Props) {
+  const isPrerequisite = !!props.isPrerequisite;
+  const title = !isPrerequisite ? "Target by Attribute" : "Target by parent value";
+
   const { savedGroups } = useDefinitions();
 
-  const attributes = useAttributeMap();
+  const attributes = !isPrerequisite
+    ? useAttributeMap()
+    : useMemo(() => ((new Map()).set("@parent", {
+      attribute: "@parent",
+      datatype: "string", // todo: infer from parent
+      array: false, // todo: infer
+      identifier: false,
+      enum: [],
+      archived: false,
+    })), []);
 
   const [advanced, setAdvanced] = useState(
-    () => jsonToConds(props.defaultValue, attributes) === null
+    () => !isPrerequisite && jsonToConds(props.defaultValue, attributes) === null
   );
   const [simpleAllowed, setSimpleAllowed] = useState(false);
   const [value, setValue] = useState(props.defaultValue);
@@ -141,8 +153,8 @@ export default function ConditionInput(props: Props) {
   return (
     <div className="form-group">
       <label className={props.labelClassName || ""}>{title}</label>
-      <div className={`mb-3 bg-light px-3 pb-3 ${styles.conditionbox}`}>
-        <ul className={styles.conditionslist}>
+      <div className={`mb-3 bg-light px-3 ${isPrerequisite ? "mb-0" : "pb-3"} ${styles.conditionbox}`}>
+        <ul className={`${isPrerequisite && "mb-0"} ${styles.conditionslist}`}>
           {conds.map(({ field, operator, value }, i) => {
             const attribute = attributes.get(field);
 
@@ -280,12 +292,20 @@ export default function ConditionInput(props: Props) {
                     <span className={`${styles.and} mr-2`}>IF</span>
                   )}
                   <div className="col-sm-12 col-md mb-2">
+                    <Tooltip
+                      body={isPrerequisite ? "The evaluated value of the prerequisite feature" : ""}
+                      shouldDisplay={isPrerequisite}
+                    >
                     <SelectField
                       value={field}
-                      options={attributeSchema.map((s) => ({
-                        label: s.property,
-                        value: s.property,
-                      }))}
+                      options={
+                      !isPrerequisite
+                        ? attributeSchema.map((s) => ({
+                          label: s.property,
+                          value: s.property,
+                        })) : [
+                          { label: "@parent", value: "@parent" },
+                        ]}
                       name="field"
                       className={styles.firstselect}
                       onChange={(value) => {
@@ -305,7 +325,10 @@ export default function ConditionInput(props: Props) {
                         }
                         setConds(newConds);
                       }}
+                      isSearchable={!isPrerequisite}
+                      disabled={isPrerequisite}
                     />
+                    </Tooltip>
                   </div>
                   <div className="col-sm-12 col-md mb-2">
                     <SelectField
@@ -414,63 +437,67 @@ export default function ConditionInput(props: Props) {
                   ) : (
                     ""
                   )}
-                  <div className="col-md-auto col-sm-12">
-                    <button
-                      className="btn btn-link text-danger float-right"
-                      type="button"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        const newConds = [...conds];
-                        newConds.splice(i, 1);
-                        setConds(newConds);
-                      }}
-                    >
-                      remove
-                    </button>
-                  </div>
+                  {!isPrerequisite && (
+                    <div className="col-md-auto col-sm-12">
+                      <button
+                        className="btn btn-link text-danger float-right"
+                        type="button"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          const newConds = [...conds];
+                          newConds.splice(i, 1);
+                          setConds(newConds);
+                        }}
+                      >
+                        remove
+                      </button>
+                    </div>
+                  )}
                 </div>
               </li>
             );
           })}
         </ul>
-        <div className="d-flex align-items-center">
-          {attributeSchema.length > 0 && (
+        {!isPrerequisite && (
+          <div className="d-flex align-items-center">
+            {attributeSchema.length > 0 && (
+              <a
+                className={`mr-3 btn btn-outline-primary ${styles.addcondition}`}
+                href="#"
+                onClick={(e) => {
+                  e.preventDefault();
+                  const prop = attributeSchema[0];
+                  setConds([
+                    ...conds,
+                    {
+                      field: prop?.property || "",
+                      operator: prop?.datatype === "boolean" ? "$true" : "$eq",
+                      value: "",
+                    },
+                  ]);
+                }}
+              >
+                <span
+                  className={`h4 pr-2 m-0 d-inline-block align-top ${styles.addicon}`}
+                >
+                  <GBAddCircle />
+                </span>
+                Add another condition
+              </a>
+            )}
             <a
-              className={`mr-3 btn btn-outline-primary ${styles.addcondition}`}
               href="#"
+              className="ml-auto"
+              style={{ fontSize: "0.9em" }}
               onClick={(e) => {
                 e.preventDefault();
-                const prop = attributeSchema[0];
-                setConds([
-                  ...conds,
-                  {
-                    field: prop?.property || "",
-                    operator: prop?.datatype === "boolean" ? "$true" : "$eq",
-                    value: "",
-                  },
-                ]);
+                setAdvanced(true);
               }}
             >
-              <span
-                className={`h4 pr-2 m-0 d-inline-block align-top ${styles.addicon}`}
-              >
-                <GBAddCircle />
-              </span>
-              Add another condition
+              Advanced mode
             </a>
-          )}
-          <a
-            href="#"
-            className="ml-auto"
-            style={{ fontSize: "0.9em" }}
-            onClick={(e) => {
-              e.preventDefault();
-              setAdvanced(true);
-            }}
-          >
-            Advanced mode
-          </a>
-        </div>
+          </div>
+        )}
       </div>
     </div>
   );

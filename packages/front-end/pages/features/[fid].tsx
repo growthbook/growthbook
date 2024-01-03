@@ -49,7 +49,7 @@ import {
   useEnvironmentState,
   useEnvironments,
   getEnabledEnvironments,
-  getAffectedRevisionEnvs,
+  getAffectedRevisionEnvs, useFeaturesList, getPrerequisites,
 } from "@/services/features";
 import AssignmentTester from "@/components/Archetype/AssignmentTester";
 import Tab from "@/components/Tabs/Tab";
@@ -80,6 +80,8 @@ import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import { SimpleTooltip } from "@/components/SimpleTooltip/SimpleTooltip";
 import StaleFeatureIcon from "@/components/StaleFeatureIcon";
 import StaleDetectionModal from "@/components/Features/StaleDetectionModal";
+import PrerequisiteList from "@/components/Features/PrerequisiteList";
+import PrerequisiteModal from "@/components/Features/PrerequisiteModal";
 
 export default function FeaturePage() {
   const router = useRouter();
@@ -106,6 +108,9 @@ export default function FeaturePage() {
     environment: string;
     defaultType?: string;
   } | null>(null);
+  const [prerequisiteModal, setPrerequisiteModal] = useState<{
+    i: number;
+  } | null>(null);
   const [editProjectModal, setEditProjectModal] = useState(false);
   const [editTagsModal, setEditTagsModal] = useState(false);
   const [editOwnerModal, setEditOwnerModal] = useState(false);
@@ -127,6 +132,7 @@ export default function FeaturePage() {
     revisions: FeatureRevisionInterface[];
     experiments: ExperimentInterfaceStringDates[];
   }>(`/feature/${fid}`);
+  const { features } = useFeaturesList();
   const firstFeature = router?.query && "first" in router.query;
   const [showImplementation, setShowImplementation] = useState(firstFeature);
   const environments = useEnvironments();
@@ -185,6 +191,7 @@ export default function FeaturePage() {
       organization: data.feature.organization,
       publishedBy: null,
       rules: rules,
+      prerequisites: data.feature.prerequisites || [],
       status: "published",
       version: data.feature.version,
     };
@@ -200,6 +207,8 @@ export default function FeaturePage() {
         )
       : data.feature;
   }, [data, revision, environments]);
+
+  const prerequisites = feature?.prerequisites || [];
 
   const mergeResult = useMemo(() => {
     if (!data || !feature || !revision) return null;
@@ -329,6 +338,16 @@ export default function FeaturePage() {
           environment={ruleModal.environment}
           mutate={mutate}
           defaultType={ruleModal.defaultType || ""}
+          version={currentVersion}
+          setVersion={setVersion}
+        />
+      )}
+      {prerequisiteModal !== null && (
+        <PrerequisiteModal
+          feature={feature}
+          close={() => setPrerequisiteModal(null)}
+          i={prerequisiteModal.i}
+          mutate={mutate}
           version={currentVersion}
           setVersion={setVersion}
         />
@@ -1160,6 +1179,46 @@ export default function FeaturePage() {
             value={getFeatureDefaultValue(feature)}
             feature={feature}
           />
+        </div>
+
+        <h3>Prerequisite Features</h3>
+        <p>Add parent features that must be enabled in order for this feature to work.</p>
+        <div className="mb-4">
+          <div className="border mb-3">
+            {prerequisites.length > 0 ? (
+              <PrerequisiteList
+                feature={feature}
+                features={features}
+                mutate={mutate}
+                setPrerequisiteModal={setPrerequisiteModal}
+                version={currentVersion}
+                setVersion={setVersion}
+                locked={isLocked}
+              />
+            ) : (
+              <div className="p-3 bg-white">
+                <em>No prerequisite features</em>
+              </div>
+            )}
+          </div>
+          <div>
+            <button
+              className="btn btn-primary"
+              onClick={() => {
+                setPrerequisiteModal({
+                  i: getPrerequisites(feature).length,
+                });
+                track("Viewed prerequisite feature modal", {
+                  source: "add-prerequisite",
+                });
+              }}
+            >
+              <span className="h4 pr-2 m-0 d-inline-block align-top">
+                <GBAddCircle />
+              </span>
+              Add Prerequisite
+            </button>
+          </div>
         </div>
 
         <h3>Override Rules</h3>

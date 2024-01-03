@@ -29,6 +29,7 @@ export interface FeatureDraftChanges {
   dateUpdated?: Date;
   defaultValue?: string;
   rules?: Record<string, FeatureRule[]>;
+  prerequisites?: FeaturePrerequisite[];
   comment?: string;
 }
 
@@ -60,6 +61,7 @@ export interface FeatureInterface {
   /** @deprecated */
   legacyDraftMigrated?: boolean;
   neverStale?: boolean;
+  prerequisites?: FeaturePrerequisite[];
 }
 type ScheduleRule = {
   timestamp: string | null;
@@ -140,4 +142,11 @@ export interface FeatureTestResult {
   defaultValue: boolean | string | object;
   log?: [string, any][];
   featureDefinition?: FeatureDefinition;
+}
+
+export interface FeaturePrerequisite {
+  parentId: string;
+  description: string;
+  parentCondition: string;
+  enabled: boolean;
 }
