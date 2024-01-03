@@ -502,6 +502,7 @@ function getRecommendedRolloutData({
     data.savedGroups || [],
     lastPhase.savedGroups || []
   );
+
   // 1. More restrictive targeting (saved groups)?
   if (savedGroupsRestrictiveness === "more") {
     moreRestrictiveTargeting = true;
@@ -672,32 +673,51 @@ function compareSavedGroups(
   current: SavedGroupTargeting[],
   last: SavedGroupTargeting[]
 ): "more" | "less" | "other" | null {
-  const mergedDataIds: Record<"all" | "none" | "any", Set<string>> = {
+  if (last.length === 0 && current.length > 0) return "more";
+  if (last.length > 0 && current.length === 0) return "less";
+
+  const mergedDataIds: Record<"all" | "none", Set<string>> = {
     all: new Set(),
     none: new Set(),
-    any: new Set(),
   };
-  const mergedLastPhaseIds: Record<"all" | "none" | "any", Set<string>> = {
+  const mergedLastPhaseIds: Record<"all" | "none", Set<string>> = {
     all: new Set(),
     none: new Set(),
-    any: new Set(),
   };
+  let totalCurrentAnyGroups = 0;
+  let totalLastPhaseAnyGroups = 0;
 
   // Merge data.savedGroups
   for (const group of current) {
-    for (const id of group.ids) {
-      mergedDataIds[group.match].add(id);
+    if (group.match === "any") {
+      totalCurrentAnyGroups++;
+    } else {
+      for (const id of group.ids) {
+        mergedDataIds[group.match].add(id);
+      }
     }
   }
   // Merge lastPhase.savedGroups
   for (const group of last) {
-    for (const id of group.ids) {
-      mergedLastPhaseIds[group.match].add(id);
+    if (group.match === "any") {
+      totalLastPhaseAnyGroups++;
+    } else {
+      for (const id of group.ids) {
+        mergedLastPhaseIds[group.match].add(id);
+      }
     }
   }
 
   let moreRestrictive = false;
   let lessRestrictive = false;
+
+  // compare ANY group counts
+  if (totalCurrentAnyGroups > totalLastPhaseAnyGroups) {
+    moreRestrictive = true;
+  }
+  if (totalCurrentAnyGroups < totalLastPhaseAnyGroups) {
+    lessRestrictive = true;
+  }
 
   // Compare merged groups
   for (const matchType of ["all", "none", "any"] as (
