@@ -8,15 +8,13 @@ interface DOMMutation {
 }
 
 interface URLRedirect {
-  id: string;
+  // id: string;
+  // description: string;
+  // originUrl: string;
+  // urlPatterns: VisualChangesetURLPattern[];
+  url: string;
   description: string;
-  originUrl: string;
-  urlPatterns: VisualChangesetURLPattern[];
-  destinationUrls: {
-    url: string;
-    description: string;
-    variation: string;
-  }[];
+  variation: string;
   persistQueryString: boolean;
 }
 

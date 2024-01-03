@@ -9,11 +9,13 @@ export default function AddLinkedChangesBanner({
   numLinkedChanges,
   setFeatureModal,
   setVisualEditorModal,
+  setUrlRedirectModal,
 }: {
   experiment: ExperimentInterfaceStringDates;
   numLinkedChanges: number;
   setVisualEditorModal: (state: boolean) => unknown;
   setFeatureModal: (state: boolean) => unknown;
+  setUrlRedirectModal: (state: boolean) => unknown;
 }) {
   const { hasCommercialFeature } = useUser();
   const hasVisualEditorFeature = hasCommercialFeature("visual-editor");
@@ -26,8 +28,8 @@ export default function AddLinkedChangesBanner({
   return (
     <div className="alert-cool-1 text-center mb-4 px-3 py-4 position-relative">
       <p className="h4 mb-4">
-        Implement your experiment variations using either our Visual Editor or
-        Feature Flags.{" "}
+        Implement your experiment variations using our Visual Editor, Feature
+        Flags, or URL Redirects.{" "}
         <Tooltip
           body={
             <>
@@ -35,9 +37,13 @@ export default function AddLinkedChangesBanner({
                 Use the Visual Editor to make simple visual changes to your
                 website without writing code.
               </p>
-              <p className="mb-0">
+              <p>
                 Use Feature Flags and our SDKs to make changes within your
                 front-end, back-end, or mobile application code.
+              </p>
+              <p className="mb-0">
+                Use URL Redirects to test different versions of a page without
+                writing code.
               </p>
             </>
           }
@@ -82,6 +88,17 @@ export default function AddLinkedChangesBanner({
               }}
             >
               Add Feature Flag
+            </button>
+          </div>
+          <div className="col text-align-center">
+            <button
+              className="btn btn-primary btn-lg mb-3"
+              type="button"
+              onClick={() => {
+                setUrlRedirectModal(true);
+              }}
+            >
+              Setup URL Redirects
             </button>
           </div>
         </div>

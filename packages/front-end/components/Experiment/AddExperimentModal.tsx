@@ -78,7 +78,8 @@ const AddExperimentModal: FC<{
       description: (
         <>
           Build and run a brand new experiment using{" "}
-          <strong>Feature Flags</strong> or our <strong>Visual Editor</strong>
+          <strong>Feature Flags</strong>, our <strong>Visual Editor</strong>, or{" "}
+          <strong>URL Redirects</strong>
         </>
       ),
       Icon: GoBeaker,

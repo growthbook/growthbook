@@ -21,6 +21,7 @@ export interface Props {
   editTargeting?: (() => void) | null;
   setFeatureModal: (open: boolean) => void;
   setVisualEditorModal: (open: boolean) => void;
+  setUrlRedirectModal: (open: boolean) => void;
   linkedFeatures: LinkedFeatureInfo[];
   setTab: (tab: ExperimentTab) => void;
   connections: SDKConnectionInterface[];
@@ -33,6 +34,7 @@ export default function Implementation({
   editTargeting,
   setFeatureModal,
   setVisualEditorModal,
+  setUrlRedirectModal,
   linkedFeatures,
   setTab,
   connections,
@@ -63,6 +65,7 @@ export default function Implementation({
             numLinkedChanges={0}
             setFeatureModal={setFeatureModal}
             setVisualEditorModal={setVisualEditorModal}
+            setUrlRedirectModal={setUrlRedirectModal}
           />
           <div className="mt-1">
             <StartExperimentBanner
