@@ -841,43 +841,6 @@ const GeneralSettingsPage = (): React.ReactElement => {
                     )}
                   </div>
 
-                  <div className="mb-4 w-100">
-                    <div className="d-flex">
-                      <label
-                        className="mr-2"
-                        htmlFor="toggle-useStickyBucketing"
-                      >
-                        <PremiumTooltip
-                          commercialFeature={"sticky-bucketing"}
-                          body={<StickyBucketingTooltip />}
-                        >
-                          Enable Sticky Bucketing <FaQuestionCircle />
-                        </PremiumTooltip>
-                      </label>
-                      <Toggle
-                        id={"toggle-useStickyBucketing"}
-                        value={!!form.watch("useStickyBucketing")}
-                        setValue={(value) => {
-                          form.setValue(
-                            "useStickyBucketing",
-                            hasStickyBucketFeature ? value : false
-                          );
-                        }}
-                        disabled={
-                          !hasStickyBucketFeature || !hasSDKWithStickyBucketing
-                        }
-                      />
-                    </div>
-                    {!form.watch("useStickyBucketing") && (
-                      <div className="small">
-                        <StickyBucketingToggleWarning
-                          hasSDKWithStickyBucketing={hasSDKWithStickyBucketing}
-                          iconSize={16}
-                        />
-                      </div>
-                    )}
-                  </div>
-
                   <StatsEngineSelect
                     label="Default Statistics Engine"
                     allowUndefined={false}
@@ -1254,6 +1217,42 @@ const GeneralSettingsPage = (): React.ReactElement => {
                     </div>
                   </Tab>
                 </div>
+
+                <div className="mt-4 w-100">
+                  <div className="d-flex">
+                    <label className="mr-2" htmlFor="toggle-useStickyBucketing">
+                      <PremiumTooltip
+                        commercialFeature={"sticky-bucketing"}
+                        body={<StickyBucketingTooltip />}
+                      >
+                        Enable Sticky Bucketing <FaQuestionCircle />
+                      </PremiumTooltip>
+                    </label>
+                    <Toggle
+                      id={"toggle-useStickyBucketing"}
+                      value={!!form.watch("useStickyBucketing")}
+                      setValue={(value) => {
+                        form.setValue(
+                          "useStickyBucketing",
+                          hasStickyBucketFeature ? value : false
+                        );
+                      }}
+                      disabled={
+                        !form.watch("useStickyBucketing") &&
+                        (!hasStickyBucketFeature || !hasSDKWithStickyBucketing)
+                      }
+                    />
+                  </div>
+                  {!form.watch("useStickyBucketing") && (
+                    <div className="small">
+                      <StickyBucketingToggleWarning
+                        hasSDKWithStickyBucketing={hasSDKWithStickyBucketing}
+                        iconSize={16}
+                      />
+                    </div>
+                  )}
+                </div>
+
                 <div className="mb-3 form-group flex-column align-items-start">
                   <PremiumTooltip
                     commercialFeature="custom-launch-checklist"
