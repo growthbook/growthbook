@@ -1,0 +1,286 @@
+# Where Experimentation goes wrong
+
+The following contains a list of common pitfalls and mistakes that can happen when running A/B tests.
+It is important to be aware of these issues and to take steps to avoid them in order to ensure that
+your A/B tests are valid and reliable. It is by no means an exhaustive list.
+
+### Multiple Testing Problem
+
+The multiple testing problem refers to the issue that arises when statistical hypothesis testing is
+performed on multiple variables simultaneously, leading to an increased likelihood of incorrectly
+rejecting a true null hypothesis ([Type I error](/using/fundamentals#false-positives-type-i-errors-and-false-negatives-type-ii-errors)).
+
+For example, if you test the same hypothesis at a 5% level of significance for 20 different metrics, the
+probability of finding at least one statistically significant result by chance alone is around 64%. This
+probability increases as the number of tests performed increases. This math assumes that the metrics
+are independent from one another, which in most cases for a digital application there will be some
+interaction between metrics (ie, page views is most likely related to sales funnel starts, or member
+registration to purchase events)
+
+To address this problem, various multiple comparison correction methods can be used, such as the
+Bonferroni correction, False Discovery Rate (FDR) correction, or the Benjamini-Hochberg procedure.
+These methods adjust the significance level or the p-value threshold to account for the increased risk
+of false positives when multiple comparisons are made.
+
+It's essential to be aware of this issue and select an appropriate correction method when conducting
+multiple statistical tests to avoid false discoveries and improve the accuracy and reliability of research
+findings. If you are using a high number of metrics, draw conclusions from the test thoughtfully and if
+you may consider running a follow up test just to test that one result or metric.
+
+### Texas Sharpshooter Fallacy
+
+The Texas sharpshooter problem is a cognitive bias that involves cherry-picking data clusters to suit a particular
+argument, hypothesis, or bias. The name comes from the idea of a Texan marksman shooting at a barn and then painting a
+target around the cluster of bullet holes to create the appearance of accuracy. As the story goes, he then showed his
+neighbors and convinced them he was a great shot. It is closely related to the Multiple Testing Problem/Multiple Comparison Problem.
+
+In the context of data analysis and statistics, the Texas sharpshooter problem refers to the danger of finding
+apparent patterns or correlations in data purely by chance and then using those patterns as if they were meaningful.
+This can lead to false conclusions and misguided decision-making. Texas sharpshooter problem is relevant in the
+sense that if you analyze the results of a test without a clear hypothesis or before setting up the experiment, you
+may be susceptible to finding patterns that are purely due to random variation. If you analyze the data in multiple
+ways or look at various subgroups without adjusting for multiple comparisons, you might identify spurious patterns
+that do not actually represent a true effect.
+
+### P-Hacking
+
+P-hacking, or data dredging, is a statistical fallacy that involves manipulating or analyzing data in various ways
+until a statistically significant result is achieved. It occurs when researchers or analysts repeatedly test
+their data using different methodologies or subsets of the data until they find a statistically significant result,
+even if the observed effect is due to chance.
+
+In the context of A/B testing, p-hacking can be a significant concern. A/B testing involves comparing at least two versions
+(A and B) to determine which performs better. The danger of p-hacking arises when analysts, either consciously or
+unconsciously, explore different metrics, time periods, or subgroups until they find a statistically significant
+difference between the A and B groups.
+
+### Peeking
+
+The peeking problem refers to the issue of experimenters making decisions about the results of
+an experiment based on early data. The more often the experiment is looked at, or ‘peeked’, the
+higher the false positive rates will be, meaning that the results are more likely to be significant by
+chance alone. Peeking typically applies to Frequentist statistics, which are statistically valid at their
+predetermined sample size. However, Bayesian statistics can also suffer from peeking depending on
+how decisions are made on the basis of Bayesian results.
+
+The peeking problem in A/B testing occurs when the experimenter looks at the data during the
+experiment and decides to stop the test early based on the observed results, rather than waiting until
+the predetermined sample size or duration has been reached. This can lead to inflated false positive
+rates, as the results are more likely to be significant by chance alone if the experimenter stops the test
+early based on what they see in the data. The more often the experiment is looked at, or ‘peeked’, the
+higher the false positive rates will be.
+
+To avoid the peeking problem in A/B testing, it's important to use a predetermined sample size or
+duration for the experiment and stick to the plan without making any changes based on the observed
+results. This helps to ensure that the statistical test is valid and that the results are not influenced by
+experimenter bias.
+
+Another way to avoid the peeking problem in A/B testing is to use a statistical engine that is less
+susceptible to peeking, like a Bayesian with custom priors, or to use a method that accounts for
+peeking like Sequential testing.
+
+### Problems with client side A/B testing
+
+Client-side A/B testing is a technique where variations of a web page or application are served to users
+via JavaScript on the user's device, without requiring any server-side code changes. This technique
+can offer a fast and flexible way to test different variations of a website or application, but it can also
+present some potential problems, one of which is known as "flickering."
+
+Flickering is a problem that can occur when the A/B test is implemented in a way that causes the
+user interface to render the original version, then flash or flicker as the variations are loaded. This can
+happen when the A/B test code is slow to load or when the A/B testing library is lacking performance.
+As a result, the user may see the original version of the page briefly before it is replaced with one of
+the variations being tested, leading to a jarring and confusing user experience. This flickering can lead
+to inaccurate or unreliable test results. Rather counterintuitively, flickering may have a positive effect on
+the results, sometimes the flashing may draw a users attention to that variation, and cause an inflation
+in the effect.
+
+To avoid flickering in client-side A/B testing, it is important to implement the test code in a way that
+minimizes the delay between the original page and the variations being tested. This may involve
+preloading the test code or optimizing the code for faster loading times. GrowthBook’s SDKs are built
+for very high performance, and allow you to use client side A/B testing code inline, so there are no
+blocking 3rd party calls.
+
+You can also use an alternative technique such as server-side testing or redirect-based testing to avoid
+flickering issues. If loading the SDK in the head does not sufficiently prevent flicking, you can also use
+an anti-flickering script. These scripts hide the page while the content is loading, and reveal the page
+after the experiment loaded. The problem with this is that while it technically prevents flickering, it
+slows how quickly your site appears to load.
+
+### Redirect tests (Split testing)
+
+Redirect-based A/B testing is a technique where users are redirected to different URLs or pages
+based on the A/B test variation they are assigned to. While this technique can be effective in
+certain scenarios, it can also present several potential problems that should be considered before
+implementation.
+
+**SEO**: Redirects can negatively impact SEO, as search engines may not be able to crawl the redirected
+pages or may see them as duplicate content. This can result in lower search engine rankings and
+decreased traffic to the site.
+
+**Load times/User experience**: Redirects can increase page load times, as the browser has to make
+an additional HTTP request to load the redirect page. This can result in slower load times, which can
+impact user experience, conversion rates, and A/B test outcomes.
+
+**Data accuracy**: Redirects can also impact the accuracy of the test results, as users may drop off or exit
+the site before completing the desired action due to a slower load time or confusing user experience. It
+can also be harder technically to fire the tracking event, causing a loss in data.
+
+To mitigate these problems, it's important to carefully consider whether redirect-based A/B testing
+is the most appropriate technique for your specific use case. If you do choose to use redirects, it's
+important to implement them correctly and thoroughly test them to ensure that they do not negatively
+impact user experience or test results. Additionally, it may be helpful to use other techniques such as
+server-side testing or client-side testing to supplement redirect-based testing and ensure the accuracy
+and reliability of the test results like testing on the edge or using middleware to serve different pages.
+
+### Semmelweis Effect
+
+The Semmelweis effect refers to the tendency of people to reject new evidence or information that
+challenges their established beliefs or practices. It is named after Ignaz Semmelweis, a Hungarian
+physician who, in the 19th century, discovered that hand washing could prevent the spread of
+infectious diseases in hospitals. Despite his findings, he was ridiculed and ignored by his colleagues,
+and it took many years for his ideas to be accepted and implemented.
+
+In the context of A/B testing, the Semmelweis effect can manifest in several ways. For example, a
+company may have a long-standing belief that a certain design or feature is effective and produces
+good results, and may not want to experiment with it because everyone knows it ‘correct’. Even if an
+experiment is run against this entrenched belief, and the results of an A/B test challenge established
+norms, there may be resistance to accept the new evidence and change the established practice.
+
+To avoid the Semmelweis effect in A/B testing, it is important to approach experimentation with an
+open mind and a willingness to challenge established beliefs and practices. It is crucial to let the data
+guide decision-making and to be open to trying new things, even if they go against conventional
+wisdom or past practices. It is also important to regularly review and evaluate the results of A/B tests to
+ensure that the company's beliefs and practices are aligned with the latest evidence and insights, and
+haven’t changed over time.
+
+### Confirmation Bias
+
+Confirmation bias refers to the tendency to favor information that confirms our preexisting beliefs and
+to ignore or discount information that contradicts our beliefs. In the context of A/B testing, confirmation
+bias can lead to flawed decision-making and missed opportunities for optimization.
+
+For example, if a company believes that a certain website design or feature is effective, they may
+only run A/B tests that confirm their beliefs and ignore tests that challenge their beliefs. This can lead
+to a bias towards interpreting data in a way that supports preexisting beliefs, rather than objectively
+evaluating the results of the tests. Or a PM may believe a new version of their product will be superior,
+and only acknowledge evidence that confirms this belief.
+
+Confirmation bias can also manifest in the way tests are designed and implemented. If a company
+designs an A/B test in a way that biases the results towards a particular outcome, such as by using
+a biased sample or by selecting a suboptimal metric to measure success, it can lead to misleading
+results that confirm preexisting beliefs.
+
+To avoid confirmation bias in A/B testing, it is important to approach experimentation with an open
+and objective mindset. This involves being willing to challenge preexisting beliefs (Semmelweis) and
+being open to the possibility that the data may contradict those beliefs. It also involves designing tests
+in a way that is unbiased and that measures the most relevant and meaningful metrics to evaluate
+success. Having multiple stakeholders review and evaluate the results of A/B tests can help ensure
+that decisions are based on objective data, rather than personal biases or beliefs.
+
+### HiPPOs
+
+HiPPO is an acronym for the "highest paid person's opinion."
+In less data-driven companies, decisions about what product to build or which products to ship are made
+by HiPPOs. The problem with HiPPOs is that it turns out their opinions are no more likely to be right
+than anyone else's opinions, and are therefore often wrong. But due to their status they may resist
+against experimentation to preserve their status or ego. The HiPPO effect is a common problem in many
+organizations, and it can lead to poor decision-making and missed opportunities for your product.
+
+### Trustworthiness
+
+When experiment results challenge existing norms or an individual’s beliefs, it can be easy to blame
+the data. For this reason, having a trustworthy A/B testing platform is extremely important. There must
+be ways to audit the results, and look into if there was any systemic or specific problem affecting the
+results of the experiment. Running A/A tests can help build trust that the platform is working correctly.
+Trust in an experimentation platform is built over time, and care must be taken to not just dismiss
+results that are counterintuitive.
+
+### Twyman's Law
+
+Twyman's law is a principle in statistics that states that any data that is measured and collected will
+contain some degree of error, and that this error is an inherent part of the data. It is named after the
+British statistician Maurice G. Kendall Twyman.
+
+In the context of A/B testing, Twyman's law suggests that there will always be some level of variability
+or uncertainty in the results of an A/B test due to factors such as random chance, sample size, or
+measurement error. It is often phrased as:
+
+> Any data or figure that looks interesting or different is usually wrong
+
+If you notice a particularly large or unusual change in the results of an experiment, it is more likely to be
+the result of a problem with the data or an implementation than an actual result. Before you share the
+results, make sure that the effects are not the result of an error.
+
+### Goodhart's Law
+
+Goodhart's law is a concept in economics that states that when a measure becomes a target, it ceases
+to be a good measure. In other words, once a metric becomes the sole focus of attention and effort, it
+loses its value as an indicator of the desired outcome.
+
+When it comes to A/B testing, Goodhart's law can apply in several ways. For example, if a specific
+metric such as click-through rate or conversion rate becomes the sole focus of an A/B test, it can lead
+to unintended consequences such as artificially inflating the metric while neglecting other important
+aspects of the user experience. This can happen because individuals or teams may optimize for the
+metric being measured rather than focusing on the broader goals of the A/B test, such as improving
+user engagement or increasing revenue.
+
+To avoid the negative effects of Goodhart's law in A/B testing, it is important to choose the right metrics
+to track and analyze, and to use a variety of metrics to evaluate the effectiveness of the test. It is also
+important to keep in mind the broader goals of the test and to avoid tunnel vision on any one metric.
+Goodhart's law is more likely to happen when you are using proxy metrics, instead of the real KPIs
+you’re trying to improve - an example of this might be items added to a cart being used as a proxy for
+purchases. Also If the proxy metric is not strongly causally linked to the target metric, pressing hard on
+the proxy may have no effect on the goal metric, or might actually cause the correlation to break.
+
+### Simpson's Paradox
+
+Simpson's paradox is a statistical phenomenon where a trend or pattern appears in different groups of
+data but disappears or reverses when the groups are combined. In other words, the overall result may
+be opposite to what the individual subgroups suggest.
+
+This paradox can arise when a confounding variable (a variable that affects both the independent and
+dependent variables) is not taken into account while analyzing the data.
+
+Simpson's paradox was famously observed at the University of California, Berkeley in 1973, where it
+had implications for gender discrimination in graduate school admissions.
+
+At the time, it was observed that although the overall admission rate for graduate school was higher for
+men than for women (44% vs. 35%), when the admission rates were broken down by department, the
+reverse was true for many of the departments, with women having a higher admission rate than men
+in each department. In the Department of Education, for example, women had a 77% admission rate
+compared to men's 62% admission rate.
+
+The paradox was resolved by examining the application data more closely and considering the impact
+of an important confounding variable, which was the choice of department. It was discovered that
+women were more likely to apply to departments that were more competitive and had lower admission
+rates, while men were more likely to apply to less competitive departments with higher admission
+rates.
+
+When the data was reanalyzed, taking into account the departmental differences in admission rates, it
+was found that women actually had a slightly higher overall admission rate than men, suggesting that
+there was no discrimination against women in the admissions process.
+This case study illustrates how Simpson's paradox can occur due to the influence of confounding
+variables, and how it can lead to misleading conclusions if not properly accounted for in the analysis.
+To avoid the Simpson's paradox in experimentation, it is essential to analyze the data by considering
+all relevant variables and subgroups. It is crucial to ensure that the experimental groups are similar in
+terms of demographics and behavior, and to use statistical techniques that account for confounding
+variables.
+
+### Ethical considerations
+
+Experimentation judges the outcome of changes by looking at the impact it has on some set of metrics.
+But the seeming objectivity of the results can hide problems. The simplest way this can go wrong is
+if your metrics are tracking the wrong things, in which case you’ll have garbage in and garbage out.
+But it is also possible for the metrics to not capture harm that is being done to some subsets of your
+population.
+
+Experimentation results work on averages, and this can hide a lot of systemic biases that may exist.
+There can be a tendency for algorithmic systems to “learn” or otherwise encode real-world biases in
+their operation, and then further amplify/reinforce those biases.
+
+Product design has the potential to differentially benefit some groups of users more than others; It is
+possible to measure this effect and ensure that results account for these groups. Sparse or poor data
+quality that leads to objective-setting errors and system designs that lead to suboptimal outcomes for
+many groups of end users. One company that does this very well is the team at LinkedIn, you can read
+about their approach [here](https://engineering.linkedin.com/blog/2020/building-inclusive-products-through-a-b-testing).

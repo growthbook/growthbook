@@ -20,7 +20,7 @@ from gbstats.shared.models import (
     ProportionStatistic,
     RatioStatistic,
     SampleMeanStatistic,
-    Statistic,
+    TestStatistic,
     Uplift,
 )
 from gbstats.shared.tests import BaseABTest
@@ -71,8 +71,8 @@ Original code:
 class BayesianABTest(BaseABTest):
     def __init__(
         self,
-        stat_a: Statistic,
-        stat_b: Statistic,
+        stat_a: TestStatistic,
+        stat_b: TestStatistic,
         inverse: bool = False,
         ccr: float = 0.05,
     ):

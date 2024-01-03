@@ -15,7 +15,7 @@ from gbstats.shared.constants import DifferenceType
 from gbstats.shared.models import (
     BaseConfig,
     FrequentistTestResult,
-    Statistic,
+    TestStatistic,
     Uplift,
 )
 from gbstats.shared.tests import BaseABTest
@@ -35,8 +35,8 @@ class SequentialConfig(FrequentistConfig):
 class TTest(BaseABTest):
     def __init__(
         self,
-        stat_a: Statistic,
-        stat_b: Statistic,
+        stat_a: TestStatistic,
+        stat_b: TestStatistic,
         config: FrequentistConfig = FrequentistConfig(),
     ):
         """Base class for one- and two-sided T-Tests with unequal variance.
@@ -205,15 +205,15 @@ class OneSidedTreatmentLesserTTest(TTest):
 class SequentialTwoSidedTTest(TTest):
     def __init__(
         self,
-        stat_a: Statistic,
-        stat_b: Statistic,
+        stat_a: TestStatistic,
+        stat_b: TestStatistic,
         config: SequentialConfig = SequentialConfig(),
     ):
         config_dict = asdict(config)
         self.sequential_tuning_parameter = config_dict.pop(
             "sequential_tuning_parameter"
         )
-        super().__init__(stat_a, stat_b, FrequentistConfig(**config_dict)),
+        super().__init__(stat_a, stat_b, FrequentistConfig(**config_dict))
 
     @property
     def confidence_interval(self) -> List[float]:
