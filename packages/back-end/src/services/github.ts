@@ -69,21 +69,29 @@ webhooks?.on<"installation_repositories">(
   }
 );
 
-webhooks?.on(
-  "push",
-  async ({
-    id,
-    name,
-    payload,
-  }: {
-    id: string;
-    name: string;
-    payload: EmitterWebhookEvent<"push">["payload"];
-  }) => {
-    const ref = payload.ref;
-    // only interested in pushes to main branch
-    if (ref !== "refs/heads/main") return;
-    // eslint-disable-next-line no-console
-    console.log("push event", id, name, payload);
-  }
-);
+webhooks?.on<"push">("push", async ({ payload }) => {
+  const ref = payload.ref;
+
+  // only interested in pushes to main branch
+  if (ref !== "refs/heads/main") return;
+
+  const repoId = payload.repository.id;
+  const integration = await getGithubIntegrationByInstallationId(
+    `${payload.installation?.id}`
+  );
+
+  if (!integration) throw new Error("Github integration does not exist");
+
+  const repo = integration.repositories.find((r) => r.id === repoId);
+
+  if (!repo) throw new Error("Repo not found in integration");
+
+  if (!repo.watching) return;
+
+  await scanRepo(repoId);
+});
+
+const scanRepo = async (repoId: number) => {
+  // eslint-disable-next-line no-console
+  console.log("TODO scan repo", repoId);
+};

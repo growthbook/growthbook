@@ -27,7 +27,7 @@ router.post(
   validateRequestMiddleware({
     body: z
       .object({
-        repoId: z.string(),
+        repoId: z.number(),
       })
       .strict(),
   }),

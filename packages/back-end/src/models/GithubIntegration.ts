@@ -101,8 +101,10 @@ export const deleteGithubIntegrationById = async (
 };
 
 export const getGithubIntegrationByInstallationId = async (
-  installationId: string
+  installationId: string | undefined
 ) => {
+  if (!installationId) return null;
+
   const doc = await GithubIntegrationModel.findOne({
     installationId,
   });
