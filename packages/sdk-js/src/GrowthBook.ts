@@ -658,12 +658,12 @@ export class GrowthBook<
           if (parentResult.off) {
             return this._getFeatureResult(id, null, "prerequisite", rule.id);
           }
-          if (
-            !evalCondition(
-              { "@parent": parentResult.value },
-              rule.parentCondition || {}
-            )
-          ) {
+          const parentValue = parentResult.value;
+          const evalObj =
+            ["object"].includes(typeof parentValue) && parentValue !== null
+              ? parentValue
+              : { "@parent": parentResult.value };
+          if (!evalCondition(evalObj, rule.parentCondition || {})) {
             return this._getFeatureResult(
               id,
               feature.defaultValue !== undefined ? feature.defaultValue : null,
