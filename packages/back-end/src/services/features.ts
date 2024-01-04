@@ -195,11 +195,17 @@ export async function getSavedGroupMap(
 
   const groupMap: GroupMap = new Map(
     allGroups.map((group) => {
-      const attributeType = attributeMap?.get(group.attributeKey);
-      const values = getGroupValues(group.values, attributeType);
+      let values: (string | number)[] = [];
+      if (group.type === "list" && group.attributeKey && group.values) {
+        const attributeType = attributeMap?.get(group.attributeKey);
+        values = getGroupValues(group.values, attributeType);
+      }
       return [
         group.id,
-        { values, key: group.attributeKey, source: group.source },
+        {
+          ...group,
+          values,
+        },
       ];
     })
   );
