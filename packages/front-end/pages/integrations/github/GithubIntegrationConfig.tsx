@@ -14,7 +14,7 @@ export default function GithubIntegrationConfig({
   // - need to allow revoking tokens / disconnecting (?)
   // - show error state if refresh token is expired
   const toggleRepo = useCallback(
-    async (repoId: string) => {
+    async (repoId: number) => {
       await apiCall("/integrations/github/toggle-repo", {
         method: "POST",
         body: JSON.stringify({

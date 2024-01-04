@@ -12,7 +12,7 @@ export const webhooks = process.env.GITHUB_WEBHOOK_SECRET
     })
   : null;
 
-webhooks?.on(
+webhooks?.on<"installation">(
   "installation",
   async ({
     payload,
@@ -71,9 +71,11 @@ webhooks?.on<"installation_repositories">(
 
 webhooks?.on<"push">("push", async ({ payload }) => {
   const ref = payload.ref;
+  const defaultBranch = payload.repository.default_branch;
+  const isDefaultBranch = ref === `refs/heads/${defaultBranch}`;
 
-  // only interested in pushes to main branch
-  if (ref !== "refs/heads/main") return;
+  // only interested in pushes to default branch
+  if (!isDefaultBranch) return;
 
   const repoId = payload.repository.id;
   const integration = await getGithubIntegrationByInstallationId(

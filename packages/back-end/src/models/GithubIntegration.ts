@@ -29,6 +29,7 @@ const githubIntegrationSchema = new mongoose.Schema({
 
 githubIntegrationSchema.index({ organization: 1 }, { unique: true });
 githubIntegrationSchema.index({ tokenId: 1 }, { unique: true });
+githubIntegrationSchema.index({ installationId: 1 }, { unique: true });
 
 const GithubIntegrationModel = mongoose.model<GithubIntegrationDocument>(
   "GithubIntegration",
@@ -74,7 +75,7 @@ export const toggleWatchingForRepo = async ({
   repoId,
 }: {
   orgId: OrganizationInterface["id"];
-  repoId: string;
+  repoId: number;
 }) => {
   const doc = await GithubIntegrationModel.findOne({ organization: orgId });
   if (!doc) throw new Error("Github integration does not exist");

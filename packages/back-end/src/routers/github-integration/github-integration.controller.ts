@@ -110,7 +110,7 @@ export const postGithubIntegration = async (
     installationId: `${installation.id}`,
     createdBy: userId,
     repositories: reposRes.repositories.map((repo) => ({
-      id: repo.id.toString(),
+      id: repo.id,
       name: repo.name,
       watching: false,
     })),
@@ -123,7 +123,7 @@ export const postGithubIntegration = async (
 };
 
 export const postRepoWatch = async (
-  req: AuthRequest<{ repoId: string }>,
+  req: AuthRequest<{ repoId: number }>,
   res: Response
 ) => {
   req.checkPermissions("manageIntegrations");
