@@ -652,26 +652,32 @@ export class GrowthBook<
     // Loop through the rules
     if (feature.rules) {
       for (const rule of feature.rules) {
-        // If it's prerequisite flag, check if the parent flag evaluates to the rule's condition
-        if (rule.parent) {
-          const parentResult = this.evalFeature(rule.parent, evalCtx);
-          if (parentResult.off) {
-            return this._getFeatureResult(id, null, "prerequisite", rule.id);
+        // There are prerequisite flag(s), evaluate them
+        if (rule.parentConditions) {
+          let passedParentConditions = 0;
+          for (const parentCondition of rule.parentConditions) {
+            const parentResult = this.evalFeature(parentCondition.parent, evalCtx);
+            if (parentResult.off) {
+              passedParentConditions++;
+              continue;
+            }
+            const parentValue = parentResult.value;
+            const evalObj =
+              ["object"].includes(typeof parentValue) && parentValue !== null
+                ? parentValue
+                : { "@parent": parentResult.value };
+            if (evalCondition(evalObj, parentCondition.condition || {})) {
+              passedParentConditions++;
+            }
           }
-          const parentValue = parentResult.value;
-          const evalObj =
-            ["object"].includes(typeof parentValue) && parentValue !== null
-              ? parentValue
-              : { "@parent": parentResult.value };
-          if (!evalCondition(evalObj, rule.parentCondition || {})) {
-            return this._getFeatureResult(
+          if (passedParentConditions < rule.parentConditions.length) {
+            process.env.NODE_ENV !== "production" &&
+            this.log("Skip rule because of prerequisites", {
               id,
-              feature.defaultValue !== undefined ? feature.defaultValue : null,
-              "prerequisite",
-              rule.id
-            );
+              rule,
+            });
+            continue;
           }
-          continue;
         }
 
         // If it's a conditional rule, skip if the condition doesn't pass
