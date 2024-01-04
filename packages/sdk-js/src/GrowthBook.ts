@@ -681,14 +681,6 @@ export class GrowthBook<
               continue rules;
             }
           }
-          // if (passedParentConditions < rule.parentConditions.length) {
-          //   process.env.NODE_ENV !== "production" &&
-          //   this.log("Skip rule because of prerequisites", {
-          //     id,
-          //     rule,
-          //   });
-          //   continue;
-          // }
         }
 
         // If it's a conditional rule, skip if the condition doesn't pass
