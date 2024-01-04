@@ -82,7 +82,7 @@ export class LocalStorageStickyBucketService extends StickyBucketService {
   private prefix: string;
   private localStorage: LocalStorageCompat | undefined;
   constructor({
-    prefix = "gbStickyBuckets::",
+    prefix = "gbStickyBuckets__",
     localStorage,
   }: {
     prefix?: string;
@@ -104,8 +104,8 @@ export class LocalStorageStickyBucketService extends StickyBucketService {
     let doc: StickyAssignmentsDocument | null = null;
     if (!this.localStorage) return doc;
     try {
-      const raw = await this.localStorage.getItem(this.prefix + key);
-      const data = JSON.parse(raw || "{}");
+      const raw = (await this.localStorage.getItem(this.prefix + key)) || "{}";
+      const data = JSON.parse(raw);
       if (data.attributeName && data.attributeValue && data.assignments) {
         doc = data;
       }
@@ -117,44 +117,50 @@ export class LocalStorageStickyBucketService extends StickyBucketService {
   async saveAssignments(doc: StickyAssignmentsDocument) {
     const key = `${doc.attributeName}||${doc.attributeValue}`;
     if (!this.localStorage) return;
-    await this.localStorage.setItem(this.prefix + key, JSON.stringify(doc));
+    try {
+      await this.localStorage.setItem(this.prefix + key, JSON.stringify(doc));
+    } catch (e) {
+      // Ignore localStorage errors
+    }
   }
 }
 
 export class ExpressCookieStickyBucketService extends StickyBucketService {
-  /** intended to be used with cookieParser() middleware from npm: 'cookie-parser' **/
+  /**
+   * Intended to be used with cookieParser() middleware from npm: 'cookie-parser'.
+   * Assumes:
+   *  - reading a cookie is automatically decoded via decodeURIComponent() or similar
+   *  - writing a cookie name & value must be manually encoded via encodeURIComponent() or similar
+   *  - all cookie bodies are JSON encoded strings and are manually encoded/decoded
+   */
   private prefix: string;
-  private req: RequestCompat | undefined;
-  private res: ResponseCompat | undefined;
+  private req: RequestCompat;
+  private res: ResponseCompat;
   private cookieAttributes: CookieAttributes;
   constructor({
-    prefix = "gbStickyBuckets::",
+    prefix = "gbStickyBuckets__",
     req,
     res,
     cookieAttributes = {},
   }: {
     prefix?: string;
-    req?: RequestCompat;
-    res?: ResponseCompat;
+    req: RequestCompat;
+    res: ResponseCompat;
     cookieAttributes?: CookieAttributes;
-  } = {}) {
+  }) {
     super();
     this.prefix = prefix;
     this.req = req;
     this.res = res;
     this.cookieAttributes = cookieAttributes;
-    if (!this.req)
-      throw new Error("ExpressCookieStickyBucketService: missing req");
-    if (!this.res)
-      throw new Error("ExpressCookieStickyBucketService: missing res");
   }
   async getAssignments(attributeName: string, attributeValue: string) {
     const key = `${attributeName}||${attributeValue}`;
     let doc: StickyAssignmentsDocument | null = null;
     if (!this.req) return doc;
     try {
-      const raw = this.req.cookies[this.prefix + key];
-      const data = JSON.parse(raw || "{}");
+      const raw = this.req.cookies[this.prefix + key] || "{}";
+      const data = JSON.parse(raw);
       if (data.attributeName && data.attributeValue && data.assignments) {
         doc = data;
       }
@@ -166,36 +172,39 @@ export class ExpressCookieStickyBucketService extends StickyBucketService {
   async saveAssignments(doc: StickyAssignmentsDocument) {
     const key = `${doc.attributeName}||${doc.attributeValue}`;
     if (!this.res) return;
+    const str = JSON.stringify(doc);
     this.res.cookie(
-      this.prefix + key,
-      JSON.stringify(doc),
+      encodeURIComponent(this.prefix + key),
+      encodeURIComponent(str),
       this.cookieAttributes
     );
   }
 }
 
 export class BrowserCookieStickyBucketService extends StickyBucketService {
-  /** intended to be used with npm: 'js-cookie' **/
+  /**
+   * Intended to be used with npm: 'js-cookie'.
+   * Assumes:
+   *  - reading a cookie is automatically decoded via decodeURIComponent() or similar
+   *  - writing a cookie name & value is automatically encoded via encodeURIComponent() or similar
+   *  - all cookie bodies are JSON encoded strings and are manually encoded/decoded
+   */
   private prefix: string;
-  private jsCookie: JsCookiesCompat | undefined;
+  private jsCookie: JsCookiesCompat;
   private cookieAttributes: CookieAttributes;
   constructor({
-    prefix = "gbStickyBuckets::",
+    prefix = "gbStickyBuckets__",
     jsCookie,
     cookieAttributes = {},
   }: {
     prefix?: string;
-    jsCookie?: JsCookiesCompat;
+    jsCookie: JsCookiesCompat;
     cookieAttributes?: CookieAttributes;
-  } = {}) {
+  }) {
     super();
     this.prefix = prefix;
     this.jsCookie = jsCookie;
     this.cookieAttributes = cookieAttributes;
-    if (!this.jsCookie)
-      throw new Error(
-        "BrowserCookieStickyBucketService: missing jsCookie implementation"
-      );
   }
   async getAssignments(attributeName: string, attributeValue: string) {
     const key = `${attributeName}||${attributeValue}`;
@@ -215,26 +224,17 @@ export class BrowserCookieStickyBucketService extends StickyBucketService {
   async saveAssignments(doc: StickyAssignmentsDocument) {
     const key = `${doc.attributeName}||${doc.attributeValue}`;
     if (!this.jsCookie) return;
-    this.jsCookie.set(
-      this.prefix + key,
-      JSON.stringify(doc),
-      this.cookieAttributes
-    );
+    const str = JSON.stringify(doc);
+    this.jsCookie.set(this.prefix + key, str, this.cookieAttributes);
   }
 }
 
 export class RedisStickyBucketService extends StickyBucketService {
-  /** intended to be used with npm: 'ioredis' **/
+  /** Intended to be used with npm: 'ioredis'. **/
   private redis: IORedisCompat | undefined;
-  constructor({
-    redis,
-  }: {
-    redis?: IORedisCompat;
-  } = {}) {
+  constructor({ redis }: { redis: IORedisCompat }) {
     super();
     this.redis = redis;
-    if (!this.redis)
-      throw new Error("IORedisStickyBucketService: missing redis client");
   }
 
   async getAllAssignments(
