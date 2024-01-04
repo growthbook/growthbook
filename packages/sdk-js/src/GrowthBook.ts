@@ -651,33 +651,44 @@ export class GrowthBook<
 
     // Loop through the rules
     if (feature.rules) {
-      for (const rule of feature.rules) {
+      rules: for (const rule of feature.rules) {
         // There are prerequisite flag(s), evaluate them
         if (rule.parentConditions) {
-          let passedParentConditions = 0;
           for (const parentCondition of rule.parentConditions) {
-            const parentResult = this.evalFeature(parentCondition.parent, evalCtx);
+            const parentResult = this.evalFeature(
+              parentCondition.parent,
+              evalCtx
+            );
             if (parentResult.off) {
-              passedParentConditions++;
-              continue;
+              process.env.NODE_ENV !== "production" &&
+                this.log("Skip rule because prerequisite is off", {
+                  id,
+                  rule,
+                });
+              continue rules;
             }
             const parentValue = parentResult.value;
             const evalObj =
               ["object"].includes(typeof parentValue) && parentValue !== null
                 ? parentValue
                 : { "@parent": parentResult.value };
-            if (evalCondition(evalObj, parentCondition.condition || {})) {
-              passedParentConditions++;
+            if (!evalCondition(evalObj, parentCondition.condition || {})) {
+              process.env.NODE_ENV !== "production" &&
+                this.log("Skip rule because prerequisite evaluation fails", {
+                  id,
+                  rule,
+                });
+              continue rules;
             }
           }
-          if (passedParentConditions < rule.parentConditions.length) {
-            process.env.NODE_ENV !== "production" &&
-            this.log("Skip rule because of prerequisites", {
-              id,
-              rule,
-            });
-            continue;
-          }
+          // if (passedParentConditions < rule.parentConditions.length) {
+          //   process.env.NODE_ENV !== "production" &&
+          //   this.log("Skip rule because of prerequisites", {
+          //     id,
+          //     rule,
+          //   });
+          //   continue;
+          // }
         }
 
         // If it's a conditional rule, skip if the condition doesn't pass
