@@ -1,5 +1,6 @@
 from dataclasses import asdict, dataclass
-from typing import Any, Dict, List, Union
+import re
+from typing import Any, Dict, List, Optional, Union
 
 import pandas as pd
 from scipy.stats.distributions import chi2  # type: ignore
@@ -30,6 +31,7 @@ from gbstats.shared.models import (
 from gbstats.messages import raise_error_if_bayesian_ra
 
 
+
 @dataclass
 class AnalysisSettingsForStatsEngine:
     var_names: List[str]
@@ -44,20 +46,29 @@ class AnalysisSettingsForStatsEngine:
     alpha: float
     max_dimensions: int
 
+ExperimentMetricQueryResponseRows = List[Dict[str, Union[str, int, float]]]
+VarIdMap = Dict[str, int]
+@dataclass
+class QueryResultsForStatsEngine:
+    rows: ExperimentMetricQueryResponseRows
+    metrics: List[Optional[str]]
 
 @dataclass
-class MetricDataForStatsEngine:
-    metric: str
-    rows: List[Dict[str, Union[str, int, float]]]
+class MetricSettingsForStatsEngine:
+    id: str
+    name: str
     inverse: bool
-    multiple_exposures: int
-
+    statistic_type: str
+    main_metric_type: str
+    denominator_metric_type: Optional[str] = None
+    covariate_metric_type: Optional[str] = None
 
 @dataclass
 class DataForStatsEngine:
-    var_id_map: Dict[str, int]
-    metrics: List[MetricDataForStatsEngine]
+    var_id_map: VarIdMap
+    metrics: Dict[str, MetricSettingsForStatsEngine]
     analyses: List[AnalysisSettingsForStatsEngine]
+    query_results: List[QueryResultsForStatsEngine]
 
 
 SUM_COLS = [
@@ -105,9 +116,10 @@ def diff_for_daily_time_series(df: pd.DataFrame) -> pd.DataFrame:
 
 # Transform raw SQL result for metrics into a dataframe of dimensions
 def get_metric_df(
-    rows,
-    var_id_map,
-    var_names,
+    rows: pd.DataFrame,
+    metric: MetricSettingsForStatsEngine,
+    var_id_map: VarIdMap,
+    var_names: List[str],
 ):
     dfc = rows.copy()
 
@@ -123,12 +135,12 @@ def get_metric_df(
             dimensions[dim] = {
                 "dimension": dim,
                 "variations": len(var_names),
-                "statistic_type": row.statistic_type,
-                "main_metric_type": row.main_metric_type,
+                "statistic_type": metric.statistic_type,
+                "main_metric_type": metric.main_metric_type,
                 "denominator_metric_type": getattr(
-                    row, "denominator_metric_type", None
+                    metric, "denominator_metric_type", None
                 ),
-                "covariate_metric_type": getattr(row, "covariate_metric_type", None),
+                "covariate_metric_type": getattr(metric, "covariate_metric_type", None),
                 "total_users": 0,
             }
             # Add columns for each variation (including baseline)
@@ -187,9 +199,7 @@ def reduce_dimensionality(df, max=20):
 def analyze_metric_df(
     df: pd.DataFrame,
     weights: List[float],
-    inverse: bool = False,
-    engine: StatsEngine = StatsEngine.BAYESIAN,
-    engine_config: Dict[str, Any] = {},
+    analysis: AnalysisSettingsForStatsEngine,
 ) -> pd.DataFrame:
     num_variations = df.at[0, "variations"]
     # parse config
@@ -388,7 +398,7 @@ def base_statistic_from_metric_row(
         )
     else:
         raise ValueError(
-            f"Unexpected metric_type '{metric_type}' type for '{component}_type in experiment data."
+            f"Unexpected metric_type '{metric_type}' type for '{component}_type' in experiment data."
         )
 
 
@@ -422,13 +432,15 @@ def check_srm(users, weights):
 
     return chi2.sf(x, len(users) - 1)
 
+def get_engine_config(
+    analysis: AnalysisSettingsForStatsEngine,
+)
 
 # Run a specific analysis given data and configuration settings
 def process_analysis(
     rows: pd.DataFrame,
-    inverse: bool,
+    metric: MetricSettingsForStatsEngine,
     var_id_map: Dict[str, int],
-    analysis: AnalysisSettingsForStatsEngine,
 ):
     var_names = analysis.var_names
     weights = analysis.weights
@@ -447,6 +459,7 @@ def process_analysis(
     # Convert raw SQL result into a dataframe of dimensions
     df = get_metric_df(
         rows=rows,
+        metric=metric,
         var_id_map=var_id_map,
         var_names=var_names,
     )
@@ -482,7 +495,7 @@ def process_analysis(
     result = analyze_metric_df(
         df=reduced,
         weights=weights,
-        inverse=inverse,
+        inverse=metric.inverse,
         engine=stats_engine,
         engine_config=engine_config,
     )
@@ -491,14 +504,15 @@ def process_analysis(
 
 
 def process_single_metric(
-    mdata: MetricDataForStatsEngine,
+    rows: ExperimentMetricQueryResponseRows,
+    metric: MetricSettingsForStatsEngine,
     analyses: List[AnalysisSettingsForStatsEngine],
     var_id_map: Dict[str, int],
-):
+) -> Dict[str, Any]:
     # If no data return blank results
-    if len(mdata.rows) == 0:
+    if len(rows) == 0:
         return {
-            "metric": mdata.metric,
+            "metric": metric.id,
             "analyses": [
                 {
                     "unknownVariations": [],
@@ -508,17 +522,15 @@ def process_single_metric(
                 for _ in analyses
             ],
         }
-    rows = pd.DataFrame(mdata.rows)
-    inverse = mdata.inverse
-    multiple_exposures = mdata.multiple_exposures
+    pdrows = pd.DataFrame(rows)
 
     # Detect any variations that are not in the returned metric rows
-    unknown_var_ids = detect_unknown_variations(rows=rows, var_id_map=var_id_map)
+    unknown_var_ids = detect_unknown_variations(rows=pdrows, var_id_map=var_id_map)
 
     results = [
         process_analysis(
-            rows=rows,
-            inverse=inverse,
+            rows=pdrows,
+            metric=metric,
             var_id_map=var_id_map,
             analysis=a,
         )
@@ -526,25 +538,49 @@ def process_single_metric(
     ]
 
     return {
-        "metric": mdata.metric,
+        "metric": metric.id,
         "analyses": [
             {
                 "unknownVariations": list(unknown_var_ids),
                 "dimensions": r,
-                "multipleExposures": multiple_exposures,
             }
             for r in results
         ],
     }
+    
+# Get just the columns for a single metric
+def filter_query_rows(query: QueryResultsForStatsEngine, metric_index: int) -> ExperimentMetricQueryResponseRows:
+    prefix = f"m{metric_index}_"
+    # TODO validate fields
+    return [
+        {
+            k.replace(prefix, ""): v
+            for (k, v) in r.items() 
+            if k.startswith(prefix) or not re.match(r"^m\d+_", k)
+        }
+        for r in query.rows
+    ]
 
 
 def process_experiment_results(data: Dict[str, Any]):
     d = DataForStatsEngine(
         var_id_map=data["var_id_map"],
-        metrics=[MetricDataForStatsEngine(**m) for m in data["metrics"]],
+        metrics={k: MetricSettingsForStatsEngine(**v) for k, v in data["metrics"].items()},
         analyses=[AnalysisSettingsForStatsEngine(**a) for a in data["analyses"]],
+        query_results=[QueryResultsForStatsEngine(**q) for q in data["query_results"]],
     )
-
-    return [
-        process_single_metric(mdata, d.analyses, d.var_id_map) for mdata in d.metrics
-    ]
+    results: List[Dict[str, Any]] = []
+    for q in d.query_results:
+        for i, m in enumerate(q.metrics):
+            if m is not None and m in d.metrics:
+                rows = filter_query_rows(q, i)
+                if len(rows):
+                    results.append(
+                        process_single_metric(
+                            rows=rows,
+                            metric=d.metrics[m],
+                            analyses=d.analyses,
+                            var_id_map=d.var_id_map
+                        )
+                    )
+    return results

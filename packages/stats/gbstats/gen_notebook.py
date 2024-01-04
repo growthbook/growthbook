@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from typing import Dict, List, Union
 from .gbstats import (
+    DataForStatsEngine,
     analyze_metric_df,
     detect_unknown_variations,
     diff_for_daily_time_series,
@@ -39,13 +40,7 @@ class NotebookParams:
     url: str
     hypothesis: str
     name: str
-    dimension: str
-    var_id_map: Dict[str, int]
-    var_names: List[str]
-    weights: List[float]
     run_query: str
-    stats_engine: StatsEngine
-    engine_config: Dict[str, Union[float, int, str]]
     
         
 def create_metric_chunks(prefix, metric, params: NotebookParams, time_series: str, summary_cols: List[str]):
@@ -152,13 +147,13 @@ def create_metric_chunks(prefix, metric, params: NotebookParams, time_series: st
     
 
 def create_notebook(
-    params: NotebookParams,
-    metrics=[],
-    groups=[],
+    data: DataForStatsEngine,
+    params: NotebookParams
 ):
     # parse settings
+    analysis = data.analyses[0] # only one analysis for notebooks
     time_series: str = (
-        params.dimension if params.dimension in ["pre:datedaily", "pre:datecumulative"] else ""
+        analysis.dimension if analysis.dimension in ["pre:datedaily", "pre:datecumulative"] else ""
     )
     gbstats_version: str = "0.6.0" if time_series else "0.5.0"
     additional_import_statement = (
@@ -171,15 +166,15 @@ def create_notebook(
         "baseline_users",
         "baseline_cr",
     ]
-    for i in range(1, len(params.var_names)):
+    for i in range(1, len(analysis.var_names)):
         summary_cols.append(f"v{i}_name")
         summary_cols.append(f"v{i}_users")
         summary_cols.append(f"v{i}_cr")
         summary_cols.append(f"v{i}_expected")
         summary_cols.append(f"v{i}_ci")
-        if params.stats_engine == StatsEngine.BAYESIAN:
+        if analysis.stats_engine == StatsEngine.BAYESIAN:
             summary_cols.append(f"v{i}_prob_beat_baseline")
-        elif params.stats_engine == StatsEngine.FREQUENTIST:
+        elif analysis.stats_engine == StatsEngine.FREQUENTIST:
             summary_cols.append(f"v{i}_p_value")
 
     cells = [
@@ -205,15 +200,15 @@ def create_notebook(
             ")\n"
             "from gbstats.shared.constants import StatsEngine\n\n"
             "# Mapping of variation id to index\n"
-            f"var_id_map = {str(params.var_id_map)}\n\n"
+            f"var_id_map = {str(data.var_id_map)}\n\n"
             "# Display names of variations\n"
-            f"var_names = {str(params.var_names)}\n\n"
+            f"var_names = {str(analysis.var_names)}\n\n"
             "# Expected traffic split between variations\n"
-            f"weights = {str(params.weights)}\n"
+            f"weights = {str(analysis.weights)}\n"
             "# Statistics engine to use\n"
-            f"stats_engine = {str(params.stats_engine)}\n"
+            f"stats_engine = {str(analysis.stats_engine)}\n"
             "# Engine config\n"
-            f"engine_config = {str(params.engine_config)}\n"
+            f"engine_config = {str(analysis.engine_config)}\n"
             f"# Columns to show in the result summary\n"
             f"summary_cols = {str(summary_cols)}"
         ),

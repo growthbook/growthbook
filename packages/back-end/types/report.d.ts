@@ -43,7 +43,7 @@ export interface ExperimentReportArgs {
   userIdType?: "anonymous" | "user";
   exposureQueryId: string;
   startDate: Date;
-  endDate?: Date;
+  endDate: Date;
   dimension?: string | null;
   variations: ExperimentReportVariation[];
   coverage?: number;

@@ -11,6 +11,7 @@ import {
 } from "./report";
 import { DimensionInterface } from "./dimension";
 import { AttributionModel } from "./experiment";
+import { MetricSettingsForStatsEngine, QueryResultsForStatsEngine } from "../src/services/stats";
 
 export interface SnapshotMetric {
   value: number;
@@ -197,8 +198,7 @@ export interface ExperimentMetricAnalysisParams {
 
   analyses: ExperimentSnapshotAnalysisSettings[];
 
-  metrics: ({
-    metric: ExperimentMetricInterface;
-    rows: ExperimentMetricQueryResponseRows;
-  } | null)[];
+  queryResults: QueryResultsForStatsEngine[];
+  metrics: Record<string, MetricSettingsForStatsEngine>;
+
 }
