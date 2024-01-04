@@ -14,8 +14,8 @@ export type CreateGithubUserTokenInput = Omit<
   "id" | "createdAt" | "updatedAt"
 >;
 
-interface GithubIntegrationRepository {
-  id: string;
+export interface GithubIntegrationRepository {
+  id: number;
   name: string;
   watching: boolean;
 }

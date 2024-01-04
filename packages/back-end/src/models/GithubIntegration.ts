@@ -3,6 +3,7 @@ import uniqid from "uniqid";
 import mongoose from "mongoose";
 import {
   GithubIntegrationInterface,
+  GithubIntegrationRepository,
   CreateGithubIntegrationInput,
 } from "../../types/github";
 import { OrganizationInterface } from "../../types/organization";
@@ -19,7 +20,7 @@ const githubIntegrationSchema = new mongoose.Schema({
   createdAt: Date,
   repositories: [
     {
-      id: String,
+      id: Number,
       name: String,
       watching: Boolean,
     },
@@ -88,11 +89,11 @@ export const toggleWatchingForRepo = async ({
   return repo.watching;
 };
 
-export const deleteGithubIntegration = async (
-  integration: GithubIntegrationInterface
+export const deleteGithubIntegrationById = async (
+  id: GithubIntegrationInterface["id"]
 ) => {
   const doc = await GithubIntegrationModel.findOne({
-    id: integration.id,
+    id,
   });
   if (!doc) throw new Error("Github integration does not exist");
   await deleteGithubUserToken(doc.tokenId);
@@ -107,4 +108,50 @@ export const getGithubIntegrationByInstallationId = async (
   });
 
   return doc ? toInterface(doc) : null;
+};
+
+export const addRepositoriesToIntegration = async (
+  id: GithubIntegrationInterface["id"],
+  newRepos: GithubIntegrationRepository[]
+) => {
+  const doc = await GithubIntegrationModel.findOne({ id });
+
+  if (!doc) throw new Error("Github integration does not exist");
+
+  const newRepoIds = newRepos.map((repo) => repo.id);
+  const existing = doc.repositories.filter((r) => !newRepoIds.includes(r.id));
+
+  const repos = [...existing, ...newRepos];
+
+  await GithubIntegrationModel.updateOne(
+    { id },
+    { $set: { repositories: repos } }
+  );
+
+  return repos;
+};
+
+export const removeRepositoriesFromIntegration = async (
+  id: GithubIntegrationInterface["id"],
+  repoIds: GithubIntegrationRepository["id"][]
+) => {
+  const doc = await GithubIntegrationModel.findOne({ id });
+
+  if (!doc) throw new Error("Github integration does not exist");
+
+  const newRepos = doc.repositories.filter(
+    (repo) => !repoIds.includes(repo.id)
+  );
+
+  if (!newRepos.length) return doc;
+
+  await GithubIntegrationModel.updateOne(
+    { id },
+    { $set: { repositories: newRepos } }
+  );
+
+  return {
+    ...doc,
+    repositories: newRepos,
+  };
 };

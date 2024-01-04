@@ -141,6 +141,7 @@ export const postRepoWatch = async (
   });
 };
 
+// this catches all webhook events and passes them to our individual handlers.
 // individual webhook event handlers are defined in services/github.ts
 export const webhookHandler = async (
   req: Request,

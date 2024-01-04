@@ -1,6 +1,8 @@
 import { EmitterWebhookEvent, Webhooks } from "@octokit/webhooks";
 import {
-  deleteGithubIntegration,
+  addRepositoriesToIntegration,
+  removeRepositoriesFromIntegration,
+  deleteGithubIntegrationById,
   getGithubIntegrationByInstallationId,
 } from "../models/GithubIntegration";
 
@@ -32,15 +34,40 @@ webhooks?.on(
         );
         return;
       }
-      await deleteGithubIntegration(githubIntegration);
+      await deleteGithubIntegrationById(githubIntegration.id);
     }
   }
 );
 
-webhooks?.on("installation_repositories", async ({ id, name, payload }) => {
-  // eslint-disable-next-line no-console
-  console.log("installation_repositories event", id, name, payload);
-});
+webhooks?.on<"installation_repositories">(
+  "installation_repositories",
+  async ({ payload }) => {
+    const { action } = payload;
+    const integration = await getGithubIntegrationByInstallationId(
+      `${payload.installation.id}`
+    );
+
+    if (!integration) throw new Error("Github integration does not exist");
+
+    if (action === "added") {
+      const repos = payload.repositories_added;
+      await addRepositoriesToIntegration(
+        integration.id,
+        repos.map((repo) => ({
+          id: repo.id,
+          name: repo.name,
+          watching: false,
+        }))
+      );
+    } else if (action === "removed") {
+      const repos = payload.repositories_removed;
+      await removeRepositoriesFromIntegration(
+        integration.id,
+        repos.map((r) => r.id)
+      );
+    }
+  }
+);
 
 webhooks?.on(
   "push",
