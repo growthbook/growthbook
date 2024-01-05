@@ -144,16 +144,16 @@ export default function ReleaseChangesForm({
                     "New Phase, re-randomize traffic, block bucketed users",
                   value: "new-phase-block-sticky",
                 },
+                {
+                  label: "Same Phase, apply changes to everyone",
+                  value: "same-phase-everyone",
+                },
               ]
             : []), //todo: make for "new phase" only
           ...(changeType !== "phase" &&
           (!recommendedRolloutData.disableSamePhase ||
             changeType === "advanced")
             ? [
-                {
-                  label: "Same Phase, apply changes to everyone",
-                  value: "same-phase-everyone",
-                },
                 {
                   label: "Same Phase, apply changes to new traffic only",
                   value: "same-phase-sticky",
@@ -171,7 +171,6 @@ export default function ReleaseChangesForm({
         sort={false}
         isSearchable={false}
         formatOptionLabel={({ value, label }) => {
-          console.log(value, label);
           const requiresStickyBucketing =
             value === "same-phase-sticky" || value === "new-phase-block-sticky";
           const recommended =
@@ -360,17 +359,10 @@ function TargetingChangeTooltips({
   releasePlan?: ReleasePlan;
   usingStickyBucketing?: boolean;
 }) {
-  const switchToSB = !usingStickyBucketing;
-  let riskLevel = recommendedRolloutData.riskLevel;
-  if (releasePlan === recommendedRolloutData.actualReleasePlan) {
-    riskLevel = "safe";
-  }
-  if (
-    releasePlan === "new-phase-block-sticky" &&
-    recommendedRolloutData.actualReleasePlan === "new-phase"
-  ) {
-    riskLevel = "safe";
-  }
+  const switchToSB =
+    !usingStickyBucketing ||
+    !["same-phase-sticky", "new-phase-block-sticky"].includes(releasePlan);
+  const riskLevel = recommendedRolloutData.riskLevels[releasePlan];
   return (
     <div
       className={clsx("alert", {
@@ -451,9 +443,7 @@ function TargetingChangeTooltips({
                   <strong>More restrictive namespace targeting</strong> without
                   starting a new phase may bias results as users in your
                   experiment analysis may fall back to the default feature
-                  value.
-                  {switchToSB ? " or enable Sticky Bucketing" : ""} to help
-                  mitigate.
+                  value. Re-randomize traffic to help mitigate.
                 </li>
               )}
             </>
@@ -464,10 +454,16 @@ function TargetingChangeTooltips({
   );
 }
 
+type RiskLevel = "safe" | "warning" | "danger";
 interface RecommendedRolloutData {
   recommendedReleasePlan: ReleasePlan | undefined;
   actualReleasePlan: ReleasePlan | undefined;
-  riskLevel: "safe" | "warning" | "danger";
+  riskLevels: {
+    "new-phase": RiskLevel;
+    "same-phase-sticky": RiskLevel;
+    "same-phase-everyone": RiskLevel;
+    "new-phase-block-sticky": RiskLevel;
+  };
   disableSamePhase: boolean;
   reasons: {
     moreRestrictiveTargeting?: boolean;
@@ -488,13 +484,18 @@ function getRecommendedRolloutData({
   experiment: ExperimentInterfaceStringDates;
   data: ExperimentTargetingData;
   stickyBucketing: boolean;
-}) {
+}): RecommendedRolloutData {
   const lastPhase: ExperimentPhaseStringDates | undefined =
     experiment.phases[experiment.phases.length - 1];
 
   let recommendedReleasePlan: ReleasePlan | undefined = undefined;
   let actualReleasePlan: ReleasePlan | undefined = undefined;
-  let riskLevel: "safe" | "warning" | "danger" = "safe";
+  let riskLevels: RecommendedRolloutData["riskLevels"] = {
+    "new-phase": "safe",
+    "same-phase-sticky": "safe",
+    "same-phase-everyone": "safe",
+    "new-phase-block-sticky": "safe",
+  };
   let disableSamePhase = false;
 
   // Returned meta:
@@ -609,13 +610,29 @@ function getRecommendedRolloutData({
       // safe
       recommendedReleasePlan = "same-phase-sticky";
       actualReleasePlan = recommendedReleasePlan;
-      riskLevel = "safe";
+      riskLevels = {
+        "new-phase": "safe",
+        "same-phase-sticky": "safe",
+        "same-phase-everyone": disableVariation ? "danger" : "warning",
+        "new-phase-block-sticky": "safe",
+      };
+      reasons = {
+        ...reasons,
+        moreRestrictiveTargeting,
+        decreaseCoverage,
+        disableVariation,
+      };
     }
     if (otherTargetingChanges) {
       // warning
       recommendedReleasePlan = "new-phase";
       actualReleasePlan = recommendedReleasePlan;
-      riskLevel = "warning";
+      riskLevels = {
+        "new-phase": "safe",
+        "same-phase-sticky": "warning",
+        "same-phase-everyone": "danger",
+        "new-phase-block-sticky": "safe",
+      };
       reasons = { ...reasons, otherTargetingChanges };
     }
     if (
@@ -628,7 +645,12 @@ function getRecommendedRolloutData({
       recommendedReleasePlan = "new-phase";
       actualReleasePlan = recommendedReleasePlan;
       disableSamePhase = true;
-      riskLevel = "danger";
+      riskLevels = {
+        "new-phase": "safe",
+        "same-phase-sticky": "danger",
+        "same-phase-everyone": "danger",
+        "new-phase-block-sticky": "safe",
+      };
       reasons = {
         ...reasons,
         addToNamespace,
@@ -642,14 +664,24 @@ function getRecommendedRolloutData({
     if (!stickyBucketing) {
       // reset
       actualReleasePlan = "same-phase-everyone";
-      riskLevel = "safe";
+      riskLevels = {
+        "new-phase": "safe",
+        "same-phase-sticky": "safe",
+        "same-phase-everyone": "safe",
+        "new-phase-block-sticky": "safe",
+      };
       disableSamePhase = false;
       reasons = {};
 
       if (moreRestrictiveTargeting || decreaseCoverage) {
         // warning
         actualReleasePlan = "new-phase";
-        riskLevel = "warning";
+        riskLevels = {
+          "new-phase": "safe",
+          "same-phase-sticky": "safe",
+          "same-phase-everyone": "warning",
+          "new-phase-block-sticky": "safe",
+        };
         reasons = {
           ...reasons,
           moreRestrictiveTargeting,
@@ -667,7 +699,12 @@ function getRecommendedRolloutData({
         // danger
         actualReleasePlan = "new-phase";
         disableSamePhase = true;
-        riskLevel = "danger";
+        riskLevels = {
+          "new-phase": "safe",
+          "same-phase-sticky": "danger",
+          "same-phase-everyone": "danger",
+          "new-phase-block-sticky": "safe",
+        };
         reasons = {
           ...reasons,
           otherTargetingChanges,
@@ -682,7 +719,7 @@ function getRecommendedRolloutData({
   return {
     recommendedReleasePlan,
     actualReleasePlan,
-    riskLevel,
+    riskLevels,
     disableSamePhase,
     reasons,
   };
