@@ -113,6 +113,10 @@ When you're using the Element Selector, after you pick an element to edit, you'l
 
 When you're finished making changes, click the **Done Editing** button to be taken back to GrowthBook.
 
+:::tip Custom JavaScript
+Please be aware that if you add custom JavaScript to a variation, it will start working as soon as the page loads. If your JavaScript changes parts of the webpage (DOM elements), you should use a Mutation Observer or something similar. This ensures that the parts of the webpage you want to change are fully loaded before your JavaScript runs.
+:::
+
 ### Drag and Drop
 
 When in Selection Mode, you can select an element and click to **drag and drop** it positionally on the page.
@@ -126,30 +130,6 @@ When an element is selected, you will see a floating handle to move it positiona
 Once dragging, the cursor will highlight an edge where the dragged element will land. When you release the cursor the element will move to the indicated spot. If you want to undo the move, click the 'Undo' button that is available for elements that have been dragged.
 
 ![Visual Editor Drag and Drop Example](/images/visual-editor-drag-and-drop.gif)
-
-### SDK Warnings
-
-The Visual Editor will present warnings to users who show signs of misconfiguration with respect to their GrowthBook SDK.
-
-**The Visual Editor will still work as intended and save your changes.** However these warnings are to help alert you to issues that may occur when running the visual experiment for your customers.
-
-#### SDK is not present
-
-This message is indicating that the page you are editing does not have a GrowthBook SDK loaded. An SDK is required to be loaded and running on your page for your experiments to run.
-
-<img style={{ width: '400px'}} src="/images/visual-editor-sdk-not-detected.png" alt="SDK is not present"/>
-
-#### SDK is not up to date
-
-This message is indicating that your GrowthBook SDK is working but not up to date. You may encounter unexpected behavior as a result.
-
-<img style={{ width: '400px'}} src="/images/visual-editor-sdk-out-of-date.png" alt="SDK is not present"/>
-
-#### Hash attribute is missing
-
-This message is indicating that the hash attribute defined for your visual experiment is not being provided to the SDK. The hash attribute is required for the SDK to bucket users and without it, it cannot run the visual experiment.
-
-<img style={{ width: '400px'}} src="/images/visual-editor-hash-attr-missing.png" alt="Hash attribute is missing"/>
 
 ### Debug Panel
 
