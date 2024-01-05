@@ -1,0 +1,24 @@
+diff --git a/node_modules/@octokit/webhooks/dist-types/middleware/node/types.d.ts b/node_modules/@octokit/webhooks/dist-types/middleware/node/types.d.ts
+index c93e377..eaa5cbf 100644
+--- a/node_modules/@octokit/webhooks/dist-types/middleware/node/types.d.ts
++++ b/node_modules/@octokit/webhooks/dist-types/middleware/node/types.d.ts
+@@ -1,4 +1,4 @@
+-import type { Logger } from "../../createLogger.ts";
++import type { Logger } from "../../createLogger.js";
+ export type MiddlewareOptions = {
+     path?: string;
+     log?: Logger;
+diff --git a/node_modules/@octokit/webhooks/dist-types/types.d.ts b/node_modules/@octokit/webhooks/dist-types/types.d.ts
+index 7923cc5..8eea837 100644
+--- a/node_modules/@octokit/webhooks/dist-types/types.d.ts
++++ b/node_modules/@octokit/webhooks/dist-types/types.d.ts
+@@ -1,7 +1,7 @@
+ import type { RequestError } from "@octokit/request-error";
+ import type { WebhookEventMap, WebhookEventName } from "@octokit/webhooks-types";
+-import type { Logger } from "./createLogger.ts";
+-import type { emitterEventNames } from "./generated/webhook-names.ts";
++import type { Logger } from "./createLogger.js";
++import type { emitterEventNames } from "./generated/webhook-names.js";
+ export type EmitterWebhookEventName = (typeof emitterEventNames)[number];
+ export type EmitterWebhookEvent<TEmitterEvent extends EmitterWebhookEventName = EmitterWebhookEventName> = TEmitterEvent extends `${infer TWebhookEvent}.${infer TAction}` ? BaseWebhookEvent<Extract<TWebhookEvent, WebhookEventName>> & {
+     payload: {

@@ -1,5 +1,6 @@
 import { NextFunction, Request, Response } from "express";
 import { Octokit } from "@octokit/rest";
+import { WebhookEventName } from "@octokit/webhooks-types";
 import { createAppAuth, createOAuthUserAuth } from "@octokit/auth-app";
 import { getOrgFromReq } from "../../services/organizations";
 import { webhooks } from "../../services/github";
@@ -159,9 +160,10 @@ export const webhookHandler = async (
       message: "Invalid signature",
     });
 
+  // @ts-expect-error octokit types aren't working
   await webhooks.receive({
     id: req.headers["x-github-delivery"] as string,
-    name: req.headers["x-github-event"] as string,
+    name: req.headers["x-github-event"] as WebhookEventName,
     payload: req.body,
   });
 
