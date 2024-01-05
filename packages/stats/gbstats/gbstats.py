@@ -1,4 +1,4 @@
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
 import re
 from typing import Any, Dict, List, Optional, Union
 
@@ -52,6 +52,7 @@ VarIdMap = Dict[str, int]
 class QueryResultsForStatsEngine:
     rows: ExperimentMetricQueryResponseRows
     metrics: List[Optional[str]]
+    sql: Optional[str]
 
 @dataclass
 class MetricSettingsForStatsEngine:
@@ -199,14 +200,13 @@ def reduce_dimensionality(df, max=20):
 def analyze_metric_df(
     df: pd.DataFrame,
     weights: List[float],
+    metric: MetricSettingsForStatsEngine,
     analysis: AnalysisSettingsForStatsEngine,
 ) -> pd.DataFrame:
     num_variations = df.at[0, "variations"]
     # parse config
-    test_config = engine_config.copy()
-    if engine == StatsEngine.BAYESIAN:
-        test_config["inverse"] = inverse
-    sequential: bool = test_config.pop("sequential", False)
+    test_class, engine_config = get_test_type_and_engine_config(analysis, metric)
+    engine = get_stats_engine(analysis)
 
     # Add new columns to the dataframe with placeholder values
     df["srm_p"] = 0
@@ -263,18 +263,9 @@ def analyze_metric_df(
             s[f"v{i}_stddev"] = stat_b.stddev
 
             users[i] = stat_b.n
-
-            # Get right A/B test
-            binomial_test: bool = isinstance(
-                stat_a, ProportionStatistic
-            ) and isinstance(stat_b, ProportionStatistic)
-            ABTestClass, ABTestConfig = get_test_class_config(
-                engine, sequential, binomial_test
-            )
             # Run the A/B test analysis of baseline vs variation
-            test_config_copy = test_config.copy()
-            test_config_copy["traffic_proportion_b"] = weights[i]
-            test = ABTestClass(stat_a, stat_b, ABTestConfig(**test_config_copy))
+            engine_config_copy = replace(engine_config, traffic_proportion_b = weights[i])
+            test = test_class(stat_a, stat_b, engine_config_copy)
             res = test.compute_result()
 
             # Unpack result in Pandas row
@@ -401,19 +392,8 @@ def base_statistic_from_metric_row(
             f"Unexpected metric_type '{metric_type}' type for '{component}_type' in experiment data."
         )
 
-
-def get_test_class_config(engine: StatsEngine, sequential: bool, binomial_test: bool):
-    if engine == StatsEngine.BAYESIAN:
-        if binomial_test:
-            return BinomialBayesianABTest, BinomialBayesianConfig
-        else:
-            return GaussianBayesianABTest, GaussianBayesianConfig
-    else:
-        if sequential:
-            return SequentialTwoSidedTTest, SequentialConfig
-        else:
-            return TwoSidedTTest, FrequentistConfig
-
+ValidTest = Union[BinomialBayesianABTest, GaussianBayesianABTest, TwoSidedTTest, SequentialTwoSidedTTest]
+ValidEngineConfigs = Union[BinomialBayesianConfig, GaussianBayesianConfig, FrequentistConfig, SequentialConfig]
 
 # Run a chi-squared test to make sure the observed traffic split matches the expected one
 def check_srm(users, weights):
@@ -432,25 +412,63 @@ def check_srm(users, weights):
 
     return chi2.sf(x, len(users) - 1)
 
-def get_engine_config(
+
+def get_stats_engine(analysis: AnalysisSettingsForStatsEngine) -> StatsEngine:
+    return (
+        StatsEngine.FREQUENTIST
+        if analysis.stats_engine == "frequentist"
+        else StatsEngine.BAYESIAN
+    )
+
+def get_test_type_and_engine_config(
     analysis: AnalysisSettingsForStatsEngine,
-)
+    metric: MetricSettingsForStatsEngine,
+    
+) -> tuple[type[ValidTest], ValidEngineConfigs]:
+    
+    stats_engine = get_stats_engine(analysis)
+
+    if stats_engine == StatsEngine.FREQUENTIST:
+        if analysis.sequential_testing_enabled:
+            test = SequentialTwoSidedTTest
+            config = SequentialConfig()
+            config.sequential_tuning_parameter = analysis.sequential_tuning_parameter
+        else:
+            test = TwoSidedTTest
+            config = FrequentistConfig()
+        config.alpha = analysis.alpha
+    else:
+        if metric.main_metric_type == "binomial" and metric.statistic_type != "ratio":
+            test = BinomialBayesianABTest
+            config = BinomialBayesianConfig()
+        else:
+            test = GaussianBayesianABTest
+            config = GaussianBayesianConfig()
+        config.inverse = metric.inverse
+    
+    config.phase_length_days = analysis.phase_length_days
+    
+    if analysis.difference_type == "absolute":
+        config.difference_type = DifferenceType.ABSOLUTE
+    elif analysis.difference_type == "scaled":
+        config.difference_type = DifferenceType.SCALED
+    else:
+        config.difference_type = DifferenceType.RELATIVE
+
+    return test, config
+    
 
 # Run a specific analysis given data and configuration settings
 def process_analysis(
     rows: pd.DataFrame,
     metric: MetricSettingsForStatsEngine,
     var_id_map: Dict[str, int],
-):
+    analysis: AnalysisSettingsForStatsEngine,
+) -> pd.DataFrame:
     var_names = analysis.var_names
     weights = analysis.weights
     max_dimensions = analysis.max_dimensions
     baseline_index = analysis.baseline_index
-    stats_engine = (
-        StatsEngine.FREQUENTIST
-        if analysis.stats_engine == "frequentist"
-        else StatsEngine.BAYESIAN
-    )
 
     # If we're doing a daily time series, we need to diff the data
     if analysis.dimension == "pre:datedaily":
@@ -470,37 +488,15 @@ def process_analysis(
         max=max_dimensions,
     )
 
-    # Get the stats engine configuration for this analysis
-    engine_config: Dict[str, Union[int, float, DifferenceType]] = {
-        "phase_length_days": analysis.phase_length_days
-    }
-
-    if analysis.difference_type == "absolute":
-        engine_config["difference_type"] = DifferenceType.ABSOLUTE
-    elif analysis.difference_type == "scaled":
-        engine_config["difference_type"] = DifferenceType.SCALED
-    else:
-        engine_config["difference_type"] = DifferenceType.RELATIVE
-
-    if stats_engine == StatsEngine.FREQUENTIST and analysis.sequential_testing_enabled:
-        engine_config["sequential"] = True
-        engine_config[
-            "sequential_tuning_parameter"
-        ] = analysis.sequential_tuning_parameter
-
-    if stats_engine == StatsEngine.FREQUENTIST and analysis.alpha:
-        engine_config["alpha"] = analysis.alpha
-
     # Run the analysis for each variation and dimension
     result = analyze_metric_df(
         df=reduced,
         weights=weights,
-        inverse=metric.inverse,
-        engine=stats_engine,
-        engine_config=engine_config,
+        metric=metric,
+        analysis=analysis,
     )
 
-    return format_results(result, baseline_index)
+    return result
 
 
 def process_single_metric(
@@ -528,12 +524,12 @@ def process_single_metric(
     unknown_var_ids = detect_unknown_variations(rows=pdrows, var_id_map=var_id_map)
 
     results = [
-        process_analysis(
+        format_results(process_analysis(
             rows=pdrows,
             metric=metric,
             var_id_map=var_id_map,
             analysis=a,
-        )
+        ), baseline_index=a.baseline_index)
         for a in analyses
     ]
 
@@ -549,7 +545,7 @@ def process_single_metric(
     }
     
 # Get just the columns for a single metric
-def filter_query_rows(query: QueryResultsForStatsEngine, metric_index: int) -> ExperimentMetricQueryResponseRows:
+def filter_query_rows(query_rows: ExperimentMetricQueryResponseRows, metric_index: int) -> ExperimentMetricQueryResponseRows:
     prefix = f"m{metric_index}_"
     # TODO validate fields
     return [
@@ -558,21 +554,23 @@ def filter_query_rows(query: QueryResultsForStatsEngine, metric_index: int) -> E
             for (k, v) in r.items() 
             if k.startswith(prefix) or not re.match(r"^m\d+_", k)
         }
-        for r in query.rows
+        for r in query_rows
     ]
 
 
-def process_experiment_results(data: Dict[str, Any]):
-    d = DataForStatsEngine(
+def process_data_dict(data: Dict[str, Any]) -> DataForStatsEngine:
+    return DataForStatsEngine(
         var_id_map=data["var_id_map"],
         metrics={k: MetricSettingsForStatsEngine(**v) for k, v in data["metrics"].items()},
         analyses=[AnalysisSettingsForStatsEngine(**a) for a in data["analyses"]],
         query_results=[QueryResultsForStatsEngine(**q) for q in data["query_results"]],
     )
+def process_experiment_results(data: Dict[str, Any]):
+    d = process_data_dict(data)
     results: List[Dict[str, Any]] = []
     for q in d.query_results:
         for i, m in enumerate(q.metrics):
-            if m is not None and m in d.metrics:
+            if m in d.metrics:
                 rows = filter_query_rows(q, i)
                 if len(rows):
                     results.append(

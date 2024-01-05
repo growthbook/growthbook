@@ -164,14 +164,12 @@ export async function generateNotebook(
   const result = await promisify(PythonShell.runString)(
     `
 from gbstats.gen_notebook import create_notebook, NotebookParams
-from gbstats.shared.constants import StatsEngine
-import pandas as pd
+from gbstats.gbstats import process_data_dict
 import json
 
 data = json.loads("""${datajson}""", strict=False)
-
 print(create_notebook(
-    data=DataForStatsEngine(**data['data']),
+    data=process_data_dict(data['data']),
     params=NotebookParams(
       url=data['url'],
       hypothesis=data['hypothesis'],
