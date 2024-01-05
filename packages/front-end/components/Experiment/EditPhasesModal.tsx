@@ -25,8 +25,6 @@ export default function EditPhasesModal({
   const isDraft = experiment.status === "draft";
   const isMultiPhase = experiment.phases.length > 1;
   const hasStoppedPhases = experiment.phases.some((p) => p.dateEnded);
-  const hasLinkedChanges =
-    !!experiment.linkedFeatures?.length || experiment.hasVisualChangesets;
 
   const [editPhase, setEditPhase] = useState<number | null>(
     isDraft && !isMultiPhase ? 0 : null
@@ -78,12 +76,6 @@ export default function EditPhasesModal({
       size="lg"
       closeCta="Close"
     >
-      {!isDraft && hasLinkedChanges && (
-        <div className="alert alert-danger">
-          <strong>Warning:</strong> Editing phases will immediately affect all
-          linked Feature Flags and Visual Changes.
-        </div>
-      )}
       <table className="table gbtable mb-2">
         <thead>
           <tr>
@@ -119,9 +111,9 @@ export default function EditPhasesModal({
                   )}
                 </td>
               ) : null}
-              <td style={{ width: 125 }}>
+              <td className="text-right" style={{ width: 125 }}>
                 <button
-                  className="btn btn-outline-primary mr-2"
+                  className="btn btn-outline-primary"
                   onClick={(e) => {
                     e.preventDefault();
                     setEditPhase(i);
@@ -129,20 +121,23 @@ export default function EditPhasesModal({
                 >
                   Edit
                 </button>
-                <DeleteButton
-                  displayName="phase"
-                  additionalMessage={
-                    experiment.phases.length === 1
-                      ? "This is the only phase. Deleting this will revert the experiment to a draft."
-                      : ""
-                  }
-                  onClick={async () => {
-                    await apiCall(`/experiment/${experiment.id}/phase/${i}`, {
-                      method: "DELETE",
-                    });
-                    mutateExperiment();
-                  }}
-                />
+                {experiment.status !== "running" && (
+                  <DeleteButton
+                    className="ml-2"
+                    displayName="phase"
+                    additionalMessage={
+                      experiment.phases.length === 1
+                        ? "This is the only phase. Deleting this will revert the experiment to a draft."
+                        : ""
+                    }
+                    onClick={async () => {
+                      await apiCall(`/experiment/${experiment.id}/phase/${i}`, {
+                        method: "DELETE",
+                      });
+                      mutateExperiment();
+                    }}
+                  />
+                )}
               </td>
             </tr>
           ))}

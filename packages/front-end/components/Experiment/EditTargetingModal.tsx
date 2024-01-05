@@ -156,12 +156,6 @@ export default function EditTargetingModal({
         cta="Save"
         size="lg"
       >
-        {experiment.status !== "draft" && (
-          <div className="alert alert-warning mx-2 mt-2">
-            <strong>Warning:</strong> Changes made will apply to all linked
-            Feature Flags and Visual Editor changes immediately upon publishing.
-          </div>
-        )}
         <TargetingForm
           experiment={experiment}
           form={form}
