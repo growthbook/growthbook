@@ -365,6 +365,12 @@ function TargetingChangeTooltips({
   if (releasePlan === recommendedRolloutData.actualReleasePlan) {
     riskLevel = "safe";
   }
+  if (
+    releasePlan === "new-phase-block-sticky" &&
+    recommendedRolloutData.actualReleasePlan === "new-phase"
+  ) {
+    riskLevel = "safe";
+  }
   return (
     <div
       className={clsx("alert", {
@@ -417,7 +423,7 @@ function TargetingChangeTooltips({
               {recommendedRolloutData.reasons.decreaseCoverage && (
                 <li>
                   <strong>Decreased traffic coverage</strong> without starting a
-                  new phase may bias result. Some users already in the
+                  new phase may bias results. Some users already in the
                   experiment analysis will begin receiving the default feature
                   value. Re-randomize traffic{" "}
                   {switchToSB ? " or use Sticky Bucketing" : ""} to help
