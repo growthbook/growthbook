@@ -142,7 +142,7 @@ export default function ReleaseChangesForm({
                 {
                   label:
                     "New Phase, re-randomize traffic, block bucketed users",
-                  value: "new-phase-block-sticky-bucketed",
+                  value: "new-phase-block-sticky",
                 },
               ]
             : []), //todo: make for "new phase" only
@@ -171,6 +171,7 @@ export default function ReleaseChangesForm({
         sort={false}
         isSearchable={false}
         formatOptionLabel={({ value, label }) => {
+          console.log(value, label);
           const requiresStickyBucketing =
             value === "same-phase-sticky" || value === "new-phase-block-sticky";
           const recommended =

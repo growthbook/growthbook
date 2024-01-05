@@ -37,9 +37,6 @@ export default function EditPhaseModal({
   const isDraft = experiment.status === "draft";
   const isMultiPhase = experiment.phases.length > 1;
 
-  const hasLinkedChanges =
-    !!experiment.linkedFeatures?.length || experiment.hasVisualChangesets;
-
   return (
     <Modal
       open={true}
@@ -57,12 +54,6 @@ export default function EditPhaseModal({
       size="lg"
       bodyClassName="px-4 pt-4"
     >
-      {!isDraft && hasLinkedChanges && (
-        <div className="alert alert-danger">
-          <strong>Warning:</strong> Changes you make to phases will immediately
-          affect all linked Feature Flags and Visual Changes.
-        </div>
-      )}
       <Field label="Phase Name" {...form.register("name")} required />
       <Field
         label="Start Time (UTC)"
