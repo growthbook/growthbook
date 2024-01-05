@@ -90,7 +90,7 @@ export default function ReleaseChangesForm({
       form.setValue("newPhase", false);
       form.setValue("reseed", false);
       form.setValue("bucketVersion", (experiment.bucketVersion ?? 0) + 1);
-      form.setValue("minBucketVersion", (experiment.bucketVersion ?? 0) + 1);
+      form.setValue("minBucketVersion", experiment.minBucketVersion);
     } else if (releasePlan === "new-phase") {
       form.setValue("newPhase", true);
       form.setValue("reseed", true);
@@ -101,7 +101,13 @@ export default function ReleaseChangesForm({
       form.setValue("reseed", false);
       form.setValue("bucketVersion", experiment.bucketVersion);
       form.setValue("minBucketVersion", experiment.minBucketVersion);
+    } else if (releasePlan === "new-phase-block-sticky") {
+      form.setValue("newPhase", true);
+      form.setValue("reseed", true);
+      form.setValue("bucketVersion", (experiment.bucketVersion ?? 0) + 1);
+      form.setValue("minBucketVersion", (experiment.bucketVersion ?? 0) + 1);
     }
+    // todo: new phase sticky?
     if (!usingStickyBucketing) {
       form.setValue("bucketVersion", experiment.bucketVersion);
       form.setValue("minBucketVersion", experiment.minBucketVersion);
@@ -131,23 +137,33 @@ export default function ReleaseChangesForm({
                 },
               ]
             : []), //todo: make for "new phase" only
+          ...(changeType === "advanced"
+            ? [
+                {
+                  label:
+                    "New Phase, re-randomize traffic, block bucketed users",
+                  value: "new-phase-block-sticky-bucketed",
+                },
+              ]
+            : []), //todo: make for "new phase" only
           ...(changeType !== "phase" &&
           (!recommendedRolloutData.disableSamePhase ||
             changeType === "advanced")
             ? [
                 {
-                  label: "Same Phase, apply changes to new traffic only",
-                  value: "same-phase-sticky",
-                },
-                {
                   label: "Same Phase, apply changes to everyone",
                   value: "same-phase-everyone",
+                },
+                {
+                  label: "Same Phase, apply changes to new traffic only",
+                  value: "same-phase-sticky",
                 },
               ]
             : []),
         ]}
         onChange={(v) => {
-          const requiresStickyBucketing = v === "same-phase-sticky";
+          const requiresStickyBucketing =
+            v === "same-phase-sticky" || v === "new-phase-block-sticky";
           const disabled = requiresStickyBucketing && !usingStickyBucketing;
           if (disabled) return;
           setReleasePlan(v as ReleasePlan);
@@ -155,7 +171,8 @@ export default function ReleaseChangesForm({
         sort={false}
         isSearchable={false}
         formatOptionLabel={({ value, label }) => {
-          const requiresStickyBucketing = value === "same-phase-sticky";
+          const requiresStickyBucketing =
+            value === "same-phase-sticky" || value === "new-phase-block-sticky";
           const recommended =
             value === recommendedRolloutData.recommendedReleasePlan;
           const disabled = requiresStickyBucketing && !usingStickyBucketing;
@@ -622,12 +639,7 @@ function getRecommendedRolloutData({
       disableSamePhase = false;
       reasons = {};
 
-      if (
-        moreRestrictiveTargeting ||
-        decreaseCoverage ||
-        addToNamespace ||
-        decreaseNamespaceRange
-      ) {
+      if (moreRestrictiveTargeting || decreaseCoverage) {
         // warning
         actualReleasePlan = "new-phase";
         riskLevel = "warning";
@@ -635,13 +647,13 @@ function getRecommendedRolloutData({
           ...reasons,
           moreRestrictiveTargeting,
           decreaseCoverage,
-          addToNamespace,
-          decreaseNamespaceRange,
         };
       }
       if (
-        otherTargetingChanges ||
+        addToNamespace ||
+        decreaseNamespaceRange ||
         otherNamespaceChanges ||
+        otherTargetingChanges ||
         changeVariationWeights ||
         disableVariation
       ) {
