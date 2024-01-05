@@ -1137,7 +1137,7 @@ export class GrowthBook<
     if (changes.js) {
       const script = document.createElement("script");
       script.innerHTML = changes.js;
-      document.body.appendChild(script);
+      document.head.appendChild(script);
       undo.push(() => script.remove());
     }
     if (changes.domMutations) {
