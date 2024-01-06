@@ -88,7 +88,7 @@ export default function SavedGroupTargetingField({ value, setValue }: Props) {
                         return (
                           <>
                             {label}
-                            {group?.source === "inline" && (
+                            {group?.type === "list" && group?.values && (
                               <span className="badge ml-1 border bg-light text-dark">
                                 {group.values.length}
                               </span>

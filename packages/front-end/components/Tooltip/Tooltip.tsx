@@ -62,7 +62,8 @@ const Tooltip: FC<Props> = ({
     strategy: "fixed",
   });
 
-  if (!children) children = <MdInfoOutline style={{ color: "#029dd1" }} />;
+  if (!children && children !== 0)
+    children = <MdInfoOutline style={{ color: "#029dd1" }} />;
   const el = (
     <span
       // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'Dispatch<SetStateAction<null>>' is not assig... Remove this comment to see the full error message
