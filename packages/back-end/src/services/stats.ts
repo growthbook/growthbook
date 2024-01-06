@@ -39,7 +39,6 @@ import {
 } from "../../types/experiment-snapshot";
 import { QueryMap } from "../queryRunners/QueryRunner";
 import { MAX_ROWS_UNIT_AGGREGATE_QUERY } from "../integrations/SqlIntegration";
-import { get } from "lodash";
 
 // These same type definitions exist in gbstats.py
 export interface AnalysisSettingsForStatsEngine {
@@ -102,12 +101,11 @@ export function getAvgCPU(pre: os.CpuInfo[], post: os.CpuInfo[]) {
   return { user: user / total, system: system / total };
 }
 
-
 export function getAnalysisSettingsForStatsEngine(
   settings: ExperimentSnapshotAnalysisSettings,
   variations: ExperimentReportVariation[],
   coverage: number,
-  phaseLengthDays: number,
+  phaseLengthDays: number
 ) {
   const sortedVariations = putBaselineVariationFirst(
     variations,
@@ -142,7 +140,14 @@ export function getAnalysisSettingsForStatsEngine(
 export async function analyzeExperimentMetric(
   params: ExperimentMetricAnalysisParams
 ): Promise<ExperimentMetricAnalysis> {
-  const { variations, metrics, phaseLengthHours, coverage, analyses, queryResults } = params;
+  const {
+    variations,
+    metrics,
+    phaseLengthHours,
+    coverage,
+    analyses,
+    queryResults,
+  } = params;
 
   const phaseLengthDays = Number(phaseLengthHours / 24);
   const variationIdMap: { [key: string]: number } = {};
@@ -154,7 +159,14 @@ export async function analyzeExperimentMetric(
     var_id_map: variationIdMap,
     metrics: metrics,
     query_results: queryResults,
-    analyses: analyses.map((a) => getAnalysisSettingsForStatsEngine(a, variations, coverage, phaseLengthDays)),
+    analyses: analyses.map((a) =>
+      getAnalysisSettingsForStatsEngine(
+        a,
+        variations,
+        coverage,
+        phaseLengthDays
+      )
+    ),
   };
 
   const escapedStatsData = JSON.stringify(statsData).replace(/\\/g, "\\\\");
@@ -201,10 +213,16 @@ print(json.dumps({
   }
 }
 
-function getMetricSettingsForStatsEngine(metric: ExperimentMetricInterface, metricMap: Map<string, ExperimentMetricInterface>): MetricSettingsForStatsEngine {
-  let denominator = (metric.denominator && !isFactMetric(metric) ? metricMap.get(metric.denominator) : undefined);
-  const ratioMetric = isRatioMetric(metric, denominator)
-  const regressionAdjusted = isRegressionAdjusted(metric, denominator)
+function getMetricSettingsForStatsEngine(
+  metric: ExperimentMetricInterface,
+  metricMap: Map<string, ExperimentMetricInterface>
+): MetricSettingsForStatsEngine {
+  let denominator =
+    metric.denominator && !isFactMetric(metric)
+      ? metricMap.get(metric.denominator)
+      : undefined;
+  const ratioMetric = isRatioMetric(metric, denominator);
+  const regressionAdjusted = isRegressionAdjusted(metric, denominator);
   const mainMetricType = isBinomialMetric(metric) ? "binomial" : "count";
   // Fact ratio metrics contain denominator
   if (isFactMetric(metric) && ratioMetric) {
@@ -214,10 +232,18 @@ function getMetricSettingsForStatsEngine(metric: ExperimentMetricInterface, metr
     id: metric.id,
     name: metric.name,
     inverse: !!metric.inverse,
-    statistic_type: ratioMetric ? "ratio" : regressionAdjusted ? "mean_ra" : "mean",
+    statistic_type: ratioMetric
+      ? "ratio"
+      : regressionAdjusted
+      ? "mean_ra"
+      : "mean",
     main_metric_type: mainMetricType,
-    ...(denominator && {denominator_metric_type: isBinomialMetric(denominator) ? "binomial" : "count"}),
-    ...(regressionAdjusted && {covariate_metric_type: mainMetricType})
+    ...(denominator && {
+      denominator_metric_type: isBinomialMetric(denominator)
+        ? "binomial"
+        : "count",
+    }),
+    ...(regressionAdjusted && { covariate_metric_type: mainMetricType }),
   };
 }
 
@@ -235,7 +261,7 @@ export function getMetricsAndQueryDataForStatsEngine(
     const results = queryData.get("results");
     if (!results) throw new Error("Empty experiment results");
     const data = results.result as ExperimentResults;
-  
+
     unknownVariations = data.unknownVariations;
     const byMetric: { [key: string]: ExperimentMetricQueryResponseRows } = {};
     data.dimensions.forEach((row) => {
@@ -243,11 +269,17 @@ export function getMetricsAndQueryDataForStatsEngine(
         Object.keys(v.metrics).forEach((metric) => {
           const stats = v.metrics[metric];
           byMetric[metric] = byMetric[metric] || [];
-          metricSettings[metric] = getMetricSettingsForStatsEngine(metricMap.get(metric)!, metricMap);
+          const metricInterface = metricMap.get(metric);
+          if (!metricInterface) {
+            return;
+          }
+          metricSettings[metric] = getMetricSettingsForStatsEngine(
+            metricInterface,
+            metricMap
+          );
           byMetric[metric].push({
             dimension: row.dimension,
-            variation:
-            variations[v.variation]?.id || v.variation + "",
+            variation: variations[v.variation]?.id || v.variation + "",
             users: stats.count,
             count: stats.count,
             main_sum: stats.main_sum,
@@ -256,7 +288,7 @@ export function getMetricsAndQueryDataForStatsEngine(
         });
       });
     });
-  
+
     Object.keys(byMetric).forEach((metric) => {
       queryResults.push({
         metrics: [metric],
@@ -265,7 +297,7 @@ export function getMetricsAndQueryDataForStatsEngine(
     });
   }
   // One query for each metric (or group of metrics)
-  else {  
+  else {
     queryData.forEach((query, key) => {
       // Multi-metric query
       if (key.match(/group_/)) {
@@ -281,7 +313,10 @@ export function getMetricsAndQueryDataForStatsEngine(
           // skip any metrics somehow missing from map
           if (metric) {
             metricIds.push(metricId);
-            metricSettings[metricId] = getMetricSettingsForStatsEngine(metric, metricMap);
+            metricSettings[metricId] = getMetricSettingsForStatsEngine(
+              metric,
+              metricMap
+            );
           } else {
             metricIds.push(null);
           }
@@ -308,10 +343,9 @@ export function getMetricsAndQueryDataForStatsEngine(
   return {
     queryResults,
     metricSettings,
-    unknownVariations
+    unknownVariations,
   };
 }
-
 
 export async function analyzeExperimentResults({
   queryData,
@@ -326,8 +360,11 @@ export async function analyzeExperimentResults({
   variationNames: string[];
   metricMap: Map<string, ExperimentMetricInterface>;
 }): Promise<ExperimentReportResults[]> {
-
-  const mdat = getMetricsAndQueryDataForStatsEngine(queryData, metricMap, snapshotSettings.variations);
+  const mdat = getMetricsAndQueryDataForStatsEngine(
+    queryData,
+    metricMap,
+    snapshotSettings.variations
+  );
   const { queryResults, metricSettings } = mdat;
   let { unknownVariations } = mdat;
 
@@ -346,10 +383,12 @@ export async function analyzeExperimentResults({
     metrics: metricSettings,
   });
 
-
   // TODO fix for dimension slices and move to health query
   const multipleExposures = Math.max(
-    ...queryResults.map((q) => q.rows.filter((r) => r.variation === "__multiple__")?.[0]?.users || 0)
+    ...queryResults.map(
+      (q) =>
+        q.rows.filter((r) => r.variation === "__multiple__")?.[0]?.users || 0
+    )
   );
 
   const ret: ExperimentReportResults[] = [];

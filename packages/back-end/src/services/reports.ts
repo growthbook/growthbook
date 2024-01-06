@@ -24,7 +24,6 @@ import {
   ExperimentSnapshotSettings,
   MetricForSnapshot,
 } from "../../types/experiment-snapshot";
-import { getAnalysisSettingsForStatsEngine } from "./stats";
 
 export function getReportVariations(
   experiment: ExperimentInterface,
@@ -99,7 +98,9 @@ export function reportArgsFromSnapshot(
   };
 }
 
-export function getAnalysisSettingsFromReportArgs(args: ExperimentReportArgs): ExperimentSnapshotAnalysisSettings {
+export function getAnalysisSettingsFromReportArgs(
+  args: ExperimentReportArgs
+): ExperimentSnapshotAnalysisSettings {
   return {
     dimensions: args.dimension ? [args.dimension] : [],
     statsEngine: args.statsEngine || DEFAULT_STATS_ENGINE,

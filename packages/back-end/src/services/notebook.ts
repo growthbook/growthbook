@@ -1,11 +1,7 @@
 import { promisify } from "util";
 import { PythonShell } from "python-shell";
-import {
-  DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
-  DEFAULT_STATS_ENGINE,
-} from "shared/constants";
 import { getSnapshotAnalysis } from "shared/util";
-import { isBinomialMetric } from "shared/experiments";
+import { hoursBetween } from "shared/dates";
 import { APP_ORIGIN } from "../util/secrets";
 import { findSnapshotById } from "../models/ExperimentSnapshotModel";
 import { getExperimentById } from "../models/ExperimentModel";
@@ -16,9 +12,15 @@ import { getReportById } from "../models/ReportModel";
 import { Queries } from "../../types/query";
 import { QueryMap } from "../queryRunners/QueryRunner";
 import { getQueriesByIds } from "../models/QueryModel";
-import { getAnalysisSettingsFromReportArgs, reportArgsFromSnapshot } from "./reports";
-import { DataForStatsEngine, getAnalysisSettingsForStatsEngine, getMetricsAndQueryDataForStatsEngine } from "./stats";
-import { hoursBetween } from "shared/dates";
+import {
+  getAnalysisSettingsFromReportArgs,
+  reportArgsFromSnapshot,
+} from "./reports";
+import {
+  DataForStatsEngine,
+  getAnalysisSettingsForStatsEngine,
+  getMetricsAndQueryDataForStatsEngine,
+} from "./stats";
 
 async function getQueryData(
   queries: Queries,
@@ -126,30 +128,34 @@ export async function generateNotebook(
     var_id_map[v.id] = i;
   });
 
-
   // use min query run date as end date if missing (legacy reports)
   let createdAt = new Date();
   queries.forEach((q) => {
     if (q.createdAt < createdAt) {
       createdAt = q.createdAt;
     }
-  })
+  });
   args.endDate = args.endDate || createdAt;
 
-  const phaseLengthDays = Math.max(
-    hoursBetween(args.startDate, args.endDate),
-    1
-  ) / 24;
+  const phaseLengthDays =
+    Math.max(hoursBetween(args.startDate, args.endDate), 1) / 24;
 
-  const { queryResults, metricSettings } = getMetricsAndQueryDataForStatsEngine(queries, metricMap, args.variations)
+  const { queryResults, metricSettings } = getMetricsAndQueryDataForStatsEngine(
+    queries,
+    metricMap,
+    args.variations
+  );
 
   const data: DataForStatsEngine = {
     var_id_map: var_id_map,
-    analyses: [getAnalysisSettingsForStatsEngine(
-      getAnalysisSettingsFromReportArgs(args),
-      args.variations,
-      args.coverage ?? 1,
-      phaseLengthDays)],
+    analyses: [
+      getAnalysisSettingsForStatsEngine(
+        getAnalysisSettingsFromReportArgs(args),
+        args.variations,
+        args.coverage ?? 1,
+        phaseLengthDays
+      ),
+    ],
     metrics: metricSettings,
     query_results: queryResults,
   };

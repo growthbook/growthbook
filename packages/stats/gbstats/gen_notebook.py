@@ -141,7 +141,7 @@ def create_notebook(
                 code_cell_plain(
                     source=(
                         "# Metric Settings\n"
-                        f"{metric_prefix}_settings = {str(metric)}\n"
+                        f"{metric_prefix}_settings = {str(metric)}"
                     ),
                 )
             )

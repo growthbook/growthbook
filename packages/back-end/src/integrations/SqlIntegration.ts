@@ -2004,7 +2004,8 @@ export default abstract class SqlIntegration
     // redundant checks to make sure configuration makes sense and we only build expensive queries for the cases
     // where RA is actually possible
     const regressionAdjusted =
-      settings.regressionAdjustmentEnabled && isRegressionAdjusted(metric, denominator);
+      settings.regressionAdjustmentEnabled &&
+      isRegressionAdjusted(metric, denominator);
 
     const regressionAdjustmentHours = regressionAdjusted
       ? (metric.regressionAdjustmentDays ?? 0) * 24
