@@ -1,0 +1,123 @@
+---
+title: GrowthBook Statistics 🚧
+description: GrowthBook Statistics
+sidebar_label: Statistics Overview
+slug: overview
+---
+
+# GrowthBook's Statistics
+
+This page is a summary verison of the statistical methods used by GrowthBook. GrowthBook primarily relies
+on Bayesian statistics to power experimental analysis, but also provides an option to perform frequentist tests.
+If you want to read more detail on the Bayesian approach, see our [white paper](/GrowthBookStatsEngine.pdf).
+
+## Bayesian Statistics
+
+Bayesian methods offer some distinct advantages over the frequentist approach. In order for
+frequentist methods to be valid, you must decide on
+the sample size in advance before running an experiment---a fixed horizon.
+Under the frequentist framework, if you peek at experimental results and make a decision
+before it has finished running, or even decide to run an experiment for longer, your false positive
+rates will no longer be controlled at the level you expect. This issue--commonly referred to as "peeking"---
+will inflate your false positive rates (Type I errors) and decision making is likely to suffer.
+In addition to being prone to the peeking problem, frequentist methods also provide p-values
+and confidence intervals, both of which can be difficult to interpret and explain to others.
+
+Bayesian methods help with both of these issues. There are no fixed horizons, and peeking problems are
+less of a concern, although not completely resolved. You can generally stop an experiment whenever you want
+without a huge increase in Type I errors. In addition, the results are very easy to explain and interpret. Everything
+has some probability of being true and you adjust the probabilities as you gather data
+and learn more about the world. This matches up with how most people think about
+experiments - _"there’s a 95% chance this new button is better and a 5% chance it’s
+worse."_
+
+### Priors and Posteriors
+
+At GrowthBook, we use an Uninformative Prior. This simply means that before an
+experiment runs, we assume both variations have an equal chance of
+being higher/lower than the other one. As the experiment runs and you gather data, the
+Prior is updated to create a Posterior distribution. For Binomial metrics (simple yes/no conversion events) we
+use a Beta-Binomial Prior. For count, duration, and revenue metrics, we use a Gaussian
+(or Normal) Prior.
+
+### Inferential Statistics
+
+GrowthBook uses fast estimation techniques to quickly generate inferential statistics at scale for every metric in an experiment -
+Chance to Beat Control, Relative Uplift, and Risk (or expected loss).
+
+**Chance to Beat Control** is straight forward. It is simply the probability that a variation is better.
+You typically want to wait until this reaches 95% (or 5% if it's worse).
+
+**Relative Uplift** is similar to a frequentist Confidence Interval. Instead of showing a fixed 95% interval, we show the full
+probability distribution using a violin plot:
+
+![Violin plot of a metrics change](/images/violin-plot.png)
+
+We have found this tends to lead to more accurate interpretations. For example, instead of
+just reading the above as _"it’s 17% better"_, people tend to factor in the error bars (_"it’s
+about 17% better, but there’s a lot of uncertainty still"_).
+
+**Risk** (or expected loss) can be interpreted as _“If I stop the test now and choose X and it’s actually worse, how
+much am I expected to lose?”_. This is shown as a relative percent change - so if your baseline metric value is $5/user,
+a 10% risk equates to losing $0.50. You can specify your risk tolerance thresholds on a per-metric basis within GrowthBook.
+
+GrowthBook gives the human decision maker everything they need to weigh the results against
+external factors to determine when to stop an experiment and which variation to declare the winner.
+
+## Frequentist Statistics
+
+While frequentist statistics have the aforementioned issues, they also are familiar to many practitioners and have
+certain advantages. Their widespread adoption has spurred important developments in variance reduction, heterogeneous treatment
+effect detection, and indeed corrections to peeking issues (e.g. sequential testing) that make frequentist statistics
+less problematic and, at times, more valuable.
+
+GrowthBook has begun also investing in developing a frequentist statistics engine, and users can now select which approach
+fits their use case best under their organization settings. The current frequentist engine computes two-sample t-tests for
+relative percent change and has variance reduction (via [CUPED](/statistics/cuped)) enabled. Future extensions to implement sequential testing, one-sided tests
+for guardrails, and more are possible.
+
+Because our default results and confidence intervals display relative percent change, we use a delta
+method corrected variance for our p-values and confidence intervals that correctly incorporates uncertainty from the control variation mean.
+
+## Data Quality Checks
+
+In addition, GrowthBook performs automatic data quality
+checks to ensure the statistical inferences are valid and ready for interpretation.
+We currently run a number of checks and plan to add even more in the future.
+
+1.  **Sample Ratio Mismatch** (SRM) detects when the traffic split doesn't match what you are expecting (e.g. a 48/52 split when you expect it to be 50/50)
+2.  **Multiple Exposures** which alerts you if too many users were exposed to multiple variations of a single experiment (e.g. someone saw both A and B)
+3.  **Guardrail Metrics** help ensure an experiment isn't inadvertently hurting core metrics like error rate or page load time
+4.  **Minimum Data Thresholds** so you aren't drawing conclusions too early (e.g. when it's 5 vs 2 conversions)
+5.  **Variation Id Mismatch** which can detect missing or improperly-tagged rows in your data warehouse
+6.  **Suspicious Uplift Detection** which alerts you when a metric changes by too much in a single experiment, indicating a likely bug
+
+Many of these checks are customizeable at a per-metric level.
+So you can, for example, have stricter quality checks for revenue than you have for less important metrics.
+
+## Dimensional Analysis
+
+There is often a desire to drill down into results to see how segments or dimensions
+of your users were affected by an A/B test variation. This is especially useful for finding bugs
+(e.g. if Safari is down, but the other browsers are up) and for identifying ideas for follow-up experiments (e.g.
+"European countries seem to be responding really well to this test, let's try a dedicated variation for them").
+
+However, too much slicing and dicing of data can lead to
+what is known as the Multiple Testing Problem. If you look at the data in enough ways, one of them
+will look significant just by random chance.
+
+GrowthBook does not run any statistical corrections (e.g. Bonferroni). Instead, we change how much we show depending on the cardinality of the dimension. For example, if your dimension has only a few distinct values (e.g. "free" or "paid") we show the full statistical analysis since the impact to the false positive rate is low. However, if your dimension has many distinct values (e.g. `country`) we only show the raw conversion numbers without any statistical inferences at all.
+
+In addition, we apply automatic grouping to very high-cardinality dimensions. In the country example, only the top 20 countries will be shown individually. The rest will be lumped together into an `(other)` category.
+
+We have found this to be a good trade-off between false positives and false negatives.
+
+## Conclusion
+
+GrowthBook utilizes a combination of Bayesian statistics, fast estimation techniques,
+and data quality checks to robustly analyze A/B tests at scale and provide intuitive
+results to decision makers. GrowthBook also provides a frequentist statistics engine
+for customers who prefer operating in that paradigm.
+The implementation is fully open source under an MIT license
+and available on GitHub. You can also read more about the statistics and equations used
+in the [white paper PDF](/GrowthBookStatsEngine.pdf).

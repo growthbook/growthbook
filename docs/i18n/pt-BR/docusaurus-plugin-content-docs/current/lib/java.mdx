@@ -1,0 +1,333 @@
+---
+title: Java SDK 🚧
+description: GrowthBook SDK for Java
+sidebar_label: Java
+slug: java
+toc_max_heading_level: 5
+---
+
+import ExternalLink from '@site/src/components/ExternalLink'
+import CodeTabsAddDependencyPartial from '@site/src/partials/java/_code-tabs-add-dependency.mdx'
+import CodeTabsGBContextBuilderPartial from '@site/src/partials/java/_code-tabs-gbcontext-builder.mdx'
+import CodeTabsGBContextBuilderEncryptedPartial from '@site/src/partials/java/_code-tabs-gbcontext-builder-encrypted.mdx'
+import CodeTabsGBContextConstructorPartial from '@site/src/partials/java/_code-tabs-gbcontext-constructor.mdx'
+import CodeTabsUserAttributesPartial from '@site/src/partials/java/_code-tabs-user-attributes.mdx'
+import CodeTabsUsingFeaturesPartial from '@site/src/partials/java/_code-tabs-using-features.mdx'
+import CodeTabsTrackingCallbackPartial from '@site/src/partials/java/_code-tabs-tracking-callback.mdx'
+import CodeTabsRunExperimentPartial from '@site/src/partials/java/_code-tabs-run-experiment.mdx'
+import CodeTabsExperimentResultCallbackPartial from '@site/src/partials/java/_code-tabs-subscribe-experiment-run.mdx'
+import CodeTabsExperimentResultSubscribeMultipleCallbackPartial from '@site/src/partials/java/_code-tabs-subscribe-multiple.mdx'
+import CodeTabsFeaturesRepository from '@site/src/partials/java/_code-tabs-gbfeatures-repository.mdx'
+
+This supports Java applications using Java version 1.8 and higher.
+
+:::success New
+
+The GrowthBook Java SDK is a brand new feature. If you experience any issues, let us know either on [Slack](https://slack.growthbook.io/) or [create an issue](https://github.com/growthbook/growthbook-sdk-java/issues).
+
+:::
+
+## Installation
+
+[![](https://jitpack.io/v/growthbook/growthbook-sdk-java.svg)](https://jitpack.io/#growthbook/growthbook-sdk-java)
+
+### Gradle
+
+To install in a Gradle project, add Jitpack to your repositories, and then add the dependency with the latest version to your project's dependencies.
+
+<CodeTabsAddDependencyPartial />
+
+### Maven
+
+To install in a Maven project, add Jitpack to your repositories:
+
+```xml
+<repositories>
+    <repository>
+        <id>jitpack.io</id>
+        <url>https://jitpack.io</url>
+    </repository>
+</repositories>
+```
+
+Next, add the dependency with the latest version to your project's dependencies:
+
+```xml
+<dependency>
+    <groupId>com.github.growthbook</groupId>
+    <artifactId>growthbook-sdk-java</artifactId>
+    <version>0.5.0</version>
+</dependency>
+```
+
+## Usage
+
+There are 2 steps to initializing the GrowthBook SDK:
+
+1. Create a GrowthBook context `GBContext` with the features JSON and the user attributes
+2. Create the `GrowthBook` SDK class with the context
+
+### GrowthBook context
+
+The GrowthBook context `GBContext` can be created either by implementing the builder class, available at `GBContext.builder()`, or by using the `GBContext` constructor.
+
+| Field name            | Type                   | Description                                                                                                                                                                                                                                                                                                                                                    |
+| --------------------- | ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `attributesJson`      | `String`               | The user attributes JSON. See [Attributes](#attributes).                                                                                                                                                                                                                                                                                                       |
+| `featuresJson`        | `String`               | The features JSON served by the GrowthBook API (or equivalent). See [Features](#features).                                                                                                                                                                                                                                                                     |
+| `enabled`             | `Boolean`              | Whether to enable the functionality of the SDK (default: `true`)                                                                                                                                                                                                                                                                                               |
+| `isQaMode`            | `Boolean`              | Whether the SDK is in QA mode. Not for production use. If true, random assignment is disabled and only explicitly forced variations are used (default: `false`)                                                                                                                                                                                                |
+| `url`                 | `String`               | The URL of the current page. Useful when evaluating features and experiments based on the page URL.                                                                                                                                                                                                                                                            |
+| `forcedVariationsMap` | `Map<String, Integer>` | Force specific experiments to always assign a specific variation (used for QA)                                                                                                                                                                                                                                                                                 |
+| `trackingCallback`    | `TrackingCallback`     | A callback that will be invoked with every experiment evaluation where the user **is** included in the experiment. See [TrackingCallback](#tracking-callback). To subscribe to all evaluated events regardless of whether the user is in the experiment, see [Subscribing to experiment runs](#subscribing-to-experiment-runs-with-the-experimentruncallback). |
+
+#### Using the GBContext builder
+
+The builder is the easiest to use way to construct a `GBContext`, allowing you to provide as many or few arguments as you'd like. All fields mentioned above are available via the builder.
+
+<CodeTabsGBContextBuilderPartial />
+
+:::info Note
+The above example uses `java.net.http.HttpClient` which, depending on your web framework, may not be the best option, in which case it is recommended to use a networking library more suitable for your implementation.
+:::
+
+#### Using the GBContext constructor
+
+You can also use `GBContext` constructor if you prefer, which will require you to pass all arguments explicitly.
+
+<CodeTabsGBContextConstructorPartial />
+
+For complete examples, see the [Examples](#code-examples) section below.
+
+#### Features
+
+The features JSON is equivalent to the `features` property that is returned from the SDK Endpoint for the specified environment. You can find your endpoint on the [Environments &rarr; SDK Endpoints page <ExternalLink/>](https://app.growthbook.io/environments).
+
+- You can read more [about features here](/app/features)
+- You can see an [example features JSON here](/app/api#the-sdk-endpoint)
+
+#### Attributes
+
+Attributes are a JSON string. You can specify attributes about the current user and request. Here's an example:
+
+<CodeTabsUserAttributesPartial />
+
+If you need to set or update attributes asynchronously, you can do so with `Context#attributesJson` or `GrowthBook#setAttributes`. This will completely overwrite the attributes object with whatever you pass in. Also, be aware that changing attributes may change the assigned feature values. This can be disorienting to users if not handled carefully.
+
+#### Tracking Callback
+
+Any time an experiment is run to determine the value of a feature, we may call this callback so you can record the assigned value in your event tracking or analytics system of choice.
+
+**The tracking callback is only called when the user is in the experiment**. If they are not in the experiment, this will not be called. If you'd like to subscribe to all evaluations, regardless of experiment result, see [Subscribing to experiment runs](#subscribing-to-experiment-runs-with-the-experimentruncallback).
+
+<CodeTabsTrackingCallbackPartial />
+
+### Using Features
+
+Every feature has a "value" which is assigned to a user. This value can be any JSON data type. If a feature doesn't exist, the value will be `null`.
+
+There are 4 main methods for evaluating features.
+
+| Method                        | Return type            | Description                                                                                                               |
+| ----------------------------- | ---------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| **`isOn(String)`**            | `Boolean`              | Returns true if the value is a truthy value                                                                               |
+| **`isOff(String)`**           | `Boolean`              | Returns true if the value is a falsy value                                                                                |
+| **`getFeatureValue(String)`** | generic `T` (nullable) | Returns the value cast to the generic type. Type is inferred based on the `defaultValue` argument provided.               |
+| **`evalFeature(String)`**     | `FeatureResult<T>`     | Returns a feature result with a value of generic type `T`. The value type needs to be specified in the generic parameter. |
+
+<CodeTabsUsingFeaturesPartial />
+
+#### isOn() / isOff()
+
+These methods return a boolean for truthy and falsy values.
+
+Only the following values are considered to be "falsy":
+
+- `null`
+- `false`
+- `""`
+- `0`
+
+Everything else is considered "truthy", including empty arrays and objects.
+
+If the value is "truthy", then `isOn()` will return true and `isOff()` will return false. If the value is "falsy", then the opposite values will be returned.
+
+#### getFeatureValue(featureKey, defaultValue)
+
+This method has a variety of overloads to help with casting values to primitive and complex types.
+
+In short, the type of the `defaultValue` argument will determine the return type of the function.
+
+| Return type             | Method                                                                                                     | Additional Info                                                                                                                                                                   |
+| ----------------------- | ---------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Boolean`               | **`getFeatureValue(String featureKey, Boolean defaultValue)`**                                             |                                                                                                                                                                                   |
+| `Double`                | **`getFeatureValue(String featureKey, Double defaultValue)`**                                              |                                                                                                                                                                                   |
+| `Float`                 | **`getFeatureValue(String featureKey, Float defaultValue)`**                                               |                                                                                                                                                                                   |
+| `Integer`               | **`getFeatureValue(String featureKey, Integer defaultValue)`**                                             |                                                                                                                                                                                   |
+| `String`                | **`getFeatureValue(String featureKey, String defaultValue)`**                                              |                                                                                                                                                                                   |
+| `<ValueType> ValueType` | **`getFeatureValue(String featureKey, ValueType defaultValue, Class<ValueType> gsonDeserializableClass)`** | Internally, the SDK uses Gson. You can pass any class that does not require a custom deserializer.                                                                                |
+| `Object`                | **`getFeatureValue(String featureKey, Object defaultValue)`**                                              | Use this method if you need to cast a complex object that uses a custom deserializer, or if you use a different JSON serialization library than Gson, and cast the type yourself. |
+
+[See the Java Docs](https://growthbook.github.io/growthbook-sdk-java/growthbook/sdk/java/GrowthBook.html) for more information.
+
+[See the unit tests <ExternalLink />](https://github.com/growthbook/growthbook-sdk-java/blob/main/lib/src/test/java/growthbook/sdk/java/GrowthBookTest.java#L220) for example implementations including type casting for all above-mentioned methods.
+
+#### evalFeature(String)
+
+The `evalFeature` method returns a `FeatureResult<T>` object with more info about why the feature was assigned to the user. The `T` type corresponds to the value type of the feature. In the above example, `T` is `Float`.
+
+`FeatureResult<T>` It has the following getters.
+
+| Method                      | Return type                           | Description                                                                                  |
+| --------------------------- | ------------------------------------- | -------------------------------------------------------------------------------------------- |
+| **`getValue()`**            | generic `T` (nullable)                | The evaluated value of the feature                                                           |
+| **`getSource()`**           | `enum FeatureResultSource` (nullable) | The reason/source for the evaluated feature value.                                           |
+| **`getRuleId()`**           | `String` (nullable)                   | ID of the rule that was used to assign the value to the user.                                |
+| **`getExperiment()`**       | `Experiment<T>` (nullable)            | The experiment details, available only if the feature evaluates due to an experiment.        |
+| **`getExperimentResult()`** | `ExperimentResult<T>` (nullable)      | The experiment result details, available only if the feature evaluates due to an experiment. |
+
+As expected in Kotlin, you can access these getters using property accessors.
+
+### Inline Experiments
+
+Instead of declaring all features up-front in the context and referencing them by IDs in your code, you can also just run an experiment directly. This is done with the `growthbook.run(Experiment<T>)` method.
+
+<CodeTabsRunExperimentPartial />
+
+#### Inline experiment return value ExperimentResult
+
+An `ExperimentResult<T>` is returned where `T` is the generic value type for the experiment.
+
+There's also a number of methods available.
+
+| Method                   | Return type            | Description                                                                                                                                                                                                  |
+| ------------------------ | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **`getValue()`**         | generic `T` (nullable) | The evaluated value of the feature                                                                                                                                                                           |
+| **`getVariationId()`**   | `Integer` (nullable)   | Index of the variation used, if applicable                                                                                                                                                                   |
+| **`getInExperiment()`**  | `Boolean`              | If the user was in the experiment. This will be false if the user was excluded from being part of the experiment for any reason (e.g. failed targeting conditions).                                          |
+| **`getHashAttribute()`** | `String`               | User attribute used for hashing, defaulting to `id` if not set.                                                                                                                                              |
+| **`getHashValue()`**     | `String` (nullable)    | The hash value used for evaluating the experiment, if applicable.                                                                                                                                            |
+| **`getFeatureId()`**     | `String`               | The feature key/ID                                                                                                                                                                                           |
+| **`getHashUsed()`**      | `Boolean`              | If a hash was used to evaluate the experiment. This flag will only be true if the user was randomly assigned a variation. If the user was forced into a specific variation instead, this flag will be false. |
+
+As expected in Kotlin, you can access these getters using property accessors.
+
+### Subscribing to experiment runs with the ExperimentRunCallback
+
+You can subscribe to experiment run evaluations using the `ExperimentRunCallback`.
+
+<CodeTabsExperimentResultCallbackPartial />
+
+Every time an experiment is evaluated when calling `growthBook.run(Experiment)`, the callbacks will be called.
+
+You can subscribe with as many callbacks as you like:
+
+<CodeTabsExperimentResultSubscribeMultipleCallbackPartial />
+
+**The experiment run callback is called for every experiment run, regardless of experiment result**. If you would like to subscribe only to evaluations where the user falls into an experiment, see [TrackingCallback](#tracking-callback).
+
+### Working with Encrypted features
+
+As of version 0.3.0, the Java SDK supports decrypting encrypted features. You can learn more about [SDK Connection Endpoint Encryption](/app/api#encryption).
+
+The main difference is you create a `GBContext` by passing an encryption key (`.encryptionKey()` when using the builder) and using the encrypted payload as the features JSON (`.featuresJson()` for the builder).
+
+<CodeTabsGBContextBuilderEncryptedPartial />
+
+### Fetching, Cacheing, and Refreshing features with GBFeaturesRepository
+
+As of version 0.4.0, the Java SDK provides an optional `GBFeaturesRepository` class which will manage networking for you in the following ways:
+
+- Fetching features from the SDK endpoint when `initialize()` is called
+- Decrypting encrypted features when provided with the client key, e.g. `.builder().encryptionKey(clientKey)`
+- Cacheing features (in-memory)
+- Refreshing features
+
+If you wish to manage fetching, refreshing, and cacheing features on your own, you can choose to not implement this class.
+
+:::info Recommendation
+This class should be implemented as a singleton class as it includes caching and refreshing functionality.
+:::
+
+If you have more than one SDK endpoint you'd like to implement, you can extend the `GBFeaturesRepository` class with your own class to make it easier to work with dependency injection frameworks. Each of these instances should be singletons.
+
+#### Fetching the features
+
+You will need to create a singleton instance of the `GBFeaturesRepository` class either by implementing its `.builder()` or by using its constructor.
+
+Then, you would call `myGbFeaturesRepositoryInstance.initialize()` in order to make the initial (blocking) request to fetch the features. Then, you would call `myGbFeaturesRepositoryInstance.getFeaturesJson()` and provided that to the `GBContext` initialization.
+
+<CodeTabsFeaturesRepository />
+
+For more references, see the [Examples](#code-examples) below.
+
+#### Cacheing and refreshing behaviour
+
+The `GBFeaturesRepository` will automatically refresh the features when the features become stale. Features are considered stale every 60 seconds. This amount is configurable with the `ttlSeconds` option.
+
+When you fetch features and they are considered stale, the stale features are returned from the `getFeaturesJson()` method and a network call to refresh the features is enqueued asynchronously. When that request succeeds, the features are updated with the newest features, and the next call to `getFeaturesJson()` will return the refreshed features.
+
+## Overriding Feature Values
+
+The Java SDK allows you to override feature values and experiments using the URL.
+
+### Force Experiment Variations
+
+You can force an experiment variation by passing the experiment key and variation index as query parameters in the URL you set on the `GBContext`. For example, if you add `?my-experiment-id=2` to the URL, users will be forced into the variation at index 2 in the variations list when evaluating the experiment with key `my-experiment-id`.
+
+### Force Feature Values via the URL
+
+You can force a value for a feature by passing the key, prefixed by `gb~`, and the URI-encoded value in the URL's query parameters. You must also set `allowUrlOverrides` to true when building your `GBContext` in order to enable this feature as it is not enabled by default.
+
+```java
+GBContext context = GBContext
+    .builder()
+    .url("http://localhost:8080/url-feature-force?gb~dark_mode=true&gb~donut_price=3.33&gb~banner_text=Hello%2C%20everyone!%20I%20hope%20you%20are%20all%20doing%20well!")
+    .allowUrlOverrides(true)
+    .build();
+```
+
+The above code sample sets the following:
+
+- `dark_mode`: `true`
+- `banner_text`: `"Hello, everyone! I hope you are all doing well!"`
+- `donut_price`: `3.33`
+
+#### Supported types
+
+| Type                          | Value                                                                                                                                          |
+| ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `String`                      | A URI-encoded string value                                                                                                                     |
+| `Float`                       | A float value, e.g. `3.33`                                                                                                                     |
+| `Double`                      | A double value, e.g. `3.33`                                                                                                                    |
+| `Integer`                     | An integer value, e.g. `1337`                                                                                                                  |
+| `Boolean`                     | A boolean value, e.g. `true` or `false`. You can also represent boolean values with on/off state as `on` or `off` or binary values `1` or `0`. |
+| JSON as `Gson`-deserializable | A class that can be deserialized using Gson and that does not have any dependencies on custom type adapters.                                   |
+| JSON as `String`              | A URI-encoded string value that should be a valid JSON string that you can deserialize with your own JSON deserialization implementation.      |
+
+The value passed in the URL is cast at runtime based on the generic type argument passed in when evaluating the feature. This means that when you call `<ValueType>getFeatureValue()`, what you pass into the URL must successfully cast as `ValueType` otherwise the value in the URL will be ignored.
+
+All keys must be prefixed with `gb~`.
+
+## Using with Proguard and R8
+
+Many Android projects use code-shrinking and obfuscation tools like Proguard and R8 in production.
+
+If you are experiencing unexpected feature evaluation results with your release Android builds that do not occur in your debug builds, it's most likely related to this.
+
+You will need to add the following to your `proguard-rules.pro` file to ensure that all of the GrowthBook SDK classes are kept so that your features are evaluated properly in projects that use Proguard and R8:
+
+```
+# Growthbook Java SDK classes
+-keep class growthbook.sdk.java.** { *; }
+```
+
+## Code Examples
+
+- [JVM with Spring Web example <ExternalLink/>](https://github.com/growthbook/examples/tree/main/jvm-spring-web)
+- [JVM example in Kotlin with Ktor <ExternalLink/>](https://github.com/growthbook/examples/tree/main/jvm-kotlin-ktor-example)
+- [Android Java example <ExternalLink/>](https://github.com/growthbook/examples/tree/main/android-example)
+
+## Further Reading
+
+- [JavaDoc class documentation <ExternalLink/>](https://growthbook.github.io/growthbook-sdk-java/)

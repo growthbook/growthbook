@@ -1,0 +1,84 @@
+---
+title: Documentação do GrowthBook
+sidebar_label: Visão Geral
+id: introduction
+slug: /
+hide_table_of_contents: true
+---
+
+import ButtonCard from '@site/src/components/ButtonCard'
+
+# Introdução
+
+GrowthBook é uma plataforma de código aberto para feature flags e testes A/B, desenvolvido especialmente para times de dados, engenheiros e gerentes de produto.
+É ótimo se você deseja apenas analisar os resultados de um experimento ou facilitar a implementação de código.
+
+:::tip Dúvidas?
+
+Nós adoraríamos lhe ajudar a começar com o GrowthBook. Você pode agendar uma [conversa conosco](https://calendly.com/growthbook) ou [se juntar ao nosso Slack](https://slack.growthbook.io?ref=docs-home)
+
+:::
+
+### Links Rápidos
+
+<div className="row is-multiline">
+    <div className="col col--4">
+        <ButtonCard
+            to={'/overview'}
+            title="Como funciona"
+            description="Aprenda o que é o GrowthBook e como ele funciona"
+            style={{ height: '100%' }}
+            color="default"
+        ></ButtonCard>
+    </div>
+        <div className="col col--4">
+            <ButtonCard
+                to={'/self-host'}
+                title="Hospedagem Própria"
+                description="Aprenda utilizar o GrowthBook em sua própria infraestrutura"
+                style={{ height: '100%' }}
+            ></ButtonCard>
+        </div>
+    <div className="col col--4">
+        <ButtonCard
+            to={'/lib'}
+            title="Documentação do SDK"
+            description="Aprenda sobre os SDKs do GrowthBook"
+            style={{ height: '100%' }}
+            color="default"
+        ></ButtonCard>
+    </div>
+  <div className="col margin-top--md">
+    <ButtonCard
+      aLink={true}
+      to={'/open-guide-to-ab-testing.v1.0.pdf'}
+      title="Obtenha nosso guia gratuito de como obter sucesso com testes A/B"
+      description="Este guia descreve tudo o que você precisa saber para escalar a experimentação em sua empresa. Abrange desde conhecimento básico (“o que é um teste A/B?”) até tópicos avançados e erros comuns"
+      style={{ height: '100%' }}
+      color="default"
+    ></ButtonCard>
+  </div>
+</div>
+
+## Nossos Objetivos
+
+As empresas gastam milhares de horas criando ferramentas internas de feature flag e criação de experimentos (testes A/B).
+Um dos motivos é porque desejam ter esses sistemas em sua própria infraestrutura, usando seus próprios dados integrados profundamente em seu código.
+
+O GrowthBook oferece às equipes de dados, engenharia e produtos o poder de uma plataforma personalizável sem a necessidade de construí-la você mesmo.
+
+Acreditamos que o uso de **feature flags** é a melhor maneira de implementar funcionalidades e adotar facilmente uma cultura de experimentação.
+
+Acreditamos que os testes A/B devem se basear em seus **dados e métricas** existentes, onde quer que estejam e tenham sido definidos.
+
+Acreditamos na **transparência de dados**. Você pode exportar os resultados como um notebook Jupyter e nosso motor de estatística Bayesiano é desenvolvido de forma aberta no [GitHub](https://github.com/growthbook/growthbook/tree/main/packages/stats).
+
+Somos fanáticos por **desempenho**. Nossos [SDKs](/lib) são incrivelmente rápidos e leves e avaliam tudo localmente sem solicitações de rede.
+
+Acreditamos que boas ideias vêm de todos os lugares. O GrowthBook fornece feature flags para que seja fácil **testar tudo** e tornar a experimentação parte do seu processo.
+
+## Documentação
+
+Use o menu ou os botões de Anterior/Próxima para navegar entre as páginas dessa documentação.
+
+[Junte-se a nós no Slack](https://slack.growthbook.io?ref=docs-home) se você precisar de alguma ajuda, quiser conversar ou discutir alguma ideia de uma nova funcionalidade. Nós estamos aqui para ajudar - e tornar o GrowthBook cada vez melhor.

@@ -1,0 +1,168 @@
+---
+title: Visual Editor
+description: Learn about our visual editor currently in beta
+sidebar_label: Visual Editor 🚧
+id: visual-editor
+slug: visual
+---
+
+import Pill from '@site/src/components/Pill';
+
+# Visual Editor 2.0 <Pill>beta</Pill>
+
+The Visual Editor enables non-technical users to design A/B tests on their site directly in their browser, run them in production, and analyze results, all without writing a single line of code.
+
+In March, 2023 we released version 2.0 of our Visual Editor with many improvements.
+
+## Requirements
+
+To use our Visual Editor, you need to install the [GrowthBook Chrome Extension](https://chrome.google.com/webstore/detail/growthbook-devtools/opemhndcehfgipokneipaafbglcecjia).
+
+You will also need a Secret API Key so the Chrome Extension can connect to your GrowthBook instance and save changes. You can create a key on the **Settings -> API Keys** page in GrowthBook (you will need admin permissions to access this). You will be prompted to enter this API key the first time you use the Visual Editor.
+
+The application you want to experiment on must also be a front-end web application viewed in a browser. Our Visual Editor does not work for mobile apps (Native or ReactNative) or desktop apps (e.g. Electron). For these unsupported apps, you can use [Feature Flags](/app/features) instead and implement your changes in code.
+
+:::note
+
+There are additional steps required before you deploy your A/B test to production. See below for more info.
+
+:::
+
+## Creating a Visual Experiment
+
+To use the visual editor, first add a new Experiment. This can be done under **Analysis -> Experiments**
+
+![Design a new experiment](/images/add-experiment-modal.png)
+
+Select the option to design a new experiment. Then, you'll have a series of fields to fill out (hypothesis, variation names, goal metrics, etc.). Don't worry, these can all be changed later.
+
+Once you created an experiment, you should be prompted to open the Visual Editor.
+
+### URL Targeting
+
+GrowthBook needs to know what page(s) of your site the experiment should run on.
+
+If your experiment is going to be on a single static page, enter the full URL and submit (e.g. `https://www.example.com/pricing`).
+
+If your experiment is going to be on a page with a dynamic URL (e.g. all pages that start with `/post/`), click on the "Advanced Mode" link.
+
+You'll need to enter 2 different URLs.
+
+1. A single representative URL you want to load in the Visual Editor (e.g. `https://www.example.com/post/my-first-post`)
+2. A URL targeting pattern to match all of your dynamic URLs
+
+The targeting pattern supports wildcards (`*`), so for this example, you could enter `/post/*`.
+
+:::tip
+
+We recommend sticking with "Simple" URL targeting rules (don't be fooled by the name, it's actually really powerful). The other option (Regex) can be useful for really advanced use cases, but it is much harder to write and more error prone.
+
+:::
+
+#### Simple Targeting
+
+Our "simple" URL targeting option supports the vast majority of use cases and is easy to use. It supports the following features:
+
+- Match based on full URLs (e.g. `https://www.example.com/pricing`)
+- Match based on path (e.g. `/pricing`)
+- Match based on query strings (e.g. `/pricing?utm_source=email`)
+- Match based on hashes/anchors (e.g. `/pricing#more-info`)
+- Wildcards (e.g. `/posts/*` will match `/posts/123` AND `/posts/2023/03/30/my-post`)
+- Ignores leading and trailing slashes (e.g. `pricing`, `/pricing`, and `/pricing/` are identical)
+- Ignores the protocol (e.g. `https://...` will also match `http://...`)
+- Ignores extra query string parameters (e.g. `/pricing/?plan=pro` will match `/pricing/?utm_source=email&plan=pro&logged-in=true`)
+
+#### Regex Targeting
+
+Our "regex" URL targeting option supports full regular expressions. Writing regular expressions for URLs is very error prone, so be careful and make sure you escape all special characters you don't want to be interpreted. Here's a full example:
+
+```js
+https?:\/\/(www\.)?example\.com\/pricing\/?
+```
+
+You can also match on just the path:
+
+```js
+^\/pricing\/(pro|enterprise)
+```
+
+### The Visual Editor
+
+There are a number of different tools in the Visual Editor.
+
+![The Visual Editor UI](/images/visual-editor-ui.png)
+
+At the top is a dropdown where you can select which variation you are currently editing.
+
+Below that is your toolbar. It has the following tools in order from left to right:
+
+1. **Interactive Mode** - Click around your site normally
+2. **Element Selector** - Point and click to select an element on your site to edit. This is the most common way to make changes.
+3. **Global CSS** - Inject global CSS styles into the page. Use this to control things like page background color or font size.
+4. **Custom DOM Changes** - A low level way to specify changes to elements
+5. **Change List** - See a summary of all of the changes you've made to the page so far
+
+When you're using the Element Selector, after you pick an element to edit, you'll be able to modify the Inner HTML (i.e. the copy), any attributes (e.g. a link HREF), and the list of CSS classes.
+
+When you're finished making changes, click the **Done Editing** button to be taken back to GrowthBook.
+
+## Production
+
+Before publishing an A/B test to production you will need to integrate either our [JavaScript](/lib/js) or [ReactJS](/lib/js) SDK to your application (requires a developer).
+
+:::note
+
+The Visual Editor requires the latest versions of our SDKs. If you've already been using GrowthBook for feature flags, you may need to update your installed version.
+
+:::
+
+### SDK Connection
+
+You will need a **client key** to pass into the SDK. You can get this by creating a new SDK Connection (under **Features** in the left navigation).
+
+**Important**: Make sure to enable the "Include Visual Experiments" toggle. If you forget this step, Visual Editor experiments will not be sent to your application.
+
+![Enable the Visual Editor in your SDK Connection](/images/sdk-connection-visual-editor.png)
+
+You can also optionally include Draft Experiments. These are not run automatically like Production experiments. Instead, they can be triggered via special URLs (see below for more info). Drafts are useful for QA testing before releasing to your actual users.
+
+### SPA Support
+
+If you have a Single Page Application (SPA) that does client-side routing, you'll need to update the URL within the GrowthBook SDK every time it changes.
+
+For example, with Next.js you can do the following:
+
+```js
+function updateGrowthBookURL() {
+  gb.setURL(window.location.href);
+}
+
+export default function MyApp() {
+  // Subscribe to route change events and update GrowthBook
+  const router = useRouter();
+  useEffect(() => {
+    router.events.on("routeChangeComplete", updateGrowthBookURL);
+    return () => router.events.off("routeChangeComplete", updateGrowthBookURL);
+  }, []);
+
+  // ...
+}
+```
+
+## Drafts and QA
+
+While the experiment is still a draft, you can preview variations by adding a querystring to your URL.
+
+:::note
+
+This requires turning on the "Include Drafts" toggle for your SDK Connection in GrowthBook.
+
+:::
+
+To build the QA preview URL, you'll need the **Experiment Id** (viewable on the right side of the experiment page under Settings). You'll also need the variation number you want to preview. `0` is the control, `1` is the 1st variation, etc..
+
+Now, just join these together with an equals sign (e.g. `my-experiment-id=1`). This needs to go in the Querystring part of the URL (after a question mark). Here's a full example:
+
+`https://www.example.com/pricing?my-experiment-id=1`
+
+Until an experiment is moved out of the "draft" phase and started, this is the only way to view it on your site.

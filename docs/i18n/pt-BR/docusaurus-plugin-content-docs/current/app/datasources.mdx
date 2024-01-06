@@ -1,0 +1,296 @@
+---
+title: Data Sources
+description: Learn about data sources supported by GrowthBook
+sidebar_label: Data Sources 🚧
+id: data-sources
+slug: datasources
+---
+
+# Data Sources
+
+Data Sources are how GrowthBook connects to your analytics tool or data warehouse to automatically pull metrics and experiment results.
+
+You can use GrowthBook without a Data Source, but the user experience is not as smooth since you must enter all data manually.
+
+Below are the currently supported Data Sources (links are to our detail guides):
+
+- Redshift
+- Snowflake
+- [BigQuery](/guide/bigquery)
+- ClickHouse
+- AWS Athena
+- Postgres
+- MySQL/MariaDB
+- MsSQL/SQL Server
+- PrestoDB (and Trino)
+- Databricks
+- [Mixpanel](/guide/mixpanel)
+- Google Analytics
+
+## Configuration Settings
+
+To effectively use GrowthBook, you'll need to tell us a little about the shape of your data.
+
+### SQL Sources
+
+GrowthBook can work with your existing SQL data, no matter what shape or format it is in, whether you have a strongly normalized schema, a single “events” table with JSON fields, or something in between.
+
+#### Predefined Schemas
+
+GrowthBook supports a few popular database schemas out-of-the-box:
+
+- Segment
+- Snowplow
+- [RudderStack](/guide/rudderstack)
+- [Matomo](/guide/matomo)
+- Amplitude (Snowflake only)
+- Google Analytics 4 (BigQuery only)
+- Jitsu
+- Firebase
+- Heap Analytics
+- Freshpaint
+
+After connecting to your data source, you will be prompted to choose one of the above. If your data is in a different format, you can also decide to define a custom schema.
+
+#### Custom Schemas
+
+GrowthBook just needs you to write a couple SQL queries in order to query your data. Writing this SQL is a (mostly) one-time setup task. After building out this library of queries, they can easily be reused across many experiments.
+
+Don’t worry about the potentially huge number of rows returned by these raw queries. They are never run directly as-is and are instead combined, filtered, and aggregated as part of larger queries. Most of the final queries run by GrowthBook result in fewer than 10 rows returned.
+
+In the spirit of transparency, any time a query is run, you should see a `View Queries` link in the app to view the raw SQL sent to the data warehouse. This can help with debugging or let you move a query into a tool like Mode Analytics for more advanced analysis.
+
+##### Identifier Types
+
+These are all of the types of identifiers you use to split traffic in an experiment and track metric conversions. Common examples are `user_id`, `anonymous_id`, `device_id`, and `ip_address`.
+
+##### Experiment Assignment Queries
+
+An experiment assignment query returns which users were part of which experiment, what variation they saw, and when they saw it. Each assignment query is tied to a single identifier type (defined above). You can also have multiple assignment queries if you store that data in different tables, for example one from your email system and one from your back-end.
+
+The end result of the query should return data like this:
+
+| user_id | timestamp           | experiment_id  | variation_id |
+| ------- | ------------------- | -------------- | ------------ |
+| 123     | 2021-08-23-10:53:04 | my-button-test | 0            |
+| 456     | 2021-08-23 10:53:06 | my-button-test | 1            |
+
+The above assumes the identifier type you are using is `user_id`. If you are using a different identifier, you would use a different column name.
+
+Here's an example query you might use:
+
+```sql
+SELECT
+  user_id,
+  received_at as timestamp,
+  experiment_id,
+  variation_id
+FROM
+  events
+WHERE
+  event_type = 'viewed experiment'
+```
+
+Make sure to return the exact column names that GrowthBook is expecting. If your table’s columns use a different name, add an alias in the SELECT list (e.g. `SELECT original_column as new_column`).
+
+##### Duplicate Rows
+
+If a user sees an experiment multiple times, you should return multiple rows in your assignment query, one for each time the user was exposed to the experiment.
+
+This helps us detect when users were exposed to more than one variation, and eventually may be useful in helping build interesting time series.
+
+##### Experiment Dimensions
+
+In addition to the standard 4 columns above, you can also select additional dimension columns. For example, `browser` or `referrer`. These extra columns can be used to drill down into experiment results.
+
+##### Identifier Join Tables
+
+If you have multiple identifier types and want to be able to auto-merge them together during analysis, you also need to define identifier join tables. For example, if your experiment is assigned based on `device_id`, but the conversion metric only has a `user_id` column.
+
+These queries are very simple and just need to return columns for each of the identifier types being joined. For example:
+
+```sql
+SELECT user_id, device_id FROM logins
+```
+
+##### SQL Template Variables
+
+Within your queries, there are several placeholder variables you can use. These will be replaced with strings before being run based on your experiment. This can be useful for giving hints to SQL optimization engines to improve query performance.
+
+The variables are:
+
+- **startDate** - `YYYY-MM-DD HH:mm:ss` of the earliest data that needs to be included
+- **startYear** - Just the `YYYY` of the startDate
+- **startMonth** - Just the `MM` of the startDate
+- **startDay** - Just the `DD` of the startDate
+- **startDateUnix** - Unix timestamp of the startDate (seconds since Jan 1, 1970)
+- **endDate** - `YYYY-MM-DD HH:mm:ss` of the latest data that needs to be included
+- **endYear** - Just the `YYYY` of the endDate
+- **endMonth** - Just the `MM` of the endDate
+- **endDay** - Just the `DD` of the endDate
+- **endDateUnix** - Unix timestamp of the endDate (seconds since Jan 1, 1970)
+- **experimentId** - Either a specific experiment id OR `%` if you should include all experiments
+
+For example:
+
+```sql
+SELECT
+  user_id,
+  anonymous_id,
+  received_at as timestamp,
+  experiment_id,
+  variation_id
+FROM
+  experiment_viewed
+WHERE
+  received_at BETWEEN '{{ startDate }}' AND '{{ endDate }}'
+  AND experiment_id LIKE '{{ experimentId }}'
+```
+
+**Note:** The inserted values do not have surrounding quotes, so you must add those yourself (e.g. use `'{{ startDate }}'` instead of just `{{ startDate }}`)
+
+#### Jupyter Notebook Query Runner
+
+This setting is only required if you want to export experiment results as a Jupyter Notebook.
+
+There is no one standard way to store credentials or run SQL queries from Jupyter notebooks, so GrowthBook lets you define your own Python function.
+
+It needs to be called `runQuery`, accept a single string argument named `sql`, and return a pandas data frame.
+
+Here's an example for a Postgres (or Redshift) data source:
+
+```python
+import os
+import psycopg2
+import pandas as pd
+from sqlalchemy import create_engine, text
+
+# Use environment variables or similar for passwords!
+password = os.getenv('POSTGRES_PW')
+connStr = f'postgresql+psycopg2://user:{password}@localhost'
+dbConnection = create_engine(connStr).connect();
+
+def runQuery(sql):
+  return pd.read_sql(text(sql), dbConnection)
+```
+
+**Note:** This python source is stored as plain text in the database. Do not hard-code passwords or sensitive info. Use environment variables (shown above) or another credential store instead.
+
+### Mixpanel
+
+We have a detailed guide on how to set up [Mixpanel with GrowthBook](/guide/mixpanel).
+
+We query Mixpanel using JQL. We have sensible defaults for the event and property names, but you can change them if you need to.
+
+- Experiments
+  - **View Experiments Event** - The name of the event you are firing when a user is put into a variation
+  - **Experiment Id Property** - The property name that stores the experiment tracking key
+  - **Variation Id Property** - The property name that stores the variation the user was assigned
+  - **Extra UserId Property** - _(optional)_ An additional event property to add to the groupBy (`distinct_id` is always included)
+
+Below is an example of what your Mixpanel tracking call would look like in Javascript using our default settings:
+
+```js
+// Tracking Callback for GrowthBook SDK
+const growthbook = new GrowthBook({
+  ...,
+  trackingCallback: function(experiment, result) {
+    mixpanel.track("$experiment_started", {
+      "Experiment name": experiment.key,
+      "Variant name":  result.variationId,
+      "$source": "growthbook",
+    })
+  }
+})
+```
+
+When we query Mixpanel, we group users by `distinct_id`. We recommend passing this into the GrowthBook SDK as the user attribute `id`. This varies by platform, but below is a javascript example:
+
+```js
+// Can only get the distinct_id after Mixpanel fully loads
+mixpanel.init("YOUR PROJECT TOKEN", {
+  loaded: function (mixpanel) {
+    growthbook.setAttributes({
+      ...growthbook.getAttributes(),
+      id: mixpanel.get_distinct_id(),
+    });
+  },
+});
+```
+
+## Connection Info
+
+Connection info is encrypted twice - once within the app and again by the database when persisting to disk.
+
+GrowthBook only runs `SELECT` queries (or the equivalent for non-SQL data sources). We still always recommend creating read-only users with as few permissions as possible.
+
+If you are using GrowthBook Cloud (https://app.growthbook.io), make sure to whitelist the ip address `52.70.79.40` if applicable.
+
+Most data sources have straight forward connection parameters like host, port, username, password. A few of the data sources, documented below, require some extra work to connect.
+
+### AWS Athena
+
+Unlike other database engines with their own user management system, Athena uses IAM for authentication.
+
+We recommend creating a new role with readonly permissions for GrowthBook. The managed [Quick Sight Policy](https://docs.aws.amazon.com/athena/latest/ug/awsquicksightathenaaccess-managed-policy.html) is a good starting point.
+
+For the S3 results url, we recommend naming your bucket with the prefix `aws-athena-query-results-`
+
+There are two ways to provide AWS credentials to GrowthBook:
+
+1. Auto-discovery from environment variables or instance metadata (only available when self-hosting)
+2. Enter the accessKeyId and secretAccessKey in the GrowthBook UI when connecting to the data source
+
+### BigQuery
+
+We have a detailed page on how to set up [BiqQuery with GrowthBook](/guide/bigquery).
+
+The quick guide:
+
+You must first create a Service Account in Google with the following roles:
+
+- Data Viewer
+- Metadata Viewer
+- Job User
+
+There are two ways to provide credentials to GrowthBook:
+
+1. Auto-discovery from environment variables or GCP metadata (only available when self-hosting)
+2. Upload a JSON key file for the service account
+
+### Snowflake
+
+We support multiple [account identifier](https://docs.snowflake.com/en/user-guide/admin-account-identifier.html) formats when connecting to Snowflake. An example account identifier is `xy12345.us-east-2.aws`.
+
+If you are self-hosting GrowthBook, you can send queries to Snowflake through an Authenticated Proxy.
+
+To enable this, set a `SNOWFLAKE_PROXY` environment variable in your GrowthBook container. Here is an example:
+
+```
+SNOWFLAKE_PROXY=http://username:password@proxyserver.company.com:80
+```
+
+### Mixpanel
+
+You must first create a Service Account in Mixpanel under your [Project Settings](https://mixpanel.com/settings/project#serviceaccounts).
+
+To add the datasource in GrowthBook, you will need:
+
+1.  The service account username
+2.  The service account secret
+3.  Your project id (found on the Project Settings Overview page)
+
+### Universal Google Analytics
+
+**Note:** The Google Analytics data source only supports older Universal Analytics properties. If you are using Google Analytics v4 property, you need to [setup a BigQuery export](https://support.google.com/analytics/answer/9823238) and use that as the data source instead.
+
+Because of Universal Analytics tracking limitations, a user can only be in a single experiment at a time. We highly recommend using a more full-featured data source for serious A/B testing.
+
+We require 4 things to query the Universal Analytics API:
+
+1.  OAuth Authorization
+2.  View ID (found in Admin -> View Settings)
+3.  Custom Dimension Index
+4.  Custom Dimension Delimiter (defaults to `:`)
+
+When tracking experiment views, the custom dimension value must be formatted as `{experiment-key}{delimiter}{variation-index}`. For example: `my-test:0` for the control and `my-test:1` for the 1st variation.

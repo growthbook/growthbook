@@ -1,0 +1,299 @@
+---
+title: Vue.js 🚧
+description: GrowthBook SDK for Vue.js
+sidebar_label: Vue.js
+slug: vue
+toc_max_heading_level: 5
+---
+
+import ExternalLink from '@site/src/components/ExternalLink'
+
+This page includes example implementations for Vue 3 (composition API) and Vue 2 (options API).
+
+The Vue.js implementations are a light wrapper around the [JavaScript library](/lib/js), so you may want to view those docs first to familiarize yourself with the basic classes and methods.
+
+## Installation
+
+Add the `@growthbook/growthbook` package to your project.
+
+With Yarn:
+
+```sh
+yarn add @growthbook/growthbook
+```
+
+With NPM:
+
+```sh
+npm i --save @growthbook/growthbook
+```
+
+With unpkg:
+
+```html
+<script type="module">
+  import { GrowthBook } from "https://unpkg.com/@growthbook/growthbook/dist/bundles/esm.min.js";
+  //...
+</script>
+```
+
+## Vue 3 &rarr; Composition API
+
+### Create a provider
+
+First, we're going to create a provider that can be injected in your app.
+
+Create a file `./src/utils/growthbook/growthbook.ts` and add the following code:
+
+```ts title="./src/utils/growthbook/growthbook.ts"
+import type { App, InjectionKey } from "vue";
+import { GrowthBook } from "@growthbook/growthbook";
+
+/**
+ * Configuration for the options passed to the app.use() call
+ */
+export type GrowthBookVuePluginConfig = {
+  /**
+   * The endpoint that your features are hosted on. Get this from the Environments -> SDK Endpoints section
+   */
+  featuresEndpoint: string;
+
+  /**
+   * Allows you to use the Chrome DevTools Extension to test/debug.
+   * Learn more: https://docs.growthbook.io/tools/chrome-extension
+   */
+  enableDevMode: boolean;
+};
+
+/**
+ * The provided GrowthBook would be null in the event that the API call to the features endpoint fails.
+ */
+type GrowthBookProvider = {
+  init: () => Promise<GrowthBook | null>;
+};
+
+export const growthBookKey = Symbol() as InjectionKey<GrowthBookProvider>;
+
+const getFeaturesJson = async (
+  featuresEndpoint: string
+): Promise<Record<string, any>> => {
+  const response = await fetch(featuresEndpoint);
+  return await response.json();
+};
+
+export const growthBookPlugin = {
+  install(
+    app: App,
+    { featuresEndpoint, enableDevMode = false }: GrowthBookVuePluginConfig
+  ) {
+    let growthBook: GrowthBook | null = null;
+
+    const init = async (): Promise<GrowthBook | null> => {
+      if (growthBook) {
+        return growthBook;
+      }
+
+      try {
+        const json = await getFeaturesJson(featuresEndpoint);
+
+        growthBook = new GrowthBook({
+          enableDevMode,
+        });
+
+        growthBook.setFeatures(json.features);
+
+        return growthBook;
+      } catch (e) {
+        console.error("GrowthBook Vue plugin error", e);
+        return null;
+      }
+    };
+
+    app.provide<GrowthBookProvider>(growthBookKey, {
+      init,
+    });
+  },
+};
+```
+
+### Add the provider to your app
+
+Next, in the `./src/main.ts` file of your app, use this new plugin we just created:
+
+```ts title="./src/main.ts"
+import { growthBookPlugin } from "@/utils/growthbook/growthbook";
+
+const app = createApp(App);
+
+app.use(router);
+
+// Use the new GrowthBook plugin like other plugins
+app.use(growthBookPlugin, {
+  featuresEndpoint: "https://cdn.growthbook.io/api/features/:env_key",
+  enableDevMode: true,
+});
+
+app.mount("#app");
+```
+
+You can find your features endpoint on the [Environments &rarr; SDK Endpoints page <ExternalLink/>](https://app.growthbook.io/environments).
+
+### Use GrowthBook in your components
+
+Next, to use the GrowthBook SDK in our components, we will need to inject it, initialize the SDK with user attributes, and then check features.
+
+```ts title="<script setup lang='ts'>"
+import { inject, onMounted, ref } from "vue";
+import { growthBookKey } from "@/utils/growthbook/growthbook";
+
+const growthBookInjectable = inject(growthBookKey);
+
+const bannerText = ref<string>("");
+
+onMounted(() => {
+  growthBookInjectable?.init().then((growthBook) => {
+    if (!growthBook) {
+      console.error("GrowthBook failed to initialize");
+      return;
+    }
+
+    growthBook.setAttributes({
+      loggedIn: true,
+      country: "canada",
+      employee: true,
+      id: "user-employee-123456789",
+    });
+
+    const evaluatedBannerText = growthBook.getFeatureValue("banner_text", "");
+    if (typeof evaluatedBannerText !== "undefined") {
+      bannerText.value = evaluatedBannerText;
+    }
+  });
+});
+```
+
+The above code will allow you to use the dynamic `{{bannerText}}` value in your template.
+
+## Vue 2 &rarr; Options API
+
+### Create a provider
+
+First, we're going to create a provider that can be injected in your app.
+
+Create a file `./src/utils/growthbook/growthbook.js` and add the following code:
+
+```js title="./src/utils/growthbook/growthbook.ts"
+import { GrowthBook } from "@growthbook/growthbook";
+
+const getFeaturesJson = (featuresEndpoint) => {
+  return fetch(featuresEndpoint)
+    .then((response) => {
+      return response.json()
+    })
+}
+
+export const GrowthBookVuePlugin = {
+  install: function (Vue, { featuresEndpoint, enableDevMode = false }) {
+    let growthBook = null;
+
+    Vue.prototype.initGrowthBook = function initGrowthBook() {
+      if (growthBook) {
+        return Promise.resolve(growthBook);
+      }
+
+      return getFeaturesJson(featuresEndpoint)
+        .then((json) => {
+          growthBook = new GrowthBook({
+            enableDevMode,
+          });
+
+          growthBook.setFeatures(json.features);
+
+          return growthBook;
+        })
+        .catch((error) => {
+          console.error("GrowthBook Vue plugin initialization error", error);
+          return null;
+        })
+    }
+  }
+}
+```
+
+### Add the provider to your app
+
+Next, in the `./src/main.js` file of your app, use this new plugin we just created:
+
+```js title="./src/main.js"
+import Vue from 'vue'
+import App from './App.vue'
+import { GrowthBookVuePlugin } from './utils/growthbook/growthbook'
+
+Vue.config.productionTip = false
+
+Vue.use(GrowthBookVuePlugin, {
+  featuresEndpoint: "https://cdn.growthbook.io/api/features/:feature_key",
+  enableDevMode: true,
+})
+
+new Vue({
+  render: h => h(App),
+}).$mount('#app')
+
+```
+
+You can find your features endpoint on the [Environments &rarr; SDK Endpoints page <ExternalLink/>](https://app.growthbook.io/environments).
+
+### Use GrowthBook in your components
+
+Next, to use the GrowthBook SDK in our components, we will need to inject it, initialize the SDK with user attributes, and then check features.
+
+```js title="<script>"
+export default {
+  name: 'PublicPage',
+
+  props: {},
+
+  mounted() {
+    this
+      .initGrowthBook()
+      .then((growthBook) => {
+        if (!growthBook) {
+          console.warn('GrowthBook failed to initialize. Feature flags and experiments not active.')
+          return
+        }
+
+        growthBook.setAttributes({
+          loggedIn: true,
+          country: "france",
+          employee: false,
+          id: "user-abc123",
+        });
+
+        const evaluatedBannerText = growthBook.getFeatureValue("banner_text", "");
+        if (typeof evaluatedBannerText !== "undefined") {
+          this.bannerText = evaluatedBannerText;
+        }
+      })
+      .catch((error) => {
+        console.error('Unknown Error', error)
+      })
+      .finally(() => {
+        this.loading = false
+      })
+  },
+
+  data() {
+    return {
+      bannerText: '',
+    }
+  }
+}
+```
+
+The above code will allow you to use the dynamic `{{bannerText}}` value in your template.
+
+## Examples
+
+- [Vue 3 composition API example <ExternalLink />](https://github.com/growthbook/examples/tree/main/javascript-vue-composition)
+- [Vue 2 options API example <ExternalLink />](https://github.com/growthbook/examples/tree/main/javascript-vue-options)

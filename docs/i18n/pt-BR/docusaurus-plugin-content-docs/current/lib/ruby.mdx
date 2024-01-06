@@ -1,0 +1,156 @@
+---
+title: Ruby SDK 🚧
+description: GrowthBook SDK for Ruby
+sidebar_label: Ruby
+slug: ruby
+---
+
+import ExternalLink from '@site/src/components/ExternalLink'
+
+# Ruby
+
+View the full source code at [https://github.com/growthbook/growthbook-ruby](https://github.com/growthbook/growthbook-ruby).
+
+## Installation
+
+Install the gem
+
+`gem install growthbook`
+
+## Quick start
+
+```ruby
+require 'growthbook'
+require 'uri'
+require 'net/http'
+require 'json'
+
+# Fetch features from GrowthBook API (or a Redis cache, etc.)
+uri = URI('https://cdn.growthbook.io/api/features/MY_API_KEY')
+res = Net::HTTP.get_response(uri)
+features = res.is_a?(Net::HTTPSuccess) ? JSON.parse(res.body)['features'] : nil
+
+# Create a context for the current user/request
+gb = Growthbook::Context.new(
+  features: features,
+  # User attributes for targeting / variation assignment
+  attributes: {
+    id: '123',
+    country: 'US'
+  }
+)
+
+# Use a boolean feature flag
+if gb.on? :my_feature_key
+  puts 'My feature is on!'
+end
+
+# Get the value of a multivariate feature with a fallback
+btn_color = gb.feature_value(:signup_btn_color, 'pink')
+```
+
+## Track experiment impressions
+
+When a feature's value is determined by an experiment (A/B test), you typically want to track that assignment event for later analysis.
+
+There are two ways to do this. First is by accessing all impressions at the end of a request:
+
+```ruby
+gb.impressions.each do |key, result|
+  puts "Assigned variation #{result.variation_id} in experiment #{key}"
+end
+```
+
+Second is by using a listener to get alerted in realtime as users are put into experiments:
+
+```ruby
+class MyImpressionListener
+  def on_experiment_viewed(experiment, result)
+    puts "Assigned variation #{result.variation_id} in experiment #{experiment.key}"
+  end
+end
+
+gb.listener = MyImpressionListener.new
+```
+
+## Using with Rails
+
+The recommended way to use GrowthBook with a Rails app is as follows:
+
+1. Fetch the features from the GrowthBook API (or a cache) once at server startup
+2. At the start of each request, create a new Context object
+3. Use the Context object to evaluate features and run experiments during the request
+4. At the end of a request, track experiment impressions (if any) and destroy the Context instance
+5. (optional) Periodically refresh the list of features from the GrowthBook API in the background
+
+## Dev and QA helpers
+
+For dev/QA it's often useful to force specific feature values.
+
+```ruby
+# These take precedence over everything else when determining a feature's value
+gb.forced_features = {
+  my_feature: true,
+  other_feature: "new value"
+}
+
+# Will always be true
+gb.is_on?(:my_feature)
+
+# Will always be "new value"
+gb.feature_value(:other_feature)
+```
+
+For more predictability during QA, you can also globally disable all random assignment in experiments from running:
+
+```ruby
+gb.enabled = false
+```
+
+## Inline experiments
+
+It's also possible to directly run an experiment directly in code without going through a feature flag.
+
+```ruby
+# Simple 50/50 experiment
+result = gb.run(Growthbook::InlineExperiment.new(
+  key: "my-experiment-key",
+  variations: ["red", "green"]
+))
+
+# Whether or not the user was included in the experiment (either true or false)
+puts(result.in_experiment ? 'included' : 'excluded')
+
+# The value of the assigned variation (either "red" or "green")
+puts(result.value)
+
+# The variation index (either 0 or 1)
+puts(result.variation_id)
+```
+
+There are lots of additional options when running inline experiments:
+
+```ruby
+gb.run(Growthbook::InlineExperiment.new(
+  key: "my-experiment-key",
+  variations: ["red", "green"],
+  # Filter by context attributes
+  condition: {
+    country: {
+      "$in": ["US", "CA"]
+    }
+  },
+  # Adjust variation weights from the default 50/50 split
+  weights: [0.8, 0.2],
+  # Run for a subset of traffic (0 to 1, default = 1)
+  coverage: 0.5,
+  # Use a different context attribute for assigning a variation (default = "id")
+  hash_attribute: "device_id",
+  # Use a namespace to run mutually exclusive experiments
+  namespace: ["pricing-page", 0, 0.25]
+))
+```
+
+## Code Examples
+
+- [Ruby on Rails example <ExternalLink />](https://github.com/growthbook/examples/tree/main/acme_donuts_rails)

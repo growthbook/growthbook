@@ -1,0 +1,107 @@
+---
+title: GrowthBook and Google Analytics UA
+description: This guide walks you through using GrowthBook with Google Analytics Universal Analytics (UA) to track your experiments and measure their impact on your business.
+sidebar_label: Google Analytics (UA) 🚧
+slug: GA-universal-analytics
+---
+
+# Configuring GrowthBook to work with Google Analytics - Universal Analytics (UA)
+
+:::info
+GrowthBook supports using your existing Google Analytics UA as a data source
+for your experiment analysis. Keep in mind, however, that there are some
+limitations with using GA as data source, namely it only supports running one
+experiment at a time. Using GA4 (or any other supported event tracking) as a
+data source provides more flexibility and has no limits.
+
+  <br />
+  <br />
+Also please be aware that GA UA is being deprecated, and will not collect new data after <strong>July 1, 2023</strong>.
+:::
+
+## 1. Connect GrowthBook to GA
+
+GrowthBook uses one of the custom dimensions that you define in GA to pass in with your gtag call. The value
+you pass for this dimension is in the format of `[experiment key][delimiter][variation id]`. In this example
+we’ll use dimension `1`, and a colon as a delimiter.
+
+You set the custom dimension you’re going to use as
+well as the divider string when you connect GrowthBook to your GA data source:
+
+<img
+  src="/images/guides/GA-datasource.png"
+  alt="GA Data Source"
+  style={{ width: 500, margin: "0 auto 10px auto" }}
+/>
+
+:::note
+
+The `delimiter` mentioned above is needed for GA as both the experiment name and the variation id need to be passed into a single text value. You can think of the delimiter as just a diver or seperator between those two fields.
+
+:::
+
+## 2. Implement the the GrowthBook code
+
+Add the gtag to the GrowthBook tracking callback. The exact implementation will depend on the SDK you're using,
+but should look similar to the javascript example shown here:
+
+```ts
+// Create a GrowthBook instance
+const growthbook = new GrowthBook({
+  trackingCallback: (experiment, result) => {
+    if ("gtag" in window) {
+      window.gtag("event", "experiment_viewed", {
+        event_category: "experiment",
+        event_label: result.variationId,
+        event_action: experiment.key,
+        dimension1: experiment.key + ":" + result.variationId,
+      });
+    } else {
+      console.log("no gtag");
+    }
+  },
+});
+```
+
+You can also map the dimension name passed in google, by defining it in gtag config:
+
+```ts
+gtag("config", "UA-1234...", {
+  custom_map: { dimension1: "experiment" },
+});
+```
+
+When you define a custom map, the last line in the tracking callback will be mapped from dimension1 to the name
+you chose, in this case ‘experiment.’ Therefore, if you do this, the last line of your gtag call would become:
+
+```ts
+ 'experiment':  experiment.key+":"+result.variationId
+```
+
+## 3. Add Dimension in Google Analytics
+
+Within GA you need to map the custom dimension:
+
+<img
+  src="/images/guides/GA-admin-add-dimension.png"
+  alt="GA add custom dimension"
+  style={{ margin: "0 auto 2em" }}
+/>
+
+<img
+  src="/images/guides/GA-edit-custom-dimension.png"
+  alt="GA edit dimension"
+  style={{ width: 300, margin: "0 auto" }}
+/>
+
+The name here is for your internal use, and it can be whatever you like. At the end, you should see a dimension like this:
+
+<img
+  src="/images/guides/GA-dimension-result.png"
+  alt="GA edit dimension"
+  style={{ margin: "0 auto" }}
+/>
+
+With this done, you can add metrics within GrowthBook, and start implementing an experiment.
+
+Keep in mind that it takes a day for event data to show up in GA and therefore will take a day to show up in GrowthBook as well.

@@ -1,0 +1,34 @@
+{
+  "item.label.Docs": {
+    "message": "Docs",
+    "description": "Item da navbar com rótulo Docs"
+  },
+  "item.label.API": {
+    "message": "API",
+    "description": "Item da navbar com rótulo API"
+  },
+  "item.label.Home": {
+    "message": "Início",
+    "description": "Item da navbar com rótulo Início"
+  },
+  "item.label.Log in / sign up": {
+    "message": "Login / Cadastrar",
+    "description": "Item da navbar com rótulo Login / Cadastrar"
+  },
+  "item.label.GitHub": {
+    "message": "GitHub",
+    "description": "Item da navbar com rótulo GitHub"
+  },
+  "item.label.Support": {
+    "message": "Suporte",
+    "description": "Item da navbar com rótulo Suporte"
+  },
+  "item.label.Join our Slack": {
+    "message": "Junte-se ao nosso Slack",
+    "description": "Item da navbar com rótulo Junte-se ao nosso Slack"
+  },
+  "item.label.Open an issue": {
+    "message": "Reporte um problema",
+    "description": "Item da navbar com rótulo Reporte um problema"
+  }
+}

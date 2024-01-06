@@ -1,0 +1,170 @@
+---
+title: GrowthBook and BigQuery
+description: This guide walks you through installing GrowthBook SDK into your Create React App
+sidebar_label: Create React App 🚧
+slug: create-react-app-and-growthbook
+---
+
+# GrowthBook and Create React App
+
+## 1. Set up Create React App
+
+Create React App is simple to get a new project started. This guide does the standard process with one extra command
+to install the GrowthBook SDK and the nanoid library:
+
+```bash
+npx create-react-app my-app
+cd my-app
+npm install --save @growthbook/growthbook-react nanoid
+npm start
+```
+
+Then open `http://localhost:3000/` and make sure the app is working
+
+## 2. Set up GrowthBook
+
+In this tutorial assume you are using the cloud-hosted version of GrowthBook, which is free for small teams, but you can
+also use the open source version and host it yourself if you prefer.
+
+:::note
+GrowthBook uses the concept of Feature Flagging to run A/B tests. Basically,
+you wrap the code you want to test in a conditional check
+
+<pre>if (feature.on) ...</pre>and then you run an A/B test within GrowthBook to turn the feature on for 50% of users and off for the other 50% (or whatever
+
+percentage you like).
+:::
+
+To start, go to https://app.growthbook.io and register a new account. Then there are a couple steps required before you
+can run an experiment.
+
+## 3. Install and configure the SDK
+
+Next, click on Step 1: Install our SDK and you should see API keys for dev/production as well as sample code.
+
+Since you already ran the npm i command at the start, you can skip that part. I'll walk through the different parts below:
+
+First, in `src/index.js`, import the GrowthBook SDK and nanoid library:
+
+```ts
+// ... after existing imports
+import { GrowthBook, GrowthBookProvider } from "@growthbook/growthbook-react";
+import { nanoid } from "nanoid";
+```
+
+Then you will need to generate an anonymous visitor id, which is used to assign an A/B test variation to a user. In this example we'll
+persist this id in localStorage so if the user refreshes our app they will get assigned the same variation as before.
+
+```ts
+let visitor_id = localStorage.getItem("visitor_id");
+if (!visitor_id) {
+  visitor_id = nanoid();
+  localStorage.setItem("visitor_id", visitor_id);
+}
+```
+
+Then, you create a GrowthBook instance with our visitor id and a tracking callback when a user is put into an experiment.
+
+```ts
+const growthbook = new GrowthBook({
+  attributes: {
+    id: visitor_id,
+  },
+  trackingCallback: (experiment, result) => {
+    console.log({
+      experimentId: experiment.key,
+      variationId: result.variationId,
+    });
+  },
+});
+```
+
+After that, you can fetch the list of features from the GrowthBook API and pass them into the SDK:
+
+```ts
+const FEATURES_ENDPOINT = "https://cdn.growthbook.io/api/features/...";
+
+fetch(FEATURES_ENDPOINT)
+  .then((res) => res.json())
+  .then((json) => {
+    growthbook.setFeatures(json.features);
+  });
+```
+
+Make sure to swap out the `FEATURES_ENDPOINT` constant above with your own dev API key you see in the GrowthBook application.
+
+Lastly, you'll need to wrap the app in a GrowthBookProvider component which will let us run A/B tests from anywhere in the app.
+
+```html
+ReactDOM.render(
+<React.StrictMode>
+  <GrowthBookProvider growthbook={growthbook}>
+    <App />
+  </GrowthBookProvider>
+</React.StrictMode>, document.getElementById('root')
+);
+```
+
+## 4. Create and use a feature
+
+Now that the SDK is installed and fully integrated in our application, you can finally create the `show-logo` feature.
+
+Back in GrowthBook, Click on Step 2 of the quick start instruction or click on add new feature. Fill in the following info:
+
+- Feature key: `show-logo`
+- Dev: toggle on
+- Prod: toggle off
+- Value Type: boolean (on/off)
+- Behavior: A/B Experiment
+- Tracking Key: `show-logo`
+- Sample Users based on attribute: `id`
+- Variations and Weights: leave default (OFF/ON, 50/50 split)
+- Fallback Value: `OFF`
+
+There's a lot of fields there, but hopefully it's pretty straight forward what's happening. We setup a new boolean feature called show-logo, that's only enabled in dev and running an A/B test where 50% get ON and 50% get OFF
+
+Now you can switch back to our React app and reference this feature in our code.
+
+In src/App.js, we currently have the following code:
+
+```html
+<img src={logo} className="App-logo" alt="logo" />
+```
+
+Let's add an import at the top of the file:
+
+```js
+import { IfFeatureEnabled } from "@growthbook/growthbook-react";
+```
+
+And wrap the img element in an IfFeatureEnabled component:
+
+```html
+<IfFeatureEnabled feature="show-logo">
+  <img src={logo} className="App-logo" alt="logo" />
+</IfFeatureEnabled>
+```
+
+Now, if you refresh your app, the A/B test should be running! If you're part of the lucky 50% that are in the B variation (no logo), it should be pretty obvious. If you happen to be in the A variations, you can verify you're in the test by looking in DevTools for our trackingCallback console.log.
+
+You can test out different variations by deleting the visitor_id from localStorage and refreshing your app. Repeat a few times and you should see each version of the page about half of the time. If you want an easier and faster way to QA the variations, you can download the GrowthBook Chrome DevTools Extension.
+
+## 5. Analyze Results
+
+Before you can analyze the results, you will need to connect GrowthBook to the event tracking and a data source. In the
+trackingCallback in `src/index.js`, instead of doing a `console.log`, you could use [Mixpanel](/guide/mixpanel), Rudderstack, Jitsu,
+Segment or another event tracking system.
+
+Then, throughout your app, you can similarly track events when users do something you care about, like sign up, convert, or buy something.
+
+Once you do that, GrowthBook can connect to your event tracking system, query the raw data, run it through a stats engine,
+and show you the results. Follow the directions for the data source you're using.
+
+## Next Steps
+
+There's so much more you can do with GrowthBook beyond a simple on/off A/B test...
+
+- Add complex targeting and override rules for your features
+- Read the full [React SDK Docs](/lib/react) for more details and ways to use feature flags
+- Install the [Chrome DevTools Extension](https://chrome.google.com/webstore/detail/growthbook-devtools/opemhndcehfgipokneipaafbglcecjia) to test different variations and scenarios
+- Read about the [powerful statistics engine](/statistics/overview) that is used to analyze experiment results.

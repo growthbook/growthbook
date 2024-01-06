@@ -1,0 +1,143 @@
+---
+title: FAQ
+description: Frequently asked questions about GrowthBook.
+sidebar_label: FAQ 🚧
+slug: faq
+---
+
+# FAQ
+
+Below are some frequently asked questions about GrowthBook.
+
+## Do users always get assigned the same experiment variation?
+
+GrowthBook SDKs use deterministic hashing to ensure the same user always gets assigned the same variation in an experiment.
+
+In a nutshell, GrowthBook hashes together the user id and the experiment `trackingKey` which produces a decimal between 0 and 1. Each variation is assigned a range of values (e.g. `0 to 0.5` and `0.5 to 1.0`) and the user is assigned to whichever one their hash falls into.
+
+This does mean, if you change the experiment configuration, some users may switch their assigned variation. For example, if someone has the hash `0.49` and you adjust the weights to a 40/60 experiment, the variation ranges become `0 to 0.4` and `0.4 to 1.0`. In this case, the user was previously in the control group, but will now be in the variation.
+
+GrowthBook will detect issues like this and will remove users who see both variations from the analysis automatically. However, to keep things simple and safe, we recommend not relying on this and treating experiments as immutable once they are running.
+
+It's important to note that the above only applies when changing the traffic split between variations. If you keep the split the same, but increase the percent of traffic included, users will not switch variations. For example, if you are running a 50/50 experiment on 20% of traffic, the variation ranges will be `0 to 0.1` and `0.5 to 0.6`. Users outside those ranges will be excluded from the experiment. If you increase the percent of traffic to 40%, but keep the 50/50 split, the ranges will become: `0 to 0.2` and `0.5 to 0.7`. As you can see, no users switch variations. Instead, some users who were previously excluded are now part of the experiment.
+
+## What do I use for an "id" attribute in the SDK if my users aren't logged in?
+
+If your application has both logged-in and anonymous users, we recommend using two identifier attributes:
+
+- `id` which is the database identifier of logged-in users (or empty string for anonymous)
+- `deviceId` (or `sessionId`, etc.) which is a random anonymous hash, persisted in a cookie or local storage. This should always be set for both anonymous and logged-in users.
+
+If your application only has anonymous users (e.g. a static marketing site), then we recommend a single `id` attribute which, similar to `deviceId` or `sessionId` above, is a random hash persisted in a cookie or local storage.
+
+## Why is the trackingCallback not firing in the SDK?
+
+The `trackingCallback` only fires when a user is included in an experiment. If you're expecting to be included and you're still not seeing the callback fire, it's likely for one of the following reasons:
+
+- You are missing the `hashAttribute` for the experiment. For example, when you are splitting users by "company", but the company attribute is empty.
+- The feature is disabled for the environment you are in (dev/prod)
+- The experiment has reduced coverage. For example, if it's only running for 10% of users and you are in the 90% that are excluded.
+- There is another feature rule that is taking precedence over the experiment.
+
+If you are using the Javascript or React SDK in a browser environment, you can install the [GrowthBook DevTools Chrome Extension](https://chrome.google.com/webstore/detail/growthbook-devtools/opemhndcehfgipokneipaafbglcecjia) to help you debug.
+
+**Note**: To use the plugin, you will need to pass `enableDevMode: true` when creating your GrowthBook instance.
+
+```ts
+const growthbook = new GrowthBook({
+  enableDevMode: true,
+},
+```
+
+## How do I run an A/B test in GrowthBook?
+
+The recommended way to run an A/B test is by using Feature Flags and our SDKs.
+
+1. Create a feature in GrowthBook (e.g. `new-signup-form`) with an A/B Experiment rule
+2. Use our SDKs to serve the different variations
+   ```ts
+   if (growthbook.feature("new-signup-form").on) {
+     // Variation
+   } else {
+     // Control
+   }
+   ```
+
+## How much traffic do I need to run A/B tests?
+
+What matters most for A/B testing is not traffic, but conversions. The general rule of thumb is to have at least 100-200 conversions per variation before you might start reaching significance.
+
+So that means if you do 50 orders per week and that's the metric you are trying to optimize, you'll need to run a simple 2-way A/B test for at least 4-8 weeks. If you run a 3-way test, it will take 6-12 weeks.
+
+## Can I run multiple A/B tests at a time?
+
+Yes! In fact, we recommend running many experiments in parallel in your application. Most A/B tests fail, so the more shots-on-goal you take, the more likely you are to get a winner. Running tests in parallel is a great way to increase your velocity.
+
+Now it's possible your experiments might have interaction effects, but these are actually pretty rare in practice. One example is if one test is changing the text color on a page and another test is changing the background color. Some users might see end up seeing black text on a black background, which is obviously not ideal. For these rare cases, you can use [Namespaces](/app/features#namespaces) to run mutually exclusive experiments.
+
+As long as you apply a little common sense to avoid situations like the above, running multiple experiments has low risk and really high reward.
+
+## What is the difference between a Dimension and a Segment?
+
+A dimension is a user attribute that can have multiple values. Some examples are `country`, `account_type`, and `browser`.
+
+A segment is a specific group of users. Some examples are `visitors in the US`, `premium users`, and `chrome users`.
+
+Dimensions are used to explore experiment results. For example, you can use a `country` dimension to see which countries had the highest conversion rates. Or an `account_type` dimension to see if there was a significant difference in how free vs paid users behaved. Or a `browser` dimension to detect any browser-specific bugs in your implementation.
+
+Segments can apply a filter to results, usually to compensate for bad data. For example, if your experiment was only visible to premium users, but your database inaccurately shows that free users were also included, you could apply a `premium users` segment to only include those who were actually exposed to the test. Ideally, you could just fix the underlying data, but that's often not feasible so segments provide a quick and dirty alternative.
+
+## Which docker image tag should I use when self-hosting?
+
+We recommend using the `latest` tag for both dev and production self-hosted deployments. This tag represents the latest stable build of GrowthBook and is what the Cloud app uses.
+
+Specific version tags (e.g. `v1.1.0`) are only released periodically (about once a month) and you will miss out on the many bug fixes and features added between major releases.
+
+We also recommend updating the image regularly. You can do that by downloading the latest image (`docker pull growthbook/growthbook:latest`) and restarting the container.
+
+## What are the hardware requirements for self-hosting GrowthBook?
+
+The GrowthBook application is very lightweight and efficient. For most usecases, 2GB of memory is sufficient even for large production deployments.
+
+GrowthBook only deals with aggregate data and the bulk of the processing is offloaded to your data source. Because of this, you can easily analyze terrabytes of data from your laptop or a small container in the cloud.
+
+If you are using feature flags, we recommend adding a caching layer between the GrowthBook API and your application in production. We offer a pre-built [GrowthBook Proxy server](/self-host/proxy) you can run that handles caching and invalidation automatically. You can also setup your own custom system using a CDN or distributed cache like Redis.
+
+## I can't upload to S3/getting 400 error when uploading to S3?
+
+- Make sure you've correctly set the `S3_BUCKET` and `S3_REGION` environment variables
+- Enable bucket ACL and set ownership to Bucket owner preferred: [read more here](https://stackoverflow.com/questions/70333681/for-an-amazon-s3-bucket-deplolyent-from-guithub-how-do-i-fix-the-error-accesscon).
+- Make sure the S3 bucket is publically accessible
+- Make sure CORS settings are correct. Add your URLs to the AllowedOrigins array or set to "\*"
+
+## How do I use the Chrome DevTools Extension?
+
+- Make sure you are using the React or Javascript SDK
+- Install the [Chrome DevTools Extension](https://chrome.google.com/webstore/detail/growthbook-devtools/opemhndcehfgipokneipaafbglcecjia)
+- Pass the `enableDevMode: true` option into the GrowthBook constructor
+
+```ts
+const growthbook = new GrowthBook({
+  enableDevMode: true,
+},
+```
+
+## My old exported notebook stopped working. How can I fix it?
+
+There's a good chance that the SQL we are exporting and your version of our Python stats library, `gbstats`, are out of sync.
+In February of 2023 we updated our SQL engines and `gbstats` library to only use sums and sums of squares, rather than averages and standard deviations.
+
+If the queries in your notebook return averages and standard deviations (using `AVG` and `VAR` SQL operators as part of the `__stats` CTE), then you need to run that notebook with `gbstats` version 0.3.1.
+You can download this from PyPI [here](https://pypi.org/project/gbstats/0.3.1/) using `pip install gbstats==0.3.1` and ensure that your kernel uses that version of `gbstats`.
+Ideally in this case you can redownload the notebook and use the new `gbstats` library (0.4.0 or newer). You can download a new notebook by navigating to your experiment in GrowthBook and clicking `Download Notebook` again. This should now use the updated SQL and `gbstats` syntax. Then, if you install `gbstats` 0.4.0 or later, everything should work as expected.
+
+If the queries in your notebook return sums and sums of squares as part of the `__stats` CTE but your notebook is still erroring, then you probably have an old `gbstats` version installed and need to update to 0.4.0 or later.
+You can download this from PyPI [here](https://pypi.org/project/gbstats) using `pip install gbstats` and ensure that your kernel uses that version of `gbstats`.
+
+## Can't find your question?
+
+If you can't find an answer to your question above, please let us know so we can help you out and improve the docs for future users!
+
+You can join our [Slack channel](https://slack.growthbook.io?ref=docs-faq) for the fastest response times.
+
+Or send an email to hello@growthbook.io if Slack isn't your thing.

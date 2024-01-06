@@ -1,0 +1,125 @@
+---
+title: Dimensions
+description: Drill down into experiment results
+sidebar_label: Dimensions 🚧
+slug: dimensions
+---
+
+# Dimensions
+
+Dimensions let you drill down into experiment results. For example, if you define a `browser` dimension, you can
+see how Safari users behaved vs Chrome.
+
+Be careful, the more dimensions and metrics you look at for an experiment, the more likely you are to see false positives -
+something that looks significant when it really isn't. For example, if you break out results by country, it's pretty likely that at least one of the 100+
+countries in your dataset will be signficantly different just by random chance.
+
+It's best to treat dimensions as an exploratory tool and not something to directly draw conclusions from.
+The two best use cases are identfying bugs (the `browser` example) and getting ideas for dedicated follow-up experiments.
+
+Dimensions are supported for both Mixpanel and SQL data sources.
+
+## SQL
+
+There are two types of dimensions for SQL data sources: Experiment Dimensions and User Dimensions. Experiment dimensions are more reliable for producing unbiased experiment analyses because we can always know the dimension that is associated with the first experiment exposure for a unit. Using dimension data that could be affected by the experiment (e.g. that is collected _after_ the first experiment exposure) could bias dimension drill-downs. Therefore, use user dimensions with caution, and we suggest using immutable dimensions as your user dimensions (e.g. the first client the user ever used, or the first country the user ever logged in from).
+
+For all experiment analyses, we only ever choose one dimension per user, to avoid the aforementioned issues with potential bias. For Experiment Dimensions, we select the dimension associated with the user's first exposure event for the experiment. For User Dimensions, we strongly suggest only having one dimension value per user, as we cannot discern what dimension a user had before the experiment. Instead, we simply choose the `MAX(value)` for the user dimension.
+
+### Experiment Dimensions
+
+These are attributes that are specific to the point-in-time that a user was put into an experiment. For example, `browser` or `referrer`.
+
+Instead of a standalone SQL query, experiment dimensions are simply extra columns you return from the Experiment assignment query defined for your data source.
+
+As an example, if you set the following as your experiment assignment query:
+
+```sql
+SELECT
+  user_id,
+  received_at as timestamp,
+  experiment_id,
+  variation_id,
+  browser
+FROM
+  experiment_viewed
+```
+
+The first 4 columns are standard, but `browser` is a custom one that can be used as an Experiment Dimension.
+
+### User Dimensions
+
+These are attributes of your users that are relatively stable over time, and ideally, do not change over the course of an experiment. For example, `cohort`, `initial age group`, or `first client used`.
+
+A user dimension is defined by a simple SQL query that returns two columns: an identifier and `value`. The name of the identifier column depends on which identifier type the dimension is using. Remember, when using these for analysis, we will pick the `MAX(value)` for each user, and therefore it is best to only have one value per user.
+
+Here's an example SQL:
+
+```sql
+-- Assumes identifier type is "user_id"
+SELECT
+  user_id,
+  plan_type as value
+FROM
+  subscriptions
+```
+
+It's best to keep the number of unique values for a dimension small if possible to avoid the False Positive issues discussed above. We automatically cap the number at 20, but you can do it youself if you want more control. Here's an example for a "country" dimension:
+
+```sql
+SELECT
+  user_id,
+  (
+    CASE WHEN country = 'us' THEN 'US'
+    WHEN country = 'uk' THEN 'UK'
+    ELSE 'Other' END
+  ) as value
+FROM
+  users
+```
+
+:::tip
+
+You can use SQL template variables in dimension queries just like you can with metrics. See the [SQL Template Variables](/app/metrics#sql-template-variables) page for more details.
+
+:::
+
+## Mixpanel
+
+For mixpanel, there is just a single type of dimension that is based on event properties (at this time Mixpanel user properties are not supported).
+
+For simple dimensions, you can just put the event property name directly. For example: `$browser`.
+
+We also support complex javascript expressions. For example:
+
+```
+event.properties.$browser.match(/chrome/i) ? "Chrome" : "Other"
+```
+
+For more complex expressions, you can wrap your code in an anonymous function:
+
+```
+(() => {
+  // ...some complex logic
+  return dimensionValue
+})()
+```
+
+You can also reference the experiment start/end date in your javascript expression. For example, if you add a super event called `userRegistrationDate` that stores a unix timestamp, you could make a `New vs Existing` dimension like this:
+
+```
+event.properties.userRegistrationDate >= {{ startDateUnix }} ? "new" : "existing"
+```
+
+The variables you can reference are:
+
+- **startDate** - `YYYY-MM-DD HH:mm:ss` of the earliest data that needs to be included
+- **startYear** - Just the `YYYY` of the startDate
+- **startMonth** - Just the `MM` of the startDate
+- **startDay** - Just the `DD` of the startDate
+- **startDateUnix** - Unix timestamp of the startDate (seconds since Jan 1, 1970)
+- **endDate** - `YYYY-MM-DD HH:mm:ss` of the latest data that needs to be included
+- **endYear** - Just the `YYYY` of the endDate
+- **endMonth** - Just the `MM` of the endDate
+- **endDay** - Just the `DD` of the endDate
+- **endDateUnix** - Unix timestamp of the endDate (seconds since Jan 1, 1970)
+- **experimentId** - Either a specific experiment id OR `%` if you should include all experiments

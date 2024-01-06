@@ -1,0 +1,111 @@
+---
+title: API
+description: API
+sidebar_label: API
+slug: api
+---
+
+import Pill from '@site/src/components/Pill';
+
+# API <Pill>beta</Pill>
+
+GrowthBook oferece uma API REST completa. Atualmente se encontra em **beta** enquanto novas rotas e funcionalidades são adicionadas.
+
+[Visualizar documentação da API REST](/api/)
+
+## Endpoints de Conexão com o SDK
+
+Complementando a API REST acima, existem endpoints adicionais em um modo somente leitura - Os Endpoints de Conexão com o SDK.
+
+Os Endpoints de Conexão com o SDK disponibilizam um acesso somente leitura à um subconjunto de dados das suas feature flags, apenas o necessário para que os [SDKs do Growthbook](/lib) estabeleçam valores para as pessoas usuárias. Eles são públicos e não necessitam de autenticação para visualizar.
+
+No **GrowthBook Cloud**, os Endpoints de Conexão com o SDK são servidos em nossa CDN global: `https://cdn.growthbook.io/api/features/...`. Se você estiver usando uma hospedagem própria, você pode executar o [servidor Proxy do GrowthBook](/self-host/proxy), que fornece cache e otimizações de performance.
+
+Os Endpoints de Conexão com o SDK estão restritos a um único Ambiente (Ex: `dev` ou `produção`) e também restritos um único Projeto. Você pode gerenciar todas as suas Conexões de SDK na página **Features -> SDKs**.
+
+<details className="mb-3">
+<summary className="cursor-pointer">Definição de Tipos no Typescript</summary>
+
+```ts
+interface SDKEndpointResponse {
+  status: 200;
+  features: {
+    [key: string]: FeatureDefinition
+  }
+}
+
+interface FeatureDefinition {
+  defaultValue: any;
+  rules?: FeatureDefinitionRule[];
+}
+
+interface FeatureDefinitionRule {
+  force?: any;
+  weights?: number[];
+  variations?: any[];
+  hashAttribute?: string;
+  namespace?: [string, number, number];
+  key?: string;
+  coverage?: number;
+  condition?: any;
+}
+```
+
+</details>
+
+<details className="mb-3">
+<summary className="cursor-pointer">Exemplo objeto JSON</summary>
+
+```json
+{
+  "status": 200,
+  "features": {
+    "feature-key": {
+      "defaultValue": true
+    },
+    "another-feature": {
+      "defaultValue": "blue",
+      "rules": [
+        {
+          "condition": {
+            "browser": "firefox"
+          },
+          "force": "green"
+        }
+      ]
+    }
+  }
+}
+```
+
+</details>
+
+### Criptografia
+
+Se você habilitar a criptografia no endpoint do SDK, o formato de resposta será alterado:
+
+<details className="mb-3">
+<summary className="cursor-pointer">Definição de Tipos no Typescript</summary>
+
+```ts
+interface SDKEncryptedEndpointResponse {
+  status: 200;
+  encryptedFeatures: string;
+}
+```
+
+</details>
+
+<details className="mb-3">
+<summary className="cursor-pointer">Exemplo objeto JSON</summary>
+
+```json
+{
+  "status": 200,
+  "encryptedFeatures": "abcdef123456GHIJKL0987654321..."
+}
+```
+
+</details>
+
+Você precisará descriptografar as features antes de passar para o SDK. Os SDKs de front-end (Javascript e React) gerenciam isso automaticamente e estamos no processo de adicionar o mesmo para nossos outros SDKs.

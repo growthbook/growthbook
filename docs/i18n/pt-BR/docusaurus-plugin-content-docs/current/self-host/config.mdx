@@ -1,0 +1,529 @@
+---
+title: Config.yml 🚧
+description: Adjust the configuration of the GrowthBook platform through Config.yml
+id: config-yml
+slug: config
+---
+
+# Config.yml
+
+In order to use GrowthBook, you need to connect to a data source and define metrics (and optionally dimensions and segments). There are two ways to do this.
+
+The default way to define these is by filling out forms in the GrowthBook UI, which persists them to MongoDB.
+
+The other option is to create a `config.yml` file. In the Docker container, this file must be placed at `/usr/local/src/app/config/config.yml`. Below is an example file:
+
+```yml
+datasources:
+  warehouse:
+    type: postgres
+    name: Main Warehouse
+    # Connection params (different for each type of data source)
+    params:
+      host: localhost
+      port: 5432
+      user: root
+      password: ${POSTGRES_PW} # use env for secrets
+      database: growthbook
+    # How to query the data (same for all SQL sources)
+    settings:
+      userIdTypes:
+        - userIdType: user_id
+          description: Logged-in user id
+        - userIdType: anonymous_id
+          description: Anonymous visitor id
+      queries:
+        exposure:
+          - id: user_id
+            name: Logged-in user experiments
+            userIdType: user_id
+            query: >
+              SELECT
+                user_id,
+                received_at as timestamp,
+                experiment_id,
+                variation_id,
+                context_location_country as country
+              FROM
+                experiment_viewed
+            dimensions:
+              - country
+        identityJoins:
+          - ids: ["user_id", "anonymous_id"]
+            query: SELECT user_id, anonymous_id FROM identifies
+metrics:
+  signups:
+    type: binomial
+    name: Sign Ups
+    userIdType: user_id
+    datasource: warehouse
+    sql: SELECT user_id, anonymous_id, received_at as timestamp FROM signups
+dimensions:
+  country:
+    name: Country
+    userIdType: user_id
+    datasource: warehouse
+    sql: SELECT user_id, country as value from users
+segments:
+  visitors:
+    name: Visitors in the US
+    datasource: warehouse
+    sql: |-
+      SELECT userid as user_id, timestamp as date
+      FROM users
+      WHERE country='US'
+    userIdType: user_id
+```
+
+### Data Source Connection Params
+
+The contents of the `params` field for a data source depends on the type.
+
+As seen in the example above, you can use environment variable interpolation for secrets (e.g. `${POSTGRES_PW}`).
+
+#### Redshift, ClickHouse, Postgres, and Mysql (or MariaDB)
+
+```yml
+type: postgres # or "redshift" or "mysql" or "clickhouse"
+params:
+  host: localhost
+  port: 5432
+  user: root
+  password: password
+  database: growthbook
+```
+
+Redshift and Postgres also support optional params to force an SSL connection:
+
+```yml
+type: postgres
+params:
+  ...
+  ssl: true
+  # Omit the below fields to use the default trusted CA from Mozilla
+  caCert: "-----BEGIN CERTIFICATE-----\n..."
+  clientCert: "-----BEGIN CERTIFICATE-----\n..."
+  clientKey: "-----BEGIN CERTIFICATE-----\n..."
+```
+
+#### Snowflake
+
+```yml
+type: snowflake
+params:
+  account: abc123.us-east-1
+  username: user
+  password: password
+  database: GROWTHBOOK
+  schema: PUBLIC
+  role: SYSADMIN
+  warehouse: COMPUTE_WH
+```
+
+#### BigQuery
+
+You must first create a Service Account in Google with the following roles:
+
+- Data Viewer
+- Metadata Viewer
+- Job User
+
+If you want GrowthBook to auto-discover credentials from environment variables or GCP metadata, use the following:
+
+```yml
+type: bigquery
+params:
+  authType: auto
+```
+
+If you prefer to pass in credentials directly, you can use this format instead:
+
+```yml
+type: bigquery
+params:
+  projectId: my-project
+  clientEmail: growthbook@my-project.iam.gserviceaccount.com
+  privateKey: -----BEGIN PRIVATE KEY-----\nABC123\n-----END PRIVATE KEY-----\n
+```
+
+#### Presto and TrinoDB
+
+```yml
+type: presto
+params:
+  engine: presto # or "trino"
+  host: localhost
+  port: 8080
+  username: user
+  password: password
+  catalog: growthbook
+  schema: growthbook
+```
+
+#### Databricks
+
+```yml
+type: databricks
+params:
+  host: dbc-123-abc.cloud.databricks.com
+  port: 443
+  path: /sql/1.0/warehouses/abc123
+  token: dapi123abc
+```
+
+#### AWS Athena
+
+If you want GrowthBook to auto-discover credentials from environment variables or instance metadata, use the following format:
+
+```yml
+type: athena
+params:
+  authType: auto
+  region: us-east-1
+  database: growthbook
+  bucketUri: aws-athena-query-results-growthbook
+  workGroup: primary
+```
+
+If you prefer to specify access key and secret directly instead, use the following format:
+
+```yml
+type: athena
+params:
+  accessKeyId: AKIA123
+  secretAccessKey: AB+cdef123
+  region: us-east-1
+  database: growthbook
+  bucketUri: aws-athena-query-results-growthbook
+  workGroup: primary
+```
+
+#### Mixpanel
+
+Mixpanel access requires a service account.
+
+```yml
+type: mixpanel
+params:
+  username: growthbook
+  secret: abc123
+  projectId: my-project
+```
+
+#### Google Analytics
+
+Unfortunately at this time there is no way to connect to Google Analytics in `config.yml`. You must connect via the GrowthBook UI, where we use OAuth and a browser redirect.
+
+### Data Source Settings
+
+The settings tell GrowthBook how to query your data.
+
+#### SQL Data Sources
+
+For data sources that support SQL, there are a couple queries you need to define plus an optional Python script to run queries from inside a Jupyter notebook:
+
+```yml
+type: postgres
+params: ...
+settings:
+  # The different types of supported identifiers
+  userIdTypes:
+    - userIdType: user_id
+      description: Logged-in user id
+    - userIdType: anonymous_id
+      description: Anonymous visitor id
+  queries:
+    # These queries returns experiment variation assignment info
+    # One row every time a user was put into an experiment
+    exposure:
+      - id: user_id
+        name: Logged-in user experiments
+        userIdType: user_id
+        query: >
+          SELECT
+            user_id,
+            received_at as timestamp,
+            experiment_id,
+            variation_id,
+            context_location_country as country
+          FROM
+            experiment_viewed
+        # List additional columns you selected in your experimentsQuery
+        # Can use these to drill down into experiment results
+        dimensions:
+          - country
+    # These optional queries map between different types of identifiers
+    identityJoins:
+      - ids: ["user_id", "anonymous_id"]
+        query: SELECT user_id, anonymous_id FROM identifies
+  # Used when exporting experiment results to a Jupyter notebook
+  # Define a `runQuery(sql)` function that returns a pandas data frame
+  notebookRunQuery: >
+    import os
+    import psycopg2
+    import pandas as pd
+    from sqlalchemy import create_engine, text
+
+    # Use environment variables or similar for passwords!
+    password = os.getenv('POSTGRES_PW')
+    connStr = f'postgresql+psycopg2://user:{password}@localhost'
+    dbConnection = create_engine(connStr).connect();
+
+    def runQuery(sql):
+      return pd.read_sql(text(sql), dbConnection)
+```
+
+#### Mixpanel
+
+Mixpanel does not support SQL, so we query the data using JQL instead. In order to do this, we just need to know a few event names and properties:
+
+```yml
+type: mixpanel
+params: ...
+settings:
+  events:
+    experimentEvent: Viewed Experiment
+    experimentIdProperty: experiment_id
+    variationIdProperty: variation_id
+```
+
+### Metrics
+
+Metrics are what your experiments are trying to improve (or at least not hurt).
+
+Below is an example of all the possible settings with comments:
+
+```yml
+name: Revenue per User
+# Required. The data distribution and unit
+type: revenue # or "binomial" or "count" or "duration"
+# Required. Must match one of the datasources defined in config.yml
+datasource: warehouse
+# Description supports full markdown
+description: This metric is **super** important
+# For inverse metrics, the goal is to DECREASE the value (e.g. "page load time")
+inverse: false
+# When ignoring nulls, only users who convert are included in the denominator
+# Setting to true here would change from "Revenue per User" to "Average Order Value"
+ignoreNulls: false
+# Which identifier types are supported for this metric
+userIdTypes:
+  - user
+# Any user with a higher metric amount will be capped at this value
+# In this case, if someone bought a $10,000 order, it would only be counted as $100
+cap: 100
+# Ignore all conversions within the first X hours of being put into an experiment.
+conversionDelayHours: 0
+# After the conversion delay (if any), wait this many hours for a conversion event.
+conversionWindowHours: 72
+# The risk thresholds for the metric.
+# If risk < $winRisk, it is highlighted green.
+# If risk > $loseRisk, it is highlighted red.
+# Otherwise, it's highlighted yellow.
+winRisk: 0.0025
+loseRisk: 0.0125
+# Min number of conversions for an experiment variation before we reveal results
+minSampleSize: 150
+# The "suspicious" threshold. If the percent change for a variation is above this,
+#   we hide the result and label it as suspicious.
+# Default 0.5 = 50% change
+maxPercentChange: 0.50
+# The minimum change required for a result to considered a win or loss. If the percent
+# change for a variation is below this threshold, we will consider an otherwise conclusive
+# test a draw.
+# Default 0.005 = 0.5% change
+minPercentChange: 0.005
+# Arbitrary tags used to group related metrics
+tags:
+  - revenue
+  - core
+```
+
+In addition to all of those settings, you also need to tell GrowthBook how to query the metric.
+
+#### SQL Data Sources
+
+For SQL data sources, you just need to specify a single query. Depending on the other settings, the columns you need to select may differ slightly:
+
+- `timestamp` - always required
+- `value` - required unless type is set to "binomial"
+
+Plus, you need to select a column for each identifier type the metric supports.
+
+A full example:
+
+```yml
+type: duration
+userIdTypes:
+  - user_id
+  - anonymous_id
+sql: >
+  SELECT
+    created_at as timestamp,
+    user_id,
+    anonymous_id,
+    duration as value
+  FROM
+    requests
+```
+
+And a simple binomial metric that only supports logged-in users:
+
+```yml
+type: binomial
+userIdTypes:
+  - user
+sql: SELECT user_id, timestamp FROM orders
+```
+
+By default, if a user has more than 1 non-binomial metric row during an experiment, we sum the values together. You can override this behavior with the `aggregation` setting:
+
+```yml
+type: duration
+userIdTypes:
+  - user_id
+sql: >
+  SELECT
+    created_at as timestamp,
+    user_id,
+    duration as value
+  FROM
+    requests
+aggregation: MAX(value) # use MAX instead of the default SUM
+```
+
+#### Mixpanel
+
+For Mixpanel, instead of SQL we just need some info about what events and properties to use.
+
+Here's a simple binomial metric:
+
+```yml
+type: binomial
+# The event name
+table: Purchased
+```
+
+Any metric can have optional conditions as well:
+
+```yml
+type: binomial
+# The event name
+table: Purchased
+# Only include events which pass these conditions
+conditions:
+  - column: category # property
+    operator: "=" # "=", "!=", ">", "<", "<=", ">=", "~", "!~"
+    value: clothing
+```
+
+For count, duration, and revenue metrics, it will count the number of events per user by default:
+
+```yml
+type: count
+# Event name to count
+table: Page views
+```
+
+You can instead specify a javascript expression for the value of the event. By default, it will sum these values for each user:
+
+```yml
+# A "Revenue per user" metric
+type: revenue
+# The event name
+table: Purchases
+# The metric value that will be summed
+column: event.properties.grand_total
+```
+
+If you don't want to sum, you can also provide a custom aggregation method that reduces an array of `values` into a single number (or null). For example, here's a metric that counts the number of unique files downloaded per user
+
+```yml
+type: count
+# The event name
+table: PDF Downloads
+# The "value" of the metric (the file name)
+column: event.properties.filename
+# The aggregation operation (number of unique values)
+aggregation: new Set(values).size
+```
+
+### Dimensions
+
+Dimensions let you drill down into your experiment results. They are currently only supported for SQL data sources.
+
+Dimensions only have 4 properties: name, datasource, userIdType, and SQL. The SQL query must return two columns: the identifier type and `value`.
+
+Example:
+
+```yml
+name: Country
+# Must match one of the datasources defined in config.yml
+datasource: warehouse
+userIdType: user_id
+sql: SELECT user_id, country as value FROM users
+```
+
+### Segments
+
+Segments define important groups of users - for example, "annual subscribers" or "left-handed people from France." They are currently only supported for SQL data sources.
+
+Segments only have 4 properties: name, datasource, userIdType, and SQL. The SQL query must return two columns: the identifier type and `date`.
+
+Example:
+
+```yml
+name: US Page Visitors
+# Must match one of the datasources defined in config.yml
+datasource: warehouse
+userIdType: user_id
+sql: SELECT user_id, timestamp as date FROM pages WHERE country='US'
+```
+
+Segment support for the config.yml was added in February 2023. If you are using the config.yml file and have previously created segments stored in MongoDB, in order to access,
+you will need to add the environment variable `STORE_SEGMENTS_IN_MONGO` or update your config.yml file to include these segments.
+
+### Organization Settings
+
+In addition to the above, you can also control some organization settings from `config.yml`.
+
+Below are all of the currently supported settings:
+
+```yml
+organization:
+  settings:
+    # Enable creating experiments using the Visual Editor (beta).  Default `false`
+    visualEditorEnabled: true
+    # Minimum experiment length (in days) when importing past experiments. Default `6`
+    pastExperimentsMinLength: 3
+    # Number of days of historical data to use when analyzing metrics
+    # (must be between 1 and 400, default `90`)
+    metricAnalysisDays: 90
+    # The min percent of users exposed to multiple variations in an
+    # experiment before we start warning you (between 0 and 1, defaults to `0.01`)
+    multipleExposureMinPercent: 0.01
+    # When we should auto-update experiment results
+    updateSchedule:
+      type: stale
+      hours: 6
+```
+
+The `updateSchedule` setting has 3 types of values:
+
+- Never update automatically
+  ```yml
+  updateSchedule:
+    type: never
+  ```
+- Update if data is X hours stale
+  ```yml
+  updateSchedule:
+    type: stale
+    hours: 6
+  ```
+- Update on a fixed Cron schedule
+  ```yml
+  updateSchedule:
+    type: cron
+    cron: "0 */6 * * *"
+  ```

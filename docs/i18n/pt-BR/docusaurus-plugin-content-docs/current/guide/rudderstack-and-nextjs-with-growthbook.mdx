@@ -1,0 +1,259 @@
+---
+title: GrowthBook, Rudderstack, and Next.js
+description: Learn how to use GrowthBook with Rudderstack to easily add A/B testing to your application running on Next.js
+sidebar_label: Rudderstack + Next.js 🚧
+slug: rudderstack-and-nextjs-with-growthbook
+---
+
+# A/B Testing with Rudderstack and Next.js
+
+This document is a guide on how to add GrowthBook feature flags and A/B testing to your existing Next.js application using Rudderstack for event tracking.
+
+## 1. Create a GrowthBook Account
+
+You will need a GrowthBook account. You can either run GrowthBook locally or using the cloud hosted GrowthBook at
+[https://app.growthbook.io](https://app.growthbook.io). If you are installing it locally, you can follow the
+self-hosting quick start instructions here: [self hosting instructions](/self-host).
+
+## 2. Create a JS source in Rudderstack
+
+From within your Rudderstack account, create a new JS source.
+
+<img
+  src="/images/guides/rudderstack-7-create-source.png"
+  alt="Add Rudderstack JS source"
+  style={{ width: 600, margin: "0 auto" }}
+/>
+
+Name the source whatever you like, in this example I'm using `GrowthBook JS`. When the source is created, connect it to
+your BigQuery data warehouse (or whatever destination you're using for GrowthBook experiment data). You can read more
+about how to connect to your data destination [here](/guide/rudderstack).
+
+<img
+  src="/images/guides/rudderstack-8-source-w-destination.png"
+  alt="Add BigQuery destination"
+  style={{ width: 600, margin: "0 auto" }}
+/>
+
+Once you have it connected, copy the write key, as we'll need it for the next step.
+
+Under connections, you should now see the JS source connected to the BigQuery destination. You will also need the
+`Data plane URL` which appears near the top of the page.
+
+<img
+  src="/images/guides/rudderstack-9-connected-js.png"
+  alt="Add BigQuery destination"
+  style={{ width: 600, margin: "0 auto" }}
+/>
+
+## 3. Integrate Rudderstack into your Next.js application
+
+While there is plenty of documentation on how to add Rudderstack to your Next.js application out there, none of those
+implementations are very Next.js like, and limit the ability of Rudderstack to integrate more deeply into your code-
+including using GrowthBook. Below is the integration code that we came up with to address these concerns.
+
+### install the Rudderstack Analytics package
+
+Install the javascript SDK for Rudderstack with yarn,
+
+```bash
+yarn add rudder-sdk-js
+```
+
+or npm:
+
+```bash
+npm install --save rudder-sdk-js
+```
+
+### Create Rudderstack loader
+
+Create a `rudder.js` file in your Next.js project. This file will load Rudderstack's SDK in a reusable and asynchronous way.
+
+```javascript
+let rudder;
+async function getInstance() {
+  if (!rudder) {
+    rudder = await import("rudder-sdk-js");
+    rudder.load(
+      process.env.NEXT_PUBLIC_RUDDERSTACK_KEY,
+      process.env.NEXT_PUBLIC_RUDDERSTACK_HOST,
+      { integrations: { All: true } }
+    );
+    await new Promise((resolve) => rudder.ready(resolve));
+  }
+
+  return rudder;
+}
+
+const rudderObj = {
+  init: getInstance,
+  track: (...args) => getInstance().then((r) => r.track(...args)),
+  getAnonymousId: async () => getInstance().then((r) => r.getAnonymousId()),
+};
+
+export default rudderObj;
+```
+
+If you want to add other methods, like `identify`, you can extend the rudderObj.
+
+You'll also have to add the Rudderstack Key and Host to your environment variables, or add to your `.env.local` file:
+
+```javascript
+NEXT_PUBLIC_RUDDERSTACK_KEY=<your key>
+NEXT_PUBLIC_RUDDERSTACK_HOST=https://<rudderstack host>
+```
+
+The key is the `write key` from the JS source we made in step 2, and the HOST is the `data plane URL`.
+
+### Integrate Rudderstack into your Next.js application
+
+In your `_app.js`, add the Rudderstack integration we just created
+
+```javascript
+import rudder from "./rudder";
+```
+
+This will allow you add `rudder.track()` in your app anywhere you import rudder.js while sharing the same Rudderstack object.
+
+## 4. Integrate the GrowthBook React SDK into our Next.js app
+
+We first need to install the GrowthBook React SDK in our Next.js app:
+
+```bash
+yarn add @growthbook/growthbook-react
+```
+
+Get the API key from GrowthBook (under settings -> API or from the top of the implementation instructions) and add to your environment variables (.env.local)
+
+```js
+NEXT_PUBLIC_GROWTHBOOK_FEATURES_URL=<GrowthBook API url>
+```
+
+Then we can modify the code to work with GrowthBook. Modify the file `pages/_app.js` to add GrowthBook and Rudderstack. Import GrowthBook (and Rudderstack, if you haven't):
+
+```ts
+import {
+  GrowthBook,
+  GrowthBookProvider,
+  useFeature,
+} from "@growthbook/growthbook-react";
+import rudder from "./rudder";
+```
+
+then create your GrowthBook instance:
+
+```ts
+// Create a GrowthBook instance
+const growthbook = new GrowthBook({
+  trackingCallback: (experiment, result) => {
+    rudder.track("Experiment Viewed", {
+      experimentId: experiment.key,
+      variationId: result.variationId,
+    });
+  },
+});
+```
+
+:::note
+
+The names `experiment Viewed`, `experimentId` and `variationId` will be
+mapped to `experiment_id` and `variation_id` columns in the
+`experiment_viewed` table within BigQuery
+
+:::
+
+Then add a `useEffect` hook to update Rudderstack and GrowthBook when the page changes.
+
+```ts
+export default function MyApp({ Component, pageProps }) {
+  useEffect(() => {
+    // Load feature definitions from API
+    fetch(process.env.NEXT_PUBLIC_GROWTHBOOK_FEATURES_URL)
+      .then((res) => res.json())
+      .then((json) => {
+        growthbook.setFeatures(json.features);
+      });
+
+    // TODO: replace with real targeting attributes
+    growthbook.setAttributes({
+      company: "foo",
+      browser: "foo",
+      url: "foo",
+    });
+
+    // Add in Rudderstack anonId when loaded
+    rudder.getAnonymousId().then((id) => {
+      growthbook.setAttributes({ ...growthbook.getAttributes(), id });
+    });
+  }, []);
+
+  //...
+}
+```
+
+This code adds the `id` with in GrowthBook to the Rudderstack anonymous_id. If you want to load user_id as well as anonymous_id you'll have to add this id to the setAttribute, and also call the `rudder.identify()` with the user_id info.
+
+Finally, wrap your Next.js project in the GrowthBookProvider component, so we can use the GrowthBook methods throughout the codebase without doing addition instantiation.
+
+```ts
+return (
+  <GrowthBookProvider growthbook={growthbook}>
+    <Component {...pageProps} />
+  </GrowthBookProvider>
+);
+```
+
+All together, your `_app.js` should look something like this:
+
+```ts
+import "../styles/globals.css";
+import {
+  GrowthBook,
+  GrowthBookProvider,
+  useFeature,
+} from "@growthbook/growthbook-react";
+import { useEffect } from "react";
+import rudder from "./rudder";
+
+// Create a GrowthBook instance
+const growthbook = new GrowthBook({
+  trackingCallback: (experiment, result) => {
+    rudder.track("Experiment Viewed", {
+      experimentId: experiment.key,
+      variationId: result.variationId,
+    });
+  },
+});
+
+export default function MyApp({ Component, pageProps }) {
+  useEffect(() => {
+    // Load feature definitions from API
+    fetch(process.env.NEXT_PUBLIC_GROWTHBOOK_FEATURES_URL)
+      .then((res) => res.json())
+      .then((json) => {
+        growthbook.setFeatures(json.features);
+      });
+
+    // TODO: replace with real targeting attributes
+    growthbook.setAttributes({
+      company: "foo",
+      browser: "foo",
+      url: "foo",
+    });
+
+    // Add in Rudderstack anonId when loaded
+    rudder.getAnonymousId().then((id) => {
+      growthbook.setAttributes({ ...growthbook.getAttributes(), id });
+    });
+  }, []);
+
+  return (
+    <GrowthBookProvider growthbook={growthbook}>
+      <Component {...pageProps} />
+    </GrowthBookProvider>
+  );
+}
+```
+
+Once you have data flowing into Rudderstack, you can set it up to work with GrowthBook by following the [Rudderstack guide](/guide/rudderstack)

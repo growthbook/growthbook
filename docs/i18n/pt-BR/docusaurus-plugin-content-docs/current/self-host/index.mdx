@@ -1,0 +1,65 @@
+---
+title: GrowthBook em Hospedagem Própria
+description: Aprenda como configurar o GrowthBook em sua infraestrutura própria
+id: index
+slug: /self-host
+---
+
+# GrowthBook em Hospedagem Própria
+
+O GrowthBook é composto por um front-end em NextJS, uma API ExpressJS e um motor de análise em Python. Tudo está junto em uma única [Imagem Docker](https://hub.docker.com/r/growthbook/growthbook).
+
+Além do próprio app, você vai precisar configurar uma instância do MongoDB para guardar credenciais de acesso, cache de resultados de experimentos e metadados.
+
+:::tip
+Não quer instalar ou hospedar o app por conta própria? <a href="https://app.growthbook.io">GrowthBook Cloud</a> é uma versão 
+completamente gerenciada em que você pode começar de forma gratuita.
+:::
+
+## Instalação
+
+Você pode usar o **docker-compose** para começar:
+
+```yml
+# docker-compose.yml
+version: "3"
+services:
+  mongo:
+    image: "mongo:latest"
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=root
+      - MONGO_INITDB_ROOT_PASSWORD=password
+  growthbook:
+    image: "growthbook/growthbook:latest"
+    ports:
+      - "3000:3000"
+      - "3100:3100"
+    depends_on:
+      - mongo
+    environment:
+      - MONGODB_URI=mongodb://root:password@mongo:27017/
+    volumes:
+      - uploads:/usr/local/src/app/packages/back-end/uploads
+volumes:
+  uploads:
+```
+
+Depois é só executar o comando `docker-compose up -d` para inicializar e abrir o app em [http://localhost:3000](http://localhost:3000)
+
+## Tags Docker
+
+As versões são publicadas automaticamente a partir da branch main do [repositório GitHub](https://github.com/growthbook/growthbook). Os commits mais recentes possuem a tag `latest`.
+
+O Versionamento no Github também utiliza o formato SemVer (ex. `0.2.1`).
+
+Se você precisar de uma imagem de referência de algum commit por algum motivo, você pode usar a tag do hash encurtado do git (ex. `git-41278e9`).
+
+## Atualizando para a última versão
+
+Se você está usando docker-compose e assumindo que você especificou a tag `:latest` no seu container do GrowthBook, você pode atualizar utilizando os seguintes comandos:
+
+```bash
+docker-compose pull growthbook
+docker-compose stop growthbook
+docker-compose up -d growthbook
+```

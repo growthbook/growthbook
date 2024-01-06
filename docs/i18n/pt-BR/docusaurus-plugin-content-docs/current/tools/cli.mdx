@@ -1,0 +1,82 @@
+---
+title: GrowthBook Command Line Interface (CLI) 🚧
+description: The GrowthBook command-line interface (CLI) for working with the GrowthBook A/B testing, feature flagging, and experimentation platform
+slug: cli
+toc_max_heading_level: 5
+---
+
+import ExternalLink from '@site/src/components/ExternalLink'
+
+The GrowthBook command-line interface (CLI) is a tool for working with the GrowthBook A/B testing, feature flagging, and experimentation platform.
+
+:::success New
+
+The GrowthBook CLI is a brand new tool. If you experience any issues, let us know either on [Slack](https://slack.growthbook.io/) or [create an issue](https://github.com/growthbook/growthbook-cli/issues).
+
+:::
+
+## CLI Features
+
+### Generating Types
+
+The GrowthBook CLI enables you to generate TypeScript types for working with the SDK.
+
+Run `growthbook features generate-types --help` for more info.
+
+See the [JavaScript SDK documentation &rarr; Strongly-typed feature definitions](/lib/js#strongly-typed-feature-definitions) for more information on working with typed features.
+
+### Profile management
+
+If you have multiple GrowthBook organizations or accounts, you can easily switch between profiles when running individual commands.
+
+Run `growthbook auth --help` for more info.
+
+## Usage
+
+### Installing the CLI
+
+You can install the CLI to your project with the following command:
+
+    npm install growthbook --save
+
+Or if you use `yarn` you can do:
+
+    yarn add growthbook
+
+You can also install it globally so you can use it with multiple projects and outside of projects:
+
+    npm install -g growthbook
+
+The `growthbook` executable should now be available in your project. You should now be able to run commands, e.g.:
+
+    growthbook --help
+
+### Adding your API secret
+
+Before using the GrowthBook CLI you will need to authenticate yourself. You will need to get an API key, which you can do [here <ExternalLink />](https://app.growthbook.io/settings/keys).
+
+Next, use the `growthbook auth login --apiKey XXX` command to set your token for the default profile.
+
+Run `growthbook auth login --help` for more info and options.
+
+### Generating Types
+
+You can also add it to your `package.json` file of the project that will use the types, e.g.:
+
+```json
+{
+  "scripts": {
+    "type-gen": "growthbook features generate-types --output ./types"
+  }
+}
+```
+
+It should now be available for use when you run `npm run type-gen` or `yarn type-gen`.
+
+### Detailed Command Usage
+
+See the generated [GrowthBook CLI command documentation on Github <ExternalLink />](https://github.com/growthbook/growthbook-cli#commands).
+
+### Examples
+
+- [Example implementation of a TypeScript project that uses the GrowthBook CLI <ExternalLink />](https://github.com/growthbook/examples/tree/main/vanilla-typescript)

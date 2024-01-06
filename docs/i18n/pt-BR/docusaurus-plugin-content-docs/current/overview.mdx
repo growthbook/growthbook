@@ -1,0 +1,131 @@
+---
+title: Uma visão geral da Plataforma GrowthBook
+description: O que é o GrowthBook e como funciona? Aprenda mais sobre a plataforma e como ela pode ajudar seu negócio a crescer.
+sidebar_label: Como funciona
+slug: overview
+---
+
+import ButtonCard from '@site/src/components/ButtonCard'
+
+# O que é o GrowthBook?
+
+GrowthBook é uma plataforma modular. Você pode utilizá-la para Feature Flags ou Análises de Experimentos.
+
+[**Feature Flags**](/app/features) são utilizadas para mudar o comportamento das funcionalidades. Você as cria no app GrowthBook e elas são publicadas para a nossa API como um arquivo JSON. Com esse JSON sendo passado para um de nossos SDKs você pode usar feature flags pelo seu código. Se uma funcionalidade está sendo utilizada como parte de um teste A/B, nós disparamos um callback para o SDK com intuito de você guardar este evento em seu Data Warehouse ou Plataforma de Análise para uso posterior.
+
+[**Análises de Experimentos**](/app/experiments) consiste na realização de consultas ao seu data warehouse por dados brutos de experimentos e os utiliza em nosso motor de análise para produzir um relatório. Nenhum evento bruto a nível de pessoa usuária ou informação pessoal é enviado para o GrowthBook. Nós só utilizamos informações agregadas (somas, somas dos quadrados, etc.).
+
+<div style={{textAlign: 'center'}}>
+
+![GrowthBook: Diagrama de funcionamento](/images/feature-flagging-experimentation-diagram-766.png)
+
+</div>
+
+## Feature Flags
+
+[Feature flags](/app/features) são uma ferramenta poderosa de desenvolvimento. Elas te dão um profundo controle sobre como e quando uma nova funcionalidade será lançada para sua base de pessoas usuárias.
+
+GrowthBook suporta quatro tipo de feature flags:
+
+- **Boleano (Boolean - on/off)**
+- **Número (Number)**
+- **Texto (String)**
+- **JSON**
+
+O seu uso no código é bem simples. Observe um exemplo usando o SDK Javascript:
+
+```js
+// Para funcionalidades boleanas
+if (growthbook.isOn("minha-funcionalidade")) {
+  // ... Faça alguma coisa
+}
+
+// Para funcionalidades no formato de número, texto, JSON
+const value = growthbook.getFeatureValue("outra-funcionalidade", "exceção");
+```
+
+GrowthBook também suporta múltiplos ambientes: você pode, por exemplo, ter uma funcionalidade habilitada em **desenvolvimento** mas não em **produção**.
+
+Você também pode alterar o valor da feature flag com a **Sobreposição de Regras (Override Rules)**. Os seguintes tipos são suportados:
+
+- **Forçar Valor (Forced Value)** - Escolha um subconjunto de pessoas usuárias baseado em atributos direcionados e coloque-os com o mesmo valor
+- **Lançamento em Porcentagem (Percentage Rollout)** - Use uma amostragem aleatória para lançar uma nova funcionalidade para um percentual de pessoas usuárias
+- **Experimento A/B (A/B Experiment)** - Execute testes A/B controlados entre duas ou mais funcionalidades
+
+Todas as feature flags de um ambiente ficam presentes em um único arquivo JSON. Tudo que você precisa é que isto seja passado para um de nossos [SDKs](/lib) com [os atributos direcionados das pessoas](/app/features#targeting-attributes).
+
+Leia mais sobre a parte de [feature flags aqui](/app/features).
+
+## Análise de Experimentos
+
+O GrowthBook precisa se conectar a sua [Fonte de Dados](/app/datasources) para consultar os resultados dos experimentos. Nós suportamos todos os data warehouses SQL populares além do Mixpanel e Google Analytics. O GrowthBook é extremamente flexível e pode suportar praticamente qualquer estrutura com algumas poucas configurações.
+
+![Data warehouses suportados pelo GrowthBook](/images/GrowthBook-supported-DB-766.png)
+
+Uma vez conectado a uma fonte de dados, você precisa construir uma biblioteca re-utilizável de [Métricas](/app/metrics). Métricas são o que os seus experimentos estão tentando melhorar. Elas são definidas via SQL (caso sua fonte suporte) ou uma simples consulta. Os seguintes tipos são suportados:
+
+- **Binomial (binomial)** - métricas simples de conversão sim/não (ex. `número de pessoas que iniciarem o período de avaliação`, `taxa de bounce`, `compras`)
+- **Contagem (count)** - quando o número ou a magnitide das conversões é importante (ex. `downloads por pessoa`, `pontos conquistados`)
+- **Receita (revenue)** - número de receita adquirido (ex. `receita por pessoa`, `média de valor por pedido`)
+- **Duração (duration)** - o tempo que leva para alguma coisa acontecer (ex. `tempo de carregamento da página`, `tempo utilizando o app`)
+
+Uma vez que essas métricas são configuradas, você pode importar experimentos e começar analisar os resultados. GrowthBook usa um [motor de estatística Bayesiano](/statistics/overview) para determinar a probabilidade de que uma variante seja melhor que o grupo controle, assim como o quão melhor foi o resultado e o risco de parar o experimento em um dado momento.
+
+![Tabela de Resultados](/images/results-table.png)
+
+Seu time de dados pode se aprofundar nos resultados utilizando [dimensões](/app/adimensions) personalizadas, observando o SQL bruto que o GrowthBook está utilizando para consultar seu data warehouse e exportando os resultados pra um Jupyter notebook para uma análise ainda mais aprofundada.
+
+Leia mais sobre a parte de [experimentos aqui](/app/experiments).
+
+## Casos de uso
+
+Há geralmente três motivos para os times utilizarem o GrowthBook.
+
+### 1. Plataforma Completa de Experimentos
+
+Neste caso, as empresas usam Feature Flags e os nossos SDKs para experimentos em suas aplicações. Então utilizam nossa Análise de Experimentos para olhar os resultados e decidir a versão vencedora.
+
+Esse caso é o melhor para empresas que estão iniciando no mundo da experimentação ou querem mudar drásticamente a sua forma de fazerem as coisas.
+
+### 2. Apenas Feature Flags
+
+Neste caso, as empresas não realizam experimentos e só utilizam as feature flags do GrowthBook dentro de seu time de engenharia.
+
+Esse caso é o melhor para empresas que não tem um volume de pessoas usuárias adequado para rodar experimentos completos, porém querem todos os benefícios proporcionados pelas feature flags. É bom também para empresas que pretendem rodar experimentos no futuro e querem começar a "preparar o terreno" em suas aplicações desde já.
+
+### 3. Apenas Análise de Experimentos
+
+Neste caso, as empresas já estão realizando experimentos e analisandos resultados geralmente com um sistema próprio de análise ou de forma manual usando notebooks Jupyter. O uso do Growthbook consiste em automatizar e aprimorar o processo de análise com intuito de reduzir o tempo e ter melhores decisões.
+
+Esse caso é o melhor para empresas that already have a robust process for running experiments and just need a little help analyzing results at scale.
+
+## Próximos passos
+
+<div className="row is-multiline">
+    <div className="col col--4">
+        <ButtonCard
+            to={'/self-host'}
+            title="Hospedagem Própria"
+            description="Aprenda utilizar o GrowthBook em sua própria infraestrutura"
+            style={{ height: '100%' }}
+        ></ButtonCard>
+    </div>
+    <div className="col col--4">
+        <ButtonCard
+            to={'/lib'}
+            title="Documentação do SDK"
+            description="Aprenda sobre os SDKs do GrowthBook"
+            style={{ height: '100%' }}
+            color="default"
+        ></ButtonCard>
+    </div>
+    <div className="col col--4">
+        <ButtonCard
+            to={'/faq'}
+            title="FAQ"
+            description="Perguntas frequentes"
+            style={{ height: '100%' }}
+            color="default"
+        ></ButtonCard>
+    </div>
+</div>

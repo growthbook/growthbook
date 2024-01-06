@@ -1,0 +1,1045 @@
+---
+title: Build Your Own 🚧
+description: This guide is meant for library authors looking to build a GrowthBook SDK in a currently unsupported language.
+sidebar_label: Build Your Own
+slug: build-your-own
+---
+
+# Build Your Own SDK
+
+**Latest spec version: 0.4.0 [View Changelog](#changelog)**
+
+This guide is meant for library authors looking to build a GrowthBook SDK in a currently unsupported language.
+
+GrowthBook SDKs are very simple and do not interact with the filesystem or network. Because of this, they can often be kept to **under 1000 lines of code**.
+
+All libraries should follow this specification as closely as the language permits to maintain consistency.
+
+## Data structures
+
+Here are a number of important data structures in GrowthBook SDKs, listed alphabetically.
+
+### Attributes
+
+**Attributes** are an arbitrary JSON object containing user and request attributes. Here's an example:
+
+```json
+{
+  "id": "123",
+  "anonId": "abcdef",
+  "company": "growthbook",
+  "url": "/pricing",
+  "country": "US",
+  "browser": "firefox",
+  "age": 25,
+  "beta": true,
+  "account": {
+    "plan": "team",
+    "seats": 10
+  }
+}
+```
+
+### BucketRange
+
+A tuple that describes a range of the numberline between `0` and `1`.
+
+The tuple has 2 parts, both floats - the start of the range and the end. For example:
+
+```ts
+[0.3, 0.7];
+```
+
+### Condition
+
+A **Condition** is evaluated against **Attributes** and used to target features/experiments to specific users.
+
+The syntax is inspired by MongoDB queries. Here is an example:
+
+```ts
+{
+  "country": "US",
+  "browser": {
+    "$in": ["firefox", "chrome"]
+  },
+  "email": {
+    "$not": {
+      "$regex": "@gmail.com$"
+    }
+  }
+}
+```
+
+### Context
+
+**Context** object passed into the GrowthBook constructor. Has a number of optional properties:
+
+- **enabled** (`boolean`) - Switch to globally disable all experiments. Default true.
+- **apiHost** (`string`) - The GrowthBook API Host. Optional
+- **clientKey** (`string`) - The key used to fetch features from the GrowthBook API. Optional
+- **decryptionKey** (`string`) - The key used to decrypt encrypted features from the API. Optional
+- **attributes** (`Attributes`) - Map of user attributes that are used to assign variations
+- **url** (`string`) - The URL of the current page
+- **features** (`FeatureMap`) - Feature definitions (usually pulled from an API or cache)
+- **forcedVariations** (`ForcedVariationsMap`) - Force specific experiments to always assign a specific variation (used for QA)
+- **qaMode** (`boolean`) - If true, random assignment is disabled and only explicitly forced variations are used.
+- **trackingCallback** (`TrackingCallback`) - A function that takes `experiment` and `result` as arguments.
+
+### Experiment
+
+Defines a single **Experiment**. Has a number of properties:
+
+- **key** (`string`) - The globally unique identifier for the experiment
+- **variations** (`any[]`) - The different variations to choose between
+- **weights** (`float[]`) - How to weight traffic between variations. Must add to 1.
+- **active** (`boolean`) - If set to false, always return the control (first variation)
+- **coverage** (`float`) - What percent of users should be included in the experiment (between 0 and 1, inclusive)
+- **ranges** (`BucketRange[]`) - Array of ranges, one per variation
+- **condition** (`Condition`) - Optional targeting condition
+- **namespace** (`Namespace`) - Adds the experiment to a namespace
+- **force** (`integer`) - All users included in the experiment will be forced into the specific variation index
+- **hashAttribute** (`string`) - What user attribute should be used to assign variations (defaults to `id`)
+- **hashVersion** (`integer`) - The hash version to use (default to `1`)
+- **meta** (`VariationMeta[]`) - Meta info about the variations
+- **filters** (`Filter[]`) - Array of filters to apply
+- **seed** (`string`) - The hash seed to use
+- **name** (`string`) - Human-readable name for the experiment
+- **phase** (`string`) - Id of the current experiment phase
+
+The only required properties are `key` and `variations`. Everything else is optional.
+
+### ExperimentResult
+
+The result of running an **Experiment** given a specific **Context**
+
+- **inExperiment** (`boolean`) - Whether or not the user is part of the experiment
+- **variationId** (`int`) - The array index of the assigned variation
+- **value** (`any`) - The array value of the assigned variation
+- **hashUsed** (`boolean`) - If a hash was used to assign a variation
+- **hashAttribute** (`string`) - The user attribute used to assign a variation
+- **hashValue** (`string`) - The value of that attribute
+- **featureId** (`string` or `null`) - The id of the feature (if any) that the experiment came from
+- **key** (`string`) - The unique key for the assigned variation
+- **bucket** (`float`) - The hash value used to assign a variation (float from `0` to `1`)
+- **name** (`string` or `null`) - The human-readable name of the assigned variation
+- **passthrough** (`boolean`) - Used for holdout groups
+
+The `variationId` and `value` should always be set, even when `inExperiment` is false.
+
+The `hashAttribute` and `hashValue` should always be set, even when `hashUsed` is false.
+
+The `key` should always be set, even if `experiment.meta` is not defined or incomplete. In that case, convert the variation's array index to a string (e.g. `0` -> `"0"`) and use that as the `key` instead.
+
+### Feature
+
+A **Feature** object consists of a default value plus rules that can override the default.
+
+- **defaultValue** (`any`) - The default value (should use `null` if not specified)
+- **rules** (`FeatureRule[]`) - Array of **FeatureRule** objects that determine when and how the defaultValue gets overridden
+
+### FeatureMap
+
+A hash or map of **Feature** objects. Keys are string ids for the features. Values are **Feature** objects. For example:
+
+```js
+{
+  "feature-1": {
+    "defaultValue": false
+  },
+  "my_other_feature": {
+    "defaultValue": 1,
+    "rules": [
+      {
+        "force": 2
+      }
+    ]
+  }
+}
+```
+
+### FeatureResult
+
+The result of evaluating a **Feature**. Has a number of properties:
+
+- **value** (`any`) - The assigned value of the feature
+- **on** (`boolean`) - The assigned value cast to a boolean
+- **off** (`boolean`) - The assigned value cast to a boolean and then negated
+- **source** (`enum`) - One of "unknownFeature", "defaultValue", "force", or "experiment"
+- **experiment** (`Experiment` or `null`) - When source is "experiment", this will be an Experiment object
+- **experimentResult** (`ExperimentResult` or `null`) - When source is "experiment", this will be an ExperimentResult object
+
+### FeatureRule
+
+Overrides the defaultValue of a **Feature**. Has a number of optional properties
+
+- **condition** (`Condition`) - Optional targeting condition
+- **coverage** (`float`) - What percent of users should be included in the experiment (between 0 and 1, inclusive)
+- **force** (`any`) - Immediately force a specific value (ignore every other option besides condition and coverage)
+- **variations** (`any[]`) - Run an experiment (A/B test) and randomly choose between these variations
+- **key** (`string`) - The globally unique tracking key for the experiment (default to the feature key)
+- **weights** (`float[]`) - How to weight traffic between variations. Must add to 1.
+- **namespace** (`Namespace`) - Adds the experiment to a namespace
+- **hashAttribute** (`string`) - What user attribute should be used to assign variations (defaults to `id`)
+- **hashVersion** (`integer`) - The hash version to use (default to `1`)
+- **range** (`BucketRange`) - A more precise version of `coverage`
+- **ranges** (`BucketRange[]`) - Ranges for experiment variations
+- **meta** (`VariationMeta[]`) - Meta info about the experiment variations
+- **filters** (`Filter[]`) - Array of filters to apply to the rule
+- **seed** (`string`) - Seed to use for hashing
+- **name** (`string`) - Human-readable name for the experiment
+- **phase** (`string`) - The phase id of the experiment
+- **tracks** (`TrackData[]`) - Array of tracking calls to fire
+
+### Filter
+
+Object used for mutual exclusion and filtering users out of experiments based on random hashes. Has the following properties:
+
+- **seed** (`string`) - The seed used in the hash
+- **ranges** (`BucketRange[]`) - Array of ranges that are included
+- **hashVersion** (`integer`) - The hash version to use (default to `2`)
+- **attribute** (`string`, optional) - The attribute to use (default to `"id"`)
+
+### ForcedVariationsMap
+
+A hash or map that forces an **Experiment** to always assign a specific variation. Useful for QA.
+
+Keys are the experiment key, values are the array index of the variation. For example:
+
+```json
+{
+  "my-test": 0,
+  "other-test": 1
+}
+```
+
+### Namespace
+
+A tuple that specifies what part of a namespace an experiment includes. If two experiments are in the same namespace and their ranges don't overlap, they wil be mutually exclusive.
+
+The tuple has 3 parts:
+
+1. The namespace id (`string`)
+2. The beginning of the range (`float`, between `0` and `1`)
+3. The end of the range (`float`, between `0` and `1`)
+
+For example:
+
+```ts
+["namespace1", 0, 0.5];
+```
+
+### TrackingCallback
+
+A callback function that is executed every time a user is included in an **Experiment**. Here's an example:
+
+```js
+function track(experiment, result) {
+  analytics.track("Experiment Viewed", {
+    experimentId: experiment.key,
+    variationId: result.variationId,
+  });
+}
+```
+
+### TrackData
+
+Used for remote feature evaluation to trigger the `TrackingCallback`. An object with 2 properties:
+
+- **experiment** - `Experiment`
+- **result** - `ExperimentResult`
+
+### VariationMeta
+
+Meta info about an experiment variation. Has the following properties:
+
+- **key** (`string`, optional) - A unique key for this variation
+- **name** (`string`, optional) - A human-readable name for this variation
+- **passthrough** (`boolean`, optional) - Used to implement holdout groups
+
+## Helper Functions
+
+There are some helper functions which are used a few times throughout the SDK.
+
+### hash(seed: string, value: string, version: integer): float
+
+Hashes a string to a float between 0 and 1.
+
+Uses the simple [Fowler–Noll–Vo](https://en.wikipedia.org/wiki/Fowler%E2%80%93Noll%E2%80%93Vo_hash_function) algorithm, specifically fnv32a. An implementation of this is available in most languages already, and if not it's only a few lines of code to implement yourself. Fnv32a returns an integer, so we convert that to a float using a modulus.
+
+The original hash version (1) had a flaw that caused bias when running experiments in parallel.
+
+```ts
+// New hashing algorithm
+if (version === 2) {
+  n = fnv32a(fnv32a(seed + value) + "");
+  return (n % 10000) / 10000;
+}
+// Original hashing algorithm (with a bias flaw)
+else if (version === 1) {
+  n = fnv32a(value + seed);
+  return (n % 1000) / 1000;
+}
+
+return -1;
+```
+
+**Note**: It's important to use the exact hashing algorithms outlined here so all SDKs behave identically.
+
+### inRange(n: float, range: BucketRange): boolean
+
+Determines if a number `n` is within the provided range.
+
+```js
+return n >= range[0] && n < range[1]>;
+```
+
+### inNamespace(userId: string, namespace: Namespace): boolean
+
+This checks if a userId is within an experiment namespace or not.
+
+The `namespace` argument is a tuple with 3 parts: id (string), start (float), and end (float).
+
+1. Hash the userId and namespace name with two underscores as a delimiter
+   ```ts
+   n = hash("__" + namespace[0], userId, 1);
+   ```
+2. Return if hash is greater than (inclusive) the namespace start and less than (exclusive) the namespace end:
+   ```ts
+   return n >= namespace[1] && n < namespace[2];
+   ```
+
+### getEqualWeights(numVariations: integer): float[]
+
+Returns an array of floats with `numVariations` items that are all equal and sum to 1. For example, `getEqualWeights(2)` would return `[0.5, 0.5]`.
+
+It's ok if the sum is slightly off due to rounding. So a sum of `0.9999999` is fine for example.
+
+1. If numVariations is less than 1, return empty array
+2. Create array with a length of `numVariations`
+3. Fill the array with `1.0/numVariations` and return
+
+### getBucketRanges(numVariations: integer, coverage: float, weights: float[]): BucketRange[]
+
+This converts and experiment's coverage and variation weights into an array of bucket ranges.
+
+`numVariations` is an integer, `coverage` is a float, and `weights` is an array of floats.
+
+1. Clamp the value of `coverage` to between 0 and 1 inclusive.
+   ```ts
+   if (coverage < 0) coverage = 0;
+   if (coverage > 1) coverage = 1;
+   ```
+2. Default to equal weights if the weights don't match the number of variations.
+   ```ts
+   if (weights.length != numVariations) {
+     weights = getEqualWeights(numVariations);
+   }
+   ```
+3. Default to equal weights if the sum is not equal `1` (or close enough when rounding errors are factored in):
+   ```ts
+   if (sum(weights) < 0.99 || sum(weights) > 1.01) {
+     weights = getEqualWeights(numVariations);
+   }
+   ```
+4. Convert weights to ranges and return
+
+   ```ts
+   cumulative = 0;
+   ranges = [];
+
+   for (w in weights) {
+     start = cumulative;
+     cumulative += w;
+     ranges.push([start, start + coverage * w]);
+   }
+
+   return ranges;
+   ```
+
+Some examples:
+
+- `getBucketRanges(2, 1, [0.5, 0.5])` -> `[[0, 0.5], [0.5, 1]]`
+- `getBucketRanges(2, 0.5, [0.4, 0.6])` -> `[[0, 0.2], [0.4, 0.7]]`
+
+### chooseVariation(n: float, ranges: BucketRange[]): integer
+
+Given a hash and bucket ranges, assign one of the bucket ranges.
+
+1. Loop through ranges
+   1. If n is within the range, return the range index
+      ```ts
+      if (inRange(n, ranges[i])) {
+        return i;
+      }
+      ```
+2. Return `-1` if it makes it through the whole ranges array without returning
+
+If multiple ranges match, return the first matching one.
+
+### getQueryStringOverride(id: string, url: string, numVariations: integer): null|integer
+
+This checks if an experiment variation is being forced via a URL query string. This may not be applicable for all SDKs (e.g. mobile).
+
+As an example, if the id is `my-test` and url is `http://localhost/?my-test=1`, you would return `1`.
+
+If possible, you should use a proper URL parsing library vs relying on simple regexes.
+
+Return `null` if any of these are true:
+
+- There is no querystring
+- The id is not a key in the querystring
+- The variation is not an integer
+- The variation is less than 0 or greater than or equal to numVariations
+
+## Evaluating Conditions
+
+In addition to the helper functions above, there are a number of methods related to evaluating targeting conditions.
+
+There is only one public method `evalCondition` and everything else is a private helper function.
+
+### public evalCondition(attributes: Attributes, condition: Condition): boolean
+
+This is the main function used to evaluate a condition.
+
+1. If condition has a key `$or`, return `evalOr(attributes, condition["$or"])`
+2. If condition has a key `$nor`, return `!evalOr(attributes, condition["$nor"])`
+3. If condition has a key `$and`, return `evalAnd(attributes, condition["$and"])`
+4. If condition has a key `$not`, return `!evalCondition(attributes, condition["$not"])`
+5. Loop through the condition key/value pairs
+   1. If `evalConditionValue(value, getPath(attributes, key))` is false, break out of loop and return false
+6. Return true
+
+### private evalOr(attributes: Attributes, conditions: Condition[]): boolean
+
+`conditions` is an array of Condition objects
+
+1. If conditions is empty, return true
+2. Loop through conditions
+   1. If `evalCondition(attributes, conditions[i])` is true, break out of the loop and return true
+3. Return false
+
+### private evalAnd(attributes: Attributes, conditions: Condition[]): boolean
+
+`conditions` is an array of Condition objects
+
+1. Loop through conditions
+   1. If `evalCondition(attributes, conditions[i])` is false, break out of the loop and return false
+2. Return true
+
+### private isOperatorObject(obj): boolean
+
+This accepts a parsed JSON object as input and returns `true` if every key in the object starts with `$`.
+
+- `{"$gt": 1}` -> `true`
+- `{"$gt": 1, "$lt": 10}` -> `true`
+- `{"foo": "bar"}` -> `false`
+- `{"$gt": 1, "foo": "bar"}` -> `false`
+
+If the object is empty and has no keys, this should also return true.
+
+### private getType(attributeValue): string
+
+This returns the data type of the passed in argument.
+
+The valid types to return are:
+
+- `string`
+- `number`
+- `boolean`
+- `array`
+- `object`
+- `null`
+- `undefined`
+- `unknown`
+
+The difference between `null` and `undefined` can be illustrated as follows:
+
+```ts
+obj = JSON.parse('{"foo": null}');
+
+getType(obj["foo"]); // null
+
+getType(obj["bar"]); // undefined
+```
+
+The value `unknown` is there just in case you can't figure out the data type for whatever reason. It will never be used in most implementations.
+
+### private getPath(attributes: Attributes, path: string): any
+
+Given attributes and a dot-separated path string, return the value at that path (or `null`/`undefined` if the path doesn't exist)
+
+Given the input:
+
+```json
+{
+  "name": "john",
+  "job": {
+    "title": "developer"
+  }
+}
+```
+
+It should return:
+
+- `getPath(input, "name")` -> `"john"`
+- `getPath(input, "job.title")` -> `"developer"`
+- `getPath(input, "job.company")` -> `null` or `undefined`
+
+### private evalConditionValue(conditionValue, attributeValue): boolean
+
+1. If `conditionValue` is an object and `isOperatorObject(conditionValue)` is true
+   1. Loop over each key/value pair
+      1. If `evalOperatorCondition(key, attributeValue, value)` is false, return false
+   2. Return true
+2. Else, do a deep comparison between `attributeValue` and `conditionValue`. Return true if equal, false if not.
+
+### private elemMatch(condition, attributeValue): boolean
+
+This checks if `attributeValue` is an array, and if so at least one of the array items must match the condition
+
+1. If `attributeValue` is not an array, return false
+2. Loop through items in `attributeValue`
+   1. If `isOperatorObject(condition)`
+      1. If `evalConditionValue(condition, item)`, break out of loop and return true
+   2. Else if `evalCondition(item, condition)`, break out of loop and return true
+3. Return false
+
+### private evalOperatorCondition(operator, attributeValue, conditionValue)
+
+This function is just a case statement that handles all the possible operators
+
+There are basic comparison operators in the form `attributeValue {op} conditionValue`:
+
+- `$eq` ==
+- `$ne` != (not equals)
+- `$lt` &lt;
+- `$lte` &lt;=
+- `$gt` &gt;
+- `$gte` &gt;=
+- `$regex` ~ (regex match)
+
+There are 2 operators where conditionValue is an array:
+
+- `$in`
+  1. Return true if attributeValue in the conditionValue array, false otherwise
+- `$nin`
+  1. Return false if attributeValue in the conditionValue array, true otherwise
+
+There are 2 operators where attributeValue is an array:
+
+- `$elemMatch`
+  1. Return `elemMatch(conditionValue, attributeValue)`
+- `$size`
+  1.  If attributeValue is not an array, return false
+  2.  Return `evalConditionValue(conditionValue, attributeValue.length)`
+
+There is 1 operator where both attributeValue and conditionValue are arrays:
+
+- `$all`
+  1. If attributeValue is not an array, return false
+  2. Loop through conditionValue array
+     1. If none of the elements in the attributeValue array pass `evalConditionValue(conditionValue[i], attributeValue[j])`, return false
+  3. Return true
+
+There are 3 other operators:
+
+- `$exists`
+  1. If conditionValue is false, return true if attributeValue is null or undefined
+  2. Else, return true if attributeValue is NOT null or undefined
+  3. Return false by default
+- `$type`
+  1. Return `getType(attributeValue) == conditionValue`
+- `$not`
+  1. Return `!evalConditionValue(conditionValue, attributeValue)`
+
+If operator doesn't match any of these, return false and potentially log the error for debug purposes.
+
+## GrowthBook Class
+
+The GrowthBook class is the main export of the SDK.
+
+### constructor
+
+The constructor takes a Context object and stores the properties for later. Nothing else needs to be done during initialization.
+
+This class has a few helper methods as well as 2 main public methods - `evalFeature` and `run`.
+
+### Getters and Setters
+
+There should be simple getters and setters for a few of the context properties:
+
+- `attributes`
+- `features`
+- `forcedVariations`
+- `url`
+- `enabled`
+
+### private getFeatureResult(value, source, experiment, experimentResult): FeatureResult
+
+This is a helper method to create a `FeatureResult` object. The first two arguments, `value`, and `source` are required. The last two, `experiment` and `experimentResult` are optional and should default to `null`.
+
+Besides the passed-in arguments, there are two derived values - `on` and `off`, which are just the value cast to booleans.
+
+value can be any JSON type. Only the following values are considered to be "falsy":
+
+- `null`
+- `false`
+- `""`
+- `0`
+
+Everything else is considered "truthy", including empty arrays and objects.
+
+If value is "truthy", then `on` should be true and `off` should be false. If the value is "falsy", then they should take opposite values.
+
+### private isFilteredOut(filters: Filters[]): boolean
+
+This is a helper method to evaluate `filters` for both feature flags and experiments.
+
+1. Loop through filters array
+   1. Get the hashAttribute and hashValue
+   ```ts
+   hashAttribute = filter.attribute || "id";
+   hashValue = context.attributes[hashAttribute] || "";
+   ```
+   2. If hashValue is empty, return `true`
+   3. Determine the bucket for the user
+      ```ts
+      n = hash(filter.seed, hashValue, filter.hashVersion || 2);
+      ```
+   4. If `inRange(n, range)` is false for every range in `filter.ranges`, return `true`
+2. If you made it through the entire array without returning early, return `false` now
+
+### private isIncludedInRollout(seed: string, hashAttribute: string | null, range: BucketRange | null, coverage: float | null, hashVersion: integer | null): boolean
+
+Determines if the user is part of a gradual feature rollout.
+
+1. Either `coverage` or `range` are required. If both are `null`, return `true` immediately
+2. Get the hashAttribute and hashValue
+   ```ts
+   hashAttribute = hashAttribute || "id";
+   hashValue = context.attributes[hashAttribute] || "";
+   ```
+3. If `hashValue` is empty, return `false` immediately
+4. Determine the bucket for the user
+   ```ts
+   n = hash(seed, hashValue, hashVersion || 1)
+   ```
+5. Check if user is included
+
+   ```js
+   if (range) {
+    return inRange(n, range)
+   }
+   else if (coverage !== null) {
+    return n <= coverage
+   }
+
+   return true
+   ```
+
+### private getExperimentResult(experiment, variationIndex, hashUsed, featureId, bucket): ExperimentResult
+
+This is a helper method to create an `ExperimentResult` object. The arguments are:
+
+- `experiment` - Experiment object (required)
+- `variationIndex` - The assigned variation index (optional, default to `-1`)
+- `hashUsed` - Whether or not the hash was used to assign a variation (optional, default to `false`)
+- `featureId` - The id of the feature (if any) that the experiment came from (optional, default to `null`)
+- `bucket` - The hash bucket value for the user. Float from `0` to `1` (optional, default to `null`)
+
+The method is pretty simple:
+
+1. Handle case when user is not in the experiment (e.g. variationIndex = -1)
+   ```ts
+   // By default, assume everyone is in the experiment
+   let inExperiment = true;
+   // If the variation is invalid, use the baseline and set the inExperiment flag to false
+   if (variationIndex < 0 || variationIndex >= experiment.variations.length) {
+     variationIndex = 0;
+     inExperiment = false;
+   }
+   ```
+2. Get the hashAttribute and hashValue
+   ```ts
+   hashAttribute = experiment.hashAttribute || "id";
+   hashValue = context.attributes[hashAttribute] || "";
+   ```
+3. Get meta info for the assigned variation (if any)
+   ```ts
+   meta = experiment.meta ? experiment.meta[variationIndex] : null
+   ```
+4. Build return object
+   ```ts
+   res = {
+     key: (meta && meta.key) ? meta.key : ("" + variationIndex),
+     featureId: featureId,
+     inExperiment: inExperiment,
+     hashUsed: hashUsed,
+     variationId: variationIndex,
+     value: experiment.variations[variationIndex],
+     hashAttribute: hashAttribute,
+     hashvalue: hashValue,
+   };
+   ```
+5. Add optional properties and return
+
+   ```ts
+   if (meta && meta.name) res.name = meta.name;
+   if (meta && meta.passthrough) res.passthrough = true;
+   if (bucket !== null) res.bucket = bucket;
+
+   return res;
+   ```
+
+### public evalFeature(key: string): FeatureResult
+
+The `evalFeature` method takes a single string argument, which is the unique identifier for the feature and returns a `FeatureResult` object.
+
+```js
+growthbook = new GrowthBook(context);
+myFeature = growthbook.evalFeature("my-feature");
+```
+
+There are a few ordered steps to evaluate a feature
+
+1. If the key doesn't exist in `context.features`
+   1. Return `getFeatureResult(null, "unknownFeature")`
+2. Loop through the feature rules (if any)
+   1. If the rule has a `condition`
+      1. If `evalCondition(context.attributes, rule.condition)` is false, skip this rule and continue to the next one
+   2. If the rule has `filters` defined
+      1. if `isFilteredOut(rule.filters)`, skip this rule and continue to the next one
+   3. If `rule.force` is set
+      1. If not `isIncludedInRollout`, skip this rule and continue to the next one
+         ```ts
+         if (!isIncludedInRollout(
+           rule.seed || featureKey,
+           rule.hashAttribute,
+           rule.range,
+           rule.coverage,
+           rule.hashVersion
+         )) {
+          continue;
+         }
+         ```
+      2. If `rule.tracks` is set, fire the `TrackingCallback` for each element in the `rule.tracks` array.
+      3. Return `getFeatureResult(rule.force, "force")`
+   4. Otherwise, convert the rule to an Experiment object
+      ```ts
+      const exp = {
+        variations: rule.variations,
+        key: rule.key || featureKey,
+      };
+      ```
+   5. Copy over additional settings from the rule to `exp` if defined:
+      - `coverage`
+      - `weights`
+      - `hashAttribute`
+      - `namespace`
+      - `meta`
+      - `ranges`
+      - `name`
+      - `phase`
+      - `seed`
+      - `filters`
+   6. Run the experiment
+      ```ts
+      result = run(exp);
+      ```
+   7. If `result.inExperiment` is false OR `result.passthrough` is true, skip this rule and continue to the next one
+   8. Otherwise, return
+      ```ts
+      return getFeatureResult(result.value, "experiment", exp, result);
+      ```
+3. Return `getFeatureResult(feature.defaultValue || null, "defaultValue")`
+
+### public run(experiment: Experiment): ExperimentResult
+
+The `run` method takes an Experiment object and returns an `ExperimentResult`.
+
+There are a bunch of ordered steps to run an experiment:
+
+1.  If `experiment.variations` has fewer than 2 variations, return `getExperimentResult(experiment)`
+2.  If `context.enabled` is false, return `getExperimentResult(experiment)`
+3.  If `context.url` exists
+    ```ts
+    qsOverride = getQueryStringOverride(experiment.key, context.url);
+    if (qsOverride != null) {
+      return getExperimentResult(experiment, qsOverride);
+    }
+    ```
+4.  Return if forced via context
+    ```ts
+    if (experiment.key in context.forcedVariations) {
+      return getExperimentResult(
+        experiment,
+        context.forcedVariations[experiment.key]
+      );
+    }
+    ```
+5.  If `experiment.active` is set to false, return `getExperimentResult(experiment)`
+6.  Get the user hash value and return if empty
+    ```ts
+    hashAttribute = experiment.hashAttribute || "id";
+    hashValue = context.attributes[hashAttribute] || "";
+    if (hashValue == "") {
+      return getExperimentResult(experiment);
+    }
+    ```
+7.  Apply filters and namespace
+    1.  If `experiment.filters` is set
+        ```js
+        if (isFilteredOut(experiment.filters)) {
+         return getExperimentResult(experiment)
+        }
+        ```
+    2.  Else if `experiment.namespace` is set, return if not in range
+        ```ts
+        if (!inNamespace(hashValue, experiment.namespace)) {
+         return getExperimentResult(experiment);
+        }
+        ```
+8.  If `experiment.condition` is set return if it evaluates to false
+    ```ts
+    if (!evalCondition(context.attributes, experiment.condition)) {
+      return getExperimentResult(experiment);
+    }
+    ```
+9.  Calculate bucket ranges for the variations and choose one
+    ```ts
+    ranges = experiment.ranges || getBucketRanges(
+      experiment.variations.length,
+      experiment.converage ?? 1,
+      experiment.weights ?? []
+    );
+    n = hash(
+      experiment.seed || experiment.key,
+      hashValue,
+      experiment.hashVersion || 1
+    );
+    assigned = chooseVariation(n, ranges);
+    ```
+10. If assigned == `-1`, return `getExperimentResult(experiment)`
+11. If experiment has a forced variation, return
+    ```ts
+    if ("force" in experiment) {
+      return getExperimentResult(experiment, experiment.force);
+    }
+    ```
+12. If `context.qaMode`, return `getExperimentResult(experiment)`
+13. Build the result object
+    ```ts
+    result = getExperimentResult(experiment, assigned, true, n);
+    ```
+14. Fire `context.trackingCallback` if set and the combination of hashAttribute, hashValue, experiment.key, and variationId has not been tracked before
+15. Return `result`
+
+### Feature helper methods
+
+There are 3 tiny helper methods that wrap `evalFeature` for a better developer experience:
+
+```js
+public isOn(key) {
+  return this.evalFeature(key).on
+}
+
+public isOff(key) {
+  return this.evalFeature(key).off
+}
+
+public getFeatureValue(key, fallback) {
+  value = this.evalFeature(key).value
+  return value === null ? fallback : value
+}
+```
+
+For strongly typed languages, you can use generics (if supported) for `getFeatureValue` and coerce the return value to always match the data type of fallback. If generics are not supported, you can use type-specific versions of the function such as `getFeatureValueAsString`.
+
+## Fetching and Caching Features
+
+When the Context contains a `clientKey`, the SDK should fetch and cache features automatically.
+
+If `apiHost` is not specified, default to `https://cdn.growthbook.io`. Make sure to strip and trailing slashes on user-entered hosts (e.g. `http://example.com/` becomes `http://example.com`).
+
+Features should be fetched from `{apiHost}/api/features/{clientKey}` and all errors should be handled gracefully. A network error while fetching features should never be a fatal error that stops execution.
+
+The API responses should be parsed and cached so future GrowthBook instances with the same clientKey can avoid a duplicate network request. The standard cache TTL to use is 60 seconds.
+
+For best performance, a stale-while-revalidate pattern should be used. If a cache entry is older than the TTL, return the cached value immediately and start a background process to update the cache from the API.
+
+The initial download should be intiated by a `growthbook.loadFeatures()` method call. This method may take optional parameters, such as `timeout` or `skipCache`, if it makes sense.
+
+There should be an easy way for the user to wait until features finish loading. Depending on the language, this might be an event emitter, a Promise, a callback, or something similar. Use whatever method is standard for the language.
+
+### Server Sent Events
+
+The API response (`/api/features/{clientKey}`) may contain a response header:
+
+> x-sse-support: enabled
+
+If set to "enabled", you are able to subscribe to the API for realtime changes to feature definitions. This will let you update the cache immediately when a feature changes instead of waiting for the 60s TTL to expire.
+
+The URL for subscribing to changes is `{apiHost}/sub/{clientKey}`. An example implementation in Javascript is below:
+
+```js
+const channel = new EventSource(`${apiHost}/sub/${clientKey}`);
+channel.addEventListener("features", (event) => {
+  const data = JSON.parse(event.data);
+  cache.set(clientKey, data.features);
+})
+```
+
+### Encrypted Features
+
+The `/api/features/{clientKey}` endpoint can have encryption enabled (128-bit AES-CBC). When this is the case, the API response will look like this:
+
+```js
+{
+  "features": {},
+  "encryptedFeatures": "abcdef123456.ghijklmnop789jksdkfaksfadfasdfkahsfa"
+}
+```
+
+Before you can use this response, you will need to decrypt it. This requires the user to set `Context.decryptionKey` when creating the GrowthBook instance.
+
+Look at the Javascript SDK for an example decryption implementation.
+
+## Type Hinting
+
+Most languages have some sort of strong typing support, whether in the language itself or via annotations. This helps to reduce errors and is highly encouraged for SDKs.
+
+If possible, use generics to type the return value. For example, if `experiment.variations` is type `T[]`, then `result.value` should be type `T`. Or, if the fallback of `getFeatureValue` is type `string`, the return type should also be type `string`.
+
+## Handling Errors
+
+The general rule is to be strict in development and lenient in production.
+
+You can throw exceptions in development, but someone's production app should never crash because of a call to `growthbook.evalFeature` or `growthbook.run`.
+
+For the below edge cases in production, just act as if the problematic property didn't exist and ignore errors:
+
+- `experiment.weights` is a different length from `experiment.variations`
+- `experiment.weights` adds up to something other than 1
+- `experiment.coverage` or `feature.coverage` is greater than 1 or less than 0
+- `context.trackingCallback` throws an error
+- URL querystring specifies an invalid variation index
+
+For the below edge cases in production, the experiment should be disabled (everyone gets assigned variation `0`):
+
+- `experiment.coverage` is less than 0
+- `experiment.force` specifies an invalid variation index
+- `context.forcedVariations` specifies an invalid variation index
+- `experiment.hashAttribute` is an empty string
+
+## Subscriptions
+
+Sometimes it's useful to be able to "subscribe" to a GrowthBook instance and be alerted every time `growthbook.run` is called. This is different from the tracking callback since it also fires when a user is _not_ included in an experiment.
+
+```js
+growthbook.subscribe(function (experiment, result) {
+  // do something
+});
+```
+
+It's best to only re-fire the callbacks for an experiment if the result has changed. That means either the `inExperiment` flag has changed or the `variationId` has changed.
+
+If it makes sense for your language, this function should return an "unsubscriber". A simple callback that removes the subscription.
+
+```js
+unsubscriber = growthbook.subscribe(...)
+unsubscriber()
+```
+
+In addition to subscriptions you may also want to expose a `growthbook.getAllResults` method that returns a map of the latest results indexed by experiment key.
+
+## Memory Management
+
+Subscriptions and tracking calls require storing references to many objects and functions. If it makes sense for your language, libraries should provide a `growthbook.destroy` method to remove all of these references and release their memory.
+
+## Tests
+
+We strive to have 100% test coverage for all of our SDKs.
+
+There is a language-agnostic test suite stored as a JSON file `packages/sdk-js/test/cases.json` with more than 200 unit tests. This extensively tests all of the public methods mentioned above.
+
+The cases.json file is an object. The keys are the function being tested, and the values are arrays of test cases. The test case arrays structure is different for each function and listed below:
+
+- **hash**
+  - seed (string)
+  - value to hash (string)
+  - hash version to use (integer)
+  - expected result (float)
+- **getBucketRange**
+  - Name of the test case (string)
+  - Arguments array ([numVariations, coverage, weights or null])
+  - expected result
+- **chooseVariation**
+  - name of the test case (string)
+  - n (hash)
+  - bucket ranges
+  - expected result
+- **getQueryStringOverride**
+  - name of the test case (string)
+  - experiment key
+  - url
+  - numVariations
+  - expected result
+- **inNamespace**
+  - name of the test case (string)
+  - id
+  - namespace
+  - expected result
+- **getEqualWeights**
+  - numVariations
+  - expected result (weights rounded to 8 decimal places)
+- **evalCondition**
+  - name of the test case (string)
+  - condition
+  - attributes
+  - expected return value (boolean)
+- **feature** (evalFeature)
+  - name of the test case (string)
+  - context passed into GrowthBook constructor
+  - name of the feature (string)
+  - expected result
+- **run**
+  - name of the test case (string)
+  - context passed into GrowthBook constructor
+  - experiment object
+  - expected value
+  - inExperiment (boolean)
+  - hashUsed (boolean)
+
+In addition to the above, you should write custom test cases for things like event subscriptions, tracking callbacks, getters/setters, etc. that are more language-specific.
+
+## Getting Help
+
+Join our [Slack community](https://slack.growthbook.io?ref=docs-buildyourown) if you need help or want to chat. We're also happy to hop on a call and do some pair programming.
+
+## Attribution
+
+Open a [GitHub issue](https://github.com/growthbook/growthbook/issues) with a link to your project and we'll make sure we add it to our docs and give you proper credit for your hard work.
+
+## Changelog
+
+- **v0.1** 2022-05-23
+  - Don't skip experiment rules that are forced
+- **v0.2** 2022-07-19
+  - Add `featureId` to ExperimentResult object
+- **v0.2.1** 2022-08-01
+  - Add test case for when an experiment's hashAttribute is `null`
+- **v0.2.2** 2022-09-08
+  - Add test case for when an experiment's hashAttribute is an integer
+- **v0.2.3** 2022-12-06
+  - Add test case for when an experiment's coverage is set to 0
+- **v0.3.0** 2023-01-18
+  - New `apiHost`, `clientKey`, and `decryptionKey` Context properties
+  - Built-in fetching and caching
+  - Server Sent Events (SSE) support for realtime feature updates
+- **v0.4.0** 2023-02-24
+  - Changed signature of `hash` method and added multiple hashing versions
+  - New `inRange`, `isIncludedInRollout`, and `isFilteredOut` helper methods
+  - New `hashVersion`, `range`, `ranges`, `meta`, `filters`, `seed`, `name`, `tracks`, and `phase` properties of FeatureRules
+  - New `hashVersion`, `ranges`, `meta`, `filters`, `seed`, `name`, and `phase` properties of Experiments
+  - New `key`, `name`, `bucket`, and `passthrough` fields in Experiment Results
+  - New `Filter`, `VariationMeta`, and `TrackData` data structures

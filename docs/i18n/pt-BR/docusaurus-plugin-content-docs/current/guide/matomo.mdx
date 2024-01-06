@@ -1,0 +1,159 @@
+---
+title: GrowthBook and Matomo
+description: Configure GrowthBook to do A/B testing using Matomo Analytics
+sidebar_label: Matomo 🚧
+slug: matomo
+---
+
+# Configuring GrowthBook to work with Matomo
+
+GrowthBook makes it easy to do A/B testing using Matomo as an event source. This guide shows you how to set up GrowthBook to work with self-hosted Matomo and the MySQL/MariaDB that it runs on.
+
+## 1. Integrate GrowthBook's SDK with Matomo within your application
+
+You can follow the SDK integration guides depending on your language. We need to add the `TrackingCallback` call
+specifically for Matomo. For this guide, we'll use Javascript (Next.js).
+
+Matomo lets you track custom events, and you can adjust the `Event Category`, `Event Action`, `Event Name`, and
+`Event Value`. You can read more about the custom tracking call at [Matomo's documentation site](https://matomo.org/faq/reports/implement-event-tracking-with-matomo/).
+
+:::note
+There are a few caveats with Matomo's event schema that it is important to be aware of.
+
+  <ul>
+    <li>
+      <strong>Event Category</strong> cannot contain any spaces.
+    </li>
+    <li>
+      {" "}
+      If <strong>Event Name</strong> is 0 or "0" it will record null.
+    </li>
+    <li>
+      <strong>Event Value</strong> must be an integer.
+    </li>
+  </ul>
+:::
+
+To work with the default data schema in GrowthBook, we will encode the following:
+
+- `Event Category`: will have the value `ExperimentViewed` to isolate the exposure events.
+- `Event Action`: will store the experiment key.
+- `Event Name`: will store the variation id (with a prefix of `v` or some other string)
+
+```ts
+// Create a GrowthBook instance
+const growthbook = new GrowthBook({
+  trackingCallback: (experiment, result) => {
+    window["_paq"] = window._paq || [];
+    window._paq.push([
+      "trackEvent",
+      "ExperimentViewed",
+      experiment.key,
+      "v" + result.variationId,
+    ]);
+  },
+});
+```
+
+:::note
+We use the string prefix on the Event Name so that it is saved correctly, as `0`
+saves as `null`, but `v0` works correctly. This prefix is stripped with the SQL
+exposure query in step two.
+:::
+
+With that set, we need to load the user id into the GrowthBook user attributes. The following code shows how to do this with the Matomo anonymous `visitor ID`
+
+```ts
+// add the Matomo anonId when loaded
+let visitor_id;
+if ("_paq" in window) {
+  _paq.push([
+    function () {
+      visitor_id = this.getVisitorId();
+      growthbook.setAttributes({
+        ...growthbook.getAttributes(),
+        id: visitor_id,
+      });
+    },
+  ]);
+}
+```
+
+For Next.js, we would need to do this in the useEffect and also detect the window in case of a server side render:
+
+```tsx
+// Create a GrowthBook instance
+const growthbook = new GrowthBook({
+    trackingCallback: (experiment, result) => {
+        if (window) {
+            window["_paq"] = window._paq || [];
+            window._paq.push(['trackEvent', 'ExperimentViewed', experiment.key, "v"+result.variationId]);
+        }
+    }
+});
+
+export default function MyApp({ Component, pageProps }) {
+    useEffect(() => {
+        // Load feature definitions from API
+        fetch(process.env.NEXT_PUBLIC_GROWTHBOOK_FEATURES_URL)
+            .then((res) => res.json())
+            .then((json) => {
+                growthbook.setFeatures(json.features);
+            });
+
+        // TODO: replace with real targeting attributes
+        growthbook.setAttributes({
+            "company": "foo",
+            "browser": "foo",
+            "url": "foo"
+        });
+
+        // add the Matomo anonId when loaded
+        let visitor_id;
+        if("_paq" in window) {
+            _paq.push([function () {
+                visitor_id = this.getVisitorId();
+                growthbook.setAttributes({ ...growthbook.getAttributes(), id: visitor_id });
+            }]);
+        }
+    }, []);
+    ...
+```
+
+## 2. Add the Data Source for Matomo
+
+From within the GrowthBook application, navigate to the `Data Sources` page from within the `Analysis` section. Click on `add data source` and select `Matomo` from the list of event sources.
+
+<img
+  src="/images/new-data-sources-modal.png"
+  alt="Add Matomo data source"
+  style={{ width: 500, margin: "0 auto" }}
+/>
+
+After you select Matomo, you will be prompted to connect to your MySQL/Maria database.
+
+<img
+    src="/images/guides/matomo-2-connect-to-db.png"
+    alt="Add MySQL/MariaDB data source"
+    style={{ width: 500, margin: "0 auto" }}
+/>
+
+Once you've completed the connection GrowthBook will and then you can adjust some settings specific to your instance and how you implemented the Matomo tracking code.
+
+<img
+  src="/images/guides/matomo-3-matomo-options.png"
+  alt="Setting Matomo options"
+  style={{ width: 500, margin: "0 auto" }}
+/>
+
+When you save, you'll have the experiment exposure queries for anonymous and user_id set for you.
+
+<img
+  src="/images/guides/matomo-4-matomo-anon.png"
+  alt="Default Matomo experiment exposure query"
+  style={{ width: 800, margin: "0 auto" }}
+/>
+
+You can test running this query directly against your database. It should return a list of experiments exposure events.
+
+You will still need to define the metrics you want to test against from the metrics settings.
