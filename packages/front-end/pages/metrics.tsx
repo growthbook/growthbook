@@ -1,9 +1,10 @@
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { FaArchive, FaPlus, FaRegCopy } from "react-icons/fa";
 import { MetricInterface } from "back-end/types/metric";
 import { useRouter } from "next/router";
 import Link from "next/link";
 import { ago, datetime } from "shared/dates";
+import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { isProjectListValidForProject } from "shared/util";
 import { getMetricLink } from "shared/experiments";
 import SortedTags from "@/components/Tags/SortedTags";
@@ -44,6 +45,14 @@ interface MetricTableItem {
   onArchive?: (desiredState: boolean) => Promise<void>;
 }
 
+interface ExperimentUsage {
+  draft: ExperimentInterfaceStringDates[];
+  running: ExperimentInterfaceStringDates[];
+  stopped: ExperimentInterfaceStringDates[];
+  dateLastUsed: string | null;
+  total: number;
+}
+
 const MetricsPage = (): React.ReactElement => {
   const [modalData, setModalData] = useState<{
     current: Partial<MetricInterface>;
@@ -76,6 +85,83 @@ const MetricsPage = (): React.ReactElement => {
   const [recentlyArchived, setRecentlyArchived] = useState<Set<string>>(
     new Set()
   );
+  const [showUsage, setShowUsage] = useState(false);
+  const [experimentData, setExperimentData] = useState<Map<
+    string,
+    ExperimentUsage
+  > | null>();
+
+  useEffect(() => {
+    if (showUsage) {
+      (async () => {
+        await apiCall("/experiments").then(
+          (data: { experiments: ExperimentInterfaceStringDates[] }) => {
+            const metricExperimentMap = new Map();
+
+            data?.experiments?.forEach((experiment) => {
+              let mostRecentDate = datetime(experiment.dateCreated);
+              if (experiment.status === "running") {
+                mostRecentDate = datetime(new Date());
+              } else {
+                const lastPhase =
+                  experiment?.phases?.[experiment.phases.length - 1];
+                if (
+                  lastPhase &&
+                  lastPhase?.dateStarted &&
+                  mostRecentDate < lastPhase.dateStarted
+                ) {
+                  mostRecentDate = lastPhase.dateStarted;
+                }
+                if (
+                  lastPhase &&
+                  lastPhase?.dateEnded &&
+                  mostRecentDate < lastPhase.dateEnded
+                ) {
+                  mostRecentDate = lastPhase.dateEnded;
+                }
+              }
+              experiment?.metrics?.forEach((metric) => {
+                if (metricExperimentMap.has(metric)) {
+                  const existing = metricExperimentMap.get(metric);
+                  if (!existing || !existing?.[experiment.status]) {
+                    existing[experiment.status] = [];
+                  }
+                  existing[experiment.status].push(experiment);
+                  existing.total++;
+                  if (
+                    !existing.dateLastUsed ||
+                    existing.dateLastUsed < mostRecentDate
+                  ) {
+                    existing.dateLastUsed = mostRecentDate;
+                  }
+                  metricExperimentMap.set(metric, existing);
+                } else {
+                  const newRecord: ExperimentUsage = {
+                    draft: [],
+                    running: [],
+                    stopped: [],
+                    dateLastUsed: mostRecentDate,
+                    total: 0,
+                  };
+                  newRecord[experiment.status].push(experiment);
+                  newRecord.total++;
+                  metricExperimentMap.set(metric, newRecord);
+                }
+              });
+              experiment?.guardrails?.forEach((metric) => {
+                if (metricExperimentMap.has(metric)) {
+                  metricExperimentMap.get(metric).push(experiment);
+                } else {
+                  metricExperimentMap.set(metric, [experiment]);
+                }
+              });
+            });
+            setExperimentData(metricExperimentMap);
+          }
+        );
+      })();
+    }
+  }, [apiCall, showUsage]);
 
   const combinedMetrics = [
     ...inlineMetrics.map((m) => {
@@ -144,8 +230,10 @@ const MetricsPage = (): React.ReactElement => {
         ? getDatasourceById(m.datasource)?.description || undefined
         : undefined,
       ownerName: getUserDisplay(m.owner),
+      numExperiments: experimentData?.get(m.id)?.total || 0,
+      dateLastUsed: experimentData?.get(m.id)?.dateLastUsed || "-",
     }),
-    [getDatasourceById]
+    [getDatasourceById, experimentData]
   );
   const filteredMetrics = project
     ? metrics.filter((m) => isProjectListValidForProject(m.projects, project))
@@ -345,6 +433,17 @@ const MetricsPage = (): React.ReactElement => {
         <div className="col-auto">
           <TagsFilter filter={tagsFilter} items={items} />
         </div>
+        <div className="col-auto">
+          <a
+            href="#"
+            onClick={(e) => {
+              e.preventDefault();
+              setShowUsage(!showUsage);
+            }}
+          >
+            {showUsage ? "Hide usage" : "Show usage"}
+          </a>
+        </div>
       </div>
       <table className="table appbox gbtable table-hover">
         <thead>
@@ -371,6 +470,22 @@ const MetricsPage = (): React.ReactElement => {
               >
                 Last Updated
               </SortableTH>
+            )}
+            {showUsage && (
+              <>
+                <SortableTH
+                  field="numExperiments"
+                  className="d-none d-md-table-cell col-1"
+                >
+                  Experiments
+                </SortableTH>
+                <SortableTH
+                  field="dateLastUsed"
+                  className="d-none d-md-table-cell col-1"
+                >
+                  Last used
+                </SortableTH>
+              </>
             )}
             <th></th>
             <th></th>
@@ -436,6 +551,34 @@ const MetricsPage = (): React.ReactElement => {
                 >
                   {ago(metric.dateUpdated || "")}
                 </td>
+              )}
+              {showUsage && (
+                <>
+                  <td className="d-none d-md-table-cell">
+                    <Tooltip
+                      body={`${
+                        experimentData?.get(metric.id)?.draft.length || 0
+                      }
+         drafts, 
+        ${experimentData?.get(metric.id)?.running.length || 0} running, 
+        ${experimentData?.get(metric.id)?.stopped.length || 0} stopped`}
+                    >
+                      {metric.numExperiments + ""}
+                    </Tooltip>
+                  </td>
+                  <td
+                    className="d-none d-md-table-cell"
+                    title={
+                      metric.dateLastUsed
+                        ? datetime(metric.dateLastUsed)
+                        : "never used"
+                    }
+                  >
+                    {metric.dateLastUsed && metric.dateLastUsed !== "-"
+                      ? ago(metric.dateLastUsed || "")
+                      : "-"}
+                  </td>
+                </>
               )}
               <td className="text-muted">
                 {metric.archived && (
