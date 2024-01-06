@@ -25,6 +25,8 @@ export default function EditPhasesModal({
   const isDraft = experiment.status === "draft";
   const isMultiPhase = experiment.phases.length > 1;
   const hasStoppedPhases = experiment.phases.some((p) => p.dateEnded);
+  const hasLinkedChanges =
+    !!experiment.linkedFeatures?.length || !!experiment.hasVisualChangesets;
 
   const [editPhase, setEditPhase] = useState<number | null>(
     isDraft && !isMultiPhase ? 0 : null
@@ -121,7 +123,7 @@ export default function EditPhasesModal({
                 >
                   Edit
                 </button>
-                {experiment.status !== "running" && (
+                {(experiment.status !== "running" || !hasLinkedChanges) && (
                   <DeleteButton
                     className="ml-2"
                     displayName="phase"
@@ -143,7 +145,7 @@ export default function EditPhasesModal({
           ))}
         </tbody>
       </table>
-      {experiment.status !== "running" && (
+      {(experiment.status !== "running" || !hasLinkedChanges) && (
         <button
           className="btn btn-primary"
           onClick={(e) => {

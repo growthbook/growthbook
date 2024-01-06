@@ -325,15 +325,18 @@ function ChangeTypeSelector({
       onChange={(v) => setChangeType(v as ChangeType)}
       sort={false}
       isSearchable={false}
+      formatGroupLabel={({ label }) => (
+        <div className="pt-2 pb-1 border-bottom">{label}</div>
+      )}
       formatOptionLabel={({ value, label }) => {
         if (value === "advanced") {
           return (
             <>
-              <span className="ml-2 font-italic">
+              <span className="ml-2">
                 <BsToggles className="position-relative" style={{ top: -1 }} />{" "}
                 {label}
               </span>
-              <span className="ml-2">
+              <span className="ml-2 text-gray">
                 &mdash; Make multiple targeting changes at the same time
               </span>
             </>
