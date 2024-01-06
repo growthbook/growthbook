@@ -379,13 +379,14 @@ function TargetingChangeTooltips({
       {riskLevel === "warning" && (
         <>
           <FaExclamationCircle className="mr-1" /> The changes you have made may
-          impact existing bucketed users.
+          impact your experiment.
         </>
       )}
       {riskLevel === "danger" && (
         <>
           <FaExclamationCircle className="mr-1" /> The changes you have made
-          have a high risk of impacting existing bucketed users.
+          have a <span className="text-danger">high risk</span> of impacting
+          your experiment.
         </>
       )}
       {riskLevel !== "safe" && (
