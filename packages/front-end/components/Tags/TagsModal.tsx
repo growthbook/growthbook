@@ -45,26 +45,31 @@ export default function TagsModal({
       cta={existing?.id ? "Save Changes" : "Create Tag"}
       header={existing?.id ? `Edit Tag: ${existing.id}` : "Create Tag"}
       submit={form.handleSubmit(async (value) => {
-        await apiCall(`/tag`, {
-          method: "POST",
-          body: JSON.stringify(value),
-        });
+        if (existing?.id) {
+          await apiCall(`/tag/${existing?.id}`, {
+            method: "PUT",
+            body: JSON.stringify(value),
+          });
+        } else {
+          await apiCall(`/tag`, {
+            method: "POST",
+            body: JSON.stringify(value),
+          });
+        }
         await onSuccess();
       })}
     >
       <div className="colorpicker tagmodal">
-        {!existing?.id && (
-          <Field
-            // @ts-expect-error TS(2783) If you come across this, please fix it!: 'name' is specified more than once, so this usage ... Remove this comment to see the full error message
-            name="Name"
-            label="Name"
-            minLength={2}
-            maxLength={64}
-            className=""
-            required
-            {...form.register("id")}
-          />
-        )}
+        <Field
+          // @ts-expect-error TS(2783) If you come across this, please fix it!: 'name' is specified more than once, so this usage ... Remove this comment to see the full error message
+          name="Name"
+          label={existing?.id ? "Edit Name" : "Name"}
+          minLength={2}
+          maxLength={64}
+          className=""
+          required
+          {...form.register("id")}
+        />
         <label>Color:</label>
         <div className={styles.picker}>
           <HexColorPicker
