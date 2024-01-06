@@ -468,7 +468,6 @@ def process_analysis(
     var_names = analysis.var_names
     weights = analysis.weights
     max_dimensions = analysis.max_dimensions
-    baseline_index = analysis.baseline_index
 
     # If we're doing a daily time series, we need to diff the data
     if analysis.dimension == "pre:datedaily":
@@ -571,7 +570,7 @@ def process_experiment_results(data: Dict[str, Any]):
     for q in d.query_results:
         for i, m in enumerate(q.metrics):
             if m in d.metrics:
-                rows = filter_query_rows(q, i)
+                rows = filter_query_rows(q.rows, i)
                 if len(rows):
                     results.append(
                         process_single_metric(
