@@ -16,6 +16,7 @@ export default function SDKWebhooks({ sdkid }) {
 
   const renderTableRows = () => {
     const webhooks = data?.webhooks as WebhookInterface[];
+    // only rener table is there is data to show
     return webhooks?.map((webhook) => (
       <tr key={webhook.name}>
         <td>{webhook.name}</td>
@@ -52,24 +53,28 @@ export default function SDKWebhooks({ sdkid }) {
     ));
   };
 
-  const renderTable = () => (
-    <table className="table mb-3 appbox gbtable">
-      <thead>
-        <tr>
-          <td>WEBHOOK</td>
-          <td>ENDPOINT</td>
-          <td>SEND PAYLOAD</td>
-          <td>SHARED SECRET</td>
-          <td>SDKS</td>
-          <td>EDIT</td>
-        </tr>
-      </thead>
-      <tbody>{renderTableRows()}</tbody>
-    </table>
-  );
+  const renderTable = () => {
+    if (data?.webhooks.length === 0) return null;
+    return (
+      <table className="table mb-3 appbox gbtable">
+        <thead>
+          <tr>
+            <td>WEBHOOK</td>
+            <td>ENDPOINT</td>
+            <td>SEND PAYLOAD</td>
+            <td>SHARED SECRET</td>
+            <td>SDKS</td>
+            <td>EDIT</td>
+          </tr>
+        </thead>
+        <tbody>{renderTableRows()}</tbody>
+      </table>
+    );
+  };
 
   return (
-    <div className="gb-sdk-connections-webhooks">
+    <div className="gb-sdk-connections-webhooks mb-5">
+      <h2>SDK Webhooks</h2>
       {createModalOpen && (
         <WebhooksModal
           close={() => setCreateModalOpen(null)}
@@ -80,7 +85,7 @@ export default function SDKWebhooks({ sdkid }) {
         />
       )}
       <button
-        className="btn btn-primary"
+        className="btn btn-primary mb-2"
         onClick={(e) => {
           e.preventDefault();
           setCreateModalOpen({});

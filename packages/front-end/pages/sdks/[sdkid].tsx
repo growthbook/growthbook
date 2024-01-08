@@ -392,7 +392,7 @@ export default function SDKConnectionPage() {
         </ConnectionNode>
       </div>
 
-      <div className="row mb-5 align-items-center">
+      <div className="row mb-3 align-items-center">
         <div className="flex-1"></div>
         <div className="col-auto">
           <Tooltip
