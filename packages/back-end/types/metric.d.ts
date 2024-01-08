@@ -30,6 +30,7 @@ export interface Condition {
 export interface MetricInterface {
   id: string;
   organization: string;
+  official?: boolean;
   owner: string;
   datasource: string;
   name: string;

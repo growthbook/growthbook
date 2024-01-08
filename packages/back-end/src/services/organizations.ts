@@ -691,7 +691,7 @@ export async function importConfig(
             };
             delete updates.organization;
 
-            await updateMetric(k, updates, organization.id);
+            await updateMetric(existing, updates, organization.id);
           } else {
             await createMetric({
               ...m,

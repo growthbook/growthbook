@@ -1,10 +1,11 @@
-import mongoose, { FilterQuery } from "mongoose";
+import mongoose from "mongoose";
 import { ExperimentMetricInterface } from "shared/experiments";
 import { LegacyMetricInterface, MetricInterface } from "../../types/metric";
 import { getConfigMetrics, usingFileConfig } from "../init/config";
 import { upgradeMetricDoc } from "../util/migrations";
 import { OrganizationInterface } from "../../types/organization";
 import { EventAuditUser } from "../events/event-types";
+import { ALLOW_CREATE_METRICS } from "../util/secrets";
 import { queriesSchema } from "./QueryModel";
 import { ImpactEstimateModel } from "./ImpactEstimateModel";
 import { removeMetricFromExperiments } from "./ExperimentModel";
@@ -24,6 +25,7 @@ const metricSchema = new mongoose.Schema({
     type: String,
     index: true,
   },
+  official: Boolean,
   owner: String,
   datasource: String,
   name: String,
@@ -114,8 +116,8 @@ function toInterface(doc: MetricDocument): MetricInterface {
 }
 
 export async function insertMetric(metric: Partial<MetricInterface>) {
-  if (usingFileConfig()) {
-    throw new Error("Cannot add. Metrics managed by config.yml");
+  if (usingFileConfig() && !ALLOW_CREATE_METRICS) {
+    throw new Error("Cannot add new metrics. Metrics managed by config.yml");
   }
   return toInterface(await MetricModel.create(metric));
 }
@@ -133,36 +135,36 @@ export async function insertMetrics(
     | "dateUpdated"
   >[]
 ) {
-  if (usingFileConfig()) {
-    throw new Error("Cannot add. Metrics managed by config.yml");
+  if (usingFileConfig() && !ALLOW_CREATE_METRICS) {
+    throw new Error("Cannot add metrics. Metrics managed by config.yml");
   }
   return (await MetricModel.insertMany(metrics)).map(toInterface);
 }
 
 export async function deleteMetricById(
-  id: string,
+  metric: MetricInterface,
   org: OrganizationInterface,
   user: EventAuditUser
 ) {
-  if (usingFileConfig()) {
-    throw new Error("Cannot delete. Metrics managed by config.yml");
+  if (metric.official) {
+    throw new Error("Cannot delete a metric managed by config.yml");
   }
 
   // delete references:
   // ideas (impact estimate)
   await ImpactEstimateModel.updateMany(
     {
-      metric: id,
+      metric: metric.id,
       organization: org.id,
     },
     { metric: "" }
   );
 
   // Experiments
-  await removeMetricFromExperiments(id, org, user);
+  await removeMetricFromExperiments(metric.id, org, user);
 
   await MetricModel.deleteOne({
-    id,
+    id: metric.id,
     organization: org.id,
   });
 }
@@ -188,7 +190,7 @@ export async function deleteAllMetricsForAProject({
   });
 
   for (const metric of metricsToDelete) {
-    await deleteMetricById(metric.id, organization, user);
+    await deleteMetricById(metric, organization, user);
   }
 }
 
@@ -208,39 +210,60 @@ export async function getMetricMap(organization: string) {
 }
 
 export async function getMetricsByOrganization(organization: string) {
+  const metrics: MetricInterface[] = [];
+
   // If using config.yml, immediately return the list from there
   if (usingFileConfig()) {
-    return getConfigMetrics(organization);
+    getConfigMetrics(organization).forEach((m) => {
+      metrics.push(m);
+    });
   }
 
   const docs = await MetricModel.find({
     organization,
   });
 
-  return docs.map(toInterface);
+  docs.forEach((doc) => {
+    if (metrics.some((m) => m.id === doc.id)) {
+      return;
+    }
+    metrics.push(toInterface(doc));
+  });
+
+  return metrics;
 }
 
 export async function getMetricsByDatasource(
   datasource: string,
   organization: string
 ) {
+  const metrics: MetricInterface[] = [];
+
   // If using config.yml, immediately return the list from there
   if (usingFileConfig()) {
-    return getConfigMetrics(organization).filter(
-      (m) => m.datasource === datasource
-    );
+    getConfigMetrics(organization)
+      .filter((m) => m.datasource === datasource)
+      .forEach((m) => {
+        metrics.push(m);
+      });
   }
 
   const docs = await MetricModel.find({
     datasource,
     organization,
   });
-  return docs.map(toInterface);
+
+  docs.forEach((doc) => {
+    if (metrics.some((m) => m.id === doc.id)) {
+      return;
+    }
+    metrics.push(toInterface(doc));
+  });
+
+  return metrics;
 }
 
 export async function getSampleMetrics(organization: string) {
-  if (usingFileConfig()) return [];
-
   const docs = await MetricModel.find({
     id: /^met_sample/,
     organization,
@@ -253,21 +276,21 @@ export async function getMetricById(
   organization: string,
   includeAnalysis: boolean = false
 ) {
-  // If using config.yml, immediately return the from there
+  // If using config.yml, immediately return the from there if found
   if (usingFileConfig()) {
     const doc =
       getConfigMetrics(organization).filter((m) => m.id === id)[0] || null;
-    if (!doc) return null;
+    if (doc) {
+      if (includeAnalysis) {
+        const metric = await MetricModel.findOne({ id, organization });
+        doc.queries = metric?.queries || [];
+        doc.analysis = metric?.analysis || undefined;
+        doc.analysisError = metric?.analysisError || undefined;
+        doc.runStarted = metric?.runStarted || null;
+      }
 
-    if (includeAnalysis) {
-      const metric = await MetricModel.findOne({ id, organization });
-      doc.queries = metric?.queries || [];
-      doc.analysis = metric?.analysis || undefined;
-      doc.analysisError = metric?.analysisError || undefined;
-      doc.runStarted = metric?.runStarted || null;
+      return doc;
     }
-
-    return doc;
   }
 
   const res = await MetricModel.findOne({
@@ -279,18 +302,29 @@ export async function getMetricById(
 }
 
 export async function getMetricsByIds(ids: string[], organization: string) {
+  const metrics: MetricInterface[] = [];
+
   // If using config.yml, immediately return the list from there
   if (usingFileConfig()) {
-    return getConfigMetrics(organization).filter(
-      (m) => ids.includes(m.id) || []
-    );
+    getConfigMetrics(organization)
+      .filter((m) => ids.includes(m.id))
+      .forEach((m) => {
+        metrics.push(m);
+      });
   }
 
-  const docs = await MetricModel.find({
-    id: { $in: ids },
-    organization,
-  });
-  return docs.map(toInterface);
+  const remainingIds = ids.filter((id) => !metrics.some((m) => m.id === id));
+
+  if (remainingIds.length > 0) {
+    const docs = await MetricModel.find({
+      id: { $in: remainingIds },
+      organization,
+    });
+    docs.forEach((doc) => {
+      metrics.push(toInterface(doc));
+    });
+  }
+  return metrics;
 }
 
 export async function findRunningMetricsByQueryId(
@@ -305,6 +339,7 @@ export async function findRunningMetricsByQueryId(
     },
   });
 
+  // TODO: some of these might be from config.yml and the docs will be missing fields
   return docs.map((doc) => toInterface(doc));
 }
 
@@ -325,18 +360,29 @@ export async function getMetricsUsingSegment(
   segment: string,
   organization: string
 ) {
-  // If using config.yml, immediately return the from there
+  const metrics: MetricInterface[] = [];
+
+  // If using config.yml, start with those
   if (usingFileConfig()) {
-    return (
-      getConfigMetrics(organization).filter((m) => m.segment === segment) || []
-    );
+    getConfigMetrics(organization)
+      .filter((m) => m.segment === segment)
+      .forEach((m) => {
+        metrics.push(m);
+      });
   }
 
   const docs = await MetricModel.find({
     organization,
     segment,
   });
-  return docs.map(toInterface);
+  docs.forEach((doc) => {
+    if (metrics.some((m) => m.id === doc.id)) {
+      return;
+    }
+    metrics.push(toInterface(doc));
+  });
+
+  return metrics;
 }
 
 const FILE_CONFIG_UPDATEABLE_FIELDS: (keyof MetricInterface)[] = [
@@ -371,91 +417,63 @@ function addDateUpdatedToUpdates(
 }
 
 export async function updateMetric(
-  id: string,
+  metric: MetricInterface,
   updates: Partial<MetricInterface>,
   organization: string
 ) {
   updates = addDateUpdatedToUpdates(updates);
 
-  if (usingFileConfig()) {
+  if (metric.official) {
     // Trying to update unsupported properties
     if (
       Object.keys(updates).filter(
         (k: keyof MetricInterface) => !FILE_CONFIG_UPDATEABLE_FIELDS.includes(k)
       ).length > 0
     ) {
-      throw new Error("Cannot update. Metrics managed by config.yml");
+      throw new Error("Cannot update. Metric managed by config.yml");
     }
 
     await MetricModel.updateOne(
-      { id, organization },
+      { id: metric.id, organization },
       {
         $set: updates,
       },
       { upsert: true }
     );
-    return;
+  } else {
+    await MetricModel.updateOne(
+      {
+        id: metric.id,
+        organization,
+      },
+      {
+        $set: updates,
+      }
+    );
   }
-
-  const metric = await getMetricById(id, organization);
-  if (!metric) {
-    throw new Error("Could not find metric");
-  }
-
-  await MetricModel.updateOne(
-    {
-      id,
-      organization,
-    },
-    {
-      $set: updates,
-    }
-  );
 
   await addTagsDiff(organization, metric.tags || [], updates.tags || []);
 }
 
-export async function updateMetricsByQuery(
-  query: FilterQuery<MetricDocument>,
-  updates: Partial<MetricInterface>
+export async function removeSegmentFromAllMetrics(
+  organization: string,
+  segment: string
 ) {
-  updates = addDateUpdatedToUpdates(updates);
-
-  if (usingFileConfig()) {
-    // Trying to update unsupported properties
-    if (
-      Object.keys(updates).filter(
-        (k: keyof MetricInterface) => !FILE_CONFIG_UPDATEABLE_FIELDS.includes(k)
-      ).length > 0
-    ) {
-      throw new Error("Cannot update. Metrics managed by config.yml");
+  const updates = addDateUpdatedToUpdates({ segment: "" });
+  await MetricModel.updateMany(
+    { organization, segment },
+    {
+      $set: updates,
     }
-
-    await MetricModel.updateMany(
-      query,
-      {
-        $set: updates,
-      },
-      {
-        upsert: true,
-      }
-    );
-    return;
-  }
-
-  await MetricModel.updateMany(query, {
-    $set: updates,
-  });
+  );
 }
 
 export async function removeTagInMetrics(organization: string, tag: string) {
-  if (usingFileConfig()) {
-    return;
-  }
-  const query = { organization, tags: tag };
-  await MetricModel.updateMany(query, {
-    $set: { dateUpdated: new Date() },
-    $pull: { tags: tag },
-  });
-  return;
+  await MetricModel.updateMany(
+    { organization, tags: tag },
+    {
+      $set: { dateUpdated: new Date() },
+      $pull: { tags: tag },
+    }
+  );
 }

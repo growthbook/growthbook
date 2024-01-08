@@ -192,6 +192,7 @@ export function getConfigMetrics(organization: string): MetricInterface[] {
       dateUpdated: null,
       queries: [],
       runStarted: null,
+      official: true,
     });
   });
 }

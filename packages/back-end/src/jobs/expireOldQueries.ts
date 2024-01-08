@@ -71,7 +71,7 @@ export default async function (agenda: Agenda) {
       logger.info("Updating status of metric " + metric.id);
       updateQueryStatus(metric.queries, queryIds);
       await updateMetric(
-        metric.id,
+        metric,
         {
           queries: metric.queries,
           analysisError:
