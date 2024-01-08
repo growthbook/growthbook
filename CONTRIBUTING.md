@@ -43,7 +43,7 @@ It's **strongly recommended** that if you are using WSL on Windows that you run 
    - Close and reopen your terminal
    - Run `poetry --version` to confirm a successful install
    - If unsuccessful add the Poetry path (ex. `$HOME/.poetry/bin`) to your global path (ex. `/etc/profile`, `/etc/environment`, `~/.bashrc`, `~/.zshrc`)
-6. Run `yarn setup` to do the initial build (ensure you are not in a Python virtual environment)
+6. Run `yarn setup` to do the initial build
 7. If you have Docker installed, start MongoDB in Docker:
 
 ```sh
