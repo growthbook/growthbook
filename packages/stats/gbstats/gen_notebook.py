@@ -75,18 +75,19 @@ def create_notebook(data: DataForStatsEngine, params: NotebookParams):
             "    import gbstats.utils\n"
             f"    gbstats.utils.check_gbstats_compatibility('{gbstats_version}')\n"
             "except ModuleNotFoundError:\n"
-            f"    raise ValueError('Upgrade gbstats to {gbstats_version} or later from PyPI using `pip install gbstats`')\n"
+            f"    raise ValueError('Upgrade gbstats to {gbstats_version} or later from PyPI using `pip install gbstats`')\n\n"
             "from gbstats.gbstats import (\n"
             "    filter_query_rows,\n"
             "    process_analysis,\n"
             "    AnalysisSettingsForStatsEngine,\n"
             "    MetricSettingsForStatsEngine,\n"
             ")\n"
+            "from gbstats.shared.constants import *\n\n"
             "import pandas as pd\n\n"
             "# Mapping of variation id to index\n"
             f"var_id_map = {str(data.var_id_map)}\n\n"
             "# Analysis settings\n"
-            f"analysis = {str(analysis)}\n\n"
+            f"analysis = {repr(analysis)}\n\n"
             f"# Columns to show in the result summary\n"
             f"summary_cols = {str(summary_cols)}"
         ),
@@ -142,7 +143,7 @@ def create_notebook(data: DataForStatsEngine, params: NotebookParams):
                 code_cell_plain(
                     source=(
                         "# Metric Settings\n"
-                        f"{metric_prefix}_settings = {str(metric)}"
+                        f"{metric_prefix}_settings = {repr(metric)}"
                     ),
                 )
             )

@@ -1,8 +1,11 @@
 from abc import ABC, abstractmethod
+from typing import Tuple
 from warnings import warn
+
 import numpy as np
 from scipy.stats import beta, norm, rv_continuous  # type: ignore
 from scipy.special import digamma, polygamma, roots_hermitenorm  # type: ignore
+
 from .orthogonal import roots_sh_jacobi
 
 
@@ -74,7 +77,7 @@ class Beta(BayesABDist):
         return a, b
 
     @staticmethod
-    def moments(par1, par2, log=False) -> tuple[float, float]:  # type: ignore
+    def moments(par1, par2, log=False) -> Tuple[float, float]:  # type: ignore
         if np.sum(par2 < 0) + np.sum(par1 < 0):
             raise RuntimeError("params of beta distribution cannot be negative")
 

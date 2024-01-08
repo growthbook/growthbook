@@ -17,7 +17,12 @@ from gbstats.frequentist.tests import (
     SequentialTwoSidedTTest,
     TwoSidedTTest,
 )
-from gbstats.shared.constants import DifferenceType, StatsEngine
+from gbstats.shared.constants import (
+    DifferenceType,
+    MetricType,
+    StatisticType,
+    StatsEngine,
+)
 from gbstats.shared.models import (
     BayesianTestResult,
     FrequentistTestResult,
@@ -48,15 +53,15 @@ ValidEngineConfigs = Union[
 class AnalysisSettingsForStatsEngine:
     var_names: List[str]
     weights: List[float]
-    baseline_index: int
-    dimension: str
-    stats_engine: str
-    sequential_testing_enabled: bool
-    sequential_tuning_parameter: float
-    difference_type: str
-    phase_length_days: float
-    alpha: float
-    max_dimensions: int
+    baseline_index: int = 0
+    dimension: str = ""
+    stats_engine: StatsEngine = StatsEngine.BAYESIAN
+    sequential_testing_enabled: bool = False
+    sequential_tuning_parameter: float = 5000
+    difference_type: DifferenceType = DifferenceType.RELATIVE
+    phase_length_days: float = 1
+    alpha: float = 0.05
+    max_dimensions: int = 20
 
 
 ExperimentMetricQueryResponseRows = List[Dict[str, Union[str, int, float]]]
@@ -74,11 +79,11 @@ class QueryResultsForStatsEngine:
 class MetricSettingsForStatsEngine:
     id: str
     name: str
-    inverse: bool
-    statistic_type: str
-    main_metric_type: str
-    denominator_metric_type: Optional[str] = None
-    covariate_metric_type: Optional[str] = None
+    statistic_type: StatisticType
+    main_metric_type: MetricType
+    inverse: bool = False
+    denominator_metric_type: Optional[MetricType] = None
+    covariate_metric_type: Optional[MetricType] = None
 
 
 @dataclass
@@ -217,7 +222,6 @@ def get_configured_test(
     SequentialTwoSidedTTest,
     TwoSidedTTest,
 ]:
-    stats_engine = get_stats_engine(analysis)
 
     stat_a = variation_statistic_from_metric_row(row, "baseline", metric)
     stat_b = variation_statistic_from_metric_row(row, f"v{test_index}", metric)
@@ -235,7 +239,7 @@ def get_configured_test(
         "difference_type": difference_type,
     }
 
-    if stats_engine == StatsEngine.FREQUENTIST:
+    if analysis.stats_engine == StatsEngine.FREQUENTIST:
         if analysis.sequential_testing_enabled:
             return SequentialTwoSidedTTest(
                 stat_a,
@@ -286,12 +290,10 @@ def analyze_metric_df(
     analysis: AnalysisSettingsForStatsEngine,
 ) -> pd.DataFrame:
     num_variations = df.at[0, "variations"]
-    # parse config
-    engine = get_stats_engine(analysis)
 
     # Add new columns to the dataframe with placeholder values
     df["srm_p"] = 0
-    df["engine"] = engine.value
+    df["engine"] = analysis.stats_engine.value
     for i in range(num_variations):
         if i == 0:
             df["baseline_cr"] = 0
@@ -361,7 +363,7 @@ def analyze_metric_df(
 
 # Convert final experiment results to a structure that can be easily
 # serialized and used to display results in the GrowthBook front-end
-def format_results(df: pd.DataFrame, baseline_index: int = 0) -> list[Any]:
+def format_results(df: pd.DataFrame, baseline_index: int = 0) -> List[Any]:
     num_variations = df.at[0, "variations"]
     results = []
     rows = df.to_dict("records")
@@ -414,7 +416,7 @@ def format_variation_result(row: Dict, v: int):
 def variation_statistic_from_metric_row(
     row: pd.Series, prefix: str, metric: MetricSettingsForStatsEngine
 ) -> TestStatistic:
-    if metric.statistic_type == "ratio":
+    if metric.statistic_type == StatisticType.RATIO:
         return RatioStatistic(
             m_statistic=base_statistic_from_metric_row(
                 row, prefix, "main", metric.main_metric_type
@@ -425,11 +427,11 @@ def variation_statistic_from_metric_row(
             m_d_sum_of_products=row[f"{prefix}_main_denominator_sum_product"],
             n=row[f"{prefix}_users"],
         )
-    elif metric.statistic_type == "mean":
+    elif metric.statistic_type == StatisticType.MEAN:
         return base_statistic_from_metric_row(
             row, prefix, "main", metric.main_metric_type
         )
-    elif metric.statistic_type == "mean_ra":
+    elif metric.statistic_type == StatisticType.MEAN_RA:
         return RegressionAdjustedStatistic(
             post_statistic=base_statistic_from_metric_row(
                 row, prefix, "main", metric.main_metric_type
@@ -447,22 +449,23 @@ def variation_statistic_from_metric_row(
 
 
 def base_statistic_from_metric_row(
-    row: pd.Series, prefix: str, component: str, metric_type: Optional[str]
+    row: pd.Series, prefix: str, component: str, metric_type: Optional[MetricType]
 ) -> Union[ProportionStatistic, SampleMeanStatistic]:
-    if metric_type == "binomial":
-        return ProportionStatistic(
-            sum=row[f"{prefix}_{component}_sum"], n=row[f"{prefix}_count"]
-        )
-    elif metric_type in ["count", "duration", "revenue"]:
-        return SampleMeanStatistic(
-            sum=row[f"{prefix}_{component}_sum"],
-            sum_squares=row[f"{prefix}_{component}_sum_squares"],
-            n=row[f"{prefix}_count"],
-        )
+    if metric_type:
+        if metric_type == MetricType.BINOMIAL:
+            return ProportionStatistic(
+                sum=row[f"{prefix}_{component}_sum"], n=row[f"{prefix}_count"]
+            )
+        elif metric_type == MetricType.COUNT:
+            return SampleMeanStatistic(
+                sum=row[f"{prefix}_{component}_sum"],
+                sum_squares=row[f"{prefix}_{component}_sum_squares"],
+                n=row[f"{prefix}_count"],
+            )
+        else:
+            raise ValueError(f"Unexpected metric_type: {metric_type}")
     else:
-        raise ValueError(
-            f"Unexpected metric_type '{metric_type}' type for '{component}_type' in experiment data."
-        )
+        raise ValueError("Unexpectedly metric_type was None")
 
 
 # Run a chi-squared test to make sure the observed traffic split matches the expected one
@@ -481,14 +484,6 @@ def check_srm(users, weights):
         x = x + ((o - e) ** 2) / e
 
     return chi2.sf(x, len(users) - 1)
-
-
-def get_stats_engine(analysis: AnalysisSettingsForStatsEngine) -> StatsEngine:
-    return (
-        StatsEngine.FREQUENTIST
-        if analysis.stats_engine == "frequentist"
-        else StatsEngine.BAYESIAN
-    )
 
 
 # Run a specific analysis given data and configuration settings
@@ -592,13 +587,33 @@ def filter_query_rows(
     ]
 
 
+def process_metric_settings(data: Dict[str, Any]) -> MetricSettingsForStatsEngine:
+    # initialize all values
+    m = MetricSettingsForStatsEngine(**data)
+    # validation via setting enums
+    m.statistic_type = StatisticType(data["statistic_type"])
+    m.main_metric_type = MetricType(data["main_metric_type"])
+    if "denominator_metric_type" in data:
+        m.denominator_metric_type = MetricType(data["denominator_metric_type"])
+    if "covariate_metric_type" in data:
+        m.covariate_metric_type = MetricType(data["statistic_type"])
+    return m
+
+
+def process_analysis_settings(data: Dict[str, Any]) -> AnalysisSettingsForStatsEngine:
+    # initialize all values
+    a = AnalysisSettingsForStatsEngine(**data)
+    # validation via setting enums
+    a.stats_engine = StatsEngine(data["stats_engine"])
+    a.difference_type = DifferenceType(data["difference_type"])
+    return a
+
+
 def process_data_dict(data: Dict[str, Any]) -> DataForStatsEngine:
     return DataForStatsEngine(
         var_id_map=data["var_id_map"],
-        metrics={
-            k: MetricSettingsForStatsEngine(**v) for k, v in data["metrics"].items()
-        },
-        analyses=[AnalysisSettingsForStatsEngine(**a) for a in data["analyses"]],
+        metrics={k: process_metric_settings(v) for k, v in data["metrics"].items()},
+        analyses=[process_analysis_settings(a) for a in data["analyses"]],
         query_results=[QueryResultsForStatsEngine(**q) for q in data["query_results"]],
     )
 
