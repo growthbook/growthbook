@@ -90,7 +90,6 @@ const Carousel: FC<{
       {current > 0 ? (
         <a
           className="carousel-control-prev"
-          href="#"
           role="button"
           onClick={(e) => {
             e.preventDefault();
@@ -109,7 +108,6 @@ const Carousel: FC<{
       {current < num - 1 ? (
         <a
           className="carousel-control-next"
-          href="#"
           role="button"
           onClick={(e) => {
             e.preventDefault();
