@@ -44,7 +44,6 @@ pytest = "6.2.5"
 pytest-cov = "2.10.1"
 pandas-stubs = "^2.0.1.230501"
 pyright = "^1.1.345"
-jupyter = "^1.0.0"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
