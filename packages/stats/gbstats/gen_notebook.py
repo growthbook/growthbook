@@ -8,7 +8,7 @@ import pandas as pd
 from gbstats.shared.constants import StatsEngine
 import nbformat
 from nbformat import v4 as nbf
-from nbformat.v4.nbjson import from_dict
+from nbformat import from_dict
 
 
 def code_cell_df(df, source=""):
@@ -30,24 +30,21 @@ def code_cell_plain(source="", text=""):
             nbf.new_output(output_type="execute_result", data={"text/plain": text})
         ],
     )
-    
+
 
 @dataclass
 class NotebookParams:
     url: str
     hypothesis: str
     name: str
-    run_query: str   
-    
+    run_query: str
 
-def create_notebook(
-    data: DataForStatsEngine,
-    params: NotebookParams
-):
+
+def create_notebook(data: DataForStatsEngine, params: NotebookParams):
     # parse settings
-    analysis = data.analyses[0] # only one analysis for notebooks
+    analysis = data.analyses[0]  # only one analysis for notebooks
     gbstats_version: str = "0.7.0"
-    
+
     summary_cols = [
         "dimension",
         "baseline_name",
@@ -97,14 +94,18 @@ def create_notebook(
     ]
 
     for i, query in enumerate(data.query_results):
-        metrics = [data.metrics[m] if m in data.metrics else None for m in query.metrics]
+        metrics = [
+            data.metrics[m] if m in data.metrics else None for m in query.metrics
+        ]
         if not any(metrics):
             continue
-        cells.append(nbf.new_markdown_cell(
-            f"## Query {i}\n\n"
-            f"Metric(s): {', '.join([m.name for m in metrics if m])}\n\n"
-        ))
-        df=pd.DataFrame(query.rows)
+        cells.append(
+            nbf.new_markdown_cell(
+                f"## Query {i}\n\n"
+                f"Metric(s): {', '.join([m.name for m in metrics if m])}\n\n"
+            )
+        )
+        df = pd.DataFrame(query.rows)
         query_prefix = f"q{i}"
         cells.append(
             code_cell_df(
@@ -117,7 +118,7 @@ def create_notebook(
                 ),
             )
         )
-        
+
         if len(df) == 0:
             cells.append(nbf.new_markdown_cell("No data for these metrics"))
             continue
@@ -148,10 +149,7 @@ def create_notebook(
             cells.append(nbf.new_markdown_cell("#### Result"))
 
             result = process_analysis(
-                rows=rows,
-                metric=metric,
-                analysis=analysis,
-                var_id_map=data.var_id_map
+                rows=rows, metric=metric, analysis=analysis, var_id_map=data.var_id_map
             )
             cells.append(
                 code_cell_df(
@@ -168,7 +166,6 @@ def create_notebook(
                     ),
                 )
             )
-
 
     nb = nbf.new_notebook(
         metadata=from_dict(
