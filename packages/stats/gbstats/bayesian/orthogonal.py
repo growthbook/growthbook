@@ -9,7 +9,7 @@ copied source code and implemented log trick to avoid OverflowError
 """
 
 
-def _gen_roots_and_weights(n, log_mu0, an_func, bn_func, f, df, mu):
+def _gen_roots_and_weights(n, log_mu0, an_func, bn_func, f, df):
     """
     see _gen_roots_and_weights in scipy.special.orthogonal
     """
@@ -31,10 +31,7 @@ def _gen_roots_and_weights(n, log_mu0, an_func, bn_func, f, df, mu):
 
     log_w = np.log(w) + log_mu0 - np.log(w.sum())
 
-    if mu:
-        return x, log_w, log_mu0
-    else:
-        return x, log_w
+    return x, log_w, log_mu0
 
 
 def roots_jacobi(n, alpha, beta):
@@ -76,10 +73,10 @@ def roots_jacobi(n, alpha, beta):
     a = alpha
     b = beta
 
-    return _gen_roots_and_weights(m, log_mu0, an_func, bn_func, f, df, True)
+    return _gen_roots_and_weights(m, log_mu0, an_func, bn_func, f, df)
 
 
-def roots_sh_jacobi(n, p1, q1, mu=False):
+def roots_sh_jacobi(n, p1, q1):
     """
     Gauss-Jacobi (shifted) quadrature.
     see scipy.special.roots_sh_jacobi
@@ -92,7 +89,4 @@ def roots_sh_jacobi(n, p1, q1, mu=False):
     x, log_w, log_m = roots_jacobi(n, p1 - q1, q1 - 1)
     x = (x + 1) / 2
     w = np.exp(log_w - log_m)
-    if mu:
-        return x, w, 1
-    else:
-        return x, w
+    return x, w

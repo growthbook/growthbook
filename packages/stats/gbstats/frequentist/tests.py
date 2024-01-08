@@ -15,8 +15,10 @@ from gbstats.shared.constants import DifferenceType
 from gbstats.shared.models import (
     BaseConfig,
     FrequentistTestResult,
+    RegressionAdjustedStatistic,
     TestStatistic,
     Uplift,
+    compute_theta,
 )
 from gbstats.shared.tests import BaseABTest
 
@@ -49,6 +51,20 @@ class TTest(BaseABTest):
             stat_b (Statistic): the "treatment" or "variation" statistic
         """
         super().__init__(stat_a, stat_b)
+
+        # Ensure theta is set for regression adjusted statistics
+        if isinstance(self.stat_b, RegressionAdjustedStatistic) and isinstance(
+            self.stat_a, RegressionAdjustedStatistic
+        ):
+            theta = compute_theta(self.stat_a, self.stat_b)
+            if theta == 0:
+                # revert to non-RA under the hood if no variance in a time period
+                self.stat_a = self.stat_a.post_statistic
+                self.stat_b = self.stat_b.post_statistic
+            else:
+                self.stat_a.theta = theta
+                self.stat_b.theta = theta
+
         self.alpha = config.alpha
         self.test_value = config.test_value
         self.relative = config.difference_type == DifferenceType.RELATIVE
@@ -172,7 +188,7 @@ class TTest(BaseABTest):
 class TwoSidedTTest(TTest):
     @property
     def p_value(self) -> float:
-        return 2 * (1 - t.cdf(abs(self.critical_value), self.dof))
+        return 2 * (1 - t.cdf(abs(self.critical_value), self.dof))  # type: ignore
 
     @property
     def confidence_interval(self) -> List[float]:
@@ -183,7 +199,7 @@ class TwoSidedTTest(TTest):
 class OneSidedTreatmentGreaterTTest(TTest):
     @property
     def p_value(self) -> float:
-        return 1 - t.cdf(self.critical_value, self.dof)
+        return 1 - t.cdf(self.critical_value, self.dof)  # type: ignore
 
     @property
     def confidence_interval(self) -> List[float]:
@@ -194,7 +210,7 @@ class OneSidedTreatmentGreaterTTest(TTest):
 class OneSidedTreatmentLesserTTest(TTest):
     @property
     def p_value(self) -> float:
-        return t.cdf(self.critical_value, self.dof)
+        return t.cdf(self.critical_value, self.dof)  # type: ignore
 
     @property
     def confidence_interval(self) -> List[float]:
