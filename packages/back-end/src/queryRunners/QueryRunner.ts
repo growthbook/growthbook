@@ -147,7 +147,7 @@ export abstract class QueryRunner<
           await this.startReadyQueries(queryMap);
         } catch (e) {
           logger.error(
-            e,
+            { err: e },
             "Error refreshing query statuses for runner of " + this.model.id
           );
         }
@@ -370,6 +370,7 @@ export abstract class QueryRunner<
       } catch (e) {
         error = "Error running analysis: " + e.message;
         logger.error(
+          { err: e },
           `Queries ${newStatus}, failed running analysis: ` + e.message
         );
       }
