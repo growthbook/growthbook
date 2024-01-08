@@ -73,10 +73,10 @@ const SRMWarning: FC<{
 
   const srmWarningMessage = (
     <>
-      The threshold for firing an SRM warning is{" "}
-      <b>{pValueFormatter(srmThreshold)}</b> and the p-value for this experiment
-      is <b>{srm}</b>. This is a strong indicator that your traffic is
-      imbalanced and there is a problem with your traffic assignment.
+      The threshold for firing an SRM warning is <b>{srmThreshold}</b> and the
+      p-value for this experiment is <b>{pValueFormatter(srm, 4)}</b>. This is a
+      strong indicator that your traffic is imbalanced and there is a problem
+      with your traffic assignment.
     </>
   );
 
@@ -207,7 +207,9 @@ const SRMWarning: FC<{
                 className="a"
                 role="button"
                 onClick={() => {
-                  track("Open health tab");
+                  track("Open health tab", {
+                    source: "results-tab-srm-warning",
+                  });
                   setTab("health");
                 }}
               >

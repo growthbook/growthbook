@@ -1,5 +1,5 @@
 import { Response, NextFunction } from "express";
-import { getLicense } from "enterprise";
+import { getLicense, shouldLimitAccessDueToExpiredLicense } from "enterprise";
 import { IS_CLOUD } from "../../util/secrets";
 import { AuthRequest } from "../../types/AuthRequest";
 
@@ -16,22 +16,14 @@ export default function verifyLicenseMiddleware(
   if (!license) {
     return next();
   }
-
-  // Check if license is expired (2 day buffer)
-  if (license.exp) {
-    let expiresWithBuffer = new Date(license.exp);
-    expiresWithBuffer = new Date(
-      expiresWithBuffer.setDate(expiresWithBuffer.getDate() + 2)
-    );
-    if (expiresWithBuffer < new Date()) {
-      res.locals.licenseError = "License expired";
-      res.setHeader("X-License-Error", "License expired");
-    }
+  if (shouldLimitAccessDueToExpiredLicense()) {
+    res.locals.licenseError = "License expired";
+    res.setHeader("X-License-Error", "License expired");
   }
 
   // Validate organization id with license
-  if (req.headers["x-organization"] && license?.org) {
-    if (req.headers["x-organization"] !== license.org) {
+  if (req.headers["x-organization"] && license?.organizationId) {
+    if (req.headers["x-organization"] !== license.organizationId) {
       res.locals.licenseError = "Organization id does not match license";
       res.setHeader(
         "X-License-Error",
