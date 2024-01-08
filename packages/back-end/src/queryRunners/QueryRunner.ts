@@ -180,7 +180,7 @@ export abstract class QueryRunner<
         result = await this.runAnalysis(queryMap);
         logger.debug(this.model.id + " runner: Ran analysis successfully");
       } catch (e) {
-        logger.debug(this.model.id + " runner: Error running analysis");
+        logger.error(this.model.id + " runner: Error running analysis");
         error = "Error running analysis: " + e.message;
       }
     } else if (queryStatus === "failed") {
@@ -369,7 +369,7 @@ export abstract class QueryRunner<
         logger.debug(`Queries ${newStatus}, ran analysis successfully`);
       } catch (e) {
         error = "Error running analysis: " + e.message;
-        logger.debug(
+        logger.error(
           `Queries ${newStatus}, failed running analysis: ` + e.message
         );
       }
