@@ -559,10 +559,12 @@ describe("features", () => {
           rules: [
             {
               // Bailout (fail) if the parent flag value is not "green"
-              parentConditions: [{
-                parent: "parentFlag",
-                condition: { "@parent": { "$ne": "green" } }
-              }],
+              parentConditions: [
+                {
+                  parent: "parentFlag",
+                  condition: { "@parent": { $ne: "green" } },
+                },
+              ],
               force: null,
             },
             {
@@ -617,10 +619,12 @@ describe("features", () => {
           rules: [
             {
               // Bailout (fail) if the parent flag value is not 1
-              parentConditions: [{
-                parent: "parentExperimentFlag",
-                condition: { "@parent": { "$ne": 1 } }
-              }],
+              parentConditions: [
+                {
+                  parent: "parentExperimentFlag",
+                  condition: { "@parent": { $ne: 1 } },
+                },
+              ],
               force: "null",
             },
             {
@@ -665,10 +669,12 @@ describe("features", () => {
           rules: [
             {
               // Only apply force rule if parentConditions pass
-              parentConditions: [{
-                parent: "parentFlag",
-                condition: { "@parent": "green" }
-              }],
+              parentConditions: [
+                {
+                  parent: "parentFlag",
+                  condition: { "@parent": "green" },
+                },
+              ],
               condition: { otherGatingProperty: "allow" },
               force: "dark mode",
             },
@@ -694,7 +700,6 @@ describe("features", () => {
     const result2 = growthbook.evalFeature("childFlag");
     expect(result2.value).toEqual("light mode");
 
-
     growthbook.setAttributes({
       id: "123",
       memberType: "basic",
@@ -704,6 +709,87 @@ describe("features", () => {
 
     const result3 = growthbook.evalFeature("childFlag");
     expect(result3.value).toEqual("light mode");
+
+    growthbook.destroy();
+  });
+
+  it("conditionally applies a force rule based on prerequisite JSON targeting", async () => {
+    const growthbook = new GrowthBook({
+      attributes: {
+        id: "123",
+        memberType: "basic",
+        country: "USA",
+      },
+      features: {
+        parentFlag: {
+          defaultValue: { foo: true, bar: {} },
+          rules: [
+            {
+              condition: { country: "Canada" },
+              force: { foo: true, bar: { color: "red" } },
+            },
+            {
+              condition: { country: { $in: ["USA", "Mexico"] } },
+              force: { foo: true, bar: { color: "green" } },
+            },
+          ],
+        },
+        childFlag: {
+          defaultValue: "default",
+          rules: [
+            {
+              // Only apply force rule if parentConditions pass
+              parentConditions: [
+                {
+                  parent: "parentFlag",
+                  condition: { "bar.color": "green" },
+                },
+              ],
+              force: "dark mode",
+            },
+            {
+              condition: { memberType: "basic" },
+              force: "light mode",
+            },
+          ],
+        },
+        childFlag2: {
+          defaultValue: "default",
+          rules: [
+            {
+              // Only apply force rule if parentConditions pass
+              parentConditions: [
+                {
+                  parent: "parentFlag",
+                  condition: { "@parent": { $exists: true } },
+                },
+              ],
+              force: "dark mode",
+            },
+            {
+              condition: { memberType: "basic" },
+              force: "light mode",
+            },
+          ],
+        },
+      },
+    });
+
+    const result1a = growthbook.evalFeature("childFlag");
+    expect(result1a.value).toEqual("dark mode");
+
+    const result1b = growthbook.evalFeature("childFlag2");
+    expect(result1b.value).toEqual("dark mode");
+
+    growthbook.setAttributes({
+      id: "123",
+      memberType: "basic",
+      otherGatingProperty: "allow",
+      country: "Canada",
+    });
+
+    const result2 = growthbook.evalFeature("childFlag");
+    expect(result2.value).toEqual("light mode");
 
     growthbook.destroy();
   });
@@ -720,10 +806,12 @@ describe("features", () => {
           defaultValue: "silver",
           rules: [
             {
-              parentConditions: [{
-                parent: "childFlag",
-                condition: { "@parent": { "$ne": "success" } }
-              }],
+              parentConditions: [
+                {
+                  parent: "childFlag",
+                  condition: { "@parent": { $ne: "success" } },
+                },
+              ],
               force: null,
             },
             {
@@ -740,10 +828,12 @@ describe("features", () => {
           defaultValue: "default",
           rules: [
             {
-              parentConditions: [{
-                parent: "parentFlag",
-                condition: { "@parent": { "$ne": "green" } }
-              }],
+              parentConditions: [
+                {
+                  parent: "parentFlag",
+                  condition: { "@parent": { $ne: "green" } },
+                },
+              ],
               force: null,
             },
             {
@@ -755,11 +845,9 @@ describe("features", () => {
       },
     });
 
-    expect(
-      () => {
-        growthbook.evalFeature("childFlag")
-      }
-    ).toThrow();
+    expect(() => {
+      growthbook.evalFeature("childFlag");
+    }).toThrow();
 
     growthbook.destroy();
   });
