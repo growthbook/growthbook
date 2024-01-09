@@ -5,7 +5,7 @@ import {
   StatsEngine,
 } from "back-end/types/stats";
 import { useState } from "react";
-import { jStat } from "jstat";
+import quantile from "@stdlib/stats/base/dists/normal/quantile";
 import {
   ExperimentReportResultDimension,
   ExperimentReportVariationWithIndex,
@@ -449,7 +449,7 @@ export function adjustedCI(
 ): [number, number] {
   if (!uplift.mean) return [uplift.mean ?? 0, uplift.mean ?? 0];
   const adjStdDev = Math.abs(
-    uplift.mean / jStat.normal.inv(1 - adjustedPValue / 2, 0, 1)
+    uplift.mean / quantile(1 - adjustedPValue / 2, 0, 1)
   );
   const width = zScore * adjStdDev;
   return [uplift.mean - width, uplift.mean + width];
@@ -459,7 +459,7 @@ export function setAdjustedCIs(
   results: ExperimentReportResultDimension[],
   pValueThreshold: number
 ): void {
-  const zScore = jStat.normal.inv(1 - pValueThreshold / 2, 0, 1);
+  const zScore = quantile(1 - pValueThreshold / 2, 0, 1);
   results.forEach((r) => {
     r.variations.forEach((v) => {
       for (const key in v.metrics) {

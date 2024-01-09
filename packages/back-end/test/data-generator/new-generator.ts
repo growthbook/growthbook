@@ -1,7 +1,6 @@
-/// <reference types="../../typings/jstat" />
 import fs from "fs";
 import { GrowthBook } from "@growthbook/growthbook";
-import { jStat } from "jstat";
+import normal from "@stdlib/random/base/normal";
 import { addDays } from "date-fns";
 
 type TableData = {
@@ -145,7 +144,7 @@ function normalInt(min: number, max: number): number {
   const mean = (max - min) / 2 + min;
   const stddev = (max - min) / 3;
 
-  const x = Math.round(jStat.normal.sample(mean, stddev));
+  const x = Math.round(normal(mean, stddev));
   if (x < min) return min;
   if (x > max) return max;
   return x;
