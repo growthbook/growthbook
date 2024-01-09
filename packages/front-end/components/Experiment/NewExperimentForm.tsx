@@ -338,11 +338,16 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
               helpText={
                 supportsSQL ? (
                   <>
-                    Must match the <code>experiment_id</code> field in your
-                    database table
+                    Unique identifier for this experiment, used to track
+                    impressions and analyze results. Will match against the{" "}
+                    <code>experiment_id</code> column in your data source.
                   </>
                 ) : (
-                  "Must match the experiment id in your tracking callback"
+                  <>
+                    Unique identifier for this experiment, used to track
+                    impressions and analyze results. Must match the experiment
+                    id in your tracking callback.
+                  </>
                 )
               }
             />
