@@ -361,6 +361,9 @@ function TargetingForm({
   changeType?: ChangeType;
   conditionKey: number;
 }) {
+  const hasLinkedChanges =
+    !!experiment.linkedFeatures?.length || !!experiment.hasVisualChangesets;
+
   const attributeSchema = useAttributeSchema();
   const hasHashAttributes =
     attributeSchema.filter((x) => x.hashAttribute).length > 0;
@@ -373,7 +376,13 @@ function TargetingForm({
             label="Tracking Key"
             labelClassName="font-weight-bold"
             {...form.register("trackingKey")}
-            helpText="Unique identifier for this experiment, used to track impressions and analyze results"
+            helpText={
+              <>
+                Unique identifier for this experiment, used to track impressions
+                and analyze results. Will match against the{" "}
+                <code>experiment_id</code> column in your data source.
+              </>
+            }
           />
           <div className="d-flex" style={{ gap: "2rem" }}>
             <SelectField
@@ -389,7 +398,11 @@ function TargetingForm({
                 form.setValue("hashAttribute", v);
               }}
               helpText={
-                "Will be hashed together with the Tracking Key to determine which variation to assign"
+                <>
+                  Unique identifier for this experiment, used to track
+                  impressions and analyze results. Will match against the{" "}
+                  <code>experiment_id</code> column in your data source.
+                </>
               }
             />
             <FallbackAttributeSelector form={form} />
@@ -398,6 +411,17 @@ function TargetingForm({
             value={form.watch("hashVersion")}
             onChange={(v) => form.setValue("hashVersion", v)}
           />
+        </>
+      )}
+
+      {!hasLinkedChanges && (
+        <>
+          <hr className="my-4" />
+          <div className="alert alert-info">
+            Changes made below are only metadata changes and will have no impact
+            on actual experiment delivery unless you link a GrowthBook-managed
+            Linked Feature or Visual Change to this experiment.
+          </div>
         </>
       )}
 
@@ -452,6 +476,7 @@ function TargetingForm({
               ? "Variation Weights"
               : "Traffic Percentage & Variation Weights"
           }
+          customSplitOn={true}
         />
       )}
     </div>

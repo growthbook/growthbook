@@ -36,6 +36,7 @@ export interface Props {
   disableCoverage?: boolean;
   disableVariations?: boolean;
   label?: string;
+  customSplitOn?: boolean;
 }
 
 export default function FeatureVariationsInput({
@@ -53,10 +54,13 @@ export default function FeatureVariationsInput({
   disableCoverage = false,
   disableVariations = false,
   label,
+  customSplitOn,
 }: Props) {
   const weights = variations.map((v) => v.weight);
   const isEqualWeights = weights.every((w) => w === weights[0]);
-  const [customSplit, setCustomSplit] = useState(!isEqualWeights);
+  const [customSplit, setCustomSplit] = useState(
+    customSplitOn ?? !isEqualWeights
+  );
 
   const setEqualWeights = () => {
     getEqualWeights(variations.length).forEach((w, i) => {

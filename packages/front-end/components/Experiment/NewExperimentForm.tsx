@@ -1,4 +1,4 @@
-import { FC, useEffect, useState } from "react";
+import React, { FC, useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import {
   ExperimentInterfaceStringDates,
@@ -429,7 +429,11 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                     form.setValue("hashAttribute", v);
                   }}
                   helpText={
-                    "Will be hashed together with the Tracking Key to determine which variation to assign"
+                    <>
+                      Unique identifier for this experiment, used to track
+                      impressions and analyze results. Will match against the{" "}
+                      <code>experiment_id</code> column in your data source.
+                    </>
                   }
                 />
                 <FallbackAttributeSelector form={form} />

@@ -94,7 +94,8 @@ export default function EditPhaseModal({
 
       {!isDraft && (
         <div className="alert alert-info mt-4">
-          Trying to change targeting rules or traffic allocation? Use the{" "}
+          Trying to change targeting rules, traffic allocation, or start a new
+          phase? Use the{" "}
           <a
             role="button"
             className="a"
