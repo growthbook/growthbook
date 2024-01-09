@@ -7,4 +7,19 @@ slug: sticky-bucketing
 
 # Sticky Bucketing
 
+This article serves two purposes:
+
+- High level overview of GrowthBook's Sticky Bucketing feature
+- Technical details on how to implement Sticky Bucketing in your codebase
+
 Sticky bucketing ensures that users see the same experiment variant, even when user session, user login status, or experiment parameters change.
+GrowthBook's flavor of sticky bucketing has a few additional features: Bucketing based either a primary hash attribute (i.e. user id) or a secondary (i.e. anonymous id),
+as well as the ability to version-control and purge your users' assigned buckets.
+
+So why would you want to use Sticky Bucketing? Let's look at a few example scenarios:
+
+1. You are measuring the impact on a metric with a long conversion window that crosses the log-in divide. The user may be first exposed to your experiment while anonymous,
+   then sign up, log out, sign back in on another device, and then convert. Without sticky bucketing, there would be no way to tie the anonymous exposure to the conversion.
+2. You are managing an experiment rollout and need to slow down enrollment. You decrease the percentage of traffic exposed to the experiment from 50% to 10% but you do not want to
+   alter the experience for users who were already exposed to the experiment. Sticky bucketing allows you to apply the new rollout percentage to new users while keeping the old users
+   in their original buckets.
