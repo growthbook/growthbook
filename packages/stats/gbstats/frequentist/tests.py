@@ -1,28 +1,25 @@
 from abc import abstractmethod
-from dataclasses import asdict, dataclass
+from dataclasses import asdict
 from typing import List, Optional
 
 import numpy as np
-from scipy.stats import t  # type: ignore
+from pydantic.dataclasses import dataclass
+from scipy.stats import t
 
 from gbstats.messages import (
     BASELINE_VARIATION_ZERO_MESSAGE,
     ZERO_NEGATIVE_VARIANCE_MESSAGE,
     ZERO_SCALED_VARIATION_MESSAGE,
 )
-
-from gbstats.shared.constants import DifferenceType
-from gbstats.shared.models import (
-    BaseConfig,
-    FrequentistTestResult,
+from gbstats.models.tests import BaseABTest, BaseConfig, TestResult, Uplift
+from gbstats.models.statistics import (
     RegressionAdjustedStatistic,
     TestStatistic,
-    Uplift,
     compute_theta,
 )
-from gbstats.shared.tests import BaseABTest
 
 
+# Configs
 @dataclass
 class FrequentistConfig(BaseConfig):
     alpha: float = 0.05
@@ -32,6 +29,13 @@ class FrequentistConfig(BaseConfig):
 @dataclass
 class SequentialConfig(FrequentistConfig):
     sequential_tuning_parameter: float = 5000
+
+
+# Results
+@dataclass
+class FrequentistTestResult(TestResult):
+    p_value: float
+    error_message: Optional[str] = None
 
 
 class TTest(BaseABTest):
@@ -67,8 +71,8 @@ class TTest(BaseABTest):
 
         self.alpha = config.alpha
         self.test_value = config.test_value
-        self.relative = config.difference_type == DifferenceType.RELATIVE
-        self.scaled = config.difference_type == DifferenceType.SCALED
+        self.relative = config.difference_type == "relative"
+        self.scaled = config.difference_type == "scaled"
         self.traffic_proportion_b = config.traffic_proportion_b
         self.phase_length_days = config.phase_length_days
 

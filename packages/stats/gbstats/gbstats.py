@@ -1,4 +1,4 @@
-from dataclasses import asdict, dataclass
+from dataclasses import asdict
 import re
 from typing import Any, Dict, List, Optional, Union
 
@@ -6,6 +6,7 @@ import pandas as pd
 from scipy.stats.distributions import chi2  # type: ignore
 
 from gbstats.bayesian.tests import (
+    BayesianTestResult,
     BinomialBayesianABTest,
     BinomialBayesianConfig,
     GaussianBayesianABTest,
@@ -13,85 +14,31 @@ from gbstats.bayesian.tests import (
 )
 from gbstats.frequentist.tests import (
     FrequentistConfig,
+    FrequentistTestResult,
     SequentialConfig,
     SequentialTwoSidedTTest,
     TwoSidedTTest,
-)
-from gbstats.shared.constants import (
-    DifferenceType,
-    MetricType,
-    StatisticType,
-    StatsEngine,
-)
-from gbstats.shared.models import (
-    BayesianTestResult,
-    FrequentistTestResult,
-    ProportionStatistic,
-    SampleMeanStatistic,
-    RatioStatistic,
-    RegressionAdjustedStatistic,
-    TestStatistic,
 )
 from gbstats.messages import (
     COMPARE_PROPORTION_NON_PROPORTION_ERROR,
     RA_NOT_COMPATIBLE_WITH_BAYESIAN_ERROR,
 )
-
-
-ValidTest = Union[
-    BinomialBayesianABTest,
-    GaussianBayesianABTest,
-    TwoSidedTTest,
-    SequentialTwoSidedTTest,
-]
-ValidEngineConfigs = Union[
-    BinomialBayesianConfig, GaussianBayesianConfig, FrequentistConfig, SequentialConfig
-]
-
-
-@dataclass
-class AnalysisSettingsForStatsEngine:
-    var_names: List[str]
-    weights: List[float]
-    baseline_index: int = 0
-    dimension: str = ""
-    stats_engine: StatsEngine = StatsEngine.BAYESIAN
-    sequential_testing_enabled: bool = False
-    sequential_tuning_parameter: float = 5000
-    difference_type: DifferenceType = DifferenceType.RELATIVE
-    phase_length_days: float = 1
-    alpha: float = 0.05
-    max_dimensions: int = 20
-
-
-ExperimentMetricQueryResponseRows = List[Dict[str, Union[str, int, float]]]
-VarIdMap = Dict[str, int]
-
-
-@dataclass
-class QueryResultsForStatsEngine:
-    rows: ExperimentMetricQueryResponseRows
-    metrics: List[Optional[str]]
-    sql: Optional[str]
-
-
-@dataclass
-class MetricSettingsForStatsEngine:
-    id: str
-    name: str
-    statistic_type: StatisticType
-    main_metric_type: MetricType
-    inverse: bool = False
-    denominator_metric_type: Optional[MetricType] = None
-    covariate_metric_type: Optional[MetricType] = None
-
-
-@dataclass
-class DataForStatsEngine:
-    var_id_map: VarIdMap
-    metrics: Dict[str, MetricSettingsForStatsEngine]
-    analyses: List[AnalysisSettingsForStatsEngine]
-    query_results: List[QueryResultsForStatsEngine]
+from gbstats.models.settings import (
+    AnalysisSettingsForStatsEngine,
+    DataForStatsEngine,
+    ExperimentMetricQueryResponseRows,
+    MetricSettingsForStatsEngine,
+    MetricType,
+    QueryResultsForStatsEngine,
+    VarIdMap,
+)
+from gbstats.models.statistics import (
+    ProportionStatistic,
+    RatioStatistic,
+    RegressionAdjustedStatistic,
+    SampleMeanStatistic,
+    TestStatistic,
+)
 
 
 SUM_COLS = [
@@ -226,20 +173,13 @@ def get_configured_test(
     stat_a = variation_statistic_from_metric_row(row, "baseline", metric)
     stat_b = variation_statistic_from_metric_row(row, f"v{test_index}", metric)
 
-    if analysis.difference_type == "absolute":
-        difference_type = DifferenceType.ABSOLUTE
-    elif analysis.difference_type == "scaled":
-        difference_type = DifferenceType.SCALED
-    else:
-        difference_type = DifferenceType.RELATIVE
-
     base_config = {
         "traffic_proportion_b": analysis.weights[test_index],
         "phase_length_days": analysis.phase_length_days,
-        "difference_type": difference_type,
+        "difference_type": analysis.difference_type,
     }
 
-    if analysis.stats_engine == StatsEngine.FREQUENTIST:
+    if analysis.stats_engine == "frequentist":
         if analysis.sequential_testing_enabled:
             return SequentialTwoSidedTTest(
                 stat_a,
@@ -293,7 +233,7 @@ def analyze_metric_df(
 
     # Add new columns to the dataframe with placeholder values
     df["srm_p"] = 0
-    df["engine"] = analysis.stats_engine.value
+    df["engine"] = analysis.stats_engine
     for i in range(num_variations):
         if i == 0:
             df["baseline_cr"] = 0
@@ -416,7 +356,7 @@ def format_variation_result(row: Dict, v: int):
 def variation_statistic_from_metric_row(
     row: pd.Series, prefix: str, metric: MetricSettingsForStatsEngine
 ) -> TestStatistic:
-    if metric.statistic_type == StatisticType.RATIO:
+    if metric.statistic_type == "ratio":
         return RatioStatistic(
             m_statistic=base_statistic_from_metric_row(
                 row, prefix, "main", metric.main_metric_type
@@ -427,11 +367,11 @@ def variation_statistic_from_metric_row(
             m_d_sum_of_products=row[f"{prefix}_main_denominator_sum_product"],
             n=row[f"{prefix}_users"],
         )
-    elif metric.statistic_type == StatisticType.MEAN:
+    elif metric.statistic_type == "mean":
         return base_statistic_from_metric_row(
             row, prefix, "main", metric.main_metric_type
         )
-    elif metric.statistic_type == StatisticType.MEAN_RA:
+    elif metric.statistic_type == "mean_ra":
         return RegressionAdjustedStatistic(
             post_statistic=base_statistic_from_metric_row(
                 row, prefix, "main", metric.main_metric_type
@@ -452,11 +392,11 @@ def base_statistic_from_metric_row(
     row: pd.Series, prefix: str, component: str, metric_type: Optional[MetricType]
 ) -> Union[ProportionStatistic, SampleMeanStatistic]:
     if metric_type:
-        if metric_type == MetricType.BINOMIAL:
+        if metric_type == "binomial":
             return ProportionStatistic(
                 sum=row[f"{prefix}_{component}_sum"], n=row[f"{prefix}_count"]
             )
-        elif metric_type == MetricType.COUNT:
+        elif metric_type == "count":
             return SampleMeanStatistic(
                 sum=row[f"{prefix}_{component}_sum"],
                 sum_squares=row[f"{prefix}_{component}_sum_squares"],
@@ -587,33 +527,13 @@ def filter_query_rows(
     ]
 
 
-def process_metric_settings(data: Dict[str, Any]) -> MetricSettingsForStatsEngine:
-    # initialize all values
-    m = MetricSettingsForStatsEngine(**data)
-    # validation via setting enums
-    m.statistic_type = StatisticType(data["statistic_type"])
-    m.main_metric_type = MetricType(data["main_metric_type"])
-    if "denominator_metric_type" in data:
-        m.denominator_metric_type = MetricType(data["denominator_metric_type"])
-    if "covariate_metric_type" in data:
-        m.covariate_metric_type = MetricType(data["statistic_type"])
-    return m
-
-
-def process_analysis_settings(data: Dict[str, Any]) -> AnalysisSettingsForStatsEngine:
-    # initialize all values
-    a = AnalysisSettingsForStatsEngine(**data)
-    # validation via setting enums
-    a.stats_engine = StatsEngine(data["stats_engine"])
-    a.difference_type = DifferenceType(data["difference_type"])
-    return a
-
-
 def process_data_dict(data: Dict[str, Any]) -> DataForStatsEngine:
     return DataForStatsEngine(
         var_id_map=data["var_id_map"],
-        metrics={k: process_metric_settings(v) for k, v in data["metrics"].items()},
-        analyses=[process_analysis_settings(a) for a in data["analyses"]],
+        metrics={
+            k: MetricSettingsForStatsEngine(**v) for k, v in data["metrics"].items()
+        },
+        analyses=[AnalysisSettingsForStatsEngine(**a) for a in data["analyses"]],
         query_results=[QueryResultsForStatsEngine(**q) for q in data["query_results"]],
     )
 

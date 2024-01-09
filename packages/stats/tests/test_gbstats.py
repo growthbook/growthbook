@@ -8,7 +8,6 @@ import pandas as pd
 from gbstats.gbstats import (
     AnalysisSettingsForStatsEngine,
     MetricSettingsForStatsEngine,
-    base_statistic_from_metric_row,
     detect_unknown_variations,
     diff_for_daily_time_series,
     reduce_dimensionality,
@@ -18,16 +17,7 @@ from gbstats.gbstats import (
     variation_statistic_from_metric_row,
 )
 from gbstats.messages import RA_NOT_COMPATIBLE_WITH_BAYESIAN_ERROR
-from gbstats.shared.constants import (
-    DifferenceType,
-    MetricType,
-    StatisticType,
-    StatsEngine,
-)
-from gbstats.shared.models import (
-    RegressionAdjustedStatistic,
-    SampleMeanStatistic,
-)
+from gbstats.models.statistics import RegressionAdjustedStatistic, SampleMeanStatistic
 
 DECIMALS = 9
 round_ = partial(np.round, decimals=DECIMALS)
@@ -36,8 +26,8 @@ COUNT_METRIC = MetricSettingsForStatsEngine(
     id="",
     name="",
     inverse=False,
-    statistic_type=StatisticType("mean"),
-    main_metric_type=MetricType("count"),
+    statistic_type="mean",
+    main_metric_type="count",
 )
 
 MULTI_DIMENSION_STATISTICS_DF = pd.DataFrame(
@@ -102,9 +92,9 @@ RATIO_METRIC = MetricSettingsForStatsEngine(
     id="",
     name="",
     inverse=False,
-    statistic_type=StatisticType("ratio"),
-    main_metric_type=MetricType("count"),
-    denominator_metric_type=MetricType("count"),
+    statistic_type="ratio",
+    main_metric_type="count",
+    denominator_metric_type="count",
 )
 
 RATIO_STATISTICS_DF = pd.DataFrame(
@@ -189,9 +179,9 @@ RA_METRIC = MetricSettingsForStatsEngine(
     id="",
     name="",
     inverse=False,
-    statistic_type=StatisticType("mean_ra"),
-    main_metric_type=MetricType("count"),
-    covariate_metric_type=MetricType("count"),
+    statistic_type="mean_ra",
+    main_metric_type="count",
+    covariate_metric_type="count",
 )
 
 RA_STATISTICS_DF = pd.DataFrame(
@@ -226,10 +216,10 @@ DEFAULT_ANALYSIS = AnalysisSettingsForStatsEngine(
     weights=[0.5, 0.5],
     baseline_index=0,
     dimension="All",
-    stats_engine=StatsEngine("bayesian"),
+    stats_engine="bayesian",
     sequential_testing_enabled=False,
     sequential_tuning_parameter=5000,
-    difference_type=DifferenceType("relative"),
+    difference_type="relative",
     phase_length_days=1,
     alpha=0.05,
     max_dimensions=20,
@@ -299,36 +289,7 @@ class TestGetMetricDf(TestCase):
             self.assertEqual(row["v1_count"], row["v1_users"])
 
 
-class TestBaseStatisticBuilder(TestCase):
-    def test_unknown_metric_type(self):
-        with self.assertRaisesRegex(
-            ValueError, expected_regex="'not_real' is not a valid MetricType"
-        ):
-            base_statistic_from_metric_row(
-                MULTI_DIMENSION_STATISTICS_DF.loc[0],
-                prefix="",
-                component="test",
-                metric_type=MetricType("not_real"),
-            )
-
-
 class TestVariationStatisticBuilder(TestCase):
-    def test_unknown_statistic_type(self):
-        with self.assertRaisesRegex(
-            ValueError, expected_regex="'not_real' is not a valid StatisticType"
-        ):
-            variation_statistic_from_metric_row(
-                MULTI_DIMENSION_STATISTICS_DF.loc[0],
-                prefix="",
-                metric=MetricSettingsForStatsEngine(
-                    id="",
-                    name="",
-                    statistic_type=StatisticType("not_real"),
-                    inverse=False,
-                    main_metric_type=MetricType("count"),
-                ),
-            )
-
     def test_ra_statistic_type(self):
         test_row = pd.Series(
             {
@@ -578,9 +539,7 @@ class TestAnalyzeMetricDfFrequentist(TestCase):
         result = analyze_metric_df(
             df,
             metric=COUNT_METRIC,
-            analysis=dataclasses.replace(
-                DEFAULT_ANALYSIS, stats_engine=StatsEngine("frequentist")
-            ),
+            analysis=dataclasses.replace(DEFAULT_ANALYSIS, stats_engine="frequentist"),
         )
 
         self.assertEqual(len(result.index), 2)
@@ -598,9 +557,7 @@ class TestAnalyzeMetricDfFrequentist(TestCase):
         result = analyze_metric_df(
             df,
             metric=RATIO_METRIC,
-            analysis=dataclasses.replace(
-                DEFAULT_ANALYSIS, stats_engine=StatsEngine("frequentist")
-            ),
+            analysis=dataclasses.replace(DEFAULT_ANALYSIS, stats_engine="frequentist"),
         )
 
         self.assertEqual(len(result.index), 1)
@@ -618,9 +575,7 @@ class TestAnalyzeMetricDfFrequentist(TestCase):
         result = analyze_metric_df(
             df,
             metric=COUNT_METRIC,
-            analysis=dataclasses.replace(
-                DEFAULT_ANALYSIS, stats_engine=StatsEngine("frequentist")
-            ),
+            analysis=dataclasses.replace(DEFAULT_ANALYSIS, stats_engine="frequentist"),
         )
 
         self.assertEqual(len(result.index), 1)
@@ -638,9 +593,7 @@ class TestAnalyzeMetricDfFrequentist(TestCase):
         result = analyze_metric_df(
             df,
             metric=RATIO_METRIC,
-            analysis=dataclasses.replace(
-                DEFAULT_ANALYSIS, stats_engine=StatsEngine("frequentist")
-            ),
+            analysis=dataclasses.replace(DEFAULT_ANALYSIS, stats_engine="frequentist"),
         )
 
         self.assertEqual(len(result.index), 1)
@@ -660,9 +613,7 @@ class TestAnalyzeMetricDfRegressionAdjustment(TestCase):
         result = analyze_metric_df(
             df,
             metric=RA_METRIC,
-            analysis=dataclasses.replace(
-                DEFAULT_ANALYSIS, stats_engine=StatsEngine("frequentist")
-            ),
+            analysis=dataclasses.replace(DEFAULT_ANALYSIS, stats_engine="frequentist"),
         )
 
         # Test that meric mean is unadjusted
@@ -692,15 +643,13 @@ class TestAnalyzeMetricDfRegressionAdjustment(TestCase):
             df,
             metric=dataclasses.replace(
                 RA_METRIC,
-                main_metric_type=MetricType("binomial"),
-                covariate_metric_type=MetricType("binomial"),
+                main_metric_type="binomial",
+                covariate_metric_type="binomial",
             ),
-            analysis=dataclasses.replace(
-                DEFAULT_ANALYSIS, stats_engine=StatsEngine("frequentist")
-            ),
+            analysis=dataclasses.replace(DEFAULT_ANALYSIS, stats_engine="frequentist"),
         )
 
-        # Test that meric mean is unadjusted
+        # Test that metric mean is unadjusted
         self.assertEqual(len(result.index), 1)
         self.assertEqual(result.at[0, "dimension"], "All")
         self.assertEqual(round_(result.at[0, "baseline_cr"]), 0.099966678)
@@ -734,7 +683,7 @@ class TestAnalyzeMetricDfSequential(TestCase):
             metric=COUNT_METRIC,
             analysis=dataclasses.replace(
                 DEFAULT_ANALYSIS,
-                stats_engine=StatsEngine("frequentist"),
+                stats_engine="frequentist",
                 sequential_testing_enabled=True,
                 sequential_tuning_parameter=600,
             ),
@@ -755,7 +704,7 @@ class TestAnalyzeMetricDfSequential(TestCase):
             metric=COUNT_METRIC,
             analysis=dataclasses.replace(
                 DEFAULT_ANALYSIS,
-                stats_engine=StatsEngine("frequentist"),
+                stats_engine="frequentist",
                 sequential_testing_enabled=True,
                 sequential_tuning_parameter=1,
             ),
@@ -774,7 +723,7 @@ class TestFormatResults(TestCase):
                 df,
                 metric=COUNT_METRIC,
                 analysis=dataclasses.replace(
-                    DEFAULT_ANALYSIS, stats_engine=StatsEngine("frequentist")
+                    DEFAULT_ANALYSIS, stats_engine="frequentist"
                 ),
             )
         )

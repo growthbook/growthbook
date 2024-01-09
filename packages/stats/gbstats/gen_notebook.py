@@ -5,7 +5,6 @@ from .gbstats import (
     process_analysis,
 )
 import pandas as pd
-from gbstats.shared.constants import StatsEngine
 import nbformat
 from nbformat import v4 as nbf
 from nbformat import from_dict
@@ -57,9 +56,9 @@ def create_notebook(data: DataForStatsEngine, params: NotebookParams):
         summary_cols.append(f"v{i}_cr")
         summary_cols.append(f"v{i}_expected")
         summary_cols.append(f"v{i}_ci")
-        if analysis.stats_engine == StatsEngine.BAYESIAN:
+        if analysis.stats_engine == "bayesian":
             summary_cols.append(f"v{i}_prob_beat_baseline")
-        elif analysis.stats_engine == StatsEngine.FREQUENTIST:
+        elif analysis.stats_engine == "frequentist":
             summary_cols.append(f"v{i}_p_value")
 
     cells = [
