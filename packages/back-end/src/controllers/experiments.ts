@@ -18,7 +18,6 @@ import {
   getDefaultExperimentAnalysisSettings,
   getExperimentMetricById,
   getLinkedFeatureInfo,
-  getManualSnapshotData,
 } from "../services/experiments";
 import { MetricInterface, MetricStats } from "../../types/metric";
 import {
@@ -1587,60 +1586,6 @@ export async function deleteExperiment(
   res.status(200).json({
     status: 200,
   });
-}
-
-export async function previewManualSnapshot(
-  req: AuthRequest<
-    {
-      users: number[];
-      metrics: { [key: string]: MetricStats[] };
-    },
-    { id: string; phase: string }
-  >,
-  res: Response
-) {
-  const { id, phase } = req.params;
-  const { org } = getOrgFromReq(req);
-
-  const experiment = await getExperimentById(org.id, id);
-
-  if (!experiment) {
-    res.status(404).json({
-      status: 404,
-      message: "Experiment not found",
-    });
-    return;
-  }
-
-  const phaseIndex = parseInt(phase);
-  if (!experiment.phases[phaseIndex]) {
-    res.status(404).json({
-      status: 404,
-      message: "Phase not found",
-    });
-    return;
-  }
-
-  try {
-    const metricMap = await getMetricMap(org.id);
-
-    const data = await getManualSnapshotData(
-      experiment,
-      phaseIndex,
-      req.body.users,
-      req.body.metrics,
-      metricMap
-    );
-    res.status(200).json({
-      status: 200,
-      snapshot: data,
-    });
-  } catch (e) {
-    res.status(400).json({
-      status: 400,
-      message: e.message,
-    });
-  }
 }
 
 export async function cancelSnapshot(

@@ -32,7 +32,7 @@ VarIdMap = Dict[str, int]
 class QueryResultsForStatsEngine:
     rows: ExperimentMetricQueryResponseRows
     metrics: List[Optional[str]]
-    sql: Optional[str]
+    sql: Optional[str] = None
 
 
 @dataclass

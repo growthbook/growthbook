@@ -21,7 +21,6 @@ import {
 import {
   ExperimentMetricInterface,
   getRegressionAdjustmentsForMetric,
-  isBinomialMetric,
   isFactMetric,
   isFactMetricId,
 } from "shared/experiments";
@@ -209,6 +208,7 @@ export function generateTrackingKey(name: string, n: number): string {
 
 export async function getManualSnapshotData(
   experiment: ExperimentInterface,
+  analysisSettings: ExperimentSnapshotAnalysisSettings,
   phaseIndex: number,
   users: number[],
   metrics: {
@@ -231,7 +231,11 @@ export async function getManualSnapshotData(
     const metric = metricMap.get(m);
     if (!metric) return null;
 
-    metricSettings[m] = getMetricSettingsForStatsEngine(metric, metricMap);
+    metricSettings[m] = {
+      ...getMetricSettingsForStatsEngine(metric, metricMap),
+      // no ratio or regression adjustment for manual snapshots
+      statistic_type: "mean",
+    };
     queryResults.push({
       rows: stats.map((s, i) => {
         return {
@@ -239,8 +243,6 @@ export async function getManualSnapshotData(
           variation: experiment.variations[i].key || i + "",
           users: s.count,
           count: s.count,
-          statistic_type: "mean", // ratio not supported for now
-          main_metric_type: isBinomialMetric(metric) ? "binomial" : "count",
           main_sum: s.mean * s.count,
           main_sum_squares: sumSquaresFromStats(
             s.mean * s.count,
@@ -259,18 +261,8 @@ export async function getManualSnapshotData(
       hoursBetween(phase.dateStarted, phase.dateEnded ?? new Date()),
       1
     ),
-    coverage: 1,
-    analyses: [
-      {
-        dimensions: [],
-        statsEngine: DEFAULT_STATS_ENGINE,
-        sequentialTesting: false,
-        sequentialTestingTuningParameter: DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
-        baselineVariationIndex: 0,
-        pValueThreshold: DEFAULT_P_VALUE_THRESHOLD,
-        differenceType: "relative",
-      },
-    ],
+    coverage: experiment.phases?.[phaseIndex]?.coverage ?? 1,
+    analyses: [{ ...analysisSettings, regressionAdjusted: false }], // no RA for manual snapshots
     metrics: metricSettings,
     queryResults: queryResults,
   });
@@ -428,11 +420,12 @@ export async function createManualSnapshot(
   metrics: {
     [key: string]: MetricStats[];
   },
-  settings: ExperimentSnapshotAnalysisSettings,
+  analysisSettings: ExperimentSnapshotAnalysisSettings,
   metricMap: Map<string, ExperimentMetricInterface>
 ) {
   const { srm, variations } = await getManualSnapshotData(
     experiment,
+    analysisSettings,
     phaseIndex,
     users,
     metrics,
@@ -452,7 +445,7 @@ export async function createManualSnapshot(
     settings: getSnapshotSettings({
       experiment,
       phaseIndex,
-      settings,
+      settings: analysisSettings,
       metricRegressionAdjustmentStatuses: [],
       metricMap,
     }),
@@ -462,7 +455,7 @@ export async function createManualSnapshot(
       {
         dateCreated: new Date(),
         status: "success",
-        settings: settings,
+        settings: analysisSettings,
         results: [
           {
             name: "All",
