@@ -213,7 +213,7 @@ print(json.dumps({
   }
 }
 
-function getMetricSettingsForStatsEngine(
+export function getMetricSettingsForStatsEngine(
   metric: ExperimentMetricInterface,
   metricMap: Map<string, ExperimentMetricInterface>
 ): MetricSettingsForStatsEngine {

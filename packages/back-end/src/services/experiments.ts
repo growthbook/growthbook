@@ -48,10 +48,7 @@ import {
   createExperimentSnapshotModel,
   updateSnapshotAnalysis,
 } from "../models/ExperimentSnapshotModel";
-import {
-  Dimension,
-  ExperimentMetricQueryResponseRows,
-} from "../types/Integration";
+import { Dimension } from "../types/Integration";
 import {
   Condition,
   MetricInterface,
@@ -105,7 +102,13 @@ import { getFeatureRevisionsByFeatureIds } from "../models/FeatureRevisionModel"
 import { ExperimentRefRule, FeatureRule } from "../../types/feature";
 import { getReportVariations, getMetricForSnapshot } from "./reports";
 import { getIntegrationFromDatasourceId } from "./datasource";
-import { analyzeExperimentMetric, analyzeExperimentResults } from "./stats";
+import {
+  MetricSettingsForStatsEngine,
+  QueryResultsForStatsEngine,
+  analyzeExperimentMetric,
+  analyzeExperimentResults,
+  getMetricSettingsForStatsEngine,
+} from "./stats";
 import { getEnvironmentIdsFromOrg } from "./organizations";
 
 export const DEFAULT_METRIC_ANALYSIS_DAYS = 90;
@@ -221,6 +224,35 @@ export async function getManualSnapshotData(
     metrics: {},
   }));
 
+  const metricSettings: Record<string, MetricSettingsForStatsEngine> = {};
+  const queryResults: QueryResultsForStatsEngine[] = [];
+  Object.keys(metrics).forEach((m) => {
+    const stats = metrics[m];
+    const metric = metricMap.get(m);
+    if (!metric) return null;
+
+    metricSettings[m] = getMetricSettingsForStatsEngine(metric, metricMap);
+    queryResults.push({
+      rows: stats.map((s, i) => {
+        return {
+          dimension: "All",
+          variation: experiment.variations[i].key || i + "",
+          users: s.count,
+          count: s.count,
+          statistic_type: "mean", // ratio not supported for now
+          main_metric_type: isBinomialMetric(metric) ? "binomial" : "count",
+          main_sum: s.mean * s.count,
+          main_sum_squares: sumSquaresFromStats(
+            s.mean * s.count,
+            Math.pow(s.stddev, 2),
+            s.count
+          ),
+        };
+      }),
+      metrics: [m],
+    });
+  });
+
   const result = await analyzeExperimentMetric({
     variations: getReportVariations(experiment, phase),
     phaseLengthHours: Math.max(
@@ -239,32 +271,8 @@ export async function getManualSnapshotData(
         differenceType: "relative",
       },
     ],
-    metrics: Object.keys(metrics).map((m) => {
-      const stats = metrics[m];
-      const metric = metricMap.get(m);
-      if (!metric) return null;
-
-      const rows: ExperimentMetricQueryResponseRows = stats.map((s, i) => {
-        return {
-          dimension: "All",
-          variation: experiment.variations[i].key || i + "",
-          users: s.count,
-          count: s.count,
-          statistic_type: "mean", // ratio not supported for now
-          main_metric_type: isBinomialMetric(metric) ? "binomial" : "count",
-          main_sum: s.mean * s.count,
-          main_sum_squares: sumSquaresFromStats(
-            s.mean * s.count,
-            Math.pow(s.stddev, 2),
-            s.count
-          ),
-        };
-      });
-      return {
-        metric,
-        rows,
-      };
-    }),
+    metrics: metricSettings,
+    queryResults: queryResults,
   });
 
   result.forEach(({ metric, analyses }) => {
