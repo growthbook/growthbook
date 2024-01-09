@@ -87,6 +87,7 @@ export const DEFAULT_PERMISSIONS: Record<GlobalPermission, boolean> = {
   organizationSettings: false,
   superDelete: false,
   viewEvents: false,
+  readData: false,
 };
 
 export interface UserContextValue {
