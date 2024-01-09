@@ -31,6 +31,7 @@ import RefreshSnapshotButton from "@/components/Experiment/RefreshSnapshotButton
 import usePermissions from "@/hooks/usePermissions";
 import ViewAsyncQueriesButton from "@/components/Queries/ViewAsyncQueriesButton";
 import FactBadge from "@/components/FactTables/FactBadge";
+import OfficialBadge from "@/components/Metrics/OfficialBadge";
 import AnalysisForm from "../AnalysisForm";
 import OverflowText from "./OverflowText";
 
@@ -172,6 +173,7 @@ export default function AnalysisSettingsSummary({
         <>
           {activationMetric.name}
           <FactBadge metricId={activationMetric.id} />
+          {activationMetric.official ? <OfficialBadge type="Metric" /> : null}
         </>
       ),
       icon: <HiCursorClick className="mr-1" />,

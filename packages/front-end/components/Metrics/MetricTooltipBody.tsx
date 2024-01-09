@@ -11,6 +11,7 @@ import FactBadge from "@/components/FactTables/FactBadge";
 import Markdown from "../Markdown/Markdown";
 import SortedTags from "../Tags/SortedTags";
 import styles from "./MetricToolTipBody.module.scss";
+import OfficialBadge from "./OfficialBadge";
 
 interface MetricToolTipCompProps {
   metric: ExperimentMetricInterface;
@@ -139,7 +140,8 @@ const MetricTooltipBody = ({
     return (
       <div>
         <h4>
-          {metric.name} <FactBadge metricId={metric.id} />
+          {metric.name} <FactBadge metricId={metric.id} />{" "}
+          {metric.official && <OfficialBadge type="Metric" />}
         </h4>
         <table className="table table-sm table-bordered text-left mb-0">
           <tbody>

@@ -256,7 +256,7 @@ export function getConfigFactTables(
       description: "",
       eventName: "",
       filters: [],
-      name: "",
+      name: id,
       owner: "",
       projects: [],
       sql: "",

@@ -17,6 +17,7 @@ import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { GBCuped } from "@/components/Icons";
 import FactBadge from "@/components/FactTables/FactBadge";
 import Field from "../Forms/Field";
+import OfficialBadge from "../Metrics/OfficialBadge";
 import { EditMetricsFormInterface } from "./EditMetricsForm";
 import MetricSelector from "./MetricSelector";
 
@@ -197,6 +198,9 @@ export default function MetricsOverridesSelector({
                     {metricDefinition?.name}
                     {metricDefinition && isFactMetric(metricDefinition) ? (
                       <FactBadge metricId={metricDefinition.id} />
+                    ) : null}
+                    {metricDefinition?.official ? (
+                      <OfficialBadge type="Metric" />
                     ) : null}
                   </strong>
                 </label>

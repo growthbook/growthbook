@@ -3,6 +3,7 @@ import { isProjectListValidForProject } from "shared/util";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import SelectField, { SelectFieldProps } from "@/components/Forms/SelectField";
 import FactBadge from "../FactTables/FactBadge";
+import OfficialBadge from "../Metrics/OfficialBadge";
 
 type MetricOption = {
   id: string;
@@ -31,7 +32,7 @@ const MetricSelector: FC<
   onlyBinomial,
   ...selectProps
 }) => {
-  const { metrics, factMetrics } = useDefinitions();
+  const { metrics, factMetrics, getExperimentMetricById } = useDefinitions();
 
   const options: MetricOption[] = [
     ...metrics.map((m) => ({
@@ -78,10 +79,12 @@ const MetricSelector: FC<
         };
       })}
       formatOptionLabel={({ label, value }) => {
+        const m = getExperimentMetricById(value);
         return (
           <>
             {label}
             <FactBadge metricId={value} />
+            {m?.official ? <OfficialBadge type="Metric" /> : null}
           </>
         );
       }}

@@ -33,6 +33,7 @@ import usePValueThreshold from "@/hooks/usePValueThreshold";
 import Tooltip from "../Tooltip/Tooltip";
 import MetricTooltipBody from "../Metrics/MetricTooltipBody";
 import FactBadge from "../FactTables/FactBadge";
+import OfficialBadge from "../Metrics/OfficialBadge";
 import DataQualityWarning from "./DataQualityWarning";
 import ResultsTable from "./ResultsTable";
 import MultipleExposureWarning from "./MultipleExposureWarning";
@@ -347,6 +348,7 @@ export function getRenderLabelColumn(regressionAdjustmentEnabled) {
             <a className="metriclabel text-dark">
               {label}
               <FactBadge metricId={metric.id} />
+              {metric.official ? <OfficialBadge type="Metric" /> : null}
             </a>
           </Link>
         </span>
