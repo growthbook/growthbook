@@ -123,11 +123,6 @@ export async function generateNotebook(
   // Get queries
   const queries = await getQueryData(queryPointers, organization);
 
-  const var_id_map: Record<string, number> = {};
-  args.variations.forEach((v, i) => {
-    var_id_map[v.id] = i;
-  });
-
   // use min query run date as end date if missing (legacy reports)
   let createdAt = new Date();
   queries.forEach((q) => {
@@ -147,7 +142,6 @@ export async function generateNotebook(
   );
 
   const data: DataForStatsEngine = {
-    var_id_map: var_id_map,
     analyses: [
       getAnalysisSettingsForStatsEngine(
         getAnalysisSettingsFromReportArgs(args),
