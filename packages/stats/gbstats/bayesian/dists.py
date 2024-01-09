@@ -1,8 +1,11 @@
 from abc import ABC, abstractmethod
+from typing import Tuple
 from warnings import warn
+
 import numpy as np
 from scipy.stats import beta, norm, rv_continuous  # type: ignore
 from scipy.special import digamma, polygamma, roots_hermitenorm  # type: ignore
+
 from .orthogonal import roots_sh_jacobi
 
 
@@ -59,7 +62,7 @@ class BayesABDist(ABC):
         gq = sum(a_nodes * cls.dist.cdf(a_nodes, b_par1, b_par2) * a_weights) + sum(
             b_nodes * cls.dist.cdf(b_nodes, a_par1, a_par2) * b_weights
         )
-        out = gq - cls.dist.mean((a_par1, b_par1), (a_par2, b_par2))
+        out = gq - cls.dist.mean((a_par1, b_par1), (a_par2, b_par2))  # type: ignore
 
         return np.maximum(out, 0)
 
@@ -74,7 +77,7 @@ class Beta(BayesABDist):
         return a, b
 
     @staticmethod
-    def moments(par1, par2, log=False):
+    def moments(par1, par2, log=False) -> Tuple[float, float]:  # type: ignore
         if np.sum(par2 < 0) + np.sum(par1 < 0):
             raise RuntimeError("params of beta distribution cannot be negative")
 
@@ -84,11 +87,11 @@ class Beta(BayesABDist):
         else:
             mean = par1 / (par1 + par2)
             var = par1 * par2 / (np.power(par1 + par2, 2) * (par1 + par2 + 1))
-        return mean, var
+        return mean, var  # type: ignore
 
     @staticmethod
     def gq(n, par1, par2):
-        x, w = roots_sh_jacobi(int(n), par1 + par2 - 1, par1, False)
+        x, w = roots_sh_jacobi(int(n), par1 + par2 - 1, par1)
         return x, w
 
 

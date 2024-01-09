@@ -113,9 +113,9 @@ class BayesianABTest(BaseABTest):
 
     def chance_to_win(self, mean_diff: float, std_diff: float) -> float:
         if self.inverse:
-            return 1 - norm.sf(0, mean_diff, std_diff)
+            return 1 - norm.sf(0, mean_diff, std_diff)  # type: ignore
         else:
-            return norm.sf(0, mean_diff, std_diff)
+            return norm.sf(0, mean_diff, std_diff)  # type: ignore
 
     def scale_result(
         self, result: BayesianTestResult, p: float, d: float

@@ -8,6 +8,7 @@ import {
 import omit from "lodash/omit";
 import { LegacyMetricInterface, MetricInterface } from "../types/metric";
 import {
+  migrateSavedGroup,
   migrateSnapshot,
   upgradeDatasourceObject,
   upgradeExperimentDoc,
@@ -34,6 +35,7 @@ import {
 import { ExperimentReportResultDimension } from "../types/report";
 import { Queries } from "../types/query";
 import { ExperimentPhase } from "../types/experiment";
+import { LegacySavedGroupInterface } from "../types/saved-group";
 
 describe("Metric Migration", () => {
   it("updates old metric objects - earlyStart", () => {
@@ -1353,5 +1355,100 @@ describe("Snapshot Migration", () => {
     expect(
       migrateSnapshot(initial as LegacyExperimentSnapshotInterface)
     ).toEqual(result);
+  });
+});
+
+describe("saved group migrations", () => {
+  const baseSavedGroup: LegacySavedGroupInterface = {
+    id: "grp_123",
+    organization: "org_123",
+    groupName: "test",
+    owner: "user_123",
+    dateCreated: new Date(),
+    dateUpdated: new Date(),
+  };
+
+  it("migrates old saved groups without source", () => {
+    expect(
+      migrateSavedGroup({
+        ...baseSavedGroup,
+        attributeKey: "foo",
+        values: ["a", "b"],
+      })
+    ).toEqual({
+      ...baseSavedGroup,
+      attributeKey: "foo",
+      values: ["a", "b"],
+      type: "list",
+    });
+  });
+
+  it("migrates saved groups with source=inline", () => {
+    expect(
+      migrateSavedGroup({
+        ...baseSavedGroup,
+        attributeKey: "foo",
+        values: ["a", "b"],
+        source: "inline",
+      })
+    ).toEqual({
+      ...baseSavedGroup,
+      attributeKey: "foo",
+      values: ["a", "b"],
+      type: "list",
+    });
+  });
+
+  it("migrates saved groups with source=runtime", () => {
+    expect(
+      migrateSavedGroup({
+        ...baseSavedGroup,
+        attributeKey: "foo",
+        values: [],
+        source: "runtime",
+      })
+    ).toEqual({
+      ...baseSavedGroup,
+      attributeKey: "foo",
+      values: [],
+      type: "condition",
+      condition: JSON.stringify({ $groups: { $elemMatch: { $eq: "foo" } } }),
+    });
+  });
+
+  it("does not migrate saved groups that already have type=list", () => {
+    expect(
+      migrateSavedGroup({
+        ...baseSavedGroup,
+        attributeKey: "foo",
+        values: ["a", "b"],
+        source: "inline",
+        type: "list",
+      })
+    ).toEqual({
+      ...baseSavedGroup,
+      attributeKey: "foo",
+      values: ["a", "b"],
+      type: "list",
+    });
+  });
+
+  it("does not migrate saved groups that already have type=condition", () => {
+    expect(
+      migrateSavedGroup({
+        ...baseSavedGroup,
+        attributeKey: "foo",
+        values: [],
+        source: "runtime",
+        type: "condition",
+        condition: JSON.stringify({ id: { $eq: "123" } }),
+      })
+    ).toEqual({
+      ...baseSavedGroup,
+      attributeKey: "foo",
+      values: [],
+      type: "condition",
+      condition: JSON.stringify({ id: { $eq: "123" } }),
+    });
   });
 });

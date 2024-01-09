@@ -30,6 +30,10 @@ import {
   MetricForSnapshot,
 } from "../../types/experiment-snapshot";
 import { getEnvironments } from "../services/organizations";
+import {
+  LegacySavedGroupInterface,
+  SavedGroupInterface,
+} from "../../types/saved-group";
 import { DEFAULT_CONVERSION_WINDOW_HOURS } from "./secrets";
 
 function roundVariationWeight(num: number): number {
@@ -641,4 +645,33 @@ export function migrateSnapshot(
   }
 
   return snapshot;
+}
+
+export function migrateSavedGroup(
+  legacy: LegacySavedGroupInterface
+): SavedGroupInterface {
+  // Add `type` field to legacy groups
+  const { source, type, ...otherFields } = legacy;
+  const group: SavedGroupInterface = {
+    ...otherFields,
+    type: type || (source === "runtime" ? "condition" : "list"),
+  };
+
+  // Migrate legacy runtime groups to use a condition
+  if (
+    group.type === "condition" &&
+    !group.condition &&
+    source === "runtime" &&
+    group.attributeKey
+  ) {
+    group.condition = JSON.stringify({
+      $groups: {
+        $elemMatch: {
+          $eq: group.attributeKey,
+        },
+      },
+    });
+  }
+
+  return group;
 }

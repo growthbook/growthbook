@@ -18,7 +18,6 @@ from gbstats.frequentist.tests import (
 )
 from gbstats.shared.constants import DifferenceType, StatsEngine
 from gbstats.shared.models import (
-    compute_theta,
     BayesianTestResult,
     FrequentistTestResult,
     ProportionStatistic,
@@ -217,7 +216,7 @@ def analyze_metric_df(
             df[f"v{i}_uplift"] = None
             df[f"v{i}_error_message"] = None
 
-    def analyze_row(s):
+    def analyze_row(s: pd.Series) -> pd.Series:
         s = s.copy()
         # Baseline values
         stat_a = variation_statistic_from_metric_row(s, "baseline")
@@ -225,6 +224,10 @@ def analyze_metric_df(
 
         s["baseline_cr"] = stat_a.unadjusted_mean
         s["baseline_mean"] = stat_a.unadjusted_mean
+
+        # baseline SD won't be adjusted for regression adjustment
+        # because it's unclear what it should be unless compared to a
+        # specific variation
         s["baseline_stddev"] = stat_a.stddev
 
         # List of users in each variation (used for SRM check)
@@ -235,22 +238,6 @@ def analyze_metric_df(
         for i in range(1, num_variations):
             stat_b = variation_statistic_from_metric_row(s, f"v{i}")
             raise_error_if_bayesian_ra(stat_b, engine)
-
-            if isinstance(stat_b, RegressionAdjustedStatistic) and isinstance(
-                stat_a, RegressionAdjustedStatistic
-            ):
-                theta = compute_theta(stat_a, stat_b)
-                if theta == 0:
-                    # revert to non-RA under the hood if no variance in a time period
-                    stat_a = stat_a.post_statistic
-                    stat_b = stat_b.post_statistic
-                else:
-                    stat_a.theta = theta
-                    stat_b.theta = theta
-
-            s[f"v{i}_cr"] = stat_b.unadjusted_mean
-            s[f"v{i}_mean"] = stat_b.unadjusted_mean
-            s[f"v{i}_stddev"] = stat_b.stddev
 
             users[i] = stat_b.n
 
@@ -264,23 +251,26 @@ def analyze_metric_df(
             # Run the A/B test analysis of baseline vs variation
             test_config_copy = test_config.copy()
             test_config_copy["traffic_proportion_b"] = weights[i]
-            test = ABTestClass(stat_a, stat_b, ABTestConfig(**test_config_copy))
+            test = ABTestClass(stat_a, stat_b, ABTestConfig(**test_config_copy))  # type: ignore
             res = test.compute_result()
 
+            s[f"v{i}_cr"] = test.stat_b.unadjusted_mean
+            s[f"v{i}_mean"] = test.stat_b.unadjusted_mean
+            s[f"v{i}_stddev"] = test.stat_b.stddev
             # Unpack result in Pandas row
             if isinstance(res, BayesianTestResult):
                 s.at[f"v{i}_rawrisk"] = res.risk
                 s[f"v{i}_prob_beat_baseline"] = res.chance_to_win
             elif isinstance(res, FrequentistTestResult):
                 s[f"v{i}_p_value"] = res.p_value
-            if stat_a.unadjusted_mean <= 0:
+            if test.stat_a.unadjusted_mean <= 0:
                 # negative or missing control mean
                 s[f"v{i}_expected"] = 0
             elif res.expected == 0:
                 # if result is not valid, try to return at least the diff
                 s[f"v{i}_expected"] = (
-                    stat_b.mean - stat_a.mean
-                ) / stat_a.unadjusted_mean
+                    test.stat_b.mean - test.stat_a.mean
+                ) / test.stat_a.unadjusted_mean
             else:
                 # return adjusted/prior-affected guess of expectation
                 s[f"v{i}_expected"] = res.expected
