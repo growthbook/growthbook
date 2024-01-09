@@ -14,6 +14,7 @@ const env: EnvironmentInitValue = {
   sentryDSN: "",
   usingSSO: false,
   storeSegmentsInMongo: false,
+  allowCreateMetrics: true,
 };
 
 export async function initEnv() {
@@ -56,6 +57,9 @@ export function inTelemetryDebugMode(): boolean {
 }
 export function hasFileConfig() {
   return env.config === "file";
+}
+export function canCreateMetrics() {
+  return env.allowCreateMetrics;
 }
 export function getDefaultConversionWindowHours() {
   return env.defaultConversionWindowHours;

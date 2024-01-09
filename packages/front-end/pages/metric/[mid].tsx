@@ -44,7 +44,7 @@ import InlineForm from "@/components/Forms/InlineForm";
 import EditableH1 from "@/components/Forms/EditableH1";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Code from "@/components/SyntaxHighlighting/Code";
-import { getDefaultConversionWindowHours, hasFileConfig } from "@/services/env";
+import { getDefaultConversionWindowHours } from "@/services/env";
 import PickSegmentModal from "@/components/Segments/PickSegmentModal";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import Button from "@/components/Button";
@@ -134,9 +134,9 @@ const MetricPage: FC = () => {
 
   const metric = data.metric;
   const canEditMetric =
-    checkMetricProjectPermissions(metric, permissions) && !hasFileConfig();
+    checkMetricProjectPermissions(metric, permissions) && !metric.official;
   const canEditProjects =
-    permissions.check("createMetrics", "") && !hasFileConfig();
+    permissions.check("createMetrics", "") && !metric.official;
   const datasource = metric.datasource
     ? getDatasourceById(metric.datasource)
     : null;

@@ -4,7 +4,7 @@ import { FaArrowLeft } from "react-icons/fa";
 import { ProjectInterface } from "back-end/types/project";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import { hasFileConfig } from "@/services/env";
+import { canCreateMetrics, hasFileConfig } from "@/services/env";
 import usePermissions from "@/hooks/usePermissions";
 import NewDataSourceForm from "@/components/Settings/NewDataSourceForm";
 import MetricForm from "@/components/Metrics/MetricForm";
@@ -217,11 +217,11 @@ const ExperimentsGetStarted = (): React.ReactElement => {
                         library to represent all of the KPIs for your business
                       </p>
                     }
-                    hideCTA={hasFileConfig()}
+                    hideCTA={!canCreateMetrics()}
                     cta="Add metric"
                     finishedCTA="View metrics"
                     permissionsError={
-                      !hasFileConfig() &&
+                      canCreateMetrics() &&
                       !permissions.check("createMetrics", project) &&
                       !hasMetrics
                     }

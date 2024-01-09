@@ -6,7 +6,7 @@ import { ago, datetime } from "@/../shared/dates";
 import clsx from "clsx";
 import { getMetricLink } from "shared/experiments";
 import { DocLink } from "@/components/DocLink";
-import { hasFileConfig } from "@/services/env";
+import { canCreateMetrics } from "@/services/env";
 import { useAuth } from "@/services/auth";
 import useApi from "@/hooks/useApi";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
@@ -93,7 +93,7 @@ export default function DataSourceMetrics({
           </p>
         </div>
         <div className="d-flex flex-row pl-3">
-          {canEdit && !hasFileConfig() ? (
+          {canEdit && canCreateMetrics() ? (
             <>
               <AutoGenerateMetricsButton
                 setShowAutoGenerateMetricsModal={
@@ -210,7 +210,7 @@ export default function DataSourceMetrics({
                                   />
                                 )}
                               </div>
-                              {!hasFileConfig() && (
+                              {!metric.official && (
                                 <div
                                   title={datetime(metric.dateUpdated || "")}
                                   className={clsx(
@@ -240,7 +240,7 @@ export default function DataSourceMetrics({
                               </Tooltip>
                             ) : null}
                           </div>
-                          {!hasFileConfig() &&
+                          {!metric.official &&
                           editMetricsPermissions[metric.id] ? (
                             <MoreMenu className="px-2">
                               <button
