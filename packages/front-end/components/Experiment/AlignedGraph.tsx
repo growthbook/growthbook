@@ -6,8 +6,7 @@ import ParentSize from "@visx/responsive/lib/components/ParentSize";
 import { Line } from "@visx/shape";
 import { FaArrowUp, FaArrowDown } from "react-icons/fa";
 import { ViolinPlot } from "@visx/stats";
-import quantile from "@stdlib/stats/base/dists/normal/quantile";
-import pdf from "@stdlib/stats/base/dists/normal/pdf";
+import normal from "@stdlib/stats/base/dists/normal";
 import clsx from "clsx";
 
 interface Props
@@ -350,12 +349,12 @@ const AlignedGraph: FC<Props> = ({
                               0.95,
                               0.975,
                             ].map((n) => {
-                              let x = quantile(
+                              let x = normal.quantile(
                                 n,
                                 uplift?.mean || 0,
                                 uplift?.stddev || 0
                               );
-                              const y = pdf(
+                              const y = normal.pdf(
                                 x,
                                 uplift?.mean || 0,
                                 uplift?.stddev || 0

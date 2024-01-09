@@ -1,6 +1,6 @@
 import fs from "fs";
 import { GrowthBook } from "@growthbook/growthbook";
-import normal from "@stdlib/random/base/normal";
+import normalSample from "@stdlib/random/base/normal";
 import { addDays } from "date-fns";
 
 type TableData = {
@@ -144,7 +144,7 @@ function normalInt(min: number, max: number): number {
   const mean = (max - min) / 2 + min;
   const stddev = (max - min) / 3;
 
-  const x = Math.round(normal(mean, stddev));
+  const x = Math.round(normalSample(mean, stddev));
   if (x < min) return min;
   if (x > max) return max;
   return x;
