@@ -32,6 +32,7 @@ from gbstats.messages import raise_error_if_bayesian_ra
 @dataclass
 class AnalysisSettingsForStatsEngine:
     var_names: List[str]
+    var_ids: List[str]
     weights: List[float]
     baseline_index: int
     dimension: str
@@ -54,7 +55,6 @@ class MetricDataForStatsEngine:
 
 @dataclass
 class DataForStatsEngine:
-    var_id_map: Dict[str, int]
     metrics: List[MetricDataForStatsEngine]
     analyses: List[AnalysisSettingsForStatsEngine]
 
@@ -480,10 +480,13 @@ def process_analysis(
     return format_results(result, baseline_index)
 
 
+def get_var_id_map(var_ids: List[str]) -> Dict[str, int]:
+    return {x: i for i, x in enumerate(var_ids)}
+
+
 def process_single_metric(
     mdata: MetricDataForStatsEngine,
     analyses: List[AnalysisSettingsForStatsEngine],
-    var_id_map: Dict[str, int],
 ):
     # If no data return blank results
     if len(mdata.rows) == 0:
@@ -503,13 +506,15 @@ def process_single_metric(
     multiple_exposures = mdata.multiple_exposures
 
     # Detect any variations that are not in the returned metric rows
-    unknown_var_ids = detect_unknown_variations(rows=rows, var_id_map=var_id_map)
+    unknown_var_ids = detect_unknown_variations(
+        rows=rows, var_id_map=get_var_id_map(analyses[0].var_ids)
+    )
 
     results = [
         process_analysis(
             rows=rows,
             inverse=inverse,
-            var_id_map=var_id_map,
+            var_id_map=get_var_id_map(a.var_ids),
             analysis=a,
         )
         for a in analyses
@@ -530,11 +535,8 @@ def process_single_metric(
 
 def process_experiment_results(data: Dict[str, Any]):
     d = DataForStatsEngine(
-        var_id_map=data["var_id_map"],
         metrics=[MetricDataForStatsEngine(**m) for m in data["metrics"]],
         analyses=[AnalysisSettingsForStatsEngine(**a) for a in data["analyses"]],
     )
 
-    return [
-        process_single_metric(mdata, d.analyses, d.var_id_map) for mdata in d.metrics
-    ]
+    return [process_single_metric(mdata, d.analyses) for mdata in d.metrics]
