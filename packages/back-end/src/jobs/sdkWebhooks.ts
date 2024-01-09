@@ -1,4 +1,6 @@
+import { createHmac } from "crypto";
 import Agenda, { Job } from "agenda";
+import md5 from "md5";
 import { getFeatureDefinitions } from "../services/features";
 import { CRON_ENABLED } from "../util/secrets";
 import { SDKPayloadKey } from "../../types/sdk-payload";
@@ -69,7 +71,7 @@ export default function addWebhooksJob(ag: Agenda) {
 
       const res = await fireWebhook({
         url: webhook.endpoint,
-        signature: webhook.signingKey,
+        signingKey: webhook.signingKey,
         key: connection.key,
         payload,
         headers: webhook.headers || "",
@@ -160,30 +162,45 @@ export async function queueWebhookUpdate(
 
 async function fireWebhook({
   url,
-  signature,
+  signingKey,
   key,
   payload,
   method,
   headers,
 }: {
   url: string;
-  signature: string;
+  signingKey: string;
   key: string;
   payload: string;
   method: WebhookMethod;
   headers: string;
 }) {
+  const date = new Date();
+  const signature = createHmac("sha256", signingKey)
+    .update(payload)
+    .digest("hex");
+  const secret = `whsec_${signature}`;
+  const webhookID = `msg_${md5(key + date.getTime()).substr(0, 16)}`;
+  const body = {
+    type: "payload.changed",
+    timestamp: date.toISOString(),
+    data: {
+      payload,
+    },
+  };
   const { responseWithoutBody: res } = await cancellableFetch(
     url,
     {
       headers: {
         "Content-Type": "application/json",
-        "X-GrowthBook-Signature": signature,
-        "X-GrowthBook-Api-Key": key,
+        "webhook-id": webhookID,
+        "webhook-timestamp": date.getTime(),
+        "webhook-secret": secret,
+        "webhook-sdk-key": key,
         ...JSON.parse(headers),
       },
       method,
-      body: payload,
+      body: JSON.stringify(body),
     },
     {
       maxContentSize: 500,
