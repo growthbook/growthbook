@@ -16,6 +16,8 @@ Sticky bucketing ensures that users see the same experiment variant, even when u
 GrowthBook's flavor of sticky bucketing has a few additional features: Bucketing based either a primary hash attribute (i.e. user id) or a secondary (i.e. anonymous id),
 as well as the ability to version-control and purge your users' assigned buckets.
 
+## Motivation
+
 So why would you want to use Sticky Bucketing? Let's look at a few example scenarios:
 
 1. You are measuring the impact on a metric with a long conversion window that crosses the log-in divide. The user may be first exposed to your experiment while anonymous,
@@ -23,3 +25,24 @@ So why would you want to use Sticky Bucketing? Let's look at a few example scena
 2. You are managing an experiment rollout and need to slow down enrollment. You decrease the percentage of traffic exposed to the experiment from 50% to 10% but you do not want to
    alter the experience for users who were already exposed to the experiment. Sticky bucketing allows you to apply the new rollout percentage to new users while keeping the old users
    in their original buckets.
+
+:::note
+Sticky Bucketing is a GrowthBook Pro and Enterprise feature.
+:::
+
+## Setting up Sticky Bucketing
+
+To use Sticky Bucketing for your experiments, there are a few steps that you need to complete.
+
+1. Using the GrowthBook app, enable Sticky Bucketing for your organization in **Settings** > **General** > **Experiment Settings**
+2. Ensure you are using a compatible SDK version. For instance, Sticky Bucketing support was added to our Javascript SDK in version `0.32.0` and in our
+   React SDK in version `0.22.0`. You must also ensure that within the GrowthBook app, you have set your SDK Connection to use a compatible SDK version by going to **SDK Connections** and
+   modifying specific connections to be single-language connections with the correct SDK version input.
+3. Implement Sticky Bucketing in your codebase. You may use one of our built-in Sticky Bucketing Services or implement your own. We provide common drivers for browser-generated cookies,
+   backend-generated cookies, browser LocalStorage, and Redis datastores.
+
+### 1. Enable Sticky Bucketing in the GrowthBook app
+
+### 2. Use a compatible SDK
+
+### 3. Integrate with your codebase
