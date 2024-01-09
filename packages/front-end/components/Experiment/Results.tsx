@@ -97,7 +97,8 @@ const Results: FC<{
   } = useSnapshot();
 
   const queryStatusData = getQueryStatus(latest?.queries || [], latest?.error);
-
+  console.log(baselineRow);
+  console.dir(analysis, { depth: null });
   useEffect(() => {
     setPhase(experiment.phases.length - 1);
   }, [experiment.phases.length, setPhase]);
