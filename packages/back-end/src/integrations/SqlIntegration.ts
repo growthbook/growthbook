@@ -65,6 +65,7 @@ import { ExperimentSnapshotSettings } from "../../types/experiment-snapshot";
 import { SQLVars, TemplateVariables } from "../../types/sql";
 import { FactTableMap } from "../models/FactTableModel";
 import { logger } from "../util/logger";
+import { applyMetricOverrides } from "../util/integration";
 
 export const MAX_ROWS_UNIT_AGGREGATE_QUERY = 3000;
 
@@ -220,37 +221,6 @@ export default abstract class SqlIntegration
   }
   selectSampleRows(table: string, limit: number): string {
     return `SELECT * FROM ${table} LIMIT ${limit}`;
-  }
-
-  applyMetricOverrides(
-    metric: ExperimentMetricInterface,
-    settings: ExperimentSnapshotSettings
-  ) {
-    if (!metric) return;
-
-    const computed = settings.metricSettings.find((s) => s.id === metric.id)
-      ?.computedSettings;
-    if (!computed) return;
-
-    metric.conversionDelayHours = computed.conversionDelayHours;
-
-    if (isFactMetric(metric)) {
-      metric.conversionWindowUnit = "hours";
-      metric.conversionWindowValue = computed.conversionWindowHours;
-    } else {
-      metric.conversionWindowHours = computed.conversionWindowHours;
-    }
-
-    metric.regressionAdjustmentEnabled = computed.regressionAdjustmentEnabled;
-    metric.regressionAdjustmentDays = computed.regressionAdjustmentDays;
-
-    // TODO: move this to the form validation when saving this settings
-    if (metric.regressionAdjustmentDays < 0) {
-      metric.regressionAdjustmentDays = 0;
-    }
-    if (metric.regressionAdjustmentDays > 100) {
-      metric.regressionAdjustmentDays = 100;
-    }
   }
 
   private getExposureQuery(
@@ -966,7 +936,7 @@ export default abstract class SqlIntegration
       activationMetric = cloneDeep<ExperimentMetricInterface>(
         activationMetricDoc
       );
-      this.applyMetricOverrides(activationMetric, settings);
+      applyMetricOverrides(activationMetric, settings);
     }
     return activationMetric;
   }
@@ -1426,8 +1396,8 @@ export default abstract class SqlIntegration
       }
     }
 
-    this.applyMetricOverrides(metric, settings);
-    denominatorMetrics.forEach((m) => this.applyMetricOverrides(m, settings));
+    applyMetricOverrides(metric, settings);
+    denominatorMetrics.forEach((m) => applyMetricOverrides(m, settings));
 
     // Replace any placeholders in the user defined dimension SQL
     const { unitDimensions } = this.processDimensions(
