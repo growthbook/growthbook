@@ -124,7 +124,7 @@ const MetricsPage = (): React.ReactElement => {
     ...factMetrics.map((m) => {
       const item: MetricTableItem = {
         id: m.id,
-        official: false,
+        official: !!m.official,
         archived: false,
         datasource: m.datasource,
         dateUpdated: m.dateUpdated,
@@ -244,8 +244,9 @@ const MetricsPage = (): React.ReactElement => {
         {hasFileConfig() && (
           <div className="alert alert-info">
             It looks like you have a <code>config.yml</code> file. Metrics
-            defined there will show up on this page with an <OfficialBadge />{" "}
-            badge. <DocLink docSection="config_yml">View Documentation</DocLink>
+            defined there will show up on this page with an{" "}
+            <OfficialBadge type="Metric" /> badge.{" "}
+            <DocLink docSection="config_yml">View Documentation</DocLink>
           </div>
         )}
         {permissions.check("createMetrics", project) && canCreateMetrics() && (
@@ -400,7 +401,7 @@ const MetricsPage = (): React.ReactElement => {
                   </a>
                 </Link>
                 <FactBadge metricId={metric.id} />
-                {metric.official && <OfficialBadge />}
+                {metric.official && <OfficialBadge type="Metric" />}
               </td>
               <td>{metric.type}</td>
 

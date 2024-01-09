@@ -44,8 +44,9 @@ export interface FactFilterInterface {
 export interface FactTableInterface {
   organization: string;
   id: string;
-  dateCreated: Date;
-  dateUpdated: Date;
+  official?: boolean;
+  dateCreated: Date | null;
+  dateUpdated: Date | null;
   name: string;
   description: string;
   owner: string;
@@ -72,10 +73,11 @@ export type ConversionWindowUnit = z.infer<
 export interface FactMetricInterface {
   id: string;
   organization: string;
+  official?: boolean;
   owner: string;
   datasource: string;
-  dateCreated: Date;
-  dateUpdated: Date;
+  dateCreated: Date | null;
+  dateUpdated: Date | null;
   name: string;
   description: string;
   tags: string[];

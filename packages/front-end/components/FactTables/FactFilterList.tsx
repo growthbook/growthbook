@@ -33,10 +33,9 @@ export default function FactFilterList({ factTable }: Props) {
     searchFields: ["name^3", "description", "value^2"],
   });
 
-  const canEdit = permissions.check(
-    "manageFactTables",
-    factTable.projects || ""
-  );
+  const canEdit =
+    !factTable.official &&
+    permissions.check("manageFactTables", factTable.projects || "");
 
   return (
     <>

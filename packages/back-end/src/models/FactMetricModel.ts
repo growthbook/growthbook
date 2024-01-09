@@ -6,10 +6,13 @@ import {
   FactMetricInterface,
   UpdateFactMetricProps,
 } from "../../types/fact-table";
+import { getConfigFactMetrics, usingFileConfig } from "../init/config";
+import { ALLOW_CREATE_FACT_METRICS } from "../util/secrets";
 
 const factTableSchema = new mongoose.Schema({
   id: String,
   organization: String,
+  official: Boolean,
   dateCreated: Date,
   dateUpdated: Date,
   name: String,
@@ -63,11 +66,28 @@ function toInterface(doc: FactMetricDocument): FactMetricInterface {
 }
 
 export async function getAllFactMetricsForOrganization(organization: string) {
+  const factMetrics: FactMetricInterface[] = [];
+
+  if (usingFileConfig()) {
+    const configFactMetrics = getConfigFactMetrics(organization);
+    factMetrics.push(...configFactMetrics);
+  }
+
   const docs = await FactMetricModel.find({ organization });
-  return docs.map((doc) => toInterface(doc));
+  factMetrics.push(...docs.map((doc) => toInterface(doc)));
+
+  return factMetrics;
 }
 
 export async function getFactMetric(organization: string, id: string) {
+  // First check config.yml
+  if (usingFileConfig()) {
+    const configFactMetrics = getConfigFactMetrics(organization);
+    const configFactMetric = configFactMetrics.find((m) => m.id === id);
+    if (configFactMetric) return configFactMetric;
+  }
+
+  // Then check the database
   const doc = await FactMetricModel.findOne({ organization, id });
   return doc ? toInterface(doc) : null;
 }
@@ -76,6 +96,10 @@ export async function createFactMetric(
   organization: string,
   data: CreateFactMetricProps
 ) {
+  if (usingFileConfig() && !ALLOW_CREATE_FACT_METRICS) {
+    throw new Error("Not allowed to create fact metrics");
+  }
+
   const doc = await FactMetricModel.create({
     organization: organization,
     id: uniqid("fact__"),
@@ -90,6 +114,10 @@ export async function updateFactMetric(
   factMetric: FactMetricInterface,
   changes: UpdateFactMetricProps
 ) {
+  if (factMetric.official) {
+    throw new Error("Official fact metrics cannot be updated");
+  }
+
   await FactMetricModel.updateOne(
     {
       id: factMetric.id,
@@ -105,6 +133,10 @@ export async function updateFactMetric(
 }
 
 export async function deleteFactMetric(factMetric: FactMetricInterface) {
+  if (factMetric.official) {
+    throw new Error("Official fact metrics cannot be deleted");
+  }
+
   await FactMetricModel.deleteOne({
     id: factMetric.id,
     organization: factMetric.organization,
