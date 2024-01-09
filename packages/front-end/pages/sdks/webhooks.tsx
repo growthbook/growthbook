@@ -23,7 +23,6 @@ export default function SDKWebhooks({ sdkid }) {
         <td>{webhook.endpoint}</td>
         <td>{webhook.sendPayload === true ? "yes" : "no"}</td>
         <td>{webhook.signingKey}</td>
-        <td>{webhook.sdks}</td>
         <td>
           <a
             href="#"
@@ -90,7 +89,6 @@ export default function SDKWebhooks({ sdkid }) {
             <td>ENDPOINT</td>
             <td>SEND PAYLOAD</td>
             <td>SHARED SECRET</td>
-            <td>SDKS</td>
             <td>EDIT</td>
           </tr>
         </thead>
