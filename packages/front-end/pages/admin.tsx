@@ -20,6 +20,7 @@ import { isCloud, isMultiOrg } from "@/services/env";
 import EditOrganization from "@/components/Admin/EditOrganization";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import CreateOrganization from "@/components/Admin/CreateOrganization";
+import ShowLicenseInfo from "@/components/License/ShowLicenseInfo";
 import { useAuth } from "../services/auth";
 
 const numberFormatter = new Intl.NumberFormat();
@@ -210,6 +211,14 @@ const Admin: FC = () => {
           close={() => setOrgModalOpen(false)}
         />
       )}
+      <h1>GrowthBook Admin</h1>
+      {!isCloud() && (
+        <div>
+          <ShowLicenseInfo showInput={false} />{" "}
+          <div className="divider border-bottom mb-3 mt-3" />
+        </div>
+      )}
+      <h4>Organizations</h4>
       <button
         className="btn btn-primary float-right"
         onClick={(e) => {
@@ -219,9 +228,7 @@ const Admin: FC = () => {
       >
         <FaPlus /> New Organization
       </button>
-      <h1>GrowthBook Admin</h1>
       <p>Click an organization name below to switch to it.</p>
-
       <div className="mb-2 row align-items-center">
         <div className="col-auto">
           <form
@@ -253,9 +260,7 @@ const Admin: FC = () => {
           </span>
         </div>
       </div>
-
       {error && <div className="alert alert-danger">{error}</div>}
-
       <div className="position-relative">
         {loading && <LoadingOverlay />}
         <table className="table appbox">
@@ -302,9 +307,8 @@ const Admin: FC = () => {
           }}
         />
       </div>
-
       {!isCloud() && isMultiOrg() && (
-        <div>
+        <div className="divider border-top mt-3">
           <OrphanedUsersList
             mutateUsers={() => {
               loadOrgs(page, search);

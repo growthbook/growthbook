@@ -1953,7 +1953,7 @@ paths:
       x-codeSamples:
         - lang: cURL
           source: |
-            curl -X POST https://api.growthbook.io/api/v1/saved-groups/grp_123abc \
+            curl -X POST https://api.growthbook.io/api/v1/saved-groups \
               -H "Content-Type: application/json" \
               -u secret_abc123DEF456: \
               -d '{"name": "interal-users", "values": ["userId-123", "userId-345", "userId-678"], "attributeKey": "userId", "owner": ""}'
@@ -1965,24 +1965,27 @@ paths:
               type: object
               required:
                 - name
-                - attributeKey
               properties:
                 name:
                   type: string
                   description: The display name of the Saved Group
-                source:
+                type:
                   type: string
                   enum:
-                    - inline
-                    - runtime
+                    - condition
+                    - list
+                  description: The type of Saved Group (inferred from other arguments if missing)
+                condition:
+                  type: string
+                  description: 'When type = ''condition'', this is the JSON-encoded condition for the group'
+                attributeKey:
+                  type: string
+                  description: 'When type = ''list'', this is the attribute key the group is based on'
                 values:
                   type: array
                   items:
                     type: string
-                  description: 'An array of values to target (Ex: a list of userIds). Not applicable for runtime groups'
-                attributeKey:
-                  type: string
-                  description: 'For inline groups, the name of the attribute the values belong to (e.g. `user_id`). For runtime groups, the group name you reference in your code'
+                  description: 'When type = ''list'', this is the list of values for the attribute key'
                 owner:
                   type: string
                   description: 'The person or team that owns this Saved Group. If no owner, you can pass an empty string.'
@@ -2046,17 +2049,17 @@ paths:
                 name:
                   type: string
                   description: The display name of the Saved Group
+                condition:
+                  type: string
+                  description: 'When type = ''condition'', this is the JSON-encoded condition for the group'
                 values:
                   type: array
                   items:
                     type: string
-                  description: 'An array of values to target (Ex: a list of userIds).'
+                  description: 'When type = ''list'', this is the list of values for the attribute key'
                 owner:
                   type: string
                   description: 'The person or team that owns this Saved Group. If no owner, you can pass an empty string.'
-                attributeKey:
-                  type: string
-                  description: (Runtime groups only) The key used to reference the Saved Group in the SDK
       responses:
         '200':
           content:
@@ -3514,12 +3517,15 @@ components:
         - dateCreated
         - dateUpdated
         - name
-        - attributeKey
-        - values
-        - source
+        - type
       properties:
         id:
           type: string
+        type:
+          type: string
+          enum:
+            - condition
+            - list
         dateCreated:
           type: string
           format: date-time
@@ -3528,16 +3534,16 @@ components:
           format: date-time
         name:
           type: string
-        source:
-          type: string
-          enum:
-            - inline
-            - runtime
         owner:
           type: string
+        condition:
+          description: 'When type = ''condition'', this is the JSON-encoded condition for the group'
+          type: string
         attributeKey:
+          description: 'When type = ''list'', this is the attribute key the group is based on'
           type: string
         values:
+          description: 'When type = ''list'', this is the list of values for the attribute key'
           type: array
           items:
             type: string
