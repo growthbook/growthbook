@@ -26,7 +26,9 @@ export default function SingleRoleSelector({
   const growthbook = useGrowthBook();
   const { roles, hasCommercialFeature } = useUser();
   const hasFeature = hasCommercialFeature("advanced-permissions");
-  const isNoAccessRoleEnabled = growthbook?.isOn("no-access-role-type");
+  const isNoAccessRoleEnabled =
+    growthbook?.isOn("no-access-role-type") &&
+    hasCommercialFeature("no-access-role");
 
   let roleOptions = [...roles];
 
