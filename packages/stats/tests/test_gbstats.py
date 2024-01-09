@@ -213,6 +213,7 @@ RA_STATISTICS_DF = pd.DataFrame(
 
 DEFAULT_ANALYSIS = AnalysisSettingsForStatsEngine(
     var_names=["zero", "one"],
+    var_ids=["0", "1"],
     weights=[0.5, 0.5],
     baseline_index=0,
     dimension="All",
@@ -342,12 +343,10 @@ class TestVariationStatisticBuilder(TestCase):
 class TestDetectVariations(TestCase):
     def test_unknown_variations(self):
         rows = MULTI_DIMENSION_STATISTICS_DF
-        self.assertEqual(detect_unknown_variations(rows, {"zero": 0, "one": 1}), set())
+        self.assertEqual(detect_unknown_variations(rows, {"zero", "one"}), set())
+        self.assertEqual(detect_unknown_variations(rows, {"zero", "hello"}), {"one"})
         self.assertEqual(
-            detect_unknown_variations(rows, {"zero": 0, "hello": 1}), {"one"}
-        )
-        self.assertEqual(
-            detect_unknown_variations(rows, {"hello": 0, "world": 1}), {"one", "zero"}
+            detect_unknown_variations(rows, {"hello", "world"}), {"one", "zero"}
         )
 
     def test_multiple_exposures(self):
@@ -367,9 +366,9 @@ class TestDetectVariations(TestCase):
                 ),
             ]
         )
-        self.assertEqual(detect_unknown_variations(rows, {"zero": 0, "one": 1}), set())
+        self.assertEqual(detect_unknown_variations(rows, {"zero", "one"}), set())
         self.assertEqual(
-            detect_unknown_variations(rows, {"zero": 0, "one": 1}, {"some_other"}),
+            detect_unknown_variations(rows, {"zero", "one"}, {"some_other"}),
             {"__multiple__"},
         )
 

@@ -50,6 +50,7 @@ const Carousel: FC<{
           open={true}
           header={"Screenshot"}
           close={() => setModalOpen(false)}
+          bodyClassName="d-flex justify-content-center align-items-center"
           size="max"
           sizeY="max"
         >

@@ -12,6 +12,7 @@ MetricType = Literal["binomial", "count"]
 @dataclass
 class AnalysisSettingsForStatsEngine:
     var_names: List[str]
+    var_ids: List[str]
     weights: List[float]
     baseline_index: int = 0
     dimension: str = ""
@@ -48,7 +49,6 @@ class MetricSettingsForStatsEngine:
 
 @dataclass
 class DataForStatsEngine:
-    var_id_map: VarIdMap
     metrics: Dict[str, MetricSettingsForStatsEngine]
     analyses: List[AnalysisSettingsForStatsEngine]
     query_results: List[QueryResultsForStatsEngine]

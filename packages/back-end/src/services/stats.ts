@@ -43,6 +43,7 @@ import { MAX_ROWS_UNIT_AGGREGATE_QUERY } from "../integrations/SqlIntegration";
 // These same type definitions exist in gbstats.py
 export interface AnalysisSettingsForStatsEngine {
   var_names: string[];
+  var_ids: string[];
   weights: number[];
   baseline_index: number;
   dimension: string;
@@ -74,7 +75,6 @@ export interface QueryResultsForStatsEngine {
 }
 
 export interface DataForStatsEngine {
-  var_id_map: { [key: string]: number };
   analyses: AnalysisSettingsForStatsEngine[];
   metrics: Record<string, MetricSettingsForStatsEngine>;
   query_results: QueryResultsForStatsEngine[];
@@ -120,6 +120,7 @@ export function getAnalysisSettingsForStatsEngine(
 
   const analysisData: AnalysisSettingsForStatsEngine = {
     var_names: sortedVariations.map((v) => v.name),
+    var_ids: sortedVariations.map((v) => v.id),
     weights: sortedVariations.map((v) => v.weight * coverage),
     baseline_index: settings.baselineVariationIndex ?? 0,
     dimension: settings.dimensions[0] || "",
@@ -150,13 +151,8 @@ export async function analyzeExperimentMetric(
   } = params;
 
   const phaseLengthDays = Number(phaseLengthHours / 24);
-  const variationIdMap: { [key: string]: number } = {};
-  variations.forEach((v, i) => {
-    variationIdMap[v.id] = i;
-  });
 
   const statsData: DataForStatsEngine = {
-    var_id_map: variationIdMap,
     metrics: metrics,
     query_results: queryResults,
     analyses: analyses.map((a) =>

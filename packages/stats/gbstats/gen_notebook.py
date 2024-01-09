@@ -2,6 +2,7 @@ from dataclasses import dataclass
 from .gbstats import (
     DataForStatsEngine,
     filter_query_rows,
+    get_var_id_map,
     process_analysis,
 )
 import pandas as pd
@@ -42,6 +43,7 @@ class NotebookParams:
 def create_notebook(data: DataForStatsEngine, params: NotebookParams):
     # parse settings
     analysis = data.analyses[0]  # only one analysis for notebooks
+    var_id_map = get_var_id_map(analysis.var_ids)
     gbstats_version: str = "0.7.0"
 
     summary_cols = [
@@ -84,7 +86,7 @@ def create_notebook(data: DataForStatsEngine, params: NotebookParams):
             "from gbstats.shared.constants import *\n\n"
             "import pandas as pd\n\n"
             "# Mapping of variation id to index\n"
-            f"var_id_map = {str(data.var_id_map)}\n\n"
+            f"var_id_map = {str(var_id_map)}\n\n"
             "# Analysis settings\n"
             f"analysis = {repr(analysis)}\n\n"
             f"# Columns to show in the result summary\n"
@@ -149,7 +151,7 @@ def create_notebook(data: DataForStatsEngine, params: NotebookParams):
             cells.append(nbf.new_markdown_cell("#### Result"))
 
             result = process_analysis(
-                rows=rows, metric=metric, analysis=analysis, var_id_map=data.var_id_map
+                rows=rows, metric=metric, analysis=analysis, var_id_map=var_id_map
             )
             cells.append(
                 code_cell_df(

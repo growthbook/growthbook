@@ -1,6 +1,6 @@
 from dataclasses import asdict
 import re
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Set, Union
 
 import pandas as pd
 from scipy.stats.distributions import chi2  # type: ignore
@@ -56,11 +56,13 @@ SUM_COLS = [
 
 
 # Looks for any variation ids that are not in the provided map
-def detect_unknown_variations(rows, var_id_map, ignore_ids={"__multiple__"}):
+def detect_unknown_variations(
+    rows, var_ids: Set[str], ignore_ids: Set[str] = {"__multiple__"}
+) -> Set[str]:
     unknown_var_ids = []
     for row in rows.itertuples(index=False):
         id = str(row.variation)
-        if id not in ignore_ids and id not in var_id_map:
+        if id not in ignore_ids and id not in var_ids:
             unknown_var_ids.append(id)
     return set(unknown_var_ids)
 
@@ -429,8 +431,8 @@ def check_srm(users, weights):
 # Run a specific analysis given data and configuration settings
 def process_analysis(
     rows: pd.DataFrame,
+    var_id_map: VarIdMap,
     metric: MetricSettingsForStatsEngine,
-    var_id_map: Dict[str, int],
     analysis: AnalysisSettingsForStatsEngine,
 ) -> pd.DataFrame:
     var_names = analysis.var_names
@@ -463,11 +465,14 @@ def process_analysis(
     return result
 
 
+def get_var_id_map(var_ids: List[str]) -> VarIdMap:
+    return {v: i for i, v in enumerate(var_ids)}
+
+
 def process_single_metric(
     rows: ExperimentMetricQueryResponseRows,
     metric: MetricSettingsForStatsEngine,
     analyses: List[AnalysisSettingsForStatsEngine],
-    var_id_map: Dict[str, int],
 ) -> Dict[str, Any]:
     # If no data return blank results
     if len(rows) == 0:
@@ -485,14 +490,15 @@ def process_single_metric(
     pdrows = pd.DataFrame(rows)
 
     # Detect any variations that are not in the returned metric rows
-    unknown_var_ids = detect_unknown_variations(rows=pdrows, var_id_map=var_id_map)
+    all_var_ids: Set[str] = set([v for a in analyses for v in a.var_ids])
+    unknown_var_ids = detect_unknown_variations(rows=pdrows, var_ids=all_var_ids)
 
     results = [
         format_results(
             process_analysis(
                 rows=pdrows,
+                var_id_map=get_var_id_map(a.var_ids),
                 metric=metric,
-                var_id_map=var_id_map,
                 analysis=a,
             ),
             baseline_index=a.baseline_index,
@@ -529,7 +535,6 @@ def filter_query_rows(
 
 def process_data_dict(data: Dict[str, Any]) -> DataForStatsEngine:
     return DataForStatsEngine(
-        var_id_map=data["var_id_map"],
         metrics={
             k: MetricSettingsForStatsEngine(**v) for k, v in data["metrics"].items()
         },
@@ -551,7 +556,6 @@ def process_experiment_results(data: Dict[str, Any]):
                             rows=rows,
                             metric=d.metrics[m],
                             analyses=d.analyses,
-                            var_id_map=d.var_id_map,
                         )
                     )
     return results
