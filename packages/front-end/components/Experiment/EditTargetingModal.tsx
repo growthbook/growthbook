@@ -19,6 +19,7 @@ import PagedModal from "@/components/Modal/PagedModal";
 import Page from "@/components/Modal/Page";
 import TargetingInfo from "@/components/Experiment/TabbedPage/TargetingInfo";
 import FallbackAttributeSelector from "@/components/Features/FallbackAttributeSelector";
+import { useDefinitions } from "@/services/DefinitionsContext";
 import Field from "../Forms/Field";
 import Modal from "../Modal";
 import FeatureVariationsInput from "../Features/FeatureVariationsInput";
@@ -361,9 +362,18 @@ function TargetingForm({
   changeType?: ChangeType;
   conditionKey: number;
 }) {
+  const hasLinkedChanges =
+    !!experiment.linkedFeatures?.length || !!experiment.hasVisualChangesets;
+
   const attributeSchema = useAttributeSchema();
   const hasHashAttributes =
     attributeSchema.filter((x) => x.hashAttribute).length > 0;
+
+  const { getDatasourceById } = useDefinitions();
+  const datasource = experiment.datasource
+    ? getDatasourceById(experiment.datasource)
+    : null;
+  const supportsSQL = datasource?.properties?.queryLanguage === "sql";
 
   return (
     <div className="px-2 pt-2">
@@ -373,7 +383,21 @@ function TargetingForm({
             label="Tracking Key"
             labelClassName="font-weight-bold"
             {...form.register("trackingKey")}
-            helpText="Unique identifier for this experiment, used to track impressions and analyze results"
+            helpText={
+              supportsSQL ? (
+                <>
+                  Unique identifier for this experiment, used to track
+                  impressions and analyze results. Will match against the{" "}
+                  <code>experiment_id</code> column in your data source.
+                </>
+              ) : (
+                <>
+                  Unique identifier for this experiment, used to track
+                  impressions and analyze results. Must match the experiment id
+                  in your tracking callback.
+                </>
+              )
+            }
           />
           <div className="d-flex" style={{ gap: "2rem" }}>
             <SelectField
@@ -398,6 +422,17 @@ function TargetingForm({
             value={form.watch("hashVersion")}
             onChange={(v) => form.setValue("hashVersion", v)}
           />
+        </>
+      )}
+
+      {!hasLinkedChanges && (
+        <>
+          <hr className="my-4" />
+          <div className="alert alert-info">
+            Changes made below are only metadata changes and will have no impact
+            on actual experiment delivery unless you link a GrowthBook-managed
+            Linked Feature or Visual Change to this experiment.
+          </div>
         </>
       )}
 
@@ -452,6 +487,7 @@ function TargetingForm({
               ? "Variation Weights"
               : "Traffic Percentage & Variation Weights"
           }
+          customSplitOn={true}
         />
       )}
     </div>

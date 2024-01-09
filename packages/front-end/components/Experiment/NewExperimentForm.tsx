@@ -1,4 +1,4 @@
-import { FC, useEffect, useState } from "react";
+import React, { FC, useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import {
   ExperimentInterfaceStringDates,
@@ -338,11 +338,16 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
               helpText={
                 supportsSQL ? (
                   <>
-                    Must match the <code>experiment_id</code> field in your
-                    database table
+                    Unique identifier for this experiment, used to track
+                    impressions and analyze results. Will match against the{" "}
+                    <code>experiment_id</code> column in your data source.
                   </>
                 ) : (
-                  "Must match the experiment id in your tracking callback"
+                  <>
+                    Unique identifier for this experiment, used to track
+                    impressions and analyze results. Must match the experiment
+                    id in your tracking callback.
+                  </>
                 )
               }
             />
@@ -429,7 +434,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                     form.setValue("hashAttribute", v);
                   }}
                   helpText={
-                    "Will be hashed together with the Tracking Key to determine which variation to assign"
+                    "Will be hashed together with the Experiment Id (tracking key) to determine which variation to assign"
                   }
                 />
                 <FallbackAttributeSelector form={form} />

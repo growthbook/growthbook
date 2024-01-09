@@ -145,7 +145,7 @@ export default function ReleaseChangesForm({
                   value: "new-phase-block-sticky",
                 },
               ]
-            : []), //todo: make for "new phase" only
+            : []),
           ...(changeType !== "phase" &&
           (!recommendedRolloutData.disableSamePhase ||
             changeType === "advanced")
