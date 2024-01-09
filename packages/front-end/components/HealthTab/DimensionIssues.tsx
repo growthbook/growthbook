@@ -302,7 +302,7 @@ export const DimensionIssues = ({
                 }`}
               </i>
             </div>
-            {exposureQuery &&
+            {exposureQuery?.dimensions &&
             dataSource &&
             exposureQuery.dimensions.length > 0 ? (
               <div className="pt-4 d-flex justify-content-center">

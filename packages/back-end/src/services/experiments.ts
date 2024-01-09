@@ -16,6 +16,7 @@ import {
   isAnalysisAllowed,
   getMatchingRules,
   MatchingRule,
+  validateCondition,
 } from "shared/util";
 import {
   ExperimentMetricInterface,
@@ -1621,26 +1622,33 @@ export function postExperimentApiPayloadToInterface(
   organization: OrganizationInterface,
   datasource: DataSourceInterface
 ): Omit<ExperimentInterface, "dateCreated" | "dateUpdated" | "id"> {
-  const phases: ExperimentPhase[] = payload.phases?.map((p) => ({
-    ...p,
-    dateStarted: new Date(p.dateStarted),
-    dateEnded: p.dateEnded ? new Date(p.dateEnded) : undefined,
-    reason: p.reason || "",
-    coverage: p.coverage != null ? p.coverage : 1,
-    condition: p.condition || "{}",
-    savedGroups: (p.savedGroupTargeting || []).map((s) => ({
-      match: s.matchType,
-      ids: s.savedGroups,
-    })),
-    namespace: {
-      name: p.namespace?.namespaceId || "",
-      range: toNamespaceRange(p.namespace?.range),
-      enabled: p.namespace?.enabled != null ? p.namespace.enabled : false,
-    },
-    variationWeights:
-      p.variationWeights ||
-      payload.variations.map(() => 1 / payload.variations.length),
-  })) || [
+  const phases: ExperimentPhase[] = payload.phases?.map((p) => {
+    const conditionRes = validateCondition(p.condition);
+    if (!conditionRes.success) {
+      throw new Error(`Invalid targeting condition: ${conditionRes.error}`);
+    }
+
+    return {
+      ...p,
+      dateStarted: new Date(p.dateStarted),
+      dateEnded: p.dateEnded ? new Date(p.dateEnded) : undefined,
+      reason: p.reason || "",
+      coverage: p.coverage != null ? p.coverage : 1,
+      condition: p.condition || "{}",
+      savedGroups: (p.savedGroupTargeting || []).map((s) => ({
+        match: s.matchType,
+        ids: s.savedGroups,
+      })),
+      namespace: {
+        name: p.namespace?.namespaceId || "",
+        range: toNamespaceRange(p.namespace?.range),
+        enabled: p.namespace?.enabled != null ? p.namespace.enabled : false,
+      },
+      variationWeights:
+        p.variationWeights ||
+        payload.variations.map(() => 1 / payload.variations.length),
+    };
+  }) || [
     {
       coverage: 1,
       dateStarted: new Date(),
@@ -1767,29 +1775,38 @@ export function updateExperimentApiPayloadToInterface(
       : {}),
     ...(phases
       ? {
-          phases: phases.map((p) => ({
-            ...p,
-            dateStarted: new Date(p.dateStarted),
-            dateEnded: p.dateEnded ? new Date(p.dateEnded) : undefined,
-            reason: p.reason || "",
-            coverage: p.coverage != null ? p.coverage : 1,
-            condition: p.condition || "{}",
-            savedGroups: (p.savedGroupTargeting || []).map((s) => ({
-              match: s.matchType,
-              ids: s.savedGroups,
-            })),
-            namespace: {
-              name: p.namespace?.namespaceId || "",
-              range: toNamespaceRange(p.namespace?.range),
-              enabled:
-                p.namespace?.enabled != null ? p.namespace.enabled : false,
-            },
-            variationWeights:
-              p.variationWeights ||
-              (payload.variations || experiment.variations)?.map(
-                (_v, _i, arr) => 1 / arr.length
-              ),
-          })),
+          phases: phases.map((p) => {
+            const conditionRes = validateCondition(p.condition);
+            if (!conditionRes.success) {
+              throw new Error(
+                `Invalid targeting condition: ${conditionRes.error}`
+              );
+            }
+
+            return {
+              ...p,
+              dateStarted: new Date(p.dateStarted),
+              dateEnded: p.dateEnded ? new Date(p.dateEnded) : undefined,
+              reason: p.reason || "",
+              coverage: p.coverage != null ? p.coverage : 1,
+              condition: p.condition || "{}",
+              savedGroups: (p.savedGroupTargeting || []).map((s) => ({
+                match: s.matchType,
+                ids: s.savedGroups,
+              })),
+              namespace: {
+                name: p.namespace?.namespaceId || "",
+                range: toNamespaceRange(p.namespace?.range),
+                enabled:
+                  p.namespace?.enabled != null ? p.namespace.enabled : false,
+              },
+              variationWeights:
+                p.variationWeights ||
+                (payload.variations || experiment.variations)?.map(
+                  (_v, _i, arr) => 1 / arr.length
+                ),
+            };
+          }),
         }
       : {}),
     dateUpdated: new Date(),

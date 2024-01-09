@@ -86,10 +86,12 @@ export default function SRMDrawer({
     }
   }, [traffic, overallHealth, onNotify]);
 
-  if (!traffic.overall.variationUnits.length) {
-    <div className="appbox my-4 p-3">
-      <div className="alert alert-danger">Traffic data is missing</div>
-    </div>;
+  if (!traffic?.overall?.variationUnits?.length) {
+    return (
+      <div className="appbox my-4 p-3">
+        <div className="alert alert-danger">Traffic data is missing</div>
+      </div>
+    );
   }
 
   return (
