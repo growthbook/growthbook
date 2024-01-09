@@ -8,6 +8,8 @@ const env: EnvironmentInitValue = {
   allowSelfOrgCreation: true,
   appOrigin: "",
   apiHost: "",
+  s3domain: "",
+  gcsDomain: "",
   cdnHost: "",
   config: "db",
   defaultConversionWindowHours: 72,
@@ -17,6 +19,7 @@ const env: EnvironmentInitValue = {
   allowCreateMetrics: true,
   allowCreateFactTables: true,
   allowCreateFactMetrics: true,
+  usingFileProxy: false,
 };
 
 export async function initEnv() {
@@ -38,7 +41,12 @@ export function getAppOrigin(): string {
 export function getCdnHost(): string {
   return env.cdnHost;
 }
-
+export function getS3Domain(): string {
+  return env.s3domain;
+}
+export function getGcsDomain(): string {
+  return env.gcsDomain;
+}
 export function getApiHost(): string {
   return env.apiHost;
 }
@@ -81,7 +89,9 @@ export function usingSSO() {
 export function isSentryEnabled() {
   return !!env.sentryDSN;
 }
-
 export function storeSegmentsInMongo() {
   return env.storeSegmentsInMongo;
+}
+export function usingFileProxy() {
+  return env.usingFileProxy;
 }
