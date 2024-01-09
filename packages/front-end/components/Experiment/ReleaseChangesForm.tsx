@@ -144,16 +144,16 @@ export default function ReleaseChangesForm({
                     "New Phase, re-randomize traffic, block bucketed users",
                   value: "new-phase-block-sticky",
                 },
-                {
-                  label: "Same Phase, apply changes to everyone",
-                  value: "same-phase-everyone",
-                },
               ]
             : []), //todo: make for "new phase" only
           ...(changeType !== "phase" &&
           (!recommendedRolloutData.disableSamePhase ||
             changeType === "advanced")
             ? [
+                {
+                  label: "Same Phase, apply changes to everyone",
+                  value: "same-phase-everyone",
+                },
                 {
                   label: "Same Phase, apply changes to new traffic only",
                   value: "same-phase-sticky",
