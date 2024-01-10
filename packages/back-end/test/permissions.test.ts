@@ -1595,8 +1595,6 @@ describe("hasReadAccess filter", () => {
       []
     );
 
-    console.log("advanced noaccess user");
-
     const readAccessFilter = getReadAccessFilter(userPermissions);
 
     const features: Partial<FeatureInterface>[] = [
@@ -1614,13 +1612,9 @@ describe("hasReadAccess filter", () => {
       },
     ];
 
-    console.log("features", features);
-
     const filteredFeatures = features.filter((feature) =>
       hasReadAccess(readAccessFilter, [feature.project || ""])
     );
-
-    console.log("filteredFeatures", filteredFeatures);
 
     expect(filteredFeatures).toEqual([
       {
@@ -1780,10 +1774,7 @@ describe("hasReadAccess filter", () => {
       []
     );
 
-    console.log("advanced noaccess user");
-
     const readAccessFilter = getReadAccessFilter(userPermissions);
-    console.log("readAccessFilter", readAccessFilter);
 
     const metrics: Partial<MetricInterface>[] = [
       {
@@ -1800,13 +1791,9 @@ describe("hasReadAccess filter", () => {
       },
     ];
 
-    console.log("features", metrics);
-
     const filteredMetrics = metrics.filter((metric) =>
       hasReadAccess(readAccessFilter, metric.projects || [])
     );
-
-    console.log("filteredMetrics", filteredMetrics);
 
     expect(filteredMetrics).toEqual([
       {
