@@ -1,0 +1,82 @@
+---
+title: Sticky Bucketing
+description: Ensure users see the same experiment variant, even when user session, user login status, or experiment parameters change
+sidebar_label: Sticky Bucketing
+slug: /app/sticky-bucketing
+---
+
+# Sticky Bucketing
+
+This article serves two purposes:
+
+- High level overview of GrowthBook's Sticky Bucketing feature
+- Technical details on how to implement Sticky Bucketing in your codebase
+
+Sticky bucketing ensures that users see the same experiment variant, even when user session, user login status, or experiment parameters change. GrowthBook's flavor of sticky bucketing has a few additional features: Bucketing based either a primary hash attribute (i.e. user id) or a secondary (i.e. anonymous id), as well as the ability to version-control and purge your users' assigned buckets.
+
+## Motivation
+
+So why would you want to use Sticky Bucketing? Let's look at a few example scenarios:
+
+1. You are measuring the impact on a metric with a long conversion window that crosses the log-in divide. The user may be first exposed to your experiment while anonymous, then sign up, log out, sign back in on another device, and then convert. Without sticky bucketing, there would be no way to tie the anonymous exposure to the conversion.
+
+2. You are managing an experiment rollout and need to slow down enrollment. You decrease the percentage of traffic exposed to the experiment from 50% to 10% but you do not want to alter the experience for users who were already exposed to the experiment. Sticky bucketing allows you to apply the new rollout percentage to new users while keeping the old users in their original buckets.
+
+:::note
+Sticky Bucketing is a GrowthBook Pro and Enterprise feature.
+:::
+
+## Setting up Sticky Bucketing
+
+To use Sticky Bucketing for your experiments, there are a few steps that you need to complete.
+
+### 1. Ensure you are using a compatible SDK version
+
+Update your codebase to use a compatible SDK. For instance, Sticky Bucketing support was added to our Javascript SDK in version `0.32.0` and in our React SDK in version `0.22.0`.
+
+### 2. Update your SDK Connections in the GrowthBook app
+
+Ensure that within the GrowthBook app, you have set your SDK Connection to use a compatible SDK version by going to **SDK Connections** and modifying specific connections to be single-language with the correct SDK version specified. (If you need to support multiple languages, simply create multiple SDK Connections for each language.)
+
+### 3. Enable Sticky Bucketing for your organization
+
+In the GrowthBook app, go to **Settings** > **General** > **Experiment Settings** and enable the Sticky Bucketing toggle. Now when you configure targeting or make changes to your experiments, you will see new options specific to Sticky Bucketing (ex: choosing a `fallbackAttribute` for hashing, using experiment change release plans that rely on Sticky Bucketing, etc.)
+
+### 4. Implement Sticky Bucketing in your codebase.
+
+You may use one of our built-in Sticky Bucketing Services or implement your own. We provide common drivers for browser-generated cookies, backend-generated cookies, browser LocalStorage, and Redis stores.
+
+For more information about setting up Sticky Bucketing at the SDK level, see the appropriate SDK documentation. For instance, see the [Javascript SDK documentation](/lib/js/#sticky-bucketing) for more information about setting up Sticky Bucketing in the Javascript SDK.
+
+## Example Implementations
+
+### Front-end only
+
+Suppose your website integrates GrowthBook on the front end only. You would like to implement Sticky Bucketing in a way that perserves user buckets across the logged-out / logged-in divide.
+
+In our JavaScript and React SDKs, we provide 2 different Sticky Bucket Services that make sense in this scenario: `LocalStorageStickyBucketService` and `BrowserCookieStickyBucketService`. You can instantiate either of these services and plug them into the GrowthBook SDK.
+
+You may also have a standard `user_id` for logged-in users which is not present for anonymous users which in turn can be identified by `anonymous_id`. You would want to ensure both attributes are visible to the SDK. Then when configuring your experiment (either in the GrowthBook SDK or via inline experiment) you would want to set the `hashAttribute` to `user_id` and the `fallbackAttribute` to `anonymous_id`.
+
+Now when an anonymous user is bucketed, they will be assigned a bucket based on their `anonymous_id` and this bucket will be stored in a browser cookie or LocalStorage. Once they log in or register, a `user_id` should be made available to the SDK. As long as the `anonymous_id` is also available immediately after logging in, then the sticky bucket will be upgraded to remember both the `user_id` and `anonymous_id` going forward. If the user's session expires and they log back in later, they will retain the sticky bucket that was assigned to them previously.
+
+### Front-end and Back-end
+
+Let's expand the "front-end only" example above so that our back-end controllers also integrate with GrowthBook and can reference the same experiments. In this scenario, we would like both the front-end and back-end to perform bucketing and persist a sticky bucket that reliably crosses the front-end / back-end divide.
+
+On the front end, you will want to use the `BrowserCookieStickyBucketService` because cookies are easily transportable to and from the back end. Then, assuming we are using an Express (NodeJS) server, we would use the `ExpressCookieStickyBucketService` on the back end. Importantly, if customizing the cookie name, you must ensure that the same name prefix is chosen for both the front-end and back-end cookies.
+
+### Back-end only
+
+Suppose that in a server-side context we are interested in persisting a user's bucket both across multiple requests and across other back-end (micro)services that may not have direct access to the incoming user request nor their cookies.
+
+We could use a Redis instance inside our network and read/write to that for sticky bucket storage. In a NodeJS context, we could use the `RedisStickyBucketService` and pass in an `ioredis` client.
+
+### Hybrid and custom implementations
+
+You may wish to employ multiple strategies at once (front-end, back-end, Redis) or write your own sticky bucket connector for a SQL server or DynamoDB cluster. You could write your own custom sticky bucket connector by implementing the `StickyBucketService` interface. Within your connector, you could do things like:
+
+- Connect to SQL server for sticky bucket reads/writes
+- GET/POST/RPC to a custom bucketing microservice
+- Wrap both the `ExpressCookieStickyBucketService` and `RedisStickyBucketService` within your custom service's getter and setter methods
+- Trigger side effects on bucket reads/writes
