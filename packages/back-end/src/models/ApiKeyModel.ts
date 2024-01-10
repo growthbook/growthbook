@@ -291,7 +291,7 @@ export async function getApiKeyByIdOrKey(
 
   const apiKey = toInterface(doc);
 
-  return hasReadAccess(readAccessFilter, [apiKey.project || ""])
+  return hasReadAccess(readAccessFilter, apiKey.project ? [apiKey.project] : [])
     ? apiKey
     : null;
 }
@@ -351,7 +351,9 @@ export async function getAllApiKeysByOrganization(
     return json;
   });
 
-  return keys.filter((k) => hasReadAccess(readAccessFilter, [k.project || ""]));
+  return keys.filter((k) =>
+    hasReadAccess(readAccessFilter, k.project ? [k.project] : [])
+  );
 }
 
 export async function getFirstPublishableApiKey(
