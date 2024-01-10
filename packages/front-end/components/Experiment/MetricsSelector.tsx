@@ -36,7 +36,7 @@ function isMetricJoinable(
 const MetricsSelector: FC<{
   datasource?: string;
   project?: string;
-  userIdType?: string;
+  exposureQueryId?: string;
   selected: string[];
   onChange: (metrics: string[]) => void;
   autoFocus?: boolean;
@@ -44,7 +44,7 @@ const MetricsSelector: FC<{
 }> = ({
   datasource,
   project,
-  userIdType,
+  exposureQueryId,
   selected,
   onChange,
   autoFocus,
@@ -56,8 +56,7 @@ const MetricsSelector: FC<{
     factTables,
     getDatasourceById,
   } = useDefinitions();
-  const datasourceObj = datasource ? getDatasourceById(datasource) : null;
-  const joinQueries = datasourceObj?.settings?.queries?.identityJoins || [];
+
   const options: MetricOption[] = [
     ...metrics.map((m) => ({
       id: m.id,
@@ -89,15 +88,21 @@ const MetricsSelector: FC<{
       : []),
   ];
 
+  // get data to help filter metrics to those with joinable userIdTypes to
+  // the experiment assignment table
+  const datasourceObj = datasource ? getDatasourceById(datasource) : null;
+  const userIdType = datasourceObj?.settings?.queries?.exposure?.find(
+    (e) => e.id === exposureQueryId
+  )?.userIdType;
+  const joinQueries = datasourceObj?.settings?.queries?.identityJoins || [];
+
   const filteredOptions = options
-    .filter((m) => {
-      const inDataSource = datasource ? m.datasource === datasource : true;
-      const joinable =
-        userIdType && m.userIdTypes.length
-          ? isMetricJoinable(m.userIdTypes, userIdType, joinQueries)
-          : true;
-      return inDataSource && joinable;
-    })
+    .filter((m) => (datasource ? m.datasource === datasource : true))
+    .filter((m) =>
+      userIdType && m.userIdTypes.length
+        ? isMetricJoinable(m.userIdTypes, userIdType, joinQueries)
+        : true
+    )
     .filter((m) => isProjectListValidForProject(m.projects, project));
 
   const tagCounts: Record<string, number> = {};

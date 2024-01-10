@@ -609,7 +609,7 @@ const AnalysisForm: FC<{
               selected={form.watch("metrics")}
               onChange={(metrics) => form.setValue("metrics", metrics)}
               datasource={form.watch("datasource")}
-              userIdType={exposureQuery?.userIdType}
+              exposureQueryId={exposureQueryId}
               project={experiment.project}
               autoFocus={true}
               includeFacts={true}
@@ -626,7 +626,7 @@ const AnalysisForm: FC<{
               selected={form.watch("guardrails")}
               onChange={(metrics) => form.setValue("guardrails", metrics)}
               datasource={form.watch("datasource")}
-              userIdType={exposureQuery?.userIdType}
+              exposureQueryId={exposureQueryId}
               project={experiment.project}
               includeFacts={true}
             />

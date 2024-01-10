@@ -333,6 +333,7 @@ export default function ConfigureReport({
           selected={form.watch("metrics")}
           onChange={(metrics) => form.setValue("metrics", metrics)}
           datasource={report.args.datasource}
+          exposureQueryId={exposureQueryId}
           project={project?.id}
           includeFacts={true}
         />
@@ -344,10 +345,10 @@ export default function ConfigureReport({
           improve.
         </div>
         <MetricsSelector
-          // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'string[] | undefined' is not assignable to t... Remove this comment to see the full error message
-          selected={form.watch("guardrails")}
+          selected={form.watch("guardrails") ?? []}
           onChange={(metrics) => form.setValue("guardrails", metrics)}
           datasource={report.args.datasource}
+          exposureQueryId={exposureQueryId}
           project={project?.id}
           includeFacts={true}
         />

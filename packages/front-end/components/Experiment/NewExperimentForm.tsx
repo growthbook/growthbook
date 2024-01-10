@@ -291,6 +291,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
   });
 
   const exposureQueries = datasource?.settings?.queries?.exposure || [];
+  const exposureQueryId = form.getValues("exposureQueryId");
   const status = form.watch("status");
 
   const { currentProjectIsDemo } = useDemoDataSourceProject();
@@ -532,13 +533,13 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                       Should correspond to the Identifier Type used to randomize
                       units for this experiment
                     </div>
-                    {exposureQueries && form.getValues("exposureQueryId") ? (
+                    {exposureQueries && exposureQueryId ? (
                       <>
                         Identifier Type:{" "}
                         <code>
                           {
                             exposureQueries.find(
-                              (e) => e.id === form.getValues("exposureQueryId")
+                              (e) => e.id === exposureQueryId
                             )?.userIdType
                           }
                         </code>
@@ -559,6 +560,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                 selected={form.watch("metrics") ?? []}
                 onChange={(metrics) => form.setValue("metrics", metrics)}
                 datasource={datasource?.id}
+                exposureQueryId={exposureQueryId}
                 project={project}
                 includeFacts={true}
               />
@@ -573,6 +575,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                 selected={form.watch("guardrails") ?? []}
                 onChange={(metrics) => form.setValue("guardrails", metrics)}
                 datasource={datasource?.id}
+                exposureQueryId={exposureQueryId}
                 project={project}
                 includeFacts={true}
               />

@@ -167,6 +167,7 @@ const EditMetricsForm: FC<{
           selected={form.watch("metrics")}
           onChange={(metrics) => form.setValue("metrics", metrics)}
           datasource={experiment.datasource}
+          exposureQueryId={experiment.exposureQueryId}
           project={experiment.project}
           autoFocus={true}
           includeFacts={true}
@@ -183,6 +184,7 @@ const EditMetricsForm: FC<{
           selected={form.watch("guardrails")}
           onChange={(metrics) => form.setValue("guardrails", metrics)}
           datasource={experiment.datasource}
+          exposureQueryId={experiment.exposureQueryId}
           project={experiment.project}
           includeFacts={true}
         />
