@@ -34,15 +34,16 @@ Sticky Bucketing is a GrowthBook Pro and Enterprise feature.
 
 To use Sticky Bucketing for your experiments, there are a few steps that you need to complete.
 
-1. Using the GrowthBook app, enable Sticky Bucketing for your organization in **Settings** > **General** > **Experiment Settings**
-2. Ensure you are using a compatible SDK version. For instance, Sticky Bucketing support was added to our Javascript SDK in version `0.32.0` and in our
-   React SDK in version `0.22.0`. You must also ensure that within the GrowthBook app, you have set your SDK Connection to use a compatible SDK version by going to **SDK Connections** and
+1. Ensure you are using a compatible SDK version. For instance, Sticky Bucketing support was added to our Javascript SDK in version `0.32.0` and in our
+   React SDK in version `0.22.0`.
+
+2. Ensure that within the GrowthBook app, you have set your SDK Connection to use a compatible SDK version by going to **SDK Connections** and
    modifying specific connections to be single-language connections with the correct SDK version input.
-3. Implement Sticky Bucketing in your codebase. You may use one of our built-in Sticky Bucketing Services or implement your own. We provide common drivers for browser-generated cookies,
+
+3. Using the GrowthBook app, enable Sticky Bucketing for your organization in **Settings** > **General** > **Experiment Settings**. Now when you configure targeting or make changes to
+   your experiments, you will see new options specific to Sticky Bucketing (ex: choosing a `fallbackAttribute` for hashing, using experiment change release plans that rely on Sticky Bucketing, etc.)
+
+4. Implement Sticky Bucketing in your codebase. You may use one of our built-in Sticky Bucketing Services or implement your own. We provide common drivers for browser-generated cookies,
    backend-generated cookies, browser LocalStorage, and Redis datastores.
 
-### 1. Enable Sticky Bucketing in the GrowthBook app
-
-### 2. Use a compatible SDK
-
-### 3. Integrate with your codebase
+### Implementing Sticky Bucketing in your codebase
