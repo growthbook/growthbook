@@ -32,7 +32,7 @@ export default function SingleRoleSelector({
 
   let roleOptions = [...roles];
 
-  if (!hasFeature || !isNoAccessRoleEnabled) {
+  if (!isNoAccessRoleEnabled) {
     roleOptions = roles.filter((r) => r.id !== "noaccess");
   }
 
