@@ -210,10 +210,10 @@ export default function ConfigureReport({
       cta="Save and Run"
     >
       <Field
-        label="Experiment Key"
+        label="Experiment Id"
         labelClassName="font-weight-bold"
         {...form.register("trackingKey")}
-        helpText="Will match against the experiment_id column in your experiment assignment table"
+        helpText="Will match against the experiment_id column in your data source"
       />
       <div className="form-group">
         <label className="font-weight-bold">Variation Ids</label>
@@ -272,32 +272,11 @@ export default function ConfigureReport({
           label="Experiment Assignment Table"
           labelClassName="font-weight-bold"
           {...form.register("exposureQueryId")}
-          options={exposureQueries.map((e) => ({
+          options={(datasource?.settings?.queries?.exposure || []).map((e) => ({
             display: e.name,
             value: e.id,
           }))}
-          helpText={
-            <>
-              <div>
-                Should correspond to the Identifier Type used to randomize units
-                for this experiment
-              </div>
-              {exposureQueries && form.getValues("exposureQueryId") ? (
-                <>
-                  Identifier Type:{" "}
-                  <code>
-                    {
-                      exposureQueries.find(
-                        (e) => e.id === form.getValues("exposureQueryId")
-                      )?.userIdType
-                    }
-                  </code>
-                </>
-              ) : (
-                <></>
-              )}{" "}
-            </>
-          }
+          helpText="Determines where we pull experiment assignment data from"
         />
       )}
 

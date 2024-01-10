@@ -1,6 +1,7 @@
 import { FC } from "react";
 import { FaQuestionCircle } from "react-icons/fa";
 import { isProjectListValidForProject } from "shared/util";
+import { IdentityJoinQuery } from "back-end/types/datasource";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import SelectField from "@/components/Forms/SelectField";
@@ -14,18 +15,49 @@ type MetricOption = {
   tags: string[];
   projects: string[];
   factTables: string[];
+  userIdTypes: string[];
 };
+
+function isMetricJoinable(
+  metricIdTypes: string[],
+  userIdType: string,
+  joinQueries: IdentityJoinQuery[]
+): boolean {
+  return (
+    metricIdTypes.includes(userIdType) ||
+    joinQueries.some(
+      (j) =>
+        j.ids.includes(userIdType) &&
+        j.ids.some((jid) => metricIdTypes.includes(jid))
+    )
+  );
+}
 
 const MetricsSelector: FC<{
   datasource?: string;
   project?: string;
+  userIdType?: string;
   selected: string[];
   onChange: (metrics: string[]) => void;
   autoFocus?: boolean;
   includeFacts?: boolean;
-}> = ({ datasource, project, selected, onChange, autoFocus, includeFacts }) => {
-  const { metrics, factMetrics } = useDefinitions();
-
+}> = ({
+  datasource,
+  project,
+  userIdType,
+  selected,
+  onChange,
+  autoFocus,
+  includeFacts,
+}) => {
+  const {
+    metrics,
+    factMetrics,
+    factTables,
+    getDatasourceById,
+  } = useDefinitions();
+  const datasourceObj = datasource ? getDatasourceById(datasource) : null;
+  const joinQueries = datasourceObj?.settings?.queries?.identityJoins || [];
   const options: MetricOption[] = [
     ...metrics.map((m) => ({
       id: m.id,
@@ -34,6 +66,7 @@ const MetricsSelector: FC<{
       tags: m.tags || [],
       projects: m.projects || [],
       factTables: [],
+      userIdTypes: m.userIdTypes || [],
     })),
     ...(includeFacts
       ? factMetrics.map((m) => ({
@@ -48,12 +81,23 @@ const MetricsSelector: FC<{
               ? m.denominator.factTableId
               : "") || "",
           ],
+          // only focus on numerator user id types
+          userIdTypes:
+            factTables.find((f) => f.id === m.numerator.factTableId)
+              ?.userIdTypes || [],
         }))
       : []),
   ];
 
   const filteredOptions = options
-    .filter((m) => (datasource ? m.datasource === datasource : true))
+    .filter((m) => {
+      const inDataSource = datasource ? m.datasource === datasource : true;
+      const joinable =
+        userIdType && m.userIdTypes.length
+          ? isMetricJoinable(m.userIdTypes, userIdType, joinQueries)
+          : true;
+      return inDataSource && joinable;
+    })
     .filter((m) => isProjectListValidForProject(m.projects, project));
 
   const tagCounts: Record<string, number> = {};

@@ -321,6 +321,21 @@ const AnalysisForm: FC<{
               value: q.id,
             };
           })}
+          helpText={
+            <>
+              <div>
+                Should correspond to the Identifier Type used to randomize units
+                for this experiment
+              </div>
+              {exposureQuery ? (
+                <>
+                  Identifier Type: <code>{exposureQuery?.userIdType}</code>
+                </>
+              ) : (
+                <></>
+              )}{" "}
+            </>
+          }
         />
       )}
       {datasource && (
@@ -331,7 +346,7 @@ const AnalysisForm: FC<{
           helpText={
             <>
               Will match against the <code>experiment_id</code> column in your
-              data source
+              experiment assignment table
             </>
           }
           disabled={!canRunExperiment}
@@ -594,6 +609,7 @@ const AnalysisForm: FC<{
               selected={form.watch("metrics")}
               onChange={(metrics) => form.setValue("metrics", metrics)}
               datasource={form.watch("datasource")}
+              userIdType={exposureQuery?.userIdType}
               project={experiment.project}
               autoFocus={true}
               includeFacts={true}
@@ -610,6 +626,7 @@ const AnalysisForm: FC<{
               selected={form.watch("guardrails")}
               onChange={(metrics) => form.setValue("guardrails", metrics)}
               datasource={form.watch("datasource")}
+              userIdType={exposureQuery?.userIdType}
               project={experiment.project}
               includeFacts={true}
             />

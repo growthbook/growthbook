@@ -526,6 +526,28 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                     value: q.id,
                   };
                 })}
+                helpText={
+                  <>
+                    <div>
+                      Should correspond to the Identifier Type used to randomize
+                      units for this experiment
+                    </div>
+                    {exposureQueries && form.getValues("exposureQueryId") ? (
+                      <>
+                        Identifier Type:{" "}
+                        <code>
+                          {
+                            exposureQueries.find(
+                              (e) => e.id === form.getValues("exposureQueryId")
+                            )?.userIdType
+                          }
+                        </code>
+                      </>
+                    ) : (
+                      <></>
+                    )}{" "}
+                  </>
+                }
               />
             )}
             <div className="form-group">
