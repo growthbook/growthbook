@@ -313,7 +313,6 @@ describe("payload scrubbing", () => {
     const scrubbedFeatures = scrubFeatures(scrubbed.features, capabilities);
     scrubbed.features = scrubbedFeatures;
 
-    // no change to payload for default connection (javascript, 0.27.0)
     expect(scrubbed).toStrictEqual(lightlyScrubbedPayload);
   });
 });
