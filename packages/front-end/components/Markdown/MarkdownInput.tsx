@@ -75,7 +75,7 @@ const MarkdownInput: FC<{
     onDrop,
     noClick: true,
     noKeyboard: true,
-    accept: "image/png, image/jpeg, image/gif, text/svg",
+    accept: "image/png, image/jpeg, image/gif",
   });
 
   // getRootProps assumes generic HTMLElement, but we're using HTMLDivElement

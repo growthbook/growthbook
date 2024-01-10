@@ -7,6 +7,7 @@ const router = express.Router();
 
 const uploadController = wrapController(uploadControllerRaw);
 
+router.get("/:path*", uploadController.getImage);
 router.put(
   "/",
   bodyParser.raw({
@@ -16,4 +17,4 @@ router.put(
   uploadController.putUpload
 );
 
-export { router as putUploadRouter };
+export { router as uploadRouter };
