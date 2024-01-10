@@ -18,7 +18,23 @@ type MetricOption = {
   userIdTypes: string[];
 };
 
-function isMetricJoinable(
+export function MetricsSelectorTooltipBody(onlyBinomial: boolean = false) {
+  return (
+    <>
+      You can only select metrics that fit all criteria below:
+      <ul>
+        <li>are from the same Data Source as the experiment</li>
+        <li>
+          either share an Identifier Type with the Experiment Assignment Table
+          or can be joined to it by a Join Table
+        </li>
+        {onlyBinomial ? <li>are a binomial metric</li> : null}
+      </ul>
+    </>
+  );
+}
+
+export function isMetricJoinable(
   metricIdTypes: string[],
   userIdType: string,
   joinQueries: IdentityJoinQuery[]

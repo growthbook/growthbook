@@ -16,8 +16,9 @@ import Modal from "../Modal";
 import PremiumTooltip from "../Marketing/PremiumTooltip";
 import UpgradeMessage from "../Marketing/UpgradeMessage";
 import UpgradeModal from "../Settings/UpgradeModal";
+import Tooltip from "../Tooltip/Tooltip";
 import MetricsOverridesSelector from "./MetricsOverridesSelector";
-import MetricsSelector from "./MetricsSelector";
+import MetricsSelector, { MetricsSelectorTooltipBody } from "./MetricsSelector";
 import MetricSelector from "./MetricSelector";
 
 export interface EditMetricsFormInterface {
@@ -160,8 +161,11 @@ const EditMetricsForm: FC<{
     >
       <div className="form-group">
         <label className="font-weight-bold mb-1">Goal Metrics</label>
-        <div className="mb-1 font-italic">
-          Metrics you are trying to improve with this experiment.
+        <div className="mb-1">
+          <span className="font-italic">
+            Metrics you are trying to improve with this experiment.{" "}
+          </span>
+          <Tooltip body={MetricsSelectorTooltipBody()} />
         </div>
         <MetricsSelector
           selected={form.watch("metrics")}
@@ -176,9 +180,12 @@ const EditMetricsForm: FC<{
 
       <div className="form-group">
         <label className="font-weight-bold mb-1">Guardrail Metrics</label>
-        <div className="mb-1 font-italic">
-          Metrics you want to monitor, but are NOT specifically trying to
-          improve.
+        <div className="mb-1">
+          <span className="font-italic">
+            Metrics you want to monitor, but are NOT specifically trying to
+            improve.{" "}
+          </span>
+          <Tooltip body={MetricsSelectorTooltipBody()} />
         </div>
         <MetricsSelector
           selected={form.watch("guardrails")}
@@ -192,13 +199,16 @@ const EditMetricsForm: FC<{
 
       <div className="form-group">
         <label className="font-weight-bold mb-1">Activation Metric</label>
-        <div className="mb-1 font-italic">
-          Users must convert on this metric before being included.
+        <div className="mb-1">
+          <span className="font-italic">
+            Users must convert on this metric before being included.{" "}
+          </span>
+          <Tooltip body={MetricsSelectorTooltipBody(true)} />
         </div>
-
         <MetricSelector
           initialOption="None"
           value={form.watch("activationMetric")}
+          exposureQueryId={experiment.exposureQueryId}
           onChange={(metric) => form.setValue("activationMetric", metric)}
           datasource={experiment.datasource}
           project={experiment.project}

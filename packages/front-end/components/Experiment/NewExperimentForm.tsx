@@ -35,7 +35,8 @@ import NamespaceSelector from "../Features/NamespaceSelector";
 import SavedGroupTargetingField, {
   validateSavedGroupTargeting,
 } from "../Features/SavedGroupTargetingField";
-import MetricsSelector from "./MetricsSelector";
+import Tooltip from "../Tooltip/Tooltip";
+import MetricsSelector, { MetricsSelectorTooltipBody } from "./MetricsSelector";
 
 const weekAgo = new Date();
 weekAgo.setDate(weekAgo.getDate() - 7);
@@ -292,6 +293,9 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
 
   const exposureQueries = datasource?.settings?.queries?.exposure || [];
   const exposureQueryId = form.getValues("exposureQueryId");
+  const userIdType = exposureQueries.find(
+    (e) => e.id === form.getValues("exposureQueryId")
+  )?.userIdType;
   const status = form.watch("status");
 
   const { currentProjectIsDemo } = useDemoDataSourceProject();
@@ -533,28 +537,21 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                       Should correspond to the Identifier Type used to randomize
                       units for this experiment
                     </div>
-                    {exposureQueries && exposureQueryId ? (
+                    {userIdType ? (
                       <>
-                        Identifier Type:{" "}
-                        <code>
-                          {
-                            exposureQueries.find(
-                              (e) => e.id === exposureQueryId
-                            )?.userIdType
-                          }
-                        </code>
+                        Identifier Type: <code>{userIdType}</code>
                       </>
-                    ) : (
-                      <></>
-                    )}{" "}
+                    ) : null}
                   </>
                 }
               />
             )}
             <div className="form-group">
-              <label className="font-weight-bold mb-1">Goal Metrics</label>
-              <div className="mb-1 font-italic">
-                Metrics you are trying to improve with this experiment.
+              <div className="mb-1">
+                <span className="font-italic">
+                  Metrics you are trying to improve with this experiment.{" "}
+                </span>
+                <Tooltip body={MetricsSelectorTooltipBody()} />
               </div>
               <MetricsSelector
                 selected={form.watch("metrics") ?? []}
@@ -567,9 +564,12 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
             </div>
             <div className="form-group">
               <label className="font-weight-bold mb-1">Guardrail Metrics</label>
-              <div className="mb-1 font-italic">
-                Metrics you want to monitor, but are NOT specifically trying to
-                improve.
+              <div className="mb-1">
+                <span className="font-italic">
+                  Metrics you want to monitor, but are NOT specifically trying
+                  to improve.{" "}
+                </span>
+                <Tooltip body={MetricsSelectorTooltipBody()} />
               </div>
               <MetricsSelector
                 selected={form.watch("guardrails") ?? []}

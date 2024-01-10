@@ -29,13 +29,16 @@ import { GBCuped, GBSequential } from "@/components/Icons";
 import useApi from "@/hooks/useApi";
 import StatsEngineSelect from "@/components/Settings/forms/StatsEngineSelect";
 import { trackReport } from "@/services/track";
-import MetricsSelector from "../Experiment/MetricsSelector";
+import MetricsSelector, {
+  MetricsSelectorTooltipBody,
+} from "../Experiment/MetricsSelector";
 import Field from "../Forms/Field";
 import Modal from "../Modal";
 import SelectField from "../Forms/SelectField";
 import DimensionChooser from "../Dimensions/DimensionChooser";
 import { AttributionModelTooltip } from "../Experiment/AttributionModelTooltip";
 import MetricSelector from "../Experiment/MetricSelector";
+import Tooltip from "../Tooltip/Tooltip";
 
 export default function ConfigureReport({
   report,
@@ -172,6 +175,9 @@ export default function ConfigureReport({
   const exposureQueries = datasource?.settings?.queries?.exposure || [];
   const exposureQueryId = form.watch("exposureQueryId");
   const exposureQuery = exposureQueries.find((e) => e.id === exposureQueryId);
+  const userIdType = exposureQueries.find(
+    (e) => e.id === form.getValues("exposureQueryId")
+  )?.userIdType;
 
   return (
     <Modal
@@ -282,20 +288,11 @@ export default function ConfigureReport({
                 Should correspond to the Identifier Type used to randomize units
                 for this experiment
               </div>
-              {exposureQueries && form.getValues("exposureQueryId") ? (
+              {userIdType ? (
                 <>
-                  Identifier Type:{" "}
-                  <code>
-                    {
-                      exposureQueries.find(
-                        (e) => e.id === form.getValues("exposureQueryId")
-                      )?.userIdType
-                    }
-                  </code>
+                  Identifier Type: <code>{userIdType}</code>
                 </>
-              ) : (
-                <></>
-              )}{" "}
+              ) : null}
             </>
           }
         />
@@ -326,8 +323,11 @@ export default function ConfigureReport({
 
       <div className="form-group">
         <label className="font-weight-bold mb-1">Goal Metrics</label>
-        <div className="mb-1 font-italic">
-          Metrics you are trying to improve with this experiment.
+        <div className="mb-1">
+          <span className="font-italic">
+            Metrics you are trying to improve with this experiment.{" "}
+          </span>
+          <Tooltip body={MetricsSelectorTooltipBody()} />
         </div>
         <MetricsSelector
           selected={form.watch("metrics")}
@@ -340,9 +340,12 @@ export default function ConfigureReport({
       </div>
       <div className="form-group">
         <label className="font-weight-bold mb-1">Guardrail Metrics</label>
-        <div className="mb-1 font-italic">
-          Metrics you want to monitor, but are NOT specifically trying to
-          improve.
+        <div className="mb-1">
+          <span className="font-italic">
+            Metrics you want to monitor, but are NOT specifically trying to
+            improve.{" "}
+          </span>
+          <Tooltip body={MetricsSelectorTooltipBody()} />
         </div>
         <MetricsSelector
           selected={form.watch("guardrails") ?? []}
@@ -366,8 +369,14 @@ export default function ConfigureReport({
       />
       <MetricSelector
         datasource={form.watch("datasource")}
+        exposureQueryId={exposureQueryId}
         includeFacts={true}
-        label="Activation Metric"
+        label={
+          <>
+            Activation Metric{" "}
+            <Tooltip body={MetricsSelectorTooltipBody(true)} />
+          </>
+        }
         labelClassName="font-weight-bold"
         initialOption="None"
         onlyBinomial
