@@ -15,6 +15,7 @@ const logger = pino();
 
 export type AccountPlan = "oss" | "starter" | "pro" | "pro_sso" | "enterprise";
 export type CommercialFeature =
+  | "scim"
   | "sso"
   | "advanced-permissions"
   | "encrypt-features-endpoint"
@@ -44,8 +45,15 @@ export interface LicenseInterface {
   dateCreated: string; // Date the license was issued
   dateExpires: string; // Date the license expires
   isTrial: boolean; // True if this is a trial license
-  plan: AccountPlan; // The plan (pro, enterprise, etc.) for this license
+  plan: AccountPlan; // The assigned plan (pro, enterprise, etc.) for this license
   seatsInUse: number; // Number of seats currently in use
+  remoteDowngrade: boolean; // True if the license was downgraded remotely
+  message?: {
+    text: string; // The text to show in the account notice
+    className: string; // The class name to apply to the account notice
+    tooltipText: string; // The text to show in the tooltip
+    showAllUsers: boolean; // True if all users should see the notice rather than just the admins
+  };
   installationUsers: {
     [installationId: string]: { date: string; userHashes: string[] };
   }; // Map of first 7 chars of user email shas to the last time they were in a usage request
@@ -112,6 +120,7 @@ export const accountFeatures: CommercialFeaturesMap = {
     "remote-evaluation",
   ]),
   enterprise: new Set<CommercialFeature>([
+    "scim",
     "sso",
     "advanced-permissions",
     "audit-logging",
@@ -135,6 +144,7 @@ export const accountFeatures: CommercialFeaturesMap = {
 };
 
 type MinimalOrganization = {
+  id: string;
   enterprise?: boolean;
   restrictAuthSubPrefix?: string;
   restrictLoginMethod?: string;
@@ -149,6 +159,9 @@ export function isActiveSubscriptionStatus(
   return ["active", "trialing", "past_due"].includes(status || "");
 }
 
+// This returns the actual plan the organzation is on.  If you would prefer to know
+// what plan the organization is effectively on (taking into account downgrades)
+// use getEffectiveAccountPlan() instead.
 export function getAccountPlan(org: MinimalOrganization): AccountPlan {
   if (process.env.IS_CLOUD) {
     if (org.enterprise) return "enterprise";
@@ -160,20 +173,19 @@ export function getAccountPlan(org: MinimalOrganization): AccountPlan {
   // For self-hosted deployments
   return getLicense()?.plan || "oss";
 }
-export function planHasPremiumFeature(
+
+function planHasPremiumFeature(
   plan: AccountPlan,
   feature: CommercialFeature
 ): boolean {
   return accountFeatures[plan].has(feature);
 }
+
 export function orgHasPremiumFeature(
   org: MinimalOrganization,
   feature: CommercialFeature
 ): boolean {
-  return (
-    !shouldLimitAccessDueToExpiredLicense() &&
-    planHasPremiumFeature(getAccountPlan(org), feature)
-  );
+  return planHasPremiumFeature(getEffectiveAccountPlan(org), feature);
 }
 
 async function getPublicKey(): Promise<Buffer> {
@@ -324,7 +336,7 @@ async function getLicenseDataFromMongoCache(
     }
 
     checkIfEnvVarSettingsAreAllowedByLicense(cache);
-    logger.info("Using cached license data");
+    licenseInterface.effectivePlan = logger.info("Using cached license data");
     return licenseInterface as LicenseInterface;
   }
   throw new Error(
@@ -461,18 +473,55 @@ export function resetInMemoryLicenseCache(): void {
   });
 }
 
+function shouldLimitAccess(orgId: string): boolean {
+  if (shouldLimitAccessDueToExpiredLicense()) {
+    return true;
+  }
+
+  if (
+    orgId &&
+    licenseData?.organizationId &&
+    orgId !== licenseData.organizationId
+  ) {
+    return true;
+  }
+
+  if (licenseData?.remoteDowngrade) {
+    return true;
+  }
+
+  return false;
+}
+
+export function getEffectiveAccountPlan(org: MinimalOrganization): AccountPlan {
+  if (process.env.IS_CLOUD) {
+    return getAccountPlan(org);
+  }
+  const hasError = shouldLimitAccess(org.id);
+  const basicPlan = "oss";
+
+  if (hasError) {
+    return basicPlan;
+  }
+
+  return getLicense()?.plan || basicPlan;
+}
+
 /**
  * Checks if the license is expired.
  * @returns {boolean} True if the license is expired, false otherwise.
  */
-export function shouldLimitAccessDueToExpiredLicense(): boolean {
+function shouldLimitAccessDueToExpiredLicense(): boolean {
   // If licenseData is not available, consider it as not expired
   if (!licenseData) {
     return false;
   }
 
   // Check if the license is in trial and has an expiration date
-  if (licenseData.isTrial && licenseData.dateExpires) {
+  if (
+    (licenseData.isTrial || licenseData.remoteDowngrade) &&
+    licenseData.dateExpires
+  ) {
     // Create a date object for the expiration date
     const expirationDate = new Date(licenseData.dateExpires);
 
