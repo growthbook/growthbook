@@ -149,11 +149,13 @@ To work on the SDKs, `cd` into the desired directory and the following commands 
 
 ### Working on the stats engine
 
+Ensure you have run `yarn setup` first to install the poetry virtual environment before working in the stats engine. Otherwise, pre-commit hooks and the following commands will error.
+
 - `yarn workspace stats test` - Run pytest
-- `yarn workspace stats lint` - Run flake8, black, and mypy
+- `yarn workspace stats lint` - Run flake8, black, and pyright
 - `yarn workspace stats build` - Run the build process
 
-You can also just run `yarn *` where \* is test, lint, build if `cd` to the `packages/stats` directory first.
+You can also just run `yarn *` where \* is test, lint, build if you `cd` to the `packages/stats` directory first.
 
 ## Code Quality
 
@@ -162,7 +164,7 @@ There are a few repo-wide code quality tools:
 - `yarn test` - Run the full test suite on all packages
 - `yarn type-check` - Typescript type checking
 - `yarn lint` - Typescript code linting
-- `yarn workspace stats lint` - Python code linting (need to `pip install flake8 black mypy` first)
+- `yarn workspace stats lint` - Python code linting (ensure you have run `yarn setup` first to install the poetry virtual environment)
 
 There is a pre-commit hook that runs `yarn lint` automatically, so you shouldn't need to run that yourself.
 
@@ -176,11 +178,11 @@ There is a pre-commit hook that runs `yarn lint` automatically, so you shouldn't
 
 ## Troubleshooting
 
-### `black` not found
+### `/bin/activate: No such file or directory`
 
-If you experience issues with `black` when committing during the pre-commit hook stage, it's possible your virtual environment is not enabled. Run the following from the project root: `. $(cd packages/stats && poetry env info --path)/bin/activate` (you could also just install all the python linting dependencies, but these exist in the poetry venv that will be activated by this command).
+If you see this warning, it is likely because you ran `yarn setup` from within a Python virtual environment, and Poetry currently does not create a custom environment for the stats library from within another virtual environment (see: https://github.com/python-poetry/poetry/issues/4055).
 
-If you get the error that `poetry env info --path` is not defined, try re-running `yarn setup` from the project root.
+To resolve this, ensure you are not using a Python virtual environment and re-run `yarn setup` from the project root.
 
 ## Getting Help
 

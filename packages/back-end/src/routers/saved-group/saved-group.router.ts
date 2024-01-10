@@ -3,6 +3,10 @@ import z from "zod";
 import { wrapController } from "../wrapController";
 import { validateRequestMiddleware } from "../utils/validateRequestMiddleware";
 import * as rawSavedGroupController from "./saved-group.controller";
+import {
+  postSavedGroupBodyValidator,
+  putSavedGroupBodyValidator,
+} from "./saved-group.validators";
 
 const router = express.Router();
 
@@ -11,12 +15,7 @@ const savedGroupController = wrapController(rawSavedGroupController);
 router.post(
   "/",
   validateRequestMiddleware({
-    body: z.object({
-      groupName: z.string(),
-      owner: z.string(),
-      attributeKey: z.string(),
-      groupList: z.string().array(),
-    }),
+    body: postSavedGroupBodyValidator,
   }),
   savedGroupController.postSavedGroup
 );
@@ -29,12 +28,7 @@ router.put(
         id: z.string(),
       })
       .strict(),
-    body: z.object({
-      groupName: z.string(),
-      owner: z.string(),
-      attributeKey: z.string(),
-      groupList: z.string().array(),
-    }),
+    body: putSavedGroupBodyValidator,
   }),
   savedGroupController.putSavedGroup
 );

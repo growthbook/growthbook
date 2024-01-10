@@ -365,9 +365,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
           if (!u && fallback) return id;
           return u?.name || u?.email || "";
         },
-        refreshOrganization: async () => {
-          await refreshOrganization();
-        },
+        refreshOrganization: refreshOrganization as () => Promise<void>,
         roles: currentOrg?.roles || [],
         permissions: {
           ...permissionsObj,

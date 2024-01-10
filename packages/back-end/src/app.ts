@@ -87,7 +87,7 @@ import { getBuild } from "./util/handler";
 import { getCustomLogProps, httpLogger } from "./util/logger";
 import { usersRouter } from "./routers/users/users.router";
 import { organizationsRouter } from "./routers/organizations/organizations.router";
-import { putUploadRouter } from "./routers/upload/put-upload.router";
+import { uploadRouter } from "./routers/upload/upload.router";
 import { eventsRouter } from "./routers/events/events.router";
 import { eventWebHooksRouter } from "./routers/event-webhooks/event-webhooks.router";
 import { tagRouter } from "./routers/tag/tag.router";
@@ -104,7 +104,6 @@ import { dataExportRouter } from "./routers/data-export/data-export.router";
 import { demoDatasourceProjectRouter } from "./routers/demo-datasource-project/demo-datasource-project.router";
 import { environmentRouter } from "./routers/environment/environment.router";
 import { teamRouter } from "./routers/teams/teams.router";
-import { staticFilesRouter } from "./routers/upload/static-files.router";
 import { githubIntegrationRouter } from "./routers/github-integration/github-integration.router";
 
 const app = express();
@@ -303,8 +302,6 @@ else {
 app.post("/auth/refresh", authController.postRefresh);
 app.post("/auth/logout", authController.postLogout);
 app.get("/auth/hasorgs", authController.getHasOrganizations);
-
-app.use("/upload", staticFilesRouter);
 
 // All other routes require a valid JWT
 const auth = getAuthConnection();
@@ -651,7 +648,7 @@ app.delete(
   discussionsController.deleteComment
 );
 app.get("/discussions/recent/:num", discussionsController.getRecentDiscussions);
-app.use("/putupload", putUploadRouter);
+app.use("/upload", uploadRouter);
 
 // Teams
 app.use("/teams", teamRouter);
