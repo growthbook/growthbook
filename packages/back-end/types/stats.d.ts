@@ -48,6 +48,7 @@ type StatsEngineDimensionResponse =
   | BayesianDimensionResponse
   | FrequentistVariationResponse;
 
+// Keep ExperimentMetricAnalysis and children classes in sync with gbstats
 export type ExperimentMetricAnalysis = {
   metric: string;
   analyses: {

@@ -1,5 +1,7 @@
-import { ExperimentMetricInterface } from "shared/experiments";
-import { ExperimentMetricQueryResponseRows } from "../src/types/Integration";
+import {
+  MetricSettingsForStatsEngine,
+  QueryResultsForStatsEngine,
+} from "../src/services/stats";
 import { QueryLanguage } from "./datasource";
 import { MetricInterface, MetricStats } from "./metric";
 import { DifferenceType, StatsEngine } from "./stats";
@@ -197,8 +199,6 @@ export interface ExperimentMetricAnalysisParams {
 
   analyses: ExperimentSnapshotAnalysisSettings[];
 
-  metrics: ({
-    metric: ExperimentMetricInterface;
-    rows: ExperimentMetricQueryResponseRows;
-  } | null)[];
+  queryResults: QueryResultsForStatsEngine[];
+  metrics: Record<string, MetricSettingsForStatsEngine>;
 }

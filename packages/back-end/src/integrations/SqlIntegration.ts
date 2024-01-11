@@ -6,8 +6,8 @@ import {
   getUserIdTypes,
   isFactMetric,
   isFunnelMetric,
-  isBinomialMetric,
   isRatioMetric,
+  isRegressionAdjusted,
   ExperimentMetricInterface,
   getMetricTemplateVariables,
 } from "shared/experiments";
@@ -571,20 +571,16 @@ export default abstract class SqlIntegration
           dimension: row.dimension || "",
           users: parseInt(row.users) || 0,
           count: parseInt(row.users) || 0,
-          statistic_type: row.statistic_type ?? "",
-          main_metric_type: row.main_metric_type ?? "",
           main_sum: parseFloat(row.main_sum) || 0,
           main_sum_squares: parseFloat(row.main_sum_squares) || 0,
-          ...(row.denominator_metric_type && {
-            denominator_metric_type: row.denominator_metric_type ?? "",
+          ...(row.denominator_sum && {
             denominator_sum: parseFloat(row.denominator_sum) || 0,
             denominator_sum_squares:
               parseFloat(row.denominator_sum_squares) || 0,
             main_denominator_sum_product:
               parseFloat(row.main_denominator_sum_product) || 0,
           }),
-          ...(row.covariate_metric_type && {
-            covariate_metric_type: row.covariate_metric_type ?? "",
+          ...(row.covariate_sum && {
             covariate_sum: parseFloat(row.covariate_sum) || 0,
             covariate_sum_squares: parseFloat(row.covariate_sum_squares) || 0,
             main_covariate_sum_product:
@@ -743,7 +739,7 @@ export default abstract class SqlIntegration
   private getFunnelUsersCTE(
     baseIdType: string,
     metrics: ExperimentMetricInterface[],
-    isRegressionAdjusted: boolean = false,
+    regressionAdjusted: boolean = false,
     ignoreConversionEnd: boolean = false,
     tablePrefix: string = "__denominator",
     initialTable: string = "__experiment"
@@ -757,7 +753,7 @@ export default abstract class SqlIntegration
         MIN(initial.variation) AS variation,
         MIN(initial.first_exposure_date) AS first_exposure_date,
         ${
-          isRegressionAdjusted
+          regressionAdjusted
             ? `
             MIN(initial.preexposure_start) AS preexposure_start,
             MIN(initial.preexposure_end) AS preexposure_end,`
@@ -918,19 +914,6 @@ export default abstract class SqlIntegration
         getConversionWindowHours(activationMetric);
     }
     return neededHoursForConversion;
-  }
-
-  private getStatisticType(
-    isRatio: boolean,
-    isRegressionAdjusted: boolean
-  ): "mean" | "ratio" | "mean_ra" {
-    if (isRatio) {
-      return "ratio";
-    }
-    if (isRegressionAdjusted) {
-      return "mean_ra";
-    }
-    return "mean";
   }
 
   processDimensions(
@@ -1437,13 +1420,10 @@ export default abstract class SqlIntegration
 
     // redundant checks to make sure configuration makes sense and we only build expensive queries for the cases
     // where RA is actually possible
-    const isRegressionAdjusted =
-      settings.regressionAdjustmentEnabled &&
-      (metric.regressionAdjustmentDays ?? 0) > 0 &&
-      !!metric.regressionAdjustmentEnabled &&
-      !ratioMetric;
+    const regressionAdjusted =
+      settings.regressionAdjustmentEnabled && isRegressionAdjusted(metric);
 
-    const regressionAdjustmentHours = isRegressionAdjusted
+    const regressionAdjustmentHours = regressionAdjusted
       ? (metric.regressionAdjustmentDays ?? 0) * 24
       : 0;
 
@@ -1511,7 +1491,7 @@ export default abstract class SqlIntegration
       metric,
       ratioMetric,
       funnelMetric,
-      isRegressionAdjusted,
+      regressionAdjusted,
       regressionAdjustmentHours,
       ignoreConversionEnd,
       isPercentileCapped,
@@ -1562,7 +1542,7 @@ export default abstract class SqlIntegration
     );
 
     const raMetricSettings = metricData
-      .filter((m) => m.isRegressionAdjusted)
+      .filter((m) => m.regressionAdjusted)
       .map((m) => m.raMetricSettings);
 
     const maxHoursToConvert = Math.max(
@@ -1669,7 +1649,7 @@ export default abstract class SqlIntegration
       });
 
     const regressionAdjustedMetrics = metricData.filter(
-      (m) => m.isRegressionAdjusted
+      (m) => m.regressionAdjusted
     );
 
     return format(
@@ -1911,7 +1891,7 @@ export default abstract class SqlIntegration
                 : ""
             }
             ${
-              data.isRegressionAdjusted
+              data.regressionAdjusted
                 ? `,
               SUM(${data.capCoalesceCovariate}) AS ${data.alias}_covariate_sum,
               SUM(POWER(${data.capCoalesceCovariate}, 2)) AS ${data.alias}_covariate_sum_squares,
@@ -1993,13 +1973,11 @@ export default abstract class SqlIntegration
 
     // redundant checks to make sure configuration makes sense and we only build expensive queries for the cases
     // where RA is actually possible
-    const isRegressionAdjusted =
+    const regressionAdjusted =
       settings.regressionAdjustmentEnabled &&
-      (metric.regressionAdjustmentDays ?? 0) > 0 &&
-      !!metric.regressionAdjustmentEnabled &&
-      !ratioMetric;
+      isRegressionAdjusted(metric, denominator);
 
-    const regressionAdjustmentHours = isRegressionAdjusted
+    const regressionAdjustmentHours = regressionAdjusted
       ? (metric.regressionAdjustmentDays ?? 0) * 24
       : 0;
 
@@ -2141,7 +2119,7 @@ export default abstract class SqlIntegration
           ${timestampColumn} AS timestamp,
           ${this.dateTrunc("first_exposure_timestamp")} AS first_exposure_date
           ${
-            isRegressionAdjusted
+            regressionAdjusted
               ? `, ${this.addHours(
                   "first_exposure_timestamp",
                   minMetricDelay
@@ -2191,7 +2169,7 @@ export default abstract class SqlIntegration
           ? `, __denominatorUsers as (${this.getFunnelUsersCTE(
               baseIdType,
               denominatorMetrics,
-              isRegressionAdjusted,
+              regressionAdjusted,
               ignoreConversionEnd,
               "__denominator",
               "__distinctUsers"
@@ -2325,7 +2303,7 @@ export default abstract class SqlIntegration
           : ""
       }
       ${
-        isRegressionAdjusted
+        regressionAdjusted
           ? `
         , __userCovariateMetric as (
           SELECT
@@ -2356,13 +2334,6 @@ export default abstract class SqlIntegration
           cumulativeDate ? `${this.formatDate("m.day")}` : "m.dimension"
         } AS dimension,
         COUNT(*) AS users,
-        '${this.getStatisticType(
-          ratioMetric,
-          isRegressionAdjusted
-        )}' as statistic_type,
-        '${
-          isBinomialMetric(metric) ? "binomial" : "count"
-        }' as main_metric_type,
         ${
           isPercentileCapped
             ? "MAX(COALESCE(cap.cap_value, 0)) as main_cap_value,"
@@ -2373,9 +2344,6 @@ export default abstract class SqlIntegration
         ${
           ratioMetric
             ? `,
-          '${
-            isBinomialMetric(denominator) ? "binomial" : "count"
-          }' as denominator_metric_type,
           ${
             denominatorIsPercentileCapped
               ? "MAX(COALESCE(capd.cap_value, 0)) as denominator_cap_value,"
@@ -2388,11 +2356,8 @@ export default abstract class SqlIntegration
             : ""
         }
         ${
-          isRegressionAdjusted
+          regressionAdjusted
             ? `,
-          '${
-            isBinomialMetric(metric) ? "binomial" : "count"
-          }' as covariate_metric_type,
           SUM(${capCoalesceCovariate}) AS covariate_sum,
           SUM(POWER(${capCoalesceCovariate}, 2)) AS covariate_sum_squares,
           SUM(${capCoalesceMetric} * ${capCoalesceCovariate}) AS main_covariate_sum_product
@@ -2415,7 +2380,7 @@ export default abstract class SqlIntegration
           : ""
       }
       ${
-        isRegressionAdjusted
+        regressionAdjusted
           ? `
           LEFT JOIN __userCovariateMetric c
           ON (c.${baseIdType} = m.${baseIdType})
