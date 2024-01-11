@@ -1354,7 +1354,7 @@ export async function postApiKey(
       req.checkPermissions("manageApiKeys");
     }
   } else {
-    req.checkPermissions("manageEnvironments", "", [environment]);
+    req.checkPermissions("manageEnvironments", project, [environment]);
   }
 
   // Handle user personal access tokens
