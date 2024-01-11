@@ -15,9 +15,8 @@ import {
 import track from "@/services/track";
 import useIncrementer from "@/hooks/useIncrementer";
 import ValueDisplay from "@/components/Features/ValueDisplay";
-import Field from "../Forms/Field";
+import { useAuth } from "@/services/auth";
 import Modal from "../Modal";
-import { useAuth } from "../../services/auth";
 import SelectField from "../Forms/SelectField";
 import ConditionInput from "./ConditionInput";
 
@@ -55,7 +54,6 @@ export default function PrerequisiteModal({
   const form = useForm<FeaturePrerequisite>({
     defaultValues: {
       parentId: prerequisite.parentId ?? defaultValues.parentId,
-      description: prerequisite.description ?? defaultValues.description,
       parentCondition:
         prerequisite.parentCondition ?? defaultValues.parentCondition,
       enabled: prerequisite.enabled ?? defaultValues.enabled,
@@ -103,7 +101,6 @@ export default function PrerequisiteModal({
         track("Save Prerequisite", {
           source: action,
           prerequisiteIndex: i,
-          hasDescription: values.description.length > 0,
         });
 
         // todo: don't use version?
@@ -126,14 +123,6 @@ export default function PrerequisiteModal({
         to a draft revision. You will have a chance to review them first before
         making them live.
       </div>
-
-      <Field
-        label="Description (optional)"
-        textarea
-        minRows={1}
-        {...form.register("description")}
-        placeholder="Short human-readable description"
-      />
 
       <SelectField
         label="Prerequisite feature"

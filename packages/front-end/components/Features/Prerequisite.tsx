@@ -75,20 +75,15 @@ export default function Prerequisite({
         <div className="flex-1 mx-2">
           {parentFeature?.id ? (
             <>
-              <div className="font-weight-bold">
-                <span className="uppercase-title mr-2">Feature</span>
-                <a
-                  href={`/features/${parentFeature.id}`}
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  {parentFeature.id}
-                  <FaExternalLinkAlt className="ml-1" />
-                </a>
-              </div>
-              {prerequisite.description ? (
-                <div className="text-muted">{prerequisite.description}</div>
-              ) : null}
+              <span className="mr-2">Prerequisite Feature:</span>
+              <a
+                href={`/features/${parentFeature.id}`}
+                target="_blank"
+                rel="noreferrer"
+              >
+                {parentFeature.id}
+                <FaExternalLinkAlt className="ml-1" />
+              </a>
             </>
           ) : (
             <>

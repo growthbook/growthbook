@@ -783,6 +783,50 @@ export default function FeaturePage() {
         </div>
       </div>
 
+      <h3>Prerequisites</h3>
+      {/*todo: make global like env toggles*/}
+      <div className="mb-1">
+        Add prerequisite features that must be enabled in order for this feature
+        to work.
+      </div>
+      <div className="appbox mb-4 p-3">
+        <div className="border mb-3">
+          {prerequisites.length > 0 ? (
+            <PrerequisiteList
+              feature={feature}
+              features={features}
+              mutate={mutate}
+              setPrerequisiteModal={setPrerequisiteModal}
+              version={currentVersion}
+              setVersion={setVersion}
+              locked={isLocked}
+            />
+          ) : (
+            <div className="p-3 bg-white">
+              <em>No prerequisites</em>
+            </div>
+          )}
+        </div>
+        <div>
+          <button
+            className="btn btn-primary"
+            onClick={() => {
+              setPrerequisiteModal({
+                i: getPrerequisites(feature).length,
+              });
+              track("Viewed prerequisite feature modal", {
+                source: "add-prerequisite",
+              });
+            }}
+          >
+            <span className="h4 pr-2 m-0 d-inline-block align-top">
+              <GBAddCircle />
+            </span>
+            Add Prerequisite
+          </button>
+        </div>
+      </div>
+
       {feature.valueType === "json" && (
         <div>
           <h3 className={hasJsonValidator ? "" : "mb-4"}>
@@ -1181,49 +1225,6 @@ export default function FeaturePage() {
             value={getFeatureDefaultValue(feature)}
             feature={feature}
           />
-        </div>
-
-        <h3>Prerequisite Features</h3>
-        <p>
-          Add parent features that must be enabled in order for this feature to
-          work.
-        </p>
-        <div className="mb-4">
-          <div className="border mb-3">
-            {prerequisites.length > 0 ? (
-              <PrerequisiteList
-                feature={feature}
-                features={features}
-                mutate={mutate}
-                setPrerequisiteModal={setPrerequisiteModal}
-                version={currentVersion}
-                setVersion={setVersion}
-                locked={isLocked}
-              />
-            ) : (
-              <div className="p-3 bg-white">
-                <em>No prerequisite features</em>
-              </div>
-            )}
-          </div>
-          <div>
-            <button
-              className="btn btn-primary"
-              onClick={() => {
-                setPrerequisiteModal({
-                  i: getPrerequisites(feature).length,
-                });
-                track("Viewed prerequisite feature modal", {
-                  source: "add-prerequisite",
-                });
-              }}
-            >
-              <span className="h4 pr-2 m-0 d-inline-block align-top">
-                <GBAddCircle />
-              </span>
-              Add Prerequisite
-            </button>
-          </div>
         </div>
 
         <h3>Override Rules</h3>
