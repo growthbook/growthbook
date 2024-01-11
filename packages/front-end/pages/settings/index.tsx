@@ -1187,7 +1187,6 @@ const GeneralSettingsPage = (): React.ReactElement => {
                     <div className="small">
                       <StickyBucketingToggleWarning
                         hasSDKWithStickyBucketing={hasSDKWithStickyBucketing}
-                        iconSize={20}
                       />
                     </div>
                   )}

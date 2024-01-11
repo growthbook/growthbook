@@ -15,6 +15,7 @@ import usePermissions from "@/hooks/usePermissions";
 import { useUser } from "@/services/UserContext";
 import { useAuth } from "@/services/auth";
 import useSDKConnections from "@/hooks/useSDKConnections";
+import { DocLink } from "@/components/DocLink";
 import SelectField from "../Forms/SelectField";
 import Toggle from "../Forms/Toggle";
 
@@ -24,7 +25,7 @@ export interface Props {
 }
 
 export default function FallbackAttributeSelector({ form }: Props) {
-  const [showSBToggle, setShowSBToggle] = useState(false);
+  const [showSBInformation, setShowSBInformation] = useState(false);
 
   const { apiCall } = useAuth();
   const { refreshOrganization, hasCommercialFeature } = useUser();
@@ -92,20 +93,20 @@ export default function FallbackAttributeSelector({ form }: Props) {
             If the user&apos;s assignment attribute is not available the
             fallback attribute may be used instead.
           </div>
-          {(!orgStickyBucketing || showSBToggle) && (
+          {(!orgStickyBucketing || showSBInformation) && (
             <div className="d-flex mt-1">
               <div className="text-warning-orange">
                 <FaInfoCircle /> Requires Sticky Bucketing
               </div>
               <div className="flex-1" />
-              {!showSBToggle ? (
+              {!showSBInformation ? (
                 <>
                   {!orgStickyBucketing && <span>(disabled by org)</span>}
                   {permissions.organizationSettings && (
                     <a
                       role="button"
                       className="a ml-2"
-                      onClick={() => setShowSBToggle(true)}
+                      onClick={() => setShowSBInformation(true)}
                     >
                       <FaGear size={13} />
                     </a>
@@ -113,42 +114,48 @@ export default function FallbackAttributeSelector({ form }: Props) {
                 </>
               ) : (
                 <>
-                  <div
-                    className="position-relative"
-                    style={{ top: 1, maxWidth: 180 }}
-                  >
-                    <div className="d-flex align-items-center justify-content-end">
-                      <PremiumTooltip
-                        commercialFeature={"sticky-bucketing"}
-                        usePortal={true}
-                        className="text-right"
-                        innerClassName="text-left"
-                        body={<StickyBucketingTooltip />}
-                      >
-                        <span style={{ lineHeight: "14px" }}>
-                          Enable Sticky Bucketing for org <FaQuestionCircle />
-                        </span>
-                      </PremiumTooltip>
-                      <Toggle
-                        id="orgStickyBucketingToggle"
-                        value={!!orgStickyBucketing}
-                        setValue={setOrgStickyBucketingToggle}
-                        disabled={
-                          !hasStickyBucketFeature || !hasSDKWithStickyBucketing
-                        }
-                        className="ml-2"
-                        style={{ width: 70 }}
-                      />
+                  {hasSDKWithStickyBucketing && (
+                    <div
+                      className="position-relative"
+                      style={{ top: 1, maxWidth: 180 }}
+                    >
+                      <div className="d-flex align-items-center justify-content-end">
+                        <PremiumTooltip
+                          commercialFeature={"sticky-bucketing"}
+                          usePortal={true}
+                          className="text-right"
+                          innerClassName="text-left"
+                          body={<StickyBucketingTooltip />}
+                        >
+                          <div
+                            className="d-inline-block"
+                            style={{ lineHeight: "14px" }}
+                          >
+                            Enable Sticky Bucketing for org <FaQuestionCircle />
+                          </div>
+                        </PremiumTooltip>
+                        <Toggle
+                          id="orgStickyBucketingToggle"
+                          value={!!orgStickyBucketing}
+                          setValue={setOrgStickyBucketingToggle}
+                          disabled={
+                            !hasStickyBucketFeature ||
+                            !hasSDKWithStickyBucketing
+                          }
+                          className="ml-2"
+                          style={{ width: 70 }}
+                        />
+                      </div>
                     </div>
-                  </div>
+                  )}
                 </>
               )}
             </div>
           )}
-          {showSBToggle && (
+          {showSBInformation && (
             <StickyBucketingToggleWarning
               hasSDKWithStickyBucketing={hasSDKWithStickyBucketing}
-              iconSize={30}
+              showIcon={false}
             />
           )}
         </>
@@ -199,39 +206,38 @@ export function StickyBucketingTooltip() {
 
 export function StickyBucketingToggleWarning({
   hasSDKWithStickyBucketing,
-  iconSize,
+  showIcon = true,
 }: {
   hasSDKWithStickyBucketing: boolean;
-  iconSize?: number;
+  showIcon?: boolean;
 }) {
   return (
     <>
       {!hasSDKWithStickyBucketing ? (
-        <div className="alert alert-danger px-2 pt-1 pb-2 mt-2 mb-0 d-flex align-items-center">
-          <FaExclamationCircle className="ml-1 mr-2" size={iconSize} />
-          <div className="mt-2 ml-1">
-            <div className="mb-2">
-              At least one SDK Connection with a compatible SDK is required to
-              use Sticky Bucketing.
-              <span className="mt-1">
-                <a href="/sdks" className="a ml-1" target="_blank">
-                  SDK Connections <FaExternalLinkAlt />
-                </a>
-              </span>
-            </div>
-            <div>
-              Also ensure that Sticky Bucketing is correctly integrated with
-              your SDK in your app codebase before using.
-            </div>
-          </div>
+        <div className="mt-1 mb-1 text-warning-orange">
+          {showIcon && <FaExclamationCircle className="mr-1" />}
+          At least one SDK Connection with a compatible SDK is required to use
+          Sticky Bucketing.
+          <DocLink
+            docSection="stickyBucketing"
+            className="align-self-center d-block mt-1"
+          >
+            Sticky Bucketing Documentation <FaExternalLinkAlt />
+          </DocLink>
         </div>
       ) : (
-        <div className="alert alert-warning px-2 py-2 mt-2 mb-0 d-flex align-items-center">
-          <FaExclamationCircle className="ml-1 mr-2" size={iconSize} />
-          <div className="ml-1">
+        <div className="mt-1 mb-2 text-muted">
+          <div>
+            {showIcon && <FaExclamationCircle className="mr-1" />}
             Ensure that Sticky Bucketing is correctly integrated with your SDK
             in your app codebase before using.
           </div>
+          <DocLink
+            docSection="stickyBucketing"
+            className="align-self-center d-block mt-1"
+          >
+            Sticky Bucketing Documentation <FaExternalLinkAlt />
+          </DocLink>
         </div>
       )}
     </>
