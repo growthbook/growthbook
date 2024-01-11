@@ -373,8 +373,8 @@ export interface SourceIntegrationInterface {
   getSensitiveParamKeys(): string[];
   getExperimentResultsQuery(
     snapshotSettings: ExperimentSnapshotSettings,
-    metrics: ExperimentMetricInterface[],
-    activationMetric: ExperimentMetricInterface | null,
+    metricDocs: ExperimentMetricInterface[],
+    activationMetricDoc: ExperimentMetricInterface | null,
     dimension: DimensionInterface | null
   ): string;
   getFormatDialect?(): FormatDialect;

@@ -322,7 +322,7 @@ export async function analyzeExperimentResults({
 
       metricRows.push({
         metric: key,
-        rows: query.result as ExperimentMetricQueryResponseRows,
+        rows: (query.result ?? []) as ExperimentMetricQueryResponseRows,
       });
     });
   }

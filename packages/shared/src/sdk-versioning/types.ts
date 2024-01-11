@@ -10,3 +10,8 @@ export type SDKCapability =
   | "visualEditorDragDrop"
   | "stickyBucketing"
   | "urlRedirects";
+
+export type CapabilityStrategy =
+  | "min-ver-intersection" // intersection of capabilities using default SDK versions
+  | "min-ver-intersection-loose-unmarshalling" // for generating SDK payloads. will interpret "looseUnmarshalling" as also supporting "bucketingV2", etc
+  | "max-ver-intersection"; // intersection of capabilities using latest SDK versions
