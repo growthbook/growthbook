@@ -34,6 +34,7 @@ export type CommercialFeature =
   | "multi-org"
   | "custom-launch-checklist"
   | "multi-metric-queries"
+  | "no-access-role"
   | "teams";
 export type CommercialFeaturesMap = Record<AccountPlan, Set<CommercialFeature>>;
 
@@ -133,6 +134,7 @@ export const accountFeatures: CommercialFeaturesMap = {
     "multi-org",
     "teams",
     "custom-launch-checklist",
+    "no-access-role",
   ]),
 };
 

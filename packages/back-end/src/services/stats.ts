@@ -331,7 +331,7 @@ export function getMetricsAndQueryDataForStatsEngine(
       metricSettings[key] = getMetricSettingsForStatsEngine(metric, metricMap);
       queryResults.push({
         metrics: [key],
-        rows: query.result as ExperimentMetricQueryResponseRows,
+        rows: (query.result ?? []) as ExperimentMetricQueryResponseRows,
         sql: query.query,
       });
     });
