@@ -208,7 +208,7 @@ export function StickyBucketingToggleWarning({
     <>
       {!hasSDKWithStickyBucketing ? (
         <div className="alert alert-danger px-2 pt-1 pb-2 mt-2 mb-0 d-flex align-items-center">
-          <FaExclamationCircle className="ml-1 mr-2" size={30} />
+          <FaExclamationCircle className="ml-1 mr-2" size={iconSize} />
           <div className="mt-2 ml-1">
             <div className="mb-2">
               At least one SDK Connection with a compatible SDK is required to
