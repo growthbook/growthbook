@@ -33,6 +33,7 @@ export type CommercialFeature =
   | "remote-evaluation"
   | "multi-org"
   | "custom-launch-checklist"
+  | "no-access-role"
   | "teams"
   | "sticky-bucketing";
 export type CommercialFeaturesMap = Record<AccountPlan, Set<CommercialFeature>>;
@@ -134,6 +135,7 @@ export const accountFeatures: CommercialFeaturesMap = {
     "multi-org",
     "teams",
     "custom-launch-checklist",
+    "no-access-role",
     "sticky-bucketing",
   ]),
 };
