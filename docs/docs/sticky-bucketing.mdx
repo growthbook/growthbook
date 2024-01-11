@@ -12,15 +12,15 @@ This article serves two purposes:
 - High level overview of GrowthBook's Sticky Bucketing feature
 - Technical details on how to implement Sticky Bucketing in your codebase
 
-Sticky bucketing ensures that users see the same experiment variant, even when user session, user login status, or experiment parameters change. GrowthBook's flavor of sticky bucketing has a few additional features: Bucketing based either a primary hash attribute (i.e. user id) or a secondary (i.e. anonymous id), as well as the ability to version-control and purge your users' assigned buckets.
+Sticky bucketing ensures that users are consistently assigned the same experiment variant, even when user session, user login status, or experiment parameters change. GrowthBook's flavor of sticky bucketing has a few additional features:(1) Bucketing based on either a primary hash attribute (i.e. user id) or a secondary attribute (i.e. anonymous id) and (2) the ability to version-control and purge your users' assigned buckets.
 
 ## Motivation
 
-So why would you want to use Sticky Bucketing? Let's look at a few example scenarios:
+So why would you want to use Sticky Bucketing? Let's look at a few examples:
 
 1. You are measuring the impact on a metric with a long conversion window that crosses the log-in divide. The user may be first exposed to your experiment while anonymous, then sign up, log out, sign back in on another device, and then convert. Without sticky bucketing, there would be no way to tie the anonymous exposure to the conversion.
 
-2. You are managing an experiment rollout and need to slow down enrollment. You decrease the percentage of traffic exposed to the experiment from 50% to 10% but you do not want to alter the experience for users who were already exposed to the experiment. Sticky bucketing allows you to apply the new rollout percentage to new users while keeping the old users in their original buckets.
+2. You are managing an experiment rollout and need to slow down enrollment. You decrease the percentage of traffic exposed to the experiment from 50% to 10% but you do not want to alter the experience for users who were already exposed to the experiment. Sticky bucketing allows you to apply the rollout percentage to new users while keeping the old users in their original buckets.
 
 :::note
 Sticky Bucketing is a GrowthBook Pro and Enterprise feature.
@@ -32,19 +32,22 @@ To use Sticky Bucketing for your experiments, there are a few steps that you nee
 
 ### 1. Ensure you are using a compatible SDK version
 
-Update your codebase to use a compatible SDK. For instance, Sticky Bucketing support was added to our Javascript SDK in version `0.32.0` and in our React SDK in version `0.22.0`.
+Update your codebase to use a compatible SDK. Sticky Bucketing is supported as of these SDK versions:
+
+- Javascript: `0.32.0`
+- React: `0.22.0`
 
 ### 2. Update your SDK Connections in the GrowthBook app
 
-Ensure that within the GrowthBook app, you have set your SDK Connection to use a compatible SDK version by going to **SDK Connections** and modifying specific connections to be single-language with the correct SDK version specified. (If you need to support multiple languages, simply create multiple SDK Connections for each language.)
+Within the GrowthBook app, ensure that you have set your SDK Connection to use a compatible SDK version. You can do this by going to **SDK Connections** and ensuring each connection: (1) only corresponds to a single language and (2) has the correct SDK version specified. If you need to support multiple languages, create one SDK Connection for each language.
 
 ### 3. Enable Sticky Bucketing for your organization
 
-In the GrowthBook app, go to **Settings** > **General** > **Experiment Settings** and enable the Sticky Bucketing toggle. Now when you configure targeting or make changes to your experiments, you will see new options specific to Sticky Bucketing (ex: choosing a `fallbackAttribute` for hashing, using experiment change release plans that rely on Sticky Bucketing, etc.)
+In the GrowthBook app, go to **Settings** > **General** > **Experiment Settings** and enable the Sticky Bucketing toggle. This will add new options specific to Sticky Bucketing whenever you configure targeting (e.g choosing a `fallbackAttribute` for hashing) or make changes to your experiment (e.g. reduce traffic to an experiment).
 
 For more information about experiment configuration using Sticky Bucketing, see [Experiments (setup)](/app/experiment-configuration).
 
-### 4. Implement Sticky Bucketing in your codebase.
+### 4. Implement Sticky Bucketing in your codebase
 
 You may use one of our built-in Sticky Bucketing Services or implement your own. We provide common drivers for browser-generated cookies, backend-generated cookies, browser LocalStorage, and Redis stores.
 
@@ -54,7 +57,7 @@ For more information about setting up Sticky Bucketing at the SDK level, see the
 
 ### Front-end only
 
-Suppose your website integrates GrowthBook on the front end only. You would like to implement Sticky Bucketing in a way that perserves user buckets across the logged-out / logged-in divide.
+Suppose your website integrates GrowthBook on the front end only. You would like to implement Sticky Bucketing in a way that preserves user buckets across the logged-out / logged-in divide.
 
 In our JavaScript and React SDKs, we provide 2 different Sticky Bucket Services that make sense in this scenario: `LocalStorageStickyBucketService` and `BrowserCookieStickyBucketService`. You can instantiate either of these services and plug them into the GrowthBook SDK.
 

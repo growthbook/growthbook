@@ -57,7 +57,7 @@ You can also configure targeting and traffic to your experiment's linked feature
 
 **Hashing attribute** - This is the attribute that will be used to hash the user id to determine which variation they will be bucketed into.
 
-**Fallback attribute** (Sticky Bucketing enabled only) - If the hash attribute is not present, you can also bucket by a fallback attribute, such as an anonymous or session id. With Sticky Bucketing enabled, once the user logs in and is assigned a hash attribute, their bucket will be "sticky" and will not change, even if the fallback attribute is later lost.
+**Fallback attribute** (Sticky Bucketing enabled only) - The Fallback attribute be used when the hash attribute is missing or empty. For example falling back to an anonymous cookie identifier instead of a logged-in user id. Which ever attribute is first used to bucket the user into a variation will "stick". For example, if the user is logged out when they first view an experiment, it would use the fallback device id. If the user later logs in, it will continue using the bucket from their device id, even though they now have a logged-in id as well.
 
 **Targeting** - Create matching conditions using attributes and saved groups or target by namespaces.
 
