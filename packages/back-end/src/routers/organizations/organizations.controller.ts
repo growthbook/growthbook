@@ -39,6 +39,7 @@ import {
   NamespaceUsage,
   OrganizationInterface,
   OrganizationSettings,
+  SDKAttribute,
 } from "../../../types/organization";
 import {
   auditDetailsUpdate,
@@ -1240,6 +1241,63 @@ export async function putOrganization(
   }
 }
 
+export const autoAddGroupsAttribute = async (
+  req: AuthRequest<never>,
+  res: Response<{ status: 200; added: boolean }>
+) => {
+  // Add missing `$groups` attribute automatically if it's being referenced by a Saved Group
+  const { org } = getOrgFromReq(req);
+
+  req.checkPermissions("manageTargetingAttributes");
+
+  let added = false;
+
+  const attributeSchema = org.settings?.attributeSchema;
+  if (
+    attributeSchema &&
+    !attributeSchema.some((attribute) => attribute.property === "$groups")
+  ) {
+    const newAttributeSchema: SDKAttribute[] = [
+      ...attributeSchema,
+      {
+        property: "$groups",
+        datatype: "string[]",
+      },
+    ];
+
+    const orig = {
+      settings: {
+        ...org.settings,
+      },
+    };
+
+    const updates = {
+      settings: {
+        ...org.settings,
+        attributeSchema: newAttributeSchema,
+      },
+    };
+
+    added = true;
+
+    await updateOrganization(org.id, updates);
+
+    await req.audit({
+      event: "organization.update",
+      entity: {
+        object: "organization",
+        id: org.id,
+      },
+      details: auditDetailsUpdate(orig, updates),
+    });
+  }
+
+  return res.status(200).json({
+    status: 200,
+    added,
+  });
+};
+
 export async function getApiKeys(req: AuthRequest, res: Response) {
   const { org } = getOrgFromReq(req);
   const keys = await getAllApiKeysByOrganization(org.id);
@@ -1756,8 +1814,7 @@ export async function putLicenseKey(
   let licenseData = null;
   try {
     // set new license
-    await initializeLicense(licenseKey);
-    licenseData = getLicense();
+    licenseData = await initializeLicense(licenseKey);
   } catch (e) {
     // eslint-disable-next-line no-console
     console.error("setting new license failed", e);

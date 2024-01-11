@@ -147,7 +147,10 @@ export default function SDKConnectionForm({
     form.getValues(),
     "max-ver-intersection"
   );
-  const currentSdkCapabilities = getConnectionSDKCapabilities(form.getValues());
+  const currentSdkCapabilities = getConnectionSDKCapabilities(
+    form.getValues(),
+    "min-ver-intersection"
+  );
 
   const enableRemoteEval =
     hasRemoteEvaluationFeature && !!gb?.isOn("remote-evaluation");

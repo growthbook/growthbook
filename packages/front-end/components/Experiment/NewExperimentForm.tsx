@@ -9,7 +9,10 @@ import { useRouter } from "next/router";
 import { getValidDate } from "shared/dates";
 import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
 import { OrganizationSettings } from "back-end/types/organization";
-import { isProjectListValidForProject } from "shared/util";
+import {
+  isProjectListValidForProject,
+  validateAndFixCondition,
+} from "shared/util";
 import { useWatching } from "@/services/WatchProvider";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
@@ -19,6 +22,7 @@ import { getEqualWeights } from "@/services/utils";
 import { generateVariationId, useAttributeSchema } from "@/services/features";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
+import useIncrementer from "@/hooks/useIncrementer";
 import MarkdownInput from "../Markdown/MarkdownInput";
 import TagsInput from "../Tags/TagsInput";
 import Page from "../Modal/Page";
@@ -138,6 +142,8 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
     });
   }, []);
 
+  const [conditionKey, forceConditionRender] = useIncrementer();
+
   const attributeSchema = useAttributeSchema();
   const hasHashAttributes =
     attributeSchema.filter((x) => x.hashAttribute).length > 0;
@@ -235,6 +241,11 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
       }
 
       validateSavedGroupTargeting(data.phases[0].savedGroups);
+
+      validateAndFixCondition(data.phases[0].condition, (condition) => {
+        form.setValue("phases.0.condition", condition);
+        forceConditionRender();
+      });
     }
 
     const body = JSON.stringify(data);
@@ -402,8 +413,9 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
         )}
         {isNewExperiment && (
           <ConditionInput
-            defaultValue={""}
+            defaultValue={form.watch("phases.0.condition") || ""}
             onChange={(value) => form.setValue("phases.0.condition", value)}
+            key={conditionKey}
           />
         )}
         {isNewExperiment && (

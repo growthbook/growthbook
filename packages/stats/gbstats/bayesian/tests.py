@@ -20,7 +20,7 @@ from gbstats.shared.models import (
     ProportionStatistic,
     RatioStatistic,
     SampleMeanStatistic,
-    Statistic,
+    TestStatistic,
     Uplift,
 )
 from gbstats.shared.tests import BaseABTest
@@ -71,8 +71,8 @@ Original code:
 class BayesianABTest(BaseABTest):
     def __init__(
         self,
-        stat_a: Statistic,
-        stat_b: Statistic,
+        stat_a: TestStatistic,
+        stat_b: TestStatistic,
         inverse: bool = False,
         ccr: float = 0.05,
     ):
@@ -113,9 +113,9 @@ class BayesianABTest(BaseABTest):
 
     def chance_to_win(self, mean_diff: float, std_diff: float) -> float:
         if self.inverse:
-            return 1 - norm.sf(0, mean_diff, std_diff)
+            return 1 - norm.sf(0, mean_diff, std_diff)  # type: ignore
         else:
-            return norm.sf(0, mean_diff, std_diff)
+            return norm.sf(0, mean_diff, std_diff)  # type: ignore
 
     def scale_result(
         self, result: BayesianTestResult, p: float, d: float

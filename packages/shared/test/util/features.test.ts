@@ -6,6 +6,7 @@ import {
   autoMerge,
   RulesAndValues,
   MergeConflict,
+  validateCondition,
 } from "../../src/util";
 
 const feature: FeatureInterface = {
@@ -420,6 +421,55 @@ describe("validateFeatureValue", () => {
       expect(() =>
         validateFeatureValue(feature, value, "testVal")
       ).toThrowError();
+    });
+  });
+});
+
+describe("validateCondition", () => {
+  it("returns success when condition is undefined", () => {
+    expect(validateCondition(undefined)).toEqual({
+      success: true,
+      empty: true,
+    });
+  });
+  it("returns success when condition is empty", () => {
+    expect(validateCondition("")).toEqual({
+      success: true,
+      empty: true,
+    });
+  });
+  it("returns success when condition is empty object", () => {
+    expect(validateCondition("{}")).toEqual({
+      success: true,
+      empty: true,
+    });
+  });
+  it("returns error when condition is completely invalid", () => {
+    expect(validateCondition("{(+")).toEqual({
+      success: false,
+      empty: false,
+      error: "Unexpected token ( in JSON at position 1",
+    });
+  });
+  it("returns error when condition is not an object", () => {
+    expect(validateCondition("123")).toEqual({
+      success: false,
+      empty: false,
+      error: "Must be object",
+    });
+  });
+  it("returns suggested value when condition is invalid, but able to be fixed automatically", () => {
+    expect(validateCondition("{test: true}")).toEqual({
+      success: false,
+      empty: false,
+      error: "Unexpected token t in JSON at position 1",
+      suggestedValue: '{"test":true}',
+    });
+  });
+  it("returns success when condition is valid", () => {
+    expect(validateCondition('{"test": true}')).toEqual({
+      success: true,
+      empty: false,
     });
   });
 });

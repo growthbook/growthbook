@@ -189,8 +189,7 @@ export default function ResultsTableTooltip({
   ) {
     denomFormatter = getColumnRefFormatter(
       data.metric.denominator,
-      getFactTableById,
-      true
+      getFactTableById
     );
   }
   // Lift units
