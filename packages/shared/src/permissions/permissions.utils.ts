@@ -54,39 +54,36 @@ export function getReadAccessFilter(userPermissions: UserPermissions) {
 
   return readAccess;
 }
-
 export function hasReadAccess(
-  readAccessFilter: ReadAccessFilter,
-  resourceProjects: string[]
+  filter: ReadAccessFilter,
+  projects: string | string[] | null | undefined
 ): boolean {
-  const hasGlobaReadAccess = readAccessFilter.globalReadAccess;
+  const hasGlobaReadAccess = filter.globalReadAccess;
 
-  // if user doesn't have project specific roles or the resource doesn't have any projects, use user's global read access
-  if (
-    readAccessFilter.projects.length === 0 ||
-    resourceProjects.length === 0 ||
-    resourceProjects.every((project) => project === "")
-  ) {
+  // if the user doesn't have project specific roles, or the resource doesn't have any projects, fallback to user's global role
+  if (!filter.projects.length || !projects || !projects.length) {
     return hasGlobaReadAccess;
   }
+
+  const resourceProjects = Array.isArray(projects) ? projects : [projects];
 
   // if the user doesn't have global read access, but they do have read access for atleast one of the resource's projects, allow read access to resource
   if (!hasGlobaReadAccess) {
     return resourceProjects.some((project) => {
-      const projectAccessIndex = readAccessFilter.projects.findIndex(
+      const projectAccessIndex = filter.projects.findIndex(
         (projectAccess) => projectAccess.id === project
       );
       if (projectAccessIndex === -1) {
         return false;
       }
-      return readAccessFilter.projects[projectAccessIndex].readAccess === true;
+      return filter.projects[projectAccessIndex].readAccess === true;
     });
   }
 
   // otherwise, only don't allow read access if the user's project-specific roles restrict read access for all of the resource's projects
   const userHasProjectSpecificAccessForEachResourceProject = resourceProjects.every(
     (id) => {
-      return readAccessFilter.projects.some((p) => p.id === id);
+      return filter.projects.some((p) => p.id === id);
     }
   );
 
@@ -95,10 +92,10 @@ export function hasReadAccess(
   }
 
   const everyProjectRestrictsReadAccess = resourceProjects.every((project) => {
-    const projectAccessIndex = readAccessFilter.projects.findIndex(
+    const projectAccessIndex = filter.projects.findIndex(
       (projectAccess) => projectAccess.id === project
     );
-    return readAccessFilter.projects[projectAccessIndex].readAccess === false;
+    return filter.projects[projectAccessIndex].readAccess === false;
   });
 
   return everyProjectRestrictsReadAccess ? false : true;
