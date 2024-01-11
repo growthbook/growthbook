@@ -1,9 +1,8 @@
 from dataclasses import asdict
 import re
-from typing import Any, Dict, List, Optional, Set, Union
+from typing import Any, Dict, Hashable, List, Optional, Set, Union
 
 import pandas as pd
-from scipy.stats.distributions import chi2  # type: ignore
 
 from gbstats.bayesian.tests import (
     BayesianTestResult,
@@ -23,6 +22,15 @@ from gbstats.messages import (
     COMPARE_PROPORTION_NON_PROPORTION_ERROR,
     RA_NOT_COMPATIBLE_WITH_BAYESIAN_ERROR,
 )
+from gbstats.models.results import (
+    BaselineResponse,
+    BayesianVariationResponse,
+    DimensionResponse,
+    ExperimentMetricAnalysis,
+    ExperimentMetricAnalysisResult,
+    FrequentistVariationResponse,
+    MetricStats,
+)
 from gbstats.models.settings import (
     AnalysisSettingsForStatsEngine,
     DataForStatsEngine,
@@ -39,6 +47,7 @@ from gbstats.models.statistics import (
     SampleMeanStatistic,
     TestStatistic,
 )
+from gbstats.utils import check_srm
 
 
 SUM_COLS = [
@@ -305,31 +314,37 @@ def analyze_metric_df(
 
 # Convert final experiment results to a structure that can be easily
 # serialized and used to display results in the GrowthBook front-end
-def format_results(df: pd.DataFrame, baseline_index: int = 0) -> List[Any]:
+def format_results(
+    df: pd.DataFrame, baseline_index: int = 0
+) -> List[DimensionResponse]:
     num_variations = df.at[0, "variations"]
-    results = []
+    results: List[DimensionResponse] = []
     rows = df.to_dict("records")
     for row in rows:
-        dim = {"dimension": row["dimension"], "srm": row["srm_p"], "variations": []}
+        dim = DimensionResponse(
+            dimension=row["dimension"], srm=row["srm_p"], variations=[]
+        )
         baseline_data = format_variation_result(row, 0)
         variation_data = [
             format_variation_result(row, v) for v in range(1, num_variations)
         ]
         variation_data.insert(baseline_index, baseline_data)
-        dim["variations"] = variation_data
+        dim.variations = variation_data
         results.append(dim)
     return results
 
 
-def format_variation_result(row: Dict, v: int):
+def format_variation_result(
+    row: Dict[Hashable, Any], v: int
+) -> Union[BaselineResponse, BayesianVariationResponse, FrequentistVariationResponse]:
     prefix = f"v{v}" if v > 0 else "baseline"
-    stats = {
-        "users": row[f"{prefix}_users"],
-        "count": row[f"{prefix}_count"],
-        "stddev": row[f"{prefix}_stddev"],
-        "mean": row[f"{prefix}_mean"],
-    }
-    result = {
+    stats = MetricStats(
+        users=row[f"{prefix}_users"],
+        count=row[f"{prefix}_count"],
+        stddev=row[f"{prefix}_stddev"],
+        mean=row[f"{prefix}_mean"],
+    )
+    metricResult = {
         "cr": row[f"{prefix}_cr"],
         "value": row[f"{prefix}_main_sum"],
         "users": row[f"{prefix}_users"],
@@ -338,21 +353,29 @@ def format_variation_result(row: Dict, v: int):
     }
     if v == 0:
         # baseline variation
-        return result
+        return BaselineResponse(**metricResult)
     else:
         # non-baseline variation
-        return {
-            **result,
-            **{
-                "expected": row[f"{prefix}_expected"],
-                "chanceToWin": row[f"{prefix}_prob_beat_baseline"],
-                "pValue": row[f"{prefix}_p_value"],
-                "uplift": row[f"{prefix}_uplift"],
-                "ci": row[f"{prefix}_ci"],
-                "risk": row[f"{prefix}_rawrisk"],
-                "errorMessage": row[f"{prefix}_error_message"],
-            },
+        frequentist = row[f"{prefix}_p_value"] is not None
+        testResult = {
+            "expected": row[f"{prefix}_expected"],
+            "uplift": row[f"{prefix}_uplift"],
+            "ci": row[f"{prefix}_ci"],
+            "errorMessage": row[f"{prefix}_error_message"],
         }
+        if frequentist:
+            return FrequentistVariationResponse(
+                **metricResult,
+                **testResult,
+                pValue=row[f"{prefix}_p_value"],
+            )
+        else:
+            return BayesianVariationResponse(
+                **metricResult,
+                **testResult,
+                chanceToWin=row[f"{prefix}_prob_beat_baseline"],
+                risk=row[f"{prefix}_rawrisk"],
+            )
 
 
 def variation_statistic_from_metric_row(
@@ -410,24 +433,6 @@ def base_statistic_from_metric_row(
         raise ValueError("Unexpectedly metric_type was None")
 
 
-# Run a chi-squared test to make sure the observed traffic split matches the expected one
-def check_srm(users, weights):
-    # Convert count of users into ratios
-    total_observed = sum(users)
-    if not total_observed:
-        return 1
-
-    total_weight = sum(weights)
-    x = 0
-    for i, o in enumerate(users):
-        if weights[i] <= 0:
-            continue
-        e = weights[i] / total_weight * total_observed
-        x = x + ((o - e) ** 2) / e
-
-    return chi2.sf(x, len(users) - 1)
-
-
 # Run a specific analysis given data and configuration settings
 def process_analysis(
     rows: pd.DataFrame,
@@ -473,20 +478,20 @@ def process_single_metric(
     rows: ExperimentMetricQueryResponseRows,
     metric: MetricSettingsForStatsEngine,
     analyses: List[AnalysisSettingsForStatsEngine],
-) -> Dict[str, Any]:
+) -> ExperimentMetricAnalysis:
     # If no data return blank results
     if len(rows) == 0:
-        return {
-            "metric": metric.id,
-            "analyses": [
-                {
-                    "unknownVariations": [],
-                    "dimensions": [],
-                    "multipleExposures": 0,
-                }
+        return ExperimentMetricAnalysis(
+            metric=metric.id,
+            analyses=[
+                ExperimentMetricAnalysisResult(
+                    unknownVariations=[],
+                    dimensions=[],
+                    multipleExposures=0,
+                )
                 for _ in analyses
             ],
-        }
+        )
     pdrows = pd.DataFrame(rows)
 
     # Detect any variations that are not in the returned metric rows
@@ -505,17 +510,17 @@ def process_single_metric(
         )
         for a in analyses
     ]
-
-    return {
-        "metric": metric.id,
-        "analyses": [
-            {
-                "unknownVariations": list(unknown_var_ids),
-                "dimensions": r,
-            }
+    return ExperimentMetricAnalysis(
+        metric=metric.id,
+        analyses=[
+            ExperimentMetricAnalysisResult(
+                unknownVariations=list(unknown_var_ids),
+                dimensions=r,
+                multipleExposures=0,
+            )
             for r in results
         ],
-    }
+    )
 
 
 # Get just the columns for a single metric
@@ -543,19 +548,21 @@ def process_data_dict(data: Dict[str, Any]) -> DataForStatsEngine:
     )
 
 
-def process_experiment_results(data: Dict[str, Any]):
+def process_experiment_results(data: Dict[str, Any]) -> list[Dict[str, Any]]:
     d = process_data_dict(data)
-    results: List[Dict[str, Any]] = []
-    for q in d.query_results:
-        for i, m in enumerate(q.metrics):
-            if m in d.metrics:
-                rows = filter_query_rows(q.rows, i)
+    results: List[Dict] = []
+    for query_result in d.query_results:
+        for i, metric in enumerate(query_result.metrics):
+            if metric in d.metrics:
+                rows = filter_query_rows(query_result.rows, i)
                 if len(rows):
                     results.append(
-                        process_single_metric(
-                            rows=rows,
-                            metric=d.metrics[m],
-                            analyses=d.analyses,
+                        asdict(
+                            process_single_metric(
+                                rows=rows,
+                                metric=d.metrics[metric],
+                                analyses=d.analyses,
+                            )
                         )
                     )
     return results

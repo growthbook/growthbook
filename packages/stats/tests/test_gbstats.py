@@ -727,8 +727,8 @@ class TestFormatResults(TestCase):
             )
         )
         for res in result:
-            for i, v in enumerate(res["variations"]):
-                self.assertEqual(v["denominator"], 510 if i == 0 else 500)
+            for i, v in enumerate(res.variations):
+                self.assertEqual(v.denominator, 510 if i == 0 else 500)
 
 
 if __name__ == "__main__":

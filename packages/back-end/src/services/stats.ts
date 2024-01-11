@@ -40,7 +40,7 @@ import {
 import { QueryMap } from "../queryRunners/QueryRunner";
 import { MAX_ROWS_UNIT_AGGREGATE_QUERY } from "../integrations/SqlIntegration";
 
-// These same type definitions exist in gbstats.py
+// Keep these interfaces in sync with gbstats
 export interface AnalysisSettingsForStatsEngine {
   var_names: string[];
   var_ids: string[];
