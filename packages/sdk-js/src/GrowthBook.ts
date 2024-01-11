@@ -1121,7 +1121,7 @@ export class GrowthBook<
       if (changed) {
         // update local docs
         this._ctx.stickyBucketAssignmentDocs =
-          this._ctx.stickyBucketAssignmentDocs ?? {};
+          this._ctx.stickyBucketAssignmentDocs || {};
         this._ctx.stickyBucketAssignmentDocs[attrKey] = doc;
         // save doc
         this._ctx.stickyBucketService.saveAssignments(doc);
@@ -1305,12 +1305,9 @@ export class GrowthBook<
 
   private _deriveStickyBucketIdentifierAttributes(data?: FeatureApiResponse) {
     const attributes = new Set<string>();
-    const features = data
-      ? data.features ?? this.getFeatures()
-      : this.getFeatures();
-    const experiments = data
-      ? data.experiments ?? this.getExperiments()
-      : this.getExperiments();
+    const features = data && data.features ? data.features : this.getFeatures();
+    const experiments =
+      data && data.experiments ? data.experiments : this.getExperiments();
     Object.keys(features).forEach((id) => {
       const feature = features[id];
       if (feature.rules) {
@@ -1334,9 +1331,9 @@ export class GrowthBook<
   }
 
   public async refreshStickyBuckets(data?: FeatureApiResponse) {
-    if (this.context.stickyBucketService) {
+    if (this._ctx.stickyBucketService) {
       const attributes = this._getStickyBucketAttributes(data);
-      this.context.stickyBucketAssignmentDocs = await this.context.stickyBucketService.getAllAssignments(
+      this._ctx.stickyBucketAssignmentDocs = await this._ctx.stickyBucketService.getAllAssignments(
         attributes
       );
     }
@@ -1344,11 +1341,9 @@ export class GrowthBook<
 
   private _getStickyBucketAssignments(): StickyAssignments {
     const mergedAssignments: StickyAssignments = {};
-    Object.values(this.context.stickyBucketAssignmentDocs ?? {}).forEach(
-      (doc) => {
-        if (doc.assignments) Object.assign(mergedAssignments, doc.assignments);
-      }
-    );
+    Object.values(this._ctx.stickyBucketAssignmentDocs || {}).forEach((doc) => {
+      if (doc.assignments) Object.assign(mergedAssignments, doc.assignments);
+    });
     return mergedAssignments;
   }
 
@@ -1361,9 +1356,9 @@ export class GrowthBook<
     variation: number;
     versionIsBlocked?: boolean;
   } {
-    experimentBucketVersion = experimentBucketVersion ?? 0;
-    minExperimentBucketVersion = minExperimentBucketVersion ?? 0;
-    meta = meta ?? [];
+    experimentBucketVersion = experimentBucketVersion || 0;
+    minExperimentBucketVersion = minExperimentBucketVersion || 0;
+    meta = meta || [];
     const id = this._getStickyBucketExperimentKey(
       experimentKey,
       experimentBucketVersion
@@ -1398,7 +1393,7 @@ export class GrowthBook<
     experimentKey: string,
     experimentBucketVersion?: number
   ): StickyExperimentKey {
-    experimentBucketVersion = experimentBucketVersion ?? 0;
+    experimentBucketVersion = experimentBucketVersion || 0;
     return `${experimentKey}__${experimentBucketVersion}`;
   }
 
@@ -1406,11 +1401,11 @@ export class GrowthBook<
     data?: FeatureApiResponse
   ): Record<string, string> {
     const attributes: Record<string, string> = {};
-    this.context.stickyBucketIdentifierAttributes = !this.context
+    this._ctx.stickyBucketIdentifierAttributes = !this._ctx
       .stickyBucketIdentifierAttributes
       ? this._deriveStickyBucketIdentifierAttributes(data)
-      : this.context.stickyBucketIdentifierAttributes ?? [];
-    this.context.stickyBucketIdentifierAttributes.forEach((attr) => {
+      : this._ctx.stickyBucketIdentifierAttributes;
+    this._ctx.stickyBucketIdentifierAttributes.forEach((attr) => {
       const { hashValue } = this._getHashAttribute(attr);
       attributes[attr] = toString(hashValue);
     });
@@ -1428,9 +1423,9 @@ export class GrowthBook<
   } {
     const key = `${attributeName}||${attributeValue}`;
     const existingAssignments =
-      this.context.stickyBucketAssignmentDocs &&
-      this.context.stickyBucketAssignmentDocs[key]
-        ? this.context.stickyBucketAssignmentDocs[key].assignments ?? {}
+      this._ctx.stickyBucketAssignmentDocs &&
+      this._ctx.stickyBucketAssignmentDocs[key]
+        ? this._ctx.stickyBucketAssignmentDocs[key].assignments || {}
         : {};
     const newAssignments = { ...existingAssignments, ...assignments };
     const changed =

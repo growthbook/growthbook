@@ -81,20 +81,12 @@ export abstract class StickyBucketService {
 export class LocalStorageStickyBucketService extends StickyBucketService {
   private prefix: string;
   private localStorage: LocalStorageCompat | undefined;
-  constructor({
-    prefix = "gbStickyBuckets__",
-    localStorage,
-  }: {
-    prefix?: string;
-    localStorage?: LocalStorageCompat;
-  } = {}) {
+  constructor(opts?: { prefix?: string; localStorage?: LocalStorageCompat }) {
+    opts = opts || {};
     super();
-    this.prefix = prefix;
-    this.localStorage = localStorage;
+    this.prefix = opts.prefix || "gbStickyBuckets__";
     try {
-      if (!this.localStorage && globalThis.localStorage) {
-        this.localStorage = globalThis.localStorage;
-      }
+      this.localStorage = opts.localStorage || globalThis.localStorage;
     } catch (e) {
       // Ignore localStorage errors
     }
