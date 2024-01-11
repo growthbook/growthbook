@@ -33,6 +33,7 @@ export default function FallbackAttributeSelector({ form }: Props) {
   const permissions = usePermissions();
   const settings = useOrgSettings();
   const orgStickyBucketing = settings.useStickyBucketing;
+  const orgFallbackAttribute = settings.useFallbackAttributes;
   const hasStickyBucketFeature = hasCommercialFeature("sticky-bucketing");
 
   const { data: sdkConnectionsData } = useSDKConnections();
@@ -64,6 +65,10 @@ export default function FallbackAttributeSelector({ form }: Props) {
     await refreshOrganization();
   };
 
+  if (!orgFallbackAttribute) {
+    return null;
+  }
+
   return (
     <SelectField
       containerClassName="flex-1"
@@ -93,6 +98,7 @@ export default function FallbackAttributeSelector({ form }: Props) {
             If the user&apos;s assignment attribute is not available the
             fallback attribute may be used instead.
           </div>
+          {/* todo: so long as `settings.useFallbackAttributes` gates this field, we should never see these embedded controls. Keeping them here for now in case we stop gating this field.*/}
           {(!orgStickyBucketing || showSBInformation) && (
             <div className="d-flex mt-1">
               <div className="text-warning-orange">

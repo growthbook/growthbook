@@ -183,6 +183,7 @@ export interface OrganizationSettings {
   killswitchConfirmation?: boolean;
   defaultDataSource?: string;
   useStickyBucketing?: boolean;
+  useFallbackAttributes?: boolean;
 }
 
 export interface SubscriptionQuote {
