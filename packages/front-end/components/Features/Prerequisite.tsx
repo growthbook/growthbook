@@ -1,40 +1,14 @@
-import {
-  FeatureInterface,
-  FeaturePrerequisite,
-  FeatureRule,
-} from "back-end/types/feature";
-import { useSortable } from "@dnd-kit/sortable";
-import { CSS } from "@dnd-kit/utilities";
-import React, { forwardRef } from "react";
-import {
-  FaArrowsAlt,
-  FaExclamationTriangle,
-  FaExternalLinkAlt,
-} from "react-icons/fa";
-import Link from "next/link";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { FeatureInterface, FeaturePrerequisite } from "back-end/types/feature";
+import { FaExternalLinkAlt } from "react-icons/fa";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
-import {
-  getPrerequisites,
-  getRules,
-  useEnvironments,
-} from "@/services/features";
+import { getPrerequisites } from "@/services/features";
 import usePermissions from "@/hooks/usePermissions";
-import { getUpcomingScheduleRule } from "@/services/scheduleRules";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import ValidateValue from "@/components/Features/ValidateValue";
 import Button from "../Button";
 import DeleteButton from "../DeleteButton/DeleteButton";
 import MoreMenu from "../Dropdown/MoreMenu";
 import ConditionDisplay from "./ConditionDisplay";
-import ForceSummary from "./ForceSummary";
-import RolloutSummary from "./RolloutSummary";
-import ExperimentSummary from "./ExperimentSummary";
-import RuleStatusPill from "./RuleStatusPill";
-import ExperimentRefSummary, {
-  isExperimentRefRuleSkipped,
-} from "./ExperimentRefSummary";
 
 interface Props {
   i: number;
@@ -106,6 +80,7 @@ export default function Prerequisite({
                 <a
                   href={`/features/${parentFeature.id}`}
                   target="_blank"
+                  rel="noreferrer"
                 >
                   {parentFeature.id}
                   <FaExternalLinkAlt className="ml-1" />

@@ -99,7 +99,9 @@ export function getFeatureDefaultValue(feature: FeatureInterface) {
 export function getPrerequisites(feature: FeatureInterface) {
   return feature.prerequisites ?? [];
 }
-export function getDefaultPrerequisiteParentCondition(parentFeature?: FeatureInterface) {
+export function getDefaultPrerequisiteParentCondition(
+  parentFeature?: FeatureInterface
+) {
   const valueType = parentFeature?.valueType || "string";
   if (valueType === "boolean") {
     return `{"@parent": {"$true": true}}`;

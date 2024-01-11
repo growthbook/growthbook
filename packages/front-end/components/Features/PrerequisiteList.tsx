@@ -1,8 +1,5 @@
-import { useState } from "react";
 import { FeatureInterface } from "back-end/types/feature";
-import { useAuth } from "@/services/auth";
 import { getPrerequisites } from "@/services/features";
-import usePermissions from "@/hooks/usePermissions";
 import Prerequisite from "@/components/Features/Prerequisite";
 
 export default function PrerequisiteList({
@@ -22,10 +19,7 @@ export default function PrerequisiteList({
   setVersion: (version: number) => void;
   locked: boolean;
 }) {
-  const { apiCall } = useAuth();
-  const [activeId, setActiveId] = useState<string | null>(null);
-  const [items, setItems] = useState(getPrerequisites(feature));
-  const permissions = usePermissions();
+  const items = getPrerequisites(feature);
 
   if (!items.length) {
     return (
@@ -34,11 +28,6 @@ export default function PrerequisiteList({
       </div>
     );
   }
-
-  const canEdit =
-    !locked &&
-    permissions.check("manageFeatures", feature.project) &&
-    permissions.check("createFeatureDrafts", feature.project);
 
   return (
     <>

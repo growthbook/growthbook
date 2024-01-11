@@ -87,6 +87,7 @@ export const DEFAULT_PERMISSIONS: Record<GlobalPermission, boolean> = {
   organizationSettings: false,
   superDelete: false,
   viewEvents: false,
+  readData: false,
 };
 
 export interface UserContextValue {
@@ -364,9 +365,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
           if (!u && fallback) return id;
           return u?.name || u?.email || "";
         },
-        refreshOrganization: async () => {
-          await refreshOrganization();
-        },
+        refreshOrganization: refreshOrganization as () => Promise<void>,
         roles: currentOrg?.roles || [],
         permissions: {
           ...permissionsObj,

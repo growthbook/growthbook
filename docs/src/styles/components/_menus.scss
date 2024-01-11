@@ -83,13 +83,18 @@ html[data-theme="dark"] {
         }
       }
 
-      &.pill-new {
-        .menu__link {
-          &::after {
-            content: "new";
-            @include pill(#13a100, #fff);
-          }
+      &.pill-new > .menu__link,
+      &.pill-new > div > .menu__link {
+        &::after {
+          content: "new";
+          @include pill(#13a100, #fff);
         }
+      }
+
+      &.top-divider {
+        border-top: 1px solid #cccccc80;
+        margin-top: 5px;
+        padding-top: 5px;
       }
     }
   }

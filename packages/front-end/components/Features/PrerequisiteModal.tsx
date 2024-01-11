@@ -1,57 +1,25 @@
 import { useForm } from "react-hook-form";
+import { FeatureInterface, FeaturePrerequisite } from "back-end/types/feature";
+import React, { useEffect, useMemo } from "react";
+import { isFeatureCyclic } from "shared/util";
+import { FaExclamationTriangle, FaExternalLinkAlt } from "react-icons/fa";
+import clsx from "clsx";
+import cloneDeep from "lodash/cloneDeep";
 import {
-  ExperimentValue,
-  FeatureInterface,
-  FeaturePrerequisite,
-  FeatureRule,
-  ScheduleRule,
-} from "back-end/types/feature";
-import React, {useEffect, useMemo, useState} from "react";
-import { date } from "shared/dates";
-import uniqId from "uniqid";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import {getMatchingRules, includeExperimentInPayload, isFeatureCyclic} from "shared/util";
-import {FaBell, FaExclamationTriangle, FaExternalLinkAlt} from "react-icons/fa";
-import Link from "next/link";
-import {
-  NewExperimentRefRule,
-  generateVariationId,
-  getDefaultRuleValue,
-  getDefaultVariationValue,
   getFeatureDefaultValue,
-  getRules,
-  useAttributeSchema,
   useEnvironments,
   useFeaturesList,
-  validateFeatureRule,
-  getPrerequisites, getDefaultPrerequisiteParentCondition,
+  getPrerequisites,
+  getDefaultPrerequisiteParentCondition,
 } from "@/services/features";
 import track from "@/services/track";
-import useOrgSettings from "@/hooks/useOrgSettings";
-import { useExperiments } from "@/hooks/useExperiments";
-import { useDefinitions } from "@/services/DefinitionsContext";
 import useIncrementer from "@/hooks/useIncrementer";
+import ValueDisplay from "@/components/Features/ValueDisplay";
 import Field from "../Forms/Field";
 import Modal from "../Modal";
 import { useAuth } from "../../services/auth";
 import SelectField from "../Forms/SelectField";
-import UpgradeModal from "../Settings/UpgradeModal";
-import StatusIndicator from "../Experiment/StatusIndicator";
-import Toggle from "../Forms/Toggle";
-import { getNewExperimentDatasourceDefaults } from "../Experiment/NewExperimentForm";
-import TargetingInfo from "../Experiment/TabbedPage/TargetingInfo";
-import EditTargetingModal from "../Experiment/EditTargetingModal";
-import RolloutPercentInput from "./RolloutPercentInput";
 import ConditionInput from "./ConditionInput";
-import FeatureValueField from "./FeatureValueField";
-import NamespaceSelector from "./NamespaceSelector";
-import ScheduleInputs from "./ScheduleInputs";
-import FeatureVariationsInput from "./FeatureVariationsInput";
-import SavedGroupTargetingField from "./SavedGroupTargetingField";
-import ForceSummary from "@/components/Features/ForceSummary";
-import clsx from "clsx";
-import ValueDisplay from "@/components/Features/ValueDisplay";
-import cloneDeep from "lodash/cloneDeep";
 
 export interface Props {
   close: () => void;
@@ -101,20 +69,25 @@ export default function PrerequisiteModal({
     .map((f) => ({ label: f.id, value: f.id }));
 
   const parentFeature = features.find((f) => f.id === form.watch("parentId"));
+  const parentFeatureId = parentFeature?.id;
 
   const isCyclic = useMemo(() => {
-    if (!parentFeature) return false;
+    if (!parentFeatureId) return false;
     const newFeature = cloneDeep(feature);
     newFeature.prerequisites = [...prerequisites];
     newFeature.prerequisites[i] = form.getValues();
     return isFeatureCyclic(newFeature, features);
-  }, [parentFeature?.id, features, i]);
+  }, [parentFeatureId, features, feature, prerequisites, form, i]);
 
-  const canSubmit = !isCyclic && !!parentFeature && !!form.watch("parentId") && !!form.watch("parentCondition");
+  const canSubmit =
+    !isCyclic &&
+    !!parentFeature &&
+    !!form.watch("parentId") &&
+    !!form.watch("parentCondition");
 
   useEffect(() => {
     if (parentFeature) forceConditionRender();
-  }, [parentFeature]);
+  }, [parentFeature, forceConditionRender]);
 
   return (
     <Modal
@@ -186,17 +159,18 @@ export default function PrerequisiteModal({
                 <a
                   href={`/features/${form.watch("parentId")}`}
                   target="_blank"
+                  rel="noreferrer"
                 >
                   {form.watch("parentId")}
                   <FaExternalLinkAlt className="ml-1" />
                 </a>
               </td>
-              <td>
-                {parentFeature.valueType}
-              </td>
+              <td>{parentFeature.valueType}</td>
               <td>
                 <div
-                  className={clsx({small: parentFeature.valueType === "json"})}
+                  className={clsx({
+                    small: parentFeature.valueType === "json",
+                  })}
                 >
                   <ValueDisplay
                     value={getFeatureDefaultValue(parentFeature)}
@@ -210,11 +184,18 @@ export default function PrerequisiteModal({
                   {environments.map((env) => (
                     <div key={env.id} className="mr-3">
                       <div className="font-weight-bold">{env.id}</div>
-                      <div>{parentFeature?.environmentSettings?.[env.id]?.enabled ? (
-                        <span className="text-success font-weight-bold uppercase-title">ON</span>
-                      ) : (
-                        <span className="text-danger font-weight-bold uppercase-title">OFF</span>
-                      )}</div>
+                      <div>
+                        {parentFeature?.environmentSettings?.[env.id]
+                          ?.enabled ? (
+                          <span className="text-success font-weight-bold uppercase-title">
+                            ON
+                          </span>
+                        ) : (
+                          <span className="text-danger font-weight-bold uppercase-title">
+                            OFF
+                          </span>
+                        )}
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -226,8 +207,9 @@ export default function PrerequisiteModal({
 
       {isCyclic && (
         <div className="alert alert-danger">
-          <FaExclamationTriangle />{" "}
-          This prerequisite (<code>{form.watch("parentId")}</code>) creates a circular dependency. Either remove this prerequisite or change the parent feature(s).
+          <FaExclamationTriangle /> This prerequisite (
+          <code>{form.watch("parentId")}</code>) creates a circular dependency.
+          Either remove this prerequisite or change the parent feature(s).
         </div>
       )}
 

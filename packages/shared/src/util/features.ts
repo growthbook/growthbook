@@ -424,7 +424,7 @@ export type ValidateConditionReturn = {
   suggestedValue?: string;
   error?: string;
 };
-export function validateCondition(condition?: string) {
+export function validateCondition(condition?: string): ValidateConditionReturn {
   if (!condition || condition === "{}") {
     return { success: true, empty: true };
   }
@@ -456,12 +456,12 @@ export function validateAndFixCondition(
   condition: string | undefined,
   applySuggestion: (suggestion: string) => void,
   throwOnSuggestion: boolean = true
-) {
+): ValidateConditionReturn {
   const res = validateCondition(condition);
-  if (res.success) return;
+  if (res.success) return res;
   if (res.suggestedValue) {
     applySuggestion(res.suggestedValue);
-    if (!throwOnSuggestion) return;
+    if (!throwOnSuggestion) return res;
     throw new Error(
       "We fixed some syntax errors in your targeting condition JSON. Please verify the changes and save again."
     );
@@ -484,7 +484,9 @@ export function isFeatureCyclic(
     visited.add(feature.id);
 
     for (const prerequisite of feature.prerequisites || []) {
-      const parentFeature = features.find((f) => f.id === prerequisite.parentId);
+      const parentFeature = features.find(
+        (f) => f.id === prerequisite.parentId
+      );
       if (parentFeature && visit(parentFeature)) return true;
     }
 
