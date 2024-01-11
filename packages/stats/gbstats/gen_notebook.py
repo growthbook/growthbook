@@ -83,7 +83,6 @@ def create_notebook(data: DataForStatsEngine, params: NotebookParams):
             "    AnalysisSettingsForStatsEngine,\n"
             "    MetricSettingsForStatsEngine,\n"
             ")\n"
-            "from gbstats.shared.constants import *\n\n"
             "import pandas as pd\n\n"
             "# Mapping of variation id to index\n"
             f"var_id_map = {str(var_id_map)}\n\n"
