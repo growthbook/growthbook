@@ -2,18 +2,17 @@ import { createHmac } from "crypto";
 import Agenda, { Job } from "agenda";
 import md5 from "md5";
 import { getFeatureDefinitions } from "../services/features";
-import { CRON_ENABLED } from "../util/secrets";
+import { CRON_ENABLED, WEBHOOKS } from "../util/secrets";
 import { SDKPayloadKey } from "../../types/sdk-payload";
 import {
-  findSDKConnectionsByKeys,
+  findSDKConnectionsByIds,
   findSDKConnectionsByOrganization,
-  setProxyError,
 } from "../models/SdkConnectionModel";
 import { SDKConnectionInterface } from "../../types/sdk-connection";
-import { cancellableFetch } from "../util/http.util";
 import { logger } from "../util/logger";
 import { findWebhookById, findWebhooksBySDks } from "../models/WebhookModel";
 import { WebhookInterface, WebhookMethod } from "../../types/webhook";
+import { createSdkWebhookLog } from "../models/SdkWebhookLogModel";
 
 const SDK_WEBHOOKS_JOB_NAME = "fireWebhooks";
 type SDKWebhookJob = Job<{
@@ -35,57 +34,7 @@ export default function addWebhooksJob(ag: Agenda) {
       });
       return;
     }
-
-    const webhook = await findWebhookById(webhookId);
-    if (!webhook) {
-      logger.error("SDK webhook: No webhook found for id", {
-        webhookId,
-      });
-      return;
-    }
-    const connections = await findSDKConnectionsByKeys(webhook?.sdks);
-    for (const connection of connections) {
-      if (!connection) {
-        logger.error("SDK webhook: Could not find sdk connection", {
-          webhookId,
-        });
-        return;
-      }
-
-      // TODO This probably needs to renamed
-      const defs = await getFeatureDefinitions({
-        organization: connection.organization,
-        environment: connection.environment,
-        projects: connection.projects,
-        encryptionKey: connection.encryptPayload
-          ? connection.encryptionKey
-          : undefined,
-
-        includeVisualExperiments: connection.includeVisualExperiments,
-        includeDraftExperiments: connection.includeDraftExperiments,
-        includeExperimentNames: connection.includeExperimentNames,
-        hashSecureAttributes: connection.hashSecureAttributes,
-      });
-
-      const payload = JSON.stringify(defs);
-
-      const res = await fireWebhook({
-        url: webhook.endpoint,
-        signingKey: webhook.signingKey,
-        key: connection.key,
-        payload,
-        headers: webhook.headers || "",
-        method: webhook.method || "POST",
-      });
-
-      if (!res.ok) {
-        const e = "POST returned an invalid status code: " + res.status;
-        await setProxyError(connection, e);
-        throw new Error(e);
-      }
-
-      await setProxyError(connection, "");
-    }
+    await queueSingleWebhookById(webhookId);
   });
   agenda.on(
     "fail:" + SDK_WEBHOOKS_JOB_NAME,
@@ -121,7 +70,7 @@ async function singleWebhooksJob(webhook: WebhookInterface) {
   job.schedule(new Date());
   await job.save();
 }
-export async function queseSingleWebhookJob(sdk: SDKConnectionInterface) {
+export async function queueSingleWebhookJob(sdk: SDKConnectionInterface) {
   const webhooks = await findWebhooksBySDks([sdk.key]);
   for (const webhook of webhooks) {
     return webhook ? singleWebhooksJob(webhook) : null;
@@ -160,20 +109,26 @@ export async function queueWebhookUpdate(
   }
 }
 
-async function fireWebhook({
+export async function fireWebhook({
+  webhookId,
+  organizationId,
   url,
   signingKey,
   key,
   payload,
   method,
   headers,
+  sendPayload,
 }: {
+  webhookId: string;
+  organizationId: string;
   url: string;
   signingKey: string;
   key: string;
   payload: string;
   method: WebhookMethod;
   headers: string;
+  sendPayload: boolean;
 }) {
   const date = new Date();
   const signature = createHmac("sha256", signingKey)
@@ -181,32 +136,167 @@ async function fireWebhook({
     .digest("hex");
   const secret = `whsec_${signature}`;
   const webhookID = `msg_${md5(key + date.getTime()).substr(0, 16)}`;
+  const data = sendPayload ? { payload } : {};
   const body = {
     type: "payload.changed",
     timestamp: date.toISOString(),
-    data: {
-      payload,
-    },
+    data,
   };
-  const { responseWithoutBody: res } = await cancellableFetch(
-    url,
-    {
-      headers: {
-        "Content-Type": "application/json",
-        "webhook-id": webhookID,
-        "webhook-timestamp": date.getTime(),
-        "webhook-secret": secret,
-        "webhook-sdk-key": key,
-        ...JSON.parse(headers),
-      },
-      method,
-      body: JSON.stringify(body),
+  const res = await fetch(url, {
+    headers: {
+      "Content-Type": "application/json",
+      "webhook-id": webhookID,
+      "webhook-timestamp": date.getTime(),
+      "webhook-secret": secret,
+      "webhook-sdk-key": key,
+      ...JSON.parse(headers),
     },
-    {
-      maxContentSize: 500,
-      maxTimeMs: 5000,
-    }
-  );
-
+    method,
+    body: JSON.stringify(body),
+  }).catch((e) => {
+    createSdkWebhookLog({
+      webhookId,
+      webhookReduestId: webhookID,
+      organizationId,
+      payload: JSON.parse(payload),
+      result: {
+        state: "error",
+        responseBody: e.responseBody,
+        responseCode: e.statusCode,
+      },
+    });
+    return e;
+  });
+  createSdkWebhookLog({
+    webhookId,
+    webhookReduestId: webhookID,
+    organizationId,
+    payload: JSON.parse(payload),
+    result: {
+      state: "success",
+      responseBody: res.responseBody,
+      responseCode: res.statusCode,
+    },
+  });
   return res;
+}
+export async function queueSingleWebhookById(webhookId: string) {
+  const webhook = await findWebhookById(webhookId);
+  if (!webhook) {
+    logger.error("SDK webhook: No webhook found for id", {
+      webhookId,
+    });
+    return;
+  }
+
+  const connections = await findSDKConnectionsByIds(webhook?.sdks);
+  for (const connection of connections) {
+    if (!connection) {
+      logger.error("SDK webhook: Could not find sdk connection", {
+        webhookId,
+      });
+      return;
+    }
+
+    // TODO This probably needs to renamed
+    const defs = await getFeatureDefinitions({
+      organization: connection.organization,
+      environment: connection.environment,
+      projects: connection.projects,
+      encryptionKey: connection.encryptPayload
+        ? connection.encryptionKey
+        : undefined,
+
+      includeVisualExperiments: connection.includeVisualExperiments,
+      includeDraftExperiments: connection.includeDraftExperiments,
+      includeExperimentNames: connection.includeExperimentNames,
+      hashSecureAttributes: connection.hashSecureAttributes,
+    });
+
+    const payload = JSON.stringify(defs);
+    const res = await fireWebhook({
+      organizationId: connection.organization,
+      webhookId: webhook.id,
+      url: webhook.endpoint,
+      signingKey: webhook.signingKey,
+      key: connection.key,
+      payload,
+      headers: webhook.headers || "",
+      method: webhook.httpMethod || "POST",
+      sendPayload: webhook.sendPayload,
+    });
+
+    if (!res.ok) {
+      const e = "returned an invalid status code: " + res.status;
+      webhook.set("error", e);
+      await webhook.save();
+      throw new Error(e);
+    }
+
+    webhook.set("error", "");
+    webhook.set("lastSuccess", new Date());
+    await webhook.save();
+  }
+}
+
+export async function queueGlobalWebhooks(
+  organizationId: string,
+  payloadKeys: SDKPayloadKey[]
+) {
+  for (const webhook of WEBHOOKS) {
+    const {
+      url,
+      signingKey,
+      key,
+      method,
+      headers,
+      sendPayload,
+      webhookId,
+    } = webhook;
+    if (!payloadKeys.length) return;
+
+    const connections = await findSDKConnectionsByOrganization(organizationId);
+
+    if (!connections) return;
+    for (let i = 0; i < connections.length; i++) {
+      const connection = connections[i];
+
+      // Skip if this SDK Connection isn't affected by the changes
+      if (
+        payloadKeys.some(
+          (key: { environment: string; project: string }) =>
+            key.environment === connection.environment &&
+            (!connection.projects.length ||
+              connection.projects.includes(key.project))
+        )
+      ) {
+        const defs = await getFeatureDefinitions({
+          organization: connection.organization,
+          environment: connection.environment,
+          projects: connection.projects,
+          encryptionKey: connection.encryptPayload
+            ? connection.encryptionKey
+            : undefined,
+
+          includeVisualExperiments: connection.includeVisualExperiments,
+          includeDraftExperiments: connection.includeDraftExperiments,
+          includeExperimentNames: connection.includeExperimentNames,
+          hashSecureAttributes: connection.hashSecureAttributes,
+        });
+
+        const payload = JSON.stringify(defs);
+        fireWebhook({
+          webhookId,
+          organizationId,
+          url,
+          signingKey,
+          key,
+          payload,
+          method,
+          sendPayload,
+          headers: JSON.stringify(headers),
+        });
+      }
+    }
+  }
 }

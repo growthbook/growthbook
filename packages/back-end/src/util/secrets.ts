@@ -187,6 +187,9 @@ export const PROXY_ENABLED = stringToBoolean(process.env.PROXY_ENABLED);
 export const PROXY_HOST_INTERNAL = process.env.PROXY_HOST_INTERNAL || "";
 export const PROXY_HOST_PUBLIC = process.env.PROXY_HOST_PUBLIC || "";
 
+// global webhooks
+const webhooks = process.env.WEBHOOKS;
+export const WEBHOOKS = webhooks ? JSON.parse(webhooks) : [];
 /**
  * Allows custom configuration of the trust proxy settings as
  * described in the docs: https://expressjs.com/en/5x/api.html#trust.proxy.options.table

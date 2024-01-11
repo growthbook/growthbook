@@ -14,7 +14,7 @@ export interface WebhookInterface {
   sendPayload: boolean;
   sdks: string[];
   headers?: string;
-  method?: WebhookMethod;
+  httpMethod?: WebhookMethod;
 }
 
 export type WebhookMethod = "GET" | "PUT" | "POST" | "DELETE" | "PURGE";

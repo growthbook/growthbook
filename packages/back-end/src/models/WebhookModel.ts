@@ -26,6 +26,7 @@ const webhookSchema = new mongoose.Schema({
   },
   sendPayload: Boolean,
   headers: String,
+  httpMethod: String,
 });
 
 export type WebhookDocument = mongoose.Document & WebhookInterface;
@@ -46,9 +47,7 @@ export async function findWebhooksBySDks(
   ).map((e) => e.toJSON());
 }
 
-export async function findWebhookById(
-  id: string
-): Promise<WebhookInterface | null> {
+export async function findWebhookById(id: string) {
   return await WebhookModel.findOne({
     id,
   });

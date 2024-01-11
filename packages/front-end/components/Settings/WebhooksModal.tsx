@@ -32,6 +32,7 @@ const WebhooksModal: FC<{
   ];
   const { projects, project } = useDefinitions();
   const environments = useEnvironments();
+  console.log(current);
   const form = useForm({
     defaultValues: {
       name: current.name || "My Webhook",
@@ -41,7 +42,7 @@ const WebhooksModal: FC<{
         current.environment === undefined ? "production" : current.environment,
       useSDKMode: current?.useSDKMode || showSDKMode,
       sendPayload: current?.sendPayload,
-      method: current?.method || "POST",
+      httpMethod: current?.httpMethod || "POST",
       headers: current?.headers || "{}",
       sdkid,
     },
@@ -104,8 +105,10 @@ const WebhooksModal: FC<{
         label="Method"
         required
         placeholder="POST"
-        value={form.watch("method")}
-        onChange={(method: WebhookMethod) => form.setValue("method", method)}
+        value={form.watch("httpMethod")}
+        onChange={(httpMethod: WebhookMethod) =>
+          form.setValue("httpMethod", httpMethod)
+        }
         options={methodTypes.map((e) => ({ label: e, value: e }))}
       />
       {headerJsonEditor()}
@@ -161,6 +164,9 @@ const WebhooksModal: FC<{
   );
   const filterFields = showSDKMode ? SDKFilterFields() : nonSDKFilterFields();
 
+  const updateCtaCopy = showSDKMode ? "Update and Send" : "Update";
+  const createCtaCopy = showSDKMode ? "Create and Send" : "Create";
+
   return (
     <Modal
       close={close}
@@ -168,7 +174,7 @@ const WebhooksModal: FC<{
       open={true}
       submit={onSubmit}
       ctaEnabled={validHeaders}
-      cta={current.id ? "Update" : "Create"}
+      cta={current.id ? updateCtaCopy : createCtaCopy}
     >
       <Field label="Display Name" required {...form.register("name")} />
       <Field

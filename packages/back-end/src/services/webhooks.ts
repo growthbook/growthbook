@@ -12,7 +12,7 @@ type CreateWebhook = {
   useSDKMode?: boolean;
   sdks?: string[];
   sendPayload?: boolean;
-  method?: WebhookMethod;
+  httpMethod?: WebhookMethod;
   headers?: string;
 };
 type CreateWebhookSDK = {
@@ -21,7 +21,7 @@ type CreateWebhookSDK = {
   endpoint: string;
   sdkid: string;
   sendPayload: boolean;
-  method: WebhookMethod;
+  httpMethod: WebhookMethod;
   headers: string;
 };
 export async function createWebhookSDK({
@@ -31,7 +31,7 @@ export async function createWebhookSDK({
   sdkid,
   sendPayload,
   headers,
-  method,
+  httpMethod,
 }: CreateWebhookSDK): Promise<string> {
   const sdks = [sdkid];
   return createWebhook({
@@ -42,7 +42,7 @@ export async function createWebhookSDK({
     sdks,
     sendPayload,
     headers,
-    method,
+    httpMethod,
   });
 }
 
@@ -56,11 +56,10 @@ export async function createWebhook({
   sdks,
   sendPayload,
   headers,
-  method,
+  httpMethod,
 }: CreateWebhook): Promise<string> {
   const id = uniqid("wh_");
   const signingKey = "wk_" + md5(uniqid()).substr(0, 16);
-
   const doc: WebhookInterface = {
     id,
     name,
@@ -75,9 +74,9 @@ export async function createWebhook({
     lastSuccess: null,
     useSDKMode: useSDKMode || false,
     sdks: sdks || [],
-    sendPayload: sendPayload || true,
+    sendPayload: sendPayload || false,
     headers: JSON.stringify(headers) || "",
-    method: method || "POST",
+    httpMethod: httpMethod || "POST",
   };
   await WebhookModel.create(doc);
 

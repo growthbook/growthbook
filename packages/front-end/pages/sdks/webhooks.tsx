@@ -1,6 +1,12 @@
 import React, { useState } from "react";
 import { WebhookInterface } from "back-end/types/webhook";
-import { FaInfoCircle, FaPencilAlt, FaPlusCircle } from "react-icons/fa";
+import {
+  FaCheck,
+  FaInfoCircle,
+  FaPencilAlt,
+  FaPlusCircle,
+} from "react-icons/fa";
+import { ago } from "shared/dates";
 import useApi from "@/hooks/useApi";
 import WebhooksModal from "@/components/Settings/WebhooksModal";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
@@ -16,6 +22,8 @@ export default function SDKWebhooks({ sdkid }) {
   const { apiCall } = useAuth();
 
   const renderTableRows = () => {
+    console.log(data?.webhooks);
+
     // only rener table is there is data to show
     return data?.webhooks?.map((webhook) => (
       <tr key={webhook.name}>
@@ -23,6 +31,18 @@ export default function SDKWebhooks({ sdkid }) {
         <td>{webhook.endpoint}</td>
         <td>{webhook.sendPayload === true ? "yes" : "no"}</td>
         <td>{webhook.signingKey}</td>
+        <td>
+          {webhook.error ? (
+            <pre className="text-danger">Error</pre>
+          ) : webhook.lastSuccess ? (
+            <em>
+              <FaCheck className="text-success" /> last fired{" "}
+              {ago(webhook.lastSuccess)}
+            </em>
+          ) : (
+            <em>never fired</em>
+          )}
+        </td>
         <td>
           <a
             href="#"
@@ -89,6 +109,7 @@ export default function SDKWebhooks({ sdkid }) {
             <td>ENDPOINT</td>
             <td>SEND PAYLOAD</td>
             <td>SHARED SECRET</td>
+            <td>LAST SUCCESS</td>
             <td>EDIT</td>
           </tr>
         </thead>
@@ -113,7 +134,6 @@ export default function SDKWebhooks({ sdkid }) {
     </>
   );
   const isEmpty = data?.webhooks.length === 0;
-  console.log(isEmpty);
   return (
     <div className="gb-sdk-connections-webhooks mb-5">
       <h2>SDK Webhooks</h2>

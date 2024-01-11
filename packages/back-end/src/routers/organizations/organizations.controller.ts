@@ -114,6 +114,7 @@ import { getTeamsForOrganization } from "../../models/TeamModel";
 import { getAllFactTablesForOrganization } from "../../models/FactTableModel";
 import { getAllFactMetricsForOrganization } from "../../models/FactMetricModel";
 import { TeamInterface } from "../../../types/team";
+import { queueSingleWebhookById } from "../../jobs/sdkWebhooks";
 
 export async function getDefinitions(req: AuthRequest, res: Response) {
   const { org } = getOrgFromReq(req);
@@ -1484,25 +1485,25 @@ export async function postWebhookSDK(
     endpoint: string;
     sdkid: string;
     sendPayload: boolean;
-    headers?: Record<string, unknown>;
-    method: WebhookMethod;
+    headers?: string;
+    httpMethod: WebhookMethod;
   }>,
   res: Response
 ) {
   req.checkPermissions("manageWebhooks");
 
   const { org } = getOrgFromReq(req);
-  const { name, endpoint, sdkid, sendPayload, headers, method } = req.body;
+  const { name, endpoint, sdkid, sendPayload, headers, httpMethod } = req.body;
   const webhook = await createWebhookSDK({
     organization: org.id,
     name,
     endpoint,
     sdkid,
     sendPayload,
-    headers: JSON.stringify(headers),
-    method,
+    headers: headers || "",
+    httpMethod,
   });
-
+  queueSingleWebhookById(webhook);
   res.status(200).json({
     status: 200,
     webhook,
@@ -1537,7 +1538,7 @@ export async function putWebhook(
   webhook.set("endpoint", endpoint);
   webhook.set("project", project || "");
   webhook.set("environment", environment || "");
-
+  if (webhook.useSDKMode) queueSingleWebhookById(webhook.id);
   await webhook.save();
 
   res.status(200).json({

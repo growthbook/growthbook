@@ -117,10 +117,8 @@ export async function findAllSDKConnections() {
   return docs.map(toInterface);
 }
 
-export async function findSDKConnectionsByKeys(keys: string[]) {
-  const docs = await SDKConnectionModel.find({
-    key: { $in: keys },
-  });
+export async function findSDKConnectionsByIds(keys: string[]) {
+  const docs = await SDKConnectionModel.find({ id: { $in: keys } });
   return docs.map(toInterface);
 }
 

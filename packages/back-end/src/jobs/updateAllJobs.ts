@@ -9,7 +9,11 @@ import {
 } from "../util/cdn.util";
 import { IS_CLOUD } from "../util/secrets";
 import { queueProxyUpdate, queueSingleProxyUpdate } from "./proxyUpdate";
-import { queseSingleWebhookJob, queueWebhookUpdate } from "./sdkWebhooks";
+import {
+  queueGlobalWebhooks,
+  queueSingleWebhookJob,
+  queueWebhookUpdate,
+} from "./sdkWebhooks";
 import { queueWebhook } from "./webhooks";
 
 export const triggerWebhookJobs = async (
@@ -20,6 +24,7 @@ export const triggerWebhookJobs = async (
   isFeature = true
 ) => {
   queueWebhookUpdate(orgId, payloadKeys);
+  queueGlobalWebhooks(orgId, payloadKeys);
   if (isProxyEnabled) queueProxyUpdate(orgId, payloadKeys);
   queueWebhook(orgId, payloadKeys, isFeature);
   const surrogateKeys = getSurrogateKeysFromEnvironments(orgId, [
@@ -34,7 +39,7 @@ export const triggerSingleSDKWebhookJobs = async (
   newProxy: ProxyConnection,
   isUsingProxy: boolean
 ) => {
-  queseSingleWebhookJob(connection);
+  queueSingleWebhookJob(connection);
   if (isUsingProxy) {
     if (IS_CLOUD) {
       const newConnection = {
