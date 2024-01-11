@@ -308,6 +308,37 @@ export default function MyApp() {
 }
 ```
 
+### Sticky Bucketing
+
+Sticky bucketing ensures that users see the same experiment variant, even when user session, user login status, or experiment parameters change. See the [Sticky Bucketing docs](/app/sticky-bucketing) for more information. If your organization and experiment supports sticky bucketing, you must implement an instance of the `StickyBucketService` to use Sticky Bucketing. The JS SDK exports several implementations of this service for common use cases, or you may build your own:
+
+- `LocalStorageStickyBucketService` —
+  For simple bucket persistence using the browser's LocalStorage (can be polyfilled for other environments).
+
+- `BrowserCookieStickyBucketService` — For simple bucket persistence using browser cookies, which are transportable to the back end. Assumes `js-cookie` is implemented (can be polyfilled). Cookie attributes can also be configured.
+
+- `ExpressCookieStickyBucketService` — For NodeJS/Express controller-level bucket persistence using browser cookies; intended to be interoperable with `BrowserCookieStickyBucketService`. Assumes `cookie-parser` is implemented (can be polyfilled). Cookie attributes can also be configured.
+
+- `RedisStickyBucketService` — For NodeJS Redis-based bucket persistence. Requires an `ioredis` Redis client instance to be passed in.
+
+- Build your own — Implement the abstract `StickyBucketService` class and connect to your own data store, or custom wrap multiple service implementations (ex: read/write to both cookies and Redis).
+
+Implementing most StickyBucketService implementations is straightforward and works with minimal setup. For instance, to use the `BrowserCookieStickyBucketService`:
+
+```js
+import { BrowserCookieStickyBucketService } from "@growthbook/growthbook";
+import Cookies from 'js-cookie';
+
+const gb = new GrowthBook({
+  apiHost: "https://cdn.growthbook.io",
+  clientKey: "sdk-abc123",
+  stickyBucketService: new BrowserCookieStickyBucketService({
+    jsCookie: Cookies,
+  }),
+  // ...
+});
+```
+
 ## Server Side Rendering (SSR)
 
 This SDK fully supports server side rendering. The below examples use Next.js, but other frameworks should be similar.
