@@ -7,7 +7,7 @@ slug: build-your-own
 
 # Build Your Own SDK
 
-**Latest spec version: 0.5.2 [View Changelog](#changelog)**
+**Latest spec version: 0.5.3 [View Changelog](#changelog)**
 
 This guide is meant for library authors looking to build a GrowthBook SDK in a currently unsupported language.
 
@@ -782,10 +782,10 @@ There are a few ordered steps to evaluate a feature
 1. If the key doesn't exist in `context.features`
    1. Return `getFeatureResult(null, "unknownFeature")`
 2. Loop through the feature rules (if any)
-   1. If the rule has a `condition`
-      1. If `evalCondition(context.attributes, rule.condition)` is false, skip this rule and continue to the next one
-   2. If the rule has `filters` defined
+   1. If the rule has `filters` defined
       1. if `isFilteredOut(rule.filters)`, skip this rule and continue to the next one
+   2. If the rule has a `condition`
+      1. If `evalCondition(context.attributes, rule.condition)` is false, skip this rule and continue to the next one
    3. If `rule.force` is set
       1. If not `isIncludedInRollout`, skip this rule and continue to the next one
          ```ts
@@ -812,13 +812,19 @@ There are a few ordered steps to evaluate a feature
       - `coverage`
       - `weights`
       - `hashAttribute`
+      - `fallbackAttribute`
+      - `disableStickyBucketing`
+      - `bucketVersion`
+      - `minBucketVersion`
       - `namespace`
       - `meta`
       - `ranges`
       - `name`
       - `phase`
       - `seed`
+      - `hashVersion`
       - `filters`
+      - `condition`
    6. Run the experiment
       ```ts
       result = run(exp);
@@ -860,9 +866,18 @@ There are a bunch of ordered steps to run an experiment:
     hashAttribute = experiment.hashAttribute || "id";
     hashValue = context.attributes[hashAttribute] || "";
     if (hashValue == "") {
-      return getExperimentResult(experiment);
+      if (experiment.fallbackAttribute && context.attributes[experiment.fallbackAttribute]) {
+        // check if a fallbackAttribute exists (sticky bucketing)
+        hashAttribute = experiment.fallbackAttribute;
+        hashValue = context.attributes[hashAttribute];
+      } else {
+        // no hashAttribute or fallbackAttribute, return
+        return getExperimentResult(experiment);
+      }
     }
     ```
+    6.5 If sticky bucketing is permitted, check to see if a sticky bucket value exists.
+    If so, skip steps 7-8.
 7.  Apply filters and namespace
     1.  If `experiment.filters` is set
         ```js
@@ -876,26 +891,30 @@ There are a bunch of ordered steps to run an experiment:
          return getExperimentResult(experiment);
         }
         ```
-8.  If `experiment.condition` is set return if it evaluates to false
+8.  If `experiment.condition` is set, return if it evaluates to false
     ```ts
     if (!evalCondition(context.attributes, experiment.condition)) {
       return getExperimentResult(experiment);
     }
     ```
-9.  Calculate bucket ranges for the variations and choose one
-    ```ts
-    ranges = experiment.ranges || getBucketRanges(
-      experiment.variations.length,
-      experiment.converage ?? 1,
-      experiment.weights ?? []
-    );
-    n = hash(
-      experiment.seed || experiment.key,
-      hashValue,
-      experiment.hashVersion || 1
-    );
-    assigned = chooseVariation(n, ranges);
-    ```
+    8.1 Apply any url targeting based on experiment.urlPatterns, return if no match
+9.  Choose a variation
+    1.  If a sticky bucket value exists, use it.
+        1. If the found sticky bucket version is blocked (doesn't exceed `experiment.minBucketVersion`), then skip enrollment
+    2.  Else, calculate bucket ranges for the variations and choose one
+        ```ts
+        ranges = experiment.ranges || getBucketRanges(
+          experiment.variations.length,
+          experiment.converage ?? 1,
+          experiment.weights ?? []
+        );
+        n = hash(
+          experiment.seed || experiment.key,
+          hashValue,
+          experiment.hashVersion || 1
+        );
+        assigned = chooseVariation(n, ranges);
+        ```
 10. If assigned == `-1`, return `getExperimentResult(experiment)`
 11. If experiment has a forced variation, return
     ```ts
@@ -907,6 +926,8 @@ There are a bunch of ordered steps to run an experiment:
 13. Build the result object
     ```ts
     result = getExperimentResult(experiment, assigned, true, n);
+    ``
+    13.5 If sticky bucketing is permitted, store the sticky bucket value
     ```
 14. Fire `context.trackingCallback` if set and the combination of hashAttribute, hashValue, experiment.key, and variationId has not been tracked before
 15. Return `result`
@@ -1149,3 +1170,8 @@ Open a [GitHub issue](https://github.com/growthbook/growthbook/issues) with a li
   - Add 2 new test cases for matching on a `$groups` array attribute
 - **v0.5.2** 2023-10-30
   - Add 3 new test cases for comparison operators to handle more edge cases
+- **v0.5.3** 2024-01-02
+  - Experiment conditions are now evaluated within the experiment object
+  - New `fallbackAttribute`, `disableStickyBucketing`, `bucketVersion`, `minBucketVersion`, properties of FeatureRules
+  - New `fallbackAttribute`, `disableStickyBucketing`, `bucketVersion`, `minBucketVersion`, properties of Experiments
+  - Add `stickyBucketUsed` to ExperimentResult object

@@ -355,21 +355,11 @@ async function refreshInstance(
   instance: GrowthBook,
   data: FeatureApiResponse
 ): Promise<void> {
-  await (data.encryptedExperiments
-    ? instance.setEncryptedExperiments(
-        data.encryptedExperiments,
-        undefined,
-        polyfills.SubtleCrypto
-      )
-    : instance.setExperiments(data.experiments || instance.getExperiments()));
+  data = await instance.decryptPayload(data, undefined, polyfills.SubtleCrypto);
 
-  await (data.encryptedFeatures
-    ? instance.setEncryptedFeatures(
-        data.encryptedFeatures,
-        undefined,
-        polyfills.SubtleCrypto
-      )
-    : instance.setFeatures(data.features || instance.getFeatures()));
+  await instance.refreshStickyBuckets(data);
+  instance.setExperiments(data.experiments || instance.getExperiments());
+  instance.setFeatures(data.features || instance.getFeatures());
 }
 
 async function fetchFeatures(
