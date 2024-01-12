@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { ReactElement, useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import fetch from "node-fetch";
 import { FaExclamationTriangle, FaRegCheckCircle } from "react-icons/fa";
@@ -9,7 +9,10 @@ import LoadingSpinner from "../../LoadingSpinner";
 import { getNumberOfUniqueMembersAndInvites } from "../../../services/organizations";
 import { getGrowthBookBuild } from "../../../services/env";
 
-const LICENSE_KEY_API_URL = "https://license.growthbook.io/api";
+// This is the same as the LICENSE SERVER in enterprise package, but we can't import it here
+// as the enterprise package is compiled for node.
+export const LICENSE_SERVER =
+  "https://central_license_server.growthbook.io/api/v1/";
 
 export default function SelfHostedUpgradeForm({
   source,
@@ -21,12 +24,11 @@ export default function SelfHostedUpgradeForm({
   close: () => void;
 }) {
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<ReactElement | string | null>(null);
   const [submitState, setSubmitState] = useState<
     false | "send key success" | "resend success" | "resend failed"
   >(false);
   const [useResendForm, setUseResendForm] = useState(false);
-
   const { accountPlan, name, email, organization } = useUser();
 
   const seats = getNumberOfUniqueMembersAndInvites(organization);
@@ -55,6 +57,7 @@ export default function SelfHostedUpgradeForm({
       name,
       email,
       context: customerContext,
+      plan: "enterprise",
     },
   });
 
@@ -63,7 +66,7 @@ export default function SelfHostedUpgradeForm({
     setError(null);
     setLoading(true);
     try {
-      const resp = await fetch(`${LICENSE_KEY_API_URL}/trial`, {
+      const resp = await fetch(`${LICENSE_SERVER}license/trial`, {
         method: "POST",
         headers: {
           Accept: "application/json",
@@ -81,20 +84,17 @@ export default function SelfHostedUpgradeForm({
         switch (txt) {
           case "active license exists":
             setError(
-              // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type '"You already have an active lice... Remove this comment to see the full error message
               "You already have an active license key. Please check your email, or click below to resend the key to your email address. Contact us at sales@growthbook.io for more information."
             );
             setUseResendForm(true);
             break;
           case "expired license exists":
             setError(
-              // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type '"Your license key has already ex... Remove this comment to see the full error message
               "Your license key has already expired. Please contact us at sales@growthbook.io for more information."
             );
             break;
           default:
             setError(
-              // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'Element' is not assignable to pa... Remove this comment to see the full error message
               <>
                 <p className="mb-2">
                   There was a server error. Please try again later, or contact
@@ -226,7 +226,7 @@ export default function SelfHostedUpgradeForm({
               setLoading(true);
               try {
                 const resp = await fetch(
-                  `${LICENSE_KEY_API_URL}/resendKey?org=${organization?.id}`,
+                  `${LICENSE_SERVER}license/resendKey?org=${organization?.id}`,
                   {
                     method: "GET",
                   }
@@ -238,7 +238,6 @@ export default function SelfHostedUpgradeForm({
                 } else {
                   setLoading(false);
                   const txt = await resp.text();
-                  // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'string' is not assignable to par... Remove this comment to see the full error message
                   setError(txt);
                   setSubmitState("resend failed");
                 }

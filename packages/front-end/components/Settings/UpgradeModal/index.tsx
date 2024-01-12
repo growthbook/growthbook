@@ -16,14 +16,11 @@ export default function UpgradeModal({ close, source }: Props) {
   const { accountPlan, permissions } = useUser();
 
   useEffect(() => {
-    // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'string | undefined' is not assig... Remove this comment to see the full error message
     if (["pro", "pro_sso", "enterprise"].includes(accountPlan)) {
       close();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [accountPlan]);
+  }, [accountPlan, close]);
 
-  // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'string | undefined' is not assig... Remove this comment to see the full error message
   if (["pro", "pro_sso", "enterprise"].includes(accountPlan)) {
     return null;
   }
@@ -36,7 +33,6 @@ export default function UpgradeModal({ close, source }: Props) {
         </div>
       ) : isCloud() ? (
         <CloudUpgradeForm
-          // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'AccountPlan | undefined' is not assignable t... Remove this comment to see the full error message
           accountPlan={accountPlan}
           source={source}
           setCloseCta={(s) => setCloseCta(s)}
