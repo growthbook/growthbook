@@ -101,7 +101,7 @@ export async function deleteMetric(
   );
 
   // now remove the metric itself:
-  await deleteMetricById(id, org, res.locals.eventAudit);
+  await deleteMetricById(id, org, res.locals.eventAudit, req.readAccessFilter);
 
   await req.audit({
     event: "metric.delete",

@@ -301,7 +301,12 @@ export const deleteSegment = async (
     );
   }
 
-  await deleteExperimentSegment(org, res.locals.eventAudit, id);
+  await deleteExperimentSegment(
+    org,
+    res.locals.eventAudit,
+    id,
+    req.readAccessFilter
+  );
 
   res.status(200).json({
     status: 200,

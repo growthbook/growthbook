@@ -378,7 +378,12 @@ spacing and headings.`,
       });
     });
 
-    await createFeature(org, res.locals.eventAudit, featureToCreate);
+    await createFeature(
+      org,
+      res.locals.eventAudit,
+      featureToCreate,
+      req.readAccessFilter
+    );
 
     const analysisSettings: ExperimentSnapshotAnalysisSettings = {
       statsEngine: org.settings?.statsEngine || DEFAULT_STATS_ENGINE,

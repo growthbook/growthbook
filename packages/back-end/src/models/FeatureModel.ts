@@ -3,6 +3,7 @@ import cloneDeep from "lodash/cloneDeep";
 import omit from "lodash/omit";
 import isEqual from "lodash/isEqual";
 import { MergeResultChanges } from "shared/util";
+import { ReadAccessFilter } from "shared/permissions";
 import {
   FeatureEnvironment,
   FeatureInterface,
@@ -227,7 +228,8 @@ export async function getFeaturesByIds(
 export async function createFeature(
   org: OrganizationInterface,
   user: EventAuditUser,
-  data: FeatureInterface
+  data: FeatureInterface,
+  readAccessFilter: ReadAccessFilter
 ) {
   const linkedExperiments = getLinkedExperiments(
     data,
@@ -251,7 +253,13 @@ export async function createFeature(
   if (linkedExperiments.length > 0) {
     await Promise.all(
       linkedExperiments.map(async (exp) => {
-        await addLinkedFeatureToExperiment(org, user, exp, data.id);
+        await addLinkedFeatureToExperiment(
+          org,
+          user,
+          exp,
+          data.id,
+          readAccessFilter
+        );
       })
     );
   }
@@ -262,7 +270,8 @@ export async function createFeature(
 export async function deleteFeature(
   org: OrganizationInterface,
   user: EventAuditUser,
-  feature: FeatureInterface
+  feature: FeatureInterface,
+  readAccessFilter: ReadAccessFilter
 ) {
   await FeatureModel.deleteOne({ organization: org.id, id: feature.id });
   await deleteAllRevisionsForFeature(org.id, feature.id);
@@ -270,7 +279,13 @@ export async function deleteFeature(
   if (feature.linkedExperiments) {
     await Promise.all(
       feature.linkedExperiments.map(async (exp) => {
-        await removeLinkedFeatureFromExperiment(org, user, exp, feature.id);
+        await removeLinkedFeatureFromExperiment(
+          org,
+          user,
+          exp,
+          feature.id,
+          readAccessFilter
+        );
       })
     );
   }
@@ -288,10 +303,12 @@ export async function deleteAllFeaturesForAProject({
   projectId,
   organization,
   user,
+  readAccessFilter,
 }: {
   projectId: string;
   organization: OrganizationInterface;
   user: EventAuditUser;
+  readAccessFilter: ReadAccessFilter;
 }) {
   const featuresToDelete = await FeatureModel.find({
     organization: organization.id,
@@ -299,7 +316,7 @@ export async function deleteAllFeaturesForAProject({
   });
 
   for (const feature of featuresToDelete) {
-    await deleteFeature(organization, user, feature);
+    await deleteFeature(organization, user, feature, readAccessFilter);
   }
 }
 
@@ -478,7 +495,8 @@ export async function updateFeature(
   org: OrganizationInterface,
   user: EventAuditUser,
   feature: FeatureInterface,
-  updates: Partial<FeatureInterface>
+  updates: Partial<FeatureInterface>,
+  readAccessFilter: ReadAccessFilter
 ): Promise<FeatureInterface> {
   const allUpdates = {
     ...updates,
@@ -517,7 +535,13 @@ export async function updateFeature(
   if (experimentsAdded.size > 0) {
     await Promise.all(
       [...experimentsAdded].map(async (exp) => {
-        await addLinkedFeatureToExperiment(org, user, exp, feature.id);
+        await addLinkedFeatureToExperiment(
+          org,
+          user,
+          exp,
+          feature.id,
+          readAccessFilter
+        );
       })
     );
   }
@@ -556,9 +580,16 @@ export async function archiveFeature(
   org: OrganizationInterface,
   user: EventAuditUser,
   feature: FeatureInterface,
-  isArchived: boolean
+  isArchived: boolean,
+  readAccessFilter: ReadAccessFilter
 ) {
-  return await updateFeature(org, user, feature, { archived: isArchived });
+  return await updateFeature(
+    org,
+    user,
+    feature,
+    { archived: isArchived },
+    readAccessFilter
+  );
 }
 
 function setEnvironmentSettings(
@@ -584,7 +615,8 @@ export async function toggleMultipleEnvironments(
   organization: OrganizationInterface,
   user: EventAuditUser,
   feature: FeatureInterface,
-  toggles: Record<string, boolean>
+  toggles: Record<string, boolean>,
+  readAccessFilter: ReadAccessFilter
 ) {
   const validEnvs = new Set(getEnvironmentIdsFromOrg(organization));
 
@@ -606,9 +638,15 @@ export async function toggleMultipleEnvironments(
 
   // If there are changes we need to apply
   if (hasChanges) {
-    const updatedFeature = await updateFeature(organization, user, feature, {
-      environmentSettings: featureCopy.environmentSettings,
-    });
+    const updatedFeature = await updateFeature(
+      organization,
+      user,
+      feature,
+      {
+        environmentSettings: featureCopy.environmentSettings,
+      },
+      readAccessFilter
+    );
     return updatedFeature;
   }
 
@@ -620,11 +658,18 @@ export async function toggleFeatureEnvironment(
   user: EventAuditUser,
   feature: FeatureInterface,
   environment: string,
-  state: boolean
+  state: boolean,
+  readAccessFilter: ReadAccessFilter
 ) {
-  return await toggleMultipleEnvironments(organization, user, feature, {
-    [environment]: state,
-  });
+  return await toggleMultipleEnvironments(
+    organization,
+    user,
+    feature,
+    {
+      [environment]: state,
+    },
+    readAccessFilter
+  );
 }
 
 export async function addFeatureRule(
@@ -746,11 +791,18 @@ export async function setJsonSchema(
   user: EventAuditUser,
   feature: FeatureInterface,
   schema: string,
+  readAccessFilter: ReadAccessFilter,
   enabled?: boolean
 ) {
-  return await updateFeature(org, user, feature, {
-    jsonSchema: { schema, enabled: enabled ?? true, date: new Date() },
-  });
+  return await updateFeature(
+    org,
+    user,
+    feature,
+    {
+      jsonSchema: { schema, enabled: enabled ?? true, date: new Date() },
+    },
+    readAccessFilter
+  );
 }
 
 export async function applyRevisionChanges(
@@ -758,7 +810,8 @@ export async function applyRevisionChanges(
   feature: FeatureInterface,
   revision: FeatureRevisionInterface,
   result: MergeResultChanges,
-  user: EventAuditUser
+  user: EventAuditUser,
+  readAccessFilter: ReadAccessFilter
 ) {
   let hasChanges = false;
   const changes: Partial<FeatureInterface> = {};
@@ -801,7 +854,13 @@ export async function applyRevisionChanges(
     revision.version,
   ]);
 
-  return await updateFeature(organization, user, feature, changes);
+  return await updateFeature(
+    organization,
+    user,
+    feature,
+    changes,
+    readAccessFilter
+  );
 }
 
 export async function publishRevision(
@@ -810,6 +869,7 @@ export async function publishRevision(
   revision: FeatureRevisionInterface,
   result: MergeResultChanges,
   user: EventAuditUser,
+  readAccessFilter: ReadAccessFilter,
   comment?: string
 ) {
   if (revision.status !== "draft") {
@@ -822,7 +882,8 @@ export async function publishRevision(
     feature,
     revision,
     result,
-    user
+    user,
+    readAccessFilter
   );
 
   await markRevisionAsPublished(revision, user, comment);
@@ -857,7 +918,14 @@ export async function toggleNeverStale(
   organization: OrganizationInterface,
   feature: FeatureInterface,
   user: EventAuditUser,
-  neverStale: boolean
+  neverStale: boolean,
+  readAccessFilter: ReadAccessFilter
 ) {
-  return await updateFeature(organization, user, feature, { neverStale });
+  return await updateFeature(
+    organization,
+    user,
+    feature,
+    { neverStale },
+    readAccessFilter
+  );
 }

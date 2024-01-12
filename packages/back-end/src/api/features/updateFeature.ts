@@ -155,7 +155,8 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
       req.organization,
       req.eventAudit,
       feature,
-      updates
+      updates,
+      req.readAccessFilter
     );
 
     await addTagsDiff(

@@ -32,6 +32,7 @@ export const putVisualChangeset = createApiRequestHandler(
       organization: req.organization,
       updates: req.body,
       user: req.eventAudit,
+      readAccessFilter: req.readAccessFilter,
     });
 
     const updatedVisualChangeset = await findVisualChangesetById(

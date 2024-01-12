@@ -145,6 +145,7 @@ export async function putManualLaunchChecklist(
     experiment,
     user: res.locals.eventAudit,
     changes: { manualLaunchChecklist: checklist },
+    readAccessFilter: req.readAccessFilter,
   });
 
   await req.audit({

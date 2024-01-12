@@ -40,7 +40,8 @@ export const toggleFeature = createApiRequestHandler(toggleFeatureValidator)(
       req.organization,
       req.eventAudit,
       feature,
-      toggles
+      toggles,
+      req.readAccessFilter
     );
 
     if (updatedFeature !== feature) {

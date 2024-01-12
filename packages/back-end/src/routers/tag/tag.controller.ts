@@ -73,6 +73,7 @@ export const deleteTag = async (
     organization: org,
     user: res.locals.eventAudit,
     tag: id,
+    readAccessFilter: req.readAccessFilter,
   });
 
   // metrics

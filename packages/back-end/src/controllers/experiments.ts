@@ -578,6 +578,7 @@ export async function postExperiments(
           organization: org,
           visualChanges: visualChangeset.visualChanges,
           user: res.locals.eventAudit,
+          readAccessFilter: req.readAccessFilter,
         });
       }
     }
@@ -829,6 +830,7 @@ export async function postExperiment(
             experiment: updated,
             organization: org,
             user: res.locals.eventAudit,
+            readAccessFilter: req.readAccessFilter,
           })
         )
       );
@@ -2293,6 +2295,7 @@ export async function postVisualChangeset(
     editorUrl: req.body.editorUrl,
     organization: org,
     user: res.locals.eventAudit,
+    readAccessFilter: req.readAccessFilter,
   });
 
   res.status(200).json({
@@ -2326,6 +2329,7 @@ export async function putVisualChangeset(
     organization: org,
     updates: req.body,
     user: res.locals.eventAudit,
+    readAccessFilter: req.readAccessFilter,
   });
 
   res.status(200).json({
@@ -2362,6 +2366,7 @@ export async function deleteVisualChangeset(
     experiment,
     organization: org,
     user: res.locals.eventAudit,
+    readAccessFilter: req.readAccessFilter,
   });
 
   res.status(200).json({

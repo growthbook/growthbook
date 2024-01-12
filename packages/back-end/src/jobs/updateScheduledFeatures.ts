@@ -83,9 +83,18 @@ async function updateSingleFeature(job: UpdateSingleFeatureJob) {
     );
 
     // Update the feature in Mongo
-    await updateFeature(org, null, feature, {
-      nextScheduledUpdate: nextScheduledUpdate,
-    });
+    await updateFeature(
+      org,
+      null,
+      feature,
+      {
+        nextScheduledUpdate: nextScheduledUpdate,
+      },
+      {
+        globalReadAccess: true,
+        projects: [],
+      }
+    );
   } catch (e) {
     logger.error(e, "Failed updating feature " + featureId);
   }

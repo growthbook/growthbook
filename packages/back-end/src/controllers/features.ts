@@ -6,6 +6,7 @@ import {
   getConnectionSDKCapabilities,
   SDKCapability,
 } from "shared/sdk-versioning";
+import { ReadAccessFilter } from "shared/permissions";
 import {
   ExperimentRefRule,
   FeatureInterface,
@@ -407,7 +408,12 @@ export async function postFeatures(
 
   addIdsToRules(feature.environmentSettings, feature.id);
 
-  await createFeature(org, res.locals.eventAudit, feature);
+  await createFeature(
+    org,
+    res.locals.eventAudit,
+    feature,
+    req.readAccessFilter
+  );
   await upsertWatch({
     userId,
     organization: org.id,
@@ -580,6 +586,7 @@ export async function postFeaturePublish(
     revision,
     mergeResult.result,
     res.locals.eventAudit,
+    req.readAccessFilter,
     comment
   );
 
@@ -663,7 +670,8 @@ export async function postFeatureRevert(
     feature,
     revision,
     changes,
-    res.locals.eventAudit
+    res.locals.eventAudit,
+    req.readAccessFilter
   );
 
   await markRevisionAsPublished(revision, res.locals.eventAudit, comment);
@@ -716,9 +724,15 @@ export async function postFeatureFork(
     changes: revision,
     environments,
   });
-  await updateFeature(org, res.locals.eventAudit, feature, {
-    hasDrafts: true,
-  });
+  await updateFeature(
+    org,
+    res.locals.eventAudit,
+    feature,
+    {
+      hasDrafts: true,
+    },
+    req.readAccessFilter
+  );
 
   res.status(200).json({
     status: 200,
@@ -755,9 +769,15 @@ export async function postFeatureDiscard(
 
   const hasDrafts = await hasDraft(org.id, feature, [revision.version]);
   if (!hasDrafts) {
-    await updateFeature(org, res.locals.eventAudit, feature, {
-      hasDrafts: false,
-    });
+    await updateFeature(
+      org,
+      res.locals.eventAudit,
+      feature,
+      {
+        hasDrafts: false,
+      },
+      req.readAccessFilter
+    );
   }
 
   res.status(200).json({
@@ -795,7 +815,8 @@ export async function postFeatureRule(
     org,
     feature,
     parseInt(version),
-    res.locals.eventAudit
+    res.locals.eventAudit,
+    req.readAccessFilter
   );
 
   await addFeatureRule(revision, environment, rule, res.locals.eventAudit);
@@ -809,7 +830,8 @@ export async function postFeatureRule(
       org,
       res.locals.eventAudit,
       rule.experimentId,
-      feature.id
+      feature.id,
+      req.readAccessFilter
     );
     await addLinkedExperiment(feature, rule.experimentId);
   }
@@ -912,7 +934,8 @@ export async function postFeatureExperimentRefRule(
     org,
     res.locals.eventAudit,
     feature,
-    updates
+    updates,
+    req.readAccessFilter
   );
 
   await addLinkedFeatureToExperiment(
@@ -920,6 +943,7 @@ export async function postFeatureExperimentRefRule(
     res.locals.eventAudit,
     rule.experimentId,
     feature.id,
+    req.readAccessFilter,
     experiment
   );
 
@@ -944,7 +968,8 @@ async function getDraftRevision(
   org: OrganizationInterface,
   feature: FeatureInterface,
   version: number,
-  user: EventAuditUser
+  user: EventAuditUser,
+  readAccessFilter: ReadAccessFilter
 ): Promise<FeatureRevisionInterface> {
   // This is the published version, create a new draft revision
   if (version === feature.version) {
@@ -954,9 +979,15 @@ async function getDraftRevision(
       environments: getEnvironmentIdsFromOrg(org),
     });
 
-    await updateFeature(org, user, feature, {
-      hasDrafts: true,
-    });
+    await updateFeature(
+      org,
+      user,
+      feature,
+      {
+        hasDrafts: true,
+      },
+      readAccessFilter
+    );
 
     return newRevision;
   }
@@ -1033,7 +1064,8 @@ export async function postFeatureDefaultValue(
     org,
     feature,
     parseInt(version),
-    res.locals.eventAudit
+    res.locals.eventAudit,
+    req.readAccessFilter
   );
 
   await setDefaultValue(revision, defaultValue, res.locals.eventAudit);
@@ -1065,6 +1097,7 @@ export async function postFeatureSchema(
     res.locals.eventAudit,
     feature,
     schema,
+    req.readAccessFilter,
     enabled
   );
 
@@ -1112,7 +1145,8 @@ export async function putFeatureRule(
     org,
     feature,
     parseInt(version),
-    res.locals.eventAudit
+    res.locals.eventAudit,
+    req.readAccessFilter
   );
 
   await editFeatureRule(revision, environment, i, rule, res.locals.eventAudit);
@@ -1159,7 +1193,8 @@ export async function postFeatureToggle(
     res.locals.eventAudit,
     feature,
     environment,
-    state
+    state,
+    req.readAccessFilter
   );
 
   await req.audit({
@@ -1209,7 +1244,8 @@ export async function postFeatureMoveRule(
     org,
     feature,
     parseInt(version),
-    res.locals.eventAudit
+    res.locals.eventAudit,
+    req.readAccessFilter
   );
 
   const changes = { rules: revision.rules || {} };
@@ -1262,7 +1298,8 @@ export async function deleteFeatureRule(
     org,
     feature,
     parseInt(version),
-    res.locals.eventAudit
+    res.locals.eventAudit,
+    req.readAccessFilter
   );
 
   const changes = { rules: revision.rules || {} };
@@ -1343,7 +1380,8 @@ export async function putFeature(
     org,
     res.locals.eventAudit,
     feature,
-    updates
+    updates,
+    req.readAccessFilter
   );
 
   // If there are new tags to add
@@ -1381,7 +1419,12 @@ export async function deleteFeatureById(
       feature.project,
       getEnabledEnvironments(feature, environments)
     );
-    await deleteFeature(org, res.locals.eventAudit, feature);
+    await deleteFeature(
+      org,
+      res.locals.eventAudit,
+      feature,
+      req.readAccessFilter
+    );
     await req.audit({
       event: "feature.delete",
       entity: {
@@ -1460,7 +1503,8 @@ export async function postFeatureArchive(
     org,
     res.locals.eventAudit,
     feature,
-    !feature.archived
+    !feature.archived,
+    req.readAccessFilter
   );
 
   await req.audit({
@@ -1730,9 +1774,15 @@ export async function toggleStaleFFDetectionForFeature(
 
   req.checkPermissions("manageFeatures", feature.project);
 
-  await updateFeature(org, res.locals.eventAudit, feature, {
-    neverStale: !feature.neverStale,
-  });
+  await updateFeature(
+    org,
+    res.locals.eventAudit,
+    feature,
+    {
+      neverStale: !feature.neverStale,
+    },
+    req.readAccessFilter
+  );
 
   res.status(200).json({
     status: 200,
