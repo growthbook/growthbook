@@ -75,6 +75,10 @@ const featureSchema = new mongoose.Schema({
       value: String,
       coverage: Number,
       hashAttribute: String,
+      fallbackAttribute: String,
+      disableStickyBucketing: Boolean,
+      bucketVersion: Number,
+      minBucketVersion: Number,
       enabled: Boolean,
       condition: String,
       savedGroups: [

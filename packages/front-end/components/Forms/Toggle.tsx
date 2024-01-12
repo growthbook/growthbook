@@ -10,6 +10,7 @@ export default function Toggle({
   type = "toggle",
   className,
   style,
+  innerStyle,
   disabledMessage,
 }: {
   id: string;
@@ -20,6 +21,7 @@ export default function Toggle({
   type?: "featureValue" | "environment" | "toggle";
   className?: string;
   style?: CSSProperties;
+  innerStyle?: CSSProperties;
   disabledMessage?: string;
 }) {
   const TooltipWrapper = ({ children }) =>
@@ -47,7 +49,9 @@ export default function Toggle({
             setValue(e.target.checked);
           }}
         />
-        <label htmlFor={id}>{label || id}</label>
+        <label style={innerStyle} htmlFor={id}>
+          {label || id}
+        </label>
       </div>
     </TooltipWrapper>
   );

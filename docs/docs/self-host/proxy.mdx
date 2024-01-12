@@ -15,8 +15,9 @@ The GrowthBook Proxy server sits between your application and GrowthBook (both C
   - In-memory cache plus an optional distributed layer (Redis or MongoDB)
   - Automatic cache invalidation when features change in GrowthBook (using WebHooks)
 - **Streaming** - Updates your application in real-time as features are changed or toggled in GrowthBook (Javascript and React only)
+- **Remote Evaluation** - Hide your features' business logic in insecure environments
 - **Security** - Private-key authentication between GrowthBook and GrowthBook Proxy
-- **Scalability** - Horizontally scale to support millions of concurrent users
+- **Scalability** - Support millions of concurrent users
 
 ## Installation
 
@@ -53,7 +54,7 @@ docker run -d -p 3300:3300 \
 
 Check http://localhost:3300/healthcheck to ensure it's running correctly.
 
-Lastly, on your main GrowthBook instance, add environment variables to enable the proxy:
+Lastly, for self-hosted customers, add environment variables your main GrowthBook API server to enable the proxy:
 
 ```yml
 PROXY_ENABLED=1
@@ -63,6 +64,9 @@ PROXY_HOST_PUBLIC=https://growthbook-proxy.example.com
 # You can either define the secret key here or create one in the GrowthBook UI
 SECRET_API_KEY=something_secret
 ```
+
+For cloud customers who self-host a proxy server, you must configure each SDK Connection to use a custom proxy webhook URL.
+Go to SDK Configuration -> SDK Connections in the GrowthBook app to configure the proxy server per each connection.
 
 ## Using with the SDKs
 
@@ -84,7 +88,8 @@ const gb = new GrowthBook({
 
 ## Configuration
 
-The GrowthBook Proxy supports a number of configuration options available via environment variables:
+The GrowthBook Proxy supports a number of configuration options available via environment variables. Some of the more common
+options are:
 
 - `GROWTHBOOK_API_HOST` - Set this to the host and port of your GrowthBook API instance
 - `SECRET_API_KEY` - Create a secret API key in GrowthBook by going to **Settings -> API Keys**
@@ -99,6 +104,9 @@ You can also configure the GrowthBook Proxy to handle SSL termination. It suppor
 - `USE_HTTP2` - Set to "true" or "1" to enable
 - `HTTPS_CERT` - The SSL certificate
 - `HTTPS_KEY` - The SSL key
+
+For more complete configuration documentation, please see the GrowthBook Proxy GitHub page:
+https://github.com/growthbook/growthbook-proxy
 
 ## Best Practices
 
