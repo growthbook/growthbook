@@ -6,6 +6,7 @@ import type Stripe from "stripe";
 import pino from "pino";
 import { omit, sortBy } from "lodash";
 import AsyncLock from "async-lock";
+import { stringToBoolean } from "shared/util";
 import { LicenseDocument, LicenseModel } from "./models/licenseModel";
 
 export const LICENSE_SERVER =
@@ -152,7 +153,7 @@ export function isActiveSubscriptionStatus(
 }
 
 export function getAccountPlan(org: MinimalOrganization): AccountPlan {
-  if (process.env.IS_CLOUD) {
+  if (stringToBoolean(process.env.IS_CLOUD)) {
     if (org.enterprise) return "enterprise";
     if (org.restrictAuthSubPrefix || org.restrictLoginMethod) return "pro_sso";
     if (isActiveSubscriptionStatus(org.subscription?.status)) return "pro";
@@ -227,7 +228,7 @@ export async function getVerifiedLicenseData(
   }
   // Trying to use IS_MULTI_ORG, but the plan doesn't support it
   if (
-    process.env.IS_MULTI_ORG &&
+    stringToBoolean(process.env.IS_MULTI_ORG) &&
     !planHasPremiumFeature(decodedLicense.plan, "multi-org")
   ) {
     throw new Error(
@@ -276,7 +277,7 @@ function checkIfEnvVarSettingsAreAllowedByLicense(license: LicenseInterface) {
   }
   // Trying to use IS_MULTI_ORG, but the plan doesn't support it
   if (
-    process.env.IS_MULTI_ORG &&
+    stringToBoolean(process.env.IS_MULTI_ORG) &&
     !planHasPremiumFeature(license.plan, "multi-org")
   ) {
     throw new Error(
