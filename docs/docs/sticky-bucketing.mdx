@@ -32,7 +32,7 @@ To use Sticky Bucketing for your experiments, there are a few steps that you nee
 
 ### 1. Ensure you are using a compatible SDK version
 
-Update your codebase to use a compatible SDK. Sticky Bucketing is supported as of these SDK versions:
+Update your codebase to use a compatible SDK. Sticky Bucketing is currently supported in the following SDK versions:
 
 - Javascript: `0.32.0`
 - React: `0.22.0`
@@ -57,13 +57,15 @@ For more information about setting up Sticky Bucketing at the SDK level, see the
 
 ### Front-end only
 
-Suppose your website integrates GrowthBook on the front end only. You would like to implement Sticky Bucketing in a way that preserves user buckets across the logged-out / logged-in divide.
+Suppose your website integrates GrowthBook on the front end only. You would like to implement Sticky Bucketing to protect against variation hopping should targeting or rollout rules change in the future.
 
 In our JavaScript and React SDKs, we provide 2 different Sticky Bucket Services that make sense in this scenario: `LocalStorageStickyBucketService` and `BrowserCookieStickyBucketService`. You can instantiate either of these services and plug them into the GrowthBook SDK.
 
-You may also have a standard `user_id` for logged-in users which is not present for anonymous users which in turn can be identified by `anonymous_id`. You would want to ensure both attributes are visible to the SDK. Then when configuring your experiment (either in the GrowthBook SDK or via inline experiment) you would want to set the `hashAttribute` to `user_id` and the `fallbackAttribute` to `anonymous_id`.
+Additionally, depending on whether the benefits outweigh the risk of experimental bias for your experiment, you may like to implement Sticky Bucketing in a way that preserves user buckets across the logged-out / logged-in divide. This functionality can be achieved by choosing a fallback attribute in your experiment set up.
 
-Now when an anonymous user is bucketed, they will be assigned a bucket based on their `anonymous_id` and this bucket will be stored in a browser cookie or LocalStorage. Once they log in or register, a `user_id` should be made available to the SDK. As long as the `anonymous_id` is also available immediately after logging in, then the sticky bucket will be upgraded to remember both the `user_id` and `anonymous_id` going forward. If the user's session expires and they log back in later, they will retain the sticky bucket that was assigned to them previously.
+You may also have a standard `user_id` for logged-in users which is not present for anonymous users which in turn can be identified by `anonymous_id`. If you are not using a fallback attribute, then you would typically choose the `anonymous_id` as your hash attribute for your experiment and then ensure that this attribute is visible to the SDK. When configuring your experiment (either in the GrowthBook SDK or via inline experiment) you would likely want to set the `hashAttribute` to `anonymous_id`. When an anonymous user is bucketed, they will be assigned a bucket based on their `anonymous_id` and this bucket will be stored in a browser cookie or LocalStorage, and this bucket will be retained even when the experiment targeting or rollout rules change.
+
+However if you do want to use a fallback attribute, you would want to ensure both `user_id` and `anonymous_id` attributes are visible to the SDK. When configuring your experiment you would want to set the `hashAttribute` to `user_id` and the `fallbackAttribute` to `anonymous_id`. Now when an anonymous user is bucketed, they will be assigned a bucket based on their `anonymous_id` and this bucket will be stored in a browser cookie or LocalStorage. Once they log in or register, a `user_id` should be made available to the SDK. As long as the `anonymous_id` is also available immediately after logging in, then the sticky bucket will be upgraded to remember both the `user_id` and `anonymous_id` going forward. If the user's session expires and they log back in later, they will retain the sticky bucket that was assigned to them previously.
 
 ### Front-end and Back-end
 
