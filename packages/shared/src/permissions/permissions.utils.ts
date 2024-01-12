@@ -88,7 +88,8 @@ export function hasReadAccess(
   );
 
   if (!userHasProjectSpecificAccessForEachResourceProject) {
-    return true;
+    // if there are resource projects that don't have a matching user permission, we default to global read permission, which effectively grants read access
+    return hasGlobaReadAccess;
   }
 
   const everyProjectRestrictsReadAccess = resourceProjects.every((project) => {
