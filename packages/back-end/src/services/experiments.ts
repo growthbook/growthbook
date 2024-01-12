@@ -750,7 +750,6 @@ export async function toExperimentApiInterface(
     disableStickyBucketing: experiment.disableStickyBucketing,
     bucketVersion: experiment.bucketVersion,
     minBucketVersion: experiment.minBucketVersion,
-    excludeBlockedBucketUsers: experiment.excludeBlockedBucketUsers,
     variations: experiment.variations.map((v) => ({
       variationId: v.id,
       key: v.key,

@@ -35,6 +35,7 @@ import { MAX_ROWS_UNIT_AGGREGATE_QUERY } from "../integrations/SqlIntegration";
 // These same type definitions exist in gbstats.py
 export interface AnalysisSettingsForStatsEngine {
   var_names: string[];
+  var_ids: string[];
   weights: number[];
   baseline_index: number;
   dimension: string;
@@ -53,7 +54,6 @@ export interface MetricDataForStatsEngine {
   multiple_exposures: number;
 }
 export interface DataForStatsEngine {
-  var_id_map: { [key: string]: number };
   analyses: AnalysisSettingsForStatsEngine[];
   metrics: MetricDataForStatsEngine[];
 }
@@ -85,10 +85,6 @@ export async function analyzeExperimentMetric(
   const { variations, metrics, phaseLengthHours, coverage, analyses } = params;
 
   const phaseLengthDays = Number(phaseLengthHours / 24);
-  const variationIdMap: { [key: string]: number } = {};
-  variations.forEach((v, i) => {
-    variationIdMap[v.id] = i;
-  });
 
   function isMetricData(
     data: MetricDataForStatsEngine | null
@@ -112,9 +108,7 @@ export async function analyzeExperimentMetric(
       return data;
     })
     .filter(isMetricData);
-
   const statsData: DataForStatsEngine = {
-    var_id_map: variationIdMap,
     metrics: metricData,
     analyses: analyses.map(
       ({
@@ -139,6 +133,7 @@ export async function analyzeExperimentMetric(
 
         const analysisData: AnalysisSettingsForStatsEngine = {
           var_names: sortedVariations.map((v) => v.name),
+          var_ids: sortedVariations.map((v) => v.id),
           weights: sortedVariations.map((v) => v.weight * coverage),
           baseline_index: baselineVariationIndex ?? 0,
           dimension: dimensions[0] || "",
@@ -267,7 +262,7 @@ export async function analyzeExperimentResults({
 
       metricRows.push({
         metric: key,
-        rows: query.result as ExperimentMetricQueryResponseRows,
+        rows: (query.result ?? []) as ExperimentMetricQueryResponseRows,
       });
     });
   }

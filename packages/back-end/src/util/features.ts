@@ -384,9 +384,6 @@ export function getFeatureDefinition({
             if (exp.minBucketVersion) {
               rule.minBucketVersion = exp.minBucketVersion;
             }
-            if (exp.excludeBlockedBucketUsers) {
-              rule.excludeBlockedBucketUsers = exp.excludeBlockedBucketUsers;
-            }
             if (
               phase.namespace &&
               phase.namespace.enabled &&
@@ -484,9 +481,6 @@ export function getFeatureDefinition({
             }
             if (r.minBucketVersion) {
               rule.minBucketVersion = r.minBucketVersion;
-            }
-            if (r.excludeBlockedBucketUsers) {
-              rule.excludeBlockedBucketUsers = r.excludeBlockedBucketUsers;
             }
             if (r?.namespace && r.namespace.enabled && r.namespace.name) {
               rule.namespace = [

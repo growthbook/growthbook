@@ -30,6 +30,7 @@ export type UserPermissions = {
 };
 
 export type MemberRole =
+  | "noaccess"
   | "readonly"
   | "collaborator"
   | "designer"
@@ -182,6 +183,7 @@ export interface OrganizationSettings {
   killswitchConfirmation?: boolean;
   defaultDataSource?: string;
   useStickyBucketing?: boolean;
+  useFallbackAttributes?: boolean;
 }
 
 export interface SubscriptionQuote {

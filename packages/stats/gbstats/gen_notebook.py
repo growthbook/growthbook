@@ -8,7 +8,7 @@ from .gbstats import (
 from gbstats.shared.constants import StatsEngine
 import nbformat
 from nbformat import v4 as nbf
-from nbformat.v4.nbjson import from_dict
+from nbformat import from_dict
 
 
 def code_cell_df(df, source=""):

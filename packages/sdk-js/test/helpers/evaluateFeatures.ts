@@ -1,6 +1,11 @@
-import { GrowthBook, Context } from "../../src";
+import { GrowthBook, Context, RedisStickyBucketService } from "../../src";
+/* eslint-disable */
+const Redis = require('ioredis-mock');
+/* eslint-enable */
 
-export function evaluateFeatures({
+export const remoteEvalRedis = new Redis();
+
+export async function evaluateFeatures({
   payload,
   attributes,
   forcedVariations,
@@ -39,6 +44,12 @@ export function evaluateFeatures({
   if (url !== undefined) {
     context.url = url;
   }
+  // non-standard enable/disable flag for testing purposes
+  if (ctx?.enableStickyBucketing) {
+    context.stickyBucketService = new RedisStickyBucketService({
+      redis: remoteEvalRedis,
+    });
+  }
 
   if (features || experiments) {
     const gb = new GrowthBook(context);
@@ -47,6 +58,10 @@ export function evaluateFeatures({
     }
     if (ctx?.verboseDebugging) {
       gb.debug = true;
+    }
+
+    if (context.stickyBucketService) {
+      await gb.refreshStickyBuckets();
     }
 
     const gbFeatures = gb.getFeatures();

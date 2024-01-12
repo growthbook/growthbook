@@ -124,7 +124,6 @@ export interface ExperimentInterface {
   disableStickyBucketing?: boolean;
   bucketVersion?: number;
   minBucketVersion?: number;
-  excludeBlockedBucketUsers?: boolean;
   name: string;
   dateCreated: Date;
   dateUpdated: Date;
@@ -192,7 +191,6 @@ export type ExperimentTargetingData = Pick<
     | "disableStickyBucketing"
     | "bucketVersion"
     | "minBucketVersion"
-    | "excludeBlockedBucketUsers"
     | "trackingKey"
   > & {
     newPhase: boolean;

@@ -298,4 +298,21 @@ describe("payload scrubbing", () => {
     // no change to payload for default connection (javascript, 0.27.0)
     expect(scrubbed).toStrictEqual(lightlyScrubbedPayload);
   });
+
+  it("scrubs as necessary for multi-language SDKs, expands looseUnmarshalling", () => {
+    const connection: SDKConnectionInterface = {
+      ...baseConnection,
+      languages: ["javascript", "python", "nodejs", "flutter", "other"],
+      sdkVersion: undefined,
+    };
+    const capabilities = getConnectionSDKCapabilities(connection);
+
+    expect(capabilities).toStrictEqual(["bucketingV2"]);
+
+    const scrubbed = cloneDeep(sdkPayload);
+    const scrubbedFeatures = scrubFeatures(scrubbed.features, capabilities);
+    scrubbed.features = scrubbedFeatures;
+
+    expect(scrubbed).toStrictEqual(lightlyScrubbedPayload);
+  });
 });
