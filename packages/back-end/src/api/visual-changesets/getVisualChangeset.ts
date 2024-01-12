@@ -30,7 +30,11 @@ export const getVisualChangeset = createApiRequestHandler(
         : null;
 
     const apiExperiment = experiment
-      ? await toExperimentApiInterface(organization, experiment)
+      ? await toExperimentApiInterface(
+          organization,
+          experiment,
+          req.readAccessFilter
+        )
       : null;
 
     return {

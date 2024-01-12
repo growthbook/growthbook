@@ -1,6 +1,7 @@
 import Agenda, { Job } from "agenda";
 import { getScopedSettings } from "shared/settings";
 import { getSnapshotAnalysis } from "shared/util";
+import { ReadAccessFilter } from "shared/permissions";
 import {
   getExperimentById,
   getExperimentsToUpdate,
@@ -37,6 +38,7 @@ const UPDATE_SINGLE_EXP = "updateSingleExperiment";
 type UpdateSingleExpJob = Job<{
   organization: string;
   experimentId: string;
+  readAccessFilter: ReadAccessFilter;
 }>;
 
 export default async function (agenda: Agenda) {
@@ -110,7 +112,8 @@ export default async function (agenda: Agenda) {
 async function updateSingleExperiment(job: UpdateSingleExpJob) {
   const experimentId = job.attrs.data?.experimentId;
   const orgId = job.attrs.data?.organization;
-  if (!experimentId || !orgId) return;
+  const readAccessFilter = job.attrs.data?.readAccessFilter;
+  if (!experimentId || !orgId || !readAccessFilter) return;
 
   const experiment = await getExperimentById(orgId, experimentId);
   if (!experiment) return;
@@ -120,7 +123,11 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
 
   let project = null;
   if (experiment.project) {
-    project = await findProjectById(experiment.project, organization.id);
+    project = await findProjectById(
+      experiment.project,
+      organization.id,
+      readAccessFilter
+    );
   }
   const { settings: scopedSettings } = getScopedSettings({
     organization,
@@ -172,6 +179,7 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
       metricMap,
       factTableMap,
       useCache: true,
+      readAccessFilter,
     });
     await queryRunner.waitForResults();
     const currentSnapshot = queryRunner.model;
@@ -194,6 +202,7 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
         changes: {
           autoSnapshots: false,
         },
+        readAccessFilter,
       });
       // TODO: email user and let them know it failed
     } catch (e) {

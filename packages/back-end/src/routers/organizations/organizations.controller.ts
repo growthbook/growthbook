@@ -140,7 +140,7 @@ export async function getDefinitions(req: AuthRequest, res: Response) {
     findSegmentsByOrganization(orgId),
     getAllTags(orgId),
     getAllSavedGroups(orgId),
-    findAllProjectsByOrganization(orgId),
+    findAllProjectsByOrganization(orgId, req.readAccessFilter),
     getAllFactTablesForOrganization(orgId),
     getAllFactMetricsForOrganization(orgId),
   ]);

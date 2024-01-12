@@ -27,6 +27,7 @@ import {
 } from "shared/experiments";
 import { orgHasPremiumFeature } from "enterprise";
 import { hoursBetween } from "shared/dates";
+import { ReadAccessFilter } from "shared/permissions";
 import { updateExperiment } from "../models/ExperimentModel";
 import {
   ExperimentSnapshotAnalysis,
@@ -538,6 +539,7 @@ export async function createSnapshot({
   metricRegressionAdjustmentStatuses,
   metricMap,
   factTableMap,
+  readAccessFilter,
 }: {
   experiment: ExperimentInterface;
   organization: OrganizationInterface;
@@ -549,6 +551,7 @@ export async function createSnapshot({
   metricRegressionAdjustmentStatuses: MetricRegressionAdjustmentStatus[];
   metricMap: Map<string, ExperimentMetricInterface>;
   factTableMap: FactTableMap;
+  readAccessFilter: ReadAccessFilter;
 }): Promise<ExperimentResultsQueryRunner> {
   const dimension = defaultAnalysisSettings.dimensions[0] || null;
 
@@ -608,6 +611,7 @@ export async function createSnapshot({
       nextSnapshotAttempt: nextUpdate,
       autoSnapshots: nextUpdate !== null,
     },
+    readAccessFilter,
   });
 
   const snapshot = await createExperimentSnapshotModel(data);
@@ -718,11 +722,16 @@ function getExperimentMetric(
 
 export async function toExperimentApiInterface(
   organization: OrganizationInterface,
-  experiment: ExperimentInterface
+  experiment: ExperimentInterface,
+  readAccessFilter: ReadAccessFilter
 ): Promise<ApiExperiment> {
   let project = null;
   if (experiment.project) {
-    project = await findProjectById(experiment.project, organization.id);
+    project = await findProjectById(
+      experiment.project,
+      organization.id,
+      readAccessFilter
+    );
   }
   const { settings: scopedSettings } = getScopedSettings({
     organization,

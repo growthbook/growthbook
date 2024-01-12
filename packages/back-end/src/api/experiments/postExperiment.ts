@@ -72,6 +72,7 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
       data: newExperiment,
       organization: req.organization,
       user: req.eventAudit,
+      readAccessFilter: req.readAccessFilter,
     });
 
     // add owner as watcher
@@ -84,7 +85,8 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
 
     const apiExperiment = await toExperimentApiInterface(
       req.organization,
-      experiment
+      experiment,
+      req.readAccessFilter
     );
     return {
       experiment: apiExperiment,

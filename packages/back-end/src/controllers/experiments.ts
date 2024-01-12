@@ -133,7 +133,10 @@ export async function getExperimentsFrequencyMonth(
     project = req.query.project;
   }
 
-  const allProjects = await findAllProjectsByOrganization(org.id);
+  const allProjects = await findAllProjectsByOrganization(
+    org.id,
+    req.readAccessFilter
+  );
   const { num } = req.params;
   const experiments = await getAllExperiments(org.id, project);
 
@@ -559,6 +562,7 @@ export async function postExperiments(
       data: obj,
       organization: org,
       user: res.locals.eventAudit,
+      readAccessFilter: req.readAccessFilter,
     });
 
     if (req.query.originalId) {
@@ -807,6 +811,7 @@ export async function postExperiment(
     experiment,
     user: res.locals.eventAudit,
     changes,
+    readAccessFilter: req.readAccessFilter,
   });
 
   // if variations have changed, update the experiment's visualchangesets if they exist
@@ -898,6 +903,7 @@ export async function postExperimentArchive(
       experiment,
       user: res.locals.eventAudit,
       changes,
+      readAccessFilter: req.readAccessFilter,
     });
 
     // TODO: audit
@@ -956,6 +962,7 @@ export async function postExperimentUnarchive(
       experiment,
       user: res.locals.eventAudit,
       changes,
+      readAccessFilter: req.readAccessFilter,
     });
 
     // TODO: audit
@@ -1056,6 +1063,7 @@ export async function postExperimentStatus(
     experiment,
     user: res.locals.eventAudit,
     changes,
+    readAccessFilter: req.readAccessFilter,
   });
 
   await req.audit({
@@ -1148,6 +1156,7 @@ export async function postExperimentStop(
       experiment,
       user: res.locals.eventAudit,
       changes,
+      readAccessFilter: req.readAccessFilter,
     });
 
     await req.audit({
@@ -1220,6 +1229,7 @@ export async function deleteExperimentPhase(
     experiment,
     user: res.locals.eventAudit,
     changes,
+    readAccessFilter: req.readAccessFilter,
   });
 
   await updateSnapshotsOnPhaseDelete(org.id, id, phaseIndex);
@@ -1290,6 +1300,7 @@ export async function putExperimentPhase(
     experiment,
     user: res.locals.eventAudit,
     changes,
+    readAccessFilter: req.readAccessFilter,
   });
 
   await req.audit({
@@ -1391,6 +1402,7 @@ export async function postExperimentTargeting(
       experiment,
       user: res.locals.eventAudit,
       changes,
+      readAccessFilter: req.readAccessFilter,
     });
 
     await req.audit({
@@ -1489,6 +1501,7 @@ export async function postExperimentPhase(
       experiment,
       user: res.locals.eventAudit,
       changes,
+      readAccessFilter: req.readAccessFilter,
     });
 
     await req.audit({
@@ -1571,7 +1584,12 @@ export async function deleteExperiment(
   await Promise.all([
     // note: we might want to change this to change the status to
     // 'deleted' instead of actually deleting the document.
-    deleteExperimentByIdForOrganization(experiment, org, res.locals.eventAudit),
+    deleteExperimentByIdForOrganization(
+      experiment,
+      org,
+      res.locals.eventAudit,
+      req.readAccessFilter
+    ),
     removeExperimentFromPresentations(experiment.id),
   ]);
 
@@ -1707,7 +1725,11 @@ export async function postSnapshot(
 
   let project = null;
   if (experiment.project) {
-    project = await findProjectById(experiment.project, org.id);
+    project = await findProjectById(
+      experiment.project,
+      org.id,
+      req.readAccessFilter
+    );
   }
   const orgSettings: OrganizationSettings = org.settings as OrganizationSettings;
   const { settings } = getScopedSettings({
@@ -1844,6 +1866,7 @@ export async function postSnapshot(
         metricRegressionAdjustmentStatuses || [],
       metricMap,
       factTableMap,
+      readAccessFilter: req.readAccessFilter,
     });
     const snapshot = queryRunner.model;
 
@@ -1983,6 +2006,7 @@ export async function deleteScreenshot(
     experiment,
     user: res.locals.eventAudit,
     changes,
+    readAccessFilter: req.readAccessFilter,
   });
 
   await req.audit({
@@ -2058,6 +2082,7 @@ export async function addScreenshot(
     experiment,
     user: res.locals.eventAudit,
     changes,
+    readAccessFilter: req.readAccessFilter,
   });
 
   await req.audit({

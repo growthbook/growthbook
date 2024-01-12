@@ -163,7 +163,8 @@ export const postDemoDatasourceProject = async (
   const demoProjId = getDemoDatasourceProjectIdForOrganization(org.id);
   const existingDemoProject: ProjectInterface | null = await findProjectById(
     demoProjId,
-    org.id
+    org.id,
+    req.readAccessFilter
   );
 
   if (existingDemoProject) {
@@ -314,6 +315,7 @@ spacing and headings.`,
       data: experimentToCreate,
       organization: org,
       user: res.locals.eventAudit,
+      readAccessFilter: req.readAccessFilter,
     });
 
     // Create feature
@@ -399,6 +401,7 @@ spacing and headings.`,
       metricMap: metricMap,
       factTableMap,
       useCache: true,
+      readAccessFilter: req.readAccessFilter,
     });
 
     res.status(200).json({

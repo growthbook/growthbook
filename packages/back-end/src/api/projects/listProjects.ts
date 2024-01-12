@@ -8,7 +8,10 @@ import { listProjectsValidator } from "../../validators/openapi";
 
 export const listProjects = createApiRequestHandler(listProjectsValidator)(
   async (req): Promise<ListProjectsResponse> => {
-    const projects = await findAllProjectsByOrganization(req.organization.id);
+    const projects = await findAllProjectsByOrganization(
+      req.organization.id,
+      req.readAccessFilter
+    );
 
     // TODO: Move sorting/limiting to the database query for better performance
     const { filtered, returnFields } = applyPagination(

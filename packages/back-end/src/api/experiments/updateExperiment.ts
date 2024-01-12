@@ -66,6 +66,7 @@ export const updateExperiment = createApiRequestHandler(
       organization: req.organization,
       experiment: experiment,
       user: req.eventAudit,
+      readAccessFilter: req.readAccessFilter,
       changes: updateExperimentApiPayloadToInterface(req.body, experiment),
     });
 
@@ -74,7 +75,8 @@ export const updateExperiment = createApiRequestHandler(
     }
     const apiExperiment = await toExperimentApiInterface(
       req.organization,
-      updatedExperiment
+      updatedExperiment,
+      req.readAccessFilter
     );
     return {
       experiment: apiExperiment,

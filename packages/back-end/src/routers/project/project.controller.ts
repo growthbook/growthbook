@@ -103,7 +103,7 @@ export const putProject = async (
 
   const { org } = getOrgFromReq(req);
 
-  const project = await findProjectById(id, org.id);
+  const project = await findProjectById(id, org.id, req.readAccessFilter);
 
   if (!project) {
     res.status(404).json({
@@ -242,6 +242,7 @@ export const deleteProject = async (
         projectId: id,
         organization: org,
         user: res.locals.eventAudit,
+        readAccessFilter: req.readAccessFilter,
       });
     } catch (e) {
       return res.json({
@@ -250,7 +251,12 @@ export const deleteProject = async (
       });
     }
   } else {
-    await removeProjectFromExperiments(id, org, res.locals.eventAudit);
+    await removeProjectFromExperiments(
+      id,
+      org,
+      res.locals.eventAudit,
+      req.readAccessFilter
+    );
   }
 
   // Clean up Slack integrations
@@ -306,7 +312,7 @@ export const putProjectSettings = async (
 
   const { org } = getOrgFromReq(req);
 
-  const project = await findProjectById(id, org.id);
+  const project = await findProjectById(id, org.id, req.readAccessFilter);
 
   if (!project) {
     res.status(404).json({
