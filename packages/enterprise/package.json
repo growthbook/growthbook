@@ -16,7 +16,9 @@
     "clean": "rimraf node_modules",
     "type-check": "tsc --pretty --noEmit"
   },
-  "dependencies": {},
+  "dependencies": {
+    "shared": "0.0.1"
+  },
   "devDependencies": {
     "@swc/cli": "^0.1.57",
     "@swc/core": "^1.3.4",

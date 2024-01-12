@@ -754,7 +754,11 @@ export async function toExperimentApiInterface(
     status: experiment.status,
     autoRefresh: !!experiment.autoSnapshots,
     hashAttribute: experiment.hashAttribute || "id",
+    fallbackAttribute: experiment.fallbackAttribute,
     hashVersion: experiment.hashVersion || 2,
+    disableStickyBucketing: experiment.disableStickyBucketing,
+    bucketVersion: experiment.bucketVersion,
+    minBucketVersion: experiment.minBucketVersion,
     variations: experiment.variations.map((v) => ({
       variationId: v.id,
       key: v.key,

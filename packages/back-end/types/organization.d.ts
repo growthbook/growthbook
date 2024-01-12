@@ -182,6 +182,8 @@ export interface OrganizationSettings {
   secureAttributeSalt?: string;
   killswitchConfirmation?: boolean;
   defaultDataSource?: string;
+  useStickyBucketing?: boolean;
+  useFallbackAttributes?: boolean;
 }
 
 export interface SubscriptionQuote {

@@ -88,6 +88,11 @@ const sidebars = {
           id: "visual-editor",
           label: "Visual Editor",
         },
+        {
+          type: "doc",
+          id: "sticky-bucketing",
+          label: "Sticky Bucketing",
+        },
       ],
     },
     {

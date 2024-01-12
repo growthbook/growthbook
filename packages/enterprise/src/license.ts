@@ -6,6 +6,7 @@ import type Stripe from "stripe";
 import pino from "pino";
 import { omit, sortBy } from "lodash";
 import AsyncLock from "async-lock";
+import { stringToBoolean } from "shared/util";
 import { LicenseDocument, LicenseModel } from "./models/licenseModel";
 
 export const LICENSE_SERVER =
@@ -34,7 +35,8 @@ export type CommercialFeature =
   | "multi-org"
   | "custom-launch-checklist"
   | "no-access-role"
-  | "teams";
+  | "teams"
+  | "sticky-bucketing";
 export type CommercialFeaturesMap = Record<AccountPlan, Set<CommercialFeature>>;
 
 export interface LicenseInterface {
@@ -96,6 +98,7 @@ export const accountFeatures: CommercialFeaturesMap = {
     "hash-secure-attributes",
     "livechat",
     "remote-evaluation",
+    "sticky-bucketing",
   ]),
   pro_sso: new Set<CommercialFeature>([
     "sso",
@@ -111,6 +114,7 @@ export const accountFeatures: CommercialFeaturesMap = {
     "hash-secure-attributes",
     "livechat",
     "remote-evaluation",
+    "sticky-bucketing",
   ]),
   enterprise: new Set<CommercialFeature>([
     "sso",
@@ -133,6 +137,7 @@ export const accountFeatures: CommercialFeaturesMap = {
     "teams",
     "custom-launch-checklist",
     "no-access-role",
+    "sticky-bucketing",
   ]),
 };
 
@@ -152,7 +157,7 @@ export function isActiveSubscriptionStatus(
 }
 
 export function getAccountPlan(org: MinimalOrganization): AccountPlan {
-  if (process.env.IS_CLOUD) {
+  if (stringToBoolean(process.env.IS_CLOUD)) {
     if (org.enterprise) return "enterprise";
     if (org.restrictAuthSubPrefix || org.restrictLoginMethod) return "pro_sso";
     if (isActiveSubscriptionStatus(org.subscription?.status)) return "pro";
@@ -227,7 +232,7 @@ export async function getVerifiedLicenseData(
   }
   // Trying to use IS_MULTI_ORG, but the plan doesn't support it
   if (
-    process.env.IS_MULTI_ORG &&
+    stringToBoolean(process.env.IS_MULTI_ORG) &&
     !planHasPremiumFeature(decodedLicense.plan, "multi-org")
   ) {
     throw new Error(
@@ -276,7 +281,7 @@ function checkIfEnvVarSettingsAreAllowedByLicense(license: LicenseInterface) {
   }
   // Trying to use IS_MULTI_ORG, but the plan doesn't support it
   if (
-    process.env.IS_MULTI_ORG &&
+    stringToBoolean(process.env.IS_MULTI_ORG) &&
     !planHasPremiumFeature(license.plan, "multi-org")
   ) {
     throw new Error(
@@ -408,7 +413,7 @@ export async function licenseInit(
   userLicenseCodes?: string[],
   metaData?: LicenseMetaData,
   forceRefresh = false
-) {
+): Promise<Partial<LicenseInterface> | undefined> {
   const key = licenseKey || process.env.LICENSE_KEY || null;
 
   if (!key) {
@@ -444,7 +449,19 @@ export async function licenseInit(
     keyToLicenseData[key] = licenseData;
   });
 
-  return keyToLicenseData[key];
+  if (
+    process.env.LICENSE_KEY &&
+    new Date(keyToLicenseData[key]?.dateExpires || "") < new Date()
+  ) {
+    return licenseInit(
+      process.env.LICENSE_KEY,
+      userLicenseCodes,
+      metaData,
+      forceRefresh
+    );
+  } else {
+    return keyToLicenseData[key];
+  }
 }
 
 export function getLicense() {
