@@ -175,36 +175,18 @@ export function StickyBucketingTooltip() {
   return (
     <>
       <div className="mb-2">
-        Sticky bucketing allows you to persist a user&apos;s assigned variation
-        if any of the following change:
-        <ol className="mt-1 mb-2" type="a">
-          <li>the user logs in or logs out</li>
-          <li>experiment targeting conditions change</li>
-          <li>experiment traffic rules change</li>
-        </ol>
+        Sticky Bucketing prevents users from flipping between variations when
+        you make changes to a running experiment. It does this by persisting the
+        first variation each user is exposed to.
       </div>
-      <div>
-        Enabling sticky bucketing also allows you to set fine controls over
-        bucketing behavior, such as:
-        <ul className="mt-1 mb-2">
-          <li>
-            assigning variations based on both a <code>user_id</code> and{" "}
-            <code>anonymous_id</code>
-          </li>
-          <li>invalidating existing buckets</li>
-        </ul>
-      </div>
+
       <div className="mb-2">
-        Sticky Bucketing is only supported in the following SDKs and versions:
+        Sticky Bucketing requires changes to your SDK implementation and is only
+        supported in the following SDKs and versions:
         <ul className="mb-1">
           <li>Javascript &gt;= 0.32.0</li>
           <li>React &gt;= 0.22.0</li>
         </ul>
-        Unsupported SDKs will fall back to standard hash-based bucketing.
-      </div>
-      <div className="text-warning-orange">
-        <FaExclamationCircle /> You must enable this feature in your SDK
-        integration code for it to take effect.
       </div>
     </>
   );

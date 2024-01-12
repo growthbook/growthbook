@@ -145,30 +145,29 @@ export default function TargetingInfo({
                   <div className="mb-1">
                     <strong>Saved Group targeting</strong>
                   </div>
-                  <div
-                    className={clsx("d-flex", {
-                      "text-danger font-weight-bold": hasSavedGroupsChanges,
-                    })}
-                  >
-                    {hasSavedGroupsChanges && (
-                      <div className="text-center" style={{ width: 20 }}>
-                        Δ
-                      </div>
-                    )}
-                    <div>
-                      {phase.savedGroups?.length ? (
-                        <SavedGroupTargetingDisplay
-                          savedGroups={phase.savedGroups}
-                        />
-                      ) : (
-                        <em>None</em>
+                  <div className="d-flex">
+                    <div
+                      className={clsx("d-flex", {
+                        "text-danger font-weight-bold": hasSavedGroupsChanges,
+                      })}
+                    >
+                      {hasSavedGroupsChanges && (
+                        <div className="text-center" style={{ width: 20 }}>
+                          Δ
+                        </div>
                       )}
+                      <div>
+                        {phase.savedGroups?.length ? (
+                          <SavedGroupTargetingDisplay
+                            savedGroups={phase.savedGroups}
+                          />
+                        ) : (
+                          <em>None</em>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                  {hasSavedGroupsChanges && (
-                    <>
-                      <hr className="my-2" />
-                      <div className="font-weight-bold text-success d-flex">
+                    {hasSavedGroupsChanges && (
+                      <div className="font-weight-bold text-success d-flex ml-4">
                         <div className="text-center" style={{ width: 20 }}>
                           →
                         </div>
@@ -182,35 +181,34 @@ export default function TargetingInfo({
                           )}
                         </div>
                       </div>
-                    </>
-                  )}
+                    )}
+                  </div>
                 </div>
                 <div className="mb-3">
                   <div className="mb-1">
                     <strong>Attribute targeting</strong>
                   </div>
-                  <div
-                    className={clsx("d-flex", {
-                      "text-danger font-weight-bold": hasConditionChanges,
-                    })}
-                  >
-                    {hasConditionChanges && (
-                      <div className="text-center" style={{ width: 20 }}>
-                        Δ
-                      </div>
-                    )}
-                    <div>
-                      {phase.condition && phase.condition !== "{}" ? (
-                        <ConditionDisplay condition={phase.condition} />
-                      ) : (
-                        <em>None</em>
+                  <div className="d-flex">
+                    <div
+                      className={clsx("d-flex", {
+                        "text-danger font-weight-bold": hasConditionChanges,
+                      })}
+                    >
+                      {hasConditionChanges && (
+                        <div className="text-center" style={{ width: 20 }}>
+                          Δ
+                        </div>
                       )}
+                      <div>
+                        {phase.condition && phase.condition !== "{}" ? (
+                          <ConditionDisplay condition={phase.condition} />
+                        ) : (
+                          <em>None</em>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                  {hasConditionChanges && (
-                    <>
-                      <hr className="my-2" />
-                      <div className="font-weight-bold text-success d-flex">
+                    {hasConditionChanges && (
+                      <div className="font-weight-bold text-success d-flex ml-4">
                         <div className="text-center" style={{ width: 20 }}>
                           →
                         </div>
@@ -222,8 +220,8 @@ export default function TargetingInfo({
                           )}
                         </div>
                       </div>
-                    </>
-                  )}
+                    )}
+                  </div>
                 </div>
               </>
             )}
@@ -236,61 +234,63 @@ export default function TargetingInfo({
                     <MdInfoOutline className="text-info" />
                   </Tooltip>
                 </div>
-                <div>
-                  <div
-                    className={clsx("d-flex", {
-                      "text-danger font-weight-bold": hasNamespaceChanges,
-                    })}
-                  >
-                    {hasNamespaceChanges && (
-                      <div className="text-center" style={{ width: 20 }}>
-                        Δ
+                <div className="d-flex">
+                  <div>
+                    <div
+                      className={clsx("d-flex", {
+                        "text-danger font-weight-bold": hasNamespaceChanges,
+                      })}
+                    >
+                      {hasNamespaceChanges && (
+                        <div className="text-center" style={{ width: 20 }}>
+                          Δ
+                        </div>
+                      )}
+                      <div>
+                        {hasNamespace ? (
+                          <>
+                            {phase.namespace.name}{" "}
+                            <span className="text-muted">
+                              ({percentFormatter.format(namespaceRange)})
+                            </span>
+                            {showNamespaceRanges && (
+                              <span className="text-muted small ml-1">
+                                [{namespaceRanges[0]} - {namespaceRanges[1]}]
+                              </span>
+                            )}
+                          </>
+                        ) : (
+                          <em>Global (all users)</em>
+                        )}
                       </div>
-                    )}
-                    <div>
-                      {hasNamespace ? (
-                        <>
-                          {phase.namespace.name}{" "}
-                          <span className="text-muted">
-                            ({percentFormatter.format(namespaceRange)})
-                          </span>
-                          {showNamespaceRanges && (
-                            <span className="text-muted small ml-1">
-                              [{namespaceRanges[0]} - {namespaceRanges[1]}]
-                            </span>
-                          )}
-                        </>
-                      ) : (
-                        <em>Global (all users)</em>
-                      )}
                     </div>
                   </div>
+                  {hasNamespaceChanges && (
+                    <div className="font-weight-bold text-success d-flex ml-4">
+                      <div className="text-center" style={{ width: 20 }}>
+                        →
+                      </div>
+                      <div>
+                        {changesHasNamespace ? (
+                          <>
+                            {changes?.namespace.name}{" "}
+                            <span className="text-muted">
+                              ({percentFormatter.format(changesNamespaceRange)})
+                            </span>
+                            {showNamespaceRanges && (
+                              <span className="text-muted small ml-1">
+                                [{changesNamespaceRanges[0]} -{" "}
+                                {changesNamespaceRanges[1]}]
+                              </span>
+                            )}
+                          </>
+                        ) : (
+                          <em>Global (all users)</em>
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </div>
-                {hasNamespaceChanges && (
-                  <div className="font-weight-bold text-success d-flex">
-                    <div className="text-center" style={{ width: 20 }}>
-                      →
-                    </div>
-                    <div>
-                      {changesHasNamespace ? (
-                        <>
-                          {changes?.namespace.name}{" "}
-                          <span className="text-muted">
-                            ({percentFormatter.format(changesNamespaceRange)})
-                          </span>
-                          {showNamespaceRanges && (
-                            <span className="text-muted small ml-1">
-                              [{changesNamespaceRanges[0]} -{" "}
-                              {changesNamespaceRanges[1]}]
-                            </span>
-                          )}
-                        </>
-                      ) : (
-                        <em>Global (all users)</em>
-                      )}
-                    </div>
-                  </div>
-                )}
               </div>
             )}
 
@@ -303,41 +303,44 @@ export default function TargetingInfo({
                   <div className="mb-1">
                     <strong>Traffic</strong>
                   </div>
-                  <div
-                    className={clsx("d-flex", {
-                      "text-danger font-weight-bold":
-                        hasCoverageChanges || hasVariationWeightsChanges,
-                    })}
-                  >
-                    {(hasCoverageChanges || hasVariationWeightsChanges) && (
-                      <div className="text-center" style={{ width: 20 }}>
-                        Δ
-                      </div>
-                    )}
-                    <div>
-                      {Math.floor(phase.coverage * 100)}% included,{" "}
-                      {formatTrafficSplit(
-                        phase.variationWeights,
-                        showDecimals ? 2 : 0
-                      )}{" "}
-                      split
-                    </div>
-                  </div>
-                  {(hasCoverageChanges || hasVariationWeightsChanges) && (
-                    <div className="font-weight-bold text-success d-flex">
-                      <div className="text-center" style={{ width: 20 }}>
-                        →
-                      </div>
+                  <div className="d-flex">
+                    <div
+                      className={clsx("d-flex", {
+                        "text-danger font-weight-bold":
+                          hasCoverageChanges || hasVariationWeightsChanges,
+                      })}
+                    >
+                      {(hasCoverageChanges || hasVariationWeightsChanges) && (
+                        <div className="text-center" style={{ width: 20 }}>
+                          Δ
+                        </div>
+                      )}
                       <div>
-                        {Math.floor((changes?.coverage ?? 1) * 100)}% included,{" "}
+                        {Math.floor(phase.coverage * 100)}% included,{" "}
                         {formatTrafficSplit(
-                          changes?.variationWeights ?? [],
+                          phase.variationWeights,
                           showDecimals ? 2 : 0
                         )}{" "}
                         split
                       </div>
                     </div>
-                  )}
+                    {(hasCoverageChanges || hasVariationWeightsChanges) && (
+                      <div className="font-weight-bold text-success d-flex ml-4">
+                        <div className="text-center" style={{ width: 20 }}>
+                          →
+                        </div>
+                        <div>
+                          {Math.floor((changes?.coverage ?? 1) * 100)}%
+                          included,{" "}
+                          {formatTrafficSplit(
+                            changes?.variationWeights ?? [],
+                            showDecimals ? 2 : 0
+                          )}{" "}
+                          split
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </div>
               )
             ) : (
@@ -350,7 +353,7 @@ export default function TargetingInfo({
                     <div>
                       <strong>Traffic percent</strong>
                     </div>
-                    <div>
+                    <div className="d-flex">
                       <div
                         className={clsx("d-flex", {
                           "text-danger font-weight-bold": hasCoverageChanges,
@@ -364,7 +367,7 @@ export default function TargetingInfo({
                         <div>{percentFormatter.format(phase.coverage)}</div>
                       </div>
                       {hasCoverageChanges && (
-                        <div className="font-weight-bold text-success d-flex">
+                        <div className="font-weight-bold text-success d-flex ml-4">
                           <div className="text-center" style={{ width: 20 }}>
                             →
                           </div>
@@ -384,7 +387,7 @@ export default function TargetingInfo({
                     <div>
                       <strong>Variation weights</strong>
                     </div>
-                    <div>
+                    <div className="d-flex">
                       <div
                         className={clsx("d-flex", {
                           "text-danger font-weight-bold": hasVariationWeightsChanges,
@@ -403,7 +406,7 @@ export default function TargetingInfo({
                         </div>
                       </div>
                       {hasVariationWeightsChanges && (
-                        <div className="font-weight-bold text-success d-flex">
+                        <div className="font-weight-bold text-success d-flex ml-4">
                           <div className="text-center" style={{ width: 20 }}>
                             →
                           </div>

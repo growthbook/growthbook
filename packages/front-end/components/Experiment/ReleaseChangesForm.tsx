@@ -11,13 +11,10 @@ import {
   FaExternalLinkAlt,
 } from "react-icons/fa";
 import clsx from "clsx";
-import { MdInfoOutline } from "react-icons/md";
-import { ImBlocked } from "react-icons/im";
 import { BiHide, BiShow } from "react-icons/bi";
 import { SavedGroupTargeting } from "back-end/types/feature";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
-import usePermissions from "@/hooks/usePermissions";
 import {
   ChangeType,
   ReleasePlan,
@@ -26,6 +23,7 @@ import TargetingInfo from "@/components/Experiment/TabbedPage/TargetingInfo";
 import { StickyBucketingTooltip } from "@/components/Features/FallbackAttributeSelector";
 import SelectField from "../Forms/SelectField";
 import Tooltip from "../Tooltip/Tooltip";
+import { DocLink } from "../DocLink";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
@@ -42,7 +40,6 @@ export default function ReleaseChangesForm({
   releasePlan,
   setReleasePlan,
 }: Props) {
-  const permissions = usePermissions();
   const settings = useOrgSettings();
   const orgStickyBucketing = !!settings.useStickyBucketing;
   const usingStickyBucketing =
@@ -243,16 +240,7 @@ export default function ReleaseChangesForm({
           </div>
           <div className="col-6">
             <div className="d-flex align-items-end mb-2">
-              <label className="mb-0 mr-3">
-                <PremiumTooltip
-                  commercialFeature="sticky-bucketing"
-                  popperStyle={{ maxWidth: 530 }}
-                  body={<StickyBucketingTooltip />}
-                >
-                  Sticky bucketing <MdInfoOutline className="text-info" />
-                </PremiumTooltip>
-              </label>
-              <div className="flex-1" />
+              <label className="mb-0 mr-3">Sticky bucketing</label>
               <div className="small position-relative" style={{ top: -3 }}>
                 {usingStickyBucketing ? (
                   <span className="text-success">
@@ -260,29 +248,20 @@ export default function ReleaseChangesForm({
                     enabled
                   </span>
                 ) : (
-                  <span className="text-danger">
-                    <ImBlocked className="mr-1" />
+                  <span>
                     {!orgStickyBucketing ? (
                       <>
-                        disabled by org
-                        {permissions.organizationSettings && (
-                          <Tooltip
-                            className="ml-2"
-                            body="Enable for your organization"
-                          >
-                            <a
-                              className="pl-1"
-                              href="/settings"
-                              target="_blank"
-                            >
-                              <FaExternalLinkAlt />
-                            </a>
-                          </Tooltip>
-                        )}
+                        <PremiumTooltip
+                          commercialFeature="sticky-bucketing"
+                          popperStyle={{ maxWidth: 530 }}
+                          body={<StickyBucketingTooltip />}
+                        >
+                          <DocLink docSection="stickyBucketing">
+                            learn more <FaExternalLinkAlt />
+                          </DocLink>
+                        </PremiumTooltip>
                       </>
-                    ) : (
-                      <>disabled by experiment</>
-                    )}
+                    ) : null}
                   </span>
                 )}
               </div>
@@ -290,7 +269,11 @@ export default function ReleaseChangesForm({
             <div className="row">
               <div className="col">
                 {!usingStickyBucketing ? (
-                  <></>
+                  <>
+                    <em>
+                      No, disabled {orgStickyBucketing ? "for experiment" : ""}
+                    </em>
+                  </>
                 ) : (
                   <span className="font-weight-bold">
                     {(form.watch("bucketVersion") ?? 0) <=

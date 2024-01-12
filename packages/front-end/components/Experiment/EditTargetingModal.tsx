@@ -9,7 +9,6 @@ import omit from "lodash/omit";
 import isEqual from "lodash/isEqual";
 import React, { useEffect, useState } from "react";
 import { validateAndFixCondition } from "shared/util";
-import { BsToggles } from "react-icons/bs";
 import useIncrementer from "@/hooks/useIncrementer";
 import { useAuth } from "@/services/auth";
 import { getEqualWeights } from "@/services/utils";
@@ -20,6 +19,7 @@ import Page from "@/components/Modal/Page";
 import TargetingInfo from "@/components/Experiment/TabbedPage/TargetingInfo";
 import FallbackAttributeSelector from "@/components/Features/FallbackAttributeSelector";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import useOrgSettings from "@/hooks/useOrgSettings";
 import Field from "../Forms/Field";
 import Modal from "../Modal";
 import FeatureVariationsInput from "../Features/FeatureVariationsInput";
@@ -248,7 +248,9 @@ export default function EditTargetingModal({
           )}
 
           <div className="mt-4">
-            <label>Current experiment targeting and traffic</label>
+            <label>
+              Current experiment targeting and traffic (for reference)
+            </label>
             <div className="appbox bg-light px-3 pt-3 pb-1 mb-0">
               <TargetingInfo
                 experiment={experiment}
@@ -299,53 +301,53 @@ function ChangeTypeSelector({
   changeType?: ChangeType;
   setChangeType: (changeType: ChangeType) => void;
 }) {
+  const { namespaces } = useOrgSettings();
+
+  const options = [
+    {
+      label: "Saved Group and/or Attribute Targeting",
+      value: "targeting",
+    },
+    {
+      label: "Namespace Targeting",
+      value: "namespace",
+      disabled: !namespaces?.length,
+    },
+    { label: "Traffic Percent", value: "traffic" },
+    { label: "Variation Weights", value: "weights" },
+    { label: "Start a New Phase", value: "phase" },
+    { label: "Advanced (multiple things at once)", value: "advanced" },
+  ];
+
   return (
-    <SelectField
-      label="What changes do you want to make?"
-      value={changeType || ""}
-      options={[
-        {
-          label: "Targeting & Traffic",
-          options: [
-            {
-              label: "Targeting by Saved Groups & Attributes",
-              value: "targeting",
-            },
-            { label: "Targeting by Namespace", value: "namespace" },
-            { label: "Traffic Percent", value: "traffic" },
-            { label: "Variation Weights", value: "weights" },
-            { label: "Advanced", value: "advanced" },
-          ],
-        },
-        {
-          label: "Phase",
-          options: [{ label: "Start a new phase...", value: "phase" }],
-        },
-        // todo: pause, resume, stop
-      ]}
-      onChange={(v) => setChangeType(v as ChangeType)}
-      sort={false}
-      isSearchable={false}
-      formatGroupLabel={({ label }) => (
-        <div className="pt-2 pb-1 border-bottom">{label}</div>
-      )}
-      formatOptionLabel={({ value, label }) => {
-        if (value === "advanced") {
-          return (
-            <>
-              <span className="ml-2">
-                <BsToggles className="position-relative" style={{ top: -1 }} />{" "}
-                {label}
-              </span>
-              <span className="ml-2 text-gray">
-                &mdash; Make multiple targeting changes at the same time
-              </span>
-            </>
-          );
-        }
-        return <span className="ml-2">{label}</span>;
-      }}
-    />
+    <div className="form-group">
+      <label>What do you want to change?</label>
+      <div className="ml-2">
+        {options
+          .filter((o) => !o.disabled)
+          .map((o) => (
+            <div key={o.value} className="mb-2">
+              <div className="form-check">
+                <input
+                  className="form-check-input"
+                  type="radio"
+                  name="changeType"
+                  id={`changeType-${o.value}`}
+                  value={o.value}
+                  checked={changeType === o.value}
+                  onChange={() => setChangeType(o.value as ChangeType)}
+                />
+                <label
+                  className="form-check-label cursor-pointer text-dark"
+                  htmlFor={`changeType-${o.value}`}
+                >
+                  {o.label}
+                </label>
+              </div>
+            </div>
+          ))}
+      </div>
+    </div>
   );
 }
 
