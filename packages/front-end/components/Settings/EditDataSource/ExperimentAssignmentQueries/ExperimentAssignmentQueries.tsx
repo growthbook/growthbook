@@ -4,7 +4,13 @@ import {
   ExposureQuery,
 } from "back-end/types/datasource";
 import cloneDeep from "lodash/cloneDeep";
-import { FaChevronRight, FaPencilAlt, FaPlus } from "react-icons/fa";
+import {
+  FaChevronRight,
+  FaPencilAlt,
+  FaPlus,
+  FaRegStar,
+  FaStar,
+} from "react-icons/fa";
 import { useRouter } from "next/router";
 import { BsGear } from "react-icons/bs";
 import { checkDatasourceProjectPermissions } from "@/services/datasources";
@@ -97,6 +103,21 @@ export const ExperimentAssignmentQueries: FC<ExperimentAssignmentQueriesProps> =
     [onSave, dataSource]
   );
 
+  const removeDefault = useCallback(async () => {
+    const copy = cloneDeep<DataSourceInterfaceWithParams>(dataSource);
+    copy.settings.defaultQueryId = undefined;
+    await onSave(copy);
+  }, [dataSource, onSave]);
+
+  const setDefault = useCallback(
+    () => async (exposureQuery: ExposureQuery) => {
+      const copy = cloneDeep<DataSourceInterfaceWithParams>(dataSource);
+      copy.settings.defaultQueryId = exposureQuery.id;
+      await onSave(copy);
+    },
+    [dataSource, onSave]
+  );
+
   const handleSave = useCallback(
     (idx: number) => async (exposureQuery: ExposureQuery) => {
       const copy = cloneDeep<DataSourceInterfaceWithParams>(dataSource);
@@ -165,8 +186,15 @@ export const ExperimentAssignmentQueries: FC<ExperimentAssignmentQueriesProps> =
             <div className="d-flex justify-content-between">
               {/* region Title Bar */}
               <div>
-                <div className="d-flex">
-                  <h4>{query.name}</h4>
+                <div className="d-flex mb-1">
+                  <h4 className="my-auto">{query.name}</h4>
+                  {dataSource.settings.defaultQueryId == query.id ? (
+                    <span className="ml-2 badge badge-info my-auto">
+                      Default
+                    </span>
+                  ) : (
+                    <></>
+                  )}
                   {query.description && (
                     <p className="ml-3 text-muted">{query.description}</p>
                   )}
@@ -233,6 +261,21 @@ export const ExperimentAssignmentQueries: FC<ExperimentAssignmentQueriesProps> =
                     >
                       <FaPencilAlt className="mr-2" /> Edit Query
                     </button>
+                    {dataSource.settings.defaultQueryId == query.id ? (
+                      <button
+                        className="dropdown-item py-2"
+                        onClick={removeDefault}
+                      >
+                        <FaRegStar className="mr-2" /> Remove Default
+                      </button>
+                    ) : (
+                      <button
+                        className="dropdown-item py-2"
+                        onClick={() => setDefault()(query)}
+                      >
+                        <FaStar className="mr-2" /> Set as Default
+                      </button>
+                    )}
                     {query.dimensions.length > 0 ? (
                       <button
                         className="dropdown-item py-2"
