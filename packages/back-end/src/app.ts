@@ -98,7 +98,6 @@ import { dimensionRouter } from "./routers/dimension/dimension.router";
 import { sdkConnectionRouter } from "./routers/sdk-connection/sdk-connection.router";
 import { projectRouter } from "./routers/project/project.router";
 import { factTableRouter } from "./routers/fact-table/fact-table.router";
-import verifyLicenseMiddleware from "./services/auth/verifyLicenseMiddleware";
 import { slackIntegrationRouter } from "./routers/slack-integration/slack-integration.router";
 import { dataExportRouter } from "./routers/data-export/data-export.router";
 import { demoDatasourceProjectRouter } from "./routers/demo-datasource-project/demo-datasource-project.router";
@@ -317,9 +316,6 @@ app.use(
     next();
   }
 );
-
-// Validate self hosted license key if present
-app.use(verifyLicenseMiddleware);
 
 // Logged-in auth requests
 if (!useSSO) {
