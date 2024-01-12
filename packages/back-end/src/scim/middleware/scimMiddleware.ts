@@ -34,7 +34,7 @@ export default function scimMiddleware(
     });
   }
 
-  if (orgHasPremiumFeature(req.organization, "scim")) {
+  if (!orgHasPremiumFeature(req.organization, "scim")) {
     return res.status(403).json({
       schemas: ["urn:ietf:params:scim:api:messages:2.0:Error"],
       status: "403",
