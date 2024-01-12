@@ -451,6 +451,7 @@ export async function licenseInit(
 
   if (
     process.env.LICENSE_KEY &&
+    key != process.env.LICENSE_KEY &&
     new Date(keyToLicenseData[key]?.dateExpires || "") < new Date()
   ) {
     return licenseInit(
