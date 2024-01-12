@@ -116,7 +116,10 @@ export async function postEnvVars(
 export async function getConfig(req: AuthRequest, res: Response) {
   req.checkPermissions("organizationSettings");
   const { org } = getOrgFromReq(req);
-  const liveGbKeys = await getAllApiKeysByOrganization(org.id);
+  const liveGbKeys = await getAllApiKeysByOrganization(
+    org.id,
+    req.readAccessFilter
+  );
 
   if (!org.connections?.vercel)
     throw new Error("Vercel integration does not exist");

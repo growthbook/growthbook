@@ -3,6 +3,7 @@ import { webcrypto } from "node:crypto";
 import mongoose from "mongoose";
 import uniqid from "uniqid";
 import omit from "lodash/omit";
+import { ReadAccessFilter, hasReadAccess } from "shared/permissions";
 import {
   ApiKeyInterface,
   PublishableApiKey,
@@ -276,6 +277,7 @@ export async function deleteApiKeyByKey(organization: string, key: string) {
 
 export async function getApiKeyByIdOrKey(
   organization: string,
+  readAccessFilter: ReadAccessFilter,
   id: string | undefined,
   key: string | undefined
 ): Promise<ApiKeyInterface | null> {
@@ -284,7 +286,12 @@ export async function getApiKeyByIdOrKey(
   const doc = await ApiKeyModel.findOne(
     id ? { organization, id } : { organization, key }
   );
-  return doc ? toInterface(doc) : null;
+
+  if (!doc) return null;
+
+  const apiKey = toInterface(doc);
+
+  return hasReadAccess(readAccessFilter, apiKey.project) ? apiKey : null;
 }
 
 export async function getVisualEditorApiKey(
@@ -325,7 +332,8 @@ export async function lookupOrganizationByApiKey(
 }
 
 export async function getAllApiKeysByOrganization(
-  organization: string
+  organization: string,
+  readAccessFilter: ReadAccessFilter
 ): Promise<ApiKeyInterface[]> {
   const docs: ApiKeyDocument[] = await ApiKeyModel.find(
     {
@@ -333,13 +341,15 @@ export async function getAllApiKeysByOrganization(
     },
     { encryptionKey: 0 }
   );
-  return docs.map((k) => {
+  const keys = docs.map((k) => {
     const json = toInterface(k);
     if (json.secret) {
       json.key = "";
     }
     return json;
   });
+
+  return keys.filter((k) => hasReadAccess(readAccessFilter, k.project));
 }
 
 export async function getFirstPublishableApiKey(

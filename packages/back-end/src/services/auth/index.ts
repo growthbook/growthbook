@@ -1,6 +1,6 @@
 import { NextFunction, Request, Response } from "express";
 import { SSO_CONFIG } from "enterprise";
-import { hasPermission } from "shared/permissions";
+import { getReadAccessFilter, hasPermission } from "shared/permissions";
 import { IS_CLOUD } from "../../util/secrets";
 import { AuthRequest } from "../../types/AuthRequest";
 import { markUserAsVerified, UserModel } from "../../models/UserModel";
@@ -190,6 +190,9 @@ export async function processJWT(
 
         // init license for org if it exists
         await initializeLicense(req.organization.licenseKey);
+        req.readAccessFilter = getReadAccessFilter(
+          getUserPermissions(user.id, req.organization, teams)
+        );
       } else {
         res.status(404).json({
           status: 404,
