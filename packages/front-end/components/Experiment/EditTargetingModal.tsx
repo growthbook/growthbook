@@ -338,7 +338,7 @@ function ChangeTypeSelector({
                   onChange={() => setChangeType(o.value as ChangeType)}
                 />
                 <label
-                  className="form-check-label cursor-pointer text-dark"
+                  className="form-check-label cursor-pointer text-dark hover-underline"
                   htmlFor={`changeType-${o.value}`}
                 >
                   {o.label}

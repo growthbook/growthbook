@@ -152,7 +152,7 @@ export default function TargetingInfo({
                       })}
                     >
                       {hasSavedGroupsChanges && (
-                        <div className="text-center" style={{ width: 20 }}>
+                        <div className="text-center mx-1" style={{ width: 20 }}>
                           Δ
                         </div>
                       )}
@@ -168,7 +168,7 @@ export default function TargetingInfo({
                     </div>
                     {hasSavedGroupsChanges && (
                       <div className="font-weight-bold text-success d-flex ml-4">
-                        <div className="text-center" style={{ width: 20 }}>
+                        <div className="text-center mx-1" style={{ width: 20 }}>
                           →
                         </div>
                         <div>
@@ -195,7 +195,7 @@ export default function TargetingInfo({
                       })}
                     >
                       {hasConditionChanges && (
-                        <div className="text-center" style={{ width: 20 }}>
+                        <div className="text-center mx-1" style={{ width: 20 }}>
                           Δ
                         </div>
                       )}
@@ -209,7 +209,7 @@ export default function TargetingInfo({
                     </div>
                     {hasConditionChanges && (
                       <div className="font-weight-bold text-success d-flex ml-4">
-                        <div className="text-center" style={{ width: 20 }}>
+                        <div className="text-center mx-1" style={{ width: 20 }}>
                           →
                         </div>
                         <div>
