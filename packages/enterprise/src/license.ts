@@ -409,7 +409,7 @@ export async function licenseInit(
   userLicenseCodes?: string[],
   metaData?: LicenseMetaData,
   forceRefresh = false
-) {
+): Promise<Partial<LicenseInterface> | undefined> {
   const key = licenseKey || process.env.LICENSE_KEY || null;
 
   if (!key) {
@@ -445,7 +445,19 @@ export async function licenseInit(
     keyToLicenseData[key] = licenseData;
   });
 
-  return keyToLicenseData[key];
+  if (
+    process.env.LICENSE_KEY &&
+    new Date(keyToLicenseData[key]?.dateExpires || "") < new Date()
+  ) {
+    return licenseInit(
+      process.env.LICENSE_KEY,
+      userLicenseCodes,
+      metaData,
+      forceRefresh
+    );
+  } else {
+    return keyToLicenseData[key];
+  }
 }
 
 export function getLicense() {
