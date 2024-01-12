@@ -114,6 +114,14 @@ describe("licenseInit", () => {
         mockedFetch.mockReset();
       });
 
+      it("should use the env variable if licenseKey argument is not provided", async () => {
+        process.env.LICENSE_KEY = licenseKey;
+        const result = await licenseInit(undefined, userLicenseCodes, metaData);
+
+        expect(getLicense()).toEqual(licenseData);
+        expect(result).toEqual(licenseData);
+      });
+
       it("should call fetch once and the second time return in-memory cached license data if it exists and is not too old", async () => {
         await licenseInit(licenseKey, userLicenseCodes, metaData);
 
@@ -337,6 +345,39 @@ describe("licenseInit", () => {
       dateExpires: "2023-11-19",
       plan: "pro",
     };
+
+    it("should use the env variable if the licenseKey argument references an expired license", async () => {
+      const licenseData3 = cloneDeep(licenseData);
+      const tenDaysAgo = new Date(now.getTime() - 10 * 24 * 60 * 60 * 1000);
+      licenseData3.dateExpires = tenDaysAgo.toISOString();
+      const mockedResponse3: Response = ({
+        ok: true,
+        json: jest.fn().mockResolvedValueOnce(licenseData3),
+      } as unknown) as Response;
+
+      mockedFetch.mockResolvedValueOnce(Promise.resolve(mockedResponse3));
+
+      process.env.LICENSE_KEY = oldLicenseKey;
+      const result = await licenseInit(licenseKey, userLicenseCodes, metaData);
+
+      expect(getLicense()).toEqual(oldLicenseData);
+      expect(result).toEqual(oldLicenseData);
+    });
+
+    it("should not use the env variable if the licenseKey argument does not reference an expired license", async () => {
+      const mockedResponse: Response = ({
+        ok: true,
+        json: jest.fn().mockResolvedValueOnce(licenseData),
+      } as unknown) as Response;
+
+      mockedFetch.mockResolvedValueOnce(Promise.resolve(mockedResponse));
+
+      process.env.LICENSE_KEY = oldLicenseKey;
+      const result = await licenseInit(licenseKey, userLicenseCodes, metaData);
+
+      expect(getLicense()).toEqual(licenseData);
+      expect(result).toEqual(licenseData);
+    });
 
     it("should read license data from the key itself and use the in-memory cache if called a second time, even if a long time has passed", async () => {
       await licenseInit(oldLicenseKey, userLicenseCodes, metaData);
