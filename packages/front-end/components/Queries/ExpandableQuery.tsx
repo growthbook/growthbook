@@ -15,6 +15,8 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import Code from "../SyntaxHighlighting/Code";
 import Tooltip from "../Tooltip/Tooltip";
 
+const numberFormatter = Intl.NumberFormat();
+
 const ExpandableQuery: FC<{
   query: QueryInterface;
   i: number;
@@ -147,15 +149,31 @@ const ExpandableQuery: FC<{
         </>
       )}
       {query.status === "succeeded" && (
-        <small>
-          <em>
-            Took{" "}
-            {formatDistanceStrict(
-              getValidDate(query.startedAt),
-              getValidDate(query.finishedAt)
-            )}
-          </em>
-        </small>
+        <div>
+          <div className="row">
+            <div className="col-auto mb-2">
+              <em>Total time</em>:{" "}
+              <strong>
+                {formatDistanceStrict(
+                  getValidDate(query.startedAt),
+                  getValidDate(query.finishedAt)
+                )}
+              </strong>
+            </div>
+            {query.statistics
+              ? Object.entries(query.statistics).map(([k, v]) => (
+                  <div className="col-auto mb-2" key={k}>
+                    <em>{k}</em>:{" "}
+                    <strong>
+                      {typeof v === "number"
+                        ? numberFormatter.format(v)
+                        : JSON.stringify(v)}
+                    </strong>
+                  </div>
+                ))
+              : null}
+          </div>
+        </div>
       )}
       {query.status === "running" && (
         <>
