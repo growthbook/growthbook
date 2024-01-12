@@ -1317,7 +1317,11 @@ export async function postExperimentTargeting(
     savedGroups,
     coverage,
     hashAttribute,
+    fallbackAttribute,
     hashVersion,
+    disableStickyBucketing,
+    bucketVersion,
+    minBucketVersion,
     namespace,
     trackingKey,
     variationWeights,
@@ -1380,7 +1384,11 @@ export async function postExperimentTargeting(
   changes.phases = phases;
 
   changes.hashAttribute = hashAttribute;
+  changes.fallbackAttribute = fallbackAttribute;
   changes.hashVersion = hashVersion;
+  changes.disableStickyBucketing = disableStickyBucketing;
+  changes.bucketVersion = bucketVersion;
+  changes.minBucketVersion = minBucketVersion;
   if (trackingKey) changes.trackingKey = trackingKey;
 
   // TODO: validation

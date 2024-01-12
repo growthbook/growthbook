@@ -22,6 +22,7 @@ import { OrganizationSettings } from "@/../back-end/types/organization";
 import Link from "next/link";
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import { MdInfoOutline } from "react-icons/md";
+import { getConnectionsSDKCapabilities } from "shared/sdk-versioning";
 import { useAuth } from "@/services/auth";
 import EditOrganizationModal from "@/components/Settings/EditOrganizationModal";
 import BackupConfigYamlButton from "@/components/Settings/BackupConfigYamlButton";
@@ -51,6 +52,12 @@ import { AppFeatures } from "@/types/app-features";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import ExperimentCheckListModal from "@/components/Settings/ExperimentCheckListModal";
 import ShowLicenseInfo from "@/components/License/ShowLicenseInfo";
+import {
+  StickyBucketingToggleWarning,
+  StickyBucketingTooltip,
+} from "@/components/Features/FallbackAttributeSelector";
+import useSDKConnections from "@/hooks/useSDKConnections";
+import Tooltip from "@/components/Tooltip/Tooltip";
 
 export const supportedCurrencies = {
   AED: "UAE Dirham (AED)",
@@ -266,10 +273,16 @@ const GeneralSettingsPage = (): React.ReactElement => {
   const hasSecureAttributesFeature = hasCommercialFeature(
     "hash-secure-attributes"
   );
+  const hasStickyBucketFeature = hasCommercialFeature("sticky-bucketing");
 
   const hasCustomChecklistFeature = hasCommercialFeature(
     "custom-launch-checklist"
   );
+
+  const { data: sdkConnectionsData } = useSDKConnections();
+  const hasSDKWithStickyBucketing = getConnectionsSDKCapabilities(
+    sdkConnectionsData?.connections || []
+  ).includes("stickyBucketing");
 
   const { metricDefaults } = useOrganizationMetricDefaults();
 
@@ -320,6 +333,8 @@ const GeneralSettingsPage = (): React.ReactElement => {
       secureAttributeSalt: "",
       killswitchConfirmation: false,
       defaultDataSource: settings.defaultDataSource || "",
+      useStickyBucketing: false,
+      useFallbackAttributes: false,
     },
   });
   const { apiCall } = useAuth();
@@ -358,6 +373,8 @@ const GeneralSettingsPage = (): React.ReactElement => {
     secureAttributeSalt: form.watch("secureAttributeSalt"),
     killswitchConfirmation: form.watch("killswitchConfirmation"),
     defaultDataSource: form.watch("defaultDataSource"),
+    useStickyBucketing: form.watch("useStickyBucketing"),
+    useFallbackAttributes: form.watch("useFallbackAttributes"),
   };
 
   const [cronString, setCronString] = useState("");
@@ -403,6 +420,12 @@ const GeneralSettingsPage = (): React.ReactElement => {
         ) {
           newVal.multipleExposureMinPercent =
             (newVal.multipleExposureMinPercent ?? 0.01) * 100;
+        }
+
+        if (k === "useStickyBucketing") {
+          newVal.useStickyBucketing = hasStickyBucketFeature
+            ? newVal.useStickyBucketing
+            : false;
         }
       });
       form.reset(newVal);
@@ -587,38 +610,6 @@ const GeneralSettingsPage = (): React.ReactElement => {
             {(isCloud() || !isMultiOrg()) && <ShowLicenseInfo />}
           </div>
 
-          <div className="my-3 bg-white p-3 border">
-            <div className="row">
-              <div className="col-sm-3">
-                <h4>North Star Metrics</h4>
-              </div>
-              <div className="col-sm-9">
-                <p>
-                  North stars are metrics your team is focused on improving.
-                  These metrics are shown on the home page with the experiments
-                  that have the metric as a goal.
-                </p>
-                <div className={"form-group"}>
-                  <div className="my-3">
-                    <div className="form-group">
-                      <label>Metric(s)</label>
-                      <MetricsSelector
-                        selected={form.watch("northStar.metricIds")}
-                        onChange={(metrics) =>
-                          form.setValue("northStar.metricIds", metrics)
-                        }
-                      />
-                    </div>
-                    <Field
-                      label="Title"
-                      {...form.register("northStar.title")}
-                    />
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
           {hasFileConfig() && (
             <div className="alert alert-info my-3">
               The below settings are controlled through your{" "}
@@ -633,6 +624,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
               .
             </div>
           )}
+
           {!hasFileConfig() && (
             <div className="alert alert-info my-3">
               <h3>Import/Export config.yml</h3>
@@ -685,6 +677,38 @@ const GeneralSettingsPage = (): React.ReactElement => {
             </div>
           )}
 
+          <div className="my-3 bg-white p-3 border">
+            <div className="row">
+              <div className="col-sm-3">
+                <h4>North Star Metrics</h4>
+              </div>
+              <div className="col-sm-9">
+                <p>
+                  North stars are metrics your team is focused on improving.
+                  These metrics are shown on the home page with the experiments
+                  that have the metric as a goal.
+                </p>
+                <div className={"form-group"}>
+                  <div className="my-3">
+                    <div className="form-group">
+                      <label>Metric(s)</label>
+                      <MetricsSelector
+                        selected={form.watch("northStar.metricIds")}
+                        onChange={(metrics) =>
+                          form.setValue("northStar.metricIds", metrics)
+                        }
+                      />
+                    </div>
+                    <Field
+                      label="Title"
+                      {...form.register("northStar.title")}
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
           <div className="bg-white p-3 border position-relative">
             <div className="row">
               <div className="col-sm-3">
@@ -692,7 +716,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
               </div>
 
               <div className="col-sm-9">
-                <div className="form-inline flex-column align-items-start mb-4">
+                <div className="form-inline flex-column align-items-start mb-3">
                   <Field
                     label="Minimum experiment length (in days) when importing past
                   experiments"
@@ -760,7 +784,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
                     />
                   </div>
 
-                  <div className="mb-3 form-group flex-column align-items-start">
+                  <div className="mb-4 form-group flex-column align-items-start">
                     <Field
                       label="Experiment Auto-Update Frequency"
                       className="ml-2"
@@ -869,6 +893,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
                       setStatsEngineTab(value);
                       form.setValue("statsEngine", value);
                     }}
+                    labelClassName="mr-2"
                   />
                 </div>
 
@@ -1176,72 +1201,155 @@ const GeneralSettingsPage = (): React.ReactElement => {
                     </Tab>
                   </ControlledTabs>
                 </div>
-                <h4 className="mt-4 mb-2">Experiment Health Settings</h4>
-                <div className="tab-content border mb-3 p-3">
-                  <Tab display="health">
-                    <div className="form-group mb-2 mt-2 mr-2 form-inline">
+
+                <h4 className="mt-4 mb-2">Sticky Bucketing Settings</h4>
+                <div className="appbox py-2 px-3">
+                  <div className="w-100 mt-2">
+                    <div className="d-flex">
                       <label
-                        className="mr-1"
-                        htmlFor="toggle-runHealthTrafficQuery"
+                        className="mr-2"
+                        htmlFor="toggle-useStickyBucketing"
                       >
-                        Run traffic query by default
+                        <PremiumTooltip
+                          commercialFeature={"sticky-bucketing"}
+                          body={<StickyBucketingTooltip />}
+                        >
+                          Enable Sticky Bucketing <FaQuestionCircle />
+                        </PremiumTooltip>
                       </label>
                       <Toggle
-                        id={"toggle-runHealthTrafficQuery"}
-                        value={!!form.watch("runHealthTrafficQuery")}
+                        id={"toggle-useStickyBucketing"}
+                        value={!!form.watch("useStickyBucketing")}
                         setValue={(value) => {
-                          form.setValue("runHealthTrafficQuery", value);
+                          form.setValue(
+                            "useStickyBucketing",
+                            hasStickyBucketFeature ? value : false
+                          );
                         }}
-                      />
-                    </div>
-
-                    <div className="mt-3 form-inline flex-column align-items-start">
-                      <Field
-                        label="SRM p-value threshold"
-                        type="number"
-                        step="0.001"
-                        style={{
-                          borderColor: srmHighlightColor,
-                          backgroundColor: srmHighlightColor
-                            ? srmHighlightColor + "15"
-                            : "",
-                        }}
-                        max="0.1"
-                        min="0.00001"
-                        className={`ml-2`}
-                        containerClassName="mb-3"
-                        append=""
-                        disabled={hasFileConfig()}
-                        helpText={
-                          <>
-                            <span className="ml-2">(0.001 is default)</span>
-                            <div
-                              className="ml-2"
-                              style={{
-                                color: srmHighlightColor,
-                                flexBasis: "100%",
-                              }}
-                            >
-                              {srmWarningMsg}
-                            </div>
-                          </>
+                        disabled={
+                          !form.watch("useStickyBucketing") &&
+                          (!hasStickyBucketFeature ||
+                            !hasSDKWithStickyBucketing)
                         }
-                        {...form.register("srmThreshold", {
-                          valueAsNumber: true,
-                          min: 0,
-                          max: 1,
-                        })}
                       />
                     </div>
-                  </Tab>
+                    {!form.watch("useStickyBucketing") && (
+                      <div className="small">
+                        <StickyBucketingToggleWarning
+                          hasSDKWithStickyBucketing={hasSDKWithStickyBucketing}
+                        />
+                      </div>
+                    )}
+                  </div>
+
+                  {form.watch("useStickyBucketing") && (
+                    <div className="w-100 mt-4">
+                      <div className="d-flex">
+                        <label
+                          className="mr-2"
+                          htmlFor="toggle-useFallbackAttributes"
+                        >
+                          <Tooltip
+                            body={
+                              <>
+                                <div className="mb-2">
+                                  If the user&apos;s assignment attribute is not
+                                  available a fallback attribute may be used
+                                  instead. Toggle this to allow selection of a
+                                  fallback attribute when creating experiments.
+                                </div>
+                                <div>
+                                  While using a fallback attribute can improve
+                                  the consistency of the user experience, it can
+                                  also lead to statistical biases if not
+                                  implemented carefully. See the Sticky
+                                  Bucketing docs for more information.
+                                </div>
+                              </>
+                            }
+                          >
+                            Enable fallback attributes in experiments{" "}
+                            <FaQuestionCircle />
+                          </Tooltip>
+                        </label>
+                        <Toggle
+                          id={"toggle-useFallbackAttributes"}
+                          value={!!form.watch("useFallbackAttributes")}
+                          setValue={(value) =>
+                            form.setValue("useFallbackAttributes", value)
+                          }
+                        />
+                      </div>
+                    </div>
+                  )}
                 </div>
+
+                <h4 className="mt-4 mb-2">Experiment Health Settings</h4>
+                <div className="appbox pt-2 px-3">
+                  <div className="form-group mb-2 mt-2 mr-2 form-inline">
+                    <label
+                      className="mr-1"
+                      htmlFor="toggle-runHealthTrafficQuery"
+                    >
+                      Run traffic query by default
+                    </label>
+                    <Toggle
+                      id={"toggle-runHealthTrafficQuery"}
+                      value={!!form.watch("runHealthTrafficQuery")}
+                      setValue={(value) => {
+                        form.setValue("runHealthTrafficQuery", value);
+                      }}
+                    />
+                  </div>
+
+                  <div className="mt-3 form-inline flex-column align-items-start">
+                    <Field
+                      label="SRM p-value threshold"
+                      type="number"
+                      step="0.001"
+                      style={{
+                        borderColor: srmHighlightColor,
+                        backgroundColor: srmHighlightColor
+                          ? srmHighlightColor + "15"
+                          : "",
+                      }}
+                      max="0.1"
+                      min="0.00001"
+                      className={`ml-2`}
+                      containerClassName="mb-3"
+                      append=""
+                      disabled={hasFileConfig()}
+                      helpText={
+                        <>
+                          <span className="ml-2">(0.001 is default)</span>
+                          <div
+                            className="ml-2"
+                            style={{
+                              color: srmHighlightColor,
+                              flexBasis: "100%",
+                            }}
+                          >
+                            {srmWarningMsg}
+                          </div>
+                        </>
+                      }
+                      {...form.register("srmThreshold", {
+                        valueAsNumber: true,
+                        min: 0,
+                        max: 1,
+                      })}
+                    />
+                  </div>
+                </div>
+
                 <div className="mb-3 form-group flex-column align-items-start">
                   <PremiumTooltip
-                    className="d-flex align-items-center"
                     commercialFeature="custom-launch-checklist"
-                    body="Custom pre-launch checklists are available to Enterprise customers"
+                    premiumText="Custom pre-launch checklists are available to Enterprise customers"
                   >
-                    <h4 className="mb-0">Experiment Pre-Launch Checklist</h4>
+                    <div className="d-inline-block h4 mt-4 mb-0">
+                      Experiment Pre-Launch Checklist
+                    </div>
                   </PremiumTooltip>
                   <p className="pt-2">
                     Configure required steps that need to be completed before an
