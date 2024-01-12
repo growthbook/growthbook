@@ -7,6 +7,7 @@ import { isCloud } from "@/services/env";
 import EditLicenseModal from "../Settings/EditLicenseModal";
 import { GBPremiumBadge } from "../Icons";
 import UpgradeModal from "../Settings/UpgradeModal";
+import AccountPlanNotices from "../Layout/AccountPlanNotices";
 import RefreshLicenseButton from "./RefreshLicenseButton";
 
 const ShowLicenseInfo: FC<{
@@ -14,17 +15,21 @@ const ShowLicenseInfo: FC<{
 }> = ({ showInput = true }) => {
   const { accountPlan, license, refreshOrganization } = useUser();
   const permissions = usePermissions();
-
   const [editLicenseOpen, setEditLicenseOpen] = useState(false);
 
   const [upgradeModal, setUpgradeModal] = useState(false);
-  const showUpgradeButton = ["oss", "starter"].includes(accountPlan || "");
+
+  // The accountPlan is the effective plan given possible downgrades.
+  // but we want to show the actual plan on the license.
+  const actualPlan = license?.plan || accountPlan;
+
+  const showUpgradeButton = ["oss", "starter"].includes(actualPlan || "");
   const licensePlanText =
-    (accountPlan === "enterprise"
+    (actualPlan === "enterprise"
       ? "Enterprise"
-      : accountPlan === "pro"
+      : actualPlan === "pro"
       ? "Pro"
-      : accountPlan === "pro_sso"
+      : actualPlan === "pro_sso"
       ? "Pro + SSO"
       : "Starter") + (license && license.isTrial ? " (trial)" : "");
 
@@ -54,6 +59,7 @@ const ShowLicenseInfo: FC<{
               <div className="col-sm-12">
                 <strong>Plan type: </strong> {licensePlanText}{" "}
               </div>
+              <AccountPlanNotices />
             </div>
             {showUpgradeButton && (
               <div className="form-group row mb-1">

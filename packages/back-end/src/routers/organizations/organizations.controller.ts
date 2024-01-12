@@ -4,6 +4,7 @@ import { freeEmailDomains } from "free-email-domains-typescript";
 import {
   accountFeatures,
   getAccountPlan,
+  getEffectiveAccountPlan,
   getLicense,
   setLicense,
 } from "enterprise";
@@ -658,9 +659,8 @@ export async function getOrganization(req: AuthRequest, res: Response) {
     apiKeys,
     enterpriseSSO,
     accountPlan: getAccountPlan(org),
-    commercialFeatures: res.locals.licenseError
-      ? []
-      : [...accountFeatures[getAccountPlan(org)]],
+    effectiveAccountPlan: getEffectiveAccountPlan(org),
+    commercialFeatures: [...accountFeatures[getEffectiveAccountPlan(org)]],
     roles: getRoles(org),
     members: expandedMembers,
     currentUserPermissions,
