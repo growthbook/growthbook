@@ -220,7 +220,7 @@ export default function TabbedPage({
             // Try to immediately open the visual editor
             await openVisualEditor(vc, apiCall);
           }}
-          cta="Create"
+          cta="Add Redirect"
         />
       )}
       {statusModal && (

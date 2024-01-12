@@ -20,7 +20,7 @@ properties:
           type: boolean
         type:
           type: string
-          enum: [simple, regex, exact]
+          enum: [simple, regex]
         pattern: string
   editorUrl:
     type: string
@@ -69,36 +69,9 @@ properties:
     items:
       type: object
       properties:
-        id:
+        url:
           type: string
-        description:
+        variation:
           type: string
-        originUrl:
-          type: string
-        urlPatterns:
-          type: array
-          items:
-            type: object
-            required:
-              - type
-              - pattern
-            properties:
-              include:
-                type: boolean
-              type:
-                type: string
-                enum: [simple, regex, exact]
-              pattern: string
-        destinationUrls:
-          type: array
-          items:
-            type: object
-            properties:
-              description:
-                type: string
-              url:
-                type: string
-              variation:
-                type: string
-        persistQueryString:
-          type: boolean
+  persistQueryString:
+    type: boolean

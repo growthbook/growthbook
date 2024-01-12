@@ -163,13 +163,10 @@ export function toVisualChangesetApiInterface(
       domMutations: c.domMutations,
     })),
     urlRedirects: visualChangeset.urlRedirects.map((r) => ({
-      id: r.id,
-      description: r.description,
-      originUrl: r.originUrl,
-      urlPatterns: r.urlPatterns,
-      destinationUrls: r.destinationUrls,
-      persistQueryString: r.persistQueryString,
+      url: r.url,
+      variation: r.variation,
     })),
+    persistQueryString: visualChangeset.persistQueryString,
   };
 }
 

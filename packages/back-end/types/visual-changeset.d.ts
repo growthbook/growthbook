@@ -8,14 +8,8 @@ interface DOMMutation {
 }
 
 interface URLRedirect {
-  // id: string;
-  // description: string;
-  // originUrl: string;
-  // urlPatterns: VisualChangesetURLPattern[];
   url: string;
-  description: string;
   variation: string;
-  persistQueryString: boolean;
 }
 
 interface VisualChange {
@@ -29,16 +23,17 @@ interface VisualChange {
 
 export interface VisualChangesetURLPattern {
   include: boolean;
-  type: "simple" | "regex" | "exact";
+  type: "simple" | "regex";
   pattern: string;
 }
 
 export interface VisualChangesetInterface {
   id: string;
   organization: string;
-  urlPatterns: VisualChangesetURLPattern[];
+  urlPatterns: VisualChangesetURLPattern[]; // single pattern per URL Redirect Visual Changeset
   editorUrl: string;
   experiment: string;
   visualChanges: VisualChange[];
   urlRedirects: URLRedirect[];
+  persistQueryString?: boolean;
 }

@@ -1,16 +1,11 @@
 import { VisualChangesetInterface } from "@/../back-end/types/visual-changeset";
-import { FC, useState } from "react";
-import { useFieldArray, useForm } from "react-hook-form";
+import { FC } from "react";
+import { useForm } from "react-hook-form";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import { FaExclamationCircle, FaInfoCircle } from "react-icons/fa";
-import { isURLTargeted, UrlTarget } from "@growthbook/growthbook";
-import SelectField from "@/components/Forms/SelectField";
 import { useAuth } from "@/services/auth";
-import Tooltip from "@/components/Tooltip/Tooltip";
 import Field from "../Forms/Field";
-import { GBAddCircle } from "../Icons";
 import Modal from "../Modal";
-import Toggle from "../Forms/Toggle";
+import Tooltip from "../Tooltip/Tooltip";
 
 const defaultType = "simple";
 
@@ -25,36 +20,15 @@ const UrlRedirectModal: FC<{
 }> = ({ mode, experiment, visualChangeset, mutate, close, onCreate, cta }) => {
   const { apiCall } = useAuth();
 
-  let forceAdvancedMode = false;
-  if ((visualChangeset?.urlPatterns?.length ?? 0) > 0) {
-    forceAdvancedMode = true;
-  }
-  if (visualChangeset?.urlPatterns?.length === 1) {
-    const p = visualChangeset.urlPatterns[0];
-    if (
-      p.pattern === visualChangeset.editorUrl &&
-      p.type === defaultType &&
-      p.include
-    ) {
-      forceAdvancedMode = false;
-    }
-  }
-
-  const [showAdvanced, setShowAdvanced] = useState(forceAdvancedMode);
-
   const form = useForm({
     defaultValues: {
-      originUrl: visualChangeset?.urlRedirects[0].originUrl ?? "",
-      destinationUrls: visualChangeset?.urlRedirects[0].destinationUrls ?? [],
+      originUrl: visualChangeset?.urlRedirects[0].url ?? "",
+      destinationUrls: visualChangeset?.urlPatterns.map((p) => p.pattern) ?? [],
       urlPatterns: visualChangeset?.urlPatterns ?? [
         { pattern: "", type: defaultType, include: true },
       ],
       persistQueryString: false,
     },
-  });
-  const urlPatterns = useFieldArray({
-    control: form.control,
-    name: "urlPatterns",
   });
 
   const onSubmit = form.handleSubmit(async (value) => {
@@ -62,11 +36,6 @@ const UrlRedirectModal: FC<{
       editorUrl: value.originUrl,
       urlPatterns: value.urlPatterns,
     };
-    if (!showAdvanced) {
-      payload.urlPatterns = [
-        { pattern: value.originUrl, type: defaultType, include: true },
-      ];
-    }
     if (mode === "add") {
       const res = await apiCall<{ visualChangeset: VisualChangesetInterface }>(
         `/experiments/${experiment.id}/visual-changeset`,
@@ -86,225 +55,94 @@ const UrlRedirectModal: FC<{
     }
   });
 
-  const editorUrlLabel = !showAdvanced
-    ? "Target URL"
-    : "URL to edit with Visual Editor";
-  const editorUrlHelpText = !showAdvanced ? undefined : (
-    <>
-      Clicking the <strong>Open Visual Editor</strong> button will open this URL
-    </>
-  );
-
-  const patternsMatchUrl =
-    !showAdvanced ||
-    isURLTargeted(
-      form.watch("originUrl"),
-      form.watch("urlPatterns") as UrlTarget[]
-    );
-
   return (
     <Modal
       open
       close={close}
       size="lg"
-      header={`${mode === "add" ? "Add" : "Modify"} URL Redirects`}
+      header={
+        <div className="mx-3">
+          <h3>{mode === "add" ? "Add" : "Modify"} URL Redirects</h3>
+          <p className="mb-0" style={{ fontWeight: 400 }}>
+            Send visitors to any URL when landing on another URL.
+          </p>
+        </div>
+      }
       submit={onSubmit}
       cta={cta}
     >
-      <Field
-        required
-        label={editorUrlLabel}
-        containerClassName="mb-2"
-        helpText={editorUrlHelpText}
-        {...form.register("originUrl", {
-          required: true,
-          onChange: () => {
-            if (!showAdvanced) {
-              form.setValue("urlPatterns.0.pattern", form.watch("originUrl"));
-              form.setValue("urlPatterns.0.type", defaultType);
-              form.setValue("urlPatterns.0.include", true);
+      <div className="mx-3 mt-3">
+        <div className="d-flex align-items-baseline">
+          <h4>Original URL</h4>
+          <Tooltip
+            body={
+              "Currently, we support simple redirects for full URL paths. For Regex, use Feature Flags."
             }
-          },
-        })}
-      />
-      <div className="mt-3">
-        {experiment.variations.map((v, i) => (
-          <div key={v.key}>
-            <h4>{v.name}</h4>
-            <div className="ml-2">
-              {" "}
-              <Field
-                required
-                label={`Destination URL`}
-                containerClassName="mb-2"
-                helpText={
-                  <>
-                    If a user is in this variation, this is the URL they will be
-                    redirected to
-                  </>
-                }
-                {...form.register(`destinationUrls.${i}`, {
-                  required: true,
-                })}
-              />
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {!forceAdvancedMode && (
-        <div className="my-3 text-xs">
-          <span
-            className="btn-link cursor-pointer"
-            onClick={() => setShowAdvanced(!showAdvanced)}
-          >
-            <small>{showAdvanced ? "Hide" : "Show"} advanced options</small>
-          </span>
-        </div>
-      )}
-
-      <div
-        className="mt-4"
-        style={{ display: showAdvanced ? "block" : "none" }}
-      >
-        <label>URL Targeting</label>
-        {urlPatterns.fields.map((p, i) => (
-          <div key={i} className="mb-2">
-            <div className="row">
-              <div className="col-2">
-                <SelectField
-                  value={
-                    !form.watch(`urlPatterns.${i}.include`) ? "false" : "true"
-                  }
-                  options={[
-                    { label: "Include", value: "true" },
-                    { label: "Exclude", value: "false" },
-                  ]}
-                  onChange={(v) =>
-                    form.setValue(`urlPatterns.${i}.include`, v !== "false")
-                  }
-                />
-              </div>
-              <div className="col">
-                <Field {...form.register(`urlPatterns.${i}.pattern`)} />
-              </div>
-              <div className="col-2">
-                <SelectField
-                  value={form.watch(`urlPatterns.${i}.type`)}
-                  options={[
-                    { label: "Simple", value: "simple" },
-                    { label: "Regex", value: "regex" },
-                  ]}
-                  sort={false}
-                  onChange={(v) => form.setValue(`urlPatterns.${i}.type`, v)}
-                />
-              </div>
-              <div className="col-auto" style={{ width: 30 }}>
-                {urlPatterns.fields.length > 1 && (
-                  <button
-                    type="button"
-                    className="close inline mt-1 p-1"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      urlPatterns.remove(i);
-                    }}
-                  >
-                    <span aria-hidden="true">×</span>
-                  </button>
-                )}
-              </div>
-            </div>
-            <div className="row">
-              <div className="col-2"></div>
-              <div className="col-7 px-3">
-                <div className="small text-muted">
-                  {form.watch(`urlPatterns.${i}.type`) === "simple" ? (
-                    <Tooltip
-                      body={
-                        <>
-                          Example Patterns:
-                          <ul className="px-4">
-                            <li>
-                              <code>https://www.example.com/pricing</code>
-                            </li>
-                            <li>
-                              <code>/sale?utm_source=email</code>
-                            </li>
-                            <li>
-                              <code>/items/*</code>
-                            </li>
-                          </ul>
-                        </>
-                      }
-                    >
-                      <strong>Simple</strong>: Matches a full URL or path.
-                      Supports <code>*</code> as a wildcard <FaInfoCircle />
-                    </Tooltip>
-                  ) : form.watch(`urlPatterns.${i}.type`) === "regex" ? (
-                    <Tooltip
-                      tipMinWidth={"500px"}
-                      body={
-                        <>
-                          <ul className="px-4">
-                            <li>
-                              <code style={{ whiteSpace: "nowrap" }}>
-                                https?:\/\/(www\.)?example\.com\/pricing\/?
-                              </code>{" "}
-                              will match both
-                              &quot;https://www.example.com/pricing&quot; and
-                              &quot;http://example.com/pricing/&quot;
-                            </li>
-                            <li>
-                              <code style={{ whiteSpace: "nowrap" }}>
-                                \/pricing\/?
-                              </code>{" "}
-                              will <em>also</em> match both
-                              &quot;https://www.example.com/pricing&quot; and
-                              &quot;http://example.com/pricing/&quot; (matching
-                              by path)
-                            </li>
-                          </ul>
-                        </>
-                      }
-                    >
-                      <strong>Regex</strong>: Matches a URL or path via regular
-                      expression <FaInfoCircle />
-                    </Tooltip>
-                  ) : null}
-                </div>
-              </div>
-            </div>
-          </div>
-        ))}
-        <button
-          className="btn btn-link mt-1"
-          onClick={(e) => {
-            e.preventDefault();
-            urlPatterns.append({
-              pattern: "",
-              type: defaultType,
-              include: true,
-            });
-          }}
-        >
-          <GBAddCircle className="mr-1" />
-          Add URL Target
-        </button>
-        <div className="mt-4">
-          <label htmlFor="persist-query-string">Persist Query String</label>{" "}
-          <Toggle
-            value={form.watch("persistQueryString")}
-            setValue={(v) => form.setValue("persistQueryString", v)}
-            id="persist-query-string"
+            className="ml-1"
           />
         </div>
-      </div>
 
-      {!patternsMatchUrl && (
-        <div className="alert alert-warning mt-3">
-          <FaExclamationCircle /> Your URL patterns do not match the target URL
+        <Field
+          required
+          placeholder="Ex: https://www.example.com/pricing"
+          containerClassName="mb-2"
+          {...form.register("originUrl", {
+            required: true,
+          })}
+        />
+        <hr className="mt-4 mb-3" />
+        <div className="mt-3">
+          <h4>Destination URLs</h4>
+          <p className="text-muted">
+            Leave blank if no redirect is desired for a variation.
+          </p>
+          {experiment.variations.map((v, i) => (
+            <div
+              className={`mb-4 variation with-variation-label variation${i}`}
+              key={v.key}
+            >
+              <div className="d-flex align-items-baseline">
+                <span
+                  className="label"
+                  style={{
+                    width: 18,
+                    height: 18,
+                  }}
+                >
+                  {i}
+                </span>{" "}
+                <h5>{v.name}</h5>
+              </div>
+
+              <div>
+                <Field
+                  required
+                  placeholder="Enter destination URL for users in this variation"
+                  containerClassName="mb-2"
+                  {...form.register(`destinationUrls.${i}`, {
+                    required: true,
+                  })}
+                />
+              </div>
+            </div>
+          ))}
         </div>
-      )}
+        <hr className="mt-4" />
+        <div className="d-flex align-items-baseline my-1">
+          <input
+            type="checkbox"
+            {...form.register("persistQueryString")}
+            id={"toggle-persistQueryString"}
+          />
+          <div className="text-muted ml-2">
+            <b>Persist Query String</b>
+            <p>
+              Keep this enabled to allow users’ queries, such as search terms,
+              to carry over when redirecting.
+            </p>
+          </div>
+        </div>
+      </div>
     </Modal>
   );
 };
