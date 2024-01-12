@@ -10,8 +10,10 @@ import {
 import clsx from "clsx";
 import { getValidDate } from "shared/dates";
 import { isFactMetricId } from "shared/experiments";
+import { FaBoltLightning } from "react-icons/fa6";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Code from "../SyntaxHighlighting/Code";
+import Tooltip from "../Tooltip/Tooltip";
 
 const ExpandableQuery: FC<{
   query: QueryInterface;
@@ -30,7 +32,7 @@ const ExpandableQuery: FC<{
 
   return (
     <div className="mb-4">
-      <h4>
+      <h4 className="d-flex align-items-top">
         {query.status === "running" && (
           <FaCircle className="text-info mr-2" title="Running" />
         )}
@@ -43,11 +45,37 @@ const ExpandableQuery: FC<{
         {query.status === "succeeded" && (
           <FaCheck className="text-success mr-2" title="Succeeded" />
         )}
-        {title}
+        <div className="mr-1">{title}</div>
         <span style={{ fontWeight: "normal" }}>
           {title && " - "}
           Query {i + 1} of {total}
         </span>
+        {query.queryType === "experimentMultiMetric" && (
+          <div className="ml-auto">
+            <Tooltip
+              body={
+                <>
+                  <h5>Fact Table Query Optimization</h5>
+                  <p>
+                    Multiple metrics in the same Fact Table are being combined
+                    into a single query, which is much faster and more
+                    efficient.
+                  </p>
+                  <p>
+                    This is a new feature, so please report any issues you
+                    encounter. You can disable this optimization under{" "}
+                    <strong>Settings</strong> -&gt; <strong>General</strong>{" "}
+                    -&gt; <strong>Experiment Settings</strong>.
+                  </p>
+                </>
+              }
+            >
+              <span className="badge badge-warning">
+                <FaBoltLightning /> Optimized
+              </span>
+            </Tooltip>
+          </div>
+        )}
       </h4>
       <Code language={query.language} code={query.query} expandable={true} />
       {query.error && (

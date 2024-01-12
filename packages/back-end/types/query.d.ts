@@ -23,6 +23,17 @@ export type QueryPointer = {
 };
 export type Queries = QueryPointer[];
 
+export type QueryType =
+  | ""
+  | "pastExperiment"
+  | "metricAnalysis"
+  | "experimentMetric"
+  | "dimensionSlices"
+  | "experimentUnits"
+  | "experimentResults"
+  | "experimentTraffic"
+  | "experimentMultiMetric";
+
 export interface QueryInterface {
   id: string;
   organization: string;
@@ -36,6 +47,7 @@ export interface QueryInterface {
   heartbeat: Date;
   // eslint-disable-next-line
   result?: Record<string, any>;
+  queryType?: QueryType;
   rawResult?: Record<string, number | string | boolean | object>[];
   error?: string;
   dependencies?: string[];

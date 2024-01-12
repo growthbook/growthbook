@@ -4,6 +4,7 @@ import {
   QueryInterface,
   QueryPointer,
   QueryStatus,
+  QueryType,
 } from "../../types/query";
 import {
   createNewQuery,
@@ -52,6 +53,7 @@ export type StartQueryParams<Rows, ProcessedRows> = {
     setExternalId: ExternalIdCallback
   ) => Promise<QueryResponse<Rows>>;
   process: (rows: Rows) => ProcessedRows;
+  queryType: QueryType;
 };
 
 const FINISH_EVENT = "finish";
@@ -477,7 +479,7 @@ export abstract class QueryRunner<
     Rows extends RowsType,
     ProcessedRows extends ProcessedRowsType
   >(params: StartQueryParams<Rows, ProcessedRows>): Promise<QueryPointer> {
-    const { name, query, dependencies, run, process } = params;
+    const { name, query, dependencies, run, process, queryType } = params;
     // Re-use recent identical query if it exists
     if (this.useCache) {
       logger.debug("Trying to reuse existing query");
@@ -540,6 +542,7 @@ export abstract class QueryRunner<
     const readyToRun = dependencies.length === 0;
     const doc = await createNewQuery({
       query,
+      queryType,
       datasource: this.integration.datasource,
       organization: this.integration.organization,
       language: this.integration.getSourceProperties().queryLanguage,

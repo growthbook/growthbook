@@ -103,7 +103,10 @@ export function getFactMetricGroups(
     return defaultReturn;
   }
 
-  // TODO: org-level setting to disable multi-metric queries
+  // Org-level setting (in case the multi-metric query introduces bugs)
+  if (organization.settings?.disableMultiMetricQueries) {
+    return defaultReturn;
+  }
 
   // Group metrics by fact table id
   const groups: Record<string, FactMetricInterface[]> = {};
@@ -254,6 +257,7 @@ export const startExperimentResultQueries = async (
       run: (query, setExternalId) =>
         integration.runExperimentUnitsQuery(query, setExternalId),
       process: (rows) => rows,
+      queryType: "experimentUnits",
     });
     queries.push(unitQuery);
   }
@@ -296,6 +300,7 @@ export const startExperimentResultQueries = async (
         run: (query, setExternalId) =>
           integration.runExperimentMetricQuery(query, setExternalId),
         process: (rows) => rows,
+        queryType: "experimentMetric",
       })
     );
   });
@@ -330,6 +335,7 @@ export const startExperimentResultQueries = async (
             setExternalId
           ),
         process: (rows) => rows,
+        queryType: "experimentMultiMetric",
       })
     );
   });
@@ -348,6 +354,7 @@ export const startExperimentResultQueries = async (
       run: (query, setExternalId) =>
         integration.runExperimentAggregateUnitsQuery(query, setExternalId),
       process: (rows) => rows,
+      queryType: "experimentTraffic",
     });
     queries.push(trafficQuery);
   }
@@ -381,12 +388,6 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
   }
 
   async runAnalysis(queryMap: QueryMap): Promise<SnapshotResult> {
-    const result: SnapshotResult = {
-      analyses: this.model.analyses,
-      multipleExposures: 0,
-      unknownVariations: [],
-    };
-
     const analysesResults = await analyzeExperimentResults({
       queryData: queryMap,
       snapshotSettings: this.model.settings,
@@ -394,6 +395,12 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
       variationNames: this.variationNames,
       metricMap: this.metricMap,
     });
+
+    const result: SnapshotResult = {
+      analyses: this.model.analyses,
+      multipleExposures: 0,
+      unknownVariations: [],
+    };
 
     analysesResults.forEach((results, i) => {
       const analysis = this.model.analyses[i];
@@ -496,6 +503,7 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
 
     return [
       await this.startQuery({
+        queryType: "experimentResults",
         name: "results",
         query: query,
         dependencies: [],

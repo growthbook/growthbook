@@ -182,6 +182,7 @@ export interface OrganizationSettings {
   secureAttributeSalt?: string;
   killswitchConfirmation?: boolean;
   defaultDataSource?: string;
+  disableMultiMetricQueries?: boolean;
 }
 
 export interface SubscriptionQuote {
