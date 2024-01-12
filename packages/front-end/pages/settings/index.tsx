@@ -318,7 +318,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
       },
       runHealthTrafficQuery: false,
       srmThreshold: DEFAULT_SRM_THRESHOLD,
-      multipleExposureMinPercent: 0.01 * 100,
+      multipleExposureMinPercent: 0.01,
       confidenceLevel: 0.95,
       pValueThreshold: DEFAULT_P_VALUE_THRESHOLD,
       pValueCorrection: null,
