@@ -35,6 +35,7 @@ export type CommercialFeature =
   | "remote-evaluation"
   | "multi-org"
   | "custom-launch-checklist"
+  | "multi-metric-queries"
   | "no-access-role"
   | "teams"
   | "sticky-bucketing";
@@ -135,6 +136,7 @@ export const accountFeatures: CommercialFeaturesMap = {
     "regression-adjustment",
     "sequential-testing",
     "pipeline-mode",
+    "multi-metric-queries",
     "visual-editor",
     "archetypes",
     "cloud-proxy",

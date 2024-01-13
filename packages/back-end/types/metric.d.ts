@@ -5,6 +5,8 @@ export type Operator = "=" | "!=" | "~" | "!~" | ">" | "<" | "<=" | ">=" | "=>";
 export type MetricType = "binomial" | "count" | "duration" | "revenue";
 export type MetricStatus = "active" | "archived";
 export type MetricCappingType = null | "absolute" | "percentile";
+
+// Keep MetricStats in sync with gbstats
 export interface MetricStats {
   users: number;
   count: number;

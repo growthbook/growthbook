@@ -1,7 +1,7 @@
 import mongoose from "mongoose";
 import { omit } from "lodash";
 import uniqid from "uniqid";
-import { QueryInterface } from "../../types/query";
+import { QueryInterface, QueryType } from "../../types/query";
 import { QUERY_CACHE_TTL_MINS } from "../util/secrets";
 import { QueryLanguage } from "../../types/datasource";
 
@@ -30,6 +30,7 @@ const querySchema = new mongoose.Schema({
     type: String,
     index: true,
   },
+  queryType: String,
   createdAt: Date,
   startedAt: Date,
   finishedAt: Date,
@@ -142,6 +143,7 @@ export async function createNewQuery({
   query,
   dependencies = [],
   running = false,
+  queryType = "",
 }: {
   organization: string;
   datasource: string;
@@ -149,6 +151,7 @@ export async function createNewQuery({
   query: string;
   dependencies: string[];
   running: boolean;
+  queryType: QueryType;
 }): Promise<QueryInterface> {
   const data: QueryInterface = {
     createdAt: new Date(),
@@ -161,6 +164,7 @@ export async function createNewQuery({
     startedAt: running ? new Date() : undefined,
     status: running ? "running" : "queued",
     dependencies: dependencies,
+    queryType,
   };
   const doc = await QueryModel.create(data);
   return toInterface(doc);

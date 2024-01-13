@@ -5,6 +5,7 @@ import Modal from "../Modal";
 import LoadingOverlay from "../LoadingOverlay";
 import LoadingSpinner from "../LoadingSpinner";
 import ExpandableQuery from "./ExpandableQuery";
+import OverallQueryStats from "./OverallQueryStats";
 
 const AsyncQueriesModal: FC<{
   queries: string[];
@@ -31,6 +32,9 @@ const AsyncQueriesModal: FC<{
           Could not fetch information about one or more of these queries. Try
           running them again.
         </div>
+      )}
+      {data && data.queries && (
+        <OverallQueryStats queries={data.queries.filter((q) => q !== null)} />
       )}
       {data &&
         data.queries
@@ -62,7 +66,7 @@ const AsyncQueriesModal: FC<{
       close={close}
       header="Queries"
       open={true}
-      size="lg"
+      size="max"
       closeCta="Close"
     >
       {!data && !apiError && <LoadingOverlay />}
