@@ -7,6 +7,7 @@ import pino from "pino";
 import { omit, sortBy } from "lodash";
 import AsyncLock from "async-lock";
 import { stringToBoolean } from "shared/util";
+import { ProxyAgent } from "proxy-agent";
 import { LicenseDocument, LicenseModel } from "./models/licenseModel";
 
 export const LICENSE_SERVER =
@@ -360,6 +361,12 @@ async function getLicenseDataFromServer(
 ): Promise<LicenseInterface> {
   logger.info("Getting license data from server for " + licenseId);
   const url = `${LICENSE_SERVER}license/${licenseId}/check`;
+  const use_proxy =
+    !!process.env.http_proxy ||
+    !!process.env.https_proxy ||
+    !!process.env.HTTPS_PROXY;
+  const agentOptions = use_proxy ? { agent: new ProxyAgent() } : {};
+
   const options = {
     method: "PUT",
     headers: {
@@ -369,6 +376,7 @@ async function getLicenseDataFromServer(
       userHashes: userLicenseCodes,
       metaData,
     }),
+    ...agentOptions,
   };
 
   let serverResult;
