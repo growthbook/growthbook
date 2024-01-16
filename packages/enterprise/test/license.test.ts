@@ -258,6 +258,7 @@ describe("licenseInit", () => {
       beforeEach(() => {
         const mockedResponse: Response = ({
           ok: false,
+          statusText: "internal server error",
         } as unknown) as Response; // Create a mock Response object
 
         mockedFetch.mockResolvedValueOnce(Promise.resolve(mockedResponse));
@@ -273,7 +274,7 @@ describe("licenseInit", () => {
             async () =>
               await licenseInit(licenseKey, userLicenseCodes, metaData)
           ).rejects.toThrowError(
-            "License server is not working and no cached license data exists"
+            "License server errored with internal server error"
           );
         });
       });
