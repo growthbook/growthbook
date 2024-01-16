@@ -1,4 +1,5 @@
 import Agenda, { Job } from "agenda";
+import { FULL_ACCESS_PERMISSIONS } from "shared/permissions";
 import {
   getFeature,
   getScheduledFeaturesToUpdate,
@@ -90,10 +91,7 @@ async function updateSingleFeature(job: UpdateSingleFeatureJob) {
       {
         nextScheduledUpdate: nextScheduledUpdate,
       },
-      {
-        globalReadAccess: true,
-        projects: [],
-      }
+      FULL_ACCESS_PERMISSIONS
     );
   } catch (e) {
     logger.error(e, "Failed updating feature " + featureId);

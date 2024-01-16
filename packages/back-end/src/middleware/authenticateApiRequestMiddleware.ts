@@ -1,5 +1,9 @@
 import { Request, Response, NextFunction } from "express";
-import { getReadAccessFilter, hasPermission } from "shared/permissions";
+import {
+  FULL_ACCESS_PERMISSIONS,
+  getReadAccessFilter,
+  hasPermission,
+} from "shared/permissions";
 import { ApiRequestLocals } from "../../types/api";
 import { lookupOrganizationByApiKey } from "../models/ApiKeyModel";
 import { getOrganizationById } from "../services/organizations";
@@ -147,8 +151,7 @@ export default function authenticateApiRequestMiddleware(
 
       req.readAccessFilter = userId
         ? getReadAccessFilter(getUserPermissions(userId, org, teams))
-        : // This is an API key, so it has global read access
-          { globalReadAccess: true, projects: [] };
+        : FULL_ACCESS_PERMISSIONS;
 
       // Add user info to logger
       res.log = req.log = req.log.child(getCustomLogProps(req as Request));
