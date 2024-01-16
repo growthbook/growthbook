@@ -12,6 +12,7 @@ import { createApiRequestHandler } from "../../util/handler";
 import { postExperimentValidator } from "../../validators/openapi";
 import { getUserByEmail } from "../../services/users";
 import { upsertWatch } from "../../models/WatchModel";
+import { findProjectById } from "../../models/ProjectModel";
 
 export const postExperiment = createApiRequestHandler(postExperimentValidator)(
   async (req): Promise<PostExperimentResponse> => {
@@ -83,10 +84,18 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
       type: "experiments",
     });
 
+    const project = experiment.project
+      ? await findProjectById(
+          experiment.project,
+          req.organization.id,
+          req.readAccessFilter
+        )
+      : null;
+
     const apiExperiment = await toExperimentApiInterface(
       req.organization,
       experiment,
-      req.readAccessFilter
+      project
     );
     return {
       experiment: apiExperiment,

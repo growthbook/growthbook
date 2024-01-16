@@ -1,5 +1,6 @@
 import { ListExperimentsResponse } from "../../../types/openapi";
 import { getAllExperiments } from "../../models/ExperimentModel";
+import { findProjectById } from "../../models/ProjectModel";
 import { toExperimentApiInterface } from "../../services/experiments";
 import {
   applyFilter,
@@ -27,11 +28,17 @@ export const listExperiments = createApiRequestHandler(
       req.query
     );
 
-    const promises = filtered.map((experiment) =>
+    const promises = filtered.map(async (experiment) =>
       toExperimentApiInterface(
         req.organization,
         experiment,
-        req.readAccessFilter
+        experiment.project
+          ? await findProjectById(
+              experiment.project,
+              req.organization.id,
+              req.readAccessFilter
+            )
+          : null
       )
     );
     const apiExperiments = await Promise.all(promises);

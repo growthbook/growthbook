@@ -5,6 +5,7 @@ import {
   getExperimentById,
   getExperimentByTrackingKey,
 } from "../../models/ExperimentModel";
+import { findProjectById } from "../../models/ProjectModel";
 import {
   toExperimentApiInterface,
   updateExperimentApiPayloadToInterface,
@@ -73,10 +74,19 @@ export const updateExperiment = createApiRequestHandler(
     if (updatedExperiment === null) {
       throw new Error("Error happened during updating experiment.");
     }
+
+    const project = experiment.project
+      ? await findProjectById(
+          experiment.project,
+          req.organization.id,
+          req.readAccessFilter
+        )
+      : null;
+
     const apiExperiment = await toExperimentApiInterface(
       req.organization,
       updatedExperiment,
-      req.readAccessFilter
+      project
     );
     return {
       experiment: apiExperiment,

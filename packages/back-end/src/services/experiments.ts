@@ -94,7 +94,6 @@ import {
 } from "../validators/openapi";
 import { EventAuditUser } from "../events/event-types";
 import { VisualChangesetInterface } from "../../types/visual-changeset";
-import { findProjectById } from "../models/ProjectModel";
 import { MetricAnalysisQueryRunner } from "../queryRunners/MetricAnalysisQueryRunner";
 import { ExperimentResultsQueryRunner } from "../queryRunners/ExperimentResultsQueryRunner";
 import { QueryMap, getQueryMap } from "../queryRunners/QueryRunner";
@@ -104,6 +103,7 @@ import { StatsEngine } from "../../types/stats";
 import { getFeaturesByIds } from "../models/FeatureModel";
 import { getFeatureRevisionsByFeatureIds } from "../models/FeatureRevisionModel";
 import { ExperimentRefRule, FeatureRule } from "../../types/feature";
+import { ProjectInterface } from "../../types/project";
 import { getReportVariations, getMetricForSnapshot } from "./reports";
 import { getIntegrationFromDatasourceId } from "./datasource";
 import { analyzeExperimentMetric, analyzeExperimentResults } from "./stats";
@@ -723,16 +723,8 @@ function getExperimentMetric(
 export async function toExperimentApiInterface(
   organization: OrganizationInterface,
   experiment: ExperimentInterface,
-  readAccessFilter: ReadAccessFilter
+  project: ProjectInterface | null
 ): Promise<ApiExperiment> {
-  let project = null;
-  if (experiment.project) {
-    project = await findProjectById(
-      experiment.project,
-      organization.id,
-      readAccessFilter
-    );
-  }
   const { settings: scopedSettings } = getScopedSettings({
     organization,
     project: project ?? undefined,

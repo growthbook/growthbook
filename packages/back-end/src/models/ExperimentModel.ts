@@ -39,6 +39,7 @@ import {
   VisualChangesetModel,
 } from "./VisualChangesetModel";
 import { getFeaturesByIds } from "./FeatureModel";
+import { findProjectById } from "./ProjectModel";
 
 type FindOrganizationOptions = {
   experimentId: string;
@@ -673,7 +674,13 @@ const logExperimentCreated = async (
   const apiExperiment = await toExperimentApiInterface(
     organization,
     experiment,
-    readAccessFilter
+    experiment.project //TODO: Is this another place I can just pass in the project so I can avoid having to pass in the readAccessFilter?
+      ? await findProjectById(
+          experiment.project,
+          organization.id,
+          readAccessFilter
+        )
+      : null
   );
   const payload: ExperimentCreatedNotificationEvent = {
     object: "experiment",
@@ -712,12 +719,24 @@ const logExperimentUpdated = async ({
   const previousApiExperimentPromise = toExperimentApiInterface(
     organization,
     previous,
-    readAccessFilter
+    previous.project //TODO: Is this another place I can just pass in the project so I can avoid having to pass in the readAccessFilter?
+      ? await findProjectById(
+          previous.project,
+          organization.id,
+          readAccessFilter
+        )
+      : null
   );
   const currentApiExperimentPromise = toExperimentApiInterface(
     organization,
     current,
-    readAccessFilter
+    current.project //TODO: Is this another place I can just pass in the project so I can avoid having to pass in the readAccessFilter?
+      ? await findProjectById(
+          current.project,
+          organization.id,
+          readAccessFilter
+        )
+      : null
   );
   const [previousApiExperiment, currentApiExperiment] = await Promise.all([
     previousApiExperimentPromise,
@@ -1066,7 +1085,13 @@ export const logExperimentDeleted = async (
   const apiExperiment = await toExperimentApiInterface(
     organization,
     experiment,
-    readAccessFilter
+    experiment.project //TODO: Is this another place I can just pass in the project so I can avoid having to pass in the readAccessFilter?
+      ? await findProjectById(
+          experiment.project,
+          organization.id,
+          readAccessFilter
+        )
+      : null
   );
   const payload: ExperimentDeletedNotificationEvent = {
     object: "experiment",

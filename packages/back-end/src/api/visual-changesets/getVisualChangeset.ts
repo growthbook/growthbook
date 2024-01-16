@@ -1,5 +1,6 @@
 import { GetVisualChangesetResponse } from "../../../types/openapi";
 import { getExperimentById } from "../../models/ExperimentModel";
+import { findProjectById } from "../../models/ProjectModel";
 import {
   findVisualChangesetById,
   toVisualChangesetApiInterface,
@@ -33,7 +34,13 @@ export const getVisualChangeset = createApiRequestHandler(
       ? await toExperimentApiInterface(
           organization,
           experiment,
-          req.readAccessFilter
+          experiment.project
+            ? await findProjectById(
+                experiment.project,
+                req.organization.id,
+                req.readAccessFilter
+              )
+            : null
         )
       : null;
 
