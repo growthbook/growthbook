@@ -306,12 +306,11 @@ function checkIfEnvVarSettingsAreAllowedByLicense(license: LicenseInterface) {
 }
 
 async function getLicenseDataFromMongoCache(
-  cache: LicenseDocument | null
+  cache: LicenseDocument | null,
+  errorMessage: string
 ): Promise<LicenseInterface> {
   if (!cache) {
-    throw new Error(
-      "License server is not working and no cached license data exists"
-    );
+    throw new Error(errorMessage);
   }
   if (
     new Date(cache.dateUpdated) > new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) // 7 days
@@ -396,14 +395,20 @@ async function getLicenseDataFromServer(
     serverResult = await fetch(url, options);
   } catch (e) {
     logger.warn("Could not connect to license server. Falling back to cache.");
-    return getLicenseDataFromMongoCache(currentCache);
+    return getLicenseDataFromMongoCache(
+      currentCache,
+      "Could not connect to license server. Make sure to whitelist 75.2.109.47."
+    );
   }
 
   if (!serverResult.ok) {
     logger.warn(
       `Falling back to LicenseModel cache because the license server threw a ${serverResult.status} error: ${serverResult.statusText}.`
     );
-    return getLicenseDataFromMongoCache(currentCache);
+    return getLicenseDataFromMongoCache(
+      currentCache,
+      "License server errored with " + serverResult.statusText
+    );
   }
 
   const licenseData = await serverResult.json();
