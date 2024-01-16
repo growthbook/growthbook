@@ -9,6 +9,7 @@ import { GBPremiumBadge } from "../Icons";
 import UpgradeModal from "../Settings/UpgradeModal";
 import AccountPlanNotices from "../Layout/AccountPlanNotices";
 import RefreshLicenseButton from "./RefreshLicenseButton";
+import DownloadLicenseUsageButton from "./DownloadLicenseUsageButton";
 
 const ShowLicenseInfo: FC<{
   showInput?: boolean;
@@ -130,11 +131,18 @@ const ShowLicenseInfo: FC<{
                       <div>Seats:</div>
                       <span className="text-muted">{license.seats}</span>
                     </div>
-                    <div className="col-sm-2">
-                      {license && license.id.startsWith("license") && (
+
+                    {license.id.startsWith("license") && (
+                      <div className="col-sm-2">
                         <RefreshLicenseButton />
-                      )}
-                    </div>
+                      </div>
+                    )}
+
+                    {!license.id.startsWith("license") && (
+                      <div className="mt-3">
+                        <DownloadLicenseUsageButton />
+                      </div>
+                    )}
                   </>
                 )}
               </div>
