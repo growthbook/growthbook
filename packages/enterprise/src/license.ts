@@ -4,7 +4,7 @@ import path from "path";
 import fetch from "node-fetch";
 import type Stripe from "stripe";
 import pino from "pino";
-import { omit, sortBy } from "lodash";
+import { omit, pick, sortBy } from "lodash";
 import AsyncLock from "async-lock";
 import { stringToBoolean } from "shared/util";
 import { ProxyAgent } from "proxy-agent";
@@ -323,7 +323,16 @@ async function getLicenseDataFromMongoCache(
 
     // In order to verify the license key, we need to strip out the fields that are not part of the license data
     // and sort the fields alphabetically as we do on the license server itself.
-    const strippedLicense = omit(licenseInterface, ["signedChecksum"]);
+    const strippedLicense = pick(licenseInterface, [
+      "dateExpires",
+      "seats",
+      "seatsInUse",
+      "archived",
+      "remoteDowngrade",
+      "isTrial",
+      "organizationId",
+      "plan",
+    ]);
     const data = Object.fromEntries(sortBy(Object.entries(strippedLicense)));
     const dataBuffer = Buffer.from(JSON.stringify(data));
 
